@@ -8,6 +8,7 @@ namespace AivLobbyPresetTest
         private static int Main(string[] args)
         {
             string path = Path.Combine(Path.GetTempPath(), "aiv-lobby-preset-" + Guid.NewGuid() + ".json");
+            string progressPath = path + ".progress";
             try
             {
                 string sample = File.ReadAllText(args[0]);
@@ -24,6 +25,44 @@ namespace AivLobbyPresetTest
                 Reject(path, sample.Replace("\"aivDefault\": 6", "\"aivDefault\": 9"), "invalid AIV variant");
                 File.WriteAllText(path, sample.Replace("\"enabled\": true", "\"enabled\": false"));
                 Require(!LobbyPreset.Read(path).Enabled, "disabled preset yields control");
+                TestSeries series = TestSeries.Read(args[1]);
+                Require(series.Enabled && series.Runs.Count == 10, "ten queued runs");
+                for (int index = 0; index < series.Runs.Count; index += 2)
+                {
+                    Require(series.Runs[index].PreBuild == 0 &&
+                        series.Runs[index + 1].PreBuild == 1 &&
+                        series.Runs[index].Preset.Players.Count == 8 &&
+                        series.Runs[index + 1].Preset.Players.Count == 8,
+                        "paired seven-AI runs");
+                }
+                Require(series.Runs[0].Preset.Players[1].AivDefault == 6 &&
+                    series.Runs[2].Preset.Players[1].AivDefault == 5 &&
+                    series.Runs[4].Preset.Players[1].LordType == 18,
+                    "fixed variant and reversed-order profiles");
+                TestSeriesProgress progress = TestSeriesProgress.Read(progressPath, series);
+                Require(progress.NextIndex == 0, "new series starts at first run");
+                progress.Complete(progressPath, series, 0, series.Runs[0].Id);
+                progress = TestSeriesProgress.Read(progressPath, series);
+                Require(progress.NextIndex == 1 &&
+                    progress.LastCompletedRunId == series.Runs[0].Id,
+                    "progress resumes after restart");
+                bool duplicateRejected = false;
+                try { progress.Complete(progressPath, series, 0, series.Runs[0].Id); }
+                catch (InvalidOperationException) { duplicateRejected = true; }
+                Require(duplicateRejected, "duplicate completion rejected");
+                File.WriteAllText(progressPath, "{\"seriesId\":\"wrong\",\"nextIndex\":1,\"lastCompletedRunId\":\"x\"}");
+                bool mismatchRejected = false;
+                try { TestSeriesProgress.Read(progressPath, series); }
+                catch (InvalidDataException) { mismatchRejected = true; }
+                Require(mismatchRejected, "mismatched progress rejected");
+                string seriesJson = File.ReadAllText(args[1]);
+                var seriesRoot = (System.Collections.Generic.Dictionary<string, object>)
+                    Shared.DependencyFreeJson.Parse(seriesJson);
+                var runList = (System.Collections.IList)seriesRoot["runs"];
+                var secondRun = (System.Collections.Generic.IDictionary<string, object>)runList[1];
+                secondRun["id"] = series.Runs[0].Id;
+                File.WriteAllText(path, Shared.DependencyFreeJson.Serialize(seriesRoot));
+                RejectSeries(path, "duplicate run ID");
                 Console.WriteLine("AIV lobby preset parser tests passed.");
                 return 0;
             }
@@ -32,7 +71,11 @@ namespace AivLobbyPresetTest
                 Console.Error.WriteLine(exception);
                 return 1;
             }
-            finally { if (File.Exists(path)) File.Delete(path); }
+            finally
+            {
+                if (File.Exists(path)) File.Delete(path);
+                if (File.Exists(progressPath)) File.Delete(progressPath);
+            }
         }
 
         private static void Reject(string path, string contents, string name)
@@ -46,6 +89,13 @@ namespace AivLobbyPresetTest
         private static void Require(bool condition, string name)
         {
             if (!condition) throw new Exception("Failed: " + name);
+        }
+
+        private static void RejectSeries(string path, string name)
+        {
+            try { TestSeries.Read(path); }
+            catch (InvalidDataException) { return; }
+            throw new Exception("Expected rejection: " + name);
         }
     }
 }

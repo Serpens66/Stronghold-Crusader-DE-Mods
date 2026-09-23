@@ -254,11 +254,10 @@ public static class SerpLocalization
     public const string AivPlacementAutoDifferent = "CastlePlanner.AIVPlacement.AutoDifferent";
     public const string AivPlacementAutoUnknown = "CastlePlanner.AIVPlacement.AutoUnknown";
     public const string AivPlacementAutoImpossible = "CastlePlanner.AIVPlacement.AutoImpossible";
-    public const string AivPlacementHighBuildEnabled = "CastlePlanner.AIVPlacement.HighBuildEnabled";
-    public const string AivPlacementHighBuildDisabled = "CastlePlanner.AIVPlacement.HighBuildDisabled";
     public const string AivPlacementHighBuildUnknown = "CastlePlanner.AIVPlacement.HighBuildUnknown";
-    public const string AivPlacementHighMoat = "CastlePlanner.AIVPlacement.HighMoat";
-    public const string AivPlacementHighDrawbridge = "CastlePlanner.AIVPlacement.HighDrawbridge";
+    public const string AivPlacementHighMoatRisk = "CastlePlanner.AIVPlacement.HighMoatRisk";
+    public const string AivPlacementHighDrawbridgeRisk = "CastlePlanner.AIVPlacement.HighDrawbridgeRisk";
+    public const string AivPlacementHighBothRisk = "CastlePlanner.AIVPlacement.HighBothRisk";
 
     private const string DefaultLocale = "en-US";
     private const string SteamAppId = "3024040";
@@ -704,11 +703,10 @@ public static class SerpLocalization
         { AivPlacementAutoDifferent, "Vanilla auto: selects another AIV" },
         { AivPlacementAutoUnknown, "Vanilla auto: no unique prediction" },
         { AivPlacementAutoImpossible, "Vanilla auto: no fitting AIV" },
-        { AivPlacementHighBuildEnabled, "Build note: ExtraFeatures permits AI moat and drawbridge construction on high terrain; other build checks still apply." },
-        { AivPlacementHighBuildDisabled, "Build note: Vanilla may skip moats or drawbridges on high terrain during construction." },
-        { AivPlacementHighBuildUnknown, "Build note: the effective ExtraFeatures AI setting is unknown; construction on high terrain may differ." },
-        { AivPlacementHighMoat, "Planned moat tiles above height 12: {Rotations}" },
-        { AivPlacementHighDrawbridge, "Planned drawbridge footprint tiles above height 12: {Rotations}" }
+        { AivPlacementHighBuildUnknown, "Moat/drawbridge build rule on high ground is unknown." },
+        { AivPlacementHighMoatRisk, "Moat may be missing on high ground." },
+        { AivPlacementHighDrawbridgeRisk, "Drawbridge may be missing on high ground." },
+        { AivPlacementHighBothRisk, "Moat/drawbridge may be missing on high ground." }
     };
 
     public static string Get(string key)

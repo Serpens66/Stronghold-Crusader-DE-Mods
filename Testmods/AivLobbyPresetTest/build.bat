@@ -16,7 +16,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%tests\Test
 if errorlevel 1 goto failed
 "%MSBUILD%" "%PROJECT_DIR%tests\AivLobbyPresetTest.Tests.csproj" /p:Configuration=Debug
 if errorlevel 1 goto failed
-"%PROJECT_DIR%tests\bin\AivLobbyPresetTest.Tests.exe" "%PROJECT_DIR%CraterLakePreset.json"
+"%PROJECT_DIR%tests\bin\AivLobbyPresetTest.Tests.exe" "%PROJECT_DIR%CraterLakePreset.json" "%PROJECT_DIR%AivLobbyTestSeries.json"
 if errorlevel 1 goto failed
 "%MSBUILD%" "%PROJECT_DIR%AivLobbyPresetTest.csproj" /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
 if errorlevel 1 goto failed
@@ -25,6 +25,8 @@ if not exist "%INSTALL%" mkdir "%INSTALL%"
 copy /Y "%OUTPUT%\AivLobbyPresetTest.dll" "%INSTALL%\AivLobbyPresetTest.dll" >nul
 if errorlevel 1 goto failed
 copy /Y "%OUTPUT%\CraterLakePreset.json" "%INSTALL%\CraterLakePreset.json" >nul
+if errorlevel 1 goto failed
+copy /Y "%OUTPUT%\AivLobbyTestSeries.json" "%INSTALL%\AivLobbyTestSeries.json" >nul
 if errorlevel 1 goto failed
 copy /Y "%OUTPUT%\info.json" "%INSTALL%\info.json" >nul
 if errorlevel 1 goto failed

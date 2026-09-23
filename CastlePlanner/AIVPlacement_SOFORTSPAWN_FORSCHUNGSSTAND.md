@@ -421,3 +421,37 @@ eine Aussage über Vanillas Kandidatenprüfung. Ein separater Tooltip nennt
 hohe geplante Burggraben- und Zugbrücken-Zellen je Drehung und den tatsächlich bekannten
 ExtraFeatures-Zustand. Für eine nicht ausgewertete AIV wird kein Bauhinweis
 behauptet.
+
+### Neuer Zellabgleich und Serienplan vom 24.09.2026
+
+Nach dem erneuten Crater-Lake-Start liegen vollständige Roh-Traces unter
+`ActiveAIVDetector_Serp/PrebuildTraces` und `CellTraces` vor. Für Nizar
+`Default 6` mit 270 Grad wurden die projizierten Core-Footprint-Tile-IDs
+gegen die Bauänderungen derselben Aufnahme verglichen: Mapper 106 hat
+1.025 projizierte Burggraben-Zellen, 1.022 unterschiedliche Zellen mit
+nativer Höhenänderung, eine Schnittmenge von 1.022 und drei projizierte
+Zellen ohne beobachtete Höhenänderung. Mapper 105 hat 25 projizierte
+Zugbrücken-Footprint-Zellen und 25 neu belegte Building-ID-Zellen;
+die Schnittmenge beträgt exakt 25. Keine beobachtete Zelle liegt
+außerhalb der jeweiligen Projektion. Der Vergleich gilt für die konkret
+gewählte Burg und den wirksamen ExtraFeatures-KI-Höhen-Patch; die drei
+nicht geänderten Burggraben-Zellen werden nicht als fehlgeschlagener
+Bau interpretiert. Vertrauen: hoch für diesen Zell-Join, offen für andere
+Varianten, Karten und deaktivierten Patch.
+
+Der spätere Fit von Wolf `Default 8` liest in dieser Aufnahme keine der
+zuvor von Nizars Bau veränderten Validator-Tile-IDs. Beide Bau-Traces
+haben `frameSnapshotsComplete=True`, `provenanceComplete=True` und null
+Pointer-/Aufnahmefehler. Die vier Vor-/Nach-Scans benötigten für Nizar
+2128,0/2491,9 ms und für Wolf 2488,3/2900,9 ms. Der größte beobachtete
+Zeitanteil ist damit die vollständige Diagnoseaufnahme; sie bleibt für
+die geplante Testserie vorerst aktiv.
+
+Die nächste Serie verwendet fünf feste Aufstellungen mit sieben KIs,
+jeweils bei ausgeschaltetem und eingeschaltetem Sofortspawn: Crater Lake
+mit festen Default-Varianten, mit alternativen Varianten und mit
+umgekehrter KI-Reihenfolge; danach Craggy Cliffs mit beiden
+Variantenmengen. Die Karten-SHA-256 stehen in der editierbaren
+Testserien-Datei. Dichte Starts auf der gesonderten Überlappungskarte
+bleiben zurückgestellt. Der Testmod protokolliert den Run-Namen und
+setzt den Fortschritt erst nach bestätigtem Matchstart fort.

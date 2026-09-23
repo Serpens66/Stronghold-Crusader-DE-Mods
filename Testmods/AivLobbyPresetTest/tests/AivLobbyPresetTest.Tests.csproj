@@ -17,6 +17,7 @@
     <Reference Include="System.Core" />
     <Compile Include="Program.cs" />
     <Compile Include="..\src\LobbyPreset.cs"><Link>LobbyPreset.cs</Link></Compile>
+    <Compile Include="..\src\TestSeries.cs"><Link>TestSeries.cs</Link></Compile>
     <Compile Include="..\..\..\Shared\DependencyFreeJson.cs"><Link>DependencyFreeJson.cs</Link></Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

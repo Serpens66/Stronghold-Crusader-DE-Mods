@@ -9,6 +9,9 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Security.Cryptography;
+using SHCDESE.API;
+using SHCDESE.API.LowLevel;
+using Shared;
 using UnityEngine;
 
 namespace AivLobbyPresetTest
@@ -16,6 +19,7 @@ namespace AivLobbyPresetTest
     [BepInDependency("000shcdese", "2.9.0")]
     [BepInDependency("APIShared_Serp", "0.4.0")]
     [BepInDependency("BugfixesAndQoL_Serp")]
+    [BepInDependency("ActiveAIVDetector_Serp")]
     [BepInPlugin("AivLobbyPresetTest_Serp", "AIV Lobby Preset Test", "0.1.0")]
     public sealed class AivLobbyPresetTestPlugin : BaseUnityPlugin
     {
@@ -24,10 +28,132 @@ namespace AivLobbyPresetTest
         private static FileHeader pendingMap;
         private static Dictionary<int, CustomisationFileManager.CustomAIV> pendingAivs;
         private static readonly string PresetPath = Path.Combine(Paths.ConfigPath, "AivLobbyPresetTest.json");
+        private static readonly string SeriesPath = Path.Combine(Paths.ConfigPath, "AivLobbyTestSeries.json");
+        private static readonly string ProgressPath = Path.Combine(Paths.ConfigPath, "AivLobbyTestSeries.progress.json");
+        private static TestSeries activeSeries;
+        private static TestSeriesProgress activeProgress;
+        private static TestRun activeRun;
+        private static int activeRunIndex = -1;
+        private static bool runApplied;
+        private static long verifiedSessionId = -1;
+        private static bool lifecycleRegistered;
         private static Platform_Multiplayer.MPLobby observedLobby;
         private static bool renderCallbackObserved;
         private static bool observerFailureLogged;
         private static bool readyStateObserved;
+
+        private static void OnLibraryLoaded(CrusaderLibraryLoadContext context)
+        {
+            if (lifecycleRegistered)
+                return;
+            NativeCapabilityDiagnostic diagnostic = null;
+            if (ApiShared.Current == null ||
+                !ApiShared.Current.TryGetMissionLifecycle("AivLobbyPresetTest_Serp",
+                    out IMissionLifecycleCapability lifecycle, out diagnostic) ||
+                !lifecycle.TryRegisterObserver("AivLobbyPresetTest.Series",
+                    OnMissionStarted, null, OnMissionInitialization, out diagnostic))
+            {
+                log.LogError("Test-series lifecycle unavailable: " + diagnostic?.Reason);
+                return;
+            }
+            lifecycleRegistered = true;
+            log.LogInfo("Test-series progression registered on APIShared mission lifecycle.");
+        }
+
+        private static void OnMissionInitialization(MissionLifecycleNotification notification)
+        {
+            if (notification.Phase != MissionInitializationPhase.BeforeNativeStart ||
+                activeRun == null || !runApplied)
+                return;
+            verifiedSessionId = -1;
+            try
+            {
+                if (notification.Context.StartKind != MissionStartKind.NewGame ||
+                    notification.Context.Mode.Kind != GameModeKind.CustomGame)
+                    throw new InvalidOperationException("Not a new local skirmish.");
+                VerifyBeforeLaunch(MainViewModel.Instance?.FRONTMultiplayer);
+                verifiedSessionId = notification.Context.SessionId;
+                log.LogInfo("Test-series launch verified: " + activeRun.Id +
+                    ", session=" + verifiedSessionId + ".");
+            }
+            catch (Exception exception)
+            {
+                log.LogWarning("Test-series launch differs from preset; progress held: " + exception.Message);
+            }
+        }
+
+        private static void OnMissionStarted(MissionLifecycleNotification notification)
+        {
+            if (activeRun == null || !runApplied || notification.IsReplay)
+                return;
+            if (notification.Context.SessionId != verifiedSessionId || verifiedSessionId < 0)
+            {
+                log.LogWarning("Test-series progress held: mission start has no matching verified lobby launch for " +
+                    activeRun.Id + ".");
+                return;
+            }
+            try
+            {
+                if (notification.Context.StartKind != MissionStartKind.NewGame ||
+                    notification.Context.Mode.Kind != GameModeKind.CustomGame ||
+                    (!string.IsNullOrEmpty(notification.Context.FilePath) &&
+                     !string.Equals(notification.Context.FilePath, pendingMap.filePath,
+                         StringComparison.OrdinalIgnoreCase)))
+                    throw new InvalidOperationException("Mission start provenance differs from the preset.");
+                activeProgress.Complete(ProgressPath, activeSeries, activeRunIndex, activeRun.Id);
+                log.LogInfo("Test-series run completed: " + activeRun.Id +
+                    "; next=" + (activeProgress.NextIndex == activeSeries.Runs.Count
+                        ? "complete" : (activeProgress.NextIndex + 1) + "/" + activeSeries.Runs.Count) +
+                    ", session=" + verifiedSessionId + ".");
+                verifiedSessionId = -1;
+            }
+            catch (Exception exception)
+            {
+                log.LogError("Test-series progress held after mission start: " + exception);
+            }
+        }
+
+        private static void VerifyBeforeLaunch(FRONT_Multiplayer view)
+        {
+            if (ReferenceEquals(view, null) || view.currentLobby == null || !view.currentLobby.isHost ||
+                view.currentLobby.CountHumanPlayers() != 1 ||
+                view.currentLobby.members.Count != pending.Players.Count)
+                throw new InvalidOperationException("Lobby players or host role changed.");
+            FileHeader selected = LobbyField<FileHeader>(view, "selectedMPHeader");
+            if (!string.Equals(selected?.filePath, pendingMap.filePath,
+                    StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("Selected map changed.");
+            using (var stream = File.OpenRead(selected.filePath))
+            using (var sha = SHA256.Create())
+            {
+                string hash = BitConverter.ToString(sha.ComputeHash(stream)).Replace("-", "");
+                if (!string.Equals(hash, pending.MapSha256, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidOperationException("Map file hash changed.");
+            }
+            EngineInterface.MultiplayerSetupData setup =
+                LobbyField<EngineInterface.MultiplayerSetupData>(view, "MPsetupData");
+            if (setup.advopt_pre_build != activeRun.PreBuild)
+                throw new InvalidOperationException("Completed Castles changed.");
+            for (int slot = 0; slot < 8; slot++)
+            {
+                PresetPlayer occupant = pending.Players.FirstOrDefault(player => player.KeepSlot == slot);
+                if (setup.start_keep_location_order[slot] != (occupant == null ? -10 : occupant.Id - 1))
+                    throw new InvalidOperationException("Keep assignment changed at slot " + slot);
+            }
+            foreach (PresetPlayer player in pending.Players)
+            {
+                var member = view.currentLobby.GetLobbyMemberFromThis_PlayerID(player.Id);
+                if (member == null || member.SkirmishHumanMember != player.Human ||
+                    (!player.Human && member.GetLordType() != player.LordType))
+                    throw new InvalidOperationException("Player identity changed at " + player.Id);
+                if (player.Human)
+                    continue;
+                var selection = view.AIVs[player.Id - 1];
+                if (selection == null || selection.rotation != 0 || selection.aivs.Count != 1 ||
+                    AivHash(selection.aivs[0]) != AivHash(pendingAivs[player.Id]))
+                    throw new InvalidOperationException("AIV or rotation changed at " + player.Id);
+            }
+        }
 
         private void Awake()
         {
@@ -39,8 +165,13 @@ namespace AivLobbyPresetTest
             {
                 if (!File.Exists(PresetPath) && File.Exists(samplePath))
                     File.Copy(samplePath, PresetPath);
+                string sampleSeries = Path.Combine(Paths.PluginPath,
+                    "AivLobbyPresetTest_Serp", "AivLobbyTestSeries.json");
+                if (!File.Exists(SeriesPath) && File.Exists(sampleSeries))
+                    File.Copy(sampleSeries, SeriesPath);
                 LobbyPreparationOverride.Register("AivLobbyPresetTest_Serp", Prepare, Apply);
                 Application.onBeforeRender += ObserveLobbyBeforeRender;
+                CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;
                 Logger.LogInfo("AIV lobby preset registered; config=" + PresetPath);
                 Logger.LogInfo("Lobby bridge after registration: " + DescribeBridgeState(null));
             }
@@ -146,8 +277,35 @@ namespace AivLobbyPresetTest
             pending = null;
             pendingMap = null;
             pendingAivs = null;
+            activeSeries = null;
+            activeProgress = null;
+            activeRun = null;
+            activeRunIndex = -1;
+            runApplied = false;
+            verifiedSessionId = -1;
             LobbyPreset preset;
-            try { preset = LobbyPreset.Read(PresetPath); }
+            try
+            {
+                TestSeries series = TestSeries.Read(SeriesPath);
+                if (series.Enabled)
+                {
+                    TestSeriesProgress progress = TestSeriesProgress.Read(ProgressPath, series);
+                    if (progress.NextIndex >= series.Runs.Count)
+                    {
+                        log.LogInfo("Test series complete; no preset will override this lobby.");
+                        return false;
+                    }
+                    activeSeries = series;
+                    activeProgress = progress;
+                    activeRunIndex = progress.NextIndex;
+                    activeRun = series.Runs[activeRunIndex];
+                    preset = activeRun.Preset;
+                    log.LogInfo("Test series run " + (activeRunIndex + 1) + "/" +
+                        series.Runs.Count + ": " + activeRun.Id +
+                        ", Completed Castles=" + activeRun.PreBuild);
+                }
+                else preset = LobbyPreset.Read(PresetPath);
+            }
             catch (Exception exception)
             {
                 log.LogError("Preset invalid; Vanilla lobby remains available: " + exception);
@@ -291,6 +449,10 @@ namespace AivLobbyPresetTest
                 setup.start_keep_location_order[slot] = -10;
             foreach (var player in pending.Players)
                 setup.start_keep_location_order[player.KeepSlot] = player.Id - 1;
+            if (activeRun != null && setup.advopt_pre_build != activeRun.PreBuild)
+                view.ButtonClicked("Settings_PreBuild");
+            if (activeRun != null && setup.advopt_pre_build != activeRun.PreBuild)
+                throw new InvalidOperationException("Vanilla did not set Completed Castles for " + activeRun.Id);
             InvokeLobbyMethod(view, "UpdateHostInfo", new[] { typeof(bool) }, false);
             InvokeLobbyMethod(view, "UpdateRadarShieldPositions", Type.EmptyTypes);
             foreach (var player in pending.Players)
@@ -303,7 +465,11 @@ namespace AivLobbyPresetTest
                     (player.Human ? "" : " AIV=Default " + player.AivDefault + " rotation=auto" +
                         " aivDataSha256=" + AivHash(pendingAivs[player.Id])));
             }
-            log.LogInfo("Lobby preset applied; Completed Castles remains user-controlled.");
+            runApplied = activeRun != null;
+            log.LogInfo(activeRun == null
+                ? "Manual lobby preset applied; Completed Castles remains user-controlled."
+                : "Test series preset applied: " + activeRun.Id +
+                  ", Completed Castles=" + setup.advopt_pre_build + ".");
         }
 
         private static string AivHash(CustomisationFileManager.CustomAIV aiv)

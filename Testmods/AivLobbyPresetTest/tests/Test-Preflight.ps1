@@ -5,9 +5,11 @@ $project = Join-Path $root 'AivLobbyPresetTest.csproj'
 $files = @(
     $project,
     (Join-Path $root 'src\LobbyPreset.cs'),
+    (Join-Path $root 'src\TestSeries.cs'),
     (Join-Path $root 'src\AivLobbyPresetTestPlugin.cs'),
     (Join-Path $root '..\..\Shared\DependencyFreeJson.cs'),
     (Join-Path $root 'CraterLakePreset.json'),
+    (Join-Path $root 'AivLobbyTestSeries.json'),
     (Join-Path $root 'info.json'),
     (Join-Path $root 'build.bat'),
     (Join-Path $root 'tests\AivLobbyPresetTest.Tests.csproj'),
@@ -38,5 +40,6 @@ if ($runtime -match $privateMemberAccess -or $sharedLobby -match $privateMemberA
 }
 $document = [xml][IO.File]::ReadAllText($project)
 $null = Get-Content -Raw -LiteralPath (Join-Path $root 'CraterLakePreset.json') | ConvertFrom-Json
+$null = Get-Content -Raw -LiteralPath (Join-Path $root 'AivLobbyTestSeries.json') | ConvertFrom-Json
 $null = Get-Content -Raw -LiteralPath (Join-Path $root 'info.json') | ConvertFrom-Json
 Write-Output 'AIV lobby preset JSON, lifecycle, hook and CRLF preflight passed.'

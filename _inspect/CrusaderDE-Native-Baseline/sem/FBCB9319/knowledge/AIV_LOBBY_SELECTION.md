@@ -50,6 +50,14 @@ The same Nizar capture recorded mapper 105 at frame 28: one prepared
 drawbridge position, 25 new building-ID cells, and 15 height changes
 `130 -> 122`. This is direct layer evidence for this build, not a
 guarantee that every footprint cell receives the same height write.
+The later complete 2026-09-24 Crater Lake replay joined tile IDs from the
+offline projection and native build trace for Nizar `Default 6`, orientation
+270 degrees. Mapper 106 projected 1,025 core-footprint tiles; 1,022 unique
+tiles received a height write, all within that projection. Mapper 105
+projected 25 footprint tiles; all 25 received a building-ID write, with
+no observed write outside the footprint. The active ExtraFeatures AI hook
+was recorded. Confidence is high for this exact captured path, not for
+other AIVs or disabled-hook construction.
 
 `0x94350` scans player IDs in order, resolves a per-player selector, starts
 native AIV state, and routes negative selectors to `0x54F60`. Selector `-1`

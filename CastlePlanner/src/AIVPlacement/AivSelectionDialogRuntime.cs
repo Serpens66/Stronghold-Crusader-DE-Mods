@@ -461,27 +461,24 @@ namespace CastlePlanner.AIVPlacement
                     "Results", rotations);
             }
 
-            if (candidate.Selection != null)
+            if (candidate.Selection != null && candidate.Status != AivPlacementStatus.Impossible)
             {
-                string moat = FormatExposure(candidate.Selection,
+                bool moat = HasElevatedBuildExposure(candidate.Selection,
                     candidate.ElevatedMoatTilesByRotation);
-                string drawbridge = FormatExposure(candidate.Selection,
+                bool drawbridge = HasElevatedBuildExposure(candidate.Selection,
                     candidate.ElevatedDrawbridgeTilesByRotation);
-                if (moat.Length > 0 || drawbridge.Length > 0)
+                if ((moat || drawbridge) &&
+                    ElevatedMoatAiCapability.Current != ElevatedMoatAiState.Enabled)
                 {
                     ElevatedMoatAiState state = ElevatedMoatAiCapability.Current;
-                    string key = state == ElevatedMoatAiState.Enabled
-                        ? SerpLocalization.AivPlacementHighBuildEnabled
-                        : state == ElevatedMoatAiState.Disabled
-                            ? SerpLocalization.AivPlacementHighBuildDisabled
-                            : SerpLocalization.AivPlacementHighBuildUnknown;
+                    string key = state == ElevatedMoatAiState.Unknown
+                        ? SerpLocalization.AivPlacementHighBuildUnknown
+                        : moat && drawbridge
+                            ? SerpLocalization.AivPlacementHighBothRisk
+                            : moat
+                                ? SerpLocalization.AivPlacementHighMoatRisk
+                                : SerpLocalization.AivPlacementHighDrawbridgeRisk;
                     description += Environment.NewLine + SerpLocalization.Get(key);
-                    if (moat.Length > 0)
-                        description += Environment.NewLine + SerpLocalization.Get(
-                            SerpLocalization.AivPlacementHighMoat, "Rotations", moat);
-                    if (drawbridge.Length > 0)
-                        description += Environment.NewLine + SerpLocalization.Get(
-                            SerpLocalization.AivPlacementHighDrawbridge, "Rotations", drawbridge);
                 }
             }
 
@@ -517,19 +514,19 @@ namespace CastlePlanner.AIVPlacement
             RefreshSelectionList(FRONT_Multiplayer_AISettings.Instance);
         }
 
-        private static string FormatExposure(
+        private static bool HasElevatedBuildExposure(
             AivPlacementRotationSelection selection,
             IReadOnlyList<int> tilesByRotation)
         {
-            var exposed = new List<string>();
             int count = Math.Min(selection.Variants.Count, tilesByRotation.Count);
             for (int index = 0; index < count; index++)
             {
-                int tiles = tilesByRotation[index];
-                if (tiles > 0)
-                    exposed.Add($"{FormatRotation((int)selection.Variants[index].Rotation)}: {tiles}");
+                if (tilesByRotation[index] > 0 &&
+                    selection.Variants[index].Status != AivPlacementStatus.Impossible &&
+                    selection.Variants[index].Status != AivPlacementStatus.NotEvaluable)
+                    return true;
             }
-            return string.Join(" | ", exposed);
+            return false;
         }
 
         private static string FormatRotation(int degrees)

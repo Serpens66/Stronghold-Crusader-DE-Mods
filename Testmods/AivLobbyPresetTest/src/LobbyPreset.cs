@@ -23,7 +23,12 @@ namespace AivLobbyPresetTest
             var info = new FileInfo(path);
             if (!info.Exists || info.Length > 65536)
                 throw new InvalidDataException("Preset file missing or larger than 64 KiB: " + path);
-            var root = Object(DependencyFreeJson.Parse(File.ReadAllText(path)), "root");
+            return FromValue(DependencyFreeJson.Parse(File.ReadAllText(path)));
+        }
+
+        internal static LobbyPreset FromValue(object source)
+        {
+            var root = Object(source, "root");
             var preset = new LobbyPreset
             {
                 Enabled = Bool(root, "enabled"),
