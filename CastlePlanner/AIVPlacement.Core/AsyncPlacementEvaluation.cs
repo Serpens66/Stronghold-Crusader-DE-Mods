@@ -27,6 +27,7 @@ namespace CastlePlanner.AIVPlacement.Core
         AivParseFailed,
         PlacementEvaluationFailed,
         NativeAutoSelectionAmbiguous,
+        PriorAiSelectionUnknown,
         StartOverlapUnproven
     }
 
@@ -404,7 +405,8 @@ namespace CastlePlanner.AIVPlacement.Core
                 request,
                 assets,
                 new Dictionary<int, AivRotation>(),
-                cancellationToken),
+                cancellationToken,
+                null),
                 cancellationToken);
         }
 
@@ -412,7 +414,8 @@ namespace CastlePlanner.AIVPlacement.Core
             AivPlacementRequestBatch batch,
             IReadOnlyDictionary<string, string> scriptExtenderAssets = null,
             Func<AivPlacementCheckResult, int?> selectCandidateId = null,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            Action<long, int, AivPlacementCandidateEvaluation> candidateCompleted = null)
         {
             if (batch == null)
                 throw new ArgumentNullException(nameof(batch));
@@ -429,7 +432,8 @@ namespace CastlePlanner.AIVPlacement.Core
                 batch,
                 assets,
                 selectCandidateId,
-                cancellationToken),
+                cancellationToken,
+                candidateCompleted),
                 cancellationToken);
         }
 
@@ -474,7 +478,8 @@ namespace CastlePlanner.AIVPlacement.Core
             AivPlacementCheckRequest request,
             IReadOnlyDictionary<string, string> assets,
             IReadOnlyDictionary<int, AivRotation> rebuiltStartRotationsBySlot,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            Action<long, int, AivPlacementCandidateEvaluation> candidateCompleted)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var elapsed = Stopwatch.StartNew();
@@ -494,6 +499,7 @@ namespace CastlePlanner.AIVPlacement.Core
             LobbyFileStamp mapStamp = LobbyFileStamp.Capture(request.MapPath);
             int rebuiltStartState = BuildRebuiltStartState(rebuiltStartRotationsBySlot);
             var pending = new List<Task<CandidateFetch>>(request.Candidates.Count);
+            var candidates = new List<AivPlacementCandidateEvaluation>(request.Candidates.Count);
             foreach (AivPlacementCandidateRequest candidate in request.Candidates)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -519,18 +525,27 @@ namespace CastlePlanner.AIVPlacement.Core
                     aivStamp,
                     assetText,
                     rebuiltStartRotationsBySlot);
-                pending.Add(GetOrEvaluateAsync(key, item, cancellationToken));
+                Task<CandidateFetch> task = GetOrEvaluateAsync(key, item, cancellationToken);
+                if (candidateCompleted == null)
+                    pending.Add(task);
+                else
+                {
+                    CandidateFetch fetch = await task.ConfigureAwait(false);
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var evaluation = new AivPlacementCandidateEvaluation(
+                        candidate, fetch.Result, fetch.Disposition);
+                    candidates.Add(evaluation);
+                    candidateCompleted(request.Generation, request.PlayerId, evaluation);
+                }
             }
 
-            CandidateFetch[] fetched = await Task.WhenAll(pending).ConfigureAwait(false);
-            cancellationToken.ThrowIfCancellationRequested();
-            var candidates = new List<AivPlacementCandidateEvaluation>(fetched.Length);
-            for (int index = 0; index < fetched.Length; index++)
+            if (candidateCompleted == null)
             {
-                candidates.Add(new AivPlacementCandidateEvaluation(
-                    request.Candidates[index],
-                    fetched[index].Result,
-                    fetched[index].Disposition));
+                CandidateFetch[] fetched = await Task.WhenAll(pending).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+                for (int index = 0; index < fetched.Length; index++)
+                    candidates.Add(new AivPlacementCandidateEvaluation(
+                        request.Candidates[index], fetched[index].Result, fetched[index].Disposition));
             }
 
             elapsed.Stop();
@@ -541,12 +556,15 @@ namespace CastlePlanner.AIVPlacement.Core
             AivPlacementRequestBatch batch,
             IReadOnlyDictionary<string, string> assets,
             Func<AivPlacementCheckResult, int?> selectCandidateId,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            Action<long, int, AivPlacementCandidateEvaluation> candidateCompleted)
         {
             var results = new List<AivPlacementCheckResult>(batch.Requests.Count);
             var selectedCandidateIds = new Dictionary<int, int>();
             var rebuiltStartRotationsBySlot = new Dictionary<int, AivRotation>();
             bool priorStartRotationUnknown = false;
+            int priorUnknownPlayerId = -1;
+            LobbyEvaluationFailureKind priorFailureKind = LobbyEvaluationFailureKind.None;
             foreach (AivPlacementCheckRequest request in batch.Requests.OrderBy(value => value.PlayerId))
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -554,14 +572,15 @@ namespace CastlePlanner.AIVPlacement.Core
                     ? NotEvaluable(
                         request,
                         Array.Empty<AivPlacementCandidateEvaluation>(),
-                        LobbyEvaluationFailureKind.NativeAutoSelectionAmbiguous,
-                        "A prior AI start rotation is not uniquely predictable.",
+                        LobbyEvaluationFailureKind.PriorAiSelectionUnknown,
+                        $"Earlier AI player {priorUnknownPlayerId} has no proven selection ({priorFailureKind}).",
                         TimeSpan.Zero)
                     : await EvaluateRequestCoreAsync(
                         request,
                         assets,
                         rebuiltStartRotationsBySlot,
-                        cancellationToken).ConfigureAwait(false);
+                        cancellationToken,
+                        candidateCompleted).ConfigureAwait(false);
                 results.Add(result);
                 AivPlacementResult rebuiltVariant = result.SelectedVariant;
                 int? selectedCandidateId = selectCandidateId?.Invoke(result);
@@ -588,6 +607,11 @@ namespace CastlePlanner.AIVPlacement.Core
                 else
                 {
                     priorStartRotationUnknown = true;
+                    if (priorUnknownPlayerId < 0)
+                    {
+                        priorUnknownPlayerId = request.PlayerId;
+                        priorFailureKind = result.FailureKind;
+                    }
                 }
             }
             return new AivPlacementBatchResult(results, selectedCandidateIds);

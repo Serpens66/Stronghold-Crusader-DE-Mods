@@ -54,6 +54,7 @@ internal static class Program
             ("fingerprints source file changes", FingerprintsSourceChanges),
             ("keeps prebuild out of the worker", KeepsPrebuildOutOfWorker),
             ("aggregates every candidate in import order", AggregatesEveryCandidate),
+            ("streams fifty candidates in list order off the UI thread", StreamsFiftyCandidatesInOrder),
             ("withholds an ambiguous complete tie", PreservesCompleteTieOrder),
             ("replays native auto thresholds and rotations", ReplaysNativeAutoSelection),
             ("selects the best sequential partial", SelectsBestSequentialPartial),
@@ -1621,6 +1622,34 @@ internal static class Program
         Equal(AivPlacementStatus.Complete, result.Status);
         Equal(2, result.SelectedCandidate.CandidateId);
         Equal(3, result.Candidates.Count);
+    }
+
+    private static void StreamsFiftyCandidatesInOrder()
+    {
+        using Fixture fixture = new();
+        AivPlacementCheckRequest request = fixture.BuildCustomList(
+            Enumerable.Range(0, 50).Select(index => $"candidate-{index:D2}").ToArray());
+        AivPlacementRequestBatch batch = new LobbyRequestBuilder().Build(
+            1,
+            fixture.Capture(slots: [Slot(LobbyAivMode.Custom,
+                request.Candidates.Select(candidate => new LobbyAivCandidateInput(
+                    candidate.Name, fixture.CustomDirectory, 0, false, "SK_RAT")))]),
+            fixture.VanillaDirectory);
+        var worker = new CountingWorker();
+        var service = new AivPlacementEvaluationService(worker, 64, 2);
+        var order = new ConcurrentQueue<int>();
+        int callerThread = Environment.CurrentManagedThreadId;
+        AivPlacementBatchResult result = service.EvaluateBatchAsync(
+            batch, null, null, CancellationToken.None,
+            (_, _, candidate) => order.Enqueue(candidate.CandidateId))
+            .GetAwaiter().GetResult();
+
+        Equal(50, worker.CallCount);
+        Equal(50, order.Count);
+        Equal(50, result.Results[0].Candidates.Count);
+        Equal(string.Join(",", Enumerable.Range(0, 50)), string.Join(",", order));
+        Assert(worker.ThreadIds.All(thread => thread != callerThread),
+            "ordered candidate work reached the UI thread");
     }
 
     private static void PreservesCompleteTieOrder()

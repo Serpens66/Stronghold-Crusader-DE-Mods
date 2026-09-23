@@ -175,6 +175,17 @@ Selbstprüfungen meldeten abweichende blockierte Zellen, obwohl die zwölf
 vergleichbaren Native-Scores exakt waren. Das ist als Diagnosegrenze getrennt
 zu untersuchen. Der Oracle-Vergleicher wurde auf denselben AIV-JSON-Loader wie
 der Lobby-Pfad umgestellt, damit leere `{}`-Frames korrekt als No-op gelten.
+Der nachfolgende aktuelle Native-Audit von `0x55320` zeigt für Misc-Einträge
+einen Schreibindex `Typ * 10 + Nummer` in einen Puffer mit 320 `int`-Werten.
+Werte ab `number=10` überlappen bei gültigen Typen folgende Zehnerblöcke;
+`10` und `11` stehen in der beobachteten Plague-Doctor-AIV. Der Fit-Rasterpfad
+`0x57080` liest diesen Misc-Puffer nicht. Der Offline-Parser lässt für die
+Lobby-Fit-Auswertung jeden in den nativen Puffer passenden flachen Index zu
+und warnt bei `number>9`. Das begrenzt weder die Zahl der ausgewählten AIVJSON-
+Dateien noch die Kandidatenauswertung. Alle 16 Crater-Lake-Oracle-Fälle,
+einschließlich der vier Plague-Doctor-Drehungen, stimmten nach dieser Änderung
+in Status, Score, Prozent und Zellzahlen exakt überein. Spätere Bauwirkungen
+sind dadurch noch nicht belegt.
 Die älteren Thasos-Korpora konnten in dieser Umgebung nicht neu ausgeführt
 werden, weil ihre referenzierte `v_Thasos.map` hier fehlt.
 

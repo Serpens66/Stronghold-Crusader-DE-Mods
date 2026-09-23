@@ -40,7 +40,8 @@ namespace BugfixesAndQoL
         {
             ActiveInfo = info;
             activeAllowRemoval = allowRemoval;
-            Entries.Clear();
+            int index = 0;
+            bool rebuildingTail = false;
             if (info?.aivs != null)
             {
                 foreach (CustomisationFileManager.CustomAIV aiv in info.aivs)
@@ -48,21 +49,43 @@ namespace BugfixesAndQoL
                     if (aiv == null)
                         continue;
                     AivCandidateStatusApi.TryGetStatus(info, aiv.checksum, out AivCandidateStatusInfo status);
+                    if (!rebuildingTail && index < Entries.Count &&
+                        ReferenceEquals(Entries[index].Aiv, aiv))
+                    {
+                        Entries[index].Update(allowRemoval, status);
+                        index++;
+                        continue;
+                    }
+                    if (!rebuildingTail && index < Entries.Count)
+                    {
+                        while (Entries.Count > index)
+                            Entries.RemoveAt(Entries.Count - 1);
+                        rebuildingTail = true;
+                    }
                     Entries.Add(new AivSelectionRowViewModel(
                         aiv,
                         GetIcon(aiv),
                         allowRemoval,
                         status,
                         () => RemoveRequested?.Invoke(aiv)));
+                    index++;
                 }
             }
+            while (Entries.Count > index)
+                Entries.RemoveAt(Entries.Count - 1);
             CountText = $"{Entries.Count} / {AivAicPresetStore.MaximumAivEntries}";
         }
 
         private void OnStatusChanged(FRONT_Multiplayer.MPAIVInfo info)
         {
             if (ReferenceEquals(info, ActiveInfo))
-                Refresh(ActiveInfo, activeAllowRemoval);
+            {
+                foreach (AivSelectionRowViewModel entry in Entries)
+                {
+                    AivCandidateStatusApi.TryGetStatus(info, entry.Aiv.checksum, out AivCandidateStatusInfo status);
+                    entry.Update(activeAllowRemoval, status);
+                }
+            }
         }
 
         private static ImageSource GetIcon(CustomisationFileManager.CustomAIV aiv)
@@ -88,15 +111,8 @@ namespace BugfixesAndQoL
         {
             Aiv = aiv ?? throw new ArgumentNullException(nameof(aiv));
             Icon = icon;
-            RemoveVisibility = allowRemoval ? Visibility.Visible : Visibility.Collapsed;
             RemoveCommand = new RelayCommand(remove ?? throw new ArgumentNullException(nameof(remove)));
-            StatusToolTip = status?.ToolTip ?? string.Empty;
-            AivCandidateStatus? value = status?.Status;
-            PendingVisibility = ToVisibility(value == AivCandidateStatus.Pending);
-            CompleteVisibility = ToVisibility(value == AivCandidateStatus.Complete);
-            PartialVisibility = ToVisibility(value == AivCandidateStatus.Partial);
-            ImpossibleVisibility = ToVisibility(value == AivCandidateStatus.Impossible);
-            NotEvaluableVisibility = ToVisibility(value == AivCandidateStatus.NotEvaluable);
+            Update(allowRemoval, status);
         }
 
         public CustomisationFileManager.CustomAIV Aiv { get; }
@@ -106,14 +122,45 @@ namespace BugfixesAndQoL
             : "LeftToRight";
         public ImageSource Icon { get; }
         public RelayCommand RemoveCommand { get; }
-        public Visibility RemoveVisibility { get; }
-        public Visibility PendingVisibility { get; }
-        public Visibility CompleteVisibility { get; }
-        public Visibility PartialVisibility { get; }
-        public Visibility ImpossibleVisibility { get; }
-        public Visibility NotEvaluableVisibility { get; }
-        public string StatusToolTip { get; }
+        public Visibility RemoveVisibility { get; private set; }
+        public Visibility PendingVisibility { get; private set; }
+        public Visibility CompleteVisibility { get; private set; }
+        public Visibility PartialVisibility { get; private set; }
+        public Visibility ImpossibleVisibility { get; private set; }
+        public Visibility NotEvaluableVisibility { get; private set; }
+        public string StatusToolTip { get; private set; }
         public string RemoveHelpText => SerpLocalization.Get("BugfixesAndQoL.AivRemoveHelp");
+
+        public void Update(bool allowRemoval, AivCandidateStatusInfo status)
+        {
+            Set(nameof(RemoveVisibility), ToVisibility(allowRemoval), RemoveVisibility,
+                value => RemoveVisibility = value);
+            AivCandidateStatus? current = status?.Status;
+            Set(nameof(PendingVisibility), ToVisibility(current == AivCandidateStatus.Pending),
+                PendingVisibility, value => PendingVisibility = value);
+            Set(nameof(CompleteVisibility), ToVisibility(current == AivCandidateStatus.Complete),
+                CompleteVisibility, value => CompleteVisibility = value);
+            Set(nameof(PartialVisibility), ToVisibility(current == AivCandidateStatus.Partial),
+                PartialVisibility, value => PartialVisibility = value);
+            Set(nameof(ImpossibleVisibility), ToVisibility(current == AivCandidateStatus.Impossible),
+                ImpossibleVisibility, value => ImpossibleVisibility = value);
+            Set(nameof(NotEvaluableVisibility), ToVisibility(current == AivCandidateStatus.NotEvaluable),
+                NotEvaluableVisibility, value => NotEvaluableVisibility = value);
+            string tip = status?.ToolTip ?? string.Empty;
+            if (!string.Equals(StatusToolTip, tip, StringComparison.Ordinal))
+            {
+                StatusToolTip = tip;
+                OnPropertyChanged(nameof(StatusToolTip));
+            }
+        }
+
+        private void Set(string property, Visibility value, Visibility previous, Action<Visibility> assign)
+        {
+            if (value == previous)
+                return;
+            assign(value);
+            OnPropertyChanged(property);
+        }
 
         private static Visibility ToVisibility(bool value) =>
             value ? Visibility.Visible : Visibility.Collapsed;

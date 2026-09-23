@@ -41,11 +41,11 @@ internal static class Program
             ("Parse build order and multi-tile paths", TestValidParse),
             ("Accept Vanilla no-op and long frame sequences", TestVanillaNoOpFrames),
             ("Normalize DE misc types", TestMiscNormalization),
-            ("Preserve unknown positive types", TestUnknownTypes),
+            ("Preserve unknown frame types and bound misc writes", TestUnknownTypes),
             ("Accept empty misc array", TestEmptyMisc),
             ("Reject missing required lists", TestMissingLists),
             ("Reject empty and off-grid offsets", TestBadOffsets),
-            ("Reject invalid misc slots", TestInvalidMiscSlot),
+            ("Bound native misc aliases by their flattened buffer index", TestInvalidMiscSlot),
             ("Require exactly one keep", TestKeepCardinality),
             ("Report malformed and extended JSON", TestJsonLoader),
             ("Write semantic JSON and self-contained SVG", TestExporters)
@@ -1502,6 +1502,11 @@ internal static class Program
             tilePositionOfsets = new List<int> { 5144 },
             shouldPause = false
         });
+        AivParseResult frameOnly = new AivBlueprintParser().Parse(document);
+        Assert(frameOnly.IsValid, "Unknown positive frame values should only warn.");
+        AssertEqual(1, frameOnly.WarningCount);
+        AssertEqual(7777, frameOnly.Blueprint.Frames.Last().RawItemType);
+
         document.miscItems.Add(new AivJsonMiscItem
         {
             positionOfset = 5244,
@@ -1510,9 +1515,7 @@ internal static class Program
         });
 
         AivParseResult parsed = new AivBlueprintParser().Parse(document);
-        Assert(parsed.IsValid, "Unknown positive values should only warn.");
-        AssertEqual(2, parsed.WarningCount);
-        AssertEqual(7777, parsed.Blueprint.Frames.Last().RawItemType);
+        AssertHasError(parsed, "AIV034");
         AssertEqual(7778, parsed.Blueprint.MiscItems.Last().RawItemType);
     }
 
@@ -1584,6 +1587,26 @@ internal static class Program
             itemType = 6,
             number = 10
         });
+        AivParseResult aliased = new AivBlueprintParser().Parse(document);
+        Assert(!aliased.Diagnostics.Any(item => item.Severity == AivDiagnosticSeverity.Error),
+            "Native misc slot ten should not block the unrelated lobby raster fit.");
+        Assert(aliased.Diagnostics.Any(item => item.Code == "AIV034" &&
+            item.Severity == AivDiagnosticSeverity.Warning),
+            "Native misc slot ten should retain a diagnostic warning.");
+        document.miscItems[document.miscItems.Count - 1].number = 11;
+        AivParseResult secondAlias = new AivBlueprintParser().Parse(document);
+        Assert(!secondAlias.Diagnostics.Any(item => item.Severity == AivDiagnosticSeverity.Error),
+            "Observed native misc slot eleven should not block the lobby raster fit.");
+        document.miscItems[document.miscItems.Count - 1].number = 12;
+        AivParseResult laterAlias = new AivBlueprintParser().Parse(document);
+        Assert(!laterAlias.Diagnostics.Any(item => item.Severity == AivDiagnosticSeverity.Error),
+            "Native misc index remains within the flat buffer at slot twelve.");
+        document.miscItems[document.miscItems.Count - 1].itemType = 31;
+        document.miscItems[document.miscItems.Count - 1].number = 9;
+        AivParseResult bufferEnd = new AivBlueprintParser().Parse(document);
+        Assert(!bufferEnd.Diagnostics.Any(item => item.Severity == AivDiagnosticSeverity.Error),
+            "The final native misc buffer entry should remain accepted.");
+        document.miscItems[document.miscItems.Count - 1].number = 10;
         AssertHasError(new AivBlueprintParser().Parse(document), "AIV034");
     }
 

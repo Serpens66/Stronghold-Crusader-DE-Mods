@@ -122,14 +122,23 @@ namespace CastlePlanner.AIVPlacement
         public void SetPlayerMappings(
             IReadOnlyDictionary<FRONT_Multiplayer.MPAIVInfo, int> mappings)
         {
-            foreach (FRONT_Multiplayer.MPAIVInfo previous in playerIdsByInfo.Keys)
-                BugfixAivStatusBridge.Clear(previous);
+            int nextCount = mappings?.Count ?? 0;
+            if (playerIdsByInfo.Count == nextCount &&
+                (mappings == null || mappings.All(entry =>
+                    playerIdsByInfo.TryGetValue(entry.Key, out int playerId) &&
+                    playerId == entry.Value)))
+                return;
+
+            foreach (KeyValuePair<FRONT_Multiplayer.MPAIVInfo, int> previous in playerIdsByInfo)
+            {
+                if (mappings == null || !mappings.TryGetValue(previous.Key, out int nextPlayerId) ||
+                    nextPlayerId != previous.Value)
+                    BugfixAivStatusBridge.Clear(previous.Key);
+            }
             playerIdsByInfo.Clear();
             if (mappings != null)
-            {
                 foreach (KeyValuePair<FRONT_Multiplayer.MPAIVInfo, int> entry in mappings)
                     playerIdsByInfo[entry.Key] = entry.Value;
-            }
             RefreshSelectionList(FRONT_Multiplayer_AISettings.Instance);
         }
 
@@ -173,6 +182,21 @@ namespace CastlePlanner.AIVPlacement
             }
 
             statesByPlayer[result.PlayerId] = states;
+            RefreshSelectionList(FRONT_Multiplayer_AISettings.Instance);
+        }
+
+        public void PublishCandidates(
+            int playerId,
+            IReadOnlyList<AivPlacementCandidateEvaluation> completed)
+        {
+            if (completed == null || completed.Count == 0 || !statesByPlayer.TryGetValue(playerId,
+                    out IReadOnlyDictionary<int, AivCandidateVisualState> previous))
+                return;
+            var states = previous.ToDictionary(entry => entry.Key, entry => entry.Value);
+            foreach (AivPlacementCandidateEvaluation candidate in completed)
+                if (candidate != null)
+                    states[candidate.CandidateId] = BuildVisualState(candidate, null);
+            statesByPlayer[playerId] = states;
             RefreshSelectionList(FRONT_Multiplayer_AISettings.Instance);
         }
 
@@ -407,7 +431,7 @@ namespace CastlePlanner.AIVPlacement
                     "Results", rotations);
             }
 
-            string autoText = !autoDecision.IsCertain
+            string autoText = autoDecision == null || !autoDecision.IsCertain
                 ? SerpLocalization.Get(SerpLocalization.AivPlacementAutoUnknown)
                 : !autoDecision.CandidateId.HasValue
                     ? SerpLocalization.Get(SerpLocalization.AivPlacementAutoImpossible)

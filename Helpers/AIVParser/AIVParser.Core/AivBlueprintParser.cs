@@ -284,11 +284,20 @@ namespace AIVParser.Core
                         itemLocation + ".itemType"));
                 }
 
-                if (source.number < 0 || source.number > 9)
+                long nativeMiscIndex = (long)itemType.EngineValue * 10 + source.number;
+                if (source.number < 0 || source.number > short.MaxValue ||
+                    itemType.EngineValue < 0 || nativeMiscIndex >= 320)
                 {
                     diagnostics.Add(Error(
                         "AIV034",
-                        $"Misc slot number {source.number} is outside the native range 0..9.",
+                        $"Misc slot number {source.number} is outside the proven native buffer range.",
+                        itemLocation + ".number"));
+                }
+                else if (source.number > 9)
+                {
+                    diagnostics.Add(Warning(
+                        "AIV034",
+                        $"Misc slot {source.number} aliases another ten-position group in Vanilla; the lobby fit does not consume misc positions.",
                         itemLocation + ".number"));
                 }
 

@@ -98,6 +98,22 @@ recorded seven AI selections and 16 fit attempts with `advopt_pre_build=0`
 Twelve attempts matched the offline status, raw score, fit percentage and cell
 counts exactly. Four attempts for one Plague Doctor AIV were not compared:
 `miscItems.number` exceeds the offline parser's supported `0..9` range.
+Further inspection of `0x55320` (`VA 0x180055320`) shows that the native
+importer clears a 320-int misc-position buffer and writes each entry at
+`itemType * 10 + number`, without checking `number` separately. For a valid
+type with an in-range flattened index, any `number>=10` aliases a later
+ten-position group. Values 10 and 11 occur in the captured Plague Doctor AIV.
+The Script Extender's AIV decoder preserves `number` as a signed
+16-bit value. The audited fixed-fit raster scan `0x57080` reads the imported
+building and step grids, not this misc-position buffer. Confidence is high
+for these current-hash import and fit contracts; later misc-position consumers
+and completed-castle effects are outside this fit conclusion. The offline
+parser retains a warning for `number>9` while accepting every nonnegative
+16-bit number whose flattened index is inside the 320-int buffer. This rule
+does not limit the number of selected AIVJSON files. The rerun matched all 16
+Crater Lake fit attempts exactly, including four Plague Doctor rotations, for
+status, raw score, percentage and cell counts. This is observed equivalence
+for the capture, not proof for later misc consumers.
 Three cell-trace self-checks disagreed with native blocked-cell counters even
 though the comparable offline scores matched. Confidence is high only for
 these observed fits; this capture does not establish constructor equivalence,

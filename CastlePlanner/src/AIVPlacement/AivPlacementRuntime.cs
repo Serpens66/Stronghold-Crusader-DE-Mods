@@ -40,13 +40,15 @@ namespace CastlePlanner.AIVPlacement
         private readonly LobbyRequestBuilder requestBuilder = new LobbyRequestBuilder();
         private readonly LobbyRequestGenerationGate generations = new LobbyRequestGenerationGate();
         private readonly LobbyCapturePollGate capturePoll =
-            new LobbyCapturePollGate(Stopwatch.Frequency / 10);
+            new LobbyCapturePollGate(Stopwatch.Frequency);
         private readonly AivPlacementEvaluationService evaluationService =
             new AivPlacementEvaluationService();
         private readonly AivSelectionListViewModel selectionList = new AivSelectionListViewModel();
         private readonly AivSelectionDialogRuntime selectionDialog;
         private readonly ConcurrentQueue<CompletedEvaluation> completedEvaluations =
             new ConcurrentQueue<CompletedEvaluation>();
+        private readonly ConcurrentQueue<CandidateProgress> candidateProgress =
+            new ConcurrentQueue<CandidateProgress>();
         private readonly ConcurrentDictionary<string, byte> reportedWarnings =
             new ConcurrentDictionary<string, byte>(StringComparer.Ordinal);
         private readonly ConcurrentDictionary<string, byte> reportedErrors =
@@ -66,6 +68,7 @@ namespace CastlePlanner.AIVPlacement
         private string lastFingerprint = string.Empty;
         private string lastSourceFingerprint = string.Empty;
         private long nextSourcePollTimestamp;
+        private long nextProgressPublishTimestamp;
         private CancellationTokenSource evaluationCancellation;
         private bool lobbyContextActive;
         private bool lobbySetupObserved;
@@ -183,6 +186,7 @@ namespace CastlePlanner.AIVPlacement
 
                 lobbyContextActive = true;
                 CaptureIfChanged(self, false);
+                PublishCandidateProgress(false);
                 PublishCompletedEvaluations();
                 selectionList.UpdateToolTipScale(CalculateFrontendToolTipScale());
                 UpdateHostReadyButton(self);
@@ -287,7 +291,7 @@ namespace CastlePlanner.AIVPlacement
                 if (!force && !stateChanged && now < nextSourcePollTimestamp)
                     return;
 
-                nextSourcePollTimestamp = now + Stopwatch.Frequency / 2;
+                nextSourcePollTimestamp = now + Stopwatch.Frequency;
                 AivPlacementRequestBatch provisional = requestBuilder.Build(
                     1,
                     capture,
@@ -484,7 +488,9 @@ namespace CastlePlanner.AIVPlacement
                 batch,
                 assets,
                 null,
-                cancellation.Token);
+                cancellation.Token,
+                (generation, playerId, candidate) =>
+                    candidateProgress.Enqueue(new CandidateProgress(generation, playerId, candidate)));
             task.ContinueWith(
                 completed => HandleEvaluationCompletion(batch, completed),
                 TaskScheduler.Default);
@@ -588,6 +594,8 @@ namespace CastlePlanner.AIVPlacement
 
         private void PublishCompletedEvaluations()
         {
+            if (!completedEvaluations.IsEmpty)
+                PublishCandidateProgress(true);
             while (completedEvaluations.TryDequeue(out CompletedEvaluation completed))
             {
                 if (completed.Error != null)
@@ -633,6 +641,31 @@ namespace CastlePlanner.AIVPlacement
                     $"rotation={result.SelectedVariant?.Rotation.ToString() ?? "unknown"}, " +
                     $"reason={result.FailureKind}.");
             }
+        }
+
+        private void PublishCandidateProgress(bool force)
+        {
+            long now = Stopwatch.GetTimestamp();
+            if (!force && now < nextProgressPublishTimestamp)
+                return;
+            if (candidateProgress.IsEmpty)
+                return;
+            nextProgressPublishTimestamp = now + Stopwatch.Frequency;
+            var byPlayer = new Dictionary<int, List<AivPlacementCandidateEvaluation>>();
+            while (candidateProgress.TryDequeue(out CandidateProgress progress))
+            {
+                if (!generations.IsCurrent(progress.Generation))
+                    continue;
+                if (!byPlayer.TryGetValue(progress.PlayerId,
+                        out List<AivPlacementCandidateEvaluation> evaluations))
+                {
+                    evaluations = new List<AivPlacementCandidateEvaluation>();
+                    byPlayer.Add(progress.PlayerId, evaluations);
+                }
+                evaluations.Add(progress.Candidate);
+            }
+            foreach (KeyValuePair<int, List<AivPlacementCandidateEvaluation>> pair in byPlayer)
+                selectionDialog.PublishCandidates(pair.Key, pair.Value);
         }
 
         private static float CalculateFrontendToolTipScale()
@@ -714,6 +747,10 @@ namespace CastlePlanner.AIVPlacement
             evaluationCancellation = new CancellationTokenSource();
             currentResults.Clear();
             pendingPlayerIds.Clear();
+            while (candidateProgress.TryDequeue(out _))
+            {
+            }
+            nextProgressPublishTimestamp = 0;
             foreach (AivPlacementCheckRequest request in batch.Requests)
                 pendingPlayerIds.Add(request.PlayerId);
             selectionDialog.BeginGeneration(batch);
@@ -772,11 +809,15 @@ namespace CastlePlanner.AIVPlacement
             while (completedEvaluations.TryDequeue(out _))
             {
             }
+            while (candidateProgress.TryDequeue(out _))
+            {
+            }
             currentResults.Clear();
             pendingPlayerIds.Clear();
             lastFingerprint = string.Empty;
             lastSourceFingerprint = string.Empty;
             nextSourcePollTimestamp = 0;
+            nextProgressPublishTimestamp = 0;
             capturePoll.Invalidate();
             selectionDialog.Reset();
             RestoreBlockedReadyButton();
@@ -871,6 +912,23 @@ namespace CastlePlanner.AIVPlacement
             public int PlayerId { get; }
             public AivPlacementCheckResult Result { get; }
             public Exception Error { get; }
+        }
+
+        private sealed class CandidateProgress
+        {
+            public CandidateProgress(
+                long generation,
+                int playerId,
+                AivPlacementCandidateEvaluation candidate)
+            {
+                Generation = generation;
+                PlayerId = playerId;
+                Candidate = candidate;
+            }
+
+            public long Generation { get; }
+            public int PlayerId { get; }
+            public AivPlacementCandidateEvaluation Candidate { get; }
         }
     }
 }
