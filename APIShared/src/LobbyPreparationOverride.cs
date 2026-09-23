@@ -49,8 +49,9 @@ namespace APIShared
             try { apply(lobby); }
             catch (Exception exception)
             {
-                active = false;
-                UnityEngine.Debug.LogError("Lobby preparation " + owner + " failed: " + exception);
+                // Keep the owner's memory suppression active: Apply may already have
+                // changed part of the lobby, so saving it as the user's preference is unsafe.
+                UnityEngine.Debug.LogError("Lobby preparation " + owner + " incomplete: " + exception);
             }
         }
     }
