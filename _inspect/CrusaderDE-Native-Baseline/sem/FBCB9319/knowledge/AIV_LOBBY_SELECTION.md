@@ -30,6 +30,20 @@ placement state. Complete results prepare the layout and, with completed
 enemy castles enabled, execute build steps into the mutable map before the
 next player. The offline AIV plan alone cannot reconstruct that later state.
 
+The 2026-09-23 follow-up checked the no-prebuild dependency at this same hash.
+`0x53D00` imports the chosen AIV, records prepared frames and owner masks, and
+derives the start Keep coordinate from the imported Keep marker. The following
+`0x94350` start constructor receives the player ID and that coordinate; the
+candidate's subsequent frames execute only through the conditional `0x55F50`
+path. The fixed-fit chain `0x54DE0` -> `0x57080` -> `0x7B060` reads the live
+tile layers and building records, not the prepared AIV frames or owner masks.
+For valid AIVs anchored to the same Keep, distinct candidate choices with the
+same selected rotation therefore have the same proven start input to the next
+fit when prebuild is off. Confidence is high for this direct call/read chain;
+constructor side effects outside the audited start footprint remain outside
+the offline prediction. With prebuild on, candidate identity determines later
+frame writes and cannot be discarded.
+
 `0x54F60` starts at RNG modulo candidate count and increments before the first
 visit. It imports and checks every candidate at the initial rotation. The
 first full score `999999` returns immediately with state 2. Partial scores

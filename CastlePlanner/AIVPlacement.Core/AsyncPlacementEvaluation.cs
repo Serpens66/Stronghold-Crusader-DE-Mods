@@ -565,15 +565,17 @@ namespace CastlePlanner.AIVPlacement.Core
             bool priorStartRotationUnknown = false;
             int priorUnknownPlayerId = -1;
             LobbyEvaluationFailureKind priorFailureKind = LobbyEvaluationFailureKind.None;
+            string priorFailureMessage = string.Empty;
             foreach (AivPlacementCheckRequest request in batch.Requests.OrderBy(value => value.PlayerId))
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                AivPlacementCheckResult result = priorStartRotationUnknown
+                AivPlacementCheckResult result = priorStartRotationUnknown && request.IsReady
                     ? NotEvaluable(
                         request,
                         Array.Empty<AivPlacementCandidateEvaluation>(),
                         LobbyEvaluationFailureKind.PriorAiSelectionUnknown,
-                        $"Earlier AI player {priorUnknownPlayerId} has no proven selection ({priorFailureKind}).",
+                        $"Earlier AI player {priorUnknownPlayerId} has no proven start state " +
+                        $"({priorFailureKind}: {priorFailureMessage}).",
                         TimeSpan.Zero)
                     : await EvaluateRequestCoreAsync(
                         request,
@@ -604,6 +606,15 @@ namespace CastlePlanner.AIVPlacement.Core
                     rebuiltStartRotationsBySlot[request.KeepSlotIndex] =
                         rebuiltVariant.Rotation;
                 }
+                else if (request.PreBuildSetting == 0 &&
+                         result.FailureKind == LobbyEvaluationFailureKind.NativeAutoSelectionAmbiguous &&
+                         TryGetCertainSelectedRotation(result.Candidates, out AivRotation certainRotation))
+                {
+                    // Without prebuild, Vanilla's chosen AIV plan does not create
+                    // earlier AIV buildings. Its start complex still needs the
+                    // selected rotation in the next player's tile snapshot.
+                    rebuiltStartRotationsBySlot[request.KeepSlotIndex] = certainRotation;
+                }
                 else
                 {
                     priorStartRotationUnknown = true;
@@ -611,10 +622,43 @@ namespace CastlePlanner.AIVPlacement.Core
                     {
                         priorUnknownPlayerId = request.PlayerId;
                         priorFailureKind = result.FailureKind;
+                        priorFailureMessage = result.FailureKind ==
+                            LobbyEvaluationFailureKind.NativeAutoSelectionAmbiguous
+                            ? "possible Vanilla outcomes have different start rotations or no selected castle"
+                            : result.FailureMessage;
                     }
                 }
             }
             return new AivPlacementBatchResult(results, selectedCandidateIds);
+        }
+
+        private static bool TryGetCertainSelectedRotation(
+            IReadOnlyList<AivPlacementCandidateEvaluation> candidates,
+            out AivRotation rotation)
+        {
+            rotation = default;
+            IReadOnlyList<NativeAivAutoDecision> possible =
+                NativeAivAutoSelector.SelectPossible(candidates);
+            if (possible.Count == 0)
+                return false;
+
+            AivRotation? shared = null;
+            foreach (NativeAivAutoDecision outcome in possible)
+            {
+                if (!outcome.CandidateId.HasValue || outcome.RotationIndex < 0)
+                    return false;
+                AivPlacementCandidateEvaluation candidate = candidates.FirstOrDefault(
+                    value => value.CandidateId == outcome.CandidateId.Value);
+                if (candidate?.Selection == null ||
+                    outcome.RotationIndex >= candidate.Selection.Variants.Count)
+                    return false;
+                AivRotation current = candidate.Selection.Variants[outcome.RotationIndex].Rotation;
+                if (shared.HasValue && shared.Value != current)
+                    return false;
+                shared = current;
+            }
+            rotation = shared.Value;
+            return true;
         }
 
         private static int BuildRebuiltStartState(

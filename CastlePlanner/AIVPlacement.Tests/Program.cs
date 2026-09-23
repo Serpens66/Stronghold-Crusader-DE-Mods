@@ -27,6 +27,9 @@ internal static class Program
             ("tracks retained starts in native player order", TracksRetainedStartsInNativePlayerOrder),
             ("evaluates AI starts sequentially", EvaluatesAiStartsSequentially),
             ("reuses multiplayer tie choice for sequential starts", ReusesTieChoiceForSequentialStarts),
+            ("propagates a certain start rotation across an uncertain AIV choice", PropagatesCertainRotationAcrossTie),
+            ("keeps differing start rotations unresolved", KeepsDifferingRotationsUnresolved),
+            ("rechecks later AI after complete castles is switched off", RechecksAfterPrebuildSwitch),
             ("creates eight default candidates", CreatesDefaultCandidates),
             ("maps current lord enum names to bundled Vanilla files", MapsCurrentLordNamesToVanillaFiles),
             ("evaluates the first AI before prebuild", MarksPrebuildNotEvaluable),
@@ -522,6 +525,93 @@ internal static class Program
 
         Equal(1, result.SelectedCandidateIdsByPlayer[2]);
         Equal(AivRotation.Degrees90, worker.StatesByCandidate["second"][0]);
+    }
+
+    private static void PropagatesCertainRotationAcrossTie()
+    {
+        using Fixture fixture = new();
+        foreach (string name in new[] { "first", "other", "second" })
+            File.WriteAllText(Path.Combine(fixture.CustomDirectory, name + ".aivjson"), "{}");
+        AivPlacementRequestBatch batch = BuildTwoAiTieBatch(fixture, 0, "other");
+        var worker = new SequentialStateWorker();
+        var service = new AivPlacementEvaluationService(worker, 32, 2);
+
+        AivPlacementBatchResult result = service.EvaluateBatchAsync(batch).GetAwaiter().GetResult();
+
+        Equal(LobbyEvaluationFailureKind.NativeAutoSelectionAmbiguous,
+            result.Results[0].FailureKind);
+        IReadOnlyList<NativeAivAutoDecision> possible =
+            NativeAivAutoSelector.SelectPossible(result.Results[0].Candidates);
+        Equal(2, possible.Count);
+        Assert(possible.All(outcome => outcome.RotationIndex == 0),
+            "complete tie must keep one native start rotation");
+        Equal(AivPlacementStatus.Complete, result.Results[1].Status);
+        Equal(AivRotation.Degrees0, worker.StatesByCandidate["second"][0]);
+    }
+
+    private static void KeepsDifferingRotationsUnresolved()
+    {
+        using Fixture fixture = new();
+        foreach (string name in new[] { "first", "rotated", "second" })
+            File.WriteAllText(Path.Combine(fixture.CustomDirectory, name + ".aivjson"), "{}");
+        AivPlacementRequestBatch batch = BuildTwoAiTieBatch(fixture, 0, "rotated");
+        var worker = new SequentialStateWorker();
+        var service = new AivPlacementEvaluationService(worker, 32, 2);
+
+        AivPlacementBatchResult result = service.EvaluateBatchAsync(batch).GetAwaiter().GetResult();
+
+        Equal(LobbyEvaluationFailureKind.NativeAutoSelectionAmbiguous,
+            result.Results[0].FailureKind);
+        Equal(LobbyEvaluationFailureKind.PriorAiSelectionUnknown,
+            result.Results[1].FailureKind);
+        Assert(result.Results[1].FailureMessage.Contains("different start rotations"),
+            "later AI should explain the unresolved start rotation");
+        Assert(!worker.StatesByCandidate.ContainsKey("second"),
+            "later AI was evaluated against an unproven start state");
+    }
+
+    private static void RechecksAfterPrebuildSwitch()
+    {
+        using Fixture fixture = new();
+        foreach (string name in new[] { "first", "other", "second" })
+            File.WriteAllText(Path.Combine(fixture.CustomDirectory, name + ".aivjson"), "{}");
+        var worker = new SequentialStateWorker();
+        var service = new AivPlacementEvaluationService(worker, 32, 2);
+
+        AivPlacementBatchResult withPrebuild = service.EvaluateBatchAsync(
+            BuildTwoAiTieBatch(fixture, 1, "other")).GetAwaiter().GetResult();
+        Equal(LobbyEvaluationFailureKind.RequestNotReady,
+            withPrebuild.Results[1].FailureKind);
+        Equal(LobbyRequestFailureKind.PreBuildSequenceUnsupported.ToString(),
+            withPrebuild.Results[1].FailureMessage);
+        Assert(!worker.StatesByCandidate.ContainsKey("second"),
+            "later AI must remain blocked after complete castles");
+
+        AivPlacementBatchResult withoutPrebuild = service.EvaluateBatchAsync(
+            BuildTwoAiTieBatch(fixture, 0, "other")).GetAwaiter().GetResult();
+        Equal(AivPlacementStatus.Complete, withoutPrebuild.Results[1].Status);
+        Equal(AivRotation.Degrees0, worker.StatesByCandidate["second"][0]);
+    }
+
+    private static AivPlacementRequestBatch BuildTwoAiTieBatch(
+        Fixture fixture, int prebuild, string alternateName)
+    {
+        LobbyStateCapture capture = fixture.Capture(
+            preBuild: prebuild,
+            keepOrder: [1, 2, -1, -1, -1, -1, -1, -1],
+            slots:
+            [
+                Slot(LobbyAivMode.Custom,
+                    [
+                        new LobbyAivCandidateInput("first", fixture.CustomDirectory, 0, false, "SK_RAT"),
+                        new LobbyAivCandidateInput(alternateName, fixture.CustomDirectory, 0, false, "SK_RAT")
+                    ],
+                    playerId: 2),
+                Slot(LobbyAivMode.Custom,
+                    [new LobbyAivCandidateInput("second", fixture.CustomDirectory, 0, false, "SK_RAT")],
+                    playerId: 3)
+            ]);
+        return new LobbyRequestBuilder().Build(prebuild + 1, capture, fixture.VanillaDirectory);
     }
 
     private static void CreatesDefaultCandidates()

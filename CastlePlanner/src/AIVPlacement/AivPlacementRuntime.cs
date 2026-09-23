@@ -632,14 +632,34 @@ namespace CastlePlanner.AIVPlacement
                 selectionDialog.Publish(result);
                 int evaluableCandidates = result.Candidates.Count(candidate =>
                     candidate.Status != AivPlacementStatus.NotEvaluable);
+                IReadOnlyList<NativeAivAutoDecision> possible =
+                    NativeAivAutoSelector.SelectPossible(result.Candidates);
+                string possibleCandidates = possible.Count == 0
+                    ? "unproven"
+                    : string.Join(",", possible.Select(outcome =>
+                        outcome.CandidateId?.ToString() ?? "none").Distinct());
+                string possibleRotations = possible.Count == 0
+                    ? "unproven"
+                    : string.Join(",", possible.Select(outcome =>
+                    {
+                        AivPlacementCandidateEvaluation candidate = result.Candidates
+                            .FirstOrDefault(value => value.CandidateId == outcome.CandidateId);
+                        return candidate?.Selection != null && outcome.RotationIndex >= 0 &&
+                               outcome.RotationIndex < candidate.Selection.Variants.Count
+                            ? candidate.Selection.Variants[outcome.RotationIndex].Rotation.ToString()
+                            : "none";
+                    }).Distinct());
                 Shared.DebugLogHelper.LogInfo(
                     log,
                     $"AIV lobby placement result: generation={result.Generation}, " +
-                    $"playerId={result.PlayerId}, status={result.Status}, " +
+                    $"playerId={result.PlayerId}, preBuild={result.PreBuildSetting}, " +
+                    $"status={result.Status}, " +
                     $"evaluableCandidates={evaluableCandidates}/{result.Candidates.Count}, " +
                     $"selectedCandidate={result.SelectedCandidate?.CandidateId.ToString() ?? "none"}, " +
                     $"rotation={result.SelectedVariant?.Rotation.ToString() ?? "unknown"}, " +
-                    $"reason={result.FailureKind}.");
+                    $"possibleCandidates={possibleCandidates}, " +
+                    $"possibleRotations={possibleRotations}, " +
+                    $"reason={result.FailureKind}: {result.FailureMessage}.");
             }
         }
 

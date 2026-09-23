@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using AIVParser.Core;
 using AIVPlacement.Core;
 
@@ -63,46 +64,58 @@ namespace CastlePlanner.AIVPlacement.Core
         public static NativeAivAutoDecision SelectCertain(
             IReadOnlyList<AivPlacementCandidateEvaluation> candidates)
         {
+            IReadOnlyList<NativeAivAutoDecision> possible = SelectPossible(candidates);
+            return possible.Count == 1 ? possible[0] : Unknown();
+        }
+
+        public static NativeAivAutoDecision SelectCertain(
+            IReadOnlyList<NativeAivAutoCandidate> candidates)
+        {
+            IReadOnlyList<NativeAivAutoDecision> possible = SelectPossible(candidates);
+            return possible.Count == 1 ? possible[0] : Unknown();
+        }
+
+        public static IReadOnlyList<NativeAivAutoDecision> SelectPossible(
+            IReadOnlyList<AivPlacementCandidateEvaluation> candidates)
+        {
             if (candidates == null)
                 throw new ArgumentNullException(nameof(candidates));
             var inputs = new List<NativeAivAutoCandidate>(candidates.Count);
             foreach (AivPlacementCandidateEvaluation candidate in candidates)
             {
                 if (candidate?.Selection == null || candidate.Selection.Variants.Count != 4)
-                    return Unknown();
+                    return Array.Empty<NativeAivAutoDecision>();
                 var fits = new List<NativeAivAutoFit>(4);
                 foreach (AivPlacementResult variant in candidate.Selection.Variants)
-                {
                     fits.Add(new NativeAivAutoFit(
                         variant.Status,
                         variant.Score.SequentialBuildScore,
                         variant.Score.FitPercentage));
-                }
                 inputs.Add(new NativeAivAutoCandidate(candidate.CandidateId, fits));
             }
-            return SelectCertain(inputs);
+            return SelectPossible(inputs);
         }
 
-        public static NativeAivAutoDecision SelectCertain(
+        public static IReadOnlyList<NativeAivAutoDecision> SelectPossible(
             IReadOnlyList<NativeAivAutoCandidate> candidates)
         {
             if (candidates == null)
                 throw new ArgumentNullException(nameof(candidates));
             if (candidates.Count == 0)
-                return Unknown();
+                return Array.Empty<NativeAivAutoDecision>();
 
             foreach (NativeAivAutoCandidate candidate in candidates)
             {
                 if (candidate == null)
-                    return Unknown();
+                    return Array.Empty<NativeAivAutoDecision>();
                 foreach (NativeAivAutoFit fit in candidate.Rotations)
                 {
                     if (fit == null || fit.Status == AivPlacementStatus.NotEvaluable)
-                        return Unknown();
+                        return Array.Empty<NativeAivAutoDecision>();
                 }
             }
 
-            NativeAivAutoDecision first = null;
+            var possible = new List<NativeAivAutoDecision>();
             for (int start = 0; start < candidates.Count; start++)
             {
                 for (int tryOther = 0; tryOther < 2; tryOther++)
@@ -111,20 +124,15 @@ namespace CastlePlanner.AIVPlacement.Core
                         candidates,
                         start,
                         tryOther != 0);
-                    if (first == null)
-                    {
-                        first = outcome;
-                    }
-                    else if (first.Status != outcome.Status ||
-                             first.CandidateId != outcome.CandidateId ||
-                             first.RotationIndex != outcome.RotationIndex)
-                    {
-                        return Unknown();
-                    }
+                    if (!possible.Exists(existing =>
+                        existing.Status == outcome.Status &&
+                        existing.CandidateId == outcome.CandidateId &&
+                        existing.RotationIndex == outcome.RotationIndex))
+                        possible.Add(outcome);
                 }
             }
 
-            return first;
+            return new ReadOnlyCollection<NativeAivAutoDecision>(possible);
         }
 
         private static NativeAivAutoDecision Replay(

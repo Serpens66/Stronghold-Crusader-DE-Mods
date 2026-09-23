@@ -23,6 +23,14 @@ produktiven Lobby-Pfad `NotEvaluable`, solange der echte sequenzielle Bauzustand
 früherer Spieler nicht belegt ist. Auch ohne Sofortspawn sind spätere Starts
 `NotEvaluable`, wenn eine vorherige Startrotation unbestimmt bleibt oder die
 Karte eine ungeklärte, dicht überlappende Besitzerkonstellation enthält.
+Die Native-Nachprüfung vom 2026-09-23 trennt hierfür Kandidat und Drehung:
+Wenn ohne Sofortspawn mehrere zufallsabhängige AIV-Auswahlen dieselbe
+Startdrehung ergeben, lässt sich der nächste Startzustand trotzdem eindeutig
+rekonstruieren. `0x53D00` hält den gewählten Plan und Besitzermasken für den
+späteren Bau bereit; der nachfolgende Fit liest sie nicht. Unterschiedliche
+mögliche Drehungen, fehlende Fits und Sofortspawn bleiben gesperrt. Die
+Lobby-Auswertung führt mögliche Autoergebnisse deshalb getrennt von der nur
+bei eindeutigem Kandidaten veröffentlichten Autoauswahl.
 
 ## Aktueller Native-Pfad
 
