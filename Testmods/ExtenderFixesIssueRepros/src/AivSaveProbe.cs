@@ -52,8 +52,6 @@ namespace ExtenderFixesIssueRepros
                 IssueReprosPlugin.Log.LogWarning("[FIXES-AIV] INCONCLUSIVE at save: " + reason);
                 return null;
             }
-            CompareFixesSerializedData(snapshots);
-
             using (MemoryStream stream = new MemoryStream())
             using (BinaryWriter writer = new BinaryWriter(stream))
             {
@@ -81,7 +79,7 @@ namespace ExtenderFixesIssueRepros
                 byte[] payload = GameMapArchiveManagerAPI.Instance.TryReadBinaryFile(fixesFile, true);
                 if (payload == null || payload.Length == 0)
                 {
-                    IssueReprosPlugin.Log.LogWarning("[FIXES-AIV] INCONCLUSIVE: Fixes archive entry not yet available at probe save callback.");
+                    IssueReprosPlugin.Log.LogWarning("[FIXES-AIV] INCONCLUSIVE: Fixes archive entry is missing at probe load callback.");
                     return;
                 }
                 ExtendedAIVBufferContainer container = MessagePackSerializer.Deserialize<ExtendedAIVBufferContainer>(payload);
@@ -153,7 +151,8 @@ namespace ExtenderFixesIssueRepros
             }
             loadedProbeData = true;
             compareOnNextTick = true;
-            IssueReprosPlugin.Log.LogInfo($"[FIXES-AIV] loaded {expected.Count} independent saved checksums; comparing now and on the first game tick after load.");
+            IssueReprosPlugin.Log.LogInfo($"[FIXES-AIV] loaded {expected.Count} independent saved checksums; inspecting Fixes' archive entry and comparing live memory now and on the first game tick after load.");
+            CompareFixesSerializedData(expected);
             CompareAfterLoad();
         }
 

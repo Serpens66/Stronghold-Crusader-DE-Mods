@@ -3,13 +3,19 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.99",
+  "Version": "1.0.100",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.9.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.100",
+      "Changes": [
+        "Preserved the local player's troop selection when selected knights and swordsmen complete their transformation, including mixed selections."
+      ]
+    },
     {
       "Version": "1.0.99",
       "Changes": [

@@ -287,6 +287,7 @@ namespace ExtraFeatures
             disposed = true;
             initialized = false;
             CancelAllPending("feature-disabled", refundGold: true, releaseReservedHorse: true);
+            pendingSelectionRequestIds.Clear();
             buttonViewModel.Hide();
             UnhookButtonEvents();
         }
@@ -1079,8 +1080,9 @@ namespace ExtraFeatures
             }
         }
 
-        private bool ApplyDismount(UnitTransformSnapshot snapshot, string reason, long limitReservationId = 0)
+        private bool ApplyDismount(UnitTransformSnapshot snapshot, string reason, long limitReservationId, out int selectedReplacementUnitId)
         {
+            selectedReplacementUnitId = 0;
             if (!TryResolveAliveUnitByGlobalId(snapshot, eChimps.CHIMP_TYPE_KNIGHT, out int currentUnitId))
                 return false;
 
@@ -1111,6 +1113,7 @@ namespace ExtraFeatures
                 return false;
             }
 
+            bool transferSelection = ShouldTransferSelection(currentSnapshot.OwnerPlayerId, currentKnight);
             if (!GameUnitManagerAPI.Instance.DeleteUnitSafe(currentKnightId))
             {
                 RollbackConsumedStableHorse(consumedHorse, reason);
@@ -1118,6 +1121,9 @@ namespace ExtraFeatures
                 GameUnitManagerAPI.Instance.DeleteUnit(swordsmanUnitId);
                 return false;
             }
+
+            if (transferSelection)
+                selectedReplacementUnitId = swordsmanUnitId;
 
             LogDebug(
                 $"Knight dismount completed: reason={reason}, sourceGlobalId={currentSnapshot.GlobalId}, " +

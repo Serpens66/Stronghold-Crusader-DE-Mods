@@ -12,13 +12,14 @@ The affected settings are wheat-sale category, minimum gold for harassment siege
 - `src/shcde-fixes/Events/FixesMapEvents.cs`, lines 18–64, runs after each map load. It writes an entry only after `CustomLordPreferences.TryGetValue(lordName, out preferences)` succeeds. There is no clearing step for players whose new lord has no entry.
 - `src/shcde-fixes/Events/FixesAIEvents.cs` adds a preferences entry only when that custom lord's asset provider has `override/fixes/preferences.json`. Thus a missing entry is an expected case.
 - No other source path resets these arrays between maps. They belong to the process-lived `NativeStateBlock`, outside the native map state that is reinitialized.
+- Runtime test with Fixes 1.19.0: in one game process, map 1 used `testlord_serp_fixesprobe` for AI player 2. Its preferences enabled all four options. Fixes logged applying all four, and the diagnostic mod read all four native flags as `true` after load. Map 2 then used `testlord_serp` for the same player. This lord has no Fixes preferences. Immediately after map 2 loaded, all four flags were still `true`. The diagnostic log recorded `mapSequence=1` and `mapSequence=2`, both for player 2, with the previous and current lord names. The three numeric value arrays were not read in this test; their persistence follows from the same source path.
 
 ## How to reproduce
 
-Without restarting the game, load map A with a custom lord that has a distinctive override in player slot 1. Then load map B with a different lord lacking Fixes preferences in slot 1. Compare that lord's AI behavior or the relevant native flag/value entries with a fresh game start directly into map B. Map B can retain map A's override.
+Without restarting the game, load map A with a custom lord whose `Override/Fixes/preferences.json` enables one of these options in an AI player slot, for example player 2. Then load map B with a different lord without a Fixes preferences file in the same slot. Inspect the flag for that slot after each map load. It remains enabled on map B, even though map B's lord has no corresponding preference. In our test, all four flags persisted.
 
 ## Suggested fix
 
 At every map transition, clear each per-player flag and restore default values before applying the current map's preferences. Then a player without a matching entry uses the normal behavior.
 
-The missing reset path and persistent arrays are confirmed by source review. A two-map runtime test has not yet been run.
+The four retained flags were reproduced across two maps in one process. The persistence of the numeric value arrays is supported by source review but was not separately measured at runtime.
