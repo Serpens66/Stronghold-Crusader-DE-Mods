@@ -397,6 +397,21 @@
         <member name="M:APIShared.ILobbyStateCapability.TryRegisterObserver(System.String,System.Action{APIShared.LobbyStateSnapshot},APIShared.NativeCapabilityDiagnostic@)">
             <summary>Registers one process-lifetime observer under an owner-local stable ID.</summary>
         </member>
+        <member name="T:APIShared.LobbyPreparationOverride">
+            <summary>Process-lifetime, single-owner preparation of a newly opened skirmish lobby.</summary>
+        </member>
+        <member name="M:APIShared.LobbyPreparationOverride.Register(System.String,System.Func{CrusaderDE.FRONT_Multiplayer,System.Boolean},System.Action{CrusaderDE.FRONT_Multiplayer})">
+            <summary>Registers rooted callbacks before the lobby is opened.</summary>
+        </member>
+        <member name="M:APIShared.LobbyPreparationOverride.Begin(CrusaderDE.FRONT_Multiplayer)">
+            <summary>Reads and validates the preset once before Vanilla opens a lobby.</summary>
+        </member>
+        <member name="P:APIShared.LobbyPreparationOverride.IsActive">
+            <summary>Whether an owner has accepted the current lobby opening.</summary>
+        </member>
+        <member name="M:APIShared.LobbyPreparationOverride.Apply(CrusaderDE.FRONT_Multiplayer)">
+            <summary>Applies the prepared preset after Vanilla has opened its controls.</summary>
+        </member>
         <member name="T:APIShared.PlayerLordDeathNotification">
             <summary>Immutable notification that a previously confirmed living player lord disappeared or died.</summary>
         </member>

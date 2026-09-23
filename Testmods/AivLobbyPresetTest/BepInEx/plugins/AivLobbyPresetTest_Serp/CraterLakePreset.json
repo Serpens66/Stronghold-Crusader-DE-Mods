@@ -1,0 +1,10 @@
+{
+  "enabled": true,
+  "mapFileName": "Crater Lake.map",
+  "mapSha256": "C5D9906AA37ED96EC1CF9B3EB0C7F6FB5B3E1D8063167FE22337E69C153BB887",
+  "players": [
+    { "id": 1, "human": true, "keepSlot": 0, "radarX": 150, "radarY": 177, "keepX": 654, "keepY": 448 },
+    { "id": 2, "lordType": 12, "aivDefault": 6, "keepSlot": 6, "radarX": 90, "radarY": 30, "keepX": 241, "keepY": 274 },
+    { "id": 3, "lordType": 3, "aivDefault": 8, "keepSlot": 5, "radarX": 17, "radarY": 110, "keepX": 254, "keepY": 580 }
+  ]
+}

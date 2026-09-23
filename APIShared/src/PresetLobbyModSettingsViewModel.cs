@@ -2354,6 +2354,10 @@ namespace Shared
 #if API_SHARED_PRESET_TESTS
             return SettingsMenuContext.Other;
 #else
+            // Instance lazily constructs the entire game ViewModel. Settings are registered
+            // before Vanilla has finished creating it, so never trigger that work here.
+            if (!CrusaderDE.MainViewModel.viewModelLoaded)
+                return SettingsMenuContext.Other;
             try
             {
                 CrusaderDE.MainViewModel viewModel = CrusaderDE.MainViewModel.Instance;

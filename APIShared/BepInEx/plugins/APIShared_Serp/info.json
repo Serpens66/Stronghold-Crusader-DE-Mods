@@ -3,13 +3,19 @@
   "Author": "Serpens66",
   "Name": "APIShared",
   "Description": "Shared typed native infrastructure and extensible lobby ModSettings preset API for Serps and third-party mods.",
-  "Version": "0.4.0",
+  "Version": "0.4.1",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.9.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.4.1",
+      "Changes": [
+        "Avoided constructing the game ViewModel during early mod-settings registration, restoring fast startup."
+      ]
+    },
     {
       "Version": "0.4.0",
       "Changes": [

@@ -1007,6 +1007,23 @@ namespace APISharedTests
             Assert(!project.Contains("SelectedUnitCommandCapability") &&
                 typeof(IApiShared).GetMethod("TryGetSelectedUnitCommand", BindingFlags.Public | BindingFlags.Instance) == null,
                 "the redundant selected-unit broker must not remain in APIShared");
+            int menuContextStart = sharedPreset.IndexOf("private static SettingsMenuContext CaptureSettingsMenuContext()", StringComparison.Ordinal);
+            int menuContextEnd = menuContextStart >= 0
+                ? sharedPreset.IndexOf("private static SettingsMenuContext ResolveSettingsMenuContext(", menuContextStart, StringComparison.Ordinal)
+                : -1;
+            string menuContext = menuContextStart >= 0 && menuContextEnd > menuContextStart
+                ? sharedPreset.Substring(menuContextStart, menuContextEnd - menuContextStart)
+                : string.Empty;
+            int menuReadyGuard = menuContext.IndexOf("if (!CrusaderDE.MainViewModel.viewModelLoaded)", StringComparison.Ordinal);
+            int menuSingletonRead = menuContext.IndexOf("CrusaderDE.MainViewModel.Instance", StringComparison.Ordinal);
+            int menuNeutralReturn = menuReadyGuard >= 0
+                ? menuContext.IndexOf("return SettingsMenuContext.Other;", menuReadyGuard, StringComparison.Ordinal)
+                : -1;
+            Assert(menuReadyGuard >= 0 && menuReadyGuard < menuSingletonRead &&
+                menuNeutralReturn > menuReadyGuard && menuNeutralReturn < menuSingletonRead &&
+                sharedPreset.Contains("Plugin.ModSettingsHubViewModel.PropertyChanged += (_, __) =>") &&
+                sharedPreset.Contains("viewModel.System_RefreshSettingsAccess();"),
+                "settings menu context must not construct the Vanilla ViewModel before readiness and must refresh when the hub changes");
             Assert(!project.Contains("LocalScriptExtenderBuildOutput") &&
                 !project.Contains("LocalScriptExtenderModOutput"),
                 "APIShared must default to the installed Script Extender without dead local fallbacks");
@@ -1437,6 +1454,7 @@ namespace APISharedTests
                 "APIShared.AivBuildStepCompletion",
                 "APIShared.IApiShared",
                 "APIShared.NativeApiState",
+                "APIShared.LobbyPreparationOverride",
                 "APIShared.NativeCapabilityDiagnostic",
                 "APIShared.NativeCapabilityIds",
                 "APIShared.NativeCapabilityState",

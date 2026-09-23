@@ -1,0 +1,10 @@
+{
+  "GUID": "AivLobbyPresetTest_Serp",
+  "Author": "Serpens66",
+  "Name": "AIV Lobby Preset Test",
+  "Description": "Temporary deterministic skirmish lobby setup for AIV diagnosis",
+  "Version": "0.1.0",
+  "SupportedGameVersions": ["2.8.0.2"],
+  "Manifest": 1,
+  "NetworkMode": 1
+}

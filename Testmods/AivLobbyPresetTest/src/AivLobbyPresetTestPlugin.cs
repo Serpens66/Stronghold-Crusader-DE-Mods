@@ -2,7 +2,6 @@ using APIShared;
 using BepInEx;
 using BepInEx.Logging;
 using CrusaderDE;
-using Noesis;
 using System;
 using System.Collections;
 using System.Collections.Generic;
