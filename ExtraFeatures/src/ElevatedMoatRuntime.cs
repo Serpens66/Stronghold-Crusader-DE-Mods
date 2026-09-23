@@ -2,6 +2,7 @@ using BepInEx.Bootstrap;
 using BepInEx.Logging;
 using SHCDESE.API.LowLevel;
 using System;
+using APIShared;
 
 namespace ExtraFeatures
 {
@@ -30,19 +31,30 @@ namespace ExtraFeatures
         internal void Reconcile(bool allowAIPlacement, bool allowHumanPlacement)
         {
             if (context == null)
+            {
+                ElevatedMoatAiCapability.Publish(ElevatedMoatAiState.Unknown);
                 return;
+            }
 
             lock (ProcessPatchSync)
             {
                 if (processPatchUnavailable)
+                {
+                    ElevatedMoatAiCapability.Publish(ElevatedMoatAiState.Disabled);
                     return;
+                }
                 if (processPatch != null)
                 {
                     processPatch.UpdateSettings(allowAIPlacement, allowHumanPlacement);
+                    ElevatedMoatAiCapability.Publish(processPatch.IsAiEnabled
+                        ? ElevatedMoatAiState.Enabled : ElevatedMoatAiState.Disabled);
                     return;
                 }
                 if (!allowAIPlacement && !allowHumanPlacement)
+                {
+                    ElevatedMoatAiCapability.Publish(ElevatedMoatAiState.Disabled);
                     return;
+                }
 
                 if (Chainloader.PluginInfos.ContainsKey(RetiredTestPluginGuid))
                 {
@@ -64,8 +76,11 @@ namespace ExtraFeatures
                 catch
                 {
                     processPatchUnavailable = true;
+                    ElevatedMoatAiCapability.Publish(ElevatedMoatAiState.Disabled);
                     throw;
                 }
+                ElevatedMoatAiCapability.Publish(processPatch.IsAiEnabled
+                    ? ElevatedMoatAiState.Enabled : ElevatedMoatAiState.Disabled);
             }
         }
 
@@ -73,6 +88,7 @@ namespace ExtraFeatures
         {
             lock (ProcessPatchSync)
                 processPatch?.UpdateSettings(false, false);
+            ElevatedMoatAiCapability.Publish(ElevatedMoatAiState.Disabled);
             context = null;
         }
     }

@@ -23,6 +23,7 @@ internal static class Program
         {
             ("maps player to keep slot", MapsPlayerToKeepSlot),
             ("maps lobby rotation values to native degrees", MapsLobbyRotationValues),
+            ("counts elevated moat exposure independently of fit", CountsElevatedMoatExposure),
             ("resolves Vanilla map-facing start rotations", ResolvesMapFacingRotations),
             ("tracks retained starts in native player order", TracksRetainedStartsInNativePlayerOrder),
             ("evaluates AI starts sequentially", EvaluatesAiStartsSequentially),
@@ -3053,6 +3054,64 @@ internal static class Program
             AivPlacementCandidateWorkItem workItem,
             CancellationToken cancellationToken) =>
             throw new InvalidOperationException("synthetic unexpected worker failure");
+    }
+
+    private static void CountsElevatedMoatExposure()
+    {
+        var blueprint = new AivBlueprint(
+            "moat height boundary", 5,
+            [new AivBuildFrame(0, 106, AivMapperCatalog.Resolve(106), false,
+                [new AivGridPoint(50, 50), new AivGridPoint(51, 50)])],
+            Array.Empty<AivMiscPlacement>(), new AivGridPoint(50, 50));
+        var projector = new AivCastleProjector();
+        var evaluator = new AivPlacementEvaluator();
+        foreach (AivRotation rotation in new[]
+        {
+            AivRotation.Degrees0, AivRotation.Degrees90,
+            AivRotation.Degrees180, AivRotation.Degrees270
+        })
+        {
+            AivProjectedCastle castle = projector.Project(
+                blueprint, new MapCoordinate(400, 400), rotation);
+            var map = new SparsePlacementMap();
+            map.Set(castle.Elements[0].MapCoordinate,
+                new AivPlacementTileEvidence(0, 0, 12, 12, 0, 0, 0, 0));
+            map.Set(castle.Elements[1].MapCoordinate,
+                new AivPlacementTileEvidence(0, 0, 13, 13, 0, 0, 0, 0));
+            AivPlacementResult fit = evaluator.Evaluate(map, castle);
+            Assert(MoatBuildExposure.Count(map, castle) == 1, "one high moat tile");
+            map.Set(castle.Elements[1].MapCoordinate,
+                new AivPlacementTileEvidence(0, 0, 12, 12, 0, 0, 0, 0));
+            Assert(MoatBuildExposure.Count(map, castle) == 0, "height 12 is not high");
+            Assert(fit.Status == evaluator.Evaluate(map, castle).Status,
+                "moat height 13 does not change native fit status");
+            Assert(fit.Score.SequentialBuildScore ==
+                evaluator.Evaluate(map, castle).Score.SequentialBuildScore,
+                "moat height 13 does not change native fit score");
+
+            var drawbridgeBlueprint = new AivBlueprint(
+                "drawbridge height boundary", 5,
+                [new AivBuildFrame(0, 105, AivMapperCatalog.Resolve(105), false,
+                    [new AivGridPoint(50, 50)])],
+                Array.Empty<AivMiscPlacement>(), new AivGridPoint(50, 50));
+            AivProjectedCastle drawbridge = projector.Project(
+                drawbridgeBlueprint, new MapCoordinate(400, 400), rotation);
+            var bridgeMap = new SparsePlacementMap();
+            MapCoordinate footprintTile = drawbridge.Elements[0].OccupiedTiles[0].MapCoordinate;
+            bridgeMap.Set(footprintTile,
+                new AivPlacementTileEvidence(0, 0, 13, 13, 0, 0, 0, 0));
+            Assert(MoatBuildExposure.CountDrawbridge(bridgeMap, drawbridge) == 1,
+                "one high drawbridge footprint tile");
+            Assert(MoatBuildExposure.Count(bridgeMap, drawbridge) == 0,
+                "drawbridge is not a moat");
+            AivPlacementResult bridgeFit = evaluator.Evaluate(bridgeMap, drawbridge);
+            bridgeMap.Set(footprintTile,
+                new AivPlacementTileEvidence(0, 0, 12, 12, 0, 0, 0, 0));
+            Assert(MoatBuildExposure.CountDrawbridge(bridgeMap, drawbridge) == 0,
+                "drawbridge height 12 is not high");
+            Assert(bridgeFit.Status == evaluator.Evaluate(bridgeMap, drawbridge).Status,
+                "drawbridge height 13 does not change native fit status");
+        }
     }
 
     private sealed class SparsePlacementMap : IAivPlacementTileSource

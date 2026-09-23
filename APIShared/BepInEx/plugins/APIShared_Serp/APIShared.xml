@@ -415,6 +415,30 @@
         <member name="M:APIShared.LobbyPreparationOverride.Apply(CrusaderDE.FRONT_Multiplayer)">
             <summary>Applies the prepared preset after Vanilla has opened its controls.</summary>
         </member>
+        <member name="T:APIShared.ElevatedMoatAiState">
+            <summary>Effective AI elevated-moat construction state published by ExtraFeatures.</summary>
+        </member>
+        <member name="F:APIShared.ElevatedMoatAiState.Unknown">
+            <summary>No effective runtime state has been established.</summary>
+        </member>
+        <member name="F:APIShared.ElevatedMoatAiState.Disabled">
+            <summary>Elevated AI construction is not enabled by ExtraFeatures.</summary>
+        </member>
+        <member name="F:APIShared.ElevatedMoatAiState.Enabled">
+            <summary>The ExtraFeatures hook is installed and enabled for AI players.</summary>
+        </member>
+        <member name="T:APIShared.ElevatedMoatAiCapability">
+            <summary>Process-wide publication of the effective elevated AI build state.</summary>
+        </member>
+        <member name="P:APIShared.ElevatedMoatAiCapability.Current">
+            <summary>Latest state; unknown until ExtraFeatures publishes a verified state.</summary>
+        </member>
+        <member name="E:APIShared.ElevatedMoatAiCapability.Changed">
+            <summary>Raised when the effective state changes.</summary>
+        </member>
+        <member name="M:APIShared.ElevatedMoatAiCapability.Publish(APIShared.ElevatedMoatAiState)">
+            <summary>Publish the state after reconciling the native patch and AI setting.</summary>
+        </member>
         <member name="T:APIShared.PlayerLordDeathNotification">
             <summary>Immutable notification that a previously confirmed living player lord disappeared or died.</summary>
         </member>

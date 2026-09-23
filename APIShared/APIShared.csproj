@@ -64,6 +64,7 @@
     <Compile Include="src\AivBuildStepContracts.cs" />
     <Compile Include="src\LobbyStateContracts.cs" />
     <Compile Include="src\LobbyPreparationOverride.cs" />
+    <Compile Include="src\ElevatedMoatAiState.cs" />
     <Compile Include="src\PlayerDefeatContracts.cs" />
     <Compile Include="src\PlayerDefeatState.cs" />
     <Compile Include="src\UnitHudContracts.cs" />

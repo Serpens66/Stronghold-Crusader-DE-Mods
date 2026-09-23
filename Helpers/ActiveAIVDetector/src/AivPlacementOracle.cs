@@ -8,6 +8,7 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 
 namespace ActiveAIVDetector
@@ -582,6 +583,7 @@ namespace ActiveAIVDetector
                 return null;
 
             DateTimeOffset startedAtLocal = DateTimeOffset.Now;
+            long beforeScanStarted = Stopwatch.GetTimestamp();
             int activeLayoutIndex = -1;
             byte status = 0;
             byte helper = 0;
@@ -643,7 +645,8 @@ namespace ActiveAIVDetector
                 this, context, startedAtLocal, activeLayoutIndex, status, helper,
                 mapper, positionCount, firstPositionIndex, captureError,
                 placementObservation, placementStateAddress, pointerWasConsistent,
-                previousObservation);
+                previousObservation,
+                Stopwatch.GetTimestamp() - beforeScanStarted);
 
         }
 
@@ -657,6 +660,7 @@ namespace ActiveAIVDetector
                     return;
 
                 DateTimeOffset completedAtLocal = DateTimeOffset.Now;
+                long afterScanStarted = Stopwatch.GetTimestamp();
                 var changes = new List<OraclePrebuildBuildingGridChange>();
                 var layerChanges = new List<OraclePrebuildLayerChange>();
                 var buildingRecordChanges = new List<OraclePrebuildBuildingRecordChange>();
@@ -735,7 +739,9 @@ namespace ActiveAIVDetector
                     changes,
                     layerChanges,
                     buildingRecordChanges,
-                    captureError));
+                    captureError,
+                    invocation.BeforeScanTicks,
+                    Stopwatch.GetTimestamp() - afterScanStarted));
             }
             catch (Exception ex)
             {
@@ -1202,7 +1208,8 @@ namespace ActiveAIVDetector
                 PlacementStateObservation placementObservation,
                 ulong placementStateAddress,
                 bool pointerWasConsistent,
-                PlacementStateObservation previousObservation)
+                PlacementStateObservation previousObservation,
+                long beforeScanTicks)
             {
                 this.owner = owner;
                 Context = context;
@@ -1218,6 +1225,7 @@ namespace ActiveAIVDetector
                 PlacementStateAddress = placementStateAddress;
                 PointerWasConsistent = pointerWasConsistent;
                 PreviousObservation = previousObservation;
+                BeforeScanTicks = beforeScanTicks;
             }
 
             internal AivBuildStepContext Context { get; }
@@ -1233,6 +1241,7 @@ namespace ActiveAIVDetector
             internal ulong PlacementStateAddress { get; }
             internal bool PointerWasConsistent { get; }
             internal PlacementStateObservation PreviousObservation { get; }
+            internal long BeforeScanTicks { get; }
 
             public void Complete(AivBuildStepCompletion completion)
             {
@@ -1508,7 +1517,9 @@ namespace ActiveAIVDetector
             IList<OraclePrebuildBuildingGridChange> changes,
             IList<OraclePrebuildLayerChange> layerChanges,
             IList<OraclePrebuildBuildingRecordChange> buildingRecordChanges,
-            string captureError)
+            string captureError,
+            long beforeScanTicks,
+            long afterScanTicks)
         {
             CaptureSequence = captureSequence;
             CaptureFrameNumber = captureFrameNumber;
@@ -1535,6 +1546,8 @@ namespace ActiveAIVDetector
             LayerChanges = new List<OraclePrebuildLayerChange>(layerChanges).AsReadOnly();
             BuildingRecordChanges = new List<OraclePrebuildBuildingRecordChange>(buildingRecordChanges).AsReadOnly();
             CaptureError = captureError ?? string.Empty;
+            BeforeScanTicks = beforeScanTicks;
+            AfterScanTicks = afterScanTicks;
         }
 
         public int CaptureSequence { get; }
@@ -1562,6 +1575,8 @@ namespace ActiveAIVDetector
         public IReadOnlyList<OraclePrebuildLayerChange> LayerChanges { get; }
         public IReadOnlyList<OraclePrebuildBuildingRecordChange> BuildingRecordChanges { get; }
         public string CaptureError { get; }
+        public long BeforeScanTicks { get; }
+        public long AfterScanTicks { get; }
         public bool IsHighlightedMapper =>
             Mapper == (short)eMappers.MAPPER_STORES ||
             Mapper == (short)eMappers.MAPPER_TUNNELERS_GUILD ||

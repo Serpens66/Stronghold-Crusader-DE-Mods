@@ -18,6 +18,39 @@ was reviewed against the current semantic decompiler export.
 | Execute completed castle | `0x55F50` / `0x180055F50` | High for frame sequence |
 | Execute one build step | `0x51790` / `0x180051790` | Medium for all constructors |
 
+For this hash, the projected raster validator `0x57080` calls tile rules
+`0x7B060` with player ID 0 and mode 0. Its general height limit is 200;
+it does not apply the physical moat-construction threshold of 12. The
+later `0x51790` mapper-106 path calls moat constructor `0x59730`
+(`VA 0x180059730`), whose height branch requires a tile height below 13
+for Vanilla construction. ExtraFeatures gates a bypass of that later branch
+for AI players when its audited hook is installed and logically enabled;
+it does not alter the candidate fit call. Confidence: high for the checked
+call/branch paths and the observed Crater Lake trace; remaining constructor
+conditions are not modeled by this statement.
+
+The later mapper-105 drawbridge route in `0x51790` calls building
+constructor `0x6D580` and drawbridge creator `0x739C0`. The audited
+height-failure writer at RVA `0x7870B` follows a mapper-105 comparison
+and a maximum-building-height comparison against 12. ExtraFeatures
+suppresses this failure for allowed AI players only when its complete
+hook transaction is active. Candidate fit still does not apply this
+later height gate. Confidence: high for the guarded native branch and
+hook contract; medium for a complete offline build outcome.
+
+On 2026-09-23, the Crater Lake `nizar6.aivjson` prebuild trace on this
+native hash recorded mapper 106 in frames 15, 65, and 66. Of 1,025
+listed moat positions, 1,022 height-layer changes were observed, all
+`130 -> 122`; the ExtraFeatures AI hook was active. The trace has complete
+frame/provenance metadata and zero capture errors. The paired no-prebuild
+start retained complete native fit scores for Nizar and Wolf. These
+observations establish the fit/build distinction for this case, not exact
+future construction for every projected moat cell.
+The same Nizar capture recorded mapper 105 at frame 28: one prepared
+drawbridge position, 25 new building-ID cells, and 15 height changes
+`130 -> 122`. This is direct layer evidence for this build, not a
+guarantee that every footprint cell receives the same height write.
+
 `0x94350` scans player IDs in order, resolves a per-player selector, starts
 native AIV state, and routes negative selectors to `0x54F60`. Selector `-1`
 passes an enabled alternative-rotation flag; `-2` and lower pass disabled.

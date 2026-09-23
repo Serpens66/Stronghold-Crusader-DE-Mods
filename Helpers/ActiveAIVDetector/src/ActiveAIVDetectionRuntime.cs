@@ -12,6 +12,7 @@ using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.MapLoader;
 using SHCDESE.Interop;
 using System;
+using System.Diagnostics;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -891,8 +892,12 @@ namespace ActiveAIVDetector
                 int highlightedFrames = 0;
                 int layerChanges = 0;
                 int buildingRecordChanges = 0;
+                long beforeScanTicks = 0;
+                long afterScanTicks = 0;
                 foreach (OraclePrebuildFrameTraceSnapshot frame in frames)
                 {
+                    beforeScanTicks += frame.BeforeScanTicks;
+                    afterScanTicks += frame.AfterScanTicks;
                     totalAdded += frame.AddedCount;
                     totalRemoved += frame.RemovedCount;
                     totalReplaced += frame.ReplacedCount;
@@ -932,6 +937,8 @@ namespace ActiveAIVDetector
                     writer.WriteLine($"# highlightedMapperFrames={highlightedFrames}");
                     writer.WriteLine($"# layerChanges={layerChanges}");
                     writer.WriteLine($"# buildingRecordChanges={buildingRecordChanges}");
+                    writer.WriteLine($"# beforeCaptureMilliseconds={beforeScanTicks * 1000.0 / Stopwatch.Frequency:F1}");
+                    writer.WriteLine($"# afterCaptureMilliseconds={afterScanTicks * 1000.0 / Stopwatch.Frequency:F1}");
                     writer.WriteLine($"# frameSnapshotsComplete={pointerProblemFrames == 0 && errorFrames == 0 && selection != null}");
                     writer.WriteLine($"# provenanceComplete={provenanceComplete}");
                     writer.WriteLine(
@@ -1026,6 +1033,8 @@ namespace ActiveAIVDetector
                     $"Wrote opt-in Oracle prebuild trace: path={path}, " +
                     $"mapLoadSequence={mapLoadSequence}, playerId={first.PlayerId}, " +
                     $"frames={frames.Count}, layerChanges={layerChanges}, " +
+                    $"beforeCaptureMs={beforeScanTicks * 1000.0 / Stopwatch.Frequency:F1}, " +
+                    $"afterCaptureMs={afterScanTicks * 1000.0 / Stopwatch.Frequency:F1}, " +
                     $"buildingRecordChanges={buildingRecordChanges}, added={totalAdded}, removed={totalRemoved}, " +
                     $"replaced={totalReplaced}, pointerProblemFrames={pointerProblemFrames}, " +
                     $"captureErrorFrames={errorFrames}.");

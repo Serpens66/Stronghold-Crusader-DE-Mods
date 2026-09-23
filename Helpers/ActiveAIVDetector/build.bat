@@ -126,9 +126,13 @@ if "%BUILD_EXIT_CODE%"=="0" (
 
   echo Kopiere Plugin in den Spielordner...
   if exist "!GAME_PLUGIN_DIR!\" (
-    rem Keep player-created lobby settings while replacing all packaged files.
+    rem Replace only packaged asset directories; preserve captures and player data.
     for /D %%D in ("!GAME_PLUGIN_DIR!\*") do (
-      if /I not "%%~nxD"=="LobbyModSettings" (
+      if /I "%%~nxD"=="VanillaAIC" (
+        rmdir /S /Q "%%~fD"
+        if errorlevel 1 goto copy_failed
+      )
+      if /I "%%~nxD"=="VanillaAIV" (
         rmdir /S /Q "%%~fD"
         if errorlevel 1 goto copy_failed
       )

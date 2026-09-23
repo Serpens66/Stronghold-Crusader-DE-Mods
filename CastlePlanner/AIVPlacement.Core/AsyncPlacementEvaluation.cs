@@ -83,18 +83,29 @@ namespace CastlePlanner.AIVPlacement.Core
             AivPlacementRotationSelection selection,
             LobbyEvaluationFailureKind failureKind,
             string failureMessage,
-            LobbyPlacementPhaseTimings timings)
+            LobbyPlacementPhaseTimings timings,
+            IReadOnlyList<int> elevatedMoatTilesByRotation = null,
+            IReadOnlyList<int> elevatedDrawbridgeTilesByRotation = null)
         {
             Selection = selection;
             FailureKind = failureKind;
             FailureMessage = failureMessage ?? string.Empty;
             Timings = timings ?? LobbyPlacementPhaseTimings.Empty;
+            ElevatedMoatTilesByRotation = elevatedMoatTilesByRotation == null
+                ? Array.Empty<int>()
+                : new ReadOnlyCollection<int>(elevatedMoatTilesByRotation.ToArray());
+            ElevatedDrawbridgeTilesByRotation = elevatedDrawbridgeTilesByRotation == null
+                ? Array.Empty<int>()
+                : new ReadOnlyCollection<int>(elevatedDrawbridgeTilesByRotation.ToArray());
         }
 
         public AivPlacementRotationSelection Selection { get; }
         public LobbyEvaluationFailureKind FailureKind { get; }
         public string FailureMessage { get; }
         public LobbyPlacementPhaseTimings Timings { get; }
+        // Map-height exposure only; this does not predict the later build steps.
+        public IReadOnlyList<int> ElevatedMoatTilesByRotation { get; }
+        public IReadOnlyList<int> ElevatedDrawbridgeTilesByRotation { get; }
         public bool IsEvaluable => FailureKind == LobbyEvaluationFailureKind.None && Selection != null;
 
         public static LobbyPlacementWorkerResult NotEvaluable(
@@ -164,6 +175,8 @@ namespace CastlePlanner.AIVPlacement.Core
             Timings = cacheDisposition == LobbyEvaluationCacheDisposition.Computed
                 ? workerResult.Timings
                 : LobbyPlacementPhaseTimings.Empty;
+            ElevatedMoatTilesByRotation = workerResult.ElevatedMoatTilesByRotation;
+            ElevatedDrawbridgeTilesByRotation = workerResult.ElevatedDrawbridgeTilesByRotation;
         }
 
         public int CandidateId { get; }
@@ -174,6 +187,8 @@ namespace CastlePlanner.AIVPlacement.Core
         public string FailureMessage { get; }
         public LobbyEvaluationCacheDisposition CacheDisposition { get; }
         public LobbyPlacementPhaseTimings Timings { get; }
+        public IReadOnlyList<int> ElevatedMoatTilesByRotation { get; }
+        public IReadOnlyList<int> ElevatedDrawbridgeTilesByRotation { get; }
         public AivPlacementStatus Status => Selection == null
             ? AivPlacementStatus.NotEvaluable
             : Selection.Status;
@@ -1099,6 +1114,8 @@ namespace CastlePlanner.AIVPlacement.Core
                 TimeSpan projectionElapsed = TimeSpan.Zero;
                 TimeSpan ruleElapsed = TimeSpan.Zero;
                 var variants = new List<AivPlacementResult>(4);
+                var elevatedMoatTilesByRotation = new List<int>(4);
+                var elevatedDrawbridgeTilesByRotation = new List<int>(4);
                 AivRotation initialRotation = workItem.Request.UsesMapFacingRotation
                     ? AivInitialRotationResolver.ResolveMapFacing(keep.Coordinate.Value)
                     : workItem.Request.InitialRotation;
@@ -1117,6 +1134,8 @@ namespace CastlePlanner.AIVPlacement.Core
 
                     var ruleTimer = Stopwatch.StartNew();
                     variants.Add(evaluator.Evaluate(placementMap, castle));
+                    elevatedMoatTilesByRotation.Add(MoatBuildExposure.Count(placementMap, castle));
+                    elevatedDrawbridgeTilesByRotation.Add(MoatBuildExposure.CountDrawbridge(placementMap, castle));
                     cancellationToken.ThrowIfCancellationRequested();
                     ruleTimer.Stop();
                     ruleElapsed += ruleTimer.Elapsed;
@@ -1137,7 +1156,9 @@ namespace CastlePlanner.AIVPlacement.Core
                         projectionElapsed,
                         ruleElapsed,
                         mapLookup.CacheHit,
-                        mapLookup.Shared));
+                        mapLookup.Shared),
+                    elevatedMoatTilesByRotation,
+                    elevatedDrawbridgeTilesByRotation);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -1420,6 +1441,36 @@ namespace CastlePlanner.AIVPlacement.Core
                 hash = hash * 397 ^ PreBuildSetting;
                 return hash * 397 ^ (AnalyzerVersion?.GetHashCode() ?? 0);
             }
+        }
+    }
+
+    public static class MoatBuildExposure
+    {
+        // This is a map-height warning, not a sequential constructor simulation.
+        public static int Count(IAivPlacementTileSource map, AivProjectedCastle castle) =>
+            CountMapper(map, castle, 106);
+
+        public static int CountDrawbridge(IAivPlacementTileSource map, AivProjectedCastle castle) =>
+            CountMapper(map, castle, 105);
+
+        private static int CountMapper(IAivPlacementTileSource map, AivProjectedCastle castle, int mapper)
+        {
+            if (map == null) throw new ArgumentNullException(nameof(map));
+            if (castle == null) throw new ArgumentNullException(nameof(castle));
+            var tileIds = new HashSet<int>();
+            foreach (AivProjectedElement element in castle.Elements)
+            {
+                if (element.Mapper.Value != mapper) // Native 106=moat, 105=drawbridge.
+                    continue;
+                foreach (AivProjectedTile tile in element.OccupiedTiles)
+                {
+                    MapCoordinate coordinate = tile.MapCoordinate;
+                    if (map.Geometry.TryGetTileId(coordinate.X, coordinate.Y, out int tileId) &&
+                        map.GetTileEvidence(tileId).Height > 12)
+                        tileIds.Add(tileId);
+                }
+            }
+            return tileIds.Count;
         }
     }
 

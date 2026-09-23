@@ -369,3 +369,55 @@ lokale Konfiguration verwendet nun ebenfalls 2048, beide `PlayerId`-Filter
 stehen auf `-1`, und die sieben KI-Bausequenzen bleiben innerhalb der Quote
 von acht. Die installierte DLL stimmt per SHA-256 mit dem Build-Artefakt
 überein. Ein erneuter Ingame-Lauf dieser Quotenerhöhung steht noch aus.
+
+### Crater Lake, Default 6, erhöhter Burggraben und Zugbrücke (24.09.2026)
+
+Der gezielte Lauf auf Crater Lake (Map-SHA-256
+`C5D9906AA37ED96EC1CF9B3EB0C7F6FB5B3E1D8063167FE22337E69C153BB887`,
+Native-SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`)
+erfasste Nizar `Default 6` / `nizar6.aivjson` mit Dateihash
+`1D86B141261297706AD65F60D870A3AE30A8C0DA05B6B3B1D4D923C702CB11AD`,
+Keep `(241,274)`, Drehung 270 Grad und den später folgenden Wolf
+`Default 8` / `wolf8.aivjson`, Keep `(254,580)`, Drehung 0 Grad.
+Mit Sofortspawn waren beide Bauaufnahmen vollständig (292 bzw. 337 Frames,
+null Pointer- und Aufnahmefehler); ohne Sofortspawn hatten beide nativen
+Fits weiterhin den vollständigen Score 999999 mit null blockierten Zellen.
+In dieser Konfiguration schneiden sich die für Wolfs Fit gelesenen Zellen
+nicht mit Nizars aufgezeichneten Änderungen der acht Validator-Schichten.
+Das ist eine Beobachtung für diese zwei ausgewählten AIVs, kein Beweis für
+alle Varianten oder angrenzende Starts. Die Sperre späterer KI-Spieler bei
+Sofortspawn bleibt bestehen.
+
+Nizars Burggraben-Mapper 106 wurde in den Frames 15, 65 und 66 mit
+368, 474 und 183 geplanten Positionen aufgerufen. Zellweise änderten sich
+367, 474 und 181 Höhenwerte, insgesamt 1.022 verschiedene
+Frame-Zelländerungen. Alle protokollierten Höhenwechsel waren `130 -> 122`
+und hatten begleitende Logikänderungen. ExtraFeatures meldete seinen
+KI-Höhen-Patch aktiv. Die drei unveränderten Positionen und weitere
+Bau-Prüfungen sind nicht aus dem bloßen Frame-Return ableitbar; der
+Frame-Returnwert 0 ist kein Beweis für unveränderte Tile-Schichten.
+Nizars Zugbrücken-Mapper 105 wurde in Frame 28 mit einer AIV-Position
+aufgerufen. Der Trace zeigt 25 neu belegte Building-ID-Zellen und
+15 Höhenwechsel `130 -> 122`. Für die übrigen Footprint-Zellen folgt
+aus dem fehlenden Höhenwechsel keine sichere Aussage über ihre Bauhöhe.
+Die Auswertung beruht auf dem vollständigen nativen Differenztrace mit
+hoher Sicherheit für die beobachteten Änderungen. Die Offline-Projektion zählt 1.025 Burggraben-Zellen und 25 Zugbrücken-Footprint-Zellen, deren ursprüngliche Map-Höhe jeweils 130 und damit über der Vanilla-Baugrenze 12 liegt.
+Die geplanten
+Projektionszellen und ihre **ursprüngliche** Map-Höhe werden im Offline-Code
+nur als potentielles späteres Bauhindernis ausgewiesen; das ist keine
+vollständige Simulation aller vorgelagerten Bau-Frames.
+Der Detector-Build vom 24.09.2026 entfernte die beiden Roh-Trace-Ordner unbeabsichtigt. Die zuvor ausgelesenen Frame-Summen und der archivierte Spiel-Log liegen vor, ein erneuter exakter Join jeder projizierten Zelle mit dem nativen Differenztrace ist aus diesen Artefakten nicht mehr möglich. Das Buildskript bewahrt künftig alle nicht mitgelieferten Ordner auf; für diesen Join wäre eine neue Aufnahme erforderlich.
+
+Der Native-Fit `0x57080 -> 0x7B060` verwendet keine Burggraben-Sondergrenze
+bei Höhe 12. Erst der Baupfad `0x51790 -> 0x59730` berücksichtigt diese
+physische Höhe; ExtraFeatures ändert diesen Baupfad für KI-Spieler, wenn
+sein Hook installiert und logisch aktiv ist.
+Für Zugbrücken benutzt `0x51790` den Gebäudepfad `0x6D580 -> 0x739C0`;
+der Höhenfehlerpfad bei `0x7870B` folgt auf Mapper 105 und eine maximale
+Bauhöhe über 12. Derselbe aktive ExtraFeatures-Hook unterdrückt diesen
+Fehler für KI-Spieler. Das `IsElevated`-Logikbit ist
+von einer physischen Höhe über 12 zu unterscheiden. Die Fit-Farbe bleibt
+eine Aussage über Vanillas Kandidatenprüfung. Ein separater Tooltip nennt
+hohe geplante Burggraben- und Zugbrücken-Zellen je Drehung und den tatsächlich bekannten
+ExtraFeatures-Zustand. Für eine nicht ausgewertete AIV wird kein Bauhinweis
+behauptet.

@@ -41,6 +41,7 @@ namespace APISharedTests
                     : null;
             PlayerDefeatTests.Run();
             TestPublicSurface();
+            TestElevatedMoatAiState();
             TestPublishedPresetJson();
             TestPublishedPresetDiscovery();
             TestPresetSaveUiModel();
@@ -74,6 +75,24 @@ namespace APISharedTests
             }
             Console.Error.WriteLine($"FAIL: APIShared tests reported {failures} failure(s).");
             return 1;
+        }
+
+        private static void TestElevatedMoatAiState()
+        {
+            int changes = 0;
+            Action<ElevatedMoatAiState> observer = _ => changes++;
+            ElevatedMoatAiCapability.Changed += observer;
+            Assert(ElevatedMoatAiCapability.Current == ElevatedMoatAiState.Unknown,
+                "elevated AI construction starts unknown");
+            ElevatedMoatAiCapability.Publish(ElevatedMoatAiState.Enabled);
+            ElevatedMoatAiCapability.Publish(ElevatedMoatAiState.Enabled);
+            Assert(ElevatedMoatAiCapability.Current == ElevatedMoatAiState.Enabled && changes == 1,
+                "effective enabled state is published once");
+            ElevatedMoatAiCapability.Publish(ElevatedMoatAiState.Disabled);
+            Assert(ElevatedMoatAiCapability.Current == ElevatedMoatAiState.Disabled && changes == 2,
+                "effective disabled state reaches consumers");
+            ElevatedMoatAiCapability.Changed -= observer;
+            ElevatedMoatAiCapability.Publish(ElevatedMoatAiState.Unknown);
         }
 
         private static void TestUnitHudActivation()
@@ -1455,6 +1474,8 @@ namespace APISharedTests
                 "APIShared.IApiShared",
                 "APIShared.NativeApiState",
                 "APIShared.LobbyPreparationOverride",
+                "APIShared.ElevatedMoatAiState",
+                "APIShared.ElevatedMoatAiCapability",
                 "APIShared.NativeCapabilityDiagnostic",
                 "APIShared.NativeCapabilityIds",
                 "APIShared.NativeCapabilityState",

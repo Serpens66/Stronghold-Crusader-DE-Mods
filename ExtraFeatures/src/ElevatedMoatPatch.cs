@@ -808,6 +808,7 @@ namespace ExtraFeatures
         }
 
         private bool IsActive => Volatile.Read(ref featureActive) != 0;
+        internal bool IsAiEnabled => IsActive && Volatile.Read(ref allowAIPlacement) != 0;
 
         private void RecordSuccessfulCorrection(bool restored)
         {

@@ -15,6 +15,7 @@ using MonoMod.RuntimeDetour;
 using SHCDESE.API;
 using Button = Noesis.Button;
 using ToolTipService = Noesis.ToolTipService;
+using APIShared;
 
 namespace CastlePlanner.AIVPlacement
 {
@@ -76,6 +77,7 @@ namespace CastlePlanner.AIVPlacement
         private Button blockedReadyButton;
         private bool blockedReadyButtonWasEnabled;
         private object blockedReadyButtonToolTip;
+        private int moatStatusDirty;
 
         public AivPlacementRuntime(ManualLogSource log, Func<bool> isEnabled)
         {
@@ -115,6 +117,7 @@ namespace CastlePlanner.AIVPlacement
                 buttonClickedHook = new Hook(buttonClicked, (ButtonClickedDelegate)ButtonClickedHook);
                 buttonClickedTrampoline = buttonClickedHook.GenerateTrampoline<ButtonClickedDelegate>();
                 selectionDialog.Install();
+                ElevatedMoatAiCapability.Changed += OnElevatedMoatAiStateChanged;
             }
             catch
             {
@@ -186,6 +189,8 @@ namespace CastlePlanner.AIVPlacement
 
                 lobbyContextActive = true;
                 CaptureIfChanged(self, false);
+                if (Interlocked.Exchange(ref moatStatusDirty, 0) != 0)
+                    selectionDialog.RefreshMoatStatus();
                 PublishCandidateProgress(false);
                 PublishCompletedEvaluations();
                 UpdateHostReadyButton(self);
@@ -195,6 +200,9 @@ namespace CastlePlanner.AIVPlacement
                 LogErrorOnce("frontend-update", $"AIV lobby frontend update failed: {ex}");
             }
         }
+
+        private void OnElevatedMoatAiStateChanged(ElevatedMoatAiState state) =>
+            Interlocked.Exchange(ref moatStatusDirty, 1);
 
         private void ButtonClickedHook(FRONT_Multiplayer self, string param)
         {
