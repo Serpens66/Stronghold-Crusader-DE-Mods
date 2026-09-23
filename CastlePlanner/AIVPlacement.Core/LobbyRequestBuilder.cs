@@ -40,6 +40,7 @@ namespace CastlePlanner.AIVPlacement.Core
                     retainedStateFailure = humanKeepFailure;
             }
 
+            bool hasEarlierAi = false;
             foreach (LobbyAiSlotInput slot in capture.AiSlots.OrderBy(value => value.PlayerId))
             {
                 int keepSlotIndex = FindKeepSlot(
@@ -71,10 +72,10 @@ namespace CastlePlanner.AIVPlacement.Core
                 if (!capture.IsHost)
                     failure = LobbyRequestFailureKind.ClientEvaluationNotRequired;
 
-                // Sequential prebuild state is intentionally deferred to Chats 14-16.
-                if (capture.PreBuildSetting == 1)
-                    failure = LobbyRequestFailureKind.PreBuildSequenceUnsupported;
-                else if (capture.PreBuildSetting != 0 && failure == LobbyRequestFailureKind.None)
+                // The first AI is checked before any earlier AIV prebuild can change tiles.
+                if (failure == LobbyRequestFailureKind.None &&
+                    capture.PreBuildSetting != 0 &&
+                    (capture.PreBuildSetting != 1 || hasEarlierAi))
                     failure = LobbyRequestFailureKind.PreBuildSequenceUnsupported;
 
                 string lordName = string.IsNullOrEmpty(slot.CustomLordName)
@@ -103,6 +104,7 @@ namespace CastlePlanner.AIVPlacement.Core
                     retainedStartSlots.Add(keepSlotIndex);
                 else if (retainedStateFailure == LobbyRequestFailureKind.None)
                     retainedStateFailure = keepFailure;
+                hasEarlierAi = true;
             }
 
             return new AivPlacementRequestBatch(generation, requests);

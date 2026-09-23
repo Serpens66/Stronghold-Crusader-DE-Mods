@@ -249,6 +249,11 @@ public static class SerpLocalization
     public const string AivPlacementPreBuildUnsupported = "CastlePlanner.AIVPlacement.PreBuildUnsupported";
     public const string AivPlacementHostOnly = "CastlePlanner.AIVPlacement.HostOnly";
     public const string AivPlacementChecking = "CastlePlanner.AIVPlacement.Checking";
+    public const string AivPlacementRotationResults = "CastlePlanner.AIVPlacement.RotationResults";
+    public const string AivPlacementAutoSelected = "CastlePlanner.AIVPlacement.AutoSelected";
+    public const string AivPlacementAutoDifferent = "CastlePlanner.AIVPlacement.AutoDifferent";
+    public const string AivPlacementAutoUnknown = "CastlePlanner.AIVPlacement.AutoUnknown";
+    public const string AivPlacementAutoImpossible = "CastlePlanner.AIVPlacement.AutoImpossible";
 
     private const string DefaultLocale = "en-US";
     private const string SteamAppId = "3024040";
@@ -686,9 +691,14 @@ public static class SerpLocalization
         { AivPlacementPartial, "Partial fit: {FitPercentage}%, sequential score {SequentialBuildScore}" },
         { AivPlacementImpossible, "Does not fit" },
         { AivPlacementNotEvaluable, "Not evaluable: {Reason}" },
-        { AivPlacementPreBuildUnsupported, "Sequential pre-build placement is not supported yet." },
+        { AivPlacementPreBuildUnsupported, "A prior AI castle was pre-built; its live tile state is not available in the lobby." },
         { AivPlacementHostOnly, "Only the host evaluates AI castle placement." },
-        { AivPlacementChecking, "The best AI castle is still being checked." }
+        { AivPlacementChecking, "The best AI castle is still being checked." },
+        { AivPlacementRotationResults, "Rotations: {Results}" },
+        { AivPlacementAutoSelected, "Vanilla auto: selects this AIV at {Rotation}°" },
+        { AivPlacementAutoDifferent, "Vanilla auto: selects another AIV" },
+        { AivPlacementAutoUnknown, "Vanilla auto: no unique prediction" },
+        { AivPlacementAutoImpossible, "Vanilla auto: no fitting AIV" }
     };
 
     public static string Get(string key)

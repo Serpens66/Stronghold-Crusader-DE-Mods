@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using AIVPlacement.Core;
 using CastlePlanner.AIVPlacement.Core;
@@ -154,8 +155,10 @@ namespace CastlePlanner.AIVPlacement
         public void Publish(AivPlacementCheckResult result)
         {
             var states = new Dictionary<int, AivCandidateVisualState>();
+            NativeAivAutoDecision autoDecision =
+                NativeAivAutoSelector.SelectCertain(result.Candidates);
             foreach (AivPlacementCandidateEvaluation candidate in result.Candidates)
-                states[candidate.CandidateId] = BuildVisualState(candidate);
+                states[candidate.CandidateId] = BuildVisualState(candidate, autoDecision);
 
             if (states.Count == 0 && statesByPlayer.TryGetValue(
                     result.PlayerId,
@@ -362,31 +365,59 @@ namespace CastlePlanner.AIVPlacement
         }
 
         private static AivCandidateVisualState BuildVisualState(
-            AivPlacementCandidateEvaluation candidate)
+            AivPlacementCandidateEvaluation candidate,
+            NativeAivAutoDecision autoDecision)
         {
+            string description;
             switch (candidate.Status)
             {
                 case AivPlacementStatus.Complete:
-                    return new AivCandidateVisualState(
-                        candidate.Status,
-                        SerpLocalization.Get(SerpLocalization.AivPlacementComplete));
+                    description = SerpLocalization.Get(SerpLocalization.AivPlacementComplete);
+                    break;
                 case AivPlacementStatus.Partial:
                     AivPlacementResult best = candidate.Selection?.BestVariant;
-                    return new AivCandidateVisualState(
-                        candidate.Status,
-                        SerpLocalization.Get(
-                            SerpLocalization.AivPlacementPartial,
-                            "FitPercentage", best?.Score.FitPercentage ?? 0,
-                            "SequentialBuildScore", best?.Score.SequentialBuildScore ?? 0));
+                    description = SerpLocalization.Get(
+                        SerpLocalization.AivPlacementPartial,
+                        "FitPercentage", best?.Score.FitPercentage ?? 0,
+                        "SequentialBuildScore", best?.Score.SequentialBuildScore ?? 0);
+                    break;
                 case AivPlacementStatus.Impossible:
-                    return new AivCandidateVisualState(
-                        candidate.Status,
-                        SerpLocalization.Get(SerpLocalization.AivPlacementImpossible));
+                    description = SerpLocalization.Get(SerpLocalization.AivPlacementImpossible);
+                    break;
                 default:
-                    return new AivCandidateVisualState(
-                        AivPlacementStatus.NotEvaluable,
-                        BuildNotEvaluableToolTip(candidate.FailureMessage));
+                    description = BuildNotEvaluableToolTip(candidate.FailureMessage);
+                    break;
             }
+
+            if (candidate.Selection != null)
+            {
+                string rotations = string.Join(" | ", candidate.Selection.Variants.Select(
+                    variant => $"{(int)variant.Rotation}°: " +
+                        (variant.Status == AivPlacementStatus.Partial
+                            ? $"{variant.Score.FitPercentage}%"
+                            : SerpLocalization.Get(variant.Status == AivPlacementStatus.Complete
+                                ? SerpLocalization.AivPlacementComplete
+                                : variant.Status == AivPlacementStatus.Impossible
+                                    ? SerpLocalization.AivPlacementImpossible
+                                    : SerpLocalization.AivPlacementNotEvaluable,
+                            "Reason", "?"))));
+                description += Environment.NewLine + SerpLocalization.Get(
+                    SerpLocalization.AivPlacementRotationResults,
+                    "Results", rotations);
+            }
+
+            string autoText = !autoDecision.IsCertain
+                ? SerpLocalization.Get(SerpLocalization.AivPlacementAutoUnknown)
+                : !autoDecision.CandidateId.HasValue
+                    ? SerpLocalization.Get(SerpLocalization.AivPlacementAutoImpossible)
+                    : autoDecision.CandidateId.Value == candidate.CandidateId
+                        ? SerpLocalization.Get(
+                            SerpLocalization.AivPlacementAutoSelected,
+                            "Rotation", (int)candidate.Selection.Variants[autoDecision.RotationIndex].Rotation)
+                        : SerpLocalization.Get(SerpLocalization.AivPlacementAutoDifferent);
+            return new AivCandidateVisualState(
+                candidate.Status,
+                description + Environment.NewLine + autoText);
         }
 
         private static string BuildNotEvaluableToolTip(string reason)

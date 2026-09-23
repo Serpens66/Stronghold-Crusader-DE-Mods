@@ -32,6 +32,7 @@ Semantic reverse-engineering baseline:
 - [Remapped-player Lord spawn audit](./sem/FBCB9319/knowledge/LORD_SLOT_REMAP.md): map-slot reassignment, stale Lord identity fields and the Vanilla spawn suppression path.
 - [Move-command release contract](./sem/FBCB9319/knowledge/MOVE_COMMAND_RELEASE.md): managed release state machine, native troop-input consumption and the single-command handoff rule.
 - [Keep main-flag rotation audit](./sem/FBCB9319/knowledge/KEEP_FLAG_ROTATION.md): view-dependent Vanilla micro-anchors, Keep-relative rotation, and projectile coordinate contracts.
+- [AIV lobby selection audit](./sem/FBCB9319/knowledge/AIV_LOBBY_SELECTION.md): candidate order, rotation branches, thresholds, and completed-castle state boundary.
 
 - [Semantic overview and validation](./sem/FBCB9319/SEMANTIC_INFO.md)
 - [Semantic Ghidra project](./sem/FBCB9319/ghidra/CrusaderDE-Semantic.gpr)

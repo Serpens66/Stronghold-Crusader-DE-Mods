@@ -30,8 +30,26 @@ a positive prefix score yields placement state `1`, while `999999` yields state
 `2`. Its return value is an integer percentage. The selection path at
 `0x54F60` also considers alternatives in a specific order and applies
 percentage thresholds; the offline lobby aggregation must retain candidate
-order and both native score dimensions. Exact automatic rotation selection for
-all supported AIV structures remains an Oracle validation task.
+order and both native score dimensions.
+
+The `0x94350` caller passes its per-player negative AIV selector to `0x54F60`:
+`-1` enables alternative rotations, while `-2` and lower do not. The lobby
+does not expose the native RNG state, so the offline selector currently
+enumerates every possible variant start index and both rotation-mode values.
+Confidence is high for this control flow and medium for its lobby setting
+mapping. At `0x54F60`, the first visited full fit (`999999`) returns at once.
+The initial rotation visits candidates cyclically, beginning *after* the random
+index. Strict `>` comparisons preserve visit-order ties. A partial result first
+selects a visited candidate above 95% fit; otherwise it selects the largest
+sequential score if that score exceeds 29, or the highest percentage if it is
+at least 91%. Without any positive initial score, the selector tries the next
+three rotations in native order if enabled, accepts a full fit at once, and
+otherwise accepts the highest percentage only from 86% upward. A partial
+alternative rotation cannot displace a positive initial score. The lobby
+publishes an auto candidate and rotation only when all enumerated outcomes
+agree; otherwise it reports the auto outcome as undetermined and retains the
+four separate rotation results. This is an offline prediction, not a change
+to Vanilla's choice.
 
 `0x57080` scans the final 100×100 mapper and frame-score grids row by row.
 The later imported frame wins when two frames claim one cell. For each
@@ -78,9 +96,29 @@ also with `advopt_pre_build=0`. With all 27 AIV sources hash-verified, 7 cases
 match exactly and 138 differ in status, sequential score, blocked-cell count,
 or fit percentage. The
 first discrepancy occurs for player 3 after player 2's selection; the offline
-evidence includes an owner-marked wall tile. The exact source of the state
-difference remains unproven. These archived logs do not record the native DLL
+evidence includes an owner-marked wall tile. The source reconstruction had
+assigned player 3's wall at `(287,401)` to adjacent player 2's rebuilt start,
+moving it to `(284,405)` and creating an artificial owner conflict. Rebuilt
+walls are now associated only with a neighboring start of the same owner;
+multiple distinct matching transforms fail closed. Removal of a pending
+start's wall likewise checks owner identity against retained neighbors when
+the serialized wall records a nonzero owner. Owner-zero walls retain the
+legacy adjacency rule because the archived first-player Oracle requires their
+removal and the map provides no owner discriminator for those cells.
+Confidence is high for this local false-positive diagnosis; the remaining
+corpus-wide effect was checked again: 4/145 cases are exact, and the remaining
+141 still differ in the offline model. The lobby therefore marks a later AI
+`NotEvaluable` after a start rebuild if the map contains an owner-marked wall
+adjacent to another player's start. The first AI remains evaluable. These
+archived logs do not record the native DLL
 hash, so neither result alone validates the currently installed binary.
+
+The archived completed-castle corpora were rechecked with hash-verified local
+AIV files: `Log_075` has 4/4 exact cases across `testanimals.map` and
+`Crater Lake.map`; `Log_069` has 4 exact and 6 `NotEvaluable` cases on
+`Crater Lake.map`, with no mismatches. These results support evaluating the
+first AI before a completed-castle prebuild, while later build state remains
+unmodelled. They also lack current-DLL hash provenance.
 
 All older RVAs, field claims and trace references in the sections below belong
 to the historical `17F8DD4A…` DLL. They are retained as provenance and must

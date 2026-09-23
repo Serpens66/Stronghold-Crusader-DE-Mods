@@ -24,6 +24,7 @@ internal static class Program
             ("Require an exact AIV keep anchor", TestMissingKeep),
             ("Retain placement issue evidence", TestPlacementIssueEvidence),
             ("Normalize serialized player start occupancy", TestPreplacementMapState),
+            ("Keep neighboring starts separated by wall owner", TestNeighboringStartWallOwners),
             ("Rotate rebuilt player start occupancy", TestRebuiltStartRotations),
             ("Reconstruct native rock footprints", TestRockFootprintReconstruction),
             ("Require observed state after an executed AIV prebuild", TestPriorPrebuildStateRequirement),
@@ -362,6 +363,29 @@ internal static class Program
             retained.Geometry.GetTileId(adjacentWallTile.X, adjacentWallTile.Y)).OwnerId);
         AssertEqual(0, retained.NormalizedStartBuildingIds.Count);
         AssertEqual((ushort)28, retained.RetainedStartBuildingIds[0]);
+    }
+
+    private static void TestNeighboringStartWallOwners()
+    {
+        var raw = new SparsePlacementMap();
+        raw.Set(new MapCoordinate(400, 400), Evidence(
+            terrainFlags: 0x10000500, buildingId: 28, ownerId: 2));
+        raw.Set(new MapCoordinate(402, 400), Evidence(
+            terrainFlags: 0x10000500, buildingId: 29, ownerId: 3));
+        raw.Set(new MapCoordinate(401, 400), Evidence(
+            terrainFlags: 0x00008100, ownerId: 3));
+
+        var map = new AivPreplacementMapState(
+            raw,
+            new ushort[] { 28, 29 },
+            new ushort[] { 28 },
+            Array.Empty<MapRockRecord>());
+        AivPlacementTileEvidence wall = map.GetTileEvidence(
+            map.Geometry.GetTileId(401, 400));
+        Assert(map.HasCrossOwnerStartWallAdjacency,
+            "dense neighboring starts must be marked as uncertain after a prior rebuild");
+        AssertEqual(0x00008000, wall.TerrainFlags);
+        AssertEqual((byte)0, wall.OwnerId);
     }
 
     private static void TestRockFootprintReconstruction()

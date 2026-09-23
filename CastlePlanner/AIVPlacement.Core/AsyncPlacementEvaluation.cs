@@ -25,7 +25,9 @@ namespace CastlePlanner.AIVPlacement.Core
         AivSourceUnavailable,
         AivChangedDuringRead,
         AivParseFailed,
-        PlacementEvaluationFailed
+        PlacementEvaluationFailed,
+        NativeAutoSelectionAmbiguous,
+        StartOverlapUnproven
     }
 
     public enum LobbyEvaluationCacheDisposition
@@ -544,14 +546,22 @@ namespace CastlePlanner.AIVPlacement.Core
             var results = new List<AivPlacementCheckResult>(batch.Requests.Count);
             var selectedCandidateIds = new Dictionary<int, int>();
             var rebuiltStartRotationsBySlot = new Dictionary<int, AivRotation>();
+            bool priorStartRotationUnknown = false;
             foreach (AivPlacementCheckRequest request in batch.Requests.OrderBy(value => value.PlayerId))
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                AivPlacementCheckResult result = await EvaluateRequestCoreAsync(
-                    request,
-                    assets,
-                    rebuiltStartRotationsBySlot,
-                    cancellationToken).ConfigureAwait(false);
+                AivPlacementCheckResult result = priorStartRotationUnknown
+                    ? NotEvaluable(
+                        request,
+                        Array.Empty<AivPlacementCandidateEvaluation>(),
+                        LobbyEvaluationFailureKind.NativeAutoSelectionAmbiguous,
+                        "A prior AI start rotation is not uniquely predictable.",
+                        TimeSpan.Zero)
+                    : await EvaluateRequestCoreAsync(
+                        request,
+                        assets,
+                        rebuiltStartRotationsBySlot,
+                        cancellationToken).ConfigureAwait(false);
                 results.Add(result);
                 AivPlacementResult rebuiltVariant = result.SelectedVariant;
                 int? selectedCandidateId = selectCandidateId?.Invoke(result);
@@ -574,6 +584,10 @@ namespace CastlePlanner.AIVPlacement.Core
                 {
                     rebuiltStartRotationsBySlot[request.KeepSlotIndex] =
                         rebuiltVariant.Rotation;
+                }
+                else
+                {
+                    priorStartRotationUnknown = true;
                 }
             }
             return new AivPlacementBatchResult(results, selectedCandidateIds);
@@ -703,95 +717,34 @@ namespace CastlePlanner.AIVPlacement.Core
                     elapsed);
             }
 
-            CandidateChoice firstAbove95 = null;
-            CandidateChoice bestSequential = null;
-            CandidateChoice bestPercentage = null;
-            for (int candidateIndex = 0; candidateIndex < candidates.Count; candidateIndex++)
+            foreach (AivPlacementCandidateEvaluation candidate in candidates)
             {
-                AivPlacementCandidateEvaluation candidate = candidates[candidateIndex];
-                if (!TryGetVariant(candidate, 0, out AivPlacementResult variant, out string error))
-                {
-                    return NotEvaluable(
-                        request,
-                        candidates,
-                        candidate.FailureKind == LobbyEvaluationFailureKind.None
-                            ? LobbyEvaluationFailureKind.PlacementEvaluationFailed
-                            : candidate.FailureKind,
-                        error,
-                        elapsed);
-                }
-
-                if (variant.Status == AivPlacementStatus.Complete)
-                    return Selected(request, candidates, candidate, variant, AivPlacementStatus.Complete, elapsed);
-
-                var choice = new CandidateChoice(candidate, variant);
-                if (firstAbove95 == null && variant.Score.FitPercentage > 95)
-                    firstAbove95 = choice;
-                if (bestSequential == null ||
-                    variant.Score.SequentialBuildScore > bestSequential.Variant.Score.SequentialBuildScore)
-                {
-                    bestSequential = choice;
-                }
-                if (bestPercentage == null ||
-                    variant.Score.FitPercentage > bestPercentage.Variant.Score.FitPercentage)
-                {
-                    bestPercentage = choice;
-                }
-            }
-
-            if (bestSequential != null && bestSequential.Variant.Score.SequentialBuildScore > 0)
-            {
-                CandidateChoice selected = firstAbove95 ??
-                    (bestSequential.Variant.Score.SequentialBuildScore >= 30
-                        ? bestSequential
-                        : bestPercentage.Variant.Score.FitPercentage > 90
-                            ? bestPercentage
-                            : bestSequential);
-                return Selected(
+                if (candidate.Selection != null)
+                    continue;
+                return NotEvaluable(
                     request,
                     candidates,
-                    selected.Candidate,
-                    selected.Variant,
-                    AivPlacementStatus.Partial,
+                    candidate.FailureKind == LobbyEvaluationFailureKind.None
+                        ? LobbyEvaluationFailureKind.PlacementEvaluationFailed
+                        : candidate.FailureKind,
+                    candidate.FailureMessage,
                     elapsed);
             }
 
-            CandidateChoice bestRotated = null;
-            for (int rotationIndex = 1; rotationIndex < 4; rotationIndex++)
+            NativeAivAutoDecision decision = NativeAivAutoSelector.SelectCertain(candidates);
+            if (!decision.IsCertain)
             {
-                for (int candidateIndex = 0; candidateIndex < candidates.Count; candidateIndex++)
-                {
-                    AivPlacementCandidateEvaluation candidate = candidates[candidateIndex];
-                    if (!TryGetVariant(candidate, rotationIndex, out AivPlacementResult variant, out string error))
-                    {
-                        return NotEvaluable(
-                            request,
-                            candidates,
-                            candidate.FailureKind == LobbyEvaluationFailureKind.None
-                                ? LobbyEvaluationFailureKind.PlacementEvaluationFailed
-                                : candidate.FailureKind,
-                            error,
-                            elapsed);
-                    }
-                    if (variant.Status == AivPlacementStatus.Complete)
-                        return Selected(request, candidates, candidate, variant, AivPlacementStatus.Complete, elapsed);
-                    if (variant.Status != AivPlacementStatus.Partial ||
-                        variant.Score.FitPercentage <= 85)
-                    {
-                        continue;
-                    }
-
-                    if (bestRotated == null ||
-                        variant.Score.FitPercentage > bestRotated.Variant.Score.FitPercentage)
-                    {
-                        // Strict comparison preserves native rotation/candidate order on ties.
-                        bestRotated = new CandidateChoice(candidate, variant);
-                    }
-                }
+                return NotEvaluable(
+                    request,
+                    candidates,
+                    LobbyEvaluationFailureKind.NativeAutoSelectionAmbiguous,
+                    "Vanilla's candidate or rotation depends on its random start or rotation mode.",
+                    elapsed);
             }
 
-            return bestRotated == null
-                ? new AivPlacementCheckResult(
+            if (!decision.CandidateId.HasValue)
+            {
+                return new AivPlacementCheckResult(
                     request,
                     AivPlacementStatus.Impossible,
                     null,
@@ -799,47 +752,20 @@ namespace CastlePlanner.AIVPlacement.Core
                     candidates,
                     LobbyEvaluationFailureKind.None,
                     string.Empty,
-                    elapsed)
-                : Selected(
-                    request,
-                    candidates,
-                    bestRotated.Candidate,
-                    bestRotated.Variant,
-                    AivPlacementStatus.Partial,
                     elapsed);
+            }
+
+            AivPlacementCandidateEvaluation selected = candidates.Single(
+                candidate => candidate.CandidateId == decision.CandidateId.Value);
+            AivPlacementResult variant = selected.Selection.Variants[decision.RotationIndex];
+            return Selected(
+                request,
+                candidates,
+                selected,
+                variant,
+                decision.Status,
+                elapsed);
         }
-
-        private static bool TryGetVariant(
-            AivPlacementCandidateEvaluation candidate,
-            int rotationIndex,
-            out AivPlacementResult variant,
-            out string error)
-        {
-            variant = null;
-            if (candidate.Selection == null)
-            {
-                error = string.IsNullOrEmpty(candidate.FailureMessage)
-                    ? $"Candidate {candidate.CandidateId} is not evaluable."
-                    : candidate.FailureMessage;
-                return false;
-            }
-            if (rotationIndex < 0 || rotationIndex >= candidate.Selection.Variants.Count)
-            {
-                error = $"Candidate {candidate.CandidateId} has no rotation result {rotationIndex}.";
-                return false;
-            }
-
-            variant = candidate.Selection.Variants[rotationIndex];
-            if (variant.Status == AivPlacementStatus.NotEvaluable)
-            {
-                error = $"Candidate {candidate.CandidateId}, rotation {(int)variant.Rotation} is not evaluable.";
-                return false;
-            }
-
-            error = string.Empty;
-            return true;
-        }
-
         private static AivPlacementCheckResult Selected(
             AivPlacementCheckRequest request,
             IReadOnlyList<AivPlacementCandidateEvaluation> candidates,
@@ -902,20 +828,6 @@ namespace CastlePlanner.AIVPlacement.Core
                     result.Append(item.ToString("x2"));
                 return result.ToString();
             }
-        }
-
-        private sealed class CandidateChoice
-        {
-            public CandidateChoice(
-                AivPlacementCandidateEvaluation candidate,
-                AivPlacementResult variant)
-            {
-                Candidate = candidate;
-                Variant = variant;
-            }
-
-            public AivPlacementCandidateEvaluation Candidate { get; }
-            public AivPlacementResult Variant { get; }
         }
 
         private readonly struct CandidateFetch
@@ -1030,6 +942,19 @@ namespace CastlePlanner.AIVPlacement.Core
                 return Failure(
                     LobbyEvaluationFailureKind.MapSnapshotUnavailable,
                     ex.Message,
+                    mapLookup,
+                    TimeSpan.Zero,
+                    TimeSpan.Zero,
+                    TimeSpan.Zero);
+            }
+
+            if (workItem.RebuiltStartRotationsBySlot.Count != 0 &&
+                placementMap is AivPreplacementMapState preplacement &&
+                preplacement.HasCrossOwnerStartWallAdjacency)
+            {
+                return Failure(
+                    LobbyEvaluationFailureKind.StartOverlapUnproven,
+                    "Adjacent starts of different owners have unresolved native overlap state.",
                     mapLookup,
                     TimeSpan.Zero,
                     TimeSpan.Zero,

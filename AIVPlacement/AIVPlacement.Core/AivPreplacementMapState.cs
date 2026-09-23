@@ -30,6 +30,8 @@ namespace AIVPlacement.Core
         private readonly IReadOnlyList<ushort> normalizedStartBuildingIds;
         private readonly IReadOnlyList<ushort> retainedStartBuildingIdList;
 
+        public bool HasCrossOwnerStartWallAdjacency { get; }
+
         public AivPreplacementMapState(
             IAivPlacementTileSource source,
             IEnumerable<ushort> startBuildingIds,
@@ -91,6 +93,7 @@ namespace AIVPlacement.Core
             rebuiltStartCellsByTileId = RebuildStartCells(
                 rebuildTransformsByBuildingId ??
                 new Dictionary<ushort, StartRebuildTransform>());
+            HasCrossOwnerStartWallAdjacency = DetectCrossOwnerStartWallAdjacency();
             reconstructedRockIdsByTileId = ReconstructRockFootprints(rockRecords);
             var ordered = new List<ushort>(removedStartBuildingIds);
             ordered.Sort();
@@ -194,7 +197,8 @@ namespace AIVPlacement.Core
                     }
                     rebuildTransforms[(ushort)recordIndex] = new StartRebuildTransform(
                         anchor.Coordinate.Value,
-                        rotation);
+                        rotation,
+                        checked((byte)owner));
                 }
             }
 
@@ -363,12 +367,38 @@ namespace AIVPlacement.Core
 
             // A retained start owns the shared wall state; only walls belonging solely
             // to starts that have not yet been created are normalized away.
-            if (HasAdjacentEffectiveStartBuilding(tileId))
+            if (HasAdjacentEffectiveStartBuilding(tileId, evidence.OwnerId))
                 return false;
-            return HasAdjacentBuilding(tileId, removedStartBuildingIds);
+            return HasAdjacentBuilding(tileId, evidence.OwnerId, removedStartBuildingIds);
         }
 
-        private bool HasAdjacentEffectiveStartBuilding(int tileId)
+        private bool DetectCrossOwnerStartWallAdjacency()
+        {
+            for (int tileId = 0; tileId < Geometry.TileCount; tileId++)
+            {
+                AivPlacementTileEvidence wall = source.GetTileEvidence(tileId);
+                if (wall.OwnerId == 0 || (wall.TerrainFlags & IsWall) == 0 ||
+                    !Geometry.TryGetCoordinate(tileId, out MapCoordinate coordinate))
+                    continue;
+
+                for (int y = coordinate.Y - 1; y <= coordinate.Y + 1; y++)
+                {
+                    for (int x = coordinate.X - 1; x <= coordinate.X + 1; x++)
+                    {
+                        if ((x == coordinate.X && y == coordinate.Y) ||
+                            !Geometry.TryGetTileId(x, y, out int neighborTileId))
+                            continue;
+                        AivPlacementTileEvidence neighbor = source.GetTileEvidence(neighborTileId);
+                        if (startBuildingIds.Contains(neighbor.BuildingId) &&
+                            neighbor.OwnerId != 0 && neighbor.OwnerId != wall.OwnerId)
+                            return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        private bool HasAdjacentEffectiveStartBuilding(int tileId, byte wallOwnerId)
         {
             if (!Geometry.TryGetCoordinate(tileId, out MapCoordinate coordinate))
                 return false;
@@ -379,7 +409,7 @@ namespace AIVPlacement.Core
                 {
                     if ((x != coordinate.X || y != coordinate.Y) &&
                         Geometry.TryGetTileId(x, y, out int neighborTileId) &&
-                        HasEffectiveStartBuilding(neighborTileId))
+                        HasEffectiveStartBuilding(neighborTileId, wallOwnerId))
                     {
                         return true;
                     }
@@ -389,12 +419,15 @@ namespace AIVPlacement.Core
             return false;
         }
 
-        private bool HasEffectiveStartBuilding(int tileId)
+        private bool HasEffectiveStartBuilding(int tileId, byte wallOwnerId)
         {
-            if (rebuiltStartCellsByTileId.ContainsKey(tileId))
-                return true;
+            if (rebuiltStartCellsByTileId.TryGetValue(tileId, out RebuiltStartCell rebuilt))
+                return rebuilt.BuildingId != 0 &&
+                    (wallOwnerId == 0 || rebuilt.OwnerId == wallOwnerId);
+            AivPlacementTileEvidence evidence = source.GetTileEvidence(tileId);
             return serializedRetainedStartBuildingIds.Contains(
-                source.GetTileEvidence(tileId).BuildingId);
+                evidence.BuildingId) &&
+                (wallOwnerId == 0 || evidence.OwnerId == wallOwnerId);
         }
 
         private bool HasStartBuildingForAdjacency(int tileId)
@@ -408,7 +441,10 @@ namespace AIVPlacement.Core
                 !rebuiltStartBuildingIds.Contains(buildingId);
         }
 
-        private bool HasAdjacentBuilding(int tileId, HashSet<ushort> buildingIds)
+        private bool HasAdjacentBuilding(
+            int tileId,
+            byte wallOwnerId,
+            HashSet<ushort> buildingIds)
         {
             if (!Geometry.TryGetCoordinate(tileId, out MapCoordinate coordinate))
                 return false;
@@ -419,7 +455,9 @@ namespace AIVPlacement.Core
                 {
                     if ((x != coordinate.X || y != coordinate.Y) &&
                         Geometry.TryGetTileId(x, y, out int neighborTileId) &&
-                        buildingIds.Contains(source.GetTileEvidence(neighborTileId).BuildingId))
+                        buildingIds.Contains(source.GetTileEvidence(neighborTileId).BuildingId) &&
+                        (wallOwnerId == 0 ||
+                         source.GetTileEvidence(neighborTileId).OwnerId == wallOwnerId))
                     {
                         return true;
                     }
@@ -467,7 +505,11 @@ namespace AIVPlacement.Core
                     out StartRebuildTransform transform);
                 if (!isBuildingCell &&
                     ((evidence.TerrainFlags & IsWall) == 0 ||
-                     !TryGetAdjacentRebuildTransform(tileId, transforms, out transform)))
+                     !TryGetAdjacentRebuildTransform(
+                         tileId,
+                         evidence.OwnerId,
+                         transforms,
+                         out transform)))
                 {
                     continue;
                 }
@@ -503,10 +545,19 @@ namespace AIVPlacement.Core
 
         private bool TryGetAdjacentRebuildTransform(
             int tileId,
+            byte wallOwnerId,
             IReadOnlyDictionary<ushort, StartRebuildTransform> transforms,
             out StartRebuildTransform transform)
         {
+            if (wallOwnerId == 0)
+            {
+                transform = default;
+                return false;
+            }
+
             Geometry.TryGetCoordinate(tileId, out MapCoordinate coordinate);
+            bool found = false;
+            StartRebuildTransform selected = default;
             for (int y = coordinate.Y - 1; y <= coordinate.Y + 1; y++)
             {
                 for (int x = coordinate.X - 1; x <= coordinate.X + 1; x++)
@@ -515,15 +566,24 @@ namespace AIVPlacement.Core
                         Geometry.TryGetTileId(x, y, out int neighborTileId) &&
                         transforms.TryGetValue(
                             source.GetTileEvidence(neighborTileId).BuildingId,
-                            out transform))
+                            out StartRebuildTransform adjacent) &&
+                        adjacent.OwnerId == wallOwnerId)
                     {
-                        return true;
+                        if (found &&
+                            (!selected.Keep.Equals(adjacent.Keep) ||
+                             selected.Rotation != adjacent.Rotation))
+                        {
+                            throw new InvalidOperationException(
+                                $"Wall tile {coordinate} belongs to multiple rebuilt starts.");
+                        }
+                        selected = adjacent;
+                        found = true;
                     }
                 }
             }
 
-            transform = default;
-            return false;
+            transform = selected;
+            return found;
         }
 
         private static ushort ReadUInt16(byte[] data, int offset) =>
@@ -540,14 +600,19 @@ namespace AIVPlacement.Core
 
         private readonly struct StartRebuildTransform
         {
-            public StartRebuildTransform(MapCoordinate keep, AivRotation rotation)
+            public StartRebuildTransform(
+                MapCoordinate keep,
+                AivRotation rotation,
+                byte ownerId)
             {
                 Keep = keep;
                 Rotation = rotation;
+                OwnerId = ownerId;
             }
 
             public MapCoordinate Keep { get; }
             public AivRotation Rotation { get; }
+            public byte OwnerId { get; }
         }
 
         private readonly struct RebuiltStartCell

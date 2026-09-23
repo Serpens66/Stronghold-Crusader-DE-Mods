@@ -29,7 +29,7 @@ internal static class Program
             ("reuses multiplayer tie choice for sequential starts", ReusesTieChoiceForSequentialStarts),
             ("creates eight default candidates", CreatesDefaultCandidates),
             ("maps current lord enum names to bundled Vanilla files", MapsCurrentLordNamesToVanillaFiles),
-            ("marks prebuild as not evaluable", MarksPrebuildNotEvaluable),
+            ("evaluates the first AI before prebuild", MarksPrebuildNotEvaluable),
             ("keeps client evaluation host-only", KeepsClientEvaluationHostOnly),
             ("rejects missing map", RejectsMissingMap),
             ("rejects ambiguous keep", RejectsAmbiguousKeep),
@@ -54,7 +54,8 @@ internal static class Program
             ("fingerprints source file changes", FingerprintsSourceChanges),
             ("keeps prebuild out of the worker", KeepsPrebuildOutOfWorker),
             ("aggregates every candidate in import order", AggregatesEveryCandidate),
-            ("preserves import order for complete ties", PreservesCompleteTieOrder),
+            ("withholds an ambiguous complete tie", PreservesCompleteTieOrder),
+            ("replays native auto thresholds and rotations", ReplaysNativeAutoSelection),
             ("selects the best sequential partial", SelectsBestSequentialPartial),
             ("randomizes every complete tie", FindsEveryCompleteTie),
             ("randomizes every highest partial score tie", FindsEveryHighestPartialScoreTie),
@@ -534,9 +535,17 @@ internal static class Program
     private static void MarksPrebuildNotEvaluable()
     {
         using Fixture fixture = new();
-        AivPlacementCheckRequest request = fixture.Build(preBuild: 1);
-        Equal(LobbyRequestFailureKind.PreBuildSequenceUnsupported, request.FailureKind);
-        Equal(AivPlacementStatus.NotEvaluable, request.ImmediateResultStatus.Value);
+        AivPlacementRequestBatch batch = new LobbyRequestBuilder().Build(
+            1,
+            fixture.Capture(
+                preBuild: 1,
+                keepOrder: [-1, -1, 1, 2, -1, -1, -1, -1],
+                slots: [Slot(playerId: 2), Slot(playerId: 3)]),
+            fixture.VanillaDirectory);
+        Assert(batch.Requests[0].FailureKind == LobbyRequestFailureKind.None,
+            $"first AI player={batch.Requests[0].PlayerId}, prebuild={batch.Requests[0].PreBuildSetting}, " +
+            $"failure={batch.Requests[0].FailureKind}, second={batch.Requests[1].FailureKind}");
+        Equal(LobbyRequestFailureKind.PreBuildSequenceUnsupported, batch.Requests[1].FailureKind);
     }
 
     private static void MapsCurrentLordNamesToVanillaFiles()
@@ -1397,8 +1406,14 @@ internal static class Program
     {
         using Fixture fixture = new();
         var service = new AivPlacementEvaluationService(new CountingWorker(), 16, 1);
-        AivPlacementCheckResult preBuild = service.EvaluateAsync(
-                fixture.Build(preBuild: 1))
+        AivPlacementCheckRequest laterPreBuild = new LobbyRequestBuilder().Build(
+            1,
+            fixture.Capture(
+                preBuild: 1,
+                keepOrder: [-1, -1, 1, 2, -1, -1, -1, -1],
+                slots: [Slot(playerId: 2), Slot(playerId: 3)]),
+            fixture.VanillaDirectory).Requests[1];
+        AivPlacementCheckResult preBuild = service.EvaluateAsync(laterPreBuild)
             .GetAwaiter()
             .GetResult();
         AivPlacementCheckResult incompleteLobby = service.EvaluateAsync(
@@ -1562,7 +1577,13 @@ internal static class Program
     private static void KeepsPrebuildOutOfWorker()
     {
         using Fixture fixture = new();
-        AivPlacementCheckRequest request = fixture.Build(preBuild: 1);
+        AivPlacementCheckRequest request = new LobbyRequestBuilder().Build(
+            1,
+            fixture.Capture(
+                preBuild: 1,
+                keepOrder: [-1, -1, 1, 2, -1, -1, -1, -1],
+                slots: [Slot(playerId: 2), Slot(playerId: 3)]),
+            fixture.VanillaDirectory).Requests[1];
         var worker = new CountingWorker();
         var service = new AivPlacementEvaluationService(worker, 16, 1);
 
@@ -1612,8 +1633,53 @@ internal static class Program
 
         AivPlacementCheckResult result = service.EvaluateAsync(request).GetAwaiter().GetResult();
 
-        Equal(AivPlacementStatus.Complete, result.Status);
-        Equal(0, result.SelectedCandidate.CandidateId);
+        Equal(AivPlacementStatus.NotEvaluable, result.Status);
+        Equal(LobbyEvaluationFailureKind.NativeAutoSelectionAmbiguous, result.FailureKind);
+        Assert(result.SelectedCandidate == null, "a random complete tie was presented as certain");
+    }
+
+    private static void ReplaysNativeAutoSelection()
+    {
+        static NativeAivAutoFit Fit(AivPlacementStatus status, int score, int percent) =>
+            new(status, score, percent);
+        static NativeAivAutoCandidate Candidate(int id, params NativeAivAutoFit[] fits) =>
+            new(id, fits);
+        NativeAivAutoFit impossible = Fit(AivPlacementStatus.Impossible, 0, 100);
+        NativeAivAutoFit complete = Fit(AivPlacementStatus.Complete, 999999, 100);
+        NativeAivAutoFit weak = Fit(AivPlacementStatus.Partial, 5, 94);
+        NativeAivAutoFit strong = Fit(AivPlacementStatus.Partial, 31, 80);
+
+        NativeAivAutoDecision oneComplete = NativeAivAutoSelector.SelectCertain(
+            [Candidate(7, complete, impossible, impossible, impossible)]);
+        Assert(oneComplete.IsCertain, "one complete initial variant is deterministic");
+        Equal(7, oneComplete.CandidateId.Value);
+        Equal(0, oneComplete.RotationIndex);
+
+        NativeAivAutoDecision completeTie = NativeAivAutoSelector.SelectCertain(
+            [Candidate(0, complete, impossible, impossible, impossible),
+             Candidate(1, complete, impossible, impossible, impossible)]);
+        Assert(!completeTie.IsCertain, "two complete variants depend on RNG order");
+
+        NativeAivAutoDecision sequential = NativeAivAutoSelector.SelectCertain(
+            [Candidate(0, weak, impossible, impossible, impossible),
+             Candidate(1, strong, impossible, impossible, impossible)]);
+        Assert(sequential.IsCertain, "native sequential threshold should dominate");
+        Equal(1, sequential.CandidateId.Value);
+
+        NativeAivAutoDecision percentage = NativeAivAutoSelector.SelectCertain(
+            [Candidate(0, Fit(AivPlacementStatus.Partial, 9, 90), impossible, impossible, impossible),
+             Candidate(1, Fit(AivPlacementStatus.Partial, 8, 91), impossible, impossible, impossible)]);
+        Assert(percentage.IsCertain, "91-percent branch should be deterministic");
+        Equal(1, percentage.CandidateId.Value);
+
+        NativeAivAutoDecision alternate = NativeAivAutoSelector.SelectCertain(
+            [Candidate(0, impossible, complete, impossible, impossible)]);
+        Assert(!alternate.IsCertain, "unknown try-other-rotations flag changes the result");
+
+        NativeAivAutoDecision rejected = NativeAivAutoSelector.SelectCertain(
+            [Candidate(0, impossible, Fit(AivPlacementStatus.Partial, 1, 85), impossible, impossible)]);
+        Assert(rejected.IsCertain, "85-percent alternative must remain rejected");
+        Equal(AivPlacementStatus.Impossible, rejected.Status);
     }
 
     private static void SelectsBestSequentialPartial()

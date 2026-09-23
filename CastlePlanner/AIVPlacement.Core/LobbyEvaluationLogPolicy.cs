@@ -25,6 +25,9 @@ namespace CastlePlanner.AIVPlacement.Core
             {
                 return LobbyEvaluationLogSeverity.None;
             }
+            if (result.FailureKind == LobbyEvaluationFailureKind.NativeAutoSelectionAmbiguous ||
+                result.FailureKind == LobbyEvaluationFailureKind.StartOverlapUnproven)
+                return LobbyEvaluationLogSeverity.None;
             return result.FailureKind == LobbyEvaluationFailureKind.PlacementEvaluationFailed
                 ? LobbyEvaluationLogSeverity.Error
                 : LobbyEvaluationLogSeverity.Warning;
