@@ -5,13 +5,13 @@
              XPath="//n:Grid[n:Button[@Name='ButtonAction'] and n:Button[@Name='ButtonCancel']]">
     <Content>
       <Grid x:Name="ExtendedDataMapEditorSaveOptionsHost"
-            Width="270"
-            Height="34"
-            Margin="45,455,0,0"
+            Width="220"
+            Height="23"
+            Margin="45,360,0,0"
             HorizontalAlignment="Left"
             VerticalAlignment="Top"
             Visibility="{Binding MapOptionVisibility}">
-        <CheckBox HorizontalAlignment="Left"
+        <CheckBox HorizontalAlignment="Center"
                   VerticalAlignment="Center"
                   Foreground="Black"
                   Content="{Binding IncludeText}"

@@ -118,6 +118,7 @@ namespace ActiveAIVDetector
         private readonly ulong organismRecordTableAddress;
         private readonly ulong activeLayoutIndexBaseAddress;
         private readonly ulong nativeLibraryBase;
+        private readonly int nativeLibraryLength;
         private readonly bool referenceHashMatches;
         private readonly int selectBestFitRva;
         private readonly int testSpecificCandidateRva;
@@ -146,7 +147,6 @@ namespace ActiveAIVDetector
         private ValidatorTraceContext activeValidatorTrace;
         private long nextSequence;
         private int cellTraceCaptureCount;
-        private readonly HashSet<int> cellTraceCapturedPlayerIds = new HashSet<int>();
         private readonly Dictionary<int, PlacementStateObservation>
             prebuildPlacementStateByPlayerId = new Dictionary<int, PlacementStateObservation>();
         private readonly Dictionary<int, long> lastSelectionSequenceByPlayerId =
@@ -162,7 +162,34 @@ namespace ActiveAIVDetector
         private bool prebuildPointerWarningLogged;
         private readonly ushort[] prebuildBeforeBuildingGrid = new ushort[FixedMapTileCount];
         private readonly ushort[] prebuildAfterBuildingGrid = new ushort[FixedMapTileCount];
+        private readonly OraclePrebuildStateCapture prebuildStateCapture;
         private bool callbackFailureLogged;
+        private bool mapStartCaptureActive;
+        private bool cellTraceQuotaWarningLogged;
+        private bool prebuildTraceQuotaWarningLogged;
+
+        public void ResetForMapTransition()
+        {
+            if (executeBuildStepDepth != 0)
+                throw new InvalidOperationException("Cannot reset an active AIV build-step capture.");
+            cellTraceCaptureCount = 0;
+            prebuildTraceCaptureCount = 0;
+            activePrebuildCapturePlayerId = -1;
+            activePrebuildCaptureAivStateAddress = 0;
+            activePrebuildCaptureSequence = 0;
+            activePrebuildCaptureFrameNumber = 0;
+            prebuildPlacementStateByPlayerId.Clear();
+            lastSelectionSequenceByPlayerId.Clear();
+            activePrebuildPlacementStateObservation = null;
+            prebuildPointerWarningLogged = false;
+            executeBuildStepReentrancyLogged = false;
+            callbackFailureLogged = false;
+            cellTraceQuotaWarningLogged = false;
+            prebuildTraceQuotaWarningLogged = false;
+            mapStartCaptureActive = true;
+        }
+
+        public void EndMapStartCapture() => mapStartCaptureActive = false;
 
         public AivPlacementOracle(
             ManualLogSource log,
@@ -183,8 +210,11 @@ namespace ActiveAIVDetector
                 throw new ArgumentNullException(nameof(onPrebuildFrameCaptured));
             this.prebuildTraceOptions = prebuildTraceOptions ??
                 throw new ArgumentNullException(nameof(prebuildTraceOptions));
+            if (prebuildTraceOptions.Enabled)
+                prebuildStateCapture = new OraclePrebuildStateCapture();
             this.referenceHashMatches = referenceHashMatches;
             nativeLibraryBase = unchecked((ulong)nativeLibraryHandle.ToInt64());
+            nativeLibraryLength = nativeLibraryMemory.Length;
             selectBestFitRva = ValidateReference(nativeLibraryMemory, SelectBestFitPattern, SelectBestFitRva, "select best fit");
             testSpecificCandidateRva = ValidateReference(nativeLibraryMemory, TestSpecificCandidatePattern, TestSpecificCandidateRva, "test specific candidate");
             loadCandidateRva = ValidateReference(nativeLibraryMemory, LoadCandidatePattern, LoadCandidateRva, "load candidate");
@@ -530,6 +560,8 @@ namespace ActiveAIVDetector
 
         public IAivBuildStepInvocation TryBegin(AivBuildStepContext context)
         {
+            if (!mapStartCaptureActive)
+                return null;
             if (executeBuildStepDepth != 0)
             {
                 if (!executeBuildStepReentrancyLogged)
@@ -584,6 +616,14 @@ namespace ActiveAIVDetector
             if (pointerWasConsistent)
             {
                 CopyBuildingGrid(placementStateAddress, prebuildBeforeBuildingGrid);
+                try
+                {
+                    prebuildStateCapture.CaptureBefore(placementStateAddress);
+                }
+                catch (Exception ex)
+                {
+                    captureError = "Full prebuild state snapshot failed: " + ex.Message;
+                }
             }
             else
             {
@@ -618,6 +658,9 @@ namespace ActiveAIVDetector
 
                 DateTimeOffset completedAtLocal = DateTimeOffset.Now;
                 var changes = new List<OraclePrebuildBuildingGridChange>();
+                var layerChanges = new List<OraclePrebuildLayerChange>();
+                var buildingRecordChanges = new List<OraclePrebuildBuildingRecordChange>();
+                string captureError = invocation.CaptureError;
                 int addedCount = 0;
                 int removedCount = 0;
                 int replacedCount = 0;
@@ -628,6 +671,20 @@ namespace ActiveAIVDetector
                 if (invocation.PointerWasConsistent && pointerIsConsistent)
                 {
                     CopyBuildingGrid(finalPlacementStateAddress, prebuildAfterBuildingGrid);
+                    if (string.IsNullOrEmpty(captureError))
+                    {
+                        try
+                        {
+                            prebuildStateCapture.CaptureAfter(
+                                finalPlacementStateAddress, layerChanges, buildingRecordChanges);
+                        }
+                        catch (Exception ex)
+                        {
+                            layerChanges.Clear();
+                            buildingRecordChanges.Clear();
+                            captureError = "Full prebuild state diff failed: " + ex.Message;
+                        }
+                    }
                     for (int tileId = 0; tileId < FixedMapTileCount; tileId++)
                     {
                         ushort beforeId = prebuildBeforeBuildingGrid[tileId];
@@ -676,7 +733,9 @@ namespace ActiveAIVDetector
                     removedCount,
                     replacedCount,
                     changes,
-                    invocation.CaptureError));
+                    layerChanges,
+                    buildingRecordChanges,
+                    captureError));
             }
             catch (Exception ex)
             {
@@ -700,21 +759,28 @@ namespace ActiveAIVDetector
         {
             if (!prebuildTraceOptions.Enabled)
                 return false;
-            if (playerId != prebuildTraceOptions.PlayerId)
+            if (activePrebuildCapturePlayerId >= 0 &&
+                playerId != activePrebuildCapturePlayerId)
             {
-                if (activePrebuildCapturePlayerId >= 0 &&
-                    playerId != activePrebuildCapturePlayerId)
-                {
-                    activePrebuildCapturePlayerId = -1;
-                    activePrebuildCaptureAivStateAddress = 0;
-                }
-                return false;
+                activePrebuildCapturePlayerId = -1;
+                activePrebuildCaptureAivStateAddress = 0;
             }
+            if (prebuildTraceOptions.PlayerId >= 0 &&
+                playerId != prebuildTraceOptions.PlayerId)
+                return false;
 
             if (activePrebuildCapturePlayerId == playerId)
                 return activePrebuildCaptureAivStateAddress == aivStateAddress;
             if (prebuildTraceCaptureCount >= prebuildTraceOptions.MaximumCaptureCount)
+            {
+                if (!prebuildTraceQuotaWarningLogged)
+                {
+                    prebuildTraceQuotaWarningLogged = true;
+                    Shared.DebugLogHelper.LogWarning(log,
+                        "Oracle prebuild trace quota reached for this map; further player sequences are not captured.");
+                }
                 return false;
+            }
 
             prebuildTraceCaptureCount++;
             activePrebuildCaptureSequence = prebuildTraceCaptureCount;
@@ -902,7 +968,6 @@ namespace ActiveAIVDetector
             }
 
             cellTraceCaptureCount++;
-            cellTraceCapturedPlayerIds.Add(session.PlayerId);
             OracleCellTraceSnapshot trace = new OracleCellTraceSnapshot(
                 DateTimeOffset.Now,
                 evaluatedCells,
@@ -936,15 +1001,21 @@ namespace ActiveAIVDetector
             OracleSelectionSession session,
             byte* spec)
         {
+            if (cellTraceOptions.Enabled &&
+                cellTraceCaptureCount >= cellTraceOptions.MaximumCaptureCount &&
+                !cellTraceQuotaWarningLogged)
+            {
+                cellTraceQuotaWarningLogged = true;
+                Shared.DebugLogHelper.LogWarning(log,
+                    "Oracle cell trace quota reached for this map; further fit grids are not captured.");
+            }
             return cellTraceOptions.Enabled &&
                 cellTraceCaptureCount < cellTraceOptions.MaximumCaptureCount &&
                 // A negative diagnostic player ID follows a randomly assigned Keep.
                 (cellTraceOptions.PlayerId < 0 ||
                     session.PlayerId == cellTraceOptions.PlayerId) &&
-                // Wildcard runs capture one state transition per player, not rotations.
-                (cellTraceOptions.PlayerId >= 0 ||
-                    !cellTraceCapturedPlayerIds.Contains(session.PlayerId)) &&
-                session.CurrentCandidateId == cellTraceOptions.CandidateId &&
+                (cellTraceOptions.CandidateId < 0 ||
+                    session.CurrentCandidateId == cellTraceOptions.CandidateId) &&
                 (cellTraceOptions.Orientation < 0 ||
                     session.CurrentOrientation == cellTraceOptions.Orientation) &&
                 // Negative coordinates let one player trace survive randomized starts.
@@ -985,7 +1056,8 @@ namespace ActiveAIVDetector
                     *(int*)(spec + PlayerIdOffset),
                     tryOtherRotations,
                     requestedCandidateId ?? *(int*)(spec + CandidateIdOffset),
-                    *(int*)(spec + OrientationOffset));
+                    *(int*)(spec + OrientationOffset),
+                    ReadNativeStartOptions());
                 activeSession = session;
                 return session;
             }
@@ -1018,7 +1090,8 @@ namespace ActiveAIVDetector
                     *(int*)(spec + CandidateIdOffset),
                     *(int*)(spec + OrientationOffset),
                     *(int*)(spec + PlacementStateOffset),
-                    session.Attempts));
+                    session.Attempts,
+                    session.NativeStartOptions));
             }
             catch (Exception ex)
             {
@@ -1046,6 +1119,20 @@ namespace ActiveAIVDetector
         private static int ReadInt32(ulong address, int offset)
         {
             return *(int*)((byte*)address + offset);
+        }
+
+        private string ReadNativeStartOptions()
+        {
+            // Capture raw values at the selector entry. Their managed origins are
+            // intentionally not inferred from these values alone.
+            const int largestOffset = 0x87EE2F8;
+            if (nativeLibraryLength < largestOffset + sizeof(long))
+                return "<outside-loaded-image>";
+            byte* image = (byte*)nativeLibraryBase;
+            return "mode=" + *(int*)(image + 0x8574B90) +
+                ",option2F0=" + *(int*)(image + 0x87EE2F0) +
+                ",option2F4=" + *(int*)(image + 0x87EE2F4) +
+                ",option2F8=" + *(long*)(image + largestOffset);
         }
 
         private ulong ResolveUniqueRipRelativeAddress(
@@ -1165,7 +1252,8 @@ namespace ActiveAIVDetector
                 int playerId,
                 bool tryOtherRotations,
                 int currentCandidateId,
-                int currentOrientation)
+                int currentOrientation,
+                string nativeStartOptions)
             {
                 Sequence = sequence;
                 Method = method;
@@ -1175,6 +1263,7 @@ namespace ActiveAIVDetector
                 TryOtherRotations = tryOtherRotations;
                 CurrentCandidateId = currentCandidateId;
                 CurrentOrientation = currentOrientation;
+                NativeStartOptions = nativeStartOptions;
                 Attempts = new List<OracleAttemptSnapshot>();
             }
 
@@ -1186,6 +1275,7 @@ namespace ActiveAIVDetector
             public bool TryOtherRotations { get; }
             public int CurrentCandidateId { get; set; }
             public int CurrentOrientation { get; set; }
+            public string NativeStartOptions { get; }
             public List<OracleAttemptSnapshot> Attempts { get; }
         }
 
@@ -1259,7 +1349,8 @@ namespace ActiveAIVDetector
             int finalCandidateId,
             int finalOrientation,
             int placementState,
-            IList<OracleAttemptSnapshot> attempts)
+            IList<OracleAttemptSnapshot> attempts,
+            string nativeStartOptions)
         {
             Sequence = sequence;
             Method = method;
@@ -1271,6 +1362,7 @@ namespace ActiveAIVDetector
             FinalOrientation = finalOrientation;
             PlacementState = placementState;
             Attempts = new List<OracleAttemptSnapshot>(attempts).AsReadOnly();
+            NativeStartOptions = nativeStartOptions;
         }
 
         public long Sequence { get; }
@@ -1283,6 +1375,7 @@ namespace ActiveAIVDetector
         public int FinalOrientation { get; }
         public int PlacementState { get; }
         public IReadOnlyList<OracleAttemptSnapshot> Attempts { get; }
+        public string NativeStartOptions { get; }
     }
 
     internal readonly struct OracleAttemptSnapshot
@@ -1412,6 +1505,8 @@ namespace ActiveAIVDetector
             int removedCount,
             int replacedCount,
             IList<OraclePrebuildBuildingGridChange> changes,
+            IList<OraclePrebuildLayerChange> layerChanges,
+            IList<OraclePrebuildBuildingRecordChange> buildingRecordChanges,
             string captureError)
         {
             CaptureSequence = captureSequence;
@@ -1436,6 +1531,8 @@ namespace ActiveAIVDetector
             RemovedCount = removedCount;
             ReplacedCount = replacedCount;
             Changes = new List<OraclePrebuildBuildingGridChange>(changes).AsReadOnly();
+            LayerChanges = new List<OraclePrebuildLayerChange>(layerChanges).AsReadOnly();
+            BuildingRecordChanges = new List<OraclePrebuildBuildingRecordChange>(buildingRecordChanges).AsReadOnly();
             CaptureError = captureError ?? string.Empty;
         }
 
@@ -1461,6 +1558,8 @@ namespace ActiveAIVDetector
         public int RemovedCount { get; }
         public int ReplacedCount { get; }
         public IReadOnlyList<OraclePrebuildBuildingGridChange> Changes { get; }
+        public IReadOnlyList<OraclePrebuildLayerChange> LayerChanges { get; }
+        public IReadOnlyList<OraclePrebuildBuildingRecordChange> BuildingRecordChanges { get; }
         public string CaptureError { get; }
         public bool IsHighlightedMapper =>
             Mapper == (short)eMappers.MAPPER_STORES ||

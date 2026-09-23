@@ -160,13 +160,12 @@
           <DataTemplate>
             <StackPanel Margin="0,2">
               <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="{Binding ModId}" shared:ModSettingsSearch.Title="{Binding DisplayName}" shared:ModSettingsSearch.ToolTipText="{Binding SearchText}" Width="580" HorizontalAlignment="Left">
-                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="28"/></Grid.ColumnDefinitions>
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding DisplayName}" TextWrapping="Wrap" Foreground="White" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,12,0"/>
-                <ComboBox Grid.Row="1" Grid.Column="0" ItemsSource="{Binding ModeOptions}" SelectedIndex="{Binding SelectedModeIndex, Mode=TwoWay}" Width="175" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0,3,0,0" ToolTipService.ShowDuration="60000">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="175"/><ColumnDefinition Width="28"/></Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="{Binding DisplayName}" TextWrapping="Wrap" Foreground="White" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                <ComboBox Grid.Column="1" ItemsSource="{Binding ModeOptions}" SelectedIndex="{Binding SelectedModeIndex, Mode=TwoWay}" Width="175" HorizontalAlignment="Left" VerticalAlignment="Center" ToolTipService.ShowDuration="60000">
                   <ComboBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" Content="{Binding HelpText}"/></ComboBox.ToolTip>
                 </ComboBox>
-                <ToggleButton Grid.Row="0" Grid.Column="1" IsChecked="{Binding IsExpanded, Mode=TwoWay}" Foreground="White" Width="28" Height="24" Padding="0" ToolTipService.ShowDuration="60000">
+                <ToggleButton Grid.Column="2" IsChecked="{Binding IsExpanded, Mode=TwoWay}" Foreground="White" Width="28" Height="24" Padding="0" ToolTipService.ShowDuration="60000">
                   <ToggleButton.Style>
                     <Style TargetType="{x:Type ToggleButton}">
                       <Setter Property="Content" Value="▶"/>

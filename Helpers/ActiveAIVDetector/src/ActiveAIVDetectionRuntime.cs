@@ -82,6 +82,7 @@ namespace ActiveAIVDetector
         private string currentMapFileName = "<unknown>";
         private string currentMapName = "<unknown>";
         private string currentMapFileSha256 = "<not-available>";
+        private string currentNativeFileSha256 = "<not-available>";
 
         public ActiveAIVDetectionRuntime(
             ManualLogSource log,
@@ -454,6 +455,7 @@ namespace ActiveAIVDetector
         private void OnMapLoadStarted(APIShared.MissionLifecycleNotification args)
         {
             ResetForMapTransition("map load");
+            placementOracle?.ResetForMapTransition();
             mapLoadSequence++;
             currentMapFileName = string.IsNullOrEmpty(args.Context.FilePath)
                 ? "<unknown>"
@@ -463,6 +465,10 @@ namespace ActiveAIVDetector
                 : args.Context.MapName;
             // Hash once per load so every Oracle row identifies the exact same map bytes.
             currentMapFileSha256 = ComputeFileSha256(currentMapFileName);
+            currentNativeFileSha256 = ComputeFileSha256(Path.Combine(
+                BepInEx.Paths.GameRootPath,
+                "Stronghold Crusader Definitive Edition_Data",
+                "Plugins", "x86_64", "CrusaderDE.dll"));
         }
 
         private void OnOracleSelectionCompleted(OracleSelectionSnapshot snapshot)
@@ -482,6 +488,7 @@ namespace ActiveAIVDetector
         {
             // OnStartMap(Post) runs after the game's complete native map-start routine.
             mapStartCompleted = true;
+            placementOracle?.EndMapStartCapture();
             if (lobbyCapturePending)
             {
                 lobbySnapshotAppliesToCurrentMap = true;
@@ -556,7 +563,9 @@ namespace ActiveAIVDetector
                 $"AIV placement oracle selection #{snapshot.Sequence}: " +
                 $"mapName={currentMapName}, mapFile={currentMapFileName}, " +
                 $"mapFileSha256={currentMapFileSha256}, " +
+                $"nativeDllSha256={currentNativeFileSha256}, " +
                 $"preBuildSetting={CurrentPreBuildSetting}, " +
+                $"nativeStartOptions={snapshot.NativeStartOptions}, " +
                 $"playerId={snapshot.PlayerId}, method={snapshot.Method}, " +
                 $"tryOtherRotations={snapshot.TryOtherRotations}, " +
                 $"aivSpecIndex={snapshot.AivSpecIndex}, attempts={snapshot.Attempts.Count}, " +
@@ -629,6 +638,7 @@ namespace ActiveAIVDetector
                     writer.WriteLine($"# mapName={currentMapName}");
                     writer.WriteLine($"# mapFile={currentMapFileName}");
                     writer.WriteLine($"# mapFileSha256={currentMapFileSha256}");
+                    writer.WriteLine($"# nativeDllSha256={currentNativeFileSha256}");
                     writer.WriteLine($"# preBuildSetting={CurrentPreBuildSetting}");
                     writer.WriteLine($"# playerId={selection.PlayerId}");
                     writer.WriteLine($"# candidateId={attempt.CandidateId}");
@@ -761,6 +771,7 @@ namespace ActiveAIVDetector
                     writer.WriteLine($"# mapName={currentMapName}");
                     writer.WriteLine($"# mapFile={currentMapFileName}");
                     writer.WriteLine($"# mapFileSha256={currentMapFileSha256}");
+                    writer.WriteLine($"# nativeDllSha256={currentNativeFileSha256}");
                     writer.WriteLine($"# preBuildSetting={CurrentPreBuildSetting}");
                     writer.WriteLine($"# playerId={selection.PlayerId}");
                     writer.WriteLine($"# orientation={attempt.Orientation}");
@@ -834,6 +845,32 @@ namespace ActiveAIVDetector
                     return;
 
                 OraclePrebuildFrameTraceSnapshot first = frames[0];
+                OracleSelectionSnapshot selection = pendingOracleSelections.Find(candidate =>
+                    candidate.Sequence == first.SelectionSequence &&
+                    candidate.PlayerId == first.PlayerId);
+                LobbyAivSnapshot lobbySnapshot = null;
+                if (lobbySnapshotAppliesToCurrentMap)
+                    lobbyAivSnapshots.TryGetValue(first.PlayerId, out lobbySnapshot);
+                ResolvedAivSource? source = selection == null
+                    ? (ResolvedAivSource?)null
+                    : ResolveOracleSource(lobbySnapshot, first.PlayerId,
+                        selection.FinalCandidateId);
+                OracleAttemptSnapshot? selectedAttempt = null;
+                if (selection != null)
+                {
+                    foreach (OracleAttemptSnapshot attempt in selection.Attempts)
+                    {
+                        if (attempt.CandidateId == selection.FinalCandidateId &&
+                            attempt.Orientation == selection.FinalOrientation)
+                        selectedAttempt = attempt;
+                    }
+                }
+                string aivFileSha256 = ComputeFileSha256(source?.JsonPath);
+                bool provenanceComplete =
+                    currentNativeFileSha256.Length == 64 &&
+                    currentMapFileSha256.Length == 64 &&
+                    aivFileSha256.Length == 64 &&
+                    selectedAttempt.HasValue;
                 Directory.CreateDirectory(prebuildTraceOptions.OutputDirectory);
                 string fileName = string.Format(
                     CultureInfo.InvariantCulture,
@@ -852,6 +889,8 @@ namespace ActiveAIVDetector
                 int pointerProblemFrames = 0;
                 int errorFrames = 0;
                 int highlightedFrames = 0;
+                int layerChanges = 0;
+                int buildingRecordChanges = 0;
                 foreach (OraclePrebuildFrameTraceSnapshot frame in frames)
                 {
                     totalAdded += frame.AddedCount;
@@ -863,6 +902,8 @@ namespace ActiveAIVDetector
                         errorFrames++;
                     if (frame.IsHighlightedMapper)
                         highlightedFrames++;
+                    layerChanges += frame.LayerChanges.Count;
+                    buildingRecordChanges += frame.BuildingRecordChanges.Count;
                 }
 
                 using (var writer = new StreamWriter(path, false, new UTF8Encoding(false)))
@@ -873,13 +914,26 @@ namespace ActiveAIVDetector
                     writer.WriteLine($"# mapName={currentMapName}");
                     writer.WriteLine($"# mapFile={currentMapFileName}");
                     writer.WriteLine($"# mapFileSha256={currentMapFileSha256}");
+                    writer.WriteLine($"# nativeDllSha256={currentNativeFileSha256}");
                     writer.WriteLine($"# preBuildSetting={CurrentPreBuildSetting}");
+                    writer.WriteLine($"# selectionFound={selection != null}");
+                    writer.WriteLine($"# finalCandidateId={selection?.FinalCandidateId.ToString() ?? "<not-available>"}");
+                    writer.WriteLine($"# finalOrientation={selection?.FinalOrientation.ToString() ?? "<not-available>"}");
+                    writer.WriteLine($"# nativeStartOptions={selection?.NativeStartOptions ?? "<not-available>"}");
+                    writer.WriteLine($"# aivJson={source?.JsonPath ?? "<not-available>"}");
+                    writer.WriteLine($"# aivJsonSha256={aivFileSha256}");
+                    writer.WriteLine($"# keepX={selectedAttempt?.KeepX.ToString() ?? "<not-available>"}");
+                    writer.WriteLine($"# keepY={selectedAttempt?.KeepY.ToString() ?? "<not-available>"}");
                     writer.WriteLine($"# captureSequence={captureSequence}");
                     writer.WriteLine($"# playerId={first.PlayerId}");
                     writer.WriteLine($"# frameCount={frames.Count}");
                     writer.WriteLine($"# pointerProblemFrames={pointerProblemFrames}");
                     writer.WriteLine($"# captureErrorFrames={errorFrames}");
                     writer.WriteLine($"# highlightedMapperFrames={highlightedFrames}");
+                    writer.WriteLine($"# layerChanges={layerChanges}");
+                    writer.WriteLine($"# buildingRecordChanges={buildingRecordChanges}");
+                    writer.WriteLine($"# frameSnapshotsComplete={pointerProblemFrames == 0 && errorFrames == 0 && selection != null}");
+                    writer.WriteLine($"# provenanceComplete={provenanceComplete}");
                     writer.WriteLine(
                         "captureFrameNumber\tstartedAtLocal\tcompletedAtLocal\t" +
                         "selectionSequence\tframeIndex\tactiveLayoutIndex\tmapper\t" +
@@ -939,13 +993,40 @@ namespace ActiveAIVDetector
                                 change.Kind));
                         }
                     }
+
+                    writer.WriteLine();
+                    writer.WriteLine("# synchronous validator-input layer changes per ExecuteBuildStep frame");
+                    writer.WriteLine("captureFrameNumber\tframeIndex\tmapper\tlayer\ttileId\tbefore\tafter");
+                    foreach (OraclePrebuildFrameTraceSnapshot frame in frames)
+                    {
+                        foreach (OraclePrebuildLayerChange change in frame.LayerChanges)
+                        {
+                            writer.WriteLine(string.Format(CultureInfo.InvariantCulture,
+                                "{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}",
+                                frame.CaptureFrameNumber, frame.FrameIndex, frame.Mapper,
+                                change.Layer, change.TileId, change.Before, change.After));
+                        }
+                    }
+
+                    writer.WriteLine();
+                    writer.WriteLine("# changed building records; buildingId is one-based");
+                    writer.WriteLine("captureFrameNumber\tframeIndex\tmapper\tbuildingId\tphase\talive\ttype\towner\tglobalId\ttileIdBegin\toccupyGridSize\ttileX\ttileY");
+                    foreach (OraclePrebuildFrameTraceSnapshot frame in frames)
+                    {
+                        foreach (OraclePrebuildBuildingRecordChange change in frame.BuildingRecordChanges)
+                        {
+                            WriteBuildingRecord(writer, frame, change.BuildingId, "before", change.Before);
+                            WriteBuildingRecord(writer, frame, change.BuildingId, "after", change.After);
+                        }
+                    }
                 }
 
                 Shared.DebugLogHelper.LogInfo(
                     log,
                     $"Wrote opt-in Oracle prebuild trace: path={path}, " +
                     $"mapLoadSequence={mapLoadSequence}, playerId={first.PlayerId}, " +
-                    $"frames={frames.Count}, added={totalAdded}, removed={totalRemoved}, " +
+                    $"frames={frames.Count}, layerChanges={layerChanges}, " +
+                    $"buildingRecordChanges={buildingRecordChanges}, added={totalAdded}, removed={totalRemoved}, " +
                     $"replaced={totalReplaced}, pointerProblemFrames={pointerProblemFrames}, " +
                     $"captureErrorFrames={errorFrames}.");
                 foreach (OraclePrebuildFrameTraceSnapshot frame in frames)
@@ -968,6 +1049,17 @@ namespace ActiveAIVDetector
                     log,
                     $"Writing the opt-in Oracle prebuild trace failed: {ex}");
             }
+        }
+
+        private static void WriteBuildingRecord(StreamWriter writer,
+            OraclePrebuildFrameTraceSnapshot frame, int buildingId, string phase,
+            BuildingRecord record)
+        {
+            writer.WriteLine(string.Format(CultureInfo.InvariantCulture,
+                "{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\t{8}\t{9}\t{10}\t{11}\t{12}",
+                frame.CaptureFrameNumber, frame.FrameIndex, frame.Mapper, buildingId,
+                phase, record.AliveState, record.Type, record.Owner, record.GlobalId,
+                record.TileIdBegin, record.OccupyTileGridSize, record.TileX, record.TileY));
         }
 
         private static string SanitizeTsv(string value)

@@ -43,6 +43,9 @@ namespace BugfixesAndQoL
         private GridViewColumnHeader typeHeader;
         private GridViewColumnHeader nameHeader;
         private GridViewColumnHeader powerHeader;
+        private Grid headerPanel;
+        private GridViewColumnHeader hoveredSortHeader;
+        private string sortHeaderHelpText = string.Empty;
         private SortField sortField;
         private bool sortAscending;
         private bool searchHasFocus;
@@ -66,6 +69,7 @@ namespace BugfixesAndQoL
             GameXAMLManagerAPI.Instance.RegisterBinding("CustomLordTypeHeader", this);
             GameXAMLManagerAPI.Instance.RegisterBinding("CustomLordNameHeader", this);
             GameXAMLManagerAPI.Instance.RegisterBinding("CustomLordPowerHeader", this);
+            GameXAMLManagerAPI.Instance.RegisterBinding("CustomLordSortHelpPanel", this);
 
             MethodInfo addClickMethod = typeof(FRONT_Multiplayer).GetMethod(
                 "SkirmishAIAddClick",
@@ -124,6 +128,9 @@ namespace BugfixesAndQoL
         public Visibility SelectedLordPortraitVisibility =>
             ReferenceEquals(selectedLordPortrait, null) ? Visibility.Collapsed : Visibility.Visible;
         public Visibility EnhancementVisibility => IsActive ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility SortHeaderHelpVisibility =>
+            IsActive && hoveredSortHeader != null ? Visibility.Visible : Visibility.Collapsed;
+        public string SortHeaderHelpText => sortHeaderHelpText;
         public Visibility SearchPlaceholderVisibility =>
             IsActive && !searchHasFocus && string.IsNullOrEmpty(searchText)
                 ? Visibility.Visible
@@ -156,6 +163,8 @@ namespace BugfixesAndQoL
 
         public void ApplySetting()
         {
+            if (!IsActive)
+                ClearSortHeaderHelp();
             OnPropertyChanged(nameof(EnhancementVisibility));
             OnPropertyChanged(nameof(SearchPlaceholderVisibility));
             RandomCustomLordCommand.RaiseCanExecuteChanged();
@@ -284,6 +293,21 @@ namespace BugfixesAndQoL
 
             if (activeList != null)
                 activeList.SelectionChanged -= CustomLordSelectionChanged;
+            if (headerPanel != null)
+                headerPanel.IsVisibleChanged -= HeaderPanelVisibilityChanged;
+            if (typeHeader != null)
+                typeHeader.MouseEnter -= SortHeaderMouseEnter;
+            if (typeHeader != null)
+                typeHeader.MouseLeave -= SortHeaderMouseLeave;
+            if (nameHeader != null)
+                nameHeader.MouseEnter -= SortHeaderMouseEnter;
+            if (nameHeader != null)
+                nameHeader.MouseLeave -= SortHeaderMouseLeave;
+            if (powerHeader != null)
+                powerHeader.MouseEnter -= SortHeaderMouseEnter;
+            if (powerHeader != null)
+                powerHeader.MouseLeave -= SortHeaderMouseLeave;
+            ClearSortHeaderHelp();
 
             ListView list = self.FindName("CustomLordList") as ListView;
             TextBox searchBox = self.FindName("CustomLordSearchBox") as TextBox;
@@ -297,7 +321,9 @@ namespace BugfixesAndQoL
             GridViewColumnHeader newTypeHeader = self.FindName("CustomLordTypeHeader") as GridViewColumnHeader;
             GridViewColumnHeader newNameHeader = self.FindName("CustomLordNameHeader") as GridViewColumnHeader;
             GridViewColumnHeader newPowerHeader = self.FindName("CustomLordPowerHeader") as GridViewColumnHeader;
-            if (newTypeHeader == null || newNameHeader == null || newPowerHeader == null)
+            Grid newHeaderPanel = self.FindName("CustomLordHeaderPanel") as Grid;
+            if (newTypeHeader == null || newNameHeader == null || newPowerHeader == null ||
+                newHeaderPanel == null)
                 throw new InvalidOperationException("The patched custom-lord column headers were not found.");
 
             activeView = self;
@@ -306,10 +332,18 @@ namespace BugfixesAndQoL
             typeHeader = newTypeHeader;
             nameHeader = newNameHeader;
             powerHeader = newPowerHeader;
+            headerPanel = newHeaderPanel;
 
             ((ButtonBase)typeHeader).Click += HeaderClicked;
             ((ButtonBase)nameHeader).Click += HeaderClicked;
             ((ButtonBase)powerHeader).Click += HeaderClicked;
+            typeHeader.MouseEnter += SortHeaderMouseEnter;
+            typeHeader.MouseLeave += SortHeaderMouseLeave;
+            nameHeader.MouseEnter += SortHeaderMouseEnter;
+            nameHeader.MouseLeave += SortHeaderMouseLeave;
+            powerHeader.MouseEnter += SortHeaderMouseEnter;
+            powerHeader.MouseLeave += SortHeaderMouseLeave;
+            headerPanel.IsVisibleChanged += HeaderPanelVisibilityChanged;
             activeList.SelectionChanged += CustomLordSelectionChanged;
             activeSearchBox.IsKeyboardFocusedChanged += SearchFocusChanged;
 
@@ -323,6 +357,52 @@ namespace BugfixesAndQoL
         private void CustomLordSelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             UpdateSelectedLordPortrait();
+        }
+
+        private void SortHeaderMouseEnter(object sender, MouseEventArgs e)
+        {
+            if (!IsActive || headerPanel?.IsVisible != true ||
+                !MainViewModel.Instance.Show_AddAIPanel_Custom)
+                return;
+
+            GridViewColumnHeader header = sender as GridViewColumnHeader;
+            string tag = header?.Tag as string;
+            string help = string.Equals(tag, "Workshop", StringComparison.Ordinal)
+                ? WorkshopSortHelpText
+                : string.Equals(tag, "Power", StringComparison.Ordinal)
+                    ? PowerSortHelpText
+                    : string.Equals(tag, "Name", StringComparison.Ordinal)
+                        ? NameSortHelpText
+                        : string.Empty;
+            if (string.IsNullOrEmpty(help))
+                return;
+
+            hoveredSortHeader = header;
+            sortHeaderHelpText = help;
+            OnPropertyChanged(nameof(SortHeaderHelpText));
+            OnPropertyChanged(nameof(SortHeaderHelpVisibility));
+        }
+
+        private void SortHeaderMouseLeave(object sender, MouseEventArgs e)
+        {
+            if (ReferenceEquals(sender, hoveredSortHeader))
+                ClearSortHeaderHelp();
+        }
+
+        private void HeaderPanelVisibilityChanged(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            if (e.NewValue is bool visible && !visible)
+                ClearSortHeaderHelp();
+        }
+
+        private void ClearSortHeaderHelp()
+        {
+            if (hoveredSortHeader == null)
+                return;
+            hoveredSortHeader = null;
+            sortHeaderHelpText = string.Empty;
+            OnPropertyChanged(nameof(SortHeaderHelpText));
+            OnPropertyChanged(nameof(SortHeaderHelpVisibility));
         }
 
         private void HeaderClicked(object sender, RoutedEventArgs e)
@@ -392,6 +472,8 @@ namespace BugfixesAndQoL
                 return;
 
             bool active = IsActive;
+            if (!active)
+                ClearSortHeaderHelp();
             gridView.Columns[1].Width = active ? 280f : 370f;
             gridView.Columns[2].Width = active ? 90f : 0f;
             activeList.Margin = active ? new Thickness(0f, 24f, 0f, 0f) : new Thickness(0f);

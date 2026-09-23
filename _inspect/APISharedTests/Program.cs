@@ -44,6 +44,7 @@ namespace APISharedTests
             TestPublishedPresetJson();
             TestPublishedPresetDiscovery();
             TestPresetSaveUiModel();
+            TestDynamicModDefaults();
             TestWorkingSourceRegistry();
             TestCompiledPatternSearch();
             TestUnitHudSnapshotImmutability();
@@ -296,8 +297,8 @@ namespace APISharedTests
                 "an unresolved settings localization key must use the APIShared fallback");
             Assert(viewModel.ClientOptionsText == "Translated client options",
                 "a resolved settings localization value must win over the APIShared fallback");
-            Assert(viewModel.System_PresetSaveBulkModeIndex == (int)PresetSaveBulkMode.Fixed,
-                "an empty preset-save list must report the safe fixed default, not mixed");
+            Assert(viewModel.System_PresetSaveBulkModeIndex == (int)PresetSaveBulkMode.HostFixed,
+                "an empty preset-save list must report the Host Fixed default, not mixed");
 
             PresetSettingDescriptor CreateDescriptor(string name, PresetSettingScope scope)
             {
@@ -380,6 +381,14 @@ namespace APISharedTests
                 selections.Any(item => item.PropertyName == "First") &&
                 selections.Any(item => item.PropertyName == "Second"),
                 "the standard save dialog must include every persistent property row");
+            typeof(PresetLobbyModSettingsViewModel).GetMethod(
+                    "ResetPresetSaveForm",
+                    BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(viewModel, null);
+            Assert(first.SelectedModeIndex == (int)PublishedPresetValueMode.Fixed &&
+                    second.SelectedModeIndex == (int)PublishedPresetValueMode.Player &&
+                    viewModel.System_PresetSaveBulkModeIndex == (int)PresetSaveBulkMode.HostFixed,
+                "a new personal preset form must initialize Host rows as Fixed and Player/Local rows as Player");
 
             viewModel.System_PresetSaveName = "   ";
             Assert(!viewModel.System_CanConfirmPresetSave,
@@ -492,9 +501,85 @@ namespace APISharedTests
                 "the new-personal-preset form must not inherit the active preset name");
         }
 
+        private static void TestDynamicModDefaults()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "api-shared-dynamic-defaults-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+            try
+            {
+                var viewModel = new DynamicDefaultTestViewModel
+                {
+                    DynamicValues = new[] { "working" },
+                };
+                viewModel.PreparePresets(
+                    null,
+                    Path.Combine(root, "DynamicDefaults.dll"),
+                    "Dynamic defaults",
+                    "Tests.DynamicDefaults",
+                    new Version(1, 0, 0));
+
+                viewModel.PublishDefault(new[] { "fixed-a", "fixed-b" });
+                Dictionary<string, byte[]> snapshot = viewModel.System_CreateModDefaultSnapshot();
+                string[] values = (string[])MessagePack.MessagePackSerializer.Deserialize(
+                    typeof(string[]),
+                    snapshot[nameof(DynamicDefaultTestViewModel.DynamicValues)]);
+                Assert(values.SequenceEqual(new[] { "fixed-a", "fixed-b" }) &&
+                        viewModel.DynamicValues.SequenceEqual(new[] { "working" }),
+                    "updating a dynamic code default must affect snapshots without changing working values");
+
+                viewModel.ActivatePresets();
+                viewModel.System_LoadModDefaults();
+                Assert(viewModel.DynamicValues.SequenceEqual(new[] { "fixed-a", "fixed-b" }),
+                    "resetting to Mod defaults must apply the dynamically materialized default");
+
+                viewModel.DynamicValues = new[] { "changed" };
+                viewModel.System_SavePersonalPreset(
+                    "dynamic-mod-default",
+                    "Dynamic Mod Default",
+                    string.Empty,
+                    new[]
+                    {
+                        new PresetSaveSelection
+                        {
+                            PropertyName = nameof(DynamicDefaultTestViewModel.DynamicValues),
+                            Mode = PublishedPresetValueMode.ModDefault,
+                        },
+                    },
+                    overwrite: false);
+                object controller = typeof(PresetLobbyModSettingsViewModel).GetField(
+                        "presetController",
+                        BindingFlags.Instance | BindingFlags.NonPublic)
+                    .GetValue(viewModel);
+                var presets = (IReadOnlyList<PublishedModSettingsPreset>)controller.GetType()
+                    .GetProperty("PublishedPresets")
+                    .GetValue(controller);
+                PublishedModSettingsPreset preset = presets.Single(item => item.Id == "dynamic-mod-default");
+                controller.GetType().GetMethod("LoadPreset").Invoke(controller, new object[] { preset });
+                Assert(viewModel.DynamicValues.SequenceEqual(new[] { "fixed-a", "fixed-b" }),
+                    "a published ModDefault value must resolve through the dynamically materialized default");
+                AssertThrows<InvalidDataException>(
+                    () => viewModel.PublishUnknownDefault(),
+                    "dynamic defaults must reject unknown persistent properties");
+                AssertThrows<InvalidDataException>(
+                    () => viewModel.PublishWrongTypeDefault(),
+                    "dynamic defaults must reject mismatched property types");
+            }
+            finally
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+
         private static void TestWorkingSourceRegistry()
         {
             var provider = new RecordingWorkingSourceProvider();
+            var viewModel = new PresetSaveTestViewModel();
+            viewModel.PreparePresets(
+                null,
+                typeof(Program).Assembly.Location,
+                "Working source selection",
+                "Tests.WorkingSourceSelection",
+                new Version(1, 0, 0));
             int changes = 0;
             Action changed = () => changes++;
             ModSettingsWorkingSourceRegistry.SourcesChanged += changed;
@@ -503,15 +588,34 @@ namespace APISharedTests
                 ModSettingsWorkingSourceRegistry.Register(provider);
                 IReadOnlyList<ModSettingsWorkingSource> sources = ModSettingsWorkingSourceRegistry.GetProviderSources("Target");
                 Assert(sources.Count == 2 && sources[0].Kind == ModSettingsWorkingSourceKind.Trail &&
-                    sources[1].Kind == ModSettingsWorkingSourceKind.Map,
+                    sources[0].IsPreferred && sources[1].Kind == ModSettingsWorkingSourceKind.Map,
                     "working-source registry must expose optional Trail and Map sources in provider order");
+                Assert(viewModel.System_SelectedSettingsSource?.Id == ModSettingsWorkingSourceRegistry.TrailId,
+                    "entering a Trail context must preselect the preferred Trail source");
+                viewModel.System_SelectedSettingsSource = viewModel.System_SettingsSources.Single(item =>
+                    item.Id == ModSettingsWorkingSourceRegistry.MapId);
+                provider.RaiseChanged();
+                Assert(viewModel.System_SelectedSettingsSource?.Id == ModSettingsWorkingSourceRegistry.MapId,
+                    "a refresh of the same context must retain a manual source selection");
+                provider.PreferenceContextId = "trail-b";
+                provider.RaiseChanged();
+                Assert(viewModel.System_SelectedSettingsSource?.Id == ModSettingsWorkingSourceRegistry.TrailId,
+                    "a different mission with the same preferred source kind must still restore its contextual preference");
+                provider.PreferredId = ModSettingsWorkingSourceRegistry.MapId;
+                provider.RaiseChanged();
+                Assert(viewModel.System_SelectedSettingsSource?.Id == ModSettingsWorkingSourceRegistry.MapId,
+                    "a changed context must select its new preferred source");
+                provider.PreferredId = string.Empty;
+                provider.RaiseChanged();
+                Assert(viewModel.System_SelectedSettingsSource?.Id == ModSettingsWorkingSourceRegistry.ModDefaultsId,
+                    "leaving mission sources must return the selector to Mod defaults");
                 ModSettingsWorkingSourceRegistry.Apply("Target", ModSettingsWorkingSourceRegistry.MapId);
                 ModSettingsWorkingSourceRegistry.ApplyMany(new[] { "A", "B" }, ModSettingsWorkingSourceRegistry.TrailId);
                 Assert(provider.Calls.SequenceEqual(new[] { "one:Target:map", "many:A,B:trail" }),
                     "working-source registry must forward single and atomic multi-target applications");
                 provider.RaiseChanged();
                 ModSettingsWorkingSourceRegistry.Unregister(provider);
-                Assert(changes == 3 && !ModSettingsWorkingSourceRegistry.HasProvider,
+                Assert(changes == 7 && !ModSettingsWorkingSourceRegistry.HasProvider,
                     "working-source registration, provider refresh, and failed-initialization rollback must notify consumers");
             }
             finally
@@ -2273,10 +2377,12 @@ namespace APISharedTests
         {
             public event Action SourcesChanged;
             public List<string> Calls { get; } = new List<string>();
+            public string PreferredId { get; set; } = ModSettingsWorkingSourceRegistry.TrailId;
+            public string PreferenceContextId { get; set; } = "trail-a";
             public IReadOnlyList<ModSettingsWorkingSource> GetSources(string targetGuid) => new[]
             {
-                new ModSettingsWorkingSource { Id = ModSettingsWorkingSourceRegistry.TrailId, Kind = ModSettingsWorkingSourceKind.Trail, DisplayName = "Trail" },
-                new ModSettingsWorkingSource { Id = ModSettingsWorkingSourceRegistry.MapId, Kind = ModSettingsWorkingSourceKind.Map, DisplayName = "Map" },
+                new ModSettingsWorkingSource { Id = ModSettingsWorkingSourceRegistry.TrailId, Kind = ModSettingsWorkingSourceKind.Trail, DisplayName = "Trail", IsPreferred = PreferredId == ModSettingsWorkingSourceRegistry.TrailId, PreferenceContextId = PreferenceContextId },
+                new ModSettingsWorkingSource { Id = ModSettingsWorkingSourceRegistry.MapId, Kind = ModSettingsWorkingSourceKind.Map, DisplayName = "Map", IsPreferred = PreferredId == ModSettingsWorkingSourceRegistry.MapId, PreferenceContextId = PreferenceContextId },
             };
             public void Apply(string targetGuid, string sourceId) => Calls.Add("one:" + targetGuid + ":" + sourceId);
             public void ApplyMany(IEnumerable<string> targetGuids, string sourceId) => Calls.Add("many:" + string.Join(",", targetGuids) + ":" + sourceId);
@@ -2287,6 +2393,21 @@ namespace APISharedTests
         {
             protected override string ResolveSettingsUiText(string key, string fallback) =>
                 key == "Common.ClientOptions" ? "Translated client options" : key;
+        }
+
+        private sealed class DynamicDefaultTestViewModel : PresetLobbyModSettingsViewModel
+        {
+            [PresetLocal]
+            public string[] DynamicValues { get; set; } = Array.Empty<string>();
+
+            public void PublishDefault(string[] value) =>
+                SetModDefaultValue(nameof(DynamicValues), value);
+
+            public void PublishUnknownDefault() =>
+                SetModDefaultValue("Missing", Array.Empty<string>());
+
+            public void PublishWrongTypeDefault() =>
+                SetModDefaultValue(nameof(DynamicValues), 42);
         }
 
         private sealed class FakeMemory : INativeMemory

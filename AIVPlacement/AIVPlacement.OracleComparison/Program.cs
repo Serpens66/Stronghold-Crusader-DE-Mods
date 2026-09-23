@@ -324,10 +324,12 @@ internal static class Program
 
     private static AivBlueprint LoadBlueprint(string path)
     {
-        // JSON loading stays in the diagnostic tool so the offline core remains package-free.
-        byte[] bytes = File.ReadAllBytes(path);
-        AivJsonDocument? document = JsonSerializer.Deserialize<AivJsonDocument>(bytes, InputOptions);
-        AivParseResult parsed = new AivBlueprintParser().Parse(document, path);
+        // Match the lobby loader's Vanilla-compatible normalization of {} no-op frames.
+        AivJsonLoadResult loaded = AivJsonFileLoader.Load(path);
+        AivParseResult parsed = new AivBlueprintParser().Parse(
+            loaded.Document,
+            path,
+            loaded.Diagnostics);
         if (!parsed.IsValid)
         {
             string diagnostics = string.Join(

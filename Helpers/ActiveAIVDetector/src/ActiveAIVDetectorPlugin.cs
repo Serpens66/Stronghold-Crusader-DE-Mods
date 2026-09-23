@@ -37,13 +37,14 @@ namespace ActiveAIVDetector
                     "Oracle cell trace",
                     "Enabled",
                     false,
-                    "Capture one filtered native 100x100 fit grid without changing Vanilla behavior.").Value,
-                Config.Bind("Oracle cell trace", "PlayerId", 2).Value,
-                Config.Bind("Oracle cell trace", "CandidateId", 0).Value,
-                Config.Bind("Oracle cell trace", "Orientation", 0).Value,
-                Config.Bind("Oracle cell trace", "KeepX", 363).Value,
-                Config.Bind("Oracle cell trace", "KeepY", 428).Value,
-                Config.Bind("Oracle cell trace", "MaximumCaptureCount", 1).Value,
+                    "Capture filtered native 100x100 fit grids without changing Vanilla behavior.").Value,
+                Config.Bind("Oracle cell trace", "PlayerId", -1).Value,
+                Config.Bind("Oracle cell trace", "CandidateId", -1).Value,
+                Config.Bind("Oracle cell trace", "Orientation", -1).Value,
+                Config.Bind("Oracle cell trace", "KeepX", -1).Value,
+                Config.Bind("Oracle cell trace", "KeepY", -1).Value,
+                Config.Bind("Oracle cell trace", "MaximumCaptureCount", 256,
+                    "Maximum fit-grid captures per map load; lower this if trace files grow too large.").Value,
                 Path.Combine(Paths.PluginPath, PluginGuid, "CellTraces"));
             var prebuildTraceOptions = new OraclePrebuildTraceOptions(
                 Config.Bind(
@@ -51,8 +52,10 @@ namespace ActiveAIVDetector
                     "Enabled",
                     false,
                     "Trace synchronous ExecuteBuildStep building-grid changes without altering Vanilla behavior.").Value,
-                Config.Bind("Oracle prebuild trace", "PlayerId", 2).Value,
-                Config.Bind("Oracle prebuild trace", "MaximumCaptureCount", 1).Value,
+                Config.Bind("Oracle prebuild trace", "PlayerId", -1,
+                    "Use -1 to capture every AI player in each map load.").Value,
+                Config.Bind("Oracle prebuild trace", "MaximumCaptureCount", 8,
+                    "Maximum number of player sequences per map load.").Value,
                 Path.Combine(Paths.PluginPath, PluginGuid, "PrebuildTraces"));
             runtime = new ActiveAIVDetectionRuntime(
                 Logger,

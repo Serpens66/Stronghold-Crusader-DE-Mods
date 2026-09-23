@@ -25,6 +25,7 @@ namespace SerpsModsHost
         private ModSettingsSearchViewModel search;
         private readonly ObservableCollection<ModSettingsWorkingSource> globalSources = new ObservableCollection<ModSettingsWorkingSource>();
         private ModSettingsWorkingSource selectedGlobalSource;
+        private string preferredGlobalSourceToken = string.Empty;
         private ModSettingsWorkingSource pendingGlobalSource;
         private bool globalResetConfirmationVisible;
         private string globalResetStatus = string.Empty;
@@ -164,7 +165,17 @@ namespace SerpsModsHost
                 if (source.Kind == ModSettingsWorkingSourceKind.Map) source.DisplayName = SerpLocalization.Get("Common.SettingsSourceMap");
                 globalSources.Add(source);
             }
-            selectedGlobalSource = globalSources.FirstOrDefault(item => string.Equals(item.Id, selectedId, StringComparison.Ordinal)) ?? globalSources.FirstOrDefault();
+            ModSettingsWorkingSource preferredSource = globalSources.FirstOrDefault(item => item.IsPreferred) ??
+                globalSources.FirstOrDefault(item => string.Equals(item.Id, ModSettingsWorkingSourceRegistry.ModDefaultsId, StringComparison.Ordinal));
+            string preferred = preferredSource?.Id ?? ModSettingsWorkingSourceRegistry.ModDefaultsId;
+            string preferredToken = preferred + "\n" + (preferredSource?.PreferenceContextId ?? string.Empty);
+            bool preferredChanged = !string.Equals(preferredGlobalSourceToken, preferredToken, StringComparison.Ordinal);
+            selectedGlobalSource = (preferredChanged
+                    ? globalSources.FirstOrDefault(item => string.Equals(item.Id, preferred, StringComparison.Ordinal))
+                    : globalSources.FirstOrDefault(item => string.Equals(item.Id, selectedId, StringComparison.Ordinal))) ??
+                globalSources.FirstOrDefault(item => string.Equals(item.Id, preferred, StringComparison.Ordinal)) ??
+                globalSources.FirstOrDefault();
+            preferredGlobalSourceToken = preferredToken;
             OnPropertyChanged(nameof(GlobalSettingsSources));
             OnPropertyChanged(nameof(SelectedGlobalSettingsSource));
             CancelGlobalSettingsReset();

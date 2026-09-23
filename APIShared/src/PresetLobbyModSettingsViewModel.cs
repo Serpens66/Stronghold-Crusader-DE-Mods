@@ -869,6 +869,7 @@ namespace Shared
         private readonly ObservableCollection<ModSettingsWorkingSource> settingsSources =
             new ObservableCollection<ModSettingsWorkingSource>();
         private ModSettingsWorkingSource selectedSettingsSource;
+        private string preferredSettingsSourceToken = string.Empty;
         private PublishedModSettingsPreset pendingDeletePreset;
         private string pendingOverwriteId;
         private PresetSaveSelection[] pendingOverwriteSelections;
@@ -1186,7 +1187,7 @@ namespace Shared
             get
             {
                 if (presetSaveSettings.Count == 0)
-                    return (int)PresetSaveBulkMode.Fixed;
+                    return (int)PresetSaveBulkMode.HostFixed;
                 int[] modes = presetSaveSettings.Select(item => item.SelectedModeIndex).Distinct().ToArray();
                 if (modes.Length == 1)
                     return modes[0];
@@ -1437,7 +1438,20 @@ namespace Shared
                     settingsSources.Add(source);
                 }
             }
-            selectedSettingsSource = settingsSources.FirstOrDefault(item => string.Equals(item.Id, previous, StringComparison.Ordinal)) ?? settingsSources.FirstOrDefault();
+            ModSettingsWorkingSource preferredSource = settingsSources.FirstOrDefault(item => item.IsPreferred) ??
+                settingsSources.FirstOrDefault(item => string.Equals(item.Id, ModSettingsWorkingSourceRegistry.ModDefaultsId, StringComparison.Ordinal));
+            string preferred = preferredSource?.Id ?? ModSettingsWorkingSourceRegistry.ModDefaultsId;
+            string preferredToken = preferred + "\n" + (preferredSource?.PreferenceContextId ?? string.Empty);
+            bool preferredChanged = !string.Equals(
+                preferredSettingsSourceToken,
+                preferredToken,
+                StringComparison.Ordinal);
+            selectedSettingsSource = (preferredChanged
+                    ? settingsSources.FirstOrDefault(item => string.Equals(item.Id, preferred, StringComparison.Ordinal))
+                    : settingsSources.FirstOrDefault(item => string.Equals(item.Id, previous, StringComparison.Ordinal))) ??
+                settingsSources.FirstOrDefault(item => string.Equals(item.Id, preferred, StringComparison.Ordinal)) ??
+                settingsSources.FirstOrDefault();
+            preferredSettingsSourceToken = preferredToken;
             base.OnPropertyChanged(nameof(System_SettingsSources));
             base.OnPropertyChanged(nameof(System_SelectedSettingsSource));
             base.OnPropertyChanged(nameof(System_CanLoadSettingsSource));
@@ -1604,7 +1618,9 @@ namespace Shared
         {
             foreach (PresetSaveSettingViewModel setting in presetSaveSettings)
             {
-                setting.SelectedModeIndex = (int)PublishedPresetValueMode.Fixed;
+                setting.SelectedModeIndex = (int)(setting.Scope == PresetSettingScope.Host
+                    ? PublishedPresetValueMode.Fixed
+                    : PublishedPresetValueMode.Player);
             }
             presetSaveName = string.Empty;
             presetSaveDescription = string.Empty;
@@ -1915,6 +1931,17 @@ namespace Shared
 
         protected bool IsApplyingSettingsSnapshot =>
             presetController?.IsApplyingSnapshot == true;
+
+        /// <summary>
+        /// Replaces one captured code-default value without changing the current working settings.
+        /// This is intended for defaults which can only be materialized after dynamic discovery.
+        /// </summary>
+        protected void SetModDefaultValue<T>(string propertyName, T value)
+        {
+            if (presetController == null)
+                throw new InvalidOperationException("Preset storage must be prepared before dynamic defaults are updated.");
+            presetController.SetDefaultValue(propertyName, value);
+        }
 
         protected virtual void OnSettingsSnapshotApplied()
         {
@@ -2670,6 +2697,29 @@ namespace Shared
             public void CaptureDefaults()
             {
                 defaults = CaptureCurrentSettings();
+            }
+
+            public void SetDefaultValue<T>(string propertyName, T value)
+            {
+                if (string.IsNullOrWhiteSpace(propertyName) ||
+                    !persistedPropertiesByName.TryGetValue(propertyName, out PropertyInfo property))
+                {
+                    throw new InvalidDataException($"Unknown persistent setting [{propertyName}].");
+                }
+                if (property.PropertyType != typeof(T))
+                {
+                    throw new InvalidDataException(
+                        $"Default setting [{propertyName}] expects [{property.PropertyType.FullName}], not [{typeof(T).FullName}].");
+                }
+                if (value == null && property.PropertyType.IsValueType &&
+                    Nullable.GetUnderlyingType(property.PropertyType) == null)
+                {
+                    throw new InvalidDataException($"Default setting [{propertyName}] cannot be null.");
+                }
+
+                byte[] serialized = MessagePackSerializer.Serialize(property.PropertyType, value);
+                MessagePackSerializer.Deserialize(property.PropertyType, serialized);
+                defaults[property.Name] = serialized;
             }
 
             public void Activate()

@@ -924,7 +924,8 @@ static void TestMapModSettingsRuntimeIntegration()
         runtime.Contains("ActivateSelectedMissionSettingsUnlessMap") &&
         runtime.Contains("mapSettingsCoordinator?.IsActiveForLobby(lobby) == true") &&
         coordinator.Contains("settingsCoordinator.ValidateStrict(document, \"embedded Map\")") &&
-        coordinator.Contains("SetMapSourceDocument(document)") &&
+        coordinator.Contains("SetMapSourceDocument(document, selected.filePath)") &&
+        coordinator.Contains("SetMapSourceDocument(document, packet.MapFileName + \":\" + packet.MapCrc)") &&
         coordinator.Contains("editable: true") &&
         coordinator.Contains("CaptureCurrentDocument()") &&
         !File.Exists(oldMapButtonXaml) &&
@@ -933,7 +934,9 @@ static void TestMapModSettingsRuntimeIntegration()
     string settingsXaml = File.ReadAllText(Path.Combine(projectRoot, "Override", "ScriptExtenderUI", "ExtendedDataSettings.xaml"));
     Assert(settingsXaml.Contains("TextWrapping=\"Wrap\"\r\n                 Width=\"580\"") &&
         settingsXaml.Contains("Width=\"580\" HorizontalAlignment=\"Left\"") &&
-        settingsXaml.Contains("<ColumnDefinition Width=\"*\"/><ColumnDefinition Width=\"28\"/>") &&
+        settingsXaml.Contains("<ColumnDefinition Width=\"*\"/><ColumnDefinition Width=\"175\"/><ColumnDefinition Width=\"28\"/>") &&
+        settingsXaml.Contains("<ComboBox Grid.Column=\"1\"") &&
+        settingsXaml.Contains("<ToggleButton Grid.Column=\"2\"") &&
         settingsXaml.Contains("Width=\"530\" HorizontalAlignment=\"Left\"") &&
         settingsXaml.Contains("HorizontalScrollBarVisibility=\"Auto\"") &&
         !settingsXaml.Contains("Width=\"723\""),
@@ -1000,10 +1003,18 @@ static void TestEditorSaveModSettingsOptions()
     Assert(mapXaml.Contains("ExtendedDataMapEditorSaveOptionsHost") &&
         mapXaml.Contains("IncludeMapModSettings, Mode=TwoWay") &&
         mapXaml.Contains("MapHelpText") &&
+        mapXaml.Contains("Width=\"220\"") &&
+        mapXaml.Contains("Height=\"23\"") &&
+        mapXaml.Contains("Margin=\"45,360,0,0\"") &&
+        mapXaml.Contains("<CheckBox HorizontalAlignment=\"Center\"") &&
         trailXaml.Contains("ExtendedDataTrailMakerSaveOptionsHost") &&
         trailXaml.Contains("IncludeTrailModSettings, Mode=TwoWay") &&
-        trailXaml.Contains("TrailHelpText"),
-        "editor save checkboxes or their explanatory tooltips are missing");
+        trailXaml.Contains("TrailHelpText") &&
+        trailXaml.Contains("Width=\"300\"") &&
+        trailXaml.Contains("Height=\"23\"") &&
+        trailXaml.Contains("Margin=\"350,130,0,0\"") &&
+        trailXaml.Contains("<CheckBox HorizontalAlignment=\"Center\""),
+        "editor save checkboxes, their explanatory tooltips, or their collision-free positions are missing");
 
     foreach (string xamlPath in new[] { mapXamlPath, trailXamlPath })
     {
@@ -1268,11 +1279,16 @@ static void TestLocalActivationSetting()
         "the dynamic compatible/incompatible Trail-mod catalog is not shown or persisted");
     Assert(viewModel.Contains("useFixedDefaultsForNewProperties") &&
         viewModel.Contains("initializedTrailPropertyIds.Add(id)") &&
+        viewModel.Contains("SetModDefaultValue(nameof(PlayerTrailPropertyIds), Array.Empty<string>())") &&
+        viewModel.Contains("SetModDefaultValue(nameof(FixedTrailPropertyIds), fixedDefaults)") &&
         coordinator.Contains("useFixedDefaults: !exists && editable") &&
         coordinator.Contains("applyEditorModes?.Invoke(document, useFixedDefaults)"),
-        "new Map/Trail settings must start fixed without reinterpreting loaded documents.");
+        "new and reset Map/Trail settings must default to Fixed without reinterpreting loaded documents.");
     Assert(xaml.Contains("Width=\"580\" HorizontalAlignment=\"Left\"") &&
-        xaml.Contains("<ColumnDefinition Width=\"*\"/><ColumnDefinition Width=\"28\"/>") &&
+        xaml.Contains("<ColumnDefinition Width=\"*\"/><ColumnDefinition Width=\"175\"/><ColumnDefinition Width=\"28\"/>") &&
+        xaml.Contains("<ComboBox Grid.Column=\"1\"") &&
+        xaml.Contains("<ToggleButton Grid.Column=\"2\"") &&
+        !xaml.Contains("<Grid.RowDefinitions><RowDefinition Height=\"Auto\"/><RowDefinition Height=\"Auto\"/></Grid.RowDefinitions>") &&
         xaml.Contains("Width=\"530\" HorizontalAlignment=\"Left\"") &&
         xaml.Contains("<ColumnDefinition Width=\"*\"/><ColumnDefinition Width=\"175\"/>") &&
         xaml.Contains("HorizontalScrollBarVisibility=\"Auto\"") &&
@@ -1287,6 +1303,11 @@ static void TestLocalActivationSetting()
         "dynamic Trail compatibility does not enforce the safe mission-preset contract");
     Assert(coordinator.Contains("GetRegistrationGroups()") && coordinator.Contains("group.Skip(1).Any()"),
         "duplicate mod-settings registrations are not rejected per plugin GUID");
+    Assert(coordinator.Contains("IsPreferred = true") &&
+        coordinator.Contains("IsPreferred = trailSourceDocument == null") &&
+        coordinator.Contains("PreferenceContextId = workingSourceContextId") &&
+        coordinator.Contains("workingSourceContextId = \"trail:\" + IOPath.GetFullPath(sidecar)"),
+        "Trail and Map sources do not expose the required Trail-first mission-context preference");
     Assert(coordinator.Contains("DebugLogHelper.LogInfo(") &&
         coordinator.Contains("are not included in creator presets") &&
         !coordinator.Contains("Trail mod-settings compatibility rejected"),

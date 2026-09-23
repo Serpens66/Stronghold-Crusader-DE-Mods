@@ -39,6 +39,32 @@ The named source constants contain the complete patterns. Resolved RVAs, not
 the reference constants, are used for hook installation. Matching function
 signatures alone are not sufficient to approve a changed native layout.
 
+## Sofortspawn diagnostic data reads
+
+The opt-in observer is owned by ActiveAIVDetector but uses APIShared's single,
+hash- and function-hash-gated `0x51790` detour. It reads the TileManager
+pointer observed by the existing `0x7B060` validator callback; the pointer
+must be consistent before and after each frame. The current-hash TileManager
+offsets are `Logic +0x898400` (int32), `Logic2 +0x9D2500` (byte),
+`Organism +0xA6F260` (uint16), `Structure +0xB0BCA0` (uint16),
+`TileUnit +0xBF6C00` (uint16), `Height +0xD7E5A0` (byte),
+`DefaultHeight +0xDCCAC0` (byte), and `WallOwner +0xE1AFE0`
+(byte), each with 320800 packed tiles. These offsets agree with the
+canonical local Script Extender's `GameTileManagerView`; the feature is disabled on
+any other native hash because layout signatures alone cannot validate them.
+The associated building metadata comes through the installed Extender's
+`GetBuildingsAsSpan()` view, with `buildingId = spanIndex + 1`.
+
+At AIV selector entry the diagnostic reads raw global values at current-hash
+RVA `0x8574B90` (game mode, int32), `0x87EE2F0` and `0x87EE2F4`
+(start options, int32), and `0x87EE2F8` (raw 64-bit option state). These
+addresses are derived from the audited `0x94350` branch and its writers in
+the current semantic baseline. The read is bounded by the loaded image
+length; an out-of-image address is reported as unavailable. There is no
+version-independent signature for the data layout: the existing full-DLL
+hash gate is mandatory, and changed hashes disable this native feature.
+The values are observations, not a claimed managed-to-native option mapping.
+
 ## Required update audit
 
 1. Require exactly one semantic match for every entry and verify its function,
@@ -49,6 +75,8 @@ signatures alone are not sufficient to approve a changed native layout.
    `+0x5B4FC`, `+0x1B9844` and all map-grid offsets in the source.
 4. Revalidate organism stride `0x9C`, class `+0x46`, player stride `0x583C`
    and prepared-entry layout `+0x38`/`0x0C`.
+   Revalidate the eight TileManager layer offsets and the four raw start-option
+   globals above against both native readers/writers and Extender views.
 5. Run cell and prebuild traces on known maps and compare them with Vanilla.
 6. Update all RVAs, then update the shared hash only after every layout passes.
 

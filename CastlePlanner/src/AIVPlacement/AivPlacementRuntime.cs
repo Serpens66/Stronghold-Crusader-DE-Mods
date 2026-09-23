@@ -7,6 +7,7 @@ using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using AIVPlacement.Core;
 using CastlePlanner.AIVPlacement.Core;
 using BepInEx.Logging;
 using CrusaderDE;
@@ -67,6 +68,8 @@ namespace CastlePlanner.AIVPlacement
         private long nextSourcePollTimestamp;
         private CancellationTokenSource evaluationCancellation;
         private bool lobbyContextActive;
+        private bool lobbySetupObserved;
+        private bool lastLobbyFeatureEnabled;
         private Button blockedReadyButton;
         private bool blockedReadyButtonWasEnabled;
         private object blockedReadyButtonToolTip;
@@ -154,8 +157,25 @@ namespace CastlePlanner.AIVPlacement
             updateTrampoline(self);
             try
             {
-                bool lobbySetupActive = IsLobbySetupActive();
-                if (!lobbySetupActive)
+                bool setupVisible = IsLobbySetupContext();
+                if (!setupVisible)
+                {
+                    lobbySetupObserved = false;
+                    LeaveLobbyContext();
+                    return;
+                }
+
+                bool featureEnabled = isEnabled();
+                if (!lobbySetupObserved || lastLobbyFeatureEnabled != featureEnabled)
+                {
+                    Shared.DebugLogHelper.LogInfo(
+                        log,
+                        $"AIV lobby placement: active={featureEnabled}, " +
+                        $"host={self?.currentLobby?.isHost == true}.");
+                    lobbySetupObserved = true;
+                    lastLobbyFeatureEnabled = featureEnabled;
+                }
+                if (!featureEnabled)
                 {
                     LeaveLobbyContext();
                     return;
@@ -602,6 +622,16 @@ namespace CastlePlanner.AIVPlacement
                 }
                 currentResults[result.PlayerId] = result;
                 selectionDialog.Publish(result);
+                int evaluableCandidates = result.Candidates.Count(candidate =>
+                    candidate.Status != AivPlacementStatus.NotEvaluable);
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"AIV lobby placement result: generation={result.Generation}, " +
+                    $"playerId={result.PlayerId}, status={result.Status}, " +
+                    $"evaluableCandidates={evaluableCandidates}/{result.Candidates.Count}, " +
+                    $"selectedCandidate={result.SelectedCandidate?.CandidateId.ToString() ?? "none"}, " +
+                    $"rotation={result.SelectedVariant?.Rotation.ToString() ?? "unknown"}, " +
+                    $"reason={result.FailureKind}.");
             }
         }
 
@@ -810,9 +840,11 @@ namespace CastlePlanner.AIVPlacement
 
         private bool IsLobbySetupActive()
         {
-            if (!isEnabled())
-                return false;
+            return isEnabled() && IsLobbySetupContext();
+        }
 
+        private static bool IsLobbySetupContext()
+        {
             MainViewModel viewModel = MainViewModel.Instance;
             // Vanilla's setup panel is the positive lobby signal. Coop Trail pages also prepare
             // it in the background; only an explicit Skirmish-style customization may opt in.

@@ -112,12 +112,13 @@ namespace CastlePlanner
             {
                 aivPlacementRuntime = new CastlePlanner.AIVPlacement.AivPlacementRuntime(
                     Logger,
-                    () => Settings.EnableAivPlacementLobby);
+                    () => Settings.EnableMod && Settings.EnableAivPlacementLobby);
                 Settings.PropertyChanged += (_, args) =>
                 {
-                    if (args.PropertyName == nameof(CastlePlannerSettingsViewModel.EnableAivPlacementLobby))
+                    if (args.PropertyName == nameof(CastlePlannerSettingsViewModel.EnableAivPlacementLobby) ||
+                        args.PropertyName == nameof(CastlePlannerSettingsViewModel.EnableMod))
                     {
-                        if (Settings.EnableAivPlacementLobby)
+                        if (Settings.EnableMod && Settings.EnableAivPlacementLobby)
                             aivPlacementRuntime?.RequestRefresh();
                         else
                             aivPlacementRuntime?.Deactivate();

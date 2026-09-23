@@ -6,12 +6,12 @@
     <Content>
       <Grid x:Name="ExtendedDataTrailMakerSaveOptionsHost"
             Width="300"
-            Height="34"
-            Margin="350,145,0,0"
+            Height="23"
+            Margin="350,130,0,0"
             HorizontalAlignment="Center"
             VerticalAlignment="Top"
             Visibility="{Binding TrailOptionVisibility}">
-        <CheckBox HorizontalAlignment="Left"
+        <CheckBox HorizontalAlignment="Center"
                   VerticalAlignment="Center"
                   Foreground="Black"
                   Content="{Binding IncludeText}"

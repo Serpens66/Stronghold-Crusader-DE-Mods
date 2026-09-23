@@ -110,36 +110,15 @@
       <Grid x:Name="BugfixesAndQoLAivHeaderPanel" Width="360" Height="24"
             HorizontalAlignment="Left" VerticalAlignment="Top"
             Visibility="{Binding EnhancementVisibility}">
-        <Grid.Resources>
-          <Style TargetType="{x:Type ToolTip}">
-            <Setter Property="Background" Value="#FF1D1710" />
-            <Setter Property="Foreground" Value="White" /><Setter Property="seui:ToolTipResolutionScale.Enabled" Value="True"/>
-            <Setter Property="BorderBrush" Value="#FFF2D48A" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Template">
-              <Setter.Value>
-                <ControlTemplate TargetType="{x:Type ToolTip}">
-                  <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-                          BorderThickness="1" CornerRadius="2" Padding="{TemplateBinding Padding}"
-                          MaxWidth="{TemplateBinding MaxWidth}">
-                    <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}" TextWrapping="Wrap" />
-                  </Border>
-                </ControlTemplate>
-              </Setter.Value>
-            </Setter>
-          </Style>
-        </Grid.Resources>
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="70" />
           <ColumnDefinition Width="290" />
         </Grid.ColumnDefinitions>
         <GridViewColumnHeader x:Name="BugfixesAndQoLAivOriginHeader" Grid.Column="0"
                               Content="{Binding OriginHeaderText}" Template="{StaticResource MyGridViewColumnHeader}"
-                              ToolTip="{Binding AivOriginSortHelpText}" ToolTipService.ShowDuration="60000"
                               Tag="AIV_Origin" />
         <GridViewColumnHeader x:Name="BugfixesAndQoLAivNameHeader" Grid.Column="1"
                               Content="{Binding NameHeaderText}" Template="{StaticResource MyGridViewColumnHeader}"
-                              ToolTip="{Binding AivNameSortHelpText}" ToolTipService.ShowDuration="60000"
                               Tag="AIV_Name" />
       </Grid>
     </Content>
@@ -302,25 +281,6 @@
       <Grid x:Name="BugfixesAndQoLAicHeaderPanel" Width="360" Height="24"
             HorizontalAlignment="Left" VerticalAlignment="Top"
             Visibility="{Binding EnhancementVisibility}">
-        <Grid.Resources>
-          <Style TargetType="{x:Type ToolTip}">
-            <Setter Property="Background" Value="#FF1D1710" />
-            <Setter Property="Foreground" Value="White" /><Setter Property="seui:ToolTipResolutionScale.Enabled" Value="True"/>
-            <Setter Property="BorderBrush" Value="#FFF2D48A" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Template">
-              <Setter.Value>
-                <ControlTemplate TargetType="{x:Type ToolTip}">
-                  <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-                          BorderThickness="1" CornerRadius="2" Padding="{TemplateBinding Padding}"
-                          MaxWidth="{TemplateBinding MaxWidth}">
-                    <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}" TextWrapping="Wrap" />
-                  </Border>
-                </ControlTemplate>
-              </Setter.Value>
-            </Setter>
-          </Style>
-        </Grid.Resources>
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="70" />
           <ColumnDefinition Width="200" />
@@ -328,15 +288,12 @@
         </Grid.ColumnDefinitions>
         <GridViewColumnHeader x:Name="BugfixesAndQoLAicOriginHeader" Grid.Column="0"
                               Content="{Binding OriginHeaderText}" Template="{StaticResource MyGridViewColumnHeader}"
-                              ToolTip="{Binding AicOriginSortHelpText}" ToolTipService.ShowDuration="60000"
                               Tag="AIC_Origin" />
         <GridViewColumnHeader x:Name="BugfixesAndQoLAicNameHeader" Grid.Column="1"
                               Content="{Binding NameHeaderText}" Template="{StaticResource MyGridViewColumnHeader}"
-                              ToolTip="{Binding AicNameSortHelpText}" ToolTipService.ShowDuration="60000"
                               Tag="AIC_Name" />
         <GridViewColumnHeader x:Name="BugfixesAndQoLAicPowerHeader" Grid.Column="2"
                               Content="{Binding PowerHeaderText}" Template="{StaticResource MyGridViewColumnHeader}"
-                              ToolTip="{Binding AicPowerSortHelpText}" ToolTipService.ShowDuration="60000"
                               Tag="AIC_Power" />
       </Grid>
     </Content>
@@ -430,13 +387,11 @@
               <GridViewColumnHeader x:Name="BugfixesAndQoLPresetNameHeader" Grid.Column="0"
                                     Content="{Binding PresetNameHeaderText}"
                                     Template="{StaticResource MyGridViewColumnHeader}"
-                                    Tag="Preset_Name" ToolTip="{Binding PresetNameSortHelpText}"
-                                    ToolTipService.ShowDuration="60000" />
+                                    Tag="Preset_Name" />
               <GridViewColumnHeader x:Name="BugfixesAndQoLPresetSavedHeader" Grid.Column="1"
                                     Content="{Binding PresetSavedHeaderText}"
                                     Template="{StaticResource MyGridViewColumnHeader}"
-                                    Tag="Preset_Saved" ToolTip="{Binding PresetSavedSortHelpText}"
-                                    ToolTipService.ShowDuration="60000" />
+                                    Tag="Preset_Saved" />
             </Grid>
             <ListView x:Name="BugfixesAndQoLAivPresetList" Margin="0,24,0,0" HorizontalAlignment="Stretch"
                       VerticalAlignment="Stretch" ItemsSource="{Binding PresetRows}"

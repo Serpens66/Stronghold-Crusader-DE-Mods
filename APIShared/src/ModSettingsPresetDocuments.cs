@@ -48,6 +48,10 @@ namespace Shared
         public string Id { get; set; } = string.Empty;
         public string DisplayName { get; set; } = string.Empty;
         public ModSettingsWorkingSourceKind Kind { get; set; }
+        /// <summary>Whether this source represents the provider's current mission context.</summary>
+        public bool IsPreferred { get; set; }
+        /// <summary>Optional stable identity of the mission context used to distinguish context changes from refreshes.</summary>
+        public string PreferenceContextId { get; set; } = string.Empty;
         public override string ToString() => DisplayName;
     }
 

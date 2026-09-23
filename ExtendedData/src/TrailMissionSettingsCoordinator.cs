@@ -156,6 +156,7 @@ namespace ExtendedData
             private bool workingContextEditable;
             private ModSettingsDefinition trailSourceDocument;
             private ModSettingsDefinition mapSourceDocument;
+            private string workingSourceContextId = string.Empty;
             private bool enabled;
             private bool externalButtonOwner;
             private readonly List<Button> injectedCoopButtons = new List<Button>();
@@ -491,9 +492,11 @@ namespace ExtendedData
 
             internal ModSettingsDefinition CaptureCurrentDocument() => CaptureDocument();
 
-            internal void SetMapSourceDocument(ModSettingsDefinition document)
+            internal void SetMapSourceDocument(ModSettingsDefinition document, string contextId = null)
             {
                 mapSourceDocument = CloneDocument(document);
+                if (trailSourceDocument == null)
+                    workingSourceContextId = document == null ? string.Empty : "map:" + (contextId ?? string.Empty);
                 SourcesChanged?.Invoke();
             }
 
@@ -501,9 +504,9 @@ namespace ExtendedData
             {
                 var result = new List<ModSettingsWorkingSource>();
                 if (trailSourceDocument != null)
-                    result.Add(new ModSettingsWorkingSource { Id = ModSettingsWorkingSourceRegistry.TrailId, Kind = ModSettingsWorkingSourceKind.Trail, DisplayName = "Trail settings" });
+                    result.Add(new ModSettingsWorkingSource { Id = ModSettingsWorkingSourceRegistry.TrailId, Kind = ModSettingsWorkingSourceKind.Trail, DisplayName = "Trail settings", IsPreferred = true, PreferenceContextId = workingSourceContextId });
                 if (mapSourceDocument != null)
-                    result.Add(new ModSettingsWorkingSource { Id = ModSettingsWorkingSourceRegistry.MapId, Kind = ModSettingsWorkingSourceKind.Map, DisplayName = "Map settings" });
+                    result.Add(new ModSettingsWorkingSource { Id = ModSettingsWorkingSourceRegistry.MapId, Kind = ModSettingsWorkingSourceKind.Map, DisplayName = "Map settings", IsPreferred = trailSourceDocument == null, PreferenceContextId = workingSourceContextId });
                 return result;
             }
 
@@ -633,6 +636,7 @@ namespace ExtendedData
                     workingContextEditable = false;
                     trailSourceDocument = null;
                     mapSourceDocument = null;
+                    workingSourceContextId = string.Empty;
                     SourcesChanged?.Invoke();
                     return;
                 }
@@ -650,6 +654,7 @@ namespace ExtendedData
                 missionPresetLifecycle.Reset();
                 trailSourceDocument = null;
                 mapSourceDocument = null;
+                workingSourceContextId = string.Empty;
                 SourcesChanged?.Invoke();
                 DebugLogHelper.LogInfo(log, "Left " + activeContextLabel + " mod-settings context.");
                 activeContextLabel = "Trail";
@@ -2923,6 +2928,7 @@ namespace ExtendedData
                     ? ModSettingsJson.Read(sidecar)
                     : ModSettingsDefinition.CreateModDefaults();
                 trailSourceDocument = exists ? CloneDocument(document) : null;
+                workingSourceContextId = "trail:" + IOPath.GetFullPath(sidecar);
                 SourcesChanged?.Invoke();
                 ApplyDocument(document, editable, useFixedDefaults: !exists && editable);
                 string[] mentionedMods = document.Mods.Keys.ToArray();

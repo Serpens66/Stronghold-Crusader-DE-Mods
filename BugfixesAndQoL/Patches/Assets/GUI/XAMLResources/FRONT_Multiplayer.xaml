@@ -45,25 +45,6 @@
       <Grid x:Name="CustomLordHeaderPanel" Width="410" Height="24"
             HorizontalAlignment="Left" VerticalAlignment="Top"
             Visibility="{Binding EnhancementVisibility}">
-        <Grid.Resources>
-          <Style TargetType="{x:Type ToolTip}">
-            <Setter Property="Background" Value="#FF1D1710" />
-            <Setter Property="Foreground" Value="White" /><Setter Property="seui:ToolTipResolutionScale.Enabled" Value="True"/>
-            <Setter Property="BorderBrush" Value="#FFF2D48A" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Template">
-              <Setter.Value>
-                <ControlTemplate TargetType="{x:Type ToolTip}">
-                  <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-                          BorderThickness="1" CornerRadius="2" Padding="{TemplateBinding Padding}"
-                          MaxWidth="{TemplateBinding MaxWidth}">
-                    <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}" TextWrapping="Wrap" />
-                  </Border>
-                </ControlTemplate>
-              </Setter.Value>
-            </Setter>
-          </Style>
-        </Grid.Resources>
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="40" />
           <ColumnDefinition Width="280" />
@@ -71,20 +52,31 @@
         </Grid.ColumnDefinitions>
         <GridViewColumnHeader x:Name="CustomLordTypeHeader" Grid.Column="0"
                               Template="{StaticResource MyGridViewColumnHeader}"
-                              ToolTip="{Binding WorkshopSortHelpText}"
-                              ToolTipService.ShowDuration="60000" Tag="Workshop">
+                              Tag="Workshop">
           <Image Width="20" Height="20" Source="{StaticResource steam}" />
         </GridViewColumnHeader>
         <GridViewColumnHeader x:Name="CustomLordNameHeader" Grid.Column="1"
                               Content="{Binding NameHeaderText}"
                               Template="{StaticResource MyGridViewColumnHeader}"
-                              ToolTip="{Binding NameSortHelpText}"
-                              ToolTipService.ShowDuration="60000" Tag="Name" />
+                              Tag="Name" />
         <GridViewColumnHeader x:Name="CustomLordPowerHeader" Grid.Column="2"
                               Content="{Binding PowerHeaderText}"
                               Template="{StaticResource MyGridViewColumnHeader}"
-                              ToolTip="{Binding PowerSortHelpText}"
-                              ToolTipService.ShowDuration="60000" Tag="Power" />
+                              Tag="Power" />
+      </Grid>
+    </Content>
+  </Operation>
+  <Operation Type="InsertAfter"
+             XPath="//n:Grid[@Width='700' and @Height='360' and @Visibility='{Binding Show_AddAIPanel, Converter={StaticResource booleanToVisibilityConverter}}']">
+    <Content>
+      <Grid x:Name="CustomLordSortHelpPanel" Width="1280" Height="60" Margin="0,0,0,20"
+            HorizontalAlignment="Center" VerticalAlignment="Bottom" IsHitTestVisible="False"
+            Visibility="{Binding SortHeaderHelpVisibility}">
+        <Button Margin="-3" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                IsHitTestVisible="False" Style="{StaticResource BDR_SH1DEa}" />
+        <TextBlock Width="1150" Margin="0,10,0,8" HorizontalAlignment="Center"
+                   VerticalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"
+                   FontSize="18" Text="{Binding SortHeaderHelpText}" />
       </Grid>
     </Content>
   </Operation>

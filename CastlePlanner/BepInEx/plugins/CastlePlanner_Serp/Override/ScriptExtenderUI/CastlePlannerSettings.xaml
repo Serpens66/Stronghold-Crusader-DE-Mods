@@ -133,13 +133,12 @@
     <StackPanel IsEnabled="{Binding CanEditHostSettings}">
       <StackPanel shared:ModSettingsSearch.SectionKey="castle-planner.section.spawn" shared:ModSettingsSearch.SectionTitle="{Binding TitleText}">
       <Grid Style="{StaticResource ModSettingsSearchSectionGrid}" shared:ModSettingsSearch.IsSection="True"><TextBlock Text="{Binding TitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/></Grid>
-      <!-- Kept hidden until the migrated lobby placement workflow is ready for users. -->
-      <CheckBox Visibility="Collapsed" shared:ModSettingsSearch.Exclude="True"
+      <CheckBox
                 IsChecked="{Binding EnableAivPlacementLobby, Mode=TwoWay}"
                 Content="{Binding EnableAivPlacementLobbyText}"
                 ToolTipService.ShowDuration="60000"
                 ToolTip="{Binding EnableAivPlacementLobbyHelpText}"
-                Foreground="White"/>
+                Foreground="White" Margin="0,0,0,6"/>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="castle-planner.spawn-castle" shared:ModSettingsSearch.Title="{Binding SpawnCastleText}" shared:ModSettingsSearch.ToolTipText="{Binding SpawnCastleHelpText}"><CheckBox IsChecked="{Binding SpawnCastle, Mode=TwoWay}"
                 Content="{Binding SpawnCastleText}"
                 ToolTipService.ShowDuration="60000"

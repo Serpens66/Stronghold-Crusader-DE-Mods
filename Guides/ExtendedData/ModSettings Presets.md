@@ -18,6 +18,8 @@ ExtendedData is optional. It uses the same typed property contract for Maps and 
 
 No Shared source links, preset compile symbols, or ExtendedData reference are required. A minimal header contains:
 
+If a persisted property's code default can only be known after dynamic discovery, the derived ViewModel may call `SetModDefaultValue(propertyName, value)` after registration. This updates only APIShared's typed default snapshot; it does not modify the current working value. Optional working-source providers mark the source for their current context with `ModSettingsWorkingSource.IsPreferred`; clients then select it when the context changes without applying it automatically.
+
 ```xml
 <Button IsEnabled="{Binding CanChangePreset}"
         Content="{Binding System_PresetLoadText}"
@@ -87,7 +89,7 @@ Unknown members, properties or modes, invalid values, incompatible target versio
 
 Selecting a row does nothing until **Load** is pressed. The status then shows the preset name and source; later edits add “modified”. If the source disappears, the materialized working values stay intact and only the source association is cleared.
 
-The standard save dialog always writes every persistent property. Each row selects `Default`, `Player`, or `Fixed`; the `Host Fixed` bulk choice sets Host properties to `Fixed` and Player/Local properties to `Player`. Partial presets remain supported through the public save API and hand-authored JSON. Existing partial presets initialize omitted rows as `Player` when edited, so overwriting them does not unexpectedly fix previously omitted values. A new personal preset starts with an empty name, while selecting an existing personal preset fills its name and description for deliberate replacement. A nonempty name is required before Save becomes available.
+The standard save dialog always writes every persistent property. A new personal preset starts in `Host Fixed`: Host properties use `Fixed`, while Player/Local properties use `Player`. Each row can then be changed to `Default`, `Player`, or `Fixed`. Partial presets remain supported through the public save API and hand-authored JSON. Existing partial presets initialize omitted rows as `Player` when edited, so overwriting them does not unexpectedly fix previously omitted values. A new personal preset starts with an empty name, while selecting an existing personal preset fills its name and description for deliberate replacement. A nonempty name is required before Save becomes available.
 
 Descriptions support line breaks and up to 8192 characters. The standard editor shows five lines and scrolls vertically for longer text. The dialog can create a new personal preset or select an existing personal preset. Existing files require a second overwrite confirmation and are atomically replaced. Bundled, external, Map, Trail, archive, and Coop-package data are never overwrite targets.
 
@@ -95,7 +97,7 @@ Old Preset 1 is migrated to `legacy-preset-1`; Preset 2 is migrated only when it
 
 ### Maps and Trails
 
-Every compatible mod has one **Reset settings to** selector. **Mod defaults** is always available; **Trail settings** and **Map settings** appear only when a valid source exists. Selecting an entry changes nothing until **Reset** is pressed. Resetting replaces only the working copy: it never writes a Trail sidecar or Map archive, and it never changes personal presets.
+Every compatible mod has one **Reset settings to** selector. **Mod defaults** is always available; **Trail settings** and **Map settings** appear only when a valid source exists. On entering a context, the selector prefers Trail, then Map, then Mod defaults. A manual selection remains selected while that context stays unchanged. Selecting an entry changes nothing until **Reset** is pressed. Resetting replaces only the working copy: it never writes a Trail sidecar or Map archive, and it never changes personal presets.
 
 Direct Map/Trail starts are read-only. Customize and Trail Maker use a freely editable temporary working copy, just like a normal Custom Game. For a Trail, Trail settings have initial precedence and embedded Map settings are ignored until the author explicitly loads **Map settings**. Only the visible **Include modsettings** options on the normal Trail Maker and Map Editor save paths may write or remove a sidecar or the ExtendedData archive entry. Saving a personal preset never modifies these mission sources. Leaving Customize restores the previous normal working values and status.
 
@@ -114,6 +116,8 @@ ExtendedData ist optional. Es verwendet denselben typisierten Property-Vertrag f
 3. In jedem persistenten Setter vor der Änderung `CanMutateSetting()` und danach `OnPropertyChanged()` aufrufen.
 4. Mit `LobbyModSettingsPresetRegistration.Register` registrieren.
 5. Den Standard-XAML-Block für Laden/Speichern aus einem presetfähigen Mod dieses Repositories übernehmen.
+
+Kann der Code-Standard einer persistenten Property erst nach einer dynamischen Erkennung bestimmt werden, darf das abgeleitete ViewModel anschließend `SetModDefaultValue(propertyName, value)` aufrufen. Dadurch wird nur der typisierte APIShared-Default-Snapshot aktualisiert, nicht der aktuelle Arbeitswert. Optionale Quellenprovider kennzeichnen die Quelle ihres aktuellen Kontexts mit `ModSettingsWorkingSource.IsPreferred`; beim Kontextwechsel wird sie vorausgewählt, aber nicht automatisch angewendet.
 
 Shared-Quelllinks, Preset-Compile-Symbole und eine ExtendedData-Referenz sind nicht nötig. Das minimale XAML-Beispiel im englischen Abschnitt sowie die vollständigen Blöcke der vorhandenen Mods zeigen alle Bindings einschließlich des ausschließlich für eigene Presets sichtbaren Löschbefehls sowie der Inline-Bestätigung. Erfolgreiches Laden, Zurücksetzen, Speichern, Überschreiben und Löschen zeigt kein zusätzliches Ergebnisbanner; Fehler bleiben sichtbar und schließbar. Der ModSettings-Hub bleibt dabei sichtbar. Ein erneuter Klick auf den bereits geöffneten Laden- oder Speichern-Button schließt sein Panel wieder.
 
@@ -145,7 +149,7 @@ Unbekannte Member, Properties oder Modi, ungültige Werte, unpassende Zielversio
 
 Die Auswahl eines Eintrags ändert noch nichts; erst **Laden** übernimmt ihn. Die Statuszeile zeigt danach Name und Quelle und kennzeichnet spätere Änderungen mit „geändert“. Verschwindet die Quelle, bleiben die materialisierten Arbeitswerte erhalten; nur die Quellenverknüpfung wird entfernt.
 
-Der Standardspeicherdialog schreibt immer alle persistenten Properties. Pro Zeile stehen `Standard`, `Spieler` und `Fest` zur Wahl. Die Sammelwahl `Host fest` setzt Host-Properties auf `Fest` und Player-/Local-Properties auf `Spieler`. Teil-Presets bleiben über die öffentliche Speicher-API und handgeschriebenes JSON möglich. Beim Bearbeiten eines vorhandenen Teil-Presets werden fehlende Properties als `Spieler` vorbelegt, damit das Überschreiben zuvor ausgelassene Werte nicht unerwartet fixiert. Ein neues eigenes Preset beginnt mit leerem Namen; erst die Auswahl eines vorhandenen eigenen Presets übernimmt dessen Namen und Beschreibung zum bewussten Ersetzen. Speichern wird erst mit einem nicht leeren Namen aktiviert.
+Der Standardspeicherdialog schreibt immer alle persistenten Properties. Ein neues eigenes Preset startet mit `Host fest`: Host-Properties stehen auf `Fest`, Player-/Local-Properties auf `Spieler`. Danach kann jede Zeile einzeln auf `Standard`, `Spieler` oder `Fest` geändert werden. Teil-Presets bleiben über die öffentliche Speicher-API und handgeschriebenes JSON möglich. Beim Bearbeiten eines vorhandenen Teil-Presets werden fehlende Properties als `Spieler` vorbelegt, damit das Überschreiben zuvor ausgelassene Werte nicht unerwartet fixiert. Ein neues eigenes Preset beginnt mit leerem Namen; erst die Auswahl eines vorhandenen eigenen Presets übernimmt dessen Namen und Beschreibung zum bewussten Ersetzen. Speichern wird erst mit einem nicht leeren Namen aktiviert.
 
 Beschreibungen unterstützen Zeilenumbrüche und bis zu 8192 Zeichen. Der Standardeditor zeigt fünf Zeilen und scrollt bei längerem Text vertikal. Der Speicherdialog erstellt ein neues eigenes Preset oder wählt gezielt ein vorhandenes eigenes Preset. Das vollständige atomare Ersetzen erfordert eine zweite Bestätigung. Mitgelieferte, externe, Map-, Trail-, Archiv- und Koop-Paket-Daten sind niemals Überschreibziele.
 
@@ -153,6 +157,6 @@ Altes Preset 1 wird als `legacy-preset-1` migriert, Preset 2 nur wenn es vorhand
 
 ### Maps und Trails
 
-Jeder kompatible Mod besitzt einen einheitlichen Wähler **Einstellungen zurücksetzen auf**. **Mod-Standards** ist immer verfügbar; **Trail-Einstellungen** und **Map-Einstellungen** erscheinen nur bei einer gültigen Quelle. Die Auswahl allein ändert nichts, erst **Zurücksetzen** ersetzt die Arbeitskopie. Dabei werden weder persönliche Presets noch Trail-Sidecar oder Maparchiv verändert.
+Jeder kompatible Mod besitzt einen einheitlichen Wähler **Einstellungen zurücksetzen auf**. **Mod-Standards** ist immer verfügbar; **Trail-Einstellungen** und **Map-Einstellungen** erscheinen nur bei einer gültigen Quelle. Beim Eintritt in einen Kontext wird Trail vor Map und Map vor Mod-Standards vorausgewählt. Eine manuelle Auswahl bleibt erhalten, solange derselbe Kontext aktiv bleibt. Die Auswahl allein ändert nichts, erst **Zurücksetzen** ersetzt die Arbeitskopie. Dabei werden weder persönliche Presets noch Trail-Sidecar oder Maparchiv verändert.
 
 Direkt gestartete Maps und Trails sind schreibgeschützt. Customize und Trail Maker verwenden dagegen eine vollständig editierbare temporäre Arbeitskopie wie ein normales Custom Game. Bei einem Trail haben zunächst ausschließlich die Trail-Einstellungen Vorrang; Map-Einstellungen werden erst übernommen, wenn der Autor sie ausdrücklich lädt. Nur die sichtbaren Optionen **Modsettings einschließen** an den normalen Speicherpfaden von Trail Maker und Map Editor dürfen ein Sidecar beziehungsweise den ExtendedData-Archiveintrag schreiben oder entfernen. Persönliches Preset-Speichern verändert diese Missionsquellen nie. Beim Verlassen werden die vorherigen normalen Arbeitswerte und ihr Status wiederhergestellt.

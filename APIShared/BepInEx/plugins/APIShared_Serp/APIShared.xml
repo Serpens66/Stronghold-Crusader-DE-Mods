@@ -1312,6 +1312,12 @@
         <member name="M:Shared.PresetLobbyModSettingsViewModel.System_ApplyModSettingsSearchTarget(System.String,System.String)">
             <summary>Safe reflection bridge used by the optional global search host.</summary>
         </member>
+        <member name="M:Shared.PresetLobbyModSettingsViewModel.SetModDefaultValue``1(System.String,``0)">
+            <summary>
+            Replaces one captured code-default value without changing the current working settings.
+            This is intended for defaults which can only be materialized after dynamic discovery.
+            </summary>
+        </member>
         <member name="M:Shared.PresetLobbyModSettingsViewModel.ConfigurePerPlayerLobbySettings(Shared.PerPlayerLobbySettingsBuilder)">
             <summary>
             Declares the few domain-specific parts of personal settings. Transport,
@@ -1349,6 +1355,12 @@
         </member>
         <member name="T:Shared.ModSettingsWorkingSource">
             <summary>One source shown by the common ModSettings source selector.</summary>
+        </member>
+        <member name="P:Shared.ModSettingsWorkingSource.IsPreferred">
+            <summary>Whether this source represents the provider's current mission context.</summary>
+        </member>
+        <member name="P:Shared.ModSettingsWorkingSource.PreferenceContextId">
+            <summary>Optional stable identity of the mission context used to distinguish context changes from refreshes.</summary>
         </member>
         <member name="T:Shared.IModSettingsWorkingSourceProvider">
             <summary>Optional provider implemented by mission-data mods such as ExtendedData.</summary>

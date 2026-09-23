@@ -253,6 +253,14 @@ namespace SerpsModsHostDuplicateTests
                 throw new InvalidOperationException(
                     "The global reset must discover registered supported mods and refresh its availability.");
             }
+            if (!source.Contains("item.IsPreferred") ||
+                !source.Contains("preferredGlobalSourceToken") ||
+                !source.Contains("PreferenceContextId") ||
+                !source.Contains("preferredChanged"))
+            {
+                throw new InvalidOperationException(
+                    "The global reset must follow changed Trail/Map context preferences without discarding a manual selection during ordinary refreshes.");
+            }
         }
 
         private sealed class ResetTarget

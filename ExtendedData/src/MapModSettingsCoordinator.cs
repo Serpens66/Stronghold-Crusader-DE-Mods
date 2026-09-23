@@ -546,7 +546,7 @@ namespace ExtendedData
             if (enabled && selected != null &&
                 TryReadDocument(selected, out ModSettingsDefinition document, out _, logFailure: false))
             {
-                settingsCoordinator.SetMapSourceDocument(document);
+                settingsCoordinator.SetMapSourceDocument(document, selected.filePath);
                 if (HasLocalAuthority(lobby) && !settingsCoordinator.IsContextActive("Trail") && !lobby.trailMakerMode)
                     ApplySelectedMap(lobby);
             }
@@ -592,7 +592,7 @@ namespace ExtendedData
             string[] missing;
             try
             {
-                settingsCoordinator.SetMapSourceDocument(document);
+                settingsCoordinator.SetMapSourceDocument(document, selected.filePath);
                 missing = settingsCoordinator.EnterStrict(
                 document,
                 editable: true,
@@ -763,7 +763,7 @@ namespace ExtendedData
             try
             {
                 ModSettingsDefinition document = ModSettingsJson.ParseObject(packet.Json ?? string.Empty);
-                settingsCoordinator.SetMapSourceDocument(document);
+                settingsCoordinator.SetMapSourceDocument(document, packet.MapFileName + ":" + packet.MapCrc);
                 string[] missing = settingsCoordinator.EnterStrict(
                     document,
                     editable: true,

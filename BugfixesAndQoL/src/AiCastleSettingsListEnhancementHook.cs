@@ -94,6 +94,8 @@ namespace BugfixesAndQoL
         private PresetSortField presetSortField = PresetSortField.SavedUtc;
         private bool presetSortAscending;
         private bool activeMpMode;
+        private GridViewColumnHeader hoveredSortHeader;
+        private string hoveredSortHelpText;
 
         public AiCastleSettingsListEnhancementHook(
             ManualLogSource log,
@@ -297,6 +299,7 @@ namespace BugfixesAndQoL
             OnPropertyChanged(nameof(EnhancementVisibility));
             if (!IsActive)
             {
+                ClearSortHeaderHelp();
                 ClosePresetDialog();
                 CloseAicDropdown();
             }
@@ -339,6 +342,7 @@ namespace BugfixesAndQoL
             FRONT_Multiplayer.MPAIVInfo aivInfo,
             bool mpMode)
         {
+            ClearSortHeaderHelp();
             ClosePresetDialog();
             CloseAicDropdown();
             activeMpMode = mpMode;
@@ -514,7 +518,7 @@ namespace BugfixesAndQoL
             presetListControl.MouseDoubleClick += PresetListDoubleClicked;
         }
 
-        private static void AttachHeader(
+        private void AttachHeader(
             FRONT_Multiplayer_AISettings self,
             string name,
             RoutedEventHandler handler)
@@ -523,6 +527,66 @@ namespace BugfixesAndQoL
             if (header == null)
                 throw new InvalidOperationException($"The patched header '{name}' was not found.");
             ((ButtonBase)header).Click += handler;
+            header.MouseEnter += SortHeaderMouseEnter;
+            header.MouseLeave += SortHeaderMouseLeave;
+        }
+
+        private void SortHeaderMouseEnter(object sender, MouseEventArgs e)
+        {
+            if (!IsActive || activeView?.IsVisible != true)
+                return;
+
+            GridViewColumnHeader header = sender as GridViewColumnHeader;
+            string tag = header?.Tag as string;
+            bool isPreset = tag != null && tag.StartsWith("Preset_", StringComparison.Ordinal);
+            if (isPreset != presetDialogOpen)
+                return;
+
+            string help = GetSortHeaderHelp(tag);
+            if (string.IsNullOrEmpty(help))
+                return;
+
+            hoveredSortHeader = header;
+            hoveredSortHelpText = help;
+            MainViewModel.Instance.FRONTMultiplayer.hideToolTipTime = DateTime.MinValue;
+            MainViewModel.Instance.AI_Settings_Help = help;
+            MainViewModel.Instance.Show_AI_Settings_Help = true;
+        }
+
+        private void SortHeaderMouseLeave(object sender, MouseEventArgs e)
+        {
+            if (ReferenceEquals(sender, hoveredSortHeader))
+                ClearSortHeaderHelp();
+        }
+
+        private string GetSortHeaderHelp(string tag)
+        {
+            switch (tag)
+            {
+                case "AIV_Origin": return AivOriginSortHelpText;
+                case "AIV_Name": return AivNameSortHelpText;
+                case "AIC_Origin": return AicOriginSortHelpText;
+                case "AIC_Name": return AicNameSortHelpText;
+                case "AIC_Power": return AicPowerSortHelpText;
+                case "Preset_Name": return PresetNameSortHelpText;
+                case "Preset_Saved": return PresetSavedSortHelpText;
+                default: return string.Empty;
+            }
+        }
+
+        private void ClearSortHeaderHelp()
+        {
+            if (hoveredSortHeader == null)
+                return;
+
+            hoveredSortHeader = null;
+            MainViewModel viewModel = MainViewModel.Instance;
+            if (string.Equals(viewModel.AI_Settings_Help, hoveredSortHelpText, StringComparison.Ordinal))
+            {
+                viewModel.AI_Settings_Help = string.Empty;
+                viewModel.Show_AI_Settings_Help = false;
+            }
+            hoveredSortHelpText = null;
         }
 
         private void HeaderClicked(object sender, RoutedEventArgs e)
@@ -601,6 +665,7 @@ namespace BugfixesAndQoL
         {
             if (!presetDialogOpen)
                 return;
+            ClearSortHeaderHelp();
             presetDialogOpen = false;
             OnPropertyChanged(nameof(PresetDialogVisibility));
             UpdateDialogKeyboardState();
@@ -1290,7 +1355,10 @@ namespace BugfixesAndQoL
         private void DialogVisibilityChanged(object sender, DependencyPropertyChangedEventArgs e)
         {
             if (e.NewValue is bool visible && !visible)
+            {
+                ClearSortHeaderHelp();
                 CloseAicDropdown();
+            }
             UpdateDialogKeyboardState();
         }
 

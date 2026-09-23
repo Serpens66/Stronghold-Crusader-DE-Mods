@@ -202,6 +202,7 @@ namespace CastlePlanner.AIVPlacement
             statesByPlayer.Clear();
             activeInfo = null;
             selectionList.Refresh(null, false, null, activeMpMode ? 1 : 8);
+            ApplySelectionListMode(FRONT_Multiplayer_AISettings.Instance, false);
         }
 
         private void InitHook(

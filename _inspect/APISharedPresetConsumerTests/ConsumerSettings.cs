@@ -36,6 +36,9 @@ namespace APISharedPresetConsumerTests
             }
         }
 
+        public void UpdateDiscoveredDefault(int value) =>
+            SetModDefaultValue(nameof(LocalValue), value);
+
         public static void Register(
             BaseUnityPlugin plugin,
             ManualLogSource log,

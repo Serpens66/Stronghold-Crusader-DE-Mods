@@ -364,6 +364,11 @@ namespace ExtendedData
         internal void RefreshModCompatibility(IEnumerable<TrailModCompatibilityInfo> entries)
         {
             TrailModCompatibilityInfo[] catalog = (entries ?? Enumerable.Empty<TrailModCompatibilityInfo>()).ToArray();
+            string[] fixedDefaults = NormalizePropertyIds(catalog
+                .Where(item => item.IsCompatible)
+                .SelectMany(item => item.Properties.Select(property => BuildPropertyId(item.ModId, property.Name))));
+            SetModDefaultValue(nameof(PlayerTrailPropertyIds), Array.Empty<string>());
+            SetModDefaultValue(nameof(FixedTrailPropertyIds), fixedDefaults);
             var fixedValues = new HashSet<string>(fixedTrailPropertyIds, StringComparer.Ordinal);
             foreach (TrailModCompatibilityInfo entry in catalog.Where(item => item.IsCompatible))
             {

@@ -39,7 +39,7 @@ namespace CastlePlanner
             new RuntimePersistedState();
         private bool enableClientFeatures = true;
         private bool enableMod = true;
-        private bool enableAivPlacementLobby;
+        private bool enableAivPlacementLobby = true;
         private bool blueprints = true;
         private bool blueprintShowFortifications = true;
         private bool blueprintShowBuildings = true;
@@ -377,7 +377,7 @@ namespace CastlePlanner
                 OnPropertyChanged(nameof(EnableAivPlacementLobby));
                 Shared.DebugLogHelper.LogInfo(
                     log,
-                    $"CastlePlanner hidden host AIV placement feature changed to {enableAivPlacementLobby}.");
+                    $"CastlePlanner host AIV placement feature changed to {enableAivPlacementLobby}.");
                 SettingsChanged?.Invoke();
             }
         }
@@ -1130,7 +1130,7 @@ namespace CastlePlanner
             if (CanEditHostSettings)
             {
                 EnableMod = true;
-                EnableAivPlacementLobby = false;
+                EnableAivPlacementLobby = true;
                 SpawnCastle = false;
                 CastleSelectionTimeoutSeconds =
                     FreeCastleProtocol.DefaultPreviewTimeoutSeconds;
