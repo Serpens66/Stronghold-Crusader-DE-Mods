@@ -1,5 +1,6 @@
 // Feature: Remember AI selections and filter random opponents by lord source.
 using BepInEx.Logging;
+using APIShared;
 using CrusaderDE;
 using MonoMod.RuntimeDetour;
 using SHCDESE.API;
@@ -1011,7 +1012,8 @@ namespace BugfixesAndQoL
 
         private bool IsMemoryActive()
         {
-            return settings.EnableMod && settings.RememberAiAivSettings;
+            return settings.EnableMod && settings.RememberAiAivSettings &&
+                !LobbyPreparationOverride.IsActive;
         }
 
         internal void RecordSelection(FRONT_Multiplayer.MPAIVInfo info)

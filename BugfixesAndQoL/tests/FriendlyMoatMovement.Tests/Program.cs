@@ -3,11 +3,18 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System.Reflection;
 
+try
+{
 // Compile actual runtime methods against an in-memory native-grid fixture. No game
 // assembly is produced or installed by this standalone regression runner.
 string root = Path.GetFullPath(args.Length == 0 ? "." : args[0]);
 string sourceDir = Path.Combine(root, "BugfixesAndQoL", "src");
 string testDir = Path.Combine(root, "BugfixesAndQoL", "tests", "FriendlyMoatMovement.Tests");
+string apiSharedPath = Environment.GetEnvironmentVariable("MOAT_TEST_API_SHARED_DLL") ??
+    Path.Combine(@"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition",
+        "BepInEx", "plugins", "APIShared_Serp", "APIShared.dll");
+if (!File.Exists(apiSharedPath))
+    throw new FileNotFoundException("APIShared test reference is required; build and install APIShared first.", apiSharedPath);
 string[] runtimeSourceNames =
 {
     "CursorConnectivity.cs", "CursorRegionGraph.cs", "DirectMoatCommandScopes.cs",
@@ -525,11 +532,8 @@ void ValidateRuntimeSources()
         "Reference Assemblies", "Microsoft", "Framework", ".NETFramework", "v4.8.1");
     string game=@"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition";
     string extender=Path.Combine(game,"BepInEx","plugins","000shcdese");
-    string apiShared=Path.Combine(game,"BepInEx","plugins","APIShared_Serp","APIShared.dll");
     if(!File.Exists(Path.Combine(extender,"SHCDESE.dll")))
         throw new Exception("Installed Script Extender test references are required.");
-    if(!File.Exists(apiShared))
-        throw new Exception("Installed APIShared test reference is required.");
     (string minimum, string maximum) = ReadExtenderRange();
     string productVersion=System.Diagnostics.FileVersionInfo.GetVersionInfo(Path.Combine(extender,"SHCDESE.dll")).ProductVersion;
     string referenceVersion=productVersion?.Split('+')[0];
@@ -544,7 +548,7 @@ void ValidateRuntimeSources()
     foreach(string path in Directory.GetFiles(framework,"*.dll"))Include(path);
     foreach(string path in Directory.GetFiles(Path.Combine(framework,"Facades"),"*.dll"))Include(path);
     foreach(string path in Directory.GetFiles(Path.Combine(game,"BepInEx","core"),"*.dll"))Include(path);
-    Include(apiShared);
+    Include(apiSharedPath);
     foreach(string file in new[]{"SHCDESE.dll","R3.dll","System.Memory.dll","RedBird.Abstractions.dll","RedBird.Core.dll","RedBird.X64.dll","Iced.dll",
         "Microsoft.Extensions.Logging.Abstractions.dll","System.Threading.Tasks.Extensions.dll","System.Runtime.CompilerServices.Unsafe.dll","MessagePack.dll","MessagePack.Annotations.dll"})
         Include(Path.Combine(extender,file));
@@ -727,4 +731,16 @@ void ValidateModeSettings()
             throw new Exception("Missing friendly moat locale keys: " + locale);
     }
     Console.WriteLine("PASS: movement mode and default-enabled ladder attack host setting, reset, XAML, runtime gate, and locales.");
+}
+}
+catch (FileNotFoundException exception)
+{
+    Console.Error.WriteLine("Friendly moat regression cannot start: " + exception.Message +
+        " Path: " + exception.FileName);
+    Environment.ExitCode = 1;
+}
+catch (Exception exception)
+{
+    Console.Error.WriteLine("Friendly moat regression failed: " + exception);
+    Environment.ExitCode = 1;
 }

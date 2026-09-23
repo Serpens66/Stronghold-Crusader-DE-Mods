@@ -1,5 +1,6 @@
 // Feature: Repair Vanilla's inactive map-origin headers in standalone and multiplayer map lists.
 using BepInEx.Logging;
+using APIShared;
 using CrusaderDE;
 using MonoMod.RuntimeDetour;
 using Noesis;
@@ -271,16 +272,19 @@ namespace BugfixesAndQoL
 
         private void MultiplayerShowSetupHook(FRONT_Multiplayer self)
         {
+            LobbyPreparationOverride.Begin(self);
             multiplayerShowSetupTrampoline(self);
             if (!IsActive || !IsEligibleMapMode(self))
             {
                 setupRestorePending = false;
+                LobbyPreparationOverride.Apply(self);
                 return;
             }
 
             setupRestorePending = true;
             if (self.panelActive)
                 TryRestoreEstablishedSetup(self);
+            LobbyPreparationOverride.Apply(self);
         }
 
         private FileHeader GetFileInfoHook(
@@ -582,6 +586,7 @@ namespace BugfixesAndQoL
 
         private static bool CanRememberMap(FRONT_Multiplayer self) =>
             self != null &&
+            !LobbyPreparationOverride.IsActive &&
             LobbyMapSelectionPolicy.HasMapAuthority(
                 FRONT_Multiplayer.skirmishGame,
                 self.currentLobby != null,
