@@ -2076,6 +2076,8 @@ namespace Shared
         }
 
 #if API_SHARED_PRESET_TESTS
+        internal int System_WorkingStateWriteCount => presetController?.TestWriteCount ?? 0;
+
         // Retained only in the source-linked regression harness for hostile legacy selection attempts.
         public int SelectedPreset
         {
@@ -2306,8 +2308,7 @@ namespace Shared
             RaiseAccessProperties();
         }
 
-        // The Script Extender's event handler runs synchronously inside the base call.
-        // Reattach our reserved keys only after its normal persistence has completed.
+        // Let the Extender process the notification first; then update our own working state.
         protected new void OnPropertyChanged(string name)
         {
             try
@@ -2446,6 +2447,9 @@ namespace Shared
             private string suspendedBasedOnSource = string.Empty;
             private bool suspendedPresetDirty;
             private string missionPresetLabel = string.Empty;
+#if API_SHARED_PRESET_TESTS
+            internal int TestWriteCount { get; private set; }
+#endif
 
             public PresetController(
                 PresetLobbyModSettingsViewModel owner,
@@ -2813,7 +2817,7 @@ namespace Shared
 
                 if (payload == null || !payload.ContainsKey(SchemaVersionKey))
                 {
-                    // RegisterLobbyModSettings has already restored a legacy file here.
+                    // The compatibility load before registration restored a legacy file here.
                     // Capturing the ViewModel preserves those values and supplies defaults
                     // for settings introduced after that file was written.
                     preset1 = CaptureCurrentSettings();
@@ -2910,7 +2914,7 @@ namespace Shared
                     if (defaults.TryGetValue(property.Name, out byte[] value))
                         prepared[property.Name] = value == null ? null : (byte[])value.Clone();
                 }
-                ApplySnapshot(prepared, 0, writeLocalStorage: true);
+                ApplySnapshot(prepared, 0, writeLocalStorage: false);
                 foreach (KeyValuePair<string, byte[]> entry in prepared) preset1[entry.Key] = entry.Value;
                 SetBasedOn(null, false);
                 WriteCombinedPayload();
@@ -3224,7 +3228,6 @@ namespace Shared
                 missionPreset = merged;
                 missionPresetLabel = label ?? string.Empty;
                 ApplySnapshot(missionPreset, MissionPresetIndex, writeLocalStorage: false);
-                WriteCombinedPayload();
                 LogRoutine($"[{modName}] Loaded mission source [{SanitizeLogValue(missionPresetLabel)}] into the editable working copy.");
             }
 
@@ -3242,9 +3245,6 @@ namespace Shared
                 foreach (KeyValuePair<string, byte[]> entry in supplied)
                     missionPreset[entry.Key] = entry.Value == null ? null : (byte[])entry.Value.Clone();
                 ApplySnapshot(missionPreset, MissionPresetIndex, writeLocalStorage: false);
-                // Property setters invoked by the Trail can make the Extender write its
-                // normal storage file. Replace that transient file with locally owned data.
-                WriteCombinedPayload();
                 LogRoutine($"[{modName}] Entered {(editable ? "editable" : "read-only")} mission preset.");
             }
 
@@ -3295,18 +3295,14 @@ namespace Shared
                     if (owner.missionPresetEditable &&
                         (owner.isLocalHost || IsClientProperty(property)))
                         StoreProperty(missionPreset, property);
-                    // Never leave a mission-owned value in the normal MessagePack file.
-                    WriteCombinedPayload();
+                    // Mission-owned values remain in memory until the normal preset is restored.
                     return;
                 }
 
                 // Incoming host values are runtime-only on clients.
                 if (IsHostProperty(property) && !owner.isLocalHost)
                 {
-                    // Network-originated changes returned above. This is therefore a
-                    // local/programmatic client edit; restore locally owned host data
-                    // after the Extender's generic storage pass.
-                    WriteCombinedPayload();
+                    // A local client edit cannot replace the locally owned host preset.
                     return;
                 }
 
@@ -3537,6 +3533,10 @@ namespace Shared
                             $"[{modName}] Could not atomically publish lobby-settings presets to [{filePath}] " +
                             $"after {result.Attempts} attempts; hresult=0x{result.Error.HResult:X8}: {result.Error}");
                     }
+#if API_SHARED_PRESET_TESTS
+                    else
+                        TestWriteCount++;
+#endif
                 }
                 catch (Exception exception)
                 {
@@ -3996,11 +3996,23 @@ namespace Shared
             object registeredView = null;
             try
             {
+                // Preserve the old pre-binding load (including legacy files), while keeping
+                // subsequent writes under the preset controller's ownership.
+                try
+                {
+                    new LobbyModSettingsStorage(plugin.Info.Location, modName).Load(viewModel);
+                }
+                catch (Exception exception)
+                {
+                    DebugLogHelper.LogError(log,
+                        $"[{modName}] Initial lobby-settings load failed; keeping ViewModel defaults: {exception}");
+                }
                 GameXAMLManagerAPI.Instance.RegisterLobbyModSettings(
                     plugin,
                     modName,
                     viewModel,
-                    xamlSourceFile);
+                    xamlSourceFile,
+                    useBuiltInPersistence: false);
                 var registration = GameXAMLManagerAPI.Instance.RegisteredModSettings
                     .FirstOrDefault(entry => ReferenceEquals(entry.ViewModel, viewModel));
 #if API_SHARED_PRESET_TESTS

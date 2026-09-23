@@ -1114,6 +1114,8 @@ namespace ExtraFeatures
             }
 
             bool transferSelection = ShouldTransferSelection(currentSnapshot.OwnerPlayerId, currentKnight);
+            // TEMP DIAGNOSTIC: Knight selection transfer; remove after in-game validation.
+            LogDebug($"Knight selection source: action=dismount, sourceId={currentKnightId}, replacementId={swordsmanUnitId}, owner={currentSnapshot.OwnerPlayerId}, local={GetControlledPlayerId()}, alive={currentKnight->r_AliveState}, localFlag={currentKnight->r_UnitHover}, playerFlag={currentKnight->r_UnitSelected}, apiContains={Array.IndexOf(GetSelectedChimpsSafe(), currentKnightId) >= 0}, transfer={transferSelection}.");
             if (!GameUnitManagerAPI.Instance.DeleteUnitSafe(currentKnightId))
             {
                 RollbackConsumedStableHorse(consumedHorse, reason);
@@ -1751,7 +1753,8 @@ namespace ExtraFeatures
 
         private static bool IsSelected(GameUnit* unit)
         {
-            return unit != null && unit->r_UnitSelected != 0;
+            // Vanilla's local selection output reads the low 16 bits at GameUnit +0x30.
+            return unit != null && (ushort)unit->r_UnitHover != 0;
         }
 
         private int[] GetSelectedChimpsSafe()

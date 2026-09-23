@@ -53,6 +53,7 @@ internal static class Program
 
             FearFactorPresetTests.Run();
             TestLobbySettingsRouting();
+            TestPresetRegistrationWithoutExtenderPersistence();
             TestSharedPerPlayerLobbyConvergence();
             TestSharedLobbyLifecycle();
             TestSharedGameplaySessionLifecycle();
@@ -524,6 +525,69 @@ internal static class Program
             "client storage snapshot replaced the cached local host value");
         Check(manager.ReadStoredInt(nameof(viewModel.PlayerValue)) == 7,
             "client storage snapshot lost its per-player value");
+    }
+
+    private static void TestPresetRegistrationWithoutExtenderPersistence()
+    {
+        const string modName = "PresetStorageOptOutProbe";
+        const string targetGuid = "tests.preset-storage-opt-out-probe";
+        string pluginPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, modName + ".dll");
+        string settingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
+            "LobbyModSettings", modName + ".msgpack");
+        string migratedPresetPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
+            "LobbyModSettings", "Presets", "Override", targetGuid,
+            "preset_legacy-preset-1.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(settingsPath));
+        if (File.Exists(migratedPresetPath))
+            File.Delete(migratedPresetPath);
+        File.WriteAllBytes(settingsPath, MessagePackSerializer.Serialize(
+            new Dictionary<string, byte[]>
+            {
+                [nameof(HostOnlyViewModel.HostValue)] = MessagePackSerializer.Serialize(123)
+            }));
+
+        GameNetworkAPI.LocalHost = true;
+        GameNetworkAPI.Networked = true;
+        GameXAMLManagerAPI manager = GameXAMLManagerAPI.Instance;
+        manager.ResetRoutingProbe();
+        var plugin = new BepInEx.BaseUnityPlugin();
+        plugin.Info.Location = pluginPath;
+        plugin.Info.Metadata.GUID = targetGuid;
+        var viewModel = new HostOnlyViewModel();
+        LobbyModSettingsPresetRegistration.Register(plugin, null, modName, viewModel, "unused.xaml");
+        Check(!manager.LastUseBuiltInPersistence &&
+              viewModel.HostValue == 123,
+            "preset registration did not restore legacy values before opting out of Extender persistence");
+        AssertStoredHostValue(settingsPath, 123);
+
+        int writes = viewModel.System_WorkingStateWriteCount;
+        viewModel.HostValue = 124;
+        Check(viewModel.System_WorkingStateWriteCount == writes + 1 && manager.SaveCount == 0 &&
+              manager.BroadcastCount > 0,
+            "one local edit did not produce exactly one owned write while retaining network sync");
+        AssertStoredHostValue(settingsPath, 124);
+
+        writes = viewModel.System_WorkingStateWriteCount;
+        GameNetworkAPI.LocalHost = false;
+        viewModel.System_RefreshSettingsAccess();
+        manager.ApplyNetworkSync(viewModel, () => viewModel.HostValue = 999);
+        Check(viewModel.HostValue == 999 && viewModel.System_WorkingStateWriteCount == writes,
+            "incoming host update changed the locally owned preset file");
+        AssertStoredHostValue(settingsPath, 124);
+
+        GameNetworkAPI.LocalHost = true;
+        viewModel.System_RefreshSettingsAccess();
+        writes = viewModel.System_WorkingStateWriteCount;
+        viewModel.System_EnterMissionPreset(new Dictionary<string, byte[]>
+        {
+            [nameof(HostOnlyViewModel.HostValue)] = MessagePackSerializer.Serialize(55)
+        }, "Temporary mission", editable: true);
+        viewModel.HostValue = 56;
+        Check(viewModel.System_WorkingStateWriteCount == writes,
+            "temporary mission values wrote the normal working-state file");
+        AssertStoredHostValue(settingsPath, 124);
+        viewModel.System_ExitMissionPreset();
+        AssertStoredHostValue(settingsPath, 124);
     }
 
     private static void TestSharedPerPlayerLobbyConvergence()
@@ -6304,10 +6368,38 @@ namespace SHCDESE.API.Components.ModManager
     [AttributeUsage(AttributeTargets.Property)] public sealed class PersistLocalAttribute : Attribute { }
     [AttributeUsage(AttributeTargets.Property)] public sealed class DoNotPersistAttribute : Attribute { }
 
-    public static class LobbyModSettingsStorage
+    public enum LobbyModSettingsChangeOrigin { Local, IncomingNetwork, InitialLoad, UiRevert }
+
+    public sealed class LobbyModSettingsStorage
     {
         public const string STORAGE_FOLDER_NAME = "LobbyModSettings";
         public const string FILE_EXTENSION = ".msgpack";
+
+        private readonly string filePath;
+
+        public LobbyModSettingsStorage(string pluginAssemblyLocation, string modName)
+        {
+            string safeName = string.Concat(modName.Split(Path.GetInvalidFileNameChars()));
+            filePath = Path.Combine(Path.GetDirectoryName(pluginAssemblyLocation),
+                STORAGE_FOLDER_NAME, safeName + FILE_EXTENSION);
+        }
+
+        public void Load(object viewModel)
+        {
+            if (!File.Exists(filePath))
+                return;
+            Dictionary<string, byte[]> payload =
+                MessagePackSerializer.Deserialize<Dictionary<string, byte[]>>(File.ReadAllBytes(filePath));
+            foreach (PropertyInfo property in viewModel.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance))
+            {
+                bool persisted = (property.GetCustomAttribute<SHCDESE.API.Components.Network.SyncHostOnlyAttribute>() != null ||
+                    property.GetCustomAttribute<SHCDESE.API.Components.Network.SyncPerPlayerAttribute>() != null ||
+                    property.GetCustomAttribute<PersistLocalAttribute>() != null) &&
+                    property.GetCustomAttribute<DoNotPersistAttribute>() == null;
+                if (persisted && property.CanWrite && payload.TryGetValue(property.Name, out byte[] bytes))
+                    property.SetValue(viewModel, MessagePackSerializer.Deserialize(property.PropertyType, bytes));
+            }
+        }
     }
 
     public sealed class ModInfo
@@ -6352,18 +6444,23 @@ namespace SHCDESE.API
     }
     public sealed class GameXAMLManagerAPI
     {
-        private bool _isProcessingNetworkSync;
         private Dictionary<string, byte[]> routingCache =
             new Dictionary<string, byte[]>(StringComparer.Ordinal);
 
         public static GameXAMLManagerAPI Instance { get; } = new GameXAMLManagerAPI();
+        public SHCDESE.API.Components.ModManager.LobbyModSettingsChangeOrigin CurrentLobbyModSettingsChangeOrigin { get; private set; }
         public List<Registration> RegisteredModSettings { get; } = new List<Registration>();
         public int BroadcastCount { get; private set; }
         public int SaveCount { get; private set; }
+        public bool LastUseBuiltInPersistence { get; private set; }
         public bool FailNextRegistration { get; set; }
         public bool ThrowNextRegistration { get; set; }
 
         public void RegisterLobbyModSettings(global::BepInEx.BaseUnityPlugin plugin, string name, object vm, string xaml)
+            => RegisterLobbyModSettings(plugin, name, vm, xaml, true);
+
+        public void RegisterLobbyModSettings(global::BepInEx.BaseUnityPlugin plugin, string name, object vm, string xaml,
+            bool useBuiltInPersistence)
         {
             if (ThrowNextRegistration)
             {
@@ -6375,6 +6472,7 @@ namespace SHCDESE.API
                 FailNextRegistration = false;
                 return;
             }
+            LastUseBuiltInPersistence = useBuiltInPersistence;
             RegisteredModSettings.Add(new Registration
             {
                 ViewModel = vm,
@@ -6385,7 +6483,7 @@ namespace SHCDESE.API
 
             notify.PropertyChanged += (sender, args) =>
             {
-                if (_isProcessingNetworkSync ||
+                if (CurrentLobbyModSettingsChangeOrigin == SHCDESE.API.Components.ModManager.LobbyModSettingsChangeOrigin.IncomingNetwork ||
                     sender is SHCDESE.ViewModels.LobbyModSettingsBaseViewModel revertingVm && revertingVm.IsSuppressingSync ||
                     sender == null ||
                     string.IsNullOrEmpty(args.PropertyName))
@@ -6410,7 +6508,7 @@ namespace SHCDESE.API
 
                 if (synced && GameNetworkAPI.IsNetworkedEnvironment())
                     BroadcastCount++;
-                if (persisted)
+                if (persisted && useBuiltInPersistence)
                     SaveSnapshot(sender);
             };
         }
@@ -6420,6 +6518,7 @@ namespace SHCDESE.API
             RegisteredModSettings.Clear();
             FailNextRegistration = false;
             ThrowNextRegistration = false;
+            LastUseBuiltInPersistence = false;
             routingCache = new Dictionary<string, byte[]>(StringComparer.Ordinal);
             ResetRoutingCounts();
         }
@@ -6470,17 +6569,17 @@ namespace SHCDESE.API
 
         public void ApplyNetworkSync(SHCDESE.ViewModels.LobbyModSettingsBaseViewModel viewModel, Action action)
         {
-            _isProcessingNetworkSync = true;
+            SHCDESE.API.Components.ModManager.LobbyModSettingsChangeOrigin previous = CurrentLobbyModSettingsChangeOrigin;
+            CurrentLobbyModSettingsChangeOrigin = SHCDESE.API.Components.ModManager.LobbyModSettingsChangeOrigin.IncomingNetwork;
             viewModel.BeginAuthorisedUpdate();
             try
             {
-                if (_isProcessingNetworkSync)
-                    action();
+                action();
             }
             finally
             {
                 viewModel.EndAuthorisedUpdate();
-                _isProcessingNetworkSync = false;
+                CurrentLobbyModSettingsChangeOrigin = previous;
             }
         }
         public sealed class Registration
