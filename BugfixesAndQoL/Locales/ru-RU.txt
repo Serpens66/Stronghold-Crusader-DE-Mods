@@ -339,3 +339,6 @@ BugfixesAndQoL.EnableCorruptLordDataSpawnFix=Fix Lord spawning on maps with corr
 BugfixesAndQoL.EnableCorruptLordDataSpawnFixHelp=Clears only stale Lord references that point to completely empty unit slots during a new game's startup, allowing Vanilla to spawn the missing Lord. Fixes affected human and AI slots, including player slots 7 and 8 on The Ford Across the River.
 Common.SettingsSourceHelp=Resets this mod's settings to the selected source. Personal presets are not changed. In multiplayer, only the host can reset host settings.
 Common.PresetLoadFailedTitle=Preset load failed
+BugfixesAndQoL.PossibleFixesTitle=Fixes?
+BugfixesAndQoL.EnableBakerMillerBreaks=Baker and miller breaks after delivery
+BugfixesAndQoL.EnableBakerMillerBreaksHelp=Lets bakers and all three mill workers occasionally take Vanilla positive-fear breaks after delivering output, even when ingredients remain. It is unknown whether the Vanilla difference is intentional. Off by default.

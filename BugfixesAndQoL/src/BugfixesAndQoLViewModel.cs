@@ -23,6 +23,7 @@ namespace BugfixesAndQoL
         private bool enableAiStoneReserveFix = true;
         private bool enableAiDefensePatrolFix = true;
         private bool enableAiWallTargetingFix = true;
+        private bool enableBakerMillerBreaks;
         private bool enableAivDefenderPositionFix = true;
         private bool fixAIPreplacedMapBuildings = true;
         private bool fixAITowerRepair = true;
@@ -195,6 +196,9 @@ namespace BugfixesAndQoL
         public string ResetToDefaultText => SerpLocalization.Get(SerpLocalization.ResetToDefault);
         public string QolTitleText => SerpLocalization.Get("BugfixesAndQoL.QolTitle");
         public string FixesTitleText => SerpLocalization.Get("BugfixesAndQoL.FixesTitle");
+        public string PossibleFixesTitleText => SerpLocalization.Get("BugfixesAndQoL.PossibleFixesTitle");
+        public string EnableBakerMillerBreaksText => SerpLocalization.Get("BugfixesAndQoL.EnableBakerMillerBreaks");
+        public string EnableBakerMillerBreaksHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableBakerMillerBreaksHelp");
         public string InterfaceTitleText => SerpLocalization.Get("BugfixesAndQoL.InterfaceTitle");
         public string DisplayTitleText => SerpLocalization.Get("BugfixesAndQoL.DisplayTitle");
         public string AiAivTitleText => SerpLocalization.Get("BugfixesAndQoL.AiAivTitle");
@@ -770,6 +774,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableBakerMillerBreaks
+        {
+            get => enableBakerMillerBreaks;
+            set => SetSetting(ref enableBakerMillerBreaks, value, nameof(EnableBakerMillerBreaks));
+        }
+
+        [SyncHostOnly]
         public bool EnableAivDefenderPositionFix
         {
             get => enableAivDefenderPositionFix;
@@ -1182,6 +1193,7 @@ namespace BugfixesAndQoL
                 EnableAiStoneReserveFix = true;
                 EnableAiDefensePatrolFix = true;
                 EnableAiWallTargetingFix = true;
+                EnableBakerMillerBreaks = false;
                 EnableAivDefenderPositionFix = true;
                 FixAIPreplacedMapBuildings = true;
                 FixAITowerRepair = true;

@@ -32,6 +32,9 @@ namespace AIVPlacement.Core
         private readonly IReadOnlyList<ushort> retainedStartBuildingIdList;
 
         public bool HasCrossOwnerStartWallAdjacency { get; }
+        public bool HasPotentialConnectedRecordCleanup =>
+            PotentialConnectedRecordCleanupEvidence != null;
+        public string PotentialConnectedRecordCleanupEvidence { get; }
 
         public AivPreplacementMapState(
             IAivPlacementTileSource source,
@@ -96,6 +99,10 @@ namespace AIVPlacement.Core
                 rebuildTransformsByBuildingId ??
                 new Dictionary<ushort, StartRebuildTransform>());
             HasCrossOwnerStartWallAdjacency = DetectCrossOwnerStartWallAdjacency();
+            PotentialConnectedRecordCleanupEvidence =
+                DetectPotentialConnectedRecordCleanup(
+                    rebuildTransformsByBuildingId ??
+                    new Dictionary<ushort, StartRebuildTransform>());
             reconstructedRockIdsByTileId = ReconstructRockFootprints(rockRecords);
             var ordered = new List<ushort>(removedStartBuildingIds);
             ordered.Sort();
@@ -634,6 +641,48 @@ namespace AIVPlacement.Core
                         uncertainNativeStartTileIds.Add(nearbyTileId);
                 }
             }
+        }
+
+        private string DetectPotentialConnectedRecordCleanup(
+            IReadOnlyDictionary<ushort, StartRebuildTransform> transforms)
+        {
+            // The type-41 compound constructor only enters whole-record
+            // collision cleanup after one of its Keep, camp or yard footprints
+            // meets an existing building. Its static offsets fit within this
+            // wider 24-tile region around the selected AIV Keep marker.
+            var checkedKeeps = new HashSet<(MapCoordinate Keep, byte OwnerId)>();
+            foreach (StartRebuildTransform start in transforms.Values)
+            {
+                MapCoordinate selectedKeep = new MapCoordinate(
+                    start.Keep.X + start.Start.MarkerDeltaX,
+                    start.Keep.Y + start.Start.MarkerDeltaY);
+                if (!checkedKeeps.Add((selectedKeep, start.OwnerId)))
+                    continue;
+                for (int y = selectedKeep.Y - 24; y <= selectedKeep.Y + 24; y++)
+                {
+                    for (int x = selectedKeep.X - 24; x <= selectedKeep.X + 24; x++)
+                    {
+                        if (!Geometry.TryGetTileId(x, y, out int tileId))
+                            continue;
+                        AivPlacementTileEvidence existing = source.GetTileEvidence(tileId);
+                        if (existing.BuildingId != 0 &&
+                            !(transforms.TryGetValue(existing.BuildingId,
+                                out StartRebuildTransform ownSource) &&
+                              ownSource.Keep.Equals(start.Keep) &&
+                              ownSource.Start.Equals(start.Start)))
+                            return $"source tile ({x},{y}) buildingId={existing.BuildingId} owner={existing.OwnerId} near AI start owner={start.OwnerId}";
+                        if (rebuiltStartCellsByTileId.TryGetValue(
+                                tileId, out RebuiltStartCell rebuilt) &&
+                            rebuilt.BuildingId != 0 &&
+                            !(transforms.TryGetValue(rebuilt.BuildingId,
+                                out StartRebuildTransform ownRebuild) &&
+                              ownRebuild.Keep.Equals(start.Keep) &&
+                              ownRebuild.Start.Equals(start.Start)))
+                            return $"rebuilt tile ({x},{y}) buildingId={rebuilt.BuildingId} owner={rebuilt.OwnerId} near AI start owner={start.OwnerId}";
+                    }
+                }
+            }
+            return null;
         }
 
         private bool TryGetAdjacentRebuildTransform(

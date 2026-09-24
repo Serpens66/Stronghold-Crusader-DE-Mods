@@ -805,6 +805,52 @@ Zellen exakt. 21 Versuche betreffen die zwei verschiedenen Aufstellungen,
 zehn sind die Wiederholung. Archiv, Rohdaten und SHA-256-Manifest:
 `Diagnostics/AivSeries-20260924/MarkerRuntimeValidation/Observed`.
 
+## Acht-Match-Serie mit mehreren Default-AIVs, 24.09.2026
+
+Die acht bestätigten Sieben-KI-Starts sind unter
+`Diagnostics/AivSeries-20260924/MultiAivEightMatch/Observed` mit dem
+BepInEx-Abschnitt, 80 vollständigen Starttraces, 42 vollständigen
+Sofortbau-Traces, 310 Zelltraces, den verwendeten Map- und AIV-Dateien
+sowie SHA-256-Manifest gesichert. Davon gehören 64 Start- und 28
+Sofortbau-Traces zur geplanten Serie; zwei spätere Craggy-Wiederholungen
+liefern 16 beziehungsweise 14 weitere. Der installierte Native-Hash war
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+Die 114 geplanten Native-Fits ergeben 52 exakte Offline-Vergleiche und
+62 bewusst graue Fälle; kein freigegebener Vergleich weicht in Score,
+Prozent oder blockierten Zellen ab. Die beiden Wiederholungen ergeben
+weitere zwei exakte und 40 graue Fälle. Der vollständige Bericht mit
+Karten- und AIV-Hashes und Fallzahlen je Start liegt in
+`Diagnostics/AivSeries-20260924/MultiAivEightMatch/RESULTS.md`.
+
+Die Startkonstruktoren meldeten keinen Fehlerflag. Ihre beobachteten
+117 neu belegten Zellen sind keine allgemeine Obergrenze: Der native
+Kollisionspfad kann verbundene bestehende Gebäuderecords außerhalb der
+Startfläche löschen, und `0x77E60` hat noch unbelegte Abbruchzweige.
+Ebenso ist der spätere sequenzielle Sofortbau nicht vollständig
+rekonstruiert. Daher bleiben die betroffenen späteren KI-Fits grau;
+eine einzelne beobachtete Zufallsauswahl darf mögliche andere
+Startmarker, Drehungen oder Bauwirkungen nicht ersetzen. Vertrauen hoch
+für Aufnahme und exakte Oracle-Fälle, begrenzt für eine allgemeine
+Freigabe weiterer Zustandsmengen.
+
+Der erneut ausführbare Thasos-Altbestand deckte außerdem einen
+unabhängigen Parser-Rückschritt auf: `MAPPER_DOG_CAGE` blieb für den
+CastlePlanner-Spawnfilter korrekt als Trap klassifiziert, erhielt dadurch
+aber fälschlich nur eine 1x1-Fitfläche. Native Importfunktion `0x55320`
+verwendet die Mapper-Skala aus `0x6A190`; Script Extender 2.9.0 liefert
+für den Hundekäfig Skala drei. Der frühere exakte Oracle-Fall verlor
+damit acht geprüfte Zellen pro Drehung. Der gemeinsame Parser erhält
+deshalb die Trap-Kategorie und die native 3x3-Fläche getrennt.
+Der Thasos-Trace stammt ausdrücklich aus der historischen Native-DLL
+`17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4`.
+Die aktuelle DLL `FBCB9319...` und der installierte Extender belegen
+den 3x3-Importpfad unabhängig davon; der historische Trace ist ein
+zusätzlicher Regressionstest und keine neue aktuelle Laufzeitaufnahme.
+Nach der Korrektur wurden 582 Einträge aus allen wiederherstellbaren
+Alt- und Neu-Korpora geprüft: 234 exakt, 348 bewusst nicht auswertbar,
+keine Abweichung und kein Verarbeitungsfehler. Mehrere Archive enthalten
+Wiederholungen; dies sind Einträge, keine unabhängigen Spielzustände.
+
 Bei `CL-B-off` konnte Wolf aus seinen möglichen Kandidaten die
 Startdrehungen 0 und 90 Grad erreichen. Die zufällig beobachtete
 Auswahl beweist keine eindeutige Lobby-Prognose. Spätere KIs bleiben
@@ -828,3 +874,85 @@ Die nächste editierbare Serie `AivLobbyMultiAivSeries.json` prüft
 acht Kartenstarts mit zwei geordneten Default-AIVs bei einem frühen
 beziehungsweise mittleren KI-Spieler auf beiden Karten, je ohne und mit
 Sofortbau. Der Detector bleibt unabhängig von festen Spieler-IDs.
+
+## 2026-09-24: mögliche Startzustände und erneute Archivprüfung
+
+Der installierte Native-Hash ist weiterhin
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+Nach `0x94350 -> 0x54F60/0x53D00` wird der gewählte Start über
+`0x6D580 -> 0x77E60` geprüft. `0x77E60` setzt bei Ablehnung das
+Fehlerflag `+0x204E6FC`; `0x6D608` überspringt dann den Keep-Konstruktor.
+Ein bloßer Fehlergrund ohne Flag zählt weiterhin nicht als Abbruch.
+Die Bedingung hängt auch von Live-Einheiten, Nähe anderer Besitzer,
+Pfaden und Tile-Regeln ab. Für eine unbekannte Auswahl wird deshalb
+neben jeder möglichen gebauten Startburg auch „kein Start gebaut“
+berücksichtigt. Vertrauen: hoch für die Flag-/Sprungkette, begrenzt
+für die vollständigen Voraussetzungen eines Abbruchs.
+
+Der gemeinsame AIVPlacement-Kern hält die möglichen Startzustände
+einschließlich Marker, Drehung und ausgefallener Slots auseinander.
+CastlePlanner prüft jede spätere AIV unter diesen Zuständen. Nur wenn
+alle vier Drehungen dieselben Scores, Prozentwerte, blockierten Zellen
+und Bauhinweise ergeben, wird ihre Einzelbewertung veröffentlicht.
+Ein nicht auswertbarer Zustand oder eine Überschreitung der begrenzten
+Arbeit führt zu `NotEvaluable`. Der Cache unterscheidet die
+Zustandsidentitäten. „Completed Castles“ bleibt für spätere KIs grau,
+weil `0x55F50 -> 0x51790` mit Mapper-spezifischen Konstruktoren und
+verbundener Record-Räumung noch nicht exakt nachgebildet werden kann.
+
+Der erfolgreiche Keep-Bau kann über `0x5D3A0 -> 0xC4290 -> 0xB8310`
+ganze kollidierende Gebäuderecords löschen. Die Offline-Prüfung
+verweigert eine Freigabe, sobald ein **fremder Record** innerhalb der
+statisch weiter gefassten Startfläche liegt. Eigene Map-Startgebäude
+werden über Record-ID und Starttransformation erkannt: Ihr Tile-Owner
+kann im archivierten Crater-Lake-Snapshot null sein. Die erste, nur
+auf Tile-Owner gestützte Sperre war deshalb zu breit und wurde vor dem
+Build korrigiert. Die 11 archivierten Korpora ergeben danach erneut
+234 exakte und 348 graue Einträge bei null Abweichungen. Diese
+Vergleiche prüfen den beobachteten nativen Ablauf; alternative
+Zufallsentscheidungen bleiben Gegenstand eines kurzen Laufzeittests.
+
+Der lokale Fixes-Mod kann das Goods-Yard-Ende des Startkonstruktors
+pro Spieler auslassen. Die Fit-Aussage behauptet weiterhin keinen
+vollständig gebauten Start oder Sofortbau; die unsicheren Zellen und
+Kollisionen bleiben abgesperrt. Für die neue Zustandsmengen-Auswertung
+ist eine gezielte Laufzeitprüfung vorbereitet:
+`aiv-possible-starts-regression-20260924` enthält sechs Starts
+(`CL-Early-off`, `CL-Early-on`, `CL-Middle-off`, `CC-Early-off`,
+`CC-Middle-off`, `CC-Middle-on`). Sie vergleicht frühe und mittlere
+Mehrfach-AIV-Auswahlen auf beiden Karten; je ein Paar prüft zusätzlich
+den Sofortspawn-Schalter. Die Aufstellungen stammen unverändert aus der
+zuvor validierten Acht-Match-Serie. Bis zum Spielstart bleibt offen, ob
+die alternativen Startzustände in der echten Lobby dieselbe Bewertung
+liefern oder mit dem konkreten Grund grau bleiben. Es genügt pro Lauf
+der sichtbare Spielbeginn; späterer regulärer KI-Bau ist nicht nötig.
+
+## 2026-09-24: Sechs-Match-Serie ausgewertet
+
+Der installierte Native-Hash ist unverändert
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+Alle sechs vorbereiteten Starts wurden bestätigt; zwei zusätzliche
+Craggy-Cliffs-Starts bleiben im Bericht separat. 129 Native-Fits wurden
+mit hashgeprüften Karten und AIVs erneut verglichen: 52 exakt, 77
+bewusst grau, null Abweichungen. Die 64 Keep-Start- und 28
+Sofortbau-Traces sind vollständig. Der Befund und die Rohdaten liegen
+unter `Diagnostics/AivSeries-20260924/PossibleStartsRuntimeResults/`.
+
+Bei Crater Lake sind die 17 gemeinsamen Native-Fits des Paares mit und
+ohne Sofortbau identisch. Bei Craggy Cliffs unterscheiden sich sechs
+von elf gemeinsamen Fits. Ein Emir-Kandidat wechselt von null auf 252
+blockierte Zellen; alle 252 geänderten Ergebniszellen liegen in den
+fitrelevanten Schichten, die vorherige Sofortbau-Frames tatsächlich
+geschrieben haben. Spätere KIs mit „Completed Castles“ bleiben daher
+grau, solange alle möglichen Bauabläufe nicht exakt rekonstruiert sind.
+
+Die 32 Warnungen der Zell-Diagnose waren eine falsche Zählannahme:
+`0x57080` verwirft ungültige Kartenkoordinaten vor `0x7B060`. Für alle
+129 Traces gilt `nativeBlocked = validatorBlocked + evaluatedCells -
+validatorCalls`. Der Detector prüft diese vollständige Beziehung.
+Auf Craggy Cliffs liest ein beobachteter Emir-Fit zwar keine der 552
+von drei vorherigen Keep-Starts tatsächlich geänderten Zellen. Das
+beweist nichts über alternative zufällige Starts oder verbundene
+Record-Räumung. Eine Freigabe auf Basis dieses einzelnen Ablaufs wäre
+unsicher. Die Lobby unterscheidet künftig ausdrücklich zwischen
+unbewiesenem Startzustand und tatsächlich verschiedenen Fit-Ergebnissen.

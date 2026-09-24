@@ -7,6 +7,33 @@ namespace BugfixesAndQoL
 {
     internal static class NativeInstructionReplayEmitter
     {
+        internal static void EmitConditionalWorkerBreak(
+            Assembler assembler,
+            ReadOnlySpan<Instruction> overwrittenInstructions,
+            ulong enabledFlagAddress,
+            ulong target)
+        {
+            if (overwrittenInstructions.Length < 2 ||
+                overwrittenInstructions[0].FlowControl != FlowControl.ConditionalBranch)
+                throw new InvalidOperationException("Worker-break hook did not capture the Vanilla branch.");
+
+            Instruction[] vanillaReplay = overwrittenInstructions.CloneInstructionsWithoutIP();
+            Label vanilla = assembler.CreateLabel("workerBreakVanilla");
+            assembler.pushfq();
+            assembler.push(rax);
+            assembler.mov(rax, enabledFlagAddress);
+            assembler.cmp(__dword_ptr[rax], 0);
+            assembler.je(vanilla);
+            assembler.pop(rax);
+            assembler.popfq();
+            assembler.jmp(target);
+            assembler.Label(ref vanilla);
+            assembler.pop(rax);
+            assembler.popfq();
+            foreach (Instruction instruction in vanillaReplay)
+                assembler.AddInstruction(instruction);
+        }
+
         internal static void EmitConditionalSkip(
             Assembler assembler,
             ReadOnlySpan<Instruction> overwrittenInstructions,

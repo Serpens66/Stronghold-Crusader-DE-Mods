@@ -697,3 +697,150 @@ high for the observed successful starts and exact fits, limited for
 all-map write bounds, constructor failures and later-player prebuild.
 Uncertain previous states must remain unevaluable unless all fit
 inputs are independently proven invariant.
+
+## 2026-09-24 eight-match multi-AIV validation
+
+Installed Native SHA-256 remains
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`;
+the captured process reported Script Extender 2.9.0. Eight planned seven-AI
+loads on Crater Lake (`C5D9906A...`) and Craggy Cliffs (`C46B71C9...`)
+plus two separately counted Craggy Cliffs repeats produced 80 complete
+Keep-start captures, 42 complete completed-castle captures, and 310 cell
+traces without snapshot or pointer errors. The planned 114 native fit
+attempts compared as 52 exact, 62 deliberately `NotEvaluable`, and zero
+mismatches or processing errors. The two repeats compared as two exact and
+40 deliberately `NotEvaluable`. The observed randomized order of Emir's
+two Default AIVs changed between Craggy loads 008 and 009 without changing
+their individual native scores or final chosen AIV/rotation. This is an
+observed branch, not proof that all RNG starts agree.
+
+The feature flow rechecked for this release decision is selection
+`0x94350 -> 0x54F60/0x53D00`, candidate fit `0x57080 -> 0x7B060`,
+compound start `0x6D580 -> 0x77E60/0x74DA0`, and completed-castle
+construction `0x55F50 -> 0x51790`. `0x74DA0` can call the collision pass
+`0x5D3A0`; it can mark an existing record through `0xC4290` and later
+delete connected records through `0xB8310`. The completed-castle cleanup
+at `0x5CD90` can reach `0xC43A0` and `0x61FC0`. Therefore the observed
+117 newly occupied start cells and local cell differences are not a general
+write bound. The `0x77E60` export still does not close every constructor
+abort path. Confidence: high for trace completeness and exact compared
+fits, medium for identified connected-record side effects, insufficient
+for a general state-set or completed-castle release. The affected later
+fits remain fail-closed. Full provenance and per-load results:
+`CastlePlanner/Diagnostics/AivSeries-20260924/MultiAivEightMatch/RESULTS.md`.
+
+The archival Thasos Oracle exposed a separate parser regression. At
+`0x54DE0` (VA `0x180054DE0`) the candidate path calls raster import
+`0x55320` (VA `0x180055320`), which obtains mapper scale from `0x6A190`
+(VA `0x18006A190`) and stamps the resulting square before the
+`0x57080` scan. The installed Script Extender 2.9.0
+`BuildingScales.GetScale(eMappers.MAPPER_DOG_CAGE)` gives three. An
+August category change retained Dog Cage as a trap but accidentally
+made its offline raster a single cell. The same archived AIV at the
+same map hash had eight fewer offline evaluated cells in every
+rotation, exactly the difference between 3x3 and 1x1. This is a
+parser-footprint error, not a changed native fit rule. Confidence high
+for the native import path, Extender scale and four-rotation Oracle
+comparison; the general start-constructor uncertainty above remains.
+The cited Thasos capture used historical Native SHA-256
+`17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4`;
+it is not current-DLL runtime evidence. Current-DLL import control flow
+and installed Extender 2.9.0 scale data independently support the
+footprint correction.
+After the footprint correction, 582 entries across all recoverable
+archived and new reports compare as 234 exact and 348 deliberately
+unevaluable, with no mismatch or processing error. Some archives repeat
+earlier native attempts; these totals are report entries, not unique
+game states. The post-fix reports and their hash-verified inputs are
+under `CastlePlanner/Diagnostics/AivSeries-20260924/MultiAivEightMatch/Observed`.
+
+## 2026-09-24 possible-start audit and conservative state set
+
+The installed Native SHA-256 was rechecked as
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+The selection chain `0x94350 -> 0x54F60/0x53D00`, tile fit
+`0x57080 -> 0x7B060`, compound start `0x6D580 -> 0x77E60 -> 0x74DA0`
+and optional prebuild `0x55F50 -> 0x51790` were reviewed together. At
+`0x77E90` the validator resets the failure flag; numerous branches set
+`tileManager+0x204E6FC` to one. `0x6D608` checks that flag immediately
+after `0x77E60` and jumps past the compound constructor on failure.
+Failure-reason `+0x204E704` alone remains nonauthoritative. The validator
+uses live unit, enemy-distance, path and tile queries, so a successful
+AIV raster fit does not prove its start will be built. Confidence is high
+for the failure-flag control flow, limited for deciding every failure
+condition offline. The no-start possibility is therefore retained.
+
+The successful type-41 path can collide with existing building records;
+`0x5D3A0 -> 0xC4290 -> 0xB8310` can then remove connected tiles beyond
+the immediate footprint. The static Keep, camp and yard offsets fit within
+24 tiles of the selected Keep marker, but that radius bounds only which
+existing records can trigger this cleanup, not the reach of a connected
+record once triggered. Offline evaluation rejects any state where a
+different building record can meet this wider footprint. Own serialized
+start records are identified by their mapped record IDs and selected
+start transform, not by the tile-grid owner byte: the Crater Lake archive
+contains own start cells with `owner=0`. Other owners' rebuilt records
+remain collision candidates. Confidence is high for the collision entry
+and the archived owner-zero observation, limited for complete downstream
+record-deletion effects; no deletion simulation is released.
+
+Without completed castles, the offline lobby service now enumerates every
+possible selected candidate, rotation and Keep marker, plus a failed-start
+outcome. It evaluates later candidates under each retained scenario and
+publishes an individual fit only when status, all four scores, blocked
+cells and build-warning exposure agree. Scenario identity includes absent
+starts, retained-slot mask, markers and rotations; bounded state/work
+limits fail closed. This is a conservative comparison of the existing
+offline model, not a proof that all constructor-side tile effects are
+reconstructed. The near-start and possible connected-record guards still
+apply. Completed-castle construction remains unmodeled for later AIs:
+`0x51790 -> 0x5CD90/0x6D580` branches by mapper and can clear connected
+records through `0xC43A0/0x61FC0`. The installed Fixes mod can skip the
+type-41 goods-yard tail through its per-player setting; no unsupported
+assumption about that setting is added to the fit.
+
+The 11 hash-checked archived corpora were rerun after this change: 582
+report entries, 234 exact, 348 deliberately unevaluable, zero mismatch
+or processing error. The comparison uses the recorded actual start for
+each native attempt; it does not by itself validate every counterfactual
+scenario. Results and manifest provenance are under
+`CastlePlanner/Diagnostics/AivSeries-20260924/MultiAivEightMatch/`.
+
+## 2026-09-24 possible-start runtime series and raster counter contract
+
+The installed DLL still hashes to
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+Six verified seven-AI starts and two additional Craggy-Cliffs repeats
+produced 129 native fit attempts, 64 complete Keep-start traces and 28
+complete prebuild traces with no snapshot error. The hash-checked offline
+comparison yields 52 exact fits, 77 deliberately unevaluable fits and no
+mismatch. Planned runs alone contribute 50 exact and 37 unevaluable fits;
+the two repeats contribute two exact and 40 unevaluable fits. This is high
+confidence for the observed executions, not for unselected random outcomes.
+
+The `0x57080` raster loop increments its evaluated-cell count before
+checking the world coordinate and native valid-tile byte. An invalid
+coordinate or tile skips `0x7B060` and increments the blocked-cell count
+directly. Consequently `nativeBlocked = validatorBlocked +
+(evaluatedCells - validatorCalls)`. This identity holds for all 129 new
+cell traces, including the 32 previously warned about. Their warning was
+an incorrect detector self-check, not evidence of a native-score mismatch.
+Confidence: high from the decompiled branch and complete trace accounting.
+
+For the paired Crater-Lake starts, all 17 common native fit results agree
+with prebuild off and on. For the paired Craggy-Cliffs starts, only five of
+11 common fits agree; six change. Emir's `Default 7` at 0 degrees changes
+from zero to 252 blocked cells. All 252 differing result-grid tile IDs lie
+in layers changed by earlier captured prebuild frames when mapped with the
+native 320,800-tile diamond geometry. This is direct evidence that
+completed-castle effects matter on that map. The recorded actual earlier
+starts do not bound unselected candidate, rotation or constructor-failure
+outcomes. Later-player prebuild fits remain fail-closed.
+
+On the recorded Craggy-Cliffs off-path, Emir's `Default 8` at 0 degrees
+reads none of the 552 distinct tiles changed by the three earlier
+Keep-start traces in that match. Its lobby result can still be gray because
+counterfactual earlier start states intersect the guarded area. The
+`0x6D580 -> 0x77E60 -> 0x5D3A0 -> 0xC4290 -> 0xB8310` collision path can
+clear connected records beyond its immediate footprint; the observed
+zero-intersection is therefore not a general safe-release criterion.

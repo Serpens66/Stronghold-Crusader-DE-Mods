@@ -29,7 +29,10 @@ internal static class Program
             ("evaluates AI starts sequentially", EvaluatesAiStartsSequentially),
             ("reuses multiplayer tie choice for sequential starts", ReusesTieChoiceForSequentialStarts),
             ("propagates a certain start rotation across an uncertain AIV choice", PropagatesCertainRotationAcrossTie),
-            ("keeps differing start rotations unresolved", KeepsDifferingRotationsUnresolved),
+            ("compares differing start rotations and a failed start", KeepsDifferingRotationsUnresolved),
+            ("compares differing start markers and a failed start", KeepsDifferingMarkersUnresolved),
+            ("withholds a fit that changes across possible starts", WithholdsStateDependentFit),
+            ("explains an unproven possible start without claiming different scores", ExplainsUnprovenPossibleStart),
             ("propagates a shifted AI start marker to later fits", PropagatesShiftedStartMarkers),
             ("separates cached later fits by selected start marker", SeparatesCachedFitsByStartMarker),
             ("rechecks later AI after complete castles is switched off", RechecksAfterPrebuildSwitch),
@@ -527,7 +530,10 @@ internal static class Program
             .GetResult();
 
         Equal(1, result.SelectedCandidateIdsByPlayer[2]);
-        Equal(AivRotation.Degrees90, worker.StatesByCandidate["second"][0]);
+        Assert(worker.AllStartsByCandidate["second"].Any(value =>
+            value.TryGetValue(0, out AivStartRebuildState start) &&
+            start.Rotation == AivRotation.Degrees90),
+            "the selected tie choice was not checked");
     }
 
     private static void PropagatesCertainRotationAcrossTie()
@@ -549,7 +555,10 @@ internal static class Program
         Assert(possible.All(outcome => outcome.RotationIndex == 0),
             "complete tie must keep one native start rotation");
         Equal(AivPlacementStatus.Complete, result.Results[1].Status);
-        Equal(AivRotation.Degrees0, worker.StatesByCandidate["second"][0]);
+        Assert(worker.AllStartsByCandidate["second"].Any(value =>
+                value.TryGetValue(0, out AivStartRebuildState start) &&
+                start.Rotation == AivRotation.Degrees0),
+            "the selected start rotation was not evaluated");
     }
 
     private static void KeepsDifferingRotationsUnresolved()
@@ -565,12 +574,69 @@ internal static class Program
 
         Equal(LobbyEvaluationFailureKind.NativeAutoSelectionAmbiguous,
             result.Results[0].FailureKind);
+        Equal(AivPlacementStatus.Complete, result.Results[1].Status);
+        Equal(3, worker.CallsByCandidate["second"]);
+        Assert(worker.AllStartsByCandidate["second"].Any(value => value.Count == 0),
+            "the failed-start outcome was not checked");
+        Assert(worker.RetainedMasksByCandidate["second"].Contains(0),
+            "a failed start still retained its serialized Keep");
+    }
+
+    private static void KeepsDifferingMarkersUnresolved()
+    {
+        using Fixture fixture = new();
+        foreach (string name in new[] { "first", "shifted", "second" })
+            File.WriteAllText(Path.Combine(fixture.CustomDirectory, name + ".aivjson"), "{}");
+        AivPlacementRequestBatch batch = BuildTwoAiTieBatch(fixture, 0, "shifted");
+        var worker = new SequentialStateWorker();
+        var service = new AivPlacementEvaluationService(worker, 32, 2);
+
+        AivPlacementBatchResult result = service.EvaluateBatchAsync(batch).GetAwaiter().GetResult();
+
+        Equal(LobbyEvaluationFailureKind.NativeAutoSelectionAmbiguous,
+            result.Results[0].FailureKind);
+        IReadOnlyList<NativeAivAutoDecision> possible =
+            NativeAivAutoSelector.SelectPossible(result.Results[0].Candidates);
+        Equal(2, possible.Count);
+        Assert(possible.All(outcome => outcome.RotationIndex == 0),
+            "the two choices must share the same rotation");
+        Equal(AivPlacementStatus.Complete, result.Results[1].Status);
+        Equal(3, worker.CallsByCandidate["second"]);
+        Assert(worker.AllStartsByCandidate["second"].Any(value =>
+                value.TryGetValue(0, out AivStartRebuildState start) &&
+                start.Marker.Equals(new AivGridPoint(56, 45))),
+            "the shifted marker was not evaluated");
+    }
+
+    private static void WithholdsStateDependentFit()
+    {
+        using Fixture fixture = new();
+        foreach (string name in new[] { "first", "rotated", "second" })
+            File.WriteAllText(Path.Combine(fixture.CustomDirectory, name + ".aivjson"), "{}");
+        var worker = new SequentialStateWorker(blockSecondWhenPriorStart: true);
+        var service = new AivPlacementEvaluationService(worker, 32, 2);
+        AivPlacementBatchResult result = service.EvaluateBatchAsync(
+            BuildTwoAiTieBatch(fixture, 0, "rotated")).GetAwaiter().GetResult();
+        Equal(AivPlacementStatus.NotEvaluable, result.Results[1].Status);
         Equal(LobbyEvaluationFailureKind.PriorAiSelectionUnknown,
-            result.Results[1].FailureKind);
-        Assert(result.Results[1].FailureMessage.Contains("different start rotations"),
-            "later AI should explain the unresolved start rotation");
-        Assert(!worker.StatesByCandidate.ContainsKey("second"),
-            "later AI was evaluated against an unproven start state");
+            result.Results[1].Candidates[0].FailureKind);
+        Equal(3, worker.CallsByCandidate["second"]);
+    }
+
+    private static void ExplainsUnprovenPossibleStart()
+    {
+        using Fixture fixture = new();
+        foreach (string name in new[] { "first", "rotated", "second" })
+            File.WriteAllText(Path.Combine(fixture.CustomDirectory, name + ".aivjson"), "{}");
+        var worker = new SequentialStateWorker(rejectSecondWhenPriorStart: true);
+        var service = new AivPlacementEvaluationService(worker, 32, 2);
+        AivPlacementBatchResult result = service.EvaluateBatchAsync(
+            BuildTwoAiTieBatch(fixture, 0, "rotated")).GetAwaiter().GetResult();
+        Equal(AivPlacementStatus.NotEvaluable, result.Results[1].Status);
+        string reason = result.Results[1].Candidates[0].FailureMessage;
+        Assert(reason.Contains("StartOverlapUnproven", StringComparison.Ordinal) &&
+               !reason.Contains("different fit results", StringComparison.Ordinal),
+            "an unproven scenario was incorrectly described as a different score");
     }
 
     private static void PropagatesShiftedStartMarkers()
@@ -597,10 +663,12 @@ internal static class Program
         AivPlacementBatchResult result = service.EvaluateBatchAsync(batch).GetAwaiter().GetResult();
 
         Equal(AivPlacementStatus.Complete, result.Results[1].Status);
-        Assert(worker.StartsByCandidate.TryGetValue("second", out var starts),
+        Assert(worker.AllStartsByCandidate.TryGetValue("second", out var starts),
             "later AI should receive the selected native start marker");
-        Equal(new AivGridPoint(56, 45), starts[0].Marker);
-        Equal(AivRotation.Degrees0, starts[0].Rotation);
+        Assert(starts.Any(value => value.TryGetValue(0, out AivStartRebuildState start) &&
+            start.Marker.Equals(new AivGridPoint(56, 45)) &&
+            start.Rotation == AivRotation.Degrees0),
+            "the shifted native start marker was not evaluated");
     }
 
     private static void SeparatesCachedFitsByStartMarker()
@@ -629,11 +697,17 @@ internal static class Program
 
         Equal(AivPlacementStatus.Complete,
             service.EvaluateBatchAsync(BuildBatch("shifted", 1)).GetAwaiter().GetResult().Results[1].Status);
-        Equal(new AivGridPoint(56, 45), worker.StartsByCandidate["second"][0].Marker);
+        Assert(worker.AllStartsByCandidate["second"].Any(value =>
+            value.TryGetValue(0, out AivStartRebuildState start) &&
+            start.Marker.Equals(new AivGridPoint(56, 45))),
+            "shifted state was not cached independently");
         Equal(AivPlacementStatus.Complete,
             service.EvaluateBatchAsync(BuildBatch("canonical", 2)).GetAwaiter().GetResult().Results[1].Status);
-        Equal(new AivGridPoint(56, 43), worker.StartsByCandidate["second"][0].Marker);
-        Equal(2, worker.CallsByCandidate["second"]);
+        Assert(worker.AllStartsByCandidate["second"].Any(value =>
+            value.TryGetValue(0, out AivStartRebuildState start) &&
+            start.Marker.Equals(new AivGridPoint(56, 43))),
+            "canonical state was not cached independently");
+        Equal(3, worker.CallsByCandidate["second"]);
     }
 
     private static void RechecksAfterPrebuildSwitch()
@@ -656,7 +730,10 @@ internal static class Program
         AivPlacementBatchResult withoutPrebuild = service.EvaluateBatchAsync(
             BuildTwoAiTieBatch(fixture, 0, "other")).GetAwaiter().GetResult();
         Equal(AivPlacementStatus.Complete, withoutPrebuild.Results[1].Status);
-        Equal(AivRotation.Degrees0, worker.StatesByCandidate["second"][0]);
+        Assert(worker.AllStartsByCandidate["second"].Any(value =>
+            value.TryGetValue(0, out AivStartRebuildState start) &&
+            start.Rotation == AivRotation.Degrees0),
+            "the completed-castles switch did not evaluate the selected start");
     }
 
     private static AivPlacementRequestBatch BuildTwoAiTieBatch(
@@ -3039,11 +3116,23 @@ internal static class Program
     private sealed class SequentialStateWorker : ILobbyPlacementCandidateWorker
     {
         private readonly object sync = new();
+        private readonly bool blockSecondWhenPriorStart;
+        private readonly bool rejectSecondWhenPriorStart;
+
+        public SequentialStateWorker(
+            bool blockSecondWhenPriorStart = false,
+            bool rejectSecondWhenPriorStart = false)
+        {
+            this.blockSecondWhenPriorStart = blockSecondWhenPriorStart;
+            this.rejectSecondWhenPriorStart = rejectSecondWhenPriorStart;
+        }
 
         public List<Dictionary<int, AivRotation>> RebuiltStates { get; } = new();
         public Dictionary<string, Dictionary<int, AivRotation>> StatesByCandidate { get; } = new();
         public Dictionary<string, Dictionary<int, AivStartRebuildState>> StartsByCandidate { get; } = new();
+        public Dictionary<string, List<Dictionary<int, AivStartRebuildState>>> AllStartsByCandidate { get; } = new();
         public Dictionary<string, int> CallsByCandidate { get; } = new();
+        public Dictionary<string, List<int>> RetainedMasksByCandidate { get; } = new();
 
         public LobbyPlacementWorkerResult Evaluate(
             AivPlacementCandidateWorkItem workItem,
@@ -3057,8 +3146,31 @@ internal static class Program
                 StatesByCandidate[workItem.Candidate.Name] = state;
                 StartsByCandidate[workItem.Candidate.Name] = new Dictionary<int, AivStartRebuildState>(
                     workItem.RebuiltStartsBySlot);
+                if (!AllStartsByCandidate.TryGetValue(workItem.Candidate.Name, out var allStarts))
+                {
+                    allStarts = new List<Dictionary<int, AivStartRebuildState>>();
+                    AllStartsByCandidate.Add(workItem.Candidate.Name, allStarts);
+                }
+                allStarts.Add(new Dictionary<int, AivStartRebuildState>(
+                    workItem.RebuiltStartsBySlot));
+                if (!RetainedMasksByCandidate.TryGetValue(
+                        workItem.Candidate.Name, out var masks))
+                {
+                    masks = new List<int>();
+                    RetainedMasksByCandidate.Add(workItem.Candidate.Name, masks);
+                }
+                masks.Add(workItem.RetainedStartSlotMask);
                 CallsByCandidate[workItem.Candidate.Name] =
-                    CallsByCandidate.TryGetValue(workItem.Candidate.Name, out int calls) ? calls + 1 : 1;
+                CallsByCandidate.TryGetValue(workItem.Candidate.Name, out int calls) ? calls + 1 : 1;
+            }
+
+            if (rejectSecondWhenPriorStart &&
+                workItem.Candidate.Name == "second" &&
+                workItem.RebuiltStartsBySlot.Count != 0)
+            {
+                return LobbyPlacementWorkerResult.NotEvaluable(
+                    LobbyEvaluationFailureKind.StartOverlapUnproven,
+                    "The projected castle reads an uncertain start tile.");
             }
 
             var blueprint = new AivBlueprint(
@@ -3074,9 +3186,19 @@ internal static class Program
                 workItem.Candidate.Name == "shifted"
                     ? new AivGridPoint(56, 45)
                     : new AivGridPoint(56, 43));
+            var map = new SparsePlacementMap();
+            if (blockSecondWhenPriorStart &&
+                workItem.Candidate.Name == "second" &&
+                workItem.RebuiltStartsBySlot.Count != 0)
+            {
+                AivProjectedCastle castle = new AivCastleProjector().Project(
+                    blueprint, new MapCoordinate(400, 400), AivRotation.Degrees0);
+                map.Set(castle.Elements[0].MapCoordinate,
+                    new AivPlacementTileEvidence(0, 0, 0, 0, 0, 1, 0, 0));
+            }
             AivPlacementRotationSelection selection = new AivPlacementEvaluator()
                 .EvaluateAllRotations(
-                    new SparsePlacementMap(),
+                    map,
                     blueprint,
                     new MapCoordinate(400, 400),
                     workItem.Candidate.Name == "rotated"

@@ -5,6 +5,7 @@ using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.MapLoader;
 using SHCDESE.EventAPI.Player;
 using SHCDESE.API.LowLevel;
+using SHCDESE.API;
 using RedBird.Core.Memory;
 using System;
 
@@ -78,6 +79,9 @@ namespace BugfixesAndQoL
         private static KeepFlagRotationRuntime processKeepFlagRotationRuntime;
         private static CorruptLordDataSpawnRuntime processCorruptLordDataSpawnRuntime;
         private static AIPreplacedBuildingFixRuntime processAIPreplacedBuildingFixRuntime;
+        private static WorkerBreakPauseHook processWorkerBreakPauseHook;
+        private static bool workerBreakTickSubscribed;
+        private static bool workerBreakTickLogged;
         private CtrlMarketTradeHook ctrlMarketTradeHook;
         private NotificationSkipFeature notificationSkipFeature;
         private IntPtr libraryHandle;
@@ -96,6 +100,7 @@ namespace BugfixesAndQoL
         private bool aiStoneReserveFixUnavailable;
         private bool aiDefensePatrolFixUnavailable;
         private bool aiWallTargetingFixUnavailable;
+        private bool workerBreakPauseHookUnavailable;
         private bool aivDefenderPositionFixUnavailable;
         private bool aiTowerRuinRepairFixUnavailable;
         private bool betterAIOverbuildRulesFixUnavailable;
@@ -406,6 +411,7 @@ namespace BugfixesAndQoL
             TryInitializeFeature("AI stone-reserve fix", EnsureAiStoneReserveFix);
             TryInitializeFeature("AI defense patrol fix", EnsureAiDefensePatrolFix);
             TryInitializeFeature("AI wall-targeting fix", EnsureAiWallTargetingFix);
+            TryInitializeFeature("baker/miller breaks", EnsureWorkerBreakPauseHook);
             TryInitializeFeature("AIV defender-position fix", EnsureAivDefenderPositionFix);
             TryInitializePersistentFeature("AI preplaced-map-building fix", () =>
             {
@@ -431,6 +437,7 @@ namespace BugfixesAndQoL
             TryInitializeFeature("better AI overbuild rules", EnsureBetterAIOverbuildRulesFix);
             TryInitializeFeature("AI defense patrol fix", EnsureAiDefensePatrolFix);
             TryInitializeFeature("AI wall-targeting fix", EnsureAiWallTargetingFix);
+            TryInitializeFeature("baker/miller breaks", EnsureWorkerBreakPauseHook);
             TryInitializeFeature("AIV defender-position fix", EnsureAivDefenderPositionFix);
             TryApplyFeature("ally goods amount modifiers", () => processAllyGoodsAmountModifierHook?.RefreshSetting());
             TryInitializeFeature("surrender", InitializeSurrenderFeature);
@@ -1135,6 +1142,42 @@ namespace BugfixesAndQoL
                     $"Bugfixes and QoL AI defense patrol fix could not be installed; " +
                     $"only this AI fix remains inactive and Vanilla behavior remains active: {ex}");
             }
+        }
+
+        private void EnsureWorkerBreakPauseHook()
+        {
+            if (processWorkerBreakPauseHook == null && nativeLibraryAvailable &&
+                !workerBreakPauseHookUnavailable)
+            {
+                try
+                {
+                    processWorkerBreakPauseHook = new WorkerBreakPauseHook(
+                        log, nativeRegion, GetNativeLibraryMemory(),
+                        unchecked((ulong)libraryHandle.ToInt64()), fixedLayoutHashValidated);
+                }
+                catch (Exception ex)
+                {
+                    workerBreakPauseHookUnavailable = true;
+                    Shared.DebugLogHelper.LogError(log,
+                        "BUGFIXES_AND_QOL_WORKER_BREAK_INACTIVE: Vanilla behavior remains active: " + ex);
+                }
+            }
+            if (processWorkerBreakPauseHook != null && !workerBreakTickSubscribed &&
+                !workerBreakTickLogged)
+            {
+                GameTimeManagerAPI.Instance.OnTick += OnWorkerBreakTick;
+                workerBreakTickSubscribed = true;
+            }
+            processWorkerBreakPauseHook?.SetEnabled(
+                settings.EnableMod && settings.EnableBakerMillerBreaks);
+        }
+
+        private static void OnWorkerBreakTick(int tick)
+        {
+            processWorkerBreakPauseHook?.LogAfterStartup(tick);
+            workerBreakTickLogged = true;
+            GameTimeManagerAPI.Instance.OnTick -= OnWorkerBreakTick;
+            workerBreakTickSubscribed = false;
         }
 
         private void EnsureAiWallTargetingFix()

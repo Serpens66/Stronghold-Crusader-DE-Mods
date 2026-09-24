@@ -126,16 +126,18 @@ namespace CastlePlanner.AIVPlacement.Core
             LobbyFileStamp mapStamp,
             LobbyAivSourceStamp aivStamp,
             string assetText,
-            IReadOnlyDictionary<int, AivStartRebuildState> rebuiltStartsBySlot)
+            AivStartScenario scenario)
         {
             Request = request;
             Candidate = candidate;
             MapStamp = mapStamp;
             AivStamp = aivStamp;
             AssetText = assetText;
+            if (scenario == null)
+                throw new ArgumentNullException(nameof(scenario));
             var starts = new Dictionary<int, AivStartRebuildState>();
             var rotations = new Dictionary<int, AivRotation>();
-            foreach (KeyValuePair<int, AivStartRebuildState> pair in rebuiltStartsBySlot)
+            foreach (KeyValuePair<int, AivStartRebuildState> pair in scenario.RebuiltStartsBySlot)
             {
                 starts.Add(pair.Key, pair.Value);
                 rotations.Add(pair.Key, pair.Value.Rotation);
@@ -143,6 +145,11 @@ namespace CastlePlanner.AIVPlacement.Core
             RebuiltStartsBySlot = new ReadOnlyDictionary<int, AivStartRebuildState>(starts);
             RebuiltStartRotationsBySlot = new ReadOnlyDictionary<int, AivRotation>(
                 rotations);
+            RetainedStartSlotMask = request.RetainedStartSlotMask &
+                ~scenario.AbsentStartSlotMask;
+            RetainedStartSlotIndexes = new ReadOnlyCollection<int>(
+                request.RetainedStartSlotIndexes.Where(slot =>
+                    (scenario.AbsentStartSlotMask & (1 << slot)) == 0).ToArray());
         }
 
         public AivPlacementCheckRequest Request { get; }
@@ -152,6 +159,8 @@ namespace CastlePlanner.AIVPlacement.Core
         public string AssetText { get; }
         public IReadOnlyDictionary<int, AivStartRebuildState> RebuiltStartsBySlot { get; }
         public IReadOnlyDictionary<int, AivRotation> RebuiltStartRotationsBySlot { get; }
+        public int RetainedStartSlotMask { get; }
+        public IReadOnlyList<int> RetainedStartSlotIndexes { get; }
     }
 
     public interface ILobbyPlacementCandidateWorker
@@ -370,7 +379,7 @@ namespace CastlePlanner.AIVPlacement.Core
 
     public sealed class AivPlacementEvaluationService
     {
-        public const string AnalyzerVersion = "chat13-start-marker-v4";
+        public const string AnalyzerVersion = "chat14-possible-starts-v1";
 
         private readonly object sync = new object();
         private readonly ILobbyPlacementCandidateWorker worker;
@@ -425,7 +434,7 @@ namespace CastlePlanner.AIVPlacement.Core
             return Task.Run(() => EvaluateRequestCoreAsync(
                 request,
                 assets,
-                new Dictionary<int, AivStartRebuildState>(),
+                AivPossibleStartStates.Initial.Scenarios[0],
                 cancellationToken,
                 null),
                 cancellationToken);
@@ -498,7 +507,7 @@ namespace CastlePlanner.AIVPlacement.Core
         private async Task<AivPlacementCheckResult> EvaluateRequestCoreAsync(
             AivPlacementCheckRequest request,
             IReadOnlyDictionary<string, string> assets,
-            IReadOnlyDictionary<int, AivStartRebuildState> rebuiltStartsBySlot,
+            AivStartScenario scenario,
             CancellationToken cancellationToken,
             Action<long, int, AivPlacementCandidateEvaluation> candidateCompleted)
         {
@@ -518,7 +527,7 @@ namespace CastlePlanner.AIVPlacement.Core
             }
 
             LobbyFileStamp mapStamp = LobbyFileStamp.Capture(request.MapPath);
-            string rebuiltStartState = AivStartStateKey.Build(rebuiltStartsBySlot);
+            string rebuiltStartState = scenario.Key;
             var pending = new List<Task<CandidateFetch>>(request.Candidates.Count);
             var candidates = new List<AivPlacementCandidateEvaluation>(request.Candidates.Count);
             foreach (AivPlacementCandidateRequest candidate in request.Candidates)
@@ -533,7 +542,7 @@ namespace CastlePlanner.AIVPlacement.Core
                     mapStamp,
                     aivStamp,
                     request.KeepSlotIndex,
-                    request.RetainedStartSlotMask,
+                    request.RetainedStartSlotMask & ~scenario.AbsentStartSlotMask,
                     rebuiltStartState,
                     request.UsesMapFacingRotation,
                     request.InitialRotation,
@@ -545,7 +554,7 @@ namespace CastlePlanner.AIVPlacement.Core
                     mapStamp,
                     aivStamp,
                     assetText,
-                    rebuiltStartsBySlot);
+                    scenario);
                 Task<CandidateFetch> task = GetOrEvaluateAsync(key, item, cancellationToken);
                 if (candidateCompleted == null)
                     pending.Add(task);
@@ -582,15 +591,17 @@ namespace CastlePlanner.AIVPlacement.Core
         {
             var results = new List<AivPlacementCheckResult>(batch.Requests.Count);
             var selectedCandidateIds = new Dictionary<int, int>();
-            var rebuiltStartsBySlot = new Dictionary<int, AivStartRebuildState>();
-            bool priorStartRotationUnknown = false;
+            AivPossibleStartStates possibleStarts = AivPossibleStartStates.Initial;
+            bool priorStartUnknown = false;
             int priorUnknownPlayerId = -1;
             LobbyEvaluationFailureKind priorFailureKind = LobbyEvaluationFailureKind.None;
             string priorFailureMessage = string.Empty;
             foreach (AivPlacementCheckRequest request in batch.Requests.OrderBy(value => value.PlayerId))
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                AivPlacementCheckResult result = priorStartRotationUnknown && request.IsReady
+                var scenarioResults = new Dictionary<string, AivPlacementCheckResult>(
+                    StringComparer.Ordinal);
+                AivPlacementCheckResult result = priorStartUnknown && request.IsReady
                     ? NotEvaluable(
                         request,
                         Array.Empty<AivPlacementCandidateEvaluation>(),
@@ -598,14 +609,10 @@ namespace CastlePlanner.AIVPlacement.Core
                         $"Earlier AI player {priorUnknownPlayerId} has no proven start state " +
                         $"({priorFailureKind}: {priorFailureMessage}).",
                         TimeSpan.Zero)
-                    : await EvaluateRequestCoreAsync(
-                        request,
-                        assets,
-                        rebuiltStartsBySlot,
-                        cancellationToken,
-                        candidateCompleted).ConfigureAwait(false);
+                    : await EvaluatePossibleStartsAsync(
+                        request, assets, possibleStarts, cancellationToken,
+                        candidateCompleted, scenarioResults).ConfigureAwait(false);
                 results.Add(result);
-                AivPlacementResult rebuiltVariant = result.SelectedVariant;
                 int? selectedCandidateId = selectCandidateId?.Invoke(result);
                 if (selectedCandidateId.HasValue)
                 {
@@ -618,68 +625,218 @@ namespace CastlePlanner.AIVPlacement.Core
                     }
 
                     selectedCandidateIds.Add(request.PlayerId, selectedCandidateId.Value);
-                    // Later AI starts must see the same narrowed candidate Vanilla will start.
-                    rebuiltVariant = selectedCandidate.Selection?.BestVariant;
                 }
 
-                if (TryGetSelectedStartState(rebuiltVariant, out AivStartRebuildState selectedStart))
+                if (priorStartUnknown || !request.IsReady)
                 {
-                    rebuiltStartsBySlot[request.KeepSlotIndex] = selectedStart;
-                }
-                else if (request.PreBuildSetting == 0 &&
-                         result.FailureKind == LobbyEvaluationFailureKind.NativeAutoSelectionAmbiguous &&
-                         TryGetCertainSelectedStart(result.Candidates, out AivStartRebuildState certainStart))
-                {
-                    // Without prebuild, Vanilla's chosen AIV plan does not create
-                    // earlier AIV buildings. Its start complex still needs the
-                    // selected rotation in the next player's tile snapshot.
-                    rebuiltStartsBySlot[request.KeepSlotIndex] = certainStart;
-                }
-                else
-                {
-                    priorStartRotationUnknown = true;
                     if (priorUnknownPlayerId < 0)
                     {
+                        priorStartUnknown = true;
                         priorUnknownPlayerId = request.PlayerId;
                         priorFailureKind = result.FailureKind;
-                        priorFailureMessage = result.FailureKind ==
-                            LobbyEvaluationFailureKind.NativeAutoSelectionAmbiguous
-                            ? "possible Vanilla outcomes have different start rotations, markers or no selected castle"
-                            : result.FailureMessage;
+                        priorFailureMessage = result.FailureMessage;
                     }
+                    continue;
                 }
+                if (scenarioResults.Count != possibleStarts.Scenarios.Count)
+                {
+                    priorStartUnknown = true;
+                    priorUnknownPlayerId = request.PlayerId;
+                    priorFailureKind = result.FailureKind;
+                    priorFailureMessage = result.FailureMessage;
+                    continue;
+                }
+
+                var startsByScenario = new Dictionary<string, IReadOnlyList<AivStartRebuildState>>(
+                    StringComparer.Ordinal);
+                foreach (AivStartScenario scenario in possibleStarts.Scenarios)
+                {
+                    AivPlacementCheckResult scenarioResult = scenarioResults[scenario.Key];
+                    if (!TryGetPossibleSelectedStarts(
+                            scenarioResult.Candidates, selectedCandidateId,
+                            out IReadOnlyList<AivStartRebuildState> starts))
+                    {
+                        priorStartUnknown = true;
+                        priorUnknownPlayerId = request.PlayerId;
+                        priorFailureKind = scenarioResult.FailureKind;
+                        priorFailureMessage =
+                            "a possible candidate, rotation or start marker is not proven";
+                        break;
+                    }
+                    startsByScenario.Add(scenario.Key, starts);
+                }
+                if (priorStartUnknown)
+                    continue;
+                if (!possibleStarts.TryAppend(
+                        request.KeepSlotIndex, startsByScenario,
+                        out AivPossibleStartStates next))
+                {
+                    priorStartUnknown = true;
+                    priorUnknownPlayerId = request.PlayerId;
+                    priorFailureKind = LobbyEvaluationFailureKind.PriorAiSelectionUnknown;
+                    priorFailureMessage = "the number of possible start states exceeds the safe limit";
+                }
+                else
+                    possibleStarts = next;
             }
             return new AivPlacementBatchResult(results, selectedCandidateIds);
         }
 
-        private static bool TryGetCertainSelectedStart(
-            IReadOnlyList<AivPlacementCandidateEvaluation> candidates,
-            out AivStartRebuildState start)
+        private async Task<AivPlacementCheckResult> EvaluatePossibleStartsAsync(
+            AivPlacementCheckRequest request,
+            IReadOnlyDictionary<string, string> assets,
+            AivPossibleStartStates possibleStarts,
+            CancellationToken cancellationToken,
+            Action<long, int, AivPlacementCandidateEvaluation> candidateCompleted,
+            IDictionary<string, AivPlacementCheckResult> scenarioResults)
         {
-            start = default;
-            IReadOnlyList<NativeAivAutoDecision> possible =
-                NativeAivAutoSelector.SelectPossible(candidates);
-            if (possible.Count == 0)
-                return false;
-
-            AivStartRebuildState? shared = null;
-            foreach (NativeAivAutoDecision outcome in possible)
+            if (!request.IsReady)
+                return await EvaluateRequestCoreAsync(
+                    request, assets, possibleStarts.Scenarios[0],
+                    cancellationToken, null).ConfigureAwait(false);
+            if ((long)possibleStarts.Scenarios.Count * request.Candidates.Count > 512)
             {
-                if (!outcome.CandidateId.HasValue || outcome.RotationIndex < 0)
+                return NotEvaluable(request,
+                    Array.Empty<AivPlacementCandidateEvaluation>(),
+                    LobbyEvaluationFailureKind.PriorAiSelectionUnknown,
+                    "The possible earlier start states exceed the bounded evaluation work limit.",
+                    TimeSpan.Zero);
+            }
+            if (possibleStarts.Scenarios.Count == 1)
+            {
+                AivStartScenario only = possibleStarts.Scenarios[0];
+                AivPlacementCheckResult result = await EvaluateRequestCoreAsync(
+                    request, assets, only, cancellationToken,
+                    candidateCompleted).ConfigureAwait(false);
+                scenarioResults.Add(only.Key, result);
+                return result;
+            }
+
+            var all = new List<AivPlacementCheckResult>(possibleStarts.Scenarios.Count);
+            foreach (AivStartScenario scenario in possibleStarts.Scenarios)
+            {
+                AivPlacementCheckResult result = await EvaluateRequestCoreAsync(
+                    request, assets, scenario, cancellationToken, null).ConfigureAwait(false);
+                scenarioResults.Add(scenario.Key, result);
+                all.Add(result);
+            }
+
+            if (all.Any(value => value.Candidates.Count != request.Candidates.Count))
+                return NotEvaluable(request, Array.Empty<AivPlacementCandidateEvaluation>(),
+                    LobbyEvaluationFailureKind.PriorAiSelectionUnknown,
+                    "At least one possible earlier start state could not be evaluated.",
+                    TimeSpan.Zero);
+
+            var sharedCandidates = new List<AivPlacementCandidateEvaluation>(
+                request.Candidates.Count);
+            for (int index = 0; index < request.Candidates.Count; index++)
+            {
+                int candidateIndex = index;
+                AivPlacementCandidateEvaluation first = all[0].Candidates[index];
+                if (all.All(value => FitsAreIdentical(
+                        first, value.Candidates[candidateIndex])))
+                {
+                    sharedCandidates.Add(first);
+                    continue;
+                }
+                AivPlacementCandidateEvaluation unproven = all
+                    .Select(value => value.Candidates[candidateIndex])
+                    .FirstOrDefault(value => value.Selection == null);
+                string reason = unproven == null
+                    ? "Possible earlier start states produce different fit results."
+                    : $"A possible earlier start cannot be proven " +
+                      $"({unproven.FailureKind}: {unproven.FailureMessage}).";
+                sharedCandidates.Add(new AivPlacementCandidateEvaluation(
+                    request.Candidates[index],
+                    LobbyPlacementWorkerResult.NotEvaluable(
+                        LobbyEvaluationFailureKind.PriorAiSelectionUnknown,
+                        reason),
+                    LobbyEvaluationCacheDisposition.Computed));
+            }
+            foreach (AivPlacementCandidateEvaluation candidate in sharedCandidates)
+                candidateCompleted?.Invoke(request.Generation, request.PlayerId, candidate);
+            return Aggregate(request, sharedCandidates,
+                TimeSpan.FromTicks(all.Sum(value => value.Elapsed.Ticks)));
+        }
+
+        private static bool FitsAreIdentical(
+            AivPlacementCandidateEvaluation left,
+            AivPlacementCandidateEvaluation right)
+        {
+            if (left.CandidateId != right.CandidateId ||
+                left.Selection == null || right.Selection == null ||
+                left.Selection.Variants.Count != right.Selection.Variants.Count ||
+                !left.ElevatedMoatTilesByRotation.SequenceEqual(
+                    right.ElevatedMoatTilesByRotation) ||
+                !left.ElevatedDrawbridgeTilesByRotation.SequenceEqual(
+                    right.ElevatedDrawbridgeTilesByRotation))
+                return false;
+            for (int index = 0; index < left.Selection.Variants.Count; index++)
+            {
+                AivPlacementResult a = left.Selection.Variants[index];
+                AivPlacementResult b = right.Selection.Variants[index];
+                if (a.Status != b.Status || a.Rotation != b.Rotation ||
+                    a.Score.SequentialBuildScore != b.Score.SequentialBuildScore ||
+                    a.Score.FitPercentage != b.Score.FitPercentage ||
+                    a.Score.EvaluatedTileCount != b.Score.EvaluatedTileCount ||
+                    a.Score.BlockedTileCount != b.Score.BlockedTileCount ||
+                    a.FirstBlockingBuildStep != b.FirstBlockingBuildStep ||
+                    a.Issues.Count != b.Issues.Count)
                     return false;
+                for (int issueIndex = 0; issueIndex < a.Issues.Count; issueIndex++)
+                {
+                    AivPlacementIssue x = a.Issues[issueIndex];
+                    AivPlacementIssue y = b.Issues[issueIndex];
+                    if (x.Kind != y.Kind || x.TileId != y.TileId ||
+                        x.ElementIndex != y.ElementIndex ||
+                        x.BuildIndex != y.BuildIndex ||
+                        !x.MapCoordinate.Equals(y.MapCoordinate))
+                        return false;
+                }
+            }
+            return true;
+        }
+
+        private static bool TryGetPossibleSelectedStarts(
+            IReadOnlyList<AivPlacementCandidateEvaluation> candidates,
+            int? forcedCandidateId,
+            out IReadOnlyList<AivStartRebuildState> starts)
+        {
+            var possibleStarts = new HashSet<AivStartRebuildState>();
+            starts = null;
+            if (candidates.Count == 0 || candidates.Any(value => value.Selection == null))
+                return false;
+            if (forcedCandidateId.HasValue)
+            {
+                AivPlacementCandidateEvaluation forced = candidates.FirstOrDefault(
+                    value => value.CandidateId == forcedCandidateId.Value);
+                if (forced?.Selection == null ||
+                    !TryGetSelectedStartState(forced.Selection.BestVariant,
+                        out AivStartRebuildState forcedStart))
+                    return false;
+                starts = new[] { forcedStart };
+                return true;
+            }
+
+            IReadOnlyList<NativeAivAutoDecision> decisions =
+                NativeAivAutoSelector.SelectPossible(candidates);
+            if (decisions.Count == 0)
+                return false;
+            foreach (NativeAivAutoDecision outcome in decisions)
+            {
+                if (!outcome.CandidateId.HasValue)
+                    continue;
                 AivPlacementCandidateEvaluation candidate = candidates.FirstOrDefault(
                     value => value.CandidateId == outcome.CandidateId.Value);
-                if (candidate?.Selection == null ||
-                    outcome.RotationIndex >= candidate.Selection.Variants.Count)
+                if (candidate?.Selection == null || outcome.RotationIndex < 0 ||
+                    outcome.RotationIndex >= candidate.Selection.Variants.Count ||
+                    !TryGetSelectedStartState(
+                        candidate.Selection.Variants[outcome.RotationIndex],
+                        out AivStartRebuildState start))
                     return false;
-                AivPlacementResult variant = candidate.Selection.Variants[outcome.RotationIndex];
-                if (!TryGetSelectedStartState(variant, out AivStartRebuildState current))
-                    return false;
-                if (shared.HasValue && !shared.Value.Equals(current))
-                    return false;
-                shared = current;
+                possibleStarts.Add(start);
             }
-            start = shared.Value;
+            starts = possibleStarts.ToArray();
             return true;
         }
 
@@ -1015,8 +1172,8 @@ namespace CastlePlanner.AIVPlacement.Core
             try
             {
                 placementMap = mapLookup.Map.GetPlacementMap(
-                    workItem.Request.RetainedStartSlotMask,
-                    workItem.Request.RetainedStartSlotIndexes,
+                    workItem.RetainedStartSlotMask,
+                    workItem.RetainedStartSlotIndexes,
                     workItem.RebuiltStartsBySlot,
                     out normalizedSnapshotElapsed);
                 cancellationToken.ThrowIfCancellationRequested();
@@ -1038,11 +1195,12 @@ namespace CastlePlanner.AIVPlacement.Core
 
             if (workItem.RebuiltStartsBySlot.Count != 0 &&
                 placementMap is AivPreplacementMapState preplacement &&
-                preplacement.HasCrossOwnerStartWallAdjacency)
+                (preplacement.HasCrossOwnerStartWallAdjacency ||
+                 preplacement.HasPotentialConnectedRecordCleanup))
             {
                 return Failure(
                     LobbyEvaluationFailureKind.StartOverlapUnproven,
-                    "Adjacent starts of different owners have unresolved native overlap state.",
+                    "An earlier AI start may clear a connected building record whose fit-layer effects are not reconstructed.",
                     mapLookup,
                     TimeSpan.Zero,
                     TimeSpan.Zero,

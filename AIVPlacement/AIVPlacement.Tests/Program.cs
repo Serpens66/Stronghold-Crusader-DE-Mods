@@ -16,6 +16,7 @@ internal static class Program
             ("Project all four rotations", TestRotations),
             ("Use the native fixed keep reference", TestFixedNativeKeepReference),
             ("Project asymmetric building footprints", TestAsymmetricFootprints),
+            ("Retain the native Dog Cage area while classifying it as a trap", TestDogCageFootprint),
             ("Retain coordinates beyond the map edge", TestNearMapEdge),
             ("Project gates, drawbridges and stairs", TestSpecialElements),
             ("Keep overlapping elements traceable", TestOverlappingElements),
@@ -28,6 +29,8 @@ internal static class Program
             ("Rotate rebuilt player start occupancy", TestRebuiltStartRotations),
             ("Match observed Keep and campground footprints", TestObservedCraggyStartFootprints),
             ("Translate rebuilt starts with the rotated AIV Keep marker", TestShiftedNativeStartMarkers),
+            ("Enumerate selected, failed and marker-dependent AI starts", TestPossibleStartScenarios),
+            ("Bound the possible start-state expansion", TestPossibleStartStateLimit),
             ("Reconstruct native rock footprints", TestRockFootprintReconstruction),
             ("Require observed state after an executed AIV prebuild", TestPriorPrebuildStateRequirement),
             ("Reject reasonless placement issues", TestReasonlessPlacementIssue),
@@ -78,6 +81,49 @@ internal static class Program
         AssertCoordinate(Element(blueprint, AivRotation.Degrees270, 1).MapCoordinate, 410, 404);
     }
 
+    private static void TestPossibleStartScenarios()
+    {
+        var west = new AivStartRebuildState(
+            AivRotation.Degrees270, new AivGridPoint(56, 43));
+        var east = new AivStartRebuildState(
+            AivRotation.Degrees90, new AivGridPoint(55, 44));
+        AivPossibleStartStates states = AivPossibleStartStates.Initial;
+        Assert(states.TryAppend(2, new[] { west, east, west }, out states),
+            "first player's possible starts were rejected");
+        AssertEqual(3, states.Scenarios.Count);
+        Assert(states.Scenarios.Any(value => value.AbsentStartSlotMask == 4),
+            "failed constructor outcome is missing");
+        Assert(states.Scenarios.Any(value => value.RebuiltStartsBySlot.TryGetValue(2,
+            out AivStartRebuildState start) && start.Equals(east)),
+            "the shifted marker was lost");
+        var byScenario = states.Scenarios.ToDictionary(
+            value => value.Key,
+            value => (IReadOnlyList<AivStartRebuildState>)new[] { west });
+        Assert(states.TryAppend(5, byScenario, out AivPossibleStartStates next),
+            "second player's possible starts were rejected");
+        AssertEqual(6, next.Scenarios.Count);
+        Assert(next.Scenarios.All(value => value.Key.Contains('|')),
+            "scenario cache identity is incomplete");
+    }
+
+    private static void TestPossibleStartStateLimit()
+    {
+        AivPossibleStartStates states = AivPossibleStartStates.Initial;
+        var starts = new[]
+        {
+            new AivStartRebuildState(AivRotation.Degrees0, new AivGridPoint(56, 43)),
+            new AivStartRebuildState(AivRotation.Degrees90, new AivGridPoint(56, 43)),
+            new AivStartRebuildState(AivRotation.Degrees180, new AivGridPoint(56, 43))
+        };
+        for (int slot = 0; slot < 3; slot++)
+            Assert(states.TryAppend(slot, starts, out states),
+                "the bounded state set was rejected too early");
+        AssertEqual(64, states.Scenarios.Count);
+        Assert(!states.TryAppend(3, starts, out AivPossibleStartStates overflow),
+            "an excessive state set must stay unevaluable");
+        Assert(overflow == null, "overflow returned an incomplete state set");
+    }
+
     private static void TestFixedNativeKeepReference()
     {
         var frames = new[]
@@ -116,6 +162,27 @@ internal static class Program
         AivProjectedElement ninety = Element(blueprint, AivRotation.Degrees90, 1);
         AssertEqual(16, ninety.OccupiedTiles.Count);
         AssertBounds(ninety.OccupiedTiles, 400, 403, 408, 411);
+    }
+
+    private static void TestDogCageFootprint()
+    {
+        AivBlueprint blueprint = Blueprint(
+            Frame(0, 61, false, Point(56, 43)),
+            Frame(1, 312, false, Point(84, 6)));
+
+        AssertEqual(AivItemCategory.Trap, AivMapperCatalog.Resolve(312).Category);
+        foreach (AivRotation rotation in new[]
+        {
+            AivRotation.Degrees0,
+            AivRotation.Degrees90,
+            AivRotation.Degrees180,
+            AivRotation.Degrees270
+        })
+        {
+            AivProjectedElement cage = Element(blueprint, rotation, 1);
+            AssertEqual(9, cage.OccupiedTiles.Count);
+            AssertEqual(9, cage.OccupiedTiles.Select(tile => tile.MapCoordinate).Distinct().Count());
+        }
     }
 
     private static void TestNearMapEdge()

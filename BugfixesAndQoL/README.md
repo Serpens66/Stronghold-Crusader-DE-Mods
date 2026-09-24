@@ -4,6 +4,9 @@ BugfixesAndQoL fixes several problems in Stronghold Crusader Definitive Edition 
 
 ## Fixes
 
+### Optional baker and miller breaks
+The off-by-default host option under **Fixes?** lets bakers and all three mill workers occasionally take a positive-fear break after delivering bread or flour, even when more ingredients are available. It uses the game's existing break decision and destination. This Vanilla difference may be intentional, so the option is separate from the established fixes. Wheat and hops farmers retain their Vanilla behavior.
+
 ### Correct demolition cursor near enemies
 The demolition cursor now changes to the blocked icon when an enemy is close enough to prevent demolition. This restores the visual feedback known from the HD version, so the game no longer appears to accept an action that it will reject.
 

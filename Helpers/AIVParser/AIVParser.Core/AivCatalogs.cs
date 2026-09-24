@@ -110,7 +110,9 @@ namespace AIVParser.Core
             Add(result, 308, "MAPPER_RACK_STRETCHING");
             Add(result, 310, "MAPPER_CHOPPING_BLOCK");
             Add(result, 311, "MAPPER_DUNKING_STOOL");
-            Add(result, 312, "MAPPER_DOG_CAGE", AivItemCategory.Trap);
+            // SHCDESE BuildingScales.GetScale(eMappers.MAPPER_DOG_CAGE) is 3.
+            // It is a trap for spawn filtering, but native AIV fit stamps a 3x3 building.
+            Add(result, 312, "MAPPER_DOG_CAGE", AivItemCategory.Trap, footprintSize: 3);
             Add(result, 313, "MAPPER_STATUE1");
             Add(result, 318, "MAPPER_SHRINE1");
             Add(result, 324, "MAPPER_DANCING_BEAR");
@@ -126,7 +128,8 @@ namespace AIVParser.Core
             IDictionary<int, AivMapperInfo> target,
             int value,
             string name,
-            AivItemCategory category = AivItemCategory.Building)
+            AivItemCategory category = AivItemCategory.Building,
+            int? footprintSize = null)
         {
             target.Add(
                 value,
@@ -135,7 +138,7 @@ namespace AIVParser.Core
                     name,
                     category,
                     true,
-                    GetFootprintSize(value, category),
+                    footprintSize ?? GetFootprintSize(value, category),
                     GetVisualGroup(value),
                     GetDisplayName(value, name, category)));
         }

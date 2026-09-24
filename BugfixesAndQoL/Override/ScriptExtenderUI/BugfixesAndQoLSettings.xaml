@@ -643,6 +643,10 @@
         <TextBlock Text="{Binding EnablePlagueTargetReservationFixText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
       </StackPanel>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.category.host-possible-fixes" shared:ModSettingsSearch.Title="{Binding PossibleFixesTitleText}" shared:ModSettingsSearch.ToolTipText="{Binding PossibleFixesTitleText}"><TextBlock Text="{Binding PossibleFixesTitleText}" Style="{StaticResource CategoryHeader}" Margin="0,8,0,4"/></Grid>
+      <StackPanel shared:ModSettingsSearch.SectionKey="bugfixes.section.host-possible-fixes" shared:ModSettingsSearch.SectionTitle="{Binding PossibleFixesTitleText}">
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-baker-miller-breaks" shared:ModSettingsSearch.Title="{Binding EnableBakerMillerBreaksText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableBakerMillerBreaksHelpText}"><CheckBox IsChecked="{Binding EnableBakerMillerBreaks, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableBakerMillerBreaksHelpText}" Margin="0,0,14,8"><TextBlock Text="{Binding EnableBakerMillerBreaksText}" Foreground="White" TextWrapping="Wrap"/></CheckBox></Grid>
+      </StackPanel>
       </StackPanel>
     </StackPanel>
   </ScrollViewer>

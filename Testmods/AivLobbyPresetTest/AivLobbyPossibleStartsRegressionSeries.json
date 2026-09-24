@@ -1,0 +1,564 @@
+{
+  "enabled": true,
+  "seriesId": "aiv-possible-starts-regression-20260924",
+  "runs": [
+    {
+      "id": "CL-Early-off",
+      "preBuild": false,
+      "preset": {
+        "enabled": true,
+        "mapFileName": "Crater Lake.map",
+        "mapSha256": "C5D9906AA37ED96EC1CF9B3EB0C7F6FB5B3E1D8063167FE22337E69C153BB887",
+        "players": [
+          {
+            "id": 1,
+            "human": true,
+            "keepSlot": 0,
+            "radarX": 150,
+            "radarY": 177,
+            "keepX": 654,
+            "keepY": 448
+          },
+          {
+            "id": 2,
+            "lordType": 12,
+            "keepSlot": 6,
+            "radarX": 90,
+            "radarY": 30,
+            "keepX": 241,
+            "keepY": 274,
+            "aivDefaults": [
+              1,
+              8
+            ]
+          },
+          {
+            "id": 3,
+            "lordType": 3,
+            "aivDefault": 8,
+            "keepSlot": 5,
+            "radarX": 17,
+            "radarY": 110,
+            "keepX": 254,
+            "keepY": 580
+          },
+          {
+            "id": 4,
+            "lordType": 14,
+            "aivDefault": 7,
+            "keepSlot": 2,
+            "radarX": 161,
+            "radarY": 101,
+            "keepX": 525,
+            "keepY": 274
+          },
+          {
+            "id": 5,
+            "lordType": 11,
+            "aivDefault": 1,
+            "keepSlot": 1,
+            "radarX": 170,
+            "radarY": 33,
+            "keepX": 406,
+            "keepY": 121
+          },
+          {
+            "id": 6,
+            "lordType": 15,
+            "aivDefault": 2,
+            "keepSlot": 4,
+            "radarX": 43,
+            "radarY": 50,
+            "keepX": 187,
+            "keepY": 407
+          },
+          {
+            "id": 7,
+            "lordType": 16,
+            "aivDefault": 5,
+            "keepSlot": 3,
+            "radarX": 105,
+            "radarY": 84,
+            "keepX": 379,
+            "keepY": 353
+          },
+          {
+            "id": 8,
+            "lordType": 18,
+            "aivDefault": 4,
+            "keepSlot": 7,
+            "radarX": 37,
+            "radarY": 174,
+            "keepX": 423,
+            "keepY": 667
+          }
+        ]
+      }
+    },
+    {
+      "id": "CL-Early-on",
+      "preBuild": true,
+      "preset": {
+        "enabled": true,
+        "mapFileName": "Crater Lake.map",
+        "mapSha256": "C5D9906AA37ED96EC1CF9B3EB0C7F6FB5B3E1D8063167FE22337E69C153BB887",
+        "players": [
+          {
+            "id": 1,
+            "human": true,
+            "keepSlot": 0,
+            "radarX": 150,
+            "radarY": 177,
+            "keepX": 654,
+            "keepY": 448
+          },
+          {
+            "id": 2,
+            "lordType": 12,
+            "keepSlot": 6,
+            "radarX": 90,
+            "radarY": 30,
+            "keepX": 241,
+            "keepY": 274,
+            "aivDefaults": [
+              1,
+              8
+            ]
+          },
+          {
+            "id": 3,
+            "lordType": 3,
+            "aivDefault": 8,
+            "keepSlot": 5,
+            "radarX": 17,
+            "radarY": 110,
+            "keepX": 254,
+            "keepY": 580
+          },
+          {
+            "id": 4,
+            "lordType": 14,
+            "aivDefault": 7,
+            "keepSlot": 2,
+            "radarX": 161,
+            "radarY": 101,
+            "keepX": 525,
+            "keepY": 274
+          },
+          {
+            "id": 5,
+            "lordType": 11,
+            "aivDefault": 1,
+            "keepSlot": 1,
+            "radarX": 170,
+            "radarY": 33,
+            "keepX": 406,
+            "keepY": 121
+          },
+          {
+            "id": 6,
+            "lordType": 15,
+            "aivDefault": 2,
+            "keepSlot": 4,
+            "radarX": 43,
+            "radarY": 50,
+            "keepX": 187,
+            "keepY": 407
+          },
+          {
+            "id": 7,
+            "lordType": 16,
+            "aivDefault": 5,
+            "keepSlot": 3,
+            "radarX": 105,
+            "radarY": 84,
+            "keepX": 379,
+            "keepY": 353
+          },
+          {
+            "id": 8,
+            "lordType": 18,
+            "aivDefault": 4,
+            "keepSlot": 7,
+            "radarX": 37,
+            "radarY": 174,
+            "keepX": 423,
+            "keepY": 667
+          }
+        ]
+      }
+    },
+    {
+      "id": "CL-Middle-off",
+      "preBuild": false,
+      "preset": {
+        "enabled": true,
+        "mapFileName": "Crater Lake.map",
+        "mapSha256": "C5D9906AA37ED96EC1CF9B3EB0C7F6FB5B3E1D8063167FE22337E69C153BB887",
+        "players": [
+          {
+            "id": 1,
+            "human": true,
+            "keepSlot": 0,
+            "radarX": 150,
+            "radarY": 177,
+            "keepX": 654,
+            "keepY": 448
+          },
+          {
+            "id": 2,
+            "lordType": 12,
+            "aivDefault": 6,
+            "keepSlot": 6,
+            "radarX": 90,
+            "radarY": 30,
+            "keepX": 241,
+            "keepY": 274
+          },
+          {
+            "id": 3,
+            "lordType": 3,
+            "aivDefault": 8,
+            "keepSlot": 5,
+            "radarX": 17,
+            "radarY": 110,
+            "keepX": 254,
+            "keepY": 580
+          },
+          {
+            "id": 4,
+            "lordType": 14,
+            "aivDefault": 7,
+            "keepSlot": 2,
+            "radarX": 161,
+            "radarY": 101,
+            "keepX": 525,
+            "keepY": 274
+          },
+          {
+            "id": 5,
+            "lordType": 11,
+            "keepSlot": 1,
+            "radarX": 170,
+            "radarY": 33,
+            "keepX": 406,
+            "keepY": 121,
+            "aivDefaults": [
+              2,
+              7
+            ]
+          },
+          {
+            "id": 6,
+            "lordType": 15,
+            "aivDefault": 2,
+            "keepSlot": 4,
+            "radarX": 43,
+            "radarY": 50,
+            "keepX": 187,
+            "keepY": 407
+          },
+          {
+            "id": 7,
+            "lordType": 16,
+            "aivDefault": 5,
+            "keepSlot": 3,
+            "radarX": 105,
+            "radarY": 84,
+            "keepX": 379,
+            "keepY": 353
+          },
+          {
+            "id": 8,
+            "lordType": 18,
+            "aivDefault": 4,
+            "keepSlot": 7,
+            "radarX": 37,
+            "radarY": 174,
+            "keepX": 423,
+            "keepY": 667
+          }
+        ]
+      }
+    },
+    {
+      "id": "CC-Early-off",
+      "preBuild": false,
+      "preset": {
+        "enabled": true,
+        "mapFileName": "Craggy Cliffs.map",
+        "mapSha256": "C46B71C941EA299D1CA82C4F9649601E41F80517F05885ECDDA39DEEE5E4EF25",
+        "players": [
+          {
+            "id": 1,
+            "human": true,
+            "keepSlot": 0,
+            "radarX": 30,
+            "radarY": 33,
+            "keepX": 264,
+            "keepY": 401
+          },
+          {
+            "id": 2,
+            "lordType": 12,
+            "keepSlot": 1,
+            "radarX": 97,
+            "radarY": 32,
+            "keepX": 330,
+            "keepY": 333,
+            "aivDefaults": [
+              1,
+              8
+            ]
+          },
+          {
+            "id": 3,
+            "lordType": 3,
+            "aivDefault": 3,
+            "keepSlot": 2,
+            "radarX": 168,
+            "radarY": 29,
+            "keepX": 398,
+            "keepY": 258
+          },
+          {
+            "id": 4,
+            "lordType": 14,
+            "aivDefault": 2,
+            "keepSlot": 3,
+            "radarX": 29,
+            "radarY": 147,
+            "keepX": 377,
+            "keepY": 515
+          },
+          {
+            "id": 5,
+            "lordType": 11,
+            "aivDefault": 8,
+            "keepSlot": 4,
+            "radarX": 48,
+            "radarY": 169,
+            "keepX": 418,
+            "keepY": 519
+          },
+          {
+            "id": 6,
+            "lordType": 15,
+            "aivDefault": 6,
+            "keepSlot": 5,
+            "radarX": 140,
+            "radarY": 140,
+            "keepX": 481,
+            "keepY": 397
+          },
+          {
+            "id": 7,
+            "lordType": 16,
+            "aivDefault": 1,
+            "keepSlot": 6,
+            "radarX": 175,
+            "radarY": 130,
+            "keepX": 506,
+            "keepY": 352
+          },
+          {
+            "id": 8,
+            "lordType": 18,
+            "aivDefault": 7,
+            "keepSlot": 7,
+            "radarX": 168,
+            "radarY": 166,
+            "keepX": 535,
+            "keepY": 396
+          }
+        ]
+      }
+    },
+    {
+      "id": "CC-Middle-off",
+      "preBuild": false,
+      "preset": {
+        "enabled": true,
+        "mapFileName": "Craggy Cliffs.map",
+        "mapSha256": "C46B71C941EA299D1CA82C4F9649601E41F80517F05885ECDDA39DEEE5E4EF25",
+        "players": [
+          {
+            "id": 1,
+            "human": true,
+            "keepSlot": 0,
+            "radarX": 30,
+            "radarY": 33,
+            "keepX": 264,
+            "keepY": 401
+          },
+          {
+            "id": 2,
+            "lordType": 12,
+            "aivDefault": 5,
+            "keepSlot": 1,
+            "radarX": 97,
+            "radarY": 32,
+            "keepX": 330,
+            "keepY": 333
+          },
+          {
+            "id": 3,
+            "lordType": 3,
+            "aivDefault": 3,
+            "keepSlot": 2,
+            "radarX": 168,
+            "radarY": 29,
+            "keepX": 398,
+            "keepY": 258
+          },
+          {
+            "id": 4,
+            "lordType": 14,
+            "aivDefault": 2,
+            "keepSlot": 3,
+            "radarX": 29,
+            "radarY": 147,
+            "keepX": 377,
+            "keepY": 515
+          },
+          {
+            "id": 5,
+            "lordType": 11,
+            "keepSlot": 4,
+            "radarX": 48,
+            "radarY": 169,
+            "keepX": 418,
+            "keepY": 519,
+            "aivDefaults": [
+              2,
+              7
+            ]
+          },
+          {
+            "id": 6,
+            "lordType": 15,
+            "aivDefault": 6,
+            "keepSlot": 5,
+            "radarX": 140,
+            "radarY": 140,
+            "keepX": 481,
+            "keepY": 397
+          },
+          {
+            "id": 7,
+            "lordType": 16,
+            "aivDefault": 1,
+            "keepSlot": 6,
+            "radarX": 175,
+            "radarY": 130,
+            "keepX": 506,
+            "keepY": 352
+          },
+          {
+            "id": 8,
+            "lordType": 18,
+            "aivDefault": 7,
+            "keepSlot": 7,
+            "radarX": 168,
+            "radarY": 166,
+            "keepX": 535,
+            "keepY": 396
+          }
+        ]
+      }
+    },
+    {
+      "id": "CC-Middle-on",
+      "preBuild": true,
+      "preset": {
+        "enabled": true,
+        "mapFileName": "Craggy Cliffs.map",
+        "mapSha256": "C46B71C941EA299D1CA82C4F9649601E41F80517F05885ECDDA39DEEE5E4EF25",
+        "players": [
+          {
+            "id": 1,
+            "human": true,
+            "keepSlot": 0,
+            "radarX": 30,
+            "radarY": 33,
+            "keepX": 264,
+            "keepY": 401
+          },
+          {
+            "id": 2,
+            "lordType": 12,
+            "aivDefault": 5,
+            "keepSlot": 1,
+            "radarX": 97,
+            "radarY": 32,
+            "keepX": 330,
+            "keepY": 333
+          },
+          {
+            "id": 3,
+            "lordType": 3,
+            "aivDefault": 3,
+            "keepSlot": 2,
+            "radarX": 168,
+            "radarY": 29,
+            "keepX": 398,
+            "keepY": 258
+          },
+          {
+            "id": 4,
+            "lordType": 14,
+            "aivDefault": 2,
+            "keepSlot": 3,
+            "radarX": 29,
+            "radarY": 147,
+            "keepX": 377,
+            "keepY": 515
+          },
+          {
+            "id": 5,
+            "lordType": 11,
+            "keepSlot": 4,
+            "radarX": 48,
+            "radarY": 169,
+            "keepX": 418,
+            "keepY": 519,
+            "aivDefaults": [
+              2,
+              7
+            ]
+          },
+          {
+            "id": 6,
+            "lordType": 15,
+            "aivDefault": 6,
+            "keepSlot": 5,
+            "radarX": 140,
+            "radarY": 140,
+            "keepX": 481,
+            "keepY": 397
+          },
+          {
+            "id": 7,
+            "lordType": 16,
+            "aivDefault": 1,
+            "keepSlot": 6,
+            "radarX": 175,
+            "radarY": 130,
+            "keepX": 506,
+            "keepY": 352
+          },
+          {
+            "id": 8,
+            "lordType": 18,
+            "aivDefault": 7,
+            "keepSlot": 7,
+            "radarX": 168,
+            "radarY": 166,
+            "keepX": 535,
+            "keepY": 396
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -991,6 +991,7 @@ namespace ActiveAIVDetector
                 if (call.Result != 0)
                     validatorBlockedCells++;
             }
+            int preValidatorBlockedCells = evaluatedCells - trace.ValidatorCalls.Count;
             Shared.DebugLogHelper.LogInfo(
                 log,
                 $"Captured opt-in AIV cell trace {cellTraceCaptureCount}/" +
@@ -1000,7 +1001,8 @@ namespace ActiveAIVDetector
                 $"evaluated={evaluatedCells}, nativeBlocked={blockedCells}, " +
                 $"resultGridBlocked={resultGridBlockedCells}, " +
                 $"validatorCalls={trace.ValidatorCalls.Count}, " +
-                $"validatorBlocked={validatorBlockedCells}.");
+                $"validatorBlocked={validatorBlockedCells}, " +
+                $"preValidatorBlocked={preValidatorBlockedCells}.");
             return trace;
         }
 

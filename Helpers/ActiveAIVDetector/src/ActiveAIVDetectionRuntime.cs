@@ -835,6 +835,7 @@ namespace ActiveAIVDetector
                     }
                     writer.WriteLine($"# validatorCalls={trace.ValidatorCalls.Count}");
                     writer.WriteLine($"# validatorBlockedCells={validatorBlockedCells}");
+                    writer.WriteLine($"# preValidatorBlockedCells={trace.EvaluatedCells - trace.ValidatorCalls.Count}");
                     writer.WriteLine(
                         "gridRow\tgridColumn\tworldX\tworldY\trawMapper\t" +
                         "effectiveMapper\tscoreGridValue\tresultGridValue\tblocked");
@@ -893,21 +894,27 @@ namespace ActiveAIVDetector
                     if (call.Result != 0)
                         tracedValidatorBlockedCells++;
                 }
+                int preValidatorBlockedCells =
+                    trace.EvaluatedCells - trace.ValidatorCalls.Count;
                 Shared.DebugLogHelper.LogInfo(
                     log,
                     $"Wrote opt-in AIV cell trace: path={path}, " +
                     $"rows={trace.Cells.Count}, nativeBlocked={trace.NativeBlockedCells}, " +
                     $"resultGridBlocked={trace.ResultGridBlockedCells}, " +
                     $"validatorCalls={trace.ValidatorCalls.Count}, " +
-                    $"validatorBlocked={tracedValidatorBlockedCells}.");
+                    $"validatorBlocked={tracedValidatorBlockedCells}, " +
+                    $"preValidatorBlocked={preValidatorBlockedCells}.");
                 if (trace.Cells.Count != trace.EvaluatedCells ||
-                    tracedValidatorBlockedCells != trace.NativeBlockedCells)
+                    preValidatorBlockedCells < 0 ||
+                    tracedValidatorBlockedCells + preValidatorBlockedCells !=
+                        trace.NativeBlockedCells)
                 {
                     Shared.DebugLogHelper.LogWarning(
                         log,
                         $"AIV cell trace grid validation differs from native counters: " +
                         $"rows={trace.Cells.Count}/{trace.EvaluatedCells}, " +
-                        $"validatorBlocked={tracedValidatorBlockedCells}/" +
+                        $"validatorBlocked={tracedValidatorBlockedCells}, " +
+                        $"preValidatorBlocked={preValidatorBlockedCells}, nativeBlocked=" +
                         $"{trace.NativeBlockedCells}.");
                 }
             }

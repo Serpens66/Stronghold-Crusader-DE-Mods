@@ -106,7 +106,7 @@ internal static class Program
         AssertEqual(5, AivMapperCatalog.Resolve(178).FootprintSize);
         AssertEqual(5, AivMapperCatalog.Resolve(179).FootprintSize);
         AssertEqual(1, AivMapperCatalog.Resolve(99).FootprintSize);
-        AssertEqual(1, AivMapperCatalog.Resolve(312).FootprintSize);
+        AssertEqual(3, AivMapperCatalog.Resolve(312).FootprintSize);
         AssertEqual(AivItemCategory.Trap, AivMapperCatalog.Resolve(312).Category);
         AssertEqual(5, AivMapperCatalog.Resolve(311).FootprintSize);
         AssertEqual(5, AivMapperCatalog.Resolve(325).FootprintSize);

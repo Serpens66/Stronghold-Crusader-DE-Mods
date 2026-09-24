@@ -339,3 +339,6 @@ BugfixesAndQoL.EnableCorruptLordDataSpawnFix=Lord-Erzeugung auf Karten mit besch
 BugfixesAndQoL.EnableCorruptLordDataSpawnFixHelp=Entfernt beim Start eines neuen Spiels ausschließlich veraltete Lord-Verweise auf vollständig leere Einheitenslots, damit Vanilla den fehlenden Lord erzeugen kann. Behebt betroffene Menschen- und KI-Slots, darunter die Spielerslots 7 und 8 auf The Ford Across the River.
 Common.SettingsSourceHelp=Setzt die Einstellungen dieser Mod auf die gewählte Quelle zurück. Eigene Presets bleiben unverändert. Im Mehrspieler kann nur der Host die Host-Einstellungen zurücksetzen.
 Common.PresetLoadFailedTitle=Preset konnte nicht geladen werden
+BugfixesAndQoL.PossibleFixesTitle=Fixes?
+BugfixesAndQoL.EnableBakerMillerBreaks=Pausen für Bäcker und Müller nach der Ablieferung
+BugfixesAndQoL.EnableBakerMillerBreaksHelp=Erlaubt Bäckern und allen drei Müllern, nach dem Abliefern gelegentlich Vanillas Pause bei einem positiven Angstfaktor zu machen, auch wenn noch Rohstoffe verfügbar sind. Ob das abweichende Vanilla-Verhalten beabsichtigt ist, ist nicht bekannt. Standardmäßig aus.

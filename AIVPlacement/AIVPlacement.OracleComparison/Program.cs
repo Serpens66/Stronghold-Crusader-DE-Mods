@@ -276,8 +276,9 @@ internal static class Program
             AivBlueprint blueprint = LoadBlueprint(aivPath);
             AivRotation rotation = ParseRotation(oracleCase.Rotation);
             if (map is AivPreplacementMapState preplacement &&
-                preplacement.HasUnprovenNativeStartInteraction(
-                    new AivCastleProjector().Project(blueprint, keep, rotation)))
+                (preplacement.HasPotentialConnectedRecordCleanup ||
+                 preplacement.HasUnprovenNativeStartInteraction(
+                     new AivCastleProjector().Project(blueprint, keep, rotation))))
             {
                 return new CaseComparison
                 {
@@ -296,7 +297,10 @@ internal static class Program
                     Rotation = oracleCase.Rotation,
                     Native = oracleCase.Native,
                     Classification = ComparisonClassification.NotEvaluable,
-                    FirstDifference = "Candidate reads tiles near an earlier AI start with unproven native construction."
+                    FirstDifference = preplacement.HasPotentialConnectedRecordCleanup
+                        ? "An earlier AI start may clear a connected building record: " +
+                          preplacement.PotentialConnectedRecordCleanupEvidence
+                        : "Candidate reads tiles near an earlier AI start with unproven native construction."
                 };
             }
             AivPlacementResult offline = new AivPlacementEvaluator().Evaluate(
