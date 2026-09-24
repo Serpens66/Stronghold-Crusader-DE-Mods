@@ -126,16 +126,21 @@ namespace CastlePlanner.AIVPlacement.Core
             LobbyFileStamp mapStamp,
             LobbyAivSourceStamp aivStamp,
             string assetText,
-            IReadOnlyDictionary<int, AivRotation> rebuiltStartRotationsBySlot)
+            IReadOnlyDictionary<int, AivStartRebuildState> rebuiltStartsBySlot)
         {
             Request = request;
             Candidate = candidate;
             MapStamp = mapStamp;
             AivStamp = aivStamp;
             AssetText = assetText;
+            var starts = new Dictionary<int, AivStartRebuildState>();
             var rotations = new Dictionary<int, AivRotation>();
-            foreach (KeyValuePair<int, AivRotation> pair in rebuiltStartRotationsBySlot)
-                rotations.Add(pair.Key, pair.Value);
+            foreach (KeyValuePair<int, AivStartRebuildState> pair in rebuiltStartsBySlot)
+            {
+                starts.Add(pair.Key, pair.Value);
+                rotations.Add(pair.Key, pair.Value.Rotation);
+            }
+            RebuiltStartsBySlot = new ReadOnlyDictionary<int, AivStartRebuildState>(starts);
             RebuiltStartRotationsBySlot = new ReadOnlyDictionary<int, AivRotation>(
                 rotations);
         }
@@ -145,6 +150,7 @@ namespace CastlePlanner.AIVPlacement.Core
         public LobbyFileStamp MapStamp { get; }
         public LobbyAivSourceStamp AivStamp { get; }
         public string AssetText { get; }
+        public IReadOnlyDictionary<int, AivStartRebuildState> RebuiltStartsBySlot { get; }
         public IReadOnlyDictionary<int, AivRotation> RebuiltStartRotationsBySlot { get; }
     }
 
@@ -364,7 +370,7 @@ namespace CastlePlanner.AIVPlacement.Core
 
     public sealed class AivPlacementEvaluationService
     {
-        public const string AnalyzerVersion = "chat13-noprebuild-normalized-v3";
+        public const string AnalyzerVersion = "chat13-start-marker-v4";
 
         private readonly object sync = new object();
         private readonly ILobbyPlacementCandidateWorker worker;
@@ -419,7 +425,7 @@ namespace CastlePlanner.AIVPlacement.Core
             return Task.Run(() => EvaluateRequestCoreAsync(
                 request,
                 assets,
-                new Dictionary<int, AivRotation>(),
+                new Dictionary<int, AivStartRebuildState>(),
                 cancellationToken,
                 null),
                 cancellationToken);
@@ -492,7 +498,7 @@ namespace CastlePlanner.AIVPlacement.Core
         private async Task<AivPlacementCheckResult> EvaluateRequestCoreAsync(
             AivPlacementCheckRequest request,
             IReadOnlyDictionary<string, string> assets,
-            IReadOnlyDictionary<int, AivRotation> rebuiltStartRotationsBySlot,
+            IReadOnlyDictionary<int, AivStartRebuildState> rebuiltStartsBySlot,
             CancellationToken cancellationToken,
             Action<long, int, AivPlacementCandidateEvaluation> candidateCompleted)
         {
@@ -512,7 +518,7 @@ namespace CastlePlanner.AIVPlacement.Core
             }
 
             LobbyFileStamp mapStamp = LobbyFileStamp.Capture(request.MapPath);
-            int rebuiltStartState = BuildRebuiltStartState(rebuiltStartRotationsBySlot);
+            string rebuiltStartState = AivStartStateKey.Build(rebuiltStartsBySlot);
             var pending = new List<Task<CandidateFetch>>(request.Candidates.Count);
             var candidates = new List<AivPlacementCandidateEvaluation>(request.Candidates.Count);
             foreach (AivPlacementCandidateRequest candidate in request.Candidates)
@@ -539,7 +545,7 @@ namespace CastlePlanner.AIVPlacement.Core
                     mapStamp,
                     aivStamp,
                     assetText,
-                    rebuiltStartRotationsBySlot);
+                    rebuiltStartsBySlot);
                 Task<CandidateFetch> task = GetOrEvaluateAsync(key, item, cancellationToken);
                 if (candidateCompleted == null)
                     pending.Add(task);
@@ -576,7 +582,7 @@ namespace CastlePlanner.AIVPlacement.Core
         {
             var results = new List<AivPlacementCheckResult>(batch.Requests.Count);
             var selectedCandidateIds = new Dictionary<int, int>();
-            var rebuiltStartRotationsBySlot = new Dictionary<int, AivRotation>();
+            var rebuiltStartsBySlot = new Dictionary<int, AivStartRebuildState>();
             bool priorStartRotationUnknown = false;
             int priorUnknownPlayerId = -1;
             LobbyEvaluationFailureKind priorFailureKind = LobbyEvaluationFailureKind.None;
@@ -595,7 +601,7 @@ namespace CastlePlanner.AIVPlacement.Core
                     : await EvaluateRequestCoreAsync(
                         request,
                         assets,
-                        rebuiltStartRotationsBySlot,
+                        rebuiltStartsBySlot,
                         cancellationToken,
                         candidateCompleted).ConfigureAwait(false);
                 results.Add(result);
@@ -616,19 +622,18 @@ namespace CastlePlanner.AIVPlacement.Core
                     rebuiltVariant = selectedCandidate.Selection?.BestVariant;
                 }
 
-                if (rebuiltVariant != null && HasCanonicalNativeStartMarker(rebuiltVariant))
+                if (TryGetSelectedStartState(rebuiltVariant, out AivStartRebuildState selectedStart))
                 {
-                    rebuiltStartRotationsBySlot[request.KeepSlotIndex] =
-                        rebuiltVariant.Rotation;
+                    rebuiltStartsBySlot[request.KeepSlotIndex] = selectedStart;
                 }
                 else if (request.PreBuildSetting == 0 &&
                          result.FailureKind == LobbyEvaluationFailureKind.NativeAutoSelectionAmbiguous &&
-                         TryGetCertainSelectedRotation(result.Candidates, out AivRotation certainRotation))
+                         TryGetCertainSelectedStart(result.Candidates, out AivStartRebuildState certainStart))
                 {
                     // Without prebuild, Vanilla's chosen AIV plan does not create
                     // earlier AIV buildings. Its start complex still needs the
                     // selected rotation in the next player's tile snapshot.
-                    rebuiltStartRotationsBySlot[request.KeepSlotIndex] = certainRotation;
+                    rebuiltStartsBySlot[request.KeepSlotIndex] = certainStart;
                 }
                 else
                 {
@@ -637,12 +642,9 @@ namespace CastlePlanner.AIVPlacement.Core
                     {
                         priorUnknownPlayerId = request.PlayerId;
                         priorFailureKind = result.FailureKind;
-                        priorFailureMessage = rebuiltVariant != null &&
-                            !HasCanonicalNativeStartMarker(rebuiltVariant)
-                            ? "the selected AIV has a shifted native start marker"
-                            : result.FailureKind ==
+                        priorFailureMessage = result.FailureKind ==
                             LobbyEvaluationFailureKind.NativeAutoSelectionAmbiguous
-                            ? "possible Vanilla outcomes have different start rotations, shifted markers or no selected castle"
+                            ? "possible Vanilla outcomes have different start rotations, markers or no selected castle"
                             : result.FailureMessage;
                     }
                 }
@@ -650,17 +652,17 @@ namespace CastlePlanner.AIVPlacement.Core
             return new AivPlacementBatchResult(results, selectedCandidateIds);
         }
 
-        private static bool TryGetCertainSelectedRotation(
+        private static bool TryGetCertainSelectedStart(
             IReadOnlyList<AivPlacementCandidateEvaluation> candidates,
-            out AivRotation rotation)
+            out AivStartRebuildState start)
         {
-            rotation = default;
+            start = default;
             IReadOnlyList<NativeAivAutoDecision> possible =
                 NativeAivAutoSelector.SelectPossible(candidates);
             if (possible.Count == 0)
                 return false;
 
-            AivRotation? shared = null;
+            AivStartRebuildState? shared = null;
             foreach (NativeAivAutoDecision outcome in possible)
             {
                 if (!outcome.CandidateId.HasValue || outcome.RotationIndex < 0)
@@ -671,34 +673,26 @@ namespace CastlePlanner.AIVPlacement.Core
                     outcome.RotationIndex >= candidate.Selection.Variants.Count)
                     return false;
                 AivPlacementResult variant = candidate.Selection.Variants[outcome.RotationIndex];
-                if (!HasCanonicalNativeStartMarker(variant))
+                if (!TryGetSelectedStartState(variant, out AivStartRebuildState current))
                     return false;
-                AivRotation current = variant.Rotation;
-                if (shared.HasValue && shared.Value != current)
+                if (shared.HasValue && !shared.Value.Equals(current))
                     return false;
                 shared = current;
             }
-            rotation = shared.Value;
+            start = shared.Value;
             return true;
         }
 
-        private static bool HasCanonicalNativeStartMarker(AivPlacementResult variant) =>
-            variant?.Castle != null &&
-            variant.Castle.AivKeepAnchor.Row == 56 &&
-            variant.Castle.AivKeepAnchor.Column == 43;
-
-        private static int BuildRebuiltStartState(
-            IReadOnlyDictionary<int, AivRotation> rotationsBySlot)
+        private static bool TryGetSelectedStartState(
+            AivPlacementResult variant,
+            out AivStartRebuildState start)
         {
-            int state = 0;
-            foreach (KeyValuePair<int, AivRotation> pair in rotationsBySlot)
-            {
-                if (pair.Key < 0 || pair.Key >= MapKeepAnchors.SlotCount)
-                    throw new ArgumentOutOfRangeException(nameof(rotationsBySlot));
-                int encodedRotation = ((int)pair.Value / 90) + 1;
-                state |= encodedRotation << (pair.Key * 3);
-            }
-            return state;
+            start = default;
+            if (variant?.Castle == null)
+                return false;
+            start = new AivStartRebuildState(
+                variant.Rotation, variant.Castle.AivKeepAnchor);
+            return true;
         }
 
         private Task<CandidateFetch> GetOrEvaluateAsync(
@@ -1023,7 +1017,7 @@ namespace CastlePlanner.AIVPlacement.Core
                 placementMap = mapLookup.Map.GetPlacementMap(
                     workItem.Request.RetainedStartSlotMask,
                     workItem.Request.RetainedStartSlotIndexes,
-                    workItem.RebuiltStartRotationsBySlot,
+                    workItem.RebuiltStartsBySlot,
                     out normalizedSnapshotElapsed);
                 cancellationToken.ThrowIfCancellationRequested();
             }
@@ -1042,7 +1036,7 @@ namespace CastlePlanner.AIVPlacement.Core
                     TimeSpan.Zero);
             }
 
-            if (workItem.RebuiltStartRotationsBySlot.Count != 0 &&
+            if (workItem.RebuiltStartsBySlot.Count != 0 &&
                 placementMap is AivPreplacementMapState preplacement &&
                 preplacement.HasCrossOwnerStartWallAdjacency)
             {
@@ -1295,8 +1289,8 @@ namespace CastlePlanner.AIVPlacement.Core
         private sealed class PreparedMap
         {
             private readonly object placementMapSync = new object();
-            private readonly Dictionary<long, IAivPlacementTileSource> placementMaps =
-                new Dictionary<long, IAivPlacementTileSource>();
+            private readonly Dictionary<string, IAivPlacementTileSource> placementMaps =
+                new Dictionary<string, IAivPlacementTileSource>(StringComparer.Ordinal);
 
             private PreparedMap(
                 MapDocument document,
@@ -1325,12 +1319,11 @@ namespace CastlePlanner.AIVPlacement.Core
             public IAivPlacementTileSource GetPlacementMap(
                 int retainedStartSlotMask,
                 IReadOnlyList<int> retainedStartSlotIndexes,
-                IReadOnlyDictionary<int, AivRotation> rebuiltStartRotationsBySlot,
+                IReadOnlyDictionary<int, AivStartRebuildState> rebuiltStartsBySlot,
                 out TimeSpan elapsed)
             {
-                int rebuiltStartState = EncodeRebuiltStartState(rebuiltStartRotationsBySlot);
-                long stateKey = ((long)retainedStartSlotMask << 32) |
-                    (uint)rebuiltStartState;
+                string stateKey = retainedStartSlotMask + ":" +
+                    AivStartStateKey.Build(rebuiltStartsBySlot);
                 lock (placementMapSync)
                 {
                     if (placementMaps.TryGetValue(stateKey, out IAivPlacementTileSource cached))
@@ -1344,24 +1337,12 @@ namespace CastlePlanner.AIVPlacement.Core
                     IAivPlacementTileSource created = AivPreplacementMapState.Create(
                         Document,
                         retainedStartSlotIndexes,
-                        rebuiltStartRotationsBySlot);
+                        rebuiltStartsBySlot);
                     timer.Stop();
                     placementMaps.Add(stateKey, created);
                     elapsed = timer.Elapsed;
                     return created;
                 }
-            }
-
-            private static int EncodeRebuiltStartState(
-                IReadOnlyDictionary<int, AivRotation> rotationsBySlot)
-            {
-                int state = 0;
-                foreach (KeyValuePair<int, AivRotation> pair in rotationsBySlot)
-                {
-                    int encodedRotation = ((int)pair.Value / 90) + 1;
-                    state |= encodedRotation << (pair.Key * 3);
-                }
-                return state;
             }
 
             public static PreparedMap Success(
@@ -1409,7 +1390,7 @@ namespace CastlePlanner.AIVPlacement.Core
             LobbyAivSourceStamp aiv,
             int keepSlot,
             int retainedStartSlotMask,
-            int rebuiltStartState,
+            string rebuiltStartState,
             bool usesMapFacingRotation,
             AivRotation rotation,
             int preBuildSetting,
@@ -1430,7 +1411,7 @@ namespace CastlePlanner.AIVPlacement.Core
         public LobbyAivSourceStamp Aiv { get; }
         public int KeepSlot { get; }
         public int RetainedStartSlotMask { get; }
-        public int RebuiltStartState { get; }
+        public string RebuiltStartState { get; }
         public bool UsesMapFacingRotation { get; }
         public AivRotation Rotation { get; }
         public int PreBuildSetting { get; }
@@ -1441,7 +1422,7 @@ namespace CastlePlanner.AIVPlacement.Core
             Aiv.Equals(other.Aiv) &&
             KeepSlot == other.KeepSlot &&
             RetainedStartSlotMask == other.RetainedStartSlotMask &&
-            RebuiltStartState == other.RebuiltStartState &&
+            string.Equals(RebuiltStartState, other.RebuiltStartState, StringComparison.Ordinal) &&
             UsesMapFacingRotation == other.UsesMapFacingRotation &&
             Rotation == other.Rotation &&
             PreBuildSetting == other.PreBuildSetting &&
@@ -1458,12 +1439,29 @@ namespace CastlePlanner.AIVPlacement.Core
                 hash = hash * 397 ^ Aiv.GetHashCode();
                 hash = hash * 397 ^ KeepSlot;
                 hash = hash * 397 ^ RetainedStartSlotMask;
-                hash = hash * 397 ^ RebuiltStartState;
+                hash = hash * 397 ^ (RebuiltStartState?.GetHashCode() ?? 0);
                 hash = hash * 397 ^ UsesMapFacingRotation.GetHashCode();
                 hash = hash * 397 ^ (int)Rotation;
                 hash = hash * 397 ^ PreBuildSetting;
                 return hash * 397 ^ (AnalyzerVersion?.GetHashCode() ?? 0);
             }
+        }
+    }
+
+    internal static class AivStartStateKey
+    {
+        public static string Build(IReadOnlyDictionary<int, AivStartRebuildState> startsBySlot)
+        {
+            var state = new StringBuilder();
+            foreach (KeyValuePair<int, AivStartRebuildState> pair in startsBySlot.OrderBy(item => item.Key))
+            {
+                if (pair.Key < 0 || pair.Key >= MapKeepAnchors.SlotCount)
+                    throw new ArgumentOutOfRangeException(nameof(startsBySlot));
+                state.Append(pair.Key).Append(':')
+                    .Append((int)pair.Value.Rotation).Append(':')
+                    .Append(pair.Value.Marker.EncodedOffset).Append(';');
+            }
+            return state.ToString();
         }
     }
 

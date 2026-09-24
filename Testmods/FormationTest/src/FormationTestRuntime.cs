@@ -130,6 +130,7 @@ namespace FormationTest
             new DetourHandle<CommonGroupMoveDelegate>();
 
         private FormationPreviewMarkerRenderer markerRenderer;
+        private Shared.NativeTroopCommandModeReader commandModeReader;
         private HookTransaction nativeTransaction;
         private Hook engineRunHook;
         private Hook cameraUpdateHook;
@@ -206,6 +207,9 @@ namespace FormationTest
                 mainThreadId = Environment.CurrentManagedThreadId;
                 ulong libraryBase = unchecked((ulong)libraryContext.ModuleHandle.ToInt64());
                 ValidateNativeContracts(libraryContext.Memory);
+                commandModeReader = new Shared.NativeTroopCommandModeReader(
+                    libraryContext.ModuleHandle,
+                    libraryContext.Memory);
                 byte[] standardSelectorEntry = NativeDetourEntryContract.Capture(
                     libraryBase + StandardSelectorRva);
                 byte[] assassinSelectorEntry = NativeDetourEntryContract.Capture(
@@ -461,6 +465,13 @@ namespace FormationTest
                 if (state == null || !state.ReleaseGate.CanModify ||
                     args.Key != ToKeyCode(state.CommandButton))
                     return;
+                Shared.GroundMovePreviewRejection modeRejection =
+                    EvaluateCommandMode();
+                if (modeRejection != Shared.GroundMovePreviewRejection.None)
+                {
+                    AbortDrag("command-" + ToRejectionReason(modeRejection));
+                    return;
+                }
                 Shared.GroundMovePreviewRejection targetRejection =
                     EvaluateFixedGroundTarget(state.Target);
                 if (targetRejection != Shared.GroundMovePreviewRejection.None)
@@ -494,6 +505,14 @@ namespace FormationTest
                     FatControler.instance.overNoesisGUI())
                 {
                     AbortDrag("release-over-ui");
+                    return;
+                }
+                Shared.GroundMovePreviewRejection modeRejection =
+                    EvaluateCommandMode();
+                if (modeRejection != Shared.GroundMovePreviewRejection.None)
+                {
+                    AbortDrag("release-command-" +
+                        ToRejectionReason(modeRejection));
                     return;
                 }
 
@@ -540,6 +559,14 @@ namespace FormationTest
                 if (state == null)
                     return RunOriginalOnce(mpFrameSkip, ref originalEntered);
 
+                Shared.GroundMovePreviewRejection modeRejection =
+                    EvaluateCommandMode();
+                if (modeRejection != Shared.GroundMovePreviewRejection.None)
+                {
+                    AbortDrag("release-command-" +
+                        ToRejectionReason(modeRejection));
+                    return RunOriginalOnce(mpFrameSkip, ref originalEntered);
+                }
                 Shared.GroundMovePreviewRejection targetRejection =
                     EvaluateFixedGroundTarget(state.Target);
                 if (targetRejection != Shared.GroundMovePreviewRejection.None)
@@ -729,6 +756,13 @@ namespace FormationTest
 
         private void TryStartDrag(int commandButton)
         {
+            Shared.GroundMovePreviewRejection modeRejection =
+                EvaluateCommandMode();
+            if (modeRejection != Shared.GroundMovePreviewRejection.None)
+            {
+                LogTargetRejection(modeRejection, default);
+                return;
+            }
             if (!HasValidMap() || markerRenderer == null ||
                 !markerRenderer.ReplacementAvailable || FatControler.instance == null ||
                 FatControler.instance.overNoesisGUI() || IsShiftHeld())
@@ -773,6 +807,8 @@ namespace FormationTest
         private bool TryCreatePacket(ActiveDrag state, out FormationOrderPacket packet)
         {
             packet = null;
+            if (EvaluateCommandMode() != Shared.GroundMovePreviewRejection.None)
+                return false;
             ResolveDirectionAndWidth(state, out int direction, out int width);
             if (state.TribeId <= 0 || state.TribeId >= MaximumTribeCount ||
                 width <= 0 || width > ushort.MaxValue)
@@ -1945,6 +1981,14 @@ namespace FormationTest
 
         private void PublishPreview(ActiveDrag state, bool force)
         {
+            Shared.GroundMovePreviewRejection modeRejection =
+                EvaluateCommandMode();
+            if (modeRejection != Shared.GroundMovePreviewRejection.None)
+            {
+                state.HasPreviewPlan = false;
+                ClearPreview();
+                return;
+            }
             Shared.GroundMovePreviewRejection targetRejection =
                 EvaluateFixedGroundTarget(state.Target);
             if (targetRejection != Shared.GroundMovePreviewRejection.None)
@@ -2213,6 +2257,14 @@ namespace FormationTest
                             target.NativeY * MapWidth + target.NativeX] != 0,
                     hasPathComponent));
             return rejection == Shared.GroundMovePreviewRejection.None;
+        }
+
+        private Shared.GroundMovePreviewRejection EvaluateCommandMode()
+        {
+            if (commandModeReader == null)
+                return Shared.GroundMovePreviewRejection.NonMoveCommandMode;
+            return Shared.GroundMovePreviewEligibility.EvaluateCommandMode(
+                commandModeReader.Read());
         }
 
         private Shared.GroundMovePreviewRejection EvaluateFixedGroundTarget(

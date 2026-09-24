@@ -1,23 +1,18 @@
+using APIShared;
 using BepInEx.Logging;
 using CrusaderDE;
-using MessagePack;
-using MonoMod.RuntimeDetour;
 using R3;
 using RedBird.Abstractions.Hooks;
 using RedBird.Abstractions.Hooks.Transaction;
 using RedBird.Backends.NativeX64;
 using RedBird.X64.Hooks.Transaction;
 using SHCDESE.API;
-using SHCDESE.API.Components.Network;
 using SHCDESE.API.LowLevel;
 using SHCDESE.EventAPI;
-using SHCDESE.EventAPI.Network;
-using SHCDESE.GameGlobals;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
-using System.Reflection;
 using System.Runtime.InteropServices;
 
 namespace WaterboyTargetReservationTest
@@ -25,12 +20,9 @@ namespace WaterboyTargetReservationTest
     internal sealed unsafe class WaterboyTargetReservationRuntime
     {
         private const int MaximumDetailedLogs = 200;
-        private const int ChoreProtocolVersion = 1;
-        private const int MaximumChorePayloadBytes = 1200;
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate int FindNearestBurningBuildingDelegate(IntPtr buildingManager, int nativeUnitId);
-        private delegate void SetUpInbuildingDelegate(MainViewModel self, int overridePanel, int overrideType);
 
         private readonly ManualLogSource log;
         private readonly WaterboySettings settings;
@@ -41,22 +33,12 @@ namespace WaterboyTargetReservationTest
             new DetourHandle<FindNearestBurningBuildingDelegate>();
         private readonly HookTransaction transaction;
         private readonly IDisposable mapUnloadSubscription;
-        private readonly R3PacketEventHook<WaterboyModePacket> modePacketHook;
-        private readonly IDisposable modePacketSubscription;
-        private readonly Hook setUpInbuildingHook;
-        private readonly SetUpInbuildingDelegate setUpInbuildingTrampoline;
-        private readonly bool[] effectiveModes = { true, true, true, true, true, true, true, true, true };
-        private readonly bool[] observedSettingModes = { true, true, true, true, true, true, true, true, true };
-        private readonly int[] lastOperationIds = new int[9];
         private readonly int targetSearchDisplacedByteCount;
         private readonly string targetSearchScheme;
-        private readonly WaterboyButtonViewModel buttonViewModel;
         private volatile bool correctionAvailable = true;
-        private bool buttonAvailable = true;
         private bool postStartupLivenessLogged;
         private bool initialMapSeedCompleted;
-        private bool uiRefreshPending;
-        private int nextOperationId;
+        private bool mapModeLogged;
         private int detailedLogCount;
         private bool detailLimitLogged;
 
@@ -73,9 +55,6 @@ namespace WaterboyTargetReservationTest
 
             ValidateRuntimeDependencies();
             ValidateManagedLayout();
-            for (int playerId = 1; playerId <= 8; playerId++)
-                effectiveModes[playerId] = observedSettingModes[playerId] = settings.IsEnabledForPlayer(playerId);
-            buttonViewModel = new WaterboyButtonViewModel(OnToggleCommand);
 
             Shared.NativeResolution resolution = Shared.NativePatternResolver.ResolveUnique(
                 context.Memory, WaterboyNativeDefinition.FindNearestBurningBuildingPattern,
@@ -85,21 +64,10 @@ namespace WaterboyTargetReservationTest
                 throw new InvalidOperationException("The waterboy target search resolved outside its audited RVA.");
 
             HookTransaction pendingTransaction = null;
-            Hook pendingManagedHook = null;
             IDisposable pendingMapUnload = null;
-            IDisposable pendingPacketSubscription = null;
             bool pendingTick = false;
             try
             {
-                R3PacketEventHook<WaterboyModePacket> pendingPacketHook =
-                    GameNetworkAPI.Instance.GetPacketEventFor<WaterboyModePacket>();
-                pendingPacketSubscription = pendingPacketHook.GetBaseHook().Observable.Subscribe(OnModePacketReceived);
-
-                pendingManagedHook = new Hook(FindSetUpInbuildingMethod(),
-                    (SetUpInbuildingDelegate)SetUpInbuildingHook);
-                SetUpInbuildingDelegate pendingTrampoline =
-                    pendingManagedHook.GenerateTrampoline<SetUpInbuildingDelegate>();
-
                 pendingTransaction = new HookTransaction(context.Region,
                     SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
                     new HookTransactionOptions
@@ -123,16 +91,10 @@ namespace WaterboyTargetReservationTest
                 pendingMapUnload = MapLoaderR3EventHooks.OnUnloadMap.Observable.Subscribe(_ => OnMapUnload());
 
                 transaction = pendingTransaction;
-                setUpInbuildingHook = pendingManagedHook;
-                setUpInbuildingTrampoline = pendingTrampoline;
-                modePacketHook = pendingPacketHook;
-                modePacketSubscription = pendingPacketSubscription;
                 mapUnloadSubscription = pendingMapUnload;
                 targetSearchDisplacedByteCount = committedDetour.DisplacedByteCount;
                 targetSearchScheme = committedDetour.Scheme.ToString();
                 pendingTransaction = null;
-                pendingManagedHook = null;
-                pendingPacketSubscription = null;
                 pendingMapUnload = null;
                 pendingTick = false;
             }
@@ -141,9 +103,7 @@ namespace WaterboyTargetReservationTest
                 if (pendingTick)
                     GameTimeManagerAPI.Instance.GetFrameProvider().OnGameTick -= OnGameTick;
                 pendingMapUnload?.Dispose();
-                pendingPacketSubscription?.Dispose();
                 pendingTransaction?.Dispose();
-                pendingManagedHook?.Dispose();
                 throw;
             }
 
@@ -151,18 +111,8 @@ namespace WaterboyTargetReservationTest
                 $"Waterboy target reservations active: method={resolution.Method}, rva=0x{resolution.Rva:X}, " +
                 $"scheme={targetSearchScheme}, displaced={targetSearchDisplacedByteCount}, " +
                 $"span=0x{resolution.Rva:X}-0x{resolution.Rva + targetSearchDisplacedByteCount:X}, " +
-                $"stationaryTimeoutTicks={ReservationLedger.StationaryTimeoutTicks}, baseGameSpeed=40, " +
-                "linkedCompounds=true, perPlayer=true, nearestTakeover=true, liveToggle=true.");
-        }
-
-        internal WaterboyButtonViewModel ButtonViewModel => buttonViewModel;
-
-        internal void DisableButton(string reason, Exception exception)
-        {
-            buttonAvailable = false;
-            buttonViewModel.Update(false, false, true, true);
-            Shared.DebugLogHelper.LogError(log,
-                $"Waterboy mode button disabled; target reservations remain active. reason={reason}; exception={exception}");
+                 $"stationaryTimeoutTicks={ReservationLedger.StationaryTimeoutTicks}, baseGameSpeed=40, " +
+                "linkedCompounds=true, perPlayer=true, nearestTakeover=true, liveToggle=false.");
         }
 
         private int FindNearestEligibleFire(IntPtr buildingManager, int nativeUnitId)
@@ -178,7 +128,7 @@ namespace WaterboyTargetReservationTest
                 requester = ResolveLivingFiremanIdentity(nativeUnitId);
                 requesterUnit = ResolveLivingFireman(requester);
                 requesterPlayerId = requesterUnit->r_ControllableForPlayerId;
-                if (!IsValidPlayerId(requesterPlayerId) || !effectiveModes[requesterPlayerId])
+                if (!IsOptimizedForPlayer(requesterPlayerId))
                     return targetSearchHook.Original(buildingManager, nativeUnitId);
                 PruneInvalidReservations(CurrentGameTick());
             }
@@ -288,55 +238,25 @@ namespace WaterboyTargetReservationTest
                 {
                     postStartupLivenessLogged = true;
                     Shared.DebugLogHelper.LogInfo(log,
-                        "Waterboy target reservation runtime reached OnGameTick after startup cleanup; the permanent native and managed hooks remain active.");
+                        "Waterboy target reservation runtime reached OnGameTick after startup cleanup; the permanent native hook and event registrations remain active.");
                 }
-                ReconcileSettingModes(currentTick);
                 if (!initialMapSeedCompleted)
                 {
                     initialMapSeedCompleted = true;
+                    LogMapModes();
                     for (int playerId = 1; playerId <= 8; playerId++)
-                        if (effectiveModes[playerId])
+                        if (IsOptimizedForPlayer(playerId))
                         {
                             ledger.ClearPlayer(playerId);
                             SeedPlayerReservations(playerId, currentTick);
                         }
                 }
                 PruneInvalidReservations(currentTick);
-                if (uiRefreshPending)
-                {
-                    uiRefreshPending = false;
-                    RefreshButtonVisibility();
-                }
             }
             catch (Exception exception)
             {
                 DisableCorrection("per-tick reservation validation failed", exception);
             }
-        }
-
-        private void ReconcileSettingModes(int currentTick)
-        {
-            for (int playerId = 1; playerId <= 8; playerId++)
-            {
-                bool settingMode = settings.IsEnabledForPlayer(playerId);
-                if (settingMode == observedSettingModes[playerId])
-                    continue;
-                observedSettingModes[playerId] = settingMode;
-                ApplyMode(playerId, settingMode, currentTick, "synchronized-setting");
-            }
-        }
-
-        private void ApplyMode(int playerId, bool enabled, int currentTick, string source)
-        {
-            if (!IsValidPlayerId(playerId) || effectiveModes[playerId] == enabled)
-                return;
-            effectiveModes[playerId] = enabled;
-            ledger.ClearPlayer(playerId);
-            if (enabled)
-                SeedPlayerReservations(playerId, currentTick);
-            Shared.DebugLogHelper.LogInfo(log,
-                $"Waterboy targeting mode changed: player={playerId}, optimized={enabled}, source={source}, tick={currentTick}.");
-            uiRefreshPending = true;
         }
 
         private void SeedPlayerReservations(int playerId, int currentTick)
@@ -458,184 +378,65 @@ namespace WaterboyTargetReservationTest
             *(uint*)((byte*)owner + WaterboyNativeDefinition.FiremanTargetGlobalIdOffset) = 0;
         }
 
-        private void SetUpInbuildingHook(MainViewModel self, int overridePanel, int overrideType)
-        {
-            setUpInbuildingTrampoline(self, overridePanel, overrideType);
-            RefreshButtonVisibility();
-        }
-
-        private void RefreshButtonVisibility()
-        {
-            try
-            {
-                if (!buttonAvailable)
-                {
-                    buttonViewModel.Update(false, false, true, true);
-                    return;
-                }
-                int playerId = GetControlledPlayerId();
-                int buildingId = GamePlayerManagerAPI.Instance.GetSelectedBuildingId();
-                bool visible = TryGetOwnedWaterBuilding(buildingId, playerId, out _);
-                bool multiplayer = Shared.GameModeHelper.IsRealMultiplayer();
-                bool syncUnavailable = multiplayer && !IsChoreReady();
-                buttonViewModel.Update(visible, visible && correctionAvailable && !syncUnavailable,
-                    IsValidPlayerId(playerId) && effectiveModes[playerId], syncUnavailable);
-            }
-            catch (Exception exception)
-            {
-                DisableButton("visibility refresh failed", exception);
-            }
-        }
-
-        private void OnToggleCommand()
-        {
-            try
-            {
-                if (!correctionAvailable)
-                {
-                    RefreshButtonVisibility();
-                    return;
-                }
-                if (!buttonAvailable)
-                    return;
-                int playerId = GetControlledPlayerId();
-                int buildingId = GamePlayerManagerAPI.Instance.GetSelectedBuildingId();
-                if (!TryGetOwnedWaterBuilding(buildingId, playerId, out GameBuilding* building))
-                {
-                    RefreshButtonVisibility();
-                    return;
-                }
-                bool enabled = !effectiveModes[playerId];
-                int operationId = NextOperationId();
-                if (Shared.GameModeHelper.IsRealMultiplayer())
-                {
-                    if (!TrySendModeChore(playerId, operationId, buildingId, building->r_GlobalId, enabled))
-                        RefreshButtonVisibility();
-                    return;
-                }
-                ApplyReceivedMode(playerId, operationId, buildingId, building->r_GlobalId,
-                    enabled, "singleplayer-button");
-            }
-            catch (Exception exception)
-            {
-                Shared.DebugLogHelper.LogError(log, $"Waterboy mode button click failed: {exception}");
-                RefreshButtonVisibility();
-            }
-        }
-
-        private bool TrySendModeChore(int playerId, int operationId, int buildingId,
-            uint buildingGlobalId, bool enabled)
-        {
-            if (!IsChoreReady())
-                return false;
-            var packet = new WaterboyModePacket
-            {
-                ProtocolVersion = ChoreProtocolVersion,
-                PlayerId = playerId,
-                OperationId = operationId,
-                SourceBuildingId = buildingId,
-                SourceBuildingGlobalId = buildingGlobalId,
-                Enabled = enabled
-            };
-            try
-            {
-                byte[] body = GameNetworkAPI.Serialize(packet);
-                if (body == null || sizeof(short) + body.Length > MaximumChorePayloadBytes ||
-                    GameGlobalsManager.Instance.ChoreManagerVA == 0)
-                    return false;
-                short packetId = modePacketHook.GetPacketId();
-                GameNetworkAPI.SendPacketToAllEx2(packet, packetId, viaChore: true);
-                Shared.DebugLogHelper.LogInfo(log,
-                    $"Waterboy mode Chore queued: player={playerId}, operation={operationId}, optimized={enabled}, payloadBytes={sizeof(short) + body.Length}.");
-                return true;
-            }
-            catch (Exception exception)
-            {
-                Shared.DebugLogHelper.LogError(log,
-                    $"Waterboy mode Chore was not queued; no local change was applied: operation={operationId}, exception={exception}");
-                return false;
-            }
-        }
-
-        private void OnModePacketReceived(ReceiveCustomPacketEventArgs<WaterboyModePacket> args)
-        {
-            // A transport sender identifies the asynchronous Steam fallback. This packet is
-            // simulation-authoritative only when it arrived through the sender-less Chore path.
-            if (args?.SenderSteamId != null)
-                return;
-            WaterboyModePacket packet = args?.Packet;
-            if (packet == null || packet.ProtocolVersion != ChoreProtocolVersion ||
-                !IsValidPlayerId(packet.PlayerId) || packet.OperationId <= 0)
-                return;
-            ApplyReceivedMode(packet.PlayerId, packet.OperationId, packet.SourceBuildingId,
-                packet.SourceBuildingGlobalId, packet.Enabled, "multiplayer-chore");
-        }
-
-        private void ApplyReceivedMode(int playerId, int operationId, int buildingId,
-            uint buildingGlobalId, bool enabled, string source)
-        {
-            if (!WaterboyModeOperationPolicy.TryAccept(lastOperationIds[playerId], operationId,
-                    out int acceptedOperationId) ||
-                !TryGetOwnedWaterBuilding(buildingId, playerId, out GameBuilding* building) ||
-                building->r_GlobalId != buildingGlobalId)
-                return;
-            lastOperationIds[playerId] = acceptedOperationId;
-            int localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
-            settings.ApplyChoreValue(playerId, enabled, localPlayerId == playerId);
-            observedSettingModes[playerId] = enabled;
-            ApplyMode(playerId, enabled, CurrentGameTick(), source);
-        }
-
-        private bool IsChoreReady()
-        {
-            try { return modePacketHook != null && modePacketHook.GetPacketId() != 0 &&
-                    GameGlobalsManager.Instance.ChoreManagerVA != 0; }
-            catch { return false; }
-        }
-
         private void OnMapUnload()
         {
             ledger.Clear();
             reservationScratch.Clear();
             maskedFireScratch.Clear();
             initialMapSeedCompleted = false;
-            buttonViewModel.Update(false, false, true, false);
+            mapModeLogged = false;
         }
 
-        private static MethodInfo FindSetUpInbuildingMethod()
+        private bool IsOptimizedForPlayer(int playerId)
         {
-            MethodInfo method = typeof(MainViewModel).GetMethod("setUpInbuilding",
-                BindingFlags.Instance | BindingFlags.Public, null,
-                new[] { typeof(int), typeof(int) }, null);
-            if (method == null)
-                throw new MissingMethodException(typeof(MainViewModel).FullName, "setUpInbuilding");
-            return method;
+            if (!IsValidPlayerId(playerId))
+                return false;
+            bool realMultiplayer = Shared.GameModeHelper.IsRealMultiplayer();
+            int localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
+            return settings.ResolveEffectiveMode(realMultiplayer, playerId, localPlayerId);
         }
 
-        private static bool TryGetOwnedWaterBuilding(int buildingId, int playerId,
-            out GameBuilding* building)
+        private void LogMapModes()
         {
-            building = null;
-            return IsValidPlayerId(playerId) && buildingId > 0 &&
-                GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out building) &&
-                building != null && building->r_AliveState == AliveState.IsAlive &&
-                building->r_PlayerIdOwner == playerId &&
-                (building->r_BuildingType == eStructs.STRUCT_WELL ||
-                 building->r_BuildingType == eStructs.STRUCT_WATERPOT);
-        }
+            if (mapModeLogged)
+                return;
+            mapModeLogged = true;
 
-        private static int GetControlledPlayerId()
-        {
-            if (Shared.GameModeHelper.IsMapEditor())
-                return EditorDirector.instance?.ActivePlayerID ?? -1;
-            return GamePlayerManagerAPI.Instance.GetLocalPlayerId();
-        }
+            Shared.GameModeSnapshot mode = Shared.GameModeHelper.Capture();
+            string source = "Unavailable";
+            bool loadedSave = false;
+            try
+            {
+                if (ApiShared.Current.TryGetMissionLifecycle(
+                        WaterboyTargetReservationPlugin.PluginGuid,
+                        out IMissionLifecycleCapability lifecycle,
+                        out NativeCapabilityDiagnostic diagnostic) && lifecycle.Current != null)
+                {
+                    source = lifecycle.Current.StartKind.ToString();
+                    loadedSave = lifecycle.Current.IsSave;
+                }
+                else if (diagnostic != null)
+                    source = "Unavailable(" + diagnostic.State + ")";
+            }
+            catch (Exception exception)
+            {
+                source = "Unavailable(" + exception.GetType().Name + ")";
+            }
+            var playerIds = new SortedSet<int>();
+            int unitCount = GameUnitManagerAPI.Instance.GetUnitsAsSpan().Length;
+            for (int unitId = 1; unitId <= unitCount; unitId++)
+                if (GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) &&
+                    unit != null && unit->r_AliveState == AliveState.IsAlive &&
+                    IsValidPlayerId(unit->r_ControllableForPlayerId))
+                    playerIds.Add(unit->r_ControllableForPlayerId);
 
-        private int NextOperationId()
-        {
-            if (nextOperationId == int.MaxValue)
-                throw new InvalidOperationException("The process-wide waterboy mode operation sequence is exhausted.");
-            return ++nextOperationId;
+            var values = new List<string>();
+            for (int playerId = 1; playerId <= 8; playerId++)
+                values.Add($"{playerId}:{IsOptimizedForPlayer(playerId)}");
+            Shared.DebugLogHelper.LogInfo(log,
+                $"Waterboy map modes: source={source}, kind={mode.Kind}, loadedSave={loadedSave}, " +
+                $"realMultiplayer={mode.IsRealMultiplayer}, observedPlayers=[{string.Join(",", playerIds)}], " +
+                $"slots=[{string.Join(",", values)}].");
         }
 
         private NativeIdentity ResolveLivingFiremanIdentity(int unitId)
@@ -738,7 +539,6 @@ namespace WaterboyTargetReservationTest
                 return;
             correctionAvailable = false;
             ledger.Clear();
-            buttonViewModel.Update(false, false, true, false);
             Shared.DebugLogHelper.LogError(log,
                 $"Waterboy target reservations disabled; Vanilla remains active. reason={reason}; exception={exception}");
         }

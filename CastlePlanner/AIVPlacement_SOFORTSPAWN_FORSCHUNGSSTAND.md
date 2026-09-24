@@ -761,3 +761,70 @@ bleiben alle späteren KIs wegen des unbekannten Bauzustands grau.
 Archiv: `Diagnostics/AivSeries-20260924/Pivot13RuntimeRegression/Observed`.
 Vertrauen: hoch für diesen reproduzierten Lauf; keine neue allgemeine
 Freigabe für andere Marker oder sequenziellen Sofortbau.
+
+## 24.09.2026: ausgewählten Startmarker in den Folgezustand übernehmen
+
+Der aktuelle Native-Build `FBCB9319…` bestimmt in `0x53D00` nach dem
+Import der ausgewählten AIV den ersten rotierten Mapper `0x3D`. Dieser
+Marker verschiebt den Startanker für `0x6D580`; er darf deshalb nicht
+durch den kanonischen Marker `(56,43)` ersetzt werden. Der gemeinsame
+Offline-Kern übergibt jetzt die **tatsächlich ausgewählte Drehung und den
+Marker** an spätere KI-Fits. Bei mehrdeutiger Autoauswahl geschieht das
+nur, wenn alle möglichen Ergebnisse denselben Marker und dieselbe
+Drehung haben. Beide Werte gehören auch zum Cache-Schlüssel. Die
+Unsicherheitszone umfasst alten und verschobenen Startanker sowie die
+betroffenen Quell- und Zielzellen; nicht belegte Konstruktorzweige bleiben
+`NotEvaluable`.
+
+Fünf Korpora mit zusammen 218 Native-Fitversuchen ergeben damit 93
+exakte Vergleiche und 125 `NotEvaluable`, ohne Abweichung oder
+Verarbeitungsfehler. Gegenüber dem vorherigen Stand werden 17 weitere
+Fälle exakt bewertet: neue Crater/Craggy-Serien 21 statt 19, ältere
+Archive 61 statt 47 und die Laufzeitregression 11 statt 10. Die
+Marker-Berichte liegen jeweils als `marker-report.json` in den
+Corpus-Ordnern unter `Diagnostics/AivSeries-20260924/SixMatchResults`
+bzw. `Pivot13RuntimeRegression/Observed`. Diese Korpora belegen die
+beobachteten Marker und erfolgreichen Startkonstruktionen, nicht alle
+Abbruchpfade oder den sequenziellen Sofortbau. Letzterer bleibt für
+spätere KIs grau. Vertrauensgrad: hoch für die verglichenen Scores und
+Marker-Transformationen; begrenzt für unbekannte Konstruktorfolgen.
+
+## 24.09.2026: mehrdeutige Autoauswahl und drei weitere Crater-Lake-Starts
+
+Die Serie `CL-B-off` und `CL-Reverse-off` wurde bestätigt; eine dritte
+Aufnahme wiederholte `CL-Reverse-off`. Der installierte Native-Hash war
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`,
+der Crater-Lake-Hash
+`C5D9906AA37ED96EC1CF9B3EB0C7F6FB5B3E1D8063167FE22337E69C153BB887`.
+Alle 24 Vollkarten-Starttraces sind vollständig, ohne gesetztes
+Fehlerflag und mit jeweils 117 neu belegten Gebäudezellen. Der größte
+beobachtete Chebyshev-Abstand einer geänderten Zelle zum Keep war 20;
+das ist keine allgemeine Schreibgrenze. Von 31 Native-Fitversuchen
+waren alle 31 mit dem Offline-Kern in Score, Prozentwert und blockierten
+Zellen exakt. 21 Versuche betreffen die zwei verschiedenen Aufstellungen,
+zehn sind die Wiederholung. Archiv, Rohdaten und SHA-256-Manifest:
+`Diagnostics/AivSeries-20260924/MarkerRuntimeValidation/Observed`.
+
+Bei `CL-B-off` konnte Wolf aus seinen möglichen Kandidaten die
+Startdrehungen 0 und 90 Grad erreichen. Die zufällig beobachtete
+Auswahl beweist keine eindeutige Lobby-Prognose. Spätere KIs bleiben
+deshalb grau. Bei `CL-Reverse-off` waren die Startzustände eindeutig;
+alle sieben KI-Spieler erhielten Auswertungen.
+
+Der erneute Native-Audit verfolgt `0x94350 -> 0x53D00 -> 0x6D580 ->
+0x77E60 -> 0x74DA0` samt `0x5D3A0` sowie optional `0x55F50 ->
+0x51790 -> 0x5CD90`. Die Start-Räumung kann ganze kollidierende
+Gebäuderecords und ihre verbundenen Zellen bearbeiten. Auch der
+Sofortbau kann über einen getroffenen Record weitere Zellen räumen.
+Die 24 lokalen Erfolge und der beobachtete Abstand 20 begrenzen diese
+Seiteneffekte für beliebige Karten nicht. Die vollständigen
+Abbruchzweige von `0x77E60` sind ebenfalls nicht belegt. Verschiedene
+mögliche frühere Startzustände werden daher noch nicht vereinigt und
+freigegeben; spätere Sofortbau-Zustände bleiben `NotEvaluable`.
+Vertrauen: hoch für die aufgezeichneten Fits und erfolgreichen Starts,
+begrenzt für allgemeine Schreibgrenzen und Startabbrüche.
+
+Die nächste editierbare Serie `AivLobbyMultiAivSeries.json` prüft
+acht Kartenstarts mit zwei geordneten Default-AIVs bei einem frühen
+beziehungsweise mittleren KI-Spieler auf beiden Karten, je ohne und mit
+Sofortbau. Der Detector bleibt unabhängig von festen Spieler-IDs.

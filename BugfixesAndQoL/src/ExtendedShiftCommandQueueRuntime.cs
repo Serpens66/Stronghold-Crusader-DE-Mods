@@ -327,7 +327,7 @@ namespace BugfixesAndQoL
                 referenceHashMatches);
             try
             {
-                moveFormationDrag.Install();
+                moveFormationDrag.Install(context);
             }
             catch (Exception exception)
             {

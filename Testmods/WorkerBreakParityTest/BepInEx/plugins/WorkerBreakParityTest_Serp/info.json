@@ -1,0 +1,12 @@
+{
+  "GUID": "WorkerBreakParityTest_Serp",
+  "Author": "Serpens66",
+  "Name": "Worker Break Parity Test",
+  "Description": "Test: bakers and millers return to Vanilla's pause check after delivering bread or flour, even while ingredients remain available.",
+  "Version": "0.1.0",
+  "MinimumScriptExtenderVersion": "2.9.0",
+  "MaximumScriptExtenderVersion": "",
+  "Manifest": 1,
+  "NetworkMode": 1,
+  "SupportedGameVersions": ["2.8.0.1"]
+}

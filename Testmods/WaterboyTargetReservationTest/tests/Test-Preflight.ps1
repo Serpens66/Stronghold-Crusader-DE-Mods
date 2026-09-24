@@ -28,34 +28,33 @@ foreach ($file in $xamlFiles) {
     }
 }
 
-$hudPatchPath = Join-Path $root 'Patches\Assets\GUI\XAMLResources\HUD_Buildings.xaml'
-$hudPatch = [System.IO.File]::ReadAllText($hudPatchPath)
-if (-not $hudPatch.Contains('x:Name="WaterboyTargetReservationTestModeButtonHost"') -or
-    -not $hudPatch.Contains('Margin="0,38,336,0"')) {
-    throw 'Waterboy HUD button name or collision-free slot is missing.'
-}
-$allNames = @([regex]::Matches($hudPatch, 'x:Name="([^"]+)"') | ForEach-Object { $_.Groups[1].Value })
-if (($allNames | Sort-Object -Unique).Count -ne $allNames.Count) {
-    throw 'Duplicate XAML names found in the Waterboy HUD patch.'
-}
-
 $runtimeSource = [System.IO.File]::ReadAllText((Join-Path $root 'src\WaterboyTargetReservationRuntime.cs'))
-if ($runtimeSource -match '\b(setUpInbuildingHook|targetSearchHook)\s*\.\s*(Dispose|Undo|Disable)\s*\(') {
+if ($runtimeSource -match '\btargetSearchHook\s*\.\s*(Dispose|Undo|Disable)\s*\(') {
     throw 'Published runtime hook teardown found.'
 }
-if ($runtimeSource.Contains('Array.Clear(lastOperationIds') -or
-    $runtimeSource.Contains('nextOperationId = 0;')) {
-    throw 'Process-wide Chore operation ordering must survive map changes.'
+$forbiddenButtonArtifacts = 'WaterboyButtonViewModel|WaterboyModePacket|setUpInbuilding|TrySendModeChore|MessagePack|Noesis|HUD_Buildings\.xaml'
+if ($runtimeFiles | Select-String -Pattern $forbiddenButtonArtifacts) {
+    throw 'Removed Waterboy button, Chore, or UI-hook artifacts remain in runtime sources or project files.'
 }
-if (-not $runtimeSource.Contains('if (!TrySendModeChore(') -or
-    -not $runtimeSource.Contains('return;')) {
-    throw 'A failed multiplayer Chore send must not apply a local mode change.'
+$removedPaths = @(
+    Join-Path $root 'src\WaterboyButtonViewModel.cs'
+    Join-Path $root 'src\WaterboyModePacket.cs'
+    Join-Path $root 'Patches\Assets\GUI\XAMLResources\HUD_Buildings.xaml'
+)
+foreach ($path in $removedPaths) {
+    if (Test-Path -LiteralPath $path) { throw "Removed Waterboy UI artifact still exists: $path" }
 }
 $settingsSource = [System.IO.File]::ReadAllText((Join-Path $root 'src\WaterboySettings.cs'))
 if (-not $settingsSource.Contains('[SyncPerPlayer]') -or
     -not $settingsSource.Contains('EnableNearestWaterboyTargetingData') -or
-    -not $settingsSource.Contains('ResetSlotsWith(nameof(EnableNearestWaterboyTargeting), () => true)')) {
+    -not $settingsSource.Contains('ResetSlotsWith(nameof(EnableNearestWaterboyTargeting), () => true)') -or
+    -not $settingsSource.Contains('ResolveEffectiveMode')) {
     throw 'The default-enabled SyncPerPlayer companion contract is incomplete.'
+}
+if (-not $runtimeSource.Contains('settings.ResolveEffectiveMode(realMultiplayer, playerId, localPlayerId)') -or
+    -not $runtimeSource.Contains('source={source}') -or
+    -not $runtimeSource.Contains('loadedSave={loadedSave}')) {
+    throw 'Per-search mode resolution or per-map source diagnostics are incomplete.'
 }
 
 foreach ($file in $textFiles) {

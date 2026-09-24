@@ -177,8 +177,9 @@ namespace Shared
             {
                 owner.PropertyChanged += OnOwnerPropertyChanged;
 #if !API_SHARED_PRESET_TESTS
-                // SaveLifecycle: this finalizes a multiplayer lobby roster before map entry;
-                // saved-game loads have no lobby roster to converge through this coordinator.
+                // SaveLifecycle: normal multiplayer starts and Platform_Multiplayer.StartSave
+                // preserve the lobby snapshot and remap Steam identities to final game slots.
+                // Only single-player save loads have no multiplayer lobby convergence.
                 mapStartSubscription = Shared.MissionEvents.NativeStart.Subscribe(args =>
                 {
                     if (args.IsBeforeInitialization)

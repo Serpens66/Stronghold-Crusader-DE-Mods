@@ -13,7 +13,7 @@ namespace WaterboyTargetReservationTest
     public sealed class WaterboyTargetReservationPlugin : BaseUnityPlugin
     {
         private const string ScriptExtenderGuid = "000shcdese";
-        private const string PluginGuid = "WaterboyTargetReservationTest_Serp";
+        internal const string PluginGuid = "WaterboyTargetReservationTest_Serp";
         private const string PluginName = "Waterboy Target Reservation Test";
         private const string PluginVersion = "0.1.0";
 
@@ -66,16 +66,6 @@ namespace WaterboyTargetReservationTest
                     "ScriptExtenderUI/WaterboyTargetReservationTestSettings.xaml");
                 runtime = new WaterboyTargetReservationRuntime(
                     persistentLog, settings, context, referenceHashMatches);
-                try
-                {
-                    GameXAMLManagerAPI.Instance.RegisterBinding(
-                        "WaterboyTargetReservationTestModeButtonHost",
-                        runtime.ButtonViewModel);
-                }
-                catch (Exception exception)
-                {
-                    runtime.DisableButton("XAML binding registration failed", exception);
-                }
             }
             catch (Exception exception)
             {

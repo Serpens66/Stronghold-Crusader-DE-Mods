@@ -634,3 +634,66 @@ zero mismatches or processing errors. This is a runtime regression of
 the observed branches; it does not close the shifted-marker, constructor
 failure, or sequential prebuild contracts. Evidence is archived under
 `CastlePlanner/Diagnostics/AivSeries-20260924/Pivot13RuntimeRegression/Observed`.
+
+## 2026-09-24 selected AIV marker propagation
+
+Native SHA-256 remains
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+The feature chain `0x94350 -> 0x54EC0/0x54DE0 -> 0x53D00 ->
+0x6D580 -> 0x77E60/0x74DA0` was followed from selection through the
+successful compound-start writes. `0x53D00` imports the selected AIV,
+then uses its first rotated `0x3D` Keep marker for the type-41 start
+anchor. The relevant later fit input is thus the selected start marker
+and rotation, rather than rotation alone. For a marker `(row, col)`, the
+offline displacement relative to canonical `(56,43)` is the rotated
+column difference in map X and the negative rotated row difference in
+map Y. Source and displaced target cells remain guarded where the
+constructor's complete side effects are not established.
+
+The observed shifted-marker cases in the Crater Lake and Craggy Cliffs
+archives, including Jewel `(55,44)` at 180° and Nomad `(55,48)` at 0°,
+now agree with the native downstream fits. Five stored corpora total
+218 native fit attempts: 93 exact, 125 deliberately unevaluable, zero
+mismatches or processing errors. Reports are `marker-report.json` in
+`CastlePlanner/Diagnostics/AivSeries-20260924/SixMatchResults` and
+`Pivot13RuntimeRegression/Observed`. Confidence is high for this
+observed selection-to-anchor data flow and the compared scores; the
+unobserved `0x77E60` abort branches and completed-castle sequential
+writes remain outside the proven model. This supersedes the earlier
+product boundary that rejected every noncanonical selected marker;
+it does not assert a general constructor-write bound.
+
+## 2026-09-24 marker-runtime validation and write-bound limit
+
+Installed Native SHA-256:
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+Crater Lake SHA-256:
+`C5D9906AA37ED96EC1CF9B3EB0C7F6FB5B3E1D8063167FE22337E69C153BB887`.
+The verified `CL-B-off` and `CL-Reverse-off` starts plus one repeat of
+the latter produced 24 complete full-grid compound-start traces.
+Each had failure flag zero and 117 newly occupied building cells.
+The maximum observed Chebyshev distance of a changed cell from its
+Keep was 20. The 31 captured native fits all match the current offline
+score, percentage and blocked-cell count; 21 are from distinct setups
+and ten repeat a setup. Evidence with source hashes is in
+`CastlePlanner/Diagnostics/AivSeries-20260924/MarkerRuntimeValidation/Observed`.
+
+`CL-B-off` has an ambiguous prior Wolf selection with possible 0- and
+90-degree start rotations; `CL-Reverse-off` permits definite starts
+for all seven AI players. One observed random choice is not proof of
+the other possible start state.
+
+For the feature chain `0x94350 -> 0x53D00 -> 0x6D580 -> 0x77E60 ->
+0x74DA0`, compound construction can call `0x5D3A0`: its footprint
+collision pass marks building records and its later record scan can
+dispatch `0xB8310` for whole linked buildings, including cells outside
+the immediate footprint. Optional completed-castle construction through
+`0x55F50 -> 0x51790 -> 0x5CD90` can also reach `0xC43A0` and
+`0x61FC0` on collided building records. These control and data-flow
+paths prevent treating the observed distance 20 or the 41x41 capture
+window as a universal write bound. The available `0x77E60` export
+does not yet establish every constructor-abort branch. Confidence is
+high for the observed successful starts and exact fits, limited for
+all-map write bounds, constructor failures and later-player prebuild.
+Uncertain previous states must remain unevaluable unless all fit
+inputs are independently proven invariant.

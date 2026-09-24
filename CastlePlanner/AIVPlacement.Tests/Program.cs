@@ -30,7 +30,8 @@ internal static class Program
             ("reuses multiplayer tie choice for sequential starts", ReusesTieChoiceForSequentialStarts),
             ("propagates a certain start rotation across an uncertain AIV choice", PropagatesCertainRotationAcrossTie),
             ("keeps differing start rotations unresolved", KeepsDifferingRotationsUnresolved),
-            ("keeps shifted AI start markers unresolved", KeepsShiftedStartMarkersUnresolved),
+            ("propagates a shifted AI start marker to later fits", PropagatesShiftedStartMarkers),
+            ("separates cached later fits by selected start marker", SeparatesCachedFitsByStartMarker),
             ("rechecks later AI after complete castles is switched off", RechecksAfterPrebuildSwitch),
             ("creates eight default candidates", CreatesDefaultCandidates),
             ("maps current lord enum names to bundled Vanilla files", MapsCurrentLordNamesToVanillaFiles),
@@ -572,7 +573,7 @@ internal static class Program
             "later AI was evaluated against an unproven start state");
     }
 
-    private static void KeepsShiftedStartMarkersUnresolved()
+    private static void PropagatesShiftedStartMarkers()
     {
         using Fixture fixture = new();
         foreach (string name in new[] { "shifted", "second" })
@@ -595,12 +596,44 @@ internal static class Program
 
         AivPlacementBatchResult result = service.EvaluateBatchAsync(batch).GetAwaiter().GetResult();
 
-        Equal(LobbyEvaluationFailureKind.PriorAiSelectionUnknown,
-            result.Results[1].FailureKind);
-        Assert(result.Results[1].FailureMessage.Contains("shifted native start marker"),
-            "later AI should explain the shifted prior start marker");
-        Assert(!worker.StatesByCandidate.ContainsKey("second"),
-            "later AI was evaluated after a shifted native start marker");
+        Equal(AivPlacementStatus.Complete, result.Results[1].Status);
+        Assert(worker.StartsByCandidate.TryGetValue("second", out var starts),
+            "later AI should receive the selected native start marker");
+        Equal(new AivGridPoint(56, 45), starts[0].Marker);
+        Equal(AivRotation.Degrees0, starts[0].Rotation);
+    }
+
+    private static void SeparatesCachedFitsByStartMarker()
+    {
+        using Fixture fixture = new();
+        foreach (string name in new[] { "shifted", "canonical", "second" })
+            File.WriteAllText(Path.Combine(fixture.CustomDirectory, name + ".aivjson"), "{}");
+        var worker = new SequentialStateWorker();
+        var service = new AivPlacementEvaluationService(worker, 32, 2);
+
+        AivPlacementRequestBatch BuildBatch(string firstName, long generation)
+        {
+            LobbyStateCapture capture = fixture.Capture(
+                keepOrder: [1, 2, -1, -1, -1, -1, -1, -1],
+                slots:
+                [
+                    Slot(LobbyAivMode.Custom,
+                        [new LobbyAivCandidateInput(firstName, fixture.CustomDirectory, 0, false, "SK_RAT")],
+                        playerId: 2),
+                    Slot(LobbyAivMode.Custom,
+                        [new LobbyAivCandidateInput("second", fixture.CustomDirectory, 0, false, "SK_RAT")],
+                        playerId: 3)
+                ]);
+            return new LobbyRequestBuilder().Build(generation, capture, fixture.VanillaDirectory);
+        }
+
+        Equal(AivPlacementStatus.Complete,
+            service.EvaluateBatchAsync(BuildBatch("shifted", 1)).GetAwaiter().GetResult().Results[1].Status);
+        Equal(new AivGridPoint(56, 45), worker.StartsByCandidate["second"][0].Marker);
+        Equal(AivPlacementStatus.Complete,
+            service.EvaluateBatchAsync(BuildBatch("canonical", 2)).GetAwaiter().GetResult().Results[1].Status);
+        Equal(new AivGridPoint(56, 43), worker.StartsByCandidate["second"][0].Marker);
+        Equal(2, worker.CallsByCandidate["second"]);
     }
 
     private static void RechecksAfterPrebuildSwitch()
@@ -3009,6 +3042,8 @@ internal static class Program
 
         public List<Dictionary<int, AivRotation>> RebuiltStates { get; } = new();
         public Dictionary<string, Dictionary<int, AivRotation>> StatesByCandidate { get; } = new();
+        public Dictionary<string, Dictionary<int, AivStartRebuildState>> StartsByCandidate { get; } = new();
+        public Dictionary<string, int> CallsByCandidate { get; } = new();
 
         public LobbyPlacementWorkerResult Evaluate(
             AivPlacementCandidateWorkItem workItem,
@@ -3020,6 +3055,10 @@ internal static class Program
                     workItem.RebuiltStartRotationsBySlot);
                 RebuiltStates.Add(state);
                 StatesByCandidate[workItem.Candidate.Name] = state;
+                StartsByCandidate[workItem.Candidate.Name] = new Dictionary<int, AivStartRebuildState>(
+                    workItem.RebuiltStartsBySlot);
+                CallsByCandidate[workItem.Candidate.Name] =
+                    CallsByCandidate.TryGetValue(workItem.Candidate.Name, out int calls) ? calls + 1 : 1;
             }
 
             var blueprint = new AivBlueprint(

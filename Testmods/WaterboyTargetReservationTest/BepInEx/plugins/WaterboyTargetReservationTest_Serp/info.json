@@ -2,7 +2,7 @@
   "GUID": "WaterboyTargetReservationTest_Serp",
   "Author": "Serpens66",
   "Name": "Waterboy Target Reservation Test",
-  "Description": "Test mod with per-player live control that assigns the nearest available water carrier to each fire while preserving Vanilla reachability.",
+  "Description": "Test mod with a persistent per-player setting that assigns the nearest available water carrier to each fire while preserving Vanilla reachability.",
   "Version": "0.1.0",
   "MinimumScriptExtenderVersion": "2.7.2",
   "MaximumScriptExtenderVersion": "",
@@ -12,7 +12,7 @@
     {
       "Version": "0.1.0",
       "Changes": [
-        "Added per-player reservations, nearest-idle-carrier takeovers, and a live Well/Water Pot mode button while preserving Vanilla target reachability."
+        "Added persistent per-player reservations and nearest-idle-carrier takeovers while preserving Vanilla target reachability."
       ]
     }
   ]

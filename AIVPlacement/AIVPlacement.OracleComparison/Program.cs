@@ -127,9 +127,8 @@ internal static class Program
                 ? exactStartSlots.Where(slot => !aiStartSlots.Contains(slot)).ToArray()
                 : Array.Empty<int>();
             var priorStartSlots = new HashSet<int>(humanStartSlots);
-            var rebuiltStartRotationsBySlot = new Dictionary<int, AivRotation>();
+            var rebuiltStartsBySlot = new Dictionary<int, AivStartRebuildState>();
             bool hasExecutedPriorAivPrebuild = false;
-            bool hasShiftedPriorStartMarker = false;
             foreach (OracleSelectionGroup group in orderedGroups)
             {
                 IAivPlacementTileSource? sequentialMap = null;
@@ -138,12 +137,10 @@ internal static class Program
                     sequentialMap = AivPreplacementMapState.Create(
                         document,
                         priorStartSlots,
-                        rebuiltStartRotationsBySlot);
+                        rebuiltStartsBySlot);
                 }
 
-                string? unavailableReason = hasShiftedPriorStartMarker
-                    ? "A prior selected AIV has a shifted native start marker."
-                    : RequiresObservedPrebuildState(
+                string? unavailableReason = RequiresObservedPrebuildState(
                         preBuildSetting,
                         hasExecutedPriorAivPrebuild)
                     ? "A prior player's native AIV prebuild has already executed; " +
@@ -159,17 +156,10 @@ internal static class Program
                 OracleCase? selected = SelectNativePlacement(group.Cases);
                 if (selected != null && preBuildSetting == 1)
                     hasExecutedPriorAivPrebuild = true;
-                if (selected != null)
-                {
-                    AivGridPoint? marker = LoadBlueprint(selected.AivPath).KeepAnchor;
-                    if (!marker.HasValue || marker.Value.Row != 56 || marker.Value.Column != 43)
-                        hasShiftedPriorStartMarker = true;
-                }
-
-                AddSelectedStartRotation(
+                AddSelectedStartState(
                     anchors,
                     selected,
-                    rebuiltStartRotationsBySlot);
+                    rebuiltStartsBySlot);
                 AddResolvedStartSlot(anchors, group, priorStartSlots);
             }
         }
@@ -476,10 +466,10 @@ internal static class Program
         }
     }
 
-    private static void AddSelectedStartRotation(
+    private static void AddSelectedStartState(
         MapKeepAnchors anchors,
         OracleCase? selected,
-        IDictionary<int, AivRotation> rebuiltStartRotationsBySlot)
+        IDictionary<int, AivStartRebuildState> rebuiltStartsBySlot)
     {
         if (selected == null)
             return;
@@ -492,10 +482,13 @@ internal static class Program
                 out MapKeepAnchorResult? anchor,
                 out _))
         {
-            // Vanilla applies one shared rotation to the AIV and rebuilt AI start.
-            rebuiltStartRotationsBySlot.Add(
+            AivGridPoint? marker = LoadBlueprint(selected.AivPath).KeepAnchor;
+            if (!marker.HasValue)
+                return;
+            // 0x53D00 uses the first rotated AIV Keep marker for the native start.
+            rebuiltStartsBySlot.Add(
                 anchor!.SlotIndex,
-                ParseRotation(selected.Rotation));
+                new AivStartRebuildState(ParseRotation(selected.Rotation), marker.Value));
         }
     }
 

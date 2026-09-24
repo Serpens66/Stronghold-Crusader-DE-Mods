@@ -10,6 +10,7 @@ if defined SHCDESE_EXTENDER_DIR set "GAME_SCRIPT_EXTENDER_DIR=%SHCDESE_EXTENDER_
 set "PLUGIN_NAME=WaterboyTargetReservationTest_Serp"
 set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\%PLUGIN_NAME%"
 set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%"
+set "HOST_CLIENT_TEST_DIR=%PROJECT_DIR%..\..\_inspect\HostClientPresetTests"
 set "NO_PAUSE=0"
 set "NO_INSTALL=0"
 for %%A in (%*) do if /I "%%~A"=="/nopause" set "NO_PAUSE=1"
@@ -31,6 +32,13 @@ if errorlevel 1 goto build_failed
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\..\Shared\Test-PermanentNativeRuntimePatches.ps1"
 if errorlevel 1 goto build_failed
 
+pushd "%HOST_CLIENT_TEST_DIR%"
+"%MSBUILD%" HostClientPresetTests.csproj /p:Configuration=Debug
+if errorlevel 1 goto build_failed_popd
+"%HOST_CLIENT_TEST_DIR%\bin\HostClientPresetTests.exe"
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+popd
+
 pushd "%PROJECT_DIR%"
 "%MSBUILD%" tests\WaterboyTargetReservationTest.Tests.csproj /p:Configuration=Debug /p:ExtenderDir="%GAME_SCRIPT_EXTENDER_DIR%"
 if errorlevel 1 goto build_failed_popd
@@ -48,7 +56,6 @@ copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
 if not exist "%LOCAL_PLUGIN_DIR%\WaterboyTargetReservationTest.dll" goto package_failed
 if not exist "%LOCAL_PLUGIN_DIR%\info.json" goto package_failed
 if not exist "%LOCAL_PLUGIN_DIR%\Override\ScriptExtenderUI\WaterboyTargetReservationTestSettings.xaml" goto package_failed
-if not exist "%LOCAL_PLUGIN_DIR%\Patches\Assets\GUI\XAMLResources\HUD_Buildings.xaml" goto package_failed
 if "%NO_INSTALL%"=="1" goto built_without_install
 
 if exist "%GAME_PLUGIN_DIR%\" (

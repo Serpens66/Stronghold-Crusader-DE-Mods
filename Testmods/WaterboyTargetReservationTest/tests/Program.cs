@@ -29,7 +29,6 @@ namespace WaterboyTargetReservationTest
             TestExtinguishingStateDoesNotTimeout();
             TestNearestTakeoverPolicy();
             TestPerPlayerIsolationAndTransfer();
-            TestModeOperationOrdering();
             TestPerPlayerModeState();
             TestMapClear();
             TestManagedContracts();
@@ -296,33 +295,42 @@ namespace WaterboyTargetReservationTest
                 "disabling one player preserves other players' reservations");
         }
 
-        private static void TestModeOperationOrdering()
-        {
-            Check(WaterboyModeOperationPolicy.TryAccept(0, 1, out int accepted) && accepted == 1,
-                "first positive mode operation is accepted");
-            Check(!WaterboyModeOperationPolicy.TryAccept(accepted, 1, out int duplicate) && duplicate == 1,
-                "duplicate mode operation is ignored");
-            Check(!WaterboyModeOperationPolicy.TryAccept(accepted, 0, out int invalid) && invalid == 1,
-                "invalid mode operation is ignored");
-            Check(WaterboyModeOperationPolicy.TryAccept(accepted, 2, out int next) && next == 2,
-                "newer mode operation is accepted");
-        }
-
         private static void TestPerPlayerModeState()
         {
             var state = new PerPlayerModeState();
             for (int playerId = 1; playerId <= 8; playerId++)
                 Check(state.Data[playerId], $"player {playerId} starts optimized");
-            state.SetPlayerValue(2, false, isLocalPlayer: false);
+            state.Data[2] = false;
             Check(state.LocalValue && !state.Data[2],
                 "remote companion slot remains separate from persisted local value");
             state.SetLocalValue(false);
             state.ResolveLocalPlayer(1);
             Check(!state.LocalValue && !state.Data[1] && !state.Data[2],
                 "persisted local value populates only the resolved local slot");
-            state.SetPlayerValue(1, true, isLocalPlayer: true);
-            Check(state.LocalValue && state.Data[1] && !state.Data[2],
-                "local Chore confirmation updates persistence without changing remote slots");
+
+            Check(!WaterboyModePolicy.Resolve(false, 1, 1, false, state.Data),
+                "single-player save with persisted false uses Vanilla for new searches");
+            state.SetLocalValue(true);
+            Check(WaterboyModePolicy.Resolve(false, 1, 1, true, state.Data),
+                "single-player save with persisted true enables reservations for new searches");
+            Check(WaterboyModePolicy.Resolve(false, 3, 1, false, new bool[9]),
+                "AI remains optimized independently of the local human setting");
+
+            var multiplayer = new bool[9];
+            multiplayer[1] = false;
+            multiplayer[2] = true;
+            multiplayer[3] = true;
+            Check(!WaterboyModePolicy.Resolve(true, 1, 1, true, multiplayer),
+                "multiplayer reads the final companion slot instead of the local scalar");
+            Check(WaterboyModePolicy.Resolve(true, 3, 1, false, multiplayer),
+                "slot shift across an intervening AI preserves the remapped remote value");
+            Check(!WaterboyModePolicy.Resolve(true, 2, 1, true, new bool[9]),
+                "multiplayer never substitutes the local scalar for a foreign player");
+            Check(!WaterboyModePolicy.Resolve(true, 0, 1, true, multiplayer) &&
+                  !WaterboyModePolicy.Resolve(true, 9, 1, true, multiplayer),
+                "invalid player slots fail closed");
+            Check(!WaterboyModePolicy.Resolve(false, 1, 0, true, multiplayer),
+                "unresolved single-player identity remains Vanilla until ownership is known");
         }
 
         private static void TestMapClear()

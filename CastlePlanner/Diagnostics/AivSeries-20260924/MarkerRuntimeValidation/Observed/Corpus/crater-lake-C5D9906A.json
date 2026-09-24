@@ -1,0 +1,661 @@
+{
+  "Name": "Passive Oracle capture marker-runs.log - Crater Lake.map",
+  "SourceLogSha256": "8D649558213D84F82DC2D5D7C34A3480C9EB043CBDADBD435F1F4DFEE0917C7A",
+  "Map": {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\Stronghold Crusader Definitive Edition_Data\\StreamingAssets\\Maps\\Crater Lake.map",
+    "Sha256": "C5D9906AA37ED96EC1CF9B3EB0C7F6FB5B3E1D8063167FE22337E69C153BB887"
+  },
+  "Cases": [
+    {
+      "Id": "oracle-001-01-default-5-r270-map-load-001",
+      "AivPath": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\ActiveAIVDetector\\BepInEx\\plugins\\ActiveAIVDetector_Serp\\VanillaAIV\\nizar5.aivjson",
+      "AivSha256": "75EC63581C8D2D6A4DCF2A67C44690AF4080F597D3356B84503EC68944BB3CA7",
+      "SessionId": "map-load-001",
+      "PreBuildSetting": 0,
+      "SelectedForPlacement": true,
+      "SelectionPlacementState": 2,
+      "PlayerId": 2,
+      "MapKeepSlot": null,
+      "KeepX": 241,
+      "KeepY": 274,
+      "Rotation": 270,
+      "Native": {
+        "PlacementState": 2,
+        "RawFitScore": 999999,
+        "FitPercentage": 100,
+        "EvaluatedCells": 2503,
+        "BlockedCells": 0
+      }
+    },
+    {
+      "Id": "oracle-002-01-default-3-r0-map-load-001",
+      "AivPath": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\ActiveAIVDetector\\BepInEx\\plugins\\ActiveAIVDetector_Serp\\VanillaAIV\\wolf3.aivjson",
+      "AivSha256": "4E2A09090A53E53639C9F8C82E63362D213D53920F327D5D08936F8C02520CB0",
+      "SessionId": "map-load-001",
+      "PreBuildSetting": 0,
+      "SelectedForPlacement": false,
+      "SelectionPlacementState": 2,
+      "PlayerId": 3,
+      "MapKeepSlot": null,
+      "KeepX": 254,
+      "KeepY": 580,
+      "Rotation": 0,
+      "Native": {
+        "PlacementState": 1,
+        "RawFitScore": 255,
+        "FitPercentage": 99,
+        "EvaluatedCells": 3348,
+        "BlockedCells": 2
+      }
+    },
+    {
+      "Id": "oracle-002-02-default-3-r90-map-load-001",
+      "AivPath": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\ActiveAIVDetector\\BepInEx\\plugins\\ActiveAIVDetector_Serp\\VanillaAIV\\wolf3.aivjson",
+      "AivSha256": "4E2A09090A53E53639C9F8C82E63362D213D53920F327D5D08936F8C02520CB0",
+      "SessionId": "map-load-001",
+      "PreBuildSetting": 0,
+      "SelectedForPlacement": true,
+      "SelectionPlacementState": 2,
+      "PlayerId": 3,
+      "MapKeepSlot": null,
+      "KeepX": 254,
+      "KeepY": 580,
+      "Rotation": 90,
+      "Native": {
+        "PlacementState": 2,
+        "RawFitScore": 999999,
+        "FitPercentage": 100,
+        "EvaluatedCells": 3348,
+        "BlockedCells": 0
+      }
+    },
+    {
+      "Id": "oracle-003-01-default-2-r180-map-load-001",
+      "AivPath": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\ActiveAIVDetector\\BepInEx\\plugins\\ActiveAIVDetector_Serp\\VanillaAIV\\marshal2.aivjson",
+      "AivSha256": "08DAFE266D71FCD88F105EBCA4E0EA76B7C938430010D816E77F50FB8FAE60B0",
+      "SessionId": "map-load-001",
+      "PreBuildSetting": 0,
+      "SelectedForPlacement": true,
+      "SelectionPlacementState": 2,
+      "PlayerId": 4,
+      "MapKeepSlot": null,
+      "KeepX": 525,
+      "KeepY": 274,
+      "Rotation": 180,
+      "Native": {
+        "PlacementState": 2,
+        "RawFitScore": 999999,
+        "FitPercentage": 100,
+        "EvaluatedCells": 1959,
+        "BlockedCells": 0
+      }
+    },
+    {
+      "Id": "oracle-004-01-default-8-r180-map-load-001",
+      "AivPath": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\ActiveAIVDetector\\BepInEx\\plugins\\ActiveAIVDetector_Serp\\VanillaAIV\\emir8.aivjson",
+      "AivSha256": "C0287E57C640F05A602BD38BF49F5EE8DB1101CDCDF965F8628CAEE49E43B7D5",
+      "SessionId": "map-load-001",
+      "PreBuildSetting": 0,
+      "SelectedForPlacement": true,
+      "SelectionPlacementState": 2,
+      "PlayerId": 5,
+      "MapKeepSlot": null,
+      "KeepX": 406,
+      "KeepY": 121,
+      "Rotation": 180,
+      "Native": {
+        "PlacementState": 2,
+        "RawFitScore": 999999,
+        "FitPercentage": 100,
+        "EvaluatedCells": 1856,
+        "BlockedCells": 0
+      }
+    },
+    {
+      "Id": "oracle-005-01-default-6-r270-map-load-001",
+      "AivPath": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\ActiveAIVDetector\\BepInEx\\plugins\\ActiveAIVDetector_Serp\\VanillaAIV\\abbot6.aivjson",
+      "AivSha256": "CAF8AD68FD46638D53F249849EB8A6B13C314B3A886F0BF9377607666D263694",
+      "SessionId": "map-load-001",
+      "PreBuildSetting": 0,
+      "SelectedForPlacement": true,
+      "SelectionPlacementState": 1,
+      "PlayerId": 6,
+      "MapKeepSlot": null,
+      "KeepX": 187,
+      "KeepY": 407,
+      "Rotation": 270,
+      "Native": {
+        "PlacementState": 1,
+        "RawFitScore": 8,
+        "FitPercentage": 90,
+        "EvaluatedCells": 2480,
+        "BlockedCells": 242
+      }
+    },
+    {
+      "Id": "oracle-005-02-default-6-r0-map-load-001",
+      "AivPath": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\ActiveAIVDetector\\BepInEx\\plugins\\ActiveAIVDetector_Serp\\VanillaAIV\\abbot6.aivjson",
+      "AivSha256": "CAF8AD68FD46638D53F249849EB8A6B13C314B3A886F0BF9377607666D263694",
+      "SessionId": "map-load-001",
+      "PreBuildSetting": 0,
+      "SelectedForPlacement": false,
+      "SelectionPlacementState": 1,
+      "PlayerId": 6,
+      "MapKeepSlot": null,
+      "KeepX": 187,
+      "KeepY": 407,
+      "Rotation": 0,
+      "Native": {
+        "PlacementState": 1,
+        "RawFitScore": 26,
+        "FitPercentage": 97,
+        "EvaluatedCells": 2480,
+        "BlockedCells": 52
+      }
+    },
+    {
+      "Id": "oracle-005-03-default-6-r90-map-load-001",
+      "AivPath": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\ActiveAIVDetector\\BepInEx\\plugins\\ActiveAIVDetector_Serp\\VanillaAIV\\abbot6.aivjson",
+      "AivSha256": "CAF8AD68FD46638D53F249849EB8A6B13C314B3A886F0BF9377607666D263694",
+      "SessionId": "map-load-001",
+      "PreBuildSetting": 0,
+      "SelectedForPlacement": false,
+      "SelectionPlacementState": 1,
+      "PlayerId": 6,
+      "MapKeepSlot": null,
+      "KeepX": 187,
+      "KeepY": 407,
+      "Rotation": 90,
+      "Native": {
+        "PlacementState": 1,
+        "RawFitScore": 67,
+        "FitPercentage": 99,
+        "EvaluatedCells": 2480,
+        "BlockedCells": 15
+      }
+    },
+    {
+      "Id": "oracle-005-04-default-6-r180-map-load-001",
+      "AivPath": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\ActiveAIVDetector\\BepInEx\\plugins\\ActiveAIVDetector_Serp\\VanillaAIV\\abbot6.aivjson",
+      "AivSha256": "CAF8AD68FD46638D53F249849EB8A6B13C314B3A886F0BF9377607666D263694",
+      "SessionId": "map-load-001",
+      "PreBuildSetting": 0,
+      "SelectedForPlacement": false,
+      "SelectionPlacementState": 1,
+      "PlayerId": 6,
+      "MapKeepSlot": null,
+      "KeepX": 187,
+      "KeepY": 407,
+      "Rotation": 180,
+      "Native": {
+        "PlacementState": 1,
+        "RawFitScore": 23,
+        "FitPercentage": 98,
+        "EvaluatedCells": 2480,
+        "BlockedCells": 44
+      }
+    },
+    {
+      "Id": "oracle-006-01-default-1-r180-map-load-001",
+      "AivPath": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\ActiveAIVDetector\\BepInEx\\plugins\\ActiveAIVDetector_Serp\\VanillaAIV\\jewel1.aivjson",
+      "AivSha256": "2965E5952A8B14DD373D05084628DED036ECC933FD2F39B5E4C6CD4DF62B7C9D",
+      "SessionId": "map-load-001",
+      "PreBuildSetting": 0,
+      "SelectedForPlacement": true,
+      "SelectionPlacementState": 2,
+      "PlayerId": 7,
+      "MapKeepSlot": null,
+      "KeepX": 379,
+      "KeepY": 353,
+      "Rotation": 180,
+      "Native": {
+        "PlacementState": 2,
+        "RawFitScore": 999999,
+        "FitPercentage": 100,
+        "EvaluatedCells": 2249,
+        "BlockedCells": 0
+      }
+    },
+    {
+      "Id": "oracle-007-01-default-7-r0-map-load-001",
+      "AivPath": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\ActiveAIVDetector\\BepInEx\\plugins\\ActiveAIVDetector_Serp\\VanillaAIV\\nomad7.aivjson",
+      "AivSha256": "48F6C0603DE610CE1C27493352E3B83D1FF506672799DA92709AA7EE2BECAF14",
+      "SessionId": "map-load-001",
+      "PreBuildSetting": 0,
+      "SelectedForPlacement": true,
+      "SelectionPlacementState": 2,
+      "PlayerId": 8,
+      "MapKeepSlot": null,
+      "KeepX": 423,
+      "KeepY": 667,
+      "Rotation": 0,
+      "Native": {
+        "PlacementState": 2,
+        "RawFitScore": 999999,
+        "FitPercentage": 100,
+        "EvaluatedCells": 608,
+        "BlockedCells": 0
+      }
+    },
+    {
+      "Id": "oracle-008-01-default-4-r0-map-load-002",
+      "AivPath": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\ActiveAIVDetector\\BepInEx\\plugins\\ActiveAIVDetector_Serp\\VanillaAIV\\nomad4.aivjson",
+      "AivSha256": "54A4BEF2E38BAF573124A9075A95CE0D94A3EA1941282F4AF0B09481A421693B",
+      "SessionId": "map-load-002",
+      "PreBuildSetting": 0,
+      "SelectedForPlacement": true,
+      "SelectionPlacementState": 2,
+      "PlayerId": 2,
+      "MapKeepSlot": null,
+      "KeepX": 423,
+      "KeepY": 667,
+      "Rotation": 0,
+      "Native": {
+        "PlacementState": 2,
+        "RawFitScore": 999999,
+        "FitPercentage": 100,
+        "EvaluatedCells": 534,
+        "BlockedCells": 0
+      }
+    },
+    {
+      "Id": "oracle-009-01-default-5-r180-map-load-002",
+      "AivPath": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\ActiveAIVDetector\\BepInEx\\plugins\\ActiveAIVDetector_Serp\\VanillaAIV\\jewel5.aivjson",
+      "AivSha256": "FE15C680D1515B8B401F1EDB19B99F79CDB726E0169CF2DB096DF6C139A46EB8",
+      "SessionId": "map-load-002",
+      "PreBuildSetting": 0,
+      "SelectedForPlacement": true,
+      "SelectionPlacementState": 2,
+      "PlayerId": 3,
+      "MapKeepSlot": null,
+      "KeepX": 379,
+      "KeepY": 353,
+      "Rotation": 180,
+      "Native": {
+        "PlacementState": 2,
+        "RawFitScore": 999999,
+        "FitPercentage": 100,
+        "EvaluatedCells": 2077,
+        "BlockedCells": 0
+      }
+    },
+    {
+      "Id": "oracle-010-01-default-2-r270-map-load-002",
+      "AivPath": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\ActiveAIVDetector\\BepInEx\\plugins\\ActiveAIVDetector_Serp\\VanillaAIV\\abbot2.aivjson",
+      "AivSha256": "486FF3D30BA01C407D039D367A53B1391FD9F2FEFF500EB82E420CB297AFDF07",
+      "SessionId": "map-load-002",
+      "PreBuildSetting": 0,
+      "SelectedForPlacement": true,
+      "SelectionPlacementState": 1,
+      "PlayerId": 4,
+      "MapKeepSlot": null,
+      "KeepX": 187,
+      "KeepY": 407,
+      "Rotation": 270,
+      "Native": {
+        "PlacementState": 1,
+        "RawFitScore": 18,
+        "FitPercentage": 96,
+        "EvaluatedCells": 2870,
+        "BlockedCells": 90
+      }
+    },
+    {
+      "Id": "oracle-010-02-default-2-r0-map-load-002",
+      "AivPath": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\ActiveAIVDetector\\BepInEx\\plugins\\ActiveAIVDetector_Serp\\VanillaAIV\\abbot2.aivjson",
+      "AivSha256": "486FF3D30BA01C407D039D367A53B1391FD9F2FEFF500EB82E420CB297AFDF07",
+      "SessionId": "map-load-002",
+      "PreBuildSetting": 0,
+      "SelectedForPlacement": false,
+      "SelectionPlacementState": 1,
+      "PlayerId": 4,
+      "MapKeepSlot": null,
+      "KeepX": 187,
+      "KeepY": 407,
+      "Rotation": 0,
+      "Native": {
+        "PlacementState": 1,
+        "RawFitScore": 14,
+        "FitPercentage": 91,
+        "EvaluatedCells": 2870,
+        "BlockedCells": 244
+      }
+    },
+    {
+      "Id": "oracle-010-03-default-2-r90-map-load-002",
+      "AivPath": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\ActiveAIVDetector\\BepInEx\\plugins\\ActiveAIVDetector_Serp\\VanillaAIV\\abbot2.aivjson",
+      "AivSha256": "486FF3D30BA01C407D039D367A53B1391FD9F2FEFF500EB82E420CB297AFDF07",
+      "SessionId": "map-load-002",
+      "PreBuildSetting": 0,
+      "SelectedForPlacement": false,
+      "SelectionPlacementState": 1,
+      "PlayerId": 4,
+      "MapKeepSlot": null,
+      "KeepX": 187,
+      "KeepY": 407,
+      "Rotation": 90,
+      "Native": {
+        "PlacementState": 1,
+        "RawFitScore": 26,
+        "FitPercentage": 97,
+        "EvaluatedCells": 2870,
+        "BlockedCells": 82
+      }
+    },
+    {
+      "Id": "oracle-010-04-default-2-r180-map-load-002",
+      "AivPath": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\ActiveAIVDetector\\BepInEx\\plugins\\ActiveAIVDetector_Serp\\VanillaAIV\\abbot2.aivjson",
+      "AivSha256": "486FF3D30BA01C407D039D367A53B1391FD9F2FEFF500EB82E420CB297AFDF07",
+      "SessionId": "map-load-002",
+      "PreBuildSetting": 0,
+      "SelectedForPlacement": false,
+      "SelectionPlacementState": 1,
+      "PlayerId": 4,
+      "MapKeepSlot": null,
+      "KeepX": 187,
+      "KeepY": 407,
+      "Rotation": 180,
+      "Native": {
+        "PlacementState": 1,
+        "RawFitScore": 13,
+        "FitPercentage": 90,
+        "EvaluatedCells": 2870,
+        "BlockedCells": 259
+      }
+    },
+    {
+      "Id": "oracle-011-01-default-1-r180-map-load-002",
+      "AivPath": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\ActiveAIVDetector\\BepInEx\\plugins\\ActiveAIVDetector_Serp\\VanillaAIV\\emir1.aivjson",
+      "AivSha256": "FFA393F8DFB7899742C7647645D3CD3FA582090C7770CF9D32D89C96D46BD658",
+      "SessionId": "map-load-002",
+      "PreBuildSetting": 0,
+      "SelectedForPlacement": true,
+      "SelectionPlacementState": 2,
+      "PlayerId": 5,
+      "MapKeepSlot": null,
+      "KeepX": 406,
+      "KeepY": 121,
+      "Rotation": 180,
+      "Native": {
+        "PlacementState": 2,
+        "RawFitScore": 999999,
+        "FitPercentage": 100,
+        "EvaluatedCells": 2616,
+        "BlockedCells": 0
+      }
+    },
+    {
+      "Id": "oracle-012-01-default-7-r180-map-load-002",
+      "AivPath": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\ActiveAIVDetector\\BepInEx\\plugins\\ActiveAIVDetector_Serp\\VanillaAIV\\marshal7.aivjson",
+      "AivSha256": "384ABB01E5B4C0FF36CEDDEAC64C3A8DC8151D0113D1189A32D8C7FEB9BB337F",
+      "SessionId": "map-load-002",
+      "PreBuildSetting": 0,
+      "SelectedForPlacement": true,
+      "SelectionPlacementState": 2,
+      "PlayerId": 6,
+      "MapKeepSlot": null,
+      "KeepX": 525,
+      "KeepY": 274,
+      "Rotation": 180,
+      "Native": {
+        "PlacementState": 2,
+        "RawFitScore": 999999,
+        "FitPercentage": 100,
+        "EvaluatedCells": 1770,
+        "BlockedCells": 0
+      }
+    },
+    {
+      "Id": "oracle-013-01-default-8-r0-map-load-002",
+      "AivPath": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\ActiveAIVDetector\\BepInEx\\plugins\\ActiveAIVDetector_Serp\\VanillaAIV\\wolf8.aivjson",
+      "AivSha256": "0E59CA19225BFA86472A4B2A939AC8C97A1D6301E0FCC00B36CB998DD36EEDD2",
+      "SessionId": "map-load-002",
+      "PreBuildSetting": 0,
+      "SelectedForPlacement": true,
+      "SelectionPlacementState": 2,
+      "PlayerId": 7,
+      "MapKeepSlot": null,
+      "KeepX": 254,
+      "KeepY": 580,
+      "Rotation": 0,
+      "Native": {
+        "PlacementState": 2,
+        "RawFitScore": 999999,
+        "FitPercentage": 100,
+        "EvaluatedCells": 2068,
+        "BlockedCells": 0
+      }
+    },
+    {
+      "Id": "oracle-014-01-default-6-r270-map-load-002",
+      "AivPath": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\ActiveAIVDetector\\BepInEx\\plugins\\ActiveAIVDetector_Serp\\VanillaAIV\\nizar6.aivjson",
+      "AivSha256": "1D86B141261297706AD65F60D870A3AE30A8C0DA05B6B3B1D4D923C702CB11AD",
+      "SessionId": "map-load-002",
+      "PreBuildSetting": 0,
+      "SelectedForPlacement": true,
+      "SelectionPlacementState": 2,
+      "PlayerId": 8,
+      "MapKeepSlot": null,
+      "KeepX": 241,
+      "KeepY": 274,
+      "Rotation": 270,
+      "Native": {
+        "PlacementState": 2,
+        "RawFitScore": 999999,
+        "FitPercentage": 100,
+        "EvaluatedCells": 2352,
+        "BlockedCells": 0
+      }
+    },
+    {
+      "Id": "oracle-015-01-default-4-r0-map-load-003",
+      "AivPath": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\ActiveAIVDetector\\BepInEx\\plugins\\ActiveAIVDetector_Serp\\VanillaAIV\\nomad4.aivjson",
+      "AivSha256": "54A4BEF2E38BAF573124A9075A95CE0D94A3EA1941282F4AF0B09481A421693B",
+      "SessionId": "map-load-003",
+      "PreBuildSetting": 0,
+      "SelectedForPlacement": true,
+      "SelectionPlacementState": 2,
+      "PlayerId": 2,
+      "MapKeepSlot": null,
+      "KeepX": 423,
+      "KeepY": 667,
+      "Rotation": 0,
+      "Native": {
+        "PlacementState": 2,
+        "RawFitScore": 999999,
+        "FitPercentage": 100,
+        "EvaluatedCells": 534,
+        "BlockedCells": 0
+      }
+    },
+    {
+      "Id": "oracle-016-01-default-5-r180-map-load-003",
+      "AivPath": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\ActiveAIVDetector\\BepInEx\\plugins\\ActiveAIVDetector_Serp\\VanillaAIV\\jewel5.aivjson",
+      "AivSha256": "FE15C680D1515B8B401F1EDB19B99F79CDB726E0169CF2DB096DF6C139A46EB8",
+      "SessionId": "map-load-003",
+      "PreBuildSetting": 0,
+      "SelectedForPlacement": true,
+      "SelectionPlacementState": 2,
+      "PlayerId": 3,
+      "MapKeepSlot": null,
+      "KeepX": 379,
+      "KeepY": 353,
+      "Rotation": 180,
+      "Native": {
+        "PlacementState": 2,
+        "RawFitScore": 999999,
+        "FitPercentage": 100,
+        "EvaluatedCells": 2077,
+        "BlockedCells": 0
+      }
+    },
+    {
+      "Id": "oracle-017-01-default-2-r270-map-load-003",
+      "AivPath": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\ActiveAIVDetector\\BepInEx\\plugins\\ActiveAIVDetector_Serp\\VanillaAIV\\abbot2.aivjson",
+      "AivSha256": "486FF3D30BA01C407D039D367A53B1391FD9F2FEFF500EB82E420CB297AFDF07",
+      "SessionId": "map-load-003",
+      "PreBuildSetting": 0,
+      "SelectedForPlacement": true,
+      "SelectionPlacementState": 1,
+      "PlayerId": 4,
+      "MapKeepSlot": null,
+      "KeepX": 187,
+      "KeepY": 407,
+      "Rotation": 270,
+      "Native": {
+        "PlacementState": 1,
+        "RawFitScore": 18,
+        "FitPercentage": 96,
+        "EvaluatedCells": 2870,
+        "BlockedCells": 90
+      }
+    },
+    {
+      "Id": "oracle-017-02-default-2-r0-map-load-003",
+      "AivPath": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\ActiveAIVDetector\\BepInEx\\plugins\\ActiveAIVDetector_Serp\\VanillaAIV\\abbot2.aivjson",
+      "AivSha256": "486FF3D30BA01C407D039D367A53B1391FD9F2FEFF500EB82E420CB297AFDF07",
+      "SessionId": "map-load-003",
+      "PreBuildSetting": 0,
+      "SelectedForPlacement": false,
+      "SelectionPlacementState": 1,
+      "PlayerId": 4,
+      "MapKeepSlot": null,
+      "KeepX": 187,
+      "KeepY": 407,
+      "Rotation": 0,
+      "Native": {
+        "PlacementState": 1,
+        "RawFitScore": 14,
+        "FitPercentage": 91,
+        "EvaluatedCells": 2870,
+        "BlockedCells": 244
+      }
+    },
+    {
+      "Id": "oracle-017-03-default-2-r90-map-load-003",
+      "AivPath": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\ActiveAIVDetector\\BepInEx\\plugins\\ActiveAIVDetector_Serp\\VanillaAIV\\abbot2.aivjson",
+      "AivSha256": "486FF3D30BA01C407D039D367A53B1391FD9F2FEFF500EB82E420CB297AFDF07",
+      "SessionId": "map-load-003",
+      "PreBuildSetting": 0,
+      "SelectedForPlacement": false,
+      "SelectionPlacementState": 1,
+      "PlayerId": 4,
+      "MapKeepSlot": null,
+      "KeepX": 187,
+      "KeepY": 407,
+      "Rotation": 90,
+      "Native": {
+        "PlacementState": 1,
+        "RawFitScore": 26,
+        "FitPercentage": 97,
+        "EvaluatedCells": 2870,
+        "BlockedCells": 82
+      }
+    },
+    {
+      "Id": "oracle-017-04-default-2-r180-map-load-003",
+      "AivPath": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\ActiveAIVDetector\\BepInEx\\plugins\\ActiveAIVDetector_Serp\\VanillaAIV\\abbot2.aivjson",
+      "AivSha256": "486FF3D30BA01C407D039D367A53B1391FD9F2FEFF500EB82E420CB297AFDF07",
+      "SessionId": "map-load-003",
+      "PreBuildSetting": 0,
+      "SelectedForPlacement": false,
+      "SelectionPlacementState": 1,
+      "PlayerId": 4,
+      "MapKeepSlot": null,
+      "KeepX": 187,
+      "KeepY": 407,
+      "Rotation": 180,
+      "Native": {
+        "PlacementState": 1,
+        "RawFitScore": 13,
+        "FitPercentage": 90,
+        "EvaluatedCells": 2870,
+        "BlockedCells": 259
+      }
+    },
+    {
+      "Id": "oracle-018-01-default-1-r180-map-load-003",
+      "AivPath": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\ActiveAIVDetector\\BepInEx\\plugins\\ActiveAIVDetector_Serp\\VanillaAIV\\emir1.aivjson",
+      "AivSha256": "FFA393F8DFB7899742C7647645D3CD3FA582090C7770CF9D32D89C96D46BD658",
+      "SessionId": "map-load-003",
+      "PreBuildSetting": 0,
+      "SelectedForPlacement": true,
+      "SelectionPlacementState": 2,
+      "PlayerId": 5,
+      "MapKeepSlot": null,
+      "KeepX": 406,
+      "KeepY": 121,
+      "Rotation": 180,
+      "Native": {
+        "PlacementState": 2,
+        "RawFitScore": 999999,
+        "FitPercentage": 100,
+        "EvaluatedCells": 2616,
+        "BlockedCells": 0
+      }
+    },
+    {
+      "Id": "oracle-019-01-default-7-r180-map-load-003",
+      "AivPath": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\ActiveAIVDetector\\BepInEx\\plugins\\ActiveAIVDetector_Serp\\VanillaAIV\\marshal7.aivjson",
+      "AivSha256": "384ABB01E5B4C0FF36CEDDEAC64C3A8DC8151D0113D1189A32D8C7FEB9BB337F",
+      "SessionId": "map-load-003",
+      "PreBuildSetting": 0,
+      "SelectedForPlacement": true,
+      "SelectionPlacementState": 2,
+      "PlayerId": 6,
+      "MapKeepSlot": null,
+      "KeepX": 525,
+      "KeepY": 274,
+      "Rotation": 180,
+      "Native": {
+        "PlacementState": 2,
+        "RawFitScore": 999999,
+        "FitPercentage": 100,
+        "EvaluatedCells": 1770,
+        "BlockedCells": 0
+      }
+    },
+    {
+      "Id": "oracle-020-01-default-8-r0-map-load-003",
+      "AivPath": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\ActiveAIVDetector\\BepInEx\\plugins\\ActiveAIVDetector_Serp\\VanillaAIV\\wolf8.aivjson",
+      "AivSha256": "0E59CA19225BFA86472A4B2A939AC8C97A1D6301E0FCC00B36CB998DD36EEDD2",
+      "SessionId": "map-load-003",
+      "PreBuildSetting": 0,
+      "SelectedForPlacement": true,
+      "SelectionPlacementState": 2,
+      "PlayerId": 7,
+      "MapKeepSlot": null,
+      "KeepX": 254,
+      "KeepY": 580,
+      "Rotation": 0,
+      "Native": {
+        "PlacementState": 2,
+        "RawFitScore": 999999,
+        "FitPercentage": 100,
+        "EvaluatedCells": 2068,
+        "BlockedCells": 0
+      }
+    },
+    {
+      "Id": "oracle-021-01-default-6-r270-map-load-003",
+      "AivPath": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\ActiveAIVDetector\\BepInEx\\plugins\\ActiveAIVDetector_Serp\\VanillaAIV\\nizar6.aivjson",
+      "AivSha256": "1D86B141261297706AD65F60D870A3AE30A8C0DA05B6B3B1D4D923C702CB11AD",
+      "SessionId": "map-load-003",
+      "PreBuildSetting": 0,
+      "SelectedForPlacement": true,
+      "SelectionPlacementState": 2,
+      "PlayerId": 8,
+      "MapKeepSlot": null,
+      "KeepX": 241,
+      "KeepY": 274,
+      "Rotation": 270,
+      "Native": {
+        "PlacementState": 2,
+        "RawFitScore": 999999,
+        "FitPercentage": 100,
+        "EvaluatedCells": 2352,
+        "BlockedCells": 0
+      }
+    }
+  ]
+}

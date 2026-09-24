@@ -40,6 +40,17 @@ internal static class Program
 
     private static void CheckGroundMovePreviewEligibility()
     {
+        Check(GroundMovePreviewEligibility.EvaluateCommandMode(1) ==
+                  GroundMovePreviewRejection.None &&
+              GroundMovePreviewEligibility.EvaluateCommandMode(5) ==
+                  GroundMovePreviewRejection.NonMoveCommandMode &&
+              GroundMovePreviewEligibility.EvaluateCommandMode(0x14) ==
+                  GroundMovePreviewRejection.NonMoveCommandMode &&
+              GroundMovePreviewEligibility.EvaluateCommandMode(0x16) ==
+                  GroundMovePreviewRejection.NonMoveCommandMode &&
+              GroundMovePreviewEligibility.EvaluateCommandMode(-1) ==
+                  GroundMovePreviewRejection.NonMoveCommandMode,
+            "only Vanilla troop command mode 1 permits the Dense preview");
         Check(GroundMovePreviewEligibility.EvaluateInitial(PreviewSnapshot()) ==
               GroundMovePreviewRejection.None,
             "clean pathable ground permits the Dense formation preview");
@@ -1427,6 +1438,11 @@ internal static class Program
               !moveFormationDrag.Contains("PreDllCallActionsDelegate") &&
               !moveFormationDrag.Contains("preDLLCallActionsOriginal"),
             "drag preview uses R3 input and a full Engine run transaction with separate coordinate domains");
+        Check(moveFormationDrag.Contains("NativeTroopCommandModeReader") &&
+              moveFormationDrag.Contains("EvaluateCommandMode()") &&
+              moveFormationDrag.Contains("handoff-command-") &&
+              queueRuntime.Contains("moveFormationDrag.Install(context)"),
+            "Dense preview and handoff require audited native move mode 1");
         Check(queueRuntime.Contains("QueueNativeContract.ShouldPackFormationSpacing(") &&
               queueRuntime.Contains("MoveFormationCommandContext.EnterMoveChoreExecution()") &&
               queueRuntime.Contains("MoveFormationCommandContext.ExitMoveChoreExecution()") &&

@@ -31,6 +31,7 @@ internal static class Program
             TestDefaultsMigration();
             TestReleaseStateModel();
             TestGroundMovePreviewEligibility();
+            TestNativeTroopCommandModeContract();
             TestStatusTextAndDirectionVectors();
             TestPlanHash();
             TestMoveOrderMatching();
@@ -50,6 +51,17 @@ internal static class Program
 
     private static void TestGroundMovePreviewEligibility()
     {
+        Check(GroundMovePreviewEligibility.EvaluateCommandMode(1) ==
+                  GroundMovePreviewRejection.None &&
+              GroundMovePreviewEligibility.EvaluateCommandMode(5) ==
+                  GroundMovePreviewRejection.NonMoveCommandMode &&
+              GroundMovePreviewEligibility.EvaluateCommandMode(0x14) ==
+                  GroundMovePreviewRejection.NonMoveCommandMode &&
+              GroundMovePreviewEligibility.EvaluateCommandMode(0x16) ==
+                  GroundMovePreviewRejection.NonMoveCommandMode &&
+              GroundMovePreviewEligibility.EvaluateCommandMode(99) ==
+                  GroundMovePreviewRejection.NonMoveCommandMode,
+            "only Vanilla troop command mode 1 permits a formation preview");
         GroundMovePreviewSnapshot ground = PreviewSnapshot();
         Check(GroundMovePreviewEligibility.EvaluateInitial(ground) ==
               GroundMovePreviewRejection.None,
@@ -84,6 +96,39 @@ internal static class Program
                   true, 0, 9, true, true) ==
                   GroundMovePreviewRejection.TileOccupiedByBuilding,
             "fixed-target revalidation catches later unit and building occupancy");
+    }
+
+    private static void TestNativeTroopCommandModeContract()
+    {
+        byte[] image = new byte[
+            NativeTroopCommandModeReader.AttackHereSetupRva + 64];
+        new byte[]
+        {
+            0xC7, 0x05, 0xE1, 0x7C, 0x75, 0x06, 0x05, 0x00, 0x00, 0x00,
+            0xC7, 0x05, 0xD3, 0x7C, 0x75, 0x06, 0x05, 0x00, 0x00, 0x00
+        }.CopyTo(image, NativeTroopCommandModeReader.AttackHereSetupRva);
+        new byte[]
+        {
+            0xBA, 0x02, 0x00, 0x00, 0x00,
+            0x8B, 0x05, 0xE2, 0xB0, 0x75, 0x06
+        }.CopyTo(image, NativeTroopCommandModeReader.CommandDispatcherReadRva);
+
+        NativeTroopCommandModeReader.ValidateContract(image);
+        Check(NativeTroopCommandModeReader.CommandModeRva == 0x67E8410,
+            "native troop command mode uses the audited global RVA");
+
+        image[NativeTroopCommandModeReader.CommandDispatcherReadRva + 5] ^= 0x01;
+        bool rejected = false;
+        try
+        {
+            NativeTroopCommandModeReader.ValidateContract(image);
+        }
+        catch (InvalidOperationException)
+        {
+            rejected = true;
+        }
+        Check(rejected,
+            "native troop command mode contract fails closed on dispatcher drift");
     }
 
     private static GroundMovePreviewSnapshot PreviewSnapshot(
@@ -1055,6 +1100,11 @@ internal static class Program
             "native detour compatibility is not fixed to an obsolete backend span");
         Check(source.Contains("CommonGroupMoveRva = 0x118E00"),
             "common group path RVA contract");
+        Check(source.Contains("NativeTroopCommandModeReader") &&
+              source.Contains("EvaluateCommandMode()") &&
+              source.Contains("release-command-") &&
+              source.Contains("ClearPreview();"),
+            "preview and release paths fail closed outside native move mode 1");
         Check(source.Contains("UnitMoveTargetRva = 0x196280") &&
               source.Contains("ExpectedUnitMoveTargetAuditBytes = 14"),
             "terminal unit target RVA and native audit-span contract");

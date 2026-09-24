@@ -20,6 +20,18 @@ namespace AivLobbyPresetTest
                 File.WriteAllText(path, sample.Replace("\"aivDefault\": 6", "\"aivDefault\": 5"));
                 Require(LobbyPreset.Read(path).Players[1].AivDefault == 5,
                     "config reloaded on next lobby opening");
+                string multiAiv = sample.Replace("\"aivDefault\": 6", "\"aivDefaults\": [1, 8]");
+                File.WriteAllText(path, multiAiv);
+                PresetPlayer multiPlayer = LobbyPreset.Read(path).Players[1];
+                Require(multiPlayer.AivDefaults.Count == 2 &&
+                    multiPlayer.AivDefaults[0] == 1 && multiPlayer.AivDefaults[1] == 8,
+                    "ordered built-in AIV variants");
+                Reject(path, multiAiv.Replace("[1, 8]", "[1, 1]"), "duplicate AIV variant");
+                Reject(path, multiAiv.Replace("[1, 8]", "[1, 9]"), "out-of-range AIV variant");
+                Reject(path, multiAiv.Replace("[1, 8]", "[]"), "empty AIV list");
+                Reject(path, multiAiv.Replace("[1, 8]", "[1, true]"), "non-numeric AIV variant");
+                Reject(path, multiAiv.Replace("\"aivDefaults\": [1, 8]",
+                    "\"aivDefault\": 6, \"aivDefaults\": [1, 8]"), "conflicting AIV forms");
                 Reject(path, sample.Replace("\"keepSlot\": 5", "\"keepSlot\": 6"), "duplicate Keep slot");
                 Reject(path, sample.Replace("\"id\": 3", "\"id\": 4"), "player order gap");
                 Reject(path, sample.Replace("\"aivDefault\": 6", "\"aivDefault\": 9"), "invalid AIV variant");
@@ -110,6 +122,46 @@ namespace AivLobbyPresetTest
                             a.RadarY == b.RadarY && a.KeepX == b.KeepX &&
                             a.KeepY == b.KeepY,
                             "six-match player source identity at " + index + "/" + playerIndex);
+                    }
+                }
+                TestSeries multiAivSeries = TestSeries.Read(args[5]);
+                Require(multiAivSeries.Enabled && multiAivSeries.Runs.Count == 8 &&
+                    multiAivSeries.Id == "aiv-multi-default-eight-20260924",
+                    "eight-run multi-AIV series");
+                for (int index = 0; index < multiAivSeries.Runs.Count; index++)
+                {
+                    TestRun run = multiAivSeries.Runs[index];
+                    bool crater = index < 4;
+                    bool early = index % 4 < 2;
+                    TestRun source = sixMatches.Runs[crater ? 0 : 4];
+                    int changedPlayer = early ? 1 : 4;
+                    int firstVariant = early ? 1 : 2;
+                    int secondVariant = early ? 8 : 7;
+                    Require(run.Id == (crater ? "CL" : "CC") +
+                        (early ? "-Early-" : "-Middle-") + (index % 2 == 0 ? "off" : "on") &&
+                        run.PreBuild == index % 2 &&
+                        run.Preset.MapFileName == source.Preset.MapFileName &&
+                        run.Preset.MapSha256 == source.Preset.MapSha256 &&
+                        run.Preset.Players.Count == 8,
+                        "multi-AIV map and option at " + index);
+                    for (int playerIndex = 0; playerIndex < 8; playerIndex++)
+                    {
+                        PresetPlayer actual = run.Preset.Players[playerIndex];
+                        PresetPlayer original = source.Preset.Players[playerIndex];
+                        Require(actual.Id == original.Id && actual.Human == original.Human &&
+                            actual.LordType == original.LordType &&
+                            actual.KeepSlot == original.KeepSlot &&
+                            actual.KeepX == original.KeepX && actual.KeepY == original.KeepY &&
+                            actual.RadarX == original.RadarX && actual.RadarY == original.RadarY,
+                            "multi-AIV player identity at " + index + "/" + playerIndex);
+                        if (!actual.Human)
+                            Require(playerIndex == changedPlayer
+                                ? actual.AivDefaults.Count == 2 &&
+                                  actual.AivDefaults[0] == firstVariant &&
+                                  actual.AivDefaults[1] == secondVariant
+                                : actual.AivDefaults.Count == 1 &&
+                                  actual.AivDefault == original.AivDefault,
+                                "multi-AIV candidate order at " + index + "/" + playerIndex);
                     }
                 }
                 File.Delete(progressPath);

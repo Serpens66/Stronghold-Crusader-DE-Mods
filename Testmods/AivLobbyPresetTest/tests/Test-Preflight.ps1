@@ -14,6 +14,7 @@ $files = @(
     (Join-Path $root 'AivLobbyFullMapProbeSeries.json'),
     (Join-Path $root 'AivLobbyCrater180ProbeSeries.json'),
     (Join-Path $root 'AivLobbySixMatchSeries.json'),
+    (Join-Path $root 'AivLobbyMultiAivSeries.json'),
     (Join-Path $root 'info.json'),
     (Join-Path $root 'build.bat'),
     (Join-Path $root 'tests\AivLobbyPresetTest.Tests.csproj'),
@@ -29,6 +30,9 @@ $badJson = 'System\.Web\.Extensions|JavaScriptSerializer|System\.Text\.Json|Newt
 if (@(Select-String -LiteralPath $sources -Pattern $badJson).Count) { throw 'Forbidden runtime JSON serializer.' }
 $runtime = [IO.File]::ReadAllText((Join-Path $root 'src\AivLobbyPresetTestPlugin.cs'))
 if ($runtime -match '\b(OnDestroy|OnDisable|OnApplicationQuit)\s*\(') { throw 'Lifecycle teardown requires audit.' }
+if ($runtime -match '\b(?:Update|LateUpdate|FixedUpdate|StartCoroutine)\s*\(') {
+    throw 'Plugin work must use a proven durable publisher rather than MonoBehaviour callbacks.'
+}
 if ($runtime -match 'CodePatch\.Write|Marshal\.Write|VirtualProtect|\.Undo\(|\.Disable\(') { throw 'Unexpected runtime hook mutation.' }
 $projectText = [IO.File]::ReadAllText($project)
 if ($projectText.Contains('Assembly-CSharp-publicized.dll')) {
@@ -49,5 +53,6 @@ $null = Get-Content -Raw -LiteralPath (Join-Path $root 'AivLobbyStartRebuildRegr
 $null = Get-Content -Raw -LiteralPath (Join-Path $root 'AivLobbyFullMapProbeSeries.json') | ConvertFrom-Json
 $null = Get-Content -Raw -LiteralPath (Join-Path $root 'AivLobbyCrater180ProbeSeries.json') | ConvertFrom-Json
 $null = Get-Content -Raw -LiteralPath (Join-Path $root 'AivLobbySixMatchSeries.json') | ConvertFrom-Json
+$null = Get-Content -Raw -LiteralPath (Join-Path $root 'AivLobbyMultiAivSeries.json') | ConvertFrom-Json
 $null = Get-Content -Raw -LiteralPath (Join-Path $root 'info.json') | ConvertFrom-Json
 Write-Output 'AIV lobby preset JSON, lifecycle, hook and CRLF preflight passed.'

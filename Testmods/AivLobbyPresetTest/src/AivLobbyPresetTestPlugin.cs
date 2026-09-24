@@ -26,7 +26,7 @@ namespace AivLobbyPresetTest
         private static ManualLogSource log;
         private static LobbyPreset pending;
         private static FileHeader pendingMap;
-        private static Dictionary<int, CustomisationFileManager.CustomAIV> pendingAivs;
+        private static Dictionary<int, List<CustomisationFileManager.CustomAIV>> pendingAivs;
         private static readonly string PresetPath = Path.Combine(Paths.ConfigPath, "AivLobbyPresetTest.json");
         private static readonly string SeriesPath = Path.Combine(Paths.ConfigPath, "AivLobbyTestSeries.json");
         private static readonly string ProgressPath = Path.Combine(Paths.ConfigPath, "AivLobbyTestSeries.progress.json");
@@ -149,9 +149,15 @@ namespace AivLobbyPresetTest
                 if (player.Human)
                     continue;
                 var selection = view.AIVs[player.Id - 1];
-                if (selection == null || selection.rotation != 0 || selection.aivs.Count != 1 ||
-                    AivHash(selection.aivs[0]) != AivHash(pendingAivs[player.Id]))
+                List<CustomisationFileManager.CustomAIV> expected = pendingAivs[player.Id];
+                if (selection == null || selection.rotation != 0 || selection.aivs.Count != expected.Count)
                     throw new InvalidOperationException("AIV or rotation changed at " + player.Id);
+                for (int index = 0; index < expected.Count; index++)
+                {
+                    if (AivHash(selection.aivs[index]) != AivHash(expected[index]))
+                        throw new InvalidOperationException("AIV order or data changed at player " +
+                            player.Id + ", candidate " + index);
+                }
             }
         }
 
@@ -359,17 +365,22 @@ namespace AivLobbyPresetTest
                         map.keep_locations[player.KeepSlot, 1] != player.RadarY)
                         throw new InvalidDataException("Keep-slot coordinates differ for player " + player.Id);
                 }
-                var aivs = new Dictionary<int, CustomisationFileManager.CustomAIV>();
+                var aivs = new Dictionary<int, List<CustomisationFileManager.CustomAIV>>();
                 foreach (var player in preset.Players.Where(player => !player.Human))
                 {
                     var candidates = CustomisationFileManager.Instance.getLordAIVList(player.LordType);
-                    var selection = candidates.Where(aiv => aiv.builtIn &&
-                        aiv.checksum == (ulong)player.AivDefault &&
-                        aiv.lordType == player.LordType).ToList();
-                    if (selection.Count != 1 || selection[0].data == null)
-                        throw new InvalidDataException("Built-in Default " + player.AivDefault +
-                            " unavailable for lord " + player.LordType);
-                    aivs.Add(player.Id, selection[0]);
+                    var ordered = new List<CustomisationFileManager.CustomAIV>();
+                    foreach (int number in player.AivDefaults)
+                    {
+                        var selection = candidates.Where(aiv => aiv.builtIn &&
+                            aiv.checksum == (ulong)number &&
+                            aiv.lordType == player.LordType).ToList();
+                        if (selection.Count != 1 || selection[0].data == null)
+                            throw new InvalidDataException("Built-in Default " + number +
+                                " unavailable for lord " + player.LordType);
+                        ordered.Add(selection[0]);
+                    }
+                    aivs.Add(player.Id, ordered);
                 }
                 pending = preset;
                 pendingMap = map;
@@ -439,7 +450,8 @@ namespace AivLobbyPresetTest
                 selection.Init(player.LordType, string.Empty);
                 selection.builtIn = false;
                 selection.rotation = 0;
-                selection.aivs.Add(pendingAivs[player.Id]);
+                foreach (CustomisationFileManager.CustomAIV aiv in pendingAivs[player.Id])
+                    selection.aivs.Add(aiv);
             }
             if (view.currentLobby.members.Count != pending.Players.Count)
                 throw new InvalidOperationException("Unexpected lobby member count after AI addition.");
@@ -462,8 +474,10 @@ namespace AivLobbyPresetTest
                 log.LogInfo("Preset player=" + player.Id +
                     " lord=" + (player.Human ? "human" : player.LordType.ToString()) +
                     " keepSlot=" + player.KeepSlot + " keep=" + player.KeepX + "," + player.KeepY +
-                    (player.Human ? "" : " AIV=Default " + player.AivDefault + " rotation=auto" +
-                        " aivDataSha256=" + AivHash(pendingAivs[player.Id])));
+                    (player.Human ? "" : " AIVs=" + string.Join(",",
+                        player.AivDefaults.Select(number => "Default " + number)) + " rotation=auto" +
+                        " aivDataSha256=" + string.Join(",",
+                            pendingAivs[player.Id].Select(AivHash))));
             }
             runApplied = activeRun != null;
             log.LogInfo(activeRun == null

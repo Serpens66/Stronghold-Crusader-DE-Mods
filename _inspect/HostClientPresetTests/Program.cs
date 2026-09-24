@@ -55,6 +55,7 @@ internal static class Program
             TestLobbySettingsRouting();
             TestPresetRegistrationWithoutExtenderPersistence();
             TestSharedPerPlayerLobbyConvergence();
+            TestSyncPerPlayerWorkspaceContracts();
             TestSharedLobbyLifecycle();
             TestSharedGameplaySessionLifecycle();
             TestFailedRegistrationStopsPerPlayerCoordinator();
@@ -667,11 +668,16 @@ internal static class Program
             preserveForMapTransition: true);
         Check(viewModel.ObservationCount == observationsBeforeMap,
             "Shared ran a domain settings observer during the map transition or active match");
+        Check(viewModel.Preference.SequenceEqual(new[] { 9, 8, 7 }) &&
+              viewModel.PreferenceData[2].SequenceEqual(new[] { 9, 8, 7 }),
+            "multiplayer-save transition did not preserve the local persisted value and its companion slot");
 
         viewModel.PreferenceData[1] = new[] { 1, 2, 3 };
         viewModel.System_TriggerUpdate(nameof(viewModel.PreferenceData));
         Check(viewModel.RemoteDataChangeCount == 2,
             "Shared did not forward a real remote companion-array update");
+        Check(viewModel.Preference.SequenceEqual(new[] { 9, 8, 7 }),
+            "an incoming foreign companion value overwrote the locally persisted scalar");
         viewModel.System_TestObservePerPlayerLobby(
             100,
             new Dictionary<int, ulong> { [1] = 11, [2] = 22 },
@@ -690,6 +696,8 @@ internal static class Program
               viewModel.PreferenceData[2] == null &&
               viewModel.PreferenceData[3].SequenceEqual(new[] { 9, 8, 7 }),
             "Shared did not move personal settings with their Steam identity to the final game slot");
+        Check(viewModel.Preference.SequenceEqual(new[] { 9, 8, 7 }),
+            "final multiplayer-save remapping overwrote the local persisted scalar");
         Check(viewModel.System_ArePerPlayerSettingsReady(new[] { 1, 3 }, out _),
             "Shared did not accept the remapped final multiplayer roster");
         Check(GameXAMLManagerAPI.Instance.BroadcastCount == broadcastsBeforeSlotRemap,
@@ -730,6 +738,68 @@ internal static class Program
             "unstable companion array instance");
 
         GameNetworkAPI.LocalHost = true;
+    }
+
+    private static void TestSyncPerPlayerWorkspaceContracts()
+    {
+        string root = Path.GetFullPath(Path.Combine(
+            AppDomain.CurrentDomain.BaseDirectory, "..", "..", ".."));
+        string bugfixes = File.ReadAllText(Path.Combine(
+            root, "BugfixesAndQoL", "src", "BugfixesAndQoLViewModel.cs"));
+        Check(System.Text.RegularExpressions.Regex.Matches(
+                  bugfixes, @"\[SyncPerPlayer(?:\s*,[^\]]+)?\]").Count == 19,
+            "BugfixesAndQoL must retain 18 persisted personal settings and one status report");
+        Check(System.Text.RegularExpressions.Regex.Matches(
+                  bugfixes, @"\[SyncPerPlayer,\s*SHCDESE\.API\.Components\.ModManager\.DoNotPersist\]").Count == 1 &&
+              bugfixes.Contains("MultiplayerSafetyCompatibilityReportData") &&
+              bugfixes.Contains("ResetSlotsWith(") &&
+              bugfixes.Contains("RequireReport("),
+            "BugfixesAndQoL compatibility report lost its non-persistent required-report contract");
+
+        string extended = File.ReadAllText(Path.Combine(
+            root, "ExtendedData", "src", "ExtendedDataSettingsViewModel.cs"));
+        Check(extended.Contains("[SyncPerPlayer, DoNotPersist]") &&
+              extended.Contains("CoopPackageStatusData { get; } = new string[9]") &&
+              extended.Contains("ResetSlotsWith(nameof(CoopPackageStatus), () => null)") &&
+              extended.Contains("RequireReport("),
+            "ExtendedData required status report lost its 0..8 reset/readiness contract");
+
+        string extreme = File.ReadAllText(Path.Combine(
+            root, "ExtremePowers", "src", "Settings", "ExtremePowersSettings.cs"));
+        Check(extreme.Contains("[SyncPerPlayer, DoNotPersist]") &&
+              extreme.Contains("ApiProtocolReportData { get; } = new string[9]") &&
+              extreme.Contains("ResetSlotsWith(nameof(ApiProtocolReport), () => null)") &&
+              extreme.Contains("RequireReport(nameof(ApiProtocolReport)"),
+            "ExtremePowers required protocol report lost its 0..8 reset/readiness contract");
+
+        string waterboy = File.ReadAllText(Path.Combine(
+            root, "Testmods", "WaterboyTargetReservationTest", "src", "WaterboySettings.cs"));
+        string waterboyPolicy = File.ReadAllText(Path.Combine(
+            root, "Testmods", "WaterboyTargetReservationTest", "src", "ReservationLedger.cs"));
+        Check(waterboy.Contains("[SyncPerPlayer]") &&
+              waterboy.Contains("EnableNearestWaterboyTargetingData") &&
+              waterboy.Contains("ResetSlotsWith(nameof(EnableNearestWaterboyTargeting), () => true)") &&
+              waterboy.Contains("ResolveEffectiveMode") &&
+              waterboyPolicy.Contains("if (realMultiplayer)") &&
+              waterboyPolicy.Contains("return synchronizedValues[playerId];"),
+            "Waterboy setting lost its persisted scalar/final companion-slot resolution contract");
+
+        string castleSettings = File.ReadAllText(Path.Combine(
+            root, "CastlePlanner", "src", "CastlePlannerSettingsViewModel.cs"));
+        string castlePlugin = File.ReadAllText(Path.Combine(
+            root, "CastlePlanner", "src", "CastlePlannerPlugin.cs"));
+        Check(System.Text.RegularExpressions.Regex.Matches(
+                  castleSettings, @"\[SyncPerPlayer\]").Count == 3 &&
+              castleSettings.Contains("private sealed class RuntimePersistedState") &&
+              castleSettings.Contains("runtimeStorage.Load(runtimeState)") &&
+              castlePlugin.Contains("PluginGuid, Settings, \"ScriptExtenderUI/CastlePlannerSettings.xaml\"") &&
+              !castlePlugin.Contains("PluginGuid, Settings.runtimeState"),
+            "CastlePlanner HUD-position DTO must remain local and outside the registered settings view model");
+
+        GameModeSnapshot multiplayerSave = GameModeHelper.CaptureMission(
+            true, true, 0, -1, false, null, GameModeKind.Unknown);
+        Check(multiplayerSave.IsRealMultiplayer && multiplayerSave.MultiplayerSave,
+            "StartSave multiplayer restoration is no longer classified as a multiplayer save");
     }
 
     private static void TestFailedRegistrationStopsPerPlayerCoordinator()

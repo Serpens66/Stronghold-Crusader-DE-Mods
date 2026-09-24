@@ -143,6 +143,7 @@ internal static class Program
             CheckSuppressMessagesCompatibility(workspace);
             CheckMountedStockpilePolicy();
             CheckFunctions(pe.Image);
+            CheckTroopCommandModeContract(workspace, pe.Image);
             CheckProductionPatterns(workspace, pe);
             CheckAivDefenderPositionContract(workspace, pe.Image);
             CheckCriticalSpans(pe.Image);
@@ -162,6 +163,40 @@ internal static class Program
             Console.Error.WriteLine("FAIL: " + ex);
             return 1;
         }
+    }
+
+    private static void CheckTroopCommandModeContract(
+        string workspace,
+        byte[] image)
+    {
+        const int commandModeRva = 0x67E8410;
+        const int attackHereModeWriteRva = 0x90733;
+        const int dispatcherModeReadRva = 0x8D328;
+
+        CheckBytes(
+            image,
+            0x90729,
+            "C7 05 E1 7C 75 06 05 00 00 00 C7 05 D3 7C 75 06 05 00 00 00",
+            "Troops_AttackHere writes native mode 5");
+        CheckBytes(
+            image,
+            0x8D323,
+            "BA 02 00 00 00 8B 05 E2 B0 75 06",
+            "troop dispatcher reads native command mode");
+        Check(attackHereModeWriteRva + 10 +
+                  ReadInt32(image, attackHereModeWriteRva + 2) == commandModeRva,
+            "Attack Here mode write resolves to RVA 0x67E8410");
+        Check(dispatcherModeReadRva + 6 +
+                  ReadInt32(image, dispatcherModeReadRva + 2) == commandModeRva,
+            "dispatcher mode read resolves to RVA 0x67E8410");
+
+        string shared = File.ReadAllText(Path.Combine(
+            workspace, "Shared", "GroundMovePreviewEligibility.cs"));
+        Check(shared.Contains("CommandModeRva = 0x67E8410") &&
+              shared.Contains("AttackHereSetupRva = 0x90729") &&
+              shared.Contains("CommandDispatcherReadRva = 0x8D323") &&
+              shared.Contains("nativeCommandMode == OrdinaryMoveCommandMode"),
+            "runtime command-mode reader is bound to the audited native contract");
     }
 
     private static void CheckHighFrequencyFastPathContracts(string workspace)

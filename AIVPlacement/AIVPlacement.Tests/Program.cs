@@ -27,6 +27,7 @@ internal static class Program
             ("Keep neighboring starts separated by wall owner", TestNeighboringStartWallOwners),
             ("Rotate rebuilt player start occupancy", TestRebuiltStartRotations),
             ("Match observed Keep and campground footprints", TestObservedCraggyStartFootprints),
+            ("Translate rebuilt starts with the rotated AIV Keep marker", TestShiftedNativeStartMarkers),
             ("Reconstruct native rock footprints", TestRockFootprintReconstruction),
             ("Require observed state after an executed AIV prebuild", TestPriorPrebuildStateRequirement),
             ("Reject reasonless placement issues", TestReasonlessPlacementIssue),
@@ -801,6 +802,40 @@ internal static class Program
         AssertCoordinate(
             AivPreplacementMapState.TransformRebuiltStartCoordinate(
                 new MapCoordinate(525, 282), craterKeep, AivRotation.Degrees180), 538, 279);
+    }
+
+    private static void TestShiftedNativeStartMarkers()
+    {
+        var keep = new MapCoordinate(379, 353);
+        var jewelMarker = new AivGridPoint(55, 44);
+        var expectedDeltas = new[]
+        {
+            (AivRotation.Degrees0, 1, 1),
+            (AivRotation.Degrees90, 1, -1),
+            (AivRotation.Degrees180, -1, -1),
+            (AivRotation.Degrees270, -1, 1)
+        };
+        foreach ((AivRotation rotation, int dx, int dy) in expectedDeltas)
+        {
+            var state = new AivStartRebuildState(rotation, jewelMarker);
+            AssertEqual(dx, state.MarkerDeltaX);
+            AssertEqual(dy, state.MarkerDeltaY);
+            MapCoordinate canonical = AivPreplacementMapState.TransformRebuiltStartCoordinate(
+                keep, keep, rotation);
+            AssertCoordinate(AivPreplacementMapState.TransformRebuiltStartCoordinate(
+                keep, keep, state), canonical.X + dx, canonical.Y + dy);
+        }
+
+        var observedJewel = new AivStartRebuildState(AivRotation.Degrees180, jewelMarker);
+        AssertCoordinate(AivPreplacementMapState.TransformRebuiltStartCoordinate(
+            new MapCoordinate(keep.X + 6, keep.Y + 6), keep, observedJewel),
+            keep.X + 6, keep.Y + 6);
+
+        var nomadKeep = new MapCoordinate(423, 667);
+        var observedNomad = new AivStartRebuildState(
+            AivRotation.Degrees0, new AivGridPoint(55, 48));
+        AssertCoordinate(AivPreplacementMapState.TransformRebuiltStartCoordinate(
+            nomadKeep, nomadKeep, observedNomad), 428, 668);
     }
 
     private static void TestCandidateStatuses()

@@ -10,6 +10,7 @@ namespace AivLobbyPresetTest
     {
         internal int Id, LordType, AivDefault, KeepSlot, RadarX, RadarY, KeepX, KeepY;
         internal bool Human;
+        internal readonly List<int> AivDefaults = new List<int>();
     }
 
     internal sealed class LobbyPreset
@@ -62,7 +63,29 @@ namespace AivLobbyPresetTest
                 else
                 {
                     p.LordType = Int(item, "lordType");
-                    p.AivDefault = Int(item, "aivDefault");
+                    if (item.ContainsKey("aivDefaults"))
+                    {
+                        if (item.ContainsKey("aivDefault"))
+                            throw new InvalidDataException("Specify either aivDefault or aivDefaults for player " + p.Id);
+                        var defaults = item["aivDefaults"] as IList;
+                        if (defaults == null || defaults.Count < 1 || defaults.Count > 8)
+                            throw new InvalidDataException("Expected 1-8 built-in AIV variants for player " + p.Id);
+                        foreach (object entry in defaults)
+                        {
+                            if (!(entry is int) && !(entry is long))
+                                throw new InvalidDataException("Expected an integer AIV variant for player " + p.Id);
+                            long numberValue = Convert.ToInt64(entry);
+                            if (numberValue < 1 || numberValue > 8 ||
+                                p.AivDefaults.Contains((int)numberValue))
+                                throw new InvalidDataException("Invalid or repeated built-in AIV variant for player " + p.Id);
+                            p.AivDefaults.Add((int)numberValue);
+                        }
+                    }
+                    else
+                    {
+                        p.AivDefaults.Add(Int(item, "aivDefault"));
+                    }
+                    p.AivDefault = p.AivDefaults[0];
                     if (p.LordType < 0 || p.LordType > 28 || p.AivDefault < 1 || p.AivDefault > 8)
                         throw new InvalidDataException("Invalid lord type or built-in Default AIV for player " + p.Id);
                 }

@@ -53,16 +53,21 @@ namespace WaterboyTargetReservationTest
             requesterDistance < ownerDistance;
     }
 
-    internal static class WaterboyModeOperationPolicy
+    internal static class WaterboyModePolicy
     {
-        internal static bool TryAccept(int lastOperationId, int incomingOperationId,
-            out int acceptedOperationId)
+        internal static bool Resolve(bool realMultiplayer, int playerId,
+            int localPlayerId, bool localValue, bool[] synchronizedValues)
         {
-            acceptedOperationId = lastOperationId;
-            if (incomingOperationId <= 0 || incomingOperationId <= lastOperationId)
+            if (playerId < 1 || playerId > 8 || synchronizedValues == null ||
+                synchronizedValues.Length < 9)
                 return false;
-            acceptedOperationId = incomingOperationId;
-            return true;
+
+            if (realMultiplayer)
+                return synchronizedValues[playerId];
+
+            if (localPlayerId < 1 || localPlayerId > 8)
+                return false;
+            return playerId == localPlayerId ? localValue : true;
         }
     }
 
@@ -84,15 +89,6 @@ namespace WaterboyTargetReservationTest
             if (IsValidPlayerId(localPlayerId))
                 data[localPlayerId] = value;
             return true;
-        }
-
-        internal void SetPlayerValue(int playerId, bool value, bool isLocalPlayer)
-        {
-            if (!IsValidPlayerId(playerId))
-                return;
-            data[playerId] = value;
-            if (isLocalPlayer)
-                localValue = value;
         }
 
         internal void ResolveLocalPlayer(int playerId)

@@ -278,3 +278,66 @@ CastlePlanner protokollierte in der Lobby dieselbe Grenze. Die
 180°-Varianten von Marshal und Emir stimmen in der neuen Aufnahme mit
 Vanillas Score überein. Diese Wiederholung belegt den installierten
 Laufzeitpfad, nicht allgemein die offenen Konstruktor- und Sofortbauzweige.
+
+## Offline-Nachprüfung mit ausgewähltem AIV-Startmarker
+
+Der gemeinsame Offline-Kern übernimmt nun nach `0x53D00` den ersten
+rotierten Mapper `0x3D` der tatsächlich ausgewählten AIV samt Drehung
+in den späteren Startzustand. Die alte pauschale Sperre für verschobene
+Marker entfällt nur, wenn der modellierte Startbereich sicher ist.
+Der Cache unterscheidet Marker und Drehung. Alle fünf archivierten
+Korpora wurden mit dem aktuellen Native-Hash `FBCB9319…` und den
+gespeicherten Map-/AIV-Hashes erneut verglichen:
+
+| Korpus | Exakt | NotEvaluable | Abweichung | Fehler |
+| --- | ---: | ---: | ---: | ---: |
+| Sechs-Match Crater | 13 | 28 | 0 | 0 |
+| Sechs-Match Craggy | 8 | 20 | 0 | 0 |
+| Älteres Crater-Archiv | 44 | 28 | 0 | 0 |
+| Älteres Craggy-Archiv | 17 | 40 | 0 | 0 |
+| Zwei-Match-Laufzeitregression | 11 | 9 | 0 | 0 |
+| **Gesamt** | **93** | **125** | **0** | **0** |
+
+Von den 125 grauen Fällen betreffen 112 den noch nicht rekonstruierten
+sequenziellen Sofortbau und 13 die Unsicherheitszone nahe einem früheren
+KI-Start. Diese beiden Grenzen werden getrennt weiter untersucht.
+
+Die jeweiligen Berichte heißen `marker-report.json`. Für die letzte
+Regression verweist `Observed/Corpus/local-files.json` auf hashgeprüfte
+AIV-Quelldateien im Workspace, weil der installierte Detector-Ordner
+zwischenzeitlich fehlte. Die Berichte belegen die beobachteten Eingaben;
+unbelegte Startabbrüche und spätere KIs mit Sofortbau bleiben geschützt.
+
+Die nächste Laufzeitprüfung ist unter `MarkerRuntimeValidation/PLAN.md`
+vorbereitet: zwei neue Sieben-KI-Aufstellungen auf Crater Lake ohne
+Sofortbau. Sie prüfen die ausgewählten Startmarker und die Lobby-Anzeige
+unter anderen Varianten und umgekehrter Spielerreihenfolge. Die
+Diagnosemods sind wieder installiert; die Serie steht auf Index 0.
+
+## Drei neue Crater-Lake-Läufe und nächste Acht-Match-Serie
+
+`CL-B-off` und `CL-Reverse-off` wurden bestätigt; ein weiterer
+Start wiederholte die umgekehrte Aufstellung. Der neue Archivordner
+`MarkerRuntimeValidation/Observed` enthält Log, 24 Starttraces,
+62 Zelltraces, einen Oracle-Korpus, den Vergleichsbericht und ein
+SHA-256-Manifest. Alle 31 Fit-Versuche sind exakt, ohne grauen Fall,
+Abweichung oder Importfehler; zehn davon sind eine Wiederholung.
+Sämtliche Starttraces sind vollständig und melden 117 neu belegte
+Gebäudezellen ohne Fehlerflag. Das belegt diese erfolgreichen Fälle,
+nicht jeden möglichen Abbruch oder eine allgemeine Änderungsgrenze.
+
+In der `CL-B-off`-Lobby hatte Wolf mehrere mögliche Auto-Drehungen
+(0° und 90°). Deshalb bleibt der nachfolgende Eingangszustand im
+Produkt unbestimmt. Die Rückwärtsreihenfolge `CL-Reverse-off` zeigte
+dagegen Fits für alle sieben KI-Spieler. Die Native-Räumungswege
+`0x5D3A0` und `0x5CD90` können komplette verbundene Gebäude
+betreffen. Eine pauschale Freigabe späterer Fits aus dem beobachteten
+lokalen Radius wäre unbelegt.
+
+Die acht Läufe der neuen Datei
+`Testmods/AivLobbyPresetTest/AivLobbyMultiAivSeries.json` heißen
+`CL-Early-off/on`, `CL-Middle-off/on`, `CC-Early-off/on` und
+`CC-Middle-off/on`. Early gibt Nizar die geordnete Liste Default 1,
+Default 8; Middle gibt Emir Default 2, Default 7. Jede Paarung nutzt
+dieselben sieben KI-Positionen mit Sofortbau zuerst aus, dann an.
+Die früheren Einzel-AIV-Presets bleiben gültig.

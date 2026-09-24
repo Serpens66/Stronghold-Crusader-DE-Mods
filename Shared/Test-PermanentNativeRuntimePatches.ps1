@@ -98,15 +98,17 @@ $permanentManagedContracts = @(
         Path = 'Testmods\WaterboyTargetReservationTest\src\WaterboyTargetReservationRuntime.cs'
         Required = @(
             'private readonly HookTransaction transaction;',
-            'private readonly Hook setUpInbuildingHook;',
+            'private readonly DetourHandle<FindNearestBurningBuildingDelegate> targetSearchHook',
             'pendingTransaction?.Dispose();',
-            'pendingManagedHook?.Dispose();'
+            'ValidateCommittedDetour(committedDetour, expectedTargetAddress);'
         )
         Forbidden = @(
             'transaction?.Dispose()',
             'transaction.Dispose()',
             'setUpInbuildingHook?.Dispose()',
             'setUpInbuildingHook.Dispose()',
+            'pendingManagedHook',
+            'TrySendModeChore',
             'targetSearchHook.Hook.Disable()',
             'targetSearchHook.Hook.Dispose()'
         )

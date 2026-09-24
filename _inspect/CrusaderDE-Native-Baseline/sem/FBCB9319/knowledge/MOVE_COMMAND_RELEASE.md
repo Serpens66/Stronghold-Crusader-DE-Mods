@@ -63,6 +63,28 @@ Vanilla without consuming the release. While the cursor later supplies drag
 direction, only the fixed command tile is revalidated; the live hover identity
 must not be mistaken for a replacement command target.
 
+### Native troop-command mode
+
+Object-free ground is not sufficient to identify a movement command. The
+managed `Troops_AttackHere` action (`1012`) enters `DLL_GameAction` at RVA
+`0x81870`, whose case calls RVA `0x90510` with value `5`. For an ordinary
+eligible troop selection, RVA `0x90510` writes `5` to the 32-bit current and
+saved troop-command modes at RVAs `0x67E8410` and `0x67E8414`. Special
+selections can instead enter modes `0x14` or `0x16`.
+
+The dispatcher at RVA `0x8C5F0` treats current mode `1` as the ordinary
+movement/object-command path and mode `5` as Attack Here. The mode-5 ground
+branch may call move stager `0x195E30` as part of preparing the special order
+before issuing the actual attack-tile command, so observing that stager is not
+proof of a Move command. Patrol/attack-move variations remain in mode `1` and
+carry their semantics through the separate move parameters.
+
+A held-ground preview must therefore additionally require current native mode
+`1` at gesture start, while held, and immediately before release handoff. Any
+other or unreadable value fails closed to Vanilla without consuming the release
+or publishing a move context. `MainControls.CurrentAction` is a distinct
+managed placement/editor state and is not a substitute for this native mode.
+
 ## Managed event ordering
 
 Script Extender 2.8.0 raises `OnKeyDown`, `OnKey`, and `OnKeyUp` from the
@@ -98,6 +120,9 @@ depending on the cleared `KeyManager` state.
 - `0x79B90` cursor target rejection and unit/building/wall/ground publication:
   confirmed-static.
 - Object-command dispatch preceding the `0x195E30` ground branch at `0x8C5F0`:
+  confirmed-static.
+- `Troops_AttackHere` mode setup at `0x90510`, 32-bit command-mode global RVA
+  `0x67E8410`, and mode-1/mode-5 dispatch split at `0x8C5F0`:
   confirmed-static.
 - Duplicate-order consequence from restoring the release: confirmed-runtime
   by a formation command completing all terminal assignments before a later

@@ -1,3 +1,6 @@
+using System;
+using System.Runtime.InteropServices;
+
 namespace Shared
 {
     internal enum GroundMovePreviewRejection
@@ -13,7 +16,8 @@ namespace Shared
         HoveredWall,
         TileOccupiedByBuilding,
         TargetUnavailable,
-        MissingPathComponent
+        MissingPathComponent,
+        NonMoveCommandMode
     }
 
     internal readonly struct GroundMovePreviewSnapshot
@@ -59,6 +63,14 @@ namespace Shared
 
     internal static class GroundMovePreviewEligibility
     {
+        internal const int OrdinaryMoveCommandMode = 1;
+
+        internal static GroundMovePreviewRejection EvaluateCommandMode(
+            int nativeCommandMode) =>
+            nativeCommandMode == OrdinaryMoveCommandMode
+                ? GroundMovePreviewRejection.None
+                : GroundMovePreviewRejection.NonMoveCommandMode;
+
         internal static GroundMovePreviewRejection EvaluateInitial(
             GroundMovePreviewSnapshot snapshot)
         {
@@ -103,6 +115,81 @@ namespace Shared
             if (!hasPathComponent)
                 return GroundMovePreviewRejection.MissingPathComponent;
             return GroundMovePreviewRejection.None;
+        }
+    }
+
+    internal sealed class NativeTroopCommandModeReader
+    {
+        internal const int CommandModeRva = 0x67E8410;
+        internal const int AttackHereSetupRva = 0x90729;
+        internal const int CommandDispatcherReadRva = 0x8D323;
+
+        private static readonly byte[] AttackHereSetupBytes =
+        {
+            0xC7, 0x05, 0xE1, 0x7C, 0x75, 0x06, 0x05, 0x00, 0x00, 0x00,
+            0xC7, 0x05, 0xD3, 0x7C, 0x75, 0x06, 0x05, 0x00, 0x00, 0x00
+        };
+
+        private static readonly byte[] CommandDispatcherReadBytes =
+        {
+            0xBA, 0x02, 0x00, 0x00, 0x00,
+            0x8B, 0x05, 0xE2, 0xB0, 0x75, 0x06
+        };
+
+        private readonly IntPtr commandModeAddress;
+
+        internal NativeTroopCommandModeReader(
+            IntPtr moduleHandle,
+            ReadOnlySpan<byte> nativeImage)
+        {
+            if (moduleHandle == IntPtr.Zero)
+                throw new ArgumentException(
+                    "The native module handle must not be zero.", nameof(moduleHandle));
+
+            ValidateContract(nativeImage);
+            commandModeAddress = new IntPtr(
+                checked(moduleHandle.ToInt64() + CommandModeRva));
+        }
+
+        internal int Read() => Marshal.ReadInt32(commandModeAddress);
+
+        internal static void ValidateContract(ReadOnlySpan<byte> nativeImage)
+        {
+            ValidateBytes(
+                nativeImage,
+                AttackHereSetupRva,
+                AttackHereSetupBytes,
+                "Troops_AttackHere command-mode setup");
+            ValidateBytes(
+                nativeImage,
+                CommandDispatcherReadRva,
+                CommandDispatcherReadBytes,
+                "troop command dispatcher mode read");
+        }
+
+        private static void ValidateBytes(
+            ReadOnlySpan<byte> nativeImage,
+            int rva,
+            byte[] expected,
+            string name)
+        {
+            if (rva < 0 || expected == null ||
+                rva > nativeImage.Length - expected.Length)
+            {
+                throw new InvalidOperationException(
+                    $"{name} lies outside the native image.");
+            }
+
+            for (int index = 0; index < expected.Length; index++)
+            {
+                if (nativeImage[rva + index] != expected[index])
+                {
+                    throw new InvalidOperationException(
+                        $"{name} byte mismatch at RVA 0x{rva + index:X}: " +
+                        $"expected 0x{expected[index]:X2}, " +
+                        $"got 0x{nativeImage[rva + index]:X2}.");
+                }
+            }
         }
     }
 }

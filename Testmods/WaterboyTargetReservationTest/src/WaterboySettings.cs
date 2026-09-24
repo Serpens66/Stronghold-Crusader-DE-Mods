@@ -6,8 +6,6 @@ namespace WaterboyTargetReservationTest
     {
         private readonly PerPlayerModeState targetingMode = new PerPlayerModeState();
 
-        public event System.Action<string> SettingChanged;
-
         [SyncPerPlayer]
         public bool EnableNearestWaterboyTargeting
         {
@@ -16,7 +14,6 @@ namespace WaterboyTargetReservationTest
             {
                 if (!targetingMode.SetLocalValue(value))
                     return;
-                SettingChanged?.Invoke(nameof(EnableNearestWaterboyTargeting));
                 OnPropertyChanged(nameof(EnableNearestWaterboyTargeting));
                 OnPropertyChanged(nameof(EnableNearestWaterboyTargetingData));
             }
@@ -35,21 +32,10 @@ namespace WaterboyTargetReservationTest
                 .WhenLocalPlayerResolved(SetLocalPlayerId);
         }
 
-        internal bool IsEnabledForPlayer(int playerId) =>
-            IsValidPlayerId(playerId) && targetingMode.Data[playerId];
-
-        internal void ApplyChoreValue(int playerId, bool enabled, bool isLocalPlayer)
-        {
-            if (!IsValidPlayerId(playerId))
-                return;
-            targetingMode.SetPlayerValue(playerId, enabled, isLocalPlayer);
-            if (isLocalPlayer)
-            {
-                SettingChanged?.Invoke(nameof(EnableNearestWaterboyTargeting));
-                OnPropertyChanged(nameof(EnableNearestWaterboyTargeting));
-            }
-            OnPropertyChanged(nameof(EnableNearestWaterboyTargetingData));
-        }
+        internal bool ResolveEffectiveMode(bool realMultiplayer, int playerId,
+            int localPlayerId) =>
+            WaterboyModePolicy.Resolve(realMultiplayer, playerId, localPlayerId,
+                targetingMode.LocalValue, targetingMode.Data);
 
         private void SetLocalPlayerId(int playerId)
         {

@@ -3,6 +3,7 @@ using CrusaderDE;
 using MonoMod.RuntimeDetour;
 using R3;
 using SHCDESE.API;
+using SHCDESE.API.LowLevel;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Input;
 using SHCDESE.EventAPI.Tribes;
@@ -266,6 +267,7 @@ namespace BugfixesAndQoL
             new List<MoveFormationDestination>();
         private readonly HashSet<string> loggedRejectReasons = new HashSet<string>();
 
+        private NativeTroopCommandModeReader commandModeReader;
         private FieldInfo mouseTileXField;
         private FieldInfo mouseTileYField;
         private FieldInfo mousePosXForEngineField;
@@ -302,12 +304,17 @@ namespace BugfixesAndQoL
             markers.MarkerReplacementAvailable && settings.EnableMod &&
             settings.EnableMoveFormationEnhancements;
 
-        internal void Install()
+        internal void Install(CrusaderLibraryLoadContext libraryContext)
         {
             if (installed || failed)
                 return;
+            if (libraryContext == null)
+                throw new ArgumentNullException(nameof(libraryContext));
             try
             {
+                commandModeReader = new NativeTroopCommandModeReader(
+                    libraryContext.ModuleHandle,
+                    libraryContext.Memory);
                 mouseTileXField = RequireEditorField("mouseTileX", typeof(float));
                 mouseTileYField = RequireEditorField("mouseTileY", typeof(float));
                 mousePosXForEngineField =
@@ -474,6 +481,12 @@ namespace BugfixesAndQoL
                     AbortPreview("state-changed");
                     return;
                 }
+                GroundMovePreviewRejection modeRejection = EvaluateCommandMode();
+                if (modeRejection != GroundMovePreviewRejection.None)
+                {
+                    AbortPreview("command-" + ToRejectionReason(modeRejection));
+                    return;
+                }
                 GroundMovePreviewRejection targetRejection =
                     EvaluateFixedGroundTarget(state.Target);
                 if (targetRejection != GroundMovePreviewRejection.None)
@@ -534,6 +547,12 @@ namespace BugfixesAndQoL
 
         private void TryStartDrag(int commandButton)
         {
+            GroundMovePreviewRejection modeRejection = EvaluateCommandMode();
+            if (modeRejection != GroundMovePreviewRejection.None)
+            {
+                LogRejectedStart(ToRejectionReason(modeRejection));
+                return;
+            }
             string rejection = GetStartRejection(commandButton);
             if (rejection != null)
             {
@@ -650,6 +669,13 @@ namespace BugfixesAndQoL
                     ClearCompletedDrag("coordinate-mapping-changed");
                     return engineRunOriginal(mpFrameSkip);
                 }
+                GroundMovePreviewRejection modeRejection = EvaluateCommandMode();
+                if (modeRejection != GroundMovePreviewRejection.None)
+                {
+                    ClearCompletedDrag(
+                        "command-" + ToRejectionReason(modeRejection));
+                    return engineRunOriginal(mpFrameSkip);
+                }
                 GroundMovePreviewRejection targetRejection =
                     EvaluateFixedGroundTarget(state.Target);
                 if (targetRejection != GroundMovePreviewRejection.None)
@@ -670,6 +696,14 @@ namespace BugfixesAndQoL
 
         private int RunAnchoredVanillaTransaction(DragState state, bool mpFrameSkip)
         {
+            GroundMovePreviewRejection modeRejection = EvaluateCommandMode();
+            if (modeRejection != GroundMovePreviewRejection.None)
+            {
+                ClearCompletedDrag(
+                    "handoff-command-" + ToRejectionReason(modeRejection));
+                return engineRunOriginal(mpFrameSkip);
+            }
+
             EditorDirector director = EditorDirector.instance;
             MainControls controls = MainControls.instance;
             object oldTileX;
@@ -712,6 +746,26 @@ namespace BugfixesAndQoL
                 director.lastTroopOverDepth = state.Target.TroopDepth;
                 controls.mouseTileClickDepth = state.Target.ClickDepth;
                 GameMap.instance.overTopHalf = state.Target.OverTopHalf;
+                GroundMovePreviewRejection finalModeRejection =
+                    EvaluateCommandMode();
+                if (finalModeRejection != GroundMovePreviewRejection.None)
+                {
+                    Exception restoreFailure = RestoreInputState(
+                        director,
+                        controls,
+                        oldTileX,
+                        oldTileY,
+                        oldMouseX,
+                        oldMouseY,
+                        oldUnderCursor,
+                        oldDepth,
+                        oldClickDepth,
+                        oldOverTopHalf);
+                    markers.ClearPreview();
+                    if (restoreFailure != null)
+                        FailOpen("run-anchor-mode-restore", restoreFailure);
+                    return engineRunOriginal(mpFrameSkip);
+                }
                 MoveFormationCommandContext.Arm(
                     state.TribeId,
                     state.Target.NativeX,
@@ -784,6 +838,12 @@ namespace BugfixesAndQoL
             previewTiles.Clear();
             try
             {
+                GroundMovePreviewRejection modeRejection = EvaluateCommandMode();
+                if (modeRejection != GroundMovePreviewRejection.None)
+                {
+                    markers.ClearPreview();
+                    return;
+                }
                 GroundMovePreviewRejection rejection =
                     EvaluateFixedGroundTarget(state.Target);
                 if (rejection != GroundMovePreviewRejection.None)
@@ -1004,6 +1064,14 @@ namespace BugfixesAndQoL
                     tileBuildingId,
                     insideMap && targetAvailable(target.NativeX, target.NativeY),
                     hasPathComponent));
+        }
+
+        private GroundMovePreviewRejection EvaluateCommandMode()
+        {
+            if (commandModeReader == null)
+                return GroundMovePreviewRejection.NonMoveCommandMode;
+            return GroundMovePreviewEligibility.EvaluateCommandMode(
+                commandModeReader.Read());
         }
 
         private GroundMovePreviewRejection EvaluateFixedGroundTarget(

@@ -129,12 +129,26 @@ namespace AIVPlacement.Core
             IEnumerable<int> retainedStartSlotIndexes,
             IReadOnlyDictionary<int, AivRotation> rebuiltStartRotationsBySlot)
         {
+            if (rebuiltStartRotationsBySlot == null)
+                throw new ArgumentNullException(nameof(rebuiltStartRotationsBySlot));
+            var starts = new Dictionary<int, AivStartRebuildState>();
+            foreach (KeyValuePair<int, AivRotation> pair in rebuiltStartRotationsBySlot)
+                starts.Add(pair.Key, new AivStartRebuildState(
+                    pair.Value, AivStartRebuildState.CanonicalMarker));
+            return Create(document, retainedStartSlotIndexes, starts);
+        }
+
+        public static AivPreplacementMapState Create(
+            MapDocument document,
+            IEnumerable<int> retainedStartSlotIndexes,
+            IReadOnlyDictionary<int, AivStartRebuildState> rebuiltStartsBySlot)
+        {
             if (document == null)
                 throw new ArgumentNullException(nameof(document));
             if (retainedStartSlotIndexes == null)
                 throw new ArgumentNullException(nameof(retainedStartSlotIndexes));
-            if (rebuiltStartRotationsBySlot == null)
-                throw new ArgumentNullException(nameof(rebuiltStartRotationsBySlot));
+            if (rebuiltStartsBySlot == null)
+                throw new ArgumentNullException(nameof(rebuiltStartsBySlot));
 
             var retainedSlots = new HashSet<int>(retainedStartSlotIndexes);
             foreach (int slotIndex in retainedSlots)
@@ -142,15 +156,15 @@ namespace AIVPlacement.Core
                 if (slotIndex < 0 || slotIndex >= MapKeepAnchors.SlotCount)
                     throw new ArgumentOutOfRangeException(nameof(retainedStartSlotIndexes));
             }
-            foreach (int slotIndex in rebuiltStartRotationsBySlot.Keys)
+            foreach (int slotIndex in rebuiltStartsBySlot.Keys)
             {
                 if (slotIndex < 0 || slotIndex >= MapKeepAnchors.SlotCount)
-                    throw new ArgumentOutOfRangeException(nameof(rebuiltStartRotationsBySlot));
+                    throw new ArgumentOutOfRangeException(nameof(rebuiltStartsBySlot));
                 if (!retainedSlots.Contains(slotIndex))
                 {
                     throw new ArgumentException(
                         "A rebuilt start must also be retained in the current session state.",
-                        nameof(rebuiltStartRotationsBySlot));
+                        nameof(rebuiltStartsBySlot));
                 }
             }
 
@@ -187,9 +201,9 @@ namespace AIVPlacement.Core
                 startKinds[(ushort)recordIndex] = ClassifyStartBuilding(buildingType);
                 if (retainedSlots.Contains(owner - 1))
                     retainedBuildingIds.Add((ushort)recordIndex);
-                if (rebuiltStartRotationsBySlot.TryGetValue(
+                if (rebuiltStartsBySlot.TryGetValue(
                         owner - 1,
-                        out AivRotation rotation))
+                        out AivStartRebuildState start))
                 {
                     MapKeepAnchorResult anchor = anchors.GetSlot(owner - 1);
                     if (anchor.Status != MapKeepAnchorStatus.Exact || !anchor.Coordinate.HasValue)
@@ -199,7 +213,7 @@ namespace AIVPlacement.Core
                     }
                     rebuildTransforms[(ushort)recordIndex] = new StartRebuildTransform(
                         anchor.Coordinate.Value,
-                        rotation,
+                        start,
                         checked((byte)owner));
                 }
             }
@@ -232,6 +246,18 @@ namespace AIVPlacement.Core
                 AivRotation.Degrees270 => new MapCoordinate(keep.X + 13 - y, keep.Y + x),
                 _ => throw new ArgumentOutOfRangeException(nameof(rotation))
             };
+        }
+
+        public static MapCoordinate TransformRebuiltStartCoordinate(
+            MapCoordinate coordinate,
+            MapCoordinate keep,
+            AivStartRebuildState start)
+        {
+            MapCoordinate canonical = TransformRebuiltStartCoordinate(
+                coordinate, keep, start.Rotation);
+            return new MapCoordinate(
+                canonical.X + start.MarkerDeltaX,
+                canonical.Y + start.MarkerDeltaY);
         }
 
         public bool HasUnprovenNativeStartInteraction(AivProjectedCastle castle)
@@ -544,14 +570,10 @@ namespace AIVPlacement.Core
                     continue;
                 // The AIV Keep marker at the native reference can spawn a
                 // seven-cell structure beyond the serialized start group.
-                for (int y = start.Keep.Y - 24; y <= start.Keep.Y + 24; y++)
-                {
-                    for (int x = start.Keep.X - 24; x <= start.Keep.X + 24; x++)
-                    {
-                        if (Geometry.TryGetTileId(x, y, out int nearbyTileId))
-                            uncertainNativeStartTileIds.Add(nearbyTileId);
-                    }
-                }
+                MarkUncertainNativeStartKeepArea(start.Keep);
+                MarkUncertainNativeStartKeepArea(new MapCoordinate(
+                    start.Keep.X + start.Start.MarkerDeltaX,
+                    start.Keep.Y + start.Start.MarkerDeltaY));
             }
 
             for (int tileId = 0; tileId < Geometry.TileCount; tileId++)
@@ -575,7 +597,7 @@ namespace AIVPlacement.Core
                 MapCoordinate target = TransformRebuiltStartCoordinate(
                     coordinate,
                     transform.Keep,
-                    transform.Rotation);
+                    transform.Start);
                 MarkUncertainNativeStartArea(coordinate);
                 MarkUncertainNativeStartArea(target);
                 if (!Geometry.TryGetTileId(target.X, target.Y, out int targetTileId))
@@ -600,6 +622,18 @@ namespace AIVPlacement.Core
             }
 
             return result;
+        }
+
+        private void MarkUncertainNativeStartKeepArea(MapCoordinate keep)
+        {
+            for (int y = keep.Y - 24; y <= keep.Y + 24; y++)
+            {
+                for (int x = keep.X - 24; x <= keep.X + 24; x++)
+                {
+                    if (Geometry.TryGetTileId(x, y, out int nearbyTileId))
+                        uncertainNativeStartTileIds.Add(nearbyTileId);
+                }
+            }
         }
 
         private bool TryGetAdjacentRebuildTransform(
@@ -630,7 +664,7 @@ namespace AIVPlacement.Core
                     {
                         if (found &&
                             (!selected.Keep.Equals(adjacent.Keep) ||
-                             selected.Rotation != adjacent.Rotation))
+                             !selected.Start.Equals(adjacent.Start)))
                         {
                             throw new InvalidOperationException(
                                 $"Wall tile {coordinate} belongs to multiple rebuilt starts.");
@@ -661,16 +695,16 @@ namespace AIVPlacement.Core
         {
             public StartRebuildTransform(
                 MapCoordinate keep,
-                AivRotation rotation,
+                AivStartRebuildState start,
                 byte ownerId)
             {
                 Keep = keep;
-                Rotation = rotation;
+                Start = start;
                 OwnerId = ownerId;
             }
 
             public MapCoordinate Keep { get; }
-            public AivRotation Rotation { get; }
+            public AivStartRebuildState Start { get; }
             public byte OwnerId { get; }
         }
 
