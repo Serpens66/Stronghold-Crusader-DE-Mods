@@ -664,7 +664,8 @@ namespace APIShared
         {
             gameActionOriginal(command, value1, value2, value3);
             if (!HasCategories(UnitHudSurface.ControlGroups)) return;
-            if (command < Enums.KeyFunctions.GroupTroops0 || command > Enums.KeyFunctions.GroupTroops9) return;
+            if (command < Enums.KeyFunctions.GroupTroops0 || command > Enums.KeyFunctions.GroupTroops9 ||
+                !MainViewModel.viewModelLoaded) return;
             try
             {
                 MainViewModel main = MainViewModel.Instance;

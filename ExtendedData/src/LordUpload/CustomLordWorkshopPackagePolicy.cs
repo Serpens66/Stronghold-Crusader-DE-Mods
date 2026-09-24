@@ -219,10 +219,13 @@ namespace ExtendedData
             string fileName = segments[segments.Length - 1];
             string extension = Path.GetExtension(fileName);
 
+            // JSON sidecars may belong to any lord subdirectory, including other mods' Overrides.
+            if (string.Equals(extension, ".json", StringComparison.OrdinalIgnoreCase))
+                return true;
+
             if (segments.Length == 1)
             {
-                return string.Equals(extension, ".json", StringComparison.OrdinalIgnoreCase) ||
-                       string.Equals(extension, ".lua", StringComparison.OrdinalIgnoreCase);
+                return string.Equals(extension, ".lua", StringComparison.OrdinalIgnoreCase);
             }
 
             if (string.Equals(segments[0], "Override", StringComparison.OrdinalIgnoreCase))

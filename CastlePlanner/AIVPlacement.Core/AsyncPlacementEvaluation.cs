@@ -85,7 +85,10 @@ namespace CastlePlanner.AIVPlacement.Core
             string failureMessage,
             LobbyPlacementPhaseTimings timings,
             IReadOnlyList<int> elevatedMoatTilesByRotation = null,
-            IReadOnlyList<int> elevatedDrawbridgeTilesByRotation = null)
+            IReadOnlyList<int> elevatedDrawbridgeTilesByRotation = null,
+            IReadOnlyList<bool> potentialPriorKeepRemovalByRotation = null,
+            IReadOnlyList<bool> buildTimeHeightProvenByRotation = null,
+            IReadOnlyList<IReadOnlyList<int>> plannedCoreTilesByRotation = null)
         {
             Selection = selection;
             FailureKind = failureKind;
@@ -97,6 +100,17 @@ namespace CastlePlanner.AIVPlacement.Core
             ElevatedDrawbridgeTilesByRotation = elevatedDrawbridgeTilesByRotation == null
                 ? Array.Empty<int>()
                 : new ReadOnlyCollection<int>(elevatedDrawbridgeTilesByRotation.ToArray());
+            PotentialPriorKeepRemovalByRotation = potentialPriorKeepRemovalByRotation == null
+                ? Array.Empty<bool>()
+                : new ReadOnlyCollection<bool>(potentialPriorKeepRemovalByRotation.ToArray());
+            BuildTimeHeightProvenByRotation = buildTimeHeightProvenByRotation == null
+                ? Array.Empty<bool>()
+                : new ReadOnlyCollection<bool>(buildTimeHeightProvenByRotation.ToArray());
+            PlannedCoreTilesByRotation = plannedCoreTilesByRotation == null
+                ? Array.Empty<IReadOnlyList<int>>()
+                : new ReadOnlyCollection<IReadOnlyList<int>>(plannedCoreTilesByRotation
+                    .Select(tiles => (IReadOnlyList<int>)new ReadOnlyCollection<int>(tiles.ToArray()))
+                    .ToArray());
         }
 
         public AivPlacementRotationSelection Selection { get; }
@@ -106,16 +120,22 @@ namespace CastlePlanner.AIVPlacement.Core
         // Map-height exposure only; this does not predict the later build steps.
         public IReadOnlyList<int> ElevatedMoatTilesByRotation { get; }
         public IReadOnlyList<int> ElevatedDrawbridgeTilesByRotation { get; }
+        public IReadOnlyList<bool> PotentialPriorKeepRemovalByRotation { get; }
+        // Original map height is not proof of height at the later native build frame.
+        public IReadOnlyList<bool> BuildTimeHeightProvenByRotation { get; }
+        public IReadOnlyList<IReadOnlyList<int>> PlannedCoreTilesByRotation { get; }
         public bool IsEvaluable => FailureKind == LobbyEvaluationFailureKind.None && Selection != null;
 
         public static LobbyPlacementWorkerResult NotEvaluable(
             LobbyEvaluationFailureKind failureKind,
-            string message) =>
+            string message,
+            IReadOnlyList<bool> priorKeepRemovalByRotation = null) =>
             new LobbyPlacementWorkerResult(
                 null,
                 failureKind,
                 message,
-                LobbyPlacementPhaseTimings.Empty);
+                LobbyPlacementPhaseTimings.Empty,
+                potentialPriorKeepRemovalByRotation: priorKeepRemovalByRotation);
     }
 
     public sealed class AivPlacementCandidateWorkItem
@@ -192,6 +212,9 @@ namespace CastlePlanner.AIVPlacement.Core
                 : LobbyPlacementPhaseTimings.Empty;
             ElevatedMoatTilesByRotation = workerResult.ElevatedMoatTilesByRotation;
             ElevatedDrawbridgeTilesByRotation = workerResult.ElevatedDrawbridgeTilesByRotation;
+            PotentialPriorKeepRemovalByRotation = workerResult.PotentialPriorKeepRemovalByRotation;
+            BuildTimeHeightProvenByRotation = workerResult.BuildTimeHeightProvenByRotation;
+            PlannedCoreTilesByRotation = workerResult.PlannedCoreTilesByRotation;
         }
 
         public int CandidateId { get; }
@@ -204,6 +227,20 @@ namespace CastlePlanner.AIVPlacement.Core
         public LobbyPlacementPhaseTimings Timings { get; }
         public IReadOnlyList<int> ElevatedMoatTilesByRotation { get; }
         public IReadOnlyList<int> ElevatedDrawbridgeTilesByRotation { get; }
+        public IReadOnlyList<bool> PotentialPriorKeepRemovalByRotation { get; private set; }
+        public IReadOnlyList<bool> BuildTimeHeightProvenByRotation { get; }
+        public IReadOnlyList<IReadOnlyList<int>> PlannedCoreTilesByRotation { get; }
+
+        internal void MergePotentialPriorKeepRemoval(
+            IEnumerable<AivPlacementCandidateEvaluation> scenarios)
+        {
+            AivPlacementCandidateEvaluation[] values = scenarios.ToArray();
+            int count = values.Max(value => value.PotentialPriorKeepRemovalByRotation.Count);
+            PotentialPriorKeepRemovalByRotation = new ReadOnlyCollection<bool>(
+                Enumerable.Range(0, count).Select(index => values.Any(value =>
+                    index < value.PotentialPriorKeepRemovalByRotation.Count &&
+                    value.PotentialPriorKeepRemovalByRotation[index])).ToArray());
+        }
         public AivPlacementStatus Status => Selection == null
             ? AivPlacementStatus.NotEvaluable
             : Selection.Status;
@@ -736,6 +773,8 @@ namespace CastlePlanner.AIVPlacement.Core
                 if (all.All(value => FitsAreIdentical(
                         first, value.Candidates[candidateIndex])))
                 {
+                    first.MergePotentialPriorKeepRemoval(
+                        all.Select(value => value.Candidates[candidateIndex]));
                     sharedCandidates.Add(first);
                     continue;
                 }
@@ -746,11 +785,21 @@ namespace CastlePlanner.AIVPlacement.Core
                     ? "Possible earlier start states produce different fit results."
                     : $"A possible earlier start cannot be proven " +
                       $"({unproven.FailureKind}: {unproven.FailureMessage}).";
+                AivPlacementCandidateEvaluation[] scenarioCandidates = all
+                    .Select(value => value.Candidates[candidateIndex]).ToArray();
+                int rotationCount = scenarioCandidates.Max(value =>
+                    value.PotentialPriorKeepRemovalByRotation.Count);
+                bool[] priorKeepRisk = Enumerable.Range(0, rotationCount)
+                    .Select(rotationIndex => scenarioCandidates.Any(value =>
+                        rotationIndex < value.PotentialPriorKeepRemovalByRotation.Count &&
+                        value.PotentialPriorKeepRemovalByRotation[rotationIndex]))
+                    .ToArray();
                 sharedCandidates.Add(new AivPlacementCandidateEvaluation(
                     request.Candidates[index],
                     LobbyPlacementWorkerResult.NotEvaluable(
                         LobbyEvaluationFailureKind.PriorAiSelectionUnknown,
-                        reason),
+                        reason,
+                        priorKeepRisk),
                     LobbyEvaluationCacheDisposition.Computed));
             }
             foreach (AivPlacementCandidateEvaluation candidate in sharedCandidates)
@@ -1193,19 +1242,10 @@ namespace CastlePlanner.AIVPlacement.Core
                     TimeSpan.Zero);
             }
 
-            if (workItem.RebuiltStartsBySlot.Count != 0 &&
+            bool startOverlapUnproven = workItem.RebuiltStartsBySlot.Count != 0 &&
                 placementMap is AivPreplacementMapState preplacement &&
                 (preplacement.HasCrossOwnerStartWallAdjacency ||
-                 preplacement.HasPotentialConnectedRecordCleanup))
-            {
-                return Failure(
-                    LobbyEvaluationFailureKind.StartOverlapUnproven,
-                    "An earlier AI start may clear a connected building record whose fit-layer effects are not reconstructed.",
-                    mapLookup,
-                    TimeSpan.Zero,
-                    TimeSpan.Zero,
-                    TimeSpan.Zero);
-            }
+                 preplacement.HasPotentialConnectedRecordCleanup);
 
             var aivTimer = Stopwatch.StartNew();
             AivJsonLoadResult loaded;
@@ -1279,6 +1319,9 @@ namespace CastlePlanner.AIVPlacement.Core
                 var variants = new List<AivPlacementResult>(4);
                 var elevatedMoatTilesByRotation = new List<int>(4);
                 var elevatedDrawbridgeTilesByRotation = new List<int>(4);
+                var priorKeepRemovalByRotation = new List<bool>(4);
+                var plannedCoreTilesByRotation = new List<IReadOnlyList<int>>(4);
+                bool unprovenCandidateRead = false;
                 AivRotation initialRotation = workItem.Request.UsesMapFacingRotation
                     ? AivInitialRotationResolver.ResolveMapFacing(keep.Coordinate.Value)
                     : workItem.Request.InitialRotation;
@@ -1295,27 +1338,45 @@ namespace CastlePlanner.AIVPlacement.Core
                     projectionTimer.Stop();
                     projectionElapsed += projectionTimer.Elapsed;
 
+                    priorKeepRemovalByRotation.Add(
+                        placementMap is AivPreplacementMapState startMap &&
+                        startMap.CouldRemoveEarlierKeep(castle));
+                    plannedCoreTilesByRotation.Add(castle.OccupiedTiles
+                        .Where(tile => tile.Kind == AivProjectedTileKind.CoreFootprint &&
+                            placementMap.Geometry.TryGetTileId(
+                                tile.MapCoordinate.X, tile.MapCoordinate.Y, out _))
+                        .Select(tile => placementMap.Geometry.GetTileId(
+                            tile.MapCoordinate.X, tile.MapCoordinate.Y))
+                        .Distinct().ToArray());
+
                     if (placementMap is AivPreplacementMapState reconstructed &&
                         reconstructed.HasUnprovenNativeStartInteraction(castle))
-                    {
-                        return Failure(
-                            LobbyEvaluationFailureKind.StartOverlapUnproven,
-                            "This AIV reads tiles near an earlier AI start whose native construction is not fully proven.",
-                            mapLookup,
-                            aivTimer.Elapsed,
-                            projectionElapsed,
-                            ruleElapsed);
-                    }
+                        unprovenCandidateRead = true;
 
-                    var ruleTimer = Stopwatch.StartNew();
-                    variants.Add(evaluator.Evaluate(placementMap, castle));
-                    elevatedMoatTilesByRotation.Add(MoatBuildExposure.Count(placementMap, castle));
-                    elevatedDrawbridgeTilesByRotation.Add(MoatBuildExposure.CountDrawbridge(placementMap, castle));
-                    cancellationToken.ThrowIfCancellationRequested();
-                    ruleTimer.Stop();
-                    ruleElapsed += ruleTimer.Elapsed;
+                    if (!startOverlapUnproven && !unprovenCandidateRead)
+                    {
+                        var ruleTimer = Stopwatch.StartNew();
+                        variants.Add(evaluator.Evaluate(placementMap, castle));
+                        elevatedMoatTilesByRotation.Add(MoatBuildExposure.Count(placementMap, castle));
+                        elevatedDrawbridgeTilesByRotation.Add(MoatBuildExposure.CountDrawbridge(placementMap, castle));
+                        cancellationToken.ThrowIfCancellationRequested();
+                        ruleTimer.Stop();
+                        ruleElapsed += ruleTimer.Elapsed;
+                    }
                     rotation = NextRotation(rotation);
                 }
+
+                if (startOverlapUnproven || unprovenCandidateRead)
+                    return Failure(
+                        LobbyEvaluationFailureKind.StartOverlapUnproven,
+                        startOverlapUnproven
+                            ? "An earlier AI start may clear a connected building record whose fit-layer effects are not reconstructed."
+                            : "This AIV reads tiles near an earlier AI start whose native construction is not fully proven.",
+                        mapLookup,
+                        aivTimer.Elapsed,
+                        projectionElapsed,
+                        ruleElapsed,
+                        priorKeepRemovalByRotation);
 
                 AivPlacementRotationSelection selection = evaluator.SelectRotationResults(
                     variants,
@@ -1333,7 +1394,9 @@ namespace CastlePlanner.AIVPlacement.Core
                         mapLookup.CacheHit,
                         mapLookup.Shared),
                     elevatedMoatTilesByRotation,
-                    elevatedDrawbridgeTilesByRotation);
+                    elevatedDrawbridgeTilesByRotation,
+                    priorKeepRemovalByRotation,
+                    plannedCoreTilesByRotation: plannedCoreTilesByRotation);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -1425,7 +1488,8 @@ namespace CastlePlanner.AIVPlacement.Core
             PreparedMapLookup map,
             TimeSpan aivParse,
             TimeSpan projection,
-            TimeSpan rules) =>
+            TimeSpan rules,
+            IReadOnlyList<bool> priorKeepRemovalByRotation = null) =>
             new LobbyPlacementWorkerResult(
                 null,
                 kind,
@@ -1437,7 +1501,8 @@ namespace CastlePlanner.AIVPlacement.Core
                     projection,
                     rules,
                     map.CacheHit,
-                    map.Shared));
+                    map.Shared),
+                potentialPriorKeepRemovalByRotation: priorKeepRemovalByRotation);
 
         private static AivRotation NextRotation(AivRotation rotation) =>
             rotation == AivRotation.Degrees270

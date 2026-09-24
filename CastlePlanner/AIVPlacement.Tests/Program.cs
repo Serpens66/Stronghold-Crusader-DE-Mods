@@ -24,8 +24,10 @@ internal static class Program
             ("maps player to keep slot", MapsPlayerToKeepSlot),
             ("maps lobby rotation values to native degrees", MapsLobbyRotationValues),
             ("counts elevated moat exposure independently of fit", CountsElevatedMoatExposure),
+            ("gates build notices on final selection and build-time evidence", GatesBuildNotices),
             ("resolves Vanilla map-facing start rotations", ResolvesMapFacingRotations),
             ("tracks retained starts in native player order", TracksRetainedStartsInNativePlayerOrder),
+            ("keeps archived native start interactions conservative", KeepsArchivedNativeStartInteractionsConservative),
             ("evaluates AI starts sequentially", EvaluatesAiStartsSequentially),
             ("reuses multiplayer tie choice for sequential starts", ReusesTieChoiceForSequentialStarts),
             ("propagates a certain start rotation across an uncertain AIV choice", PropagatesCertainRotationAcrossTie),
@@ -1505,6 +1507,59 @@ internal static class Program
             current = current.Parent;
         }
         throw new DirectoryNotFoundException("CastlePlanner project root was not found.");
+    }
+
+    private static void KeepsArchivedNativeStartInteractionsConservative()
+    {
+        string assets = Path.Combine(
+            FindCastlePlannerRoot(), "..", "Findings", "AIVPlacement", "AivSeries-20260924",
+            "NaturalLinkEightResults", "Assets");
+
+        MapDocument crossing = MapFileReader.Parse(Path.Combine(assets, "CrusadesCrossing.map"));
+        AivPreplacementMapState crossingAfterWolf = AivPreplacementMapState.Create(
+            crossing,
+            new[] { 5, 0 },
+            new Dictionary<int, AivStartRebuildState>
+            {
+                [0] = new AivStartRebuildState(
+                    AivRotation.Degrees90, AivStartRebuildState.CanonicalMarker)
+            });
+        Assert(crossingAfterWolf.CouldRemoveEarlierKeep(
+                new MapCoordinate(523, 489),
+                new AivStartRebuildState(
+                    AivRotation.Degrees0, AivStartRebuildState.CanonicalMarker)),
+            "archived Wolf Keep loss must produce a possible-loss warning");
+
+        MapDocument reed = MapFileReader.Parse(Path.Combine(assets, "Reed Sea.map"));
+        AivPreplacementMapState reedAfterWolf = AivPreplacementMapState.Create(
+            reed,
+            new[] { 1, 5 },
+            new Dictionary<int, AivStartRebuildState>
+            {
+                [5] = new AivStartRebuildState(
+                    AivRotation.Degrees0, AivStartRebuildState.CanonicalMarker)
+            });
+        string sentinelPath = Path.Combine(assets, "VanillaAIV", "sentinel2.aivjson");
+        AivJsonLoadResult loaded = AivJsonFileLoader.Load(sentinelPath);
+        AivParseResult parsed = new AivBlueprintParser().Parse(
+            loaded.Document, sentinelPath, loaded.Diagnostics);
+        Assert(!parsed.Diagnostics.Any(d => d.Severity == AivDiagnosticSeverity.Error),
+            "archived Sentinel AIV did not parse");
+        var projector = new AivCastleProjector();
+        foreach (AivRotation rotation in new[]
+        {
+            AivRotation.Degrees0,
+            AivRotation.Degrees90,
+            AivRotation.Degrees180,
+            AivRotation.Degrees270
+        })
+        {
+            AivProjectedCastle castle = projector.Project(
+                parsed.Blueprint, new MapCoordinate(390, 558), rotation);
+            Assert(reedAfterWolf.HasPotentialConnectedRecordCleanup ||
+                   reedAfterWolf.HasUnprovenNativeStartInteraction(castle),
+                $"Reed Sea Sentinel rotation {rotation} must remain unproven");
+        }
     }
 
     private static void ResolvesEmbeddedCustomCandidate()
@@ -3307,6 +3362,77 @@ internal static class Program
             Assert(bridgeFit.Status == evaluator.Evaluate(bridgeMap, drawbridge).Status,
                 "drawbridge height 13 does not change native fit status");
         }
+    }
+
+    private static void GatesBuildNotices()
+    {
+        var blueprint = new AivBlueprint("notice", 1,
+            [new AivBuildFrame(0, 106, AivMapperCatalog.Resolve(106), false,
+                [new AivGridPoint(50, 50)])],
+            Array.Empty<AivMiscPlacement>(), new AivGridPoint(50, 50));
+        AivPlacementRotationSelection selection = null;
+        foreach (AivRotation initialRotation in new[]
+        {
+            AivRotation.Degrees0, AivRotation.Degrees90,
+            AivRotation.Degrees180, AivRotation.Degrees270
+        })
+        {
+            selection = new AivPlacementEvaluator().EvaluateAllRotations(
+                new SparsePlacementMap(), blueprint,
+                new MapCoordinate(400, 400), initialRotation);
+            var fits = Enumerable.Range(0, 4).Select(rotation =>
+                new NativeAivAutoFit(rotation == 0
+                    ? AivPlacementStatus.Complete : AivPlacementStatus.Impossible,
+                    rotation == 0 ? 999999 : 0,
+                    rotation == 0 ? 100 : 0)).ToArray();
+            NativeAivAutoDecision decision = NativeAivAutoSelector.SelectCertain(
+                [new NativeAivAutoCandidate(7, fits)]);
+            Assert(decision.IsCertain && decision.RotationIndex == 0,
+                "native final rotation must be certain in the single-fit case");
+            var elevated = new int[4];
+            var proven = new bool[4];
+            elevated[0] = 1;
+            proven[0] = true;
+            Assert(AivBuildNoticePolicy.HasProvenHighBuildExposure(7, selection,
+                decision, true, proven, elevated), "selected proven high tile should warn");
+            Assert(!AivBuildNoticePolicy.HasProvenHighBuildExposure(7, selection,
+                decision, false, proven, elevated), "active or unknown AI patch must suppress warning");
+            Assert(!AivBuildNoticePolicy.HasProvenHighBuildExposure(8, selection,
+                decision, true, proven, elevated), "other candidate must not warn");
+            elevated[0] = 0;
+            elevated[1] = 1;
+            proven[1] = true;
+            Assert(!AivBuildNoticePolicy.HasProvenHighBuildExposure(7, selection,
+                decision, true, proven, elevated), "another rotation's height must not warn");
+            elevated[0] = 1;
+            proven[0] = false;
+            Assert(!AivBuildNoticePolicy.HasProvenHighBuildExposure(7, selection,
+                decision, true, proven, elevated), "initial map height alone must not warn");
+        }
+
+        var ambiguous = NativeAivAutoSelector.SelectCertain(
+            [new NativeAivAutoCandidate(7, Enumerable.Range(0, 4).Select(_ =>
+                new NativeAivAutoFit(AivPlacementStatus.Complete, 999999, 100)).ToArray()),
+             new NativeAivAutoCandidate(8, Enumerable.Range(0, 4).Select(_ =>
+                new NativeAivAutoFit(AivPlacementStatus.Complete, 999999, 100)).ToArray())]);
+        Assert(!ambiguous.IsCertain, "multiple candidates must remain ambiguous");
+        Assert(!AivBuildNoticePolicy.HasProvenHighBuildExposure(7, selection,
+            ambiguous, true, [true, true, true, true], [1, 1, 1, 1]),
+            "ambiguous auto selection must suppress height notice");
+
+        IReadOnlyList<NativeAivAutoDecision> possible = NativeAivAutoSelector.SelectPossible(
+            [new NativeAivAutoCandidate(7, Enumerable.Range(0, 4).Select(_ =>
+                new NativeAivAutoFit(AivPlacementStatus.Complete, 999999, 100)).ToArray()),
+             new NativeAivAutoCandidate(8, Enumerable.Range(0, 4).Select(_ =>
+                new NativeAivAutoFit(AivPlacementStatus.Complete, 999999, 100)).ToArray())]);
+        Assert(AivBuildNoticePolicy.HasPossiblePriorKeepContact(7, possible,
+            [true, false, false, false]), "possible selected start contact must warn");
+        Assert(!AivBuildNoticePolicy.HasPossiblePriorKeepContact(9, possible,
+            [true, true, true, true]), "unselected candidate must not warn");
+        Assert(AivBuildNoticePolicy.HasPlannedCoreOverlap([10, 20, 30], [40, 20]),
+            "shared projected core tile is a planned overlap");
+        Assert(!AivBuildNoticePolicy.HasPlannedCoreOverlap([10, 20], [30, 40]),
+            "separate plans must not overlap");
     }
 
     private sealed class SparsePlacementMap : IAivPlacementTileSource

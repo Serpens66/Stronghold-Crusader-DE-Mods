@@ -84,7 +84,7 @@ namespace FormationTest
 
         internal void RefreshHostState()
         {
-            MainViewModel current = MainViewModel.Instance;
+            MainViewModel current = MainViewModel.viewModelLoaded ? MainViewModel.Instance : null;
             if (!ReferenceEquals(current, subscribedMainViewModel) && current != null)
             {
                 subscribedMainViewModel = current;
@@ -103,6 +103,8 @@ namespace FormationTest
         private void ToggleMenu()
         {
             RefreshHostState();
+            if (!MainViewModel.viewModelLoaded)
+                return;
             MainViewModel main = MainViewModel.Instance;
             if (menuVisible)
             {

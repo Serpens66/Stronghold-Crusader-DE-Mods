@@ -33,7 +33,7 @@ Der Detector schreibt unabhängig von der vorgegebenen Spieler-ID für jeden
 aufgenommenen Fall native Auswahl, Fit und gegebenenfalls Bau-Differenzen.
 
 Die erste Serie wurde am 24.09.2026 vollständig aufgenommen (`nextIndex=10`,
-letzter Lauf `CC-B-on`). Der [Auswertungsbericht](../../CastlePlanner/Diagnostics/AivSeries-20260924/RESULTS.md)
+letzter Lauf `CC-B-on`). Der [Auswertungsbericht](../../Findings/AIVPlacement/AivSeries-20260924/RESULTS.md)
 archiviert die Oracle-Korpora und Roh-Traces. Drei Offline-Abweichungen auf
 Craggy Cliffs betreffen die Rekonstruktion benachbarter Startgebäude.
 Weitere Starts mit unverändertem Mod sind zunächst nicht nötig; vor einer
@@ -60,7 +60,7 @@ Spielstart zu laden. Normalen späteren KI-Bau nicht abwarten.
 
 Die vier Einträge wurden am 24.09.2026 abgeschlossen (`nextIndex=4`,
 letzter Lauf `CC-B-on`). Alle 32 Keep-Start-Traces sind vollständig und
-unter `CastlePlanner/Diagnostics/AivSeries-20260924/StartRebuildRegression`
+unter `Findings/AIVPlacement/AivSeries-20260924/StartRebuildRegression`
 archiviert. Die gemessenen Starts belegen keinen fehlgeschlagenen
 Konstruktor und keine allgemeine Schreibbereichsgrenze; weitere
 Kartenstarts sollen nur einen konkret offenen Native-Zweig prüfen.
@@ -75,14 +75,14 @@ Der neue Detector misst stattdessen alle 320.800 Tile-IDs vor und nach
 jedem Keep-Start. Nach diesem einen bestätigten Kartenstart ist die
 Serie vollständig und die automatische Vorbereitung endet. Die vorherige
 Serienkonfiguration samt Fortschritt ist unter
-`CastlePlanner/Diagnostics/AivSeries-20260924/FullGridProbeSetup`
+`Findings/AIVPlacement/AivSeries-20260924/FullGridProbeSetup`
 gesichert. Es genügt, die vorbereitete lokale Lobby zu öffnen und die
 Karte bis zum sichtbaren Spielbeginn zu laden; normalen KI-Bau muss man
 nicht abwarten. Keine Optionen oder Spieler von Hand ändern.
 
 Der Vollkartenlauf `CC-A-on` wurde abgeschlossen. Alle acht
 Keep-Aufnahmen waren vollständig; die Archivierung und Auswertung steht
-unter `CastlePlanner/Diagnostics/AivSeries-20260924/FullGridProbeResults`.
+unter `Findings/AIVPlacement/AivSeries-20260924/FullGridProbeResults`.
 Für den nächsten **einzelnen** Lauf liegt
 `AivLobbyCrater180ProbeSeries.json` bereit: `CL-A-on` auf Crater Lake,
 sieben KI-Spieler und „Completed Castles“ an. Das alte Oracle-Archiv
@@ -91,7 +91,7 @@ die neuen Vollkarten-Start-Traces sollen diesen noch nicht gemessenen
 Konstruktorzweig prüfen. Nach beendetem Spiel wurde diese Serie am
 24.09.2026 in `BepInEx/config/AivLobbyTestSeries.json` aktiviert
 (`nextIndex=0`). Die zuvor abgeschlossene Serie und ihr Fortschritt liegen
-unter `CastlePlanner/Diagnostics/AivSeries-20260924/Crater180ProbeSetup`.
+unter `Findings/AIVPlacement/AivSeries-20260924/Crater180ProbeSetup`.
 Nach dem einen bestätigten Match endet die automatische Vorbereitung wieder.
 
 Die Ein-Match-Serie wurde vor ihrem ersten Lauf durch
@@ -106,4 +106,4 @@ Die Serie wurde bei beendetem Spiel als
 `BepInEx/config/AivLobbyTestSeries.json` aktiviert. Der Fortschritt steht
 auf `CL-A-off` bei Index 0. Die vorherige Ein-Match-Konfiguration samt
 Fortschritt liegt unter
-`CastlePlanner/Diagnostics/AivSeries-20260924/SixMatchSetup`.
+`Findings/AIVPlacement/AivSeries-20260924/SixMatchSetup`.

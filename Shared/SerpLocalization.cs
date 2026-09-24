@@ -258,6 +258,8 @@ public static class SerpLocalization
     public const string AivPlacementHighMoatRisk = "CastlePlanner.AIVPlacement.HighMoatRisk";
     public const string AivPlacementHighDrawbridgeRisk = "CastlePlanner.AIVPlacement.HighDrawbridgeRisk";
     public const string AivPlacementHighBothRisk = "CastlePlanner.AIVPlacement.HighBothRisk";
+    public const string AivPlacementPriorKeepRisk = "CastlePlanner.AIVPlacement.PriorKeepRisk";
+    public const string AivPlacementPlannedOverlap = "CastlePlanner.AIVPlacement.PlannedOverlap";
 
     private const string DefaultLocale = "en-US";
     private const string SteamAppId = "3024040";
@@ -706,7 +708,9 @@ public static class SerpLocalization
         { AivPlacementHighBuildUnknown, "Moat/drawbridge build rule on high ground is unknown." },
         { AivPlacementHighMoatRisk, "Moat may be missing on high ground." },
         { AivPlacementHighDrawbridgeRisk, "Drawbridge may be missing on high ground." },
-        { AivPlacementHighBothRisk, "Moat/drawbridge may be missing on high ground." }
+        { AivPlacementHighBothRisk, "Moat/drawbridge may be missing on high ground." },
+        { AivPlacementPriorKeepRisk, "An earlier Keep may be removed when this AI starts." },
+        { AivPlacementPlannedOverlap, "Planned AIV building areas overlap an earlier AI plan." }
     };
 
     public static string Get(string key)

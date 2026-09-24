@@ -72,6 +72,8 @@ namespace AivLobbyPresetTest
                 if (notification.Context.StartKind != MissionStartKind.NewGame ||
                     notification.Context.Mode.Kind != GameModeKind.CustomGame)
                     throw new InvalidOperationException("Not a new local skirmish.");
+                if (!MainViewModel.viewModelLoaded)
+                    throw new InvalidOperationException("The main view model is not loaded.");
                 VerifyBeforeLaunch(MainViewModel.Instance?.FRONTMultiplayer);
                 verifiedSessionId = notification.Context.SessionId;
                 log.LogInfo("Test-series launch verified: " + activeRun.Id +
@@ -199,6 +201,8 @@ namespace AivLobbyPresetTest
                     renderCallbackObserved = true;
                     log.LogInfo("Persistent lobby render observer active.");
                 }
+                if (!MainViewModel.viewModelLoaded)
+                    return;
                 MainViewModel model = MainViewModel.Instance;
                 FRONT_Multiplayer view = model?.FRONTMultiplayer;
                 Platform_Multiplayer.MPLobby lobby = view?.currentLobby;

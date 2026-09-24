@@ -46,8 +46,13 @@ namespace CastlePlanner.AIVPlacement
             new Dictionary<int, Dictionary<int, AivPlacementCandidateEvaluation>>();
         private readonly Dictionary<int, NativeAivAutoDecision> autoByPlayer =
             new Dictionary<int, NativeAivAutoDecision>();
+        private readonly Dictionary<int, IReadOnlyList<NativeAivAutoDecision>> possibleAutoByPlayer =
+            new Dictionary<int, IReadOnlyList<NativeAivAutoDecision>>();
+        private readonly List<int> playerOrder = new List<int>();
         private readonly HashSet<string> reportedWarnings = new HashSet<string>(StringComparer.Ordinal);
         private readonly HashSet<string> reportedErrors = new HashSet<string>(StringComparer.Ordinal);
+        private readonly Dictionary<string, string> publishedUiStates =
+            new Dictionary<string, string>(StringComparer.Ordinal);
 
         private Hook initHook;
         private Hook populateHook;
@@ -152,8 +157,11 @@ namespace CastlePlanner.AIVPlacement
             statesByPlayer.Clear();
             evaluatedByPlayer.Clear();
             autoByPlayer.Clear();
+            possibleAutoByPlayer.Clear();
+            playerOrder.Clear();
             foreach (AivPlacementCheckRequest request in batch.Requests)
             {
+                playerOrder.Add(request.PlayerId);
                 var states = new Dictionary<int, AivCandidateVisualState>();
                 foreach (AivPlacementCandidateRequest candidate in request.Candidates)
                 {
@@ -173,14 +181,17 @@ namespace CastlePlanner.AIVPlacement
             var states = new Dictionary<int, AivCandidateVisualState>();
             NativeAivAutoDecision autoDecision =
                 NativeAivAutoSelector.SelectCertain(result.Candidates);
+            IReadOnlyList<NativeAivAutoDecision> possibleAuto =
+                NativeAivAutoSelector.SelectPossible(result.Candidates);
             var evaluated = new Dictionary<int, AivPlacementCandidateEvaluation>();
             foreach (AivPlacementCandidateEvaluation candidate in result.Candidates)
             {
                 evaluated[candidate.CandidateId] = candidate;
-                states[candidate.CandidateId] = BuildVisualState(candidate, autoDecision);
+                states[candidate.CandidateId] = BuildVisualState(candidate, autoDecision, possibleAuto);
             }
             evaluatedByPlayer[result.PlayerId] = evaluated;
             autoByPlayer[result.PlayerId] = autoDecision;
+            possibleAutoByPlayer[result.PlayerId] = possibleAuto;
 
             if (states.Count == 0 && statesByPlayer.TryGetValue(
                     result.PlayerId,
@@ -195,6 +206,7 @@ namespace CastlePlanner.AIVPlacement
             }
 
             statesByPlayer[result.PlayerId] = states;
+            RefreshEvaluatedVisualStates();
             RefreshSelectionList(FRONT_Multiplayer_AISettings.Instance);
         }
 
@@ -224,6 +236,7 @@ namespace CastlePlanner.AIVPlacement
         {
             evaluatedByPlayer.Remove(playerId);
             autoByPlayer.Remove(playerId);
+            possibleAutoByPlayer.Remove(playerId);
             var states = new Dictionary<int, AivCandidateVisualState>();
             if (statesByPlayer.TryGetValue(
                     playerId,
@@ -249,6 +262,9 @@ namespace CastlePlanner.AIVPlacement
             statesByPlayer.Clear();
             evaluatedByPlayer.Clear();
             autoByPlayer.Clear();
+            possibleAutoByPlayer.Clear();
+            playerOrder.Clear();
+            publishedUiStates.Clear();
             activeInfo = null;
             selectionList.Refresh(null, false, null, activeMpMode ? 1 : 8);
             ApplySelectionListMode(FRONT_Multiplayer_AISettings.Instance, false);
@@ -413,15 +429,19 @@ namespace CastlePlanner.AIVPlacement
             IReadOnlyDictionary<int, AivCandidateVisualState> states = null;
             if (info != null && playerIdsByInfo.TryGetValue(info, out int playerId))
                 statesByPlayer.TryGetValue(playerId, out states);
-            PublishToBugfixApi(info, states);
+            bool publishedToBugfix = PublishToBugfixApi(info, states);
             bool bugfixListVisible = BugfixAivStatusBridge.IsSelectionListVisible(instance);
             selectionList.Refresh(info, allowRemoval, states, activeMpMode ? 1 : 8);
             ApplySelectionListMode(instance, !bugfixListVisible);
+            LogPublishedUiStates(info, states, publishedToBugfix && bugfixListVisible
+                ? "BugfixesAndQoL" : "CastlePlanner");
         }
 
         private static AivCandidateVisualState BuildVisualState(
             AivPlacementCandidateEvaluation candidate,
-            NativeAivAutoDecision autoDecision)
+            NativeAivAutoDecision autoDecision,
+            IReadOnlyList<NativeAivAutoDecision> possibleAuto = null,
+            bool plannedOverlap = false)
         {
             string description;
             switch (candidate.Status)
@@ -461,26 +481,32 @@ namespace CastlePlanner.AIVPlacement
                     "Results", rotations);
             }
 
-            if (candidate.Selection != null && candidate.Status != AivPlacementStatus.Impossible)
+            bool patchDisabled = ElevatedMoatAiCapability.Current == ElevatedMoatAiState.Disabled;
+            bool moat = AivBuildNoticePolicy.HasProvenHighBuildExposure(
+                candidate.CandidateId, candidate.Selection, autoDecision, patchDisabled,
+                candidate.BuildTimeHeightProvenByRotation,
+                candidate.ElevatedMoatTilesByRotation);
+            bool drawbridge = AivBuildNoticePolicy.HasProvenHighBuildExposure(
+                candidate.CandidateId, candidate.Selection, autoDecision, patchDisabled,
+                candidate.BuildTimeHeightProvenByRotation,
+                candidate.ElevatedDrawbridgeTilesByRotation);
+            if (moat || drawbridge)
             {
-                bool moat = HasElevatedBuildExposure(candidate.Selection,
-                    candidate.ElevatedMoatTilesByRotation);
-                bool drawbridge = HasElevatedBuildExposure(candidate.Selection,
-                    candidate.ElevatedDrawbridgeTilesByRotation);
-                if ((moat || drawbridge) &&
-                    ElevatedMoatAiCapability.Current != ElevatedMoatAiState.Enabled)
-                {
-                    ElevatedMoatAiState state = ElevatedMoatAiCapability.Current;
-                    string key = state == ElevatedMoatAiState.Unknown
-                        ? SerpLocalization.AivPlacementHighBuildUnknown
-                        : moat && drawbridge
-                            ? SerpLocalization.AivPlacementHighBothRisk
-                            : moat
-                                ? SerpLocalization.AivPlacementHighMoatRisk
-                                : SerpLocalization.AivPlacementHighDrawbridgeRisk;
-                    description += Environment.NewLine + SerpLocalization.Get(key);
-                }
+                string key = moat && drawbridge
+                    ? SerpLocalization.AivPlacementHighBothRisk
+                    : moat
+                        ? SerpLocalization.AivPlacementHighMoatRisk
+                        : SerpLocalization.AivPlacementHighDrawbridgeRisk;
+                description += Environment.NewLine + SerpLocalization.Get(key);
             }
+
+            if (AivBuildNoticePolicy.HasPossiblePriorKeepContact(candidate.CandidateId,
+                    possibleAuto, candidate.PotentialPriorKeepRemovalByRotation))
+                description += Environment.NewLine + SerpLocalization.Get(
+                    SerpLocalization.AivPlacementPriorKeepRisk);
+            if (plannedOverlap)
+                description += Environment.NewLine + SerpLocalization.Get(
+                    SerpLocalization.AivPlacementPlannedOverlap);
 
             string autoText = autoDecision == null || !autoDecision.IsCertain
                 ? SerpLocalization.Get(SerpLocalization.AivPlacementAutoUnknown)
@@ -500,6 +526,12 @@ namespace CastlePlanner.AIVPlacement
 
         public void RefreshMoatStatus()
         {
+            RefreshEvaluatedVisualStates();
+            RefreshSelectionList(FRONT_Multiplayer_AISettings.Instance);
+        }
+
+        private void RefreshEvaluatedVisualStates()
+        {
             foreach (KeyValuePair<int, Dictionary<int, AivPlacementCandidateEvaluation>> player in evaluatedByPlayer)
             {
                 if (!statesByPlayer.TryGetValue(player.Key,
@@ -507,23 +539,44 @@ namespace CastlePlanner.AIVPlacement
                     continue;
                 var states = previous.ToDictionary(entry => entry.Key, entry => entry.Value);
                 autoByPlayer.TryGetValue(player.Key, out NativeAivAutoDecision autoDecision);
+                possibleAutoByPlayer.TryGetValue(player.Key,
+                    out IReadOnlyList<NativeAivAutoDecision> possibleAuto);
                 foreach (AivPlacementCandidateEvaluation candidate in player.Value.Values)
-                    states[candidate.CandidateId] = BuildVisualState(candidate, autoDecision);
+                    states[candidate.CandidateId] = BuildVisualState(candidate, autoDecision,
+                        possibleAuto, HasPlannedOverlap(player.Key, candidate, autoDecision));
                 statesByPlayer[player.Key] = states;
             }
-            RefreshSelectionList(FRONT_Multiplayer_AISettings.Instance);
         }
 
-        private static bool HasElevatedBuildExposure(
-            AivPlacementRotationSelection selection,
-            IReadOnlyList<int> tilesByRotation)
+        private bool HasPlannedOverlap(
+            int playerId,
+            AivPlacementCandidateEvaluation candidate,
+            NativeAivAutoDecision currentAuto)
         {
-            int count = Math.Min(selection.Variants.Count, tilesByRotation.Count);
-            for (int index = 0; index < count; index++)
+            if (currentAuto?.IsCertain != true ||
+                currentAuto.CandidateId != candidate.CandidateId ||
+                currentAuto.RotationIndex < 0 ||
+                currentAuto.RotationIndex >= candidate.PlannedCoreTilesByRotation.Count)
+                return false;
+            int currentIndex = playerOrder.IndexOf(playerId);
+            if (currentIndex <= 0)
+                return false;
+            IReadOnlyList<int> currentTiles =
+                candidate.PlannedCoreTilesByRotation[currentAuto.RotationIndex];
+            for (int index = 0; index < currentIndex; index++)
             {
-                if (tilesByRotation[index] > 0 &&
-                    selection.Variants[index].Status != AivPlacementStatus.Impossible &&
-                    selection.Variants[index].Status != AivPlacementStatus.NotEvaluable)
+                int priorId = playerOrder[index];
+                if (!autoByPlayer.TryGetValue(priorId, out NativeAivAutoDecision priorAuto) ||
+                    !priorAuto.IsCertain || !priorAuto.CandidateId.HasValue ||
+                    !evaluatedByPlayer.TryGetValue(priorId,
+                        out Dictionary<int, AivPlacementCandidateEvaluation> earlier) ||
+                    !earlier.TryGetValue(priorAuto.CandidateId.Value,
+                        out AivPlacementCandidateEvaluation priorCandidate) ||
+                    priorAuto.RotationIndex < 0 ||
+                    priorAuto.RotationIndex >= priorCandidate.PlannedCoreTilesByRotation.Count)
+                    continue;
+                if (AivBuildNoticePolicy.HasPlannedCoreOverlap(currentTiles,
+                        priorCandidate.PlannedCoreTilesByRotation[priorAuto.RotationIndex]))
                     return true;
             }
             return false;
@@ -607,12 +660,12 @@ namespace CastlePlanner.AIVPlacement
             extended.Visibility = useExtendedList ? Visibility.Visible : Visibility.Collapsed;
         }
 
-        private void PublishToBugfixApi(
+        private bool PublishToBugfixApi(
             FRONT_Multiplayer.MPAIVInfo info,
             IReadOnlyDictionary<int, AivCandidateVisualState> states)
         {
             if (info?.aivs == null || !BugfixAivStatusBridge.IsAvailable)
-                return;
+                return false;
             var checksums = new List<ulong>();
             var neutralStatuses = new List<int>();
             var toolTips = new List<string>();
@@ -639,11 +692,44 @@ namespace CastlePlanner.AIVPlacement
                 neutralStatuses.Add(neutralStatus);
                 toolTips.Add(state.ToolTip ?? string.Empty);
             }
-            BugfixAivStatusBridge.TryReplace(
+            return BugfixAivStatusBridge.TryReplace(
                 info,
                 checksums.ToArray(),
                 neutralStatuses.ToArray(),
                 toolTips.ToArray());
+        }
+
+        private void LogPublishedUiStates(
+            FRONT_Multiplayer.MPAIVInfo info,
+            IReadOnlyDictionary<int, AivCandidateVisualState> states,
+            string uiRoute)
+        {
+            if (info?.aivs == null || states == null ||
+                !playerIdsByInfo.TryGetValue(info, out int playerId))
+                return;
+            var current = new HashSet<string>(StringComparer.Ordinal);
+            for (int candidateId = 0; candidateId < info.aivs.Count; candidateId++)
+            {
+                CustomisationFileManager.CustomAIV aiv = info.aivs[candidateId];
+                if (aiv == null || !states.TryGetValue(candidateId, out AivCandidateVisualState state))
+                    continue;
+                string key = playerId + ":" + candidateId + ":" + aiv.checksum;
+                current.Add(key);
+                string tooltip = state.ToolTip ?? string.Empty;
+                string value = uiRoute + "|" + state.Status + "|" + tooltip;
+                if (publishedUiStates.TryGetValue(key, out string prior) &&
+                    string.Equals(prior, value, StringComparison.Ordinal))
+                    continue;
+                publishedUiStates[key] = value;
+                Shared.DebugLogHelper.LogInfo(log,
+                    $"AIV UI published route={uiRoute} player={playerId} candidate={candidateId} " +
+                    $"checksum={aiv.checksum} status={state.Status?.ToString() ?? "Pending"} " +
+                    $"extraFeaturesAi={ElevatedMoatAiCapability.Current} " +
+                    $"tooltip={tooltip.Replace("\r", "\\r").Replace("\n", "\\n")}");
+            }
+            foreach (string key in publishedUiStates.Keys.Where(key =>
+                key.StartsWith(playerId + ":", StringComparison.Ordinal) && !current.Contains(key)).ToArray())
+                publishedUiStates.Remove(key);
         }
 
         private bool IsLobbySetupActive()
@@ -651,6 +737,8 @@ namespace CastlePlanner.AIVPlacement
             if (!isEnabled())
                 return false;
 
+            if (!MainViewModel.viewModelLoaded)
+                return false;
             MainViewModel viewModel = MainViewModel.Instance;
             return viewModel?.Show_MultiplayerSetup == true &&
                 viewModel.Show_MPGameCreation == true &&

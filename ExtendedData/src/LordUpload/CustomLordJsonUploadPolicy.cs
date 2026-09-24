@@ -1,4 +1,4 @@
-// Feature: Safe staging of direct JSON sidecars for Custom and Extended Lord uploads.
+// Feature: Safe staging of JSON sidecars for Custom and Extended Lord uploads.
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -39,6 +39,7 @@ namespace ExtendedData
             copiedFileCount = 0;
             existingFileCount = 0;
             var copiedDestinations = new List<string>();
+            var createdDirectories = new List<string>();
             try
             {
                 string source = NormalizeExistingDirectory(sourceDirectory, "Lord source directory");
@@ -50,22 +51,26 @@ namespace ExtendedData
                 if (PathsOverlap(source, destination))
                     throw new InvalidDataException("The Lord source and Workshop staging directories overlap.");
 
-                string[] sourceFiles = Directory.GetFiles(source, "*", SearchOption.TopDirectoryOnly);
-                Array.Sort(sourceFiles, StringComparer.OrdinalIgnoreCase);
+                var sourceFiles = new List<string>();
+                CollectJsonFiles(source, source, sourceFiles);
+                sourceFiles.Sort(StringComparer.OrdinalIgnoreCase);
                 foreach (string sourceFile in sourceFiles)
                 {
-                    if (!string.Equals(Path.GetExtension(sourceFile), ".json", StringComparison.OrdinalIgnoreCase))
-                        continue;
-
                     RejectReparsePoint(sourceFile, "Lord JSON file");
-                    string destinationFile = Path.Combine(destination, Path.GetFileName(sourceFile));
+                    string relativePath = sourceFile.Substring(source.Length + 1);
+                    string destinationFile = Path.GetFullPath(Path.Combine(destination, relativePath));
+                    if (!destinationFile.StartsWith(destination + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                        throw new InvalidDataException("A Lord JSON path escapes its staging directory.");
+                    string destinationDirectory = Path.GetDirectoryName(destinationFile)
+                        ?? throw new InvalidDataException("A Lord JSON destination has no parent directory.");
+                    CreateDirectoryChain(destination, destinationDirectory, createdDirectories);
                     if (Directory.Exists(destinationFile))
-                        throw new IOException("A JSON destination is an existing directory: " + Path.GetFileName(sourceFile));
+                        throw new IOException("A JSON destination is an existing directory: " + relativePath);
                     if (File.Exists(destinationFile))
                     {
                         RejectReparsePoint(destinationFile, "Existing Workshop JSON file");
                         if (!FilesAreEqual(sourceFile, destinationFile))
-                            throw new IOException("A different JSON destination already exists: " + Path.GetFileName(sourceFile));
+                            throw new IOException("A different JSON destination already exists: " + relativePath);
                         existingFileCount++;
                         continue;
                     }
@@ -80,11 +85,48 @@ namespace ExtendedData
             catch (Exception exception)
             {
                 RollBackCopiedFiles(copiedDestinations);
+                RollBackCreatedDirectories(createdDirectories);
                 copiedFileCount = 0;
                 existingFileCount = 0;
                 error = exception.Message;
                 return false;
             }
+        }
+
+        private static void CollectJsonFiles(string root, string directory, List<string> files)
+        {
+            RejectReparsePoint(directory, "Lord source directory");
+            foreach (string file in Directory.GetFiles(directory))
+            {
+                RejectReparsePoint(file, "Lord source file");
+                if (string.Equals(Path.GetExtension(file), ".json", StringComparison.OrdinalIgnoreCase))
+                    files.Add(file);
+            }
+            foreach (string child in Directory.GetDirectories(directory))
+            {
+                string fullPath = Path.GetFullPath(child);
+                if (!fullPath.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidDataException("A Lord source path escapes its root directory.");
+                CollectJsonFiles(root, fullPath, files);
+            }
+        }
+
+        private static void CreateDirectoryChain(string root, string directory, List<string> created)
+        {
+            if (string.Equals(root, directory, StringComparison.OrdinalIgnoreCase))
+                return;
+            if (!directory.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("A Lord JSON destination escapes its staging directory.");
+            string parent = Path.GetDirectoryName(directory)
+                ?? throw new InvalidDataException("A Lord JSON destination has no parent directory.");
+            CreateDirectoryChain(root, parent, created);
+            if (Directory.Exists(directory))
+            {
+                RejectReparsePoint(directory, "Workshop staging directory");
+                return;
+            }
+            Directory.CreateDirectory(directory);
+            created.Add(directory);
         }
 
         private static bool ContainsExact(string[] tags, string expected)
@@ -194,6 +236,22 @@ namespace ExtendedData
                 {
                     if (File.Exists(copiedFiles[index]))
                         File.Delete(copiedFiles[index]);
+                }
+                catch
+                {
+                }
+            }
+        }
+
+        private static void RollBackCreatedDirectories(List<string> createdDirectories)
+        {
+            for (int index = createdDirectories.Count - 1; index >= 0; index--)
+            {
+                try
+                {
+                    if (Directory.Exists(createdDirectories[index]) &&
+                        Directory.GetFileSystemEntries(createdDirectories[index]).Length == 0)
+                        Directory.Delete(createdDirectories[index]);
                 }
                 catch
                 {

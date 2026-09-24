@@ -309,7 +309,7 @@ namespace ExtendedData
                 {
                     uploadOptions.Close();
                     SetCoopPackagePresentation(null, 0);
-                    if (MainViewModel.Instance != null)
+                    if (MainViewModel.viewModelLoaded && MainViewModel.Instance != null)
                         MainViewModel.Instance.Show_TrailCustomisationButtons = false;
                     ExitContext(force: true);
                 }
@@ -1082,7 +1082,7 @@ namespace ExtendedData
                 {
                     string source = IOPath.Combine(ConfigSettings.GetUserCustomTrailsPath(), mapTitle);
                     string destination = IOPath.Combine(nameMap, mapTitle);
-                    if (!WorkshopUploadStaging.TryStageTrailSidecars(
+                    if (!WorkshopUploadStaging.TryStageTrailJsonFiles(
                             source,
                             destination,
                             out int copiedFiles,
@@ -1090,13 +1090,13 @@ namespace ExtendedData
                     {
                         DebugLogHelper.LogError(
                             log,
-                            $"Custom Trail sidecars could not be staged for [{mapTitle}]; upload aborted: {error}");
+                            $"Custom Trail JSON files could not be staged for [{mapTitle}]; upload aborted: {error}");
                         InvokeUploadFailure(mapTitle, terminalFailure);
                         return;
                     }
                     DebugLogHelper.LogInfo(
                         log,
-                        $"Added {copiedFiles} Custom Trail mod-settings sidecar(s) to Workshop staging for [{mapTitle}].");
+                        $"Added {copiedFiles} Custom Trail JSON file(s) to Workshop staging for [{mapTitle}].");
                 }
                 else if (decision != null && !decision.IncludeExtendedData && IsCustomTrailUpload(tags))
                 {

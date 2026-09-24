@@ -38,6 +38,7 @@ namespace APIShared
             // FRONT_Multiplayer inherits Noesis.BaseComponent, whose == null checks
             // the native handle rather than the managed reference.
             if (ReferenceEquals(view, null) || !FRONT_Multiplayer.skirmishGame ||
+                !MainViewModel.viewModelLoaded ||
                 MainViewModel.Instance?.Show_MPGameCreation != true)
             {
                 if (view?.currentLobby == null)

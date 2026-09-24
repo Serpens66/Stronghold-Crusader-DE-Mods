@@ -893,6 +893,8 @@ namespace CastlePlanner.AIVPlacement
 
         private static bool IsLobbySetupContext()
         {
+            if (!MainViewModel.viewModelLoaded)
+                return false;
             MainViewModel viewModel = MainViewModel.Instance;
             // Vanilla's setup panel is the positive lobby signal. Coop Trail pages also prepare
             // it in the background; only an explicit Skirmish-style customization may opt in.

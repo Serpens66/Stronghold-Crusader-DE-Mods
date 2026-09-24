@@ -93,7 +93,7 @@ namespace CastlePlanner.AIVPlacement
             AivCandidateVisualState state)
         {
             ImageSource icon = null;
-            if (MainViewModel.Instance != null)
+            if (MainViewModel.viewModelLoaded && MainViewModel.Instance != null)
             {
                 icon = aiv.builtIn
                     ? MainViewModel.Instance.GameSprites[88]
@@ -139,7 +139,9 @@ namespace CastlePlanner.AIVPlacement
         public CustomisationFileManager.CustomAIV Aiv { get; }
         public int CandidateId { get; private set; }
         public string Name => Aiv.AIVName ?? string.Empty;
-        public string GlobalTextFlowAL2R => MainViewModel.Instance?.GlobalTextFlowAL2R ?? "LeftToRight";
+        public string GlobalTextFlowAL2R => MainViewModel.viewModelLoaded
+            ? MainViewModel.Instance?.GlobalTextFlowAL2R ?? "LeftToRight"
+            : "LeftToRight";
         public ImageSource Icon { get; }
         public RelayCommand RemoveCommand { get; }
         public Visibility RemoveVisibility => removeVisibility;

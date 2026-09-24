@@ -10,7 +10,7 @@ namespace ExtendedData
         private static int Main()
         {
             Run("exact upload classification", TestClassification);
-            Run("root JSON staging", TestRootJsonStaging);
+            Run("recursive JSON staging", TestRootJsonStaging);
             Run("no JSON succeeds", TestNoJson);
             Run("idempotent retry", TestIdempotentRetry);
             Run("conflict rolls back", TestConflictRollback);
@@ -51,12 +51,12 @@ namespace ExtendedData
                     source, root, "Lord", out int copied, out int existing, out string error);
 
                 Assert(result, error);
-                Assert(copied == 2 && existing == 0, "unexpected JSON staging counts");
+                Assert(copied == 3 && existing == 0, "unexpected JSON staging counts");
                 Assert(File.Exists(Path.Combine(destination, "info.json")), "info.json was not copied");
                 Assert(File.Exists(Path.Combine(destination, "LORDMETA.JSON")), "case-variant .json was not copied");
                 Assert(!File.Exists(Path.Combine(destination, "lord.lordjson")), ".lordjson was copied");
                 Assert(!File.Exists(Path.Combine(destination, "castle.aivjson")), ".aivjson was copied");
-                Assert(!Directory.Exists(Path.Combine(destination, "nested")), "nested JSON was copied");
+                Assert(File.Exists(Path.Combine(destination, "nested", "nested.json")), "nested JSON was not copied");
             });
         }
 
@@ -77,11 +77,13 @@ namespace ExtendedData
             WithDirectories((source, root, destination) =>
             {
                 File.WriteAllText(Path.Combine(source, "info.json"), "same");
+                string nested = Directory.CreateDirectory(Path.Combine(source, "Override", "Fixes")).FullName;
+                File.WriteAllText(Path.Combine(nested, "preferences.json"), "same nested");
                 Assert(CustomLordJsonUploadPolicy.TryStageDirectJsonFiles(
                     source, root, "Lord", out int firstCopied, out _, out string firstError), firstError);
                 Assert(CustomLordJsonUploadPolicy.TryStageDirectJsonFiles(
                     source, root, "Lord", out int retryCopied, out int retryExisting, out string retryError), retryError);
-                Assert(firstCopied == 1 && retryCopied == 0 && retryExisting == 1, "retry was not idempotent");
+                Assert(firstCopied == 2 && retryCopied == 0 && retryExisting == 2, "retry was not idempotent");
             });
         }
 
@@ -89,16 +91,18 @@ namespace ExtendedData
         {
             WithDirectories((source, root, destination) =>
             {
-                File.WriteAllText(Path.Combine(source, "a.json"), "new");
-                File.WriteAllText(Path.Combine(source, "z.json"), "source");
-                File.WriteAllText(Path.Combine(destination, "z.json"), "destination");
+                string nested = Directory.CreateDirectory(Path.Combine(source, "nested")).FullName;
+                string staged = Directory.CreateDirectory(Path.Combine(destination, "nested")).FullName;
+                File.WriteAllText(Path.Combine(nested, "a.json"), "new");
+                File.WriteAllText(Path.Combine(nested, "z.json"), "source");
+                File.WriteAllText(Path.Combine(staged, "z.json"), "destination");
                 bool result = CustomLordJsonUploadPolicy.TryStageDirectJsonFiles(
                     source, root, "Lord", out _, out _, out string error);
                 Assert(!result, "different existing JSON unexpectedly succeeded");
                 Assert(error.IndexOf("different JSON destination", StringComparison.OrdinalIgnoreCase) >= 0,
                     "unexpected conflict error");
-                Assert(!File.Exists(Path.Combine(destination, "a.json")), "copied JSON was not rolled back");
-                Assert(File.ReadAllText(Path.Combine(destination, "z.json")) == "destination",
+                Assert(!File.Exists(Path.Combine(staged, "a.json")), "copied JSON was not rolled back");
+                Assert(File.ReadAllText(Path.Combine(staged, "z.json")) == "destination",
                     "existing JSON was changed");
             });
         }

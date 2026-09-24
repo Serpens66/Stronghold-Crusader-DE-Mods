@@ -256,7 +256,7 @@ Bei `advopt_pre_build=0` wurden erneut sieben Native-Auswahlen erfasst. Die letz
 
 Die erneute Crater-Lake-Aufnahme um 16:32 bestätigte den Fix zur Laufzeit: Für alle sieben KI-Spieler sind `frameSnapshotsComplete=true`, `provenanceComplete=true`, `pointerProblemFrames=0` und `captureErrorFrames=0`. Die erste gebaute Burg änderte 4.230 Werte in den erfassten Tile-Schichten und 203 Gebäudedatensätze. Der unmittelbar folgende Start mit `advopt_pre_build=0` verwendete dieselbe Karte und Besetzung. Bei 41 gemeinsamen (Spieler, Kandidat, Drehung)-Fitversuchen waren nativer Status, Rohscore, Prozent, Zellzahl und blockierte Zellzahl gleich. Bei allen 41 erfassten Fitversuchen späterer KI-Spieler mit Sofortspawn war die Schnittmenge zwischen den zuvor geänderten Tile-IDs und den vom Validator gelesenen Tile-IDs leer. Das belegt räumliche Unabhängigkeit für den tatsächlich beobachteten Auswahlpfad auf dieser Karte, aber noch keine solche Garantie für alle möglichen zufallsabhängigen Varianten oder Mapper-Bauwirkungen. Die Lobby lässt spätere KI-Spieler bei Sofortspawn deshalb weiterhin `NotEvaluable`. Eine vollständige Vorhersage benötigt entweder eine belegte Obergrenze aller möglichen Bauänderungen oder eine exakte Simulation aller möglichen vorherigen Bauzustände.
 
-Der erneute Audit am selben Native-Hash bestätigt für die Fit-Kette `0x57080` -> `0x7B060` den einzelnen geprüften Tile pro AIV-Zelle (Spieler-ID 0, Modus 0). Der Sofortspawn-Pfad `0x51790` -> `0x5CD90`/`0x6D580` kann jedoch bestehende Strukturen entfernen und verzweigt in typspezifische Konstruktoren. Deren gesamte Tile-Schreibreichweite und Rückwirkungen sind für alle Varianten noch nicht belegt; der lokale Fixes-Mod verlagert zusätzlich den OrderedMapTileIds-Puffer. Deshalb wird aus den 41 gleichen Ergebnissen keine allgemeine räumliche Freigabe abgeleitet. Weitere unveränderte Crater-Lake-Spielstarts sind für diese Frage derzeit nicht erforderlich; zuerst muss der statische Schreibpfad begrenzt oder eine gezielt fehlende Variante identifiziert werden. Der reproduzierbare Read/Write-Abgleich liegt unter [`Compare-PrebuildReadWrite.ps1`](Diagnostics/Compare-PrebuildReadWrite.ps1); er prüft zuerst die Datei-Provenienz und vollständige Frames und meldet Überschneidungen ausschließlich für den tatsächlich aufgenommenen Auswahlpfad.
+Der erneute Audit am selben Native-Hash bestätigt für die Fit-Kette `0x57080` -> `0x7B060` den einzelnen geprüften Tile pro AIV-Zelle (Spieler-ID 0, Modus 0). Der Sofortspawn-Pfad `0x51790` -> `0x5CD90`/`0x6D580` kann jedoch bestehende Strukturen entfernen und verzweigt in typspezifische Konstruktoren. Deren gesamte Tile-Schreibreichweite und Rückwirkungen sind für alle Varianten noch nicht belegt; der lokale Fixes-Mod verlagert zusätzlich den OrderedMapTileIds-Puffer. Deshalb wird aus den 41 gleichen Ergebnissen keine allgemeine räumliche Freigabe abgeleitet. Weitere unveränderte Crater-Lake-Spielstarts sind für diese Frage derzeit nicht erforderlich; zuerst muss der statische Schreibpfad begrenzt oder eine gezielt fehlende Variante identifiziert werden. Der reproduzierbare Read/Write-Abgleich liegt unter [`Compare-PrebuildReadWrite.ps1`](../Findings/AIVPlacement/Compare-PrebuildReadWrite.ps1); er prüft zuerst die Datei-Provenienz und vollständige Frames und meldet Überschneidungen ausschließlich für den tatsächlich aufgenommenen Auswahlpfad.
 
 ## Gezielte Variantenlücke, Audit vom 2026-09-23
 
@@ -277,7 +277,7 @@ Die vorherige Aufforderung, die zufällige Acht-Spieler-Aufstellung „unveränd
 | 7 | Jewel | 3 | `(105,84)` | `(379,353)` | Default | `jewel5.aivjson` |
 | 8 | Nomade | 7 | `(37,174)` | `(423,667)` | Default | `nomad4.aivjson` |
 
-Die Positionsgrafik [`CraterLake-Referenzsetup.png`](Diagnostics/CraterLake-Referenzsetup.png) zeigt die Radarplätze. Der Screenshot der neuen Lobby zeigt dieselben Kartenplätze, aber eine andere Spielerfolge: Mensch, Nox, Marschall, Jewel, Abt, Wolf, Nizar, Nomade. Nizar ist dort P7 und Wolf P6. Das ist als räumlich getrennter Kontrollfall geeignet, nicht als isolierter Nizar-zu-Wolf-Bauvergleich. Die native Spielerreihenfolge bleibt bei Sofortspawn relevant, selbst wenn die geplanten Burgflächen nicht überlappen. Für die acht Kartenplätze beträgt die kleinste Chebyshev-Distanz zweier nativer Keep-Anker 133 Tiles (Abt/Nizar). Die projizierten 100×100-AIV-Raster können sich an diesen Ankern daher nicht direkt überschneiden; native Konstruktor- und Bereinigungseffekte außerhalb des Rasters sind damit noch nicht begrenzt.
+Die Positionsgrafik [`CraterLake-Referenzsetup.png`](../Findings/AIVPlacement/CraterLake-Referenzsetup.png) zeigt die Radarplätze. Der Screenshot der neuen Lobby zeigt dieselben Kartenplätze, aber eine andere Spielerfolge: Mensch, Nox, Marschall, Jewel, Abt, Wolf, Nizar, Nomade. Nizar ist dort P7 und Wolf P6. Das ist als räumlich getrennter Kontrollfall geeignet, nicht als isolierter Nizar-zu-Wolf-Bauvergleich. Die native Spielerreihenfolge bleibt bei Sofortspawn relevant, selbst wenn die geplanten Burgflächen nicht überlappen. Für die acht Kartenplätze beträgt die kleinste Chebyshev-Distanz zweier nativer Keep-Anker 133 Tiles (Abt/Nizar). Die projizierten 100×100-AIV-Raster können sich an diesen Ankern daher nicht direkt überschneiden; native Konstruktor- und Bereinigungseffekte außerhalb des Rasters sind damit noch nicht begrenzt.
 
 Für die eingebaute Nizar-Auswahl heißen die relevanten Einträge in der **Lobby** `Default 5` und `Default 6`. Der Detector bezeichnet ihre äquivalenten Editor-Exporte als `nizar5.aivjson` beziehungsweise `nizar6.aivjson`. Das ist nicht gleichbedeutend mit einer lokal installierten Extended-AIV namens `nizar5` oder `nizar6`. `CustomisationFileManager.BuildExtendedLordDirectory` erzeugt `Default N` aus `AIVLoader.getAIVData(lordType, N-1)`; separat eingelesene Dateien erhalten den Dateinamen als Anzeigenamen. Soll nur eine eingebaute Variante zugelassen werden, muss die User-Auswahl genau den betreffenden `Default N`-Eintrag enthalten. Dabei kann die native Kandidaten-ID neu nummeriert werden; Datei-/Datenhash, Drehung und native Startoptionen müssen später verglichen werden.
 
@@ -335,13 +335,13 @@ Map-, AIV- und Native-Hash protokollieren; keine feste Spieler-ID oder
 zufällig beobachtete AIV als allgemeine Voraussetzung einbauen.
 
 Der aus genau diesen beiden Kartenstarts importierte
-[`Oracle-Korpus`](Diagnostics/CraterLake-20260923-1758-Oracle/unknown.json)
+[`Oracle-Korpus`](../Findings/AIVPlacement/CraterLake-20260923-1758-Oracle/unknown.json)
 enthält 89 Native-Versuche. Der unveränderte Offline-Vergleicher meldet
 43 `ExactMatch` (alle 42 Versuche ohne Sofortspawn plus den ersten mit
 Sofortspawn), 46 absichtliche `NotEvaluable` für spätere Spieler mit
 Sofortspawn, null Abweichungen und null Auswertungsfehler. Der
-[`Vergleichsbericht`](Diagnostics/CraterLake-20260923-1758-Oracle/report.json)
-und der dazu isolierte [`Logabschnitt`](Diagnostics/CraterLake-20260923-1758.log)
+[`Vergleichsbericht`](../Findings/AIVPlacement/CraterLake-20260923-1758-Oracle/report.json)
+und der dazu isolierte [`Logabschnitt`](../Findings/AIVPlacement/CraterLake-20260923-1758.log)
 halten diese Prüfung reproduzierbar fest. Die 46 gesperrten Fälle sind keine
 fehlgeschlagenen Fit-Vergleiche; deren Zustand wird bewusst nicht simuliert.
 
@@ -406,6 +406,13 @@ Die geplanten
 Projektionszellen und ihre **ursprüngliche** Map-Höhe werden im Offline-Code
 nur als potentielles späteres Bauhindernis ausgewiesen; das ist keine
 vollständige Simulation aller vorgelagerten Bau-Frames.
+Seit 25.09.2026 wird daraus allein kein UI-Höhenhinweis mehr abgeleitet.
+Dieser erfordert einen nachweislich deaktivierten ExtraFeatures-KI-Patch,
+eindeutigen Vanilla-Kandidaten samt endgültiger Drehung sowie belegte Höhe
+über 12 unmittelbar beim Bau-Frame. Der Worker liefert für letzteren
+Nachweis noch keinen positiven Wert. Der aktuelle Umsetzungsstand und die
+fehlenden Nachweise für weitere Baukonflikte stehen unter
+`Findings/AIVPlacement/STATUS.md`.
 Der Detector-Build vom 24.09.2026 entfernte die beiden Roh-Trace-Ordner unbeabsichtigt. Die zuvor ausgelesenen Frame-Summen und der archivierte Spiel-Log liegen vor, ein erneuter exakter Join jeder projizierten Zelle mit dem nativen Differenztrace ist aus diesen Artefakten nicht mehr möglich. Das Buildskript bewahrt künftig alle nicht mitgelieferten Ordner auf; für diesen Join wäre eine neue Aufnahme erforderlich.
 
 Der Native-Fit `0x57080 -> 0x7B060` verwendet keine Burggraben-Sondergrenze
@@ -468,7 +475,7 @@ gehört ebenfalls nicht zur Auswertung. Native-DLL-SHA-256:
 Crater Lake hat Map-SHA-256 `C5D9906AA37ED96EC1CF9B3EB0C7F6FB5B3E1D8063167FE22337E69C153BB887`,
 Craggy Cliffs `C46B71C941EA299D1CA82C4F9649601E41F80517F05885ECDDA39DEEE5E4EF25`.
 
-Der [Serienbericht](Diagnostics/AivSeries-20260924/RESULTS.md) und die
+Der [Serienbericht](../Findings/AIVPlacement/AivSeries-20260924/RESULTS.md) und die
 getrennten Oracle-Korpora halten 119 Native-Fitversuche fest: 57 exakte
 Offline-Vergleiche, 59 bewusst gesperrte Fälle nach vorherigem Sofortbau,
 drei Abweichungen und null Auswertungsfehler. Die drei Abweichungen treten
@@ -619,7 +626,7 @@ native DLL: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
 Alle 57 erneut beobachteten Fitversuche stimmen in Score, Prozent und
 blockierten Zellen mit dem archivierten Craggy-Korpus überein. Die
 Rohaufnahmen samt Hashliste und relevantem Laufzeitlog liegen unter
-`Diagnostics/AivSeries-20260924/StartRebuildRegression`.
+`../Findings/AIVPlacement/AivSeries-20260924/StartRebuildRegression`.
 
 Alle 32 Startaufrufe endeten mit Fehlerflag 0. Trotzdem enthielt das
 Fehlergrundfeld in 24 Fällen einen Wert ungleich null. Der Detector
@@ -709,7 +716,7 @@ auch Zellen eines früheren Keep-Starts. Acht Versuche berührten in diesem
 konkreten Baupfad keine gemessene frühere Änderung. Der Offline-Vergleich
 ergab einen exakten ersten Fall, 15 vorsichtig graue Fälle und keine
 Abweichung. Alle Daten und Hashes liegen unter
-`Diagnostics/AivSeries-20260924/FullGridProbeResults`.
+`../Findings/AIVPlacement/AivSeries-20260924/FullGridProbeResults`.
 
 Die Messung belegt Reproduzierbarkeit dieser einen Aufstellung, aber
 keine allgemeine Schreibbereichsgrenze. Der Sofortbau-Pfad `0x51790`
@@ -746,7 +753,7 @@ solchen Markern `NotEvaluable`.
 Die 69 neuen Native-Fitversuche ergeben nach der Korrektur 19 exakte,
 50 absichtlich graue, null abweichende und null fehlerhafte Fälle.
 Vollständige Traces und Vergleichsberichte:
-`Diagnostics/AivSeries-20260924/SixMatchResults`. Vertrauen: hoch
+`../Findings/AIVPlacement/AivSeries-20260924/SixMatchResults`. Vertrauen: hoch
 für diese acht erfolgreichen 180°-Fußabdrücke und die native
 Typ-41-Offsettabelle; offen für fehlgeschlagene Konstruktionen,
 andere Marker sowie vollständige Sofortbauwirkungen.
@@ -758,7 +765,7 @@ Importfehler. 16 Vollkarten-Starttraces und sieben Sofortbau-Traces
 sind vollständig. Im Lauf ohne Sofortbau bleibt nur der letzte KI-Fit
 wegen eines verschobenen früheren Startmarkers grau; bei Sofortbau
 bleiben alle späteren KIs wegen des unbekannten Bauzustands grau.
-Archiv: `Diagnostics/AivSeries-20260924/Pivot13RuntimeRegression/Observed`.
+Archiv: `../Findings/AIVPlacement/AivSeries-20260924/Pivot13RuntimeRegression/Observed`.
 Vertrauen: hoch für diesen reproduzierten Lauf; keine neue allgemeine
 Freigabe für andere Marker oder sequenziellen Sofortbau.
 
@@ -782,7 +789,7 @@ Verarbeitungsfehler. Gegenüber dem vorherigen Stand werden 17 weitere
 Fälle exakt bewertet: neue Crater/Craggy-Serien 21 statt 19, ältere
 Archive 61 statt 47 und die Laufzeitregression 11 statt 10. Die
 Marker-Berichte liegen jeweils als `marker-report.json` in den
-Corpus-Ordnern unter `Diagnostics/AivSeries-20260924/SixMatchResults`
+Corpus-Ordnern unter `../Findings/AIVPlacement/AivSeries-20260924/SixMatchResults`
 bzw. `Pivot13RuntimeRegression/Observed`. Diese Korpora belegen die
 beobachteten Marker und erfolgreichen Startkonstruktionen, nicht alle
 Abbruchpfade oder den sequenziellen Sofortbau. Letzterer bleibt für
@@ -803,12 +810,12 @@ das ist keine allgemeine Schreibgrenze. Von 31 Native-Fitversuchen
 waren alle 31 mit dem Offline-Kern in Score, Prozentwert und blockierten
 Zellen exakt. 21 Versuche betreffen die zwei verschiedenen Aufstellungen,
 zehn sind die Wiederholung. Archiv, Rohdaten und SHA-256-Manifest:
-`Diagnostics/AivSeries-20260924/MarkerRuntimeValidation/Observed`.
+`../Findings/AIVPlacement/AivSeries-20260924/MarkerRuntimeValidation/Observed`.
 
 ## Acht-Match-Serie mit mehreren Default-AIVs, 24.09.2026
 
 Die acht bestätigten Sieben-KI-Starts sind unter
-`Diagnostics/AivSeries-20260924/MultiAivEightMatch/Observed` mit dem
+`../Findings/AIVPlacement/AivSeries-20260924/MultiAivEightMatch/Observed` mit dem
 BepInEx-Abschnitt, 80 vollständigen Starttraces, 42 vollständigen
 Sofortbau-Traces, 310 Zelltraces, den verwendeten Map- und AIV-Dateien
 sowie SHA-256-Manifest gesichert. Davon gehören 64 Start- und 28
@@ -820,7 +827,7 @@ Die 114 geplanten Native-Fits ergeben 52 exakte Offline-Vergleiche und
 Prozent oder blockierten Zellen ab. Die beiden Wiederholungen ergeben
 weitere zwei exakte und 40 graue Fälle. Der vollständige Bericht mit
 Karten- und AIV-Hashes und Fallzahlen je Start liegt in
-`Diagnostics/AivSeries-20260924/MultiAivEightMatch/RESULTS.md`.
+`../Findings/AIVPlacement/AivSeries-20260924/MultiAivEightMatch/RESULTS.md`.
 
 Die Startkonstruktoren meldeten keinen Fehlerflag. Ihre beobachteten
 117 neu belegten Zellen sind keine allgemeine Obergrenze: Der native
@@ -936,7 +943,7 @@ Craggy-Cliffs-Starts bleiben im Bericht separat. 129 Native-Fits wurden
 mit hashgeprüften Karten und AIVs erneut verglichen: 52 exakt, 77
 bewusst grau, null Abweichungen. Die 64 Keep-Start- und 28
 Sofortbau-Traces sind vollständig. Der Befund und die Rohdaten liegen
-unter `Diagnostics/AivSeries-20260924/PossibleStartsRuntimeResults/`.
+unter `../Findings/AIVPlacement/AivSeries-20260924/PossibleStartsRuntimeResults/`.
 
 Bei Crater Lake sind die 17 gemeinsamen Native-Fits des Paares mit und
 ohne Sofortbau identisch. Bei Craggy Cliffs unterscheiden sich sechs
@@ -969,7 +976,7 @@ Global-IDs und Start-Statusflags soll dies die Wirkung des nativen Pfads
 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
 Das ist eine vorbereitete Messung, noch kein Beleg für eine allgemeine
 Schreibgrenze oder einen Abbruchvertrag. Der genaue Ablauf steht in
-`Diagnostics/AivSeries-20260924/ConnectedRecordProbeSetup/TEST_PLAN.md`.
+`../Findings/AIVPlacement/AivSeries-20260924/ConnectedRecordProbeSetup/TEST_PLAN.md`.
 
 ## 2026-09-24: Ergebnis der Record-Räumungsmessung
 
@@ -979,7 +986,7 @@ sind vollständig und ohne Snapshot-, Pointer- oder Start-Fehlerflag.
 Von 50 Native-Fit-Versuchen stimmen drei exakt mit dem Offline-Kern
 überein, 47 bleiben bewusst grau; es gibt keine Abweichung. Rohdaten,
 Datei-Hashes und Zell-/Record-Belege stehen unter
-`Diagnostics/AivSeries-20260924/ConnectedRecordProbeResults/RESULTS.md`.
+`../Findings/AIVPlacement/AivSeries-20260924/ConnectedRecordProbeResults/RESULTS.md`.
 
 Der entscheidende Native-Befund am Hash
 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`:
@@ -1015,7 +1022,7 @@ Script-Extender-DLL 2.9.0 `r_UsedInSiegeAttemptId`; Typ `UInt32`,
 Structgröße 812 Byte. Der alte Trace bleibt unverändert archiviert.
 Eine vierteilige Craggy-Cliffs-Serie (`CC-A-off/on`, `CC-B-off/on`)
 ist mit Fortschritt 0 vorbereitet; Testanleitung unter
-`Diagnostics/AivSeries-20260924/CleanupLinkProbeSetup/TEST_PLAN.md`.
+`../Findings/AIVPlacement/AivSeries-20260924/CleanupLinkProbeSetup/TEST_PLAN.md`.
 Sie soll die bisher nicht aufgezeichnete Gruppen-ID gegen konkrete
 Start-Räumungen und den Sofortbau vergleichen. Bis zu dieser Auswertung
 bleibt der breite Produktionsschutz unverändert.
@@ -1028,7 +1035,7 @@ werden getrennt gezählt. Insgesamt sind 64 Keep-Starttraces und 41
 Sofortbau-Traces vollständig. Von 125 Native-Fits sind 21 exakt und 104
 bewusst `NotEvaluable`; es gibt keine Abweichung oder Vergleichsfehler.
 Alle Zellen-, Record- und Eingabedateien samt Hashes liegen unter
-`Diagnostics/AivSeries-20260924/CleanupLinkProbeResults/RESULTS.md`.
+`../Findings/AIVPlacement/AivSeries-20260924/CleanupLinkProbeResults/RESULTS.md`.
 Native-DLL-Hash weiterhin
 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
 
@@ -1085,7 +1092,7 @@ vorbereitet. Zwei KI-Reihenfolgen werden jeweils mit Sofortspawn aus
 und an geprüft. Karte, fünf Keep-Slots, eingebaute Default-AIVs und
 Fortschritt sind vorab validiert; die installierte Testserie hat
 `nextIndex: 0`. Details:
-`Diagnostics/AivSeries-20260924/DenseStartLinkSetup/TEST_PLAN.md`.
+`../Findings/AIVPlacement/AivSeries-20260924/DenseStartLinkSetup/TEST_PLAN.md`.
 Diese Serie prüft gezielt verbundene Startgruppen und einen möglichen
 Konstruktorabbruch; die bisherige konservative Produktionsgrenze bleibt
 bis zur zellweisen Auswertung erhalten.
@@ -1100,7 +1107,7 @@ Die 30 Keep-Starttraces und acht Sofortbau-Traces sind vollständig.
 Von 74 nativen Fits stimmen sechs exakt mit dem Offline-Kern überein;
 68 bleiben bewusst `NotEvaluable`, null weichen ab. Details und
 Prüfsummen:
-`Diagnostics/AivSeries-20260924/DenseStartLinkResults/RESULTS.md`.
+`../Findings/AIVPlacement/AivSeries-20260924/DenseStartLinkResults/RESULTS.md`.
 
 Die `.map` enthält 45 zunächst lebende, nichtnull verknüpfte
 Startrecords. Beim ersten KI-Fit enthält das vollständige Live-Raster
@@ -1153,7 +1160,7 @@ Die erneute Prüfung von 960 archivierten Vergleichsfällen ergab
 316 exakte und 644 bewusst graue Ergebnisse, keine Abweichung;
 die Korpora enthalten teilweise dieselben Spielsituationen.
 Einzelheiten und Berichte stehen unter
-`Diagnostics/AivSeries-20260924/GuardRefinement-20260924/`.
+`../Findings/AIVPlacement/AivSeries-20260924/GuardRefinement-20260924/`.
 
 Die erneute direkte Prüfung von `0xC43A0 -> 0xB8310` zeigt eine
 weitere Grenze: `0xB8310` ruft vor `0x61FC0` zusätzlich
@@ -1181,7 +1188,7 @@ grau, null weichen ab. Bei den 36 grauen Fits nach Sofortbau las der
 Native-Validator tatsächlich zuvor geänderte Tile-IDs. Die übrigen
 16 sind durch mögliche Start-Räumung gesperrt. Befund, Rohdaten,
 Prüfsummen und reproduzierbares Analyse-Script stehen unter
-`Diagnostics/AivSeries-20260924/DynamicLinkProbeResults/`.
+`../Findings/AIVPlacement/AivSeries-20260924/DynamicLinkProbeResults/`.
 
 Bei `DL-reverse-on` erzeugte Spieler 3 in Bau-Frame 53 mit Mapper 87
 vier 5×5-Records mit gemeinsamem Cleanup-Linkwert `903`: IDs
@@ -1239,7 +1246,7 @@ möglichen AIV-Auswahlen. Der Fixes-Quellcode patcht dort optional den
 nachgelagerten Goods-Yard-Tailcall, nicht den dokumentierten
 Gruppenräumungspfad. Ein Einzel-Kontrolllauf mit möglichst wenigen
 erforderlichen Mods ist vorbereitet. Rohdaten und Prüfsummen liegen
-unter `Diagnostics/AivSeries-20260924/NaturalLinkEightResults/`.
+unter `../Findings/AIVPlacement/AivSeries-20260924/NaturalLinkEightResults/`.
 
 ## 2026-09-24: Abschluss der acht Natural-Link-Läufe
 
@@ -1247,7 +1254,7 @@ Die acht vorgesehenen Läufe sind vollständig. Danach gab es einen
 zusätzlichen Reed-Sea-Start mit der letzten Aufstellung; er zählt als
 Wiederholung und nicht als neunter Serientest. Die Rohdaten sind samt
 DLL-, Map- und AIV-Hashes unter
-`Diagnostics/AivSeries-20260924/NaturalLinkEightResults/` gesichert.
+`../Findings/AIVPlacement/AivSeries-20260924/NaturalLinkEightResults/` gesichert.
 Der installierte Native-Hash blieb
 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
 
@@ -1270,3 +1277,35 @@ Bis dahin keine neue allgemeine Regel für verbundene Records oder
 spätere Sofortspawn-Fits freigeben. Vertrauensgrad: hoch für Live-Zellen,
 Native-Scores und graue Produktanzeige; mittel für die Vanilla-Zuordnung
 des Keep-Verlusts ohne diesen Kontrolllauf.
+
+## 2026-09-25: Startvorbereitung und unabhängiger Vanilla-Versuch
+
+Der Nutzer hat den fehlenden Wolf-Keep auf Crusades Crossing mit derselben
+Aufstellung auch ohne Mods reproduziert. Der installierte Native-Hash ist
+weiterhin `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+Damit ist ein Eingriff unserer Mods als notwendige Ursache für diesen
+konkreten Keep-Verlust ausgeschlossen. Der Kontrollversuch hat keinen
+Detector-Zelltrace; die genaue Zellfolge stammt aus dem archivierten
+modded Lauf.
+
+Vanilla führt zwei getrennte Vorbereitungen aus: `0x94350 -> 0xC43A0`
+entfernt zunächst gespeicherte KI-Startgruppen. Vor dem neuen Start setzt
+`0x94350` auch für menschliche Spieler das Flag bei `0x1860AD5AC`.
+Nach erfolgreicher Prüfung `0x6D580 -> 0x77E60` ruft der Keep-Konstruktor
+`0x74DA0` dadurch `0x5D3A0` auf. Diese zweite Vorbereitung prüft feste,
+**nicht mitrotierende** Zellen von Keep, drei Verbindungen, Lager und
+Goods Yard. Bei Kontakt markiert `0xC4290` die gesamte nichtnullig
+verknüpfte Record-Gruppe, die `0xB8310` anschließend löscht. Der
+Sentinel-Start bei `(523,489)` prüft unter anderem `(523,502)` im
+Lagerbereich. Dort lag Wolfs vorheriges Lager; dessen Linkgruppe umfasste
+auch seinen Keep bei `(510,502)`, obwohl dessen eigene Zellen nicht vom
+Sentinel-Start direkt geprüft wurden. Vertrauen: hoch für Native-Pfad,
+Offsets und aufgezeichnete modded Löschung; unabhängig berichtete
+Vanilla-Reproduktion bestätigt das sichtbare Ergebnis.
+
+Die Lobby kann den **Kontakt** und einen möglichen Keep-Verlust als
+separaten Bauhinweis prüfen. Die vollständigen Tile-Nebenwirkungen der
+Löschung und sämtliche Konstruktorabbrüche sind damit noch nicht bewiesen.
+Solche späteren Fits bleiben deshalb `NotEvaluable`, wenn sie diese
+unbekannten Eingabezellen lesen. Ein weiteres allgemeines Nachspielen
+dieses Keep-Verlusts ist nicht nötig.

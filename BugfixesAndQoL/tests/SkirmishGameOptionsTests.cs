@@ -254,17 +254,22 @@ namespace BugfixesAndQoL
                   access.Contains("BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_BUTTON_BOUND"),
                 "button binding callback restores MainViewModel and logs only structural failures");
 
-            string testModFront = File.ReadAllText(Path.Combine(
+            string testModFrontPath = Path.Combine(
                 project,
-                @"..\Testmods\SkirmishGameOptionsTest\Patches\Assets\GUI\XAMLResources\FRONT_Multiplayer.xaml"));
+                @"..\Testmods\SkirmishGameOptionsTest\Patches\Assets\GUI\XAMLResources\FRONT_Multiplayer.xaml");
             string productionFront = File.ReadAllText(frontPath);
             string stableSettingsTextBinding =
                 "{Binding Source={x:Static local:MainViewModel.Instance}, Path=MP_Settings_Button}";
             check(productionFront.Contains(stableSettingsTextBinding) &&
-                  testModFront.Contains(stableSettingsTextBinding) &&
-                  !productionFront.Contains("TEXT_NEW_TEXT2_058") &&
-                  !testModFront.Contains("TEXT_NEW_TEXT2_058"),
+                  !productionFront.Contains("TEXT_NEW_TEXT2_058"),
                 "injected Settings buttons use MainViewModel.Instance.MP_Settings_Button and never the Invite text key");
+            if (File.Exists(testModFrontPath))
+            {
+                string testModFront = File.ReadAllText(testModFrontPath);
+                check(testModFront.Contains(stableSettingsTextBinding) &&
+                      !testModFront.Contains("TEXT_NEW_TEXT2_058"),
+                    "test mod Settings button uses the stable binding when the test mod is present");
+            }
             string noDogsPatch = File.ReadAllText(Path.Combine(
                 project,
                 @"src\NoDogsNativePatch.cs"));

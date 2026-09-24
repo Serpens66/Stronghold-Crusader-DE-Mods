@@ -360,7 +360,7 @@ independence inference from Crater Lake. Confidence is high for the observed
 pairwise scores and read/write sets; unchosen variants and all constructor
 side effects remain unbounded. The product's later-player completed-castle
 `NotEvaluable` boundary remains necessary. See
-`CastlePlanner/Diagnostics/AivSeries-20260924/RESULTS.md` and
+`Findings/AIVPlacement/AivSeries-20260924/RESULTS.md` and
 `CastlePlanner/AIVPlacement_SOFORTSPAWN_FORSCHUNGSSTAND.md` for files and next
 checks.
 
@@ -590,7 +590,7 @@ remains. Confidence: high for this call chain and the observed traces;
 limited for its full-map effects on arbitrary maps and imported mappers.
 
 Raw full-grid, prebuild, cell and log archives with hashes reside in
-`CastlePlanner/Diagnostics/AivSeries-20260924/FullGridProbeResults`.
+`Findings/AIVPlacement/AivSeries-20260924/FullGridProbeResults`.
 
 ## 2026-09-24 six-match full-grid start and 180-degree audit
 
@@ -622,7 +622,7 @@ correction. Confidence is high for the eight observed canonical 180-degree
 compound footprints and Native offsets; the complete constructor effects,
 failure paths, other AIV markers, maps and earlier completed-castle state
 remain unproven. Raw traces and reports are archived at
-`CastlePlanner/Diagnostics/AivSeries-20260924/SixMatchResults`.
+`Findings/AIVPlacement/AivSeries-20260924/SixMatchResults`.
 
 The installed pivot-13 implementation was checked with two further
 confirmed Crater Lake starts using the same fixed seven-AI setup, first
@@ -635,7 +635,7 @@ comparisons and ten conservative `NotEvaluable` classifications, with
 zero mismatches or processing errors. This is a runtime regression of
 the observed branches; it does not close the shifted-marker, constructor
 failure, or sequential prebuild contracts. Evidence is archived under
-`CastlePlanner/Diagnostics/AivSeries-20260924/Pivot13RuntimeRegression/Observed`.
+`Findings/AIVPlacement/AivSeries-20260924/Pivot13RuntimeRegression/Observed`.
 
 ## 2026-09-24 selected AIV marker propagation
 
@@ -657,7 +657,7 @@ archives, including Jewel `(55,44)` at 180° and Nomad `(55,48)` at 0°,
 now agree with the native downstream fits. Five stored corpora total
 218 native fit attempts: 93 exact, 125 deliberately unevaluable, zero
 mismatches or processing errors. Reports are `marker-report.json` in
-`CastlePlanner/Diagnostics/AivSeries-20260924/SixMatchResults` and
+`Findings/AIVPlacement/AivSeries-20260924/SixMatchResults` and
 `Pivot13RuntimeRegression/Observed`. Confidence is high for this
 observed selection-to-anchor data flow and the compared scores; the
 unobserved `0x77E60` abort branches and completed-castle sequential
@@ -678,7 +678,7 @@ The maximum observed Chebyshev distance of a changed cell from its
 Keep was 20. The 31 captured native fits all match the current offline
 score, percentage and blocked-cell count; 21 are from distinct setups
 and ten repeat a setup. Evidence with source hashes is in
-`CastlePlanner/Diagnostics/AivSeries-20260924/MarkerRuntimeValidation/Observed`.
+`Findings/AIVPlacement/AivSeries-20260924/MarkerRuntimeValidation/Observed`.
 
 `CL-B-off` has an ambiguous prior Wolf selection with possible 0- and
 90-degree start rotations; `CL-Reverse-off` permits definite starts
@@ -729,7 +729,7 @@ abort path. Confidence: high for trace completeness and exact compared
 fits, medium for identified connected-record side effects, insufficient
 for a general state-set or completed-castle release. The affected later
 fits remain fail-closed. Full provenance and per-load results:
-`CastlePlanner/Diagnostics/AivSeries-20260924/MultiAivEightMatch/RESULTS.md`.
+`Findings/AIVPlacement/AivSeries-20260924/MultiAivEightMatch/RESULTS.md`.
 
 The archival Thasos Oracle exposed a separate parser regression. At
 `0x54DE0` (VA `0x180054DE0`) the candidate path calls raster import
@@ -754,7 +754,7 @@ archived and new reports compare as 234 exact and 348 deliberately
 unevaluable, with no mismatch or processing error. Some archives repeat
 earlier native attempts; these totals are report entries, not unique
 game states. The post-fix reports and their hash-verified inputs are
-under `CastlePlanner/Diagnostics/AivSeries-20260924/MultiAivEightMatch/Observed`.
+under `Findings/AIVPlacement/AivSeries-20260924/MultiAivEightMatch/Observed`.
 
 ## 2026-09-24 possible-start audit and conservative state set
 
@@ -806,7 +806,7 @@ report entries, 234 exact, 348 deliberately unevaluable, zero mismatch
 or processing error. The comparison uses the recorded actual start for
 each native attempt; it does not by itself validate every counterfactual
 scenario. Results and manifest provenance are under
-`CastlePlanner/Diagnostics/AivSeries-20260924/MultiAivEightMatch/`.
+`Findings/AIVPlacement/AivSeries-20260924/MultiAivEightMatch/`.
 
 ## 2026-09-24 possible-start runtime series and raster counter contract
 
@@ -866,7 +866,7 @@ unplanned `CC-B-on` repeat. The 24 Keep-start record/tile traces and 20
 prebuild traces are complete, with zero capture or Keep-start failure flags.
 All 50 native fit attempts compare as three exact, 47 conservatively
 unevaluable and zero mismatches/errors. Raw hashes and per-record evidence
-are archived in `CastlePlanner/Diagnostics/AivSeries-20260924/ConnectedRecordProbeResults/RESULTS.md`.
+are archived in `Findings/AIVPlacement/AivSeries-20260924/ConnectedRecordProbeResults/RESULTS.md`.
 Confidence: high for these three observed loads, not for unobserved starts.
 
 For type 41, the conditional cleanup call `0x74DA0 -> 0x5D3A0` scans the
@@ -906,7 +906,7 @@ separate repeats of `CC-B-on` produced 64 complete type-41 start
 captures, 41 complete prebuild traces and 125 native fit attempts.
 The hash-checked offline comparison is 21 exact, 104 deliberately
 unevaluable, zero mismatches/errors. Raw hashes and detailed counts are
-in `CastlePlanner/Diagnostics/AivSeries-20260924/CleanupLinkProbeResults/RESULTS.md`.
+in `Findings/AIVPlacement/AivSeries-20260924/CleanupLinkProbeResults/RESULTS.md`.
 
 When completed castles were off, neither planned setup overwrote a
 previously alive building slot during a Keep start. With completed
@@ -952,7 +952,7 @@ complete prebuild traces, and 74 native fit attempts. Six fits compare
 exactly with the offline evaluator; 68 are deliberately unevaluable,
 with zero mismatches/errors. Raw inputs, byte-exact process log,
 hashes, and record rows are in
-`CastlePlanner/Diagnostics/AivSeries-20260924/DenseStartLinkResults/RESULTS.md`.
+`Findings/AIVPlacement/AivSeries-20260924/DenseStartLinkResults/RESULTS.md`.
 The map hash is
 `D63CD2FF3AEABA80BC3BC173BB615207666F1EAF759ECAC573FAD0DA61979DF3`.
 
@@ -1028,7 +1028,7 @@ deliberately unevaluable: 16 for an unbounded earlier start cleanup and
 36 after earlier prebuild. Each of those 36 later native fits reads at
 least one tile whose fit-input layer a previous observed prebuild changed.
 No comparison mismatch or capture error occurred. Raw evidence and
-checksums: `CastlePlanner/Diagnostics/AivSeries-20260924/DynamicLinkProbeResults/`.
+checksums: `Findings/AIVPlacement/AivSeries-20260924/DynamicLinkProbeResults/`.
 
 The fourth load finally executed a **dynamic connected-group cleanup**.
 Player 3's prebuild frame 53, mapper 87, created four 5x5 records at
@@ -1088,7 +1088,7 @@ with no patch found for the audited `0x74DA0 -> 0x5D3A0 -> 0xC4290
 for one executed cleanup in the modded process, not a universal proof
 for all possible candidate/rotation/abort branches. A minimal-mod
 repeat has been prepared as a control. Raw captures and hash manifest:
-`CastlePlanner/Diagnostics/AivSeries-20260924/NaturalLinkEightResults/`.
+`Findings/AIVPlacement/AivSeries-20260924/NaturalLinkEightResults/`.
 
 ## 2026-09-24 natural-link series, complete eight-run outcome
 
@@ -1113,4 +1113,61 @@ single reconstructed state; this is not a proof for all possible lobby
 states. Confidence is high for the captured scores and the product's
 fail-closed behavior, low for a general reconstruction rule. Do not
 release these eight as safe fit predictions. Details and hashes:
-`CastlePlanner/Diagnostics/AivSeries-20260924/NaturalLinkEightResults/RESULTS.md`.
+`Findings/AIVPlacement/AivSeries-20260924/NaturalLinkEightResults/RESULTS.md`.
+
+## 2026-09-25 native start preparation and Vanilla control
+
+The installed `CrusaderDE.dll` still hashes to
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+At `0x94350` (VA `0x180094350`), the first player loop removes serialized
+AI start groups through `0xC43A0`. In the later construction loop, both
+the AI and human branches write one to global `0x1860AD5AC`, the tile
+manager's `+0x204E7FC` flag, before calling `0x6D580`. A failed
+`0x77E60` validation returns before construction. After success, type 41
+dispatches to `0x74DA0`, which tests this flag and calls `0x5D3A0`
+before creating the new compound, then clears the flag. This distinguishes
+serialized-start removal from the subsequent compound collision cleanup.
+
+`0x5D3A0` samples the type-41 row of its **unrotated** offset tables:
+the 7x7 Keep at `(0,0)`, single cells `(2,7)`, `(3,7)`, `(4,7)`,
+the 7x7 camp at `(0,8)`, and the 5x5 goods yard at `(7,2)`, all relative
+to the selected native start anchor. `0x69850` supplies square coordinates
+`0..size-1` in each axis; its table writer is `0x619C0`. A sampled
+building ID goes to `0xC4290`, which marks all live records with the same
+nonzero manager `+0x304` cleanup link; `0x5D3A0` then sends marked
+records to `0xB8310`. No owner or human-player exemption appears in this
+cleanup function. The separately rotated offsets in `0x74DA0` govern
+**new construction**, not these contact cells. Confidence: high for
+static control/data flow, offsets, and the executed linked deletion.
+
+The user independently reproduced the Wolf Keep loss with the same lobby
+setup in unmodded Vanilla. A human in the Wolf slot survived in a separate
+setup; that observation does not establish human immunity because the
+native cleanup branch has no such filter, while start anchor, facing, and
+player order can change contact. The Vanilla reproduction is a user-reported
+runtime control; it was not recorded by the detector. The `0xB8310`
+transitive fit-layer write bound and all `0x77E60` abort branches remain
+unproven, so the exact contact rule does not by itself certify later Fits.
+
+## Lobby construction notices (25 September 2026)
+
+The `0x57080 -> 0x7B060` fit result does not enforce the later moat and
+drawbridge construction height limit. The moat mapper 106 reaches the
+height check through `0x51790 -> 0x59730`; mapper 105 reaches the
+building-height failure path through `0x51790 -> 0x6D580 -> 0x739C0`
+and `0x7870B`. These paths apply the height-12 limit at construction,
+after preceding AIV frames. The archived Nizar Default 6 trace records
+height changes `130 -> 122` during moat and drawbridge frames. Thus a
+projected tile whose **initial** map height exceeds 12 does not alone
+prove its height at a later frame. Confidence: high for the split between
+fit and construction and for the observed trace; unproven for arbitrary
+intermediate frame effects. The lobby must require a separate build-time
+height proof before declaring a height-related construction risk.
+
+The linked-record start-contact test above describes a **possible**
+earlier Keep loss only when the affected candidate and rotation are among
+the native selector's possible outcomes. It does not prove actual deletion
+or a later fit state. Pairwise projected AIV footprints can at most prove
+a **planned** overlap until the sequential construction and cleanup paths
+for both candidates are reconstructed. See `Findings/AIVPlacement/STATUS.md`
+for the current publication boundary.

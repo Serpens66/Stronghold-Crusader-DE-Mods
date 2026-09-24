@@ -1606,8 +1606,10 @@ namespace BugfixesAndQoL
         {
             bool wasInstalled = lordControlGroupNativePatch != null;
             lordControlGroupNativePatch?.SetEnabled(false);
+            if (!wasInstalled || !CrusaderDE.MainViewModel.viewModelLoaded)
+                return;
             CrusaderDE.MainViewModel main = CrusaderDE.MainViewModel.Instance;
-            if (wasInstalled && main?.Show_HUD_ControlGroups == true)
+            if (main?.Show_HUD_ControlGroups == true)
                 main.HUDControlGroups?.Update();
         }
 

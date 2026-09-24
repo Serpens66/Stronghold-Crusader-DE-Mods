@@ -161,7 +161,8 @@ namespace ExtremePowers.API
         {
             originalSetGameState(self, state);
             UpdateHudReplacementState();
-            if (state == null || state.extremeEnabled <= 0 || !owner.GetSessionReadiness().Ready) return;
+            if (state == null || state.extremeEnabled <= 0 || !owner.GetSessionReadiness().Ready ||
+                !MainViewModel.viewModelLoaded) return;
             int[] costs = owner.Snapshot().Costs;
             string[] enabled = new string[8];
             for (int index = 0; index < enabled.Length; index++) enabled[index] = state.extremeCount >= costs[index] ? "True" : "False";

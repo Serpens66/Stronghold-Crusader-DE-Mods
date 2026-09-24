@@ -53,7 +53,9 @@ var tests = new (string Name, Action Run)[]
     ("Trail Maker Coop export is integrated", TestCoopExporterIntegration),
     ("Coop package JSON is Unity dependency-free", TestDependencyFreeCoopJson),
     ("mission and manifest JSON use CRLF", TestCoopJsonLineEndings),
-    ("Workshop Trail staging filters sidecars", TestWorkshopTrailSidecars),
+    ("Workshop Trail staging includes nested JSON", TestWorkshopTrailSidecars),
+    ("Workshop Trail staging preserves existing JSON", TestWorkshopTrailJsonConflict),
+    ("Workshop Trail staging rejects overlapping roots", TestWorkshopTrailJsonUnsafeRoots),
     ("Workshop upload checkbox is unified", TestWorkshopUploadCheckbox),
     ("editor saves require an explicit modsettings decision", TestEditorSaveModSettingsOptions),
     ("mod-data namespaces are isolated and immutable", TestModDataNamespaces),
@@ -246,8 +248,11 @@ static void TestWorkshopTrailSidecars()
     {
         File.WriteAllText(Path.Combine(source, "01.trail"), "trail");
         File.WriteAllText(Path.Combine(source, "01.modtrail.json"), "included");
-        File.WriteAllText(Path.Combine(source, "orphan.modtrail.json"), "excluded");
+        File.WriteAllText(Path.Combine(source, "orphan.modtrail.json"), "included");
         File.WriteAllText(Path.Combine(source, "01.modjson"), "legacy");
+        string nested = Path.Combine(source, "Overrides", "Fixes");
+        Directory.CreateDirectory(nested);
+        File.WriteAllText(Path.Combine(nested, "preferences.JSON"), "nested");
         Assert(WorkshopUploadStaging.TryResetDirectChild(
                 stagingRoot,
                 "Trail",
@@ -256,17 +261,64 @@ static void TestWorkshopTrailSidecars()
             resetError);
         File.WriteAllText(Path.Combine(destination, "01.trail"), "vanilla");
 
-        Assert(WorkshopUploadStaging.TryStageTrailSidecars(
+        Assert(WorkshopUploadStaging.TryStageTrailJsonFiles(
                 source,
                 destination,
                 out int copied,
                 out string stageError),
             stageError);
-        Assert(copied == 1, "unexpected sidecar count: " + copied);
+        Assert(copied == 3, "unexpected JSON count: " + copied);
         Assert(File.Exists(Path.Combine(destination, "01.modtrail.json")), "matching sidecar was not staged");
-        Assert(!File.Exists(Path.Combine(destination, "orphan.modtrail.json")), "orphan sidecar was staged");
+        Assert(File.Exists(Path.Combine(destination, "orphan.modtrail.json")), "other JSON was not staged");
+        Assert(File.Exists(Path.Combine(destination, "Overrides", "Fixes", "preferences.JSON")), "nested JSON was not staged");
         Assert(!File.Exists(Path.Combine(destination, "01.modjson")), "legacy sidecar was staged");
         Assert(File.ReadAllText(Path.Combine(destination, "01.trail")) == "vanilla", "Vanilla Trail was changed");
+        Assert(WorkshopUploadStaging.TryStageTrailJsonFiles(source, destination, out int retryCopied, out string retryError), retryError);
+        Assert(retryCopied == 0, "identical retry copied JSON again");
+    }
+    finally
+    {
+        Directory.Delete(root, true);
+    }
+}
+
+static void TestWorkshopTrailJsonConflict()
+{
+    string root = Path.Combine(Path.GetTempPath(), "ExtendedDataTests", Guid.NewGuid().ToString("N"));
+    string source = Path.Combine(root, "source");
+    string destination = Path.Combine(root, "staging");
+    Directory.CreateDirectory(Path.Combine(source, "nested"));
+    Directory.CreateDirectory(Path.Combine(destination, "nested"));
+    try
+    {
+        File.WriteAllText(Path.Combine(source, "nested", "a.json"), "new");
+        File.WriteAllText(Path.Combine(source, "nested", "z.json"), "source");
+        File.WriteAllText(Path.Combine(destination, "nested", "z.json"), "existing");
+        Assert(!WorkshopUploadStaging.TryStageTrailJsonFiles(source, destination, out _, out string error),
+            "conflicting JSON was accepted");
+        Assert(error.Contains("different JSON destination", StringComparison.OrdinalIgnoreCase), "wrong conflict error");
+        Assert(!File.Exists(Path.Combine(destination, "nested", "a.json")), "new JSON survived rollback");
+        Assert(File.ReadAllText(Path.Combine(destination, "nested", "z.json")) == "existing", "existing JSON changed");
+    }
+    finally
+    {
+        Directory.Delete(root, true);
+    }
+}
+
+static void TestWorkshopTrailJsonUnsafeRoots()
+{
+    string root = Path.Combine(Path.GetTempPath(), "ExtendedDataTests", Guid.NewGuid().ToString("N"));
+    string source = Path.Combine(root, "source");
+    string destination = Path.Combine(source, "staging");
+    Directory.CreateDirectory(destination);
+    try
+    {
+        File.WriteAllText(Path.Combine(source, "config.json"), "source");
+        Assert(!WorkshopUploadStaging.TryStageTrailJsonFiles(source, destination, out _, out string error),
+            "overlapping roots were accepted");
+        Assert(error.Contains("overlap", StringComparison.OrdinalIgnoreCase), "wrong overlapping-root error");
+        Assert(!File.Exists(Path.Combine(destination, "config.json")), "unsafe staging copied JSON");
     }
     finally
     {
@@ -299,6 +351,7 @@ static void TestWorkshopUploadCheckbox()
         coordinator.Contains("CoopWorkshopPackageStaging.Stage", StringComparison.Ordinal),
         "Coop upload does not honor the unified modsettings choice");
     Assert(coordinator.Contains("ArmUploadDecision(uploadRoot, itemName, uploadOptions.IncludeExtendedData)", StringComparison.Ordinal) &&
+        coordinator.Contains("decision != null && decision.IncludeExtendedData && IsCustomTrailUpload(tags)", StringComparison.Ordinal) &&
         coordinator.Contains("Action terminalSuccess = WrapTerminalCallback", StringComparison.Ordinal) &&
         coordinator.Contains("Action terminalFailure = WrapTerminalCallback", StringComparison.Ordinal),
         "the upload choice is not retained through Vanilla's recursive retry until a terminal callback");

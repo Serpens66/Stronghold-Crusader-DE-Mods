@@ -26,6 +26,7 @@ internal static class Program
             ("Retain placement issue evidence", TestPlacementIssueEvidence),
             ("Normalize serialized player start occupancy", TestPreplacementMapState),
             ("Limit confirmed startup cleanup to a Keep link group", TestConfirmedStartupCleanupGroup),
+            ("Match native Keep cleanup contacts and linked-group risk", TestNativeStartCleanupContacts),
             ("Keep neighboring starts separated by wall owner", TestNeighboringStartWallOwners),
             ("Rotate rebuilt player start occupancy", TestRebuiltStartRotations),
             ("Match observed Keep and campground footprints", TestObservedCraggyStartFootprints),
@@ -469,6 +470,49 @@ internal static class Program
             ?? throw new InvalidOperationException("startup cleanup classifier returned no IDs");
         Assert(cleared.SetEquals(new ushort[] { 1 }),
             "a zero link must not classify any companion record");
+    }
+
+    private static void TestNativeStartCleanupContacts()
+    {
+        MapCoordinate laterAnchor = new(523, 489);
+        HashSet<MapCoordinate> sampled = AivNativeStartCleanupFootprint
+            .Enumerate(laterAnchor).ToHashSet();
+        AssertEqual(126, sampled.Count);
+        Assert(sampled.Contains(new MapCoordinate(523, 502)),
+            "the unrotated campground samples the earlier Wolf camp");
+        Assert(!sampled.Contains(new MapCoordinate(510, 502)),
+            "the Wolf Keep itself is outside the later direct cleanup footprint");
+        Assert(!sampled.Contains(new MapCoordinate(522, 502)),
+            "a neighboring cell must not count as a native cleanup contact");
+
+        var source = new SparsePlacementMap();
+        source.Set(new MapCoordinate(510, 502), Evidence(buildingId: 10, ownerId: 2));
+        source.Set(new MapCoordinate(523, 502), Evidence(buildingId: 14, ownerId: 2));
+        var group = new AivPreplacementMapState(
+            source,
+            new ushort[] { 10, 14 },
+            new ushort[] { 10, 14 },
+            Array.Empty<MapRockRecord>(),
+            confirmedInitialCleanupBuildingIds: new ushort[] { 10, 14 });
+        foreach (AivRotation rotation in new[] {
+            AivRotation.Degrees0, AivRotation.Degrees90,
+            AivRotation.Degrees180, AivRotation.Degrees270 })
+        {
+            Assert(group.CouldRemoveEarlierKeep(laterAnchor,
+                    new AivStartRebuildState(rotation, AivStartRebuildState.CanonicalMarker)),
+                "a contacted camp record can remove its linked Keep for every rotation");
+        }
+
+        var unrelated = new AivPreplacementMapState(
+            source,
+            new ushort[] { 10, 14 },
+            new ushort[] { 10, 14 },
+            Array.Empty<MapRockRecord>(),
+            confirmedInitialCleanupBuildingIds: new ushort[] { 10 });
+        Assert(!unrelated.CouldRemoveEarlierKeep(laterAnchor,
+                new AivStartRebuildState(AivRotation.Degrees0,
+                    AivStartRebuildState.CanonicalMarker)),
+            "a sampled building outside the Keep link group is not a proven Keep risk");
     }
 
     private static void TestNeighboringStartWallOwners()

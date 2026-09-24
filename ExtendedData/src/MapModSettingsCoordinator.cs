@@ -179,7 +179,7 @@ namespace ExtendedData
             enabled = value;
             if (!value)
                 ExitMapContext(broadcast: IsHostLobby(), "feature disabled");
-            FRONT_Multiplayer lobby = MainViewModel.Instance?.FRONTMultiplayer;
+            FRONT_Multiplayer lobby = GetReadyLobby();
             if (lobby != null)
                 OnLobbyOpened(lobby);
         }
@@ -726,7 +726,7 @@ namespace ExtendedData
                 DebugLogHelper.LogError(log, "Rejected Map mod-settings packet from a sender that is not the lobby host.");
                 return;
             }
-            FRONT_Multiplayer lobby = MainViewModel.Instance?.FRONTMultiplayer;
+            FRONT_Multiplayer lobby = GetReadyLobby();
             if (!enabled || lobby?.currentLobby == null || lobby.currentLobby.isHost || lobby.singlePlayerCoop ||
                 packet == null || packet.ProtocolVersion != MapModSettingsPacket.CurrentProtocolVersion)
             {
@@ -794,7 +794,7 @@ namespace ExtendedData
             string mapFileName = null,
             uint? mapCrc = null)
         {
-            FRONT_Multiplayer lobby = MainViewModel.Instance?.FRONTMultiplayer;
+            FRONT_Multiplayer lobby = GetReadyLobby();
             if (!IsHostLobby(lobby))
                 return;
             var packet = new MapModSettingsPacket
@@ -894,9 +894,12 @@ namespace ExtendedData
 
         private static bool IsHostLobby(FRONT_Multiplayer lobby = null)
         {
-            lobby = lobby ?? MainViewModel.Instance?.FRONTMultiplayer;
+            lobby = lobby ?? GetReadyLobby();
             return lobby?.currentLobby != null && !lobby.singlePlayerCoop && lobby.currentLobby.isHost;
         }
+
+        private static FRONT_Multiplayer GetReadyLobby() =>
+            MainViewModel.viewModelLoaded ? MainViewModel.Instance?.FRONTMultiplayer : null;
 
         private static string GetLobbyMapName(FRONT_Multiplayer lobby, FileHeader header) =>
             lobby?.currentLobby == null || string.IsNullOrWhiteSpace(lobby.currentLobby.mapFileName)

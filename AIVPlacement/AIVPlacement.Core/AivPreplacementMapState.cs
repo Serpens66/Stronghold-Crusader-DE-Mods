@@ -38,12 +38,45 @@ namespace AIVPlacement.Core
             PotentialConnectedRecordCleanupEvidence != null;
         public string PotentialConnectedRecordCleanupEvidence { get; }
 
+        public bool CouldRemoveEarlierKeep(AivProjectedCastle castle)
+        {
+            if (castle == null)
+                throw new ArgumentNullException(nameof(castle));
+            return CouldRemoveEarlierKeep(
+                castle.MapKeepAnchor,
+                new AivStartRebuildState(castle.Rotation, castle.AivKeepAnchor));
+        }
+
+        public bool CouldRemoveEarlierKeep(
+            MapCoordinate mapKeepAnchor, AivStartRebuildState start)
+        {
+            var anchor = new MapCoordinate(
+                mapKeepAnchor.X + start.MarkerDeltaX,
+                mapKeepAnchor.Y + start.MarkerDeltaY);
+            foreach (MapCoordinate coordinate in AivNativeStartCleanupFootprint.Enumerate(anchor))
+            {
+                if (!Geometry.TryGetTileId(coordinate.X, coordinate.Y, out int tileId))
+                    continue;
+                if (rebuiltStartCellsByTileId.TryGetValue(tileId, out RebuiltStartCell rebuilt) &&
+                    rebuilt.BuildingId != 0 &&
+                    confirmedInitialCleanupBuildingIds.Contains(rebuilt.BuildingId))
+                    return true;
+
+                ushort sourceId = source.GetTileEvidence(tileId).BuildingId;
+                if (serializedRetainedStartBuildingIds.Contains(sourceId) &&
+                    confirmedInitialCleanupBuildingIds.Contains(sourceId))
+                    return true;
+            }
+            return false;
+        }
+
         public AivPreplacementMapState(
             IAivPlacementTileSource source,
             IEnumerable<ushort> startBuildingIds,
             IEnumerable<ushort> retainedStartBuildingIds,
             IEnumerable<MapRockRecord> rockRecords,
-            IReadOnlyDictionary<ushort, AivTileOccupancyKind> startKindsByBuildingId = null)
+            IReadOnlyDictionary<ushort, AivTileOccupancyKind> startKindsByBuildingId = null,
+            IEnumerable<ushort> confirmedInitialCleanupBuildingIds = null)
             : this(
                 source,
                 startBuildingIds,
@@ -51,7 +84,7 @@ namespace AIVPlacement.Core
                 rockRecords,
                 startKindsByBuildingId,
                 null,
-                null)
+                confirmedInitialCleanupBuildingIds)
         {
         }
 
@@ -688,10 +721,8 @@ namespace AIVPlacement.Core
         private string DetectPotentialConnectedRecordCleanup(
             IReadOnlyDictionary<ushort, StartRebuildTransform> transforms)
         {
-            // The type-41 compound constructor only enters whole-record
-            // collision cleanup after one of its Keep, camp or yard footprints
-            // meets an existing building. Its static offsets fit within this
-            // wider 24-tile region around the selected AIV Keep marker.
+            // 0x5D3A0 samples these fixed cells before construction. The
+            // rotation-dependent constructor footprint must not replace them.
             var checkedKeeps = new HashSet<(MapCoordinate Keep, byte OwnerId)>();
             foreach (StartRebuildTransform start in transforms.Values)
             {
@@ -700,12 +731,13 @@ namespace AIVPlacement.Core
                     start.Keep.Y + start.Start.MarkerDeltaY);
                 if (!checkedKeeps.Add((selectedKeep, start.OwnerId)))
                     continue;
-                for (int y = selectedKeep.Y - 24; y <= selectedKeep.Y + 24; y++)
+                foreach (MapCoordinate coordinate in
+                    AivNativeStartCleanupFootprint.Enumerate(selectedKeep))
                 {
-                    for (int x = selectedKeep.X - 24; x <= selectedKeep.X + 24; x++)
-                    {
+                        int x = coordinate.X;
+                        int y = coordinate.Y;
                         if (!Geometry.TryGetTileId(x, y, out int tileId))
-                            continue;
+                            return $"native start cleanup cell ({x},{y}) is outside the map";
                         AivPlacementTileEvidence existing = source.GetTileEvidence(tileId);
                         // 0x94350 clears the serialized Keep and its nonzero
                         // cleanup-link group before selection. Other normalized
@@ -726,7 +758,6 @@ namespace AIVPlacement.Core
                               ownRebuild.Keep.Equals(start.Keep) &&
                               ownRebuild.Start.Equals(start.Start)))
                             return $"rebuilt tile ({x},{y}) buildingId={rebuilt.BuildingId} owner={rebuilt.OwnerId} near AI start owner={start.OwnerId}";
-                    }
                 }
             }
             return null;
@@ -872,6 +903,32 @@ namespace AIVPlacement.Core
 
             public AivPlacementTileEvidence GetTileEvidence(int tileId) =>
                 new AivPlacementTileEvidence(snapshot.GetTile(tileId));
+        }
+    }
+
+    public static class AivNativeStartCleanupFootprint
+    {
+        public static IEnumerable<MapCoordinate> Enumerate(MapCoordinate keep)
+        {
+            // 0x5D3A0 indexes the type-41 row of the unrotated offset tables.
+            foreach (MapCoordinate cell in Square(keep, 0, 0, 7))
+                yield return cell;
+            yield return new MapCoordinate(keep.X + 2, keep.Y + 7);
+            yield return new MapCoordinate(keep.X + 3, keep.Y + 7);
+            yield return new MapCoordinate(keep.X + 4, keep.Y + 7);
+            foreach (MapCoordinate cell in Square(keep, 0, 8, 7))
+                yield return cell;
+            foreach (MapCoordinate cell in Square(keep, 7, 2, 5))
+                yield return cell;
+        }
+
+        private static IEnumerable<MapCoordinate> Square(
+            MapCoordinate keep, int offsetX, int offsetY, int size)
+        {
+            for (int y = 0; y < size; y++)
+                for (int x = 0; x < size; x++)
+                    yield return new MapCoordinate(
+                        keep.X + offsetX + x, keep.Y + offsetY + y);
         }
     }
 

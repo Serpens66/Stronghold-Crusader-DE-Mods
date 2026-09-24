@@ -6,7 +6,7 @@ Rohtraces bleiben in `C:\Users\Serpens66\Desktop\Neuer Ordner`.
 `AivLobbyNaturalLinkSeries.json` ist als aktive
 `BepInEx/config/AivLobbyTestSeries.json` installiert. Die passende
 Fortschrittsdatei steht bei Index 0. Die vorherige Konfiguration liegt
-unter `CastlePlanner/Diagnostics/AivSeries-20260924/NaturalLinkSeriesSetup`.
+unter `Findings/AIVPlacement/AivSeries-20260924/NaturalLinkSeriesSetup`.
 
 Die acht Einträge setzen alle verfügbaren Keep-Slots der jeweiligen Karte.
 Nur die ersten beiden KIs werden in der umgekehrten Folge getauscht; ihre

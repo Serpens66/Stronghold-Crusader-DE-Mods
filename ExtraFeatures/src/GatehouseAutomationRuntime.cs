@@ -324,7 +324,7 @@ namespace ExtraFeatures
 
         private void TryLoadButtonIcon()
         {
-            if (iconLoadAttempted || MainViewModel.Instance == null)
+            if (iconLoadAttempted || !MainViewModel.viewModelLoaded || MainViewModel.Instance == null)
                 return;
 
             // The plugin initializes before the game HUD; defer the one-time decode until rendering begins.
@@ -659,7 +659,8 @@ namespace ExtraFeatures
 
             int activePlayerId = EditorDirector.instance?.ActivePlayerID ?? -1;
             if (activePlayerId < 1 || activePlayerId > 8 ||
-                GameData.Instance?.lastGameState == null || MainViewModel.Instance?.HUDBuildingPanel == null)
+                GameData.Instance?.lastGameState == null || !MainViewModel.viewModelLoaded ||
+                MainViewModel.Instance?.HUDBuildingPanel == null)
             {
                 return;
             }
