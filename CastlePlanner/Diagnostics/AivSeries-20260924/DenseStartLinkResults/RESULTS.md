@@ -98,8 +98,11 @@ rekonstruierten früheren Starts, erhaltene menschliche Gebäude,
 Konstruktorabbrüche und alle Kandidatendrehungen weiter prüfen.
 Allein das Entfernen dieses einen Fehlalarms belegt noch keinen
 exakten Fit der elf Fälle: Der zweite, kandidatenbezogene
-Unsicherheits-Guard kann weiterhin greifen. Deshalb wurde während
-des parallelen Script-Extender-Updates kein Runtime-Code geändert.
+Unsicherheits-Guard kann weiterhin greifen. Nach dem Update auf
+Script Extender 2.10.1 wurde diese eng begrenzte Korrektur für
+eindeutige Start-Keep-Records und ihre nichtnullen Linkgruppen eingebaut.
+Alle elf Fälle bleiben `NotEvaluable`; der neue Abgleich steht unter
+`../GuardRefinement-20260924/RESULTS.md`.
 
 ## Produktionsentscheidung
 

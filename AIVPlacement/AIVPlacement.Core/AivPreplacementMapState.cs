@@ -16,6 +16,7 @@ namespace AIVPlacement.Core
         private const int BuildingRecordSize = 0x32C;
         private const int AliveStateOffset = 0xD0;
         private const int OwnerOffset = 0xD6;
+        private const int NativeCleanupLinkOffset = 0x2A8;
         private const ushort AliveStateIsAlive = 2;
 
         private readonly IAivPlacementTileSource source;
@@ -24,6 +25,7 @@ namespace AIVPlacement.Core
         private readonly HashSet<ushort> serializedRetainedStartBuildingIds;
         private readonly HashSet<ushort> rebuiltStartBuildingIds;
         private readonly HashSet<ushort> removedStartBuildingIds;
+        private readonly HashSet<ushort> confirmedInitialCleanupBuildingIds;
         private readonly Dictionary<ushort, AivTileOccupancyKind> startKindsByBuildingId;
         private readonly Dictionary<int, RebuiltStartCell> rebuiltStartCellsByTileId;
         private readonly HashSet<int> uncertainNativeStartTileIds;
@@ -48,6 +50,7 @@ namespace AIVPlacement.Core
                 retainedStartBuildingIds,
                 rockRecords,
                 startKindsByBuildingId,
+                null,
                 null)
         {
         }
@@ -58,7 +61,8 @@ namespace AIVPlacement.Core
             IEnumerable<ushort> retainedStartBuildingIds,
             IEnumerable<MapRockRecord> rockRecords,
             IReadOnlyDictionary<ushort, AivTileOccupancyKind> startKindsByBuildingId,
-            IReadOnlyDictionary<ushort, StartRebuildTransform> rebuildTransformsByBuildingId)
+            IReadOnlyDictionary<ushort, StartRebuildTransform> rebuildTransformsByBuildingId,
+            IEnumerable<ushort> confirmedInitialCleanupBuildingIds)
         {
             this.source = source ?? throw new ArgumentNullException(nameof(source));
             if (source.Geometry == null)
@@ -88,6 +92,9 @@ namespace AIVPlacement.Core
                 serializedRetainedStartBuildingIds.ExceptWith(rebuildTransformsByBuildingId.Keys);
             removedStartBuildingIds = new HashSet<ushort>(this.startBuildingIds);
             removedStartBuildingIds.ExceptWith(serializedRetainedStartBuildingIds);
+            this.confirmedInitialCleanupBuildingIds = confirmedInitialCleanupBuildingIds == null
+                ? new HashSet<ushort>()
+                : new HashSet<ushort>(confirmedInitialCleanupBuildingIds);
             this.startKindsByBuildingId = new Dictionary<ushort, AivTileOccupancyKind>();
             if (startKindsByBuildingId != null)
             {
@@ -231,7 +238,42 @@ namespace AIVPlacement.Core
                 retainedBuildingIds,
                 document.ReadRockRecords().Records,
                 startKinds,
-                rebuildTransforms);
+                rebuildTransforms,
+                FindConfirmedInitialCleanupBuildingIds(
+                    records,
+                    buildingRecordCount,
+                    anchors.Slots
+                        .Where(slot => slot.Status == MapKeepAnchorStatus.Exact &&
+                                       slot.BuildingRecordIndex.HasValue)
+                        .Select(slot => slot.BuildingRecordIndex.Value)));
+        }
+
+        private static HashSet<ushort> FindConfirmedInitialCleanupBuildingIds(
+            byte[] records,
+            int recordCount,
+            IEnumerable<int> keepRecordIndices)
+        {
+            var directKeepIds = new HashSet<ushort>();
+            var linkedGroupIds = new HashSet<uint>();
+            foreach (int index in keepRecordIndices)
+            {
+                if (index <= 0 || index >= recordCount)
+                    continue;
+                directKeepIds.Add((ushort)index);
+                uint link = ReadUInt32(records, index * BuildingRecordSize + NativeCleanupLinkOffset);
+                if (link != 0)
+                    linkedGroupIds.Add(link);
+            }
+
+            var confirmed = new HashSet<ushort>(directKeepIds);
+            for (int index = 1; index < recordCount; index++)
+            {
+                int offset = index * BuildingRecordSize;
+                if (ReadUInt16(records, offset + AliveStateOffset) == AliveStateIsAlive &&
+                    linkedGroupIds.Contains(ReadUInt32(records, offset + NativeCleanupLinkOffset)))
+                    confirmed.Add((ushort)index);
+            }
+            return confirmed;
         }
 
         public static MapCoordinate TransformRebuiltStartCoordinate(
@@ -665,11 +707,16 @@ namespace AIVPlacement.Core
                         if (!Geometry.TryGetTileId(x, y, out int tileId))
                             continue;
                         AivPlacementTileEvidence existing = source.GetTileEvidence(tileId);
+                        // 0x94350 clears the serialized Keep and its nonzero
+                        // cleanup-link group before selection. Other normalized
+                        // source records are not assumed to share that contract.
                         if (existing.BuildingId != 0 &&
                             !(transforms.TryGetValue(existing.BuildingId,
                                 out StartRebuildTransform ownSource) &&
                               ownSource.Keep.Equals(start.Keep) &&
-                              ownSource.Start.Equals(start.Start)))
+                              ownSource.Start.Equals(start.Start)) &&
+                            !(removedStartBuildingIds.Contains(existing.BuildingId) &&
+                              confirmedInitialCleanupBuildingIds.Contains(existing.BuildingId)))
                             return $"source tile ({x},{y}) buildingId={existing.BuildingId} owner={existing.OwnerId} near AI start owner={start.OwnerId}";
                         if (rebuiltStartCellsByTileId.TryGetValue(
                                 tileId, out RebuiltStartCell rebuilt) &&
@@ -730,6 +777,10 @@ namespace AIVPlacement.Core
 
         private static ushort ReadUInt16(byte[] data, int offset) =>
             (ushort)(data[offset] | (data[offset + 1] << 8));
+
+        private static uint ReadUInt32(byte[] data, int offset) =>
+            (uint)(data[offset] | (data[offset + 1] << 8) |
+                   (data[offset + 2] << 16) | (data[offset + 3] << 24));
 
         private static AivTileOccupancyKind ClassifyStartBuilding(ushort buildingType)
         {

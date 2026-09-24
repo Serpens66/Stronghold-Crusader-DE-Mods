@@ -987,3 +987,31 @@ counterfactual earlier start still have to pass before any result is
 released. No new fit is certified solely by this observation.
 Confidence: high for the two-loop order and recorded first-AI grid;
 not a complete counterfactual-start proof.
+
+## 2026-09-24 offline guard refinement with Script Extender 2.10.1
+
+The installed native hash remains `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`;
+the installed Script Extender 2.10.1 hashes to
+`85591256082C6F2329EDC0BFB0C1C163D9CF1BF2991DC8B11F6790907B60F2F2`.
+The offline collision guard now ignores a serialized source building ID
+only when it is already normalized away **and** belongs to the exact
+serialized Keep record or its nonzero native `+0x304` cleanup-link group.
+The pre-existing own-transform exception remains intact. It still
+checks retained source buildings, rebuilt earlier starts, and candidate
+reads in the uncertain constructor area. This follows the two-loop
+`0x94350` order above; it does not assert a complete `0xC43A0/0x61FC0`
+write bound. Eleven dense-map gray cases changed to a more accurate gray
+reason, without releasing a fit. Across 960 archived comparison runs,
+316 were exact and 644 remained unevaluable, with no mismatch/error;
+some corpora overlap. Confidence: high for the startup order and observed
+regression results, limited for unobserved connected cleanup or aborts.
+
+The same-hash `0xC43A0` link-group path invokes `0xB8310` for each
+matching record. Direct callee review shows that `0xB8310` first calls
+`0xB8460`, `0x1977A0`, and `0xB5C40`, then `0x61FC0`, followed by
+`0xCFE90`, before clearing the native record. Thus an exact fit-layer
+write bound must audit these calls as well as the type dispatch inside
+`0x61FC0`; bounding `0x61FC0` alone would be incomplete. `0x61FC0`
+itself may return early after `0x79AB0` reports a failure. Confidence:
+high for the direct call/branch order in the installed DLL, incomplete
+for transitive tile and record writes.

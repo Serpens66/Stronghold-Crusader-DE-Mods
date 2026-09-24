@@ -1132,11 +1132,39 @@ Beispiel in der Karte ein Typ-41-Record von Spieler 2 mit Linkwert
 11, fehlt aber beim ersten KI-Fit im vollständigen Live-Raster.
 Neun weitere graue Fälle betreffen dagegen echte rekonstruierte
 frühere Starts; 48 sind wegen vorausgegangenem Sofortbau gesperrt.
-Eine spätere Korrektur kann die bereits entfernten Source-Records
-aus der Kollisionsauslöserprüfung nehmen. Sie darf dadurch noch
-keinen Fit automatisch freigeben: Der kandidatenbezogene Guard und
-alle möglichen vorherigen Startzustände müssen weiterhin geprüft
-werden. Wegen des parallel laufenden Script-Extender-Updates wurde
-diese Runtime-Änderung noch nicht eingebaut. Vertrauensgrad: hoch
-für Native-Reihenfolge und ersten Live-Zustand, offen für mögliche
+Die Korrektur nimmt ausschließlich solche bereits normalisierten
+Source-Records aus der Kollisionsauslöserprüfung, die zum eindeutig
+gefundenen Start-Keep oder dessen nichtnuller nativer Linkgruppe
+gehören. Die bisherige Ausnahme für die eigenen transformierten
+Startzellen bleibt erhalten. Der
+kandidatenbezogene Guard und alle möglichen vorherigen
+Startzustände bleiben erhalten. Bei elf dichten Oracle-Fällen
+änderte sich damit nur der genaue graue Grund; keine Prognose
+wurde unbelegt freigegeben. Vertrauensgrad: hoch für die
+Native-Reihenfolge und den ersten Live-Zustand, offen für mögliche
 vorherige Startausgänge.
+
+### Offline-Folgeprüfung mit Script Extender 2.10.1
+
+Die installierte Spiel-DLL hat weiterhin SHA-256 `FBCB9319…`; der
+installierte Script Extender 2.10.1 SHA-256
+`85591256082C6F2329EDC0BFB0C1C163D9CF1BF2991DC8B11F6790907B60F2F2`.
+Die erneute Prüfung von 960 archivierten Vergleichsfällen ergab
+316 exakte und 644 bewusst graue Ergebnisse, keine Abweichung;
+die Korpora enthalten teilweise dieselben Spielsituationen.
+Einzelheiten und Berichte stehen unter
+`Diagnostics/AivSeries-20260924/GuardRefinement-20260924/`.
+
+Die erneute direkte Prüfung von `0xC43A0 -> 0xB8310` zeigt eine
+weitere Grenze: `0xB8310` ruft vor `0x61FC0` zusätzlich
+`0xB8460`, `0x1977A0` und `0xB5C40` auf, danach `0xCFE90`.
+Eine allgemeine Schreibgrenze darf sich daher nicht allein auf
+den Typzweig in `0x61FC0` stützen. Von 185 installierten Karten
+mit mindestens drei auswertbaren Startplätzen hatten nur die
+dichte Spezialkarte und Caesarea Swampland anfänglich verknüpfte
+Record-Ursprünge nahe einem fremden Keep; alle 42 Treffer
+gehörten zu serialisierten Startgruppen, die Vanilla bereits
+vor der KI-Auswahl entfernt. Der Scan erfasst keine zur Laufzeit
+entstandenen Gruppen oder ganzen Gebäude-Footprints. Vertrauensgrad:
+hoch für den direkten nativen Aufrufpfad und die gelesenen
+Kartenrecords, offen für deren transitive Seiteneffekte.

@@ -25,6 +25,7 @@ internal static class Program
             ("Require an exact AIV keep anchor", TestMissingKeep),
             ("Retain placement issue evidence", TestPlacementIssueEvidence),
             ("Normalize serialized player start occupancy", TestPreplacementMapState),
+            ("Limit confirmed startup cleanup to a Keep link group", TestConfirmedStartupCleanupGroup),
             ("Keep neighboring starts separated by wall owner", TestNeighboringStartWallOwners),
             ("Rotate rebuilt player start occupancy", TestRebuiltStartRotations),
             ("Match observed Keep and campground footprints", TestObservedCraggyStartFootprints),
@@ -432,6 +433,42 @@ internal static class Program
             retained.Geometry.GetTileId(adjacentWallTile.X, adjacentWallTile.Y)).OwnerId);
         AssertEqual(0, retained.NormalizedStartBuildingIds.Count);
         AssertEqual((ushort)28, retained.RetainedStartBuildingIds[0]);
+    }
+
+    private static void TestConfirmedStartupCleanupGroup()
+    {
+        const int recordSize = 0x32C;
+        var records = new byte[6 * recordSize];
+        static void WriteUInt16(byte[] bytes, int offset, ushort value) =>
+            BitConverter.GetBytes(value).CopyTo(bytes, offset);
+        static void WriteUInt32(byte[] bytes, int offset, uint value) =>
+            BitConverter.GetBytes(value).CopyTo(bytes, offset);
+        for (int index = 1; index <= 5; index++)
+            WriteUInt16(records, index * recordSize + 0xD0, 2);
+        WriteUInt32(records, 1 * recordSize + 0x2A8, 11);
+        WriteUInt32(records, 2 * recordSize + 0x2A8, 11);
+        WriteUInt32(records, 3 * recordSize + 0x2A8, 12);
+        WriteUInt32(records, 4 * recordSize + 0x2A8, 11);
+        WriteUInt16(records, 4 * recordSize + 0xD0, 0);
+
+        var method = typeof(AivPreplacementMapState).GetMethod(
+            "FindConfirmedInitialCleanupBuildingIds",
+            System.Reflection.BindingFlags.NonPublic |
+            System.Reflection.BindingFlags.Static);
+        if (method == null)
+            throw new InvalidOperationException("startup cleanup classifier is missing");
+        var cleared = method.Invoke(
+            null, new object[] { records, 6, new[] { 1 } }) as HashSet<ushort>
+            ?? throw new InvalidOperationException("startup cleanup classifier returned no IDs");
+        Assert(cleared.SetEquals(new ushort[] { 1, 2 }),
+            "only the direct Keep and live records with its link may be skipped");
+
+        WriteUInt32(records, 1 * recordSize + 0x2A8, 0);
+        cleared = method.Invoke(
+            null, new object[] { records, 6, new[] { 1 } }) as HashSet<ushort>
+            ?? throw new InvalidOperationException("startup cleanup classifier returned no IDs");
+        Assert(cleared.SetEquals(new ushort[] { 1 }),
+            "a zero link must not classify any companion record");
     }
 
     private static void TestNeighboringStartWallOwners()
