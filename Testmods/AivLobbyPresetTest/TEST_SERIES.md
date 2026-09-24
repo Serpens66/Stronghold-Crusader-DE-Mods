@@ -31,3 +31,19 @@ Zum Neubeginn der Serie die Fortschrittsdatei gezielt entfernen oder
 bereits abgeschlossener Teil der Serie wird nicht stillschweigend übersprungen.
 Der Detector schreibt unabhängig von der vorgegebenen Spieler-ID für jeden
 aufgenommenen Fall native Auswahl, Fit und gegebenenfalls Bau-Differenzen.
+
+Die erste Serie wurde am 24.09.2026 vollständig aufgenommen (`nextIndex=10`,
+letzter Lauf `CC-B-on`). Der [Auswertungsbericht](../../CastlePlanner/Diagnostics/AivSeries-20260924/RESULTS.md)
+archiviert die Oracle-Korpora und Roh-Traces. Drei Offline-Abweichungen auf
+Craggy Cliffs betreffen die Rekonstruktion benachbarter Startgebäude.
+Weitere Starts mit unverändertem Mod sind zunächst nicht nötig; vor einer
+gezielten Wiederholung muss dieser native Startbaupfad geklärt werden.
+
+Für die **Regressionsprüfung nach einer Korrektur** liegt die noch inaktive
+`AivLobbyStartRebuildRegressionSeries.json` bereit. Sie enthält ausschließlich
+`CC-A-off/on` und `CC-B-off/on` in dieser Reihenfolge, also vier statt zehn
+Kartenstarts. Sie wird nicht automatisch geladen. Erst nach dem Code-Fix
+die Datei als `BepInEx/config/AivLobbyTestSeries.json` einsetzen und den
+Fortschrittsstand für die neue `seriesId` ausdrücklich auf Index 0 setzen;
+andernfalls verweigert der Testmod die Übernahme absichtlich. Die bisherige
+Zehn-Match-Aufnahme und ihre Berichte bleiben erhalten.

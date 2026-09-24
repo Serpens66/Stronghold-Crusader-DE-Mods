@@ -455,3 +455,51 @@ Variantenmengen. Die Karten-SHA-256 stehen in der editierbaren
 Testserien-Datei. Dichte Starts auf der gesonderten Überlappungskarte
 bleiben zurückgestellt. Der Testmod protokolliert den Run-Namen und
 setzt den Fortschritt erst nach bestätigtem Matchstart fort.
+
+### Zehn-Match-Serie vom 24.09.2026: Ergebnis
+
+Alle zehn Presets wurden mit der vorgesehenen Karte, KI-Reihenfolge,
+Keep-Zuordnung, AIV-Auswahl und „Completed Castles“-Option bestätigt; die
+Fortschrittsdatei endet bei `CC-B-on` und `nextIndex=10`. Der versehentliche
+zweite Start ohne Sofortspawn zwischen `CL-A-off` und `CL-A-on` wurde nicht
+als Serienlauf gezählt. Die spätere freie Nutzung der Lobby nach Serienende
+gehört ebenfalls nicht zur Auswertung. Native-DLL-SHA-256:
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+Crater Lake hat Map-SHA-256 `C5D9906AA37ED96EC1CF9B3EB0C7F6FB5B3E1D8063167FE22337E69C153BB887`,
+Craggy Cliffs `C46B71C941EA299D1CA82C4F9649601E41F80517F05885ECDDA39DEEE5E4EF25`.
+
+Der [Serienbericht](Diagnostics/AivSeries-20260924/RESULTS.md) und die
+getrennten Oracle-Korpora halten 119 Native-Fitversuche fest: 57 exakte
+Offline-Vergleiche, 59 bewusst gesperrte Fälle nach vorherigem Sofortbau,
+drei Abweichungen und null Auswertungsfehler. Die drei Abweichungen treten
+ohne Sofortbau auf Craggy Cliffs bei Emir `Default 1` (0° und 180°) und
+Jewel `Default 1` (270°) auf. Bei Jewel ist auch der Prozentwert verschieden:
+Vanilla 95 %, Offline 94 %. Unmittelbar vor den Fitversuchen erfasste native
+Gebäuderaster widerlegen einzelne vom Offline-Code rekonstruierte Zellen
+früherer Startgebäude. Die bisherige affine 13x13-Abbildung reicht für
+nahe Kandidaten also nicht aus. Die Abweichung darf nicht durch passend
+gemachte Score-Zähler verdeckt werden; zuerst sind der native Startbaupfad
+und alle betroffenen Tile-Schichten zu klären.
+
+Alle fünf Sofortbau-Läufe haben vollständige und konsistente Bau-Frame-
+Aufnahmen ohne Pointer- oder Capture-Fehler. Bei `CC-A-on` sind es sechs
+statt sieben Bau-Sequenzen, weil Emir `Default 1` in allen vier Drehungen
+abgelehnt wurde und keine Burg bekam. Bei Crater Lake bleiben 31 in den
+aus/an-Paaren gemeinsame Native-Fits unverändert, ohne beobachtete
+Schnittmenge zwischen früheren Tile-Änderungen und 28 späteren Fit-Lesespuren.
+Craggy Cliffs liefert den Gegenfall: 5/13 beziehungsweise 6/11 gemeinsame
+Native-Fits ändern sich; 8/15 beziehungsweise 12/16 spätere Fit-Traces
+schneiden die vorherigen beobachteten Tile-Änderungen. Damit ist die Sperre
+späterer KIs bei Sofortspawn weiterhin nötig, und ein einfacher
+Crater-Lake-Abstandsbeleg wäre keine allgemeine Freigabe.
+
+**Nächste Arbeit ohne weiteren Spielstart:** `0x94350 -> 0x6D580 -> 0x77E60`
+für die native Startgebäude-Konstruktion einschließlich Abbrüchen und
+Footprints zu Ende auditieren und die vorhandenen Live-Gebäuderaster
+zellweise gegen das Offline-Modell verwenden. Danach entweder das Modell
+belegen und korrigieren oder betroffene Lobby-Fälle gezielt `NotEvaluable`
+setzen. Die 119 bereits archivierten Fälle erneut ausführen. Erst nach
+dieser Korrektur wären die beiden Craggy-Cliffs-Paare als wenige gezielte
+Ingame-Wiederholungen sinnvoll; unveränderte weitere Zehn-Match-Serien
+bringen derzeit keinen zusätzlichen Beleg. Die Spezialkarte mit
+überlappenden Starts bleibt zurückgestellt.

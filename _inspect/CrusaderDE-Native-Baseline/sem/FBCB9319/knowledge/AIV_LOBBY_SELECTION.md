@@ -307,3 +307,59 @@ was written to Unity `Player.log`, not BepInEx `LogOutput.log`. A mod compiled
 against `Assembly-CSharp-publicized.dll` cannot directly access these private
 members at runtime; any required access needs an explicitly audited runtime
 mechanism or a public Vanilla route.
+
+## 2026-09-24 ten-run Crater Lake / Craggy Cliffs observation
+
+The installed DLL still hashes to
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+The audited path is `0x94350` (`VA 0x180094350`) for ordered player
+initialization, `0x54F60` / `0x54DE0` for selection, `0x57080` -> `0x7B060`
+for fit reads, and `0x53D00` -> `0x6D580` -> optional `0x55F50` / `0x51790`
+for prepared start and completed-castle writes. At `0x94350`, the accepted
+candidate's Keep reference is passed to `0x6D580` with structure type `0x3d`
+before the optional `0x55F50` loop. `0x6D580` delegates its initial
+placement to `0x77E60`. The decompiler export for `0x77E60` is incomplete;
+its placement, failure, and footprint effects remain a native audit gap.
+Confidence: high for this direct call order, medium for the full start
+constructor effects.
+
+Ten verified test-series starts (seven AIs each) used Crater Lake map SHA-256
+`C5D9906AA37ED96EC1CF9B3EB0C7F6FB5B3E1D8063167FE22337E69C153BB887`
+and Craggy Cliffs map SHA-256
+`C46B71C941EA299D1CA82C4F9649601E41F80517F05885ECDDA39DEEE5E4EF25`.
+One intervening Crater Lake start had the wrong completed-castle option and
+was excluded. The confirmed series contains 119 native fit attempts: 57
+offline exact matches, 59 deliberately `NotEvaluable` after prior completed
+castle construction, three mismatches, and zero comparison errors. Crater
+Lake contributes 34 exact and 28 `NotEvaluable` with no mismatch. The three
+mismatches are on Craggy Cliffs **without** completed castles: Emir
+`Default 1` at 0 and 180 degrees has two extra offline blocked cells in
+each case; Jewel `Default 1` at 270 degrees has native 95% / 106 blocked
+cells versus offline 94% / 117. These are not evidence of a different
+`0x7B060` rule by themselves: native live-building snapshots disagree with
+the offline rebuilt-start state at the candidate cells. For Emir at 0 degrees,
+the offline reconstruction inserts building ID 32 at `(383,530)` and
+`(384,530)`, but the native building grid has no building there. At 180
+degrees the analogous over-inserted cells are `(389,519)` and `(389,521)`.
+Jewel's candidate has 20 cells with different modeled/native building IDs.
+Confidence is high for the observed snapshots and comparison, medium for
+attributing every mismatched blocked cell to the start constructor. The
+existing affine 13x13 start rebuild is therefore not yet an exact native
+contract for nearby candidate footprints.
+
+All five completed-castle runs yielded complete, provenance-linked frame
+captures with zero pointer/capture errors: seven sequences each on three
+Crater Lake runs, six on Craggy `CC-A-on` (Emir's AIV was natively rejected
+in every rotation, so it did not build), and seven on `CC-B-on`. In the
+three Crater Lake off/on pairs, 31 common native attempts were unchanged,
+and none of 28 later-player fit traces intersected earlier recorded
+validator-layer writes. On Craggy Cliffs, 5/13 and 6/11 common native
+attempts changed between off/on; 8/15 and 12/16 later fit traces touched
+earlier captured tile writes. This directly disproves a general spatial
+independence inference from Crater Lake. Confidence is high for the observed
+pairwise scores and read/write sets; unchosen variants and all constructor
+side effects remain unbounded. The product's later-player completed-castle
+`NotEvaluable` boundary remains necessary. See
+`CastlePlanner/Diagnostics/AivSeries-20260924/RESULTS.md` and
+`CastlePlanner/AIVPlacement_SOFORTSPAWN_FORSCHUNGSSTAND.md` for files and next
+checks.
