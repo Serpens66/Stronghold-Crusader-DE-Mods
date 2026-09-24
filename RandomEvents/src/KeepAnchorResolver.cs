@@ -23,15 +23,7 @@ namespace RandomEvents
                 return false;
             }
 
-            if (GameBuildingFootprint.TryGetBounds(keep, out GameBuildingFootprintBounds footprint))
-            {
-                tileX = footprint.CenterXTimesTwo / 2.0;
-                tileY = footprint.CenterYTimesTwo / 2.0;
-                geometrySource = "occupied-tiles";
-                return true;
-            }
-
-            if (KeepAnchorGeometry.TryGetGridCenter(
+            if (KeepAnchorGeometry.TryGetReferenceTile(
                     keep->r_TilePositionXBegin,
                     keep->r_TilePositionYBegin,
                     keep->r_OccupyTileGridSize,
@@ -39,13 +31,13 @@ namespace RandomEvents
                     out tileX,
                     out tileY))
             {
-                geometrySource = "validated-grid-fallback";
+                geometrySource = "validated-keep-position";
                 return true;
             }
 
             failure =
-                $"occupied tiles and grid fallback are invalid: begin=({keep->r_TilePositionXBegin}," +
-                $"{keep->r_TilePositionYBegin}), gridSize={keep->r_OccupyTileGridSize}";
+                $"Keep start tile is outside the playable map: begin=({keep->r_TilePositionXBegin}," +
+                $"{keep->r_TilePositionYBegin})";
             return false;
         }
     }

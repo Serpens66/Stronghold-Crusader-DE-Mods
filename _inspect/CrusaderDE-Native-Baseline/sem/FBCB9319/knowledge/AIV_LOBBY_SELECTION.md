@@ -363,3 +363,274 @@ side effects remain unbounded. The product's later-player completed-castle
 `CastlePlanner/Diagnostics/AivSeries-20260924/RESULTS.md` and
 `CastlePlanner/AIVPlacement_SOFORTSPAWN_FORSCHUNGSSTAND.md` for files and next
 checks.
+
+## 2026-09-24 follow-up: AI start constructor and live-grid boundary
+
+Installed `CrusaderDE.dll` SHA-256 remains
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+At `0x94350`, `0xC43A0` removes the serialized start Keep and linked records;
+`0xC3FA0` removes this player's serialized goods yards. Candidate selection
+(`0x54F60`/`0x54DE0`) follows. `0x53D00` imports the chosen AIV and obtains
+the first mapper `0x3d` marker from the rotated 100x100 grid. The resulting
+coordinate is passed to `0x6D580` with mapper `0x3d` and scale seven before
+the optional `0x55F50`/`0x51790` completed-castle loop. `0x6D580` calls
+`0x77E60` first and returns without construction when its failure flag is
+set. On success, `0x69850` iterates the structure footprint, clears affected
+tile fields and prior objects, and the constructor path writes building,
+owner and terrain occupancy and updates adjacent path cells. The exported
+decompilation of `0x77E60` exceeds its instruction-flow limit; the Rizin
+analysis exposes multiple type-dependent validation branches. No general
+success/failure contract for arbitrary nearby starts follows from this
+audit. Confidence: high for call order, branch/side-effect boundary and
+observed grids; limited for the complete validator conditions.
+
+The archived Craggy Cliffs map has source Keep ID 10 at `(330..336,333..339)`
+and campground ID 14 at `(330..336,341..347)`. A selected 270-degree start
+appears in the native pre-fit grid at `(337..343,333..339)` and
+`(329..335,333..339)`, respectively. The 0-degree start at slot 3 retains
+both source bounding boxes without the previous offline `(+1,+1)` offset.
+A 90-degree start at slot 6 agrees with the previous `(y+1,12-x)` relative
+mapping. Thus the previously used 0- and 270-degree affine offsets are
+disproved; the corrected observed mappings are identity at 0 degrees and
+`(13-y,x)` at 270 degrees. No equally direct seven-by-seven 180-degree
+constructor observation is in this corpus. The map's object records have
+type 41 for these Keeps and type 55 for the seven-by-seven campground; the
+separate type-10 goods-yard records must not be conflated with it. Confidence:
+high for these map and live-grid cells, limited for generalizing to all
+maps and constructor outcomes.
+
+The shared offline core now refuses a fit that reads cells in or near an
+earlier rebuilt AI start. The guard includes a 24-tile Keep neighborhood
+for the canonical AIV marker and source/modeled target cells with a four-tile
+margin for local constructor/path updates. These are conservative product
+boundaries, not proof that every native side effect ends at those margins.
+A candidate outside those areas still relies on the established offline map
+normalization and fit rules. A selected AIV with a shifted start marker makes
+later AI fits `NotEvaluable` until its resulting native start is proven.
+All failed-construction branches remain research gaps. Fixes'
+local `ModularGoodsyardPlacement` hook is in the native Keep-spawn tail;
+CastlePlanner's separate player rotation compatibility changes only human
+selection. Neither path establishes a safe AI-start cell reconstruction.
+
+After the guarded correction, the ten selected archive sessions have 38
+exact comparisons, 81 deliberate `NotEvaluable`, no mismatches and no
+errors (119 attempts). Including the excluded extra Crater Lake session,
+the full imports have 47/82/0/0 across 129 attempts. This validates the
+current fail-closed boundary against those captures; it does not prove
+arbitrary constructor outcomes. Reports: `.inspect/oracle-crater-safe.json`
+and `.inspect/oracle-craggy-safe.json`.
+
+## 2026-09-24 correction: compound AI Keep start
+
+Installed native SHA-256:
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+The mapper `0x3d` passed by `0x94350` is **not** a generic small
+building. `0xC77C0` maps it to structure type `0x29` (41). After
+`0x77E60` accepts the placement, `0x6D580` dispatches type 41 to the
+compound Keep constructor `0x74DA0`. This corrects the earlier generic
+constructor interpretation; the call order and fail-closed product boundary
+above remain valid. Confidence: high (native mapper table and dispatch).
+
+For type 41, `0x74DA0` creates a 7x7 Keep, three one-tile linked structures
+(types `0x47`, `0x49`, `0x48`), a separate 7x7 campground (type `0x37`),
+and calls `0x76E80` for the goods yard. The table at VA `0x1802D3230`
+places the campground relative to the Keep anchor at `(0,+8)`, `(+8,0)`,
+`(0,-8)`, `(-8,0)` for native rotations 0, 2, 4, 6. The three linked
+cells, from VA `0x1802D3150`, are respectively `(2,7)/(3,7)/(4,7)`,
+`(7,4)/(7,3)/(7,2)`, `(4,-1)/(3,-1)/(2,-1)`, and
+`(-1,2)/(-1,3)/(-1,4)`. The goods-yard anchor table at VA
+`0x1802D3290` gives `(+7,+2)`, `(+2,-5)`, `(-5,0)`, `(0,+7)`.
+`0x76E80` creates four 2x2 building records and writes nine further
+one-tile goods-yard cells. The constructor clears the campground's 7x7
+area and the yard's 5x5 area before writing them. Confidence: high for
+the static successful-construction path and offsets; no claim that every
+placement succeeds or that serialized start records rotate as one rigid
+group.
+
+`0x77E60` receives mapper `0x3d` and follows its default validation
+branch. The observed checks include `0xEE640` over live unit records,
+`0xEE840` over opposing player distances, `0xEC130` path traversal,
+`0xEB9A0`, and tile checks through `0x7B060`. A failed flag at
+`placementState+0x204E6FC` makes `0x6D580` return before the Keep
+constructor. These dependencies can vary with the live map-start state.
+The complete success and abort contract, especially for all possible
+nearby units and connected paths, is not established by the archived
+traces. Confidence: high for these dependencies and the abort boundary;
+limited for an exact offline validator.
+
+The local Fixes mod may replace the tail call to `0x76E80` when
+`ModularGoodsyardPlacement` is enabled. Its per-player
+`PlaceGoodsyardData` defaults to true but is mutable. This option affects
+the start construction, not the earlier AIV candidate score. An offline
+start-state implementation must account for its effective per-player
+value; the current near-start `NotEvaluable` boundary also covers an
+unknown value. Confidence: high from the local Fixes source and native
+constructor call site, limited for any runtime setting not captured in
+the archive.
+
+The installed Script Extender's `BuildingR3EventHooks.OnBuildStructure`
+raises Pre immediately before its `0x6D580` original call and Post
+immediately afterward. The Post `BuildStructureEventArgs.ReturnValue` is
+currently always zero because that event type does not receive the native
+return value. A passive observer can instead read the native failure flag
+and reason at tile-manager offsets `0x204E6FC` and `0x204E704` at Post,
+then compare nearby tile layers. Its Post event carries the original
+argument values, not necessarily values changed by another Pre subscriber;
+Pre/Post argument mismatches must invalidate a trace. Confidence: high
+from the installed-version source contract and native layout; runtime
+capture was validated in the four-match regression below.
+
+## 2026-09-24 four-match Keep-start regression
+
+The four verified Craggy Cliffs starts (`CC-A-off/on`, `CC-B-off/on`)
+used the installed DLL hash above and map SHA-256
+`C46B71C941EA299D1CA82C4F9649601E41F80517F05885ECDDA39DEEE5E4EF25`.
+All 32 mapper-`0x3d` Pre/Post pairs produced complete 41-by-41 regional
+snapshots of the eight fit-relevant layers; every post failure flag was zero.
+The native fit scores, percentages and blocked-cell totals in all 57
+candidate attempts match the earlier archived Craggy corpus exactly.
+The raw failure-reason field was nonzero after 24 successful starts, so it
+is stale diagnostic state unless the failure flag is set. No constructor
+abort branch was observed. Confidence: high for this capture and the
+failure-flag interpretation; none for arbitrary abort conditions.
+
+The successful starts show a 7x7 Keep, three linked cells, a 7x7 camp and
+four 2x2 yard pieces in the native building layer. Normal starts changed
+117 building-ID cells. During completed-castle starts, player 5 in `CC-A-on`
+also cleared 60 existing building cells and replaced eight, while player 7
+in `CC-B-on` cleared 16. These are real before/after effects, not 117
+independent empty-to-occupied writes. The observed changed cells lie at
+most 22 tiles (Chebyshev distance) from their map Keep anchor; this is an
+observation, not a global write bound. The raw traces, hashes and selected
+oracle log are archived in the CastlePlanner diagnostic folder
+`AivSeries-20260924/StartRebuildRegression`.
+
+The full potential write set remains unproven. `0x6D580` performs a
+footprint clear before `0x74DA0`; the Keep constructor can enter
+`0x5D3A0`, which marks preexisting building records through `0xC4290`,
+and later calls `0x5D740`, `0x6FE90`, pathfinding updates and the optional
+`0x76E80` yard constructor. Record removal and the nested tile/path helpers
+cannot be bounded from these four successful map starts. In particular,
+no 180-degree start or failed validator outcome was captured. The offline
+near-start guard and shifted-marker `NotEvaluable` boundary must not be
+narrowed based on the observed 22-tile maximum. Confidence: high for the
+identified native calls and captured write cells; limited for a universal
+tile-mutation envelope.
+
+## 2026-09-24 coverage correction and full-grid capture preparation
+
+The 32 archived Keep-start traces sampled only `x/y = anchor - 16 ..
+anchor + 24`, not the full 320,800-tile grid. Their `sampledRegionComplete`
+header meant that this **region** was fully read; it cannot exclude writes
+outside it. Therefore the reported 22-tile maximum is a maximum **within the
+sampled region** and must not be used as a native write bound. The detector
+now snapshots all eight fit-relevant tile layers across all 320,800 tile IDs
+immediately before and after the published `OnBuildStructure` call, using
+the Script Extender's native row/column lookups for changed-cell coordinates.
+It records scan times and a `fullMapTileLayersComplete` marker. No result
+from the new capture exists yet, and even a complete-grid observation on
+one map does not prove all constructor or validator branches. Confidence:
+high for the original capture extent and the audited event/lookup contract;
+unverified at runtime for the new full-grid instrumentation.
+
+The overlap cleanup switch at tile-manager `+0x204E7FC` gates
+`0x74DA0 -> 0x5D3A0`. The latter visits Keep, linked-cell, camp and yard
+footprints for existing building IDs, calls `0xC4290` to mark those records,
+and then scans all 3,999 ordinary building records with `0xB8310` for
+state 3. `0x5D3A0` sets tile-manager `+0x204E778` when it encounters an
+occupied start cell. The detector now records both raw fields before/after
+each type-41 call, so an overlap-cleanup run can be distinguished from a
+plain start. A full-grid diff is still needed to observe actual fit-layer
+effects of that whole-record pass. Confidence: high for the native branch,
+record loop and offsets; not yet measured for the new trace.
+
+At the type-41 call sites in `0x74DA0`, `0x6FE90` receives `param_6=0`;
+its `0x6A620` path then calls `0xE3360` with that per-footprint index, while
+direct writes target the returned tile. The constructor also invokes
+`0xE3B90`, `0x725E0`, `0x6CDD0`, `0x76E80` and possible existing-building
+removal through `0x5D3A0`. Their complete fit-layer effects and all
+abort/overlap branches still require a bounded call-chain proof before the
+offline uncertainty region can be reduced. Confidence: high for call sites
+and arguments; limited for their aggregate spatial side effects.
+
+## 2026-09-24 full-grid Craggy result
+
+The one-match `CC-A-on` probe used the same native SHA-256 and Craggy map
+SHA-256 `C46B71C941EA299D1CA82C4F9649601E41F80517F05885ECDDA39DEEE5E4EF25`.
+The test series advanced to complete; eight type-41 starts had full
+320,800-tile snapshots before/after the call and no incomplete captures.
+All eight had `preNativeStartCleanupFlag=1`, `postNativeStartCleanupFlag=0`,
+`postNativeDestroyedRecordMarker=1`, and `postNativeFailureFlag=0`.
+No changed fit-layer cell was outside the old 41-by-41 sampling window.
+Within that window, all eight new change-row sets match the archived
+`CC-A-on` start traces exactly (zero differing rows). Full-grid scanning
+cost 18-22 ms per start in this run. Confidence: high for this map,
+selected AIVs and measured successful branches; not a universal bound.
+
+Six provenance-complete completed-castle traces were captured with zero
+pointer or frame errors. Their building and fit-layer change rows match
+the original ten-match series' same `CC-A-on` run (`session009`) exactly
+for each of players 2, 3, 4, 6, 7 and 8. Among 16 native candidate-fit
+attempts, eight validator read sets intersected prior captured prebuild
+write sets; only one also intersected a prior Keep-start write set.
+Eight attempts had no observed prior-write intersection. These are
+actual-path comparisons, not a bound on different selectable AIVs or
+failed constructors. The offline comparison of the imported 16 attempts
+remains one exact, 15 `NotEvaluable`, zero mismatches/errors.
+
+`0x51790` calls `0x5CD90` before `0x6D580` for relevant mapper/status
+branches. `0x5CD90` can clear an existing building via `0xC43A0`, which
+may invoke `0xB8310` on other records sharing its global ID; `0xB8310`
+enters type-specific tile cleanup through `0x61FC0`. Thus the proposed
+simple union of planned AIV footprints alone is not a proven superset of
+all fit-layer writes. The later-player prebuild `NotEvaluable` boundary
+remains. Confidence: high for this call chain and the observed traces;
+limited for its full-map effects on arbitrary maps and imported mappers.
+
+Raw full-grid, prebuild, cell and log archives with hashes reside in
+`CastlePlanner/Diagnostics/AivSeries-20260924/FullGridProbeResults`.
+
+## 2026-09-24 six-match full-grid start and 180-degree audit
+
+Installed Native SHA-256 remains
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+Six verified starts (`CL-A-off`, `CL-A-on`, `CL-B-on`, `CL-Reverse-on`,
+`CC-B-off`, `CC-B-on`) yielded 48 complete full-map type-41 start
+diffs and 28 complete completed-castle sequences. Each start wrote within
+the previously sampled 41x41 neighborhood, with no reported constructor
+failure flag. This is an observation of these inputs, not a general write
+bound or proof of the `0x77E60` abort conditions.
+
+Eight 180-degree starts whose AIV first mapper was the canonical grid
+marker `(row 56, column 43)` were joined by map source building record and
+tile coordinate to their native post-start building cells. For every start,
+all 117 serialized compound Keep cells match the transform
+`(keepX + 13 - dx, keepY + 13 - dy)`; the former `+12` transform misses
+31 of the 117 native cells each time. The observed native Keep minimum is
+`map Keep + (7,7)`, while the campground is eight cells north of that
+native Keep. This agrees with the `0x53D00 -> 0x6D580 -> 0x74DA0` rotated
+marker and type-41 offset tables. Noncanonical markers `(55,44)` and
+`(56,45)` shift the native 180-degree Keep minimum to `+(6,6)` and
+`+(5,7)` in the observed Crater Lake starts; the product still treats
+subsequent fits after such markers as `NotEvaluable`.
+
+The 69 new native fit attempts compare as 19 exact and 50 deliberately
+`NotEvaluable`, with no mismatch or processing error after the pivot
+correction. Confidence is high for the eight observed canonical 180-degree
+compound footprints and Native offsets; the complete constructor effects,
+failure paths, other AIV markers, maps and earlier completed-castle state
+remain unproven. Raw traces and reports are archived at
+`CastlePlanner/Diagnostics/AivSeries-20260924/SixMatchResults`.
+
+The installed pivot-13 implementation was checked with two further
+confirmed Crater Lake starts using the same fixed seven-AI setup, first
+without and then with completed castles. Native SHA-256 remained
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`;
+map SHA-256 remained `C5D9906AA37ED96EC1CF9B3EB0C7F6FB5B3E1D8063167FE22337E69C153BB887`.
+All 16 full-map start captures and seven completed-castle build captures
+were complete. The 20 native fit attempts yielded ten exact offline
+comparisons and ten conservative `NotEvaluable` classifications, with
+zero mismatches or processing errors. This is a runtime regression of
+the observed branches; it does not close the shifted-marker, constructor
+failure, or sequential prebuild contracts. Evidence is archived under
+`CastlePlanner/Diagnostics/AivSeries-20260924/Pivot13RuntimeRegression/Observed`.

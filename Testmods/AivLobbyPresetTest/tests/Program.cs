@@ -63,6 +63,64 @@ namespace AivLobbyPresetTest
                 secondRun["id"] = series.Runs[0].Id;
                 File.WriteAllText(path, Shared.DependencyFreeJson.Serialize(seriesRoot));
                 RejectSeries(path, "duplicate run ID");
+                TestSeries fullGridProbe = TestSeries.Read(args[2]);
+                Require(fullGridProbe.Enabled && fullGridProbe.Runs.Count == 1 &&
+                    fullGridProbe.Runs[0].Id == "CC-A-on" &&
+                    fullGridProbe.Runs[0].PreBuild == 1 &&
+                    fullGridProbe.Runs[0].Preset.Players.Count == 8,
+                    "single Craggy full-grid probe");
+                TestSeries craterProbe = TestSeries.Read(args[3]);
+                Require(craterProbe.Enabled && craterProbe.Runs.Count == 1 &&
+                    craterProbe.Runs[0].Id == "CL-A-on" &&
+                    craterProbe.Runs[0].PreBuild == 1 &&
+                    craterProbe.Runs[0].Preset.Players.Count == 8 &&
+                    craterProbe.Runs[0].Preset.MapFileName == "Crater Lake.map",
+                    "single Crater 180-degree probe");
+                File.Delete(progressPath);
+                TestSeriesProgress probeProgress = TestSeriesProgress.Read(progressPath, craterProbe);
+                probeProgress.Complete(progressPath, craterProbe, 0, craterProbe.Runs[0].Id);
+                Require(TestSeriesProgress.Read(progressPath, craterProbe).NextIndex == 1,
+                    "single probe stops after its match");
+                TestSeries sixMatches = TestSeries.Read(args[4]);
+                string[] sixMatchIds = {
+                    "CL-A-off", "CL-A-on", "CL-B-on", "CL-Reverse-on", "CC-B-off", "CC-B-on"
+                };
+                Require(sixMatches.Enabled && sixMatches.Runs.Count == sixMatchIds.Length &&
+                    sixMatches.Id == "aiv-full-grid-six-match-20260924",
+                    "six-match full-grid series");
+                for (int index = 0; index < sixMatchIds.Length; index++)
+                {
+                    TestRun actual = sixMatches.Runs[index];
+                    TestRun expected = null;
+                    foreach (TestRun sourceRun in series.Runs)
+                        if (sourceRun.Id == sixMatchIds[index]) expected = sourceRun;
+                    Require(expected != null && actual.Id == sixMatchIds[index] &&
+                        actual.PreBuild == expected.PreBuild &&
+                        actual.Preset.MapFileName == expected.Preset.MapFileName &&
+                        actual.Preset.MapSha256 == expected.Preset.MapSha256 &&
+                        actual.Preset.Players.Count == 8,
+                        "six-match source identity and option at " + index);
+                    for (int playerIndex = 0; playerIndex < 8; playerIndex++)
+                    {
+                        PresetPlayer a = actual.Preset.Players[playerIndex];
+                        PresetPlayer b = expected.Preset.Players[playerIndex];
+                        Require(a.Id == b.Id && a.Human == b.Human &&
+                            a.LordType == b.LordType && a.AivDefault == b.AivDefault &&
+                            a.KeepSlot == b.KeepSlot && a.RadarX == b.RadarX &&
+                            a.RadarY == b.RadarY && a.KeepX == b.KeepX &&
+                            a.KeepY == b.KeepY,
+                            "six-match player source identity at " + index + "/" + playerIndex);
+                    }
+                }
+                File.Delete(progressPath);
+                TestSeriesProgress sixProgress = TestSeriesProgress.Read(progressPath, sixMatches);
+                for (int index = 0; index < sixMatches.Runs.Count; index++)
+                {
+                    sixProgress.Complete(progressPath, sixMatches, index, sixMatches.Runs[index].Id);
+                    sixProgress = TestSeriesProgress.Read(progressPath, sixMatches);
+                    Require(sixProgress.NextIndex == index + 1,
+                        "six-match progress at " + index);
+                }
                 Console.WriteLine("AIV lobby preset parser tests passed.");
                 return 0;
             }

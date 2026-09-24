@@ -93,6 +93,23 @@ $permanentManagedContracts = @(
             'plagueApothecarySearchRangePatch?.Dispose()',
             'plagueApothecarySearchRangePatch = null'
         )
+    },
+    @{
+        Path = 'Testmods\WaterboyTargetReservationTest\src\WaterboyTargetReservationRuntime.cs'
+        Required = @(
+            'private readonly HookTransaction transaction;',
+            'private readonly Hook setUpInbuildingHook;',
+            'pendingTransaction?.Dispose();',
+            'pendingManagedHook?.Dispose();'
+        )
+        Forbidden = @(
+            'transaction?.Dispose()',
+            'transaction.Dispose()',
+            'setUpInbuildingHook?.Dispose()',
+            'setUpInbuildingHook.Dispose()',
+            'targetSearchHook.Hook.Disable()',
+            'targetSearchHook.Hook.Dispose()'
+        )
     }
 )
 

@@ -2,7 +2,7 @@
   "GUID": "WaterboyTargetReservationTest_Serp",
   "Author": "Serpens66",
   "Name": "Waterboy Target Reservation Test",
-  "Description": "Test mod that assigns water carriers to distinct burning buildings while preserving Vanilla target selection.",
+  "Description": "Test mod with per-player live control that assigns the nearest available water carrier to each fire while preserving Vanilla reachability.",
   "Version": "0.1.0",
   "MinimumScriptExtenderVersion": "2.7.2",
   "MaximumScriptExtenderVersion": "",
@@ -12,7 +12,7 @@
     {
       "Version": "0.1.0",
       "Changes": [
-        "Added process-wide reservations so well and water-pot workers select different burning buildings or linked building compounds."
+        "Added per-player reservations, nearest-idle-carrier takeovers, and a live Well/Water Pot mode button while preserving Vanilla target reachability."
       ]
     }
   ]

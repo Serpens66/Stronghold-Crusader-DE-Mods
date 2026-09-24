@@ -26,6 +26,7 @@ internal static class Program
             ("Normalize serialized player start occupancy", TestPreplacementMapState),
             ("Keep neighboring starts separated by wall owner", TestNeighboringStartWallOwners),
             ("Rotate rebuilt player start occupancy", TestRebuiltStartRotations),
+            ("Match observed Keep and campground footprints", TestObservedCraggyStartFootprints),
             ("Reconstruct native rock footprints", TestRockFootprintReconstruction),
             ("Require observed state after an executed AIV prebuild", TestPriorPrebuildStateRequirement),
             ("Reject reasonless placement issues", TestReasonlessPlacementIssue),
@@ -738,8 +739,8 @@ internal static class Program
                 source,
                 keep,
                 AivRotation.Degrees0),
-            403,
-            415);
+            402,
+            414);
         AssertCoordinate(
             AivPreplacementMapState.TransformRebuiltStartCoordinate(
                 source,
@@ -752,15 +753,54 @@ internal static class Program
                 source,
                 keep,
                 AivRotation.Degrees180),
-            410,
-            398);
+            411,
+            399);
         AssertCoordinate(
             AivPreplacementMapState.TransformRebuiltStartCoordinate(
                 source,
                 keep,
                 AivRotation.Degrees270),
-            398,
-            403);
+            399,
+            402);
+    }
+
+    private static void TestObservedCraggyStartFootprints()
+    {
+        var keep = new MapCoordinate(330, 333);
+        MapCoordinate keepCorner = keep;
+        var campgroundCorner = new MapCoordinate(330, 341);
+
+        AssertCoordinate(
+            AivPreplacementMapState.TransformRebuiltStartCoordinate(
+                keepCorner, keep, AivRotation.Degrees0), 330, 333);
+        AssertCoordinate(
+            AivPreplacementMapState.TransformRebuiltStartCoordinate(
+                campgroundCorner, keep, AivRotation.Degrees0), 330, 341);
+        AssertCoordinate(
+            AivPreplacementMapState.TransformRebuiltStartCoordinate(
+                keepCorner, keep, AivRotation.Degrees270), 343, 333);
+        AssertCoordinate(
+            AivPreplacementMapState.TransformRebuiltStartCoordinate(
+                campgroundCorner, keep, AivRotation.Degrees270), 335, 333);
+
+        var rotatedKeep = new MapCoordinate(506, 352);
+        AssertCoordinate(
+            AivPreplacementMapState.TransformRebuiltStartCoordinate(
+                rotatedKeep, rotatedKeep, AivRotation.Degrees90), 507, 364);
+        AssertCoordinate(
+            AivPreplacementMapState.TransformRebuiltStartCoordinate(
+                new MapCoordinate(506, 360), rotatedKeep, AivRotation.Degrees90), 515, 364);
+
+        var craterKeep = new MapCoordinate(525, 274);
+        AssertCoordinate(
+            AivPreplacementMapState.TransformRebuiltStartCoordinate(
+                craterKeep, craterKeep, AivRotation.Degrees180), 538, 287);
+        AssertCoordinate(
+            AivPreplacementMapState.TransformRebuiltStartCoordinate(
+                new MapCoordinate(531, 280), craterKeep, AivRotation.Degrees180), 532, 281);
+        AssertCoordinate(
+            AivPreplacementMapState.TransformRebuiltStartCoordinate(
+                new MapCoordinate(525, 282), craterKeep, AivRotation.Degrees180), 538, 279);
     }
 
     private static void TestCandidateStatuses()

@@ -26,6 +26,7 @@ namespace AIVPlacement.Core
         private readonly HashSet<ushort> removedStartBuildingIds;
         private readonly Dictionary<ushort, AivTileOccupancyKind> startKindsByBuildingId;
         private readonly Dictionary<int, RebuiltStartCell> rebuiltStartCellsByTileId;
+        private readonly HashSet<int> uncertainNativeStartTileIds;
         private readonly Dictionary<int, ushort> reconstructedRockIdsByTileId;
         private readonly IReadOnlyList<ushort> normalizedStartBuildingIds;
         private readonly IReadOnlyList<ushort> retainedStartBuildingIdList;
@@ -90,6 +91,7 @@ namespace AIVPlacement.Core
                 foreach (KeyValuePair<ushort, AivTileOccupancyKind> pair in startKindsByBuildingId)
                     this.startKindsByBuildingId.Add(pair.Key, pair.Value);
             }
+            uncertainNativeStartTileIds = new HashSet<int>();
             rebuiltStartCellsByTileId = RebuildStartCells(
                 rebuildTransformsByBuildingId ??
                 new Dictionary<ushort, StartRebuildTransform>());
@@ -218,15 +220,53 @@ namespace AIVPlacement.Core
         {
             int x = coordinate.X - keep.X;
             int y = coordinate.Y - keep.Y;
-            // Native rebuilds the 13x13 start reference after choosing the AIV rotation.
+            // Live grids for the current native build retain 0-degree cells unchanged
+            // and put the 180- and 270-degree groups at the 13-cell pivot. The
+            // 90-degree offset agrees with its observed 7x7 Keep and campground footprints.
+            // Remaining constructor uncertainty is guarded at candidate reads.
             return rotation switch
             {
-                AivRotation.Degrees0 => new MapCoordinate(keep.X + x + 1, keep.Y + y + 1),
+                AivRotation.Degrees0 => coordinate,
                 AivRotation.Degrees90 => new MapCoordinate(keep.X + y + 1, keep.Y + 12 - x),
-                AivRotation.Degrees180 => new MapCoordinate(keep.X + 12 - x, keep.Y + 12 - y),
-                AivRotation.Degrees270 => new MapCoordinate(keep.X + 12 - y, keep.Y + x + 1),
+                AivRotation.Degrees180 => new MapCoordinate(keep.X + 13 - x, keep.Y + 13 - y),
+                AivRotation.Degrees270 => new MapCoordinate(keep.X + 13 - y, keep.Y + x),
                 _ => throw new ArgumentOutOfRangeException(nameof(rotation))
             };
+        }
+
+        public bool HasUnprovenNativeStartInteraction(AivProjectedCastle castle)
+        {
+            if (castle == null)
+                throw new ArgumentNullException(nameof(castle));
+            if (uncertainNativeStartTileIds.Count == 0)
+                return false;
+
+            foreach (AivProjectedElement element in castle.Elements)
+            {
+                foreach (AivProjectedTile tile in element.OccupiedTiles)
+                {
+                    MapCoordinate coordinate = tile.MapCoordinate;
+                    if (Geometry.TryGetTileId(coordinate.X, coordinate.Y, out int tileId) &&
+                        uncertainNativeStartTileIds.Contains(tileId))
+                        return true;
+                }
+            }
+            return false;
+        }
+
+        private void MarkUncertainNativeStartArea(MapCoordinate coordinate)
+        {
+            // 0x6D580 can clear a footprint and refresh neighboring path cells.
+            // Until all 0x77E60 success and abort branches are reconstructed,
+            // a candidate reading this area cannot receive a proven fit.
+            for (int y = coordinate.Y - 4; y <= coordinate.Y + 4; y++)
+            {
+                for (int x = coordinate.X - 4; x <= coordinate.X + 4; x++)
+                {
+                    if (Geometry.TryGetTileId(x, y, out int tileId))
+                        uncertainNativeStartTileIds.Add(tileId);
+                }
+            }
         }
 
         public AivPlacementTileEvidence GetTileEvidence(int tileId)
@@ -497,6 +537,23 @@ namespace AIVPlacement.Core
             if (transforms.Count == 0)
                 return result;
 
+            var markedKeeps = new HashSet<MapCoordinate>();
+            foreach (StartRebuildTransform start in transforms.Values)
+            {
+                if (!markedKeeps.Add(start.Keep))
+                    continue;
+                // The AIV Keep marker at the native reference can spawn a
+                // seven-cell structure beyond the serialized start group.
+                for (int y = start.Keep.Y - 24; y <= start.Keep.Y + 24; y++)
+                {
+                    for (int x = start.Keep.X - 24; x <= start.Keep.X + 24; x++)
+                    {
+                        if (Geometry.TryGetTileId(x, y, out int nearbyTileId))
+                            uncertainNativeStartTileIds.Add(nearbyTileId);
+                    }
+                }
+            }
+
             for (int tileId = 0; tileId < Geometry.TileCount; tileId++)
             {
                 AivPlacementTileEvidence evidence = source.GetTileEvidence(tileId);
@@ -519,6 +576,8 @@ namespace AIVPlacement.Core
                     coordinate,
                     transform.Keep,
                     transform.Rotation);
+                MarkUncertainNativeStartArea(coordinate);
+                MarkUncertainNativeStartArea(target);
                 if (!Geometry.TryGetTileId(target.X, target.Y, out int targetTileId))
                     continue;
                 if (result.ContainsKey(targetTileId))

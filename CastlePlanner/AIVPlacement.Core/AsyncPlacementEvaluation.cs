@@ -616,7 +616,7 @@ namespace CastlePlanner.AIVPlacement.Core
                     rebuiltVariant = selectedCandidate.Selection?.BestVariant;
                 }
 
-                if (rebuiltVariant != null)
+                if (rebuiltVariant != null && HasCanonicalNativeStartMarker(rebuiltVariant))
                 {
                     rebuiltStartRotationsBySlot[request.KeepSlotIndex] =
                         rebuiltVariant.Rotation;
@@ -637,9 +637,12 @@ namespace CastlePlanner.AIVPlacement.Core
                     {
                         priorUnknownPlayerId = request.PlayerId;
                         priorFailureKind = result.FailureKind;
-                        priorFailureMessage = result.FailureKind ==
+                        priorFailureMessage = rebuiltVariant != null &&
+                            !HasCanonicalNativeStartMarker(rebuiltVariant)
+                            ? "the selected AIV has a shifted native start marker"
+                            : result.FailureKind ==
                             LobbyEvaluationFailureKind.NativeAutoSelectionAmbiguous
-                            ? "possible Vanilla outcomes have different start rotations or no selected castle"
+                            ? "possible Vanilla outcomes have different start rotations, shifted markers or no selected castle"
                             : result.FailureMessage;
                     }
                 }
@@ -667,7 +670,10 @@ namespace CastlePlanner.AIVPlacement.Core
                 if (candidate?.Selection == null ||
                     outcome.RotationIndex >= candidate.Selection.Variants.Count)
                     return false;
-                AivRotation current = candidate.Selection.Variants[outcome.RotationIndex].Rotation;
+                AivPlacementResult variant = candidate.Selection.Variants[outcome.RotationIndex];
+                if (!HasCanonicalNativeStartMarker(variant))
+                    return false;
+                AivRotation current = variant.Rotation;
                 if (shared.HasValue && shared.Value != current)
                     return false;
                 shared = current;
@@ -675,6 +681,11 @@ namespace CastlePlanner.AIVPlacement.Core
             rotation = shared.Value;
             return true;
         }
+
+        private static bool HasCanonicalNativeStartMarker(AivPlacementResult variant) =>
+            variant?.Castle != null &&
+            variant.Castle.AivKeepAnchor.Row == 56 &&
+            variant.Castle.AivKeepAnchor.Column == 43;
 
         private static int BuildRebuiltStartState(
             IReadOnlyDictionary<int, AivRotation> rotationsBySlot)
@@ -1131,6 +1142,18 @@ namespace CastlePlanner.AIVPlacement.Core
                     cancellationToken.ThrowIfCancellationRequested();
                     projectionTimer.Stop();
                     projectionElapsed += projectionTimer.Elapsed;
+
+                    if (placementMap is AivPreplacementMapState reconstructed &&
+                        reconstructed.HasUnprovenNativeStartInteraction(castle))
+                    {
+                        return Failure(
+                            LobbyEvaluationFailureKind.StartOverlapUnproven,
+                            "This AIV reads tiles near an earlier AI start whose native construction is not fully proven.",
+                            mapLookup,
+                            aivTimer.Elapsed,
+                            projectionElapsed,
+                            ruleElapsed);
+                    }
 
                     var ruleTimer = Stopwatch.StartNew();
                     variants.Add(evaluator.Evaluate(placementMap, castle));

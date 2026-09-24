@@ -9,6 +9,7 @@ using RedBird.X64.Hooks.Transaction;
 using SHCDESE.API;
 using SHCDESE.API.LowLevel;
 using SHCDESE.EventAPI;
+using SHCDESE.EventAPI.Buildings;
 using SHCDESE.EventAPI.MapLoader;
 using SHCDESE.Interop;
 using System;
@@ -59,6 +60,8 @@ namespace ActiveAIVDetector
             new List<OracleSelectionSnapshot>();
         private readonly List<OraclePrebuildFrameTraceSnapshot> pendingPrebuildFrames =
             new List<OraclePrebuildFrameTraceSnapshot>();
+        private readonly List<OracleStartStructureResult> pendingStartStructures =
+            new List<OracleStartStructureResult>();
         private readonly HashSet<int> reportedPlayers = new HashSet<int>();
         private readonly HashSet<long> reportedOracleSelections = new HashSet<long>();
         private readonly List<IDisposable> lifecycleSubscriptions = new List<IDisposable>();
@@ -70,6 +73,8 @@ namespace ActiveAIVDetector
         private Hook startSkirmishGameHook;
         private StartSkirmishGameDelegate startSkirmishGameTrampoline;
         private AivPlacementOracle placementOracle;
+        private OracleStartStructureCapture activeStartStructure;
+        private bool startStructureCaptureFailureLogged;
         private int detectionCount;
         private bool installed;
         private bool mapStartCompleted;
@@ -412,6 +417,12 @@ namespace ActiveAIVDetector
 
         private void SubscribeLifecycleHooks()
         {
+            lifecycleSubscriptions.Add(BuildingR3EventHooks.OnBuildStructure.Observable
+                .Where(args => args.Phase == EventHookPhase.Pre)
+                .Subscribe(OnStartStructurePre));
+            lifecycleSubscriptions.Add(BuildingR3EventHooks.OnBuildStructure.Observable
+                .Where(args => args.Phase == EventHookPhase.Post)
+                .Subscribe(OnStartStructurePost));
             lifecycleSubscriptions.Add(Shared.MissionEvents.Loading
                 .Where(args => args.IsBeforeInitialization)
                 .Subscribe(OnMapLoadStarted));
@@ -424,12 +435,173 @@ namespace ActiveAIVDetector
                 _ => OnMapStarted()));
         }
 
+        private void OnStartStructurePre(BuildStructureEventArgs args)
+        {
+            if (mapStartCompleted || (int)args.Mappers != 0x3D ||
+                pendingStartStructures.Count >= GamePlayerManagerAPI.MAX_PLAYERS)
+                return;
+
+            try
+            {
+                if (activeStartStructure != null)
+                    throw new InvalidOperationException("Nested Keep-start capture was detected.");
+                activeStartStructure = OracleStartStructureCapture.Begin(
+                    args.PlayerId, args.TileX, args.TileY, args.Unknown1,
+                    args.BuildingScaleUnknown, args.IsFree);
+            }
+            catch (Exception ex)
+            {
+                activeStartStructure = null;
+                ReportStartStructureCaptureFailure(ex);
+            }
+        }
+
+        private void OnStartStructurePost(BuildStructureEventArgs args)
+        {
+            if ((int)args.Mappers != 0x3D || activeStartStructure == null)
+                return;
+
+            OracleStartStructureCapture capture = activeStartStructure;
+            activeStartStructure = null;
+            try
+            {
+                if (capture.PlayerId != args.PlayerId || capture.X != args.TileX ||
+                    capture.Y != args.TileY || capture.Orientation != args.Unknown1)
+                {
+                    throw new InvalidOperationException(
+                        "Keep-start Pre/Post arguments differ; the trace is incomplete.");
+                }
+                pendingStartStructures.Add(capture.Complete());
+            }
+            catch (Exception ex)
+            {
+                ReportStartStructureCaptureFailure(ex);
+            }
+        }
+
+        private void ReportStartStructureCaptureFailure(Exception ex)
+        {
+            if (startStructureCaptureFailureLogged)
+                return;
+            startStructureCaptureFailureLogged = true;
+            Shared.DebugLogHelper.LogError(log,
+                $"Oracle Keep-start capture incomplete; further errors suppressed: {ex}");
+        }
+
+        private void WritePendingStartStructureTraces()
+        {
+            if (activeStartStructure != null)
+            {
+                activeStartStructure = null;
+                ReportStartStructureCaptureFailure(new InvalidOperationException(
+                    "A Keep-start Pre event had no matching Post event."));
+            }
+
+            if (pendingStartStructures.Count == 0)
+            {
+                Shared.DebugLogHelper.LogInfo(log,
+                    $"Oracle Keep-start capture summary: mapLoadSequence={mapLoadSequence}, " +
+                    $"captured=0, incomplete={startStructureCaptureFailureLogged}.");
+                return;
+            }
+            try
+            {
+                string directory = Path.Combine(BepInEx.Paths.PluginPath,
+                    ActiveAIVDetectorPlugin.PluginGuid, "StartTraces");
+                Directory.CreateDirectory(directory);
+                for (int index = 0; index < pendingStartStructures.Count; index++)
+                {
+                    OracleStartStructureResult result = pendingStartStructures[index];
+                    OracleStartStructureCapture capture = result.Capture;
+                    OracleSelectionSnapshot selection = pendingOracleSelections.FindLast(
+                        candidate => candidate.PlayerId == capture.PlayerId);
+                    bool selectionAccepted = selection != null &&
+                        selection.PlacementState > 0 && selection.FinalCandidateId >= 0;
+                    LobbyAivSnapshot lobby = null;
+                    if (lobbySnapshotAppliesToCurrentMap)
+                        lobbyAivSnapshots.TryGetValue(capture.PlayerId, out lobby);
+                    ResolvedAivSource? source = !selectionAccepted
+                        ? (ResolvedAivSource?)null
+                        : ResolveOracleSource(lobby, capture.PlayerId,
+                            selection.FinalCandidateId);
+                    string fileName = string.Format(CultureInfo.InvariantCulture,
+                        "oracle-start-trace-{0}-session{1:D3}-p{2}-n{3:D2}.tsv",
+                        DateTime.Now.ToString("yyyyMMdd-HHmmss-fff", CultureInfo.InvariantCulture),
+                        mapLoadSequence, capture.PlayerId, index + 1);
+                    string path = Path.Combine(directory, fileName);
+                    using (var writer = new StreamWriter(path, false, new UTF8Encoding(false)))
+                    {
+                        writer.WriteLine($"# mapFile={currentMapFileName}");
+                        writer.WriteLine($"# mapFileSha256={currentMapFileSha256}");
+                        writer.WriteLine($"# nativeDllSha256={currentNativeFileSha256}");
+                        writer.WriteLine($"# preBuildSetting={CurrentPreBuildSetting}");
+                        writer.WriteLine($"# playerId={capture.PlayerId}");
+                        writer.WriteLine($"# keepX={capture.X}");
+                        writer.WriteLine($"# keepY={capture.Y}");
+                        writer.WriteLine($"# nativeOrientation={capture.Orientation}");
+                        writer.WriteLine($"# scale={capture.Scale}");
+                        writer.WriteLine($"# isFree={capture.IsFree}");
+                        writer.WriteLine($"# selectionPlacementState={selection?.PlacementState.ToString(CultureInfo.InvariantCulture) ?? "<not-available>"}");
+                        writer.WriteLine($"# selectionAccepted={selectionAccepted}");
+                        writer.WriteLine($"# selectionFinalOrientation={selection?.FinalOrientation.ToString(CultureInfo.InvariantCulture) ?? "<not-available>"}");
+                        writer.WriteLine($"# finalCandidateId={selection?.FinalCandidateId.ToString(CultureInfo.InvariantCulture) ?? "<not-available>"}");
+                        writer.WriteLine($"# selectedCandidateId={(selectionAccepted ? selection.FinalCandidateId.ToString(CultureInfo.InvariantCulture) : "<none>")}");
+                        writer.WriteLine($"# aivJson={source?.JsonPath ?? (selectionAccepted ? "<not-available>" : "<no accepted AIV>")}");
+                        writer.WriteLine($"# aivJsonSha256={ComputeFileSha256(source?.JsonPath)}");
+                        writer.WriteLine($"# preNativeFailureFlag={capture.BeforeFailureFlag}");
+                        writer.WriteLine($"# preNativeFailureReasonRaw={capture.BeforeFailureReason}");
+                        writer.WriteLine($"# preNativeStartCleanupFlag={capture.BeforeStartCleanup}");
+                        writer.WriteLine($"# preNativeDestroyedRecordMarker={capture.BeforeDestroyedRecordMarker}");
+                        writer.WriteLine($"# postNativeFailureFlag={result.FailureFlag}");
+                        writer.WriteLine($"# postNativeFailureReasonRaw={result.FailureReason}");
+                        writer.WriteLine($"# postNativeStartCleanupFlag={result.AfterStartCleanup}");
+                        writer.WriteLine($"# postNativeDestroyedRecordMarker={result.AfterDestroyedRecordMarker}");
+                        writer.WriteLine($"# postNativeFailureReason={(result.FailureFlag == 0 ? "<not-applicable>" : result.FailureReason.ToString(CultureInfo.InvariantCulture))}");
+                        writer.WriteLine($"# sampledTiles={capture.SampleCount}");
+                        writer.WriteLine("# fullMapTileLayersComplete=True");
+                        writer.WriteLine($"# beforeScanMilliseconds={capture.BeforeScanMilliseconds.ToString("F3", CultureInfo.InvariantCulture)}");
+                        writer.WriteLine($"# afterScanMilliseconds={result.AfterScanMilliseconds.ToString("F3", CultureInfo.InvariantCulture)}");
+                        writer.WriteLine($"# changedLayerCells={result.Changes.Count}");
+                        writer.WriteLine($"# newBuildingCells={result.NewBuildingCells}");
+                        writer.WriteLine($"# replacedBuildingCells={result.ReplacedBuildingCells}");
+                        writer.WriteLine($"# clearedBuildingCells={result.ClearedBuildingCells}");
+                        writer.WriteLine("# sampledRegionComplete=True");
+                        writer.WriteLine("x\ty\ttileId\tlayer\tbefore\tafter");
+                        foreach (OracleStartTileChange change in result.Changes)
+                        {
+                            writer.WriteLine(string.Format(CultureInfo.InvariantCulture,
+                                "{0}\t{1}\t{2}\t{3}\t{4}\t{5}",
+                                change.X, change.Y, change.TileId, change.Layer,
+                                change.Before, change.After));
+                        }
+                    }
+                    Shared.DebugLogHelper.LogInfo(log,
+                        $"Wrote Oracle Keep-start trace: path={path}, playerId={capture.PlayerId}, " +
+                        $"selectionAccepted={selectionAccepted}, postFailureFlag={result.FailureFlag}, " +
+                        $"postFailureReason={(result.FailureFlag == 0 ? "<not-applicable>" : result.FailureReason.ToString(CultureInfo.InvariantCulture))}, " +
+                        $"newBuildings={result.NewBuildingCells}, replacedBuildings={result.ReplacedBuildingCells}, " +
+                        $"clearedBuildings={result.ClearedBuildingCells}, changes={result.Changes.Count}, " +
+                        $"scanMs={capture.BeforeScanMilliseconds + result.AfterScanMilliseconds:F1}.");
+                }
+                Shared.DebugLogHelper.LogInfo(log,
+                    $"Oracle Keep-start capture summary: mapLoadSequence={mapLoadSequence}, " +
+                    $"captured={pendingStartStructures.Count}, incomplete={startStructureCaptureFailureLogged}.");
+            }
+            catch (Exception ex)
+            {
+                ReportStartStructureCaptureFailure(ex);
+            }
+        }
+
         private void ResetForMapTransition(string reason)
         {
             mapStartCompleted = false;
             pendingSelections.Clear();
             pendingOracleSelections.Clear();
             pendingPrebuildFrames.Clear();
+            pendingStartStructures.Clear();
+            activeStartStructure = null;
+            startStructureCaptureFailureLogged = false;
             reportedPlayers.Clear();
             reportedOracleSelections.Clear();
             callbackFailureLogged = false;
@@ -502,6 +674,7 @@ namespace ActiveAIVDetector
             }
 
             WritePendingOraclePrebuildTraces();
+            WritePendingStartStructureTraces();
 
             pendingOracleSelections.Sort((left, right) => left.Sequence.CompareTo(right.Sequence));
             foreach (OracleSelectionSnapshot oracleSelection in pendingOracleSelections)

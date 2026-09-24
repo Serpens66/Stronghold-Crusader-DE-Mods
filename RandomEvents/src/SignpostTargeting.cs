@@ -6,34 +6,22 @@ namespace RandomEvents
 {
     internal static class KeepAnchorGeometry
     {
-        internal const uint MaximumGridSize = 6;
-
-        public static bool TryGetGridCenter(
+        public static bool TryGetReferenceTile(
             int beginX,
             int beginY,
-            uint gridSize,
+            uint occupyGridSize,
             Func<int, int, bool> isInsideMapBounds,
-            out double centerX,
-            out double centerY)
+            out double tileX,
+            out double tileY)
         {
-            centerX = 0;
-            centerY = 0;
-            if (gridSize == 0 || gridSize > MaximumGridSize ||
-                isInsideMapBounds == null)
-            {
-                return false;
-            }
-
-            int endX = checked(beginX + (int)gridSize - 1);
-            int endY = checked(beginY + (int)gridSize - 1);
-            if (!isInsideMapBounds(beginX, beginY) ||
-                !isInsideMapBounds(endX, beginY) ||
-                !isInsideMapBounds(beginX, endY) ||
-                !isInsideMapBounds(endX, endY))
+            tileX = 0;
+            tileY = 0;
+            if (isInsideMapBounds == null || !isInsideMapBounds(beginX, beginY))
                 return false;
 
-            centerX = (beginX + endX) / 2.0;
-            centerY = (beginY + endY) / 2.0;
+            // occupyGridSize is intentionally ignored: distance needs one valid Keep tile.
+            tileX = beginX;
+            tileY = beginY;
             return true;
         }
     }
@@ -71,10 +59,26 @@ namespace RandomEvents
         }
     }
 
-    internal static class RandomEventsSignpostGate
+    internal static class RandomEventsSignpostPolicy
     {
-        public static bool ShouldDeferScheduling(bool requiresSignposts, bool signpostsInitialized) =>
-            requiresSignposts && !signpostsInitialized;
+        public static bool ShouldSkipEvent(RandomEventDefinition definition, bool signpostsInitialized) =>
+            definition.RequiresSignpost && !signpostsInitialized;
+
+        public static bool StartsCooldownOnRoll(RandomEventDefinition definition) =>
+            definition.DispatchKind == RandomEventDispatchKind.GameAction && !definition.RequiresSignpost;
+    }
+
+    internal static class SignpostInitializationReport
+    {
+        public static string Format(int[] selectedBuildingIds, bool usableRegistered, bool recoveredAfterFailure, string failureReason)
+        {
+            string ids = selectedBuildingIds == null ? string.Empty : string.Join(",", selectedBuildingIds);
+            string report =
+                $"Signpost initialization completed: selectedBuildingIds=[{ids}], " +
+                $"usableRegistered={usableRegistered.ToString().ToLowerInvariant()}, " +
+                $"recoveredAfterFailure={recoveredAfterFailure.ToString().ToLowerInvariant()}.";
+            return string.IsNullOrWhiteSpace(failureReason) ? report : report + " Reason: " + failureReason;
+        }
     }
 
     internal readonly struct SignpostTarget

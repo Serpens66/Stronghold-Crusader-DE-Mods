@@ -10,6 +10,9 @@ namespace WaterboyTargetReservationTest
 {
     internal static class Program
     {
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate int TargetSearchProbeDelegate(IntPtr buildingManager, int unitId);
+
         private const string DllPath =
             @"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll";
         private const string ExtenderDir =
@@ -24,6 +27,10 @@ namespace WaterboyTargetReservationTest
             TestStationaryTimeoutAndSuppression();
             TestLongRouteAndTickReset();
             TestExtinguishingStateDoesNotTimeout();
+            TestNearestTakeoverPolicy();
+            TestPerPlayerIsolationAndTransfer();
+            TestModeOperationOrdering();
+            TestPerPlayerModeState();
             TestMapClear();
             TestManagedContracts();
             TestCanonicalNativeContract();
@@ -39,20 +46,20 @@ namespace WaterboyTargetReservationTest
             NativeIdentity owner2 = Id(2, 102);
             NativeIdentity fire1 = Id(11, 201);
             NativeIdentity fire2 = Id(12, 202);
-            Check(ledger.Claim(owner1, fire1, 0, 5, 5, 0) == ReservationClaimResult.Claimed,
+            Check(ledger.Claim(1, owner1, fire1, 0, 5, 5, 0) == ReservationClaimResult.Claimed,
                 "first independent fire can be claimed");
-            Check(ledger.IsCoveredByForeignOwner(fire1, 0, owner2.GlobalId),
+            Check(ledger.TryGetCoveringReservation(1, fire1, 0, owner2.GlobalId, out _),
                 "claimed fire is hidden from another waterboy");
-            Check(!ledger.IsCoveredByForeignOwner(fire2, 0, owner2.GlobalId),
+            Check(!ledger.TryGetCoveringReservation(1, fire2, 0, owner2.GlobalId, out _),
                 "independent fire remains visible");
-            Check(ledger.Claim(owner2, fire2, 0, 6, 6, 0) == ReservationClaimResult.Claimed,
+            Check(ledger.Claim(1, owner2, fire2, 0, 6, 6, 0) == ReservationClaimResult.Claimed,
                 "second waterboy claims a different fire");
             Check(ledger.Count == 2, "two independent reservations coexist");
 
             var excessLedger = new ReservationLedger();
-            Check(excessLedger.Claim(owner1, fire1, 0, 5, 5, 0) == ReservationClaimResult.Claimed,
+            Check(excessLedger.Claim(1, owner1, fire1, 0, 5, 5, 0) == ReservationClaimResult.Claimed,
                 "single fire claimed");
-            Check(excessLedger.Claim(owner2, fire1, 0, 6, 6, 0) == ReservationClaimResult.Conflict,
+            Check(excessLedger.Claim(1, owner2, fire1, 0, 6, 6, 0) == ReservationClaimResult.Conflict,
                 "excess waterboy cannot claim the same fire");
         }
 
@@ -63,13 +70,13 @@ namespace WaterboyTargetReservationTest
             NativeIdentity owner2 = Id(2, 102);
             NativeIdentity part1 = Id(20, 301);
             NativeIdentity part2 = Id(21, 302);
-            Check(ledger.Claim(owner1, part1, 9001, 4, 4, 0) == ReservationClaimResult.Claimed,
+            Check(ledger.Claim(1, owner1, part1, 9001, 4, 4, 0) == ReservationClaimResult.Claimed,
                 "compound root claimed");
-            Check(ledger.IsCoveredByForeignOwner(part2, 9001, owner2.GlobalId),
+            Check(ledger.TryGetCoveringReservation(1, part2, 9001, owner2.GlobalId, out _),
                 "other burning compound part is covered dynamically");
-            Check(ledger.Claim(owner2, part2, 9001, 8, 8, 0) == ReservationClaimResult.Conflict,
+            Check(ledger.Claim(1, owner2, part2, 9001, 8, 8, 0) == ReservationClaimResult.Conflict,
                 "compound part cannot be double-reserved");
-            Check(!ledger.IsCoveredByForeignOwner(part2, 0, owner2.GlobalId),
+            Check(!ledger.TryGetCoveringReservation(1, part2, 0, owner2.GlobalId, out _),
                 "zero compound key does not alias a compound");
         }
 
@@ -100,7 +107,7 @@ namespace WaterboyTargetReservationTest
             var ledger = new ReservationLedger();
             NativeIdentity owner = Id(1, 101);
             NativeIdentity target = Id(11, 201);
-            ledger.Claim(owner, target, 0, 5, 5, 0);
+            ledger.Claim(1, owner, target, 0, 5, 5, 0);
             ReservationReconcileResult result = ReconcileFirst(
                 ledger,
                 ownerValid,
@@ -119,7 +126,7 @@ namespace WaterboyTargetReservationTest
             var ledger = new ReservationLedger();
             NativeIdentity owner = Id(1, 101);
             NativeIdentity target = Id(11, 201);
-            ledger.Claim(owner, target, 0, 5, 5, 100);
+            ledger.Claim(1, owner, target, 0, 5, 5, 100);
             Check(ReconcileFirst(ledger, true, ReservationLedger.WalkingState, target, true, 0, 5, 5, 699) ==
                   ReservationReconcileResult.Kept,
                 "stationary reservation remains at 599 ticks");
@@ -129,11 +136,11 @@ namespace WaterboyTargetReservationTest
             Check(ledger.TryGetSuppressedCoverage(owner, 5, 5, out NativeIdentity suppressedTarget, out uint suppressedCompound) &&
                   suppressedTarget.Equals(target) && suppressedCompound == 0,
                 "unchanged stalled assignment is exposed for pre-search masking");
-            Check(ledger.Claim(owner, target, 0, 5, 5, 701) == ReservationClaimResult.Suppressed,
+            Check(ledger.Claim(1, owner, target, 0, 5, 5, 701) == ReservationClaimResult.Suppressed,
                 "unchanged stalled assignment is not re-reserved");
             Check(!ledger.TryGetSuppressedCoverage(owner, 6, 5, out _, out _),
                 "movement clears pre-search suppression");
-            Check(ledger.Claim(owner, target, 0, 6, 5, 702) == ReservationClaimResult.Claimed,
+            Check(ledger.Claim(1, owner, target, 0, 6, 5, 702) == ReservationClaimResult.Claimed,
                 "movement clears stalled-assignment suppression");
 
             Check(ReconcileFirst(ledger, true, ReservationLedger.WalkingState, target, true, 0, 7, 5, 800) ==
@@ -146,7 +153,7 @@ namespace WaterboyTargetReservationTest
             var compoundLedger = new ReservationLedger();
             NativeIdentity compoundTarget = Id(20, 301);
             NativeIdentity compoundPart = Id(21, 302);
-            compoundLedger.Claim(owner, compoundTarget, 9001, 9, 9, 0);
+            compoundLedger.Claim(1, owner, compoundTarget, 9001, 9, 9, 0);
             Check(ReconcileFirst(
                     compoundLedger,
                     true,
@@ -173,7 +180,7 @@ namespace WaterboyTargetReservationTest
                     suppressedTarget,
                     suppressedCompound),
                 "pre-search suppression leaves an independent fire visible");
-            Check(compoundLedger.Claim(owner, Id(22, 303), 0, 9, 9, 601) == ReservationClaimResult.Claimed &&
+            Check(compoundLedger.Claim(1, owner, Id(22, 303), 0, 9, 9, 601) == ReservationClaimResult.Claimed &&
                   compoundLedger.SuppressionCount == 0,
                 "selecting an alternative target clears suppression");
         }
@@ -183,7 +190,7 @@ namespace WaterboyTargetReservationTest
             var ledger = new ReservationLedger();
             NativeIdentity owner = Id(1, 101);
             NativeIdentity target = Id(11, 201);
-            ledger.Claim(owner, target, 0, 5, 5, 0);
+            ledger.Claim(1, owner, target, 0, 5, 5, 0);
             ushort x = 5;
             for (int tick = 100; tick <= 1_800; tick += 100)
             {
@@ -203,7 +210,7 @@ namespace WaterboyTargetReservationTest
             Check(ledger.Count == 1, "route length alone never expires a reservation");
 
             var pausedLedger = new ReservationLedger();
-            pausedLedger.Claim(owner, target, 0, 5, 5, 50);
+            pausedLedger.Claim(1, owner, target, 0, 5, 5, 50);
             for (int sample = 0; sample < 10; sample++)
             {
                 Check(ReconcileFirst(
@@ -220,7 +227,7 @@ namespace WaterboyTargetReservationTest
             }
 
             var resetLedger = new ReservationLedger();
-            resetLedger.Claim(owner, target, 0, 5, 5, 1_000);
+            resetLedger.Claim(1, owner, target, 0, 5, 5, 1_000);
             Check(ReconcileFirst(resetLedger, true, ReservationLedger.WalkingState, target, true, 0, 5, 5, 10) ==
                   ReservationReconcileResult.Kept,
                 "tick rollback resets the progress baseline fail-safe");
@@ -237,10 +244,85 @@ namespace WaterboyTargetReservationTest
             var ledger = new ReservationLedger();
             NativeIdentity owner = Id(1, 101);
             NativeIdentity target = Id(11, 201);
-            ledger.Claim(owner, target, 0, 5, 5, 0);
+            ledger.Claim(1, owner, target, 0, 5, 5, 0);
             Check(ReconcileFirst(ledger, true, ReservationLedger.ExtinguishingState, target, true, 0, 5, 5, 50_000) ==
                   ReservationReconcileResult.Kept,
                 "extinguishing animation retains reservation without movement");
+        }
+
+        private static void TestNearestTakeoverPolicy()
+        {
+            Check(WaterboyTargetPolicy.ManhattanDistance(4, 7, 10, 3) == 10,
+                "takeover distance uses Vanilla Manhattan metric");
+            Check(WaterboyTargetPolicy.CanTakeOver(1, ReservationLedger.WalkingState, 4, 5),
+                "strictly nearer idle state-1 waterboy may take over");
+            Check(WaterboyTargetPolicy.CanTakeOver(2, ReservationLedger.WalkingState, 4, 5),
+                "strictly nearer idle state-2 waterboy may take over");
+            Check(!WaterboyTargetPolicy.CanTakeOver(1, ReservationLedger.WalkingState, 5, 5),
+                "equal distance keeps current owner");
+            Check(!WaterboyTargetPolicy.CanTakeOver(1, ReservationLedger.WalkingState, 6, 5),
+                "farther requester keeps current owner");
+            Check(!WaterboyTargetPolicy.CanTakeOver(ReservationLedger.WalkingState,
+                    ReservationLedger.WalkingState, 1, 10),
+                "walking requester cannot displace another assignment");
+            Check(!WaterboyTargetPolicy.CanTakeOver(1, ReservationLedger.ExtinguishingState, 1, 10),
+                "state-4 owner can never be displaced");
+        }
+
+        private static void TestPerPlayerIsolationAndTransfer()
+        {
+            var ledger = new ReservationLedger();
+            NativeIdentity owner1 = Id(1, 101);
+            NativeIdentity owner2 = Id(2, 102);
+            NativeIdentity owner3 = Id(3, 103);
+            NativeIdentity fire = Id(11, 201);
+            Check(ledger.Claim(1, owner1, fire, 9001, 10, 10, 0) == ReservationClaimResult.Claimed,
+                "player one creates reservation");
+            Check(ledger.Claim(2, owner2, fire, 9001, 11, 10, 0) == ReservationClaimResult.Claimed,
+                "different player may independently reserve same allied fire");
+            Check(ledger.TryGetCoveringReservation(1, fire, 9001, owner3.GlobalId,
+                    out FireReservation previous) && previous.Owner.Equals(owner1),
+                "same-player conflict resolves to existing owner");
+            Check(ledger.TryTransfer(previous, 1, owner3, fire, 9001, 4, 4, 12),
+                "takeover atomically transfers same-player reservation");
+            Check(!ledger.TryGetCoveringReservation(1, fire, 9001, owner3.GlobalId, out _),
+                "new owner sees its own reservation as available");
+            Check(ledger.TryGetCoveringReservation(1, fire, 9001, owner1.GlobalId,
+                    out FireReservation transferred) && transferred.Owner.Equals(owner3),
+                "old owner now conflicts with transferred reservation");
+            ledger.ClearPlayer(1);
+            Check(ledger.Count == 1 &&
+                  ledger.TryGetCoveringReservation(2, fire, 9001, owner3.GlobalId, out _),
+                "disabling one player preserves other players' reservations");
+        }
+
+        private static void TestModeOperationOrdering()
+        {
+            Check(WaterboyModeOperationPolicy.TryAccept(0, 1, out int accepted) && accepted == 1,
+                "first positive mode operation is accepted");
+            Check(!WaterboyModeOperationPolicy.TryAccept(accepted, 1, out int duplicate) && duplicate == 1,
+                "duplicate mode operation is ignored");
+            Check(!WaterboyModeOperationPolicy.TryAccept(accepted, 0, out int invalid) && invalid == 1,
+                "invalid mode operation is ignored");
+            Check(WaterboyModeOperationPolicy.TryAccept(accepted, 2, out int next) && next == 2,
+                "newer mode operation is accepted");
+        }
+
+        private static void TestPerPlayerModeState()
+        {
+            var state = new PerPlayerModeState();
+            for (int playerId = 1; playerId <= 8; playerId++)
+                Check(state.Data[playerId], $"player {playerId} starts optimized");
+            state.SetPlayerValue(2, false, isLocalPlayer: false);
+            Check(state.LocalValue && !state.Data[2],
+                "remote companion slot remains separate from persisted local value");
+            state.SetLocalValue(false);
+            state.ResolveLocalPlayer(1);
+            Check(!state.LocalValue && !state.Data[1] && !state.Data[2],
+                "persisted local value populates only the resolved local slot");
+            state.SetPlayerValue(1, true, isLocalPlayer: true);
+            Check(state.LocalValue && state.Data[1] && !state.Data[2],
+                "local Chore confirmation updates persistence without changing remote slots");
         }
 
         private static void TestMapClear()
@@ -248,9 +330,13 @@ namespace WaterboyTargetReservationTest
             var ledger = new ReservationLedger();
             NativeIdentity owner = Id(1, 101);
             NativeIdentity target = Id(11, 201);
-            ledger.Claim(owner, target, 0, 5, 5, 0);
+            ledger.Claim(1, owner, target, 0, 5, 5, 0);
             ReconcileFirst(ledger, true, ReservationLedger.WalkingState, target, true, 0, 5, 5, 600);
             Check(ledger.SuppressionCount == 1, "test setup creates a stalled suppression");
+            ledger.ClearPlayer(1);
+            Check(ledger.SuppressionCount == 0,
+                "per-player disable clears stalled suppressions");
+            ledger.Claim(1, owner, target, 0, 5, 5, 700);
             ledger.Clear();
             Check(ledger.Count == 0 && ledger.SuppressionCount == 0,
                 "map clear removes reservations and suppressions");
@@ -271,6 +357,8 @@ namespace WaterboyTargetReservationTest
             Check(Marshal.SizeOf(typeof(GameUnit)) == 0x490, "GameUnit size");
             Check(Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_GlobalId)).ToInt32() == 0x94,
                 "unit global-ID offset");
+            Check(Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_ControllableForPlayerId)).ToInt32() == 0x92,
+                "unit controllable-player offset");
             Check(Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_AIState)).ToInt32() == 0x2BC,
                 "unit AI-state offset");
             Check(WaterboyNativeDefinition.NativeIndexedBuildingCompoundKeyOffset == 0x304,
@@ -311,67 +399,129 @@ namespace WaterboyTargetReservationTest
                 WaterboyNativeDefinition.FindNearestBurningBuildingRva,
                 WaterboyNativeDefinition.FindNearestBurningBuildingDisplacedLength);
             Check(BitConverter.ToString(displaced).Replace("-", string.Empty) ==
-                  "48896C241048897424185741544155",
-                "detour entry displaces five complete instructions (15 bytes)");
+                  "48896C24104889742418",
+                "NativeDetour indirect entry displaces two complete instructions (10 bytes)");
         }
 
         private static void TestInstalledRedBirdDisplacedSpan()
         {
+            Check(AssemblyName.GetAssemblyName(Path.Combine(ExtenderDir, "SHCDESE.dll"))
+                    .Version.ToString() ==
+                  WaterboyNativeDefinition.AuditedScriptExtenderAssemblyVersion,
+                "installed Script Extender assembly version matches audited contract");
+            Check(AssemblyName.GetAssemblyName(
+                    Path.Combine(ExtenderDir, "RedBird.Backends.NativeX64.dll"))
+                    .Version.ToString() ==
+                  WaterboyNativeDefinition.AuditedRedBirdAssemblyVersion,
+                "installed NativeDetour backend version matches audited contract");
             foreach (string assemblyName in new[]
             {
                 "Microsoft.Extensions.Logging.Abstractions",
                 "Iced",
                 "RedBird.Abstractions",
                 "RedBird.Core",
-                "RedBird.X64"
+                "RedBird.Backends.NativeX64"
             })
             {
                 Assembly.LoadFrom(Path.Combine(ExtenderDir, assemblyName + ".dll"));
             }
 
-            Type hookType = Assembly.LoadFrom(Path.Combine(ExtenderDir, "RedBird.X64.dll"))
-                .GetType("RedBird.X64.Hooks.X64InlineHook", throwOnError: true);
+            Assembly abstractions = Assembly.LoadFrom(
+                Path.Combine(ExtenderDir, "RedBird.Abstractions.dll"));
+            Assembly backendAssembly = Assembly.LoadFrom(
+                Path.Combine(ExtenderDir, "RedBird.Backends.NativeX64.dll"));
+            Type backendType = backendAssembly.GetType(
+                "RedBird.Backends.NativeX64.NativeDetourBackend",
+                throwOnError: true);
+            Type requestType = abstractions.GetType(
+                "RedBird.Abstractions.Hooks.DetourRequest`1",
+                throwOnError: true).MakeGenericType(typeof(TargetSearchProbeDelegate));
             byte[] file = File.ReadAllBytes(DllPath);
             PeImage image = PeImage.Load(file);
             byte[] prefix = image.ReadBytes(WaterboyNativeDefinition.FindNearestBurningBuildingRva, 32);
-            IntPtr fixture = Marshal.AllocHGlobal(64);
+            IntPtr fixture = Marshal.AllocHGlobal(128);
             try
             {
-                for (int index = 0; index < 64; index++)
+                for (int index = 0; index < 128; index++)
                     Marshal.WriteByte(fixture, index, 0x90);
                 Marshal.Copy(prefix, 0, fixture, prefix.Length);
-                object candidate = Activator.CreateInstance(
-                    hookType,
-                    new object[]
+                Marshal.WriteByte(fixture, prefix.Length, 0xC3);
+
+                object request = Activator.CreateInstance(requestType);
+                TargetSearchProbeDelegate callback = TargetSearchProbe;
+                requestType.GetProperty("Name").SetValue(
+                    request,
+                    "WaterboyTargetReservationTest NativeDetour selector regression");
+                requestType.GetProperty("TargetAddress").SetValue(
+                    request,
+                    unchecked((ulong)fixture.ToInt64()));
+                requestType.GetProperty("Callback").SetValue(request, callback);
+                MethodInfo create = null;
+                foreach (MethodInfo method in backendType.GetMethods())
+                {
+                    if (method.Name == "CreateDetour" && method.IsGenericMethodDefinition &&
+                        method.GetParameters().Length == 1)
                     {
-                        unchecked((ulong)fixture.ToInt64()),
-                        14,
-                        null,
-                        "WaterboyTargetReservationTest selector span regression"
-                    });
+                        create = method.MakeGenericMethod(typeof(TargetSearchProbeDelegate));
+                        break;
+                    }
+                }
+                if (create == null)
+                    throw new MissingMethodException(backendType.FullName, "CreateDetour");
+
+                object candidate = create.Invoke(
+                    backendType.GetProperty("Instance").GetValue(null),
+                    new[] { request });
+                Type candidateType = candidate.GetType();
                 try
                 {
-                    Check((int)hookType.GetProperty("DisplacedByteCount").GetValue(candidate) ==
+                    Check(candidateType.GetProperty("Scheme").GetValue(candidate).ToString() ==
+                          "Indirect",
+                        "installed NativeDetour backend selects the indirect scheme");
+                    Check((int)candidateType.GetProperty("DisplacedByteCount").GetValue(candidate) ==
                           WaterboyNativeDefinition.FindNearestBurningBuildingDisplacedLength,
-                        "installed RedBird backend displaces exactly 15 selector bytes");
-                    Check(!(bool)hookType.GetProperty("IsInstalled").GetValue(candidate),
-                        "decode-only RedBird probe installs no hook");
+                        "installed NativeDetour backend displaces exactly 10 selector bytes");
+                    Check(!(bool)candidateType.GetProperty("IsInstalled").GetValue(candidate),
+                        "NativeDetour candidate remains unpublished before Enable");
+
+                    candidateType.GetMethod("Enable").Invoke(candidate, null);
+                    Check((bool)candidateType.GetProperty("IsInstalled").GetValue(candidate),
+                        "NativeDetour candidate installs on the copied selector entry");
+                    Check(Marshal.ReadByte(fixture, 0) == 0xFF &&
+                          Marshal.ReadByte(fixture, 1) == 0x25 &&
+                          Marshal.ReadByte(fixture, 6) == 0x90 &&
+                          Marshal.ReadByte(fixture, 7) == 0x90 &&
+                          Marshal.ReadByte(fixture, 8) == 0x90 &&
+                          Marshal.ReadByte(fixture, 9) == 0x90,
+                        "installed entry contains a six-byte indirect jump and four NOP bytes");
+                    IntPtr pointerSlot = (IntPtr)candidateType.GetProperty("PointerSlot")
+                        .GetValue(candidate);
+                    int pointerDisplacement = Marshal.ReadInt32(IntPtr.Add(fixture, 2));
+                    Check(IntPtr.Add(fixture, 6 + pointerDisplacement) == pointerSlot,
+                        "entry displacement resolves to NativeDetour pointer slot");
+                    IntPtr hookEntry = (IntPtr)candidateType.GetProperty("HookEntryPointAddress")
+                        .GetValue(candidate);
+                    Check(Marshal.ReadInt64(pointerSlot) == hookEntry.ToInt64(),
+                        "NativeDetour pointer slot contains the managed hook entry");
                 }
                 finally
                 {
                     ((IDisposable)candidate).Dispose();
                 }
+                GC.KeepAlive(callback);
 
                 byte[] after = new byte[prefix.Length];
                 Marshal.Copy(fixture, after, 0, after.Length);
                 Check(ByteArraysEqual(prefix, after),
-                    "decode-only RedBird probe leaves copied selector bytes unchanged");
+                    "disposing the unpublished NativeDetour candidate restores the selector bytes");
             }
             finally
             {
                 Marshal.FreeHGlobal(fixture);
             }
         }
+
+        private static int TargetSearchProbe(IntPtr buildingManager, int unitId) => 0;
 
         private static ReservationReconcileResult ReconcileFirst(
             ReservationLedger ledger,
@@ -391,6 +541,7 @@ namespace WaterboyTargetReservationTest
             return ledger.Reconcile(
                 reservations[0],
                 ownerValid,
+                1,
                 state,
                 target,
                 burning,

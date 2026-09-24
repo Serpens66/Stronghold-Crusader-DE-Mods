@@ -24,8 +24,11 @@ if errorlevel 1 (
 
 if not exist "%MSBUILD%" goto build_failed
 if not exist "%GAME_SCRIPT_EXTENDER_DIR%\SHCDESE.dll" goto build_failed
+if not exist "%GAME_DIR%\BepInEx\plugins\APIShared_Serp\APIShared.dll" goto build_failed
 
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%tests\Test-Preflight.ps1" -ProjectDir "%PROJECT_ROOT%"
+if errorlevel 1 goto build_failed
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\..\Shared\Test-PermanentNativeRuntimePatches.ps1"
 if errorlevel 1 goto build_failed
 
 pushd "%PROJECT_DIR%"
@@ -44,6 +47,8 @@ popd
 copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
 if not exist "%LOCAL_PLUGIN_DIR%\WaterboyTargetReservationTest.dll" goto package_failed
 if not exist "%LOCAL_PLUGIN_DIR%\info.json" goto package_failed
+if not exist "%LOCAL_PLUGIN_DIR%\Override\ScriptExtenderUI\WaterboyTargetReservationTestSettings.xaml" goto package_failed
+if not exist "%LOCAL_PLUGIN_DIR%\Patches\Assets\GUI\XAMLResources\HUD_Buildings.xaml" goto package_failed
 if "%NO_INSTALL%"=="1" goto built_without_install
 
 if exist "%GAME_PLUGIN_DIR%\" (

@@ -3,7 +3,7 @@
 ## Provenance
 
 - Native SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
-- Script Extender commit: `5b4d48e732e9b6e2e93c135f0b28ce5b9d8bcd33`
+- Script Extender commit: `70a4483fe606733219f0cd9fb1adbc0d08b926ea` (`v2.9.0`)
 - Building stride: `0x32C`; unit stride: `0x490`
 
 ## Target selection
@@ -24,6 +24,14 @@ After the direct target is extinguished, `FUN_180159C30` reads the 32-bit buildi
 
 `FUN_1800C4D30` (`RVA 0xC4D30`) starts an eligible fire by setting the counter to one. The building update `FUN_1800C60F0` (`RVA 0xC60F0`) increments active fire counters and contains independent terminal paths, so reservations must revalidate the target rather than assume only a fireman can end a fire.
 
+## Per-player nearest-owner handoff contract
+
+`GameUnit.r_ControllableForPlayerId` is the one-byte owner field at unit offset `0x92`. Reservation conflicts can therefore be scoped to the requesting fireman's player without changing the selector's diplomacy behavior for other players. The selector's distance helper `FUN_1800079C0` computes the Manhattan distance from the fireman's current tile (`GameUnit +0xC0/+0xC2`) to the candidate building's begin tile (`GameBuilding +0x28/+0x2A`); strict comparison means an equal distance retains the earlier candidate/current owner.
+
+A requester entering the selector from state 1 or 2 is idle/searching and may safely replace a same-player reservation whose owner is still in state 3 when its Manhattan distance is strictly smaller. State 4 is already in the extinguishing phase and must never be displaced. Immediately before handoff, both unit identities, player ownership, owner state, target slot/global ID and fire identity must be revalidated. Invalidating only the old owner's target global ID at `GameUnit +0x39C` makes the audited state-3 validation branch fail; that branch calls the same selector and replaces or ends the route on its next simulation update. It cannot perform the state-4 extinguish action before that validation. Compound reservations compare the requester to the selected burning part and the old owner to its currently reserved target part, while still covering every live burning part with the shared nonzero compound key.
+
+Live activation may seed existing state-3/state-4 assignments without mutating the units. If several same-player units already cover one fire or compound, the deterministic representative order is state 4 first, then shortest remaining Manhattan distance, then lowest 1-based unit ID. Deactivation only clears that player's reservation metadata; it does not modify a running Vanilla assignment.
+
 ## Detour contract
 
-The target-selector entry starts with five complete instructions totaling 15 bytes before RVA `0xB8F4F`. The installed RedBird backend requires at least 14 displaced bytes and therefore displaces this 15-byte range. No direct branch enters the open interval. A detour must retain the original ABI `(GameBuildingManager*, int unitId) -> int buildingId` and call the trampoline for Vanilla distance, diplomacy, and reachability behavior.
+The target-selector entry begins with two five-byte stack-save instructions. The installed RedBird 1.5.0 `NativeDetour<T>` backend selects its preferred `Indirect` scheme, whose six-byte entry patch rounds to these two complete instructions and therefore displaces exactly 10 bytes through RVA `0xB8F4A`. The entry becomes `FF 25 rel32` followed by four NOP bytes; its pointer slot contains the managed hook entry. No direct branch enters the open interval. This contract is distinct from `X64InlineHook` and must be tested with the NativeX64 detour backend itself. A detour must retain the original ABI `(GameBuildingManager*, int unitId) -> int buildingId` and call the trampoline for Vanilla distance, diplomacy, and reachability behavior.

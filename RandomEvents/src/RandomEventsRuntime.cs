@@ -311,10 +311,7 @@ namespace RandomEvents
                     }
 
                     RetrySignpostInitialization(tick);
-                    if (!isLocalHost || initializationChoreQueued || batchChoreQueued || signpostChoreQueued ||
-                        RandomEventsSignpostGate.ShouldDeferScheduling(
-                            RandomEventDefinitions.RequiresSignposts(state.Chances),
-                            state.SignpostsInitialized))
+                    if (!isLocalHost || initializationChoreQueued || batchChoreQueued)
                         return;
 
                     if (currentAbsoluteMonth >= state.NextDueAbsoluteMonth)
@@ -327,13 +324,6 @@ namespace RandomEvents
                 }
 
                 RetrySignpostInitialization(tick);
-                if (RandomEventsSignpostGate.ShouldDeferScheduling(
-                        RandomEventDefinitions.RequiresSignposts(state.Chances),
-                        state.SignpostsInitialized))
-                {
-                    return;
-                }
-
                 if (state.BatchPrepared && currentAbsoluteMonth >= state.NextDueAbsoluteMonth)
                 {
                     ExecuteDueBatch();
@@ -1204,7 +1194,13 @@ namespace RandomEvents
                     string prngBefore = RandomEventsDiagnostics.FormatPrng(state.PrngState0, state.PrngState1);
                     string stateDigestBefore = RandomEventsDiagnostics.GetStateDigest(state);
                     LogDebug($"Random Events action begin: dueAbsoluteMonth={due}, actionIndex={index}, event={definition.Name}, dispatchKind={definition.DispatchKind}, targetPlayerId={targetPlayerId}, strength={strength}, prng={prngBefore}, stateDigest={stateDigestBefore}.");
-                    bool cooldownStartedFromRoll = definition.DispatchKind == RandomEventDispatchKind.GameAction;
+                    if (RandomEventsSignpostPolicy.ShouldSkipEvent(definition, state.SignpostsInitialized))
+                    {
+                        LogWarning($"Random Events action skipped: dueAbsoluteMonth={due}, actionIndex={index}, event={definition.Name}, targetPlayerId={targetPlayerId}, reason=signposts-unavailable; no cooldown started.");
+                        continue;
+                    }
+
+                    bool cooldownStartedFromRoll = RandomEventsSignpostPolicy.StartsCooldownOnRoll(definition);
                     if (cooldownStartedFromRoll)
                         StartEventCooldown(definition.Kind, targetPlayerId, due);
 

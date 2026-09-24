@@ -30,6 +30,7 @@ internal static class Program
             ("reuses multiplayer tie choice for sequential starts", ReusesTieChoiceForSequentialStarts),
             ("propagates a certain start rotation across an uncertain AIV choice", PropagatesCertainRotationAcrossTie),
             ("keeps differing start rotations unresolved", KeepsDifferingRotationsUnresolved),
+            ("keeps shifted AI start markers unresolved", KeepsShiftedStartMarkersUnresolved),
             ("rechecks later AI after complete castles is switched off", RechecksAfterPrebuildSwitch),
             ("creates eight default candidates", CreatesDefaultCandidates),
             ("maps current lord enum names to bundled Vanilla files", MapsCurrentLordNamesToVanillaFiles),
@@ -569,6 +570,37 @@ internal static class Program
             "later AI should explain the unresolved start rotation");
         Assert(!worker.StatesByCandidate.ContainsKey("second"),
             "later AI was evaluated against an unproven start state");
+    }
+
+    private static void KeepsShiftedStartMarkersUnresolved()
+    {
+        using Fixture fixture = new();
+        foreach (string name in new[] { "shifted", "second" })
+            File.WriteAllText(Path.Combine(fixture.CustomDirectory, name + ".aivjson"), "{}");
+        LobbyStateCapture capture = fixture.Capture(
+            keepOrder: [1, 2, -1, -1, -1, -1, -1, -1],
+            slots:
+            [
+                Slot(LobbyAivMode.Custom,
+                    [new LobbyAivCandidateInput("shifted", fixture.CustomDirectory, 0, false, "SK_RAT")],
+                    playerId: 2),
+                Slot(LobbyAivMode.Custom,
+                    [new LobbyAivCandidateInput("second", fixture.CustomDirectory, 0, false, "SK_RAT")],
+                    playerId: 3)
+            ]);
+        AivPlacementRequestBatch batch = new LobbyRequestBuilder()
+            .Build(1, capture, fixture.VanillaDirectory);
+        var worker = new SequentialStateWorker();
+        var service = new AivPlacementEvaluationService(worker, 32, 2);
+
+        AivPlacementBatchResult result = service.EvaluateBatchAsync(batch).GetAwaiter().GetResult();
+
+        Equal(LobbyEvaluationFailureKind.PriorAiSelectionUnknown,
+            result.Results[1].FailureKind);
+        Assert(result.Results[1].FailureMessage.Contains("shifted native start marker"),
+            "later AI should explain the shifted prior start marker");
+        Assert(!worker.StatesByCandidate.ContainsKey("second"),
+            "later AI was evaluated after a shifted native start marker");
     }
 
     private static void RechecksAfterPrebuildSwitch()
@@ -3000,7 +3032,9 @@ internal static class Program
                     false,
                     [new AivGridPoint(50, 50)])],
                 Array.Empty<AivMiscPlacement>(),
-                new AivGridPoint(50, 50));
+                workItem.Candidate.Name == "shifted"
+                    ? new AivGridPoint(56, 45)
+                    : new AivGridPoint(56, 43));
             AivPlacementRotationSelection selection = new AivPlacementEvaluator()
                 .EvaluateAllRotations(
                     new SparsePlacementMap(),

@@ -13,7 +13,7 @@ if errorlevel 1 (
 pushd "%PROJECT_DIR%"
 
 echo Baue AIVPlacement in der Release-Konfiguration...
-dotnet build "AIVPlacement.sln" -c Release
+dotnet build "AIVPlacement.sln" -c Release -m:1
 if errorlevel 1 (
   popd
   echo.

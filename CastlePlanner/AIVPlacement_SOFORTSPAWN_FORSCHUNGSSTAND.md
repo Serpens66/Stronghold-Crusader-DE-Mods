@@ -1,6 +1,6 @@
 # AIVPlacement: Sofortspawn und Lobby-Prognose – aktueller Forschungsstand
 
-Stand: 2026-09-23. Maßgebliche installierte `CrusaderDE.dll`:
+Stand: 2026-09-24. Maßgebliche installierte `CrusaderDE.dll`:
 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
 (Image Base `0x180000000`). `RVA + 0x180000000 = VA`. Bei einem anderen Hash
 sind die folgenden Adressen und Schlussfolgerungen erneut zu prüfen. Diese
@@ -493,7 +493,7 @@ schneiden die vorherigen beobachteten Tile-Änderungen. Damit ist die Sperre
 späterer KIs bei Sofortspawn weiterhin nötig, und ein einfacher
 Crater-Lake-Abstandsbeleg wäre keine allgemeine Freigabe.
 
-**Nächste Arbeit ohne weiteren Spielstart:** `0x94350 -> 0x6D580 -> 0x77E60`
+**Stand vor der folgenden Nachprüfung:** `0x94350 -> 0x6D580 -> 0x77E60`
 für die native Startgebäude-Konstruktion einschließlich Abbrüchen und
 Footprints zu Ende auditieren und die vorhandenen Live-Gebäuderaster
 zellweise gegen das Offline-Modell verwenden. Danach entweder das Modell
@@ -503,3 +503,261 @@ dieser Korrektur wären die beiden Craggy-Cliffs-Paare als wenige gezielte
 Ingame-Wiederholungen sinnvoll; unveränderte weitere Zehn-Match-Serien
 bringen derzeit keinen zusätzlichen Beleg. Die Spezialkarte mit
 überlappenden Starts bleibt zurückgestellt.
+
+## 24.09.2026: KI-Startzustand nach Vergleich mit den Live-Rastern
+
+Die installierte Native-DLL hat weiterhin SHA-256
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+Der Startpfad entfernt zuerst serialisierte Startobjekte (`0xC43A0`,
+`0xC3FA0`), wählt und importiert die AIV (`0x54F60`/`0x54DE0`, `0x53D00`)
+und ruft danach `0x6D580 -> 0x77E60` für den Startbau auf. Ein
+fehlgeschlagener Validator lässt den Bau aus; der erfolgreiche Pfad
+verändert Gebäude-, Besitzer- und Terrainbelegung sowie benachbarte
+Pfad-Zellen. Die vielen Validatorzweige sind nicht vollständig auf
+Offline-Eingaben abgebildet. Vanillas Autoauswahl oder CastlePlanners
+Spielerrotation beweisen deshalb für sich keine gebauten Startzellen.
+
+Auf Craggy Cliffs belegen die serialisierte Karte und die nativen
+Vor-Fit-Raster den konkreten Versatzfehler: Keep und 7x7-Startlager
+bleiben bei 0 Grad an ihren Quellzellen; bei 270 Grad rotiert die
+Startgruppe relativ zum Keep mit `(13-y,x)` statt `(12-y,x+1)`.
+Für 90 Grad stimmt der bestehende Offset mit einem beobachteten
+7x7-Paar überein. 180 Grad und gescheiterte Bauten bleiben offen.
+Das 7x7-Startlager ist im Objektabschnitt Typ 55 und nicht der
+separate Goods Yard Typ 10. Vertrauensgrad: hoch für die genannten
+Zell- und Typbeobachtungen, begrenzt für andere Karten und Abbruchpfade.
+
+Der gemeinsame `AIVPlacement.Core` korrigiert die belegten 0- und
+270-Grad-Offsets. CastlePlanner zeigt für Kandidaten mit Lesezellen
+nahe einem zuvor rekonstruierten KI-Start `NotEvaluable` mit
+`StartOverlapUnproven`. Die Grenze umfasst den Keep im 24-Zellen-Umkreis
+sowie serialisierte und modellierte Startzellen mit vier Zellen Umgebung.
+Ein nicht kanonischer AIV-Startmarker sperrt spätere KI-Fits vollständig,
+bis dessen Bauzustand belegt ist. Diese Grenzen verhindern
+eine sichere Farbaussage aus ungeklärten Konstruktorzweigen; sie ist
+keine vollständige Simulation. Spätere KIs nach aktiviertem Sofortbau
+bleiben wie bisher gesperrt. Der Spieler-Keep/Storageyard-Rotationspfad
+und Vanillas AIV-Auswahl werden nicht verändert.
+
+Der lokale Fixes-Mod kann im Keep-Spawntail den Goods Yard je Spieler
+unterdrücken; CastlePlanner gleicht für manuelle Spielerrotation dessen
+Rotationsdaten zeitweise ab. Dieser Pfad liefert keinen Beleg für die
+KI-Startkonstruktion. Die archivierten 119 Oracle-Versuche sind nach
+der Korrektur erneut zu vergleichen. Weitere Craggy-Starts sind erst
+nötig, wenn ein konkret offener Konstruktorzweig für eine gewünschte
+Fit-Freigabe gemessen werden muss.
+
+Der erneute Vergleich der festgelegten 119 Versuche ergibt 38 exakt,
+81 `NotEvaluable`, null Abweichungen und null Fehler. Im vollständigen
+Import mit dem aus der Serie ausgeschlossenen Zusatzlauf sind es
+47/82/0/0 bei 129 Versuchen. Die Berichte liegen unter
+`.inspect/oracle-crater-safe.json` und `.inspect/oracle-craggy-safe.json`.
+
+## 24.09.2026: Korrektur des nativen KI-Startkonstruktors
+
+Für die installierte DLL mit SHA-256
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
+ist Mapper `0x3d` über `0xC77C0` als Gebäudetyp `0x29` (41)
+aufgelöst. `0x6D580` ruft nach erfolgreichem `0x77E60` deshalb den
+**zusammengesetzten Keep-Konstruktor `0x74DA0`** auf. Der vorherige
+Hinweis auf einen generischen Konstruktor war ungenau.
+
+Ein erfolgreicher Aufruf erzeugt den 7x7-Keep, drei verknüpfte
+Einzelzellen, ein getrenntes 7x7-Startlager (Typ 55) und über
+`0x76E80` den Goods Yard mit vier 2x2-Gebäudeteilen und neun
+weiteren Zellen. Die nativen Rotations-Offsets des Startlagers relativ
+zum Keep-Anker sind bei 0/90/180/270 Grad `(0,+8)`, `(+8,0)`,
+`(0,-8)`, `(-8,0)`. Für den Goods-Yard-Anker sind es `(+7,+2)`,
+`(+2,-5)`, `(-5,0)`, `(0,+7)`. Die drei Einzelzellen und die
+Tabellenadressen stehen in der Native-Baseline. Der Konstruktor räumt
+vor dem Schreiben auch die 7x7- beziehungsweise 5x5-Zielbereiche.
+Diese festen Offsets erklären die Lagerbelegung der archivierten
+Craggy-Raster, beweisen aber keine starre Rotation aller serialisierten
+Gebäude. Vertrauensgrad: hoch für den erfolgreichen nativen Pfad.
+
+Für den KI-Start verwendet `0x77E60` bei Mapper `0x3d` seinen
+Default-Zweig. Er berücksichtigt lebende Einheiten, Abstände zu anderen
+Spielern, Erreichbarkeit und Tile-Regeln. Ein Fehlschlag stoppt
+`0x6D580` vor der Konstruktion. Der vollständige Abbruchvertrag lässt
+sich aus den vorhandenen Vor-Fit-Rastern und Bau-Diffs noch nicht
+allgemein ableiten. Die lokale Fixes-Einstellung kann außerdem den
+Goods Yard je Spieler unterdrücken. **Folge für den Mod:** Die bestehende
+Sperre nahe früheren KI-Starts bleibt nötig; allein aus Drehung und
+Quellkarte darf dort keine zusätzliche grüne Bewertung folgen.
+Vertrauensgrad: hoch für Abhängigkeiten und Stopppunkt, begrenzt für
+eine Offline-Vorhersage jedes Startabbruchs.
+
+Die 119 archivierten Oracle-Versuche reichen aus, um die derzeit
+freigegebenen Fälle auf null beobachtete Abweichungen zu prüfen. Sie
+reichen nicht aus, um die offenen Validator- und Fixes-Zweige für alle
+Karten freizugeben. Eine neue, unveränderte Zehn-Match-Serie wäre
+deshalb nicht sinnvoll. Falls der genaue Startzustand in dichtem
+Gelände statt `NotEvaluable` angezeigt werden soll, muss die
+Validatorentscheidung mit ihren Eingaben und ihrem Fehlercode an
+gezielt gewählten Starts erfasst oder der komplette Validator samt
+Live-Eingaben offline rekonstruiert werden. Bis dahin bleibt die
+graue Grenze bewusst bestehen.
+
+Die nächste Messung ist im `ActiveAIVDetector` vorbereitet: Der bereits
+vom Script Extender veröffentlichte `OnBuildStructure`-Event umschließt
+den nativen Startbau bei Mapper `0x3d`. Der Detector liest pro Spieler
+den nativen Status und Fehlergrund vor und nach dem Aufruf sowie Vorher/Nachher-Werte
+der acht fitrelevanten Tile-Schichten in einer begrenzten Region um
+den Keep. Das geschieht ohne zusätzliche native Detours und unabhängig
+von festen Spieler-IDs. Neue Spuren werden unter `StartTraces` abgelegt;
+ihre tatsächliche Vollständigkeit ist durch die vier unten genannten
+Laufzeitstarts für diese Serie belegt. Das Script-Extender-Event liefert den nativen Rückgabewert
+selbst nicht, daher werden die nativen Statusfelder direkt gelesen.
+
+## 24.09.2026: Vier Craggy-Wiederholungen mit Keep-Start-Traces
+
+Die Serie `CC-A-off/on`, `CC-B-off/on` ist abgeschlossen. Für alle vier
+Kartenstarts liegen jeweils acht vollständige regionale Vorher/Nachher-
+Aufnahmen vor. Karte: SHA-256
+`C46B71C941EA299D1CA82C4F9649601E41F80517F05885ECDDA39DEEE5E4EF25`;
+native DLL: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+Alle 57 erneut beobachteten Fitversuche stimmen in Score, Prozent und
+blockierten Zellen mit dem archivierten Craggy-Korpus überein. Die
+Rohaufnahmen samt Hashliste und relevantem Laufzeitlog liegen unter
+`Diagnostics/AivSeries-20260924/StartRebuildRegression`.
+
+Alle 32 Startaufrufe endeten mit Fehlerflag 0. Trotzdem enthielt das
+Fehlergrundfeld in 24 Fällen einen Wert ungleich null. Der Detector
+wertet einen Grund daher künftig nur bei gesetztem Fehlerflag als
+Abbruch. `CC-A-on` hat für Emir keinen akzeptierten AIV-Fit
+(`placementState=0`), obwohl sein Keep-Startaufruf ausgeführt wurde;
+`finalCandidateId=0` allein bezeichnet dort keine gewählte Burg.
+
+Die normalen erfolgreichen Starts änderten je 117 Gebäude-ID-Zellen
+(7x7-Keep, drei Einzelzellen, 7x7-Startlager, vier 2x2-Yardteile).
+Bei Emirs Start in `CC-A-on` kamen 60 gelöschte und acht ersetzte
+vorhandene Gebäudezellen hinzu. Bei Jewel in `CC-B-on` wurden 16
+vorhandene Zellen gelöscht. Die acht erfassten Fit-Schichten änderten
+sich im Archiv höchstens 22 Kacheln vom jeweiligen Map-Keep entfernt.
+Das ist **keine** allgemeine Native-Obergrenze. Die gemessenen
+Drehungen 0, 90 und 270 Grad belegen erfolgreiche Pfade; ein
+180-Grad-Start oder ein fehlgeschlagener Validator ist nicht erfasst.
+
+Der vollständige Schreibpfad enthält vor dem Konstruktor eine
+Footprint-Räumung, mögliche Löschung vorhandener Gebäuderecords über
+`0x5D3A0`/`0xC4290`, `0x5D740` für Lager/Yard, `0x6FE90` und
+Pfadaktualisierungen. Deren Auswirkung auf beliebige angrenzende
+Gebäude und Live-Zustände ist noch nicht abschließend räumlich
+begrenzt. Der Offline-Kern belässt deshalb den bisherigen Schutz nahe
+früheren Starts; bei verschobenem Startmarker und bei späteren KIs nach
+Sofortbau bleibt ein nicht beweisbarer Fit `NotEvaluable`. Ein bloßes
+Verkleinern auf die in diesen vier Matches beobachteten Zellen wäre
+keine sichere Verbesserung. Vertrauensgrad: hoch für die konkreten
+Traces und den erfolgreichen Konstruktorpfad, begrenzt für einen
+allgemeinen Offline-Schreibbereich oder Abbruchvertrag.
+
+### Korrektur des Messbereichs und nächste gezielte Aufnahme (24.09.2026)
+
+Die 32 archivierten Keep-Start-Traces decken nur ein 41×41-Fenster um den
+jeweiligen Startaufruf ab (`-16..+24` in beiden Koordinaten). Ihr Marker
+`sampledRegionComplete=True` bestätigt nur dieses Fenster. Die Aussage
+„höchstens 22 Kacheln geändert“ gilt folglich **innerhalb des Fensters**;
+außerhalb wurden Änderungen bisher nicht gemessen. Der Offline-Kern bleibt
+unverändert vorsichtig, besonders bei früheren Starts, verschobenen
+AIV-Startmarkern und Sofortbau.
+
+Der Detector liest nun vor und nach jedem Typ-41-Start alle 320.800
+Tile-IDs in den acht für den Fit relevanten Schichten. Nur tatsächlich
+geänderte Zellen landen im Trace; die Scan-Zeiten und
+`fullMapTileLayersComplete=True` machen Kosten und Vollständigkeit prüfbar.
+Die Änderung nutzt weiterhin den passiven Script-Extender-Event und setzt
+keine Spieler-ID oder Karte im Detector fest. Für den installierten Native-Hash
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
+ist dies eine Messvorbereitung, noch kein neues Laufzeitergebnis.
+
+Native-Nachprüfung: Der Typ-41-Konstruktor reicht an `0x6FE90` für seine
+Keep- und Lagerzellen `param_6=0` weiter. Dessen direkte Schichtschreibungen
+verwenden die über `0x6A620`/`0xE3360` bestimmte Zelle. Die gesamte
+Räumung, vorhandene Gebäuderecords, Yard-Konstruktion und nachgeschaltete
+Pfad-/Nachbarfunktionen sind damit noch nicht allgemein räumlich bewiesen.
+Die nächste Aufnahme soll zuerst den bisher unsichtbaren Außenbereich
+prüfen; erst danach lässt sich eine sichere Vereinigung möglicher
+Startänderungen für spätere Fits erwägen. Vertrauensgrad: hoch für die
+Aufrufargumente und die Lücke des bisherigen Messfensters, zur Laufzeit
+noch offen für die neue vollständige Aufnahme.
+
+Der optionale Überschneidungszweig `0x74DA0 -> 0x5D3A0` hängt am
+Tile-Manager-Feld `+0x204E7FC`. Er prüft vorhandene Gebäude in Keep-,
+Lager- und Yard-Zellen, markiert deren Records über `0xC4290` und läuft
+danach über 3.999 Gebäuderecords mit `0xB8310`. Der Detector erfasst nun
+auch dieses rohe Schalterfeld und die zugehörige Record-Marke
+`+0x204E778` vor/nach dem Start. Die regionale Altaufnahme kann den
+Effekt dieses Zweigs außerhalb ihres Fensters nicht ausschließen.
+
+### Vollkarten-Nachmessung `CC-A-on` (24.09.2026)
+
+Die automatische Einzelserie wurde bestätigt (`nextIndex=1`). Der neue
+Detector nahm acht vollständige Keep-Start-Diffs über alle 320.800 Tile-IDs
+auf; `incomplete=False`. Alle acht Starts hatten vor dem Aufruf den
+Räumschalter `+0x204E7FC=1`, danach null, eine gesetzte
+Record-Löschmarke und kein Fehlerflag. Außerhalb des früheren
+41×41-Fensters änderte sich in diesem Lauf keine der acht Fit-Schichten.
+Innerhalb sind alle acht Roh-Zelllisten identisch mit der früheren
+`CC-A-on`-Aufnahme. Das Scannen benötigte je Start rund 18–22 ms.
+
+Auch die sechs Sofortbau-Spuren waren vollständig, ohne Pointer- oder
+Framefehler. Ihre Gebäude- und Fit-Schichtänderungen stimmen für
+dieselbe Aufstellung zell- und framegenau mit dem ursprünglichen
+Zehn-Match-Lauf überein. Von 16 nativen Fit-Versuchen späterer KIs lasen
+acht Zellen, die ein früherer Sofortbau geändert hatte; nur einer las
+auch Zellen eines früheren Keep-Starts. Acht Versuche berührten in diesem
+konkreten Baupfad keine gemessene frühere Änderung. Der Offline-Vergleich
+ergab einen exakten ersten Fall, 15 vorsichtig graue Fälle und keine
+Abweichung. Alle Daten und Hashes liegen unter
+`Diagnostics/AivSeries-20260924/FullGridProbeResults`.
+
+Die Messung belegt Reproduzierbarkeit dieser einen Aufstellung, aber
+keine allgemeine Schreibbereichsgrenze. Der Sofortbau-Pfad `0x51790`
+ruft bei passenden Mappern `0x5CD90` auf. Dessen Räumung kann über
+`0xC43A0` verknüpfte Gebäuderecords und über `0xB8310`/`0x61FC0`
+weitere typspezifische Tile-Updates auslösen. Daher wäre die bloße
+Vereinigung aller geplanten AIV-Zellen keine sicher vollständige
+Änderungsmenge. Spätere KIs bei „Completed Castles“ bleiben bis zu
+einem bewiesenen Eingangsstatus `NotEvaluable`. Vertrauensgrad: hoch
+für die genannten Traces und die geprüfte Native-Kette, begrenzt für
+beliebige Maps/Mapper. Als nächster konkret fehlender Startzweig wird
+eine 180°-Keep-Konstruktion mit Vollkarten-Diff aufgenommen; auf
+Crater Lake ist eine solche Vanilla-Auswahl bereits archiviert.
+
+## 24.09.2026: Sechs-Match-Serie und 180°-Startbau
+
+Sechs automatisch bestätigte Starts auf Crater Lake und Craggy Cliffs
+lieferten mit der unveränderten Native-DLL `FBCB9319…` 48 vollständige
+Vollkarten-Start-Diffs und 28 vollständige Sofortbau-Traces. Alle 48
+Startaufrufe hatten Fehlerflag null; bei keiner der acht Fit-Schichten
+gab es in diesen Läufen eine Änderung außerhalb des früheren 41×41-
+Fensters. Ein allgemeiner Schreibbereich oder Abbruchvertrag folgt
+daraus nicht.
+
+Für acht 180°-Starts mit kanonischem AIV-Keep-Marker `(56,43)` wurden
+die 117 Gebäudezellen des serialisierten Startkomplexes mit dem nativen
+Nachher-Raster zellweise abgeglichen. Alle acht passen exakt zu
+`(keepX + 13 - dx, keepY + 13 - dy)`; mit Pivot 12 fehlen jeweils
+31 Zellen. Der gemeinsame AIVPlacement-Kern wurde auf Pivot 13
+korrigiert. Nichtkanonische Marker `(55,44)` und `(56,45)` führten
+beobachtet zu anderen nativen Startankern; spätere Fits bleiben nach
+solchen Markern `NotEvaluable`.
+
+Die 69 neuen Native-Fitversuche ergeben nach der Korrektur 19 exakte,
+50 absichtlich graue, null abweichende und null fehlerhafte Fälle.
+Vollständige Traces und Vergleichsberichte:
+`Diagnostics/AivSeries-20260924/SixMatchResults`. Vertrauen: hoch
+für diese acht erfolgreichen 180°-Fußabdrücke und die native
+Typ-41-Offsettabelle; offen für fehlgeschlagene Konstruktionen,
+andere Marker sowie vollständige Sofortbauwirkungen.
+
+Die installierte Pivot-13-Korrektur wurde anschließend mit zwei
+bestätigten Crater-Lake-Starts (`CL-A-off/on`) geprüft. 20 Native-Fits:
+10 exakt, 10 absichtlich `NotEvaluable`, keine Abweichung und kein
+Importfehler. 16 Vollkarten-Starttraces und sieben Sofortbau-Traces
+sind vollständig. Im Lauf ohne Sofortbau bleibt nur der letzte KI-Fit
+wegen eines verschobenen früheren Startmarkers grau; bei Sofortbau
+bleiben alle späteren KIs wegen des unbekannten Bauzustands grau.
+Archiv: `Diagnostics/AivSeries-20260924/Pivot13RuntimeRegression/Observed`.
+Vertrauen: hoch für diesen reproduzierten Lauf; keine neue allgemeine
+Freigabe für andere Marker oder sequenziellen Sofortbau.

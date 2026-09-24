@@ -4,7 +4,7 @@
     "path": "sem/FBCB9319/CrusaderDE-semantic.sqlite",
     "schemaVersion": 4,
     "referenceSize": 154763264,
-    "referenceSha256": "18E240E535498130447B70304267FB4CEE0D3744F8FAEB7BFDA4A10F1941FD68",
+    "referenceSha256": "26620669A53466A6EE7D83C338F3EEE55D6E1D4A09F7101A6B027DCEC9EC01D3",
     "referenceSqliteVersion": "3.45.3"
   },
   "identities": {
@@ -117,8 +117,8 @@
     },
     {
       "path": "sem/FBCB9319/knowledge/hook-spans.jsonl",
-      "sha256": "49ADE06CA84046C0F131009889BD2B7E18791F26380CA6F58E62819B934853C9",
-      "bytes": 4097
+      "sha256": "EB5C0EAEA5ABFF0E496CD3A727307B53F10EA1405E5548F8C2B7EA0A9D855996",
+      "bytes": 4056
     },
     {
       "path": "sem/FBCB9319/knowledge/api-contracts.jsonl",

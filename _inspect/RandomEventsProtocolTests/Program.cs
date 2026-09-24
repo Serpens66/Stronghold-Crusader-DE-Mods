@@ -24,7 +24,8 @@ namespace RandomEvents
             TestEventSoundNativeLayout();
             TestKeepAnchorGeometry();
             TestSignpostAnchorSelection();
-            TestSignpostSchedulingGate();
+            TestSignpostEventPolicy();
+            TestSignpostInitializationReport();
             TestSignpostSelection();
             TestBanditTargetEligibility();
             TestArcherSourceTargetingScope();
@@ -237,29 +238,23 @@ namespace RandomEvents
         private static void TestKeepAnchorGeometry()
         {
             Func<int, int, bool> inside = (x, y) => x >= 0 && x < 800 && y >= 0 && y < 800;
+            foreach (int keepSize in new[] { 4, 6, 7, 8 })
+            {
+                Assert(
+                    KeepAnchorGeometry.TryGetReferenceTile(398, 258, (uint)keepSize, inside, out double x, out double y) &&
+                    x == 398 && y == 258,
+                    $"Keep size {keepSize} does not affect its valid distance reference tile");
+            }
             Assert(
-                KeepAnchorGeometry.TryGetGridCenter(10, 20, 4, inside, out double centerX, out double centerY) &&
-                centerX == 11.5 && centerY == 21.5,
-                "a validated square Keep grid supplies its half-tile-safe center");
-            Assert(
-                KeepAnchorGeometry.TryGetGridCenter(794, 794, KeepAnchorGeometry.MaximumGridSize, inside, out centerX, out centerY) &&
-                centerX == 796.5 && centerY == 796.5,
-                "the maximum native Keep grid is accepted inside map bounds");
-            Assert(
-                !KeepAnchorGeometry.TryGetGridCenter(795, 795, KeepAnchorGeometry.MaximumGridSize, inside, out _, out _),
-                "a Keep grid extending outside the map fails closed");
-            Assert(
-                !KeepAnchorGeometry.TryGetGridCenter(10, 20, KeepAnchorGeometry.MaximumGridSize + 1, inside, out _, out _),
-                "an oversized Keep grid fails closed");
-            Assert(
-                !KeepAnchorGeometry.TryGetGridCenter(
-                    10,
-                    20,
-                    4,
-                    (x, y) => !(x == 13 && y == 20),
-                    out _,
-                    out _),
-                "all four Keep grid corners must be inside the playable map shape");
+                KeepAnchorGeometry.TryGetReferenceTile(799, 799, 8, inside, out double edgeX, out double edgeY) &&
+                edgeX == 799 && edgeY == 799,
+                "a valid edge tile can be used without checking the Keep footprint");
+            Assert(!KeepAnchorGeometry.TryGetReferenceTile(800, 20, 7, inside, out _, out _),
+                "a Keep start outside map bounds fails closed");
+            Assert(!KeepAnchorGeometry.TryGetReferenceTile(10, 20, 7, (x, y) => false, out _, out _),
+                "a Keep start outside the playable map shape fails closed");
+            Assert(!KeepAnchorGeometry.TryGetReferenceTile(10, 20, 7, null, out _, out _),
+                "a missing map-bounds validator fails closed");
         }
 
         private static void TestSignpostAnchorSelection()
@@ -286,17 +281,50 @@ namespace RandomEvents
                 "missing Keep and Lord anchors fail closed");
         }
 
-        private static void TestSignpostSchedulingGate()
+        private static void TestSignpostEventPolicy()
         {
+            RandomEventDefinition fire = RandomEventDefinitions.Get(RandomEventKind.Fire);
+            RandomEventDefinition archers = RandomEventDefinitions.Get(RandomEventKind.Archers);
+            RandomEventDefinition lions = RandomEventDefinitions.Get(RandomEventKind.LionAttack);
+            RandomEventDefinition bandits = RandomEventDefinitions.Get(RandomEventKind.Bandits);
             Assert(
-                RandomEventsSignpostGate.ShouldDeferScheduling(true, false),
-                "signpost-dependent batches wait for signpost initialization");
+                !RandomEventsSignpostPolicy.ShouldSkipEvent(fire, false) &&
+                RandomEventsSignpostPolicy.StartsCooldownOnRoll(fire),
+                "fire remains executable without signposts in both batch paths");
             Assert(
-                !RandomEventsSignpostGate.ShouldDeferScheduling(true, true),
-                "signpost-dependent batches proceed after initialization");
+                RandomEventsSignpostPolicy.ShouldSkipEvent(archers, false) &&
+                !RandomEventsSignpostPolicy.StartsCooldownOnRoll(archers),
+                "an unavailable archer signpost skips the action without starting cooldown");
             Assert(
-                !RandomEventsSignpostGate.ShouldDeferScheduling(false, false),
-                "events without signpost dependencies remain schedulable");
+                RandomEventsSignpostPolicy.ShouldSkipEvent(lions, false) &&
+                RandomEventsSignpostPolicy.ShouldSkipEvent(bandits, false),
+                "other signpost-dependent events skip without a signpost");
+            Assert(
+                !RandomEventsSignpostPolicy.ShouldSkipEvent(archers, true) &&
+                !RandomEventsSignpostPolicy.ShouldSkipEvent(lions, true) &&
+                !RandomEventsSignpostPolicy.ShouldSkipEvent(bandits, true),
+                "signpost-dependent actions may execute after initialization");
+        }
+
+        private static void TestSignpostInitializationReport()
+        {
+            string recovered = SignpostInitializationReport.Format(new[] { 11, 12, 13, 14 }, true, true, null);
+            Assert(recovered.Contains("selectedBuildingIds=[11,12,13,14]") &&
+                recovered.Contains("usableRegistered=true") &&
+                recovered.Contains("recoveredAfterFailure=true") &&
+                !recovered.Contains("Reason:"),
+                "successful initialization reports registered signposts after a transient failure");
+
+            string immediate = SignpostInitializationReport.Format(new[] { 21, -1, -1, -1 }, true, false, null);
+            Assert(immediate.Contains("selectedBuildingIds=[21,-1,-1,-1]") &&
+                immediate.Contains("recoveredAfterFailure=false"),
+                "successful initialization without a prior failure is distinguishable");
+
+            string unavailable = SignpostInitializationReport.Format(new[] { -1, -1, -1, -1 }, false, true, "native registry unavailable");
+            Assert(unavailable.Contains("usableRegistered=false") &&
+                unavailable.Contains("recoveredAfterFailure=true") &&
+                unavailable.Contains("Reason: native registry unavailable"),
+                "completion without a usable signpost retains the failure reason");
         }
 
         private static void TestBanditTargetEligibility()

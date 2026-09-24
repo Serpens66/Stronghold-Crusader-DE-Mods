@@ -119,6 +119,7 @@
     </Compile>
     <Compile Include="src\AivPlacementOracle.cs" />
     <Compile Include="src\OraclePrebuildStateCapture.cs" />
+    <Compile Include="src\OracleStartStructureCapture.cs" />
     <Compile Include="src\ActiveAIVDetectionRuntime.cs" />
     <Compile Include="src\ActiveAIVDetectorPlugin.cs" />
   </ItemGroup>

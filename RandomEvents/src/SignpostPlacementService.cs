@@ -32,7 +32,7 @@ namespace RandomEvents
         private int captureX;
         private int captureY;
         private int capturedBuildingId = -1;
-        private string lastDeferredReason = string.Empty;
+        private bool initializationFailureLogged;
 
         public SignpostPlacementService(ManualLogSource log, ScenarioSignpostRegistry registry)
         {
@@ -57,11 +57,11 @@ namespace RandomEvents
 
             if (!registry.IsAvailable)
             {
-                LogError(
-                    "Automatic edge-signpost initialization is disabled for this match because the native registry is unavailable. " +
-                    "Events that require a signpost will be skipped. " +
-                    $"Reason: {registry.UnavailableReason}");
                 state.SignpostsInitialized = true;
+                LogInitializationCompleted(
+                    state,
+                    "Automatic edge-signpost initialization is disabled because the native registry is unavailable; " +
+                    $"signpost-dependent events will be skipped. {registry.UnavailableReason}");
                 return true;
             }
 
@@ -85,14 +85,13 @@ namespace RandomEvents
             }
             catch (Exception ex)
             {
-                LogError(
-                    "Automatic signpost placement is disabled for this match because Vanilla path connectivity " +
-                    $"could not be read safely; signpost-dependent events will be skipped. Error: {ex}");
                 state.SignpostsInitialized = true;
+                LogInitializationCompleted(
+                    state,
+                    "Automatic signpost placement is disabled because Vanilla path connectivity could not be read safely; " +
+                    $"signpost-dependent events will be skipped. Error: {ex}");
                 return true;
             }
-
-            lastDeferredReason = string.Empty;
 
             int[] selected = new[] { -1, -1, -1, -1 };
             HashSet<int> used = new HashSet<int>();
@@ -174,12 +173,9 @@ namespace RandomEvents
             TrackProtectedSignposts(selected);
             registry.SetEligibleSignposts(selected);
             state.SignpostsInitialized = true;
-            if (!registry.HasUsableRegisteredSignpost())
-            {
-                LogError(
-                    "Signpost initialization completed without any usable registered signpost. " +
-                    "Lion, bandit, and archer events will not be dispatched in this match.");
-            }
+            LogInitializationCompleted(
+                state,
+                "No usable registered signpost is available; lion, bandit, and archer events will not be dispatched in this match.");
             return true;
         }
 
@@ -192,7 +188,7 @@ namespace RandomEvents
         public void ResetMapState()
         {
             protectedSignpostIds.Clear();
-            lastDeferredReason = string.Empty;
+            initializationFailureLogged = false;
             registry.ResetMapState();
         }
 
@@ -201,10 +197,24 @@ namespace RandomEvents
             string normalized = string.IsNullOrWhiteSpace(reason)
                 ? "startup prerequisites are not ready"
                 : reason.Trim();
-            if (string.Equals(lastDeferredReason, normalized, StringComparison.Ordinal))
+            if (initializationFailureLogged)
                 return;
-            lastDeferredReason = normalized;
-            LogDebug($"Signpost initialization deferred: {normalized}");
+            initializationFailureLogged = true;
+            LogError($"Signpost initialization failed on this map; retrying: {normalized}");
+        }
+
+        private void LogInitializationCompleted(RandomEventsRuntimeState state, string failureReason)
+        {
+            bool usableRegistered = registry.HasUsableRegisteredSignpost();
+            string message = SignpostInitializationReport.Format(
+                state.SignpostBuildingIds,
+                usableRegistered,
+                initializationFailureLogged,
+                usableRegistered ? null : failureReason);
+            if (usableRegistered)
+                LogInfo(message);
+            else
+                LogError(message);
         }
 
         private bool TryPlaceForSide(
@@ -559,6 +569,25 @@ namespace RandomEvents
             Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
             foreach (PlayerReachability player in result)
             {
+                if (GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(
+                        player.PlayerId,
+                        out GamePlayerResources* resources) &&
+                    resources != null && resources->r_LordUnitId > 0 &&
+                    resources->r_LordUnitId <= int.MaxValue &&
+                    GameUnitManagerAPI.Instance.TryGetUnitById((int)resources->r_LordUnitId, out GameUnit* lord) &&
+                    lord != null && lord->r_AliveState == AliveState.IsAlive &&
+                    lord->r_UnitChimp == eChimps.CHIMP_TYPE_LORD &&
+                    lord->r_ControllableForPlayerId == player.PlayerId)
+                {
+                    AddApproachComponents(
+                        lord->r_CurrentTilePositionX,
+                        lord->r_CurrentTilePositionY,
+                        lord->r_CurrentTilePositionX,
+                        lord->r_CurrentTilePositionY,
+                        player.Components,
+                        includeFootprint: true);
+                }
+
                 for (int spanIndex = 0; spanIndex < buildings.Length; spanIndex++)
                 {
                     ref GameBuilding building = ref buildings[spanIndex];
@@ -585,7 +614,7 @@ namespace RandomEvents
             {
                 if (player.Components.Count == 0)
                 {
-                    failure = $"player {player.PlayerId} has no initialized building or wall approach tile yet.";
+                    failure = $"player {player.PlayerId} has no walkable Lord, building, or wall approach tile yet.";
                     return false;
                 }
             }
@@ -696,20 +725,13 @@ namespace RandomEvents
                         keep,
                         out double centerX,
                         out double centerY,
-                        out string geometrySource,
+                        out _,
                         out string geometryFailure))
                 {
                     failure = $"player {playerId} Keep {keepId} geometry is unavailable: {geometryFailure}.";
                     return false;
                 }
                 keeps.Add(new MapPoint(centerX, centerY));
-                if (geometrySource == "validated-grid-fallback")
-                {
-                    LogDebug(
-                        $"Keep anchor used validated grid fallback: playerId={playerId}, " +
-                        $"keepId={keepId}, begin=({keep->r_TilePositionXBegin},{keep->r_TilePositionYBegin}), " +
-                        $"gridSize={keep->r_OccupyTileGridSize}, center=({centerX:0.0},{centerY:0.0}).");
-                }
             }
             failure = string.Empty;
             return true;
@@ -750,7 +772,7 @@ namespace RandomEvents
             return minimum;
         }
 
-        private void LogDebug(string message) => Shared.DebugLogHelper.LogDebug(log, message);
+        private void LogInfo(string message) => Shared.DebugLogHelper.LogInfo(log, message);
         private void LogWarning(string message) => Shared.DebugLogHelper.LogWarning(log, message);
         private void LogError(string message) => Shared.DebugLogHelper.LogError(log, message);
 

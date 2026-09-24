@@ -129,6 +129,7 @@ internal static class Program
             var priorStartSlots = new HashSet<int>(humanStartSlots);
             var rebuiltStartRotationsBySlot = new Dictionary<int, AivRotation>();
             bool hasExecutedPriorAivPrebuild = false;
+            bool hasShiftedPriorStartMarker = false;
             foreach (OracleSelectionGroup group in orderedGroups)
             {
                 IAivPlacementTileSource? sequentialMap = null;
@@ -140,7 +141,9 @@ internal static class Program
                         rebuiltStartRotationsBySlot);
                 }
 
-                string? unavailableReason = RequiresObservedPrebuildState(
+                string? unavailableReason = hasShiftedPriorStartMarker
+                    ? "A prior selected AIV has a shifted native start marker."
+                    : RequiresObservedPrebuildState(
                         preBuildSetting,
                         hasExecutedPriorAivPrebuild)
                     ? "A prior player's native AIV prebuild has already executed; " +
@@ -156,6 +159,12 @@ internal static class Program
                 OracleCase? selected = SelectNativePlacement(group.Cases);
                 if (selected != null && preBuildSetting == 1)
                     hasExecutedPriorAivPrebuild = true;
+                if (selected != null)
+                {
+                    AivGridPoint? marker = LoadBlueprint(selected.AivPath).KeepAnchor;
+                    if (!marker.HasValue || marker.Value.Row != 56 || marker.Value.Column != 43)
+                        hasShiftedPriorStartMarker = true;
+                }
 
                 AddSelectedStartRotation(
                     anchors,
@@ -275,11 +284,36 @@ internal static class Program
 
             IAivPlacementTileSource map = context.Map;
             AivBlueprint blueprint = LoadBlueprint(aivPath);
+            AivRotation rotation = ParseRotation(oracleCase.Rotation);
+            if (map is AivPreplacementMapState preplacement &&
+                preplacement.HasUnprovenNativeStartInteraction(
+                    new AivCastleProjector().Project(blueprint, keep, rotation)))
+            {
+                return new CaseComparison
+                {
+                    Id = oracleCase.Id,
+                    MapSha256 = NormalizeHash(corpus.Map.Sha256),
+                    AivName = Path.GetFileName(aivPath),
+                    AivSha256 = NormalizeHash(oracleCase.AivSha256),
+                    SessionId = oracleCase.SessionId,
+                    PreBuildSetting = oracleCase.PreBuildSetting,
+                    SelectedForPlacement = oracleCase.SelectedForPlacement,
+                    CandidateOccupancyKind = ResolveCandidateOccupancyKind(oracleCase),
+                    PlayerId = oracleCase.PlayerId,
+                    MapKeepSlot = anchor!.SlotIndex,
+                    KeepX = keep.X,
+                    KeepY = keep.Y,
+                    Rotation = oracleCase.Rotation,
+                    Native = oracleCase.Native,
+                    Classification = ComparisonClassification.NotEvaluable,
+                    FirstDifference = "Candidate reads tiles near an earlier AI start with unproven native construction."
+                };
+            }
             AivPlacementResult offline = new AivPlacementEvaluator().Evaluate(
                 map,
                 blueprint,
                 keep,
-                ParseRotation(oracleCase.Rotation));
+                rotation);
 
             ComparisonClassification classification = Classify(offline, oracleCase.Native);
             return new CaseComparison
@@ -958,9 +992,12 @@ internal static class Program
             .OrderBy(item => item.First().MapName, StringComparer.OrdinalIgnoreCase))
         {
             ImportedOracleAttempt first = group.First();
+            string mapLabel = first.MapName == "<unknown>"
+                ? Path.GetFileName(first.MapPath)
+                : first.MapName;
             var corpus = new OracleCorpus
             {
-                Name = $"Passive Oracle capture {Path.GetFileName(logPath)} - {first.MapName}",
+                Name = $"Passive Oracle capture {Path.GetFileName(logPath)} - {mapLabel}",
                 SourceLogSha256 = sourceLogSha256,
                 Map = new OracleMap
                 {
@@ -992,7 +1029,8 @@ internal static class Program
 
             string outputPath = Path.Combine(
                 outputDirectory,
-                $"{MakeFileStem(Path.GetFileNameWithoutExtension(first.MapName))}.json");
+                $"{MakeFileStem(Path.GetFileNameWithoutExtension(mapLabel))}-" +
+                $"{first.MapSha256[..8]}.json");
             WriteTextCrlf(outputPath, JsonSerializer.Serialize(corpus, OutputOptions));
             corpusCount++;
             Log("INFO", $"Imported {corpus.Cases.Count} cases: {outputPath}");

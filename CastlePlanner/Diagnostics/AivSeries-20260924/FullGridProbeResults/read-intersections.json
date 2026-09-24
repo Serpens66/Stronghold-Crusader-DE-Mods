@@ -1,0 +1,162 @@
+[
+  {
+    "File": "oracle-cell-trace-20260924-142321-343-p2-c0-r6-keep330-333.tsv",
+    "PlayerId": 2,
+    "Rotation": 6,
+    "ValidatorReads": 2352,
+    "PriorStartHits": 0,
+    "PriorPrebuildHits": 0,
+    "PriorPlayers": []
+  },
+  {
+    "File": "oracle-cell-trace-20260924-142326-537-p3-c0-r4-keep398-258.tsv",
+    "PlayerId": 3,
+    "Rotation": 4,
+    "ValidatorReads": 2062,
+    "PriorStartHits": 0,
+    "PriorPrebuildHits": 0,
+    "PriorPlayers": []
+  },
+  {
+    "File": "oracle-cell-trace-20260924-142326-537-p3-c0-r6-keep398-258.tsv",
+    "PlayerId": 3,
+    "Rotation": 6,
+    "ValidatorReads": 2068,
+    "PriorStartHits": 0,
+    "PriorPrebuildHits": 0,
+    "PriorPlayers": []
+  },
+  {
+    "File": "oracle-cell-trace-20260924-142332-473-p4-c0-r0-keep377-515.tsv",
+    "PlayerId": 4,
+    "Rotation": 0,
+    "ValidatorReads": 1770,
+    "PriorStartHits": 0,
+    "PriorPrebuildHits": 0,
+    "PriorPlayers": []
+  },
+  {
+    "File": "oracle-cell-trace-20260924-142333-882-p5-c0-r0-keep418-519.tsv",
+    "PlayerId": 5,
+    "Rotation": 0,
+    "ValidatorReads": 2532,
+    "PriorStartHits": 0,
+    "PriorPrebuildHits": 699,
+    "PriorPlayers": [
+      "p4:start=0,prebuild=699"
+    ]
+  },
+  {
+    "File": "oracle-cell-trace-20260924-142333-883-p5-c0-r2-keep418-519.tsv",
+    "PlayerId": 5,
+    "Rotation": 2,
+    "ValidatorReads": 2451,
+    "PriorStartHits": 0,
+    "PriorPrebuildHits": 382,
+    "PriorPlayers": [
+      "p4:start=0,prebuild=382"
+    ]
+  },
+  {
+    "File": "oracle-cell-trace-20260924-142333-884-p5-c0-r4-keep418-519.tsv",
+    "PlayerId": 5,
+    "Rotation": 4,
+    "ValidatorReads": 2587,
+    "PriorStartHits": 0,
+    "PriorPrebuildHits": 509,
+    "PriorPlayers": [
+      "p4:start=0,prebuild=509"
+    ]
+  },
+  {
+    "File": "oracle-cell-trace-20260924-142333-885-p5-c0-r6-keep418-519.tsv",
+    "PlayerId": 5,
+    "Rotation": 6,
+    "ValidatorReads": 2603,
+    "PriorStartHits": 0,
+    "PriorPrebuildHits": 626,
+    "PriorPlayers": [
+      "p4:start=0,prebuild=626"
+    ]
+  },
+  {
+    "File": "oracle-cell-trace-20260924-142333-908-p6-c0-r2-keep481-397.tsv",
+    "PlayerId": 6,
+    "Rotation": 2,
+    "ValidatorReads": 2870,
+    "PriorStartHits": 0,
+    "PriorPrebuildHits": 0,
+    "PriorPlayers": []
+  },
+  {
+    "File": "oracle-cell-trace-20260924-142333-909-p6-c0-r4-keep481-397.tsv",
+    "PlayerId": 6,
+    "Rotation": 4,
+    "ValidatorReads": 2870,
+    "PriorStartHits": 0,
+    "PriorPrebuildHits": 0,
+    "PriorPlayers": []
+  },
+  {
+    "File": "oracle-cell-trace-20260924-142333-910-p6-c0-r6-keep481-397.tsv",
+    "PlayerId": 6,
+    "Rotation": 6,
+    "ValidatorReads": 2870,
+    "PriorStartHits": 0,
+    "PriorPrebuildHits": 0,
+    "PriorPlayers": []
+  },
+  {
+    "File": "oracle-cell-trace-20260924-142336-027-p7-c0-r0-keep506-352.tsv",
+    "PlayerId": 7,
+    "Rotation": 0,
+    "ValidatorReads": 1851,
+    "PriorStartHits": 0,
+    "PriorPrebuildHits": 277,
+    "PriorPlayers": [
+      "p6:start=0,prebuild=277"
+    ]
+  },
+  {
+    "File": "oracle-cell-trace-20260924-142336-025-p7-c0-r2-keep506-352.tsv",
+    "PlayerId": 7,
+    "Rotation": 2,
+    "ValidatorReads": 2077,
+    "PriorStartHits": 0,
+    "PriorPrebuildHits": 391,
+    "PriorPlayers": [
+      "p6:start=0,prebuild=391"
+    ]
+  },
+  {
+    "File": "oracle-cell-trace-20260924-142336-026-p7-c0-r4-keep506-352.tsv",
+    "PlayerId": 7,
+    "Rotation": 4,
+    "ValidatorReads": 2077,
+    "PriorStartHits": 8,
+    "PriorPrebuildHits": 436,
+    "PriorPlayers": [
+      "p6:start=8,prebuild=436"
+    ]
+  },
+  {
+    "File": "oracle-cell-trace-20260924-142336-026-p7-c0-r6-keep506-352.tsv",
+    "PlayerId": 7,
+    "Rotation": 6,
+    "ValidatorReads": 1892,
+    "PriorStartHits": 0,
+    "PriorPrebuildHits": 198,
+    "PriorPlayers": [
+      "p6:start=0,prebuild=198"
+    ]
+  },
+  {
+    "File": "oracle-cell-trace-20260924-142338-550-p8-c0-r2-keep535-396.tsv",
+    "PlayerId": 8,
+    "Rotation": 2,
+    "ValidatorReads": 534,
+    "PriorStartHits": 0,
+    "PriorPrebuildHits": 0,
+    "PriorPlayers": []
+  }
+]
