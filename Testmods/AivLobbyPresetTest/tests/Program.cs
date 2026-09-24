@@ -91,8 +91,19 @@ namespace AivLobbyPresetTest
                 File.Delete(progressPath);
                 TestSeriesProgress probeProgress = TestSeriesProgress.Read(progressPath, craterProbe);
                 probeProgress.Complete(progressPath, craterProbe, 0, craterProbe.Runs[0].Id);
-                Require(TestSeriesProgress.Read(progressPath, craterProbe).NextIndex == 1,
+                probeProgress = TestSeriesProgress.Read(progressPath, craterProbe);
+                Require(probeProgress.NextIndex == 1 && !probeProgress.EndLobbyCleared,
                     "single probe stops after its match");
+                probeProgress.MarkEndLobbyCleared(progressPath, craterProbe);
+                Require(TestSeriesProgress.Read(progressPath, craterProbe).EndLobbyCleared,
+                    "completed series records empty end lobby");
+                probeProgress.MarkEndLobbyCleared(progressPath, craterProbe);
+                File.Delete(progressPath);
+                probeProgress = TestSeriesProgress.Read(progressPath, craterProbe);
+                bool earlyClearRejected = false;
+                try { probeProgress.MarkEndLobbyCleared(progressPath, craterProbe); }
+                catch (InvalidOperationException) { earlyClearRejected = true; }
+                Require(earlyClearRejected, "incomplete series cannot clear end lobby");
                 TestSeries sixMatches = TestSeries.Read(args[4]);
                 string[] sixMatchIds = {
                     "CL-A-off", "CL-A-on", "CL-B-on", "CL-Reverse-on", "CC-B-off", "CC-B-on"

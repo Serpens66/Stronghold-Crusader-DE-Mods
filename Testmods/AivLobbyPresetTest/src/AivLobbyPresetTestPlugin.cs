@@ -35,6 +35,7 @@ namespace AivLobbyPresetTest
         private static TestRun activeRun;
         private static int activeRunIndex = -1;
         private static bool runApplied;
+        private static bool clearCompletedLobby;
         private static long verifiedSessionId = -1;
         private static bool lifecycleRegistered;
         private static Platform_Multiplayer.MPLobby observedLobby;
@@ -288,6 +289,7 @@ namespace AivLobbyPresetTest
             activeRun = null;
             activeRunIndex = -1;
             runApplied = false;
+            clearCompletedLobby = false;
             verifiedSessionId = -1;
             LobbyPreset preset;
             try
@@ -298,8 +300,21 @@ namespace AivLobbyPresetTest
                     TestSeriesProgress progress = TestSeriesProgress.Read(ProgressPath, series);
                     if (progress.NextIndex >= series.Runs.Count)
                     {
-                        log.LogInfo("Test series complete; no preset will override this lobby.");
-                        return false;
+                        if (progress.EndLobbyCleared)
+                        {
+                            log.LogInfo("Test series complete; no preset will override this lobby.");
+                            return false;
+                        }
+                        if (!IsLocalSkirmishHost(view))
+                        {
+                            log.LogWarning("Completed series awaits a one-human local skirmish lobby for cleanup.");
+                            return false;
+                        }
+                        activeSeries = series;
+                        activeProgress = progress;
+                        clearCompletedLobby = true;
+                        log.LogInfo("Test series complete; clearing AI slots in this lobby.");
+                        return true;
                     }
                     activeSeries = series;
                     activeProgress = progress;
@@ -322,12 +337,7 @@ namespace AivLobbyPresetTest
                 log.LogInfo("Preset disabled in config; no lobby changes.");
                 return false;
             }
-            if (!FRONT_Multiplayer.skirmishGame || FRONT_Multiplayer.coopGame ||
-                FRONT_Multiplayer.customCoopGame || view.trailMakerMode ||
-                view.currentLobby == null || !view.currentLobby.isHost ||
-                view.currentLobby.CountHumanPlayers() != 1 ||
-                view.currentLobby.members.Any(member => !member.SkirmishMember ||
-                    (!member.SkirmishHumanMember && member.GetLordType() < 0)))
+            if (!IsLocalSkirmishHost(view))
             {
                 log.LogWarning("Preset skipped: this is not a one-human local skirmish lobby.");
                 return false;
@@ -398,6 +408,18 @@ namespace AivLobbyPresetTest
 
         private static void Apply(FRONT_Multiplayer view)
         {
+            if (clearCompletedLobby)
+            {
+                RemoveAiPlayers(view);
+                if (view.currentLobby.members.Count != 1 ||
+                    view.currentLobby.CountHumanPlayers() != 1)
+                    throw new InvalidOperationException("The completed-series lobby is not empty of AI players.");
+                InvokeLobbyMethod(view, "UpdateHostInfo", new[] { typeof(bool) }, false);
+                InvokeLobbyMethod(view, "UpdateRadarShieldPositions", Type.EmptyTypes);
+                activeProgress.MarkEndLobbyCleared(ProgressPath, activeSeries);
+                log.LogInfo("Test series finished: AI slots cleared; the lobby is ready for a new series.");
+                return;
+            }
             log.LogInfo("Preset Apply entered; map=" + pendingMap?.filePath +
                 ", players=" + pending?.Players.Count);
             Noesis.ListView mapList = LobbyField<Noesis.ListView>(view, "RefFileLists");
@@ -425,18 +447,7 @@ namespace AivLobbyPresetTest
 
             // Vanilla's skirmish remove path uses the same lobby operation. Refresh
             // mappings after each removal before adding players in the requested order.
-            for (int id = 8; id >= 2; id--)
-            {
-                var member = view.currentLobby.GetLobbyMemberFromThis_PlayerID(id);
-                if (member == null)
-                    continue;
-                if (member.SkirmishHumanMember)
-                    throw new InvalidOperationException("Unexpected human opponent; preset aborted.");
-                Platform_Multiplayer.Instance.kickSkirmishPlayer(member.id.m_SteamID);
-                view.currentLobby.validateTeams();
-                InvokeLobbyMethod(view, "updateSteamIDMappings", Type.EmptyTypes);
-            }
-            InvokeLobbyMethod(view, "ReSortTeamInfo", Type.EmptyTypes);
+            RemoveAiPlayers(view);
             foreach (var player in pending.Players.Where(player => !player.Human))
             {
                 int before = view.currentLobby.members.Count;
@@ -484,6 +495,30 @@ namespace AivLobbyPresetTest
                 ? "Manual lobby preset applied; Completed Castles remains user-controlled."
                 : "Test series preset applied: " + activeRun.Id +
                   ", Completed Castles=" + setup.advopt_pre_build + ".");
+        }
+
+        private static bool IsLocalSkirmishHost(FRONT_Multiplayer view) =>
+            FRONT_Multiplayer.skirmishGame && !FRONT_Multiplayer.coopGame &&
+            !FRONT_Multiplayer.customCoopGame && !ReferenceEquals(view, null) &&
+            !view.trailMakerMode && view.currentLobby != null && view.currentLobby.isHost &&
+            view.currentLobby.CountHumanPlayers() == 1 &&
+            view.currentLobby.members.All(member => member.SkirmishMember &&
+                (member.SkirmishHumanMember || member.GetLordType() >= 0));
+
+        private static void RemoveAiPlayers(FRONT_Multiplayer view)
+        {
+            for (int id = 8; id >= 2; id--)
+            {
+                var member = view.currentLobby.GetLobbyMemberFromThis_PlayerID(id);
+                if (member == null)
+                    continue;
+                if (member.SkirmishHumanMember)
+                    throw new InvalidOperationException("Unexpected human opponent; AI removal aborted.");
+                Platform_Multiplayer.Instance.kickSkirmishPlayer(member.id.m_SteamID);
+                view.currentLobby.validateTeams();
+                InvokeLobbyMethod(view, "updateSteamIDMappings", Type.EmptyTypes);
+            }
+            InvokeLobbyMethod(view, "ReSortTeamInfo", Type.EmptyTypes);
         }
 
         private static string AivHash(CustomisationFileManager.CustomAIV aiv)

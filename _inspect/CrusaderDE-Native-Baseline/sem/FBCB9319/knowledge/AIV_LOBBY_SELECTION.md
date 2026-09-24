@@ -1015,3 +1015,102 @@ write bound must audit these calls as well as the type dispatch inside
 itself may return early after `0x79AB0` reports a failure. Confidence:
 high for the direct call/branch order in the installed DLL, incomplete
 for transitive tile and record writes.
+
+## 2026-09-24 dynamic linked-group deletion observed under SE 2.10.1
+
+The installed native hash remains `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+Four verified dense-map setups and one separately counted repeat produced
+57 native fit attempts, 25 complete compound-start traces, and five
+complete prebuild traces. Five fit attempts match offline score,
+percentage, evaluated-cell count, blocked-cell count, and every one of
+their 10,660 grid coordinates/block statuses. The other 52 attempts are
+deliberately unevaluable: 16 for an unbounded earlier start cleanup and
+36 after earlier prebuild. Each of those 36 later native fits reads at
+least one tile whose fit-input layer a previous observed prebuild changed.
+No comparison mismatch or capture error occurred. Raw evidence and
+checksums: `CastlePlanner/Diagnostics/AivSeries-20260924/DynamicLinkProbeResults/`.
+
+The fourth load finally executed a **dynamic connected-group cleanup**.
+Player 3's prebuild frame 53, mapper 87, created four 5x5 records at
+`(265,420)`, `(270,420)`, `(265,425)`, `(270,425)`: building IDs
+62/63/65/340, types 9/57/58/56, all with native `GameBuilding+0x2A8`
+value 903. The later player-5 type-41 compound start at `(258,417)`
+removed all 100 old building-grid cells; 12 acquired new start IDs and
+88 became empty. A fifth map load repeated the same IDs, coordinates,
+and 12/88 split. All constructor post-failure flags were zero. The
+changed-record file reports these old slots as alive-before and
+alive-after because the start reused their IDs; the synchronous
+building-grid diff establishes removal of the old group. Confidence:
+high for this executed path and its exact cells, not for arbitrary
+counterfactual AIV choices or constructor failures.
+
+Native causal path: `0x5D3A0` samples its fixed compound cleanup
+footprints, calls `0xC4290` for a contacted building ID, and then scans
+all 4000 records for state 3 to call `0xB8310`. `0xC4290` marks the
+contacted record plus every live record sharing its nonzero native
+manager field `+0x304` (`GameBuilding+0x2A8`); this is distinct from
+the earlier serialized-start `0xC43A0` loop. The newly observed group
+therefore demonstrates deletion beyond the directly sampled footprint.
+Direct `0xB8310` callees are `0xB8460` (resource bookkeeping),
+`0x1977A0` (associated unit state), `0xB5C40` (path/visual work),
+`0x61FC0` (building tile teardown), and `0xCFE90` (owner building
+index). Their full transitive fit-layer write bound and all `0x77E60`
+failure exits remain unproven. Confidence: high for direct control flow;
+limited for a universal offline state transition.
+
+## 2026-09-24 Crossing Keep-group removal observed at native start
+
+Installed DLL SHA-256:
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+Map `CrusadesCrossing.map` SHA-256:
+`B5AB8BCC5C4C2783697EEF4BBE692AE829B2C7D59C4AFF540F79E140C49417FE`.
+In a completed-castles-off custom game, player 2 constructed a type-41
+Keep compound at `(510,502)` with native orientation 2 and zero failure
+flag. Its Keep was building record 10 (owner 2, cleanup link 465609,
+7x7 tiles at x=510..516, y=502..508). Linked records 11–14 shared
+the same cleanup link; four 2x2 goods-yard records 15–18 used a
+separate link.
+
+The synchronous before/after capture around player 3's subsequent
+native structure-build call at `(523,489)` records 101 removed building
+cells: all 49 cells of player 2's Keep, all 49 cells of its 7x7 camp,
+and all three one-tile linked records. Building IDs 10–14 were reused
+for player 3's new compound; the earlier goods-yard IDs 15–18 remained
+in the next live building grid. Player 3 also had zero failure flag.
+The map's selectable Keep anchors were `(510,495)` and `(548,483)`;
+the actual AIV-derived native starts were much closer. This explains
+the scene with player 2's flag and goods yard but no Keep. A downstream
+mod reported that player 2 had no ready Keep after the start traces.
+
+The local Fixes source modifies the subsequent goods-yard tail call,
+with no patch found for the audited `0x74DA0 -> 0x5D3A0 -> 0xC4290
+-> 0xB8310` linked cleanup chain. This is high-confidence evidence
+for one executed cleanup in the modded process, not a universal proof
+for all possible candidate/rotation/abort branches. A minimal-mod
+repeat has been prepared as a control. Raw captures and hash manifest:
+`CastlePlanner/Diagnostics/AivSeries-20260924/NaturalLinkEightResults/`.
+
+## 2026-09-24 natural-link series, complete eight-run outcome
+
+The installed native DLL retained SHA-256
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+All eight configured starts completed; a ninth Reed reverse-on start was an
+unplanned repeat after the series ended. The first four Crusades Crossing
+sessions produced 64 Oracle cases: 16 exact, 48 intentionally unevaluable,
+zero mismatch. The four Reed Sea sessions produced 66 cases: nine exact,
+49 unevaluable, eight comparator mismatches. The repeat produced 17 cases:
+four exact, 13 unevaluable, zero mismatch. All 67 captured AI start calls
+reported zero native failure flag.
+
+The eight mismatches belong to player 3 Sentinel Default 2 in the two Reed
+forward sessions, across all four rotations. They expose an incomplete
+offline **sequential state reconstruction** after an earlier Wolf start;
+the prebuild-on session additionally depends on earlier native AIV build.
+CastlePlanner itself published `NotEvaluable` for that player in both
+sessions (`StartOverlapUnproven` and `PreBuildSequenceUnsupported`). The
+Oracle comparator injects the observed earlier selection and checks a
+single reconstructed state; this is not a proof for all possible lobby
+states. Confidence is high for the captured scores and the product's
+fail-closed behavior, low for a general reconstruction rule. Do not
+release these eight as safe fit predictions. Details and hashes:
+`CastlePlanner/Diagnostics/AivSeries-20260924/NaturalLinkEightResults/RESULTS.md`.

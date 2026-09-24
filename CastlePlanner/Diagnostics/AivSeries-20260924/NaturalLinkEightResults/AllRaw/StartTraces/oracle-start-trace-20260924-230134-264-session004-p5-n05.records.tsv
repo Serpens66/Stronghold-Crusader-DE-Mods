@@ -1,0 +1,32 @@
+# mapFileSha256=b5ab8bcc5c4c2783697eef4bbe692ae829b2c7d59c4aff540f79e140c49417fe
+# nativeDllSha256=fbcb93195fc7efca9bdac5204852efdd76f9818f59a6711750d77c9cef2831e2
+# playerId=5
+# keepX=376
+# keepY=672
+# nativeOrientation=0
+# preBuildSetting=1
+# selectedCandidateId=0
+# aivJsonSha256=384abb01e5b4c0ff36ceddeac64c3a8dc8151d0113d1189a32d8c7feb9bb337f
+# postNativeFailureFlag=0
+# changedBuildingRecords=9
+# selectedFieldsOfFullBuildingRecordArrayComplete=True
+# buildingId is one-based
+buildingId	phase	aliveState	type	owner	globalId	nativeCleanupLinkId	tileIdBegin	occupyTileGridSize	tileX	tileY
+334	before	0	0	0	0	0	0	0	0	0
+334	after	1	41	5	465898	465898	304392	7	376	672
+335	before	0	0	0	0	0	0	0	0	0
+335	after	1	71	5	465899	465898	306137	1	378	679
+336	before	0	0	0	0	0	0	0	0	0
+336	after	1	73	5	465900	465898	306138	1	379	679
+337	before	0	0	0	0	0	0	0	0	0
+337	after	1	72	5	465901	465898	306139	1	380	679
+338	before	0	0	0	0	0	0	0	0	0
+338	after	1	55	5	465902	465898	306376	7	376	680
+339	before	0	0	0	0	0	0	0	0	0
+339	after	1	10	5	465903	465903	304907	2	383	674
+340	before	0	0	0	0	0	0	0	0	0
+340	after	1	10	5	465904	465903	304910	2	386	674
+341	before	0	0	0	0	0	0	0	0	0
+341	after	1	10	5	465905	465903	305654	2	383	677
+342	before	0	0	0	0	0	0	0	0	0
+342	after	1	10	5	465906	465903	305657	2	386	677

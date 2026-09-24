@@ -1168,3 +1168,105 @@ vor der KI-Auswahl entfernt. Der Scan erfasst keine zur Laufzeit
 entstandenen Gruppen oder ganzen Gebäude-Footprints. Vertrauensgrad:
 hoch für den direkten nativen Aufrufpfad und die gelesenen
 Kartenrecords, offen für deren transitive Seiteneffekte.
+
+## 2026-09-24: dynamische Linkgruppe erstmals vollständig gelöscht
+
+Die vier Starts `DL-forward-off/on` und `DL-reverse-off/on` wurden
+bestätigt; ein fünfter Start nach Serienende wiederholte den letzten
+Aufbau. Beim unveränderten Native-Hash `FBCB9319…` erfasste der Detector
+57 Fits, 25 vollständige Keep-Starts und fünf vollständige
+Sofortbau-Traces. Mit Script Extender 2.10.1 sind fünf Fits bis auf jede
+der zusammen 10.660 ausgewerteten Zellen exakt; 52 bleiben bewusst
+grau, null weichen ab. Bei den 36 grauen Fits nach Sofortbau las der
+Native-Validator tatsächlich zuvor geänderte Tile-IDs. Die übrigen
+16 sind durch mögliche Start-Räumung gesperrt. Befund, Rohdaten,
+Prüfsummen und reproduzierbares Analyse-Script stehen unter
+`Diagnostics/AivSeries-20260924/DynamicLinkProbeResults/`.
+
+Bei `DL-reverse-on` erzeugte Spieler 3 in Bau-Frame 53 mit Mapper 87
+vier 5×5-Records mit gemeinsamem Cleanup-Linkwert `903`: IDs
+62/63/65/340 an `(265,420)`, `(270,420)`, `(265,425)` und
+`(270,425)`. Der spätere Start von Spieler 5 bei `(258,417)` löschte
+alle 100 alten Gebäudezellen, davon wurden 12 sofort mit neuen
+Startgebäuden überbaut und 88 frei. Die zusätzliche Wiederholung
+bestätigte denselben Zellbefund. Das ist der bislang fehlende
+Laufzeitbeleg einer **dynamisch gebauten** Linkgruppe; die frühere
+Aussage „kein verbundener Begleitrecord beobachtet“ gilt nur für die
+damals ausgewerteten Aufnahmen. Die Starttraces zeigten für die alten
+Record-Slots wegen ID-Wiederverwendung `alive` vor und nach dem
+Aufruf. Erst die synchronen Building-ID-Zellen belegen ihre
+vollständige Räumung. Alle Start-Fehlerflags blieben null.
+
+Der Native-Pfad ist `0x5D3A0 -> 0xC4290 -> 0xB8310`: `0xC4290`
+markiert den getroffenen Record und alle lebenden Records mit
+demselben nichtnullen Link bei Manager-Offset `+0x304` bzw.
+`GameBuilding+0x2A8`; `0x5D3A0` entfernt anschließend sämtliche
+markierten Records. Diese dynamische Räumung ist vom anfänglichen
+`0xC43A0`-Durchlauf über die serialisierten Startgruppen zu
+unterscheiden. Vertrauensgrad: hoch für diesen Ablauf und seine
+100 Zellen, weiterhin offen für andere Mapper, Gegenvarianten,
+`0x77E60`-Abbrüche und die vollständige Schreibgrenze aller
+`0x61FC0`-Typzweige. Die sichere Produktgrenze bleibt deshalb
+`NotEvaluable`, sobald ein möglicher früherer Zustand nicht exakt
+rekonstruiert ist.
+
+## 2026-09-24: natürlicher Keep-Verlust im ersten Crossing-Test
+
+Auf `CrusadesCrossing.map` (SHA-256
+`B5AB8BCC5C4C2783697EEF4BBE692AE829B2C7D59C4AFF540F79E140C49417FE`)
+baute Spieler 2 bei ausgeschaltetem Sofortspawn zuerst einen vollständigen
+Typ-41-Startkomplex. Sein 7×7-Keep lag nach der Vanilla-AIV-Drehung bei
+`(510,502)`; der auswählbare Map-Keep-Slot war `(510,495)`. Spieler 3
+startete danach tatsächlich bei `(523,489)`, obwohl sein Map-Slot bei
+`(548,483)` liegt. Das erklärt, weshalb auf einer großen Karte die
+tatsächlichen Startgebäude viel näher beieinander liegen als die
+eingezeichneten Map-Slots vermuten lassen.
+
+Die synchronen Starttraces der installierten Native-DLL
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
+zeigen im Spieler-3-Aufruf 101 geleerte Zellen von Spieler 2:
+49 Keep-Zellen (Record 10), 49 Camp-Zellen (Record 14) und drei
+Verbindungszellen (Records 11–13). Alle fünf Records hatten denselben
+Cleanup-Linkwert `465609`; ihre IDs wurden beim Start für Spieler 3
+wiederverwendet. Die vier Lagerplatz-Records von Spieler 2 blieben im
+nächsten Live-Raster vorhanden. Die beobachtete Szene mit Startflagge
+und Lagerplatz, aber ohne Keep, ist damit durch Tile- und Record-Daten
+erklärt. Beide Konstruktoren meldeten kein Fehlerflag.
+
+Dies ist ein beobachteter Ablauf der modded Runtime innerhalb des
+nativen Startaufrufs, kein Beleg für eine allgemeine Offline-Regel aller
+möglichen AIV-Auswahlen. Der Fixes-Quellcode patcht dort optional den
+nachgelagerten Goods-Yard-Tailcall, nicht den dokumentierten
+Gruppenräumungspfad. Ein Einzel-Kontrolllauf mit möglichst wenigen
+erforderlichen Mods ist vorbereitet. Rohdaten und Prüfsummen liegen
+unter `Diagnostics/AivSeries-20260924/NaturalLinkEightResults/`.
+
+## 2026-09-24: Abschluss der acht Natural-Link-Läufe
+
+Die acht vorgesehenen Läufe sind vollständig. Danach gab es einen
+zusätzlichen Reed-Sea-Start mit der letzten Aufstellung; er zählt als
+Wiederholung und nicht als neunter Serientest. Die Rohdaten sind samt
+DLL-, Map- und AIV-Hashes unter
+`Diagnostics/AivSeries-20260924/NaturalLinkEightResults/` gesichert.
+Der installierte Native-Hash blieb
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+
+Für Crusades Crossing ergaben sich 16 exakte und 48 bewusst graue Fits,
+ohne Abweichung. Reed Sea lieferte in den vier geplanten Starts neun exakte,
+49 graue und acht Abweichungen im Offline-Oracle-Vergleich. Letztere
+betreffen ausschließlich Sentinel Default 2 als dritte KI in den beiden
+Vorwärtsläufen, jeweils alle vier Drehungen. Der Comparator verwendet
+die **beobachtete** frühere Auswahl und rekonstruiert deren sequenziellen
+Startzustand hier nicht exakt. CastlePlanner ließ diese Fälle in der
+Lobby bereits grau (`StartOverlapUnproven` beziehungsweise
+`PreBuildSequenceUnsupported`); eine falsch gefärbte Nutzeranzeige ist
+aus diesen Daten nicht belegt. Die zusätzliche Wiederholung hatte vier
+exakte und 13 graue Fälle ohne Abweichung.
+
+Der beobachtete Verlust des ersten Crossing-Keeps bleibt ein einzelner
+modded Laufzeitbefund. Ein separater Kontrolllauf mit nur den fünf
+Diagnose-Abhängigkeiten ist vorbereitet, um Mod-Einfluss einzugrenzen.
+Bis dahin keine neue allgemeine Regel für verbundene Records oder
+spätere Sofortspawn-Fits freigeben. Vertrauensgrad: hoch für Live-Zellen,
+Native-Scores und graue Produktanzeige; mittel für die Vanilla-Zuordnung
+des Keep-Verlusts ohne diesen Kontrolllauf.

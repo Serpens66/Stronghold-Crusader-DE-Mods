@@ -74,6 +74,7 @@ namespace AivLobbyPresetTest
         internal string SeriesId;
         internal string LastCompletedRunId;
         internal int NextIndex;
+        internal bool EndLobbyCleared;
 
         internal static TestSeriesProgress Read(string path, TestSeries series)
         {
@@ -82,21 +83,27 @@ namespace AivLobbyPresetTest
                 {
                     SeriesId = series.Id,
                     LastCompletedRunId = string.Empty,
-                    NextIndex = 0
+                    NextIndex = 0,
+                    EndLobbyCleared = false
                 };
             var file = new FileInfo(path);
             if (file.Length > 4096)
                 throw new InvalidDataException("Test-series progress is too large.");
             var root = DependencyFreeJson.Parse(File.ReadAllText(path)) as IDictionary<string, object>
                 ?? throw new InvalidDataException("Expected progress JSON object.");
+            if (root.TryGetValue("endLobbyCleared", out object clearedValue) &&
+                !(clearedValue is bool))
+                throw new InvalidDataException("Invalid endLobbyCleared Boolean.");
             var progress = new TestSeriesProgress
             {
                 SeriesId = root.TryGetValue("seriesId", out object seriesId) ? seriesId as string : null,
                 LastCompletedRunId = root.TryGetValue("lastCompletedRunId", out object last) ? last as string : null,
-                NextIndex = root.TryGetValue("nextIndex", out object next) ? Convert.ToInt32(next) : -1
+                NextIndex = root.TryGetValue("nextIndex", out object next) ? Convert.ToInt32(next) : -1,
+                EndLobbyCleared = clearedValue is bool flag && flag
             };
             if (progress.SeriesId != series.Id || progress.NextIndex < 0 ||
                 progress.NextIndex > series.Runs.Count ||
+                (progress.EndLobbyCleared && progress.NextIndex != series.Runs.Count) ||
                 progress.LastCompletedRunId != (progress.NextIndex == 0
                     ? string.Empty : series.Runs[progress.NextIndex - 1].Id))
                 throw new InvalidDataException("Progress does not match the test-series order; reset it explicitly.");
@@ -111,7 +118,8 @@ namespace AivLobbyPresetTest
             {
                 ["seriesId"] = series.Id,
                 ["lastCompletedRunId"] = runId,
-                ["nextIndex"] = index + 1
+                ["nextIndex"] = index + 1,
+                ["endLobbyCleared"] = false
             };
             string temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
             try
@@ -121,6 +129,34 @@ namespace AivLobbyPresetTest
                 else File.Move(temporary, path);
                 LastCompletedRunId = runId;
                 NextIndex = index + 1;
+                EndLobbyCleared = false;
+            }
+            finally
+            {
+                if (File.Exists(temporary)) File.Delete(temporary);
+            }
+        }
+
+        internal void MarkEndLobbyCleared(string path, TestSeries series)
+        {
+            if (NextIndex != series.Runs.Count)
+                throw new InvalidOperationException("The test series is not complete.");
+            if (EndLobbyCleared)
+                return;
+            var next = new Dictionary<string, object>
+            {
+                ["seriesId"] = SeriesId,
+                ["lastCompletedRunId"] = LastCompletedRunId,
+                ["nextIndex"] = NextIndex,
+                ["endLobbyCleared"] = true
+            };
+            string temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            try
+            {
+                File.WriteAllText(temporary, DependencyFreeJson.Serialize(next));
+                if (File.Exists(path)) File.Replace(temporary, path, null);
+                else File.Move(temporary, path);
+                EndLobbyCleared = true;
             }
             finally
             {

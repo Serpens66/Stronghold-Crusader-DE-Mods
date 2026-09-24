@@ -1,0 +1,686 @@
+{
+  "enabled": true,
+  "seriesId": "aiv-natural-link-eight-20260924",
+  "runs": [
+    {
+      "id": "Crossing-forward-off",
+      "preBuild": false,
+      "preset": {
+        "enabled": true,
+        "mapFileName": "CrusadesCrossing.map",
+        "mapSha256": "B5AB8BCC5C4C2783697EEF4BBE692AE829B2C7D59C4AFF540F79E140C49417FE",
+        "players": [
+          {
+            "id": 1,
+            "keepSlot": 5,
+            "radarX": 31,
+            "radarY": 26,
+            "keepX": 112,
+            "keepY": 386,
+            "human": true
+          },
+          {
+            "id": 2,
+            "keepSlot": 0,
+            "radarX": 104,
+            "radarY": 152,
+            "keepX": 510,
+            "keepY": 495,
+            "lordType": 3,
+            "aivDefault": 7
+          },
+          {
+            "id": 3,
+            "keepSlot": 1,
+            "radarX": 116,
+            "radarY": 159,
+            "keepX": 548,
+            "keepY": 483,
+            "lordType": 17,
+            "aivDefault": 2
+          },
+          {
+            "id": 4,
+            "keepSlot": 2,
+            "radarX": 172,
+            "radarY": 125,
+            "keepX": 592,
+            "keepY": 304,
+            "lordType": 12,
+            "aivDefault": 6
+          },
+          {
+            "id": 5,
+            "keepSlot": 3,
+            "radarX": 26,
+            "radarY": 163,
+            "keepX": 376,
+            "keepY": 672,
+            "lordType": 14,
+            "aivDefault": 7
+          },
+          {
+            "id": 6,
+            "keepSlot": 4,
+            "radarX": 51,
+            "radarY": 170,
+            "keepX": 441,
+            "keepY": 636,
+            "lordType": 11,
+            "aivDefault": 1
+          },
+          {
+            "id": 7,
+            "keepSlot": 6,
+            "radarX": 72,
+            "radarY": 34,
+            "keepX": 210,
+            "keepY": 321,
+            "lordType": 15,
+            "aivDefault": 2
+          },
+          {
+            "id": 8,
+            "keepSlot": 7,
+            "radarX": 139,
+            "radarY": 31,
+            "keepX": 338,
+            "keepY": 181,
+            "lordType": 16,
+            "aivDefault": 5
+          }
+        ]
+      }
+    },
+    {
+      "id": "Crossing-forward-on",
+      "preBuild": true,
+      "preset": {
+        "enabled": true,
+        "mapFileName": "CrusadesCrossing.map",
+        "mapSha256": "B5AB8BCC5C4C2783697EEF4BBE692AE829B2C7D59C4AFF540F79E140C49417FE",
+        "players": [
+          {
+            "id": 1,
+            "keepSlot": 5,
+            "radarX": 31,
+            "radarY": 26,
+            "keepX": 112,
+            "keepY": 386,
+            "human": true
+          },
+          {
+            "id": 2,
+            "keepSlot": 0,
+            "radarX": 104,
+            "radarY": 152,
+            "keepX": 510,
+            "keepY": 495,
+            "lordType": 3,
+            "aivDefault": 7
+          },
+          {
+            "id": 3,
+            "keepSlot": 1,
+            "radarX": 116,
+            "radarY": 159,
+            "keepX": 548,
+            "keepY": 483,
+            "lordType": 17,
+            "aivDefault": 2
+          },
+          {
+            "id": 4,
+            "keepSlot": 2,
+            "radarX": 172,
+            "radarY": 125,
+            "keepX": 592,
+            "keepY": 304,
+            "lordType": 12,
+            "aivDefault": 6
+          },
+          {
+            "id": 5,
+            "keepSlot": 3,
+            "radarX": 26,
+            "radarY": 163,
+            "keepX": 376,
+            "keepY": 672,
+            "lordType": 14,
+            "aivDefault": 7
+          },
+          {
+            "id": 6,
+            "keepSlot": 4,
+            "radarX": 51,
+            "radarY": 170,
+            "keepX": 441,
+            "keepY": 636,
+            "lordType": 11,
+            "aivDefault": 1
+          },
+          {
+            "id": 7,
+            "keepSlot": 6,
+            "radarX": 72,
+            "radarY": 34,
+            "keepX": 210,
+            "keepY": 321,
+            "lordType": 15,
+            "aivDefault": 2
+          },
+          {
+            "id": 8,
+            "keepSlot": 7,
+            "radarX": 139,
+            "radarY": 31,
+            "keepX": 338,
+            "keepY": 181,
+            "lordType": 16,
+            "aivDefault": 5
+          }
+        ]
+      }
+    },
+    {
+      "id": "Crossing-reverse-off",
+      "preBuild": false,
+      "preset": {
+        "enabled": true,
+        "mapFileName": "CrusadesCrossing.map",
+        "mapSha256": "B5AB8BCC5C4C2783697EEF4BBE692AE829B2C7D59C4AFF540F79E140C49417FE",
+        "players": [
+          {
+            "id": 1,
+            "keepSlot": 5,
+            "radarX": 31,
+            "radarY": 26,
+            "keepX": 112,
+            "keepY": 386,
+            "human": true
+          },
+          {
+            "id": 2,
+            "keepSlot": 1,
+            "radarX": 116,
+            "radarY": 159,
+            "keepX": 548,
+            "keepY": 483,
+            "lordType": 17,
+            "aivDefault": 2
+          },
+          {
+            "id": 3,
+            "keepSlot": 0,
+            "radarX": 104,
+            "radarY": 152,
+            "keepX": 510,
+            "keepY": 495,
+            "lordType": 3,
+            "aivDefault": 7
+          },
+          {
+            "id": 4,
+            "keepSlot": 2,
+            "radarX": 172,
+            "radarY": 125,
+            "keepX": 592,
+            "keepY": 304,
+            "lordType": 12,
+            "aivDefault": 6
+          },
+          {
+            "id": 5,
+            "keepSlot": 3,
+            "radarX": 26,
+            "radarY": 163,
+            "keepX": 376,
+            "keepY": 672,
+            "lordType": 14,
+            "aivDefault": 7
+          },
+          {
+            "id": 6,
+            "keepSlot": 4,
+            "radarX": 51,
+            "radarY": 170,
+            "keepX": 441,
+            "keepY": 636,
+            "lordType": 11,
+            "aivDefault": 1
+          },
+          {
+            "id": 7,
+            "keepSlot": 6,
+            "radarX": 72,
+            "radarY": 34,
+            "keepX": 210,
+            "keepY": 321,
+            "lordType": 15,
+            "aivDefault": 2
+          },
+          {
+            "id": 8,
+            "keepSlot": 7,
+            "radarX": 139,
+            "radarY": 31,
+            "keepX": 338,
+            "keepY": 181,
+            "lordType": 16,
+            "aivDefault": 5
+          }
+        ]
+      }
+    },
+    {
+      "id": "Crossing-reverse-on",
+      "preBuild": true,
+      "preset": {
+        "enabled": true,
+        "mapFileName": "CrusadesCrossing.map",
+        "mapSha256": "B5AB8BCC5C4C2783697EEF4BBE692AE829B2C7D59C4AFF540F79E140C49417FE",
+        "players": [
+          {
+            "id": 1,
+            "keepSlot": 5,
+            "radarX": 31,
+            "radarY": 26,
+            "keepX": 112,
+            "keepY": 386,
+            "human": true
+          },
+          {
+            "id": 2,
+            "keepSlot": 1,
+            "radarX": 116,
+            "radarY": 159,
+            "keepX": 548,
+            "keepY": 483,
+            "lordType": 17,
+            "aivDefault": 2
+          },
+          {
+            "id": 3,
+            "keepSlot": 0,
+            "radarX": 104,
+            "radarY": 152,
+            "keepX": 510,
+            "keepY": 495,
+            "lordType": 3,
+            "aivDefault": 7
+          },
+          {
+            "id": 4,
+            "keepSlot": 2,
+            "radarX": 172,
+            "radarY": 125,
+            "keepX": 592,
+            "keepY": 304,
+            "lordType": 12,
+            "aivDefault": 6
+          },
+          {
+            "id": 5,
+            "keepSlot": 3,
+            "radarX": 26,
+            "radarY": 163,
+            "keepX": 376,
+            "keepY": 672,
+            "lordType": 14,
+            "aivDefault": 7
+          },
+          {
+            "id": 6,
+            "keepSlot": 4,
+            "radarX": 51,
+            "radarY": 170,
+            "keepX": 441,
+            "keepY": 636,
+            "lordType": 11,
+            "aivDefault": 1
+          },
+          {
+            "id": 7,
+            "keepSlot": 6,
+            "radarX": 72,
+            "radarY": 34,
+            "keepX": 210,
+            "keepY": 321,
+            "lordType": 15,
+            "aivDefault": 2
+          },
+          {
+            "id": 8,
+            "keepSlot": 7,
+            "radarX": 139,
+            "radarY": 31,
+            "keepX": 338,
+            "keepY": 181,
+            "lordType": 16,
+            "aivDefault": 5
+          }
+        ]
+      }
+    },
+    {
+      "id": "Reed-forward-off",
+      "preBuild": false,
+      "preset": {
+        "enabled": true,
+        "mapFileName": "Reed Sea.map",
+        "mapSha256": "C6ABE1353E0EA1829B626408B4F3807E4473B428AE239FD15A52E9745FFF8116",
+        "players": [
+          {
+            "id": 1,
+            "keepSlot": 1,
+            "radarX": 174,
+            "radarY": 57,
+            "keepX": 432,
+            "keepY": 280,
+            "human": true
+          },
+          {
+            "id": 2,
+            "keepSlot": 5,
+            "radarX": 40,
+            "radarY": 162,
+            "keepX": 403,
+            "keepY": 520,
+            "lordType": 3,
+            "aivDefault": 2
+          },
+          {
+            "id": 3,
+            "keepSlot": 2,
+            "radarX": 14,
+            "radarY": 175,
+            "keepX": 390,
+            "keepY": 558,
+            "lordType": 17,
+            "aivDefault": 2
+          },
+          {
+            "id": 4,
+            "keepSlot": 0,
+            "radarX": 32,
+            "radarY": 23,
+            "keepX": 256,
+            "keepY": 388,
+            "lordType": 12,
+            "aivDefault": 6
+          },
+          {
+            "id": 5,
+            "keepSlot": 3,
+            "radarX": 15,
+            "radarY": 54,
+            "keepX": 270,
+            "keepY": 437,
+            "lordType": 14,
+            "aivDefault": 7
+          },
+          {
+            "id": 6,
+            "keepSlot": 4,
+            "radarX": 182,
+            "radarY": 105,
+            "keepX": 488,
+            "keepY": 321,
+            "lordType": 11,
+            "aivDefault": 1
+          },
+          {
+            "id": 7,
+            "keepSlot": 6,
+            "radarX": 77,
+            "radarY": 174,
+            "keepX": 452,
+            "keepY": 495,
+            "lordType": 15,
+            "aivDefault": 2
+          }
+        ]
+      }
+    },
+    {
+      "id": "Reed-forward-on",
+      "preBuild": true,
+      "preset": {
+        "enabled": true,
+        "mapFileName": "Reed Sea.map",
+        "mapSha256": "C6ABE1353E0EA1829B626408B4F3807E4473B428AE239FD15A52E9745FFF8116",
+        "players": [
+          {
+            "id": 1,
+            "keepSlot": 1,
+            "radarX": 174,
+            "radarY": 57,
+            "keepX": 432,
+            "keepY": 280,
+            "human": true
+          },
+          {
+            "id": 2,
+            "keepSlot": 5,
+            "radarX": 40,
+            "radarY": 162,
+            "keepX": 403,
+            "keepY": 520,
+            "lordType": 3,
+            "aivDefault": 2
+          },
+          {
+            "id": 3,
+            "keepSlot": 2,
+            "radarX": 14,
+            "radarY": 175,
+            "keepX": 390,
+            "keepY": 558,
+            "lordType": 17,
+            "aivDefault": 2
+          },
+          {
+            "id": 4,
+            "keepSlot": 0,
+            "radarX": 32,
+            "radarY": 23,
+            "keepX": 256,
+            "keepY": 388,
+            "lordType": 12,
+            "aivDefault": 6
+          },
+          {
+            "id": 5,
+            "keepSlot": 3,
+            "radarX": 15,
+            "radarY": 54,
+            "keepX": 270,
+            "keepY": 437,
+            "lordType": 14,
+            "aivDefault": 7
+          },
+          {
+            "id": 6,
+            "keepSlot": 4,
+            "radarX": 182,
+            "radarY": 105,
+            "keepX": 488,
+            "keepY": 321,
+            "lordType": 11,
+            "aivDefault": 1
+          },
+          {
+            "id": 7,
+            "keepSlot": 6,
+            "radarX": 77,
+            "radarY": 174,
+            "keepX": 452,
+            "keepY": 495,
+            "lordType": 15,
+            "aivDefault": 2
+          }
+        ]
+      }
+    },
+    {
+      "id": "Reed-reverse-off",
+      "preBuild": false,
+      "preset": {
+        "enabled": true,
+        "mapFileName": "Reed Sea.map",
+        "mapSha256": "C6ABE1353E0EA1829B626408B4F3807E4473B428AE239FD15A52E9745FFF8116",
+        "players": [
+          {
+            "id": 1,
+            "keepSlot": 1,
+            "radarX": 174,
+            "radarY": 57,
+            "keepX": 432,
+            "keepY": 280,
+            "human": true
+          },
+          {
+            "id": 2,
+            "keepSlot": 2,
+            "radarX": 14,
+            "radarY": 175,
+            "keepX": 390,
+            "keepY": 558,
+            "lordType": 17,
+            "aivDefault": 2
+          },
+          {
+            "id": 3,
+            "keepSlot": 5,
+            "radarX": 40,
+            "radarY": 162,
+            "keepX": 403,
+            "keepY": 520,
+            "lordType": 3,
+            "aivDefault": 2
+          },
+          {
+            "id": 4,
+            "keepSlot": 0,
+            "radarX": 32,
+            "radarY": 23,
+            "keepX": 256,
+            "keepY": 388,
+            "lordType": 12,
+            "aivDefault": 6
+          },
+          {
+            "id": 5,
+            "keepSlot": 3,
+            "radarX": 15,
+            "radarY": 54,
+            "keepX": 270,
+            "keepY": 437,
+            "lordType": 14,
+            "aivDefault": 7
+          },
+          {
+            "id": 6,
+            "keepSlot": 4,
+            "radarX": 182,
+            "radarY": 105,
+            "keepX": 488,
+            "keepY": 321,
+            "lordType": 11,
+            "aivDefault": 1
+          },
+          {
+            "id": 7,
+            "keepSlot": 6,
+            "radarX": 77,
+            "radarY": 174,
+            "keepX": 452,
+            "keepY": 495,
+            "lordType": 15,
+            "aivDefault": 2
+          }
+        ]
+      }
+    },
+    {
+      "id": "Reed-reverse-on",
+      "preBuild": true,
+      "preset": {
+        "enabled": true,
+        "mapFileName": "Reed Sea.map",
+        "mapSha256": "C6ABE1353E0EA1829B626408B4F3807E4473B428AE239FD15A52E9745FFF8116",
+        "players": [
+          {
+            "id": 1,
+            "keepSlot": 1,
+            "radarX": 174,
+            "radarY": 57,
+            "keepX": 432,
+            "keepY": 280,
+            "human": true
+          },
+          {
+            "id": 2,
+            "keepSlot": 2,
+            "radarX": 14,
+            "radarY": 175,
+            "keepX": 390,
+            "keepY": 558,
+            "lordType": 17,
+            "aivDefault": 2
+          },
+          {
+            "id": 3,
+            "keepSlot": 5,
+            "radarX": 40,
+            "radarY": 162,
+            "keepX": 403,
+            "keepY": 520,
+            "lordType": 3,
+            "aivDefault": 2
+          },
+          {
+            "id": 4,
+            "keepSlot": 0,
+            "radarX": 32,
+            "radarY": 23,
+            "keepX": 256,
+            "keepY": 388,
+            "lordType": 12,
+            "aivDefault": 6
+          },
+          {
+            "id": 5,
+            "keepSlot": 3,
+            "radarX": 15,
+            "radarY": 54,
+            "keepX": 270,
+            "keepY": 437,
+            "lordType": 14,
+            "aivDefault": 7
+          },
+          {
+            "id": 6,
+            "keepSlot": 4,
+            "radarX": 182,
+            "radarY": 105,
+            "keepX": 488,
+            "keepY": 321,
+            "lordType": 11,
+            "aivDefault": 1
+          },
+          {
+            "id": 7,
+            "keepSlot": 6,
+            "radarX": 77,
+            "radarY": 174,
+            "keepX": 452,
+            "keepY": 495,
+            "lordType": 15,
+            "aivDefault": 2
+          }
+        ]
+      }
+    }
+  ]
+}
