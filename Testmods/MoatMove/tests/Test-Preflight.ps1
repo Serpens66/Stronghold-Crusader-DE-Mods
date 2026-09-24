@@ -26,6 +26,9 @@ foreach ($file in $textPaths) {
     if ([regex]::IsMatch($text, '(?<!\r)\n')) { throw "Bare LF: $($file.FullName)" }
 }
 $manifest = [IO.File]::ReadAllText((Join-Path $modDir 'info.json')) | ConvertFrom-Json
-if ($manifest.Version -ne '0.1.2' -or $manifest.GUID -ne 'MoatMove_Serp' -or $manifest.NetworkMode -ne 1) { throw 'Manifest identity mismatch.' }
-if ($plugin -notmatch 'PluginVersion = "0\.1\.2"' -or $plugin -notmatch 'AssemblyVersion\("0\.1\.2\.0"\)' -or $plugin -notmatch 'AssemblyFileVersion\("0\.1\.2\.0"\)') { throw 'Assembly version mismatch.' }
-Write-Output "PASS preflight: $($runtimePaths.Count) runtime sources, JSON/lifecycle rules, process ownership, standalone references, CRLF and version 0.1.2."
+if ($manifest.GUID -ne 'MoatMove_Serp' -or $manifest.NetworkMode -ne 1) { throw 'Manifest identity mismatch.' }
+$versionPattern = [regex]::Escape([string]$manifest.Version)
+if ($plugin -notmatch ('PluginVersion = "' + $versionPattern + '"') -or
+    $plugin -notmatch ('AssemblyVersion\("' + $versionPattern + '\.0"\)') -or
+    $plugin -notmatch ('AssemblyFileVersion\("' + $versionPattern + '\.0"\)')) { throw 'Assembly version mismatch.' }
+Write-Output "PASS preflight: $($runtimePaths.Count) runtime sources, JSON/lifecycle rules, process ownership, standalone references, CRLF and version $($manifest.Version)."

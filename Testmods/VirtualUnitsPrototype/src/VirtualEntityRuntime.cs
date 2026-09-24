@@ -226,7 +226,7 @@ namespace VirtualUnitsPrototype
                 int localPlayerId = GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? -1;
                 if (localPlayerId < 1 || localPlayerId > 8)
                     return Result(VirtualApiResultCode.UnsupportedGameMode, "No unambiguous local player is available.");
-                SelectedUnitInfo[] selected = GamePlayerManagerAPI.Instance.GetSelectedChimps(localPlayerId);
+                SelectedUnitInfo[] selected = GamePlayerManagerAPI.Instance.GetSelectedChimps();
                 var grouped = new Dictionary<string, List<VirtualEntityInstance>>(StringComparer.Ordinal);
                 foreach (SelectedUnitInfo item in selected)
                 {

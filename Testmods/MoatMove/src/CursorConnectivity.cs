@@ -414,7 +414,7 @@ namespace MoatMove
         private bool CaptureCursorSelection(int player, out int[] ids, out string token)
         {
             int localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
-            if (localPlayerId < 1 || localPlayerId > 8)
+            if (localPlayerId < 1 || localPlayerId > 8 || (player >= 1 && player <= 8 && player != localPlayerId))
             {
                 ids = Array.Empty<int>();
                 token = string.Empty;
@@ -422,7 +422,7 @@ namespace MoatMove
                 return false;
             }
             SelectedUnitInfo[] selected =
-                GamePlayerManagerAPI.Instance.GetSelectedChimps(localPlayerId) ?? Array.Empty<SelectedUnitInfo>();
+                GamePlayerManagerAPI.Instance.GetSelectedChimps() ?? Array.Empty<SelectedUnitInfo>();
             int count = selected.Length;
             ids = selectedCursorIds; token = cursorSelectionToken;
             cursorSelectionAvailable = true;

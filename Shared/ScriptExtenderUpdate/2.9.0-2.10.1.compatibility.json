@@ -1,0 +1,89 @@
+{
+  "OldVersion": "2.9.0",
+  "NewVersion": "2.10.1",
+  "TargetCommit": "a8ba202f6ec7966bd115b59a6088a0077ce727a0",
+  "ImpactReview": {
+    "BaselinePreviousCommit": "70a4483fe606733219f0cd9fb1adbc0d08b926ea",
+    "CrusaderNativeFiles": [
+      "src/SHCDESE.BepInEx/Detours/BulkProjectileDetours.cs",
+      "src/SHCDESE.BepInEx/Detours/BulkUnitDetours.cs",
+      "src/SHCDESE.BepInEx/GameGlobals/GameGlobalsManager.cs",
+      "src/SHCDESE.BepInEx/NativeHooks/DetourManager.cs"
+    ],
+    "ExternalNativeFiles": [],
+    "NonSemanticArtifacts": [
+      "ReverseEngineering/structs/scde-main-2802-v6.rcnet",
+      "ReverseEngineering/latest/CrusaderDE.dll.7z"
+    ],
+    "ChangedPublicContracts": [
+      {
+        "Consumers": ["BugfixesAndQoL", "ExtraFeatures", "FormationTest", "VirtualUnitsPrototype", "MoatMove"],
+        "Symbol": "GetSelectedChimps()",
+        "Path": "src/SHCDESE.BepInEx/API/GamePlayerManagerAPI.cs",
+        "Compatibility": "The selection array is local and parameterless; callers reject a different active editor player. GetSelectedChimpsCount(int) remains player-specific."
+      },
+      {
+        "Consumers": [],
+        "Symbol": "unit ranged and interaction range APIs",
+        "Path": "src/SHCDESE.BepInEx/API/GameUnitManagerAPI.cs",
+        "Compatibility": "Additive per-unit-type range overrides; none of our mods enables them."
+      },
+      {
+        "Consumers": [],
+        "Symbol": "projectile range APIs",
+        "Path": "src/SHCDESE.BepInEx/API/GameProjectileManagerAPI.cs",
+        "Compatibility": "Additive range support; existing projectile slot-view workaround remains necessary."
+      },
+      {
+        "Consumers": [],
+        "Symbol": "GameProjectile.r_HeightElevationDelta",
+        "Path": "src/SHCDESE.BepInEx/Interop/GameProjectile.cs",
+        "Compatibility": "Additive interop field checked against the installed DLL; no current direct consumer."
+      },
+      {
+        "Consumers": [],
+        "Symbol": "AIV live data APIs",
+        "Path": "src/SHCDESE.BepInEx/API/GameAIVManagerAPI.cs",
+        "Compatibility": "Additive accessors; existing AivSystem pointer-only rule remains."
+      }
+    ],
+    "AffectedMods": ["BugfixesAndQoL", "ExtraFeatures", "FormationTest", "VirtualUnitsPrototype", "MoatMove"],
+    "BuildMods": [
+      "APIShared", "ActiveAIVDetector", "AIDefenseTest", "BuildingCosts", "BuildingLimit", "CastlePlanner", "CheatMod", "ExtendedData", "EnemyGatePathfindingTest", "ExtraFeatures", "FormationTest", "ExtremePowers", "ImprovedHunters", "OxTetherIdleFixTest", "OutpostTest", "RandomEvents", "SerpsModsHost", "StartConditions", "StockpileAccessFixTest", "UnitCosts", "UnitLimit", "BugfixesAndQoL", "MainViewModelInitProbe", "SkirmishGameOptionsTest", "UnitSpawnReturnProbe", "SkinTest", "VirtualUnitsPrototype", "MoatMove"
+    ]
+  },
+  "Mods": {
+    "BugfixesAndQoL": {
+      "Version": "1.0.163",
+      "Changes": ["Adapted local troop selection to Script Extender 2.10.0."],
+      "MinimumScriptExtenderVersion": "2.10.0"
+    },
+    "ExtraFeatures": {
+      "Version": "1.0.101",
+      "Changes": ["Adapted local troop selection to Script Extender 2.10.0 and guarded editor player changes."],
+      "MinimumScriptExtenderVersion": "2.10.0"
+    },
+    "FormationTest": {
+      "Version": "0.1.1",
+      "Changes": ["Adapted local troop selection to Script Extender 2.10.0 and guarded editor player changes."],
+      "MinimumScriptExtenderVersion": "2.10.0"
+    },
+    "VirtualUnitsPrototype": {
+      "Version": "0.1.2",
+      "Changes": ["Adapted local virtual-unit selection to Script Extender 2.10.0."],
+      "MinimumScriptExtenderVersion": "2.10.0"
+    },
+    "MoatMove": {
+      "Version": "0.1.3",
+      "Changes": ["Adapted local moat-command selection to Script Extender 2.10.0."],
+      "MinimumScriptExtenderVersion": "2.10.0"
+    }
+  },
+  "CompatibilityNotes": [
+    "MoatMove is an active in-development test mod and is built and installed with its affected closure; its conflict guard disables runtime hooks while BugfixesAndQoL or EnemyGatePathfindingTest is loaded.",
+    "Other active mods retain their existing minimum Script Extender version where their consumed contract is unchanged.",
+    "The existing projectile slot-view workaround was rechecked against 2.10.0 source and remains applicable.",
+    "Script Extender 2.10.1 hotfixes the ammo-distance hook by carrying attacker unit type from the function entry to the range-table loader. An external user's 2.10.0 crash report has no proven mod attribution or local reproduction; monitor local runtime logs.",
+    "The known early crash-handler false alarm has no positive fix evidence in this source diff and remains documented."
+  ]
+}

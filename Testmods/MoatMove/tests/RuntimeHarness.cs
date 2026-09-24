@@ -56,7 +56,7 @@ namespace MoatMove
         public bool IsPlayerIdValid(int id) => id > 0 && id <= 8;
         public bool IsPlayerAlliedTo(int a, int b) => a == b;
         public int GetLocalPlayerId() => 1;
-        public SelectedUnitInfo[] GetSelectedChimps(int playerId)
+        public SelectedUnitInfo[] GetSelectedChimps()
         {
             int[] selected = EngineInterface.Selection;
             var result = new SelectedUnitInfo[selected.Length / 2];

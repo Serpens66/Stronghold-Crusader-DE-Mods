@@ -15,12 +15,25 @@ internal static class StandaloneContracts
         using var fast = JsonDocument.Parse(File.ReadAllText(Path.Combine(modDir, "FAST_PROVENANCE.json")));
         using var se = JsonDocument.Parse(File.ReadAllText(Path.Combine(modDir, "SE26_PROVENANCE.json")));
         using var native = JsonDocument.Parse(File.ReadAllText(Path.Combine(modDir, "FAST_NATIVE_PROVENANCE.json")));
+        using var current = JsonDocument.Parse(File.ReadAllText(Path.Combine(modDir, "CURRENT_SOURCE_PROVENANCE.json")));
+        var currentChanges = current.RootElement.GetProperty("files").EnumerateArray().ToDictionary(
+            item => item.GetProperty("file").GetString()!, item => item);
+        Check(currentChanges.Keys.ToHashSet().SetEquals(new[] { "FastMovementScheduler.cs", "FriendlyMoatMovementRuntime.cs", "MoatMovePlugin.cs", "NativeMovementRecovery.cs", "MoatWorkTargetSelection.cs", "CursorConnectivity.cs" }),
+            "Current source provenance scope changed");
         var nativeChanges = native.RootElement.GetProperty("files").EnumerateArray().ToDictionary(
             item => item.GetProperty("file").GetString()!, item => item.GetProperty("sha256").GetString()!);
         Check(nativeChanges.Keys.ToHashSet().SetEquals(new[] { "IFastRouteField.cs", "FastNativeKernel.cs", "FastNativeRouteField.cs", "FastRouteField.cs", "FastRoutePool.cs", "FastMoatRouting.cs", "FastIntegration.cs", "FastMovementScheduler.cs", "MoatMoveOptions.cs", "MoatMovePlugin.cs", "FriendlyMoatMovementRuntime.cs" }), "Native backend scope changed");
         foreach (var entry in nativeChanges)
-            Check(Convert.ToHexString(SHA256.HashData(ReadBeforeEditorLifecycle(sourceDir, entry.Key))) == entry.Value,
-                "Unreviewed FastNative source change: " + entry.Key);
+        {
+            byte[] source = currentChanges.ContainsKey(entry.Key)
+                ? ReadHistoricalMoatSource(root, currentChanges[entry.Key].GetProperty("historicalCommit").GetString()!, entry.Key)
+                : File.ReadAllBytes(Path.Combine(sourceDir, entry.Key));
+            Check(Convert.ToHexString(SHA256.HashData(source)) == entry.Value,
+                "Unreviewed historical FastNative source change: " + entry.Key);
+        }
+        foreach (var entry in currentChanges)
+            Check(Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(Path.Combine(sourceDir, entry.Key)))) == entry.Value.GetProperty("sha256").GetString(),
+                "Unreviewed current source change: " + entry.Key);
         var seChanges = se.RootElement.GetProperty("files").EnumerateArray().ToDictionary(
             item => item.GetProperty("file").GetString()!, item => item.GetProperty("sha256").GetString()!);
         Check(seChanges.Keys.ToHashSet().SetEquals(new[] { "AssassinSelectionAdapters.cs", "FriendlyMoatMovementRuntime.cs", "MoatMovePlugin.cs" }),
@@ -33,8 +46,13 @@ internal static class StandaloneContracts
         var removed = fast.RootElement.GetProperty("deleted").EnumerateArray().Select(item => item.GetString()!).ToHashSet();
         Check(removed.SetEquals(new[] { "FastMoatBridge.cs" }), "Unexpected removed copy source");
         foreach (var entry in fastChanges.Where(entry => !seChanges.ContainsKey(entry.Key) && !nativeChanges.ContainsKey(entry.Key)))
-            Check(Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(Path.Combine(sourceDir, entry.Key)))) == entry.Value,
-                "Unreviewed Fast source change: " + entry.Key);
+        {
+            byte[] source = currentChanges.ContainsKey(entry.Key)
+                ? ReadHistoricalMoatSource(root, currentChanges[entry.Key].GetProperty("historicalCommit").GetString()!, entry.Key)
+                : File.ReadAllBytes(Path.Combine(sourceDir, entry.Key));
+            Check(Convert.ToHexString(SHA256.HashData(source)) == entry.Value,
+                "Unreviewed historical Fast source change: " + entry.Key);
+        }
         int count = 0;
         foreach (var item in provenance.RootElement.GetProperty("files").EnumerateArray())
         {
@@ -44,12 +62,15 @@ internal static class StandaloneContracts
             Check(Convert.ToHexString(SHA256.HashData(original)) == item.GetProperty("sourceSha256").GetString(), "Historical extraction hash mismatch: " + name);
             if (removed.Contains(name)) { Check(!File.Exists(copied), "Legacy Fast source retained"); count++; continue; }
             bool optimized = name == "MoatSearchKernel.cs";
-            string expectedHash = nativeChanges.TryGetValue(name, out string? nativeReviewed) ? nativeReviewed : seChanges.TryGetValue(name, out string? seReviewed) ? seReviewed : fastChanges.TryGetValue(name, out string? reviewed) ? reviewed :
+            string expectedHash = currentChanges.TryGetValue(name, out JsonElement currentReviewed) ? currentReviewed.GetProperty("sha256").GetString()! : nativeChanges.TryGetValue(name, out string? nativeReviewed) ? nativeReviewed : seChanges.TryGetValue(name, out string? seReviewed) ? seReviewed : fastChanges.TryGetValue(name, out string? reviewed) ? reviewed :
                 optimized ? optimization.RootElement.GetProperty("kernelSha256").GetString()! : item.GetProperty("copySha256").GetString()!;
-            Check(Convert.ToHexString(SHA256.HashData(ReadBeforeCursorIdGuard(sourceDir, name))) == expectedHash, "Unreviewed source change: " + name);
+            Check(Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(copied))) == expectedHash, "Unreviewed source change: " + name);
             string expected = System.Text.Encoding.UTF8.GetString(original).TrimStart('\uFEFF').Replace("BugfixesAndQoLViewModel", "MoatMoveOptions")
                 .Replace("BugfixesAndQoL", "MoatMove").Replace("Bugfixes and QoL", "MoatMove");
-            if (!optimized && !fastChanges.ContainsKey(name) && !seChanges.ContainsKey(name)) Check(expected == System.Text.Encoding.UTF8.GetString(ReadBeforeCursorIdGuard(sourceDir, name)), "Unexpected behavioral edit: " + name);
+            if (currentChanges.ContainsKey(name) && !nativeChanges.ContainsKey(name) && !fastChanges.ContainsKey(name) && !seChanges.ContainsKey(name))
+                Check(Convert.ToHexString(SHA256.HashData(ReadHistoricalMoatSource(root, currentChanges[name].GetProperty("historicalCommit").GetString()!, name))) == item.GetProperty("copySha256").GetString(),
+                    "Unreviewed historical copied source change: " + name);
+            if (!optimized && !fastChanges.ContainsKey(name) && !seChanges.ContainsKey(name) && !currentChanges.ContainsKey(name)) Check(expected == File.ReadAllText(copied), "Unexpected behavioral edit: " + name);
             count++;
         }
         Check(count == 22, "Incomplete source closure");
@@ -92,47 +113,41 @@ internal static class StandaloneContracts
             Check(conflict.Invoke(null, new object[] { guids }) == null, "Standalone/APIShared configuration rejected");
 
         string plugin = File.ReadAllText(Path.Combine(sourceDir, "MoatMovePlugin.cs"));
+        string cursor = File.ReadAllText(Path.Combine(sourceDir, "CursorConnectivity.cs"));
+        Check(cursor.Contains("GamePlayerManagerAPI.Instance.GetSelectedChimps()") &&
+            cursor.Contains("player >= 1 && player <= 8 && player != localPlayerId"),
+            "Local selection must reject a different active player");
         var pluginTree = CSharpSyntaxTree.ParseText(plugin);
         Check(plugin.Contains("Config.Bind(\"Movement\", \"Mode\", \"precise\"") && plugin.Contains("FastNative:"), "Missing validated persistent mode config");
         Check(!pluginTree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>().Any(call => call.Expression.ToString().EndsWith(".Dispose", StringComparison.Ordinal)), "Plugin tears down a process runtime");
         var libraryInit = pluginTree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single(m => m.Identifier.Text == "OnLibraryLoaded").ToString();
         Check(libraryInit.IndexOf("ReportConflict()", StringComparison.Ordinal) < libraryInit.IndexOf("new FriendlyMoatMovementRuntime", StringComparison.Ordinal), "Conflict checked after hook installation");
         using var manifest = JsonDocument.Parse(File.ReadAllText(Path.Combine(modDir, "info.json")));
-        Check(manifest.RootElement.GetProperty("MinimumScriptExtenderVersion").GetString() == "2.9.0" &&
-            plugin.Contains("BepInDependency(\"000shcdese\", \"2.9.0\")"), "SE 2.9.0 dependency mismatch");
-        Check(manifest.RootElement.GetProperty("GUID").GetString() == "MoatMove_Serp" && manifest.RootElement.GetProperty("Version").GetString() == "0.1.2" && manifest.RootElement.GetProperty("NetworkMode").GetInt32() == 1, "Wrong plugin identity/network contract");
+        string requiredExtender = manifest.RootElement.GetProperty("MinimumScriptExtenderVersion").GetString()!;
+        string modVersion = manifest.RootElement.GetProperty("Version").GetString()!;
+        Check(plugin.Contains("BepInDependency(\"000shcdese\", \"" + requiredExtender + "\")"), "Script Extender dependency mismatch");
+        Check(manifest.RootElement.GetProperty("GUID").GetString() == "MoatMove_Serp" &&
+            plugin.Contains("PluginVersion = \"" + modVersion + "\"") &&
+            manifest.RootElement.GetProperty("NetworkMode").GetInt32() == 1, "Wrong plugin identity/network contract");
         Console.WriteLine("PASS: original source hashes, explicit Fast replacement inventory, pinned Precise kernel, startup config, unrelated-feature gates, conflicts, process lifetime and manifest.");
     }
 
-    private static byte[] ReadBeforeCursorIdGuard(string sourceDir, string name)
+    private static byte[] ReadHistoricalMoatSource(string root, string commit, string name)
     {
-        if (name != "CursorConnectivity.cs") return File.ReadAllBytes(Path.Combine(sourceDir, name));
-        string source = File.ReadAllText(Path.Combine(sourceDir, name));
-        const string guarded = "if (disposed || unitId <= 0 || buildingId <= 0 ||\r\n                !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit)";
-        const string original = "if (disposed || !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit)";
-        Check(source.Split(new[] { guarded }, StringSplitOptions.None).Length == 2, "Missing or duplicated cursor ID guard");
-        // Only this exact early guard is exempted; all historical source hashes stay unchanged.
-        return System.Text.Encoding.UTF8.GetBytes(source.Replace(guarded, original));
-    }
-
-    private static byte[] ReadBeforeEditorLifecycle(string sourceDir, string name)
-    {
-        if (name != "MoatMovePlugin.cs") return File.ReadAllBytes(Path.Combine(sourceDir, name));
-        string plugin = File.ReadAllText(Path.Combine(sourceDir, name));
-        const string dependency = "    [BepInDependency(\"APIShared_Serp\", \"0.3.6\")]\r\n";
-        const string session = "_ => ObserveMapStart(), ObserveMapUnload);";
-        Check(plugin.Contains(dependency) && plugin.Contains(session), "Missing central editor lifecycle integration");
-        // The two reviewed lifecycle edits are the only exception to the historical native-backend hash.
-        string historical = plugin.Replace(dependency, "").Replace(session, "_ => ObserveMapStart());");
-        return System.Text.Encoding.UTF8.GetBytes(historical);
+        return ReadGitSource(root, commit, "Testmods/MoatMove/src/" + name);
     }
 
     private static byte[] ReadHistoricalSource(string root, string commit, string name)
     {
+        return ReadGitSource(root, commit, "BugfixesAndQoL/src/" + name);
+    }
+
+    private static byte[] ReadGitSource(string root, string commit, string path)
+    {
         var start = new System.Diagnostics.ProcessStartInfo("git") {
             WorkingDirectory = root, RedirectStandardOutput = true, RedirectStandardError = true,
             UseShellExecute = false, CreateNoWindow = true };
-        start.ArgumentList.Add("show"); start.ArgumentList.Add(commit + ":BugfixesAndQoL/src/" + name);
+        start.ArgumentList.Add("show"); start.ArgumentList.Add(commit + ":" + path);
         using var process = System.Diagnostics.Process.Start(start)!;
         using var output = new MemoryStream(); process.StandardOutput.BaseStream.CopyTo(output);
         string error = process.StandardError.ReadToEnd(); process.WaitForExit();

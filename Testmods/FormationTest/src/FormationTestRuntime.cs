@@ -2117,14 +2117,15 @@ namespace FormationTest
             int playerId = MainViewModel.instance != null && MainViewModel.instance.IsMapEditorMode
                 ? EditorDirector.instance?.ActivePlayerID ?? -1
                 : GamePlayerManagerAPI.Instance.GetLocalPlayerId();
-            if (playerId < 1 || playerId > 8)
+            if (playerId < 1 || playerId > 8 ||
+                playerId != GamePlayerManagerAPI.Instance.GetLocalPlayerId())
             {
                 identities = Array.Empty<SelectionIdentity>();
                 tribeId = 0;
                 return false;
             }
             SelectedUnitInfo[] selected =
-                GamePlayerManagerAPI.Instance.GetSelectedChimps(playerId);
+                GamePlayerManagerAPI.Instance.GetSelectedChimps();
             if (selected == null || selected.Length < 2 ||
                 selected.Length > FormationPreviewMarkerModel.MaximumMarkers)
             {

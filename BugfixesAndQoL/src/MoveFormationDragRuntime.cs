@@ -892,7 +892,7 @@ namespace BugfixesAndQoL
             SelectedUnitInfo[] selected;
             try
             {
-                selected = playerApi.GetSelectedChimps(localPlayerId);
+                selected = playerApi.GetSelectedChimps();
             }
             catch (ArgumentOutOfRangeException)
             {

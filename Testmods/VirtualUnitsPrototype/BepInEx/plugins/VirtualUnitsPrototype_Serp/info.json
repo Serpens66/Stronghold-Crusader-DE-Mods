@@ -3,13 +3,19 @@
   "Author": "Serpens66",
   "Name": "Virtual Units Prototype",
   "Description": "Proof of concept for per-instance virtual unit and building identities, visuals, stats, spawning, and save data.",
-  "Version": "0.1.1",
+  "Version": "0.1.2",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
-  "MinimumScriptExtenderVersion": "2.7.1",
+  "MinimumScriptExtenderVersion": "2.10.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.1.2",
+      "Changes": [
+        "Adapted local virtual-unit selection to Script Extender 2.10.0."
+      ]
+    },
     {
       "Version": "0.1.1",
       "Changes": [

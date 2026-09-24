@@ -389,6 +389,8 @@ namespace BugfixesAndQoL
             if (playerId < 1 || playerId > 8)
                 return 0;
             GamePlayerManagerAPI playerApi = GamePlayerManagerAPI.Instance;
+            if (playerApi.GetLocalPlayerId() != playerId)
+                return 0;
             SelectedUnitInfo[] selected = Array.Empty<SelectedUnitInfo>();
             int selectedCount = playerApi.GetSelectedChimpsCount(playerId);
             bool selectionCountTransient =
@@ -397,7 +399,7 @@ namespace BugfixesAndQoL
             {
                 try
                 {
-                    selected = playerApi.GetSelectedChimps(playerId) ?? Array.Empty<SelectedUnitInfo>();
+                    selected = playerApi.GetSelectedChimps() ?? Array.Empty<SelectedUnitInfo>();
                 }
                 catch (ArgumentOutOfRangeException)
                 {

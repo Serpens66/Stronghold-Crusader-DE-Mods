@@ -1,0 +1,11 @@
+{
+  "review": "Historical source hashes remain in the original provenance files and are verified against each listed Git commit. Later committed lifecycle, native-layout, hook-lifetime, cursor, and Script Extender compatibility work is pinned separately here. Review each current source edit before updating these hashes.",
+  "files": [
+    { "file": "FastMovementScheduler.cs", "historicalCommit": "57dab2193f2f72d2ed8a9ad8249d5ad3f833bfa0", "sha256": "7921FFFC52061611E220533F39E0F689CA5BF713EBD022035AF38EE985B303C5" },
+    { "file": "FriendlyMoatMovementRuntime.cs", "historicalCommit": "57dab2193f2f72d2ed8a9ad8249d5ad3f833bfa0", "sha256": "FB5BD694C8FCED66AA0BC720EC3E4ADAEFE13C5621EFCB6815285C96651AFE91" },
+    { "file": "MoatMovePlugin.cs", "historicalCommit": "57dab2193f2f72d2ed8a9ad8249d5ad3f833bfa0", "sha256": "F4529432B1053DC48EBE6E935FB1EEF767ACF3CF018B84583E7EC1DE59E51AFD" },
+    { "file": "NativeMovementRecovery.cs", "historicalCommit": "96ddff9fe2d474b821db82626facbed5ecb86458", "sha256": "18D7D9A24C0667C0BE3CABFD04193ACCA3309F4E69767F82A4C52A2F97673870" },
+    { "file": "MoatWorkTargetSelection.cs", "historicalCommit": "b957f4b9a9a30d942bfb603b10624b035e0ec376", "sha256": "C8BBD57B9D59745B0E90CA9060EBAF6592BDBEBDE88318FAA49C74529148464F" },
+    { "file": "CursorConnectivity.cs", "historicalCommit": "b957f4b9a9a30d942bfb603b10624b035e0ec376", "sha256": "BF80A1F945D6000F19826E0B4A936C025CF5A4A72A08E72E9A09D9724A61555F" }
+  ]
+}

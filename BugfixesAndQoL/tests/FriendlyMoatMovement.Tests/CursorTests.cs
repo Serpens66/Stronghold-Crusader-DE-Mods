@@ -151,7 +151,7 @@ namespace BugfixesAndQoL
             try
             {
                 Check(Hover()==1 && nativeCalls==0,"complete selection -> scope -> pair -> native positive cursor branch without a ground detour");
-                Check(GamePlayerManagerAPI.Instance.GetSelectedChimps(1)[0].UnitId==1,
+                Check(GamePlayerManagerAPI.Instance.GetSelectedChimps()[0].UnitId==1,
                     "the selected-unit projection preserves the 1-based unit ID");
                 Check(!LocalSelectionSnapshot.TryCapture(0, out _) &&
                     !LocalSelectionSnapshot.TryCapture(9, out _),

@@ -26,6 +26,20 @@
     "InactiveReason": "Experimental test mod; records its lifecycle dependency while preserving its previous exclusion from automatic update builds."
   },
   {
+    "Name": "AivLobbyPresetTest",
+    "Guid": "AivLobbyPresetTest_Serp",
+    "Manifest": "Testmods\\AivLobbyPresetTest\\info.json",
+    "Plugin": "Testmods\\AivLobbyPresetTest\\src\\AivLobbyPresetTestPlugin.cs",
+    "Project": "Testmods\\AivLobbyPresetTest\\AivLobbyPresetTest.csproj",
+    "BuildDriver": "Testmods\\AivLobbyPresetTest\\build.bat",
+    "Package": "Testmods\\AivLobbyPresetTest\\BepInEx\\plugins\\AivLobbyPresetTest_Serp",
+    "Install": "AivLobbyPresetTest_Serp",
+    "BuildOrder": 100,
+    "DependsOn": ["APIShared"],
+    "Active": false,
+    "InactiveReason": "AIV lobby diagnosis test mod does not consume the changed selection or range contracts; excluded from this automatic update build."
+  },
+  {
     "Name": "ActiveAIVDetector",
     "Guid": "ActiveAIVDetector_Serp",
     "Manifest": "Helpers\\ActiveAIVDetector\\BepInEx\\plugins\\ActiveAIVDetector_Serp\\info.json",
@@ -35,7 +49,8 @@
     "Package": "Helpers\\ActiveAIVDetector\\BepInEx\\plugins\\ActiveAIVDetector_Serp",
     "Install": "ActiveAIVDetector_Serp",
     "BuildOrder": 100,
-    "DependsOn": ["APIShared"]
+    "DependsOn": ["APIShared"],
+    "PreservedInstallDirectories": ["CellTraces", "PrebuildTraces", "StartTraces"]
   },
   {
     "Name": "AIDefenseTest",
@@ -344,7 +359,7 @@
     "Package": "Testmods\\SkirmishGameOptionsTest\\BepInEx\\plugins\\SkirmishGameOptionsTest_Serp",
     "Install": "SkirmishGameOptionsTest_Serp",
     "BuildOrder": 101,
-    "DependsOn": ["ExtraFeatures"]
+    "DependsOn": ["APIShared", "ExtraFeatures"]
   },
   {
     "Name": "UnitSpawnReturnProbe",
@@ -409,8 +424,7 @@
     "Install": "MoatMove_Serp",
     "BuildOrder": 100,
     "DependsOn": ["APIShared"],
-    "Active": false,
-    "InactiveReason": "Unmodified comparison copy replaced by BugfixesAndQoL; intentionally excluded from update builds and installation."
+    "Active": true
   },
   {
     "Name": "StartupPerformanceDiagnostic",

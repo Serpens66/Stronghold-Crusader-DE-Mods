@@ -7,14 +7,14 @@ using System;
 
 namespace FormationTest
 {
-    [BepInDependency(ScriptExtenderGuid, "2.9.0")]
+    [BepInDependency(ScriptExtenderGuid, "2.10.0")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class FormationTestPlugin : BaseUnityPlugin
     {
         private const string ScriptExtenderGuid = "000shcdese";
         public const string PluginGuid = "FormationTest_Serp";
         public const string PluginName = "Formation Test";
-        public const string PluginVersion = "0.1.0";
+        public const string PluginVersion = "0.1.1";
 
         private static ManualLogSource persistentLog;
         private static FormationTestRuntime runtime;

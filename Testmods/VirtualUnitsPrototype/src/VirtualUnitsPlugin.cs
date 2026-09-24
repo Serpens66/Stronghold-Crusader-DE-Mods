@@ -5,7 +5,7 @@ using VirtualUnitsPrototype.API;
 
 namespace VirtualUnitsPrototype
 {
-    [BepInDependency(ScriptExtenderGuid, "2.9.0")]
+    [BepInDependency(ScriptExtenderGuid, "2.10.0")]
     [BepInDependency(ApiSharedGuid, "0.3.2")]
     [BepInDependency("APIShared_Serp", "0.3.6")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
@@ -15,7 +15,7 @@ namespace VirtualUnitsPrototype
         private const string ApiSharedGuid = "APIShared_Serp";
         public const string PluginGuid = "VirtualUnitsPrototype_Serp";
         public const string PluginName = "Virtual Units Prototype";
-        public const string PluginVersion = "0.1.1";
+        public const string PluginVersion = "0.1.2";
         internal const string DesertArcherId = "serp.virtual-units:desert-archer";
         internal const string DesertHovelId = "serp.virtual-units:desert-hovel";
         private static readonly VirtualSpriteTintProfile ArcherTint = new VirtualSpriteTintProfile(220, 240, byte.MaxValue, byte.MaxValue);

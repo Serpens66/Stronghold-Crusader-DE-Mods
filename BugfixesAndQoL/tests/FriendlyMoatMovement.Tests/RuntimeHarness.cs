@@ -87,7 +87,7 @@ namespace BugfixesAndQoL
         public int GetLocalPlayerId() => 1;
         public int? SelectionCountOverride;
         public int GetSelectedChimpsCount(int playerId) => SelectionCountOverride ?? EngineInterface.Selection.Length / 2;
-        public SelectedUnitInfo[] GetSelectedChimps(int playerId)
+        public SelectedUnitInfo[] GetSelectedChimps()
         {
             int[] selected = EngineInterface.Selection;
             var result = new SelectedUnitInfo[selected.Length / 2];

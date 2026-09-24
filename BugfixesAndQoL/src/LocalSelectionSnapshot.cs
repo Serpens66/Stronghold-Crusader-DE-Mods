@@ -15,12 +15,12 @@ namespace BugfixesAndQoL
             try
             {
                 GamePlayerManagerAPI api = GamePlayerManagerAPI.Instance;
-                if (api == null)
+                if (api == null || api.GetLocalPlayerId() != localPlayerId)
                     return false;
                 int count = api.GetSelectedChimpsCount(localPlayerId);
                 if (!Shared.SelectedChimpsSnapshotPolicy.IsPlausibleCount(count))
                     return false;
-                SelectedUnitInfo[] snapshot = api.GetSelectedChimps(localPlayerId);
+                SelectedUnitInfo[] snapshot = api.GetSelectedChimps();
                 if (snapshot == null || snapshot.Length != count)
                     return false;
                 selected = snapshot;

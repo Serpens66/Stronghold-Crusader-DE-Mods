@@ -3,13 +3,19 @@
   "Author": "Serpens66",
   "Name": "Formation Test",
   "Description": "Standalone multiplayer prototype for mouse-controlled troop formations.",
-  "Version": "0.1.0",
+  "Version": "0.1.1",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
-  "MinimumScriptExtenderVersion": "2.9.0",
+  "MinimumScriptExtenderVersion": "2.10.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.1.1",
+      "Changes": [
+        "Adapted local troop selection to Script Extender 2.10.0 and guarded editor player changes."
+      ]
+    },
     {
       "Version": "0.1.0",
       "Changes": [

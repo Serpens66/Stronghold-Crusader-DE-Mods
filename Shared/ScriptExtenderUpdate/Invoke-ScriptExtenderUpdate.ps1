@@ -119,6 +119,13 @@ foreach ($mod in $mods) {
             throw "$($mod.Name): invalid PreservedInstallFiles entry: '$preservedFile'."
         }
     }
+    foreach ($preservedDirectory in @($mod.PreservedInstallDirectories | Where-Object { $null -ne $_ })) {
+        if (-not [string]$preservedDirectory -or [IO.Path]::IsPathRooted([string]$preservedDirectory) -or
+            [string]$preservedDirectory -match '(^|[\\/])\.{1,2}([\\/]|$)' -or
+            [string]$preservedDirectory -match '[*?]') {
+            throw "$($mod.Name): invalid PreservedInstallDirectories entry: '$preservedDirectory'."
+        }
+    }
     if (Test-ModActive $mod) {
         $sourceManifest = Get-Content -Raw -LiteralPath (Join-Path $workspace $mod.Manifest) | ConvertFrom-Json
         Assert-SENoGenericExtenderDependency $sourceManifest $mod.Name
@@ -353,7 +360,17 @@ foreach ($mod in $activeMods) {
             if(-not $targetHash -or $sourceHash -ne $targetHash){throw "$($mod.Name) package mismatch: $rel"}
         }
         $preservedInstallFiles=@($mod.PreservedInstallFiles|Where-Object{$null-ne$_}|ForEach-Object{[string]$_})
-        $unexpected=@(Get-ChildItem -LiteralPath $installed -Recurse -File|ForEach-Object{$_.FullName.Substring($installed.Length+1)}|Where-Object{$_ -notin $localRelative -and $_ -notin $preservedInstallFiles -and $_ -notmatch '^LobbyModSettings([\\/]|$)'})
+        $preservedInstallDirectories=@($mod.PreservedInstallDirectories|Where-Object{$null-ne$_}|ForEach-Object{([string]$_).TrimEnd([char[]]@([char]'\',[char]'/'))})
+        $unexpected=@(Get-ChildItem -LiteralPath $installed -Recurse -File|ForEach-Object{$_.FullName.Substring($installed.Length+1)}|Where-Object{
+            $relative=[string]$_
+            $inPreservedDirectory=$false
+            foreach($directory in $preservedInstallDirectories){
+                if($relative.StartsWith($directory+'\',[StringComparison]::OrdinalIgnoreCase) -or
+                   $relative.StartsWith($directory+'/',[StringComparison]::OrdinalIgnoreCase)){$inPreservedDirectory=$true;break}
+            }
+            $relative -notin $localRelative -and $relative -notin $preservedInstallFiles -and
+                $relative -notmatch '^LobbyModSettings([\\/]|$)' -and -not $inPreservedDirectory
+        })
         if($unexpected){throw "$($mod.Name) has unexpected installed files: $($unexpected -join ', ')"}
         $dll=Join-Path $source ($mod.Name+'.dll')
         if(-not(Test-Path -LiteralPath $dll -PathType Leaf)){throw "$($mod.Name) primary assembly missing: $dll"}

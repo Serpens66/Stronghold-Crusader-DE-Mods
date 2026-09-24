@@ -1,0 +1,52 @@
+{
+  "OldVersion": "2.9.0",
+  "NewVersion": "2.10.1",
+  "ExtenderCommit": "a8ba202f6ec7966bd115b59a6088a0077ce727a0",
+  "ExtenderTree": "1cc818b1b844b5e121054f2dc2edd731206b8c7b",
+  "NativeHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+  "ReleaseProjects": [
+    "APIShared", "BugfixesAndQoL", "BuildingCosts", "BuildingLimit", "CheatMod", "ExtendedData", "ExtraFeatures", "ImprovedHunters", "RandomEvents", "CastlePlanner", "StartConditions", "UnitCosts", "UnitLimit"
+  ],
+  "SourceFileCount": 50,
+  "OperationCount": 110,
+  "SourceFingerprint": "0DF456EA15976B103C437A6CE9DAF2F862F324ACD7E6B8F33E56179A5E60F114",
+  "ExtenderChangesReviewed": true,
+  "Result": "Compatible",
+  "ReviewedInteractions": [
+    {
+      "Id": "SHCDESE.BulkProjectileDetours.target-selection",
+      "Rationale": "The new inline loader at RVA 0x18EB20 is in the target-selection function at 0x18E9A0. ImprovedHunters' manual command check begins at 0x18EB36, after the two complete overwritten loader instructions ending at 0x18EB2F; its target dispatch hook is at 0x18F2CA. The projects consume separate points of the same function.",
+      "Classification": "NoOverlap"
+    },
+    {
+      "Id": "SHCDESE.BulkProjectileDetours.ammo-distance",
+      "Rationale": "The 2.10.1 hotfix adds an attacker-type capture at RVA 0x19B64E and retains the range-table loader at 0x19B786 inside the native function at 0x19B630. The capture stores the sign-extended type in unused stack shadow space for the later loader; the loader no longer derives it from unrelated registers. Our moat movement and cadence hooks near 0x19B506/0x19B554 and 0x19B260 are in separate earlier functions; no local or Fixes hook uses either patched site.",
+      "Classification": "NoOverlap"
+    },
+    {
+      "Id": "SHCDESE.BulkProjectileDetours.projectile-init",
+      "Rationale": "The new projectile initialization inline site is at RVA 0xA1E0E with a declared minimum hook size of 0x17; the installed RedBird backend rounds displacement to complete instructions. Local projectile consumers use manager APIs and a retained slot-view adapter; no release or Fixes hook patches this initialization block.",
+      "Classification": "NoOverlap"
+    },
+    {
+      "Id": "SHCDESE.BulkUnitDetours.dynamic-engage-range",
+      "Rationale": "The 13 vtable-selected ranged-unit update functions are scanned for a compare of unit field 0x8FE. Fixes' optional wildlife hooks cover deer, lion, rabbit, camel, hyena, goat and crocodile function entries, disjoint from the ranged-unit set. Fixes' selection speed patches use field 0x916; no local release hook matches the new 0x8FE compare site.",
+      "Classification": "NoOverlap"
+    },
+    {
+      "Id": "SHCDESE.BulkUnitDetours.interact-range",
+      "Rationale": "The new interaction-range loader near RVA 0x8D769 is distinct from BugfixesAndQoL's attack-unit pair gate at 0x8D72B and peace-time patch at 0x8D7C4; no current mod enables the range override.",
+      "Classification": "NoOverlap"
+    },
+    {
+      "Id": "BugfixesAndQoL.FriendlyMoat.AssassinSelection",
+      "Rationale": "Existing call-site adapters consume the extender-owned Assassin result at RVA 0x196870 and preserve positive results; the 2.10 range hooks do not change that owned function.",
+      "Classification": "CallSiteAfterOwnedDetour"
+    },
+    {
+      "Id": "ExtraFeatures.ElevatedMoat.MapEditorTileType",
+      "Rationale": "The existing inline site at RVA 0x704CC remains nested in the original trampoline of the extender hook at RVA 0x6FE90; no new 2.10 hook changes either site.",
+      "Classification": "NestedOriginalPath"
+    }
+  ]
+}

@@ -331,9 +331,12 @@ namespace BugfixesAndQoL
                 "keep-flag runtime is rooted only after successful installation");
             Check(xaml.Contains("IsChecked=\"{Binding EnableKeepFlagRotationFix, Mode=TwoWay}\""),
                 "keep-flag host option is exposed in the settings UI");
-            Check(plugin.Contains("[BepInDependency(ScriptExtenderGuid, \"2.9.0\")]") &&
-                  manifest.Contains("\"MinimumScriptExtenderVersion\": \"2.9.0\""),
-                "BugfixesAndQoL requires the player-specific selection API from Script Extender 2.9.0");
+            string requiredExtender = System.Text.RegularExpressions.Regex.Match(manifest,
+                "\\\"MinimumScriptExtenderVersion\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"").Groups[1].Value;
+            Check(!string.IsNullOrEmpty(requiredExtender) &&
+                  plugin.Contains("[BepInDependency(ScriptExtenderGuid, \"" + requiredExtender + "\")]") &&
+                  File.ReadAllText(Path.Combine("src", "LocalSelectionSnapshot.cs")).Contains("GetSelectedChimps()"),
+                "BugfixesAndQoL selection API and Script Extender dependency agree with the manifest");
         }
 
         private static void TestTransientSelectionGuards()
