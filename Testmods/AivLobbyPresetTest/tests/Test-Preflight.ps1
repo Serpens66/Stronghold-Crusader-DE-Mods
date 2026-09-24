@@ -15,6 +15,8 @@ $files = @(
     (Join-Path $root 'AivLobbyCrater180ProbeSeries.json'),
     (Join-Path $root 'AivLobbySixMatchSeries.json'),
     (Join-Path $root 'AivLobbyMultiAivSeries.json'),
+    (Join-Path $root 'AivLobbyConnectedRecordProbeSeries.json'),
+    (Join-Path $root 'AivLobbyConnectedRecordProbeSeries.progress.json'),
     (Join-Path $root 'info.json'),
     (Join-Path $root 'build.bat'),
     (Join-Path $root 'tests\AivLobbyPresetTest.Tests.csproj'),
@@ -54,5 +56,7 @@ $null = Get-Content -Raw -LiteralPath (Join-Path $root 'AivLobbyFullMapProbeSeri
 $null = Get-Content -Raw -LiteralPath (Join-Path $root 'AivLobbyCrater180ProbeSeries.json') | ConvertFrom-Json
 $null = Get-Content -Raw -LiteralPath (Join-Path $root 'AivLobbySixMatchSeries.json') | ConvertFrom-Json
 $null = Get-Content -Raw -LiteralPath (Join-Path $root 'AivLobbyMultiAivSeries.json') | ConvertFrom-Json
+$null = Get-Content -Raw -LiteralPath (Join-Path $root 'AivLobbyConnectedRecordProbeSeries.json') | ConvertFrom-Json
+$null = Get-Content -Raw -LiteralPath (Join-Path $root 'AivLobbyConnectedRecordProbeSeries.progress.json') | ConvertFrom-Json
 $null = Get-Content -Raw -LiteralPath (Join-Path $root 'info.json') | ConvertFrom-Json
 Write-Output 'AIV lobby preset JSON, lifecycle, hook and CRLF preflight passed.'

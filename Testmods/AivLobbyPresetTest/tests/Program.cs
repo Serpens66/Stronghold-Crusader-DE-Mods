@@ -164,6 +164,45 @@ namespace AivLobbyPresetTest
                                 "multi-AIV candidate order at " + index + "/" + playerIndex);
                     }
                 }
+                TestSeries recordProbe = TestSeries.Read(args[6]);
+                TestSeries recordSource = TestSeries.Read(args[7]);
+                string[] recordRunIds = { "CC-A-on", "CC-B-on" };
+                Require(recordProbe.Enabled && recordProbe.Runs.Count == 2 &&
+                    recordProbe.Id == "aiv-connected-record-probe-20260924",
+                    "two-run connected-record probe");
+                for (int index = 0; index < recordProbe.Runs.Count; index++)
+                {
+                    TestRun actual = recordProbe.Runs[index];
+                    TestRun source = recordSource.Runs.Find(run => run.Id == recordRunIds[index]);
+                    Require(source != null && actual.Id == recordRunIds[index] &&
+                        actual.PreBuild == 1 &&
+                        actual.Preset.MapFileName == source.Preset.MapFileName &&
+                        actual.Preset.MapSha256 == source.Preset.MapSha256 &&
+                        actual.Preset.Players.Count == source.Preset.Players.Count,
+                        "connected-record run source at " + index);
+                    for (int playerIndex = 0; playerIndex < actual.Preset.Players.Count; playerIndex++)
+                    {
+                        PresetPlayer a = actual.Preset.Players[playerIndex];
+                        PresetPlayer b = source.Preset.Players[playerIndex];
+                        Require(a.Id == b.Id && a.Human == b.Human &&
+                            a.LordType == b.LordType && a.KeepSlot == b.KeepSlot &&
+                            a.RadarX == b.RadarX && a.RadarY == b.RadarY &&
+                            a.KeepX == b.KeepX && a.KeepY == b.KeepY &&
+                            a.AivDefaults.Count == b.AivDefaults.Count,
+                            "connected-record player source at " + index + "/" + playerIndex);
+                        for (int candidate = 0; candidate < a.AivDefaults.Count; candidate++)
+                            Require(a.AivDefaults[candidate] == b.AivDefaults[candidate],
+                                "connected-record AIV order at " + index + "/" + playerIndex);
+                    }
+                }
+                File.Delete(progressPath);
+                TestSeriesProgress recordProgress = TestSeriesProgress.Read(progressPath, recordProbe);
+                Require(recordProgress.NextIndex == 0 &&
+                    recordProgress.LastCompletedRunId == string.Empty,
+                    "connected-record probe starts at zero");
+                recordProgress.Complete(progressPath, recordProbe, 0, recordRunIds[0]);
+                recordProgress = TestSeriesProgress.Read(progressPath, recordProbe);
+                Require(recordProgress.NextIndex == 1, "connected-record probe advances once");
                 File.Delete(progressPath);
                 TestSeriesProgress sixProgress = TestSeriesProgress.Read(progressPath, sixMatches);
                 for (int index = 0; index < sixMatches.Runs.Count; index++)

@@ -45,6 +45,7 @@ namespace BugfixesAndQoL
         private bool enablePlagueTargetReservationFix = true;
         private bool enableAssemblyPointPlacementFix = true;
         private bool enableKeepFlagRotationFix = true;
+        private bool enableTanneryAnimationFix = true;
         private bool enableCorruptLordDataSpawnFix = true;
         private bool enableTunnelPlacementDistanceFix = true;
         private bool enableFairSiegeAmmoRestock = true;
@@ -348,6 +349,8 @@ namespace BugfixesAndQoL
         public string EnableAssemblyPointPlacementFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAssemblyPointPlacementFixHelp");
         public string EnableKeepFlagRotationFixText => SerpLocalization.Get("BugfixesAndQoL.EnableKeepFlagRotationFix");
         public string EnableKeepFlagRotationFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableKeepFlagRotationFixHelp");
+        public string EnableTanneryAnimationFixText => SerpLocalization.Get("BugfixesAndQoL.EnableTanneryAnimationFix");
+        public string EnableTanneryAnimationFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableTanneryAnimationFixHelp");
         public string EnableCorruptLordDataSpawnFixText => SerpLocalization.Get("BugfixesAndQoL.EnableCorruptLordDataSpawnFix");
         public string EnableCorruptLordDataSpawnFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableCorruptLordDataSpawnFixHelp");
         public string EnableTunnelPlacementDistanceFixText => SerpLocalization.Get("BugfixesAndQoL.EnableTunnelPlacementDistanceFix");
@@ -1045,6 +1048,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableTanneryAnimationFix
+        {
+            get => enableTanneryAnimationFix;
+            set => SetSetting(ref enableTanneryAnimationFix, value, nameof(EnableTanneryAnimationFix));
+        }
+
+        [SyncHostOnly]
         public bool EnableCorruptLordDataSpawnFix
         {
             get => enableCorruptLordDataSpawnFix;
@@ -1228,6 +1238,7 @@ namespace BugfixesAndQoL
                 EnablePlagueTargetReservationFix = true;
                 EnableAssemblyPointPlacementFix = true;
                 EnableKeepFlagRotationFix = true;
+                EnableTanneryAnimationFix = true;
                 EnableCorruptLordDataSpawnFix = true;
                 EnableTunnelPlacementDistanceFix = true;
                 EnableFairSiegeAmmoRestock = true;

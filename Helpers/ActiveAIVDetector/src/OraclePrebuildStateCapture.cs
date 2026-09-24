@@ -92,7 +92,7 @@ namespace ActiveAIVDetector
             }
         }
 
-        private static BuildingRecord[] ReadBuildings()
+        internal static BuildingRecord[] ReadBuildings()
         {
             Span<GameBuilding> source = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
             var result = new BuildingRecord[source.Length];
@@ -104,6 +104,7 @@ namespace ActiveAIVDetector
                     (int)building.r_BuildingType,
                     building.r_PlayerIdOwner,
                     building.r_GlobalId,
+                    building.r_UsedInSiegeAttemptId,
                     building.r_TileIdBegin,
                     building.r_OccupyTileGridSize,
                     building.r_TilePositionXBegin,
@@ -144,12 +145,14 @@ namespace ActiveAIVDetector
     internal readonly struct BuildingRecord : IEquatable<BuildingRecord>
     {
         public BuildingRecord(int aliveState, int type, int owner, uint globalId,
+            uint nativeCleanupLinkId,
             uint tileIdBegin, uint occupyTileGridSize, int tileX, int tileY)
         {
             AliveState = aliveState;
             Type = type;
             Owner = owner;
             GlobalId = globalId;
+            NativeCleanupLinkId = nativeCleanupLinkId;
             TileIdBegin = tileIdBegin;
             OccupyTileGridSize = occupyTileGridSize;
             TileX = tileX;
@@ -159,6 +162,7 @@ namespace ActiveAIVDetector
         public int Type { get; }
         public int Owner { get; }
         public uint GlobalId { get; }
+        public uint NativeCleanupLinkId { get; }
         public uint TileIdBegin { get; }
         public uint OccupyTileGridSize { get; }
         public int TileX { get; }
@@ -166,6 +170,7 @@ namespace ActiveAIVDetector
         public bool Equals(BuildingRecord other) =>
             AliveState == other.AliveState && Type == other.Type &&
             Owner == other.Owner && GlobalId == other.GlobalId &&
+            NativeCleanupLinkId == other.NativeCleanupLinkId &&
             TileIdBegin == other.TileIdBegin &&
             OccupyTileGridSize == other.OccupyTileGridSize &&
             TileX == other.TileX && TileY == other.TileY;

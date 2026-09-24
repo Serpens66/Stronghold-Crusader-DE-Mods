@@ -930,8 +930,10 @@ internal static class Program
 
         Check(!production.Contains("Zhuqiaomon") && !project.Contains("Zhuqiaomon"),
             "P6b removed Zhuqiaomon source and project references");
-        Check(!production.Contains("NativeDetour"),
-            "P6b removed every direct PolyHook NativeDetour path");
+        Check(sourcePaths.Where(path => File.ReadAllText(path).Contains("NativeDetour"))
+                .All(path => File.ReadAllText(path).Contains("using RedBird.Backends.NativeX64;") &&
+                             !File.ReadAllText(path).Contains("PolyHook")),
+            "NativeDetour references use the installed RedBird backend, not PolyHook");
         Check(!production.Contains("HookRef<") && !production.Contains(".Unload()") &&
               !production.Contains("Value.Hook.Trampoline") && !production.Contains("VirtualProtect"),
             "P6b removed obsolete handles, Unload calls, trampolines, and manual page protection");

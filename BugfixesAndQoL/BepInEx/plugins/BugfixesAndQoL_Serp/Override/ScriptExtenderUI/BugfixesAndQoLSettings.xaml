@@ -518,6 +518,12 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableKeepFlagRotationFixText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-tannery-animation-fix" shared:ModSettingsSearch.Title="{Binding EnableTanneryAnimationFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableTanneryAnimationFixHelpText}"><CheckBox IsChecked="{Binding EnableTanneryAnimationFix, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableTanneryAnimationFixHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableTanneryAnimationFixText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox></Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-corrupt-lord-data-spawn-fix" shared:ModSettingsSearch.Title="{Binding EnableCorruptLordDataSpawnFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableCorruptLordDataSpawnFixHelpText}"><CheckBox IsChecked="{Binding EnableCorruptLordDataSpawnFix, Mode=TwoWay}"
                 Foreground="White"
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableCorruptLordDataSpawnFixHelpText}"

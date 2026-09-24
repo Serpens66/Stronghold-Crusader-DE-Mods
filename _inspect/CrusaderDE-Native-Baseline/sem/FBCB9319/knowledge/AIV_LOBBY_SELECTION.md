@@ -580,7 +580,9 @@ remains one exact, 15 `NotEvaluable`, zero mismatches/errors.
 
 `0x51790` calls `0x5CD90` before `0x6D580` for relevant mapper/status
 branches. `0x5CD90` can clear an existing building via `0xC43A0`, which
-may invoke `0xB8310` on other records sharing its global ID; `0xB8310`
+may invoke `0xB8310` on other records sharing the nonzero native cleanup
+link field at record offset `+0x304` (`GameBuilding` offset `0x2A8`);
+this field is not `r_GlobalId` at `GameBuilding` offset `0xD8`. `0xB8310`
 enters type-specific tile cleanup through `0x61FC0`. Thus the proposed
 simple union of planned AIV footprints alone is not a proven superset of
 all fit-layer writes. The later-player prebuild `NotEvaluable` boundary
@@ -844,3 +846,144 @@ counterfactual earlier start states intersect the guarded area. The
 `0x6D580 -> 0x77E60 -> 0x5D3A0 -> 0xC4290 -> 0xB8310` collision path can
 clear connected records beyond its immediate footprint; the observed
 zero-intersection is therefore not a general safe-release criterion.
+
+For the next targeted connected-record probe, the passive Keep-start observer
+also snapshots the selected fields of every native building record before
+and after each published type-41 `OnBuildStructure` event. A separate linked
+trace records one-based building ID, alive state, type, owner, global ID,
+occupied tile-grid origin and size, and tile coordinates. This uses the
+Script Extender's existing `GetBuildingsAsSpan` view and the already rooted
+event subscription; it does not alter Vanilla construction. `CC-A-on` and
+`CC-B-on` are selected because earlier full-grid traces on this hash showed
+60 and 16 cleared building-ID cells, respectively. Confidence is high for
+the reviewed event and record-read contract; runtime completeness of the
+new record traces remains unverified until these two starts are captured.
+
+## 2026-09-24 connected-record probe result and cleanup orientation
+
+The planned `CC-A-on` and `CC-B-on` loads completed, followed by one
+unplanned `CC-B-on` repeat. The 24 Keep-start record/tile traces and 20
+prebuild traces are complete, with zero capture or Keep-start failure flags.
+All 50 native fit attempts compare as three exact, 47 conservatively
+unevaluable and zero mismatches/errors. Raw hashes and per-record evidence
+are archived in `CastlePlanner/Diagnostics/AivSeries-20260924/ConnectedRecordProbeResults/RESULTS.md`.
+Confidence: high for these three observed loads, not for unobserved starts.
+
+For type 41, the conditional cleanup call `0x74DA0 -> 0x5D3A0` scans the
+Keep, linked cells, 7x7 camp and 5x5 yard before the rotated compound
+construction. Its offsets use only `type - 0x28`. In particular, the
+type-41 camp starts at `(0,+8)` and the yard at `(+7,+2)` relative to
+the Keep; the selected orientation is not passed to this cleanup function.
+The construction later uses `orientation / 2 + 4 * (type - 0x28)` for
+its offsets. With a Keep at `(506,357)` and orientation 2, the cleanup
+camp intersects old record 590 in row 371. The pass deletes all 16 tiles
+of that 4x4 building at `(504..507,371..374)`, including tiles outside
+the eventual rotated compound footprint. An extra run reproduced this
+effect. Confidence: high from the installed DLL and two full-grid traces.
+
+`0xC4290` and `0xC43A0` propagate deletion by the nonzero field at native
+record offset `+0x304`, which is
+`GameBuilding.r_UsedInSiegeAttemptId` at offset `0x2A8` in the
+installed Script Extender 2.9.0 DLL (checked with `Marshal.OffsetOf`).
+The local C# interop source at `70a4483` agrees. The separate, older
+`ReverseEngineering/structs/GameBuildingManager.h` still calls offset
+`0x2A8` `N0000178A` and must not override the compiled contract.
+The field is distinct from
+`r_GlobalId` at `0xD8`. The current record trace did not capture
+the `0x2A8` value, so it cannot establish the membership or spatial reach of
+such a linked deletion group. The existing broad `StartOverlapUnproven`
+guard includes the observed trigger. A guard limited to the final rotated
+build footprint would be unsound. No release of later-player fits follows
+from these observations. Confidence: high for field identity and branch;
+limited for unobserved linked-record groups or abort outcomes.
+
+## 2026-09-24 follow-up: captured cleanup-link values
+
+The installed 2.9.0 `GameBuilding.r_UsedInSiegeAttemptId` field at
+offset `0x2A8` was added to the passive building-record snapshots.
+Four planned Craggy-Cliffs loads (`CC-A-off/on`, `CC-B-off/on`) and four
+separate repeats of `CC-B-on` produced 64 complete type-41 start
+captures, 41 complete prebuild traces and 125 native fit attempts.
+The hash-checked offline comparison is 21 exact, 104 deliberately
+unevaluable, zero mismatches/errors. Raw hashes and detailed counts are
+in `CastlePlanner/Diagnostics/AivSeries-20260924/CleanupLinkProbeResults/RESULTS.md`.
+
+When completed castles were off, neither planned setup overwrote a
+previously alive building slot during a Keep start. With completed
+castles on, `CC-A-on` player 5 reused three alive slots and cleared
+60 old building-ID cells. One old type-46 slot had nonzero cleanup-link
+value 35681; the other two had zero. `CC-B-on` player 7 reused one
+old slot with cleanup-link value zero and cleared its 16 cells. The
+four repetitions reproduced this 16-cell deletion. No observed start
+deleted an additional companion record solely by a shared nonzero
+link value. All 64 post-call constructor failure flags were zero;
+one unaccepted AIV selection still executed a successful compound
+Keep. Confidence: high for observed records and native fit comparisons,
+insufficient to narrow the global connected-record/abort safety guard.
+
+Offline decoding of Craggy Cliffs map section 4013 on the same hash
+shows 72 alive serialized building records: nine start records per
+player. The five Keep/camp/linked records share one nonzero `0x2A8`
+cleanup-link value per owner; the four goods-yard records share a
+second value. This agrees with `0xC43A0` deleting an entire linked
+start group before a player's native AIV selection. It establishes
+initial serialized grouping on this map, not the later groups built
+by an unselected AIV or a general write bound. Confidence: high for
+the decoded map bytes and native link comparison; limited for
+other maps and sequential dynamic building effects.
+
+Static follow-up against the installed DLL with the same hash: `0xC43A0`
+stores the old record's value at native offset `+0x304` before invoking
+`0xB8310`. It then scans live records for that same nonzero value and
+invokes `0xB8310` on every match. `0xB8310` reaches `0x61FC0`, whose
+building-type dispatch includes special branches for types 10, 30-33,
+49, 69, and 80-84 plus common tile/path/visual updates. Thus a
+serialized group ID alone is not a complete bound on fit-layer writes.
+The transitive writes of these branches and any dynamically created
+records remain unaudited for the proposed narrower offline guard.
+Confidence: high for the direct control flow and offsets; incomplete
+for its full spatial side-effect bound.
+
+## 2026-09-24 dense-start probe on the same installed DLL
+
+The four verified `test AI overbuild eachother.map` setups and two
+separate repeats produced 30 complete compound-start traces, eight
+complete prebuild traces, and 74 native fit attempts. Six fits compare
+exactly with the offline evaluator; 68 are deliberately unevaluable,
+with zero mismatches/errors. Raw inputs, byte-exact process log,
+hashes, and record rows are in
+`CastlePlanner/Diagnostics/AivSeries-20260924/DenseStartLinkResults/RESULTS.md`.
+The map hash is
+`D63CD2FF3AEABA80BC3BC173BB615207666F1EAF759ECAC573FAD0DA61979DF3`.
+
+Section 4013 contains 45 initially live records, all with a nonzero
+native cleanup-link value at `GameBuilding+0x2A8`: five Keep/camp
+records and four yard records per player, under two distinct values.
+The complete live-building grid at the first AI's fit contains only
+the human compound's nine record IDs, so the serialized AI groups
+have already been removed before that fit. Of 279 changed record
+slots during the 30 observed Keep calls, 65 were live beforehand;
+none of those 65 carried a nonzero cleanup link. Nine were fully
+deleted: three type-67, zero-link records during the fourth setup
+and the same three in each repeat. All 30 post-call constructor
+failure flags were zero. This confirms actual close-start cleanup
+without observing a linked-group deletion or an abort. Confidence:
+high for these captures, limited for the unobserved `0xC43A0`
+multi-record branch and earlier map-start normalization.
+
+The `0x94350` decompile separates a first loop over the configured
+players, which calls `0xC43A0` on their serialized start records,
+from the later loop that selects AIVs and calls `0x53D00/0x6D580`.
+The dense-map first-AI live grid verifies that only the human
+compound remains when native AIV fit begins. Eleven of the 68
+conservatively gray cases are currently stopped by a source-tile
+record from a serialized AI group; for example map record 10 is
+type 41, owner 2, cleanup link 11, yet absent from that live grid.
+Nine other gray cases identify a rebuilt earlier start and 48 follow
+a completed-castle prebuild. Ignoring an already-removed serialized
+source record in the offline collision trigger is supported by this
+startup order, but the candidate-local uncertain-tile test and every
+counterfactual earlier start still have to pass before any result is
+released. No new fit is certified solely by this observation.
+Confidence: high for the two-loop order and recorded first-AI grid;
+not a complete counterfactual-start proof.

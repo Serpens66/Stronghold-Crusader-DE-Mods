@@ -19,6 +19,7 @@ Die feste Inventur liegt in `Shared\ScriptExtenderUpdate\mods.json`. Der Kompati
 - [ ] `CURRENT.json` und semantische Baseline stimmen mit DLL und Extender-Commit überein
 - [ ] Commitliste, Changelog und vollständiger Tag-Diff ausgewertet
 - [ ] Öffentliche C#- und Lua-Verträge sowie native/RedBird-Verträge verglichen
+- [ ] Verwendete Interop-Felder: Namen, Typen und Offsets am installierten `SHCDESE.dll` geprüft; C#-Quelle und Reverse-Engineering-Header getrennt abgeglichen
 - [ ] Jeden Eintrag unter `Aktuell bekannte Script-Extender-Bugs` gegen Quellstand und erforderlichenfalls neue Laufzeitartefakte geprüft
 - [ ] Betroffene Runtime-Mods: `<liste>`
 - [ ] Notwendige Codeänderungen: `<liste-oder-keine>`
@@ -40,6 +41,7 @@ Die feste Inventur liegt in `Shared\ScriptExtenderUpdate\mods.json`. Der Kompati
    - `mod_output\000shcdese\SHCDESE.dll` und dessen `info.json`
    - installierte `BepInEx\plugins\000shcdese\SHCDESE.dll` und deren `info.json`
 6. Die installierte DLL ist die kanonische Buildreferenz. Lokale `bin`- und `mod_output`-Artefakte werden trotzdem nach dem Extender-Build auf Version und Hash geprüft; sie werden niemals stillschweigend als Ersatz gewählt.
+7. Vor Modänderungen alle tatsächlich verwendeten Interop-Felder und -Strukturen gegen die **ausgewählte installierte Assembly** prüfen, auch wenn Version und Hash von `bin`, `mod_output` und Installation übereinstimmen. Für verwendete Felder mindestens Membername, Feldtyp und `Marshal.OffsetOf` dokumentieren; bei Pointer-/Span-Verträgen zusätzlich Structgröße und Elementstride. Bei fehlenden oder abweichenden Feldern fail-closed anhalten. Release-Nummer, erfolgreicher Compile und ein gleichnamiger Quellkommentar belegen kein Layout.
 
 ## 2. Änderungen zwischen den Releases analysieren
 
@@ -56,6 +58,7 @@ Die feste Inventur liegt in `Shared\ScriptExtenderUpdate\mods.json`. Der Kompati
    - semantische Header (`.h`) als Ghidra-Eingänge; `.rcnet`-Projektdateien sind dagegen reine Reverse-Engineering-Artefakte;
    - Assets, XAML, Modformate, Konfigurationsdefaults und paketierte Abhängigkeiten.
 3. Reine Implementierungs- oder Performanceänderungen von echten Aufruferänderungen trennen.
+   Für Interop-Verträge gilt die Reihenfolge: installierte `SHCDESE.dll` als tatsächlich ausführbarer Vertrag, dazugehörige C#-Interop-Quelle als Erklärung, native DLL als Beleg der Speichersemantik. `ReverseEngineering/structs/*.h`, `.rcnet`, historische Baselines und dekompilierte Pseudonamen sind zusätzliche Analysehilfen und können älter sein. Jeden Widerspruch mit Assemblyhash und Quellcommit festhalten; ihn nicht durch stilles Übernehmen eines Headernamens auflösen. Beispiel: Bei `GameBuilding` bezeichnet ein älterer Header Offset `0x2A8` anders als die installierte 2.9.0-Assembly und ihre C#-Quelle.
 4. Neue Features separat dokumentieren. Sie werden nicht automatisch in vorhandene Mods eingebaut.
 5. Verdächtige Extender-Verträge im Extender-Quellcode und, falls nötig, gegen die kanonische native Analyse belegen. Den Extender-Fork nicht ändern; stattdessen einen kurzen englischen Markdown-Report für den Autor verfassen.
 6. Die versionsneutralen Einträge unter `Aktuell bekannte Script-Extender-Bugs` einzeln erneut prüfen. Laufzeitfehler benötigen einen geeigneten Laufzeittest oder aktuelle Log-/Dump-Artefakte; Versionswechsel und Changelog allein reichen nicht. Fortbestehende Fehler unverändert dokumentiert lassen und nur nach positivem Behebungsnachweis entfernen.
@@ -117,6 +120,7 @@ Historische Ghidra-Exporte werden bei reinen Extender-Updates nicht neu erzeugt.
 2. Alle geänderten Textdateien auf CRLF und auf versehentliche wörtliche `\\r\\n`-Sequenzen prüfen.
 3. Runtime-Lifecycle statisch prüfen: kein Prozess-Teardown in Startup-`OnDestroy`, keine langfristige Logik auf einer früh zerstörbaren Plugin-Komponente und eine dokumentierte Runtime-Verwurzelung.
 4. Projekt- und Paketreferenzen prüfen. SHCDESE-, RedBird-, R3- und zentral gelieferte Laufzeit-DLLs dürfen nicht unbeabsichtigt privat mitgeliefert werden.
+   Für jeden neu gelesenen oder geschriebenen Extender-Structmember den tatsächlichen Build-`HintPath` auf die ausgewählte DLL auflösen und den Member dort reflektieren. Bei Interop-Feldern Typ, Offset und gegebenenfalls Structgröße prüfen. Einen Header-/Quell-/Binary-Widerspruch vor dem ersten Mod-Build klären und in `ImpactReview` oder hashgebundenem Audit dokumentieren.
 5. Alle relevanten statischen Tests und Codekontrollen abschließen, bevor irgendeine Mod-`build.bat` ausgeführt wird.
 6. Tests müssen stabile öffentliche, native oder paketbezogene Verträge und beobachtbares Verhalten prüfen. Bestandszahlen, Dateilisten, Symbolnamen, Quelltextfragmente oder Hashes dürfen nicht als allgemeine Sollwerte festgeschrieben werden, wenn sie sich bei einem normalen Mod- oder Extender-Update erwartbar ändern.
 7. Harte Identitätswerte sind nur für bewusst hash-/commitgebundene Provenienz, ABI-/Layoutverträge oder einen konkreten historischen Regressionsfall zulässig. Sie gehören in den jeweiligen Kompatibilitätsplan, Hook-Audit oder Baseline-Datensatz und benötigen einen klaren Neuerzeugungs- beziehungsweise Reviewpfad.

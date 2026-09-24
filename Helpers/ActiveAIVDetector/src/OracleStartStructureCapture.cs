@@ -29,11 +29,13 @@ namespace ActiveAIVDetector
         };
 
         private int[] beforeValues;
+        private BuildingRecord[] beforeBuildings;
 
         private OracleStartStructureCapture(int playerId, int x, int y, int orientation,
             int scale, bool isFree, int[] beforeValues, int beforeFailureFlag,
             int beforeFailureReason, int beforeStartCleanup,
-            int beforeDestroyedRecordMarker, double beforeScanMilliseconds)
+            int beforeDestroyedRecordMarker, double beforeScanMilliseconds,
+            BuildingRecord[] beforeBuildings)
         {
             PlayerId = playerId;
             X = x;
@@ -42,6 +44,7 @@ namespace ActiveAIVDetector
             Scale = scale;
             IsFree = isFree;
             this.beforeValues = beforeValues;
+            this.beforeBuildings = beforeBuildings;
             BeforeFailureFlag = beforeFailureFlag;
             BeforeFailureReason = beforeFailureReason;
             BeforeStartCleanup = beforeStartCleanup;
@@ -71,13 +74,14 @@ namespace ActiveAIVDetector
             byte* root = (byte*)address;
             var timer = Stopwatch.StartNew();
             int[] values = ReadSamples(address);
+            BuildingRecord[] buildings = OraclePrebuildStateCapture.ReadBuildings();
             timer.Stop();
             return new OracleStartStructureCapture(playerId, x, y, orientation, scale,
                 isFree, values,
                 *(int*)(root + FailureOffset), *(int*)(root + FailureReasonOffset),
                 *(int*)(root + StartCleanupOffset),
                 *(int*)(root + DestroyedRecordMarkerOffset),
-                timer.Elapsed.TotalMilliseconds);
+                timer.Elapsed.TotalMilliseconds, buildings);
         }
 
         public OracleStartStructureResult Complete()
@@ -95,6 +99,7 @@ namespace ActiveAIVDetector
             byte* root = (byte*)address;
             var timer = Stopwatch.StartNew();
             var changes = new List<OracleStartTileChange>();
+            var buildingChanges = new List<OraclePrebuildBuildingRecordChange>();
             for (int tileId = 0; tileId < TileCount; tileId++)
             {
                 for (int layer = 0; layer < Layers.Length; layer++)
@@ -115,14 +120,25 @@ namespace ActiveAIVDetector
                 }
             }
 
+            BuildingRecord[] afterBuildings = OraclePrebuildStateCapture.ReadBuildings();
+            if (beforeBuildings == null || beforeBuildings.Length != afterBuildings.Length)
+                throw new InvalidOperationException("The Keep-start building snapshot is incomplete.");
+            for (int spanIndex = 0; spanIndex < beforeBuildings.Length; spanIndex++)
+            {
+                if (!beforeBuildings[spanIndex].Equals(afterBuildings[spanIndex]))
+                    buildingChanges.Add(new OraclePrebuildBuildingRecordChange(
+                        spanIndex + 1, beforeBuildings[spanIndex], afterBuildings[spanIndex]));
+            }
+
             beforeValues = null;
+            beforeBuildings = null;
             timer.Stop();
             return new OracleStartStructureResult(this,
                 *(int*)(root + FailureOffset),
                 *(int*)(root + FailureReasonOffset),
                 *(int*)(root + StartCleanupOffset),
                 *(int*)(root + DestroyedRecordMarkerOffset),
-                changes, timer.Elapsed.TotalMilliseconds);
+                changes, buildingChanges, timer.Elapsed.TotalMilliseconds);
         }
 
         private static int[] ReadSamples(ulong address)
@@ -188,6 +204,7 @@ namespace ActiveAIVDetector
         public OracleStartStructureResult(OracleStartStructureCapture capture,
             int failureFlag, int failureReason, int afterStartCleanup,
             int afterDestroyedRecordMarker, IReadOnlyList<OracleStartTileChange> changes,
+            IReadOnlyList<OraclePrebuildBuildingRecordChange> buildingChanges,
             double afterScanMilliseconds)
         {
             Capture = capture;
@@ -196,6 +213,7 @@ namespace ActiveAIVDetector
             AfterStartCleanup = afterStartCleanup;
             AfterDestroyedRecordMarker = afterDestroyedRecordMarker;
             Changes = changes;
+            BuildingRecordChanges = buildingChanges;
             AfterScanMilliseconds = afterScanMilliseconds;
             int newCells = 0;
             int clearedCells = 0;
@@ -221,6 +239,7 @@ namespace ActiveAIVDetector
         public int AfterStartCleanup { get; }
         public int AfterDestroyedRecordMarker { get; }
         public IReadOnlyList<OracleStartTileChange> Changes { get; }
+        public IReadOnlyList<OraclePrebuildBuildingRecordChange> BuildingRecordChanges { get; }
         public double AfterScanMilliseconds { get; }
         public int NewBuildingCells { get; }
         public int ReplacedBuildingCells { get; }

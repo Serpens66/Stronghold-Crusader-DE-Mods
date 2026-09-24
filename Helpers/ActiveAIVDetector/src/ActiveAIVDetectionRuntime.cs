@@ -529,6 +529,9 @@ namespace ActiveAIVDetector
                         DateTime.Now.ToString("yyyyMMdd-HHmmss-fff", CultureInfo.InvariantCulture),
                         mapLoadSequence, capture.PlayerId, index + 1);
                     string path = Path.Combine(directory, fileName);
+                    string recordFileName = Path.GetFileNameWithoutExtension(fileName) +
+                        ".records.tsv";
+                    string recordPath = Path.Combine(directory, recordFileName);
                     using (var writer = new StreamWriter(path, false, new UTF8Encoding(false)))
                     {
                         writer.WriteLine($"# mapFile={currentMapFileName}");
@@ -562,6 +565,8 @@ namespace ActiveAIVDetector
                         writer.WriteLine($"# beforeScanMilliseconds={capture.BeforeScanMilliseconds.ToString("F3", CultureInfo.InvariantCulture)}");
                         writer.WriteLine($"# afterScanMilliseconds={result.AfterScanMilliseconds.ToString("F3", CultureInfo.InvariantCulture)}");
                         writer.WriteLine($"# changedLayerCells={result.Changes.Count}");
+                        writer.WriteLine($"# changedBuildingRecords={result.BuildingRecordChanges.Count}");
+                        writer.WriteLine($"# buildingRecordTrace={recordFileName}");
                         writer.WriteLine($"# newBuildingCells={result.NewBuildingCells}");
                         writer.WriteLine($"# replacedBuildingCells={result.ReplacedBuildingCells}");
                         writer.WriteLine($"# clearedBuildingCells={result.ClearedBuildingCells}");
@@ -575,12 +580,35 @@ namespace ActiveAIVDetector
                                 change.Before, change.After));
                         }
                     }
+                    using (var writer = new StreamWriter(recordPath, false, new UTF8Encoding(false)))
+                    {
+                        writer.WriteLine($"# mapFileSha256={currentMapFileSha256}");
+                        writer.WriteLine($"# nativeDllSha256={currentNativeFileSha256}");
+                        writer.WriteLine($"# playerId={capture.PlayerId}");
+                        writer.WriteLine($"# keepX={capture.X}");
+                        writer.WriteLine($"# keepY={capture.Y}");
+                        writer.WriteLine($"# nativeOrientation={capture.Orientation}");
+                        writer.WriteLine($"# preBuildSetting={CurrentPreBuildSetting}");
+                        writer.WriteLine($"# selectedCandidateId={(selectionAccepted ? selection.FinalCandidateId.ToString(CultureInfo.InvariantCulture) : "<none>")}");
+                        writer.WriteLine($"# aivJsonSha256={ComputeFileSha256(source?.JsonPath)}");
+                        writer.WriteLine($"# postNativeFailureFlag={result.FailureFlag}");
+                        writer.WriteLine($"# changedBuildingRecords={result.BuildingRecordChanges.Count}");
+                        writer.WriteLine("# selectedFieldsOfFullBuildingRecordArrayComplete=True");
+                        writer.WriteLine("# buildingId is one-based");
+                        writer.WriteLine("buildingId\tphase\taliveState\ttype\towner\tglobalId\tnativeCleanupLinkId\ttileIdBegin\toccupyTileGridSize\ttileX\ttileY");
+                        foreach (OraclePrebuildBuildingRecordChange change in result.BuildingRecordChanges)
+                        {
+                            WriteStartBuildingRecord(writer, change.BuildingId, "before", change.Before);
+                            WriteStartBuildingRecord(writer, change.BuildingId, "after", change.After);
+                        }
+                    }
                     Shared.DebugLogHelper.LogInfo(log,
                         $"Wrote Oracle Keep-start trace: path={path}, playerId={capture.PlayerId}, " +
                         $"selectionAccepted={selectionAccepted}, postFailureFlag={result.FailureFlag}, " +
                         $"postFailureReason={(result.FailureFlag == 0 ? "<not-applicable>" : result.FailureReason.ToString(CultureInfo.InvariantCulture))}, " +
                         $"newBuildings={result.NewBuildingCells}, replacedBuildings={result.ReplacedBuildingCells}, " +
                         $"clearedBuildings={result.ClearedBuildingCells}, changes={result.Changes.Count}, " +
+                        $"changedBuildingRecords={result.BuildingRecordChanges.Count}, " +
                         $"scanMs={capture.BeforeScanMilliseconds + result.AfterScanMilliseconds:F1}.");
                 }
                 Shared.DebugLogHelper.LogInfo(log,
@@ -591,6 +619,17 @@ namespace ActiveAIVDetector
             {
                 ReportStartStructureCaptureFailure(ex);
             }
+        }
+
+        private static void WriteStartBuildingRecord(StreamWriter writer, int buildingId,
+            string phase, BuildingRecord record)
+        {
+            writer.WriteLine(string.Format(CultureInfo.InvariantCulture,
+                "{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\t{8}\t{9}\t{10}",
+                buildingId, phase, record.AliveState, record.Type, record.Owner,
+                record.GlobalId, record.NativeCleanupLinkId,
+                record.TileIdBegin, record.OccupyTileGridSize,
+                record.TileX, record.TileY));
         }
 
         private void ResetForMapTransition(string reason)
@@ -1197,7 +1236,7 @@ namespace ActiveAIVDetector
 
                     writer.WriteLine();
                     writer.WriteLine("# changed building records; buildingId is one-based");
-                    writer.WriteLine("captureFrameNumber\tframeIndex\tmapper\tbuildingId\tphase\talive\ttype\towner\tglobalId\ttileIdBegin\toccupyGridSize\ttileX\ttileY");
+                    writer.WriteLine("captureFrameNumber\tframeIndex\tmapper\tbuildingId\tphase\talive\ttype\towner\tglobalId\tnativeCleanupLinkId\ttileIdBegin\toccupyGridSize\ttileX\ttileY");
                     foreach (OraclePrebuildFrameTraceSnapshot frame in frames)
                     {
                         foreach (OraclePrebuildBuildingRecordChange change in frame.BuildingRecordChanges)
@@ -1245,9 +1284,10 @@ namespace ActiveAIVDetector
             BuildingRecord record)
         {
             writer.WriteLine(string.Format(CultureInfo.InvariantCulture,
-                "{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\t{8}\t{9}\t{10}\t{11}\t{12}",
+                "{0}\t{1}\t{2}\t{3}\t{4}\t{5}\t{6}\t{7}\t{8}\t{9}\t{10}\t{11}\t{12}\t{13}",
                 frame.CaptureFrameNumber, frame.FrameIndex, frame.Mapper, buildingId,
                 phase, record.AliveState, record.Type, record.Owner, record.GlobalId,
+                record.NativeCleanupLinkId,
                 record.TileIdBegin, record.OccupyTileGridSize, record.TileX, record.TileY));
         }
 

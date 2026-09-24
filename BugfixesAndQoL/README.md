@@ -4,6 +4,9 @@ BugfixesAndQoL fixes several problems in Stronghold Crusader Definitive Edition 
 
 ## Fixes
 
+### Restore the tannery rack fade
+The enabled-by-default host fix makes the tannery rack animation fade in smoothly instead of remaining almost invisible during its first phase.
+
 ### Optional baker and miller breaks
 The off-by-default host option under **Fixes?** lets bakers and all three mill workers occasionally take a positive-fear break after delivering bread or flour, even when more ingredients are available. It uses the game's existing break decision and destination. This Vanilla difference may be intentional, so the option is separate from the established fixes. Wheat and hops farmers retain their Vanilla behavior.
 

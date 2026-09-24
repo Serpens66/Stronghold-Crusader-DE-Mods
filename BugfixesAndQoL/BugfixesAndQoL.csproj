@@ -8,8 +8,8 @@
     <OutputType>Library</OutputType>
     <RootNamespace>BugfixesAndQoL</RootNamespace>
     <AssemblyName>BugfixesAndQoL</AssemblyName>
-    <AssemblyVersion>1.0.161.0</AssemblyVersion>
-    <FileVersion>1.0.161.0</FileVersion>
+    <AssemblyVersion>1.0.162.0</AssemblyVersion>
+    <FileVersion>1.0.162.0</FileVersion>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -50,6 +50,7 @@
     <Reference Include="RedBird.Abstractions"><HintPath>$(ExtenderDir)\RedBird.Abstractions.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="RedBird.Core"><HintPath>$(ExtenderDir)\RedBird.Core.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="RedBird.X64"><HintPath>$(ExtenderDir)\RedBird.X64.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="RedBird.Backends.NativeX64"><HintPath>$(ExtenderDir)\RedBird.Backends.NativeX64.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Iced"><HintPath>$(ExtenderDir)\Iced.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Microsoft.Extensions.Logging.Abstractions"><HintPath>$(ExtenderDir)\Microsoft.Extensions.Logging.Abstractions.dll</HintPath><Private>false</Private></Reference>
   </ItemGroup>
@@ -189,6 +190,8 @@
     <Compile Include="src\NativeFormationSlots.cs" />
     <Compile Include="src\NativeMovementCadenceResolver.cs" />
     <Compile Include="src\NativeMovementRecovery.cs" />
+    <Compile Include="src\NativeTannerFade.cs" />
+    <Compile Include="src\NativeTannerFadeState.cs" />
     <Compile Include="src\NotificationQueueNativeContract.cs" />
     <Compile Include="src\NotificationSkipBehavior.cs" />
     <Compile Include="src\NotificationSkipFeature.cs" />

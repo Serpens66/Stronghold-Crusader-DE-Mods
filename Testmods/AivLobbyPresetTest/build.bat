@@ -16,7 +16,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%tests\Test
 if errorlevel 1 goto failed
 "%MSBUILD%" "%PROJECT_DIR%tests\AivLobbyPresetTest.Tests.csproj" /p:Configuration=Debug
 if errorlevel 1 goto failed
-"%PROJECT_DIR%tests\bin\AivLobbyPresetTest.Tests.exe" "%PROJECT_DIR%CraterLakePreset.json" "%PROJECT_DIR%AivLobbyTestSeries.json" "%PROJECT_DIR%AivLobbyFullMapProbeSeries.json" "%PROJECT_DIR%AivLobbyCrater180ProbeSeries.json" "%PROJECT_DIR%AivLobbySixMatchSeries.json" "%PROJECT_DIR%AivLobbyMultiAivSeries.json"
+"%PROJECT_DIR%tests\bin\AivLobbyPresetTest.Tests.exe" "%PROJECT_DIR%CraterLakePreset.json" "%PROJECT_DIR%AivLobbyTestSeries.json" "%PROJECT_DIR%AivLobbyFullMapProbeSeries.json" "%PROJECT_DIR%AivLobbyCrater180ProbeSeries.json" "%PROJECT_DIR%AivLobbySixMatchSeries.json" "%PROJECT_DIR%AivLobbyMultiAivSeries.json" "%PROJECT_DIR%AivLobbyConnectedRecordProbeSeries.json" "%PROJECT_DIR%AivLobbyStartRebuildRegressionSeries.json"
 if errorlevel 1 goto failed
 "%MSBUILD%" "%PROJECT_DIR%AivLobbyPresetTest.csproj" /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
 if errorlevel 1 goto failed

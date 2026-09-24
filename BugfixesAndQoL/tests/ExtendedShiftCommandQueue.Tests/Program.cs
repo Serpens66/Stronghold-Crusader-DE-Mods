@@ -1487,7 +1487,7 @@ internal static class Program
             bugfixesRuntime.Contains("new DetourHandle<") &&
             bugfixesRuntime.Contains("HookTarget.FromAddress("),
             "integrated moat runtime retains typed RedBird hooks");
-        Check(!bugfixesRuntime.Contains("Zhuqiaomon") && !bugfixesRuntime.Contains("NativeDetour") &&
+        Check(!bugfixesRuntime.Contains("Zhuqiaomon") && !bugfixesRuntime.Contains("PolyHook") &&
             !bugfixesRuntime.Contains(".Hook.Trampoline"), "integrated moat runtime has no legacy hook API");
         Check(bugfixesProject.Contains("RedBird.Abstractions.dll") && bugfixesProject.Contains("RedBird.Core.dll") &&
             bugfixesProject.Contains("RedBird.X64.dll") && !bugfixesProject.Contains("Zhuqiaomon.dll"),

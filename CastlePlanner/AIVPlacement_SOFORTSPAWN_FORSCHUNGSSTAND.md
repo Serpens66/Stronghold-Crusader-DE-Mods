@@ -956,3 +956,187 @@ beweist nichts über alternative zufällige Starts oder verbundene
 Record-Räumung. Eine Freigabe auf Basis dieses einzelnen Ablaufs wäre
 unsicher. Die Lobby unterscheidet künftig ausdrücklich zwischen
 unbewiesenem Startzustand und tatsächlich verschiedenen Fit-Ergebnissen.
+
+## 2026-09-24: gezielte Record-Räumungsmessung vorbereitet
+
+Die neue zweistufige Serie `CC-A-on`, `CC-B-on` auf Craggy Cliffs nutzt
+unveränderte, bereits hashgeprüfte Aufstellungen. Bei beiden Aufstellungen
+zeigten frühere Traces gelöschte Gebäudezellen. Der Detector vergleicht
+jetzt zusätzlich vor und nach jedem KI-Keep-Start die ausgewählten Felder
+aller nativen Gebäuderecords. Zusammen mit den vollständigen Tile-Diffs,
+Global-IDs und Start-Statusflags soll dies die Wirkung des nativen Pfads
+`0x74DA0 -> 0x5D3A0 -> 0xC4290 -> 0xB8310` eingrenzen. Native-Hash:
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+Das ist eine vorbereitete Messung, noch kein Beleg für eine allgemeine
+Schreibgrenze oder einen Abbruchvertrag. Der genaue Ablauf steht in
+`Diagnostics/AivSeries-20260924/ConnectedRecordProbeSetup/TEST_PLAN.md`.
+
+## 2026-09-24: Ergebnis der Record-Räumungsmessung
+
+`CC-A-on` und `CC-B-on` wurden vollständig aufgenommen; ein dritter
+Kartenstart wiederholte `CC-B-on`. Die 24 Start- und 20 Sofortbau-Traces
+sind vollständig und ohne Snapshot-, Pointer- oder Start-Fehlerflag.
+Von 50 Native-Fit-Versuchen stimmen drei exakt mit dem Offline-Kern
+überein, 47 bleiben bewusst grau; es gibt keine Abweichung. Rohdaten,
+Datei-Hashes und Zell-/Record-Belege stehen unter
+`Diagnostics/AivSeries-20260924/ConnectedRecordProbeResults/RESULTS.md`.
+
+Der entscheidende Native-Befund am Hash
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`:
+Die Kollisionsräumung `0x5D3A0` verwendet bei Typ 41 feste Offsets für
+Lager und Yard, ohne die gewählte Keep-Drehung zu erhalten. Der spätere
+Bau `0x74DA0` verwendet hingegen gedrehte Offsets. Bei Keep `(506,357)`
+und Drehwert 2 traf die feste 7x7-Lagerfläche ab `(506,365)` zwei Zellen
+eines bereits vorhandenen 4x4-Gebäudes. Daraufhin entfernte Vanilla alle
+16 Zellen des Gebäudes, auch die außerhalb des neuen gedrehten
+Startkomplexes. Die Wiederholung zeigte dieselbe Wirkung. Vertrauensgrad:
+hoch für diesen Native-Zweig und beide beobachteten Abläufe.
+
+Die verbundene Record-Räumung gruppiert über
+`GameBuilding.r_UsedInSiegeAttemptId` bei Struct-Offset `0x2A8`
+der **installierten** Script-Extender-DLL 2.9.0, **nicht** über
+`r_GlobalId` bei `0xD8`. Der lokale C#-Interop-Quellcode bei Commit
+`70a4483` stimmt damit überein; nur der ältere Reverse-Engineering-Header
+`GameBuildingManager.h` bezeichnet `0x2A8` noch als `N0000178A`.
+Die aktuelle Diagnose speicherte nur
+`r_GlobalId` und kann somit keine beliebigen verbundenen Gruppen
+abgrenzen. Der konservative `StartOverlapUnproven`-Schutz umfasst den
+beobachteten Auslöser und bleibt bestehen. Es trat kein Startabbruch auf;
+dessen Zweige sowie die Reichweite nicht beobachteter Record-Gruppen
+sind weiterhin offen. Eine zusätzliche farbige Freigabe wäre anhand
+dieser Messung nicht exakt belegt.
+
+## 2026-09-24: Cleanup-Link-Folgeprobe vorbereitet
+
+Der installierte Detector erfasst jetzt zusätzlich das native
+Record-Feld bei `GameBuilding`-Offset `0x2A8` als
+`nativeCleanupLinkId`. Der Member heißt in der installierten
+Script-Extender-DLL 2.9.0 `r_UsedInSiegeAttemptId`; Typ `UInt32`,
+Structgröße 812 Byte. Der alte Trace bleibt unverändert archiviert.
+Eine vierteilige Craggy-Cliffs-Serie (`CC-A-off/on`, `CC-B-off/on`)
+ist mit Fortschritt 0 vorbereitet; Testanleitung unter
+`Diagnostics/AivSeries-20260924/CleanupLinkProbeSetup/TEST_PLAN.md`.
+Sie soll die bisher nicht aufgezeichnete Gruppen-ID gegen konkrete
+Start-Räumungen und den Sofortbau vergleichen. Bis zu dieser Auswertung
+bleibt der breite Produktionsschutz unverändert.
+
+## 2026-09-24: Ergebnis der Cleanup-Link-Folgeprobe
+
+Die vier geplanten Craggy-Cliffs-Läufe wurden bestätigt. Vier weitere
+Starts nach Serienende wiederholten `CC-B-on` ohne Preset-Übernahme und
+werden getrennt gezählt. Insgesamt sind 64 Keep-Starttraces und 41
+Sofortbau-Traces vollständig. Von 125 Native-Fits sind 21 exakt und 104
+bewusst `NotEvaluable`; es gibt keine Abweichung oder Vergleichsfehler.
+Alle Zellen-, Record- und Eingabedateien samt Hashes liegen unter
+`Diagnostics/AivSeries-20260924/CleanupLinkProbeResults/RESULTS.md`.
+Native-DLL-Hash weiterhin
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+
+Ohne Sofortspawn überschrieb keiner der geplanten Keep-Starts einen
+zuvor lebenden Gebäuderecord. Mit Sofortspawn räumte `CC-A-on` bei
+Spieler 5 drei alte Record-Slots und 60 Gebäudezellen. Nur der alte
+Typ-46-Record hatte einen nichtnullen Cleanup-Linkwert; ein durch
+denselben Wert zusätzlich gelöschter Begleitrecord wurde nicht
+beobachtet. `CC-B-on` räumte bei Spieler 7 einen alten Record mit
+Linkwert null und dessen 16 Zellen; vier Wiederholungen bestätigten
+dies. Der erfolgreiche Keep-Bau nach einer nicht akzeptierten
+AIV-Auswahl zeigt erneut: Auswahlfehler und Konstruktorabbruch sind
+getrennte Zustände. Sämtliche tatsächlichen Konstruktor-Fehlerflags
+blieben null.
+
+Die Karte enthält zwar serialisierte Gebäuderecords, aus denen der
+Linkwert `0x2A8` offline lesbar wäre. Das genügt noch nicht, um
+zufallsabhängige frühere Startkonstruktionen und dynamische
+Sofortbau-Records für **alle** möglichen AIVs nachzubilden. Der
+breite `StartOverlapUnproven`-Schutz bleibt daher bestehen; es wird
+kein zusätzliches späteres Fit-Ergebnis freigegeben. Vertrauensgrad:
+hoch für diese ausgeführten Fälle, offen für verbundene Mehrfachlöschung
+und Startabbruch. Als Nächstes sind `0xB8310`/`0x61FC0` und die
+serialisierten Linkgruppen statisch vollständig auf eine mögliche
+Schreibgrenze zu prüfen. Erst ein daraus abgeleiteter unbelegter
+Zweig rechtfertigt neue Spieltests.
+
+Die serialisierte Gebäudesektion 4013 von Craggy Cliffs wurde zusätzlich
+offline dekodiert: 72 lebende Startrecords, neun je Spieler. Die fünf
+Keep-/Lager-/verknüpften Records teilen pro Besitzer einen nichtnullen
+Wert an Offset `0x2A8`, die vier Yard-Records einen zweiten. Damit ist
+die **anfängliche** Gruppenmitgliedschaft aus der `.map` lesbar. Die
+später durch eine AIV-Auswahl und „Completed Castles“ erzeugten
+Records sind darin nicht enthalten. Auch diese Karte allein liefert
+also noch keine allgemeine sequenzielle Bauzustandsrekonstruktion.
+
+Der anschließende statische Abgleich mit derselben installierten DLL
+bestätigt: `0xC43A0` merkt sich den Linkwert bei nativem Record-Offset
+`+0x304`, entfernt den Ausgangsrecord mit `0xB8310` und durchsucht
+danach alle lebenden Records nach demselben Wert. Deren Löschung führt
+jeweils über `0x61FC0` in typabhängige Kachel-, Pfad- und
+Darstellungsänderungen. Sonderzweige betreffen unter anderem die Typen
+10, 30–33, 49, 69 und 80–84. Die initialen Linkgruppen aus der `.map`
+sind damit belegbar, aber die fitrelevante Schreibgrenze aller
+Typzweige und dynamisch gebauter Records noch nicht. Vertrauensgrad:
+hoch für direkten Kontrollfluss und Feldoffsets, unvollständig für die
+gesamte räumliche Änderungsgrenze. Deshalb keine zusätzliche farbige
+Freigabe aus dieser Messreihe.
+
+Da die normalen Craggy-Cliffs-Starts auch mit dem neuen Linkfeld keine
+Mehrfachlöschung auslösten, ist eine vierteilige, gezielte Folgeserie
+auf der bereits archivierten Karte `test AI overbuild eachother.map`
+vorbereitet. Zwei KI-Reihenfolgen werden jeweils mit Sofortspawn aus
+und an geprüft. Karte, fünf Keep-Slots, eingebaute Default-AIVs und
+Fortschritt sind vorab validiert; die installierte Testserie hat
+`nextIndex: 0`. Details:
+`Diagnostics/AivSeries-20260924/DenseStartLinkSetup/TEST_PLAN.md`.
+Diese Serie prüft gezielt verbundene Startgruppen und einen möglichen
+Konstruktorabbruch; die bisherige konservative Produktionsgrenze bleibt
+bis zur zellweisen Auswertung erhalten.
+
+## 2026-09-24: Dichte Startplätze ausgewertet
+
+Alle vier vorbereiteten Läufe auf `test AI overbuild eachother.map`
+wurden bestätigt; zwei spätere Kartenstarts wiederholten ohne
+Preset-Übernahme den vierten Lauf. Der Native-Hash blieb
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+Die 30 Keep-Starttraces und acht Sofortbau-Traces sind vollständig.
+Von 74 nativen Fits stimmen sechs exakt mit dem Offline-Kern überein;
+68 bleiben bewusst `NotEvaluable`, null weichen ab. Details und
+Prüfsummen:
+`Diagnostics/AivSeries-20260924/DenseStartLinkResults/RESULTS.md`.
+
+Die `.map` enthält 45 zunächst lebende, nichtnull verknüpfte
+Startrecords. Beim ersten KI-Fit enthält das vollständige Live-Raster
+jedoch nur die neun Records des menschlichen Startkomplexes: Die
+serialisierten KI-Gruppen sind davor bereits entfernt worden. Von
+279 während der beobachteten Keep-Aufrufe geänderten Record-Slots
+waren 65 zuvor lebendig; keiner davon hatte einen nichtnullen
+Linkwert. Neun Typ-67-Records wurden bei einem Vorwärtslauf mit
+Sofortspawn und dessen zwei Wiederholungen vollständig gelöscht.
+Alle neun hatten Linkwert null. Kein Startabbruch trat auf.
+
+Damit belegen die Läufe tatsächliche Räumung bei nahen KI-Starts,
+aber weder die zusätzliche Mehrfachlöschung über `0xC43A0` noch
+die räumliche Wirkung der früheren Kartenstart-Normalisierung.
+Die 373 installierten Karten wurden auf wählbare Keep-Abstände
+untersucht; diese Spezialkarte hat mit 24,76 Kacheln bereits das
+engste Paar. Identische Wiederholungen liefern für die offene
+Gruppenregel keinen weiteren Beleg. Vertrauensgrad: hoch für
+beobachtete Traces, offen für den nicht ausgelösten nativen Zweig.
+Die produktive `StartOverlapUnproven`-Grenze bleibt deshalb erhalten.
+
+Der erneute Native-Abgleich zeigt zudem bei `0x94350` zwei getrennte
+Schleifen: Zuerst werden die serialisierten Startrecords der
+konfigurierten Spieler über `0xC43A0` abgetragen, danach folgen
+KI-Auswahl und Startbau. Elf graue Fälle der dichten Karte nennen
+noch eine `source tile` aus einer solchen bereits entfernten
+KI-Gruppe als möglichen Kollisionsauslöser. Building-ID 10 ist zum
+Beispiel in der Karte ein Typ-41-Record von Spieler 2 mit Linkwert
+11, fehlt aber beim ersten KI-Fit im vollständigen Live-Raster.
+Neun weitere graue Fälle betreffen dagegen echte rekonstruierte
+frühere Starts; 48 sind wegen vorausgegangenem Sofortbau gesperrt.
+Eine spätere Korrektur kann die bereits entfernten Source-Records
+aus der Kollisionsauslöserprüfung nehmen. Sie darf dadurch noch
+keinen Fit automatisch freigeben: Der kandidatenbezogene Guard und
+alle möglichen vorherigen Startzustände müssen weiterhin geprüft
+werden. Wegen des parallel laufenden Script-Extender-Updates wurde
+diese Runtime-Änderung noch nicht eingebaut. Vertrauensgrad: hoch
+für Native-Reihenfolge und ersten Live-Zustand, offen für mögliche
+vorherige Startausgänge.

@@ -80,6 +80,7 @@ namespace BugfixesAndQoL
         private static CorruptLordDataSpawnRuntime processCorruptLordDataSpawnRuntime;
         private static AIPreplacedBuildingFixRuntime processAIPreplacedBuildingFixRuntime;
         private static WorkerBreakPauseHook processWorkerBreakPauseHook;
+        private static NativeTannerFade processNativeTannerFade;
         private static bool workerBreakTickSubscribed;
         private static bool workerBreakTickLogged;
         private CtrlMarketTradeHook ctrlMarketTradeHook;
@@ -291,6 +292,9 @@ namespace BugfixesAndQoL
                 "Keep-flag rotation fix",
                 EnsureKeepFlagRotationRuntime);
             TryInitializePersistentFeature(
+                "tannery animation fade fix",
+                () => EnsureNativeTannerFade(context));
+            TryInitializePersistentFeature(
                 "corrupt Lord-data spawn fix",
                 EnsureCorruptLordDataSpawnRuntime);
             TryInitializePersistentFeature(
@@ -430,6 +434,8 @@ namespace BugfixesAndQoL
 
         public void ApplySettings()
         {
+            processNativeTannerFade?.SetEnabled(
+                settings.EnableMod && settings.EnableTanneryAnimationFix);
             TryApplyFeature("Trail Customize buttons", trailCustomizationFeature.RefreshVisibility);
             TryApplyFeature("Coop custom-lord selection", coopCustomLordSelectionFeature.ApplySetting);
             TryApplyFeature("moved feature settings", ApplyMovedFeatureSettings);
@@ -548,6 +554,15 @@ namespace BugfixesAndQoL
             var candidate = new KeepFlagRotationRuntime(log, settings);
             candidate.Install();
             processKeepFlagRotationRuntime = candidate;
+        }
+
+        private void EnsureNativeTannerFade(CrusaderLibraryLoadContext context)
+        {
+            if (processNativeTannerFade != null)
+                return;
+
+            processNativeTannerFade = new NativeTannerFade(log, context,
+                settings.EnableMod && settings.EnableTanneryAnimationFix);
         }
 
         private void EnsureCorruptLordDataSpawnRuntime()

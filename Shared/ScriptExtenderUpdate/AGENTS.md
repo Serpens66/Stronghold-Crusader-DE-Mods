@@ -1,6 +1,7 @@
 # Script-Extender-Update-Regeln
 
 - Zielversion, Tag, Commit, Tree und installierte Assembly für jeden Lauf dynamisch prüfen. Diese flüchtigen Werte nicht als allgemeine Zielversion in die Root-`AGENTS.md` übernehmen.
+- Vor einer Modänderung alle verwendeten Extender-Interop-Member gegen die tatsächlich ausgewählte `SHCDESE.dll` prüfen: Existenz, Typ, `Marshal.OffsetOf`, bei Pointer-/Span-Zugriffen Structgröße und Stride. Den aufgelösten Build-`HintPath` belegen. Installierte Binary und passende C#-Interop-Quelle haben für den Runtimevertrag Vorrang vor `ReverseEngineering/structs/*.h` und historischen Baselines. Widersprüche mit Hash und Commit dokumentieren und fail-closed klären; weder gleicher Versionsstring noch erfolgreicher Build ersetzen diese Prüfung.
 - Historische Versionsidentitäten gehören ausschließlich in hash- beziehungsweise commitgebundene Kompatibilitätspläne, Auditberichte und Baseline-Provenienz.
 - Vor jeder Manifest- oder Quellmutation den Runtime- und Release-Hook-Präflight vollständig ausführen. Native Änderungen am Script Extender benötigen einen passenden releaseweiten Hook-Audit; unbekannte Überschneidungen müssen fail-closed abbrechen.
 - Den Baseline-Ausgangscommit aus der semantischen `IDENTITY.json` lesen und im `ImpactReview` festhalten; `OldTag` ist keine Ersatzprovenienz.

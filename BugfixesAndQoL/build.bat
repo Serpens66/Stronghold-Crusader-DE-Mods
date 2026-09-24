@@ -47,6 +47,14 @@ if not exist "%API_SHARED_DIR%\APIShared.dll" goto build_failed
 pushd "%PROJECT_DIR%"
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-RuntimePreflight.ps1"
 if errorlevel 1 goto build_failed_popd
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-TannerFadePreflight.ps1"
+if errorlevel 1 goto build_failed_popd
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared\Test-PermanentNativeRuntimePatches.ps1"
+if errorlevel 1 goto build_failed_popd
+"%MSBUILD%" tests\TannerFade.Tests\TannerFade.Tests.csproj /p:Configuration=Release
+if errorlevel 1 goto build_failed_popd
+"%PROJECT_DIR%tests\TannerFade.Tests\bin\TannerFade.Tests.exe"
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 "%MSBUILD%" tests\WorkerBreakPause.Tests\WorkerBreakPause.Tests.csproj /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
 if errorlevel 1 goto build_failed_popd
 "%PROJECT_DIR%tests\WorkerBreakPause.Tests\bin\WorkerBreakPause.Tests.exe" "%GAME_DIR%\Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll"
