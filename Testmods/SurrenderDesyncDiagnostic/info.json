@@ -1,0 +1,11 @@
+{
+  "GUID": "SurrenderDesyncDiagnostic_Serp",
+  "Author": "Serpens66",
+  "Name": "Surrender Desync Diagnostic",
+  "Description": "Read-only local host/client diagnostics for lord death, surrender and resync.",
+  "Version": "0.1.0",
+  "MinimumScriptExtenderVersion": "2.10.0",
+  "MaximumScriptExtenderVersion": "",
+  "Manifest": 1,
+  "NetworkMode": 0
+}

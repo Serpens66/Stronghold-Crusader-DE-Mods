@@ -11,6 +11,7 @@ using CrusaderDE;
 using Iced.Intel;
 using RedBird.X64.Hooks;
 using SHCDESE.Interop;
+using SurrenderDesyncDiagnostic;
 
 namespace BugfixesAndQoL
 {
@@ -405,10 +406,13 @@ namespace BugfixesAndQoL
                   assassin.Contains("catch (OverflowException)") &&
                   assassin.Contains("selectionCountTransient || expectedSelectedCount > 0"),
                 "transient dead-unit and invalid selection states remain local fail-closed HUD rejections");
-            Check(resync.Contains("RESYNC_STATE_CHANGED") &&
-                  migration.Contains("RESYNC_CHORE_OUTGOING") &&
-                  migration.Contains("opcode == 54 || opcode == 67"),
-                "resync diagnostics observe state transitions and outgoing start/end Chores");
+            string diagnostic = File.ReadAllText(Path.Combine("..", "TestMods",
+                "SurrenderDesyncDiagnostic", "src", "SurrenderDesyncDiagnosticRuntime.cs"));
+            Check(resync.Contains("SurrenderDiagnosticBridge.PublishResync(") &&
+                  migration.Contains("SurrenderDiagnosticBridge.PublishChores(choreBuffer)") &&
+                  diagnostic.Contains("RESYNC_STATE_CHANGED") &&
+                  diagnostic.Contains("RESYNC_CHORE_OUTGOING"),
+                "resync diagnosis is observed in the test mod through the optional bridge");
         }
 
         private static void TestFriendlyMoatCursorIdGuard()
@@ -462,9 +466,14 @@ namespace BugfixesAndQoL
             for (int tick = 0; tick < 35; tick++)
                 history.AddBuffer(BuildChoreRecord(1, new byte[] { 1 }), tick, out _, out _);
             string[] retained = history.GetBuffers();
-            Check(retained.Length == 32 && retained[0].StartsWith("tick=3,", StringComparison.Ordinal) &&
-                  retained[31].StartsWith("tick=34,", StringComparison.Ordinal),
-                "resync Chore history is a 32-buffer ring");
+            Check(retained.Length == 35 && retained[0].StartsWith("tick=0,", StringComparison.Ordinal) &&
+                  retained[34].StartsWith("tick=34,", StringComparison.Ordinal),
+                "resync Chore history retains the recent buffers");
+            string terminated = ResyncDiagnosticHistory.DescribeBuffer(
+                BuildChoreBuffer(BuildChoreRecord(1, new byte[] { 54 }), BitConverter.GetBytes(-1)),
+                406, out _, out _);
+            Check(terminated.Contains("terminator=-1") && !terminated.Contains("malformed="),
+                "normal -1 Chore terminator is not classified as malformed");
 
             Check(history.ObserveAnchor(7, 100) &&
                   history.TakeDueCheckpointOffsets(100).SequenceEqual(new[] { 0 }) &&

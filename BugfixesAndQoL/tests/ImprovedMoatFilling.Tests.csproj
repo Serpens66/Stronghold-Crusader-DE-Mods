@@ -74,7 +74,7 @@
     <Compile Include="..\src\StartupUiReadinessGuardPolicy.cs"><Link>StartupUiReadinessGuardPolicy.cs</Link></Compile>
     <Compile Include="..\src\StartupUiReadinessGuardIlContract.cs"><Link>StartupUiReadinessGuardIlContract.cs</Link></Compile>
     <Compile Include="..\src\ResolutionAwareZoomPolicy.cs"><Link>ResolutionAwareZoomPolicy.cs</Link></Compile>
-    <Compile Include="..\src\ResyncDiagnosticHistory.cs"><Link>ResyncDiagnosticHistory.cs</Link></Compile>
+    <Compile Include="..\..\TestMods\SurrenderDesyncDiagnostic\src\ResyncDiagnosticHistory.cs"><Link>ResyncDiagnosticHistory.cs</Link></Compile>
     <Compile Include="..\src\SurrenderPolicy.cs"><Link>SurrenderPolicy.cs</Link></Compile>
     <Compile Include="..\src\LocalPerPlayerSetting.cs"><Link>LocalPerPlayerSetting.cs</Link></Compile>
     <Compile Include="..\src\NotificationQueueNativeContract.cs"><Link>NotificationQueueNativeContract.cs</Link></Compile>

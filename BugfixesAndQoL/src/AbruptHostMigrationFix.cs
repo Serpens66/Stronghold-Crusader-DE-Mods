@@ -47,7 +47,6 @@ namespace BugfixesAndQoL
         private readonly MultiplayerFeatureGate multiplayerFeatureGate;
         private readonly MethodInfo promoteNewHostMethod;
         private readonly HashSet<int> recoveryTargets = new HashSet<int>();
-        private readonly ResyncDiagnosticHistory resyncDiagnostics = new ResyncDiagnosticHistory();
         private Hook kickHook;
         private Hook sendChoresHook;
         private Hook startMultiplayerGameHook;
@@ -132,7 +131,6 @@ namespace BugfixesAndQoL
         internal void ResetMapState()
         {
             ResetRecoveryState();
-            resyncDiagnostics.Reset();
         }
 
         private void ResetRecoveryState()
@@ -209,7 +207,7 @@ namespace BugfixesAndQoL
 
             try
             {
-                ObserveOutgoingResyncDiagnostics(choreBuffer);
+                SurrenderDiagnosticBridge.PublishChores(choreBuffer);
                 ObserveRecoverySaveChores(choreBuffer);
             }
             catch (Exception ex)
@@ -218,110 +216,6 @@ namespace BugfixesAndQoL
                     log,
                     $"Connection-recovery save Chore observation failed; the 30-second fail-open timeout remains active: {ex}");
             }
-        }
-
-        private void ObserveOutgoingResyncDiagnostics(byte[] choreBuffer)
-        {
-            int tick = GameTimeManagerAPI.Instance?.GetElapsedMapTicks() ?? -1;
-            if (SurrenderFeature.TryGetResyncDiagnosticAnchor(out long generation, out int surrenderTick))
-            {
-                resyncDiagnostics.ObserveAnchor(generation, surrenderTick);
-                foreach (int checkpointOffset in resyncDiagnostics.TakeDueCheckpointOffsets(tick))
-                {
-                    string snapshot = CaptureResyncSnapshot(surrenderTick, checkpointOffset, tick);
-                    resyncDiagnostics.AddSnapshot(snapshot);
-                    Shared.DebugLogHelper.LogInfo(log, "RESYNC_CHECKPOINT: " + snapshot);
-                }
-            }
-
-            resyncDiagnostics.AddBuffer(choreBuffer, tick, out bool containsStart, out bool containsEnd);
-            if (containsStart || containsEnd)
-            {
-                int localPlayerId = GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? -1;
-                if (containsStart)
-                    LogOutgoingResyncChore(54, tick, localPlayerId);
-                if (containsEnd)
-                    LogOutgoingResyncChore(67, tick, localPlayerId);
-            }
-
-            if (containsStart && resyncDiagnostics.TryClaimStartDump())
-                DumpResyncDiagnostics(tick);
-        }
-
-        private void LogOutgoingResyncChore(int opcode, int tick, int localPlayerId)
-        {
-            if (opcode == 54 || opcode == 67)
-            {
-                Shared.DebugLogHelper.LogInfo(
-                    log,
-                    $"RESYNC_CHORE_OUTGOING: opcode={opcode}, isHost={GameNetworkAPI.IsLocalHost()}, " +
-                    $"tick={tick}, localPlayerId={localPlayerId}, " +
-                    SurrenderFeature.CaptureResyncDiagnostic() + ".");
-            }
-        }
-
-        private void DumpResyncDiagnostics(int tick)
-        {
-            Shared.DebugLogHelper.LogInfo(
-                log,
-                $"RESYNC_DIAGNOSTIC_DUMP_BEGIN: firstOpcode54Tick={tick}, " +
-                SurrenderFeature.CaptureResyncDiagnostic() + ".");
-            foreach (string buffer in resyncDiagnostics.GetBuffers())
-                Shared.DebugLogHelper.LogInfo(log, "RESYNC_CHORE_HISTORY: " + buffer);
-            foreach (string snapshot in resyncDiagnostics.GetSnapshots())
-                Shared.DebugLogHelper.LogInfo(log, "RESYNC_SNAPSHOT_HISTORY: " + snapshot);
-            Shared.DebugLogHelper.LogInfo(log, "RESYNC_DIAGNOSTIC_DUMP_END.");
-        }
-
-        private static string CaptureResyncSnapshot(
-            int surrenderTick,
-            int checkpointOffset,
-            int actualTick)
-        {
-            GamePlayerManagerAPI playerApi = GamePlayerManagerAPI.Instance;
-            GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
-            int[] alivePlayerIds = playerApi?.GetAlivePlayerIds() ?? Array.Empty<int>();
-            Array.Sort(alivePlayerIds);
-            var lordRows = new List<string>(8);
-            for (int playerId = 1; playerId <= 8; playerId++)
-            {
-                int lordUnitId = playerApi?.GetLordUnitId(playerId) ?? -1;
-                if (lordUnitId > 0 &&
-                    unitApi != null &&
-                    unitApi.TryGetUnitById(lordUnitId, out GameUnit* lord) &&
-                    lord != null)
-                {
-                    lordRows.Add(
-                        $"{playerId}:unit={lordUnitId},global={lord->r_GlobalId},alive={(int)lord->r_AliveState}");
-                }
-                else
-                {
-                    lordRows.Add($"{playerId}:unit={lordUnitId},global=-1,alive=missing");
-                }
-            }
-
-            string peerState =
-                $"alivePlayers=[{string.Join(",", alivePlayerIds)}],lords=[{string.Join(";", lordRows)}]";
-            EngineInterface.PlayState localState = GameData.Instance?.lastGameState;
-            int selectedCount = localState?.numSelectedChimps ?? -1;
-            string localUiState =
-                $"localPlayer={playerApi?.GetLocalPlayerId() ?? -1},spectator={localState?.spectatorMode ?? -1}," +
-                $"selectedCount={selectedCount},selectedIds={CaptureSelectedIds(localState, selectedCount)}";
-            return
-                $"surrenderTick={surrenderTick},offset={checkpointOffset},actualTick={actualTick}," +
-                $"peerSha256={ResyncDiagnosticHistory.ComputeSha256(peerState)},peerState=[{peerState}]," +
-                $"localUi=[{localUiState}]";
-        }
-
-        private static string CaptureSelectedIds(EngineInterface.PlayState state, int selectedCount)
-        {
-            if (state?.selectedChimps == null || selectedCount <= 0)
-                return "[]";
-            int count = Math.Min(Math.Min(selectedCount, state.selectedChimps.Length), 16);
-            int[] ids = new int[count];
-            Array.Copy(state.selectedChimps, ids, count);
-            string suffix = selectedCount > count ? ",..." : string.Empty;
-            return "[" + string.Join(",", ids) + suffix + "]";
         }
 
         private bool TryDelayNativeLagKick(

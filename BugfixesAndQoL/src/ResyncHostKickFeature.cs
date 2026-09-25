@@ -144,34 +144,9 @@ namespace BugfixesAndQoL
                 return;
 
             int tick = GameTimeManagerAPI.Instance?.GetElapsedMapTicks() ?? -1;
-            GamePlayerManagerAPI playerApi = GamePlayerManagerAPI.Instance;
-            int localPlayerId = playerApi?.GetLocalPlayerId() ?? -1;
-            int lordUnitId = localPlayerId >= 1 && localPlayerId <= 8
-                ? playerApi.GetLordUnitId(localPlayerId)
-                : -1;
-            EngineInterface.PlayState state = GameData.Instance?.lastGameState;
-            int selectedCount = state?.numSelectedChimps ?? -1;
-            string selectedIds = CaptureSelectedIds(state, selectedCount);
-            Shared.DebugLogHelper.LogInfo(
-                log,
-                $"RESYNC_STATE_CHANGED: previous={previous}, current={current}, " +
-                $"isHost={GameNetworkAPI.IsLocalHost()}, tick={tick}, localPlayerId={localPlayerId}, " +
-                $"lordUnitId={lordUnitId}, selectedCount={selectedCount}, selectedIds={selectedIds}, " +
-                $"section={multiplayer.resyncingCurrentSection}, layer={multiplayer.resyncingCurrentLayer}, " +
-                SurrenderFeature.CaptureResyncDiagnostic() + ".");
-        }
-
-        private static string CaptureSelectedIds(
-            EngineInterface.PlayState state,
-            int selectedCount)
-        {
-            if (state?.selectedChimps == null || selectedCount <= 0)
-                return "[]";
-            int count = Math.Min(Math.Min(selectedCount, state.selectedChimps.Length), 16);
-            var ids = new int[count];
-            Array.Copy(state.selectedChimps, ids, count);
-            string suffix = selectedCount > count ? ",..." : string.Empty;
-            return "[" + string.Join(",", ids) + suffix + "]";
+            SurrenderDiagnosticBridge.PublishResync(
+                previous, current, tick, multiplayer.resyncingCurrentSection,
+                multiplayer.resyncingCurrentLayer);
         }
 
         private void ConnectionIssueShowHook(HUD_MPConnectionIssue self, string message, bool kickNotLeave, int playerId)

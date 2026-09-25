@@ -3,13 +3,13 @@ using System.Collections.Generic;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace BugfixesAndQoL
+namespace SurrenderDesyncDiagnostic
 {
     internal sealed class ResyncDiagnosticHistory
     {
         internal static readonly int[] CheckpointOffsets = { 0, 1, 2, 4, 8, 16, 32, 64, 96 };
 
-        private const int BufferCapacity = 32;
+        private const int BufferCapacity = 128;
         private const int PayloadPrefixLimit = 64;
         private readonly Queue<string> buffers = new Queue<string>(BufferCapacity);
         private readonly List<string> snapshots = new List<string>(CheckpointOffsets.Length);
@@ -98,6 +98,12 @@ namespace BugfixesAndQoL
             int offset = 0;
             for (int recordIndex = 0; offset < choreBuffer.Length && recordIndex < 10000; recordIndex++)
             {
+                if (choreBuffer.Length - offset >= 4 &&
+                    BitConverter.ToInt32(choreBuffer, offset) == -1)
+                    return choreBuffer.Length - offset == 4
+                        ? $"tick={tick},records=[{string.Join(";", records)}],terminator=-1"
+                        : $"tick={tick},records=[{string.Join(";", records)}],malformed=trailing-after-terminator@{offset}";
+
                 if (choreBuffer.Length - offset < 5)
                     return $"tick={tick},records=[{string.Join(";", records)}],malformed=truncated-header@{offset}";
 

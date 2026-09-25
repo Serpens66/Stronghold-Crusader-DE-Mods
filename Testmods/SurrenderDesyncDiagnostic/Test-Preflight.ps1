@@ -1,0 +1,49 @@
+[CmdletBinding()]
+param()
+
+$ErrorActionPreference = 'Stop'
+$workspace = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+. (Join-Path $workspace 'Shared\ScriptExtenderUpdate\ScriptExtenderUpdate.Common.ps1')
+$mod = [pscustomobject]@{
+    Name = 'SurrenderDesyncDiagnostic'
+    Plugin = $true
+    Project = 'TestMods\SurrenderDesyncDiagnostic\SurrenderDesyncDiagnostic.csproj'
+}
+Assert-SERuntimeModPreflight $mod $workspace
+
+$sources = @(Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'src') -Filter '*.cs' -File)
+$plugin = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\SurrenderDesyncDiagnosticPlugin.cs'))
+$runtime = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\SurrenderDesyncDiagnosticRuntime.cs'))
+$bridge = [IO.File]::ReadAllText((Join-Path $workspace 'BugfixesAndQoL\src\SurrenderDiagnosticBridge.cs'))
+if ($plugin -match '\b(Update|LateUpdate|FixedUpdate|StartCoroutine|OnDestroy|OnDisable|OnApplicationQuit)\s*\(' -or
+    $runtime -match '\b(StartCoroutine|OnDestroy|OnDisable|OnApplicationQuit)\s*\(' -or
+    $runtime -notmatch 'GameTimeManagerAPI\.Instance\.OnTick\s*\+=\s*OnTick' -or
+    $plugin -notmatch 'private static SurrenderDesyncDiagnosticRuntime runtime;' -or
+    $runtime -match '\b(HookTransaction|NativeDetour|CodePatch|VirtualProtect|Marshal\.Write)\b' -or
+    $bridge -notmatch 'if \(callbacks == null\)' -or
+    $bridge -notmatch 'buffer\.Clone\(\)') {
+    throw 'Surrender diagnostic lifetime, read-only or observer-isolation contract failed.'
+}
+
+$project = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'SurrenderDesyncDiagnostic.csproj'))
+if ($project -match 'Assembly-CSharp-publicized|System\.Web\.Extensions|Newtonsoft\.Json|System\.Text\.Json' -or
+    $project -notmatch '\\Assembly-CSharp\.dll') {
+    throw 'Surrender diagnostic reference contract failed.'
+}
+
+foreach ($file in @($sources.FullName) + @(
+    (Join-Path $PSScriptRoot 'SurrenderDesyncDiagnostic.csproj'),
+    (Join-Path $PSScriptRoot 'info.json'),
+    (Join-Path $PSScriptRoot 'build.bat'),
+    (Join-Path $PSScriptRoot 'Test-Preflight.ps1'),
+    (Join-Path $workspace 'BugfixesAndQoL\src\SurrenderDiagnosticBridge.cs'))) {
+    $text = [IO.File]::ReadAllText($file)
+    $literalEscapes = [string][char]92
+    $literalEscapes += 'r'
+    $literalEscapes += [char]92
+    $literalEscapes += 'n'
+    if ($text -match '(?<!\r)\n' -or $text.Contains($literalEscapes)) {
+        throw "CRLF validation failed: $file"
+    }
+}
+Write-Output 'Surrender diagnostic JSON, lifecycle, read-only, hook and CRLF preflight succeeded.'
