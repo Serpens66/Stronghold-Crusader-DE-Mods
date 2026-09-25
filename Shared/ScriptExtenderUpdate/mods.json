@@ -374,18 +374,6 @@
     "DependsOn": ["APIShared"]
   },
   {
-    "Name": "WaterboyTargetReservationTest",
-    "Guid": "WaterboyTargetReservationTest_Serp",
-    "Manifest": "Testmods\\WaterboyTargetReservationTest\\info.json",
-    "Plugin": "Testmods\\WaterboyTargetReservationTest\\src\\WaterboyTargetReservationPlugin.cs",
-    "Project": "Testmods\\WaterboyTargetReservationTest\\WaterboyTargetReservationTest.csproj",
-    "BuildDriver": "Testmods\\WaterboyTargetReservationTest\\build.bat",
-    "Package": "Testmods\\WaterboyTargetReservationTest\\BepInEx\\plugins\\WaterboyTargetReservationTest_Serp",
-    "Install": "WaterboyTargetReservationTest_Serp",
-    "BuildOrder": 100,
-    "DependsOn": []
-  },
-  {
     "Name": "SkinTest",
     "Guid": "SkinTest_Serp",
     "Manifest": "Testmods\\SkinTest\\info.json",

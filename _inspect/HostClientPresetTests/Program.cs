@@ -772,17 +772,12 @@ internal static class Program
               extreme.Contains("RequireReport(nameof(ApiProtocolReport)"),
             "ExtremePowers required protocol report lost its 0..8 reset/readiness contract");
 
-        string waterboy = File.ReadAllText(Path.Combine(
-            root, "Testmods", "WaterboyTargetReservationTest", "src", "WaterboySettings.cs"));
-        string waterboyPolicy = File.ReadAllText(Path.Combine(
-            root, "Testmods", "WaterboyTargetReservationTest", "src", "ReservationLedger.cs"));
-        Check(waterboy.Contains("[SyncPerPlayer]") &&
-              waterboy.Contains("EnableNearestWaterboyTargetingData") &&
-              waterboy.Contains("ResetSlotsWith(nameof(EnableNearestWaterboyTargeting), () => true)") &&
-              waterboy.Contains("ResolveEffectiveMode") &&
-              waterboyPolicy.Contains("if (realMultiplayer)") &&
-              waterboyPolicy.Contains("return synchronizedValues[playerId];"),
-            "Waterboy setting lost its persisted scalar/final companion-slot resolution contract");
+        Check(bugfixes.Contains("private bool enableNearestWaterboyTargeting = true;") &&
+              bugfixes.Contains("[SyncHostOnly]" + Environment.NewLine +
+                  "        public bool EnableNearestWaterboyTargeting") &&
+              bugfixes.Contains("EnableNearestWaterboyTargeting = true;") &&
+              !bugfixes.Contains("EnableNearestWaterboyTargetingData"),
+            "Waterboy setting lost its default-enabled host-only contract");
 
         string castleSettings = File.ReadAllText(Path.Combine(
             root, "CastlePlanner", "src", "CastlePlannerSettingsViewModel.cs"));

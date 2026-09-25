@@ -67,7 +67,33 @@ Hashes stimmen überein: `CastlePlanner.dll` `D49892488C09CAB7CFBAC0930666896177
 `CastlePlanner.AIVPlacement.Core.dll` `0A7F2B2C1781DBE02A9817F9771A09C1774E9B6415489BBC2F1563842CD79FD0`.
 Der gemeinsame Native-Fit-Kern `AIVPlacement.Core.dll` wurde nicht geändert;
 sein installierter Hash ist `9F6E0165F602A187F95C933BF9C212A470B8E9BD803C6894B7D550ACFBADB12F`.
-Der direkte erneute Thasos-Oracle-Lauf ist momentan nicht ausführbar, weil
-die im Korpus referenzierte Datei `v_Thasos.map` am aufgezeichneten Pfad
-fehlt. Der geometrische Abzug ist durch einen eigenständigen Grenzfalltest
-geprüft; eine Sichtprüfung in der Lobby steht noch aus.
+Die später erkannte installierte `Thasos.map` hat denselben Hash wie die
+fehlende Kopie `v_Thasos.map`; beide Oracle-Korpora wurden mit abgeleiteten,
+hashgeprüften Manifesten erneut ausgeführt: 12 exakte, 60 bewusst graue,
+null abweichende Fälle. Details: [ThasosAliasOracle](ThasosAliasOracle/RESULTS.md).
+Der geometrische Abzug ist durch einen eigenständigen Grenzfalltest geprüft.
+
+## Praxis-Tooltip nach der Lobbyprobe
+
+Die neue Lobbyprobe zeigte für Sentinel je Drehung 80–86 % Praxiswert,
+aber eine graue Hauptfarbe. Ursache war die alte Praxis-Klassifikation,
+die bei positivem Prozentwert zusätzlich Vanillas `Impossible` für einen
+früh blockierten Bau-Frame berücksichtigte. Die Praxisfarbe folgt künftig
+allein dem Prozentwert; `Impossible` bleibt separat beim Vanilla-Fit.
+Der Tooltip beginnt mit der Praxiszahl, fasst identische Drehungen zusammen,
+verzichtet auf Zell-Abzüge und setzt den Vanilla-Fit darunter. Bei späteren
+KIs mit Sofortspawn heißt die Praxiszahl weiterhin **geometrische Schätzung**;
+der Vanilla-Fit bleibt ohne bewiesenen Eingangszustand ungeklärt. Eine
+räumliche Trennung allein ist kein vollständiger Native-Schreibnachweis.
+
+## Abnahme der Praxisdarstellung vom 25.09.2026
+
+Der korrigierte CastlePlanner-Build bestand 94/94 Tests und wurde bei beendetem
+Spiel installiert. Die lokalen und installierten SHA-256-Hashes stimmen überein:
+`CastlePlanner.dll` `6090835101864F03FF24CE7E534833230921F592AD09028F937793BBCE733DAF`,
+`CastlePlanner.AIVPlacement.Core.dll` `3358057B3F2892294A2E88E5D474FC2E8E657F181FADA4A9E52F3568882698FA`
+und `AIVPlacement.Core.dll` `7C09FBB96993D23A044C649899EE6BA0A69F60ECE16013919D95FE92EBBB8344`.
+Der synthetische Test deckt Sentinels 80–86 %, einen entfernten 100-%-Fall,
+Prozentspannen, unbekannte Geometrie und eine Sofortbau-Schätzung ab.
+Die sichtbare Lobbyfarbe und Tooltip-Darstellung müssen nach der Installation
+noch einmal ohne Kartenstart geprüft werden.

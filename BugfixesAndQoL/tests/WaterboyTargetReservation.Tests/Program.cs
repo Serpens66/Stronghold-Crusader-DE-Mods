@@ -6,7 +6,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 
-namespace WaterboyTargetReservationTest
+namespace BugfixesAndQoL
 {
     internal static class Program
     {
@@ -19,8 +19,14 @@ namespace WaterboyTargetReservationTest
             @"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese";
         private static int assertions;
 
-        private static int Main()
+        private static int Main(string[] args)
         {
+            if (args.Length == 3 && args[0] == "redbird-probe")
+            {
+                TestRedBirdDisplacedSpan(args[1], $"RedBird {args[2]}", args[2]);
+                Console.WriteLine($"Waterboy RedBird probe: {assertions} assertions passed.");
+                return 0;
+            }
             TestIndependentReservationsAndCapacity();
             TestCompoundCoverage();
             TestInvalidationPaths();
@@ -29,12 +35,13 @@ namespace WaterboyTargetReservationTest
             TestExtinguishingStateDoesNotTimeout();
             TestNearestTakeoverPolicy();
             TestPerPlayerIsolationAndTransfer();
-            TestPerPlayerModeState();
+            TestHostModePolicy();
             TestMapClear();
             TestManagedContracts();
             TestCanonicalNativeContract();
-            TestInstalledRedBirdDisplacedSpan();
-            Console.WriteLine($"WaterboyTargetReservationTest tests: {assertions} assertions passed.");
+            TestDetourContractRejections();
+            TestRedBirdDisplacedSpan(ExtenderDir, "installed RedBird", null);
+            Console.WriteLine($"WaterboyTargetReservation tests: {assertions} assertions passed.");
             return 0;
         }
 
@@ -295,42 +302,18 @@ namespace WaterboyTargetReservationTest
                 "disabling one player preserves other players' reservations");
         }
 
-        private static void TestPerPlayerModeState()
+        private static void TestHostModePolicy()
         {
-            var state = new PerPlayerModeState();
             for (int playerId = 1; playerId <= 8; playerId++)
-                Check(state.Data[playerId], $"player {playerId} starts optimized");
-            state.Data[2] = false;
-            Check(state.LocalValue && !state.Data[2],
-                "remote companion slot remains separate from persisted local value");
-            state.SetLocalValue(false);
-            state.ResolveLocalPlayer(1);
-            Check(!state.LocalValue && !state.Data[1] && !state.Data[2],
-                "persisted local value populates only the resolved local slot");
-
-            Check(!WaterboyModePolicy.Resolve(false, 1, 1, false, state.Data),
-                "single-player save with persisted false uses Vanilla for new searches");
-            state.SetLocalValue(true);
-            Check(WaterboyModePolicy.Resolve(false, 1, 1, true, state.Data),
-                "single-player save with persisted true enables reservations for new searches");
-            Check(WaterboyModePolicy.Resolve(false, 3, 1, false, new bool[9]),
-                "AI remains optimized independently of the local human setting");
-
-            var multiplayer = new bool[9];
-            multiplayer[1] = false;
-            multiplayer[2] = true;
-            multiplayer[3] = true;
-            Check(!WaterboyModePolicy.Resolve(true, 1, 1, true, multiplayer),
-                "multiplayer reads the final companion slot instead of the local scalar");
-            Check(WaterboyModePolicy.Resolve(true, 3, 1, false, multiplayer),
-                "slot shift across an intervening AI preserves the remapped remote value");
-            Check(!WaterboyModePolicy.Resolve(true, 2, 1, true, new bool[9]),
-                "multiplayer never substitutes the local scalar for a foreign player");
-            Check(!WaterboyModePolicy.Resolve(true, 0, 1, true, multiplayer) &&
-                  !WaterboyModePolicy.Resolve(true, 9, 1, true, multiplayer),
+                Check(WaterboyModePolicy.Resolve(true, true, playerId),
+                    $"host-enabled mode applies equally to player {playerId}");
+            Check(!WaterboyModePolicy.Resolve(false, true, 1),
+                "global mod disable uses Vanilla");
+            Check(!WaterboyModePolicy.Resolve(true, false, 1),
+                "host setting disable uses Vanilla");
+            Check(!WaterboyModePolicy.Resolve(true, true, 0) &&
+                  !WaterboyModePolicy.Resolve(true, true, 9),
                 "invalid player slots fail closed");
-            Check(!WaterboyModePolicy.Resolve(false, 1, 0, true, multiplayer),
-                "unresolved single-player identity remains Vanilla until ownership is known");
         }
 
         private static void TestMapClear()
@@ -411,17 +394,15 @@ namespace WaterboyTargetReservationTest
                 "NativeDetour indirect entry displaces two complete instructions (10 bytes)");
         }
 
-        private static void TestInstalledRedBirdDisplacedSpan()
+        private static void TestRedBirdDisplacedSpan(
+            string assemblyDirectory,
+            string label,
+            string expectedVersion)
         {
-            Check(AssemblyName.GetAssemblyName(Path.Combine(ExtenderDir, "SHCDESE.dll"))
-                    .Version.ToString() ==
-                  WaterboyNativeDefinition.AuditedScriptExtenderAssemblyVersion,
-                "installed Script Extender assembly version matches audited contract");
-            Check(AssemblyName.GetAssemblyName(
-                    Path.Combine(ExtenderDir, "RedBird.Backends.NativeX64.dll"))
-                    .Version.ToString() ==
-                  WaterboyNativeDefinition.AuditedRedBirdAssemblyVersion,
-                "installed NativeDetour backend version matches audited contract");
+            if (expectedVersion != null)
+                Check(AssemblyName.GetAssemblyName(Path.Combine(
+                    assemblyDirectory, "RedBird.Backends.NativeX64.dll")).Version.ToString() ==
+                    expectedVersion + ".0", $"{label} probe loads the requested backend version");
             foreach (string assemblyName in new[]
             {
                 "Microsoft.Extensions.Logging.Abstractions",
@@ -431,13 +412,13 @@ namespace WaterboyTargetReservationTest
                 "RedBird.Backends.NativeX64"
             })
             {
-                Assembly.LoadFrom(Path.Combine(ExtenderDir, assemblyName + ".dll"));
+                Assembly.LoadFrom(Path.Combine(assemblyDirectory, assemblyName + ".dll"));
             }
 
             Assembly abstractions = Assembly.LoadFrom(
-                Path.Combine(ExtenderDir, "RedBird.Abstractions.dll"));
+                Path.Combine(assemblyDirectory, "RedBird.Abstractions.dll"));
             Assembly backendAssembly = Assembly.LoadFrom(
-                Path.Combine(ExtenderDir, "RedBird.Backends.NativeX64.dll"));
+                Path.Combine(assemblyDirectory, "RedBird.Backends.NativeX64.dll"));
             Type backendType = backendAssembly.GetType(
                 "RedBird.Backends.NativeX64.NativeDetourBackend",
                 throwOnError: true);
@@ -459,7 +440,7 @@ namespace WaterboyTargetReservationTest
                 TargetSearchProbeDelegate callback = TargetSearchProbe;
                 requestType.GetProperty("Name").SetValue(
                     request,
-                    "WaterboyTargetReservationTest NativeDetour selector regression");
+                    "BugfixesAndQoL Waterboy NativeDetour selector regression");
                 requestType.GetProperty("TargetAddress").SetValue(
                     request,
                     unchecked((ulong)fixture.ToInt64()));
@@ -485,10 +466,10 @@ namespace WaterboyTargetReservationTest
                 {
                     Check(candidateType.GetProperty("Scheme").GetValue(candidate).ToString() ==
                           "Indirect",
-                        "installed NativeDetour backend selects the indirect scheme");
+                        $"{label} NativeDetour backend selects the indirect scheme");
                     Check((int)candidateType.GetProperty("DisplacedByteCount").GetValue(candidate) ==
                           WaterboyNativeDefinition.FindNearestBurningBuildingDisplacedLength,
-                        "installed NativeDetour backend displaces exactly 10 selector bytes");
+                        $"{label} NativeDetour backend displaces exactly 10 selector bytes");
                     Check(!(bool)candidateType.GetProperty("IsInstalled").GetValue(candidate),
                         "NativeDetour candidate remains unpublished before Enable");
 
@@ -527,6 +508,42 @@ namespace WaterboyTargetReservationTest
             {
                 Marshal.FreeHGlobal(fixture);
             }
+        }
+
+        private static void TestDetourContractRejections()
+        {
+            const ulong expectedTarget = 0x12340000;
+            DetourContractSnapshot Valid() => new DetourContractSnapshot
+            {
+                IsInstalled = true,
+                TargetAddress = expectedTarget,
+                Scheme = "Indirect",
+                DisplacedByteCount = 10,
+                TrampolineAddress = new IntPtr(1),
+                TrampolineSize = 32,
+                HookEntryPointAddress = new IntPtr(2),
+                OriginalEntryPointAddress = new IntPtr(3),
+                PointerSlot = new IntPtr(4),
+                ChainDepth = 1,
+                EntryPatch = new byte[] { 0xFF, 0x25, 0, 0, 0, 0, 0x90, 0x90, 0x90, 0x90 },
+                ResolvedPointerSlot = new IntPtr(4),
+                PointerSlotTarget = new IntPtr(2)
+            };
+
+            DetourContractSnapshot snapshot = Valid();
+            Check(WaterboyNativeDefinition.TryValidateDetourContract(snapshot, expectedTarget, out _),
+                "valid committed detour snapshot is accepted");
+
+            Action<DetourContractSnapshot, string> reject = (candidate, name) =>
+                Check(!WaterboyNativeDefinition.TryValidateDetourContract(candidate, expectedTarget, out _),
+                    $"detour contract rejects {name}");
+            snapshot = Valid(); snapshot.Scheme = "Absolute"; reject(snapshot, "wrong scheme");
+            snapshot = Valid(); snapshot.DisplacedByteCount = 15; reject(snapshot, "wrong displaced span");
+            snapshot = Valid(); snapshot.TargetAddress++; reject(snapshot, "changed target address");
+            snapshot = Valid(); snapshot.EntryPatch[0] = 0xE9; reject(snapshot, "wrong patch bytes");
+            snapshot = Valid(); snapshot.ResolvedPointerSlot = new IntPtr(5); reject(snapshot, "wrong pointer slot");
+            snapshot = Valid(); snapshot.TrampolineAddress = IntPtr.Zero; reject(snapshot, "missing trampoline");
+            snapshot = Valid(); snapshot.ChainDepth = 2; reject(snapshot, "hook chain");
         }
 
         private static int TargetSearchProbe(IntPtr buildingManager, int unitId) => 0;

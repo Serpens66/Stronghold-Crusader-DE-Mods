@@ -930,7 +930,7 @@ internal static class Program
 
         Check(!production.Contains("Zhuqiaomon") && !project.Contains("Zhuqiaomon"),
             "P6b removed Zhuqiaomon source and project references");
-        Check(sourcePaths.Where(path => File.ReadAllText(path).Contains("NativeDetour"))
+        Check(sourcePaths.Where(path => File.ReadAllText(path).Contains("NativeDetour<"))
                 .All(path => File.ReadAllText(path).Contains("using RedBird.Backends.NativeX64;") &&
                              !File.ReadAllText(path).Contains("PolyHook")),
             "NativeDetour references use the installed RedBird backend, not PolyHook");

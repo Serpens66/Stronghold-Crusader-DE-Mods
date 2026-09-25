@@ -26,6 +26,7 @@ internal static class Program
             ("counts elevated moat exposure independently of fit", CountsElevatedMoatExposure),
             ("gates build notices on final selection and build-time evidence", GatesBuildNotices),
             ("deducts shared fixed cells once without double-counting native blocks", ScoresGeometricOverlaps),
+            ("presents practice percentages before uncertain Vanilla fits", PresentsGeometricPractice),
             ("resolves Vanilla map-facing start rotations", ResolvesMapFacingRotations),
             ("tracks retained starts in native player order", TracksRetainedStartsInNativePlayerOrder),
             ("keeps archived native start interactions conservative", KeepsArchivedNativeStartInteractionsConservative),
@@ -3394,6 +3395,57 @@ internal static class Program
                    symmetrical.MaximumPercentage == 50,
                 "every rotation counts a shared cell once per lord");
         }
+    }
+
+    private static void PresentsGeometricPractice()
+    {
+        int[] sentinelPercentages = { 80, 80, 86, 80 };
+        AivRotation[] rotations = { AivRotation.Degrees90, AivRotation.Degrees180,
+            AivRotation.Degrees270, AivRotation.Degrees0 };
+        AivPracticeRotation[] sentinel = rotations.Select((rotation, index) =>
+            AivGeometricPractice.Score(rotation, sentinelPercentages[index], 100,
+                100 - sentinelPercentages[index], Array.Empty<int>(), Array.Empty<int>(),
+                Array.Empty<int>(), Array.Empty<IEnumerable<int>>(),
+                Array.Empty<IEnumerable<int>>(), Array.Empty<int>(), true)).ToArray();
+        Assert(sentinel.All(value => AivGeometricPractice.ClassifyPercentage(
+                value.MinimumPercentage) == AivPlacementStatus.Partial),
+            "Sentinel percentages remain partial even when a native first frame is impossible");
+        Assert(AivPracticePresentation.FormatSummary(sentinel, new[] { 0, 1, 2, 3 }) ==
+               "Praxis: 80–86% (geometrische Schätzung)",
+            "uncertain practice range is labeled before Vanilla");
+        string details = AivPracticePresentation.FormatRotations(sentinel);
+        Assert(details.StartsWith("Drehungen: ", StringComparison.Ordinal) &&
+               details.Contains("270° 86%") && !details.Contains("Abzug"),
+            "rotations show percentages without cell counts");
+        string tooltip = AivPracticePresentation.ComposeTooltip(
+            AivPracticePresentation.FormatSummary(sentinel, new[] { 0, 1, 2, 3 }),
+            details, "Vanilla-Fit: nach Sofortbau nicht exakt rekonstruiert.",
+            true, string.Empty);
+        Assert(tooltip.StartsWith("Praxis: 80–86%", StringComparison.Ordinal) &&
+               tooltip.IndexOf("Vanilla-Fit:", StringComparison.Ordinal) >
+               tooltip.IndexOf("Drehungen:", StringComparison.Ordinal) &&
+               !tooltip.Contains("Abzug") && !tooltip.Contains("Not evaluable"),
+            "practice is first and the unsupported native fit is labeled below");
+        Assert(AivPracticePresentation.FormatSummary(sentinel, new[] { 2 }) ==
+               "Praxis: 86% (geometrische Schätzung)",
+            "certain selected rotation controls the headline value");
+
+        AivPracticeRotation[] distant = rotations.Select(rotation =>
+            AivGeometricPractice.Score(rotation, 100, 100, 0,
+                new[] { 1 }, Array.Empty<int>(), Array.Empty<int>(),
+                Array.Empty<IEnumerable<int>>(), Array.Empty<IEnumerable<int>>(),
+                Array.Empty<int>(), true)).ToArray();
+        Assert(distant.All(value => AivGeometricPractice.ClassifyPercentage(
+                value.MinimumPercentage) == AivPlacementStatus.Complete),
+            "distant completed-castle plans get a green practice value");
+        Assert(AivPracticePresentation.FormatSummary(distant, new[] { 0, 1, 2, 3 }) ==
+               "Praxis: 100% (geometrische Schätzung) – alle Drehungen" &&
+               AivPracticePresentation.FormatRotations(distant).Length == 0,
+            "equal rotations collapse into a short practice headline");
+        Assert(AivPracticePresentation.FormatSummary(Array.Empty<AivPracticeRotation>(),
+                   Array.Empty<int>()) == "Praxis: nicht berechenbar" &&
+               AivGeometricPractice.ClassifyPercentage(0) == AivPlacementStatus.Impossible,
+            "unknown geometry stays gray while a proven zero is red");
     }
 
     private static void GatesBuildNotices()

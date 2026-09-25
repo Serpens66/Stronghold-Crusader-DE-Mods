@@ -8,8 +8,8 @@
     <OutputType>Library</OutputType>
     <RootNamespace>BugfixesAndQoL</RootNamespace>
     <AssemblyName>BugfixesAndQoL</AssemblyName>
-    <AssemblyVersion>1.0.163.0</AssemblyVersion>
-    <FileVersion>1.0.163.0</FileVersion>
+    <AssemblyVersion>1.0.164.0</AssemblyVersion>
+    <FileVersion>1.0.164.0</FileVersion>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -162,6 +162,9 @@
     <Compile Include="src\BugfixesAndQoLPlugin.cs" />
     <Compile Include="src\Properties\AssemblyInfo.cs" />
     <Compile Include="src\BugfixesAndQoLRuntime.cs" />
+    <Compile Include="src\WaterboyReservationLedger.cs" />
+    <Compile Include="src\WaterboyNativeDefinition.cs" />
+    <Compile Include="src\WaterboyTargetReservationRuntime.cs" />
     <Compile Include="src\WorkerBreakPauseHook.cs" />
     <Compile Include="src\BugfixesAndQoLViewModel.cs" />
     <Compile Include="src\KeepFlagRotationPolicy.cs" />

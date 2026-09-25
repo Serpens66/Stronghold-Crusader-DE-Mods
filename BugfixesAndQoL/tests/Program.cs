@@ -75,6 +75,7 @@ namespace BugfixesAndQoL
             TestAllyGoodsTransferIntegration();
             TestMinimapInputIntegration();
             TestPermanentManagedRuntimeHooks();
+            TestWaterboyTargetReservationIntegration();
             TestNativeInstructionReplayEmitters();
             TestMountedStockpilePermanentLifecycle();
             TestPlacementCancelMoveSuppressionPolicy();
@@ -127,6 +128,45 @@ namespace BugfixesAndQoL
                   customTrail.Contains("settings.EnableCustomTrailExtremeGoldFix") &&
                   enemyCursor.Contains("!settings.EnableEnemyProximityBulldozeCursorFix"),
                 "permanent managed runtime hooks retain explicit logical settings gates");
+        }
+
+        private static void TestWaterboyTargetReservationIntegration()
+        {
+            string viewModel = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLViewModel.cs"));
+            string orchestrator = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLRuntime.cs"));
+            string runtime = File.ReadAllText(Path.Combine("src", "WaterboyTargetReservationRuntime.cs"));
+            string project = File.ReadAllText("BugfixesAndQoL.csproj");
+            string xaml = File.ReadAllText(Path.Combine(
+                "Override", "ScriptExtenderUI", "BugfixesAndQoLSettings.xaml"));
+
+            Check(viewModel.Contains("private bool enableNearestWaterboyTargeting = true;") &&
+                  viewModel.Contains("[SyncHostOnly]" + Environment.NewLine +
+                    "        public bool EnableNearestWaterboyTargeting") &&
+                  viewModel.Contains("EnableNearestWaterboyTargeting = true;") &&
+                  !viewModel.Contains("EnableNearestWaterboyTargetingData"),
+                "nearest-water-carrier mode is a default-enabled host setting without per-player companions");
+            Check(orchestrator.Contains(
+                      "private static WaterboyTargetReservationRuntime processWaterboyTargetReservationRuntime;") &&
+                  orchestrator.Contains("EnsureWaterboyTargetReservationRuntime(") &&
+                  orchestrator.Contains(
+                      "settings.EnableMod && settings.EnableNearestWaterboyTargeting") &&
+                  !orchestrator.Contains("processWaterboyTargetReservationRuntime?.Dispose()"),
+                "Waterboy runtime is process-rooted, settings-gated, and excluded from teardown");
+            Check(runtime.Contains("private readonly HookTransaction transaction;") &&
+                  runtime.Contains("pendingTransaction?.Dispose();") &&
+                  runtime.Contains("ValidateCommittedDetour(committedDetour, expectedTargetAddress);") &&
+                  runtime.Contains("internal void SetEnabled(bool enabled)") &&
+                  runtime.Contains("if (!correctionAvailable || !optimizationEnabled)") &&
+                  !runtime.Contains("public void Dispose()") &&
+                  !runtime.Contains("MaximumDetailedLogs") &&
+                  !runtime.Contains("LogDetail("),
+                "Waterboy detour only rolls back unpublished candidates and omits routine detail logging");
+            Check(project.Contains("src\\WaterboyReservationLedger.cs") &&
+                  project.Contains("src\\WaterboyNativeDefinition.cs") &&
+                  project.Contains("src\\WaterboyTargetReservationRuntime.cs") &&
+                  xaml.Contains(
+                      "IsChecked=\"{Binding EnableNearestWaterboyTargeting, Mode=TwoWay}\""),
+                "Waterboy sources and host QoL control are included in BugfixesAndQoL");
         }
 
         private static void TestNativeInstructionReplayEmitters()

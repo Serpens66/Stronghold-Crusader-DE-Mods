@@ -6,8 +6,8 @@
     <Platform Condition="'$(Platform)' == ''">AnyCPU</Platform>
     <PlatformTarget>x64</PlatformTarget>
     <OutputType>Exe</OutputType>
-    <RootNamespace>WaterboyTargetReservationTest</RootNamespace>
-    <AssemblyName>WaterboyTargetReservationTest.Tests</AssemblyName>
+    <RootNamespace>BugfixesAndQoL</RootNamespace>
+    <AssemblyName>WaterboyTargetReservation.Tests</AssemblyName>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -24,8 +24,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
-    <Compile Include="..\src\ReservationLedger.cs"><Link>ReservationLedger.cs</Link></Compile>
-    <Compile Include="..\src\WaterboyNativeDefinition.cs"><Link>WaterboyNativeDefinition.cs</Link></Compile>
+    <Compile Include="..\..\src\WaterboyReservationLedger.cs"><Link>WaterboyReservationLedger.cs</Link></Compile>
+    <Compile Include="..\..\src\WaterboyNativeDefinition.cs"><Link>WaterboyNativeDefinition.cs</Link></Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="ValidateReferences" BeforeTargets="BeforeBuild">

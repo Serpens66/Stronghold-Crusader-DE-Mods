@@ -1,4 +1,3 @@
-using APIShared;
 using BepInEx.Logging;
 using CrusaderDE;
 using R3;
@@ -15,17 +14,14 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
-namespace WaterboyTargetReservationTest
+namespace BugfixesAndQoL
 {
     internal sealed unsafe class WaterboyTargetReservationRuntime
     {
-        private const int MaximumDetailedLogs = 200;
-
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate int FindNearestBurningBuildingDelegate(IntPtr buildingManager, int nativeUnitId);
 
         private readonly ManualLogSource log;
-        private readonly WaterboySettings settings;
         private readonly ReservationLedger ledger = new ReservationLedger();
         private readonly List<FireReservation> reservationScratch = new List<FireReservation>();
         private readonly List<MaskedFire> maskedFireScratch = new List<MaskedFire>();
@@ -36,24 +32,20 @@ namespace WaterboyTargetReservationTest
         private readonly int targetSearchDisplacedByteCount;
         private readonly string targetSearchScheme;
         private volatile bool correctionAvailable = true;
-        private bool postStartupLivenessLogged;
         private bool initialMapSeedCompleted;
-        private bool mapModeLogged;
-        private int detailedLogCount;
-        private bool detailLimitLogged;
+        private volatile bool optimizationEnabled;
 
-        internal WaterboyTargetReservationRuntime(ManualLogSource log, WaterboySettings settings,
+        internal WaterboyTargetReservationRuntime(ManualLogSource log, bool enabled,
             CrusaderLibraryLoadContext context, bool referenceHashMatches)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
-            this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            optimizationEnabled = enabled;
             if (context == null)
                 throw new ArgumentNullException(nameof(context));
             if (!referenceHashMatches || !string.Equals(WaterboyNativeDefinition.ReferenceSha256,
                 Shared.DebugLogHelper.CurrentNativeSha256, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("The waterboy native contract is not validated for this CrusaderDE.dll.");
 
-            ValidateRuntimeDependencies();
             ValidateManagedLayout();
 
             Shared.NativeResolution resolution = Shared.NativePatternResolver.ResolveUnique(
@@ -107,17 +99,28 @@ namespace WaterboyTargetReservationTest
                 throw;
             }
 
-            Shared.DebugLogHelper.LogInfo(log,
-                $"Waterboy target reservations active: method={resolution.Method}, rva=0x{resolution.Rva:X}, " +
+            Shared.DebugLogHelper.LogDebug(log,
+                $"Waterboy QoL hook active: rva=0x{resolution.Rva:X}, " +
                 $"scheme={targetSearchScheme}, displaced={targetSearchDisplacedByteCount}, " +
                 $"span=0x{resolution.Rva:X}-0x{resolution.Rva + targetSearchDisplacedByteCount:X}, " +
-                 $"stationaryTimeoutTicks={ReservationLedger.StationaryTimeoutTicks}, baseGameSpeed=40, " +
-                "linkedCompounds=true, perPlayer=true, nearestTakeover=true, liveToggle=false.");
+                $"stationaryTimeoutTicks={ReservationLedger.StationaryTimeoutTicks}.");
+        }
+
+        internal void SetEnabled(bool enabled)
+        {
+            bool changed = optimizationEnabled != enabled;
+            optimizationEnabled = enabled;
+            if (!changed)
+                return;
+            ledger.Clear();
+            reservationScratch.Clear();
+            maskedFireScratch.Clear();
+            initialMapSeedCompleted = !enabled;
         }
 
         private int FindNearestEligibleFire(IntPtr buildingManager, int nativeUnitId)
         {
-            if (!correctionAvailable)
+            if (!correctionAvailable || !optimizationEnabled)
                 return targetSearchHook.Original(buildingManager, nativeUnitId);
 
             NativeIdentity requester;
@@ -176,7 +179,6 @@ namespace WaterboyTargetReservationTest
                             MaskCoverage(targetIdentity, compoundKey, masked);
                             continue;
                         }
-                        LogDetail($"waterboy reservation created: player={requesterPlayerId}, owner={requester}, target={targetIdentity}, compound={compoundKey}.");
                         selectionAccepted = true;
                         break;
                     }
@@ -210,7 +212,7 @@ namespace WaterboyTargetReservationTest
             }
             finally
             {
-                RestoreMaskedFires(masked, disableOnFailure: true);
+                RestoreMaskedFires(masked);
                 masked.Clear();
             }
 
@@ -223,33 +225,24 @@ namespace WaterboyTargetReservationTest
             if (correctionAvailable && displacedOwner != null)
             {
                 InvalidateDisplacedOwner(displacedOwner);
-                LogDetail($"waterboy reservation takeover: player={requesterPlayerId}, oldOwner={displacedOwner.Owner}, newOwner={requester}, target={selectedBuildingId}, oldDistance={previousOwnerDistance}, newDistance={requesterDistance}.");
             }
             return selectedBuildingId;
         }
 
         private void OnGameTick(int currentTick)
         {
-            if (!correctionAvailable)
+            if (!correctionAvailable || !optimizationEnabled)
                 return;
             try
             {
-                if (!postStartupLivenessLogged)
-                {
-                    postStartupLivenessLogged = true;
-                    Shared.DebugLogHelper.LogInfo(log,
-                        "Waterboy target reservation runtime reached OnGameTick after startup cleanup; the permanent native hook and event registrations remain active.");
-                }
                 if (!initialMapSeedCompleted)
                 {
                     initialMapSeedCompleted = true;
-                    LogMapModes();
                     for (int playerId = 1; playerId <= 8; playerId++)
-                        if (IsOptimizedForPlayer(playerId))
-                        {
-                            ledger.ClearPlayer(playerId);
-                            SeedPlayerReservations(playerId, currentTick);
-                        }
+                    {
+                        ledger.ClearPlayer(playerId);
+                        SeedPlayerReservations(playerId, currentTick);
+                    }
                 }
                 PruneInvalidReservations(currentTick);
             }
@@ -298,13 +291,9 @@ namespace WaterboyTargetReservationTest
                 ushort y = ownerValid ? owner->r_CurrentTilePositionY : (ushort)0;
                 bool targetBurning = TryResolveBurningBuilding(reservation.Target, out GameBuilding* target);
                 uint compoundKey = targetBurning ? ReadCompoundKey(target) : 0;
-                ReservationReconcileResult result = ledger.Reconcile(reservation, ownerValid,
+                ledger.Reconcile(reservation, ownerValid,
                     ownerPlayerId, ownerState, currentTarget, targetBurning, compoundKey,
                     x, y, currentTick);
-                if (result == ReservationReconcileResult.Released)
-                    LogDetail($"waterboy reservation released as invalid: player={reservation.PlayerId}, owner={reservation.Owner}, target={reservation.Target}.");
-                else if (result == ReservationReconcileResult.Stalled)
-                    LogDetail($"waterboy reservation released after stationary timeout: player={reservation.PlayerId}, owner={reservation.Owner}, target={reservation.Target}.");
             }
         }
 
@@ -345,7 +334,7 @@ namespace WaterboyTargetReservationTest
             }
         }
 
-        private void RestoreMaskedFires(List<MaskedFire> masked, bool disableOnFailure)
+        private void RestoreMaskedFires(List<MaskedFire> masked)
         {
             Exception firstFailure = null;
             foreach (MaskedFire item in masked)
@@ -363,10 +352,7 @@ namespace WaterboyTargetReservationTest
             }
             if (firstFailure == null)
                 return;
-            if (disableOnFailure)
-                DisableCorrection("temporary fire counters could not be restored safely", firstFailure);
-            else
-                Shared.DebugLogHelper.LogError(log, $"Waterboy reservation mask rollback failed: {firstFailure}");
+            DisableCorrection("temporary fire counters could not be restored safely", firstFailure);
         }
 
         private void InvalidateDisplacedOwner(FireReservation displaced)
@@ -384,59 +370,11 @@ namespace WaterboyTargetReservationTest
             reservationScratch.Clear();
             maskedFireScratch.Clear();
             initialMapSeedCompleted = false;
-            mapModeLogged = false;
         }
 
         private bool IsOptimizedForPlayer(int playerId)
         {
-            if (!IsValidPlayerId(playerId))
-                return false;
-            bool realMultiplayer = Shared.GameModeHelper.IsRealMultiplayer();
-            int localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
-            return settings.ResolveEffectiveMode(realMultiplayer, playerId, localPlayerId);
-        }
-
-        private void LogMapModes()
-        {
-            if (mapModeLogged)
-                return;
-            mapModeLogged = true;
-
-            Shared.GameModeSnapshot mode = Shared.GameModeHelper.Capture();
-            string source = "Unavailable";
-            bool loadedSave = false;
-            try
-            {
-                if (ApiShared.Current.TryGetMissionLifecycle(
-                        WaterboyTargetReservationPlugin.PluginGuid,
-                        out IMissionLifecycleCapability lifecycle,
-                        out NativeCapabilityDiagnostic diagnostic) && lifecycle.Current != null)
-                {
-                    source = lifecycle.Current.StartKind.ToString();
-                    loadedSave = lifecycle.Current.IsSave;
-                }
-                else if (diagnostic != null)
-                    source = "Unavailable(" + diagnostic.State + ")";
-            }
-            catch (Exception exception)
-            {
-                source = "Unavailable(" + exception.GetType().Name + ")";
-            }
-            var playerIds = new SortedSet<int>();
-            int unitCount = GameUnitManagerAPI.Instance.GetUnitsAsSpan().Length;
-            for (int unitId = 1; unitId <= unitCount; unitId++)
-                if (GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) &&
-                    unit != null && unit->r_AliveState == AliveState.IsAlive &&
-                    IsValidPlayerId(unit->r_ControllableForPlayerId))
-                    playerIds.Add(unit->r_ControllableForPlayerId);
-
-            var values = new List<string>();
-            for (int playerId = 1; playerId <= 8; playerId++)
-                values.Add($"{playerId}:{IsOptimizedForPlayer(playerId)}");
-            Shared.DebugLogHelper.LogInfo(log,
-                $"Waterboy map modes: source={source}, kind={mode.Kind}, loadedSave={loadedSave}, " +
-                $"realMultiplayer={mode.IsRealMultiplayer}, observedPlayers=[{string.Join(",", playerIds)}], " +
-                $"slots=[{string.Join(",", values)}].");
+            return WaterboyModePolicy.Resolve(true, optimizationEnabled, playerId);
         }
 
         private NativeIdentity ResolveLivingFiremanIdentity(int unitId)
@@ -494,30 +432,34 @@ namespace WaterboyTargetReservationTest
         private static void ValidateCommittedDetour(NativeDetour<FindNearestBurningBuildingDelegate> detour,
             ulong expectedTargetAddress)
         {
-            if (detour == null || !detour.IsInstalled || detour.TargetAddress != expectedTargetAddress ||
-                detour.Scheme != DetourScheme.Indirect ||
-                detour.DisplacedByteCount != WaterboyNativeDefinition.FindNearestBurningBuildingDisplacedLength ||
-                detour.TrampolineAddress == IntPtr.Zero || detour.TrampolineSize <= 0 ||
-                detour.HookEntryPointAddress == IntPtr.Zero || detour.OriginalEntryPointAddress == IntPtr.Zero ||
-                detour.PointerSlot == IntPtr.Zero || detour.ChainDepth != 1)
-                throw new InvalidOperationException("The committed waterboy NativeDetour does not match the audited contract.");
+            if (detour == null)
+                throw new InvalidOperationException("The committed waterboy NativeDetour is missing.");
             IntPtr target = new IntPtr(unchecked((long)expectedTargetAddress));
             int displacement = Marshal.ReadInt32(IntPtr.Add(target, 2));
-            if (Marshal.ReadByte(target, 0) != 0xFF || Marshal.ReadByte(target, 1) != 0x25 ||
-                Marshal.ReadByte(target, 6) != 0x90 || Marshal.ReadByte(target, 7) != 0x90 ||
-                Marshal.ReadByte(target, 8) != 0x90 || Marshal.ReadByte(target, 9) != 0x90 ||
-                IntPtr.Add(target, 6 + displacement) != detour.PointerSlot ||
-                Marshal.ReadInt64(detour.PointerSlot) != detour.HookEntryPointAddress.ToInt64())
-                throw new InvalidOperationException("The committed waterboy entry patch differs from the audited indirect form.");
-        }
-
-        private static void ValidateRuntimeDependencies()
-        {
-            string extender = typeof(GameTimeManagerAPI).Assembly.GetName().Version.ToString();
-            string redBird = typeof(NativeDetour<>).Assembly.GetName().Version.ToString();
-            if (extender != WaterboyNativeDefinition.AuditedScriptExtenderAssemblyVersion ||
-                redBird != WaterboyNativeDefinition.AuditedRedBirdAssemblyVersion)
-                throw new InvalidOperationException($"Unaudited dependencies: scriptExtender={extender}, redBird={redBird}.");
+            byte[] patch = new byte[WaterboyNativeDefinition.FindNearestBurningBuildingDisplacedLength];
+            Marshal.Copy(target, patch, 0, patch.Length);
+            var snapshot = new DetourContractSnapshot
+            {
+                IsInstalled = detour.IsInstalled,
+                TargetAddress = detour.TargetAddress,
+                Scheme = detour.Scheme.ToString(),
+                DisplacedByteCount = detour.DisplacedByteCount,
+                TrampolineAddress = detour.TrampolineAddress,
+                TrampolineSize = detour.TrampolineSize,
+                HookEntryPointAddress = detour.HookEntryPointAddress,
+                OriginalEntryPointAddress = detour.OriginalEntryPointAddress,
+                PointerSlot = detour.PointerSlot,
+                ChainDepth = detour.ChainDepth,
+                EntryPatch = patch,
+                ResolvedPointerSlot = IntPtr.Add(target, 6 + displacement),
+                PointerSlotTarget = detour.PointerSlot == IntPtr.Zero
+                    ? IntPtr.Zero
+                    : new IntPtr(Marshal.ReadInt64(detour.PointerSlot))
+            };
+            if (!WaterboyNativeDefinition.TryValidateDetourContract(
+                snapshot, expectedTargetAddress, out string failure))
+                throw new InvalidOperationException(
+                    $"The committed waterboy NativeDetour does not match the audited contract: {failure}");
         }
 
         private static void ValidateManagedLayout()
@@ -541,21 +483,6 @@ namespace WaterboyTargetReservationTest
             ledger.Clear();
             Shared.DebugLogHelper.LogError(log,
                 $"Waterboy target reservations disabled; Vanilla remains active. reason={reason}; exception={exception}");
-        }
-
-        private void LogDetail(string message)
-        {
-            if (detailedLogCount < MaximumDetailedLogs)
-            {
-                detailedLogCount++;
-                Shared.DebugLogHelper.LogDebug(log, message);
-                return;
-            }
-            if (detailLimitLogged)
-                return;
-            detailLimitLogged = true;
-            Shared.DebugLogHelper.LogDebug(log,
-                "Waterboy reservation detailed-log limit reached; repeated details are suppressed.");
         }
 
         private readonly struct MaskedFire

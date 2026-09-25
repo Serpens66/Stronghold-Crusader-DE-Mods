@@ -117,6 +117,8 @@ public static class SerpLocalization
     public const string EnableAllyGoodsAmountModifiersHelp = "SomeSettings.EnableAllyGoodsAmountModifiersHelp";
     public const string EnableSingleBuildingPause = "BugfixesAndQoL.EnableSingleBuildingPause";
     public const string EnableSingleBuildingPauseHelp = "BugfixesAndQoL.EnableSingleBuildingPauseHelp";
+    public const string EnableNearestWaterboyTargeting = "BugfixesAndQoL.EnableNearestWaterboyTargeting";
+    public const string EnableNearestWaterboyTargetingHelp = "BugfixesAndQoL.EnableNearestWaterboyTargetingHelp";
     public const string EnableMultiplayerGameSpeedChanges = "SomeSettings.EnableMultiplayerGameSpeedChanges";
     public const string EnableMultiplayerGameSpeedChangesHelp = "SomeSettings.EnableMultiplayerGameSpeedChangesHelp";
     public const string MultiplayerGameSpeedMaximum = "SomeSettings.MultiplayerGameSpeedMaximum";
@@ -621,6 +623,8 @@ public static class SerpLocalization
         { EnableAllyGoodsAmountModifiersHelp, "In the ally goods-transfer panel, hold Shift for 5x or Ctrl for 0.2x the clicked amount. Holding both uses the normal amount." },
         { EnableSingleBuildingPause, "Enable single-building pause" },
         { EnableSingleBuildingPauseHelp, "Hold Ctrl while toggling a production building's pause state to affect only the selected building. Multiplayer actions use Script Extender's tick-aligned Chore transport." },
+        { EnableNearestWaterboyTargeting, "Send the nearest water carrier to each fire" },
+        { EnableNearestWaterboyTargetingHelp, "Assign each fire to one water carrier from a well or water pot. A strictly closer idle carrier may take over while the assigned carrier is still walking; a carrier already extinguishing keeps the assignment. This option is controlled by the host." },
         { EnableMultiplayerGameSpeedChanges, "Multiplayer game speed and pause controls" },
         { EnableMultiplayerGameSpeedChangesHelp, "Chooses who may change game speed or pause a running multiplayer game. Speed changes use the normal increase/decrease keybinds or the in-game options slider; pause uses the normal pause keybind. Changes are executed for all players through Script Extender's tick-aligned Chore transport. The lobby starting speed remains unchanged and is not saved as the local singleplayer default." },
         { MultiplayerGameSpeedMaximum, "Max." },

@@ -58,6 +58,7 @@ namespace BugfixesAndQoL
         private bool enableReturnToMultiplayerLobby = true;
         private bool enableCtrlSingleMarketTrade = true;
         private bool enableSingleBuildingPause = true;
+        private bool enableNearestWaterboyTargeting = true;
         private bool enableShiftRepairAllBuildings = true;
         private bool enableQuarryPileRelocation = true;
         private bool enableAIQuarryPileTowardsKeep = true;
@@ -246,6 +247,8 @@ namespace BugfixesAndQoL
         public string GameplayTitleText => SerpLocalization.Get("BugfixesAndQoL.GameplayTitle");
         public string EnableSingleBuildingPauseText => SerpLocalization.Get(SerpLocalization.EnableSingleBuildingPause);
         public string EnableSingleBuildingPauseHelpText => SerpLocalization.Get(SerpLocalization.EnableSingleBuildingPauseHelp);
+        public string EnableNearestWaterboyTargetingText => SerpLocalization.Get(SerpLocalization.EnableNearestWaterboyTargeting);
+        public string EnableNearestWaterboyTargetingHelpText => SerpLocalization.Get(SerpLocalization.EnableNearestWaterboyTargetingHelp);
         public string EnableShiftRepairAllBuildingsText => SerpLocalization.Get("BugfixesAndQoL.EnableShiftRepairAllBuildings");
         public string EnableShiftRepairAllBuildingsHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableShiftRepairAllBuildingsHelp");
         public string EnableQuarryPileRelocationText => SerpLocalization.Get(SerpLocalization.EnableQuarryPileRelocation);
@@ -923,6 +926,16 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableNearestWaterboyTargeting
+        {
+            get => enableNearestWaterboyTargeting;
+            set => SetSetting(
+                ref enableNearestWaterboyTargeting,
+                value,
+                nameof(EnableNearestWaterboyTargeting));
+        }
+
+        [SyncHostOnly]
         public bool EnableShiftRepairAllBuildings
         {
             get => enableShiftRepairAllBuildings;
@@ -1220,6 +1233,7 @@ namespace BugfixesAndQoL
                 EnableHealerAttackCommandFix = true;
                 EnableFastRecruitRallyMovement = true;
                 EnableSingleBuildingPause = true;
+                EnableNearestWaterboyTargeting = true;
                 EnableShiftRepairAllBuildings = true;
                 EnableQuarryPileRelocation = true;
                 EnableAIQuarryPileTowardsKeep = true;

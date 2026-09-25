@@ -14,6 +14,28 @@ if ($mod.Count -ne 1) {
 
 Assert-SERuntimeModPreflight $mod[0] $workspace
 
+$waterboyRuntimePath = Join-Path $PSScriptRoot 'src\WaterboyTargetReservationRuntime.cs'
+$waterboyRuntime = [System.IO.File]::ReadAllText($waterboyRuntimePath)
+$waterboyViewModel = [System.IO.File]::ReadAllText(
+    (Join-Path $PSScriptRoot 'src\BugfixesAndQoLViewModel.cs'))
+if ($waterboyRuntime -match 'AuditedScriptExtenderAssemblyVersion|AuditedRedBirdAssemblyVersion|Unaudited dependencies') {
+    throw 'Exact Script Extender or RedBird version gating was reintroduced for Waterboy targeting.'
+}
+if ($waterboyRuntime -match '\btargetSearchHook\s*\.\s*(Dispose|Undo|Disable)\s*\(' -or
+    $waterboyRuntime -match '\b(Update|LateUpdate|FixedUpdate|StartCoroutine)\s*\(') {
+    throw 'Waterboy runtime contains a published-hook teardown or MonoBehaviour callback.'
+}
+if ($waterboyRuntime -match 'MaximumDetailedLogs|LogDetail\(|map modes|reached OnGameTick|dependencies detected' -or
+    $waterboyRuntime -match 'WaterboySettings|EnableNearestWaterboyTargetingData|ResolveEffectiveMode') {
+    throw 'Waterboy detailed diagnostics or obsolete per-player setting artifacts remain.'
+}
+if (-not $waterboyViewModel.Contains('private bool enableNearestWaterboyTargeting = true;') -or
+    -not $waterboyViewModel.Contains('[SyncHostOnly]' + [Environment]::NewLine +
+        '        public bool EnableNearestWaterboyTargeting') -or
+    $waterboyViewModel.Contains('EnableNearestWaterboyTargetingData')) {
+    throw 'Waterboy host setting contract is incomplete.'
+}
+
 $patchRoot = Join-Path $PSScriptRoot 'Patches'
 $xamlViolations = @(foreach ($file in Get-ChildItem -LiteralPath $patchRoot -Filter '*.xaml' -Recurse) {
     [xml]$document = Get-Content -Raw -LiteralPath $file.FullName

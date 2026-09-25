@@ -51,6 +51,12 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-Tanne
 if errorlevel 1 goto build_failed_popd
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared\Test-PermanentNativeRuntimePatches.ps1"
 if errorlevel 1 goto build_failed_popd
+"%MSBUILD%" tests\WaterboyTargetReservation.Tests\WaterboyTargetReservation.Tests.csproj /p:Configuration=Release /p:ExtenderDir="%EXTENDER_DIR%"
+if errorlevel 1 goto build_failed_popd
+"%PROJECT_DIR%tests\WaterboyTargetReservation.Tests\bin\WaterboyTargetReservation.Tests.exe"
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%tests\WaterboyTargetReservation.Tests\Test-RedBirdVersions.ps1" -TestExecutable "%PROJECT_DIR%tests\WaterboyTargetReservation.Tests\bin\WaterboyTargetReservation.Tests.exe" -ExtenderDir "%EXTENDER_DIR%"
+if errorlevel 1 goto build_failed_popd
 "%MSBUILD%" tests\TannerFade.Tests\TannerFade.Tests.csproj /p:Configuration=Release
 if errorlevel 1 goto build_failed_popd
 "%PROJECT_DIR%tests\TannerFade.Tests\bin\TannerFade.Tests.exe"

@@ -175,7 +175,7 @@ namespace CastlePlanner.AIVPlacement
                         ? AivCandidateVisualState.Pending
                         : new AivCandidateVisualState(
                             AivPlacementStatus.NotEvaluable,
-                            BuildNotEvaluableToolTip(request.FailureKind.ToString()));
+                            "Vanilla-Fit: " + BuildNotEvaluableToolTip(request.FailureKind.ToString()));
                 }
                 statesByPlayer[request.PlayerId] = states;
                 nativeStatesByPlayer[request.PlayerId] = states;
@@ -208,7 +208,7 @@ namespace CastlePlanner.AIVPlacement
                 {
                     states[candidateId] = new AivCandidateVisualState(
                         AivPlacementStatus.NotEvaluable,
-                        BuildNotEvaluableToolTip(result.FailureMessage));
+                        "Vanilla-Fit: " + BuildNotEvaluableToolTip(result.FailureMessage));
                 }
             }
 
@@ -265,7 +265,7 @@ namespace CastlePlanner.AIVPlacement
                 {
                     states[candidateId] = new AivCandidateVisualState(
                         AivPlacementStatus.NotEvaluable,
-                        BuildNotEvaluableToolTip(reason));
+                        "Vanilla-Fit: " + BuildNotEvaluableToolTip(reason));
                 }
             }
             statesByPlayer[playerId] = states;
@@ -583,26 +583,21 @@ namespace CastlePlanner.AIVPlacement
         private static AivCandidateVisualState BuildPracticeState(
             AivPracticeCandidate practice, AivCandidateVisualState nativeState)
         {
+            string vanilla = nativeState.ToolTip ?? string.Empty;
+            if (vanilla.IndexOf(SerpLocalization.Get(
+                    SerpLocalization.AivPlacementPreBuildUnsupported), StringComparison.Ordinal) >= 0)
+                vanilla = "Vanilla-Fit: nach Sofortbau nicht exakt rekonstruiert.";
+            else if (!vanilla.StartsWith("Vanilla-Fit:", StringComparison.Ordinal))
+                vanilla = "Vanilla-Fit: " + vanilla;
             if (practice.Rotations.Count == 0)
                 return new AivCandidateVisualState(AivPlacementStatus.NotEvaluable,
-                    nativeState.ToolTip + Environment.NewLine +
-                    "Geometrie: " + practice.Reason);
-            string rotations = string.Join(" | ", practice.Rotations.Select(rotation =>
-                $"{FormatRotation((int)rotation.Rotation)}: " +
-                (rotation.MinimumPercentage == rotation.MaximumPercentage
-                    ? $"{rotation.MinimumPercentage}%"
-                    : $"{rotation.MinimumPercentage}–{rotation.MaximumPercentage}%") +
-                (rotation.MaximumDeduction > 0
-                    ? $" (Abzug {rotation.MinimumDeduction}–{rotation.MaximumDeduction} Zellen)"
-                    : string.Empty)));
-            bool estimate = practice.Rotations.Any(value => value.IsEstimate);
-            bool soft = practice.Rotations.Any(value => value.SoftOverlap);
-            string tooltip = nativeState.ToolTip + Environment.NewLine +
-                (estimate ? "Praxis (geometrische Schätzung): " : "Praxis (geometrisch): ") + rotations;
-            if (soft)
-                tooltip += Environment.NewLine + "Geplante Mauern/Burggräben überschneiden andere Bauflächen.";
-            if (!string.IsNullOrEmpty(practice.Reason))
-                tooltip += Environment.NewLine + practice.Reason;
+                    AivPracticePresentation.ComposeTooltip(
+                        AivPracticePresentation.FormatSummary(practice),
+                        string.Empty, vanilla, false, practice.Reason));
+            string tooltip = AivPracticePresentation.ComposeTooltip(
+                AivPracticePresentation.FormatSummary(practice),
+                AivPracticePresentation.FormatRotations(practice), vanilla,
+                practice.Rotations.Any(value => value.SoftOverlap), practice.Reason);
             return new AivCandidateVisualState(practice.Status, tooltip);
         }
 

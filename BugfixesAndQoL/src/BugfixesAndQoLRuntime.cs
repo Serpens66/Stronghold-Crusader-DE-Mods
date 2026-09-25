@@ -81,6 +81,7 @@ namespace BugfixesAndQoL
         private static AIPreplacedBuildingFixRuntime processAIPreplacedBuildingFixRuntime;
         private static WorkerBreakPauseHook processWorkerBreakPauseHook;
         private static NativeTannerFade processNativeTannerFade;
+        private static WaterboyTargetReservationRuntime processWaterboyTargetReservationRuntime;
         private static bool workerBreakTickSubscribed;
         private static bool workerBreakTickLogged;
         private CtrlMarketTradeHook ctrlMarketTradeHook;
@@ -298,6 +299,11 @@ namespace BugfixesAndQoL
                 "corrupt Lord-data spawn fix",
                 EnsureCorruptLordDataSpawnRuntime);
             TryInitializePersistentFeature(
+                "nearest-water-carrier targeting QoL",
+                () => EnsureWaterboyTargetReservationRuntime(
+                    context,
+                    isFixedLayoutHashValidated));
+            TryInitializePersistentFeature(
                 "complete notification skip",
                 () => notificationSkipFeature = new NotificationSkipFeature(
                     log,
@@ -436,6 +442,10 @@ namespace BugfixesAndQoL
         {
             processNativeTannerFade?.SetEnabled(
                 settings.EnableMod && settings.EnableTanneryAnimationFix);
+            TryApplyFeature(
+                "nearest-water-carrier targeting QoL",
+                () => processWaterboyTargetReservationRuntime?.SetEnabled(
+                    settings.EnableMod && settings.EnableNearestWaterboyTargeting));
             TryApplyFeature("Trail Customize buttons", trailCustomizationFeature.RefreshVisibility);
             TryApplyFeature("Coop custom-lord selection", coopCustomLordSelectionFeature.ApplySetting);
             TryApplyFeature("moved feature settings", ApplyMovedFeatureSettings);
@@ -824,6 +834,25 @@ namespace BugfixesAndQoL
             // initialized candidate and never route it through plugin/component teardown.
             var candidate = new LobbyYellowContrastFeature(log, settings);
             processLobbyYellowContrastFeature = candidate;
+        }
+
+        private void EnsureWaterboyTargetReservationRuntime(
+            CrusaderLibraryLoadContext context,
+            bool referenceHashMatches)
+        {
+            if (processWaterboyTargetReservationRuntime != null)
+            {
+                processWaterboyTargetReservationRuntime.SetEnabled(
+                    settings.EnableMod && settings.EnableNearestWaterboyTargeting);
+                return;
+            }
+
+            var candidate = new WaterboyTargetReservationRuntime(
+                log,
+                settings.EnableMod && settings.EnableNearestWaterboyTargeting,
+                context,
+                referenceHashMatches);
+            processWaterboyTargetReservationRuntime = candidate;
         }
 
         private void EnsureBriefingNoStartingGoldFixRegistration()

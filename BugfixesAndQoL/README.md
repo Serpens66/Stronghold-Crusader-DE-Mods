@@ -103,6 +103,9 @@ Gatehouses now measure the distance to enemy based on their center, not based on
 
 ## Quality-of-life features
 
+### Send the nearest water carrier to each fire
+The enabled-by-default host option assigns each burning building or connected building compound to one water carrier from a well or water pot. An idle carrier that is strictly closer may take over from one that is still walking, while a carrier already extinguishing the fire keeps the assignment. Other carriers choose a different reachable fire or wait.
+
 ### Improve yellow contrast
 The enabled-by-default local **Improve yellow contrast** option gives yellow lobby team rows a darker gold background and replaces the yellow player's shield with a matching dark-gold version throughout the interface. It changes only that player shield: unit and building colours, minimap colours, team shields, and other yellow interface elements remain unchanged.
 

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace WaterboyTargetReservationTest
+namespace BugfixesAndQoL
 {
     internal enum ReservationClaimResult { Claimed, Suppressed, Conflict }
     internal enum ReservationReconcileResult { Missing, Kept, Released, Stalled }
@@ -55,51 +55,8 @@ namespace WaterboyTargetReservationTest
 
     internal static class WaterboyModePolicy
     {
-        internal static bool Resolve(bool realMultiplayer, int playerId,
-            int localPlayerId, bool localValue, bool[] synchronizedValues)
-        {
-            if (playerId < 1 || playerId > 8 || synchronizedValues == null ||
-                synchronizedValues.Length < 9)
-                return false;
-
-            if (realMultiplayer)
-                return synchronizedValues[playerId];
-
-            if (localPlayerId < 1 || localPlayerId > 8)
-                return false;
-            return playerId == localPlayerId ? localValue : true;
-        }
-    }
-
-    internal sealed class PerPlayerModeState
-    {
-        private readonly bool[] data =
-            { true, true, true, true, true, true, true, true, true };
-        private bool localValue = true;
-        private int localPlayerId;
-
-        internal bool LocalValue => localValue;
-        internal bool[] Data => data;
-
-        internal bool SetLocalValue(bool value)
-        {
-            if (localValue == value)
-                return false;
-            localValue = value;
-            if (IsValidPlayerId(localPlayerId))
-                data[localPlayerId] = value;
-            return true;
-        }
-
-        internal void ResolveLocalPlayer(int playerId)
-        {
-            if (!IsValidPlayerId(playerId))
-                return;
-            localPlayerId = playerId;
-            data[playerId] = localValue;
-        }
-
-        private static bool IsValidPlayerId(int playerId) => playerId >= 1 && playerId <= 8;
+        internal static bool Resolve(bool modEnabled, bool hostSettingEnabled, int playerId) =>
+            modEnabled && hostSettingEnabled && playerId >= 1 && playerId <= 8;
     }
 
     internal sealed class ReservationLedger

@@ -95,7 +95,7 @@ $permanentManagedContracts = @(
         )
     },
     @{
-        Path = 'Testmods\WaterboyTargetReservationTest\src\WaterboyTargetReservationRuntime.cs'
+        Path = 'BugfixesAndQoL\src\WaterboyTargetReservationRuntime.cs'
         Required = @(
             'private readonly HookTransaction transaction;',
             'private readonly DetourHandle<FindNearestBurningBuildingDelegate> targetSearchHook',
