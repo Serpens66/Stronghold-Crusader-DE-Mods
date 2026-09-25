@@ -12,6 +12,7 @@
     <Compile Include="..\..\Shared\WorkshopUploadStaging.cs" Link="WorkshopUploadStaging.cs" />
     <Compile Include="..\src\ExtendedDataLaunchOriginApi.cs" Link="ExtendedDataLaunchOriginApi.cs" />
     <Compile Include="..\src\ExtendedDataModDataApi.cs" Link="ExtendedDataModDataApi.cs" />
+    <Compile Include="..\src\TypedPreferenceSnapshotCodec.cs" Link="TypedPreferenceSnapshotCodec.cs" />
     <Compile Include="..\src\BuiltInCustomizeOriginPacket.cs" Link="BuiltInCustomizeOriginPacket.cs" />
     <Compile Include="..\src\MapModSettingsPacket.cs" Link="MapModSettingsPacket.cs" />
     <Compile Include="..\src\MissionPresetLifecycleState.cs" Link="MissionPresetLifecycleState.cs" />

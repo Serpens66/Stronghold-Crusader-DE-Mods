@@ -27,6 +27,7 @@ namespace ExtendedData
 {
     internal sealed class MapModSettingsCoordinator : IDisposable
     {
+        internal event Func<FRONT_Multiplayer, FileHeader, bool> MultiplayerSaveLaunchPreparing;
         internal const string SaveDataIdentifier = "ExtendedData-MapModSettings";
         internal const string ArchiveEntryName = "_SE_ModData_" + SaveDataIdentifier + ".msgpack";
         private const int MaxPayloadBytes = 1024 * 1024;
@@ -212,6 +213,23 @@ namespace ExtendedData
             bool skirmishScreen,
             bool trailsScreen)
         {
+            if (enabled && (requesterType == Enums.RequesterTypes.LoadMultiplayerGame ||
+                requesterType == Enums.RequesterTypes.LoadMultiplayerCoopGame))
+            {
+                Action<string, FileHeader> prepared = (fileName, header) =>
+                {
+                    if (MultiplayerSaveLaunchPreparing != null &&
+                        !MultiplayerSaveLaunchPreparing(MainViewModel.Instance?.FRONTMultiplayer, header))
+                    {
+                        ShowMessage("Lord data", "The selected save's Lord data is not synchronized. Please try again after all players are ready.");
+                        return;
+                    }
+                    okAction?.Invoke(fileName, header);
+                };
+                openLoadSaveRequesterOriginal(
+                    requesterType, prepared, cancelAction, mpCrcCount, skirmishScreen, trailsScreen);
+                return;
+            }
             if (!enabled || requesterType != Enums.RequesterTypes.SaveEditorMap)
             {
                 openLoadSaveRequesterOriginal(

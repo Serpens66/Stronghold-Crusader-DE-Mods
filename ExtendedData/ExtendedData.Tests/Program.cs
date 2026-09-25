@@ -62,6 +62,10 @@ var tests = new (string Name, Action Run)[]
     ("invalid mod-data containers fail closed", TestInvalidModDataContainers),
     ("map mod-data API distinguishes file and namespace absence", TestMapModDataApi),
     ("Custom Lord mod-data API supports paths and configs", TestLordModDataApi),
+    ("selected Lord data uses host snapshots without local files", TestSelectedLordDataSnapshot),
+    ("Lord data rejects altered and oversized snapshots", TestInvalidLordDataSnapshot),
+    ("Fixes preference snapshots retain every current and future property", TestFixesPreferenceCodec),
+    ("Fixes preference snapshots reject incompatible schemas and lossy values", TestFixesPreferenceIncompatibility),
 };
 
 int failed = 0;
@@ -170,6 +174,123 @@ static void TestLordModDataApi()
     {
         Directory.Delete(root, true);
     }
+}
+
+static void TestSelectedLordDataSnapshot()
+{
+    var first = new LordDataSlot
+    {
+        PlayerId = 2, LordName = "workshop\\Lord", ConfigName = "aggressive", ConfigChecksum = "19",
+        ModLordJson = "{\"example.mod\":{\"aggression\":4}}",
+        FixesJson = "{\"EnableHopsFarmFix\":true}",
+    };
+    var second = new LordDataSlot
+    {
+        PlayerId = 3, LordName = "workshop\\Lord", ConfigName = "defensive", ConfigChecksum = "20",
+        ModLordJson = null, FixesJson = first.FixesJson,
+    };
+    LordDataSnapshot snapshot = LordDataSnapshot.Parse(
+        LordDataSnapshot.Create("lobby-1", true, new[] { second, first }).WireJson);
+    Assert(snapshot.Slots.Count == 2 && snapshot.GetSlot(2).ConfigName == "aggressive", "slot order changed");
+    ExtendedDataModDataApi.SetNetworkSnapshot(snapshot, true);
+    try
+    {
+        ExtendedDataModDataReadResult selected = ExtendedDataModDataApi.ReadSelectedLordNamespace(2, "example.mod");
+        Assert(selected.Success && selected.Json.Contains("aggression"), "host namespace was not readable");
+        var config = new CustomisationFileManager.CustomLordConfig { name = "defensive", checksum = 20 };
+        Assert(ExtendedDataModDataApi.ReadLordNamespace(config, "example.mod").Status ==
+            ExtendedDataModDataReadStatus.FileNotFound, "explicit host absence fell back to a local sidecar");
+        Assert(ExtendedDataModDataApi.ReadLordNamespace("aggressive.lordjson", "example.mod").Status ==
+            ExtendedDataModDataReadStatus.Success, "selected path did not use host data");
+    }
+    finally
+    {
+        ExtendedDataModDataApi.SetNetworkSnapshot(null, false);
+    }
+}
+
+static void TestInvalidLordDataSnapshot()
+{
+    LordDataSnapshot snapshot = LordDataSnapshot.Create("lobby-2", false, new[]
+    {
+        new LordDataSlot { PlayerId = 2, LordName = "Lord", ConfigName = "a", ConfigChecksum = "1",
+            ModLordJson = "{\"example.mod\":{}}" },
+    });
+    AssertThrows<Exception>(() => LordDataSnapshot.Parse(snapshot.WireJson.Replace("example.mod", "other.mod")),
+        "modified data passed the snapshot checksum");
+    AssertThrows<Exception>(() => LordDataSnapshot.Create("lobby-3", false, new[]
+    {
+        new LordDataSlot { PlayerId = 2, LordName = "Lord", ConfigName = "a", ConfigChecksum = "1",
+            ModLordJson = "{\"example.mod\":{\"text\":\"" + new string('x', LordDataSnapshot.MaxSidecarBytes) + "\"}}" },
+    }), "oversized sidecar was accepted");
+    AssertThrows<Exception>(() => LordDataSnapshot.Create("lobby-3", false, new[]
+    {
+        new LordDataSlot { PlayerId = 2, LordName = "Lord", ConfigName = "a", ConfigChecksum = "1",
+            ModLordJson = "{\"Example.Mod\":{},\"example.mod\":{}}" },
+    }), "ambiguous GUID casing was accepted");
+    AssertThrows<Exception>(() => LordDataSnapshot.Create("lobby-3", false, new[]
+    {
+        new LordDataSlot { PlayerId = 2, LordName = "Lord", ConfigName = "a", ConfigChecksum = "1",
+            FixesJson = "{}" },
+    }), "Fixes preferences without Fixes were accepted");
+}
+
+static void TestFixesPreferenceCodec()
+{
+    var host = new FutureFixesPreferences
+    {
+        Field01 = true, Field02 = 37, Field03 = -2, Field04 = 4,
+        Field05 = 5, Field06 = 6, Field07 = 7, Field08 = 8,
+        Field09 = 9, Field10 = 10, Field11 = 11, Field12 = 12,
+        Field13 = 13, Field14 = 14, Field15 = 15, Field16 = 16,
+        Field17 = 17, Field18 = 18,
+        Nested = new FutureFixesNested { Weight = 2.5, Enabled = false },
+        Values = Enumerable.Range(0, 100).ToDictionary(index => "setting" + index, index => new List<int> { index, -index }),
+    };
+    string json = TypedPreferenceSnapshotCodec.Capture(host);
+    var client = (FutureFixesPreferences)TypedPreferenceSnapshotCodec.Restore(typeof(FutureFixesPreferences), json);
+    Assert(client.Field01 == true && client.Field18 == 18 && client.Nested.Weight == 2.5,
+        "scalar or nested Fixes values were lost");
+    Assert(client.Values.Count == 100 && client.Values["setting99"].SequenceEqual(new[] { 99, -99 }),
+        "the preference field count or nested dictionary was truncated");
+    var reverse = new FutureFixesPreferences { Values = host.Values.Reverse().ToDictionary(item => item.Key, item => item.Value),
+        Field01 = host.Field01, Field02 = host.Field02, Field03 = host.Field03, Field04 = host.Field04,
+        Field05 = host.Field05, Field06 = host.Field06, Field07 = host.Field07, Field08 = host.Field08,
+        Field09 = host.Field09, Field10 = host.Field10, Field11 = host.Field11, Field12 = host.Field12,
+        Field13 = host.Field13, Field14 = host.Field14, Field15 = host.Field15, Field16 = host.Field16,
+        Field17 = host.Field17, Field18 = host.Field18, Nested = host.Nested };
+    Assert(TypedPreferenceSnapshotCodec.Capture(reverse) == json,
+        "dictionary insertion order changed the transferred preferences");
+
+    LordDataSnapshot snapshot = LordDataSnapshot.Parse(LordDataSnapshot.Create("lobby-fixes", true, new[]
+    {
+        new LordDataSlot { PlayerId = 2, LordName = "Lord", ConfigName = "a", ConfigChecksum = "1", FixesJson = json },
+        new LordDataSlot { PlayerId = 3, LordName = "Lord", ConfigName = "b", ConfigChecksum = "2", FixesJson = json },
+        new LordDataSlot { PlayerId = 4, LordName = "Absent", ConfigName = "c", ConfigChecksum = "3", FixesJson = null },
+    }).WireJson);
+    Assert(snapshot.GetSlot(2).FixesJson == json && snapshot.GetSlot(3).FixesJson == json &&
+        snapshot.GetSlot(4).FixesJson == null, "selected configurations or missing preferences changed in transit");
+}
+
+static void TestFixesPreferenceIncompatibility()
+{
+    string json = TypedPreferenceSnapshotCodec.Capture(new FutureFixesPreferences());
+    AssertThrows<InvalidDataException>(() => TypedPreferenceSnapshotCodec.Restore(typeof(OlderFixesPreferences), json),
+        "a client missing host properties accepted the snapshot");
+    AssertThrows<InvalidDataException>(() => TypedPreferenceSnapshotCodec.Restore(typeof(FutureFixesPreferences),
+        json.Replace("\"Field18\": null", "\"Field18\": \"bad\"")),
+        "a client with an incompatible property type accepted the snapshot");
+    AssertThrows<InvalidDataException>(() => TypedPreferenceSnapshotCodec.Restore(typeof(ChangedFixesPreferences),
+        TypedPreferenceSnapshotCodec.Capture(new OlderFixesPreferences { Field01 = true })),
+        "a changed Fixes property type was accepted");
+    AssertThrows<InvalidDataException>(() => TypedPreferenceSnapshotCodec.Restore(typeof(FutureFixesPreferences),
+        json.Replace("\"Field18\"", "\"UnknownField\"")),
+        "a renamed host property was ignored");
+    AssertThrows<InvalidDataException>(() => TypedPreferenceSnapshotCodec.Capture(new UnsupportedFixesPreferences()),
+        "an unsupported future property was silently omitted");
+    AssertThrows<InvalidDataException>(() => TypedPreferenceSnapshotCodec.Capture(new DecimalFixesPreferences
+        { Value = 0.1234567890123456789012345678m }),
+        "a decimal value that the JSON parser cannot reproduce was accepted");
 }
 
 static void TestBundledMission()
@@ -2043,6 +2164,56 @@ static void AssertThrows<TException>(Action action, string message) where TExcep
     throw new InvalidOperationException(message);
 }
 
+public sealed class FutureFixesNested
+{
+    public double Weight { get; set; }
+    public bool Enabled { get; set; }
+}
+
+public sealed class FutureFixesPreferences
+{
+    public bool? Field01 { get; set; }
+    public int? Field02 { get; set; }
+    public int? Field03 { get; set; }
+    public int? Field04 { get; set; }
+    public int? Field05 { get; set; }
+    public int? Field06 { get; set; }
+    public int? Field07 { get; set; }
+    public int? Field08 { get; set; }
+    public int? Field09 { get; set; }
+    public int? Field10 { get; set; }
+    public int? Field11 { get; set; }
+    public int? Field12 { get; set; }
+    public int? Field13 { get; set; }
+    public int? Field14 { get; set; }
+    public int? Field15 { get; set; }
+    public int? Field16 { get; set; }
+    public int? Field17 { get; set; }
+    public int? Field18 { get; set; }
+    public FutureFixesNested Nested { get; set; }
+    public Dictionary<string, List<int>> Values { get; set; }
+}
+
+public sealed class OlderFixesPreferences
+{
+    public bool? Field01 { get; set; }
+}
+
+public sealed class UnsupportedFixesPreferences
+{
+    public object Unknown { get; set; }
+}
+
+public sealed class ChangedFixesPreferences
+{
+    public string Field01 { get; set; }
+}
+
+public sealed class DecimalFixesPreferences
+{
+    public decimal Value { get; set; }
+}
+
 sealed class Fixture : IDisposable
 {
     public string Root { get; private set; }
@@ -2327,5 +2498,6 @@ public sealed class CustomisationFileManager
     {
         public string name;
         public string path;
+        public ulong checksum;
     }
 }

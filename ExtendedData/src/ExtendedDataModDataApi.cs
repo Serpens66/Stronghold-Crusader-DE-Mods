@@ -1,6 +1,7 @@
 using SHCDESE.API;
 using System;
 using System.IO;
+using System.Linq;
 using System.Text;
 
 namespace ExtendedData
@@ -11,8 +12,28 @@ namespace ExtendedData
         private const string LordExtension = ".lordjson";
         private const string ModLordExtension = ".modlord.json";
         private static readonly Encoding StrictUtf8 = new UTF8Encoding(false, true);
+        private static LordDataSnapshot activeSnapshot;
+        private static bool networkSessionActive;
 
         public static int ApiVersion => 1;
+
+        internal static void SetNetworkSnapshot(LordDataSnapshot snapshot, bool sessionActive)
+        {
+            activeSnapshot = snapshot;
+            networkSessionActive = sessionActive;
+        }
+
+        public static ExtendedDataModDataReadResult ReadSelectedLordNamespace(int playerId, string modGuid)
+        {
+            if (string.IsNullOrWhiteSpace(modGuid) || playerId < 1 || playerId > 8)
+                return ExtendedDataModDataReadResult.InvalidRequest(modGuid, string.Empty, "A mod GUID and player ID from 1 to 8 are required.");
+            if (!networkSessionActive || activeSnapshot == null)
+                return ExtendedDataModDataReadResult.HostDataUnavailable(modGuid, string.Empty, "The host Lord-data snapshot is not ready.");
+            LordDataSlot slot = activeSnapshot.GetSlot(playerId);
+            if (slot == null)
+                return ExtendedDataModDataReadResult.FileNotFound(modGuid, "host Lord slot " + playerId);
+            return ReadSelectedSlot(slot, modGuid);
+        }
 
         public static ExtendedDataModDataReadResult ReadCurrentMapNamespace(string modGuid)
         {
@@ -49,6 +70,19 @@ namespace ExtendedData
 
         public static ExtendedDataModDataReadResult ReadLordNamespace(string lordJsonPath, string modGuid)
         {
+            if (networkSessionActive)
+            {
+                if (activeSnapshot == null)
+                    return ExtendedDataModDataReadResult.HostDataUnavailable(modGuid, lordJsonPath, "The host Lord-data snapshot is not ready.");
+                string configName = Path.GetFileNameWithoutExtension(lordJsonPath ?? string.Empty);
+                LordDataSlot[] matches = activeSnapshot.Slots.Where(slot =>
+                    string.Equals(slot.ConfigName, configName, StringComparison.OrdinalIgnoreCase)).ToArray();
+                if (matches.Length == 1)
+                    return ReadSelectedSlot(matches[0], modGuid);
+                if (matches.Length > 1)
+                    return ExtendedDataModDataReadResult.HostDataUnavailable(modGuid, lordJsonPath, "The selected Lord configuration is ambiguous; use the player-ID API.");
+                return ExtendedDataModDataReadResult.HostDataUnavailable(modGuid, lordJsonPath, "The file is not a selected host Lord configuration.");
+            }
             if (string.IsNullOrWhiteSpace(modGuid))
             {
                 return ExtendedDataModDataReadResult.InvalidRequest(
@@ -91,6 +125,17 @@ namespace ExtendedData
             CustomisationFileManager.CustomLordConfig config,
             string modGuid)
         {
+            if (networkSessionActive)
+            {
+                if (config == null || string.IsNullOrWhiteSpace(config.name) || activeSnapshot == null)
+                    return ExtendedDataModDataReadResult.HostDataUnavailable(modGuid, string.Empty, "The selected host Lord configuration is not ready.");
+                LordDataSlot[] matches = activeSnapshot.Slots.Where(slot =>
+                    string.Equals(slot.ConfigName, config.name, StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(slot.ConfigChecksum, config.checksum.ToString(), StringComparison.Ordinal)).ToArray();
+                if (matches.Length == 1)
+                    return ReadSelectedSlot(matches[0], modGuid);
+                return ExtendedDataModDataReadResult.HostDataUnavailable(modGuid, config.name, "The selected host Lord configuration is missing or ambiguous; use the player-ID API.");
+            }
             if (config == null || string.IsNullOrWhiteSpace(config.path) || string.IsNullOrWhiteSpace(config.name))
             {
                 return ExtendedDataModDataReadResult.InvalidRequest(
@@ -117,6 +162,14 @@ namespace ExtendedData
                     source,
                     "The mod-data file is not valid UTF-8: " + exception.Message);
             }
+        }
+
+        private static ExtendedDataModDataReadResult ReadSelectedSlot(LordDataSlot slot, string modGuid)
+        {
+            string source = "host Lord slot " + slot.PlayerId + " (" + slot.LordName + "/" + slot.ConfigName + ")";
+            if (slot.ModLordJson == null)
+                return ExtendedDataModDataReadResult.FileNotFound(modGuid, source);
+            return ModDataNamespaceReader.Read(slot.ModLordJson, modGuid, source);
         }
     }
 }

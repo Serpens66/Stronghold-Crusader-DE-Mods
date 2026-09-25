@@ -12,6 +12,7 @@ namespace ExtendedData
     [BepInDependency("APIShared_Serp", "0.4.0")]
     [BepInDependency("BugfixesAndQoL_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
+    [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class ExtendedDataPlugin : BaseUnityPlugin
     {

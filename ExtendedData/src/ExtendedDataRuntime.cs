@@ -20,6 +20,7 @@ namespace ExtendedData
         private delegate void InitCoopMissionsDelegate(FRONT_Multiplayer self);
         private delegate void CoopMissionChangedDelegate(FRONT_Multiplayer self, int trailId, int missionId, bool resetOrderSwapped);
         private delegate void ButtonClickedDelegate(FRONT_Multiplayer self, string command);
+        private delegate void UpdateHostInfoDelegate(FRONT_Multiplayer self, bool delayed);
 
         private sealed class HumanPackageState
         {
@@ -66,11 +67,14 @@ namespace ExtendedData
         private Hook initHook;
         private Hook missionHook;
         private Hook buttonHook;
+        private Hook updateHostInfoHook;
         private InitCoopMissionsDelegate initTrampoline;
         private CoopMissionChangedDelegate missionTrampoline;
         private ButtonClickedDelegate buttonTrampoline;
+        private UpdateHostInfoDelegate updateHostInfoTrampoline;
         private TrailMissionSettingsCoordinator missionSettingsCoordinator;
         private MapModSettingsCoordinator mapSettingsCoordinator;
+        private LordDataSyncCoordinator lordDataCoordinator;
         private string[] missingMods = Array.Empty<string>();
         private ResolvedMission selected;
         private CoopTrailPackage activePackage;
@@ -122,6 +126,10 @@ namespace ExtendedData
                 missionSettingsCoordinator,
                 editorSaveOptions);
             mapSettingsCoordinator.Initialize();
+            lordDataCoordinator = new LordDataSyncCoordinator(log, settings);
+            lordDataCoordinator.Initialize();
+            missionSettingsCoordinator.LobbyOpened += lordDataCoordinator.OnLobbyOpened;
+            mapSettingsCoordinator.MultiplayerSaveLaunchPreparing += lordDataCoordinator.PrepareSave;
             RefreshModCompatibility();
             settings.ActiveCoopPackageChanged += OnActiveCoopPackageChanged;
             subscriptions.Add(Shared.MissionEvents.Ended.Subscribe(OnMissionEnded));
@@ -141,6 +149,8 @@ namespace ExtendedData
             MethodInfo buttonMethod = RequireMethod("ButtonClicked", typeof(string));
             buttonHook = new Hook(buttonMethod, (ButtonClickedDelegate)ButtonClickedHook);
             buttonTrampoline = buttonHook.GenerateTrampoline<ButtonClickedDelegate>();
+            updateHostInfoHook = new Hook(UpdateHostInfoMethod, (UpdateHostInfoDelegate)UpdateHostInfoHook);
+            updateHostInfoTrampoline = updateHostInfoHook.GenerateTrampoline<UpdateHostInfoDelegate>();
 
             RefreshPackageCatalog();
             OnActiveCoopPackageChanged();
@@ -207,6 +217,7 @@ namespace ExtendedData
             initHook?.Dispose();
             missionHook?.Dispose();
             buttonHook?.Dispose();
+            updateHostInfoHook?.Dispose();
             RestoreVanillaMissions();
             settings.ActiveCoopPackageChanged -= OnActiveCoopPackageChanged;
             if (missionSettingsCoordinator != null)
@@ -218,6 +229,11 @@ namespace ExtendedData
             }
             missionSettingsCoordinator?.ExitContext(force: true);
             mapSettingsCoordinator?.Dispose();
+            if (mapSettingsCoordinator != null && lordDataCoordinator != null)
+                mapSettingsCoordinator.MultiplayerSaveLaunchPreparing -= lordDataCoordinator.PrepareSave;
+            if (missionSettingsCoordinator != null && lordDataCoordinator != null)
+                missionSettingsCoordinator.LobbyOpened -= lordDataCoordinator.OnLobbyOpened;
+            lordDataCoordinator?.Dispose();
             missionSettingsCoordinator?.Dispose();
         }
 
@@ -278,6 +294,18 @@ namespace ExtendedData
 
         private void ButtonClickedHook(FRONT_Multiplayer self, string command)
         {
+            if (enabled && IsStartCommand(command) && self?.currentLobby != null &&
+                self.currentLobby.isHost && !self.singlePlayerCoop)
+            {
+                bool captured = lordDataCoordinator.RefreshHost(self);
+                bool ready = lordDataCoordinator.IsReadyToLaunch(self, out string lordDataReason);
+                if (!captured || !ready)
+                {
+                    BlockLaunch(command, string.IsNullOrEmpty(lordDataReason)
+                        ? "Selected Lord data is not synchronized yet." : lordDataReason);
+                    return;
+                }
+            }
             if (enabled && string.Equals(command, "TMTest", StringComparison.Ordinal) &&
                 !missionSettingsCoordinator.PrepareTrailMakerTestLaunch())
             {
@@ -351,6 +379,13 @@ namespace ExtendedData
                 }
             }
             buttonTrampoline(self, command);
+        }
+
+        private void UpdateHostInfoHook(FRONT_Multiplayer self, bool delayed)
+        {
+            updateHostInfoTrampoline(self, delayed);
+            if (enabled && !delayed)
+                lordDataCoordinator?.RefreshHost(self);
         }
 
         public void RefreshPackageCatalog()

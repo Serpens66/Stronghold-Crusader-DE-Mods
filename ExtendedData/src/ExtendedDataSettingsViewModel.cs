@@ -39,6 +39,8 @@ namespace ExtendedData
         private TrailModSelectionItem[] compatibleTrailMods = Array.Empty<TrailModSelectionItem>();
         private string incompatibleTrailModsText = string.Empty;
         private string coopPackageStatus = string.Empty;
+        private string lordDataSnapshot = string.Empty;
+        private string lordDataStatus = string.Empty;
 
         public ExtendedDataSettingsViewModel()
         {
@@ -60,11 +62,16 @@ namespace ExtendedData
                 .ResetSlotsWith(nameof(CoopPackageStatus), () => null)
                 .RequireReport(
                     nameof(CoopPackageStatus),
-                    value => !string.IsNullOrEmpty(value as string));
+                    value => !string.IsNullOrEmpty(value as string))
+                .ResetSlotsWith(nameof(LordDataStatus), () => null)
+                .RequireReport(nameof(LordDataStatus), value => !string.IsNullOrEmpty(value as string))
+                .WhenLobbyChanged(snapshot => LordDataLobbyChanged?.Invoke(snapshot));
         }
 
         public event Action<bool> RuntimeActivationChanged;
         public event Action ActiveCoopPackageChanged;
+        public event Action<string> LordDataSnapshotChanged;
+        internal event Action<Shared.PerPlayerLobbySnapshot> LordDataLobbyChanged;
 
         public string EnableClientFeaturesText => SerpLocalization.Get("ExtendedData.EnableClientFeatures");
         public string EnableClientFeaturesHelpText => SerpLocalization.Get("ExtendedData.EnableClientFeaturesHelp");
@@ -246,6 +253,38 @@ namespace ExtendedData
 
         [DoNotPersist]
         public string[] CoopPackageStatusData { get; } = new string[9];
+
+        [SyncHostOnly, DoNotPersist]
+        public string LordDataSnapshot
+        {
+            get => lordDataSnapshot;
+            set
+            {
+                value = value ?? string.Empty;
+                if (!CanMutateSetting(nameof(LordDataSnapshot)) ||
+                    string.Equals(lordDataSnapshot, value, StringComparison.Ordinal))
+                    return;
+                lordDataSnapshot = value;
+                OnPropertyChanged(nameof(LordDataSnapshot));
+                LordDataSnapshotChanged?.Invoke(value);
+            }
+        }
+
+        [SyncPerPlayer, DoNotPersist]
+        public string LordDataStatus
+        {
+            get => lordDataStatus;
+            set
+            {
+                value = value ?? string.Empty;
+                if (string.Equals(lordDataStatus, value, StringComparison.Ordinal))
+                    return;
+                lordDataStatus = value;
+                OnPropertyChanged(nameof(LordDataStatus));
+            }
+        }
+
+        public string[] LordDataStatusData { get; } = new string[9];
 
         public ComboBoxItem SelectedCoopPackage
         {

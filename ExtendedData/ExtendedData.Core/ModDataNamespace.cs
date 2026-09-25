@@ -13,6 +13,7 @@ namespace ExtendedData
         InvalidDocument,
         ReadError,
         InvalidRequest,
+        HostDataUnavailable,
     }
 
     public sealed class ExtendedDataModDataReadResult
@@ -52,6 +53,9 @@ namespace ExtendedData
 
         internal static ExtendedDataModDataReadResult InvalidRequest(string modGuid, string source, string diagnostic) =>
             Failure(ExtendedDataModDataReadStatus.InvalidRequest, modGuid, source, diagnostic);
+
+        internal static ExtendedDataModDataReadResult HostDataUnavailable(string modGuid, string source, string diagnostic) =>
+            Failure(ExtendedDataModDataReadStatus.HostDataUnavailable, modGuid, source, diagnostic);
 
         private static ExtendedDataModDataReadResult Failure(
             ExtendedDataModDataReadStatus status,

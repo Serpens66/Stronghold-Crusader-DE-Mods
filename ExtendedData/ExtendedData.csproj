@@ -72,6 +72,9 @@
     <Compile Include="src\ExtendedDataRuntime.cs" />
     <Compile Include="src\ExtendedDataLaunchOriginApi.cs" />
     <Compile Include="src\ExtendedDataModDataApi.cs" />
+    <Compile Include="src\FixesLordPreferencesBridge.cs" />
+    <Compile Include="src\TypedPreferenceSnapshotCodec.cs" />
+    <Compile Include="src\LordDataSyncCoordinator.cs" />
     <Compile Include="src\CoopCustomizePacket.cs" />
     <Compile Include="src\BuiltInCustomizeOriginPacket.cs" />
     <Compile Include="src\MapModSettingsPacket.cs" />
