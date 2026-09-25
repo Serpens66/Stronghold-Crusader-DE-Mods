@@ -28,6 +28,16 @@ namespace ExtendedData
         private ulong? lobbyId;
         private string error = string.Empty;
         private bool saveRegistered;
+        private string lastHostGateDiagnostic;
+        private string lastHostCaptureDiagnostic;
+        private string lastRemoteStatusDiagnostic;
+        private string lastMapTransitionDiagnostic;
+        private string lastMapAppliedDiagnostic;
+        private string lastClientReceivedDiagnostic;
+        private string lastClientAcceptedDiagnostic;
+        private string lastHostEchoDiagnostic;
+        private int[] lobbyHumanSlots = Array.Empty<int>();
+        private int lobbyLocalPlayerId;
 
         internal LordDataSyncCoordinator(ManualLogSource log, ExtendedDataSettingsViewModel settings)
         {
@@ -39,56 +49,104 @@ namespace ExtendedData
         {
             settings.LordDataSnapshotChanged += OnSnapshotChanged;
             settings.LordDataLobbyChanged += OnLobbyChanged;
+            settings.LordDataRemoteStatusChanged += OnRemoteStatusChanged;
+            settings.LordDataSnapshotMutationRejected += OnSnapshotMutationRejected;
+            settings.LordDataLocalStatusChanged += OnLocalStatusChanged;
             saveRegistered = ModSaveDataAPI.Instance.RegisterModDataHandler(
                 SaveIdentifier, SaveSnapshot, LoadSnapshot);
             if (!saveRegistered)
                 throw new InvalidOperationException("Lord-data save identifier is already registered.");
             subscriptions.Add(MissionEvents.Initialization.Subscribe(notification =>
             {
+                if (notification.Context.Mode.IsRealMultiplayer || active != null)
+                    LogMapTransition(notification.Context.Mode.IsRealMultiplayer);
                 if (active == null)
                     return;
                 if (notification.Context.Mode.IsRealMultiplayer)
                 {
-                    fixes.Apply(active);
+                    try
+                    {
+                        fixes.Apply(active);
+                    }
+                    catch (Exception exception)
+                    {
+                        DebugLogHelper.LogError(log, "Lord-data map initialization failed: stage=fixes-apply," +
+                            "digest=" + active.Digest + ",error=" + exception);
+                        throw;
+                    }
                     ExtendedDataModDataApi.SetNetworkSnapshot(active, true);
+                    if (!string.Equals(lastMapAppliedDiagnostic, active.Digest, StringComparison.Ordinal))
+                    {
+                        lastMapAppliedDiagnostic = active.Digest;
+                        DebugLogHelper.LogInfo(log, "Lord-data map initialization applied: " +
+                            LordDataSyncDiagnostics.DescribeSnapshot(active));
+                        LogEffectiveFixes(active, "map-initialization");
+                    }
                 }
                 else
                 {
                     fixes.Restore();
                     active = null;
                     ExtendedDataModDataApi.SetNetworkSnapshot(null, false);
+                    DebugLogHelper.LogInfo(log, "Lord-data snapshot cleared for single-player map initialization.");
                 }
             }));
             subscriptions.Add(MissionEvents.Ended.Subscribe(_ =>
             {
+                bool hadLordSession = active != null || lobbyId.HasValue;
                 fixes.Restore();
                 ExtendedDataModDataApi.SetNetworkSnapshot(null, false);
+                lastMapTransitionDiagnostic = null;
+                lastMapAppliedDiagnostic = null;
+                if (hadLordSession)
+                    DebugLogHelper.LogInfo(log, "Lord-data map ended; session Fixes preferences restored.");
             }));
         }
 
         internal void OnLobbyOpened(FRONT_Multiplayer lobby)
+            => OnLobbyOpened(lobby, "lobby-opened");
+
+        private void OnLobbyOpened(FRONT_Multiplayer lobby, string source)
         {
             if (IsHostLobby(lobby))
-                RefreshHost(lobby);
+                RefreshHost(lobby, source);
             else if (lobby?.currentLobby != null && !string.IsNullOrEmpty(settings.LordDataSnapshot))
+            {
+                DebugLogHelper.LogInfo(log, "Lord-data existing host setting observed on lobby open: source=" +
+                    source + ",wire=" + LordDataSyncDiagnostics.DescribeJson(settings.LordDataSnapshot, false));
                 OnSnapshotChanged(settings.LordDataSnapshot);
+            }
+            else
+                LogHostGateSkip(lobby, source);
         }
 
-        internal bool RefreshHost(FRONT_Multiplayer lobby)
+        internal bool RefreshHost(FRONT_Multiplayer lobby, string source)
         {
             if (!IsHostLobby(lobby))
+            {
+                LogHostGateSkip(lobby, source);
                 return true;
+            }
+            string stage = "capture";
             try
             {
                 LordDataSnapshot next = CaptureLobby(lobby);
-                Publish(next);
+                string signature = next.SessionId + ":" + next.Digest;
+                if (!string.Equals(signature, lastHostCaptureDiagnostic, StringComparison.Ordinal) ||
+                    string.Equals(source, "start-attempt", StringComparison.Ordinal))
+                    DebugLogHelper.LogInfo(log, "Lord-data host capture: source=" + source + "," +
+                        LordDataSyncDiagnostics.DescribeSnapshot(next));
+                lastHostCaptureDiagnostic = signature;
+                stage = "publish";
+                Publish(next, source);
                 return true;
             }
             catch (Exception exception)
             {
                 error = exception.Message;
                 settings.LordDataStatus = "ERROR|" + error;
-                DebugLogHelper.LogError(log, "Lord-data host capture failed: " + exception);
+                DebugLogHelper.LogError(log, "Lord-data host capture failed: source=" + source +
+                    ",lobby=" + lobbyId + ",stage=" + stage + ",error=" + exception);
                 return false;
             }
         }
@@ -111,13 +169,16 @@ namespace ExtendedData
                             saved = LordDataSnapshot.Parse(StrictUtf8.GetString(bytes));
                     }
                 }
+                bool reconstructed = saved == null;
                 if (saved == null)
                     saved = CaptureLegacySave(lobby, header);
                 if (saved.FixesInstalled != fixes.Installed)
                     throw new InvalidDataException("The installed Fixes state differs from the saved Lord data.");
                 ValidateSavedLords(header, saved);
-                Publish(LordDataSnapshot.Create(CurrentSessionId(lobby), saved.FixesInstalled, saved.Slots));
-                bool ready = IsReadyToLaunch(lobby, out _);
+                Publish(LordDataSnapshot.Create(CurrentSessionId(lobby), saved.FixesInstalled, saved.Slots),
+                    reconstructed ? "legacy-save" : "multiplayer-save");
+                bool ready = IsReadyToLaunch(lobby, out string reason);
+                LogStartDecision(true, ready, reason);
                 return ready;
             }
             catch (Exception exception)
@@ -167,6 +228,21 @@ namespace ExtendedData
             }
             reason = string.Empty;
             return true;
+        }
+
+        internal void LogStartAttempt(string command, bool runtimeEnabled, FRONT_Multiplayer lobby)
+        {
+            DebugLogHelper.LogInfo(log, "Lord-data start hook reached: command=" +
+                LordDataSyncDiagnostics.SafeLabel(command) +
+                ",runtimeEnabled=" + runtimeEnabled + "," + DescribeHostGate(lobby) +
+                "," + DescribeAcknowledgements(lobbyHumanSlots));
+        }
+
+        internal void LogStartDecision(bool captured, bool ready, string reason)
+        {
+            DebugLogHelper.LogInfo(log, "Lord-data start decision: captureSucceeded=" + captured +
+                ",ready=" + ready + ",reason=" + (string.IsNullOrEmpty(reason) ? "none" : reason) +
+                "," + DescribeAcknowledgements(lobbyHumanSlots));
         }
 
 
@@ -266,35 +342,86 @@ namespace ExtendedData
                 throw new InvalidDataException("Saved Lord-data identities do not match the selected multiplayer save.");
         }
 
-        private void Publish(LordDataSnapshot snapshot)
+        private void Publish(LordDataSnapshot snapshot, string source)
         {
+            bool changed = active == null || !string.Equals(active.Digest, snapshot.Digest, StringComparison.Ordinal);
             fixes.Apply(snapshot);
+            if (changed || string.Equals(source, "start-attempt", StringComparison.Ordinal))
+            {
+                DebugLogHelper.LogInfo(log, "Lord-data host Fixes values applied: source=" + source +
+                    ",session=" + snapshot.SessionId + ",digest=" + snapshot.Digest +
+                    ",selectedLords=" + snapshot.Slots.Count);
+                LogEffectiveFixes(snapshot, "host-" + source);
+            }
             error = string.Empty;
             active = snapshot;
             ExtendedDataModDataApi.SetNetworkSnapshot(snapshot, true);
             settings.LordDataStatus = "READY|" + snapshot.Digest;
             if (!string.Equals(settings.LordDataSnapshot, snapshot.WireJson, StringComparison.Ordinal))
                 settings.LordDataSnapshot = snapshot.WireJson;
+            if (changed || string.Equals(source, "start-attempt", StringComparison.Ordinal))
+                DebugLogHelper.LogInfo(log, "Lord-data host publication: source=" + source +
+                    ",session=" + snapshot.SessionId + ",digest=" + snapshot.Digest +
+                    ",snapshotSettingMatches=" + string.Equals(settings.LordDataSnapshot,
+                        snapshot.WireJson, StringComparison.Ordinal) +
+                    ",localStatus=" + LordDataSyncDiagnostics.DescribeStatus(settings.LordDataStatus, snapshot.Digest));
         }
 
         private void OnSnapshotChanged(string wireJson)
         {
             if (GameNetworkAPI.IsLocalHost())
+            {
+                string signature = LordDataSyncDiagnostics.Hash(wireJson);
+                if (!string.Equals(signature, lastHostEchoDiagnostic, StringComparison.Ordinal))
+                {
+                    lastHostEchoDiagnostic = signature;
+                    DebugLogHelper.LogInfo(log, "Lord-data setting callback ignored as local host echo: lobby=" +
+                        lobbyId + ",wire=" + LordDataSyncDiagnostics.DescribeJson(wireJson, false));
+                }
                 return;
+            }
+            string receivedSignature = lobbyId + ":" + LordDataSyncDiagnostics.Hash(wireJson);
+            if (!string.Equals(receivedSignature, lastClientReceivedDiagnostic, StringComparison.Ordinal))
+            {
+                lastClientReceivedDiagnostic = receivedSignature;
+                DebugLogHelper.LogInfo(log, "Lord-data host setting received: lobby=" + lobbyId +
+                    ",wire=" + LordDataSyncDiagnostics.DescribeJson(wireJson, false));
+            }
             UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
             {
+                string stage = "parse";
                 try
                 {
                     LordDataSnapshot snapshot = LordDataSnapshot.Parse(wireJson);
+                    bool newlyAccepted = !string.Equals(snapshot.Digest, lastClientAcceptedDiagnostic,
+                        StringComparison.Ordinal);
+                    if (newlyAccepted)
+                        DebugLogHelper.LogInfo(log, "Lord-data snapshot parsed: " +
+                            LordDataSyncDiagnostics.DescribeSnapshot(snapshot));
+                    stage = "session-check";
                     FRONT_Multiplayer lobby = MainViewModel.Instance?.FRONTMultiplayer;
                     if (lobby?.currentLobby == null ||
                         !string.Equals(snapshot.SessionId, CurrentSessionId(lobby), StringComparison.Ordinal))
                         throw new InvalidDataException("Lord-data snapshot belongs to another lobby.");
+                    stage = "fixes-apply";
                     fixes.Apply(snapshot);
+                    if (newlyAccepted)
+                    {
+                        DebugLogHelper.LogInfo(log, "Lord-data client Fixes values applied: session=" +
+                            snapshot.SessionId + ",digest=" + snapshot.Digest +
+                            ",selectedLords=" + snapshot.Slots.Count);
+                        LogEffectiveFixes(snapshot, "client-receive");
+                    }
                     active = snapshot;
                     error = string.Empty;
                     ExtendedDataModDataApi.SetNetworkSnapshot(snapshot, true);
+                    stage = "status-set";
                     settings.LordDataStatus = "READY|" + snapshot.Digest;
+                    if (newlyAccepted)
+                        DebugLogHelper.LogInfo(log, "Lord-data client acknowledged: session=" +
+                            snapshot.SessionId + ",digest=" + snapshot.Digest + ",localStatus=" +
+                            LordDataSyncDiagnostics.DescribeStatus(settings.LordDataStatus, snapshot.Digest));
+                    lastClientAcceptedDiagnostic = snapshot.Digest;
                 }
                 catch (Exception exception)
                 {
@@ -302,7 +429,9 @@ namespace ExtendedData
                     error = exception.Message;
                     settings.LordDataStatus = "ERROR|" + error;
                     ExtendedDataModDataApi.SetNetworkSnapshot(null, true);
-                    DebugLogHelper.LogError(log, "Rejected host Lord-data snapshot: " + exception);
+                    DebugLogHelper.LogError(log, "Rejected host Lord-data snapshot: stage=" + stage +
+                        ",lobby=" + lobbyId + ",wireBytes=" + Encoding.UTF8.GetByteCount(wireJson ?? string.Empty) +
+                        ",wireSha256=" + LordDataSyncDiagnostics.Hash(wireJson) + ",error=" + exception);
                 }
             });
         }
@@ -332,6 +461,13 @@ namespace ExtendedData
 
         private void OnLobbyChanged(PerPlayerLobbySnapshot snapshot)
         {
+            int[] players = snapshot?.Players?.Keys.OrderBy(id => id).ToArray() ?? Array.Empty<int>();
+            DebugLogHelper.LogInfo(log, "Lord-data lobby observation: previous=" + lobbyId +
+                ",current=" + snapshot?.LobbyId + ",players=[" + string.Join(",", players) +
+                "],unresolved=" + snapshot?.HasUnresolvedPlayers + ",localPlayer=" +
+                snapshot?.LocalPlayerId + "," + DescribeAcknowledgements(players));
+            lobbyHumanSlots = players;
+            lobbyLocalPlayerId = snapshot?.LocalPlayerId ?? 0;
             if (snapshot?.LobbyId == lobbyId)
                 return;
             lobbyId = snapshot?.LobbyId;
@@ -340,9 +476,130 @@ namespace ExtendedData
             error = string.Empty;
             ExtendedDataModDataApi.SetNetworkSnapshot(null, snapshot?.LobbyId != null);
             settings.LordDataStatus = string.Empty;
+            lastHostGateDiagnostic = null;
+            lastHostCaptureDiagnostic = null;
+            lastRemoteStatusDiagnostic = null;
+            lastMapTransitionDiagnostic = null;
+            lastMapAppliedDiagnostic = null;
+            lastClientReceivedDiagnostic = null;
+            lastClientAcceptedDiagnostic = null;
+            lastHostEchoDiagnostic = null;
+            DebugLogHelper.LogInfo(log, "Lord-data session reset: lobby=" + lobbyId +
+                ",fixesRestored=true,activeSnapshot=absent.");
             if (snapshot?.LobbyId != null)
-                OnLobbyOpened(MainViewModel.Instance?.FRONTMultiplayer);
+                OnLobbyOpened(MainViewModel.Instance?.FRONTMultiplayer, "lobby-change");
         }
+
+        private void OnRemoteStatusChanged()
+        {
+            string summary = DescribeAcknowledgements(lobbyHumanSlots);
+            if (string.Equals(summary, lastRemoteStatusDiagnostic, StringComparison.Ordinal))
+                return;
+            lastRemoteStatusDiagnostic = summary;
+            DebugLogHelper.LogInfo(log, "Lord-data remote status changed: " + summary);
+        }
+
+        private void LogEffectiveFixes(LordDataSnapshot snapshot, string source)
+        {
+            if (!snapshot.FixesInstalled)
+            {
+                DebugLogHelper.LogInfo(log, "Lord-data Fixes verification: source=" + source +
+                    ",digest=" + snapshot.Digest + ",state=not-installed.");
+                return;
+            }
+            foreach (LordDataSlot slot in snapshot.Slots.GroupBy(item => item.LordName,
+                StringComparer.Ordinal).Select(group => group.First()))
+            {
+                try
+                {
+                    string actual = fixes.Capture(slot.LordName);
+                    bool matches = string.Equals(actual, slot.FixesJson, StringComparison.Ordinal);
+                    string message = "Lord-data Fixes verification: source=" + source +
+                        ",digest=" + snapshot.Digest + ",lord=" + LordDataSyncDiagnostics.SafeLabel(slot.LordName) +
+                        ",expected=" + LordDataSyncDiagnostics.DescribeJson(slot.FixesJson, true) +
+                        ",actual=" + LordDataSyncDiagnostics.DescribeJson(actual, true) +
+                        ",matches=" + matches;
+                    if (matches)
+                        DebugLogHelper.LogInfo(log, message);
+                    else
+                        DebugLogHelper.LogError(log, message);
+                }
+                catch (Exception exception)
+                {
+                    DebugLogHelper.LogError(log, "Lord-data Fixes verification failed: source=" + source +
+                        ",digest=" + snapshot.Digest + ",lord=" + LordDataSyncDiagnostics.SafeLabel(slot.LordName) +
+                        ",error=" + exception);
+                }
+            }
+        }
+
+        private void OnLocalStatusChanged(string status) =>
+            DebugLogHelper.LogInfo(log, "Lord-data local status changed: lobby=" + lobbyId +
+                ",digest=" + (active?.Digest ?? "none") + ",status=" +
+                LordDataSyncDiagnostics.DescribeStatus(status, active?.Digest));
+
+        private void OnSnapshotMutationRejected(int bytes) =>
+            DebugLogHelper.LogError(log, "Lord-data snapshot setting write rejected by Modsettings ownership: " +
+                "lobby=" + lobbyId + ",characters=" + bytes + ",localHost=" + GameNetworkAPI.IsLocalHost());
+
+        private void LogMapTransition(bool realMultiplayer)
+        {
+            string signature = realMultiplayer + ":" + lobbyId + ":" + active?.Digest + ":" +
+                settings.LordDataStatus;
+            if (string.Equals(signature, lastMapTransitionDiagnostic, StringComparison.Ordinal))
+                return;
+            lastMapTransitionDiagnostic = signature;
+            string message = "Lord-data map transition: realMultiplayer=" + realMultiplayer +
+                ",runtimeEnabled=" + settings.IsRuntimeEnabled + "," +
+                DescribeAcknowledgements(lobbyHumanSlots);
+            if (realMultiplayer && settings.IsRuntimeEnabled && active == null)
+                DebugLogHelper.LogError(log, message + ",problem=no acknowledged host snapshot at map initialization.");
+            else if (realMultiplayer && settings.IsRuntimeEnabled && !AllKnownPlayersAcknowledged())
+                DebugLogHelper.LogError(log, message + ",problem=one or more known player acknowledgements are missing or stale.");
+            else
+                DebugLogHelper.LogInfo(log, message);
+        }
+
+        private bool AllKnownPlayersAcknowledged()
+        {
+            if (active == null)
+                return false;
+            string expected = "READY|" + active.Digest;
+            if (!string.Equals(settings.LordDataStatus, expected, StringComparison.Ordinal))
+                return false;
+            return lobbyHumanSlots.All(id => string.Equals(
+                id == lobbyLocalPlayerId ? settings.LordDataStatus :
+                    id > 0 && id < settings.LordDataStatusData.Length
+                        ? settings.LordDataStatusData[id] : null,
+                expected, StringComparison.Ordinal));
+        }
+
+        private string DescribeAcknowledgements(IEnumerable<int> playerIds)
+        {
+            string expected = active?.Digest;
+            return "lobby=" + lobbyId + ",expectedDigest=" + (expected ?? "none") +
+                ",local=" + LordDataSyncDiagnostics.DescribeStatus(settings.LordDataStatus, expected) +
+                ",players=[" + string.Join(";", (playerIds ?? Enumerable.Empty<int>()).Select(id =>
+                    id + ":" + LordDataSyncDiagnostics.DescribeStatus(
+                        id > 0 && id < settings.LordDataStatusData.Length
+                            ? settings.LordDataStatusData[id] : null, expected))) + "]";
+        }
+
+        private void LogHostGateSkip(FRONT_Multiplayer lobby, string source)
+        {
+            string gate = DescribeHostGate(lobby);
+            if (string.Equals(gate, lastHostGateDiagnostic, StringComparison.Ordinal))
+                return;
+            lastHostGateDiagnostic = gate;
+            DebugLogHelper.LogInfo(log, "Lord-data host capture skipped: source=" + source + "," + gate);
+        }
+
+        private static string DescribeHostGate(FRONT_Multiplayer lobby) =>
+            LordDataSyncDiagnostics.DescribeHostGate(
+                lobby?.currentLobby != null,
+                lobby?.currentLobby?.isHost == true,
+                lobby?.singlePlayerCoop == true,
+                Shared.GameModeHelper.IsRealMultiplayer());
 
         private static bool IsHostLobby(FRONT_Multiplayer lobby) =>
             lobby?.currentLobby != null && !lobby.singlePlayerCoop &&
@@ -355,6 +612,9 @@ namespace ExtendedData
         {
             settings.LordDataSnapshotChanged -= OnSnapshotChanged;
             settings.LordDataLobbyChanged -= OnLobbyChanged;
+            settings.LordDataRemoteStatusChanged -= OnRemoteStatusChanged;
+            settings.LordDataSnapshotMutationRejected -= OnSnapshotMutationRejected;
+            settings.LordDataLocalStatusChanged -= OnLocalStatusChanged;
             foreach (IDisposable subscription in subscriptions)
                 subscription.Dispose();
             subscriptions.Clear();

@@ -410,8 +410,9 @@ namespace BugfixesAndQoL
                 "SurrenderDesyncDiagnostic", "src", "SurrenderDesyncDiagnosticRuntime.cs"));
             Check(resync.Contains("SurrenderDiagnosticBridge.PublishResync(") &&
                   migration.Contains("SurrenderDiagnosticBridge.PublishChores(choreBuffer)") &&
-                  diagnostic.Contains("RESYNC_STATE_CHANGED") &&
-                  diagnostic.Contains("RESYNC_CHORE_OUTGOING"),
+                  diagnostic.Contains("SurrenderDiagnosticBridge.ResyncStateChanged += OnResync") &&
+                  diagnostic.Contains("SurrenderDiagnosticBridge.ChoresSent += OnChores") &&
+                  diagnostic.Contains("resync-send-start"),
                 "resync diagnosis is observed in the test mod through the optional bridge");
         }
 
@@ -466,28 +467,40 @@ namespace BugfixesAndQoL
             for (int tick = 0; tick < 35; tick++)
                 history.AddBuffer(BuildChoreRecord(1, new byte[] { 1 }), tick, out _, out _);
             string[] retained = history.GetBuffers();
+            history.AddBuffer(BuildChoreRecord(1, new byte[] { 2 }), 36, out _, out _);
             Check(retained.Length == 35 && retained[0].StartsWith("tick=0,", StringComparison.Ordinal) &&
                   retained[34].StartsWith("tick=34,", StringComparison.Ordinal),
-                "resync Chore history retains the recent buffers");
+                "resync Chore history returns an immutable copy during later events");
             string terminated = ResyncDiagnosticHistory.DescribeBuffer(
                 BuildChoreBuffer(BuildChoreRecord(1, new byte[] { 54 }), BitConverter.GetBytes(-1)),
                 406, out _, out _);
             Check(terminated.Contains("terminator=-1") && !terminated.Contains("malformed="),
                 "normal -1 Chore terminator is not classified as malformed");
+            string paddedTerminator = ResyncDiagnosticHistory.DescribeBuffer(
+                BuildChoreBuffer(BuildChoreRecord(1, new byte[] { 54 }),
+                    BitConverter.GetBytes(-2), new byte[] { 9, 8, 7 }),
+                407, out bool paddedStart, out _);
+            Check(paddedStart && paddedTerminator.Contains("terminator=-2") &&
+                  paddedTerminator.Contains("ignoredTrailingBytes=3") &&
+                  !paddedTerminator.Contains("malformed="),
+                "negative Chore terminator ignores subsequent buffer bytes like Vanilla");
+            Check(SurrenderTracePolicy.MapRestarted(101, 0) &&
+                  !SurrenderTracePolicy.MapRestarted(101, 101) &&
+                  !SurrenderTracePolicy.MapRestarted(101, 102),
+                "map reset follows map ticks rather than independent director ticks");
+            Check(SurrenderTracePolicy.IsSurrenderLord(2, 97, 465672, 2, 97, 465672) &&
+                  SurrenderTracePolicy.IsSurrenderLord(2, 97, 465672, 2, 88, 465672) &&
+                  !SurrenderTracePolicy.IsSurrenderLord(2, 97, 465672, 3, 97, 465672) &&
+                  !SurrenderTracePolicy.IsSurrenderLord(-1, -1, -1, 2, -1, -1),
+                "surrender death classification uses player and Lord identity without tick distance");
+            Check(SurrenderTracePolicy.FirstResyncFinished(true, true, false) &&
+                  !SurrenderTracePolicy.FirstResyncFinished(false, true, false) &&
+                  !SurrenderTracePolicy.FirstResyncFinished(true, false, true),
+                "capture ends only when the first observed resync returns to idle");
 
-            Check(history.ObserveAnchor(7, 100) &&
-                  history.TakeDueCheckpointOffsets(100).SequenceEqual(new[] { 0 }) &&
-                  history.TakeDueCheckpointOffsets(103).SequenceEqual(new[] { 1, 2 }) &&
-                  history.TakeDueCheckpointOffsets(196).SequenceEqual(new[] { 4, 8, 16, 32, 64, 96 }),
-                "resync checkpoints are emitted once at every requested surrender offset");
-            history.AddSnapshot("snapshot");
-            Check(history.GetSnapshots().SequenceEqual(new[] { "snapshot" }) &&
-                  history.TryClaimStartDump() && !history.TryClaimStartDump(),
-                "opcode-54 diagnostics dump only once per surrender anchor");
             history.Reset();
-            Check(history.GetBuffers().Length == 0 && history.GetSnapshots().Length == 0 &&
-                  history.TryClaimStartDump(),
-                "map reset clears resync diagnostic buffers and one-shot state");
+            Check(history.GetBuffers().Length == 0,
+                "map reset clears resync diagnostic buffers");
         }
 
         private static byte[] BuildChoreRecord(byte targetPlayerId, byte[] payload)
@@ -541,7 +554,7 @@ namespace BugfixesAndQoL
                 "AIV Steam packets are copied and deferred before lobby/runtime access");
             Check(gameSpeed.Contains("bool directDelivery = args.SenderSteamId.HasValue") &&
                     gameSpeed.Contains("mismatched transport") &&
-                    gameSpeed.Contains("sender that is not the current host") &&
+                    gameSpeed.Contains("MultiplayerTimeControlRosterPolicy.IsActiveHumanSender(") &&
                     gameSpeed.Contains("UnityMainThreadDispatch.TryEnqueue(") &&
                     gameSpeed.Contains("OnScreenText.Instance?.addOSTEntry"),
                 "game-speed direct and Chore transports retain distinct thread contracts");
@@ -2272,6 +2285,53 @@ namespace BugfixesAndQoL
 
         private static void TestMultiplayerSafetyPolicy()
         {
+            var originalRoster = new[]
+            {
+                new MultiplayerTimeControlMember(1001, 1, false, true, false, false, false),
+                new MultiplayerTimeControlMember(1002, 2, true, false, false, false, false)
+            };
+            Check(MultiplayerTimeControlRosterPolicy.TryGetLocalSendAuthorization(
+                        originalRoster, out bool clientIsHost, out bool originalMigration) &&
+                    !clientIsHost && !originalMigration &&
+                    MultiplayerTimeControlRosterPolicy.IsActiveHumanSender(originalRoster, 1001) &&
+                    MultiplayerTimeControlRosterPolicy.IsActiveHumanSender(originalRoster, 1002),
+                "only the current active host can send under OnlyHost before migration");
+
+            var localHostRoster = new[]
+            {
+                new MultiplayerTimeControlMember(1001, 1, true, true, false, false, false),
+                new MultiplayerTimeControlMember(1002, 2, false, false, false, false, false)
+            };
+            Check(MultiplayerTimeControlRosterPolicy.TryGetLocalSendAuthorization(
+                        localHostRoster, out bool localIsHost, out bool hostMigrated) &&
+                    localIsHost && !hostMigrated,
+                "original host can send before migration");
+
+            var migratedRoster = new[]
+            {
+                new MultiplayerTimeControlMember(1001, 1, false, true, false, true, false),
+                new MultiplayerTimeControlMember(1002, 2, false, true, false, false, false),
+                new MultiplayerTimeControlMember(1003, 3, true, false, false, false, false)
+            };
+            Check(MultiplayerTimeControlRosterPolicy.TryGetLocalSendAuthorization(
+                        migratedRoster, out bool successorIsHost, out bool migration) &&
+                    !successorIsHost && migration &&
+                    MultiplayerTimeControlRosterPolicy.IsActiveHumanSender(migratedRoster, 1002) &&
+                    !MultiplayerTimeControlRosterPolicy.IsActiveHumanSender(migratedRoster, 1001) &&
+                    !MultiplayerTimeControlRosterPolicy.IsActiveHumanSender(migratedRoster, 9999),
+                "confirmed migration permits active humans and rejects departed or unknown senders");
+
+            var ambiguousRoster = new[]
+            {
+                new MultiplayerTimeControlMember(1001, 1, false, true, false, false, false),
+                new MultiplayerTimeControlMember(1002, 2, true, true, false, false, false)
+            };
+            Check(!MultiplayerTimeControlRosterPolicy.TryGetLocalSendAuthorization(
+                        ambiguousRoster, out _, out _) &&
+                    !MultiplayerTimeControlRosterPolicy.IsActiveHumanSender(
+                        new[] { originalRoster[1], originalRoster[1] }, 1002),
+                "ambiguous host and duplicate sender mappings fail closed");
+
             Check(MultiplayerSafetyPolicy.IsConnectedHuman(1001, false, false) &&
                     !MultiplayerSafetyPolicy.IsConnectedHuman(1000, false, false) &&
                     !MultiplayerSafetyPolicy.IsConnectedHuman(1001, true, false) &&

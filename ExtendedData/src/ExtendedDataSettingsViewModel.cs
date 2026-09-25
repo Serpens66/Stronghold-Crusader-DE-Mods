@@ -65,13 +65,21 @@ namespace ExtendedData
                     value => !string.IsNullOrEmpty(value as string))
                 .ResetSlotsWith(nameof(LordDataStatus), () => null)
                 .RequireReport(nameof(LordDataStatus), value => !string.IsNullOrEmpty(value as string))
-                .WhenLobbyChanged(snapshot => LordDataLobbyChanged?.Invoke(snapshot));
+                .WhenLobbyChanged(snapshot => LordDataLobbyChanged?.Invoke(snapshot))
+                .WhenRemoteDataChanged(propertyName =>
+                {
+                    if (string.Equals(propertyName, nameof(LordDataStatusData), StringComparison.Ordinal))
+                        LordDataRemoteStatusChanged?.Invoke();
+                });
         }
 
         public event Action<bool> RuntimeActivationChanged;
         public event Action ActiveCoopPackageChanged;
         public event Action<string> LordDataSnapshotChanged;
         internal event Action<Shared.PerPlayerLobbySnapshot> LordDataLobbyChanged;
+        internal event Action LordDataRemoteStatusChanged;
+        internal event Action<int> LordDataSnapshotMutationRejected;
+        internal event Action<string> LordDataLocalStatusChanged;
 
         public string EnableClientFeaturesText => SerpLocalization.Get("ExtendedData.EnableClientFeatures");
         public string EnableClientFeaturesHelpText => SerpLocalization.Get("ExtendedData.EnableClientFeaturesHelp");
@@ -261,8 +269,12 @@ namespace ExtendedData
             set
             {
                 value = value ?? string.Empty;
-                if (!CanMutateSetting(nameof(LordDataSnapshot)) ||
-                    string.Equals(lordDataSnapshot, value, StringComparison.Ordinal))
+                if (!CanMutateSetting(nameof(LordDataSnapshot)))
+                {
+                    LordDataSnapshotMutationRejected?.Invoke(value.Length);
+                    return;
+                }
+                if (string.Equals(lordDataSnapshot, value, StringComparison.Ordinal))
                     return;
                 lordDataSnapshot = value;
                 OnPropertyChanged(nameof(LordDataSnapshot));
@@ -281,6 +293,7 @@ namespace ExtendedData
                     return;
                 lordDataStatus = value;
                 OnPropertyChanged(nameof(LordDataStatus));
+                LordDataLocalStatusChanged?.Invoke(value);
             }
         }
 

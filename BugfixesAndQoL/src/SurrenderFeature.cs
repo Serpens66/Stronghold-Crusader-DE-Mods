@@ -682,7 +682,11 @@ namespace BugfixesAndQoL
                 return;
             }
 
+            SurrenderDiagnosticBridge.PublishSpectatorPhase("before-action", localPlayerId,
+                localPlayerId, SurrenderDiagnosticBridge.SafeMapTick());
             EngineInterface.GameAction(Enums.GameActionCommand.SpectatorMode, 0, 0);
+            SurrenderDiagnosticBridge.PublishSpectatorPhase("after-action", localPlayerId,
+                localPlayerId, SurrenderDiagnosticBridge.SafeMapTick());
             spectatorPromotionActivated = true;
             spectatorPromotionPlayerId = localPlayerId;
             spectatorPromotionGameMode = gameMode.ToDiagnosticString();
@@ -1517,7 +1521,13 @@ namespace BugfixesAndQoL
 
                 if (!realMultiplayer)
                 {
+                    SurrenderDiagnosticBridge.PublishSurrenderPhase("confirmed", lord.PlayerId,
+                        lord.UnitId, lord.GlobalId, SurrenderDiagnosticBridge.SafeMapTick());
+                    SurrenderDiagnosticBridge.PublishSurrenderPhase("before-kill", lord.PlayerId,
+                        lord.UnitId, lord.GlobalId, SurrenderDiagnosticBridge.SafeMapTick());
                     GameUnitManagerAPI.Instance.KillUnit(lord.UnitId);
+                    SurrenderDiagnosticBridge.PublishSurrenderPhase("after-kill", lord.PlayerId,
+                        lord.UnitId, lord.GlobalId, SurrenderDiagnosticBridge.SafeMapTick());
                     Shared.DebugLogHelper.LogInfo(log, $"Singleplayer surrender executed through lord death: playerId={lord.PlayerId}, unitId={lord.UnitId}, globalId={lord.GlobalId}.");
                     return;
                 }
@@ -1527,6 +1537,9 @@ namespace BugfixesAndQoL
                     Shared.DebugLogHelper.LogError(log, "Multiplayer surrender was rejected because the Chore transport is unavailable; no local kill was applied.");
                     return;
                 }
+
+                SurrenderDiagnosticBridge.PublishSurrenderPhase("confirmed", lord.PlayerId,
+                    lord.UnitId, lord.GlobalId, SurrenderDiagnosticBridge.SafeMapTick());
 
                 if (GameNetworkAPI.IsLocalHost())
                 {
@@ -1620,7 +1633,11 @@ namespace BugfixesAndQoL
                 }
 
                 if (TryQueueExecution(lord))
+                {
                     acceptedRequests.Add(requestKey);
+                    SurrenderDiagnosticBridge.PublishSurrenderPhase("host-request-accepted", lord.PlayerId,
+                        lord.UnitId, lord.GlobalId, SurrenderDiagnosticBridge.SafeMapTick());
+                }
             }
             catch (Exception ex)
             {
@@ -1663,7 +1680,11 @@ namespace BugfixesAndQoL
                     return;
                 }
 
+                SurrenderDiagnosticBridge.PublishSurrenderPhase("before-kill", packet.PlayerId,
+                    resolvedUnitId, lord.GlobalId, SurrenderDiagnosticBridge.SafeMapTick());
                 GameUnitManagerAPI.Instance.KillUnit(resolvedUnitId);
+                SurrenderDiagnosticBridge.PublishSurrenderPhase("after-kill", packet.PlayerId,
+                    resolvedUnitId, lord.GlobalId, SurrenderDiagnosticBridge.SafeMapTick());
                 int executionTick = GameTimeManagerAPI.Instance.GetElapsedMapTicks();
                 SurrenderDiagnosticBridge.PublishSurrender(
                     packet.PlayerId, resolvedUnitId, lord.GlobalId, executionTick);

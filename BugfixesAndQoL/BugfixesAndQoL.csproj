@@ -132,6 +132,7 @@
     <Compile Include="src\MultiplayerGameSpeedRuntime.cs" />
     <Compile Include="src\MultiplayerSafetyPolicy.cs" />
     <Compile Include="src\MultiplayerTimeControlPermission.cs" />
+    <Compile Include="src\MultiplayerTimeControlRosterPolicy.cs" />
     <Compile Include="src\WorkshopUploadLordSelectionFix.cs" />
     <Compile Include="src\WorkshopUploadLordSelectionPolicy.cs" />
     <Compile Include="src\MultiplayerLobbyReturnFeature.cs" />

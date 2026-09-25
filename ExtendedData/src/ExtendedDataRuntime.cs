@@ -294,11 +294,14 @@ namespace ExtendedData
 
         private void ButtonClickedHook(FRONT_Multiplayer self, string command)
         {
+            if (IsStartCommand(command))
+                lordDataCoordinator?.LogStartAttempt(command, enabled, self);
             if (enabled && IsStartCommand(command) && self?.currentLobby != null &&
                 self.currentLobby.isHost && !self.singlePlayerCoop)
             {
-                bool captured = lordDataCoordinator.RefreshHost(self);
+                bool captured = lordDataCoordinator.RefreshHost(self, "start-attempt");
                 bool ready = lordDataCoordinator.IsReadyToLaunch(self, out string lordDataReason);
+                lordDataCoordinator.LogStartDecision(captured, ready, lordDataReason);
                 if (!captured || !ready)
                 {
                     BlockLaunch(command, string.IsNullOrEmpty(lordDataReason)
@@ -385,7 +388,7 @@ namespace ExtendedData
         {
             updateHostInfoTrampoline(self, delayed);
             if (enabled && !delayed)
-                lordDataCoordinator?.RefreshHost(self);
+                lordDataCoordinator?.RefreshHost(self, "host-selection-update");
         }
 
         public void RefreshPackageCatalog()

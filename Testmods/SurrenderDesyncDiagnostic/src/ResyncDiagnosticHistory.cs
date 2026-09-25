@@ -7,59 +7,13 @@ namespace SurrenderDesyncDiagnostic
 {
     internal sealed class ResyncDiagnosticHistory
     {
-        internal static readonly int[] CheckpointOffsets = { 0, 1, 2, 4, 8, 16, 32, 64, 96 };
-
         private const int BufferCapacity = 128;
         private const int PayloadPrefixLimit = 64;
         private readonly Queue<string> buffers = new Queue<string>(BufferCapacity);
-        private readonly List<string> snapshots = new List<string>(CheckpointOffsets.Length);
-        private long anchorGeneration = long.MinValue;
-        private int anchorTick = -1;
-        private int nextCheckpointIndex;
-        private bool startDumpClaimed;
 
         internal void Reset()
         {
             buffers.Clear();
-            snapshots.Clear();
-            anchorGeneration = long.MinValue;
-            anchorTick = -1;
-            nextCheckpointIndex = 0;
-            startDumpClaimed = false;
-        }
-
-        internal bool ObserveAnchor(long generation, int tick)
-        {
-            if (generation == anchorGeneration && tick == anchorTick)
-                return false;
-
-            anchorGeneration = generation;
-            anchorTick = tick;
-            nextCheckpointIndex = 0;
-            snapshots.Clear();
-            startDumpClaimed = false;
-            return true;
-        }
-
-        internal int[] TakeDueCheckpointOffsets(int currentTick)
-        {
-            if (anchorTick < 0 || currentTick < anchorTick || nextCheckpointIndex >= CheckpointOffsets.Length)
-                return Array.Empty<int>();
-
-            var due = new List<int>();
-            while (nextCheckpointIndex < CheckpointOffsets.Length &&
-                   currentTick >= anchorTick + CheckpointOffsets[nextCheckpointIndex])
-            {
-                due.Add(CheckpointOffsets[nextCheckpointIndex]);
-                nextCheckpointIndex++;
-            }
-            return due.ToArray();
-        }
-
-        internal void AddSnapshot(string snapshot)
-        {
-            if (!string.IsNullOrEmpty(snapshot))
-                snapshots.Add(snapshot);
         }
 
         internal bool AddBuffer(byte[] choreBuffer, int tick, out bool containsStart, out bool containsEnd)
@@ -71,17 +25,7 @@ namespace SurrenderDesyncDiagnostic
             return description.IndexOf("malformed=", StringComparison.Ordinal) < 0;
         }
 
-        internal bool TryClaimStartDump()
-        {
-            if (startDumpClaimed)
-                return false;
-            startDumpClaimed = true;
-            return true;
-        }
-
         internal string[] GetBuffers() => buffers.ToArray();
-
-        internal string[] GetSnapshots() => snapshots.ToArray();
 
         internal static string DescribeBuffer(
             byte[] choreBuffer,
@@ -99,10 +43,8 @@ namespace SurrenderDesyncDiagnostic
             for (int recordIndex = 0; offset < choreBuffer.Length && recordIndex < 10000; recordIndex++)
             {
                 if (choreBuffer.Length - offset >= 4 &&
-                    BitConverter.ToInt32(choreBuffer, offset) == -1)
-                    return choreBuffer.Length - offset == 4
-                        ? $"tick={tick},records=[{string.Join(";", records)}],terminator=-1"
-                        : $"tick={tick},records=[{string.Join(";", records)}],malformed=trailing-after-terminator@{offset}";
+                    BitConverter.ToInt32(choreBuffer, offset) < 0)
+                    return $"tick={tick},records=[{string.Join(";", records)}],terminator={BitConverter.ToInt32(choreBuffer, offset)},ignoredTrailingBytes={choreBuffer.Length - offset - 4}";
 
                 if (choreBuffer.Length - offset < 5)
                     return $"tick={tick},records=[{string.Join(";", records)}],malformed=truncated-header@{offset}";

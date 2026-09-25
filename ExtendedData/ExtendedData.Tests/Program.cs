@@ -66,6 +66,7 @@ var tests = new (string Name, Action Run)[]
     ("Lord data rejects altered and oversized snapshots", TestInvalidLordDataSnapshot),
     ("Fixes preference snapshots retain every current and future property", TestFixesPreferenceCodec),
     ("Fixes preference snapshots reject incompatible schemas and lossy values", TestFixesPreferenceIncompatibility),
+    ("Lord sync diagnostics identify state without logging JSON values", TestLordSyncDiagnostics),
 };
 
 int failed = 0;
@@ -291,6 +292,40 @@ static void TestFixesPreferenceIncompatibility()
     AssertThrows<InvalidDataException>(() => TypedPreferenceSnapshotCodec.Capture(new DecimalFixesPreferences
         { Value = 0.1234567890123456789012345678m }),
         "a decimal value that the JSON parser cannot reproduce was accepted");
+}
+
+static void TestLordSyncDiagnostics()
+{
+    const string privateValue = "PRIVATE_VALUE_NOT_FOR_LOGS";
+    const string fixesJson = "{\"PrivateField\":\"" + privateValue + "\"}";
+    LordDataSnapshot snapshot = LordDataSnapshot.Create("test-lobby", true, new[]
+    {
+        new LordDataSlot { PlayerId = 3, LordName = "Example Lord", ConfigName = "aggressive",
+            ConfigChecksum = "123", ModLordJson = "{\"example.mod\":{\"value\":\"" + privateValue + "\"}}",
+            FixesJson = fixesJson },
+        new LordDataSlot { PlayerId = 4, LordName = "No Preferences", ConfigName = "default",
+            ConfigChecksum = "456", ModLordJson = null, FixesJson = null },
+    });
+    string summary = LordDataSyncDiagnostics.DescribeSnapshot(snapshot);
+    Assert(summary.Contains(snapshot.Digest, StringComparison.Ordinal) &&
+        summary.Contains("lord=Example Lord", StringComparison.Ordinal) &&
+        summary.Contains("fields=1", StringComparison.Ordinal) &&
+        summary.Contains("fixes=absent", StringComparison.Ordinal) &&
+        summary.Contains(LordDataSyncDiagnostics.Hash(fixesJson), StringComparison.Ordinal),
+        "the summary omitted the information needed to compare host and client");
+    Assert(!summary.Contains(privateValue, StringComparison.Ordinal) &&
+        !summary.Contains("PrivateField", StringComparison.Ordinal) &&
+        !summary.Contains("example.mod", StringComparison.Ordinal),
+        "a JSON key or value leaked into the diagnostic summary");
+    Assert(LordDataSyncDiagnostics.DescribeStatus("READY|" + snapshot.Digest, snapshot.Digest) == "ready:match" &&
+        LordDataSyncDiagnostics.DescribeStatus("READY|old", snapshot.Digest).StartsWith("ready:stale:") &&
+        LordDataSyncDiagnostics.DescribeStatus("ERROR|" + privateValue, snapshot.Digest) == "error" &&
+        LordDataSyncDiagnostics.DescribeStatus(null, snapshot.Digest) == "missing",
+        "the acknowledgement diagnostic misclassified a player state or exposed an error value");
+    string skipped = LordDataSyncDiagnostics.DescribeHostGate(true, true, false, false);
+    Assert(skipped.Contains("eligible=False", StringComparison.Ordinal) &&
+        skipped.Contains("not-real-multiplayer", StringComparison.Ordinal),
+        "a skipped host capture omitted its reason");
 }
 
 static void TestBundledMission()

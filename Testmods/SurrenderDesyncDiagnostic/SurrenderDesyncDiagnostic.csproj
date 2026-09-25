@@ -31,6 +31,7 @@
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="src\ResyncDiagnosticHistory.cs" />
+    <Compile Include="src\SurrenderTracePolicy.cs" />
     <Compile Include="src\SurrenderDesyncDiagnosticPlugin.cs" />
     <Compile Include="src\SurrenderDesyncDiagnosticRuntime.cs" />
     <Compile Include="..\..\Shared\DebugLogHelper.cs"><Link>Shared\DebugLogHelper.cs</Link></Compile>
