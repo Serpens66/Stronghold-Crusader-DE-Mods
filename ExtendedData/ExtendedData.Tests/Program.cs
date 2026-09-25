@@ -11,6 +11,7 @@ var tests = new (string Name, Action Run)[]
     ("path escape rejected", TestPathEscape),
     ("invalid rotation rejected", TestInvalidRotation),
     ("package catalog rejects invalid packages", TestCatalogIsolation),
+    ("package catalog ignores in-progress Coop Trail exports", TestCatalogIgnoresExportStaging),
     ("package catalog logs only state changes", TestCatalogStateChangeLogging),
     ("package catalog reports new and resolved errors", TestCatalogErrorTransitions),
     ("old mission schemas are rejected", TestOldMissionSchemasRejected),
@@ -2009,6 +2010,27 @@ static void TestCatalogIsolation()
     packages.Scan(root, null, errors.Add);
     Assert(packages.Packages.Count == 0, "partially invalid package was selectable");
     Assert(errors.Count == 1, "invalid package error was not reported once");
+}
+
+static void TestCatalogIgnoresExportStaging()
+{
+    using Fixture fixture = Fixture.Create();
+    string root = Path.Combine(fixture.Root, "CustomTrails");
+    string published = CreatePackage(fixture, root, "Published", 2);
+    string staging = Path.Combine(root, ".cooptrail-build-3d0a8f6545ed42ed81e82bc11d250638");
+    Directory.CreateDirectory(staging);
+    File.Copy(Path.Combine(published, "cooptrail.json"), Path.Combine(staging, "cooptrail.json"));
+
+    var info = new List<string>();
+    var errors = new List<string>();
+    var catalog = new CoopTrailPackageCatalog();
+    catalog.Scan(root, info.Add, errors.Add);
+
+    Assert(errors.Count == 0, "moved Coop missions in the export staging folder were reported as a broken package");
+    Assert(catalog.Packages.Count == 1 && catalog.Packages.Values.Single().Missions.Count == 2,
+        "the published two-mission Coop Trail was not discovered");
+    Assert(info.Count(message => message.StartsWith("Found Coop Trail package", StringComparison.Ordinal)) == 1,
+        "the published Coop Trail was not reported exactly once");
 }
 
 static void TestCatalogStateChangeLogging()

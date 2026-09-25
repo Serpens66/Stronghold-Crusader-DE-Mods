@@ -160,6 +160,7 @@ namespace ExtendedData.Core
             foreach (string directory in roots
                 .SelectMany(root => Directory.GetDirectories(root).OrderBy(path => path, StringComparer.OrdinalIgnoreCase))
                 .Select(Path.GetFullPath)
+                .Where(path => !Path.GetFileName(path).StartsWith(".cooptrail-build-", StringComparison.OrdinalIgnoreCase))
                 .Where(scannedDirectories.Add))
             {
                 string manifestPath = Path.Combine(directory, "cooptrail.json");
