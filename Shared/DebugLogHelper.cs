@@ -27,6 +27,26 @@ namespace Shared
             return debugEnabledCache;
         }
 
+        public static bool IsDiskDebugEnabled()
+        {
+            try
+            {
+                foreach (ILogListener listener in Logger.Listeners)
+                {
+                    if (listener is DiskLogListener diskLogListener &&
+                        HasDebugFlag(diskLogListener.DisplayedLogLevel))
+                    {
+                        return true;
+                    }
+                }
+            }
+            catch
+            {
+            }
+
+            return false;
+        }
+
         public static void LogDebug(ManualLogSource log, params object[] parts)
         {
             if (log == null || !IsDebugEnabled())

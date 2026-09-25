@@ -13,7 +13,8 @@ namespace Shared
     internal sealed class CrashBreadcrumbRecorder : IDisposable
     {
         private const int RingCapacity = 256;
-        private const int RetainedSessions = 3;
+        private const int RetainedGameStarts = 5;
+        private const string PersistenceMutexName = @"Local\SerpsModsDiagnostics.Persistence";
         private readonly object syncRoot = new object();
         private readonly object snapshotWriteRoot = new object();
         private readonly BreadcrumbRecord[] ring = new BreadcrumbRecord[RingCapacity];
@@ -30,6 +31,7 @@ namespace Shared
         private readonly string directory;
         private readonly string filePrefix;
         private readonly int processId;
+        private readonly long processStartedUtcTicks;
         private readonly DateTime startedUtc;
         private readonly long startedTimestamp;
         private readonly long summaryIntervalTicks;
@@ -58,7 +60,11 @@ namespace Shared
             this.pluginName = pluginName ?? string.Empty;
             this.pluginVersion = pluginVersion ?? string.Empty;
             this.statusLogger = statusLogger;
-            processId = Process.GetCurrentProcess().Id;
+            using (Process process = Process.GetCurrentProcess())
+            {
+                processId = process.Id;
+                processStartedUtcTicks = process.StartTime.ToUniversalTime().Ticks;
+            }
             startedUtc = DateTime.UtcNow;
             startedTimestamp = Stopwatch.GetTimestamp();
             summaryIntervalTicks = Math.Max(
@@ -71,7 +77,8 @@ namespace Shared
 
             directory = Path.Combine(rootDirectory ?? string.Empty, "SerpsModsDiagnostics");
             filePrefix = SanitizeFileName(this.pluginGuid) + "-pid" +
-                processId.ToString(CultureInfo.InvariantCulture);
+                processId.ToString(CultureInfo.InvariantCulture) + "-start" +
+                processStartedUtcTicks.ToString(CultureInfo.InvariantCulture);
             TryPrepareDirectory();
 
             TimeSpan interval = snapshotInterval ?? TimeSpan.FromSeconds(1);
@@ -305,7 +312,6 @@ namespace Shared
             try
             {
                 Directory.CreateDirectory(directory);
-                TrimOldSessions();
             }
             catch (Exception exception)
             {
@@ -313,22 +319,68 @@ namespace Shared
             }
         }
 
-        private void TrimOldSessions()
+        private void TrimOldGameStarts()
         {
-            string safeGuid = SanitizeFileName(pluginGuid);
             FileInfo[] files = new DirectoryInfo(directory)
-                .GetFiles(safeGuid + "-pid*-*.txt", SearchOption.TopDirectoryOnly);
+                .GetFiles("*.txt", SearchOption.TopDirectoryOnly);
             var sessions = files
-                .GroupBy(file => GetSessionPrefix(file.Name), StringComparer.OrdinalIgnoreCase)
-                .OrderByDescending(group => group.Max(file => file.LastWriteTimeUtc))
-                .Skip(RetainedSessions - 1)
+                .Select(file => TryGetGameStart(file, out string key, out DateTime startedUtc)
+                    ? new { File = file, Key = key, StartedUtc = startedUtc }
+                    : null)
+                .Where(item => item != null)
+                .GroupBy(item => item.Key, StringComparer.OrdinalIgnoreCase)
+                .OrderByDescending(group => group.Max(item => item.StartedUtc))
+                .ThenByDescending(group => group.Key, StringComparer.Ordinal)
+                .Skip(RetainedGameStarts)
                 .ToArray();
 
             foreach (var session in sessions)
             {
-                foreach (FileInfo file in session)
-                    file.Delete();
+                foreach (var item in session)
+                    item.File.Delete();
             }
+        }
+
+        private static bool TryGetGameStart(FileInfo file, out string key, out DateTime startedUtc)
+        {
+            key = null;
+            startedUtc = default(DateTime);
+            string name = Path.GetFileNameWithoutExtension(file.Name);
+            int slotSeparator = name.LastIndexOf('-');
+            if (slotSeparator < 1 || slotSeparator != name.Length - 2 ||
+                (name[name.Length - 1] != '0' && name[name.Length - 1] != '1'))
+            {
+                return false;
+            }
+
+            string prefix = name.Substring(0, slotSeparator);
+            int pidMarker = prefix.LastIndexOf("-pid", StringComparison.OrdinalIgnoreCase);
+            if (pidMarker < 1)
+                return false;
+
+            string identity = prefix.Substring(pidMarker + 4);
+            int startMarker = identity.IndexOf("-start", StringComparison.OrdinalIgnoreCase);
+            string pidText = startMarker < 0 ? identity : identity.Substring(0, startMarker);
+            if (!int.TryParse(pidText, NumberStyles.None, CultureInfo.InvariantCulture, out int pid) || pid <= 0)
+                return false;
+
+            if (startMarker < 0)
+            {
+                key = "legacy-pid" + pid.ToString(CultureInfo.InvariantCulture);
+                startedUtc = file.LastWriteTimeUtc;
+                return true;
+            }
+
+            string ticksText = identity.Substring(startMarker + 6);
+            if (!long.TryParse(ticksText, NumberStyles.None, CultureInfo.InvariantCulture, out long ticks) ||
+                ticks < DateTime.MinValue.Ticks || ticks > DateTime.MaxValue.Ticks)
+            {
+                return false;
+            }
+
+            key = "pid" + pid.ToString(CultureInfo.InvariantCulture) + "-start" + ticksText;
+            startedUtc = new DateTime(ticks, DateTimeKind.Utc);
+            return true;
         }
 
         private void TryWriteSnapshot(bool finalSnapshot)
@@ -355,7 +407,32 @@ namespace Shared
                     string text = FormatSnapshot(snapshot, finalSnapshot);
                     int slot = (int)(snapshot.SnapshotSequence & 1L);
                     string path = Path.Combine(directory, filePrefix + "-" + slot + ".txt");
-                    File.WriteAllText(path, text, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+                    using (Mutex mutex = new Mutex(false, PersistenceMutexName))
+                    {
+                        bool acquired = false;
+                        try
+                        {
+                            try
+                            {
+                                acquired = mutex.WaitOne(TimeSpan.FromSeconds(5));
+                            }
+                            catch (AbandonedMutexException)
+                            {
+                                acquired = true;
+                            }
+
+                            if (!acquired)
+                                throw new TimeoutException("Crash diagnostics persistence lock timed out.");
+
+                            File.WriteAllText(path, text, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+                            TrimOldGameStarts();
+                        }
+                        finally
+                        {
+                            if (acquired)
+                                mutex.ReleaseMutex();
+                        }
+                    }
                     // Publish only the sequence captured in this file. A concurrent writer that
                     // advances the ring remains dirty and is persisted by the next timer pass.
                     Interlocked.Exchange(
@@ -531,12 +608,6 @@ namespace Shared
             foreach (char invalid in Path.GetInvalidFileNameChars())
                 result = result.Replace(invalid, '_');
             return string.IsNullOrWhiteSpace(result) ? "unknown-mod" : result;
-        }
-
-        private static string GetSessionPrefix(string fileName)
-        {
-            int slotSeparator = fileName.LastIndexOf('-');
-            return slotSeparator > 0 ? fileName.Substring(0, slotSeparator) : fileName;
         }
 
         [DllImport("kernel32.dll")]

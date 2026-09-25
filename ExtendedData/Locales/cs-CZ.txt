@@ -110,7 +110,6 @@ ExtendedData.LordUpload.ExcludedPackageFiles={Count} files are not part of the C
 ExtendedData.LordUpload.WarningTitle=Upozornění při nahrávání vlastního lorda
 ExtendedData.LordUpload.WarningIntro=Byly nalezeny následující možné problémy balíčku:
 ExtendedData.LordUpload.UploadAnyway=Přesto nahrát?
-ExtendedData.LordUpload.UnknownExtenderVersion=Script Extender {Version} is not a tested compatibility profile. The checks use the newest known rules and may be incomplete.
 ExtendedData.LordUpload.UnsafeInspection=The package could not be inspected safely. Only Vanilla's staged base files can be uploaded.
 ExtendedData.LordUpload.MissingLordJson=No direct .lordjson exists; Vanilla cannot load a lord configuration from this package.
 ExtendedData.LordUpload.MissingAivJson=No direct .aivjson exists; Vanilla cannot load a castle from this package.

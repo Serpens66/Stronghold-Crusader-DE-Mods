@@ -334,7 +334,6 @@ namespace ExtendedData
                 DebugLogHelper.LogInfo(
                     log,
                     "Custom Lord preflight rules: Script Extender=" + lordRules.ExtenderIdentity +
-                    ", knownProfile=" + lordRules.IsKnownIdentity +
                     ", reflectedLordInfoFields=" + lordRules.LordInfoFields.Count +
                     ", reflectedMessageTypes=" + lordRules.MessageTypes.Count +
                     ", publicValidator=" + (lordRules.PublicValidator != null) + ".");

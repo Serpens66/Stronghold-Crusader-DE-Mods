@@ -1,0 +1,11 @@
+{
+  "GUID": "FixesTribeProbe_Serp",
+  "Author": "Serpens66",
+  "Name": "Fixes Tribe Probe",
+  "Description": "Read-only diagnostics for unit-type trim and tribe assignment in multiplayer.",
+  "Version": "0.1.0",
+  "MinimumScriptExtenderVersion": "2.10.1",
+  "MaximumScriptExtenderVersion": "",
+  "Manifest": 1,
+  "NetworkMode": 0
+}

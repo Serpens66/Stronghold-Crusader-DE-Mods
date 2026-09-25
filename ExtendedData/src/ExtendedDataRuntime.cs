@@ -886,7 +886,8 @@ namespace ExtendedData
         {
             // Do not use Instance here: its getter constructs Vanilla's view model before the UI is ready.
             FRONT_Multiplayer self = GetExistingMainViewModel()?.FRONTMultiplayer;
-            if (self?.currentLobby == null || !self.currentLobby.coopTrailGame)
+            if (self?.currentLobby == null || !self.currentLobby.coopTrailGame ||
+                !ReferenceEquals(Platform_Multiplayer.Instance?.activeLobby, self.currentLobby))
                 return;
             int trailId = self.currentLobby.coopTrailID;
             int missionId = self.currentLobby.coopSelectedMission;

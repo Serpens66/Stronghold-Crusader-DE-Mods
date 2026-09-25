@@ -4,7 +4,7 @@
 
 ## English
 
-This guide describes Custom Lord packages for the current SHCDE Script Extender 2.8.0 and ExtendedData uploader. A Script Extender package extends a working base Custom Lord; it does not replace the required `.lordjson` and `.aivjson` files.
+This guide describes Custom Lord packages for the ExtendedData uploader. Its asset and media rules were checked against the installed SHCDE Script Extender 2.10.1 and the relevant code in the local 2.10.2 fork. A Script Extender package extends a working base Custom Lord; it does not replace the required `.lordjson` and `.aivjson` files.
 
 ### Quick start: localized details
 
@@ -42,7 +42,7 @@ Use a globally unique ASCII GUID and local asset mode in `info.json`:
 }
 ```
 
-`Manifest: 0` identifies an asset/Lua package. `AssetMode: "Local"` keeps the Lord's `Override/` files private to its GUID, so several Lords can safely reuse names such as `face.png` or `attack.ogg`. Use `NetworkMode: 1` instead of `0` when Lua or another package feature changes simulation state.
+`Manifest: 0` identifies an asset/Lua package. `AssetMode: "Local"` keeps the Lord's `Override/` files private to its GUID, so several Lords can safely reuse names such as `face.png` or `attack.ogg`. If `AssetMode` is absent, the Script Extender uses `Global`, where files with the same path can replace one another. ExtendedData warns about generic Override filenames in global mode, including when `AssetMode` is absent or invalid. Use `NetworkMode: 1` instead of `0` when Lua or another package feature changes simulation state.
 
 A useful `lordmeta.json` can provide all detail-panel text at once:
 
@@ -205,6 +205,8 @@ Common game-language keys are `ar`, `cs-CZ`, `de-DE`, `el-GR`, `en-US`, `es-ES`,
 
 Paths in `lordmeta.json` are relative to `Override/`. With `AssetMode: "Local"`, the Script Extender automatically qualifies face, join/leave audio, and message video/audio paths with the owning GUID. Other local packages can use the same relative names without collisions.
 
+Use the complete path below `Override/` for every media reference. For example, `Override/Assets/GUI/Video/Angry.webm` is referenced as `"VideoPath": "Assets/GUI/Video/Angry"`, and `Override/fx/speech/ADD_PLAYER.wav` as `"AudioPath": "fx/speech/ADD_PLAYER"`. A bare `"Angry"` or `"ADD_PLAYER"` does not point to those files. If you rename a media file, update every matching path in `lordmeta.json`.
+
 An omitted texture extension probes `.png`, `.jpg`, `.tga`, and `.dds`. DDS is supported by the runtime but is not part of ExtendedData's Custom Lord upload allowlist. If `FacePath` cannot be loaded, the detail panel falls back to the validated `avatar.png`, then to the game's question-mark portrait.
 
 Audio resolution checks:
@@ -215,7 +217,7 @@ Audio resolution checks:
 
 For extensionless audio, `.ogg` is checked before `.wav`. OGG Vorbis is recommended. WAV must be RIFF/WAVE PCM format 1, mono or stereo, 44,100 Hz, and 16-bit.
 
-Video uses `.webm` or `.mp4`; WEBM with VP8 at 348x348 is the documented safe choice. Keep message videos below `Override/Assets/GUI/Video/`.
+Video uses `.webm` or `.mp4`; WEBM with VP8 at 348x348 is a documented safe choice, not a required resolution. Existing valid VP8 videos need no resize solely to reach 348x348. Keep message videos below `Override/Assets/GUI/Video/`.
 
 ### Message clips and names
 
@@ -325,7 +327,7 @@ Current upstream references:
 
 ## Deutsch
 
-Dieser Guide beschreibt Custom-Lord-Pakete für den aktuellen SHCDE Script Extender 2.8.0 und den ExtendedData-Uploader. Ein Script-Extender-Paket erweitert einen funktionierenden grundlegenden Custom Lord; es ersetzt nicht die erforderlichen `.lordjson`- und `.aivjson`-Dateien.
+Dieser Guide beschreibt Custom-Lord-Pakete für den ExtendedData-Uploader. Die Regeln für Assets und Medien wurden gegen den installierten SHCDE Script Extender 2.10.1 und den betreffenden Code des lokalen Forks 2.10.2 geprüft. Ein Script-Extender-Paket erweitert einen funktionierenden grundlegenden Custom Lord; es ersetzt nicht die erforderlichen `.lordjson`- und `.aivjson`-Dateien.
 
 ### Schnellstart: lokalisierte Details
 
@@ -363,7 +365,7 @@ Verwende in `info.json` eine weltweit eindeutige ASCII-GUID und den lokalen Asse
 }
 ```
 
-`Manifest: 0` kennzeichnet ein Asset-/Lua-Paket. `AssetMode: "Local"` hält die Dateien unter `Override/` im privaten GUID-Namensraum des Lords, sodass mehrere Lords Namen wie `face.png` oder `attack.ogg` sicher wiederverwenden können. Verwende `NetworkMode: 1` statt `0`, wenn Lua oder ein anderes Paketfeature den Simulationszustand verändert.
+`Manifest: 0` kennzeichnet ein Asset-/Lua-Paket. `AssetMode: "Local"` hält die Dateien unter `Override/` im privaten GUID-Namensraum des Lords, sodass mehrere Lords Namen wie `face.png` oder `attack.ogg` sicher wiederverwenden können. Fehlt `AssetMode`, verwendet der Script Extender `Global`; Dateien mit demselben Pfad können sich dann gegenseitig ersetzen. ExtendedData warnt im globalen Modus vor generischen Override-Dateinamen, auch bei fehlendem oder ungültigem `AssetMode`. Verwende `NetworkMode: 1` statt `0`, wenn Lua oder ein anderes Paketfeature den Simulationszustand verändert.
 
 Eine nützliche `lordmeta.json` kann alle Texte des Detailfensters gemeinsam bereitstellen:
 
@@ -526,6 +528,8 @@ Titel sind Suffixe; füge daher Satzzeichen und führendes Leerzeichen hinzu. Di
 
 Pfade in `lordmeta.json` sind relativ zu `Override/`. Mit `AssetMode: "Local"` versieht der Script Extender Pfade für Gesicht, Beitritts-/Verlassensaudio sowie Nachrichtenvideo/-audio automatisch mit der Besitzer-GUID. Andere lokale Pakete können dieselben relativen Namen ohne Kollision verwenden.
 
+Verwende für jeden Medienbezug den vollständigen Pfad unterhalb von `Override/`. Beispielsweise wird `Override/Assets/GUI/Video/Angry.webm` als `"VideoPath": "Assets/GUI/Video/Angry"` referenziert und `Override/fx/speech/ADD_PLAYER.wav` als `"AudioPath": "fx/speech/ADD_PLAYER"`. Ein bloßes `"Angry"` oder `"ADD_PLAYER"` zeigt nicht auf diese Dateien. Nach dem Umbenennen einer Mediendatei müssen alle zugehörigen Pfade in `lordmeta.json` angepasst werden.
+
 Bei einer Textur ohne Endung werden `.png`, `.jpg`, `.tga` und `.dds` geprüft. DDS wird zur Laufzeit unterstützt, gehört aber nicht zur Custom-Lord-Upload-Allowlist von ExtendedData. Kann `FacePath` nicht geladen werden, fällt das Detailfenster auf die validierte `avatar.png` und danach auf das Fragezeichenporträt des Spiels zurück.
 
 Die Audioauflösung prüft:
@@ -536,7 +540,7 @@ Die Audioauflösung prüft:
 
 Bei Audio ohne Endung wird `.ogg` vor `.wav` geprüft. OGG Vorbis wird empfohlen. WAV muss RIFF/WAVE PCM Format 1, mono oder stereo, 44.100 Hz und 16 Bit sein.
 
-Videos verwenden `.webm` oder `.mp4`; WEBM mit VP8 bei 348x348 ist die dokumentierte sichere Wahl. Lege Nachrichtenvideos unter `Override/Assets/GUI/Video/` ab.
+Videos verwenden `.webm` oder `.mp4`; WEBM mit VP8 bei 348x348 ist eine dokumentierte sichere Wahl, aber keine erforderliche Auflösung. Bereits gültige VP8-Videos müssen nicht allein für 348x348 skaliert werden. Lege Nachrichtenvideos unter `Override/Assets/GUI/Video/` ab.
 
 ### Nachrichtenclips und Namen
 

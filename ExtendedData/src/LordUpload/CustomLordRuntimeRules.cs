@@ -8,26 +8,14 @@ namespace ExtendedData
 {
     internal sealed class CustomLordRuntimeRules
     {
-        private static readonly string[] KnownIdentityMarkers =
-        {
-            // COMPATIBILITY: Add a marker only after the complete preflight profile was reviewed against that build.
-            "171d68e", // v1.42.0
-            "ac291f2", // v1.43.2
-            "a7775a6", // custom-lord-details review revision
-            "f593de4", // published uploader branch base
-            "2560dd2"  // local uploader branch review revision
-        };
-
         private CustomLordRuntimeRules(
             string extenderIdentity,
-            bool knownIdentity,
             bool usesVersionedAssetModResolution,
             Dictionary<string, int> messageTypes,
             HashSet<string> lordInfoFields,
             Func<string, IEnumerable<string>>? publicValidator)
         {
             ExtenderIdentity = extenderIdentity;
-            IsKnownIdentity = knownIdentity;
             UsesVersionedAssetModResolution = usesVersionedAssetModResolution;
             MessageTypes = messageTypes;
             LordInfoFields = lordInfoFields;
@@ -35,7 +23,6 @@ namespace ExtendedData
         }
 
         internal string ExtenderIdentity { get; }
-        internal bool IsKnownIdentity { get; }
         internal bool UsesVersionedAssetModResolution { get; }
         internal IReadOnlyDictionary<string, int> MessageTypes { get; }
         internal IReadOnlyCollection<string> LordInfoFields { get; }
@@ -55,11 +42,10 @@ namespace ExtendedData
                 "SHCDESE.Interop.Enums.AILordMessageType");
         }
 
-        internal static CustomLordRuntimeRules CreateCompatibilityProfile(string identity, bool knownIdentity)
+        internal static CustomLordRuntimeRules CreateCompatibilityProfile(string identity)
         {
             return new CustomLordRuntimeRules(
                 identity,
-                knownIdentity,
                 UsesVersionedAssetModResolutionFor(identity),
                 CustomLordCompatibilityProfile.CreateFallbackMessageTypes(),
                 CustomLordCompatibilityProfile.CreateFallbackLordInfoFields(),
@@ -77,11 +63,8 @@ namespace ExtendedData
             HashSet<string> fields = ReadLordInfoFields(
                 extenderAssembly.GetType(lordInfoTypeName, throwOnError: false));
 
-            bool known = KnownIdentityMarkers.Any(marker =>
-                (identity ?? string.Empty).IndexOf(marker, StringComparison.OrdinalIgnoreCase) >= 0);
             return new CustomLordRuntimeRules(
                 string.IsNullOrWhiteSpace(identity) ? "unknown" : identity,
-                known,
                 UsesVersionedAssetModResolutionFor(identity),
                 messageTypes.Count == 0
                     ? CustomLordCompatibilityProfile.CreateFallbackMessageTypes()

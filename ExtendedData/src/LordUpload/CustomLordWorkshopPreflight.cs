@@ -21,9 +21,6 @@ namespace ExtendedData
                 throw new ArgumentNullException(nameof(rules));
 
             List<CustomLordUploadIssue> issues = new List<CustomLordUploadIssue>();
-            if (!rules.IsKnownIdentity)
-                issues.Add(Issue("UnknownExtenderVersion", "Version", rules.ExtenderIdentity));
-
             if (!CustomLordWorkshopPackagePolicy.TryCollectFilesForInspection(
                     sourceLordRoot,
                     out List<CustomLordWorkshopPackageFile> files,
@@ -38,10 +35,11 @@ namespace ExtendedData
                 StringComparer.OrdinalIgnoreCase);
 
             CheckVanillaBase(files, issues);
-            CheckExtendedMetadata(byPath, rules, issues);
+            bool localAssets = CheckExtendedMetadata(byPath, rules, issues);
             CheckPackageHygiene(files, byPath, issues);
             CheckExcludedPackageFiles(files, issues);
-            CheckGenericOverrideAssetNames(files, issues);
+            if (!localAssets)
+                CheckGenericOverrideAssetNames(files, issues);
             foreach (CustomLordWorkshopPackageFile file in files)
             {
                 string relativePath = NormalizeRelativePath(file.RelativePath);
@@ -96,12 +94,13 @@ namespace ExtendedData
             }
         }
 
-        private static void CheckExtendedMetadata(
+        private static bool CheckExtendedMetadata(
             Dictionary<string, CustomLordWorkshopPackageFile> files,
             CustomLordRuntimeRules rules,
             List<CustomLordUploadIssue> issues)
         {
             // COMPATIBILITY: The reviewed Extender discovers both metadata files only in the lord root.
+            bool localAssets = false;
             if (!files.TryGetValue("info.json", out CustomLordWorkshopPackageFile? infoFile))
             {
                 issues.Add(Issue("MissingInfoJson"));
@@ -111,7 +110,7 @@ namespace ExtendedData
                 TryInspectJson(
                     infoFile.SourcePath,
                     "info.json",
-                    value => InspectInfoJson(value, rules, issues),
+                    value => localAssets = InspectInfoJson(value, rules, issues),
                     issues);
             }
 
@@ -127,9 +126,10 @@ namespace ExtendedData
                     value => InspectLordMetaJson(value, rules, issues),
                     issues);
             }
+            return localAssets;
         }
 
-        private static void InspectInfoJson(
+        private static bool InspectInfoJson(
             object value,
             CustomLordRuntimeRules rules,
             List<CustomLordUploadIssue> issues)
@@ -137,7 +137,7 @@ namespace ExtendedData
             if (!(value is Dictionary<string, object> root))
             {
                 issues.Add(Issue("InfoJsonNotObject"));
-                return;
+                return false;
             }
 
             string? guid = GetOptionalString(root, "GUID");
@@ -152,6 +152,10 @@ namespace ExtendedData
                         ? "InfoVersionInvalid"
                         : "InfoVersionRecommended"));
             }
+            // Only an explicit Local mode isolates Override files in the Script Extender.
+            return root.TryGetValue("AssetMode", out object assetMode) &&
+                   assetMode is string mode &&
+                   string.Equals(mode, "Local", StringComparison.OrdinalIgnoreCase);
         }
 
         private static void InspectLordMetaJson(

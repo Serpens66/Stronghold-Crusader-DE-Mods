@@ -110,7 +110,6 @@ ExtendedData.LordUpload.ExcludedPackageFiles={Count} files are not part of the C
 ExtendedData.LordUpload.WarningTitle=自訂領主上傳警告
 ExtendedData.LordUpload.WarningIntro=發現以下可能的套件問題：
 ExtendedData.LordUpload.UploadAnyway=仍要上傳嗎？
-ExtendedData.LordUpload.UnknownExtenderVersion=Script Extender {Version} is not a tested compatibility profile. The checks use the newest known rules and may be incomplete.
 ExtendedData.LordUpload.UnsafeInspection=The package could not be inspected safely. Only Vanilla's staged base files can be uploaded.
 ExtendedData.LordUpload.MissingLordJson=No direct .lordjson exists; Vanilla cannot load a lord configuration from this package.
 ExtendedData.LordUpload.MissingAivJson=No direct .aivjson exists; Vanilla cannot load a castle from this package.

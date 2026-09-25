@@ -20,7 +20,10 @@ internal static class Program
         Run("unchanged snapshots do not rewrite files", UnchangedSnapshotsAreSkipped);
         Run("records arriving after a snapshot remain dirty", LaterRecordsRemainDirty);
         Run("concurrent records survive dirty snapshot clearing", ConcurrentRecordsSurviveDirtyClearing);
-        Run("only three sessions are retained", RetentionKeepsThreeSessions);
+        Run("only five game starts are retained across mods", RetentionKeepsFiveGameStarts);
+        Run("reused process IDs remain separate game starts", ReusedProcessIdsRemainSeparate);
+        Run("legacy diagnostics are pruned with current sessions", LegacySessionsArePruned);
+        Run("parallel mod writers keep their snapshot pairs", ParallelModWritersKeepSnapshotPairs);
         Run("persistence failure never escapes", PersistenceFailureIsContained);
         Run("summary output is rate-controlled", SummaryIsRateControlled);
         Run("unexpected signatures are logged once", UnexpectedSignaturesAreLoggedOnce);
@@ -32,11 +35,21 @@ internal static class Program
     private static void DisabledRecorderIsNoOp()
     {
         string root = NewRoot();
+        string directory = Path.Combine(root, "SerpsModsDiagnostics");
         using (var recorder = NewRecorder(false, root, "Disabled"))
         {
             recorder.Record("ignored");
             Assert(recorder.SequenceForTests == 0, "disabled recorder advanced its sequence");
-            Assert(!Directory.Exists(recorder.DirectoryForTests), "disabled recorder created a directory");
+            Assert(!Directory.Exists(directory), "disabled recorder created a directory");
+        }
+
+        Directory.CreateDirectory(directory);
+        string existing = Path.Combine(directory, "Existing-pid123-0.txt");
+        File.WriteAllText(existing, "preserved");
+        using (var recorder = NewRecorder(false, root, "Disabled"))
+        {
+            recorder.WriteSnapshotForTests();
+            Assert(File.ReadAllText(existing) == "preserved", "disabled recorder changed existing diagnostics");
         }
     }
 
@@ -171,27 +184,107 @@ internal static class Program
         }
     }
 
-    private static void RetentionKeepsThreeSessions()
+    private static void RetentionKeepsFiveGameStarts()
     {
         string root = NewRoot();
         string directory = Path.Combine(root, "SerpsModsDiagnostics");
         Directory.CreateDirectory(directory);
-        for (int session = 1; session <= 4; session++)
+        for (int session = 1; session <= 6; session++)
         {
-            string path = Path.Combine(directory, $"Retention-pid{session}-0.txt");
-            File.WriteAllText(path, session.ToString());
-            File.SetLastWriteTimeUtc(path, DateTime.UtcNow.AddMinutes(-10 + session));
+            long startedTicks = DateTime.UtcNow.AddHours(-7 + session).Ticks;
+            for (int slot = 0; slot <= 1; slot++)
+            {
+                string mod = slot == 0 ? "RetentionA" : "RetentionB";
+                string path = Path.Combine(directory, $"{mod}-pid{session}-start{startedTicks}-{slot}.txt");
+                File.WriteAllText(path, session.ToString());
+            }
         }
 
-        using (var recorder = NewRecorder(true, root, "Retention"))
+        using (var recorder = NewRecorder(true, root, "RetentionCurrent"))
         {
             recorder.WriteSnapshotForTests();
-            int sessions = Directory.GetFiles(directory, "Retention-pid*-*.txt")
-                .Select(path => Path.GetFileName(path).Substring(0, Path.GetFileName(path).LastIndexOf('-')))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .Count();
-            Assert(sessions == 3, $"expected 3 retained sessions, found {sessions}");
+            Assert(Directory.GetFiles(directory, "RetentionA-pid1-*.txt").Length == 0,
+                "oldest game start was retained");
+            Assert(Directory.GetFiles(directory, "RetentionB-pid2-*.txt").Length == 0,
+                "second oldest game start was retained");
+            Assert(Directory.GetFiles(directory, "RetentionA-pid3-*.txt").Length == 1 &&
+                Directory.GetFiles(directory, "RetentionB-pid3-*.txt").Length == 1,
+                "retained game start lost one mod");
+            Assert(Directory.GetFiles(directory, "RetentionCurrent-*.txt").Length == 1,
+                "current game start was not retained");
         }
+    }
+
+    private static void LegacySessionsArePruned()
+    {
+        string root = NewRoot();
+        string directory = Path.Combine(root, "SerpsModsDiagnostics");
+        Directory.CreateDirectory(directory);
+        for (int session = 1; session <= 6; session++)
+        {
+            for (int slot = 0; slot <= 1; slot++)
+            {
+                string path = Path.Combine(directory, $"LegacyMod{slot}-pid{session}-{slot}.txt");
+                File.WriteAllText(path, session.ToString());
+                File.SetLastWriteTimeUtc(path, DateTime.UtcNow.AddDays(-7 + session));
+            }
+        }
+        string unrelated = Path.Combine(directory, "notes.txt");
+        File.WriteAllText(unrelated, "keep");
+
+        using (var recorder = NewRecorder(true, root, "NewMod"))
+            recorder.WriteSnapshotForTests();
+
+        Assert(Directory.GetFiles(directory, "*-pid1-*.txt").Length == 0,
+            "oldest legacy game start was retained");
+        Assert(Directory.GetFiles(directory, "*-pid2-*.txt").Length == 0,
+            "second oldest legacy game start was retained");
+        Assert(Directory.GetFiles(directory, "*-pid3-*.txt").Length == 2,
+            "a retained legacy game start lost one mod");
+        Assert(File.ReadAllText(unrelated) == "keep", "unrelated file was changed");
+    }
+
+    private static void ReusedProcessIdsRemainSeparate()
+    {
+        string root = NewRoot();
+        string directory = Path.Combine(root, "SerpsModsDiagnostics");
+        Directory.CreateDirectory(directory);
+        for (int session = 1; session <= 6; session++)
+        {
+            long startedTicks = DateTime.UtcNow.AddHours(-7 + session).Ticks;
+            string path = Path.Combine(directory, $"Reuse-pid123-start{startedTicks}-0.txt");
+            File.WriteAllText(path, session.ToString());
+        }
+
+        using (var recorder = NewRecorder(true, root, "Current"))
+            recorder.WriteSnapshotForTests();
+
+        string[] previous = Directory.GetFiles(directory, "Reuse-*.txt");
+        Assert(previous.Length == 4, "reused process IDs were grouped into one game start");
+        Assert(previous.Select(File.ReadAllText).OrderBy(value => value).SequenceEqual(new[] { "3", "4", "5", "6" }),
+            "retention removed a newer game start with a reused process ID");
+    }
+
+    private static void ParallelModWritersKeepSnapshotPairs()
+    {
+        string root = NewRoot();
+        string[] mods = { "ModA", "ModB", "ModC", "ModD" };
+        Task[] tasks = mods.Select(mod => Task.Run(() =>
+        {
+            using (var recorder = NewRecorder(true, root, mod))
+            {
+                recorder.Record("first");
+                recorder.WriteSnapshotForTests();
+                recorder.Record("second");
+                recorder.WriteSnapshotForTests();
+            }
+        })).ToArray();
+        Task.WaitAll(tasks);
+
+        string directory = Path.Combine(root, "SerpsModsDiagnostics");
+        foreach (string mod in mods)
+            Assert(Directory.GetFiles(directory, mod + "-*.txt").Length == 2,
+                mod + " lost a snapshot slot during parallel writes");
     }
 
     private static void PersistenceFailureIsContained()

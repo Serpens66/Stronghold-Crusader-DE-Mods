@@ -20,7 +20,7 @@ namespace ExtendedData
             Run("upload allowlist and excluded warning", TestUploadAllowlistAndExcludedWarning);
             Run("conflict rollback", TestConflictRollback);
             Run("dynamic rules", TestDynamicRules);
-            Run("unknown version profile", TestUnknownVersionProfile);
+            Run("unknown extender identity upload", TestUnknownExtenderIdentityUpload);
             Run("version-specific info.json warning", TestVersionSpecificInfoWarning);
             Run("exact tag workflow", TestExactTagWorkflow);
             Run("yes/no workflow", TestConfirmationWorkflow);
@@ -353,6 +353,24 @@ namespace ExtendedData
                     "excluded Override format was incorrectly reported as an uploaded generic asset");
                 Assert(genericIssues[0].TechnicalDetail.IndexOf("Media/attack", StringComparison.OrdinalIgnoreCase) < 0,
                     "asset outside Override was incorrectly reported");
+
+                WriteText(Path.Combine(source, "info.json"),
+                    "{\"GUID\":\"test-lord\",\"Version\":\"1.0.110\",\"AssetMode\":\"Local\"}");
+                IReadOnlyList<CustomLordUploadIssue> localIssues = Inspect(source);
+                Assert(!localIssues.Any(issue => issue.Code == "GenericOverrideAssetNames"),
+                    "local assets were incorrectly reported as global collisions");
+                Assert(localIssues.Any(issue => issue.Code == "ExcludedPackageFiles"),
+                    "local asset mode suppressed an unrelated package warning");
+
+                WriteText(Path.Combine(source, "info.json"),
+                    "{\"GUID\":\"test-lord\",\"Version\":\"1.0.110\",\"AssetMode\":\"Global\"}");
+                Assert(Inspect(source).Any(issue => issue.Code == "GenericOverrideAssetNames"),
+                    "explicit global mode did not report generic assets");
+
+                WriteText(Path.Combine(source, "info.json"),
+                    "{\"GUID\":\"test-lord\",\"Version\":\"1.0.110\",\"AssetMode\":\"invalid\"}");
+                Assert(Inspect(source).Any(issue => issue.Code == "GenericOverrideAssetNames"),
+                    "invalid asset mode incorrectly suppressed generic asset warning");
             });
         }
 
@@ -363,22 +381,38 @@ namespace ExtendedData
                 "1.0.0+a7775a6",
                 typeof(TestExtender.LordInfo).FullName,
                 typeof(TestExtender.AILordMessageType).FullName);
-            Assert(rules.IsKnownIdentity, "known identity not recognized");
             Assert(rules.MessageTypes["AllyNotificationCongratulations"] == 17, "message ID 17 not reflected");
             Assert(rules.MessageTypes["FutureMessage"] == 34, "future message enum not reflected");
             Assert(rules.LordInfoFields.Contains("FutureMetadata"), "future LordInfo property not reflected");
         }
 
-        private static void TestUnknownVersionProfile()
+        private static void TestUnknownExtenderIdentityUpload()
         {
             WithSource(source =>
             {
                 WriteVanillaBase(source);
                 WriteText(Path.Combine(source, "info.json"), ValidInfo);
                 WriteText(Path.Combine(source, "lordmeta.json"), ValidLordMeta);
-                CustomLordRuntimeRules rules = CustomLordRuntimeRules.CreateCompatibilityProfile("future-build", false);
+                CustomLordRuntimeRules rules = CustomLordRuntimeRules.CreateCompatibilityProfile("future-build");
                 IReadOnlyList<CustomLordUploadIssue> issues = CustomLordWorkshopPreflight.Inspect(source, rules);
-                Assert(issues.Any(issue => issue.Code == "UnknownExtenderVersion"), "unknown version warning missing");
+                Assert(issues.Count == 0, "unknown extender identity raised a package warning");
+
+                FakeStager stager = new FakeStager(source);
+                FakeConfirmation confirmation = new FakeConfirmation();
+                CustomLordUploadWorkflow workflow = new CustomLordUploadWorkflow(
+                    new ManualLogSource("ExtendedDataUploadTests"), stager, confirmation, rules);
+                int originalCalls = 0;
+                int successes = 0;
+                workflow.Handle(
+                    CreateRequest(new[] { "Custom Lord" }, () => successes++, () => { }),
+                    request =>
+                    {
+                        originalCalls++;
+                        request.SuccessAction();
+                    });
+                Assert(confirmation.ShowCount == 0, "unknown identity opened the warning dialog");
+                Assert(stager.StageCount == 1, "unknown identity did not stage extended files");
+                Assert(originalCalls == 1 && successes == 1, "unknown identity did not complete the upload flow");
             });
         }
 
@@ -392,7 +426,7 @@ namespace ExtendedData
 
                 IReadOnlyList<CustomLordUploadIssue> v142Issues = CustomLordWorkshopPreflight.Inspect(
                     source,
-                    CustomLordRuntimeRules.CreateCompatibilityProfile("1.0.0+171d68e", true));
+                    CustomLordRuntimeRules.CreateCompatibilityProfile("1.0.0+171d68e"));
                 Assert(v142Issues.Any(issue => issue.Code == "InfoVersionRecommended"),
                     "v1.42 recommendation missing");
                 Assert(!v142Issues.Any(issue => issue.Code == "InfoVersionInvalid"),
@@ -400,7 +434,7 @@ namespace ExtendedData
 
                 IReadOnlyList<CustomLordUploadIssue> branchAIssues = CustomLordWorkshopPreflight.Inspect(
                     source,
-                    CustomLordRuntimeRules.CreateCompatibilityProfile("1.0.0+a7775a6", true));
+                    CustomLordRuntimeRules.CreateCompatibilityProfile("1.0.0+a7775a6"));
                 Assert(branchAIssues.Any(issue => issue.Code == "InfoVersionInvalid"),
                     "Branch-A version rule missing");
                 Assert(!branchAIssues.Any(issue => issue.Code == "InfoVersionRecommended"),
@@ -412,7 +446,7 @@ namespace ExtendedData
         {
             return CustomLordWorkshopPreflight.Inspect(
                 source,
-                CustomLordRuntimeRules.CreateCompatibilityProfile("1.0.0+a7775a6", true));
+                CustomLordRuntimeRules.CreateCompatibilityProfile("1.0.0+a7775a6"));
         }
 
         private static void TestExactTagWorkflow()
@@ -585,7 +619,7 @@ namespace ExtendedData
                 new ManualLogSource("ExtendedDataUploadTests"),
                 stager,
                 confirmation,
-                CustomLordRuntimeRules.CreateCompatibilityProfile("1.0.0+a7775a6", true));
+                CustomLordRuntimeRules.CreateCompatibilityProfile("1.0.0+a7775a6"));
         }
 
         private static CustomLordUploadRequest CreateRequest(

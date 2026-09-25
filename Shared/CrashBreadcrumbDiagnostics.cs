@@ -21,7 +21,7 @@ namespace Shared
                 return;
 
             initialized = true;
-            bool enabled = DebugLogHelper.IsDebugEnabled();
+            bool enabled = DebugLogHelper.IsDiskDebugEnabled();
             recorder = new CrashBreadcrumbRecorder(
                 enabled,
                 BepInEx.Paths.BepInExRootPath,
@@ -36,7 +36,7 @@ namespace Shared
             DebugLogHelper.LogDebug(
                 log,
                 $"Crash breadcrumb diagnostics enabled: plugin={pluginGuid}, " +
-                "ringCapacity=256, snapshotIntervalSeconds=1, retainedSessions=3.");
+                "ringCapacity=256, snapshotIntervalSeconds=1, retainedGameStarts=5.");
         }
 
         internal static CrashBreadcrumbScope Enter(
