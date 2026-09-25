@@ -9,6 +9,7 @@ namespace MapParser.Core
     public static class MapFileReader
     {
         private const uint ScdeMagic = 0xfffffffeu;
+        private const uint ClassicMagic = 0xffffffffu;
         private const int MaximumFileSize = 512 * 1024 * 1024;
         private const int MaximumBlockSize = 128 * 1024 * 1024;
         private static readonly HashSet<uint> StandardDirectoryTags = new HashSet<uint> { 2036, 3036, 4036 };
@@ -56,8 +57,8 @@ namespace MapParser.Core
                 throw new MapUnsupportedFormatException($"Map files larger than {MaximumFileSize} bytes are not supported.");
             var cursor = new Cursor(data);
             uint magic = cursor.ReadUInt32("SCDE magic");
-            if (magic != ScdeMagic)
-                throw new MapUnsupportedFormatException($"Unsupported map magic 0x{magic:X8}; expected SCDE magic 0x{ScdeMagic:X8}.");
+            if (magic != ScdeMagic && magic != ClassicMagic)
+                throw new MapUnsupportedFormatException($"Unsupported map magic 0x{magic:X8}.");
 
             Block radar = cursor.ReadBlock("radar map");
             Block description = cursor.ReadBlock("description");
@@ -97,17 +98,17 @@ namespace MapParser.Core
                 restartSize,
                 restartTerminatorOffset,
                 directoryTagOffset);
-            MapMetadata metadata = ReadMetadata(data, magic, radar, u2, u3, u4);
-
             if (SpecialDirectoryTags.Contains(directoryTag))
             {
+                if (magic == ClassicMagic)
+                    throw new MapUnsupportedFormatException($"Unsupported classic directory tag {directoryTag}.");
                 // These base/mission files share the preamble but not the normal section directory.
                 return new MapDocument(
                     data,
                     sourceName,
                     MapFormatKind.CrusaderDefinitiveEditionSpecial,
                     preamble,
-                    metadata,
+                    ReadMetadata(data, magic, radar, u2, u3, u4, 0),
                     null,
                     new List<MapSectionInfo>(),
                     directoryTagOffset,
@@ -123,6 +124,12 @@ namespace MapParser.Core
             uint payloadSize = LittleEndian.ReadUInt32(data, bodyOffset);
             int sectionCount = ToInt32(LittleEndian.ReadUInt32(data, bodyOffset + 4), "section count");
             uint formatVersion = LittleEndian.ReadUInt32(data, bodyOffset + 8);
+            if (magic == ClassicMagic &&
+                (directoryTag != 3036 || formatVersion < 161 || formatVersion > 172))
+            {
+                throw new MapUnsupportedFormatException(
+                    $"Unsupported classic Crusader map directory {directoryTag}, version {formatVersion}.");
+            }
             if (sectionCount < 0 || sectionCount > capacity)
                 throw new MapCorruptDataException($"Section count {sectionCount} exceeds directory capacity {capacity}.");
 
@@ -197,12 +204,18 @@ namespace MapParser.Core
             if (expectedRelativeOffset != payloadSize)
                 throw new MapCorruptDataException("Section ranges do not cover the declared payload exactly.");
 
+            int classicWorldSize = magic == ClassicMagic
+                ? ReadClassicWorldSize(data, sections)
+                : 0;
+            MapMetadata metadata = ReadMetadata(data, magic, radar, u2, u3, u4, classicWorldSize);
             var directory = new MapDirectoryInfo(
                 directoryTag, capacity, formatVersion, sectionCount, payloadSize, payloadOffset);
             return new MapDocument(
                 data,
                 sourceName,
-                MapFormatKind.CrusaderDefinitiveEdition,
+                magic == ClassicMagic
+                    ? MapFormatKind.CrusaderClassic
+                    : MapFormatKind.CrusaderDefinitiveEdition,
                 preamble,
                 metadata,
                 directory,
@@ -211,14 +224,33 @@ namespace MapParser.Core
                 data.Length - payloadEnd);
         }
 
-        private static MapMetadata ReadMetadata(byte[] data, uint magic, Block radar, Block u2, Block u3, Block u4)
+        private static int ReadClassicWorldSize(byte[] data, IList<MapSectionInfo> sections)
+        {
+            foreach (MapSectionInfo section in sections)
+            {
+                if (section.SectionId != 1050)
+                    continue;
+                if (section.StorageKind != MapSectionStorageKind.Raw || section.UncompressedSize != 4)
+                    throw new MapUnsupportedFormatException("Classic map-size section 1050 must contain one raw Int32.");
+                int size = LittleEndian.ReadInt32(data, section.AbsoluteOffset);
+                if (!MapTileGeometry.IsSupportedWorldSize(size) || size > 400)
+                    throw new MapUnsupportedFormatException($"Unsupported classic map size {size} in section 1050.");
+                return size;
+            }
+            throw new MapUnsupportedFormatException("Classic map-size section 1050 is missing.");
+        }
+
+        private static MapMetadata ReadMetadata(
+            byte[] data, uint magic, Block radar, Block u2, Block u3, Block u4, int classicWorldSize)
         {
             int mapType = ReadOptionalInt32(data, u2, 0, 0);
             int maxPlayers = ReadOptionalInt32(data, u2, 24, 0);
             int missionType = ReadOptionalInt32(data, u3, 0, 0);
             int missionLockType = ReadOptionalInt32(data, u3, 8, 0);
             string fileName = string.Empty;
-            if (u3.Size >= 16)
+            if (magic == ClassicMagic && u3.Size >= 16)
+                fileName = Encoding.ASCII.GetString(data, u3.Offset + 12, checked((int)u3.Size - 16)).TrimEnd('\0');
+            else if (u3.Size >= 16)
             {
                 uint length = LittleEndian.ReadUInt32(data, u3.Offset + 12);
                 if (length > 0 && length <= u3.Size - 16)
@@ -238,7 +270,9 @@ namespace MapParser.Core
                         LittleEndian.ReadInt32(data, offset + 4)));
                 }
             }
-            int worldSize = ReadOptionalInt32(data, u4, 80, 0);
+            int worldSize = magic == ClassicMagic
+                ? classicWorldSize
+                : ReadOptionalInt32(data, u4, 80, 0);
             return new MapMetadata(
                 magic,
                 radar.Size,

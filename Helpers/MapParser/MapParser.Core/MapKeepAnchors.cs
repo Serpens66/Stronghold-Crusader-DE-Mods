@@ -208,7 +208,11 @@ namespace MapParser.Core
                 }
 
                 KeepRecord match = matches[0];
-                if (!geometry.TryGetTileId(match.X, match.Y, out int tileId))
+                bool classic = document.FormatKind == MapFormatKind.CrusaderClassic;
+                int tileX = classic ? match.X + ClassicMapGeometry.CoordinateOffset : match.X;
+                int tileY = classic ? match.Y + ClassicMapGeometry.CoordinateOffset : match.Y;
+                if ((classic && !ClassicMapGeometry.IsValidCoordinate(match.X, match.Y)) ||
+                    !geometry.TryGetTileId(tileX, tileY, out int tileId))
                 {
                     results[slotIndex] = NotEvaluable(
                         slotIndex,
@@ -217,7 +221,7 @@ namespace MapParser.Core
                         MapKeepAnchorFailureKind.InvalidKeepCoordinate);
                     continue;
                 }
-                if (!geometry.IsWithinWorldBounds(match.X, match.Y))
+                if (!geometry.IsWithinWorldBounds(tileX, tileY))
                 {
                     results[slotIndex] = NotEvaluable(
                         slotIndex,
@@ -227,14 +231,14 @@ namespace MapParser.Core
                     continue;
                 }
 
-                // The building record stores the same world-tile pair passed to Vanilla BuildStructure.
+                // Vanilla shifts classic building records into the 800-row world after loading.
                 results[slotIndex] = new MapKeepAnchorResult(
                     slotIndex,
                     true,
                     radar,
                     MapKeepAnchorStatus.Exact,
                     MapKeepAnchorFailureKind.None,
-                    new MapCoordinate(match.X, match.Y),
+                    new MapCoordinate(tileX, tileY),
                     tileId,
                     match.Index);
             }

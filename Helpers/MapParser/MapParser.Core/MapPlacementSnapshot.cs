@@ -187,6 +187,14 @@ namespace MapParser.Core
                 }
             }
 
+            if (document.FormatKind == MapFormatKind.CrusaderClassic)
+            {
+                if (tileCount != ClassicMapGeometry.TileCount)
+                    throw new MapPlacementSnapshotException(
+                        MapPlacementSnapshotFailureKind.UnsupportedGeometry,
+                        $"Classic map has {tileCount} tiles; expected {ClassicMapGeometry.TileCount}.");
+                return MapTileGeometry.FixedTileCount;
+            }
             return tileCount;
         }
 

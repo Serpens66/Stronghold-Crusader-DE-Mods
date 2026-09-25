@@ -7,14 +7,21 @@ param(
 $ErrorActionPreference = 'Stop'
 
 function Read-Samples([string]$pattern) {
-    $paths = @(Resolve-Path -Path $pattern | ForEach-Object { $_.Path } | Sort-Object)
+    $paths = @(Resolve-Path -Path $pattern | ForEach-Object { $_.ProviderPath } | Sort-Object)
     if ($paths.Count -eq 0) { throw "No trace segments: $pattern" }
     $samples = @{}
     $occurrences = @{}
     $incomplete = $false
+    $version3 = $false
+    $finished = $false
     foreach ($path in $paths) {
         foreach ($line in [IO.File]::ReadLines($path)) {
             if ($line.StartsWith("I`t", [StringComparison]::Ordinal)) { $incomplete = $true }
+            if ($line.StartsWith("V`t3`t", [StringComparison]::Ordinal)) { $version3 = $true }
+            if ($line.StartsWith("F`t", [StringComparison]::Ordinal)) {
+                $finished = $true
+                if ($line.Contains('status=incomplete')) { $incomplete = $true }
+            }
             if (-not $line.StartsWith("S`t", [StringComparison]::Ordinal)) { continue }
             $cells = $line.Split([char]9)
             if ($cells.Length -lt 7) { throw "Invalid sample in ${path}: $line" }
@@ -29,12 +36,13 @@ function Read-Samples([string]$pattern) {
         }
     }
     if ($incomplete) { throw "Trace explicitly reports incomplete capture: $pattern" }
+    if ($version3 -and -not $finished) { throw "Trace has no durable completion marker: $pattern" }
     return $samples
 }
 
 function Read-ObjectState([string]$pattern, [int]$tick, [string]$phase,
     [string]$category, [int]$occurrence) {
-    $paths = @(Resolve-Path -Path $pattern | ForEach-Object { $_.Path } | Sort-Object)
+    $paths = @(Resolve-Path -Path $pattern | ForEach-Object { $_.ProviderPath } | Sort-Object)
     $state = @{}
     $seen = 0
     foreach ($path in $paths) {
@@ -64,9 +72,16 @@ $common = @($hostSamples.Keys | Where-Object { $clientSamples.ContainsKey($_) } 
     Sort-Object Tick,Phase,Category,Key)
 if ($common.Count -eq 0) { throw 'No matching map-tick/phase/category samples; check map and mod builds.' }
 
+$firstProjectile = $null
+$projectileDifferences = 0
 foreach ($sample in $common) {
     $other = $clientSamples[$sample.Key]
     if ($sample.Hash -eq $other.Hash) { continue }
+    if ($sample.Category -eq 'projectiles') {
+        if ($null -eq $firstProjectile) { $firstProjectile = $sample }
+        $projectileDifferences++
+        continue
+    }
     $parts = $sample.Key.Split('|')
     $ordinal = [int]$parts[$parts.Length - 1]
     $hostObjects = Read-ObjectState $HostTrace $sample.Tick $sample.Phase $sample.Category $ordinal
@@ -98,6 +113,23 @@ foreach ($sample in $common) {
         return
     }
     Write-Output "HASH_DIFFERENCE_WITHOUT_CAPTURED_OBJECT mapTick=$($sample.Tick) phase=$($sample.Phase) category=$($sample.Category); inspect trace completeness and capture gaps"
+    return
+}
+
+if ($null -ne $firstProjectile) {
+    $parts = $firstProjectile.Key.Split('|')
+    $ordinal = [int]$parts[$parts.Length - 1]
+    $hostObjects = Read-ObjectState $HostTrace $firstProjectile.Tick $firstProjectile.Phase 'projectiles' $ordinal
+    $clientObjects = Read-ObjectState $ClientTrace $firstProjectile.Tick $firstProjectile.Phase 'projectiles' $ordinal
+    foreach ($objectId in @(@($hostObjects.Keys) + @($clientObjects.Keys) | Sort-Object -Unique)) {
+        $left = if ($hostObjects.ContainsKey($objectId)) { $hostObjects[$objectId] } else { '<absent>' }
+        $right = if ($clientObjects.ContainsKey($objectId)) { $clientObjects[$objectId] } else { '<absent>' }
+        if ($left -ceq $right) { continue }
+        $identity = if ($objectId -match '/0$') { 'slot-only-global-id-zero' } else { 'global-id-present' }
+        Write-Output "PROJECTILE_DIFFERENCE mapTick=$($firstProjectile.Tick) phase=$($firstProjectile.Phase) object=$objectId identity=$identity differingProjectileSamples=$projectileDifferences; other comparable captured categories match. Later projectile differences were not individually classified."
+        return
+    }
+    Write-Output "PROJECTILE_HASH_DIFFERENCE_WITHOUT_CAPTURED_OBJECT mapTick=$($firstProjectile.Tick) differingProjectileSamples=$projectileDifferences"
     return
 }
 

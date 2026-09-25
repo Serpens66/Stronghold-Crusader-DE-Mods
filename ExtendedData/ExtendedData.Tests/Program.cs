@@ -67,6 +67,7 @@ var tests = new (string Name, Action Run)[]
     ("Fixes preference snapshots retain every current and future property", TestFixesPreferenceCodec),
     ("Fixes preference snapshots reject incompatible schemas and lossy values", TestFixesPreferenceIncompatibility),
     ("Lord sync diagnostics identify state without logging JSON values", TestLordSyncDiagnostics),
+    ("deferred Lord confirmations reject stale lobby and selection", TestDeferredLordPublication),
     ("Lord sync accepts a confirmed lobby before game mode becomes multiplayer", TestLordSyncLobbyGate),
     ("selected Lord fingerprint ignores media and detects gameplay files", TestLordPackageFingerprint),
     ("selected Lord package manifest binds identities and mode", TestLordPackageManifest),
@@ -365,6 +366,21 @@ static void TestLordSyncLobbyGate()
         LordDataSyncDiagnostics.MatchesSelectedSlots(selected, new[] { 3 }) &&
         !LordDataSyncDiagnostics.MatchesSelectedSlots(selected, new[] { 4 }),
         "an empty or stale snapshot was accepted for a selected Custom Lord");
+}
+
+static void TestDeferredLordPublication()
+{
+    const string session = "lobby-1", digest = "digest-1", wire = "wire-1", status = "READY|digest-1";
+    Assert(LordDataSyncDiagnostics.MatchesDeferredPublication(session, digest, wire, status,
+        session, digest, wire, status), "current Lord confirmation was rejected");
+    Assert(!LordDataSyncDiagnostics.MatchesDeferredPublication(session, digest, wire, status,
+        "lobby-2", digest, wire, status), "an old lobby confirmation was accepted");
+    Assert(!LordDataSyncDiagnostics.MatchesDeferredPublication(session, digest, wire, status,
+        session, "digest-2", wire, status), "an old selection digest was accepted");
+    Assert(!LordDataSyncDiagnostics.MatchesDeferredPublication(session, digest, wire, status,
+        session, digest, "wire-2", status), "a replaced Modsetting was accepted");
+    Assert(!LordDataSyncDiagnostics.MatchesDeferredPublication(session, digest, wire, status,
+        session, digest, wire, "ERROR|APPLY"), "an unapplied Lord confirmation was accepted");
 }
 
 static void TestLordPackageFingerprint()

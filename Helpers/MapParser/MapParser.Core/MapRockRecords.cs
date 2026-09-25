@@ -79,17 +79,31 @@ namespace MapParser.Core
             for (int recordIndex = 0; recordIndex < records.Length; recordIndex++)
             {
                 int offset = recordIndex * RecordSize;
+                short marker = LittleEndian.ReadInt16(data, offset + 12);
+                uint tileId = LittleEndian.ReadUInt32(data, offset + 4);
+                ushort x = LittleEndian.ReadUInt16(data, offset + 18);
+                ushort y = LittleEndian.ReadUInt16(data, offset + 20);
+                short size = LittleEndian.ReadInt16(data, offset + 22);
+                if (document.FormatKind == MapFormatKind.CrusaderClassic &&
+                    marker != 0 && tileId != 0 && size > 0)
+                {
+                    if (!ClassicMapGeometry.IsValidCoordinate(x, y) || tileId >= ClassicMapGeometry.TileCount)
+                        throw new MapCorruptDataException($"Classic rock record {recordIndex} has invalid tile coordinates.");
+                    tileId = (uint)ClassicMapGeometry.ToNativeTileId((int)tileId);
+                    x += ClassicMapGeometry.CoordinateOffset;
+                    y += ClassicMapGeometry.CoordinateOffset;
+                }
                 records[recordIndex] = new MapRockRecord(
                     recordIndex,
                     LittleEndian.ReadInt32(data, offset),
-                    LittleEndian.ReadUInt32(data, offset + 4),
+                    tileId,
                     LittleEndian.ReadInt32(data, offset + 8),
-                    LittleEndian.ReadInt16(data, offset + 12),
+                    marker,
                     LittleEndian.ReadInt16(data, offset + 14),
                     LittleEndian.ReadInt16(data, offset + 16),
-                    LittleEndian.ReadUInt16(data, offset + 18),
-                    LittleEndian.ReadUInt16(data, offset + 20),
-                    LittleEndian.ReadInt16(data, offset + 22),
+                    x,
+                    y,
+                    size,
                     LittleEndian.ReadInt16(data, offset + 24));
             }
 

@@ -521,7 +521,7 @@ namespace RandomEvents
                     }
 
                     int tileId = tiles.GetTileId(tileX, tileY);
-                    if (!tiles.IsTileWalkableAndUnoccupied(tileId))
+                    if (!tiles.IsValidTileId(tileId) || !tiles.IsTileWalkableAndUnoccupied(tileId))
                         return false;
 
                     int tileHeight = tiles.GetTileHeight(tileId);
@@ -648,12 +648,13 @@ namespace RandomEvents
                     if (!tiles.IsTileInsideMapBounds(x, y))
                         continue;
                     int tileId = tiles.GetTileId(x, y);
-                    int ownerId = tiles.GetTilePlayerOwnerId(tileId);
-                    if (!componentsByPlayer.TryGetValue(ownerId, out HashSet<ushort> components) ||
+                    if (!tiles.IsValidTileId(tileId) ||
                         (tiles.GetTilePropertyFlag(tileId) & TilePropertyFlag.IsWall) == 0)
-                    {
                         continue;
-                    }
+
+                    int ownerId = tiles.GetTilePlayerOwnerId(tileId);
+                    if (!componentsByPlayer.TryGetValue(ownerId, out HashSet<ushort> components))
+                        continue;
                     AddApproachComponents(x, y, x, y, components);
                 }
             }

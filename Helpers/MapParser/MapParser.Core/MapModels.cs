@@ -7,7 +7,8 @@ namespace MapParser.Core
     public enum MapFormatKind
     {
         CrusaderDefinitiveEdition,
-        CrusaderDefinitiveEditionSpecial
+        CrusaderDefinitiveEditionSpecial,
+        CrusaderClassic
     }
 
     public enum MapSectionStorageKind

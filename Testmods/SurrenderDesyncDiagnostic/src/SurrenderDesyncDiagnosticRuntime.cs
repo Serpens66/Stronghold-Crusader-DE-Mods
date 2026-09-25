@@ -12,6 +12,7 @@ using System.Globalization;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Buffers;
 
 namespace SurrenderDesyncDiagnostic
 {
@@ -21,14 +22,12 @@ namespace SurrenderDesyncDiagnostic
         private readonly ManualLogSource log;
         private readonly Queue<string> preroll = new Queue<string>();
         private readonly Queue<string> eventHistory = new Queue<string>();
-        private readonly Dictionary<string, string> previous = new Dictionary<string, string>();
         private readonly ResyncDiagnosticHistory chores = new ResyncDiagnosticHistory();
         private readonly List<SurrenderIdentity> surrenderLords = new List<SurrenderIdentity>();
         private readonly HashSet<string> captureGaps = new HashSet<string>(StringComparer.Ordinal);
-        private StreamWriter writer;
+        private DeferredTraceRecorder recorder;
         private string traceBase;
         private long sequence;
-        private int segment;
         private int lastMapTick = -1;
         private int lastDirectorTick = -1;
         private bool active;
@@ -36,6 +35,9 @@ namespace SurrenderDesyncDiagnostic
         private bool incomplete;
         private bool postCleanupMarker;
         private bool probeDone;
+        private long tickCount;
+        private long tickElapsed;
+        private long tickMax;
 
         private struct SurrenderIdentity
         {
@@ -48,6 +50,7 @@ namespace SurrenderDesyncDiagnostic
 
         internal void Initialize()
         {
+            recorder = new DeferredTraceRecorder(log);
             SurrenderDiagnosticBridge.SurrenderPhase += OnSurrenderPhase;
             SurrenderDiagnosticBridge.SpectatorPhase += OnSpectatorPhase;
             SurrenderDiagnosticBridge.SurrenderExecuted += OnSurrender;
@@ -75,6 +78,7 @@ namespace SurrenderDesyncDiagnostic
 
         private void OnTick(int directorTick)
         {
+            long started = System.Diagnostics.Stopwatch.GetTimestamp();
             lock (gate)
             {
                 try
@@ -98,6 +102,13 @@ namespace SurrenderDesyncDiagnostic
                     }
                 }
                 catch (Exception ex) { Incomplete("TICK", ex); }
+                finally
+                {
+                    long elapsed = System.Diagnostics.Stopwatch.GetTimestamp() - started;
+                    tickCount++;
+                    tickElapsed += elapsed;
+                    if (elapsed > tickMax) tickMax = elapsed;
+                }
             }
         }
 
@@ -121,8 +132,11 @@ namespace SurrenderDesyncDiagnostic
         {
             lock (gate)
             {
-                Event("spectator-" + phase, tick, $"player={player},local={local}");
-                try { if (active) Capture("spectator-" + phase, tick, lastDirectorTick); }
+                try
+                {
+                    Event("spectator-" + phase, tick, $"player={player},local={local}");
+                    if (active) Capture("spectator-" + phase, tick, lastDirectorTick);
+                }
                 catch (Exception ex) { Incomplete("SPECTATOR", ex); }
             }
         }
@@ -141,8 +155,14 @@ namespace SurrenderDesyncDiagnostic
         }
 
         private void OnSpectator(long session, int player, int deathTick, int executionTick, int local)
-        { lock (gate) Event("spectator-chore", executionTick,
-            $"session={session},player={player},deathTick={deathTick},local={local}"); }
+        {
+            lock (gate)
+            {
+                try { Event("spectator-chore", executionTick,
+                    $"session={session},player={player},deathTick={deathTick},local={local}"); }
+                catch (Exception ex) { Incomplete("SPECTATOR_CHORE", ex); }
+            }
+        }
 
         private void OnLordDeath(PlayerLordDeathNotification notice)
         {
@@ -199,9 +219,7 @@ namespace SurrenderDesyncDiagnostic
                 try
                 {
                     int tick = MapTick();
-                    string description = ResyncDiagnosticHistory.DescribeBuffer(buffer, tick,
-                        out bool start, out bool end);
-                    chores.AddBuffer(buffer, tick, out _, out _);
+                    chores.AddBuffer(buffer, tick, out bool start, out bool end, out string description);
                     if (active || start || end) Event("chores-sent", tick, description);
                     if (start) { resyncStarted = true; Event("resync-send-start", tick, description); }
                     if (end) Event("resync-send-end", tick, description);
@@ -224,8 +242,8 @@ namespace SurrenderDesyncDiagnostic
                     string[] eventCopy = eventHistory.ToArray();
                     if (active)
                     {
-                        foreach (string line in choreCopy) Write("H\tchore\t" + Escape(line));
-                        foreach (string line in eventCopy) Write("H\tevent\t" + Escape(line));
+                        foreach (string line in choreCopy) QueueLine("H\tchore\t" + Escape(line));
+                        foreach (string line in eventCopy) QueueLine("H\tevent\t" + Escape(line));
                         Capture("resync-state", tick, lastDirectorTick);
                     }
                 }
@@ -249,16 +267,12 @@ namespace SurrenderDesyncDiagnostic
             active = true;
             incomplete = false;
             resyncStarted = false;
-            segment = 0;
-            previous.Clear();
             captureGaps.Clear();
             traceBase = Path.Combine(Paths.PluginPath, "SurrenderDesyncDiagnostic_Serp", "Traces",
                 "trace-" + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff") + "-" +
                 System.Diagnostics.Process.GetCurrentProcess().Id);
-            OpenSegment();
-            Write("V\t2\tmapTick\tdirectorTick\tsequence\tphase\tcategory/object\tfields");
-            Write("G\tunknown-fields,pointers,padding,nested-or-array-fields,visual-presentation-fields,unavailable-APIs-excluded;local-UI-separate");
-            foreach (string line in preroll.ToArray()) Write(line);
+            recorder.Enqueue(new TraceWork { Kind = TraceWorkKind.Start, TraceBase = traceBase });
+            foreach (string line in preroll.ToArray()) QueueLine(line);
             preroll.Clear();
             Event("capture-start", tick, $"reason={reason},player={player},unit={unit},global={global}");
             Capture("baseline", tick, lastDirectorTick);
@@ -270,7 +284,8 @@ namespace SurrenderDesyncDiagnostic
             if (active) Finish("map-end", lastMapTick);
             active = resyncStarted = incomplete = probeDone = false;
             surrenderLords.Clear(); captureGaps.Clear();
-            previous.Clear(); preroll.Clear(); eventHistory.Clear(); chores.Reset();
+            preroll.Clear(); eventHistory.Clear(); chores.Reset();
+            tickCount = tickElapsed = tickMax = 0;
             Log("MAP_RESET map=" + tick);
         }
 
@@ -278,177 +293,160 @@ namespace SurrenderDesyncDiagnostic
         {
             try { Event("capture-end", tick, reason + ",incomplete=" + incomplete); }
             catch (Exception ex) { Incomplete("FINISH_EVENT", ex); }
-            try { writer?.Flush(); writer?.Dispose(); }
-            catch (Exception ex) { Incomplete("CLOSE", ex); }
-            finally { writer = null; active = false; resyncStarted = false; }
-            Log("CAPTURE_FINISHED " + traceBase + " reason=" + reason + " incomplete=" + incomplete);
+            recorder.Enqueue(new TraceWork { Kind = TraceWorkKind.Finish, Reason = reason });
+            active = false; resyncStarted = false;
+            double average = tickCount == 0 ? 0 :
+                1000.0 * tickElapsed / (System.Diagnostics.Stopwatch.Frequency * tickCount);
+            double maximum = 1000.0 * tickMax / System.Diagnostics.Stopwatch.Frequency;
+            Log("CAPTURE_QUEUED " + traceBase + " reason=" + reason + " incomplete=" + incomplete +
+                " tickAverageMs=" + average.ToString("F2", CultureInfo.InvariantCulture) +
+                " tickMaxMs=" + maximum.ToString("F2", CultureInfo.InvariantCulture));
         }
-
-        private static readonly string[] categories = { "players", "units", "buildings", "tribes",
-            "projectiles", "vegetation", "path-components", "path-edges", "moat-work", "connections" };
 
         private void Probe(int mapTick, int directorTick)
         {
             probeDone = true;
-            active = true;
-            incomplete = false;
-            segment = 0;
-            traceBase = Path.Combine(Paths.PluginPath, "SurrenderDesyncDiagnostic_Serp", "Traces",
+            string probeBase = Path.Combine(Paths.PluginPath, "SurrenderDesyncDiagnostic_Serp", "Traces",
                 "probe-" + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff") + "-" +
                 System.Diagnostics.Process.GetCurrentProcess().Id);
-            previous.Clear(); captureGaps.Clear();
-            int hashCount = 0;
-            try
-            {
-                OpenSegment();
-                Write("V\t2\tprobe\tmapTick\tdirectorTick\tsequence\tphase\tcategory/object\tfields");
-                hashCount = Capture("probe", mapTick, directorTick);
-            }
-            catch (Exception ex) { Incomplete("PROBE", ex); }
-            finally
-            {
-                try { writer?.Flush(); writer?.Dispose(); }
-                catch (Exception ex) { Incomplete("PROBE_CLOSE", ex); }
-                writer = null;
-                string file = traceBase + "-0001.tsv";
-                bool hasChanges = false, hasHashes = false;
-                try
-                {
-                    foreach (string line in File.ReadLines(file))
-                    {
-                        if (line.StartsWith("C\t", StringComparison.Ordinal)) hasChanges = true;
-                        if (line.StartsWith("S\t", StringComparison.Ordinal)) hasHashes = true;
-                        if (hasChanges && hasHashes) break;
-                    }
-                }
-                catch (Exception ex) { Incomplete("PROBE_VERIFY", ex); }
-                if (!incomplete && hasChanges && hasHashes && hashCount == categories.Length)
-                    Log("STATE_PROBE_OK map=" + mapTick + " categories=" + hashCount + " file=" + file);
-                else
-                    Log("STATE_PROBE_FAILED map=" + mapTick + " categories=" + hashCount +
-                        " changes=" + hasChanges + " hashes=" + hasHashes + " incomplete=" + incomplete + " file=" + file);
-                active = false;
-                incomplete = false;
-                previous.Clear(); captureGaps.Clear();
-            }
+            recorder.Enqueue(new TraceWork { Kind = TraceWorkKind.Start, TraceBase = probeBase, Probe = true });
+            EnqueueSnapshot(CreateSnapshot("probe", mapTick, directorTick));
+            recorder.Enqueue(new TraceWork { Kind = TraceWorkKind.Finish, Reason = "probe" });
         }
 
-        private int Capture(string phase, int mapTick, int directorTick)
+        private void Capture(string phase, int mapTick, int directorTick)
         {
-            if (!active) return 0;
-            var rows = new SortedDictionary<string, string>(StringComparer.Ordinal);
-            var failed = new HashSet<string>(StringComparer.Ordinal);
-            CaptureCategory(rows, failed, "players", CapturePlayers);
-            CaptureCategory(rows, failed, "units", CaptureUnits);
-            CaptureCategory(rows, failed, "buildings", CaptureBuildings);
-            CaptureCategory(rows, failed, "tribes", CaptureTribes);
-            CaptureCategory(rows, failed, "projectiles", CaptureProjectiles);
-            CaptureCategory(rows, failed, "vegetation", CaptureVegetation);
-            CaptureCategory(rows, failed, "path-components", (result) => Grid(result, "path-components", PathApi().GetPathComponentGrid()));
-            CaptureCategory(rows, failed, "path-edges", (result) => Grid(result, "path-edges", PathApi().GetPathEdgeMaskGrid()));
-            CaptureCategory(rows, failed, "moat-work", (result) => Grid(result, "moat-work", PathApi().GetMoatWorkTaskIndexGrid()));
-            CaptureCategory(rows, failed, "connections", CaptureConnections);
-            var hashes = new SortedDictionary<string, StringBuilder>(StringComparer.Ordinal);
-            foreach (string category in categories)
-                if (!failed.Contains(category)) hashes[category] = new StringBuilder();
-            foreach (var row in rows)
+            if (!active) return;
+            if (recorder.FailedFor(traceBase))
             {
-                string category = row.Key.Substring(0, row.Key.IndexOf('/'));
-                StringBuilder builder = hashes[category];
-                builder.Append(row.Key).Append('=').Append(row.Value).Append(';');
-                if (!previous.TryGetValue(row.Key, out string old) || old != row.Value)
-                    Write($"C\t{mapTick}\t{directorTick}\t{++sequence}\t{phase}\t{row.Key}\t{Escape(row.Value)}");
+                Incomplete("WRITER_FAILED", null);
+                Finish("writer-failed", mapTick);
+                return;
             }
-            foreach (var old in previous)
-                if (!rows.ContainsKey(old.Key))
-                    Write($"C\t{mapTick}\t{directorTick}\t{++sequence}\t{phase}\t{old.Key}\t<removed>");
-            foreach (var hash in hashes)
-                Write($"S\t{mapTick}\t{directorTick}\t{++sequence}\t{phase}\t{hash.Key}\t{ResyncDiagnosticHistory.ComputeSha256(hash.Value.ToString())}");
-            try
-            {
-                Write($"L\t{mapTick}\t{directorTick}\t{++sequence}\t{phase}\tlocalPlayer={GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? -1},spectator={GameData.Instance?.lastGameState?.spectatorMode ?? -1}");
-            }
-            catch (Exception ex) { Incomplete("LOCAL_UI", ex); }
-            previous.Clear();
-            foreach (var row in rows) previous.Add(row.Key, row.Value);
-            writer?.Flush();
-            return hashes.Count;
+            EnqueueSnapshot(CreateSnapshot(phase, mapTick, directorTick));
         }
 
-        private void CaptureCategory(IDictionary<string, string> rows, ISet<string> failed,
-            string category, Action<IDictionary<string, string>> capture)
+        private void EnqueueSnapshot(TraceSnapshot snapshot)
         {
-            var categoryRows = new SortedDictionary<string, string>(StringComparer.Ordinal);
+            if (recorder.Enqueue(new TraceWork { Kind = TraceWorkKind.Capture, Snapshot = snapshot })) return;
+            snapshot.Release();
+            Incomplete("QUEUE_OVERFLOW", null);
+            if (active) Finish("queue-overflow", snapshot.MapTick);
+            else recorder.Enqueue(new TraceWork { Kind = TraceWorkKind.Line,
+                Text = "I\t" + snapshot.MapTick + "\t" + snapshot.DirectorTick + "\tQUEUE_OVERFLOW" });
+        }
+
+        private TraceSnapshot CreateSnapshot(string phase, int mapTick, int directorTick)
+        {
+            var snapshot = new TraceSnapshot { Phase = phase, MapTick = mapTick,
+                DirectorTick = directorTick, Order = ++sequence };
+            Stage(snapshot, "players", StagePlayers);
+            Stage(snapshot, "units", StageUnits);
+            Stage(snapshot, "buildings", StageBuildings);
+            Stage(snapshot, "tribes", StageTribes);
+            Stage(snapshot, "projectiles", StageProjectiles);
+            Stage(snapshot, "vegetation", StageVegetation);
+            Stage(snapshot, "path-components", category => StageGrid(category, PathApi().GetPathComponentGrid()));
+            Stage(snapshot, "path-edges", category => StageGrid(category, PathApi().GetPathEdgeMaskGrid()));
+            Stage(snapshot, "moat-work", category => StageGrid(category, PathApi().GetMoatWorkTaskIndexGrid()));
+            Stage(snapshot, "connections", StageConnections);
             try
             {
-                capture(categoryRows);
-                foreach (var row in categoryRows) rows.Add(row.Key, row.Value);
+                snapshot.LocalState = $"localPlayer={GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? -1},spectator={GameData.Instance?.lastGameState?.spectatorMode ?? -1}";
             }
             catch (Exception ex)
             {
-                failed.Add(category);
-                Incomplete("CAPTURE_" + category, ex);
+                snapshot.Categories.Add(new TraceCategory { Name = "local-ui", Error = ex.ToString() });
             }
+            return snapshot;
         }
 
-        private static void CapturePlayers(IDictionary<string, string> rows)
+        private static void Stage(TraceSnapshot snapshot, string name, Action<TraceCategory> capture)
+        {
+            var category = new TraceCategory { Name = name };
+            try { capture(category); }
+            catch (Exception ex)
+            {
+                category.Release();
+                category.Error = ex.ToString();
+            }
+            snapshot.Categories.Add(category);
+        }
+
+        private static void AddRecord(TraceCategory category, string key, Type type, IntPtr pointer, int size)
+        {
+            byte[] data = ArrayPool<byte>.Shared.Rent(size);
+            try { Marshal.Copy(pointer, data, 0, size); }
+            catch { ArrayPool<byte>.Shared.Return(data); throw; }
+            category.Records.Add(new TraceRecord { Key = key, Type = type, Data = data });
+        }
+
+        private static void StagePlayers(TraceCategory category)
         {
             var api = GamePlayerManagerAPI.Instance;
             if (api == null) throw new InvalidOperationException("Player API unavailable");
             int found = 0;
             for (int id = 1; id <= 8; id++)
+            {
+                string key = "players/" + id + "/0";
                 if (api.TryGetPlayerResourcesById(id, out GamePlayerResources* value) && value != null)
                 {
-                    rows[$"players/{id}/0"] = Fields(typeof(GamePlayerResources), new IntPtr(value));
+                    AddRecord(category, key, typeof(GamePlayerResources), new IntPtr(value), sizeof(GamePlayerResources));
                     found++;
                 }
-                else rows[$"players/{id}/0"] = "missing=1";
+                else category.Records.Add(new TraceRecord { Key = key, Text = "missing=1" });
+            }
             if (found == 0) throw new InvalidOperationException("No player record available");
         }
 
-        private static void CaptureUnits(IDictionary<string, string> rows)
+        private static void StageUnits(TraceCategory category)
         {
-            Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
-            fixed (GameUnit* ptr = units)
-                for (int i = 0; i < units.Length; i++)
-                    if (ptr[i].r_GlobalId != 0 || (int)ptr[i].r_AliveState != 0)
-                        rows[$"units/{i + 1}/{ptr[i].r_GlobalId}"] = Fields(typeof(GameUnit), new IntPtr(ptr + i));
+            Span<GameUnit> span = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
+            fixed (GameUnit* pointer = span)
+                for (int index = 0; index < span.Length; index++)
+                    if (pointer[index].r_GlobalId != 0 || (int)pointer[index].r_AliveState != 0)
+                        AddRecord(category, $"units/{index + 1}/{pointer[index].r_GlobalId}",
+                            typeof(GameUnit), new IntPtr(pointer + index), sizeof(GameUnit));
         }
 
-        private static void CaptureBuildings(IDictionary<string, string> rows)
+        private static void StageBuildings(TraceCategory category)
         {
-            Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
-            fixed (GameBuilding* ptr = buildings)
-                for (int i = 0; i < buildings.Length; i++)
-                    if (ptr[i].r_GlobalId != 0 || (int)ptr[i].r_AliveState != 0)
-                        rows[$"buildings/{i + 1}/{ptr[i].r_GlobalId}"] = Fields(typeof(GameBuilding), new IntPtr(ptr + i));
+            Span<GameBuilding> span = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
+            fixed (GameBuilding* pointer = span)
+                for (int index = 0; index < span.Length; index++)
+                    if (pointer[index].r_GlobalId != 0 || (int)pointer[index].r_AliveState != 0)
+                        AddRecord(category, $"buildings/{index + 1}/{pointer[index].r_GlobalId}",
+                            typeof(GameBuilding), new IntPtr(pointer + index), sizeof(GameBuilding));
         }
 
-        private static void CaptureTribes(IDictionary<string, string> rows)
+        private static void StageTribes(TraceCategory category)
         {
-            Span<GameTribe> tribes = GameTribeManagerAPI.Instance.GetTribeAsSpan();
-            fixed (GameTribe* ptr = tribes)
-                for (int i = 0; i < tribes.Length; i++)
-                    if (ptr[i].r_GlobalId != 0 || (int)ptr[i].r_AliveState != 0)
-                        rows[$"tribes/{i + 1}/{ptr[i].r_GlobalId}"] = Fields(typeof(GameTribe), new IntPtr(ptr + i));
+            Span<GameTribe> span = GameTribeManagerAPI.Instance.GetTribeAsSpan();
+            fixed (GameTribe* pointer = span)
+                for (int index = 0; index < span.Length; index++)
+                    if (pointer[index].r_GlobalId != 0 || (int)pointer[index].r_AliveState != 0)
+                        AddRecord(category, $"tribes/{index + 1}/{pointer[index].r_GlobalId}",
+                            typeof(GameTribe), new IntPtr(pointer + index), sizeof(GameTribe));
         }
 
-        private static void CaptureProjectiles(IDictionary<string, string> rows)
+        private static void StageProjectiles(TraceCategory category)
         {
-            Span<GameProjectile> projectiles = GameProjectileManagerAPI.Instance.GetProjectilesAsSpan();
-            fixed (GameProjectile* ptr = projectiles)
-                for (int i = 0; i < projectiles.Length; i++)
-                    if (ptr[i].r_GlobalId != 0 || (int)ptr[i].r_AliveState != 0)
-                        rows[$"projectiles/{i + 1}/{ptr[i].r_GlobalId}"] = Fields(typeof(GameProjectile), new IntPtr(ptr + i));
+            Span<GameProjectile> span = GameProjectileManagerAPI.Instance.GetProjectilesAsSpan();
+            fixed (GameProjectile* pointer = span)
+                for (int index = 0; index < span.Length; index++)
+                    if (pointer[index].r_GlobalId != 0 || (int)pointer[index].r_AliveState != 0)
+                        AddRecord(category, $"projectiles/{index + 1}/{pointer[index].r_GlobalId}",
+                            typeof(GameProjectile), new IntPtr(pointer + index), sizeof(GameProjectile));
         }
 
-        private static void CaptureVegetation(IDictionary<string, string> rows)
+        private static void StageVegetation(TraceCategory category)
         {
-            Span<GameVegetation> plants = GameVegetationManagerAPI.Instance.GetVegetationAsSpan();
-            fixed (GameVegetation* ptr = plants)
-                for (int i = 0; i < plants.Length; i++)
-                    if (ptr[i].r_GlobalId != 0 || (int)ptr[i].r_AliveState != 0)
-                        rows[$"vegetation/{i + 1}/{ptr[i].r_GlobalId}"] = Fields(typeof(GameVegetation), new IntPtr(ptr + i));
+            Span<GameVegetation> span = GameVegetationManagerAPI.Instance.GetVegetationAsSpan();
+            fixed (GameVegetation* pointer = span)
+                for (int index = 0; index < span.Length; index++)
+                    if (pointer[index].r_GlobalId != 0 || (int)pointer[index].r_AliveState != 0)
+                        AddRecord(category, $"vegetation/{index + 1}/{pointer[index].r_GlobalId}",
+                            typeof(GameVegetation), new IntPtr(pointer + index), sizeof(GameVegetation));
         }
 
         private static GamePathingManagerAPI PathApi()
@@ -458,26 +456,43 @@ namespace SurrenderDesyncDiagnostic
             return api;
         }
 
-        private static void CaptureConnections(IDictionary<string, string> rows)
+        private static void StageConnections(TraceCategory category)
         {
-            Span<PathConnectionRecord> connections = PathApi().GetPathConnectionRecords();
-            fixed (PathConnectionRecord* ptr = connections)
-                for (int i = 0; i < connections.Length; i++)
-                    if (ptr[i].r_IsActive != 0 || ptr[i].r_RecordGlobalId != 0)
-                        rows[$"connections/{i}/{ptr[i].r_RecordGlobalId}"] = Fields(typeof(PathConnectionRecord), new IntPtr(ptr + i));
+            Span<PathConnectionRecord> span = PathApi().GetPathConnectionRecords();
+            fixed (PathConnectionRecord* pointer = span)
+                for (int index = 0; index < span.Length; index++)
+                    if (pointer[index].r_IsActive != 0 || pointer[index].r_RecordGlobalId != 0)
+                        AddRecord(category, $"connections/{index}/{pointer[index].r_RecordGlobalId}",
+                            typeof(PathConnectionRecord), new IntPtr(pointer + index), sizeof(PathConnectionRecord));
         }
 
-        private static void Grid<T>(IDictionary<string, string> rows, string category, Span<T> span) where T : struct
+        private static void StageGrid(TraceCategory category, Span<ushort> span)
         {
-            if (span.Length == 0) throw new InvalidOperationException(category + " grid unavailable");
-            var value = new StringBuilder(2048);
-            for (int start = 0; start < span.Length; start += 256)
+            if (span.Length == 0) throw new InvalidOperationException(category.Name + " grid unavailable");
+            category.GridLength = span.Length;
+            category.GridElementBytes = 2;
+            int length = checked(span.Length * 2);
+            byte[] data = ArrayPool<byte>.Shared.Rent(length);
+            try
             {
-                value.Clear();
-                for (int i = start; i < Math.Min(start + 256, span.Length); i++)
-                    value.Append(span[i]).Append(',');
-                rows[$"{category}/{start}/0"] = value.ToString();
+                fixed (ushort* pointer = span) Marshal.Copy(new IntPtr(pointer), data, 0, length);
+                category.Grid = data;
             }
+            catch { ArrayPool<byte>.Shared.Return(data); throw; }
+        }
+
+        private static void StageGrid(TraceCategory category, Span<byte> span)
+        {
+            if (span.Length == 0) throw new InvalidOperationException(category.Name + " grid unavailable");
+            category.GridLength = span.Length;
+            category.GridElementBytes = 1;
+            byte[] data = ArrayPool<byte>.Shared.Rent(span.Length);
+            try
+            {
+                fixed (byte* pointer = span) Marshal.Copy(new IntPtr(pointer), data, 0, span.Length);
+                category.Grid = data;
+            }
+            catch { ArrayPool<byte>.Shared.Return(data); throw; }
         }
 
         private struct FieldSpec
@@ -488,7 +503,7 @@ namespace SurrenderDesyncDiagnostic
         }
 
         private static readonly Dictionary<Type, FieldSpec[]> fieldCache = new Dictionary<Type, FieldSpec[]>();
-        private static string Fields(Type type, IntPtr value)
+        internal static string Fields(Type type, IntPtr value)
         {
             FieldSpec[] selected;
             lock (fieldCache)
@@ -583,34 +598,14 @@ namespace SurrenderDesyncDiagnostic
             string line = $"E\t{tick}\t{lastDirectorTick}\t{++sequence}\t{kind}\t{Escape(detail)}";
             if (eventHistory.Count == 128) eventHistory.Dequeue();
             eventHistory.Enqueue(line);
-            if (active) Write(line);
+            if (active) QueueLine(line);
             if (kind != "chores-sent")
                 Log(kind + " map=" + tick + " director=" + lastDirectorTick + " " + detail);
         }
 
-        private void OpenSegment()
+        private void QueueLine(string line)
         {
-            try
-            {
-                string path = traceBase + "-" + (++segment).ToString("D4") + ".tsv";
-                Directory.CreateDirectory(Path.GetDirectoryName(path));
-                writer = new StreamWriter(new FileStream(path, FileMode.CreateNew, FileAccess.Write,
-                    FileShare.Read, 65536), new UTF8Encoding(false), 65536);
-                writer.WriteLine("V\t2\tsegment=" + segment);
-            }
-            catch (Exception ex) { Incomplete("OPEN", ex); }
-        }
-
-        private void Write(string line)
-        {
-            if (writer == null) { if (active) Incomplete("NO_WRITER", null); return; }
-            try
-            {
-                writer.WriteLine(line);
-                if (writer.BaseStream.Position >= 32L * 1024 * 1024)
-                { writer.Flush(); writer.Dispose(); writer = null; OpenSegment(); }
-            }
-            catch (Exception ex) { Incomplete("WRITE", ex); }
+            recorder.Enqueue(new TraceWork { Kind = TraceWorkKind.Line, Text = line });
         }
 
         private void Incomplete(string kind, Exception ex)
@@ -618,9 +613,8 @@ namespace SurrenderDesyncDiagnostic
             if (captureGaps.Add(kind))
             {
                 Log("TRACE_INCOMPLETE " + kind + " " + ex);
-                try { writer?.WriteLine("I\t" + MapTick() + "\t" + lastDirectorTick +
-                    "\t" + (++sequence) + "\t" + kind); writer?.Flush(); }
-                catch { /* BepInEx log remains the durable error channel. */ }
+                if (active) QueueLine("I\t" + MapTick() + "\t" + lastDirectorTick +
+                    "\t" + (++sequence) + "\t" + kind);
             }
             incomplete = true;
         }

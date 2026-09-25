@@ -24,6 +24,9 @@ internal static class Program
             ("Read typed rock records", TestRockRecords),
             ("Create immutable placement snapshot", TestPlacementSnapshot),
             ("Create snapshot from old and new tile IDs", TestPlacementSnapshotSectionIds),
+            ("Normalize classic Crusader placement layers and records", TestClassicPlacementSnapshot),
+            ("Reject unsupported or malformed classic maps", TestClassicMapFailures),
+            ("Read local classic Crusader map when available", TestLocalClassicMap),
             ("Reject snapshot without map sections", TestPlacementSnapshotSectionsUnavailable),
             ("Reject snapshot with missing layer", TestPlacementSnapshotMissingLayer),
             ("Reject snapshot with inconsistent layer lengths", TestPlacementSnapshotLayerLengths),
@@ -234,6 +237,92 @@ internal static class Program
             MapPlacementSnapshot snapshot = MapPlacementSnapshot.Create(map);
             AssertPlacementTile(snapshot.GetTile(SnapshotSampleTileId));
         }
+    }
+
+    private static void TestClassicPlacementSnapshot()
+    {
+        const int classicTileId = 40400;
+        byte[] buildings = EmptyBuildingObjectSection();
+        WriteKeepRecord(buildings, 1, 1, 200, 200);
+        byte[] rocks = new byte[MapRockRecords.RecordCount * MapRockRecords.RecordSize];
+        int rockOffset = MapRockRecords.RecordSize;
+        BinaryPrimitives.WriteUInt32LittleEndian(rocks.AsSpan(rockOffset + 4), classicTileId);
+        BinaryPrimitives.WriteInt16LittleEndian(rocks.AsSpan(rockOffset + 12), 1);
+        BinaryPrimitives.WriteUInt16LittleEndian(rocks.AsSpan(rockOffset + 18), 200);
+        BinaryPrimitives.WriteUInt16LittleEndian(rocks.AsSpan(rockOffset + 20), 200);
+        BinaryPrimitives.WriteInt16LittleEndian(rocks.AsSpan(rockOffset + 22), 1);
+        SectionSpec[] sections = ClassicPlacementSections(classicTileId)
+            .Concat(new[]
+            {
+                new SectionSpec(1013, buildings),
+                new SectionSpec(1038, rocks),
+                new SectionSpec(1050, Int32Bytes(300))
+            }).ToArray();
+        MapCoordinate[] radar = SingleSelectableRadar();
+        MapDocument map = MapFileReader.Parse(
+            FixtureBuilder.Build(150, sections, keepLocations: radar, classic: true).Bytes);
+        AssertEqual(MapFormatKind.CrusaderClassic, map.FormatKind);
+        AssertEqual((uint)172, map.Directory!.FormatVersion);
+        AssertEqual(300, map.Metadata.WorldSize);
+        AssertTrue(map.HasPlacementSnapshot);
+        AssertEqual(80400 * 4,
+            map.GetLogicalSection(MapSectionCatalog.Logic).UncompressedSize);
+
+        MapPlacementSnapshot snapshot = map.ReadPlacementSnapshot();
+        AssertEqual(MapTileGeometry.FixedTileCount, snapshot.TileCount);
+        AssertPlacementTile(snapshot.GetTile(400, 400));
+        MapPlacementTile outside = snapshot.GetTile(399, 0);
+        AssertEqual(0, outside.TerrainFlags);
+        AssertEqual((byte)0, outside.Height);
+        AssertEqual((ushort)0, outside.BuildingId);
+        AssertEqual(new MapCoordinate(400, 400), map.ReadKeepAnchors().GetSlot(0).Coordinate!.Value);
+        AssertEqual(snapshot.Geometry.GetTileId(400, 400), map.ReadKeepAnchors().GetSlot(0).TileId!.Value);
+        MapRockRecord rock = map.ReadRockRecords().Records[1];
+        AssertEqual((ushort)400, rock.X);
+        AssertEqual((ushort)400, rock.Y);
+        AssertEqual((uint)snapshot.Geometry.GetTileId(400, 400), rock.TileId);
+    }
+
+    private static void TestClassicMapFailures()
+    {
+        SectionSpec[] valid = ClassicPlacementSections(40400)
+            .Append(new SectionSpec(1050, Int32Bytes(300))).ToArray();
+        Fixture unsupportedVersion = FixtureBuilder.Build(150, valid, classic: true, formatVersion: 173);
+        AssertThrows<MapUnsupportedFormatException>(() => MapFileReader.Parse(unsupportedVersion.Bytes));
+        Fixture unsupportedDirectory = FixtureBuilder.Build(100, valid, classic: true);
+        AssertThrows<MapUnsupportedFormatException>(() => MapFileReader.Parse(unsupportedDirectory.Bytes));
+        Fixture missingSize = FixtureBuilder.Build(150, ClassicPlacementSections(40400), classic: true);
+        AssertThrows<MapUnsupportedFormatException>(() => MapFileReader.Parse(missingSize.Bytes));
+        Fixture invalidSize = FixtureBuilder.Build(150,
+            ClassicPlacementSections(40400).Append(new SectionSpec(1050, Int32Bytes(800))).ToArray(),
+            classic: true);
+        AssertThrows<MapUnsupportedFormatException>(() => MapFileReader.Parse(invalidSize.Bytes));
+        SectionSpec[] wrongLength = ClassicPlacementSections(40400);
+        wrongLength[1] = new SectionSpec(MapSectionCatalog.Logic2, new byte[80400 - 1]);
+        MapDocument map = MapFileReader.Parse(FixtureBuilder.Build(150,
+            wrongLength.Append(new SectionSpec(1050, Int32Bytes(300))).ToArray(), classic: true).Bytes);
+        AssertTrue(!map.HasPlacementSnapshot);
+        AssertEqual(MapPlacementSnapshotFailureKind.InconsistentLayerLength,
+            AssertThrowsAndGet<MapPlacementSnapshotException>(() => map.ReadPlacementSnapshot()).FailureKind);
+    }
+
+    private static void TestLocalClassicMap()
+    {
+        string local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        string? appData = Directory.GetParent(local)?.FullName;
+        if (appData == null)
+            return;
+        string path = Path.Combine(appData, "LocalLow", "Firefly Studios",
+            "Stronghold Crusader Definitive Edition", "Maps", "Nachbarn im Klamm.map");
+        if (!File.Exists(path))
+            return;
+        MapDocument map = MapFileReader.Parse(path);
+        AssertEqual(MapFormatKind.CrusaderClassic, map.FormatKind);
+        AssertEqual(300, map.Metadata.WorldSize);
+        AssertTrue(map.HasPlacementSnapshot);
+        AssertEqual(MapTileGeometry.FixedTileCount, map.ReadPlacementSnapshot().TileCount);
+        AssertTrue(map.ReadKeepAnchors().Slots.Any(slot => slot.Status == MapKeepAnchorStatus.Exact));
+        AssertEqual(MapRockRecords.RecordCount, map.ReadRockRecords().Records.Count);
     }
 
     private static void TestPlacementSnapshotSectionsUnavailable()
@@ -995,23 +1084,43 @@ internal static class Program
         ];
     }
 
-    private static byte[] ByteLayer(int tileId, byte value)
+    private static SectionSpec[] ClassicPlacementSections(int sampleTileId) =>
+    [
+        new SectionSpec(MapSectionCatalog.Logic,
+            Int32Layer(sampleTileId, 0x11223344, 80400)),
+        new SectionSpec(MapSectionCatalog.Logic2,
+            ByteLayer(sampleTileId, 12, 80400)),
+        new SectionSpec(MapSectionCatalog.Height,
+            ByteLayer(sampleTileId, 22, 80400)),
+        new SectionSpec(MapSectionCatalog.DefaultHeight,
+            ByteLayer(sampleTileId, 32, 80400)),
+        new SectionSpec(MapSectionCatalog.Organism,
+            UInt16Layer(sampleTileId, 102, 80400)),
+        new SectionSpec(MapSectionCatalog.Building,
+            UInt16Layer(sampleTileId, 202, 80400)),
+        new SectionSpec(MapSectionCatalog.Entity,
+            UInt16Layer(sampleTileId, 302, 80400)),
+        new SectionSpec(MapSectionCatalog.WallOwner,
+            ByteLayer(sampleTileId, 42, 80400))
+    ];
+
+    private static byte[] ByteLayer(int tileId, byte value, int tileCount = MapTileGeometry.FixedTileCount)
     {
-        var bytes = new byte[MapTileGeometry.FixedTileCount];
+        var bytes = new byte[tileCount];
         bytes[tileId] = value;
         return bytes;
     }
 
-    private static byte[] UInt16Layer(int tileId, ushort value)
+    private static byte[] UInt16Layer(int tileId, ushort value, int tileCount = MapTileGeometry.FixedTileCount)
     {
-        var bytes = new byte[MapTileGeometry.FixedTileCount * 2];
+        var bytes = new byte[tileCount * 2];
         BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(tileId * 2), value);
         return bytes;
     }
 
-    private static byte[] Int32Layer(int tileId, int value)
+    private static byte[] Int32Layer(int tileId, int value, int tileCount = MapTileGeometry.FixedTileCount)
     {
-        var bytes = new byte[MapTileGeometry.FixedTileCount * 4];
+        var bytes = new byte[tileCount * 4];
         BinaryPrimitives.WriteInt32LittleEndian(bytes.AsSpan(tileId * 4), value);
         return bytes;
     }
@@ -1109,14 +1218,16 @@ internal static class Program
             IReadOnlyList<SectionSpec> sections,
             byte[]? tail = null,
             IReadOnlyList<MapCoordinate>? keepLocations = null,
-            int worldSize = 400)
+            int worldSize = 400,
+            bool classic = false,
+            uint? formatVersion = null)
         {
             if (capacity is not (100 or 150 or 200))
                 throw new ArgumentOutOfRangeException(nameof(capacity));
             using var preamble = new MemoryStream();
             using (var writer = new BinaryWriter(preamble, Encoding.UTF8, leaveOpen: true))
             {
-                writer.Write(0xfffffffeu);
+                writer.Write(classic ? 0xffffffffu : 0xfffffffeu);
                 writer.Write(0u); // radar
                 writer.Write(0u); // description
                 writer.Write(0u); // U1
@@ -1126,14 +1237,27 @@ internal static class Program
                 writer.Write(4);
 
                 byte[] name = Encoding.UTF8.GetBytes("Synthetic.map");
-                writer.Write((uint)(16 + name.Length));
-                writer.Write(0);
-                writer.Write(0);
-                writer.Write(0);
-                writer.Write((uint)name.Length);
-                writer.Write(name);
+                if (classic)
+                {
+                    writer.Write(1017u);
+                    writer.Write(0);
+                    writer.Write(0);
+                    writer.Write(0);
+                    writer.Write(name);
+                    writer.Write(new byte[1001 - name.Length]);
+                    writer.Write(0);
+                }
+                else
+                {
+                    writer.Write((uint)(16 + name.Length));
+                    writer.Write(0);
+                    writer.Write(0);
+                    writer.Write(0);
+                    writer.Write((uint)name.Length);
+                    writer.Write(name);
+                }
 
-                writer.Write(84u);
+                writer.Write(classic ? 80u : 84u);
                 writer.Write(0);
                 writer.Write(99);
                 writer.Write(10);
@@ -1146,7 +1270,7 @@ internal static class Program
                     writer.Write(keep.X);
                     writer.Write(keep.Y);
                 }
-                writer.Write(worldSize);
+                if (!classic) writer.Write(worldSize);
                 writer.Write(0u); // restart-info size
             }
 
@@ -1165,7 +1289,7 @@ internal static class Program
                 writer.Write((uint)tag);
                 writer.Write((uint)payloadSize);
                 writer.Write((uint)sections.Count);
-                writer.Write(236u);
+                writer.Write(formatVersion ?? (classic ? 172u : 236u));
                 for (int index = 0; index < 4; index++) writer.Write(0u);
 
                 WriteArray(writer, capacity, sections.Select(value => value.Content.Length));

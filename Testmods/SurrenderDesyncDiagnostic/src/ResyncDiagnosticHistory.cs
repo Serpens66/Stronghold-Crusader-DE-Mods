@@ -18,7 +18,13 @@ namespace SurrenderDesyncDiagnostic
 
         internal bool AddBuffer(byte[] choreBuffer, int tick, out bool containsStart, out bool containsEnd)
         {
-            string description = DescribeBuffer(choreBuffer, tick, out containsStart, out containsEnd);
+            return AddBuffer(choreBuffer, tick, out containsStart, out containsEnd, out _);
+        }
+
+        internal bool AddBuffer(byte[] choreBuffer, int tick, out bool containsStart, out bool containsEnd,
+            out string description)
+        {
+            description = DescribeBuffer(choreBuffer, tick, out containsStart, out containsEnd);
             if (buffers.Count == BufferCapacity)
                 buffers.Dequeue();
             buffers.Enqueue(description);

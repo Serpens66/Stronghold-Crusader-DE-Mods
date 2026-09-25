@@ -5,6 +5,7 @@ using R3;
 using Shared;
 using SHCDESE.API;
 using SHCDESE.API.Components.Archive;
+using SHCDESE.API.Components.ModManager;
 using SHCDESE.API.Components.SaveData;
 using System;
 using System.Collections.Generic;
@@ -331,6 +332,10 @@ namespace ExtendedData
                         throw new InvalidDataException("The Lord package manifest belongs to another lobby.");
                     packageManifest = received;
                     SetLocalPackageStatus(received);
+                    if (!QueueClientStatusPublication("package-manifest", received.SessionId,
+                        received.Digest, wire, settings.LordPackageStatus))
+                        throw new InvalidOperationException(
+                            "The Lord package confirmation could not be queued for publication.");
                     DebugLogHelper.LogInfo(log, "Lord package manifest received: session=" +
                         received.SessionId + ",digest=" + received.Digest +
                         ",localMode=" + received.UseLocalValues +
@@ -340,6 +345,7 @@ namespace ExtendedData
                 {
                     packageManifest = null;
                     localLordPaths.Clear();
+                    Invalidate(exception.Message);
                     settings.LordPackageStatus = "ERROR|MANIFEST";
                     DebugLogHelper.LogError(log, "Lord package manifest rejected: " + exception);
                 }
@@ -860,8 +866,13 @@ namespace ExtendedData
                     ExtendedDataModDataApi.SetNetworkSnapshot(snapshot, true);
                     stage = "status-set";
                     settings.LordDataStatus = "READY|" + snapshot.Digest;
+                    stage = "status-publication";
+                    if (!QueueClientStatusPublication("lord-snapshot", snapshot.SessionId,
+                        snapshot.Digest, wireJson, settings.LordDataStatus))
+                        throw new InvalidOperationException(
+                            "The Lord-data confirmation could not be queued for publication.");
                     if (newlyAccepted)
-                        DebugLogHelper.LogInfo(log, "Lord-data client acknowledged: session=" +
+                        DebugLogHelper.LogInfo(log, "Lord-data client values applied; confirmation queued: session=" +
                             snapshot.SessionId + ",digest=" + snapshot.Digest + ",localStatus=" +
                             LordDataSyncDiagnostics.DescribeStatus(settings.LordDataStatus, snapshot.Digest));
                     lastClientAcceptedDiagnostic = snapshot.Digest;
@@ -1021,6 +1032,64 @@ namespace ExtendedData
             DebugLogHelper.LogInfo(log, "Lord-data local status changed: lobby=" + lobbyId +
                 ",digest=" + (active?.Digest ?? "none") + ",status=" +
                 LordDataSyncDiagnostics.DescribeStatus(status, active?.Digest));
+
+        private bool QueueClientStatusPublication(string source, string sessionId,
+            string digest, string wire, string status)
+        {
+            bool queued = UnityMainThreadDispatch.TryEnqueue(() =>
+            {
+                try
+                {
+                    FRONT_Multiplayer lobby = ExtendedDataRuntime.GetExistingMainViewModel()?.FRONTMultiplayer;
+                    bool isSnapshot = string.Equals(source, "lord-snapshot", StringComparison.Ordinal);
+                    bool current = ActiveLobbyMatches(lobby) && ObservedLobbyMatches(lobby) &&
+                        !GameNetworkAPI.IsLocalHost() &&
+                        (isSnapshot
+                            ? packageManifest?.UseLocalValues != true &&
+                              LordDataSyncDiagnostics.MatchesDeferredPublication(
+                                  sessionId, digest, wire, status, CurrentSessionId(lobby),
+                                  active?.Digest, settings.LordDataSnapshot, settings.LordDataStatus)
+                            : LordDataSyncDiagnostics.MatchesDeferredPublication(
+                                  sessionId, digest, wire, status, CurrentSessionId(lobby),
+                                  packageManifest?.Digest, settings.LordPackageManifest,
+                                  settings.LordPackageStatus));
+                    if (!current)
+                    {
+                        DebugLogHelper.LogInfo(log, "Lord-data deferred confirmation skipped: source=" +
+                            source + ",session=" + sessionId + ",digest=" + digest +
+                            ",reason=selection-or-lobby-changed.");
+                        return;
+                    }
+                    LobbyModSettingsChangeOrigin origin =
+                        GameXAMLManagerAPI.Instance.CurrentLobbyModSettingsChangeOrigin;
+                    if (origin != LobbyModSettingsChangeOrigin.Local)
+                        throw new InvalidOperationException(
+                            "The Lord confirmation still has Modsettings change origin " + origin + ".");
+                    // The Extender suppresses nested PropertyChanged broadcasts while it applies
+                    // an incoming host setting. APIShared republishes the current personal values
+                    // after that incoming update has returned.
+                    settings.System_RequestPerPlayerSettingsPublish();
+                    DebugLogHelper.LogInfo(log, "Lord-data deferred confirmation publication requested: source=" +
+                        source + ",session=" + sessionId + ",digest=" + digest +
+                        ",origin=" + origin +
+                        ",status=" + (isSnapshot
+                            ? LordDataSyncDiagnostics.DescribeStatus(status, digest)
+                            : LordDataSyncDiagnostics.SafeLabel(status)));
+                }
+                catch (Exception exception)
+                {
+                    Invalidate("Could not publish the selected Lord confirmation: " + exception.Message);
+                    DebugLogHelper.LogError(log, "Lord-data deferred confirmation failed: source=" +
+                        source + ",session=" + sessionId + ",digest=" + digest +
+                        ",error=" + exception);
+                }
+            });
+            if (!queued)
+                DebugLogHelper.LogError(log, "Lord-data confirmation scheduling failed: source=" +
+                    source + ",session=" + sessionId + ",digest=" + digest +
+                    ",dispatcherInitialized=" + UnityMainThreadDispatch.IsInitialized + ".");
+            return queued;
+        }
 
         private void OnSnapshotMutationRejected(int bytes) =>
             DebugLogHelper.LogError(log, "Lord-data snapshot setting write rejected by Modsettings ownership: " +

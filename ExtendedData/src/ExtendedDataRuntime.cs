@@ -141,6 +141,27 @@ namespace ExtendedData
                     ClearLaunchTracking();
                 if (!notification.Context.IsEditor) OnMapStarted();
             }));
+            subscriptions.Add(NetworkR3EventHooks.OnReceiveLobbyChatMessage.Observable.Subscribe(notification =>
+            {
+                if (notification?.Message == null ||
+                    !notification.Message.StartsWith("Extended Data: Start blocked. ", StringComparison.Ordinal))
+                    return;
+                string message = notification.Message;
+                ulong senderId = notification.SteamId.m_SteamID;
+                if (!Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
+                {
+                    FRONT_Multiplayer chatLobby = GetExistingMainViewModel()?.FRONTMultiplayer;
+                    LogInfo("Blocked-start lobby chat received: lobby=" +
+                        chatLobby?.currentLobby?.id.m_SteamID +
+                        ",sender=" + senderId +
+                        ",messageLength=" + message.Length +
+                        ",chatMuted=" + Platform_Multiplayer.MPChatMuted +
+                        ",confirmationVisible=" +
+                        (GetExistingMainViewModel()?.Show_HUD_Confirmation == true) +
+                        ",uiRenderingNotConfirmed=true.");
+                }))
+                    LogError("Blocked-start lobby chat receipt could not be dispatched for diagnostics.");
+            }));
 
             MethodInfo initMethod = RequireMethod("InitCoopMissions");
             initHook = new Hook(initMethod, (InitCoopMissionsDelegate)InitCoopMissionsHook);
@@ -913,6 +934,7 @@ namespace ExtendedData
         private void BlockLaunch(string command, string reason)
         {
             LogError("Blocked launch " + command + ": " + reason);
+            bool chatMuted = Platform_Multiplayer.MPChatMuted;
             ShowBlockedMessage(reason);
             if (!IsStartCommand(command))
                 return;
@@ -922,7 +944,16 @@ namespace ExtendedData
                 lobby.currentLobby.id.m_SteamID == 0 ||
                 Platform_Multiplayer.Instance?.activeLobby?.id.m_SteamID !=
                     lobby.currentLobby.id.m_SteamID)
+            {
+                LogInfo("Blocked-start lobby chat skipped: skirmish=" +
+                    FRONT_Multiplayer.skirmishGame + ",singlePlayerCoop=" +
+                    (lobby?.singlePlayerCoop == true) + ",host=" +
+                    (lobby?.currentLobby?.isHost == true) + ",activeLobbyMatches=" +
+                    (lobby?.currentLobby != null &&
+                     Platform_Multiplayer.Instance?.activeLobby?.id.m_SteamID ==
+                         lobby.currentLobby.id.m_SteamID) + ".");
                 return;
+            }
             string chatReason = (reason ?? string.Empty).Replace('\r', ' ').Replace('\n', ' ');
             string chatMessage = "Extended Data: Start blocked. " + chatReason;
             if (chatMessage.Length > 280)
@@ -930,12 +961,23 @@ namespace ExtendedData
             DateTime now = DateTime.UtcNow;
             if (string.Equals(lastBlockedChatReason, chatMessage, StringComparison.Ordinal) &&
                 (now - lastBlockedChatAtUtc).TotalSeconds < 2)
+            {
+                LogInfo("Blocked-start lobby chat suppressed as duplicate: lobby=" +
+                    lobby.currentLobby.id.m_SteamID + ",elapsedMs=" +
+                    (int)(now - lastBlockedChatAtUtc).TotalMilliseconds + ".");
                 return;
+            }
             try
             {
                 Platform_Multiplayer.Instance.SendLobbyChatMessage(chatMessage);
                 lastBlockedChatReason = chatMessage;
                 lastBlockedChatAtUtc = now;
+                LogInfo("Blocked-start lobby chat submitted: lobby=" +
+                    lobby.currentLobby.id.m_SteamID + ",messageLength=" +
+                    chatMessage.Length + ",chatMuted=" + chatMuted +
+                    ",confirmationVisible=" +
+                    (GetExistingMainViewModel()?.Show_HUD_Confirmation == true) +
+                    ",deliveryNotConfirmed=true.");
             }
             catch (Exception exception)
             {

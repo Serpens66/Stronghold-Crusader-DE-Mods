@@ -30,6 +30,14 @@ namespace ExtendedData
             snapshot != null && snapshot.Slots.Select(slot => slot.PlayerId).OrderBy(id => id)
                 .SequenceEqual((selectedCustomPlayerIds ?? Enumerable.Empty<int>()).OrderBy(id => id));
 
+        internal static bool MatchesDeferredPublication(string sessionId, string digest,
+            string wire, string status, string currentSessionId, string currentDigest,
+            string currentWire, string currentStatus) =>
+            string.Equals(sessionId, currentSessionId, StringComparison.Ordinal) &&
+            string.Equals(digest, currentDigest, StringComparison.Ordinal) &&
+            string.Equals(wire, currentWire, StringComparison.Ordinal) &&
+            string.Equals(status, currentStatus, StringComparison.Ordinal);
+
         internal static string DescribeJson(string json, bool countProperties)
         {
             if (json == null)

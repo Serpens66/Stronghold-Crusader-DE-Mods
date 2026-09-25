@@ -64,7 +64,11 @@ namespace MapParser.Core
             if (logicBytes <= 0 || logicBytes % 4 != 0)
                 return false;
             int count = logicBytes / 4;
-            return HasSize(document, MapSectionCatalog.Logic2, count) &&
+            int expectedCount = document.FormatKind == MapFormatKind.CrusaderClassic
+                ? ClassicMapGeometry.TileCount
+                : count;
+            return count == expectedCount &&
+                HasSize(document, MapSectionCatalog.Logic2, count) &&
                 HasSize(document, MapSectionCatalog.Height, count) &&
                 HasSize(document, MapSectionCatalog.DefaultHeight, count) &&
                 HasSize(document, MapSectionCatalog.Organism, checked(count * 2)) &&
@@ -81,15 +85,25 @@ namespace MapParser.Core
             // Decoding happens here, not while parsing the directory, so lobby callers only pay for needed layers.
             int[] terrain = ReadInt32(document.GetLogicalSection(MapSectionCatalog.Logic).GetOrReadContent());
             int count = terrain.Length;
+            byte[] logic2 = ReadBytes(document, MapSectionCatalog.Logic2, count);
+            byte[] height = ReadBytes(document, MapSectionCatalog.Height, count);
+            byte[] defaultHeight = ReadBytes(document, MapSectionCatalog.DefaultHeight, count);
+            ushort[] organism = ReadUInt16(document, MapSectionCatalog.Organism, count);
+            ushort[] building = ReadUInt16(document, MapSectionCatalog.Building, count);
+            ushort[] entity = ReadUInt16(document, MapSectionCatalog.Entity, count);
+            byte[] owner = ReadBytes(document, MapSectionCatalog.WallOwner, count);
+            if (document.FormatKind != MapFormatKind.CrusaderClassic)
+                return new MapTileLayers(terrain, logic2, height, defaultHeight,
+                    organism, building, entity, owner);
             return new MapTileLayers(
-                terrain,
-                ReadBytes(document, MapSectionCatalog.Logic2, count),
-                ReadBytes(document, MapSectionCatalog.Height, count),
-                ReadBytes(document, MapSectionCatalog.DefaultHeight, count),
-                ReadUInt16(document, MapSectionCatalog.Organism, count),
-                ReadUInt16(document, MapSectionCatalog.Building, count),
-                ReadUInt16(document, MapSectionCatalog.Entity, count),
-                ReadBytes(document, MapSectionCatalog.WallOwner, count));
+                ClassicMapGeometry.Expand(terrain),
+                ClassicMapGeometry.Expand(logic2),
+                ClassicMapGeometry.Expand(height),
+                ClassicMapGeometry.Expand(defaultHeight),
+                ClassicMapGeometry.Expand(organism),
+                ClassicMapGeometry.Expand(building),
+                ClassicMapGeometry.Expand(entity),
+                ClassicMapGeometry.Expand(owner));
         }
 
         private static bool HasSize(MapDocument document, int id, int size) =>
