@@ -97,3 +97,29 @@ Der synthetische Test deckt Sentinels 80–86 %, einen entfernten 100-%-Fall,
 Prozentspannen, unbekannte Geometrie und eine Sofortbau-Schätzung ab.
 Die sichtbare Lobbyfarbe und Tooltip-Darstellung müssen nach der Installation
 noch einmal ohne Kartenstart geprüft werden.
+
+## Praxisfarbe und Tooltip nach der englischen Lobbyprobe
+
+Die Probe mit 99–100 % zeigte grau, weil die frühere Regel unterschiedliche
+Farbklassen möglicher Drehungen sperrte. Die Praxis-Hauptfarbe ist nun
+vorsichtig: nur sichere 100 % sind grün, 1–99 % einschließlich 99–100 % gelb,
+0 % rot; unbekannte Geometrie und eine Mischung aus 0 % und positiven Werten
+bleiben grau. Native-Zwischenergebnisse bekommen bis zur fertigen
+Praxisbewertung keinen farbigen Punkt.
+
+Der Tooltip beginnt mit genau einer lokalisierten Praxis-Drehungszeile.
+Darunter folgen der getrennte Vanilla-Gesamtwert, belegte Bauhinweise und
+zuletzt die ausdrücklich benannte automatische AIV- und Drehungsauswahl.
+Ein vollständiger Vanilla-Fit erscheint als 100 %; native Abbrüche behalten
+ihre eigene Aussage. Die bei englischer Spielsprache zuvor deutschen
+Praxis-Sätze kommen nun aus den en-US/de-DE-Sprachdateien. Ein erkannter
+Sprachwechsel rendert vorhandene Ergebnisse ohne erneuten Fit.
+
+CastlePlanners `build.bat` bestand 94/94 Tests und installierte bei beendetem
+Spiel. Lokaler Build und Installation stimmen überein: `CastlePlanner.dll`
+`6BFE71B3934CC0544F5CFBF6B07AB875DF4B75822A6DF5C831DD1765D52D2A88`,
+`CastlePlanner.AIVPlacement.Core.dll`
+`ACE146AE5F043BA520D22BA5A6223149E7DBC57AF7042D025DBC6F5CB3EAC14D`.
+Die Thasos-Oracle-Korpora blieben bei 12 exakten, 60 bewusst grauen und null
+abweichenden Fällen. Die sichtbare Darstellung und der Rotationswechsel sind
+noch im Spiel zu prüfen; dafür genügt eine Lobbyöffnung ohne Kartenstart.

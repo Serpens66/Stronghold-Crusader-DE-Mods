@@ -16,6 +16,7 @@ namespace SurrenderDesyncDiagnostic
         internal string Key;
         internal Type Type;
         internal byte[] Data;
+        internal int DataLength;
         internal string Text;
     }
 
@@ -27,7 +28,6 @@ namespace SurrenderDesyncDiagnostic
         internal int GridLength;
         internal int GridElementBytes;
         internal string Error;
-
         internal long RentedBytes
         {
             get
@@ -37,7 +37,6 @@ namespace SurrenderDesyncDiagnostic
                 return size;
             }
         }
-
         internal void Release()
         {
             foreach (TraceRecord record in Records)
@@ -56,7 +55,6 @@ namespace SurrenderDesyncDiagnostic
         internal string Phase;
         internal string LocalState;
         internal readonly List<TraceCategory> Categories = new List<TraceCategory>();
-
         internal long RentedBytes
         {
             get
@@ -66,7 +64,6 @@ namespace SurrenderDesyncDiagnostic
                 return size;
             }
         }
-
         internal void Release()
         {
             foreach (TraceCategory category in Categories) category.Release();
@@ -84,41 +81,61 @@ namespace SurrenderDesyncDiagnostic
         internal long Size => Snapshot?.RentedBytes ?? 0;
     }
 
+    // The live worker only serializes owned bytes. Projection and comparison run offline.
     internal sealed class DeferredTraceRecorder
     {
-        private const long MaxQueuedBytes = 512L * 1024 * 1024;
-        private const long SegmentBytes = 32L * 1024 * 1024;
+        private const long QueueTargetBytes = 64L * 1024 * 1024;
+        private const long SegmentBytes = 128L * 1024 * 1024;
+        // Test-only instance knobs default to the production values and are never configured by the mod.
+        internal long QueueLimitBytes = QueueTargetBytes;
+        internal long SegmentLimitBytes = SegmentBytes;
+        internal int ArtificialWriteDelayMilliseconds = 0;
         private readonly object queueGate = new object();
         private readonly Queue<TraceWork> queue = new Queue<TraceWork>();
         private readonly ManualLogSource log;
         private readonly Thread thread;
         private long queuedBytes;
         private long highWaterBytes;
-        private StreamWriter writer;
+        private long backpressureCount;
+        private long backpressureTicks;
+        private BinaryWriter writer;
+        private FileStream stream;
         private string traceBase;
         private int segment;
         private bool incomplete;
         private bool ioFailed;
         private volatile string failedTraceBase;
         private bool probe;
-        private int sampleCount;
-        private int changeCount;
-        private readonly Dictionary<string, string> previous = new Dictionary<string, string>();
+        private int snapshotCount;
+        private int categoryCount;
+        private int eventCount;
         private DateTime lastFlushUtc;
 
         internal DeferredTraceRecorder(ManualLogSource logger)
         {
             log = logger;
             thread = new Thread(Run) { IsBackground = true, Priority = ThreadPriority.BelowNormal,
-                Name = "Surrender diagnostic writer" };
+                Name = "Surrender diagnostic binary writer" };
             thread.Start();
         }
 
         internal bool Enqueue(TraceWork work)
         {
+            long waitStart = 0;
             lock (queueGate)
             {
-                if (work.Size > MaxQueuedBytes - queuedBytes) return false;
+                while (work.Kind == TraceWorkKind.Capture && queue.Count != 0 &&
+                    work.Size > QueueLimitBytes - queuedBytes && !FailedFor(work.TraceBase))
+                {
+                    if (waitStart == 0) waitStart = System.Diagnostics.Stopwatch.GetTimestamp();
+                    Monitor.Wait(queueGate);
+                }
+                if (waitStart != 0)
+                {
+                    backpressureCount++;
+                    backpressureTicks += System.Diagnostics.Stopwatch.GetTimestamp() - waitStart;
+                }
+                if (FailedFor(work.TraceBase)) return false;
                 queue.Enqueue(work);
                 queuedBytes += work.Size;
                 if (queuedBytes > highWaterBytes) highWaterBytes = queuedBytes;
@@ -127,8 +144,8 @@ namespace SurrenderDesyncDiagnostic
             }
         }
 
-        internal bool FailedFor(string candidate) =>
-            candidate != null && string.Equals(failedTraceBase, candidate, StringComparison.Ordinal);
+        internal bool FailedFor(string candidate) => candidate != null &&
+            string.Equals(failedTraceBase, candidate, StringComparison.Ordinal);
 
         private void Run()
         {
@@ -143,31 +160,21 @@ namespace SurrenderDesyncDiagnostic
                 if (work == null)
                 {
                     try { FlushIfDue(); }
-                    catch (Exception ex)
-                    {
-                        MarkIncomplete("FLUSH", ex);
-                        ioFailed = true;
-                        failedTraceBase = traceBase;
-                        try { writer?.Dispose(); } catch { }
-                        writer = null;
-                    }
+                    catch (Exception ex) { Fail("FLUSH", ex); }
                     continue;
                 }
                 long size = work.Size;
                 try { Process(work); }
-                catch (Exception ex)
-                {
-                    MarkIncomplete("WORKER", ex);
-                    ioFailed = true;
-                    failedTraceBase = traceBase;
-                    try { writer?.Dispose(); } catch { }
-                    writer = null;
-                }
+                catch (Exception ex) { Fail("WRITE", ex); }
                 finally
                 {
                     try { work.Snapshot?.Release(); }
-                    catch (Exception ex) { MarkIncomplete("BUFFER_RELEASE", ex); }
-                    finally { lock (queueGate) queuedBytes -= size; }
+                    catch (Exception ex) { Fail("BUFFER_RELEASE", ex); }
+                    lock (queueGate)
+                    {
+                        queuedBytes -= size;
+                        Monitor.PulseAll(queueGate);
+                    }
                 }
             }
         }
@@ -179,21 +186,14 @@ namespace SurrenderDesyncDiagnostic
                 case TraceWorkKind.Start: Start(work); break;
                 case TraceWorkKind.Line:
                     if (work.Text != null && work.Text.StartsWith("I\t", StringComparison.Ordinal)) incomplete = true;
-                    if (!ioFailed) Write(work.Text);
+                    if (!ioFailed) { Rollover(); writer.Write((byte)1); writer.Write(work.Text ?? ""); eventCount++; }
                     break;
-                case TraceWorkKind.Capture: if (!ioFailed) Capture(work.Snapshot); break;
+                case TraceWorkKind.Capture:
+                    if (!ioFailed) Capture(work.Snapshot);
+                    break;
                 case TraceWorkKind.Finish: Finish(work.Reason); break;
             }
             FlushIfDue();
-        }
-
-        private void FlushIfDue()
-        {
-            if (writer != null && DateTime.UtcNow - lastFlushUtc >= TimeSpan.FromSeconds(1))
-            {
-                writer.Flush();
-                lastFlushUtc = DateTime.UtcNow;
-            }
         }
 
         private void Start(TraceWork work)
@@ -201,145 +201,137 @@ namespace SurrenderDesyncDiagnostic
             if (writer != null) Finish("unexpected-new-trace");
             traceBase = work.TraceBase;
             probe = work.Probe;
-            segment = sampleCount = changeCount = 0;
-            incomplete = false;
-            ioFailed = false;
+            segment = snapshotCount = categoryCount = eventCount = 0;
+            incomplete = ioFailed = false;
             failedTraceBase = null;
-            previous.Clear();
-            try
-            {
-                OpenSegment();
-                Write("V\t3\tmapTick\tdirectorTick\torder\tphase\tcategory/object\tfields");
-                Write("G\tunknown-fields,pointers,padding,nested-or-array-fields,visual-presentation-fields,unavailable-APIs-excluded;local-UI-separate");
-            }
-            catch (Exception ex)
-            {
-                MarkIncomplete("OPEN", ex);
-                ioFailed = true;
-                failedTraceBase = traceBase;
-            }
+            OpenSegment();
         }
 
         private void OpenSegment()
         {
-            string path = traceBase + "-" + (++segment).ToString("D4", CultureInfo.InvariantCulture) + ".tsv";
+            string path = traceBase + "-" + (++segment).ToString("D4", CultureInfo.InvariantCulture) + ".sdd";
             Directory.CreateDirectory(Path.GetDirectoryName(path));
-            writer = new StreamWriter(new FileStream(path, FileMode.CreateNew, FileAccess.Write,
-                FileShare.Read, 65536), new UTF8Encoding(false), 65536);
-            writer.WriteLine("V\t3\tsegment=" + segment);
+            stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.Read, 1024 * 1024);
+            writer = new BinaryWriter(stream, new UTF8Encoding(false), true);
+            writer.Write(0x34444453); // SDD4, little endian
+            writer.Write(segment);
+            writer.Write(typeof(DeferredTraceRecorder).Assembly.ManifestModule.ModuleVersionId.ToString("D"));
             lastFlushUtc = DateTime.UtcNow;
         }
 
-        private void Write(string line)
+        private void Rollover()
         {
-            if (writer == null) { incomplete = true; return; }
-            if (writer.BaseStream.Position >= SegmentBytes)
-            {
-                writer.Flush(); writer.Dispose(); writer = null;
-                OpenSegment();
-            }
-            writer.WriteLine(line);
+            if (stream.Position < SegmentLimitBytes) return;
+            CloseWriter();
+            OpenSegment();
         }
 
         private void Capture(TraceSnapshot snapshot)
         {
-            if (snapshot == null) { MarkIncomplete("NO_SNAPSHOT", null); return; }
-            var rows = new SortedDictionary<string, string>(StringComparer.Ordinal);
-            var hashes = new SortedDictionary<string, StringBuilder>(StringComparer.Ordinal);
+            if (snapshot == null) throw new InvalidDataException("Missing snapshot");
+            if (ArtificialWriteDelayMilliseconds > 0)
+                Thread.Sleep(ArtificialWriteDelayMilliseconds);
+            Rollover();
+            writer.Write((byte)2);
+            writer.Write(snapshot.MapTick);
+            writer.Write(snapshot.DirectorTick);
+            writer.Write(snapshot.Order);
+            writer.Write(snapshot.Phase ?? "");
+            writer.Write(snapshot.LocalState ?? "");
+            writer.Write(snapshot.Categories.Count);
             foreach (TraceCategory category in snapshot.Categories)
             {
-                if (category.Error != null)
-                {
-                    MarkIncomplete("CAPTURE_" + category.Name, new InvalidOperationException(category.Error));
-                    continue;
-                }
-                hashes[category.Name] = new StringBuilder();
-                if (category.Grid != null) AddGridRows(rows, category);
+                writer.Write(category.Name ?? "");
+                writer.Write(category.Error ?? "");
+                if (category.Error != null) incomplete = true;
+                writer.Write(category.Records.Count);
                 foreach (TraceRecord record in category.Records)
                 {
-                    if (record.Data == null) rows.Add(record.Key, record.Text ?? "");
-                    else
-                    {
-                        var handle = System.Runtime.InteropServices.GCHandle.Alloc(record.Data,
-                            System.Runtime.InteropServices.GCHandleType.Pinned);
-                        try { rows.Add(record.Key, SurrenderDesyncDiagnosticRuntime.Fields(record.Type, handle.AddrOfPinnedObject())); }
-                        finally { handle.Free(); }
-                    }
+                    writer.Write(record.Key ?? "");
+                    writer.Write(record.Type?.FullName ?? "");
+                    writer.Write(record.Data == null ? -1 : record.DataLength);
+                    if (record.Data == null) writer.Write(record.Text ?? "");
+                    else writer.Write(record.Data, 0, record.DataLength);
                 }
+                writer.Write(category.GridLength);
+                writer.Write(category.GridElementBytes);
+                if (category.Grid != null)
+                    writer.Write(category.Grid, 0, checked(category.GridLength * category.GridElementBytes));
+                categoryCount++;
             }
-            foreach (var row in rows)
-            {
-                string category = row.Key.Substring(0, row.Key.IndexOf('/'));
-                hashes[category].Append(row.Key).Append('=').Append(row.Value).Append(';');
-                if (!previous.TryGetValue(row.Key, out string old) || old != row.Value)
-                {
-                    Write($"C\t{snapshot.MapTick}\t{snapshot.DirectorTick}\t{snapshot.Order}\t{snapshot.Phase}\t{row.Key}\t{Escape(row.Value)}");
-                    changeCount++;
-                }
-            }
-            foreach (var old in previous)
-                if (!rows.ContainsKey(old.Key))
-                {
-                    Write($"C\t{snapshot.MapTick}\t{snapshot.DirectorTick}\t{snapshot.Order}\t{snapshot.Phase}\t{old.Key}\t<removed>");
-                    changeCount++;
-                }
-            foreach (var hash in hashes)
-            {
-                Write($"S\t{snapshot.MapTick}\t{snapshot.DirectorTick}\t{snapshot.Order}\t{snapshot.Phase}\t{hash.Key}\t{ResyncDiagnosticHistory.ComputeSha256(hash.Value.ToString())}");
-                sampleCount++;
-            }
-            Write($"L\t{snapshot.MapTick}\t{snapshot.DirectorTick}\t{snapshot.Order}\t{snapshot.Phase}\t{Escape(snapshot.LocalState)}");
-            previous.Clear();
-            foreach (var row in rows) previous.Add(row.Key, row.Value);
-        }
-
-        private static void AddGridRows(IDictionary<string, string> rows, TraceCategory category)
-        {
-            for (int start = 0; start < category.GridLength; start += 256)
-            {
-                var value = new StringBuilder(2048);
-                for (int index = start; index < Math.Min(start + 256, category.GridLength); index++)
-                {
-                    if (category.GridElementBytes == 1) value.Append(category.Grid[index]);
-                    else value.Append(BitConverter.ToUInt16(category.Grid, index * 2));
-                    value.Append(',');
-                }
-                rows[category.Name + "/" + start + "/0"] = value.ToString();
-            }
+            snapshotCount++;
         }
 
         private void Finish(string reason)
         {
             try
             {
-                long highWater;
-                lock (queueGate) highWater = highWaterBytes;
-                Write("F\t" + Escape(reason) + "\tstatus=" + (incomplete ? "incomplete" : "complete") +
-                    "\tsamples=" + sampleCount + "\tchanges=" + changeCount + "\tqueueHighWater=" + highWater);
-                writer?.Flush();
-                writer?.Dispose();
-                writer = null;
-                string first = traceBase + "-0001.tsv";
-                bool durable = !incomplete && File.Exists(first) && new FileInfo(first).Length > 0;
+                if (!ioFailed && writer != null)
+                {
+                    Rollover();
+                    writer.Write((byte)3);
+                    writer.Write(reason ?? "");
+                    writer.Write(incomplete);
+                    writer.Write(snapshotCount);
+                    writer.Write(categoryCount);
+                    writer.Write(eventCount);
+                    writer.Write(highWaterBytes);
+                    writer.Write(backpressureCount);
+                    writer.Write(backpressureTicks);
+                    CloseWriter();
+                }
+                string first = traceBase + "-0001.sdd";
+                bool durable = !ioFailed && !incomplete && File.Exists(first) &&
+                    new FileInfo(first).Length > 0;
+                if (probe && durable)
+                    durable = BinaryTraceComparison.ValidateProbe(traceBase + "-*.sdd");
+                double waitMs = 1000.0 * backpressureTicks / System.Diagnostics.Stopwatch.Frequency;
                 if (probe)
-                    Log((durable && sampleCount == 10 && changeCount > 0 ? "STATE_PROBE_OK " : "STATE_PROBE_FAILED ") +
-                        "file=" + first + " samples=" + sampleCount + " changes=" + changeCount + " queueHighWater=" + highWater);
-                else Log("CAPTURE_FINISHED " + traceBase + " reason=" + reason + " durable=" + durable +
-                    " incomplete=" + incomplete + " samples=" + sampleCount + " queueHighWater=" + highWater);
+                    Log((durable && snapshotCount == 1 && categoryCount == 10 ? "STATE_PROBE_OK " :
+                        "STATE_PROBE_FAILED ") + "file=" + first + " snapshots=" + snapshotCount +
+                        " categories=" + categoryCount + " queueHighWater=" + highWaterBytes);
+                else
+                    Log("CAPTURE_FINISHED " + traceBase + " reason=" + reason + " durable=" + durable +
+                        " incomplete=" + incomplete + " snapshots=" + snapshotCount +
+                        " queueHighWater=" + highWaterBytes + " backpressureCount=" + backpressureCount +
+                        " backpressureMs=" + waitMs.ToString("F2", CultureInfo.InvariantCulture));
             }
-            catch (Exception ex) { MarkIncomplete("CLOSE", ex); }
-            finally { writer = null; previous.Clear(); traceBase = null; }
+            catch (Exception ex) { Fail("FINISH", ex); }
+            finally { try { CloseWriter(); } catch { } }
         }
 
-        private void MarkIncomplete(string reason, Exception ex)
+        private void FlushIfDue()
         {
-            incomplete = true;
-            Log("TRACE_INCOMPLETE " + reason + " " + ex);
-            try { writer?.WriteLine("I\t" + Escape(reason)); writer?.Flush(); }
-            catch { /* The log remains the error channel if the file fails. */ }
+            if (writer != null && DateTime.UtcNow - lastFlushUtc >= TimeSpan.FromSeconds(1))
+            {
+                writer.Flush();
+                stream.Flush();
+                lastFlushUtc = DateTime.UtcNow;
+            }
         }
 
-        private static string Escape(string value) => (value ?? "").Replace("\t", " ").Replace("\r", " ").Replace("\n", " ");
+        private void CloseWriter()
+        {
+            if (writer == null) return;
+            writer.Flush();
+            stream.Flush(true);
+            writer.Dispose();
+            stream.Dispose();
+            writer = null;
+            stream = null;
+        }
+
+        private void Fail(string reason, Exception ex)
+        {
+            incomplete = ioFailed = true;
+            failedTraceBase = traceBase;
+            Log("TRACE_INCOMPLETE " + reason + " " + ex);
+            try { writer?.Dispose(); stream?.Dispose(); } catch { }
+            writer = null;
+            stream = null;
+            lock (queueGate) Monitor.PulseAll(queueGate);
+        }
+
         private void Log(string message) => Shared.DebugLogHelper.LogInfo(log, "[SurrenderDiag] " + message);
     }
 }

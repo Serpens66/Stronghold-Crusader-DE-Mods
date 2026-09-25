@@ -15,6 +15,7 @@ $sources = @(Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'src') -Filter 
 $plugin = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\SurrenderDesyncDiagnosticPlugin.cs'))
 $runtime = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\SurrenderDesyncDiagnosticRuntime.cs'))
 $deferred = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\DeferredTraceRecorder.cs'))
+$comparison = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\BinaryTraceComparison.cs'))
 $bridge = [IO.File]::ReadAllText((Join-Path $workspace 'BugfixesAndQoL\src\SurrenderDiagnosticBridge.cs'))
 if ($plugin -match '\b(Update|LateUpdate|FixedUpdate|StartCoroutine|OnDestroy|OnDisable|OnApplicationQuit)\s*\(' -or
     $runtime -match '\b(StartCoroutine|OnDestroy|OnDisable|OnApplicationQuit)\s*\(' -or
@@ -32,7 +33,11 @@ if ($runtime -match 'Fields\s*<' -or $runtime -match 'Fields\s*\(\s*\*' -or
     $runtime -notmatch 'new DeferredTraceRecorder\(log\)' -or
     $deferred -notmatch 'IsBackground = true' -or
     $deferred -notmatch 'STATE_PROBE_OK' -or $deferred -notmatch 'STATE_PROBE_FAILED' -or
-    $deferred -notmatch 'MaxQueuedBytes' -or $deferred -notmatch 'queueHighWater') {
+    $deferred -notmatch 'QueueLimitBytes' -or $deferred -notmatch 'Monitor\.Wait\(queueGate\)' -or
+    $deferred -match 'QUEUE_OVERFLOW' -or $deferred -notmatch 'backpressureCount' -or
+    $deferred -notmatch 'FileStream\.Flush|stream\.Flush\(true\)' -or
+    $comparison -notmatch 'ValidateProbe' -or
+    $comparison -notmatch 'missing completion marker') {
     throw 'Surrender diagnostic large-record, rearm, resync or probe regression.'
 }
 
@@ -50,6 +55,7 @@ foreach ($file in @($sources.FullName) + @(
     (Join-Path $PSScriptRoot 'Test-Projection.ps1'),
     (Join-Path $PSScriptRoot 'Test-DeferredRecorder.ps1'),
     (Join-Path $PSScriptRoot 'Compare-Traces.ps1'),
+    (Join-Path $PSScriptRoot 'src\BinaryTraceComparison.cs'),
     (Join-Path $workspace 'BugfixesAndQoL\src\SurrenderDiagnosticBridge.cs'))) {
     $text = [IO.File]::ReadAllText($file)
     $literalEscapes = [string][char]92

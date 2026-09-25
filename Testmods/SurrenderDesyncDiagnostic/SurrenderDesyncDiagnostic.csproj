@@ -33,6 +33,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="src\ResyncDiagnosticHistory.cs" />
     <Compile Include="src\DeferredTraceRecorder.cs" />
+    <Compile Include="src\BinaryTraceComparison.cs" />
     <Compile Include="src\SurrenderTracePolicy.cs" />
     <Compile Include="src\SurrenderDesyncDiagnosticPlugin.cs" />
     <Compile Include="src\SurrenderDesyncDiagnosticRuntime.cs" />

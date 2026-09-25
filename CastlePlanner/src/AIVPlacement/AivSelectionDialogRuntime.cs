@@ -175,7 +175,7 @@ namespace CastlePlanner.AIVPlacement
                         ? AivCandidateVisualState.Pending
                         : new AivCandidateVisualState(
                             AivPlacementStatus.NotEvaluable,
-                            "Vanilla-Fit: " + BuildNotEvaluableToolTip(request.FailureKind.ToString()));
+                            FormatVanillaFallback(request.FailureKind.ToString()));
                 }
                 statesByPlayer[request.PlayerId] = states;
                 nativeStatesByPlayer[request.PlayerId] = states;
@@ -208,11 +208,13 @@ namespace CastlePlanner.AIVPlacement
                 {
                     states[candidateId] = new AivCandidateVisualState(
                         AivPlacementStatus.NotEvaluable,
-                        "Vanilla-Fit: " + BuildNotEvaluableToolTip(result.FailureMessage));
+                        FormatVanillaFallback(result.FailureMessage));
                 }
             }
 
-            statesByPlayer[result.PlayerId] = states;
+            statesByPlayer[result.PlayerId] = result.Candidates.Count == 0 ? states :
+                states.ToDictionary(entry => entry.Key,
+                    entry => AivCandidateVisualState.Pending);
             nativeStatesByPlayer[result.PlayerId] = states;
             RefreshEvaluatedVisualStates();
             RefreshSelectionList(FRONT_Multiplayer_AISettings.Instance);
@@ -234,10 +236,11 @@ namespace CastlePlanner.AIVPlacement
                 if (candidate != null)
                 {
                     evaluated[candidate.CandidateId] = candidate;
-                    states[candidate.CandidateId] = BuildVisualState(candidate, null);
+                    states[candidate.CandidateId] = AivCandidateVisualState.Pending;
                 }
             statesByPlayer[playerId] = states;
-            nativeStatesByPlayer[playerId] = states;
+            nativeStatesByPlayer[playerId] = evaluated.ToDictionary(entry => entry.Key,
+                entry => BuildVisualState(entry.Value, null));
             RefreshSelectionList(FRONT_Multiplayer_AISettings.Instance);
         }
 
@@ -265,7 +268,7 @@ namespace CastlePlanner.AIVPlacement
                 {
                     states[candidateId] = new AivCandidateVisualState(
                         AivPlacementStatus.NotEvaluable,
-                        "Vanilla-Fit: " + BuildNotEvaluableToolTip(reason));
+                        FormatVanillaFallback(reason));
                 }
             }
             statesByPlayer[playerId] = states;
@@ -464,44 +467,49 @@ namespace CastlePlanner.AIVPlacement
             NativeAivAutoDecision autoDecision,
             IReadOnlyList<NativeAivAutoDecision> possibleAuto = null)
         {
+            var notices = BuildNativeNotices(candidate, autoDecision, possibleAuto);
+            string tooltip = string.Join(Environment.NewLine,
+                new[] { BuildVanillaFitLine(candidate) }
+                    .Concat(notices)
+                    .Concat(new[] { BuildAutoLine(candidate, autoDecision) }));
+            return new AivCandidateVisualState(candidate.Status, tooltip);
+        }
+
+        private static string BuildVanillaFitLine(AivPlacementCandidateEvaluation candidate)
+        {
+            if (candidate == null)
+                return string.Empty;
             string description;
             switch (candidate.Status)
             {
                 case AivPlacementStatus.Complete:
-                    description = SerpLocalization.Get(SerpLocalization.AivPlacementComplete);
+                    description = "100%";
                     break;
                 case AivPlacementStatus.Partial:
                     AivPlacementResult best = candidate.Selection?.BestVariant;
-                    description = SerpLocalization.Get(
-                        SerpLocalization.AivPlacementPartial,
-                        "FitPercentage", best?.Score.FitPercentage ?? 0,
-                        "SequentialBuildScore", best?.Score.SequentialBuildScore ?? 0);
+                    description = $"{best?.Score.FitPercentage ?? 0}%";
                     break;
                 case AivPlacementStatus.Impossible:
                     description = SerpLocalization.Get(SerpLocalization.AivPlacementImpossible);
                     break;
                 default:
-                    description = BuildNotEvaluableToolTip(candidate.FailureMessage);
+                    description = candidate.FailureMessage?.IndexOf("PreBuildSequenceUnsupported",
+                        StringComparison.OrdinalIgnoreCase) >= 0
+                        ? SerpLocalization.Get(SerpLocalization.AivPlacementPreBuildShort)
+                        : BuildNotEvaluableToolTip(candidate.FailureMessage);
                     break;
             }
+            return SerpLocalization.Get(SerpLocalization.AivPlacementVanillaFit,
+                "Result", description);
+        }
 
-            if (candidate.Selection != null)
-            {
-                string rotations = string.Join(" | ", candidate.Selection.Variants.Select(
-                    variant => $"{FormatRotation((int)variant.Rotation)}: " +
-                        (variant.Status == AivPlacementStatus.Partial
-                            ? $"{variant.Score.FitPercentage}%"
-                            : SerpLocalization.Get(variant.Status == AivPlacementStatus.Complete
-                                ? SerpLocalization.AivPlacementComplete
-                                : variant.Status == AivPlacementStatus.Impossible
-                                    ? SerpLocalization.AivPlacementImpossible
-                                    : SerpLocalization.AivPlacementNotEvaluable,
-                            "Reason", "?"))));
-                description += Environment.NewLine + SerpLocalization.Get(
-                    SerpLocalization.AivPlacementRotationResults,
-                    "Results", rotations);
-            }
-
+        private static List<string> BuildNativeNotices(AivPlacementCandidateEvaluation candidate,
+            NativeAivAutoDecision autoDecision,
+            IReadOnlyList<NativeAivAutoDecision> possibleAuto)
+        {
+            var notices = new List<string>();
+            if (candidate == null)
+                return notices;
             bool patchDisabled = ElevatedMoatAiCapability.Current == ElevatedMoatAiState.Disabled;
             bool moat = AivBuildNoticePolicy.HasProvenHighBuildExposure(
                 candidate.CandidateId, candidate.Selection, autoDecision, patchDisabled,
@@ -518,30 +526,42 @@ namespace CastlePlanner.AIVPlacement
                     : moat
                         ? SerpLocalization.AivPlacementHighMoatRisk
                         : SerpLocalization.AivPlacementHighDrawbridgeRisk;
-                description += Environment.NewLine + SerpLocalization.Get(key);
+                notices.Add(SerpLocalization.Get(key));
             }
 
             if (AivBuildNoticePolicy.HasPossiblePriorKeepContact(candidate.CandidateId,
                     possibleAuto, candidate.PotentialPriorKeepRemovalByRotation))
-                description += Environment.NewLine + SerpLocalization.Get(
-                    SerpLocalization.AivPlacementPriorKeepRisk);
-            string autoText = autoDecision == null || !autoDecision.IsCertain
+                notices.Add(SerpLocalization.Get(SerpLocalization.AivPlacementPriorKeepRisk));
+            return notices;
+        }
+
+        private static string BuildAutoLine(AivPlacementCandidateEvaluation candidate,
+            NativeAivAutoDecision autoDecision)
+        {
+            if (candidate == null)
+                return string.Empty;
+            return autoDecision == null || !autoDecision.IsCertain
                 ? SerpLocalization.Get(SerpLocalization.AivPlacementAutoUnknown)
                 : !autoDecision.CandidateId.HasValue
                     ? SerpLocalization.Get(SerpLocalization.AivPlacementAutoImpossible)
                     : autoDecision.CandidateId.Value == candidate.CandidateId
-                        ? SerpLocalization.Get(
+                        ? candidate.Selection != null && autoDecision.RotationIndex >= 0 &&
+                          autoDecision.RotationIndex < candidate.Selection.Variants.Count
+                            ? SerpLocalization.Get(
                             SerpLocalization.AivPlacementAutoSelected,
-                            "Rotation", (int)candidate.Selection.Variants[autoDecision.RotationIndex].Rotation) +
-                            FormatDirectionSuffix(
-                                (int)candidate.Selection.Variants[autoDecision.RotationIndex].Rotation)
+                            "Rotation", FormatRotation(
+                                (int)candidate.Selection.Variants[autoDecision.RotationIndex].Rotation))
+                            : SerpLocalization.Get(SerpLocalization.AivPlacementAutoUnknown)
                         : SerpLocalization.Get(SerpLocalization.AivPlacementAutoDifferent);
-            return new AivCandidateVisualState(
-                candidate.Status,
-                "Vanilla-Fit: " + description + Environment.NewLine + autoText);
         }
 
         public void RefreshMoatStatus()
+        {
+            RefreshEvaluatedVisualStates();
+            RefreshSelectionList(FRONT_Multiplayer_AISettings.Instance);
+        }
+
+        public void RefreshLocalizedStatus()
         {
             RefreshEvaluatedVisualStates();
             RefreshSelectionList(FRONT_Multiplayer_AISettings.Instance);
@@ -573,33 +593,56 @@ namespace CastlePlanner.AIVPlacement
                         : BuildVisualState(candidate, autoDecision, possibleAuto);
                     states[candidateId] = practice != null &&
                         practice.TryGetValue(candidateId, out AivPracticeCandidate geometric)
-                        ? BuildPracticeState(geometric, nativeState)
-                        : nativeState;
+                        ? BuildPracticeState(geometric, candidate, autoDecision, possibleAuto,
+                            nativeState)
+                        : candidate == null && nativeState.Status == AivPlacementStatus.NotEvaluable
+                            ? nativeState : AivCandidateVisualState.Pending;
                 }
                 statesByPlayer[player.Key] = states;
             }
         }
 
         private static AivCandidateVisualState BuildPracticeState(
-            AivPracticeCandidate practice, AivCandidateVisualState nativeState)
+            AivPracticeCandidate practice, AivPlacementCandidateEvaluation candidate,
+            NativeAivAutoDecision autoDecision,
+            IReadOnlyList<NativeAivAutoDecision> possibleAuto,
+            AivCandidateVisualState nativeState)
         {
-            string vanilla = nativeState.ToolTip ?? string.Empty;
-            if (vanilla.IndexOf(SerpLocalization.Get(
+            string practiceLine = AivPracticePresentation.FormatRotationLine(
+                practice.Rotations, FormatRotation,
+                SerpLocalization.Get(SerpLocalization.AivPlacementPracticeRotations),
+                SerpLocalization.Get(SerpLocalization.AivPlacementPracticeEstimateRotations),
+                SerpLocalization.Get(SerpLocalization.AivPlacementPracticeUnknown));
+            string vanilla = candidate == null
+                ? nativeState.ToolTip : BuildVanillaFitLine(candidate);
+            if (candidate == null && vanilla.IndexOf(SerpLocalization.Get(
                     SerpLocalization.AivPlacementPreBuildUnsupported), StringComparison.Ordinal) >= 0)
-                vanilla = "Vanilla-Fit: nach Sofortbau nicht exakt rekonstruiert.";
-            else if (!vanilla.StartsWith("Vanilla-Fit:", StringComparison.Ordinal))
-                vanilla = "Vanilla-Fit: " + vanilla;
-            if (practice.Rotations.Count == 0)
-                return new AivCandidateVisualState(AivPlacementStatus.NotEvaluable,
-                    AivPracticePresentation.ComposeTooltip(
-                        AivPracticePresentation.FormatSummary(practice),
-                        string.Empty, vanilla, false, practice.Reason));
+                vanilla = SerpLocalization.Get(SerpLocalization.AivPlacementVanillaFit,
+                    "Result", SerpLocalization.Get(SerpLocalization.AivPlacementPreBuildShort));
+            var notices = candidate == null
+                ? new List<string>() : BuildNativeNotices(candidate, autoDecision, possibleAuto);
+            if (practice.Rotations.Any(rotation => rotation.SoftOverlap))
+                notices.Add(SerpLocalization.Get(SerpLocalization.AivPlacementSoftOverlap));
+            if (!string.IsNullOrEmpty(practice.Reason))
+                notices.Add(SerpLocalization.Get(PracticeReasonKey(practice.Reason)));
             string tooltip = AivPracticePresentation.ComposeTooltip(
-                AivPracticePresentation.FormatSummary(practice),
-                AivPracticePresentation.FormatRotations(practice), vanilla,
-                practice.Rotations.Any(value => value.SoftOverlap), practice.Reason);
+                practiceLine, vanilla, notices, BuildAutoLine(candidate, autoDecision));
             return new AivCandidateVisualState(practice.Status, tooltip);
         }
+
+        private static string PracticeReasonKey(string reason)
+        {
+            switch (reason)
+            {
+                case "OtherFootprintUnknown": return SerpLocalization.AivPlacementOtherFootprintUnknown;
+                case "MixedZeroAndPositive": return SerpLocalization.AivPlacementMixedZeroAndPositive;
+                default: return SerpLocalization.AivPlacementUnknownGeometry;
+            }
+        }
+
+        private static string FormatVanillaFallback(string reason) =>
+            SerpLocalization.Get(SerpLocalization.AivPlacementVanillaFit,
+                "Result", BuildNotEvaluableToolTip(reason));
 
         private static string FormatRotation(int degrees)
         {

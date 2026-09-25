@@ -63,6 +63,17 @@ namespace CastlePlanner.AIVPlacement.Core
         }
         public long Generation { get; }
         public IReadOnlyDictionary<int, IReadOnlyDictionary<int, AivPracticeCandidate>> Players { get; }
+
+        public static AivPracticeBatch Unavailable(AivPlacementRequestBatch request, string reason)
+        {
+            var players = new Dictionary<int, IReadOnlyDictionary<int, AivPracticeCandidate>>();
+            foreach (AivPlacementCheckRequest player in request.Requests)
+                players[player.PlayerId] = player.Candidates.ToDictionary(candidate => candidate.CandidateId,
+                    candidate => new AivPracticeCandidate(candidate.CandidateId,
+                        Array.Empty<AivPracticeRotation>(), AivPlacementStatus.NotEvaluable,
+                        reason ?? "UnknownGeometry"));
+            return new AivPracticeBatch(request.Generation, players);
+        }
     }
 
     public static class AivPracticePresentation
@@ -70,62 +81,26 @@ namespace CastlePlanner.AIVPlacement.Core
         public static string FormatPercentage(int minimum, int maximum) =>
             minimum == maximum ? $"{minimum}%" : $"{minimum}–{maximum}%";
 
-        public static string FormatSummary(AivPracticeCandidate candidate)
-        {
-            return FormatSummary(candidate?.Rotations, candidate?.RelevantRotationIndexes);
-        }
-
-        public static string FormatSummary(IReadOnlyList<AivPracticeRotation> rotations,
-            IReadOnlyList<int> relevantRotationIndexes)
+        public static string FormatRotationLine(IReadOnlyList<AivPracticeRotation> rotations,
+            Func<int, string> formatRotation, string label, string estimateLabel, string unknownLabel)
         {
             if (rotations == null || rotations.Count == 0)
-                return "Praxis: nicht berechenbar";
-            int[] indexes = relevantRotationIndexes == null || relevantRotationIndexes.Count == 0
-                ? Enumerable.Range(0, rotations.Count).ToArray()
-                : relevantRotationIndexes.ToArray();
-            int minimum = indexes.Min(index => rotations[index].MinimumPercentage);
-            int maximum = indexes.Max(index => rotations[index].MaximumPercentage);
-            bool estimate = indexes.Any(index => rotations[index].IsEstimate);
-            string summary = "Praxis: " + FormatPercentage(minimum, maximum);
-            if (estimate)
-                summary += " (geometrische Schätzung)";
-            if (rotations.All(rotation =>
-                    rotation.MinimumPercentage == minimum &&
-                    rotation.MaximumPercentage == maximum))
-                summary += " – alle Drehungen";
-            return summary;
+                return unknownLabel;
+            string values = string.Join(" | ", rotations.Select(rotation =>
+                $"{formatRotation((int)rotation.Rotation)} {FormatPercentage(rotation.MinimumPercentage, rotation.MaximumPercentage)}"));
+            string prefix = rotations.Any(rotation => rotation.IsEstimate) ? estimateLabel : label;
+            return prefix.Replace("{Results}", values);
         }
 
-        public static string FormatRotations(AivPracticeCandidate candidate)
+        public static string ComposeTooltip(string practiceLine, string vanillaLine,
+            IEnumerable<string> notices, string autoLine)
         {
-            return FormatRotations(candidate?.Rotations);
-        }
-
-        public static string FormatRotations(IReadOnlyList<AivPracticeRotation> rotations)
-        {
-            if (rotations == null || rotations.Count == 0)
-                return string.Empty;
-            AivPracticeRotation first = rotations[0];
-            if (rotations.All(rotation =>
-                    rotation.MinimumPercentage == first.MinimumPercentage &&
-                    rotation.MaximumPercentage == first.MaximumPercentage))
-                return string.Empty;
-            return "Drehungen: " + string.Join(" | ", rotations.Select(rotation =>
-                $"{(int)rotation.Rotation}° {FormatPercentage(rotation.MinimumPercentage, rotation.MaximumPercentage)}"));
-        }
-
-        public static string ComposeTooltip(string summary, string rotations,
-            string vanillaFit, bool softOverlap, string reason)
-        {
-            var lines = new List<string> { summary };
-            if (!string.IsNullOrEmpty(rotations))
-                lines.Add(rotations);
-            lines.Add(vanillaFit);
-            if (softOverlap)
-                lines.Add("Geplante Mauern/Burggräben überschneiden andere Bauflächen.");
-            if (!string.IsNullOrEmpty(reason))
-                lines.Add(reason);
-            return string.Join(Environment.NewLine, lines);
+            var lines = new List<string> { practiceLine, vanillaLine };
+            if (notices != null)
+                lines.AddRange(notices.Where(notice => !string.IsNullOrEmpty(notice)));
+            if (!string.IsNullOrEmpty(autoLine))
+                lines.Add(autoLine);
+            return string.Join(Environment.NewLine, lines.Where(line => !string.IsNullOrEmpty(line)));
         }
     }
 
@@ -294,7 +269,7 @@ namespace CastlePlanner.AIVPlacement.Core
                     {
                         evaluations.Add(candidate.CandidateId, new AivPracticeCandidate(
                             candidate.CandidateId, Array.Empty<AivPracticeRotation>(),
-                            AivPlacementStatus.NotEvaluable, "Geometrie oder Ausgangs-Fit nicht belegt"));
+                            AivPlacementStatus.NotEvaluable, "UnknownGeometry"));
                         continue;
                     }
                     bool otherUnknown = false;
@@ -348,11 +323,12 @@ namespace CastlePlanner.AIVPlacement.Core
                     {
                         evaluations.Add(candidate.CandidateId, new AivPracticeCandidate(
                             candidate.CandidateId, Array.Empty<AivPracticeRotation>(),
-                            AivPlacementStatus.NotEvaluable, "Footprint eines anderen Lords unbekannt"));
+                            AivPlacementStatus.NotEvaluable, "OtherFootprintUnknown"));
                         continue;
                     }
                     var scored = new List<AivPracticeRotation>(4);
-                    var ratings = new HashSet<AivPlacementStatus>();
+                    int minimum = int.MaxValue;
+                    int maximum = int.MinValue;
                     IReadOnlyList<NativeAivAutoDecision> ownOutcomes = nativeByPlayer.TryGetValue(
                         request.PlayerId, out AivPlacementCheckResult ownNative)
                         ? NativeAivAutoSelector.SelectPossible(ownNative.Candidates)
@@ -372,14 +348,14 @@ namespace CastlePlanner.AIVPlacement.Core
                         scored.Add(score);
                         if (selectedRotations.Count == 0 || selectedRotations.Contains(index))
                         {
-                            ratings.Add(ClassifyPercentage(score.MinimumPercentage));
-                            ratings.Add(ClassifyPercentage(score.MaximumPercentage));
+                            minimum = Math.Min(minimum, score.MinimumPercentage);
+                            maximum = Math.Max(maximum, score.MaximumPercentage);
                         }
                     }
                     evaluations.Add(candidate.CandidateId, new AivPracticeCandidate(
                         candidate.CandidateId, scored,
-                        ratings.Count == 1 ? ratings.First() : AivPlacementStatus.NotEvaluable,
-                        ratings.Count == 1 ? string.Empty : "Mögliche Drehungen oder Varianten haben verschiedene Einstufungen",
+                        ClassifyPossiblePercentages(minimum, maximum),
+                        minimum == 0 && maximum > 0 ? "MixedZeroAndPositive" : string.Empty,
                         selectedRotations.Count == 0
                             ? Enumerable.Range(0, own.Length).ToArray()
                             : selectedRotations.OrderBy(value => value).ToArray()));
@@ -396,6 +372,17 @@ namespace CastlePlanner.AIVPlacement.Core
                 return AivPlacementStatus.Impossible;
             return percentage >= 100
                 ? AivPlacementStatus.Complete : AivPlacementStatus.Partial;
+        }
+
+        public static AivPlacementStatus ClassifyPossiblePercentages(int minimum, int maximum)
+        {
+            if (minimum < 0 || maximum < minimum || maximum > 100)
+                return AivPlacementStatus.NotEvaluable;
+            if (minimum == 100)
+                return AivPlacementStatus.Complete;
+            if (maximum == 0)
+                return AivPlacementStatus.Impossible;
+            return minimum > 0 ? AivPlacementStatus.Partial : AivPlacementStatus.NotEvaluable;
         }
     }
 }

@@ -66,12 +66,56 @@ namespace ExtendedData
             {
                 string digest = status.Substring("READY|".Length);
                 return string.Equals(digest, expectedDigest, StringComparison.Ordinal)
-                    ? "ready:match" : "ready:stale:" +
+                    ? "ready:match" : "ready:awaiting-current-snapshot:" +
                     (digest.Length == 64 && digest.All(Uri.IsHexDigit) ? digest : "invalid-digest");
             }
             if (status.StartsWith("ERROR|", StringComparison.Ordinal))
                 return "error";
             return "invalid:bytes=" + Encoding.UTF8.GetByteCount(status) + ",sha256=" + Hash(status);
+        }
+
+        internal static string DescribePackageMode(LordPackageManifest manifest)
+        {
+            if (manifest == null)
+                return "manifest=absent";
+            int required = manifest.Slots.Count(slot => manifest.UseLocalValues || slot.NeedsLocalFiles);
+            return "digest=" + manifest.Digest + ",mode=" +
+                (manifest.UseLocalValues ? "local-values" : "values-sync") +
+                ",requiredLocalSlots=" + required + ",optionalLocalSlots=" +
+                (manifest.Slots.Count - required);
+        }
+
+        internal static string DescribePackageStatus(string status, LordPackageManifest manifest)
+        {
+            if (manifest == null)
+                return "manifest=absent";
+            int requiredMask = manifest.Slots.Where(slot => manifest.UseLocalValues ||
+                slot.NeedsLocalFiles).Aggregate(0, (mask, slot) => mask | (1 << (slot.PlayerId - 1)));
+            int selectedMask = manifest.Slots.Aggregate(0,
+                (mask, slot) => mask | (1 << (slot.PlayerId - 1)));
+            if (string.IsNullOrEmpty(status))
+                return requiredMask == 0 ? "values-sync:local-copy-status-optional" : "missing";
+            string[] parts = status.Split('|');
+            if (parts.Length != 3 || parts[0] != "LOCAL" ||
+                !int.TryParse(parts[2], out int matchedMask) || matchedMask < 0)
+                return "invalid";
+            if (!string.Equals(parts[1], manifest.Digest, StringComparison.Ordinal))
+                return "awaiting-current-manifest";
+            if ((matchedMask & requiredMask) != requiredMask)
+                return "required-local-files-missing";
+            return requiredMask == 0 ? "values-sync:local-copies=" +
+                CountBits(matchedMask & selectedMask) : "required-local-files-match";
+        }
+
+        private static int CountBits(int value)
+        {
+            int count = 0;
+            while (value != 0)
+            {
+                count += value & 1;
+                value >>= 1;
+            }
+            return count;
         }
 
         internal static bool IsHostLobby(bool hasLobby, bool isHost, bool singlePlayerCoop,

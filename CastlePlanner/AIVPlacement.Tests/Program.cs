@@ -3410,25 +3410,27 @@ internal static class Program
         Assert(sentinel.All(value => AivGeometricPractice.ClassifyPercentage(
                 value.MinimumPercentage) == AivPlacementStatus.Partial),
             "Sentinel percentages remain partial even when a native first frame is impossible");
-        Assert(AivPracticePresentation.FormatSummary(sentinel, new[] { 0, 1, 2, 3 }) ==
-               "Praxis: 80–86% (geometrische Schätzung)",
-            "uncertain practice range is labeled before Vanilla");
-        string details = AivPracticePresentation.FormatRotations(sentinel);
-        Assert(details.StartsWith("Drehungen: ", StringComparison.Ordinal) &&
-               details.Contains("270° 86%") && !details.Contains("Abzug"),
-            "rotations show percentages without cell counts");
-        string tooltip = AivPracticePresentation.ComposeTooltip(
-            AivPracticePresentation.FormatSummary(sentinel, new[] { 0, 1, 2, 3 }),
-            details, "Vanilla-Fit: nach Sofortbau nicht exakt rekonstruiert.",
-            true, string.Empty);
-        Assert(tooltip.StartsWith("Praxis: 80–86%", StringComparison.Ordinal) &&
-               tooltip.IndexOf("Vanilla-Fit:", StringComparison.Ordinal) >
-               tooltip.IndexOf("Drehungen:", StringComparison.Ordinal) &&
-               !tooltip.Contains("Abzug") && !tooltip.Contains("Not evaluable"),
-            "practice is first and the unsupported native fit is labeled below");
-        Assert(AivPracticePresentation.FormatSummary(sentinel, new[] { 2 }) ==
-               "Praxis: 86% (geometrische Schätzung)",
-            "certain selected rotation controls the headline value");
+        string english = AivPracticePresentation.FormatRotationLine(sentinel,
+            degrees => $"{degrees}°", "Practice: {Results}",
+            "Practice (geometric estimate): {Results}", "Practice: cannot be evaluated");
+        string german = AivPracticePresentation.FormatRotationLine(sentinel,
+            degrees => $"{degrees}°", "Praxis: {Results}",
+            "Praxis (geometrische Schätzung): {Results}", "Praxis: nicht berechenbar");
+        Assert(english.StartsWith("Practice (geometric estimate): 90° 80%", StringComparison.Ordinal) &&
+               english.Contains("270° 86%") && !english.Contains("Abzug") &&
+               german.StartsWith("Praxis (geometrische Schätzung):", StringComparison.Ordinal),
+            "one localized practice rotation line shows only percentages");
+        string tooltip = AivPracticePresentation.ComposeTooltip(english,
+            "Vanilla fit: cannot be reconstructed exactly after completed castles",
+            new[] { "Planned overlap" },
+            "Vanilla automatic choice: AIV or rotation cannot be predicted uniquely");
+        Assert(tooltip.StartsWith("Practice:", StringComparison.Ordinal) == false &&
+               tooltip.IndexOf("Vanilla fit:", StringComparison.Ordinal) >
+               tooltip.IndexOf("Practice (", StringComparison.Ordinal) &&
+               tooltip.EndsWith("Vanilla automatic choice: AIV or rotation cannot be predicted uniquely",
+                   StringComparison.Ordinal) &&
+               !tooltip.Contains("Drehungen:") && !tooltip.Contains("Abzug"),
+            "practice rotations lead, native fit follows, and automatic choice comes last");
 
         AivPracticeRotation[] distant = rotations.Select(rotation =>
             AivGeometricPractice.Score(rotation, 100, 100, 0,
@@ -3438,14 +3440,27 @@ internal static class Program
         Assert(distant.All(value => AivGeometricPractice.ClassifyPercentage(
                 value.MinimumPercentage) == AivPlacementStatus.Complete),
             "distant completed-castle plans get a green practice value");
-        Assert(AivPracticePresentation.FormatSummary(distant, new[] { 0, 1, 2, 3 }) ==
-               "Praxis: 100% (geometrische Schätzung) – alle Drehungen" &&
-               AivPracticePresentation.FormatRotations(distant).Length == 0,
-            "equal rotations collapse into a short practice headline");
-        Assert(AivPracticePresentation.FormatSummary(Array.Empty<AivPracticeRotation>(),
-                   Array.Empty<int>()) == "Praxis: nicht berechenbar" &&
+        string distantLine = AivPracticePresentation.FormatRotationLine(distant,
+            degrees => $"{degrees}°", "Practice: {Results}",
+            "Practice (geometric estimate): {Results}", "Practice: cannot be evaluated");
+        Assert(distantLine.Contains("90° 100%") && distantLine.Contains("0° 100%"),
+            "certain fits show every rotation in one practice line");
+        Assert(AivPracticePresentation.FormatRotationLine(Array.Empty<AivPracticeRotation>(),
+                   degrees => $"{degrees}°", "Practice: {Results}",
+                   "Practice (geometric estimate): {Results}", "Practice: cannot be evaluated") ==
+               "Practice: cannot be evaluated" &&
                AivGeometricPractice.ClassifyPercentage(0) == AivPlacementStatus.Impossible,
             "unknown geometry stays gray while a proven zero is red");
+        Equal(AivPlacementStatus.Partial,
+            AivGeometricPractice.ClassifyPossiblePercentages(99, 100));
+        Equal(AivPlacementStatus.Complete,
+            AivGeometricPractice.ClassifyPossiblePercentages(100, 100));
+        Equal(AivPlacementStatus.Impossible,
+            AivGeometricPractice.ClassifyPossiblePercentages(0, 0));
+        Equal(AivPlacementStatus.NotEvaluable,
+            AivGeometricPractice.ClassifyPossiblePercentages(0, 99));
+        Equal(AivPlacementStatus.NotEvaluable,
+            AivGeometricPractice.ClassifyPossiblePercentages(0, 100));
     }
 
     private static void GatesBuildNotices()

@@ -70,6 +70,7 @@ namespace CastlePlanner.AIVPlacement
         private ButtonClickedDelegate buttonClickedTrampoline;
         private string lastFingerprint = string.Empty;
         private string lastSourceFingerprint = string.Empty;
+        private string lastUiLocale = string.Empty;
         private long nextSourcePollTimestamp;
         private long nextProgressPublishTimestamp;
         private CancellationTokenSource evaluationCancellation;
@@ -289,6 +290,12 @@ namespace CastlePlanner.AIVPlacement
 
             try
             {
+                string locale = SerpLocalization.GetActiveLocale();
+                if (!string.Equals(lastUiLocale, locale, StringComparison.OrdinalIgnoreCase))
+                {
+                    lastUiLocale = locale;
+                    selectionDialog.RefreshLocalizedStatus();
+                }
                 LobbyStateCapture capture = Capture(frontend);
                 string fingerprint = LobbyRequestBuilder.BuildFingerprint(capture);
                 bool stateChanged = !string.Equals(
@@ -545,6 +552,7 @@ namespace CastlePlanner.AIVPlacement
                 {
                     LogErrorOnce($"practice-{ex.GetType().FullName}-{ex.Message}",
                         $"Geometric lobby assessment failed: {ex}");
+                    completedPractice.Enqueue(AivPracticeBatch.Unavailable(batch, "UnknownGeometry"));
                 }
                 var expectedPlayerIds = new HashSet<int>(
                     batch.Requests.Select(request => request.PlayerId));
@@ -845,6 +853,7 @@ namespace CastlePlanner.AIVPlacement
             pendingPlayerIds.Clear();
             lastFingerprint = string.Empty;
             lastSourceFingerprint = string.Empty;
+            lastUiLocale = string.Empty;
             nextSourcePollTimestamp = 0;
             nextProgressPublishTimestamp = 0;
             capturePoll.Invalidate();

@@ -262,6 +262,15 @@ public static class SerpLocalization
     public const string AivPlacementHighBothRisk = "CastlePlanner.AIVPlacement.HighBothRisk";
     public const string AivPlacementPriorKeepRisk = "CastlePlanner.AIVPlacement.PriorKeepRisk";
     public const string AivPlacementPlannedOverlap = "CastlePlanner.AIVPlacement.PlannedOverlap";
+    public const string AivPlacementVanillaFit = "CastlePlanner.AIVPlacement.VanillaFit";
+    public const string AivPlacementPreBuildShort = "CastlePlanner.AIVPlacement.PreBuildShort";
+    public const string AivPlacementPracticeRotations = "CastlePlanner.AIVPlacement.PracticeRotations";
+    public const string AivPlacementPracticeEstimateRotations = "CastlePlanner.AIVPlacement.PracticeEstimateRotations";
+    public const string AivPlacementPracticeUnknown = "CastlePlanner.AIVPlacement.PracticeUnknown";
+    public const string AivPlacementSoftOverlap = "CastlePlanner.AIVPlacement.SoftOverlap";
+    public const string AivPlacementUnknownGeometry = "CastlePlanner.AIVPlacement.UnknownGeometry";
+    public const string AivPlacementOtherFootprintUnknown = "CastlePlanner.AIVPlacement.OtherFootprintUnknown";
+    public const string AivPlacementMixedZeroAndPositive = "CastlePlanner.AIVPlacement.MixedZeroAndPositive";
 
     private const string DefaultLocale = "en-US";
     private const string SteamAppId = "3024040";
@@ -705,16 +714,25 @@ public static class SerpLocalization
         { AivPlacementHostOnly, "Only the host evaluates AI castle placement." },
         { AivPlacementChecking, "The best AI castle is still being checked." },
         { AivPlacementRotationResults, "Rotations: {Results}" },
-        { AivPlacementAutoSelected, "Vanilla auto: selects this AIV at {Rotation}°" },
-        { AivPlacementAutoDifferent, "Vanilla auto: selects another AIV" },
-        { AivPlacementAutoUnknown, "Vanilla auto: no unique prediction" },
-        { AivPlacementAutoImpossible, "Vanilla auto: no fitting AIV" },
+        { AivPlacementAutoSelected, "Vanilla automatic choice: this AIV at {Rotation}" },
+        { AivPlacementAutoDifferent, "Vanilla automatic choice: another AIV" },
+        { AivPlacementAutoUnknown, "Vanilla automatic choice: AIV or rotation cannot be predicted uniquely" },
+        { AivPlacementAutoImpossible, "Vanilla automatic choice: no fitting AIV" },
         { AivPlacementHighBuildUnknown, "Moat/drawbridge build rule on high ground is unknown." },
         { AivPlacementHighMoatRisk, "Moat may be missing on high ground." },
         { AivPlacementHighDrawbridgeRisk, "Drawbridge may be missing on high ground." },
         { AivPlacementHighBothRisk, "Moat/drawbridge may be missing on high ground." },
         { AivPlacementPriorKeepRisk, "An earlier Keep may be removed when this AI starts." },
-        { AivPlacementPlannedOverlap, "Planned AIV building areas overlap an earlier AI plan." }
+        { AivPlacementPlannedOverlap, "Planned AIV building areas overlap an earlier AI plan." },
+        { AivPlacementVanillaFit, "Vanilla fit: {Result}" },
+        { AivPlacementPreBuildShort, "cannot be reconstructed exactly after completed castles" },
+        { AivPlacementPracticeRotations, "Practice: {Results}" },
+        { AivPlacementPracticeEstimateRotations, "Practice (geometric estimate): {Results}" },
+        { AivPlacementPracticeUnknown, "Practice: cannot be evaluated" },
+        { AivPlacementSoftOverlap, "Planned walls or moats overlap other building areas." },
+        { AivPlacementUnknownGeometry, "Castle geometry or starting fit is unknown." },
+        { AivPlacementOtherFootprintUnknown, "Another lord's building area is unknown." },
+        { AivPlacementMixedZeroAndPositive, "Some possible rotations have no fitting space." }
     };
 
     public static string Get(string key)

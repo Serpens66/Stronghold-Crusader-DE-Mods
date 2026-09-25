@@ -331,10 +331,48 @@ static void TestLordSyncDiagnostics()
         !summary.Contains("example.mod", StringComparison.Ordinal),
         "a JSON key or value leaked into the diagnostic summary");
     Assert(LordDataSyncDiagnostics.DescribeStatus("READY|" + snapshot.Digest, snapshot.Digest) == "ready:match" &&
-        LordDataSyncDiagnostics.DescribeStatus("READY|old", snapshot.Digest).StartsWith("ready:stale:") &&
+        LordDataSyncDiagnostics.DescribeStatus("READY|old", snapshot.Digest)
+            .StartsWith("ready:awaiting-current-snapshot:") &&
         LordDataSyncDiagnostics.DescribeStatus("ERROR|" + privateValue, snapshot.Digest) == "error" &&
         LordDataSyncDiagnostics.DescribeStatus(null, snapshot.Digest) == "missing",
         "the acknowledgement diagnostic misclassified a player state or exposed an error value");
+    LordPackageManifest valuesOnly = LordPackageManifest.Create("test-lobby", false, new[]
+    {
+        new LordPackageSlot { PlayerId = 3, LordType = 1, LordName = "Example Lord",
+            ConfigName = "aggressive", ConfigChecksum = "123", FileDigest = snapshot.Digest,
+            NeedsSnapshot = true, NeedsLocalFiles = false },
+    });
+    Assert(LordDataSyncDiagnostics.DescribePackageMode(valuesOnly).Contains("mode=values-sync") &&
+        LordDataSyncDiagnostics.DescribePackageMode(valuesOnly).Contains("requiredLocalSlots=0") &&
+        LordDataSyncDiagnostics.DescribePackageStatus("LOCAL|" + valuesOnly.Digest + "|0",
+            valuesOnly) == "values-sync:local-copies=0" &&
+        LordDataSyncDiagnostics.DescribePackageStatus("LOCAL|" + valuesOnly.Digest + "|4",
+            valuesOnly) == "values-sync:local-copies=1" &&
+        LordDataSyncDiagnostics.DescribePackageStatus(null, valuesOnly) ==
+            "values-sync:local-copy-status-optional",
+        "a client without an optional Lord folder was described as blocked or its local fallback was hidden");
+    LordPackageManifest localRequired = LordPackageManifest.Create("test-lobby", true,
+        valuesOnly.Slots);
+    Assert(LordDataSyncDiagnostics.DescribePackageMode(localRequired).Contains("mode=local-values") &&
+        LordDataSyncDiagnostics.DescribePackageStatus("LOCAL|" + localRequired.Digest + "|0",
+            localRequired) == "required-local-files-missing" &&
+        LordDataSyncDiagnostics.DescribePackageStatus("LOCAL|" + localRequired.Digest + "|4",
+            localRequired) == "required-local-files-match" &&
+        LordDataSyncDiagnostics.DescribePackageStatus("LOCAL|" + valuesOnly.Digest + "|4",
+            localRequired) == "awaiting-current-manifest",
+        "required Lord files or an outdated selection were misreported");
+    LordPackageManifest extraFiles = LordPackageManifest.Create("test-lobby", false, new[]
+    {
+        new LordPackageSlot { PlayerId = 3, LordType = 1, LordName = "Example Lord",
+            ConfigName = "aggressive", ConfigChecksum = "123", FileDigest = snapshot.Digest,
+            NeedsSnapshot = true, NeedsLocalFiles = true },
+    });
+    Assert(LordDataSyncDiagnostics.DescribePackageMode(extraFiles).Contains("requiredLocalSlots=1") &&
+        LordDataSyncDiagnostics.DescribePackageStatus("LOCAL|" + extraFiles.Digest + "|0",
+            extraFiles) == "required-local-files-missing" &&
+        LordDataSyncDiagnostics.DescribePackageStatus("LOCAL|" + extraFiles.Digest + "|4",
+            extraFiles) == "required-local-files-match",
+        "extra gameplay files were reported as optional during values sync");
     string skipped = LordDataSyncDiagnostics.DescribeHostGate(true, true, false,
         false, true, true, false);
     Assert(skipped.Contains("eligible=False", StringComparison.Ordinal) &&

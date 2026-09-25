@@ -310,7 +310,7 @@ namespace SurrenderDesyncDiagnostic
                 "probe-" + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff") + "-" +
                 System.Diagnostics.Process.GetCurrentProcess().Id);
             recorder.Enqueue(new TraceWork { Kind = TraceWorkKind.Start, TraceBase = probeBase, Probe = true });
-            EnqueueSnapshot(CreateSnapshot("probe", mapTick, directorTick));
+            EnqueueSnapshot(CreateSnapshot("probe", mapTick, directorTick), probeBase);
             recorder.Enqueue(new TraceWork { Kind = TraceWorkKind.Finish, Reason = "probe" });
         }
 
@@ -323,17 +323,18 @@ namespace SurrenderDesyncDiagnostic
                 Finish("writer-failed", mapTick);
                 return;
             }
-            EnqueueSnapshot(CreateSnapshot(phase, mapTick, directorTick));
+            EnqueueSnapshot(CreateSnapshot(phase, mapTick, directorTick), traceBase);
         }
 
-        private void EnqueueSnapshot(TraceSnapshot snapshot)
+        private void EnqueueSnapshot(TraceSnapshot snapshot, string destination)
         {
-            if (recorder.Enqueue(new TraceWork { Kind = TraceWorkKind.Capture, Snapshot = snapshot })) return;
+            if (recorder.Enqueue(new TraceWork { Kind = TraceWorkKind.Capture,
+                TraceBase = destination, Snapshot = snapshot })) return;
             snapshot.Release();
-            Incomplete("QUEUE_OVERFLOW", null);
-            if (active) Finish("queue-overflow", snapshot.MapTick);
+            Incomplete("WRITER_FAILED", null);
+            if (active) Finish("writer-failed", snapshot.MapTick);
             else recorder.Enqueue(new TraceWork { Kind = TraceWorkKind.Line,
-                Text = "I\t" + snapshot.MapTick + "\t" + snapshot.DirectorTick + "\tQUEUE_OVERFLOW" });
+                Text = "I\t" + snapshot.MapTick + "\t" + snapshot.DirectorTick + "\tWRITER_FAILED" });
         }
 
         private TraceSnapshot CreateSnapshot(string phase, int mapTick, int directorTick)
@@ -378,7 +379,8 @@ namespace SurrenderDesyncDiagnostic
             byte[] data = ArrayPool<byte>.Shared.Rent(size);
             try { Marshal.Copy(pointer, data, 0, size); }
             catch { ArrayPool<byte>.Shared.Return(data); throw; }
-            category.Records.Add(new TraceRecord { Key = key, Type = type, Data = data });
+            category.Records.Add(new TraceRecord { Key = key, Type = type, Data = data,
+                DataLength = size });
         }
 
         private static void StagePlayers(TraceCategory category)

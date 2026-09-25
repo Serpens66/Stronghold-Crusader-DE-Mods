@@ -43,6 +43,8 @@ namespace ExtendedData
         private string lastHostEchoDiagnostic;
         private readonly Dictionary<string, string> lastAssetDiagnostics =
             new Dictionary<string, string>(StringComparer.Ordinal);
+        private readonly Dictionary<int, string> lastPackageAvailabilityDiagnostics =
+            new Dictionary<int, string>();
         private int[] lobbyHumanSlots = Array.Empty<int>();
         private int lobbyLocalPlayerId;
 
@@ -274,7 +276,9 @@ namespace ExtendedData
                     });
                     DebugLogHelper.LogInfo(log, "Lord package inspected: source=" + source +
                         ",slot=" + (index + 1) + ",lord=" + LordDataSyncDiagnostics.SafeLabel(info.lordName) +
-                        ",gameplayFiles=" + files.GameplayPaths.Count + ",digest=" + files.Digest +
+                        ",fingerprintedFiles=" + files.GameplayPaths.Count +
+                        ",requiresLocalFiles=" + files.HasUnsupportedGameplayFiles +
+                        ",digest=" + files.Digest +
                         ",unsupported=[" + string.Join(";", files.UnsupportedPaths.Select(
                             LordDataSyncDiagnostics.SafeLabel)) + "]");
                 }
@@ -311,8 +315,9 @@ namespace ExtendedData
             SetLocalPackageStatus(next);
             if (changed)
                 DebugLogHelper.LogInfo(log, "Lord package manifest published: source=" + source +
-                    ",session=" + next.SessionId + ",digest=" + next.Digest +
-                    ",localMode=" + next.UseLocalValues + ",slots=" + next.Slots.Count);
+                    ",session=" + next.SessionId + "," +
+                    LordDataSyncDiagnostics.DescribePackageMode(next) +
+                    ",slots=" + next.Slots.Count);
         }
 
         private void OnPackageManifestChanged(string wire)
@@ -337,9 +342,10 @@ namespace ExtendedData
                         throw new InvalidOperationException(
                             "The Lord package confirmation could not be queued for publication.");
                     DebugLogHelper.LogInfo(log, "Lord package manifest received: session=" +
-                        received.SessionId + ",digest=" + received.Digest +
-                        ",localMode=" + received.UseLocalValues +
-                        ",status=" + settings.LordPackageStatus);
+                        received.SessionId + "," +
+                        LordDataSyncDiagnostics.DescribePackageMode(received) +
+                        ",localStatus=" + LordDataSyncDiagnostics.DescribePackageStatus(
+                            settings.LordPackageStatus, received));
                 }
                 catch (Exception exception)
                 {
@@ -360,14 +366,30 @@ namespace ExtendedData
             int matchedMask = 0;
             foreach (LordPackageSlot slot in manifest.Slots)
             {
-                if (!TryResolveLocalLord(slot, manifest.UseLocalValues, out string localPath,
-                    out string diagnostic))
+                bool matched = TryResolveLocalLord(slot, manifest.UseLocalValues,
+                    out string localPath, out string diagnostic);
+                bool required = manifest.UseLocalValues || slot.NeedsLocalFiles;
+                string availability = "session=" + manifest.SessionId +
+                    ",fileDigest=" + slot.FileDigest + ",mode=" + manifest.UseLocalValues +
+                    ",required=" + required + ",matched=" + matched +
+                    ",reason=" + diagnostic;
+                if (!lastPackageAvailabilityDiagnostics.TryGetValue(slot.PlayerId,
+                    out string previous) || !string.Equals(previous, availability,
+                        StringComparison.Ordinal))
                 {
-                    DebugLogHelper.LogInfo(log, "Lord package local match failed: slot=" + slot.PlayerId +
+                    lastPackageAvailabilityDiagnostics[slot.PlayerId] = availability;
+                    string message = "Lord package local availability: slot=" + slot.PlayerId +
                         ",lord=" + LordDataSyncDiagnostics.SafeLabel(slot.LordName) +
-                        ",reason=" + diagnostic);
-                    continue;
+                        ",requirement=" + (required ? "required" : "optional-fallback") +
+                        ",available=" + matched +
+                        (matched ? string.Empty : ",reason=" + diagnostic);
+                    if (required && !matched)
+                        DebugLogHelper.LogWarning(log, message);
+                    else
+                        DebugLogHelper.LogInfo(log, message);
                 }
+                if (!matched)
+                    continue;
                 matchedMask |= 1 << (slot.PlayerId - 1);
                 localLordPaths[slot.PlayerId] = localPath;
             }
@@ -387,7 +409,7 @@ namespace ExtendedData
             out string lordJsonPath, out string diagnostic)
         {
             lordJsonPath = null;
-            diagnostic = "configuration missing or contents differ";
+            diagnostic = "selected configuration is not installed";
             var candidates = new List<CustomisationFileManager.CustomLordConfig>();
             foreach (int lordType in new[] { slot.LordType, -1 }.Distinct())
             {
@@ -403,7 +425,10 @@ namespace ExtendedData
                 {
                     LordPackageFileState local = LordPackageFingerprint.Capture(config.path, config.name);
                     if (!string.Equals(local.Digest, slot.FileDigest, StringComparison.Ordinal))
+                    {
+                        diagnostic = "local gameplay file fingerprint differs from host";
                         continue;
+                    }
                     if (verifyEffectiveFixes && slot.FixesDigest != null &&
                         !string.Equals(LordDataSyncDiagnostics.Hash(fixes.Capture(slot.LordName)),
                             slot.FixesDigest, StringComparison.Ordinal))
@@ -413,7 +438,10 @@ namespace ExtendedData
                     }
                     string selectedPath = Path.Combine(config.path, config.name + ".lordjson");
                     if (!File.Exists(selectedPath))
+                    {
+                        diagnostic = "selected .lordjson file is absent";
                         continue;
+                    }
                     lordJsonPath = selectedPath;
                     diagnostic = string.Empty;
                     return true;
@@ -683,6 +711,7 @@ namespace ExtendedData
                 LordDataSyncDiagnostics.SafeLabel(command) +
                 ",runtimeEnabled=" + runtimeEnabled + "," + DescribeHostGate(lobby) +
                 "," + DescribeAcknowledgements(lobbyHumanSlots) +
+                "," + DescribePackageAcknowledgements(lobbyHumanSlots) +
                 ",selection=" + DescribeLobbySelection(lobby));
         }
 
@@ -690,7 +719,8 @@ namespace ExtendedData
         {
             DebugLogHelper.LogInfo(log, "Lord-data start decision: captureSucceeded=" + captured +
                 ",ready=" + ready + ",reason=" + (string.IsNullOrEmpty(reason) ? "none" : reason) +
-                "," + DescribeAcknowledgements(lobbyHumanSlots));
+                "," + DescribeAcknowledgements(lobbyHumanSlots) +
+                "," + DescribePackageAcknowledgements(lobbyHumanSlots));
         }
 
 
@@ -973,6 +1003,7 @@ namespace ExtendedData
             lastClientAcceptedDiagnostic = null;
             lastHostEchoDiagnostic = null;
             lastAssetDiagnostics.Clear();
+            lastPackageAvailabilityDiagnostics.Clear();
             DebugLogHelper.LogInfo(log, "Lord-data session reset: lobby=" + lobbyId +
                 ",fixesRestored=true,activeSnapshot=absent.");
             if (snapshot?.LobbyId != null)
@@ -1074,7 +1105,8 @@ namespace ExtendedData
                         ",origin=" + origin +
                         ",status=" + (isSnapshot
                             ? LordDataSyncDiagnostics.DescribeStatus(status, digest)
-                            : LordDataSyncDiagnostics.SafeLabel(status)));
+                            : LordDataSyncDiagnostics.DescribePackageStatus(
+                                status, packageManifest)));
                 }
                 catch (Exception exception)
                 {
@@ -1138,6 +1170,20 @@ namespace ExtendedData
                     id + ":" + LordDataSyncDiagnostics.DescribeStatus(
                         id > 0 && id < settings.LordDataStatusData.Length
                             ? settings.LordDataStatusData[id] : null, expected))) + "]";
+        }
+
+        private string DescribePackageAcknowledgements(IEnumerable<int> playerIds)
+        {
+            if (packageManifest == null)
+                return "packageManifest=absent";
+            return "packageManifest=[" +
+                LordDataSyncDiagnostics.DescribePackageMode(packageManifest) +
+                "],packagePlayers=[" + string.Join(";", (playerIds ?? Enumerable.Empty<int>())
+                    .Select(id => id + ":" + LordDataSyncDiagnostics.DescribePackageStatus(
+                        id == lobbyLocalPlayerId ? settings.LordPackageStatus :
+                            id > 0 && id < settings.LordPackageStatusData.Length
+                                ? settings.LordPackageStatusData[id] : null,
+                        packageManifest))) + "]";
         }
 
         private void LogHostGateSkip(FRONT_Multiplayer lobby, string source)
