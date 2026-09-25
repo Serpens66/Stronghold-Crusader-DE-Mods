@@ -42,12 +42,16 @@ namespace CastlePlanner.AIVPlacement
             new Dictionary<FRONT_Multiplayer.MPAIVInfo, int>();
         private readonly Dictionary<int, IReadOnlyDictionary<int, AivCandidateVisualState>> statesByPlayer =
             new Dictionary<int, IReadOnlyDictionary<int, AivCandidateVisualState>>();
+        private readonly Dictionary<int, IReadOnlyDictionary<int, AivCandidateVisualState>> nativeStatesByPlayer =
+            new Dictionary<int, IReadOnlyDictionary<int, AivCandidateVisualState>>();
         private readonly Dictionary<int, Dictionary<int, AivPlacementCandidateEvaluation>> evaluatedByPlayer =
             new Dictionary<int, Dictionary<int, AivPlacementCandidateEvaluation>>();
         private readonly Dictionary<int, NativeAivAutoDecision> autoByPlayer =
             new Dictionary<int, NativeAivAutoDecision>();
         private readonly Dictionary<int, IReadOnlyList<NativeAivAutoDecision>> possibleAutoByPlayer =
             new Dictionary<int, IReadOnlyList<NativeAivAutoDecision>>();
+        private readonly Dictionary<int, IReadOnlyDictionary<int, AivPracticeCandidate>> practiceByPlayer =
+            new Dictionary<int, IReadOnlyDictionary<int, AivPracticeCandidate>>();
         private readonly List<int> playerOrder = new List<int>();
         private readonly HashSet<string> reportedWarnings = new HashSet<string>(StringComparer.Ordinal);
         private readonly HashSet<string> reportedErrors = new HashSet<string>(StringComparer.Ordinal);
@@ -155,9 +159,11 @@ namespace CastlePlanner.AIVPlacement
         public void BeginGeneration(AivPlacementRequestBatch batch)
         {
             statesByPlayer.Clear();
+            nativeStatesByPlayer.Clear();
             evaluatedByPlayer.Clear();
             autoByPlayer.Clear();
             possibleAutoByPlayer.Clear();
+            practiceByPlayer.Clear();
             playerOrder.Clear();
             foreach (AivPlacementCheckRequest request in batch.Requests)
             {
@@ -172,6 +178,7 @@ namespace CastlePlanner.AIVPlacement
                             BuildNotEvaluableToolTip(request.FailureKind.ToString()));
                 }
                 statesByPlayer[request.PlayerId] = states;
+                nativeStatesByPlayer[request.PlayerId] = states;
             }
             RefreshSelectionList(FRONT_Multiplayer_AISettings.Instance);
         }
@@ -206,6 +213,7 @@ namespace CastlePlanner.AIVPlacement
             }
 
             statesByPlayer[result.PlayerId] = states;
+            nativeStatesByPlayer[result.PlayerId] = states;
             RefreshEvaluatedVisualStates();
             RefreshSelectionList(FRONT_Multiplayer_AISettings.Instance);
         }
@@ -229,6 +237,16 @@ namespace CastlePlanner.AIVPlacement
                     states[candidate.CandidateId] = BuildVisualState(candidate, null);
                 }
             statesByPlayer[playerId] = states;
+            nativeStatesByPlayer[playerId] = states;
+            RefreshSelectionList(FRONT_Multiplayer_AISettings.Instance);
+        }
+
+        public void PublishPractice(AivPracticeBatch batch)
+        {
+            foreach (KeyValuePair<int, IReadOnlyDictionary<int, AivPracticeCandidate>> player
+                     in batch.Players)
+                practiceByPlayer[player.Key] = player.Value;
+            RefreshEvaluatedVisualStates();
             RefreshSelectionList(FRONT_Multiplayer_AISettings.Instance);
         }
 
@@ -237,6 +255,7 @@ namespace CastlePlanner.AIVPlacement
             evaluatedByPlayer.Remove(playerId);
             autoByPlayer.Remove(playerId);
             possibleAutoByPlayer.Remove(playerId);
+            practiceByPlayer.Remove(playerId);
             var states = new Dictionary<int, AivCandidateVisualState>();
             if (statesByPlayer.TryGetValue(
                     playerId,
@@ -250,6 +269,7 @@ namespace CastlePlanner.AIVPlacement
                 }
             }
             statesByPlayer[playerId] = states;
+            nativeStatesByPlayer[playerId] = states;
             RefreshSelectionList(FRONT_Multiplayer_AISettings.Instance);
         }
 
@@ -260,9 +280,11 @@ namespace CastlePlanner.AIVPlacement
                 BugfixAivStatusBridge.Clear(previous);
             playerIdsByInfo.Clear();
             statesByPlayer.Clear();
+            nativeStatesByPlayer.Clear();
             evaluatedByPlayer.Clear();
             autoByPlayer.Clear();
             possibleAutoByPlayer.Clear();
+            practiceByPlayer.Clear();
             playerOrder.Clear();
             publishedUiStates.Clear();
             activeInfo = null;
@@ -440,8 +462,7 @@ namespace CastlePlanner.AIVPlacement
         private static AivCandidateVisualState BuildVisualState(
             AivPlacementCandidateEvaluation candidate,
             NativeAivAutoDecision autoDecision,
-            IReadOnlyList<NativeAivAutoDecision> possibleAuto = null,
-            bool plannedOverlap = false)
+            IReadOnlyList<NativeAivAutoDecision> possibleAuto = null)
         {
             string description;
             switch (candidate.Status)
@@ -504,10 +525,6 @@ namespace CastlePlanner.AIVPlacement
                     possibleAuto, candidate.PotentialPriorKeepRemovalByRotation))
                 description += Environment.NewLine + SerpLocalization.Get(
                     SerpLocalization.AivPlacementPriorKeepRisk);
-            if (plannedOverlap)
-                description += Environment.NewLine + SerpLocalization.Get(
-                    SerpLocalization.AivPlacementPlannedOverlap);
-
             string autoText = autoDecision == null || !autoDecision.IsCertain
                 ? SerpLocalization.Get(SerpLocalization.AivPlacementAutoUnknown)
                 : !autoDecision.CandidateId.HasValue
@@ -521,7 +538,7 @@ namespace CastlePlanner.AIVPlacement
                         : SerpLocalization.Get(SerpLocalization.AivPlacementAutoDifferent);
             return new AivCandidateVisualState(
                 candidate.Status,
-                description + Environment.NewLine + autoText);
+                "Vanilla-Fit: " + description + Environment.NewLine + autoText);
         }
 
         public void RefreshMoatStatus()
@@ -532,54 +549,61 @@ namespace CastlePlanner.AIVPlacement
 
         private void RefreshEvaluatedVisualStates()
         {
-            foreach (KeyValuePair<int, Dictionary<int, AivPlacementCandidateEvaluation>> player in evaluatedByPlayer)
+            foreach (KeyValuePair<int, IReadOnlyDictionary<int, AivCandidateVisualState>> player in
+                     statesByPlayer.ToArray())
             {
-                if (!statesByPlayer.TryGetValue(player.Key,
-                        out IReadOnlyDictionary<int, AivCandidateVisualState> previous))
-                    continue;
-                var states = previous.ToDictionary(entry => entry.Key, entry => entry.Value);
+                var states = player.Value.ToDictionary(entry => entry.Key, entry => entry.Value);
                 autoByPlayer.TryGetValue(player.Key, out NativeAivAutoDecision autoDecision);
                 possibleAutoByPlayer.TryGetValue(player.Key,
                     out IReadOnlyList<NativeAivAutoDecision> possibleAuto);
-                foreach (AivPlacementCandidateEvaluation candidate in player.Value.Values)
-                    states[candidate.CandidateId] = BuildVisualState(candidate, autoDecision,
-                        possibleAuto, HasPlannedOverlap(player.Key, candidate, autoDecision));
+                evaluatedByPlayer.TryGetValue(player.Key,
+                    out Dictionary<int, AivPlacementCandidateEvaluation> exact);
+                nativeStatesByPlayer.TryGetValue(player.Key,
+                    out IReadOnlyDictionary<int, AivCandidateVisualState> nativeStates);
+                practiceByPlayer.TryGetValue(player.Key,
+                    out IReadOnlyDictionary<int, AivPracticeCandidate> practice);
+                foreach (int candidateId in states.Keys.ToArray())
+                {
+                    AivPlacementCandidateEvaluation candidate = exact != null &&
+                        exact.TryGetValue(candidateId, out AivPlacementCandidateEvaluation found)
+                        ? found : null;
+                    AivCandidateVisualState nativeState = candidate == null
+                        ? nativeStates != null && nativeStates.TryGetValue(candidateId,
+                            out AivCandidateVisualState saved) ? saved : states[candidateId]
+                        : BuildVisualState(candidate, autoDecision, possibleAuto);
+                    states[candidateId] = practice != null &&
+                        practice.TryGetValue(candidateId, out AivPracticeCandidate geometric)
+                        ? BuildPracticeState(geometric, nativeState)
+                        : nativeState;
+                }
                 statesByPlayer[player.Key] = states;
             }
         }
 
-        private bool HasPlannedOverlap(
-            int playerId,
-            AivPlacementCandidateEvaluation candidate,
-            NativeAivAutoDecision currentAuto)
+        private static AivCandidateVisualState BuildPracticeState(
+            AivPracticeCandidate practice, AivCandidateVisualState nativeState)
         {
-            if (currentAuto?.IsCertain != true ||
-                currentAuto.CandidateId != candidate.CandidateId ||
-                currentAuto.RotationIndex < 0 ||
-                currentAuto.RotationIndex >= candidate.PlannedCoreTilesByRotation.Count)
-                return false;
-            int currentIndex = playerOrder.IndexOf(playerId);
-            if (currentIndex <= 0)
-                return false;
-            IReadOnlyList<int> currentTiles =
-                candidate.PlannedCoreTilesByRotation[currentAuto.RotationIndex];
-            for (int index = 0; index < currentIndex; index++)
-            {
-                int priorId = playerOrder[index];
-                if (!autoByPlayer.TryGetValue(priorId, out NativeAivAutoDecision priorAuto) ||
-                    !priorAuto.IsCertain || !priorAuto.CandidateId.HasValue ||
-                    !evaluatedByPlayer.TryGetValue(priorId,
-                        out Dictionary<int, AivPlacementCandidateEvaluation> earlier) ||
-                    !earlier.TryGetValue(priorAuto.CandidateId.Value,
-                        out AivPlacementCandidateEvaluation priorCandidate) ||
-                    priorAuto.RotationIndex < 0 ||
-                    priorAuto.RotationIndex >= priorCandidate.PlannedCoreTilesByRotation.Count)
-                    continue;
-                if (AivBuildNoticePolicy.HasPlannedCoreOverlap(currentTiles,
-                        priorCandidate.PlannedCoreTilesByRotation[priorAuto.RotationIndex]))
-                    return true;
-            }
-            return false;
+            if (practice.Rotations.Count == 0)
+                return new AivCandidateVisualState(AivPlacementStatus.NotEvaluable,
+                    nativeState.ToolTip + Environment.NewLine +
+                    "Geometrie: " + practice.Reason);
+            string rotations = string.Join(" | ", practice.Rotations.Select(rotation =>
+                $"{FormatRotation((int)rotation.Rotation)}: " +
+                (rotation.MinimumPercentage == rotation.MaximumPercentage
+                    ? $"{rotation.MinimumPercentage}%"
+                    : $"{rotation.MinimumPercentage}–{rotation.MaximumPercentage}%") +
+                (rotation.MaximumDeduction > 0
+                    ? $" (Abzug {rotation.MinimumDeduction}–{rotation.MaximumDeduction} Zellen)"
+                    : string.Empty)));
+            bool estimate = practice.Rotations.Any(value => value.IsEstimate);
+            bool soft = practice.Rotations.Any(value => value.SoftOverlap);
+            string tooltip = nativeState.ToolTip + Environment.NewLine +
+                (estimate ? "Praxis (geometrische Schätzung): " : "Praxis (geometrisch): ") + rotations;
+            if (soft)
+                tooltip += Environment.NewLine + "Geplante Mauern/Burggräben überschneiden andere Bauflächen.";
+            if (!string.IsNullOrEmpty(practice.Reason))
+                tooltip += Environment.NewLine + practice.Reason;
+            return new AivCandidateVisualState(practice.Status, tooltip);
         }
 
         private static string FormatRotation(int degrees)

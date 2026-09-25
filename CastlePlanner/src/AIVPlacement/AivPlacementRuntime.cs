@@ -50,6 +50,8 @@ namespace CastlePlanner.AIVPlacement
             new ConcurrentQueue<CompletedEvaluation>();
         private readonly ConcurrentQueue<CandidateProgress> candidateProgress =
             new ConcurrentQueue<CandidateProgress>();
+        private readonly ConcurrentQueue<AivPracticeBatch> completedPractice =
+            new ConcurrentQueue<AivPracticeBatch>();
         private readonly ConcurrentDictionary<string, byte> reportedWarnings =
             new ConcurrentDictionary<string, byte>(StringComparer.Ordinal);
         private readonly ConcurrentDictionary<string, byte> reportedErrors =
@@ -499,12 +501,14 @@ namespace CastlePlanner.AIVPlacement
                 (generation, playerId, candidate) =>
                     candidateProgress.Enqueue(new CandidateProgress(generation, playerId, candidate)));
             task.ContinueWith(
-                completed => HandleEvaluationCompletion(batch, completed),
+                completed => HandleEvaluationCompletion(batch, assets, cancellation.Token, completed),
                 TaskScheduler.Default);
         }
 
         private void HandleEvaluationCompletion(
             AivPlacementRequestBatch batch,
+            IReadOnlyDictionary<string, string> assets,
+            CancellationToken cancellationToken,
             Task<AivPlacementBatchResult> completed)
         {
             // Superseded generations are expected and must not become UI failures.
@@ -527,6 +531,21 @@ namespace CastlePlanner.AIVPlacement
             {
                 AivPlacementBatchResult batchResult = completed.Result ??
                     throw new InvalidOperationException("Evaluation task returned no batch result.");
+                try
+                {
+                    AivPracticeBatch practice = AivGeometricPractice.Evaluate(
+                        batch, assets, batchResult, cancellationToken);
+                    completedPractice.Enqueue(practice);
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    LogErrorOnce($"practice-{ex.GetType().FullName}-{ex.Message}",
+                        $"Geometric lobby assessment failed: {ex}");
+                }
                 var expectedPlayerIds = new HashSet<int>(
                     batch.Requests.Select(request => request.PlayerId));
                 var returnedPlayerIds = new HashSet<int>();
@@ -668,6 +687,9 @@ namespace CastlePlanner.AIVPlacement
                     $"possibleRotations={possibleRotations}, " +
                     $"reason={result.FailureKind}: {result.FailureMessage}.");
             }
+            while (completedPractice.TryDequeue(out AivPracticeBatch practice))
+                if (generations.IsCurrent(practice.Generation))
+                    selectionDialog.PublishPractice(practice);
         }
 
         private void PublishCandidateProgress(bool force)

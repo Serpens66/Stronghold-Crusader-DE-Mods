@@ -1309,3 +1309,22 @@ Löschung und sämtliche Konstruktorabbrüche sind damit noch nicht bewiesen.
 Solche späteren Fits bleiben deshalb `NotEvaluable`, wenn sie diese
 unbekannten Eingabezellen lesen. Ein weiteres allgemeines Nachspielen
 dieses Keep-Verlusts ist nicht nötig.
+
+## 2026-09-25: getrennte geometrische Praxisbewertung
+
+Mit unveränderter Native-DLL `FBCB9319…` bleibt die AIV-Auswahl bei
+`0x54F60` zufallsstartabhängig; `0x57080` und `0x7B060` liefern den
+unveränderten Vanilla-Fit, während `0x55F50` und `0x51790` erst danach
+die Karte beeinflussen. Der zusätzliche CastlePlanner-Wert ist daher
+ausdrücklich keine Native-Rekonstruktion. Er projiziert jede verfügbare
+AIV und vier Drehungen, zählt mehrfach beanspruchte feste Gebäudezellen
+pro Lord einmal und vermeidet einen zweiten Abzug für bereits im
+Ausgangs-Fit blockierte Zellen. Mögliche Gegenpläne liefern eine
+untere/obere Abzugsgrenze; unbekannte Footprints sperren die Praxisfarbe.
+Für spätere KIs mit Sofortspawn ist der Ausgangs-Fit der normalisierten
+Karte nur eine **geometrische Schätzung**. Dies ändert weder Vanillas
+Selector noch die strenge `NotEvaluable`-Grenze des exakten Fits.
+Die vorhandenen Höhen-Frame-Traces beweisen keine durchgängig erhöhte
+Bauzeit-Höhe; ein sicherer Moat-/Zugbrücken-Ausfall wird weiterhin nicht
+behauptet. Native-Vertrauen: hoch für Reihenfolge und Fit/Bau-Trennung;
+Praxisabzug: heuristische Modbewertung.

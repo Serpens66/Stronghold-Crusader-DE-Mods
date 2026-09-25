@@ -7,8 +7,29 @@ Stand: 25.09.2026. Native-Basis: installierte `CrusaderDE.dll`, SHA-256 `FBCB931
 - CastlePlanner wertet Karte und AIVJSON offline aus und veröffentlicht vier Fit-Drehungen sowie eine Vanilla-Autoauswahl nur bei eindeutigem Ergebnis. Ein ungeklärter Eingangszustand bleibt `NotEvaluable`.
 - Die BugfixesAndQoL-Liste übernimmt Fit-Status und Tooltip, ohne bei reinen Statuswechseln die Zeilen, X-Schaltflächen oder Scrollposition neu aufzubauen. Die veröffentlichte Zeichenfolge und der wirksame ExtraFeatures-KI-Zustand werden nun nur bei Änderungen geloggt. Das Log belegt die Übergabe, nicht die sichtbare Darstellung.
 - Der Native-Startkontakt mit verknüpften Gebäuderecords kann einen früheren Keep entfernen. Der kurze Hinweis nennt diese Möglichkeit nur für einen im Vanilla-Selector tatsächlich möglichen Kandidaten und dessen Drehung. Ein erfolgreicher Bau beziehungsweise tatsächlicher Verlust wird daraus nicht behauptet.
-- Wenn zwei KI-Spieler jeweils einen eindeutig ausgewählten Vanilla-Kandidaten samt Drehung haben, vergleicht CastlePlanner die projizierten Core-Bauzellen. Ein gemeinsamer Tile erhält ausdrücklich nur den Hinweis **geplante Überschneidung**; der tatsächliche sequenzielle Bau ist davon nicht abgeleitet.
+- Die ältere, nur bei zwei eindeutig ausgewählten Lords mögliche Core-Überschneidungsanzeige wird durch die gesonderte Praxisbewertung ersetzt.
 - Die ursprüngliche Kartenhöhe von projiziertem Burggraben und Zugbrücke wird je Drehung ermittelt. Der Fit-Score bleibt unabhängig von ExtraFeatures.
+
+## Geometrische Praxisbewertung (in Prüfung)
+
+CastlePlanner berechnet zusätzlich zum unveränderten Vanilla-Fit die geplanten
+Core-Footprints aller aktiven KI-Kandidaten für vier Drehungen. Feste Gebäude
+einschließlich Keep, Turm, Tor und Zugbrücke zählen für einen symmetrischen
+Abzug. Eine von mehreren Lords geteilte Zelle zählt für jeden Lord nur einmal;
+eine schon im Ausgangs-Fit blockierte Zelle wird nicht erneut abgezogen.
+Mauern und Burggräben erhalten bei geplanter Flächenüberschneidung nur einen
+Hinweis. Unbekannte Mapper oder fehlende AIV-Daten gelten nicht als freie
+Fläche, sondern lassen die Praxisfarbe grau.
+
+Bei nicht eindeutigem Vanilla-Selector nutzt die Anzeige je Drehung eine
+untere und obere Abzugsgrenze aus Schnitt- und Vereinigungsmengen der
+möglichen Gegenpläne. Nur eine über alle berücksichtigten Möglichkeiten
+gleiche Einstufung erhält eine gemeinsame Hauptfarbe. Bei späteren KI-Spielern
+mit „Completed Castles“ bleibt der exakte Vanilla-Fit grau; ein zusätzlich
+angezeigter Wert ist ausdrücklich **geometrische Schätzung auf der
+normalisierten Ausgangskarte**. Er ist keine Vorhersage der tatsächlich
+gebauten Gebäude und fließt nicht in Vanillas Autoauswahl ein. Native-Basis:
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
 
 ## Bedingungen für den Höhenhinweis
 
@@ -19,13 +40,13 @@ Ein Hinweis zu fehlendem Burggraben oder Zugbrücke darf erst erscheinen, wenn d
 | Fall | Aktueller Nachweis | Für eine sichere weitere Aussage nötig |
 | --- | --- | --- |
 | Früherer Keep kann verschwinden | Nativer Kontakt-Test einschließlich verbundener Records; Vanilla-Reproduktion | Vollständiger Folgezustand nach möglicher Löschung, damit spätere Fits wieder freigegeben werden können |
-| Zwei geplante AIV-Gebäude belegen dieselben Zellen | Core-Footprints eindeutig gewählter Kandidaten werden paarweise verglichen; Hinweis heißt **geplante Überschneidung** | Mehrdeutige Auswahlen und unbewiesene Footprints konservativ behandeln; für tatsächliche Baukonflikte weitere Sequenzbelege |
+| Zwei geplante AIV-Gebäude belegen dieselben Zellen | Alle verfügbaren Kandidaten und Drehungen werden als geometrische Footprints verglichen; der feste Gebäudeabzug bleibt getrennt vom Native-Fit | Für tatsächliche Baukonflikte weiterhin Sequenzbelege; unbekannte Footprints bleiben grau |
 | Gebäude wird tatsächlich überbaut oder gelöscht | Einzelne native Frame-Traces | Sequenzielle Konstruktor-, Räumungs- und Record-Wirkungen aller möglichen vorherigen Auswahlen rekonstruieren; erst dann tatsächliches Überbauen behaupten |
 | Burggraben oder Zugbrücke fehlt wegen Höhe | Native Baugrenze und ExtraFeatures-KI-Patch bekannt; projizierte Ausgangshöhen vorhanden | Zellweise Höhe unmittelbar vor jedem betroffenen Bau-Frame unter allen möglichen früheren Frames/Zuständen belegen |
 | Spätere KI bei „Completed Castles“ | Fit und Sofortbau-Traces archiviert | Vollständige fitrelevante Tile- und Record-Wirkung für jeden möglichen früheren Sofortbau |
 | Abbruchzweige des Startkonstruktors | Native Zweige statisch erfasst | Gezielte Traces der noch unbelegten Abbruchausgänge, ohne aus einem Fehlergrund allein einen Abbruch abzuleiten |
 
-Bis zur jeweiligen Klärung bleibt eine davon abhängige Fit-Prognose grau oder ein Bauhinweis aus. Die Fit-Farbe selbst beschreibt Vanillas Kandidaten-Fit, nicht den garantierten späteren Bau jedes Gebäudes.
+Bis zur jeweiligen Klärung bleibt der exakte Vanilla-Fit grau oder ein sicherer Bauhinweis aus. Die neue Hauptfarbe beschreibt die gekennzeichnete geometrische Praxisbewertung, nicht den garantierten späteren Bau jedes Gebäudes.
 
 ## Belege und fortlaufende Quellen
 
@@ -33,8 +54,20 @@ Bis zur jeweiligen Klärung bleibt eine davon abhängige Fit-Prognose grau oder 
 - [Native-AIV-Lobby-Baseline](../../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/AIV_LOBBY_SELECTION.md)
 - [Archiv und Umzug](RELOCATION.md); Rohdaten, Oracle-Korpora und Prüfsummen liegen in den Unterordnern dieses Findings-Verzeichnisses.
 
-Die nächste Sichtprüfung erfordert nur eine Lobbyöffnung mit bekanntem Startkontakt und einem erhöhten Burggraben. Der veröffentlichte Tooltip wird aus dem neuen Log mit der Darstellung verglichen. Ein Kartenstart ist erst für eine konkret offene Bauhöhen- oder Record-Wirkung nötig.
+Die nächste Sichtprüfung erfordert nur eine Lobbyöffnung mit dem bekannten Crossing-Startkontakt und Wolf Default 7 / Sentinel Default 2. Der veröffentlichte Tooltip wird aus dem Log mit der Darstellung verglichen. Für die geometrische Praxisfarbe ist kein Kartenstart nötig; ein Kartenstart wird erst für eine konkret offene Bauhöhen- oder Record-Wirkung angefordert.
 
 ## Lokale Abnahme vom 25.09.2026
 
 CastlePlanners `build.bat` bestand 92 von 92 Tests und installierte das Plugin bei beendetem Spiel. Die SHA-256-Hashes von `CastlePlanner.dll` (`A956F154…`) und `CastlePlanner.AIVPlacement.Core.dll` (`B8D7C43D…`) stimmen zwischen lokalem Build und Installation überein. Die bestehenden archivierten Crossing- und Reed-Sea-Startkontakte bleiben in den synthetischen Tests konservativ. Eine neue UI-Darstellung ist damit noch nicht sichtbar bestätigt; das BepInEx-Log wurde seit dem Build nicht durch einen Spielstart aktualisiert.
+
+## Geometrie-Build vom 25.09.2026
+
+Der neue CastlePlanner-Build bestand 93/93 Tests; lokale und installierte
+Hashes stimmen überein: `CastlePlanner.dll` `D49892488C09CAB7CFBAC0930666896177240E65A6BEBA8451E00EEB90164207`,
+`CastlePlanner.AIVPlacement.Core.dll` `0A7F2B2C1781DBE02A9817F9771A09C1774E9B6415489BBC2F1563842CD79FD0`.
+Der gemeinsame Native-Fit-Kern `AIVPlacement.Core.dll` wurde nicht geändert;
+sein installierter Hash ist `9F6E0165F602A187F95C933BF9C212A470B8E9BD803C6894B7D550ACFBADB12F`.
+Der direkte erneute Thasos-Oracle-Lauf ist momentan nicht ausführbar, weil
+die im Korpus referenzierte Datei `v_Thasos.map` am aufgezeichneten Pfad
+fehlt. Der geometrische Abzug ist durch einen eigenständigen Grenzfalltest
+geprüft; eine Sichtprüfung in der Lobby steht noch aus.

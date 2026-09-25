@@ -25,6 +25,7 @@ internal static class Program
             ("maps lobby rotation values to native degrees", MapsLobbyRotationValues),
             ("counts elevated moat exposure independently of fit", CountsElevatedMoatExposure),
             ("gates build notices on final selection and build-time evidence", GatesBuildNotices),
+            ("deducts shared fixed cells once without double-counting native blocks", ScoresGeometricOverlaps),
             ("resolves Vanilla map-facing start rotations", ResolvesMapFacingRotations),
             ("tracks retained starts in native player order", TracksRetainedStartsInNativePlayerOrder),
             ("keeps archived native start interactions conservative", KeepsArchivedNativeStartInteractionsConservative),
@@ -3361,6 +3362,37 @@ internal static class Program
                 "drawbridge height 12 is not high");
             Assert(bridgeFit.Status == evaluator.Evaluate(bridgeMap, drawbridge).Status,
                 "drawbridge height 13 does not change native fit status");
+        }
+    }
+
+    private static void ScoresGeometricOverlaps()
+    {
+        AivPracticeRotation result = AivGeometricPractice.Score(
+            AivRotation.Degrees90, 90, 10, 1,
+            new[] { 1, 2, 3, 4 }, new[] { 9 }, new[] { 1 },
+            new IEnumerable<int>[] { new[] { 1, 2 }, new[] { 2 } },
+            new IEnumerable<int>[] { new[] { 1, 2, 3 }, new[] { 2, 3, 4 } },
+            new[] { 9 }, true);
+        Assert(result.MinimumDeduction == 1, "one guaranteed, previously free cell");
+        Assert(result.MaximumDeduction == 3, "three possibly shared free cells");
+        Assert(result.MinimumPercentage == 60, "worst geometric score");
+        Assert(result.MaximumPercentage == 80, "best geometric score");
+        Assert(result.SoftOverlap, "wall or moat notice without numeric deduction");
+        Assert(result.IsEstimate, "estimate label retained");
+        foreach (AivRotation rotation in new[]
+                 { AivRotation.Degrees0, AivRotation.Degrees90,
+                   AivRotation.Degrees180, AivRotation.Degrees270 })
+        {
+            AivPracticeRotation symmetrical = AivGeometricPractice.Score(
+                rotation, 100, 4, 0, new[] { 2, 3 }, Array.Empty<int>(),
+                Array.Empty<int>(), new IEnumerable<int>[] { new[] { 2, 3 } },
+                new IEnumerable<int>[] { new[] { 2, 3 }, new[] { 2, 3 } },
+                new[] { 2, 3 }, false);
+            Assert(symmetrical.MinimumDeduction == 2 &&
+                   symmetrical.MaximumDeduction == 2 &&
+                   symmetrical.MinimumPercentage == 50 &&
+                   symmetrical.MaximumPercentage == 50,
+                "every rotation counts a shared cell once per lord");
         }
     }
 

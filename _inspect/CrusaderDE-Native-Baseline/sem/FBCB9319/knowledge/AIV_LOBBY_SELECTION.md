@@ -1151,6 +1151,17 @@ unproven, so the exact contact rule does not by itself certify later Fits.
 
 ## Lobby construction notices (25 September 2026)
 
+The lobby's new geometric practice score is a mod-side estimate, not an
+additional native fit rule. The native `0x54F60` choice remains driven by the
+unchanged results of `0x57080`/`0x7B060`; `0x55F50` and `0x51790` may then
+produce a different construction outcome before the next AI is checked.
+Projecting every available AIV at four rotations can show planned fixed-
+building overlap and a bounded score deduction, but it does not establish
+which plan the random-start selector actually chooses or which buildings
+survive sequential construction. Confidence: high for the native ordering and
+selector inputs at installed SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`;
+the geometric score is explicitly heuristic.
+
 The `0x57080 -> 0x7B060` fit result does not enforce the later moat and
 drawbridge construction height limit. The moat mapper 106 reaches the
 height check through `0x51790 -> 0x59730`; mapper 105 reaches the
