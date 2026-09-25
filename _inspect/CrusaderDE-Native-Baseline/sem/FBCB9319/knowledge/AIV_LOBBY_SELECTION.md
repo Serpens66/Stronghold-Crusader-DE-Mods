@@ -5,6 +5,13 @@ Installed `CrusaderDE.dll` SHA-256:
 Image base: `0x180000000`; VA is base plus RVA. The entry and data path below
 was reviewed against the current semantic decompiler export.
 
+Evidence paths below that start with `Findings/AIVPlacement/AivSeries-20260924/`
+are original paths **inside** `Findings/AIVPlacement/EVIDENCE.zip`. The readable
+summary is `Findings/AIVPlacement/EXPERIMENTS.md`; use
+`Restore-Evidence.ps1` to recover a named trace. The former
+`CastlePlanner/AIVPlacement_SOFORTSPAWN_FORSCHUNGSSTAND.md` is archived there
+as well; the current scope is in `Findings/AIVPlacement/STATUS.md`.
+
 | Native role | RVA / VA | Confidence |
 | --- | --- | --- |
 | Skirmish player setup and AIV selector source | `0x94350` / `0x180094350` | High for branching; medium for managed lobby mapping |
@@ -140,7 +147,7 @@ map state. Confidence is high for these current-hash call/branch contracts,
 medium for complete mapper-specific effects. The old `17F8DD4A...` Thasos
 frame captures remain evidence of plan/live divergence, not proof that every
 constructor is unchanged on this hash. See
-`CastlePlanner/AIVPlacement_SOFORTSPAWN_FORSCHUNGSSTAND.md` for the current
+`Findings/AIVPlacement/STATUS.md` for the current
 feature status and test boundary.
 
 The diagnostic observer now records sparse before/after differences for the
@@ -360,8 +367,8 @@ independence inference from Crater Lake. Confidence is high for the observed
 pairwise scores and read/write sets; unchosen variants and all constructor
 side effects remain unbounded. The product's later-player completed-castle
 `NotEvaluable` boundary remains necessary. See
-`Findings/AIVPlacement/AivSeries-20260924/RESULTS.md` and
-`CastlePlanner/AIVPlacement_SOFORTSPAWN_FORSCHUNGSSTAND.md` for files and next
+`Findings/AIVPlacement/EXPERIMENTS.md` and
+`Findings/AIVPlacement/STATUS.md` for files and next
 checks.
 
 ## 2026-09-24 follow-up: AI start constructor and live-grid boundary

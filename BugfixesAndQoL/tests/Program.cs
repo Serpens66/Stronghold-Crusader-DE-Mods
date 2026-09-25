@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Runtime.Serialization;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using System.Xml;
@@ -11,7 +12,7 @@ using CrusaderDE;
 using Iced.Intel;
 using RedBird.X64.Hooks;
 using SHCDESE.Interop;
-using SurrenderDesyncDiagnostic;
+using SHCDESE.Interop.Enums;
 
 namespace BugfixesAndQoL
 {
@@ -35,6 +36,7 @@ namespace BugfixesAndQoL
         private static int Main()
         {
             TestSurrenderGameOverPolicy();
+            TestSurrenderSelectionCleanup();
             TestCoopCustomLordSelectionPolicy();
             TestTrailCustomizationOwnership();
             TestTunnelPlacementDistancePolicy();
@@ -87,7 +89,6 @@ namespace BugfixesAndQoL
             TestPacketThreadMarshallingContracts();
             TestTransientSelectionGuards();
             TestFriendlyMoatCursorIdGuard();
-            TestResyncDiagnosticHistory();
             TestWorkshopUploadLordSelectionPolicy();
             SkirmishGameOptionsTests.Run(Check);
             TestMultiplayerLobbyReturnIntegration();
@@ -391,8 +392,6 @@ namespace BugfixesAndQoL
                 "selection count policy accepts only Vanilla's 0..10000 capacity");
             string health = File.ReadAllText(Path.Combine("src", "SelectedUnitHealthFeature.cs"));
             string drag = File.ReadAllText(Path.Combine("src", "MoveFormationDragRuntime.cs"));
-            string resync = File.ReadAllText(Path.Combine("src", "ResyncHostKickFeature.cs"));
-            string migration = File.ReadAllText(Path.Combine("src", "AbruptHostMigrationFix.cs"));
             string assassin = File.ReadAllText(Path.Combine("src", "AssassinClimbRuntime.cs"));
             Check(health.Contains(
                     "int unitId = state.selectedChimps[index];" + Environment.NewLine +
@@ -406,14 +405,6 @@ namespace BugfixesAndQoL
                   assassin.Contains("catch (OverflowException)") &&
                   assassin.Contains("selectionCountTransient || expectedSelectedCount > 0"),
                 "transient dead-unit and invalid selection states remain local fail-closed HUD rejections");
-            string diagnostic = File.ReadAllText(Path.Combine("..", "TestMods",
-                "SurrenderDesyncDiagnostic", "src", "SurrenderDesyncDiagnosticRuntime.cs"));
-            Check(resync.Contains("SurrenderDiagnosticBridge.PublishResync(") &&
-                  migration.Contains("SurrenderDiagnosticBridge.PublishChores(choreBuffer)") &&
-                  diagnostic.Contains("SurrenderDiagnosticBridge.ResyncStateChanged += OnResync") &&
-                  diagnostic.Contains("SurrenderDiagnosticBridge.ChoresSent += OnChores") &&
-                  diagnostic.Contains("resync-send-start"),
-                "resync diagnosis is observed in the test mod through the optional bridge");
         }
 
         private static void TestFriendlyMoatCursorIdGuard()
@@ -423,106 +414,6 @@ namespace BugfixesAndQoL
                   moatCursor.IndexOf("unitId <= 0", StringComparison.Ordinal) <
                   moatCursor.IndexOf("TryGetUnitById", StringComparison.Ordinal),
                 "friendly-moat cursor rejects non-positive IDs before ID API lookups");
-        }
-
-        private static void TestResyncDiagnosticHistory()
-        {
-            byte[] firstPayload = { 54, 0xAA, 0xBB };
-            byte[] secondPayload = { 67, 0xCC };
-            byte[] ordered = BuildChoreBuffer(
-                BuildChoreRecord(2, firstPayload),
-                BuildChoreRecord(5, secondPayload));
-            string description = ResyncDiagnosticHistory.DescribeBuffer(
-                ordered,
-                403,
-                out bool containsStart,
-                out bool containsEnd);
-            Check(containsStart && containsEnd &&
-                  description.IndexOf("target=2,opcode=54,length=3", StringComparison.Ordinal) >= 0 &&
-                  description.IndexOf("target=5,opcode=67,length=2", StringComparison.Ordinal) >
-                  description.IndexOf("target=2,opcode=54,length=3", StringComparison.Ordinal) &&
-                  description.IndexOf("payload=36AABB", StringComparison.Ordinal) >= 0 &&
-                  description.IndexOf("sha256=", StringComparison.Ordinal) >= 0,
-                "resync Chore diagnostics preserve record order, target, opcode, length, hash and payload");
-
-            byte[] longPayload = Enumerable.Range(0, 80).Select(value => (byte)value).ToArray();
-            string bounded = ResyncDiagnosticHistory.DescribeBuffer(
-                BuildChoreRecord(1, longPayload),
-                404,
-                out _,
-                out _);
-            string expectedPrefix = BitConverter.ToString(longPayload, 0, 64).Replace("-", string.Empty) + "...";
-            Check(bounded.IndexOf("payload=" + expectedPrefix, StringComparison.Ordinal) >= 0,
-                "resync Chore diagnostics cap payload hex at 64 bytes");
-
-            string malformed = ResyncDiagnosticHistory.DescribeBuffer(
-                new byte[] { 4, 0, 0, 0, 1, 54 },
-                405,
-                out _,
-                out _);
-            Check(malformed.IndexOf("malformed=", StringComparison.Ordinal) >= 0,
-                "resync Chore diagnostics reject truncated records without throwing");
-
-            var history = new ResyncDiagnosticHistory();
-            for (int tick = 0; tick < 35; tick++)
-                history.AddBuffer(BuildChoreRecord(1, new byte[] { 1 }), tick, out _, out _);
-            string[] retained = history.GetBuffers();
-            history.AddBuffer(BuildChoreRecord(1, new byte[] { 2 }), 36, out _, out _);
-            Check(retained.Length == 35 && retained[0].StartsWith("tick=0,", StringComparison.Ordinal) &&
-                  retained[34].StartsWith("tick=34,", StringComparison.Ordinal),
-                "resync Chore history returns an immutable copy during later events");
-            string terminated = ResyncDiagnosticHistory.DescribeBuffer(
-                BuildChoreBuffer(BuildChoreRecord(1, new byte[] { 54 }), BitConverter.GetBytes(-1)),
-                406, out _, out _);
-            Check(terminated.Contains("terminator=-1") && !terminated.Contains("malformed="),
-                "normal -1 Chore terminator is not classified as malformed");
-            string paddedTerminator = ResyncDiagnosticHistory.DescribeBuffer(
-                BuildChoreBuffer(BuildChoreRecord(1, new byte[] { 54 }),
-                    BitConverter.GetBytes(-2), new byte[] { 9, 8, 7 }),
-                407, out bool paddedStart, out _);
-            Check(paddedStart && paddedTerminator.Contains("terminator=-2") &&
-                  paddedTerminator.Contains("ignoredTrailingBytes=3") &&
-                  !paddedTerminator.Contains("malformed="),
-                "negative Chore terminator ignores subsequent buffer bytes like Vanilla");
-            Check(SurrenderTracePolicy.MapRestarted(101, 0) &&
-                  !SurrenderTracePolicy.MapRestarted(101, 101) &&
-                  !SurrenderTracePolicy.MapRestarted(101, 102),
-                "map reset follows map ticks rather than independent director ticks");
-            Check(SurrenderTracePolicy.IsSurrenderLord(2, 97, 465672, 2, 97, 465672) &&
-                  SurrenderTracePolicy.IsSurrenderLord(2, 97, 465672, 2, 88, 465672) &&
-                  !SurrenderTracePolicy.IsSurrenderLord(2, 97, 465672, 3, 97, 465672) &&
-                  !SurrenderTracePolicy.IsSurrenderLord(-1, -1, -1, 2, -1, -1),
-                "surrender death classification uses player and Lord identity without tick distance");
-            Check(SurrenderTracePolicy.FirstResyncFinished(true, true, false) &&
-                  !SurrenderTracePolicy.FirstResyncFinished(false, true, false) &&
-                  !SurrenderTracePolicy.FirstResyncFinished(true, false, true),
-                "capture ends only when the first observed resync returns to idle");
-
-            history.Reset();
-            Check(history.GetBuffers().Length == 0,
-                "map reset clears resync diagnostic buffers");
-        }
-
-        private static byte[] BuildChoreRecord(byte targetPlayerId, byte[] payload)
-        {
-            byte[] record = new byte[5 + payload.Length];
-            BitConverter.GetBytes(payload.Length).CopyTo(record, 0);
-            record[4] = targetPlayerId;
-            Buffer.BlockCopy(payload, 0, record, 5, payload.Length);
-            return record;
-        }
-
-        private static byte[] BuildChoreBuffer(params byte[][] records)
-        {
-            int length = records.Sum(record => record.Length);
-            byte[] buffer = new byte[length];
-            int offset = 0;
-            foreach (byte[] record in records)
-            {
-                Buffer.BlockCopy(record, 0, buffer, offset, record.Length);
-                offset += record.Length;
-            }
-            return buffer;
         }
 
         private static void TestMovementLoggingState()
@@ -577,6 +468,80 @@ namespace BugfixesAndQoL
                 "siege-ammunition Chore logging is not marshalled away from the simulation callback");
             Check(project.Contains("Shared\\UnityMainThreadDispatch.cs"),
                 "BugfixesAndQoL does not source-link the validated main-thread dispatcher");
+        }
+
+        private static unsafe void TestSurrenderSelectionCleanup()
+        {
+            Check(Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_UnitSelected)).ToInt32() == 0xAE,
+                "surrender selection field remains at the audited Vanilla checksum offset");
+
+            GameUnit unit = default;
+            unit.r_GlobalId = 1356740;
+            unit.r_ControllableForPlayerId = 2;
+            unit.r_UnitChimp = eChimps.CHIMP_TYPE_LORD;
+            unit.r_UnitSelected = 2;
+            uint count = 3;
+            SurrenderSelectionCleanupResult result = SurrenderSelectionCleanup.Clear(&unit, &count, 1356740, 2);
+            Check(result.Status == SurrenderSelectionCleanupStatus.Cleared &&
+                  result.SelectedBefore == 2 && unit.r_UnitSelected == 0 && count == 2,
+                "selected surrendered Lord is deselected and only its count is removed");
+
+            result = SurrenderSelectionCleanup.Clear(&unit, &count, 1356740, 2);
+            Check(result.Status == SurrenderSelectionCleanupStatus.AlreadyClear && count == 2,
+                "duplicate cleanup does not decrement the count twice");
+
+            unit.r_UnitSelected = 2;
+            count = 0;
+            unit.r_ControllableForPlayerId = 0; // death cleanup may reset the owner before final deletion
+            result = SurrenderSelectionCleanup.Clear(&unit, &count, 1356740, 2);
+            Check(result.Status == SurrenderSelectionCleanupStatus.ClearedWithEmptyCount &&
+                  unit.r_UnitSelected == 0 && count == 0,
+                "stale selection is cleared without underflowing an empty native count");
+
+            unit.r_UnitSelected = 2;
+            count = 1;
+            result = SurrenderSelectionCleanup.Clear(&unit, &count, 1356739, 2);
+            Check(result.Status == SurrenderSelectionCleanupStatus.IdentityChanged &&
+                  unit.r_UnitSelected == 2 && count == 1,
+                "reused Lord slot cannot be changed using an old global identity");
+
+            unit.r_UnitSelected = 1;
+            result = SurrenderSelectionCleanup.Clear(&unit, &count, 1356740, 2);
+            Check(result.Status == SurrenderSelectionCleanupStatus.UnexpectedSelector &&
+                  unit.r_UnitSelected == 1 && count == 1,
+                "unexpected selection owner is logged without guessing which count to change");
+
+            GameUnit second = default;
+            second.r_GlobalId = 1356738;
+            second.r_ControllableForPlayerId = 1;
+            second.r_UnitChimp = eChimps.CHIMP_TYPE_LORD;
+            second.r_UnitSelected = 1;
+            uint secondCount = 1;
+            result = SurrenderSelectionCleanup.Clear(&second, &secondCount, 1356738, 1);
+            Check(result.Status == SurrenderSelectionCleanupStatus.Cleared &&
+                  second.r_UnitSelected == 0 && secondCount == 0 && unit.r_UnitSelected == 1,
+                "a second Surrender on the same map cleans only its own Lord");
+
+            string feature = File.ReadAllText(Path.Combine("src", "SurrenderFeature.cs"));
+            string singleplayer = feature.Substring(
+                feature.IndexOf("private void ConfirmSurrender(", StringComparison.Ordinal),
+                feature.IndexOf("private void CancelSurrender(", StringComparison.Ordinal) -
+                feature.IndexOf("private void ConfirmSurrender(", StringComparison.Ordinal));
+            string multiplayer = feature.Substring(
+                feature.IndexOf("private void OnExecutionReceived(", StringComparison.Ordinal),
+                feature.IndexOf("private void LogPacketInfo(", StringComparison.Ordinal) -
+                feature.IndexOf("private void OnExecutionReceived(", StringComparison.Ordinal));
+            Check(singleplayer.IndexOf("KillUnit(lord.UnitId);", StringComparison.Ordinal) <
+                  singleplayer.IndexOf("ClearSurrenderLordSelection(lord.PlayerId", StringComparison.Ordinal) &&
+                  multiplayer.IndexOf("KillUnit(resolvedUnitId);", StringComparison.Ordinal) <
+                  multiplayer.IndexOf("ClearSurrenderLordSelection(packet.PlayerId", StringComparison.Ordinal) &&
+                  !feature.Substring(feature.IndexOf("private void CancelSurrender(", StringComparison.Ordinal),
+                      feature.IndexOf("private void OnRequestReceived(", StringComparison.Ordinal) -
+                      feature.IndexOf("private void CancelSurrender(", StringComparison.Ordinal))
+                      .Contains("ClearSurrenderLordSelection") &&
+                  feature.Contains("GamePlayerManagerAPI.Instance.GetLocalPlayerId() != playerId") &&
+                  feature.Contains("SetSelectedChimps(new List<int>())"),
+                "both Surrender paths clean selection after the single kill; cancellation does not and HUD clearing stays local");
         }
 
         private static void TestSurrenderGameOverPolicy()
@@ -2666,6 +2631,40 @@ namespace BugfixesAndQoL
             string source = File.ReadAllText(Path.Combine(
                 "src", "MultiplayerLobbyReturnFeature.cs"));
 
+            FieldInfo callbackField = typeof(Platform_Multiplayer).GetField(
+                "LobbyChatDelegate", BindingFlags.Instance | BindingFlags.NonPublic);
+            Check(callbackField != null &&
+                  callbackField.FieldType == typeof(Action<string, string, int>),
+                "installed Vanilla lobby chat callback keeps the expected private signature");
+            if (callbackField != null &&
+                callbackField.FieldType == typeof(Action<string, string, int>))
+            {
+                var lobby = (Platform_Multiplayer)FormatterServices.GetUninitializedObject(
+                    typeof(Platform_Multiplayer));
+                int deliveries = 0;
+                Action<string, string, int> original = (_, __, ___) => deliveries++;
+                callbackField.SetValue(lobby, original);
+                Action<string, string, int> preserved =
+                    MultiplayerLobbyChatCallback.Capture(lobby);
+                preserved("host", "message", 1);
+                Check(ReferenceEquals(preserved, original) && deliveries == 1 &&
+                      MultiplayerLobbyChatCallback.IsInstalled(lobby, preserved),
+                    "host lobby return retains the original working chat callback");
+
+                Action<string, string, int> replacement = (_, __, ___) => deliveries += 10;
+                callbackField.SetValue(lobby, replacement);
+                Check(!MultiplayerLobbyChatCallback.IsInstalled(lobby, preserved) &&
+                      ReferenceEquals(MultiplayerLobbyChatCallback.Capture(lobby), replacement),
+                    "a later lobby callback replacement is detected across return cycles");
+
+                callbackField.SetValue(lobby, null);
+                bool missingRejected = false;
+                try { MultiplayerLobbyChatCallback.Capture(lobby); }
+                catch (InvalidOperationException) { missingRejected = true; }
+                Check(missingRejected,
+                    "host lobby creation fails before replacement when the chat callback is missing");
+            }
+
             Check(
                 source.Contains("LobbySnapshot transitionSnapshot = snapshot;") &&
                     source.Contains("bool transitionAsHost = transitionHostLobby != null && transitionHostLobby.isHost;") &&
@@ -2678,6 +2677,16 @@ namespace BugfixesAndQoL
                     source.Contains("if (transitionSnapshot == null)") &&
                     !source.Contains("RestoreHostMapPresentation(FRONT_Multiplayer front)"),
                 "post-game host transition preserves map metadata and role across the synchronous mission-end reset");
+            int captureIndex = source.IndexOf("MultiplayerLobbyChatCallback.Capture(multiplayer)",
+                StringComparison.Ordinal);
+            int createIndex = source.IndexOf("multiplayer.CreateLobby(", StringComparison.Ordinal);
+            Check(captureIndex >= 0 && createIndex > captureIndex &&
+                  source.Contains("MultiplayerLobbyChatCallback.IsInstalled(multiplayer, chatCallback)") &&
+                  source.Contains("JoinClientLobby(multiplayer, lobbyId);") &&
+                  source.Contains("if (creationFailed)" + Environment.NewLine +
+                      "                return false;") &&
+                  !source.Contains("(_, __, ___) => { }"),
+                "host chat and failed handoffs are guarded while client return keeps Vanilla invite flow");
         }
 
         private static void TestCoopCustomLordSelectionPolicy()

@@ -24,7 +24,7 @@ internal static class Program
             ("maps player to keep slot", MapsPlayerToKeepSlot),
             ("maps lobby rotation values to native degrees", MapsLobbyRotationValues),
             ("counts elevated moat exposure independently of fit", CountsElevatedMoatExposure),
-            ("gates build notices on final selection and build-time evidence", GatesBuildNotices),
+            ("gates map-height notices on patch state and projected rotations", GatesBuildNotices),
             ("deducts shared fixed cells once without double-counting native blocks", ScoresGeometricOverlaps),
             ("presents practice percentages before uncertain Vanilla fits", PresentsGeometricPractice),
             ("resolves Vanilla map-facing start rotations", ResolvesMapFacingRotations),
@@ -3363,6 +3363,24 @@ internal static class Program
                 "drawbridge height 12 is not high");
             Assert(bridgeFit.Status == evaluator.Evaluate(bridgeMap, drawbridge).Status,
                 "drawbridge height 13 does not change native fit status");
+
+            var bothBlueprint = new AivBlueprint(
+                "moat and drawbridge height", 5,
+                [new AivBuildFrame(0, 106, AivMapperCatalog.Resolve(106), false,
+                    [new AivGridPoint(50, 50)]),
+                 new AivBuildFrame(1, 105, AivMapperCatalog.Resolve(105), false,
+                    [new AivGridPoint(55, 55)])],
+                Array.Empty<AivMiscPlacement>(), new AivGridPoint(50, 50));
+            AivProjectedCastle both = projector.Project(
+                bothBlueprint, new MapCoordinate(400, 400), rotation);
+            var bothMap = new SparsePlacementMap();
+            bothMap.Set(both.Elements[0].MapCoordinate,
+                new AivPlacementTileEvidence(0, 0, 13, 13, 0, 0, 0, 0));
+            bothMap.Set(both.Elements[1].OccupiedTiles[0].MapCoordinate,
+                new AivPlacementTileEvidence(0, 0, 13, 13, 0, 0, 0, 0));
+            Assert(MoatBuildExposure.Count(bothMap, both) > 0 &&
+                   MoatBuildExposure.CountDrawbridge(bothMap, both) > 0,
+                "both construction types are exposed independently at every rotation");
         }
     }
 
@@ -3465,49 +3483,18 @@ internal static class Program
 
     private static void GatesBuildNotices()
     {
-        var blueprint = new AivBlueprint("notice", 1,
-            [new AivBuildFrame(0, 106, AivMapperCatalog.Resolve(106), false,
-                [new AivGridPoint(50, 50)])],
-            Array.Empty<AivMiscPlacement>(), new AivGridPoint(50, 50));
-        AivPlacementRotationSelection selection = null;
-        foreach (AivRotation initialRotation in new[]
-        {
-            AivRotation.Degrees0, AivRotation.Degrees90,
-            AivRotation.Degrees180, AivRotation.Degrees270
-        })
-        {
-            selection = new AivPlacementEvaluator().EvaluateAllRotations(
-                new SparsePlacementMap(), blueprint,
-                new MapCoordinate(400, 400), initialRotation);
-            var fits = Enumerable.Range(0, 4).Select(rotation =>
-                new NativeAivAutoFit(rotation == 0
-                    ? AivPlacementStatus.Complete : AivPlacementStatus.Impossible,
-                    rotation == 0 ? 999999 : 0,
-                    rotation == 0 ? 100 : 0)).ToArray();
-            NativeAivAutoDecision decision = NativeAivAutoSelector.SelectCertain(
-                [new NativeAivAutoCandidate(7, fits)]);
-            Assert(decision.IsCertain && decision.RotationIndex == 0,
-                "native final rotation must be certain in the single-fit case");
-            var elevated = new int[4];
-            var proven = new bool[4];
-            elevated[0] = 1;
-            proven[0] = true;
-            Assert(AivBuildNoticePolicy.HasProvenHighBuildExposure(7, selection,
-                decision, true, proven, elevated), "selected proven high tile should warn");
-            Assert(!AivBuildNoticePolicy.HasProvenHighBuildExposure(7, selection,
-                decision, false, proven, elevated), "active or unknown AI patch must suppress warning");
-            Assert(!AivBuildNoticePolicy.HasProvenHighBuildExposure(8, selection,
-                decision, true, proven, elevated), "other candidate must not warn");
-            elevated[0] = 0;
-            elevated[1] = 1;
-            proven[1] = true;
-            Assert(!AivBuildNoticePolicy.HasProvenHighBuildExposure(7, selection,
-                decision, true, proven, elevated), "another rotation's height must not warn");
-            elevated[0] = 1;
-            proven[0] = false;
-            Assert(!AivBuildNoticePolicy.HasProvenHighBuildExposure(7, selection,
-                decision, true, proven, elevated), "initial map height alone must not warn");
-        }
+        Equal("0,2", string.Join(",", AivBuildNoticePolicy.GetHighMapRotations(
+            true, [1, 0, 1, 0])));
+        Equal("", string.Join(",", AivBuildNoticePolicy.GetHighMapRotations(
+            true, [0, 0, 0, 0])));
+        Equal("", string.Join(",", AivBuildNoticePolicy.GetHighMapRotations(
+            false, [1, 1, 1, 1])));
+        Equal("", string.Join(",", AivBuildNoticePolicy.GetHighMapRotations(
+            false, null)));
+        // The map-height gate does not depend on a certain Vanilla selection or
+        // on whether a prior AI was pre-built (Completed Castles).
+        Equal("1,3", string.Join(",", AivBuildNoticePolicy.GetHighMapRotations(
+            true, [0, 1, 0, 1])));
 
         var ambiguous = NativeAivAutoSelector.SelectCertain(
             [new NativeAivAutoCandidate(7, Enumerable.Range(0, 4).Select(_ =>
@@ -3515,9 +3502,8 @@ internal static class Program
              new NativeAivAutoCandidate(8, Enumerable.Range(0, 4).Select(_ =>
                 new NativeAivAutoFit(AivPlacementStatus.Complete, 999999, 100)).ToArray())]);
         Assert(!ambiguous.IsCertain, "multiple candidates must remain ambiguous");
-        Assert(!AivBuildNoticePolicy.HasProvenHighBuildExposure(7, selection,
-            ambiguous, true, [true, true, true, true], [1, 1, 1, 1]),
-            "ambiguous auto selection must suppress height notice");
+        Equal("0,1,2,3", string.Join(",", AivBuildNoticePolicy.GetHighMapRotations(
+            true, [1, 1, 1, 1])));
 
         IReadOnlyList<NativeAivAutoDecision> possible = NativeAivAutoSelector.SelectPossible(
             [new NativeAivAutoCandidate(7, Enumerable.Range(0, 4).Select(_ =>

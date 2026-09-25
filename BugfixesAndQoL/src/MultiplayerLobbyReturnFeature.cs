@@ -116,6 +116,8 @@ namespace BugfixesAndQoL
 
             try
             {
+                Action<string, string, int> chatCallback =
+                    MultiplayerLobbyChatCallback.Capture(multiplayer);
                 Shared.DebugLogHelper.LogInfo(
                     log,
                     $"Creating post-game lobby: trigger={trigger}, name='{snapshot.GameName}', map='{snapshot.MapFileName}', maxPlayers={snapshot.MaxPlayers}, lobbyMode={snapshot.LobbyMode}.");
@@ -129,9 +131,15 @@ namespace BugfixesAndQoL
                     snapshot.Settings,
                     snapshot.Crc,
                     OnHostLobbyCreated,
-                    (_, __, ___) => { },
+                    chatCallback,
                     -1,
                     clearGameMembers: false);
+                if (!MultiplayerLobbyChatCallback.IsInstalled(multiplayer, chatCallback))
+                    throw new InvalidOperationException(
+                        "The replacement multiplayer lobby did not retain its chat callback.");
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    "Post-game host lobby chat callback preserved and verified after CreateLobby.");
                 ApplySnapshotToPendingLobby(multiplayer.activeLobby, snapshot);
                 return true;
             }
@@ -140,7 +148,7 @@ namespace BugfixesAndQoL
                 creationFailed = true;
                 Shared.DebugLogHelper.LogError(
                     log,
-                    $"Post-game lobby creation failed before Steam accepted the request; Vanilla exit remains available: {ex}");
+                    $"Post-game lobby creation or validation failed; Vanilla exit remains available: {ex}");
                 return false;
             }
         }
@@ -337,6 +345,9 @@ namespace BugfixesAndQoL
 
         private bool TryTransitionToLobby()
         {
+            if (creationFailed)
+                return false;
+
             Platform_Multiplayer multiplayer = Platform_Multiplayer.Instance;
             Platform_Multiplayer.MPLobby transitionHostLobby = hostLobby;
             LobbySnapshot transitionSnapshot = snapshot;

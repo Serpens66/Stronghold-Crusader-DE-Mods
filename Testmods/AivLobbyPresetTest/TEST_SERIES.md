@@ -1,5 +1,10 @@
 # AIV-Diagnoseserie
 
+Historische Pfade unter `Findings/AIVPlacement/AivSeries-20260924/` sind
+innerhalb von `Findings/AIVPlacement/EVIDENCE.zip` erhalten. Der aktuelle
+Überblick steht in `Findings/AIVPlacement/EXPERIMENTS.md`; die ursprüngliche
+Struktur lässt sich mit `Restore-Evidence.ps1` wiederherstellen.
+
 Die Datei `AivLobbyTestSeries.json` enthält zehn vorbereitete Kartenstarts.
 Der Testmod kopiert sie beim ersten Start nach `BepInEx/config/AivLobbyTestSeries.json`.
 Diese Konfigurationsdatei ist editierbar. Jeder Lauf enthält genau einen
@@ -33,7 +38,7 @@ Der Detector schreibt unabhängig von der vorgegebenen Spieler-ID für jeden
 aufgenommenen Fall native Auswahl, Fit und gegebenenfalls Bau-Differenzen.
 
 Die erste Serie wurde am 24.09.2026 vollständig aufgenommen (`nextIndex=10`,
-letzter Lauf `CC-B-on`). Der [Auswertungsbericht](../../Findings/AIVPlacement/AivSeries-20260924/RESULTS.md)
+letzter Lauf `CC-B-on`). Der [Auswertungsbericht](../../Findings/AIVPlacement/EXPERIMENTS.md)
 archiviert die Oracle-Korpora und Roh-Traces. Drei Offline-Abweichungen auf
 Craggy Cliffs betreffen die Rekonstruktion benachbarter Startgebäude.
 Weitere Starts mit unverändertem Mod sind zunächst nicht nötig; vor einer

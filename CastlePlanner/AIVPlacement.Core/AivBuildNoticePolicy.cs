@@ -5,27 +5,17 @@ namespace CastlePlanner.AIVPlacement.Core
 {
     public static class AivBuildNoticePolicy
     {
-        public static bool HasProvenHighBuildExposure(
-            int candidateId,
-            AivPlacementRotationSelection selection,
-            NativeAivAutoDecision autoDecision,
+        public static IReadOnlyList<int> GetHighMapRotations(
             bool aiHeightPatchProvenDisabled,
-            IReadOnlyList<bool> buildTimeHeightProvenByRotation,
             IReadOnlyList<int> elevatedTilesByRotation)
         {
-            if (!aiHeightPatchProvenDisabled || selection == null ||
-                buildTimeHeightProvenByRotation == null || elevatedTilesByRotation == null ||
-                autoDecision?.IsCertain != true ||
-                autoDecision.CandidateId != candidateId)
-                return false;
-            int rotation = autoDecision.RotationIndex;
-            return rotation >= 0 && rotation < selection.Variants.Count &&
-                rotation < buildTimeHeightProvenByRotation.Count &&
-                rotation < elevatedTilesByRotation.Count &&
-                buildTimeHeightProvenByRotation[rotation] &&
-                elevatedTilesByRotation[rotation] > 0 &&
-                selection.Variants[rotation].Status != AivPlacementStatus.Impossible &&
-                selection.Variants[rotation].Status != AivPlacementStatus.NotEvaluable;
+            if (!aiHeightPatchProvenDisabled || elevatedTilesByRotation == null)
+                return System.Array.Empty<int>();
+            var affected = new List<int>();
+            for (int index = 0; index < elevatedTilesByRotation.Count; index++)
+                if (elevatedTilesByRotation[index] > 0)
+                    affected.Add(index);
+            return affected;
         }
 
         public static bool HasPossiblePriorKeepContact(

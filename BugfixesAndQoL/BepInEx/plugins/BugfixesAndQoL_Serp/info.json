@@ -3,13 +3,19 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.164",
+  "Version": "1.0.165",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.10.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.165",
+      "Changes": [
+        "Fixed a multiplayer Surrender desync caused by a defeated Lord remaining selected through Vanilla's next checksum."
+      ]
+    },
     {
       "Version": "1.0.164",
       "Changes": [

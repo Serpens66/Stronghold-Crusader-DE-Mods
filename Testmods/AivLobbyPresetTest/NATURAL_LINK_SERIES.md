@@ -1,5 +1,9 @@
 # Gezielte AIV-Serie: natürliche verbundene Baugruppen
 
+Dieser Testplan ist historisch. Seine Findings-Pfade bezeichnen Einträge in
+`Findings/AIVPlacement/EVIDENCE.zip`; der zusammengefasste Befund steht in
+`Findings/AIVPlacement/EXPERIMENTS.md`.
+
 Status: **am 24.09.2026 für den Spieltest installiert**. Beide
 Diagnoseplugins liegen wieder unter `BepInEx/plugins`; die bisherigen
 Rohtraces bleiben in `C:\Users\Serpens66\Desktop\Neuer Ordner`.

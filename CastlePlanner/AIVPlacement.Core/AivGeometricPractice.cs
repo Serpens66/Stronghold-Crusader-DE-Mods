@@ -38,19 +38,28 @@ namespace CastlePlanner.AIVPlacement.Core
     {
         internal AivPracticeCandidate(int candidateId, IReadOnlyList<AivPracticeRotation> rotations,
             AivPlacementStatus status, string reason,
-            IReadOnlyList<int> relevantRotationIndexes = null)
+            IReadOnlyList<int> relevantRotationIndexes = null,
+            IReadOnlyList<AivRotation> projectedRotations = null,
+            IReadOnlyList<int> elevatedMoatTilesByRotation = null,
+            IReadOnlyList<int> elevatedDrawbridgeTilesByRotation = null)
         {
             CandidateId = candidateId;
             Rotations = rotations;
             Status = status;
             Reason = reason ?? string.Empty;
             RelevantRotationIndexes = relevantRotationIndexes ?? Array.Empty<int>();
+            ProjectedRotations = projectedRotations ?? Array.Empty<AivRotation>();
+            ElevatedMoatTilesByRotation = elevatedMoatTilesByRotation ?? Array.Empty<int>();
+            ElevatedDrawbridgeTilesByRotation = elevatedDrawbridgeTilesByRotation ?? Array.Empty<int>();
         }
         public int CandidateId { get; }
         public IReadOnlyList<AivPracticeRotation> Rotations { get; }
         public AivPlacementStatus Status { get; }
         public string Reason { get; }
         public IReadOnlyList<int> RelevantRotationIndexes { get; }
+        public IReadOnlyList<AivRotation> ProjectedRotations { get; }
+        public IReadOnlyList<int> ElevatedMoatTilesByRotation { get; }
+        public IReadOnlyList<int> ElevatedDrawbridgeTilesByRotation { get; }
     }
 
     public sealed class AivPracticeBatch
@@ -113,8 +122,12 @@ namespace CastlePlanner.AIVPlacement.Core
             internal readonly HashSet<int> All = new HashSet<int>();
             internal readonly HashSet<int> Blocked = new HashSet<int>();
             internal AivPlacementResult Base;
+            internal AivRotation Rotation;
+            internal bool HasKnownGeometry;
             internal bool IsEstimate;
             internal bool IsValid;
+            internal int ElevatedMoatTiles;
+            internal int ElevatedDrawbridgeTiles;
         }
 
         // Public pure entry point so the overlap and deduplication rules can be tested without Unity.
@@ -206,10 +219,17 @@ namespace CastlePlanner.AIVPlacement.Core
                                 anchor.Coordinate.Value, rotation);
                             var plan = new Plan();
                             variants[index] = plan;
-                            plan.IsValid = castle.Elements.All(element =>
+                            plan.Rotation = rotation;
+                            plan.HasKnownGeometry = castle.Elements.All(element =>
                                 element.Mapper != null && element.Mapper.Category != AivItemCategory.Unknown &&
                                 element.OccupiedTiles.Any(tile =>
                                     tile.Kind == AivProjectedTileKind.CoreFootprint));
+                            plan.IsValid = plan.HasKnownGeometry;
+                            if (plan.HasKnownGeometry)
+                            {
+                                plan.ElevatedMoatTiles = MoatBuildExposure.Count(baseline, castle);
+                                plan.ElevatedDrawbridgeTiles = MoatBuildExposure.CountDrawbridge(baseline, castle);
+                            }
                             if (plan.IsValid)
                             foreach (AivProjectedElement element in castle.Elements)
                             foreach (AivProjectedTile tile in element.OccupiedTiles)
@@ -265,6 +285,13 @@ namespace CastlePlanner.AIVPlacement.Core
                 foreach (AivPlacementCandidateRequest candidate in request.Candidates)
                 {
                     Plan[] own = plans[request.PlayerId][candidate.CandidateId];
+                    AivRotation[] projectedRotations = own.All(value => value?.HasKnownGeometry == true)
+                        ? own.Select(value => value.Rotation).ToArray()
+                        : Array.Empty<AivRotation>();
+                    int[] elevatedMoat = projectedRotations.Length == 0
+                        ? Array.Empty<int>() : own.Select(value => value.ElevatedMoatTiles).ToArray();
+                    int[] elevatedDrawbridge = projectedRotations.Length == 0
+                        ? Array.Empty<int>() : own.Select(value => value.ElevatedDrawbridgeTiles).ToArray();
                     if (own.Any(value => value == null || !value.IsValid))
                     {
                         evaluations.Add(candidate.CandidateId, new AivPracticeCandidate(
@@ -323,7 +350,10 @@ namespace CastlePlanner.AIVPlacement.Core
                     {
                         evaluations.Add(candidate.CandidateId, new AivPracticeCandidate(
                             candidate.CandidateId, Array.Empty<AivPracticeRotation>(),
-                            AivPlacementStatus.NotEvaluable, "OtherFootprintUnknown"));
+                            AivPlacementStatus.NotEvaluable, "OtherFootprintUnknown",
+                            projectedRotations: projectedRotations,
+                            elevatedMoatTilesByRotation: elevatedMoat,
+                            elevatedDrawbridgeTilesByRotation: elevatedDrawbridge));
                         continue;
                     }
                     var scored = new List<AivPracticeRotation>(4);
@@ -358,7 +388,8 @@ namespace CastlePlanner.AIVPlacement.Core
                         minimum == 0 && maximum > 0 ? "MixedZeroAndPositive" : string.Empty,
                         selectedRotations.Count == 0
                             ? Enumerable.Range(0, own.Length).ToArray()
-                            : selectedRotations.OrderBy(value => value).ToArray()));
+                            : selectedRotations.OrderBy(value => value).ToArray(),
+                        projectedRotations, elevatedMoat, elevatedDrawbridge));
                 }
             }
             if (!mapStamp.Equals(LobbyFileStamp.Capture(batch.Requests[0].MapPath)))

@@ -467,7 +467,7 @@ namespace CastlePlanner.AIVPlacement
             NativeAivAutoDecision autoDecision,
             IReadOnlyList<NativeAivAutoDecision> possibleAuto = null)
         {
-            var notices = BuildNativeNotices(candidate, autoDecision, possibleAuto);
+            var notices = BuildNativeNotices(candidate, possibleAuto);
             string tooltip = string.Join(Environment.NewLine,
                 new[] { BuildVanillaFitLine(candidate) }
                     .Concat(notices)
@@ -504,36 +504,46 @@ namespace CastlePlanner.AIVPlacement
         }
 
         private static List<string> BuildNativeNotices(AivPlacementCandidateEvaluation candidate,
-            NativeAivAutoDecision autoDecision,
             IReadOnlyList<NativeAivAutoDecision> possibleAuto)
         {
             var notices = new List<string>();
             if (candidate == null)
                 return notices;
-            bool patchDisabled = ElevatedMoatAiCapability.Current == ElevatedMoatAiState.Disabled;
-            bool moat = AivBuildNoticePolicy.HasProvenHighBuildExposure(
-                candidate.CandidateId, candidate.Selection, autoDecision, patchDisabled,
-                candidate.BuildTimeHeightProvenByRotation,
-                candidate.ElevatedMoatTilesByRotation);
-            bool drawbridge = AivBuildNoticePolicy.HasProvenHighBuildExposure(
-                candidate.CandidateId, candidate.Selection, autoDecision, patchDisabled,
-                candidate.BuildTimeHeightProvenByRotation,
-                candidate.ElevatedDrawbridgeTilesByRotation);
-            if (moat || drawbridge)
-            {
-                string key = moat && drawbridge
-                    ? SerpLocalization.AivPlacementHighBothRisk
-                    : moat
-                        ? SerpLocalization.AivPlacementHighMoatRisk
-                        : SerpLocalization.AivPlacementHighDrawbridgeRisk;
-                notices.Add(SerpLocalization.Get(key));
-            }
-
             if (AivBuildNoticePolicy.HasPossiblePriorKeepContact(candidate.CandidateId,
                     possibleAuto, candidate.PotentialPriorKeepRemovalByRotation))
                 notices.Add(SerpLocalization.Get(SerpLocalization.AivPlacementPriorKeepRisk));
             return notices;
         }
+
+        private static List<string> BuildMapHeightNotices(AivPracticeCandidate practice)
+        {
+            var notices = new List<string>();
+            if (ElevatedMoatAiCapability.Current != ElevatedMoatAiState.Disabled ||
+                practice.ProjectedRotations.Count != 4)
+                return notices;
+            IReadOnlyList<int> moat = AivBuildNoticePolicy.GetHighMapRotations(true,
+                practice.ElevatedMoatTilesByRotation);
+            IReadOnlyList<int> drawbridge = AivBuildNoticePolicy.GetHighMapRotations(true,
+                practice.ElevatedDrawbridgeTilesByRotation);
+            if (moat.Count != 0 && moat.SequenceEqual(drawbridge))
+                notices.Add(SerpLocalization.Get(SerpLocalization.AivPlacementHighBothRisk,
+                    "Rotations", FormatMapHeightRotations(practice, moat)));
+            else
+            {
+                if (moat.Count != 0)
+                    notices.Add(SerpLocalization.Get(SerpLocalization.AivPlacementHighMoatRisk,
+                        "Rotations", FormatMapHeightRotations(practice, moat)));
+                if (drawbridge.Count != 0)
+                    notices.Add(SerpLocalization.Get(SerpLocalization.AivPlacementHighDrawbridgeRisk,
+                        "Rotations", FormatMapHeightRotations(practice, drawbridge)));
+            }
+            return notices;
+        }
+
+        private static string FormatMapHeightRotations(AivPracticeCandidate practice,
+            IReadOnlyList<int> indexes) => string.Join(", ", indexes
+                .Where(index => index >= 0 && index < practice.ProjectedRotations.Count)
+                .Select(index => FormatRotation((int)practice.ProjectedRotations[index])));
 
         private static string BuildAutoLine(AivPlacementCandidateEvaluation candidate,
             NativeAivAutoDecision autoDecision)
@@ -620,7 +630,8 @@ namespace CastlePlanner.AIVPlacement
                 vanilla = SerpLocalization.Get(SerpLocalization.AivPlacementVanillaFit,
                     "Result", SerpLocalization.Get(SerpLocalization.AivPlacementPreBuildShort));
             var notices = candidate == null
-                ? new List<string>() : BuildNativeNotices(candidate, autoDecision, possibleAuto);
+                ? new List<string>() : BuildNativeNotices(candidate, possibleAuto);
+            notices.InsertRange(0, BuildMapHeightNotices(practice));
             if (practice.Rotations.Any(rotation => rotation.SoftOverlap))
                 notices.Add(SerpLocalization.Get(SerpLocalization.AivPlacementSoftOverlap));
             if (!string.IsNullOrEmpty(practice.Reason))

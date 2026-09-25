@@ -87,7 +87,6 @@ namespace CastlePlanner.AIVPlacement.Core
             IReadOnlyList<int> elevatedMoatTilesByRotation = null,
             IReadOnlyList<int> elevatedDrawbridgeTilesByRotation = null,
             IReadOnlyList<bool> potentialPriorKeepRemovalByRotation = null,
-            IReadOnlyList<bool> buildTimeHeightProvenByRotation = null,
             IReadOnlyList<IReadOnlyList<int>> plannedCoreTilesByRotation = null)
         {
             Selection = selection;
@@ -103,9 +102,6 @@ namespace CastlePlanner.AIVPlacement.Core
             PotentialPriorKeepRemovalByRotation = potentialPriorKeepRemovalByRotation == null
                 ? Array.Empty<bool>()
                 : new ReadOnlyCollection<bool>(potentialPriorKeepRemovalByRotation.ToArray());
-            BuildTimeHeightProvenByRotation = buildTimeHeightProvenByRotation == null
-                ? Array.Empty<bool>()
-                : new ReadOnlyCollection<bool>(buildTimeHeightProvenByRotation.ToArray());
             PlannedCoreTilesByRotation = plannedCoreTilesByRotation == null
                 ? Array.Empty<IReadOnlyList<int>>()
                 : new ReadOnlyCollection<IReadOnlyList<int>>(plannedCoreTilesByRotation
@@ -121,8 +117,6 @@ namespace CastlePlanner.AIVPlacement.Core
         public IReadOnlyList<int> ElevatedMoatTilesByRotation { get; }
         public IReadOnlyList<int> ElevatedDrawbridgeTilesByRotation { get; }
         public IReadOnlyList<bool> PotentialPriorKeepRemovalByRotation { get; }
-        // Original map height is not proof of height at the later native build frame.
-        public IReadOnlyList<bool> BuildTimeHeightProvenByRotation { get; }
         public IReadOnlyList<IReadOnlyList<int>> PlannedCoreTilesByRotation { get; }
         public bool IsEvaluable => FailureKind == LobbyEvaluationFailureKind.None && Selection != null;
 
@@ -213,7 +207,6 @@ namespace CastlePlanner.AIVPlacement.Core
             ElevatedMoatTilesByRotation = workerResult.ElevatedMoatTilesByRotation;
             ElevatedDrawbridgeTilesByRotation = workerResult.ElevatedDrawbridgeTilesByRotation;
             PotentialPriorKeepRemovalByRotation = workerResult.PotentialPriorKeepRemovalByRotation;
-            BuildTimeHeightProvenByRotation = workerResult.BuildTimeHeightProvenByRotation;
             PlannedCoreTilesByRotation = workerResult.PlannedCoreTilesByRotation;
         }
 
@@ -228,7 +221,6 @@ namespace CastlePlanner.AIVPlacement.Core
         public IReadOnlyList<int> ElevatedMoatTilesByRotation { get; }
         public IReadOnlyList<int> ElevatedDrawbridgeTilesByRotation { get; }
         public IReadOnlyList<bool> PotentialPriorKeepRemovalByRotation { get; private set; }
-        public IReadOnlyList<bool> BuildTimeHeightProvenByRotation { get; }
         public IReadOnlyList<IReadOnlyList<int>> PlannedCoreTilesByRotation { get; }
 
         internal void MergePotentialPriorKeepRemoval(

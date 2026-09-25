@@ -48,7 +48,9 @@ The named source constants contain the complete authoritative byte patterns.
    map starts and deterministic per-player multiplayer spawning without any manual-spawn fallback.
 8. Update all RVAs before approving the new shared hash.
 
-Historical RVAs in `AICastlePlanner.md` belong to an older DLL and are not a
+Historical RVAs in the original `Findings/AICastlePlanner.md` report (preserved
+in the archive described by `Findings/AIVPlacement/HISTORY.md`) belong to an
+older DLL and are not a
 source for the current table without a new audit.
 
 ## Audit for Steam build 24651686

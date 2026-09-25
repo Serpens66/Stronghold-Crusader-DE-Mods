@@ -74,9 +74,8 @@
     <Compile Include="..\src\StartupUiReadinessGuardPolicy.cs"><Link>StartupUiReadinessGuardPolicy.cs</Link></Compile>
     <Compile Include="..\src\StartupUiReadinessGuardIlContract.cs"><Link>StartupUiReadinessGuardIlContract.cs</Link></Compile>
     <Compile Include="..\src\ResolutionAwareZoomPolicy.cs"><Link>ResolutionAwareZoomPolicy.cs</Link></Compile>
-    <Compile Include="..\..\TestMods\SurrenderDesyncDiagnostic\src\ResyncDiagnosticHistory.cs"><Link>ResyncDiagnosticHistory.cs</Link></Compile>
-    <Compile Include="..\..\TestMods\SurrenderDesyncDiagnostic\src\SurrenderTracePolicy.cs"><Link>SurrenderTracePolicy.cs</Link></Compile>
     <Compile Include="..\src\SurrenderPolicy.cs"><Link>SurrenderPolicy.cs</Link></Compile>
+    <Compile Include="..\src\SurrenderSelectionCleanup.cs"><Link>SurrenderSelectionCleanup.cs</Link></Compile>
     <Compile Include="..\src\LocalPerPlayerSetting.cs"><Link>LocalPerPlayerSetting.cs</Link></Compile>
     <Compile Include="..\src\NotificationQueueNativeContract.cs"><Link>NotificationQueueNativeContract.cs</Link></Compile>
     <Compile Include="..\src\NotificationSkipPolicy.cs"><Link>NotificationSkipPolicy.cs</Link></Compile>
@@ -87,6 +86,7 @@
     <Compile Include="..\src\AllyGoodsTransferPolicy.cs"><Link>AllyGoodsTransferPolicy.cs</Link></Compile>
     <Compile Include="..\src\PlacementCancelRightClickPolicy.cs"><Link>PlacementCancelRightClickPolicy.cs</Link></Compile>
     <Compile Include="..\src\MultiplayerGameSpeedPolicy.cs"><Link>MultiplayerGameSpeedPolicy.cs</Link></Compile>
+    <Compile Include="..\src\MultiplayerLobbyChatCallback.cs"><Link>MultiplayerLobbyChatCallback.cs</Link></Compile>
     <Compile Include="..\src\MultiplayerTimeControlRosterPolicy.cs"><Link>MultiplayerTimeControlRosterPolicy.cs</Link></Compile>
     <Compile Include="..\src\MultiplayerSafetyPolicy.cs"><Link>MultiplayerSafetyPolicy.cs</Link></Compile>
     <Compile Include="..\src\WorkshopUploadLordSelectionPolicy.cs"><Link>WorkshopUploadLordSelectionPolicy.cs</Link></Compile>

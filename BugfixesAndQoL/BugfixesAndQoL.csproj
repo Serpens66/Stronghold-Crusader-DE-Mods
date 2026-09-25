@@ -8,8 +8,8 @@
     <OutputType>Library</OutputType>
     <RootNamespace>BugfixesAndQoL</RootNamespace>
     <AssemblyName>BugfixesAndQoL</AssemblyName>
-    <AssemblyVersion>1.0.164.0</AssemblyVersion>
-    <FileVersion>1.0.164.0</FileVersion>
+    <AssemblyVersion>1.0.165.0</AssemblyVersion>
+    <FileVersion>1.0.165.0</FileVersion>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -136,6 +136,7 @@
     <Compile Include="src\WorkshopUploadLordSelectionFix.cs" />
     <Compile Include="src\WorkshopUploadLordSelectionPolicy.cs" />
     <Compile Include="src\MultiplayerLobbyReturnFeature.cs" />
+    <Compile Include="src\MultiplayerLobbyChatCallback.cs" />
     <Compile Include="src\MultiplayerLobbyReturnPolicy.cs" />
     <Compile Include="src\AssemblyPointPlacementPatch.cs" />
     <Compile Include="src\HealerAttackCommandFixNativeDefinition.cs" />
@@ -251,7 +252,6 @@
     <Compile Include="src\SynchronizedGatehouseReachabilityPolicy.cs" />
     <Compile Include="src\ResyncHostKickFeature.cs" />
     <Compile Include="src\ResyncHostKickPolicy.cs" />
-    <Compile Include="src\SurrenderDiagnosticBridge.cs" />
     <Compile Include="src\SelectedUnitHealthFeature.cs" />
     <Compile Include="src\SelectedUnitHealthSummary.cs" />
     <Compile Include="src\SiegeAmmoRestockFeature.cs" />
@@ -276,6 +276,7 @@
     <Compile Include="src\ShiftRepairAllBuildingsHook.cs" />
     <Compile Include="src\ShiftRepairAllBuildingsPolicy.cs" />
     <Compile Include="src\SurrenderFeature.cs" />
+    <Compile Include="src\SurrenderSelectionCleanup.cs" />
     <Compile Include="src\SurrenderPackets.cs" />
     <Compile Include="src\SurrenderPolicy.cs" />
     <Compile Include="src\TroopMovementFix3ModLog.cs" />

@@ -620,8 +620,6 @@ namespace BugfixesAndQoL
                 spectatorChoreExecutedPlayers[playerId] = true;
                 int localPlayerId = GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? -1;
                 int executionTick = GameTimeManagerAPI.Instance.GetElapsedMapTicks();
-                SurrenderDiagnosticBridge.PublishSpectator(
-                    activeSessionId, playerId, lordDeathSimulationTicks[playerId], executionTick, localPlayerId);
                 LogPacketInfo(
                     $"Eliminated-player spectator Chore executed: sessionId={activeSessionId}, playerId={playerId}, lordDeathTick={lordDeathSimulationTicks[playerId]}, executionTick={executionTick}, localPlayerId={localPlayerId}.");
 
@@ -682,11 +680,7 @@ namespace BugfixesAndQoL
                 return;
             }
 
-            SurrenderDiagnosticBridge.PublishSpectatorPhase("before-action", localPlayerId,
-                localPlayerId, SurrenderDiagnosticBridge.SafeMapTick());
             EngineInterface.GameAction(Enums.GameActionCommand.SpectatorMode, 0, 0);
-            SurrenderDiagnosticBridge.PublishSpectatorPhase("after-action", localPlayerId,
-                localPlayerId, SurrenderDiagnosticBridge.SafeMapTick());
             spectatorPromotionActivated = true;
             spectatorPromotionPlayerId = localPlayerId;
             spectatorPromotionGameMode = gameMode.ToDiagnosticString();
@@ -1521,13 +1515,8 @@ namespace BugfixesAndQoL
 
                 if (!realMultiplayer)
                 {
-                    SurrenderDiagnosticBridge.PublishSurrenderPhase("confirmed", lord.PlayerId,
-                        lord.UnitId, lord.GlobalId, SurrenderDiagnosticBridge.SafeMapTick());
-                    SurrenderDiagnosticBridge.PublishSurrenderPhase("before-kill", lord.PlayerId,
-                        lord.UnitId, lord.GlobalId, SurrenderDiagnosticBridge.SafeMapTick());
                     GameUnitManagerAPI.Instance.KillUnit(lord.UnitId);
-                    SurrenderDiagnosticBridge.PublishSurrenderPhase("after-kill", lord.PlayerId,
-                        lord.UnitId, lord.GlobalId, SurrenderDiagnosticBridge.SafeMapTick());
+                    ClearSurrenderLordSelection(lord.PlayerId, lord.UnitId, lord.GlobalId);
                     Shared.DebugLogHelper.LogInfo(log, $"Singleplayer surrender executed through lord death: playerId={lord.PlayerId}, unitId={lord.UnitId}, globalId={lord.GlobalId}.");
                     return;
                 }
@@ -1537,9 +1526,6 @@ namespace BugfixesAndQoL
                     Shared.DebugLogHelper.LogError(log, "Multiplayer surrender was rejected because the Chore transport is unavailable; no local kill was applied.");
                     return;
                 }
-
-                SurrenderDiagnosticBridge.PublishSurrenderPhase("confirmed", lord.PlayerId,
-                    lord.UnitId, lord.GlobalId, SurrenderDiagnosticBridge.SafeMapTick());
 
                 if (GameNetworkAPI.IsLocalHost())
                 {
@@ -1633,11 +1619,7 @@ namespace BugfixesAndQoL
                 }
 
                 if (TryQueueExecution(lord))
-                {
                     acceptedRequests.Add(requestKey);
-                    SurrenderDiagnosticBridge.PublishSurrenderPhase("host-request-accepted", lord.PlayerId,
-                        lord.UnitId, lord.GlobalId, SurrenderDiagnosticBridge.SafeMapTick());
-                }
             }
             catch (Exception ex)
             {
@@ -1680,14 +1662,8 @@ namespace BugfixesAndQoL
                     return;
                 }
 
-                SurrenderDiagnosticBridge.PublishSurrenderPhase("before-kill", packet.PlayerId,
-                    resolvedUnitId, lord.GlobalId, SurrenderDiagnosticBridge.SafeMapTick());
                 GameUnitManagerAPI.Instance.KillUnit(resolvedUnitId);
-                SurrenderDiagnosticBridge.PublishSurrenderPhase("after-kill", packet.PlayerId,
-                    resolvedUnitId, lord.GlobalId, SurrenderDiagnosticBridge.SafeMapTick());
-                int executionTick = GameTimeManagerAPI.Instance.GetElapsedMapTicks();
-                SurrenderDiagnosticBridge.PublishSurrender(
-                    packet.PlayerId, resolvedUnitId, lord.GlobalId, executionTick);
+                ClearSurrenderLordSelection(packet.PlayerId, resolvedUnitId, lord.GlobalId);
                 LogPacketInfo(
                     $"Surrender Chore executed: playerId={packet.PlayerId}, unitId={resolvedUnitId}, " +
                     $"locallyResolvedGlobalId={lord.GlobalId}, decodedBodyHex={decodedBodyHex}.");
@@ -1757,6 +1733,52 @@ namespace BugfixesAndQoL
 
         private static string ToCompactHex(byte[] bytes) =>
             bytes == null ? "<null>" : BitConverter.ToString(bytes).Replace("-", string.Empty);
+
+        private void ClearSurrenderLordSelection(int playerId, int unitId, int globalId)
+        {
+            try
+            {
+                GameUnitManagerAPI units = GameUnitManagerAPI.Instance;
+                if (!units.TryGetUnitById(unitId, out GameUnit* unit) || unit == null)
+                {
+                    LogPacketWarning($"Surrender selection cleanup could not resolve Lord slot: playerId={playerId}, unitId={unitId}, globalId={globalId}.");
+                    return;
+                }
+
+                GameUnitManager* manager = units.GetUnitManager().Pointer;
+                if (manager == null || playerId < 1 || playerId > 8)
+                {
+                    LogPacketWarning($"Surrender selection cleanup could not resolve selection count: playerId={playerId}, unitId={unitId}, globalId={globalId}.");
+                    return;
+                }
+
+                SurrenderSelectionCleanupResult result = SurrenderSelectionCleanup.Clear(
+                    unit, &manager->r_SelectedChimpsCount[playerId], globalId, playerId);
+                string detail = $"playerId={playerId}, unitId={unitId}, globalId={globalId}, " +
+                    $"status={result.Status}, selectedBefore={result.SelectedBefore}, " +
+                    $"selectedAfter={unit->r_UnitSelected}, countBefore={result.CountBefore}, countAfter={result.CountAfter}";
+                if (result.Status == SurrenderSelectionCleanupStatus.IdentityChanged ||
+                    result.Status == SurrenderSelectionCleanupStatus.UnexpectedSelector ||
+                    result.Status == SurrenderSelectionCleanupStatus.ClearedWithEmptyCount)
+                    LogPacketWarning("Surrender selection cleanup anomaly: " + detail);
+                else
+                    LogPacketInfo("Surrender selection cleanup: " + detail);
+
+                if (result.Status == SurrenderSelectionCleanupStatus.IdentityChanged ||
+                    result.Status == SurrenderSelectionCleanupStatus.UnexpectedSelector ||
+                    GamePlayerManagerAPI.Instance.GetLocalPlayerId() != playerId)
+                    return;
+
+                // The native record is corrected synchronously above. The extender's
+                // normal selection API updates the local HUD on later input phases.
+                if (!GamePlayerManagerAPI.Instance.SetSelectedChimps(new List<int>()))
+                    LogPacketWarning($"Local Surrender HUD deselection was not queued: playerId={playerId}, unitId={unitId}.");
+            }
+            catch (Exception ex)
+            {
+                LogPacketError($"Surrender selection cleanup failed: playerId={playerId}, unitId={unitId}, globalId={globalId}, error={ex}");
+            }
+        }
 
         private SurrenderLordSnapshot CaptureLord(int playerId)
         {

@@ -27,8 +27,6 @@ namespace BugfixesAndQoL
         private string targetPlayerName = string.Empty;
         private bool targetFromResync;
         private long promptSequence;
-        private bool resyncStateObserved;
-        private bool lastResyncing;
         private bool disposed;
 
         internal ResyncHostKickFeature(ManualLogSource log, BugfixesAndQoLViewModel settings)
@@ -91,7 +89,6 @@ namespace BugfixesAndQoL
             try
             {
                 Platform_Multiplayer multiplayer = Platform_Multiplayer.Instance;
-                ObserveResyncState(multiplayer);
                 if (!FeatureEnabled ||
                     multiplayer == null ||
                     !Platform_Multiplayer.MPGameActive ||
@@ -123,30 +120,6 @@ namespace BugfixesAndQoL
                 ClearTarget(clearViewModel: true);
                 Shared.DebugLogHelper.LogError(log, $"Bugfixes and QoL resync host-kick update failed closed: {ex}");
             }
-        }
-
-        private void ObserveResyncState(Platform_Multiplayer multiplayer)
-        {
-            if (multiplayer == null || !Platform_Multiplayer.MPGameActive)
-            {
-                resyncStateObserved = false;
-                lastResyncing = false;
-                return;
-            }
-
-            bool current = multiplayer.resyncing;
-            if (resyncStateObserved && current == lastResyncing)
-                return;
-            bool previous = resyncStateObserved && lastResyncing;
-            resyncStateObserved = true;
-            lastResyncing = current;
-            if (!current && !previous)
-                return;
-
-            int tick = GameTimeManagerAPI.Instance?.GetElapsedMapTicks() ?? -1;
-            SurrenderDiagnosticBridge.PublishResync(
-                previous, current, tick, multiplayer.resyncingCurrentSection,
-                multiplayer.resyncingCurrentLayer);
         }
 
         private void ConnectionIssueShowHook(HUD_MPConnectionIssue self, string message, bool kickNotLeave, int playerId)

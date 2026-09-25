@@ -207,7 +207,6 @@ namespace BugfixesAndQoL
 
             try
             {
-                SurrenderDiagnosticBridge.PublishChores(choreBuffer);
                 ObserveRecoverySaveChores(choreBuffer);
             }
             catch (Exception ex)
