@@ -32,7 +32,7 @@ namespace RandomEvents
         private int captureX;
         private int captureY;
         private int capturedBuildingId = -1;
-        private bool initializationFailureLogged;
+        private bool readinessWaitLogged;
 
         public SignpostPlacementService(ManualLogSource log, ScenarioSignpostRegistry registry)
         {
@@ -65,7 +65,10 @@ namespace RandomEvents
                 return true;
             }
 
-            if (!TryGetParticipatingKeepCenters(out List<MapPoint> keeps, out string keepFailure))
+            if (!TryGetParticipatingKeepCenters(
+                    out List<MapPoint> keeps,
+                    out int[] activePlayerIds,
+                    out string keepFailure))
             {
                 LogDeferredReason(keepFailure);
                 return false;
@@ -75,6 +78,7 @@ namespace RandomEvents
             try
             {
                 if (!TryBuildParticipantReachability(
+                        activePlayerIds,
                         state.IncludeAIPlayers,
                         out participantReachability,
                         out string reachabilityFailure))
@@ -179,6 +183,29 @@ namespace RandomEvents
             return true;
         }
 
+        public bool IsReadyForInitialization(bool includeAIPlayers)
+        {
+            if (!TryGetParticipatingKeepCenters(out _, out int[] activePlayerIds, out string keepFailure))
+            {
+                LogDeferredReason(keepFailure);
+                return false;
+            }
+
+            try
+            {
+                if (TryBuildParticipantReachability(activePlayerIds, includeAIPlayers, out _, out string reachabilityFailure))
+                    return true;
+
+                LogDeferredReason(reachabilityFailure);
+                return false;
+            }
+            catch (Exception ex)
+            {
+                LogError($"Signpost readiness check failed: {ex}");
+                return false;
+            }
+        }
+
         public void Dispose()
         {
             spawnSubscription?.Dispose();
@@ -188,7 +215,7 @@ namespace RandomEvents
         public void ResetMapState()
         {
             protectedSignpostIds.Clear();
-            initializationFailureLogged = false;
+            readinessWaitLogged = false;
             registry.ResetMapState();
         }
 
@@ -197,10 +224,10 @@ namespace RandomEvents
             string normalized = string.IsNullOrWhiteSpace(reason)
                 ? "startup prerequisites are not ready"
                 : reason.Trim();
-            if (initializationFailureLogged)
+            if (readinessWaitLogged)
                 return;
-            initializationFailureLogged = true;
-            LogError($"Signpost initialization failed on this map; retrying: {normalized}");
+            readinessWaitLogged = true;
+            LogDebug($"Signpost initialization waiting for map readiness: {normalized}");
         }
 
         private void LogInitializationCompleted(RandomEventsRuntimeState state, string failureReason)
@@ -209,7 +236,7 @@ namespace RandomEvents
             string message = SignpostInitializationReport.Format(
                 state.SignpostBuildingIds,
                 usableRegistered,
-                initializationFailureLogged,
+                false,
                 usableRegistered ? null : failureReason);
             if (usableRegistered)
                 LogInfo(message);
@@ -551,43 +578,30 @@ namespace RandomEvents
         }
 
         private static bool TryBuildParticipantReachability(
+            int[] activePlayerIds,
             bool includeAIPlayers,
             out List<PlayerReachability> result,
             out string failure)
         {
             result = new List<PlayerReachability>();
             failure = string.Empty;
-            foreach (int playerId in RandomEventsParticipantResolver.GetLivingEventParticipantIds(includeAIPlayers))
-                result.Add(new PlayerReachability(playerId));
+            GamePlayerManagerAPI players = GamePlayerManagerAPI.Instance;
+            foreach (int playerId in activePlayerIds)
+            {
+                if (includeAIPlayers || !players.IsAIPlayer(playerId))
+                    result.Add(new PlayerReachability(playerId));
+            }
 
             if (result.Count == 0)
             {
-                failure = "no active event participant is available for the Vanilla reachability check.";
+                failure = "no active player is eligible for the signpost reachability check.";
                 return false;
             }
 
             Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
             foreach (PlayerReachability player in result)
             {
-                if (GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(
-                        player.PlayerId,
-                        out GamePlayerResources* resources) &&
-                    resources != null && resources->r_LordUnitId > 0 &&
-                    resources->r_LordUnitId <= int.MaxValue &&
-                    GameUnitManagerAPI.Instance.TryGetUnitById((int)resources->r_LordUnitId, out GameUnit* lord) &&
-                    lord != null && lord->r_AliveState == AliveState.IsAlive &&
-                    lord->r_UnitChimp == eChimps.CHIMP_TYPE_LORD &&
-                    lord->r_ControllableForPlayerId == player.PlayerId)
-                {
-                    AddApproachComponents(
-                        lord->r_CurrentTilePositionX,
-                        lord->r_CurrentTilePositionY,
-                        lord->r_CurrentTilePositionX,
-                        lord->r_CurrentTilePositionY,
-                        player.Components,
-                        includeFootprint: true);
-                }
-
+                // Keep/building and wall approach components stay stable before Vanilla spawns Lords.
                 for (int spanIndex = 0; spanIndex < buildings.Length; spanIndex++)
                 {
                     ref GameBuilding building = ref buildings[spanIndex];
@@ -614,7 +628,7 @@ namespace RandomEvents
             {
                 if (player.Components.Count == 0)
                 {
-                    failure = $"player {player.PlayerId} has no walkable Lord, building, or wall approach tile yet.";
+                    failure = $"player {player.PlayerId} has no walkable building or wall approach tile yet.";
                     return false;
                 }
             }
@@ -702,15 +716,21 @@ namespace RandomEvents
             }
         }
 
-        private bool TryGetParticipatingKeepCenters(out List<MapPoint> keeps, out string failure)
+        private bool TryGetParticipatingKeepCenters(
+            out List<MapPoint> keeps,
+            out int[] activePlayerIds,
+            out string failure)
         {
             keeps = new List<MapPoint>();
+            activePlayerIds = Array.Empty<int>();
             if (!Shared.ActivePlayerKeepReadiness.TryCapture(
                     out Shared.ActivePlayerKeepSnapshot snapshot,
                     out failure))
             {
                 return false;
             }
+
+            activePlayerIds = snapshot.PlayerIds;
 
             for (int index = 0; index < snapshot.KeepBuildingIds.Length; index++)
             {
@@ -772,6 +792,7 @@ namespace RandomEvents
             return minimum;
         }
 
+        private void LogDebug(string message) => Shared.DebugLogHelper.LogDebug(log, message);
         private void LogInfo(string message) => Shared.DebugLogHelper.LogInfo(log, message);
         private void LogWarning(string message) => Shared.DebugLogHelper.LogWarning(log, message);
         private void LogError(string message) => Shared.DebugLogHelper.LogError(log, message);

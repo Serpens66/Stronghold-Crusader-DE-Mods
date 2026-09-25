@@ -455,7 +455,9 @@ namespace RandomEvents
             lastSignpostAttemptTick = tick;
             if (isRealMultiplayer)
             {
-                if (isLocalHost && multiplayerInitializationConfirmed && !signpostChoreQueued)
+                if (isLocalHost && multiplayerInitializationConfirmed && !signpostChoreQueued &&
+                    (!signpostRegistry.IsAvailable ||
+                     signpostPlacement.IsReadyForInitialization(state.IncludeAIPlayers)))
                     TryQueueSignpostInitializationChore();
                 return;
             }

@@ -1,5 +1,6 @@
 using SHCDESE.API;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -14,6 +15,7 @@ namespace ExtendedData
         private static readonly Encoding StrictUtf8 = new UTF8Encoding(false, true);
         private static LordDataSnapshot activeSnapshot;
         private static bool networkSessionActive;
+        private static IReadOnlyDictionary<int, string> verifiedLocalLordPaths;
 
         public static int ApiVersion => 1;
 
@@ -21,12 +23,23 @@ namespace ExtendedData
         {
             activeSnapshot = snapshot;
             networkSessionActive = sessionActive;
+            verifiedLocalLordPaths = null;
+        }
+
+        internal static void SetVerifiedLocalLords(IReadOnlyDictionary<int, string> paths)
+        {
+            activeSnapshot = null;
+            networkSessionActive = paths != null;
+            verifiedLocalLordPaths = paths;
         }
 
         public static ExtendedDataModDataReadResult ReadSelectedLordNamespace(int playerId, string modGuid)
         {
             if (string.IsNullOrWhiteSpace(modGuid) || playerId < 1 || playerId > 8)
                 return ExtendedDataModDataReadResult.InvalidRequest(modGuid, string.Empty, "A mod GUID and player ID from 1 to 8 are required.");
+            if (verifiedLocalLordPaths != null &&
+                verifiedLocalLordPaths.TryGetValue(playerId, out string localPath))
+                return ReadLordNamespace(Path.ChangeExtension(localPath, LordExtension), modGuid);
             if (!networkSessionActive || activeSnapshot == null)
                 return ExtendedDataModDataReadResult.HostDataUnavailable(modGuid, string.Empty, "The host Lord-data snapshot is not ready.");
             LordDataSlot slot = activeSnapshot.GetSlot(playerId);
@@ -70,7 +83,18 @@ namespace ExtendedData
 
         public static ExtendedDataModDataReadResult ReadLordNamespace(string lordJsonPath, string modGuid)
         {
-            if (networkSessionActive)
+            if (verifiedLocalLordPaths != null)
+            {
+                string requested = Path.GetFileNameWithoutExtension(lordJsonPath ?? string.Empty);
+                string[] matchingPaths = verifiedLocalLordPaths.Values.Where(path =>
+                    string.Equals(Path.GetFileNameWithoutExtension(path), requested,
+                        StringComparison.OrdinalIgnoreCase)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+                if (matchingPaths.Length != 1)
+                    return ExtendedDataModDataReadResult.HostDataUnavailable(modGuid, lordJsonPath,
+                        "The verified local Lord configuration is missing or ambiguous; use the player-ID API.");
+                lordJsonPath = matchingPaths[0];
+            }
+            if (networkSessionActive && verifiedLocalLordPaths == null)
             {
                 if (activeSnapshot == null)
                     return ExtendedDataModDataReadResult.HostDataUnavailable(modGuid, lordJsonPath, "The host Lord-data snapshot is not ready.");
@@ -125,7 +149,9 @@ namespace ExtendedData
             CustomisationFileManager.CustomLordConfig config,
             string modGuid)
         {
-            if (networkSessionActive)
+            if (verifiedLocalLordPaths != null)
+                return ReadLordNamespace(config?.name + LordExtension, modGuid);
+            if (networkSessionActive && verifiedLocalLordPaths == null)
             {
                 if (config == null || string.IsNullOrWhiteSpace(config.name) || activeSnapshot == null)
                     return ExtendedDataModDataReadResult.HostDataUnavailable(modGuid, string.Empty, "The selected host Lord configuration is not ready.");

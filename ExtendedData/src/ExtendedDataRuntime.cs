@@ -85,6 +85,8 @@ namespace ExtendedData
         private string lastShownLocalBlockSignature = string.Empty;
         private string lastPackageRosterDiagnostic = string.Empty;
         private string lastCompatibilityLogSignature = string.Empty;
+        private string lastBlockedChatReason = string.Empty;
+        private DateTime lastBlockedChatAtUtc;
         private bool enabled;
 
         public ExtendedDataRuntime(
@@ -297,16 +299,33 @@ namespace ExtendedData
             if (IsStartCommand(command))
                 lordDataCoordinator?.LogStartAttempt(command, enabled, self);
             if (enabled && IsStartCommand(command) && self?.currentLobby != null &&
-                self.currentLobby.isHost && !self.singlePlayerCoop)
+                self.currentLobby.isHost && !self.singlePlayerCoop &&
+                !FRONT_Multiplayer.skirmishGame &&
+                lordDataCoordinator.RequiresLordSyncFromSelection(self))
             {
-                bool captured = lordDataCoordinator.RefreshHost(self, "start-attempt");
-                bool ready = lordDataCoordinator.IsReadyToLaunch(self, out string lordDataReason);
-                lordDataCoordinator.LogStartDecision(captured, ready, lordDataReason);
-                if (!captured || !ready)
+                bool inspected = lordDataCoordinator.RefreshPackageManifest(self, "start-attempt");
+                if (!inspected)
                 {
-                    BlockLaunch(command, string.IsNullOrEmpty(lordDataReason)
-                        ? "Selected Lord data is not synchronized yet." : lordDataReason);
+                    BlockLaunch(command, lordDataCoordinator.CurrentBlockReason);
                     return;
+                }
+                if (lordDataCoordinator.NeedsLordStartGate)
+                {
+                    bool captured = lordDataCoordinator.IsUsingLocalValues ||
+                        lordDataCoordinator.RefreshHost(self, "start-attempt");
+                    bool ready = lordDataCoordinator.IsReadyToLaunch(self, out string lordDataReason);
+                    if (!ready && lordDataCoordinator.TryUseLocalValues(self))
+                    {
+                        captured = true;
+                        ready = lordDataCoordinator.IsReadyToLaunch(self, out lordDataReason);
+                    }
+                    lordDataCoordinator.LogStartDecision(captured, ready, lordDataReason);
+                    if (!captured || !ready)
+                    {
+                        BlockLaunch(command, string.IsNullOrEmpty(lordDataReason)
+                            ? "Selected Lord data is not synchronized yet." : lordDataReason);
+                        return;
+                    }
                 }
             }
             if (enabled && string.Equals(command, "TMTest", StringComparison.Ordinal) &&
@@ -388,7 +407,11 @@ namespace ExtendedData
         {
             updateHostInfoTrampoline(self, delayed);
             if (enabled && !delayed)
-                lordDataCoordinator?.RefreshHost(self, "host-selection-update");
+            {
+                lordDataCoordinator?.RefreshPackageManifest(self, "host-selection-update");
+                if (lordDataCoordinator?.IsUsingLocalValues != true)
+                    lordDataCoordinator?.RefreshHost(self, "host-selection-update");
+            }
         }
 
         public void RefreshPackageCatalog()
@@ -884,13 +907,40 @@ namespace ExtendedData
                 message);
         }
 
-        private static MainViewModel GetExistingMainViewModel() =>
+        internal static MainViewModel GetExistingMainViewModel() =>
             MainViewModelInstanceField?.GetValue(null) as MainViewModel;
 
         private void BlockLaunch(string command, string reason)
         {
-            LogError("Blocked custom Coop mission " + command + ": " + reason);
+            LogError("Blocked launch " + command + ": " + reason);
             ShowBlockedMessage(reason);
+            if (!IsStartCommand(command))
+                return;
+            FRONT_Multiplayer lobby = GetExistingMainViewModel()?.FRONTMultiplayer;
+            if (FRONT_Multiplayer.skirmishGame || lobby?.singlePlayerCoop == true ||
+                lobby?.currentLobby?.isHost != true ||
+                lobby.currentLobby.id.m_SteamID == 0 ||
+                Platform_Multiplayer.Instance?.activeLobby?.id.m_SteamID !=
+                    lobby.currentLobby.id.m_SteamID)
+                return;
+            string chatReason = (reason ?? string.Empty).Replace('\r', ' ').Replace('\n', ' ');
+            string chatMessage = "Extended Data: Start blocked. " + chatReason;
+            if (chatMessage.Length > 280)
+                chatMessage = chatMessage.Substring(0, 277) + "...";
+            DateTime now = DateTime.UtcNow;
+            if (string.Equals(lastBlockedChatReason, chatMessage, StringComparison.Ordinal) &&
+                (now - lastBlockedChatAtUtc).TotalSeconds < 2)
+                return;
+            try
+            {
+                Platform_Multiplayer.Instance.SendLobbyChatMessage(chatMessage);
+                lastBlockedChatReason = chatMessage;
+                lastBlockedChatAtUtc = now;
+            }
+            catch (Exception exception)
+            {
+                LogError("Could not announce the blocked multiplayer start in lobby chat: " + exception);
+            }
         }
 
         private void ClearLaunchTracking()

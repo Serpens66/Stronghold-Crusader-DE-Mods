@@ -25,6 +25,11 @@ namespace ExtendedData
             ",modlord=" + DescribeJson(slot.ModLordJson, false) +
             ",fixes=" + DescribeJson(slot.FixesJson, true);
 
+        internal static bool MatchesSelectedSlots(LordDataSnapshot snapshot,
+            IEnumerable<int> selectedCustomPlayerIds) =>
+            snapshot != null && snapshot.Slots.Select(slot => slot.PlayerId).OrderBy(id => id)
+                .SequenceEqual((selectedCustomPlayerIds ?? Enumerable.Empty<int>()).OrderBy(id => id));
+
         internal static string DescribeJson(string json, bool countProperties)
         {
             if (json == null)
@@ -61,18 +66,30 @@ namespace ExtendedData
             return "invalid:bytes=" + Encoding.UTF8.GetByteCount(status) + ",sha256=" + Hash(status);
         }
 
+        internal static bool IsHostLobby(bool hasLobby, bool isHost, bool singlePlayerCoop,
+            bool activeLobbyMatches, bool observedLobbyMatches, bool hasRealLobbyMember) =>
+            hasLobby && isHost && !singlePlayerCoop && activeLobbyMatches &&
+            observedLobbyMatches && hasRealLobbyMember;
+
         internal static string DescribeHostGate(bool hasLobby, bool isHost, bool singlePlayerCoop,
+            bool activeLobbyMatches, bool observedLobbyMatches, bool hasRealLobbyMember,
             bool realMultiplayer)
         {
             var reasons = new List<string>();
             if (!hasLobby) reasons.Add("no-lobby");
             if (!isHost) reasons.Add("not-host");
             if (singlePlayerCoop) reasons.Add("single-player-coop");
-            if (!realMultiplayer) reasons.Add("not-real-multiplayer");
-            return "eligible=" + (reasons.Count == 0) + ",reasons=" +
+            if (!activeLobbyMatches) reasons.Add("active-lobby-mismatch");
+            if (!observedLobbyMatches) reasons.Add("observed-lobby-mismatch");
+            if (!hasRealLobbyMember) reasons.Add("no-real-lobby-member");
+            return "eligible=" + IsHostLobby(hasLobby, isHost, singlePlayerCoop,
+                activeLobbyMatches, observedLobbyMatches, hasRealLobbyMember) + ",reasons=" +
                 (reasons.Count == 0 ? "none" : string.Join("+", reasons)) +
                 ",hasLobby=" + hasLobby + ",isHost=" + isHost +
-                ",singlePlayerCoop=" + singlePlayerCoop + ",realMultiplayer=" + realMultiplayer;
+                ",singlePlayerCoop=" + singlePlayerCoop + ",activeLobbyMatches=" +
+                activeLobbyMatches + ",observedLobbyMatches=" + observedLobbyMatches +
+                ",hasRealLobbyMember=" + hasRealLobbyMember +
+                ",mapModeRealMultiplayer=" + realMultiplayer;
         }
 
         internal static string Hash(string value)

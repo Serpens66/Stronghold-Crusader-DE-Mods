@@ -67,6 +67,9 @@ var tests = new (string Name, Action Run)[]
     ("Fixes preference snapshots retain every current and future property", TestFixesPreferenceCodec),
     ("Fixes preference snapshots reject incompatible schemas and lossy values", TestFixesPreferenceIncompatibility),
     ("Lord sync diagnostics identify state without logging JSON values", TestLordSyncDiagnostics),
+    ("Lord sync accepts a confirmed lobby before game mode becomes multiplayer", TestLordSyncLobbyGate),
+    ("selected Lord fingerprint ignores media and detects gameplay files", TestLordPackageFingerprint),
+    ("selected Lord package manifest binds identities and mode", TestLordPackageManifest),
 };
 
 int failed = 0;
@@ -170,9 +173,18 @@ static void TestLordModDataApi()
             Path.Combine(root, "absent.lordjson"),
             "author.mod");
         Assert(absent.Status == ExtendedDataModDataReadStatus.FileNotFound, "missing Lord sidecar was not reported");
+        ExtendedDataModDataApi.SetVerifiedLocalLords(new Dictionary<int, string> { [3] = lordPath });
+        Assert(ExtendedDataModDataApi.ReadSelectedLordNamespace(3, "author.mod").Success,
+            "verified local Lord was not readable by player ID");
+        Assert(ExtendedDataModDataApi.ReadLordNamespace("aggressive.v2.lordjson", "author.mod").Success,
+            "verified local configuration could not be resolved without the host path");
+        Assert(ExtendedDataModDataApi.ReadLordNamespace("absent.lordjson", "author.mod").Status ==
+            ExtendedDataModDataReadStatus.HostDataUnavailable,
+            "unselected local Lord bypassed the verified selection");
     }
     finally
     {
+        ExtendedDataModDataApi.SetNetworkSnapshot(null, false);
         Directory.Delete(root, true);
     }
 }
@@ -322,10 +334,98 @@ static void TestLordSyncDiagnostics()
         LordDataSyncDiagnostics.DescribeStatus("ERROR|" + privateValue, snapshot.Digest) == "error" &&
         LordDataSyncDiagnostics.DescribeStatus(null, snapshot.Digest) == "missing",
         "the acknowledgement diagnostic misclassified a player state or exposed an error value");
-    string skipped = LordDataSyncDiagnostics.DescribeHostGate(true, true, false, false);
+    string skipped = LordDataSyncDiagnostics.DescribeHostGate(true, true, false,
+        false, true, true, false);
     Assert(skipped.Contains("eligible=False", StringComparison.Ordinal) &&
-        skipped.Contains("not-real-multiplayer", StringComparison.Ordinal),
+        skipped.Contains("active-lobby-mismatch", StringComparison.Ordinal),
         "a skipped host capture omitted its reason");
+}
+
+static void TestLordSyncLobbyGate()
+{
+    Assert(LordDataSyncDiagnostics.IsHostLobby(true, true, false, true, true, true),
+        "a confirmed network lobby must be eligible even before an active multiplayer game exists");
+    Assert(!LordDataSyncDiagnostics.IsHostLobby(true, true, false, true, false, true) &&
+        !LordDataSyncDiagnostics.IsHostLobby(true, true, false, false, true, true) &&
+        !LordDataSyncDiagnostics.IsHostLobby(true, true, false, true, true, false) &&
+        !LordDataSyncDiagnostics.IsHostLobby(true, true, true, true, true, true),
+        "stale, unobserved, local-skirmish and single-player lobbies must not publish");
+    string waitingRoom = LordDataSyncDiagnostics.DescribeHostGate(true, true, false,
+        true, true, true, false);
+    Assert(waitingRoom.Contains("eligible=True", StringComparison.Ordinal) &&
+        waitingRoom.Contains("mapModeRealMultiplayer=False", StringComparison.Ordinal),
+        "the diagnostic conflated lobby readiness with active map mode");
+    LordDataSnapshot empty = LordDataSnapshot.Create("lobby", true, Array.Empty<LordDataSlot>());
+    LordDataSnapshot selected = LordDataSnapshot.Create("lobby", true, new[]
+    {
+        new LordDataSlot { PlayerId = 3, LordName = "Example", ConfigName = "one",
+            ConfigChecksum = "1" },
+    });
+    Assert(!LordDataSyncDiagnostics.MatchesSelectedSlots(empty, new[] { 3 }) &&
+        LordDataSyncDiagnostics.MatchesSelectedSlots(selected, new[] { 3 }) &&
+        !LordDataSyncDiagnostics.MatchesSelectedSlots(selected, new[] { 4 }),
+        "an empty or stale snapshot was accepted for a selected Custom Lord");
+}
+
+static void TestLordPackageFingerprint()
+{
+    string root = Path.Combine(Path.GetTempPath(), "ExtendedDataLordFingerprint-" + Guid.NewGuid().ToString("N"));
+    Directory.CreateDirectory(root);
+    try
+    {
+        File.WriteAllText(Path.Combine(root, "example.lordjson"), "{}");
+        File.WriteAllText(Path.Combine(root, "example1.aivjson"), "{}");
+        File.WriteAllText(Path.Combine(root, "info.json"), "{\"NetworkMode\":0}");
+        File.WriteAllText(Path.Combine(root, "example.modlord.json"), "{}");
+        Directory.CreateDirectory(Path.Combine(root, "Override", "Fixes"));
+        File.WriteAllText(Path.Combine(root, "Override", "Fixes", "preferences.json"), "{}");
+        Directory.CreateDirectory(Path.Combine(root, "Override", "fx"));
+        string media = Path.Combine(root, "Override", "fx", "speech.wav");
+        File.WriteAllText(media, "first sound");
+        LordPackageFileState baseState = LordPackageFingerprint.Capture(root, "example");
+        Assert(!baseState.HasUnsupportedGameplayFiles, "supported Lord values or media were classified as unsupported");
+        File.WriteAllText(media, "another sound");
+        Assert(LordPackageFingerprint.Capture(root, "example").Digest == baseState.Digest,
+            "media differences changed the gameplay fingerprint");
+        Directory.CreateDirectory(Path.Combine(root, "Scripts"));
+        string script = Path.Combine(root, "Scripts", "init.lua");
+        File.WriteAllText(script, "first script");
+        LordPackageFileState scripted = LordPackageFingerprint.Capture(root, "example");
+        Assert(scripted.HasUnsupportedGameplayFiles && scripted.UnsupportedPaths.Contains("Scripts/init.lua") &&
+            scripted.Digest != baseState.Digest, "Lua was not recognized as an additional gameplay file");
+        File.WriteAllText(script, "changed script");
+        Assert(LordPackageFingerprint.Capture(root, "example").Digest != scripted.Digest,
+            "changed gameplay content did not change the fingerprint");
+        File.WriteAllText(Path.Combine(root, "Override", "Fixes", "future.json"), "{}");
+        Assert(LordPackageFingerprint.Capture(root, "example").UnsupportedPaths.Contains("Override/Fixes/future.json"),
+            "unsupported Override JSON was not detected");
+    }
+    finally
+    {
+        string temp = Path.GetFullPath(Path.GetTempPath()).TrimEnd(Path.DirectorySeparatorChar) +
+            Path.DirectorySeparatorChar;
+        Assert(Path.GetFullPath(root).StartsWith(temp, StringComparison.OrdinalIgnoreCase),
+            "unsafe test cleanup path");
+        Directory.Delete(root, true);
+    }
+}
+
+static void TestLordPackageManifest()
+{
+    LordPackageManifest first = LordPackageManifest.Create("session-a", false, new[]
+    {
+        new LordPackageSlot { PlayerId = 3, LordType = -1, LordName = "example", ConfigName = "one",
+            ConfigChecksum = "123", FileDigest = new string('A', 64), NeedsSnapshot = true },
+    });
+    LordPackageManifest parsed = LordPackageManifest.Parse(first.WireJson);
+    Assert(parsed.Digest == first.Digest && parsed.Slots.Count == 1 && parsed.Slots[0].NeedsSnapshot,
+        "manifest did not survive transport");
+    LordPackageManifest switched = LordPackageManifest.Create("session-a", true, first.Slots);
+    Assert(switched.Digest != first.Digest, "local fallback did not invalidate old acknowledgements");
+    Assert(LordPackageManifest.Create("session-b", false, first.Slots).Digest != first.Digest,
+        "new lobby did not invalidate old acknowledgements");
+    AssertThrows<InvalidDataException>(() => LordPackageManifest.Parse(first.WireJson.Replace("example", "different")),
+        "tampered manifest was accepted");
 }
 
 static void TestBundledMission()

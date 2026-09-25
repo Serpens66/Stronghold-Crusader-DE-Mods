@@ -24,6 +24,13 @@ if ($plugin -match '\b(Update|LateUpdate|FixedUpdate|StartCoroutine|OnDestroy|On
     $bridge -notmatch 'buffer\.Clone\(\)') {
     throw 'Surrender diagnostic lifetime, read-only or observer-isolation contract failed.'
 }
+if ($runtime -match 'Fields\s*<' -or $runtime -match 'Fields\s*\(\s*\*' -or
+    $runtime -notmatch 'Fields\(typeof\(GamePlayerResources\), new IntPtr\(value\)\)' -or
+    $runtime -notmatch 'finally \{ if \(end && active\) Finish\("first-resync-ended", tick\); \}' -or
+    $runtime -match '\bfinished\b' -or
+    $runtime -notmatch 'STATE_PROBE_OK' -or $runtime -notmatch 'STATE_PROBE_FAILED') {
+    throw 'Surrender diagnostic large-record, rearm, resync or probe regression.'
+}
 
 $project = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'SurrenderDesyncDiagnostic.csproj'))
 if ($project -match 'Assembly-CSharp-publicized|System\.Web\.Extensions|Newtonsoft\.Json|System\.Text\.Json' -or
@@ -36,6 +43,7 @@ foreach ($file in @($sources.FullName) + @(
     (Join-Path $PSScriptRoot 'info.json'),
     (Join-Path $PSScriptRoot 'build.bat'),
     (Join-Path $PSScriptRoot 'Test-Preflight.ps1'),
+    (Join-Path $PSScriptRoot 'Test-Projection.ps1'),
     (Join-Path $workspace 'BugfixesAndQoL\src\SurrenderDiagnosticBridge.cs'))) {
     $text = [IO.File]::ReadAllText($file)
     $literalEscapes = [string][char]92
