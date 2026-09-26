@@ -46,6 +46,15 @@ namespace ExtendedData
             return TypedPreferenceSnapshotCodec.Capture(entry);
         }
 
+        internal void ValidateSnapshotValue(string json)
+        {
+            if (json == null) return;
+            Validate();
+            if (!Installed)
+                throw new InvalidOperationException("A Trail requires Fixes Lord preferences, but Fixes is not installed.");
+            TypedPreferenceSnapshotCodec.Restore(entryType, json);
+        }
+
         internal void Apply(LordDataSnapshot snapshot)
         {
             if (Installed != snapshot.FixesInstalled)

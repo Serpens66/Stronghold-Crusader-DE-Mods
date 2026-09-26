@@ -77,6 +77,8 @@
     <Compile Include="src\TypedPreferenceSnapshotCodec.cs" />
     <Compile Include="src\LordDataSyncCoordinator.cs" />
     <Compile Include="src\LordDataSyncDiagnostics.cs" />
+    <Compile Include="src\TrailLordPackageRuntime.cs" />
+    <Compile Include="src\TrailLordSourceSelector.cs" />
     <Compile Include="src\CoopCustomizePacket.cs" />
     <Compile Include="src\BuiltInCustomizeOriginPacket.cs" />
     <Compile Include="src\MapModSettingsPacket.cs" />

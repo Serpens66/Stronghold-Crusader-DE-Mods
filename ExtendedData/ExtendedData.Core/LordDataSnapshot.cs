@@ -30,6 +30,15 @@ namespace ExtendedData
         public string WireJson { get; private set; }
 
         public static LordDataSnapshot Create(string sessionId, bool fixesInstalled, IEnumerable<LordDataSlot> slots)
+            => CreateWithLimit(sessionId, fixesInstalled, slots, MaxSnapshotBytes);
+
+        public static LordDataSnapshot CreateTrail(string sessionId, bool fixesInstalled,
+            IEnumerable<LordDataSlot> slots)
+            => CreateWithLimit(sessionId, fixesInstalled, slots,
+                TrailLordRequirements.MaximumBytes * 2 + 64 * 1024);
+
+        private static LordDataSnapshot CreateWithLimit(string sessionId, bool fixesInstalled,
+            IEnumerable<LordDataSlot> slots, int maximumBytes)
         {
             if (string.IsNullOrWhiteSpace(sessionId))
                 throw new InvalidDataException("A Lord-data session ID is required.");
@@ -57,8 +66,8 @@ namespace ExtendedData
                 ["digest"] = digest,
                 ["payload"] = payloadJson,
             });
-            if (Encoding.UTF8.GetByteCount(wireJson) > MaxSnapshotBytes)
-                throw new InvalidDataException("The selected Lord data exceeds 128 KiB.");
+            if (Encoding.UTF8.GetByteCount(wireJson) > maximumBytes)
+                throw new InvalidDataException("The selected Lord data exceeds its size limit.");
             return new LordDataSnapshot
             {
                 SessionId = sessionId,

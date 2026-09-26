@@ -97,6 +97,7 @@ namespace BugfixesAndQoL
             TestLobbyMapSelectionMemory();
             TestLobbyYellowContrast();
             TestBriefingNoStartingGoldFix();
+            TestTimerCountdownMigration();
             TestNativePatternSearch();
             TestNativeContracts();
             if (failures == 0)
@@ -106,6 +107,71 @@ namespace BugfixesAndQoL
             }
             Console.Error.WriteLine($"BugfixesAndQoL policy and native-contract tests failed: {failures}.");
             return 1;
+        }
+
+        private static void TestTimerCountdownMigration()
+        {
+            Check(TimerCountdownPolicy.FormatTicks(-1) == "0:00" &&
+                  TimerCountdownPolicy.FormatTicks(0) == "0:00" &&
+                  TimerCountdownPolicy.FormatTicks(1) == "0:01" &&
+                  TimerCountdownPolicy.FormatTicks(40) == "0:01" &&
+                  TimerCountdownPolicy.FormatTicks(41) == "0:02" &&
+                  TimerCountdownPolicy.FormatTicks(2400) == "1:00" &&
+                  TimerCountdownPolicy.FormatTicks(2401) == "1:01",
+                "countdown rounds positive game ticks up to the displayed second");
+            Check(TimerCountdownPolicy.SelectOstRemaining(7, 8, 9) == 7 &&
+                  TimerCountdownPolicy.SelectOstRemaining(null, 8, 9) == 8 &&
+                  TimerCountdownPolicy.SelectOstRemaining(null, null, 9) == 9 &&
+                  !TimerCountdownPolicy.SelectOstRemaining(null, null, null).HasValue,
+                "defeat, victory and peace timers retain Vanilla display priority");
+
+            var viewModel = new TimerCountdownViewModel();
+            int changed = 0;
+            viewModel.PropertyChanged += (_, __) => changed++;
+            Check(viewModel.ObjectiveVisibility == Noesis.Visibility.Collapsed &&
+                  viewModel.OstVisibility == Noesis.Visibility.Collapsed,
+                "empty countdown controls start collapsed");
+            viewModel.SetRemaining("0:10", "0:05");
+            Check(changed == 4 && viewModel.ObjectiveVisibility == Noesis.Visibility.Visible &&
+                  viewModel.OstVisibility == Noesis.Visibility.Visible,
+                "changed countdown texts notify text and visibility on the UI model");
+            viewModel.SetRemaining("0:09", "0:04");
+            Check(changed == 6, "counting down does not repeat visibility notifications");
+            viewModel.SetRemaining("0:09", "0:04");
+            Check(changed == 6, "unchanged countdown texts do not notify Noesis");
+            viewModel.SetRemaining(string.Empty, string.Empty);
+            Check(changed == 10 && viewModel.ObjectiveVisibility == Noesis.Visibility.Collapsed &&
+                  viewModel.OstVisibility == Noesis.Visibility.Collapsed,
+                "disabling the display clears both texts and their backgrounds");
+
+            var throwingViewModel = new TimerCountdownViewModel();
+            int notificationAttempts = 0;
+            throwingViewModel.PropertyChanged += (_, __) =>
+            {
+                notificationAttempts++;
+                throw new InvalidOperationException("Simulated Noesis notification failure");
+            };
+            bool notified = throwingViewModel.TrySetRemaining("0:10", "0:05", out Exception notificationFailure);
+            Check(!notified && notificationFailure is InvalidOperationException &&
+                  notificationAttempts == 1 && throwingViewModel.ObjectiveRemaining == "0:10" &&
+                  throwingViewModel.OstRemaining == string.Empty,
+                "a failing countdown notification is caught without a second SetRemaining attempt");
+
+            string feature = File.ReadAllText(Path.Combine("src", "TimerCountdownFeature.cs"));
+            string settings = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLViewModel.cs"));
+            string xaml = File.ReadAllText(Path.Combine(
+                "Override", "ScriptExtenderUI", "BugfixesAndQoLSettings.xaml"));
+            Check(feature.Contains("Application.onBeforeRender += OnBeforeRender") &&
+                  feature.Contains("lastRenderedFrame == frame") &&
+                  feature.Contains("settings.EnableClientFeatures && settings.ShowCountdownTimers && IsGameplayReady()") &&
+                  feature.Contains("viewModel.TrySetRemaining(objective, ost, out Exception failure)") &&
+                  feature.Contains("LogFailureOnce(\"timer read\", ex)") &&
+                  feature.Contains("LogFailureOnce(\"view-model notification\", failure)") &&
+                  !feature.Contains("OnGameTick") && !feature.Contains("OnTick +=") &&
+                  settings.Contains("new LocalPerPlayerSetting<bool>(true);") &&
+                  settings.Contains("public bool ShowCountdownTimers") &&
+                  xaml.Contains("IsChecked=\"{Binding ShowCountdownTimers, Mode=TwoWay}\""),
+                "countdown stays on the permanent Unity render path with a default-on player setting");
         }
 
         private static void TestPermanentManagedRuntimeHooks()

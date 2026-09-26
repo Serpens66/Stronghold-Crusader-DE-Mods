@@ -26,6 +26,7 @@ var tests = new (string Name, Action Run)[]
     ("fourth trail tenth slot is addressable", TestLastCatalogSlot),
     ("package fingerprint detects content changes", TestPackageFingerprint),
     ("Coop Workshop staging filters modsettings", TestCoopWorkshopStaging),
+    ("Coop Lord requirements remain mandatory when modsettings are excluded", TestCoopLordRequirementStaging),
     ("duplicate package IDs are rejected", TestDuplicatePackageIds),
     ("identical local and Workshop replicas are merged", TestIdenticalPackageReplicas),
     ("ordinal mapping covers four trails and ignores mission 41", TestOrdinalMapping),
@@ -71,6 +72,8 @@ var tests = new (string Name, Action Run)[]
     ("deferred Lord confirmations reject stale lobby and selection", TestDeferredLordPublication),
     ("Lord sync accepts a confirmed lobby before game mode becomes multiplayer", TestLordSyncLobbyGate),
     ("selected Lord fingerprint ignores media and detects gameplay files", TestLordPackageFingerprint),
+    ("Trail Lord requirements bind the mission and survive optional-media changes", TestTrailLordRequirements),
+    ("Trail Lord selection distinguishes embedded, replaced Custom, and Vanilla Lords", TestTrailLordSelection),
     ("Lord Workshop metadata never requires local multiplayer files", TestLordWorkshopMetadataFingerprint),
     ("selected Lord package manifest binds identities and mode", TestLordPackageManifest),
 };
@@ -442,21 +445,32 @@ static void TestLordPackageFingerprint()
         File.WriteAllText(rootText, "first note");
         Directory.CreateDirectory(Path.Combine(root, "Scripts", "assets"));
         string nestedText = Path.Combine(root, "Scripts", "assets", "readme.txt");
+        string readme = Path.Combine(root, "README.md");
         string misplacedMedia = Path.Combine(root, "Scripts", "assets", "portrait.PnG");
         File.WriteAllText(nestedText, "nested note");
+        File.WriteAllText(readme, "instructions");
         File.WriteAllText(misplacedMedia, "first image");
         LordPackageFileState baseState = LordPackageFingerprint.Capture(root, "example");
+        Assert(baseState.SynchronizedPaths.Contains("example.modlord.json") &&
+            baseState.SynchronizedPaths.Contains("Override/Fixes/preferences.json"),
+            "Lord mod values were not classified as synchronized values");
         Assert(!baseState.HasUnsupportedGameplayFiles &&
             !baseState.GameplayPaths.Contains("notes.TXT") &&
+            !baseState.GameplayPaths.Contains("README.md") &&
             !baseState.GameplayPaths.Contains("Scripts/assets/readme.txt") &&
             !baseState.GameplayPaths.Contains("Scripts/assets/portrait.PnG"),
             "text or media outside conventional paths was classified as gameplay");
         File.WriteAllText(media, "another sound");
         File.WriteAllText(rootText, "another note");
         File.WriteAllText(nestedText, "another nested note");
+        File.WriteAllText(readme, "updated instructions");
         File.WriteAllText(misplacedMedia, "another image");
         Assert(LordPackageFingerprint.Capture(root, "example").Digest == baseState.Digest,
             "text or media differences changed the gameplay fingerprint");
+        File.WriteAllText(Path.Combine(root, "example.modlord.json"), "{\"test\":{}}");
+        File.WriteAllText(Path.Combine(root, "Override", "Fixes", "preferences.json"), "{\"changed\":true}");
+        Assert(LordPackageFingerprint.Capture(root, "example").Digest == baseState.Digest,
+            "synchronized Lord values changed the required gameplay fingerprint");
         string script = Path.Combine(root, "Scripts", "init.lua");
         File.WriteAllText(script, "first script");
         LordPackageFileState scripted = LordPackageFingerprint.Capture(root, "example");
@@ -536,6 +550,66 @@ static void TestLordWorkshopMetadataFingerprint()
     }
 }
 
+static void TestTrailLordRequirements()
+{
+    string root = Path.Combine(Path.GetTempPath(), "ExtendedDataTrailLord-" + Guid.NewGuid().ToString("N"));
+    Directory.CreateDirectory(root);
+    try
+    {
+        string mission = Path.Combine(root, "Trail_Mission_01.trail");
+        File.WriteAllText(mission, "embedded mission");
+        var slot = new TrailLordSlot
+        {
+            PlayerId = 3,
+            LordName = "Author Lord",
+            ConfigName = "author",
+            ConfigChecksum = "123",
+            AivChecksums = new[] { "456", "789" },
+            RequiresInstalledPackage = false,
+            ModLordJson = "{\"example.mod\":{\"value\":1}}",
+        };
+        TrailLordRequirements.Create(mission, new[] { slot }).Write(mission);
+        TrailLordRequirements read = TrailLordRequirements.Read(mission);
+        Assert(read.Slots.Count == 1 && read.Slots[0].ModLordJson == slot.ModLordJson &&
+            read.Slots[0].AivChecksums.SequenceEqual(slot.AivChecksums),
+            "Trail Lord values or AIV checksums were lost");
+        File.AppendAllText(mission, " changed");
+        ExpectFailure(() => TrailLordRequirements.Read(mission),
+            "Lord requirements were accepted for a different Trail mission");
+        string coop = Path.Combine(root, "01.coopmission.json");
+        File.WriteAllText(coop, "mission");
+        TrailLordRequirements.Create(coop, new[] { slot }).Write(coop);
+        Assert(TrailLordRequirements.Read(coop).Slots.Single().PlayerId == 3,
+            "Coop Lord requirements did not roundtrip");
+    }
+    finally
+    {
+        string temporary = Path.GetFullPath(Path.GetTempPath()).TrimEnd(Path.DirectorySeparatorChar) +
+            Path.DirectorySeparatorChar;
+        Assert(Path.GetFullPath(root).StartsWith(temporary, StringComparison.OrdinalIgnoreCase),
+            "unsafe test cleanup path");
+        Directory.Delete(root, true);
+    }
+}
+
+static void TestTrailLordSelection()
+{
+    var embedded = new TrailLordSlot
+    {
+        PlayerId = 3,
+        ConfigChecksum = "100",
+        AivChecksums = new[] { "200", "300" },
+    };
+    Assert(TrailLordSelectionPolicy.UsesEmbeddedLord(embedded, false, "100",
+        new[] { "200", "300" }), "the original embedded Lord was treated as replaced");
+    Assert(!TrailLordSelectionPolicy.UsesEmbeddedLord(embedded, true, "100",
+        new[] { "200", "300" }), "a Vanilla Lord retained the old Trail requirement");
+    Assert(!TrailLordSelectionPolicy.UsesEmbeddedLord(embedded, false, "101",
+        new[] { "200", "300" }), "a new Custom Lord retained the old Trail values");
+    Assert(!TrailLordSelectionPolicy.UsesEmbeddedLord(embedded, false, "100",
+        new[] { "300", "200" }), "changed AIVs retained the old Trail values");
+}
+
 static void TestLordPackageManifest()
 {
     LordPackageManifest first = LordPackageManifest.Create("session-a", false, new[]
@@ -560,6 +634,22 @@ static void TestBundledMission()
     LoadedMission loaded = new MissionLoader().Load(fixture.JsonPath, 1, 1);
     Assert(loaded.BundledFiles.Count == 3, "expected map, lord and AIV bundle files");
     Assert(loaded.Definition.Players.Where(player => player.Active).Take(2).Count() == 2, "human slots missing");
+    string slotRoot = Path.Combine(fixture.Root, "Assets", "01", "AI-03");
+    Directory.CreateDirectory(slotRoot);
+    File.Copy(Path.Combine(fixture.Root, "lord.lordjson"), Path.Combine(slotRoot, "lord.lordjson"));
+    File.Copy(Path.Combine(fixture.Root, "castle.aivjson"), Path.Combine(slotRoot, "castle.aivjson"));
+    File.WriteAllText(Path.Combine(slotRoot, "second.aivjson"), "{}", new UTF8Encoding(false));
+    PlayerDefinition ai = loaded.Definition.Players[2];
+    ai.Lord.File = "Assets/01/AI-03/lord.lordjson";
+    ai.Aivs[0].File = "Assets/01/AI-03/castle.aivjson";
+    ai.Aivs.Add(new AivReference { Source = "bundled", File = "Assets/01/AI-03/second.aivjson", Rotation = 90 });
+    MissionLoader.WriteAtomic(fixture.JsonPath, loaded.Definition);
+    LoadedMission nested = new MissionLoader().Load(fixture.JsonPath, 1, 1);
+    Assert(nested.BundledFiles.Count == 4 &&
+        nested.BundledFiles.All(File.Exists) &&
+        nested.Definition.Players[2].Aivs.Select(aiv => Path.GetFileName(aiv.File))
+            .SequenceEqual(new[] { "castle.aivjson", "second.aivjson" }),
+        "nested Coop Lord and multiple original AIV names did not survive mission loading");
 }
 
 static void TestCoopMissionModSettingsSidecar()
@@ -733,7 +823,8 @@ static void TestWorkshopUploadCheckbox()
         coordinator.Contains("CoopWorkshopPackageStaging.Stage", StringComparison.Ordinal),
         "Coop upload does not honor the unified modsettings choice");
     Assert(coordinator.Contains("ArmUploadDecision(uploadRoot, itemName, uploadOptions.IncludeExtendedData)", StringComparison.Ordinal) &&
-        coordinator.Contains("decision != null && decision.IncludeExtendedData && IsCustomTrailUpload(tags)", StringComparison.Ordinal) &&
+        coordinator.Contains("decision?.IncludeExtendedData == true", StringComparison.Ordinal) &&
+        coordinator.Contains("requirementsOnly: true", StringComparison.Ordinal) &&
         coordinator.Contains("Action terminalSuccess = WrapTerminalCallback", StringComparison.Ordinal) &&
         coordinator.Contains("Action terminalFailure = WrapTerminalCallback", StringComparison.Ordinal),
         "the upload choice is not retained through Vanilla's recursive retry until a terminal callback");
@@ -1829,6 +1920,13 @@ static void TestCoopExporterIntegration()
     string viewModel = File.ReadAllText(Path.Combine(root, "src", "ExtendedDataSettingsViewModel.cs"));
     string packet = File.ReadAllText(Path.Combine(root, "src", "CoopCustomizePacket.cs"));
     string project = File.ReadAllText(Path.Combine(root, "ExtendedData.csproj"));
+    Assert(exporter.Contains("Path.GetFileName(lordSource)") &&
+        exporter.Contains("Path.GetFileName(aivSource)") &&
+        exporter.Contains("ToMissionRelative(lordTarget, missionsRoot)") &&
+        exporter.Contains("ToMissionRelative(aivTarget, missionsRoot)") &&
+        !exporter.Contains("\"lord-\" + playerNumber") &&
+        !exporter.Contains("\"aiv-\" + playerNumber"),
+        "Coop export no longer preserves the source names used by Vanilla Lord and AIV checksums");
     Assert(coordinator.Contains("ExtendedDataCoopExport") && coordinator.Contains("cooptrail.enabled"), "Trail Maker Coop checkbox/marker is missing");
     Assert(coordinator.Contains("Foreground = new SolidColorBrush(Color.FromArgb(byte.MaxValue, 0, 0, 0))"),
         "Trail Maker Coop checkbox text is not black");
@@ -1905,12 +2003,20 @@ static void TestCoopExporterIntegration()
         "the ineffective timing-based first-visit refresh still exists");
     Assert(runtime.Contains("ReadyLock") && runtime.Contains("COOP_START") && runtime.Contains("AreAllHumanPlayersPackageReady"),
         "Ready/Play/COOP_START package validation is missing");
-    Assert(runtime.Contains("if (IsStartCommand(command))") &&
+    string buttonHook = runtime.Substring(runtime.IndexOf("private void ButtonClickedHook(", StringComparison.Ordinal),
+        runtime.IndexOf("private void UpdateHostInfoHook(", StringComparison.Ordinal) -
+        runtime.IndexOf("private void ButtonClickedHook(", StringComparison.Ordinal));
+    Assert(buttonHook.Contains("if (IsStartCommand(command))") &&
         runtime.Contains("ExtendedDataLaunchOriginApi.SetCustomizedCoopTrail(") &&
         runtime.IndexOf("ExtendedDataLaunchOriginApi.SetCustomizedCoopTrail(", StringComparison.Ordinal) <
-            runtime.IndexOf("buttonTrampoline(self, command)", StringComparison.Ordinal) &&
-        runtime.Contains("ApplyMultiplayerSetup(setupData, selected.Loaded.Definition.Settings.MultiplayerSetup)"),
-        "direct Coop start does not establish its launch origin and full setup before Vanilla starts");
+            runtime.LastIndexOf("buttonTrampoline(self, command)", StringComparison.Ordinal) &&
+        runtime.Contains("ApplyMultiplayerSetup(setupData, selected.Loaded.Definition.Settings.MultiplayerSetup)") &&
+        !buttonHook.Contains("ApplySelectedMission(self, false)"),
+        "direct Coop start does not retain the edited setup and establish its launch origin before Vanilla starts");
+    Assert(runtime.Contains("self.currentLobby.AIVDataChecksum()") &&
+        runtime.Contains("Lord media selection changed; wait for the updated lobby selection") &&
+        runtime.Contains("UpdateHostInfoMethod.Invoke(self, new object[] { false })"),
+        "Coop readiness does not follow Vanilla's transmitted Lord selection after media remapping");
     Assert(runtime.Contains("PlayerIdentityHelper.TryCaptureHumanRoster") &&
         runtime.Contains("requireAuthoritativeLobbyRoster: true") &&
         runtime.Contains("PlayerIdentityHelper.ResolvePlayerIdForSteamId") &&
@@ -1962,7 +2068,7 @@ static void TestCoopExporterIntegration()
         runtime.Contains("coopLaunchPending") && runtime.Contains("OnMapStarted()") &&
         runtime.Contains("OnMissionEnded(MissionLifecycleNotification notification)"),
         "direct Coop launch does not retain the shared Trail preset across the map transition");
-    Assert(runtime.Contains("if (!coopLaunchPending)") && runtime.Contains("BlockLaunch(command") &&
+    Assert(runtime.Contains("if (coopLaunchPending)") && runtime.Contains("BlockLaunch(command") &&
         coordinator.Contains("MpLocalReadyField") && coordinator.Contains("MpLocalReadyLockedField") &&
         coordinator.Contains(".SetValue(self, false)"),
         "Coop launch refresh retention, visible blocking, or Customize ready-state reset is missing");
@@ -2328,6 +2434,40 @@ static void TestCoopWorkshopStaging()
         "included staged package lost mission modsettings");
     Assert(CoopTrailPackageCatalog.Load(excluded).Missions[0].Definition.ModSettings.Mods.Count == 0,
         "excluded staged package retained mission modsettings");
+}
+
+static void TestCoopLordRequirementStaging()
+{
+    using Fixture fixture = Fixture.Create();
+    string root = CreatePackage(fixture, Path.Combine(fixture.Root, "CustomTrails"), "LordTrail", 1);
+    string mission = Path.Combine(root, "CoopMissions", "01.coopmission.json");
+    TrailLordRequirements.Create(mission, new[]
+    {
+        new TrailLordSlot
+        {
+            PlayerId = 3, LordName = "Author", ConfigName = "lord",
+            ConfigChecksum = "123", AivChecksums = new[] { "456" },
+            RequiresInstalledPackage = true, PackageDigest = new string('A', 64),
+            ModLordJson = "{\"test.mod\":{\"enabled\":true}}",
+        },
+    }).Write(mission);
+    LoadedMission loaded = new MissionLoader().Load(mission, 1, 1);
+    CoopTrailPackageManifest manifest = CoopTrailPackageManifestJson.Read(Path.Combine(root, "cooptrail.json"));
+    manifest.ContentFingerprint = CoopTrailPackageFingerprint.Compute(root,
+        new[] { mission, loaded.ModSettingsPath, loaded.LordRequirementsPath }
+            .Concat(loaded.BundledFiles));
+    CoopTrailPackageManifestJson.WriteAtomic(Path.Combine(root, "cooptrail.json"), manifest);
+    CoopTrailPackage package = CoopTrailPackageCatalog.Load(root);
+    string destination = Path.Combine(fixture.Root, "staged-lords");
+    CoopTrailPackage staged = CoopWorkshopPackageStaging.Stage(package, destination,
+        "LordTrail.data", includeModSettings: false, out int copied);
+    Assert(copied == 0 && staged.Missions[0].LordRequirements != null &&
+        staged.Missions[0].LordRequirements.Slots.Single().RequiresInstalledPackage,
+        "required Lord data was removed with optional mod settings");
+    File.AppendAllText(TrailLordRequirements.SidecarPath(Path.Combine(destination,
+        "CoopMissions", "01.coopmission.json")), "changed");
+    ExpectFailure(() => CoopTrailPackageCatalog.Load(destination),
+        "modified Lord requirements passed the Coop package fingerprint");
 }
 
 static void TestDuplicatePackageIds()

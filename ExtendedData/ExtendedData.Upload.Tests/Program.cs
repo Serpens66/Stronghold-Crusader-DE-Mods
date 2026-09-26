@@ -17,7 +17,8 @@ namespace ExtendedData
                 return ExpectUnsafePackage(args[1]);
 
             Run("complete package and retry", TestCompletePackageAndRetry);
-            Run("upload allowlist and excluded warning", TestUploadAllowlistAndExcludedWarning);
+            Run("upload allowlist and excluded gameplay gate", TestUploadAllowlistAndExcludedWarning);
+            Run("local and Workshop Lord source selection", TestLordSourceSelection);
             Run("conflict rollback", TestConflictRollback);
             Run("dynamic rules", TestDynamicRules);
             Run("unknown extender identity upload", TestUnknownExtenderIdentityUpload);
@@ -83,6 +84,31 @@ namespace ExtendedData
                 Assert(retryPackageFiles == packageFiles, "retry package file count changed");
                 Assert(retryPackageBytes == packageBytes, "retry package byte count changed");
             });
+        }
+
+        private static void TestLordSourceSelection()
+        {
+            string local = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "LocalLord"));
+            string workshop = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "WorkshopLord"));
+            string[] candidates = { local, workshop };
+            Assert(TrailLordSourceSelector.SelectIndex(candidates, workshop, "Lord") == 1,
+                "the selected Workshop copy was not retained");
+            Assert(TrailLordSourceSelector.SelectIndex(candidates, local + Path.DirectorySeparatorChar,
+                "Lord") == 0, "the selected local copy was not retained");
+            Assert(TrailLordSourceSelector.SelectIndex(new[] { workshop }, null, "Lord") == 0,
+                "a unique source was not used when the saved path was absent");
+            bool ambiguousRejected = false;
+            try { TrailLordSourceSelector.SelectIndex(candidates, null, "Lord"); }
+            catch (InvalidDataException) { ambiguousRejected = true; }
+            Assert(ambiguousRejected, "ambiguous copies were selected without a saved path");
+            bool wrongPathRejected = false;
+            try
+            {
+                TrailLordSourceSelector.SelectIndex(candidates,
+                    Path.Combine(Path.GetTempPath(), "MissingLord"), "Lord");
+            }
+            catch (InvalidDataException) { wrongPathRejected = true; }
+            Assert(wrongPathRejected, "a saved source path was ignored when it did not match");
         }
 
         private static void TestConflictRollback()
@@ -151,18 +177,21 @@ namespace ExtendedData
                 string[] excluded =
                 {
                     "README.md",
+                    "Override/photo.jpeg",
+                    "Locales/en-US/notes.txt",
+                    "screenshot.png",
+                    "Scripts/readme.txt",
+                    "MapAreas/readme.txt"
+                };
+                string[] blockedGameplay =
+                {
                     "secret.env",
                     "tool.exe",
                     "archive.zip",
                     "_LegacyMediaSource/zMediafiles.aivjson",
                     "Override/Assets/GUI/XAML/panel.xaml",
                     "Override/AssetBundles/lordbundle",
-                    "Override/photo.jpeg",
-                    "Patches/ui.xaml",
-                    "Locales/en-US/notes.txt",
-                    "screenshot.png",
-                    "Scripts/readme.txt",
-                    "MapAreas/readme.txt"
+                    "Patches/ui.xaml"
                 };
                 foreach (string relativePath in excluded)
                     WriteText(Path.Combine(source, relativePath.Replace('/', Path.DirectorySeparatorChar)), "excluded");
@@ -191,6 +220,15 @@ namespace ExtendedData
                 Assert(retryPackageFiles == allowed.Length, "allowlisted retry reported the wrong package count");
                 Assert(retryPackageBytes == packageBytes, "allowlisted retry reported a different byte count");
 
+                foreach (string relativePath in blockedGameplay)
+                    WriteText(Path.Combine(source, relativePath.Replace('/', Path.DirectorySeparatorChar)), "gameplay");
+                bool blocked = CustomLordWorkshopPackagePolicy.TryStageFiles(
+                    source, staging, out int blockedCopied, out _, out _, out _, out string blockedError);
+                Assert(!blocked && blockedCopied == 0, "upload omitted gameplay files without blocking");
+                Assert(blockedError.IndexOf("archive.zip",
+                    StringComparison.OrdinalIgnoreCase) >= 0,
+                    "upload gate did not name an excluded gameplay file: " + blockedError);
+
                 foreach (string relativePath in excluded)
                 {
                     string stagedPath = Path.Combine(staging, relativePath.Replace('/', Path.DirectorySeparatorChar));
@@ -205,9 +243,9 @@ namespace ExtendedData
                     .ToArray();
                 Assert(excludedIssues.Length == 1, "excluded files were not grouped into one warning");
                 Assert(excludedIssues[0].Replacements.Length >= 2 &&
-                       Convert.ToInt32(excludedIssues[0].Replacements[1]) == excluded.Length,
+                       Convert.ToInt32(excludedIssues[0].Replacements[1]) == excluded.Length + blockedGameplay.Length,
                     "excluded warning reported the wrong count");
-                foreach (string relativePath in excluded)
+                foreach (string relativePath in excluded.Concat(blockedGameplay))
                 {
                     Assert(excludedIssues[0].TechnicalDetail.IndexOf(relativePath, StringComparison.OrdinalIgnoreCase) >= 0,
                         "excluded warning omitted: " + relativePath);

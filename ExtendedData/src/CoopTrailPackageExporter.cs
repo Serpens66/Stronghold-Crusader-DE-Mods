@@ -93,9 +93,11 @@ namespace ExtendedData
                     CoopMissionDefinition definition = CreateDefinition(
                         trailPath,
                         ordinal,
-                        missionsRoot);
+                        missionsRoot,
+                        out IReadOnlyList<TrailLordSlot> lordSlots);
                     string jsonPath = Path.Combine(missionsRoot, ordinal.ToString("00") + ".coopmission.json");
                     MissionLoader.WriteAtomic(jsonPath, definition);
+                    TrailLordRequirements.Create(jsonPath, lordSlots).Write(jsonPath);
                     ModSettingsDefinition modSettings = readModSettings != null
                         ? readModSettings(trailPath)
                         : ReadModSettings(trailPath);
@@ -115,6 +117,7 @@ namespace ExtendedData
                     fingerprintFiles.AddRange(loaded.BundledFiles);
                     if (loaded.ModSettingsPath != null)
                         fingerprintFiles.Add(loaded.ModSettingsPath);
+                    fingerprintFiles.Add(TrailLordRequirements.SidecarPath(jsonPaths[index]));
                 }
                 var manifest = new CoopTrailPackageManifest
                 {
@@ -142,7 +145,8 @@ namespace ExtendedData
         private static CoopMissionDefinition CreateDefinition(
             string trailPath,
             int ordinal,
-            string missionsRoot)
+            string missionsRoot,
+            out IReadOnlyList<TrailLordSlot> lordSlots)
         {
             FileHeader container = MapFileManager.Instance.GetFileInfoFromFileName(
                 trailPath,
@@ -152,12 +156,19 @@ namespace ExtendedData
             HUD_IngameMenu.RestartSkirmishMapInfo restart = container?.restartSkirmishInfo;
             if (restart?.selectedHeader == null || restart.MPsetupData == null)
                 throw new InvalidDataException("Mission " + ordinal + " has no complete saved skirmish setup.");
+            lordSlots = TrailLordPackageRuntime.Capture(restart);
 
             List<int> activeSlots = Enumerable.Range(0, Math.Min(8, restart.lordTypes?.Count ?? 0))
                 .Where(index => restart.lordTypes[index] != -9999)
                 .ToList();
             if (activeSlots.Count < 2)
                 throw new InvalidDataException("Mission " + ordinal + " needs at least two occupied player slots for Coop.");
+            lordSlots = lordSlots.Where(slot => activeSlots.IndexOf(slot.PlayerId - 1) >= 2)
+                .Select(slot =>
+                {
+                    slot.PlayerId = activeSlots.IndexOf(slot.PlayerId - 1) + 1;
+                    return slot;
+                }).ToArray();
 
             string assetRoot = Path.Combine(missionsRoot, "Assets", ordinal.ToString("00"));
             Directory.CreateDirectory(assetRoot);
@@ -168,7 +179,7 @@ namespace ExtendedData
                     ? restart.selectedHeader.fileName
                     : restart.selectedHeader.display_filename,
                 Description = string.Empty,
-                Map = CreateMapReference(restart.selectedHeader, assetRoot, ordinal),
+                Map = CreateMapReference(restart.selectedHeader, assetRoot, missionsRoot, ordinal),
                 Settings = CreateSettings(restart.MPsetupData),
                 Players = new List<PlayerDefinition>(),
             };
@@ -187,7 +198,7 @@ namespace ExtendedData
                     Colour = Math.Max(1, Math.Min(8, colour)),
                 };
                 if (activeIndex >= 2)
-                    PopulateAi(player, restart, slot, assetRoot, activeIndex + 1);
+                    PopulateAi(player, restart, slot, assetRoot, missionsRoot, activeIndex + 1);
                 definition.Players.Add(player);
             }
             MissionProjection projection = MissionProjection.Create(definition);
@@ -196,14 +207,15 @@ namespace ExtendedData
             return definition;
         }
 
-        private static MapReference CreateMapReference(FileHeader header, string assetRoot, int ordinal)
+        private static MapReference CreateMapReference(FileHeader header, string assetRoot,
+            string missionsRoot, int ordinal)
         {
             if (header.builtinMap)
                 return new MapReference { Source = "builtIn", Name = header.fileName };
             string source = RequireFile(header.filePath, ".map", "map for mission " + ordinal);
             string target = Path.Combine(assetRoot, "map.map");
             File.Copy(source, target, true);
-            return new MapReference { Source = "bundled", File = ToMissionRelative(target) };
+            return new MapReference { Source = "bundled", File = ToMissionRelative(target, missionsRoot) };
         }
 
         private static CoopSettings CreateSettings(EngineInterface.MultiplayerSetupData setup)
@@ -270,6 +282,7 @@ namespace ExtendedData
             HUD_IngameMenu.RestartSkirmishMapInfo restart,
             int slot,
             string assetRoot,
+            string missionsRoot,
             int playerNumber)
         {
             FRONT_Multiplayer.MPAIVInfo info = restart.aivs != null && slot < restart.aivs.Length ? restart.aivs[slot] : null;
@@ -284,13 +297,15 @@ namespace ExtendedData
             else
             {
                 string lordSource = ResolveLordConfigFile(info);
-                string lordTarget = Path.Combine(assetRoot, "lord-" + playerNumber + ".lordjson");
+                string playerAssetRoot = Path.Combine(assetRoot, "AI-" + playerNumber.ToString("00"));
+                Directory.CreateDirectory(playerAssetRoot);
+                string lordTarget = Path.Combine(playerAssetRoot, Path.GetFileName(lordSource));
                 File.Copy(lordSource, lordTarget, true);
                 player.Lord = new LordReference
                 {
                     Source = "bundled",
                     Name = info.lordName,
-                    File = ToMissionRelative(lordTarget),
+                    File = ToMissionRelative(lordTarget, missionsRoot),
                     BaseLordId = baseLordId,
                 };
             }
@@ -313,12 +328,17 @@ namespace ExtendedData
                     else
                     {
                         string aivSource = ResolveAivFile(info, aiv, baseLordId);
-                        string aivTarget = Path.Combine(assetRoot, "aiv-" + playerNumber + "-" + (index + 1) + ".aivjson");
+                        string playerAssetRoot = Path.Combine(assetRoot, "AI-" + playerNumber.ToString("00"));
+                        Directory.CreateDirectory(playerAssetRoot);
+                        string aivTarget = Path.Combine(playerAssetRoot, Path.GetFileName(aivSource));
+                        if (File.Exists(aivTarget))
+                            throw new InvalidDataException("AI player " + playerNumber +
+                                " selects multiple AIVs with the same file name: " + Path.GetFileName(aivSource));
                         File.Copy(aivSource, aivTarget, true);
                         player.Aivs.Add(new AivReference
                         {
                             Source = "bundled",
-                            File = ToMissionRelative(aivTarget),
+                            File = ToMissionRelative(aivTarget, missionsRoot),
                             Rotation = NormalizeRotation(info.rotation),
                         });
                     }
@@ -419,10 +439,14 @@ namespace ExtendedData
             return Path.GetFullPath(path);
         }
 
-        private static string ToMissionRelative(string path)
+        private static string ToMissionRelative(string path, string missionsRoot)
         {
-            string missionsRoot = Directory.GetParent(Directory.GetParent(Directory.GetParent(path).FullName).FullName).FullName;
-            return path.Substring(missionsRoot.TrimEnd(Path.DirectorySeparatorChar).Length + 1)
+            string root = Path.GetFullPath(missionsRoot).TrimEnd(Path.DirectorySeparatorChar,
+                Path.AltDirectorySeparatorChar);
+            string full = Path.GetFullPath(path);
+            if (!full.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("A bundled mission asset lies outside the missions directory.");
+            return full.Substring(root.Length + 1)
                 .Replace(Path.DirectorySeparatorChar, '/');
         }
     }

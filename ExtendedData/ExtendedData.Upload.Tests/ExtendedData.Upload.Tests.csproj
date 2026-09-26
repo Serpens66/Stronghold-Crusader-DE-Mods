@@ -28,6 +28,8 @@
     <Compile Include="..\src\LordUpload\CustomLordUploadRequest.cs"><Link>CustomLordUploadRequest.cs</Link></Compile>
     <Compile Include="..\src\LordUpload\CustomLordUploadWorkflow.cs"><Link>CustomLordUploadWorkflow.cs</Link></Compile>
     <Compile Include="..\src\LordUpload\CustomLordWorkshopPackagePolicy.cs"><Link>CustomLordWorkshopPackagePolicy.cs</Link></Compile>
+    <Compile Include="..\src\TrailLordSourceSelector.cs"><Link>TrailLordSourceSelector.cs</Link></Compile>
+    <Compile Include="..\ExtendedData.Core\LordPackageManifest.cs"><Link>LordPackageManifest.cs</Link></Compile>
     <Compile Include="..\src\LordUpload\CustomLordWorkshopPreflight.cs"><Link>CustomLordWorkshopPreflight.cs</Link></Compile>
     <Compile Include="..\..\Shared\DependencyFreeJson.cs"><Link>DependencyFreeJson.cs</Link></Compile>
     <Compile Include="..\..\Shared\DebugLogHelper.cs"><Link>DebugLogHelper.cs</Link></Compile>

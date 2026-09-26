@@ -145,6 +145,8 @@ namespace ExtendedData.Core
         public string JsonPath { get; set; }
         public string MissionRoot { get; set; }
         public string ModSettingsPath { get; set; }
+        public string LordRequirementsPath { get; set; }
+        public TrailLordRequirements LordRequirements { get; set; }
         public CoopMissionDefinition Definition { get; set; }
         public IReadOnlyList<string> BundledFiles { get; set; }
     }

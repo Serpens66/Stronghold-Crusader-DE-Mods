@@ -71,6 +71,8 @@ namespace ExtendedData
                 .WhenLobbyChanged(snapshot => LordDataLobbyChanged?.Invoke(snapshot))
                 .WhenRemoteDataChanged(propertyName =>
                 {
+                    if (string.Equals(propertyName, nameof(CoopPackageStatusData), StringComparison.Ordinal))
+                        CoopPackageRemoteStatusChanged?.Invoke();
                     if (string.Equals(propertyName, nameof(LordDataStatusData), StringComparison.Ordinal))
                         LordDataRemoteStatusChanged?.Invoke();
                     if (string.Equals(propertyName, nameof(LordPackageStatusData), StringComparison.Ordinal))
@@ -83,6 +85,7 @@ namespace ExtendedData
         public event Action<string> LordDataSnapshotChanged;
         public event Action<string> LordPackageManifestChanged;
         internal event Action<Shared.PerPlayerLobbySnapshot> LordDataLobbyChanged;
+        internal event Action CoopPackageRemoteStatusChanged;
         internal event Action LordDataRemoteStatusChanged;
         internal event Action<int> LordDataSnapshotMutationRejected;
         internal event Action<string> LordDataLocalStatusChanged;

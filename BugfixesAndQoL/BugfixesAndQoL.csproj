@@ -8,8 +8,8 @@
     <OutputType>Library</OutputType>
     <RootNamespace>BugfixesAndQoL</RootNamespace>
     <AssemblyName>BugfixesAndQoL</AssemblyName>
-    <AssemblyVersion>1.0.165.0</AssemblyVersion>
-    <FileVersion>1.0.165.0</FileVersion>
+    <AssemblyVersion>1.0.166.0</AssemblyVersion>
+    <FileVersion>1.0.166.0</FileVersion>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -285,6 +285,9 @@
     <Compile Include="src\NativeHandlerSnapshot.cs" />
     <Compile Include="src\TroopMovementFix3SynchronizedMovementCadencePatch.cs" />
     <Compile Include="src\TemporaryGateBlockagePolicy.cs" />
+    <Compile Include="src\TimerCountdownPolicy.cs" />
+    <Compile Include="src\TimerCountdownViewModel.cs" />
+    <Compile Include="src\TimerCountdownFeature.cs" />
     <Compile Include="src\TroopHudMiddleClickCameraFeature.cs" />
     <Compile Include="src\TrailCustomizationFeature.cs" />
     <Compile Include="src\TrailCustomizationLaunchOriginApi.cs" />
@@ -296,6 +299,9 @@
   <ItemGroup>
     <Content Include="Locales\*.txt"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
     <Content Include="Patches\Assets\GUI\XAMLResources\HUD_Buildings.xaml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="Patches\Assets\GUI\XAMLResources\HUD_Objectives.xaml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="Patches\Assets\GUI\XAMLResources\HUD_Briefing.xaml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="Patches\Assets\GUI\XAMLResources\OST_StartingGoods.xaml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
   </ItemGroup>
   <ItemGroup>
     <Reference Include="MessagePack"><HintPath>$(ExtenderDir)\MessagePack.dll</HintPath><Private>false</Private></Reference>

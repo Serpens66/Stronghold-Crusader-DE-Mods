@@ -46,6 +46,8 @@ namespace ExtendedData.Core
                 fingerprintFiles.AddRange(loaded.BundledFiles);
                 if (loaded.ModSettingsPath != null)
                     fingerprintFiles.Add(loaded.ModSettingsPath);
+                if (loaded.LordRequirementsPath != null)
+                    fingerprintFiles.Add(loaded.LordRequirementsPath);
             }
 
             var manifest = new CoopTrailPackageManifest

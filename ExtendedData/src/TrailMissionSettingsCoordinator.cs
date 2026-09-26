@@ -82,6 +82,8 @@ namespace ExtendedData
             private delegate void TwoStringDelegate(FRONT_ManageTrail self, string first, string second);
             private delegate void NoArgumentDelegate(FRONT_ManageTrail self);
             private delegate void StartCustomTrailDelegate(MainViewModel self, string trailName, int missionId, int difficulty);
+            private delegate void LaunchCustomTrailDelegate(FRONT_Multiplayer self,
+                HUD_IngameMenu.RestartSkirmishMapInfo restartInfo, FileHeader headerToUse);
             private delegate void MultiplayerOpenDelegate(
                 FRONT_Multiplayer self,
                 bool skirmishSetup,
@@ -127,6 +129,8 @@ namespace ExtendedData
             private ExportDelegate exportOriginal;
             private NoArgumentDelegate clearMakerOriginal;
             private StartCustomTrailDelegate startCustomTrailOriginal;
+            private LaunchCustomTrailDelegate launchCustomTrailOriginal;
+            internal LordDataSyncCoordinator LordDataCoordinator { get; set; }
             private MultiplayerOpenDelegate multiplayerOpenOriginal;
             private StartSkirmishGameDelegate startSkirmishGameOriginal;
             private FrontendOpenCustomTrailDelegate frontendOpenCustomTrailOriginal;
@@ -388,6 +392,10 @@ namespace ExtendedData
                 startCustomTrailOriginal = InstallHook(
                     typeof(MainViewModel).GetMethod(nameof(MainViewModel.StartCustomTrailMission)),
                     (StartCustomTrailDelegate)StartCustomTrailHook);
+                launchCustomTrailOriginal = InstallHook(
+                    typeof(FRONT_Multiplayer).GetMethod(nameof(FRONT_Multiplayer.StartCustomTrailMission),
+                        BindingFlags.Instance | BindingFlags.Public),
+                    (LaunchCustomTrailDelegate)LaunchCustomTrailHook);
                 multiplayerOpenOriginal = InstallHook(
                     typeof(FRONT_Multiplayer).GetMethod(
                         "doOpen",
@@ -1052,12 +1060,13 @@ namespace ExtendedData
                             InvokeUploadFailure(mapTitle, terminalFailure);
                             return;
                         }
-                        if (!CustomLordJsonUploadPolicy.TryStageDirectJsonFiles(
+                        if (!CustomLordWorkshopPackagePolicy.TryStageFiles(
                                 source,
-                                nameMap,
                                 stagingChild,
-                                out int copiedJsonFiles,
-                                out int existingJsonFiles,
+                                out int copiedFiles,
+                                out int existingFiles,
+                                out int packageFiles,
+                                out long packageBytes,
                                 out string stagingError))
                         {
                             DebugLogHelper.LogError(
@@ -1068,7 +1077,7 @@ namespace ExtendedData
                         }
                         DebugLogHelper.LogInfo(
                             log,
-                            $"Extended CPU Lord JSON staging ready for [{mapTitle}]: {copiedJsonFiles} copied, {existingJsonFiles} already present.");
+                            $"Extended CPU Lord staging ready for [{mapTitle}]: {copiedFiles} copied, {existingFiles} already present, {packageFiles} package files, {packageBytes} bytes.");
                     }
                     catch (Exception exception)
                     {
@@ -1079,31 +1088,32 @@ namespace ExtendedData
                         return;
                     }
                 }
-                else if (decision != null && decision.IncludeExtendedData && IsCustomTrailUpload(tags))
+                else if (IsCustomTrailUpload(tags))
                 {
                     string source = IOPath.Combine(ConfigSettings.GetUserCustomTrailsPath(), mapTitle);
                     string destination = IOPath.Combine(nameMap, mapTitle);
-                    if (!WorkshopUploadStaging.TryStageTrailJsonFiles(
-                            source,
-                            destination,
-                            out int copiedFiles,
-                            out string error))
+                    if (!WorkshopUploadStaging.TryStageTrailJsonFiles(source, destination,
+                            out int requiredFiles, out string requiredError, requirementsOnly: true))
                     {
                         DebugLogHelper.LogError(
                             log,
-                            $"Custom Trail JSON files could not be staged for [{mapTitle}]; upload aborted: {error}");
+                            $"Custom Trail Lord requirements could not be staged for [{mapTitle}]; upload aborted: {requiredError}");
                         InvokeUploadFailure(mapTitle, terminalFailure);
                         return;
                     }
-                    DebugLogHelper.LogInfo(
-                        log,
-                        $"Added {copiedFiles} Custom Trail JSON file(s) to Workshop staging for [{mapTitle}].");
-                }
-                else if (decision != null && !decision.IncludeExtendedData && IsCustomTrailUpload(tags))
-                {
-                    DebugLogHelper.LogInfo(
-                        log,
-                        $"Custom Trail upload [{mapTitle}] excludes mod-settings sidecars by explicit user choice.");
+                    if (decision?.IncludeExtendedData == true)
+                    {
+                        if (!WorkshopUploadStaging.TryStageTrailJsonFiles(source, destination,
+                                out int copiedFiles, out string error))
+                        {
+                            DebugLogHelper.LogError(log,
+                                $"Custom Trail JSON files could not be staged for [{mapTitle}]; upload aborted: {error}");
+                            InvokeUploadFailure(mapTitle, terminalFailure);
+                            return;
+                        }
+                        DebugLogHelper.LogInfo(log,
+                            $"Added {copiedFiles} Custom Trail JSON file(s) and {requiredFiles} required Lord file(s) to Workshop staging for [{mapTitle}].");
+                    }
                 }
 
                 uploadWorkshopMapOriginal(
@@ -1545,6 +1555,7 @@ namespace ExtendedData
                         Directory.CreateDirectory(trailMakerSource);
                         exportOriginal(self, trailMakerSource);
                         ExportSidecars(trailMakerSource);
+                        ExportLordRequirements(trailMakerSource);
                         prepared.Publish(destination);
                         RemoveNormalTrailFiles(destination);
                         DebugLogHelper.LogInfo(log, "Published Coop Trail package [" + prepared.Package.Manifest.DisplayName +
@@ -1555,6 +1566,7 @@ namespace ExtendedData
                     {
                         exportOriginal(self, destination);
                         ExportSidecars(destination);
+                        ExportLordRequirements(destination);
                         RemoveCoopPackage(destination);
                     }
                     CoopPackagesChanged?.Invoke();
@@ -1598,6 +1610,22 @@ namespace ExtendedData
                         outputIndex++;
                     }
                 });
+            }
+
+            private static void ExportLordRequirements(string destination)
+            {
+                foreach (string stale in Directory.GetFiles(destination,
+                    "Trail_Mission_*" + TrailLordRequirements.Suffix))
+                    File.Delete(stale);
+                foreach (string trail in Directory.GetFiles(destination, "Trail_Mission_*.trail"))
+                {
+                    FileHeader header = MapFileManager.Instance.GetFileInfoFromFileName(
+                        trail, trail, 4, loadRestartInfo: true);
+                    if (header?.restartSkirmishInfo == null)
+                        throw new InvalidDataException("Exported Trail mission has no Lord data: " + trail);
+                    TrailLordRequirements.Create(trail,
+                        TrailLordPackageRuntime.Capture(header.restartSkirmishInfo)).Write(trail);
+                }
             }
 
             private ModSettingsDefinition ReadModSettingsForExport(string trailPath)
@@ -1834,11 +1862,49 @@ namespace ExtendedData
                     // materialized result as a read-only working snapshot.
                     ApplyDocument(CaptureDocument(), editable: false, presetLabel: "Trail");
                 }
+                try
+                {
+                    FileHeader lordHeader = ResolveCustomTrailHeader(trailName, missionId);
+                    TrailLordRequirements requirements = TrailLordRequirements.Read(lordHeader.filePath);
+                    if (requirements != null)
+                    {
+                        FileHeader detailed = MapFileManager.Instance.GetFileInfoFromFileName(
+                            lordHeader.filePath, lordHeader.filePath, 4, loadRestartInfo: true);
+                        if (detailed?.restartSkirmishInfo?.aivs == null)
+                            throw new InvalidDataException("Custom Trail Lord data is unavailable.");
+                        string reason = "Custom Trail Lord validation is unavailable.";
+                        if (LordDataCoordinator == null || !LordDataCoordinator.PrepareTrail(requirements,
+                                ToLordInfoMap(detailed.restartSkirmishInfo.aivs), false,
+                                out reason))
+                            throw new InvalidDataException(reason);
+                    }
+                    else
+                        LordDataCoordinator?.PrepareTrail(null, null, false, out _);
+                }
+                catch (Exception exception)
+                {
+                    DebugLogHelper.LogError(log, "Blocked Custom Trail launch: " + exception);
+                    ShowInformation(SerpLocalization.Get("ExtendedData.StartBlockedTitle"), exception.Message);
+                    return;
+                }
                 preserveContextForLaunch = false;
                 customTrailLaunchActive = true;
                 missionPresetLifecycle.Prepare(MissionPresetLaunchKind.CustomTrail);
                 startCustomTrailOriginal(self, trailName, missionId, difficulty);
             }
+
+            private void LaunchCustomTrailHook(FRONT_Multiplayer self,
+                HUD_IngameMenu.RestartSkirmishMapInfo restartInfo, FileHeader headerToUse)
+            {
+                LordDataCoordinator?.RemapTrailMedia(ToLordInfoMap(restartInfo?.aivs));
+                launchCustomTrailOriginal(self, restartInfo, headerToUse);
+            }
+
+            private static Dictionary<int, FRONT_Multiplayer.MPAIVInfo> ToLordInfoMap(
+                FRONT_Multiplayer.MPAIVInfo[] aivs) =>
+                (aivs ?? Array.Empty<FRONT_Multiplayer.MPAIVInfo>())
+                    .Select((info, index) => new { info, index })
+                    .ToDictionary(item => item.index + 1, item => item.info);
 
             private void MultiplayerOpenHook(
                 FRONT_Multiplayer self,

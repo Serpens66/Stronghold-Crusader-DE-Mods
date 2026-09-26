@@ -13,7 +13,17 @@ namespace ExtendedData
         public bool HasUnsupportedGameplayFiles { get; set; }
         public IReadOnlyList<string> GameplayPaths { get; set; }
         public IReadOnlyList<string> UnsupportedPaths { get; set; }
+        public IReadOnlyList<string> SynchronizedPaths { get; set; }
+        public IReadOnlyList<string> OptionalPaths { get; set; }
     }
+
+    public sealed class LordPackageFile
+    {
+        public string FullPath { get; set; }
+        public string RelativePath { get; set; }
+    }
+
+    public enum LordPackageFileKind { LocalControl, SynchronizedValue, Presentation, Gameplay }
 
     public static class LordPackageFingerprint
     {
@@ -30,26 +40,32 @@ namespace ExtendedData
                 throw new InvalidDataException("The selected Lord directory or configuration is unavailable.");
             string normalizedRoot = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar,
                 Path.AltDirectorySeparatorChar);
-            var paths = new List<string>();
-            Collect(normalizedRoot, normalizedRoot, paths);
-            paths.Sort(StringComparer.OrdinalIgnoreCase);
-            if (paths.Select(path => path.ToUpperInvariant()).Distinct(StringComparer.Ordinal).Count() != paths.Count)
-                throw new InvalidDataException("The Lord package contains case-colliding file paths.");
+            IReadOnlyList<LordPackageFile> paths = Inventory(normalizedRoot);
             var gameplay = new List<string>();
             var unsupported = new List<string>();
+            var synchronized = new List<string>();
+            var optional = new List<string>();
             var digestSource = new StringBuilder();
-            foreach (string path in paths)
+            foreach (LordPackageFile file in paths)
             {
-                string relative = path.Substring(normalizedRoot.Length + 1).Replace('\\', '/');
-                string extension = Path.GetExtension(relative);
-                if (MediaExtensions.Contains(extension) ||
-                    string.Equals(extension, ".txt", StringComparison.OrdinalIgnoreCase) ||
-                    IsLocalControl(relative))
+                string relative = file.RelativePath;
+                LordPackageFileKind kind = Classify(relative, configName);
+                if (kind == LordPackageFileKind.LocalControl)
                     continue;
+                if (kind == LordPackageFileKind.SynchronizedValue)
+                {
+                    synchronized.Add(relative);
+                    continue;
+                }
+                if (kind == LordPackageFileKind.Presentation)
+                {
+                    optional.Add(relative);
+                    continue;
+                }
                 gameplay.Add(relative);
                 if (!IsSupported(relative, configName))
                     unsupported.Add(relative);
-                byte[] bytes = File.ReadAllBytes(path);
+                byte[] bytes = File.ReadAllBytes(file.FullPath);
                 digestSource.Append(relative.ToUpperInvariant()).Append('\n')
                     .Append(bytes.Length).Append('\n').Append(Hash(bytes)).Append('\n');
             }
@@ -59,10 +75,26 @@ namespace ExtendedData
                 HasUnsupportedGameplayFiles = unsupported.Count != 0,
                 GameplayPaths = gameplay,
                 UnsupportedPaths = unsupported,
+                SynchronizedPaths = synchronized,
+                OptionalPaths = optional,
             };
         }
 
-        private static void Collect(string root, string directory, List<string> files)
+        public static IReadOnlyList<LordPackageFile> Inventory(string root)
+        {
+            if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
+                throw new InvalidDataException("The Lord package directory is unavailable.");
+            string normalizedRoot = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar,
+                Path.AltDirectorySeparatorChar);
+            var files = new List<LordPackageFile>();
+            Collect(normalizedRoot, normalizedRoot, files);
+            files.Sort((left, right) => StringComparer.OrdinalIgnoreCase.Compare(left.RelativePath, right.RelativePath));
+            if (files.Select(file => file.RelativePath.ToUpperInvariant()).Distinct(StringComparer.Ordinal).Count() != files.Count)
+                throw new InvalidDataException("The Lord package contains case-colliding file paths.");
+            return files;
+        }
+
+        private static void Collect(string root, string directory, List<LordPackageFile> files)
         {
             if ((File.GetAttributes(directory) & FileAttributes.ReparsePoint) != 0)
                 throw new InvalidDataException("A Lord package directory is a link: " + directory);
@@ -70,15 +102,35 @@ namespace ExtendedData
             {
                 if ((File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
                     throw new InvalidDataException("A Lord package file is a link: " + path);
-                files.Add(path);
+                files.Add(new LordPackageFile
+                {
+                    FullPath = path,
+                    RelativePath = path.Substring(root.Length + 1).Replace('\\', '/'),
+                });
             }
             foreach (string child in Directory.GetDirectories(directory))
                 Collect(root, child, files);
         }
 
-        private static bool IsLocalControl(string relative) =>
-            relative.EndsWith(".data", StringComparison.OrdinalIgnoreCase) ||
-            relative.EndsWith(".ldata", StringComparison.OrdinalIgnoreCase);
+        public static LordPackageFileKind Classify(string relative, string configName)
+        {
+            string extension = Path.GetExtension(relative);
+            if (extension.Equals(".data", StringComparison.OrdinalIgnoreCase) ||
+                extension.Equals(".ldata", StringComparison.OrdinalIgnoreCase))
+                return LordPackageFileKind.LocalControl;
+            if (relative.Equals(configName + ".modlord.json", StringComparison.OrdinalIgnoreCase) ||
+                relative.Equals("Override/Fixes/preferences.json", StringComparison.OrdinalIgnoreCase))
+                return LordPackageFileKind.SynchronizedValue;
+            if (MediaExtensions.Contains(extension) ||
+                relative.Equals("lordmeta.json", StringComparison.OrdinalIgnoreCase) ||
+                relative.Equals("info.json", StringComparison.OrdinalIgnoreCase) ||
+                relative.EndsWith("/crusader.txt", StringComparison.OrdinalIgnoreCase) &&
+                relative.StartsWith("Locales/", StringComparison.OrdinalIgnoreCase) ||
+                extension.Equals(".txt", StringComparison.OrdinalIgnoreCase) ||
+                extension.Equals(".md", StringComparison.OrdinalIgnoreCase))
+                return LordPackageFileKind.Presentation;
+            return LordPackageFileKind.Gameplay;
+        }
 
         private static bool IsSupported(string relative, string configName)
         {
@@ -88,8 +140,7 @@ namespace ExtendedData
                 if (extension.Equals(".lordjson", StringComparison.OrdinalIgnoreCase) ||
                     extension.Equals(".aivjson", StringComparison.OrdinalIgnoreCase) ||
                     relative.Equals("info.json", StringComparison.OrdinalIgnoreCase) ||
-                    relative.Equals("lordmeta.json", StringComparison.OrdinalIgnoreCase) ||
-                    relative.Equals(configName + ".modlord.json", StringComparison.OrdinalIgnoreCase))
+                    relative.Equals("lordmeta.json", StringComparison.OrdinalIgnoreCase))
                     return true;
             }
             return relative.Equals("Override/Fixes/preferences.json", StringComparison.OrdinalIgnoreCase) ||

@@ -261,6 +261,8 @@ namespace ExtendedData.Core
                 fingerprintFiles.AddRange(loaded.BundledFiles);
                 if (loaded.ModSettingsPath != null)
                     fingerprintFiles.Add(loaded.ModSettingsPath);
+                if (loaded.LordRequirementsPath != null)
+                    fingerprintFiles.Add(loaded.LordRequirementsPath);
             }
             string fingerprint = CoopTrailPackageFingerprint.Compute(root, fingerprintFiles);
             if (!string.Equals(fingerprint, manifest.ContentFingerprint, StringComparison.OrdinalIgnoreCase))

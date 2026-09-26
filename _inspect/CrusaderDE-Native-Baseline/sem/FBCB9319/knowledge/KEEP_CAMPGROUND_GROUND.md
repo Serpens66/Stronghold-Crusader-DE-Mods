@@ -1,0 +1,16 @@
+# Keep campground ground: confirmed observation path
+
+Native DLL SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+Managed Assembly-CSharp SHA-256: `BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789`.
+These hashes were checked against the installed game on 2026-09-26.
+
+- RVA `0x5BC70` (candidate reset/unload function) initializes 320,800 GFX cells at tile-manager offset `0x140900`, then calls `0x65830` and `0x650C0`. The former has extensive terrain/structure-dependent GFX writes; the latter fills eligible zero-GFX cells under logic and terrain conditions. Calling the reset function a new-map initializer would be incorrect.
+- RVA `0xB47E0` (candidate building allocator, uniquely matched by the installed Script Extender building-spawn AOB) receives owner, coordinates, structure type, scale and variation, validates the map coordinate, allocates a 1-based building ID and record, and has explicit branches for Keep types `0x28..0x2C` and Campground `0x37`. Its wrapper raises `OnBuildingSpawn` before and after the original call. These values match the installed `SHCDESE.Interop.eStructs` enum and the local Extender source.
+- RVA `0x6E620` (`c_game_update_visual_resourcetile`, confirmed by installed Extender AOB) writes packed file/image values to GFX offset `0x140900`; selected branches also write Alpha-GFX offset `0x279D80`. It has a specific case for Keep One (`0x28`), while other structure types, including Campground (`0x37`), can flow through the generic case. More exact campfire sprite IDs require runtime observation.
+- In the matching managed assembly, `GameMap.processTestMap` consumes the native render records and calls `SpriteMapping.setGenericBuildingTileGraphic`; the result is `GameMapTile.tileImage`. `gameTile.GetTileData` uses that sprite for z=0. There is no separate managed original-ground sprite at that stage.
+
+For a read-only diagnosis, `OnBuildingSpawn(Pre)` is the earliest target-specific public event. Its GFX sample can already be changed by earlier parent logic; it must be marked first observed, not automatically original terrain. Subsequent Post, tick, render, and save-load samples identify the first *observed* change without assuming the still-unverified exact campfire writer or tile footprint.
+
+## Confirmed store branch for the preserve test
+
+An instruction-level audit of the same installed DLL found the generic building GFX store at RVA `0x6F0A0` (8 bytes) and its immediately following record read at `0x6F0A8` (8 bytes). The latter feeds an AlphaGFX calculation and store at `0x6F0D0`; RVA `0x6F0D8` is the shared loop tail. The record type word at image-relative `0x64CCCDE` can discriminate campground `0x37`. The local `KeepCampfireGroundPreserveTest` uses a 16-byte `X64InlineHook` at the GFX store, skips to the loop tail for campground records only, and runs both original displaced instructions for other records. The branch leaves structure and logic work before the store untouched. `0x65830` may call this visual function during terrain recomputation. Demolition goes through `0xB8310 -> 0x61FC0 -> 0x628F0`, clears structure occupancy and schedules graphics refresh; its visible behavior still requires in-game testing.

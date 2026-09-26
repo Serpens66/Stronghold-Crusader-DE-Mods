@@ -26,6 +26,11 @@ namespace ExtendedData
         private readonly FixesLordPreferencesBridge fixes = new FixesLordPreferencesBridge();
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private LordDataSnapshot active;
+        private LordDataSnapshot pendingTrail;
+        private bool trailApplied;
+        private Dictionary<int, string> pendingTrailMediaNames = new Dictionary<int, string>();
+        private HashSet<int> embeddedTrailSlots = new HashSet<int>();
+        private bool trailSelectionActive;
         private LordPackageManifest packageManifest;
         private readonly Dictionary<int, string> localLordPaths = new Dictionary<int, string>();
         private bool activeFromSave;
@@ -68,6 +73,19 @@ namespace ExtendedData
                 throw new InvalidOperationException("Lord-data save identifier is already registered.");
             subscriptions.Add(MissionEvents.Initialization.Subscribe(notification =>
             {
+                if (pendingTrail != null)
+                {
+                    fixes.Restore();
+                    active = null;
+                    packageManifest = null;
+                    localLordPaths.Clear();
+                    fixes.Apply(pendingTrail);
+                    ExtendedDataModDataApi.SetNetworkSnapshot(pendingTrail, true);
+                    trailApplied = true;
+                    DebugLogHelper.LogInfo(log, "Trail Lord values applied at mission initialization: " +
+                        pendingTrail.Digest);
+                    return;
+                }
                 if (notification.Context.Mode.IsRealMultiplayer || active != null || packageManifest != null)
                     LogMapTransition(notification.Context.Mode.IsRealMultiplayer);
                 if (!notification.Context.Mode.IsRealMultiplayer)
@@ -115,11 +133,142 @@ namespace ExtendedData
                 bool hadLordSession = active != null || lobbyId.HasValue;
                 fixes.Restore();
                 ExtendedDataModDataApi.SetNetworkSnapshot(null, false);
+                if (trailApplied)
+                {
+                    pendingTrail = null;
+                    pendingTrailMediaNames.Clear();
+                    trailApplied = false;
+                }
                 lastMapTransitionDiagnostic = null;
                 lastMapAppliedDiagnostic = null;
                 if (hadLordSession)
                     DebugLogHelper.LogInfo(log, "Lord-data map ended; session Fixes preferences restored.");
             }));
+        }
+
+        internal void SetEmbeddedTrailSlots(IEnumerable<int> playerIds)
+        {
+            trailSelectionActive = playerIds != null;
+            embeddedTrailSlots = new HashSet<int>(playerIds ?? Enumerable.Empty<int>());
+        }
+
+        internal bool IsManifestReplacementSlot(int playerId) =>
+            packageManifest?.Slots.Any(slot => slot.PlayerId == playerId) == true;
+
+        internal bool CanSatisfyTrail(TrailLordRequirements requirements,
+            IReadOnlyDictionary<int, FRONT_Multiplayer.MPAIVInfo> infos, out string reason)
+            => TryInspectTrail(requirements, infos, out _, out reason);
+
+        internal bool PrepareTrail(TrailLordRequirements requirements,
+            IReadOnlyDictionary<int, FRONT_Multiplayer.MPAIVInfo> infos,
+            bool remapNow, out string reason, bool captureLocalReplacements = false)
+        {
+            pendingTrail = null;
+            pendingTrailMediaNames.Clear();
+            trailApplied = false;
+            if (requirements == null)
+            {
+                reason = string.Empty;
+                return true;
+            }
+            if (!TryInspectTrail(requirements, infos, out Dictionary<int, string> names, out reason))
+                return false;
+            var slots = requirements.Slots.Where(slot => embeddedTrailSlots.Contains(slot.PlayerId))
+                .Select(slot => new LordDataSlot
+            {
+                PlayerId = slot.PlayerId,
+                LordName = names.TryGetValue(slot.PlayerId, out string name) ? name : slot.LordName,
+                ConfigName = infos[slot.PlayerId].lordConfig.name,
+                ConfigChecksum = slot.ConfigChecksum,
+                ModLordJson = slot.ModLordJson,
+                FixesJson = slot.FixesJson,
+            }).ToList();
+            // The ordinary multiplayer snapshot carries the host's values for replaced
+            // Custom Lords. Trail values only belong to slots still using the embedded Lord.
+            if (captureLocalReplacements)
+            {
+                FRONT_Multiplayer lobby = ExtendedDataRuntime.GetExistingMainViewModel()?.FRONTMultiplayer;
+                foreach (KeyValuePair<int, FRONT_Multiplayer.MPAIVInfo> item in infos ??
+                    new Dictionary<int, FRONT_Multiplayer.MPAIVInfo>())
+                {
+                    if (embeddedTrailSlots.Contains(item.Key) ||
+                        !IsActiveAiSlot(lobby, item.Key) || item.Value?.builtInLord != false)
+                        continue;
+                    slots.Add(CaptureSlot(item.Key, item.Value.lordName, item.Value.lordConfig));
+                }
+            }
+            else if (active != null && packageManifest != null &&
+                string.Equals(active.SessionId, packageManifest.SessionId, StringComparison.Ordinal))
+                slots.AddRange(active.Slots.Where(slot => !embeddedTrailSlots.Contains(slot.PlayerId) &&
+                    infos != null && infos.TryGetValue(slot.PlayerId, out FRONT_Multiplayer.MPAIVInfo info) &&
+                    info?.builtInLord == false &&
+                    string.Equals(info.lordConfig?.checksum.ToString(), slot.ConfigChecksum,
+                        StringComparison.Ordinal) &&
+                    packageManifest.Slots.Any(item => item.PlayerId == slot.PlayerId &&
+                        item.NeedsSnapshot &&
+                        string.Equals(item.ConfigChecksum, slot.ConfigChecksum, StringComparison.Ordinal))));
+            try
+            {
+                foreach (IGrouping<string, LordDataSlot> group in slots.GroupBy(
+                    slot => slot.LordName, StringComparer.Ordinal))
+                    if (group.Select(slot => slot.FixesJson).Distinct(StringComparer.Ordinal).Skip(1).Any())
+                        throw new InvalidDataException("The selected Lords share the name '" + group.Key +
+                            "' but require different process-wide Fixes preferences.");
+                pendingTrail = LordDataSnapshot.CreateTrail("trail:" + requirements.MissionDigest,
+                    fixes.Installed, slots);
+                pendingTrailMediaNames = names;
+                if (remapNow) RemapTrailMedia(infos);
+                reason = string.Empty;
+                return true;
+            }
+            catch (Exception exception)
+            {
+                reason = exception.Message;
+                return false;
+            }
+        }
+
+        internal void RemapTrailMedia(IReadOnlyDictionary<int, FRONT_Multiplayer.MPAIVInfo> infos)
+        {
+            if (pendingTrail == null || infos == null) return;
+            foreach (KeyValuePair<int, string> item in pendingTrailMediaNames)
+                if (infos.TryGetValue(item.Key, out FRONT_Multiplayer.MPAIVInfo info) && info != null &&
+                    pendingTrail.GetSlot(item.Key)?.ConfigChecksum == info.lordConfig?.checksum.ToString())
+                    info.lordName = item.Value;
+        }
+
+        private bool TryInspectTrail(TrailLordRequirements requirements,
+            IReadOnlyDictionary<int, FRONT_Multiplayer.MPAIVInfo> infos,
+            out Dictionary<int, string> names, out string reason)
+        {
+            names = new Dictionary<int, string>();
+            reason = string.Empty;
+            if (requirements == null) return true;
+            try
+            {
+                foreach (TrailLordSlot slot in requirements.Slots.Where(item =>
+                    embeddedTrailSlots.Contains(item.PlayerId)))
+                {
+                    if (infos == null || !infos.TryGetValue(slot.PlayerId, out FRONT_Multiplayer.MPAIVInfo info) ||
+                        info?.lordConfig == null || info.builtInLord ||
+                        !string.Equals(info.lordConfig.checksum.ToString(), slot.ConfigChecksum,
+                            StringComparison.Ordinal) ||
+                        !(info.aivs ?? new List<CustomisationFileManager.CustomAIV>())
+                            .Select(aiv => aiv.checksum.ToString()).SequenceEqual(slot.AivChecksums))
+                        throw new InvalidDataException("Embedded Lord configuration or AIV differs from the Trail: " + slot.LordName);
+                    fixes.ValidateSnapshotValue(slot.FixesJson);
+                    if (!TrailLordPackageRuntime.TryResolve(slot, out string mediaName,
+                        out _, out string error))
+                        throw new InvalidDataException(error);
+                    if (!string.IsNullOrWhiteSpace(mediaName)) names[slot.PlayerId] = mediaName;
+                }
+                return true;
+            }
+            catch (Exception exception)
+            {
+                reason = exception.Message;
+                return false;
+            }
         }
 
         internal void OnLobbyOpened(FRONT_Multiplayer lobby)
@@ -190,6 +339,8 @@ namespace ExtendedData
                 return false;
             for (int index = 0; index < Math.Min(8, lobby.AIVs.Length); index++)
             {
+                if (embeddedTrailSlots.Contains(index + 1))
+                    continue;
                 if (!IsActiveAiSlot(lobby, index + 1))
                     continue;
                 FRONT_Multiplayer.MPAIVInfo info = lobby.AIVs[index];
@@ -240,6 +391,8 @@ namespace ExtendedData
                     throw new InvalidDataException("The selected Lord list is unavailable.");
                 for (int index = 0; index < Math.Min(8, lobby.AIVs.Length); index++)
                 {
+                    if (embeddedTrailSlots.Contains(index + 1))
+                        continue;
                     if (!IsActiveAiSlot(lobby, index + 1))
                         continue;
                     FRONT_Multiplayer.MPAIVInfo info = lobby.AIVs[index];
@@ -282,7 +435,7 @@ namespace ExtendedData
                         ",unsupported=[" + string.Join(";", files.UnsupportedPaths.Select(
                             LordDataSyncDiagnostics.SafeLabel)) + "]");
                 }
-                bool keepLocal = packageManifest?.UseLocalValues == true &&
+                bool keepLocal = !trailSelectionActive && packageManifest?.UseLocalValues == true &&
                     packageManifest.Slots.Count == slots.Count &&
                     packageManifest.Slots.Zip(slots, (left, right) => left.PlayerId == right.PlayerId &&
                         left.LordType == right.LordType &&
@@ -579,6 +732,63 @@ namespace ExtendedData
             return LordPackageManifest.Create(snapshot.SessionId, false, slots);
         }
 
+        internal bool IsLocalSelectionReady(
+            IReadOnlyDictionary<int, FRONT_Multiplayer.MPAIVInfo> infos, out string reason)
+        {
+            reason = string.Empty;
+            if (!NeedsLordStartGate)
+                return true;
+            if (packageManifest == null || packageManifest.UseLocalValues && trailSelectionActive)
+            {
+                reason = "The selected Lord package manifest is not ready.";
+                return false;
+            }
+            if (infos == null || packageManifest.Slots.Any(slot =>
+                !infos.TryGetValue(slot.PlayerId, out FRONT_Multiplayer.MPAIVInfo info) ||
+                info?.builtInLord != false ||
+                !string.Equals(info.lordConfig?.checksum.ToString(),
+                    slot.ConfigChecksum, StringComparison.Ordinal)))
+            {
+                reason = "The selected Lord no longer matches the synchronized package.";
+                return false;
+            }
+            int requiredMask = packageManifest.Slots.Where(slot => slot.NeedsLocalFiles)
+                .Aggregate(0, (mask, slot) => mask | (1 << (slot.PlayerId - 1)));
+            string[] parts = (settings.LordPackageStatus ?? string.Empty).Split('|');
+            if (requiredMask != 0 && (parts.Length != 3 || parts[0] != "LOCAL" ||
+                !string.Equals(parts[1], packageManifest.Digest, StringComparison.Ordinal) ||
+                !int.TryParse(parts[2], out int mask) || (mask & requiredMask) != requiredMask))
+            {
+                reason = "The selected Lord's required local files are not available.";
+                return false;
+            }
+            if (packageManifest.Slots.Any(slot => slot.NeedsSnapshot) &&
+                (active == null || !string.Equals(settings.LordDataStatus,
+                    "READY|" + active.Digest, StringComparison.Ordinal) ||
+                 !string.Equals(settings.LordDataSnapshot, active.WireJson, StringComparison.Ordinal)))
+            {
+                reason = "The selected Lord values are not synchronized yet.";
+                return false;
+            }
+            return true;
+        }
+
+        internal bool IsTrailSelectionManifestReady(FRONT_Multiplayer lobby, out string reason)
+        {
+            reason = string.Empty;
+            if (!trailSelectionActive)
+                return true;
+            if (!IsHostLobby(lobby) || packageManifest == null || packageManifest.UseLocalValues ||
+                !string.Equals(packageManifest.SessionId, CurrentSessionId(lobby), StringComparison.Ordinal) ||
+                !string.Equals(settings.LordPackageManifest, packageManifest.WireJson,
+                    StringComparison.Ordinal))
+            {
+                reason = "The customized Lord selection has not been published yet.";
+                return false;
+            }
+            return AreLocalPackagesReady(lobby, false, out reason);
+        }
+
         internal bool IsReadyToLaunch(FRONT_Multiplayer lobby, out string reason)
         {
             reason = error;
@@ -620,7 +830,8 @@ namespace ExtendedData
             }
             if (!activeFromSave && (lobby?.AIVs == null || !LordDataSyncDiagnostics.MatchesSelectedSlots(active,
                 lobby.AIVs.Take(8).Select((selected, index) => new { selected, index })
-                    .Where(item => IsActiveAiSlot(lobby, item.index + 1) &&
+                    .Where(item => !embeddedTrailSlots.Contains(item.index + 1) &&
+                        IsActiveAiSlot(lobby, item.index + 1) &&
                         item.selected != null && !item.selected.builtInLord &&
                         !string.IsNullOrWhiteSpace(item.selected.lordName))
                     .Select(item => item.index + 1))))
@@ -731,6 +942,8 @@ namespace ExtendedData
                 throw new InvalidDataException("Lobby Lord selection is unavailable.");
             for (int index = 0; index < Math.Min(8, lobby.AIVs.Length); index++)
             {
+                if (embeddedTrailSlots.Contains(index + 1))
+                    continue;
                 if (!IsActiveAiSlot(lobby, index + 1))
                     continue;
                 FRONT_Multiplayer.MPAIVInfo selected = lobby.AIVs[index];

@@ -1023,6 +1023,9 @@ namespace BugfixesAndQoL
 
         private void OnSettingChanged(string propertyName)
         {
+            // The countdown owns its local presentation; unrelated runtime features need no refresh.
+            if (propertyName == nameof(BugfixesAndQoLViewModel.ShowCountdownTimers))
+                return;
             // The installed market hook reads this local order directly; no hooks need reconciliation.
             if (propertyName == nameof(BugfixesAndQoLViewModel.MarketGoodsOrder))
                 return;

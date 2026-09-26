@@ -77,6 +77,8 @@
     <Compile Include="..\src\SurrenderPolicy.cs"><Link>SurrenderPolicy.cs</Link></Compile>
     <Compile Include="..\src\SurrenderSelectionCleanup.cs"><Link>SurrenderSelectionCleanup.cs</Link></Compile>
     <Compile Include="..\src\LocalPerPlayerSetting.cs"><Link>LocalPerPlayerSetting.cs</Link></Compile>
+    <Compile Include="..\src\TimerCountdownPolicy.cs"><Link>TimerCountdownPolicy.cs</Link></Compile>
+    <Compile Include="..\src\TimerCountdownViewModel.cs"><Link>TimerCountdownViewModel.cs</Link></Compile>
     <Compile Include="..\src\NotificationQueueNativeContract.cs"><Link>NotificationQueueNativeContract.cs</Link></Compile>
     <Compile Include="..\src\NotificationSkipPolicy.cs"><Link>NotificationSkipPolicy.cs</Link></Compile>
     <Compile Include="..\src\QuarryKeepCenterPolicy.cs"><Link>QuarryKeepCenterPolicy.cs</Link></Compile>

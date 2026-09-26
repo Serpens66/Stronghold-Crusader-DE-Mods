@@ -154,6 +154,12 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding ShowSelectedUnitHealthText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.show-countdown-timers" shared:ModSettingsSearch.Title="{Binding ShowCountdownTimersText}" shared:ModSettingsSearch.ToolTipText="{Binding ShowCountdownTimersHelpText}"><CheckBox IsChecked="{Binding ShowCountdownTimers, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding ShowCountdownTimersHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding ShowCountdownTimersText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox></Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.improve-yellow-lobby-contrast" shared:ModSettingsSearch.Title="{Binding ImproveYellowLobbyContrastText}" shared:ModSettingsSearch.ToolTipText="{Binding ImproveYellowLobbyContrastHelpText}"><CheckBox IsChecked="{Binding ImproveYellowLobbyContrast, Mode=TwoWay}"
                 Foreground="White"
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding ImproveYellowLobbyContrastHelpText}"

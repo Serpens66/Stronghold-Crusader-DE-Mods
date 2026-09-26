@@ -66,7 +66,8 @@ namespace Shared
             string sourceRoot,
             string destinationRoot,
             out int copiedFiles,
-            out string error)
+            out string error,
+            bool requirementsOnly = false)
         {
             copiedFiles = 0;
             var copiedDestinations = new List<string>();
@@ -83,6 +84,9 @@ namespace Shared
                 jsonFiles.Sort(StringComparer.OrdinalIgnoreCase);
                 foreach (string jsonFile in jsonFiles)
                 {
+                    if (requirementsOnly && !jsonFile.EndsWith(
+                        ".lordrequirements.json", StringComparison.OrdinalIgnoreCase))
+                        continue;
                     RejectReparsePoint(jsonFile, "Custom Trail JSON file");
                     string relativePath = jsonFile.Substring(source.Length + 1);
                     string target = Path.GetFullPath(Path.Combine(destination, relativePath));

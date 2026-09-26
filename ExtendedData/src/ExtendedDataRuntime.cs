@@ -52,6 +52,8 @@ namespace ExtendedData
             .GetField("instance", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
         private static readonly MethodInfo UpdateHostInfoMethod = RequireMethod("UpdateHostInfo", typeof(bool));
         private static readonly FieldInfo MpSetupDataField = typeof(FRONT_Multiplayer).GetField("MPsetupData", BindingFlags.Instance | BindingFlags.NonPublic);
+        private static readonly FieldInfo LocalReadyField = RequirePrivateLobbyFlag("MPLocalReady");
+        private static readonly FieldInfo LocalReadyLockedField = RequirePrivateLobbyFlag("MPLocalReadyLocked");
 
         private readonly ManualLogSource log;
         private readonly string customTrailsRoot;
@@ -130,10 +132,12 @@ namespace ExtendedData
             mapSettingsCoordinator.Initialize();
             lordDataCoordinator = new LordDataSyncCoordinator(log, settings);
             lordDataCoordinator.Initialize();
+            missionSettingsCoordinator.LordDataCoordinator = lordDataCoordinator;
             missionSettingsCoordinator.LobbyOpened += lordDataCoordinator.OnLobbyOpened;
             mapSettingsCoordinator.MultiplayerSaveLaunchPreparing += lordDataCoordinator.PrepareSave;
             RefreshModCompatibility();
             settings.ActiveCoopPackageChanged += OnActiveCoopPackageChanged;
+            settings.CoopPackageRemoteStatusChanged += OnCoopPackageRemoteStatusChanged;
             subscriptions.Add(Shared.MissionEvents.Ended.Subscribe(OnMissionEnded));
             subscriptions.Add(Shared.MissionEvents.Started.Subscribe(notification =>
             {
@@ -190,6 +194,7 @@ namespace ExtendedData
             missionSettingsCoordinator?.SetEnabled(value);
             mapSettingsCoordinator?.SetEnabled(value);
             selected = null;
+            lordDataCoordinator?.SetEmbeddedTrailSlots(null);
             missingMods = Array.Empty<string>();
             if (!value)
             {
@@ -243,6 +248,7 @@ namespace ExtendedData
             updateHostInfoHook?.Dispose();
             RestoreVanillaMissions();
             settings.ActiveCoopPackageChanged -= OnActiveCoopPackageChanged;
+            settings.CoopPackageRemoteStatusChanged -= OnCoopPackageRemoteStatusChanged;
             if (missionSettingsCoordinator != null)
             {
                 missionSettingsCoordinator.CoopPackagesChanged -= OnActiveCoopPackageChanged;
@@ -282,16 +288,25 @@ namespace ExtendedData
 
         private void CoopMissionChangedHook(FRONT_Multiplayer self, int trailId, int missionId, bool resetOrderSwapped)
         {
+            // The launch has already captured the edited lobby. A nested Vanilla mission
+            // refresh would reset its selected Lords and other Customize settings.
+            if (coopLaunchPending)
+            {
+                if (selected?.Loaded.TrailNumber == trailId + 1 &&
+                    selected.Loaded.MissionNumber == missionId)
+                    return;
+                // A rejected Vanilla start can leave launch preparation pending. A
+                // genuinely different mission selection ends that pending attempt.
+                coopLaunchPending = false;
+            }
             missionTrampoline(self, trailId, missionId, resetOrderSwapped);
             missionSettingsCoordinator.EnsureCoopCustomizeButtons();
-            // Vanilla can refresh the selected mission while a launch is already changing maps.
-            // Do not mistake that nested refresh for leaving the mission and discard its Trail preset.
-            if (!coopLaunchPending)
             if (!enabled)
                 return;
             resolved.TryGetValue(MissionCatalog.ToKey(trailId + 1, missionId), out selected);
             if (selected == null)
             {
+                lordDataCoordinator.SetEmbeddedTrailSlots(null);
                 missingMods = Array.Empty<string>();
                 missionSettingsCoordinator.ExitContext();
                 AppendPackageErrorToDescription(trailId, missionId);
@@ -301,6 +316,7 @@ namespace ExtendedData
             try
             {
                 ApplySelectedMission(self, true);
+                RefreshSelectedLordRequirementStatus(self);
                 ActivateSelectedMissionSettingsUnlessMap(
                     self,
                     editable: false,
@@ -309,6 +325,7 @@ namespace ExtendedData
             catch (Exception ex)
             {
                 selected = null;
+                lordDataCoordinator.SetEmbeddedTrailSlots(null);
                 missingMods = Array.Empty<string>();
                 missionSettingsCoordinator.ExitContext();
                 LogError("Could not activate replacement Trail" + (trailId + 1) + "/" + missionId.ToString("00") + ": " + ex);
@@ -317,12 +334,23 @@ namespace ExtendedData
 
         private void ButtonClickedHook(FRONT_Multiplayer self, string command)
         {
+            // A failed validation must never trap a player in the ready/locked state.
+            if (string.Equals(command, "Ready", StringComparison.Ordinal) && ReadLobbyFlag(self, LocalReadyField) ||
+                string.Equals(command, "ReadyLock", StringComparison.Ordinal) &&
+                ReadLobbyFlag(self, LocalReadyLockedField))
+            {
+                buttonTrampoline(self, command);
+                return;
+            }
+            if (enabled && selected != null && IsLaunchCommand(command) && CurrentSlotRequiresPackage(self))
+                RefreshSelectedLordRequirementStatus(self);
             if (IsStartCommand(command))
                 lordDataCoordinator?.LogStartAttempt(command, enabled, self);
             if (enabled && IsStartCommand(command) && self?.currentLobby != null &&
                 self.currentLobby.isHost && !self.singlePlayerCoop &&
                 !FRONT_Multiplayer.skirmishGame &&
-                lordDataCoordinator.RequiresLordSyncFromSelection(self))
+                (selected?.Loaded.LordRequirements != null ||
+                    lordDataCoordinator.RequiresLordSyncFromSelection(self)))
             {
                 bool inspected = lordDataCoordinator.RefreshPackageManifest(self, "start-attempt");
                 if (!inspected)
@@ -335,7 +363,8 @@ namespace ExtendedData
                     bool captured = lordDataCoordinator.IsUsingLocalValues ||
                         lordDataCoordinator.RefreshHost(self, "start-attempt");
                     bool ready = lordDataCoordinator.IsReadyToLaunch(self, out string lordDataReason);
-                    if (!ready && lordDataCoordinator.TryUseLocalValues(self))
+                    if (!ready && selected?.Loaded.LordRequirements == null &&
+                        lordDataCoordinator.TryUseLocalValues(self))
                     {
                         captured = true;
                         ready = lordDataCoordinator.IsReadyToLaunch(self, out lordDataReason);
@@ -347,6 +376,12 @@ namespace ExtendedData
                             ? "Selected Lord data is not synchronized yet." : lordDataReason);
                         return;
                     }
+                }
+                if (selected?.Loaded.LordRequirements != null &&
+                    !lordDataCoordinator.IsTrailSelectionManifestReady(self, out string manifestReason))
+                {
+                    BlockLaunch(command, manifestReason);
+                    return;
                 }
             }
             if (enabled && string.Equals(command, "TMTest", StringComparison.Ordinal) &&
@@ -364,6 +399,13 @@ namespace ExtendedData
                 if (selected == null)
                 {
                     BlockLaunch(command, SerpLocalization.Get("ExtendedData.ErrorPackageNotReady"));
+                    return;
+                }
+                if (!IsStartCommand(command) &&
+                    !lordDataCoordinator.IsLocalSelectionReady(
+                        CurrentLordInfoMap(self), out string localLordReason))
+                {
+                    BlockLaunch(command, localLordReason);
                     return;
                 }
                 if (IsStartCommand(command) && !self.singlePlayerCoop && self.currentLobby != null && self.currentLobby.isHost)
@@ -392,7 +434,12 @@ namespace ExtendedData
                 {
                     if (IsStartCommand(command))
                     {
-                        ApplySelectedMission(self, false);
+                        if (!PrepareSelectedLordRequirements(out string lordReason,
+                            captureLocalReplacements: self.singlePlayerCoop))
+                        {
+                            BlockLaunch(command, lordReason);
+                            return;
+                        }
                         ExtendedDataLaunchOriginApi.SetCustomizedCoopTrail(
                             selected.Loaded.TrailNumber - 1,
                             selected.Loaded.MissionNumber);
@@ -429,6 +476,8 @@ namespace ExtendedData
             updateHostInfoTrampoline(self, delayed);
             if (enabled && !delayed)
             {
+                if (selected != null && CurrentSlotRequiresPackage(self))
+                    RefreshSelectedLordRequirementStatus(self);
                 lordDataCoordinator?.RefreshPackageManifest(self, "host-selection-update");
                 if (lordDataCoordinator?.IsUsingLocalValues != true)
                     lordDataCoordinator?.RefreshHost(self, "host-selection-update");
@@ -505,6 +554,18 @@ namespace ExtendedData
             }
         }
 
+        private void OnCoopPackageRemoteStatusChanged()
+        {
+            if (GameNetworkAPI.IsLocalHost() || !enabled)
+                return;
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
+            {
+                FRONT_Multiplayer self = GetExistingMainViewModel()?.FRONTMultiplayer;
+                if (selected != null && CurrentSlotRequiresPackage(self))
+                    RefreshSelectedLordRequirementStatus(self);
+            });
+        }
+
         private void ApplyActivePackage()
         {
             RestoreVanillaMissions();
@@ -514,6 +575,7 @@ namespace ExtendedData
             vanillaMissions.Clear();
             activePackage = null;
             selected = null;
+            lordDataCoordinator?.SetEmbeddedTrailSlots(null);
 
             if (!enabled)
             {
@@ -630,7 +692,7 @@ namespace ExtendedData
             ApplyMultiplayerSetup(setupData, selected.Loaded.Definition.Settings.MultiplayerSetup);
             foreach (KeyValuePair<int, FRONT_Multiplayer.MPAIVInfo> entry in selected.AiInfoByPlayerIndex)
             {
-                self.AIVs[entry.Key] = entry.Value;
+                self.AIVs[entry.Key] = CopyLordInfo(entry.Value);
                 setupData.preferredAIVs[entry.Key] = selected.PreferredAivByPlayerIndex[entry.Key];
             }
 
@@ -646,6 +708,133 @@ namespace ExtendedData
             MainViewModel.Instance.StandaloneMissionText = BuildMissionDescription();
             if (updateHost && self.currentLobby != null && self.currentLobby.isHost)
                 UpdateHostInfoMethod.Invoke(self, new object[] { false });
+        }
+
+        private static FRONT_Multiplayer.MPAIVInfo CopyLordInfo(FRONT_Multiplayer.MPAIVInfo source) =>
+            new FRONT_Multiplayer.MPAIVInfo
+            {
+                lordType = source.lordType,
+                lordName = source.lordName,
+                builtIn = source.builtIn,
+                community = source.community,
+                historical = source.historical,
+                rotation = source.rotation,
+                builtInLord = source.builtInLord,
+                lordConfig = source.lordConfig,
+                aivs = new List<CustomisationFileManager.CustomAIV>(source.aivs),
+                imageData = source.imageData,
+                image = source.image,
+            };
+
+        private Dictionary<int, FRONT_Multiplayer.MPAIVInfo> CurrentLordInfoMap(FRONT_Multiplayer self)
+        {
+            var infos = self?.AIVs?.Take(8).Select((info, index) => new { info, index })
+                .Where(item => item.info != null)
+                .ToDictionary(item => item.index + 1, item => item.info) ??
+                new Dictionary<int, FRONT_Multiplayer.MPAIVInfo>();
+            if (self?.currentLobby == null || self.currentLobby.isHost || self.singlePlayerCoop)
+                return infos;
+            foreach (int playerId in Enumerable.Range(2, 7).Where(id => IsActiveAiSlot(self, id)))
+            {
+                FRONT_Multiplayer.MPAIVInfo transmitted = DecodeLobbyLord(self, playerId);
+                if (transmitted != null && (transmitted.builtInLord ||
+                    lordDataCoordinator.IsManifestReplacementSlot(playerId)))
+                    infos[playerId] = transmitted;
+            }
+            return infos;
+        }
+
+        private static FRONT_Multiplayer.MPAIVInfo DecodeLobbyLord(FRONT_Multiplayer self, int playerId)
+        {
+            if (self?.currentLobby == null)
+                return null;
+            string data;
+            switch (playerId)
+            {
+                case 2: data = self.currentLobby.AIVDataPlayer2; break;
+                case 3: data = self.currentLobby.AIVDataPlayer3; break;
+                case 4: data = self.currentLobby.AIVDataPlayer4; break;
+                case 5: data = self.currentLobby.AIVDataPlayer5; break;
+                case 6: data = self.currentLobby.AIVDataPlayer6; break;
+                case 7: data = self.currentLobby.AIVDataPlayer7; break;
+                case 8: data = self.currentLobby.AIVDataPlayer8; break;
+                default: return null;
+            }
+            if (string.IsNullOrWhiteSpace(data))
+                return null;
+            var info = new FRONT_Multiplayer.MPAIVInfo();
+            info.decode(data);
+            return info;
+        }
+
+        private HashSet<int> EmbeddedLordSlots(FRONT_Multiplayer self)
+        {
+            var matched = new HashSet<int>();
+            if (selected?.Loaded.LordRequirements == null || self?.currentLobby == null)
+                return matched;
+            foreach (TrailLordSlot slot in selected.Loaded.LordRequirements.Slots)
+            {
+                if (self.AIVs == null || slot.PlayerId > self.AIVs.Length ||
+                    !IsActiveAiSlot(self, slot.PlayerId))
+                    continue;
+                FRONT_Multiplayer.MPAIVInfo info = self.AIVs[slot.PlayerId - 1];
+                if (!self.currentLobby.isHost && !self.singlePlayerCoop)
+                {
+                    FRONT_Multiplayer.MPAIVInfo transmitted = DecodeLobbyLord(self, slot.PlayerId);
+                    if (transmitted?.builtInLord == true ||
+                        lordDataCoordinator.IsManifestReplacementSlot(slot.PlayerId))
+                        continue;
+                }
+                if (info?.lordConfig != null && TrailLordSelectionPolicy.UsesEmbeddedLord(slot,
+                    info.builtInLord, info.lordConfig.checksum.ToString(),
+                    (info.aivs ?? new List<CustomisationFileManager.CustomAIV>())
+                        .Select(aiv => aiv.checksum.ToString())))
+                    matched.Add(slot.PlayerId);
+            }
+            return matched;
+        }
+
+        private void RefreshSelectedLordRequirementStatus(FRONT_Multiplayer self)
+        {
+            lordDataCoordinator.SetEmbeddedTrailSlots(selected?.Loaded.LordRequirements == null
+                ? null : EmbeddedLordSlots(self));
+            if (selected?.Loaded.LordRequirements == null)
+            {
+                localPackageError = string.Empty;
+                SetLocalPackageStatus(ExpectedReadyStatus());
+                return;
+            }
+            if (lordDataCoordinator.CanSatisfyTrail(selected.Loaded.LordRequirements,
+                    CurrentLordInfoMap(self), out string reason))
+            {
+                localPackageError = string.Empty;
+                SetLocalPackageStatus(ExpectedReadyStatus());
+            }
+            else
+                SetLocalPackageError(ExtendedDataSettingsViewModel.InvalidStatusPrefix + reason, reason);
+        }
+
+        private bool PrepareSelectedLordRequirements(out string reason, bool captureLocalReplacements = false)
+        {
+            FRONT_Multiplayer self = GetExistingMainViewModel()?.FRONTMultiplayer;
+            if (!lordDataCoordinator.PrepareTrail(selected?.Loaded.LordRequirements,
+                CurrentLordInfoMap(self), true, out reason, captureLocalReplacements))
+                return false;
+            if (self?.currentLobby?.isHost == true && !self.singlePlayerCoop &&
+                selected?.Loaded.LordRequirements != null &&
+                selected.Loaded.LordRequirements.Slots.Any(slot =>
+                    IsActiveAiSlot(self, slot.PlayerId) && self.AIVs != null &&
+                    slot.PlayerId <= self.AIVs.Length &&
+                    !string.Equals(self.AIVs[slot.PlayerId - 1]?.lordName,
+                        DecodeLobbyLord(self, slot.PlayerId)?.lordName, StringComparison.Ordinal)))
+            {
+                // SE media names can differ from the author-facing embedded name.
+                // Publish the chosen provider through Vanilla before either player starts.
+                UpdateHostInfoMethod.Invoke(self, new object[] { false });
+                reason = "Lord media selection changed; wait for the updated lobby selection to be confirmed, then start again.";
+                return false;
+            }
+            return true;
         }
 
         private static void ApplyMultiplayerSetup(
@@ -718,7 +907,27 @@ namespace ExtendedData
             string.Equals(settings.CoopPackageStatus, ExpectedReadyStatus(), StringComparison.Ordinal);
 
         private string ExpectedReadyStatus() =>
-            "OK|" + settings.ActiveCoopPackageId + "|" + settings.ActiveCoopPackageFingerprint;
+            "OK|" + settings.ActiveCoopPackageId + "|" + settings.ActiveCoopPackageFingerprint +
+            (selected?.Loaded.LordRequirements == null ? string.Empty :
+                "|" + selected.Loaded.TrailNumber + "/" + selected.Loaded.MissionNumber +
+                "/" + selected.Loaded.LordRequirements.MissionDigest + "/" +
+                LordSelectionDigest(GetExistingMainViewModel()?.FRONTMultiplayer));
+
+        private static string LordSelectionDigest(FRONT_Multiplayer self)
+        {
+            if (self?.currentLobby?.members == null)
+                return "UNAVAILABLE";
+            string slots = string.Join(",", Enumerable.Range(2, 7)
+                .Where(playerId => IsActiveAiSlot(self, playerId)));
+            return LordDataSyncDiagnostics.Hash(slots + ":" +
+                self.currentLobby.AIVDataChecksum());
+        }
+
+        private static bool IsActiveAiSlot(FRONT_Multiplayer self, int playerId) =>
+            self?.currentLobby?.members?.Any(member => member != null &&
+                !member.dummyToBeKicked && member.SkirmishMember &&
+                !member.SkirmishHumanMember &&
+                self.currentLobby.getThisPlayerFromSteamID(member.id.m_SteamID) == playerId) == true;
 
         private string ExpectedPackageDescriptor() =>
             settings.ActiveCoopPackageId + "|" + settings.ActiveCoopPackageFingerprint + "|" + settings.ActiveCoopPackageMissionCount;
@@ -989,6 +1198,7 @@ namespace ExtendedData
         private void ClearLaunchTracking()
         {
             selected = null;
+            lordDataCoordinator?.SetEmbeddedTrailSlots(null);
             missingMods = Array.Empty<string>();
             coopLaunchPending = false;
         }
@@ -1071,7 +1281,9 @@ namespace ExtendedData
                 }
 
                 selected = new MissionAssetResolver().Resolve(loaded);
-                ApplySelectedMission(lobby, updateHost: false);
+                RefreshSelectedLordRequirementStatus(lobby);
+                if (!PrepareSelectedLordRequirements(out string lordReason, captureLocalReplacements: true))
+                    throw new InvalidDataException(lordReason);
                 ActivateSelectedMissionSettingsUnlessMap(
                     lobby,
                     editable: false,
@@ -1087,6 +1299,7 @@ namespace ExtendedData
             catch (Exception exception)
             {
                 selected = null;
+                lordDataCoordinator.SetEmbeddedTrailSlots(null);
                 missingMods = Array.Empty<string>();
                 coopLaunchPending = false;
                 missionSettingsCoordinator.ExitContext(force: true);
@@ -1104,9 +1317,19 @@ namespace ExtendedData
                 LogError($"Ignored authenticated Coop Trail launch for unavailable Trail{trailId + 1}/{missionId:00}.");
                 return;
             }
+            selected = mission;
+            RefreshSelectedLordRequirementStatus(GetExistingMainViewModel()?.FRONTMultiplayer);
             if (!IsLocalPackageReady())
             {
                 LogError($"Ignored authenticated Coop Trail launch for Trail{trailId + 1}/{missionId:00} because the local package is not ready.");
+                return;
+            }
+            if (!lordDataCoordinator.IsLocalSelectionReady(
+                CurrentLordInfoMap(GetExistingMainViewModel()?.FRONTMultiplayer),
+                out string localLordReason))
+            {
+                LogError("Ignored authenticated Coop Trail launch because selected Lord data is not ready: " +
+                    localLordReason);
                 return;
             }
 
@@ -1116,8 +1339,11 @@ namespace ExtendedData
 
             // Clients do not execute the host's COOP_START button handler. The authenticated
             // transition supplies the missing launch boundary before OnUnloadMap clears presets.
-            selected = mission;
-            ApplySelectedMission(GetExistingMainViewModel()?.FRONTMultiplayer, false);
+            if (!PrepareSelectedLordRequirements(out string lordReason))
+            {
+                LogError("Ignored authenticated Coop Trail launch because Lord requirements failed: " + lordReason);
+                return;
+            }
             ActivateSelectedMissionSettingsUnlessMap(
                 GetExistingMainViewModel()?.FRONTMultiplayer,
                 editable: false,
@@ -1146,6 +1372,17 @@ namespace ExtendedData
             MethodInfo method = typeof(FRONT_Multiplayer).GetMethod(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, parameterTypes, null);
             return method ?? throw new MissingMethodException(typeof(FRONT_Multiplayer).FullName, name);
         }
+
+        private static FieldInfo RequirePrivateLobbyFlag(string name)
+        {
+            FieldInfo field = typeof(FRONT_Multiplayer).GetField(name,
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            return field?.FieldType == typeof(bool) ? field :
+                throw new MissingFieldException(typeof(FRONT_Multiplayer).FullName, name);
+        }
+
+        private static bool ReadLobbyFlag(FRONT_Multiplayer self, FieldInfo field) =>
+            self != null && (bool)field.GetValue(self);
 
         private void LogInfo(string message) => Shared.DebugLogHelper.LogInfo(log, message);
         private void LogError(string message) => Shared.DebugLogHelper.LogError(log, message);

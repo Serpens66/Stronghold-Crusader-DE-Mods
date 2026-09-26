@@ -26,6 +26,8 @@ namespace ExtendedData.Core
             Validate(definition);
             string modSettingsPath = GetModSettingsPath(fullJsonPath);
             LoadModSettings(definition, modSettingsPath);
+            TrailLordRequirements lordRequirements = TrailLordRequirements.Read(fullJsonPath);
+            string lordRequirementsPath = TrailLordRequirements.SidecarPath(fullJsonPath);
             List<string> bundledFiles = ResolveBundledFiles(definition, missionRoot);
             return new LoadedMission
             {
@@ -34,6 +36,8 @@ namespace ExtendedData.Core
                 JsonPath = fullJsonPath,
                 MissionRoot = missionRoot,
                 ModSettingsPath = File.Exists(modSettingsPath) ? modSettingsPath : null,
+                LordRequirementsPath = lordRequirements != null ? lordRequirementsPath : null,
+                LordRequirements = lordRequirements,
                 Definition = definition,
                 BundledFiles = bundledFiles,
             };

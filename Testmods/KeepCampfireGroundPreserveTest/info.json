@@ -1,0 +1,12 @@
+{
+  "GUID": "KeepCampfireGroundPreserveTest_Serp",
+  "Author": "Serpens66",
+  "Name": "Keep Campfire Ground Preserve Test",
+  "Description": "Experimental native suppression of campground floor graphics; singleplayer and editor only.",
+  "Version": "0.1.0",
+  "MinimumScriptExtenderVersion": "2.10.1",
+  "MaximumScriptExtenderVersion": "",
+  "Manifest": 1,
+  "NetworkMode": 0,
+  "SupportedGameVersions": ["2.8.0.1"]
+}

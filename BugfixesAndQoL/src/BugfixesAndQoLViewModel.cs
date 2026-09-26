@@ -92,6 +92,7 @@ namespace BugfixesAndQoL
         private readonly LocalPerPlayerSetting<bool> enableEnemyProximityBulldozeCursorFix = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> enableIngameSteamInvitePrompt = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> showSelectedUnitHealth = new LocalPerPlayerSetting<bool>(true);
+        private readonly LocalPerPlayerSetting<bool> showCountdownTimers = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> improveYellowLobbyContrast =
             new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> enableBriefingNoStartingGoldFix =
@@ -135,6 +136,7 @@ namespace BugfixesAndQoL
                 nameof(EnableEnemyProximityBulldozeCursorFix),
                 nameof(EnableIngameSteamInvitePrompt),
                 nameof(ShowSelectedUnitHealth),
+                nameof(ShowCountdownTimers),
                 nameof(ImproveYellowLobbyContrast),
                 nameof(EnableBriefingNoStartingGoldFix),
                 nameof(EnableTroopHudMiddleClickCameraJump),
@@ -303,6 +305,8 @@ namespace BugfixesAndQoL
         public string ClearSteamInviteBlacklistHelpText => SerpLocalization.Get("BugfixesAndQoL.ClearSteamInviteBlacklistHelp");
         public string ShowSelectedUnitHealthText => SerpLocalization.Get("BugfixesAndQoL.ShowSelectedUnitHealth");
         public string ShowSelectedUnitHealthHelpText => SerpLocalization.Get("BugfixesAndQoL.ShowSelectedUnitHealthHelp");
+        public string ShowCountdownTimersText => SerpLocalization.Get("BugfixesAndQoL.ShowCountdownTimers");
+        public string ShowCountdownTimersHelpText => SerpLocalization.Get("BugfixesAndQoL.ShowCountdownTimersHelp");
         public string ImproveYellowLobbyContrastText =>
             SerpLocalization.Get("BugfixesAndQoL.ImproveYellowLobbyContrast");
         public string ImproveYellowLobbyContrastHelpText =>
@@ -455,6 +459,7 @@ namespace BugfixesAndQoL
         public bool[] EnableEnemyProximityBulldozeCursorFixData => enableEnemyProximityBulldozeCursorFix.Data;
         public bool[] EnableIngameSteamInvitePromptData => enableIngameSteamInvitePrompt.Data;
         public bool[] ShowSelectedUnitHealthData => showSelectedUnitHealth.Data;
+        public bool[] ShowCountdownTimersData => showCountdownTimers.Data;
         public bool[] ImproveYellowLobbyContrastData => improveYellowLobbyContrast.Data;
         public bool[] EnableBriefingNoStartingGoldFixData => enableBriefingNoStartingGoldFix.Data;
         public int[] StatisticsTeamBadgeModeData => statisticsTeamBadgeMode.Data;
@@ -547,6 +552,13 @@ namespace BugfixesAndQoL
         {
             get => showSelectedUnitHealth.Value;
             set => SetPlayerSetting(showSelectedUnitHealth, value, nameof(ShowSelectedUnitHealth));
+        }
+
+        [SyncPerPlayer]
+        public bool ShowCountdownTimers
+        {
+            get => showCountdownTimers.Value;
+            set => SetPlayerSetting(showCountdownTimers, value, nameof(ShowCountdownTimers));
         }
 
         [SyncPerPlayer]
@@ -1286,6 +1298,7 @@ namespace BugfixesAndQoL
             EnableEnemyProximityBulldozeCursorFix = true;
             EnableIngameSteamInvitePrompt = true;
             ShowSelectedUnitHealth = true;
+            ShowCountdownTimers = true;
             ImproveYellowLobbyContrast = true;
             EnableBriefingNoStartingGoldFix = true;
             StatisticsTeamBadgeMode = SurrenderPolicy.DefaultStatisticsTeamBadgeMode;
@@ -1344,6 +1357,7 @@ namespace BugfixesAndQoL
             enableEnemyProximityBulldozeCursorFix.TrySetLocalPlayerId(playerId);
             enableIngameSteamInvitePrompt.TrySetLocalPlayerId(playerId);
             showSelectedUnitHealth.TrySetLocalPlayerId(playerId);
+            showCountdownTimers.TrySetLocalPlayerId(playerId);
             improveYellowLobbyContrast.TrySetLocalPlayerId(playerId);
             enableBriefingNoStartingGoldFix.TrySetLocalPlayerId(playerId);
             statisticsTeamBadgeMode.TrySetLocalPlayerId(playerId);

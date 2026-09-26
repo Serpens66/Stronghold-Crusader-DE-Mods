@@ -1,0 +1,12 @@
+{
+  "GUID": "KeepCampfireGroundProbe_Serp",
+  "Author": "Serpens66",
+  "Name": "Keep Campfire Ground Probe",
+  "Description": "Read-only diagnosis of ground graphics around keeps and campgrounds.",
+  "Version": "0.1.0",
+  "MinimumScriptExtenderVersion": "2.10.1",
+  "MaximumScriptExtenderVersion": "",
+  "Manifest": 1,
+  "NetworkMode": 0,
+  "SupportedGameVersions": ["2.8.0.1"]
+}

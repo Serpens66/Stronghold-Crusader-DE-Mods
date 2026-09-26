@@ -40,7 +40,7 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.165";
+        public const string PluginVersion = "1.0.166";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static StartupUiReadinessGuardHook startupUiReadinessGuardHook;
@@ -51,6 +51,7 @@ namespace BugfixesAndQoL
         private static SkirmishGameOptionsRuntime skirmishGameOptionsRuntime;
         private static SkirmishGameOptionsAccessViewModel skirmishGameOptionsAccess;
         private static VanillaPeaceTimeGameplayPatch vanillaPeaceTimeGameplayPatch;
+        private static TimerCountdownFeature timerCountdownFeature;
         private static NoDogsNativePatch noDogsNativePatch;
         private static bool skirmishGameOptionsCompatible;
         private BugfixesAndQoLRuntime runtime;
@@ -301,6 +302,17 @@ namespace BugfixesAndQoL
                 Shared.DebugLogHelper.LogError(
                     Logger,
                     $"Bugfixes and QoL selected-unit health UI initialization failed; the display remains hidden: {ex}");
+            }
+
+            try
+            {
+                if (timerCountdownFeature == null)
+                    timerCountdownFeature = new TimerCountdownFeature(Logger, Settings);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(Logger,
+                    "Bugfixes and QoL countdown UI initialization failed: " + ex);
             }
 
             // Keep UI registration independent so one native feature cannot hide the whole mod.

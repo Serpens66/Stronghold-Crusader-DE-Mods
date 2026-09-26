@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 namespace ExtendedData
 {
@@ -133,7 +134,24 @@ namespace ExtendedData
             try
             {
                 normalizedRoot = NormalizeExistingDirectory(sourceLordRoot, "Custom Lord directory");
-                CollectFiles(normalizedRoot, normalizedRoot, includeAllFiles, files);
+                IReadOnlyList<LordPackageFile> inventory = LordPackageFingerprint.Inventory(normalizedRoot);
+                if (!includeAllFiles)
+                {
+                    string[] missingGameplay = inventory
+                        .Where(file => IsExcludedFromExtendedUpload(file.RelativePath) &&
+                            LordPackageFingerprint.Classify(file.RelativePath, string.Empty) ==
+                                LordPackageFileKind.Gameplay)
+                        .Select(file => file.RelativePath).ToArray();
+                    if (missingGameplay.Length != 0)
+                        throw new InvalidDataException("Gameplay files would be excluded from the Lord upload: " +
+                            string.Join(", ", missingGameplay.Take(4)) +
+                            (missingGameplay.Length > 4 ? " (and " + (missingGameplay.Length - 4) + " more)" : string.Empty));
+                }
+                foreach (LordPackageFile file in inventory)
+                {
+                    if (includeAllFiles || IsAllowedExtendedUploadFile(file.RelativePath))
+                        files.Add(new CustomLordWorkshopPackageFile(file.FullPath, file.RelativePath));
+                }
                 files.Sort((left, right) =>
                 {
                     int comparison = StringComparer.OrdinalIgnoreCase.Compare(left.RelativePath, right.RelativePath);
@@ -178,46 +196,16 @@ namespace ExtendedData
             }
         }
 
-        private static void CollectFiles(
-            string packageRoot,
-            string directory,
-            bool includeAllFiles,
-            List<CustomLordWorkshopPackageFile> files)
-        {
-            string[] childFiles = Directory.GetFiles(directory);
-            Array.Sort(childFiles, StringComparer.OrdinalIgnoreCase);
-            foreach (string file in childFiles)
-            {
-                string fullPath = Path.GetFullPath(file);
-                EnsureContained(packageRoot, fullPath);
-                ValidateRegularFile(fullPath, "Custom Lord package file");
-                string relativePath = GetRelativePath(packageRoot, fullPath);
-                if (includeAllFiles || IsAllowedExtendedUploadFile(relativePath))
-                    files.Add(new CustomLordWorkshopPackageFile(fullPath, relativePath));
-            }
-
-            string[] childDirectories = Directory.GetDirectories(directory);
-            Array.Sort(childDirectories, StringComparer.OrdinalIgnoreCase);
-            foreach (string child in childDirectories)
-            {
-                string fullPath = Path.GetFullPath(child);
-                EnsureContained(packageRoot, fullPath);
-                if (IsReparsePoint(fullPath))
-                {
-                    throw new InvalidDataException(
-                        "Package directories may not be reparse points: " +
-                        GetRelativePath(packageRoot, fullPath));
-                }
-                CollectFiles(packageRoot, fullPath, includeAllFiles, files);
-            }
-        }
-
         internal static bool IsAllowedExtendedUploadFile(string relativePath)
         {
             string normalizedPath = NormalizeRelativePath(relativePath);
             string[] segments = normalizedPath.Split('/');
             string fileName = segments[segments.Length - 1];
             string extension = Path.GetExtension(fileName);
+
+            if (extension.Equals(".data", StringComparison.OrdinalIgnoreCase) ||
+                extension.Equals(".ldata", StringComparison.OrdinalIgnoreCase))
+                return false;
 
             // JSON sidecars may belong to any lord subdirectory, including other mods' Overrides.
             if (string.Equals(extension, ".json", StringComparison.OrdinalIgnoreCase))
@@ -247,7 +235,7 @@ namespace ExtendedData
         {
             return !IsAllowedExtendedUploadFile(relativePath) &&
                    !IsVanillaOwnedRootFile(relativePath) &&
-                   !IsLocalControlRootFile(relativePath);
+                   !IsLocalControlFile(relativePath);
         }
 
         private static bool IsVanillaOwnedRootFile(string relativePath)
@@ -264,12 +252,9 @@ namespace ExtendedData
                    string.Equals(extension, ".aivjson", StringComparison.OrdinalIgnoreCase);
         }
 
-        private static bool IsLocalControlRootFile(string relativePath)
+        private static bool IsLocalControlFile(string relativePath)
         {
             string normalizedPath = NormalizeRelativePath(relativePath);
-            if (normalizedPath.IndexOf('/') >= 0)
-                return false;
-
             string extension = Path.GetExtension(normalizedPath);
             return string.Equals(extension, ".data", StringComparison.OrdinalIgnoreCase) ||
                    string.Equals(extension, ".ldata", StringComparison.OrdinalIgnoreCase);
