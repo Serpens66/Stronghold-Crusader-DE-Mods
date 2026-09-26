@@ -28,9 +28,12 @@ if ($runtimeText -match $badJson) { throw 'Forbidden runtime JSON dependency.' }
 if ($runtimeText -match '\b(OnDestroy|OnDisable|OnApplicationQuit|OnApplicationPause)\s*\(') { throw 'Lifecycle teardown requires audit.' }
 $pluginText = [IO.File]::ReadAllText((Join-Path $root 'src\TimerCountdownTestPlugin.cs'))
 $viewModelText = [IO.File]::ReadAllText((Join-Path $root 'src\TimerCountdownViewModel.cs'))
-if ($viewModelText -notmatch 'internal static readonly bool NotifyObjectiveRemaining = true;' -or
-    $viewModelText -notmatch 'internal static readonly bool NotifyOstRemaining = true;') {
-    throw 'Both objective and OST notifications must be active for this test.'
+if ($runtimeText -match 'TEMP CRASH DIAGNOSTICS|TIMER_CRASH_DIAGNOSTICS|NotifyObjectiveRemaining|NotifyOstRemaining') {
+    throw 'Temporary crash diagnostics must be removed from the runtime.'
+}
+if ($viewModelText -notmatch 'PropertyChanged\?\.Invoke\(this, new PropertyChangedEventArgs\(nameof\(ObjectiveRemaining\)\)\)' -or
+    $viewModelText -notmatch 'PropertyChanged\?\.Invoke\(this, new PropertyChangedEventArgs\(nameof\(OstRemaining\)\)\)') {
+    throw 'Both objective and OST notifications must remain active.'
 }
 if ($pluginText -match '\b(Update|LateUpdate|FixedUpdate|StartCoroutine|Start)\s*\(') {
     throw 'Plugin must not depend on MonoBehaviour callbacks after startup cleanup.'
@@ -56,12 +59,11 @@ $returnIndex = if ($clearIndex -ge 0) {
     $renderBody.IndexOf('return;', $clearIndex, [StringComparison]::Ordinal)
 } else { -1 }
 $objectiveIndex = $renderBody.IndexOf('ReadObjectiveRemaining()', [StringComparison]::Ordinal)
-$ostConditional = 'NotifyOstRemaining ? ReadOstRemaining() : string.Empty'
-$ostIndex = $renderBody.IndexOf($ostConditional, [StringComparison]::Ordinal)
+$ostIndex = $renderBody.IndexOf('ReadOstRemaining()', [StringComparison]::Ordinal)
 if ($guardIndex -lt 0 -or $clearIndex -le $guardIndex -or $returnIndex -le $clearIndex -or
     $objectiveIndex -le $returnIndex -or $ostIndex -le $objectiveIndex -or
     ([regex]::Matches($renderBody, 'ReadOstRemaining\(').Count -ne 1)) {
-    throw 'Inactive scenes must clear and return before reads; disabled OST must not be read.'
+    throw 'Inactive scenes must clear and return before both timer reads.'
 }
 if ($readinessBody -notmatch 'MainViewModel\.viewModelLoaded' -or
     $readinessBody -notmatch 'Show_InGame == true' -or

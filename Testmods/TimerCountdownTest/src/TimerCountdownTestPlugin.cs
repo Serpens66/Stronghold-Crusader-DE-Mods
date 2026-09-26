@@ -21,9 +21,6 @@ namespace TimerCountdownTest
         private static bool subscribed;
         private static bool callbackErrorLogged;
         private static int lastRenderedFrame = -1;
-        // BEGIN TEMP CRASH DIAGNOSTICS
-        private static bool afterStartupLogged;
-        // END TEMP CRASH DIAGNOSTICS
 
         private void Awake()
         {
@@ -44,11 +41,6 @@ namespace TimerCountdownTest
                 Application.onBeforeRender += OnBeforeRender;
                 subscribed = true;
                 rootedLog.LogInfo("Timer countdown bindings and persistent Unity render event registered.");
-                // BEGIN TEMP CRASH DIAGNOSTICS
-                rootedLog.LogInfo("TIMER_CRASH_DIAGNOSTICS objectiveNotifications=" +
-                    TimerCountdownViewModel.NotifyObjectiveRemaining + " ostNotifications=" +
-                    TimerCountdownViewModel.NotifyOstRemaining + " xamlPatches=unchanged updatePath=UnityMainThread");
-                // END TEMP CRASH DIAGNOSTICS
             }
             catch (Exception ex)
             {
@@ -70,16 +62,8 @@ namespace TimerCountdownTest
                 }
 
                 string objective = ReadObjectiveRemaining();
-                string ost = TimerCountdownViewModel.NotifyOstRemaining ? ReadOstRemaining() : string.Empty;
+                string ost = ReadOstRemaining();
                 rootedViewModel.SetRemaining(objective, ost);
-                // BEGIN TEMP CRASH DIAGNOSTICS
-                if (!afterStartupLogged && MainViewModel.viewModelLoaded &&
-                    MainViewModel.Instance?.HUDmain != null)
-                {
-                    afterStartupLogged = true;
-                    rootedLog.LogInfo("TIMER_CRASH_DIAGNOSTICS persistent Unity main-thread render callback active after HUD startup; frame=" + frame);
-                }
-                // END TEMP CRASH DIAGNOSTICS
             }
             catch (Exception ex)
             {

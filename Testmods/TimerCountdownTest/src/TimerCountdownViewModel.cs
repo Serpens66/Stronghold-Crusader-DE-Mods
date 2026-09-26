@@ -4,11 +4,6 @@ namespace TimerCountdownTest
 {
     internal sealed class TimerCountdownViewModel : INotifyPropertyChanged
     {
-        // BEGIN TEMP CRASH DIAGNOSTICS: change these independently in later isolation runs.
-        internal static readonly bool NotifyObjectiveRemaining = true;
-        internal static readonly bool NotifyOstRemaining = true;
-        // END TEMP CRASH DIAGNOSTICS
-
         private string objectiveRemaining = string.Empty;
         private string ostRemaining = string.Empty;
 
@@ -21,10 +16,7 @@ namespace TimerCountdownTest
             {
                 if (objectiveRemaining == value) return;
                 objectiveRemaining = value;
-                // BEGIN TEMP CRASH DIAGNOSTICS
-                if (NotifyObjectiveRemaining)
-                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ObjectiveRemaining)));
-                // END TEMP CRASH DIAGNOSTICS
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ObjectiveRemaining)));
             }
         }
 
@@ -35,10 +27,7 @@ namespace TimerCountdownTest
             {
                 if (ostRemaining == value) return;
                 ostRemaining = value;
-                // BEGIN TEMP CRASH DIAGNOSTICS
-                if (NotifyOstRemaining)
-                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(OstRemaining)));
-                // END TEMP CRASH DIAGNOSTICS
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(OstRemaining)));
             }
         }
 
