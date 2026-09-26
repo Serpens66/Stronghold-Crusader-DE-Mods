@@ -6,6 +6,7 @@ using System.Text.Json;
 
 var tests = new (string Name, Action Run)[]
 {
+    ("Custom Coop Trail preview names follow the selected lobby slot", TestCoopTrailPreviewNames),
     ("bundled mission loads", TestBundledMission),
     ("Coop mission modsettings use an optional sidecar", TestCoopMissionModSettingsSidecar),
     ("path escape rejected", TestPathEscape),
@@ -96,6 +97,27 @@ foreach ((string name, Action run) in tests)
 
 Console.WriteLine($"{tests.Length - failed}/{tests.Length} tests passed.");
 return failed == 0 ? 0 : 1;
+
+static void TestCoopTrailPreviewNames()
+{
+    const string local = "Pestdoktor";
+    const string workshop = "3808628570\\Pestdoktor";
+    Assert(CoopTrailPreviewNamePolicy.Resolve(true, true, 4, 29, local) == local,
+        "embedded Lord without local installation lost its preview name");
+    Assert(CoopTrailPreviewNamePolicy.Resolve(true, true, 4, 29, workshop) == workshop,
+        "Workshop Lord identity was not preserved for display-name trimming");
+    Assert(CoopTrailPreviewNamePolicy.Resolve(true, true, 4, 29, "Other Lord") == "Other Lord",
+        "Customize did not replace the selected Lord's preview name");
+    Assert(CoopTrailPreviewNamePolicy.Resolve(true, true, 5, 30, "Second Lord") == "Second Lord",
+        "another Custom Lord slot lost its independent name");
+    Assert(CoopTrailPreviewNamePolicy.Resolve(true, true, 4, 3, local) == null &&
+        CoopTrailPreviewNamePolicy.Resolve(true, false, 4, 29, local) == null,
+        "Vanilla or human slots were overridden");
+    Assert(CoopTrailPreviewNamePolicy.Resolve(false, true, 4, 29, local) == null &&
+        CoopTrailPreviewNamePolicy.Resolve(true, true, 1, 29, local) == null &&
+        CoopTrailPreviewNamePolicy.Resolve(true, true, 4, 29, " ") == null,
+        "inactive, unmapped, or nameless slots were overridden");
+}
 
 static void TestModDataNamespaces()
 {
@@ -2065,10 +2087,12 @@ static void TestCoopExporterIntegration()
         runtime.Contains("UpdateHostInfoMethod.Invoke(self, new object[] { false })"),
         "Coop readiness does not follow Vanilla's transmitted Lord selection after media remapping");
     Assert(runtime.Contains("aiMember.customLordName = entry.Value.lordName") &&
-        runtime.Contains("UpdateRadarShieldPositionsMethod.Invoke(self, null)") &&
-        runtime.IndexOf("aiMember.customLordName = entry.Value.lordName", StringComparison.Ordinal) <
-            runtime.IndexOf("UpdateRadarShieldPositionsMethod.Invoke(self, null)", StringComparison.Ordinal),
-        "embedded Coop Lords have no name in the visible lobby roster");
+        runtime.Contains("UpdateCustomLordNamesHook(FRONT_Multiplayer self)") &&
+        runtime.Contains("CombinedNameHook(Platform_Multiplayer.MPLobbyMember member)") &&
+        runtime.Contains("CoopTrailPreviewNamePolicy.Resolve(") &&
+        runtime.Contains("MapFileManager.SplitCustomTrailName(name)") &&
+        runtime.Contains("return combinedNameTrampoline(member)"),
+        "embedded Coop Lords do not reach the actual Coop Trail preview name getter");
     Assert(runtime.Contains("selectedInfo.lordConfig = transmitted.lordConfig") &&
         runtime.Contains("PreparedTrailMediaAlias(selected.Loaded.LordRequirements") &&
         runtime.Contains("lordDataCoordinator.RemapTrailMedia(localInfos)") &&

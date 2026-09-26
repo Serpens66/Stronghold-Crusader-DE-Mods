@@ -1,22 +1,9 @@
-# Fixes 1.19.1: selected tribe ID is not validated before API calls
+# Fixes 1.19.1: multiplayer unit-type removal uses the wrong player's selection
 
-## Observed log errors
+In `src/shcde-fixes/Detours/UnitDetours.cs:385-409`, the hook creates a tribe for the command's `playerId` but reads `CurrentSelectedTribeId` from each peer's **local** selection. It assigns units from that tribe without checking their owner. This path is present in the installed Fixes 1.19.1.0 DLL.
 
-On 25 September 2026, a client running Fixes 1.19.1.0 recorded these four consecutive errors:
+**Observed:** On 26 September 2026 at 23:34:05, the host selected player 1's tribe 487 and assigned player 1's spearmen 46-48 to new tribe 6 (owner 1). For the same action, the client selected player 2's tribe 486 and assigned player 2's spearmen 49-51 to tribe 6. A passive Script Extender observer recorded `unitOwner=2 targetOwner=1 ownerMismatch=True unitTribeNow=6` for each unit and confirmed the state on the next tick. Host log lines 52302-52309; client lines 13525-13535.
 
-```text
-[Error  :  SHCDE-SE] [T17-22:29:14.855] [GameTribeManagerAPI] [TryGetTribeById] Tried to access tribe index that was out of range: [0/4500]
-[Error  :  SHCDE-SE] [T17-22:29:14.855] [GameTribeManagerAPI] [GetStance] Could not find tribe with id: 0
-[Error  :  SHCDE-SE] [T17-22:29:14.855] [GameTribeManagerAPI] [TryGetTribeById] Tried to access tribe index that was out of range: [0/4500]
-[Error  :  SHCDE-SE] [T17-22:29:14.855] [GameTribeManagerAPI] [GetUnits] Could not find tribe with id: 0
-```
+**Reproduce:** Both players select their own troops; player 1 removes a unit type through the troop bar. In a comparison run with `AssignNewTribeOnUnitTypeTrim` disabled on both computers, the players repeated the action and observed no desync; the logs show no further wrong-owner assignment after startup (host `Log_148.log`, client `Log_016.log`). The option state and click come from the players' test notes, not the logs.
 
-The log has no stack trace for these calls, so it does not establish which caller produced them.
-
-## Verified Fixes code path
-
-Decompilation of the installed `fixes.dll` (SHA-256 `080F35F090F84E7D4B68932B1796BF0C627C0147E142884D25A8C2B278DA467F`) shows that `FixesUnitDetours.c_game_tribe_remove_unit_type_hook_impl` calls `GameTribeManagerAPI.Create(playerId, false)`, reads `CurrentSelectedTribeId`, then passes that ID to `GetStance` and `GetUnits`. The same sequence appears in `src/shcde-fixes/Detours/UnitDetours.cs`, lines 385-396. There is no validity check between reading the ID and calling those APIs.
-
-If `CurrentSelectedTribeId` is `0`, this hook passes `0` to both APIs. The Script Extender rejects tribe ID `0`, so this is a concrete invalid-ID path in the installed Fixes code. The four log entries are consistent with this path, but the missing stack trace prevents attributing this particular occurrence to the hook.
-
-Please validate the selected tribe ID before calling `GetStance` or `GetUnits`, and move `Create` after that validation so an invalid selection does not reach it. A reproduction with selected tribe ID `0` and another with a valid selection would verify the corrected behavior.
+The wrong-owner assignment is proven. The observer records no call stack; other gameplay mods were active, so these logs do not prove that Fixes alone caused the displayed desync. The hook should derive units from the command's player and preserve one call to the original function when no suitable source tribe exists.

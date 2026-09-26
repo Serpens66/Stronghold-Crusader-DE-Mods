@@ -3,8 +3,8 @@
   "database": {
     "path": "sem/FBCB9319/CrusaderDE-semantic.sqlite",
     "schemaVersion": 4,
-    "referenceSize": 154779648,
-    "referenceSha256": "583FF4A70D5CDBFF885F877C072965336A4F3E8F933FC887C4297A524117621E",
+    "referenceSize": 154783744,
+    "referenceSha256": "F039332099470C6EF0B193DF3240F39804AD3522071D75CA050C61417468CC71",
     "referenceSqliteVersion": "3.45.3"
   },
   "identities": {
@@ -51,7 +51,7 @@
       "chore_opcodes": 43,
       "chore_contracts": 8,
       "chore_observations": 2,
-      "chore_evidence": 6,
+      "chore_evidence": 7,
       "call_edges": 23692,
       "function_data_references": 79264,
       "xrefs": 236382,
@@ -127,8 +127,8 @@
     },
     {
       "path": "sem/FBCB9319/knowledge/chore-opcodes.jsonl",
-      "sha256": "48122029ADF4BC8504F9FF194047989478F481D3FCD02D8CE4BA80411CDAAB9F",
-      "bytes": 28387
+      "sha256": "E647AAF9F4CB520340344683619F9EC4A1886DE6B02418CD9D56BB1358681BFD",
+      "bytes": 28505
     },
     {
       "path": "sem/FBCB9319/knowledge/chore-contracts.jsonl",
@@ -142,8 +142,8 @@
     },
     {
       "path": "sem/FBCB9319/knowledge/chore-evidence.jsonl",
-      "sha256": "17380C6B83BDE98A227A594FEFE6FA5176F8549543440EA0A95A85B2D4476030",
-      "bytes": 3841
+      "sha256": "2FE9FBD2BF59B761CE94292DD96F60877AB730353B8F37805D20BFCD7F999A7F",
+      "bytes": 4487
     },
     {
       "path": "sem/FBCB9319/knowledge/CHORE_SYSTEM.md",

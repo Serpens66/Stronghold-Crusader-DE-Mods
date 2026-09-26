@@ -547,9 +547,15 @@ namespace BugfixesAndQoL
         {
             try
             {
-                if (FRONT_Multiplayer.coopGame && FRONT_Multiplayer.customCoopGame)
+                if (coopTrailId > 0 && self?.activeLobby?.gameTypeCoop == "1")
                     ValidateCustomCoopLobby(self?.activeLobby, null, false);
                 activeStartManifest = ResolveManifestForStart(coopTrailId);
+                int preparedSlots = CoopCustomLordSelectionFeature.BeginCoopStart(
+                    self?.activeLobby, coopTrailId);
+                if (coopTrailId > 0)
+                    Shared.DebugLogHelper.LogInfo(log,
+                        $"Coop Trail AIV start snapshot prepared: trail={coopTrailId}, mission={coopMissionId}, " +
+                        $"selectedSlots={preparedSlots}, extraCandidateSlots={activeStartManifest?.Slots.Count ?? 0}.");
                 startGameTrampoline(self, setup, map, coopTrailId, coopMissionId);
             }
             catch (Exception ex)
@@ -560,6 +566,7 @@ namespace BugfixesAndQoL
             }
             finally
             {
+                CoopCustomLordSelectionFeature.EndCoopStart();
                 activeStartManifest = null;
                 confirmedManifest = null;
                 incomingBegin = null;
@@ -861,13 +868,16 @@ namespace BugfixesAndQoL
         private bool IsFeatureActive() =>
             settings.EnableMod &&
             (settings.EnableCustomLordListEnhancements ||
-             (FRONT_Multiplayer.coopGame && FRONT_Multiplayer.customCoopGame));
+             FRONT_Multiplayer.coopGame);
 
         private static bool IsEligibleLobby(Platform_Multiplayer platform) =>
             platform?.activeLobby != null &&
             platform.activeLobby.isHost &&
             !FRONT_Multiplayer.skirmishGame &&
-            Shared.GameModeHelper.IsRealMultiplayer();
+            (Shared.GameModeHelper.IsRealMultiplayer() ||
+             (FRONT_Multiplayer.coopGame &&
+              platform.activeLobby.id.m_SteamID != 0 &&
+              GetHumanPeers(platform.activeLobby).Any()));
 
         private static IEnumerable<CSteamID> GetHumanPeers(Platform_Multiplayer.MPLobby lobby)
         {

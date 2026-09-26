@@ -78,6 +78,7 @@ namespace BugfixesAndQoL
                 typeof(int), typeof(string), typeof(ulong), typeof(ImageSource), typeof(bool));
 
         private static CoopCustomLordSelectionFeature current;
+        private static Dictionary<int, FRONT_Multiplayer.MPAIVInfo> activeCoopStartAivs;
 
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
@@ -758,6 +759,19 @@ namespace BugfixesAndQoL
             bool everySkirmishSet,
             bool everyHistoricalSet)
         {
+            if (activeCoopStartAivs != null)
+            {
+                if (!activeCoopStartAivs.TryGetValue(playerId, out FRONT_Multiplayer.MPAIVInfo startInfo))
+                {
+                    uploadDefaultAivOriginal(lordType, playerId, everySkirmishSet, everyHistoricalSet);
+                    return;
+                }
+                if (startInfo.lordType != lordType)
+                    throw new InvalidOperationException($"Custom Coop Trail AI slot {playerId} changed during start.");
+                UploadSelectedCustomCoopAiv(startInfo, playerId,
+                    everySkirmishSet, everyHistoricalSet);
+                return;
+            }
             FRONT_Multiplayer self = MainViewModel.viewModelLoaded
                 ? MainViewModel.Instance.FRONTMultiplayer
                 : null;
@@ -856,17 +870,67 @@ namespace BugfixesAndQoL
                 (!info.builtInLord && (string.IsNullOrWhiteSpace(info.lordName) || info.lordConfig == null)))
                 throw new InvalidOperationException($"Custom Coop Trail AI slot {playerId} has invalid Lord data.");
 
+            UploadSelectedCustomCoopAiv(info, playerId, everySkirmishSet,
+                everyHistoricalSet, self.singlePlayerCoop);
+        }
+
+        internal static int BeginCoopStart(Platform_Multiplayer.MPLobby lobby, int coopTrailId)
+        {
+            activeCoopStartAivs = null;
+            if (coopTrailId <= 0 || lobby == null)
+                return 0;
+            var snapshot = new Dictionary<int, FRONT_Multiplayer.MPAIVInfo>();
+            foreach (Platform_Multiplayer.MPLobbyMember member in lobby.members)
+            {
+                if (member == null || !member.SkirmishMember || member.SkirmishHumanMember)
+                    continue;
+                int playerId = lobby.getThisPlayerFromSteamID(member.GetSteamID());
+                if (playerId < 2 || playerId > 8)
+                    throw new InvalidOperationException("Custom Coop Trail has an invalid AI player slot.");
+                var info = new FRONT_Multiplayer.MPAIVInfo();
+                info.decode(MultiplayerAivSyncRuntime.GetVanillaAivData(lobby, playerId) ?? string.Empty);
+                bool customLord = member.GetLordType() >= 29;
+                if (!customLord && info.builtInLord && info.builtIn)
+                    continue;
+                if (info.lordType != member.GetLordType() ||
+                    (customLord && info.builtInLord) ||
+                    (!info.builtInLord && (string.IsNullOrWhiteSpace(info.lordName) ||
+                                           info.lordConfig == null || info.builtIn ||
+                                           info.community || info.historical)) ||
+                    (!info.builtIn && !info.community && !info.historical &&
+                     (info.aivs == null || info.aivs.Count != 1 ||
+                      info.aivs[0]?.data == null || info.aivs[0].data.Length == 0)))
+                    throw new InvalidOperationException($"Custom Coop Trail Lord or AIV data for player {playerId} is incomplete.");
+                snapshot.Add(playerId, info);
+            }
+            activeCoopStartAivs = snapshot;
+            return snapshot.Count;
+        }
+
+        internal static void EndCoopStart() => activeCoopStartAivs = null;
+
+        private void UploadSelectedCustomCoopAiv(
+            FRONT_Multiplayer.MPAIVInfo info,
+            int playerId,
+            bool everySkirmishSet,
+            bool everyHistoricalSet,
+            bool singlePlayerCoop = false)
+        {
+            if (!info.builtInLord && (info.aivs == null || info.aivs.Count == 0 ||
+                                      info.lordConfig == null))
+                throw new InvalidOperationException($"Custom Coop Trail Lord in slot {playerId} has no embedded AIV or configuration.");
+
             if (info.builtIn || info.community || info.historical || info.aivs == null || info.aivs.Count == 0)
             {
                 if (!info.builtInLord)
                     throw new InvalidOperationException($"Custom Coop Trail Lord in slot {playerId} has no embedded AIV.");
-                uploadDefaultAivOriginal(lordType, playerId,
+                uploadDefaultAivOriginal(info.lordType, playerId,
                     info.community || everySkirmishSet,
                     info.historical || everyHistoricalSet);
                 return;
             }
 
-            int count = self.singlePlayerCoop ? info.aivs.Count : 1;
+            int count = singlePlayerCoop ? info.aivs.Count : 1;
             IAivImportBackend importBackend = GetAivImportBackend();
             for (int index = 0; index < count; index++)
             {
@@ -877,6 +941,8 @@ namespace BugfixesAndQoL
             }
             if (!info.builtInLord)
                 EngineInterface.setCustomLordConfig(ref info.lordConfig.lordData, playerId);
+            Shared.DebugLogHelper.LogInfo(log,
+                $"Custom Coop Trail imported lobby AIV: playerId={playerId}, lord={info.lordName}, candidates={count}, source=start-snapshot.");
         }
 
         private IAivImportBackend GetAivImportBackend()

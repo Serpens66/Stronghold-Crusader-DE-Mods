@@ -41,7 +41,7 @@ namespace BugfixesAndQoL
             bool hasManifest,
             ulong currentLobbyId,
             ulong manifestLobbyId) =>
-            featureActive && (coopTrailId == 0 || customCoopGame) &&
+            featureActive && (coopTrailId >= 0 || customCoopGame) &&
             hasManifest && currentLobbyId != 0 &&
             currentLobbyId == manifestLobbyId;
 

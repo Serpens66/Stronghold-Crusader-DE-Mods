@@ -3058,11 +3058,12 @@ namespace BugfixesAndQoL
         {
             Check(
                 MultiplayerAivSyncPolicy.CanUseConfirmedManifest(true, 1, true, true, 17, 17) &&
+                MultiplayerAivSyncPolicy.CanUseConfirmedManifest(true, 1, false, true, 17, 17) &&
                 MultiplayerAivSyncPolicy.CanUseConfirmedManifest(true, 0, false, true, 17, 17) &&
-                !MultiplayerAivSyncPolicy.CanUseConfirmedManifest(true, 1, false, true, 17, 17) &&
+                !MultiplayerAivSyncPolicy.CanUseConfirmedManifest(true, -1, false, true, 17, 17) &&
                 !MultiplayerAivSyncPolicy.CanUseConfirmedManifest(true, 1, true, true, 17, 18) &&
                 !MultiplayerAivSyncPolicy.CanUseConfirmedManifest(false, 1, true, true, 17, 17),
-                "confirmed extra AIV candidates apply to the current Custom Coop lobby, not a stock Coop or another lobby");
+                "confirmed extra AIV candidates apply to the current Coop Trail lobby, including replacement Trails");
         }
 
         private static void TestClassicMapSizeReader()

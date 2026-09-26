@@ -74,6 +74,16 @@ function Assert-ManagedMethodContract {
 
 $managedAssembly = [Mono.Cecil.AssemblyDefinition]::ReadAssembly($assemblyPath)
 try {
+    $platformType = $managedAssembly.MainModule.Types | Where-Object { $_.FullName -ceq 'Platform_Multiplayer' }
+    $memberType = $platformType.NestedTypes | Where-Object { $_.Name -ceq 'MPLobbyMember' }
+    $combinedNameGetter = @($memberType.Methods | Where-Object {
+        $_.Name -ceq 'get_CombinedName' -and $_.Parameters.Count -eq 0
+    })
+    if ($combinedNameGetter.Count -ne 1 -or -not $combinedNameGetter[0].IsPublic -or
+        $combinedNameGetter[0].IsStatic -or
+        $combinedNameGetter[0].ReturnType.FullName -cne 'System.String') {
+        throw 'Managed contract changed for MPLobbyMember.get_CombinedName.'
+    }
     Assert-ManagedMethodContract $managedAssembly 'CrusaderDE.FRONT_Multiplayer' 'LeaveLobby' @(
         'System.Boolean', 'System.Boolean') 'Private'
     Assert-ManagedMethodContract $managedAssembly 'CrusaderDE.FRONT_Multiplayer' 'StartSkirmishGame' @(
@@ -81,6 +91,8 @@ try {
     Assert-ManagedMethodContract $managedAssembly 'CrusaderDE.FRONT_Multiplayer' 'UpdateHostInfo' @(
         'System.Boolean') 'Private'
     Assert-ManagedMethodContract $managedAssembly 'CrusaderDE.FRONT_Multiplayer' 'UpdateRadarShieldPositions' @() 'Private'
+    Assert-ManagedMethodContract $managedAssembly 'CrusaderDE.FRONT_Multiplayer' 'ReSortTeamInfo' @() 'Private'
+    Assert-ManagedMethodContract $managedAssembly 'CrusaderDE.FRONT_Multiplayer' 'UpdateCustomLordNamesFromMP' @() 'Public'
     Assert-ManagedMethodContract $managedAssembly 'EditorDirector' 'SaveSaveGameOrMap' @(
         'System.String', 'System.String', 'System.Boolean', 'System.Boolean', 'System.Boolean') 'Public'
 }

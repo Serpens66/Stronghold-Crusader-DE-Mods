@@ -21,6 +21,8 @@ namespace ExtendedData
         private delegate void CoopMissionChangedDelegate(FRONT_Multiplayer self, int trailId, int missionId, bool resetOrderSwapped);
         private delegate void ButtonClickedDelegate(FRONT_Multiplayer self, string command);
         private delegate void UpdateHostInfoDelegate(FRONT_Multiplayer self, bool delayed);
+        private delegate void UpdateCustomLordNamesDelegate(FRONT_Multiplayer self);
+        private delegate string CombinedNameDelegate(Platform_Multiplayer.MPLobbyMember self);
 
         private sealed class HumanPackageState
         {
@@ -52,6 +54,7 @@ namespace ExtendedData
             .GetField("instance", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
         private static readonly MethodInfo UpdateHostInfoMethod = RequireMethod("UpdateHostInfo", typeof(bool));
         private static readonly MethodInfo UpdateRadarShieldPositionsMethod = RequireMethod("UpdateRadarShieldPositions");
+        private static readonly MethodInfo ReSortTeamInfoMethod = RequireMethod("ReSortTeamInfo");
         private static readonly FieldInfo MpSetupDataField = typeof(FRONT_Multiplayer).GetField("MPsetupData", BindingFlags.Instance | BindingFlags.NonPublic);
         private static readonly FieldInfo LocalReadyField = RequirePrivateLobbyFlag("MPLocalReady");
         private static readonly FieldInfo LocalReadyLockedField = RequirePrivateLobbyFlag("MPLocalReadyLocked");
@@ -71,10 +74,15 @@ namespace ExtendedData
         private Hook missionHook;
         private Hook buttonHook;
         private Hook updateHostInfoHook;
+        private Hook updateCustomLordNamesHook;
+        private Hook combinedNameHook;
         private InitCoopMissionsDelegate initTrampoline;
         private CoopMissionChangedDelegate missionTrampoline;
         private ButtonClickedDelegate buttonTrampoline;
         private UpdateHostInfoDelegate updateHostInfoTrampoline;
+        private UpdateCustomLordNamesDelegate updateCustomLordNamesTrampoline;
+        private CombinedNameDelegate combinedNameTrampoline;
+        private readonly HashSet<string> previewNameFailures = new HashSet<string>(StringComparer.Ordinal);
         private TrailMissionSettingsCoordinator missionSettingsCoordinator;
         private MapModSettingsCoordinator mapSettingsCoordinator;
         private LordDataSyncCoordinator lordDataCoordinator;
@@ -180,6 +188,17 @@ namespace ExtendedData
             buttonTrampoline = buttonHook.GenerateTrampoline<ButtonClickedDelegate>();
             updateHostInfoHook = new Hook(UpdateHostInfoMethod, (UpdateHostInfoDelegate)UpdateHostInfoHook);
             updateHostInfoTrampoline = updateHostInfoHook.GenerateTrampoline<UpdateHostInfoDelegate>();
+            MethodInfo updateNamesMethod = RequireMethod("UpdateCustomLordNamesFromMP");
+            updateCustomLordNamesHook = new Hook(updateNamesMethod,
+                (UpdateCustomLordNamesDelegate)UpdateCustomLordNamesHook);
+            updateCustomLordNamesTrampoline =
+                updateCustomLordNamesHook.GenerateTrampoline<UpdateCustomLordNamesDelegate>();
+            MethodInfo combinedNameGetter = typeof(Platform_Multiplayer.MPLobbyMember)
+                .GetProperty("CombinedName", BindingFlags.Instance | BindingFlags.Public)?.GetGetMethod();
+            if (combinedNameGetter == null)
+                throw new MissingMethodException("MPLobbyMember.get_CombinedName");
+            combinedNameHook = new Hook(combinedNameGetter, (CombinedNameDelegate)CombinedNameHook);
+            combinedNameTrampoline = combinedNameHook.GenerateTrampoline<CombinedNameDelegate>();
 
             RefreshPackageCatalog();
             OnActiveCoopPackageChanged();
@@ -248,6 +267,8 @@ namespace ExtendedData
             missionHook?.Dispose();
             buttonHook?.Dispose();
             updateHostInfoHook?.Dispose();
+            updateCustomLordNamesHook?.Dispose();
+            combinedNameHook?.Dispose();
             RestoreVanillaMissions();
             settings.ActiveCoopPackageChanged -= OnActiveCoopPackageChanged;
             settings.CoopPackageRemoteStatusChanged -= OnCoopPackageRemoteStatusChanged;
@@ -723,7 +744,69 @@ namespace ExtendedData
             MainViewModel.Instance.StandaloneMissionText = BuildMissionDescription();
             if (updateHost && self.currentLobby != null && self.currentLobby.isHost)
                 UpdateHostInfoMethod.Invoke(self, new object[] { false });
+            ReSortTeamInfoMethod.Invoke(self, null);
             UpdateRadarShieldPositionsMethod.Invoke(self, null);
+        }
+
+        private void UpdateCustomLordNamesHook(FRONT_Multiplayer self)
+        {
+            updateCustomLordNamesTrampoline(self);
+            if (!enabled || selected == null || self?.currentLobby == null)
+                return;
+            bool refresh = false;
+            foreach (Platform_Multiplayer.MPLobbyMember member in self.currentLobby.members)
+            {
+                if (member == null || !member.SkirmishMember || member.SkirmishHumanMember)
+                    continue;
+                int playerId = self.currentLobby.getThisPlayerFromSteamID(member.GetSteamID());
+                if (playerId < 2 || playerId > 8)
+                    continue;
+                FRONT_Multiplayer.MPAIVInfo info = DecodeLobbyLord(self, playerId);
+                if (info == null || info.builtInLord || info.lordType != member.GetLordType() ||
+                    string.IsNullOrWhiteSpace(info.lordName))
+                    continue;
+                if (!string.Equals(member.customLordName, info.lordName, StringComparison.Ordinal))
+                    member.customLordName = info.lordName;
+                refresh = true;
+            }
+            if (refresh)
+                ReSortTeamInfoMethod.Invoke(self, null);
+        }
+
+        private string CombinedNameHook(Platform_Multiplayer.MPLobbyMember member)
+        {
+            FRONT_Multiplayer self = GetExistingMainViewModel()?.FRONTMultiplayer;
+            if (!enabled || selected == null || self?.currentLobby?.members == null ||
+                !self.currentLobby.coopTrailGame || !self.currentLobby.members.Contains(member))
+                return combinedNameTrampoline(member);
+
+            int playerId = self.currentLobby.getThisPlayerFromSteamID(member.GetSteamID());
+            bool isCurrentSlotMember = playerId >= 2 && playerId <= 8 &&
+                ReferenceEquals(self.currentLobby.GetLobbyMemberFromThis_PlayerID(playerId), member);
+            string name = CoopTrailPreviewNamePolicy.Resolve(
+                selected.Loaded.TrailNumber == self.currentLobby.coopTrailID + 1 &&
+                selected.Loaded.MissionNumber == self.currentLobby.coopSelectedMission &&
+                isCurrentSlotMember,
+                member.SkirmishMember && !member.SkirmishHumanMember,
+                playerId,
+                member.GetLordType(),
+                member.customLordName);
+            if (name != null)
+                return MapFileManager.SplitCustomTrailName(name);
+            if (member.SkirmishMember && !member.SkirmishHumanMember &&
+                member.GetLordType() >= 29 && member.GetLordType() <= 37 &&
+                playerId >= 2 && playerId <= 8)
+            {
+                string failure = self.currentLobby.coopTrailID + "/" +
+                    self.currentLobby.coopSelectedMission + "/" + playerId + "/" +
+                    member.GetLordType() + "/" + member.customLordName;
+                if (previewNameFailures.Add(failure))
+                {
+                    LogWarning("Custom Coop Trail preview name unavailable for slot " + playerId +
+                        ": selected lobby Lord identity is missing or does not match the member.");
+                }
+            }
+            return combinedNameTrampoline(member);
         }
 
         private static FRONT_Multiplayer.MPAIVInfo CopyLordInfo(FRONT_Multiplayer.MPAIVInfo source) =>
