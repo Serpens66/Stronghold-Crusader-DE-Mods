@@ -37,12 +37,13 @@ namespace CastlePlanner.AIVPlacement
             FRONT_Multiplayer.MPAIVInfo info,
             ulong[] checksums,
             int[] statuses,
-            string[] toolTips)
+            string[] toolTips,
+            int[] practicePercentages)
         {
             Resolve();
             if (replaceStatuses == null || info == null)
                 return false;
-            replaceStatuses.Invoke(null, new object[] { info, checksums, statuses, toolTips });
+            replaceStatuses.Invoke(null, new object[] { info, checksums, statuses, toolTips, practicePercentages });
             return true;
         }
 
@@ -63,7 +64,8 @@ namespace CastlePlanner.AIVPlacement
                 "ReplaceStatuses",
                 BindingFlags.Static | BindingFlags.Public,
                 null,
-                new[] { typeof(FRONT_Multiplayer.MPAIVInfo), typeof(ulong[]), typeof(int[]), typeof(string[]) },
+                new[] { typeof(FRONT_Multiplayer.MPAIVInfo), typeof(ulong[]), typeof(int[]),
+                    typeof(string[]), typeof(int[]) },
                 null);
             resolved = clearStatuses != null && replaceStatuses != null;
         }

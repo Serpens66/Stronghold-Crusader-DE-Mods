@@ -87,6 +87,23 @@ namespace CastlePlanner.AIVPlacement.Core
 
     public static class AivPracticePresentation
     {
+        public static int? BestPossiblePercentage(IReadOnlyList<AivPracticeRotation> rotations,
+            IReadOnlyList<int> relevantRotationIndexes, AivPlacementStatus status)
+        {
+            if (status == AivPlacementStatus.NotEvaluable || rotations == null ||
+                relevantRotationIndexes == null || relevantRotationIndexes.Count == 0)
+                return null;
+
+            int best = -1;
+            foreach (int index in relevantRotationIndexes)
+            {
+                if (index < 0 || index >= rotations.Count || rotations[index] == null)
+                    return null;
+                best = Math.Max(best, rotations[index].MaximumPercentage);
+            }
+            return best >= 0 && best <= 100 ? (int?)best : null;
+        }
+
         public static string FormatPercentage(int minimum, int maximum) =>
             minimum == maximum ? $"{minimum}%" : $"{minimum}–{maximum}%";
 

@@ -638,7 +638,9 @@ namespace CastlePlanner.AIVPlacement
                 notices.Add(SerpLocalization.Get(PracticeReasonKey(practice.Reason)));
             string tooltip = AivPracticePresentation.ComposeTooltip(
                 practiceLine, vanilla, notices, BuildAutoLine(candidate, autoDecision));
-            return new AivCandidateVisualState(practice.Status, tooltip);
+            return new AivCandidateVisualState(practice.Status, tooltip,
+                AivPracticePresentation.BestPossiblePercentage(practice.Rotations,
+                    practice.RelevantRotationIndexes, practice.Status));
         }
 
         private static string PracticeReasonKey(string reason)
@@ -742,6 +744,7 @@ namespace CastlePlanner.AIVPlacement
             var checksums = new List<ulong>();
             var neutralStatuses = new List<int>();
             var toolTips = new List<string>();
+            var practicePercentages = new List<int>();
             for (int candidateId = 0; candidateId < info.aivs.Count; candidateId++)
             {
                 CustomisationFileManager.CustomAIV aiv = info.aivs[candidateId];
@@ -764,12 +767,14 @@ namespace CastlePlanner.AIVPlacement
                 checksums.Add(aiv.checksum);
                 neutralStatuses.Add(neutralStatus);
                 toolTips.Add(state.ToolTip ?? string.Empty);
+                practicePercentages.Add(state.PracticePercentage ?? -1);
             }
             return BugfixAivStatusBridge.TryReplace(
                 info,
                 checksums.ToArray(),
                 neutralStatuses.ToArray(),
-                toolTips.ToArray());
+                toolTips.ToArray(),
+                practicePercentages.ToArray());
         }
 
         private void LogPublishedUiStates(
@@ -789,7 +794,7 @@ namespace CastlePlanner.AIVPlacement
                 string key = playerId + ":" + candidateId + ":" + aiv.checksum;
                 current.Add(key);
                 string tooltip = state.ToolTip ?? string.Empty;
-                string value = uiRoute + "|" + state.Status + "|" + tooltip;
+                string value = uiRoute + "|" + state.Status + "|" + state.PercentageText + "|" + tooltip;
                 if (publishedUiStates.TryGetValue(key, out string prior) &&
                     string.Equals(prior, value, StringComparison.Ordinal))
                     continue;
@@ -797,6 +802,7 @@ namespace CastlePlanner.AIVPlacement
                 Shared.DebugLogHelper.LogInfo(log,
                     $"AIV UI published route={uiRoute} player={playerId} candidate={candidateId} " +
                     $"checksum={aiv.checksum} status={state.Status?.ToString() ?? "Pending"} " +
+                    $"practice={state.PercentageText} " +
                     $"extraFeaturesAi={ElevatedMoatAiCapability.Current} " +
                     $"tooltip={tooltip.Replace("\r", "\\r").Replace("\n", "\\n")}");
             }

@@ -123,11 +123,7 @@ namespace BugfixesAndQoL
         public ImageSource Icon { get; }
         public RelayCommand RemoveCommand { get; }
         public Visibility RemoveVisibility { get; private set; }
-        public Visibility PendingVisibility { get; private set; }
-        public Visibility CompleteVisibility { get; private set; }
-        public Visibility PartialVisibility { get; private set; }
-        public Visibility ImpossibleVisibility { get; private set; }
-        public Visibility NotEvaluableVisibility { get; private set; }
+        public string PercentageText { get; private set; } = "-%";
         public string StatusToolTip { get; private set; }
         public string RemoveHelpText => SerpLocalization.Get("BugfixesAndQoL.AivRemoveHelp");
 
@@ -135,17 +131,12 @@ namespace BugfixesAndQoL
         {
             Set(nameof(RemoveVisibility), ToVisibility(allowRemoval), RemoveVisibility,
                 value => RemoveVisibility = value);
-            AivCandidateStatus? current = status?.Status;
-            Set(nameof(PendingVisibility), ToVisibility(current == AivCandidateStatus.Pending),
-                PendingVisibility, value => PendingVisibility = value);
-            Set(nameof(CompleteVisibility), ToVisibility(current == AivCandidateStatus.Complete),
-                CompleteVisibility, value => CompleteVisibility = value);
-            Set(nameof(PartialVisibility), ToVisibility(current == AivCandidateStatus.Partial),
-                PartialVisibility, value => PartialVisibility = value);
-            Set(nameof(ImpossibleVisibility), ToVisibility(current == AivCandidateStatus.Impossible),
-                ImpossibleVisibility, value => ImpossibleVisibility = value);
-            Set(nameof(NotEvaluableVisibility), ToVisibility(current == AivCandidateStatus.NotEvaluable),
-                NotEvaluableVisibility, value => NotEvaluableVisibility = value);
+            string percentage = status?.PercentageText ?? "-%";
+            if (!string.Equals(PercentageText, percentage, StringComparison.Ordinal))
+            {
+                PercentageText = percentage;
+                OnPropertyChanged(nameof(PercentageText));
+            }
             string tip = status?.ToolTip ?? string.Empty;
             if (!string.Equals(StatusToolTip, tip, StringComparison.Ordinal))
             {

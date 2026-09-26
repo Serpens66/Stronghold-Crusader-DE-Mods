@@ -152,3 +152,6 @@ SomeSettings.EnableFearFactorNeutralization=Disable fear-factor effects on soldi
 SomeSettings.EnableFearFactorNeutralizationHelp=Fear factor no longer has any effect on soldiers’ combat strength.
 Common.SettingsSourceHelp=Resets this mod's settings to the selected source. Personal presets are not changed. In multiplayer, only the host can reset host settings.
 Common.PresetLoadFailedTitle=Preset load failed
+SomeSettings.NoKillReward=No Kill Reward
+SomeSettings.NoKillRewardHumanHelp=Human players receive no gold or goods for defeating an enemy Lord.
+SomeSettings.NoKillRewardAIHelp=AI players receive no gold or goods for defeating an enemy Lord.

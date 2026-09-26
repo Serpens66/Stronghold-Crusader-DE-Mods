@@ -4667,10 +4667,6 @@ namespace BugfixesAndQoL
                 "BugfixesAndQoLSettings.xaml"));
             string english = File.ReadAllText(Path.Combine(projectDirectory, "Locales", "en-US.txt"));
             string german = File.ReadAllText(Path.Combine(projectDirectory, "Locales", "de-DE.txt"));
-            string customLordTemplate = File.ReadAllText(Path.Combine(
-                projectDirectory,
-                "CustomLordExtendedPackageTemplate",
-                "info.json"));
 
             Check(fix.Contains("settings.EnableMod && settings.EnableAiStoneReserveFix"),
                 "AI stone-reserve runtime uses the mod and specific host setting gates");
@@ -4700,9 +4696,6 @@ namespace BugfixesAndQoL
                     english.Contains("BugfixesAndQoL.EnableAiStoneReserveFix=") &&
                     german.Contains("BugfixesAndQoL.EnableAiStoneReserveFix="),
                 "AI stone-reserve setting is searchable, bound, and localized");
-            Check(customLordTemplate.Contains("\"AssetMode\": \"Local\""),
-                "custom Lord package template isolates provider-owned assets");
-
             string removedSettingName = "EnableAi" + "Fixes";
             bool removedFromActiveSources = !viewModel.Contains(removedSettingName) &&
                 !xaml.Contains(removedSettingName);

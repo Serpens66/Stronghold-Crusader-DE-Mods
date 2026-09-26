@@ -13,14 +13,19 @@ namespace CastlePlanner.AIVPlacement
     {
         public static readonly AivCandidateVisualState Pending = new AivCandidateVisualState(null, string.Empty);
 
-        public AivCandidateVisualState(AivPlacementStatus? status, string toolTip)
+        public AivCandidateVisualState(AivPlacementStatus? status, string toolTip,
+            int? practicePercentage = null)
         {
             Status = status;
             ToolTip = toolTip ?? string.Empty;
+            PracticePercentage = practicePercentage;
         }
 
         public AivPlacementStatus? Status { get; }
         public string ToolTip { get; }
+        public int? PracticePercentage { get; }
+        public string PercentageText => PracticePercentage.HasValue
+            ? PracticePercentage.Value + "%" : "-%";
     }
 
     internal sealed class AivSelectionListViewModel : LobbyModSettingsBaseViewModel
@@ -115,10 +120,7 @@ namespace CastlePlanner.AIVPlacement
     internal sealed class AivSelectionRowViewModel : LobbyModSettingsBaseViewModel
     {
         private Visibility removeVisibility;
-        private Visibility completeVisibility;
-        private Visibility partialVisibility;
-        private Visibility impossibleVisibility;
-        private Visibility notEvaluableVisibility;
+        private string percentageText = "-%";
         private string statusToolTip = string.Empty;
 
         public AivSelectionRowViewModel(
@@ -145,10 +147,7 @@ namespace CastlePlanner.AIVPlacement
         public ImageSource Icon { get; }
         public RelayCommand RemoveCommand { get; }
         public Visibility RemoveVisibility => removeVisibility;
-        public Visibility CompleteVisibility => completeVisibility;
-        public Visibility PartialVisibility => partialVisibility;
-        public Visibility ImpossibleVisibility => impossibleVisibility;
-        public Visibility NotEvaluableVisibility => notEvaluableVisibility;
+        public string PercentageText => percentageText;
         public string StatusToolTip => statusToolTip;
         public string RemoveHelpText => SerpLocalization.Get("CastlePlanner.AivRemoveHelp");
 
@@ -159,11 +158,12 @@ namespace CastlePlanner.AIVPlacement
         {
             CandidateId = candidateId;
             Set(ref removeVisibility, ToVisibility(allowRemoval), nameof(RemoveVisibility));
-            AivPlacementStatus? status = state?.Status;
-            Set(ref completeVisibility, ToVisibility(status == AivPlacementStatus.Complete), nameof(CompleteVisibility));
-            Set(ref partialVisibility, ToVisibility(status == AivPlacementStatus.Partial), nameof(PartialVisibility));
-            Set(ref impossibleVisibility, ToVisibility(status == AivPlacementStatus.Impossible), nameof(ImpossibleVisibility));
-            Set(ref notEvaluableVisibility, ToVisibility(status == AivPlacementStatus.NotEvaluable), nameof(NotEvaluableVisibility));
+            string percentage = state?.PercentageText ?? "-%";
+            if (!string.Equals(percentageText, percentage, StringComparison.Ordinal))
+            {
+                percentageText = percentage;
+                OnPropertyChanged(nameof(PercentageText));
+            }
 
             string toolTip = state?.ToolTip ?? string.Empty;
             if (!string.Equals(statusToolTip, toolTip, StringComparison.Ordinal))

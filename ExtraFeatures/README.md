@@ -3,6 +3,9 @@ ExtraFeatures adds configurable gameplay, economy, building, and AI options to S
 
 ## Convenience and unit features
 
+### No Kill Reward
+Separate host checkboxes disable gold and goods rewards when human or AI players defeat an enemy Lord. The victory message remains; both options are disabled by default.
+
 ### Disable fear-factor effects on soldiers
 An optional host setting removes both the fear-factor damage bonus and penalty for all human and AI soldiers. Fear values, popularity and productivity effects remain unchanged. Disabled by default; also works in the map editor when ExtraFeatures and this option are enabled.
 

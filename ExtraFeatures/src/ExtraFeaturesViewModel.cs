@@ -44,6 +44,8 @@ namespace ExtraFeatures
         private bool enableFearFactorNeutralization;
         private bool allowElevatedMoatAI = true;
         private bool allowElevatedMoatHuman;
+        private bool noKillRewardHuman;
+        private bool noKillRewardAI;
         private bool enableKnightDismount = true;
         private bool instantHorse;
         private int knightTransformationGoldCost;
@@ -88,6 +90,10 @@ namespace ExtraFeatures
         public string EnableFearFactorNeutralizationHelpText => SerpLocalization.Get(SerpLocalization.EnableFearFactorNeutralizationHelp);
         public string AllowElevatedMoatText => SerpLocalization.Get("SomeSettings.AllowElevatedMoat");
         public string AllowElevatedMoatHelpText => SerpLocalization.Get("SomeSettings.AllowElevatedMoatHelp");
+        public string NoKillRewardText => SerpLocalization.Get("SomeSettings.NoKillReward");
+        public string NoKillRewardHumanHelpText => SerpLocalization.Get("SomeSettings.NoKillRewardHumanHelp");
+        public string NoKillRewardAIHelpText => SerpLocalization.Get("SomeSettings.NoKillRewardAIHelp");
+        public string NoKillRewardSearchHelpText => NoKillRewardHumanHelpText + " " + NoKillRewardAIHelpText;
         public string EnableMonksAlwaysRunText => SerpLocalization.Get(SerpLocalization.EnableMonksAlwaysRun);
         public string EnableMonksAlwaysRunHelpText => SerpLocalization.Get(SerpLocalization.EnableMonksAlwaysRunHelp);
         public string EnableKnightDismountText => SerpLocalization.Get(SerpLocalization.EnableKnightDismount);
@@ -211,6 +217,8 @@ namespace ExtraFeatures
         [SyncHostOnly] public bool EnableFearFactorNeutralization { get => enableFearFactorNeutralization; set => SetSetting(ref enableFearFactorNeutralization, value, nameof(EnableFearFactorNeutralization)); }
         [SyncHostOnly] public bool AllowElevatedMoatAI { get => allowElevatedMoatAI; set => SetSetting(ref allowElevatedMoatAI, value, nameof(AllowElevatedMoatAI)); }
         [SyncHostOnly] public bool AllowElevatedMoatHuman { get => allowElevatedMoatHuman; set => SetSetting(ref allowElevatedMoatHuman, value, nameof(AllowElevatedMoatHuman)); }
+        [SyncHostOnly] public bool NoKillRewardHuman { get => noKillRewardHuman; set => SetSetting(ref noKillRewardHuman, value, nameof(NoKillRewardHuman)); }
+        [SyncHostOnly] public bool NoKillRewardAI { get => noKillRewardAI; set => SetSetting(ref noKillRewardAI, value, nameof(NoKillRewardAI)); }
         [SyncHostOnly] public bool EnableMonksAlwaysRun { get => enableMonksAlwaysRun; set => SetSetting(ref enableMonksAlwaysRun, value, nameof(EnableMonksAlwaysRun)); }
         [SyncHostOnly] public bool EnableKnightDismount { get => enableKnightDismount; set => SetSetting(ref enableKnightDismount, value, nameof(EnableKnightDismount)); }
         [SyncHostOnly] public bool InstantHorse { get => instantHorse; set => SetSetting(ref instantHorse, value, nameof(InstantHorse)); }
@@ -310,6 +318,8 @@ namespace ExtraFeatures
                 EnableFearFactorNeutralization = false;
                 AllowElevatedMoatAI = true;
                 AllowElevatedMoatHuman = false;
+                NoKillRewardHuman = false;
+                NoKillRewardAI = false;
                 EnableKnightDismount = true;
                 InstantHorse = false;
                 KnightTransformationGoldCost = 0;

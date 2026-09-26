@@ -1,8 +1,10 @@
 using BepInEx;
 using BepInEx.Logging;
+using CrusaderDE;
 using SHCDESE.API;
 using SHCDESE.API.LowLevel;
 using System;
+using UnityEngine;
 
 namespace TimerCountdownTest
 {
@@ -17,10 +19,10 @@ namespace TimerCountdownTest
         private static ManualLogSource rootedLog;
         private static TimerCountdownViewModel rootedViewModel;
         private static bool subscribed;
-        private static bool afterStartupLogged;
         private static bool callbackErrorLogged;
-        // BEGIN TEMP CRASH DIAGNOSTICS: periodic proof that timer reads continue.
-        private static int lastDiagnosticTick = -1;
+        private static int lastRenderedFrame = -1;
+        // BEGIN TEMP CRASH DIAGNOSTICS
+        private static bool afterStartupLogged;
         // END TEMP CRASH DIAGNOSTICS
 
         private void Awake()
@@ -39,13 +41,13 @@ namespace TimerCountdownTest
                 GameXAMLManagerAPI.Instance.RegisterBinding("TimerCountdownBriefing", viewModel);
                 GameXAMLManagerAPI.Instance.RegisterBinding("TimerCountdownOst", viewModel);
                 rootedViewModel = viewModel;
-                GameTimeManagerAPI.Instance.OnTick += OnGameTick;
+                Application.onBeforeRender += OnBeforeRender;
                 subscribed = true;
-                rootedLog.LogInfo("Timer countdown bindings and persistent game-tick event registered.");
+                rootedLog.LogInfo("Timer countdown bindings and persistent Unity render event registered.");
                 // BEGIN TEMP CRASH DIAGNOSTICS
                 rootedLog.LogInfo("TIMER_CRASH_DIAGNOSTICS objectiveNotifications=" +
                     TimerCountdownViewModel.NotifyObjectiveRemaining + " ostNotifications=" +
-                    TimerCountdownViewModel.NotifyOstRemaining + " xamlPatches=unchanged");
+                    TimerCountdownViewModel.NotifyOstRemaining + " xamlPatches=unchanged updatePath=UnityMainThread");
                 // END TEMP CRASH DIAGNOSTICS
             }
             catch (Exception ex)
@@ -54,26 +56,28 @@ namespace TimerCountdownTest
             }
         }
 
-        private static void OnGameTick(int tick)
+        private static void OnBeforeRender()
         {
+            int frame = Time.frameCount;
+            if (lastRenderedFrame == frame) return;
+            lastRenderedFrame = frame;
             try
             {
-                if (!afterStartupLogged)
+                if (!IsGameplayReady())
                 {
-                    afterStartupLogged = true;
-                    rootedLog.LogInfo("Timer countdown runtime active after startup cleanup; gameTick=" + tick);
+                    rootedViewModel.SetRemaining(string.Empty, string.Empty);
+                    return;
                 }
 
                 string objective = ReadObjectiveRemaining();
-                string ost = ReadOstRemaining();
+                string ost = TimerCountdownViewModel.NotifyOstRemaining ? ReadOstRemaining() : string.Empty;
                 rootedViewModel.SetRemaining(objective, ost);
                 // BEGIN TEMP CRASH DIAGNOSTICS
-                if (lastDiagnosticTick < 0 || tick < lastDiagnosticTick || tick - lastDiagnosticTick >= 200)
+                if (!afterStartupLogged && MainViewModel.viewModelLoaded &&
+                    MainViewModel.Instance?.HUDmain != null)
                 {
-                    lastDiagnosticTick = tick;
-                    rootedLog.LogInfo("TIMER_CRASH_DIAGNOSTICS tick=" + tick +
-                        " objective='" + objective + "' ost='" + ost +
-                        "' viewModelUpdated=true");
+                    afterStartupLogged = true;
+                    rootedLog.LogInfo("TIMER_CRASH_DIAGNOSTICS persistent Unity main-thread render callback active after HUD startup; frame=" + frame);
                 }
                 // END TEMP CRASH DIAGNOSTICS
             }
@@ -83,6 +87,12 @@ namespace TimerCountdownTest
                 callbackErrorLogged = true;
                 rootedLog.LogError("Timer countdown update failed: " + ex);
             }
+        }
+
+        private static bool IsGameplayReady()
+        {
+            return MainViewModel.viewModelLoaded && MainViewModel.Instance?.Show_InGame == true &&
+                Director.instance?.SimRunning == true;
         }
 
         private static string ReadObjectiveRemaining()

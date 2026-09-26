@@ -41,6 +41,7 @@ namespace ExtraFeatures
         private readonly LordHealthRuntime lordHealthRuntime;
         private readonly MarketTradeGuardBridge marketTradeGuardBridge;
         private readonly ElevatedMoatRuntime elevatedMoatRuntime;
+        private readonly NoKillRewardHook noKillRewardHook;
 
         private PendingStockpileRefund pendingStockpileRefund;
         private AIMarketVanillaPriceHook aiMarketVanillaPriceHook;
@@ -79,6 +80,7 @@ namespace ExtraFeatures
             lordHealthRuntime = new LordHealthRuntime(log, settings);
             marketTradeGuardBridge = new MarketTradeGuardBridge(log, this);
             elevatedMoatRuntime = new ElevatedMoatRuntime(log);
+            noKillRewardHook = new NoKillRewardHook(log);
             settings.SettingChanged += OnSettingChanged;
             settingsSubscribed = true;
         }
@@ -123,6 +125,7 @@ namespace ExtraFeatures
             fixedLayoutHashValidated = isFixedLayoutHashValidated;
             nativeLibraryAvailable = true;
             elevatedMoatRuntime.InitializeNative(context, fixedLayoutHashValidated);
+            TryRunFeature("No Kill Reward native hooks", () => noKillRewardHook.Install(context));
 
             try
             {
@@ -158,6 +161,7 @@ namespace ExtraFeatures
 
         public void ApplySettings()
         {
+            ApplyNoKillRewardSetting();
             ReconcileElevatedMoatRuntime();
             TryRunFeature("fear-factor configuration", ApplyFearFactorSetting);
             TryRunFeature("AI defense repair configuration", ReconcileAIDefenseRepairRuntime);
@@ -342,6 +346,14 @@ namespace ExtraFeatures
                 Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) && settings.AllowElevatedMoatHuman));
         }
 
+        private void ApplyNoKillRewardSetting()
+        {
+            bool enabled = Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod);
+            noKillRewardHook.SetEnabled(
+                enabled && settings.NoKillRewardHuman,
+                enabled && settings.NoKillRewardAI);
+        }
+
         private void ReconcileAIDefenseRepairRuntime()
         {
             aiDefenseRepairRuntime.ReconcileConfiguration();
@@ -362,6 +374,7 @@ namespace ExtraFeatures
                 TryRunFeature("fear-factor configuration", ApplyFearFactorSetting);
             if (propertyName == nameof(ExtraFeaturesViewModel.EnableMod))
             {
+                ApplyNoKillRewardSetting();
                 if (Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
                 {
                     SubscribeHooks();
@@ -381,6 +394,13 @@ namespace ExtraFeatures
 
             if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
                 return;
+
+            if (propertyName == nameof(ExtraFeaturesViewModel.NoKillRewardHuman) ||
+                propertyName == nameof(ExtraFeaturesViewModel.NoKillRewardAI))
+            {
+                ApplyNoKillRewardSetting();
+                return;
+            }
 
             if (propertyName == nameof(ExtraFeaturesViewModel.EnableKnightDismount))
             {

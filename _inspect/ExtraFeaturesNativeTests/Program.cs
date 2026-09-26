@@ -26,6 +26,7 @@ namespace ExtraFeatures
                 TestPermanentRuntimeContracts(FindWorkspace());
                 TestNativeTargetMap(image);
                 TestApothecarySearchRangeHook(image);
+                NoKillRewardContractTests.Run(image);
                 Console.WriteLine($"PASS: ExtraFeatures native tests ({assertions} assertions).");
                 return 0;
             }
@@ -50,6 +51,7 @@ namespace ExtraFeatures
             string apothecaryEmitter = File.ReadAllText(Path.Combine(
                 sourceDirectory, "PlagueApothecarySearchRangeEmitter.cs"));
             string monk = File.ReadAllText(Path.Combine(sourceDirectory, "MonkAlwaysRunPatch.cs"));
+            string noKillReward = File.ReadAllText(Path.Combine(sourceDirectory, "NoKillRewardHook.cs"));
             string manifest = File.ReadAllText(Path.Combine(workspace, "ExtraFeatures", "info.json"));
             Match minimumMatch = Regex.Match(manifest,
                 "\\\"MinimumScriptExtenderVersion\\\"\\s*:\\s*\\\"([^\\\"]*)\\\"");
@@ -100,6 +102,19 @@ namespace ExtraFeatures
                   !runtime.Contains("plagueApothecarySearchRangePatch?.Dispose()") &&
                   !runtime.Contains("plagueApothecarySearchRangePatch = null"),
                 "apothecary enable-disable-enable retains the same published hook");
+            Check(noKillReward.Contains("rootedPublishedInstance = this;") &&
+                  noKillReward.Contains("Volatile.Write(ref suppressionMask") &&
+                  noKillReward.Contains("if (!published)") &&
+                  !noKillReward.Contains("OnTick") &&
+                  !noKillReward.Contains("SuppressedCount"),
+                "No Kill Reward retains permanent hooks with atomic settings and no per-kill logging");
+            int finalLiveCheck = noKillReward.LastIndexOf("VerifyLiveSpans(memory);", StringComparison.Ordinal);
+            int commit = noKillReward.IndexOf("transaction.Commit();", StringComparison.Ordinal);
+            string noKillRewardContract = File.ReadAllText(Path.Combine(sourceDirectory, "NoKillRewardStubContract.cs"));
+            Check(noKillRewardContract.Contains("Marshal.Copy(new IntPtr(unchecked((long)address))") &&
+                  noKillReward.Contains("snapshot.Slice(rva, length), moduleBase + (ulong)rva, rva") &&
+                  finalLiveCheck >= 0 && finalLiveCheck < commit,
+                "No Kill Reward verifies the current executable bytes before publishing both hooks");
             Check(Regex.Matches(production, @"RollbackUnpublished\w*\(").Count > 0 &&
                   !Regex.IsMatch(production, @"(?:OnDestroy|OnDisable|OnApplicationQuit)\s*\([^)]*\)[\s\S]{0,500}?\.Dispose\s*\("),
                 "rollback is limited to unpublished initialization candidates");

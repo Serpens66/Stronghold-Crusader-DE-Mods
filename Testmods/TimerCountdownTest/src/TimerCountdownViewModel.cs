@@ -6,7 +6,7 @@ namespace TimerCountdownTest
     {
         // BEGIN TEMP CRASH DIAGNOSTICS: change these independently in later isolation runs.
         internal static readonly bool NotifyObjectiveRemaining = true;
-        internal static readonly bool NotifyOstRemaining = false;
+        internal static readonly bool NotifyOstRemaining = true;
         // END TEMP CRASH DIAGNOSTICS
 
         private string objectiveRemaining = string.Empty;

@@ -66,6 +66,7 @@ internal static class Program
             TestStartConditionsMapSessionState();
             TestStartGoldPolicy();
             TestP2aMigrationContracts();
+            TestNoKillRewardHostSettings();
             TestGameplayGateSourceIntegration();
             TestGameplaySessionSourceIntegration();
             TestLocalPerPlayerSetting();
@@ -1582,6 +1583,29 @@ internal static class Program
               !StartConditions.StartGoldPolicy.IsValidConfiguredValue(StartConditions.StartGoldPolicy.MaximumGold + 1) &&
               !StartConditions.StartGoldPolicy.IsValidConfiguredValue(int.MaxValue),
             "StartConditions accepted invalid or overflowing start-gold values");
+    }
+
+    private static void TestNoKillRewardHostSettings()
+    {
+        string root = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", ".."));
+        string viewModel = File.ReadAllText(Path.Combine(root, "ExtraFeatures", "src", "ExtraFeaturesViewModel.cs"));
+        string runtime = File.ReadAllText(Path.Combine(root, "ExtraFeatures", "src", "ExtraFeaturesRuntime.cs"));
+        string xaml = File.ReadAllText(Path.Combine(root, "ExtraFeatures", "Override", "ScriptExtenderUI", "ExtraFeaturesSettings.xaml"));
+        foreach (string role in new[] { "Human", "AI" })
+        {
+            string property = "NoKillReward" + role;
+            Check(viewModel.Contains("[SyncHostOnly] public bool " + property), property + " is not host synchronized");
+            Check(viewModel.Contains(property + " = false;"), property + " does not reset to Vanilla");
+            Check(xaml.Contains("IsChecked=\"{Binding " + property + ", Mode=TwoWay}\""), property + " is not bound in the UI");
+            Check(xaml.Contains("ToolTip=\"{Binding " + property + "HelpText}\""), property + " has no role-specific tooltip");
+            Check(runtime.Contains("settings." + property), property + " does not reach the runtime");
+        }
+        Check(runtime.Contains("ApplyNoKillRewardSetting();") &&
+              runtime.Contains("noKillRewardHook.SetEnabled("),
+            "No Kill Reward settings do not update the permanent hook");
+        Check(viewModel.Contains("NoKillRewardSearchHelpText => NoKillRewardHumanHelpText + \" \" + NoKillRewardAIHelpText") &&
+              xaml.Contains("shared:ModSettingsSearch.ToolTipText=\"{Binding NoKillRewardSearchHelpText}\""),
+            "No Kill Reward search does not include both role tooltips");
     }
 
     private static void TestP2aMigrationContracts()

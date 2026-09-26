@@ -16,17 +16,22 @@ namespace BugfixesAndQoL
 
     public sealed class AivCandidateStatusInfo
     {
-        internal AivCandidateStatusInfo(AivCandidateStatus status, string toolTip)
+        internal AivCandidateStatusInfo(AivCandidateStatus status, string toolTip,
+            int practicePercentage)
         {
             Status = status;
             ToolTip = toolTip ?? string.Empty;
+            PracticePercentage = practicePercentage;
         }
 
         public AivCandidateStatus Status { get; }
         public string ToolTip { get; }
+        public int PracticePercentage { get; }
+        public string PercentageText => PracticePercentage >= 0
+            ? PracticePercentage + "%" : "-%";
     }
 
-    // This deliberately exposes only Vanilla types, checksums and neutral status values.
+    // This deliberately exposes only Vanilla types, checksums, neutral status values and percentages.
     // Optional providers can publish through reflection without becoming a dependency of this mod.
     public static class AivCandidateStatusApi
     {
@@ -56,9 +61,10 @@ namespace BugfixesAndQoL
                 return;
             }
 
-            var next = new AivCandidateStatusInfo((AivCandidateStatus)status, toolTip);
+            var next = new AivCandidateStatusInfo((AivCandidateStatus)status, toolTip, -1);
             if (byChecksum.TryGetValue(aivChecksum, out AivCandidateStatusInfo previous) &&
                 previous.Status == next.Status &&
+                previous.PracticePercentage == next.PracticePercentage &&
                 string.Equals(previous.ToolTip, next.ToolTip, StringComparison.Ordinal))
             {
                 return;
@@ -82,10 +88,12 @@ namespace BugfixesAndQoL
             FRONT_Multiplayer.MPAIVInfo info,
             ulong[] aivChecksums,
             int[] statuses,
-            string[] toolTips)
+            string[] toolTips,
+            int[] practicePercentages)
         {
             if (info == null || aivChecksums == null || statuses == null || toolTips == null ||
-                aivChecksums.Length != statuses.Length || statuses.Length != toolTips.Length ||
+                practicePercentages == null || aivChecksums.Length != statuses.Length ||
+                statuses.Length != toolTips.Length || toolTips.Length != practicePercentages.Length ||
                 aivChecksums.Length > MaximumCandidates)
                 return;
 
@@ -94,9 +102,14 @@ namespace BugfixesAndQoL
             {
                 if (!Enum.IsDefined(typeof(AivCandidateStatus), statuses[index]))
                     return;
+                int percentage = practicePercentages[index];
+                if (percentage < -1 || percentage > 100 ||
+                    (statuses[index] == (int)AivCandidateStatus.Pending ||
+                     statuses[index] == (int)AivCandidateStatus.NotEvaluable) && percentage != -1)
+                    return;
                 replacement[aivChecksums[index]] = new AivCandidateStatusInfo(
                     (AivCandidateStatus)statuses[index],
-                    toolTips[index]);
+                    toolTips[index], percentage);
             }
 
             if (Statuses.TryGetValue(info, out Dictionary<ulong, AivCandidateStatusInfo> previous) &&
@@ -152,6 +165,7 @@ namespace BugfixesAndQoL
             {
                 if (!right.TryGetValue(entry.Key, out AivCandidateStatusInfo value) ||
                     entry.Value.Status != value.Status ||
+                    entry.Value.PracticePercentage != value.PracticePercentage ||
                     !string.Equals(entry.Value.ToolTip, value.ToolTip, StringComparison.Ordinal))
                     return false;
             }

@@ -388,3 +388,10 @@ cache.frame remains non-neutral, inspect command/cache propagation. If frame is 
 an icon remains, identify the separate displayed sprite. Test combat independently.
 
 Migration acceptance: testmod editor logs on 2026-09-07 at 20:33:43 showed base damage 20, Vanilla 24/16 and returned damage 20 for both parties. This is historical testmod evidence, not a multiplayer or ExtraFeatures runtime acceptance result. Integration still requires an enabled/disabled game test on all peers.
+
+### No Kill Reward (native lord-defeat loot)
+
+- Reference SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`. Owner: lord-death state function RVA `0x15A950`. The feature remains hash-bound because its resource layout, cleanup contract and message ordering are not derived for other builds.
+- Reward hook RVA `0x15C4EA`, exact 14-byte span ending at `0x15C4F8`: `4C 69 D5 0F 16 00 00 4C 69 ED 3C 58 00 00`. The native pattern resolver requires a unique match in the mapped image and the audited RVA. The first reward write follows at `0x15C4FC`; suppression branches to cleanup RVA `0x15C980`. The callback supplies resource-base RVA `0x366C210` in RCX, zeroes R12D and uses RDX for the generated post-callback decision.
+- Gold-message hook RVA `0x15CA65`, exact 15-byte span ending at `0x15CA74`: `8B D6 44 2B E0 44 89 64 24 20 E8 5C FE EB FF`. With zero reward it skips only the gold-message call; the preceding victory message and later follow-up remain Vanilla. The pattern resolver again requires a unique audited RVA. Both copied-buffer RedBird probes must match these complete spans and generated continuations.
+- Before committing the two hooks, compare both complete spans in the current executable pages with the validated load-time snapshot; repeat immediately before commit. A mismatch or failed native contract leaves the feature disabled and is logged once by the feature initialization guard. Published hooks remain rooted until process exit; settings change only the atomic role mask. The local Fixes and Script Extender sources and active own-mod hook sites have no known overlap at these spans.

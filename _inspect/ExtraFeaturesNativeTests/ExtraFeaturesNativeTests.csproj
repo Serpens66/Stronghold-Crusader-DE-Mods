@@ -28,6 +28,9 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
+    <Compile Include="NoKillRewardContractTests.cs" />
+    <Compile Include="..\..\ExtraFeatures\src\NoKillRewardStubContract.cs"><Link>NoKillRewardStubContract.cs</Link></Compile>
+    <Compile Include="..\..\ExtraFeatures\src\NoKillRewardPolicy.cs"><Link>NoKillRewardPolicy.cs</Link></Compile>
     <Compile Include="..\..\ExtraFeatures\src\PlagueApothecarySearchRangeEmitter.cs"><Link>PlagueApothecarySearchRangeEmitter.cs</Link></Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

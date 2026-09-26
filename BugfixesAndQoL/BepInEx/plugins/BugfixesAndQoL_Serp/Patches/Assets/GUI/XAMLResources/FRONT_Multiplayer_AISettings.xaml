@@ -148,23 +148,14 @@
                 <Grid Width="330" Height="30" Margin="0,0,0,2">
                   <Image Width="30" Margin="5,0,0,0" HorizontalAlignment="Left"
                          VerticalAlignment="Top" Source="{Binding Icon}" />
-                  <TextBlock Margin="40,5,54,0" HorizontalAlignment="Stretch" Foreground="Black"
+                  <TextBlock Margin="40,5,84,0" HorizontalAlignment="Stretch" Foreground="Black"
                              FlowDirection="{Binding GlobalTextFlowAL2R}" TextTrimming="CharacterEllipsis"
                              FontSize="16" Text="{Binding Name}" />
-                  <Grid Width="16" Height="16" Margin="0,6,35,0" HorizontalAlignment="Right"
-                        VerticalAlignment="Top" shared:AiSettingsHelpHover.Enabled="True"
-                        shared:AiSettingsHelpHover.Text="{Binding StatusToolTip}">
-                    <Border Background="#FF4D83C4" BorderBrush="#FF382A18" BorderThickness="1"
-                            CornerRadius="8" Visibility="{Binding PendingVisibility}" />
-                    <Border Background="#FF35A853" BorderBrush="#FF382A18" BorderThickness="1"
-                            CornerRadius="8" Visibility="{Binding CompleteVisibility}" />
-                    <Border Background="#FFF2C94C" BorderBrush="#FF382A18" BorderThickness="1"
-                            CornerRadius="8" Visibility="{Binding PartialVisibility}" />
-                    <Border Background="#FFD64545" BorderBrush="#FF382A18" BorderThickness="1"
-                            CornerRadius="8" Visibility="{Binding ImpossibleVisibility}" />
-                    <Border Background="#FF8B8B8B" BorderBrush="#FF382A18" BorderThickness="1"
-                            CornerRadius="8" Visibility="{Binding NotEvaluableVisibility}" />
-                  </Grid>
+                  <TextBlock Width="48" Margin="0,5,34,0" HorizontalAlignment="Right"
+                             VerticalAlignment="Top" TextAlignment="Right" Foreground="Black"
+                             FontSize="16" Text="{Binding PercentageText}"
+                             shared:AiSettingsHelpHover.Enabled="True"
+                             shared:AiSettingsHelpHover.Text="{Binding StatusToolTip}" />
                   <Button Width="29" Margin="0,2,2,0" HorizontalAlignment="Right" VerticalAlignment="Top"
                           local:PropEx.Sprite1="{StaticResource UI-Buttons L009}"
                           local:PropEx.Sprite2="{StaticResource UI-Buttons L010}"

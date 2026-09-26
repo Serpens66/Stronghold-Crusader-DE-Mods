@@ -27,6 +27,11 @@ $badJson = 'System\.Web\.Extensions|JavaScriptSerializer|System\.Text\.Json|Newt
 if ($runtimeText -match $badJson) { throw 'Forbidden runtime JSON dependency.' }
 if ($runtimeText -match '\b(OnDestroy|OnDisable|OnApplicationQuit|OnApplicationPause)\s*\(') { throw 'Lifecycle teardown requires audit.' }
 $pluginText = [IO.File]::ReadAllText((Join-Path $root 'src\TimerCountdownTestPlugin.cs'))
+$viewModelText = [IO.File]::ReadAllText((Join-Path $root 'src\TimerCountdownViewModel.cs'))
+if ($viewModelText -notmatch 'internal static readonly bool NotifyObjectiveRemaining = true;' -or
+    $viewModelText -notmatch 'internal static readonly bool NotifyOstRemaining = true;') {
+    throw 'Both objective and OST notifications must be active for this test.'
+}
 if ($pluginText -match '\b(Update|LateUpdate|FixedUpdate|StartCoroutine|Start)\s*\(') {
     throw 'Plugin must not depend on MonoBehaviour callbacks after startup cleanup.'
 }
@@ -35,6 +40,33 @@ if ($runtimeText -match 'CodePatch\.Write|Marshal\.Write|VirtualProtect|FlushIns
 }
 if ($runtimeText.Contains('Assembly-CSharp-publicized.dll')) {
     throw 'Compile against the installed runtime Assembly-CSharp.dll.'
+}
+
+$renderStart = $pluginText.IndexOf('private static void OnBeforeRender()', [StringComparison]::Ordinal)
+$readinessStart = $pluginText.IndexOf('private static bool IsGameplayReady()', [StringComparison]::Ordinal)
+$objectiveStart = $pluginText.IndexOf('private static string ReadObjectiveRemaining()', [StringComparison]::Ordinal)
+if ($renderStart -lt 0 -or $readinessStart -le $renderStart -or $objectiveStart -le $readinessStart) {
+    throw 'Render callback and game-readiness guard must be present in order.'
+}
+$renderBody = $pluginText.Substring($renderStart, $readinessStart - $renderStart)
+$readinessBody = $pluginText.Substring($readinessStart, $objectiveStart - $readinessStart)
+$guardIndex = $renderBody.IndexOf('if (!IsGameplayReady())', [StringComparison]::Ordinal)
+$clearIndex = $renderBody.IndexOf('SetRemaining(string.Empty, string.Empty)', [StringComparison]::Ordinal)
+$returnIndex = if ($clearIndex -ge 0) {
+    $renderBody.IndexOf('return;', $clearIndex, [StringComparison]::Ordinal)
+} else { -1 }
+$objectiveIndex = $renderBody.IndexOf('ReadObjectiveRemaining()', [StringComparison]::Ordinal)
+$ostConditional = 'NotifyOstRemaining ? ReadOstRemaining() : string.Empty'
+$ostIndex = $renderBody.IndexOf($ostConditional, [StringComparison]::Ordinal)
+if ($guardIndex -lt 0 -or $clearIndex -le $guardIndex -or $returnIndex -le $clearIndex -or
+    $objectiveIndex -le $returnIndex -or $ostIndex -le $objectiveIndex -or
+    ([regex]::Matches($renderBody, 'ReadOstRemaining\(').Count -ne 1)) {
+    throw 'Inactive scenes must clear and return before reads; disabled OST must not be read.'
+}
+if ($readinessBody -notmatch 'MainViewModel\.viewModelLoaded' -or
+    $readinessBody -notmatch 'Show_InGame == true' -or
+    $readinessBody -notmatch 'Director\.instance\?\.SimRunning == true') {
+    throw 'Readiness guard must require an active game scene and simulation.'
 }
 
 foreach ($patch in $patches) {

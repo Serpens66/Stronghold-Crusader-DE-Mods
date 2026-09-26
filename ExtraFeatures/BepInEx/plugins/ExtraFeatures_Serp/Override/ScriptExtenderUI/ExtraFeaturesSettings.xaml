@@ -184,12 +184,17 @@
         <CheckBox Content="{Binding EnableFearFactorNeutralizationText}" IsChecked="{Binding EnableFearFactorNeutralization, Mode=TwoWay}" Foreground="White" Margin="0,0,14,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableFearFactorNeutralizationHelpText}"/>
       </Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.elevated-moat" shared:ModSettingsSearch.Title="{Binding AllowElevatedMoatText}" shared:ModSettingsSearch.ToolTipText="{Binding AllowElevatedMoatHelpText}" Margin="0,0,0,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding AllowElevatedMoatHelpText}">
-        <StackPanel>
-          <TextBlock Text="{Binding AllowElevatedMoatText}" Foreground="White" TextWrapping="Wrap" Margin="0,0,0,3"/>
-          <StackPanel Orientation="Horizontal">
-            <CheckBox Content="{Binding AiText}" IsChecked="{Binding AllowElevatedMoatAI, Mode=TwoWay}" Foreground="White" Margin="0,0,18,0" ToolTipService.ShowDuration="60000" ToolTip="{Binding AllowElevatedMoatHelpText}"/>
-            <CheckBox Content="{Binding HumanText}" IsChecked="{Binding AllowElevatedMoatHuman, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding AllowElevatedMoatHelpText}"/>
-          </StackPanel>
+        <StackPanel Orientation="Horizontal">
+          <TextBlock Text="{Binding AllowElevatedMoatText}" Foreground="White" VerticalAlignment="Center" Margin="0,0,18,0"/>
+          <CheckBox Content="{Binding AiText}" IsChecked="{Binding AllowElevatedMoatAI, Mode=TwoWay}" Foreground="White" VerticalAlignment="Center" Margin="0,0,18,0" ToolTipService.ShowDuration="60000" ToolTip="{Binding AllowElevatedMoatHelpText}"/>
+          <CheckBox Content="{Binding HumanText}" IsChecked="{Binding AllowElevatedMoatHuman, Mode=TwoWay}" Foreground="White" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding AllowElevatedMoatHelpText}"/>
+        </StackPanel>
+      </Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.no-kill-reward" shared:ModSettingsSearch.Title="{Binding NoKillRewardText}" shared:ModSettingsSearch.ToolTipText="{Binding NoKillRewardSearchHelpText}" Margin="0,0,0,8">
+        <StackPanel Orientation="Horizontal">
+          <TextBlock Text="{Binding NoKillRewardText}" Foreground="White" VerticalAlignment="Center" Margin="0,0,18,0"/>
+          <CheckBox Content="{Binding HumanText}" IsChecked="{Binding NoKillRewardHuman, Mode=TwoWay}" Foreground="White" VerticalAlignment="Center" Margin="0,0,18,0" ToolTipService.ShowDuration="60000" ToolTip="{Binding NoKillRewardHumanHelpText}"/>
+          <CheckBox Content="{Binding AiText}" IsChecked="{Binding NoKillRewardAI, Mode=TwoWay}" Foreground="White" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding NoKillRewardAIHelpText}"/>
         </StackPanel>
       </Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.monks-always-run" shared:ModSettingsSearch.Title="{Binding EnableMonksAlwaysRunText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableMonksAlwaysRunHelpText}">

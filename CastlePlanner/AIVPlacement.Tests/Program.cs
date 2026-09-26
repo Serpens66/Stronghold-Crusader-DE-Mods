@@ -3396,6 +3396,10 @@ internal static class Program
         Assert(result.MaximumDeduction == 3, "three possibly shared free cells");
         Assert(result.MinimumPercentage == 60, "worst geometric score");
         Assert(result.MaximumPercentage == 80, "best geometric score");
+        Equal(80, AivPracticePresentation.BestPossiblePercentage(new[] { result },
+            new[] { 0 }, AivPlacementStatus.Partial));
+        Equal("60–80%", AivPracticePresentation.FormatPercentage(
+            result.MinimumPercentage, result.MaximumPercentage));
         Assert(result.SoftOverlap, "wall or moat notice without numeric deduction");
         Assert(result.IsEstimate, "estimate label retained");
         foreach (AivRotation rotation in new[]
@@ -3425,6 +3429,14 @@ internal static class Program
                 100 - sentinelPercentages[index], Array.Empty<int>(), Array.Empty<int>(),
                 Array.Empty<int>(), Array.Empty<IEnumerable<int>>(),
                 Array.Empty<IEnumerable<int>>(), Array.Empty<int>(), true)).ToArray();
+        Equal(86, AivPracticePresentation.BestPossiblePercentage(sentinel,
+            new[] { 0, 1, 2, 3 }, AivPlacementStatus.Partial));
+        Equal(80, AivPracticePresentation.BestPossiblePercentage(sentinel,
+            new[] { 0, 1 }, AivPlacementStatus.Partial));
+        Equal(null, AivPracticePresentation.BestPossiblePercentage(sentinel,
+            new[] { 0, 1, 2, 3 }, AivPlacementStatus.NotEvaluable));
+        Equal(null, AivPracticePresentation.BestPossiblePercentage(sentinel,
+            new[] { 4 }, AivPlacementStatus.Partial));
         Assert(sentinel.All(value => AivGeometricPractice.ClassifyPercentage(
                 value.MinimumPercentage) == AivPlacementStatus.Partial),
             "Sentinel percentages remain partial even when a native first frame is impossible");
@@ -3455,6 +3467,14 @@ internal static class Program
                 new[] { 1 }, Array.Empty<int>(), Array.Empty<int>(),
                 Array.Empty<IEnumerable<int>>(), Array.Empty<IEnumerable<int>>(),
                 Array.Empty<int>(), true)).ToArray();
+        Equal(100, AivPracticePresentation.BestPossiblePercentage(distant,
+            new[] { 0, 1, 2, 3 }, AivPlacementStatus.Complete));
+        AivPracticeRotation zero = AivGeometricPractice.Score(AivRotation.Degrees0,
+            0, 100, 100, Array.Empty<int>(), Array.Empty<int>(), Array.Empty<int>(),
+            Array.Empty<IEnumerable<int>>(), Array.Empty<IEnumerable<int>>(),
+            Array.Empty<int>(), false);
+        Equal(0, AivPracticePresentation.BestPossiblePercentage(new[] { zero },
+            new[] { 0 }, AivPlacementStatus.Impossible));
         Assert(distant.All(value => AivGeometricPractice.ClassifyPercentage(
                 value.MinimumPercentage) == AivPlacementStatus.Complete),
             "distant completed-castle plans get a green practice value");
