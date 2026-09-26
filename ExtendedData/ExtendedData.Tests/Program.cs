@@ -597,17 +597,23 @@ static void TestTrailLordSelection()
     var embedded = new TrailLordSlot
     {
         PlayerId = 3,
+        LordName = "Local Lord",
         ConfigChecksum = "100",
         AivChecksums = new[] { "200", "300" },
     };
-    Assert(TrailLordSelectionPolicy.UsesEmbeddedLord(embedded, false, "100",
-        new[] { "200", "300" }), "the original embedded Lord was treated as replaced");
-    Assert(!TrailLordSelectionPolicy.UsesEmbeddedLord(embedded, true, "100",
-        new[] { "200", "300" }), "a Vanilla Lord retained the old Trail requirement");
-    Assert(!TrailLordSelectionPolicy.UsesEmbeddedLord(embedded, false, "101",
-        new[] { "200", "300" }), "a new Custom Lord retained the old Trail values");
-    Assert(!TrailLordSelectionPolicy.UsesEmbeddedLord(embedded, false, "100",
-        new[] { "300", "200" }), "changed AIVs retained the old Trail values");
+    Assert(TrailLordSelectionPolicy.UsesEmbeddedLord(embedded, false, "Local Lord"),
+        "the original embedded Lord was treated as replaced");
+    Assert(TrailLordSelectionPolicy.UsesEmbeddedLord(embedded, false, "Local Lord",
+        "3693412090\\Local Lord"), "a changed configuration or AIV of the same Lord lost its Trail values");
+    Assert(TrailLordSelectionPolicy.UsesEmbeddedLord(embedded, false,
+        "3693412090\\Local Lord", "3693412090\\Local Lord"),
+        "the media provider alias was treated as another Lord");
+    Assert(!TrailLordSelectionPolicy.UsesEmbeddedLord(embedded, true, "Local Lord"),
+        "a Vanilla Lord retained the old Trail requirement");
+    Assert(!TrailLordSelectionPolicy.UsesEmbeddedLord(embedded, false, "Different Lord"),
+        "another Custom Lord with identical configuration and AIV checksums retained the Trail values");
+    Assert(!TrailLordSelectionPolicy.UsesEmbeddedLord(embedded, false,
+        "3693412090\\Local Lord"), "an unverified media alias was accepted as the original Lord");
 }
 
 static void TestLordPackageManifest()
@@ -1917,6 +1923,7 @@ static void TestCoopExporterIntegration()
     string coordinator = File.ReadAllText(Path.Combine(root, "src", "TrailMissionSettingsCoordinator.cs"));
     string exporter = File.ReadAllText(Path.Combine(root, "src", "CoopTrailPackageExporter.cs"));
     string runtime = File.ReadAllText(Path.Combine(root, "src", "ExtendedDataRuntime.cs"));
+    string lordDataCoordinator = File.ReadAllText(Path.Combine(root, "src", "LordDataSyncCoordinator.cs"));
     string viewModel = File.ReadAllText(Path.Combine(root, "src", "ExtendedDataSettingsViewModel.cs"));
     string packet = File.ReadAllText(Path.Combine(root, "src", "CoopCustomizePacket.cs"));
     string project = File.ReadAllText(Path.Combine(root, "ExtendedData.csproj"));
@@ -2017,6 +2024,13 @@ static void TestCoopExporterIntegration()
         runtime.Contains("Lord media selection changed; wait for the updated lobby selection") &&
         runtime.Contains("UpdateHostInfoMethod.Invoke(self, new object[] { false })"),
         "Coop readiness does not follow Vanilla's transmitted Lord selection after media remapping");
+    Assert(runtime.Contains("selectedInfo.lordConfig = transmitted.lordConfig") &&
+        runtime.Contains("PreparedTrailMediaAlias(selected.Loaded.LordRequirements") &&
+        runtime.Contains("lordDataCoordinator.RemapTrailMedia(localInfos)") &&
+        runtime.Contains("settings.LordPackageManifestChanged += OnLordPackageManifestChangedForSelection") &&
+        lordDataCoordinator.Contains("ConfigChecksum = infos[slot.PlayerId].lordConfig.checksum.ToString()") &&
+        !lordDataCoordinator.Contains("SequenceEqual(slot.AivChecksums)"),
+        "same-Lord configuration changes are not preserved with Trail values on both players");
     Assert(runtime.Contains("PlayerIdentityHelper.TryCaptureHumanRoster") &&
         runtime.Contains("requireAuthoritativeLobbyRoster: true") &&
         runtime.Contains("PlayerIdentityHelper.ResolvePlayerIdForSteamId") &&

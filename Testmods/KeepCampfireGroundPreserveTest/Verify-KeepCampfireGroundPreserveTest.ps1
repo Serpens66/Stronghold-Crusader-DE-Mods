@@ -55,5 +55,5 @@ $changed = @(git -C $workspace diff --unified=0 -- '*.cs' | Where-Object {
     $_.StartsWith('+') -and -not $_.StartsWith('+++') -and
     $_ -match 'CodePatch\.Write|Marshal\.Write(?:Byte|Int16|Int32|Int64)|VirtualProtect|NativeDetour|X64InlineHook|\.Undo\s*\(|\.Apply\s*\(|\.Dispose\s*\('
 })
-if ($changed.Count -gt 0) { Write-Warning "Workspace contains $($changed.Count) unrelated hook/mutation additions; reviewed separately." }
+if ($changed.Count -gt 0) { Write-Warning "Workspace contains $($changed.Count) hook/mutation additions; review each before build." }
 Write-Output 'Preserve test preflight passed: CRLF, JSON, lifecycle, hook lifetime, native hash, manifest.'

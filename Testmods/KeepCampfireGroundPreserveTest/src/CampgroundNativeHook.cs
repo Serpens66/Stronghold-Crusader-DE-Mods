@@ -30,6 +30,7 @@ namespace KeepCampfireGroundPreserveTest
 
         internal bool IsPublished => published;
         internal long SuppressedStores => state == IntPtr.Zero ? 0 : Marshal.ReadInt64(state, 8);
+        internal long FirePatchStores => state == IntPtr.Zero ? 0 : Marshal.ReadInt64(state, 16);
 
         internal static CampgroundNativeHook TryCreate(CrusaderLibraryLoadContext context,
             ManualLogSource log, Action<string> write)
@@ -97,9 +98,10 @@ namespace KeepCampfireGroundPreserveTest
                 if (probe.DisplacedByteCount != CampgroundVisualGate.DisplacedBytes)
                     throw new InvalidOperationException("Installed RedBird displaced a different span.");
 
-            state = Marshal.AllocHGlobal(16);
+            state = Marshal.AllocHGlobal(24);
             Marshal.WriteInt64(state, 0, 0);
             Marshal.WriteInt64(state, 8, 0);
+            Marshal.WriteInt64(state, 16, 0);
             transaction = new HookTransaction(context.Region,
                 SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
                 new HookTransactionOptions {
@@ -120,7 +122,8 @@ namespace KeepCampfireGroundPreserveTest
                 throw new InvalidOperationException("Graphic-store hook commit failed validation: " + result);
             published = true;
             write("HOOK READY: store RVA=0x6F0A0 span=16 continuation=0x6F0B0 " +
-                "campground-skip=0x6F0D8; inactive until allowed mission; " +
+                "campground-skip=0x6F0D8; fire-patch sprites=0x29,0x2A,0x30,0x36,0x37; " +
+                "inactive until allowed mission; " +
                 "RedBird=" + typeof(X64InlineHook).Assembly.GetName().Version);
         }
 

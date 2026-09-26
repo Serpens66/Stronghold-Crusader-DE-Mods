@@ -39,6 +39,27 @@ namespace KeepCampfireGroundPreserveTest
             var decoder = Decoder.Create(64, new ByteArrayCodeReader(bytes), site);
             var original = new[] { decoder.Decode(), decoder.Decode() };
             Check(original[1].NextIP == site + 16, "two complete displaced instructions");
+            byte[] function = ReadRva(file, CampgroundVisualGate.FunctionRva,
+                CampgroundVisualGate.HookRva - CampgroundVisualGate.FunctionRva + 0x62);
+            var functionDecoder = Decoder.Create(64, new ByteArrayCodeReader(function),
+                0x180000000UL + CampgroundVisualGate.FunctionRva);
+            int incomingInteriorEdges = 0;
+            while (functionDecoder.IP < 0x18006F102)
+            {
+                Instruction item = functionDecoder.Decode();
+                Check(!item.IsInvalid && item.Length > 0,
+                    "native visual function decodes through return");
+                if (item.FlowControl != FlowControl.ConditionalBranch &&
+                    item.FlowControl != FlowControl.UnconditionalBranch &&
+                    item.FlowControl != FlowControl.Call) continue;
+                if (item.Op0Kind != OpKind.NearBranch64) continue;
+                if (item.NearBranchTarget > site && item.NearBranchTarget < site + 16)
+                    incomingInteriorEdges++;
+            }
+            Check(incomingInteriorEdges == 0, "no incoming edge enters displaced interior");
+            Check(CampgroundVisualGate.FirePatchGraphics.SequenceEqual(new[] {
+                0x00060029, 0x0006002A, 0x00060030, 0x00060036, 0x00060037
+            }), "audited five-sprite fire patch");
 
             IntPtr memory = VirtualAlloc(IntPtr.Zero, (UIntPtr)4096, 0x3000, 0x40);
             if (memory == IntPtr.Zero) throw new Exception("VirtualAlloc failed");
@@ -61,6 +82,7 @@ namespace KeepCampfireGroundPreserveTest
                 byte[] gate = stream.ToArray();
                 var starts = new System.Collections.Generic.HashSet<ulong>();
                 var targets = new System.Collections.Generic.List<ulong>();
+                int fireSpriteComparisons = 0;
                 for (int offset = 0; offset < gate.Length;)
                 {
                     ulong ip = 0x180200000 + (ulong)offset;
@@ -78,11 +100,18 @@ namespace KeepCampfireGroundPreserveTest
                     }
                     else
                     {
+                        if (item.Mnemonic == Mnemonic.Cmp &&
+                            item.Op0Register == Register.EDX &&
+                            CampgroundVisualGate.FirePatchGraphics.Contains(
+                                unchecked((int)item.Immediate32)))
+                            fireSpriteComparisons++;
                         if (item.FlowControl == FlowControl.ConditionalBranch)
                             targets.Add(item.NearBranchTarget);
                         offset += item.Length;
                     }
                 }
+                Check(fireSpriteComparisons == CampgroundVisualGate.FirePatchGraphics.Length,
+                    "all five campfire sprite selectors assembled");
                 Check(targets.Contains(0x18006F0D8) && targets.Contains(site + 16),
                     "campground skip and Vanilla continuation present");
                 Check(targets.Where(t => t >= 0x180200000 && t < 0x180200000 +

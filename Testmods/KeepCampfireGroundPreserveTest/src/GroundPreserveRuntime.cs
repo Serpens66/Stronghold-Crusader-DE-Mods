@@ -22,6 +22,7 @@ namespace KeepCampfireGroundPreserveTest
         private bool firstTick;
         private long sessionId;
         private long lastSkipCount;
+        private long lastFirePatchCount;
 
         internal GroundPreserveRuntime(Action<string> log, Action<string> error)
         {
@@ -45,9 +46,12 @@ namespace KeepCampfireGroundPreserveTest
                 if (missionAllowed && hook != null && hook.IsPublished)
                     hook.SetEnabled(true);
                 lastSkipCount = hook?.SuppressedStores ?? 0;
+                lastFirePatchCount = hook?.FirePatchStores ?? 0;
                 log("init session=" + sessionId + " kind=" + notification.Context.StartKind +
                     " allowed=" + missionAllowed + " hook=" + (hook?.IsPublished ?? false) +
                     " mode=" + notification.Context.Mode.ToDiagnosticString());
+                log("terrain guard read-only: initial free-tile GFX clear/write path " +
+                    "is not yet uniquely isolated in RVA 0x65830/0x650C0");
             }
         }
 
@@ -145,10 +149,16 @@ namespace KeepCampfireGroundPreserveTest
                     log("post-cleanup runtime tick session=" + sessionId + " tick=" + tick);
                 }
                 long skipped = hook?.SuppressedStores ?? 0;
+                long firePatch = hook?.FirePatchStores ?? 0;
                 if (skipped != lastSkipCount) {
                     log("native hook confirmed: suppressed graphic-store iterations=" +
                         (skipped - lastSkipCount) + " total=" + skipped + " tick=" + tick);
                     lastSkipCount = skipped;
+                }
+                if (firePatch != lastFirePatchCount) {
+                    log("native fire-patch stores=" + (firePatch - lastFirePatchCount) +
+                        " total=" + firePatch + " tick=" + tick);
+                    lastFirePatchCount = firePatch;
                 }
                 foreach (CampObservation camp in camps)
                 {
@@ -255,7 +265,8 @@ namespace KeepCampfireGroundPreserveTest
                 " valid=" + valid + " occupied=" + occupied +
                 " originalGraphicIntact=" + unchanged + " campGraphicFile6=" + campGraphics +
                 " changedSincePrevious=" + changed + " deleting=" + camp.Deleting +
-                " suppressedStores=" + (hook?.SuppressedStores ?? 0));
+                " suppressedStores=" + (hook?.SuppressedStores ?? 0) +
+                " firePatchStores=" + (hook?.FirePatchStores ?? 0));
         }
 
         private sealed class CampObservation

@@ -14,6 +14,12 @@ namespace KeepCampfireGroundPreserveTest
         internal const int DisplacedBytes = 16;
         internal const int BuildingTypeOffsetFromImage = 0x64CCCDE;
         internal const int CampgroundType = 0x37;
+        // These five adjacent tiles are the dark centre and four stone/fire
+        // edges in the installed GM_BUILDINGS1 sprites. This is a game-test
+        // candidate; the separate cauldron/flame effects still need checking.
+        internal static readonly int[] FirePatchGraphics = {
+            0x00060029, 0x0006002A, 0x00060030, 0x00060036, 0x00060037
+        };
 
         internal static readonly byte[] HookBytes = {
             0x42, 0x89, 0x94, 0x87, 0x00, 0x09, 0x14, 0x00,
@@ -34,6 +40,7 @@ namespace KeepCampfireGroundPreserveTest
                 throw new InvalidOperationException("Campground graphic-store instruction contract changed.");
 
             Label vanilla = assembler.CreateLabel("campgroundVanilla");
+            Label firePatch = assembler.CreateLabel("campgroundFirePatch");
             assembler.pushfq();
             assembler.push(rax);
             assembler.mov(rax, enableAddress);
@@ -41,11 +48,18 @@ namespace KeepCampfireGroundPreserveTest
             assembler.je(vanilla);
             assembler.cmp(__word_ptr[rbx + r10 + BuildingTypeOffsetFromImage], CampgroundType);
             assembler.jne(vanilla);
+            foreach (int graphic in FirePatchGraphics) {
+                assembler.cmp(edx, graphic);
+                assembler.je(firePatch);
+            }
             assembler.inc(__qword_ptr[rax + 8]);
             assembler.pop(rax);
             assembler.popfq();
             assembler.AddUnrestrictedJmp(skipAddress);
 
+            assembler.Label(ref firePatch);
+            assembler.inc(__qword_ptr[rax + 16]);
+            assembler.jmp(vanilla);
             assembler.Label(ref vanilla);
             assembler.pop(rax);
             assembler.popfq();

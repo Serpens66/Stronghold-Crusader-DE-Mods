@@ -155,6 +155,12 @@ namespace ExtendedData
         internal bool IsManifestReplacementSlot(int playerId) =>
             packageManifest?.Slots.Any(slot => slot.PlayerId == playerId) == true;
 
+        internal string PreparedTrailMediaAlias(TrailLordRequirements requirements, int playerId)
+        {
+            return requirements != null && pendingTrail?.SessionId == "trail:" + requirements.MissionDigest &&
+                pendingTrailMediaNames.TryGetValue(playerId, out string name) ? name : null;
+        }
+
         internal bool CanSatisfyTrail(TrailLordRequirements requirements,
             IReadOnlyDictionary<int, FRONT_Multiplayer.MPAIVInfo> infos, out string reason)
             => TryInspectTrail(requirements, infos, out _, out reason);
@@ -179,7 +185,7 @@ namespace ExtendedData
                 PlayerId = slot.PlayerId,
                 LordName = names.TryGetValue(slot.PlayerId, out string name) ? name : slot.LordName,
                 ConfigName = infos[slot.PlayerId].lordConfig.name,
-                ConfigChecksum = slot.ConfigChecksum,
+                ConfigChecksum = infos[slot.PlayerId].lordConfig.checksum.ToString(),
                 ModLordJson = slot.ModLordJson,
                 FixesJson = slot.FixesJson,
             }).ToList();
@@ -232,8 +238,9 @@ namespace ExtendedData
         {
             if (pendingTrail == null || infos == null) return;
             foreach (KeyValuePair<int, string> item in pendingTrailMediaNames)
-                if (infos.TryGetValue(item.Key, out FRONT_Multiplayer.MPAIVInfo info) && info != null &&
-                    pendingTrail.GetSlot(item.Key)?.ConfigChecksum == info.lordConfig?.checksum.ToString())
+                if (embeddedTrailSlots.Contains(item.Key) &&
+                    pendingTrail.GetSlot(item.Key) != null &&
+                    infos.TryGetValue(item.Key, out FRONT_Multiplayer.MPAIVInfo info) && info != null)
                     info.lordName = item.Value;
         }
 
@@ -251,11 +258,8 @@ namespace ExtendedData
                 {
                     if (infos == null || !infos.TryGetValue(slot.PlayerId, out FRONT_Multiplayer.MPAIVInfo info) ||
                         info?.lordConfig == null || info.builtInLord ||
-                        !string.Equals(info.lordConfig.checksum.ToString(), slot.ConfigChecksum,
-                            StringComparison.Ordinal) ||
-                        !(info.aivs ?? new List<CustomisationFileManager.CustomAIV>())
-                            .Select(aiv => aiv.checksum.ToString()).SequenceEqual(slot.AivChecksums))
-                        throw new InvalidDataException("Embedded Lord configuration or AIV differs from the Trail: " + slot.LordName);
+                         string.IsNullOrWhiteSpace(info.lordConfig.name))
+                        throw new InvalidDataException("The selected Lord configuration is unavailable: " + slot.LordName);
                     fixes.ValidateSnapshotValue(slot.FixesJson);
                     if (!TrailLordPackageRuntime.TryResolve(slot, out string mediaName,
                         out _, out string error))

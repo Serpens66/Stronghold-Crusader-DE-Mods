@@ -138,6 +138,7 @@ namespace ExtendedData
             RefreshModCompatibility();
             settings.ActiveCoopPackageChanged += OnActiveCoopPackageChanged;
             settings.CoopPackageRemoteStatusChanged += OnCoopPackageRemoteStatusChanged;
+            settings.LordPackageManifestChanged += OnLordPackageManifestChangedForSelection;
             subscriptions.Add(Shared.MissionEvents.Ended.Subscribe(OnMissionEnded));
             subscriptions.Add(Shared.MissionEvents.Started.Subscribe(notification =>
             {
@@ -249,6 +250,7 @@ namespace ExtendedData
             RestoreVanillaMissions();
             settings.ActiveCoopPackageChanged -= OnActiveCoopPackageChanged;
             settings.CoopPackageRemoteStatusChanged -= OnCoopPackageRemoteStatusChanged;
+            settings.LordPackageManifestChanged -= OnLordPackageManifestChangedForSelection;
             if (missionSettingsCoordinator != null)
             {
                 missionSettingsCoordinator.CoopPackagesChanged -= OnActiveCoopPackageChanged;
@@ -566,6 +568,13 @@ namespace ExtendedData
             });
         }
 
+        private void OnLordPackageManifestChangedForSelection(string _)
+        {
+            // A manifest can arrive after the host's package status. Re-evaluate the
+            // embedded/replaced slot split as soon as that manifest is accepted.
+            OnCoopPackageRemoteStatusChanged();
+        }
+
         private void ApplyActivePackage()
         {
             RestoreVanillaMissions();
@@ -737,9 +746,18 @@ namespace ExtendedData
             foreach (int playerId in Enumerable.Range(2, 7).Where(id => IsActiveAiSlot(self, id)))
             {
                 FRONT_Multiplayer.MPAIVInfo transmitted = DecodeLobbyLord(self, playerId);
-                if (transmitted != null && (transmitted.builtInLord ||
-                    lordDataCoordinator.IsManifestReplacementSlot(playerId)))
+                if (transmitted == null)
+                    continue;
+                if (transmitted.builtInLord || lordDataCoordinator.IsManifestReplacementSlot(playerId))
                     infos[playerId] = transmitted;
+                else if (infos.TryGetValue(playerId, out FRONT_Multiplayer.MPAIVInfo local))
+                {
+                    // Vanilla publishes the chosen configuration, while the bundled local
+                    // entry still holds the complete AIV list and the media name to remap.
+                    FRONT_Multiplayer.MPAIVInfo selectedInfo = CopyLordInfo(local);
+                    selectedInfo.lordConfig = transmitted.lordConfig;
+                    infos[playerId] = selectedInfo;
+                }
             }
             return infos;
         }
@@ -785,10 +803,10 @@ namespace ExtendedData
                         lordDataCoordinator.IsManifestReplacementSlot(slot.PlayerId))
                         continue;
                 }
-                if (info?.lordConfig != null && TrailLordSelectionPolicy.UsesEmbeddedLord(slot,
-                    info.builtInLord, info.lordConfig.checksum.ToString(),
-                    (info.aivs ?? new List<CustomisationFileManager.CustomAIV>())
-                        .Select(aiv => aiv.checksum.ToString())))
+                if (info != null && TrailLordSelectionPolicy.UsesEmbeddedLord(slot,
+                    info.builtInLord, info.lordName,
+                    lordDataCoordinator.PreparedTrailMediaAlias(selected.Loaded.LordRequirements,
+                        slot.PlayerId)))
                     matched.Add(slot.PlayerId);
             }
             return matched;
@@ -820,6 +838,13 @@ namespace ExtendedData
             if (!lordDataCoordinator.PrepareTrail(selected?.Loaded.LordRequirements,
                 CurrentLordInfoMap(self), true, out reason, captureLocalReplacements))
                 return false;
+            if (self?.currentLobby != null && !self.currentLobby.isHost && !self.singlePlayerCoop)
+            {
+                var localInfos = self.AIVs?.Take(8).Select((info, index) => new { info, index })
+                    .Where(item => item.info != null)
+                    .ToDictionary(item => item.index + 1, item => item.info);
+                lordDataCoordinator.RemapTrailMedia(localInfos);
+            }
             if (self?.currentLobby?.isHost == true && !self.singlePlayerCoop &&
                 selected?.Loaded.LordRequirements != null &&
                 selected.Loaded.LordRequirements.Slots.Any(slot =>
