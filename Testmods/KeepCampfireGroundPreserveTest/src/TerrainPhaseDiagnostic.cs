@@ -5,6 +5,7 @@ using System.Threading;
 using BepInEx.Logging;
 using RedBird.Abstractions.Hooks;
 using RedBird.Abstractions.Hooks.Transaction;
+using RedBird.Backends.NativeX64;
 using RedBird.X64.Hooks;
 using RedBird.X64.Hooks.Transaction;
 using SHCDESE.API;
@@ -33,10 +34,10 @@ namespace KeepCampfireGroundPreserveTest
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
         private delegate void TerrainFunction(IntPtr tileManager);
 
-        private readonly HookHandle<NativeDetour<TerrainFunction>> recalculate =
-            new HookHandle<NativeDetour<TerrainFunction>>();
-        private readonly HookHandle<NativeDetour<TerrainFunction>> fill =
-            new HookHandle<NativeDetour<TerrainFunction>>();
+        private readonly DetourHandle<TerrainFunction> recalculate =
+            new DetourHandle<TerrainFunction>();
+        private readonly DetourHandle<TerrainFunction> fill =
+            new DetourHandle<TerrainFunction>();
         private readonly object gate = new object();
         private readonly Action<string> log;
         private HookTransaction transaction;
@@ -197,8 +198,10 @@ namespace KeepCampfireGroundPreserveTest
             CommitResult result = transaction.Commit();
             if (!result.IsCompleteSuccess || !recalculate.Success || !fill.Success)
                 throw new InvalidOperationException("Terrain-phase hook transaction failed: " + result);
-            ValidateDetour(recalculate.Hook, image + RecalculateRva, 12, "recalculate");
-            ValidateDetour(fill.Hook, image + FillRva, 9, "fill");
+            ValidateDetour(recalculate.Hook as NativeDetour<TerrainFunction>,
+                image + RecalculateRva, 12, "recalculate");
+            ValidateDetour(fill.Hook as NativeDetour<TerrainFunction>,
+                image + FillRva, 9, "fill");
             published = true;
             log("terrain-phase hooks ready: RVA=0x65830/0x650C0 scheme=Indirect spans=12/9 " +
                 "mode=read-only, disarmed until player-one Keep spawn");

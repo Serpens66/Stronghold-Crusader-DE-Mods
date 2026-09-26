@@ -29,6 +29,7 @@
     <Reference Include="Iced"><HintPath>$(ExtenderDir)\Iced.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="RedBird.Abstractions"><HintPath>$(ExtenderDir)\RedBird.Abstractions.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="RedBird.Core"><HintPath>$(ExtenderDir)\RedBird.Core.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="RedBird.Backends.NativeX64"><HintPath>$(ExtenderDir)\RedBird.Backends.NativeX64.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="RedBird.X64"><HintPath>$(ExtenderDir)\RedBird.X64.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Microsoft.Extensions.Logging.Abstractions"><HintPath>$(ExtenderDir)\Microsoft.Extensions.Logging.Abstractions.dll</HintPath><Private>false</Private></Reference>
   </ItemGroup>

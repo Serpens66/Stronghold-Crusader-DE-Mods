@@ -117,6 +117,7 @@ namespace BugfixesAndQoL
         private int lastSelectionPlayerId = -1;
         private int lastSelectionSignature;
         private bool lastSelectionHasAssassin;
+        private bool lastSelectionHasAssassinType;
         private int lastSelectionAssassinUnitId;
         private int nextOperationId;
         private Button hookedButton;
@@ -400,7 +401,7 @@ namespace BugfixesAndQoL
             if (hasSnapshot && !editor && ReferenceEquals(selected, lastSelectionSnapshot) &&
                 lastSelectionPlayerId == playerId)
             {
-                if (!lastSelectionHasAssassin ||
+                if ((!lastSelectionHasAssassin && !lastSelectionHasAssassinType) ||
                     (lastSelectionAssassinUnitId > 0 &&
                      api.TryGetUnitById(lastSelectionAssassinUnitId, out GameUnit* cachedUnit) &&
                      IsOwnAssassin(cachedUnit, playerId)))
@@ -412,10 +413,14 @@ namespace BugfixesAndQoL
 
             int signature = unchecked((17 * 31) + (hasSnapshot ? selected.Count : -1));
             int selectedAssassinUnitId = 0;
+            bool hasAssassinType = false;
             for (int index = 0; hasSnapshot && index < selected.Count; index++)
             {
                 int unitId = selected[index].UnitId;
                 signature = unchecked((signature * 31) + unitId);
+                if (selected[index].UnitType != (int)eChimps.CHIMP_TYPE_ARAB_ASSASIN)
+                    continue;
+                hasAssassinType = true;
                 if (unitId > 0 && api.TryGetUnitById(unitId, out GameUnit* unit) && IsOwnAssassin(unit, playerId))
                 {
                     selectedOwnAssassin = true;
@@ -447,6 +452,7 @@ namespace BugfixesAndQoL
             lastSelectionPlayerId = playerId;
             lastSelectionSignature = signature;
             lastSelectionHasAssassin = selectedOwnAssassin;
+            lastSelectionHasAssassinType = hasAssassinType;
             lastSelectionAssassinUnitId = selectedAssassinUnitId;
             return signature;
         }
@@ -577,6 +583,12 @@ namespace BugfixesAndQoL
             lastRenderSelectedOwnAssassin = false;
             lastRenderClimbingAllowed = false;
             lastRenderFrame = -1;
+            lastSelectionSnapshot = null;
+            lastSelectionPlayerId = -1;
+            lastSelectionSignature = 0;
+            lastSelectionHasAssassin = false;
+            lastSelectionHasAssassinType = false;
+            lastSelectionAssassinUnitId = 0;
         }
 
         private void LogDebug(string message) => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(

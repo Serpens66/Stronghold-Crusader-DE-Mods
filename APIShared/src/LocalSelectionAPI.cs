@@ -31,6 +31,8 @@ namespace APIShared
     {
         private const int MaximumSelectionCount = 10000;
         private static readonly object Sync = new object();
+        private static readonly Func<EngineInterface.PlayState> CurrentStateReader =
+            () => GameData.Instance?.lastGameState;
         private static EngineInterface.PlayState cachedState;
         private static LocalSelectionSnapshot cachedSelection;
 
@@ -50,16 +52,16 @@ namespace APIShared
             if (actualPlayerId != expectedPlayerId)
                 return false;
 
-            EngineInterface.PlayState state = GameData.Instance?.lastGameState;
-            return TryCaptureState(expectedPlayerId, state, out snapshot);
+            return TryCaptureState(expectedPlayerId, CurrentStateReader, out snapshot);
         }
 
-        private static bool TryCaptureState(int expectedPlayerId, EngineInterface.PlayState state,
+        private static bool TryCaptureState(int expectedPlayerId, Func<EngineInterface.PlayState> readState,
             out LocalSelectionSnapshot snapshot)
         {
             snapshot = null;
             lock (Sync)
             {
+                EngineInterface.PlayState state = readState();
                 if (state == null)
                 {
                     cachedState = null;

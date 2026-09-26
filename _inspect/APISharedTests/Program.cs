@@ -81,11 +81,15 @@ namespace APISharedTests
         }
 
         private static bool CaptureSelectionState(int playerId, EngineInterface.PlayState state,
+            out LocalSelectionSnapshot snapshot) =>
+            CaptureSelectionState(playerId, () => state, out snapshot);
+
+        private static bool CaptureSelectionState(int playerId, Func<EngineInterface.PlayState> readState,
             out LocalSelectionSnapshot snapshot)
         {
             MethodInfo capture = typeof(LocalSelectionAPI).GetMethod("TryCaptureState",
                 BindingFlags.Static | BindingFlags.NonPublic);
-            object[] args = { playerId, state, null };
+            object[] args = { playerId, readState, null };
             bool success = (bool)capture.Invoke(null, args);
             snapshot = (LocalSelectionSnapshot)args[2];
             return success;
@@ -93,7 +97,7 @@ namespace APISharedTests
 
         private static void TestLocalSelectionSnapshots()
         {
-            Assert(!CaptureSelectionState(1, null, out LocalSelectionSnapshot missing) && missing == null,
+            Assert(!CaptureSelectionState(1, (EngineInterface.PlayState)null, out LocalSelectionSnapshot missing) && missing == null,
                 "missing game state invalidates the shared selection cache");
 
             var empty = new EngineInterface.PlayState();
@@ -140,6 +144,54 @@ namespace APISharedTests
             Assert(parallel.All(snapshot => ReferenceEquals(afterAction, snapshot)),
                 "concurrent mod callers receive the same selection snapshot");
 
+            var olderState = new EngineInterface.PlayState { numSelectedChimps = 1 };
+            olderState.selectedChimps[0] = 31;
+            var newerState = new EngineInterface.PlayState { numSelectedChimps = 1 };
+            newerState.selectedChimps[0] = 32;
+            LocalSelectionSnapshot olderResult = null;
+            LocalSelectionSnapshot newerResult = null;
+            using (var olderReaderEntered = new ManualResetEventSlim())
+            using (var releaseOlderReader = new ManualResetEventSlim())
+            using (var newerCallStarted = new ManualResetEventSlim())
+            using (var newerReaderEntered = new ManualResetEventSlim())
+            {
+                Task olderCall = Task.Run(() => CaptureSelectionState(1, () =>
+                {
+                    olderReaderEntered.Set();
+                    releaseOlderReader.Wait(5000);
+                    return olderState;
+                }, out olderResult));
+                bool olderStarted = olderReaderEntered.Wait(5000);
+                Task newerCall = Task.Run(() =>
+                {
+                    newerCallStarted.Set();
+                    CaptureSelectionState(1, () =>
+                    {
+                        newerReaderEntered.Set();
+                        return newerState;
+                    }, out newerResult);
+                });
+                bool newerStarted = newerCallStarted.Wait(5000);
+                bool newerReadBeforeLockReleased = newerReaderEntered.Wait(100);
+                releaseOlderReader.Set();
+                bool completed = Task.WaitAll(new[] { olderCall, newerCall }, 5000);
+                Assert(olderStarted && newerStarted && !newerReadBeforeLockReleased && completed &&
+                    olderResult != null && newerResult != null &&
+                    olderResult[0].UnitId == 31 && newerResult[0].UnitId == 32 &&
+                    CaptureSelectionState(1, newerState, out LocalSelectionSnapshot currentState) &&
+                    ReferenceEquals(newerResult, currentState),
+                    "concurrent callers read completed states in cache-lock order");
+            }
+
+            string selectionSource = File.ReadAllText(Path.Combine(FindWorkspaceRoot(),
+                "APIShared", "src", "LocalSelectionAPI.cs"));
+            Assert(selectionSource.Contains("expectedPlayerId < 1 || expectedPlayerId > 8") &&
+                selectionSource.Contains("Shared.GameModeHelper.IsMapEditor()") &&
+                selectionSource.Contains("EditorDirector.instance?.ActivePlayerID") &&
+                selectionSource.Contains("GamePlayerManagerAPI.Instance?.GetLocalPlayerId()") &&
+                selectionSource.Contains("actualPlayerId != expectedPlayerId"),
+                "public selection reader validates editor and native local-player identities");
+
             Assert(CaptureSelectionState(2, unchangedTick, out LocalSelectionSnapshot anotherPlayer) &&
                 !ReferenceEquals(afterAction, anotherPlayer), "player changes invalidate shared selection identity");
             unchangedTick.numSelectedChimps = 3;
@@ -156,7 +208,7 @@ namespace APISharedTests
             full.numSelectedChimps = 10001;
             Assert(!CaptureSelectionState(1, full, out LocalSelectionSnapshot oversized) && oversized == null,
                 "selection count above Vanilla capacity fails closed");
-            Assert(!CaptureSelectionState(1, null, out LocalSelectionSnapshot afterMapChange) && afterMapChange == null,
+            Assert(!CaptureSelectionState(1, (EngineInterface.PlayState)null, out LocalSelectionSnapshot afterMapChange) && afterMapChange == null,
                 "map unload clears the selection snapshot");
         }
 

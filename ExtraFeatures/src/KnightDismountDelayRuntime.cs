@@ -902,9 +902,9 @@ namespace ExtraFeatures
         {
             var result = new List<int>();
             var seen = new HashSet<int>();
-            int[] selectedIds = GetSelectedChimpsSafe();
-            for (int index = 0; index < selectedIds.Length; index++)
-                AddSelectedPendingGlobalId(playerId, selectedIds[index], result, seen);
+            TryCaptureSelectedUnits(playerId, out APIShared.LocalSelectionSnapshot selection);
+            for (int index = 0; selection != null && index < selection.Count; index++)
+                AddSelectedPendingGlobalId(playerId, selection[index].UnitId, result, seen);
 
             int[] aliveIds = GameUnitManagerAPI.Instance.GetAllAliveUnits();
             for (int index = 0; index < aliveIds.Length; index++)

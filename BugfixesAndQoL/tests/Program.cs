@@ -467,9 +467,16 @@ namespace BugfixesAndQoL
                   drag.Contains("selection-unavailable") &&
                   assassin.Contains("APIShared.LocalSelectionAPI.TryCapture(") &&
                   assassin.Contains("ReferenceEquals(selected, lastSelectionSnapshot)") &&
+                  assassin.Contains("!lastSelectionHasAssassin && !lastSelectionHasAssassinType") &&
+                  assassin.Contains("selected[index].UnitType != (int)eChimps.CHIMP_TYPE_ARAB_ASSASIN") &&
+                  assassin.Contains("lastSelectionHasAssassinType = hasAssassinType;") &&
+                  assassin.Contains("lastSelectionSnapshot = null;") &&
+                  assassin.Contains("lastSelectionHasAssassinType = false;") &&
+                  Regex.IsMatch(assassin, @"public void BeginMap\(\)\s*\{[^}]*InvalidateRenderState\(\)") &&
+                  Regex.IsMatch(assassin, @"public void EndMap\(\)\s*\{[^}]*InvalidateRenderState\(\)") &&
                   !drag.Contains("GetSelectedChimps") &&
                   !assassin.Contains("GetSelectedChimps"),
-                "transient selection states fail closed without the warning-producing Extender reader");
+                "selection failures and changed Assassin ownership invalidate cached button decisions");
         }
 
         private static void TestFriendlyMoatCursorIdGuard()

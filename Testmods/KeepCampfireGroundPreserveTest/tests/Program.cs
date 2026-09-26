@@ -151,8 +151,11 @@ namespace KeepCampfireGroundPreserveTest
             try
             {
                 ulong address = unchecked((ulong)memory.ToInt64());
-                Marshal.Copy(bytes, 0, memory, bytes.Length);
-                Assembly nativeAssembly = typeof(X64InlineHook).Assembly;
+                int copiedPrologue = rva == 0x65830 ? 18 : 15;
+                Marshal.Copy(bytes, 0, memory, copiedPrologue);
+                Marshal.WriteByte(memory, copiedPrologue, 0xC3);
+                Assembly nativeAssembly = Assembly.LoadFrom(Path.Combine(Game,
+                    @"BepInEx\plugins\000shcdese\RedBird.Backends.NativeX64.dll"));
                 Type backend = nativeAssembly.GetType(
                     "RedBird.Backends.NativeX64.NativeDetourBackend", true);
                 Assembly abstractions = AppDomain.CurrentDomain.GetAssemblies().Single(

@@ -321,13 +321,14 @@ namespace ExtraFeatures
                 HookButtonEvents(troopPanel);
 
                 int localPlayerId = GetSelectionPlayerId();
-                if (HasSelectedOwnKnight(localPlayerId))
+                TryCaptureSelectedUnits(localPlayerId, out APIShared.LocalSelectionSnapshot selection);
+                if (HasSelectedOwnKnight(localPlayerId, selection))
                 {
                     buttonViewModel.ShowDismount(HasUnitLimitCapacity(localPlayerId, eChimps.CHIMP_TYPE_SWORDSMAN));
                     return;
                 }
 
-                if (HasSelectedOwnSwordsman(localPlayerId))
+                if (HasSelectedOwnSwordsman(localPlayerId, selection))
                 {
                     buttonViewModel.ShowMount(HasUnitLimitCapacity(localPlayerId, eChimps.CHIMP_TYPE_KNIGHT));
                     return;
@@ -597,14 +598,14 @@ namespace ExtraFeatures
                 longTooltip.Visibility = showLongTooltip ? Visibility.Visible : Visibility.Hidden;
         }
 
-        private bool HasSelectedOwnKnight(int localPlayerId)
+        private bool HasSelectedOwnKnight(int localPlayerId, APIShared.LocalSelectionSnapshot selection)
         {
-            return HasSelectedOwnUnit(localPlayerId, eChimps.CHIMP_TYPE_KNIGHT);
+            return HasSelectedOwnUnit(localPlayerId, eChimps.CHIMP_TYPE_KNIGHT, selection);
         }
 
-        private bool HasSelectedOwnSwordsman(int localPlayerId)
+        private bool HasSelectedOwnSwordsman(int localPlayerId, APIShared.LocalSelectionSnapshot selection)
         {
-            return HasSelectedOwnUnit(localPlayerId, eChimps.CHIMP_TYPE_SWORDSMAN);
+            return HasSelectedOwnUnit(localPlayerId, eChimps.CHIMP_TYPE_SWORDSMAN, selection);
         }
 
         private bool HasUnitLimitCapacity(int playerId, eChimps targetUnitType)
@@ -618,16 +619,16 @@ namespace ExtraFeatures
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(RefreshButtonVisibility);
         }
 
-        private bool HasSelectedOwnUnit(int localPlayerId, eChimps unitType)
+        private bool HasSelectedOwnUnit(int localPlayerId, eChimps unitType,
+            APIShared.LocalSelectionSnapshot selection)
         {
             if (localPlayerId < 1 || localPlayerId > 8)
                 return false;
-            int[] selectedUnits = GetSelectedChimpsSafe();
             GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
 
-            for (int i = 0; i < selectedUnits.Length; i++)
+            for (int i = 0; selection != null && i < selection.Count; i++)
             {
-                int unitId = selectedUnits[i];
+                int unitId = selection[i].UnitId;
                 if (unitId <= 0 || !unitApi.TryGetUnitById(unitId, out GameUnit* unit))
                     continue;
 
@@ -962,13 +963,13 @@ namespace ExtraFeatures
             List<UnitTransformSnapshot> snapshots = new List<UnitTransformSnapshot>();
             if (localPlayerId < 1 || localPlayerId > 8)
                 return snapshots;
-            int[] selectedUnits = GetSelectedChimpsSafe();
+            TryCaptureSelectedUnits(localPlayerId, out APIShared.LocalSelectionSnapshot selection);
             GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
             HashSet<int> seenGlobalIds = new HashSet<int>();
 
-            for (int i = 0; i < selectedUnits.Length; i++)
+            for (int i = 0; selection != null && i < selection.Count; i++)
             {
-                int unitId = selectedUnits[i];
+                int unitId = selection[i].UnitId;
                 if (unitId <= 0 || !unitApi.TryGetUnitById(unitId, out GameUnit* unit))
                     continue;
 
@@ -1761,30 +1762,25 @@ namespace ExtraFeatures
             return unit != null && (ushort)unit->r_UnitHover != 0;
         }
 
-        private int[] GetSelectedChimpsSafe()
+        private bool TryCaptureSelectedUnits(int playerId, out APIShared.LocalSelectionSnapshot selection)
         {
+            selection = null;
             try
             {
-                int playerId = GetSelectionPlayerId();
-                if (!APIShared.LocalSelectionAPI.TryCapture(playerId, out APIShared.LocalSelectionSnapshot selected))
-                    return Array.Empty<int>();
-                int[] unitIds = new int[selected.Count];
-                for (int index = 0; index < selected.Count; index++)
-                    unitIds[index] = selected[index].UnitId;
-                return unitIds;
+                return APIShared.LocalSelectionAPI.TryCapture(playerId, out selection);
             }
             catch (ArgumentOutOfRangeException)
             {
-                return Array.Empty<int>();
+                return false;
             }
             catch (OverflowException)
             {
-                return Array.Empty<int>();
+                return false;
             }
             catch (Exception ex)
             {
                 LogError($"Knight mount/dismount could not read selected units: {ex}");
-                return Array.Empty<int>();
+                return false;
             }
         }
 
