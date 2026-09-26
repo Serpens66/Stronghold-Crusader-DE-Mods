@@ -14,6 +14,7 @@ using SHCDESE.Interop.Enums;
 using System;
 using System.Diagnostics;
 using System.Globalization;
+using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
 
@@ -368,7 +369,7 @@ namespace BugfixesAndQoL
             // Do not write r_IsSleeping directly. The native sleep-state sync must
             // observe the state change so it can run the game's worker reset and
             // reassignment bookkeeping for this building.
-            synchronizeSleepStates?.Invoke();
+            SynchronizePreservingGoods(CaptureGoods(buildingId));
             UpdateSleepButtonVisibility(self, targetSleeping);
             MarkManualToggle(buildingId);
         }
@@ -501,11 +502,14 @@ namespace BugfixesAndQoL
 
                 if (packet.Action == ResetBuildingTypeAction)
                 {
+                    BuildingGoodsSnapshot[] goods = packet.SynchronizeAfterReset
+                        ? CaptureOverrideGoods(packet.PlayerId, building->r_BuildingType)
+                        : Array.Empty<BuildingGoodsSnapshot>();
                     int removedOverrides = ClearManualOverridesForBuildingType(
                         packet.PlayerId,
                         building->r_BuildingType);
                     if (packet.SynchronizeAfterReset)
-                        synchronizeSleepStates.Invoke();
+                        SynchronizePreservingGoods(goods);
 
                     int ownerSnapshot = packet.PlayerId;
                     eStructs buildingTypeSnapshot = building->r_BuildingType;
@@ -529,7 +533,7 @@ namespace BugfixesAndQoL
                     return;
                 }
 
-                synchronizeSleepStates?.Invoke();
+                SynchronizePreservingGoods(CaptureGoods(buildingId));
                 int buildingIdSnapshot = buildingId;
                 bool selectedSleepingSnapshot = packet.TargetSleeping;
                 Shared.UnityMainThreadDispatch.TryEnqueue(() =>
@@ -599,7 +603,10 @@ namespace BugfixesAndQoL
             bool targetSleeping = !selectedWasSleeping;
             bool buildingTypeWasSleeping = GameData.Instance.lastGameState.building_type_sleeping != 0;
 
-            ClearManualOverridesForSelectedBuildingType();
+            BuildingGoodsSnapshot[] goods = CaptureOverrideGoods(
+                selectedBuilding->r_PlayerIdOwner, selectedBuilding->r_BuildingType);
+            ClearManualOverridesForBuildingType(
+                selectedBuilding->r_PlayerIdOwner, selectedBuilding->r_BuildingType);
 
             // If the selected building had an individual override opposite to the
             // type-wide state, clearing that override already produces the desired
@@ -608,7 +615,7 @@ namespace BugfixesAndQoL
             if (buildingTypeWasSleeping != targetSleeping)
                 buttonTrampoline(self, parameter);
             else
-                synchronizeSleepStates?.Invoke();
+                SynchronizePreservingGoods(goods);
 
             UpdateSleepButtonVisibility(self, targetSleeping);
         }
@@ -630,32 +637,109 @@ namespace BugfixesAndQoL
             return GameData.Instance.lastGameState.in_structure;
         }
 
-        private unsafe void ClearManualOverridesForSelectedBuildingType()
-        {
-            if (overrides.Count == 0 ||
-                GameData.Instance == null ||
-                GameData.Instance.lastGameState == null)
-                return;
-
-            int selectedBuildingId = GameData.Instance.lastGameState.in_structure;
-            if (selectedBuildingId <= 0)
-                return;
-
-            GameBuildingManagerAPI buildingApi = GameBuildingManagerAPI.Instance;
-            if (!buildingApi.TryGetBuildingById(selectedBuildingId, out GameBuilding* selectedBuilding))
-                return;
-
-            ClearManualOverridesForBuildingType(
-                selectedBuilding->r_PlayerIdOwner,
-                selectedBuilding->r_BuildingType);
-        }
-
         private int ClearManualOverridesForBuildingType(int owner, eStructs buildingType)
         {
             OverrideRemovalResult result = overrides.RemoveForBuildingType(owner, buildingType);
             if (result.BecameEmpty)
                 DeactivateOverrideHooks();
             return result.Count;
+        }
+
+        private BuildingGoodsSnapshot[] CaptureOverrideGoods(int owner, eStructs buildingType)
+        {
+            SingleBuildingPauseOverride[] entries = overrides.SnapshotForBuildingType(owner, buildingType);
+            var goods = new List<BuildingGoodsSnapshot>(entries.Length);
+            foreach (SingleBuildingPauseOverride entry in entries)
+            {
+                BuildingGoodsSnapshot snapshot = CaptureGoods(entry.BuildingId);
+                if (snapshot.GlobalId == entry.GlobalId && snapshot.Owner == entry.Owner &&
+                    snapshot.Type == entry.BuildingType)
+                    goods.Add(snapshot);
+            }
+
+            return goods.ToArray();
+        }
+
+        private static unsafe BuildingGoodsSnapshot CaptureGoods(int buildingId)
+        {
+            if (buildingId <= 0 ||
+                !GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) ||
+                building->r_AliveState != AliveState.IsAlive || building->r_GlobalId == 0 ||
+                !SingleBuildingPauseGoodsPolicy.IsPreservedType(building->r_BuildingType))
+                return default;
+
+            return new BuildingGoodsSnapshot(
+                buildingId, (int)building->r_GlobalId, building->r_PlayerIdOwner,
+                building->r_BuildingType, building->r_IsSleeping,
+                building->r_WoodLogsAmount, building->r_WoodPlanksAmount,
+                building->r_StoneBlocksAmount, building->r_IronIngotsAmount);
+        }
+
+        private void SynchronizePreservingGoods(params BuildingGoodsSnapshot[] snapshots)
+        {
+            if (synchronizeSleepStates == null)
+                return;
+
+            synchronizeSleepStates.Invoke();
+            if (!settings.EnableMod || !settings.EnableSingleBuildingPause)
+                return;
+
+            foreach (BuildingGoodsSnapshot snapshot in snapshots)
+                RestoreGoods(snapshot);
+        }
+
+        private static unsafe void RestoreGoods(BuildingGoodsSnapshot snapshot)
+        {
+            if (snapshot.BuildingId <= 0 ||
+                !GameBuildingManagerAPI.Instance.TryGetBuildingById(snapshot.BuildingId, out GameBuilding* building) ||
+                !SingleBuildingPauseGoodsPolicy.ShouldRestore(
+                    snapshot.GlobalId, (int)building->r_GlobalId,
+                    snapshot.Owner, building->r_PlayerIdOwner,
+                    snapshot.Type, building->r_BuildingType,
+                    building->r_AliveState == AliveState.IsAlive,
+                    snapshot.BeforeSleeping, building->r_IsSleeping))
+                return;
+
+            switch (snapshot.Type)
+            {
+                case eStructs.STRUCT_IRON_MINE:
+                    building->r_IronIngotsAmount = snapshot.Iron;
+                    break;
+                case eStructs.STRUCT_OXEN_BASE:
+                    building->r_StoneBlocksAmount = snapshot.Stone;
+                    break;
+                case eStructs.STRUCT_WOODCUTTERS_HUT:
+                    building->r_WoodLogsAmount = snapshot.WoodLogs;
+                    building->r_WoodPlanksAmount = snapshot.WoodPlanks;
+                    break;
+            }
+        }
+
+        private readonly struct BuildingGoodsSnapshot
+        {
+            internal BuildingGoodsSnapshot(int buildingId, int globalId, int owner, eStructs type,
+                byte beforeSleeping, uint woodLogs, uint woodPlanks, uint stone, uint iron)
+            {
+                BuildingId = buildingId;
+                GlobalId = globalId;
+                Owner = owner;
+                Type = type;
+                BeforeSleeping = beforeSleeping;
+                WoodLogs = woodLogs;
+                WoodPlanks = woodPlanks;
+                Stone = stone;
+                Iron = iron;
+            }
+
+            internal int BuildingId { get; }
+            internal int GlobalId { get; }
+            internal int Owner { get; }
+            internal eStructs Type { get; }
+            internal byte BeforeSleeping { get; }
+            internal uint WoodLogs { get; }
+            internal uint WoodPlanks { get; }
+            internal uint Stone { get; }
+            internal uint Iron { get; }
         }
 
         private bool IsDuplicateManualToggle(int buildingId)

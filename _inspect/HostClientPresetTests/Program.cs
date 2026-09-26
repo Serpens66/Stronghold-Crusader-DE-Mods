@@ -36,6 +36,14 @@ internal static class Program
             }
 
             if (args != null && args.Length == 1 &&
+                string.Equals(args[0], "preset-source", StringComparison.OrdinalIgnoreCase))
+            {
+                TestPersonalBundledExternalPresetSaveLoad();
+                Console.WriteLine("PASS: editable mission preset source status and normal-state isolation.");
+                return 0;
+            }
+
+            if (args != null && args.Length == 1 &&
                 string.Equals(args[0], "market-good-prices", StringComparison.OrdinalIgnoreCase))
             {
                 TestMarketGoodPriceDefinition();
@@ -4744,22 +4752,55 @@ internal static class Program
                   stillUnchangedExternal.Settings.Count == 3,
                 "confirmed personal overwrite changed the wrong source or did not replace the personal file");
 
+            string normalStatus = vm.System_TestPresetStatusText;
+            Check(normalStatus.Contains("Based on: Same name"),
+                "normal lobby preset status lost its published source");
+            byte[] normalWorkingFile = File.ReadAllBytes(Path.Combine(root, "LobbyModSettings", modName + ".msgpack"));
             vm.System_EnterMissionPreset(
                 new Dictionary<string, byte[]> { [nameof(MixedViewModel.HostValue)] = MessagePackSerializer.Serialize(900) },
                 "Trail",
                 editable: true);
+            Check(vm.System_TestPresetStatusText == "Trail",
+                "editable Trail did not initially show its mission source");
             vm.System_TestLoadPreset(external.StableId);
             Check(vm.HostValue == 503 && vm.ClientValue == 611 && vm.LocalValue == 301,
                 "Customize load did not resolve player values from the suspended normal working state");
+            Check(vm.System_TestPresetStatusText == "Based on: Same name · External presets: External Provider",
+                "loading a preset into editable Trail did not show its actual source");
+            Check(normalWorkingFile.SequenceEqual(File.ReadAllBytes(Path.Combine(root, "LobbyModSettings", modName + ".msgpack"))),
+                "loading a preset into editable Trail changed the normal working-state file");
             vm.HostValue = 777;
+            Check(vm.System_TestPresetStatusText == "Based on: Same name · External presets: External Provider (modified)",
+                "editing the loaded Trail working copy did not mark its preset source modified");
             vm.System_ApplyMissionPresetSnapshot(
                 new Dictionary<string, byte[]> { [nameof(MixedViewModel.HostValue)] = MessagePackSerializer.Serialize(900) },
                 "Trail");
             Check(vm.HostValue == 900 && vm.ClientValue == 611 && vm.LocalValue == 301,
                 "loading the Trail source did not recover its Customize working snapshot");
+            Check(vm.System_TestPresetStatusText == "Trail",
+                "resetting to Trail did not restore the Trail source label");
+            vm.System_ApplyMissionPresetSnapshot(new Dictionary<string, byte[]>(), "Map");
+            Check(vm.System_TestPresetStatusText == "Map",
+                "resetting to Map retained the previous published preset source");
+            vm.System_ApplyMissionPresetSnapshot(new Dictionary<string, byte[]>(), "Mod defaults");
+            Check(vm.System_TestPresetStatusText == "Mod defaults",
+                "resetting to Mod defaults retained the previous published preset source");
+            Check(normalWorkingFile.SequenceEqual(File.ReadAllBytes(Path.Combine(root, "LobbyModSettings", modName + ".msgpack"))),
+                "editing or resetting the Trail working copy changed the normal working-state file");
             vm.System_ExitMissionPreset();
             Check(vm.HostValue == 505 && vm.ClientValue == 611 && vm.LocalValue == 301,
                 "leaving Customize did not restore the normal working values and edits");
+            Check(vm.System_TestPresetStatusText == normalStatus,
+                "leaving Customize did not restore the previous normal source status");
+            vm.System_EnterMissionPreset(
+                new Dictionary<string, byte[]> { [nameof(MixedViewModel.HostValue)] = MessagePackSerializer.Serialize(900) },
+                "Trail", editable: false);
+            bool readOnlyLoadRejected = false;
+            try { vm.System_TestLoadPreset(external.StableId); }
+            catch (InvalidOperationException) { readOnlyLoadRejected = true; }
+            Check(readOnlyLoadRejected && vm.System_TestPresetStatusText == "Trail",
+                "read-only Trail accepted a preset load or changed its source label");
+            vm.System_ExitMissionPreset();
         }
         finally
         {

@@ -84,6 +84,38 @@ try {
         $combinedNameGetter[0].ReturnType.FullName -cne 'System.String') {
         throw 'Managed contract changed for MPLobbyMember.get_CombinedName.'
     }
+    foreach ($pageNumber in 1..4) {
+        $page = $managedAssembly.MainModule.Types | Where-Object {
+            $_.FullName -ceq "CrusaderDE.FRONT_CoopTrail$pageNumber"
+        }
+        $row = $page.NestedTypes | Where-Object { $_.Name -ceq 'PlayerRow' }
+        $method = @($row.Methods | Where-Object {
+            $_.Name -ceq 'Update' -and $_.Parameters.Count -eq 4 -and
+            $_.Parameters[0].ParameterType.FullName -ceq 'CrusaderDE.FRONT_Multiplayer' -and
+            $_.Parameters[1].ParameterType.FullName -ceq 'Platform_Multiplayer/MPLobbyMember' -and
+            $_.Parameters[2].ParameterType.FullName -ceq 'System.Int32' -and
+            $_.Parameters[3].ParameterType.FullName -ceq 'System.Int32'
+        })
+        $rowField = @($row.Fields | Where-Object { $_.Name -ceq 'RefRow' })
+        $pageField = @($page.Fields | Where-Object { $_.Name -ceq 'playerRows' })
+        if ($null -eq $page -or $null -eq $row -or $method.Count -ne 1 -or
+            -not $method[0].IsPublic -or $method[0].IsStatic -or
+            $method[0].ReturnType.FullName -cne 'System.Void' -or
+            $rowField.Count -ne 1 -or -not $rowField[0].IsPublic -or
+            $rowField[0].FieldType.FullName -cne 'Noesis.Grid' -or
+            $pageField.Count -ne 1 -or -not $pageField[0].IsPublic) {
+            throw "Managed Coop preview row contract changed on page $pageNumber."
+        }
+    }
+    $lobbyType = $platformType.NestedTypes | Where-Object { $_.Name -ceq 'MPLobby' }
+    $getTeam = @($lobbyType.Methods | Where-Object {
+        $_.Name -ceq 'getTeam' -and $_.Parameters.Count -eq 1 -and
+        $_.Parameters[0].ParameterType.FullName -ceq 'Platform_Multiplayer/MPLobbyMember'
+    })
+    if ($getTeam.Count -ne 1 -or -not $getTeam[0].IsPublic -or
+        $getTeam[0].ReturnType.FullName -cne 'System.Int32') {
+        throw 'Managed lobby team lookup contract changed.'
+    }
     Assert-ManagedMethodContract $managedAssembly 'CrusaderDE.FRONT_Multiplayer' 'LeaveLobby' @(
         'System.Boolean', 'System.Boolean') 'Private'
     Assert-ManagedMethodContract $managedAssembly 'CrusaderDE.FRONT_Multiplayer' 'StartSkirmishGame' @(

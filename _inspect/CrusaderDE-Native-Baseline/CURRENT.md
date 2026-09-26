@@ -45,7 +45,7 @@ Semantic reverse-engineering baseline:
 - [Curated function claims](./sem/FBCB9319/knowledge/function-claims.jsonl), [machine hook spans](./sem/FBCB9319/knowledge/hook-spans.jsonl) and [API contracts](./sem/FBCB9319/knowledge/api-contracts.jsonl)
 - [Standalone Chore reconstruction](./sem/FBCB9319/knowledge/CHORE_SYSTEM.md) with structured [opcodes](./sem/FBCB9319/knowledge/chore-opcodes.jsonl), [contracts](./sem/FBCB9319/knowledge/chore-contracts.jsonl), [observations](./sem/FBCB9319/knowledge/chore-observations.jsonl) and [evidence](./sem/FBCB9319/knowledge/chore-evidence.jsonl)
 - [Surrender selection and multiplayer checksum audit](./sem/FBCB9319/knowledge/SURRENDER_SELECTION.md): selected Lord field, checksum buckets, deselection and trace evidence.
-- [Building sleep and local selection audit](./sem/FBCB9319/knowledge/BUILDING_SLEEP_SELECTION.md): Chore 43's building-type payload, local selection use and building checksum consequence.
+- [Building sleep and local selection audit](./sem/FBCB9319/knowledge/BUILDING_SLEEP_SELECTION.md): Chore 43's building-type payload, local selection use and runtime-confirmed resource divergence.
 - [Lord defeat loot audit](./sem/FBCB9319/knowledge/DEFEAT_LOOT.md): winner attribution, direct gold and incoming-goods awards, and the native skip branch.
 - [Civilian worker pause audit](./sem/FBCB9319/knowledge/WORKER_PAUSES.md): shared fear-building visit logic, worker comparisons, and the baker/miller post-delivery branches.
 - [Tannery animation transparency audit](./sem/FBCB9319/knowledge/TANNER_ALPHA.md): native building updater, alpha source, renderer, and simulation tick boundary.

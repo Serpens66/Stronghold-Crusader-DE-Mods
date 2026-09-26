@@ -2109,6 +2109,9 @@ namespace Shared
 #if API_SHARED_PRESET_TESTS
         internal int System_WorkingStateWriteCount => presetController?.TestWriteCount ?? 0;
 
+        internal string System_TestPresetStatusText => presetController?.GetStatusText(
+            "Based on", "modified", "Personal presets", "Bundled with this mod", "External presets") ?? string.Empty;
+
         // Retained only in the source-linked regression harness for hostile legacy selection attempts.
         public int SelectedPreset
         {
@@ -2561,6 +2564,8 @@ namespace Shared
             private string suspendedBasedOnSource = string.Empty;
             private bool suspendedPresetDirty;
             private string missionPresetLabel = string.Empty;
+            private PublishedModSettingsPreset missionBasedOnPreset;
+            private bool missionPresetDirty;
 #if API_SHARED_PRESET_TESTS
             internal int TestWriteCount { get; private set; }
 #endif
@@ -2623,21 +2628,24 @@ namespace Shared
                 string bundledSourceText,
                 string externalSourceText)
             {
-                if (owner.IsMissionPresetSelected)
+                bool missionSelected = owner.IsMissionPresetSelected;
+                if (missionSelected && missionBasedOnPreset == null)
                     return missionPresetLabel;
-                if (string.IsNullOrWhiteSpace(basedOnName))
+                string sourceName = missionSelected ? missionBasedOnPreset.Name : basedOnName;
+                if (string.IsNullOrWhiteSpace(sourceName))
                     return string.Empty;
-                string status = (basedOnText ?? "Based on") + ": " + basedOnName;
-                string localizedSource = activePublishedPreset == null
+                string status = (basedOnText ?? "Based on") + ": " + sourceName;
+                PublishedModSettingsPreset sourcePreset = missionSelected ? missionBasedOnPreset : activePublishedPreset;
+                string localizedSource = sourcePreset == null
                     ? basedOnSource
                     : DescribeSource(
-                        activePublishedPreset,
+                        sourcePreset,
                         personalSourceText,
                         bundledSourceText,
                         externalSourceText);
                 if (!string.IsNullOrWhiteSpace(localizedSource))
                     status += " · " + localizedSource;
-                if (presetDirty)
+                if (missionSelected ? missionPresetDirty : presetDirty)
                     status += " (" + (modifiedText ?? "modified") + ")";
                 return status;
             }
@@ -3341,6 +3349,8 @@ namespace Shared
                 }
                 missionPreset = merged;
                 missionPresetLabel = label ?? string.Empty;
+                missionBasedOnPreset = null;
+                missionPresetDirty = false;
                 ApplySnapshot(missionPreset, MissionPresetIndex, writeLocalStorage: false);
                 LogRoutine($"[{modName}] Loaded mission source [{SanitizeLogValue(missionPresetLabel)}] into the editable working copy.");
             }
@@ -3354,6 +3364,8 @@ namespace Shared
                 suspendedPresetDirty = presetDirty;
                 activePublishedPreset = null;
                 missionPresetLabel = label ?? string.Empty;
+                missionBasedOnPreset = null;
+                missionPresetDirty = false;
                 missionPreset = Clone(preset1 ?? defaults);
                 Dictionary<string, byte[]> supplied = snapshot ?? CreateDisabledSnapshot();
                 foreach (KeyValuePair<string, byte[]> entry in supplied)
@@ -3365,6 +3377,8 @@ namespace Shared
             public void ExitMissionPreset()
             {
                 missionPreset = null;
+                missionBasedOnPreset = null;
+                missionPresetDirty = false;
                 basedOnStableId = suspendedBasedOnStableId;
                 basedOnName = suspendedBasedOnName;
                 basedOnSource = suspendedBasedOnSource;
@@ -3408,7 +3422,11 @@ namespace Shared
                 {
                     if (owner.missionPresetEditable &&
                         (owner.isLocalHost || IsClientProperty(property)))
+                    {
                         StoreProperty(missionPreset, property);
+                        if (missionBasedOnPreset != null)
+                            missionPresetDirty = true;
+                    }
                     // Mission-owned values remain in memory until the normal preset is restored.
                     return;
                 }
@@ -3480,6 +3498,9 @@ namespace Shared
                     {
                         foreach (PropertyInfo property in prepared.Keys)
                             StoreProperty(missionPreset, property);
+                        // Mission attribution is transient; the normal working preset stays suspended.
+                        missionBasedOnPreset = preset;
+                        missionPresetDirty = false;
                         owner.SetSelectedPresetCore(MissionPresetIndex);
                     }
                     else

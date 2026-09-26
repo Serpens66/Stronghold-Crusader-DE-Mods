@@ -102,6 +102,21 @@ namespace BugfixesAndQoL
             }
         }
 
+        internal SingleBuildingPauseOverride[] SnapshotForBuildingType(int owner, eStructs buildingType)
+        {
+            lock (sync)
+            {
+                var entries = new List<SingleBuildingPauseOverride>();
+                foreach (SingleBuildingPauseOverride entry in overridesByBuildingId.Values)
+                {
+                    if (entry.Owner == owner && entry.BuildingType == buildingType)
+                        entries.Add(entry);
+                }
+
+                return entries.ToArray();
+            }
+        }
+
         internal int Clear()
         {
             lock (sync)
@@ -165,5 +180,22 @@ namespace BugfixesAndQoL
         internal eStructs BuildingType { get; }
         internal int Owner { get; }
         internal int GlobalId { get; }
+    }
+
+    internal static class SingleBuildingPauseGoodsPolicy
+    {
+        internal static bool IsPreservedType(eStructs type) =>
+            type == eStructs.STRUCT_IRON_MINE ||
+            type == eStructs.STRUCT_OXEN_BASE ||
+            type == eStructs.STRUCT_WOODCUTTERS_HUT;
+
+        internal static bool ShouldRestore(
+            int expectedGlobalId, int actualGlobalId,
+            int expectedOwner, int actualOwner,
+            eStructs expectedType, eStructs actualType,
+            bool alive, byte beforeSleeping, byte afterSleeping) =>
+            expectedGlobalId > 0 && expectedGlobalId == actualGlobalId &&
+            expectedOwner == actualOwner && expectedType == actualType &&
+            alive && beforeSleeping != afterSleeping && IsPreservedType(actualType);
     }
 }

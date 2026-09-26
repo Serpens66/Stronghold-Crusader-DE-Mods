@@ -7,6 +7,8 @@ using System.Text.Json;
 var tests = new (string Name, Action Run)[]
 {
     ("Custom Coop Trail preview names follow the selected lobby slot", TestCoopTrailPreviewNames),
+    ("Custom Coop Trail preview separates displayed teams", TestCoopTrailPreviewTeams),
+    ("Custom Coop Trail team display hooks all four Vanilla pages", TestCoopTrailPreviewTeamIntegration),
     ("bundled mission loads", TestBundledMission),
     ("Coop mission modsettings use an optional sidecar", TestCoopMissionModSettingsSidecar),
     ("path escape rejected", TestPathEscape),
@@ -117,6 +119,46 @@ static void TestCoopTrailPreviewNames()
         CoopTrailPreviewNamePolicy.Resolve(true, true, 1, 29, local) == null &&
         CoopTrailPreviewNamePolicy.Resolve(true, true, 4, 29, " ") == null,
         "inactive, unmapped, or nameless slots were overridden");
+}
+
+static void TestCoopTrailPreviewTeams()
+{
+    var boundaries = new bool[8];
+    void Check(int[] teams, params int[] expectedRows)
+    {
+        CoopTrailPreviewTeamPolicy.FillBoundaries(teams, boundaries);
+        for (int row = 0; row < 8; row++)
+            Assert(boundaries[row] == expectedRows.Contains(row),
+                "wrong team divider at displayed row " + row + " for " + string.Join(",", teams));
+    }
+
+    Check(new[] { 1, 1, 2, 2, -1, -1, -1, -1 }, 2);
+    Check(new[] { 1, 1, 1, 2, -1, -1, -1, -1 }, 3);
+    Check(new[] { 1, 1, 2, 3, 3, 4, -1, -1 }, 2, 3, 5);
+    Check(new[] { 1, 2, 3, 4, 5, 6, 7, 8 }, 1, 2, 3, 4, 5, 6, 7);
+    Check(new[] { 1, -1, 1, -1, 2, -1, -1, -1 }, 4);
+    Check(new[] { 1, 1, -1, -1, -1, -1, -1, -1 });
+    Assert(8 * 28 - 3 + 7 * 8 <= 310, "eight rows and seven compact dividers exceed the list height");
+}
+
+static void TestCoopTrailPreviewTeamIntegration()
+{
+    string root = FindProjectRoot();
+    string runtime = File.ReadAllText(Path.Combine(root, "src", "ExtendedDataRuntime.cs"));
+    for (int page = 1; page <= 4; page++)
+    {
+        Assert(runtime.Contains("CoopTrail" + page + "RowHook("),
+            "preview update hook missing for Coop page " + page);
+        Assert(runtime.Contains("typeof(FRONT_CoopTrail" + page + ".PlayerRow)"),
+            "preview hook does not target the selected page's player rows");
+    }
+    Assert(runtime.Contains("coopTrailGame == true") &&
+        runtime.Contains("selected.Loaded.TrailNumber == parent.currentLobby.coopTrailID + 1") &&
+        runtime.Contains("selected.Loaded.MissionNumber == parent.currentLobby.coopSelectedMission"),
+        "preview team replacement is not limited to the selected Custom Coop mission");
+    Assert(runtime.Contains("vanillaSword.Visibility = customMission ? Visibility.Collapsed : vanillaSwordVisibility") &&
+        runtime.Contains("stack.Children.Count != 9"),
+        "the fixed sword is not restored or the Vanilla list shape is unchecked");
 }
 
 static void TestModDataNamespaces()

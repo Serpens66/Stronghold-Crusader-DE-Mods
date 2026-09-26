@@ -65,6 +65,7 @@ namespace BugfixesAndQoL
             TestNativeBuildingCompoundGroup();
             TestAiWallTargetingIntegration();
             TestSingleBuildingPauseOverrideStore();
+            TestSingleBuildingPauseGoodsPreservation();
             TestAIResourceShortageSleepPolicy();
             TestAIResourceShortageSleepIntegration();
             TestTemporaryGateBlockagePolicy();
@@ -5185,6 +5186,56 @@ namespace BugfixesAndQoL
             Check(store.Clear() == 2 && store.Count == 0 &&
                     !store.TryGetBySleepingAddress(new IntPtr(0x1000), out _),
                 "single-building override clear removes id and address indexes");
+        }
+
+        private static void TestSingleBuildingPauseGoodsPreservation()
+        {
+            foreach (eStructs type in new[] {
+                eStructs.STRUCT_IRON_MINE,
+                eStructs.STRUCT_OXEN_BASE,
+                eStructs.STRUCT_WOODCUTTERS_HUT })
+            {
+                Check(SingleBuildingPauseGoodsPolicy.ShouldRestore(
+                    101, 101, 1, 1, type, type, true, 0, 1) &&
+                    SingleBuildingPauseGoodsPolicy.ShouldRestore(
+                    101, 101, 1, 1, type, type, true, 1, 0),
+                    $"single-building goods policy preserves both sleep transitions for {type}");
+                Check(!SingleBuildingPauseGoodsPolicy.ShouldRestore(
+                    101, 102, 1, 1, type, type, true, 0, 1) &&
+                    !SingleBuildingPauseGoodsPolicy.ShouldRestore(
+                    101, 101, 1, 2, type, type, true, 0, 1) &&
+                    !SingleBuildingPauseGoodsPolicy.ShouldRestore(
+                    101, 101, 1, 1, type, eStructs.STRUCT_QUARRY, true, 0, 1) &&
+                    !SingleBuildingPauseGoodsPolicy.ShouldRestore(
+                    101, 101, 1, 1, type, type, false, 0, 1) &&
+                    !SingleBuildingPauseGoodsPolicy.ShouldRestore(
+                    101, 101, 1, 1, type, type, true, 1, 1),
+                    $"single-building goods policy rejects identity changes, deletion and no transition for {type}");
+            }
+
+            Check(!SingleBuildingPauseGoodsPolicy.ShouldRestore(
+                101, 101, 1, 1, eStructs.STRUCT_QUARRY, eStructs.STRUCT_QUARRY, true, 0, 1),
+                "single-building goods policy leaves other types to Vanilla");
+
+            var store = new SingleBuildingPauseOverrideStore();
+            store.Set(new SingleBuildingPauseOverride(
+                5, true, new IntPtr(0x1000), eStructs.STRUCT_IRON_MINE, 1, 101));
+            store.Set(new SingleBuildingPauseOverride(
+                6, true, new IntPtr(0x2000), eStructs.STRUCT_IRON_MINE, 2, 102));
+            store.Set(new SingleBuildingPauseOverride(
+                7, true, new IntPtr(0x3000), eStructs.STRUCT_OXEN_BASE, 1, 103));
+            SingleBuildingPauseOverride[] selected = store.SnapshotForBuildingType(1, eStructs.STRUCT_IRON_MINE);
+            Check(selected.Length == 1 && selected[0].BuildingId == 5 && store.Count == 3,
+                "single-building goods snapshot includes only affected owner and type without clearing overrides");
+
+            string hook = File.ReadAllText(Path.Combine("src", "SingleBuildingPauseHook.cs"));
+            Check(hook.Contains("building->r_IronIngotsAmount = snapshot.Iron;") &&
+                hook.Contains("building->r_StoneBlocksAmount = snapshot.Stone;") &&
+                hook.Contains("building->r_WoodLogsAmount = snapshot.WoodLogs;") &&
+                hook.Contains("building->r_WoodPlanksAmount = snapshot.WoodPlanks;") &&
+                !hook.Contains("synchronizeSleepStates?.Invoke();") &&
+                hook.Split(new[] { "SynchronizePreservingGoods(" }, StringSplitOptions.None).Length == 6,
+                "all four direct sleep synchronization paths restore only the Fixes goods");
         }
 
         private static void TestTemporaryGateBlockagePolicy()

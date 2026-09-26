@@ -3,6 +3,7 @@ using BepInEx.Logging;
 using ExtendedData.Core;
 using CrusaderDE;
 using MonoMod.RuntimeDetour;
+using Noesis;
 using R3;
 using SHCDESE.API;
 using SHCDESE.EventAPI;
@@ -12,6 +13,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using Path = System.IO.Path;
 
 namespace ExtendedData
 {
@@ -23,6 +25,111 @@ namespace ExtendedData
         private delegate void UpdateHostInfoDelegate(FRONT_Multiplayer self, bool delayed);
         private delegate void UpdateCustomLordNamesDelegate(FRONT_Multiplayer self);
         private delegate string CombinedNameDelegate(Platform_Multiplayer.MPLobbyMember self);
+        private delegate void CoopTrail1RowDelegate(FRONT_CoopTrail1.PlayerRow self, FRONT_Multiplayer parent, Platform_Multiplayer.MPLobbyMember member, int row, int player);
+        private delegate void CoopTrail2RowDelegate(FRONT_CoopTrail2.PlayerRow self, FRONT_Multiplayer parent, Platform_Multiplayer.MPLobbyMember member, int row, int player);
+        private delegate void CoopTrail3RowDelegate(FRONT_CoopTrail3.PlayerRow self, FRONT_Multiplayer parent, Platform_Multiplayer.MPLobbyMember member, int row, int player);
+        private delegate void CoopTrail4RowDelegate(FRONT_CoopTrail4.PlayerRow self, FRONT_Multiplayer parent, Platform_Multiplayer.MPLobbyMember member, int row, int player);
+
+        private sealed class CoopPreviewTeams
+        {
+            private readonly Grid[] rows;
+            private readonly int[] teams = new int[8];
+            private readonly bool[] boundaries = new bool[8];
+            private readonly Grid[] dividers = new Grid[7];
+            private StackPanel list;
+            private Image vanillaSword;
+            private Visibility vanillaSwordVisibility;
+            private int lastRow = -1;
+            private bool invalidLayout;
+
+            public CoopPreviewTeams(Grid[] rows) { this.rows = rows; }
+            public Grid FirstRow => rows[0];
+
+            public void FailOpen()
+            {
+                invalidLayout = true;
+                if (vanillaSword != null) vanillaSword.Visibility = vanillaSwordVisibility;
+                foreach (Grid divider in dividers)
+                    if (divider != null) divider.Visibility = Visibility.Collapsed;
+            }
+
+            public void Record(FRONT_Multiplayer parent, Platform_Multiplayer.MPLobbyMember member,
+                int row, bool customMission, Action<string> warn)
+            {
+                if (row < 0 || row >= teams.Length)
+                    return;
+                if (row <= lastRow)
+                {
+                    for (int index = 0; index < teams.Length; index++) teams[index] = -1;
+                    lastRow = -1;
+                }
+                for (int index = lastRow + 1; index < row; index++) teams[index] = -1;
+                teams[row] = member == null ? -1 : parent?.currentLobby?.getTeam(member) ?? -1;
+                lastRow = row;
+                if (row != teams.Length - 1)
+                    return;
+
+                if (list == null && !invalidLayout && !TryInstall(out string reason))
+                {
+                    invalidLayout = true;
+                    warn("Custom Coop Trail team preview kept Vanilla layout: " + reason);
+                }
+                if (invalidLayout)
+                    return;
+
+                vanillaSword.Visibility = customMission ? Visibility.Collapsed : vanillaSwordVisibility;
+                if (customMission)
+                    CoopTrailPreviewTeamPolicy.FillBoundaries(teams, boundaries);
+                for (int index = 0; index < dividers.Length; index++)
+                    dividers[index].Visibility = customMission && boundaries[index + 1]
+                        ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            private bool TryInstall(out string reason)
+            {
+                reason = null;
+                if (rows.Length != 8 || rows[0]?.Parent is not Grid firstWrapper ||
+                    firstWrapper.Parent is not StackPanel stack || stack.Children.Count != 9)
+                {
+                    reason = "expected eight row wrappers and the fixed sword in one nine-child StackPanel";
+                    return false;
+                }
+                for (int index = 0; index < rows.Length; index++)
+                {
+                    int child = index < 2 ? index : index + 1;
+                    if (rows[index]?.Parent is not Grid wrapper ||
+                        !ReferenceEquals(wrapper.Parent, stack) ||
+                        !ReferenceEquals(stack.Children[child], wrapper))
+                    {
+                        reason = "row " + (index + 1) + " no longer matches Vanilla's player-list order";
+                        return false;
+                    }
+                }
+                if (stack.Children[2] is not Image sword)
+                {
+                    reason = "fixed Vanilla sword is absent at player-list position three";
+                    return false;
+                }
+
+                // Insert from the bottom so the validated original child indexes stay valid.
+                for (int row = 7; row >= 1; row--)
+                {
+                    var divider = new Grid { Height = 8, Visibility = Visibility.Collapsed,
+                        IsHitTestVisible = false };
+                    divider.Children.Add(new Border {
+                        Height = 1, Margin = new Thickness(40, 0, 40, 0),
+                        VerticalAlignment = VerticalAlignment.Center,
+                        Background = new SolidColorBrush(Color.FromArgb(255, 165, 139, 83))
+                    });
+                    dividers[row - 1] = divider;
+                    stack.Children.Insert(row < 2 ? row : row + 1, divider);
+                }
+                list = stack;
+                vanillaSword = sword;
+                vanillaSwordVisibility = sword.Visibility;
+                return true;
+            }
+        }
 
         private sealed class HumanPackageState
         {
@@ -76,12 +183,24 @@ namespace ExtendedData
         private Hook updateHostInfoHook;
         private Hook updateCustomLordNamesHook;
         private Hook combinedNameHook;
+        private Hook coopTrail1RowHook;
+        private Hook coopTrail2RowHook;
+        private Hook coopTrail3RowHook;
+        private Hook coopTrail4RowHook;
         private InitCoopMissionsDelegate initTrampoline;
         private CoopMissionChangedDelegate missionTrampoline;
         private ButtonClickedDelegate buttonTrampoline;
         private UpdateHostInfoDelegate updateHostInfoTrampoline;
         private UpdateCustomLordNamesDelegate updateCustomLordNamesTrampoline;
         private CombinedNameDelegate combinedNameTrampoline;
+        private CoopTrail1RowDelegate coopTrail1RowTrampoline;
+        private CoopTrail2RowDelegate coopTrail2RowTrampoline;
+        private CoopTrail3RowDelegate coopTrail3RowTrampoline;
+        private CoopTrail4RowDelegate coopTrail4RowTrampoline;
+        private CoopPreviewTeams coopTrail1Preview;
+        private CoopPreviewTeams coopTrail2Preview;
+        private CoopPreviewTeams coopTrail3Preview;
+        private CoopPreviewTeams coopTrail4Preview;
         private readonly HashSet<string> previewNameFailures = new HashSet<string>(StringComparer.Ordinal);
         private TrailMissionSettingsCoordinator missionSettingsCoordinator;
         private MapModSettingsCoordinator mapSettingsCoordinator;
@@ -199,6 +318,18 @@ namespace ExtendedData
                 throw new MissingMethodException("MPLobbyMember.get_CombinedName");
             combinedNameHook = new Hook(combinedNameGetter, (CombinedNameDelegate)CombinedNameHook);
             combinedNameTrampoline = combinedNameHook.GenerateTrampoline<CombinedNameDelegate>();
+            coopTrail1RowHook = new Hook(RequirePreviewUpdate(typeof(FRONT_CoopTrail1.PlayerRow)),
+                (CoopTrail1RowDelegate)CoopTrail1RowHook);
+            coopTrail1RowTrampoline = coopTrail1RowHook.GenerateTrampoline<CoopTrail1RowDelegate>();
+            coopTrail2RowHook = new Hook(RequirePreviewUpdate(typeof(FRONT_CoopTrail2.PlayerRow)),
+                (CoopTrail2RowDelegate)CoopTrail2RowHook);
+            coopTrail2RowTrampoline = coopTrail2RowHook.GenerateTrampoline<CoopTrail2RowDelegate>();
+            coopTrail3RowHook = new Hook(RequirePreviewUpdate(typeof(FRONT_CoopTrail3.PlayerRow)),
+                (CoopTrail3RowDelegate)CoopTrail3RowHook);
+            coopTrail3RowTrampoline = coopTrail3RowHook.GenerateTrampoline<CoopTrail3RowDelegate>();
+            coopTrail4RowHook = new Hook(RequirePreviewUpdate(typeof(FRONT_CoopTrail4.PlayerRow)),
+                (CoopTrail4RowDelegate)CoopTrail4RowHook);
+            coopTrail4RowTrampoline = coopTrail4RowHook.GenerateTrampoline<CoopTrail4RowDelegate>();
 
             RefreshPackageCatalog();
             OnActiveCoopPackageChanged();
@@ -269,6 +400,10 @@ namespace ExtendedData
             updateHostInfoHook?.Dispose();
             updateCustomLordNamesHook?.Dispose();
             combinedNameHook?.Dispose();
+            coopTrail1RowHook?.Dispose();
+            coopTrail2RowHook?.Dispose();
+            coopTrail3RowHook?.Dispose();
+            coopTrail4RowHook?.Dispose();
             RestoreVanillaMissions();
             settings.ActiveCoopPackageChanged -= OnActiveCoopPackageChanged;
             settings.CoopPackageRemoteStatusChanged -= OnCoopPackageRemoteStatusChanged;
@@ -807,6 +942,91 @@ namespace ExtendedData
                 }
             }
             return combinedNameTrampoline(member);
+        }
+
+        private static MethodInfo RequirePreviewUpdate(Type rowType) =>
+            rowType.GetMethod("Update", BindingFlags.Instance | BindingFlags.Public, null,
+                new[] { typeof(FRONT_Multiplayer), typeof(Platform_Multiplayer.MPLobbyMember),
+                    typeof(int), typeof(int) }, null)
+            ?? throw new MissingMethodException(rowType.FullName, "Update");
+
+        private bool IsSelectedCustomCoopPreview(FRONT_Multiplayer parent) =>
+            enabled && selected != null && parent?.currentLobby?.coopTrailGame == true &&
+            selected.Loaded.TrailNumber == parent.currentLobby.coopTrailID + 1 &&
+            selected.Loaded.MissionNumber == parent.currentLobby.coopSelectedMission;
+
+        private void CoopTrail1RowHook(FRONT_CoopTrail1.PlayerRow self, FRONT_Multiplayer parent,
+            Platform_Multiplayer.MPLobbyMember member, int row, int player)
+        {
+            coopTrail1RowTrampoline(self, parent, member, row, player);
+            try
+            {
+                FRONT_CoopTrail1.PlayerRow[] players = FRONT_CoopTrail1.Instance?.playerRows;
+                if (players == null || players.Length != 8) return;
+                if (coopTrail1Preview == null || !ReferenceEquals(coopTrail1Preview.FirstRow, players[0].RefRow))
+                    coopTrail1Preview = new CoopPreviewTeams(players.Select(item => item.RefRow).ToArray());
+                coopTrail1Preview.Record(parent, member, row, IsSelectedCustomCoopPreview(parent), LogWarning);
+            }
+            catch (Exception ex) { LogPreviewFailure(1, ex); }
+        }
+
+        private void CoopTrail2RowHook(FRONT_CoopTrail2.PlayerRow self, FRONT_Multiplayer parent,
+            Platform_Multiplayer.MPLobbyMember member, int row, int player)
+        {
+            coopTrail2RowTrampoline(self, parent, member, row, player);
+            try
+            {
+                FRONT_CoopTrail2.PlayerRow[] players = FRONT_CoopTrail2.Instance?.playerRows;
+                if (players == null || players.Length != 8) return;
+                if (coopTrail2Preview == null || !ReferenceEquals(coopTrail2Preview.FirstRow, players[0].RefRow))
+                    coopTrail2Preview = new CoopPreviewTeams(players.Select(item => item.RefRow).ToArray());
+                coopTrail2Preview.Record(parent, member, row, IsSelectedCustomCoopPreview(parent), LogWarning);
+            }
+            catch (Exception ex) { LogPreviewFailure(2, ex); }
+        }
+
+        private void CoopTrail3RowHook(FRONT_CoopTrail3.PlayerRow self, FRONT_Multiplayer parent,
+            Platform_Multiplayer.MPLobbyMember member, int row, int player)
+        {
+            coopTrail3RowTrampoline(self, parent, member, row, player);
+            try
+            {
+                FRONT_CoopTrail3.PlayerRow[] players = FRONT_CoopTrail3.Instance?.playerRows;
+                if (players == null || players.Length != 8) return;
+                if (coopTrail3Preview == null || !ReferenceEquals(coopTrail3Preview.FirstRow, players[0].RefRow))
+                    coopTrail3Preview = new CoopPreviewTeams(players.Select(item => item.RefRow).ToArray());
+                coopTrail3Preview.Record(parent, member, row, IsSelectedCustomCoopPreview(parent), LogWarning);
+            }
+            catch (Exception ex) { LogPreviewFailure(3, ex); }
+        }
+
+        private void CoopTrail4RowHook(FRONT_CoopTrail4.PlayerRow self, FRONT_Multiplayer parent,
+            Platform_Multiplayer.MPLobbyMember member, int row, int player)
+        {
+            coopTrail4RowTrampoline(self, parent, member, row, player);
+            try
+            {
+                FRONT_CoopTrail4.PlayerRow[] players = FRONT_CoopTrail4.Instance?.playerRows;
+                if (players == null || players.Length != 8) return;
+                if (coopTrail4Preview == null || !ReferenceEquals(coopTrail4Preview.FirstRow, players[0].RefRow))
+                    coopTrail4Preview = new CoopPreviewTeams(players.Select(item => item.RefRow).ToArray());
+                coopTrail4Preview.Record(parent, member, row, IsSelectedCustomCoopPreview(parent), LogWarning);
+            }
+            catch (Exception ex) { LogPreviewFailure(4, ex); }
+        }
+
+        private readonly HashSet<int> previewTeamFailures = new HashSet<int>();
+        private void LogPreviewFailure(int page, Exception ex)
+        {
+            switch (page)
+            {
+                case 1: coopTrail1Preview?.FailOpen(); break;
+                case 2: coopTrail2Preview?.FailOpen(); break;
+                case 3: coopTrail3Preview?.FailOpen(); break;
+                case 4: coopTrail4Preview?.FailOpen(); break;
+            }
+            if (previewTeamFailures.Add(page))
+                LogWarning("Custom Coop Trail team preview kept Vanilla layout on page " + page + ": " + ex);
         }
 
         private static FRONT_Multiplayer.MPAIVInfo CopyLordInfo(FRONT_Multiplayer.MPAIVInfo source) =>
