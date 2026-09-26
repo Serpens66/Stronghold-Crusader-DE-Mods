@@ -18,6 +18,7 @@ namespace KeepCampfireGroundPreserveTest
         private readonly List<CampObservation> camps = new List<CampObservation>();
         private readonly object gate = new object();
         private CampgroundNativeHook hook;
+        private TerrainPhaseDiagnostic terrainPhase;
         private bool missionAllowed;
         private bool firstTick;
         private long sessionId;
@@ -31,6 +32,7 @@ namespace KeepCampfireGroundPreserveTest
         }
 
         internal void SetHook(CampgroundNativeHook value) => hook = value;
+        internal void SetTerrainPhase(TerrainPhaseDiagnostic value) => terrainPhase = value;
 
         internal void OnInitialization(MissionLifecycleNotification notification)
         {
@@ -38,6 +40,7 @@ namespace KeepCampfireGroundPreserveTest
             lock (gate)
             {
                 hook?.SetEnabled(false);
+                terrainPhase?.SetEnabled(false);
                 camps.Clear();
                 firstTick = false;
                 sessionId = notification.Context.SessionId;
@@ -45,13 +48,14 @@ namespace KeepCampfireGroundPreserveTest
                     !notification.Context.Mode.MultiplayerSave;
                 if (missionAllowed && hook != null && hook.IsPublished)
                     hook.SetEnabled(true);
+                if (missionAllowed && terrainPhase != null)
+                    terrainPhase.SetEnabled(true);
                 lastSkipCount = hook?.SuppressedStores ?? 0;
                 lastFirePatchCount = hook?.FirePatchStores ?? 0;
                 log("init session=" + sessionId + " kind=" + notification.Context.StartKind +
                     " allowed=" + missionAllowed + " hook=" + (hook?.IsPublished ?? false) +
                     " mode=" + notification.Context.Mode.ToDiagnosticString());
-                log("terrain guard read-only: initial free-tile GFX clear/write path " +
-                    "is not yet uniquely isolated in RVA 0x65830/0x650C0");
+                log("terrain-phase diagnosis read-only: watching initial Keep recalculation and fill");
             }
         }
 
@@ -62,6 +66,8 @@ namespace KeepCampfireGroundPreserveTest
                 sessionId = notification.Context.SessionId;
                 if (missionAllowed && hook != null && hook.IsPublished)
                     hook.SetEnabled(true);
+                if (missionAllowed && terrainPhase != null)
+                    terrainPhase.SetEnabled(true);
                 try { DiscoverExistingCampgrounds(); }
                 catch (Exception ex) { error("existing-camp discovery failed: " + ex); }
                 log("START session=" + sessionId + " kind=" +
@@ -75,6 +81,7 @@ namespace KeepCampfireGroundPreserveTest
             lock (gate)
             {
                 hook?.SetEnabled(false);
+                terrainPhase?.SetEnabled(false);
                 log("END session=" + notification.Context.SessionId + " reason=" +
                     notification.EndReason + " targets=" + camps.Count +
                     " suppressedStores=" + (hook?.SuppressedStores ?? 0));
@@ -85,6 +92,12 @@ namespace KeepCampfireGroundPreserveTest
 
         internal void OnBuildingSpawn(BuildingSpawnEventArgs args)
         {
+            if (args.Phase == EventHookPhase.Pre &&
+                (int)args.Building >= 0x28 && (int)args.Building <= 0x2C)
+            {
+                try { terrainPhase?.ArmKeep(args.PlayerId, args.TileX, args.TileY); }
+                catch (Exception ex) { error("terrain-phase arming failed: " + ex); }
+            }
             if (args.Building != eStructs.STRUCT_CAMPGROUND) return;
             lock (gate)
             {
@@ -142,6 +155,7 @@ namespace KeepCampfireGroundPreserveTest
 
         internal void OnTick(int tick)
         {
+            terrainPhase?.FlushCompleted();
             lock (gate)
             {
                 if (!firstTick) {

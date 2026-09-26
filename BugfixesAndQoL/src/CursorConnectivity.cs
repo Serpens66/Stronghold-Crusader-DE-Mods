@@ -421,14 +421,14 @@ namespace BugfixesAndQoL
                 cursorSelectionAvailable = false;
                 return false;
             }
-            if (!LocalSelectionSnapshot.TryCapture(localPlayerId, out SelectedUnitInfo[] selected))
+            if (!LocalSelectionSnapshot.TryCapture(localPlayerId, out APIShared.LocalSelectionSnapshot selected))
             {
                 ids = Array.Empty<int>();
                 token = string.Empty;
                 cursorSelectionAvailable = false;
                 return false;
             }
-            int count = selected.Length;
+            int count = selected.Count;
             ids = selectedCursorIds; token = cursorSelectionToken;
             cursorSelectionAvailable = true;
             bool changed = selectedCursorIds.Length != count;

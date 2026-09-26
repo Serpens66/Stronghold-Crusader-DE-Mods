@@ -12,6 +12,9 @@ namespace KeepCampfireGroundPreserveTest
     {
         private const string Game = @"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition";
         private static int checks;
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+        private delegate void TerrainProbeDelegate(IntPtr manager);
+        private static void TerrainProbe(IntPtr manager) { }
         private static int Main()
         {
             AppDomain.CurrentDomain.AssemblyResolve += (_, args) => {
@@ -58,8 +61,10 @@ namespace KeepCampfireGroundPreserveTest
             }
             Check(incomingInteriorEdges == 0, "no incoming edge enters displaced interior");
             Check(CampgroundVisualGate.FirePatchGraphics.SequenceEqual(new[] {
-                0x00060029, 0x0006002A, 0x00060030, 0x00060036, 0x00060037
-            }), "audited five-sprite fire patch");
+                0x00060024, 0x00060029, 0x0006002A,
+                0x0006002F, 0x00060030, 0x00060031,
+                0x00060036, 0x00060037, 0x0006003C
+            }), "audited nine-sprite fire patch");
 
             IntPtr memory = VirtualAlloc(IntPtr.Zero, (UIntPtr)4096, 0x3000, 0x40);
             if (memory == IntPtr.Zero) throw new Exception("VirtualAlloc failed");
@@ -111,12 +116,85 @@ namespace KeepCampfireGroundPreserveTest
                     }
                 }
                 Check(fireSpriteComparisons == CampgroundVisualGate.FirePatchGraphics.Length,
-                    "all five campfire sprite selectors assembled");
+                    "all nine campfire sprite selectors assembled");
                 Check(targets.Contains(0x18006F0D8) && targets.Contains(site + 16),
                     "campground skip and Vanilla continuation present");
-                Check(targets.Where(t => t >= 0x180200000 && t < 0x180200000 +
+            Check(targets.Where(t => t >= 0x180200000 && t < 0x180200000 +
                     (ulong)gate.Length).All(starts.Contains), "all local branches land on instructions");
             }
+            ProbeTerrainEntry(file, 0x65830, 12, new byte[] {
+                0x4C, 0x8B, 0xDC, 0x53, 0x55, 0x48, 0x81, 0xEC, 0x88, 0, 0, 0 });
+            ProbeTerrainEntry(file, 0x650C0, 9, new byte[] {
+                0x40, 0x53, 0x48, 0x81, 0xEC, 0x90, 0, 0, 0 });
+        }
+
+        private static void ProbeTerrainEntry(byte[] file, int rva, int displaced,
+            byte[] prefix)
+        {
+            byte[] bytes = ReadRva(file, rva, 64);
+            Check(bytes.Take(prefix.Length).SequenceEqual(prefix),
+                "terrain function prefix at 0x" + rva.ToString("X"));
+            var decoder = Decoder.Create(64, new ByteArrayCodeReader(bytes),
+                0x180000000UL + (uint)rva);
+            int decoded = 0;
+            while (decoded < displaced)
+            {
+                Instruction instruction = decoder.Decode();
+                Check(!instruction.IsInvalid && instruction.Length > 0,
+                    "terrain prologue instruction valid");
+                decoded += instruction.Length;
+            }
+            Check(decoded == displaced, "terrain Indirect span ends on instruction boundary");
+
+            IntPtr memory = VirtualAlloc(IntPtr.Zero, (UIntPtr)4096, 0x3000, 0x40);
+            if (memory == IntPtr.Zero) throw new Exception("terrain detour probe VirtualAlloc failed");
+            try
+            {
+                ulong address = unchecked((ulong)memory.ToInt64());
+                Marshal.Copy(bytes, 0, memory, bytes.Length);
+                Assembly nativeAssembly = typeof(X64InlineHook).Assembly;
+                Type backend = nativeAssembly.GetType(
+                    "RedBird.Backends.NativeX64.NativeDetourBackend", true);
+                Assembly abstractions = AppDomain.CurrentDomain.GetAssemblies().Single(
+                    candidate => candidate.GetName().Name == "RedBird.Abstractions");
+                Type request = abstractions.GetType(
+                    "RedBird.Abstractions.Hooks.DetourRequest`1", true)
+                    .MakeGenericType(typeof(TerrainProbeDelegate));
+                object argument = Activator.CreateInstance(request);
+                TerrainProbeDelegate callback = TerrainProbe;
+                request.GetProperty("Name").SetValue(argument, "terrain-phase copied-buffer probe");
+                request.GetProperty("TargetAddress").SetValue(argument, address);
+                request.GetProperty("Callback").SetValue(argument, callback);
+                MethodInfo create = backend.GetMethods().Single(method =>
+                    method.Name == "CreateDetour" && method.IsGenericMethodDefinition &&
+                    method.GetParameters().Length == 1).MakeGenericMethod(typeof(TerrainProbeDelegate));
+                object candidateHook = create.Invoke(backend.GetProperty("Instance").GetValue(null),
+                    new[] { argument });
+                try
+                {
+                    Type type = candidateHook.GetType();
+                    Check(type.GetProperty("Scheme").GetValue(candidateHook).ToString() == "Indirect",
+                        "installed NativeX64 scheme is Indirect");
+                    Check((int)type.GetProperty("DisplacedByteCount").GetValue(candidateHook) ==
+                        displaced, "installed NativeX64 terrain displacement");
+                    Check((ulong)type.GetProperty("TargetAddress").GetValue(candidateHook) == address,
+                        "detour target address");
+                    IntPtr slot = (IntPtr)type.GetProperty("PointerSlot").GetValue(candidateHook);
+                    IntPtr entry = (IntPtr)type.GetProperty("HookEntryPointAddress")
+                        .GetValue(candidateHook);
+                    Check(slot != IntPtr.Zero && entry != IntPtr.Zero,
+                        "Indirect pointer slot and hook entry exist");
+                    type.GetMethod("Enable").Invoke(candidateHook, null);
+                    Check(Marshal.ReadByte(memory) == 0xFF && Marshal.ReadByte(memory, 1) == 0x25,
+                        "Indirect six-byte patch form");
+                    long slotFromPatch = memory.ToInt64() + 6 + Marshal.ReadInt32(memory, 2);
+                    Check(slotFromPatch == slot.ToInt64() &&
+                        Marshal.ReadInt64(slot) == entry.ToInt64(),
+                        "Indirect patch resolves through expected slot to hook entry");
+                }
+                finally { ((IDisposable)candidateHook).Dispose(); GC.KeepAlive(callback); }
+            }
+            finally { VirtualFree(memory, UIntPtr.Zero, 0x8000); }
         }
 
         private static byte[] ReadRva(byte[] file, int rva, int size)

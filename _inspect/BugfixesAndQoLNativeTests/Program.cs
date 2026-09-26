@@ -306,12 +306,12 @@ internal static class Program
         })
         {
             string source = File.ReadAllText(Path.Combine(workspace, relativePath));
-            Check(source.Contains("SelectedUnitInfo[] selected"),
-                relativePath + " does not consume Script Extender SelectedUnitInfo entries");
-            Check(source.Contains("selected[index].UnitId") || source.Contains("selectedInfo.UnitId"),
+            Check(source.Contains("APIShared.LocalSelectionSnapshot selected"),
+                relativePath + " does not consume the shared selection snapshot");
+            Check(source.Contains("selected[index].UnitId"),
                 relativePath + " does not extract the one-based UnitId");
-            Check(!Regex.IsMatch(source, @"int\s*\[\]\s+selected\s*=\s*[^;]*GetSelectedChimps"),
-                relativePath + " retains the obsolete int[] selection contract");
+            Check(!source.Contains("GetSelectedChimps("),
+                relativePath + " retains the warning-producing Extender selection reader");
         }
     }
 

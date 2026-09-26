@@ -113,6 +113,11 @@ namespace BugfixesAndQoL
         private bool lastRenderClimbingAllowed;
         private bool renderFailureLogged;
         private int lastRenderFrame = -1;
+        private APIShared.LocalSelectionSnapshot lastSelectionSnapshot;
+        private int lastSelectionPlayerId = -1;
+        private int lastSelectionSignature;
+        private bool lastSelectionHasAssassin;
+        private int lastSelectionAssassinUnitId;
         private int nextOperationId;
         private Button hookedButton;
         private bool tooltipVisible;
@@ -388,45 +393,39 @@ namespace BugfixesAndQoL
             selectedOwnAssassin = false;
             if (playerId < 1 || playerId > 8)
                 return 0;
-            GamePlayerManagerAPI playerApi = GamePlayerManagerAPI.Instance;
-            if (playerApi.GetLocalPlayerId() != playerId)
-                return 0;
-            SelectedUnitInfo[] selected = Array.Empty<SelectedUnitInfo>();
-            int selectedCount = playerApi.GetSelectedChimpsCount(playerId);
-            bool selectionCountTransient =
-                !Shared.SelectedChimpsSnapshotPolicy.IsPlausibleCount(selectedCount);
-            if (!selectionCountTransient)
+            bool hasSnapshot = APIShared.LocalSelectionAPI.TryCapture(
+                playerId, out APIShared.LocalSelectionSnapshot selected);
+            GameUnitManagerAPI api = GameUnitManagerAPI.Instance;
+            bool editor = Shared.GameModeHelper.IsMapEditor();
+            if (hasSnapshot && !editor && ReferenceEquals(selected, lastSelectionSnapshot) &&
+                lastSelectionPlayerId == playerId)
             {
-                try
+                if (!lastSelectionHasAssassin ||
+                    (lastSelectionAssassinUnitId > 0 &&
+                     api.TryGetUnitById(lastSelectionAssassinUnitId, out GameUnit* cachedUnit) &&
+                     IsOwnAssassin(cachedUnit, playerId)))
                 {
-                    selected = playerApi.GetSelectedChimps() ?? Array.Empty<SelectedUnitInfo>();
-                }
-                catch (ArgumentOutOfRangeException)
-                {
-                    // The native count can change between the guarded read and the Extender call.
-                    selectionCountTransient = true;
-                }
-                catch (OverflowException)
-                {
-                    selectionCountTransient = true;
+                    selectedOwnAssassin = lastSelectionHasAssassin;
+                    return lastSelectionSignature;
                 }
             }
 
-            GameUnitManagerAPI api = GameUnitManagerAPI.Instance;
-            int signature = unchecked((17 * 31) + selectedCount);
-            for (int index = 0; index < selected.Length; index++)
+            int signature = unchecked((17 * 31) + (hasSnapshot ? selected.Count : -1));
+            int selectedAssassinUnitId = 0;
+            for (int index = 0; hasSnapshot && index < selected.Count; index++)
             {
                 int unitId = selected[index].UnitId;
                 signature = unchecked((signature * 31) + unitId);
                 if (unitId > 0 && api.TryGetUnitById(unitId, out GameUnit* unit) && IsOwnAssassin(unit, playerId))
+                {
                     selectedOwnAssassin = true;
+                    selectedAssassinUnitId = unitId;
+                }
             }
 
-            int expectedSelectedCount = GameData.Instance?.lastGameState.numSelectedChimps ?? selected.Length;
-            signature = unchecked((signature * 31) + expectedSelectedCount);
             // During the first editor click the managed ID list can trail the native selection
-            // flags for one frame. Scan only while the game reports a non-empty selection.
-            if (!selectedOwnAssassin && (selectionCountTransient || expectedSelectedCount > 0))
+            // flags for one frame. The full native scan is needed only in that editor case.
+            if (!selectedOwnAssassin && editor && (!hasSnapshot || selected.Count > 0))
             {
                 Span<GameUnit> units = api.GetUnitsAsSpan();
                 for (int spanIndex = 0; spanIndex < units.Length; spanIndex++)
@@ -438,11 +437,17 @@ namespace BugfixesAndQoL
                         unit.r_ControllableForPlayerId == playerId)
                     {
                         selectedOwnAssassin = true;
+                        selectedAssassinUnitId = spanIndex + 1;
                         signature = unchecked((signature * 31) + spanIndex + 1);
                         break;
                     }
                 }
             }
+            lastSelectionSnapshot = selected;
+            lastSelectionPlayerId = playerId;
+            lastSelectionSignature = signature;
+            lastSelectionHasAssassin = selectedOwnAssassin;
+            lastSelectionAssassinUnitId = selectedAssassinUnitId;
             return signature;
         }
 

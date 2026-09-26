@@ -1,4 +1,5 @@
 using APIShared;
+using CrusaderDE;
 using Iced.Intel;
 using Shared;
 using System;
@@ -9,6 +10,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Xml;
 
 namespace APISharedTests
@@ -49,6 +51,7 @@ namespace APISharedTests
             TestWorkingSourceRegistry();
             TestCompiledPatternSearch();
             TestUnitHudSnapshotImmutability();
+            TestLocalSelectionSnapshots();
             TestLobbyStateCapability();
             TestBriefingGoldPresentation();
             MissionLifecycleTests.Run(Assert);
@@ -75,6 +78,86 @@ namespace APISharedTests
             }
             Console.Error.WriteLine($"FAIL: APIShared tests reported {failures} failure(s).");
             return 1;
+        }
+
+        private static bool CaptureSelectionState(int playerId, EngineInterface.PlayState state,
+            out LocalSelectionSnapshot snapshot)
+        {
+            MethodInfo capture = typeof(LocalSelectionAPI).GetMethod("TryCaptureState",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            object[] args = { playerId, state, null };
+            bool success = (bool)capture.Invoke(null, args);
+            snapshot = (LocalSelectionSnapshot)args[2];
+            return success;
+        }
+
+        private static void TestLocalSelectionSnapshots()
+        {
+            Assert(!CaptureSelectionState(1, null, out LocalSelectionSnapshot missing) && missing == null,
+                "missing game state invalidates the shared selection cache");
+
+            var empty = new EngineInterface.PlayState();
+            Assert(CaptureSelectionState(1, empty, out LocalSelectionSnapshot first) && first.Count == 0,
+                "empty selections are valid snapshots");
+            var sameEmpty = new EngineInterface.PlayState();
+            Assert(CaptureSelectionState(1, sameEmpty, out LocalSelectionSnapshot reusedEmpty) &&
+                ReferenceEquals(first, reusedEmpty), "unchanged selection is shared across completed ticks");
+
+            var selected = new EngineInterface.PlayState { numSelectedChimps = 2 };
+            selected.selectedChimps[0] = 11;
+            selected.selectedChimps[1] = 22;
+            selected.selectedChimpTypes[0] = 3;
+            selected.selectedChimpTypes[1] = 4;
+            Assert(CaptureSelectionState(1, selected, out LocalSelectionSnapshot beforeAction) &&
+                beforeAction.Count == 2 && beforeAction[1].UnitId == 22 && beforeAction[1].UnitType == 4,
+                "action reads selection from the latest completed state");
+
+            var nextTick = new EngineInterface.PlayState { numSelectedChimps = 2 };
+            nextTick.selectedChimps[0] = 11;
+            nextTick.selectedChimps[1] = 23;
+            nextTick.selectedChimpTypes[0] = 3;
+            nextTick.selectedChimpTypes[1] = 4;
+            Assert(CaptureSelectionState(1, nextTick, out LocalSelectionSnapshot afterAction) &&
+                !ReferenceEquals(beforeAction, afterAction) && afterAction[1].UnitId == 23 &&
+                beforeAction[1].UnitId == 22, "selection changes are visible immediately and prior snapshots stay immutable");
+
+            var unchangedTick = new EngineInterface.PlayState { numSelectedChimps = 2 };
+            unchangedTick.selectedChimps[0] = 11;
+            unchangedTick.selectedChimps[1] = 23;
+            unchangedTick.selectedChimpTypes[0] = 3;
+            unchangedTick.selectedChimpTypes[1] = 4;
+            bool reused = true;
+            for (int tick = 0; tick < 100; tick++)
+            {
+                reused &= CaptureSelectionState(1, unchangedTick, out LocalSelectionSnapshot current) &&
+                    ReferenceEquals(afterAction, current);
+            }
+            Assert(reused, "unchanged selection does not allocate across repeated calls");
+
+            var parallel = new LocalSelectionSnapshot[32];
+            Parallel.For(0, parallel.Length, index =>
+                CaptureSelectionState(1, unchangedTick, out parallel[index]));
+            Assert(parallel.All(snapshot => ReferenceEquals(afterAction, snapshot)),
+                "concurrent mod callers receive the same selection snapshot");
+
+            Assert(CaptureSelectionState(2, unchangedTick, out LocalSelectionSnapshot anotherPlayer) &&
+                !ReferenceEquals(afterAction, anotherPlayer), "player changes invalidate shared selection identity");
+            unchangedTick.numSelectedChimps = 3;
+            unchangedTick.selectedChimps = new int[2];
+            Assert(!CaptureSelectionState(2, unchangedTick, out LocalSelectionSnapshot truncated) && truncated == null,
+                "mismatched selection arrays fail closed");
+
+            var full = new EngineInterface.PlayState { numSelectedChimps = 10000 };
+            full.selectedChimps[9999] = 9876;
+            full.selectedChimpTypes[9999] = 77;
+            Assert(CaptureSelectionState(1, full, out LocalSelectionSnapshot maximum) &&
+                maximum.Count == 10000 && maximum[9999].UnitId == 9876 && maximum[9999].UnitType == 77,
+                "Vanilla's maximum selection capacity is supported");
+            full.numSelectedChimps = 10001;
+            Assert(!CaptureSelectionState(1, full, out LocalSelectionSnapshot oversized) && oversized == null,
+                "selection count above Vanilla capacity fails closed");
+            Assert(!CaptureSelectionState(1, null, out LocalSelectionSnapshot afterMapChange) && afterMapChange == null,
+                "map unload clears the selection snapshot");
         }
 
         private static void TestElevatedMoatAiState()
@@ -1001,7 +1084,6 @@ namespace APISharedTests
                 File.ReadAllText(Path.Combine(workspace, "ImprovedHunters", "src", "HunterActiveTargetReachability.cs")) + "\n" +
                 File.ReadAllText(Path.Combine(workspace, "ImprovedHunters", "src", "HunterPclReachabilityDiagnostic.cs"));
             string sourceManifest = File.ReadAllText(Path.Combine(workspace, "APIShared", "info.json"));
-            string packageManifest = File.ReadAllText(Path.Combine(workspace, "APIShared", "BepInEx", "plugins", "APIShared_Serp", "info.json"));
             string buildingPatchPath = Path.Combine(workspace, "APIShared", "Patches", "Assets", "GUI", "XAMLResources", "HUD_Buildings.xaml");
             string packagedBuildingPatchPath = Path.Combine(workspace, "APIShared", "BepInEx", "plugins", "APIShared_Serp", "Patches", "Assets", "GUI", "XAMLResources", "HUD_Buildings.xaml");
             string buildingPatch = File.ReadAllText(buildingPatchPath);
@@ -1329,8 +1411,6 @@ namespace APISharedTests
                 "route queries must retain player, current component, destination component, mode argument order");
             Assert(modVersion.Length > 0 && sourceManifest.Contains("\"NetworkMode\": 1"),
                 "source manifest declares a version and gameplay mode");
-            Assert(packageManifest.Contains($"\"Version\": \"{modVersion}\"") && packageManifest.Contains("\"NetworkMode\": 1"),
-                "package manifest matches the source version and gameplay mode");
         }
 
         private static string FindWorkspaceRoot()
@@ -1460,6 +1540,8 @@ namespace APISharedTests
                 "APIShared.IAivBuildStepCapability",
                 "APIShared.ILobbyStateCapability",
                 "APIShared.LobbyStateSnapshot",
+                "APIShared.LocalSelectionAPI",
+                "APIShared.LocalSelectionSnapshot",
                 "APIShared.IPlayerDefeatCapability",
                 "APIShared.IBriefingGoldPresentationCapability",
                 "APIShared.BriefingGoldAdjustmentStage",

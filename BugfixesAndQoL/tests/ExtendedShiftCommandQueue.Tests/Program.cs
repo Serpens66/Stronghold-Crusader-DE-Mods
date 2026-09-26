@@ -1252,8 +1252,9 @@ internal static class Program
             "integrated queue dependency matches the manifest minimum");
         Check(bugfixesRuntime.Contains("InitializeExtendedShiftCommandQueue(context, isFixedLayoutHashValidated)"),
             "integrated queue consumes the validated Script Extender load context");
-        Check(queueRuntime.Contains("SelectedUnitInfo[] selectedUnits"),
-            "integrated queue projects the selected-unit contract");
+        Check(queueRuntime.Contains("APIShared.LocalSelectionSnapshot selectedUnits") &&
+            !queueRuntime.Contains("GetSelectedChimps("),
+            "integrated queue consumes the shared selected-unit contract");
         Check(CountText(queueRuntime, "new DetourHandle<") == 5,
             "integrated queue owns five typed RedBird detour handles");
         Check(CountText(queueRuntime, "HookTarget.FromAddress(") == 5,

@@ -1397,17 +1397,14 @@ namespace APIShared
         {
             result.Clear();
             seen.Clear();
-            EngineInterface.PlayState state = GameData.Instance?.lastGameState;
-            if (state == null || state.numSelectedChimps < 0 || state.selectedChimps == null ||
-                state.selectedChimpTypes == null || state.selectedChimps.Length < state.numSelectedChimps ||
-                state.selectedChimpTypes.Length < state.numSelectedChimps)
+            int localPlayerId = GetSelectionPlayerId();
+            if (!LocalSelectionAPI.TryCapture(localPlayerId, out LocalSelectionSnapshot selection))
                 return false;
-            int count = state.numSelectedChimps;
-            for (int i = 0; i < count; i++)
+            for (int i = 0; i < selection.Count; i++)
             {
-                int unitId = state.selectedChimps[i];
+                int unitId = selection[i].UnitId;
                 if (!seen.Add(unitId) || !TryCapture(unitId, out UnitHudUnitSnapshot snapshot) ||
-                    snapshot.VanillaType != state.selectedChimpTypes[i])
+                    snapshot.VanillaType != selection[i].UnitType)
                     return false;
                 result.Add(snapshot);
             }
@@ -1416,49 +1413,47 @@ namespace APIShared
 
         private bool HasRenderedTroopSelectionChanged()
         {
-            if (!hasRenderedTroopSelection ||
-                !TryGetTroopSelectionIdentity(out int[] ids, out int[] types, out int count))
+            if (!hasRenderedTroopSelection || !TryGetTroopSelection(out LocalSelectionSnapshot selection))
                 return false;
-            return !UnitHudSelectionPolicy.SelectionIdentityEquals(
-                lastTroopSelectionIds,
-                lastTroopSelectionTypes,
-                ids,
-                types,
-                count);
+            if (lastTroopSelectionIds.Length != selection.Count)
+                return true;
+            for (int index = 0; index < selection.Count; index++)
+                if (lastTroopSelectionIds[index] != selection[index].UnitId ||
+                    lastTroopSelectionTypes[index] != selection[index].UnitType)
+                    return true;
+            return false;
         }
 
         private void RememberRenderedTroopSelection()
         {
-            if (!TryGetTroopSelectionIdentity(out int[] sourceIds, out int[] sourceTypes, out int count))
+            if (!TryGetTroopSelection(out LocalSelectionSnapshot selection))
             {
                 hasRenderedTroopSelection = false;
                 return;
             }
+            int count = selection.Count;
             if (lastTroopSelectionIds.Length != count)
             {
                 lastTroopSelectionIds = new int[count];
                 lastTroopSelectionTypes = new int[count];
             }
-            Array.Copy(sourceIds, lastTroopSelectionIds, count);
-            Array.Copy(sourceTypes, lastTroopSelectionTypes, count);
+            for (int index = 0; index < count; index++)
+            {
+                lastTroopSelectionIds[index] = selection[index].UnitId;
+                lastTroopSelectionTypes[index] = selection[index].UnitType;
+            }
             hasRenderedTroopSelection = true;
         }
 
-        private static bool TryGetTroopSelectionIdentity(out int[] ids, out int[] types, out int count)
+        private static bool TryGetTroopSelection(out LocalSelectionSnapshot selection)
         {
-            ids = null;
-            types = null;
-            count = 0;
-            EngineInterface.PlayState state = GameData.Instance?.lastGameState;
-            if (state == null || state.numSelectedChimps < 0 || state.selectedChimps == null ||
-                state.selectedChimpTypes == null || state.selectedChimps.Length < state.numSelectedChimps ||
-                state.selectedChimpTypes.Length < state.numSelectedChimps)
-                return false;
-            count = state.numSelectedChimps;
-            ids = state.selectedChimps;
-            types = state.selectedChimpTypes;
-            return true;
+            int localPlayerId = GetSelectionPlayerId();
+            return LocalSelectionAPI.TryCapture(localPlayerId, out selection);
         }
+
+        private static int GetSelectionPlayerId() => Shared.GameModeHelper.IsMapEditor()
+            ? EditorDirector.instance?.ActivePlayerID ?? -1
+            : GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? -1;
 
         private static bool TryCapture(int unitId, out UnitHudUnitSnapshot snapshot)
         {

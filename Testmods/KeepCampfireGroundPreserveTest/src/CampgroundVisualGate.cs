@@ -14,11 +14,12 @@ namespace KeepCampfireGroundPreserveTest
         internal const int DisplacedBytes = 16;
         internal const int BuildingTypeOffsetFromImage = 0x64CCCDE;
         internal const int CampgroundType = 0x37;
-        // These five adjacent tiles are the dark centre and four stone/fire
-        // edges in the installed GM_BUILDINGS1 sprites. This is a game-test
-        // candidate; the separate cauldron/flame effects still need checking.
+        // The nine central GM_BUILDINGS1 tiles form the complete stone ring.
+        // Cauldron and flame appear only after workers arrive in Vanilla.
         internal static readonly int[] FirePatchGraphics = {
-            0x00060029, 0x0006002A, 0x00060030, 0x00060036, 0x00060037
+            0x00060024, 0x00060029, 0x0006002A,
+            0x0006002F, 0x00060030, 0x00060031,
+            0x00060036, 0x00060037, 0x0006003C
         };
 
         internal static readonly byte[] HookBytes = {

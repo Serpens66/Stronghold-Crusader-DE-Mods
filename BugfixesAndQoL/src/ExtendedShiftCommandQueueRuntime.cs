@@ -2584,9 +2584,9 @@ namespace BugfixesAndQoL
             int localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
             if (localPlayerId < 1 || localPlayerId > 8)
                 return false;
-            if (!LocalSelectionSnapshot.TryCapture(localPlayerId, out SelectedUnitInfo[] selectedUnits))
+            if (!LocalSelectionSnapshot.TryCapture(localPlayerId, out APIShared.LocalSelectionSnapshot selectedUnits))
                 return false;
-            for (int index = 0; index < selectedUnits.Length; index++)
+            for (int index = 0; index < selectedUnits.Count; index++)
             {
                 int unitId = selectedUnits[index].UnitId;
                 if (!GameUnitManagerAPI.Instance.IsValidId(unitId) ||

@@ -133,6 +133,27 @@
             registrations run synchronously.
             </summary>
         </member>
+        <member name="T:APIShared.LocalSelectionSnapshot">
+            <summary>An immutable copy of one local player's last completed selection.</summary>
+        </member>
+        <member name="P:APIShared.LocalSelectionSnapshot.PlayerId">
+            <summary>The one-based local player ID used to capture this selection.</summary>
+        </member>
+        <member name="P:APIShared.LocalSelectionSnapshot.Count">
+            <summary>The number of selected units.</summary>
+        </member>
+        <member name="P:APIShared.LocalSelectionSnapshot.Item(System.Int32)">
+            <summary>Gets the selected unit ID and type at an index without exposing the backing array.</summary>
+        </member>
+        <member name="T:APIShared.LocalSelectionAPI">
+            <summary>Shares a demand-driven selection snapshot between runtime mods.</summary>
+        </member>
+        <member name="M:APIShared.LocalSelectionAPI.TryCapture(System.Int32,APIShared.LocalSelectionSnapshot@)">
+            <summary>
+            Copies the local selection from one completed Vanilla play state. An unchanged
+            selection reuses its immutable snapshot, even when Vanilla publishes a new tick.
+            </summary>
+        </member>
         <member name="T:APIShared.MissionMapType">
             <summary>Map objective subtype, independent of campaign/trail/editor provenance.</summary>
         </member>

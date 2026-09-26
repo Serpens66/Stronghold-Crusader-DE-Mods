@@ -443,8 +443,9 @@ namespace BugfixesAndQoL
                 "\\\"MinimumScriptExtenderVersion\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"").Groups[1].Value;
             Check(!string.IsNullOrEmpty(requiredExtender) &&
                   plugin.Contains("[BepInDependency(ScriptExtenderGuid, \"" + requiredExtender + "\")]") &&
-                  File.ReadAllText(Path.Combine("src", "LocalSelectionSnapshot.cs")).Contains("GetSelectedChimps()"),
-                "BugfixesAndQoL selection API and Script Extender dependency agree with the manifest");
+                  File.ReadAllText(Path.Combine("src", "LocalSelectionSnapshot.cs")).Contains("LocalSelectionAPI.TryCapture") &&
+                  plugin.Contains("[BepInDependency(ApiSharedGuid, \"0.4.2\")]"),
+                "BugfixesAndQoL selection API and dependencies agree with the manifest");
         }
 
         private static void TestTransientSelectionGuards()
@@ -462,15 +463,13 @@ namespace BugfixesAndQoL
             Check(health.Contains(
                     "int unitId = state.selectedChimps[index];" + Environment.NewLine +
                     "                    if (unitId <= 0) continue;") &&
-                  drag.Contains("GetSelectedChimpsCount(localPlayerId)") &&
-                  drag.Contains("catch (ArgumentOutOfRangeException)") &&
-                  drag.Contains("selection-count-transient") &&
-                  assassin.Contains("GetSelectedChimpsCount(playerId)") &&
-                  assassin.Contains("SelectedChimpsSnapshotPolicy.IsPlausibleCount(selectedCount)") &&
-                  assassin.Contains("catch (ArgumentOutOfRangeException)") &&
-                  assassin.Contains("catch (OverflowException)") &&
-                  assassin.Contains("selectionCountTransient || expectedSelectedCount > 0"),
-                "transient dead-unit and invalid selection states remain local fail-closed HUD rejections");
+                  drag.Contains("LocalSelectionSnapshot.TryCapture(localPlayerId") &&
+                  drag.Contains("selection-unavailable") &&
+                  assassin.Contains("APIShared.LocalSelectionAPI.TryCapture(") &&
+                  assassin.Contains("ReferenceEquals(selected, lastSelectionSnapshot)") &&
+                  !drag.Contains("GetSelectedChimps") &&
+                  !assassin.Contains("GetSelectedChimps"),
+                "transient selection states fail closed without the warning-producing Extender reader");
         }
 
         private static void TestFriendlyMoatCursorIdGuard()

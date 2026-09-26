@@ -366,19 +366,19 @@ namespace BugfixesAndQoL
                 allResolved = false;
                 return;
             }
-            if (!LocalSelectionSnapshot.TryCapture(localPlayerId, out SelectedUnitInfo[] selected))
+            if (!LocalSelectionSnapshot.TryCapture(localPlayerId, out APIShared.LocalSelectionSnapshot selected))
             {
                 allResolved = false;
                 return;
             }
-            if (selected == null || selected.Length == 0 || GameUnitManagerAPI.Instance == null)
+            if (selected == null || selected.Count == 0 || GameUnitManagerAPI.Instance == null)
             {
                 allResolved = false;
                 return;
             }
 
-            selectedCount = selected.Length;
-            for (int index = 0; index < selected.Length; index++)
+            selectedCount = selected.Count;
+            for (int index = 0; index < selected.Count; index++)
             {
                 int unitId = selected[index].UnitId;
                 if (unitId <= 0 ||

@@ -1765,20 +1765,11 @@ namespace ExtraFeatures
         {
             try
             {
-                GamePlayerManagerAPI playerApi = GamePlayerManagerAPI.Instance;
                 int playerId = GetSelectionPlayerId();
-                if (playerId < 1 || playerId > 8 || playerId != playerApi.GetLocalPlayerId())
+                if (!APIShared.LocalSelectionAPI.TryCapture(playerId, out APIShared.LocalSelectionSnapshot selected))
                     return Array.Empty<int>();
-                int selectedCount = playerApi.GetSelectedChimpsCount(playerId);
-                if (!Shared.SelectedChimpsSnapshotPolicy.IsPlausibleCount(selectedCount))
-                    return Array.Empty<int>();
-
-                SelectedUnitInfo[] selected =
-                    playerApi.GetSelectedChimps() ?? Array.Empty<SelectedUnitInfo>();
-                if (selected.Length != selectedCount)
-                    return Array.Empty<int>();
-                int[] unitIds = new int[selected.Length];
-                for (int index = 0; index < selected.Length; index++)
+                int[] unitIds = new int[selected.Count];
+                for (int index = 0; index < selected.Count; index++)
                     unitIds[index] = selected[index].UnitId;
                 return unitIds;
             }

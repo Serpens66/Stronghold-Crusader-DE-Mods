@@ -20,6 +20,7 @@ namespace KeepCampfireGroundPreserveTest
         private static ManualLogSource log;
         private static GroundPreserveRuntime runtime;
         private static CampgroundNativeHook nativeHook;
+        private static TerrainPhaseDiagnostic terrainPhase;
         private static IMissionLifecycleCapability lifecycle;
 
         private void Awake()
@@ -64,6 +65,18 @@ namespace KeepCampfireGroundPreserveTest
             catch (Exception ex)
             {
                 Error("native graphic suppression unavailable; read-only diagnosis remains: " + ex);
+            }
+            if (nativeHook != null)
+            {
+                try
+                {
+                    terrainPhase = TerrainPhaseDiagnostic.TryCreate(context, log, Write);
+                    candidate.SetTerrainPhase(terrainPhase);
+                }
+                catch (Exception ex)
+                {
+                    Error("terrain-phase diagnosis unavailable; campground test remains active: " + ex);
+                }
             }
         }
 

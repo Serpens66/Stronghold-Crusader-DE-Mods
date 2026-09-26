@@ -408,11 +408,11 @@ namespace BugfixesAndQoL
             globalIds = null;
             if (playerId < 1 || playerId > 8)
                 return false;
-            if (!LocalSelectionSnapshot.TryCapture(playerId, out SelectedUnitInfo[] selected))
+            if (!LocalSelectionSnapshot.TryCapture(playerId, out APIShared.LocalSelectionSnapshot selected))
                 return false;
             var ids = new List<int>();
             var unique = new HashSet<int>();
-            for (int index = 0; index < selected.Length; index++)
+            for (int index = 0; index < selected.Count; index++)
             {
                 int unitId = selected[index].UnitId;
                 if (unitId <= 0 ||

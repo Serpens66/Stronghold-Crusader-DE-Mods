@@ -87,20 +87,6 @@ namespace BugfixesAndQoL
         public int GetLocalPlayerId() => 1;
         public int? SelectionCountOverride;
         public int GetSelectedChimpsCount(int playerId) => SelectionCountOverride ?? EngineInterface.Selection.Length / 2;
-        public SelectedUnitInfo[] GetSelectedChimps()
-        {
-            int[] selected = EngineInterface.Selection;
-            var result = new SelectedUnitInfo[selected.Length / 2];
-            for (int index = 0; index < result.Length; index++)
-            {
-                result[index] = new SelectedUnitInfo
-                {
-                    UnitId = selected[index * 2],
-                    UnitType = selected[index * 2 + 1]
-                };
-            }
-            return result;
-        }
     }
     internal unsafe class GameTileManagerAPI
     {
@@ -1245,4 +1231,38 @@ namespace BugfixesAndQoL {
   internal bool EnableLadderAttackPathfindingFix=true;
   internal int RouteMode=1;
  }
+}
+
+namespace APIShared
+{
+    internal sealed class LocalSelectionSnapshot
+    {
+        private readonly BugfixesAndQoL.SelectedUnitInfo[] units;
+        internal LocalSelectionSnapshot(BugfixesAndQoL.SelectedUnitInfo[] units) { this.units = units; }
+        internal int Count => units.Length;
+        internal BugfixesAndQoL.SelectedUnitInfo this[int index] => units[index];
+    }
+
+    internal static class LocalSelectionAPI
+    {
+        internal static bool TryCapture(int expectedPlayerId, out LocalSelectionSnapshot snapshot)
+        {
+            snapshot = null;
+            var players = BugfixesAndQoL.GamePlayerManagerAPI.Instance;
+            if (expectedPlayerId < 1 || expectedPlayerId > 8 || players.GetLocalPlayerId() != expectedPlayerId)
+                return false;
+            int[] selected = global::EngineInterface.Selection;
+            int count = players.GetSelectedChimpsCount(expectedPlayerId);
+            if (selected == null || count < 0 || count > 10000 || count * 2 != selected.Length)
+                return false;
+            var units = new BugfixesAndQoL.SelectedUnitInfo[count];
+            for (int index = 0; index < count; index++)
+                units[index] = new BugfixesAndQoL.SelectedUnitInfo
+                {
+                    UnitId = selected[index * 2], UnitType = selected[index * 2 + 1]
+                };
+            snapshot = new LocalSelectionSnapshot(units);
+            return true;
+        }
+    }
 }

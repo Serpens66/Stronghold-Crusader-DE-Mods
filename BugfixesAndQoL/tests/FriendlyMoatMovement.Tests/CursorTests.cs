@@ -151,7 +151,7 @@ namespace BugfixesAndQoL
             try
             {
                 Check(Hover()==1 && nativeCalls==0,"complete selection -> scope -> pair -> native positive cursor branch without a ground detour");
-                Check(GamePlayerManagerAPI.Instance.GetSelectedChimps()[0].UnitId==1,
+                Check(LocalSelectionSnapshot.TryCapture(1,out var initialSelection) && initialSelection[0].UnitId==1,
                     "the selected-unit projection preserves the 1-based unit ID");
                 Check(!LocalSelectionSnapshot.TryCapture(0, out _) &&
                     !LocalSelectionSnapshot.TryCapture(9, out _),
@@ -166,8 +166,8 @@ namespace BugfixesAndQoL
                 Check(!LocalSelectionSnapshot.TryCapture(1, out _),
                     "a count and snapshot mismatch is rejected");
                 GamePlayerManagerAPI.Instance.SelectionCountOverride = null;
-                Check(LocalSelectionSnapshot.TryCapture(1, out SelectedUnitInfo[] checkedSelection) &&
-                    checkedSelection.Length == 1 && checkedSelection[0].UnitId == 1,
+                Check(LocalSelectionSnapshot.TryCapture(1, out APIShared.LocalSelectionSnapshot checkedSelection) &&
+                    checkedSelection.Count == 1 && checkedSelection[0].UnitId == 1,
                     "a coherent local selection remains available");
                 foreach(int count in new[]{1,120,1000})
                 {

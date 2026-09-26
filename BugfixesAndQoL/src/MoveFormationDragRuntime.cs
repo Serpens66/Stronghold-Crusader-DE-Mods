@@ -885,29 +885,17 @@ namespace BugfixesAndQoL
             int localPlayerId = playerApi.GetLocalPlayerId();
             if (localPlayerId < 1 || localPlayerId > 8)
                 return false;
-            int selectedCount = playerApi.GetSelectedChimpsCount(localPlayerId);
-            if (!MoveFormationDragEligibility.IsUsableSelectionCount(selectedCount))
-                return false;
-
-            SelectedUnitInfo[] selected;
-            try
+            if (!LocalSelectionSnapshot.TryCapture(localPlayerId, out APIShared.LocalSelectionSnapshot selected))
             {
-                selected = playerApi.GetSelectedChimps();
-            }
-            catch (ArgumentOutOfRangeException)
-            {
-                // The Script Extender currently constructs its result list directly
-                // from a native count. A transient -1 must reject this gesture without
-                // permanently disabling the otherwise fail-open client feature.
-                rejection = "selection-count-transient";
+                rejection = "selection-unavailable";
                 return false;
             }
-            if (selected == null || selected.Length != selectedCount)
+            if (!MoveFormationDragEligibility.IsUsableSelectionCount(selected.Count))
                 return false;
 
-            identities = new SelectionIdentity[selected.Length];
+            identities = new SelectionIdentity[selected.Count];
             tribeId = -1;
-            for (int index = 0; index < selected.Length; index++)
+            for (int index = 0; index < selected.Count; index++)
             {
                 int unitId = selected[index].UnitId;
                 if (!GameUnitManagerAPI.Instance.TryGetUnitById(

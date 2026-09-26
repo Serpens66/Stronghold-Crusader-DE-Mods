@@ -25,12 +25,19 @@ if ($hook -notmatch 'if \(published\) throw' -or $hook -notmatch 'Interlocked\.E
     $hook -notmatch 'DisplacedByteCount != CampgroundVisualGate\.DisplacedBytes') {
     throw 'Published hook lifetime or installed-backend span guard missing.'
 }
-if ($runtimeText -match 'CodePatch\.Write|VirtualProtect|NativeDetour|\.Undo\s*\(|\.Apply\s*\(') {
+if ($runtimeText -match 'CodePatch\.Write|VirtualProtect|\.Undo\s*\(|\.Apply\s*\(|\.Disable\s*\(') {
     throw 'Unexpected executable-code mutation mechanism.'
 }
-if (($runtimeText | Select-String -Pattern '\.Dispose\s*\(' -AllMatches).Matches.Count -ne 1 -or
-    $hook -notmatch 'transaction\?\.Dispose\(\)') {
+if (($runtimeText | Select-String -Pattern '\.Dispose\s*\(' -AllMatches).Matches.Count -ne 2 -or
+    $hook -notmatch 'transaction\?\.Dispose\(\)' -or
+    $runtimeText -notmatch 'private void RollbackUnpublished\(\)' -or
+    $runtimeText -notmatch 'Published terrain hooks must remain installed') {
     throw 'Unexpected hook teardown path.'
+}
+if (($runtimeText | Select-String -Pattern 'transaction\.AddDetour\(' -AllMatches).Matches.Count -ne 2 -or
+    $runtimeText -notmatch 'terrainPhase\?\.FlushCompleted\(\)' -or
+    $runtimeText -notmatch 'TerrainPhaseDiagnostic\.TryCreate') {
+    throw 'Terrain phase hooks or long-lived diagnosis path missing.'
 }
 if ($runtimeText -notmatch 'BuildingR3EventHooks\.OnBuildingSpawn' -or
     $runtimeText -notmatch 'GameTimeManagerAPI\.Instance\.OnTick' -or

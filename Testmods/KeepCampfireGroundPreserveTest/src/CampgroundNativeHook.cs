@@ -122,7 +122,7 @@ namespace KeepCampfireGroundPreserveTest
                 throw new InvalidOperationException("Graphic-store hook commit failed validation: " + result);
             published = true;
             write("HOOK READY: store RVA=0x6F0A0 span=16 continuation=0x6F0B0 " +
-                "campground-skip=0x6F0D8; fire-patch sprites=0x29,0x2A,0x30,0x36,0x37; " +
+                "campground-skip=0x6F0D8; fire-patch sprites=0x24,0x29,0x2A,0x2F,0x30,0x31,0x36,0x37,0x3C; " +
                 "inactive until allowed mission; " +
                 "RedBird=" + typeof(X64InlineHook).Assembly.GetName().Version);
         }
