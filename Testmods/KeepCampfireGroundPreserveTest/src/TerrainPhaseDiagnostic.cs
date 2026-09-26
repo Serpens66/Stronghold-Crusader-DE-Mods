@@ -45,8 +45,11 @@ namespace KeepCampfireGroundPreserveTest
         private bool published;
         private int armed;
         private string failure;
+        private TerrainStoreTrace storeTrace;
 
         private TerrainPhaseDiagnostic(Action<string> log) { this.log = log; }
+
+        internal void SetStoreTrace(TerrainStoreTrace value) => storeTrace = value;
 
         internal static TerrainPhaseDiagnostic TryCreate(CrusaderLibraryLoadContext context,
             ManualLogSource logger, Action<string> log)
@@ -59,6 +62,7 @@ namespace KeepCampfireGroundPreserveTest
         internal void SetEnabled(bool enabled)
         {
             Interlocked.Exchange(ref armed, enabled ? 1 : 0);
+            if (!enabled) storeTrace?.Disarm();
             if (!enabled) lock (gate) target = null;
         }
 
@@ -83,9 +87,11 @@ namespace KeepCampfireGroundPreserveTest
                     next.Y.Add(ty);
                 }
                 if (next.Ids.Count == 0) return;
+                CaptureBeforeKeep(api, next);
                 target = next;
+                storeTrace?.Arm();
                 log("terrain-phase armed keep player=" + playerId + " origin=" + x + "," + y +
-                    " tiles=" + next.Ids.Count + " baseline=first-observed-before-recalculation");
+                    " tiles=" + next.Ids.Count + " baseline=building-spawn-pre");
             }
         }
 
@@ -98,14 +104,89 @@ namespace KeepCampfireGroundPreserveTest
                 if (ready == null || (ready.Stage != 4 && failure == null)) return;
                 target = null;
             }
+            storeTrace?.Disarm();
             if (failure != null) { log("terrain-phase failed: " + failure); failure = null; return; }
+            ReportBeforeKeep(ready);
             Report(ready, 0, 1, "recalculate-0x65830");
+            ReportStores(ready);
+            ReportOtherFreeChanges(ready);
             Report(ready, 2, 3, "fill-0x650C0");
-            int changed = 0;
+            int changed = 0, changedFromPreKeep = 0;
             for (int i = 0; i < ready.Ids.Count; i++)
+            {
                 if (ready.Frames[0][i].Gfx != ready.Frames[3][i].Gfx) changed++;
+                if (ready.PreKeep[i].Gfx != ready.Frames[3][i].Gfx)
+                    changedFromPreKeep++;
+            }
             log("terrain-phase complete keep=" + ready.X0 + "," + ready.Y0 +
-                " finalGfxChangedFromFirstObserved=" + changed + " tiles=" + ready.Ids.Count);
+                " finalGfxChangedFromFirstObserved=" + changed +
+                " finalGfxChangedFromPreKeep=" + changedFromPreKeep +
+                " tiles=" + ready.Ids.Count);
+        }
+
+        private static void CaptureBeforeKeep(GameTileManagerAPI api, Target item)
+        {
+            Span<int> gfx = api.GetGfxLayer(), alpha = api.GetAlphaGfxLayer();
+            Span<int> logic = api.GetLogicLayer();
+            Span<byte> logic2 = api.GetLogic2Layer(), lum = api.GetLuminescenceLayer();
+            Span<byte> changed = api.GetChangedLayer();
+            Span<ushort> structure = api.GetStructureLayer();
+            Span<short> macro = api.GetMacroLayer();
+            for (int i = 0; i < item.Ids.Count; i++) {
+                int id = item.Ids[i];
+                item.PreKeep[i] = new TileRecord {
+                    Gfx = gfx[id], Alpha = alpha[id], Logic = logic[id],
+                    Logic2 = logic2[id], Luminescence = lum[id], Changed = changed[id],
+                    Structure = structure[id], Macro = unchecked((ushort)macro[id])
+                };
+            }
+        }
+
+        private void ReportBeforeKeep(Target item)
+        {
+            int changed = 0, free = 0, examples = 0;
+            for (int i = 0; i < item.Ids.Count; i++) {
+                TileRecord before = item.PreKeep[i], after = item.Frames[0][i];
+                if (before.Gfx == after.Gfx && before.Alpha == after.Alpha) continue;
+                changed++;
+                if (before.Structure == 0 && after.Structure == 0) {
+                    free++;
+                    if (examples++ < 24)
+                        log("terrain-prekeep free tile=" + item.X[i] + "," + item.Y[i] +
+                            " gfx=0x" + before.Gfx.ToString("X8") + "->0x" +
+                            after.Gfx.ToString("X8") + " alpha=0x" +
+                            before.Alpha.ToString("X8") + "->0x" +
+                            after.Alpha.ToString("X8"));
+                }
+            }
+            log("terrain-prekeep summary changed=" + changed + " freeToFree=" + free +
+                " examples=" + Math.Min(examples, 24));
+        }
+
+        private void ReportOtherFreeChanges(Target item)
+        {
+            int changed = 0, withoutZeroHit = 0, examples = 0;
+            for (int i = 0; i < item.Ids.Count; i++) {
+                TileRecord before = item.Frames[0][i], after = item.Frames[1][i];
+                if (before.Structure != 0 || after.Structure != 0 ||
+                    (before.Gfx == after.Gfx && before.Alpha == after.Alpha)) continue;
+                changed++;
+                if (storeTrace != null && storeTrace.Hit(2, item.Ids[i])) continue;
+                withoutZeroHit++;
+                if (examples++ < 32)
+                    log("terrain-other-free tile=" + item.X[i] + "," + item.Y[i] +
+                        " gfx=0x" + before.Gfx.ToString("X8") + "->0x" +
+                        after.Gfx.ToString("X8") + " alpha=0x" +
+                        before.Alpha.ToString("X8") + "->0x" +
+                        after.Alpha.ToString("X8") + " logic=0x" +
+                        before.Logic.ToString("X8") + "->0x" +
+                        after.Logic.ToString("X8") + " macro=0x" +
+                        before.Macro.ToString("X4") + "->0x" +
+                        after.Macro.ToString("X4"));
+            }
+            log("terrain-other-free summary changed=" + changed +
+                " without-0x6901D-hit=" + withoutZeroHit +
+                " examples=" + Math.Min(examples, 32));
         }
 
         private void Report(Target item, int from, int to, string phase)
@@ -136,6 +217,40 @@ namespace KeepCampfireGroundPreserveTest
             log("terrain-phase summary=" + phase + " graphicChanged=" + changed +
                 " freeToFree=" + free + " nonzeroToZero=" + zeroed +
                 " examples=" + Math.Min(examples, MaxExamplesPerPhase));
+        }
+
+        private void ReportStores(Target item)
+        {
+            if (storeTrace == null) return;
+            int changedFree = 0, zeroedFree = 0, zeroedWithHit = 0;
+            int[] hits = new int[TerrainStoreTrace.Sites.Length];
+            int[] freeHits = new int[hits.Length];
+            int[] zeroedHits = new int[hits.Length];
+            for (int i = 0; i < item.Ids.Count; i++)
+            {
+                TileRecord before = item.Frames[0][i], after = item.Frames[1][i];
+                bool free = before.Structure == 0 && after.Structure == 0;
+                bool changed = before.Gfx != after.Gfx;
+                bool zeroed = free && before.Gfx != 0 && after.Gfx == 0;
+                if (free && changed) changedFree++;
+                if (zeroed) zeroedFree++;
+                bool anyHit = false;
+                for (int site = 0; site < hits.Length; site++)
+                    if (storeTrace.Hit(site, item.Ids[i])) {
+                        hits[site]++;
+                        if (free) freeHits[site]++;
+                        if (zeroed) zeroedHits[site]++;
+                        anyHit = true;
+                    }
+                if (zeroed && anyHit) zeroedWithHit++;
+            }
+            for (int site = 0; site < hits.Length; site++)
+                log("terrain-store site=0x" + TerrainStoreTrace.Sites[site].ToString("X") +
+                    " hits=" + hits[site] + " freeHits=" + freeHits[site] +
+                    " zeroedFreeHits=" + zeroedHits[site]);
+            log("terrain-store coverage changedFree=" + changedFree +
+                " zeroedFree=" + zeroedFree + " zeroedWithAnyHit=" + zeroedWithHit +
+                " window=" + item.Ids.Count);
         }
 
         private void RecalculateHook(IntPtr manager)
@@ -245,6 +360,7 @@ namespace KeepCampfireGroundPreserveTest
                 new TileRecord[Side * Side], new TileRecord[Side * Side],
                 new TileRecord[Side * Side], new TileRecord[Side * Side]
             };
+            internal readonly TileRecord[] PreKeep = new TileRecord[Side * Side];
             internal int Stage;
             internal Target(int playerId, int x, int y) { X0 = x; Y0 = y; }
         }

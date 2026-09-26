@@ -3,13 +3,21 @@
   "Author": "Serpens66",
   "Name": "Outpost Test",
   "Description": "Singleplayer Macemen test: incremental AI groups; human units use Hold and per-outpost middle-click rallypoints saved with the game. Vanilla production and guard replacement are suppressed.",
-  "Version": "0.1.1",
-  "MinimumScriptExtenderVersion": "2.7.1",
+  "Version": "0.1.2",
+  "MinimumScriptExtenderVersion": "2.10.4",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
-  "SupportedGameVersions": ["2.8.0.1"],
+  "SupportedGameVersions": [
+    "2.8.0.1"
+  ],
   "SerpChangelog": [
+    {
+      "Version": "0.1.2",
+      "Changes": [
+        "Updated building access coordinates for Script Extender 2.10.4."
+      ]
+    },
     {
       "Version": "0.1.1",
       "Changes": [

@@ -8,8 +8,8 @@
     <OutputType>Library</OutputType>
     <RootNamespace>BugfixesAndQoL</RootNamespace>
     <AssemblyName>BugfixesAndQoL</AssemblyName>
-    <AssemblyVersion>1.0.166.0</AssemblyVersion>
-    <FileVersion>1.0.166.0</FileVersion>
+    <AssemblyVersion>1.0.168.0</AssemblyVersion>
+    <FileVersion>1.0.168.0</FileVersion>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -62,6 +62,7 @@
     <Compile Include="..\Shared\CrashBreadcrumbRecorder.cs"><Link>Shared\CrashBreadcrumbRecorder.cs</Link></Compile>
     <Compile Include="..\Shared\DebugLogHelper.cs"><Link>Shared\DebugLogHelper.cs</Link></Compile>
     <Compile Include="..\Shared\DependencyFreeJson.cs"><Link>Shared\DependencyFreeJson.cs</Link></Compile>
+    <Compile Include="..\Shared\NativeBuildingCompoundGroup.cs"><Link>Shared\NativeBuildingCompoundGroup.cs</Link></Compile>
     <Compile Include="..\Shared\UnityMainThreadDispatch.cs"><Link>Shared\UnityMainThreadDispatch.cs</Link></Compile>
     <Compile Include="..\Shared\NativePatternResolver.cs"><Link>Shared\NativePatternResolver.cs</Link></Compile>
     <Compile Include="..\Shared\SerpLocalization.cs"><Link>Shared\SerpLocalization.cs</Link></Compile>

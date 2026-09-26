@@ -9,6 +9,7 @@ using RedBird.Abstractions.Hooks;
 using RedBird.Abstractions.Hooks.Transaction;
 using RedBird.X64.Hooks;
 using RedBird.X64.Hooks.Transaction;
+using SHCDESE.API;
 using SHCDESE.API.LowLevel;
 using Shared;
 
@@ -30,7 +31,9 @@ namespace KeepCampfireGroundPreserveTest
 
         internal bool IsPublished => published;
         internal long SuppressedStores => state == IntPtr.Zero ? 0 : Marshal.ReadInt64(state, 8);
-        internal long FirePatchStores => state == IntPtr.Zero ? 0 : Marshal.ReadInt64(state, 16);
+        internal int CapturedGraphic(int tileId) => published && state != IntPtr.Zero &&
+            tileId >= 0 && tileId < CampgroundVisualGate.TileCapacity
+                ? Marshal.ReadInt32(state, CampgroundVisualGate.CaptureOffset + tileId * 4) : 0;
 
         internal static CampgroundNativeHook TryCreate(CrusaderLibraryLoadContext context,
             ManualLogSource log, Action<string> write)
@@ -52,6 +55,29 @@ namespace KeepCampfireGroundPreserveTest
         {
             if (!published || state == IntPtr.Zero) return;
             Interlocked.Exchange(ref *(int*)state.ToPointer(), enabled ? 1 : 0);
+        }
+
+        internal void ClearCapturedGraphics()
+        {
+            if (!published || state == IntPtr.Zero) return;
+            SetEnabled(false);
+            byte[] empty = new byte[CampgroundVisualGate.TileCapacity * 4];
+            Marshal.Copy(empty, 0, IntPtr.Add(state, CampgroundVisualGate.CaptureOffset),
+                empty.Length);
+        }
+
+        internal void ClearCapturedFootprint(int x, int y)
+        {
+            if (!published || state == IntPtr.Zero) return;
+            GameTileManagerAPI api = GameTileManagerAPI.Instance;
+            for (int dy = 0; dy < 7; dy++)
+            for (int dx = 0; dx < 7; dx++) {
+                int tx = x + dx, ty = y + dy;
+                if (!api.IsTileInsideMapBounds(tx, ty)) continue;
+                int tileId = api.GetTileId(tx, ty);
+                if (tileId < 0 || tileId >= CampgroundVisualGate.TileCapacity) continue;
+                Marshal.WriteInt32(state, CampgroundVisualGate.CaptureOffset + tileId * 4, 0);
+            }
         }
 
         private void Install(CrusaderLibraryLoadContext context, ManualLogSource log,
@@ -98,10 +124,11 @@ namespace KeepCampfireGroundPreserveTest
                 if (probe.DisplacedByteCount != CampgroundVisualGate.DisplacedBytes)
                     throw new InvalidOperationException("Installed RedBird displaced a different span.");
 
-            state = Marshal.AllocHGlobal(24);
-            Marshal.WriteInt64(state, 0, 0);
-            Marshal.WriteInt64(state, 8, 0);
-            Marshal.WriteInt64(state, 16, 0);
+            state = Marshal.AllocHGlobal(CampgroundVisualGate.CaptureOffset +
+                CampgroundVisualGate.TileCapacity * 4);
+            Marshal.Copy(new byte[CampgroundVisualGate.CaptureOffset +
+                CampgroundVisualGate.TileCapacity * 4], 0, state,
+                CampgroundVisualGate.CaptureOffset + CampgroundVisualGate.TileCapacity * 4);
             transaction = new HookTransaction(context.Region,
                 SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
                 new HookTransactionOptions {
@@ -122,7 +149,8 @@ namespace KeepCampfireGroundPreserveTest
                 throw new InvalidOperationException("Graphic-store hook commit failed validation: " + result);
             published = true;
             write("HOOK READY: store RVA=0x6F0A0 span=16 continuation=0x6F0B0 " +
-                "campground-skip=0x6F0D8; fire-patch sprites=0x24,0x29,0x2A,0x2F,0x30,0x31,0x36,0x37,0x3C; " +
+                "campground-skip=0x6F0D8; Vanilla GFX captured by tile ID; " +
+                "all campground floor graphics suppressed; " +
                 "inactive until allowed mission; " +
                 "RedBird=" + typeof(X64InlineHook).Assembly.GetName().Version);
         }

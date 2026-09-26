@@ -3,13 +3,19 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.102",
+  "Version": "1.0.103",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
-  "MinimumScriptExtenderVersion": "2.10.0",
+  "MinimumScriptExtenderVersion": "2.10.4",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.103",
+      "Changes": [
+        "Updated building access coordinates and made AIV observer registration precede placement-hook installation for Script Extender 2.10.4."
+      ]
+    },
     {
       "Version": "1.0.102",
       "Changes": [

@@ -9,6 +9,7 @@
     <Compile Include="../../ImprovedHunters/src/GranaryChickenSpawnPolicy.cs" Link="GranaryChickenSpawnPolicy.cs" />
     <Compile Include="../../ImprovedHunters/src/HunterQueryActorPolicy.cs" Link="HunterQueryActorPolicy.cs" />
     <Compile Include="../../ImprovedHunters/src/ManualChickenAttackPolicy.cs" Link="ManualChickenAttackPolicy.cs" />
+    <Compile Include="../../ImprovedHunters/src/DispatchIndexStub.cs" Link="DispatchIndexStub.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="Iced">

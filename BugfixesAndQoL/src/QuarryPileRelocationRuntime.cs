@@ -80,9 +80,6 @@ namespace BugfixesAndQoL
         private const int VanillaMaximumPlacementTry = 9;
         private const int VanillaCandidateOffsetX = 0x31B7D0;
         private const int VanillaCandidateOffsetY = 0x31B7D4;
-        private const int VanillaGameBuildingSize = 0x32C;
-        private const int VanillaQuarryPileIdOffset = 0x192;
-        private const int VanillaStructureGroupIdOffset = 0x2A8;
         private const int ChoreProtocolVersion = 1;
         private const double AIQuarryReadinessTimeoutSeconds = 10.0;
 
@@ -159,6 +156,13 @@ namespace BugfixesAndQoL
         {
             try
             {
+                if (!referenceHashMatches)
+                {
+                    setupBuildingEntrancesOffset = null;
+                    LogInfo("quarry-pile relocation disabled because the native DLL hash is not audited.");
+                    return;
+                }
+
                 if (!ValidateVanillaBuildingLayout())
                 {
                     setupBuildingEntrancesOffset = null;
@@ -186,25 +190,17 @@ namespace BugfixesAndQoL
 
         private bool ValidateVanillaBuildingLayout()
         {
-            int buildingSize = System.Runtime.InteropServices.Marshal.SizeOf(typeof(GameBuilding));
-            int pileIdOffset = System.Runtime.InteropServices.Marshal.OffsetOf(
-                typeof(GameBuilding),
-                nameof(GameBuilding.r_StoneQuarry_StockPileBuildingId)).ToInt32();
-            int structureGroupOffset = System.Runtime.InteropServices.Marshal.OffsetOf(
-                typeof(GameBuilding),
-                nameof(GameBuilding.r_UsedInSiegeAttemptId)).ToInt32();
-            bool compatible = buildingSize == VanillaGameBuildingSize &&
-                pileIdOffset == VanillaQuarryPileIdOffset &&
-                structureGroupOffset == VanillaStructureGroupIdOffset;
+            bool compatible = Shared.NativeBuildingCompoundGroup.HasExpectedLayout(
+                out int buildingSize, out int pileIdOffset);
             if (!compatible)
             {
                 Shared.DebugLogHelper.LogError(
                     log,
-                    $"Bugfixes and QoL quarry-pile relocation was disabled because the GameBuilding layout is incompatible with Vanilla's structure-group deletion: size=0x{buildingSize:X}, pileIdOffset=0x{pileIdOffset:X}, structureGroupOffset=0x{structureGroupOffset:X}.");
+                    $"Bugfixes and QoL quarry-pile relocation was disabled because the GameBuilding layout is incompatible with Vanilla's structure-group deletion: size=0x{buildingSize:X}, pileIdOffset=0x{pileIdOffset:X}.");
                 return false;
             }
 
-            LogInfo($"validated Vanilla GameBuilding structure-group layout: size=0x{buildingSize:X}, pileIdOffset=0x{pileIdOffset:X}, structureGroupOffset=0x{structureGroupOffset:X}.");
+            LogInfo($"validated Vanilla GameBuilding structure-group layout: size=0x{buildingSize:X}, pileIdOffset=0x{pileIdOffset:X}, nativeGroupOffset=0x{Shared.NativeBuildingCompoundGroup.GroupOffset:X}.");
             return true;
         }
 
@@ -875,18 +871,18 @@ namespace BugfixesAndQoL
             }
 
             QuarryPileVanillaGroupResolution groupResolution = QuarryPileVanillaGroupPolicy.Resolve(
-                quarry->r_UsedInSiegeAttemptId,
-                oldPile->r_UsedInSiegeAttemptId);
+                Shared.NativeBuildingCompoundGroup.Read(quarry),
+                Shared.NativeBuildingCompoundGroup.Read(oldPile));
             if (!groupResolution.CanUse)
             {
                 LogErrorThreadSafe(
-                    $"Bugfixes and QoL rejected quarry-pile relocation because Vanilla structure groups are inconsistent: operationId={operation.OperationId}, quarryId={quarryId}, oldPileId={oldPileId}, quarryGroupId={quarry->r_UsedInSiegeAttemptId}, oldPileGroupId={oldPile->r_UsedInSiegeAttemptId}, status={groupResolution.Status}.");
+                    $"Bugfixes and QoL rejected quarry-pile relocation because Vanilla structure groups are inconsistent: operationId={operation.OperationId}, quarryId={quarryId}, oldPileId={oldPileId}, quarryGroupId={Shared.NativeBuildingCompoundGroup.Read(quarry)}, oldPileGroupId={Shared.NativeBuildingCompoundGroup.Read(oldPile)}, status={groupResolution.Status}.");
                 return false;
             }
 
             if (groupResolution.RepairsPileGroup)
             {
-                oldPile->r_UsedInSiegeAttemptId = groupResolution.GroupId;
+                Shared.NativeBuildingCompoundGroup.Write(oldPile, groupResolution.GroupId);
                 LogInfo($"repaired missing Vanilla structure group before relocation: operationId={operation.OperationId}, quarryId={quarryId}, pileId={oldPileId}, groupId={groupResolution.GroupId}.");
             }
 
@@ -914,20 +910,20 @@ namespace BugfixesAndQoL
             int newPileGlobalId = (int)newPile->r_GlobalId;
             ushort previousQuarryPileId = quarry->r_StoneQuarry_StockPileBuildingId;
             ushort previousOldPileQuarryId = oldPile->r_StoneQuarry_StockPileBuildingId;
-            uint previousOldPileGroupId = oldPile->r_UsedInSiegeAttemptId;
+            uint previousOldPileGroupId = Shared.NativeBuildingCompoundGroup.Read(oldPile);
             content.ApplyTo(newPile);
             newPile->r_CurrentHealth = previousCurrentHealth;
             newPile->r_MaxHealth = previousMaxHealth;
 
             // Vanilla deletes every building sharing this non-zero structure group. A directly
             // spawned quarry pile does not receive the quarry's group automatically.
-            newPile->r_UsedInSiegeAttemptId = groupResolution.GroupId;
+            Shared.NativeBuildingCompoundGroup.Write(newPile, groupResolution.GroupId);
             newPile->r_StoneQuarry_StockPileBuildingId = 0;
             quarry->r_StoneQuarry_StockPileBuildingId = checked((ushort)newPileId);
 
             // Detach the replaced pile before its asynchronous deletion so only the replacement
             // remains in Vanilla's multi-building structure group.
-            oldPile->r_UsedInSiegeAttemptId = 0;
+            Shared.NativeBuildingCompoundGroup.Write(oldPile, 0);
             if (QuarryPileVanillaGroupPolicy.IsLegacyReverseLink(quarryId, previousOldPileQuarryId))
                 oldPile->r_StoneQuarry_StockPileBuildingId = 0;
             ClearPileContentBeforeDeletion(oldPile);
@@ -937,10 +933,10 @@ namespace BugfixesAndQoL
             if (!oldPileMarkedForDeletion)
             {
                 quarry->r_StoneQuarry_StockPileBuildingId = previousQuarryPileId;
-                oldPile->r_UsedInSiegeAttemptId = previousOldPileGroupId;
+                Shared.NativeBuildingCompoundGroup.Write(oldPile, previousOldPileGroupId);
                 oldPile->r_StoneQuarry_StockPileBuildingId = previousOldPileQuarryId;
                 content.ApplyTo(oldPile);
-                newPile->r_UsedInSiegeAttemptId = 0;
+                Shared.NativeBuildingCompoundGroup.Write(newPile, 0);
                 newPile->r_StoneQuarry_StockPileBuildingId = 0;
                 newPile->r_StoneBlocksAmount = 0;
                 newPile->r_CurrentGoodStackAmount = 0;
@@ -1679,12 +1675,12 @@ namespace BugfixesAndQoL
                     pileId > 0 &&
                     GameBuildingManagerAPI.Instance.TryGetBuildingById(pileId, out pile) &&
                     IsAliveBuilding(pile, eStructs.STRUCT_QUARRYPILE, quarry.r_PlayerIdOwner);
-                uint pileGroupId = valid ? pile->r_UsedInSiegeAttemptId : 0;
+                uint pileGroupId = valid ? Shared.NativeBuildingCompoundGroup.Read(pile) : 0;
                 ushort pileLegacyReverseLink = valid ? pile->r_StoneQuarry_StockPileBuildingId : (ushort)0;
                 candidates.Add(new QuarryPileVanillaGroupCandidate(
                     quarryId,
                     pileId,
-                    quarry.r_UsedInSiegeAttemptId,
+                    Shared.NativeBuildingCompoundGroup.Read(ref quarry),
                     pileGroupId,
                     pileLegacyReverseLink,
                     valid));
@@ -1692,13 +1688,13 @@ namespace BugfixesAndQoL
                 if (valid)
                 {
                     QuarryPileVanillaGroupResolution resolution = QuarryPileVanillaGroupPolicy.Resolve(
-                        quarry.r_UsedInSiegeAttemptId,
+                        Shared.NativeBuildingCompoundGroup.Read(ref quarry),
                         pileGroupId);
                     if (!resolution.CanUse)
                     {
                         Shared.DebugLogHelper.LogWarning(
                             log,
-                            $"Bugfixes and QoL did not alter an inconsistent loaded quarry-pile Vanilla group: quarryId={quarryId}, pileId={pileId}, quarryGroupId={quarry.r_UsedInSiegeAttemptId}, pileGroupId={pileGroupId}, status={resolution.Status}.");
+                            $"Bugfixes and QoL did not alter an inconsistent loaded quarry-pile Vanilla group: quarryId={quarryId}, pileId={pileId}, quarryGroupId={Shared.NativeBuildingCompoundGroup.Read(ref quarry)}, pileGroupId={pileGroupId}, status={resolution.Status}.");
                     }
                 }
             }
@@ -1732,14 +1728,14 @@ namespace BugfixesAndQoL
                 }
 
                 QuarryPileVanillaGroupResolution currentResolution = QuarryPileVanillaGroupPolicy.Resolve(
-                    quarry->r_UsedInSiegeAttemptId,
-                    pile->r_UsedInSiegeAttemptId);
+                    Shared.NativeBuildingCompoundGroup.Read(quarry),
+                    Shared.NativeBuildingCompoundGroup.Read(pile));
                 if (!currentResolution.CanUse || currentResolution.GroupId != repair.GroupId)
                     continue;
 
                 if (repair.AssignPileGroup)
                 {
-                    pile->r_UsedInSiegeAttemptId = repair.GroupId;
+                    Shared.NativeBuildingCompoundGroup.Write(pile, repair.GroupId);
                     groupIdsCorrected++;
                 }
 

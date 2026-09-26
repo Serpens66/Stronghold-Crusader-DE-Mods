@@ -49,7 +49,7 @@ only these diagnostic paths.
 | Shared obstacle-height helper | `0x6B990` | reads tile flags, building identity/type and effective obstacle height |
 | Building-height type switch | `0x6B9F8` | dispatches building types `7..78` |
 | Building-height dispatch targets | `0x6BAB4` | entries `0..3`; entry `3` is the normal fixed-height case |
-| Building-type dispatch bytes | `0x6BAC4` | type `7`/Hunter's Hut is the first byte; Vanilla `0`, patched `3` |
+| Building-type dispatch bytes | `0x6BAC4` | type `7`/Hunter's Hut is the first byte; Vanilla `0`, reader-hook override `3` |
 | Building blocker-height table | `0x2E8C60` | type `7` already has normal blocker height `40` |
 | Hunter query visibility call | `0x18B0A2` | must resolve to wrapper `0xA06F0` |
 | Hunter direct-order visibility call | `0x18ED6A` | must resolve to wrapper `0xA06F0` |
@@ -196,13 +196,17 @@ normal value, so the effective behavior change is limited to obstacle-aware
 Hunter's Hut queries.
 
 On the audited hash the patch validates helper, switch, both tables, dispatch
-targets, original byte and height value before writing exactly RVA `0x6BAC4`
-from `0` to `3`. A changed hash requires a unique executable-section match for
-the type-switch pattern and then re-derives and validates every table address
-and target. Conflicting runtime values are never overwritten. Disabling the
-mod or Improved Pathfinding restores the owned byte. The correction remains
-disabled in real multiplayer and the map editor pending a feature-specific
-migration to the Script Extender Chore transport available since `1.41.0`.
+targets, original byte and height value before installing a permanent reader
+hook at `0x6BA0C` (17 displaced bytes). A changed hash requires a unique
+executable-section match for the type-switch pattern and then re-derives and
+validates every table address and target. The automatic chicken dispatch uses
+the same permanent reader stub at `0x18F2CA` (15 displaced bytes). Each stub
+emits its original index load and target load once. A disabled feature or a
+different source type executes both Vanilla loads; a matching source type
+selects the replacement index and then executes the original target load.
+Only an atomic data flag changes after hook publication. The hooks remain
+installed until process exit; both features stay disabled in real multiplayer
+and the map editor pending feature-specific synchronization.
 
 ### Native PCL reachability precheck calibration
 
@@ -332,7 +336,8 @@ normal no-target progression.
     table `0x6BAB4`, type table `0x6BAC4`, the Hunter's Hut mapping `7 -> 0`,
     special/normal targets `0x6BA3D` and `0x6BA41`, and blocker-height table
     `0x2E7C60` with type-7 value `40`. Confirm the patch still changes only the
-    first dispatch byte to `3` and restores it to `0`.
+    first dispatch index to `3` only for Hunter's Hut and otherwise preserves
+    Vanilla through the permanent reader hook at `0x6BA0C`.
 12. Revalidate PCL reachability RVA `0xE2610`, its unique entry signature,
     zero/nonzero return semantics, player-aware gate traversal, and the call at
     MoveHere RVA `0x1964D3`. Confirm the caller still passes public unit fields

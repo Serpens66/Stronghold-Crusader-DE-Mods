@@ -350,30 +350,6 @@
     ]
   },
   {
-    "Name": "SkirmishGameOptionsTest",
-    "Guid": "SkirmishGameOptionsTest_Serp",
-    "Manifest": "Testmods\\SkirmishGameOptionsTest\\info.json",
-    "Plugin": "Testmods\\SkirmishGameOptionsTest\\src\\SkirmishGameOptionsTestPlugin.cs",
-    "Project": "Testmods\\SkirmishGameOptionsTest\\SkirmishGameOptionsTest.csproj",
-    "BuildDriver": "Testmods\\SkirmishGameOptionsTest\\build.bat",
-    "Package": "Testmods\\SkirmishGameOptionsTest\\BepInEx\\plugins\\SkirmishGameOptionsTest_Serp",
-    "Install": "SkirmishGameOptionsTest_Serp",
-    "BuildOrder": 101,
-    "DependsOn": ["APIShared", "ExtraFeatures"]
-  },
-  {
-    "Name": "UnitSpawnReturnProbe",
-    "Guid": "UnitSpawnReturnProbe_Serp",
-    "Manifest": "Testmods\\UnitSpawnReturnProbe\\info.json",
-    "Plugin": "Testmods\\UnitSpawnReturnProbe\\src\\UnitSpawnReturnProbePlugin.cs",
-    "Project": "Testmods\\UnitSpawnReturnProbe\\UnitSpawnReturnProbe.csproj",
-    "BuildDriver": "Testmods\\UnitSpawnReturnProbe\\build.bat",
-    "Package": "Testmods\\UnitSpawnReturnProbe\\BepInEx\\plugins\\UnitSpawnReturnProbe_Serp",
-    "Install": "UnitSpawnReturnProbe_Serp",
-    "BuildOrder": 101,
-    "DependsOn": ["APIShared"]
-  },
-  {
     "Name": "SkinTest",
     "Guid": "SkinTest_Serp",
     "Manifest": "Testmods\\SkinTest\\info.json",
@@ -441,6 +417,48 @@
     "DependsOn": [],
     "Active": false,
     "InactiveReason": "Private backup/test mod; intentionally excluded from workspace update builds."
+  },
+  {
+    "Guid": "FixesTribeProbe_Serp",
+    "Active": false,
+    "Name": "FixesTribeProbe",
+    "Plugin": "Testmods\\FixesTribeProbe\\src\\FixesTribeProbePlugin.cs",
+    "DependsOn": [],
+    "InactiveReason": "Separate diagnostic; excluded from automatic Script Extender update builds.",
+    "Project": "Testmods\\FixesTribeProbe\\FixesTribeProbe.csproj",
+    "Install": "FixesTribeProbe_Serp",
+    "BuildOrder": 100,
+    "BuildDriver": "Testmods\\FixesTribeProbe\\build.bat",
+    "Manifest": "Testmods\\FixesTribeProbe\\info.json",
+    "Package": "Testmods\\FixesTribeProbe\\BepInEx\\plugins\\FixesTribeProbe_Serp"
+  },
+  {
+    "Guid": "KeepCampfireGroundPreserveTest_Serp",
+    "Active": false,
+    "Name": "KeepCampfireGroundPreserveTest",
+    "Plugin": "Testmods\\KeepCampfireGroundPreserveTest\\src\\KeepCampfireGroundPreserveTestPlugin.cs",
+    "DependsOn": ["APIShared"],
+    "InactiveReason": "Separate diagnostic; excluded from automatic Script Extender update builds.",
+    "Project": "Testmods\\KeepCampfireGroundPreserveTest\\KeepCampfireGroundPreserveTest.csproj",
+    "Install": "KeepCampfireGroundPreserveTest_Serp",
+    "BuildOrder": 100,
+    "BuildDriver": "Testmods\\KeepCampfireGroundPreserveTest\\build.bat",
+    "Manifest": "Testmods\\KeepCampfireGroundPreserveTest\\info.json",
+    "Package": "Testmods\\KeepCampfireGroundPreserveTest\\BepInEx\\plugins\\KeepCampfireGroundPreserveTest_Serp"
+  },
+  {
+    "Guid": "KeepCampfireGroundProbe_Serp",
+    "Active": false,
+    "Name": "KeepCampfireGroundProbe",
+    "Plugin": "Testmods\\KeepCampfireGroundProbe\\src\\KeepCampfireGroundProbePlugin.cs",
+    "DependsOn": ["APIShared"],
+    "InactiveReason": "Separate diagnostic; excluded from automatic Script Extender update builds.",
+    "Project": "Testmods\\KeepCampfireGroundProbe\\KeepCampfireGroundProbe.csproj",
+    "Install": "KeepCampfireGroundProbe_Serp",
+    "BuildOrder": 100,
+    "BuildDriver": "Testmods\\KeepCampfireGroundProbe\\build.bat",
+    "Manifest": "Testmods\\KeepCampfireGroundProbe\\info.json",
+    "Package": "Testmods\\KeepCampfireGroundProbe\\BepInEx\\plugins\\KeepCampfireGroundProbe_Serp"
   },
   {
     "Name": "TestMod LUA",

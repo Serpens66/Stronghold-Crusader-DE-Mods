@@ -61,6 +61,7 @@ namespace BugfixesAndQoL
             TestShcdeSeCoarseGridBufferWorkaround();
             TestAiStoneReserveIntegration();
             TestQuarryKeepCenterPolicy();
+            TestNativeBuildingCompoundGroup();
             TestAiWallTargetingIntegration();
             TestSingleBuildingPauseOverrideStore();
             TestAIResourceShortageSleepPolicy();
@@ -99,6 +100,7 @@ namespace BugfixesAndQoL
             TestBriefingNoStartingGoldFix();
             TestTimerCountdownMigration();
             TestNativePatternSearch();
+            TestApothecaryInteropLayout();
             TestNativeContracts();
             if (failures == 0)
             {
@@ -5248,11 +5250,11 @@ namespace BugfixesAndQoL
                 "AI accessibility hook replaces the woodcutter counter hook with the audited general sweep decision");
             Check(hook.Contains("registers->RSI") && hook.Contains("registers->R14") &&
                     hook.Contains("registers->RAX = unchecked((uint)effectiveResult)") &&
-                    hook.Contains("nameof(GameBuilding.r_AccessTilePositionX), 0xFE") &&
+                    hook.Contains("nameof(GameBuilding.r_TileAccessPositionX), 0xFE") &&
                     hook.Contains("nameof(GamePlayerResources.r_KeepTileId), 0xA0"),
                 "AI accessibility hook uses the audited register and managed-layout contracts");
-            Check(classifier.Contains("r_AccessTilePositionX") &&
-                    classifier.Contains("r_AccessTilePositionY") &&
+            Check(classifier.Contains("r_TileAccessPositionX") &&
+                    classifier.Contains("r_TileAccessPositionY") &&
                     classifier.Contains("r_KeepTileId") &&
                     classifier.Contains("PortalThirdPclOffsetDwords = 0x883") &&
                     classifier.Contains("IsPlayerAlliedTo") &&
@@ -5469,6 +5471,56 @@ namespace BugfixesAndQoL
                 "already-closed gates need no remembered open state and cache only within one tick");
         }
 
+        private static unsafe void TestApothecaryInteropLayout()
+        {
+            Check(Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.UnknownRelevant2)).ToInt32() == 0x32A &&
+                  Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.UnknownRelevant2_2)).ToInt32() == 0x32B &&
+                  typeof(GameUnit).StructLayoutAttribute.Size == 1168,
+                "apothecary transition bytes and GameUnit stride match the audited native layout");
+
+            GameUnit healer = default;
+            healer.UnknownRelevant2 = 0x20;
+            healer.UnknownRelevant2_2 = 0xFE;
+            byte* raw = (byte*)&healer;
+            Check(raw[0x32A] == 0x20 && raw[0x32B] == 0xFE &&
+                  *(ushort*)(raw + 0x32A) == 0xFE20,
+                "apothecary exit transition retains both native bytes in little-endian order");
+        }
+
+        private static unsafe void TestNativeBuildingCompoundGroup()
+        {
+            Check(Shared.NativeBuildingCompoundGroup.HasExpectedLayout(
+                    out int size, out int pileLinkOffset) &&
+                  size == 0x32C && pileLinkOffset == 0x192 &&
+                  Shared.NativeBuildingCompoundGroup.GroupOffset == 0x2A8,
+                "quarry compound-key address and building stride match the native contract");
+
+            GameBuilding building = default;
+            byte* raw = (byte*)&building;
+            *(uint*)(raw + 0x2AC) = 0xA1B2C3D4;
+            Shared.NativeBuildingCompoundGroup.Write(&building, 0x12345678);
+            Check(*(uint*)(raw + 0x2A8) == 0x12345678 &&
+                  Shared.NativeBuildingCompoundGroup.Read(&building) == 0x12345678 &&
+                  Shared.NativeBuildingCompoundGroup.Read(ref building) == 0x12345678 &&
+                  *(uint*)(raw + 0x2AC) == 0xA1B2C3D4,
+                "compound-key writes reach only native offset 0x2A8, including snapshot reads");
+
+            Shared.NativeBuildingCompoundGroup.Write(&building, 0);
+            Check(*(uint*)(raw + 0x2A8) == 0 && *(uint*)(raw + 0x2AC) == 0xA1B2C3D4,
+                "compound-key detach and rollback leave the adjacent SE field unchanged");
+
+            string root = FindProjectDirectory();
+            string runtime = File.ReadAllText(Path.Combine(root, "src", "QuarryPileRelocationRuntime.cs"));
+            string detector = File.ReadAllText(Path.GetFullPath(Path.Combine(root,
+                "..", "Helpers", "ActiveAIVDetector", "src", "OraclePrebuildStateCapture.cs")));
+            Check(!runtime.Contains("r_UsedInSiegeAttemptId") &&
+                  runtime.Contains("NativeBuildingCompoundGroup.Write(oldPile, 0)") &&
+                  runtime.Contains("NativeBuildingCompoundGroup.Write(oldPile, previousOldPileGroupId)") &&
+                  runtime.Contains("NativeBuildingCompoundGroup.Write(newPile, 0)") &&
+                  detector.Contains("NativeBuildingCompoundGroup.Read(ref building)") &&
+                  !detector.Contains("r_UsedInSiegeAttemptId"),
+                "relocation, rollback, and detector snapshot share the native compound-key accessor");
+        }
         private static void TestNativeContracts()
         {
             string root = Environment.GetEnvironmentVariable("SHCDE_GAME_DIR") ??
@@ -5621,8 +5673,8 @@ namespace BugfixesAndQoL
                     Marshal.OffsetOf(typeof(GameBuilding), nameof(GameBuilding.r_BuildingType)).ToInt32() == 0xD2 &&
                     Marshal.OffsetOf(typeof(GameBuilding), nameof(GameBuilding.r_PlayerIdOwner)).ToInt32() == 0xD6 &&
                     Marshal.OffsetOf(typeof(GameBuilding), nameof(GameBuilding.r_GlobalId)).ToInt32() == 0xD8 &&
-                    Marshal.OffsetOf(typeof(GameBuilding), nameof(GameBuilding.r_AccessTilePositionX)).ToInt32() == 0xFE &&
-                    Marshal.OffsetOf(typeof(GameBuilding), nameof(GameBuilding.r_AccessTilePositionY)).ToInt32() == 0x100 &&
+                    Marshal.OffsetOf(typeof(GameBuilding), nameof(GameBuilding.r_TileAccessPositionX)).ToInt32() == 0xFE &&
+                    Marshal.OffsetOf(typeof(GameBuilding), nameof(GameBuilding.r_TileAccessPositionY)).ToInt32() == 0x100 &&
                     Marshal.OffsetOf(typeof(GamePlayerResources), nameof(GamePlayerResources.r_KeepTileId)).ToInt32() == 0xA0,
                 "AI accessibility managed building and player-resource offsets match the native contract");
             Check(image.CountNearCalls(DispatcherRva, DispatcherSize, FindRva) >= 2 &&

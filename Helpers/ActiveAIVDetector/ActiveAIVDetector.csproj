@@ -117,6 +117,9 @@
     <Compile Include="..\..\Shared\NativePatternResolver.cs">
       <Link>Shared\NativePatternResolver.cs</Link>
     </Compile>
+    <Compile Include="..\..\Shared\NativeBuildingCompoundGroup.cs">
+      <Link>Shared\NativeBuildingCompoundGroup.cs</Link>
+    </Compile>
     <Compile Include="src\AivPlacementOracle.cs" />
     <Compile Include="src\OraclePrebuildStateCapture.cs" />
     <Compile Include="src\OracleStartStructureCapture.cs" />

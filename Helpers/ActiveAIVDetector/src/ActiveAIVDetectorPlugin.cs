@@ -5,7 +5,7 @@ using System.IO;
 
 namespace ActiveAIVDetector
 {
-    [BepInDependency(ScriptExtenderGuid, "2.3.0")]
+    [BepInDependency(ScriptExtenderGuid, "2.10.4")]
     [BepInDependency(ApiSharedGuid, "0.3.6")]
     [BepInDependency("APIShared_Serp", "0.3.6")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
@@ -16,7 +16,7 @@ namespace ActiveAIVDetector
 
         public const string PluginGuid = "ActiveAIVDetector_Serp";
         public const string PluginName = "Active AIV Detector";
-        public const string PluginVersion = "0.10.1";
+        public const string PluginVersion = "0.10.2";
 
         // The plugin component is destroyed during startup, so process-lifetime state stays static.
         private static ActiveAIVDetectionRuntime runtime;

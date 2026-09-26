@@ -8,12 +8,12 @@ using SHCDESE.API.LowLevel;
 namespace OutpostTest
 {
     [BepInPlugin(Guid, "Outpost Test", PluginVersion)]
-    [BepInDependency("000shcdese", "2.7.1")]
+    [BepInDependency("000shcdese", "2.10.4")]
     [BepInDependency("APIShared_Serp", "0.3.6")]
     public sealed class OutpostTestPlugin : BaseUnityPlugin
     {
         public const string Guid = "OutpostTest_Serp";
-        public const string PluginVersion = "0.1.1";
+        public const string PluginVersion = "0.1.2";
         private static ManualLogSource persistentLog;
         private static OutpostRuntime runtime;
         private static IMissionLifecycleCapability lifecycle;
@@ -25,7 +25,7 @@ namespace OutpostTest
             if (subscribed) return;
             subscribed = true;
             CrusaderLibrary.Instance.LibraryLoaded += Loaded;
-            Shared.DebugLogHelper.LogInfo(persistentLog, "OutpostTest 0.1.1: incremental Macemen production; Vanilla production suppressed; native profile timing and group completion.");
+            Shared.DebugLogHelper.LogInfo(persistentLog, $"OutpostTest {PluginVersion}: incremental Macemen production; Vanilla production suppressed; native profile timing and group completion.");
         }
 
         private static void Loaded(CrusaderLibraryLoadContext context)

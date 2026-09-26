@@ -355,8 +355,8 @@ namespace BugfixesAndQoL
             ValidateOffset(typeof(GameBuilding), nameof(GameBuilding.r_BuildingType), 0xD2);
             ValidateOffset(typeof(GameBuilding), nameof(GameBuilding.r_PlayerIdOwner), 0xD6);
             ValidateOffset(typeof(GameBuilding), nameof(GameBuilding.r_GlobalId), 0xD8);
-            ValidateOffset(typeof(GameBuilding), nameof(GameBuilding.r_AccessTilePositionX), 0xFE);
-            ValidateOffset(typeof(GameBuilding), nameof(GameBuilding.r_AccessTilePositionY), 0x100);
+            ValidateOffset(typeof(GameBuilding), nameof(GameBuilding.r_TileAccessPositionX), 0xFE);
+            ValidateOffset(typeof(GameBuilding), nameof(GameBuilding.r_TileAccessPositionY), 0x100);
             ValidateOffset(typeof(GameBuilding), nameof(GameBuilding.r_IsSleeping), 0x296);
             ValidateOffset(typeof(GameBuilding), nameof(GameBuilding.r_GatehouseId), 0x2D2);
             ValidateOffset(typeof(GamePlayerResources), nameof(GamePlayerResources.r_KeepTileId), 0xA0);
@@ -1919,7 +1919,7 @@ namespace BugfixesAndQoL
         private static BuildingSnapshot Snapshot(int buildingId, ref GameBuilding building) =>
             new BuildingSnapshot(buildingId, building.r_GlobalId, building.r_PlayerIdOwner, building.r_BuildingType,
                 building.r_AliveState, building.r_TilePositionXBegin, building.r_TilePositionYBegin,
-                building.r_AccessTilePositionX, building.r_AccessTilePositionY,
+                building.r_TileAccessPositionX, building.r_TileAccessPositionY,
                 building.r_CurrentHealth, building.r_GatehouseId);
 
         private DamageContext CaptureDamageContext(BuildingTileTakeDamageEventArgs args, bool enclosureOnly)

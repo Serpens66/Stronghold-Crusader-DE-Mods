@@ -20,10 +20,11 @@ namespace KeepCampfireGroundPreserveTest
         private CampgroundNativeHook hook;
         private TerrainPhaseDiagnostic terrainPhase;
         private bool missionAllowed;
+        private bool preserveEnabled;
         private bool firstTick;
         private long sessionId;
         private long lastSkipCount;
-        private long lastFirePatchCount;
+        private CampfireOverlayRuntime overlay;
 
         internal GroundPreserveRuntime(Action<string> log, Action<string> error)
         {
@@ -33,6 +34,7 @@ namespace KeepCampfireGroundPreserveTest
 
         internal void SetHook(CampgroundNativeHook value) => hook = value;
         internal void SetTerrainPhase(TerrainPhaseDiagnostic value) => terrainPhase = value;
+        internal void SetOverlay(CampfireOverlayRuntime value) => overlay = value;
 
         internal void OnInitialization(MissionLifecycleNotification notification)
         {
@@ -40,18 +42,21 @@ namespace KeepCampfireGroundPreserveTest
             lock (gate)
             {
                 hook?.SetEnabled(false);
+                hook?.ClearCapturedGraphics();
                 terrainPhase?.SetEnabled(false);
+                overlay?.Clear();
                 camps.Clear();
                 firstTick = false;
                 sessionId = notification.Context.SessionId;
                 missionAllowed = !notification.Context.Mode.IsRealMultiplayer &&
                     !notification.Context.Mode.MultiplayerSave;
-                if (missionAllowed && hook != null && hook.IsPublished)
+                preserveEnabled = missionAllowed && hook != null && hook.IsPublished &&
+                    overlay != null && overlay.Prepare();
+                if (preserveEnabled)
                     hook.SetEnabled(true);
                 if (missionAllowed && terrainPhase != null)
                     terrainPhase.SetEnabled(true);
                 lastSkipCount = hook?.SuppressedStores ?? 0;
-                lastFirePatchCount = hook?.FirePatchStores ?? 0;
                 log("init session=" + sessionId + " kind=" + notification.Context.StartKind +
                     " allowed=" + missionAllowed + " hook=" + (hook?.IsPublished ?? false) +
                     " mode=" + notification.Context.Mode.ToDiagnosticString());
@@ -64,12 +69,15 @@ namespace KeepCampfireGroundPreserveTest
             lock (gate)
             {
                 sessionId = notification.Context.SessionId;
-                if (missionAllowed && hook != null && hook.IsPublished)
+                preserveEnabled = missionAllowed && hook != null && hook.IsPublished &&
+                    overlay != null && overlay.Prepare();
+                if (preserveEnabled)
                     hook.SetEnabled(true);
                 if (missionAllowed && terrainPhase != null)
                     terrainPhase.SetEnabled(true);
                 try { DiscoverExistingCampgrounds(); }
                 catch (Exception ex) { error("existing-camp discovery failed: " + ex); }
+                if (preserveEnabled) overlay?.ShowExisting(camps);
                 log("START session=" + sessionId + " kind=" +
                     notification.Context.StartKind + " targets=" + camps.Count +
                     " suppressedStores=" + (hook?.SuppressedStores ?? 0));
@@ -81,7 +89,9 @@ namespace KeepCampfireGroundPreserveTest
             lock (gate)
             {
                 hook?.SetEnabled(false);
+                preserveEnabled = false;
                 terrainPhase?.SetEnabled(false);
+                overlay?.Clear();
                 log("END session=" + notification.Context.SessionId + " reason=" +
                     notification.EndReason + " targets=" + camps.Count +
                     " suppressedStores=" + (hook?.SuppressedStores ?? 0));
@@ -105,6 +115,7 @@ namespace KeepCampfireGroundPreserveTest
                 {
                     if (args.Phase == EventHookPhase.Pre)
                     {
+                        hook?.ClearCapturedFootprint(args.TileX, args.TileY);
                         if (camps.Count >= MaxTargets) {
                             error("target cap reached at campground spawn");
                             return;
@@ -126,6 +137,8 @@ namespace KeepCampfireGroundPreserveTest
                         camp.PostSeen = true;
                         camp.RemainingChecks = 4;
                         Capture(camp, "spawn-post", false);
+                        if (preserveEnabled)
+                            overlay?.Show(camp.BuildingId, camp.X, camp.Y);
                     }
                 }
                 catch (Exception ex) { error("spawn diagnosis failed: " + ex); }
@@ -143,11 +156,15 @@ namespace KeepCampfireGroundPreserveTest
                     if (args.Phase == EventHookPhase.Pre)
                     {
                         camp.Deleting = true;
+                        overlay?.Hide(camp.BuildingId);
                         camp.RemainingChecks = 3;
                         Capture(camp, "delete-pre", false);
                     }
-                    else
+                    else {
                         Capture(camp, "delete-post", false);
+                        overlay?.Remove(camp.BuildingId);
+                        hook?.ClearCapturedFootprint(camp.X, camp.Y);
+                    }
                 }
                 catch (Exception ex) { error("delete diagnosis failed: " + ex); }
             }
@@ -163,17 +180,12 @@ namespace KeepCampfireGroundPreserveTest
                     log("post-cleanup runtime tick session=" + sessionId + " tick=" + tick);
                 }
                 long skipped = hook?.SuppressedStores ?? 0;
-                long firePatch = hook?.FirePatchStores ?? 0;
                 if (skipped != lastSkipCount) {
                     log("native hook confirmed: suppressed graphic-store iterations=" +
                         (skipped - lastSkipCount) + " total=" + skipped + " tick=" + tick);
                     lastSkipCount = skipped;
                 }
-                if (firePatch != lastFirePatchCount) {
-                    log("native fire-patch stores=" + (firePatch - lastFirePatchCount) +
-                        " total=" + firePatch + " tick=" + tick);
-                    lastFirePatchCount = firePatch;
-                }
+                overlay?.RefreshPositions();
                 foreach (CampObservation camp in camps)
                 {
                     if (camp.RemainingChecks <= 0) continue;
@@ -280,10 +292,10 @@ namespace KeepCampfireGroundPreserveTest
                 " originalGraphicIntact=" + unchanged + " campGraphicFile6=" + campGraphics +
                 " changedSincePrevious=" + changed + " deleting=" + camp.Deleting +
                 " suppressedStores=" + (hook?.SuppressedStores ?? 0) +
-                " firePatchStores=" + (hook?.FirePatchStores ?? 0));
+                    " overlay=" + (overlay?.IsShown(camp.BuildingId) ?? false));
         }
 
-        private sealed class CampObservation
+        internal sealed class CampObservation
         {
             internal readonly int PlayerId, X, Y;
             internal readonly int[] OriginalGfx = new int[SampleSide * SampleSide];

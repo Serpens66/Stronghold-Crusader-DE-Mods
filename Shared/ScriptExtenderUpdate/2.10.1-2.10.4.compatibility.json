@@ -1,0 +1,166 @@
+{
+  "OldVersion": "2.10.1",
+  "NewVersion": "2.10.4",
+  "TargetCommit": "dc86a6b91f5f2b491fc815e926542db1f921538d",
+  "ImpactReview": {
+    "BaselinePreviousCommit": "a8ba202f6ec7966bd115b59a6088a0077ce727a0",
+    "CrusaderNativeFiles": [],
+    "ExternalNativeFiles": [],
+    "NonSemanticArtifacts": [
+      "ReverseEngineering/structs/scde-main-2802-v6.rcnet"
+    ],
+    "ChangedPublicContracts": [
+      {
+        "Consumers": [
+          "BugfixesAndQoL",
+          "ExtraFeatures",
+          "CastlePlanner",
+          "AIDefenseTest",
+          "OutpostTest",
+          "VirtualUnitsPrototype"
+        ],
+        "Path": "src/SHCDESE.BepInEx/Interop/GameBuilding.cs",
+        "Symbol": "GameBuilding.r_TileAccessPositionX/Y",
+        "Compatibility": "Renamed access coordinates retain UInt16 type and offsets 0xFE/0x100; direct consumers migrated."
+      },
+      {
+        "Consumers": [
+          "ExtraFeatures",
+          "UnitCosts"
+        ],
+        "Path": "src/SHCDESE.BepInEx/Interop/GameBuilding.cs",
+        "Symbol": "GameBuilding.r_HorseRechargeTimer",
+        "Compatibility": "Field is now Int16 at 0x29A; consumers only compare or log the value."
+      },
+      {
+        "Consumers": [
+          "ExtraFeatures"
+        ],
+        "Path": "src/SHCDESE.BepInEx/Interop/GameUnit.cs",
+        "Symbol": "GameUnit.r_UnitHover",
+        "Compatibility": "Field is now UInt16 at 0x30; nonzero hover check remains valid."
+      },
+      {
+        "Consumers": [
+          "BugfixesAndQoL"
+        ],
+        "Path": "src/SHCDESE.BepInEx/Interop/GameUnit.cs",
+        "Symbol": "GameUnit.UnknownRelevant2/UnknownRelevant2_2",
+        "Compatibility": "Transition value 0xFE20 is represented by separate bytes at 0x32A/0x32B."
+      },
+      {
+        "Consumers": [
+          "BugfixesAndQoL"
+        ],
+        "Path": "src/SHCDESE.BepInEx/Interop/GameTribe.cs",
+        "Symbol": "GameTribe.r_CurrentPatrolPoints",
+        "Compatibility": "Field is now UInt16 at 0x5B4; offset-only consumer remains valid."
+      },
+      {
+        "Consumers": [],
+        "Path": "src/SHCDESE.BepInEx/API/GameBuildingManagerAPI.cs",
+        "Symbol": "GameBuildingManagerAPI.GetAccessPosition",
+        "Compatibility": "Existing public access-position API remains available; direct interop rename is sufficient."
+      },
+      {
+        "Consumers": [],
+        "Path": "src/SHCDESE.BepInEx/API/GameTribeManagerAPI.cs",
+        "Symbol": "GameTribeManagerAPI patrol point access",
+        "Compatibility": "Script Extender aligns the patrol count with the corrected UInt16 field; no behavioral consumer change."
+      }
+    ],
+    "AffectedMods": [
+      "BugfixesAndQoL",
+      "ExtraFeatures",
+      "CastlePlanner",
+      "UnitCosts",
+      "AIDefenseTest",
+      "OutpostTest",
+      "VirtualUnitsPrototype"
+    ],
+    "BuildMods": [
+      "APIShared",
+      "ActiveAIVDetector",
+      "AIDefenseTest",
+      "BuildingCosts",
+      "BuildingLimit",
+      "CastlePlanner",
+      "CheatMod",
+      "ExtendedData",
+      "EnemyGatePathfindingTest",
+      "ExtraFeatures",
+      "ExtremePowers",
+      "ImprovedHunters",
+      "OxTetherIdleFixTest",
+      "OutpostTest",
+      "RandomEvents",
+      "SerpsModsHost",
+      "StartConditions",
+      "StockpileAccessFixTest",
+      "UnitCosts",
+      "UnitLimit",
+      "BugfixesAndQoL",
+      "MainViewModelInitProbe",
+      "SkinTest",
+      "VirtualUnitsPrototype",
+      "MoatMove"
+    ]
+  },
+  "Mods": {
+    "BugfixesAndQoL": {
+      "Version": "1.0.167",
+      "Changes": [
+        "Updated building access coordinates and the apothecary transition byte pair for Script Extender 2.10.4."
+      ],
+      "MinimumScriptExtenderVersion": "2.10.4"
+    },
+    "ExtraFeatures": {
+      "Version": "1.0.103",
+      "Changes": [
+        "Updated building access coordinates and made AIV observer registration precede placement-hook installation for Script Extender 2.10.4."
+      ],
+      "MinimumScriptExtenderVersion": "2.10.4"
+    },
+    "CastlePlanner": {
+      "Version": "0.8.32",
+      "Changes": [
+        "Updated building access coordinates for Script Extender 2.10.4."
+      ],
+      "MinimumScriptExtenderVersion": "2.10.4"
+    },
+    "UnitCosts": {
+      "Version": "1.0.31",
+      "Changes": [
+        "Validated signed stable recharge timer compatibility with Script Extender 2.10.4."
+      ],
+      "MinimumScriptExtenderVersion": "2.10.4"
+    },
+    "AIDefenseTest": {
+      "Version": "1.2.12",
+      "Changes": [
+        "Updated building access coordinates for Script Extender 2.10.4."
+      ],
+      "MinimumScriptExtenderVersion": "2.10.4"
+    },
+    "OutpostTest": {
+      "Version": "0.1.2",
+      "Changes": [
+        "Updated building access coordinates for Script Extender 2.10.4."
+      ],
+      "MinimumScriptExtenderVersion": "2.10.4"
+    },
+    "VirtualUnitsPrototype": {
+      "Version": "0.1.3",
+      "Changes": [
+        "Updated building access coordinates for Script Extender 2.10.4."
+      ],
+      "MinimumScriptExtenderVersion": "2.10.4"
+    }
+  },
+  "CompatibilityNotes": [
+    "Installed SHCDESE.dll is 2.10.4 and byte-identical with local outputs.",
+    "Native CrusaderDE.dll hash is unchanged; no changed Script Extender native hook sources or consumed headers.",
+    "APIShared already owns the shared AIV build-step detour. ExtraFeatures retains its feature-specific placement hook.",
+    "The known early crash-handler false alarm has no positive fix evidence and remains documented."
+  ]
+}

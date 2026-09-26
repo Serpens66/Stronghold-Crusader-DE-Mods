@@ -14,14 +14,8 @@ namespace KeepCampfireGroundPreserveTest
         internal const int DisplacedBytes = 16;
         internal const int BuildingTypeOffsetFromImage = 0x64CCCDE;
         internal const int CampgroundType = 0x37;
-        // The nine central GM_BUILDINGS1 tiles form the complete stone ring.
-        // Cauldron and flame appear only after workers arrive in Vanilla.
-        internal static readonly int[] FirePatchGraphics = {
-            0x00060024, 0x00060029, 0x0006002A,
-            0x0006002F, 0x00060030, 0x00060031,
-            0x00060036, 0x00060037, 0x0006003C
-        };
-
+        internal const int CaptureOffset = 16;
+        internal const int TileCapacity = 320800;
         internal static readonly byte[] HookBytes = {
             0x42, 0x89, 0x94, 0x87, 0x00, 0x09, 0x14, 0x00,
             0x42, 0x8B, 0x8C, 0x13, 0xB4, 0xCC, 0x4C, 0x06
@@ -41,7 +35,6 @@ namespace KeepCampfireGroundPreserveTest
                 throw new InvalidOperationException("Campground graphic-store instruction contract changed.");
 
             Label vanilla = assembler.CreateLabel("campgroundVanilla");
-            Label firePatch = assembler.CreateLabel("campgroundFirePatch");
             assembler.pushfq();
             assembler.push(rax);
             assembler.mov(rax, enableAddress);
@@ -49,18 +42,14 @@ namespace KeepCampfireGroundPreserveTest
             assembler.je(vanilla);
             assembler.cmp(__word_ptr[rbx + r10 + BuildingTypeOffsetFromImage], CampgroundType);
             assembler.jne(vanilla);
-            foreach (int graphic in FirePatchGraphics) {
-                assembler.cmp(edx, graphic);
-                assembler.je(firePatch);
-            }
+            // EDX is the exact Vanilla GFX value for tile index R8. Keep it in
+            // a separate process-lifetime table before skipping GFX/AlphaGFX.
+            assembler.mov(__dword_ptr[rax + r8 * 4 + CaptureOffset], edx);
             assembler.inc(__qword_ptr[rax + 8]);
             assembler.pop(rax);
             assembler.popfq();
             assembler.AddUnrestrictedJmp(skipAddress);
 
-            assembler.Label(ref firePatch);
-            assembler.inc(__qword_ptr[rax + 16]);
-            assembler.jmp(vanilla);
             assembler.Label(ref vanilla);
             assembler.pop(rax);
             assembler.popfq();

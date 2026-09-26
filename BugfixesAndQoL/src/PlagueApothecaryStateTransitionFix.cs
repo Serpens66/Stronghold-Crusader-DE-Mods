@@ -130,13 +130,14 @@ namespace BugfixesAndQoL
                 // leaving the building. FE20 drives the transition outward; retaining
                 // 0200 would unregister the healer spatially and make it invisible.
                 healer->r_AIState = VanillaTransitionState;
-                healer->UnknownRelevant2 = LeavingBuildingTransition;
+                healer->UnknownRelevant2 = unchecked((byte)LeavingBuildingTransition);
+                healer->UnknownRelevant2_2 = unchecked((byte)(LeavingBuildingTransition >> 8));
                 Shared.DebugLogHelper.LogDebug(
                     log,
                     $"Bugfixes and QoL stuck-apothecary transition corrected: unit={unitId}, " +
                     $"global={healer->r_GlobalId}, position={healer->r_CurrentTilePositionX}," +
                     $"{healer->r_CurrentTilePositionY}, state=2->109, " +
-                    $"buildingTransition=0x{healer->UnknownRelevant2:X4}, vanillaNextState=5.");
+                    $"buildingTransition=0x{((ushort)(healer->UnknownRelevant2 | (healer->UnknownRelevant2_2 << 8))):X4}, vanillaNextState=5.");
             }
             catch (Exception ex)
             {

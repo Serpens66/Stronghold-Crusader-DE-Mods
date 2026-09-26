@@ -904,6 +904,17 @@ build footprint would be unsound. No release of later-player fits follows
 from these observations. Confidence: high for field identity and branch;
 limited for unobserved linked-record groups or abort outcomes.
 
+### 2026-09-26 Script Extender 2.10.4 field-name correction
+
+The native binary hash remains `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+The native deletion functions at RVA `0xC4290` and `0xC43A0` still read the
+compound key at manager-record `+0x304` (`GameBuilding+0x2A8`). Script Extender
+2.10.4 exposes that slot as `N0000178A`; its `r_UsedInSiegeAttemptId` now
+denotes the adjacent `GameBuilding+0x2AC` slot. The earlier 2.9.0 observations
+above describe the assembly available at that time, not the current interop
+field name. Mods that manipulate Vanilla compound deletion must address the
+audited native `+0x2A8` slot and guard the native hash and building stride.
+
 ## 2026-09-24 follow-up: captured cleanup-link values
 
 The installed 2.9.0 `GameBuilding.r_UsedInSiegeAttemptId` field at

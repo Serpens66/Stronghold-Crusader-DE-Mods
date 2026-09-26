@@ -25,24 +25,51 @@ if ($hook -notmatch 'if \(published\) throw' -or $hook -notmatch 'Interlocked\.E
     $hook -notmatch 'DisplacedByteCount != CampgroundVisualGate\.DisplacedBytes') {
     throw 'Published hook lifetime or installed-backend span guard missing.'
 }
-if ($runtimeText -match 'CodePatch\.Write|VirtualProtect|\.Undo\s*\(|\.Apply\s*\(|\.Disable\s*\(') {
+if ($runtimeText -match 'CodePatch\.Write|VirtualProtect|\.Undo\s*\(|\.Apply\s*\(\s*\)|\.Disable\s*\(') {
     throw 'Unexpected executable-code mutation mechanism.'
 }
-if (($runtimeText | Select-String -Pattern '\.Dispose\s*\(' -AllMatches).Matches.Count -ne 2 -or
+if (($runtimeText | Select-String -Pattern '\.Dispose\s*\(' -AllMatches).Matches.Count -ne 3 -or
     $hook -notmatch 'transaction\?\.Dispose\(\)' -or
     $runtimeText -notmatch 'private void RollbackUnpublished\(\)' -or
-    $runtimeText -notmatch 'Published terrain hooks must remain installed') {
+    $runtimeText -notmatch 'Published terrain hooks must remain installed' -or
+    $runtimeText -notmatch 'Published terrain probes remain installed') {
     throw 'Unexpected hook teardown path.'
 }
 if (($runtimeText | Select-String -Pattern 'transaction\.AddDetour\(' -AllMatches).Matches.Count -ne 2 -or
+    ($runtimeText | Select-String -Pattern 'transaction\.AddInline\(' -AllMatches).Matches.Count -ne 2 -or
     $runtimeText -notmatch 'terrainPhase\?\.FlushCompleted\(\)' -or
-    $runtimeText -notmatch 'TerrainPhaseDiagnostic\.TryCreate') {
+    $runtimeText -notmatch 'TerrainPhaseDiagnostic\.TryCreate' -or
+    $runtimeText -notmatch 'TerrainStoreTrace\.TryCreate') {
     throw 'Terrain phase hooks or long-lived diagnosis path missing.'
 }
 if ($runtimeText -notmatch 'BuildingR3EventHooks\.OnBuildingSpawn' -or
     $runtimeText -notmatch 'GameTimeManagerAPI\.Instance\.OnTick' -or
+    $runtimeText -match 'Application\.onBeforeRender' -or
     $runtimeText -notmatch 'MissionInitializationPhase\.BeforeLoad') {
     throw 'Long-lived event path or pre-load activation missing.'
+}
+$sprites = @(Get-ChildItem -LiteralPath (Join-Path $root 'assets\fire-source') -Filter '*.png' -File)
+if ($sprites.Count -ne 9) { throw 'Hearth overlay requires exactly nine Vanilla source sprites.' }
+$masks = @(Get-ChildItem -LiteralPath (Join-Path $root 'assets\fire-mask') -Filter '*.png' -File)
+if ($masks.Count -ne 9) { throw 'Hearth overlay requires exactly nine foreground masks.' }
+foreach ($sprite in @($sprites) + @($masks)) {
+    $bytes = [IO.File]::ReadAllBytes($sprite.FullName)
+    if ($bytes.Length -lt 24 -or
+        [BitConverter]::ToInt32([byte[]]@($bytes[19],$bytes[18],$bytes[17],$bytes[16]),0) -ne 64 -or
+        [BitConverter]::ToInt32([byte[]]@($bytes[23],$bytes[22],$bytes[21],$bytes[20]),0) -ne 32) {
+        throw "Unexpected hearth PNG dimensions: $($sprite.Name)"
+    }
+}
+$overlay = [IO.File]::ReadAllText((Join-Path $root 'src\CampfireOverlayRuntime.cs'))
+if ($overlay -match 'new Piece\(|globalX|globalY|elliptical|Application\.onBeforeRender' -or
+    $runtimeText -notmatch 'CapturedGraphic\(' -or
+    $runtimeText -notmatch 'MaskedSpriteCatalog') {
+    throw 'Old fixed-piece overlay or missing captured-ID mask path.'
+}
+foreach ($sprite in $sprites) {
+    if (-not (Test-Path -LiteralPath (Join-Path $root ('assets\fire-mask\' + $sprite.Name)))) {
+        throw "Missing matching mask: $($sprite.Name)"
+    }
 }
 [xml](Get-Content -LiteralPath (Join-Path $root 'KeepCampfireGroundPreserveTest.csproj') -Raw) | Out-Null
 $manifest = Get-Content -LiteralPath (Join-Path $root 'info.json') -Raw | ConvertFrom-Json

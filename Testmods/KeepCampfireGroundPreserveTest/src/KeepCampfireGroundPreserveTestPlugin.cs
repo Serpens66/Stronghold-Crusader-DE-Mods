@@ -6,6 +6,7 @@ using R3;
 using SHCDESE.API;
 using SHCDESE.API.LowLevel;
 using SHCDESE.EventAPI;
+using UnityEngine;
 
 namespace KeepCampfireGroundPreserveTest
 {
@@ -21,6 +22,8 @@ namespace KeepCampfireGroundPreserveTest
         private static GroundPreserveRuntime runtime;
         private static CampgroundNativeHook nativeHook;
         private static TerrainPhaseDiagnostic terrainPhase;
+        private static TerrainStoreTrace storeTrace;
+        private static CampfireOverlayRuntime overlay;
         private static IMissionLifecycleCapability lifecycle;
 
         private void Awake()
@@ -35,6 +38,8 @@ namespace KeepCampfireGroundPreserveTest
             if (runtime != null) return;
             GroundPreserveRuntime candidate = new GroundPreserveRuntime(Write, Error);
             runtime = candidate;
+            overlay = new CampfireOverlayRuntime(Write, Error);
+            candidate.SetOverlay(overlay);
             try
             {
                 if (!ApiShared.Current.TryGetMissionLifecycle(Guid, out lifecycle,
@@ -61,6 +66,7 @@ namespace KeepCampfireGroundPreserveTest
             {
                 nativeHook = CampgroundNativeHook.TryCreate(context, log, Write);
                 candidate.SetHook(nativeHook);
+                overlay.SetHook(nativeHook);
             }
             catch (Exception ex)
             {
@@ -72,6 +78,13 @@ namespace KeepCampfireGroundPreserveTest
                 {
                     terrainPhase = TerrainPhaseDiagnostic.TryCreate(context, log, Write);
                     candidate.SetTerrainPhase(terrainPhase);
+                    try {
+                        storeTrace = TerrainStoreTrace.TryCreate(context, log, Write);
+                        terrainPhase.SetStoreTrace(storeTrace);
+                    }
+                    catch (Exception ex) {
+                        Error("terrain-store tracing unavailable; phase diagnosis remains: " + ex);
+                    }
                 }
                 catch (Exception ex)
                 {

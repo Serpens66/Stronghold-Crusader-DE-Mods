@@ -653,7 +653,7 @@ namespace CastlePlanner
                     : "<invalid>";
                 components.Add(
                     $"{spanIndex + 1}:{building.r_BuildingType}:" +
-                    $"footprint={footprint}:access=({building.r_AccessTilePositionX},{building.r_AccessTilePositionY}):" +
+                    $"footprint={footprint}:access=({building.r_TileAccessPositionX},{building.r_TileAccessPositionY}):" +
                     $"tile={building.r_TileIdBegin}:global={building.r_GlobalId}");
             }
 
@@ -2298,7 +2298,7 @@ namespace CastlePlanner
                     $"Native special-building diagnostics: playerId={playerId}, " +
                     $"buildingId={spanIndex + 1}, globalId={building.r_GlobalId}, " +
                     $"type={building.r_BuildingType}, aliveState={building.r_AliveState}, " +
-                    $"footprint={footprint}, access=({building.r_AccessTilePositionX},{building.r_AccessTilePositionY}), " +
+                    $"footprint={footprint}, access=({building.r_TileAccessPositionX},{building.r_TileAccessPositionY}), " +
                     $"gridSize={building.r_OccupyTileGridSize}, " +
                     $"height={building.r_HeightElevation}, " +
                     $"spritePlayerColorId={building.r_SpritePlayerColorId}, " +

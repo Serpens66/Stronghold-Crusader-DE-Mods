@@ -23,12 +23,42 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Runtime build failed.' }
     $package = Join-Path $root 'BepInEx\plugins\KeepCampfireGroundPreserveTest_Serp'
     Copy-Item -LiteralPath (Join-Path $root 'info.json') -Destination $package -Force
+    $sourceSprites = Join-Path $root 'assets\fire-source'
+    $packageSprites = Join-Path $package 'fire-source'
+    [IO.Directory]::CreateDirectory($packageSprites) | Out-Null
+    foreach ($sprite in Get-ChildItem -LiteralPath $sourceSprites -Filter '*.png' -File) {
+        Copy-Item -LiteralPath $sprite.FullName -Destination (Join-Path $packageSprites $sprite.Name) -Force
+    }
+    $sourceMasks = Join-Path $root 'assets\fire-mask'
+    $packageMasks = Join-Path $package 'fire-mask'
+    [IO.Directory]::CreateDirectory($packageMasks) | Out-Null
+    foreach ($mask in Get-ChildItem -LiteralPath $sourceMasks -Filter '*.png' -File) {
+        Copy-Item -LiteralPath $mask.FullName -Destination (Join-Path $packageMasks $mask.Name) -Force
+    }
     $destination = Join-Path $game 'BepInEx\plugins\KeepCampfireGroundPreserveTest_Serp'
     [IO.Directory]::CreateDirectory($destination) | Out-Null
     foreach ($name in @('KeepCampfireGroundPreserveTest.dll', 'KeepCampfireGroundPreserveTest.pdb', 'info.json')) {
         Copy-Item -LiteralPath (Join-Path $package $name) -Destination (Join-Path $destination $name) -Force
         if ((Get-PreserveHash (Join-Path $package $name)) -ne (Get-PreserveHash (Join-Path $destination $name))) {
             throw "Installation hash mismatch: $name"
+        }
+    }
+    $destinationSprites = Join-Path $destination 'fire-source'
+    [IO.Directory]::CreateDirectory($destinationSprites) | Out-Null
+    foreach ($sprite in Get-ChildItem -LiteralPath $packageSprites -Filter '*.png' -File) {
+        $target = Join-Path $destinationSprites $sprite.Name
+        Copy-Item -LiteralPath $sprite.FullName -Destination $target -Force
+        if ((Get-PreserveHash $sprite.FullName) -ne (Get-PreserveHash $target)) {
+            throw "Installation hash mismatch: $($sprite.Name)"
+        }
+    }
+    $destinationMasks = Join-Path $destination 'fire-mask'
+    [IO.Directory]::CreateDirectory($destinationMasks) | Out-Null
+    foreach ($mask in Get-ChildItem -LiteralPath $packageMasks -Filter '*.png' -File) {
+        $target = Join-Path $destinationMasks $mask.Name
+        Copy-Item -LiteralPath $mask.FullName -Destination $target -Force
+        if ((Get-PreserveHash $mask.FullName) -ne (Get-PreserveHash $target)) {
+            throw "Installation hash mismatch: $($mask.Name)"
         }
     }
     Write-Output "KeepCampfireGroundPreserveTest installed in $destination"

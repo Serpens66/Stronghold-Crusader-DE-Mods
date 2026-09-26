@@ -60,11 +60,6 @@ namespace KeepCampfireGroundPreserveTest
                     incomingInteriorEdges++;
             }
             Check(incomingInteriorEdges == 0, "no incoming edge enters displaced interior");
-            Check(CampgroundVisualGate.FirePatchGraphics.SequenceEqual(new[] {
-                0x00060024, 0x00060029, 0x0006002A,
-                0x0006002F, 0x00060030, 0x00060031,
-                0x00060036, 0x00060037, 0x0006003C
-            }), "audited nine-sprite fire patch");
 
             IntPtr memory = VirtualAlloc(IntPtr.Zero, (UIntPtr)4096, 0x3000, 0x40);
             if (memory == IntPtr.Zero) throw new Exception("VirtualAlloc failed");
@@ -87,7 +82,8 @@ namespace KeepCampfireGroundPreserveTest
                 byte[] gate = stream.ToArray();
                 var starts = new System.Collections.Generic.HashSet<ulong>();
                 var targets = new System.Collections.Generic.List<ulong>();
-                int fireSpriteComparisons = 0;
+                int graphicComparisons = 0;
+                int capturedGraphicStores = 0;
                 for (int offset = 0; offset < gate.Length;)
                 {
                     ulong ip = 0x180200000 + (ulong)offset;
@@ -106,17 +102,24 @@ namespace KeepCampfireGroundPreserveTest
                     else
                     {
                         if (item.Mnemonic == Mnemonic.Cmp &&
-                            item.Op0Register == Register.EDX &&
-                            CampgroundVisualGate.FirePatchGraphics.Contains(
-                                unchecked((int)item.Immediate32)))
-                            fireSpriteComparisons++;
+                            item.Op0Register == Register.EDX)
+                            graphicComparisons++;
+                        if (item.Mnemonic == Mnemonic.Mov &&
+                            item.Op0Kind == OpKind.Memory &&
+                            item.MemoryBase == Register.RAX &&
+                            item.MemoryIndex == Register.R8 &&
+                            item.MemoryDisplacement64 == CampgroundVisualGate.CaptureOffset &&
+                            item.Op1Register == Register.EDX)
+                            capturedGraphicStores++;
                         if (item.FlowControl == FlowControl.ConditionalBranch)
                             targets.Add(item.NearBranchTarget);
                         offset += item.Length;
                     }
                 }
-                Check(fireSpriteComparisons == CampgroundVisualGate.FirePatchGraphics.Length,
-                    "all nine campfire sprite selectors assembled");
+                Check(graphicComparisons == 0,
+                    "all campground graphics use the preserved ground path");
+                Check(capturedGraphicStores == 1,
+                    "suppressed Vanilla graphic captured by tile ID exactly once");
                 Check(targets.Contains(0x18006F0D8) && targets.Contains(site + 16),
                     "campground skip and Vanilla continuation present");
             Check(targets.Where(t => t >= 0x180200000 && t < 0x180200000 +
@@ -126,6 +129,106 @@ namespace KeepCampfireGroundPreserveTest
                 0x4C, 0x8B, 0xDC, 0x53, 0x55, 0x48, 0x81, 0xEC, 0x88, 0, 0, 0 });
             ProbeTerrainEntry(file, 0x650C0, 9, new byte[] {
                 0x40, 0x53, 0x48, 0x81, 0xEC, 0x90, 0, 0, 0 });
+            ProbeTerrainStores(file);
+        }
+
+        private static void ProbeTerrainStores(byte[] file)
+        {
+            int[] incoming = new int[TerrainStoreTrace.Sites.Length];
+            string xrefs = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
+                @"..\..\..\..\_inspect\CrusaderDE-Native-Baseline\FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2\exports\xrefs.jsonl"));
+            Check(File.Exists(xrefs), "installed-hash Ghidra reference export exists");
+            foreach (string line in File.ReadLines(xrefs))
+            {
+                if (!line.Contains("\"sourceFunction\":\"FUN_180065830\"") ||
+                    !line.Contains("JUMP")) continue;
+                var from = System.Text.RegularExpressions.Regex.Match(line,
+                    "\\\"fromRva\\\":\\\"0x([0-9A-F]+)\\\"");
+                var to = System.Text.RegularExpressions.Regex.Match(line,
+                    "\\\"toRva\\\":\\\"0x([0-9A-F]+)\\\"");
+                if (!from.Success || !to.Success) continue;
+                int source = Convert.ToInt32(from.Groups[1].Value, 16);
+                int target = Convert.ToInt32(to.Groups[1].Value, 16);
+                for (int site = 0; site < incoming.Length; site++)
+                {
+                    int start = TerrainStoreTrace.Sites[site];
+                    if (target > start && target < start + TerrainStoreTrace.Spans[site] &&
+                        (source < start || source >= start + TerrainStoreTrace.Spans[site]))
+                        incoming[site]++;
+                }
+            }
+            for (int site = 0; site < TerrainStoreTrace.Sites.Length; site++)
+            {
+                Check(incoming[site] == 0, "no branch enters terrain hook interior " + site);
+                byte[] bytes = ReadRva(file, TerrainStoreTrace.Sites[site], 64);
+                Check(bytes.Take(TerrainStoreTrace.Spans[site]).SequenceEqual(
+                    TerrainStoreTrace.Prefixes[site]), "terrain store bytes " + site);
+                ulong address = 0x180000000UL + (uint)TerrainStoreTrace.Sites[site];
+                var siteDecoder = Decoder.Create(64, new ByteArrayCodeReader(bytes), address);
+                var original = new System.Collections.Generic.List<Instruction>();
+                while (siteDecoder.IP < address + (uint)TerrainStoreTrace.Spans[site])
+                {
+                    Instruction instruction = siteDecoder.Decode();
+                    Check(!instruction.IsInvalid && instruction.Length > 0,
+                        "terrain store instruction decodes " + site);
+                    original.Add(instruction);
+                }
+                Check(siteDecoder.IP == address + (uint)TerrainStoreTrace.Spans[site],
+                    "terrain store instruction boundary " + site);
+                IntPtr memory = VirtualAlloc(IntPtr.Zero, (UIntPtr)4096, 0x3000, 0x40);
+                if (memory == IntPtr.Zero) throw new Exception("Terrain store VirtualAlloc failed");
+                try {
+                    Marshal.Copy(bytes, 0, memory, bytes.Length);
+                    using (var probe = new X64InlineHook(
+                        unchecked((ulong)memory.ToInt64()), TerrainStoreTrace.Spans[site]))
+                        Check(probe.DisplacedByteCount == TerrainStoreTrace.Spans[site],
+                            "installed RedBird terrain store span " + site);
+                }
+                finally { VirtualFree(memory, UIntPtr.Zero, 0x8000); }
+                var assembler = new Assembler(64);
+                TerrainStoreTrace.Generate(assembler, original.ToArray(),
+                    address + (uint)TerrainStoreTrace.Spans[site], site,
+                    0x180300000UL + (uint)(site * TerrainStoreTrace.StateBytes));
+                using (var stream = new MemoryStream())
+                {
+                    ulong stubBase = 0x180400000UL + (uint)(site * 0x1000);
+                    Check(assembler.TryAssemble(new StreamCodeWriter(stream),
+                        stubBase,
+                        out string error, out _),
+                        "terrain store stub assembles " + site + ": " + error);
+                    byte[] generated = stream.ToArray();
+                    var starts = new System.Collections.Generic.HashSet<ulong>();
+                    var targets = new System.Collections.Generic.List<ulong>();
+                    int decoded = 0;
+                    for (int offset = 0; offset < generated.Length;)
+                    {
+                        ulong ip = stubBase + (uint)offset;
+                        starts.Add(ip);
+                        Instruction instruction = Decoder.Create(64,
+                            new ByteArrayCodeReader(generated.Skip(offset).ToArray()), ip)
+                            .Decode();
+                        Check(!instruction.IsInvalid && instruction.Length > 0,
+                            "terrain store stub decodes " + site);
+                        decoded++;
+                        if (offset + 14 <= generated.Length && generated[offset] == 0xFF &&
+                            generated[offset + 1] == 0x25 &&
+                            BitConverter.ToInt32(generated, offset + 2) == 0)
+                        {
+                            targets.Add(BitConverter.ToUInt64(generated, offset + 6));
+                            offset += 14;
+                        }
+                        else {
+                            if (instruction.Op0Kind == OpKind.NearBranch64)
+                                targets.Add(instruction.NearBranchTarget);
+                            offset += instruction.Length;
+                        }
+                    }
+                    Check(decoded > original.Count, "terrain store stub adds read-only hit probe " + site);
+                    Check(targets.Where(t => t >= stubBase &&
+                        t < stubBase + (uint)generated.Length).All(starts.Contains),
+                        "terrain store stub local branches land on instructions " + site);
+                }
+            }
         }
 
         private static void ProbeTerrainEntry(byte[] file, int rva, int displaced,

@@ -145,7 +145,7 @@ namespace ExtraFeatures
             ReadOnlySpan<byte> memory,
             bool referenceHashMatches)
         {
-            if (nativeInitialized)
+            if (nativeInitialized || placementHook.Success)
                 return;
             if (!NeedsNativeRebuildHooks)
                 return;
@@ -160,6 +160,26 @@ namespace ExtraFeatures
                 memory, PlacementPattern, PlacementRva, referenceHashMatches,
                 "AI AIV placement helper", log);
             ulong libraryBase = unchecked((ulong)libraryHandle.ToInt64());
+            IApiShared api = ApiShared.Current;
+            NativeCapabilityDiagnostic failure;
+            if (!api.TryGetAivBuildStep(
+                    ExtraFeaturesPlugin.PluginGuid,
+                    out IAivBuildStepCapability capability,
+                    out failure))
+            {
+                throw new InvalidOperationException(
+                    "APIShared AIV build-step registration failed: " +
+                    (failure?.Reason ?? "unknown failure"));
+            }
+            if (!capability.TryRegisterObserver(
+                    "ai-defense-rebuild",
+                    buildStepObserver,
+                    out failure))
+            {
+                throw new InvalidOperationException(
+                    "APIShared AIV build-step registration failed: " +
+                    (failure?.Reason ?? "unknown failure"));
+            }
             try
             {
                 transaction = ExtraFeaturesHookInfrastructure.CreateOwnedTransaction(region);
@@ -170,26 +190,6 @@ namespace ExtraFeatures
                 CommitResult commitResult = transaction.Commit();
                 if (!commitResult.IsCompleteSuccess || !placementHook.Success)
                     throw new InvalidOperationException("The AI defense placement hook was not installed.");
-                IApiShared api = ApiShared.Current;
-                NativeCapabilityDiagnostic failure;
-                if (!api.TryGetAivBuildStep(
-                        ExtraFeaturesPlugin.PluginGuid,
-                        out IAivBuildStepCapability capability,
-                        out failure))
-                {
-                    throw new InvalidOperationException(
-                        "APIShared AIV build-step registration failed: " +
-                        (failure?.Reason ?? "unknown failure"));
-                }
-                if (!capability.TryRegisterObserver(
-                        "ai-defense-rebuild",
-                        buildStepObserver,
-                        out failure))
-                {
-                    throw new InvalidOperationException(
-                        "APIShared AIV build-step registration failed: " +
-                        (failure?.Reason ?? "unknown failure"));
-                }
                 nativeInitialized = true;
                 Shared.DebugLogHelper.LogDebug(
                     log,
@@ -197,7 +197,7 @@ namespace ExtraFeatures
             }
             catch
             {
-                if (!nativeInitialized)
+                if (!nativeInitialized && !placementHook.Success)
                 {
                     transaction?.Dispose();
                     transaction = null;
@@ -217,7 +217,7 @@ namespace ExtraFeatures
             subscriptions.Clear();
             // The published placement detour is process-wide because APIShared retains this
             // observer. Dispose is only allowed to roll back an unpublished candidate.
-            if (!nativeInitialized)
+            if (!nativeInitialized && !placementHook.Success)
             {
                 transaction?.Dispose();
                 transaction = null;
@@ -627,7 +627,7 @@ namespace ExtraFeatures
                     offsetX,
                     offsetY))
             {
-            if (!IsConfigured)
+            if (!nativeInitialized || !IsConfigured)
                 return CallPlacement(placementStateAddress, playerId, offsetX, offsetY, mapperValue, orientation);
 
             BuildStepContext context = activeContext;

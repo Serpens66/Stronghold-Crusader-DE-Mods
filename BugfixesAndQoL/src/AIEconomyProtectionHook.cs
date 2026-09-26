@@ -296,8 +296,8 @@ namespace BugfixesAndQoL
             ValidateStructFieldOffset(typeof(GameBuilding), nameof(GameBuilding.r_BuildingType), 0xD2);
             ValidateStructFieldOffset(typeof(GameBuilding), nameof(GameBuilding.r_PlayerIdOwner), 0xD6);
             ValidateStructFieldOffset(typeof(GameBuilding), nameof(GameBuilding.r_GlobalId), 0xD8);
-            ValidateStructFieldOffset(typeof(GameBuilding), nameof(GameBuilding.r_AccessTilePositionX), 0xFE);
-            ValidateStructFieldOffset(typeof(GameBuilding), nameof(GameBuilding.r_AccessTilePositionY), 0x100);
+            ValidateStructFieldOffset(typeof(GameBuilding), nameof(GameBuilding.r_TileAccessPositionX), 0xFE);
+            ValidateStructFieldOffset(typeof(GameBuilding), nameof(GameBuilding.r_TileAccessPositionY), 0x100);
             ValidateStructFieldOffset(typeof(GamePlayerResources), nameof(GamePlayerResources.r_KeepTileId), 0xA0);
         }
 

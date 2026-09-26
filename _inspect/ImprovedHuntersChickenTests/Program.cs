@@ -1,5 +1,7 @@
 using ImprovedHunters;
+using Iced.Intel;
 using RedBird.X64.Assembly.Stateful;
+using RedBird.X64.Hooks;
 using SHCDESE.Interop;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
@@ -8,6 +10,12 @@ using System.Text.RegularExpressions;
 static class Program
 {
     private static int assertions;
+
+    private sealed class StubCodeWriter : CodeWriter
+    {
+        internal readonly List<byte> Bytes = new();
+        public override void WriteByte(byte value) => Bytes.Add(value);
+    }
 
     private sealed class PendingSpawn
     {
@@ -22,8 +30,24 @@ static class Program
         }
     }
 
-    public static void Main()
+    public static void Main(string[] args)
     {
+        try { Run(args); }
+        catch (Exception exception)
+        {
+            Console.Error.WriteLine(exception);
+            Environment.ExitCode = 1;
+        }
+    }
+
+    private static void Run(string[] args)
+    {
+        if (args.Length == 1 && args[0] == "dispatch")
+        {
+            TestDispatchReaderHooks();
+            Console.WriteLine($"ImprovedHunters dispatch hooks passed: assertions={assertions}.");
+            return;
+        }
         TestLimits();
         TestSpawnMatching();
         TestSlotReuse();
@@ -33,6 +57,7 @@ static class Program
         TestStatefulImmediateLifecycle();
         TestMigrationContracts();
         TestNativePatterns();
+        TestDispatchReaderHooks();
         Console.WriteLine($"ImprovedHunters chicken policy tests passed: assertions={assertions}.");
     }
 
@@ -84,8 +109,8 @@ static class Program
             !allSource.Contains("HookRef<", StringComparison.Ordinal) &&
             !allSource.Contains(".Unload()", StringComparison.Ordinal),
             "A legacy Zhuqiaomon hook or teardown contract remains.");
-        Assert(Count(allSource, "new HookHandle<X64InlineHook>()") == 16,
-            "ImprovedHunters must own exactly sixteen typed context-hook handles.");
+        Assert(Count(allSource, "new HookHandle<X64InlineHook>()") == 17,
+            "ImprovedHunters must own exactly seventeen typed inline-hook handles.");
         Assert(Count(allSource, "CommitResult commitResult = transaction.Commit()") == 7 &&
             Count(allSource, "commitResult.IsCompleteSuccess") == 7,
             "Every one of the seven atomic hook transactions must check aggregate success.");
@@ -186,6 +211,80 @@ static class Program
         Assert(resolver.Contains("FindUniquePattern(memory, bytes, name, searchScope)", StringComparison.Ordinal),
             "Ambiguous non-reference pattern fallbacks are not guarded fail-closed.");
         Console.WriteLine($"ImprovedHunters native patterns verified: definitions={definitions.Count}, uniqueFallback={uniqueFallbackPatterns}, ambiguousReferenceOnly={ambiguousReferencePatterns}.");
+    }
+
+    private static void TestDispatchReaderHooks()
+    {
+        const string nativePath = @"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll";
+        byte[] image = MapPeImage(File.ReadAllBytes(nativePath), out _);
+        foreach ((int rva, int length, int sourceType, byte replacement, bool inR9) in new[]
+        {
+            (0x18F2CA, 15, 62, (byte)0, true),
+            (0x6BA0C, 17, 7, (byte)3, false)
+        })
+        {
+            IntPtr copy = Marshal.AllocHGlobal(64);
+            IntPtr flag = Marshal.AllocHGlobal(sizeof(int));
+            try
+            {
+                Marshal.Copy(image, rva, copy, 64);
+                Marshal.WriteInt32(flag, 0);
+                using var hook = new X64InlineHook(unchecked((ulong)copy.ToInt64()), length);
+                Assert(hook.DisplacedByteCount == length,
+                    $"Dispatch reader 0x{rva:X} displaced {hook.DisplacedByteCount}, expected {length}.");
+                int generated = 0;
+                Assembler? emitted = null;
+                hook.Generate((assembler, instructions, returnAddress) =>
+                {
+                    Assert(instructions.Length == 2 &&
+                           instructions[0].Length + instructions[1].Length == length,
+                        $"Dispatch reader 0x{rva:X} has unexpected original instructions.");
+                    DispatchIndexStub.Generate(assembler, instructions,
+                        unchecked((ulong)flag.ToInt64()), sourceType, replacement, inR9);
+                    emitted = assembler;
+                    generated++;
+                });
+                Assert(generated == 1 && hook.StubAddress != IntPtr.Zero,
+                    $"Dispatch reader 0x{rva:X} did not assemble one complete RedBird stub.");
+                var writer = new StubCodeWriter();
+                string? error = null;
+                Assert(emitted != null && emitted.TryAssemble(writer,
+                    unchecked((ulong)hook.StubAddress.ToInt64()), out error, out _),
+                    $"Dispatch reader 0x{rva:X} did not reassemble: {error}.");
+                byte[] bytes = writer.Bytes.ToArray();
+                var decoder = Decoder.Create(64, new ByteArrayCodeReader(bytes),
+                    unchecked((ulong)hook.StubAddress.ToInt64()));
+                var decoded = new List<Instruction>();
+                while (decoder.IP - unchecked((ulong)hook.StubAddress.ToInt64()) < (ulong)(bytes.Length - 8))
+                {
+                    Instruction instruction = decoder.Decode();
+                    Assert(!instruction.IsInvalid, $"Dispatch reader 0x{rva:X} has invalid stub code.");
+                    decoded.Add(instruction);
+                }
+                Assert(decoder.IP - unchecked((ulong)hook.StubAddress.ToInt64()) == (ulong)(bytes.Length - 8) &&
+                    bytes.AsSpan(bytes.Length - 14, 6).SequenceEqual(new byte[] { 0xFF, 0x25, 0, 0, 0, 0 }) &&
+                    BitConverter.ToUInt64(bytes, bytes.Length - 8) == unchecked((ulong)copy.ToInt64()) + (ulong)length,
+                    $"Dispatch reader 0x{rva:X} did not decode completely.");
+                Assert(decoded.Count(instruction => instruction.Mnemonic == Mnemonic.Movzx &&
+                    instruction.Op0Register == Register.EAX) == 1 &&
+                    decoded.Count(instruction => instruction.Mnemonic == Mnemonic.Mov &&
+                    instruction.Op0Register == Register.ECX) == 1,
+                    $"Dispatch reader 0x{rva:X} duplicated an original table load.");
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(flag);
+                Marshal.FreeHGlobal(copy);
+            }
+        }
+        string stub = File.ReadAllText(Path.Combine(FindWorkspaceRoot(),
+            "ImprovedHunters", "src", "DispatchIndexStub.cs"));
+        Assert(Count(stub, "assembler.AddInstruction(instructions[0])") == 1 &&
+               Count(stub, "assembler.AddInstruction(instructions[1])") == 1 &&
+               stub.Contains("assembler.je(vanilla);") &&
+               stub.Contains("assembler.jne(readOriginalIndex);") &&
+               stub.Contains("assembler.jmp(loadDispatchTarget);"),
+            "Dispatch reader must preserve one vanilla load, one replacement skip and one common target load.");
     }
 
     private static byte[] MapPeImage(byte[] file, out int sizeOfHeaders)

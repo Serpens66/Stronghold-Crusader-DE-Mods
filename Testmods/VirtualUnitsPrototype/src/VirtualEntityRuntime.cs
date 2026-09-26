@@ -776,7 +776,7 @@ namespace VirtualUnitsPrototype
             string footprint = Shared.GameBuildingFootprint.TryGetBounds(building, out Shared.GameBuildingFootprintBounds bounds)
                 ? $"{bounds.MinX},{bounds.MinY}-{bounds.MaxX},{bounds.MaxY}"
                 : "<invalid>";
-            return $"idGlobal={building->r_GlobalId}, state={building->r_AliveState}, type={building->r_BuildingType}, owner={building->r_PlayerIdOwner}, footprint={footprint}, access={building->r_AccessTilePositionX},{building->r_AccessTilePositionY}, originTileId={building->r_TileIdBegin}";
+            return $"idGlobal={building->r_GlobalId}, state={building->r_AliveState}, type={building->r_BuildingType}, owner={building->r_PlayerIdOwner}, footprint={footprint}, access={building->r_TileAccessPositionX},{building->r_TileAccessPositionY}, originTileId={building->r_TileIdBegin}";
         }
         internal static string FormatBuildingResult(long result) => $"result={result}, low32={VirtualMath.HexLow32(result)}, signedLow32={VirtualMath.SignedLow32(result)}";
         internal IEnumerable<VirtualUnitDefinition> VisibleUnits() => unitDefinitions.Values.Where(x => x.SpawnOptions.ShowInDiagnosticMenu).OrderBy(x => x.TypeId).ToArray();

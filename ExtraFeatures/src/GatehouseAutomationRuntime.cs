@@ -677,8 +677,8 @@ namespace ExtraFeatures
                 BuildingType = (int)building->r_BuildingType,
                 TileXBegin = building->r_TilePositionXBegin,
                 TileYBegin = building->r_TilePositionYBegin,
-                AccessTileX = building->r_AccessTilePositionX,
-                AccessTileY = building->r_AccessTilePositionY
+                AccessTileX = building->r_TileAccessPositionX,
+                AccessTileY = building->r_TileAccessPositionY
             };
         }
 
@@ -695,8 +695,8 @@ namespace ExtraFeatures
                     (int)candidate.r_BuildingType != locator.BuildingType ||
                     candidate.r_TilePositionXBegin != locator.TileXBegin ||
                     candidate.r_TilePositionYBegin != locator.TileYBegin ||
-                    candidate.r_AccessTilePositionX != locator.AccessTileX ||
-                    candidate.r_AccessTilePositionY != locator.AccessTileY)
+                    candidate.r_TileAccessPositionX != locator.AccessTileX ||
+                    candidate.r_TileAccessPositionY != locator.AccessTileY)
                 {
                     continue;
                 }

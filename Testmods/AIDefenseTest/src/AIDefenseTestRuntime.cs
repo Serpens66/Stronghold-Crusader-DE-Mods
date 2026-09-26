@@ -947,7 +947,7 @@ namespace AIDefenseTest
             LogInfo(
                 $"Spawned protected tower defender: buildingId={buildingId}, towerGlobalId={tower->r_GlobalId}, " +
                 $"towerType={tower->r_BuildingType}, owner={ownerPlayerId}, footprint={towerBounds.MinX},{towerBounds.MinY}-{towerBounds.MaxX},{towerBounds.MaxY}, " +
-                $"access={tower->r_AccessTilePositionX},{tower->r_AccessTilePositionY}, spawnTileId={spawnTileId}, " +
+                $"access={tower->r_TileAccessPositionX},{tower->r_TileAccessPositionY}, spawnTileId={spawnTileId}, " +
                 $"spawnTile={bestTileX},{bestTileY}, tileHeight={bestHeight}, buildingHeight={tower->r_HeightElevation}, " +
                 $"unitId={unitId}, unitGlobalId={unit->r_GlobalId}, unitState={unit->r_AliveState}, initialTribeId={initialTribeId}, " +
                 $"initialAIBehaviourRelated={initialAIBehaviourRelated}, initialAIBehaviourType={initialAIBehaviourType}, " +

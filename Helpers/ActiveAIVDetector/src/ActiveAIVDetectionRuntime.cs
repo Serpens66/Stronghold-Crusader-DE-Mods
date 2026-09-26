@@ -137,6 +137,12 @@ namespace ActiveAIVDetector
             if (context == null)
                 throw new ArgumentNullException(nameof(context));
 
+            bool layoutMatches = Shared.NativeBuildingCompoundGroup.HasExpectedLayout(
+                out int buildingSize, out int pileLinkOffset);
+            if (!referenceHashMatches || !layoutMatches)
+                throw new InvalidOperationException(
+                    $"The native building snapshot layout is incompatible: size=0x{buildingSize:X}, pileLinkOffset=0x{pileLinkOffset:X}.");
+
             InstallLobbyCaptureHook();
 
             transaction = new HookTransaction(

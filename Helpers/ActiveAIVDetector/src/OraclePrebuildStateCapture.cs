@@ -104,7 +104,7 @@ namespace ActiveAIVDetector
                     (int)building.r_BuildingType,
                     building.r_PlayerIdOwner,
                     building.r_GlobalId,
-                    building.r_UsedInSiegeAttemptId,
+                    Shared.NativeBuildingCompoundGroup.Read(ref building),
                     building.r_TileIdBegin,
                     building.r_OccupyTileGridSize,
                     building.r_TilePositionXBegin,
