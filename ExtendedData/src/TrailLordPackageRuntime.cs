@@ -103,6 +103,12 @@ namespace ExtendedData
                 HasRegisteredSeMedia(item) || HasVanillaMedia(item.Name)).ToArray();
             if (mediaDonors.Length == 1)
                 internalName = mediaDonors[0].Name;
+            else
+                reason = mediaDonors.Length == 0
+                    ? "No installed Lord with matching configuration and AIV checksums has registered media: " +
+                        slot.LordName
+                    : "Several installed Lords with matching configuration and AIV checksums have media: " +
+                        slot.LordName;
             return true;
         }
 

@@ -38,6 +38,7 @@ namespace BugfixesAndQoL
             TestSurrenderGameOverPolicy();
             TestSurrenderSelectionCleanup();
             TestCoopCustomLordSelectionPolicy();
+            TestCustomCoopAivSyncPolicy();
             TestTrailCustomizationOwnership();
             TestTunnelPlacementDistancePolicy();
             TestTunnelPlacementDistanceIntegration();
@@ -2796,6 +2797,15 @@ namespace BugfixesAndQoL
                 "Coop custom AIV replacement is limited to the active player-2 partner");
 
             Check(
+                CoopCustomLordSelectionPolicy.ShouldUseSelectedCoopAiv(true, true, false, false, false, 4) &&
+                CoopCustomLordSelectionPolicy.ShouldUseSelectedCoopAiv(true, false, true, true, true, 4) &&
+                !CoopCustomLordSelectionPolicy.ShouldUseSelectedCoopAiv(true, false, true, true, true, 2) &&
+                !CoopCustomLordSelectionPolicy.ShouldUseSelectedCoopAiv(true, false, true, false, true, 4) &&
+                !CoopCustomLordSelectionPolicy.ShouldUseSelectedCoopAiv(true, false, true, true, false, 4) &&
+                !CoopCustomLordSelectionPolicy.ShouldUseSelectedCoopAiv(false, false, true, true, true, 4),
+                "Custom Coop AI selections survive singleplayer restart without overriding the Vanilla partner");
+
+            Check(
                 CoopCustomLordSelectionPolicy.ShouldOverridePreviewName(
                     true, expectedLordType + 1, 0, expectedLordType, 0) &&
                 !CoopCustomLordSelectionPolicy.ShouldOverridePreviewName(
@@ -3042,6 +3052,17 @@ namespace BugfixesAndQoL
                 initHookSource.Contains("initCoopGameOriginal(steamId, userName, coaString);") &&
                 !initHookSource.Contains("FormatHistoryName("),
                 "the Custom Lord history marker is not persisted to coop.cfg");
+        }
+
+        private static void TestCustomCoopAivSyncPolicy()
+        {
+            Check(
+                MultiplayerAivSyncPolicy.CanUseConfirmedManifest(true, 1, true, true, 17, 17) &&
+                MultiplayerAivSyncPolicy.CanUseConfirmedManifest(true, 0, false, true, 17, 17) &&
+                !MultiplayerAivSyncPolicy.CanUseConfirmedManifest(true, 1, false, true, 17, 17) &&
+                !MultiplayerAivSyncPolicy.CanUseConfirmedManifest(true, 1, true, true, 17, 18) &&
+                !MultiplayerAivSyncPolicy.CanUseConfirmedManifest(false, 1, true, true, 17, 17),
+                "confirmed extra AIV candidates apply to the current Custom Coop lobby, not a stock Coop or another lobby");
         }
 
         private static void TestClassicMapSizeReader()

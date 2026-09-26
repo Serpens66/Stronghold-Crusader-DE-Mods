@@ -51,6 +51,7 @@ namespace ExtendedData
         private static readonly FieldInfo MainViewModelInstanceField = typeof(MainViewModel)
             .GetField("instance", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
         private static readonly MethodInfo UpdateHostInfoMethod = RequireMethod("UpdateHostInfo", typeof(bool));
+        private static readonly MethodInfo UpdateRadarShieldPositionsMethod = RequireMethod("UpdateRadarShieldPositions");
         private static readonly FieldInfo MpSetupDataField = typeof(FRONT_Multiplayer).GetField("MPsetupData", BindingFlags.Instance | BindingFlags.NonPublic);
         private static readonly FieldInfo LocalReadyField = RequirePrivateLobbyFlag("MPLocalReady");
         private static readonly FieldInfo LocalReadyLockedField = RequirePrivateLobbyFlag("MPLocalReadyLocked");
@@ -703,6 +704,11 @@ namespace ExtendedData
             {
                 self.AIVs[entry.Key] = CopyLordInfo(entry.Value);
                 setupData.preferredAIVs[entry.Key] = selected.PreferredAivByPlayerIndex[entry.Key];
+                // Vanilla creates Coop AI lobby members without their custom Lord name.
+                // The name is needed by both the lobby display and the start snapshot.
+                Platform_Multiplayer.MPLobbyMember aiMember = self.currentLobby?.GetLobbyMemberFromThis_PlayerID(entry.Key + 1);
+                if (aiMember != null && !entry.Value.builtInLord)
+                    aiMember.customLordName = entry.Value.lordName ?? string.Empty;
             }
 
             List<PlayerDefinition> players = selected.Loaded.Definition.Players.Where(player => player != null && player.Active).ToList();
@@ -717,6 +723,7 @@ namespace ExtendedData
             MainViewModel.Instance.StandaloneMissionText = BuildMissionDescription();
             if (updateHost && self.currentLobby != null && self.currentLobby.isHost)
                 UpdateHostInfoMethod.Invoke(self, new object[] { false });
+            UpdateRadarShieldPositionsMethod.Invoke(self, null);
         }
 
         private static FRONT_Multiplayer.MPAIVInfo CopyLordInfo(FRONT_Multiplayer.MPAIVInfo source) =>

@@ -1866,23 +1866,26 @@ namespace ExtendedData
                 {
                     FileHeader lordHeader = ResolveCustomTrailHeader(trailName, missionId);
                     TrailLordRequirements requirements = TrailLordRequirements.Read(lordHeader.filePath);
-                    if (requirements != null)
+                    if (requirements == null)
+                        LordDataCoordinator?.SetEmbeddedTrailSlots(null);
+                    else
                     {
                         FileHeader detailed = MapFileManager.Instance.GetFileInfoFromFileName(
                             lordHeader.filePath, lordHeader.filePath, 4, loadRestartInfo: true);
                         if (detailed?.restartSkirmishInfo?.aivs == null)
                             throw new InvalidDataException("Custom Trail Lord data is unavailable.");
-                        string reason = "Custom Trail Lord validation is unavailable.";
-                        if (LordDataCoordinator == null || !LordDataCoordinator.PrepareTrail(requirements,
-                                ToLordInfoMap(detailed.restartSkirmishInfo.aivs), false,
-                                out reason))
-                            throw new InvalidDataException(reason);
+                        LordDataCoordinator?.SetEmbeddedTrailSlots(
+                            requirements.Slots.Select(slot => slot.PlayerId));
+                        PrepareCustomTrailLords(requirements,
+                            ToLordInfoMap(detailed.restartSkirmishInfo.aivs), false);
                     }
-                    else
+                    if (requirements == null)
                         LordDataCoordinator?.PrepareTrail(null, null, false, out _);
                 }
                 catch (Exception exception)
                 {
+                    LordDataCoordinator?.SetEmbeddedTrailSlots(null);
+                    LordDataCoordinator?.PrepareTrail(null, null, false, out _);
                     DebugLogHelper.LogError(log, "Blocked Custom Trail launch: " + exception);
                     ShowInformation(SerpLocalization.Get("ExtendedData.StartBlockedTitle"), exception.Message);
                     return;
@@ -1905,6 +1908,17 @@ namespace ExtendedData
                 (aivs ?? Array.Empty<FRONT_Multiplayer.MPAIVInfo>())
                     .Select((info, index) => new { info, index })
                     .ToDictionary(item => item.index + 1, item => item.info);
+
+            private void PrepareCustomTrailLords(TrailLordRequirements requirements,
+                IReadOnlyDictionary<int, FRONT_Multiplayer.MPAIVInfo> infos,
+                bool captureLocalReplacements)
+            {
+                if (LordDataCoordinator == null)
+                    throw new InvalidDataException("Custom Trail Lord validation is unavailable.");
+                if (!LordDataCoordinator.PrepareTrail(requirements, infos, false,
+                        out string reason, captureLocalReplacements))
+                    throw new InvalidDataException(reason);
+            }
 
             private void MultiplayerOpenHook(
                 FRONT_Multiplayer self,
@@ -2020,11 +2034,90 @@ namespace ExtendedData
                         $"mission {customTrailRestartInfo.customTrailLevel}.");
                 }
 
+                if (customTrailRestartInfo?.customTrail == true)
+                {
+                    try
+                    {
+                        FileHeader lordHeader = ResolveCustomTrailHeader(
+                            customTrailRestartInfo.customTrailName,
+                            customTrailRestartInfo.customTrailLevel);
+                        TrailLordRequirements requirements = TrailLordRequirements.Read(lordHeader.filePath);
+                        if (requirements == null)
+                        {
+                            LordDataCoordinator?.SetEmbeddedTrailSlots(null);
+                            LordDataCoordinator?.PrepareTrail(null, null, false, out _);
+                        }
+                        else
+                        {
+                            Dictionary<int, FRONT_Multiplayer.MPAIVInfo> infos =
+                                ToLordInfoMap(customTrailRestartInfo.aivs);
+                            LordDataCoordinator?.SetEmbeddedTrailSlots(requirements.Slots
+                                .Where(slot => infos.TryGetValue(slot.PlayerId,
+                                    out FRONT_Multiplayer.MPAIVInfo info) && info != null &&
+                                    TrailLordSelectionPolicy.UsesEmbeddedLord(slot,
+                                        info.builtInLord, info.lordName,
+                                        LordDataCoordinator.PreparedTrailMediaAlias(
+                                            requirements, slot.PlayerId)))
+                                .Select(slot => slot.PlayerId));
+                            PrepareCustomTrailLords(requirements, infos, true);
+                            LordDataCoordinator.RemapTrailMedia(infos);
+                        }
+                    }
+                    catch (Exception exception)
+                    {
+                        LordDataCoordinator?.SetEmbeddedTrailSlots(null);
+                        LordDataCoordinator?.PrepareTrail(null, null, false, out _);
+                        DebugLogHelper.LogError(log, "Blocked customized Custom Trail launch: " + exception);
+                        ShowInformation(SerpLocalization.Get("ExtendedData.StartBlockedTitle"),
+                            exception.Message);
+                        return;
+                    }
+                }
+
                 if (customTrailRestartInfo != null && customTrailRestartInfo.customTrail)
                     customTrailLaunchActive = true;
+                if (self?.singlePlayerCoop == true &&
+                    ExtendedDataLaunchOriginApi.Origin == ExtendedDataLaunchOriginKind.CustomizedCoopTrail)
+                {
+                    try
+                    {
+                        ValidateSinglePlayerCoopAivs(self);
+                    }
+                    catch (Exception exception)
+                    {
+                        DebugLogHelper.LogError(log, "Blocked Custom Coop Trail launch: " + exception);
+                        ShowInformation(SerpLocalization.Get("ExtendedData.StartBlockedTitle"), exception.Message);
+                        return;
+                    }
+                }
                 startSkirmishGameOriginal(self, customTrailRestartInfo);
                 customTrailSetupRestartInfo = null;
                 customTrailSetupHeader = null;
+            }
+
+            private static void ValidateSinglePlayerCoopAivs(FRONT_Multiplayer self)
+            {
+                if (self?.currentLobby == null || self.AIVs == null)
+                    throw new InvalidDataException("Custom Coop Trail AI data is unavailable.");
+                foreach (Platform_Multiplayer.MPLobbyMember member in self.currentLobby.members)
+                {
+                    if (member == null || !member.SkirmishMember || member.SkirmishHumanMember)
+                        continue;
+                    int playerId = self.currentLobby.getThisPlayerFromSteamID(member.GetSteamID());
+                    if (playerId < 2 || playerId > self.AIVs.Length)
+                        throw new InvalidDataException("Custom Coop Trail has an invalid AI player slot.");
+                    FRONT_Multiplayer.MPAIVInfo info = self.AIVs[playerId - 1];
+                    if (info == null || info.lordType != member.GetLordType())
+                        throw new InvalidDataException($"Custom Coop Trail Lord selection for player {playerId} changed.");
+                    if (!info.builtInLord &&
+                        (string.IsNullOrWhiteSpace(info.lordName) || info.lordConfig == null))
+                        throw new InvalidDataException($"Custom Coop Trail Lord data for player {playerId} is incomplete.");
+                    if (info.builtInLord && info.builtIn)
+                        continue;
+                    if (info.aivs == null || info.aivs.Count == 0 ||
+                        info.aivs.Any(aiv => aiv?.data == null || aiv.data.Length == 0))
+                        throw new InvalidDataException($"Custom Coop Trail AIV for player {playerId} is missing or invalid.");
+                }
             }
 
             private void FrontendOpenCustomTrailHook(FrontendMenus self, string trailName, int level)

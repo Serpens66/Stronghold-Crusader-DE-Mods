@@ -18,7 +18,8 @@ namespace CastlePlanner.AIVPlacement.Core
     public enum LobbyCandidateSourceKind
     {
         File,
-        ScriptExtenderAsset
+        ScriptExtenderAsset,
+        EmbeddedRaw
     }
 
     public enum LobbyCandidateSelectionPolicy
@@ -36,6 +37,7 @@ namespace CastlePlanner.AIVPlacement.Core
         InvalidRotation,
         AivCandidatesUnavailable,
         AivFileUnavailable,
+        AivDataUnavailable,
         ClientEvaluationNotRequired,
         PreBuildSequenceUnsupported
     }
@@ -47,13 +49,16 @@ namespace CastlePlanner.AIVPlacement.Core
             string directoryPath,
             ulong checksum,
             bool builtIn,
-            string lordEnumName)
+            string lordEnumName,
+            short[] rawData = null)
         {
             Name = name ?? string.Empty;
             DirectoryPath = directoryPath ?? string.Empty;
             Checksum = checksum;
             BuiltIn = builtIn;
             LordEnumName = lordEnumName ?? string.Empty;
+            RawData = rawData == null ? null : (short[])rawData.Clone();
+            RawDataHash = AivRawDataDecoder.Hash(RawData);
         }
 
         public string Name { get; }
@@ -61,6 +66,8 @@ namespace CastlePlanner.AIVPlacement.Core
         public ulong Checksum { get; }
         public bool BuiltIn { get; }
         public string LordEnumName { get; }
+        public short[] RawData { get; }
+        public string RawDataHash { get; }
     }
 
     public sealed class LobbyAiSlotInput
@@ -140,7 +147,8 @@ namespace CastlePlanner.AIVPlacement.Core
             LobbyCandidateSourceKind sourceKind,
             string source,
             ulong checksum,
-            LobbyRequestFailureKind failureKind)
+            LobbyRequestFailureKind failureKind,
+            short[] rawData = null)
         {
             CandidateId = candidateId;
             Name = name ?? string.Empty;
@@ -148,6 +156,8 @@ namespace CastlePlanner.AIVPlacement.Core
             Source = source ?? string.Empty;
             Checksum = checksum;
             FailureKind = failureKind;
+            RawData = rawData == null ? null : (short[])rawData.Clone();
+            RawDataHash = AivRawDataDecoder.Hash(RawData);
         }
 
         public int CandidateId { get; }
@@ -156,6 +166,8 @@ namespace CastlePlanner.AIVPlacement.Core
         public string Source { get; }
         public ulong Checksum { get; }
         public LobbyRequestFailureKind FailureKind { get; }
+        public short[] RawData { get; }
+        public string RawDataHash { get; }
         public bool IsAvailable => FailureKind == LobbyRequestFailureKind.None;
     }
 

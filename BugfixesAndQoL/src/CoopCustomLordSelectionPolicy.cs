@@ -79,6 +79,17 @@ namespace BugfixesAndQoL
             selectedAllyLordType == CustomPartnerLordType &&
             lordType == CustomPartnerLordType && playerId == 2;
 
+        internal static bool ShouldUseSelectedCoopAiv(
+            bool coopGame,
+            bool customCoopGame,
+            bool singlePlayerCoop,
+            bool selectedLordMatches,
+            bool hasCustomSelection,
+            int playerId) =>
+            coopGame && playerId > 1 &&
+            (customCoopGame ||
+             (singlePlayerCoop && playerId > 2 && selectedLordMatches && hasCustomSelection));
+
         internal static bool ShouldOverridePreviewName(
             bool activeCustomContext,
             int computerOpponent,

@@ -37,10 +37,12 @@ namespace BugfixesAndQoL
         public static bool CanUseConfirmedManifest(
             bool featureActive,
             int coopTrailId,
+            bool customCoopGame,
             bool hasManifest,
             ulong currentLobbyId,
             ulong manifestLobbyId) =>
-            featureActive && coopTrailId == 0 && hasManifest && currentLobbyId != 0 &&
+            featureActive && (coopTrailId == 0 || customCoopGame) &&
+            hasManifest && currentLobbyId != 0 &&
             currentLobbyId == manifestLobbyId;
 
         public static bool IsVanillaChecksumReady(string expected, string current) =>

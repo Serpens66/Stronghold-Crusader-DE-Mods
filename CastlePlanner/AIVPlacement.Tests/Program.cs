@@ -47,6 +47,7 @@ internal static class Program
             ("rejects missing map", RejectsMissingMap),
             ("rejects ambiguous keep", RejectsAmbiguousKeep),
             ("resolves custom AIV", ResolvesCustomAiv),
+            ("uses embedded custom AIV without a local file", UsesEmbeddedCustomAiv),
             ("preserves multiple custom candidates", PreservesMultipleCustomCandidates),
             ("leaves multiplayer AIV selection to Vanilla", LeavesMultiplayerSelectionToVanilla),
             ("publishes optional status without a hard Bugfix dependency", PublishesStatusWithoutDependency),
@@ -838,6 +839,43 @@ internal static class Program
         AivPlacementCheckRequest request = fixture.Build(slot: slot);
         Assert(request.IsReady, request.FailureKind.ToString());
         Equal((ulong)42, request.Candidates[0].Checksum);
+    }
+
+    private static void UsesEmbeddedCustomAiv()
+    {
+        using Fixture fixture = new();
+        short[] raw = [0, 1, 0, 1, 61, 5044, 0];
+        LobbyAiSlotInput slot = Slot(LobbyAivMode.Custom,
+            [new LobbyAivCandidateInput("trail-aiv", "", 42, false, "SK_RAT", raw)]);
+        LobbyStateCapture capture = fixture.Capture(slots: [slot]);
+        AivPlacementCheckRequest request = fixture.Build(slot: slot);
+        Assert(request.IsReady, request.FailureKind.ToString());
+        Equal(LobbyCandidateSourceKind.EmbeddedRaw, request.Candidates[0].SourceKind);
+        Equal(5044, AivRawDataDecoder.Decode(request.Candidates[0].RawData)
+            .frames[0].tilePositionOfsets[0]);
+        string firstFingerprint = LobbyRequestBuilder.BuildFingerprint(capture);
+        raw[5] = 5144;
+        Equal(5044, AivRawDataDecoder.Decode(request.Candidates[0].RawData)
+            .frames[0].tilePositionOfsets[0]);
+        short[] changed = [0, 1, 0, 1, 61, 5144, 0];
+        LobbyAiSlotInput changedSlot = Slot(LobbyAivMode.Custom,
+            [new LobbyAivCandidateInput("trail-aiv", "", 42, false, "SK_RAT", changed)]);
+        Assert(firstFingerprint != LobbyRequestBuilder.BuildFingerprint(
+            fixture.Capture(slots: [changedSlot])), "changed raw AIV reused the lobby fingerprint");
+        Assert(AivPlacementEvaluationService.BuildSourceFingerprint(
+            new LobbyRequestBuilder().Build(1, capture, fixture.VanillaDirectory)) !=
+            AivPlacementEvaluationService.BuildSourceFingerprint(
+                new LobbyRequestBuilder().Build(1,
+                    fixture.Capture(slots: [changedSlot]), fixture.VanillaDirectory)),
+            "changed raw AIV reused the source fingerprint");
+        File.WriteAllText(Path.Combine(fixture.CustomDirectory, "trail-aiv.aivjson"), "{}");
+        AivPlacementCheckRequest duplicate = fixture.Build(slot: Slot(LobbyAivMode.Custom,
+            [new LobbyAivCandidateInput("trail-aiv", fixture.CustomDirectory, 42,
+                false, "SK_RAT", changed)]));
+        Equal(LobbyCandidateSourceKind.EmbeddedRaw, duplicate.Candidates[0].SourceKind);
+        AivPlacementCheckRequest missing = fixture.Build(slot: Slot(LobbyAivMode.Custom,
+            [new LobbyAivCandidateInput("trail-aiv", "", 42, false, "SK_RAT")]));
+        Equal(LobbyRequestFailureKind.AivDataUnavailable, missing.FailureKind);
     }
 
     private static void PreservesMultipleCustomCandidates()

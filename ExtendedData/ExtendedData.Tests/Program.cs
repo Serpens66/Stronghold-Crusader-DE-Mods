@@ -74,6 +74,7 @@ var tests = new (string Name, Action Run)[]
     ("selected Lord fingerprint ignores media and detects gameplay files", TestLordPackageFingerprint),
     ("Trail Lord requirements bind the mission and survive optional-media changes", TestTrailLordRequirements),
     ("Trail Lord selection distinguishes embedded, replaced Custom, and Vanilla Lords", TestTrailLordSelection),
+    ("Custom Trail launch prepares Lord values and Workshop media on both paths", TestCustomTrailLordLaunchIntegration),
     ("Lord Workshop metadata never requires local multiplayer files", TestLordWorkshopMetadataFingerprint),
     ("selected Lord package manifest binds identities and mode", TestLordPackageManifest),
 };
@@ -614,6 +615,45 @@ static void TestTrailLordSelection()
         "another Custom Lord with identical configuration and AIV checksums retained the Trail values");
     Assert(!TrailLordSelectionPolicy.UsesEmbeddedLord(embedded, false,
         "3693412090\\Local Lord"), "an unverified media alias was accepted as the original Lord");
+}
+
+static void TestCustomTrailLordLaunchIntegration()
+{
+    string root = FindProjectRoot();
+    string coordinator = File.ReadAllText(Path.Combine(root, "src", "TrailMissionSettingsCoordinator.cs"));
+    string lordData = File.ReadAllText(Path.Combine(root, "src", "LordDataSyncCoordinator.cs"));
+    string resolver = File.ReadAllText(Path.Combine(root, "src", "TrailLordPackageRuntime.cs"));
+    string direct = coordinator.Substring(coordinator.IndexOf("private void StartCustomTrailHook", StringComparison.Ordinal),
+        coordinator.IndexOf("private void LaunchCustomTrailHook", StringComparison.Ordinal) -
+        coordinator.IndexOf("private void StartCustomTrailHook", StringComparison.Ordinal));
+    string customized = coordinator.Substring(coordinator.IndexOf("private void StartSkirmishGameHook", StringComparison.Ordinal),
+        coordinator.IndexOf("private void FrontendOpenCustomTrailHook", StringComparison.Ordinal) -
+        coordinator.IndexOf("private void StartSkirmishGameHook", StringComparison.Ordinal));
+    Assert(direct.IndexOf("SetEmbeddedTrailSlots(", StringComparison.Ordinal) >= 0 &&
+        direct.IndexOf("SetEmbeddedTrailSlots(", StringComparison.Ordinal) <
+        direct.IndexOf("PrepareCustomTrailLords(requirements", StringComparison.Ordinal),
+        "direct Custom Trail starts do not select embedded Lord slots before preparation");
+    Assert(customized.Contains("customTrailRestartInfo.importAIVs(self.AIVs)") &&
+        customized.IndexOf("customTrailRestartInfo.importAIVs(self.AIVs)", StringComparison.Ordinal) <
+        customized.IndexOf("TrailLordRequirements.Read(lordHeader.filePath)", StringComparison.Ordinal) &&
+        customized.Contains("TrailLordSelectionPolicy.UsesEmbeddedLord(slot,") &&
+        customized.Contains("PrepareCustomTrailLords(requirements, infos, true)") &&
+        customized.IndexOf("LordDataCoordinator.RemapTrailMedia(infos)", StringComparison.Ordinal) <
+        customized.LastIndexOf("startSkirmishGameOriginal(self, customTrailRestartInfo)", StringComparison.Ordinal),
+        "Customize or restart launches do not validate the chosen Lord and remap media before Vanilla starts");
+    Assert(coordinator.Contains("LordDataCoordinator?.RemapTrailMedia(ToLordInfoMap(restartInfo?.aivs))") &&
+        lordData.Contains("pendingTrailMediaNames = names") &&
+        lordData.Contains("info.lordName = item.Value") &&
+        resolver.Contains("internalName = mediaDonors[0].Name") &&
+        resolver.Contains("IsSupportedCustomLord(donor.Name)") &&
+        resolver.Contains("slot.ConfigChecksum, slot.AivChecksums"),
+        "a matching subscribed Workshop Lord cannot supply its registered internal media name");
+    Assert(customized.Contains("LordDataCoordinator?.SetEmbeddedTrailSlots(null)") &&
+        direct.Contains("LordDataCoordinator?.SetEmbeddedTrailSlots(null)") &&
+        lordData.Contains("Optional Custom Trail Lord media unavailable for slot") &&
+        lordData.Contains("SetEmbeddedTrailSlots(null);") &&
+        lordData.Contains("fixes.Restore();") && lordData.Contains("fixes.Apply(pendingTrail);"),
+        "legacy Trails, optional-media diagnostics, or Trail Fixes apply/restore regressed");
 }
 
 static void TestLordPackageManifest()
@@ -2024,6 +2064,11 @@ static void TestCoopExporterIntegration()
         runtime.Contains("Lord media selection changed; wait for the updated lobby selection") &&
         runtime.Contains("UpdateHostInfoMethod.Invoke(self, new object[] { false })"),
         "Coop readiness does not follow Vanilla's transmitted Lord selection after media remapping");
+    Assert(runtime.Contains("aiMember.customLordName = entry.Value.lordName") &&
+        runtime.Contains("UpdateRadarShieldPositionsMethod.Invoke(self, null)") &&
+        runtime.IndexOf("aiMember.customLordName = entry.Value.lordName", StringComparison.Ordinal) <
+            runtime.IndexOf("UpdateRadarShieldPositionsMethod.Invoke(self, null)", StringComparison.Ordinal),
+        "embedded Coop Lords have no name in the visible lobby roster");
     Assert(runtime.Contains("selectedInfo.lordConfig = transmitted.lordConfig") &&
         runtime.Contains("PreparedTrailMediaAlias(selected.Loaded.LordRequirements") &&
         runtime.Contains("lordDataCoordinator.RemapTrailMedia(localInfos)") &&

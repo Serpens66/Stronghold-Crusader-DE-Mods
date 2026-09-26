@@ -155,6 +155,21 @@ namespace BugfixesAndQoL
 
         private void HostStartGameHook(Platform_Multiplayer self)
         {
+            if (FRONT_Multiplayer.coopGame && FRONT_Multiplayer.customCoopGame &&
+                self?.activeLobby?.isHost == true)
+            {
+                try
+                {
+                    FRONT_Multiplayer frontend = MainViewModel.viewModelLoaded
+                        ? MainViewModel.Instance?.FRONTMultiplayer : null;
+                    ValidateCustomCoopLobby(self.activeLobby, frontend, true);
+                }
+                catch (Exception ex)
+                {
+                    FailTransfer("BugfixesAndQoL.AivSyncFailed", ex.GetBaseException().Message);
+                    return;
+                }
+            }
             if (bypassHostStartHook || !IsFeatureActive() || !IsEligibleLobby(self))
             {
                 hostStartTrampoline(self);
@@ -530,10 +545,18 @@ namespace BugfixesAndQoL
             int coopTrailId,
             int coopMissionId)
         {
-            activeStartManifest = ResolveManifestForStart(coopTrailId);
             try
             {
+                if (FRONT_Multiplayer.coopGame && FRONT_Multiplayer.customCoopGame)
+                    ValidateCustomCoopLobby(self?.activeLobby, null, false);
+                activeStartManifest = ResolveManifestForStart(coopTrailId);
                 startGameTrampoline(self, setup, map, coopTrailId, coopMissionId);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(log,
+                    "Bugfixes and QoL could not prepare multiplayer AIVs: " + ex);
+                throw;
             }
             finally
             {
@@ -553,6 +576,7 @@ namespace BugfixesAndQoL
             if (!MultiplayerAivSyncPolicy.CanUseConfirmedManifest(
                     IsFeatureActive(),
                     coopTrailId,
+                    FRONT_Multiplayer.customCoopGame,
                     confirmedManifest != null,
                     lobby?.id.m_SteamID ?? 0UL,
                     confirmedManifest?.LobbyId ?? 0UL))
@@ -564,6 +588,62 @@ namespace BugfixesAndQoL
 
             ValidateManifestAgainstLobby(Platform_Multiplayer.Instance, confirmedManifest);
             return confirmedManifest;
+        }
+
+        private static void ValidateCustomCoopLobby(
+            Platform_Multiplayer.MPLobby lobby,
+            FRONT_Multiplayer frontend,
+            bool compareHostCandidates)
+        {
+            if (lobby == null || (compareHostCandidates && frontend?.AIVs == null))
+                throw new InvalidOperationException("Custom Coop Trail AIV lobby data is unavailable.");
+            foreach (Platform_Multiplayer.MPLobbyMember member in lobby.members)
+            {
+                if (member == null || !member.SkirmishMember || member.SkirmishHumanMember)
+                    continue;
+                int playerId = lobby.getThisPlayerFromSteamID(member.GetSteamID());
+                if (playerId < 2 || playerId > 8)
+                    throw new InvalidOperationException("Custom Coop Trail has an invalid AI player slot.");
+                string encoded = GetVanillaAivData(lobby, playerId);
+                var transmitted = new FRONT_Multiplayer.MPAIVInfo();
+                transmitted.decode(encoded ?? string.Empty);
+                if (transmitted.lordType != member.GetLordType() ||
+                    (!transmitted.builtInLord &&
+                     (string.IsNullOrWhiteSpace(transmitted.lordName) ||
+                      transmitted.lordConfig == null || transmitted.builtIn ||
+                      transmitted.community || transmitted.historical)))
+                    throw new InvalidOperationException($"Custom Coop Trail Lord data for player {playerId} is incomplete.");
+                if (!transmitted.builtIn || !transmitted.builtInLord)
+                {
+                    if (transmitted.aivs == null || transmitted.aivs.Count != 1 ||
+                        transmitted.aivs[0]?.data == null || transmitted.aivs[0].data.Length == 0)
+                        throw new InvalidOperationException($"Custom Coop Trail AIV for player {playerId} is missing or invalid.");
+                }
+                if (!compareHostCandidates)
+                    continue;
+                FRONT_Multiplayer.MPAIVInfo local = frontend.AIVs[playerId - 1];
+                if (local == null || local.lordType != transmitted.lordType ||
+                    local.builtInLord != transmitted.builtInLord)
+                    throw new InvalidOperationException($"Custom Coop Trail Lord selection for player {playerId} changed.");
+                if (!transmitted.builtIn &&
+                    (local.aivs == null || local.aivs.Count == 0))
+                    throw new InvalidOperationException($"Custom Coop Trail AIV selection for player {playerId} is missing.");
+                if (local.aivs != null && local.aivs.Count > 0 && !local.builtIn &&
+                    !local.community && !local.historical)
+                {
+                    if (local.aivs.Count > MultiplayerAivSyncProtocol.MaximumCandidatesPerLord ||
+                        local.aivs[0]?.data == null ||
+                        transmitted.aivs.Count != 1 ||
+                        local.aivs[0].checksum != transmitted.aivs[0].checksum ||
+                        !MultiplayerAivSyncProtocol.FixedEquals(
+                            MultiplayerAivSyncProtocol.HashData(local.aivs[0].data),
+                            MultiplayerAivSyncProtocol.HashData(transmitted.aivs[0].data)))
+                        throw new InvalidOperationException($"Custom Coop Trail AIV selection for player {playerId} changed.");
+                    for (int index = 0; index < local.aivs.Count; index++)
+                        if (local.aivs[index]?.data == null || local.aivs[index].data.Length == 0)
+                            throw new InvalidOperationException($"Custom Coop Trail AIV candidate {index} for player {playerId} is invalid.");
+                }
+            }
         }
 
         private EngineInterface.LoadMapReturnData LoadMultiplayerMapHook(string mapName, bool multiplayerSave)
@@ -779,7 +859,9 @@ namespace BugfixesAndQoL
             };
 
         private bool IsFeatureActive() =>
-            settings.EnableMod && settings.EnableCustomLordListEnhancements;
+            settings.EnableMod &&
+            (settings.EnableCustomLordListEnhancements ||
+             (FRONT_Multiplayer.coopGame && FRONT_Multiplayer.customCoopGame));
 
         private static bool IsEligibleLobby(Platform_Multiplayer platform) =>
             platform?.activeLobby != null &&
@@ -824,7 +906,7 @@ namespace BugfixesAndQoL
             return string.Join("|", parts);
         }
 
-        private static string GetVanillaAivData(Platform_Multiplayer.MPLobby lobby, int playerId)
+        internal static string GetVanillaAivData(Platform_Multiplayer.MPLobby lobby, int playerId)
         {
             switch (playerId)
             {

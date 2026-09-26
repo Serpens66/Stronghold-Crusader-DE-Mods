@@ -138,6 +138,7 @@ namespace ExtendedData
                     pendingTrail = null;
                     pendingTrailMediaNames.Clear();
                     trailApplied = false;
+                    SetEmbeddedTrailSlots(null);
                 }
                 lastMapTransitionDiagnostic = null;
                 lastMapAppliedDiagnostic = null;
@@ -264,7 +265,15 @@ namespace ExtendedData
                     if (!TrailLordPackageRuntime.TryResolve(slot, out string mediaName,
                         out _, out string error))
                         throw new InvalidDataException(error);
-                    if (!string.IsNullOrWhiteSpace(mediaName)) names[slot.PlayerId] = mediaName;
+                    if (!string.IsNullOrWhiteSpace(mediaName))
+                    {
+                        names[slot.PlayerId] = mediaName;
+                        DebugLogHelper.LogInfo(log, "Custom Trail Lord media provider for slot " +
+                            slot.PlayerId + ": " + mediaName);
+                    }
+                    else if (!string.IsNullOrWhiteSpace(error))
+                        DebugLogHelper.LogWarning(log, "Optional Custom Trail Lord media unavailable for slot " +
+                            slot.PlayerId + ": " + error);
                 }
                 return true;
             }

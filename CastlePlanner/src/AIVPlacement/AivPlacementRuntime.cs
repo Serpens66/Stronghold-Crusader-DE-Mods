@@ -404,7 +404,8 @@ namespace CastlePlanner.AIVPlacement
                                 candidate.path,
                                 candidate.checksum,
                                 candidate.builtIn,
-                                candidateLord));
+                                candidateLord,
+                                candidate.data));
                         }
                     }
 

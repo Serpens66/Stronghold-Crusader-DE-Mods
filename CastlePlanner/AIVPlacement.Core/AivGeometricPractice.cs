@@ -218,6 +218,12 @@ namespace CastlePlanner.AIVPlacement.Core
                             if (!sourceStamp.Equals(LobbyFileStamp.Capture(candidate.Source)))
                                 continue;
                         }
+                        else if (candidate.SourceKind == LobbyCandidateSourceKind.EmbeddedRaw)
+                        {
+                            loaded = new AivJsonLoadResult(
+                                AivRawDataDecoder.Decode(candidate.RawData),
+                                Array.Empty<AivDiagnostic>());
+                        }
                         else
                         {
                             if (assets == null || !assets.TryGetValue(candidate.Source, out string text))

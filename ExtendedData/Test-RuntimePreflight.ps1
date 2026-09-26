@@ -80,6 +80,7 @@ try {
         'CrusaderDE.HUD_IngameMenu/RestartSkirmishMapInfo') 'Private'
     Assert-ManagedMethodContract $managedAssembly 'CrusaderDE.FRONT_Multiplayer' 'UpdateHostInfo' @(
         'System.Boolean') 'Private'
+    Assert-ManagedMethodContract $managedAssembly 'CrusaderDE.FRONT_Multiplayer' 'UpdateRadarShieldPositions' @() 'Private'
     Assert-ManagedMethodContract $managedAssembly 'EditorDirector' 'SaveSaveGameOrMap' @(
         'System.String', 'System.String', 'System.Boolean', 'System.Boolean', 'System.Boolean') 'Public'
 }

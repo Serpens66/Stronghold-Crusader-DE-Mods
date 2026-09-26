@@ -66,7 +66,7 @@ namespace CastlePlanner.AIVPlacement.Core
                 if (failure == LobbyRequestFailureKind.None && candidates.Count == 0)
                     failure = LobbyRequestFailureKind.AivCandidatesUnavailable;
                 if (failure == LobbyRequestFailureKind.None && candidates.Any(value => !value.IsAvailable))
-                    failure = LobbyRequestFailureKind.AivFileUnavailable;
+                    failure = candidates.First(value => !value.IsAvailable).FailureKind;
 
                 // Only the host owns lobby setup and the multiplayer start payload.
                 if (!capture.IsHost)
@@ -139,7 +139,8 @@ namespace CastlePlanner.AIVPlacement.Core
                     Append(result, candidate.DirectoryPath);
                     Append(result, candidate.LordEnumName);
                     result.Append(candidate.Checksum).Append(',')
-                        .Append(candidate.BuiltIn ? '1' : '0').Append('|');
+                        .Append(candidate.BuiltIn ? '1' : '0').Append(',')
+                        .Append(candidate.RawDataHash).Append('|');
                 }
             }
             foreach (string asset in capture.ScriptExtenderAivAssets.OrderBy(value => value))
@@ -177,6 +178,22 @@ namespace CastlePlanner.AIVPlacement.Core
                     }
                     else
                     {
+                        if (candidate.RawData != null && candidate.RawData.Length > 0)
+                        {
+                            result.Add(new AivPlacementCandidateRequest(
+                                index, candidate.Name, LobbyCandidateSourceKind.EmbeddedRaw,
+                                candidate.Name, candidate.Checksum,
+                                LobbyRequestFailureKind.None, candidate.RawData));
+                            continue;
+                        }
+                        if (string.IsNullOrEmpty(candidate.DirectoryPath))
+                        {
+                            result.Add(new AivPlacementCandidateRequest(
+                                index, candidate.Name, LobbyCandidateSourceKind.EmbeddedRaw,
+                                candidate.Name, candidate.Checksum,
+                                LobbyRequestFailureKind.AivDataUnavailable));
+                            continue;
+                        }
                         string fileName = EnsureExtension(candidate.Name);
                         string path = string.IsNullOrEmpty(candidate.DirectoryPath)
                             ? fileName

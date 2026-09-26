@@ -521,6 +521,10 @@ namespace CastlePlanner.AIVPlacement.Core
                     {
                         text.Append(LobbyFileStamp.Capture(candidate.Source));
                     }
+                    else if (candidate.SourceKind == LobbyCandidateSourceKind.EmbeddedRaw)
+                    {
+                        text.Append(candidate.RawDataHash);
+                    }
                     else
                     {
                         string content = null;
@@ -1100,7 +1104,9 @@ namespace CastlePlanner.AIVPlacement.Core
                     candidate.Source,
                     candidate.Checksum,
                     default,
-                    HashText(assetText));
+                    candidate.SourceKind == LobbyCandidateSourceKind.EmbeddedRaw
+                        ? candidate.RawDataHash
+                        : HashText(assetText));
 
         private static string HashText(string value)
         {
@@ -1265,6 +1271,22 @@ namespace CastlePlanner.AIVPlacement.Core
                         aivTimer.Elapsed,
                         TimeSpan.Zero,
                         TimeSpan.Zero);
+                }
+            }
+            else if (workItem.Candidate.SourceKind == LobbyCandidateSourceKind.EmbeddedRaw)
+            {
+                try
+                {
+                    loaded = new AivJsonLoadResult(
+                        AivRawDataDecoder.Decode(workItem.Candidate.RawData),
+                        Array.Empty<AivDiagnostic>());
+                }
+                catch (Exception ex) when (ex is InvalidDataException || ex is ArgumentException)
+                {
+                    return Failure(
+                        LobbyEvaluationFailureKind.AivParseFailed,
+                        $"Embedded AIV data is invalid: {ex.Message}",
+                        mapLookup, aivTimer.Elapsed, TimeSpan.Zero, TimeSpan.Zero);
                 }
             }
             else

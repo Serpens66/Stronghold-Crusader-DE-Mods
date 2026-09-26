@@ -65,6 +65,7 @@
     <Compile Include="..\src\BriefingNoStartingGoldFixPolicy.cs"><Link>BriefingNoStartingGoldFixPolicy.cs</Link></Compile>
     <Compile Include="..\src\VanillaMapEditorPolicy.cs"><Link>VanillaMapEditorPolicy.cs</Link></Compile>
     <Compile Include="..\src\CoopCustomLordSelectionPolicy.cs"><Link>CoopCustomLordSelectionPolicy.cs</Link></Compile>
+    <Compile Include="..\src\MultiplayerAivSyncPolicy.cs"><Link>MultiplayerAivSyncPolicy.cs</Link></Compile>
     <Compile Include="..\src\SingleBuildingPauseOverrideStore.cs"><Link>SingleBuildingPauseOverrideStore.cs</Link></Compile>
     <Compile Include="..\src\TemporaryGateBlockagePolicy.cs"><Link>TemporaryGateBlockagePolicy.cs</Link></Compile>
     <Compile Include="..\src\SynchronizedGatehouseReachabilityPolicy.cs"><Link>SynchronizedGatehouseReachabilityPolicy.cs</Link></Compile>
