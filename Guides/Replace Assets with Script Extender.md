@@ -1,4 +1,4 @@
-# Funktionsfähiger Ablauf für vollständige SH1DE-Grafik-Overrides
+# SH1DE-Grafiken mit dem Script Extender ersetzen
 
 ## Ergebnis
 
@@ -6,10 +6,10 @@ Das Atlas-System des Script Extenders 2.4.0 kann vollständige und partielle Ein
 
 Die einzelnen AssetRipper-Metadaten müssen weiterhin zu einer gemeinsamen `atlas.json` zusammengeführt werden. Partielle Atlanten sind ab 2.4.0 auch bei benannten Gruppen in gemeinsam genutzten GM-Arrays sicher; Zielindizes oberhalb des Vanilla-Bestands erweitern das Array gezielt.
 
-Geprüfte Version:
+Geprüfter Atlasvertrag:
 
-- Script Extender `2.4.0`
-- Commit `5d5719c1002aec043d331162d72b2e7f3111b34b`
+- Script Extender `2.4.0` oder neuer für PNG; `2.8.0` oder neuer für BC7-DDS
+- DDS-Ladepfad auch im lokalen Extender-Tag `v2.8.0` und im aktuellen `v2.10.3` geprüft
 
 ---
 
@@ -51,6 +51,12 @@ Exportiere aus beiden Spielen:
 - vorhandene Teamfarbenmasken
 
 SHCDE bildet die verbindliche Zielgruppe, Zielnamen und Indices. SH1DE liefert die neuen Bildpixel, gegebenenfalls Masken und – wenn die ursprüngliche Ausrichtung reproduziert werden soll – die Quellpivots. Ein normalisierter SHCDE-Pivot darf nicht ungeprüft auf eine anders große SH1DE-Leinwand kopiert werden.
+
+Die tatsächliche Quelltextur folgt aus `m_RD.m_Texture` innerhalb der angegebenen `m_Collection`, nicht aus Sprite- oder GM-Namen. Vor dem Export Quellatlas-SHA-256 und mindestens einen bekannten Referenzframe abgleichen. `anim_castle` in SH1DE verweist beispielsweise auf `alltiles/AllTileSprites.png`, obwohl der Zielname eine andere Textur vermuten lassen könnte.
+
+Tight-Mesh-Sprites dürfen nicht blind als Rechteck aus `m_Rect` geschnitten werden: außerhalb der Dreiecksfläche können Pixel benachbarter Sprites liegen, und das Mesh kann über `m_Rect` hinausreichen. Die Pixel anhand validierter Vertex-, Index- und UV-Daten rasterisieren oder einen nachweislich korrekt rekonstruierten Sprite-Export verwenden. Die [Sprite Suite](https://gitlab.com/strongholdoriginsmod/sh1de-shcde-sprite-suite/-/blob/main/src/stronghold_europe_de/pixel_identity.py) nutzt hierfür UnityPys `Sprite.image`; das Ergebnis trotzdem gegen Referenzframe, Leinwandgröße und Anker prüfen. Ein nachträglich anders zugeschnittenes PNG benötigt korrigierte Pivot-Metadaten. Einzelheiten stehen in der [AtlasBuilder-USAGE](../Helpers/AtlasBuilder/USAGE.md).
+
+Masken können in einer eigenen, niedriger aufgelösten Quelltextur liegen. In diesem Fall Quellkoordinaten auf die Maskentextur abbilden, mit der passenden Filtermethode auf die Farbframegröße bringen und die Maske außerhalb der sichtbaren Farb-/Meshfläche transparent setzen. Erst die fertigen Einzel-PNG-Paare müssen für den Builder pixelgenau gleich groß sein; die ursprünglichen gemeinsamen Quellatlanten müssen es nicht sein.
 
 ---
 
@@ -106,19 +112,9 @@ Der Atlasname wird dabei bewusst aus der Zielgruppe und dem Index erzeugt, beisp
 
 # 4. Vollständige oder partielle GM-Gruppe erzeugen
 
-Für vollständige Ersatzatlanten sollte der Atlas enthalten:
+Ein partieller Atlas enthält nur die tatsächlich gewünschten Ersatzframes. Der Extender erhält alle ausgelassenen SHCDE-Main- und Alt-Frames einschließlich nachfolgender Indizes als Vanilla-Sprites mit ihrem bisherigen Material. Fehlende Frames weder als leere Sprites eintragen noch nur zum Auffüllen eines Indexbereichs aus Vanilla kopieren. Für einen vollständigen Grafiktausch müssen dagegen tatsächlich alle relevanten Gruppen und Frames identifiziert werden; ein Gebäude kann mehrere `tile_*`- und `anim_*`-Gruppen nutzen.
 
-- alle verwendeten Main-Frames
-- alle verwendeten Alt-Frames
-- den höchsten originalen Frameindex
-- alle notwendigen Originalframes, für die kein SH1DE-Ersatz existiert
-
-Wenn beispielsweise nur ein bestimmtes Gebäude aus `tile_workshops` ersetzt werden soll, kann 2.4.0 entweder einen partiellen Atlas oder weiterhin eine komplette Gruppe verwenden:
-
-- gewünschtes Gebäude aus SH1DE
-- alle übrigen Frames aus SHCDE
-
-Bei einem partiellen Atlas dürfen ausgelassene Frames nicht als leere Ersatzframes eingetragen werden; der Extender übernimmt sie direkt aus Vanilla. Alternativ können wenige einzelne Sprites über `Override/Sprites/` ersetzt werden. Für tausende Frames ist das weniger effizient, weil jedes Bild als eigene Textur verarbeitet wird.
+Alternativ lassen sich wenige einzelne Sprites über `Override/Sprites/` ersetzen. Für größere Framebestände sind Atlanten zweckmäßiger.
 
 ---
 
@@ -126,8 +122,8 @@ Bei einem partiellen Atlas dürfen ausgelassene Frames nicht als leere Ersatzfra
 
 Erzeuge pro GM-Gruppe:
 
-    atlas.png
-    atlas_m.png
+    atlas.png oder atlas.dds
+    atlas_m.png oder atlas_m.dds (nur bei maskierten Gruppen)
     atlas.json
 
 Beim Packen:
@@ -147,13 +143,15 @@ Der Script Extender verwendet für `atlas.png`:
 - keine Mipmaps
 - `SpriteMeshType.FullRect`
 
+Bei BC7-DDS liest der Extender die komprimierten Blöcke ohne Dekompression ein. Die DDS muss dafür gegenüber dem aufrechten PNG vertikal gedreht gespeichert sein; die JSON-Rechtecke bleiben dennoch im Unity-Koordinatensystem mit Ursprung unten links. Breite und Höhe sollten Vielfache von vier sein, Frames dürfen keinen BC7-Block teilen, und Mipmaps werden für diesen Atlas nicht benötigt. BC7 benötigt weniger GPU-Texturspeicher als RGBA32, verändert aber Pixel und Maskenwerte geringfügig. Deshalb ist PNG der verlustfreie Standard; Farbe und Maske dürfen unterschiedliche Ausgabeformate haben. Nie zugleich `.png` und `.dds` für dieselbe Textur ausgeben: der Extender bevorzugt PNG.
+
 Ein einzelner globaler Atlas für das ganze Spiel wird nicht unterstützt. Jede GM-Gruppe benötigt einen eigenen Ordner und wird als eigene Textur geladen.
 
 ---
 
 # 6. Teamfarbenmaske
 
-`atlas_m.png` ist technisch optional, fachlich aber von der Zielgruppe und dem `material`-Modus abhängig. Der aktuelle Atlas Builder liest diesen Vertrag aus der gegen Script Extender 2.4.0 und den aktuellen SHCDE-Loader geprüften Tabelle aller 195 Gruppen:
+`atlas_m.png` beziehungsweise `atlas_m.dds` ist technisch optional, fachlich aber von der Zielgruppe und dem `material`-Modus abhängig. Der aktuelle Atlas Builder liest diesen Vertrag aus der gegen den Script Extender und den SHCDE-Loader geprüften Tabelle aller 195 Gruppen:
 
 - Plain-Gruppen wie `tile_ruins`, `tile_buildings1` oder `tree_cactii` dürfen keine Maske enthalten.
 - TeamColour- und Foliage-Gruppen benötigen eine vollständige Maske.
@@ -161,11 +159,11 @@ Ein einzelner globaler Atlas für das ganze Spiel wird nicht unterstützt. Jede 
 
 Sie muss:
 
-- dieselbe Gesamtgröße wie `atlas.png` haben
+- dieselbe Gesamtgröße wie der fertige Farbatlas haben
 - dasselbe Packlayout verwenden
 - mit jedem Farbframe pixelgenau übereinstimmen
 
-Das optionale root-level Feld `"material"` akzeptiert `Auto`, `Plain`, `TeamColour`/`TeamColor` oder `Foliage`. `Auto` übernimmt mit Maske den Vanilla-Materialtyp der GM-Gruppe und verwendet ohne Maske aus Kompatibilitätsgründen `Plain`. Explizites `TeamColour` oder `Foliage` erfordert eine verwendbare `atlas_m.png`; ungültige Werte oder fehlende Shader lassen das Override fail-closed aus.
+Das optionale root-level Feld `"material"` akzeptiert `Auto`, `Plain`, `TeamColour`/`TeamColor` oder `Foliage`. `Auto` übernimmt mit Maske den Vanilla-Materialtyp der GM-Gruppe und verwendet ohne Maske aus Kompatibilitätsgründen `Plain`. Explizites `TeamColour` oder `Foliage` erfordert eine verwendbare `atlas_m.png` oder `atlas_m.dds`; ungültige Werte oder fehlende Shader lassen das Override fail-closed aus.
 
 Die Bedeutung der Maskenkanäle ist im Script Extender nicht dokumentiert. Dafür sollten die originalen SHCDE-Masken im Sprite Previewer untersucht werden.
 
@@ -173,7 +171,7 @@ Die Bedeutung der Maskenkanäle ist im Script Extender nicht dokumentiert. Dafü
 
 # 7. Gemeinsame `atlas.json` erzeugen
 
-Für vollständige Gruppen muss das Mehrframeformat verwendet werden:
+Für vollständige und partielle Gruppen wird dasselbe Mehrframeformat verwendet:
 
     {
       "pixelsPerUnit": 64,
@@ -317,7 +315,7 @@ Der Atlas Builder bietet dafür pro Gruppe drei Modi:
 - `source-metadata`: liest den individuellen Quellpivot aus AssetRipper-JSONs
 - `target-normalized`: altes Verhalten für absichtlich identische Leinwände
 
-Schema-1-Projekte des Builders werden aus Kompatibilitätsgründen als `target-normalized` geladen und deutlich gewarnt. Beim Speichern werden sie auf Schema 2 aktualisiert.
+Schema-1-Projekte des Builders werden aus Kompatibilitätsgründen als `target-normalized` geladen und deutlich gewarnt. Beim Speichern werden ältere Projekte auf das aktuelle Projektschema aktualisiert; ohne ausdrückliche Formatwahl bleibt PNG erhalten.
 
 ---
 
@@ -340,11 +338,7 @@ Ein einzelnes Raw-JSON kann so aussehen:
       "m_PixelsToUnits": 64
     }
 
-Dieses Format lädt in Version 2.3.0 nur genau ein Frame.
-
-Der Extender sammelt nicht automatisch mehrere AssetRipper-JSON-Dateien. Ein Konvertierungsskript muss deshalb alle Metadaten in eine gemeinsame `frames`-Liste umwandeln.
-
-Das ist einer der Punkte, durch die der aktuelle Script Extender den Arbeitsablauf unnötig kompliziert macht.
+AssetRipper-JSONs sind Eingabemetadaten, keine fertige `atlas.json`. Der Atlas Builder ordnet sie bei gewählter Quellmetadaten-Pivotquelle den PNG-Frames zu und schreibt pro GM-Gruppe eine gemeinsame `frames`-Liste im Extender-Format. Ein selbst erstellter Atlas muss dieselbe Umwandlung leisten.
 
 ---
 
@@ -366,11 +360,9 @@ Der fertige Mod sieht beispielsweise so aus:
             atlas.json
           tile_buildings1/
             atlas.png
-            atlas_m.png
             atlas.json
           tile_workshops/
             atlas.png
-            atlas_m.png
             atlas.json
           anim_windmill/
             atlas.png
@@ -394,7 +386,7 @@ Eine gepackte `.semod`-Datei funktioniert ebenfalls. Für Entwicklung und Fehler
 Der Konverter sollte je Gruppe prüfen:
 
 - Gruppenname wird von Script Extender 2.4.0 unterstützt
-- `material` ist `Auto`, `Plain`, `TeamColour`/`TeamColor` oder `Foliage`, und explizit maskierte Modi besitzen `atlas_m.png`
+- `material` ist `Auto`, `Plain`, `TeamColour`/`TeamColor` oder `Foliage`, und explizit maskierte Modi besitzen `atlas_m.png` oder `atlas_m.dds`
 - jedes Frame beginnt mit dem richtigen Gruppenpräfix
 - jeder Name enthält einen gültigen numerischen Index
 - Alt-Frames enden ausschließlich auf kleinem `x`
@@ -406,8 +398,8 @@ Der Konverter sollte je Gruppe prüfen:
 - Farb- und Maskenatlas haben dieselbe Größe
 - beide Atlanten verwenden dasselbe Layout
 - Pivot und PPU sind vorhanden
-- höchster Index entspricht mindestens dem höchsten SHCDE-Index
-- alle tatsächlich vorhandenen SHCDE-Frames sind abgedeckt
+- partielle Gruppen lassen fehlende Zielindices absichtlich aus; nur aufgenommene Indices brauchen gültige Zielnamen und Geometrie
+- BC7-DDS hat einen gültigen DX10/BC7-Header, passende Maße, aufrechte Laufzeitdarstellung und keine versehentlich zusätzlich vorhandene PNG-Version derselben Textur
 
 Der Script Extender führt diese Prüfungen größtenteils nicht selbst durch.
 
@@ -425,7 +417,7 @@ Erfolgreiche Registrierung:
 Bei einem Fehler sind vor allem diese kurzen Meldungen relevant:
 
     Unknown GM file name [...]
-    Found atlas.json but no atlas.png
+    Found atlas.json for [...] but no atlas.png/atlas.dds
     No frames parsed [...]
     No parseable frame indices [...]
     Failed to apply atlas [...]
@@ -457,29 +449,7 @@ Für Gebäude zusätzlich:
 - Arbeiter
 - Waren und Effekte
 
-Zuerst nur eine vollständige Gruppe wie `body_archer` umsetzen. Erst nach einem erfolgreichen Test den Konverter auf weitere Gruppen anwenden.
-
----
-
-# Fehler im Script Extender, die den Ablauf betreffen
-
-## Kurzbericht für den Autor
-
-### Atlas override issues in v2.3.0
-
-1. Partial overrides truncate `gmSprites` and `gmAltSprites` because `arraySize` is only `maxFrameIdx + 1`. It should preserve at least the original array lengths.
-2. Preserved original sprites may use incorrect team masks when the replacement atlas has a different layout.
-3. The raw AssetRipper schema loads only one frame from the single discovered `atlas.json`; multiple raw frame files are not collected.
-4. Documentation says all sprite groups are supported, but automatic discovery is restricted to the hard-coded `_gmFileNameToEnum` table.
-5. `tile_sea_new_01` and `tile_sea_shore` share `GM_NEW_SEA` through `ID_Offset` and `additionalStorage`. `ApplySingle` ignores both fields, so an atlas override for either group corrupts the shared Sprite arrays.
-
-Until these issues are fixed, complete GM-group replacement with the multi-frame JSON format is the reliable workflow.
-
-## Davon getrennter Builderfehler
-
-Der Extender wendet den normalisierten Pivot aus `atlas.json` unverändert an und kennt die ursprüngliche Leinwand des Ersatzbildes nicht. Das ist kein Parserfehler. Der frühere Atlas Builder erzeugte jedoch standardmäßig ungeeignete JSON-Pivots, indem er den normalisierten Zielwert unverändert auf anders große Bilder übertrug. Der aktuelle Builder korrigiert das über den SHCDE-Pixelanker beziehungsweise explizite Quellmetadaten.
-
-Der Builder sperrt außerdem die beiden nicht sicher atlasfähigen Meeresgruppen, erzwingt den gruppenspezifischen Maskenvertrag und warnt gezielt vor dem weiterhin ungefixten Foliage-Materialproblem.
+Zuerst wenige eindeutig zugeordnete Frames einer Gruppe testen und danach auf weitere Gruppen erweitern. Bei BC7 zusätzlich transparente Ränder, Teamfarben und Masken im Spiel kontrollieren.
 
 ---
 
@@ -489,11 +459,11 @@ Der Guide funktioniert zuverlässig, wenn folgende Regeln eingehalten werden:
 
 1. Nicht ganze SH1DE-AssetBundles kopieren.
 2. SHCDE als verbindliche Zielstruktur verwenden.
-3. Pro GM-Gruppe einen vollständigen Atlas erzeugen.
+3. Pro betroffener GM-Gruppe einen vollständigen oder gezielt partiellen Atlas erzeugen.
 4. Farb- und Maskenatlas identisch packen.
 5. AssetRipper-Raw-JSONs zu einer gemeinsamen `frames`-Liste konvertieren.
-6. Keine partiellen Atlas-Overrides verwenden.
+6. Nicht ersetzte SHCDE-Frames als Vanilla-Fallback belassen.
 7. Bei unterschiedlichen Leinwandgrößen den SHCDE-Pixelanker bewahren oder belegte Quellmetadaten verwenden.
 8. Vor der Installation sämtliche Namen, Indices, Rechtecke, Pivots und Masken validieren.
 
-Der sinnvollste nächste Schritt wäre deshalb nicht die manuelle Erstellung tausender Dateien, sondern ein Konvertierungsprogramm, das die AssetRipper-Ausgaben beider Spiele einliest und daraus automatisch validierte SHCDE-Atlasordner erzeugt.
+Der Atlas Builder übernimmt Packen, Namenszuordnung und Validierung. Die korrekte Extraktion und inhaltliche Zuordnung der Quellbilder muss vorher geprüft werden.

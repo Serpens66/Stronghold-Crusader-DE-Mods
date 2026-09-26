@@ -145,6 +145,7 @@ namespace ExtendedData
             private HUD_IngameMenu.RestartSkirmishMapInfo customTrailSetupRestartInfo;
             private FileHeader customTrailSetupHeader;
             private ModSettingsDefinition trailMakerWorkingDocument;
+            private Dictionary<string, Dictionary<string, byte[]>> trailMakerWorkingSnapshots;
             private string trailMakerTrailPath;
             private string pendingTrailMakerTrailPath;
             private bool pendingTrailMakerLoad;
@@ -742,7 +743,8 @@ namespace ExtendedData
                     CaptureTrailMakerWorkingDocument("test launch");
                     ApplyDocument(
                         trailMakerWorkingDocument ?? ModSettingsDefinition.CreateModDefaults(),
-                        editable: false);
+                        editable: false,
+                        preserveCurrentValues: true);
                     missionPresetLifecycle.Prepare(MissionPresetLaunchKind.TrailMakerTest);
                     return true;
                 }
@@ -2798,14 +2800,15 @@ namespace ExtendedData
                     else if (pendingTrailMakerLoad)
                     {
                         ModSettingsDefinition defaults = ModSettingsDefinition.CreateModDefaults();
-                        ApplyDocument(defaults, editable: true);
+                        ApplyDocument(defaults, editable: true, preserveCurrentValues: true);
                         UpdateTrailMakerWorkingDocument(CaptureDocument(), null);
                         source = "unavailable loaded mission defaults";
                     }
                     else if (missionPresetLifecycle.AwaitingTrailMakerReturn && trailMakerWorkingDocument != null)
                     {
                         ModSettingsDefinition document = trailMakerWorkingDocument;
-                        ApplyDocument(document, editable: true);
+                        ApplyDocument(document, editable: true, preserveCurrentValues: true,
+                            startingSnapshots: trailMakerWorkingSnapshots);
                         UpdateTrailMakerWorkingDocument(CaptureDocument(), trailMakerTrailPath);
                         source = restartInfo?.customTestMission == true
                             ? "test return draft"
@@ -2814,7 +2817,8 @@ namespace ExtendedData
                     else
                     {
                         ModSettingsDefinition defaults = ModSettingsDefinition.CreateModDefaults();
-                        ApplyDocument(defaults, editable: true, useFixedDefaults: true);
+                        ApplyDocument(defaults, editable: true, useFixedDefaults: true,
+                            preserveCurrentValues: true);
                         UpdateTrailMakerWorkingDocument(CaptureDocument(), null);
                         source = "new mission defaults";
                     }
@@ -2831,7 +2835,8 @@ namespace ExtendedData
                     try
                     {
                         ModSettingsDefinition defaults = ModSettingsDefinition.CreateModDefaults();
-                        ApplyDocument(defaults, editable: true, useFixedDefaults: true);
+                        ApplyDocument(defaults, editable: true, useFixedDefaults: true,
+                            preserveCurrentValues: true);
                         UpdateTrailMakerWorkingDocument(CaptureDocument(), null);
                         missionPresetLifecycle.CompleteTrailMakerReturn();
                         DebugLogHelper.LogInfo(
@@ -2888,6 +2893,7 @@ namespace ExtendedData
                 // Store an independent normalized copy because ApplyDocument removes obsolete
                 // properties from the instance it receives.
                 trailMakerWorkingDocument = ModSettingsJson.ParseObject(ModSettingsJson.Serialize(document));
+                trailMakerWorkingSnapshots = CaptureCurrentSnapshots(FindCompatibleViewModels());
                 trailMakerTrailPath = string.IsNullOrWhiteSpace(trailPath)
                     ? null
                     : IOPath.GetFullPath(trailPath);
@@ -2897,6 +2903,7 @@ namespace ExtendedData
             private void ClearTrailMakerAuthoringState()
             {
                 trailMakerWorkingDocument = null;
+                trailMakerWorkingSnapshots = null;
                 trailMakerTrailPath = null;
                 pendingTrailMakerTrailPath = null;
                 pendingTrailMakerLoad = false;
@@ -2933,7 +2940,7 @@ namespace ExtendedData
                 workingSourceContextId = "trail:" + IOPath.GetFullPath(sidecar);
                 SourcesChanged?.Invoke();
                 ApplyDocument(document, editable, useFixedDefaults: !exists && editable,
-                    previewOnly: previewOnly);
+                    previewOnly: previewOnly, preserveCurrentValues: editable);
                 string[] mentionedMods = document.Mods.Keys.ToArray();
                 DebugLogHelper.LogInfo(
                     log,
@@ -2985,10 +2992,15 @@ namespace ExtendedData
                 bool editable,
                 string presetLabel = "Trail",
                 bool useFixedDefaults = false,
-                bool previewOnly = false)
+                bool previewOnly = false,
+                bool preserveCurrentValues = false,
+                Dictionary<string, Dictionary<string, byte[]>> startingSnapshots = null)
             {
                 ClearActiveSidecar();
                 Dictionary<string, IModSettingsPresetEndpoint> allParticipants = FindCompatibleViewModels();
+                // Capture before leaving the old preset; exiting restores the personal preset.
+                Dictionary<string, Dictionary<string, byte[]>> currentSnapshots =
+                    preserveCurrentValues ? CaptureCurrentSnapshots(allParticipants) : null;
                 ExitActiveParticipants(allParticipants);
                 var prepared = new List<Tuple<string, IModSettingsPresetEndpoint, Dictionary<string, byte[]>, bool>>(allParticipants.Count);
                 foreach (KeyValuePair<string, IModSettingsPresetEndpoint> participant in allParticipants)
@@ -3011,16 +3023,27 @@ namespace ExtendedData
                     // sidecar keep their editable personal values until launch.
                     if (previewOnly && entry == null)
                         continue;
-                    // The participant owns its Trail-safe baseline. Missing mods and settings
-                    // therefore retain their own defaults, normally EnableMod=false.
-                    Dictionary<string, byte[]> snapshot =
-                        participant.Value.System_CreateDisabledMissionPresetSnapshot();
+                    // Editable authoring starts from the current values. A playable Trail
+                    // still uses the participant's disabled baseline for missing values.
+                    Dictionary<string, byte[]> snapshot;
+                    if (preserveCurrentValues)
+                    {
+                        if (startingSnapshots == null ||
+                            !startingSnapshots.TryGetValue(participant.Key, out snapshot))
+                            snapshot = currentSnapshots[participant.Key];
+                        snapshot = CloneSnapshot(snapshot);
+                    }
+                    else
+                    {
+                        snapshot = participant.Value.System_CreateDisabledMissionPresetSnapshot();
+                    }
                     if (entry != null)
                     {
-                        // ExitActiveParticipants restored the normal local preset. On the host
-                        // these values become authoritative and the Extender synchronizes the
-                        // resolved snapshot to clients.
-                        foreach (string propertyName in entry.PlayerSettings)
+                        // A playable Trail resolves player values from the restored personal
+                        // preset. Authoring already captured the current editable values.
+                        foreach (string propertyName in preserveCurrentValues
+                            ? Array.Empty<string>()
+                            : entry.PlayerSettings)
                         {
                             if (!properties.TryGetValue(propertyName, out PropertyInfo property))
                                 continue;
@@ -3069,6 +3092,31 @@ namespace ExtendedData
                     trailContext = activeParticipantIds.Count != 0;
                     throw;
                 }
+            }
+
+            private Dictionary<string, Dictionary<string, byte[]>> CaptureCurrentSnapshots(
+                Dictionary<string, IModSettingsPresetEndpoint> participants)
+            {
+                var snapshots = new Dictionary<string, Dictionary<string, byte[]>>(StringComparer.Ordinal);
+                foreach (KeyValuePair<string, IModSettingsPresetEndpoint> participant in participants)
+                {
+                    Dictionary<string, byte[]> snapshot =
+                        participant.Value.System_CreateDisabledMissionPresetSnapshot();
+                    foreach (PropertyInfo property in GetPersistedProperties(participant.Value).Values)
+                        snapshot[property.Name] = MessagePackSerializer.Serialize(
+                            property.PropertyType, property.GetValue(participant.Value));
+                    snapshots[participant.Key] = CloneSnapshot(snapshot);
+                }
+                return snapshots;
+            }
+
+            private static Dictionary<string, byte[]> CloneSnapshot(Dictionary<string, byte[]> source)
+            {
+                var copy = new Dictionary<string, byte[]>(StringComparer.Ordinal);
+                if (source != null)
+                    foreach (KeyValuePair<string, byte[]> item in source)
+                        copy[item.Key] = item.Value == null ? null : (byte[])item.Value.Clone();
+                return copy;
             }
 
             private void ExitActiveParticipants(Dictionary<string, IModSettingsPresetEndpoint> participants = null)

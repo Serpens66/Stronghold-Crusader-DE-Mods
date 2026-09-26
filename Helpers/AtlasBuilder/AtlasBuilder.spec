@@ -12,6 +12,8 @@ analysis = Analysis(
     pathex=[str(project_root)],
     binaries=unity_binaries,
     datas=unity_data + [
+        (str(project_root / "tools" / "texconv.exe"), "tools"),
+        (str(project_root / "tools" / "DirectXTex-LICENSE.txt"), "tools"),
         (
             str(project_root / "atlas_builder" / "assets" / "supported_gm_groups.json"),
             "atlas_builder/assets",

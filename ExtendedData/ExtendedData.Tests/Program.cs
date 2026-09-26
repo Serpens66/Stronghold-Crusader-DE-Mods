@@ -437,12 +437,25 @@ static void TestLordPackageFingerprint()
         Directory.CreateDirectory(Path.Combine(root, "Override", "fx"));
         string media = Path.Combine(root, "Override", "fx", "speech.wav");
         File.WriteAllText(media, "first sound");
+        string rootText = Path.Combine(root, "notes.TXT");
+        File.WriteAllText(rootText, "first note");
+        Directory.CreateDirectory(Path.Combine(root, "Scripts", "assets"));
+        string nestedText = Path.Combine(root, "Scripts", "assets", "readme.txt");
+        string misplacedMedia = Path.Combine(root, "Scripts", "assets", "portrait.PnG");
+        File.WriteAllText(nestedText, "nested note");
+        File.WriteAllText(misplacedMedia, "first image");
         LordPackageFileState baseState = LordPackageFingerprint.Capture(root, "example");
-        Assert(!baseState.HasUnsupportedGameplayFiles, "supported Lord values or media were classified as unsupported");
+        Assert(!baseState.HasUnsupportedGameplayFiles &&
+            !baseState.GameplayPaths.Contains("notes.TXT") &&
+            !baseState.GameplayPaths.Contains("Scripts/assets/readme.txt") &&
+            !baseState.GameplayPaths.Contains("Scripts/assets/portrait.PnG"),
+            "text or media outside conventional paths was classified as gameplay");
         File.WriteAllText(media, "another sound");
+        File.WriteAllText(rootText, "another note");
+        File.WriteAllText(nestedText, "another nested note");
+        File.WriteAllText(misplacedMedia, "another image");
         Assert(LordPackageFingerprint.Capture(root, "example").Digest == baseState.Digest,
-            "media differences changed the gameplay fingerprint");
-        Directory.CreateDirectory(Path.Combine(root, "Scripts"));
+            "text or media differences changed the gameplay fingerprint");
         string script = Path.Combine(root, "Scripts", "init.lua");
         File.WriteAllText(script, "first script");
         LordPackageFileState scripted = LordPackageFingerprint.Capture(root, "example");
@@ -905,16 +918,18 @@ static void TestCoordinatorOwnership()
         coordinator.Contains("TrailModCompatibilityContract.Evaluate"),
         "Trail saves do not use validated synchronous settings capture");
     Assert(coordinator.Contains("System_CreateDisabledMissionPresetSnapshot") &&
-        coordinator.Contains("foreach (string propertyName in entry.PlayerSettings)") &&
+        coordinator.Contains("preserveCurrentValues ? CaptureCurrentSnapshots(allParticipants) : null") &&
+        coordinator.Contains("? Array.Empty<string>()") &&
+        coordinator.Contains(": entry.PlayerSettings)") &&
         coordinator.Contains("Fixed Trail values have final precedence") &&
         coordinator.Contains("RemoveUnknownSettings"),
-        "Trail loading does not layer mod defaults, player settings and fixed values with schema cleanup");
+        "Trail loading does not preserve editor values while retaining playable Trail precedence and schema cleanup");
     int defaultLayer = coordinator.IndexOf("System_CreateDisabledMissionPresetSnapshot", StringComparison.Ordinal);
-    int playerLayer = coordinator.IndexOf("foreach (string propertyName in entry.PlayerSettings)", defaultLayer, StringComparison.Ordinal);
+    int playerLayer = coordinator.IndexOf(": entry.PlayerSettings)", defaultLayer, StringComparison.Ordinal);
     int fixedLayer = coordinator.IndexOf("foreach (KeyValuePair<string, object> setting in entry.Overrides)", playerLayer, StringComparison.Ordinal);
     Assert(defaultLayer >= 0 && playerLayer > defaultLayer && fixedLayer > playerLayer &&
         coordinator.Contains("foreach (KeyValuePair<string, IModSettingsPresetEndpoint> participant in allParticipants)"),
-        "Trail setting source precedence or the all-participant default baseline changed");
+        "Trail setting source precedence or the all-participant baseline changed");
     Assert(sharedPresetSystem.Contains("CopyProperties(defaults, hostProperties)") &&
         sharedPresetSystem.Contains("defaults.TryGetValue(property.Name, out bytes)"),
         "the shared mission preset no longer supplies defaults for missing current host settings");
@@ -961,9 +976,14 @@ static void TestTrailMakerAuthoringSessionIntegration()
         "loaded Trail Maker missions are not activated from their selected sidecar exactly at lobby entry");
     Assert(coordinator.Contains("trailMakerWorkingDocument ??") &&
         coordinator.Contains("ModSettingsDefinition.CreateModDefaults();") &&
-        coordinator.Contains("ApplyDocument(document, editable: true);") &&
+        coordinator.Contains("startingSnapshots: trailMakerWorkingSnapshots") &&
+        coordinator.Contains("preserveCurrentValues: editable") &&
+        coordinator.Contains("preserveCurrentValues: true") &&
+        coordinator.Contains("trailMakerWorkingSnapshots = CaptureCurrentSnapshots(FindCompatibleViewModels());") &&
+        coordinator.Contains("snapshot[property.Name] = MessagePackSerializer.Serialize(") &&
+        coordinator.Contains("property.PropertyType, property.GetValue(participant.Value)") &&
         coordinator.Contains("\"new mission defaults\""),
-        "new unsaved Trail Maker missions do not receive an editable Trail preset");
+        "Trail Maker authoring does not preserve current settings across new missions, sidecar loads, and test returns");
 
     int startIndex = coordinator.IndexOf("private void StartSkirmishGameHook", StringComparison.Ordinal);
     int frontendOpenIndex = coordinator.IndexOf("private void FrontendOpenCustomTrailHook", startIndex, StringComparison.Ordinal);

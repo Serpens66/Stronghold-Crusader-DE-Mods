@@ -20,11 +20,17 @@ Das Quellpräfix `auto` erkennt den Text vor dem abschließenden numerischen Ind
 
 Die Ausgabe einer Gruppe besteht aus:
 
-    Override/Atlas/<GM-Gruppe>/atlas.png
-    Override/Atlas/<GM-Gruppe>/atlas_m.png   (nur mit Masken)
+    Override/Atlas/<GM-Gruppe>/atlas.png oder atlas.dds
+    Override/Atlas/<GM-Gruppe>/atlas_m.png oder atlas_m.dds   (nur mit Masken)
     Override/Atlas/<GM-Gruppe>/atlas.json
 
 Der Builder übernimmt Zielnamen und Pixels-per-Unit direkt aus den installierten SHCDE-Sprite-Metadaten. Er trimmt und rotiert keine Bilder. Vorhandene Atlasgruppen werden nur nach Bestätigung ersetzt; ein vorhandenes `info.json` wird nie überschrieben.
+
+#### Ausgabeformat PNG oder BC7-DDS
+
+Im Gruppendialog lassen sich Farb- und Maskenatlas unabhängig auf **PNG (verlustfrei)** oder **BC7-DDS (komprimiert)** stellen. Alte Projekte und neue Gruppen verwenden PNG. Ohne Maske ist die Maskenformatwahl deaktiviert. DDS setzt Script Extender **2.8.0 oder neuer** voraus; die portable Ausgabe enthält den geprüften Microsoft-Encoder Texconv und benötigt beim Erzeugen kein Internet. Beim Entwickeln kann er mit `fetch_texconv.py` aus dem [offiziellen DirectXTex-Release](https://github.com/microsoft/DirectXTex/releases) bezogen werden; Hash und Version sind im Werkzeug festgelegt.
+
+BC7 benötigt etwa ein Viertel des GPU-Texturspeichers eines RGBA32-Atlas gleicher Größe, ist aber verlustbehaftet. Besonders bei Teamfarben- und Foliage-Masken ist PNG oft die bessere Wahl. Der Builder richtet die Frames auf getrennte 4×4-Kompressionsblöcke aus, speichert die DDS für den Extender vertikal gedreht und meldet die mittlere sowie maximale Kanalabweichung im Buildbericht. JSON-Rechtecke bleiben unverändert im Unity-System mit Ursprung unten links. Für Farbe beziehungsweise Maske liegt immer genau **eine** Dateiendung im Ausgabeordner; wenn beide vorhanden wären, würde der Extender PNG bevorzugen. Die PNG-Eingabeframes müssen auch bei DDS-Ausgabe bereits korrekt extrahiert sein.
 
 #### Erweiterter Quellframe-Filter
 
@@ -64,6 +70,8 @@ Schema-1-Projekte werden kompatibel im Legacy-Modus geöffnet und beim Öffnen g
 Der Atlas Builder erwartet bereits korrekt extrahierte Einzel-PNGs. Er schneidet keine Sprites aus einem Quellatlas aus und kann Verunreinigungen in den Eingabebildern nicht nachträglich reparieren.
 
 Bei AssetRipper-Daten darf die Quelltextur nicht aus dem Sprite- oder GM-Gruppennamen abgeleitet werden. Maßgeblich ist `m_RD.m_Texture` innerhalb der angegebenen `m_Collection`. Eine falsche Textur kann sämtliche Rechteck-, Pivot- und FullRect-Prüfungen bestehen und trotzdem gültige fremde Pixel liefern. Deshalb müssen der SHA-256 des verwendeten Quellatlas und mindestens ein bekannter Referenzframe geprüft werden. Bestätigtes SH1DE-Beispiel: `anim_castle` referenziert PathID `26` auf `alltiles/AllTileSprites.png`, nicht auf `anims1Sprites.png`.
+
+Ein geprüfter Export über UnityPys `Sprite.image`, wie ihn die [SH1DE–SHCDE Sprite Suite](https://gitlab.com/strongholdoriginsmod/sh1de-shcde-sprite-suite/-/blob/main/src/stronghold_europe_de/pixel_identity.py) verwendet, kann die Tight-Mesh-Rasterisierung übernehmen. Danach müssen Referenzpixel, Leinwand und Pivot dennoch abgeglichen werden. Team-Masken können in einer separaten, anders aufgelösten Quelltextur liegen: Quellkoordinaten entsprechend skalieren, auf die Farbframegröße bringen und Maskenpixel außerhalb der sichtbaren Farb-/Meshfläche löschen. Der Builder erwartet erst bei den fertigen Einzel-PNGs gleiche Farb-/Maskenmaße.
 
 Bei Unity-Sprites mit **Tight Mesh** darf der gemeinsame Farb- oder Maskenatlas nicht einfach rechteckig anhand von `m_Rect` ausgeschnitten werden. Das Rechteck kann Pixel benachbarter Atlasobjekte enthalten; außerdem können die tatsächlichen UV-Vertices über einzelne `m_Rect`-Kanten hinausragen. Das wurde an den bereitgestellten SH1DE-Swordsman-Daten bestätigt: Alle 1.216 Frames besitzen Meshdaten, und einzelne UV-Meshes überschreiten eine `m_Rect`-Kante um bis zu ungefähr 27 Pixel.
 
@@ -196,11 +204,17 @@ The `auto` source prefix detects the text before the trailing numeric index. Exa
 
 Each group produces:
 
-    Override/Atlas/<GM group>/atlas.png
-    Override/Atlas/<GM group>/atlas_m.png   (masks only)
+    Override/Atlas/<GM group>/atlas.png or atlas.dds
+    Override/Atlas/<GM group>/atlas_m.png or atlas_m.dds   (masks only)
     Override/Atlas/<GM group>/atlas.json
 
 The builder obtains exact target names and pixels per unit from the installed SHCDE Sprite metadata. Images are never trimmed or rotated. Existing atlas groups are replaced only after confirmation; an existing `info.json` is never overwritten.
+
+#### PNG or BC7-DDS output
+
+The group dialog selects **PNG (lossless)** or **BC7-DDS (compressed)** independently for colour and mask. Old projects and new groups default to PNG. The mask-format control is disabled without masks. DDS requires Script Extender **2.8.0 or newer**. The portable package includes a verified Microsoft Texconv encoder and needs no network connection when building atlases. For development, `fetch_texconv.py` obtains it from the [official DirectXTex release](https://github.com/microsoft/DirectXTex/releases); its version and hash are pinned in the tool.
+
+BC7 uses about one quarter of the GPU texture memory of an equally sized RGBA32 atlas, but is lossy. PNG is often preferable for TeamColour and Foliage masks. The builder isolates frames in separate 4×4 compression blocks, stores DDS vertically flipped for the Extender and reports mean and maximum channel error in the build report. JSON rectangles remain bottom-left Unity coordinates. Each colour or mask output uses exactly **one** extension; if both existed, the Extender would prefer PNG. Source PNG frames must already be extracted correctly even for DDS output.
 
 #### Advanced source frame filter
 
@@ -240,6 +254,8 @@ Schema-1 projects open compatibly in legacy mode and display a warning. Schema-2
 The Atlas Builder expects correctly extracted individual PNGs. It does not cut Sprites out of a source atlas and cannot repair contamination that is already present in its input images.
 
 With AssetRipper data, the source texture must not be inferred from the Sprite or GM-group name. The authoritative reference is `m_RD.m_Texture` within the specified `m_Collection`. A wrong texture can pass every rectangle, pivot and FullRect check while still returning valid pixels belonging to another asset. Therefore, verify the source atlas SHA-256 and at least one known reference frame. Confirmed SH1DE example: `anim_castle` references PathID `26` to `alltiles/AllTileSprites.png`, not `anims1Sprites.png`.
+
+A verified UnityPy `Sprite.image` export, as used by the [SH1DE–SHCDE Sprite Suite](https://gitlab.com/strongholdoriginsmod/sh1de-shcde-sprite-suite/-/blob/main/src/stronghold_europe_de/pixel_identity.py), can perform Tight Mesh rasterization. Still verify reference pixels, canvas and pivot afterwards. Team masks may live in a separate, differently scaled source texture: scale source coordinates accordingly, resize to the colour-frame dimensions and clear mask pixels outside the visible colour/mesh area. The builder requires matching colour/mask dimensions only for the finished individual PNGs.
 
 For Unity Sprites using a **Tight Mesh**, do not crop the shared colour or mask atlas as a rectangle based only on `m_Rect`. That rectangle can contain pixels belonging to neighbouring atlas objects, and the actual UV vertices may extend beyond individual `m_Rect` edges. This was confirmed in the supplied SH1DE swordsman data: all 1,216 frames contain mesh data, and individual UV meshes extend beyond an `m_Rect` edge by up to approximately 27 pixels.
 

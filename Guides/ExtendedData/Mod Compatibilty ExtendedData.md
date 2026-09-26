@@ -15,7 +15,9 @@ For normal shareable presets, including JSON and asset-mod packaging, see [Exten
 3. Derive the registered lobby-settings ViewModel from `Shared.PresetLobbyModSettingsViewModel`.
 4. Every persistent setter calls `CanMutateSetting()` before changing state and `OnPropertyChanged()` afterwards.
 5. Register exactly one lobby-settings ViewModel for the plugin GUID through `LobbyModSettingsPresetRegistration.Register`.
-6. Persistent values are non-null and MessagePack-serializable.
+6. Expose at least one public readable/writable persistent `[SyncHostOnly]` property without `[DoNotPersist]`. Its current value must be non-null and MessagePack-serializable.
+
+ExtendedData also checks that APIShared's disabled mission snapshot contains a deserializable value for every eligible property. If `EnableMod` is among those properties, it must be Boolean; APIShared sets it to `false` in that snapshot. Deriving from `PresetLobbyModSettingsViewModel` supplies the typed endpoint and snapshot implementation.
 
 No Shared source links, compile symbols, or ExtendedData reference are required.
 
@@ -31,23 +33,19 @@ No Shared source links, compile symbols, or ExtendedData reference are required.
 </ItemGroup>
 ```
 
+Create the ViewModel once in the plugin, then register it from the plugin's existing `CrusaderLibrary.LibraryLoaded` callback after the library is ready. This is the registration call, not a complete plugin class:
+
 ```csharp
-using BepInEx;
+LobbyModSettingsPresetRegistration.Register(
+    this, Logger, Info.Metadata.GUID, Settings,
+    "ScriptExtenderUI/ExampleSettings.xaml");
+```
+
+The plugin declares `[BepInDependency("APIShared_Serp", "0.4.0")]`. Its `Settings` instance can use this minimal ViewModel shape:
+
+```csharp
 using SHCDESE.API.Components.Network;
 using Shared;
-
-[BepInDependency("APIShared_Serp", "0.4.0")]
-public sealed class ExamplePlugin : BaseUnityPlugin
-{
-    internal readonly ExampleSettings Settings = new ExampleSettings();
-
-    private void RegisterSettings() => LobbyModSettingsPresetRegistration.Register(
-        this,
-        Logger,
-        Info.Metadata.GUID,
-        Settings,
-        "ScriptExtenderUI/ExampleSettings.xaml");
-}
 
 public sealed class ExampleSettings : PresetLobbyModSettingsViewModel
 {
@@ -94,7 +92,7 @@ The minimal preset row binds `System_PresetLoadText`, `System_OpenPresetLoadComm
 
 Only public readable/writable `[SyncHostOnly]` properties without `[DoNotPersist]` enter Map/Trail documents. `[SyncPerPlayer]`, `[PresetLocal]`, `[PersistLocal]`, and transient values remain player-owned. A Boolean host property named `EnableMod` is set to `false` in the safe disabled mission snapshot.
 
-Map/Trail application keeps the existing schema-3 sidecars and packages compatible. A directly started mission context is entirely read-only. Customize and Trail Maker use an editable temporary working copy; normal presets and available Mod-default/Trail/Map sources can be loaded without changing source files, and the previous normal working state is restored on exit. A Trail initially uses only its Trail document even when its Map also contains settings.
+Map and Trail settings remain in schema-3 documents, including optional settings sidecars in Coop packages. Selecting a Custom Trail first opens a read-only preview; mods absent from its sidecar retain their normal values during selection. Starting it directly applies the Trail rules in a read-only mission context, including the safe baseline for unmentioned mods and settings. Customize and Trail Maker use an editable temporary working copy; normal presets and available **Mod defaults**, **Trail settings**, and **Map settings** sources can be loaded without changing source files, and the previous normal working state is restored on exit. A Trail initially uses only its Trail document even when its Map also contains settings.
 
 ### Explicit opt-out
 
@@ -106,8 +104,8 @@ public const bool ExtendedDataModSettingsOptOut = true;
 
 ### Verification
 
-- The mod appears under ExtendedData's compatible mods without a reflection warning.
-- Mod default, Player/host, and Fixed creator values behave as documented.
+- The mod appears under ExtendedData's compatible mods. If rejected, the log entry beginning `Map/Trail mod settings [` names the mod and gives the incompatibility reason.
+- **Mod default**, **Player/host**, and **Fixed value** behave as documented.
 - Personal/local/transient properties never enter Map/Trail JSON.
 - Map and Trail activation does not replace normal preset storage.
 - Host authority and client read-only behavior work in multiplayer.
@@ -130,9 +128,11 @@ Für normale teilbare Presets einschließlich JSON- und Asset-Mod-Struktur siehe
 3. Leite das registrierte Lobby-Settings-ViewModel von `Shared.PresetLobbyModSettingsViewModel` ab.
 4. Jeder persistente Setter ruft vor der Änderung `CanMutateSetting()` und danach `OnPropertyChanged()` auf.
 5. Registriere über `LobbyModSettingsPresetRegistration.Register` genau ein Lobby-Settings-ViewModel für die Plugin-GUID.
-6. Persistente Werte sind nicht null und mit MessagePack serialisierbar.
+6. Stelle mindestens eine öffentliche les- und schreibbare persistente `[SyncHostOnly]`-Property ohne `[DoNotPersist]` bereit. Ihr aktueller Wert darf nicht null sein und muss sich mit MessagePack serialisieren lassen.
 
-Shared-Quelllinks, Compile-Symbole und eine ExtendedData-Referenz sind nicht erforderlich. Die Projekt- und C#-Beispiele im englischen Abschnitt gelten unverändert.
+ExtendedData prüft außerdem, ob APIShareds deaktivierter Missionssnapshot für jede geeignete Property einen deserialisierbaren Wert enthält. Falls `EnableMod` zu diesen Properties gehört, muss die Property boolesch sein; APIShared setzt sie in diesem Snapshot auf `false`. Die Ableitung von `PresetLobbyModSettingsViewModel` stellt den typisierten Endpunkt und die Snapshot-Implementierung bereit.
+
+Shared-Quelllinks, Compile-Symbole und eine ExtendedData-Referenz sind nicht erforderlich. Das Projektbeispiel im englischen Abschnitt gilt unverändert. Lege das ViewModel im Plugin einmalig an und registriere es im bestehenden `CrusaderLibrary.LibraryLoaded`-Callback nach dem Laden der Bibliothek. Der englische C#-Ausschnitt zeigt den Registrierungsaufruf und die minimale ViewModel-Form; er ist keine vollständige Plugin-Klasse.
 
 Im XAML muss der gemeinsame Namespace auf APIShared zeigen:
 
@@ -148,7 +148,7 @@ Die minimale Preset-Zeile bindet `System_PresetLoadText`, `System_OpenPresetLoad
 
 Nur öffentliche les- und schreibbare `[SyncHostOnly]`-Properties ohne `[DoNotPersist]` gelangen in Map-/Trail-Dokumente. `[SyncPerPlayer]`, `[PresetLocal]`, `[PersistLocal]` und transiente Werte bleiben im Besitz des Spielers. Eine boolesche Host-Property namens `EnableMod` wird im sicheren deaktivierten Missionssnapshot auf `false` gesetzt.
 
-Die vorhandenen Sidecars und Pakete mit Schema 3 bleiben kompatibel. Ein direkt gestarteter Missionskontext ist vollständig schreibgeschützt. Customize und Trail Maker verwenden eine bearbeitbare temporäre Arbeitskopie; normale Presets sowie verfügbare Mod-Standard-, Trail- und Map-Quellen können geladen werden, ohne ihre Quelldateien zu verändern. Beim Verlassen wird der vorherige normale Arbeitsstand wiederhergestellt. Ein Trail verwendet anfangs ausschließlich sein Trail-Dokument, auch wenn seine Map ebenfalls Einstellungen enthält.
+Map- und Trail-Einstellungen bleiben in Schema-3-Dokumenten gespeichert, einschließlich optionaler Settings-Sidecars in Koop-Paketen. Die Auswahl eines Custom Trails öffnet zunächst eine schreibgeschützte Vorschau; Mods ohne Eintrag in dessen Sidecar behalten während der Auswahl ihre normalen Werte. Beim direkten Start gelten die Trail-Regeln in einem schreibgeschützten Missionskontext, einschließlich der sicheren Ausgangslage für nicht genannte Mods und Einstellungen. Customize und Trail Maker verwenden eine bearbeitbare temporäre Arbeitskopie; normale Presets sowie verfügbare Quellen **Mod-Standards**, **Trail-Einstellungen** und **Map-Einstellungen** können geladen werden, ohne ihre Quelldateien zu verändern. Beim Verlassen wird der vorherige normale Arbeitsstand wiederhergestellt. Ein Trail verwendet anfangs ausschließlich sein Trail-Dokument, auch wenn seine Map ebenfalls Einstellungen enthält.
 
 ### Explizites Opt-out
 
@@ -160,8 +160,8 @@ public const bool ExtendedDataModSettingsOptOut = true;
 
 ### Prüfung
 
-- Der Mod erscheint ohne Reflection-Warnung unter den kompatiblen ExtendedData-Mods.
-- ModDefault, Player/Host und Fixed funktionieren wie dokumentiert.
+- Der Mod erscheint unter den kompatiblen ExtendedData-Mods. Bei einer Ablehnung nennt der mit `Map/Trail mod settings [` beginnende Logeintrag den Mod und den Grund.
+- **Mod-Standard**, **Spieler/Host** und **Fester Wert** funktionieren wie dokumentiert.
 - Persönliche, lokale und transiente Properties gelangen nie in Map-/Trail-JSON.
 - Die Aktivierung einer Map oder eines Trails ersetzt nicht den normalen Presetspeicher.
 - Hostautorität und Client-Schreibschutz funktionieren im Multiplayer.

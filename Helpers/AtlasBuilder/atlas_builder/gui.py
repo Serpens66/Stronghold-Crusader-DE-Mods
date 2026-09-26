@@ -96,6 +96,8 @@ def group_context_text(
     missing_policy: str,
     missing_source_policy: str = "reject",
     source_frame_filter: str = "",
+    colour_texture_format: str = "png",
+    mask_texture_format: str = "png",
 ) -> str:
     tr = lambda key, **values: translate(language, key, **values)
     contract = GROUP_CONTRACTS.get(gm_name)
@@ -119,6 +121,9 @@ def group_context_text(
         tr("context_mask_" + mask_mode),
         tr("context_pivot_" + pivot_mode),
     ))
+    lines.append(tr("context_texture_formats", colour=tr(colour_texture_format), mask=(
+        tr(mask_texture_format) if mask_mode != "none" else tr("not_applicable")
+    )))
     if pivot_mode == "source-metadata":
         lines.append(tr("context_source_fallback_" + missing_source_policy))
     lines.append(tr("context_missing_source-metadata" if missing_policy == "source-metadata" else "context_missing_reject"))
@@ -142,6 +147,9 @@ class GroupDialog(tk.Toplevel):
         self.prefix_var = tk.StringVar(value=value.source_prefix)
         self.metadata_var = tk.StringVar(value=value.source_metadata_directory or "")
         self.source_filter_var = tk.StringVar(value=value.source_frame_filter)
+        self.texture_labels = {parent.tr(key): key for key in ("png", "bc7-dds")}
+        self.colour_texture_var = tk.StringVar(value=parent.tr(value.colour_texture_format))
+        self.mask_texture_var = tk.StringVar(value=parent.tr(value.mask_texture_format))
         self.advanced_var = tk.BooleanVar(value=bool(value.source_frame_filter.strip()))
         self.pivot_labels = {
             parent.tr(mode): mode for mode in ("target-pixel-anchor", "source-metadata", "target-normalized")
@@ -213,7 +221,20 @@ class GroupDialog(tk.Toplevel):
             width=38,
         )
         self._row(frame, 8, "missing_target_policy", self.missing_policy_box)
+        self.colour_texture_box = ttk.Combobox(
+            frame, values=tuple(self.texture_labels), textvariable=self.colour_texture_var,
+            state="readonly", width=38,
+        )
+        self._row(frame, 9, "colour_texture_format", self.colour_texture_box)
+        self.mask_texture_box = ttk.Combobox(
+            frame, values=tuple(self.texture_labels), textvariable=self.mask_texture_var,
+            state="readonly", width=38,
+        )
+        self._row(frame, 10, "mask_texture_format", self.mask_texture_box)
         for box in (self.gm_box, mode_box, pivot_box, self.missing_source_policy_box, self.missing_policy_box):
+            box.bind("<<ComboboxSelected>>", lambda _event: self._update_context_help(), add="+")
+        mode_box.bind("<<ComboboxSelected>>", lambda _event: self._update_format_state(), add="+")
+        for box in (self.colour_texture_box, self.mask_texture_box):
             box.bind("<<ComboboxSelected>>", lambda _event: self._update_context_help(), add="+")
         self.advanced_button = ttk.Checkbutton(
             frame,
@@ -221,22 +242,22 @@ class GroupDialog(tk.Toplevel):
             variable=self.advanced_var,
             command=self._update_advanced_state,
         )
-        self.advanced_button.grid(row=9, column=0, columnspan=3, sticky="w", pady=(8, 0))
+        self.advanced_button.grid(row=11, column=0, columnspan=3, sticky="w", pady=(8, 0))
         attach_tooltip(self.advanced_button, parent.tr("tooltip_show_advanced_options"))
         self.source_filter_label = ttk.Label(frame, text=parent.tr("source_frame_filter"))
         self.source_filter_entry = ttk.Entry(frame, textvariable=self.source_filter_var)
-        self.source_filter_label.grid(row=10, column=0, sticky="w", padx=(0, 8), pady=4)
-        self.source_filter_entry.grid(row=10, column=1, columnspan=2, sticky="ew", pady=4)
+        self.source_filter_label.grid(row=12, column=0, sticky="w", padx=(0, 8), pady=4)
+        self.source_filter_entry.grid(row=12, column=1, columnspan=2, sticky="ew", pady=4)
         filter_help = parent.tr("tooltip_source_frame_filter")
         attach_tooltip(self.source_filter_label, filter_help)
         attach_tooltip(self.source_filter_entry, filter_help)
         context = ttk.LabelFrame(frame, text=parent.tr("context_help"), padding=8)
-        context.grid(row=11, column=0, columnspan=3, sticky="ew", pady=(10, 0))
+        context.grid(row=13, column=0, columnspan=3, sticky="ew", pady=(10, 0))
         context.columnconfigure(0, weight=1)
         self.context_var = tk.StringVar()
         ttk.Label(context, textvariable=self.context_var, justify="left", wraplength=720).grid(sticky="ew")
         buttons = ttk.Frame(frame)
-        buttons.grid(row=12, column=0, columnspan=3, pady=(12, 0), sticky="e")
+        buttons.grid(row=14, column=0, columnspan=3, pady=(12, 0), sticky="e")
         ok_button = ttk.Button(buttons, text="OK", command=self.accept)
         cancel_button = ttk.Button(buttons, text=parent.tr("cancel"), command=self.destroy)
         ok_button.pack(side="left", padx=4)
@@ -246,6 +267,7 @@ class GroupDialog(tk.Toplevel):
         self.bind("<Return>", lambda _event: self.accept())
         self.bind("<Escape>", lambda _event: self.destroy())
         self._update_metadata_state()
+        self._update_format_state()
         self._update_advanced_state()
         self._update_context_help()
 
@@ -295,6 +317,11 @@ class GroupDialog(tk.Toplevel):
             self.source_filter_entry.grid_remove()
         self._update_context_help()
 
+    def _update_format_state(self) -> None:
+        has_mask = self.mask_labels.get(self.mask_mode_label_var.get()) != "none"
+        self.mask_texture_box.configure(state="readonly" if has_mask else "disabled")
+        self._update_context_help()
+
     def _update_context_help(self) -> None:
         if not hasattr(self, "context_var"):
             return
@@ -312,6 +339,8 @@ class GroupDialog(tk.Toplevel):
             missing_policy,
             missing_source_policy,
             self.source_filter_var.get().strip(),
+            self.texture_labels.get(self.colour_texture_var.get(), "png"),
+            self.texture_labels.get(self.mask_texture_var.get(), "png"),
         ))
 
     def _browse(self, variable: tk.StringVar) -> None:
@@ -348,6 +377,8 @@ class GroupDialog(tk.Toplevel):
             missing_target_policy=missing_target_policy,
             missing_source_metadata_policy=missing_source_metadata_policy,
             source_frame_filter=source_frame_filter,
+            colour_texture_format=self.texture_labels[self.colour_texture_var.get()],
+            mask_texture_format=self.texture_labels[self.mask_texture_var.get()],
         )
         self.destroy()
 
@@ -452,13 +483,14 @@ class AtlasBuilderApp(tk.Tk):
         groups_frame.columnconfigure(0, weight=1)
         self.group_tree = ttk.Treeview(
             groups_frame,
-            columns=("gm", "colour", "mask", "prefix", "frame_filter", "pivot", "source_fallback", "missing"),
+            columns=("gm", "colour", "mask", "formats", "prefix", "frame_filter", "pivot", "source_fallback", "missing"),
             show="headings",
         )
         for name, width in (
             ("gm", 150),
             ("colour", 260),
             ("mask", 135),
+            ("formats", 130),
             ("prefix", 90),
             ("frame_filter", 130),
             ("pivot", 175),
@@ -610,6 +642,9 @@ class AtlasBuilderApp(tk.Tk):
                     group.gm_file_name,
                     group.colour_directory,
                     self.tr(group.mask_mode),
+                    f"{self.tr(group.colour_texture_format)} / " + (
+                        self.tr(group.mask_texture_format) if group.mask_mode != "none" else "–"
+                    ),
                     group.source_prefix,
                     normalize_source_frame_filter(group.source_frame_filter) or self.tr("all_frames"),
                     self.tr(group.pivot_mode),
@@ -715,6 +750,8 @@ class AtlasBuilderApp(tk.Tk):
                     if group.missing_target_policy == "source-metadata"
                     else self.tr("reject")
                 ),
+                colour_format=self.tr(group.colour_texture_format),
+                mask_format=self.tr(group.mask_texture_format) if group.mask_mode != "none" else self.tr("not_applicable"),
             )
             for group in self.project.groups
         ]
@@ -749,6 +786,10 @@ class AtlasBuilderApp(tk.Tk):
                         warnings = result.warnings
                         message = self.tr("build_ok", frames=result.colour_frames, masks=result.mask_frames, output=result.output_mod_directory)
                     message += "\n\n" + self.tr("extender_recommendation")
+                    if any(g.colour_texture_format == "bc7-dds" or (
+                        g.mask_mode != "none" and g.mask_texture_format == "bc7-dds"
+                    ) for g in self.project.groups):
+                        message += "\n" + self.tr("dds_extender_recommendation")
                     message += "\n\n" + self._pivot_mode_summary()
                     if warnings:
                         message += "\n\n" + "\n".join(warnings)

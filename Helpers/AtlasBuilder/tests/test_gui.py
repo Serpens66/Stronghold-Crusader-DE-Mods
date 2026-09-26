@@ -50,6 +50,8 @@ class TooltipTests(unittest.TestCase):
         self.assertIn("metadata validation", english)
         self.assertIn("Hybrid mode", english)
         self.assertIn("0-10, 12x", english)
+        self.assertIn("PNG", basic)
+        self.assertIn("BC7", group_context_text("en", "anim_castle", "none", "target-pixel-anchor", "reject", colour_texture_format="bc7-dds"))
         self.assertNotEqual(basic, advanced)
         self.assertNotEqual(advanced, english)
 
@@ -73,6 +75,11 @@ class TooltipTests(unittest.TestCase):
 
             dialog = GroupDialog(app, GroupConfig("anim_castle", "", "none"))
             dialog.withdraw()
+            self.assertEqual(str(dialog.mask_texture_box.cget("state")), "disabled")
+            dialog.mask_mode_label_var.set(app.tr("same-directory"))
+            dialog._update_format_state()
+            self.assertEqual(str(dialog.mask_texture_box.cget("state")), "readonly")
+            dialog.colour_texture_var.set(app.tr("bc7-dds"))
             self.assertFalse(dialog.advanced_var.get())
             self.assertEqual(dialog.source_filter_entry.winfo_manager(), "")
             dialog.source_filter_var.set("12, 0-10, 10x - 12x")
@@ -94,11 +101,13 @@ class TooltipTests(unittest.TestCase):
             dialog.accept()
             self.assertEqual(dialog.result.missing_source_metadata_policy, "target-pixel-anchor")
             self.assertEqual(dialog.result.source_frame_filter, "0-10, 12, 10x-12x")
+            self.assertEqual(dialog.result.colour_texture_format, "bc7-dds")
             app.project.groups = [dialog.result]
             summary = app._pivot_mode_summary()
             self.assertIn("frames: 0-10, 12, 10x-12x", summary)
             self.assertIn("missing source metadata: Use SHCDE pixel anchor", summary)
             self.assertIn("missing target slots: Fill from validated source metadata", summary)
+            self.assertIn("BC7-DDS", summary)
         finally:
             app.destroy()
 

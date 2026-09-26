@@ -42,7 +42,9 @@ namespace ExtendedData
             {
                 string relative = path.Substring(normalizedRoot.Length + 1).Replace('\\', '/');
                 string extension = Path.GetExtension(relative);
-                if (MediaExtensions.Contains(extension) || IsLocalControl(relative))
+                if (MediaExtensions.Contains(extension) ||
+                    string.Equals(extension, ".txt", StringComparison.OrdinalIgnoreCase) ||
+                    IsLocalControl(relative))
                     continue;
                 gameplay.Add(relative);
                 if (!IsSupported(relative, configName))

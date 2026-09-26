@@ -11,7 +11,7 @@
 # this file, and for a DISCLAIMER OF ALL WARRANTIES.
 
 # Verify that we have Tk binary and script components from the same release
-package require -exact Tk  8.6.15
+package require -exact Tk  8.6.12
 
 # Create a ::tk namespace
 namespace eval ::tk {
@@ -178,21 +178,16 @@ proc ::tk::RestoreFocusGrab {grab focus {destroy destroy}} {
 
     catch {focus $oldFocus}
     grab release $grab
-    if {[winfo exists $grab]} {
-	if {$destroy eq "withdraw"} {
-	    wm withdraw $grab
-	} else {
-	    destroy $grab
-	}
+    if {$destroy eq "withdraw"} {
+	wm withdraw $grab
+    } else {
+	destroy $grab
     }
     if {[winfo exists $oldGrab] && [winfo ismapped $oldGrab]} {
-	# The "grab" command will fail if another application
-	# already holds the grab on a window with the same name.
-	# So catch it. See [7447ed20ec] for an example.
 	if {$oldStatus eq "global"} {
-	    catch {grab -global $oldGrab}
+	    grab -global $oldGrab
 	} else {
-	    catch {grab $oldGrab}
+	    grab $oldGrab
 	}
     }
 }
@@ -680,6 +675,15 @@ proc ::tk::mcmaxamp {args} {
     return $maxlen
 }
 
+# For now, turn off the custom mdef proc for the Mac:
+
+if {[tk windowingsystem] eq "aqua"} {
+    namespace eval ::tk::mac {
+	set useCustomMDEF 0
+    }
+}
+
+
 if {[tk windowingsystem] eq "aqua"} {
     #stub procedures to respond to "do script" Apple Events
     proc ::tk::mac::DoScriptFile {file} {

@@ -292,23 +292,22 @@ bind Text <<PasteSelection>> {
 bind Text <Insert> {
     catch {tk::TextInsert %W [::tk::GetSelection %W PRIMARY]}
 }
-bind Text <Key> {
+bind Text <KeyPress> {
     tk::TextInsert %W %A
 }
 
 # Ignore all Alt, Meta, and Control keypresses unless explicitly bound.
 # Otherwise, if a widget binding for one of these is defined, the
-# <Key> class binding will also fire and insert the character,
+# <KeyPress> class binding will also fire and insert the character,
 # which is wrong.  Ditto for <Escape>.
 
-bind Text <Alt-Key> {# nothing }
-bind Text <Meta-Key> {# nothing}
-bind Text <Control-Key> {# nothing}
+bind Text <Alt-KeyPress> {# nothing }
+bind Text <Meta-KeyPress> {# nothing}
+bind Text <Control-KeyPress> {# nothing}
 bind Text <Escape> {# nothing}
 bind Text <KP_Enter> {# nothing}
 if {[tk windowingsystem] eq "aqua"} {
-    bind Text <Command-Key> {# nothing}
-    bind Text <Mod4-Key> {# nothing}
+    bind Text <Command-KeyPress> {# nothing}
 }
 
 # Additional emacs-like bindings:
@@ -539,11 +538,7 @@ proc ::tk::TextClosestGap {w x y} {
     if {$bbox eq ""} {
 	return $pos
     }
-    # The check on y coord of the line bbox with dlineinfo is to fix
-    # [a9cf210a42] to properly handle selecting and moving the mouse
-    # out of the widget.
-    if {$y < [lindex [$w dlineinfo $pos] 1] ||
-            $x - [lindex $bbox 0] < [lindex $bbox 2]/2} {
+    if {($x - [lindex $bbox 0]) < ([lindex $bbox 2]/2)} {
 	return $pos
     }
     $w index "$pos + 1 char"

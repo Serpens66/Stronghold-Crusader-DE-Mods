@@ -6,8 +6,9 @@ from pathlib import Path
 from typing import Any
 
 
-SCHEMA_VERSION = 5
-SUPPORTED_SCHEMA_VERSIONS = {1, 2, 3, 4, SCHEMA_VERSION}
+SCHEMA_VERSION = 6
+SUPPORTED_SCHEMA_VERSIONS = set(range(1, SCHEMA_VERSION + 1))
+TEXTURE_FORMATS = {"png", "bc7-dds"}
 MASK_MODES = {"none", "same-directory", "separate-directory"}
 PIVOT_MODES = {"target-pixel-anchor", "source-metadata", "target-normalized"}
 MISSING_TARGET_POLICIES = {"reject", "source-metadata"}
@@ -43,6 +44,8 @@ class GroupConfig:
     missing_target_policy: str = "reject"
     missing_source_metadata_policy: str = "reject"
     source_frame_filter: str = ""
+    colour_texture_format: str = "png"
+    mask_texture_format: str = "png"
 
     @classmethod
     def from_dict(cls, data: dict[str, Any], schema_version: int = SCHEMA_VERSION) -> "GroupConfig":
@@ -58,6 +61,8 @@ class GroupConfig:
             missing_target_policy=str(data.get("missingTargetPolicy", "reject")),
             missing_source_metadata_policy=str(data.get("missingSourceMetadataPolicy", "reject")),
             source_frame_filter=str(data.get("sourceFrameFilter", "") or ""),
+            colour_texture_format=str(data.get("colourTextureFormat", "png")),
+            mask_texture_format=str(data.get("maskTextureFormat", "png")),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -70,6 +75,8 @@ class GroupConfig:
             "pivotMode": self.pivot_mode,
             "missingTargetPolicy": self.missing_target_policy,
             "missingSourceMetadataPolicy": self.missing_source_metadata_policy,
+            "colourTextureFormat": self.colour_texture_format,
+            "maskTextureFormat": self.mask_texture_format,
         }
         if self.pivot_mode == "source-metadata" and self.source_metadata_directory:
             result["sourceMetadataDirectory"] = self.source_metadata_directory

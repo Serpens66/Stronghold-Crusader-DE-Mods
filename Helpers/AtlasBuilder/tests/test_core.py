@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from PIL import Image
+from atlas_builder.dds import _run_texconv, decode_bc7, encode_bc7, read_bc7_header, texconv_path, validate_bc7_pixels
 
 from atlas_builder.core import (
     AtlasBuilderError,
@@ -268,6 +269,117 @@ class BuildTests(unittest.TestCase):
         payload = json.loads((output / "atlas.json").read_text(encoding="utf-8"))
         self.assertEqual(payload["material"], "Plain")
         self.assertEqual([item["name"] for item in payload["frames"]], ["tile_ruins 0", "tile_ruins 1", "tile_ruins 2"])
+
+    def test_png_validator_detects_rgb_only_change(self) -> None:
+        prepared, project = self.prepared()
+        output = self.root / "out"
+        build_group(prepared, output, project)
+        payload = json.loads((output / "atlas.json").read_text(encoding="utf-8"))
+        rect = payload["frames"][0]["rect"]
+        with Image.open(output / "atlas.png") as image:
+            changed = image.convert("RGBA")
+        point = (rect["x"], changed.height - rect["y"] - rect["h"])
+        red, green, blue, alpha = changed.getpixel(point)
+        changed.putpixel(point, (red + 1, green, blue, alpha))
+        changed.save(output / "atlas.png")
+        with self.assertRaisesRegex(AtlasBuilderError, "atlas pixels differ"):
+            validate_generated_group(prepared, output, project)
+
+    def test_bc7_colour_and_png_mask_can_be_mixed(self) -> None:
+        if not texconv_path().is_file():
+            self.skipTest("Pinned texconv binary unavailable")
+        prepared, project = self.prepared("separate-directory")
+        prepared.config.colour_texture_format = "bc7-dds"
+        output = self.root / "out"
+        build_group(prepared, output, project)
+        reports = validate_generated_group(prepared, output, project)
+        self.assertEqual({item.name for item in output.iterdir()}, {"atlas.dds", "atlas_m.png", "atlas.json"})
+        self.assertEqual(len(reports), 1)
+        self.assertIn("Kanalabweichung", reports[0])
+        size = read_bc7_header(output / "atlas.dds")
+        self.assertEqual(tuple(dimension % 4 for dimension in size), (0, 0))
+        payload = json.loads((output / "atlas.json").read_text(encoding="utf-8"))
+        for frame in payload["frames"]:
+            self.assertEqual(frame["rect"]["x"] % 4, 0)
+            self.assertEqual((size[1] - frame["rect"]["y"] - frame["rect"]["h"]) % 4, 0)
+        occupied_blocks = set()
+        for frame in payload["frames"]:
+            rect = frame["rect"]
+            top = size[1] - rect["y"] - rect["h"]
+            blocks = {
+                (column, row)
+                for column in range(rect["x"] // 4, (rect["x"] + rect["w"] + 3) // 4)
+                for row in range(top // 4, (top + rect["h"] + 3) // 4)
+            }
+            self.assertFalse(occupied_blocks & blocks)
+            occupied_blocks.update(blocks)
+
+    def test_png_colour_and_bc7_mask_can_be_mixed(self) -> None:
+        if not texconv_path().is_file():
+            self.skipTest("Pinned texconv binary unavailable")
+        prepared, project = self.prepared("separate-directory")
+        project.language = "en"
+        prepared.config.mask_texture_format = "bc7-dds"
+        output = self.root / "out"
+        build_group(prepared, output, project)
+        reports = validate_generated_group(prepared, output, project)
+        self.assertEqual({item.name for item in output.iterdir()}, {"atlas.png", "atlas_m.dds", "atlas.json"})
+        self.assertEqual(len(reports), 1)
+        self.assertIn("mean channel error", reports[0])
+
+    def test_both_bc7_textures_use_one_extension_each(self) -> None:
+        if not texconv_path().is_file():
+            self.skipTest("Pinned texconv binary unavailable")
+        prepared, project = self.prepared("separate-directory")
+        prepared.config.colour_texture_format = "bc7-dds"
+        prepared.config.mask_texture_format = "bc7-dds"
+        output = self.root / "out"
+        build_group(prepared, output, project)
+        reports = validate_generated_group(prepared, output, project)
+        self.assertEqual({item.name for item in output.iterdir()}, {"atlas.dds", "atlas_m.dds", "atlas.json"})
+        self.assertEqual(len(reports), 2)
+
+    def test_missing_or_wrong_encoder_is_reported(self) -> None:
+        from atlas_builder.dds import checked_texconv
+        with patch("atlas_builder.dds.texconv_path", return_value=self.root / "absent.exe"):
+            with self.assertRaisesRegex(ValueError, "encoder missing"):
+                checked_texconv()
+        invalid = self.root / "invalid.exe"
+        invalid.write_bytes(b"wrong")
+        with patch("atlas_builder.dds.texconv_path", return_value=invalid):
+            with self.assertRaisesRegex(ValueError, "SHA-256 mismatch"):
+                checked_texconv()
+
+    def test_bc7_flip_matches_extender_raw_layout(self) -> None:
+        if not texconv_path().is_file():
+            self.skipTest("Pinned texconv binary unavailable")
+        source = Image.new("RGBA", (8, 8), (0, 0, 0, 0))
+        source.putpixel((0, 0), (255, 0, 0, 255))
+        source.putpixel((0, 7), (0, 255, 0, 255))
+        source.save(self.root / "atlas.png")
+        encode_bc7(self.root / "atlas.png", self.root / "atlas.dds")
+        decoded = decode_bc7(self.root / "atlas.dds")
+        self.assertGreater(decoded.getpixel((0, 0))[1], decoded.getpixel((0, 0))[0])
+        self.assertGreater(decoded.getpixel((0, 7))[0], decoded.getpixel((0, 7))[1])
+        self.assertLess(validate_bc7_pixels(self.root / "atlas.dds", source)["mean_error"], 1)
+
+    def test_bc7_validator_rejects_unflipped_rows(self) -> None:
+        if not texconv_path().is_file():
+            self.skipTest("Pinned texconv binary unavailable")
+        source = Image.new("RGBA", (8, 8), (0, 0, 0, 0))
+        for x in range(8):
+            for y in range(4):
+                source.putpixel((x, y), (255, 20, 10, 255))
+        source.save(self.root / "wrong.png")
+        _run_texconv("-f", "BC7_UNORM", "-m", "1", "-nogpu", "-o", str(self.root), str(self.root / "wrong.png"))
+        with self.assertRaisesRegex(ValueError, "not vertically flipped"):
+            validate_bc7_pixels(self.root / "wrong.dds", source)
+
+    def test_bc7_header_rejects_corruption(self) -> None:
+        path = self.root / "invalid.dds"
+        path.write_bytes(b"DDS invalid")
+        with self.assertRaisesRegex(ValueError, "Invalid DDS header"):
+            read_bc7_header(path)
 
     def test_mask_atlas_uses_identical_layout(self) -> None:
         prepared, project = self.prepared("separate-directory")
@@ -685,7 +797,7 @@ class ProjectFileTests(unittest.TestCase):
             self.assertEqual(data["outputModDirectory"], "Mod")
             self.assertEqual(ProjectConfig.load(path).resolve_path("Mod"), (root / "Mod").resolve())
 
-    def test_schema_one_loads_with_legacy_pivot_and_saves_as_schema_five(self) -> None:
+    def test_schema_one_loads_with_legacy_pivot_and_saves_as_schema_six(self) -> None:
         with tempfile.TemporaryDirectory(dir=TEST_TEMP) as temporary:
             root = Path(temporary)
             path = root / "legacy.atlas-project.json"
@@ -697,8 +809,9 @@ class ProjectFileTests(unittest.TestCase):
             self.assertEqual(project.loaded_schema_version, 1)
             self.assertEqual(project.groups[0].pivot_mode, "target-normalized")
             project.save(path)
-            self.assertEqual(json.loads(path.read_text(encoding="utf-8"))["schemaVersion"], 5)
-            self.assertEqual(project.loaded_schema_version, 5)
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8"))["schemaVersion"], 6)
+            self.assertEqual(project.loaded_schema_version, 6)
+            self.assertEqual(project.groups[0].colour_texture_format, "png")
 
     def test_source_metadata_path_below_project_is_saved_relative(self) -> None:
         with tempfile.TemporaryDirectory(dir=TEST_TEMP) as temporary:
@@ -763,7 +876,7 @@ class ProjectFileTests(unittest.TestCase):
             )])
             project.save(path)
             payload = json.loads(path.read_text(encoding="utf-8"))
-            self.assertEqual(payload["schemaVersion"], 5)
+            self.assertEqual(payload["schemaVersion"], 6)
             self.assertEqual(payload["groups"][0]["missingTargetPolicy"], "source-metadata")
             self.assertEqual(payload["groups"][0]["missingSourceMetadataPolicy"], "target-pixel-anchor")
             self.assertEqual(payload["groups"][0]["sourceFrameFilter"], "0-127, 416-447, 0x-127x")
@@ -771,6 +884,23 @@ class ProjectFileTests(unittest.TestCase):
             self.assertEqual(loaded.missing_target_policy, "source-metadata")
             self.assertEqual(loaded.missing_source_metadata_policy, "target-pixel-anchor")
             self.assertEqual(loaded.source_frame_filter, "0-127, 416-447, 0x-127x")
+
+    def test_schema_five_defaults_to_png_and_schema_six_roundtrips_formats(self) -> None:
+        with tempfile.TemporaryDirectory(dir=TEST_TEMP) as temporary:
+            path = Path(temporary) / "formats.atlas-project.json"
+            path.write_text(json.dumps({"schemaVersion": 5, "groups": [{
+                "gmFileName": "tree_apple", "colourDirectory": "images",
+            }]}), encoding="utf-8")
+            project = ProjectConfig.load(path)
+            self.assertEqual(project.groups[0].colour_texture_format, "png")
+            self.assertEqual(project.groups[0].mask_texture_format, "png")
+            project.groups[0].colour_texture_format = "bc7-dds"
+            project.groups[0].mask_texture_format = "png"
+            project.save(path)
+            loaded = ProjectConfig.load(path)
+            self.assertEqual(loaded.loaded_schema_version, 6)
+            self.assertEqual(loaded.groups[0].colour_texture_format, "bc7-dds")
+            self.assertEqual(loaded.groups[0].mask_texture_format, "png")
 
 
 class PivotTests(unittest.TestCase):

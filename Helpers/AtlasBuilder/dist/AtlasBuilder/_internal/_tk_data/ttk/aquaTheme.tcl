@@ -11,6 +11,7 @@ namespace eval ttk::theme::aqua {
 	    -foreground systemLabelColor \
 	    -selectbackground systemSelectedTextBackgroundColor \
 	    -selectforeground systemSelectedTextColor \
+	    -selectborderwidth 0 \
 	    -insertwidth 1
 
 	ttk::style map . \

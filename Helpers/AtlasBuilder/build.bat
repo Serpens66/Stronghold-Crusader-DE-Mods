@@ -6,6 +6,9 @@ set "ATLAS_PYTHON=%ATLAS_BUILDER_PYTHON%"
 if not defined ATLAS_PYTHON set "ATLAS_PYTHON=python"
 
 echo Building AtlasBuilder portable Windows package...
+"%ATLAS_PYTHON%" fetch_texconv.py
+if errorlevel 1 goto :failed
+
 "%ATLAS_PYTHON%" -m PyInstaller --noconfirm --clean AtlasBuilder.spec
 if errorlevel 1 goto :failed
 

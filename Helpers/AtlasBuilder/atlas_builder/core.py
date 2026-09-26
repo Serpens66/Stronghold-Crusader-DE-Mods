@@ -12,8 +12,9 @@ from pathlib import Path
 from typing import Callable, Iterable
 
 import UnityPy
-from PIL import Image, ImageChops
+from PIL import Image
 
+from .dds import checked_texconv, encode_bc7, read_bc7_header, validate_bc7_pixels
 from .gm_groups import GROUP_CONTRACTS, SUPPORTED_GROUPS, atlas_material_name
 from .i18n import translate
 from .models import (
@@ -23,6 +24,7 @@ from .models import (
     MISSING_TARGET_POLICIES,
     PIVOT_MODES,
     ProjectConfig,
+    TEXTURE_FORMATS,
 )
 
 
@@ -488,6 +490,15 @@ def prepare_project(project: ProjectConfig, callback: ProgressCallback | None = 
     detected_prefixes: dict[str, str] = {}
     requested: dict[str, bool] = {}
     for config in project.groups:
+        if config.colour_texture_format not in TEXTURE_FORMATS or config.mask_texture_format not in TEXTURE_FORMATS:
+            raise AtlasBuilderError(f"{config.gm_file_name}: unsupported texture format")
+        if config.colour_texture_format == "bc7-dds" or (
+            config.mask_mode != "none" and config.mask_texture_format == "bc7-dds"
+        ):
+            try:
+                checked_texconv()
+            except ValueError as exc:
+                raise AtlasBuilderError(str(exc)) from exc
         if not config.colour_directory.strip():
             raise AtlasBuilderError(f"{config.gm_file_name}: colourDirectory is required")
         if not config.source_prefix:
@@ -705,7 +716,11 @@ def _reanchored_pivot(reference_pivot: float, reference_size: float, own_size: f
     return reference_pivot * reference_size / own_size
 
 
-def _shelf_pack(frames: list[SourceFrame], width: int, gap: int, margin: int, limit: int):
+def _align_up(value: int, alignment: int) -> int:
+    return (value + alignment - 1) // alignment * alignment
+
+
+def _shelf_pack(frames: list[SourceFrame], width: int, gap: int, margin: int, limit: int, alignment: int = 1):
     placements: dict[FrameKey, tuple[int, int, int, int]] = {}
     x = margin
     y = margin
@@ -715,17 +730,18 @@ def _shelf_pack(frames: list[SourceFrame], width: int, gap: int, margin: int, li
             return None
         if x != margin and x + frame.width + margin > width:
             x = margin
-            y += row_height + gap
+            y = _align_up(y + row_height + gap, alignment)
             row_height = 0
         placements[frame.key] = (x, y, frame.width, frame.height)
-        x += frame.width + gap
-        row_height = max(row_height, frame.height)
-    height = y + row_height + margin
+        x = _align_up(x + frame.width + gap, alignment)
+        row_height = max(row_height, _align_up(frame.height, alignment))
+    height = _align_up(y + row_height + margin, alignment)
     return (placements, height) if height <= limit else None
 
 
-def choose_layout(frames: list[SourceFrame], gap: int, limit: int):
-    margin = gap
+def choose_layout(frames: list[SourceFrame], gap: int, limit: int, block_alignment: int = 1):
+    gap = max(gap, 4) if block_alignment == 4 else gap
+    margin = _align_up(gap, block_alignment)
     widths = []
     width = 64
     while width <= limit:
@@ -735,7 +751,7 @@ def choose_layout(frames: list[SourceFrame], gap: int, limit: int):
         widths.append(limit)
     candidates = []
     for candidate_width in widths:
-        packed = _shelf_pack(frames, candidate_width, gap, margin, limit)
+        packed = _shelf_pack(frames, candidate_width, gap, margin, limit, block_alignment)
         if packed:
             placements, height = packed
             candidates.append((candidate_width * height, candidate_width, height, placements))
@@ -753,7 +769,11 @@ def _write_crlf_json(path: Path, payload: object) -> None:
 def build_group(prepared: PreparedGroup, output_directory: Path, project: ProjectConfig) -> None:
     gap = project.packing.gap
     limit = project.packing.maximum_texture_size
-    width, height, placements = choose_layout(prepared.source_frames, gap, limit)
+    config = prepared.config
+    uses_bc7 = config.colour_texture_format == "bc7-dds" or (
+        config.mask_mode != "none" and config.mask_texture_format == "bc7-dds"
+    )
+    width, height, placements = choose_layout(prepared.source_frames, gap, limit, 4 if uses_bc7 else 1)
     output_directory.mkdir(parents=True, exist_ok=False)
     colour_atlas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     has_masks = prepared.config.mask_mode != "none"
@@ -780,9 +800,22 @@ def build_group(prepared: PreparedGroup, output_directory: Path, project: Projec
             frame["pixelsPerUnit"] = target.pixels_per_unit
         frames_json.append(frame)
 
-    colour_atlas.save(output_directory / "atlas.png", format="PNG", optimize=True)
+    def save_texture(image: Image.Image, stem: str, texture_format: str) -> None:
+        if texture_format == "png":
+            image.save(output_directory / f"{stem}.png", format="PNG", optimize=True)
+            return
+        intermediate = output_directory / f"{stem}.encoder.png"
+        try:
+            image.save(intermediate, format="PNG")
+            encode_bc7(intermediate, output_directory / f"{stem}.dds")
+        except ValueError as exc:
+            raise AtlasBuilderError(str(exc)) from exc
+        finally:
+            intermediate.unlink(missing_ok=True)
+
+    save_texture(colour_atlas, "atlas", config.colour_texture_format)
     if mask_atlas is not None:
-        mask_atlas.save(output_directory / "atlas_m.png", format="PNG", optimize=True)
+        save_texture(mask_atlas, "atlas_m", config.mask_texture_format)
     contract = GROUP_CONTRACTS[prepared.config.gm_file_name]
     _write_crlf_json(
         output_directory / "atlas.json",
@@ -794,10 +827,13 @@ def build_group(prepared: PreparedGroup, output_directory: Path, project: Projec
     )
 
 
-def validate_generated_group(prepared: PreparedGroup, directory: Path, project: ProjectConfig) -> None:
-    expected = {"atlas.png", "atlas.json"}
+def validate_generated_group(prepared: PreparedGroup, directory: Path, project: ProjectConfig) -> list[str]:
+    config = prepared.config
+    colour_filename = "atlas.dds" if config.colour_texture_format == "bc7-dds" else "atlas.png"
+    mask_filename = "atlas_m.dds" if config.mask_texture_format == "bc7-dds" else "atlas_m.png"
+    expected = {colour_filename, "atlas.json"}
     if prepared.config.mask_mode != "none":
-        expected.add("atlas_m.png")
+        expected.add(mask_filename)
     actual = {path.name for path in directory.iterdir() if path.is_file()}
     if actual != expected:
         raise AtlasBuilderError(f"{prepared.config.gm_file_name}: generated file set is invalid: {actual}")
@@ -814,16 +850,31 @@ def validate_generated_group(prepared: PreparedGroup, directory: Path, project: 
     if len(frames) != len(prepared.source_frames):
         raise AtlasBuilderError(f"{prepared.config.gm_file_name}: generated frame count differs")
 
-    with Image.open(directory / "atlas.png") as image:
-        atlas = image.convert("RGBA")
+    def open_texture(filename: str, texture_format: str) -> Image.Image:
+        if texture_format == "bc7-dds":
+            from PIL import ImageOps
+            from .dds import decode_bc7
+            read_bc7_header(directory / filename)
+            return ImageOps.flip(decode_bc7(directory / filename))
+        with Image.open(directory / filename) as image:
+            return image.convert("RGBA")
+
+    try:
+        atlas = open_texture(colour_filename, config.colour_texture_format)
+    except ValueError as exc:
+        raise AtlasBuilderError(str(exc)) from exc
     mask_atlas = None
     if prepared.config.mask_mode != "none":
-        with Image.open(directory / "atlas_m.png") as image:
-            mask_atlas = image.convert("RGBA")
+        try:
+            mask_atlas = open_texture(mask_filename, config.mask_texture_format)
+        except ValueError as exc:
+            raise AtlasBuilderError(str(exc)) from exc
         if mask_atlas.size != atlas.size:
             raise AtlasBuilderError(f"{prepared.config.gm_file_name}: atlas dimensions differ")
 
     rectangles = []
+    reference_colour = Image.new("RGBA", atlas.size, (0, 0, 0, 0)) if config.colour_texture_format == "bc7-dds" else None
+    reference_mask = Image.new("RGBA", atlas.size, (0, 0, 0, 0)) if mask_atlas is not None and config.mask_texture_format == "bc7-dds" else None
     for source, frame in zip(prepared.source_frames, frames):
         target = prepared.target_frames[source.key]
         if frame.get("name") != target.name:
@@ -848,12 +899,16 @@ def validate_generated_group(prepared: PreparedGroup, directory: Path, project: 
         top_y = atlas.height - y - height
         with Image.open(source.colour_path) as image:
             original = image.convert("RGBA")
-        if ImageChops.difference(original, atlas.crop((x, top_y, x + width, top_y + height))).getbbox():
+        if reference_colour is not None:
+            reference_colour.paste(original, (x, top_y))
+        elif original.tobytes() != atlas.crop((x, top_y, x + width, top_y + height)).tobytes():
             raise AtlasBuilderError(f"{target.name}: generated atlas pixels differ")
         if mask_atlas is not None and source.mask_path is not None:
             with Image.open(source.mask_path) as image:
                 original_mask = image.convert("RGBA")
-            if ImageChops.difference(original_mask, mask_atlas.crop((x, top_y, x + width, top_y + height))).getbbox():
+            if reference_mask is not None:
+                reference_mask.paste(original_mask, (x, top_y))
+            elif original_mask.tobytes() != mask_atlas.crop((x, top_y, x + width, top_y + height)).tobytes():
                 raise AtlasBuilderError(f"{target.name}: generated mask pixels differ")
         rectangles.append((x, y, width, height))
 
@@ -862,12 +917,26 @@ def validate_generated_group(prepared: PreparedGroup, directory: Path, project: 
         top_y = atlas.height - y - height
         occupied.paste(1, (x, top_y, x + width, top_y + height))
     transparent = Image.new("RGBA", atlas.size, (0, 0, 0, 0))
-    if ImageChops.difference(
-        Image.composite(transparent, atlas, occupied), transparent
-    ).getbbox():
+    if config.colour_texture_format == "png" and Image.composite(transparent, atlas, occupied).tobytes() != transparent.tobytes():
         raise AtlasBuilderError(f"{prepared.config.gm_file_name}: pixels outside frame rectangles are not transparent")
 
-    gap = project.packing.gap
+    reports = []
+    for filename, reference, decoded in (
+        (colour_filename, reference_colour, atlas),
+        (mask_filename, reference_mask, mask_atlas),
+    ):
+        if reference is not None:
+            try:
+                quality = validate_bc7_pixels(directory / filename, reference, decoded)
+            except ValueError as exc:
+                raise AtlasBuilderError(str(exc)) from exc
+            reports.append(translate(
+                project.language, "bc7_quality_report", group=config.gm_file_name,
+                filename=filename, mean=f"{quality['mean_error']:.3f}",
+                maximum=f"{quality['maximum_error']:.0f}",
+            ))
+
+    gap = max(project.packing.gap, 4) if reference_colour is not None or reference_mask is not None else project.packing.gap
     for position, left in enumerate(rectangles):
         lx, ly, lw, lh = left
         for rx, ry, rw, rh in rectangles[position + 1 :]:
@@ -875,6 +944,7 @@ def validate_generated_group(prepared: PreparedGroup, directory: Path, project: 
             vertical = max(ry - (ly + lh), ly - (ry + rh))
             if horizontal < gap and vertical < gap:
                 raise AtlasBuilderError(f"{prepared.config.gm_file_name}: frames overlap or violate the gap")
+    return reports
 
 
 def existing_output_groups(project: ProjectConfig) -> list[str]:
@@ -924,7 +994,7 @@ def build_project(
             _progress(callback, translate(project.language, "progress_building", group=prepared.config.gm_file_name))
             group_directory = staged_atlas / prepared.config.gm_file_name
             build_group(prepared, group_directory, project)
-            validate_generated_group(prepared, group_directory, project)
+            warnings.extend(validate_generated_group(prepared, group_directory, project))
 
         output_mod.mkdir(parents=True, exist_ok=True)
         atlas_root = output_mod / "Override" / "Atlas"

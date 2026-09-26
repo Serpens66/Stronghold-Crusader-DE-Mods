@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Operation Type="Add" XPath="//n:Grid[n:TextBlock[@Name='TimeUntilLabel']]">
+    <Content>
+      <TextBlock x:Name="TimerCountdownOst"
+                 Width="150" Height="12" Margin="15,25,0,0"
+                 HorizontalAlignment="Left" VerticalAlignment="Top"
+                 TextAlignment="Center" FontSize="11"
+                 FontWeight="Bold" Foreground="#FFFFFFFF"
+                 Background="#AA000000" Panel.ZIndex="20"
+                 IsHitTestVisible="False" Tag="Ignore"
+                 Text="{Binding OstRemaining}">
+        <TextBlock.Effect>
+          <DropShadowEffect ShadowDepth="1" Direction="315" Color="#FF000000" BlurRadius="0" />
+        </TextBlock.Effect>
+      </TextBlock>
+    </Content>
+  </Operation>
+</Patch>
