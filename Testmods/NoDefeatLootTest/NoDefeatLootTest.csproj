@@ -35,6 +35,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="src\NoDefeatLootTestPlugin.cs" />
     <Compile Include="src\DefeatLootHook.cs" />
+    <Compile Include="src\RewardGuardStubContract.cs" />
     <Compile Include="..\..\Shared\DebugLogHelper.cs"><Link>Shared\DebugLogHelper.cs</Link></Compile>
     <Compile Include="..\..\Shared\NativePatternResolver.cs"><Link>Shared\NativePatternResolver.cs</Link></Compile>
     <Content Include="info.json"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>

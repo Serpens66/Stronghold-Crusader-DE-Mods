@@ -71,6 +71,7 @@ var tests = new (string Name, Action Run)[]
     ("deferred Lord confirmations reject stale lobby and selection", TestDeferredLordPublication),
     ("Lord sync accepts a confirmed lobby before game mode becomes multiplayer", TestLordSyncLobbyGate),
     ("selected Lord fingerprint ignores media and detects gameplay files", TestLordPackageFingerprint),
+    ("Lord Workshop metadata never requires local multiplayer files", TestLordWorkshopMetadataFingerprint),
     ("selected Lord package manifest binds identities and mode", TestLordPackageManifest),
 };
 
@@ -467,6 +468,63 @@ static void TestLordPackageFingerprint()
         File.WriteAllText(Path.Combine(root, "Override", "Fixes", "future.json"), "{}");
         Assert(LordPackageFingerprint.Capture(root, "example").UnsupportedPaths.Contains("Override/Fixes/future.json"),
             "unsupported Override JSON was not detected");
+    }
+    finally
+    {
+        string temp = Path.GetFullPath(Path.GetTempPath()).TrimEnd(Path.DirectorySeparatorChar) +
+            Path.DirectorySeparatorChar;
+        Assert(Path.GetFullPath(root).StartsWith(temp, StringComparison.OrdinalIgnoreCase),
+            "unsafe test cleanup path");
+        Directory.Delete(root, true);
+    }
+}
+
+static void TestLordWorkshopMetadataFingerprint()
+{
+    string root = Path.Combine(Path.GetTempPath(), "ExtendedDataLordControl-" + Guid.NewGuid().ToString("N"));
+    Directory.CreateDirectory(root);
+    try
+    {
+        File.WriteAllText(Path.Combine(root, "example.lordjson"), "{}");
+        File.WriteAllText(Path.Combine(root, "example1.aivjson"), "{}");
+        LordPackageFileState baseline = LordPackageFingerprint.Capture(root, "example");
+        string nested = Path.Combine(root, "Scripts", "metadata");
+        Directory.CreateDirectory(nested);
+        string[] controls =
+        {
+            Path.Combine(root, "example.data"),
+            Path.Combine(root, "other.LDATA"),
+            Path.Combine(nested, "workshop.DaTa"),
+            Path.Combine(nested, "config.ldata"),
+        };
+        foreach (string path in controls)
+            File.WriteAllText(path, "host metadata");
+        LordPackageFileState withControls = LordPackageFingerprint.Capture(root, "example");
+        Assert(withControls.Digest == baseline.Digest &&
+            !withControls.HasUnsupportedGameplayFiles &&
+            withControls.GameplayPaths.SequenceEqual(baseline.GameplayPaths) &&
+            withControls.UnsupportedPaths.Count == 0,
+            "Workshop control files changed the Lord gameplay fingerprint or required local files");
+        foreach (string path in controls)
+            File.WriteAllText(path, "different client metadata");
+        Assert(LordPackageFingerprint.Capture(root, "example").Digest == baseline.Digest,
+            "different Workshop metadata changed the multiplayer digest");
+        foreach (string path in controls)
+            File.Delete(path);
+        Assert(LordPackageFingerprint.Capture(root, "example").Digest == baseline.Digest,
+            "removing Workshop metadata changed the multiplayer digest");
+
+        string script = Path.Combine(nested, "init.lua");
+        File.WriteAllText(script, "return true");
+        LordPackageFileState withScript = LordPackageFingerprint.Capture(root, "example");
+        Assert(withScript.HasUnsupportedGameplayFiles &&
+            withScript.UnsupportedPaths.Contains("Scripts/metadata/init.lua") &&
+            withScript.Digest != baseline.Digest,
+            "gameplay Lua no longer requires local files");
+        string json = Path.Combine(nested, "unknown.json");
+        File.WriteAllText(json, "{}");
+        Assert(LordPackageFingerprint.Capture(root, "example").UnsupportedPaths.Contains("Scripts/metadata/unknown.json"),
+            "unknown JSON no longer requires local files");
     }
     finally
     {

@@ -7,7 +7,7 @@
                  HorizontalAlignment="Left" VerticalAlignment="Top"
                  TextAlignment="Center" FontSize="11"
                  FontWeight="Bold" Foreground="#FFFFFFFF"
-                 Background="#AA000000" Panel.ZIndex="20"
+                 Panel.ZIndex="20"
                  IsHitTestVisible="False" Tag="Ignore"
                  Text="{Binding OstRemaining}">
         <TextBlock.Effect>

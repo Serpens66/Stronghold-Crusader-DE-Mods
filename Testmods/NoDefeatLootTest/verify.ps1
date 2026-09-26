@@ -38,7 +38,10 @@ $sources = @(
     (Join-Path $modDir 'UpdateToNewDLL.md'),
     (Join-Path $modDir 'Properties\AssemblyInfo.cs'),
     (Join-Path $modDir 'src\NoDefeatLootTestPlugin.cs'),
-    (Join-Path $modDir 'src\DefeatLootHook.cs')
+    (Join-Path $modDir 'src\DefeatLootHook.cs'),
+    (Join-Path $modDir 'src\RewardGuardStubContract.cs'),
+    (Join-Path $modDir 'tests\HookContractTests.csproj'),
+    (Join-Path $modDir 'tests\Program.cs')
 )
 foreach ($path in $sources) {
     $content = [IO.File]::ReadAllText($path)
@@ -49,7 +52,10 @@ foreach ($path in $sources) {
 $runtimeFiles = @(
     (Join-Path $modDir 'NoDefeatLootTest.csproj'),
     (Join-Path $modDir 'src\NoDefeatLootTestPlugin.cs'),
-    (Join-Path $modDir 'src\DefeatLootHook.cs')
+    (Join-Path $modDir 'src\DefeatLootHook.cs'),
+    (Join-Path $modDir 'src\RewardGuardStubContract.cs'),
+    (Join-Path $modDir 'tests\HookContractTests.csproj'),
+    (Join-Path $modDir 'tests\Program.cs')
 )
 $runtime = ($runtimeFiles | ForEach-Object { [IO.File]::ReadAllText($_) }) -join "`n"
 if ([regex]::IsMatch($runtime, 'System\.Web\.Extensions|JavaScriptSerializer|System\.Text\.Json|Newtonsoft\.Json|DataContractJsonSerializer|JsonUtility')) {
@@ -63,5 +69,11 @@ if ($runtime -match 'CodePatch\.Write|Marshal\.Write|VirtualProtect|\.Enable\s*\
 }
 if ($runtime -notmatch 'transaction\.Dispose\(\)' -or $runtime -notmatch 'catch\s*\{') {
     throw 'The candidate-only rollback contract changed and needs manual review.'
+}
+if ($runtime -match 'registers->Rflags' -or
+    $runtime -notmatch 'InstructionSelector = RewardGuardStubContract\.SelectInstructions' -or
+    $runtime -notmatch '0x85, 0xD2' -or
+    $runtime -notmatch 'RewardGuardStubContract\.Verify') {
+    throw 'The RedBird flag-independent branch contract changed.'
 }
 Write-Host 'No Defeat Loot Test pre-build checks passed.'

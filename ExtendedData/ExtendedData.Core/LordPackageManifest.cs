@@ -77,9 +77,8 @@ namespace ExtendedData
         }
 
         private static bool IsLocalControl(string relative) =>
-            relative.IndexOf('/') < 0 &&
-            (relative.EndsWith(".data", StringComparison.OrdinalIgnoreCase) ||
-             relative.EndsWith(".ldata", StringComparison.OrdinalIgnoreCase));
+            relative.EndsWith(".data", StringComparison.OrdinalIgnoreCase) ||
+            relative.EndsWith(".ldata", StringComparison.OrdinalIgnoreCase);
 
         private static bool IsSupported(string relative, string configName)
         {

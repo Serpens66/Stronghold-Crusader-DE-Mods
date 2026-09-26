@@ -19,6 +19,9 @@ namespace TimerCountdownTest
         private static bool subscribed;
         private static bool afterStartupLogged;
         private static bool callbackErrorLogged;
+        // BEGIN TEMP CRASH DIAGNOSTICS: periodic proof that timer reads continue.
+        private static int lastDiagnosticTick = -1;
+        // END TEMP CRASH DIAGNOSTICS
 
         private void Awake()
         {
@@ -39,6 +42,11 @@ namespace TimerCountdownTest
                 GameTimeManagerAPI.Instance.OnTick += OnGameTick;
                 subscribed = true;
                 rootedLog.LogInfo("Timer countdown bindings and persistent game-tick event registered.");
+                // BEGIN TEMP CRASH DIAGNOSTICS
+                rootedLog.LogInfo("TIMER_CRASH_DIAGNOSTICS objectiveNotifications=" +
+                    TimerCountdownViewModel.NotifyObjectiveRemaining + " ostNotifications=" +
+                    TimerCountdownViewModel.NotifyOstRemaining + " xamlPatches=unchanged");
+                // END TEMP CRASH DIAGNOSTICS
             }
             catch (Exception ex)
             {
@@ -59,6 +67,15 @@ namespace TimerCountdownTest
                 string objective = ReadObjectiveRemaining();
                 string ost = ReadOstRemaining();
                 rootedViewModel.SetRemaining(objective, ost);
+                // BEGIN TEMP CRASH DIAGNOSTICS
+                if (lastDiagnosticTick < 0 || tick < lastDiagnosticTick || tick - lastDiagnosticTick >= 200)
+                {
+                    lastDiagnosticTick = tick;
+                    rootedLog.LogInfo("TIMER_CRASH_DIAGNOSTICS tick=" + tick +
+                        " objective='" + objective + "' ost='" + ost +
+                        "' viewModelUpdated=true");
+                }
+                // END TEMP CRASH DIAGNOSTICS
             }
             catch (Exception ex)
             {

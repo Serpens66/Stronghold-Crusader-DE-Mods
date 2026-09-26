@@ -22,7 +22,6 @@ namespace NoDefeatLootTest
         internal const int SkipTargetRva = 0x15CDC3;
         internal const string BranchPattern =
             "0F 84 46 09 00 00 66 42 83 BC 23 48 0A 00 00 00";
-        private const ulong ZeroFlag = 1UL << 6;
 
         private readonly ManualLogSource log;
         private readonly HookHandle<X64InlineHook> branchHandle = new HookHandle<X64InlineHook>();
@@ -72,6 +71,9 @@ namespace NoDefeatLootTest
                     if (probe.DisplacedByteCount != BranchLength)
                         throw new InvalidOperationException(
                             "The installed RedBird backend displaces a different byte count.");
+                    RewardGuardStubContract.Verify(probe, SuppressForHumanWinner,
+                        CreateHookOptions(), unchecked((ulong)copied.ToInt64()) +
+                        (ulong)(SkipTargetRva - BranchRva));
                 }
             }
             finally
@@ -94,13 +96,7 @@ namespace NoDefeatLootTest
                     branchHandle,
                     HookTarget.FromAddress(address),
                     SuppressForHumanWinner,
-                    new ContextHookOptions
-                    {
-                        Registers = X64SmartCPUContextRegs.All,
-                        HookSize = BranchLength,
-                        ErrorMode = CallbackErrorMode.LogAndContinue,
-                        Placement = OverwrittenInstructionPlacement.AfterCallback
-                    });
+                    CreateHookOptions());
                 CommitResult result = transaction.Commit();
                 if (!result.IsCompleteSuccess || !branchHandle.Success ||
                     branchHandle.Hook.DisplacedByteCount != BranchLength)
@@ -120,7 +116,20 @@ namespace NoDefeatLootTest
                 " rva=0x" + BranchRva.ToString("X") +
                 " displaced=" + branchHandle.Hook.DisplacedByteCount +
                 " skip=0x" + SkipTargetRva.ToString("X") +
+                " generatedStub=verified" +
                 " redBird=" + typeof(X64InlineHook).Assembly.GetName().Version);
+        }
+
+        private static ContextHookOptions CreateHookOptions()
+        {
+            return new ContextHookOptions
+            {
+                Registers = X64SmartCPUContextRegs.All,
+                HookSize = BranchLength,
+                ErrorMode = CallbackErrorMode.LogAndContinue,
+                Placement = OverwrittenInstructionPlacement.AfterCallback,
+                InstructionSelector = RewardGuardStubContract.SelectInstructions
+            };
         }
 
         private void SuppressForHumanWinner(NativePointer<X64SmartCPUContext> context)
@@ -132,11 +141,16 @@ namespace NoDefeatLootTest
                 return;
             }
 
-            // TEST EBP,EBP ran immediately before this hook. EBP is Vanilla's
-            // one-based winning player ID. Preserve every other flag and register.
-            if ((registers->Rflags & ZeroFlag) != 0)
-                return;
+            // RedBird clobbers flags around its context callback. The relocated
+            // TEST EDX,EDX reconstructs the branch condition after the callback.
+            // EBP is Vanilla's one-based winning player ID; RDX is dead here.
             int winnerId = unchecked((int)(uint)registers->RBP);
+            if (winnerId == 0)
+            {
+                registers->RDX = 0;
+                return;
+            }
+            registers->RDX = 1; // Fail open: positive and invalid IDs retain Vanilla's reward path.
             if (winnerId < 1 || winnerId > GamePlayerManagerAPI.MAX_PLAYERS)
             {
                 Interlocked.Increment(ref callbackErrorCount);
@@ -147,12 +161,12 @@ namespace NoDefeatLootTest
             {
                 if (GamePlayerManagerAPI.Instance.IsAIPlayer(winnerId))
                     return;
-                registers->Rflags |= ZeroFlag;
+                registers->RDX = 0;
                 Interlocked.Increment(ref suppressedCount);
             }
             catch
             {
-                // The original flag is intact until the classification succeeds.
+                // RDX remains nonzero, so the reward branch follows Vanilla.
                 Interlocked.Increment(ref callbackErrorCount);
             }
         }

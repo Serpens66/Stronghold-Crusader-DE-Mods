@@ -25,6 +25,14 @@ pushd "%PROJECT_DIR%"
 set "BUILD_RESULT=%ERRORLEVEL%"
 popd
 if not "%BUILD_RESULT%"=="0" goto failed
+pushd "%PROJECT_DIR%"
+"%MSBUILD%" tests\HookContractTests.csproj /p:Configuration=Debug /p:ExtenderDir="%EXTENDER_DIR%"
+set "TEST_BUILD_RESULT=%ERRORLEVEL%"
+popd
+if not "%TEST_BUILD_RESULT%"=="0" goto failed
+"%PROJECT_DIR%tests\bin\Debug\HookContractTests.exe" "%EXTENDER_DIR%"
+set "TEST_RESULT=%ERRORLEVEL%"
+if not "%TEST_RESULT%"=="0" goto failed
 if not exist "%LOCAL_PLUGIN_DIR%\NoDefeatLootTest.dll" goto failed
 if not exist "%LOCAL_PLUGIN_DIR%\info.json" goto failed
 if not exist "%GAME_PLUGIN_DIR%" mkdir "%GAME_PLUGIN_DIR%"
