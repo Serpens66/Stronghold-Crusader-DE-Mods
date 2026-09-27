@@ -8,6 +8,8 @@ set "LOCAL_SCRIPT_EXTENDER_ROOT=%PROJECT_DIR%..\shcde-script-extender"
 set "LOCAL_SCRIPT_EXTENDER_MOD_OUTPUT=%LOCAL_SCRIPT_EXTENDER_ROOT%\mod_output\000shcdese"
 set "LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT=%LOCAL_SCRIPT_EXTENDER_ROOT%\src\SHCDESE.BepInEx\bin\net481"
 set "GAME_SCRIPT_EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
+set "API_SHARED_DIR=%GAME_DIR%\BepInEx\plugins\APIShared_Serp"
+if defined SHCDE_API_SHARED_DIR set "API_SHARED_DIR=%SHCDE_API_SHARED_DIR%"
 rem The installed release is canonical; SHCDESE_EXTENDER_DIR is the explicit override.
 if defined SHCDESE_EXTENDER_DIR set "GAME_SCRIPT_EXTENDER_DIR=%SHCDESE_EXTENDER_DIR%"
 set "LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT=%GAME_SCRIPT_EXTENDER_DIR%"
@@ -29,6 +31,10 @@ if errorlevel 1 (
 )
 
 if not exist "%MSBUILD%" goto build_failed
+if not exist "%API_SHARED_DIR%\APIShared.dll" (
+  echo APIShared.dll wurde nicht gefunden: !API_SHARED_DIR!\APIShared.dll
+  goto build_failed
+)
 if exist "%LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT%\SHCDESE.dll" (
   set "EXTENDER_DIR=%LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT%"
 ) else if exist "%LOCAL_SCRIPT_EXTENDER_MOD_OUTPUT%\SHCDESE.dll" (
@@ -46,7 +52,7 @@ pushd "%PROJECT_DIR%"
 if errorlevel 1 goto build_failed_popd
 "%PROJECT_DIR%..\_inspect\SerpsModsHostDuplicateTests\bin\SerpsModsHostDuplicateTests.exe"
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
-"%MSBUILD%" SerpsModsHost.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+"%MSBUILD%" SerpsModsHost.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%"
 if errorlevel 1 goto build_failed_popd
 popd
 

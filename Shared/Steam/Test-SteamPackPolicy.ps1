@@ -122,6 +122,15 @@ try {
 }
 Assert-True $invalidApiArtifactRejected 'an invalid published APIShared artifact must fail closed'
 $createScriptText = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'Create-SteamModPack.ps1'))
+$hostBuildText = [IO.File]::ReadAllText((Join-Path $workspace 'SerpsModsHost\build.bat'))
+Assert-True ($hostBuildText.Contains('if defined SHCDE_API_SHARED_DIR set "API_SHARED_DIR=%SHCDE_API_SHARED_DIR%"')) 'host build must honor the APIShared release override'
+Assert-True ($hostBuildText.Contains('if not exist "%API_SHARED_DIR%\APIShared.dll" (')) 'host build must reject a missing APIShared DLL before clearing output'
+Assert-True ($hostBuildText.Contains('echo APIShared.dll wurde nicht gefunden: !API_SHARED_DIR!\APIShared.dll')) 'host build must identify the missing APIShared DLL path'
+Assert-True ($hostBuildText.IndexOf('if not exist "%API_SHARED_DIR%\APIShared.dll" (') -lt $hostBuildText.IndexOf('rmdir /S /Q "%LOCAL_PLUGIN_DIR%"')) 'host build must validate APIShared before deleting local output'
+Assert-True ($hostBuildText.Contains('/p:ApiSharedDir="%API_SHARED_DIR%"')) 'host build must pass APIShared directory to MSBuild'
+Assert-True ($createScriptText.Contains('$env:SHCDE_API_SHARED_DIR = $apiSharedInfrastructure.Directory')) 'Steam pack must pass the validated published APIShared directory to host build'
+Assert-True ($createScriptText.Contains('$previousApiSharedEnvironment = $env:SHCDE_API_SHARED_DIR') -and $createScriptText.Contains('$env:SHCDE_API_SHARED_DIR = $previousApiSharedEnvironment')) 'Steam pack must restore the caller APIShared override'
+Assert-True ($createScriptText.Contains("Remove-Item -LiteralPath 'Env:SHCDE_API_SHARED_DIR' -ErrorAction SilentlyContinue")) 'Steam pack must clear an initially undefined APIShared override'
 Assert-True ($createScriptText.Contains('$apiSharedAssembly.Version -cne [string]$apiSharedSourceInfo.Version')) 'Steam staging must compare the APIShared DLL version with the source manifest'
 Assert-True (-not $createScriptText.Contains('releaseConfig.ApiShared.Version')) 'Steam staging must not depend on a duplicated configured APIShared version'
 Assert-True ($createScriptText.Contains('Get-ApiSharedReleasePackage -Infrastructure $apiSharedInfrastructure')) 'Steam staging must consume a validated published APIShared package'

@@ -1619,7 +1619,18 @@ try {
         Invoke-Git @('push','origin',$script:Branch) | Out-Null
     }
     $hostDir = Join-Path $script:Root 'SerpsModsHost'
-    Invoke-Checked -FilePath (Join-Path $hostDir 'build.bat') -Arguments @('/nopause') -FailureCode 8 -WorkingDirectory $hostDir | Out-Null
+    $apiSharedEnvironmentWasDefined = Test-Path -LiteralPath 'Env:SHCDE_API_SHARED_DIR'
+    $previousApiSharedEnvironment = $env:SHCDE_API_SHARED_DIR
+    try {
+        $env:SHCDE_API_SHARED_DIR = $apiSharedInfrastructure.Directory
+        Invoke-Checked -FilePath (Join-Path $hostDir 'build.bat') -Arguments @('/nopause') -FailureCode 8 -WorkingDirectory $hostDir | Out-Null
+    } finally {
+        if ($apiSharedEnvironmentWasDefined) {
+            $env:SHCDE_API_SHARED_DIR = $previousApiSharedEnvironment
+        } else {
+            Remove-Item -LiteralPath 'Env:SHCDE_API_SHARED_DIR' -ErrorAction SilentlyContinue
+        }
+    }
 
     $runRoot = Join-Path $script:OutputRoot "v$packVersion"
     $stage = Join-Path $runRoot 'stage'
