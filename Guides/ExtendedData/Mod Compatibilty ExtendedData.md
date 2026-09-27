@@ -4,11 +4,15 @@
 
 ## English
 
+If you create Maps or Trails, you do not need to follow this guide. Install ExtendedData and compatible gameplay mods, then use [Mod settings in Maps and Custom Trails](Custom%20Trail%20Mod%20Settings.md#english) to choose their settings in the game.
+
+This guide is for developers of gameplay mods. It explains how to make a mod's host settings available to Map and Trail creators. For ordinary shareable presets, see [Extensible ModSettings Presets](ModSettings%20Presets.md#english).
+
+### For advanced users: mod integration
+
 ExtendedData can store a compatible mod's persistent host settings in Maps, Custom Trails, and Coop Trail packages. Target mods depend only on APIShared; they must not reference `ExtendedData.dll` or vendor Shared source files.
 
-For normal shareable presets, including JSON and asset-mod packaging, see [Extensible ModSettings Presets](ModSettings%20Presets.md#english). Map and Trail creators should also read [Mod settings in Maps and Custom Trails](Custom%20Trail%20Mod%20Settings.md#english).
-
-### Requirements
+#### Requirements
 
 1. Add a hard BepInEx dependency on `APIShared_Serp` version `0.4.0` or newer.
 2. Reference the installed `APIShared.dll` with `Private=false`.
@@ -86,15 +90,15 @@ xmlns:shared="clr-namespace:Shared;assembly=APIShared"
 
 The minimal preset row binds `System_PresetLoadText`, `System_OpenPresetLoadCommand`, `System_PresetSaveText`, and `System_OpenPresetSaveCommand`. Copy the complete standard Load/Save and settings-source block from [Extensible ModSettings Presets](ModSettings%20Presets.md#target-mod-integration). APIShared supplies **Mod defaults** by itself; an optional typed provider such as ExtendedData adds Trail and Map sources.
 
-### ExtendedData contract
+#### ExtendedData contract
 
-`PresetLobbyModSettingsViewModel` implements the public typed `IModSettingsPresetEndpoint` and its working-copy extension `IModSettingsWorkingCopyEndpoint`. ExtendedData accepts the typed contract; the former reflection-by-member-name contract is no longer supported. Mods deriving from the public base class need no additional implementation.
+`PresetLobbyModSettingsViewModel` implements the public typed `IModSettingsPresetEndpoint` and its working-copy extension `IModSettingsWorkingCopyEndpoint`. ExtendedData accepts this typed contract. Mods deriving from the public base class need no additional implementation.
 
 Only public readable/writable `[SyncHostOnly]` properties without `[DoNotPersist]` enter Map/Trail documents. `[SyncPerPlayer]`, `[PresetLocal]`, `[PersistLocal]`, and transient values remain player-owned. A Boolean host property named `EnableMod` is set to `false` in the safe disabled mission snapshot.
 
 Map and Trail settings remain in schema-3 documents, including optional settings sidecars in Coop packages. Selecting a Custom Trail first opens a read-only preview; mods absent from its sidecar retain their normal values during selection. Starting it directly applies the Trail rules in a read-only mission context, including the safe baseline for unmentioned mods and settings. Customize and Trail Maker use an editable temporary working copy; normal presets and available **Mod defaults**, **Trail settings**, and **Map settings** sources can be loaded without changing source files, and the previous normal working state is restored on exit. A Trail initially uses only its Trail document even when its Map also contains settings.
 
-### Explicit opt-out
+#### Explicit opt-out
 
 To hide a registered plugin from ExtendedData, declare this exact public constant on its BepInEx plugin class:
 
@@ -102,7 +106,7 @@ To hide a registered plugin from ExtendedData, declare this exact public constan
 public const bool ExtendedDataModSettingsOptOut = true;
 ```
 
-### Verification
+#### Verification
 
 - The mod appears under ExtendedData's compatible mods. If rejected, the log entry beginning `Map/Trail mod settings [` names the mod and gives the incompatibility reason.
 - **Mod default**, **Player/host**, and **Fixed value** behave as documented.
@@ -117,11 +121,15 @@ Search `BepInEx/LogOutput.log` for `Map/Trail mod settings` when compatibility i
 
 ## Deutsch
 
+Wenn du Maps oder Trails erstellst, musst du diesen Guide nicht durcharbeiten. Installiere ExtendedData und kompatible Gameplay-Mods und wähle ihre Einstellungen im Spiel wie in [Mod-Einstellungen in Maps und Custom Trails](Custom%20Trail%20Mod%20Settings.md#deutsch) beschrieben.
+
+Dieser Guide richtet sich an Entwickler von Gameplay-Mods. Er erklärt, wie Host-Einstellungen eines Mods für Map- und Trail-Ersteller verfügbar werden. Für normale teilbare Presets siehe [Erweiterbare ModSettings-Presets](ModSettings%20Presets.md#deutsch).
+
+### Für Fortgeschrittene: Mod-Integration
+
 ExtendedData kann die persistenten Host-Einstellungen eines kompatiblen Mods in Maps, Custom Trails und Koop-Trail-Paketen speichern. Ziel-Mods hängen nur von APIShared ab; sie dürfen weder `ExtendedData.dll` referenzieren noch Shared-Quelldateien einbinden.
 
-Für normale teilbare Presets einschließlich JSON- und Asset-Mod-Struktur siehe [Erweiterbare ModSettings-Presets](ModSettings%20Presets.md#deutsch). Map- und Trail-Ersteller sollten zusätzlich [Mod-Einstellungen in Maps und Custom Trails](Custom%20Trail%20Mod%20Settings.md#deutsch) lesen.
-
-### Voraussetzungen
+#### Voraussetzungen
 
 1. Füge eine harte BepInEx-Abhängigkeit auf `APIShared_Serp` ab Version `0.4.0` hinzu.
 2. Referenziere die installierte `APIShared.dll` mit `Private=false`.
@@ -142,15 +150,15 @@ xmlns:shared="clr-namespace:Shared;assembly=APIShared"
 
 Die minimale Preset-Zeile bindet `System_PresetLoadText`, `System_OpenPresetLoadCommand`, `System_PresetSaveText` und `System_OpenPresetSaveCommand`. Den vollständigen Standardblock für Laden/Speichern sowie **Einstellungen zurücksetzen auf** findest du in [Erweiterbare ModSettings-Presets](ModSettings%20Presets.md#integration-des-ziel-mods). APIShared stellt **Mod-Standards** selbst bereit; ein optionaler typisierter Provider wie ExtendedData ergänzt Trail- und Map-Quellen.
 
-### ExtendedData-Vertrag
+#### ExtendedData-Vertrag
 
-`PresetLobbyModSettingsViewModel` implementiert die öffentliche typisierte Schnittstelle `IModSettingsPresetEndpoint` sowie deren Arbeitskopie-Erweiterung `IModSettingsWorkingCopyEndpoint`. ExtendedData akzeptiert den typisierten Vertrag; der frühere Reflection-Vertrag über Membernamen wird nicht mehr unterstützt. Von der öffentlichen Basisklasse abgeleitete Mods benötigen keine zusätzliche Implementierung.
+`PresetLobbyModSettingsViewModel` implementiert die öffentliche typisierte Schnittstelle `IModSettingsPresetEndpoint` sowie deren Arbeitskopie-Erweiterung `IModSettingsWorkingCopyEndpoint`. ExtendedData akzeptiert diesen typisierten Vertrag. Von der öffentlichen Basisklasse abgeleitete Mods benötigen keine zusätzliche Implementierung.
 
 Nur öffentliche les- und schreibbare `[SyncHostOnly]`-Properties ohne `[DoNotPersist]` gelangen in Map-/Trail-Dokumente. `[SyncPerPlayer]`, `[PresetLocal]`, `[PersistLocal]` und transiente Werte bleiben im Besitz des Spielers. Eine boolesche Host-Property namens `EnableMod` wird im sicheren deaktivierten Missionssnapshot auf `false` gesetzt.
 
 Map- und Trail-Einstellungen bleiben in Schema-3-Dokumenten gespeichert, einschließlich optionaler Settings-Sidecars in Koop-Paketen. Die Auswahl eines Custom Trails öffnet zunächst eine schreibgeschützte Vorschau; Mods ohne Eintrag in dessen Sidecar behalten während der Auswahl ihre normalen Werte. Beim direkten Start gelten die Trail-Regeln in einem schreibgeschützten Missionskontext, einschließlich der sicheren Ausgangslage für nicht genannte Mods und Einstellungen. Customize und Trail Maker verwenden eine bearbeitbare temporäre Arbeitskopie; normale Presets sowie verfügbare Quellen **Mod-Standards**, **Trail-Einstellungen** und **Map-Einstellungen** können geladen werden, ohne ihre Quelldateien zu verändern. Beim Verlassen wird der vorherige normale Arbeitsstand wiederhergestellt. Ein Trail verwendet anfangs ausschließlich sein Trail-Dokument, auch wenn seine Map ebenfalls Einstellungen enthält.
 
-### Explizites Opt-out
+#### Explizites Opt-out
 
 Um ein registriertes Plugin in ExtendedData auszublenden, deklariere diese exakte öffentliche Konstante in seiner BepInEx-Plugin-Klasse:
 
@@ -158,7 +166,7 @@ Um ein registriertes Plugin in ExtendedData auszublenden, deklariere diese exakt
 public const bool ExtendedDataModSettingsOptOut = true;
 ```
 
-### Prüfung
+#### Prüfung
 
 - Der Mod erscheint unter den kompatiblen ExtendedData-Mods. Bei einer Ablehnung nennt der mit `Map/Trail mod settings [` beginnende Logeintrag den Mod und den Grund.
 - **Mod-Standard**, **Spieler/Host** und **Fester Wert** funktionieren wie dokumentiert.

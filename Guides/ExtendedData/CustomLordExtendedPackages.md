@@ -4,9 +4,35 @@
 
 ## English
 
-This guide describes Custom Lord packages for the ExtendedData uploader. Its asset and media rules were checked against the installed SHCDE Script Extender 2.10.1 and the relevant code in the local 2.10.2 fork. A Script Extender package extends a working base Custom Lord; it does not replace the required `.lordjson` and `.aivjson` files.
+Create the Lord's AI and castle in the editor first. ExtendedData helps you share extra Lord files and keep the selected Lord data with a Trail.
 
-### Quick start: localized details
+### Create and share a Custom Lord
+
+1. Create and test your Lord's AI and castle files with the **Castle & CPU Lord Editor**. Keep the `.lordjson` and `.aivjson` files together in one Lord folder. An optional `avatar.png` provides the base portrait.
+2. If you want translated details, extra portraits, speech, or other Script Extender content, add `info.json` and `lordmeta.json` to that folder. The examples below show what to write. A Lord using only the base game files does not need these extra files.
+3. Test the Lord in the game. If you use it in a Trail, export the Trail with ExtendedData and keep the generated files beside its missions.
+4. When uploading the Lord to Workshop, enable **Upload additional files for mod support** to include supported extra files. Review the upload warning: excluded files will not be published.
+
+For example, this `lordmeta.json` adds an English and German display name:
+
+```json
+{
+  "LocalizedDisplayName": {
+    "en-US": "The Gatekeeper",
+    "de-DE": "Der Torwächter"
+  }
+}
+```
+
+The accompanying `info.json` identifies the package; use the complete example below when adding it.
+
+### For advanced users
+
+The reference below covers JSON fields, asset paths, audio and video formats, message names, Lua, and upload limits. Use it when your Lord needs those features.
+
+A Script Extender package extends a working base Custom Lord; it does not replace the required `.lordjson` and `.aivjson` files.
+
+#### Add localized details
 
 The Lord directory contains its base files plus direct `info.json` and `lordmeta.json` files:
 
@@ -85,7 +111,7 @@ A useful `lordmeta.json` can provide all detail-panel text at once:
 
 The lookup order is the exact current game-language key, then `en-US`. Optional detail fields become empty if neither contains usable text. Always provide `en-US` as the general fallback. Locale keys are not normalized from forms such as `de` to `de-DE`.
 
-### Complete package layout
+#### Complete package layout
 
 Add only the components the Lord actually uses:
 
@@ -116,7 +142,7 @@ My Lord/
 
 The direct root `init.lua` is the Lord AI entry point. Do not add a path field for it to `lordmeta.json`.
 
-### Complete metadata example
+#### Complete metadata example
 
 ```json
 {
@@ -180,7 +206,7 @@ The direct root `init.lua` is the Lord AI entry point. Do not add a path field f
 }
 ```
 
-### Active `lordmeta.json` fields
+#### Active `lordmeta.json` fields
 
 | Field | JSON type | Behavior |
 |---|---|---|
@@ -201,7 +227,7 @@ Titles are suffixes, so include their punctuation and leading space. The six opt
 
 Common game-language keys are `ar`, `cs-CZ`, `de-DE`, `el-GR`, `en-US`, `es-ES`, `fr-FR`, `hu-HU`, `it-IT`, `ja-JP`, `ko-KR`, `nl-NL`, `pl-PL`, `pt-BR`, `ru-RU`, `sv-SE`, `th-TH`, `tr-TR`, `uk-UA`, `zh-CN`, and `zh-HK`.
 
-### Assets and provider-local paths
+#### Assets and provider-local paths
 
 Paths in `lordmeta.json` are relative to `Override/`. With `AssetMode: "Local"`, the Script Extender automatically qualifies face, join/leave audio, and message video/audio paths with the owning GUID. Other local packages can use the same relative names without collisions.
 
@@ -219,7 +245,7 @@ For extensionless audio, `.ogg` is checked before `.wav`. OGG Vorbis is recommen
 
 Video uses `.webm` or `.mp4`; WEBM with VP8 at 348x348 is a documented safe choice, not a required resolution. Existing valid VP8 videos need no resize solely to reach 348x348. Keep message videos below `Override/Assets/GUI/Video/`.
 
-### Message clips and names
+#### Message clips and names
 
 Each `Messages` property must match an `AILordMessageType` name case-insensitively. Unknown keys are logged and skipped. Multiple clips are selected through the Script Extender's deterministic random source.
 
@@ -280,14 +306,20 @@ Nickname8
 
 `Unk21` and `Unk22` have no documented gameplay meaning. The nickname members exist, but a normal AI-message trigger is not guaranteed.
 
-### Two Lua entry points
+#### Two Lua entry points
 
 - `My Lord/init.lua` is the isolated Lord AI script. It can define `ai_init(playerId, loadMode)` and receives the one-based player ID plus the Script Extender load mode.
 - `My Lord/Scripts/init.lua` is the normal asset-mod lifecycle script. It can define `mod_init`, `mod_load`, and `mod_unload`.
 
 Lua that changes resources, units, buildings, terrain, AI behavior, or other simulation state requires `NetworkMode: 1` and matching multiplayer installations.
 
-### Publishing with ExtendedData
+#### Custom Lords in Trails
+
+ExtendedData's Trail export writes a matching `.lordrequirements.json` sidecar for each exported mission. A normal exported mission uses `Trail_Mission_1.lordrequirements.json` beside `Trail_Mission_1.trail`; a Coop package uses `CoopMissions/01.lordrequirements.json` beside `01.coopmission.json`. The sidecar records the mission digest and, for selected Custom Lords, the configuration and AIV checksums plus available `.modlord.json` and Fixes values. Keep it with the mission when distributing the Trail.
+
+The player must have a Lord with matching configuration and AIV checksums. If the Lord package has additional gameplay files, the matching complete package must be installed and registered by Script Extender at startup. ExtendedData checks this before the mission starts and blocks a missing or different required package. Portraits, audio, video, and other presentation files are optional for this package check. In a Coop Trail, every participant must also have the same Coop package contents.
+
+#### Publishing with ExtendedData
 
 A Workshop item must install the Lord directory as an immediate child of the item's content directory. On the upload page, keep **Upload additional files for mod support** enabled to stage supported extended files.
 
@@ -305,7 +337,7 @@ Direct root `.data` and `.ldata` files are local uploader controls and are not u
 
 Packages requiring DDS, XAML patches, atlases, AssetBundles, nested JSON resources, or other excluded files need a separate complete Steam UGC publishing workflow.
 
-### Test checklist
+#### Test checklist
 
 1. Test the direct `.lordjson`, `.aivjson`, and optional valid `avatar.png` first.
 2. Add `info.json` and minimal `lordmeta.json`; verify `en-US` and one translated language.
@@ -327,9 +359,35 @@ Current upstream references:
 
 ## Deutsch
 
-Dieser Guide beschreibt Custom-Lord-Pakete für den ExtendedData-Uploader. Die Regeln für Assets und Medien wurden gegen den installierten SHCDE Script Extender 2.10.1 und den betreffenden Code des lokalen Forks 2.10.2 geprüft. Ein Script-Extender-Paket erweitert einen funktionierenden grundlegenden Custom Lord; es ersetzt nicht die erforderlichen `.lordjson`- und `.aivjson`-Dateien.
+Erstelle zuerst die KI und Burg deines Lords im Editor. ExtendedData hilft dir, zusätzliche Lord-Dateien weiterzugeben und die ausgewählten Lord-Daten mit einem Trail zu verbinden.
 
-### Schnellstart: lokalisierte Details
+### Custom Lord erstellen und teilen
+
+1. Erstelle und teste die KI- und Burgdateien deines Lords mit dem **Castle & CPU Lord Editor**. Bewahre `.lordjson` und `.aivjson` gemeinsam in einem Lord-Ordner auf. Ein optionales `avatar.png` liefert das einfache Porträt.
+2. Wenn du übersetzte Details, weitere Porträts, Sprachausgabe oder andere Script-Extender-Inhalte möchtest, füge diesem Ordner `info.json` und `lordmeta.json` hinzu. Die Beispiele unten zeigen, was hineingehört. Ein Lord mit reinen Basisdateien benötigt diese Zusatzdateien nicht.
+3. Teste den Lord im Spiel. Wenn du ihn in einem Trail verwendest, exportiere den Trail mit ExtendedData und behalte die erzeugten Dateien neben den Missionen.
+4. Aktiviere beim Workshop-Upload des Lords **Zusätzliche Dateien für Mod-Unterstützung hochladen**, um unterstützte Zusatzdateien aufzunehmen. Prüfe die Upload-Warnung: Ausgeschlossene Dateien werden nicht veröffentlicht.
+
+Dieses Beispiel für `lordmeta.json` ergänzt einen englischen und deutschen Anzeigenamen:
+
+```json
+{
+  "LocalizedDisplayName": {
+    "en-US": "The Gatekeeper",
+    "de-DE": "Der Torwächter"
+  }
+}
+```
+
+Die zugehörige `info.json` kennzeichnet das Paket; verwende beim Anlegen das vollständige Beispiel unten.
+
+### Für Fortgeschrittene
+
+Die Referenz unten beschreibt JSON-Felder, Asset-Pfade, Audio- und Videoformate, Nachrichtennamen, Lua und Upload-Grenzen. Nutze sie, wenn dein Lord diese Funktionen benötigt.
+
+Ein Script-Extender-Paket erweitert einen funktionierenden Custom Lord; es ersetzt nicht die erforderlichen `.lordjson`- und `.aivjson`-Dateien.
+
+#### Lokalisierte Details ergänzen
 
 Das Lord-Verzeichnis enthält seine Basisdateien sowie direkte Dateien `info.json` und `lordmeta.json`:
 
@@ -408,7 +466,7 @@ Eine nützliche `lordmeta.json` kann alle Texte des Detailfensters gemeinsam ber
 
 Die Suchreihenfolge ist der exakte aktuelle Spielsprachenschlüssel und danach `en-US`. Optionale Detailfelder bleiben leer, wenn keiner davon nutzbaren Text enthält. Stelle `en-US` immer als allgemeinen Fallback bereit. Locale-Schlüssel wie `de` werden nicht zu `de-DE` normalisiert.
 
-### Vollständiger Paketaufbau
+#### Vollständiger Paketaufbau
 
 Füge nur die Komponenten hinzu, die der Lord tatsächlich verwendet:
 
@@ -439,7 +497,7 @@ My Lord/
 
 Die direkte `init.lua` an der Wurzel ist der Lord-KI-Einstiegspunkt. Füge dafür kein Pfadfeld zu `lordmeta.json` hinzu.
 
-### Vollständiges Metadatenbeispiel
+#### Vollständiges Metadatenbeispiel
 
 ```json
 {
@@ -503,7 +561,7 @@ Die direkte `init.lua` an der Wurzel ist der Lord-KI-Einstiegspunkt. Füge dafü
 }
 ```
 
-### Aktive Felder in `lordmeta.json`
+#### Aktive Felder in `lordmeta.json`
 
 | Feld | JSON-Typ | Verhalten |
 |---|---|---|
@@ -524,7 +582,7 @@ Titel sind Suffixe; füge daher Satzzeichen und führendes Leerzeichen hinzu. Di
 
 Übliche Spielsprachenschlüssel sind `ar`, `cs-CZ`, `de-DE`, `el-GR`, `en-US`, `es-ES`, `fr-FR`, `hu-HU`, `it-IT`, `ja-JP`, `ko-KR`, `nl-NL`, `pl-PL`, `pt-BR`, `ru-RU`, `sv-SE`, `th-TH`, `tr-TR`, `uk-UA`, `zh-CN` und `zh-HK`.
 
-### Assets und providerlokale Pfade
+#### Assets und providerlokale Pfade
 
 Pfade in `lordmeta.json` sind relativ zu `Override/`. Mit `AssetMode: "Local"` versieht der Script Extender Pfade für Gesicht, Beitritts-/Verlassensaudio sowie Nachrichtenvideo/-audio automatisch mit der Besitzer-GUID. Andere lokale Pakete können dieselben relativen Namen ohne Kollision verwenden.
 
@@ -542,7 +600,7 @@ Bei Audio ohne Endung wird `.ogg` vor `.wav` geprüft. OGG Vorbis wird empfohlen
 
 Videos verwenden `.webm` oder `.mp4`; WEBM mit VP8 bei 348x348 ist eine dokumentierte sichere Wahl, aber keine erforderliche Auflösung. Bereits gültige VP8-Videos müssen nicht allein für 348x348 skaliert werden. Lege Nachrichtenvideos unter `Override/Assets/GUI/Video/` ab.
 
-### Nachrichtenclips und Namen
+#### Nachrichtenclips und Namen
 
 Jede Property unter `Messages` muss ohne Beachtung der Groß-/Kleinschreibung einem `AILordMessageType`-Namen entsprechen. Unbekannte Schlüssel werden protokolliert und übersprungen. Mehrere Clips werden über die deterministische Zufallsquelle des Script Extenders ausgewählt.
 
@@ -603,14 +661,20 @@ Nickname8
 
 Für `Unk21` und `Unk22` ist keine Gameplay-Bedeutung dokumentiert. Die Nickname-Member existieren, ein normaler KI-Nachrichtenauslöser ist jedoch nicht garantiert.
 
-### Zwei Lua-Einstiegspunkte
+#### Zwei Lua-Einstiegspunkte
 
 - `My Lord/init.lua` ist das isolierte Lord-KI-Skript. Es kann `ai_init(playerId, loadMode)` definieren und erhält die 1-basierte Spieler-ID sowie den Script-Extender-Lademodus.
 - `My Lord/Scripts/init.lua` ist das normale Asset-Mod-Lebenszyklusskript. Es kann `mod_init`, `mod_load` und `mod_unload` definieren.
 
 Lua, das Ressourcen, Einheiten, Gebäude, Gelände, KI-Verhalten oder anderen Simulationszustand ändert, erfordert `NetworkMode: 1` und übereinstimmende Multiplayer-Installationen.
 
-### Veröffentlichung mit ExtendedData
+#### Custom Lords in Trails
+
+Der Trail-Export von ExtendedData schreibt für jede exportierte Mission ein passendes `.lordrequirements.json`-Sidecar. Eine normale exportierte Mission verwendet `Trail_Mission_1.lordrequirements.json` neben `Trail_Mission_1.trail`; ein Koop-Paket verwendet `CoopMissions/01.lordrequirements.json` neben `01.coopmission.json`. Das Sidecar enthält den Missions-Hash und für ausgewählte Custom Lords die Konfigurations- und AIV-Prüfsummen sowie vorhandene `.modlord.json`- und Fixes-Werte. Gib es beim Verteilen des Trails zusammen mit der Mission weiter.
+
+Der Spieler benötigt einen Lord mit übereinstimmenden Konfigurations- und AIV-Prüfsummen. Enthält das Lord-Paket zusätzliche Gameplay-Dateien, muss das passende vollständige Paket installiert und beim Spielstart vom Script Extender registriert sein. ExtendedData prüft dies vor Missionsbeginn und blockiert fehlende oder abweichende erforderliche Pakete. Porträts, Audio, Video und andere Darstellungsdateien sind für diese Paketprüfung optional. In einem Koop-Trail müssen außerdem alle Teilnehmer dieselben Koop-Paketinhalte besitzen.
+
+#### Veröffentlichung mit ExtendedData
 
 Ein Workshop-Element muss das Lord-Verzeichnis als direktes Kind seines Inhaltsverzeichnisses installieren. Lasse auf der Upload-Seite **Upload additional files for mod support** aktiviert, um unterstützte erweiterte Dateien bereitzustellen.
 
@@ -628,7 +692,7 @@ Direkte `.data`- und `.ldata`-Dateien an der Wurzel sind lokale Uploader-Steuerd
 
 Pakete, die DDS, XAML-Patches, Atlanten, AssetBundles, verschachtelte JSON-Ressourcen oder andere ausgeschlossene Dateien benötigen, brauchen einen separaten vollständigen Steam-UGC-Veröffentlichungsablauf.
 
-### Prüfliste
+#### Prüfliste
 
 1. Teste zuerst die direkten `.lordjson`, `.aivjson` und eine optionale gültige `avatar.png`.
 2. Ergänze `info.json` und eine minimale `lordmeta.json`; prüfe `en-US` und eine übersetzte Sprache.

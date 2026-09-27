@@ -4,11 +4,22 @@
 
 ## English
 
-APIShared gives every compatible target mod two normal actions: **Load preset** and **Save preset**. Loading materializes a preset into the current working settings. Those settings remain editable; editing them never changes the source JSON. Saving creates or deliberately replaces a personal preset.
+This guide is for players who want to save and reuse mod settings, and for mod authors who want to support that feature. You do not need to edit JSON to use presets.
 
-ExtendedData is optional. It uses the same typed property contract for Maps and Trails, while normal preset support requires only APIShared.
+### Use a preset in the game
 
-### Target-mod integration
+1. Open the settings of a compatible mod and choose **Load preset**.
+2. Select a preset, then confirm **Load**. Selecting it alone changes nothing.
+3. Adjust the settings if you want. Your changes do not alter the preset file.
+4. Choose **Save preset** to create a personal preset. Select an existing personal preset only if you intend to replace it; replacement requires confirmation.
+
+For settings that should travel with a Map or Trail, use [Mod settings in Maps and Custom Trails](Custom%20Trail%20Mod%20Settings.md#english). A normal preset only needs a compatible mod and APIShared; ExtendedData is optional.
+
+### For advanced users and mod authors
+
+The reference below explains mod integration, preset files and modes, and how mission settings use the same values.
+
+#### Target-mod integration
 
 1. Add a reference and hard dependency on the required APIShared version.
 2. Derive the settings ViewModel from `Shared.PresetLobbyModSettingsViewModel`.
@@ -33,7 +44,7 @@ If a persisted property's code default can only be known after dynamic discovery
 
 The complete block also binds `System_PresetLoadEntries`, `System_SelectedPresetLoadEntry`, the personal-only delete command, `System_PresetSaveTargets`, `System_PresetSaveSettings`, the bulk mode selector, inline overwrite/delete confirmation and error status, and the corresponding confirm/cancel commands. Successful Load, Reset, Save, Overwrite, and Delete operations do not show a result banner; failures remain visible and dismissible. Pressing an already open Load or Save button closes its panel again. No Vanilla popup is opened and the ModSettings hub remains visible.
 
-### Sources and locations
+#### Sources and locations
 
 The load list visibly distinguishes:
 
@@ -55,9 +66,9 @@ MyPresetPack/
       preset_large-armies.json
 ```
 
-Version 1 supports loose registered asset folders. `.semod` providers are skipped with a log message.
+Preset providers must be loose registered asset folders. `.semod` providers are skipped with a log message.
 
-### JSON schema
+#### JSON schema
 
 ```json
 {
@@ -85,7 +96,7 @@ Only listed properties are changed. All resulting settings remain editable accor
 
 Unknown members, properties or modes, invalid values, incompatible target versions, unsafe paths, duplicate IDs within one provider/target, oversized files, and overly deep documents fail closed.
 
-### Loading, saving, and migration
+#### Loading and saving
 
 Selecting a row does nothing until **Load** is pressed. The status then shows the preset name and source; later edits add “modified”. If the source disappears, the materialized working values stay intact and only the source association is cleared.
 
@@ -93,9 +104,7 @@ The standard save dialog always writes every persistent property. A new personal
 
 Descriptions support line breaks and up to 8192 characters. The standard editor shows five lines and scrolls vertically for longer text. The dialog can create a new personal preset or select an existing personal preset. Existing files require a second overwrite confirmation and are atomically replaced. Bundled, external, Map, Trail, archive, and Coop-package data are never overwrite targets.
 
-Old Preset 1 is migrated to `legacy-preset-1`; Preset 2 is migrated only when it existed. The formerly active slot becomes the editable working state. Old files from `LobbyModSettings/PresetExports/` are copied once into the personal folder and the originals are retained.
-
-### Maps and Trails
+#### Maps and Trails
 
 Every compatible mod has one **Reset settings to** selector. **Mod defaults** is always available; **Trail settings** and **Map settings** appear only when a valid source exists. On entering a context, the selector prefers Trail, then Map, then Mod defaults. A manual selection remains selected while that context stays unchanged. Selecting an entry changes nothing until **Reset** is pressed. Resetting replaces only the working copy: it never writes a Trail sidecar or Map archive, and it never changes personal presets.
 
@@ -105,11 +114,22 @@ Direct Map/Trail starts are read-only. Customize and Trail Maker use a freely ed
 
 ## Deutsch
 
-APIShared gibt jedem kompatiblen Ziel-Mod zwei normale Aktionen: **Preset laden** und **Preset speichern**. Laden materialisiert ein Preset in die aktuellen Arbeitswerte. Diese bleiben frei bearbeitbar; Änderungen schreiben niemals in die Quelldatei. Speichern erstellt ein persönliches Preset oder ersetzt nach ausdrücklicher Bestätigung ein vorhandenes persönliches Preset.
+Dieser Guide richtet sich an Spieler, die Mod-Einstellungen speichern und erneut verwenden möchten, sowie an Modentwickler, die diese Funktion unterstützen wollen. Für die Nutzung von Presets musst du kein JSON bearbeiten.
 
-ExtendedData ist optional. Es verwendet denselben typisierten Property-Vertrag für Maps und Trails; normale Presets benötigen nur APIShared.
+### Preset im Spiel verwenden
 
-### Integration des Ziel-Mods
+1. Öffne die Einstellungen eines kompatiblen Mods und wähle **Preset laden**.
+2. Wähle ein Preset aus und bestätige **Laden**. Die Auswahl allein ändert noch nichts.
+3. Passe die Einstellungen bei Bedarf an. Deine Änderungen verändern die Preset-Datei nicht.
+4. Wähle **Preset speichern**, um ein persönliches Preset anzulegen. Wähle ein vorhandenes persönliches Preset nur aus, wenn du es ersetzen möchtest; dafür ist eine Bestätigung nötig.
+
+Für Einstellungen, die mit einer Map oder einem Trail weitergegeben werden sollen, nutze [Mod-Einstellungen in Maps und Custom Trails](Custom%20Trail%20Mod%20Settings.md#deutsch). Ein normales Preset benötigt nur einen kompatiblen Mod und APIShared; ExtendedData ist optional.
+
+### Für Fortgeschrittene und Modentwickler
+
+Die Referenz unten erklärt die Mod-Integration, Preset-Dateien und Modi sowie die Verwendung derselben Werte in Missionen.
+
+#### Integration des Ziel-Mods
 
 1. APIShared referenzieren und als harte Abhängigkeit mit passender Mindestversion angeben.
 2. Das Settings-ViewModel von `Shared.PresetLobbyModSettingsViewModel` ableiten.
@@ -121,7 +141,7 @@ Kann der Code-Standard einer persistenten Property erst nach einer dynamischen E
 
 Shared-Quelllinks, Preset-Compile-Symbole und eine ExtendedData-Referenz sind nicht nötig. Das minimale XAML-Beispiel im englischen Abschnitt sowie die vollständigen Blöcke der vorhandenen Mods zeigen alle Bindings einschließlich des ausschließlich für eigene Presets sichtbaren Löschbefehls sowie der Inline-Bestätigung. Erfolgreiches Laden, Zurücksetzen, Speichern, Überschreiben und Löschen zeigt kein zusätzliches Ergebnisbanner; Fehler bleiben sichtbar und schließbar. Der ModSettings-Hub bleibt dabei sichtbar. Ein erneuter Klick auf den bereits geöffneten Laden- oder Speichern-Button schließt sein Panel wieder.
 
-### Quellen und Ablageorte
+#### Quellen und Ablageorte
 
 Der Ladedialog unterscheidet sichtbar:
 
@@ -131,9 +151,9 @@ Der Ladedialog unterscheidet sichtbar:
 
 Anzeigenamen müssen nicht eindeutig sein. Die Identität besteht aus Quellentyp, Provider-GUID, Ziel-GUID und Preset-ID. Nur eigene Presets dürfen überschrieben oder gelöscht werden. Das Löschen ist nach ausdrücklicher Bestätigung endgültig und verändert die bereits materialisierten Arbeitswerte nicht. Aus einem mitgelieferten oder externen Preset entsteht beim Speichern daher immer eine unabhängige persönliche Datei – ausdrücklich auch mit demselben Anzeigenamen.
 
-Ein loser Asset-Mod kann Presets für mehrere Ziele enthalten; das Verzeichnisbeispiel steht im englischen Abschnitt. `.semod`-Provider werden in Version 1 mit einem Loghinweis übersprungen.
+Ein loser Asset-Mod kann Presets für mehrere Ziele enthalten; das Verzeichnisbeispiel steht im englischen Abschnitt. Preset-Provider müssen registrierte lose Asset-Ordner sein; `.semod`-Provider werden mit einem Loghinweis übersprungen.
 
-### JSON-Schema und Modi
+#### JSON-Schema und Modi
 
 Das vollständige JSON-Beispiel im englischen Abschnitt gilt unverändert.
 
@@ -145,7 +165,7 @@ Nur aufgeführte Properties werden geändert. Danach bleiben alle Werte gemäß 
 
 Unbekannte Member, Properties oder Modi, ungültige Werte, unpassende Zielversionen, unsichere Pfade, doppelte IDs desselben Providers/Ziels, zu große Dateien und zu tiefe Dokumente werden fail-closed abgelehnt.
 
-### Laden, Speichern und Migration
+#### Laden und Speichern
 
 Die Auswahl eines Eintrags ändert noch nichts; erst **Laden** übernimmt ihn. Die Statuszeile zeigt danach Name und Quelle und kennzeichnet spätere Änderungen mit „geändert“. Verschwindet die Quelle, bleiben die materialisierten Arbeitswerte erhalten; nur die Quellenverknüpfung wird entfernt.
 
@@ -153,9 +173,7 @@ Der Standardspeicherdialog schreibt immer alle persistenten Properties. Ein neue
 
 Beschreibungen unterstützen Zeilenumbrüche und bis zu 8192 Zeichen. Der Standardeditor zeigt fünf Zeilen und scrollt bei längerem Text vertikal. Der Speicherdialog erstellt ein neues eigenes Preset oder wählt gezielt ein vorhandenes eigenes Preset. Das vollständige atomare Ersetzen erfordert eine zweite Bestätigung. Mitgelieferte, externe, Map-, Trail-, Archiv- und Koop-Paket-Daten sind niemals Überschreibziele.
 
-Altes Preset 1 wird als `legacy-preset-1` migriert, Preset 2 nur wenn es vorhanden war. Der vorher aktive Slot wird zum editierbaren Arbeitsstand. Alte Dateien aus `LobbyModSettings/PresetExports/` werden einmalig in den persönlichen Ordner kopiert; die Originale bleiben erhalten.
-
-### Maps und Trails
+#### Maps und Trails
 
 Jeder kompatible Mod besitzt einen einheitlichen Wähler **Einstellungen zurücksetzen auf**. **Mod-Standards** ist immer verfügbar; **Trail-Einstellungen** und **Map-Einstellungen** erscheinen nur bei einer gültigen Quelle. Beim Eintritt in einen Kontext wird Trail vor Map und Map vor Mod-Standards vorausgewählt. Eine manuelle Auswahl bleibt erhalten, solange derselbe Kontext aktiv bleibt. Die Auswahl allein ändert nichts, erst **Zurücksetzen** ersetzt die Arbeitskopie. Dabei werden weder persönliche Presets noch Trail-Sidecar oder Maparchiv verändert.
 

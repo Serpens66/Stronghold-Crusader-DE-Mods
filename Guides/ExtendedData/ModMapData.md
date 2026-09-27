@@ -4,9 +4,15 @@
 
 ## English
 
-`modmap.json` stores static, map-specific data that mods can interpret. It is not a lobby-settings file, save data, or general Script Extender metadata. Typical uses include spawn regions, scenario rules, identifiers, and other structured information outside the base map format.
+You do not need `modmap.json` to create a normal Map or to save compatible mod settings with it. For mod settings, use [Mod settings in Maps and Custom Trails](Custom%20Trail%20Mod%20Settings.md#english) and the Map Editor.
 
-### Where the file is stored
+Use `modmap.json` only when a gameplay mod asks for extra Map data, such as spawn regions or scenario rules. That mod defines the fields you need to write. The file belongs inside the Map's Script Extender archive, so follow the [Script Extender Map Creation Guide](https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender/-/blob/main/docs/guides/map-creation-guide.md?ref_type=heads) when packaging it.
+
+### For advanced users and mod authors
+
+The reference below explains the file's location, the shared JSON structure, and how mods read their own data. `modmap.json` is static Map data; it does not replace lobby settings or save data.
+
+#### Where the file is stored
 
 A Script Extender map consists of the base map followed by an appended ZIP archive:
 
@@ -23,7 +29,7 @@ Place `modmap.json` at the root of the appended archive beside `info.json` and `
 
 The base map can still be opened without ExtendedData; only the supplemental namespaced values are unavailable.
 
-### File responsibilities
+#### File responsibilities
 
 | Data | Purpose |
 |---|---|
@@ -34,7 +40,7 @@ The base map can still be opened without ExtendedData; only the supplemental nam
 
 `modmap.json` does not replace multiplayer synchronization or mutable save state.
 
-### JSON structure
+#### JSON structure
 
 The root is an object whose case-insensitive keys are mod GUIDs. Every value is an object owned by that mod:
 
@@ -65,7 +71,7 @@ The root is an object whose case-insensitive keys are mod GUIDs. Every value is 
 
 There is no global schema version. Prefer a stable BepInEx plugin GUID in lowercase ASCII. Keys differing only by casing conflict and invalidate the container. Empty GUIDs and non-object namespace values are invalid.
 
-### Reading a namespace
+#### Reading a namespace
 
 Reference `ExtendedData.dll` and `ExtendedData.Core.dll`, then request only your namespace:
 
@@ -97,7 +103,7 @@ Missing files and namespaces mean normal default behavior. For other failures, l
 
 Call the API after the Script Extender has loaded the Map archive. It reads on demand and does not cache or poll. Retain a validated model only for the lifetime of the corresponding Map.
 
-### Authoring and validation
+#### Authoring and validation
 
 - Use strict UTF-8 JSON without comments or trailing commas.
 - Store static Map information, not user preferences or mutable runtime state.
@@ -112,9 +118,15 @@ Call the API after the Script Extender has loaded the Map archive. It reads on d
 
 ## Deutsch
 
-`modmap.json` speichert statische, map-spezifische Daten, die Mods auswerten können. Sie ist keine Lobby-Einstellungsdatei, kein Spielstand und keine allgemeine Script-Extender-Metadatendatei. Typische Anwendungen sind Spawn-Bereiche, Szenarioregeln, Kennungen und andere strukturierte Informationen außerhalb des grundlegenden Map-Formats.
+Für eine normale Map oder zum Speichern kompatibler Mod-Einstellungen mit ihr benötigst du keine `modmap.json`. Verwende für Mod-Einstellungen den Map Editor und [Mod-Einstellungen in Maps und Custom Trails](Custom%20Trail%20Mod%20Settings.md#deutsch).
 
-### Ablageort der Datei
+Nutze `modmap.json` nur, wenn ein Gameplay-Mod zusätzliche Map-Daten verlangt, etwa Spawn-Bereiche oder Szenarioregeln. Der jeweilige Mod legt fest, welche Felder du eintragen musst. Die Datei gehört in das Script-Extender-Archiv der Map; richte dich beim Verpacken nach dem [Script Extender Map Creation Guide](https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender/-/blob/main/docs/guides/map-creation-guide.md?ref_type=heads).
+
+### Für Fortgeschrittene und Modentwickler
+
+Die Referenz unten erklärt den Ablageort, die gemeinsame JSON-Struktur und das Lesen mod-eigener Daten. `modmap.json` enthält statische Map-Daten; sie ersetzt weder Lobby-Einstellungen noch Spielstände.
+
+#### Ablageort der Datei
 
 Eine Script-Extender-Map besteht aus der zugrunde liegenden Map und einem angehängten ZIP-Archiv:
 
@@ -131,7 +143,7 @@ Lege `modmap.json` an der Wurzel des angehängten Archivs neben `info.json` und 
 
 Die zugrunde liegende Map kann weiterhin ohne ExtendedData geöffnet werden; lediglich die zusätzlichen Namensraumwerte stehen dann nicht zur Verfügung.
 
-### Aufgaben der Dateien
+#### Aufgaben der Dateien
 
 | Daten | Zweck |
 |---|---|
@@ -142,7 +154,7 @@ Die zugrunde liegende Map kann weiterhin ohne ExtendedData geöffnet werden; led
 
 `modmap.json` ersetzt weder Multiplayer-Synchronisierung noch veränderlichen Speicherzustand.
 
-### JSON-Struktur
+#### JSON-Struktur
 
 Die Wurzel ist ein Objekt, dessen Schlüssel ohne Beachtung der Groß-/Kleinschreibung Mod-GUIDs darstellen. Jeder Wert ist ein Objekt im Besitz des jeweiligen Mods:
 
@@ -173,7 +185,7 @@ Die Wurzel ist ein Objekt, dessen Schlüssel ohne Beachtung der Groß-/Kleinschr
 
 Es gibt keine globale Schemaversion. Bevorzuge eine stabile BepInEx-Plugin-GUID in ASCII-Kleinbuchstaben. Schlüssel, die sich nur durch Groß-/Kleinschreibung unterscheiden, stehen im Konflikt und machen den Container ungültig. Leere GUIDs und Namensraumwerte, die keine Objekte sind, sind ungültig.
 
-### Einen Namensraum lesen
+#### Einen Namensraum lesen
 
 Referenziere `ExtendedData.dll` und `ExtendedData.Core.dll` und fordere anschließend ausschließlich deinen Namensraum an:
 
@@ -205,7 +217,7 @@ Fehlende Dateien und Namensräume bedeuten normales Standardverhalten. Protokoll
 
 Rufe die API auf, nachdem der Script Extender das Map-Archiv geladen hat. Sie liest bei Bedarf und verwendet weder Cache noch Polling. Bewahre ein validiertes Modell nur für die Lebensdauer der zugehörigen Map auf.
 
-### Erstellung und Validierung
+#### Erstellung und Validierung
 
 - Verwende striktes UTF-8-JSON ohne Kommentare oder abschließende Kommas.
 - Speichere statische Map-Informationen, keine Benutzereinstellungen oder veränderlichen Laufzeitzustände.

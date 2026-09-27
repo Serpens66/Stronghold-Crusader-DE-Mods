@@ -8,9 +8,23 @@
 
 This guide is for Map and Trail authors. Mod developers should use [ExtendedData compatibility for mod authors](Mod%20Compatibilty%20ExtendedData.md#english).
 
-APIShared distinguishes editable normal working settings, personal/bundled/external JSON presets, and temporary mission contexts. Maps and Trails use the temporary mission form: it is editable in Customize or Trail Maker, read-only when started directly, and restores the previous normal working settings and preset status afterwards. Normal preset creation and distribution are documented in [Extensible ModSettings Presets](ModSettings%20Presets.md#english).
+### Create a Map or Trail with mod settings
 
-### Choose the settings to store
+1. Install ExtendedData and the gameplay mods you want to use.
+2. Open your Map in the **Map Editor** or your mission in the **Trail Maker**. In ExtendedData's mod settings, open **MOD SETTINGS IN MAPS AND CUSTOM TRAILS** and choose the behavior for each compatible mod.
+3. Use **Mod default** for the mod's baseline, **Player/host** to let the player or host use their own value, or **Fixed value** to use the value you set in that mod's settings.
+4. Save the Map or mission with **Include modsettings** enabled. For a Trail, leave **Include modsettings** enabled during Workshop upload too.
+5. Test the saved Map or Trail. When sharing a Trail folder, keep the files generated beside each mission together. ExtendedData checks Lord requirements before starting a mission.
+
+To export a Coop Trail, select **Coop Trail** in the Trail Maker. It packages up to 40 existing missions; the first two occupied player slots become host and guest. Everyone playing needs the same Coop package. For normal preset creation, see [Extensible ModSettings Presets](ModSettings%20Presets.md#english).
+
+If a mod does not appear in ExtendedData, check whether it supports these mission settings. If a mission reports a missing mod, install that mod before starting it.
+
+### For advanced users
+
+The sections below explain authoring details, generated files, multiplayer behavior, and optional JSON editing. You do not need to edit JSON for the normal Map Editor or Trail Maker workflow.
+
+#### Choose the settings to store
 
 1. Install and enable `ExtendedData` and every compatible gameplay mod the Map or Trail should use.
 2. Open the Map Editor or Trail Maker and load or create the Map or mission.
@@ -25,13 +39,13 @@ The selector on a mod heading changes all its settings at once. `Mixed` means th
 
 Only persistent `[SyncHostOnly]` settings can become Map or Trail rules. Personal, per-player, local, and transient settings remain controlled by each player.
 
-### Trail Maker authoring and tests
+#### Trail Maker authoring and tests
 
 Opening a saved Trail Maker mission loads its matching sidecar into an editable temporary **Trail** context; without a sidecar it uses the safe mod defaults. A new unsaved mission also starts with safe default values in an editable draft, but its available settings initially use **Fixed value** so the values shown in the owning mods can be saved as creator values. Select **Mod default** for any setting that should instead remain at its mod-defined baseline. Personal, bundled, and external normal presets can be loaded into the draft. The common source selector always offers **Mod defaults**, and additionally offers **Trail settings** or **Map settings** when those valid sources exist. This lets an author reload the saved Trail settings or use the selected Map as a template without modifying either source.
 
 ExtendedData keeps the editable authoring draft while the mission is tested, restarted, opened in the Map Editor, or returned to the Trail Maker. **Include modsettings** beside the Trail Maker Save button controls whether saving writes the draft as a sidecar; it is enabled by default. Disabling it deliberately removes an existing sidecar after the mission is saved. The normal preset Save dialog can create a personal preset from the draft, but can never overwrite a Trail, Map archive, or Coop package. Leaving the authoring context discards the draft and restores the previous normal working settings and status. If a draft cannot be loaded or restored safely, ExtendedData falls back to editable mod defaults rather than retaining a partial preset.
 
-### Resulting files
+#### Resulting files
 
 The Map Editor Save dialog shows **Include modsettings**. It starts unchecked when the opened Map has no ExtendedData entry, including a new Map, but can be checked to add settings on this save. It starts checked when the Map already contains the entry. Its tooltip points to Extended Data's **MOD SETTINGS IN MAPS AND CUSTOM TRAILS** section, where the stored Mod default, Player/host, and Fixed value modes are selected. Saving with the option checked writes the schema-3 document into the appended Map archive as:
 
@@ -56,9 +70,22 @@ CoopMissions/01.coopmission.json
 CoopMissions/01.modtrail.json
 ```
 
-When uploading a normal or Coop Trail, leave **Include modsettings** checked to ship any sidecars. Uncheck it to upload without modsettings sidecars.
+When uploading a normal or Coop Trail, leave **Include modsettings** checked to ship modsettings sidecars. Uncheck it to upload without modsettings sidecars.
 
-### What players need
+Trail export also creates a Lord-requirements sidecar for each exported mission, independently of the modsettings option:
+
+```text
+Trail_Mission_1.trail
+Trail_Mission_1.lordrequirements.json
+CoopMissions/01.coopmission.json
+CoopMissions/01.lordrequirements.json
+```
+
+The sidecar binds the selected Custom Lord slots and their AIC/AIV checksums to the mission. It includes the selected `.modlord.json` and Fixes values where available. Keep it beside the matching mission when moving or publishing a Trail. ExtendedData checks it before launch. A Lord whose package contains additional gameplay files must have the matching Script Extender package installed and registered at startup; missing or different required content blocks the mission. Optional media does not by itself make a package mandatory.
+
+The Trail Maker's **Coop Trail** export packages the first 40 existing missions, in order, as up to four Coop Trail pages of ten missions each. Later Trail Maker missions remain normal Custom Trail missions. The first two occupied player slots become host and guest. The host selects an installed package, and every participant needs matching package contents before a replaced mission can start. A package ends at its actual mission count; slots beyond it are unavailable until Vanilla Coop Trails are selected.
+
+#### What players need
 
 Players need `ExtendedData` and every mod explicitly mentioned by the Map or mission. A missing mentioned mod is reported when the preset is activated. Unmentioned mods and settings use their mod-defined safe baseline instead of arbitrary local gameplay values.
 
@@ -68,7 +95,7 @@ For a free Singleplayer Skirmish or Multiplayer host lobby, selecting a Map with
 
 Only the Multiplayer host can activate or clear Map settings. ExtendedData authenticates the host packet and binds it to the selected Map name and CRC. Late joiners receive the active state, while malformed data is rejected without partially applying it.
 
-### JSON format
+#### JSON format
 
 The editors are the authoritative way to create the file. Manual editing is intended for inspection and tooling; invalid documents are rejected as a whole.
 
@@ -94,7 +121,7 @@ Names in `playerSettings` use **Player/host**. Values in `overrides` use **Fixed
 
 See `ExtendedData/Examples/01.modtrail.json.example` for a larger example.
 
-### Troubleshooting
+#### Troubleshooting
 
 - If a mod is absent, confirm that it supports the mission-preset contract and search `BepInEx/LogOutput.log` for `Map/Trail mod settings`.
 - If a mod is reported missing, install the plugin whose GUID is named by the mission.
@@ -109,9 +136,23 @@ See `ExtendedData/Examples/01.modtrail.json.example` for a larger example.
 
 Dieser Guide richtet sich an Map- und Trail-Ersteller. Modentwickler verwenden [ExtendedData-Kompatibilität für Modentwickler](Mod%20Compatibilty%20ExtendedData.md#deutsch).
 
-APIShared unterscheidet bearbeitbare normale Arbeitswerte, persönliche/mitgelieferte/externe JSON-Presets und temporäre Missionskontexte. Maps und Trails verwenden die temporäre Missionsform: In Customize oder im Trail Maker ist sie bearbeitbar, beim direkten Start schreibgeschützt, und anschließend werden die vorherigen normalen Arbeitswerte samt Presetstatus wiederhergestellt. Erstellung und Verteilung normaler Presets beschreibt [Erweiterbare ModSettings-Presets](ModSettings%20Presets.md#deutsch).
+### Map oder Trail mit Mod-Einstellungen erstellen
 
-### Zu speichernde Einstellungen auswählen
+1. Installiere ExtendedData und die Gameplay-Mods, die du verwenden möchtest.
+2. Öffne deine Map im **Map Editor** oder deine Mission im **Trail Maker**. Öffne in den Mod-Einstellungen von ExtendedData **MODSETTINGS IN MAPS UND CUSTOM TRAILS** und wähle das Verhalten für jeden kompatiblen Mod.
+3. Verwende **Mod-Standard** für den Ausgangswert des Mods, **Spieler/Host** für den eigenen Wert des Spielers oder Hosts oder **Fester Wert** für den Wert, den du in den Einstellungen des jeweiligen Mods festlegst.
+4. Speichere die Map oder Mission mit aktivierter Option **Modsettings einschließen**. Aktiviere beim Workshop-Upload eines Trails **Modsettings aufnehmen**.
+5. Teste die gespeicherte Map oder den Trail. Wenn du einen Trail-Ordner weitergibst, behalte die neben den Missionen erzeugten Dateien zusammen. ExtendedData prüft Lord-Anforderungen vor dem Missionsstart.
+
+Für einen Koop-Trail wähle **Koop-Trail** im Trail Maker. Damit werden bis zu 40 vorhandene Missionen verpackt; die ersten beiden belegten Spielerplätze werden Host und Gast. Alle Mitspieler benötigen dasselbe Koop-Paket. Wie du normale Presets erstellst, steht in [Erweiterbare ModSettings-Presets](ModSettings%20Presets.md#deutsch).
+
+Erscheint ein Mod nicht in ExtendedData, prüfe, ob er diese Missionseinstellungen unterstützt. Meldet eine Mission einen fehlenden Mod, installiere ihn vor dem Start.
+
+### Für Fortgeschrittene
+
+Die folgenden Abschnitte erklären die Bearbeitung im Detail, erzeugte Dateien, das Multiplayer-Verhalten und die optionale JSON-Bearbeitung. Für den normalen Ablauf im Map Editor oder Trail Maker musst du kein JSON bearbeiten.
+
+#### Zu speichernde Einstellungen auswählen
 
 1. Installiere und aktiviere `ExtendedData` sowie alle kompatiblen Gameplay-Mods, die die Map oder der Trail verwenden soll.
 2. Öffne den Map Editor oder Trail Maker und lade oder erstelle die Map beziehungsweise Mission.
@@ -126,13 +167,13 @@ Der Auswahlknopf an einer Mod-Überschrift ändert alle zugehörigen Einstellung
 
 Nur dauerhafte `[SyncHostOnly]`-Einstellungen können zu Map- oder Trail-Regeln werden. Persönliche, spielerspezifische, lokale und vorübergehende Einstellungen bleiben unter der Kontrolle des jeweiligen Spielers.
 
-### Trail-Maker-Bearbeitung und Tests
+#### Trail-Maker-Bearbeitung und Tests
 
 Beim Öffnen einer gespeicherten Trail-Maker-Mission wird das passende Sidecar als bearbeitbarer temporärer **Trail**-Kontext geladen; ohne Sidecar gelten die sicheren Mod-Standardwerte. Auch eine neue ungespeicherte Mission beginnt mit sicheren Standardwerten in einem bearbeitbaren Entwurf. Ihre verfügbaren Einstellungen stehen zunächst auf **Fester Wert**, damit die in den zugehörigen Mods angezeigten Werte als Erstellerwerte gespeichert werden können. Wähle **Mod-Standard** für Einstellungen, die stattdessen auf der moddefinierten Ausgangslage bleiben sollen. Persönliche, mitgelieferte und externe normale Presets können in den Entwurf geladen werden. Der gemeinsame Quellenwähler bietet immer **Mod-Standards** und bei gültiger Quelle zusätzlich **Trail-Einstellungen** beziehungsweise **Map-Einstellungen**. Damit kann der Autor die gespeicherten Trail-Einstellungen erneut laden oder die ausgewählte Map als Vorlage verwenden, ohne eine der Quelldateien zu verändern.
 
 ExtendedData behält den bearbeitbaren Entwurf während eines Tests, Neustarts, Wechsels in den Map Editor oder der Rückkehr zum Trail Maker bei. **Modsettings einschließen** neben dem Speichern-Button des Trail Makers legt fest, ob der Entwurf als Sidecar geschrieben wird; die Option ist standardmäßig aktiv. Beim Deaktivieren wird ein vorhandenes Sidecar nach dem Speichern der Mission bewusst entfernt. Über den normalen Preset-Speicherdialog kann aus dem Entwurf ein persönliches Preset entstehen; Trail-, Map- und Koop-Dateien können dort niemals überschrieben werden. Beim Verlassen des Bearbeitungskontexts wird der Entwurf verworfen und der vorherige normale Arbeitsstand samt Status wiederhergestellt. Kann ein Entwurf nicht sicher geladen oder wiederhergestellt werden, verwendet ExtendedData bearbeitbare Mod-Standardwerte statt eines unvollständigen Presets.
 
-### Erzeugte Dateien
+#### Erzeugte Dateien
 
 Der Speicherdialog des Map Editors zeigt **Modsettings einschließen**. Bei einer neuen Map oder einer Map ohne ExtendedData-Eintrag ist die Option zunächst nicht angehakt; sie kann für das erstmalige Speichern der Einstellungen aktiviert werden. Enthält die Map den Eintrag bereits, ist sie zunächst angehakt. Der Tooltip verweist auf den Abschnitt **MODSETTINGS IN MAPS UND CUSTOM TRAILS** in Extended Data, in dem die Modi Mod-Standard, Spieler/Host und Fester Wert gewählt werden. Ist die Option angehakt, wird das Schema-3-Dokument unter folgendem Namen in das angehängte Map-Archiv geschrieben:
 
@@ -157,9 +198,22 @@ CoopMissions/01.coopmission.json
 CoopMissions/01.modtrail.json
 ```
 
-Lasse beim Workshop-Upload eines normalen oder Koop-Trails **Modsettings aufnehmen** angehakt, um vorhandene Sidecars mitzuliefern. Entferne den Haken, um ohne Modsettings-Sidecars hochzuladen.
+Lasse beim Workshop-Upload eines normalen oder Koop-Trails **Modsettings aufnehmen** angehakt, um vorhandene Modsettings-Sidecars mitzuliefern. Entferne den Haken, um ohne Modsettings-Sidecars hochzuladen.
 
-### Voraussetzungen für Spieler
+Der Trail-Export erstellt außerdem für jede exportierte Mission ein Sidecar mit Lord-Anforderungen, unabhängig von der Modsettings-Option:
+
+```text
+Trail_Mission_1.trail
+Trail_Mission_1.lordrequirements.json
+CoopMissions/01.coopmission.json
+CoopMissions/01.lordrequirements.json
+```
+
+Das Sidecar bindet die ausgewählten Custom-Lord-Plätze und ihre AIC-/AIV-Prüfsummen an die Mission. Es enthält, soweit vorhanden, die ausgewählten `.modlord.json`- und Fixes-Werte. Beim Verschieben oder Veröffentlichen eines Trails muss es neben der zugehörigen Mission bleiben. ExtendedData prüft es vor dem Start. Enthält das Lord-Paket zusätzliche Gameplay-Dateien, muss das passende Script-Extender-Paket installiert und beim Spielstart registriert sein; fehlende oder abweichende erforderliche Inhalte blockieren die Mission. Optionale Medien allein machen ein Paket nicht verpflichtend.
+
+Der Export **Koop-Trail** im Trail Maker verpackt die ersten 40 vorhandenen Missionen in ihrer Reihenfolge als bis zu vier Koop-Trail-Seiten mit jeweils zehn Missionen. Spätere Trail-Maker-Missionen bleiben normale Custom-Trail-Missionen. Die ersten beiden belegten Spielerplätze werden Host und Gast. Der Host wählt ein installiertes Paket aus; alle Teilnehmer benötigen übereinstimmende Paketinhalte, bevor eine ersetzte Mission starten kann. Das Paket endet mit seiner tatsächlichen Missionsanzahl; spätere Plätze sind nicht verfügbar, bis wieder Vanilla-Koop-Trails ausgewählt werden.
+
+#### Voraussetzungen für Spieler
 
 Spieler benötigen `ExtendedData` und jeden von der Map oder Mission ausdrücklich genannten Mod. Ein fehlender genannter Mod wird bei der Aktivierung des Presets gemeldet. Nicht genannte Mods und Einstellungen verwenden ihre moddefinierte sichere Ausgangslage statt beliebiger lokaler Gameplay-Werte.
 
@@ -169,7 +223,7 @@ In einem freien Einzelspieler-Scharmützel oder einer Multiplayer-Host-Lobby ini
 
 Nur der Multiplayer-Host kann Map-Einstellungen aktivieren oder löschen. ExtendedData authentifiziert das Host-Paket und bindet es an Namen und CRC der ausgewählten Map. Später beitretende Spieler erhalten den aktiven Zustand; fehlerhafte Daten werden ohne teilweise Anwendung abgelehnt.
 
-### JSON-Format
+#### JSON-Format
 
 Die Editoren sind der maßgebliche Weg zum Erstellen der Datei. Manuelle Bearbeitung ist für Kontrolle und Werkzeuge gedacht; ungültige Dokumente werden vollständig abgelehnt.
 
@@ -195,7 +249,7 @@ Namen in `playerSettings` verwenden **Spieler/Host**. Werte in `overrides` verwe
 
 Ein größeres Beispiel befindet sich unter `ExtendedData/Examples/01.modtrail.json.example`.
 
-### Fehlerbehebung
+#### Fehlerbehebung
 
 - Fehlt ein Mod, prüfe dessen Unterstützung des Missions-Preset-Vertrags und suche in `BepInEx/LogOutput.log` nach `Map/Trail mod settings`.
 - Wird ein Mod als fehlend gemeldet, installiere das Plugin mit der von der Mission genannten GUID.
