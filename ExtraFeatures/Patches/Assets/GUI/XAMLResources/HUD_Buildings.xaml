@@ -70,4 +70,27 @@
       </Grid>
     </Content>
   </Operation>
+  <Operation Type="Add" XPath="//n:Grid[@x:Name='InBuildingLayoutRoot']">
+    <Content>
+      <Grid x:Name="ExtraFeaturesBuildingRepairHoverHost"
+            Width="24" Height="24" Margin="0,0,262,44"
+            HorizontalAlignment="Right" VerticalAlignment="Bottom"
+            Visibility="Hidden" Background="Transparent">
+        <Button x:Name="ExtraFeaturesBuildingRepairButton"
+                IsEnabled="False"
+                Command="{Binding ButtonRepairCommand}" CommandParameter="1">
+          <Button.Template>
+            <ControlTemplate TargetType="{x:Type Button}">
+              <Grid>
+                <Ellipse Fill="#FF654627" Stroke="#FFE3C685" StrokeThickness="2" />
+                <Image Source="/Assets/GUI/Sprites/ExtraFeatures_RepairHammer.png"
+                       Width="20" Height="20" Stretch="Uniform"
+                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Grid>
+            </ControlTemplate>
+          </Button.Template>
+        </Button>
+      </Grid>
+    </Content>
+  </Operation>
 </Patch>

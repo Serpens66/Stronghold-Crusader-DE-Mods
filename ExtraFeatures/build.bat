@@ -26,6 +26,9 @@ if errorlevel 1 (
   exit /b 1
 )
 
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%verify-repair.ps1"
+if errorlevel 1 goto build_failed
+
 if not exist "%MSBUILD%" goto build_failed
 if exist "%GAME_SCRIPT_EXTENDER_DIR%\SHCDESE.dll" (
   set "EXTENDER_DIR=%GAME_SCRIPT_EXTENDER_DIR%"

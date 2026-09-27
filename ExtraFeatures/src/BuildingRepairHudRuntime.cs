@@ -1,4 +1,5 @@
 using APIShared;
+using BepInEx.Logging;
 using CrusaderDE;
 using MonoMod.RuntimeDetour;
 using Noesis;
@@ -6,28 +7,31 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Reflection;
+using System.Threading;
 
-namespace BuildingRepairHudTest
+namespace ExtraFeatures
 {
-    internal sealed class RepairHudRuntime
+    internal sealed class BuildingRepairHudRuntime
     {
-        private const string ButtonName = "BuildingRepairHudTestButton";
-        private const string HoverHostName = "BuildingRepairHudTestHoverHost";
-        private const string HoverId = "BuildingRepairHudTest.SmallButton";
+        private const string ButtonName = "ExtraFeaturesBuildingRepairButton";
+        private const string HoverHostName = "ExtraFeaturesBuildingRepairHoverHost";
+        private const string HoverId = "ExtraFeatures.BuildingRepair.SmallButton";
         private delegate bool ShowRepairDelegate(HUD_Buildings self, int type, int panel);
         private delegate void HudUpdateDelegate(FatControler self);
 
+        private readonly ManualLogSource log;
         private readonly IBuildingRepairCapability repair;
         private readonly Hook classifierHook;
         private readonly Hook hudHook;
         private readonly ShowRepairDelegate originalShowRepair;
         private readonly HudUpdateDelegate originalHudUpdate;
         private Grid lastHoverHost;
-        private HUD_Buildings lastHud;
-        private bool postStartupLogged;
+        private bool hudFailureLogged;
+        private int active;
 
-        private RepairHudRuntime(IBuildingRepairCapability repair)
+        private BuildingRepairHudRuntime(ManualLogSource log, IBuildingRepairCapability repair)
         {
+            this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.repair = repair ?? throw new ArgumentNullException(nameof(repair));
             Hook candidateClassifier = null;
             Hook candidateHud = null;
@@ -55,7 +59,17 @@ namespace BuildingRepairHudTest
             }
         }
 
-        internal static RepairHudRuntime Install(IBuildingRepairCapability repair) => new RepairHudRuntime(repair);
+        internal static BuildingRepairHudRuntime Install(ManualLogSource log, IBuildingRepairCapability repair) =>
+            new BuildingRepairHudRuntime(log, repair);
+
+        internal void SetActive(bool enabled)
+        {
+            Interlocked.Exchange(ref active, enabled ? 1 : 0);
+            repair.SetActive(enabled);
+            if (!enabled) repair.EndHover(HoverId);
+        }
+
+        private bool IsActive => Volatile.Read(ref active) != 0;
 
         private static MethodInfo FindMethod(Type owner, string name, BindingFlags flags, params Type[] parameters)
         {
@@ -67,8 +81,7 @@ namespace BuildingRepairHudTest
         private bool ShowRepairHook(HUD_Buildings self, int type, int panel)
         {
             bool vanilla = originalShowRepair(self, type, panel);
-            // BugfixesAndQoL asks about panel zero for Shift repair. Actual HUD panels keep Vanilla.
-            return vanilla || (panel == (int)Enums.InBuildingModes.INSIDE_NULL &&
+            return vanilla || (IsActive && panel == (int)Enums.InBuildingModes.INSIDE_NULL &&
                 type > (int)eStructs.STRUCT_NULL && type <= (int)eStructs.STRUCT_GARDEN_LARGE);
         }
 
@@ -76,7 +89,15 @@ namespace BuildingRepairHudTest
         {
             originalHudUpdate(self);
             try { UpdateButton(); }
-            catch (Exception ex) { BuildingRepairHudTestPlugin.LogError("Repair HUD update failed: " + ex); }
+            catch (Exception ex)
+            {
+                Interlocked.Exchange(ref active, 0);
+                try { repair.SetActive(false); repair.EndHover(HoverId); } catch { }
+                try { if (lastHoverHost != null) lastHoverHost.Visibility = Visibility.Hidden; } catch { }
+                if (hudFailureLogged) return;
+                hudFailureLogged = true;
+                Shared.DebugLogHelper.LogError(log, "Building repair HUD update failed; further errors are suppressed: " + ex);
+            }
         }
 
         private void UpdateButton()
@@ -85,13 +106,6 @@ namespace BuildingRepairHudTest
             MainViewModel view = MainViewModel.Instance;
             if (view?.HUDmain == null || view.HUDBuildingPanel == null) return;
             HUD_Buildings hud = view.HUDBuildingPanel;
-            if (!postStartupLogged || !ReferenceEquals(hud, lastHud))
-            {
-                BuildingRepairHudTestPlugin.LogInfo("Repair HUD runtime executed after startup cleanup; HUD instance=" + hud.GetHashCode() + ".");
-                postStartupLogged = true;
-                lastHud = hud;
-            }
-
             Button button = hud.FindName(ButtonName) as Button;
             Grid hoverHost = hud.FindName(HoverHostName) as Grid;
             if (button == null || hoverHost == null) return;
@@ -101,7 +115,7 @@ namespace BuildingRepairHudTest
                 hoverHost.MouseLeave += OnButtonLeave;
                 lastHoverHost = hoverHost;
             }
-            if (!repair.TryGetSelectedQuote(out BuildingRepairQuote quote))
+            if (!IsActive || !repair.TryGetSelectedQuote(out BuildingRepairQuote quote))
             {
                 hoverHost.Visibility = Visibility.Hidden;
                 button.IsEnabled = false;
@@ -130,7 +144,11 @@ namespace BuildingRepairHudTest
             button.Opacity = button.IsEnabled ? 1.0f : 0.5f;
         }
 
-        private void OnButtonEnter(object sender, MouseEventArgs args) => repair.BeginHover(HoverId);
+        private void OnButtonEnter(object sender, MouseEventArgs args)
+        {
+            if (IsActive) repair.BeginHover(HoverId);
+        }
+
         private void OnButtonLeave(object sender, MouseEventArgs args) => repair.EndHover(HoverId);
     }
 }

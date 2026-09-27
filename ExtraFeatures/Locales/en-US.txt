@@ -155,3 +155,5 @@ SomeSettings.NoKillRewardHumanHelp=Human players receive no gold or goods for de
 SomeSettings.NoKillRewardAIHelp=AI players receive no gold or goods for defeating an enemy Lord.
 Common.SettingsSourceHelp=Resets this mod's settings to the selected source. Personal presets are not changed. In multiplayer, only the host can reset host settings.
 Common.PresetLoadFailedTitle=Preset load failed
+ExtraFeatures.EnableBuildingRepair=Repair more buildings
+ExtraFeatures.EnableBuildingRepairHelp=Adds a repair button to owned building panels. Costs include all construction resources. With BugfixesAndQoL, Shift-click repairs all eligible buildings.

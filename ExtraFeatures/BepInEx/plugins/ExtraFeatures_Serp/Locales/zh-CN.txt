@@ -155,3 +155,5 @@ Common.PresetLoadFailedTitle=Preset load failed
 SomeSettings.NoKillReward=No Kill Reward
 SomeSettings.NoKillRewardHumanHelp=Human players receive no gold or goods for defeating an enemy Lord.
 SomeSettings.NoKillRewardAIHelp=AI players receive no gold or goods for defeating an enemy Lord.
+ExtraFeatures.EnableBuildingRepair=修复更多建筑
+ExtraFeatures.EnableBuildingRepairHelp=在己方建筑面板中添加修复按钮。费用包含所有建筑资源。安装 BugfixesAndQoL 后，按住 Shift 点击可修复所有符合条件的建筑。

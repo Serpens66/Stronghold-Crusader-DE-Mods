@@ -155,3 +155,5 @@ Common.PresetLoadFailedTitle=Preset load failed
 SomeSettings.NoKillReward=No Kill Reward
 SomeSettings.NoKillRewardHumanHelp=Human players receive no gold or goods for defeating an enemy Lord.
 SomeSettings.NoKillRewardAIHelp=AI players receive no gold or goods for defeating an enemy Lord.
+ExtraFeatures.EnableBuildingRepair=Daha fazla binayı onar
+ExtraFeatures.EnableBuildingRepairHelp=Sahip olduğunuz binaların panellerine onarım düğmesi ekler. Maliyet tüm inşaat kaynaklarını kapsar. BugfixesAndQoL ile Shift-tıklama uygun tüm binaları onarır.

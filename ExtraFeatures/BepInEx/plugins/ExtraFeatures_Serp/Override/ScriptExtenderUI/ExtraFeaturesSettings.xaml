@@ -269,6 +269,14 @@
           <TextBlock Text="{Binding EnableExtraChurchPriestsText}" Foreground="White" TextWrapping="Wrap"/>
         </CheckBox>
       </Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.building-repair" shared:ModSettingsSearch.Title="{Binding EnableBuildingRepairText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableBuildingRepairHelpText}">
+        <CheckBox IsChecked="{Binding EnableBuildingRepair, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableBuildingRepairHelpText}" Margin="0,0,14,8">
+          <StackPanel Orientation="Horizontal">
+            <Image Source="/Assets/GUI/Sprites/ExtraFeatures_RepairHammer.png" Width="20" Height="20" Stretch="Uniform" Margin="0,0,6,0"/>
+            <TextBlock Text="{Binding EnableBuildingRepairText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
+          </StackPanel>
+        </CheckBox>
+      </Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.campfire-peasants" shared:ModSettingsSearch.Title="{Binding CampfirePeasantsText}" shared:ModSettingsSearch.ToolTipText="{Binding CampfirePeasantsHelpText}" Margin="0,0,0,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding CampfirePeasantsHelpText}">
         <Grid.ColumnDefinitions><ColumnDefinition Width="260"/><ColumnDefinition Width="220"/><ColumnDefinition Width="55"/></Grid.ColumnDefinitions>
         <TextBlock Grid.Column="0" Text="{Binding CampfirePeasantsText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>

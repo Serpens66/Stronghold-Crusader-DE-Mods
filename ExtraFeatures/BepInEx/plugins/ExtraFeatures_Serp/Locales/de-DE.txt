@@ -155,3 +155,5 @@ SomeSettings.NoKillRewardHumanHelp=Menschliche Spieler erhalten beim Besiegen ei
 SomeSettings.NoKillRewardAIHelp=KI-Spieler erhalten beim Besiegen eines gegnerischen Lords weder Gold noch Güter.
 Common.SettingsSourceHelp=Setzt die Einstellungen dieser Mod auf die gewählte Quelle zurück. Eigene Presets bleiben unverändert. Im Mehrspieler kann nur der Host die Host-Einstellungen zurücksetzen.
 Common.PresetLoadFailedTitle=Preset konnte nicht geladen werden
+ExtraFeatures.EnableBuildingRepair=Weitere Gebäude reparieren
+ExtraFeatures.EnableBuildingRepairHelp=Fügt den Anzeigen eigener Gebäude einen Reparieren-Knopf hinzu. Die Kosten umfassen alle Baumaterialien. Mit BugfixesAndQoL repariert Shift-Klick alle geeigneten Gebäude.

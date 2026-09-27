@@ -21,7 +21,7 @@ namespace DamagedHealthBarsTest
         private void Awake()
         {
             log = Logger;
-            Info("Loaded; Alt+H starts disabled. Waiting for the native library.");
+            LogInfo("Loaded; Alt+H starts disabled. Waiting for the native library.");
             if (registered) return;
             CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;
             registered = true;
@@ -37,14 +37,14 @@ namespace DamagedHealthBarsTest
             }
             catch (Exception ex)
             {
-                Error("Health-bar feature remains disabled: " + ex);
+                LogError("Health-bar feature remains disabled: " + ex);
             }
         }
 
-        internal static void Info(string message) =>
+        private static void LogInfo(string message) =>
             log?.LogInfo($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {message}");
 
-        internal static void Error(string message) =>
+        private static void LogError(string message) =>
             log?.LogError($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {message}");
     }
 }

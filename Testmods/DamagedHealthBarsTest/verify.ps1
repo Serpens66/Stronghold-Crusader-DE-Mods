@@ -46,6 +46,12 @@ if ($sources -notmatch 'HEALTH_BARS_POST_STARTUP' -or
     $sources -notmatch 'DisplacedByteCount') {
     throw 'A persistent publisher, startup marker, atomic flag or hook-length check is missing.'
 }
+if ($sources -notmatch 'gameData\.app_mode != 14 && gameData\.app_mode != 16' -or
+    $sources -notmatch 'controller\.NoesisHasKeyboard' -or
+    $sources -notmatch 'HEALTH_BARS_HOTKEY_REJECTED' -or
+    $sources -match 'lastGameState\.app_mode') {
+    throw 'Gameplay hotkey gating differs from the audited current-mode and text-input contract.'
+}
 if ($sources -match 'transaction\.Dispose\s*\(' -or $sources -match 'activeFlag.*FreeHGlobal.*\b(OnDestroy|OnDisable|OnApplicationQuit)') {
     throw 'Published hook transaction or flag has a teardown path.'
 }
@@ -111,7 +117,7 @@ foreach ($span in $nativeSpans) {
 if ((Get-Sha256 $managed) -ne 'BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789') {
     throw 'Installed managed game DLL differs from the audited baseline.'
 }
-foreach ($name in @('SHCDESE.dll', 'R3.dll', 'System.Memory.dll', 'Iced.dll', 'RedBird.Abstractions.dll', 'RedBird.Core.dll', 'RedBird.X64.dll')) {
+foreach ($name in @('SHCDESE.dll', 'Microsoft.Extensions.Logging.Abstractions.dll', 'R3.dll', 'System.Memory.dll', 'Iced.dll', 'RedBird.Abstractions.dll', 'RedBird.Core.dll', 'RedBird.X64.dll')) {
     if (-not (Test-Path -LiteralPath (Join-Path $extender $name) -PathType Leaf)) {
         throw "Installed dependency missing: $name"
     }
@@ -135,7 +141,7 @@ foreach ($patch in $xamlPatches) {
 
 # Workspace regression: report newly added executable code mutations outside this mod.
 # Those changes belong to other in-progress work and are reviewed independently.
-$diff = & git -C $workspace diff --unified=0 -- '*.cs' 2>$null
+$diff = & git -c core.safecrlf=false -C $workspace diff --unified=0 -- '*.cs' 2>$null
 $newMutation = @($diff | Where-Object {
     $_ -match '^\+(?!\+\+).*?(CodePatch\.Write|Marshal\.Write|VirtualProtect|\.Enable\s*\(|\.Disable\s*\(|\.Undo\s*\(|\.Apply\s*\()'
 })

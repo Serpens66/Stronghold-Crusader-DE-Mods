@@ -1,4 +1,5 @@
 // Feature: Lifecycle orchestration and shared event guards for Extra Features.
+using APIShared;
 using BepInEx.Logging;
 using RedBird.Core.Memory;
 using R3;
@@ -42,6 +43,8 @@ namespace ExtraFeatures
         private readonly MarketTradeGuardBridge marketTradeGuardBridge;
         private readonly ElevatedMoatRuntime elevatedMoatRuntime;
         private readonly NoKillRewardHook noKillRewardHook;
+        private static BuildingRepairHudRuntime buildingRepairHudRuntime;
+        private bool buildingRepairReadinessRegistered;
 
         private PendingStockpileRefund pendingStockpileRefund;
         private AIMarketVanillaPriceHook aiMarketVanillaPriceHook;
@@ -106,6 +109,7 @@ namespace ExtraFeatures
             TryRunFeature("gatehouse automation lifecycle", gatehouseAutomationRuntime.Initialize);
             TryRunFeature("AI defense repair lifecycle", aiDefenseRepairRuntime.Initialize);
             TryRunFeature("Lord health lifecycle", lordHealthRuntime.Initialize);
+            TryRunFeature("building repair HUD lifecycle", InitializeBuildingRepairHud);
         }
 
         public void InitializeNative(CrusaderLibraryLoadContext context, bool isFixedLayoutHashValidated)
@@ -161,6 +165,7 @@ namespace ExtraFeatures
 
         public void ApplySettings()
         {
+            TryRunFeature("building repair HUD configuration", ReconcileBuildingRepairHud);
             ApplyNoKillRewardSetting();
             ReconcileElevatedMoatRuntime();
             TryRunFeature("fear-factor configuration", ApplyFearFactorSetting);
@@ -367,6 +372,51 @@ namespace ExtraFeatures
             }
         }
 
+        private void InitializeBuildingRepairHud()
+        {
+            if (buildingRepairReadinessRegistered) return;
+            buildingRepairReadinessRegistered = true;
+            ApiShared.WhenReady(OnBuildingRepairApiReady);
+        }
+
+        private void OnBuildingRepairApiReady(IApiShared api)
+        {
+            if (buildingRepairHudRuntime != null)
+            {
+                ReconcileBuildingRepairHud();
+                return;
+            }
+
+            IBuildingRepairCapability candidate = null;
+            try
+            {
+                if (!api.TryGetBuildingRepair(ExtraFeaturesPlugin.PluginGuid, out candidate,
+                    out NativeCapabilityDiagnostic diagnostic))
+                {
+                    Shared.DebugLogHelper.LogError(log,
+                        "Building repair HUD is unavailable: " + diagnostic?.Reason);
+                    return;
+                }
+
+                candidate.SetActive(false);
+                BuildingRepairHudRuntime installed = BuildingRepairHudRuntime.Install(log, candidate);
+                buildingRepairHudRuntime = installed;
+                ReconcileBuildingRepairHud();
+            }
+            catch (Exception ex)
+            {
+                candidate?.SetActive(false);
+                Shared.DebugLogHelper.LogError(log, "Building repair HUD installation failed: " + ex);
+            }
+        }
+
+        private void ReconcileBuildingRepairHud()
+        {
+            bool enabled = Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) &&
+                settings.EnableBuildingRepair;
+            buildingRepairHudRuntime?.SetActive(enabled);
+        }
+
         private void OnSettingChanged(string propertyName)
         {
             if (propertyName == nameof(ExtraFeaturesViewModel.EnableMod) ||
@@ -374,6 +424,7 @@ namespace ExtraFeatures
                 TryRunFeature("fear-factor configuration", ApplyFearFactorSetting);
             if (propertyName == nameof(ExtraFeaturesViewModel.EnableMod))
             {
+                TryRunFeature("building repair HUD configuration", ReconcileBuildingRepairHud);
                 ApplyNoKillRewardSetting();
                 if (Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
                 {
@@ -394,6 +445,12 @@ namespace ExtraFeatures
 
             if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
                 return;
+
+            if (propertyName == nameof(ExtraFeaturesViewModel.EnableBuildingRepair))
+            {
+                TryRunFeature("building repair HUD configuration", ReconcileBuildingRepairHud);
+                return;
+            }
 
             if (propertyName == nameof(ExtraFeaturesViewModel.NoKillRewardHuman) ||
                 propertyName == nameof(ExtraFeaturesViewModel.NoKillRewardAI))

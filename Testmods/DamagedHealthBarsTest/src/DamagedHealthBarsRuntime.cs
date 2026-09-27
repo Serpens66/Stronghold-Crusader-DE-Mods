@@ -2,7 +2,6 @@ using BepInEx;
 using BepInEx.Logging;
 using CrusaderDE;
 using Iced.Intel;
-using Noesis;
 using R3;
 using RedBird.Abstractions.Hooks;
 using RedBird.Abstractions.Hooks.Transaction;
@@ -36,6 +35,7 @@ namespace DamagedHealthBarsTest
         private int installed;
         private int postStartupLogged;
         private int fieldMapValidated;
+        private int rejectedHotkeys;
         private ulong nativeImageBase;
 
         private DamagedHealthBarsRuntime(ManualLogSource log) =>
@@ -302,21 +302,44 @@ namespace DamagedHealthBarsTest
 
         private void OnKeyDown(UnityInputEventArgs args)
         {
-            if (Volatile.Read(ref installed) == 0 || Volatile.Read(ref fieldMapValidated) == 0 || args == null ||
-                args.Phase != EventHookPhase.Pre || args.Key != KeyCode.H || !args.Result)
+            if (args == null || args.Phase != EventHookPhase.Pre || args.Key != KeyCode.H)
                 return;
             try
             {
                 if (!Input.GetKey(KeyCode.LeftAlt) && !Input.GetKey(KeyCode.RightAlt)) return;
+                if (Volatile.Read(ref installed) == 0 || Volatile.Read(ref fieldMapValidated) == 0)
+                {
+                    RejectHotkey("runtime-not-ready");
+                    return;
+                }
+                if (!args.Result)
+                {
+                    RejectHotkey("already-blocked");
+                    return;
+                }
                 if (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl) ||
-                    Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift)) return;
-                if (GameMap.instance == null || GameData.Instance?.lastGameState == null ||
-                    GameData.Instance.lastGameState.app_mode != 16 ||
-                    FatControler.instance?.NGview?.Content == null)
+                    Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift))
+                {
+                    RejectHotkey("control-or-shift");
                     return;
-                UIElement focused = FatControler.instance.NGview.Content.Keyboard?.FocusedElement;
-                if (focused is TextBoxBase || focused is PasswordBox)
+                }
+                GameData gameData = GameData.Instance;
+                if (GameMap.instance == null || gameData?.lastGameState == null)
+                {
+                    RejectHotkey("no-active-map");
                     return;
+                }
+                if (gameData.app_mode != 14 && gameData.app_mode != 16)
+                {
+                    RejectHotkey("app-mode-" + gameData.app_mode);
+                    return;
+                }
+                FatControler controller = FatControler.instance;
+                if (controller == null || controller.NoesisHasKeyboard)
+                {
+                    RejectHotkey("text-input-or-no-controller");
+                    return;
+                }
 
                 int* flag = (int*)activeFlag.ToPointer();
                 int next = Volatile.Read(ref *flag) == 0 ? 1 : 0;
@@ -328,6 +351,13 @@ namespace DamagedHealthBarsTest
             {
                 Error("Alt+H handling failed: " + ex);
             }
+        }
+
+        private void RejectHotkey(string reason)
+        {
+            int count = Interlocked.Increment(ref rejectedHotkeys);
+            if (count <= 8)
+                Info("HEALTH_BARS_HOTKEY_REJECTED: reason=" + reason + "; count=" + count);
         }
 
         private void Info(string message) =>

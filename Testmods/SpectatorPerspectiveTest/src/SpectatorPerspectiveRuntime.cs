@@ -1,7 +1,9 @@
 using System;
 using BepInEx.Logging;
 using CrusaderDE;
+using Noesis;
 using R3;
+using SHCDESE.API;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.MapLoader;
 using UnityEngine;
@@ -25,6 +27,14 @@ namespace SpectatorPerspectiveTest
         private static int lastFrame = -1;
         private static bool readyLogged;
         private static bool failureLogged;
+        private static EngineInterface.PlayState reportStateBeforeSwitch;
+        private static int freshReportFrame = -1;
+        private static Grid hiddenReportPanel;
+        private static Visibility reportPanelVisibility;
+        private static Grid guardedFoodPanel;
+        private static readonly Button[] guardedFoodButtons = new Button[4];
+        private static readonly bool[] foodButtonEnabledBeforeGuard = new bool[4];
+        private static readonly string[] foodButtonNames = { "EatingMeat", "EatingCheese", "EatingBread", "EatingApples" };
 
         internal static void Initialize(ManualLogSource logger)
         {
@@ -32,6 +42,12 @@ namespace SpectatorPerspectiveTest
             initialized = true;
             log = logger;
             hud = new SpectatorPerspectiveHud(SelectPlayer);
+            try
+            {
+                SpectatorReportHooks.Install();
+                log.LogInfo("SPECTATOR_REPORT_HOOKS_READY: Vanilla report navigation and food action guard installed.");
+            }
+            catch (Exception error) { log.LogError("SPECTATOR_REPORT_HOOKS_FAILED: " + error); }
             postLoadSubscription = MapLoaderR3EventHooks.OnPostLoad.Observable.Subscribe(OnPostLoad);
             startSubscription = MapLoaderR3EventHooks.OnStartMap.Observable.Subscribe(OnStartMap);
             unloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable.Subscribe(OnUnloadMap);
@@ -55,6 +71,8 @@ namespace SpectatorPerspectiveTest
         private static void OnUnloadMap(MapUnloadEventArgs args)
         {
             if (args.Phase != EventHookPhase.Pre) return;
+            RestoreReportPanel();
+            RestoreFoodControls();
             mapReady = false;
             spectatorActive = false;
             awaitingFreshState = true;
@@ -66,6 +84,8 @@ namespace SpectatorPerspectiveTest
 
         private static void BeginMapLoad()
         {
+            RestoreReportPanel();
+            RestoreFoodControls();
             mapReady = false;
             spectatorActive = false;
             awaitingFreshState = true;
@@ -95,6 +115,8 @@ namespace SpectatorPerspectiveTest
             catch (Exception error)
             {
                 spectatorActive = false;
+                RestoreReportPanel();
+                RestoreFoodControls();
                 hud.Hide();
                 if (failureLogged) return;
                 failureLogged = true;
@@ -110,6 +132,8 @@ namespace SpectatorPerspectiveTest
             if (!mapReady || state == null || director == null || state.game_type != 3 || state.spectatorMode == 0 || director.ActivePlayerID > 0)
             {
                 spectatorActive = false;
+                RestoreReportPanel();
+                RestoreFoodControls();
                 hud.Hide();
                 return;
             }
@@ -129,6 +153,8 @@ namespace SpectatorPerspectiveTest
             if (first == 0)
             {
                 spectatorActive = false;
+                RestoreReportPanel();
+                RestoreFoodControls();
                 hud.Hide();
                 return;
             }
@@ -137,15 +163,104 @@ namespace SpectatorPerspectiveTest
                 selectedPlayer = first;
                 spectatorActive = true;
                 EngineInterface.SetEditorPlayer(selectedPlayer);
+                WaitForFreshReport(state);
                 log.LogInfo($"SPECTATOR_PERSPECTIVE_ACTIVE: selected={selectedPlayer}, occupied={OccupiedList(occupied)}.");
             }
             else if (!occupied[selectedPlayer])
             {
                 selectedPlayer = first;
                 EngineInterface.SetEditorPlayer(selectedPlayer);
+                WaitForFreshReport(state);
                 log.LogInfo($"SPECTATOR_PERSPECTIVE_SLOT_CHANGED: selected={selectedPlayer}.");
             }
             hud.Show(occupied, selectedPlayer);
+            RefreshReport(state);
+        }
+
+        internal static bool IsActiveSpectator()
+        {
+            var state = GameData.Instance?.lastGameState;
+            return mapReady && spectatorActive && selectedPlayer > 0 && state != null &&
+                   state.game_type == 3 && state.spectatorMode != 0 &&
+                   EditorDirector.instance != null && EditorDirector.instance.ActivePlayerID <= 0;
+        }
+
+        private static void WaitForFreshReport(EngineInterface.PlayState oldState)
+        {
+            if (hiddenReportPanel != null && !ReferenceEquals(hiddenReportPanel, MainViewModel.Instance?.HUDBuildingPanel?.RefBuildingPanel))
+                RestoreReportPanel();
+            reportStateBeforeSwitch = oldState;
+            freshReportFrame = -1;
+            var viewModel = MainViewModel.Instance;
+            if (GameData.Instance?.app_mode != 16 || viewModel?.HUDBuildingPanel?.RefBuildingPanel == null) return;
+            var panel = viewModel.HUDBuildingPanel.RefBuildingPanel;
+            if (!ReferenceEquals(panel, hiddenReportPanel))
+            {
+                hiddenReportPanel = panel;
+                reportPanelVisibility = panel.Visibility;
+            }
+            panel.Visibility = Visibility.Hidden;
+        }
+
+        private static void RestoreReportPanel()
+        {
+            if (hiddenReportPanel != null) hiddenReportPanel.Visibility = reportPanelVisibility;
+            hiddenReportPanel = null;
+            reportStateBeforeSwitch = null;
+            freshReportFrame = -1;
+        }
+
+        private static void RefreshReport(EngineInterface.PlayState state)
+        {
+            if (reportStateBeforeSwitch != null)
+            {
+                if (GameData.Instance.app_mode != 16)
+                    RestoreReportPanel();
+                else if (!ReferenceEquals(state, reportStateBeforeSwitch))
+                {
+                    if (freshReportFrame < 0) freshReportFrame = Time.frameCount;
+                    if (Time.frameCount > freshReportFrame) RestoreReportPanel();
+                    else if (hiddenReportPanel != null) hiddenReportPanel.Visibility = Visibility.Hidden;
+                }
+                else if (hiddenReportPanel != null) hiddenReportPanel.Visibility = Visibility.Hidden;
+            }
+
+            if (GameData.Instance.app_mode != 16)
+            {
+                RestoreFoodControls();
+                return;
+            }
+            var viewModel = MainViewModel.Instance;
+            if (viewModel == null) return;
+            if (GameData.Instance.app_sub_mode == 71 && reportStateBeforeSwitch == null)
+            {
+                string name = Platform_Multiplayer.Instance?.getSkirmishName(selectedPlayer);
+                viewModel.PlayerNameText = string.IsNullOrWhiteSpace(name) ? "-" : name;
+            }
+            var foodPanel = viewModel.HUDBuildingPanel?.RefReportsFoodPanel;
+            if (foodPanel == null) return;
+            if (ReferenceEquals(foodPanel, guardedFoodPanel)) return;
+            RestoreFoodControls();
+            guardedFoodPanel = foodPanel;
+            for (int index = 0; index < foodButtonNames.Length; index++)
+            {
+                var button = GameXAMLManagerAPI.Instance?.FindElementByName(foodPanel, foodButtonNames[index]) as Button;
+                if (button == null) continue;
+                guardedFoodButtons[index] = button;
+                foodButtonEnabledBeforeGuard[index] = button.IsEnabled;
+                button.IsEnabled = false;
+            }
+        }
+
+        private static void RestoreFoodControls()
+        {
+            for (int index = 0; index < guardedFoodButtons.Length; index++)
+            {
+                if (guardedFoodButtons[index] != null)
+                    guardedFoodButtons[index].IsEnabled = foodButtonEnabledBeforeGuard[index];
+                guardedFoodButtons[index] = null;
+            }
+            guardedFoodPanel = null;
         }
 
         private static void SelectPlayer(int player)
@@ -163,6 +278,7 @@ namespace SpectatorPerspectiveTest
                 return;
             }
             selectedPlayer = player;
+            WaitForFreshReport(state);
             log.LogInfo($"SPECTATOR_PERSPECTIVE_SELECTED: player={player}; future Vanilla reports and messages use this index.");
             hud.SetSelected(player);
         }

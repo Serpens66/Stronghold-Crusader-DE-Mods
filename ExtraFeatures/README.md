@@ -31,6 +31,9 @@ Every owned gatehouse receives a button that switches it between normal automati
 
 ## Buildings and production
 
+### Repair more buildings
+By default, owned buildings with a building panel get a small hammer button above the help button. Click it to repair a damaged building. The tooltip shows the required resources and what you have; repairs can also use iron, pitch, and gold when the building costs include them. The host can turn this feature off in ExtraFeatures settings. With BugfixesAndQoL installed, Shift-clicking the repair button can repair all eligible buildings.
+
 ### Add more priests to religious buildings
 Churches employ two priests and cathedrals employ three instead of one.
 

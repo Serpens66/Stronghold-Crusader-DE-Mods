@@ -5,7 +5,7 @@ $projectFile = Get-Item -LiteralPath (Join-Path $projectRoot 'SpectatorPerspecti
 $runtimeFiles = @($sourceFiles) + @($projectFile)
 $forbiddenJson = 'System\.Web\.Extensions|JavaScriptSerializer|System\.Text\.Json|Newtonsoft\.Json|DataContractJsonSerializer|JsonUtility'
 $forbiddenLifecycle = '\b(OnDestroy|OnDisable|OnApplicationQuit|Update|LateUpdate|FixedUpdate|StartCoroutine)\s*\('
-$forbiddenPatch = 'CodePatch\.Write|Marshal\.Write|VirtualProtect|\.Apply\(|\.Undo\(|\.Disable\(|NativeDetour|X64InlineHook'
+$forbiddenPatch = 'CodePatch\.Write|Marshal\.Write|VirtualProtect|\.Apply\(|\.Undo\(|\.Disable\(|\.Unpatch\(|UnpatchAll\(|NativeDetour|X64InlineHook'
 foreach ($file in $runtimeFiles) {
     $body = [IO.File]::ReadAllText($file.FullName)
     if ([regex]::IsMatch($body, $forbiddenJson)) { throw "Forbidden JSON dependency: $($file.FullName)" }
@@ -20,6 +20,14 @@ if ($runtime -notmatch 'Application\.onBeforeRender\s*\+=' -or $runtime -notmatc
 }
 if ($runtime -notmatch 'MapLoaderR3EventHooks\.OnPostLoad' -or $runtime -notmatch 'MapLoaderR3EventHooks\.OnUnloadMap') {
     throw 'Missing map lifecycle event registration.'
+}
+$reportHooks = [IO.File]::ReadAllText((Join-Path $projectRoot 'src\SpectatorReportHooks.cs'))
+if ($reportHooks -notmatch 'ButtonReports' -or $reportHooks -notmatch 'ButtonChangeEdibleState' -or
+    $reportHooks -notmatch 'replaced != 1' -or $runtime -notmatch 'SPECTATOR_REPORT_HOOKS_READY') {
+    throw 'Report navigation hook, food action guard or post-startup marker missing.'
+}
+if ([IO.File]::ReadAllText($projectFile.FullName) -notmatch '0Harmony') {
+    throw 'Installed Harmony reference missing.'
 }
 $textFiles = @($sourceFiles) + @($projectFile) + @(
     (Get-Item -LiteralPath (Join-Path $projectRoot 'build.bat')),
@@ -43,4 +51,4 @@ $contents = @($patch.SelectNodes('/Patch/Operation/Content'))
 if ($contents.Count -ne 1) { throw 'Expected exactly one XAML Content node.' }
 $elements = @($contents[0].ChildNodes | Where-Object { $_.NodeType -eq [Xml.XmlNodeType]::Element })
 if ($elements.Count -ne 1) { throw 'XAML Content must have exactly one direct root element.' }
-Write-Output 'SpectatorPerspectiveTest preflight passed: JSON, lifecycle, hook mutation, publisher, CRLF, project, metadata and XAML root.'
+Write-Output 'SpectatorPerspectiveTest preflight passed: JSON, lifecycle, permanent hooks, publisher, CRLF, project, metadata and XAML root.'

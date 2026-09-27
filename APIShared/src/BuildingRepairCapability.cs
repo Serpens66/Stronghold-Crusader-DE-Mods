@@ -70,8 +70,6 @@ namespace APIShared
         private string hoveredButton;
         private Button lastBigButton;
         private bool postStartupLogged;
-        private BuildingRepairQuote firstSample;
-        private bool firstSampleLogged;
 
         private BuildingRepairService(long moduleBase, ManualLogSource logger, RepairTooltipViewModel tooltipViewModel)
         {
@@ -122,7 +120,6 @@ namespace APIShared
                 service = candidate;
                 diagnostic = new NativeCapabilityDiagnostic(NativeCapabilityIds.BuildingRepair,
                     NativeCapabilityState.Available, hash, "Verified Vanilla repair path and shared repair handlers installed.");
-                NativeApiLog.Info(log, $"Building repair capability installed: build={hash}, resolution=reference-rva, nativeRva=0x{CanRepairRva:X}, managedHooks=CopyPlayStateStruct/NoesisGUIUpdateChecksInGame.");
                 return true;
             }
             catch (Exception ex)
@@ -183,7 +180,6 @@ namespace APIShared
                 {
                     snapshots.Remove(state);
                     snapshots.Add(state, quote);
-                    Interlocked.CompareExchange(ref firstSample, quote, null);
                 }
             }
             catch (Exception ex)
@@ -414,12 +410,6 @@ namespace APIShared
                 {
                     postStartupLogged = true;
                     NativeApiLog.Info(log, "Building repair capability executed after startup cleanup on the persistent HUD hook.");
-                }
-                BuildingRepairQuote sampled = Volatile.Read(ref firstSample);
-                if (!firstSampleLogged && sampled != null)
-                {
-                    firstSampleLogged = true;
-                    NativeApiLog.Info(log, $"Building repair field map: woodOffset=0x{WoodCostOffset:X}, stoneOffset=0x{StoneCostOffset:X}, buildingId={sampled.BuildingId}, globalId={sampled.BuildingGlobalId}, hp={sampled.CurrentHealth}/{sampled.MaxHealth}, wood={sampled.Wood}, stone={sampled.Stone}, canRepair={sampled.CanRepair}.");
                 }
                 if (hoveredButton == BigButtonId && (lastBigButton == null || !lastBigButton.IsMouseOver))
                     hoveredButton = null;

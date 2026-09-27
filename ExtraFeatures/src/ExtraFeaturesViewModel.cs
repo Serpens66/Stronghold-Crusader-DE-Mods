@@ -51,6 +51,7 @@ namespace ExtraFeatures
         private int knightTransformationGoldCost;
         private int knightTransformationDelaySeconds = 10;
         private bool enableExtraChurchPriests = true;
+        private bool enableBuildingRepair = true;
         private double humanGateReopenDelaySeconds = GatehouseTimingValues.VanillaHumanDelaySeconds;
         private double aiGateReopenDelaySeconds = GatehouseTimingValues.VanillaAiDelaySeconds;
         private double humanGateClosingDistanceTiles = GatehouseTimingValues.VanillaHumanDistanceTiles;
@@ -108,6 +109,8 @@ namespace ExtraFeatures
         public string EnableExtraChurchPriestsHelpText => SerpLocalization.Get(SerpLocalization.EnableExtraChurchPriestsHelp);
         public string CampfirePeasantsText => SerpLocalization.Get(SerpLocalization.CampfirePeasants);
         public string CampfirePeasantsHelpText => SerpLocalization.Get(SerpLocalization.CampfirePeasantsHelp);
+        public string EnableBuildingRepairText => SerpLocalization.Get("ExtraFeatures.EnableBuildingRepair");
+        public string EnableBuildingRepairHelpText => SerpLocalization.Get("ExtraFeatures.EnableBuildingRepairHelp");
         [Obsolete("Peace Time is now configured through Vanilla Game Options in BugfixesAndQoL.")]
         public string VanillaPeaceTimeText => SerpLocalization.Get("SomeSettings.VanillaPeaceTime");
         [Obsolete("Peace Time is now configured through Vanilla Game Options in BugfixesAndQoL.")]
@@ -227,6 +230,7 @@ namespace ExtraFeatures
         public string KnightTransformationGoldCostValueText { get => KnightTransformationGoldCost.ToString(CultureInfo.InvariantCulture); set => SetIntValueText(value, parsed => KnightTransformationGoldCost = parsed, nameof(KnightTransformationGoldCostValueText)); }
         public string KnightTransformationDelayValueText { get => KnightTransformationDelaySeconds.ToString(CultureInfo.InvariantCulture); set => SetIntValueText(value, parsed => KnightTransformationDelaySeconds = parsed, nameof(KnightTransformationDelayValueText)); }
         [SyncHostOnly] public bool EnableExtraChurchPriests { get => enableExtraChurchPriests; set => SetSetting(ref enableExtraChurchPriests, value, nameof(EnableExtraChurchPriests)); }
+        [SyncHostOnly] public bool EnableBuildingRepair { get => enableBuildingRepair; set => SetSetting(ref enableBuildingRepair, value, nameof(EnableBuildingRepair)); }
         [SyncHostOnly] public double HumanGateReopenDelaySeconds { get => humanGateReopenDelaySeconds; set => SetDoubleSetting(ref humanGateReopenDelaySeconds, RoundToStep(value, 0.5), GatehouseTimingValues.MinimumHumanDelaySeconds, GatehouseTimingValues.MaximumHumanDelaySeconds, nameof(HumanGateReopenDelaySeconds), nameof(HumanGateReopenDelayValueText)); }
         [SyncHostOnly] public double AIGateReopenDelaySeconds { get => aiGateReopenDelaySeconds; set => SetDoubleSetting(ref aiGateReopenDelaySeconds, RoundToStep(value, 2.5), GatehouseTimingValues.MinimumAiDelaySeconds, GatehouseTimingValues.MaximumAiDelaySeconds, nameof(AIGateReopenDelaySeconds), nameof(AIGateReopenDelayValueText)); }
         [SyncHostOnly] public double HumanGateClosingDistanceTiles { get => humanGateClosingDistanceTiles; set => SetDoubleSetting(ref humanGateClosingDistanceTiles, RoundToStep(value, 0.5), GatehouseTimingValues.MinimumDistanceTiles, GatehouseTimingValues.MaximumDistanceTiles, nameof(HumanGateClosingDistanceTiles), nameof(HumanGateClosingDistanceValueText)); }
@@ -325,6 +329,7 @@ namespace ExtraFeatures
                 KnightTransformationGoldCost = 0;
                 KnightTransformationDelaySeconds = 10;
                 EnableExtraChurchPriests = true;
+                EnableBuildingRepair = true;
                 HumanGateReopenDelaySeconds = GatehouseTimingValues.VanillaHumanDelaySeconds;
                 AIGateReopenDelaySeconds = GatehouseTimingValues.VanillaAiDelaySeconds;
                 HumanGateClosingDistanceTiles = GatehouseTimingValues.VanillaHumanDistanceTiles;

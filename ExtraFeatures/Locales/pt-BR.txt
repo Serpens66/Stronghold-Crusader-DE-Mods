@@ -155,3 +155,5 @@ Common.PresetLoadFailedTitle=Preset load failed
 SomeSettings.NoKillReward=No Kill Reward
 SomeSettings.NoKillRewardHumanHelp=Human players receive no gold or goods for defeating an enemy Lord.
 SomeSettings.NoKillRewardAIHelp=AI players receive no gold or goods for defeating an enemy Lord.
+ExtraFeatures.EnableBuildingRepair=Reparar mais construções
+ExtraFeatures.EnableBuildingRepairHelp=Adiciona um botão de reparo aos painéis das construções próprias. O custo inclui todos os recursos de construção. Com BugfixesAndQoL, Shift e clique repara todas as construções elegíveis.
