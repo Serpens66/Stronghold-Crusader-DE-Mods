@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Operation Type="Add" XPath="/n:UserControl/n:Grid">
+    <Content>
+      <Canvas x:Name="ForeignTroopHudCanvas" Grid.Row="0" Grid.RowSpan="4" Grid.Column="0" Grid.ColumnSpan="4"
+              HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Panel.ZIndex="10020" Tag="Ignore">
+        <Canvas x:Name="ForeignTroopHudPanel" Width="460" Height="155" Visibility="Collapsed" ClipToBounds="True">
+          <Image Width="800" Height="155" Canvas.Left="-142" Canvas.Top="0" Source="{StaticResource UI-HUD 006}" IsHitTestVisible="False"/>
+          <Border x:Name="ForeignTroopSlot1" Width="49" Height="118" Canvas.Left="5" Canvas.Top="8" BorderThickness="1" BorderBrush="#FFB9AA84" Background="#660D0B08" Visibility="Collapsed">
+            <Grid>
+              <Image x:Name="ForeignTroopImage1" Width="45" Height="85" VerticalAlignment="Top" Stretch="Uniform"/>
+              <TextBlock x:Name="ForeignTroopType1" VerticalAlignment="Center" TextAlignment="Center" Foreground="#FFF3E7C9" FontSize="11" TextWrapping="Wrap" Visibility="Collapsed"/>
+              <TextBlock x:Name="ForeignTroopOwner1" VerticalAlignment="Top" HorizontalAlignment="Right" Foreground="White" Background="#B0000000" FontSize="11"/>
+              <TextBlock x:Name="ForeignTroopCount1" VerticalAlignment="Bottom" TextAlignment="Center" Foreground="#FFF2E7CB" FontSize="21"/>
+            </Grid>
+          </Border>
+          <Border x:Name="ForeignTroopSlot2" Width="49" Height="118" Canvas.Left="56" Canvas.Top="8" BorderThickness="1" BorderBrush="#FFB9AA84" Background="#660D0B08" Visibility="Collapsed">
+            <Grid>
+              <Image x:Name="ForeignTroopImage2" Width="45" Height="85" VerticalAlignment="Top" Stretch="Uniform"/>
+              <TextBlock x:Name="ForeignTroopType2" VerticalAlignment="Center" TextAlignment="Center" Foreground="#FFF3E7C9" FontSize="11" TextWrapping="Wrap" Visibility="Collapsed"/>
+              <TextBlock x:Name="ForeignTroopOwner2" VerticalAlignment="Top" HorizontalAlignment="Right" Foreground="White" Background="#B0000000" FontSize="11"/>
+              <TextBlock x:Name="ForeignTroopCount2" VerticalAlignment="Bottom" TextAlignment="Center" Foreground="#FFF2E7CB" FontSize="21"/>
+            </Grid>
+          </Border>
+          <Border x:Name="ForeignTroopSlot3" Width="49" Height="118" Canvas.Left="107" Canvas.Top="8" BorderThickness="1" BorderBrush="#FFB9AA84" Background="#660D0B08" Visibility="Collapsed">
+            <Grid>
+              <Image x:Name="ForeignTroopImage3" Width="45" Height="85" VerticalAlignment="Top" Stretch="Uniform"/>
+              <TextBlock x:Name="ForeignTroopType3" VerticalAlignment="Center" TextAlignment="Center" Foreground="#FFF3E7C9" FontSize="11" TextWrapping="Wrap" Visibility="Collapsed"/>
+              <TextBlock x:Name="ForeignTroopOwner3" VerticalAlignment="Top" HorizontalAlignment="Right" Foreground="White" Background="#B0000000" FontSize="11"/>
+              <TextBlock x:Name="ForeignTroopCount3" VerticalAlignment="Bottom" TextAlignment="Center" Foreground="#FFF2E7CB" FontSize="21"/>
+            </Grid>
+          </Border>
+          <Border x:Name="ForeignTroopSlot4" Width="49" Height="118" Canvas.Left="158" Canvas.Top="8" BorderThickness="1" BorderBrush="#FFB9AA84" Background="#660D0B08" Visibility="Collapsed">
+            <Grid>
+              <Image x:Name="ForeignTroopImage4" Width="45" Height="85" VerticalAlignment="Top" Stretch="Uniform"/>
+              <TextBlock x:Name="ForeignTroopType4" VerticalAlignment="Center" TextAlignment="Center" Foreground="#FFF3E7C9" FontSize="11" TextWrapping="Wrap" Visibility="Collapsed"/>
+              <TextBlock x:Name="ForeignTroopOwner4" VerticalAlignment="Top" HorizontalAlignment="Right" Foreground="White" Background="#B0000000" FontSize="11"/>
+              <TextBlock x:Name="ForeignTroopCount4" VerticalAlignment="Bottom" TextAlignment="Center" Foreground="#FFF2E7CB" FontSize="21"/>
+            </Grid>
+          </Border>
+          <Border x:Name="ForeignTroopSlot5" Width="49" Height="118" Canvas.Left="209" Canvas.Top="8" BorderThickness="1" BorderBrush="#FFB9AA84" Background="#660D0B08" Visibility="Collapsed">
+            <Grid>
+              <Image x:Name="ForeignTroopImage5" Width="45" Height="85" VerticalAlignment="Top" Stretch="Uniform"/>
+              <TextBlock x:Name="ForeignTroopType5" VerticalAlignment="Center" TextAlignment="Center" Foreground="#FFF3E7C9" FontSize="11" TextWrapping="Wrap" Visibility="Collapsed"/>
+              <TextBlock x:Name="ForeignTroopOwner5" VerticalAlignment="Top" HorizontalAlignment="Right" Foreground="White" Background="#B0000000" FontSize="11"/>
+              <TextBlock x:Name="ForeignTroopCount5" VerticalAlignment="Bottom" TextAlignment="Center" Foreground="#FFF2E7CB" FontSize="21"/>
+            </Grid>
+          </Border>
+          <Border x:Name="ForeignTroopSlot6" Width="49" Height="118" Canvas.Left="260" Canvas.Top="8" BorderThickness="1" BorderBrush="#FFB9AA84" Background="#660D0B08" Visibility="Collapsed">
+            <Grid>
+              <Image x:Name="ForeignTroopImage6" Width="45" Height="85" VerticalAlignment="Top" Stretch="Uniform"/>
+              <TextBlock x:Name="ForeignTroopType6" VerticalAlignment="Center" TextAlignment="Center" Foreground="#FFF3E7C9" FontSize="11" TextWrapping="Wrap" Visibility="Collapsed"/>
+              <TextBlock x:Name="ForeignTroopOwner6" VerticalAlignment="Top" HorizontalAlignment="Right" Foreground="White" Background="#B0000000" FontSize="11"/>
+              <TextBlock x:Name="ForeignTroopCount6" VerticalAlignment="Bottom" TextAlignment="Center" Foreground="#FFF2E7CB" FontSize="21"/>
+            </Grid>
+          </Border>
+          <Border x:Name="ForeignTroopSlot7" Width="49" Height="118" Canvas.Left="311" Canvas.Top="8" BorderThickness="1" BorderBrush="#FFB9AA84" Background="#660D0B08" Visibility="Collapsed">
+            <Grid>
+              <Image x:Name="ForeignTroopImage7" Width="45" Height="85" VerticalAlignment="Top" Stretch="Uniform"/>
+              <TextBlock x:Name="ForeignTroopType7" VerticalAlignment="Center" TextAlignment="Center" Foreground="#FFF3E7C9" FontSize="11" TextWrapping="Wrap" Visibility="Collapsed"/>
+              <TextBlock x:Name="ForeignTroopOwner7" VerticalAlignment="Top" HorizontalAlignment="Right" Foreground="White" Background="#B0000000" FontSize="11"/>
+              <TextBlock x:Name="ForeignTroopCount7" VerticalAlignment="Bottom" TextAlignment="Center" Foreground="#FFF2E7CB" FontSize="21"/>
+            </Grid>
+          </Border>
+          <Border x:Name="ForeignTroopSlot8" Width="49" Height="118" Canvas.Left="362" Canvas.Top="8" BorderThickness="1" BorderBrush="#FFB9AA84" Background="#660D0B08" Visibility="Collapsed">
+            <Grid>
+              <Image x:Name="ForeignTroopImage8" Width="45" Height="85" VerticalAlignment="Top" Stretch="Uniform"/>
+              <TextBlock x:Name="ForeignTroopType8" VerticalAlignment="Center" TextAlignment="Center" Foreground="#FFF3E7C9" FontSize="11" TextWrapping="Wrap" Visibility="Collapsed"/>
+              <TextBlock x:Name="ForeignTroopOwner8" VerticalAlignment="Top" HorizontalAlignment="Right" Foreground="White" Background="#B0000000" FontSize="11"/>
+              <TextBlock x:Name="ForeignTroopCount8" VerticalAlignment="Bottom" TextAlignment="Center" Foreground="#FFF2E7CB" FontSize="21"/>
+            </Grid>
+          </Border>
+          <TextBlock x:Name="ForeignTroopPageText" Width="44" Canvas.Left="411" Canvas.Top="61" TextAlignment="Center" Foreground="#FFF2E7CB" FontSize="13" IsHitTestVisible="False"/>
+          <Button x:Name="ForeignTroopPrevious" Width="21" Height="21" Canvas.Left="412" Canvas.Top="128" Content="&#x2039;" FontSize="18"/>
+          <Button x:Name="ForeignTroopNext" Width="21" Height="21" Canvas.Left="434" Canvas.Top="128" Content="&#x203A;" FontSize="18"/>
+        </Canvas>
+      </Canvas>
+    </Content>
+  </Operation>
+</Patch>

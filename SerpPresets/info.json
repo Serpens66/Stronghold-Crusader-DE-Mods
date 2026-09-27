@@ -1,0 +1,11 @@
+{
+  "GUID": "SerpPresets_Serp",
+  "Author": "Serpens66",
+  "Name": "Serp Presets",
+  "Description": "Personal ModSettings presets for Serp's mods.",
+  "Version": "1.0.0",
+  "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
+  "Manifest": 0,
+  "AssetMode": "Local",
+  "NetworkMode": 0
+}
