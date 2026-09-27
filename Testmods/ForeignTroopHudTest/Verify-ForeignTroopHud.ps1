@@ -36,11 +36,14 @@ if ($sources -notmatch 'FOREIGN_TROOP_HUD_RUNTIME_ALIVE') { throw 'Post-cleanup 
 if ($sources -notmatch 'r_UnitHover' -or $sources -match 'r_UnitHover\s*=(?!=)') { throw 'Hover marker must be read only.' }
 if ($sources -match 'r_UnitSelected\s*=(?!=)|GetSelectedChimps\s*\(') { throw 'Native command selection must not be changed.' }
 if ($sources -match 'r_CurrentHealth\s*=(?!=)|r_MaxHealth\s*=(?!=)|EngineInterface\.GameAction\s*\(') { throw 'HUD must not change HP or issue commands.' }
-if ($sources -notmatch 'main\.Show_HUD_Main\s*=\s*false' -or
-    $sources -notmatch 'main\.Show_HUD_Main\s*=\s*true' -or
-    $sources -notmatch 'view\.Show\(entries\)' -or
-    $sources -notmatch 'HideForeignHud\(\)') {
-    throw 'Foreign selection must hide and restore the vanilla main HUD.'
+if ($sources -match 'Show_HUD_Main\s*=' -or $sources -match 'Show_HUD_Book\s*=' -or
+    $sources -match 'TroopsSelectedGameAction\s*\(' -or
+    $sources -notmatch 'main\.Show_HUD_Troops\s*=\s*true' -or
+    $sources -notmatch 'main\.Show_HUD_Troops\s*=\s*false' -or
+    $sources -notmatch 'new RectangleGeometry\(new Rect\(142, 0, 416, 155\)\)' -or
+    $sources -notmatch 'new RectangleGeometry\(new Rect\(819, 0, 95, 306\)\)' -or
+    $sources -notmatch 'troopRoot\.IsHitTestVisible\s*=\s*false') {
+    throw 'Vanilla troop frame, safe input state, and unchanged right HUD contract missing.'
 }
 $xamlFiles = Get-ChildItem -LiteralPath (Join-Path $modDir 'Patches') -Recurse -Filter '*.xaml' -File
 foreach ($xamlFile in $xamlFiles) {
@@ -53,8 +56,8 @@ foreach ($xamlFile in $xamlFiles) {
 $hudPatch = [IO.File]::ReadAllText($files[4])
 if ($hudPatch -notmatch "XPath=.*/n:Grid\[@x:Name='MainHUD'\]" -or
     [regex]::Matches($hudPatch, '<Button\s').Count -ne 2 -or
-    $hudPatch -notmatch 'Panel.ZIndex="-1"' -or
-    $hudPatch -match 'Command=|Control_Group|ForeignTroopHudCanvas') {
+    $hudPatch -notmatch 'Width="416" Height="170" Margin="0,0,242,0"' -or
+    $hudPatch -match 'UI-HUD 006|Command=|Control_Group|ForeignTroopHudCanvas') {
     throw 'HUD patch must be inside MainHUD with only two local page buttons.'
 }
 $workspace = Split-Path -Parent (Split-Path -Parent $modDir)

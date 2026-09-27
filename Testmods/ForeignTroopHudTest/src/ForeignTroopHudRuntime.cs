@@ -36,7 +36,7 @@ namespace ForeignTroopHudTest
         private static bool resetPending;
         private static int lastFrame = -1;
         private static EngineInterface.PlayState stateBeforeReady;
-        private static MainViewModel suppressedMainHud;
+        private static MainViewModel ownedTroopHud;
 
         internal static void Initialize(ManualLogSource logger)
         {
@@ -105,16 +105,14 @@ namespace ForeignTroopHudTest
                 return;
             }
             MainViewModel main = MainViewModel.Instance;
-            if (main == null || main.HUDmain == null || main.Show_HUD_Troops ||
+            bool vanillaTroopSelection = state.spectatorMode == 0 && state.app_mode == 14 &&
+                (state.app_sub_mode == 61 || state.app_sub_mode == 62);
+            if (main == null || main.HUDmain == null || main.HUDTroopPanel == null ||
+                vanillaTroopSelection || (main.Show_HUD_Troops && !ReferenceEquals(main, ownedTroopHud)) ||
                 main.Show_HUD_Building || main.Show_HUD_Briefing ||
                 main.Show_HUD_MissionOver || !main.Show_InGameUI)
             {
-                HideForeignHud();
-                return;
-            }
-            if (!main.Show_HUD_Main && !ReferenceEquals(main, suppressedMainHud))
-            {
-                HideForeignHud();
+                HideForeignHud(vanillaTroopSelection);
                 return;
             }
             if (!readyLogged)
@@ -162,27 +160,26 @@ namespace ForeignTroopHudTest
                 return;
             }
             entries.Sort((a, b) => a.Owner != b.Owner ? a.Owner.CompareTo(b.Owner) : a.Type.CompareTo(b.Type));
-            if (!view.Show(entries))
+            if (!view.ActivateVanilla(main) || !view.Show(entries))
             {
                 HideForeignHud();
                 return;
             }
-            if (main.Show_HUD_Main)
+            if (!main.Show_HUD_Troops)
             {
-                suppressedMainHud = main;
-                main.Show_HUD_Main = false;
+                ownedTroopHud = main;
+                main.Show_HUD_Troops = true;
             }
         }
 
-        private static void HideForeignHud()
+        private static void HideForeignHud(bool vanillaTroopTakeover = false)
         {
             view?.Hide();
-            MainViewModel main = suppressedMainHud;
-            suppressedMainHud = null;
-            if (main != null && ReferenceEquals(main, MainViewModel.Instance) &&
-                main.Show_InGameUI && !main.Show_HUD_Main && !main.Show_HUD_Troops &&
-                !main.Show_HUD_Building && !main.Show_HUD_Briefing && !main.Show_HUD_MissionOver)
-                main.Show_HUD_Main = true;
+            MainViewModel main = ownedTroopHud;
+            ownedTroopHud = null;
+            if (!vanillaTroopTakeover && main != null &&
+                ReferenceEquals(main, MainViewModel.Instance) && main.Show_HUD_Troops)
+                main.Show_HUD_Troops = false;
         }
 
         private static void ValidateInteropLayout()

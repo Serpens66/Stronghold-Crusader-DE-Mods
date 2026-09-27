@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using CrusaderDE;
 using Noesis;
 using SHCDESE.API;
 
@@ -21,6 +22,21 @@ namespace ForeignTroopHudTest
         private Button previous;
         private Button next;
         private int page;
+        private Grid mainRoot;
+        private Grid troopRoot;
+        private HUD_Main activeMainHud;
+        private HUD_Troops activeTroopHud;
+        private Geometry originalMainClip;
+        private Geometry originalTroopClip;
+        private bool originalTroopHitTest;
+        private FrameworkElement[] nativeControls;
+        private float[] originalOpacities;
+
+        private static readonly string[] NativeControlNames = {
+            "TroopSelectionControls", "TroopSelectionNumbers", "ToggleControlGroups",
+            "ButtonTroopPanelPage1", "ButtonTroopPanelPage2", "Leftpadding",
+            "TroopsPanelRollover", "TroopsPanelRollover2"
+        };
 
         internal void ResetForMap()
         {
@@ -33,6 +49,67 @@ namespace ForeignTroopHudTest
         internal void Hide()
         {
             if (panel != null) panel.Visibility = Visibility.Collapsed;
+            RestoreVanilla();
+        }
+
+        internal bool ActivateVanilla(MainViewModel main)
+        {
+            if (mainRoot != null && troopRoot != null &&
+                ReferenceEquals(activeMainHud, main.HUDmain) &&
+                ReferenceEquals(activeTroopHud, main.HUDTroopPanel))
+                return true;
+            RestoreVanilla();
+            var xaml = GameXAMLManagerAPI.Instance;
+            if (xaml == null || main.HUDmain == null || main.HUDTroopPanel == null) return false;
+            Grid nextMainRoot = xaml.FindElementByName(main.HUDmain, "LayoutRoot") as Grid;
+            Grid nextTroopRoot = xaml.FindElementByName(main.HUDTroopPanel, "LayoutRoot") as Grid;
+            if (nextMainRoot == null || nextTroopRoot == null) return false;
+            var controls = new FrameworkElement[NativeControlNames.Length];
+            var opacities = new float[controls.Length];
+            for (int i = 0; i < controls.Length; i++)
+            {
+                controls[i] = xaml.FindElementByName(main.HUDTroopPanel, NativeControlNames[i]) as FrameworkElement;
+                if (controls[i] == null) return false;
+                opacities[i] = controls[i].Opacity;
+            }
+            mainRoot = nextMainRoot;
+            troopRoot = nextTroopRoot;
+            activeMainHud = main.HUDmain;
+            activeTroopHud = main.HUDTroopPanel;
+            nativeControls = controls;
+            originalOpacities = opacities;
+            originalMainClip = mainRoot.Clip;
+            originalTroopClip = troopRoot.Clip;
+            originalTroopHitTest = troopRoot.IsHitTestVisible;
+            // HUD_Main's rightmost 95 pixels contain the editor player shields.
+            mainRoot.Clip = new RectangleGeometry(new Rect(819, 0, 95, 306));
+            // Vanilla's portrait area begins at x=142 in its 800x155 troop frame.
+            troopRoot.Clip = new RectangleGeometry(new Rect(142, 0, 416, 155));
+            troopRoot.IsHitTestVisible = false;
+            foreach (FrameworkElement control in nativeControls) control.Opacity = 0;
+            return true;
+        }
+
+        private void RestoreVanilla()
+        {
+            if (nativeControls != null)
+                for (int i = 0; i < nativeControls.Length; i++)
+                    if (nativeControls[i] != null)
+                        nativeControls[i].Opacity = originalOpacities[i];
+            if (troopRoot != null)
+            {
+                troopRoot.Clip = originalTroopClip;
+                troopRoot.IsHitTestVisible = originalTroopHitTest;
+            }
+            if (mainRoot != null) mainRoot.Clip = originalMainClip;
+            mainRoot = null;
+            troopRoot = null;
+            activeMainHud = null;
+            activeTroopHud = null;
+            nativeControls = null;
+            originalOpacities = null;
+            originalMainClip = null;
+            originalTroopClip = null;
         }
 
         internal bool Show(List<ForeignTroopEntry> entries)

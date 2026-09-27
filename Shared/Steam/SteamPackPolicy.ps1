@@ -1,5 +1,34 @@
 Set-StrictMode -Version Latest
 
+function Get-SteamReleaseRelevantChanges {
+    param(
+        [Parameter(Mandatory)][string]$ModName,
+        [Parameter(Mandatory)][string]$PackageDirectoryPath,
+        [string[]]$ChangedPaths
+    )
+
+    $modPrefix = "$ModName/"
+    $packagePrefix = $PackageDirectoryPath.Replace('\', '/').TrimEnd('/') + '/'
+    foreach ($path in @($ChangedPaths)) {
+        if ([string]::IsNullOrWhiteSpace($path)) { continue }
+        $normalized = $path.Replace('\', '/')
+        if ($normalized.StartsWith($packagePrefix, [StringComparison]::OrdinalIgnoreCase)) {
+            $extension = [IO.Path]::GetExtension($normalized)
+            if ($extension -in @('.dll', '.pdb')) { continue }
+            $normalized
+            continue
+        }
+        if (-not $normalized.StartsWith($modPrefix, [StringComparison]::OrdinalIgnoreCase)) { continue }
+        $relative = $normalized.Substring($modPrefix.Length)
+        if ($relative -match '(^|/)(tests|[^/]*\.Tests|bin|obj)/') { continue }
+        if ($relative -match '^(src|Patches|Override|Locales|Examples)/' -or
+            $relative -match '\.(cs|csproj|props|targets)$' -or
+            $relative -ceq 'info.json') {
+            $normalized
+        }
+    }
+}
+
 function Get-SteamPackFileSha256 {
     param([Parameter(Mandatory)][string]$Path)
 

@@ -18,6 +18,24 @@ function Get-TestFileSha256([string]$Path) {
     }
 }
 
+$packagePath = 'ExtraFeatures/BepInEx/plugins/ExtraFeatures_Serp'
+$rebuiltOnly = @(Get-SteamReleaseRelevantChanges -ModName 'ExtraFeatures' -PackageDirectoryPath $packagePath `
+    -ChangedPaths @("$packagePath/ExtraFeatures.dll", "$packagePath/ExtraFeatures.pdb"))
+Assert-True ($rebuiltOnly.Count -eq 0) 'rebuilt binaries alone must reuse the published release'
+$sourceChanged = @(Get-SteamReleaseRelevantChanges -ModName 'ExtraFeatures' -PackageDirectoryPath $packagePath `
+    -ChangedPaths @("$packagePath/ExtraFeatures.dll", 'ExtraFeatures/src/ExtraFeaturesRuntime.cs'))
+Assert-True ($sourceChanged.Count -eq 1 -and $sourceChanged[0] -ceq 'ExtraFeatures/src/ExtraFeaturesRuntime.cs') 'changed original source must require a new release'
+$resourceChanged = @(Get-SteamReleaseRelevantChanges -ModName 'ExtraFeatures' -PackageDirectoryPath $packagePath `
+    -ChangedPaths @("$packagePath/Locales/en-US.txt", 'ExtraFeatures/Patches/Assets/GUI/X.xaml'))
+Assert-True ($resourceChanged.Count -eq 2) 'packaged and source resources must require a new release'
+$testOnly = @(Get-SteamReleaseRelevantChanges -ModName 'ExtraFeatures' -PackageDirectoryPath $packagePath `
+    -ChangedPaths @('ExtraFeatures/tests/Example.Tests/Program.cs', 'ExtraFeatures/README.md'))
+Assert-True ($testOnly.Count -eq 0) 'tests and documentation must not require a mod release'
+$nestedSource = @(Get-SteamReleaseRelevantChanges -ModName 'ExtendedData' `
+    -PackageDirectoryPath 'ExtendedData/BepInEx/plugins/ExtendedData_Serp' `
+    -ChangedPaths @('ExtendedData/ExtendedData.Core/ModSettingsJson.cs'))
+Assert-True ($nestedSource.Count -eq 1) 'nested project sources must require a new release'
+
 Assert-True ((Resolve-SteamPackVersion -PreviousVersion '1.0.10' -PreparedVersion '1.0.12') -ceq '1.0.12') 'a prepared host version must not be lowered'
 Assert-True ((Resolve-SteamPackVersion -PreviousVersion '1.0.11' -PreparedVersion '1.0.11') -ceq '1.0.12') 'an unchanged host version must advance past the published pack'
 Assert-True ((Resolve-SteamPackVersion -PreviousVersion $null -PreparedVersion '0.9.0') -ceq '1.0.0') 'the first pack must start at least at 1.0.0'

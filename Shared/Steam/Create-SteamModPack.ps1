@@ -615,13 +615,18 @@ function Get-PackagedContentComparison {
         Fail-Pack 3 "Packaged plugin directory is outside the repository for $($Mod.Name): $($Mod.PackageDirectory)"
     }
 
-    # Steam embeds exactly this canonical plugin directory. Changes elsewhere in
-    # the mod project (for example README artwork) cannot alter the packed mod.
+    # Compare original mod sources and packaged resources. Rebuilt DLL/PDB files
+    # alone reuse the published release artifact for the same mod version.
     $repositoryPath = $Mod.PackageDirectory.Substring($rootPrefix.Length).Replace('\', '/')
     $result = Invoke-Git -Arguments @(
-        'diff', '--name-only', '--diff-filter=ACDMRTUXB', $BaseCommit, $HeadCommit, '--', $repositoryPath
+        'diff', '--name-only', '--diff-filter=ACDMRTUXB', $BaseCommit, $HeadCommit, '--', $Mod.Name
     ) -FailureCode 3
-    $changedPaths = @($result.Output | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
+    $allChangedPaths = @($result.Output | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
+    $changedPaths = @(Get-SteamReleaseRelevantChanges -ModName $Mod.Name `
+        -PackageDirectoryPath $repositoryPath -ChangedPaths $allChangedPaths)
+    if ($allChangedPaths.Count -gt 0 -and $changedPaths.Count -eq 0) {
+        Write-RunLog "Reusing published $($Mod.Name) release: original sources and packaged resources are unchanged."
+    }
     return [pscustomobject]@{
         IsCurrent = $changedPaths.Count -eq 0
         Paths = $changedPaths

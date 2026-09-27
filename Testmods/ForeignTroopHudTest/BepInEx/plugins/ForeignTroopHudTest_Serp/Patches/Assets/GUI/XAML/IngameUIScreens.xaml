@@ -3,10 +3,8 @@
   <Operation Type="Add" XPath="/n:UserControl/n:Grid/n:Grid[@x:Name='MainHUD']">
     <Content>
       <Canvas x:Name="ForeignTroopHudPanel" xmlns:local="clr-namespace:CrusaderDE"
-              Width="658" Height="170" HorizontalAlignment="Right" VerticalAlignment="Bottom"
-              Panel.ZIndex="-1" ClipToBounds="True" Visibility="Collapsed">
-        <Image Width="800" Height="155" Canvas.Left="-142" Canvas.Top="15"
-               Source="{StaticResource UI-HUD 006}" IsHitTestVisible="False"/>
+              Width="416" Height="170" Margin="0,0,242,0" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+              Panel.ZIndex="10020" ClipToBounds="True" Visibility="Collapsed">
         <Canvas x:Name="ForeignTroopSlot1" Width="52" Height="170" Canvas.Left="0" Visibility="Collapsed" IsHitTestVisible="False">
           <TextBlock x:Name="ForeignTroopCurrentHealth1" Width="64" Canvas.Left="-6" Canvas.Top="42"
                      TextAlignment="Center" Foreground="#FF80D879" FontSize="16"/>
@@ -111,13 +109,13 @@
           <TextBlock x:Name="ForeignTroopMaxHealth8" Width="64" Canvas.Left="-6" Canvas.Top="149"
                      TextAlignment="Center" Foreground="#FF80D879" FontSize="16"/>
         </Canvas>
-        <TextBlock x:Name="ForeignTroopPageText" Width="44" Canvas.Left="418" Canvas.Top="119"
+        <TextBlock x:Name="ForeignTroopPageText" Width="44" Canvas.Left="354" Canvas.Top="119"
                    TextAlignment="Center" Foreground="#FFDDDDDD" FontSize="12" IsHitTestVisible="False"/>
-        <Button x:Name="ForeignTroopPrevious" Width="21" Height="21" Canvas.Left="418" Canvas.Top="145"
+        <Button x:Name="ForeignTroopPrevious" Width="21" Height="21" Canvas.Left="371" Canvas.Top="145"
                 local:PropEx.Sprite1="{StaticResource UI-Buttons L003}"
                 local:PropEx.Sprite2="{StaticResource UI-Buttons L004}"
                 Style="{StaticResource BTN_Building}" Visibility="Collapsed"/>
-        <Button x:Name="ForeignTroopNext" Width="21" Height="21" Canvas.Left="440" Canvas.Top="145"
+        <Button x:Name="ForeignTroopNext" Width="21" Height="21" Canvas.Left="392" Canvas.Top="145"
                 local:PropEx.Sprite1="{StaticResource UI-Buttons L001}"
                 local:PropEx.Sprite2="{StaticResource UI-Buttons L002}"
                 Style="{StaticResource BTN_Building}" Visibility="Collapsed"/>
