@@ -52,24 +52,28 @@ namespace ForeignTroopHudTest
             RestoreVanilla();
         }
 
-        internal bool ActivateVanilla(MainViewModel main)
+        internal bool ActivateVanilla(MainViewModel main, out string failure)
         {
+            failure = null;
             if (mainRoot != null && troopRoot != null &&
                 ReferenceEquals(activeMainHud, main.HUDmain) &&
                 ReferenceEquals(activeTroopHud, main.HUDTroopPanel))
                 return true;
             RestoreVanilla();
             var xaml = GameXAMLManagerAPI.Instance;
-            if (xaml == null || main.HUDmain == null || main.HUDTroopPanel == null) return false;
+            if (xaml == null) { failure = "GameXAMLManagerAPI"; return false; }
+            if (main.HUDmain == null) { failure = "HUDmain"; return false; }
+            if (main.HUDTroopPanel == null) { failure = "HUDTroopPanel"; return false; }
             Grid nextMainRoot = xaml.FindElementByName(main.HUDmain, "LayoutRoot") as Grid;
             Grid nextTroopRoot = xaml.FindElementByName(main.HUDTroopPanel, "LayoutRoot") as Grid;
-            if (nextMainRoot == null || nextTroopRoot == null) return false;
+            if (nextMainRoot == null) { failure = "HUD_Main.LayoutRoot"; return false; }
+            if (nextTroopRoot == null) { failure = "HUD_Troops.LayoutRoot"; return false; }
             var controls = new FrameworkElement[NativeControlNames.Length];
             var opacities = new float[controls.Length];
             for (int i = 0; i < controls.Length; i++)
             {
                 controls[i] = xaml.FindElementByName(main.HUDTroopPanel, NativeControlNames[i]) as FrameworkElement;
-                if (controls[i] == null) return false;
+                if (controls[i] == null) { failure = "HUD_Troops." + NativeControlNames[i]; return false; }
                 opacities[i] = controls[i].Opacity;
             }
             mainRoot = nextMainRoot;
@@ -112,9 +116,9 @@ namespace ForeignTroopHudTest
             originalTroopClip = null;
         }
 
-        internal bool Show(List<ForeignTroopEntry> entries)
+        internal bool Show(List<ForeignTroopEntry> entries, out string failure)
         {
-            if (!Resolve()) return false;
+            if (!Resolve(out failure)) return false;
             bool selectionChanged = entries.Count != visibleEntries.Count;
             if (!selectionChanged)
                 for (int i = 0; i < entries.Count; i++)
@@ -138,18 +142,22 @@ namespace ForeignTroopHudTest
             return true;
         }
 
-        private bool Resolve()
+        private bool Resolve(out string failure)
         {
+            failure = null;
             if (panel != null && panel.IsLoaded) return true;
             Canvas nextCanvas = GameXAMLManagerAPI.Instance?.FindGlobalElement("ForeignTroopHudPanel") as Canvas;
-            if (nextCanvas == null) { Hide(); return false; }
+            if (nextCanvas == null) { failure = "ForeignTroopHudPanel"; Hide(); return false; }
             if (ReferenceEquals(nextCanvas, panel)) return true;
             Detach();
             panel = nextCanvas;
             pageText = Find<TextBlock>("ForeignTroopPageText");
             previous = Find<Button>("ForeignTroopPrevious");
             next = Find<Button>("ForeignTroopNext");
-            if (panel == null || pageText == null || previous == null || next == null) { Detach(); return false; }
+            if (pageText == null) failure = "ForeignTroopPageText";
+            else if (previous == null) failure = "ForeignTroopPrevious";
+            else if (next == null) failure = "ForeignTroopNext";
+            if (failure != null) { Detach(); return false; }
             for (int i = 0; i < 8; i++)
             {
                 string number = (i + 1).ToString();
@@ -160,9 +168,14 @@ namespace ForeignTroopHudTest
                 counts[i] = Find<TextBlock>("ForeignTroopCount" + number);
                 currentHealth[i] = Find<TextBlock>("ForeignTroopCurrentHealth" + number);
                 maxHealth[i] = Find<TextBlock>("ForeignTroopMaxHealth" + number);
-                if (slots[i] == null || portraits[i] == null || typeLabels[i] == null || ownerLabels[i] == null ||
-                    counts[i] == null || currentHealth[i] == null || maxHealth[i] == null)
-                { Detach(); return false; }
+                if (slots[i] == null) failure = "ForeignTroopSlot" + number;
+                else if (portraits[i] == null) failure = "ForeignTroopImage" + number;
+                else if (typeLabels[i] == null) failure = "ForeignTroopType" + number;
+                else if (ownerLabels[i] == null) failure = "ForeignTroopOwner" + number;
+                else if (counts[i] == null) failure = "ForeignTroopCount" + number;
+                else if (currentHealth[i] == null) failure = "ForeignTroopCurrentHealth" + number;
+                else if (maxHealth[i] == null) failure = "ForeignTroopMaxHealth" + number;
+                if (failure != null) { Detach(); return false; }
             }
             previous.Click += OnPrevious;
             next.Click += OnNext;

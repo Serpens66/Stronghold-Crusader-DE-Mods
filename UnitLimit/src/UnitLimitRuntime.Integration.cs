@@ -167,9 +167,8 @@ namespace UnitLimit
         {
             unitType = (eChimps)rawUnitType;
             limit = -1;
-            return EffectsEnabled &&
+            return IsEffectsActive &&
                 activeUnitCacheAvailable &&
-                IsUnitLimitModeAllowed() &&
                 IsUsableHumanPlayerId(playerId) &&
                 SoldierChimps.Contains(unitType) &&
                 activeUnitLimits.TryGetValue(unitType, out limit) &&

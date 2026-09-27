@@ -29,12 +29,11 @@ namespace UnitLimit
             {
                 if (EffectsEnabled)
                 {
-                    SubscribeHooks();
-                    ApplyUnitLimits();
+                    ActivateEffects();
                 }
                 else
                 {
-                    UnsubscribeHooks();
+                    DeactivateEffects("SettingDisabled");
                 }
 
                 return;

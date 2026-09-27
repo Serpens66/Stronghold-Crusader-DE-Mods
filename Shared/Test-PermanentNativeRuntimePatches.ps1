@@ -48,6 +48,54 @@ foreach ($file in $files) {
 
 $permanentManagedContracts = @(
     @{
+        Path = 'UnitLimit\src\UnitLimitRuntime.cs'
+        Required = @(
+            'InstallPermanentHooks();',
+            'DeactivateEffects("ModeDisabled")',
+            '() => IsEffectsActive',
+            'Volatile.Write(ref effectsActive, 0)',
+            'Volatile.Write(ref effectsActive, 1)'
+        )
+        Forbidden = @(
+            'UnsubscribeHooks(',
+            'makeTroopGameActionHook = null',
+            'createTroopHoverHook = null',
+            'siegeBuildHoverHook = null',
+            'recruitmentAvailabilityUiHook = null',
+            'public void Dispose()'
+        )
+    },
+    @{
+        Path = 'UnitLimit\src\UnitLimitRuntime.Settings.cs'
+        Required = @('DeactivateEffects("SettingDisabled")')
+        Forbidden = @('SubscribeHooks(', 'UnsubscribeHooks(')
+    },
+    @{
+        Path = 'UnitLimit\src\MakeTroopGameActionHook.cs'
+        Required = @('!isActive()', 'candidate?.Dispose();')
+        Forbidden = @('public void Dispose()', 'hook?.Undo()', 'hook?.Dispose()')
+    },
+    @{
+        Path = 'UnitLimit\src\CreateTroopHoverHook.cs'
+        Required = @('installedLeaveHook?.Dispose();', 'installedEnterHook?.Dispose();')
+        Forbidden = @('public void Dispose()', 'enterHook?.Undo()', 'leaveHook?.Undo()')
+    },
+    @{
+        Path = 'UnitLimit\src\SiegeBuildHoverHook.cs'
+        Required = @('installedLeaveHook?.Dispose();', 'installedEnterHook?.Dispose();')
+        Forbidden = @('public void Dispose()', 'enterHook?.Undo()', 'leaveHook?.Undo()')
+    },
+    @{
+        Path = 'UnitLimit\src\RecruitmentAvailabilityUiHook.cs'
+        Required = @('candidate?.Dispose();')
+        Forbidden = @('public void Dispose()', 'hook?.Undo()', 'hook?.Dispose()')
+    },
+    @{
+        Path = 'UnitLimit\src\UnitLimitIntegration.cs'
+        Required = @('private static UnitLimitRuntime runtime;')
+        Forbidden = @('runtime = null')
+    },
+    @{
         Path = 'BugfixesAndQoL\src\BugfixesAndQoLRuntime.cs'
         Required = @('ReconcilePermanentClientHook(')
         Forbidden = @(

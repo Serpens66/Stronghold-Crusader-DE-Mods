@@ -33,6 +33,16 @@ if ($sources -notmatch 'TryGetMissionLifecycle' -or $sources -notmatch 'TryRegis
 if ($sources -notmatch 'session\.IsEditor' -or $sources -notmatch 'ActivePlayerID' -or $sources -notmatch 'spectatorMode') { throw 'Editor or spectator player handling missing.' }
 if ($sources -match 'app_mode\s*!=\s*14|MapLoaderR3EventHooks') { throw 'Legacy mode or map gate remains.' }
 if ($sources -notmatch 'FOREIGN_TROOP_HUD_RUNTIME_ALIVE') { throw 'Post-cleanup marker missing.' }
+if ($sources -notmatch 'FOREIGN_TROOP_HUD_DIAGNOSTIC' -or
+    $sources -notmatch 'now - lastDiagnosticAt < 5f' -or
+    $sources -notmatch 'ReportStatus\("no-foreign-marked-units"' -or
+    $sources -notmatch 'ReportStatus\("shown"' -or
+    $sources -notmatch 'ReportStatus\("missing-vanilla-element:"' -or
+    $sources -notmatch 'ReportStatus\("missing-mod-element:"' -or
+    $sources -notmatch 'failure = "HUD_Troops\." \+ NativeControlNames\[i\]' -or
+    $sources -notmatch 'failure = "ForeignTroop(?:Slot|Image|Type|Owner|Count|CurrentHealth|MaxHealth)"') {
+    throw 'Diagnostic state, heartbeat, or exact missing-element reporting is incomplete.'
+}
 if ($sources -notmatch 'r_UnitHover' -or $sources -match 'r_UnitHover\s*=(?!=)') { throw 'Hover marker must be read only.' }
 if ($sources -match 'r_UnitSelected\s*=(?!=)|GetSelectedChimps\s*\(') { throw 'Native command selection must not be changed.' }
 if ($sources -match 'r_CurrentHealth\s*=(?!=)|r_MaxHealth\s*=(?!=)|EngineInterface\.GameAction\s*\(') { throw 'HUD must not change HP or issue commands.' }

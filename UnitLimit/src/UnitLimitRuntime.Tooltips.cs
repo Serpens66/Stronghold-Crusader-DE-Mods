@@ -49,7 +49,7 @@ namespace UnitLimit
             if (!hasCurrentTooltipUnitType)
                 return;
 
-            if (!IsUnitLimitModeAllowed())
+            if (!IsEffectsActive)
             {
                 UnitLimitTooltip.Clear();
                 return;
@@ -158,6 +158,9 @@ namespace UnitLimit
                     return true;
                 case "UnitbuildMantlet":
                     unitType = eChimps.CHIMP_TYPE_PORTABLE_SHIELD;
+                    return true;
+                case "UnitbuildArabBallista":
+                    unitType = eChimps.CHIMP_TYPE_ARAB_BALLISTA;
                     return true;
                 default:
                     unitType = eChimps.CHIMP_TYPE_NULL;

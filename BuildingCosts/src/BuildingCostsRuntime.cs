@@ -7,7 +7,6 @@ using R3;
 using SHCDESE.API;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.MapLoader;
-using SHCDESE.Extensions;
 using SHCDESE.Interop;
 using System;
 using System.Collections.Generic;
@@ -34,6 +33,8 @@ namespace BuildingCosts
         private int lastResourceSignature = int.MinValue;
         private bool lastDetailedTooltipVisible;
         private bool lastCompactTooltipVisible;
+        private string lastVanillaTooltipText;
+        private string lastVanillaCostText;
         private bool tooltipIsClear = true;
         private IBuildingRepairCapability repairCapability;
 
@@ -484,7 +485,6 @@ namespace BuildingCosts
                     Shared.GameplayFeatureId.BuildingCostTooltip,
                     Shared.GameplayModActivationGate.Snapshot))
                 {
-                    BuildingCostsPlugin.BuildingCostTooltipViewModel.SetPlacement(false, false);
                     ClearBuildingCostTooltip();
                     return;
                 }
@@ -502,9 +502,6 @@ namespace BuildingCosts
                     lastCompactTooltipVisible = compactTooltipVisible;
                     lastLocalPlayerId = int.MinValue;
                     lastResourceSignature = int.MinValue;
-                    BuildingCostsPlugin.BuildingCostTooltipViewModel.SetPlacement(
-                        detailedTooltipVisible,
-                        compactTooltipVisible);
                     ClearBuildingCostTooltip();
                     return;
                 }
@@ -518,12 +515,17 @@ namespace BuildingCosts
 
                 int localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
                 int resourceSignature = GetTooltipResourceSignature(localPlayerId);
+                MainViewModel vanilla = MainViewModel.Instance;
+                string vanillaCostText = vanilla.RollOverText_AmountReq1 + vanilla.RollOverText_AmountGot1 +
+                    vanilla.RollOverText_AmountReq2 + vanilla.RollOverText_AmountGot2;
 
                 if (tooltipStruct == lastTooltipStruct &&
                     detailedTooltipVisible == lastDetailedTooltipVisible &&
                     compactTooltipVisible == lastCompactTooltipVisible &&
                     localPlayerId == lastLocalPlayerId &&
-                    resourceSignature == lastResourceSignature)
+                    resourceSignature == lastResourceSignature &&
+                    vanilla.RollOverText == lastVanillaTooltipText &&
+                    vanillaCostText == lastVanillaCostText)
                 {
                     return;
                 }
@@ -533,13 +535,27 @@ namespace BuildingCosts
                 lastCompactTooltipVisible = compactTooltipVisible;
                 lastLocalPlayerId = localPlayerId;
                 lastResourceSignature = resourceSignature;
-
-                BuildingCostsPlugin.BuildingCostTooltipViewModel.SetPlacement(
-                    detailedTooltipVisible,
-                    compactTooltipVisible);
+                lastVanillaTooltipText = vanilla.RollOverText;
+                lastVanillaCostText = vanillaCostText;
 
                 List<BuildingCostTooltipEntry> entries = CreateAdditionalTooltipEntries(building, localPlayerId);
-                BuildingCostsPlugin.BuildingCostTooltipViewModel.SetTooltip("", entries);
+                if (entries.Count > 0)
+                {
+                    entries.Insert(0, new BuildingCostTooltipEntry
+                    {
+                        AmountRequired = vanilla.RollOverText_AmountReq2,
+                        AmountAvailable = vanilla.RollOverText_AmountGot2,
+                        Image = vanilla.RollOverText_GoodsImage2
+                    });
+                    entries.Insert(0, new BuildingCostTooltipEntry
+                    {
+                        AmountRequired = vanilla.RollOverText_AmountReq1,
+                        AmountAvailable = vanilla.RollOverText_AmountGot1,
+                        Image = vanilla.RollOverText_GoodsImage1
+                    });
+                    entries.Insert(0, new BuildingCostTooltipEntry { Title = vanilla.RollOverText, IsTitle = true });
+                }
+                BuildingCostsPlugin.BuildingCostTooltipViewModel.SetTooltip(entries, entries.Count > 0);
                 tooltipIsClear = false;
             }
             catch (Exception ex)
@@ -566,6 +582,8 @@ namespace BuildingCosts
             lastResourceSignature = int.MinValue;
             lastDetailedTooltipVisible = false;
             lastCompactTooltipVisible = false;
+            lastVanillaTooltipText = null;
+            lastVanillaCostText = null;
         }
 
         private static int GetTooltipResourceSignature(int playerId)
@@ -587,32 +605,13 @@ namespace BuildingCosts
             if (IsWallTooltipStruct(tooltipStruct))
                 return eStructs.STRUCT_NULL;
 
-            List<eStructs> candidates = new List<eStructs>(3);
-            eMappers mapper = (eMappers)tooltipStruct;
-            if (BuildingCostDefinitions.TryGetValue(mapper, out BuildingCostDefinition definition) &&
-                definition.Structures.Length > 0)
-            {
-                AddTooltipBuildingCandidate(candidates, definition.Structures[0]);
-            }
-
-            eStructs mapped = mapper.ConvertToEStructs();
-            if (IsSupportedTooltipStructure(mapped))
-                AddTooltipBuildingCandidate(candidates, mapped);
-
-            if (Enum.IsDefined(typeof(eMappers), mapper) && candidates.Count == 0)
+            // HUD_Main obtains this value from getStructEnum, which returns eStructs IDs.
+            // Interpreting the same number as eMappers can select another building's costs.
+            eStructs building = (eStructs)tooltipStruct;
+            if (!Enum.IsDefined(typeof(eStructs), building) || !IsSupportedTooltipStructure(building))
                 return eStructs.STRUCT_NULL;
 
-            eStructs direct = (eStructs)tooltipStruct;
-            if (Enum.IsDefined(typeof(eStructs), direct) && IsSupportedTooltipStructure(direct))
-                AddTooltipBuildingCandidate(candidates, direct);
-
-            foreach (eStructs candidate in candidates)
-            {
-                if (HasAnyNativeCost(candidate))
-                    return candidate;
-            }
-
-            return eStructs.STRUCT_NULL;
+            return HasAnyNativeCost(building) ? building : eStructs.STRUCT_NULL;
         }
 
         private static bool IsWallTooltipStruct(int tooltipStruct)
@@ -625,10 +624,7 @@ namespace BuildingCosts
                 return true;
             }
 
-            eMappers mapper = (eMappers)tooltipStruct;
-            return mapper == eMappers.MAPPER_WALL ||
-                mapper == eMappers.MAPPER_CRENAL ||
-                mapper == eMappers.MAPPER_WOODWALL;
+            return false;
         }
 
         private static bool IsSupportedTooltipStructure(eStructs building)
@@ -646,14 +642,6 @@ namespace BuildingCosts
             }
 
             return false;
-        }
-
-        private static void AddTooltipBuildingCandidate(List<eStructs> candidates, eStructs building)
-        {
-            if (building == eStructs.STRUCT_NULL || candidates.Contains(building))
-                return;
-
-            candidates.Add(building);
         }
 
         private static bool HasAnyNativeCost(eStructs building)

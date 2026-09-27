@@ -508,7 +508,7 @@ namespace APIShared
         public ObservableCollection<RepairTooltipEntry> Costs { get; } = new ObservableCollection<RepairTooltipEntry>();
         /// <summary>The background appears only after the tooltip ViewModel is bound.</summary>
         public Brush TooltipBackground => tooltipBackground ??
-            (tooltipBackground = new SolidColorBrush(Noesis.Color.FromArgb(0xDD, 0x24, 0x1C, 0x13)));
+            (tooltipBackground = new SolidColorBrush(Noesis.Color.FromArgb(0x88, 0x00, 0x00, 0x00)));
         /// <summary>Current tooltip visibility.</summary>
         public Noesis.Visibility Visibility
         {

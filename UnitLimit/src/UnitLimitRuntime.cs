@@ -9,6 +9,7 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
+using System.Threading;
 
 // TODO
 // sobald im extender ein weg eingebaut wurde die Rekrutierung zu verhinden, dann MakeTroopGameActionHooks dadurch ersetzen
@@ -16,7 +17,7 @@ using System.Collections.Generic;
 
 namespace UnitLimit
 {
-    public sealed partial class UnitLimitRuntime : IDisposable
+    public sealed partial class UnitLimitRuntime
     {
         private readonly ManualLogSource log;
         private readonly UnitLimitLobbyViewModel settings;
@@ -34,6 +35,7 @@ namespace UnitLimit
         private bool settingsPropertyChangedSubscribed;
         private bool hooksSubscribed;
         private bool libraryInitialized;
+        private int effectsActive;
         private const int LimitMessageDurationMilliseconds = 3000;
         private static readonly TimeSpan PendingRecruitmentLifetime = TimeSpan.FromSeconds(3);
         private string limitMessageTimerHandle;
@@ -90,16 +92,14 @@ namespace UnitLimit
         }
 
         private bool EffectsEnabled => Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod);
+        private bool IsEffectsActive => Volatile.Read(ref effectsActive) != 0 && IsUnitLimitModeAllowed();
 
-        public void SubscribeHooks()
+        private void InstallPermanentHooks()
         {
-            if (!EffectsEnabled)
-                return;
-
             if (hooksSubscribed)
                 return;
 
-            LogDebug("Subscribing unit limit runtime hooks");
+            LogDebug("Installing permanent unit limit runtime hooks");
             activeUnitCacheAvailable = TryInitializeFeature("active-unit cache", () =>
             {
                 activeUnitCache.SubscribeHooks();
@@ -113,12 +113,12 @@ namespace UnitLimit
             if (!activeUnitCacheAvailable)
             {
                 activeUnitCache.OnActiveUnitChanged -= OnActiveUnitChanged;
-                TryDisposeFeature("active-unit cache rollback", activeUnitCache);
+                RollbackUnpublishedFeature("active-unit cache", activeUnitCache);
             }
             if (!activeSiegeTentCacheAvailable)
             {
                 activeSiegeTentCache.OnActiveSiegeTentChanged -= OnActiveSiegeTentChanged;
-                TryDisposeFeature("active-siege-tent cache rollback", activeSiegeTentCache);
+                RollbackUnpublishedFeature("active-siege-tent cache", activeSiegeTentCache);
             }
             if (activeUnitCacheAvailable)
             {
@@ -127,7 +127,8 @@ namespace UnitLimit
                     () => makeTroopGameActionHook = new MakeTroopGameActionHook(
                         log,
                         DecideMakeTroopGameAction,
-                        CompleteMakeTroopGameAction));
+                        CompleteMakeTroopGameAction,
+                        () => IsEffectsActive));
                 TryInitializeFeature("recruitment tooltip", () => createTroopHoverHook = new CreateTroopHoverHook(log, UpdateRecruitmentLimitTooltip, ClearUnitLimitTooltip));
                 TryInitializeFeature("recruitment availability UI", () => recruitmentAvailabilityUiHook = new RecruitmentAvailabilityUiHook(log, RefreshRecruitmentButtonAvailability));
             }
@@ -147,7 +148,7 @@ namespace UnitLimit
                         .Subscribe(OnBuildingPlacementValidation));
             }
 
-            LogDebug("Unit limit runtime hooks subscribed");
+            LogDebug("Unit limit permanent runtime hooks installed");
             hooksSubscribed = true;
         }
 
@@ -157,61 +158,30 @@ namespace UnitLimit
                 return;
 
             SubscribeSettingsChanges();
-            if (!EffectsEnabled)
-            {
-                LogDebug("Unit limit disabled; runtime hooks not subscribed");
-                libraryInitialized = true;
-                return;
-            }
-
-            SubscribeHooks();
+            // Keep caches and hooks alive even while the setting or map policy disables their effects.
+            InstallPermanentHooks();
             ApplyUnitLimits();
+            if (EffectsEnabled)
+                Volatile.Write(ref effectsActive, 1);
             LogDebug("Applied unit limit settings");
             libraryInitialized = true;
         }
 
-        public void Dispose()
+        private void ActivateEffects()
         {
-            Shared.GameplayModActivationGate.StateChanged -= OnModeAllowedChanged;
-            UnsubscribeHooks();
-            if (settingsPropertyChangedSubscribed)
-            {
-                settings.SettingChanged -= OnSettingChanged;
-                settingsPropertyChangedSubscribed = false;
-            }
+            ApplyUnitLimits();
+            Volatile.Write(ref effectsActive, 1);
+            RefreshCurrentUnitLimitTooltip();
+            UnitLimitIntegration.NotifyStateChanged();
         }
 
-        private void UnsubscribeHooks()
+        private void DeactivateEffects(string reason)
         {
-            foreach (IDisposable subscription in subscriptions)
-            {
-                try { subscription.Dispose(); }
-                catch (Exception ex) { LogDebug("Unit limit subscription cleanup failed:", ex); }
-            }
-
-            subscriptions.Clear();
-            hooksSubscribed = false;
+            Volatile.Write(ref effectsActive, 0);
             HideLimitMessage();
-            ClearPendingRecruitments("Dispose");
-            ClearExternalReservations("Dispose");
-            TryDisposeFeature("recruitment enforcement", makeTroopGameActionHook);
-            makeTroopGameActionHook = null;
-            TryDisposeFeature("recruitment tooltip", createTroopHoverHook);
-            createTroopHoverHook = null;
-            TryDisposeFeature("siege tooltip", siegeBuildHoverHook);
-            siegeBuildHoverHook = null;
-            TryDisposeFeature("recruitment availability UI", recruitmentAvailabilityUiHook);
-            recruitmentAvailabilityUiHook = null;
+            ClearPendingRecruitments(reason);
+            ClearExternalReservations(reason);
             ClearUnitLimitTooltip();
-            activeUnitCache.OnActiveUnitChanged -= OnActiveUnitChanged;
-            activeSiegeTentCache.OnActiveSiegeTentChanged -= OnActiveSiegeTentChanged;
-            TryDisposeFeature("active-unit cache", activeUnitCache);
-            TryDisposeFeature("active-siege-tent cache", activeSiegeTentCache);
-            activeUnitCacheAvailable = false;
-            activeSiegeTentCacheAvailable = false;
-
-            activeUnitLimits.Clear();
-            configuredRecruitmentButtons.Clear();
             UnitLimitIntegration.NotifyStateChanged();
         }
 
@@ -238,12 +208,11 @@ namespace UnitLimit
 
             if (EffectsEnabled)
             {
-                SubscribeHooks();
-                ApplyUnitLimits();
+                ActivateEffects();
             }
             else
             {
-                UnsubscribeHooks();
+                DeactivateEffects("ModeDisabled");
             }
         }
 
@@ -277,12 +246,12 @@ namespace UnitLimit
             catch (Exception ex) { LogDebug("Unit limit subscription failed; independent features continue:", featureName, ex); }
         }
 
-        private void TryDisposeFeature(string featureName, IDisposable feature)
+        private void RollbackUnpublishedFeature(string featureName, IDisposable feature)
         {
             if (feature == null)
                 return;
             try { feature.Dispose(); }
-            catch (Exception ex) { LogDebug("Unit limit feature cleanup failed; independent features continue:", featureName, ex); }
+            catch (Exception ex) { LogDebug("Unit limit unpublished feature rollback failed:", featureName, ex); }
         }
     }
 }

@@ -58,7 +58,7 @@ namespace UnitLimit
 
         internal void RefreshRecruitmentButtonAvailability()
         {
-            if (!IsUnitLimitModeAllowed() || !EffectsEnabled || activeUnitLimits.Count == 0)
+            if (!IsEffectsActive || activeUnitLimits.Count == 0)
                 return;
 
             int playerId = GetLocalHumanPlayerId();

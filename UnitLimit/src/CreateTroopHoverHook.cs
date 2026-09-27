@@ -6,7 +6,7 @@ using System.Reflection;
 
 namespace UnitLimit
 {
-    internal sealed class CreateTroopHoverHook : IDisposable
+    internal sealed class CreateTroopHoverHook
     {
         private readonly ManualLogSource log;
         private readonly Action<MainViewModel> onEnter;
@@ -15,7 +15,6 @@ namespace UnitLimit
         private readonly Hook leaveHook;
         private readonly ButtonCreateTroopHoverDelegate enterTrampoline;
         private readonly ButtonCreateTroopHoverDelegate leaveTrampoline;
-        private bool disposed;
 
         private delegate void ButtonCreateTroopHoverDelegate(MainViewModel self, object parameter);
 
@@ -49,19 +48,6 @@ namespace UnitLimit
             }
 
             Shared.DebugLogHelper.LogDebug(log, "UnitLimit create troop hover hooks installed.");
-        }
-
-        public void Dispose()
-        {
-            if (disposed)
-                return;
-
-            disposed = true;
-            enterHook?.Undo();
-            enterHook?.Dispose();
-            leaveHook?.Undo();
-            leaveHook?.Dispose();
-            Shared.DebugLogHelper.LogDebug(log, "UnitLimit create troop hover hooks disposed.");
         }
 
         private static MethodInfo FindHoverMethod(string methodName)

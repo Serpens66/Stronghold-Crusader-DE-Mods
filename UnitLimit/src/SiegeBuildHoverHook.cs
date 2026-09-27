@@ -6,7 +6,7 @@ using System.Reflection;
 
 namespace UnitLimit
 {
-    internal sealed class SiegeBuildHoverHook : IDisposable
+    internal sealed class SiegeBuildHoverHook
     {
         private readonly ManualLogSource log;
         private readonly Action<object> onEnter;
@@ -15,7 +15,6 @@ namespace UnitLimit
         private readonly Hook leaveHook;
         private readonly ButtonTroopPanelHoverDelegate enterTrampoline;
         private readonly ButtonTroopPanelHoverDelegate leaveTrampoline;
-        private bool disposed;
 
         private delegate void ButtonTroopPanelHoverDelegate(MainViewModel self, object parameter);
 
@@ -49,19 +48,6 @@ namespace UnitLimit
             }
 
             Shared.DebugLogHelper.LogDebug(log, "UnitLimit siege build hover hooks installed.");
-        }
-
-        public void Dispose()
-        {
-            if (disposed)
-                return;
-
-            disposed = true;
-            enterHook?.Undo();
-            enterHook?.Dispose();
-            leaveHook?.Undo();
-            leaveHook?.Dispose();
-            Shared.DebugLogHelper.LogDebug(log, "UnitLimit siege build hover hooks disposed.");
         }
 
         private static MethodInfo FindHoverMethod(string methodName)

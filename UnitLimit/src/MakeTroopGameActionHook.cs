@@ -60,25 +60,27 @@ namespace UnitLimit
         }
     }
 
-    internal sealed class MakeTroopGameActionHook : IDisposable
+    internal sealed class MakeTroopGameActionHook
     {
         private readonly ManualLogSource log;
         private readonly Func<int, eChimps, int, bool, MakeTroopGameActionDecision> decideMakeTroop;
         private readonly Action<MakeTroopGameActionDecision, int, bool> completeMakeTroop;
+        private readonly Func<bool> isActive;
         private readonly Hook hook;
         private readonly EngineInterfaceGameActionDelegate trampoline;
-        private bool disposed;
 
         private delegate int EngineInterfaceGameActionDelegate(Enums.GameActionCommand command, int structureID, int state, int value2);
 
         public MakeTroopGameActionHook(
             ManualLogSource log,
             Func<int, eChimps, int, bool, MakeTroopGameActionDecision> decideMakeTroop,
-            Action<MakeTroopGameActionDecision, int, bool> completeMakeTroop)
+            Action<MakeTroopGameActionDecision, int, bool> completeMakeTroop,
+            Func<bool> isActive)
         {
             this.log = log;
             this.decideMakeTroop = decideMakeTroop;
             this.completeMakeTroop = completeMakeTroop;
+            this.isActive = isActive;
 
             MethodInfo gameActionMethod = typeof(EngineInterface).GetMethod(
                 nameof(EngineInterface.GameAction),
@@ -90,25 +92,25 @@ namespace UnitLimit
             if (gameActionMethod == null)
                 throw new MissingMethodException(typeof(EngineInterface).FullName, nameof(EngineInterface.GameAction));
 
-            hook = new Hook(gameActionMethod, (EngineInterfaceGameActionDelegate)EngineInterfaceGameActionHook);
-            trampoline = hook.GenerateTrampoline<EngineInterfaceGameActionDelegate>();
+            Hook candidate = null;
+            try
+            {
+                candidate = new Hook(gameActionMethod, (EngineInterfaceGameActionDelegate)EngineInterfaceGameActionHook);
+                trampoline = candidate.GenerateTrampoline<EngineInterfaceGameActionDelegate>();
+                hook = candidate;
+            }
+            catch
+            {
+                // Only a hook that failed before publication may be rolled back.
+                candidate?.Dispose();
+                throw;
+            }
             Shared.DebugLogHelper.LogDebug(log, "UnitLimit MakeTroop GameAction hook installed.");
-        }
-
-        public void Dispose()
-        {
-            if (disposed)
-                return;
-
-            disposed = true;
-            hook?.Undo();
-            hook?.Dispose();
-            Shared.DebugLogHelper.LogDebug(log, "UnitLimit MakeTroop GameAction hook disposed.");
         }
 
         private int EngineInterfaceGameActionHook(Enums.GameActionCommand command, int structureID, int state, int value2)
         {
-            if (command != Enums.GameActionCommand.MakeTroop)
+            if (command != Enums.GameActionCommand.MakeTroop || !isActive())
                 return trampoline(command, structureID, state, value2);
 
             int amount = NormalizeMakeTroopAmount(structureID, state, value2);

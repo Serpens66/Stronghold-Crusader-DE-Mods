@@ -1,4 +1,5 @@
 using Noesis;
+using SHCDESE.NoesisUtil;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -6,81 +7,88 @@ using System.ComponentModel;
 
 namespace BuildingCosts
 {
-    public sealed class BuildingCostTooltipViewModel : INotifyPropertyChanged
+    public sealed class BuildingCostTooltipViewModel : INotifyPropertyChanged, INoesisElementBindingAware
     {
         private bool hasAdditionalCosts;
-        private bool showDetailed;
-        private bool showCompact;
-        private string rollOverText = "";
+        private FrameworkElement hudRoot;
+        private double tooltipMaxWidth = 960;
 
         public event PropertyChangedEventHandler PropertyChanged;
 
-        public ObservableCollection<BuildingCostTooltipEntry> AdditionalCosts { get; } = new ObservableCollection<BuildingCostTooltipEntry>();
+        public ObservableCollection<BuildingCostTooltipEntry> TooltipItems { get; } = new ObservableCollection<BuildingCostTooltipEntry>();
 
-        public string RollOverText
+        public Visibility ExtendedVisibility => hasAdditionalCosts ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility VanillaVisibility => hasAdditionalCosts ? Visibility.Collapsed : Visibility.Visible;
+
+        public double TooltipMaxWidth
         {
-            get => rollOverText;
+            get => tooltipMaxWidth;
             private set
             {
-                if (rollOverText == value)
+                if (tooltipMaxWidth == value)
                     return;
-
-                rollOverText = value;
-                OnPropertyChanged(nameof(RollOverText));
+                tooltipMaxWidth = value;
+                OnPropertyChanged(nameof(TooltipMaxWidth));
             }
         }
 
-        public bool HasAdditionalCosts
+        public void SetTooltip(IEnumerable<BuildingCostTooltipEntry> items, bool hasExtraCosts)
         {
-            get => hasAdditionalCosts;
-            private set
-            {
-                if (hasAdditionalCosts == value)
-                    return;
-
-                hasAdditionalCosts = value;
-                OnPropertyChanged(nameof(HasAdditionalCosts));
-                OnPropertyChanged(nameof(DetailedVisibility));
-                OnPropertyChanged(nameof(CompactVisibility));
-                OnPropertyChanged(nameof(AdditionalCostsVisibility));
-            }
-        }
-
-        public Visibility DetailedVisibility => HasAdditionalCosts && showDetailed ? Visibility.Visible : Visibility.Collapsed;
-        public Visibility CompactVisibility => HasAdditionalCosts && showCompact ? Visibility.Visible : Visibility.Collapsed;
-        public Visibility AdditionalCostsVisibility => HasAdditionalCosts ? Visibility.Visible : Visibility.Collapsed;
-
-        public void SetTooltip(string rollOverText, IEnumerable<BuildingCostTooltipEntry> costs)
-        {
-            RollOverText = rollOverText ?? "";
-            AdditionalCosts.Clear();
-            foreach (BuildingCostTooltipEntry cost in costs)
-                AdditionalCosts.Add(cost);
-
-            HasAdditionalCosts = AdditionalCosts.Count > 0;
-            OnPropertyChanged(nameof(AdditionalCosts));
-            OnPropertyChanged(nameof(AdditionalCostsVisibility));
+            TooltipItems.Clear();
+            foreach (BuildingCostTooltipEntry item in items)
+                TooltipItems.Add(item);
+            hasAdditionalCosts = hasExtraCosts;
+            OnPropertyChanged(nameof(ExtendedVisibility));
+            OnPropertyChanged(nameof(VanillaVisibility));
         }
 
         public void Clear()
         {
-            SetTooltip("", Array.Empty<BuildingCostTooltipEntry>());
+            TooltipItems.Clear();
+            hasAdditionalCosts = false;
+            OnPropertyChanged(nameof(ExtendedVisibility));
+            OnPropertyChanged(nameof(VanillaVisibility));
         }
 
-        public void SetRollOverTextOnly(string rollOverText)
+        void INoesisElementBindingAware.OnNoesisElementBound(FrameworkElement element)
         {
-            SetTooltip(rollOverText, Array.Empty<BuildingCostTooltipEntry>());
+            FrameworkElement root = element;
+            while (root.Parent is FrameworkElement parent)
+                root = parent;
+
+            if (!ReferenceEquals(root, hudRoot))
+            {
+                DetachHudRoot();
+                hudRoot = root;
+                hudRoot.SizeChanged += OnHudSizeChanged;
+                hudRoot.Unloaded += OnHudUnloaded;
+            }
+            UpdateTooltipWidth();
         }
 
-        public void SetPlacement(bool detailed, bool compact)
+        private void OnHudSizeChanged(object sender, SizeChangedEventArgs e)
         {
-            if (showDetailed == detailed && showCompact == compact)
+            UpdateTooltipWidth();
+        }
+
+        private void OnHudUnloaded(object sender, RoutedEventArgs e)
+        {
+            DetachHudRoot();
+        }
+
+        private void DetachHudRoot()
+        {
+            if (hudRoot == null)
                 return;
+            hudRoot.SizeChanged -= OnHudSizeChanged;
+            hudRoot.Unloaded -= OnHudUnloaded;
+            hudRoot = null;
+        }
 
-            showDetailed = detailed;
-            showCompact = compact;
-            OnPropertyChanged(nameof(DetailedVisibility));
-            OnPropertyChanged(nameof(CompactVisibility));
+        private void UpdateTooltipWidth()
+        {
+            if (hudRoot != null && hudRoot.ActualWidth > 320)
+                TooltipMaxWidth = Math.Max(320, hudRoot.ActualWidth - 320);
         }
 
         private void OnPropertyChanged(string propertyName)

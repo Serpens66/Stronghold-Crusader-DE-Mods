@@ -6,13 +6,12 @@ using System.Reflection;
 
 namespace UnitLimit
 {
-    internal sealed class RecruitmentAvailabilityUiHook : IDisposable
+    internal sealed class RecruitmentAvailabilityUiHook
     {
         private readonly ManualLogSource log;
         private readonly Action refreshAvailability;
         private readonly Hook hook;
         private readonly FatControlerNoesisGuiUpdateDelegate trampoline;
-        private bool disposed;
 
         private delegate void FatControlerNoesisGuiUpdateDelegate(FatControler self);
 
@@ -31,20 +30,19 @@ namespace UnitLimit
             if (updateMethod == null)
                 throw new MissingMethodException(typeof(FatControler).FullName, nameof(FatControler.NoesisGUIUpdateChecksInGame));
 
-            hook = new Hook(updateMethod, (FatControlerNoesisGuiUpdateDelegate)NoesisGuiUpdateChecksInGameHook);
-            trampoline = hook.GenerateTrampoline<FatControlerNoesisGuiUpdateDelegate>();
+            Hook candidate = null;
+            try
+            {
+                candidate = new Hook(updateMethod, (FatControlerNoesisGuiUpdateDelegate)NoesisGuiUpdateChecksInGameHook);
+                trampoline = candidate.GenerateTrampoline<FatControlerNoesisGuiUpdateDelegate>();
+                hook = candidate;
+            }
+            catch
+            {
+                candidate?.Dispose();
+                throw;
+            }
             Shared.DebugLogHelper.LogDebug(log, "UnitLimit recruitment availability UI hook installed.");
-        }
-
-        public void Dispose()
-        {
-            if (disposed)
-                return;
-
-            disposed = true;
-            hook?.Undo();
-            hook?.Dispose();
-            Shared.DebugLogHelper.LogDebug(log, "UnitLimit recruitment availability UI hook disposed.");
         }
 
         private void NoesisGuiUpdateChecksInGameHook(FatControler self)

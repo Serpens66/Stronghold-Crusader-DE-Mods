@@ -37,6 +37,8 @@ namespace ForeignTroopHudTest
         private static int lastFrame = -1;
         private static EngineInterface.PlayState stateBeforeReady;
         private static MainViewModel ownedTroopHud;
+        private static string lastDiagnosticKey;
+        private static float lastDiagnosticAt = -100f;
 
         internal static void Initialize(ManualLogSource logger)
         {
@@ -57,6 +59,7 @@ namespace ForeignTroopHudTest
             activeSession = notification.Context;
             stateBeforeReady = GameData.Instance?.lastGameState;
             resetPending = true;
+            lastDiagnosticKey = null;
             log.LogInfo("FOREIGN_TROOP_HUD_SESSION_READY: session=" + activeSession.SessionId + ", mode=" + activeSession.Mode.Kind);
         }
 
@@ -66,6 +69,7 @@ namespace ForeignTroopHudTest
             activeSession = null;
             stateBeforeReady = null;
             resetPending = true;
+            lastDiagnosticKey = null;
         }
 
         private static void OnBeforeRender()
@@ -87,6 +91,7 @@ namespace ForeignTroopHudTest
             catch (Exception error)
             {
                 HideForeignHud();
+                ReportStatus("exception:" + error.GetType().Name, GameData.Instance?.lastGameState, MainViewModel.Instance);
                 if (failureLogged) return;
                 failureLogged = true;
                 log.LogError("FOREIGN_TROOP_HUD_ERROR: " + error);
@@ -97,22 +102,32 @@ namespace ForeignTroopHudTest
         {
             EngineInterface.PlayState state = GameData.Instance?.lastGameState;
             MissionContext session = activeSession;
-            if (session == null || state == null ||
-                (stateBeforeReady != null && ReferenceEquals(state, stateBeforeReady)) ||
-                !MainViewModel.viewModelLoaded)
+            string readiness = session == null ? "waiting-session" :
+                state == null ? "waiting-play-state" :
+                stateBeforeReady != null && ReferenceEquals(state, stateBeforeReady) ? "waiting-new-play-state" :
+                !MainViewModel.viewModelLoaded ? "waiting-main-view-model" : null;
+            if (readiness != null)
             {
                 HideForeignHud();
+                ReportStatus(readiness, state, MainViewModel.Instance);
                 return;
             }
             MainViewModel main = MainViewModel.Instance;
             bool vanillaTroopSelection = state.spectatorMode == 0 && state.app_mode == 14 &&
                 (state.app_sub_mode == 61 || state.app_sub_mode == 62);
-            if (main == null || main.HUDmain == null || main.HUDTroopPanel == null ||
-                vanillaTroopSelection || (main.Show_HUD_Troops && !ReferenceEquals(main, ownedTroopHud)) ||
-                main.Show_HUD_Building || main.Show_HUD_Briefing ||
-                main.Show_HUD_MissionOver || !main.Show_InGameUI)
+            string hudBlocker = main == null ? "missing-MainViewModel.Instance" :
+                main.HUDmain == null ? "missing-HUDmain" :
+                main.HUDTroopPanel == null ? "missing-HUDTroopPanel" :
+                vanillaTroopSelection ? "vanilla-troop-selection" :
+                main.Show_HUD_Troops && !ReferenceEquals(main, ownedTroopHud) ? "vanilla-troop-hud-owned-elsewhere" :
+                main.Show_HUD_Building ? "vanilla-building-hud" :
+                main.Show_HUD_Briefing ? "vanilla-briefing-hud" :
+                main.Show_HUD_MissionOver ? "vanilla-mission-over-hud" :
+                !main.Show_InGameUI ? "in-game-ui-hidden" : null;
+            if (hudBlocker != null)
             {
                 HideForeignHud(vanillaTroopSelection);
+                ReportStatus(hudBlocker, state, main);
                 return;
             }
             if (!readyLogged)
@@ -134,14 +149,18 @@ namespace ForeignTroopHudTest
             grouped.Clear();
             entries.Clear();
             Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
+            int hoveredCount = 0;
+            int foreignCount = 0;
             for (int spanIndex = 0; spanIndex < units.Length; spanIndex++)
             {
                 ref GameUnit unit = ref units[spanIndex];
                 if (unit.r_AliveState != AliveState.IsAlive || unit.r_UnitHover == 0) continue;
+                hoveredCount++;
                 int owner = unit.r_ControllableForPlayerId;
                 if (owner == ownPlayerId && ownPlayerId != 0 || owner > 8) continue;
                 int type = (int)unit.r_UnitChimp;
                 if (type <= 0 || type >= 89) continue;
+                foreignCount++;
                 int key = (owner << 8) | type;
                 ForeignTroopEntry entry;
                 if (!grouped.TryGetValue(key, out entry))
@@ -157,12 +176,21 @@ namespace ForeignTroopHudTest
             if (entries.Count == 0)
             {
                 HideForeignHud();
+                ReportStatus("no-foreign-marked-units", state, main, ownPlayerId, hoveredCount, foreignCount, 0);
                 return;
             }
             entries.Sort((a, b) => a.Owner != b.Owner ? a.Owner.CompareTo(b.Owner) : a.Type.CompareTo(b.Type));
-            if (!view.ActivateVanilla(main) || !view.Show(entries))
+            string missingElement;
+            if (!view.ActivateVanilla(main, out missingElement))
             {
                 HideForeignHud();
+                ReportStatus("missing-vanilla-element:" + missingElement, state, main, ownPlayerId, hoveredCount, foreignCount, entries.Count);
+                return;
+            }
+            if (!view.Show(entries, out missingElement))
+            {
+                HideForeignHud();
+                ReportStatus("missing-mod-element:" + missingElement, state, main, ownPlayerId, hoveredCount, foreignCount, entries.Count);
                 return;
             }
             if (!main.Show_HUD_Troops)
@@ -170,6 +198,32 @@ namespace ForeignTroopHudTest
                 ownedTroopHud = main;
                 main.Show_HUD_Troops = true;
             }
+            ReportStatus("shown", state, main, ownPlayerId, hoveredCount, foreignCount, entries.Count);
+        }
+
+        private static void ReportStatus(string reason, EngineInterface.PlayState state, MainViewModel main,
+            int activePlayer = 0, int hovered = 0, int foreign = 0, int groups = 0)
+        {
+            bool hidden = reason != "shown";
+            string key = reason + ":" + activeSession?.SessionId + ":" + activeSession?.Mode.Kind +
+                ":" + state?.app_mode + ":" + state?.app_sub_mode + ":" + state?.spectatorMode +
+                ":" + main?.Show_HUD_Troops + ":" + main?.Show_HUD_Main + ":" + main?.Show_InGameUI +
+                ":" + activePlayer + ":" + hovered + ":" + foreign + ":" + groups;
+            float now = Time.realtimeSinceStartup;
+            if (key == lastDiagnosticKey && (!hidden || now - lastDiagnosticAt < 5f)) return;
+            lastDiagnosticKey = key;
+            lastDiagnosticAt = now;
+            log.LogInfo("FOREIGN_TROOP_HUD_DIAGNOSTIC: reason=" + reason +
+                ", session=" + (activeSession == null ? "none" : activeSession.SessionId.ToString()) +
+                ", mode=" + (activeSession == null ? "none" : activeSession.Mode.Kind.ToString()) +
+                ", activePlayer=" + activePlayer +
+                ", appMode=" + (state == null ? "none" : state.app_mode.ToString()) +
+                ", appSubMode=" + (state == null ? "none" : state.app_sub_mode.ToString()) +
+                ", spectator=" + (state == null ? "none" : state.spectatorMode.ToString()) +
+                ", hovered=" + hovered + ", foreign=" + foreign + ", groups=" + groups +
+                ", showTroops=" + (main == null ? "none" : main.Show_HUD_Troops.ToString()) +
+                ", showMain=" + (main == null ? "none" : main.Show_HUD_Main.ToString()) +
+                ", showInGameUI=" + (main == null ? "none" : main.Show_InGameUI.ToString()));
         }
 
         private static void HideForeignHud(bool vanillaTroopTakeover = false)
