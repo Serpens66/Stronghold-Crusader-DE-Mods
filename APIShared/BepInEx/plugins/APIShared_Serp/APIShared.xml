@@ -232,6 +232,9 @@
         <member name="P:APIShared.RepairTooltipViewModel.Costs">
             <summary>Visible resource costs.</summary>
         </member>
+        <member name="P:APIShared.RepairTooltipViewModel.TooltipBackground">
+            <summary>The background appears only after the tooltip ViewModel is bound.</summary>
+        </member>
         <member name="P:APIShared.RepairTooltipViewModel.Visibility">
             <summary>Current tooltip visibility.</summary>
         </member>
@@ -283,11 +286,56 @@
         <member name="P:APIShared.SavegameModSettingsRecord.LockedByConflict">
             <summary>Whether the mission was locked by conflicting launch evidence when saved.</summary>
         </member>
+        <member name="P:APIShared.SavegameModSettingsRecord.CreatorRules">
+            <summary>Trail author rules keyed by plugin GUID and host property.</summary>
+        </member>
+        <member name="P:APIShared.SavegameModSettingsRecord.TrailCustomizeAllowed">
+            <summary>Whether the player actually launched through Customize.</summary>
+        </member>
+        <member name="T:APIShared.TrailCreatorRule">
+            <summary>One Trail author's host-property rule. Mode: default=0, player=1, fixed=2.</summary>
+        </member>
+        <member name="P:APIShared.TrailCreatorRule.Mode">
+            <summary>Author-selected mode.</summary>
+        </member>
+        <member name="P:APIShared.TrailCreatorRule.FixedValue">
+            <summary>MessagePack value for a fixed rule.</summary>
+        </member>
+        <member name="T:APIShared.SavegameLoadChoiceState">
+            <summary>Availability and permission state of one selected savegame.</summary>
+        </member>
+        <member name="F:APIShared.SavegameLoadChoiceState.Invalid">
+            <summary>The save or its present metadata cannot be trusted.</summary>
+        </member>
+        <member name="F:APIShared.SavegameLoadChoiceState.Legacy">
+            <summary>No APIShared record exists; current host settings are mandatory.</summary>
+        </member>
+        <member name="F:APIShared.SavegameLoadChoiceState.SavedOnly">
+            <summary>Saved host settings are mandatory.</summary>
+        </member>
+        <member name="F:APIShared.SavegameLoadChoiceState.Selectable">
+            <summary>The host may choose saved or current settings.</summary>
+        </member>
+        <member name="T:APIShared.SavegameModSettingsRecordFormatter">
+            <summary>Explicit wire format; avoids MessagePack's unavailable dynamic formatter dependency.</summary>
+        </member>
+        <member name="M:APIShared.SavegameModSettingsRecordFormatter.Serialize(MessagePack.MessagePackWriter@,APIShared.SavegameModSettingsRecord,MessagePack.MessagePackSerializerOptions)">
+            <summary>Writes the bounded record without dynamic object formatters.</summary>
+        </member>
+        <member name="M:APIShared.SavegameModSettingsRecordFormatter.Deserialize(MessagePack.MessagePackReader@,MessagePack.MessagePackSerializerOptions)">
+            <summary>Reads the versioned record with explicit bounds before allocating entries.</summary>
+        </member>
         <member name="T:APIShared.SavegameModSettings">
             <summary>Persists compatible host settings and the mission permission context in saves.</summary>
         </member>
         <member name="M:APIShared.SavegameModSettings.CanUseCurrentSettings(System.String)">
             <summary>Reads only the selected save's own appended metadata for the load checkbox.</summary>
+        </member>
+        <member name="M:APIShared.SavegameModSettings.GetLoadChoiceState(System.String)">
+            <summary>Describes the selected save's modsettings choice.</summary>
+        </member>
+        <member name="M:APIShared.SavegameModSettings.RegisterTrailCreatorRulesProvider(System.Func{System.Collections.Generic.Dictionary{System.String,System.Collections.Generic.Dictionary{System.String,APIShared.TrailCreatorRule}}},System.Func{System.Boolean})">
+            <summary>Registers the ExtendedData source of author rules for a newly launched Trail.</summary>
         </member>
         <member name="M:APIShared.SavegameModSettings.GetCompatibleParticipants">
             <summary>Returns compatible settings endpoints keyed by the owning plugin GUID.</summary>

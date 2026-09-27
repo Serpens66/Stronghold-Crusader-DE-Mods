@@ -20,6 +20,7 @@ namespace RandomEvents
             TestChoreSender();
             TestCalendar();
             TestSaveState();
+            TestSaveRestoreLifecycle();
             TestPresentationTargeting();
             TestEventSoundNativeLayout();
             TestKeepAnchorGeometry();
@@ -177,6 +178,59 @@ namespace RandomEvents
             Assert(!unprepared.BatchPrepared && unprepared.PreparedDirectKinds.Length == 0 &&
                 unprepared.NextDueAbsoluteMonth == 22 && unprepared.PrngState0 == 11 &&
                 unprepared.PrngState1 == 12, "unprepared first batch preserves due date and seed");
+        }
+
+        private static void TestSaveRestoreLifecycle()
+        {
+            var first = new RandomEventsSaveState
+            {
+                PrngState0 = 11, PrngState1 = 12, StartAbsoluteMonth = 100,
+                NextDueAbsoluteMonth = 106,
+                SharedCooldownUntilAbsoluteMonths = new int[15],
+                IndividualCooldownUntilAbsoluteMonths = new int[135],
+                BatchPrepared = true, PreparedDirectKinds = new[] { 1 },
+                PreparedDirectStrengths = new[] { 9 }, PreparedDirectTargetPlayerIds = new[] { 2 }
+            };
+            first.SharedCooldownUntilAbsoluteMonths[3] = 104;
+            var second = MessagePackSerializer.Deserialize<RandomEventsSaveState>(MessagePackSerializer.Serialize(first));
+            var start = new RandomEventsStartState();
+            start.ReceiveSaveState(first);
+            start.ReceiveSaveState(second); // The Script Extender delivers both load phases.
+            Assert(!start.MapStartPending && ReferenceEquals(start.LoadedState, second),
+                "save callbacks must not initialize before the APIShared session starts");
+            Assert(RandomEventsSaveStateValidation.CheckStructure(start.LoadedState, 15, 8) == null &&
+                RandomEventsSaveStateValidation.CheckDate(start.LoadedState, 100) == null,
+                "the populated saved state must pass restore validation");
+            start.BeginSession(true);
+            Assert(start.MapStartPending && start.LoadedStateAvailable,
+                "loaded session arms one tick with its saved state");
+            start.BeginFirstTick();
+            Assert(!start.MapStartPending && start.LoadedState.BatchPrepared &&
+                start.LoadedState.SharedCooldownUntilAbsoluteMonths[3] == 104 &&
+                start.LoadedState.PrngState0 == 11,
+                "restore preserves prepared batch, cooldown and PRNG state");
+            start.DiscardLoadedState();
+            Assert(!start.LoadedStateAvailable && start.LoadedState == null,
+                "consuming a save clears both payload and availability");
+
+            start.ReceiveSaveState(first);
+            start.Reset(); // A failed or abandoned load must not leak into the next mission.
+            Assert(!start.MapStartPending && !start.LoadedStateAvailable, "aborted load clears pending save");
+            start.ReceiveSaveState(first);
+            start.BeginSession(false);
+            Assert(start.MapStartPending && !start.LoadedStateAvailable,
+                "a new mission cannot inherit a previous save's runtime state");
+            start.BeginFirstTick();
+            start.ReceiveSaveState(first);
+            start.BeginSession(true);
+            start.DiscardLoadedState(); // Clients wait for the host Chore instead of using local save state.
+            Assert(start.MapStartPending && !start.LoadedStateAvailable,
+                "multiplayer client discards local save state while retaining the start gate");
+            Assert(RandomEventsSaveStateValidation.CheckStructure(first, 14, 8) == "cooldown-arrays",
+                "invalid cooldown shape has a specific reason");
+            first.SchemaVersion++;
+            Assert(RandomEventsSaveStateValidation.CheckStructure(first, 15, 8) == "schema-version",
+                "invalid schema has a specific reason");
         }
 
         private static void TestPresentationTargeting()

@@ -11,6 +11,23 @@ using Steamworks;
 
 namespace Shared
 {
+    internal readonly struct SavedModeEvidence
+    {
+        internal SavedModeEvidence(bool hasSaved, GameModeKind kind,
+            GameModeLaunchVariant variant, bool locked)
+        {
+            HasSaved = hasSaved;
+            Kind = kind;
+            Variant = variant;
+            Locked = locked;
+        }
+
+        internal bool HasSaved { get; }
+        internal GameModeKind Kind { get; }
+        internal GameModeLaunchVariant Variant { get; }
+        internal bool Locked { get; }
+    }
+
     /// <summary>GameModeKind in the centralized mission policy contract.</summary>
     public enum GameModeKind
     {
@@ -77,6 +94,7 @@ namespace Shared
     /// <summary>GameModeHelper in the centralized mission policy contract.</summary>
     public static class GameModeHelper
     {
+        internal static Func<SavedModeEvidence> ReadSavedModeEvidence;
         private const int NoGameValue = -1;
         private const int NoCoopTrail = 0;
         private const uint NonCampaignMapId = uint.MaxValue;
@@ -254,10 +272,13 @@ namespace Shared
                 GameModeKind savedKind = GameModeKind.Unknown;
                 GameModeLaunchVariant savedVariant = GameModeLaunchVariant.Standard;
                 bool savedLocked = true;
-                #if !API_SHARED_PRESET_TESTS
-                hasSaved = APIShared.SavegameModSettings.TryGetRestoredMode(
-                    out savedKind, out savedVariant, out savedLocked);
-                #endif
+                SavedModeEvidence evidence = ReadSavedModeEvidence?.Invoke() ??
+                    new SavedModeEvidence(false, GameModeKind.Unknown,
+                        GameModeLaunchVariant.Standard, true);
+                hasSaved = evidence.HasSaved;
+                savedKind = evidence.Kind;
+                savedVariant = evidence.Variant;
+                savedLocked = evidence.Locked;
                 ReconcileRestoredSaveMode(observedKind, hasSaved, savedKind, savedVariant,
                     savedLocked, ref kind, ref launchVariant, ref conflictingOrigin);
             }
@@ -309,6 +330,14 @@ namespace Shared
             ref GameModeLaunchVariant launchVariant,
             ref bool conflictingOrigin)
         {
+            if (!hasSaved && !savedLocked)
+            {
+                // A genuinely absent entry is a legacy save. Preserve native mode evidence;
+                // only an unclassified save receives the user's current-settings fallback.
+                kind = observedKind == GameModeKind.Unknown ? GameModeKind.CustomGame : observedKind;
+                launchVariant = GameModeLaunchVariant.Standard;
+                return;
+            }
             bool compatibleNativeFamily = observedKind == GameModeKind.CustomGame &&
                 (savedKind == GameModeKind.CustomTrail || savedKind == GameModeKind.CoopTrail ||
                  savedKind == GameModeKind.VanillaTrail || savedKind == GameModeKind.SandsOfTime);

@@ -2377,7 +2377,9 @@ namespace Shared
                     viewModel.Show_SandsTrail4Menu || viewModel.Show_SandsTrail5Menu ||
                     viewModel.Show_SandsTrail6Menu || viewModel.Show_SandsTrail7Menu ||
                     viewModel.Show_SandsTrail8Menu;
-                return ResolveSettingsMenuContext(viewModel.Show_MultiplayerSetup, campaign, trail);
+                bool coopTrail = viewModel.Show_CoopTrail1 || viewModel.Show_CoopTrail2 ||
+                    viewModel.Show_CoopTrail3 || viewModel.Show_CoopTrail4;
+                return ResolveSettingsMenuContext(viewModel.Show_MultiplayerSetup, campaign, trail, coopTrail);
             }
             catch
             {
@@ -2387,8 +2389,11 @@ namespace Shared
 #endif
         }
 
-        private static SettingsMenuContext ResolveSettingsMenuContext(bool customizeSetup, bool campaign, bool trail)
+        private static SettingsMenuContext ResolveSettingsMenuContext(
+            bool customizeSetup, bool campaign, bool trail, bool coopTrail)
         {
+            // Vanilla keeps MultiplayerSetup visible behind a direct Coop Trail page.
+            if (coopTrail && !campaign) return SettingsMenuContext.DirectTrail;
             if (customizeSetup) return SettingsMenuContext.CustomizeSetup;
             if (campaign && !trail) return SettingsMenuContext.Campaign;
             if (trail && !campaign) return SettingsMenuContext.DirectTrail;
@@ -2396,9 +2401,10 @@ namespace Shared
         }
 
 #if API_SHARED_PRESET_TESTS
-        public void System_TestSetSettingsMenuContext(bool customizeSetup, bool campaign, bool trail)
+        public void System_TestSetSettingsMenuContext(
+            bool customizeSetup, bool campaign, bool trail, bool coopTrail = false)
         {
-            settingsMenuContext = ResolveSettingsMenuContext(customizeSetup, campaign, trail);
+            settingsMenuContext = ResolveSettingsMenuContext(customizeSetup, campaign, trail, coopTrail);
             RaiseAccessProperties();
         }
 #endif

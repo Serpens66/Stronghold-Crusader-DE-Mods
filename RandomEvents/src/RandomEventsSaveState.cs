@@ -69,4 +69,64 @@ namespace RandomEvents
             };
         }
     }
+
+    // Save callbacks can run twice before APIShared publishes a completed session.
+    // Only that session may arm the first simulation tick, and consumption clears
+    // the payload and its availability together.
+    internal sealed class RandomEventsStartState
+    {
+        private RandomEventsSaveState loaded;
+
+        internal bool MapStartPending { get; private set; }
+        internal bool LoadedStateAvailable => loaded != null;
+        internal RandomEventsSaveState LoadedState => loaded;
+
+        internal void ReceiveSaveState(RandomEventsSaveState value) => loaded = value;
+
+        internal void BeginSession(bool isLoadedSave)
+        {
+            if (!isLoadedSave) loaded = null;
+            MapStartPending = true;
+        }
+
+        internal void BeginFirstTick() => MapStartPending = false;
+        internal void StopMapStart() => MapStartPending = false;
+        internal void DiscardLoadedState() => loaded = null;
+
+        internal void Reset()
+        {
+            MapStartPending = false;
+            loaded = null;
+        }
+    }
+
+    internal static class RandomEventsSaveStateValidation
+    {
+        internal static string CheckStructure(RandomEventsSaveState value, int eventCount, int playerCount)
+        {
+            if (value == null) return "missing-payload";
+            if (value.SchemaVersion != RandomEventsSaveState.CurrentSchemaVersion) return "schema-version";
+            if (value.PreparedDirectKinds == null || value.PreparedDirectStrengths == null ||
+                value.PreparedDirectTargetPlayerIds == null ||
+                value.PreparedDirectKinds.Length != value.PreparedDirectStrengths.Length ||
+                value.PreparedDirectKinds.Length != value.PreparedDirectTargetPlayerIds.Length)
+                return "prepared-batch-arrays";
+            if (value.SharedCooldownUntilAbsoluteMonths?.Length != eventCount ||
+                value.IndividualCooldownUntilAbsoluteMonths?.Length != (playerCount + 1) * eventCount ||
+                !Array.TrueForAll(value.SharedCooldownUntilAbsoluteMonths, month => month >= 0) ||
+                !Array.TrueForAll(value.IndividualCooldownUntilAbsoluteMonths, month => month >= 0))
+                return "cooldown-arrays";
+            if ((value.PrngState0 | value.PrngState1) == 0) return "random-state";
+            if (value.SignpostBuildingIds?.Length != 4) return "signpost-array";
+            return null;
+        }
+
+        internal static string CheckDate(RandomEventsSaveState value, int currentAbsoluteMonth)
+        {
+            if (value.StartAbsoluteMonth >= 0 && value.StartAbsoluteMonth <= currentAbsoluteMonth &&
+                value.NextDueAbsoluteMonth >= currentAbsoluteMonth &&
+                value.NextDueAbsoluteMonth <= checked(currentAbsoluteMonth + 90)) return null;
+            return "event-date";
+        }
+    }
 }

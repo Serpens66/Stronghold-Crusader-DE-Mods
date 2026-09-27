@@ -19,14 +19,22 @@ namespace APISharedTests
         {
             var record = new SavegameModSettingsRecord
             {
-                Version = 2,
+                Version = 3,
                 Kind = (int)GameModeKind.CoopTrail,
                 Variant = (int)GameModeLaunchVariant.Customized,
+                TrailCustomizeAllowed = true,
                 Mods = new Dictionary<string, Dictionary<string, byte[]>>(StringComparer.Ordinal)
                 {
                     ["mod.example"] = new Dictionary<string, byte[]>(StringComparer.Ordinal)
                     {
                         ["EnableMod"] = MessagePackSerializer.Serialize(true),
+                    },
+                },
+                CreatorRules = new Dictionary<string, Dictionary<string, TrailCreatorRule>>(StringComparer.Ordinal)
+                {
+                    ["mod.example"] = new Dictionary<string, TrailCreatorRule>(StringComparer.Ordinal)
+                    {
+                        ["EnableMod"] = new TrailCreatorRule { Mode = 1 },
                     },
                 },
             };
@@ -43,6 +51,7 @@ namespace APISharedTests
                 restored.LockedByConflict, "saved mission conflict was lost");
             record.LockedByConflict = false;
             record.Variant = (int)GameModeLaunchVariant.Standard;
+            record.TrailCustomizeAllowed = false;
             check(!SavegameModSettings.IsCurrentChoiceAllowed(record),
                 "standard Co-op Trail allowed current host settings");
             record.Kind = (int)GameModeKind.Campaign;
@@ -53,11 +62,12 @@ namespace APISharedTests
                 "standard Sands of Time allowed current host settings");
             record.Kind = (int)GameModeKind.CoopTrail;
             record.Variant = (int)GameModeLaunchVariant.Customized;
+            record.TrailCustomizeAllowed = true;
 
-            record.Version = 3;
+            record.Version = 4;
             check(!SavegameModSettings.TryDeserialize(MessagePackSerializer.Serialize(record), out _),
                 "unknown savegame metadata version was accepted");
-            record.Version = 2;
+            record.Version = 3;
             record.Kind = (int)GameModeKind.Unknown;
             check(!SavegameModSettings.TryDeserialize(MessagePackSerializer.Serialize(record), out _),
                 "unknown savegame mode was accepted");
@@ -66,6 +76,10 @@ namespace APISharedTests
             check(!SavegameModSettings.TryDeserialize(MessagePackSerializer.Serialize(record), out _),
                 "unknown savegame Customize status was accepted");
             record.Variant = (int)GameModeLaunchVariant.Standard;
+            record.CreatorRules["mod.example"]["EnableMod"].Mode = 3;
+            check(!SavegameModSettings.TryDeserialize(MessagePackSerializer.Serialize(record), out _),
+                "invalid Trail creator rule was accepted");
+            record.CreatorRules["mod.example"]["EnableMod"].Mode = 1;
             record.Mods["mod.example"]["EnableMod"] = new byte[1024 * 1024 + 1];
             check(!SavegameModSettings.TryDeserialize(MessagePackSerializer.Serialize(record), out _),
                 "oversized savegame property was accepted");
@@ -101,9 +115,34 @@ namespace APISharedTests
             check(MessagePackSerializer.Deserialize<int>(missingModDefault["Good"]) == 0,
                 "missing mod changed its disabled snapshot");
 
+            var creatorRules = new Dictionary<string, TrailCreatorRule>(StringComparer.Ordinal)
+            {
+                ["Good"] = new TrailCreatorRule { Mode = 1 },
+            };
+            var currentHost = new Dictionary<string, byte[]>(StringComparer.Ordinal)
+            {
+                ["Good"] = MessagePackSerializer.Serialize(9),
+            };
+            var trailSnapshot = new Dictionary<string, byte[]>(StringComparer.Ordinal)
+            {
+                ["Good"] = MessagePackSerializer.Serialize(7),
+            };
+            SavegameModSettings.ApplyCreatorRules(trailSnapshot, new[] { good }, creatorRules,
+                currentHost, strictTrail: false);
+            check(MessagePackSerializer.Deserialize<int>(trailSnapshot["Good"]) == 9,
+                "Player/Host rule did not override saved value with current value");
+            creatorRules["Good"] = new TrailCreatorRule
+            {
+                Mode = 2, FixedValue = MessagePackSerializer.Serialize(5),
+            };
+            SavegameModSettings.ApplyCreatorRules(trailSnapshot, new[] { good }, creatorRules,
+                currentHost, strictTrail: true);
+            check(MessagePackSerializer.Deserialize<int>(trailSnapshot["Good"]) == 5,
+                "non-Customize Trail did not enforce the creator's fixed value");
+
             var large = new SavegameModSettingsRecord
             {
-                Version = 2,
+                Version = 3,
                 Kind = (int)GameModeKind.Campaign,
                 Variant = (int)GameModeLaunchVariant.Standard,
                 LockedByConflict = true,
@@ -118,6 +157,7 @@ namespace APISharedTests
                         ["Five"] = new byte[1024 * 1024],
                     },
                 },
+                CreatorRules = new Dictionary<string, Dictionary<string, TrailCreatorRule>>(StringComparer.Ordinal),
             };
             byte[] reduced = SavegameModSettings.SerializeWithinLimit(large);
             check(reduced.Length <= 4 * 1024 * 1024 &&
@@ -139,11 +179,12 @@ namespace APISharedTests
                 GameModeKind.CustomGame, GameModeLaunchVariant.Customized, false,
                 ref kind, ref variant, ref conflict);
             check(conflict, "conflicting current mission evidence was cleared by saved metadata");
+            conflict = false;
             GameModeHelper.ReconcileRestoredSaveMode(GameModeKind.CustomGame, false,
                 GameModeKind.Unknown, GameModeLaunchVariant.Standard, false,
                 ref kind, ref variant, ref conflict);
-            check(conflict && variant == GameModeLaunchVariant.Standard,
-                "missing mission metadata unlocked a save");
+            check(!conflict && kind == GameModeKind.CustomGame && variant == GameModeLaunchVariant.Standard,
+                "legacy save did not retain current-settings fallback");
             kind = GameModeKind.Campaign;
             conflict = false;
             GameModeHelper.ReconcileRestoredSaveMode(GameModeKind.Campaign, true,

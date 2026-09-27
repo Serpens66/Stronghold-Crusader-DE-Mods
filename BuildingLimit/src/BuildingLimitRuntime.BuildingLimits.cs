@@ -293,6 +293,13 @@ namespace BuildingLimit
                 foreach (eStructs structure in definition.Structures)
                     activeBuildingLimitRulesByStructure[structure] = rule;
 
+                // Vanilla uses these destroyed-tower enum values as the placement rollover IDs.
+                // They are tooltip aliases only; tower siege weapons are counted as units.
+                if (definition.Mapper == eMappers.MAPPER_MANGONEL)
+                    activeBuildingLimitRulesByStructure[eStructs.STRUCT_TOWER1_DESTROYED] = rule;
+                else if (definition.Mapper == eMappers.MAPPER_BALLISTA)
+                    activeBuildingLimitRulesByStructure[eStructs.STRUCT_TOWER2_DESTROYED] = rule;
+
                 if (entry.Value >= 0)
                 {
                     if (Shared.DebugLogHelper.IsDebugEnabled())

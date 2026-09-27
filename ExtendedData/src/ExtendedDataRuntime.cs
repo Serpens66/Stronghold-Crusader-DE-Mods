@@ -255,6 +255,9 @@ namespace ExtendedData
             missionSettingsCoordinator.CoopLaunchReceived += OnCoopLaunchReceived;
             missionSettingsCoordinator.SinglePlayerCoopStarting += PrepareSinglePlayerCoopStart;
             missionSettingsCoordinator.Initialize();
+            SavegameModSettings.RegisterTrailCreatorRulesProvider(
+                missionSettingsCoordinator.CaptureCreatorRulesForActiveTrail,
+                missionSettingsCoordinator.WasLaunchedThroughCustomize);
             mapSettingsCoordinator = new MapModSettingsCoordinator(
                 log,
                 enabled,
@@ -468,6 +471,7 @@ namespace ExtendedData
                 // genuinely different mission selection ends that pending attempt.
                 coopLaunchPending = false;
             }
+            missionSettingsCoordinator.ResetCustomizeForNewCoopSelection();
             missionTrampoline(self, trailId, missionId, resetOrderSwapped);
             missionSettingsCoordinator.EnsureCoopCustomizeButtons();
             if (!enabled)

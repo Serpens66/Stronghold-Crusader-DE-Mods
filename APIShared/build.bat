@@ -39,6 +39,10 @@ pushd "%PROJECT_DIR%"
 if errorlevel 1 goto build_failed_popd
 "%PROJECT_DIR%..\_inspect\APISharedTests\bin\APISharedTests.exe"
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+"%MSBUILD%" "%PROJECT_DIR%..\_inspect\LobbyModSettingsPresetTests\LobbyModSettingsPresetTests.csproj" /t:Rebuild /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+if errorlevel 1 goto build_failed_popd
+"%PROJECT_DIR%..\_inspect\LobbyModSettingsPresetTests\bin\LobbyModSettingsPresetTests.exe"
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 "%MSBUILD%" APIShared.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
 if errorlevel 1 goto build_failed_popd
 "%MSBUILD%" "%PROJECT_DIR%..\_inspect\APISharedPresetConsumerTests\APISharedPresetConsumerTests.csproj" /t:Rebuild /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"

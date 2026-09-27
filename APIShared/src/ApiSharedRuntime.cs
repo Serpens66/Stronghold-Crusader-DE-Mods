@@ -23,6 +23,7 @@ namespace APIShared
         private MissionLifecycleService missionLifecycle;
         private BriefingGoldPresentationService briefingGoldPresentation;
         private BuildingRepairService buildingRepair;
+        internal RepairTooltipViewModel RepairTooltip { get; } = new RepairTooltipViewModel();
         private NativeCapabilityDiagnostic buildingRepairDiagnostic = Pending(NativeCapabilityIds.BuildingRepair);
         private long nativeModuleBase;
         private NativeCapabilityDiagnostic missionLifecycleDiagnostic = Pending(NativeCapabilityIds.MissionLifecycle);
@@ -387,7 +388,7 @@ namespace APIShared
                     if (state != NativeApiState.Ready)
                         buildingRepairDiagnostic = Faulted(NativeCapabilityIds.BuildingRepair, "APIShared is unavailable.");
                     else
-                        BuildingRepairService.TryCreate(binaryHash, nativeModuleBase, log,
+                        BuildingRepairService.TryCreate(binaryHash, nativeModuleBase, log, RepairTooltip,
                             out buildingRepair, out buildingRepairDiagnostic);
                 }
                 diagnostic = buildingRepairDiagnostic;

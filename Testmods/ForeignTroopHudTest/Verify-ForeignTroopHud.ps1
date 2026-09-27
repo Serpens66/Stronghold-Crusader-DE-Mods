@@ -29,9 +29,19 @@ foreach ($pattern in $forbidden) {
     if ([regex]::IsMatch($sources + $project, $pattern)) { throw "Forbidden runtime pattern: $pattern" }
 }
 if ($sources -notmatch 'Application\.onBeforeRender\s*\+=\s*OnBeforeRender') { throw 'Persistent publisher missing.' }
+if ($sources -notmatch 'TryGetMissionLifecycle' -or $sources -notmatch 'TryRegisterObserver') { throw 'APIShared mission lifecycle missing.' }
+if ($sources -notmatch 'session\.IsEditor' -or $sources -notmatch 'ActivePlayerID' -or $sources -notmatch 'spectatorMode') { throw 'Editor or spectator player handling missing.' }
+if ($sources -match 'app_mode\s*!=\s*14|MapLoaderR3EventHooks') { throw 'Legacy mode or map gate remains.' }
 if ($sources -notmatch 'FOREIGN_TROOP_HUD_RUNTIME_ALIVE') { throw 'Post-cleanup marker missing.' }
-if ($sources -notmatch 'r_UnitHover' -or $sources -match 'r_UnitHover\s*=') { throw 'Hover marker must be read only.' }
-if ($sources -match 'r_UnitSelected\s*=|GetSelectedChimps\s*\(') { throw 'Native command selection must not be changed.' }
+if ($sources -notmatch 'r_UnitHover' -or $sources -match 'r_UnitHover\s*=(?!=)') { throw 'Hover marker must be read only.' }
+if ($sources -match 'r_UnitSelected\s*=(?!=)|GetSelectedChimps\s*\(') { throw 'Native command selection must not be changed.' }
+if ($sources -match 'r_CurrentHealth\s*=(?!=)|r_MaxHealth\s*=(?!=)|EngineInterface\.GameAction\s*\(') { throw 'HUD must not change HP or issue commands.' }
+if ($sources -notmatch 'main\.Show_HUD_Main\s*=\s*false' -or
+    $sources -notmatch 'main\.Show_HUD_Main\s*=\s*true' -or
+    $sources -notmatch 'view\.Show\(entries\)' -or
+    $sources -notmatch 'HideForeignHud\(\)') {
+    throw 'Foreign selection must hide and restore the vanilla main HUD.'
+}
 $xamlFiles = Get-ChildItem -LiteralPath (Join-Path $modDir 'Patches') -Recurse -Filter '*.xaml' -File
 foreach ($xamlFile in $xamlFiles) {
     [xml]$document = Get-Content -LiteralPath $xamlFile.FullName -Raw
@@ -39,6 +49,13 @@ foreach ($xamlFile in $xamlFiles) {
         $roots = @($content.ChildNodes | Where-Object { $_.NodeType -eq [Xml.XmlNodeType]::Element })
         if ($roots.Count -ne 1) { throw "XAML Content must have one element: $($xamlFile.FullName)" }
     }
+}
+$hudPatch = [IO.File]::ReadAllText($files[4])
+if ($hudPatch -notmatch "XPath=.*/n:Grid\[@x:Name='MainHUD'\]" -or
+    [regex]::Matches($hudPatch, '<Button\s').Count -ne 2 -or
+    $hudPatch -notmatch 'Panel.ZIndex="-1"' -or
+    $hudPatch -match 'Command=|Control_Group|ForeignTroopHudCanvas') {
+    throw 'HUD patch must be inside MainHUD with only two local page buttons.'
 }
 $workspace = Split-Path -Parent (Split-Path -Parent $modDir)
 $gitDiff = & git -C $workspace diff --unified=0 -- '*.cs' '*.csproj'

@@ -58,7 +58,7 @@ namespace APIShared
         private readonly Dictionary<string, OwnerView> owners = new Dictionary<string, OwnerView>(StringComparer.Ordinal);
         private readonly ConditionalWeakTable<EngineInterface.PlayState, BuildingRepairQuote> snapshots =
             new ConditionalWeakTable<EngineInterface.PlayState, BuildingRepairQuote>();
-        private readonly RepairTooltipViewModel tooltip = new RepairTooltipViewModel();
+        private readonly RepairTooltipViewModel tooltip;
         private readonly ManualLogSource log;
         private readonly NativeCanRepairDelegate nativeCanRepair;
         private Hook copyHook;
@@ -73,14 +73,16 @@ namespace APIShared
         private BuildingRepairQuote firstSample;
         private bool firstSampleLogged;
 
-        private BuildingRepairService(long moduleBase, ManualLogSource logger)
+        private BuildingRepairService(long moduleBase, ManualLogSource logger, RepairTooltipViewModel tooltipViewModel)
         {
             log = logger;
+            tooltip = tooltipViewModel ?? throw new ArgumentNullException(nameof(tooltipViewModel));
             nativeCanRepair = Marshal.GetDelegateForFunctionPointer<NativeCanRepairDelegate>(
                 new IntPtr(checked(moduleBase + CanRepairRva)));
         }
 
         internal static bool TryCreate(string hash, long moduleBase, ManualLogSource log,
+            RepairTooltipViewModel tooltipViewModel,
             out BuildingRepairService service, out NativeCapabilityDiagnostic diagnostic)
         {
             service = null;
@@ -103,7 +105,7 @@ namespace APIShared
                     if (actual[index] != CanRepairEntry[index])
                         throw new InvalidOperationException("Native repair entry does not match the audited function.");
 
-                BuildingRepairService candidate = new BuildingRepairService(moduleBase, log);
+                BuildingRepairService candidate = new BuildingRepairService(moduleBase, log, tooltipViewModel);
                 MethodInfo copyTarget = FindMethod(typeof(EngineInterface), "CopyPlayStateStruct",
                     BindingFlags.Public | BindingFlags.Static,
                     typeof(EngineInterface.PlayStateReturnData), typeof(int[]));
@@ -113,7 +115,6 @@ namespace APIShared
                 candidate.originalCopy = candidateCopy.GenerateTrampoline<CopyStateDelegate>();
                 candidateHud = new Hook(hudTarget, (HudUpdateDelegate)candidate.HudUpdateHook);
                 candidate.originalHudUpdate = candidateHud.GenerateTrampoline<HudUpdateDelegate>();
-                GameXAMLManagerAPI.Instance.RegisterBinding("APISharedRepairTooltipHost", candidate.tooltip);
                 candidateSubscription = BuildingR3EventHooks.OnBuildingRepair.Observable.Subscribe(candidate.OnBuildingRepair);
                 candidate.copyHook = candidateCopy;
                 candidate.hudHook = candidateHud;
@@ -497,6 +498,7 @@ namespace APIShared
     /// <summary>Noesis binding source for the shared repair tooltip.</summary>
     public sealed class RepairTooltipViewModel : INotifyPropertyChanged
     {
+        private Brush tooltipBackground;
         private Noesis.Visibility visibility = Noesis.Visibility.Hidden;
         private string title = string.Empty;
         private string signature;
@@ -504,6 +506,9 @@ namespace APIShared
         public event PropertyChangedEventHandler PropertyChanged;
         /// <summary>Visible resource costs.</summary>
         public ObservableCollection<RepairTooltipEntry> Costs { get; } = new ObservableCollection<RepairTooltipEntry>();
+        /// <summary>The background appears only after the tooltip ViewModel is bound.</summary>
+        public Brush TooltipBackground => tooltipBackground ??
+            (tooltipBackground = new SolidColorBrush(Noesis.Color.FromArgb(0xDD, 0x24, 0x1C, 0x13)));
         /// <summary>Current tooltip visibility.</summary>
         public Noesis.Visibility Visibility
         {

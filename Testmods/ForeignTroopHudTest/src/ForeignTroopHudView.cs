@@ -8,13 +8,14 @@ namespace ForeignTroopHudTest
     internal sealed class ForeignTroopHudView
     {
         private static readonly int[] PortraitCodes = CreatePortraitCodes();
-        private readonly Border[] slots = new Border[8];
+        private readonly Canvas[] slots = new Canvas[8];
         private readonly Image[] portraits = new Image[8];
         private readonly TextBlock[] typeLabels = new TextBlock[8];
         private readonly TextBlock[] ownerLabels = new TextBlock[8];
         private readonly TextBlock[] counts = new TextBlock[8];
+        private readonly TextBlock[] currentHealth = new TextBlock[8];
+        private readonly TextBlock[] maxHealth = new TextBlock[8];
         private readonly List<ForeignTroopEntry> visibleEntries = new List<ForeignTroopEntry>();
-        private Canvas canvas;
         private Canvas panel;
         private TextBlock pageText;
         private Button previous;
@@ -34,10 +35,9 @@ namespace ForeignTroopHudTest
             if (panel != null) panel.Visibility = Visibility.Collapsed;
         }
 
-        internal void Show(List<ForeignTroopEntry> entries)
+        internal bool Show(List<ForeignTroopEntry> entries)
         {
-            if (!Resolve()) return;
-            if (canvas.ActualWidth <= 0f || canvas.ActualHeight <= 0f) { Hide(); return; }
+            if (!Resolve()) return false;
             bool selectionChanged = entries.Count != visibleEntries.Count;
             if (!selectionChanged)
                 for (int i = 0; i < entries.Count; i++)
@@ -51,24 +51,24 @@ namespace ForeignTroopHudTest
                     Owner = entry.Owner,
                     Type = entry.Type,
                     ColorId = entry.ColorId,
-                    Count = entry.Count
+                    Count = entry.Count,
+                    CurrentHealth = entry.CurrentHealth,
+                    MaxHealth = entry.MaxHealth
                 });
             page = Math.Min(page, (visibleEntries.Count - 1) / 8);
-            Canvas.SetLeft(panel, Math.Max(0f, (float)(canvas.ActualWidth - 800f) / 2f + 142f));
-            Canvas.SetTop(panel, Math.Max(0f, (float)canvas.ActualHeight - 155f));
             Draw();
             panel.Visibility = Visibility.Visible;
+            return true;
         }
 
         private bool Resolve()
         {
-            if (canvas != null && panel != null && canvas.IsLoaded) return true;
-            Canvas nextCanvas = GameXAMLManagerAPI.Instance?.FindGlobalElement("ForeignTroopHudCanvas") as Canvas;
+            if (panel != null && panel.IsLoaded) return true;
+            Canvas nextCanvas = GameXAMLManagerAPI.Instance?.FindGlobalElement("ForeignTroopHudPanel") as Canvas;
             if (nextCanvas == null) { Hide(); return false; }
-            if (ReferenceEquals(nextCanvas, canvas) && panel != null) return true;
+            if (ReferenceEquals(nextCanvas, panel)) return true;
             Detach();
-            canvas = nextCanvas;
-            panel = Find<Canvas>("ForeignTroopHudPanel");
+            panel = nextCanvas;
             pageText = Find<TextBlock>("ForeignTroopPageText");
             previous = Find<Button>("ForeignTroopPrevious");
             next = Find<Button>("ForeignTroopNext");
@@ -76,12 +76,15 @@ namespace ForeignTroopHudTest
             for (int i = 0; i < 8; i++)
             {
                 string number = (i + 1).ToString();
-                slots[i] = Find<Border>("ForeignTroopSlot" + number);
+                slots[i] = Find<Canvas>("ForeignTroopSlot" + number);
                 portraits[i] = Find<Image>("ForeignTroopImage" + number);
                 typeLabels[i] = Find<TextBlock>("ForeignTroopType" + number);
                 ownerLabels[i] = Find<TextBlock>("ForeignTroopOwner" + number);
                 counts[i] = Find<TextBlock>("ForeignTroopCount" + number);
-                if (slots[i] == null || portraits[i] == null || typeLabels[i] == null || ownerLabels[i] == null || counts[i] == null)
+                currentHealth[i] = Find<TextBlock>("ForeignTroopCurrentHealth" + number);
+                maxHealth[i] = Find<TextBlock>("ForeignTroopMaxHealth" + number);
+                if (slots[i] == null || portraits[i] == null || typeLabels[i] == null || ownerLabels[i] == null ||
+                    counts[i] == null || currentHealth[i] == null || maxHealth[i] == null)
                 { Detach(); return false; }
             }
             previous.Click += OnPrevious;
@@ -90,13 +93,12 @@ namespace ForeignTroopHudTest
         }
 
         private T Find<T>(string name) where T : FrameworkElement =>
-            GameXAMLManagerAPI.Instance.FindElementByName(canvas, name) as T;
+            GameXAMLManagerAPI.Instance.FindElementByName(panel, name) as T;
 
         private void Detach()
         {
             if (previous != null) previous.Click -= OnPrevious;
             if (next != null) next.Click -= OnNext;
-            canvas = null;
             panel = null;
             pageText = null;
             previous = null;
@@ -106,6 +108,8 @@ namespace ForeignTroopHudTest
             Array.Clear(typeLabels, 0, typeLabels.Length);
             Array.Clear(ownerLabels, 0, ownerLabels.Length);
             Array.Clear(counts, 0, counts.Length);
+            Array.Clear(currentHealth, 0, currentHealth.Length);
+            Array.Clear(maxHealth, 0, maxHealth.Length);
         }
 
         private void OnPrevious(object sender, RoutedEventArgs args)
@@ -133,10 +137,11 @@ namespace ForeignTroopHudTest
                 ForeignTroopEntry entry = visibleEntries[entryIndex];
                 slots[i].Visibility = Visibility.Visible;
                 SolidColorBrush playerBrush = PlayerBrush(entry.ColorId);
-                slots[i].BorderBrush = playerBrush;
                 ownerLabels[i].Foreground = playerBrush;
                 ownerLabels[i].Text = "P" + entry.Owner;
                 counts[i].Text = entry.Count.ToString();
+                currentHealth[i].Text = entry.CurrentHealth.ToString();
+                maxHealth[i].Text = entry.MaxHealth.ToString();
                 int portraitCode = entry.Type < PortraitCodes.Length ? PortraitCodes[entry.Type] : 0;
                 ImageSource source = portraitCode == 0 ? null : FindPortrait(portraitCode, entry.ColorId);
                 portraits[i].Source = source;
@@ -153,15 +158,19 @@ namespace ForeignTroopHudTest
         {
             string key = "UI-Buttons K" + code.ToString("000");
             string suffix = ColorSuffix(colorId);
-            try
+            var resources = GUI.GetApplicationResources();
+            if (resources == null) return null;
+            if (!string.IsNullOrEmpty(suffix))
             {
-                var resources = GUI.GetApplicationResources();
-                if (resources == null) return null;
-                if (suffix != null && suffix.Length != 0)
+                try
                 {
                     ImageSource colored = resources[key + " " + suffix] as ImageSource;
                     if (colored != null) return colored;
                 }
+                catch { /* Some unit portraits have no variant for this colour. */ }
+            }
+            try
+            {
                 return resources[key] as ImageSource;
             }
             catch { return null; }

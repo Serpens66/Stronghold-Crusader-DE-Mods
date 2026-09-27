@@ -89,8 +89,8 @@ namespace ExtendedData
         internal void OpenLoad()
         {
             selectedSavegamePath = null;
-            UseCurrentSavegameSettings = false;
             canUseCurrentSavegameSettings = false;
+            SetCurrentChoice(false);
             loadOptionVisibility = Visibility.Visible;
             Changed(nameof(CanUseCurrentSavegameSettings));
             Changed(nameof(LoadOptionVisibility));
@@ -98,16 +98,16 @@ namespace ExtendedData
 
         internal void SelectSavegame(string path)
         {
-            if (!string.Equals(selectedSavegamePath, path, System.StringComparison.OrdinalIgnoreCase))
+            bool changedSave = !string.Equals(selectedSavegamePath, path, System.StringComparison.OrdinalIgnoreCase);
+            selectedSavegamePath = path;
+            SavegameLoadChoiceState state = SavegameModSettings.GetLoadChoiceState(path);
+            bool allowed = state == SavegameLoadChoiceState.Selectable;
+            if (canUseCurrentSavegameSettings != allowed)
             {
-                selectedSavegamePath = path;
-                UseCurrentSavegameSettings = false;
+                canUseCurrentSavegameSettings = allowed;
+                Changed(nameof(CanUseCurrentSavegameSettings));
             }
-            bool allowed = SavegameModSettings.CanUseCurrentSettings(path);
-            if (canUseCurrentSavegameSettings == allowed) return;
-            canUseCurrentSavegameSettings = allowed;
-            if (!allowed) UseCurrentSavegameSettings = false;
-            Changed(nameof(CanUseCurrentSavegameSettings));
+            if (changedSave || !allowed) SetCurrentChoice(state == SavegameLoadChoiceState.Legacy);
         }
 
         internal void CloseLoad()
@@ -115,12 +115,19 @@ namespace ExtendedData
             selectedSavegamePath = null;
             loadOptionVisibility = Visibility.Collapsed;
             canUseCurrentSavegameSettings = false;
-            UseCurrentSavegameSettings = false;
+            SetCurrentChoice(false);
             Changed(nameof(CanUseCurrentSavegameSettings));
             Changed(nameof(LoadOptionVisibility));
         }
 
         private void Changed(string propertyName) =>
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+
+        private void SetCurrentChoice(bool value)
+        {
+            if (useCurrentSavegameSettings == value) return;
+            useCurrentSavegameSettings = value;
+            Changed(nameof(UseCurrentSavegameSettings));
+        }
     }
 }

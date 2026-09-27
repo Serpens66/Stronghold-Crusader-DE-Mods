@@ -5,7 +5,7 @@
       <Border x:Name="APISharedRepairTooltipHost"
               Visibility="{Binding Visibility}"
               HorizontalAlignment="Left" VerticalAlignment="Top"
-              Margin="-250,0,0,0" Background="#DD241C13"
+              Margin="-250,0,0,0" Background="{Binding TooltipBackground}"
               Panel.ZIndex="100" IsHitTestVisible="False" Tag="Ignore">
         <StackPanel Orientation="Horizontal" Margin="5,1,8,2">
           <TextBlock Text="{Binding Title}" FontSize="20" Foreground="#FFDDDDDD"

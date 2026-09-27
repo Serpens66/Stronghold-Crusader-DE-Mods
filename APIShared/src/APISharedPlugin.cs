@@ -1,4 +1,5 @@
 using BepInEx;
+using SHCDESE.API;
 using SHCDESE.API.LowLevel;
 using System;
 using System.IO;
@@ -30,6 +31,9 @@ namespace APIShared
 
         private void OnLibraryLoaded(CrusaderLibraryLoadContext context)
         {
+            // MainHUD loads before a consumer may request the on-demand repair capability.
+            GameXAMLManagerAPI.Instance.RegisterBinding(
+                "APISharedRepairTooltipHost", ApiSharedRuntime.ProcessInstance.RepairTooltip);
             SavegameModSettings.Initialize(Logger);
             string hash;
             try

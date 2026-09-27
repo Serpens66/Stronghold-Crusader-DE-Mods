@@ -163,6 +163,8 @@ namespace ExtendedData
             private bool activeSidecarPreviewOnly;
             private bool workingContextEditable;
             private ModSettingsDefinition trailSourceDocument;
+            private ModSettingsDefinition activeCreatorDocument;
+            private bool launchedThroughCustomize;
             private ModSettingsDefinition mapSourceDocument;
             private string workingSourceContextId = string.Empty;
             private bool enabled;
@@ -487,6 +489,7 @@ namespace ExtendedData
                 {
                     document = ModSettingsJson.NormalizeAndValidate(document, source + ".modSettings");
                     ApplyDocument(document, editable, presetLabel);
+                    activeCreatorDocument = CloneDocument(document);
                     DebugLogHelper.LogInfo(log, $"Loaded {source} mod settings; editable={editable}.");
                     return GetMissingMentionedMods(document);
                 }
@@ -494,6 +497,7 @@ namespace ExtendedData
                 {
                     DebugLogHelper.LogError(log, $"Could not load {source} mod settings; sidecar mod settings are ignored: {exception}");
                     ApplyDocument(ModSettingsDefinition.CreateModDefaults(), editable, presetLabel);
+                    activeCreatorDocument = ModSettingsDefinition.CreateModDefaults();
                     return Array.Empty<string>();
                 }
             }
@@ -506,6 +510,7 @@ namespace ExtendedData
             {
                 document = ValidateStrict(document, source);
                 ApplyDocument(document, editable, presetLabel);
+                activeCreatorDocument = CloneDocument(document);
                 DebugLogHelper.LogInfo(log, $"Loaded {source} mod settings; editable={editable}.");
                 return GetMissingMentionedMods(document);
             }
@@ -518,6 +523,49 @@ namespace ExtendedData
             }
 
             internal ModSettingsDefinition CaptureCurrentDocument() => CaptureDocument();
+            internal bool WasLaunchedThroughCustomize() => launchedThroughCustomize;
+            internal void ResetCustomizeForNewCoopSelection() => launchedThroughCustomize = false;
+
+            internal Dictionary<string, Dictionary<string, TrailCreatorRule>> CaptureCreatorRulesForActiveTrail()
+            {
+                var result = new Dictionary<string, Dictionary<string, TrailCreatorRule>>(StringComparer.Ordinal);
+                ModSettingsDefinition document = activeCreatorDocument;
+                if (document == null || !trailContext) return result;
+                foreach (var participant in FindCompatibleViewModels())
+                {
+                    var rules = new Dictionary<string, TrailCreatorRule>(StringComparer.Ordinal);
+                    document.Mods.TryGetValue(participant.Key, out ModSettingsEntry entry);
+                    Dictionary<string, PropertyInfo> properties = GetPersistedProperties(participant.Value);
+                    foreach (string name in properties.Keys)
+                        rules[name] = new TrailCreatorRule { Mode = 0 };
+                    if (entry == null) { result[participant.Key] = rules; continue; }
+                    foreach (string name in entry.PlayerSettings ?? Array.Empty<string>())
+                        if (properties.ContainsKey(name)) rules[name] = new TrailCreatorRule { Mode = 1 };
+                    foreach (var setting in entry.Overrides)
+                    {
+                        if (!properties.TryGetValue(setting.Key, out PropertyInfo property)) continue;
+                        try
+                        {
+                            object converted = ConvertJsonValue(setting.Value, property.PropertyType);
+                            byte[] fixedValue = MessagePackSerializer.Serialize(property.PropertyType, converted);
+                            if (fixedValue == null || fixedValue.Length > 1024 * 1024)
+                                throw new InvalidDataException("The fixed Trail setting exceeds the savegame property limit.");
+                            rules[setting.Key] = new TrailCreatorRule
+                            {
+                                Mode = 2,
+                                FixedValue = fixedValue,
+                            };
+                        }
+                        catch (Exception error)
+                        {
+                            DebugLogHelper.LogError(log, "Could not capture Trail rule " +
+                                participant.Key + "." + setting.Key + ": " + error.Message);
+                        }
+                    }
+                    result[participant.Key] = rules;
+                }
+                return result;
+            }
 
             internal void SetMapSourceDocument(ModSettingsDefinition document, string contextId = null)
             {
@@ -662,6 +710,8 @@ namespace ExtendedData
                     missionPresetLifecycle.Reset();
                     workingContextEditable = false;
                     trailSourceDocument = null;
+                    activeCreatorDocument = null;
+                    launchedThroughCustomize = false;
                     mapSourceDocument = null;
                     workingSourceContextId = string.Empty;
                     SourcesChanged?.Invoke();
@@ -680,6 +730,8 @@ namespace ExtendedData
                 ClearTrailMakerAuthoringState();
                 missionPresetLifecycle.Reset();
                 trailSourceDocument = null;
+                activeCreatorDocument = null;
+                launchedThroughCustomize = false;
                 mapSourceDocument = null;
                 workingSourceContextId = string.Empty;
                 SourcesChanged?.Invoke();
@@ -1856,6 +1908,7 @@ namespace ExtendedData
                 }
                 if (!preserveContextForLaunch)
                 {
+                    launchedThroughCustomize = false;
                     try
                     {
                         FileHeader header = ResolveCustomTrailHeader(trailName, missionId);
@@ -2444,6 +2497,7 @@ namespace ExtendedData
                 cleanupDeferralLogged = false;
                 customTrailSetupRestartInfo = restartInfo;
                 customTrailSetupHeader = header;
+                launchedThroughCustomize = true;
                 ExtendedDataLaunchOriginApi.SetCustomizedCustomTrail(trailId, missionId);
 
                 openingCustomTrailSetup = true;
@@ -2786,6 +2840,7 @@ namespace ExtendedData
                 try
                 {
                     self.CoopMissionChanged(trailId, mission);
+                    launchedThroughCustomize = true;
                     if (notifyClients)
                         BroadcastCoopCustomize(trailId, mission);
                     MethodInfo showSetup = typeof(FRONT_Multiplayer).GetMethod("ShowSetupScreen", BindingFlags.Instance | BindingFlags.NonPublic);
@@ -3207,6 +3262,7 @@ namespace ExtendedData
                     ? ModSettingsJson.Read(sidecar)
                     : ModSettingsDefinition.CreateModDefaults();
                 trailSourceDocument = exists ? CloneDocument(document) : null;
+                activeCreatorDocument = CloneDocument(document);
                 workingSourceContextId = "trail:" + IOPath.GetFullPath(sidecar);
                 SourcesChanged?.Invoke();
                 ApplyDocument(document, editable, useFixedDefaults: !exists && editable,

@@ -633,6 +633,10 @@ namespace LobbyModSettingsPresetTests
             settings.System_TestSetSettingsMenuContext(false, false, true);
             Assert(settings.System_DirectLaunchNoticeVisibility == Noesis.Visibility.Visible,
                 "Direct Trail without its own settings does not show the inactive notice.");
+            settings.System_TestSetSettingsMenuContext(true, false, false, true);
+            Assert(settings.System_DirectLaunchNoticeVisibility == Noesis.Visibility.Visible &&
+                   settings.System_TrailSourceNoticeVisibility == Noesis.Visibility.Collapsed,
+                "Direct Vanilla Coop Trail was mistaken for Customize.");
 
             settings.System_SetExplicitMissionSettings(true);
             settings.System_EnterMissionPreset(new Dictionary<string, byte[]>(), "Trail", false);
@@ -641,6 +645,11 @@ namespace LobbyModSettingsPresetTests
                    settings.System_DirectLaunchNoticeVisibility == Noesis.Visibility.Collapsed &&
                    !settings.CanEditHostSettings && !settings.CanChangePreset,
                 "Trail-owned settings are not shown as read-only.");
+            settings.System_TestSetSettingsMenuContext(true, false, false, true);
+            Assert(settings.System_TrailSourceNoticeVisibility == Noesis.Visibility.Visible &&
+                   settings.System_DirectLaunchNoticeVisibility == Noesis.Visibility.Collapsed &&
+                   !settings.CanEditHostSettings && !settings.CanChangePreset,
+                "Direct Custom Coop Trail did not show its read-only mission settings.");
             settings.System_ExitMissionPreset();
 
             settings.System_SetExplicitMissionSettings(true);
@@ -650,6 +659,11 @@ namespace LobbyModSettingsPresetTests
                    settings.System_DirectLaunchNoticeVisibility == Noesis.Visibility.Collapsed &&
                    settings.CanEditHostSettings,
                 "Customize did not restore editable Trail settings.");
+            settings.System_TestSetSettingsMenuContext(true, false, false, false);
+            Assert(settings.System_TrailSourceNoticeVisibility == Noesis.Visibility.Collapsed &&
+                   settings.System_DirectLaunchNoticeVisibility == Noesis.Visibility.Collapsed &&
+                   settings.CanEditHostSettings,
+                "Coop Customize setup retained the direct Trail notice or lock.");
             settings.System_ExitMissionPreset();
 
             settings.System_TestSetSettingsMenuContext(false, true, true);

@@ -53,9 +53,9 @@ namespace RandomEvents
         private bool disposed;
         private bool tickSubscribed;
         private bool saveHandlerRegistered;
-        private bool mapStartPending;
+        private readonly RandomEventsStartState startState = new RandomEventsStartState();
         private bool mapActive;
-        private bool loadedStateAvailable;
+        private long currentSessionId;
         private bool mapStartedFromMultiplayerSave;
         private int lastSignpostAttemptTick = int.MinValue;
         private bool banditEventsEnabled = true;
@@ -90,7 +90,6 @@ namespace RandomEvents
         private R3PacketEventHook<RandomEventsInitializationAckPacket> initializationAckPacketHook;
         private IDisposable initializationAckPacketSubscription;
         private RandomEventsRuntimeState state;
-        private RandomEventsSaveState loadedSaveState;
         private RandomEventsRuntimeState deferredPreparedState;
         private IntPtr peaceTimeActiveFlagAddress;
         private bool peaceTimeReadFailureLogged;
@@ -234,7 +233,8 @@ namespace RandomEvents
                 ResetMapState();
                 return;
             }
-            mapStartPending = true;
+            currentSessionId = context.SessionId;
+            startState.BeginSession(context.IsLoadedSave);
             mapActive = false;
             mapStartedFromMultiplayerSave = context.Notification != null &&
                 context.Notification.Context.IsSave && context.Mode.IsRealMultiplayer;
@@ -256,9 +256,9 @@ namespace RandomEvents
 
         private void ResetMapState()
         {
-            mapStartPending = false;
+            startState.Reset();
             mapActive = false;
-            loadedStateAvailable = false;
+            currentSessionId = 0;
             mapStartedFromMultiplayerSave = false;
             banditEventsEnabled = true;
             isRealMultiplayer = false;
@@ -285,7 +285,6 @@ namespace RandomEvents
             pendingBanditGroups.Clear();
             signpostPlacement.ResetMapState();
             state = null;
-            loadedSaveState = null;
             deferredPreparedState = null;
         }
 
@@ -297,12 +296,13 @@ namespace RandomEvents
                 if (!Shared.GameplayModActivationGate.IsAllowed)
                     return;
 
-                if (mapStartPending)
+                if (startState.MapStartPending)
                 {
                     // OnStartMap(Post) can precede the running simulation. The first positive map tick is late
                     // enough for native map/GameData setup, while still preceding all Random Events work.
                     if (GameTimeManagerAPI.Instance.GetElapsedMapTicks() <= 0)
                         return;
+                    startState.BeginFirstTick();
                     InitializeCurrentMap();
                 }
 
@@ -355,8 +355,6 @@ namespace RandomEvents
 
         private void InitializeCurrentMap()
         {
-            mapStartPending = false;
-
             Shared.GameModeSnapshot gameMode = Shared.GameplayModActivationGate.Snapshot;
             string gameModeDetails = gameMode.ToDiagnosticString();
             if (!Shared.GameplayModActivationGate.IsAllowed)
@@ -382,16 +380,17 @@ namespace RandomEvents
             }
 
             RandomEventsConfigurationSnapshot configuration = CaptureConfiguration();
-            if (loadedStateAvailable && TryCreateLoadedRuntimeState(configuration, out state))
+            if (startState.LoadedStateAvailable && TryCreateLoadedRuntimeState(configuration, out state))
             {
                 // Native path components can change with the restored map, so signposts must be revalidated.
                 state.SignpostsInitialized = !RandomEventDefinitions.RequiresSignposts(state.Chances);
                 state.SignpostBuildingIds = new[] { -1, -1, -1, -1 };
                 mapActive = configuration.Enabled;
+                LogInfo($"Random Events save state restored: session={currentSessionId}, mode=singleplayer.");
                 return;
             }
 
-            loadedStateAvailable = false;
+            startState.DiscardLoadedState();
             if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
             {
                 LogDebug("Random Events disabled by the effective map setting.");
@@ -401,6 +400,7 @@ namespace RandomEvents
 
             state = CreateFreshState(configuration);
             mapActive = true;
+            LogInfo($"Random Events state initialized fresh: session={currentSessionId}, mode=singleplayer.");
         }
 
         private void InitializeMultiplayerMap(string gameModeDetails)
@@ -430,17 +430,18 @@ namespace RandomEvents
                 }
 
                 state = null;
-                loadedStateAvailable = false;
+                startState.DiscardLoadedState();
                 mapActive = false;
                 LogDebug($"Random Events multiplayer client waiting for host initialization Chore. Network details: {gameModeDetails}.");
                 return;
             }
 
             RandomEventsConfigurationSnapshot configuration = CaptureConfiguration();
-            if (!(loadedStateAvailable && TryCreateLoadedRuntimeState(configuration, out state)))
+            if (!(startState.LoadedStateAvailable && TryCreateLoadedRuntimeState(configuration, out state)))
             {
-                loadedStateAvailable = false;
+                startState.DiscardLoadedState();
                 state = CreateFreshState(configuration);
+                LogInfo($"Random Events state initialized fresh: session={currentSessionId}, mode=multiplayer-host.");
             }
             else
             {
@@ -448,6 +449,7 @@ namespace RandomEvents
                 // Revalidate restored native signposts on every peer after the host snapshot arrives.
                 state.SignpostsInitialized = !RandomEventDefinitions.RequiresSignposts(state.Chances);
                 state.SignpostBuildingIds = new[] { -1, -1, -1, -1 };
+                LogInfo($"Random Events save state restored: session={currentSessionId}, mode=multiplayer-host.");
             }
 
             mapActive = state.EffectiveEnabled;
@@ -985,7 +987,7 @@ namespace RandomEvents
             mapActive = state.EffectiveEnabled;
             isRealMultiplayer = true;
             multiplayerInitializationReceived = true;
-            loadedStateAvailable = false;
+            startState.DiscardLoadedState();
             initializationChoreQueued = false;
             batchChoreQueued = false;
             signpostChoreQueued = false;
@@ -1017,6 +1019,7 @@ namespace RandomEvents
                 initializationOperationId = packet.OperationId;
                 initializationStateDigest = stateDigest;
                 SendInitializationAck();
+                LogInfo($"Random Events host state applied: session={currentSessionId}, mode=multiplayer-client.");
             }
 
             // Every peer starts from the host's private PRNG state. Signpost placement derives a
@@ -1342,14 +1345,11 @@ namespace RandomEvents
                 return;
             try
             {
-                loadedSaveState = MessagePackSerializer.Deserialize<RandomEventsSaveState>(bytes);
-                loadedStateAvailable = loadedSaveState != null;
-                mapStartPending = true;
+                startState.ReceiveSaveState(MessagePackSerializer.Deserialize<RandomEventsSaveState>(bytes));
             }
             catch (Exception ex)
             {
-                loadedSaveState = null;
-                loadedStateAvailable = false;
+                startState.DiscardLoadedState();
                 LogError($"Random Events state could not be deserialized and will be initialized fresh: {ex}");
             }
         }
@@ -1357,37 +1357,22 @@ namespace RandomEvents
         private bool TryCreateLoadedRuntimeState(RandomEventsConfigurationSnapshot configuration, out RandomEventsRuntimeState restored)
         {
             restored = null;
-            RandomEventsSaveState loaded = loadedSaveState;
-            bool valid = loaded != null && loaded.SchemaVersion == RandomEventsSaveState.CurrentSchemaVersion &&
-                loaded.PreparedDirectKinds != null && loaded.PreparedDirectStrengths != null &&
-                loaded.PreparedDirectKinds.Length == loaded.PreparedDirectStrengths.Length &&
-                loaded.PreparedDirectTargetPlayerIds != null &&
-                loaded.PreparedDirectKinds.Length == loaded.PreparedDirectTargetPlayerIds.Length &&
-                loaded.SharedCooldownUntilAbsoluteMonths?.Length == EventKindCount &&
-                loaded.IndividualCooldownUntilAbsoluteMonths?.Length ==
-                    (GamePlayerManagerAPI.MAX_PLAYERS + 1) * EventKindCount &&
-                Array.TrueForAll(loaded.SharedCooldownUntilAbsoluteMonths, month => month >= 0) &&
-                Array.TrueForAll(loaded.IndividualCooldownUntilAbsoluteMonths, month => month >= 0) &&
-                (loaded.PrngState0 | loaded.PrngState1) != 0;
-            if (valid)
+            RandomEventsSaveState loaded = startState.LoadedState;
+            string invalid = RandomEventsSaveStateValidation.CheckStructure(
+                loaded, EventKindCount, GamePlayerManagerAPI.MAX_PLAYERS);
+            int currentAbsoluteMonth = -1;
+            if (invalid == null)
             {
-                int currentAbsoluteMonth = GetCurrentAbsoluteMonth();
-                // Reject states written with an incompatible calendar basis instead of waiting centuries.
-                valid = loaded.StartAbsoluteMonth >= 0 &&
-                    loaded.StartAbsoluteMonth <= currentAbsoluteMonth &&
-                    loaded.NextDueAbsoluteMonth >= currentAbsoluteMonth &&
-                    loaded.NextDueAbsoluteMonth <= checked(currentAbsoluteMonth + 90);
-                if (!valid)
-                {
-                    LogWarning(
-                        $"Loaded Random Events state uses an implausible event date and will be initialized fresh: " +
-                        $"currentAbsoluteMonth={currentAbsoluteMonth}, startAbsoluteMonth={loaded.StartAbsoluteMonth}, " +
-                        $"loadedNextDueAbsoluteMonth={loaded.NextDueAbsoluteMonth}, effectiveMonthsPerYear={RandomEventsCalendar.MonthsPerYear}.");
-                }
+                currentAbsoluteMonth = GetCurrentAbsoluteMonth();
+                invalid = RandomEventsSaveStateValidation.CheckDate(loaded, currentAbsoluteMonth);
             }
-            if (!valid)
-                LogWarning("Loaded Random Events state failed validation and will not be used.");
-            if (!valid) return false;
+            if (invalid != null)
+            {
+                LogWarning($"Loaded Random Events state failed validation and will not be used: " +
+                    $"reason={invalid}, session={currentSessionId}, currentAbsoluteMonth={currentAbsoluteMonth}, " +
+                    $"startAbsoluteMonth={loaded?.StartAbsoluteMonth}, nextDueAbsoluteMonth={loaded?.NextDueAbsoluteMonth}.");
+                return false;
+            }
 
             restored = new RandomEventsRuntimeState
             {
@@ -1407,7 +1392,7 @@ namespace RandomEvents
                 restored.IndividualCooldownUntilAbsoluteMonths = new int[(GamePlayerManagerAPI.MAX_PLAYERS + 1) * EventKindCount];
             else
                 restored.SharedCooldownUntilAbsoluteMonths = new int[EventKindCount];
-            loadedSaveState = null;
+            startState.DiscardLoadedState();
             return true;
         }
 
@@ -2554,7 +2539,7 @@ namespace RandomEvents
 
         private void DisableForNetwork(string reason, string details)
         {
-            mapStartPending = false;
+            startState.StopMapStart();
             mapActive = false;
             pendingBanditGroups.Clear();
             state = null;
@@ -2566,6 +2551,9 @@ namespace RandomEvents
         private void LogDebug(string message) =>
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
                 () => Shared.DebugLogHelper.LogDebug(log, message));
+        private void LogInfo(string message) =>
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
+                () => Shared.DebugLogHelper.LogInfo(log, message));
         private void LogWarning(string message) =>
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
                 () => Shared.DebugLogHelper.LogWarning(log, message));
