@@ -39,8 +39,11 @@ if ($sources -notmatch 'FOREIGN_TROOP_HUD_DIAGNOSTIC' -or
     $sources -notmatch 'ReportStatus\("shown"' -or
     $sources -notmatch 'ReportStatus\("missing-vanilla-element:"' -or
     $sources -notmatch 'ReportStatus\("missing-mod-element:"' -or
-    $sources -notmatch 'failure = "HUD_Troops\." \+ NativeControlNames\[i\]' -or
-    $sources -notmatch 'failure = "ForeignTroop(?:Slot|Image|Type|Owner|Count|CurrentHealth|MaxHealth)"') {
+    $sources -notmatch 'FindNamed<FrameworkElement>\(main\.HUDTroopPanel' -or
+    $sources -notmatch 'FindNamed<Canvas>\(screen, "IngameUI", "ForeignTroopHudPanel"' -or
+    $sources -notmatch 'host\.FindName\(name\)' -or
+    $sources -notmatch ':not-found' -or $sources -notmatch ':wrong-type:actual=' -or
+    $sources -match 'FindElementByName\(|FindGlobalElement\(') {
     throw 'Diagnostic state, heartbeat, or exact missing-element reporting is incomplete.'
 }
 if ($sources -notmatch 'r_UnitHover' -or $sources -match 'r_UnitHover\s*=(?!=)') { throw 'Hover marker must be read only.' }

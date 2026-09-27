@@ -12,34 +12,6 @@
     "DependsOn": []
   },
   {
-    "Name": "AIAttackTest",
-    "Guid": "AIAttackTest_Serp",
-    "Manifest": "Testmods\\AIAttackTest\\info.json",
-    "Plugin": "Testmods\\AIAttackTest\\src\\AIAttackTestPlugin.cs",
-    "Project": "Testmods\\AIAttackTest\\AIAttackTest.csproj",
-    "BuildDriver": "Testmods\\AIAttackTest\\build.bat",
-    "Package": "Testmods\\AIAttackTest\\BepInEx\\plugins\\AIAttackTest_Serp",
-    "Install": "AIAttackTest_Serp",
-    "BuildOrder": 100,
-    "DependsOn": ["APIShared"],
-    "Active": false,
-    "InactiveReason": "Experimental test mod; records its lifecycle dependency while preserving its previous exclusion from automatic update builds."
-  },
-  {
-    "Name": "AivLobbyPresetTest",
-    "Guid": "AivLobbyPresetTest_Serp",
-    "Manifest": "Testmods\\AivLobbyPresetTest\\info.json",
-    "Plugin": "Testmods\\AivLobbyPresetTest\\src\\AivLobbyPresetTestPlugin.cs",
-    "Project": "Testmods\\AivLobbyPresetTest\\AivLobbyPresetTest.csproj",
-    "BuildDriver": "Testmods\\AivLobbyPresetTest\\build.bat",
-    "Package": "Testmods\\AivLobbyPresetTest\\BepInEx\\plugins\\AivLobbyPresetTest_Serp",
-    "Install": "AivLobbyPresetTest_Serp",
-    "BuildOrder": 100,
-    "DependsOn": ["APIShared"],
-    "Active": false,
-    "InactiveReason": "AIV lobby diagnosis test mod does not consume the changed selection or range contracts; excluded from this automatic update build."
-  },
-  {
     "Name": "ActiveAIVDetector",
     "Guid": "ActiveAIVDetector_Serp",
     "Manifest": "Helpers\\ActiveAIVDetector\\BepInEx\\plugins\\ActiveAIVDetector_Serp\\info.json",
@@ -51,18 +23,6 @@
     "BuildOrder": 100,
     "DependsOn": ["APIShared"],
     "PreservedInstallDirectories": ["CellTraces", "PrebuildTraces", "StartTraces"]
-  },
-  {
-    "Name": "AIDefenseTest",
-    "Guid": "AIDefenseTest_Serp",
-    "Manifest": "Testmods\\AIDefenseTest\\BepInEx\\plugins\\AIDefenseTest_Serp\\info.json",
-    "Plugin": "Testmods\\AIDefenseTest\\src\\AIDefenseTestPlugin.cs",
-    "Project": "Testmods\\AIDefenseTest\\AIDefenseTest.csproj",
-    "BuildDriver": "Testmods\\AIDefenseTest\\build.bat",
-    "Package": "Testmods\\AIDefenseTest\\BepInEx\\plugins\\AIDefenseTest_Serp",
-    "Install": "AIDefenseTest_Serp",
-    "BuildOrder": 100,
-    "DependsOn": ["APIShared"]
   },
   {
     "Name": "BuildingCosts",
@@ -128,30 +88,6 @@
     "DependsOn": ["APIShared"]
   },
   {
-    "Name": "EnemyGatePathfindingTest",
-    "Guid": "EnemyGatePathfindingTest_Serp",
-    "Manifest": "Testmods\\EnemyGatePathfindingTest\\info.json",
-    "Plugin": "Testmods\\EnemyGatePathfindingTest\\src\\EnemyGatePathfindingTestPlugin.cs",
-    "Project": "Testmods\\EnemyGatePathfindingTest\\EnemyGatePathfindingTest.csproj",
-    "BuildDriver": "Testmods\\EnemyGatePathfindingTest\\build.bat",
-    "Package": "Testmods\\EnemyGatePathfindingTest\\BepInEx\\plugins\\EnemyGatePathfindingTest_Serp",
-    "Install": "EnemyGatePathfindingTest_Serp",
-    "BuildOrder": 100,
-    "DependsOn": ["APIShared"]
-  },
-  {
-    "Name": "EngineerSiegeFixTest",
-    "Guid": "EngineerSiegeFixTest_Serp",
-    "Manifest": "Testmods\\EngineerSiegeFixTest\\info.json",
-    "Plugin": "Testmods\\EngineerSiegeFixTest\\src\\EngineerSiegeFixTestPlugin.cs",
-    "Project": "Testmods\\EngineerSiegeFixTest\\EngineerSiegeFixTest.csproj",
-    "BuildDriver": "Testmods\\EngineerSiegeFixTest\\build.bat",
-    "Package": "Testmods\\EngineerSiegeFixTest\\BepInEx\\plugins\\EngineerSiegeFixTest_Serp",
-    "Install": "EngineerSiegeFixTest_Serp",
-    "BuildOrder": 100,
-    "DependsOn": []
-  },
-  {
     "Name": "ExtraFeatures",
     "Guid": "ExtraFeatures_Serp",
     "Manifest": "ExtraFeatures\\info.json",
@@ -164,18 +100,6 @@
     "DependsOn": [
       "APIShared"
     ]
-  },
-  {
-    "Name": "FormationTest",
-    "Guid": "FormationTest_Serp",
-    "Manifest": "Testmods\\FormationTest\\info.json",
-    "Plugin": "Testmods\\FormationTest\\src\\FormationTestPlugin.cs",
-    "Project": "Testmods\\FormationTest\\FormationTest.csproj",
-    "BuildDriver": "Testmods\\FormationTest\\build.bat",
-    "Package": "Testmods\\FormationTest\\BepInEx\\plugins\\FormationTest_Serp",
-    "Install": "FormationTest_Serp",
-    "BuildOrder": 100,
-    "DependsOn": []
   },
   {
     "Name": "ExtremePowers",
@@ -214,30 +138,6 @@
     "DependsOn": ["APIShared"]
   },
   {
-    "Name": "OxTetherIdleFixTest",
-    "Guid": "OxTetherIdleFixTest_Serp",
-    "Manifest": "Testmods\\OxTetherIdleFixTest\\info.json",
-    "Plugin": "Testmods\\OxTetherIdleFixTest\\src\\OxTetherIdleFixTestPlugin.cs",
-    "Project": "Testmods\\OxTetherIdleFixTest\\OxTetherIdleFixTest.csproj",
-    "BuildDriver": "Testmods\\OxTetherIdleFixTest\\build.bat",
-    "Package": "Testmods\\OxTetherIdleFixTest\\BepInEx\\plugins\\OxTetherIdleFixTest_Serp",
-    "Install": "OxTetherIdleFixTest_Serp",
-    "BuildOrder": 100,
-    "DependsOn": ["APIShared"]
-  },
-  {
-    "Name": "OutpostTest",
-    "Guid": "OutpostTest_Serp",
-    "Manifest": "Testmods\\OutpostTest\\info.json",
-    "Plugin": "Testmods\\OutpostTest\\src\\OutpostTestPlugin.cs",
-    "Project": "Testmods\\OutpostTest\\OutpostTest.csproj",
-    "BuildDriver": "Testmods\\OutpostTest\\build.bat",
-    "Package": "Testmods\\OutpostTest\\BepInEx\\plugins\\OutpostTest_Serp",
-    "Install": "OutpostTest_Serp",
-    "BuildOrder": 100,
-    "DependsOn": ["APIShared"]
-  },
-  {
     "Name": "RandomEvents",
     "Guid": "RandomEvents_Serp",
     "Manifest": "RandomEvents\\info.json",
@@ -270,18 +170,6 @@
     "BuildDriver": "StartConditions\\build.bat",
     "Package": "StartConditions\\BepInEx\\plugins\\StartConditions_Serp",
     "Install": "StartConditions_Serp",
-    "BuildOrder": 100,
-    "DependsOn": ["APIShared"]
-  },
-  {
-    "Name": "StockpileAccessFixTest",
-    "Guid": "StockpileAccessFixTest_Serp",
-    "Manifest": "Testmods\\StockpileAccessFixTest\\info.json",
-    "Plugin": "Testmods\\StockpileAccessFixTest\\src\\StockpileAccessFixTestPlugin.cs",
-    "Project": "Testmods\\StockpileAccessFixTest\\StockpileAccessFixTest.csproj",
-    "BuildDriver": "Testmods\\StockpileAccessFixTest\\build.bat",
-    "Package": "Testmods\\StockpileAccessFixTest\\BepInEx\\plugins\\StockpileAccessFixTest_Serp",
-    "Install": "StockpileAccessFixTest_Serp",
     "BuildOrder": 100,
     "DependsOn": ["APIShared"]
   },
@@ -334,142 +222,5 @@
     "DependsOn": [
       "APIShared"
     ]
-  },
-  {
-    "Name": "MainViewModelInitProbe",
-    "Guid": "MainViewModelInitProbe_Serp",
-    "Manifest": "Testmods\\MainViewModelInitProbe\\info.json",
-    "Plugin": "Testmods\\MainViewModelInitProbe\\src\\MainViewModelInitProbePlugin.cs",
-    "Project": "Testmods\\MainViewModelInitProbe\\MainViewModelInitProbe.csproj",
-    "BuildDriver": "Testmods\\MainViewModelInitProbe\\build.bat",
-    "Package": "Testmods\\MainViewModelInitProbe\\BepInEx\\plugins\\MainViewModelInitProbe_Serp",
-    "Install": "MainViewModelInitProbe_Serp",
-    "BuildOrder": 20,
-    "DependsOn": [
-      "APIShared"
-    ]
-  },
-  {
-    "Name": "SkinTest",
-    "Guid": "SkinTest_Serp",
-    "Manifest": "Testmods\\SkinTest\\info.json",
-    "Plugin": "Testmods\\SkinTest\\src\\SkinTestPlugin.cs",
-    "Project": "Testmods\\SkinTest\\SkinTest.csproj",
-    "BuildDriver": "Testmods\\SkinTest\\build.bat",
-    "Package": "Testmods\\SkinTest\\BepInEx\\plugins\\SkinTest_Serp",
-    "Install": "SkinTest_Serp",
-    "BuildOrder": 20,
-    "DependsOn": [
-      "APIShared"
-    ]
-  },
-  {
-    "Name": "VirtualUnitsPrototype",
-    "Guid": "VirtualUnitsPrototype_Serp",
-    "Manifest": "Testmods\\VirtualUnitsPrototype\\info.json",
-    "Plugin": "Testmods\\VirtualUnitsPrototype\\src\\VirtualUnitsPlugin.cs",
-    "Project": "Testmods\\VirtualUnitsPrototype\\VirtualUnitsPrototype.csproj",
-    "BuildDriver": "Testmods\\VirtualUnitsPrototype\\build.bat",
-    "Package": "Testmods\\VirtualUnitsPrototype\\BepInEx\\plugins\\VirtualUnitsPrototype_Serp",
-    "Install": "VirtualUnitsPrototype_Serp",
-    "BuildOrder": 20,
-    "DependsOn": [
-      "APIShared"
-    ]
-  },
-  {
-    "Name": "MoatMove",
-    "Guid": "MoatMove_Serp",
-    "Manifest": "Testmods\\MoatMove\\info.json",
-    "Plugin": "Testmods\\MoatMove\\src\\MoatMovePlugin.cs",
-    "Project": "Testmods\\MoatMove\\MoatMove.csproj",
-    "BuildDriver": "Testmods\\MoatMove\\build.bat",
-    "Package": "Testmods\\MoatMove\\BepInEx\\plugins\\MoatMove_Serp",
-    "Install": "MoatMove_Serp",
-    "BuildOrder": 100,
-    "DependsOn": ["APIShared"],
-    "Active": true
-  },
-  {
-    "Name": "StartupPerformanceDiagnostic",
-    "Guid": "StartupPerformanceDiagnostic_Serp",
-    "Manifest": "Testmods\\StartupPerformanceDiagnostic\\info.json",
-    "Plugin": "Testmods\\StartupPerformanceDiagnostic\\src\\StartupPerformanceDiagnosticPlugin.cs",
-    "Project": "Testmods\\StartupPerformanceDiagnostic\\StartupPerformanceDiagnostic.csproj",
-    "BuildDriver": "Testmods\\StartupPerformanceDiagnostic\\build.bat",
-    "Package": "Testmods\\StartupPerformanceDiagnostic\\BepInEx\\plugins\\StartupPerformanceDiagnostic_Serp",
-    "Install": "StartupPerformanceDiagnostic_Serp",
-    "BuildOrder": 100,
-    "DependsOn": [],
-    "Active": false,
-    "InactiveReason": "One-shot startup diagnostic; intentionally excluded from production update builds and installation."
-  },
-  {
-    "Name": "KnightArmorAIBuyFixBackup",
-    "Guid": "KnightArmorAIBuyFixBackup_Serp",
-    "Manifest": "Testmods\\KnightArmorAIBuyFixBackup\\info.json",
-    "Plugin": "Testmods\\KnightArmorAIBuyFixBackup\\src\\KnightArmorAIBuyFixBackupPlugin.cs",
-    "Project": "Testmods\\KnightArmorAIBuyFixBackup\\KnightArmorAIBuyFixBackup.csproj",
-    "BuildDriver": "Testmods\\KnightArmorAIBuyFixBackup\\build.bat",
-    "Package": "Testmods\\KnightArmorAIBuyFixBackup\\BepInEx\\plugins\\KnightArmorAIBuyFixBackup_Serp",
-    "Install": "KnightArmorAIBuyFixBackup_Serp",
-    "BuildOrder": 100,
-    "DependsOn": [],
-    "Active": false,
-    "InactiveReason": "Private backup/test mod; intentionally excluded from workspace update builds."
-  },
-  {
-    "Guid": "FixesTribeProbe_Serp",
-    "Active": false,
-    "Name": "FixesTribeProbe",
-    "Plugin": "Testmods\\FixesTribeProbe\\src\\FixesTribeProbePlugin.cs",
-    "DependsOn": [],
-    "InactiveReason": "Separate diagnostic; excluded from automatic Script Extender update builds.",
-    "Project": "Testmods\\FixesTribeProbe\\FixesTribeProbe.csproj",
-    "Install": "FixesTribeProbe_Serp",
-    "BuildOrder": 100,
-    "BuildDriver": "Testmods\\FixesTribeProbe\\build.bat",
-    "Manifest": "Testmods\\FixesTribeProbe\\info.json",
-    "Package": "Testmods\\FixesTribeProbe\\BepInEx\\plugins\\FixesTribeProbe_Serp"
-  },
-  {
-    "Guid": "KeepCampfireGroundPreserveTest_Serp",
-    "Active": false,
-    "Name": "KeepCampfireGroundPreserveTest",
-    "Plugin": "Testmods\\KeepCampfireGroundPreserveTest\\src\\KeepCampfireGroundPreserveTestPlugin.cs",
-    "DependsOn": ["APIShared"],
-    "InactiveReason": "Separate diagnostic; excluded from automatic Script Extender update builds.",
-    "Project": "Testmods\\KeepCampfireGroundPreserveTest\\KeepCampfireGroundPreserveTest.csproj",
-    "Install": "KeepCampfireGroundPreserveTest_Serp",
-    "BuildOrder": 100,
-    "BuildDriver": "Testmods\\KeepCampfireGroundPreserveTest\\build.bat",
-    "Manifest": "Testmods\\KeepCampfireGroundPreserveTest\\info.json",
-    "Package": "Testmods\\KeepCampfireGroundPreserveTest\\BepInEx\\plugins\\KeepCampfireGroundPreserveTest_Serp"
-  },
-  {
-    "Guid": "KeepCampfireGroundProbe_Serp",
-    "Active": false,
-    "Name": "KeepCampfireGroundProbe",
-    "Plugin": "Testmods\\KeepCampfireGroundProbe\\src\\KeepCampfireGroundProbePlugin.cs",
-    "DependsOn": ["APIShared"],
-    "InactiveReason": "Separate diagnostic; excluded from automatic Script Extender update builds.",
-    "Project": "Testmods\\KeepCampfireGroundProbe\\KeepCampfireGroundProbe.csproj",
-    "Install": "KeepCampfireGroundProbe_Serp",
-    "BuildOrder": 100,
-    "BuildDriver": "Testmods\\KeepCampfireGroundProbe\\build.bat",
-    "Manifest": "Testmods\\KeepCampfireGroundProbe\\info.json",
-    "Package": "Testmods\\KeepCampfireGroundProbe\\BepInEx\\plugins\\KeepCampfireGroundProbe_Serp"
-  },
-  {
-    "Name": "TestMod LUA",
-    "Guid": "TestModSerp",
-    "Manifest": "Testmods\\TestMod LUA\\BepInEx\\plugins\\TestModSerp\\info.json",
-    "Plugin": null,
-    "Project": null,
-    "BuildDriver": null,
-    "Package": "Testmods\\TestMod LUA\\BepInEx\\plugins\\TestModSerp",
-    "Install": "TestModSerp",
-    "BuildOrder": null,
-    "DependsOn": []
   }
 ]

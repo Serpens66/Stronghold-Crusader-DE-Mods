@@ -32,7 +32,8 @@ namespace ForeignTroopHudTest
         private static bool initialized;
         private static bool layoutValidated;
         private static bool readyLogged;
-        private static bool failureLogged;
+        private static string lastExceptionKey;
+        private static string lastHideExceptionKey;
         private static bool resetPending;
         private static int lastFrame = -1;
         private static EngineInterface.PlayState stateBeforeReady;
@@ -60,6 +61,8 @@ namespace ForeignTroopHudTest
             stateBeforeReady = GameData.Instance?.lastGameState;
             resetPending = true;
             lastDiagnosticKey = null;
+            lastExceptionKey = null;
+            lastHideExceptionKey = null;
             log.LogInfo("FOREIGN_TROOP_HUD_SESSION_READY: session=" + activeSession.SessionId + ", mode=" + activeSession.Mode.Kind);
         }
 
@@ -70,6 +73,8 @@ namespace ForeignTroopHudTest
             stateBeforeReady = null;
             resetPending = true;
             lastDiagnosticKey = null;
+            lastExceptionKey = null;
+            lastHideExceptionKey = null;
         }
 
         private static void OnBeforeRender()
@@ -90,10 +95,17 @@ namespace ForeignTroopHudTest
             }
             catch (Exception error)
             {
-                HideForeignHud();
-                ReportStatus("exception:" + error.GetType().Name, GameData.Instance?.lastGameState, MainViewModel.Instance);
-                if (failureLogged) return;
-                failureLogged = true;
+                string key = error.GetType().FullName + ":" + error.Message;
+                try { HideForeignHud(); }
+                catch (Exception hideError)
+                {
+                    string hideKey = "hide:" + hideError.GetType().FullName + ":" + hideError.Message;
+                    if (hideKey != lastHideExceptionKey) log.LogError("FOREIGN_TROOP_HUD_HIDE_ERROR: " + hideError);
+                    lastHideExceptionKey = hideKey;
+                }
+                ReportStatus("exception:" + key, GameData.Instance?.lastGameState, MainViewModel.Instance);
+                if (key == lastExceptionKey) return;
+                lastExceptionKey = key;
                 log.LogError("FOREIGN_TROOP_HUD_ERROR: " + error);
             }
         }
@@ -187,7 +199,7 @@ namespace ForeignTroopHudTest
                 ReportStatus("missing-vanilla-element:" + missingElement, state, main, ownPlayerId, hoveredCount, foreignCount, entries.Count);
                 return;
             }
-            if (!view.Show(entries, out missingElement))
+            if (!view.Show(main, entries, out missingElement))
             {
                 HideForeignHud();
                 ReportStatus("missing-mod-element:" + missingElement, state, main, ownPlayerId, hoveredCount, foreignCount, entries.Count);

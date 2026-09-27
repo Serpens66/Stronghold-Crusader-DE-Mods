@@ -1,0 +1,61 @@
+{
+  "OldVersion": "2.11.0",
+  "NewVersion": "2.12.0",
+  "TargetCommit": "f8d51730fcb54b25af43d3c9348d57db058e077f",
+  "ImpactReview": {
+    "BaselinePreviousCommit": "48fd239dc56300d9e3acacaa26a8cd87de0c6464",
+    "CrusaderNativeFiles": [],
+    "ExternalNativeFiles": [],
+    "NonSemanticArtifacts": [
+      "CHANGELOG.md",
+      "README.md",
+      "deps/Patches/Assets/GUI/XAMLResources/TOOLTIPS.xaml",
+      "docs/MAINTAINER_WANTED.md",
+      "docs/guides/extended-ai-modding.md"
+    ],
+    "ChangedPublicContracts": [
+      {
+        "Consumers": [],
+        "Symbol": "GameAssetManagerAPI.GetModifiedFilePath local asset prefix",
+        "Path": "src/SHCDESE.BepInEx/API/GameAssetManagerAPI.cs",
+        "Compatibility": "The local asset prefix changed to _SLA_ in 2.11.1. Workspace callers use the returned path and do not construct the prefix."
+      },
+      {
+        "Consumers": [],
+        "Symbol": "IRelocatedNativeBuffers / OptionalFixesBuffers",
+        "Path": "src/SHCDESE.BepInEx/API/Components/ModManager/IRelocatedNativeBuffers.cs",
+        "Compatibility": "Additive optional integration with Fixes 1.21.0. No workspace mod implements or directly consumes it."
+      },
+      {
+        "Consumers": [
+          "BugfixesAndQoL"
+        ],
+        "Symbol": "GamePathingManagerAPI.GetNativeComponentTileCounts",
+        "Path": "src/SHCDESE.BepInEx/API/GamePathingManagerAPI.cs",
+        "Compatibility": "The returned span may grow from 1000 to 4000 elements with Fixes 1.21.0. The consumer bounds IDs by counts.Length and remains compatible."
+      },
+      {
+        "Consumers": [],
+        "Symbol": "GameAIVManagerAPI ordered tile buffer",
+        "Path": "src/SHCDESE.BepInEx/API/GameAIVManagerAPI.cs",
+        "Compatibility": "Optional Fixes relocation increases the buffer capacity to 40000; no direct workspace consumer uses its length or pointer."
+      },
+      {
+        "Consumers": [],
+        "Symbol": "GameAIManagerAPI.TryGetSlotIndexByLordNameAndSubtype",
+        "Path": "src/SHCDESE.BepInEx/API/GameAIManagerAPI.cs",
+        "Compatibility": "Additive lord lookup API with no workspace consumer."
+      }
+    ],
+    "AffectedMods": [],
+    "BuildMods": []
+  },
+  "Mods": {},
+  "CompatibilityNotes": [
+    "The installed extender DLL, local bin and mod_output are byte-identical at 2.12.0; no extender rebuild is needed.",
+    "The native CrusaderDE.dll hash is unchanged; semantic baseline was refreshed for the full target commit and tree.",
+    "Fixes 1.21.0 provides the optional relocated buffers; the current game log confirms hooks loaded but does not prove managed buffer accessor invocation.",
+    "Existing runtime mods, including the changing Testmods directory, have no proven incompatibility with changed extender contracts.",
+    "The known early crash-handler false alarm recurred in the current game start and remains documented."
+  ]
+}

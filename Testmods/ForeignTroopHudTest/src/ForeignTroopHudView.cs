@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using CrusaderDE;
 using Noesis;
-using SHCDESE.API;
 
 namespace ForeignTroopHudTest
 {
@@ -26,6 +25,7 @@ namespace ForeignTroopHudTest
         private Grid troopRoot;
         private HUD_Main activeMainHud;
         private HUD_Troops activeTroopHud;
+        private IngameUIScreens activeIngameUi;
         private Geometry originalMainClip;
         private Geometry originalTroopClip;
         private bool originalTroopHitTest;
@@ -60,20 +60,18 @@ namespace ForeignTroopHudTest
                 ReferenceEquals(activeTroopHud, main.HUDTroopPanel))
                 return true;
             RestoreVanilla();
-            var xaml = GameXAMLManagerAPI.Instance;
-            if (xaml == null) { failure = "GameXAMLManagerAPI"; return false; }
             if (main.HUDmain == null) { failure = "HUDmain"; return false; }
             if (main.HUDTroopPanel == null) { failure = "HUDTroopPanel"; return false; }
-            Grid nextMainRoot = xaml.FindElementByName(main.HUDmain, "LayoutRoot") as Grid;
-            Grid nextTroopRoot = xaml.FindElementByName(main.HUDTroopPanel, "LayoutRoot") as Grid;
-            if (nextMainRoot == null) { failure = "HUD_Main.LayoutRoot"; return false; }
-            if (nextTroopRoot == null) { failure = "HUD_Troops.LayoutRoot"; return false; }
+            Grid nextMainRoot = FindNamed<Grid>(main.HUDmain, "HUD_Main", "LayoutRoot", out failure);
+            if (failure != null) return false;
+            Grid nextTroopRoot = FindNamed<Grid>(main.HUDTroopPanel, "HUD_Troops", "LayoutRoot", out failure);
+            if (failure != null) return false;
             var controls = new FrameworkElement[NativeControlNames.Length];
             var opacities = new float[controls.Length];
             for (int i = 0; i < controls.Length; i++)
             {
-                controls[i] = xaml.FindElementByName(main.HUDTroopPanel, NativeControlNames[i]) as FrameworkElement;
-                if (controls[i] == null) { failure = "HUD_Troops." + NativeControlNames[i]; return false; }
+                controls[i] = FindNamed<FrameworkElement>(main.HUDTroopPanel, "HUD_Troops", NativeControlNames[i], out failure);
+                if (failure != null) return false;
                 opacities[i] = controls[i].Opacity;
             }
             mainRoot = nextMainRoot;
@@ -116,9 +114,9 @@ namespace ForeignTroopHudTest
             originalTroopClip = null;
         }
 
-        internal bool Show(List<ForeignTroopEntry> entries, out string failure)
+        internal bool Show(MainViewModel main, List<ForeignTroopEntry> entries, out string failure)
         {
-            if (!Resolve(out failure)) return false;
+            if (!Resolve(main, out failure)) return false;
             bool selectionChanged = entries.Count != visibleEntries.Count;
             if (!selectionChanged)
                 for (int i = 0; i < entries.Count; i++)
@@ -142,54 +140,80 @@ namespace ForeignTroopHudTest
             return true;
         }
 
-        private bool Resolve(out string failure)
+        private bool Resolve(MainViewModel main, out string failure)
         {
             failure = null;
-            if (panel != null && panel.IsLoaded) return true;
-            Canvas nextCanvas = GameXAMLManagerAPI.Instance?.FindGlobalElement("ForeignTroopHudPanel") as Canvas;
-            if (nextCanvas == null) { failure = "ForeignTroopHudPanel"; Hide(); return false; }
-            if (ReferenceEquals(nextCanvas, panel)) return true;
-            Detach();
-            panel = nextCanvas;
-            pageText = Find<TextBlock>("ForeignTroopPageText");
-            previous = Find<Button>("ForeignTroopPrevious");
-            next = Find<Button>("ForeignTroopNext");
-            if (pageText == null) failure = "ForeignTroopPageText";
-            else if (previous == null) failure = "ForeignTroopPrevious";
-            else if (next == null) failure = "ForeignTroopNext";
-            if (failure != null) { Detach(); return false; }
+            IngameUIScreens screen = main.IngameUI;
+            if (screen == null) { failure = "IngameUI:not-found"; return false; }
+            if (panel != null && panel.IsLoaded && ReferenceEquals(activeIngameUi, screen)) return true;
+            Canvas nextCanvas = FindNamed<Canvas>(screen, "IngameUI", "ForeignTroopHudPanel", out failure);
+            if (failure != null) return false;
+            TextBlock nextPageText = FindNamed<TextBlock>(screen, "IngameUI", "ForeignTroopPageText", out failure);
+            if (failure != null) return false;
+            Button nextPrevious = FindNamed<Button>(screen, "IngameUI", "ForeignTroopPrevious", out failure);
+            if (failure != null) return false;
+            Button nextNext = FindNamed<Button>(screen, "IngameUI", "ForeignTroopNext", out failure);
+            if (failure != null) return false;
+            var nextSlots = new Canvas[8];
+            var nextPortraits = new Image[8];
+            var nextTypeLabels = new TextBlock[8];
+            var nextOwnerLabels = new TextBlock[8];
+            var nextCounts = new TextBlock[8];
+            var nextCurrentHealth = new TextBlock[8];
+            var nextMaxHealth = new TextBlock[8];
             for (int i = 0; i < 8; i++)
             {
                 string number = (i + 1).ToString();
-                slots[i] = Find<Canvas>("ForeignTroopSlot" + number);
-                portraits[i] = Find<Image>("ForeignTroopImage" + number);
-                typeLabels[i] = Find<TextBlock>("ForeignTroopType" + number);
-                ownerLabels[i] = Find<TextBlock>("ForeignTroopOwner" + number);
-                counts[i] = Find<TextBlock>("ForeignTroopCount" + number);
-                currentHealth[i] = Find<TextBlock>("ForeignTroopCurrentHealth" + number);
-                maxHealth[i] = Find<TextBlock>("ForeignTroopMaxHealth" + number);
-                if (slots[i] == null) failure = "ForeignTroopSlot" + number;
-                else if (portraits[i] == null) failure = "ForeignTroopImage" + number;
-                else if (typeLabels[i] == null) failure = "ForeignTroopType" + number;
-                else if (ownerLabels[i] == null) failure = "ForeignTroopOwner" + number;
-                else if (counts[i] == null) failure = "ForeignTroopCount" + number;
-                else if (currentHealth[i] == null) failure = "ForeignTroopCurrentHealth" + number;
-                else if (maxHealth[i] == null) failure = "ForeignTroopMaxHealth" + number;
-                if (failure != null) { Detach(); return false; }
+                nextSlots[i] = FindNamed<Canvas>(screen, "IngameUI", "ForeignTroopSlot" + number, out failure);
+                if (failure != null) return false;
+                nextPortraits[i] = FindNamed<Image>(screen, "IngameUI", "ForeignTroopImage" + number, out failure);
+                if (failure != null) return false;
+                nextTypeLabels[i] = FindNamed<TextBlock>(screen, "IngameUI", "ForeignTroopType" + number, out failure);
+                if (failure != null) return false;
+                nextOwnerLabels[i] = FindNamed<TextBlock>(screen, "IngameUI", "ForeignTroopOwner" + number, out failure);
+                if (failure != null) return false;
+                nextCounts[i] = FindNamed<TextBlock>(screen, "IngameUI", "ForeignTroopCount" + number, out failure);
+                if (failure != null) return false;
+                nextCurrentHealth[i] = FindNamed<TextBlock>(screen, "IngameUI", "ForeignTroopCurrentHealth" + number, out failure);
+                if (failure != null) return false;
+                nextMaxHealth[i] = FindNamed<TextBlock>(screen, "IngameUI", "ForeignTroopMaxHealth" + number, out failure);
+                if (failure != null) return false;
             }
+            Detach();
+            activeIngameUi = screen;
+            panel = nextCanvas;
+            pageText = nextPageText;
+            previous = nextPrevious;
+            next = nextNext;
+            Array.Copy(nextSlots, slots, 8);
+            Array.Copy(nextPortraits, portraits, 8);
+            Array.Copy(nextTypeLabels, typeLabels, 8);
+            Array.Copy(nextOwnerLabels, ownerLabels, 8);
+            Array.Copy(nextCounts, counts, 8);
+            Array.Copy(nextCurrentHealth, currentHealth, 8);
+            Array.Copy(nextMaxHealth, maxHealth, 8);
             previous.Click += OnPrevious;
             next.Click += OnNext;
             return true;
         }
 
-        private T Find<T>(string name) where T : FrameworkElement =>
-            GameXAMLManagerAPI.Instance.FindElementByName(panel, name) as T;
+        private static T FindNamed<T>(FrameworkElement host, string control, string name, out string failure)
+            where T : FrameworkElement
+        {
+            object found = host.FindName(name);
+            if (found is T match) { failure = null; return match; }
+            failure = control + "." + name + (found == null ? ":not-found" :
+                ":wrong-type:actual=" + found.GetType().FullName + ",expected=" + typeof(T).FullName) +
+                ",hostLoaded=" + host.IsLoaded;
+            return null;
+        }
 
         private void Detach()
         {
             if (previous != null) previous.Click -= OnPrevious;
             if (next != null) next.Click -= OnNext;
             panel = null;
+            activeIngameUi = null;
             pageText = null;
             previous = null;
             next = null;

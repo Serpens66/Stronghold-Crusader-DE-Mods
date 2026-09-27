@@ -10,6 +10,7 @@ function Assert-True([bool]$Condition, [string]$Message) { if (-not $Condition) 
 $inventory = @(Get-Content -Raw -LiteralPath (Join-Path $workspace 'Shared\ScriptExtenderUpdate\mods.json') | ConvertFrom-Json)
 Assert-True ($inventory.Count -gt 0) 'The mod inventory is empty.'
 Assert-True (@($inventory.Name | Sort-Object -Unique).Count -eq $inventory.Count) 'The mod inventory contains duplicate names.'
+Assert-True (@($inventory | Where-Object { $_.Project -match '^Testmods[\\/]' -or $_.Manifest -match '^Testmods[\\/]' -or $_.Package -match '^Testmods[\\/]' }).Count -eq 0) 'The stable mod inventory contains Testmods projects.'
 $pluginInventory = @($inventory | Where-Object Plugin)
 Assert-True (@($pluginInventory.Plugin | Sort-Object -Unique).Count -eq $pluginInventory.Count) 'The mod inventory contains duplicate plugin sources.'
 $castlePlannerInventory = @($inventory | Where-Object Name -eq 'CastlePlanner')

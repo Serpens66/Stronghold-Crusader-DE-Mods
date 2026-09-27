@@ -8,6 +8,8 @@ Der bevorzugte Einstieg ist der idempotente Gesamt-Treiber:
 
 Die feste Inventur liegt in `Shared\ScriptExtenderUpdate\mods.json`. Der Kompatibilitätsplan enthält einen `ImpactReview`; dessen Ausgangscommit wird gegen die tatsächlich eingetragene Baseline-Provenienz geprüft. `-Resume` setzt nach einem Fehler am letzten erfolgreichen Build fort. Ohne `-ExtenderDir` wird ausschließlich die installierte DLL in `BepInEx\plugins\000shcdese` verwendet; fehlt sie, muss ein alternativer Pfad ausdrücklich angegeben werden.
 
+Projekte unter `Testmods` stehen nicht einzeln im festen Inventar. Vorhandene Testmods bei geänderten Extender-Verträgen in der Regel zusätzlich prüfen; ihre Quellen und Manifeste ändern sich mit laufenden Featuretests.
+
 ## Fast Path
 
 - [ ] Baseline-Ausgangscommit aus `IDENTITY.json`: `<vollständiger-commit>`

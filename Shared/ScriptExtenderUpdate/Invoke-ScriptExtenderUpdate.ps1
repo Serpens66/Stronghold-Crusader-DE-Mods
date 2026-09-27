@@ -105,6 +105,9 @@ function Set-PluginMetadata([string]$Text, [string]$PluginVersion, [string]$Mini
 Set-Location -LiteralPath $workspace
 if (-not (Test-Path -LiteralPath $inventoryPath -PathType Leaf)) { throw "Inventory missing: $inventoryPath" }
 $mods = @(Get-Content -Raw -LiteralPath $inventoryPath | ConvertFrom-Json)
+if (@($mods | Where-Object { $_.Project -match '^Testmods[\\/]' -or $_.Manifest -match '^Testmods[\\/]' -or $_.Package -match '^Testmods[\\/]' }).Count -ne 0) {
+    throw 'The stable Script Extender inventory must not contain Testmods projects.'
+}
 $activeMods = @($mods | Where-Object { Test-ModActive $_ })
 $inactiveMods = @($mods | Where-Object { -not (Test-ModActive $_) })
 $duplicateNames = @($mods | Group-Object Name | Where-Object Count -ne 1)
@@ -138,7 +141,7 @@ foreach ($mod in $mods) {
 $candidateSources = @(& git -C $workspace ls-files -- '*.cs') +
     @(& git -C $workspace ls-files --others --exclude-standard -- '*.cs')
 $discoveredPlugins = @($candidateSources | ForEach-Object { $_.Replace('/', '\') } | Where-Object {
-    $_ -notmatch '^(shcde-script-extender|_inspect|\.inspect|\.native-analysis)[\\/]' -and
+    $_ -notmatch '^(shcde-script-extender|_inspect|\.inspect|\.native-analysis|Testmods)[\\/]' -and
     $_ -notmatch '[\\/](BepInEx[\\/]plugins|bin|obj)[\\/]' -and
     (Test-Path -LiteralPath (Join-Path $workspace $_) -PathType Leaf) -and
     [IO.File]::ReadAllText((Join-Path $workspace $_)).Contains('[BepInPlugin(')
