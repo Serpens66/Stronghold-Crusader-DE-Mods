@@ -308,6 +308,17 @@ namespace RandomEvents
 
         private static void TestSignpostInitializationReport()
         {
+            Assert(
+                SignpostInitializationReport.GetSeverity(true, false) == SignpostInitializationSeverity.Info &&
+                SignpostInitializationReport.GetSeverity(true, true) == SignpostInitializationSeverity.Info,
+                "a reachable edge or center signpost completes without a warning");
+            Assert(
+                SignpostInitializationReport.GetSeverity(false, false) == SignpostInitializationSeverity.Warning,
+                "no reachable signpost after center fallback produces a warning");
+            Assert(
+                SignpostInitializationReport.GetSeverity(false, true) == SignpostInitializationSeverity.Error,
+                "an unexpected technical failure remains an error");
+
             string recovered = SignpostInitializationReport.Format(new[] { 11, 12, 13, 14 }, true, true, null);
             Assert(recovered.Contains("selectedBuildingIds=[11,12,13,14]") &&
                 recovered.Contains("usableRegistered=true") &&

@@ -68,8 +68,17 @@ namespace RandomEvents
             definition.DispatchKind == RandomEventDispatchKind.GameAction && !definition.RequiresSignpost;
     }
 
+    internal enum SignpostInitializationSeverity { Info, Warning, Error }
+
     internal static class SignpostInitializationReport
     {
+        public static SignpostInitializationSeverity GetSeverity(bool usableRegistered, bool technicalFailure)
+        {
+            if (usableRegistered)
+                return SignpostInitializationSeverity.Info;
+            return technicalFailure ? SignpostInitializationSeverity.Error : SignpostInitializationSeverity.Warning;
+        }
+
         public static string Format(int[] selectedBuildingIds, bool usableRegistered, bool recoveredAfterFailure, string failureReason)
         {
             string ids = selectedBuildingIds == null ? string.Empty : string.Join(",", selectedBuildingIds);

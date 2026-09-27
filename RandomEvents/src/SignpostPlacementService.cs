@@ -61,7 +61,8 @@ namespace RandomEvents
                 LogInitializationCompleted(
                     state,
                     "Automatic edge-signpost initialization is disabled because the native registry is unavailable; " +
-                    $"signpost-dependent events will be skipped. {registry.UnavailableReason}");
+                    $"signpost-dependent events will be skipped. {registry.UnavailableReason}",
+                    technicalFailure: true);
                 return true;
             }
 
@@ -93,7 +94,8 @@ namespace RandomEvents
                 LogInitializationCompleted(
                     state,
                     "Automatic signpost placement is disabled because Vanilla path connectivity could not be read safely; " +
-                    $"signpost-dependent events will be skipped. Error: {ex}");
+                    $"signpost-dependent events will be skipped. Error: {ex}",
+                    technicalFailure: true);
                 return true;
             }
 
@@ -143,21 +145,21 @@ namespace RandomEvents
                 MapEdge side = (MapEdge)sideIndex;
                 if (!registry.HasFreeSlot())
                 {
-                    LogWarning($"Signpost side skipped: side={side}, reason=all eight Vanilla slots occupied.");
+                    LogDebug($"Signpost side skipped: side={side}, reason=all eight Vanilla slots occupied.");
                     continue;
                 }
 
                 if (TryPlaceForSide(side, keeps, participantReachability, placementRandom, out int buildingId))
                     selected[sideIndex] = buildingId;
                 else
-                    LogWarning(
+                    LogDebug(
                         $"Signpost side skipped: side={side}, reason=no valid candidate between " +
                         $"{MinimumEdgeDepth} and {MaximumEdgeDepth} tiles of the edge.");
             }
 
             if (selected.All(buildingId => buildingId <= 0))
             {
-                LogWarning(
+                LogDebug(
                     $"No usable registered signpost was found at the map edges; trying one center fallback " +
                     $"within radius {CenterFallbackRadius}.");
                 if (registry.HasFreeSlot() &&
@@ -168,7 +170,7 @@ namespace RandomEvents
                 }
                 else if (!registry.HasFreeSlot())
                 {
-                    LogError(
+                    LogDebug(
                         "Emergency center signpost placement skipped because all eight Vanilla signpost slots are occupied.");
                 }
             }
@@ -230,7 +232,7 @@ namespace RandomEvents
             LogDebug($"Signpost initialization waiting for map readiness: {normalized}");
         }
 
-        private void LogInitializationCompleted(RandomEventsRuntimeState state, string failureReason)
+        private void LogInitializationCompleted(RandomEventsRuntimeState state, string failureReason, bool technicalFailure = false)
         {
             bool usableRegistered = registry.HasUsableRegisteredSignpost();
             string message = SignpostInitializationReport.Format(
@@ -238,10 +240,12 @@ namespace RandomEvents
                 usableRegistered,
                 false,
                 usableRegistered ? null : failureReason);
-            if (usableRegistered)
-                LogInfo(message);
-            else
-                LogError(message);
+            switch (SignpostInitializationReport.GetSeverity(usableRegistered, technicalFailure))
+            {
+                case SignpostInitializationSeverity.Info: LogInfo(message); break;
+                case SignpostInitializationSeverity.Warning: LogWarning(message); break;
+                default: LogError(message); break;
+            }
         }
 
         private bool TryPlaceForSide(
@@ -297,7 +301,7 @@ namespace RandomEvents
 
                     // A prefab created for this attempt must not remain as an unregistered scenery object.
                     GameBuildingManagerAPI.Instance.DeleteBuildingSafe(spawnedId);
-                    LogWarning($"Removed unregistered signpost after native registration failed: buildingId={spawnedId}.");
+                    LogDebug($"Removed unregistered signpost after native registration failed: buildingId={spawnedId}.");
                 }
             }
             return false;
@@ -350,10 +354,10 @@ namespace RandomEvents
                 }
 
                 GameBuildingManagerAPI.Instance.DeleteBuildingSafe(spawnedId);
-                LogWarning($"Removed unregistered center fallback signpost: buildingId={spawnedId}.");
+                LogDebug($"Removed unregistered center fallback signpost: buildingId={spawnedId}.");
             }
 
-            LogError(
+            LogDebug(
                 $"Emergency center signpost placement failed: radius={CenterFallbackRadius}, " +
                 $"validCandidates={candidates.Count}, VanillaRejected={failedPlacements}.");
             return false;
