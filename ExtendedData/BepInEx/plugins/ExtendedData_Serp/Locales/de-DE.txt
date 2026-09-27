@@ -66,6 +66,7 @@ ExtendedData.CompatibilityGuideHelp=Öffnet den ExtendedData-Guide im Browser.
 ExtendedData.CoopPackage=Aktives Koop-Trail-Paket
 ExtendedData.CoopPackageHelp=Wählt das vom Host verwendete installierte Koop-Trail-Paket. Missionen 1–10 nutzen Koop-Trail 1, 11–20 Trail 2, 21–30 Trail 3 und 31–40 Trail 4. Missionen hinter dem Paketende sind erst nach Auswahl von Vanilla verfügbar.
 ExtendedData.CustomCoopTrailEndNotice=Dieser Custom-Koop-Trail endet nach Mission {Count}. Es gibt keine weitere Mission.
+ExtendedData.CustomCoopMissionProgress={Current}/{Count} Missionen
 ExtendedData.NoCustomCoopMissions=Keine Missionen in diesem Custom-Koop-Trail
 ExtendedData.CoopPackageStatusLabel=Lokaler Paketstatus:
 ExtendedData.HostReadOnlyNotice=Der Host bestimmt das aktive Koop-Trail-Paket.

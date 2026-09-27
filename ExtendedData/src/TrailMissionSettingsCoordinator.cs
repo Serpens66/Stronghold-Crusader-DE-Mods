@@ -170,7 +170,7 @@ namespace ExtendedData
             private readonly List<Button> injectedCoopButtons = new List<Button>();
             private readonly Dictionary<UserControl, TextBlock> coopTrailTitleBlocks =
                 new Dictionary<UserControl, TextBlock>();
-            private readonly Dictionary<UserControl, TextBlock> coopTrailEndNotices =
+            private readonly Dictionary<UserControl, TextBlock> coopMissionProgressBlocks =
                 new Dictionary<UserControl, TextBlock>();
             private readonly string[] vanillaCoopTrailTitles = new string[4];
             private readonly Dictionary<int, Button> coopSelectionButtons =
@@ -2151,6 +2151,8 @@ namespace ExtendedData
                         missionId = available;
                 }
                 trailSelectionOriginal(self, missionId, fromRealClick);
+                if (page >= 0 && page < 4)
+                    RefreshCoopMissionProgress(page);
                 if (enabled && !openingCustomTrailSetup &&
                     FrontendMenus.CurrentSelectedTrail >= 90 && FrontendMenus.CurrentSelectedTrail <= 92)
                     EnterSelectedCustomTrail(self);
@@ -2563,40 +2565,54 @@ namespace ExtendedData
                     : enabled && !string.IsNullOrWhiteSpace(coopPackageDisplayName)
                         ? SerpLocalization.Get("ExtendedData.NoCustomCoopMissions")
                         : vanillaCoopTrailTitles[zeroBasedTrail];
-                UpdateCoopEndNotice(page, title, zeroBasedTrail);
+                UpdateCoopMissionProgress(page, title, zeroBasedTrail);
                 return true;
             }
 
-            private void UpdateCoopEndNotice(UserControl page, TextBlock title, int zeroBasedTrail)
+            private void RefreshCoopMissionProgress(int zeroBasedTrail)
             {
-                if (!coopTrailEndNotices.TryGetValue(page, out TextBlock notice))
+                UserControl page = zeroBasedTrail == 0 ? FRONT_CoopTrail1.Instance :
+                    zeroBasedTrail == 1 ? (UserControl)FRONT_CoopTrail2.Instance :
+                    zeroBasedTrail == 2 ? FRONT_CoopTrail3.Instance : FRONT_CoopTrail4.Instance;
+                if (page != null && coopTrailTitleBlocks.TryGetValue(page, out TextBlock title))
+                    UpdateCoopMissionProgress(page, title, zeroBasedTrail);
+            }
+
+            private void UpdateCoopMissionProgress(UserControl page, TextBlock title, int zeroBasedTrail)
+            {
+                if (!coopMissionProgressBlocks.TryGetValue(page, out TextBlock progress))
                 {
                     Grid host = page.FindName("mapgrid") as Grid;
                     if (host == null)
                         return;
-                    notice = new TextBlock
+                    progress = new TextBlock
                     {
-                        HorizontalAlignment = HorizontalAlignment.Left,
+                        HorizontalAlignment = HorizontalAlignment.Center,
                         VerticalAlignment = VerticalAlignment.Top,
-                        Margin = new Thickness(30, 22, 0, 0),
-                        Width = 900,
+                        Margin = new Thickness(0, 42, 0, 0),
+                        Width = 240,
                         FontSize = 24,
                         Foreground = title.Foreground,
                         Background = new SolidColorBrush(Color.FromArgb(190, 0, 0, 0)),
-                        TextWrapping = TextWrapping.Wrap,
+                        TextAlignment = TextAlignment.Center,
                         IsHitTestVisible = false,
                         Visibility = Visibility.Collapsed,
                     };
-                    host.Children.Add(notice);
-                    coopTrailEndNotices[page] = notice;
+                    host.Children.Add(progress);
+                    coopMissionProgressBlocks[page] = progress;
                 }
-                bool finalPage = enabled && !string.IsNullOrWhiteSpace(coopPackageDisplayName) &&
-                    CoopTrailMissionRange.IsFinalPage(coopPackageMissionCount, zeroBasedTrail);
-                notice.Text = finalPage
-                    ? SerpLocalization.Get("ExtendedData.CustomCoopTrailEndNotice")
+                int selectedMission = zeroBasedTrail == 0 ? FrontendMenus.CurrentSelectedTrailCoop1Mission :
+                    zeroBasedTrail == 1 ? FrontendMenus.CurrentSelectedTrailCoop2Mission :
+                    zeroBasedTrail == 2 ? FrontendMenus.CurrentSelectedTrailCoop3Mission :
+                    FrontendMenus.CurrentSelectedTrailCoop4Mission;
+                bool showProgress = enabled && !string.IsNullOrWhiteSpace(coopPackageDisplayName) &&
+                    CoopTrailMissionRange.Contains(coopPackageMissionCount, zeroBasedTrail, selectedMission);
+                progress.Text = showProgress
+                    ? SerpLocalization.Get("ExtendedData.CustomCoopMissionProgress")
+                        .Replace("{Current}", (zeroBasedTrail * 10 + selectedMission).ToString(CultureInfo.InvariantCulture))
                         .Replace("{Count}", coopPackageMissionCount.ToString(CultureInfo.InvariantCulture))
                     : string.Empty;
-                notice.Visibility = finalPage ? Visibility.Visible : Visibility.Collapsed;
+                progress.Visibility = showProgress ? Visibility.Visible : Visibility.Collapsed;
             }
 
             private static TextBlock FindLogicalDescendantTextBlock(DependencyObject parent, string expectedText)

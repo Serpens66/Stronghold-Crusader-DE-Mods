@@ -388,6 +388,7 @@ public static class SerpLocalization
         { "ExtendedData.CoopPackage", "Active Coop Trail package" },
         { "ExtendedData.CoopPackageHelp", "Selects the installed Coop Trail package used by the host. Missions 1-10 use Coop Trail 1, 11-20 Trail 2, 21-30 Trail 3 and 31-40 Trail 4. Missions beyond the package length are unavailable until Vanilla is selected." },
         { "ExtendedData.CustomCoopTrailEndNotice", "This custom Coop Trail ends after mission {Count}. There are no further missions." },
+        { "ExtendedData.CustomCoopMissionProgress", "{Current}/{Count} Missions" },
         { "ExtendedData.NoCustomCoopMissions", "No missions in this custom Coop Trail" },
         { "ExtendedData.CoopPackageStatusLabel", "Local package status:" },
         { "ExtendedData.HostReadOnlyNotice", "The host controls the active Coop Trail package." },
