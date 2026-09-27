@@ -1,16 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-  <Operation Type="Add" XPath="//n:Grid[@Margin='{Binding RollOverText_Margin}' and @Width='550']">
+  <Operation Type="InsertAfter" XPath="//n:TextBlock[@x:Name='GameHoverText' and not(n:InlineUIContainer/n:ItemsControl[@x:Name='APISharedRepairExtrasHost'])]/n:Run[@Text='{Binding RollOverText_AmountGot2}']">
     <Content>
-      <Border x:Name="APISharedRepairTooltipHost"
-              Visibility="{Binding Visibility}"
-              HorizontalAlignment="Left" VerticalAlignment="Top"
-              Margin="-250,0,0,0" Background="{Binding TooltipBackground}" CornerRadius="8"
-              Panel.ZIndex="100" IsHitTestVisible="False" Tag="Ignore">
-        <StackPanel Orientation="Horizontal" Margin="5,1,8,2">
-          <TextBlock Text="{Binding Title}" FontSize="20" Foreground="#FFDDDDDD"
-                     VerticalAlignment="Center" />
-          <ItemsControl ItemsSource="{Binding Costs}" VerticalAlignment="Center">
+      <InlineUIContainer>
+        <ItemsControl x:Name="APISharedRepairExtrasHost"
+                      ItemsSource="{Binding Costs}" Visibility="{Binding Visibility}"
+                      IsHitTestVisible="False" Tag="Ignore">
+            <ItemsControl.RenderTransform><TranslateTransform Y="10" /></ItemsControl.RenderTransform>
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>
@@ -24,8 +20,7 @@
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>
-        </StackPanel>
-      </Border>
+      </InlineUIContainer>
     </Content>
   </Operation>
 </Patch>

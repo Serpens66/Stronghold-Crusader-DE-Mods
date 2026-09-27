@@ -14,8 +14,9 @@
                         <ControlTemplate TargetType="{x:Type Button}">
                             <Grid>
                                 <Ellipse Fill="#FF654627" Stroke="#FFE3C685" StrokeThickness="2" />
-                                <Path Data="M 2,2 L 8,2 L 8,4 L 11,7 L 8,10 L 5,7 L 5,5 L 2,5 Z M 9,10 L 11,8 L 18,15 L 16,18 Z"
-                                      Fill="#FFF6E5B5" Stretch="Uniform" Margin="4" />
+                                <Image Source="/Assets/GUI/Sprites/BuildingRepairHudTest_Hammer.png"
+                                       Width="20" Height="20" Stretch="Uniform"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
                             </Grid>
                         </ControlTemplate>
                     </Button.Template>

@@ -224,28 +224,22 @@
             <summary>Vanilla goods icon.</summary>
         </member>
         <member name="T:APIShared.RepairTooltipViewModel">
-            <summary>Noesis binding source for the shared repair tooltip.</summary>
+            <summary>Noesis binding source for extra costs in the Vanilla repair rollover.</summary>
         </member>
         <member name="E:APIShared.RepairTooltipViewModel.PropertyChanged">
-            <summary>Raised when tooltip visibility or title changes.</summary>
+            <summary>Raised when extra repair costs change.</summary>
         </member>
         <member name="P:APIShared.RepairTooltipViewModel.Costs">
-            <summary>Visible resource costs.</summary>
-        </member>
-        <member name="P:APIShared.RepairTooltipViewModel.TooltipBackground">
-            <summary>The background appears only after the tooltip ViewModel is bound.</summary>
+            <summary>Extra resource costs after Vanilla's wood and stone.</summary>
         </member>
         <member name="P:APIShared.RepairTooltipViewModel.Visibility">
-            <summary>Current tooltip visibility.</summary>
-        </member>
-        <member name="P:APIShared.RepairTooltipViewModel.Title">
-            <summary>Localized repair caption.</summary>
+            <summary>Visibility of the extra inline costs.</summary>
         </member>
         <member name="M:APIShared.RepairTooltipViewModel.Show(APIShared.BuildingRepairQuote)">
-            <summary>Shows the costs from an immutable simulation snapshot.</summary>
+            <summary>Shows only resources absent from Vanilla's repair rollover.</summary>
         </member>
         <member name="M:APIShared.RepairTooltipViewModel.Clear">
-            <summary>Hides the tooltip.</summary>
+            <summary>Hides the extra inline costs.</summary>
         </member>
         <member name="T:APIShared.LocalSelectionSnapshot">
             <summary>An immutable copy of one local player's last completed selection.</summary>

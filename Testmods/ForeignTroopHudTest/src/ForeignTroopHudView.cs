@@ -9,7 +9,10 @@ namespace ForeignTroopHudTest
     {
         private static readonly int[] PortraitCodes = CreatePortraitCodes();
         private readonly Canvas[] slots = new Canvas[8];
-        private readonly Image[] portraits = new Image[8];
+        private readonly Button[] portraits = new Button[8];
+        private static readonly SolidColorBrush HealthyBrush = Brush(102, 204, 102);
+        private static readonly SolidColorBrush WoundedBrush = Brush(255, 214, 102);
+        private static readonly SolidColorBrush CriticalBrush = Brush(255, 102, 102);
         private readonly TextBlock[] typeLabels = new TextBlock[8];
         private readonly TextBlock[] ownerLabels = new TextBlock[8];
         private readonly TextBlock[] counts = new TextBlock[8];
@@ -35,8 +38,10 @@ namespace ForeignTroopHudTest
         private static readonly string[] NativeControlNames = {
             "TroopSelectionControls", "TroopSelectionNumbers", "ToggleControlGroups",
             "ButtonTroopPanelPage1", "ButtonTroopPanelPage2", "Leftpadding",
-            "TroopsPanelRollover", "TroopsPanelRollover2"
+            "TroopsPanelRollover", "TroopsPanelRollover2", "StanceTabs", "UnitControls"
         };
+
+        internal bool LordIconMissing { get; private set; }
 
         internal void ResetForMap()
         {
@@ -83,10 +88,10 @@ namespace ForeignTroopHudTest
             originalMainClip = mainRoot.Clip;
             originalTroopClip = troopRoot.Clip;
             originalTroopHitTest = troopRoot.IsHitTestVisible;
-            // HUD_Main's rightmost 95 pixels contain the editor player shields.
-            mainRoot.Clip = new RectangleGeometry(new Rect(819, 0, 95, 306));
-            // Vanilla's portrait area begins at x=142 in its 800x155 troop frame.
-            troopRoot.Clip = new RectangleGeometry(new Rect(142, 0, 416, 155));
+            // Keep the radar frame and editor shields; hide only the building controls to their left.
+            mainRoot.Clip = new RectangleGeometry(new Rect(660, 0, 254, 306));
+            // Include Vanilla's sword at the left and its complete radar frame at the right.
+            troopRoot.Clip = new RectangleGeometry(new Rect(130, 0, 670, 155));
             troopRoot.IsHitTestVisible = false;
             foreach (FrameworkElement control in nativeControls) control.Opacity = 0;
             return true;
@@ -155,7 +160,7 @@ namespace ForeignTroopHudTest
             Button nextNext = FindNamed<Button>(screen, "IngameUI", "ForeignTroopNext", out failure);
             if (failure != null) return false;
             var nextSlots = new Canvas[8];
-            var nextPortraits = new Image[8];
+            var nextPortraits = new Button[8];
             var nextTypeLabels = new TextBlock[8];
             var nextOwnerLabels = new TextBlock[8];
             var nextCounts = new TextBlock[8];
@@ -166,7 +171,7 @@ namespace ForeignTroopHudTest
                 string number = (i + 1).ToString();
                 nextSlots[i] = FindNamed<Canvas>(screen, "IngameUI", "ForeignTroopSlot" + number, out failure);
                 if (failure != null) return false;
-                nextPortraits[i] = FindNamed<Image>(screen, "IngameUI", "ForeignTroopImage" + number, out failure);
+                nextPortraits[i] = FindNamed<Button>(screen, "IngameUI", "ForeignTroopImage" + number, out failure);
                 if (failure != null) return false;
                 nextTypeLabels[i] = FindNamed<TextBlock>(screen, "IngameUI", "ForeignTroopType" + number, out failure);
                 if (failure != null) return false;
@@ -240,6 +245,7 @@ namespace ForeignTroopHudTest
 
         private void Draw()
         {
+            LordIconMissing = false;
             for (int i = 0; i < 8; i++)
             {
                 int entryIndex = page * 8 + i;
@@ -254,11 +260,18 @@ namespace ForeignTroopHudTest
                 ownerLabels[i].Foreground = playerBrush;
                 ownerLabels[i].Text = "P" + entry.Owner;
                 counts[i].Text = entry.Count.ToString();
-                currentHealth[i].Text = entry.CurrentHealth.ToString();
-                maxHealth[i].Text = entry.MaxHealth.ToString();
+                currentHealth[i].Text = ScaleHealth(entry.CurrentHealth);
+                maxHealth[i].Text = ScaleHealth(entry.MaxHealth);
+                currentHealth[i].Foreground = HealthBrush(entry);
                 int portraitCode = entry.Type < PortraitCodes.Length ? PortraitCodes[entry.Type] : 0;
-                ImageSource source = portraitCode == 0 ? null : FindPortrait(portraitCode, entry.ColorId);
-                portraits[i].Source = source;
+                ImageSource source = entry.Type == 55 ? FindLordPortrait() :
+                    portraitCode == 0 ? null : FindPortrait(portraitCode, entry.ColorId);
+                if (entry.Type == 55 && source == null) LordIconMissing = true;
+                PropEx.SetSprite1(portraits[i], source);
+                PropEx.SetSprite2(portraits[i], source);
+                PropEx.SetSprite3(portraits[i], source);
+                PropEx.SetSprite4(portraits[i], source);
+                portraits[i].Visibility = source == null ? Visibility.Collapsed : Visibility.Visible;
                 typeLabels[i].Text = "Typ " + entry.Type;
                 typeLabels[i].Visibility = source == null ? Visibility.Visible : Visibility.Collapsed;
             }
@@ -266,6 +279,20 @@ namespace ForeignTroopHudTest
             pageText.Text = pages > 1 ? (page + 1) + "/" + pages : "";
             previous.Visibility = page > 0 ? Visibility.Visible : Visibility.Collapsed;
             next.Visibility = (page + 1) * 8 < visibleEntries.Count ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        private static string ScaleHealth(ulong health) =>
+            ((long)Math.Round(health / 10m, 0, MidpointRounding.AwayFromZero)).ToString();
+
+        private static SolidColorBrush HealthBrush(ForeignTroopEntry entry) =>
+            entry.MaxHealth == 0 ? CriticalBrush :
+            (decimal)entry.CurrentHealth >= (decimal)entry.MaxHealth * 0.75m ? HealthyBrush :
+            (decimal)entry.CurrentHealth >= (decimal)entry.MaxHealth * 0.40m ? WoundedBrush : CriticalBrush;
+
+        private static ImageSource FindLordPortrait()
+        {
+            try { return GUI.GetApplicationResources()?["BugfixesAndQoL-LordIcon"] as ImageSource; }
+            catch { return null; }
         }
 
         private static ImageSource FindPortrait(int code, int colorId)

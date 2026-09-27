@@ -32,6 +32,7 @@ namespace ForeignTroopHudTest
         private static bool initialized;
         private static bool layoutValidated;
         private static bool readyLogged;
+        private static bool lordIconWarningLogged;
         private static string lastExceptionKey;
         private static string lastHideExceptionKey;
         private static bool resetPending;
@@ -63,6 +64,7 @@ namespace ForeignTroopHudTest
             lastDiagnosticKey = null;
             lastExceptionKey = null;
             lastHideExceptionKey = null;
+            lordIconWarningLogged = false;
             log.LogInfo("FOREIGN_TROOP_HUD_SESSION_READY: session=" + activeSession.SessionId + ", mode=" + activeSession.Mode.Kind);
         }
 
@@ -75,6 +77,7 @@ namespace ForeignTroopHudTest
             lastDiagnosticKey = null;
             lastExceptionKey = null;
             lastHideExceptionKey = null;
+            lordIconWarningLogged = false;
         }
 
         private static void OnBeforeRender()
@@ -204,6 +207,11 @@ namespace ForeignTroopHudTest
                 HideForeignHud();
                 ReportStatus("missing-mod-element:" + missingElement, state, main, ownPlayerId, hoveredCount, foreignCount, entries.Count);
                 return;
+            }
+            if (view.LordIconMissing && !lordIconWarningLogged)
+            {
+                lordIconWarningLogged = true;
+                log.LogWarning("FOREIGN_TROOP_HUD_RESOURCE_MISSING: BugfixesAndQoL-LordIcon; Lord entry uses its type label.");
             }
             if (!main.Show_HUD_Troops)
             {

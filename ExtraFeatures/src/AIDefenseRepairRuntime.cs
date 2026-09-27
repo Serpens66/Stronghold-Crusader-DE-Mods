@@ -1,10 +1,10 @@
-// Feature: Configure human/AI enemy proximity and damage-anchored AIV defense rebuild timing.
+// Feature: Configure human/AI enemy proximity and destruction-anchored AIV defense rebuild timing.
 //
 // Finished castles repeatedly enter ExecuteBuildStep at RVA 0x51790. The placement helper at
 // RVA 0x5CD90 supplies the concrete tower/gate target. Map-start and successful spawn events
 // establish that an AIV frame has existed before; its first placement remains entirely Vanilla.
-// A rebuild delay starts from the last confirmed damage, or once from the first missing-target
-// attempt when no damage event was observed. Later retries never restart or extend that timer.
+// A rebuild delay starts from confirmed destruction, or once from the first missing-target
+// attempt when destruction was not observed. Later retries never restart or extend that timer.
 // Tower-ruin cleanup is deliberately handled by BugfixesAndQoL and is independent of this gate.
 using BepInEx.Logging;
 using APIShared;
@@ -40,6 +40,7 @@ namespace ExtraFeatures
         private const int OriginYOffset = 0x204E764;
         private const int MaximumFrameCount = 0x922;
         private const int TicksPerSecond = 40;
+        private const int DamageWatchChecksPerTick = 16;
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate int PlacementDelegate(
@@ -59,13 +60,16 @@ namespace ExtraFeatures
         // rejected retries cannot postpone a later Vanilla call.
         private readonly Dictionary<BuildStepKey, BuildStepHistory> buildStepHistory =
             new Dictionary<BuildStepKey, BuildStepHistory>();
-        private readonly Dictionary<BuildStepKey, RebuildDelayState> rebuildDelays =
-            new Dictionary<BuildStepKey, RebuildDelayState>();
-        // Damage is the earliest reliable per-target event shared by an intact defense and its
-        // later missing/ruined AIV entry. A later placement probe may consume this timestamp,
-        // but probes and ruin deletion must never rewrite it or extend the configured delay.
-        private readonly Dictionary<DefenseTargetKey, int> lastDefenseDamageTicks =
+        private readonly Dictionary<DefenseTargetKey, RebuildDelayState> rebuildDelays =
+            new Dictionary<DefenseTargetKey, RebuildDelayState>();
+        private readonly Dictionary<DefenseTargetKey, int> destroyedDefenseTicks =
             new Dictionary<DefenseTargetKey, int>();
+        private readonly Dictionary<DefenseTargetKey, LiveDefenseIdentity> liveDefenseTargets =
+            new Dictionary<DefenseTargetKey, LiveDefenseIdentity>();
+        private readonly Dictionary<DefenseTargetKey, LiveDefenseIdentity> damagedDefenseWatches =
+            new Dictionary<DefenseTargetKey, LiveDefenseIdentity>();
+        private readonly Queue<DefenseTargetKey> damageWatchQueue = new Queue<DefenseTargetKey>();
+        private readonly HashSet<DefenseTargetKey> queuedDamageWatchTargets = new HashSet<DefenseTargetKey>();
         private readonly HashSet<DefenseTargetKey> observedDefenseTargets =
             new HashSet<DefenseTargetKey>();
         private readonly HashSet<string> callbackFailuresLogged = new HashSet<string>(StringComparer.Ordinal);
@@ -81,6 +85,7 @@ namespace ExtraFeatures
         private bool realMultiplayer;
         private bool gameModeFailureLogged;
         private bool invalidFrameWarningLogged;
+        private bool clockUnavailableLogged;
         private bool disposed;
 
         private bool IsConfigured =>
@@ -113,6 +118,8 @@ namespace ExtraFeatures
             subscriptions.Add(AIR3EventHooks.OnAIBuildWall.Observable.Subscribe(OnAIBuildWall));
             subscriptions.Add(BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(OnBuildingSpawn));
             subscriptions.Add(BuildingR3EventHooks.OnBuildingTileTakeDamage.Observable.Subscribe(OnDefenseDamage));
+            // The game-time publisher outlives BepInEx's startup component.
+            GameTimeManagerAPI.Instance.OnTick += OnGameTick;
             // SaveLifecycle: NewMapOnly - Pre surrounds Vanilla's initial finished-castle spawns.
             subscriptions.Add(Shared.MissionEvents.NativeStart
                 .Where(args => args.IsBeforeInitialization)
@@ -215,6 +222,7 @@ namespace ExtraFeatures
             foreach (IDisposable subscription in subscriptions)
                 subscription.Dispose();
             subscriptions.Clear();
+            GameTimeManagerAPI.Instance.OnTick -= OnGameTick;
             // The published placement detour is process-wide because APIShared retains this
             // observer. Dispose is only allowed to roll back an unpublished candidate.
             if (!nativeInitialized && !placementHook.Success)
@@ -251,9 +259,10 @@ namespace ExtraFeatures
             if (context.IsLoadedSave)
             {
                 CaptureGameMode(multiplayerSave: context.Mode.IsRealMultiplayer);
-                // Nested unloads already cleared the old session. Building-spawn callbacks during
-                // native restore have reconstructed the set of defenses that previously existed.
+                // Native save restore need not publish building-spawn events. Read the restored
+                // live buildings before the first finished-castle build step can run.
                 mapPrepared = true;
+                ReconstructLoadedDefenses();
             }
             BeginMap();
         }
@@ -266,6 +275,40 @@ namespace ExtraFeatures
                 ResetState();
             mapPrepared = false;
             mapActive = true;
+        }
+
+        private void ReconstructLoadedDefenses()
+        {
+            try
+            {
+                int count = 0;
+                Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
+                for (int spanIndex = 0; spanIndex < buildings.Length; spanIndex++)
+                {
+                    ref GameBuilding building = ref buildings[spanIndex];
+                    int playerId = building.r_PlayerIdOwner;
+                    if (building.r_AliveState != AliveState.IsAlive || building.r_GlobalId == 0 ||
+                        building.r_CurrentHealth <= 0 ||
+                        IsTowerRuin(building.r_BuildingType) || !IsTrackedDefenseType(building.r_BuildingType) ||
+                        playerId < 1 || playerId > 8 || !IsAI(playerId) ||
+                        !TryCreateTargetKey(playerId, building.r_TilePositionXBegin,
+                            building.r_TilePositionYBegin, building.r_BuildingType,
+                            out DefenseTargetKey target))
+                    {
+                        continue;
+                    }
+
+                    observedDefenseTargets.Add(target);
+                    liveDefenseTargets[target] = new LiveDefenseIdentity(spanIndex + 1, building.r_GlobalId);
+                    count++;
+                }
+                Shared.DebugLogHelper.LogInfo(log,
+                    $"AI defense rebuild save-load inventory: intactTargets={count}, tick={SafeCurrentTick()}.");
+            }
+            catch (Exception ex)
+            {
+                LogFailure("save-load defense reconstruction", ex);
+            }
         }
 
         private void ResetMap()
@@ -306,11 +349,93 @@ namespace ExtraFeatures
             pendingDefenseDamage = default;
             hasPendingDefenseDamage = false;
             invalidFrameWarningLogged = false;
+            clockUnavailableLogged = false;
             buildStepHistory.Clear();
             rebuildDelays.Clear();
-            lastDefenseDamageTicks.Clear();
+            destroyedDefenseTicks.Clear();
+            liveDefenseTargets.Clear();
+            damagedDefenseWatches.Clear();
+            damageWatchQueue.Clear();
+            queuedDamageWatchTargets.Clear();
             observedDefenseTargets.Clear();
             callbackFailuresLogged.Clear();
+        }
+
+        private void OnGameTick(int tick)
+        {
+            if (!mapActive || damageWatchQueue.Count == 0 ||
+                !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) ||
+                settings.AITowerGateRebuildDelaySeconds <= 0)
+                return;
+
+            int checks = Math.Min(DamageWatchChecksPerTick, damageWatchQueue.Count);
+            for (int index = 0; index < checks; index++)
+            {
+                DefenseTargetKey target = damageWatchQueue.Dequeue();
+                try
+                {
+                    if (!damagedDefenseWatches.TryGetValue(target, out LiveDefenseIdentity identity))
+                    {
+                        queuedDamageWatchTargets.Remove(target);
+                        continue;
+                    }
+                    if (IsLiveDefense(target, identity))
+                    {
+                        damageWatchQueue.Enqueue(target);
+                        continue;
+                    }
+                    RecordDestruction(target, identity, tick, "tick-followup");
+                    damagedDefenseWatches.Remove(target);
+                    queuedDamageWatchTargets.Remove(target);
+                }
+                catch (Exception ex)
+                {
+                    // A transient lookup failure must not discard this watch forever.
+                    damageWatchQueue.Enqueue(target);
+                    LogFailure("tower/gate destruction tick follow-up", ex);
+                }
+            }
+        }
+
+        private void QueueDamageWatch(DefenseTargetKey target, LiveDefenseIdentity identity)
+        {
+            damagedDefenseWatches[target] = identity;
+            if (queuedDamageWatchTargets.Add(target))
+                damageWatchQueue.Enqueue(target);
+        }
+
+        private bool IsLiveDefense(DefenseTargetKey target, LiveDefenseIdentity identity)
+        {
+            return GameBuildingManagerAPI.Instance.TryGetBuildingById(identity.BuildingId, out GameBuilding* building) &&
+                building->r_GlobalId == identity.GlobalId &&
+                building->r_PlayerIdOwner == target.PlayerId &&
+                (building->r_AliveState == AliveState.IsAlive ||
+                 building->r_AliveState == AliveState.NeedsInit) &&
+                building->r_CurrentHealth > 0 &&
+                !IsTowerRuin(building->r_BuildingType) &&
+                IsTrackedDefenseType(building->r_BuildingType);
+        }
+
+        private bool HasLiveDefense(DefenseTargetKey target)
+        {
+            if (!liveDefenseTargets.TryGetValue(target, out LiveDefenseIdentity identity))
+                return false;
+            if (IsLiveDefense(target, identity))
+                return true;
+            liveDefenseTargets.Remove(target);
+            return false;
+        }
+
+        private void RecordDestruction(
+            DefenseTargetKey target, LiveDefenseIdentity identity, int tick, string source)
+        {
+            liveDefenseTargets.Remove(target);
+            if (destroyedDefenseTicks.ContainsKey(target))
+                return;
+            destroyedDefenseTicks[target] = tick;
+            Shared.DebugLogHelper.LogInfo(log,
+                $"AI defense rebuild destruction: target={target}, buildingId={identity.BuildingId}, " +
+                $"globalId={identity.GlobalId}, tick={tick}, source={source}.");
         }
 
         private void OnRepairProximity(BuildingAllowRepairInProximityEventArgs args)
@@ -524,7 +649,10 @@ namespace ExtraFeatures
                 {
                     now = SafeCurrentTick();
                     if (now < 0)
+                    {
+                        LogClockUnavailable();
                         return null;
+                    }
                 }
                 key = new BuildStepKey(playerId, frameIndex);
                 if (!buildStepHistory.TryGetValue(key, out history))
@@ -603,7 +731,6 @@ namespace ExtraFeatures
                         "The timer is cleared because the target now exists.");
                 }
                 history.EverSpawnedDefense = true;
-                rebuildDelays.Remove(key);
             }
             catch (Exception ex)
             {
@@ -663,7 +790,6 @@ namespace ExtraFeatures
             {
                 // Delay preparation fails open. The placement call below still executes exactly
                 // once and no incomplete timer may replace Vanilla behavior.
-                context.ClearDelayBlock();
                 LogFailure("AIV rebuild-delay preparation", ex);
             }
 
@@ -680,7 +806,9 @@ namespace ExtraFeatures
 
         private void OnBuildingSpawn(BuildingSpawnEventArgs args)
         {
-            if (!IsConfigured || args.Phase != EventHookPhase.Post || !IsTrackedDefenseType(args.Building))
+            if (!IsConfigured || args.Phase != EventHookPhase.Post ||
+                args.ReturnValue <= 0 || args.ReturnValue > int.MaxValue ||
+                !IsTrackedDefenseType(args.Building))
                 return;
 
             try
@@ -690,11 +818,34 @@ namespace ExtraFeatures
                 if (TryCreateTargetKey(args.PlayerId, args.TileX, args.TileY, args.Building, out DefenseTargetKey target))
                 {
                     observedDefenseTargets.Add(target);
-                    // A successful live spawn closes the previous missing period. Without this
-                    // removal, an unrelated later disappearance could inherit an old hit whose
-                    // configured maximum delay has long since elapsed.
                     if (!IsTowerRuin(args.Building))
-                        lastDefenseDamageTicks.Remove(target);
+                    {
+                        int buildingId = checked((int)args.ReturnValue);
+                        if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) ||
+                            building->r_GlobalId == 0 || building->r_PlayerIdOwner != args.PlayerId ||
+                            building->r_BuildingType != args.Building ||
+                            (building->r_AliveState != AliveState.NeedsInit &&
+                             building->r_AliveState != AliveState.IsAlive))
+                            return;
+
+                        if (rebuildDelays.TryGetValue(target, out RebuildDelayState delay))
+                        {
+                            int spawnTick = SafeCurrentTick();
+                            int elapsed = spawnTick >= 0 ? ElapsedTicks(spawnTick, delay.FirstDetectedTick) : -1;
+                            string message = $"AI defense rebuild spawn: target={target}, tick={spawnTick}, " +
+                                $"startTick={delay.FirstDetectedTick}, elapsedTicks={elapsed}, " +
+                                $"requiredTicks={(long)settings.AITowerGateRebuildDelaySeconds * TicksPerSecond}, " +
+                                $"source={delay.Source}.";
+                            if (elapsed >= 0 && elapsed < (long)settings.AITowerGateRebuildDelaySeconds * TicksPerSecond)
+                                Shared.DebugLogHelper.LogError(log, message);
+                            else
+                                Shared.DebugLogHelper.LogInfo(log, message);
+                        }
+                        liveDefenseTargets[target] = new LiveDefenseIdentity(buildingId, building->r_GlobalId);
+                        damagedDefenseWatches.Remove(target);
+                        destroyedDefenseTicks.Remove(target);
+                        rebuildDelays.Remove(target);
+                    }
                 }
                 if (!mapActive)
                     return;
@@ -726,6 +877,9 @@ namespace ExtraFeatures
                         : 0;
                     if (buildingId <= 0 ||
                         !GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) ||
+                        building->r_GlobalId == 0 || building->r_CurrentHealth <= 0 ||
+                        building->r_AliveState != AliveState.IsAlive ||
+                        IsTowerRuin(building->r_BuildingType) ||
                         !IsAI(building->r_PlayerIdOwner) ||
                         !TryCreateTargetKey(
                             building->r_PlayerIdOwner,
@@ -741,8 +895,9 @@ namespace ExtraFeatures
                         buildingId,
                         building->r_GlobalId,
                         args.TileId,
-                        building->r_CurrentHealth,
                         target);
+                    observedDefenseTargets.Add(target);
+                    liveDefenseTargets[target] = new LiveDefenseIdentity(buildingId, building->r_GlobalId);
                     hasPendingDefenseDamage = true;
                 }
                 catch (Exception ex)
@@ -761,17 +916,24 @@ namespace ExtraFeatures
 
             try
             {
-                bool confirmedDamage = true;
-                if (GameBuildingManagerAPI.Instance.TryGetBuildingById(observation.BuildingId, out GameBuilding* building) &&
-                    building->r_GlobalId == observation.GlobalId)
+                LiveDefenseIdentity identity = new LiveDefenseIdentity(observation.BuildingId, observation.GlobalId);
+                bool stillLive = IsLiveDefense(observation.Target, identity);
+                if (stillLive)
                 {
-                    confirmedDamage = building->r_CurrentHealth < observation.HealthBefore ||
-                        building->r_AliveState == AliveState.MarkedForDeletion;
+                    QueueDamageWatch(observation.Target, identity);
+                    return;
                 }
-
                 int now = SafeCurrentTick();
-                if (confirmedDamage && now >= 0)
-                    lastDefenseDamageTicks[observation.Target] = now;
+                if (now >= 0)
+                {
+                    RecordDestruction(observation.Target, identity, now, "damage-post");
+                    damagedDefenseWatches.Remove(observation.Target);
+                }
+                else
+                {
+                    QueueDamageWatch(observation.Target, identity);
+                    LogClockUnavailable();
+                }
             }
             catch (Exception ex)
             {
@@ -811,10 +973,10 @@ namespace ExtraFeatures
                 observedBefore = true;
             }
 
-            if (observedBefore)
-                context.History.EverSpawnedDefense = true;
-            if (!context.History.EverSpawnedDefense)
+            if (!observedBefore)
                 return; // The first placement of this AIV frame remains entirely Vanilla.
+
+            context.History.EverSpawnedDefense = true;
 
             if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || settings.AITowerGateRebuildDelaySeconds < 0)
                 return;
@@ -823,28 +985,51 @@ namespace ExtraFeatures
             if (delaySeconds == 0)
                 return;
 
-            if (!rebuildDelays.TryGetValue(context.Key, out RebuildDelayState state))
+            if (HasLiveDefense(target))
+                return;
+
+            if (!rebuildDelays.TryGetValue(target, out RebuildDelayState state))
             {
                 int firstTick = context.Tick;
-                if (lastDefenseDamageTicks.TryGetValue(target, out int damageTick) &&
-                    unchecked((uint)(context.Tick - damageTick)) <= int.MaxValue)
+                string source = "first-missing-attempt";
+                if (destroyedDefenseTicks.TryGetValue(target, out int destructionTick) &&
+                    unchecked((uint)(context.Tick - destructionTick)) <= int.MaxValue)
                 {
-                    firstTick = damageTick;
+                    firstTick = destructionTick;
+                    source = "confirmed-destruction";
                 }
 
-                state = new RebuildDelayState(firstTick);
-                rebuildDelays.Add(context.Key, state);
+                state = new RebuildDelayState(firstTick, source);
+                rebuildDelays.Add(target, state);
+                Shared.DebugLogHelper.LogInfo(log,
+                    $"AI defense rebuild timer started: target={target}, frameIndex={context.FrameIndex}, " +
+                    $"tick={context.Tick}, startTick={firstTick}, delaySeconds={delaySeconds}, source={source}.");
             }
 
             int elapsed = ElapsedTicks(context.Tick, state.FirstDetectedTick);
             long requiredTicks = (long)delaySeconds * TicksPerSecond;
             if (elapsed >= requiredTicks)
             {
-                context.MarkDelayReleased();
+                if (!state.ReleaseLogged)
+                {
+                    state.ReleaseLogged = true;
+                    Shared.DebugLogHelper.LogInfo(log,
+                        $"AI defense rebuild timer released: target={target}, frameIndex={context.FrameIndex}, " +
+                        $"tick={context.Tick}, startTick={state.FirstDetectedTick}, elapsedTicks={elapsed}, " +
+                        $"source={state.Source}.");
+                }
                 return;
             }
 
             context.MarkDelayBlocked();
+            if (!state.BlockLogged)
+            {
+                state.BlockLogged = true;
+                Shared.DebugLogHelper.LogInfo(log,
+                    $"AI defense rebuild timer blocked: target={target}, frameIndex={context.FrameIndex}, " +
+                    $"tick={context.Tick}, startTick={state.FirstDetectedTick}, elapsedTicks={elapsed}, " +
+                    $"requiredTicks={requiredTicks}.");
+            }
         }
 
         private static bool TryCreateTargetKey(
@@ -900,6 +1085,15 @@ namespace ExtraFeatures
                 return;
             Shared.DebugLogHelper.LogError(log,
                 $"AI defense {callback} callback failed; further errors from this callback are suppressed and Vanilla remains active: {ex}");
+        }
+
+        private void LogClockUnavailable()
+        {
+            if (clockUnavailableLogged)
+                return;
+            clockUnavailableLogged = true;
+            Shared.DebugLogHelper.LogWarning(log,
+                "AI defense rebuild clock was unavailable; affected attempts remain Vanilla until the clock recovers.");
         }
 
         private static int CurrentTick() => GameTimeManagerAPI.Instance.CaptureTimeStamp().CapturedGameTick;
@@ -999,8 +1193,6 @@ namespace ExtraFeatures
             }
 
             internal void MarkDelayBlocked() => DelayBlocked = true;
-            internal void MarkDelayReleased() => DelayBlocked = false;
-            internal void ClearDelayBlock() => DelayBlocked = false;
             internal void MarkDefenseSpawned() => DefenseSpawned = true;
         }
 
@@ -1009,14 +1201,18 @@ namespace ExtraFeatures
             internal bool EverSpawnedDefense;
         }
 
-        private readonly struct RebuildDelayState
+        private sealed class RebuildDelayState
         {
-            internal RebuildDelayState(int firstDetectedTick)
+            internal RebuildDelayState(int firstDetectedTick, string source)
             {
                 FirstDetectedTick = firstDetectedTick;
+                Source = source;
             }
 
             internal int FirstDetectedTick { get; }
+            internal string Source { get; }
+            internal bool BlockLogged { get; set; }
+            internal bool ReleaseLogged { get; set; }
         }
 
         private readonly struct BuildStepKey : IEquatable<BuildStepKey>
@@ -1044,10 +1240,11 @@ namespace ExtraFeatures
         {
             internal DefenseTargetKey(int playerId, int x, int y, DefenseFamily family)
             { PlayerId = playerId; X = x; Y = y; Family = family; }
-            private int PlayerId { get; }
+            internal int PlayerId { get; }
             private int X { get; }
             private int Y { get; }
             private DefenseFamily Family { get; }
+            public override string ToString() => $"player={PlayerId}, family={Family}, anchor=({X},{Y})";
             public bool Equals(DefenseTargetKey other) =>
                 PlayerId == other.PlayerId && X == other.X && Y == other.Y && Family == other.Family;
             public override bool Equals(object obj) => obj is DefenseTargetKey other && Equals(other);
@@ -1069,21 +1266,30 @@ namespace ExtraFeatures
                 int buildingId,
                 uint globalId,
                 int tileId,
-                short healthBefore,
                 DefenseTargetKey target)
             {
                 BuildingId = buildingId;
                 GlobalId = globalId;
                 TileId = tileId;
-                HealthBefore = healthBefore;
                 Target = target;
             }
 
             internal int BuildingId { get; }
             internal uint GlobalId { get; }
             internal int TileId { get; }
-            internal short HealthBefore { get; }
             internal DefenseTargetKey Target { get; }
+        }
+
+        private readonly struct LiveDefenseIdentity
+        {
+            internal LiveDefenseIdentity(int buildingId, uint globalId)
+            {
+                BuildingId = buildingId;
+                GlobalId = globalId;
+            }
+
+            internal int BuildingId { get; }
+            internal uint GlobalId { get; }
         }
 
         private readonly struct PendingWallRepair

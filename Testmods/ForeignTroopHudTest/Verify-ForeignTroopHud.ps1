@@ -53,8 +53,9 @@ if ($sources -match 'Show_HUD_Main\s*=' -or $sources -match 'Show_HUD_Book\s*=' 
     $sources -match 'TroopsSelectedGameAction\s*\(' -or
     $sources -notmatch 'main\.Show_HUD_Troops\s*=\s*true' -or
     $sources -notmatch 'main\.Show_HUD_Troops\s*=\s*false' -or
-    $sources -notmatch 'new RectangleGeometry\(new Rect\(142, 0, 416, 155\)\)' -or
-    $sources -notmatch 'new RectangleGeometry\(new Rect\(819, 0, 95, 306\)\)' -or
+    $sources -notmatch 'new RectangleGeometry\(new Rect\(130, 0, 670, 155\)\)' -or
+    $sources -notmatch 'new RectangleGeometry\(new Rect\(660, 0, 254, 306\)\)' -or
+    $sources -notmatch '"StanceTabs", "UnitControls"' -or
     $sources -notmatch 'troopRoot\.IsHitTestVisible\s*=\s*false') {
     throw 'Vanilla troop frame, safe input state, and unchanged right HUD contract missing.'
 }
@@ -67,8 +68,18 @@ foreach ($xamlFile in $xamlFiles) {
     }
 }
 $hudPatch = [IO.File]::ReadAllText($files[4])
+$portraitButtons = @([regex]::Matches($hudPatch, '(?s)<Button x:Name="ForeignTroopImage\d+".*?/>'))
+if ($portraitButtons.Count -ne 8) { throw 'Expected eight read-only portrait buttons.' }
+foreach ($portrait in $portraitButtons) {
+    if ($portrait.Value -notmatch 'IsHitTestVisible="False"' -or
+        $portrait.Value -notmatch 'Focusable="False"' -or
+        $portrait.Value -notmatch 'Style="\{StaticResource BTN_Image\}"' -or
+        $portrait.Value -match 'Command=|Click=|EventTrigger') {
+        throw 'A portrait button is interactive or lacks the Vanilla visual style.'
+    }
+}
 if ($hudPatch -notmatch "XPath=.*/n:Grid\[@x:Name='MainHUD'\]" -or
-    [regex]::Matches($hudPatch, '<Button\s').Count -ne 2 -or
+    [regex]::Matches($hudPatch, '<Button\s').Count -ne 10 -or
     $hudPatch -notmatch 'Width="416" Height="170" Margin="0,0,242,0"' -or
     $hudPatch -match 'UI-HUD 006|Command=|Control_Group|ForeignTroopHudCanvas') {
     throw 'HUD patch must be inside MainHUD with only two local page buttons.'

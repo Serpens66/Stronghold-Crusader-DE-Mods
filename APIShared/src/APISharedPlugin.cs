@@ -33,7 +33,7 @@ namespace APIShared
         {
             // MainHUD loads before a consumer may request the on-demand repair capability.
             GameXAMLManagerAPI.Instance.RegisterBinding(
-                "APISharedRepairTooltipHost", ApiSharedRuntime.ProcessInstance.RepairTooltip);
+                "APISharedRepairExtrasHost", ApiSharedRuntime.ProcessInstance.RepairTooltip);
             SavegameModSettings.Initialize(Logger);
             string hash;
             try

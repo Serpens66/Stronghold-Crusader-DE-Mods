@@ -1,4 +1,5 @@
 using BepInEx.Logging;
+using CrusaderDE;
 using RedBird.Abstractions.Hooks;
 using RedBird.Abstractions.Hooks.Transaction;
 using RedBird.Core.Memory;
@@ -8,6 +9,7 @@ using RedBird.X64.Hooks.Context;
 using RedBird.X64.Hooks.Transaction;
 using SHCDESE.API.LowLevel;
 using System;
+using System.ComponentModel;
 using System.Runtime.InteropServices;
 
 namespace ExtraFeatures
@@ -25,6 +27,7 @@ namespace ExtraFeatures
             new HookHandle<X64InlineHook>();
         private HookTransaction transaction;
         private volatile bool enabled;
+        private MainViewModel armyReportViewModel;
 
         internal FearFactorNeutralizationRuntime(
             ManualLogSource log,
@@ -184,8 +187,49 @@ namespace ExtraFeatures
             bool next = value && transaction != null;
             if (enabled == next) return;
             enabled = next;
+            if (next)
+            {
+                TryAttachArmyReportViewModel();
+                RefreshArmyReportText();
+            }
             Shared.DebugLogHelper.LogInfo(log,
                 $"FEAR_FACTOR_SETTING: enabled={enabled}, mode={Shared.GameplayModActivationGate.Snapshot.Kind}.");
+        }
+
+        internal void TryAttachArmyReportViewModel()
+        {
+            if (!MainViewModel.viewModelLoaded)
+                return;
+
+            MainViewModel viewModel = MainViewModel.Instance;
+            if (ReferenceEquals(armyReportViewModel, viewModel))
+                return;
+
+            // The game's persistent view model publishes each Vanilla report rewrite.
+            viewModel.PropertyChanged += OnArmyReportPropertyChanged;
+            armyReportViewModel = viewModel;
+            RefreshArmyReportText();
+        }
+
+        private void OnArmyReportPropertyChanged(object sender, PropertyChangedEventArgs args)
+        {
+            if (args?.PropertyName == nameof(MainViewModel.ArmyReportFFBoostText) &&
+                ReferenceEquals(sender, armyReportViewModel))
+                RefreshArmyReportText();
+        }
+
+        private void RefreshArmyReportText()
+        {
+            MainViewModel viewModel = armyReportViewModel;
+            if (!enabled || viewModel == null)
+                return;
+
+            string label = Translate.Instance.lookUpText(Enums.eTextSections.TEXT_REPORT_BUTTONS, 31);
+            string zeroText = FatControler.turkish || FatControler.arabic
+                ? label + " %0"
+                : label + " 0%";
+            if (viewModel.ArmyReportFFBoostText != zeroText)
+                viewModel.ArmyReportFFBoostText = zeroText;
         }
 
     }

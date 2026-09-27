@@ -546,6 +546,7 @@ namespace ExtraFeatures
 
         private void OnSessionStarted(Shared.GameplaySessionStartedContext context)
         {
+            TryRunFeature("fear-factor army report", () => fearFactorRuntime?.TryAttachArmyReportViewModel());
             bool multiplayerSave = context.IsLoadedSave
                 ? context.Mode.IsRealMultiplayer
                 : context.Notification != null && context.Notification.Context.IsSave && context.Mode.IsRealMultiplayer;

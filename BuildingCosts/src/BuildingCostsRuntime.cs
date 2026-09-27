@@ -489,8 +489,20 @@ namespace BuildingCosts
                     return;
                 }
 
-                bool detailedTooltipVisible = MainViewModel.Instance.RolloverBuilding_TooltipVis;
-                bool compactTooltipVisible = MainViewModel.Instance.RolloverBuilding_TooltipVisNot;
+                MainViewModel vanilla = MainViewModel.Instance;
+                if (repairCapability != null &&
+                    repairCapability.TryGetSelectedQuote(out BuildingRepairQuote repairQuote) &&
+                    repairQuote.CurrentHealth < repairQuote.MaxHealth &&
+                    string.Equals(vanilla.RollOverText?.Trim(),
+                        Translate.Instance.lookUpText(Enums.eTextSections.TEXT_BUBBLE_HELP_TEXT,
+                            Enums.eTextValues.BHELP_TEXT_REPAIR), StringComparison.Ordinal))
+                {
+                    ClearBuildingCostTooltip();
+                    return;
+                }
+
+                bool detailedTooltipVisible = vanilla.RolloverBuilding_TooltipVis;
+                bool compactTooltipVisible = vanilla.RolloverBuilding_TooltipVisNot;
                 int hoverStruct = (int)hoverStructField.GetValue(hud);
                 int selectedStruct = (int)selectedStructField.GetValue(hud);
                 int tooltipStruct = hoverStruct != 0 ? hoverStruct : selectedStruct;
@@ -515,7 +527,6 @@ namespace BuildingCosts
 
                 int localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
                 int resourceSignature = GetTooltipResourceSignature(localPlayerId);
-                MainViewModel vanilla = MainViewModel.Instance;
                 string vanillaCostText = vanilla.RollOverText_AmountReq1 + vanilla.RollOverText_AmountGot1 +
                     vanilla.RollOverText_AmountReq2 + vanilla.RollOverText_AmountGot2;
 

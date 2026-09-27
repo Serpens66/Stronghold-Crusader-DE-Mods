@@ -20,7 +20,7 @@ $files = @(
 
 foreach ($path in $files) {
     $content = [IO.File]::ReadAllText($path)
-    $literalNewlineEscape = [string]::Concat([char]92, 'r', [char]92, 'n')
+    $literalNewlineEscape = ([string][char]92) + 'r' + ([string][char]92) + 'n'
     if ($content -match '(?<!\r)\n' -or $content.Contains($literalNewlineEscape)) {
         throw "CRLF or literal newline escape failure: $path"
     }
@@ -57,7 +57,13 @@ $manifest = Get-Content -Raw -LiteralPath (Join-Path $root 'info.json') | Conver
 if ($manifest.NetworkMode -ne 1 -or $manifest.GUID -ne 'DamagedHealthBarsTest_Serp') {
     throw 'Manifest identity or network mode differs.'
 }
-if ((Get-FileHash -Algorithm SHA256 -LiteralPath $native).Hash -ne 'FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2') {
+function Get-Sha256([string]$path) {
+    $stream = [IO.File]::OpenRead($path)
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try { return [BitConverter]::ToString($sha.ComputeHash($stream)).Replace('-', '') }
+    finally { $sha.Dispose(); $stream.Dispose() }
+}
+if ((Get-Sha256 $native) -ne 'FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2') {
     throw 'Installed native DLL differs from the audited baseline.'
 }
 function Get-PeRvaBytes([string]$path, [int]$rva, [int]$length) {
@@ -102,7 +108,7 @@ foreach ($span in $nativeSpans) {
         throw ('Native hook bytes at RVA 0x{0:X} differ from the audited instruction span.' -f $span.Rva)
     }
 }
-if ((Get-FileHash -Algorithm SHA256 -LiteralPath $managed).Hash -ne 'BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789') {
+if ((Get-Sha256 $managed) -ne 'BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789') {
     throw 'Installed managed game DLL differs from the audited baseline.'
 }
 foreach ($name in @('SHCDESE.dll', 'R3.dll', 'System.Memory.dll', 'Iced.dll', 'RedBird.Abstractions.dll', 'RedBird.Core.dll', 'RedBird.X64.dll')) {

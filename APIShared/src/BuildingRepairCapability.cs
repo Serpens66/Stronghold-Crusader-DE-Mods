@@ -439,7 +439,12 @@ namespace APIShared
         {
             if (string.IsNullOrEmpty(buttonId)) return;
             hoveredButton = buttonId;
-            try { RefreshTooltip(); }
+            try
+            {
+                if (buttonId != BigButtonId)
+                    MainViewModel.Instance.ButtonRepairMouseEnterCommand.Execute(null);
+                RefreshTooltip();
+            }
             catch (Exception ex) { RecordError("Building repair hover failed: " + ex); tooltip.Clear(); }
         }
 
@@ -447,7 +452,12 @@ namespace APIShared
         {
             if (!string.Equals(hoveredButton, buttonId, StringComparison.Ordinal)) return;
             hoveredButton = null;
-            try { tooltip.Clear(); }
+            try
+            {
+                if (buttonId != BigButtonId)
+                    MainViewModel.Instance.ButtonRepairMouseLeaveCommand.Execute(null);
+                tooltip.Clear();
+            }
             catch (Exception ex) { RecordError("Building repair hover cleanup failed: " + ex); }
         }
 
@@ -495,48 +505,36 @@ namespace APIShared
         public ImageSource Icon { get; set; }
     }
 
-    /// <summary>Noesis binding source for the shared repair tooltip.</summary>
+    /// <summary>Noesis binding source for extra costs in the Vanilla repair rollover.</summary>
     public sealed class RepairTooltipViewModel : INotifyPropertyChanged
     {
-        private Brush tooltipBackground;
-        private Noesis.Visibility visibility = Noesis.Visibility.Hidden;
-        private string title = string.Empty;
+        private Noesis.Visibility visibility = Noesis.Visibility.Collapsed;
         private string signature;
-        /// <summary>Raised when tooltip visibility or title changes.</summary>
+        /// <summary>Raised when extra repair costs change.</summary>
         public event PropertyChangedEventHandler PropertyChanged;
-        /// <summary>Visible resource costs.</summary>
+        /// <summary>Extra resource costs after Vanilla's wood and stone.</summary>
         public ObservableCollection<RepairTooltipEntry> Costs { get; } = new ObservableCollection<RepairTooltipEntry>();
-        /// <summary>The background appears only after the tooltip ViewModel is bound.</summary>
-        public Brush TooltipBackground => tooltipBackground ??
-            (tooltipBackground = new SolidColorBrush(Noesis.Color.FromArgb(0x88, 0x00, 0x00, 0x00)));
-        /// <summary>Current tooltip visibility.</summary>
+        /// <summary>Visibility of the extra inline costs.</summary>
         public Noesis.Visibility Visibility
         {
             get => visibility;
             private set { if (visibility != value) { visibility = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Visibility))); } }
         }
-        /// <summary>Localized repair caption.</summary>
-        public string Title
-        {
-            get => title;
-            private set { if (title != value) { title = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Title))); } }
-        }
 
-        /// <summary>Shows the costs from an immutable simulation snapshot.</summary>
+        /// <summary>Shows only resources absent from Vanilla's repair rollover.</summary>
         public void Show(BuildingRepairQuote quote)
         {
+            if (quote.Iron <= 0 && quote.Pitch <= 0 && quote.Gold <= 0)
+            {
+                Clear();
+                return;
+            }
             string next = string.Join(":", new[] { quote.BuildingGlobalId, quote.CurrentHealth, quote.MaxHealth,
-                quote.Wood, quote.Stone, quote.Iron, quote.Pitch, quote.Gold,
-                quote.AvailableWood, quote.AvailableStone, quote.AvailableIron, quote.AvailablePitch, quote.AvailableGold });
+                quote.Iron, quote.Pitch, quote.Gold,
+                quote.AvailableIron, quote.AvailablePitch, quote.AvailableGold });
             if (signature == next && Visibility == Noesis.Visibility.Visible) return;
             signature = next;
-            string localized = Translate.Instance.lookUpText(
-                Enums.eTextSections.TEXT_BUBBLE_HELP_TEXT, Enums.eTextValues.BHELP_TEXT_REPAIR);
-            if (string.IsNullOrWhiteSpace(localized)) localized = "Repair";
-            Title = localized;
             Costs.Clear();
-            Add(eGoods.STORED_WOOD_PLANKS, quote.Wood, quote.AvailableWood);
-            Add(eGoods.STORED_STONE_BLOCKS, quote.Stone, quote.AvailableStone);
             Add(eGoods.STORED_IRON_INGOTS, quote.Iron, quote.AvailableIron);
             Add(eGoods.STORED_PITCH_RAW, quote.Pitch, quote.AvailablePitch);
             Add(eGoods.STORED_GOLD, quote.Gold, quote.AvailableGold);
@@ -555,12 +553,12 @@ namespace APIShared
             });
         }
 
-        /// <summary>Hides the tooltip.</summary>
+        /// <summary>Hides the extra inline costs.</summary>
         public void Clear()
         {
-            if (Visibility == Noesis.Visibility.Hidden) return;
+            if (Visibility == Noesis.Visibility.Collapsed) return;
             signature = null;
-            Visibility = Noesis.Visibility.Hidden;
+            Visibility = Noesis.Visibility.Collapsed;
             Costs.Clear();
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Costs)));
         }

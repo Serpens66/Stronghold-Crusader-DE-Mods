@@ -83,6 +83,25 @@
            --><Run Text="{Binding RollOverText_AmountReq2}"/><!--
            --><InlineUIContainer><Image Source="{Binding RollOverText_GoodsImage2}" Height="18" Margin="0,4,0,-4"/></InlineUIContainer><!--
            --><Run Text="{Binding RollOverText_AmountGot2}"/>
+              <InlineUIContainer>
+                <ItemsControl x:Name="APISharedRepairExtrasHost"
+                              ItemsSource="{Binding Costs}" Visibility="{Binding Visibility}"
+                              IsHitTestVisible="False" Tag="Ignore">
+                  <ItemsControl.RenderTransform><TranslateTransform Y="10" /></ItemsControl.RenderTransform>
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Required}" FontSize="20" Foreground="#FFDDDDDD" />
+                        <Image Source="{Binding Icon}" Height="18" Margin="0,4,0,-4" />
+                        <TextBlock Text="{Binding Available}" FontSize="20" Foreground="#FFDDDDDD" />
+                      </StackPanel>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </InlineUIContainer>
             </TextBlock>
             <ItemsControl x:Name="BuildingCostsTooltipHostCompact"
                           ItemsSource="{Binding TooltipItems}"
