@@ -163,7 +163,7 @@ namespace CastlePlanner
                     return true;
                 default:
                     mapper = default;
-                    projectileType = ProjectileType.Unknown;
+                    projectileType = default;
                     return false;
             }
         }

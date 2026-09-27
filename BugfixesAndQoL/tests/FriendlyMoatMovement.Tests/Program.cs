@@ -23,6 +23,7 @@ string[] runtimeSourceNames =
     "FastMoatBridge.cs", "FillWeightedRoutes.cs", "FriendlyMoatMovementPolicy.cs",
     "FriendlyMoatMovementRuntime.cs", "FriendlyMoatMovementRuntime.LadderAttackFix.cs",
     "MoatPlacement.cs", "MoatPlacementSearch.cs",
+    "MoatModeFlagIntermediaryFactory.cs",
     "MoatSearchKernel.cs", "MoatWorkTargetSelection.cs", "MovementOptionsSnapshot.cs",
     "MovementPathPublication.cs", "MovementSearchContext.cs", "NativeFormationSlots.cs",
     "MoveFormationSpacingPolicy.cs", "MoveFormationPreviewPlanner.cs",
@@ -42,6 +43,7 @@ ValidateScriptExtenderIntegration();
 ValidateRuntimeSources();
 ValidateModeSettings();
 InstalledRedBirdContract.Validate();
+MoatModeFlagContract.Validate();
 
 var methods = new HashSet<string>(new[] {
     "EmitSelectionCallAdapter",
@@ -477,7 +479,7 @@ void ValidateScriptExtenderIntegration()
         !orchestrator.Contains("new FriendlyMoatMovementRuntime(", StringComparison.Ordinal) ||
         !orchestrator.Contains("log, settings, context, referenceHashMatches", StringComparison.Ordinal))
         throw new Exception("BugfixesAndQoL does not declare and own the integrated friendly-moat runtime.");
-    foreach (string forbidden in new[]{"MonoMod.RuntimeDetour", "NativeDetour", "Zhuqiaomon", "GenerateTrampoline", ".Apply()", ".Undo()"})
+    foreach (string forbidden in new[]{"MonoMod.RuntimeDetour", "new NativeDetour<", "Zhuqiaomon", "GenerateTrampoline", ".Apply()", ".Undo()"})
         if (runtime.Contains(forbidden, StringComparison.Ordinal))
             throw new Exception("Legacy hook contract remains: " + forbidden);
     foreach (string required in new[]{"RedBird.Abstractions.dll", "RedBird.Core.dll", "RedBird.X64.dll", "RedBird.Backends.NativeX64.dll"})
@@ -549,7 +551,7 @@ void ValidateRuntimeSources()
     foreach(string path in Directory.GetFiles(Path.Combine(framework,"Facades"),"*.dll"))Include(path);
     foreach(string path in Directory.GetFiles(Path.Combine(game,"BepInEx","core"),"*.dll"))Include(path);
     Include(apiSharedPath);
-    foreach(string file in new[]{"SHCDESE.dll","R3.dll","System.Memory.dll","RedBird.Abstractions.dll","RedBird.Core.dll","RedBird.X64.dll","Iced.dll",
+    foreach(string file in new[]{"SHCDESE.dll","R3.dll","System.Memory.dll","RedBird.Abstractions.dll","RedBird.Core.dll","RedBird.X64.dll","RedBird.Backends.NativeX64.dll","Iced.dll",
         "Microsoft.Extensions.Logging.Abstractions.dll","System.Threading.Tasks.Extensions.dll","System.Runtime.CompilerServices.Unsafe.dll","MessagePack.dll","MessagePack.Annotations.dll"})
         Include(Path.Combine(extender,file));
     foreach(string file in new[]{"UnityEngine.dll","UnityEngine.CoreModule.dll","UnityEngine.InputLegacyModule.dll","Assembly-CSharp.dll","Noesis.NoesisGUI.dll","com.rlabrecque.steamworks.net.dll"})
@@ -582,7 +584,7 @@ void ValidateRuntimeSources()
         Console.WriteLine($"SOURCE WARNING {group.Key}: {group.Count()} occurrences; {group.First()}");
     var failures=diagnostics.Where(d=>d.Severity==DiagnosticSeverity.Error).ToArray();
     if(failures.Length>0)throw new Exception(string.Join("\n",failures.Select(d=>d.ToString())));
-    foreach (string file in new[]{"SHCDESE.dll","R3.dll","System.Memory.dll","RedBird.Abstractions.dll","RedBird.Core.dll","RedBird.X64.dll","Iced.dll",
+    foreach (string file in new[]{"SHCDESE.dll","R3.dll","System.Memory.dll","RedBird.Abstractions.dll","RedBird.Core.dll","RedBird.X64.dll","RedBird.Backends.NativeX64.dll","Iced.dll",
         "Microsoft.Extensions.Logging.Abstractions.dll","System.Threading.Tasks.Extensions.dll","System.Runtime.CompilerServices.Unsafe.dll","MessagePack.dll","MessagePack.Annotations.dll"})
         Include(Path.Combine(game,"BepInEx","plugins","000shcdese",file));
     string installedVersion=System.Diagnostics.FileVersionInfo.GetVersionInfo(Path.Combine(game,"BepInEx","plugins","000shcdese","SHCDESE.dll")).ProductVersion;

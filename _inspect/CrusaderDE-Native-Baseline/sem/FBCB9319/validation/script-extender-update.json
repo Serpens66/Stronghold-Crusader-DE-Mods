@@ -1,7 +1,7 @@
 {
-  "previousScriptExtenderCommit": "a8ba202f6ec7966bd115b59a6088a0077ce727a0",
-  "scriptExtenderCommit": "dc86a6b91f5f2b491fc815e926542db1f921538d",
-  "scriptExtenderTree": "32be0169a3c4095e489976c275ff5a6a2fb383a6",
+  "previousScriptExtenderCommit": "dc86a6b91f5f2b491fc815e926542db1f921538d",
+  "scriptExtenderCommit": "48fd239dc56300d9e3acacaa26a8cd87de0c6464",
+  "scriptExtenderTree": "d9a8f9637987151c243818ddda747e91ea3d4a69",
   "ghidraRequired": false,
   "changedInputs": [],
   "missingInputs": [],

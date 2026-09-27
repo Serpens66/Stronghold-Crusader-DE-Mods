@@ -1,4 +1,5 @@
 using BepInEx.Logging;
+using RedBird.Backends.NativeX64;
 using RedBird.Abstractions.Hooks;
 using RedBird.Abstractions.Hooks.Transaction;
 using RedBird.Core.Memory;
@@ -1026,6 +1027,7 @@ namespace BugfixesAndQoL
             rootedTribeFloodFillMembership = AllowTribeFloodFillForMoveOrder;
             rootedFirstGroupUnitOnCompletedMoat = SelectOwnerSafeGroupMoatMode;
             rootedUnitStandingOnCompletedMoat = EnableCompletedMoatModeForScopedMovement;
+            ValidateMoatModeDetourCandidate(libraryBase + unchecked((ulong)modeResolution.Rva));
             rootedRegionReachability = AllowBuilderAfterFailedRegionSearch;
             rootedCursorReachability = AllowCursorReachabilityThroughCompletedMoat;
             rootedCursorTilePairReachability = AllowAttackCursorTilePairThroughCompletedMoat;
@@ -1072,7 +1074,8 @@ namespace BugfixesAndQoL
                 pendingMode = AddDetour(
                     pendingTransaction,
                     libraryBase + unchecked((ulong)modeResolution.Rva),
-                    rootedUnitStandingOnCompletedMoat);
+                    rootedUnitStandingOnCompletedMoat,
+                    MoatModeFlagIntermediaryFactory.Instance);
                 pendingRegion = AddDetour(
                     pendingTransaction,
                     libraryBase + unchecked((ulong)regionResolution.Rva),
@@ -1102,6 +1105,24 @@ namespace BugfixesAndQoL
                 {
                     throw new InvalidOperationException(
                         $"The central friendly moat movement hooks were not installed atomically: {commitResult}.");
+                }
+
+                // A committed hook must stay installed. A post-commit regression is
+                // diagnosed without disposing its executable entry or transaction.
+                try
+                {
+                    var installedMode = pendingMode.Handle.Hook as NativeDetour<UnitStandingOnCompletedMoatDelegate>;
+                    MoatModeFlagIntermediaryFactory.ValidateNativeHook(
+                        installedMode,
+                        libraryBase + unchecked((ulong)modeResolution.Rva),
+                        Marshal.GetFunctionPointerForDelegate(rootedUnitStandingOnCompletedMoat),
+                        installed: true);
+                }
+                catch (Exception exception)
+                {
+                    disposed = true;
+                    Shared.DebugLogHelper.LogError(log,
+                        "Friendly moat movement disabled after a committed mode-detour contract mismatch: " + exception);
                 }
 
                 originalCentralMovementPlan = pendingPlanDetour.Original;
@@ -8740,17 +8761,57 @@ namespace BugfixesAndQoL
         private static RedBirdDetour<TDelegate> AddDetour<TDelegate>(
             HookTransaction transaction,
             ulong targetAddress,
-            TDelegate callback)
+            TDelegate callback,
+            IDetourIntermediaryFactory intermediaryFactory = null)
             where TDelegate : Delegate
         {
             if (transaction == null)
                 throw new ArgumentNullException(nameof(transaction));
             var detour = new RedBirdDetour<TDelegate>(targetAddress);
-            transaction.AddDetour(
-                detour.Handle,
-                HookTarget.FromAddress(targetAddress),
-                callback);
+            if (intermediaryFactory == null)
+                transaction.AddDetour(
+                    detour.Handle,
+                    HookTarget.FromAddress(targetAddress),
+                    callback);
+            else
+                transaction.AddDetour(
+                    detour.Handle,
+                    HookTarget.FromAddress(targetAddress),
+                    callback,
+                    intermediaryFactory);
             return detour;
+        }
+
+        private void ValidateMoatModeDetourCandidate(ulong targetAddress)
+        {
+            byte[] expectedPrefix =
+            {
+                0x48, 0x63, 0xC2, 0x48, 0x69, 0xD0, 0x90, 0x04, 0x00, 0x00
+            };
+            for (int index = 0; index < expectedPrefix.Length; index++)
+            {
+                if (Marshal.ReadByte(new IntPtr(unchecked((long)targetAddress)), index) !=
+                    expectedPrefix[index])
+                    throw new InvalidOperationException(
+                        "The installed moat-mode prologue differs from the audited 10 bytes.");
+            }
+
+            var request = new DetourRequest<UnitStandingOnCompletedMoatDelegate>
+            {
+                Name = "BugfixesAndQoL moat-mode contract preflight",
+                TargetAddress = targetAddress,
+                Callback = rootedUnitStandingOnCompletedMoat,
+                IntermediaryFactory = MoatModeFlagIntermediaryFactory.Instance
+            };
+            var candidate = NativeDetourBackend.Instance.CreateDetour(in request)
+                as NativeDetour<UnitStandingOnCompletedMoatDelegate>;
+            if (candidate == null)
+                throw new InvalidOperationException("The installed moat-mode backend is not NativeX64.");
+            using (candidate)
+                MoatModeFlagIntermediaryFactory.ValidateNativeHook(
+                    candidate, targetAddress,
+                    Marshal.GetFunctionPointerForDelegate(rootedUnitStandingOnCompletedMoat),
+                    installed: false);
         }
 
         private enum AttackPipelineStage

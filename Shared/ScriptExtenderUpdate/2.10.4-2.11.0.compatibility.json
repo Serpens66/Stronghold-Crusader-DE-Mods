@@ -1,0 +1,67 @@
+{
+  "OldVersion": "2.10.4",
+  "NewVersion": "2.11.0",
+  "TargetCommit": "48fd239dc56300d9e3acacaa26a8cd87de0c6464",
+  "ImpactReview": {
+    "BaselinePreviousCommit": "dc86a6b91f5f2b491fc815e926542db1f921538d",
+    "CrusaderNativeFiles": [
+      "src/SHCDESE.BepInEx/Detours/BulkAIDetours.cs"
+    ],
+    "ExternalNativeFiles": [],
+    "NonSemanticArtifacts": [
+      "CHANGELOG.md",
+      "ReverseEngineering/structs/scde-main-2802-v6.rcnet",
+      "docs/guides/multiple-instances.md"
+    ],
+    "ChangedPublicContracts": [
+      {
+        "Consumers": [],
+        "Symbol": "GameTribeManagerAPI.GetOwner(int) / Tribe_GetOwner",
+        "Path": "src/SHCDESE.BepInEx/API/GameTribeManagerAPI.cs",
+        "Compatibility": "Additive owner query. No existing workspace mod consumes it; invalid IDs return -1."
+      },
+      {
+        "Consumers": [],
+        "Symbol": "ChoreType.TileBulldoze (41)",
+        "Path": "src/SHCDESE.BepInEx/Interop/Enums/ChoreType.cs",
+        "Compatibility": "Renamed from WallBulldoze with unchanged numeric value; no workspace reference to the old name."
+      },
+      {
+        "Consumers": ["CastlePlanner"],
+        "Symbol": "ProjectileType.None (0)",
+        "Path": "src/SHCDESE.BepInEx/Interop/Enums/ProjectileType.cs",
+        "Compatibility": "Renamed from Unknown with unchanged numeric value. CastlePlanner uses default only for an unsuccessful out parameter, retaining compatibility with 2.10.4."
+      },
+      {
+        "Consumers": [],
+        "Symbol": "GameTribe.N00000563 and N00006BC6",
+        "Path": "src/SHCDESE.BepInEx/Interop/GameTribe.cs",
+        "Compatibility": "The former 32-bit unknown word at 0x538 is split into two 16-bit fields without moving later fields; no workspace consumer reads either."
+      },
+      {
+        "Consumers": [],
+        "Symbol": "GameUnit unknown words and r_RangedAttackTargetUnitId",
+        "Path": "src/SHCDESE.BepInEx/Interop/GameUnit.cs",
+        "Compatibility": "Four 32-bit words are represented as pairs of 16-bit fields at the same offsets. The named target ID is now UInt16 at 0x340; no workspace consumer uses these changed fields."
+      }
+    ],
+    "AffectedMods": ["CastlePlanner"],
+    "BuildMods": ["APIShared", "CastlePlanner"]
+  },
+  "Mods": {
+    "CastlePlanner": {
+      "Version": "0.8.33",
+      "Changes": [
+        "Kept AIV decoration fallback compatible with Script Extender 2.11.0 and earlier supported versions."
+      ],
+      "MinimumScriptExtenderVersion": "2.10.4"
+    }
+  },
+  "CompatibilityNotes": [
+    "The installed 2.11.0 SHCDESE.dll, local bin output and mod_output are byte-identical; no extender rebuild is required.",
+    "The new speech-path inline hook at RVA 0xFEF21 does not overlap local or Fixes patches. A local 2.11.0 game log recorded a 134-byte NotSendingGoods audio reference and the user reports successful playback; the existing earlier 100-byte message-record copy remains a pre-existing field-overwrite risk and is reported separately.",
+    "The older projectile slot-view adapter remains applicable and compatible with the corrected live-slot view.",
+    "The known early native crash-handler false alarm has no source-level fix in this release; retain its version-neutral documentation until runtime evidence proves otherwise.",
+    "The rcnet change is a reverse-engineering project artifact. The new module-bound CrusaderDE AOB is unique, but its extracted symbol is unknown, so it creates no new Ghidra label; a current-only Ghidra import is nevertheless run explicitly for this release audit."
+  ]
+}

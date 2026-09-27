@@ -194,6 +194,11 @@ try {
     Assert-True (($providerClosure.Name -join ',') -eq 'One,Two') 'Affected provider did not select its consumer closure.'
     $consumerClosure = @(Get-SEBuildSelection $fakeMods @('Two') @())
     Assert-True (($consumerClosure.Name -join ',') -eq 'One,Two') 'Affected consumer did not select its required provider.'
+    $siblingConsumers = @($fakeMods) + @(
+        [pscustomobject]@{Name='Three';Plugin='three';Project='fake.csproj';BuildDriver='two.bat';BuildOrder=3;DependsOn=@('One')}
+    )
+    $consumerOnlyClosure = @(Get-SEBuildSelection $siblingConsumers @('Two') @('One','Two'))
+    Assert-True (($consumerOnlyClosure.Name -join ',') -eq 'One,Two') 'A provider-only build selected an unrelated sibling consumer.'
     $fakeState=@{CompletedBuilds=@()}
     $stopped=$false
     try { Invoke-SECheckpointBuild $fakeMods $buildTemp $buildTemp $fakeState {} {} } catch { $stopped=$true }

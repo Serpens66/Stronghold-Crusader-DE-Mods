@@ -1,0 +1,22 @@
+{
+  "OldVersion": "2.10.4",
+  "NewVersion": "2.11.0",
+  "ExtenderCommit": "48fd239dc56300d9e3acacaa26a8cd87de0c6464",
+  "ExtenderTree": "d9a8f9637987151c243818ddda747e91ea3d4a69",
+  "NativeHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+  "ReleaseProjects": [
+    "APIShared", "BugfixesAndQoL", "BuildingCosts", "BuildingLimit", "CheatMod", "ExtendedData", "ExtraFeatures", "ImprovedHunters", "RandomEvents", "CastlePlanner", "StartConditions", "UnitCosts", "UnitLimit"
+  ],
+  "SourceFileCount": 52,
+  "OperationCount": 114,
+  "SourceFingerprint": "256604A50716CE1DE0BA6B94B362463C6CCB74EF2FD4A1D359AB933D235B1B68",
+  "ExtenderChangesReviewed": true,
+  "Result": "Compatible",
+  "ReviewedInteractions": [
+    {
+      "Id": "SHCDESE.BulkAIDetours.speech-path-relocation",
+      "Rationale": "The installed RedBird 1.5.0 backend and copied-byte probe decode exactly the 5+5+5 byte instructions at RVA 0xFEF21..0xFEF2F, reassemble the CALL with its target, and return at 0xFEF30. The containing native function starts at 0xFEE50. No direct incoming control-flow edge enters the displaced span. No release-project hook or the canonical Fixes clone at 1a70ff8032b43291645c675f402bdbf7d3cc14fe patches this span. BugfixesAndQoL's notification update detour is at 0xFE570 in a separate function and calls the finalizer at 0x102A70. Its newly completed moat-mode detour is at 0x196840, also disjoint from the speech function; the fingerprint includes its current additional AddDetour branch. The existing pre-hook unbounded copy at 0xFEEA0 remains an independent upstream issue.",
+      "Classification": "NoOverlap"
+    }
+  ]
+}

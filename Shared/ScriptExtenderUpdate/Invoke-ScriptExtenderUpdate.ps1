@@ -111,8 +111,10 @@ $duplicateNames = @($mods | Group-Object Name | Where-Object Count -ne 1)
 $duplicateGuids = @($mods | Group-Object Guid | Where-Object Count -ne 1)
 if ($duplicateNames -or $duplicateGuids) { throw 'Inventory contains duplicate names or GUIDs.' }
 foreach ($mod in $mods) {
-    foreach ($property in @('Manifest','Package')) { if (-not (Test-Path -LiteralPath (Join-Path $workspace $mod.$property))) { throw "$($mod.Name): missing $property" } }
-    if ($mod.Plugin) { foreach ($property in @('Plugin','Project','BuildDriver')) { if (-not (Test-Path -LiteralPath (Join-Path $workspace $mod.$property))) { throw "$($mod.Name): missing $property" } } }
+    if (Test-ModActive $mod) {
+        foreach ($property in @('Manifest','Package')) { if (-not (Test-Path -LiteralPath (Join-Path $workspace $mod.$property))) { throw "$($mod.Name): missing $property" } }
+        if ($mod.Plugin) { foreach ($property in @('Plugin','Project','BuildDriver')) { if (-not (Test-Path -LiteralPath (Join-Path $workspace $mod.$property))) { throw "$($mod.Name): missing $property" } } }
+    }
     foreach ($preservedFile in @($mod.PreservedInstallFiles | Where-Object { $null -ne $_ })) {
         if (-not [string]$preservedFile -or [IO.Path]::IsPathRooted([string]$preservedFile) -or
             [string]$preservedFile -match '(^|[\\/])\.\.([\\/]|$)' -or [string]$preservedFile -match '[*?]') {
@@ -141,7 +143,7 @@ $discoveredPlugins = @($candidateSources | ForEach-Object { $_.Replace('/', '\')
     (Test-Path -LiteralPath (Join-Path $workspace $_) -PathType Leaf) -and
     [IO.File]::ReadAllText((Join-Path $workspace $_)).Contains('[BepInPlugin(')
 })
-$inventoriedPlugins = @($mods | Where-Object Plugin | ForEach-Object { [string]$_.Plugin })
+$inventoriedPlugins = @($mods | Where-Object { $_.Plugin -and (Test-Path -LiteralPath (Join-Path $workspace $_.Plugin) -PathType Leaf) } | ForEach-Object { [string]$_.Plugin })
 $missingInventory = @($discoveredPlugins | Where-Object { $_ -notin $inventoriedPlugins })
 $staleInventory = @($inventoriedPlugins | Where-Object { $_ -notin $discoveredPlugins })
 if ($missingInventory -or $staleInventory) {

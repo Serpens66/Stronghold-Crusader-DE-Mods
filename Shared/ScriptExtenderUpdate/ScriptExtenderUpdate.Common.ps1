@@ -29,13 +29,28 @@ function Get-SEBuildSelection([object[]]$Mods, [string[]]$AffectedNames, [string
     $runtimeMods = @($Mods | Where-Object Plugin)
     $byName = @{}
     foreach ($mod in $runtimeMods) { $byName[[string]$mod.Name] = $mod }
-    $selected = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
-    foreach ($name in @($AffectedNames) + @($RequestedBuildNames)) {
+    $affected = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    foreach ($name in @($AffectedNames)) {
         if (-not $name) { continue }
         if (-not $byName.ContainsKey([string]$name)) { throw "Impact review references an unknown active runtime mod: $name" }
-        $selected.Add([string]$name) | Out-Null
+        $affected.Add([string]$name) | Out-Null
     }
-
+    foreach ($name in @($RequestedBuildNames)) {
+        if ($name -and -not $byName.ContainsKey([string]$name)) { throw "Impact review requests an unknown active runtime mod: $name" }
+    }
+    $selected = [Collections.Generic.HashSet[string]]::new($affected, [StringComparer]::OrdinalIgnoreCase)
+    # Only consumers of a changed provider need rebuilding. A provider pulled in
+    # merely to satisfy an affected consumer must not select every other consumer.
+    $changed = $true
+    while ($changed) {
+        $changed = $false
+        foreach ($mod in $runtimeMods) {
+            if (@($mod.DependsOn | Where-Object { $affected.Contains([string]$_) }).Count -gt 0 -and $affected.Add([string]$mod.Name)) {
+                $changed = $true
+            }
+        }
+    }
+    foreach ($name in $affected) { $selected.Add($name) | Out-Null }
     $changed = $true
     while ($changed) {
         $changed = $false
@@ -43,11 +58,6 @@ function Get-SEBuildSelection([object[]]$Mods, [string[]]$AffectedNames, [string
             foreach ($dependency in @($byName[$name].DependsOn)) {
                 if (-not $byName.ContainsKey([string]$dependency)) { throw "$name has an unknown active dependency: $dependency" }
                 if ($selected.Add([string]$dependency)) { $changed = $true }
-            }
-        }
-        foreach ($mod in $runtimeMods) {
-            if (@($mod.DependsOn | Where-Object { $selected.Contains([string]$_) }).Count -gt 0 -and $selected.Add([string]$mod.Name)) {
-                $changed = $true
             }
         }
     }

@@ -6,7 +6,7 @@ internal static class InstalledRedBirdContract
     internal static void Validate()
     {
         const string extender = @"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese";
-        foreach (string name in new[] { "Microsoft.Extensions.Logging.Abstractions", "Iced", "RedBird.Abstractions", "RedBird.Core", "RedBird.X64" })
+        foreach (string name in new[] { "Iced", "RedBird.Abstractions", "RedBird.Core", "RedBird.X64" })
             Assembly.LoadFrom(Path.Combine(extender, name + ".dll"));
         var assembly = Assembly.LoadFrom(Path.Combine(extender, "RedBird.X64.dll"));
         var type = assembly.GetType("RedBird.X64.Hooks.X64InlineHook", throwOnError: true)!;
