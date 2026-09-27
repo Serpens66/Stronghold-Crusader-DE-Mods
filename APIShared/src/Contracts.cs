@@ -53,6 +53,8 @@ namespace APIShared
         public const string PlayerDefeat = "player-defeat";
         /// <summary>Capability for deterministic post-Vanilla mission-briefing gold presentation.</summary>
         public const string BriefingGoldPresentation = "briefing-gold-presentation";
+        /// <summary>Capability for complete building repair costs and repair HUD tooltips.</summary>
+        public const string BuildingRepair = "building-repair";
     }
 
     /// <summary>Immutable diagnostic information returned by capability acquisition and mutation.</summary>
@@ -127,6 +129,9 @@ namespace APIShared
         bool TryGetBriefingGoldPresentation(
             string ownerGuid,
             out IBriefingGoldPresentationCapability capability,
+            out NativeCapabilityDiagnostic diagnostic);
+        /// <summary>Acquires the shared building repair calculation and presentation.</summary>
+        bool TryGetBuildingRepair(string ownerGuid, out IBuildingRepairCapability capability,
             out NativeCapabilityDiagnostic diagnostic);
     }
 

@@ -38,7 +38,7 @@ foreach ($file in $runtimeFiles | Where-Object { $_.Name -like '*Plugin.cs' }) {
 if ($runtimeText -match $forbiddenMutations) { throw 'Executable runtime mutation detected.' }
 if ($runtimeText -match 'Assembly-CSharp-publicized') { throw 'Publicized assembly reference detected.' }
 $rollback = @([regex]::Matches($runtimeText, '\.Undo\s*\(|\.Dispose\s*\('))
-if ($rollback.Count -ne 6 -or $runtimeText -notmatch 'Roll back only this unpublished initialization candidate') {
+if ($rollback.Count -ne 4 -or $runtimeText -notmatch 'Only an unpublished initialization candidate can be rolled back') {
     throw 'Hook rollback changed; review candidate-only teardown before build.'
 }
 foreach ($path in $textFiles) {

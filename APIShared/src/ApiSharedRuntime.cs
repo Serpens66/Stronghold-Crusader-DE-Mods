@@ -22,6 +22,9 @@ namespace APIShared
         private PlayerDefeatService playerDefeat;
         private MissionLifecycleService missionLifecycle;
         private BriefingGoldPresentationService briefingGoldPresentation;
+        private BuildingRepairService buildingRepair;
+        private NativeCapabilityDiagnostic buildingRepairDiagnostic = Pending(NativeCapabilityIds.BuildingRepair);
+        private long nativeModuleBase;
         private NativeCapabilityDiagnostic missionLifecycleDiagnostic = Pending(NativeCapabilityIds.MissionLifecycle);
         private NativeCapabilityDiagnostic gatehouseDistanceOriginDiagnostic = Pending(NativeCapabilityIds.GatehouseDistanceOrigin);
         private NativeCapabilityDiagnostic gatehouseDiagnostic = Pending(NativeCapabilityIds.GatehouseTiming);
@@ -99,6 +102,7 @@ namespace APIShared
                 if (state != NativeApiState.Pending)
                     return;
                 binaryHash = hash ?? string.Empty;
+                nativeModuleBase = moduleBase;
                 log = logger;
             }
 
@@ -366,6 +370,29 @@ namespace APIShared
                 if (briefingGoldPresentation == null)
                     return false;
                 capability = briefingGoldPresentation.Bind(ownerGuid);
+                return true;
+            }
+        }
+
+        public bool TryGetBuildingRepair(string ownerGuid, out IBuildingRepairCapability capability,
+            out NativeCapabilityDiagnostic diagnostic)
+        {
+            capability = null;
+            if (!ValidateOwner(ownerGuid, NativeCapabilityIds.BuildingRepair, out diagnostic))
+                return false;
+            lock (sync)
+            {
+                if (buildingRepair == null && buildingRepairDiagnostic.State == NativeCapabilityState.Pending)
+                {
+                    if (state != NativeApiState.Ready)
+                        buildingRepairDiagnostic = Faulted(NativeCapabilityIds.BuildingRepair, "APIShared is unavailable.");
+                    else
+                        BuildingRepairService.TryCreate(binaryHash, nativeModuleBase, log,
+                            out buildingRepair, out buildingRepairDiagnostic);
+                }
+                diagnostic = buildingRepairDiagnostic;
+                if (buildingRepair == null) return false;
+                capability = buildingRepair.Bind(ownerGuid);
                 return true;
             }
         }

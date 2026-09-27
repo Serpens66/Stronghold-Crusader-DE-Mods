@@ -16,6 +16,8 @@ namespace ExtendedData
         private static LordDataSnapshot activeSnapshot;
         private static bool networkSessionActive;
         private static IReadOnlyDictionary<int, string> verifiedLocalLordPaths;
+        private static IReadOnlyCollection<int> unresolvedLocalLordSlots;
+        private static bool localSelectionActive;
 
         public static int ApiVersion => 1;
 
@@ -24,6 +26,8 @@ namespace ExtendedData
             activeSnapshot = snapshot;
             networkSessionActive = sessionActive;
             verifiedLocalLordPaths = null;
+            unresolvedLocalLordSlots = null;
+            localSelectionActive = false;
         }
 
         internal static void SetVerifiedLocalLords(IReadOnlyDictionary<int, string> paths)
@@ -31,6 +35,18 @@ namespace ExtendedData
             activeSnapshot = null;
             networkSessionActive = paths != null;
             verifiedLocalLordPaths = paths;
+            unresolvedLocalLordSlots = null;
+            localSelectionActive = false;
+        }
+
+        internal static void SetSinglePlayerLords(IReadOnlyDictionary<int, string> paths,
+            IReadOnlyCollection<int> unresolvedSlots)
+        {
+            activeSnapshot = null;
+            networkSessionActive = false;
+            verifiedLocalLordPaths = paths;
+            unresolvedLocalLordSlots = unresolvedSlots;
+            localSelectionActive = true;
         }
 
         public static ExtendedDataModDataReadResult ReadSelectedLordNamespace(int playerId, string modGuid)
@@ -39,7 +55,19 @@ namespace ExtendedData
                 return ExtendedDataModDataReadResult.InvalidRequest(modGuid, string.Empty, "A mod GUID and player ID from 1 to 8 are required.");
             if (verifiedLocalLordPaths != null &&
                 verifiedLocalLordPaths.TryGetValue(playerId, out string localPath))
-                return ReadLordNamespace(Path.ChangeExtension(localPath, LordExtension), modGuid);
+                return ReadLocalLordNamespace(localPath, modGuid);
+            if (localSelectionActive)
+            {
+                if (unresolvedLocalLordSlots?.Contains(playerId) == true)
+                    return ExtendedDataModDataReadResult.HostDataUnavailable(modGuid,
+                        "local Lord slot " + playerId,
+                        "The selected local Lord configuration is missing or ambiguous.");
+                return ExtendedDataModDataReadResult.FileNotFound(modGuid,
+                    "local Lord slot " + playerId);
+            }
+            if (verifiedLocalLordPaths != null)
+                return ExtendedDataModDataReadResult.FileNotFound(modGuid,
+                    "verified local Lord slot " + playerId);
             if (!networkSessionActive || activeSnapshot == null)
                 return ExtendedDataModDataReadResult.HostDataUnavailable(modGuid, string.Empty, "The host Lord-data snapshot is not ready.");
             LordDataSlot slot = activeSnapshot.GetSlot(playerId);
@@ -129,6 +157,12 @@ namespace ExtendedData
                     "The supplied path must end in .lordjson.");
             }
 
+            return ReadLocalLordNamespace(lordJsonPath, modGuid);
+        }
+
+        private static ExtendedDataModDataReadResult ReadLocalLordNamespace(string lordJsonPath,
+            string modGuid)
+        {
             string source = lordJsonPath.Substring(0, lordJsonPath.Length - LordExtension.Length) + ModLordExtension;
             try
             {

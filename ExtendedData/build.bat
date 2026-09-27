@@ -18,10 +18,20 @@ set "STAGED_GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\.ExtendedData_Serp.build"
 set "LEGACY_TRAIL_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\CustomCustomTrail_Serp"
 set "LEGACY_LORD_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\CustomLordUpload_Serp"
 set "API_SHARED_DIR=%GAME_DIR%\BepInEx\plugins\APIShared_Serp"
-if defined SHCDE_API_SHARED_DIR set "API_SHARED_DIR=%SHCDE_API_SHARED_DIR%"
-set "EXTENDER_DIR="
 set "NO_PAUSE=0"
 for %%A in (%*) do if /I "%%~A"=="/nopause" set "NO_PAUSE=1"
+set "PACK_PLUGIN_ROOT=%GAME_DIR%\BepInEx\plugins\SerpsMods_Serp"
+if exist "%PACK_PLUGIN_ROOT%\Mods\ExtendedData_Serp\ExtendedData.dll" (
+  if exist "%GAME_PLUGIN_DIR%\ExtendedData.dll" (
+    echo Zwei installierte ExtendedData-Kopien gefunden. Bitte Installation bereinigen.
+    goto build_failed
+  )
+  set "GAME_PLUGIN_DIR=%PACK_PLUGIN_ROOT%\Mods\ExtendedData_Serp"
+  set "STAGED_GAME_PLUGIN_DIR=%PACK_PLUGIN_ROOT%\Mods\.ExtendedData_Serp.build"
+  set "API_SHARED_DIR=%PACK_PLUGIN_ROOT%\Infrastructure\APIShared_Serp"
+)
+if defined SHCDE_API_SHARED_DIR set "API_SHARED_DIR=%SHCDE_API_SHARED_DIR%"
+set "EXTENDER_DIR="
 
 rem Never touch build or installation output while the game has plugin DLLs loaded.
 powershell.exe -NoProfile -Command "if (Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue) { exit 1 } else { exit 0 }" >nul 2>&1

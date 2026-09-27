@@ -128,6 +128,12 @@ namespace ExtendedData
                     }
                 }
             }));
+            subscriptions.Add(MissionEvents.Started.Subscribe(notification =>
+            {
+                if (notification.Context.Mode.IsRealMultiplayer || trailApplied)
+                    return;
+                PublishSinglePlayerLordSelection();
+            }));
             subscriptions.Add(MissionEvents.Ended.Subscribe(_ =>
             {
                 bool hadLordSession = active != null || lobbyId.HasValue;
@@ -145,6 +151,68 @@ namespace ExtendedData
                 if (hadLordSession)
                     DebugLogHelper.LogInfo(log, "Lord-data map ended; session Fixes preferences restored.");
             }));
+        }
+
+        private void PublishSinglePlayerLordSelection()
+        {
+            var selected = ExtendedDataRuntime.GetExistingMainViewModel()?
+                .HUDIngameMenu?.restartSkirmishMapInfo?.aivs;
+            var paths = new Dictionary<int, string>();
+            var unresolved = new HashSet<int>();
+            if (selected != null)
+            {
+                for (int index = 0; index < Math.Min(selected.Length, 8); index++)
+                {
+                    FRONT_Multiplayer.MPAIVInfo info = selected[index];
+                    if (info == null || info.builtInLord)
+                        continue;
+                    int playerId = index + 1;
+                    if (TryResolveSelectedLocalLord(info, out string path))
+                        paths[playerId] = path;
+                    else
+                        unresolved.Add(playerId);
+                }
+            }
+            ExtendedDataModDataApi.SetSinglePlayerLords(paths, unresolved);
+            DebugLogHelper.LogInfo(log, "Single-player Lord selection published: " +
+                "selected=" + (selected == null ? "unavailable" : selected.Length.ToString()) +
+                ",custom=" + paths.Count + ",unresolved=" + unresolved.Count + ".");
+        }
+
+        private static bool TryResolveSelectedLocalLord(FRONT_Multiplayer.MPAIVInfo info,
+            out string path)
+        {
+            path = null;
+            CustomisationFileManager.CustomLordConfig selected = info.lordConfig;
+            if (selected == null || string.IsNullOrWhiteSpace(selected.name))
+                return false;
+            try
+            {
+                var candidates = new List<CustomisationFileManager.CustomLordConfig>();
+                foreach (int lordType in new[] { info.lordType, -1 }.Distinct())
+                {
+                    var list = CustomisationFileManager.Instance.getLordLordList(lordType,
+                        info.lordName ?? string.Empty);
+                    if (list != null)
+                        candidates.AddRange(list);
+                }
+                string[] matches = candidates.Where(config => config != null &&
+                    string.Equals(config.name, selected.name, StringComparison.OrdinalIgnoreCase) &&
+                    config.checksum == selected.checksum &&
+                    !string.IsNullOrWhiteSpace(config.path))
+                    .Select(config => Path.GetFullPath(Path.Combine(config.path,
+                        config.name + ".lordjson")))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Where(File.Exists).ToArray();
+                if (matches.Length != 1)
+                    return false;
+                path = matches[0];
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         internal void SetEmbeddedTrailSlots(IEnumerable<int> playerIds)

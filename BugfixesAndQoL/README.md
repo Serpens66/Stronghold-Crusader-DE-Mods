@@ -4,6 +4,8 @@ BugfixesAndQoL fixes several problems in Stronghold Crusader Definitive Edition 
 
 ## Fixes
 
+Complete AI starting castles now use the configured "Both" production choices for their workshops.
+
 ### Restore the tannery rack fade
 The enabled-by-default host fix makes the tannery rack animation fade in smoothly instead of remaining almost invisible during its first phase.
 

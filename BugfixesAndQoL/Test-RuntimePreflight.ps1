@@ -14,6 +14,26 @@ if ($mod.Count -ne 1) {
 
 Assert-SERuntimeModPreflight $mod[0] $workspace
 
+$runtimeSources = @(Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'src') -Filter '*.cs' -File)
+$pluginSources = @($runtimeSources | Where-Object { $_.Name -like '*Plugin.cs' })
+$projectText = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'BugfixesAndQoL.csproj'))
+$sourceText = (@($runtimeSources | ForEach-Object { [IO.File]::ReadAllText($_.FullName) }) -join "`n")
+$forbiddenRuntimeJson = 'System\.Web\.Extensions|JavaScriptSerializer|System\.Text\.Json|Newtonsoft\.Json|DataContractJsonSerializer|JsonUtility|System\.Runtime\.Serialization\.Json'
+if ($sourceText -match $forbiddenRuntimeJson -or $projectText -match $forbiddenRuntimeJson) {
+    throw 'Forbidden runtime JSON serializer or assembly reference.'
+}
+if ($projectText -match 'Assembly-CSharp-publicized') {
+    throw 'The runtime project must reference the installed real Assembly-CSharp.dll.'
+}
+foreach ($file in $pluginSources) {
+    $text = [IO.File]::ReadAllText($file.FullName)
+    if ($text -match '\b(?:public|protected|internal|private)\s+(?:static\s+)?(?:void|IEnumerator)\s+(?:Update|LateUpdate|FixedUpdate)\s*\(' -or
+        $text -match '\bStartCoroutine\s*\(' -or
+        $text -match '\b(?:OnDestroy|OnDisable|OnApplicationQuit)\s*\(') {
+        throw "Long-lived or teardown MonoBehaviour callback in $($file.Name)."
+    }
+}
+
 $waterboyRuntimePath = Join-Path $PSScriptRoot 'src\WaterboyTargetReservationRuntime.cs'
 $waterboyRuntime = [System.IO.File]::ReadAllText($waterboyRuntimePath)
 $waterboyViewModel = [System.IO.File]::ReadAllText(

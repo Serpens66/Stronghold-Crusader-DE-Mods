@@ -78,6 +78,7 @@ namespace BugfixesAndQoL
         private static WorkshopUploadLordSelectionFix processWorkshopUploadLordSelectionFix;
         private static KeepFlagRotationRuntime processKeepFlagRotationRuntime;
         private static CorruptLordDataSpawnRuntime processCorruptLordDataSpawnRuntime;
+        private static PrebuiltAiWorkshopBothFixRuntime processPrebuiltAiWorkshopBothFixRuntime;
         private static AIPreplacedBuildingFixRuntime processAIPreplacedBuildingFixRuntime;
         private static WorkerBreakPauseHook processWorkerBreakPauseHook;
         private static NativeTannerFade processNativeTannerFade;
@@ -298,6 +299,9 @@ namespace BugfixesAndQoL
             TryInitializePersistentFeature(
                 "corrupt Lord-data spawn fix",
                 EnsureCorruptLordDataSpawnRuntime);
+            TryInitializePersistentFeature(
+                "prebuilt AI workshop Both fix",
+                () => EnsurePrebuiltAiWorkshopBothFixRuntime(context, isFixedLayoutHashValidated));
             TryInitializePersistentFeature(
                 "nearest-water-carrier targeting QoL",
                 () => EnsureWaterboyTargetReservationRuntime(
@@ -583,6 +587,25 @@ namespace BugfixesAndQoL
             var candidate = new CorruptLordDataSpawnRuntime(log, settings);
             candidate.Install();
             processCorruptLordDataSpawnRuntime = candidate;
+        }
+
+        private void EnsurePrebuiltAiWorkshopBothFixRuntime(
+            CrusaderLibraryLoadContext context,
+            bool isFixedLayoutHashValidated)
+        {
+            if (processPrebuiltAiWorkshopBothFixRuntime != null)
+                return;
+            if (!isFixedLayoutHashValidated)
+            {
+                Shared.DebugLogHelper.LogWarning(log,
+                    "Prebuilt AI workshop Both fix is inactive because the installed native hash is not audited.");
+                return;
+            }
+
+            var candidate = new PrebuiltAiWorkshopBothFixRuntime(
+                log, settings, context, isFixedLayoutHashValidated);
+            candidate.Install();
+            processPrebuiltAiWorkshopBothFixRuntime = candidate;
         }
 
         public void Dispose()

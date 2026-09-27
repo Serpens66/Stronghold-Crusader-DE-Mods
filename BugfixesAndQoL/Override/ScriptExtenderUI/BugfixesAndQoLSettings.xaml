@@ -564,6 +564,12 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableAiWallTargetingFixText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-prebuilt-ai-workshop-both-fix" shared:ModSettingsSearch.Title="{Binding EnablePrebuiltAiWorkshopBothFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnablePrebuiltAiWorkshopBothFixHelpText}"><CheckBox IsChecked="{Binding EnablePrebuiltAiWorkshopBothFix, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnablePrebuiltAiWorkshopBothFixHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnablePrebuiltAiWorkshopBothFixText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox></Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-aiv-defender-position-fix" shared:ModSettingsSearch.Title="{Binding EnableAivDefenderPositionFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableAivDefenderPositionFixHelpText}"><CheckBox IsChecked="{Binding EnableAivDefenderPositionFix, Mode=TwoWay}"
                 Foreground="White"
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableAivDefenderPositionFixHelpText}"

@@ -23,6 +23,7 @@ namespace BugfixesAndQoL
         private bool enableAiStoneReserveFix = true;
         private bool enableAiDefensePatrolFix = true;
         private bool enableAiWallTargetingFix = true;
+        private bool enablePrebuiltAiWorkshopBothFix = true;
         private bool enableBakerMillerBreaks;
         private bool enableAivDefenderPositionFix = true;
         private bool fixAIPreplacedMapBuildings = true;
@@ -360,6 +361,8 @@ namespace BugfixesAndQoL
         public string EnableTanneryAnimationFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableTanneryAnimationFixHelp");
         public string EnableCorruptLordDataSpawnFixText => SerpLocalization.Get("BugfixesAndQoL.EnableCorruptLordDataSpawnFix");
         public string EnableCorruptLordDataSpawnFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableCorruptLordDataSpawnFixHelp");
+        public string EnablePrebuiltAiWorkshopBothFixText => SerpLocalization.Get("BugfixesAndQoL.EnablePrebuiltAiWorkshopBothFix");
+        public string EnablePrebuiltAiWorkshopBothFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnablePrebuiltAiWorkshopBothFixHelp");
         public string EnableTunnelPlacementDistanceFixText => SerpLocalization.Get("BugfixesAndQoL.EnableTunnelPlacementDistanceFix");
         public string EnableTunnelPlacementDistanceFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableTunnelPlacementDistanceFixHelp");
         public string EnableFairSiegeAmmoRestockText => SerpLocalization.Get("BugfixesAndQoL.EnableFairSiegeAmmoRestock");
@@ -1087,6 +1090,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnablePrebuiltAiWorkshopBothFix
+        {
+            get => enablePrebuiltAiWorkshopBothFix;
+            set => SetSetting(ref enablePrebuiltAiWorkshopBothFix, value, nameof(EnablePrebuiltAiWorkshopBothFix));
+        }
+
+        [SyncHostOnly]
         public bool EnableTunnelPlacementDistanceFix
         {
             get => enableTunnelPlacementDistanceFix;
@@ -1266,6 +1276,7 @@ namespace BugfixesAndQoL
                 EnableKeepFlagRotationFix = true;
                 EnableTanneryAnimationFix = true;
                 EnableCorruptLordDataSpawnFix = true;
+                EnablePrebuiltAiWorkshopBothFix = true;
                 EnableTunnelPlacementDistanceFix = true;
                 EnableFairSiegeAmmoRestock = true;
                 EnableSurrenderAndStatistics = true;

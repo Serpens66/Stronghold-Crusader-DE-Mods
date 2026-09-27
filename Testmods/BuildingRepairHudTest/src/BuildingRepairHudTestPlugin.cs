@@ -1,11 +1,12 @@
 using BepInEx;
 using BepInEx.Logging;
-using SHCDESE.API.LowLevel;
+using APIShared;
 using System;
 
 namespace BuildingRepairHudTest
 {
     [BepInDependency("000shcdese", "2.11.0")]
+    [BepInDependency("APIShared_Serp", "0.4.3")]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("BugfixesAndQoL_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(Guid, Name, Version)]
@@ -13,7 +14,7 @@ namespace BuildingRepairHudTest
     {
         public const string Guid = "BuildingRepairHudTest_Serp";
         public const string Name = "Building Repair HUD Test";
-        public const string Version = "0.1.0";
+        public const string Version = "0.1.1";
 
         private static RepairHudRuntime runtime;
         private static ManualLogSource log;
@@ -22,23 +23,30 @@ namespace BuildingRepairHudTest
         private void Awake()
         {
             log = Logger;
-            LogInfo("Loaded; waiting for the native library.");
+            LogInfo("Loaded; waiting for the shared building repair capability.");
             if (registered) return;
-            CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;
+            ApiShared.WhenReady(OnApiReady);
             registered = true;
         }
 
-        private static void OnLibraryLoaded(CrusaderLibraryLoadContext context)
+        private static void OnApiReady(IApiShared api)
         {
             if (runtime != null) return;
+            IBuildingRepairCapability repair = null;
             try
             {
-                // Static ownership survives SHCDE's normal destruction of the plugin component.
-                runtime = RepairHudRuntime.Install(context);
+                if (!api.TryGetBuildingRepair(Guid, out repair,
+                    out NativeCapabilityDiagnostic diagnostic))
+                {
+                    LogError("Shared building repair unavailable: " + diagnostic?.Reason);
+                    return;
+                }
+                runtime = RepairHudRuntime.Install(repair);
                 LogInfo("Permanent repair HUD hooks installed; waiting for post-startup HUD activity.");
             }
             catch (Exception ex)
             {
+                repair?.SetActive(false);
                 LogError("Repair HUD remains disabled: " + ex);
             }
         }

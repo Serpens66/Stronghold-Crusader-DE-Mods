@@ -130,6 +130,36 @@ try {
         'System.Int32', 'System.Boolean') 'Public'
     Assert-ManagedMethodContract $managedAssembly 'CrusaderDE.MainViewModel' 'SetTrailSwordImage' @(
         'System.Int32', 'Noesis.ImageSource') 'Public'
+    foreach ($contract in @(
+        @('CrusaderDE.MainViewModel', 'HUDIngameMenu', 'CrusaderDE.HUD_IngameMenu'),
+        @('CrusaderDE.HUD_IngameMenu', 'restartSkirmishMapInfo', 'CrusaderDE.HUD_IngameMenu/RestartSkirmishMapInfo'),
+        @('CrusaderDE.HUD_IngameMenu/RestartSkirmishMapInfo', 'aivs', 'CrusaderDE.FRONT_Multiplayer/MPAIVInfo[]'),
+        @('CrusaderDE.FRONT_Multiplayer/MPAIVInfo', 'builtInLord', 'System.Boolean'),
+        @('CrusaderDE.FRONT_Multiplayer/MPAIVInfo', 'lordConfig', 'CustomisationFileManager/CustomLordConfig'),
+        @('CustomisationFileManager/CustomLordConfig', 'name', 'System.String'),
+        @('CustomisationFileManager/CustomLordConfig', 'checksum', 'System.UInt64')
+    )) {
+        $parts = [string[]]$contract
+        $allTypes = @($managedAssembly.MainModule.Types)
+        foreach ($top in @($managedAssembly.MainModule.Types)) {
+            $allTypes += @($top.NestedTypes)
+        }
+        $owner = $allTypes | Where-Object { $_.FullName -ceq $parts[0] }
+        $field = @($owner.Fields | Where-Object { $_.Name -ceq $parts[1] })
+        if ($null -eq $owner -or $field.Count -ne 1 -or -not $field[0].IsPublic -or
+            $field[0].FieldType.FullName -cne $parts[2]) {
+            throw "Managed single-player Lord selection field changed: $($parts[0]).$($parts[1])."
+        }
+    }
+    $customisation = $managedAssembly.MainModule.Types |
+        Where-Object { $_.FullName -ceq 'CustomisationFileManager' }
+    $lookup = @($customisation.Methods | Where-Object {
+        $_.Name -ceq 'getLordLordList' -and $_.IsPublic -and
+        $_.Parameters.Count -eq 2 -and
+        $_.Parameters[0].ParameterType.FullName -ceq 'System.Int32' -and
+        $_.Parameters[1].ParameterType.FullName -ceq 'System.String'
+    })
+    if ($lookup.Count -ne 1) { throw 'Managed Custom Lord lookup contract changed.' }
     Assert-ManagedMethodContract $managedAssembly 'EditorDirector' 'SaveSaveGameOrMap' @(
         'System.String', 'System.String', 'System.Boolean', 'System.Boolean', 'System.Boolean') 'Public'
 }

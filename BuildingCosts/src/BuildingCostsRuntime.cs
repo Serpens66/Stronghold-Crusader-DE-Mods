@@ -1,4 +1,5 @@
 using CrusaderDE;
+using APIShared;
 using BepInEx.Logging;
 using MonoMod.RuntimeDetour;
 using Noesis;
@@ -14,7 +15,7 @@ using System.Reflection;
 
 namespace BuildingCosts
 {
-    public sealed class BuildingCostsRuntime : IDisposable
+    public sealed class BuildingCostsRuntime
     {
         private readonly ManualLogSource log;
         private readonly BuildingCostsLobbyViewModel settings;
@@ -34,6 +35,7 @@ namespace BuildingCosts
         private bool lastDetailedTooltipVisible;
         private bool lastCompactTooltipVisible;
         private bool tooltipIsClear = true;
+        private IBuildingRepairCapability repairCapability;
 
         private static readonly Dictionary<eMappers, BuildingCostDefinition> BuildingCostDefinitions = CreateBuildingCostDefinitions();
         private delegate void UpdateRolloverDelegate(HUD_Main self);
@@ -103,39 +105,33 @@ namespace BuildingCosts
             }
 
             SubscribeHooks();
+            RequestRepairCapability();
             TryRunFeature("Vanilla tooltip costs", InitializeVanillaCostTooltips);
             TryRunFeature("building costs", ApplyBuildingCosts);
             libraryInitialized = true;
             LogDebug("Applied initial building cost settings");
         }
 
-        public void Dispose()
+        private void DeactivateHooks()
         {
-            Shared.GameplayModActivationGate.StateChanged -= OnModeAllowedChanged;
-            UnsubscribeHooks();
-            if (settingsChangedSubscribed)
-            {
-                settings.SettingChanged -= OnSettingChanged;
-                settingsChangedSubscribed = false;
-            }
-        }
-
-        private void UnsubscribeHooks()
-        {
-            foreach (IDisposable subscription in subscriptions)
-            {
-                try { subscription.Dispose(); }
-                catch (Exception ex) { LogDebug("Building cost subscription cleanup failed:", ex); }
-            }
-
-            subscriptions.Clear();
-            hooksSubscribed = false;
-            try { updateRolloverHook?.Dispose(); }
-            catch (Exception ex) { LogDebug("Building cost tooltip hook cleanup failed:", ex); }
-            updateRolloverHook = null;
-            updateRolloverTrampoline = null;
+            repairCapability?.SetActive(false);
             ClearBuildingCostTooltip();
             ResetTooltipCache();
+        }
+
+        private void RequestRepairCapability()
+        {
+            if (!EffectsEnabled) return;
+            if (repairCapability == null)
+            {
+                if (!ApiShared.Current.TryGetBuildingRepair(BuildingCostsPlugin.PluginGuid,
+                    out repairCapability, out NativeCapabilityDiagnostic diagnostic))
+                {
+                    LogDebug("Shared building repair unavailable: " + diagnostic?.Reason);
+                    return;
+                }
+            }
+            repairCapability.SetActive(true);
         }
 
         private void InstallUpdateRolloverHook()
@@ -175,6 +171,7 @@ namespace BuildingCosts
                 if (EffectsEnabled)
                 {
                     SubscribeHooks();
+                    RequestRepairCapability();
                     TryRunFeature("Vanilla tooltip costs", InitializeVanillaCostTooltips);
                     TryRunFeature("building costs", ApplyBuildingCosts);
                 }
@@ -186,7 +183,7 @@ namespace BuildingCosts
                     }
                     finally
                     {
-                        UnsubscribeHooks();
+                        DeactivateHooks();
                     }
                 }
 
@@ -202,6 +199,11 @@ namespace BuildingCosts
 
         private void OnSessionStarted(Shared.GameplaySessionStartedContext context)
         {
+            if (!EffectsEnabled)
+            {
+                ResetTooltipCache();
+                return;
+            }
             try
             {
                 LogDebug("Gameplay session started: " + context.Kind);
@@ -222,13 +224,14 @@ namespace BuildingCosts
             if (EffectsEnabled)
             {
                 SubscribeHooks();
+                RequestRepairCapability();
                 TryRunFeature("Vanilla tooltip costs", InitializeVanillaCostTooltips);
                 TryRunFeature("building costs", ApplyBuildingCosts);
             }
             else
             {
                 try { RestoreDefaultBuildingCosts(); }
-                finally { UnsubscribeHooks(); }
+                finally { DeactivateHooks(); }
             }
         }
 
@@ -464,6 +467,11 @@ namespace BuildingCosts
         private void UpdateRolloverHookImpl(HUD_Main self)
         {
             updateRolloverTrampoline(self);
+            if (!EffectsEnabled)
+            {
+                ClearBuildingCostTooltip();
+                return;
+            }
             UpdateBuildingCostTooltip(self);
         }
 

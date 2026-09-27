@@ -24,6 +24,7 @@
     <Reference Include="UnityEngine"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.CoreModule"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="SHCDESE"><HintPath>$(ExtenderDir)\SHCDESE.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="APIShared"><HintPath>$(GameDir)\BepInEx\plugins\APIShared_Serp\APIShared.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="RedBird.Core"><HintPath>$(ExtenderDir)\RedBird.Core.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="System.Memory"><HintPath>$(ExtenderDir)\System.Memory.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="MonoMod.RuntimeDetour"><HintPath>$(GameDir)\BepInEx\core\MonoMod.RuntimeDetour.dll</HintPath><Private>false</Private></Reference>
@@ -37,5 +38,6 @@
   <Target Name="ValidateReferences" BeforeTargets="BeforeBuild">
     <Error Condition="!Exists('$(ExtenderDir)\SHCDESE.dll')" Text="Installed SHCDESE.dll is required." />
     <Error Condition="!Exists('$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll')" Text="Installed Assembly-CSharp.dll is required." />
+    <Error Condition="!Exists('$(GameDir)\BepInEx\plugins\APIShared_Serp\APIShared.dll')" Text="Installed APIShared.dll is required." />
   </Target>
 </Project>

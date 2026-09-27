@@ -1596,6 +1596,10 @@ namespace APISharedTests
                 "APIShared.LocalSelectionSnapshot",
                 "APIShared.IPlayerDefeatCapability",
                 "APIShared.IBriefingGoldPresentationCapability",
+                "APIShared.IBuildingRepairCapability",
+                "APIShared.BuildingRepairQuote",
+                "APIShared.RepairTooltipEntry",
+                "APIShared.RepairTooltipViewModel",
                 "APIShared.BriefingGoldAdjustmentStage",
                 "APIShared.BriefingGoldContext",
                 "APIShared.BriefingGoldAdjuster",
@@ -1671,7 +1675,8 @@ namespace APISharedTests
                 "TryGetLobbyState",
                 "TryGetMissionLifecycle",
                 "TryGetPlayerDefeat",
-                "TryGetBriefingGoldPresentation"
+                "TryGetBriefingGoldPresentation",
+                "TryGetBuildingRepair"
             };
             foreach (MethodInfo method in typeof(IApiShared).GetMethods())
                 expectedAcquisitionMethods.Remove(method.Name);
@@ -1692,6 +1697,8 @@ namespace APISharedTests
                 "player-defeat capability ID must remain stable");
             Assert(NativeCapabilityIds.BriefingGoldPresentation == "briefing-gold-presentation",
                 "briefing-gold capability ID must remain stable");
+            Assert(NativeCapabilityIds.BuildingRepair == "building-repair",
+                "building-repair capability ID must remain stable");
         }
 
         private static void TestBriefingGoldPresentation()

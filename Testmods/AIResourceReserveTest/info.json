@@ -1,0 +1,12 @@
+{
+  "GUID": "AIResourceReserveTest_Serp",
+  "Author": "Serpens66",
+  "Name": "AI Resource Reserve Test",
+  "Description": "Tests proactive AI purchase reserves for wood planks, iron and ale with optional per-Lord settings.",
+  "Version": "0.1.0",
+  "MinimumScriptExtenderVersion": "2.11.0",
+  "MaximumScriptExtenderVersion": "",
+  "Manifest": 1,
+  "NetworkMode": 1,
+  "SupportedGameVersions": ["2.8.0.2"]
+}

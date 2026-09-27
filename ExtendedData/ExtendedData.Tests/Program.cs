@@ -273,11 +273,34 @@ static void TestLordModDataApi()
         ExtendedDataModDataApi.SetVerifiedLocalLords(new Dictionary<int, string> { [3] = lordPath });
         Assert(ExtendedDataModDataApi.ReadSelectedLordNamespace(3, "author.mod").Success,
             "verified local Lord was not readable by player ID");
+        Assert(ExtendedDataModDataApi.ReadSelectedLordNamespace(5, "author.mod").Status ==
+            ExtendedDataModDataReadStatus.FileNotFound,
+            "built-in Lord in verified-local multiplayer mode did not allow automatic defaults");
         Assert(ExtendedDataModDataApi.ReadLordNamespace("aggressive.v2.lordjson", "author.mod").Success,
             "verified local configuration could not be resolved without the host path");
         Assert(ExtendedDataModDataApi.ReadLordNamespace("absent.lordjson", "author.mod").Status ==
             ExtendedDataModDataReadStatus.HostDataUnavailable,
             "unselected local Lord bypassed the verified selection");
+        ExtendedDataModDataApi.SetSinglePlayerLords(
+            new Dictionary<int, string> { [3] = lordPath }, new[] { 4 });
+        Assert(ExtendedDataModDataApi.ReadSelectedLordNamespace(3, "author.mod").Success,
+            "single-player selected Lord sidecar was not readable");
+        Assert(ExtendedDataModDataApi.ReadSelectedLordNamespace(4, "author.mod").Status ==
+            ExtendedDataModDataReadStatus.HostDataUnavailable,
+            "unresolved single-player Lord selection did not fail closed");
+        Assert(ExtendedDataModDataApi.ReadSelectedLordNamespace(5, "author.mod").Status ==
+            ExtendedDataModDataReadStatus.FileNotFound,
+            "built-in single-player Lord did not allow automatic defaults");
+        string otherRoot = Path.Combine(root, "second");
+        Directory.CreateDirectory(otherRoot);
+        string otherLordPath = Path.Combine(otherRoot, "aggressive.v2.lordjson");
+        File.WriteAllText(Path.Combine(otherRoot, "aggressive.v2.modlord.json"),
+            "{\"author.mod\":{\"schemaVersion\":1,\"MinWood\":7}}", new UTF8Encoding(false));
+        ExtendedDataModDataApi.SetSinglePlayerLords(
+            new Dictionary<int, string> { [3] = lordPath, [6] = otherLordPath }, Array.Empty<int>());
+        Assert(ExtendedDataModDataApi.ReadSelectedLordNamespace(3, "author.mod").Success &&
+            ExtendedDataModDataApi.ReadSelectedLordNamespace(6, "author.mod").Success,
+            "player-ID lookup became ambiguous for two Lord files with the same name");
     }
     finally
     {
