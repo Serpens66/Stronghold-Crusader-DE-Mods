@@ -35,6 +35,7 @@ namespace RandomEvents
         private const int ChoreProtocolVersion = 2;
         private const int MultiplayerStartupDelayMilliseconds = 5000;
         private const int MultiplayerStartupMinimumTicks = 30;
+        private const int PeaceTimeActiveFlagRva = 0x38722DC;
 
         private readonly ManualLogSource log;
         private readonly RandomEventsSettingsViewModel settings;
@@ -91,6 +92,8 @@ namespace RandomEvents
         private RandomEventsRuntimeState state;
         private RandomEventsSaveState loadedSaveState;
         private RandomEventsRuntimeState deferredPreparedState;
+        private IntPtr peaceTimeActiveFlagAddress;
+        private bool peaceTimeReadFailureLogged;
 
         public RandomEventsRuntime(ManualLogSource log, RandomEventsSettingsViewModel settings)
         {
@@ -107,6 +110,20 @@ namespace RandomEvents
 
         public void InitializeNative(IntPtr libraryHandle, ReadOnlySpan<byte> memory, bool referenceHashMatches)
         {
+            // This byte is Vanilla's active state, not the configured number of minutes.
+            if (referenceHashMatches && libraryHandle != IntPtr.Zero &&
+                memory.Length > PeaceTimeActiveFlagRva)
+            {
+                peaceTimeActiveFlagAddress = IntPtr.Add(libraryHandle, PeaceTimeActiveFlagRva);
+                Shared.DebugLogHelper.LogInfo(log,
+                    $"Random Events Vanilla Peace Time flag resolved by reference-rva: rva=0x{PeaceTimeActiveFlagRva:X}.");
+            }
+            else
+            {
+                peaceTimeActiveFlagAddress = IntPtr.Zero;
+                LogError("Random Events Vanilla Peace Time flag unavailable: native hash, module handle, or image bounds did not match; combat and archer events remain suppressed.");
+                peaceTimeReadFailureLogged = true;
+            }
             try { signpostRegistry.InitializeNative(libraryHandle, memory, referenceHashMatches); }
             catch (Exception ex) { LogFeatureFailure("signpost integration", ex); }
             try { nativeEventDispatcher.InitializeNative(libraryHandle, memory, referenceHashMatches); }
@@ -324,14 +341,11 @@ namespace RandomEvents
                 }
 
                 RetrySignpostInitialization(tick);
-                if (state.BatchPrepared && currentAbsoluteMonth >= state.NextDueAbsoluteMonth)
-                {
-                    ExecuteDueBatch();
+                if (currentAbsoluteMonth < state.NextDueAbsoluteMonth)
                     return;
-                }
-
-                if (!state.BatchPrepared)
-                    PrepareBatch();
+                if (!state.BatchPrepared && !PrepareBatch())
+                    return;
+                ExecuteDueBatch();
             }
             catch (Exception ex)
             {
@@ -387,7 +401,6 @@ namespace RandomEvents
 
             state = CreateFreshState(configuration);
             mapActive = true;
-            PrepareBatch();
         }
 
         private void InitializeMultiplayerMap(string gameModeDetails)
@@ -521,12 +534,15 @@ namespace RandomEvents
             List<int> directKinds = new List<int>();
             List<int> directStrengths = new List<int>();
             List<int> directTargetPlayerIds = new List<int>();
+            bool suppressPeaceTimeEvents = IsPeaceTimeActiveOrUnknown();
 
             if (state.MultiplayerMode == (int)MultiplayerEventMode.SharedEvents)
             {
                 // One roll and one strength are shared by every eligible living player.
                 foreach (RandomEventDefinition definition in RandomEventDefinitions.All)
                 {
+                    if (suppressPeaceTimeEvents && RandomEventDefinitions.IsPeaceTimeRestricted(definition.Kind))
+                        continue;
                     if (!IsEventOffCooldown(definition.Kind, -1, state.NextDueAbsoluteMonth))
                         continue;
 
@@ -551,6 +567,8 @@ namespace RandomEvents
                 {
                     foreach (RandomEventDefinition definition in RandomEventDefinitions.All)
                     {
+                        if (suppressPeaceTimeEvents && RandomEventDefinitions.IsPeaceTimeRestricted(definition.Kind))
+                            continue;
                         if (!IsEventOffCooldown(definition.Kind, targetPlayerId, state.NextDueAbsoluteMonth))
                             continue;
 
@@ -591,6 +609,29 @@ namespace RandomEvents
                 return 0;
             int index = (int)kind - 1;
             return prng.NextInclusive(state.StrengthMinimums[index], state.StrengthMaximums[index]);
+        }
+
+        private bool IsPeaceTimeActiveOrUnknown()
+        {
+            if (peaceTimeActiveFlagAddress == IntPtr.Zero)
+                return true;
+            try
+            {
+                byte active = Marshal.ReadByte(peaceTimeActiveFlagAddress);
+                if (active <= 1)
+                    return active != 0;
+                throw new InvalidOperationException($"unexpected Vanilla Peace Time flag value {active}");
+            }
+            catch (Exception ex)
+            {
+                peaceTimeActiveFlagAddress = IntPtr.Zero;
+                if (!peaceTimeReadFailureLogged)
+                {
+                    peaceTimeReadFailureLogged = true;
+                    LogError($"Random Events Vanilla Peace Time flag read failed; combat and archer events remain suppressed: {ex}");
+                }
+                return true;
+            }
         }
 
         private void ProcessInitializationHandshake(int tick)
@@ -1177,6 +1218,7 @@ namespace RandomEvents
             int[] directKinds = state.PreparedDirectKinds ?? Array.Empty<int>();
             int[] strengths = state.PreparedDirectStrengths ?? Array.Empty<int>();
             int[] targetPlayerIds = state.PreparedDirectTargetPlayerIds ?? Array.Empty<int>();
+            bool suppressPeaceTimeEvents = IsPeaceTimeActiveOrUnknown();
 
             // Clear first so a save callback during a Vanilla action cannot persist an executable duplicate.
             state.BatchPrepared = false;
@@ -1193,6 +1235,11 @@ namespace RandomEvents
                     RandomEventDefinition definition = RandomEventDefinitions.Get((RandomEventKind)directKinds[index]);
                     int strength = index < strengths.Length ? strengths[index] : 0;
                     int targetPlayerId = index < targetPlayerIds.Length ? targetPlayerIds[index] : -1;
+                    if (suppressPeaceTimeEvents && RandomEventDefinitions.IsPeaceTimeRestricted(definition.Kind))
+                    {
+                        LogDebug($"Random Events action skipped: dueAbsoluteMonth={due}, actionIndex={index}, event={definition.Name}, targetPlayerId={targetPlayerId}, reason=Vanilla Peace Time active or unavailable; no cooldown started.");
+                        continue;
+                    }
                     string prngBefore = RandomEventsDiagnostics.FormatPrng(state.PrngState0, state.PrngState1);
                     string stateDigestBefore = RandomEventsDiagnostics.GetStateDigest(state);
                     LogDebug($"Random Events action begin: dueAbsoluteMonth={due}, actionIndex={index}, event={definition.Name}, dispatchKind={definition.DispatchKind}, targetPlayerId={targetPlayerId}, strength={strength}, prng={prngBefore}, stateDigest={stateDigestBefore}.");

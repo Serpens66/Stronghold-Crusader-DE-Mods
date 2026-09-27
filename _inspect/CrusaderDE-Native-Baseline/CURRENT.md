@@ -34,6 +34,7 @@ Semantic reverse-engineering baseline:
 - [Move-command release contract](./sem/FBCB9319/knowledge/MOVE_COMMAND_RELEASE.md): managed release state machine, native troop-input consumption and the single-command handoff rule.
 - [Keep main-flag rotation audit](./sem/FBCB9319/knowledge/KEEP_FLAG_ROTATION.md): view-dependent Vanilla micro-anchors, Keep-relative rotation, and projectile coordinate contracts.
 - [AIV lobby selection audit](./sem/FBCB9319/knowledge/AIV_LOBBY_SELECTION.md): candidate order, rotation branches, thresholds, and completed-castle state boundary.
+- [Prebuilt AI workshop production audit](./sem/FBCB9319/knowledge/PREBUILT_WORKSHOP_BOTH.md): Both AIC values, native initialization, balancing, and the pending game-start timing check.
 
 - [Semantic overview and validation](./sem/FBCB9319/SEMANTIC_INFO.md)
 - [Semantic Ghidra project](./sem/FBCB9319/ghidra/CrusaderDE-Semantic.gpr)

@@ -98,6 +98,11 @@ namespace RandomEvents
 
         public static RandomEventDefinition Get(RandomEventKind kind) => All[(int)kind];
 
+        public static bool IsPeaceTimeRestricted(RandomEventKind kind) =>
+            kind == RandomEventKind.LionAttack ||
+            kind == RandomEventKind.Bandits ||
+            kind == RandomEventKind.Archers;
+
         public static void GetEncodedStrengthLimits(
             RandomEventStrengthKind kind,
             out int minimum,

@@ -1,0 +1,13 @@
+{
+  "GUID": "PrebuiltWorkshopBothFixTest_Serp",
+  "Author": "Serpens66",
+  "Name": "Prebuilt Workshop Both Fix Test",
+  "Description": "Diagnoses and conditionally corrects Both production in prebuilt AI castles.",
+  "Version": "0.1.0",
+  "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
+  "MinimumScriptExtenderVersion": "2.9.0",
+  "MaximumScriptExtenderVersion": "",
+  "Manifest": 1,
+  "NetworkMode": 1,
+  "SupportedGameVersions": ["2.8.0.2"]
+}

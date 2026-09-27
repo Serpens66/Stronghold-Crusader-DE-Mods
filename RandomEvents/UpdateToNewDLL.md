@@ -38,8 +38,17 @@ disabling unrelated events.
 | `LionActivationPattern` | `0x104C64` | tribe stride/activation offset |
 | `LionActionPointWrapperPattern` | `0x104C46` | action-point wrapper |
 | `ActionPointHandlerPattern` | `0xF4D40` | action-point handler |
+| Vanilla Peace Time active flag | `0x38722DC` | one-byte active state; suppress bandit, lion, and archer events |
 
 The named source constants contain the complete byte patterns.
+
+The Peace Time flag is read only when the installed DLL has the audited SHA-256 above.
+Vanilla's initializer at `0xCA900` writes the flag, the timer at `0xCA870`
+clears it after the end tick, and all 36 flag references are audited in
+`_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/VANILLA_PEACE_TIME.md`.
+There is no pattern fallback for this writable global: on a different hash,
+missing module handle, out-of-range image, or read failure, only the three
+Peace-Time-sensitive events stay suppressed. Other events continue.
 
 ## Required update audit
 

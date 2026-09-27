@@ -1,0 +1,12 @@
+{
+  "GUID": "AIMarketOverbuyDiagnostic_Serp",
+  "Author": "Serpens66",
+  "Name": "AI Market Overbuy Diagnostic",
+  "Description": "Read-only per-tick diagnostics for pending AI purchases, stocks, and gold.",
+  "Version": "0.1.0",
+  "MinimumScriptExtenderVersion": "2.11.0",
+  "MaximumScriptExtenderVersion": "",
+  "Manifest": 1,
+  "NetworkMode": 1,
+  "SupportedGameVersions": ["2.8.0.2"]
+}

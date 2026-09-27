@@ -28,6 +28,8 @@ namespace RandomEvents
             TestSignpostInitializationReport();
             TestSignpostSelection();
             TestBanditTargetEligibility();
+            TestPeaceTimeEventClassification();
+            TestFirstBatchIsNotPreparedAtMapStart();
             TestArcherSourceTargetingScope();
             TestArcherSourceNativeLayout();
             Console.WriteLine($"PASS: RandomEvents protocol tests ({assertions} assertions).");
@@ -59,6 +61,39 @@ namespace RandomEvents
             ExpectFailure(() => RandomEventsCooldownCodec.Decode(1, (int)RandomEventsCooldownEncoding.IndividualSparse, new[] { 0, 4 }, out _, out _), "slot zero must fail");
             ExpectFailure(() => RandomEventsCooldownCodec.Decode(1, (int)RandomEventsCooldownEncoding.IndividualSparse, new[] { 15, 4, 15, 5 }, out _, out _), "duplicates must fail");
             ExpectFailure(() => RandomEventsCooldownCodec.Decode(0, (int)RandomEventsCooldownEncoding.SharedDense, new[] { -1 }.Concat(new int[14]).ToArray(), out _, out _), "negative cooldown must fail");
+        }
+
+        private static void TestPeaceTimeEventClassification()
+        {
+            RandomEventKind[] blocked =
+            {
+                RandomEventKind.LionAttack,
+                RandomEventKind.Bandits,
+                RandomEventKind.Archers
+            };
+            foreach (RandomEventDefinition definition in RandomEventDefinitions.All)
+            {
+                bool expected = Array.IndexOf(blocked, definition.Kind) >= 0;
+                Assert(RandomEventDefinitions.IsPeaceTimeRestricted(definition.Kind) == expected,
+                    $"Peace Time classification for {definition.Kind}");
+            }
+            Assert(RandomEventDefinitions.All.Length == 15, "all Vanilla event types were classified");
+        }
+
+        private static void TestFirstBatchIsNotPreparedAtMapStart()
+        {
+            string runtimePath = Path.GetFullPath(Path.Combine(
+                AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..",
+                "RandomEvents", "src", "RandomEventsRuntime.cs"));
+            string source = File.ReadAllText(runtimePath);
+            int start = source.IndexOf("private void InitializeCurrentMap()", StringComparison.Ordinal);
+            int end = source.IndexOf("private void InitializeMultiplayerMap(", StringComparison.Ordinal);
+            Assert(start >= 0 && end > start, "map initialization boundaries exist");
+            string initializer = source.Substring(start, end - start);
+            Assert(!initializer.Contains("PrepareBatch("),
+                "fresh singleplayer maps must not roll the first batch before it is due");
+            Assert(source.Contains("if (currentAbsoluteMonth < state.NextDueAbsoluteMonth)"),
+                "singleplayer event processing waits for its due month");
         }
 
         private static void TestPackets()
@@ -132,6 +167,16 @@ namespace RandomEvents
             Assert(restored.SchemaVersion == RandomEventsSaveState.CurrentSchemaVersion, "save schema version");
             Assert(restored.BatchPrepared && restored.PreparedDirectTargetPlayerIds.SequenceEqual(new[] { 2 }), "prepared batch save roundtrip");
             Assert(typeof(RandomEventsSaveState).GetField("Chances") == null, "save schema must not persist configuration");
+
+            saved.BatchPrepared = false;
+            saved.PreparedDirectKinds = Array.Empty<int>();
+            saved.PreparedDirectStrengths = Array.Empty<int>();
+            saved.PreparedDirectTargetPlayerIds = Array.Empty<int>();
+            RandomEventsSaveState unprepared = MessagePackSerializer.Deserialize<RandomEventsSaveState>(
+                MessagePackSerializer.Serialize(saved));
+            Assert(!unprepared.BatchPrepared && unprepared.PreparedDirectKinds.Length == 0 &&
+                unprepared.NextDueAbsoluteMonth == 22 && unprepared.PrngState0 == 11 &&
+                unprepared.PrngState1 == 12, "unprepared first batch preserves due date and seed");
         }
 
         private static void TestPresentationTargeting()
