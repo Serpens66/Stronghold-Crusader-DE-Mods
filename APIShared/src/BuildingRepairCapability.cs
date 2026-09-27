@@ -16,6 +16,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading;
+using Marshal = System.Runtime.InteropServices.Marshal;
 
 namespace APIShared
 {
@@ -214,10 +215,14 @@ namespace APIShared
             if (manager == IntPtr.Zero) return null;
             int wood = Marshal.ReadInt32(manager, WoodCostOffset);
             int stone = Marshal.ReadInt32(manager, StoneCostOffset);
-            int iron = RepairCost(buildings.GetIronIngotCost(type), building->r_CurrentHealth, building->r_MaxHealth);
-            int pitch = RepairCost(buildings.GetRawPitchCost(type), building->r_CurrentHealth, building->r_MaxHealth);
-            int gold = RepairCost(buildings.GetGoldCost(type), building->r_CurrentHealth, building->r_MaxHealth);
-            if (wood < 0 || stone < 0 || iron < 0 || pitch < 0 || gold < 0) return null;
+            int baseIron = buildings.GetIronIngotCost(type);
+            int basePitch = buildings.GetRawPitchCost(type);
+            int baseGold = buildings.GetGoldCost(type);
+            if (wood < 0 || stone < 0 || baseIron < 0 || basePitch < 0 || baseGold < 0)
+                return null;
+            int iron = RepairCost(baseIron, building->r_CurrentHealth, building->r_MaxHealth);
+            int pitch = RepairCost(basePitch, building->r_CurrentHealth, building->r_MaxHealth);
+            int gold = RepairCost(baseGold, building->r_CurrentHealth, building->r_MaxHealth);
 
             state.repair_wood_needed = wood;
             state.repair_stone_needed = stone;
@@ -277,7 +282,8 @@ namespace APIShared
                 {
                     GameBuildingManagerAPI buildings = GameBuildingManagerAPI.Instance;
                     GamePlayerManagerAPI players = GamePlayerManagerAPI.Instance;
-                    if (buildings == null || players == null || args.PlayerId <= 0 || args.BuildingId <= 0 ||
+                    if (buildings == null || players == null || args.BuildingId <= 0 ||
+                        !players.TryGetPlayerResourcesById(args.PlayerId, out GamePlayerResources* resources) ||
                         !buildings.TryGetBuildingById(args.BuildingId, out GameBuilding* building) || building == null ||
                         building->r_PlayerIdOwner != args.PlayerId ||
                         unchecked((int)building->r_GlobalId) != args.BuildingGlobalId ||
@@ -293,9 +299,18 @@ namespace APIShared
                     if (building->r_CurrentHealth >= building->r_MaxHealth) return;
 
                     eStructs type = building->r_BuildingType;
-                    int iron = RepairCost(buildings.GetIronIngotCost(type), building->r_CurrentHealth, building->r_MaxHealth);
-                    int pitch = RepairCost(buildings.GetRawPitchCost(type), building->r_CurrentHealth, building->r_MaxHealth);
-                    int gold = RepairCost(buildings.GetGoldCost(type), building->r_CurrentHealth, building->r_MaxHealth);
+                    int baseIron = buildings.GetIronIngotCost(type);
+                    int basePitch = buildings.GetRawPitchCost(type);
+                    int baseGold = buildings.GetGoldCost(type);
+                    if (baseIron < 0 || basePitch < 0 || baseGold < 0)
+                    {
+                        args.SkipOriginalFunction = true;
+                        RecordError("Building repair has an invalid negative construction cost; native repair skipped.");
+                        return;
+                    }
+                    int iron = RepairCost(baseIron, building->r_CurrentHealth, building->r_MaxHealth);
+                    int pitch = RepairCost(basePitch, building->r_CurrentHealth, building->r_MaxHealth);
+                    int gold = RepairCost(baseGold, building->r_CurrentHealth, building->r_MaxHealth);
                     if (!players.HasGoodsAmount(args.PlayerId, eGoods.STORED_IRON_INGOTS, iron) ||
                         !players.HasGoodsAmount(args.PlayerId, eGoods.STORED_PITCH_RAW, pitch) ||
                         !players.HasGoodsAmount(args.PlayerId, eGoods.STORED_GOLD, gold))
@@ -510,8 +525,9 @@ namespace APIShared
                 quote.AvailableWood, quote.AvailableStone, quote.AvailableIron, quote.AvailablePitch, quote.AvailableGold });
             if (signature == next && Visibility == Noesis.Visibility.Visible) return;
             signature = next;
-            if (!Translate.Instance.GameTexts.TryGetValue("TEXT_BUBBLE_HELP_TEXT_258", out string localized) ||
-                string.IsNullOrWhiteSpace(localized)) localized = "Repair";
+            string localized = Translate.Instance.lookUpText(
+                Enums.eTextSections.TEXT_BUBBLE_HELP_TEXT, Enums.eTextValues.BHELP_TEXT_REPAIR);
+            if (string.IsNullOrWhiteSpace(localized)) localized = "Repair";
             Title = localized;
             Costs.Clear();
             Add(eGoods.STORED_WOOD_PLANKS, quote.Wood, quote.AvailableWood);

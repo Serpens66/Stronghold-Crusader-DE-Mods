@@ -200,6 +200,8 @@ namespace ExtendedData
             public IReadOnlyList<TrailModCompatibilityInfo> DiscoverModCompatibility()
             {
                 var result = new List<TrailModCompatibilityInfo>();
+                IReadOnlyDictionary<string, IModSettingsPresetEndpoint> sharedParticipants =
+                    SavegameModSettings.GetCompatibleParticipants();
                 foreach (IGrouping<string, LobbyModSettingsEntry> group in GetRegistrationGroups())
                 {
                     if (IsRegistrationGroupOptedOut(group))
@@ -209,18 +211,25 @@ namespace ExtendedData
                         continue;
                     LobbyModSettingsEntry entry = group.First();
                     string displayName = GetModDisplayName(entry);
-                    TrailModCompatibilityResult compatibility = entry == null || group.Skip(1).Any()
+                    bool sharedCompatible = sharedParticipants.ContainsKey(modId);
+                    TrailModCompatibilityResult compatibility = entry == null || group.Skip(1).Any() ||
+                        sharedCompatible
                         ? null
                         : GetCompatibility(entry.ViewModel);
                     string incompatibility = entry == null
                         ? "missing mod-settings registration"
                         : group.Skip(1).Any()
                         ? "multiple mod-settings panels use the same plugin GUID"
-                        : compatibility.IncompatibilityReason;
+                        : sharedCompatible
+                        ? null
+                        : compatibility.IncompatibilityReason ??
+                          "not accepted by the shared Map/Trail/Savegame settings contract";
                     result.Add(new TrailModCompatibilityInfo(
                         modId,
                         displayName,
-                        compatibility?.Properties,
+                        sharedCompatible
+                            ? TrailModCompatibilityContract.GetTrailProperties(entry.ViewModel.GetType())
+                            : compatibility?.Properties,
                         incompatibility));
                 }
                 TrailModCompatibilityInfo[] catalog = result
@@ -3397,25 +3406,8 @@ namespace ExtendedData
 
             private Dictionary<string, IModSettingsPresetEndpoint> FindCompatibleViewModels()
             {
-                var result = new Dictionary<string, IModSettingsPresetEndpoint>(StringComparer.Ordinal);
-                foreach (IGrouping<string, LobbyModSettingsEntry> group in GetRegistrationGroups())
-                {
-                    if (IsRegistrationGroupOptedOut(group))
-                        continue;
-                    string modId = group.Key;
-                    if (group.Skip(1).Any())
-                        continue;
-                    LobbyModSettingsEntry entry = group.First();
-                    if (entry == null ||
-                        !(entry.ViewModel is IModSettingsPresetEndpoint endpoint) ||
-                        string.Equals(modId, ExtendedDataPlugin.PluginGuid, StringComparison.Ordinal) ||
-                        GetIncompatibilityReason(entry.ViewModel) != null)
-                    {
-                        continue;
-                    }
-                    result[modId] = endpoint;
-                }
-                return result;
+                return SavegameModSettings.GetCompatibleParticipants()
+                    .ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal);
             }
 
             private Dictionary<string, PropertyInfo> GetPersistedProperties(object viewModel)

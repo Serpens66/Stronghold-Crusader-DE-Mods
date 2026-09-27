@@ -19,7 +19,7 @@ namespace BuildingLimit
     {
         private void OnBuildingPlacementValidation(BuildingPlacementValidationEventArgs args)
         {
-            if (!IsBuildingLimitModeAllowed())
+            if (!EffectsEnabled || !IsBuildingLimitModeAllowed())
                 return;
 
             if (GamePlayerManagerAPI.Instance.IsAIPlayer(args.PlayerId))
@@ -46,6 +46,10 @@ namespace BuildingLimit
                     "limit", rule.Limit);
                 return;
             }
+
+            // Tower siege weapons use the separate unit-placement path.
+            if (rule.Definition.CountedUnitType.HasValue)
+                return;
 
             int aliveCount = CountAliveBuildings(args.PlayerId, rule.Definition);
             if (Shared.DebugLogHelper.IsDebugEnabled())
@@ -101,6 +105,9 @@ namespace BuildingLimit
 
         private int CountAliveBuildings(int playerId, BuildingLimitDefinition definition)
         {
+            if (definition.CountedUnitType.HasValue)
+                return towerSiegeUnitCache.GetAliveCount(playerId, definition.CountedUnitType.Value);
+
             int count = 0;
             foreach (eStructs structure in definition.Structures)
                 count += activeBuildingCache.GetActiveBuildingCount(playerId, structure);
@@ -112,7 +119,7 @@ namespace BuildingLimit
         {
             try
             {
-                if (!IsBuildingLimitModeAllowed())
+                if (!EffectsEnabled || !IsBuildingLimitModeAllowed())
                 {
                     ClearBuildingLimitTooltip();
                     return;
@@ -132,7 +139,8 @@ namespace BuildingLimit
                 int tooltipStruct = hoverStruct != 0 ? hoverStruct : selectedStruct;
                 if (tooltipStruct <= 0 ||
                     !TryResolveActiveBuildingLimitRule(tooltipStruct, out BuildingLimitRule rule) ||
-                    rule.Limit < 0)
+                    rule.Limit < 0 ||
+                    (rule.Definition.CountedUnitType.HasValue && !towerSiegeCacheAvailable))
                 {
                     ClearBuildingLimitTooltip();
                     return;
@@ -374,8 +382,8 @@ namespace BuildingLimit
             AddBuildingDefinition(definitions, "MAPPER_DRAWBRIDGE", "drawbridges", new[] { "STRUCT_DRAWBRIDGE" });
             AddBuildingDefinition(definitions, "MAPPER_KILLING_PIT", "killing pits", new[] { "STRUCT_KILLING_PIT" });
             AddBuildingDefinition(definitions, "MAPPER_BRAZIER", "braziers", new[] { "STRUCT_BRAZIER" });
-            AddBuildingDefinition(definitions, "MAPPER_MANGONEL", "tower mangonels", new[] { "STRUCT_MANGONEL" });
-            AddBuildingDefinition(definitions, "MAPPER_BALLISTA", "tower ballistae", new[] { "STRUCT_BALLISTA" });
+            AddBuildingDefinition(definitions, "MAPPER_MANGONEL", "tower mangonels", new[] { "STRUCT_MANGONEL" }, countedUnitType: eChimps.CHIMP_TYPE_MANGONEL);
+            AddBuildingDefinition(definitions, "MAPPER_BALLISTA", "tower ballistae", new[] { "STRUCT_BALLISTA" }, countedUnitType: eChimps.CHIMP_TYPE_BALLISTA);
             AddBuildingDefinition(definitions, "MAPPER_MAYPOLE", "maypoles", new[] { "STRUCT_MAYPOLE" });
             AddBuildingDefinition(definitions, "MAPPER_GALLOWS", "gallows", new[] { "STRUCT_GALLOWS" });
             AddBuildingDefinition(definitions, "MAPPER_STOCKS", "stocks", new[] { "STRUCT_STOCKS" });
@@ -406,7 +414,8 @@ namespace BuildingLimit
             string mapperName,
             string displayName,
             string[] structureNames,
-            string[] aliasNames = null)
+            string[] aliasNames = null,
+            eChimps? countedUnitType = null)
         {
             if (!Enum.TryParse(mapperName, out eMappers mapper))
                 throw new InvalidOperationException("Unknown building limit mapper: " + mapperName);
@@ -425,7 +434,7 @@ namespace BuildingLimit
 
             eStructs[] structureArray = new eStructs[structures.Count];
             structures.CopyTo(structureArray);
-            BuildingLimitDefinition definition = new BuildingLimitDefinition(mapper, displayName, structureArray);
+            BuildingLimitDefinition definition = new BuildingLimitDefinition(mapper, displayName, structureArray, countedUnitType);
             definitions[mapper] = definition;
             if (aliasNames == null)
                 return;

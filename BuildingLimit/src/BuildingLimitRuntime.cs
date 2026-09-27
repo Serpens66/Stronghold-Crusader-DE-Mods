@@ -14,7 +14,7 @@ using System.Reflection;
 
 namespace BuildingLimit
 {
-    public sealed partial class BuildingLimitRuntime : IDisposable
+    public sealed partial class BuildingLimitRuntime
     {
         private readonly ManualLogSource log;
         private readonly BuildingLimitLobbyViewModel settings;
@@ -22,6 +22,8 @@ namespace BuildingLimit
         private readonly Dictionary<eStructs, BuildingLimitRule> activeBuildingLimitRulesByStructure = new Dictionary<eStructs, BuildingLimitRule>();
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private readonly ActiveBuildingCache activeBuildingCache;
+        private readonly TowerSiegeUnitCache towerSiegeUnitCache;
+        private bool towerSiegeCacheAvailable;
         private bool settingsPropertyChangedSubscribed;
         private bool hooksSubscribed;
         private bool libraryInitialized;
@@ -29,7 +31,9 @@ namespace BuildingLimit
         private static readonly Dictionary<eMappers, BuildingLimitDefinition> BuildingLimitDefinitions = CreateBuildingLimitDefinitions();
         private string buildingLimitMessageTimerHandle;
         private Hook updateRolloverHook;
+        private Hook placeMapperItemHook;
         private UpdateRolloverDelegate updateRolloverTrampoline;
+        private PlaceMapperItemDelegate placeMapperItemTrampoline;
         private FieldInfo hoverStructField;
         private FieldInfo selectedStructField;
         private int lastTooltipStruct = int.MinValue;
@@ -50,15 +54,13 @@ namespace BuildingLimit
             Shared.GameplayModActivationGate.Initialize(log, BuildingLimitPlugin.PluginGuid, BuildingLimitPlugin.PluginName, () => settings.EnableMod);
             Shared.GameplayModActivationGate.StateChanged += OnModeAllowedChanged;
             activeBuildingCache = new ActiveBuildingCache(log);
+            towerSiegeUnitCache = new TowerSiegeUnitCache(log);
         }
 
         private bool EffectsEnabled => Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod);
 
         public void SubscribeHooks()
         {
-            if (!EffectsEnabled)
-                return;
-
             if (hooksSubscribed)
                 return;
 
@@ -69,6 +71,9 @@ namespace BuildingLimit
                 LogDebug("Building limit enforcement remains inactive because its required cache is unavailable.");
                 return;
             }
+            towerSiegeCacheAvailable = TryInitializeFeature("tower-siege unit cache", towerSiegeUnitCache.SubscribeHooks);
+            if (!towerSiegeCacheAvailable)
+                LogDebug("Tower-siege limits remain inactive because their unit cache is unavailable.");
             try
             {
                 InstallUpdateRolloverHook();
@@ -76,6 +81,11 @@ namespace BuildingLimit
             catch (Exception ex)
             {
                 LogDebug("Could not install building limit tooltip hook:", ex);
+            }
+            if (towerSiegeCacheAvailable)
+            {
+                if (!TryInitializeFeature("tower-siege placement hook", InstallPlaceMapperItemHook))
+                    log.LogError("BuildingLimit tower-siege placement enforcement is unavailable; other limits remain active.");
             }
 
             TrySubscribeFeature("placement validation", () => BuildingR3EventHooks.OnPlacementValidation.Observable
@@ -88,6 +98,11 @@ namespace BuildingLimit
             TrySubscribeFeature("map unload", () => Shared.MissionEvents.Ended
                 .Subscribe(OnUnloadMap));
 
+            if (towerSiegeCacheAvailable)
+                TrySubscribeFeature("tower-siege reservation completion", () => UnitR3EventHooks.OnUnitCreate.Observable
+                    .Where(args => args.Phase == EventHookPhase.Post)
+                    .Subscribe(OnTowerSiegeUnitCreated));
+
             LogDebug("Building limit runtime hooks subscribed");
             hooksSubscribed = true;
         }
@@ -98,51 +113,10 @@ namespace BuildingLimit
                 return;
 
             SubscribeSettingsChanges();
-            if (!EffectsEnabled)
-            {
-                LogDebug("Building limit disabled; runtime hooks not subscribed");
-                libraryInitialized = true;
-                return;
-            }
-
             SubscribeHooks();
             ApplyBuildingLimits();
             LogDebug("Applied building limit settings");
             libraryInitialized = true;
-        }
-
-        public void Dispose()
-        {
-            Shared.GameplayModActivationGate.StateChanged -= OnModeAllowedChanged;
-            UnsubscribeHooks();
-            if (settingsPropertyChangedSubscribed)
-            {
-                settings.SettingChanged -= OnSettingChanged;
-                settingsPropertyChangedSubscribed = false;
-            }
-        }
-
-        private void UnsubscribeHooks()
-        {
-            foreach (IDisposable subscription in subscriptions)
-            {
-                try { subscription.Dispose(); }
-                catch (Exception ex) { LogDebug("Building limit subscription cleanup failed:", ex); }
-            }
-
-            subscriptions.Clear();
-            hooksSubscribed = false;
-            HideBuildingLimitMessage();
-            ClearBuildingLimitTooltip();
-            ResetBuildingLimitTooltipCache();
-            try { updateRolloverHook?.Dispose(); }
-            catch (Exception ex) { LogDebug("Building limit tooltip cleanup failed:", ex); }
-            updateRolloverHook = null;
-            updateRolloverTrampoline = null;
-            try { activeBuildingCache.Dispose(); }
-            catch (Exception ex) { LogDebug("Building limit cache cleanup failed:", ex); }
-            activeBuildingLimitRules.Clear();
-            activeBuildingLimitRulesByStructure.Clear();
         }
 
         private void OnSessionStarted(Shared.GameplaySessionStartedContext context)
@@ -150,6 +124,8 @@ namespace BuildingLimit
             try
             {
                 LogDebug("Gameplay session started: " + context.Kind);
+                log.LogInfo("BuildingLimit persistent runtime active after startup cleanup: " + context.Kind);
+                ClearTowerSiegeReservations();
                 ResetBuildingLimitTooltipCache();
                 ApplyBuildingLimits();
             }
@@ -162,6 +138,7 @@ namespace BuildingLimit
         private void OnUnloadMap(APIShared.MissionLifecycleNotification args)
         {
             LogDebug("OnUnloadMap");
+            ClearTowerSiegeReservations();
             HideBuildingLimitMessage();
             ClearBuildingLimitTooltip();
             ResetBuildingLimitTooltipCache();
@@ -174,12 +151,14 @@ namespace BuildingLimit
 
             if (EffectsEnabled)
             {
-                SubscribeHooks();
                 ApplyBuildingLimits();
             }
             else
             {
-                UnsubscribeHooks();
+                ClearTowerSiegeReservations();
+                HideBuildingLimitMessage();
+                ClearBuildingLimitTooltip();
+                ResetBuildingLimitTooltipCache();
             }
         }
 
@@ -197,8 +176,18 @@ namespace BuildingLimit
             if (hoverStructField == null || selectedStructField == null)
                 throw new MissingFieldException(typeof(HUD_Main).FullName, "HoverStruct/SelectedStruct");
 
-            updateRolloverHook = new Hook(updateRolloverTarget, new UpdateRolloverDelegate(UpdateRolloverHookImpl));
-            updateRolloverTrampoline = updateRolloverHook.GenerateTrampoline<UpdateRolloverDelegate>();
+            Hook candidate = new Hook(updateRolloverTarget, new UpdateRolloverDelegate(UpdateRolloverHookImpl));
+            try
+            {
+                UpdateRolloverDelegate trampoline = candidate.GenerateTrampoline<UpdateRolloverDelegate>();
+                updateRolloverTrampoline = trampoline;
+                updateRolloverHook = candidate;
+            }
+            catch
+            {
+                candidate.Dispose(); // The hook was never published to the runtime.
+                throw;
+            }
             LogDebug("HUD_Main.UpdateRollover building limit hook installed");
         }
 

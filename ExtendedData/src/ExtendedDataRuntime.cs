@@ -238,6 +238,9 @@ namespace ExtendedData
                 "ExtendedDataMapEditorSaveOptionsHost",
                 editorSaveOptions);
             GameXAMLManagerAPI.Instance.RegisterBinding(
+                "ExtendedDataSavegameLoadOptionsHost",
+                editorSaveOptions);
+            GameXAMLManagerAPI.Instance.RegisterBinding(
                 "ExtendedDataTrailMakerSaveOptionsHost",
                 editorSaveOptions);
             missionSettingsCoordinator = new TrailMissionSettingsCoordinator(

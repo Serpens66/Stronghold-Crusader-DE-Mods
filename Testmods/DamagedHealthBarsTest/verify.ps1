@@ -11,6 +11,7 @@ $extender = Join-Path $gameDir 'BepInEx\plugins\000shcdese'
 $files = @(
     (Join-Path $root 'DamagedHealthBarsTest.csproj'),
     (Join-Path $root 'info.json'),
+    (Join-Path $root 'UpdateToNewDLL.md'),
     (Join-Path $root 'build.bat'),
     (Join-Path $root 'verify.ps1'),
     (Join-Path $root 'Properties\AssemblyInfo.cs')
@@ -104,7 +105,7 @@ foreach ($span in $nativeSpans) {
 if ((Get-FileHash -Algorithm SHA256 -LiteralPath $managed).Hash -ne 'BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789') {
     throw 'Installed managed game DLL differs from the audited baseline.'
 }
-foreach ($name in @('SHCDESE.dll', 'R3.dll', 'Iced.dll', 'RedBird.Abstractions.dll', 'RedBird.Core.dll', 'RedBird.X64.dll')) {
+foreach ($name in @('SHCDESE.dll', 'R3.dll', 'System.Memory.dll', 'Iced.dll', 'RedBird.Abstractions.dll', 'RedBird.Core.dll', 'RedBird.X64.dll')) {
     if (-not (Test-Path -LiteralPath (Join-Path $extender $name) -PathType Leaf)) {
         throw "Installed dependency missing: $name"
     }

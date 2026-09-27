@@ -36,7 +36,7 @@ namespace SpectatorPerspectiveTest
             startSubscription = MapLoaderR3EventHooks.OnStartMap.Observable.Subscribe(OnStartMap);
             unloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable.Subscribe(OnUnloadMap);
             Application.onBeforeRender += OnBeforeRender;
-            log.LogInfo("SPECTATOR_PERSPECTIVE_INITIALIZED: static publisher roots installed; waiting for gameplay render after startup cleanup.");
+            log.LogInfo("SPECTATOR_PERSPECTIVE_INITIALIZED: static publisher roots installed; waiting for post-load gameplay render.");
         }
 
         private static void OnStartMap(MapStartEventArgs args)
@@ -78,7 +78,7 @@ namespace SpectatorPerspectiveTest
         {
             if (Time.frameCount == lastFrame) return;
             lastFrame = Time.frameCount;
-            if (!readyLogged)
+            if (!readyLogged && mapReady && GameData.Instance?.lastGameState != null)
             {
                 readyLogged = true;
                 log.LogInfo("SPECTATOR_PERSPECTIVE_RUNTIME_ALIVE: application render publisher executed after startup initialization.");
@@ -156,8 +156,13 @@ namespace SpectatorPerspectiveTest
                 EditorDirector.instance == null || EditorDirector.instance.ActivePlayerID > 0 ||
                 !state.is_human_or_skirmish_player(player)) return;
             if (selectedPlayer == player) return;
+            try { EngineInterface.SetEditorPlayer(player); }
+            catch (Exception error)
+            {
+                log.LogError($"SPECTATOR_PERSPECTIVE_SELECT_FAILED: player={player}, error={error}.");
+                return;
+            }
             selectedPlayer = player;
-            EngineInterface.SetEditorPlayer(player);
             log.LogInfo($"SPECTATOR_PERSPECTIVE_SELECTED: player={player}; future Vanilla reports and messages use this index.");
             hud.SetSelected(player);
         }

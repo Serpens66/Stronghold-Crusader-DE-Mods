@@ -15,6 +15,7 @@ namespace SpectatorPerspectiveTest
         private Border dragHandle;
         private bool dragging;
         private bool positioned;
+        private bool userMoved;
         private Point dragStart;
         private float originLeft;
         private float originTop;
@@ -26,9 +27,11 @@ namespace SpectatorPerspectiveTest
         {
             dragging = false;
             positioned = false;
+            userMoved = false;
             selectedPlayer = 0;
             if (dragHandle != null && dragHandle.IsMouseCaptured) dragHandle.ReleaseMouseCapture();
             Hide();
+            Detach();
         }
 
         internal void Hide()
@@ -39,13 +42,17 @@ namespace SpectatorPerspectiveTest
         internal void Show(bool[] occupied, int selected)
         {
             if (!Resolve()) return;
-            if (!positioned) PlaceAtTopRight();
-            ClampPosition();
-            bar.Visibility = Visibility.Visible;
+            if (canvas.ActualWidth <= 0f || canvas.ActualHeight <= 0f) { Hide(); return; }
+            int occupiedCount = 0;
             for (int player = 1; player <= 8; player++)
             {
                 buttons[player].Visibility = occupied[player] ? Visibility.Visible : Visibility.Collapsed;
+                if (occupied[player]) occupiedCount++;
             }
+            bar.Width = 112f + occupiedCount * 42f;
+            if (!positioned || !userMoved) PlaceAtTopRight();
+            ClampPosition();
+            bar.Visibility = Visibility.Visible;
             SetSelected(selected);
         }
 
@@ -58,13 +65,14 @@ namespace SpectatorPerspectiveTest
 
         private bool Resolve()
         {
+            if (canvas != null && bar != null && canvas.IsLoaded) return true;
             var nextCanvas = GameXAMLManagerAPI.Instance?.FindGlobalElement("SpectatorPerspectiveCanvas") as Canvas;
             if (nextCanvas == null) { Hide(); return false; }
             if (ReferenceEquals(nextCanvas, canvas) && bar != null) return true;
             Detach();
             canvas = nextCanvas;
-            bar = canvas.FindName("SpectatorPerspectiveBar") as Border;
-            dragHandle = canvas.FindName("SpectatorPerspectiveDrag") as Border;
+            bar = GameXAMLManagerAPI.Instance.FindElementByName(canvas, "SpectatorPerspectiveBar") as Border;
+            dragHandle = GameXAMLManagerAPI.Instance.FindElementByName(canvas, "SpectatorPerspectiveDrag") as Border;
             if (bar == null || dragHandle == null) { Detach(); return false; }
             dragHandle.MouseLeftButtonDown += OnDragDown;
             dragHandle.MouseMove += OnDragMove;
@@ -73,12 +81,13 @@ namespace SpectatorPerspectiveTest
             for (int player = 1; player <= 8; player++)
             {
                 int slot = player;
-                buttons[player] = canvas.FindName("SpectatorPerspectivePlayer" + player) as Button;
+                buttons[player] = GameXAMLManagerAPI.Instance.FindElementByName(canvas, "SpectatorPerspectivePlayer" + player) as Button;
                 if (buttons[player] == null) { Detach(); return false; }
                 clickHandlers[player] = (sender, args) => selectPlayer(slot);
                 buttons[player].Click += clickHandlers[player];
             }
             positioned = false;
+            userMoved = false;
             return true;
         }
 
@@ -128,6 +137,7 @@ namespace SpectatorPerspectiveTest
             originLeft = (float)Canvas.GetLeft(bar);
             originTop = (float)Canvas.GetTop(bar);
             dragging = dragHandle.CaptureMouse();
+            if (dragging) userMoved = true;
             args.Handled = true;
         }
 

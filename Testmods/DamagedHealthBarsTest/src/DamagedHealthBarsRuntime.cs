@@ -13,6 +13,7 @@ using SHCDESE.API;
 using SHCDESE.API.LowLevel;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Input;
+using SHCDESE.Interop;
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -34,6 +35,8 @@ namespace DamagedHealthBarsTest
         private IntPtr activeFlag;
         private int installed;
         private int postStartupLogged;
+        private int fieldMapValidated;
+        private ulong nativeImageBase;
 
         private DamagedHealthBarsRuntime(ManualLogSource log) =>
             this.log = log ?? throw new ArgumentNullException(nameof(log));
@@ -52,9 +55,11 @@ namespace DamagedHealthBarsTest
             if (typeof(X64InlineHook).Assembly.GetName().Version != new Version(1, 5, 0, 0))
                 throw new InvalidOperationException("The installed RedBird.X64 version differs from the audited backend.");
             VerifyNativeHash();
+            ValidateInteropLayout();
             HealthBarNativeContract.ValidateBytes(context.Memory);
             ulong imageBase = unchecked((ulong)context.ModuleHandle.ToInt64());
             HealthBarNativeContract.ValidateLiveBytes(imageBase);
+            nativeImageBase = imageBase;
 
             HookTransaction pending = null;
             try
@@ -130,6 +135,60 @@ namespace DamagedHealthBarsTest
                 if (!string.Equals(actual, HealthBarNativeContract.NativeSha256, StringComparison.OrdinalIgnoreCase))
                     throw new InvalidOperationException("Installed native DLL differs from the audited build: " + actual);
             }
+        }
+
+        private static void ValidateInteropLayout()
+        {
+            if (Marshal.SizeOf<GameUnit>() != 0x490 ||
+                Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_UnitHover)).ToInt32() != 0x30 ||
+                Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_HealthBarBlocks)).ToInt32() != 0x34 ||
+                Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_CurrentHealthPercentage)).ToInt32() != 0x2D0 ||
+                Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_CurrentHealth)).ToInt32() != 0x3C4 ||
+                Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_MaxHealth)).ToInt32() != 0x3C8 ||
+                Marshal.SizeOf<GameBuilding>() != 0x32C ||
+                Marshal.OffsetOf<GameBuilding>(nameof(GameBuilding.r_CurrentHealth)).ToInt32() != 0x10C ||
+                Marshal.OffsetOf<GameBuilding>(nameof(GameBuilding.r_MaxHealth)).ToInt32() != 0x10E)
+                throw new InvalidOperationException("Installed Script Extender unit/building interop layout differs from the native field map.");
+        }
+
+        private void ValidateLiveFieldMap()
+        {
+            Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
+            Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
+            if (units.Length == 0 || buildings.Length == 0)
+                throw new InvalidOperationException("The unit or building array is unavailable.");
+            fixed (GameUnit* firstUnit = &units[0])
+            fixed (GameBuilding* firstBuilding = &buildings[0])
+            {
+                ulong expectedUnit = nativeImageBase + 0x67E8A5CUL + 0x490UL;
+                ulong expectedBuilding = nativeImageBase + 0x64CCC0CUL + 0x32CUL;
+                if (unchecked((ulong)firstUnit) != expectedUnit ||
+                    unchecked((ulong)firstBuilding) != expectedBuilding)
+                    throw new InvalidOperationException("Native array bases do not match the audited unit/building field formulas.");
+            }
+
+            string unitSample = "none";
+            for (int spanIndex = 0; spanIndex < units.Length; spanIndex++)
+            {
+                ref GameUnit unit = ref units[spanIndex];
+                if (unit.r_MaxHealth == 0 || unit.r_CurrentHealth > unit.r_MaxHealth) continue;
+                unitSample = "id=" + (spanIndex + 1) + ", hp=" + unit.r_CurrentHealth +
+                    "/" + unit.r_MaxHealth + ", percent=" + unit.r_CurrentHealthPercentage +
+                    ", blocks=" + unit.r_HealthBarBlocks + ", hover=" + unit.r_UnitHover;
+                break;
+            }
+            string buildingSample = "none";
+            for (int spanIndex = 0; spanIndex < buildings.Length; spanIndex++)
+            {
+                ref GameBuilding building = ref buildings[spanIndex];
+                if (building.r_MaxHealth == 0 || building.r_CurrentHealth < 0 ||
+                    building.r_CurrentHealth > building.r_MaxHealth) continue;
+                buildingSample = "id=" + (spanIndex + 1) + ", hp=" + building.r_CurrentHealth +
+                    "/" + building.r_MaxHealth + ", type=" + building.r_BuildingType;
+                break;
+            }
+            Info("HEALTH_BARS_FIELD_MAP: unitStride=0x490, buildingStride=0x32C, " +
+                "unitSample={" + unitSample + "}, buildingSample={" + buildingSample + "}.");
         }
 
         private static void ProbeGeneratedStubs(ulong imageBase, ulong flagAddress)
@@ -226,15 +285,24 @@ namespace DamagedHealthBarsTest
 
         private void OnTick(int tick)
         {
-            if (Volatile.Read(ref installed) == 0 || GameMap.instance == null ||
+            if (Volatile.Read(ref installed) == 0 || ReferenceEquals(GameMap.instance, null) ||
                 Interlocked.Exchange(ref postStartupLogged, 1) != 0)
                 return;
-            Info("HEALTH_BARS_POST_STARTUP: persistent native hooks and publisher callbacks are active.");
+            try
+            {
+                ValidateLiveFieldMap();
+                Volatile.Write(ref fieldMapValidated, 1);
+                Info("HEALTH_BARS_POST_STARTUP: persistent native hooks and publisher callbacks are active.");
+            }
+            catch (Exception ex)
+            {
+                Error("HEALTH_BARS_FIELD_MAP_FAILED: Alt+H remains disabled: " + ex);
+            }
         }
 
         private void OnKeyDown(UnityInputEventArgs args)
         {
-            if (Volatile.Read(ref installed) == 0 || args == null ||
+            if (Volatile.Read(ref installed) == 0 || Volatile.Read(ref fieldMapValidated) == 0 || args == null ||
                 args.Phase != EventHookPhase.Pre || args.Key != KeyCode.H || !args.Result)
                 return;
             try
@@ -244,9 +312,10 @@ namespace DamagedHealthBarsTest
                     Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift)) return;
                 if (GameMap.instance == null || GameData.Instance?.lastGameState == null ||
                     GameData.Instance.lastGameState.app_mode != 16 ||
-                    FatControler.instance?.NGview?.Content == null || MainViewModel.Instance == null)
+                    FatControler.instance?.NGview?.Content == null)
                     return;
-                if (FatControler.instance.NGview.Content.Keyboard?.FocusedElement is TextBox)
+                UIElement focused = FatControler.instance.NGview.Content.Keyboard?.FocusedElement;
+                if (focused is TextBoxBase || focused is PasswordBox)
                     return;
 
                 int* flag = (int*)activeFlag.ToPointer();

@@ -4,13 +4,19 @@ param()
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
 $workspace = (Resolve-Path (Join-Path $root '..\..')).Path
+[xml]$projectXml = [IO.File]::ReadAllText((Join-Path $root 'AIResourceReserveTest.csproj'))
+$linkedSources = @($projectXml.Project.ItemGroup.Compile | ForEach-Object {
+    $include = [string]$_.Include
+    if (-not [string]::IsNullOrWhiteSpace($include)) {
+        [IO.Path]::GetFullPath((Join-Path $root $include))
+    }
+})
 $files = @(
     (Join-Path $root 'AIResourceReserveTest.csproj'),
     (Join-Path $root 'info.json'),
     (Join-Path $root 'build.bat'),
     (Join-Path $root 'verify.ps1')
-) + @(Get-ChildItem -LiteralPath (Join-Path $root 'src') -File -Filter '*.cs' |
-    ForEach-Object FullName)
+) + $linkedSources
 foreach ($path in $files) {
     $content = [IO.File]::ReadAllText($path)
     $literalNewlineEscape = [string]::Concat([char]92, 'r', [char]92, 'n')
@@ -19,8 +25,7 @@ foreach ($path in $files) {
     }
 }
 
-$sources = @(Get-ChildItem -LiteralPath (Join-Path $root 'src') -File -Filter '*.cs' |
-    ForEach-Object { [IO.File]::ReadAllText($_.FullName) })
+$sources = @($linkedSources | ForEach-Object { [IO.File]::ReadAllText($_) })
 $project = [IO.File]::ReadAllText((Join-Path $root 'AIResourceReserveTest.csproj'))
 $allText = ($sources -join "`n") + $project
 if ($allText -match 'System\.Web\.Extensions|JavaScriptSerializer|System\.Text\.Json|Newtonsoft\.Json|DataContractJsonSerializer|JsonUtility') {

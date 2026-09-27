@@ -95,7 +95,7 @@ namespace Shared
 
         internal static GameModeSnapshot CaptureMission(bool multiplayer, bool restoredSave, int campaign, int trail,
             bool editor, EngineInterface.LoadMapReturnData? data, GameModeKind intent, int? coopTrail = null) =>
-            CaptureCore(multiplayer && restoredSave, campaign, trail, editor, data, intent, multiplayer, coopTrail);
+            CaptureCore(multiplayer && restoredSave, campaign, trail, editor, data, intent, multiplayer, coopTrail, restoredSave);
 
         internal static bool AllowsCustomGameMods(
             GameModeKind kind,
@@ -122,7 +122,7 @@ namespace Shared
             int campaignMapId,
             int eventTrailType,
             bool editorLoad, EngineInterface.LoadMapReturnData? data = null, GameModeKind intent = GameModeKind.Unknown,
-            bool realMultiplayerOverride = false, int? knownCoopTrail = null)
+            bool realMultiplayerOverride = false, int? knownCoopTrail = null, bool restoredSave = false)
         {
             Director director = Director.instance;
             GameData gameData = GameData.Instance;
@@ -248,6 +248,20 @@ namespace Shared
                       customizedTrailType,
                       customizedTrailId)));
 
+            if (restoredSave)
+            {
+                bool hasSaved = false;
+                GameModeKind savedKind = GameModeKind.Unknown;
+                GameModeLaunchVariant savedVariant = GameModeLaunchVariant.Standard;
+                bool savedLocked = true;
+                #if !API_SHARED_PRESET_TESTS
+                hasSaved = APIShared.SavegameModSettings.TryGetRestoredMode(
+                    out savedKind, out savedVariant, out savedLocked);
+                #endif
+                ReconcileRestoredSaveMode(observedKind, hasSaved, savedKind, savedVariant,
+                    savedLocked, ref kind, ref launchVariant, ref conflictingOrigin);
+            }
+
             return new GameModeSnapshot(
                 realMultiplayer,
                 singleplayerSkirmishMode,
@@ -283,6 +297,31 @@ namespace Shared
                     : customizedTrailId,
                 externalOrigin.Origin,
                 conflictingOrigin);
+        }
+
+        internal static void ReconcileRestoredSaveMode(
+            GameModeKind observedKind,
+            bool hasSaved,
+            GameModeKind savedKind,
+            GameModeLaunchVariant savedVariant,
+            bool savedLocked,
+            ref GameModeKind kind,
+            ref GameModeLaunchVariant launchVariant,
+            ref bool conflictingOrigin)
+        {
+            bool compatibleNativeFamily = observedKind == GameModeKind.CustomGame &&
+                (savedKind == GameModeKind.CustomTrail || savedKind == GameModeKind.CoopTrail ||
+                 savedKind == GameModeKind.VanillaTrail || savedKind == GameModeKind.SandsOfTime);
+            if (hasSaved && (savedKind == kind || compatibleNativeFamily ||
+                (observedKind == GameModeKind.Unknown && savedVariant == GameModeLaunchVariant.Standard)))
+            {
+                kind = savedKind;
+                launchVariant = savedVariant;
+                conflictingOrigin |= savedLocked;
+                return;
+            }
+            launchVariant = GameModeLaunchVariant.Standard;
+            conflictingOrigin = true;
         }
 
         internal static GameModeKind ResolveKind(

@@ -21,6 +21,9 @@ namespace AIResourceReserveTest
         private readonly bool[] hostWaitLogged = new bool[LastPlayerId + 1];
         private readonly int[,] priorStock = new int[LastPlayerId + 1, GoodCount];
         private readonly int[,] priorPending = new int[LastPlayerId + 1, GoodCount];
+        private readonly bool[,] queuedByMod = new bool[LastPlayerId + 1, GoodCount];
+        private readonly int[] priorGold = new int[LastPlayerId + 1];
+        private readonly bool[] goldObserved = new bool[LastPlayerId + 1];
         private bool sessionActive;
         private bool firstTickLogged;
         private bool scanned;
@@ -67,11 +70,22 @@ namespace AIResourceReserveTest
                         resources->r_IsPaused != 0 ||
                         resources->r_WinLossState != WinLossState.None ||
                         resources->r_LordUnitId == 0)
+                    {
+                        ClearObservation(playerId);
                         continue;
+                    }
 
-                    if (!ResolveOverrides(playerId)) continue;
+                    if (!ResolveOverrides(playerId))
+                    {
+                        ClearObservation(playerId);
+                        continue;
+                    }
+                    int gold = players.GetPlayerGold(playerId);
+                    int previousGold = goldObserved[playerId] ? priorGold[playerId] : gold;
                     for (int index = 0; index < GoodCount; index++)
-                        CheckGood(players, ai, playerId, (ReserveGood)index);
+                        CheckGood(players, ai, playerId, (ReserveGood)index, gold, previousGold);
+                    priorGold[playerId] = gold;
+                    goldObserved[playerId] = true;
                 }
             }
             catch (Exception error)
@@ -141,16 +155,25 @@ namespace AIResourceReserveTest
         }
 
         private void CheckGood(GamePlayerManagerAPI players, GameAIManagerAPI ai,
-            int playerId, ReserveGood good)
+            int playerId, ReserveGood good, int gold, int previousGold)
         {
             int index = (int)good;
             eGoods gameGood = ReservePolicy.Good(good);
             int stock = players.GetGoodAmount(playerId, gameGood);
             int pending = ai.GetGoodFromPendingPurchases(playerId, gameGood);
-            if (priorPending[playerId, index] > 0 && stock > priorStock[playerId, index])
+            if (queuedByMod[playerId, index] && priorPending[playerId, index] > 0 && pending == 0)
+                Shared.DebugLogHelper.LogInfo(log,
+                    $"AI_RESERVE_PENDING_CLEARED: player={playerId}, good={gameGood}, " +
+                    $"stockBefore={priorStock[playerId, index]}, stockAfter={stock}, " +
+                    $"goldBefore={previousGold}, goldAfter={gold}.");
+            if (queuedByMod[playerId, index] && priorPending[playerId, index] > 0 &&
+                stock > priorStock[playerId, index])
                 Shared.DebugLogHelper.LogInfo(log,
                     $"AI_RESERVE_STOCK_INCREASE: player={playerId}, good={gameGood}, " +
-                    $"before={priorStock[playerId, index]}, after={stock}, priorPending={priorPending[playerId, index]}, currentPending={pending}.");
+                    $"before={priorStock[playerId, index]}, after={stock}, priorPending={priorPending[playerId, index]}, currentPending={pending}, " +
+                    $"goldBefore={previousGold}, goldAfter={gold}.");
+            if (pending == 0)
+                queuedByMod[playerId, index] = false;
 
             int target = overridesByPlayer[playerId].GetTarget(good, consumers[playerId, index]);
             int proposal = ReservePolicy.Proposal(stock, target, pending);
@@ -158,9 +181,10 @@ namespace AIResourceReserveTest
             {
                 ai.SetGoodToPendingPurchases(playerId, gameGood, proposal);
                 pending = proposal;
+                queuedByMod[playerId, index] = true;
                 Shared.DebugLogHelper.LogInfo(log,
                     $"AI_RESERVE_QUEUED: player={playerId}, good={gameGood}, stock={stock}, " +
-                    $"target={target}, amount={proposal}, gold={players.GetPlayerGold(playerId)}.");
+                    $"target={target}, amount={proposal}, gold={gold}.");
             }
             priorStock[playerId, index] = stock;
             priorPending[playerId, index] = pending;
@@ -175,6 +199,17 @@ namespace AIResourceReserveTest
 
         private static string Describe(int? value) => value?.ToString() ?? "automatic";
 
+        private void ClearObservation(int playerId)
+        {
+            goldObserved[playerId] = false;
+            for (int index = 0; index < GoodCount; index++)
+            {
+                priorPending[playerId, index] = 0;
+                priorStock[playerId, index] = 0;
+                queuedByMod[playerId, index] = false;
+            }
+        }
+
         private void Reset()
         {
             sessionActive = false;
@@ -184,6 +219,9 @@ namespace AIResourceReserveTest
             Array.Clear(consumers, 0, consumers.Length);
             Array.Clear(priorStock, 0, priorStock.Length);
             Array.Clear(priorPending, 0, priorPending.Length);
+            Array.Clear(queuedByMod, 0, queuedByMod.Length);
+            Array.Clear(priorGold, 0, priorGold.Length);
+            Array.Clear(goldObserved, 0, goldObserved.Length);
             Array.Clear(overridesByPlayer, 0, overridesByPlayer.Length);
             Array.Clear(resolution, 0, resolution.Length);
             Array.Clear(hostWaitLogged, 0, hostWaitLogged.Length);

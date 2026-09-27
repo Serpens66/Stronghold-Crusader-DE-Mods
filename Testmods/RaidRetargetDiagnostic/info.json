@@ -1,0 +1,12 @@
+{
+  "GUID": "RaidRetargetDiagnostic_Serp",
+  "Author": "Serpens66",
+  "Name": "Raid Retarget Diagnostic",
+  "Description": "Read-only diagnostics for AI raiding-group building targets, counters, damage, and deletion.",
+  "Version": "0.1.0",
+  "MinimumScriptExtenderVersion": "2.11.0",
+  "MaximumScriptExtenderVersion": "",
+  "Manifest": 1,
+  "NetworkMode": 1,
+  "SupportedGameVersions": ["2.8.0.2"]
+}

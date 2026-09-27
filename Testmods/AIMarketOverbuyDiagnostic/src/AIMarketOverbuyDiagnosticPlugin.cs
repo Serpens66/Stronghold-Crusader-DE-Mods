@@ -49,10 +49,10 @@ namespace AIMarketOverbuyDiagnostic
                 candidateTickRegistered = true;
 
                 // The extender's publisher and these static fields outlive startup cleanup.
-                runtime = candidate;
-                sessionSubscription = candidateSubscription;
                 Shared.DebugLogHelper.LogInfo(log,
                     "AI_MARKET_DIAGNOSTIC_READY: readOnly=true, publisher=GameTimeManagerAPI.OnTick.");
+                sessionSubscription = candidateSubscription;
+                runtime = candidate;
             }
             catch (Exception ex)
             {

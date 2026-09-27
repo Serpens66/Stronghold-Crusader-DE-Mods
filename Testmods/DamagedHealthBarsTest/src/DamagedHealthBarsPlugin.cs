@@ -34,7 +34,6 @@ namespace DamagedHealthBarsTest
             {
                 // The runtime, its delegates, subscriptions, hooks and native flag remain rooted.
                 runtime = DamagedHealthBarsRuntime.Install(context, log);
-                Info("Permanent health-bar hooks installed; waiting for the first game tick.");
             }
             catch (Exception ex)
             {

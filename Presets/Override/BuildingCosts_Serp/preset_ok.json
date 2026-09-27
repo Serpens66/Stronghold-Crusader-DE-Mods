@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "ok",
+  "name": "ok",
+  "targetGuid": "BuildingCosts_Serp",
+  "settings": {
+    "BuildingCosts": {
+      "mode": "fixed",
+      "value": "# -1 = unchanged; order is wood,stone,iron,pitch,gold\r\nMAPPER_WOODSMAN=-1,-1,-1,-1,-1\r\nMAPPER_HUNTER=-1,-1,-1,-1,-1\r\nMAPPER_OXENBASE=-1,-1,-1,-1,-1\r\nMAPPER_QUARRY=-1,-1,-1,-1,-1\r\nMAPPER_IRON_MINE=-1,-1,-1,-1,-1\r\nMAPPER_PITCH_WORKINGS=-1,-1,-1,-1,-1\r\nMAPPER_WHEATFARM=-1,-1,-1,-1,-1\r\nMAPPER_HOPSFARM=-1,-1,-1,-1,-1\r\nMAPPER_APPLEFARM=-1,-1,-1,-1,-1\r\nMAPPER_CATTLEFARM=-1,-1,-1,-1,-1\r\nMAPPER_MILL=-1,-1,-1,-1,-1\r\nMAPPER_BAKER=-1,-1,-1,-1,-1\r\nMAPPER_BREWER=-1,-1,-1,-1,-1\r\nMAPPER_HOVEL=-1,-1,-1,-1,-1\r\nMAPPER_GRANARY=-1,-1,-1,-1,-1\r\nMAPPER_STORES=-1,-1,-1,-1,-1\r\nMAPPER_ARMOURY=-1,-1,-1,-1,-1\r\nMAPPER_TRADEPOST=-1,-1,-1,-1,-1\r\nMAPPER_INN=-1,-1,-1,-1,-1\r\nMAPPER_HEALER=-1,-1,-1,-1,-1\r\nMAPPER_FLETCHER=-1,-1,-1,-1,-1\r\nMAPPER_POLETURNER=-1,-1,-1,-1,-1\r\nMAPPER_BLACKSMITH=-1,-1,-1,-1,-1\r\nMAPPER_ARMOURER=-1,-1,-1,-1,-1\r\nMAPPER_TANNER=-1,-1,-1,-1,-1\r\nMAPPER_STABLES=-1,-1,-1,-1,-1\r\nMAPPER_BARRACKS_WOOD=-1,-1,-1,-1,-1\r\nMAPPER_BARRACKS_STONE=-1,-1,-1,-1,-1\r\nMAPPER_ENGINEERS_GUILD=-1,-1,-1,-1,-1\r\nMAPPER_TUNNELERS_GUILD=-1,-1,-1,-1,-1\r\nMAPPER_OIL_SMELTER=-1,-1,-1,-1,-1\r\nMAPPER_WELL=-1,-1,-1,-1,-1\r\nMAPPER_WATERPOT=-1,-1,-1,-1,-1\r\nMAPPER_CHURCH1=-1,5,-1,-1,-1\r\nMAPPER_CHURCH2=-1,10,-1,-1,-1\r\nMAPPER_CHURCH3=-1,15,-1,-1,-1\r\nMAPPER_TOWER1=-1,-1,-1,-1,-1\r\nMAPPER_TOWER2=-1,-1,-1,-1,-1\r\nMAPPER_TOWER3=-1,-1,-1,-1,-1\r\nMAPPER_TOWER4=-1,-1,-1,-1,-1\r\nMAPPER_TOWER5=-1,-1,-1,-1,-1\r\nMAPPER_GATE_MAIN=-1,-1,-1,-1,-1\r\nMAPPER_GATE_INNER=-1,-1,-1,-1,-1\r\nMAPPER_GATE_WOOD=-1,-1,-1,-1,-1\r\nMAPPER_DRAWBRIDGE=-1,-1,-1,-1,-1\r\nMAPPER_KILLING_PIT=-1,-1,-1,-1,-1\r\nMAPPER_BRAZIER=-1,-1,-1,-1,-1\r\nMAPPER_MANGONEL=-1,5,-1,-1,-1\r\nMAPPER_BALLISTA=-1,-1,-1,-1,-1\r\nMAPPER_MAYPOLE=-1,-1,-1,-1,-1\r\nMAPPER_GALLOWS=-1,-1,-1,-1,-1\r\nMAPPER_STOCKS=-1,-1,-1,-1,-1\r\nMAPPER_GARDEN1=-1,-1,-1,-1,-1\r\nMAPPER_CESS_PIT1=-1,-1,-1,-1,-1\r\nMAPPER_BURNING_STAKE=-1,-1,-1,-1,-1\r\nMAPPER_GIBBET=-1,-1,-1,-1,-1\r\nMAPPER_DUNGEON=-1,-1,-1,-1,-1\r\nMAPPER_RACK_STRETCHING=-1,-1,-1,-1,-1\r\nMAPPER_CHOPPING_BLOCK=-1,-1,-1,-1,-1\r\nMAPPER_DUNKING_STOOL=-1,-1,-1,-1,-1\r\nMAPPER_DOG_CAGE=-1,-1,-1,-1,-1\r\nMAPPER_STATUE1=-1,-1,-1,-1,-1\r\nMAPPER_SHRINE1=-1,-1,-1,-1,-1\r\nMAPPER_DANCING_BEAR=-1,-1,-1,-1,-1\r\nMAPPER_POND1=-1,-1,-1,-1,-1\r\nMAPPER_OUTPOST_BEDOUIN=-1,-1,-1,-1,-1\r\nMAPPER_BEDOUIN_STOCKADE=-1,-1,-1,-1,-1"
+    },
+    "EnableMod": {
+      "mode": "fixed",
+      "value": true
+    }
+  }
+}

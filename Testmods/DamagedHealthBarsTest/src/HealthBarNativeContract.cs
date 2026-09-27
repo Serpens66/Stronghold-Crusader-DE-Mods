@@ -88,6 +88,9 @@ namespace DamagedHealthBarsTest
 
             Label vanilla = assembler.CreateLabel("buildingVanilla");
             Label restore = assembler.CreateLabel("buildingRestore");
+            // Preserve Vanilla's gameplay-mode branch before considering the mod gate.
+            assembler.AddInstruction(displaced[0]);
+            assembler.AddInstruction(displaced[1]);
             EmitFlagGate(assembler, flagAddress, vanilla);
             assembler.push(rax);
             if (moduleBase == Register.RBX)
@@ -111,8 +114,8 @@ namespace DamagedHealthBarsTest
             assembler.Label(ref restore);
             assembler.pop(rax);
             assembler.Label(ref vanilla);
-            foreach (Instruction instruction in displaced)
-                assembler.AddInstruction(instruction);
+            assembler.AddInstruction(displaced[2]);
+            assembler.AddInstruction(displaced[3]);
             assembler.AddUnrestrictedJmp(returnAddress);
         }
 

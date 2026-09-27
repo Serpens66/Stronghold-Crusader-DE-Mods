@@ -70,6 +70,9 @@
         <member name="F:APIShared.NativeCapabilityIds.BriefingGoldPresentation">
             <summary>Capability for deterministic post-Vanilla mission-briefing gold presentation.</summary>
         </member>
+        <member name="F:APIShared.NativeCapabilityIds.BuildingRepair">
+            <summary>Capability for complete building repair costs and repair HUD tooltips.</summary>
+        </member>
         <member name="T:APIShared.NativeCapabilityDiagnostic">
             <summary>Immutable diagnostic information returned by capability acquisition and mutation.</summary>
         </member>
@@ -121,6 +124,9 @@
         <member name="M:APIShared.IApiShared.TryGetBriefingGoldPresentation(System.String,APIShared.IBriefingGoldPresentationCapability@,APIShared.NativeCapabilityDiagnostic@)">
             <summary>Attempts to acquire the process-wide mission-briefing gold presentation capability.</summary>
         </member>
+        <member name="M:APIShared.IApiShared.TryGetBuildingRepair(System.String,APIShared.IBuildingRepairCapability@,APIShared.NativeCapabilityDiagnostic@)">
+            <summary>Acquires the shared building repair calculation and presentation.</summary>
+        </member>
         <member name="T:APIShared.ApiShared">
             <summary>Static access to the process-wide API and its readiness notification.</summary>
         </member>
@@ -132,6 +138,111 @@
             Registers a callback that runs when initialization reaches a terminal state. Late
             registrations run synchronously.
             </summary>
+        </member>
+        <member name="T:APIShared.BuildingRepairQuote">
+            <summary>Immutable repair costs and resource amounts for the selected owned building.</summary>
+        </member>
+        <member name="M:APIShared.BuildingRepairQuote.#ctor(System.Int32,System.Int32,System.Int32,System.Boolean,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32)">
+            <summary>Creates a repair quote from a single simulation snapshot.</summary>
+        </member>
+        <member name="P:APIShared.BuildingRepairQuote.BuildingId">
+            <summary>One-based game building ID.</summary>
+        </member>
+        <member name="P:APIShared.BuildingRepairQuote.BuildingGlobalId">
+            <summary>Stable identity of the selected building.</summary>
+        </member>
+        <member name="P:APIShared.BuildingRepairQuote.Panel">
+            <summary>Vanilla in-building HUD panel.</summary>
+        </member>
+        <member name="P:APIShared.BuildingRepairQuote.CanRepair">
+            <summary>Vanilla repair proximity and state permission.</summary>
+        </member>
+        <member name="P:APIShared.BuildingRepairQuote.CurrentHealth">
+            <summary>Current building health.</summary>
+        </member>
+        <member name="P:APIShared.BuildingRepairQuote.MaxHealth">
+            <summary>Maximum building health.</summary>
+        </member>
+        <member name="P:APIShared.BuildingRepairQuote.Wood">
+            <summary>Required wood.</summary>
+        </member>
+        <member name="P:APIShared.BuildingRepairQuote.Stone">
+            <summary>Required stone.</summary>
+        </member>
+        <member name="P:APIShared.BuildingRepairQuote.Iron">
+            <summary>Required iron.</summary>
+        </member>
+        <member name="P:APIShared.BuildingRepairQuote.Pitch">
+            <summary>Required pitch.</summary>
+        </member>
+        <member name="P:APIShared.BuildingRepairQuote.Gold">
+            <summary>Required gold.</summary>
+        </member>
+        <member name="P:APIShared.BuildingRepairQuote.AvailableWood">
+            <summary>Available wood.</summary>
+        </member>
+        <member name="P:APIShared.BuildingRepairQuote.AvailableStone">
+            <summary>Available stone.</summary>
+        </member>
+        <member name="P:APIShared.BuildingRepairQuote.AvailableIron">
+            <summary>Available iron.</summary>
+        </member>
+        <member name="P:APIShared.BuildingRepairQuote.AvailablePitch">
+            <summary>Available pitch.</summary>
+        </member>
+        <member name="P:APIShared.BuildingRepairQuote.AvailableGold">
+            <summary>Available gold.</summary>
+        </member>
+        <member name="P:APIShared.BuildingRepairQuote.HasResources">
+            <summary>Whether every required resource is available in this snapshot.</summary>
+        </member>
+        <member name="T:APIShared.IBuildingRepairCapability">
+            <summary>Shared repair execution and HUD presentation. All UI methods run on the UI thread.</summary>
+        </member>
+        <member name="M:APIShared.IBuildingRepairCapability.SetActive(System.Boolean)">
+            <summary>Enables or disables this owner's use without removing process-wide hooks.</summary>
+        </member>
+        <member name="M:APIShared.IBuildingRepairCapability.TryGetSelectedQuote(APIShared.BuildingRepairQuote@)">
+            <summary>Reads the selected building's verified simulation snapshot.</summary>
+        </member>
+        <member name="M:APIShared.IBuildingRepairCapability.BeginHover(System.String)">
+            <summary>Begins showing the complete repair tooltip for a stable button identity.</summary>
+        </member>
+        <member name="M:APIShared.IBuildingRepairCapability.EndHover(System.String)">
+            <summary>Stops showing the repair tooltip for that button.</summary>
+        </member>
+        <member name="T:APIShared.RepairTooltipEntry">
+            <summary>One resource displayed by the shared repair tooltip.</summary>
+        </member>
+        <member name="P:APIShared.RepairTooltipEntry.Required">
+            <summary>Required resource amount.</summary>
+        </member>
+        <member name="P:APIShared.RepairTooltipEntry.Available">
+            <summary>Available resource amount.</summary>
+        </member>
+        <member name="P:APIShared.RepairTooltipEntry.Icon">
+            <summary>Vanilla goods icon.</summary>
+        </member>
+        <member name="T:APIShared.RepairTooltipViewModel">
+            <summary>Noesis binding source for the shared repair tooltip.</summary>
+        </member>
+        <member name="E:APIShared.RepairTooltipViewModel.PropertyChanged">
+            <summary>Raised when tooltip visibility or title changes.</summary>
+        </member>
+        <member name="P:APIShared.RepairTooltipViewModel.Costs">
+            <summary>Visible resource costs.</summary>
+        </member>
+        <member name="P:APIShared.RepairTooltipViewModel.Visibility">
+            <summary>Current tooltip visibility.</summary>
+        </member>
+        <member name="P:APIShared.RepairTooltipViewModel.Title">
+            <summary>Localized repair caption.</summary>
+        </member>
+        <member name="M:APIShared.RepairTooltipViewModel.Show(APIShared.BuildingRepairQuote)">
+            <summary>Shows the costs from an immutable simulation snapshot.</summary>
+        </member>
+        <member name="M:APIShared.RepairTooltipViewModel.Clear">
+            <summary>Hides the tooltip.</summary>
         </member>
         <member name="T:APIShared.LocalSelectionSnapshot">
             <summary>An immutable copy of one local player's last completed selection.</summary>
@@ -153,6 +264,39 @@
             Copies the local selection from one completed Vanilla play state. An unchanged
             selection reuses its immutable snapshot, even when Vanilla publishes a new tick.
             </summary>
+        </member>
+        <member name="T:APIShared.SavegameModSettingsRecord">
+            <summary>Versioned savegame metadata for host settings and mission permission mode.</summary>
+        </member>
+        <member name="P:APIShared.SavegameModSettingsRecord.Version">
+            <summary>MessagePack schema version.</summary>
+        </member>
+        <member name="P:APIShared.SavegameModSettingsRecord.Kind">
+            <summary>Saved mission kind.</summary>
+        </member>
+        <member name="P:APIShared.SavegameModSettingsRecord.Variant">
+            <summary>Saved Customize state.</summary>
+        </member>
+        <member name="P:APIShared.SavegameModSettingsRecord.Mods">
+            <summary>Persistent host properties keyed by plugin GUID and property name.</summary>
+        </member>
+        <member name="P:APIShared.SavegameModSettingsRecord.LockedByConflict">
+            <summary>Whether the mission was locked by conflicting launch evidence when saved.</summary>
+        </member>
+        <member name="T:APIShared.SavegameModSettings">
+            <summary>Persists compatible host settings and the mission permission context in saves.</summary>
+        </member>
+        <member name="M:APIShared.SavegameModSettings.CanUseCurrentSettings(System.String)">
+            <summary>Reads only the selected save's own appended metadata for the load checkbox.</summary>
+        </member>
+        <member name="M:APIShared.SavegameModSettings.GetCompatibleParticipants">
+            <summary>Returns compatible settings endpoints keyed by the owning plugin GUID.</summary>
+        </member>
+        <member name="M:APIShared.SavegameModSettings.PrepareLoad(System.String,System.Boolean)">
+            <summary>Records the confirmed host choice for exactly one selected save.</summary>
+        </member>
+        <member name="M:APIShared.SavegameModSettings.CancelLoadChoice">
+            <summary>Discards an unconsumed load-dialog choice after cancellation or failure.</summary>
         </member>
         <member name="T:APIShared.MissionMapType">
             <summary>Map objective subtype, independent of campaign/trail/editor provenance.</summary>

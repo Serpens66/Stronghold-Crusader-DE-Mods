@@ -10,6 +10,13 @@ if defined SHCDESE_EXTENDER_DIR set "GAME_SCRIPT_EXTENDER_DIR=%SHCDESE_EXTENDER_
 set "PLUGIN_NAME=APIShared_Serp"
 set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\%PLUGIN_NAME%"
 set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%"
+set "STANDALONE_GAME_PLUGIN_DIR=%GAME_PLUGIN_DIR%"
+set "PACK_PLUGIN_ROOT=%GAME_DIR%\BepInEx\plugins\SerpsMods_Serp"
+set "PACKED_INSTALL=0"
+if exist "%PACK_PLUGIN_ROOT%\Infrastructure\%PLUGIN_NAME%\APIShared.dll" (
+  set "GAME_PLUGIN_DIR=%PACK_PLUGIN_ROOT%\Infrastructure\%PLUGIN_NAME%"
+  set "PACKED_INSTALL=1"
+)
 set "EXTENDER_DIR="
 set "NO_PAUSE=0"
 for %%A in (%*) do if /I "%%~A"=="/nopause" set "NO_PAUSE=1"
@@ -44,6 +51,10 @@ if not exist "%LOCAL_PLUGIN_DIR%\info.json" goto package_failed
 if exist "%GAME_PLUGIN_DIR%\" rmdir /S /Q "%GAME_PLUGIN_DIR%"
 xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y >nul
 if errorlevel 1 goto copy_failed
+if "%PACKED_INSTALL%"=="1" if exist "%STANDALONE_GAME_PLUGIN_DIR%\" (
+  rmdir /S /Q "%STANDALONE_GAME_PLUGIN_DIR%"
+  if errorlevel 1 goto copy_failed
+)
 echo APIShared built and installed successfully.
 if "%NO_PAUSE%"=="0" pause
 exit /b 0

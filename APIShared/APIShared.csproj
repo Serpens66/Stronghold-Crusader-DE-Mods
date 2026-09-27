@@ -51,6 +51,7 @@
     <Compile Include="src\BuildingRepairCapability.cs" />
     <Compile Include="src\LocalSelectionAPI.cs" />
     <Compile Include="src\MissionModePolicy.cs" />
+    <Compile Include="src\SavegameModSettings.cs" />
     <Compile Include="src\GameplayModModePolicy.cs" />
     <Compile Include="src\GameplayFeatureModePolicy.cs" />
     <Compile Include="..\Shared\AtomicFileReplacement.cs"><Link>Shared\AtomicFileReplacement.cs</Link></Compile>

@@ -30,6 +30,7 @@ namespace APIShared
 
         private void OnLibraryLoaded(CrusaderLibraryLoadContext context)
         {
+            SavegameModSettings.Initialize(Logger);
             string hash;
             try
             {

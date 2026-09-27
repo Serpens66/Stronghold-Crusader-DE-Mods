@@ -107,7 +107,9 @@
       <Link>Shared\SerpLocalization.cs</Link>
     </Compile>
     <Compile Include="src\ActiveBuildingCache.cs" />
+    <Compile Include="src\TowerSiegeUnitCache.cs" />
     <Compile Include="src\BuildingLimitRuntime.BuildingLimits.cs" />
+    <Compile Include="src\BuildingLimitRuntime.TowerSiege.cs" />
     <Compile Include="src\BuildingLimitRuntime.cs" />
     <Compile Include="src\BuildingLimitRuntime.Settings.cs" />
     <Compile Include="src\BuildingLimitRuntime.Localization.cs" />

@@ -1,0 +1,214 @@
+{
+  "schemaVersion": 1,
+  "id": "ok",
+  "name": "ok",
+  "targetGuid": "ExtraFeatures_Serp",
+  "settings": {
+    "AIEnemyProximityMultiplayer": {
+      "mode": "fixed",
+      "value": -1
+    },
+    "AIEnemyProximitySingleplayer": {
+      "mode": "fixed",
+      "value": -1
+    },
+    "AIGateClosingDistanceTiles": {
+      "mode": "fixed",
+      "value": 25
+    },
+    "AIGateReopenDelaySeconds": {
+      "mode": "fixed",
+      "value": 10
+    },
+    "AILordHealthPercent": {
+      "mode": "fixed",
+      "value": 500
+    },
+    "AITowerGateRebuildDelaySeconds": {
+      "mode": "fixed",
+      "value": 60
+    },
+    "AllowElevatedMoatAI": {
+      "mode": "fixed",
+      "value": true
+    },
+    "AllowElevatedMoatHuman": {
+      "mode": "fixed",
+      "value": true
+    },
+    "ApothecaryPlagueSearchDistance": {
+      "mode": "fixed",
+      "value": 50
+    },
+    "CampfirePeasantsLimit": {
+      "mode": "fixed",
+      "value": 50
+    },
+    "EnableExtraChurchPriests": {
+      "mode": "fixed",
+      "value": true
+    },
+    "EnableFearFactorNeutralization": {
+      "mode": "fixed",
+      "value": true
+    },
+    "EnableKnightDismount": {
+      "mode": "fixed",
+      "value": true
+    },
+    "EnableMod": {
+      "mode": "fixed",
+      "value": true
+    },
+    "EnableMonksAlwaysRun": {
+      "mode": "fixed",
+      "value": false
+    },
+    "GoldRefundPercent": {
+      "mode": "fixed",
+      "value": -1
+    },
+    "HumanEnemyProximityMultiplayer": {
+      "mode": "fixed",
+      "value": -1
+    },
+    "HumanEnemyProximitySingleplayer": {
+      "mode": "fixed",
+      "value": -1
+    },
+    "HumanGateClosingDistanceTiles": {
+      "mode": "fixed",
+      "value": 17.5
+    },
+    "HumanGateReopenDelaySeconds": {
+      "mode": "fixed",
+      "value": 2.5
+    },
+    "HumanLordHealthPercent": {
+      "mode": "fixed",
+      "value": 100
+    },
+    "InstantHorse": {
+      "mode": "fixed",
+      "value": false
+    },
+    "IronRefundPercent": {
+      "mode": "fixed",
+      "value": -1
+    },
+    "KeepStorageContent": {
+      "mode": "fixed",
+      "value": true
+    },
+    "KnightTransformationDelaySeconds": {
+      "mode": "fixed",
+      "value": 10
+    },
+    "KnightTransformationGoldCost": {
+      "mode": "fixed",
+      "value": 0
+    },
+    "MarketBuyPriceMultiplier": {
+      "mode": "fixed",
+      "value": 2
+    },
+    "MarketGoodBuyPriceMultipliers": {
+      "mode": "fixed",
+      "value": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "MarketGoodSellPriceMultipliers": {
+      "mode": "fixed",
+      "value": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    "MarketPricesAlsoForAI": {
+      "mode": "fixed",
+      "value": false
+    },
+    "MarketSellPriceMultiplier": {
+      "mode": "fixed",
+      "value": 1
+    },
+    "MultiplyGoodsGainAI": {
+      "mode": "fixed",
+      "value": 1
+    },
+    "MultiplyGoodsGainHuman": {
+      "mode": "fixed",
+      "value": 1
+    },
+    "MultiplyGoodsGainInMoneyAI": {
+      "mode": "fixed",
+      "value": 0.5
+    },
+    "MultiplyGoodsGainInMoneyHuman": {
+      "mode": "fixed",
+      "value": 0
+    },
+    "NoKillRewardAI": {
+      "mode": "fixed",
+      "value": false
+    },
+    "NoKillRewardHuman": {
+      "mode": "fixed",
+      "value": true
+    },
+    "PitchRefundPercent": {
+      "mode": "fixed",
+      "value": -1
+    },
+    "PlagueDurationMultiplier": {
+      "mode": "fixed",
+      "value": 4
+    },
+    "StoneRefundPercent": {
+      "mode": "fixed",
+      "value": -1
+    },
+    "WoodRefundPercent": {
+      "mode": "fixed",
+      "value": -1
+    }
+  }
+}

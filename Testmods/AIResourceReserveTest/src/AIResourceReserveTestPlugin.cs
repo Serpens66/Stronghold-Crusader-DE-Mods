@@ -1,5 +1,6 @@
 using BepInEx;
 using BepInEx.Logging;
+using ExtendedData;
 using SHCDESE.API;
 using SHCDESE.API.LowLevel;
 using System;
@@ -36,6 +37,12 @@ namespace AIResourceReserveTest
             if (runtime != null) return;
             if (!Shared.DebugLogHelper.ReportNativeLibraryVersion(log, Name, requireCurrentVersion: true))
                 return;
+            if (!ExtendedDataModDataApi.SupportsSinglePlayerSelections)
+            {
+                Shared.DebugLogHelper.LogError(log,
+                    "AI reserve requires ExtendedData selected-Lord support for single-player sessions.");
+                return;
+            }
 
             IDisposable candidateSubscription = null;
             bool candidateTickRegistered = false;

@@ -98,10 +98,13 @@ namespace ExtendedData
                     DebugLogHelper.LogInfo(log, "Lord-data session cleared for single-player map initialization.");
                     return;
                 }
-                if (packageManifest?.UseLocalValues == true && localLordPaths.Count != 0)
+                if (packageManifest?.UseLocalValues == true)
                 {
                     fixes.Restore();
-                    ExtendedDataModDataApi.SetVerifiedLocalLords(localLordPaths);
+                    if (packageManifest.Slots.All(slot => localLordPaths.ContainsKey(slot.PlayerId)))
+                        ExtendedDataModDataApi.SetVerifiedLocalLords(localLordPaths);
+                    else
+                        ExtendedDataModDataApi.SetNetworkSnapshot(null, true);
                     return;
                 }
                 if (active == null)
@@ -132,7 +135,13 @@ namespace ExtendedData
             {
                 if (notification.Context.Mode.IsRealMultiplayer || trailApplied)
                     return;
-                PublishSinglePlayerLordSelection();
+                bool customGame = notification.Context.Mode.Kind == GameModeKind.CustomGame ||
+                    notification.Context.Mode.IsSingleplayerSkirmish;
+                bool selectedTrail = notification.Context.Mode.Kind == GameModeKind.CustomTrail ||
+                    notification.Context.Mode.Kind == GameModeKind.CoopTrail ||
+                    (notification.Context.Mode.IsSingleplayerTrail &&
+                     notification.Context.Mode.LaunchVariant != GameModeLaunchVariant.Standard);
+                PublishSinglePlayerLordSelection(customGame, selectedTrail);
             }));
             subscriptions.Add(MissionEvents.Ended.Subscribe(_ =>
             {
@@ -153,18 +162,30 @@ namespace ExtendedData
             }));
         }
 
-        private void PublishSinglePlayerLordSelection()
+        private void PublishSinglePlayerLordSelection(bool selectedRosterRequired,
+            bool selectedTrail)
         {
             var selected = ExtendedDataRuntime.GetExistingMainViewModel()?
                 .HUDIngameMenu?.restartSkirmishMapInfo?.aivs;
             var paths = new Dictionary<int, string>();
             var unresolved = new HashSet<int>();
-            if (selected != null)
+            if ((selectedRosterRequired && selected == null) ||
+                ((selectedRosterRequired || selectedTrail) && selected != null && selected.Length != 8))
             {
-                for (int index = 0; index < Math.Min(selected.Length, 8); index++)
+                for (int playerId = 1; playerId <= 8; playerId++)
+                    unresolved.Add(playerId);
+            }
+            else if ((selectedRosterRequired || selectedTrail) && selected != null)
+            {
+                for (int index = 0; index < 8; index++)
                 {
                     FRONT_Multiplayer.MPAIVInfo info = selected[index];
-                    if (info == null || info.builtInLord)
+                    if (info == null)
+                    {
+                        unresolved.Add(index + 1);
+                        continue;
+                    }
+                    if (info.builtInLord)
                         continue;
                     int playerId = index + 1;
                     if (TryResolveSelectedLocalLord(info, out string path))
@@ -176,7 +197,9 @@ namespace ExtendedData
             ExtendedDataModDataApi.SetSinglePlayerLords(paths, unresolved);
             DebugLogHelper.LogInfo(log, "Single-player Lord selection published: " +
                 "selected=" + (selected == null ? "unavailable" : selected.Length.ToString()) +
-                ",custom=" + paths.Count + ",unresolved=" + unresolved.Count + ".");
+                ",required=" + selectedRosterRequired + ",trail=" + selectedTrail +
+                ",custom=" + paths.Count +
+                ",unresolved=" + unresolved.Count + ".");
         }
 
         private static bool TryResolveSelectedLocalLord(FRONT_Multiplayer.MPAIVInfo info,

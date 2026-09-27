@@ -64,6 +64,7 @@ namespace ExtendedData
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private readonly Dictionary<ListView, FRONT_Multiplayer> observedMapLists =
             new Dictionary<ListView, FRONT_Multiplayer>();
+        private ListView observedSaveList;
         private Hook saveHook;
         private Hook leaveLobbyHook;
         private Hook startSkirmishGameHook;
@@ -191,6 +192,7 @@ namespace ExtendedData
             foreach (ListView mapList in observedMapLists.Keys)
                 mapList.SelectionChanged -= OnMapListSelectionChanged;
             observedMapLists.Clear();
+            DetachSaveSelection();
             foreach (IDisposable subscription in subscriptions)
                 subscription.Dispose();
             subscriptions.Clear();
@@ -213,21 +215,68 @@ namespace ExtendedData
             bool skirmishScreen,
             bool trailsScreen)
         {
-            if (enabled && (requesterType == Enums.RequesterTypes.LoadMultiplayerGame ||
-                requesterType == Enums.RequesterTypes.LoadMultiplayerCoopGame))
+            if (requesterType == Enums.RequesterTypes.LoadSinglePlayerGame ||
+                requesterType == Enums.RequesterTypes.LoadSinglePlayerCoopGame ||
+                requesterType == Enums.RequesterTypes.LoadMultiplayerGame ||
+                requesterType == Enums.RequesterTypes.LoadMultiplayerCoopGame)
             {
+                DetachSaveSelection();
+                SavegameModSettings.CancelLoadChoice();
+                editorSaveOptions.OpenLoad();
                 Action<string, FileHeader> prepared = (fileName, header) =>
                 {
-                    if (MultiplayerSaveLaunchPreparing != null &&
+                    if (enabled && (requesterType == Enums.RequesterTypes.LoadMultiplayerGame ||
+                        requesterType == Enums.RequesterTypes.LoadMultiplayerCoopGame) &&
+                        MultiplayerSaveLaunchPreparing != null &&
                         !MultiplayerSaveLaunchPreparing(MainViewModel.Instance?.FRONTMultiplayer, header))
                     {
                         ShowMessage("Lord data", "The selected save's Lord data is not synchronized. Please try again after all players are ready.");
                         return;
                     }
-                    okAction?.Invoke(fileName, header);
+                    try
+                    {
+                        SavegameModSettings.PrepareLoad(header?.filePath, editorSaveOptions.UseCurrentSavegameSettings);
+                        okAction?.Invoke(fileName, header);
+                    }
+                    catch
+                    {
+                        SavegameModSettings.CancelLoadChoice();
+                        throw;
+                    }
+                    finally
+                    {
+                        editorSaveOptions.CloseLoad();
+                        DetachSaveSelection();
+                    }
                 };
-                openLoadSaveRequesterOriginal(
-                    requesterType, prepared, cancelAction, mpCrcCount, skirmishScreen, trailsScreen);
+                Action cancelled = () =>
+                {
+                    SavegameModSettings.CancelLoadChoice();
+                    editorSaveOptions.CloseLoad();
+                    DetachSaveSelection();
+                    cancelAction?.Invoke();
+                };
+                try
+                {
+                    openLoadSaveRequesterOriginal(
+                        requesterType, prepared, cancelled, mpCrcCount, skirmishScreen, trailsScreen);
+                    if (MainViewModel.viewModelLoaded)
+                    {
+                        observedSaveList = MainViewModel.Instance?.HUDLoadSaveRequester?.FindName("FileList") as ListView;
+                        if (observedSaveList != null)
+                        {
+                            observedSaveList.SelectionChanged += OnSaveSelectionChanged;
+                            RefreshSaveSelection();
+                        }
+                    }
+                }
+                catch
+                {
+                    SavegameModSettings.CancelLoadChoice();
+                    editorSaveOptions.CloseLoad();
+                    DetachSaveSelection();
+                    throw;
+                }
                 return;
             }
             if (!enabled || requesterType != Enums.RequesterTypes.SaveEditorMap)
@@ -271,6 +320,22 @@ namespace ExtendedData
                 requesterType, wrappedOk, wrappedCancel, mpCrcCount, skirmishScreen, trailsScreen);
         }
 
+        private void OnSaveSelectionChanged(object sender, SelectionChangedEventArgs args) =>
+            RefreshSaveSelection();
+
+        private void RefreshSaveSelection()
+        {
+            FileHeader header = (observedSaveList?.SelectedItem as FileRow)?.fileHeader;
+            editorSaveOptions.SelectSavegame(header?.filePath);
+        }
+
+        private void DetachSaveSelection()
+        {
+            if (observedSaveList != null)
+                observedSaveList.SelectionChanged -= OnSaveSelectionChanged;
+            observedSaveList = null;
+        }
+
         private void ArmMapEditorSave(string path, bool includeSettings, bool hadEntry)
         {
             string mapsRoot = IOPath.GetFullPath(ConfigSettings.GetUserMapsPath())
@@ -300,6 +365,7 @@ namespace ExtendedData
             bool doLeaveOnSteam,
             bool refreshLobbyList)
         {
+            SavegameModSettings.CancelLoadChoice();
             if (mapContextActive && !launchInProgress && !mapMissionActive)
                 ExitMapContext(broadcast: IsHostLobby(self), "left lobby");
             leaveLobbyOriginal(self, doLeaveOnSteam, refreshLobbyList);

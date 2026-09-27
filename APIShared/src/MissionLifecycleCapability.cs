@@ -137,7 +137,10 @@ namespace APIShared
             customTrail = Hook<CustomTrail>(typeof(EditorDirector), nameof(EditorDirector.LoadCustomTrailMap), (self, name, id, difficulty) =>
                 Run(new Operation { Kind = MissionStartKind.NewGame, Intent = GameModeKind.CustomTrail, Name = name, MissionIndex = id - 1, Difficulty = difficulty }, () => customTrail(self, name, id, difficulty)));
             save = Hook<Save>(typeof(EditorDirector), nameof(EditorDirector.loadSaveGame), (self, file, name, header) =>
-                Run(Seed(MissionStartKind.LoadedSave, GameModeKind.Unknown, file, name), () => save(self, file, name, header)));
+            {
+                SavegameModSettings.BeginLoad();
+                Run(Seed(MissionStartKind.LoadedSave, GameModeKind.Unknown, file, name), () => save(self, file, name, header));
+            });
             standalone = Hook<Standalone>(typeof(FRONT_StandaloneMission), nameof(FRONT_StandaloneMission.StartMap), info =>
                 Run(Seed(MissionStartKind.NewGame, GameModeKind.StandaloneMission), () => standalone(info)));
             skirmish = Hook<Skirmish>(typeof(FRONT_Multiplayer), "StartSkirmishGame", (self, info) =>
@@ -150,7 +153,11 @@ namespace APIShared
                 Run(new Operation { Kind = MissionStartKind.NewGame, Intent = coop > 0 ? GameModeKind.CoopTrail : GameModeKind.CustomGame, Multiplayer = true },
                     () => multiplayerNew(self, setup, map, coop, mission)));
             multiplayerSave = Hook<MultiplayerSave>(typeof(Platform_Multiplayer), nameof(Platform_Multiplayer.StartSave), (self, setup, map) =>
-                Run(new Operation { Kind = MissionStartKind.LoadedSave, Intent = GameModeKind.Unknown, Multiplayer = true }, () => multiplayerSave(self, setup, map)));
+            {
+                SavegameModSettings.BeginLoad();
+                Run(new Operation { Kind = MissionStartKind.LoadedSave, Intent = GameModeKind.Unknown, Multiplayer = true },
+                    () => multiplayerSave(self, setup, map));
+            });
             multiplayerInit = Hook<MultiplayerInit>(typeof(EngineInterface), nameof(EngineInterface.initMultiplayerGame), (skirmishGame, restart, coop, mission, test, custom, extreme) =>
             {
                 Safe(() =>
@@ -256,6 +263,8 @@ namespace APIShared
         {
             if (executing != null) return original(); // Nested custom-trail -> skirmish belongs to the outer attempt.
             executing = op;
+            if (waiting?.Kind == MissionStartKind.LoadedSave && op.Kind != MissionStartKind.LoadedSave)
+                SavegameModSettings.FinishLoad();
             waiting = null;
             bool normal = false;
             Safe(() => op.Id = state.Begin(Capture(op)));
@@ -263,12 +272,24 @@ namespace APIShared
             finally
             {
                 executing = null;
+                if (op.Kind == MissionStartKind.LoadedSave && normal && op.NativeSucceeded &&
+                    !op.NativeFailed && op.ManagedSucceeded)
+                {
+                    try { SavegameModSettings.ApplyLoadedSettings(Capture(op)); }
+                    catch (Exception error)
+                    {
+                        SavegameModSettings.MarkRestoreFailed();
+                        Report(error);
+                    }
+                }
                 Safe(() =>
                 {
                     var context = Capture(op);
                     if (state.Finish(op.Id, context, normal, op.NativeSucceeded && !op.NativeFailed,
                         op.ManagedSucceeded, op.Multiplayer && context.IsHost == false)) waiting = op;
                 });
+                if (op.Kind == MissionStartKind.LoadedSave && waiting == null)
+                    SavegameModSettings.FinishLoad();
             }
         }
 
@@ -276,6 +297,11 @@ namespace APIShared
             Platform_Multiplayer.MPGameMember member, bool thread)
         {
             var op = waiting;
+            if (!thread && op != null && !state.IsPending(op.Id))
+            {
+                waiting = null;
+                SavegameModSettings.FinishLoad();
+            }
             if (thread || op == null || !state.IsPending(op.Id) || executing != null) return message(self, data, member, thread);
             executing = op;
             bool normal = false;
@@ -283,12 +309,38 @@ namespace APIShared
             finally
             {
                 executing = null;
-                Safe(() =>
+                if (!normal)
                 {
-                    if (!normal) { waiting = null; state.End(MissionEndReason.Exception, op.Id); }
-                    else if (op.ManagedSucceeded) { waiting = null; state.Ready(op.Id, Capture(op)); }
-                });
+                    waiting = null;
+                    try { Safe(() => state.End(MissionEndReason.Exception, op.Id)); }
+                    finally { SavegameModSettings.FinishLoad(); }
+                }
+                else if (op.ManagedSucceeded)
+                {
+                    waiting = null;
+                    Safe(() => CompleteDeferredRestore(
+                        () => SavegameModSettings.ApplyLoadedSettings(Capture(op)),
+                        () => state.Ready(op.Id, Capture(op)),
+                        SavegameModSettings.FinishLoad,
+                        error => { SavegameModSettings.MarkRestoreFailed(); Report(error); }));
+                }
             }
+        }
+
+        internal static void CompleteDeferredRestore(Action restore, Action ready,
+            Action cleanup, Action<Exception> reportRestoreError)
+        {
+            try
+            {
+                try { restore?.Invoke(); }
+                catch (Exception error)
+                {
+                    try { reportRestoreError?.Invoke(error); }
+                    catch { /* Failure reporting must not prevent the lifecycle transition. */ }
+                }
+                ready?.Invoke();
+            }
+            finally { cleanup?.Invoke(); }
         }
 
         private EngineInterface.LoadMapReturnData CaptureNative(Func<EngineInterface.LoadMapReturnData> original)
@@ -307,7 +359,13 @@ namespace APIShared
             return result;
         }
         private void MarkManaged() => Safe(() => { if (executing != null) executing.ManagedSucceeded = true; });
-        private void End(MissionEndReason reason) { waiting = null; state.End(reason); }
+        private void End(MissionEndReason reason)
+        {
+            bool abandonedSave = waiting?.Kind == MissionStartKind.LoadedSave;
+            waiting = null;
+            try { state.End(reason); }
+            finally { if (abandonedSave) SavegameModSettings.FinishLoad(); }
+        }
         private void Safe(Action action) { try { action(); } catch (Exception ex) { Report(ex); } }
         private void Report(Exception ex) { try { NativeApiLog.Error(log, "Mission lifecycle callback failed: " + ex); } catch { } }
         private static NativeCapabilityDiagnostic Status(NativeCapabilityState state, string reason) =>

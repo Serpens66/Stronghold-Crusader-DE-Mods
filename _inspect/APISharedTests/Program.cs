@@ -55,6 +55,7 @@ namespace APISharedTests
             TestLobbyStateCapability();
             TestBriefingGoldPresentation();
             MissionLifecycleTests.Run(Assert);
+            SavegameModSettingsTests.Run(Assert);
             TestUnitHudVariantContracts();
             TestUnitHudLiveSelectionCounts();
             TestUnitHudSelectionIdentity();
@@ -1609,6 +1610,8 @@ namespace APISharedTests
                 "APIShared.IAivBuildStepInvocation",
                 "APIShared.AivBuildStepContext",
                 "APIShared.AivBuildStepCompletion",
+                "APIShared.SavegameModSettingsRecord",
+                "APIShared.SavegameModSettings",
                 "APIShared.IApiShared",
                 "APIShared.NativeApiState",
                 "APIShared.LobbyPreparationOverride",

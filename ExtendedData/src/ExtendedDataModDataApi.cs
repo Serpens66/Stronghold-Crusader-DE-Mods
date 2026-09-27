@@ -20,6 +20,7 @@ namespace ExtendedData
         private static bool localSelectionActive;
 
         public static int ApiVersion => 1;
+        public static bool SupportsSinglePlayerSelections => true;
 
         internal static void SetNetworkSnapshot(LordDataSnapshot snapshot, bool sessionActive)
         {

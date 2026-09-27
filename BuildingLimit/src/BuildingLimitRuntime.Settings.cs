@@ -29,12 +29,14 @@ namespace BuildingLimit
             {
                 if (EffectsEnabled)
                 {
-                    SubscribeHooks();
                     ApplyBuildingLimits();
                 }
                 else
                 {
-                    UnsubscribeHooks();
+                    ClearTowerSiegeReservations();
+                    HideBuildingLimitMessage();
+                    ClearBuildingLimitTooltip();
+                    ResetBuildingLimitTooltipCache();
                 }
 
                 return;
@@ -44,7 +46,10 @@ namespace BuildingLimit
                 return;
 
             if (propertyName == nameof(BuildingLimitLobbyViewModel.BuildingLimits))
+            {
+                ClearTowerSiegeReservations();
                 ApplyBuildingLimits();
+            }
         }
     }
 }

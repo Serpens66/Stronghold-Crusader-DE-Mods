@@ -31,7 +31,6 @@ namespace BugfixesAndQoL
         private List<IDisposable> subscriptions;
         private bool captureNativeStart;
         private bool reportOnFirstTick;
-        private bool enabledAtStart;
         private long sessionId;
 
         internal PrebuiltAiWorkshopBothFixRuntime(
@@ -123,8 +122,8 @@ namespace BugfixesAndQoL
                 return;
 
             sessionId = session.SessionId;
-            enabledAtStart = settings.EnableMod && settings.EnablePrebuiltAiWorkshopBothFix;
-            reportOnFirstTick = true;
+            bool enabledAtStart = settings.EnableMod && settings.EnablePrebuiltAiWorkshopBothFix;
+            reportOnFirstTick = enabledAtStart;
             if (!enabledAtStart) return;
             try { CorrectObservedWorkshops(); }
             catch (Exception ex) { Fail("Workshop correction failed", ex); }
@@ -180,10 +179,28 @@ namespace BugfixesAndQoL
                 CountAsVanilla(type, desired, pair.Item1, ref firstCount, ref secondCount);
             }
 
-            foreach (Correction choice in choices)
+            // Recheck every target and retain its validated pointer before the first write.
+            // A rejected target leaves the whole group untouched.
+            var targets = new GameBuilding*[choices.Count];
+            for (int index = 0; index < choices.Count; index++)
             {
+                Correction choice = choices[index];
+                if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(choice.Id, out GameBuilding* building) ||
+                    building->r_AliveState != AliveState.NeedsInit || building->r_PlayerIdOwner != playerId ||
+                    building->r_BuildingType != type || building->r_NextProducedGoodId != vanillaDefault ||
+                    building->r_ProducedGoodId != vanillaDefault)
+                {
+                    WarnRejectedGroup(playerId, type, $"building {choice.Id} changed before writing");
+                    return;
+                }
+                targets[index] = building;
+            }
+
+            for (int index = 0; index < choices.Count; index++)
+            {
+                Correction choice = choices[index];
                 if (choice.Good == vanillaDefault) continue;
-                GameBuildingManagerAPI.Instance.TryGetBuildingById(choice.Id, out GameBuilding* building);
+                GameBuilding* building = targets[index];
                 building->r_NextProducedGoodId = choice.Good;
                 building->r_ProducedGoodId = choice.Good;
                 corrected.Add(choice);
@@ -194,21 +211,26 @@ namespace BugfixesAndQoL
         {
             if (!reportOnFirstTick) return;
             reportOnFirstTick = false;
+            if (corrected.Count == 0) return;
             try
             {
                 int verified = 0;
                 int bows = 0, crossbows = 0, maces = 0, swords = 0, spears = 0, pikes = 0;
                 int invalid = 0;
-                foreach (SpawnObservation item in observed.Values)
+                var workshopGoods = new List<string>(observed.Count);
+                foreach (SpawnObservation item in observed.Values.OrderBy(item => item.PlayerId)
+                    .ThenBy(item => (int)item.Type).ThenBy(item => item.Id))
                 {
                     if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(item.Id, out GameBuilding* building) ||
                         building->r_PlayerIdOwner != item.PlayerId || building->r_BuildingType != item.Type ||
                         building->r_NextProducedGoodId != building->r_ProducedGoodId)
                     {
                         invalid++;
+                        workshopGoods.Add($"{item.PlayerId}/{item.Id}=invalid");
                         continue;
                     }
                     eGoods good = building->r_NextProducedGoodId;
+                    workshopGoods.Add($"{item.PlayerId}/{item.Id}={good}");
                     if (item.Type == eStructs.STRUCT_FLETCHERS_WORKSHOP && good == eGoods.STORED_BOWS) bows++;
                     else if (item.Type == eStructs.STRUCT_FLETCHERS_WORKSHOP && good == eGoods.STORED_CROSSBOWS) crossbows++;
                     else if (item.Type == eStructs.STRUCT_BLACKSMITHS_WORKSHOP && good == eGoods.STORED_MACES) maces++;
@@ -225,11 +247,11 @@ namespace BugfixesAndQoL
                         verified++;
                 }
                 Shared.DebugLogHelper.LogInfo(log,
-                    $"Prebuilt AI workshop Both fix: session={sessionId}, enabled={enabledAtStart}, " +
+                    $"Prebuilt AI workshop Both fix: session={sessionId}, " +
                     $"captured={observed.Count}, corrected={corrected.Count}, verified={verified}, " +
                     $"goods=bows:{bows},crossbows:{crossbows},maces:{maces},swords:{swords}," +
                     $"spears:{spears},pikes:{pikes}, " +
-                    $"invalid={invalid}, firstTick={tick}.");
+                    $"workshops=[{string.Join(",", workshopGoods)}], invalid={invalid}, firstTick={tick}.");
                 if (verified != corrected.Count)
                     Shared.DebugLogHelper.LogWarning(log,
                         $"Prebuilt AI workshop Both fix: {corrected.Count - verified} corrected workshop(s) changed before the first tick.");
@@ -251,7 +273,6 @@ namespace BugfixesAndQoL
             observed.Clear();
             corrected.Clear();
             sessionId = 0;
-            enabledAtStart = false;
         }
 
         private void Fail(string message, Exception ex)

@@ -12,6 +12,7 @@ namespace BuildingRepairHudTest
     internal sealed class RepairHudRuntime
     {
         private const string ButtonName = "BuildingRepairHudTestButton";
+        private const string HoverHostName = "BuildingRepairHudTestHoverHost";
         private const string HoverId = "BuildingRepairHudTest.SmallButton";
         private delegate bool ShowRepairDelegate(HUD_Buildings self, int type, int panel);
         private delegate void HudUpdateDelegate(FatControler self);
@@ -21,7 +22,7 @@ namespace BuildingRepairHudTest
         private readonly Hook hudHook;
         private readonly ShowRepairDelegate originalShowRepair;
         private readonly HudUpdateDelegate originalHudUpdate;
-        private Button lastButton;
+        private Grid lastHoverHost;
         private HUD_Buildings lastHud;
         private bool postStartupLogged;
 
@@ -92,16 +93,17 @@ namespace BuildingRepairHudTest
             }
 
             Button button = hud.FindName(ButtonName) as Button;
-            if (button == null) return;
-            if (!ReferenceEquals(button, lastButton))
+            Grid hoverHost = hud.FindName(HoverHostName) as Grid;
+            if (button == null || hoverHost == null) return;
+            if (!ReferenceEquals(hoverHost, lastHoverHost))
             {
-                button.MouseEnter += OnButtonEnter;
-                button.MouseLeave += OnButtonLeave;
-                lastButton = button;
+                hoverHost.MouseEnter += OnButtonEnter;
+                hoverHost.MouseLeave += OnButtonLeave;
+                lastHoverHost = hoverHost;
             }
             if (!repair.TryGetSelectedQuote(out BuildingRepairQuote quote))
             {
-                button.Visibility = Visibility.Hidden;
+                hoverHost.Visibility = Visibility.Hidden;
                 button.IsEnabled = false;
                 repair.EndHover(HoverId);
                 return;
@@ -112,17 +114,17 @@ namespace BuildingRepairHudTest
                 hud.RefBedouinStockadePanel.Visibility == Visibility.Visible;
             if (special)
             {
-                button.Width = 20;
-                button.Height = 20;
-                button.Margin = new Thickness(0, 0, 235, 27);
+                hoverHost.Width = 20;
+                hoverHost.Height = 20;
+                hoverHost.Margin = new Thickness(0, 0, 235, 27);
             }
             else
             {
-                button.Width = 24;
-                button.Height = 24;
-                button.Margin = new Thickness(0, 0, 262, 44);
+                hoverHost.Width = 24;
+                hoverHost.Height = 24;
+                hoverHost.Margin = new Thickness(0, 0, 262, 44);
             }
-            button.Visibility = Visibility.Visible;
+            hoverHost.Visibility = Visibility.Visible;
             button.IsEnabled = quote.CanRepair && quote.CurrentHealth < quote.MaxHealth &&
                 quote.HasResources && hud.RefButtonRepair.IsEnabled;
             button.Opacity = button.IsEnabled ? 1.0f : 0.5f;

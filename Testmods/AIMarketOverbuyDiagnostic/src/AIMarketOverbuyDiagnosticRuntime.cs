@@ -97,12 +97,14 @@ namespace AIMarketOverbuyDiagnostic
                     {
                         if (goodIndex == (int)eGoods.STORED_GOLD) continue;
                         string detail = ObserveGood(playerId, (eGoods)goodIndex, lord,
-                            pending[goodIndex], stock[goodIndex], gold, phase, tick);
+                            pending[goodIndex], stock[goodIndex], gold, phase, tick,
+                            out bool candidate);
                         if (detail == null) continue;
-                        if (detailLines < MaxDetailLinesPerTick)
+                        // Candidate evidence must not disappear behind routine stock changes.
+                        if (candidate || detailLines < MaxDetailLinesPerTick)
                         {
                             LogInfo(detail);
-                            detailLines++;
+                            if (!candidate) detailLines++;
                         }
                         else suppressedLines++;
                     }
@@ -126,8 +128,10 @@ namespace AIMarketOverbuyDiagnostic
         }
 
         private string ObserveGood(int playerId, eGoods good, string lord,
-            uint pending, uint stock, int gold, AISellBuyPhase phase, int tick)
+            uint pending, uint stock, int gold, AISellBuyPhase phase, int tick,
+            out bool candidate)
         {
+            candidate = false;
             int goodIndex = (int)good;
             Observation previous = observations[playerId, goodIndex];
             if (previous == null)
@@ -157,13 +161,14 @@ namespace AIMarketOverbuyDiagnostic
                 if (pending > previous.Pending && previous.Pending > 0 && stockDelta <= 0)
                 {
                     increasedRequests++;
-                    marker = "AI_MARKET_PENDING_INCREASE_CANDIDATE";
-                    note = "outstanding amount rose without a stock gain; request cause unconfirmed";
+                    AppendEvent(ref marker, ref note,
+                        "AI_MARKET_PENDING_INCREASE_CANDIDATE",
+                        "outstanding amount rose without a stock gain; request cause unconfirmed");
                 }
                 else
                 {
-                    marker = "AI_MARKET_PENDING_CHANGE";
-                    note = pending == 0 ? "request cleared" : "request created or changed";
+                    AppendEvent(ref marker, ref note, "AI_MARKET_PENDING_CHANGE",
+                        pending == 0 ? "request cleared" : "request created or changed");
                 }
             }
 
@@ -183,8 +188,9 @@ namespace AIMarketOverbuyDiagnostic
                     {
                         persistentRequests++;
                         previous.PersistentLogged = true;
-                        marker = "AI_MARKET_PENDING_PERSISTENT_CANDIDATE";
-                        note = $"outstanding across {previous.PhaseTransitions} phase transitions, sinceTick={previous.PendingSinceTick}";
+                        AppendEvent(ref marker, ref note,
+                            "AI_MARKET_PENDING_PERSISTENT_CANDIDATE",
+                            $"outstanding across {previous.PhaseTransitions} phase transitions, sinceTick={previous.PendingSinceTick}");
                     }
                 }
             }
@@ -201,36 +207,42 @@ namespace AIMarketOverbuyDiagnostic
             {
                 likelyBuys++;
                 previous.LastLikelyBuyTick = tick;
-                marker = "AI_MARKET_BUY_CANDIDATE";
-                note = "stock rose while gold fell with a tracked request; transaction source unconfirmed";
+                AppendEvent(ref marker, ref note, "AI_MARKET_BUY_CANDIDATE",
+                    "stock rose while gold fell with a tracked request; transaction source unconfirmed");
             }
             else if (stockDelta < 0 && goldDelta > 0 &&
                      previous.LastLikelyBuyTick >= 0 &&
                      (long)tick - previous.LastLikelyBuyTick <= RecentBuyWindowTicks)
             {
                 buySellCandidates++;
-                marker = "AI_MARKET_BUY_SELL_CANDIDATE";
-                note = $"stock fell while gold rose after buy candidate at tick={previous.LastLikelyBuyTick}; source unconfirmed";
+                AppendEvent(ref marker, ref note, "AI_MARKET_BUY_SELL_CANDIDATE",
+                    $"stock fell while gold rose after buy candidate at tick={previous.LastLikelyBuyTick}; source unconfirmed");
                 previous.LastLikelyBuyTick = -1;
             }
 
             if (marker == null && stockDelta != 0 &&
-                (pending > 0 || previous.Pending > 0 ||
-                 (equipment && previous.LastLikelyBuyTick >= 0 &&
-                  (long)tick - previous.LastLikelyBuyTick <= RecentBuyWindowTicks)))
+                (equipment || pending > 0 || previous.Pending > 0))
             {
                 marker = "AI_MARKET_RELEVANT_STOCK_CHANGE";
-                note = "stock changed while request or recent equipment buy is tracked";
+                note = "equipment stock or stock with a tracked request changed; transaction source unconfirmed";
             }
 
             string result = marker == null ? null : Format(marker, playerId, lord, good,
                 tick, phase, previous.Pending, pending, previous.Stock, stock,
                 previous.Gold, gold, note);
+            candidate = marker != null && marker.Contains("CANDIDATE");
             previous.Pending = pending;
             previous.Stock = stock;
             previous.Gold = gold;
             previous.Phase = phase;
             return result;
+        }
+
+        private static void AppendEvent(ref string marker, ref string note,
+            string nextMarker, string nextNote)
+        {
+            marker = marker == null ? nextMarker : marker + "+" + nextMarker;
+            note = note == null ? nextNote : note + "; " + nextNote;
         }
 
         private string Format(string marker, int playerId, string lord, eGoods good,
@@ -251,7 +263,9 @@ namespace AIMarketOverbuyDiagnostic
                     !players.TryGetPlayerResourcesById(playerId, out GamePlayerResources* resources))
                     continue;
                 uint* pending = (uint*)&resources->r_AIPendingMarketPurchaseAmountNull;
+                uint* stock = (uint*)&resources->r_TotalGoodsNull;
                 var goods = new StringBuilder();
+                var equipmentStock = new StringBuilder();
                 int count = 0;
                 long amount = 0;
                 for (int goodIndex = (int)eGoods.STORED_WOOD_LOGS;
@@ -263,10 +277,16 @@ namespace AIMarketOverbuyDiagnostic
                     count++;
                     amount += pending[goodIndex];
                 }
+                for (int goodIndex = (int)eGoods.STORED_BOWS;
+                     goodIndex <= (int)eGoods.STORED_METAL_ARMOUR; goodIndex++)
+                {
+                    if (equipmentStock.Length != 0) equipmentStock.Append(',');
+                    equipmentStock.Append((eGoods)goodIndex).Append(':').Append(stock[goodIndex]);
+                }
                 LogInfo($"AI_MARKET_SUMMARY: session={sessionId}, tick={tick}, player={playerId}, " +
                     $"lord={players.GetAILord(playerId)}, phase={resources->r_AISellOrBuyPhase}({(int)resources->r_AISellOrBuyPhase}), " +
                     $"gold={resources->r_TotalGoodsGold}, pendingGoods={count}, pendingAmount={amount}, " +
-                    $"pending=[{goods}], fixesLoaded={fixesLoaded}.");
+                    $"pending=[{goods}], equipmentStock=[{equipmentStock}], fixesLoaded={fixesLoaded}.");
             }
             LogCounters("AI_MARKET_COUNTERS", tick);
         }
