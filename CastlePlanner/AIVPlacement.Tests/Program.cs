@@ -57,6 +57,7 @@ internal static class Program
             ("loads in-memory AIVJSON from the shared core", LoadsInMemoryAivJsonFromSharedCore),
             ("copies mutable inputs", CopiesInputs),
             ("rejects stale generation", RejectsStaleGeneration),
+            ("keeps results on unchanged UI refresh and retries a stalled generation", KeepsGenerationAcrossRefresh),
             ("throttles unchanged lobby captures", ThrottlesUnchangedLobbyCaptures),
             ("cancels superseded generation work", CancelsSupersededGenerationWork),
             ("classifies expected and unexpected evaluation logs", ClassifiesEvaluationLogs),
@@ -1671,6 +1672,18 @@ internal static class Program
         long second = gate.Advance();
         Assert(!gate.IsCurrent(first), "old generation accepted");
         Assert(gate.IsCurrent(second), "current generation rejected");
+    }
+
+    private static void KeepsGenerationAcrossRefresh()
+    {
+        Assert(!LobbyRequestGenerationGate.NeedsNewGeneration(false, "same", "same", false),
+            "an unchanged UI refresh restarted the evaluation");
+        Assert(LobbyRequestGenerationGate.NeedsNewGeneration(false, "same", "same", true),
+            "a stalled generation could not be retried");
+        Assert(LobbyRequestGenerationGate.NeedsNewGeneration(true, "same", "same", false),
+            "a changed lobby instance reused the old evaluation");
+        Assert(LobbyRequestGenerationGate.NeedsNewGeneration(false, "new", "old", false),
+            "changed AIV or map sources reused the old evaluation");
     }
 
     private static void ThrottlesUnchangedLobbyCaptures()

@@ -128,6 +128,7 @@ CastlePlanner.AIVPlacement.NotEvaluable=Not evaluable: {Reason}
 CastlePlanner.AIVPlacement.PreBuildUnsupported=A prior AI castle was pre-built; its live tile state is not available in the lobby.
 CastlePlanner.AIVPlacement.HostOnly=Only the host evaluates AI castle placement.
 CastlePlanner.AIVPlacement.Checking=The best AI castle is still being checked.
+CastlePlanner.AIVPlacement.TimedOut=The lobby evaluation did not finish. Change the lobby setup to retry.
 CastlePlanner.AIVPlacement.RotationResults=Rotations: {Results}
 CastlePlanner.AIVPlacement.AutoSelected=Vanilla automatic choice: this AIV at {Rotation}
 CastlePlanner.AIVPlacement.AutoDifferent=Vanilla automatic choice: another AIV

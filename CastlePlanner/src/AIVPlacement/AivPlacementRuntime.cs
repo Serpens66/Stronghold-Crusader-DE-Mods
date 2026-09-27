@@ -73,6 +73,11 @@ namespace CastlePlanner.AIVPlacement
         private string lastUiLocale = string.Empty;
         private long nextSourcePollTimestamp;
         private long nextProgressPublishTimestamp;
+        private long lastEvaluationActivityTimestamp;
+        private long activeGeneration;
+        private int stalledRetries;
+        private Platform_Multiplayer.MPLobby activeLobby;
+        private const int EvaluationStallSeconds = 30;
         private CancellationTokenSource evaluationCancellation;
         private bool lobbyContextActive;
         private bool lobbySetupObserved;
@@ -170,7 +175,7 @@ namespace CastlePlanner.AIVPlacement
                 if (!setupVisible)
                 {
                     lobbySetupObserved = false;
-                    LeaveLobbyContext();
+                    LeaveLobbyContext("setup hidden");
                     return;
                 }
 
@@ -186,16 +191,20 @@ namespace CastlePlanner.AIVPlacement
                 }
                 if (!featureEnabled)
                 {
-                    LeaveLobbyContext();
+                    LeaveLobbyContext("setting disabled");
                     return;
                 }
 
+                if (lobbyContextActive && !ReferenceEquals(activeLobby, self?.currentLobby))
+                    LeaveLobbyContext("lobby instance changed");
                 lobbyContextActive = true;
+                activeLobby = self?.currentLobby;
                 CaptureIfChanged(self, false);
                 if (Interlocked.Exchange(ref moatStatusDirty, 0) != 0)
                     selectionDialog.RefreshMoatStatus();
                 PublishCandidateProgress(false);
                 PublishCompletedEvaluations();
+                CheckStalledEvaluation(self);
                 UpdateHostReadyButton(self);
             }
             catch (Exception ex)
@@ -282,7 +291,7 @@ namespace CastlePlanner.AIVPlacement
             startTrampoline(self, restartInfo);
         }
 
-        private void CaptureIfChanged(FRONT_Multiplayer frontend, bool force)
+        private void CaptureIfChanged(FRONT_Multiplayer frontend, bool force, bool retry = false)
         {
             long now = Stopwatch.GetTimestamp();
             if (!capturePoll.ShouldCapture(now, force))
@@ -316,16 +325,18 @@ namespace CastlePlanner.AIVPlacement
                 string sourceFingerprint = AivPlacementEvaluationService.BuildSourceFingerprint(
                     provisional,
                     assets);
-                if (!force && !stateChanged && string.Equals(
-                        sourceFingerprint,
-                        lastSourceFingerprint,
-                        StringComparison.Ordinal))
+                if (!LobbyRequestGenerationGate.NeedsNewGeneration(stateChanged,
+                        sourceFingerprint, lastSourceFingerprint, retry))
                 {
                     return;
                 }
 
+                bool sourceChanged = !string.Equals(sourceFingerprint,
+                    lastSourceFingerprint, StringComparison.Ordinal);
                 lastFingerprint = fingerprint;
                 lastSourceFingerprint = sourceFingerprint;
+                if (stateChanged || sourceChanged)
+                    stalledRetries = 0;
                 long generation = generations.Advance();
                 AivPlacementRequestBatch batch = requestBuilder.Build(
                     generation,
@@ -521,7 +532,11 @@ namespace CastlePlanner.AIVPlacement
         {
             // Superseded generations are expected and must not become UI failures.
             if (completed.IsCanceled)
+            {
+                Shared.DebugLogHelper.LogInfo(log,
+                    $"AIV evaluation canceled: generation={batch.Generation}.");
                 return;
+            }
 
             if (completed.Status != TaskStatus.RanToCompletion)
             {
@@ -534,6 +549,10 @@ namespace CastlePlanner.AIVPlacement
                 QueueBatchFailure(batch, error);
                 return;
             }
+
+            Shared.DebugLogHelper.LogInfo(log,
+                $"AIV evaluation completed: generation={batch.Generation}, " +
+                $"current={generations.IsCurrent(batch.Generation)}.");
 
             try
             {
@@ -654,8 +673,14 @@ namespace CastlePlanner.AIVPlacement
                     continue;
                 }
                 if (!generations.IsCurrent(result.Generation))
+                {
+                    Shared.DebugLogHelper.LogInfo(log,
+                        $"AIV evaluation discarded: generation={result.Generation}, " +
+                        $"playerId={result.PlayerId}, currentGeneration={activeGeneration}.");
                     continue;
+                }
 
+                lastEvaluationActivityTimestamp = Stopwatch.GetTimestamp();
                 LogUnexpectedEvaluationFailure(result);
                 if (!pendingPlayerIds.Remove(result.PlayerId))
                 {
@@ -665,6 +690,9 @@ namespace CastlePlanner.AIVPlacement
                 }
                 currentResults[result.PlayerId] = result;
                 selectionDialog.Publish(result);
+                if (pendingPlayerIds.Count == 0)
+                    Shared.DebugLogHelper.LogInfo(log,
+                        $"AIV evaluation published: generation={result.Generation}, all players complete.");
                 int evaluableCandidates = result.Candidates.Count(candidate =>
                     candidate.Status != AivPlacementStatus.NotEvaluable);
                 IReadOnlyList<NativeAivAutoDecision> possible =
@@ -724,6 +752,37 @@ namespace CastlePlanner.AIVPlacement
             }
             foreach (KeyValuePair<int, List<AivPlacementCandidateEvaluation>> pair in byPlayer)
                 selectionDialog.PublishCandidates(pair.Key, pair.Value);
+            if (byPlayer.Count != 0)
+                lastEvaluationActivityTimestamp = now;
+        }
+
+        private void CheckStalledEvaluation(FRONT_Multiplayer frontend)
+        {
+            if (pendingPlayerIds.Count == 0 || lastEvaluationActivityTimestamp == 0)
+                return;
+            long now = Stopwatch.GetTimestamp();
+            if (now - lastEvaluationActivityTimestamp <
+                EvaluationStallSeconds * Stopwatch.Frequency)
+                return;
+
+            Shared.DebugLogHelper.LogWarning(log,
+                $"AIV evaluation stalled: generation={activeGeneration}, " +
+                $"pendingPlayers={string.Join(",", pendingPlayerIds)}, " +
+                $"trailMaker={frontend?.trailMakerMode == true}, retry={stalledRetries}.");
+            lastEvaluationActivityTimestamp = now;
+            if (stalledRetries++ == 0)
+            {
+                CancelEvaluation();
+                CaptureIfChanged(frontend, true, retry: true);
+                return;
+            }
+
+            CancelEvaluation();
+            foreach (int playerId in pendingPlayerIds.ToArray())
+                selectionDialog.PublishFailure(playerId,
+                    SerpLocalization.Get(SerpLocalization.AivPlacementTimedOut));
+            pendingPlayerIds.Clear();
+            RestoreBlockedReadyButton();
         }
 
         private static LobbyAivMode GetMode(FRONT_Multiplayer.MPAIVInfo info)
@@ -783,6 +842,11 @@ namespace CastlePlanner.AIVPlacement
         {
             CancelEvaluation();
             evaluationCancellation = new CancellationTokenSource();
+            activeGeneration = batch.Generation;
+            lastEvaluationActivityTimestamp = Stopwatch.GetTimestamp();
+            Shared.DebugLogHelper.LogInfo(log,
+                $"AIV evaluation started: generation={batch.Generation}, players={batch.Requests.Count}, " +
+                $"trailMaker={frontend?.trailMakerMode == true}, retry={stalledRetries}.");
             currentResults.Clear();
             pendingPlayerIds.Clear();
             while (candidateProgress.TryDequeue(out _))
@@ -835,12 +899,19 @@ namespace CastlePlanner.AIVPlacement
             ToolTipService.SetShowOnDisabled(readyButton, true);
         }
 
-        private void LeaveLobbyContext()
+        private void LeaveLobbyContext(string reason = "context reset")
         {
             if (!lobbyContextActive)
                 return;
 
+            Shared.DebugLogHelper.LogInfo(log,
+                $"AIV evaluation reset: generation={activeGeneration}, reason={reason}, " +
+                $"pendingPlayers={pendingPlayerIds.Count}.");
             lobbyContextActive = false;
+            activeLobby = null;
+            activeGeneration = 0;
+            lastEvaluationActivityTimestamp = 0;
+            stalledRetries = 0;
             // Invalidate workers and UI state so a completed lobby check cannot leak into Trail selection.
             generations.Advance();
             CancelEvaluation();
@@ -923,15 +994,22 @@ namespace CastlePlanner.AIVPlacement
             return isEnabled() && IsLobbySetupContext();
         }
 
-        private static bool IsLobbySetupContext()
+        internal static bool IsLobbySetupContext()
         {
             if (!MainViewModel.viewModelLoaded)
                 return false;
             MainViewModel viewModel = MainViewModel.Instance;
+            FRONT_Multiplayer frontend = viewModel?.FRONTMultiplayer;
+            if (frontend?.currentLobby == null ||
+                SelectedMapHeaderField.GetValue(frontend) is not FileHeader)
+                return false;
             // Vanilla's setup panel is the positive lobby signal. Coop Trail pages also prepare
             // it in the background; only an explicit Skirmish-style customization may opt in.
-            return viewModel?.Show_MultiplayerSetup == true &&
-                viewModel.Show_MPGameCreation == true &&
+            if (viewModel.Show_MultiplayerSetup != true)
+                return false;
+            if (frontend.trailMakerMode)
+                return true;
+            return viewModel.Show_MPGameCreation == true &&
                 (!FRONT_Multiplayer.coopGame || FRONT_Multiplayer.skirmishGame);
         }
 

@@ -11,7 +11,8 @@ namespace CastlePlanner.AIVPlacement
 {
     internal sealed class AivCandidateVisualState
     {
-        public static readonly AivCandidateVisualState Pending = new AivCandidateVisualState(null, string.Empty);
+        public static AivCandidateVisualState Pending => new AivCandidateVisualState(
+            null, SerpLocalization.Get(SerpLocalization.AivPlacementChecking));
 
         public AivCandidateVisualState(AivPlacementStatus? status, string toolTip,
             int? practicePercentage = null)

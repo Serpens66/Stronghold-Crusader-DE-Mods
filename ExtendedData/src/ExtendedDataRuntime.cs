@@ -447,6 +447,13 @@ namespace ExtendedData
 
         private void CoopMissionChangedHook(FRONT_Multiplayer self, int trailId, int missionId, bool resetOrderSwapped)
         {
+            if (HasActiveCoopPackage() &&
+                !CoopTrailMissionRange.Contains(settings.ActiveCoopPackageMissionCount, trailId, missionId))
+            {
+                LogWarning("Rejected Coop mission selection outside the active custom package: Trail" +
+                    (trailId + 1) + "/" + missionId + ".");
+                return;
+            }
             // The launch has already captured the edited lobby. A nested Vanilla mission
             // refresh would reset its selected Lords and other Customize settings.
             if (coopLaunchPending)
@@ -499,6 +506,11 @@ namespace ExtendedData
                 ReadLobbyFlag(self, LocalReadyLockedField))
             {
                 buttonTrampoline(self, command);
+                return;
+            }
+            if (enabled && IsLaunchCommand(command) && CurrentSlotOutsidePackage(self))
+            {
+                BlockLaunch(command, CustomCoopTrailEndNotice(self));
                 return;
             }
             if (enabled && selected != null && IsLaunchCommand(command) && CurrentSlotRequiresPackage(self))
@@ -754,6 +766,7 @@ namespace ExtendedData
                 SetLocalPackageStatus("OK|VANILLA");
                 return;
             }
+            missionSettingsCoordinator?.SetCoopPackagePresentation(settings.ActiveCoopPackageId, 0);
             if (!GameNetworkAPI.IsLocalHost() &&
                 !string.Equals(settings.ActiveCoopPackageDescriptor, ExpectedPackageDescriptor(), StringComparison.Ordinal))
             {
@@ -765,6 +778,9 @@ namespace ExtendedData
                 SetLocalPackageError(ExtendedDataSettingsViewModel.WaitingStatus, SerpLocalization.Get("ExtendedData.StatusChecking"));
                 return;
             }
+            if (settings.ActiveCoopPackageMissionCount >= 1 && settings.ActiveCoopPackageMissionCount <= 40)
+                missionSettingsCoordinator?.SetCoopPackagePresentation(
+                    settings.ActiveCoopPackageId, settings.ActiveCoopPackageMissionCount);
             if (!packageCatalog.Packages.TryGetValue(settings.ActiveCoopPackageId, out activePackage))
             {
                 SetLocalPackageError(
@@ -1238,6 +1254,20 @@ namespace ExtendedData
             return ordinal >= 1 && ordinal <= settings.ActiveCoopPackageMissionCount;
         }
 
+        private bool HasActiveCoopPackage() =>
+            enabled && !string.IsNullOrEmpty(settings.ActiveCoopPackageId);
+
+        private bool CurrentSlotOutsidePackage(FRONT_Multiplayer self) =>
+            HasActiveCoopPackage() && self?.currentLobby?.coopTrailGame == true &&
+            !CoopTrailMissionRange.Contains(settings.ActiveCoopPackageMissionCount,
+                self.currentLobby.coopTrailID, self.currentLobby.coopSelectedMission);
+
+        private string CustomCoopTrailEndNotice(FRONT_Multiplayer self) =>
+            settings.ActiveCoopPackageMissionCount >= 1 && settings.ActiveCoopPackageMissionCount <= 40
+                ? SerpLocalization.Get("ExtendedData.CustomCoopTrailEndNotice")
+                    .Replace("{Count}", settings.ActiveCoopPackageMissionCount.ToString())
+                : SerpLocalization.Get("ExtendedData.ErrorPackageNotReady");
+
         private bool IsLocalPackageReady() =>
             string.Equals(settings.CoopPackageStatus, ExpectedReadyStatus(), StringComparison.Ordinal);
 
@@ -1438,6 +1468,38 @@ namespace ExtendedData
             if (trailId < 0 || trailId >= CoopTrailFields.Length || missionId < 1 || missionId > 10)
                 return;
 
+            if (CurrentSlotOutsidePackage(self))
+            {
+                int available = CoopTrailMissionRange.CountOnPage(
+                    settings.ActiveCoopPackageMissionCount, trailId);
+                if (self.currentLobby.isHost && IsLocalPackageReady())
+                {
+                    FrontendMenus menus = GetExistingMainViewModel()?.FrontEndMenu;
+                    if (available == 0)
+                    {
+                        int lastTrail = (settings.ActiveCoopPackageMissionCount - 1) / 10;
+                        int lastMission = settings.ActiveCoopPackageMissionCount - lastTrail * 10;
+                        MainViewModel viewModel = GetExistingMainViewModel();
+                        if (menus != null && viewModel != null)
+                        {
+                            FrontendMenus.CurrentSelectedTrail = lastTrail + 21;
+                            viewModel.Show_CoopTrail1 = lastTrail == 0;
+                            viewModel.Show_CoopTrail2 = lastTrail == 1;
+                            viewModel.Show_CoopTrail3 = lastTrail == 2;
+                            viewModel.Show_CoopTrail4 = lastTrail == 3;
+                            menus.GenerateSwords();
+                            menus.ButtonTrailCampaignClicked(lastMission);
+                        }
+                        self.CoopMissionChanged(lastTrail, lastMission, false);
+                    }
+                    else if (menus != null && FrontendMenus.CurrentSelectedTrail == trailId + 21)
+                        menus.ButtonTrailCampaignClicked(available, true);
+                    else
+                        self.CoopMissionChanged(trailId, available, false);
+                }
+                return;
+            }
+
             // Host package settings can arrive after AutoJoinLobby selected Vanilla data.
             // Re-run the same Vanilla selection path so map, AIs, title and Trail preset agree.
             self.CoopMissionChanged(trailId, missionId, false);
@@ -1572,6 +1634,11 @@ namespace ExtendedData
 
         private bool PrepareSinglePlayerCoopStart(FRONT_Multiplayer lobby)
         {
+            if (CurrentSlotOutsidePackage(lobby))
+            {
+                ShowBlockedMessage(CustomCoopTrailEndNotice(lobby));
+                return false;
+            }
             if (!enabled || lobby?.currentLobby == null || !lobby.singlePlayerCoop ||
                 !lobby.currentLobby.coopTrailGame || !CurrentSlotRequiresPackage(lobby))
             {

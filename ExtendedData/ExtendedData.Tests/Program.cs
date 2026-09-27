@@ -33,6 +33,7 @@ var tests = new (string Name, Action Run)[]
     ("duplicate package IDs are rejected", TestDuplicatePackageIds),
     ("identical local and Workshop replicas are merged", TestIdenticalPackageReplicas),
     ("ordinal mapping covers four trails and ignores mission 41", TestOrdinalMapping),
+    ("short Coop packages end at their declared mission", TestCoopTrailMissionRange),
     ("native mod-settings JSON roundtrip", TestNativeModSettingsRoundtrip),
     ("dynamic third-party mod ids are preserved", TestModSettingsRegistry),
     ("missing mod entry uses the mod-defined default", TestMissingModEntry),
@@ -99,6 +100,31 @@ foreach ((string name, Action run) in tests)
 
 Console.WriteLine($"{tests.Length - failed}/{tests.Length} tests passed.");
 return failed == 0 ? 0 : 1;
+
+static void TestCoopTrailMissionRange()
+{
+    foreach (int count in new[] { 1, 5, 10, 11, 15, 40 })
+    {
+        for (int page = 0; page < 4; page++)
+        {
+            int expected = Math.Max(0, Math.Min(10, count - page * 10));
+            Assert(CoopTrailMissionRange.CountOnPage(count, page) == expected,
+                "wrong mission count on Coop page " + (page + 1) + " for package length " + count);
+            Assert(CoopTrailMissionRange.IsFinalPage(count, page) ==
+                (expected > 0 && count <= (page + 1) * 10),
+                "wrong final page for package length " + count);
+            for (int mission = 1; mission <= 10; mission++)
+                Assert(CoopTrailMissionRange.Contains(count, page, mission) == (mission <= expected),
+                    "Coop slot boundary failed for package length " + count +
+                    ", page " + (page + 1) + ", mission " + mission);
+        }
+    }
+    Assert(!CoopTrailMissionRange.Contains(5, 0, 6) &&
+        !CoopTrailMissionRange.Contains(5, 1, 1) &&
+        !CoopTrailMissionRange.Contains(0, 0, 1) &&
+        !CoopTrailMissionRange.Contains(41, 0, 1),
+        "a missing or out-of-package Coop mission became available");
+}
 
 static void TestCoopTrailPreviewNames()
 {
@@ -2092,7 +2118,9 @@ static void TestCoopExporterIntegration()
         "package display names do not replace occupied Vanilla Coop Trail headings");
     Assert(coordinator.Contains("UpdateCoopSelectionTitles") && coordinator.Contains("FindDescendantButton") &&
         coordinator.Contains("\"Coop\", \"Coop2\", \"Coop3\", \"Coop4\"") &&
-        coordinator.Contains("PropEx.SetTextCentre(button, packageOccupiesTrail ? coopPackageDisplayName : vanillaTitle)") &&
+        coordinator.Contains("PropEx.SetTextCentre(button, packageOccupiesTrail ? coopPackageDisplayName :") &&
+        coordinator.Contains("ExtendedData.NoCustomCoopMissions") &&
+        coordinator.Contains("button.IsEnabled = (!packageSelected || packageOccupiesTrail)") &&
         coordinator.Contains("UpdateCoopSelectionTitles(null)") &&
         !coordinator.Contains("UpdateCoopSelectionTitles(MainViewModel.Instance"),
         "package display names do not replace occupied entries in the Coop Trail selection menu");

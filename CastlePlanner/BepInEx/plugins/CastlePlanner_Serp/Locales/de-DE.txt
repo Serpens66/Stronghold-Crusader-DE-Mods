@@ -128,6 +128,7 @@ CastlePlanner.AIVPlacement.NotEvaluable=Nicht prüfbar: {Reason}
 CastlePlanner.AIVPlacement.PreBuildUnsupported=Eine frühere KI-Burg wurde sofort gebaut; ihr tatsächlicher Kartenzustand ist in der Lobby nicht verfügbar.
 CastlePlanner.AIVPlacement.HostOnly=Nur der Host prüft die Platzierung der KI-Burg.
 CastlePlanner.AIVPlacement.Checking=Die beste KI-Burg wird noch geprüft.
+CastlePlanner.AIVPlacement.TimedOut=Die Lobby-Auswertung wurde nicht abgeschlossen. Ändere die Aufstellung, um es erneut zu versuchen.
 CastlePlanner.AIVPlacement.RotationResults=Drehungen: {Results}
 CastlePlanner.AIVPlacement.AutoSelected=Vanillas automatische Auswahl: diese AIV mit {Rotation}
 CastlePlanner.AIVPlacement.AutoDifferent=Vanillas automatische Auswahl: eine andere AIV

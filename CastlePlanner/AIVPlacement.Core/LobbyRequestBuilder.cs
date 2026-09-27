@@ -400,5 +400,10 @@ namespace CastlePlanner.AIVPlacement.Core
         public long Advance() => Interlocked.Increment(ref currentGeneration);
         public long Current => Interlocked.Read(ref currentGeneration);
         public bool IsCurrent(long generation) => generation == Current;
+
+        public static bool NeedsNewGeneration(bool stateChanged, string sourceFingerprint,
+            string previousSourceFingerprint, bool retry) =>
+            retry || stateChanged || !string.Equals(sourceFingerprint,
+                previousSourceFingerprint, StringComparison.Ordinal);
     }
 }

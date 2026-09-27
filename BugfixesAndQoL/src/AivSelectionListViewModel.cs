@@ -123,7 +123,7 @@ namespace BugfixesAndQoL
         public ImageSource Icon { get; }
         public RelayCommand RemoveCommand { get; }
         public Visibility RemoveVisibility { get; private set; }
-        public string PercentageText { get; private set; } = "-%";
+        public string PercentageText { get; private set; } = string.Empty;
         public string StatusToolTip { get; private set; }
         public string RemoveHelpText => SerpLocalization.Get("BugfixesAndQoL.AivRemoveHelp");
 
@@ -131,7 +131,7 @@ namespace BugfixesAndQoL
         {
             Set(nameof(RemoveVisibility), ToVisibility(allowRemoval), RemoveVisibility,
                 value => RemoveVisibility = value);
-            string percentage = status?.PercentageText ?? "-%";
+            string percentage = status?.PercentageText ?? string.Empty;
             if (!string.Equals(PercentageText, percentage, StringComparison.Ordinal))
             {
                 PercentageText = percentage;

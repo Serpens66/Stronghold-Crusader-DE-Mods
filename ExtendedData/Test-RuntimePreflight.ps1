@@ -125,6 +125,11 @@ try {
     Assert-ManagedMethodContract $managedAssembly 'CrusaderDE.FRONT_Multiplayer' 'UpdateRadarShieldPositions' @() 'Private'
     Assert-ManagedMethodContract $managedAssembly 'CrusaderDE.FRONT_Multiplayer' 'ReSortTeamInfo' @() 'Private'
     Assert-ManagedMethodContract $managedAssembly 'CrusaderDE.FRONT_Multiplayer' 'UpdateCustomLordNamesFromMP' @() 'Public'
+    Assert-ManagedMethodContract $managedAssembly 'CrusaderDE.FrontendMenus' 'GenerateSwords' @() 'Public'
+    Assert-ManagedMethodContract $managedAssembly 'CrusaderDE.FrontendMenus' 'ButtonTrailCampaignClicked' @(
+        'System.Int32', 'System.Boolean') 'Public'
+    Assert-ManagedMethodContract $managedAssembly 'CrusaderDE.MainViewModel' 'SetTrailSwordImage' @(
+        'System.Int32', 'Noesis.ImageSource') 'Public'
     Assert-ManagedMethodContract $managedAssembly 'EditorDirector' 'SaveSaveGameOrMap' @(
         'System.String', 'System.String', 'System.Boolean', 'System.Boolean', 'System.Boolean') 'Public'
 }

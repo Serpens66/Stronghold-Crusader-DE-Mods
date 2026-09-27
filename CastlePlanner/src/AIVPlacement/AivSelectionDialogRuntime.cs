@@ -813,15 +813,7 @@ namespace CastlePlanner.AIVPlacement
 
         private bool IsLobbySetupActive()
         {
-            if (!isEnabled())
-                return false;
-
-            if (!MainViewModel.viewModelLoaded)
-                return false;
-            MainViewModel viewModel = MainViewModel.Instance;
-            return viewModel?.Show_MultiplayerSetup == true &&
-                viewModel.Show_MPGameCreation == true &&
-                (!FRONT_Multiplayer.coopGame || FRONT_Multiplayer.skirmishGame);
+            return isEnabled() && AivPlacementRuntime.IsLobbySetupContext();
         }
 
         private static FRONT_Multiplayer.MPAIVInfo GetAivInfo(FRONT_Multiplayer_AISettings instance) =>

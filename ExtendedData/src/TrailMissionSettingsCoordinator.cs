@@ -99,6 +99,7 @@ namespace ExtendedData
             private delegate void FrontendOpenCustomTrailDelegate(FrontendMenus self, string trailName, int level);
             private delegate void FrontendButtonDelegate(FrontendMenus self, string command);
             private delegate void TrailSelectionDelegate(FrontendMenus self, int missionId, bool fromRealClick);
+            private delegate void GenerateSwordsDelegate(FrontendMenus self);
             private delegate void CoopTrail1ConstructorDelegate(FRONT_CoopTrail1 self);
             private delegate void CoopTrail2ConstructorDelegate(FRONT_CoopTrail2 self);
             private delegate void CoopTrail3ConstructorDelegate(FRONT_CoopTrail3 self);
@@ -136,6 +137,7 @@ namespace ExtendedData
             private FrontendOpenCustomTrailDelegate frontendOpenCustomTrailOriginal;
             private FrontendButtonDelegate frontendButtonOriginal;
             private TrailSelectionDelegate trailSelectionOriginal;
+            private GenerateSwordsDelegate generateSwordsOriginal;
             private CoopTrail1ConstructorDelegate coopTrail1ConstructorOriginal;
             private CoopTrail2ConstructorDelegate coopTrail2ConstructorOriginal;
             private CoopTrail3ConstructorDelegate coopTrail3ConstructorOriginal;
@@ -168,9 +170,13 @@ namespace ExtendedData
             private readonly List<Button> injectedCoopButtons = new List<Button>();
             private readonly Dictionary<UserControl, TextBlock> coopTrailTitleBlocks =
                 new Dictionary<UserControl, TextBlock>();
+            private readonly Dictionary<UserControl, TextBlock> coopTrailEndNotices =
+                new Dictionary<UserControl, TextBlock>();
             private readonly string[] vanillaCoopTrailTitles = new string[4];
             private readonly Dictionary<int, Button> coopSelectionButtons =
                 new Dictionary<int, Button>();
+            private readonly Dictionary<int, bool> vanillaCoopSelectionEnabled =
+                new Dictionary<int, bool>();
             private readonly Dictionary<string, string> coopImportSourceBySelection =
                 new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             private CheckBox coopTrailExportCheckbox;
@@ -427,6 +433,9 @@ namespace ExtendedData
                         nameof(FrontendMenus.ButtonTrailCampaignClicked),
                         new[] { typeof(int), typeof(bool) }),
                     (TrailSelectionDelegate)TrailSelectionHook);
+                generateSwordsOriginal = InstallHook(
+                    typeof(FrontendMenus).GetMethod(nameof(FrontendMenus.GenerateSwords), Type.EmptyTypes),
+                    (GenerateSwordsDelegate)GenerateSwordsHook);
                 coopTrail1ConstructorOriginal = InstallHook(
                     typeof(FRONT_CoopTrail1).GetConstructor(Type.EmptyTypes),
                     (CoopTrail1ConstructorDelegate)CoopTrail1ConstructorHook);
@@ -2131,14 +2140,48 @@ namespace ExtendedData
 
             private void TrailSelectionHook(FrontendMenus self, int missionId, bool fromRealClick)
             {
+                int page = FrontendMenus.CurrentSelectedTrail - 21;
+                if (enabled && !string.IsNullOrWhiteSpace(coopPackageDisplayName) &&
+                    page >= 0 && page < 4 && missionId > 0)
+                {
+                    int available = CoopTrailMissionRange.CountOnPage(coopPackageMissionCount, page);
+                    if (available == 0 || (fromRealClick && missionId > available))
+                        return;
+                    if (missionId > available)
+                        missionId = available;
+                }
                 trailSelectionOriginal(self, missionId, fromRealClick);
                 if (enabled && !openingCustomTrailSetup &&
                     FrontendMenus.CurrentSelectedTrail >= 90 && FrontendMenus.CurrentSelectedTrail <= 92)
                     EnterSelectedCustomTrail(self);
             }
 
+            private void GenerateSwordsHook(FrontendMenus self)
+            {
+                generateSwordsOriginal(self);
+                RefreshCoopMissionSymbols();
+            }
+
+            private void RefreshCoopMissionSymbols()
+            {
+                int page = FrontendMenus.CurrentSelectedTrail - 21;
+                if (!enabled || string.IsNullOrWhiteSpace(coopPackageDisplayName) || page < 0 || page >= 4 ||
+                    !MainViewModel.viewModelLoaded)
+                    return;
+                int available = CoopTrailMissionRange.CountOnPage(coopPackageMissionCount, page);
+                for (int index = available; index < 10; index++)
+                    MainViewModel.Instance.SetTrailSwordImage(index, null);
+            }
+
             private void FrontendButtonHook(FrontendMenus self, string command)
             {
+                int coopPage = string.Equals(command, "Coop", StringComparison.Ordinal) ? 0 :
+                    string.Equals(command, "Coop2", StringComparison.Ordinal) ? 1 :
+                    string.Equals(command, "Coop3", StringComparison.Ordinal) ? 2 :
+                    string.Equals(command, "Coop4", StringComparison.Ordinal) ? 3 : -1;
+                if (enabled && !string.IsNullOrWhiteSpace(coopPackageDisplayName) && coopPage >= 0 &&
+                    CoopTrailMissionRange.CountOnPage(coopPackageMissionCount, coopPage) == 0)
+                    return;
                 bool preserveTrailMakerMapEditor = string.Equals(command, "MapEditor", StringComparison.Ordinal) &&
                     MainViewModel.Instance.FRONTMultiplayer.trailMakerMode;
                 if (!enabled)
@@ -2476,6 +2519,9 @@ namespace ExtendedData
                 coopPackageDisplayName = displayName ?? string.Empty;
                 coopPackageMissionCount = Math.Max(0, Math.Min(40, missionCount));
                 EnsureCoopCustomizeButtons();
+                if (MainViewModel.viewModelLoaded &&
+                    FrontendMenus.CurrentSelectedTrail >= 21 && FrontendMenus.CurrentSelectedTrail <= 24)
+                    MainViewModel.Instance.FrontEndMenu?.GenerateSwords();
             }
 
             private void CaptureVanillaCoopTrailTitles()
@@ -2514,8 +2560,43 @@ namespace ExtendedData
                     coopPackageMissionCount > zeroBasedTrail * 10;
                 title.Text = packageOccupiesTrail
                     ? coopPackageDisplayName
-                    : vanillaCoopTrailTitles[zeroBasedTrail];
+                    : enabled && !string.IsNullOrWhiteSpace(coopPackageDisplayName)
+                        ? SerpLocalization.Get("ExtendedData.NoCustomCoopMissions")
+                        : vanillaCoopTrailTitles[zeroBasedTrail];
+                UpdateCoopEndNotice(page, title, zeroBasedTrail);
                 return true;
+            }
+
+            private void UpdateCoopEndNotice(UserControl page, TextBlock title, int zeroBasedTrail)
+            {
+                if (!coopTrailEndNotices.TryGetValue(page, out TextBlock notice))
+                {
+                    Grid host = page.FindName("mapgrid") as Grid;
+                    if (host == null)
+                        return;
+                    notice = new TextBlock
+                    {
+                        HorizontalAlignment = HorizontalAlignment.Left,
+                        VerticalAlignment = VerticalAlignment.Top,
+                        Margin = new Thickness(30, 22, 0, 0),
+                        Width = 900,
+                        FontSize = 24,
+                        Foreground = title.Foreground,
+                        Background = new SolidColorBrush(Color.FromArgb(190, 0, 0, 0)),
+                        TextWrapping = TextWrapping.Wrap,
+                        IsHitTestVisible = false,
+                        Visibility = Visibility.Collapsed,
+                    };
+                    host.Children.Add(notice);
+                    coopTrailEndNotices[page] = notice;
+                }
+                bool finalPage = enabled && !string.IsNullOrWhiteSpace(coopPackageDisplayName) &&
+                    CoopTrailMissionRange.IsFinalPage(coopPackageMissionCount, zeroBasedTrail);
+                notice.Text = finalPage
+                    ? SerpLocalization.Get("ExtendedData.CustomCoopTrailEndNotice")
+                        .Replace("{Count}", coopPackageMissionCount.ToString(CultureInfo.InvariantCulture))
+                    : string.Empty;
+                notice.Visibility = finalPage ? Visibility.Visible : Visibility.Collapsed;
             }
 
             private static TextBlock FindLogicalDescendantTextBlock(DependencyObject parent, string expectedText)
@@ -2546,6 +2627,7 @@ namespace ExtendedData
                         if (button == null)
                             continue;
                         coopSelectionButtons[zeroBasedTrail] = button;
+                        vanillaCoopSelectionEnabled[zeroBasedTrail] = button.IsEnabled;
                     }
 
                     string vanillaTitle = vanillaCoopTrailTitles[zeroBasedTrail];
@@ -2553,7 +2635,11 @@ namespace ExtendedData
                         continue;
                     bool packageOccupiesTrail = enabled && !string.IsNullOrWhiteSpace(coopPackageDisplayName) &&
                         coopPackageMissionCount > zeroBasedTrail * 10;
-                    PropEx.SetTextCentre(button, packageOccupiesTrail ? coopPackageDisplayName : vanillaTitle);
+                    bool packageSelected = enabled && !string.IsNullOrWhiteSpace(coopPackageDisplayName);
+                    PropEx.SetTextCentre(button, packageOccupiesTrail ? coopPackageDisplayName :
+                        packageSelected ? SerpLocalization.Get("ExtendedData.NoCustomCoopMissions") : vanillaTitle);
+                    button.IsEnabled = (!packageSelected || packageOccupiesTrail) &&
+                        vanillaCoopSelectionEnabled[zeroBasedTrail];
                 }
             }
 

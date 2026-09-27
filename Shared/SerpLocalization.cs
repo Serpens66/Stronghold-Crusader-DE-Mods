@@ -251,6 +251,7 @@ public static class SerpLocalization
     public const string AivPlacementPreBuildUnsupported = "CastlePlanner.AIVPlacement.PreBuildUnsupported";
     public const string AivPlacementHostOnly = "CastlePlanner.AIVPlacement.HostOnly";
     public const string AivPlacementChecking = "CastlePlanner.AIVPlacement.Checking";
+    public const string AivPlacementTimedOut = "CastlePlanner.AIVPlacement.TimedOut";
     public const string AivPlacementRotationResults = "CastlePlanner.AIVPlacement.RotationResults";
     public const string AivPlacementAutoSelected = "CastlePlanner.AIVPlacement.AutoSelected";
     public const string AivPlacementAutoDifferent = "CastlePlanner.AIVPlacement.AutoDifferent";
@@ -385,7 +386,9 @@ public static class SerpLocalization
         { "ExtendedData.CompatibilityGuide", "How can mod authors add compatibility?" },
         { "ExtendedData.CompatibilityGuideHelp", "Opens the Extended Data compatibility guide in your browser." },
         { "ExtendedData.CoopPackage", "Active Coop Trail package" },
-        { "ExtendedData.CoopPackageHelp", "Selects the installed Coop Trail package used by the host. Missions 1-10 replace Coop Trail 1, 11-20 Trail 2, 21-30 Trail 3 and 31-40 Trail 4. Missing slots remain Vanilla." },
+        { "ExtendedData.CoopPackageHelp", "Selects the installed Coop Trail package used by the host. Missions 1-10 use Coop Trail 1, 11-20 Trail 2, 21-30 Trail 3 and 31-40 Trail 4. Missions beyond the package length are unavailable until Vanilla is selected." },
+        { "ExtendedData.CustomCoopTrailEndNotice", "This custom Coop Trail ends after mission {Count}. There are no further missions." },
+        { "ExtendedData.NoCustomCoopMissions", "No missions in this custom Coop Trail" },
         { "ExtendedData.CoopPackageStatusLabel", "Local package status:" },
         { "ExtendedData.HostReadOnlyNotice", "The host controls the active Coop Trail package." },
         { "ExtendedData.StatusVanilla", "Vanilla Coop Trails are active." },
@@ -716,6 +719,7 @@ public static class SerpLocalization
         { AivPlacementPreBuildUnsupported, "A prior AI castle was pre-built; its live tile state is not available in the lobby." },
         { AivPlacementHostOnly, "Only the host evaluates AI castle placement." },
         { AivPlacementChecking, "The best AI castle is still being checked." },
+        { AivPlacementTimedOut, "The lobby evaluation did not finish. Change the lobby setup to retry." },
         { AivPlacementRotationResults, "Rotations: {Results}" },
         { AivPlacementAutoSelected, "Vanilla automatic choice: this AIV at {Rotation}" },
         { AivPlacementAutoDifferent, "Vanilla automatic choice: another AIV" },
