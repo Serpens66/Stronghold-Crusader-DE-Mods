@@ -48,9 +48,14 @@ if ($sources -notmatch 'HEALTH_BARS_POST_STARTUP' -or
 }
 if ($sources -notmatch 'gameData\.app_mode != 14 && gameData\.app_mode != 16' -or
     $sources -notmatch 'controller\.NoesisHasKeyboard' -or
+    $sources -notmatch 'viewModel\.IsMapEditorMode' -or
     $sources -notmatch 'HEALTH_BARS_HOTKEY_REJECTED' -or
     $sources -match 'lastGameState\.app_mode') {
     throw 'Gameplay hotkey gating differs from the audited current-mode and text-input contract.'
+}
+$hotkeyHandler = [regex]::Match($sources, '(?s)private void OnKeyDown\(UnityInputEventArgs args\).*?private void RejectHotkey').Value
+if (-not $hotkeyHandler -or $hotkeyHandler -match 'args\.Result\s*=') {
+    throw 'Accepted Alt+H must retain the KeyManager Down/Held/Up state transition.'
 }
 if ($sources -match 'transaction\.Dispose\s*\(' -or $sources -match 'activeFlag.*FreeHGlobal.*\b(OnDestroy|OnDisable|OnApplicationQuit)') {
     throw 'Published hook transaction or flag has a teardown path.'

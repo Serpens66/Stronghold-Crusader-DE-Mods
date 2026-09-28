@@ -1,0 +1,13 @@
+{
+  "GUID": "ExpandedHealerTargetsTest_Serp",
+  "Author": "Serpens66",
+  "Name": "Expanded Healer Targets Test",
+  "Description": "Lets Bedouin healers also select owned siege engines and human civilians.",
+  "Version": "0.1.0",
+  "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
+  "MinimumScriptExtenderVersion": "2.12.0",
+  "MaximumScriptExtenderVersion": "",
+  "Manifest": 1,
+  "NetworkMode": 1,
+  "SupportedGameVersions": ["2.8.0.1"]
+}

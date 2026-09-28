@@ -15,16 +15,25 @@ foreach ($file in $runtimeFiles) {
 $plugin = [IO.File]::ReadAllText((Join-Path $projectRoot 'src\SpectatorPerspectivePlugin.cs'))
 if ($plugin -match '\bvoid\s+(Update|LateUpdate|FixedUpdate)\s*\(') { throw 'Plugin MonoBehaviour callback found.' }
 $runtime = [IO.File]::ReadAllText((Join-Path $projectRoot 'src\SpectatorPerspectiveRuntime.cs'))
-if ($runtime -notmatch 'Application\.onBeforeRender\s*\+=' -or $runtime -notmatch 'SPECTATOR_PERSPECTIVE_RUNTIME_ALIVE') {
-    throw 'Missing post-cleanup static publisher or runtime marker.'
+if ($runtime -notmatch 'Application\.onBeforeRender\s*\+=\s*OnPendingRender' -or
+    $runtime -notmatch 'Application\.onBeforeRender\s*-=\s*OnPendingRender' -or
+    $runtime -notmatch 'SPECTATOR_PERSPECTIVE_RUNTIME_ALIVE' -or
+    $runtime -match 'Application\.onBeforeRender\s*\+=\s*OnBeforeRender') {
+    throw 'Missing temporary post-cleanup render publisher, unsubscribe path or runtime marker.'
 }
 if ($runtime -notmatch 'MapLoaderR3EventHooks\.OnPostLoad' -or $runtime -notmatch 'MapLoaderR3EventHooks\.OnUnloadMap') {
     throw 'Missing map lifecycle event registration.'
 }
 $reportHooks = [IO.File]::ReadAllText((Join-Path $projectRoot 'src\SpectatorReportHooks.cs'))
 if ($reportHooks -notmatch 'ButtonReports' -or $reportHooks -notmatch 'ButtonChangeEdibleState' -or
+    $reportHooks -notmatch 'PlayerNameText' -or $reportHooks -notmatch 'UseSelectedReportName' -or
     $reportHooks -notmatch 'replaced != 1' -or $runtime -notmatch 'SPECTATOR_REPORT_HOOKS_READY') {
-    throw 'Report navigation hook, food action guard or post-startup marker missing.'
+    throw 'Report navigation hook, food action guard, stable name hook or post-startup marker missing.'
+}
+$hud = [IO.File]::ReadAllText((Join-Path $projectRoot 'src\SpectatorPerspectiveHud.cs'))
+if ($hud -notmatch 'SizeChanged\s*\+=' -or $hud -notmatch 'Unloaded\s*\+=' -or
+    $runtime -match 'hud\.Show\(' -or $runtime -match 'RefreshReport\(') {
+    throw 'Spectator HUD must update on lifecycle, selection and resize rather than every render.'
 }
 if ([IO.File]::ReadAllText($projectFile.FullName) -notmatch '0Harmony') {
     throw 'Installed Harmony reference missing.'

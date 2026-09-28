@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Text;
 using APIShared;
 using BepInEx.Logging;
 using CrusaderDE;
@@ -41,6 +42,7 @@ namespace ForeignTroopHudTest
         private static MainViewModel ownedTroopHud;
         private static string lastDiagnosticKey;
         private static float lastDiagnosticAt = -100f;
+        private static string lastSpectatorSelectionKey;
 
         internal static void Initialize(ManualLogSource logger)
         {
@@ -65,6 +67,7 @@ namespace ForeignTroopHudTest
             lastExceptionKey = null;
             lastHideExceptionKey = null;
             lordIconWarningLogged = false;
+            lastSpectatorSelectionKey = null;
             log.LogInfo("FOREIGN_TROOP_HUD_SESSION_READY: session=" + activeSession.SessionId + ", mode=" + activeSession.Mode.Kind);
         }
 
@@ -78,6 +81,7 @@ namespace ForeignTroopHudTest
             lastExceptionKey = null;
             lastHideExceptionKey = null;
             lordIconWarningLogged = false;
+            lastSpectatorSelectionKey = null;
         }
 
         private static void OnBeforeRender()
@@ -166,12 +170,30 @@ namespace ForeignTroopHudTest
             Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
             int hoveredCount = 0;
             int foreignCount = 0;
+            ulong spectatorSignature = 1469598103934665603UL;
+            var spectatorSamples = spectator ? new StringBuilder(320) : null;
             for (int spanIndex = 0; spanIndex < units.Length; spanIndex++)
             {
                 ref GameUnit unit = ref units[spanIndex];
                 if (unit.r_AliveState != AliveState.IsAlive || unit.r_UnitHover == 0) continue;
                 hoveredCount++;
                 int owner = unit.r_ControllableForPlayerId;
+                if (spectator)
+                {
+                    unchecked
+                    {
+                        spectatorSignature = (spectatorSignature ^ (uint)(spanIndex + 1)) * 1099511628211UL;
+                        spectatorSignature = (spectatorSignature ^ (uint)owner) * 1099511628211UL;
+                        spectatorSignature = (spectatorSignature ^ unit.r_SpritePlayerColorId) * 1099511628211UL;
+                        spectatorSignature = (spectatorSignature ^ unit.r_SpawnedForPlayerIndex) * 1099511628211UL;
+                    }
+                    if (hoveredCount <= 12)
+                        spectatorSamples.Append(" [unit=").Append(spanIndex + 1)
+                            .Append(",type=").Append((int)unit.r_UnitChimp)
+                            .Append(",owner=").Append(owner)
+                            .Append(",color=").Append(unit.r_SpritePlayerColorId)
+                            .Append(",spawnedFor=").Append(unit.r_SpawnedForPlayerIndex).Append(']');
+                }
                 if (owner == ownPlayerId && ownPlayerId != 0 || owner > 8) continue;
                 int type = (int)unit.r_UnitChimp;
                 if (type <= 0 || type >= 89) continue;
@@ -188,6 +210,21 @@ namespace ForeignTroopHudTest
                 entry.CurrentHealth += unit.r_CurrentHealth;
                 entry.MaxHealth += unit.r_MaxHealth;
             }
+            if (spectator)
+            {
+                int perspectivePlayer = GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? 0;
+                int editorPlayer = EditorDirector.instance?.ActivePlayerID ?? 0;
+                string selectionKey = activeSession.SessionId + ":" + perspectivePlayer + ":" + editorPlayer +
+                    ":" + hoveredCount + ":" + spectatorSignature;
+                if (selectionKey != lastSpectatorSelectionKey)
+                {
+                    lastSpectatorSelectionKey = selectionKey;
+                    log.LogInfo("FOREIGN_TROOP_HUD_SPECTATOR_SELECTION: perspectivePlayer=" + perspectivePlayer +
+                        ", editorPlayer=" + editorPlayer + ", selectedUnits=" + hoveredCount +
+                        ", groups=" + entries.Count + ", samples=" + spectatorSamples);
+                }
+            }
+            else lastSpectatorSelectionKey = null;
             if (entries.Count == 0)
             {
                 HideForeignHud();
@@ -263,6 +300,7 @@ namespace ForeignTroopHudTest
                 Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_UnitChimp)).ToInt32() != 0x8A ||
                 Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_ControllableForPlayerId)).ToInt32() != 0x92 ||
                 Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_SpritePlayerColorId)).ToInt32() != 0x0C ||
+                Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_SpawnedForPlayerIndex)).ToInt32() != 0x7C ||
                 Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_UnitHover)).ToInt32() != 0x30 ||
                 Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_CurrentHealth)).ToInt32() != 0x3C4 ||
                 Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_MaxHealth)).ToInt32() != 0x3C8)

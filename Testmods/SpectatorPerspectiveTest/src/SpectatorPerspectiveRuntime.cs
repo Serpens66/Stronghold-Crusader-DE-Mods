@@ -19,16 +19,20 @@ namespace SpectatorPerspectiveTest
         private static IDisposable unloadSubscription;
         private static bool initialized;
         private static bool mapReady;
-        private static bool resetHudPending;
         private static bool spectatorActive;
-        private static bool awaitingFreshState;
-        private static EngineInterface.PlayState stateBeforeLoad;
-        private static int selectedPlayer;
-        private static int lastFrame = -1;
+        private static bool initializationPending;
+        private static bool hudPending;
+        private static bool resetHudPending;
+        private static bool renderSubscribed;
         private static bool readyLogged;
         private static bool failureLogged;
+        private static int selectedPlayer;
+        private static int lastPendingFrame = -1;
+        private static float pendingSince;
+        private static string selectedName;
+        private static bool[] occupiedSlots;
+        private static EngineInterface.PlayState stateBeforeLoad;
         private static EngineInterface.PlayState reportStateBeforeSwitch;
-        private static int freshReportFrame = -1;
         private static Grid hiddenReportPanel;
         private static Visibility reportPanelVisibility;
         private static Grid guardedFoodPanel;
@@ -41,18 +45,17 @@ namespace SpectatorPerspectiveTest
             if (initialized) return;
             initialized = true;
             log = logger;
-            hud = new SpectatorPerspectiveHud(SelectPlayer);
+            hud = new SpectatorPerspectiveHud(SelectPlayer, OnHudUnavailable);
             try
             {
                 SpectatorReportHooks.Install();
-                log.LogInfo("SPECTATOR_REPORT_HOOKS_READY: Vanilla report navigation and food action guard installed.");
+                log.LogInfo("SPECTATOR_REPORT_HOOKS_READY: Vanilla report navigation, food guard and stable report name installed.");
             }
             catch (Exception error) { log.LogError("SPECTATOR_REPORT_HOOKS_FAILED: " + error); }
             postLoadSubscription = MapLoaderR3EventHooks.OnPostLoad.Observable.Subscribe(OnPostLoad);
             startSubscription = MapLoaderR3EventHooks.OnStartMap.Observable.Subscribe(OnStartMap);
             unloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable.Subscribe(OnUnloadMap);
-            Application.onBeforeRender += OnBeforeRender;
-            log.LogInfo("SPECTATOR_PERSPECTIVE_INITIALIZED: static publisher roots installed; waiting for post-load gameplay render.");
+            log.LogInfo("SPECTATOR_PERSPECTIVE_INITIALIZED: static map publishers installed; render callback is armed only while a session needs setup.");
         }
 
         private static void OnStartMap(MapStartEventArgs args)
@@ -66,19 +69,15 @@ namespace SpectatorPerspectiveTest
             BeginMapLoad();
             stateBeforeLoad = GameData.Instance?.lastGameState;
             mapReady = true;
+            initializationPending = GameData.Instance?.game_type == 3;
+            pendingSince = Time.realtimeSinceStartup;
+            ArmRenderIfNeeded();
         }
 
         private static void OnUnloadMap(MapUnloadEventArgs args)
         {
             if (args.Phase != EventHookPhase.Pre) return;
-            RestoreReportPanel();
-            RestoreFoodControls();
-            mapReady = false;
-            spectatorActive = false;
-            awaitingFreshState = true;
-            selectedPlayer = 0;
-            stateBeforeLoad = null;
-            resetHudPending = true;
+            BeginMapLoad();
             log.LogInfo("SPECTATOR_PERSPECTIVE_MAP_UNLOAD: perspective and HUD position reset.");
         }
 
@@ -88,21 +87,35 @@ namespace SpectatorPerspectiveTest
             RestoreFoodControls();
             mapReady = false;
             spectatorActive = false;
-            awaitingFreshState = true;
+            initializationPending = false;
+            hudPending = false;
             selectedPlayer = 0;
+            selectedName = null;
+            occupiedSlots = null;
             stateBeforeLoad = null;
             resetHudPending = true;
+            ArmRenderIfNeeded();
         }
 
-        private static void OnBeforeRender()
+        private static void ArmRenderIfNeeded()
         {
-            if (Time.frameCount == lastFrame) return;
-            lastFrame = Time.frameCount;
-            if (!readyLogged && mapReady && GameData.Instance?.lastGameState != null)
-            {
-                readyLogged = true;
-                log.LogInfo("SPECTATOR_PERSPECTIVE_RUNTIME_ALIVE: application render publisher executed after startup initialization.");
-            }
+            if (renderSubscribed) return;
+            pendingSince = Time.realtimeSinceStartup;
+            renderSubscribed = true;
+            Application.onBeforeRender += OnPendingRender;
+        }
+
+        private static void StopRenderIfIdle()
+        {
+            if (!renderSubscribed || resetHudPending || initializationPending || hudPending || reportStateBeforeSwitch != null) return;
+            Application.onBeforeRender -= OnPendingRender;
+            renderSubscribed = false;
+        }
+
+        private static void OnPendingRender()
+        {
+            if (lastPendingFrame == Time.frameCount) return;
+            lastPendingFrame = Time.frameCount;
             try
             {
                 if (resetHudPending)
@@ -110,71 +123,75 @@ namespace SpectatorPerspectiveTest
                     resetHudPending = false;
                     hud.ResetForSession();
                 }
-                Refresh();
+                if (initializationPending)
+                {
+                    var state = GameData.Instance?.lastGameState;
+                    if (state != null && !ReferenceEquals(state, stateBeforeLoad))
+                    {
+                        if (!readyLogged)
+                        {
+                            readyLogged = true;
+                            log.LogInfo("SPECTATOR_PERSPECTIVE_RUNTIME_ALIVE: temporary render readiness callback executed after startup cleanup.");
+                        }
+                        if (state.game_type != 3 || state.spectatorMode == 0)
+                            initializationPending = false;
+                        else if (EditorDirector.instance != null && EditorDirector.instance.ActivePlayerID <= 0)
+                        {
+                            InitializePerspective(state);
+                            initializationPending = false;
+                        }
+                        if (!initializationPending) stateBeforeLoad = null;
+                    }
+                }
+                if (hudPending && spectatorActive && hud.TryShow(occupiedSlots, selectedPlayer))
+                {
+                    hudPending = false;
+                    if (selectedName == null) CacheSelectedName();
+                    GuardFoodControls();
+                }
+                RefreshPendingReport(GameData.Instance?.lastGameState);
+                if ((initializationPending || hudPending || reportStateBeforeSwitch != null) &&
+                    Time.realtimeSinceStartup - pendingSince > 15f)
+                {
+                    log.LogWarning("SPECTATOR_PERSPECTIVE_READY_TIMEOUT: pending UI or PlayState did not become ready within 15 seconds.");
+                    initializationPending = false;
+                    hudPending = false;
+                    RestoreReportPanel();
+                }
+                StopRenderIfIdle();
             }
             catch (Exception error)
             {
+                initializationPending = false;
+                hudPending = false;
+                resetHudPending = false;
                 spectatorActive = false;
                 RestoreReportPanel();
                 RestoreFoodControls();
                 hud.Hide();
+                StopRenderIfIdle();
                 if (failureLogged) return;
                 failureLogged = true;
                 log.LogError("SPECTATOR_PERSPECTIVE_ERROR: " + error);
             }
         }
 
-        private static void Refresh()
+        private static void InitializePerspective(EngineInterface.PlayState state)
         {
-            var gameData = GameData.Instance;
-            var director = EditorDirector.instance;
-            var state = gameData?.lastGameState;
-            if (!mapReady || state == null || director == null || state.game_type != 3 || state.spectatorMode == 0 || director.ActivePlayerID > 0)
-            {
-                spectatorActive = false;
-                RestoreReportPanel();
-                RestoreFoodControls();
-                hud.Hide();
-                return;
-            }
-            if (awaitingFreshState)
-            {
-                if (ReferenceEquals(state, stateBeforeLoad)) { hud.Hide(); return; }
-                awaitingFreshState = false;
-                stateBeforeLoad = null;
-            }
-            bool[] occupied = new bool[9];
+            if (!mapReady) return;
+            occupiedSlots = new bool[9];
             int first = 0;
             for (int player = 1; player <= 8; player++)
             {
-                occupied[player] = state.is_human_or_skirmish_player(player);
-                if (occupied[player] && first == 0) first = player;
+                occupiedSlots[player] = state.is_human_or_skirmish_player(player);
+                if (occupiedSlots[player] && first == 0) first = player;
             }
-            if (first == 0)
-            {
-                spectatorActive = false;
-                RestoreReportPanel();
-                RestoreFoodControls();
-                hud.Hide();
-                return;
-            }
-            if (!spectatorActive)
-            {
-                selectedPlayer = first;
-                spectatorActive = true;
-                EngineInterface.SetEditorPlayer(selectedPlayer);
-                WaitForFreshReport(state);
-                log.LogInfo($"SPECTATOR_PERSPECTIVE_ACTIVE: selected={selectedPlayer}, occupied={OccupiedList(occupied)}.");
-            }
-            else if (!occupied[selectedPlayer])
-            {
-                selectedPlayer = first;
-                EngineInterface.SetEditorPlayer(selectedPlayer);
-                WaitForFreshReport(state);
-                log.LogInfo($"SPECTATOR_PERSPECTIVE_SLOT_CHANGED: selected={selectedPlayer}.");
-            }
-            hud.Show(occupied, selectedPlayer);
-            RefreshReport(state);
+            if (first == 0) return;
+            EngineInterface.SetEditorPlayer(first);
+            selectedPlayer = first;
+            spectatorActive = true;
+            hudPending = true;
+            log.LogInfo($"SPECTATOR_PERSPECTIVE_ACTIVE: selected={selectedPlayer}, occupied={OccupiedList(occupiedSlots)}.");
         }
 
         internal static bool IsActiveSpectator()
@@ -185,21 +202,49 @@ namespace SpectatorPerspectiveTest
                    EditorDirector.instance != null && EditorDirector.instance.ActivePlayerID <= 0;
         }
 
+        internal static bool TryGetSelectedReportName(out string name)
+        {
+            name = selectedName;
+            var state = GameData.Instance?.lastGameState;
+            return mapReady && spectatorActive && name != null && state != null &&
+                   state.app_mode == 16 && state.app_sub_mode == 71;
+        }
+
+        private static void CacheSelectedName()
+        {
+            string name = Platform_Multiplayer.Instance?.getSkirmishName(selectedPlayer);
+            selectedName = string.IsNullOrWhiteSpace(name) ? "-" : name;
+            if (GameData.Instance?.app_mode == 16 && GameData.Instance.app_sub_mode == 71 && MainViewModel.Instance != null)
+                MainViewModel.Instance.PlayerNameText = selectedName;
+        }
+
         private static void WaitForFreshReport(EngineInterface.PlayState oldState)
         {
-            if (hiddenReportPanel != null && !ReferenceEquals(hiddenReportPanel, MainViewModel.Instance?.HUDBuildingPanel?.RefBuildingPanel))
-                RestoreReportPanel();
+            if (GameData.Instance?.app_mode != 16) return;
+            var panel = MainViewModel.Instance?.HUDBuildingPanel?.RefBuildingPanel;
+            if (panel == null) return;
+            if (hiddenReportPanel != null && !ReferenceEquals(hiddenReportPanel, panel)) RestoreReportPanel();
             reportStateBeforeSwitch = oldState;
-            freshReportFrame = -1;
-            var viewModel = MainViewModel.Instance;
-            if (GameData.Instance?.app_mode != 16 || viewModel?.HUDBuildingPanel?.RefBuildingPanel == null) return;
-            var panel = viewModel.HUDBuildingPanel.RefBuildingPanel;
-            if (!ReferenceEquals(panel, hiddenReportPanel))
+            pendingSince = Time.realtimeSinceStartup;
+            if (hiddenReportPanel == null)
             {
                 hiddenReportPanel = panel;
                 reportPanelVisibility = panel.Visibility;
             }
             panel.Visibility = Visibility.Hidden;
+            ArmRenderIfNeeded();
+        }
+
+        private static void RefreshPendingReport(EngineInterface.PlayState state)
+        {
+            if (reportStateBeforeSwitch == null) return;
+            if (!mapReady || GameData.Instance?.app_mode != 16)
+            {
+                RestoreReportPanel();
+                return;
+            }
+            if (ReferenceEquals(state, reportStateBeforeSwitch)) return;
+            RestoreReportPanel();
         }
 
         private static void RestoreReportPanel()
@@ -207,39 +252,12 @@ namespace SpectatorPerspectiveTest
             if (hiddenReportPanel != null) hiddenReportPanel.Visibility = reportPanelVisibility;
             hiddenReportPanel = null;
             reportStateBeforeSwitch = null;
-            freshReportFrame = -1;
         }
 
-        private static void RefreshReport(EngineInterface.PlayState state)
+        private static void GuardFoodControls()
         {
-            if (reportStateBeforeSwitch != null)
-            {
-                if (GameData.Instance.app_mode != 16)
-                    RestoreReportPanel();
-                else if (!ReferenceEquals(state, reportStateBeforeSwitch))
-                {
-                    if (freshReportFrame < 0) freshReportFrame = Time.frameCount;
-                    if (Time.frameCount > freshReportFrame) RestoreReportPanel();
-                    else if (hiddenReportPanel != null) hiddenReportPanel.Visibility = Visibility.Hidden;
-                }
-                else if (hiddenReportPanel != null) hiddenReportPanel.Visibility = Visibility.Hidden;
-            }
-
-            if (GameData.Instance.app_mode != 16)
-            {
-                RestoreFoodControls();
-                return;
-            }
-            var viewModel = MainViewModel.Instance;
-            if (viewModel == null) return;
-            if (GameData.Instance.app_sub_mode == 71 && reportStateBeforeSwitch == null)
-            {
-                string name = Platform_Multiplayer.Instance?.getSkirmishName(selectedPlayer);
-                viewModel.PlayerNameText = string.IsNullOrWhiteSpace(name) ? "-" : name;
-            }
-            var foodPanel = viewModel.HUDBuildingPanel?.RefReportsFoodPanel;
-            if (foodPanel == null) return;
-            if (ReferenceEquals(foodPanel, guardedFoodPanel)) return;
+            var foodPanel = MainViewModel.Instance?.HUDBuildingPanel?.RefReportsFoodPanel;
+            if (foodPanel == null || ReferenceEquals(foodPanel, guardedFoodPanel)) return;
             RestoreFoodControls();
             guardedFoodPanel = foodPanel;
             for (int index = 0; index < foodButtonNames.Length; index++)
@@ -263,14 +281,22 @@ namespace SpectatorPerspectiveTest
             guardedFoodPanel = null;
         }
 
+        private static void OnHudUnavailable()
+        {
+            RestoreFoodControls();
+            RestoreReportPanel();
+            if (!mapReady || !spectatorActive) return;
+            hudPending = true;
+            ArmRenderIfNeeded();
+        }
+
         private static void SelectPlayer(int player)
         {
-            if (!spectatorActive || player < 1 || player > 8) return;
+            if (!spectatorActive || player < 1 || player > 8 || occupiedSlots == null || !occupiedSlots[player]) return;
             var state = GameData.Instance?.lastGameState;
             if (state == null || state.spectatorMode == 0 || state.game_type != 3 ||
                 EditorDirector.instance == null || EditorDirector.instance.ActivePlayerID > 0 ||
-                !state.is_human_or_skirmish_player(player)) return;
-            if (selectedPlayer == player) return;
+                !state.is_human_or_skirmish_player(player) || selectedPlayer == player) return;
             try { EngineInterface.SetEditorPlayer(player); }
             catch (Exception error)
             {
@@ -278,9 +304,10 @@ namespace SpectatorPerspectiveTest
                 return;
             }
             selectedPlayer = player;
+            CacheSelectedName();
+            hud.SetSelected(player);
             WaitForFreshReport(state);
             log.LogInfo($"SPECTATOR_PERSPECTIVE_SELECTED: player={player}; future Vanilla reports and messages use this index.");
-            hud.SetSelected(player);
         }
 
         private static string OccupiedList(bool[] occupied)

@@ -38,6 +38,7 @@
     <Reference Include="UnityEngine"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.AudioModule"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.AudioModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.CoreModule"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.ImageConversionModule"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.ImageConversionModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.GridModule"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.GridModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.InputLegacyModule"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.InputLegacyModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.TilemapModule"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.TilemapModule.dll</HintPath><Private>false</Private></Reference>
@@ -231,6 +232,7 @@
     <Compile Include="src\LocalPerPlayerSetting.cs" />
     <Compile Include="src\LordUnitControlsFeature.cs" />
     <Compile Include="src\LordUnitHudRegistration.cs" />
+    <Compile Include="..\Shared\LordPortraitPalette.cs"><Link>Shared\LordPortraitPalette.cs</Link></Compile>
     <Compile Include="src\GatehouseDistanceOriginRegistration.cs" />
     <Compile Include="src\LordControlGroupNativeDefinition.cs" />
     <Compile Include="src\LordControlGroupNativePatch.cs" />

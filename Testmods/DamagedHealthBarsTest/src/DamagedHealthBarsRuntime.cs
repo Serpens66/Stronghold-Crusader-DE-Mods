@@ -334,6 +334,12 @@ namespace DamagedHealthBarsTest
                     RejectHotkey("app-mode-" + gameData.app_mode);
                     return;
                 }
+                MainViewModel viewModel = MainViewModel.Instance;
+                if (viewModel == null || viewModel.IsMapEditorMode)
+                {
+                    RejectHotkey("map-editor-or-no-view-model");
+                    return;
+                }
                 FatControler controller = FatControler.instance;
                 if (controller == null || controller.NoesisHasKeyboard)
                 {
@@ -344,7 +350,6 @@ namespace DamagedHealthBarsTest
                 int* flag = (int*)activeFlag.ToPointer();
                 int next = Volatile.Read(ref *flag) == 0 ? 1 : 0;
                 Interlocked.Exchange(ref *flag, next);
-                args.Result = false;
                 Info("HEALTH_BARS_TOGGLED: enabled=" + (next != 0));
             }
             catch (Exception ex)

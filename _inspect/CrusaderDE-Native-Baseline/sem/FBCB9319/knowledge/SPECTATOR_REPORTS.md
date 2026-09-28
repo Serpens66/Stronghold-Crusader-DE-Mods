@@ -15,6 +15,7 @@ Managed `Assembly-CSharp.dll` inspected with SHA-256 `BC8B6A395F01D48557DB413600
 - `MainViewModel.ButtonReports(object)` reads `FreezeMainControls` once. When true, it forces every request to Army (`num = 9`) and hides the Army back buttons. Its normal branch maps the book and eight menu buttons to report submodes. This is the spectator menu restriction; it is separate from native report-data selection.
 - `FatControler` freezes build controls when `EditorDirector.ActivePlayerID <= 0`. That freeze must remain intact for spectators.
 - `FatControler` sets the report menu's `PlayerNameText` from `ConfigSettings.Settings_UserName`, so a changed spectator view needs its own displayed name.
+- `MainViewModel.PlayerNameText` only raises `NotifyPropertyChanged` when its incoming string differs from the stored value. Writing a selected lord name once per render fights the Vanilla writer and repeatedly triggers this notification; substituting a cached selected name at the setter keeps the normal equality guard effective.
 - The Food report XAML includes four buttons bound to `ButtonSetEdibleCommand`. `MainViewModel.ButtonChangeEdibleState` sends `SetFoodEaten`, so the report page is not entirely read-only. The Food back button returns to report menu when `WasInGranary` is false; `ButtonReports` sets it false.
 
 These contracts were checked statically against the installed files. Behavior of the added testmod's report navigation and data freshness still requires an in-game test after installation.

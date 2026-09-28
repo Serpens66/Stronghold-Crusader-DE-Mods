@@ -8,6 +8,7 @@ namespace SpectatorPerspectiveTest
     {
         private const float Edge = 12f;
         private readonly Action<int> selectPlayer;
+        private readonly Action uiUnavailable;
         private readonly Button[] buttons = new Button[9];
         private readonly RoutedEventHandler[] clickHandlers = new RoutedEventHandler[9];
         private Canvas canvas;
@@ -21,7 +22,11 @@ namespace SpectatorPerspectiveTest
         private float originTop;
         private int selectedPlayer;
 
-        internal SpectatorPerspectiveHud(Action<int> selectPlayer) { this.selectPlayer = selectPlayer; }
+        internal SpectatorPerspectiveHud(Action<int> selectPlayer, Action uiUnavailable)
+        {
+            this.selectPlayer = selectPlayer;
+            this.uiUnavailable = uiUnavailable;
+        }
 
         internal void ResetForSession()
         {
@@ -39,10 +44,10 @@ namespace SpectatorPerspectiveTest
             if (bar != null) bar.Visibility = Visibility.Collapsed;
         }
 
-        internal void Show(bool[] occupied, int selected)
+        internal bool TryShow(bool[] occupied, int selected)
         {
-            if (!Resolve()) return;
-            if (canvas.ActualWidth <= 0f || canvas.ActualHeight <= 0f) { Hide(); return; }
+            if (!Resolve()) return false;
+            if (!canvas.IsLoaded || canvas.ActualWidth <= 0f || canvas.ActualHeight <= 0f) { Hide(); return false; }
             int occupiedCount = 0;
             for (int player = 1; player <= 8; player++)
             {
@@ -54,13 +59,17 @@ namespace SpectatorPerspectiveTest
             ClampPosition();
             bar.Visibility = Visibility.Visible;
             SetSelected(selected);
+            return true;
         }
 
         internal void SetSelected(int selected)
         {
+            if (selectedPlayer == selected) return;
+            if (selectedPlayer > 0 && buttons[selectedPlayer] != null)
+                buttons[selectedPlayer].Content = selectedPlayer.ToString();
             selectedPlayer = selected;
-            for (int player = 1; player <= 8; player++)
-                if (buttons[player] != null) buttons[player].Content = player == selectedPlayer ? "▶ " + player : player.ToString();
+            if (selected > 0 && buttons[selected] != null)
+                buttons[selected].Content = "▶ " + selected;
         }
 
         private bool Resolve()
@@ -71,6 +80,8 @@ namespace SpectatorPerspectiveTest
             if (ReferenceEquals(nextCanvas, canvas) && bar != null) return true;
             Detach();
             canvas = nextCanvas;
+            canvas.SizeChanged += OnCanvasSizeChanged;
+            canvas.Unloaded += OnCanvasUnloaded;
             bar = GameXAMLManagerAPI.Instance.FindElementByName(canvas, "SpectatorPerspectiveBar") as Border;
             dragHandle = GameXAMLManagerAPI.Instance.FindElementByName(canvas, "SpectatorPerspectiveDrag") as Border;
             if (bar == null || dragHandle == null) { Detach(); return false; }
@@ -93,6 +104,11 @@ namespace SpectatorPerspectiveTest
 
         private void Detach()
         {
+            if (canvas != null)
+            {
+                canvas.SizeChanged -= OnCanvasSizeChanged;
+                canvas.Unloaded -= OnCanvasUnloaded;
+            }
             if (dragHandle != null)
             {
                 dragHandle.MouseLeftButtonDown -= OnDragDown;
@@ -101,6 +117,7 @@ namespace SpectatorPerspectiveTest
                 dragHandle.LostMouseCapture -= OnLostCapture;
             }
             dragging = false;
+            selectedPlayer = 0;
             canvas = null;
             bar = null;
             dragHandle = null;
@@ -159,5 +176,19 @@ namespace SpectatorPerspectiveTest
         }
 
         private void OnLostCapture(object sender, MouseEventArgs args) { dragging = false; }
+
+        private void OnCanvasSizeChanged(object sender, SizeChangedEventArgs args)
+        {
+            if (canvas == null || bar == null || !positioned) return;
+            if (!userMoved) PlaceAtTopRight();
+            ClampPosition();
+        }
+
+        private void OnCanvasUnloaded(object sender, RoutedEventArgs args)
+        {
+            Hide();
+            Detach();
+            uiUnavailable();
+        }
     }
 }

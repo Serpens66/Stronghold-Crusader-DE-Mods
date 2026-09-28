@@ -69,8 +69,22 @@ namespace BugfixesAndQoL
                 GamePlayerManagerAPI.Instance?.GetLordUnitId(playerId) == unit.GameId;
         }
 
-        private static ImageSource ResolveLordIcon() =>
-            Noesis.GUI.GetApplicationResources()["BugfixesAndQoL-LordIcon"] as ImageSource;
+        private static unsafe ImageSource ResolveLordIcon()
+        {
+            int playerId = Shared.GameModeHelper.IsMapEditor()
+                ? (EditorDirector.instance?.ActivePlayerID ?? 0)
+                : (GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? 0);
+            int colorId = 0;
+            if (playerId > 0 && GamePlayerManagerAPI.Instance != null && GameUnitManagerAPI.Instance != null)
+            {
+                int lordId = GamePlayerManagerAPI.Instance.GetLordUnitId(playerId);
+                if (lordId > 0 && GameUnitManagerAPI.Instance.TryGetUnitById(lordId, out GameUnit* lord) &&
+                    lord != null && lord->r_ControllableForPlayerId == playerId &&
+                    lord->r_UnitChimp == eChimps.CHIMP_TYPE_LORD)
+                    colorId = (int)lord->r_SpritePlayerColorId;
+            }
+            return Shared.LordPortraitPalette.Get(colorId);
+        }
 
         private void OnInteraction(UnitHudInteractionContext context)
         {

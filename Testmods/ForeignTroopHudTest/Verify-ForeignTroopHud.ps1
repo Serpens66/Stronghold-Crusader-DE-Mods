@@ -8,14 +8,15 @@ $files = @(
     (Join-Path $modDir 'Patches\Assets\GUI\XAML\IngameUIScreens.xaml'),
     (Join-Path $modDir 'info.json'),
     (Join-Path $modDir 'build.bat'),
-    $MyInvocation.MyCommand.Path
+    $MyInvocation.MyCommand.Path,
+    (Join-Path $modDir '..\..\Shared\LordPortraitPalette.cs')
 )
 foreach ($file in $files) {
     $text = [IO.File]::ReadAllText($file)
     if ($file -ne $MyInvocation.MyCommand.Path -and $text.Contains('\r\n')) { throw "Literal newline escape found: $file" }
     if ([regex]::IsMatch($text, '(?<!\r)\n')) { throw "Bare LF found: $file" }
 }
-$sources = [IO.File]::ReadAllText($files[0]) + [IO.File]::ReadAllText($files[1]) + [IO.File]::ReadAllText($files[2])
+$sources = [IO.File]::ReadAllText($files[0]) + [IO.File]::ReadAllText($files[1]) + [IO.File]::ReadAllText($files[2]) + [IO.File]::ReadAllText($files[8])
 $project = [IO.File]::ReadAllText($files[3])
 $forbidden = @(
     'System\.Web\.Extensions', 'JavaScriptSerializer', 'System\.Text\.Json', 'Newtonsoft\.Json',
@@ -47,6 +48,11 @@ if ($sources -notmatch 'FOREIGN_TROOP_HUD_DIAGNOSTIC' -or
     throw 'Diagnostic state, heartbeat, or exact missing-element reporting is incomplete.'
 }
 if ($sources -notmatch 'r_UnitHover' -or $sources -match 'r_UnitHover\s*=(?!=)') { throw 'Hover marker must be read only.' }
+if ($sources -notmatch 'pixel\.r = pixel\.g = pixel\.b = 0' -or
+    $sources -notmatch 'pixel\.r \* pixel\.a \+ 127' -or
+    $sources -notmatch 'Canvas\.SetTop\(portraits\[i\], entry\.Type == 55 \? 65f : 53f\)') {
+    throw 'Lord alpha and type-specific portrait placement contract missing.'
+}
 if ($sources -match 'r_UnitSelected\s*=(?!=)|GetSelectedChimps\s*\(') { throw 'Native command selection must not be changed.' }
 if ($sources -match 'r_CurrentHealth\s*=(?!=)|r_MaxHealth\s*=(?!=)|EngineInterface\.GameAction\s*\(') { throw 'HUD must not change HP or issue commands.' }
 if ($sources -match 'Show_HUD_Main\s*=' -or $sources -match 'Show_HUD_Book\s*=' -or
@@ -80,6 +86,8 @@ foreach ($portrait in $portraitButtons) {
 }
 if ($hudPatch -notmatch "XPath=.*/n:Grid\[@x:Name='MainHUD'\]" -or
     [regex]::Matches($hudPatch, '<Button\s').Count -ne 10 -or
+    [regex]::Matches($hudPatch, 'Canvas.Top="53"').Count -ne 16 -or
+    [regex]::Matches($hudPatch, 'Canvas.Left="14" Canvas.Top="56"').Count -ne 8 -or
     $hudPatch -notmatch 'Width="416" Height="170" Margin="0,0,242,0"' -or
     $hudPatch -match 'UI-HUD 006|Command=|Control_Group|ForeignTroopHudCanvas') {
     throw 'HUD patch must be inside MainHUD with only two local page buttons.'

@@ -264,9 +264,11 @@ namespace ForeignTroopHudTest
                 maxHealth[i].Text = ScaleHealth(entry.MaxHealth);
                 currentHealth[i].Foreground = HealthBrush(entry);
                 int portraitCode = entry.Type < PortraitCodes.Length ? PortraitCodes[entry.Type] : 0;
-                ImageSource source = entry.Type == 55 ? FindLordPortrait() :
+                ImageSource source = entry.Type == 55 ? Shared.LordPortraitPalette.Get(entry.ColorId) :
                     portraitCode == 0 ? null : FindPortrait(portraitCode, entry.ColorId);
                 if (entry.Type == 55 && source == null) LordIconMissing = true;
+                Canvas.SetTop(portraits[i], entry.Type == 55 ? 65f : 53f);
+                Canvas.SetTop(typeLabels[i], entry.Type == 55 ? 65f : 53f);
                 PropEx.SetSprite1(portraits[i], source);
                 PropEx.SetSprite2(portraits[i], source);
                 PropEx.SetSprite3(portraits[i], source);
@@ -288,12 +290,6 @@ namespace ForeignTroopHudTest
             entry.MaxHealth == 0 ? CriticalBrush :
             (decimal)entry.CurrentHealth >= (decimal)entry.MaxHealth * 0.75m ? HealthyBrush :
             (decimal)entry.CurrentHealth >= (decimal)entry.MaxHealth * 0.40m ? WoundedBrush : CriticalBrush;
-
-        private static ImageSource FindLordPortrait()
-        {
-            try { return GUI.GetApplicationResources()?["BugfixesAndQoL-LordIcon"] as ImageSource; }
-            catch { return null; }
-        }
 
         private static ImageSource FindPortrait(int code, int colorId)
         {

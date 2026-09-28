@@ -21,6 +21,7 @@ Semantic reverse-engineering baseline:
 - [Spectator report path](./sem/FBCB9319/knowledge/SPECTATOR_REPORTS.md): selected view index, native report buffer, managed Army gate, and Food action controls.
 - [Script Extender 2.11.0 speech-path hook audit](./sem/FBCB9319/knowledge/SE_2_11_SPEECH_PATH.md): module-bound signature, RedBird displacement, continuation, and the earlier path-length defect.
 - [Fireman targeting and extinguishing audit](./sem/FBCB9319/knowledge/FIREMAN_TARGETING.md): target selection, states, compound fires, one-throw extinguishing and verified detour entry.
+- [Bedouin healer target-selection audit](./sem/FBCB9319/knowledge/BEDOUIN_HEALER_TARGETS.md): candidate-list exclusions, selection, movement and healing flow.
 - [HUD presentation scheduling audit](./sem/FBCB9319/knowledge/HUD_PRESENTATION.md): Vanilla writers, render-state flow, visibility and active-consumer boundaries.
 - [Health-bar rendering audit](./sem/FBCB9319/knowledge/HEALTH_BAR_RENDERING.md): visible-map render paths, selection gates, HP storage and candidate hook spans.
 

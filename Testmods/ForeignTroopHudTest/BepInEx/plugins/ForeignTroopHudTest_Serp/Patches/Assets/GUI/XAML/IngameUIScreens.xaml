@@ -11,11 +11,11 @@
               <TextBlock.Effect><DropShadowEffect ShadowDepth="1" Direction="315" Color="#CC000000" BlurRadius="0"/></TextBlock.Effect>
             </TextBlock>
           </Viewbox>
-          <Button x:Name="ForeignTroopImage1" Width="45" Height="86" Canvas.Left="4" Canvas.Top="65"
+          <Button x:Name="ForeignTroopImage1" Width="45" Height="86" Canvas.Left="4" Canvas.Top="53"
                   Style="{StaticResource BTN_Image}" IsHitTestVisible="False" Focusable="False" Visibility="Collapsed"/>
-          <TextBlock x:Name="ForeignTroopType1" Width="46" Canvas.Left="3" Canvas.Top="65"
+          <TextBlock x:Name="ForeignTroopType1" Width="46" Canvas.Left="3" Canvas.Top="53"
                      TextAlignment="Center" TextWrapping="Wrap" Foreground="#FFF2E7CB" FontSize="11" Visibility="Collapsed"/>
-          <TextBlock x:Name="ForeignTroopOwner1" Width="24" Canvas.Left="30" Canvas.Top="56"
+          <TextBlock x:Name="ForeignTroopOwner1" Width="24" Canvas.Left="14" Canvas.Top="56"
                      TextAlignment="Center" Foreground="White" FontSize="10"/>
           <TextBlock x:Name="ForeignTroopCount1" Width="64" Canvas.Left="-6" Canvas.Top="132"
                      TextAlignment="Center" Foreground="#FFDDDDDD" FontSize="22">
@@ -33,11 +33,11 @@
               <TextBlock.Effect><DropShadowEffect ShadowDepth="1" Direction="315" Color="#CC000000" BlurRadius="0"/></TextBlock.Effect>
             </TextBlock>
           </Viewbox>
-          <Button x:Name="ForeignTroopImage2" Width="45" Height="86" Canvas.Left="4" Canvas.Top="65"
+          <Button x:Name="ForeignTroopImage2" Width="45" Height="86" Canvas.Left="4" Canvas.Top="53"
                   Style="{StaticResource BTN_Image}" IsHitTestVisible="False" Focusable="False" Visibility="Collapsed"/>
-          <TextBlock x:Name="ForeignTroopType2" Width="46" Canvas.Left="3" Canvas.Top="65"
+          <TextBlock x:Name="ForeignTroopType2" Width="46" Canvas.Left="3" Canvas.Top="53"
                      TextAlignment="Center" TextWrapping="Wrap" Foreground="#FFF2E7CB" FontSize="11" Visibility="Collapsed"/>
-          <TextBlock x:Name="ForeignTroopOwner2" Width="24" Canvas.Left="30" Canvas.Top="56"
+          <TextBlock x:Name="ForeignTroopOwner2" Width="24" Canvas.Left="14" Canvas.Top="56"
                      TextAlignment="Center" Foreground="White" FontSize="10"/>
           <TextBlock x:Name="ForeignTroopCount2" Width="64" Canvas.Left="-6" Canvas.Top="132"
                      TextAlignment="Center" Foreground="#FFDDDDDD" FontSize="22">
@@ -55,11 +55,11 @@
               <TextBlock.Effect><DropShadowEffect ShadowDepth="1" Direction="315" Color="#CC000000" BlurRadius="0"/></TextBlock.Effect>
             </TextBlock>
           </Viewbox>
-          <Button x:Name="ForeignTroopImage3" Width="45" Height="86" Canvas.Left="4" Canvas.Top="65"
+          <Button x:Name="ForeignTroopImage3" Width="45" Height="86" Canvas.Left="4" Canvas.Top="53"
                   Style="{StaticResource BTN_Image}" IsHitTestVisible="False" Focusable="False" Visibility="Collapsed"/>
-          <TextBlock x:Name="ForeignTroopType3" Width="46" Canvas.Left="3" Canvas.Top="65"
+          <TextBlock x:Name="ForeignTroopType3" Width="46" Canvas.Left="3" Canvas.Top="53"
                      TextAlignment="Center" TextWrapping="Wrap" Foreground="#FFF2E7CB" FontSize="11" Visibility="Collapsed"/>
-          <TextBlock x:Name="ForeignTroopOwner3" Width="24" Canvas.Left="30" Canvas.Top="56"
+          <TextBlock x:Name="ForeignTroopOwner3" Width="24" Canvas.Left="14" Canvas.Top="56"
                      TextAlignment="Center" Foreground="White" FontSize="10"/>
           <TextBlock x:Name="ForeignTroopCount3" Width="64" Canvas.Left="-6" Canvas.Top="132"
                      TextAlignment="Center" Foreground="#FFDDDDDD" FontSize="22">
@@ -77,11 +77,11 @@
               <TextBlock.Effect><DropShadowEffect ShadowDepth="1" Direction="315" Color="#CC000000" BlurRadius="0"/></TextBlock.Effect>
             </TextBlock>
           </Viewbox>
-          <Button x:Name="ForeignTroopImage4" Width="45" Height="86" Canvas.Left="4" Canvas.Top="65"
+          <Button x:Name="ForeignTroopImage4" Width="45" Height="86" Canvas.Left="4" Canvas.Top="53"
                   Style="{StaticResource BTN_Image}" IsHitTestVisible="False" Focusable="False" Visibility="Collapsed"/>
-          <TextBlock x:Name="ForeignTroopType4" Width="46" Canvas.Left="3" Canvas.Top="65"
+          <TextBlock x:Name="ForeignTroopType4" Width="46" Canvas.Left="3" Canvas.Top="53"
                      TextAlignment="Center" TextWrapping="Wrap" Foreground="#FFF2E7CB" FontSize="11" Visibility="Collapsed"/>
-          <TextBlock x:Name="ForeignTroopOwner4" Width="24" Canvas.Left="30" Canvas.Top="56"
+          <TextBlock x:Name="ForeignTroopOwner4" Width="24" Canvas.Left="14" Canvas.Top="56"
                      TextAlignment="Center" Foreground="White" FontSize="10"/>
           <TextBlock x:Name="ForeignTroopCount4" Width="64" Canvas.Left="-6" Canvas.Top="132"
                      TextAlignment="Center" Foreground="#FFDDDDDD" FontSize="22">
@@ -99,11 +99,11 @@
               <TextBlock.Effect><DropShadowEffect ShadowDepth="1" Direction="315" Color="#CC000000" BlurRadius="0"/></TextBlock.Effect>
             </TextBlock>
           </Viewbox>
-          <Button x:Name="ForeignTroopImage5" Width="45" Height="86" Canvas.Left="4" Canvas.Top="65"
+          <Button x:Name="ForeignTroopImage5" Width="45" Height="86" Canvas.Left="4" Canvas.Top="53"
                   Style="{StaticResource BTN_Image}" IsHitTestVisible="False" Focusable="False" Visibility="Collapsed"/>
-          <TextBlock x:Name="ForeignTroopType5" Width="46" Canvas.Left="3" Canvas.Top="65"
+          <TextBlock x:Name="ForeignTroopType5" Width="46" Canvas.Left="3" Canvas.Top="53"
                      TextAlignment="Center" TextWrapping="Wrap" Foreground="#FFF2E7CB" FontSize="11" Visibility="Collapsed"/>
-          <TextBlock x:Name="ForeignTroopOwner5" Width="24" Canvas.Left="30" Canvas.Top="56"
+          <TextBlock x:Name="ForeignTroopOwner5" Width="24" Canvas.Left="14" Canvas.Top="56"
                      TextAlignment="Center" Foreground="White" FontSize="10"/>
           <TextBlock x:Name="ForeignTroopCount5" Width="64" Canvas.Left="-6" Canvas.Top="132"
                      TextAlignment="Center" Foreground="#FFDDDDDD" FontSize="22">
@@ -121,11 +121,11 @@
               <TextBlock.Effect><DropShadowEffect ShadowDepth="1" Direction="315" Color="#CC000000" BlurRadius="0"/></TextBlock.Effect>
             </TextBlock>
           </Viewbox>
-          <Button x:Name="ForeignTroopImage6" Width="45" Height="86" Canvas.Left="4" Canvas.Top="65"
+          <Button x:Name="ForeignTroopImage6" Width="45" Height="86" Canvas.Left="4" Canvas.Top="53"
                   Style="{StaticResource BTN_Image}" IsHitTestVisible="False" Focusable="False" Visibility="Collapsed"/>
-          <TextBlock x:Name="ForeignTroopType6" Width="46" Canvas.Left="3" Canvas.Top="65"
+          <TextBlock x:Name="ForeignTroopType6" Width="46" Canvas.Left="3" Canvas.Top="53"
                      TextAlignment="Center" TextWrapping="Wrap" Foreground="#FFF2E7CB" FontSize="11" Visibility="Collapsed"/>
-          <TextBlock x:Name="ForeignTroopOwner6" Width="24" Canvas.Left="30" Canvas.Top="56"
+          <TextBlock x:Name="ForeignTroopOwner6" Width="24" Canvas.Left="14" Canvas.Top="56"
                      TextAlignment="Center" Foreground="White" FontSize="10"/>
           <TextBlock x:Name="ForeignTroopCount6" Width="64" Canvas.Left="-6" Canvas.Top="132"
                      TextAlignment="Center" Foreground="#FFDDDDDD" FontSize="22">
@@ -143,11 +143,11 @@
               <TextBlock.Effect><DropShadowEffect ShadowDepth="1" Direction="315" Color="#CC000000" BlurRadius="0"/></TextBlock.Effect>
             </TextBlock>
           </Viewbox>
-          <Button x:Name="ForeignTroopImage7" Width="45" Height="86" Canvas.Left="4" Canvas.Top="65"
+          <Button x:Name="ForeignTroopImage7" Width="45" Height="86" Canvas.Left="4" Canvas.Top="53"
                   Style="{StaticResource BTN_Image}" IsHitTestVisible="False" Focusable="False" Visibility="Collapsed"/>
-          <TextBlock x:Name="ForeignTroopType7" Width="46" Canvas.Left="3" Canvas.Top="65"
+          <TextBlock x:Name="ForeignTroopType7" Width="46" Canvas.Left="3" Canvas.Top="53"
                      TextAlignment="Center" TextWrapping="Wrap" Foreground="#FFF2E7CB" FontSize="11" Visibility="Collapsed"/>
-          <TextBlock x:Name="ForeignTroopOwner7" Width="24" Canvas.Left="30" Canvas.Top="56"
+          <TextBlock x:Name="ForeignTroopOwner7" Width="24" Canvas.Left="14" Canvas.Top="56"
                      TextAlignment="Center" Foreground="White" FontSize="10"/>
           <TextBlock x:Name="ForeignTroopCount7" Width="64" Canvas.Left="-6" Canvas.Top="132"
                      TextAlignment="Center" Foreground="#FFDDDDDD" FontSize="22">
@@ -165,11 +165,11 @@
               <TextBlock.Effect><DropShadowEffect ShadowDepth="1" Direction="315" Color="#CC000000" BlurRadius="0"/></TextBlock.Effect>
             </TextBlock>
           </Viewbox>
-          <Button x:Name="ForeignTroopImage8" Width="45" Height="86" Canvas.Left="4" Canvas.Top="65"
+          <Button x:Name="ForeignTroopImage8" Width="45" Height="86" Canvas.Left="4" Canvas.Top="53"
                   Style="{StaticResource BTN_Image}" IsHitTestVisible="False" Focusable="False" Visibility="Collapsed"/>
-          <TextBlock x:Name="ForeignTroopType8" Width="46" Canvas.Left="3" Canvas.Top="65"
+          <TextBlock x:Name="ForeignTroopType8" Width="46" Canvas.Left="3" Canvas.Top="53"
                      TextAlignment="Center" TextWrapping="Wrap" Foreground="#FFF2E7CB" FontSize="11" Visibility="Collapsed"/>
-          <TextBlock x:Name="ForeignTroopOwner8" Width="24" Canvas.Left="30" Canvas.Top="56"
+          <TextBlock x:Name="ForeignTroopOwner8" Width="24" Canvas.Left="14" Canvas.Top="56"
                      TextAlignment="Center" Foreground="White" FontSize="10"/>
           <TextBlock x:Name="ForeignTroopCount8" Width="64" Canvas.Left="-6" Canvas.Top="132"
                      TextAlignment="Center" Foreground="#FFDDDDDD" FontSize="22">

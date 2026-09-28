@@ -19,11 +19,13 @@ namespace SpectatorPerspectiveTest
             if (installed) return;
             MethodInfo foodAction = AccessTools.Method(typeof(MainViewModel), "ButtonChangeEdibleState", new[] { typeof(object) });
             MethodInfo reportsAction = AccessTools.Method(typeof(MainViewModel), "ButtonReports", new[] { typeof(object) });
-            if (foodAction == null || reportsAction == null || freezeField == null || forceArmyMethod == null)
+            MethodInfo nameSetter = AccessTools.PropertySetter(typeof(MainViewModel), nameof(MainViewModel.PlayerNameText));
+            if (foodAction == null || reportsAction == null || nameSetter == null || freezeField == null || forceArmyMethod == null)
                 throw new MissingMemberException("Installed Assembly-CSharp report contract changed.");
 
             // Install the read-only guard first. Published patches stay installed for the process lifetime.
             harmony.Patch(foodAction, prefix: new HarmonyMethod(typeof(SpectatorReportHooks), nameof(AllowFoodChange)));
+            harmony.Patch(nameSetter, prefix: new HarmonyMethod(typeof(SpectatorReportHooks), nameof(UseSelectedReportName)));
             harmony.Patch(reportsAction, transpiler: new HarmonyMethod(typeof(SpectatorReportHooks), nameof(ReportTranspiler)));
             installed = true;
         }
@@ -31,6 +33,11 @@ namespace SpectatorPerspectiveTest
         private static bool AllowFoodChange()
         {
             return !SpectatorPerspectiveRuntime.IsActiveSpectator();
+        }
+
+        private static void UseSelectedReportName(ref string value)
+        {
+            if (SpectatorPerspectiveRuntime.TryGetSelectedReportName(out string selectedName)) value = selectedName;
         }
 
         private static bool ShouldForceArmy(MainViewModel viewModel)

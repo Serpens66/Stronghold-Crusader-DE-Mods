@@ -163,13 +163,14 @@ namespace ExtraFeatures
         {
             ApplyTimingSettings();
 
-            if (Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
+            // Save data can arrive before the native map has finished loading.
+            // Only the completed session start may resolve saved building IDs.
+            if (!loadedMapStatePending && Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
             {
-                if (loadedMapStatePending)
-                    BeginMap();
-                ReconcileManualGateTimers(removeMissing: false);
+                if (mapActive)
+                    ReconcileManualGateTimers(removeMissing: false);
             }
-            else
+            else if (!loadedMapStatePending)
                 ReleaseManualGateTimers();
 
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(RefreshButtonVisibility);
@@ -194,6 +195,12 @@ namespace ExtraFeatures
 
         public void RefreshButtonVisibility()
         {
+            if (loadedMapStatePending)
+            {
+                buttonViewModel.Hide();
+                LogVisibilityState("hidden: saved-map-pending");
+                return;
+            }
             RefreshEditorReadiness();
             if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
             {
@@ -351,9 +358,9 @@ namespace ExtraFeatures
         {
             try
             {
-                RefreshEditorReadiness();
-                if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || !mapActive)
+                if (loadedMapStatePending || !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || !mapActive)
                     return;
+                RefreshEditorReadiness();
 
                 int playerId = GetControlledPlayerId();
                 int buildingId = GamePlayerManagerAPI.Instance.GetSelectedBuildingId();
@@ -468,7 +475,7 @@ namespace ExtraFeatures
 
         private void OnGatehouseQuery(GatehouseQueryEventArgs args)
         {
-            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || args == null)
+            if (loadedMapStatePending || !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || args == null)
                 return;
 
             try
@@ -585,8 +592,6 @@ namespace ExtraFeatures
                 pendingMapLocators.AddRange(savedLocators);
             }
 
-            if (Shared.GameplayModActivationGate.IsAllowed)
-                BeginMap();
             LogInfo($"gatehouse state loaded: context={(context.IsSaveFile ? "save-file" : "map")}, version={state.Version}, manualOnly={manualOnlyGateGlobalIds.Count}, pendingLocators={pendingMapLocators.Count}, payloadBytes={bytes.Length}.");
         }
 
@@ -787,7 +792,8 @@ namespace ExtraFeatures
         {
             // The mode gate can close while the current native map is still alive.
             // Release our permanent-manual sentinel before discarding its identities.
-            ReleaseManualGateTimers();
+            if (!loadedMapStatePending)
+                ReleaseManualGateTimers();
             if (mapActive)
             {
                 LogInfo($"gatehouse map state cleared: manualOnly={manualOnlyGateGlobalIds.Count}.");
