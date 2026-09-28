@@ -16,7 +16,7 @@ This guide is for Map and Trail authors. Mod developers should use [ExtendedData
 4. Save the Map or mission with **Include modsettings** enabled. For a Trail, leave **Include modsettings** enabled during Workshop upload too.
 5. Test the saved Map or Trail. When sharing a Trail folder, keep the files generated beside each mission together. ExtendedData checks Lord requirements before starting a mission.
 
-To export a Coop Trail, select **Coop Trail** in the Trail Maker. It packages up to 40 existing missions; the first two occupied player slots become host and guest. Everyone playing needs the same Coop package. For normal preset creation, see [Extensible ModSettings Presets](ModSettings%20Presets.md#english).
+To export a Coop Trail, select **Coop Trail** in the Trail Maker. It packages up to 40 existing missions; the first two occupied player slots become host and guest (so simply put any AI in second slot, it will be replaced). Everyone playing needs the same Coop package. For normal preset creation, see [Extensible ModSettings Presets](ModSettings%20Presets.md#english).
 
 If a mod does not appear in ExtendedData, check whether it supports these mission settings. If a mission reports a missing mod, install that mod before starting it.
 
@@ -144,7 +144,7 @@ Dieser Guide richtet sich an Map- und Trail-Ersteller. Modentwickler verwenden [
 4. Speichere die Map oder Mission mit aktivierter Option **Modsettings einschließen**. Aktiviere beim Workshop-Upload eines Trails **Modsettings aufnehmen**.
 5. Teste die gespeicherte Map oder den Trail. Wenn du einen Trail-Ordner weitergibst, behalte die neben den Missionen erzeugten Dateien zusammen. ExtendedData prüft Lord-Anforderungen vor dem Missionsstart.
 
-Für einen Koop-Trail wähle **Koop-Trail** im Trail Maker. Damit werden bis zu 40 vorhandene Missionen verpackt; die ersten beiden belegten Spielerplätze werden Host und Gast. Alle Mitspieler benötigen dasselbe Koop-Paket. Wie du normale Presets erstellst, steht in [Erweiterbare ModSettings-Presets](ModSettings%20Presets.md#deutsch).
+Für einen Koop-Trail wähle **Koop-Trail** im Trail Maker. Damit werden bis zu 40 vorhandene Missionen verpackt; die ersten beiden belegten Spielerplätze werden Host und Gast, also packe einfach irgendeine KI in den zweiten slot, sie wird ersetzt. Alle Mitspieler benötigen dasselbe Koop-Paket. Wie du normale Presets erstellst, steht in [Erweiterbare ModSettings-Presets](ModSettings%20Presets.md#deutsch).
 
 Erscheint ein Mod nicht in ExtendedData, prüfe, ob er diese Missionseinstellungen unterstützt. Meldet eine Mission einen fehlenden Mod, installiere ihn vor dem Start.
 
