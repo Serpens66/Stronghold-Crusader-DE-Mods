@@ -3,12 +3,9 @@ using APIShared;
 using BepInEx.Logging;
 using CrusaderDE;
 using Noesis;
-using R3;
 using Shared;
 using SHCDESE.API;
 using SHCDESE.API.Components.SaveData;
-using SHCDESE.EventAPI;
-using SHCDESE.EventAPI.MapLoader;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using UnityEngine;
@@ -19,10 +16,9 @@ namespace SpectatorPerspectiveTest
     {
         private static ManualLogSource log;
         private static SpectatorPerspectiveHud hud;
-        private static IDisposable postLoadSubscription;
-        private static IDisposable startSubscription;
-        private static IDisposable unloadSubscription;
         private static bool initialized;
+        private static bool featureReady;
+        private static long preparedSessionId;
         private static bool mapReady;
         private static bool loadedFromSave;
         private static int saveRecoveryStage;
@@ -65,51 +61,53 @@ namespace SpectatorPerspectiveTest
                 if (!ModSaveDataAPI.Instance.RegisterModDataHandler(SpectatorSaveMarker.Identifier,
                     SaveSpectatorMarker, IgnoreLoadedMarker))
                     throw new InvalidOperationException("Spectator save-data handler already registered.");
+                SpectatorReportHooks.Install();
+                SpectatorAllyHooks.Install();
+                if (!ApiShared.Current.TryGetMissionLifecycle(SpectatorPerspectivePlugin.PluginGuid,
+                    out IMissionLifecycleCapability lifecycle, out NativeCapabilityDiagnostic diagnostic))
+                    throw new InvalidOperationException("Mission lifecycle unavailable: " + diagnostic?.Reason);
+                if (!lifecycle.TryRegisterObserver("SpectatorPerspectiveTest.Session",
+                    OnMissionStart, OnMissionEnd, OnMissionInitialization, out diagnostic))
+                    throw new InvalidOperationException("Mission lifecycle registration failed: " + diagnostic?.Reason);
+                featureReady = true;
             }
             catch (Exception error)
             {
-                log.LogError($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] SPECTATOR_SAVE_HANDLER_FAILED: {error}");
+                log.LogError($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] SPECTATOR_PERSPECTIVE_INITIALIZATION_FAILED: {error}");
             }
-            try
-            {
-                SpectatorReportHooks.Install();
-            }
-            catch (Exception error) { log.LogError("SPECTATOR_REPORT_HOOKS_FAILED: " + error); }
-            try
-            {
-                SpectatorAllyHooks.Install();
-            }
-            catch (Exception error) { log.LogError("SPECTATOR_ALLY_HOOKS_FAILED: " + error); }
-            postLoadSubscription = MapLoaderR3EventHooks.OnPostLoad.Observable.Subscribe(OnPostLoad);
-            startSubscription = MapLoaderR3EventHooks.OnStartMap.Observable.Subscribe(OnStartMap);
-            unloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable.Subscribe(OnUnloadMap);
         }
 
-        private static void OnStartMap(MapStartEventArgs args)
+        private static void OnMissionInitialization(MissionLifecycleNotification notification)
         {
-            if (args.Phase != EventHookPhase.Pre) return;
+            if (!notification.IsBeforeInitialization ||
+                preparedSessionId == notification.Context.SessionId) return;
+            PrepareSession(notification.Context.SessionId);
+        }
+
+        private static void PrepareSession(long sessionId)
+        {
             var previousState = GameData.Instance?.lastGameState;
             BeginMapLoad();
             stateBeforeLoad = previousState;
+            preparedSessionId = sessionId;
         }
 
-        private static void OnPostLoad(MapPostLoadEventArgs args)
+        private static void OnMissionStart(MissionLifecycleNotification notification)
         {
-            if (args.Phase != EventHookPhase.Post) return;
-            var previousState = stateBeforeLoad;
-            BeginMapLoad();
-            stateBeforeLoad = previousState;
+            if (preparedSessionId != notification.Context.SessionId)
+                PrepareSession(notification.Context.SessionId);
             mapReady = true;
-            loadedFromSave = args.FromSaveGame;
+            loadedFromSave = notification.Context.IsSave;
             initializationPending = GameData.Instance?.game_type == 3;
             pendingSince = Time.realtimeSinceStartup;
             ArmRenderIfNeeded();
         }
 
-        private static void OnUnloadMap(MapUnloadEventArgs args)
+        private static void OnMissionEnd(MissionLifecycleNotification notification)
         {
-            if (args.Phase != EventHookPhase.Pre) return;
+            if (preparedSessionId != notification.Context.SessionId) return;
             BeginMapLoad();
+            preparedSessionId = 0;
         }
 
         private static void BeginMapLoad()
@@ -352,12 +350,13 @@ namespace SpectatorPerspectiveTest
             return true;
         }
 
-        internal static bool IsSpectatorActionRestricted() => recoveryIdentityApplied || IsActiveSpectator();
+        internal static bool IsSpectatorActionRestricted() => featureReady &&
+            (recoveryIdentityApplied || IsActiveSpectator());
 
         internal static bool IsActiveSpectator()
         {
             var state = GameData.Instance?.lastGameState;
-            return mapReady && spectatorActive && selectedPlayer > 0 && state != null &&
+            return featureReady && mapReady && spectatorActive && selectedPlayer > 0 && state != null &&
                    state.game_type == 3 && state.spectatorMode != 0 &&
                    EditorDirector.instance != null && EditorDirector.instance.ActivePlayerID <= 0;
         }
@@ -373,7 +372,7 @@ namespace SpectatorPerspectiveTest
         internal static bool IsNetworkSpectator()
         {
             var state = GameData.Instance?.lastGameState;
-            return state != null && state.game_type == 3 && state.spectatorMode != 0 &&
+            return featureReady && state != null && state.game_type == 3 && state.spectatorMode != 0 &&
                    GameModeHelper.IsRealMultiplayer();
         }
 

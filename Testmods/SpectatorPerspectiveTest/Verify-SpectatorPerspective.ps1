@@ -21,15 +21,39 @@ if ($runtime -notmatch 'Application\.onBeforeRender\s*\+=\s*OnPendingRender' -or
     $runtime -match 'Application\.onBeforeRender\s*\+=\s*OnBeforeRender') {
     throw 'Missing temporary post-cleanup render publisher, unsubscribe path or runtime marker.'
 }
-if ($runtime -notmatch 'MapLoaderR3EventHooks\.OnPostLoad' -or $runtime -notmatch 'MapLoaderR3EventHooks\.OnUnloadMap') {
-    throw 'Missing map lifecycle event registration.'
+if ($runtime -match 'MapLoaderR3EventHooks\.' -or
+    $runtime -notmatch 'ApiShared\.Current\.TryGetMissionLifecycle\(SpectatorPerspectivePlugin\.PluginGuid' -or
+    $runtime -notmatch 'lifecycle\.TryRegisterObserver\("SpectatorPerspectiveTest\.Session"' -or
+    $runtime -notmatch 'OnMissionStart, OnMissionEnd, OnMissionInitialization') {
+    throw 'Spectator session lifecycle must be owned by APIShared.'
 }
-if ($runtime -notmatch 'var previousState = GameData\.Instance\?\.lastGameState;\s*BeginMapLoad\(\);\s*stateBeforeLoad = previousState;' -or
-    $runtime -notmatch 'var previousState = stateBeforeLoad;\s*BeginMapLoad\(\);\s*stateBeforeLoad = previousState;' -or
+if ($runtime -notmatch 'preparedSessionId == notification\.Context\.SessionId\) return;' -or
+    $runtime -notmatch 'if \(preparedSessionId != notification\.Context\.SessionId\)\s*PrepareSession\(notification\.Context\.SessionId\);' -or
+    $runtime -notmatch 'if \(preparedSessionId != notification\.Context\.SessionId\) return;\s*BeginMapLoad\(\);' -or
+    $runtime -notmatch 'var previousState = GameData\.Instance\?\.lastGameState;\s*BeginMapLoad\(\);\s*stateBeforeLoad = previousState;' -or
+    $runtime -notmatch 'loadedFromSave = notification\.Context\.IsSave;' -or
     $runtime -notmatch 'stateBeforeLoad == null \|\| !ReferenceEquals\(state, stateBeforeLoad\)' -or
     $runtime -notmatch 'SPECTATOR_PERSPECTIVE_READY_TIMEOUT: ' -or
     $runtime -notmatch 'OnHudAvailable\(\)') {
-    throw 'Loaded-save state capture, delayed readiness or HUD recovery path missing.'
+    throw 'Session-deduplicated save load, delayed readiness or HUD recovery path missing.'
+}
+$bootstrap = [regex]::Match($runtime, '(?s)internal static void Initialize\(ManualLogSource logger\).*?private static void OnMissionInitialization\(').Value
+if (-not $bootstrap -or
+    $bootstrap -notmatch 'RegisterModDataHandler\(' -or
+    $bootstrap -notmatch 'SpectatorReportHooks\.Install\(\)' -or
+    $bootstrap -notmatch 'SpectatorAllyHooks\.Install\(\)' -or
+    $bootstrap -notmatch 'TryRegisterObserver\(' -or
+    $bootstrap -notmatch 'featureReady = true;' -or
+    $bootstrap.IndexOf('featureReady = true;') -lt $bootstrap.IndexOf('TryRegisterObserver(') -or
+    $bootstrap -notmatch 'catch \(Exception error\)') {
+    throw 'Incomplete bootstrap must not activate spectator switching.'
+}
+if ($runtime -notmatch 'return featureReady && mapReady && spectatorActive' -or
+    $runtime -notmatch 'return featureReady && state != null && state\.game_type == 3' -or
+    $runtime -notmatch 'IsSpectatorActionRestricted\(\) => featureReady &&' -or
+    $runtime -notmatch 'int view = IsActiveSpectator\(\)' -or
+    $runtime -match 'UnregisterModDataHandler\(|UnpatchAll\(') {
+    throw 'Partially installed hooks and save handler must remain dormant when bootstrap fails.'
 }
 if ($runtime -notmatch 'PlayerPerspectiveAPI\.TrySetSpectatorView\(initialView\)' -or
     $runtime -notmatch 'PlayerPerspectiveAPI\.TrySetSpectatorView\(player\)' -or
@@ -91,8 +115,7 @@ if ($hud -notmatch 'viewModel\.PropertyChanged \+= OnViewModelPropertyChanged' -
     $runtime -notmatch 'StopRenderIfIdle\(\);') {
     throw 'Briefing visibility must hide the bar and resume it via a detachable view-model event.'
 }
-if ($runtime -notmatch 'loadedFromSave = args\.FromSaveGame' -or
-    $runtime -notmatch 'loadedFromSave && TryRecognizeSavedSpectator\(state, out int view\)' -or
+if ($runtime -notmatch 'loadedFromSave && TryRecognizeSavedSpectator\(state, out int view\)' -or
     $runtime -notmatch 'saveRecoveryStage == 1' -or
     $runtime -notmatch 'saveRecoveryStage == 2' -or
     $runtime -notmatch 'EngineInterface\.GameAction\(Enums\.GameActionCommand\.SpectatorMode, 0, 0\)' -or

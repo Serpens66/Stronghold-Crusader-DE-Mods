@@ -10,6 +10,7 @@ namespace SpectatorPerspectiveTest
     [BepInPlugin("SpectatorPerspectiveTest_Serp", "Spectator Perspective Test", "0.1.0")]
     public sealed class SpectatorPerspectivePlugin : BaseUnityPlugin
     {
+        internal const string PluginGuid = "SpectatorPerspectiveTest_Serp";
         private static ManualLogSource log;
 
         private void Awake()
