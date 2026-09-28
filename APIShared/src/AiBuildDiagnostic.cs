@@ -5,6 +5,8 @@ using RedBird.Core.Memory;
 using RedBird.X64.Hooks.Transaction;
 using RedBird.Backends.NativeX64;
 using Iced.Intel;
+using SHCDESE.API;
+using SHCDESE.Interop;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
@@ -13,16 +15,174 @@ using System.Threading;
 namespace APIShared
 {
     // AIBuildDiagnoseTest BEGIN -- remove this file and its two project/bootstrap references together.
+    /// <summary>One copied native macro-connection record; no live pointer escapes the hook.</summary>
+    public sealed class AiRouteConnection
+    {
+        internal AiRouteConnection(int id, int active, int open, int connectionClass,
+            int owner, int buildingId, int a, int b, int c, int ownerToken, int gateFlag)
+        {
+            Id = id; Active = active; Open = open; ConnectionClass = connectionClass;
+            Owner = owner; BuildingId = buildingId; A = a; B = b; C = c;
+            OwnerToken = ownerToken; GateFlag = gateFlag;
+        }
+        /// <summary>Native connection record ID, from 1 through 199.</summary>
+        public int Id { get; }
+        /// <summary>Raw native active flag.</summary>
+        public int Active { get; }
+        /// <summary>Raw native enabled or open flag.</summary>
+        public int Open { get; }
+        /// <summary>Raw native connection class.</summary>
+        public int ConnectionClass { get; }
+        /// <summary>Raw owner or access player ID.</summary>
+        public int Owner { get; }
+        /// <summary>Native building game ID associated with the connection.</summary>
+        public int BuildingId { get; }
+        /// <summary>First path component endpoint.</summary>
+        public int A { get; }
+        /// <summary>Second path component endpoint.</summary>
+        public int B { get; }
+        /// <summary>Optional third path component endpoint.</summary>
+        public int C { get; }
+        /// <summary>Raw owner access value, or Int32.MinValue if unavailable.</summary>
+        public int OwnerToken { get; }
+        /// <summary>Raw 16-bit building gate flag, or Int32.MinValue if unavailable.</summary>
+        public int GateFlag { get; }
+    }
+
+    /// <summary>Read-only values sampled immediately before Vanilla's route query.</summary>
+    public sealed class AiRouteEvidence
+    {
+        internal AiRouteEvidence(string status, int x, int y, int sourceTile, int targetTile,
+            int sourceComponent, int targetComponent, int sourceNativeComponent,
+            int targetNativeComponent, int bypass, int playerToken,
+            AiRouteConnection[] connections)
+        {
+            Status = status; TileX = x; TileY = y; SourceTile = sourceTile;
+            TargetTile = targetTile; SourceComponent = sourceComponent;
+            TargetComponent = targetComponent; Bypass = bypass; PlayerToken = playerToken;
+            SourceNativeComponent = sourceNativeComponent;
+            TargetNativeComponent = targetNativeComponent;
+            Connections = Array.AsReadOnly(connections ?? new AiRouteConnection[0]);
+        }
+        /// <summary>Read status; ok means all audited input values were captured.</summary>
+        public string Status { get; }
+        /// <summary>Route target X coordinate.</summary>
+        public int TileX { get; }
+        /// <summary>Route target Y coordinate.</summary>
+        public int TileY { get; }
+        /// <summary>Native source keep tile index.</summary>
+        public int SourceTile { get; }
+        /// <summary>Native target tile index.</summary>
+        public int TargetTile { get; }
+        /// <summary>Source tile path component.</summary>
+        public int SourceComponent { get; }
+        /// <summary>Target tile path component.</summary>
+        public int TargetComponent { get; }
+        /// <summary>Direct native-grid value for the keep tile.</summary>
+        public int SourceNativeComponent { get; }
+        /// <summary>Direct native-grid value for the target tile.</summary>
+        public int TargetNativeComponent { get; }
+        /// <summary>Audited Vanilla route mode at the 0xC3BF0 call site.</summary>
+        public int QueryMode => 0;
+        /// <summary>Raw mapper route bypass flag.</summary>
+        public int Bypass { get; }
+        /// <summary>Raw 32-bit native player access value.</summary>
+        public int PlayerToken { get; }
+        /// <summary>Copies of native connection records 1 through 199.</summary>
+        public IReadOnlyList<AiRouteConnection> Connections { get; }
+    }
+
+    /// <summary>One copied path-component measurement from both audited views.</summary>
+    public sealed class AiPathTileSample
+    {
+        internal AiPathTileSample(int x, int y, int tileId, int nativeComponent,
+            int apiComponent, string status)
+        {
+            X = x; Y = y; TileId = tileId; NativeComponent = nativeComponent;
+            ApiComponent = apiComponent; Status = status;
+        }
+        /// <summary>Map X coordinate.</summary>
+        public int X { get; }
+        /// <summary>Map Y coordinate.</summary>
+        public int Y { get; }
+        /// <summary>Packed native tile ID, or minus one when unavailable.</summary>
+        public int TileId { get; }
+        /// <summary>Component read directly from the native grid.</summary>
+        public int NativeComponent { get; }
+        /// <summary>Component read through the Script Extender grid view.</summary>
+        public int ApiComponent { get; }
+        /// <summary>Whether this tile could be sampled.</summary>
+        public string Status { get; }
+    }
+
+    /// <summary>Copied anchor neighborhood and exact 3x3 building footprint.</summary>
+    public sealed class AiNearbyPathEvidence
+    {
+        internal AiNearbyPathEvidence(string status, int inputX, int inputY,
+            int resultX, int resultY, AiPathTileSample[] anchors,
+            AiPathTileSample[] footprint)
+        {
+            Status = status; InputX = inputX; InputY = inputY;
+            ResultX = resultX; ResultY = resultY;
+            Anchors = Array.AsReadOnly(anchors ?? new AiPathTileSample[0]);
+            Footprint = Array.AsReadOnly(footprint ?? new AiPathTileSample[0]);
+        }
+        /// <summary>Whether the neighborhood could be sampled.</summary>
+        public string Status { get; }
+        /// <summary>Input coarse X coordinate.</summary>
+        public int InputX { get; }
+        /// <summary>Input coarse Y coordinate.</summary>
+        public int InputY { get; }
+        /// <summary>Result coarse X coordinate, or minus one before the search.</summary>
+        public int ResultX { get; }
+        /// <summary>Result coarse Y coordinate, or minus one before the search.</summary>
+        public int ResultY { get; }
+        /// <summary>Five by five coarse-cell anchors centered on the search input.</summary>
+        public IReadOnlyList<AiPathTileSample> Anchors { get; }
+        /// <summary>Exact three by three tile footprint at the search result.</summary>
+        public IReadOnlyList<AiPathTileSample> Footprint { get; }
+    }
+
+    /// <summary>One call observed through BugfixesAndQoL's existing E2610 detour.</summary>
+    public sealed class AiNearbyRegionEvidence
+    {
+        internal AiNearbyRegionEvidence(int source, int target, int mode,
+            int vanillaResult, int effectiveResult)
+        {
+            Source = source; Target = target; Mode = mode;
+            VanillaResult = vanillaResult; EffectiveResult = effectiveResult;
+        }
+        /// <summary>Source path component passed to the existing native hook.</summary>
+        public int Source { get; }
+        /// <summary>Destination path component passed to the existing native hook.</summary>
+        public int Target { get; }
+        /// <summary>Native path-connection query mode.</summary>
+        public int Mode { get; }
+        /// <summary>Unmodified return from the original native function.</summary>
+        public int VanillaResult { get; }
+        /// <summary>Return delivered by the existing BugfixesAndQoL hook.</summary>
+        public int EffectiveResult { get; }
+    }
+
     /// <summary>Read-only evidence from the native AI construction path.</summary>
     public sealed class AiBuildDiagnosticRecord
     {
         /// <summary>Creates a read-only diagnostic record.</summary>
         public AiBuildDiagnosticRecord(string stage, int playerId, long attemptId, long a, long b, long c, long d)
+            : this(stage, playerId, attemptId, a, b, c, d, null) { }
+
+        internal AiBuildDiagnosticRecord(string stage, int playerId, long attemptId,
+            long a, long b, long c, long d, AiRouteEvidence routeEvidence,
+            AiNearbyPathEvidence nearbyPathEvidence = null,
+            AiNearbyRegionEvidence nearbyRegionEvidence = null)
         {
             Stage = stage;
             PlayerId = playerId;
             AttemptId = attemptId;
             A = a; B = b; C = c; D = d;
+            RouteEvidence = routeEvidence;
+            NearbyPathEvidence = nearbyPathEvidence;
+            NearbyRegionEvidence = nearbyRegionEvidence;
         }
         /// <summary>Native observation stage.</summary>
         public string Stage { get; }
@@ -38,6 +198,12 @@ namespace APIShared
         public long C { get; }
         /// <summary>Stage-specific fourth value.</summary>
         public long D { get; }
+        /// <summary>Copied route inputs and macro-connections, when Stage is route-evidence.</summary>
+        public AiRouteEvidence RouteEvidence { get; }
+        /// <summary>Copied nearby-search path samples, when present.</summary>
+        public AiNearbyPathEvidence NearbyPathEvidence { get; }
+        /// <summary>Copied nearby-search region call, when present.</summary>
+        public AiNearbyRegionEvidence NearbyRegionEvidence { get; }
     }
 
     /// <summary>Optional process-lifetime AI construction observer. Inert without registration.</summary>
@@ -61,6 +227,7 @@ namespace APIShared
         private static RouteService route;
         private static long nextAttemptId;
         [ThreadStatic] private static Stack<WoodAttempt> woodAttempts;
+        [ThreadStatic] private static int nearbySearchPlayer;
         private static long moduleBase;
         private static string nativeHash;
         private static ScanRegion region;
@@ -129,6 +296,7 @@ namespace APIShared
                     Marshal.Copy(new IntPtr(checked(moduleBase + RouteRva)), routeBytes, 0, routeBytes.Length);
                     if (!string.Equals(ApiSharedRuntime.ComputeSha256(routeBytes), RouteHash, StringComparison.OrdinalIgnoreCase))
                         throw new InvalidOperationException("Route function hash differs from the audited build.");
+                    ValidateRouteLayout();
                     ValidateEntry(routeBytes, RouteRva, RouteDisplacedBytes);
                     ProbeRouteBackend(unchecked((ulong)moduleBase) + RouteRva);
                     var routeCandidate = new RouteService();
@@ -157,6 +325,119 @@ namespace APIShared
                 currentPlayer == playerId ? currentId : 0;
             try { target(new AiBuildDiagnosticRecord(stage, playerId, attemptId, a, b, c, d)); }
             catch (Exception ex) { NativeApiLog.Error(log, "AI diagnostic observer failed: " + ex); }
+        }
+
+        private static void PublishRouteEvidence(int playerId, AiRouteEvidence evidence)
+        {
+            Action<AiBuildDiagnosticRecord> target = Volatile.Read(ref observer);
+            if (target == null) return;
+            long attemptId = TryGetCurrentWoodAttempt(out long currentId, out int currentPlayer) &&
+                currentPlayer == playerId ? currentId : 0;
+            try
+            {
+                target(new AiBuildDiagnosticRecord("route-evidence", playerId, attemptId,
+                    evidence.SourceComponent, evidence.TargetComponent,
+                    evidence.SourceTile, evidence.TargetTile, evidence));
+            }
+            catch (Exception ex) { NativeApiLog.Error(log, "AI route evidence observer failed: " + ex); }
+        }
+
+        /// <summary>Marks the existing synchronous nearby-search call for the shared E2610 observer.</summary>
+        public static int BeginNearbySearch(int playerId)
+        {
+            int previous = nearbySearchPlayer;
+            nearbySearchPlayer = HasObserver &&
+                TryGetCurrentWoodAttempt(out long id, out int owner) && owner == playerId
+                    ? playerId : 0;
+            return previous;
+        }
+
+        /// <summary>Restores the previous synchronous nearby-search context.</summary>
+        public static void EndNearbySearch(int previousPlayer) => nearbySearchPlayer = previousPlayer;
+
+        /// <summary>Whether this player is inside the observed wood nearby search.</summary>
+        public static bool IsNearbySearchActive(int playerId) => HasObserver &&
+            nearbySearchPlayer == playerId &&
+            TryGetCurrentWoodAttempt(out long id, out int owner) && owner == playerId;
+
+        /// <summary>Publishes only calls made inside the marked wood nearby search.</summary>
+        public static void PublishNearbyRegionResult(int playerId, int source, int targetComponent,
+            int mode, int vanillaResult, int effectiveResult)
+        {
+            if (!IsNearbySearchActive(playerId)) return;
+            Action<AiBuildDiagnosticRecord> recipient = Volatile.Read(ref observer);
+            if (recipient == null || !TryGetCurrentWoodAttempt(out long id, out int owner)) return;
+            try
+            {
+                var evidence = new AiNearbyRegionEvidence(source, targetComponent, mode,
+                    vanillaResult, effectiveResult);
+                recipient(new AiBuildDiagnosticRecord("near-region-result", playerId, id,
+                    source, targetComponent, vanillaResult, effectiveResult, null, null, evidence));
+            }
+            catch (Exception ex) { NativeApiLog.Error(log, "AI nearby region observer failed: " + ex); }
+        }
+
+        /// <summary>Copies path labels before or after Vanilla's existing nearby search.</summary>
+        public static void PublishNearbyPathEvidence(string stage, int playerId,
+            int inputX, int inputY, int resultX, int resultY)
+        {
+            Action<AiBuildDiagnosticRecord> recipient = Volatile.Read(ref observer);
+            if (recipient == null || !TryGetCurrentWoodAttempt(out long id, out int owner) ||
+                owner != playerId) return;
+            AiNearbyPathEvidence evidence;
+            try { evidence = CaptureNearbyPathEvidence(inputX, inputY, resultX, resultY); }
+            catch (Exception ex)
+            {
+                NativeApiLog.Error(log, "AI nearby path capture failed: " + ex);
+                evidence = new AiNearbyPathEvidence("capture-exception:" + ex.GetType().Name,
+                    inputX, inputY, resultX, resultY,
+                    new AiPathTileSample[0], new AiPathTileSample[0]);
+            }
+            try
+            {
+                recipient(new AiBuildDiagnosticRecord(stage, playerId, id,
+                    inputX, inputY, resultX, resultY, null, evidence));
+            }
+            catch (Exception ex) { NativeApiLog.Error(log, "AI nearby path observer failed: " + ex); }
+        }
+
+        private static AiNearbyPathEvidence CaptureNearbyPathEvidence(int inputX, int inputY,
+            int resultX, int resultY)
+        {
+            Span<ushort> grid = GamePathingManagerAPI.Instance.GetPathComponentGrid();
+            if (grid.Length != 320800 || moduleBase == 0)
+                return new AiNearbyPathEvidence("path-grid-unavailable:" + grid.Length,
+                    inputX, inputY, resultX, resultY,
+                    new AiPathTileSample[0], new AiPathTileSample[0]);
+            var anchors = new AiPathTileSample[25];
+            int index = 0;
+            for (int dx = -2; dx <= 2; dx++)
+                for (int dy = -2; dy <= 2; dy++)
+                    anchors[index++] = SamplePathTile((inputX + dx) * 5,
+                        (inputY + dy) * 5, grid);
+            AiPathTileSample[] footprint = resultX >= 0 && resultY >= 0
+                ? new AiPathTileSample[9] : new AiPathTileSample[0];
+            index = 0;
+            for (int dx = 0; dx < 3 && footprint.Length != 0; dx++)
+                for (int dy = 0; dy < 3; dy++)
+                    footprint[index++] = SamplePathTile(resultX * 5 + dx,
+                        resultY * 5 + dy, grid);
+            return new AiNearbyPathEvidence("ok", inputX, inputY, resultX, resultY,
+                anchors, footprint);
+        }
+
+        private static AiPathTileSample SamplePathTile(int x, int y, Span<ushort> grid)
+        {
+            if (x < 0 || x >= 800 || y < 0 || y >= 800 ||
+                !GameTileManagerAPI.Instance.IsTileInsideMapBounds(x, y))
+                return new AiPathTileSample(x, y, -1, -1, -1, "outside-map");
+            int tileId = Marshal.ReadInt32(new IntPtr(checked(moduleBase + 0x402FF2C +
+                (long)y * 12))) + x;
+            if ((uint)tileId >= (uint)grid.Length)
+                return new AiPathTileSample(x, y, tileId, -1, -1, "tile-id-out-of-range");
+            int nativeComponent = (ushort)Marshal.ReadInt16(new IntPtr(checked(
+                moduleBase + 0x50EC690 + (long)tileId * 2)));
+            return new AiPathTileSample(x, y, tileId, nativeComponent, grid[tileId], "ok");
         }
 
         /// <summary>Enters the synchronous Vanilla wood call; zero means diagnostics are absent.</summary>
@@ -302,39 +583,90 @@ namespace APIShared
             {
                 bool observe = mapperIndex == 3 &&
                     TryGetCurrentWoodAttempt(out long id, out int owner) && owner == playerId && HasObserver;
+                AiRouteEvidence evidence = null;
                 if (observe)
                 {
-                    try { PublishRouteComponents(playerId, mapperIndex, tileX, tileY); }
-                    catch (Exception ex) { NativeApiLog.Error(log, "AI route component observation failed: " + ex); }
+                    try { evidence = CaptureRouteEvidence(playerId, mapperIndex, tileX, tileY); }
+                    catch (Exception ex)
+                    {
+                        NativeApiLog.Error(log, "AI route evidence capture failed: " + ex);
+                        evidence = Unavailable("capture-exception:" + ex.GetType().Name,
+                            tileX, tileY, -1, -1);
+                    }
                 }
                 int result = hook.Original(manager, playerId, mapperIndex, tileX, tileY);
                 if (observe)
                 {
-                    try { Publish("route-result", playerId, result, mapperIndex, tileX, tileY); }
+                    try
+                    {
+                        PublishRouteEvidence(playerId, evidence);
+                        Publish("route-result", playerId, result, mapperIndex, tileX, tileY);
+                    }
                     catch (Exception ex) { NativeApiLog.Error(log, "AI route result observation failed: " + ex); }
                 }
                 return result;
             }
 
-            private static void PublishRouteComponents(int playerId, int mapperIndex, int tileX, int tileY)
+            private static AiRouteEvidence Unavailable(string status, int x, int y,
+                int sourceTile, int targetTile) =>
+                new AiRouteEvidence(status, x, y, sourceTile, targetTile,
+                    -1, -1, -1, -1, -1, -1, new AiRouteConnection[0]);
+
+            private static unsafe AiRouteEvidence CaptureRouteEvidence(int playerId,
+                int mapperIndex, int tileX, int tileY)
             {
                 // Audit: 0xC3BF0 reads the player's keep tile and the target tile through
-                // the 320800-entry PCL grid; these are the exact inputs to its route test.
-                if (playerId < 1 || playerId > 8 || tileX < 0 || tileX >= 800 ||
-                    tileY < 0 || tileY >= 400) return;
+                // the 320800-entry PCL grid. The map's XY raster is 800 by 800.
+                if (playerId < 1 || playerId > 8)
+                    return Unavailable("invalid-player", tileX, tileY, -1, -1);
+                if (tileX < 0 || tileX >= 800 || tileY < 0 || tileY >= 800)
+                    return Unavailable("outside-800-raster", tileX, tileY, -1, -1);
+                if (!GameTileManagerAPI.Instance.IsTileInsideMapBounds(tileX, tileY))
+                    return Unavailable("outside-playable-diamond", tileX, tileY, -1, -1);
+                Span<ushort> grid = GamePathingManagerAPI.Instance.GetPathComponentGrid();
+                if (grid.Length != 320800)
+                    return Unavailable("path-grid-capacity:" + grid.Length, tileX, tileY, -1, -1);
                 int sourceTile = Marshal.ReadInt32(new IntPtr(checked(moduleBase + 0x379AFB0 +
                     (long)playerId * PlayerStride)));
                 int targetTile = Marshal.ReadInt32(new IntPtr(checked(moduleBase + 0x402FF2C +
                     (long)tileY * 12))) + tileX;
-                if (sourceTile < 0 || sourceTile >= 320800 || targetTile < 0 || targetTile >= 320800)
+                if ((uint)sourceTile >= (uint)grid.Length ||
+                    (uint)targetTile >= (uint)grid.Length)
+                    return Unavailable("tile-id-outside-path-grid", tileX, tileY, sourceTile, targetTile);
+                int source = grid[sourceTile];
+                int target = grid[targetTile];
+                int sourceNative = (ushort)Marshal.ReadInt16(new IntPtr(checked(
+                    moduleBase + 0x50EC690 + (long)sourceTile * 2)));
+                int targetNative = (ushort)Marshal.ReadInt16(new IntPtr(checked(
+                    moduleBase + 0x50EC690 + (long)targetTile * 2)));
+                int bypass = Marshal.ReadInt32(new IntPtr(checked(moduleBase + 0x2E4FE0 + mapperIndex * 4L)));
+                int playerToken = Marshal.ReadInt32(new IntPtr(checked(moduleBase + 0x37EDF3C +
+                    playerId * 4L)));
+                var connections = new AiRouteConnection[199];
+                int buildingCapacity = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan().Length;
+                GamePathingManagerAPI pathing = GamePathingManagerAPI.Instance;
+                for (int recordId = 1; recordId <= 199; recordId++)
                 {
-                    Publish("route-component-unavailable", playerId, sourceTile, targetTile);
-                    return;
+                    if (!pathing.TryGetPathConnectionRecordById(recordId, out PathConnectionRecord* record) ||
+                        record == null)
+                        return Unavailable("connection-record-unavailable:" + recordId,
+                            tileX, tileY, sourceTile, targetTile);
+                    int owner = record->r_OwnerOrAccessPlayerId;
+                    int ownerToken = owner >= 0 && owner <= 8
+                        ? Marshal.ReadInt32(new IntPtr(checked(moduleBase + 0x37EDF3C +
+                            owner * 4L))) : int.MinValue;
+                    int buildingId = record->r_BuildingId;
+                    int gateFlag = buildingId >= 0 && buildingId < buildingCapacity
+                        ? Marshal.ReadInt16(new IntPtr(checked(moduleBase + 0x64CCED2 +
+                            (long)buildingId * 0x32C))) : int.MinValue;
+                    connections[recordId - 1] = new AiRouteConnection(recordId,
+                        record->r_IsActive, record->r_IsEnabledOrOpen,
+                        (int)record->r_ConnectionClass, owner, buildingId,
+                        record->r_PathComponentA, record->r_PathComponentB,
+                        record->r_PathComponentC, ownerToken, gateFlag);
                 }
-                long grid = checked(moduleBase + 0x50EC690);
-                int source = (ushort)Marshal.ReadInt16(new IntPtr(grid + sourceTile * 2L));
-                int target = (ushort)Marshal.ReadInt16(new IntPtr(grid + targetTile * 2L));
-                Publish("route-components", playerId, source, target, sourceTile, targetTile);
+                return new AiRouteEvidence("ok", tileX, tileY, sourceTile, targetTile,
+                    source, target, sourceNative, targetNative, bypass, playerToken, connections);
             }
         }
 
@@ -353,6 +685,20 @@ namespace APIShared
             }
             if (length != displaced)
                 throw new InvalidOperationException("Diagnostic indirect displacement differs from audit.");
+        }
+
+        private static void ValidateRouteLayout()
+        {
+            if (Marshal.SizeOf(typeof(PathConnectionRecord)) != 0x204 ||
+                Marshal.OffsetOf(typeof(PathConnectionRecord), nameof(PathConnectionRecord.r_IsActive)).ToInt32() != 0 ||
+                Marshal.OffsetOf(typeof(PathConnectionRecord), nameof(PathConnectionRecord.r_ConnectionClass)).ToInt32() != 4 ||
+                Marshal.OffsetOf(typeof(PathConnectionRecord), nameof(PathConnectionRecord.r_BuildingId)).ToInt32() != 0x0C ||
+                Marshal.OffsetOf(typeof(PathConnectionRecord), nameof(PathConnectionRecord.r_IsEnabledOrOpen)).ToInt32() != 0x18 ||
+                Marshal.OffsetOf(typeof(PathConnectionRecord), nameof(PathConnectionRecord.r_PathComponentA)).ToInt32() != 0x34 ||
+                Marshal.OffsetOf(typeof(PathConnectionRecord), nameof(PathConnectionRecord.r_PathComponentB)).ToInt32() != 0x38 ||
+                Marshal.OffsetOf(typeof(PathConnectionRecord), nameof(PathConnectionRecord.r_OwnerOrAccessPlayerId)).ToInt32() != 0x1E4 ||
+                Marshal.OffsetOf(typeof(PathConnectionRecord), nameof(PathConnectionRecord.r_PathComponentC)).ToInt32() != 0x1E8)
+                throw new InvalidOperationException("Path connection layout differs from the audited native record.");
         }
 
         private static void ProbeRouteBackend(ulong entry)

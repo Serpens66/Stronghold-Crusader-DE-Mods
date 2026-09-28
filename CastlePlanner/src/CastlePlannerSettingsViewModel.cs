@@ -62,7 +62,12 @@ namespace CastlePlanner
         private bool castleCatalogLoaded;
         private Task<CatalogLoadResult> castleCatalogTask;
         private DateTime nextCatalogRetryUtc;
-        private KeyCode blueprintHotkey;
+        private const int HotkeyKeyMask = 0xffff;
+        private const int HotkeyAltMask = 1 << 16;
+        private const int HotkeyControlMask = 1 << 17;
+        private const int HotkeyShiftMask = 1 << 18;
+        private const int HotkeyModifierMask = HotkeyAltMask | HotkeyControlMask | HotkeyShiftMask;
+        private int blueprintHotkey;
         private double blueprintIconScale;
         private double blueprintIconAlpha;
         private bool isCapturingHotkey;
@@ -105,7 +110,7 @@ namespace CastlePlanner
                     nameof(pluginAssemblyLocation));
             }
 
-            blueprintHotkey = KeyCode.None;
+            blueprintHotkey = (int)KeyCode.None;
             blueprintIconScale = 1.0;
             blueprintIconAlpha = 0.3;
 
@@ -567,8 +572,8 @@ namespace CastlePlanner
         [Shared.PresetLocal]
         public int BlueprintHotkey
         {
-            get => (int)blueprintHotkey;
-            set => SetHotkey(NormalizeKeyCode(value));
+            get => blueprintHotkey;
+            set => SetHotkey(NormalizeHotkey(value));
         }
 
         [Shared.PresetLocal]
@@ -612,9 +617,12 @@ namespace CastlePlanner
             BlueprintIconAlpha.ToString("0.00");
 
         public string HotkeyDisplayText =>
-            blueprintHotkey == KeyCode.None
+            BlueprintHotkeyCode == KeyCode.None
                 ? SerpLocalization.Get("CastlePlanner.NotAssigned")
-                : GetKeyDisplayName(blueprintHotkey);
+                : (BlueprintHotkeyControl ? "Ctrl+" : string.Empty) +
+                  (BlueprintHotkeyAlt ? "Alt+" : string.Empty) +
+                  (BlueprintHotkeyShift ? "Shift+" : string.Empty) +
+                  GetKeyDisplayName(BlueprintHotkeyCode);
 
         public string HotkeyCaptureButtonText =>
             isCapturingHotkey
@@ -624,7 +632,10 @@ namespace CastlePlanner
         public bool IsCapturingHotkey => isCapturingHotkey;
         public bool IsBlueprintMode => enableClientFeatures && blueprints;
         public bool IsSpawnMode => enableMod && spawnCastle;
-        internal KeyCode BlueprintHotkeyCode => blueprintHotkey;
+        internal KeyCode BlueprintHotkeyCode => (KeyCode)(blueprintHotkey & HotkeyKeyMask);
+        internal bool BlueprintHotkeyAlt => (blueprintHotkey & HotkeyAltMask) != 0;
+        internal bool BlueprintHotkeyControl => (blueprintHotkey & HotkeyControlMask) != 0;
+        internal bool BlueprintHotkeyShift => (blueprintHotkey & HotkeyShiftMask) != 0;
         internal float BlueprintIconScaleValue => (float)blueprintIconScale;
         internal float BlueprintIconAlphaValue => (float)blueprintIconAlpha;
 
@@ -835,10 +846,26 @@ namespace CastlePlanner
             }
         }
 
-        internal void CompleteHotkeyCapture(KeyCode key)
+        internal bool CompleteHotkeyCapture(KeyCode key, bool alt, bool control, bool shift)
         {
+            if (!isCapturingHotkey)
+                return false;
+            if (key == KeyCode.Escape)
+            {
+                SetCaptureState(false);
+                return true;
+            }
+            if (!IsMainHotkey(key))
+                return false;
+            int modifiers = (alt ? HotkeyAltMask : 0) |
+                            (control ? HotkeyControlMask : 0) |
+                            (shift ? HotkeyShiftMask : 0);
+            if ((modifiers & (modifiers - 1)) != 0)
+                return false;
+
             SetCaptureState(false);
-            SetHotkey(key);
+            SetHotkey((int)key | modifiers);
+            return true;
         }
 
         private void CaptureNoesisHotkeyInput(object parameter)
@@ -866,13 +893,17 @@ namespace CastlePlanner
             }
 
             routedArgs.Handled = true;
-            if (KeyManager.instance != null)
-                KeyManager.instance.HotKeySelectorMode = false;
-            CompleteHotkeyCapture(key);
-            Shared.DebugLogHelper.LogInfo(
-                log,
-                $"Blueprint hotkey captured directly from Noesis: " +
-                $"key={key}, value={(int)key}.");
+            bool alt = Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt);
+            bool control = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
+            bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+            if (routedArgs.Source is Noesis.UIElement source && source.Keyboard != null)
+            {
+                Noesis.ModifierKeys held = source.Keyboard.Modifiers;
+                alt = (held & Noesis.ModifierKeys.Alt) != 0;
+                control = (held & Noesis.ModifierKeys.Control) != 0;
+                shift = (held & Noesis.ModifierKeys.Shift) != 0;
+            }
+            CompleteHotkeyCapture(key, alt, control, shift);
         }
 
         private void BeginHotkeyCapture()
@@ -881,12 +912,12 @@ namespace CastlePlanner
             HotkeyCaptureRequested?.Invoke();
         }
 
+        internal void CancelHotkeyCapture() => SetCaptureState(false);
+
         private void ClearHotkey()
         {
             SetCaptureState(false);
-            if (KeyManager.instance != null)
-                KeyManager.instance.HotKeySelectorMode = false;
-            SetHotkey(KeyCode.None);
+            SetHotkey((int)KeyCode.None);
         }
 
         private static bool TryMapNoesisMouseButton(
@@ -1041,7 +1072,7 @@ namespace CastlePlanner
             OnPropertyChanged(nameof(HotkeyCaptureButtonText));
         }
 
-        private void SetHotkey(KeyCode key)
+        private void SetHotkey(int key)
         {
             if (blueprintHotkey == key)
                 return;
@@ -1051,7 +1082,7 @@ namespace CastlePlanner
             OnPropertyChanged(nameof(HotkeyDisplayText));
             Shared.DebugLogHelper.LogInfo(
                 log,
-                $"Blueprint toggle hotkey changed to '{HotkeyDisplayText}' ({(int)blueprintHotkey}).");
+                $"Blueprint toggle hotkey changed to '{HotkeyDisplayText}' ({blueprintHotkey}).");
         }
 
         private string NormalizeCastle(string value, string fallback)
@@ -1081,12 +1112,25 @@ namespace CastlePlanner
             return fallback;
         }
 
-        private static KeyCode NormalizeKeyCode(int value)
+        private static int NormalizeHotkey(int value)
         {
-            return Enum.IsDefined(typeof(KeyCode), value)
-                ? (KeyCode)value
-                : KeyCode.None;
+            if (value == 0)
+                return 0;
+            KeyCode key = (KeyCode)(value & HotkeyKeyMask);
+            int modifiers = value & HotkeyModifierMask;
+            return (value & ~(HotkeyKeyMask | HotkeyModifierMask)) == 0 &&
+                   IsMainHotkey(key) &&
+                   (modifiers & (modifiers - 1)) == 0
+                ? value
+                : 0;
         }
+
+        internal static bool IsMainHotkey(KeyCode key) =>
+            key != KeyCode.None &&
+            key != KeyCode.LeftAlt && key != KeyCode.RightAlt &&
+            key != KeyCode.LeftControl && key != KeyCode.RightControl &&
+            key != KeyCode.LeftShift && key != KeyCode.RightShift &&
+            Enum.IsDefined(typeof(KeyCode), key);
 
         private static double NormalizeIconScale(double value)
         {

@@ -5303,7 +5303,8 @@ namespace BugfixesAndQoL
                     vanillaResult,
                     out int ladderResult))
             {
-                return ladderResult;
+                return ReportNearbyRegionResult(movementClass, sourceRegion,
+                    targetRegion, routeKind, vanillaResult, ladderResult);
             }
             // E2610 uses argument 2 as player ID. Keep the established delegate ABI/name, but
             // pass the value to the work selector according to the confirmed native semantics.
@@ -5311,14 +5312,16 @@ namespace BugfixesAndQoL
                     pathManager, movementClass, sourceRegion, targetRegion, routeKind,
                     vanillaResult))
             {
-                return 1;
+                return ReportNearbyRegionResult(movementClass, sourceRegion,
+                    targetRegion, routeKind, vanillaResult, 1);
             }
             if (TryAllowDirectCursorMoveRegionPair(
                     pathManager, movementClass, sourceRegion, targetRegion, vanillaResult) ||
                 TryAllowDirectFillRegionPair(
                     pathManager, movementClass, sourceRegion, targetRegion, vanillaResult))
             {
-                return 1;
+                return ReportNearbyRegionResult(movementClass, sourceRegion,
+                    targetRegion, routeKind, vanillaResult, 1);
             }
             MoveCommandScope moveCommand = activeMoveCommand;
             if (moveCommand != null && pathManager == nativePathManager)
@@ -5346,7 +5349,8 @@ namespace BugfixesAndQoL
             }
             AttackApproachDiagnosticScope scope = activeAttackApproachDiagnostic;
             if (scope == null || disposed)
-                return vanillaResult;
+                return ReportNearbyRegionResult(movementClass, sourceRegion,
+                    targetRegion, routeKind, vanillaResult, vanillaResult);
 
             try
             {
@@ -5387,7 +5391,8 @@ namespace BugfixesAndQoL
                     }
 
                     if (decision.Allowed)
-                        return 1;
+                        return ReportNearbyRegionResult(movementClass, sourceRegion,
+                            targetRegion, routeKind, vanillaResult, 1);
                 }
                 else if (vanillaResult == 0 &&
                     scope.Kind == AttackApproachKind.BuildingApproach &&
@@ -5439,15 +5444,28 @@ namespace BugfixesAndQoL
                     }
 
                     if (decision.Allowed)
-                        return 1;
+                        return ReportNearbyRegionResult(movementClass, sourceRegion,
+                            targetRegion, routeKind, vanillaResult, 1);
                 }
             }
             catch (Exception ex)
             {
                 TryLogDiagnosticFailure("scoped-region-pair", ex);
             }
-            return vanillaResult;
+            return ReportNearbyRegionResult(movementClass, sourceRegion,
+                targetRegion, routeKind, vanillaResult, vanillaResult);
         }
+
+        // AIBuildDiagnoseTest BEGIN -- observer only; this function's return remains unchanged.
+        private static int ReportNearbyRegionResult(int playerId, int source, int target,
+            int mode, int vanillaResult, int effectiveResult)
+        {
+            if (APIShared.AiBuildDiagnostic.IsNearbySearchActive(playerId))
+                APIShared.AiBuildDiagnostic.PublishNearbyRegionResult(playerId, source,
+                    target, mode, vanillaResult, effectiveResult);
+            return effectiveResult;
+        }
+        // AIBuildDiagnoseTest END
 
         private AttackRegionFallbackDecision EvaluateAttackUnitRegionFallback(
             AttackApproachDiagnosticScope scope,

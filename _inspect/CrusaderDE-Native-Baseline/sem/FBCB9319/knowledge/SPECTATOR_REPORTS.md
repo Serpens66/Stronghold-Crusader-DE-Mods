@@ -21,6 +21,15 @@ Managed `Assembly-CSharp.dll` inspected with SHA-256 `BC8B6A395F01D48557DB413600
 
 These contracts were checked statically against the installed files. Behavior of the added testmod's report navigation and data freshness still requires an in-game test after installation.
 
+## Loading a spectator save
+
+- `DLL_GameAction` RVA `0x81870` (confirmed export) handles `SpectatorMode` (`0x431`) by setting the process-local `DAT_183666080` flag to one. `FUN_18019d960` RVA `0x19D960` (candidate name, confirmed report-buffer flow) copies that flag to `PlayState.spectatorMode` at byte offset `0xB12`. The flag also controls `DLL_RunTick` RVA `0x86680` (confirmed) input suppression.
+- The reset path `FUN_1800087d0` RVA `0x87D0` (candidate name) clears the flag. `DLL_LoadSaveGame` RVA `0x853F0` (confirmed) enters this reset path before creating the loaded `PlayState`; its visible save-reader path does not restore the flag. The reader at RVA `0x24B70` (candidate name) restores the native view index from save field `0x1D` but has no writer to the spectator flag. This explains a loaded spectator save reporting `spectatorMode=0` until the local action is issued again.
+- In the non-editor branch, `DLL_LoadSaveGame` converts native view index zero to one. If the chosen view has no CPU registration, it writes exactly `1` into that slot's human registration. Thus a single apparent human at the restored view can be synthetic. `retData+0x3C` carries the resulting one-based view index to managed loading, which assigns `EditorDirector` a positive local ID. `EditorDirector.SetLocalPlayer(-1)` changes only that managed ID; the native view remains separate.
+- Automatic recovery must require independent CPU-only roster evidence and reject genuine human members. The concrete loaded-save roster and later report values still require an in-game test.
+- Managed `Platform_Multiplayer.createLoadedSkirmishMembers` creates eight placeholder `MPGameMember` objects for a local save and does not set `skirmishAI` on them. Their count and `skirmishAI` values therefore cannot prove the saved player roster. The native `PlayState` computer and human registration arrays are the usable post-load roster; a lone synthetic human is indistinguishable from a real human in a matching slot without independent save provenance and must remain unrecognized.
+- The 2026-09-29 load of `test_canari_nowoodcutters.sav` had no Script Extender archive and reached the ambiguous human-or-synthetic case. That save offers no mod identity marker. The installed `ModSaveDataAPI` writes registered bytes to an on-demand archive at save time; after its second archive load pass and before `OnPostLoad`, the active archive contains the loaded entry. A future spectator save can therefore carry independent provenance without changing Vanilla's native save fields.
+
 ## Ally panel and spectator commands
 
 The installed native hash remains `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`; the installed managed Assembly-CSharp hash is `BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789`.

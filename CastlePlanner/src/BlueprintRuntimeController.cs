@@ -4,6 +4,7 @@ using MonoMod.RuntimeDetour;
 using R3;
 using SHCDESE.API;
 using SHCDESE.EventAPI;
+using SHCDESE.EventAPI.Input;
 using SHCDESE.EventAPI.MapLoader;
 using SHCDESE.GameGlobals;
 using SHCDESE.Interop;
@@ -21,7 +22,11 @@ namespace CastlePlanner
         private delegate void CameraUpdateDelegate(CameraControls2D self);
 
         private const float ViewSettleDelaySeconds = 0.5f;
-        private static readonly KeyCode[] SupportedKeys = CreateSupportedKeys();
+        private static readonly KeyCode[] CaptureMouseButtons =
+        {
+            KeyCode.Mouse0, KeyCode.Mouse1, KeyCode.Mouse2,
+            KeyCode.Mouse3, KeyCode.Mouse4, KeyCode.Mouse5, KeyCode.Mouse6
+        };
         private readonly List<IDisposable> subscriptions =
             new List<IDisposable>();
         private readonly HashSet<KeyCode> hotkeyCaptureIgnoredKeys =
@@ -94,6 +99,7 @@ namespace CastlePlanner
             settings.BlueprintContentSettingsChanged +=
                 OnBlueprintContentSettingsChanged;
             settings.HotkeyCaptureRequested += OnHotkeyCaptureRequested;
+            subscriptions.Add(InputR3EventHooks.OnKeyDown.Observable.Subscribe(OnKeyDown));
             preview.SelectionVisualChanged += OnPreviewSelectionChanged;
             Shared.GameplayModActivationGate.StateChanged += OnModeStateChanged;
             subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(
@@ -279,7 +285,10 @@ namespace CastlePlanner
                 hotkey != KeyCode.None &&
                 layout != null &&
                 CanUseGameplayHotkeys() &&
-                Input.GetKeyDown(hotkey))
+                Input.GetKeyDown(hotkey) &&
+                (Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt)) == settings.BlueprintHotkeyAlt &&
+                (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl)) == settings.BlueprintHotkeyControl &&
+                (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift)) == settings.BlueprintHotkeyShift)
             {
                 ToggleBlueprint();
             }
@@ -438,26 +447,54 @@ namespace CastlePlanner
             hotkeyCaptureStartFrame = Time.frameCount;
             hotkeyCaptureIgnoredKeys.Clear();
 
-            // Remember keys already held by the settings click. State polling is
-            // reliable while Noesis owns keyboard focus, unlike GetKeyDown().
-            foreach (KeyCode key in SupportedKeys)
+            // Ignore mouse buttons already held by the click that opened capture.
+            foreach (KeyCode key in CaptureMouseButtons)
             {
                 if (TryGetKey(key, out bool pressed) && pressed)
                     hotkeyCaptureIgnoredKeys.Add(key);
             }
 
-            if (KeyManager.instance != null)
-                KeyManager.instance.HotKeySelectorMode = true;
-
             Shared.DebugLogHelper.LogInfo(
                 log,
-                $"Blueprint hotkey capture armed; selectorMode=" +
-                $"{KeyManager.instance?.HotKeySelectorMode ?? false}, " +
-                $"ignoredHeldKeys={hotkeyCaptureIgnoredKeys.Count}.");
+                $"Blueprint hotkey capture armed; ignoredHeldMouseButtons=" +
+                $"{hotkeyCaptureIgnoredKeys.Count}.");
+        }
+
+        private void OnKeyDown(UnityInputEventArgs args)
+        {
+            if (args == null || args.Phase != EventHookPhase.Pre ||
+                !hotkeyCapturePending || Time.frameCount <= hotkeyCaptureStartFrame)
+                return;
+            try
+            {
+                if (IsCaptureWindowActive())
+                {
+                    CompleteHotkeyCapture(args.Key, "Script Extender OnKeyDown");
+                    return;
+                }
+                settings.CancelHotkeyCapture();
+                StopHotkeyCapture();
+            }
+            catch (Exception ex)
+            {
+                settings.CancelHotkeyCapture();
+                StopHotkeyCapture();
+                Shared.DebugLogHelper.LogError(log, $"Blueprint hotkey capture failed: {ex}");
+            }
+        }
+
+        private bool IsCaptureWindowActive()
+        {
+            var hub = SHCDESE.BepInEx.Bootstrap.Plugin.ModSettingsHubViewModel;
+            return hub != null &&
+                   hub.WindowVisibility == Noesis.Visibility.Visible &&
+                   ReferenceEquals(hub.SelectedTab?.ViewModel, settings);
         }
 
         private void UpdateHotkeyCapture()
         {
+            if (hotkeyCapturePending && !IsCaptureWindowActive())
+                settings.CancelHotkeyCapture();
             if (hotkeyCapturePending && !settings.IsCapturingHotkey)
             {
                 StopHotkeyCapture();
@@ -470,21 +507,7 @@ namespace CastlePlanner
                 return;
             }
 
-            if (KeyManager.instance != null)
-            {
-                int rawKey = KeyManager.instance.HotKeyCurrentKey;
-                KeyCode vanillaKey = (KeyCode)(rawKey & 0xFFFF);
-                if (rawKey != 0 &&
-                    vanillaKey != KeyCode.None &&
-                    Array.IndexOf(SupportedKeys, vanillaKey) >= 0 &&
-                    !hotkeyCaptureIgnoredKeys.Contains(vanillaKey))
-                {
-                    CompleteHotkeyCapture(vanillaKey, "Vanilla KeyManager");
-                    return;
-                }
-            }
-
-            foreach (KeyCode key in SupportedKeys)
+            foreach (KeyCode key in CaptureMouseButtons)
             {
                 if (!TryGetKey(key, out bool pressed))
                     continue;
@@ -499,27 +522,34 @@ namespace CastlePlanner
                 if (!pressed)
                     continue;
 
-                CompleteHotkeyCapture(key, "Unity held-state scan");
-                return;
+                if (CompleteHotkeyCapture(key, "Unity mouse held-state scan"))
+                    return;
+                hotkeyCaptureIgnoredKeys.Add(key);
             }
         }
 
-        private void CompleteHotkeyCapture(KeyCode key, string source)
+        private bool CompleteHotkeyCapture(KeyCode key, string source)
         {
+            if (key != KeyCode.Escape &&
+                !CastlePlannerSettingsViewModel.IsMainHotkey(key))
+                return false;
+            bool alt = Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt);
+            bool control = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
+            bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+            if (!settings.CompleteHotkeyCapture(key, alt, control, shift))
+                return false;
             StopHotkeyCapture();
-            settings.CompleteHotkeyCapture(key);
             Shared.DebugLogHelper.LogInfo(
                 log,
-                $"Blueprint hotkey capture completed: key={key}, " +
+                $"Blueprint hotkey capture finished: key={key}, " +
                 $"value={(int)key}, source={source}.");
+            return true;
         }
 
         private void StopHotkeyCapture()
         {
             hotkeyCapturePending = false;
             hotkeyCaptureIgnoredKeys.Clear();
-            if (KeyManager.instance != null)
-                KeyManager.instance.HotKeySelectorMode = false;
         }
 
         private static bool TryGetKey(KeyCode key, out bool pressed)
@@ -1010,18 +1040,5 @@ namespace CastlePlanner
                    structure == eStructs.STRUCT_KEEP_FIVE;
         }
 
-        private static KeyCode[] CreateSupportedKeys()
-        {
-            var values = new List<KeyCode>();
-            var seen = new HashSet<int>();
-            foreach (KeyCode key in Enum.GetValues(typeof(KeyCode)))
-            {
-                int value = (int)key;
-                if (key != KeyCode.None && seen.Add(value))
-                    values.Add(key);
-            }
-
-            return values.ToArray();
-        }
     }
 }

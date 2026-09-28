@@ -613,6 +613,147 @@
         <member name="M:APIShared.IAivBuildStepCapability.TryRegisterObserver(System.String,APIShared.IAivBuildStepObserver,APIShared.NativeCapabilityDiagnostic@)">
             <summary>Registers one process-lifetime observer under an owner-local stable ID.</summary>
         </member>
+        <member name="T:APIShared.AiRouteConnection">
+            <summary>One copied native macro-connection record; no live pointer escapes the hook.</summary>
+        </member>
+        <member name="P:APIShared.AiRouteConnection.Id">
+            <summary>Native connection record ID, from 1 through 199.</summary>
+        </member>
+        <member name="P:APIShared.AiRouteConnection.Active">
+            <summary>Raw native active flag.</summary>
+        </member>
+        <member name="P:APIShared.AiRouteConnection.Open">
+            <summary>Raw native enabled or open flag.</summary>
+        </member>
+        <member name="P:APIShared.AiRouteConnection.ConnectionClass">
+            <summary>Raw native connection class.</summary>
+        </member>
+        <member name="P:APIShared.AiRouteConnection.Owner">
+            <summary>Raw owner or access player ID.</summary>
+        </member>
+        <member name="P:APIShared.AiRouteConnection.BuildingId">
+            <summary>Native building game ID associated with the connection.</summary>
+        </member>
+        <member name="P:APIShared.AiRouteConnection.A">
+            <summary>First path component endpoint.</summary>
+        </member>
+        <member name="P:APIShared.AiRouteConnection.B">
+            <summary>Second path component endpoint.</summary>
+        </member>
+        <member name="P:APIShared.AiRouteConnection.C">
+            <summary>Optional third path component endpoint.</summary>
+        </member>
+        <member name="P:APIShared.AiRouteConnection.OwnerToken">
+            <summary>Raw owner access value, or Int32.MinValue if unavailable.</summary>
+        </member>
+        <member name="P:APIShared.AiRouteConnection.GateFlag">
+            <summary>Raw 16-bit building gate flag, or Int32.MinValue if unavailable.</summary>
+        </member>
+        <member name="T:APIShared.AiRouteEvidence">
+            <summary>Read-only values sampled immediately before Vanilla's route query.</summary>
+        </member>
+        <member name="P:APIShared.AiRouteEvidence.Status">
+            <summary>Read status; ok means all audited input values were captured.</summary>
+        </member>
+        <member name="P:APIShared.AiRouteEvidence.TileX">
+            <summary>Route target X coordinate.</summary>
+        </member>
+        <member name="P:APIShared.AiRouteEvidence.TileY">
+            <summary>Route target Y coordinate.</summary>
+        </member>
+        <member name="P:APIShared.AiRouteEvidence.SourceTile">
+            <summary>Native source keep tile index.</summary>
+        </member>
+        <member name="P:APIShared.AiRouteEvidence.TargetTile">
+            <summary>Native target tile index.</summary>
+        </member>
+        <member name="P:APIShared.AiRouteEvidence.SourceComponent">
+            <summary>Source tile path component.</summary>
+        </member>
+        <member name="P:APIShared.AiRouteEvidence.TargetComponent">
+            <summary>Target tile path component.</summary>
+        </member>
+        <member name="P:APIShared.AiRouteEvidence.SourceNativeComponent">
+            <summary>Direct native-grid value for the keep tile.</summary>
+        </member>
+        <member name="P:APIShared.AiRouteEvidence.TargetNativeComponent">
+            <summary>Direct native-grid value for the target tile.</summary>
+        </member>
+        <member name="P:APIShared.AiRouteEvidence.QueryMode">
+            <summary>Audited Vanilla route mode at the 0xC3BF0 call site.</summary>
+        </member>
+        <member name="P:APIShared.AiRouteEvidence.Bypass">
+            <summary>Raw mapper route bypass flag.</summary>
+        </member>
+        <member name="P:APIShared.AiRouteEvidence.PlayerToken">
+            <summary>Raw 32-bit native player access value.</summary>
+        </member>
+        <member name="P:APIShared.AiRouteEvidence.Connections">
+            <summary>Copies of native connection records 1 through 199.</summary>
+        </member>
+        <member name="T:APIShared.AiPathTileSample">
+            <summary>One copied path-component measurement from both audited views.</summary>
+        </member>
+        <member name="P:APIShared.AiPathTileSample.X">
+            <summary>Map X coordinate.</summary>
+        </member>
+        <member name="P:APIShared.AiPathTileSample.Y">
+            <summary>Map Y coordinate.</summary>
+        </member>
+        <member name="P:APIShared.AiPathTileSample.TileId">
+            <summary>Packed native tile ID, or minus one when unavailable.</summary>
+        </member>
+        <member name="P:APIShared.AiPathTileSample.NativeComponent">
+            <summary>Component read directly from the native grid.</summary>
+        </member>
+        <member name="P:APIShared.AiPathTileSample.ApiComponent">
+            <summary>Component read through the Script Extender grid view.</summary>
+        </member>
+        <member name="P:APIShared.AiPathTileSample.Status">
+            <summary>Whether this tile could be sampled.</summary>
+        </member>
+        <member name="T:APIShared.AiNearbyPathEvidence">
+            <summary>Copied anchor neighborhood and exact 3x3 building footprint.</summary>
+        </member>
+        <member name="P:APIShared.AiNearbyPathEvidence.Status">
+            <summary>Whether the neighborhood could be sampled.</summary>
+        </member>
+        <member name="P:APIShared.AiNearbyPathEvidence.InputX">
+            <summary>Input coarse X coordinate.</summary>
+        </member>
+        <member name="P:APIShared.AiNearbyPathEvidence.InputY">
+            <summary>Input coarse Y coordinate.</summary>
+        </member>
+        <member name="P:APIShared.AiNearbyPathEvidence.ResultX">
+            <summary>Result coarse X coordinate, or minus one before the search.</summary>
+        </member>
+        <member name="P:APIShared.AiNearbyPathEvidence.ResultY">
+            <summary>Result coarse Y coordinate, or minus one before the search.</summary>
+        </member>
+        <member name="P:APIShared.AiNearbyPathEvidence.Anchors">
+            <summary>Five by five coarse-cell anchors centered on the search input.</summary>
+        </member>
+        <member name="P:APIShared.AiNearbyPathEvidence.Footprint">
+            <summary>Exact three by three tile footprint at the search result.</summary>
+        </member>
+        <member name="T:APIShared.AiNearbyRegionEvidence">
+            <summary>One call observed through BugfixesAndQoL's existing E2610 detour.</summary>
+        </member>
+        <member name="P:APIShared.AiNearbyRegionEvidence.Source">
+            <summary>Source path component passed to the existing native hook.</summary>
+        </member>
+        <member name="P:APIShared.AiNearbyRegionEvidence.Target">
+            <summary>Destination path component passed to the existing native hook.</summary>
+        </member>
+        <member name="P:APIShared.AiNearbyRegionEvidence.Mode">
+            <summary>Native path-connection query mode.</summary>
+        </member>
+        <member name="P:APIShared.AiNearbyRegionEvidence.VanillaResult">
+            <summary>Unmodified return from the original native function.</summary>
+        </member>
+        <member name="P:APIShared.AiNearbyRegionEvidence.EffectiveResult">
+            <summary>Return delivered by the existing BugfixesAndQoL hook.</summary>
+        </member>
         <member name="T:APIShared.AiBuildDiagnosticRecord">
             <summary>Read-only evidence from the native AI construction path.</summary>
         </member>
@@ -640,6 +781,15 @@
         <member name="P:APIShared.AiBuildDiagnosticRecord.D">
             <summary>Stage-specific fourth value.</summary>
         </member>
+        <member name="P:APIShared.AiBuildDiagnosticRecord.RouteEvidence">
+            <summary>Copied route inputs and macro-connections, when Stage is route-evidence.</summary>
+        </member>
+        <member name="P:APIShared.AiBuildDiagnosticRecord.NearbyPathEvidence">
+            <summary>Copied nearby-search path samples, when present.</summary>
+        </member>
+        <member name="P:APIShared.AiBuildDiagnosticRecord.NearbyRegionEvidence">
+            <summary>Copied nearby-search region call, when present.</summary>
+        </member>
         <member name="T:APIShared.AiBuildDiagnostic">
             <summary>Optional process-lifetime AI construction observer. Inert without registration.</summary>
         </member>
@@ -651,6 +801,21 @@
         </member>
         <member name="M:APIShared.AiBuildDiagnostic.Publish(System.String,System.Int32,System.Int64,System.Int64,System.Int64,System.Int64)">
             <summary>Publishes a record only while the test observer is present.</summary>
+        </member>
+        <member name="M:APIShared.AiBuildDiagnostic.BeginNearbySearch(System.Int32)">
+            <summary>Marks the existing synchronous nearby-search call for the shared E2610 observer.</summary>
+        </member>
+        <member name="M:APIShared.AiBuildDiagnostic.EndNearbySearch(System.Int32)">
+            <summary>Restores the previous synchronous nearby-search context.</summary>
+        </member>
+        <member name="M:APIShared.AiBuildDiagnostic.IsNearbySearchActive(System.Int32)">
+            <summary>Whether this player is inside the observed wood nearby search.</summary>
+        </member>
+        <member name="M:APIShared.AiBuildDiagnostic.PublishNearbyRegionResult(System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32)">
+            <summary>Publishes only calls made inside the marked wood nearby search.</summary>
+        </member>
+        <member name="M:APIShared.AiBuildDiagnostic.PublishNearbyPathEvidence(System.String,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32)">
+            <summary>Copies path labels before or after Vanilla's existing nearby search.</summary>
         </member>
         <member name="M:APIShared.AiBuildDiagnostic.BeginWoodAttempt(System.Int32)">
             <summary>Enters the synchronous Vanilla wood call; zero means diagnostics are absent.</summary>

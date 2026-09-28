@@ -92,18 +92,38 @@ if ($hud -notmatch 'viewModel\.PropertyChanged \+= OnViewModelPropertyChanged' -
     throw 'Briefing visibility must hide the bar and resume it via a detachable view-model event.'
 }
 if ($runtime -notmatch 'loadedFromSave = args\.FromSaveGame' -or
-    $runtime -notmatch 'loadedFromSave && IsOriginalSpectatorSave\(state\)' -or
-    $runtime -notmatch 'eGameTypeModes\.GAMETYPE_MULTIPLAYER' -or
-    $runtime -notmatch 'state\.is_valid_player\(player\)' -or
-    $runtime -notmatch 'state\.player_register\.Length < 9' -or
-    $runtime -notmatch 'state\.computer_register\.Length < 9' -or
-    $runtime -notmatch 'GameModeHelper\.IsRealMultiplayer\(\)' -or
+    $runtime -notmatch 'loadedFromSave && TryRecognizeSavedSpectator\(state, out int view\)' -or
+    $runtime -notmatch 'saveRecoveryStage == 1' -or
+    $runtime -notmatch 'saveRecoveryStage == 2' -or
+    $runtime -notmatch 'EngineInterface\.GameAction\(Enums\.GameActionCommand\.SpectatorMode, 0, 0\)' -or
     $runtime -notmatch 'EditorDirector\.instance\.SetLocalPlayer\(-1\)' -or
-    $runtime -notmatch 'PlayerPerspectiveAPI\.GetRawNativeViewPlayerId\(\)' -or
-    $runtime -notmatch 'occupiedSlots\[savedView\]' -or
+    $runtime -notmatch 'PlayerPerspectiveAPI\.GetRawNativeViewPlayerId\(\) != selectedPlayer' -or
+    $runtime -notmatch 'cpuOnly \? state\.is_skirmish_player\(player\)' -or
+    $runtime -notmatch 'IsSpectatorActionRestricted\(' -or
+    $runtime -notmatch 'SPECTATOR_SAVE_REJECTED' -or
+    $runtime -notmatch 'saveRecoveryStage = 0;' -or
     $runtime -match 'GameData\.Instance\.playerID\s*=') {
-    throw 'Saved spectator recovery must be roster-guarded and keep the network identity unchanged.'
+    throw 'Saved spectator recovery must be staged, roster-guarded and keep network identity unchanged.'
 }
+$marker = [IO.File]::ReadAllText((Join-Path $projectRoot 'src\SpectatorSaveMarker.cs'))
+if ($runtime -notmatch 'ModSaveDataAPI\.Instance\.RegisterModDataHandler\(SpectatorSaveMarker\.Identifier' -or
+    $runtime -notmatch 'context\.IsSaveFile' -or
+    $runtime -notmatch 'SpectatorSaveMarker\.Encode\(view\)' -or
+    $runtime -notmatch 'GameMapArchiveManagerAPI\.Instance\.TryReadBinaryFile\(SpectatorSaveMarker\.EntryName\)' -or
+    $runtime -notmatch 'SpectatorSaveMarker\.TryDecode\(marker' -or
+    $runtime -notmatch 'SpectatorSavePolicy\.TryRecognizeMarked\(' -or
+    $runtime -notmatch 'SpectatorSavePolicy\.TryRecognize\(' -or
+    $runtime -notmatch 'else if \(markedView == 0\)\s*return false;' -or
+    $marker -notmatch 'internal const string EntryName = "_SE_ModData_" \+ Identifier \+ "\.msgpack"' -or
+    [IO.File]::ReadAllText($projectFile.FullName) -notmatch 'src\\SpectatorSaveMarker.cs') {
+    throw 'Versioned save marker, explicit normal-save marker or current-archive recovery path missing.'
+}
+if ([IO.File]::ReadAllText((Join-Path $projectRoot 'src\SpectatorReportHooks.cs')) -notmatch 'IsSpectatorActionRestricted\(' -or
+    [IO.File]::ReadAllText((Join-Path $projectRoot 'src\SpectatorAllyHooks.cs')) -notmatch 'IsSpectatorActionRestricted\(' -or
+    [IO.File]::ReadAllText($projectFile.FullName) -notmatch 'src\\SpectatorSavePolicy.cs') {
+    throw 'Pending recovery must block report and ally actions and compile the save policy.'
+}
+& (Join-Path $projectRoot 'Test-SpectatorSavePolicy.ps1')
 if ($hud -notmatch 'SpriteMapping\.RemapMPLoadedColour\(player\)' -or
     $hud -notmatch 'SpriteMapping\.remapColours' -or $hud -notmatch 'OnScreenText\.Instance\.MPTeamColours' -or
     $hud -notmatch 'numbers\[player\]\.Foreground' -or $hud -notmatch 'bar\.Width = 12f \+ occupiedCount \* 34f' -or
@@ -145,6 +165,7 @@ if ([IO.File]::ReadAllText($projectFile.FullName) -notmatch '<AllowUnsafeBlocks>
 $textFiles = @($sourceFiles) + @($projectFile) + @(
     (Get-Item -LiteralPath (Join-Path $projectRoot 'build.bat')),
     (Get-Item -LiteralPath (Join-Path $projectRoot 'Verify-SpectatorPerspective.ps1')),
+    (Get-Item -LiteralPath (Join-Path $projectRoot 'Test-SpectatorSavePolicy.ps1')),
     (Get-Item -LiteralPath (Join-Path $projectRoot 'info.json')),
     (Get-Item -LiteralPath (Join-Path $projectRoot 'Patches\Assets\GUI\XAML\IngameUIScreens.xaml'))
 )

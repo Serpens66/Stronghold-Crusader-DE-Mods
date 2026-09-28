@@ -76,7 +76,7 @@ namespace SpectatorPerspectiveTest
                 __result = 0;
                 return false;
             }
-            if (!SpectatorPerspectiveRuntime.IsActiveSpectator()) return true;
+            if (!SpectatorPerspectiveRuntime.IsSpectatorActionRestricted()) return true;
             bool allowed = SpectatorPerspectiveRuntime.CanIssueAllyAction(command, structureID, state, value2);
             if (allowed) return true;
             __result = 0;
@@ -85,7 +85,7 @@ namespace SpectatorPerspectiveTest
 
         private static void AfterOpen(bool state)
         {
-            bool active = SpectatorPerspectiveRuntime.IsActiveSpectator() ||
+            bool active = SpectatorPerspectiveRuntime.IsSpectatorActionRestricted() ||
                 SpectatorPerspectiveRuntime.IsNetworkSpectator();
             if (state && active) RefreshControlState();
             else if (!active) RestoreControls();

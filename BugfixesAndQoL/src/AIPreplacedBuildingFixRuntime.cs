@@ -645,15 +645,34 @@ namespace BugfixesAndQoL
             // AIBuildDiagnoseTest BEGIN
             bool diagnose = APIShared.AiBuildDiagnostic.HasObserver &&
                 nearbyEconomyPlayerId >= 1 && nearbyEconomyPlayerId <= MaxPlayablePlayerId;
+            int previousNearbyScope = diagnose
+                ? APIShared.AiBuildDiagnostic.BeginNearbySearch(nearbyEconomyPlayerId) : 0;
             if (diagnose)
+            {
                 APIShared.AiBuildDiagnostic.Publish("wood-nearby-before", nearbyEconomyPlayerId,
                     coarseX, coarseY);
+                APIShared.AiBuildDiagnostic.PublishNearbyPathEvidence("wood-nearby-path-before",
+                    nearbyEconomyPlayerId, (int)coarseX, (int)coarseY, -1, -1);
+            }
             try { NearbySearchCore(state, coarseX, coarseY); }
             finally
             {
-                if (diagnose)
-                    APIShared.AiBuildDiagnostic.Publish("wood-nearby-after", nearbyEconomyPlayerId,
-                        ReadSearchResult(state, false), ReadSearchResult(state, true));
+                try
+                {
+                    if (diagnose)
+                    {
+                        int resultX = (int)ReadSearchResult(state, false);
+                        int resultY = (int)ReadSearchResult(state, true);
+                        APIShared.AiBuildDiagnostic.PublishNearbyPathEvidence("wood-nearby-path-after",
+                            nearbyEconomyPlayerId, (int)coarseX, (int)coarseY, resultX, resultY);
+                        APIShared.AiBuildDiagnostic.Publish("wood-nearby-after", nearbyEconomyPlayerId,
+                            resultX, resultY);
+                    }
+                }
+                finally
+                {
+                    if (diagnose) APIShared.AiBuildDiagnostic.EndNearbySearch(previousNearbyScope);
+                }
             }
             // AIBuildDiagnoseTest END
         }

@@ -92,6 +92,13 @@ namespace APISharedTests
                 "AI diagnostic attempt is inert without an observer");
             Assert(!AiBuildDiagnostic.TryGetCurrentWoodAttempt(out long id, out int playerId) &&
                 id == 0 && playerId == 0, "AI diagnostic attempt state is absent");
+            int previousNearby = AiBuildDiagnostic.BeginNearbySearch(6);
+            Assert(!AiBuildDiagnostic.IsNearbySearchActive(6),
+                "AI nearby route scope is inert without an observer");
+            AiBuildDiagnostic.PublishNearbyRegionResult(6, 3, 0, 0, 0, 0);
+            AiBuildDiagnostic.PublishNearbyPathEvidence("wood-nearby-path-before",
+                6, 69, 98, -1, -1);
+            AiBuildDiagnostic.EndNearbySearch(previousNearby);
             AiBuildDiagnostic.Publish("route-result", 6, 0);
         }
 
@@ -1699,6 +1706,11 @@ namespace APISharedTests
                 "APIShared.AivBuildStepContext",
                 "APIShared.AivBuildStepCompletion",
                 "APIShared.AiBuildDiagnosticRecord",
+                "APIShared.AiRouteConnection",
+                "APIShared.AiRouteEvidence",
+                "APIShared.AiPathTileSample",
+                "APIShared.AiNearbyPathEvidence",
+                "APIShared.AiNearbyRegionEvidence",
                 "APIShared.AiBuildDiagnostic",
                 "APIShared.SavegameModSettingsRecord",
                 "APIShared.TrailCreatorRule",

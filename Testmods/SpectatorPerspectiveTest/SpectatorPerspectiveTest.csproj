@@ -32,6 +32,8 @@
   <ItemGroup>
     <Compile Include="src\SpectatorPerspectivePlugin.cs" />
     <Compile Include="src\SpectatorPerspectiveRuntime.cs" />
+    <Compile Include="src\SpectatorSavePolicy.cs" />
+    <Compile Include="src\SpectatorSaveMarker.cs" />
     <Compile Include="src\SpectatorPerspectiveHud.cs" />
     <Compile Include="src\SpectatorReportHooks.cs" />
     <Compile Include="src\SpectatorAllyHooks.cs" />

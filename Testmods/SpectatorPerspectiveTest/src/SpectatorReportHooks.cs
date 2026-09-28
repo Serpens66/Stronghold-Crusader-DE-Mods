@@ -32,7 +32,7 @@ namespace SpectatorPerspectiveTest
 
         private static bool AllowFoodChange()
         {
-            return !SpectatorPerspectiveRuntime.IsActiveSpectator();
+            return !SpectatorPerspectiveRuntime.IsSpectatorActionRestricted();
         }
 
         private static void UseSelectedReportName(ref string value)

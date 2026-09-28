@@ -197,6 +197,9 @@ After a normal multiplayer match, the host prepares a replacement lobby based on
 ### Show selected-unit health in the troop HUD
 The troop HUD displays current and maximum health for the selected units. Health is combined separately for each visible troop type and the current value is colored green, yellow, or red according to the remaining proportion.
 
+### Show health bars for damaged units and buildings
+Press Alt+H to show health bars for visible damaged units and buildings without selecting them. Press it again to turn the display off. The display starts off each time you launch the game, and you can change the shortcut in the local mod settings. Fully healed objects and decorative units do not gain a bar from this option.
+
 ### Show timer countdowns
 The enabled-by-default per-player **Show timer countdowns** option adds remaining-time numbers to mission objectives and to the bars for Time Until Defeat, victory timers, and Peace Time. It changes only your display and can be turned off in the player QoL settings.
 
