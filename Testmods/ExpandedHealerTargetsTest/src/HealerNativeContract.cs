@@ -71,8 +71,14 @@ namespace ExpandedHealerTargetsTest
                 Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_UnitChimp)).ToInt32() != 0x8A ||
                 Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_ControllableForPlayerId)).ToInt32() != 0x92 ||
                 Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_GlobalId)).ToInt32() != 0x94 ||
+                Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_CurrentWorldPositionX)).ToInt32() != 0xB2 ||
+                Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_CurrentWorldPositionY)).ToInt32() != 0xB4 ||
+                Marshal.OffsetOf<GameUnit>(nameof(GameUnit.N000000A7)).ToInt32() != 0x2A0 ||
+                Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_AIState)).ToInt32() != 0x2BC ||
                 Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_CurrentHealth)).ToInt32() != 0x3C4 ||
-                Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_MaxHealth)).ToInt32() != 0x3C8)
+                Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_MaxHealth)).ToInt32() != 0x3C8 ||
+                Marshal.OffsetOf<GameUnit>(nameof(GameUnit.N000000DD)).ToInt32() != 0x450 ||
+                Marshal.OffsetOf<GameUnit>(nameof(GameUnit.N000000DE)).ToInt32() != 0x458)
                 throw new InvalidOperationException("Script Extender unit layout differs from the audited native layout.");
         }
 

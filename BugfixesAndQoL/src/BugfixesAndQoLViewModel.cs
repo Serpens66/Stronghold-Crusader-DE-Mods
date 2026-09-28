@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using BepInEx.Logging;
 using Noesis;
+using UnityEngine;
 
 namespace BugfixesAndQoL
 {
@@ -85,6 +86,11 @@ namespace BugfixesAndQoL
         private bool preserveDisplayResolution = true;
         private bool enableWorkshopUploadLordSelectionFix = true;
         private bool enableDisbandedUnitControlGroupCleanup = true;
+        private int healthBarHotkeyKeyIndex = 8;
+        private bool healthBarHotkeyAlt = true;
+        private bool healthBarHotkeyControl;
+        private bool healthBarHotkeyShift;
+        private static readonly string[] healthBarHotkeyKeyOptions = CreateHealthBarHotkeyKeyOptions();
         private readonly LocalPerPlayerSetting<bool> enableClientFeatures = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> enableMinimapCursorFollowFix = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> enableCompleteNotificationSkipOnClick = new LocalPerPlayerSetting<bool>(true);
@@ -306,6 +312,9 @@ namespace BugfixesAndQoL
         public string ClearSteamInviteBlacklistHelpText => SerpLocalization.Get("BugfixesAndQoL.ClearSteamInviteBlacklistHelp");
         public string ShowSelectedUnitHealthText => SerpLocalization.Get("BugfixesAndQoL.ShowSelectedUnitHealth");
         public string ShowSelectedUnitHealthHelpText => SerpLocalization.Get("BugfixesAndQoL.ShowSelectedUnitHealthHelp");
+        public string DamagedHealthBarsHotkeyText => SerpLocalization.Get("BugfixesAndQoL.DamagedHealthBarsHotkey");
+        public string DamagedHealthBarsHotkeyHelpText => SerpLocalization.Get("BugfixesAndQoL.DamagedHealthBarsHotkeyHelp");
+        public string DamagedHealthBarsHotkeyKeyText => SerpLocalization.Get("BugfixesAndQoL.DamagedHealthBarsHotkeyKey");
         public string ShowCountdownTimersText => SerpLocalization.Get("BugfixesAndQoL.ShowCountdownTimers");
         public string ShowCountdownTimersHelpText => SerpLocalization.Get("BugfixesAndQoL.ShowCountdownTimersHelp");
         public string ImproveYellowLobbyContrastText =>
@@ -555,6 +564,79 @@ namespace BugfixesAndQoL
         {
             get => showSelectedUnitHealth.Value;
             set => SetPlayerSetting(showSelectedUnitHealth, value, nameof(ShowSelectedUnitHealth));
+        }
+
+        public string[] HealthBarHotkeyKeyOptions => healthBarHotkeyKeyOptions;
+
+        internal KeyCode HealthBarHotkeyKeyCode => healthBarHotkeyKeyIndex == 0
+            ? KeyCode.None
+            : healthBarHotkeyKeyIndex <= 26
+                ? (KeyCode)((int)KeyCode.A + healthBarHotkeyKeyIndex - 1)
+                : (KeyCode)((int)KeyCode.F1 + healthBarHotkeyKeyIndex - 27);
+
+        [Shared.PresetLocal]
+        public int HealthBarHotkeyKeyIndex
+        {
+            get => healthBarHotkeyKeyIndex;
+            set
+            {
+                int normalized = Math.Max(0, Math.Min(38, value));
+                if (IsReservedHealthBarHotkey(normalized, healthBarHotkeyAlt,
+                    healthBarHotkeyControl, healthBarHotkeyShift))
+                {
+                    OnPropertyChanged(nameof(HealthBarHotkeyKeyIndex));
+                    return;
+                }
+                SetSetting(ref healthBarHotkeyKeyIndex, normalized, nameof(HealthBarHotkeyKeyIndex));
+            }
+        }
+
+        [Shared.PresetLocal]
+        public bool HealthBarHotkeyAlt
+        {
+            get => healthBarHotkeyAlt;
+            set
+            {
+                if (IsReservedHealthBarHotkey(healthBarHotkeyKeyIndex, value,
+                    healthBarHotkeyControl, healthBarHotkeyShift))
+                {
+                    OnPropertyChanged(nameof(HealthBarHotkeyAlt));
+                    return;
+                }
+                SetSetting(ref healthBarHotkeyAlt, value, nameof(HealthBarHotkeyAlt));
+            }
+        }
+
+        [Shared.PresetLocal]
+        public bool HealthBarHotkeyControl
+        {
+            get => healthBarHotkeyControl;
+            set
+            {
+                if (IsReservedHealthBarHotkey(healthBarHotkeyKeyIndex, healthBarHotkeyAlt,
+                    value, healthBarHotkeyShift))
+                {
+                    OnPropertyChanged(nameof(HealthBarHotkeyControl));
+                    return;
+                }
+                SetSetting(ref healthBarHotkeyControl, value, nameof(HealthBarHotkeyControl));
+            }
+        }
+
+        [Shared.PresetLocal]
+        public bool HealthBarHotkeyShift
+        {
+            get => healthBarHotkeyShift;
+            set
+            {
+                if (IsReservedHealthBarHotkey(healthBarHotkeyKeyIndex, healthBarHotkeyAlt,
+                    healthBarHotkeyControl, value))
+                {
+                    OnPropertyChanged(nameof(HealthBarHotkeyShift));
+                    return;
+                }
+                SetSetting(ref healthBarHotkeyShift, value, nameof(HealthBarHotkeyShift));
+            }
         }
 
         [SyncPerPlayer]
@@ -1309,6 +1391,10 @@ namespace BugfixesAndQoL
             EnableEnemyProximityBulldozeCursorFix = true;
             EnableIngameSteamInvitePrompt = true;
             ShowSelectedUnitHealth = true;
+            HealthBarHotkeyAlt = true;
+            HealthBarHotkeyControl = false;
+            HealthBarHotkeyShift = false;
+            HealthBarHotkeyKeyIndex = 8;
             ShowCountdownTimers = true;
             ImproveYellowLobbyContrast = true;
             EnableBriefingNoStartingGoldFix = true;
@@ -1320,6 +1406,20 @@ namespace BugfixesAndQoL
             PreserveDisplayResolution = true;
             EnableWorkshopUploadLordSelectionFix = true;
             EnableAllyGoodsAmountModifiers = true;
+        }
+
+        private static bool IsReservedHealthBarHotkey(int keyIndex, bool alt, bool control, bool shift) =>
+            keyIndex == 8 && control && !alt && !shift;
+
+        private static string[] CreateHealthBarHotkeyKeyOptions()
+        {
+            string[] result = new string[39];
+            result[0] = "—";
+            for (int i = 1; i <= 26; i++)
+                result[i] = ((char)('A' + i - 1)).ToString();
+            for (int i = 27; i <= 38; i++)
+                result[i] = "F" + (i - 26);
+            return result;
         }
 
         private void SetSetting<T>(ref T field, T value, string propertyName)

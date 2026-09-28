@@ -31,6 +31,7 @@
     <Compile Include="src\SpectatorPerspectiveRuntime.cs" />
     <Compile Include="src\SpectatorPerspectiveHud.cs" />
     <Compile Include="src\SpectatorReportHooks.cs" />
+    <Compile Include="src\SpectatorAllyHooks.cs" />
     <Content Include="Patches\Assets\GUI\XAML\IngameUIScreens.xaml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
     <Content Include="info.json"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
   </ItemGroup>

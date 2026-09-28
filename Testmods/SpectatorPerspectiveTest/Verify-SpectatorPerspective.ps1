@@ -30,6 +30,24 @@ if ($reportHooks -notmatch 'ButtonReports' -or $reportHooks -notmatch 'ButtonCha
     $reportHooks -notmatch 'replaced != 1' -or $runtime -notmatch 'SPECTATOR_REPORT_HOOKS_READY') {
     throw 'Report navigation hook, food action guard, stable name hook or post-startup marker missing.'
 }
+$foodGuard = [regex]::Match($runtime, '(?s)private static void GuardFoodControls\(\).*?private static void OnHudUnavailable\(').Value
+if (-not $foodGuard -or $foodGuard -notmatch 'button\.IsHitTestVisible = false' -or
+    $foodGuard -notmatch 'guardedFoodButtons\[index\]\.IsHitTestVisible = foodButtonHitTestBeforeGuard\[index\]' -or
+    $foodGuard -match '\.IsEnabled\s*=') {
+    throw 'Food controls must preserve their visible button style while blocking mouse hit testing.'
+}
+$allyHooks = [IO.File]::ReadAllText((Join-Path $projectRoot 'src\SpectatorAllyHooks.cs'))
+if ($allyHooks -notmatch 'GetAllyList' -or $allyHooks -notmatch 'GetEnemyList' -or
+    $allyHooks -notmatch 'UpdateAllies' -or $allyHooks -notmatch 'Ally_CancelOrders' -or
+    $allyHooks -notmatch 'AllowAllyAction' -or $runtime -notmatch 'CanIssueAllyAction' -or
+    $runtime -notmatch 'WaitForFreshAllies' -or $runtime -notmatch 'SPECTATOR_ALLY_HOOKS_READY') {
+    throw 'Selected-player ally view, CPU-only action guard or event-driven refresh missing.'
+}
+if ($allyHooks -notmatch 'state && SpectatorPerspectiveRuntime.IsActiveSpectator\(\)' -or
+    $runtime -notmatch '!state.is_valid_player\(selectedPlayer\)' -or
+    $runtime -match 'GameData\.Instance\.playerID\s*=') {
+    throw 'Ally actions must remain spectator/CPU scoped without changing the managed player identity.'
+}
 $hud = [IO.File]::ReadAllText((Join-Path $projectRoot 'src\SpectatorPerspectiveHud.cs'))
 if ($hud -notmatch 'SizeChanged\s*\+=' -or $hud -notmatch 'Unloaded\s*\+=' -or
     $runtime -match 'hud\.Show\(' -or $runtime -match 'RefreshReport\(') {
@@ -54,6 +72,7 @@ foreach ($file in $textFiles) {
 [xml]$project = Get-Content -LiteralPath $projectFile.FullName -Raw
 $metadata = Get-Content -LiteralPath (Join-Path $projectRoot 'info.json') -Raw | ConvertFrom-Json
 if ($metadata.GUID -ne 'SpectatorPerspectiveTest_Serp' -or $metadata.Version -ne '0.1.0') { throw 'Mod metadata mismatch.' }
+if ($metadata.NetworkMode -ne 1) { throw 'Gameplay-affecting ally actions require NetworkMode=1.' }
 $patchPath = Join-Path $projectRoot 'Patches\Assets\GUI\XAML\IngameUIScreens.xaml'
 [xml]$patch = Get-Content -LiteralPath $patchPath -Raw
 $contents = @($patch.SelectNodes('/Patch/Operation/Content'))

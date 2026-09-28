@@ -2,6 +2,7 @@ using BepInEx.Logging;
 using CrusaderDE;
 using MessagePack;
 using MessagePack.Formatters;
+using R3;
 using SHCDESE.API;
 using SHCDESE.API.Components.Archive;
 using SHCDESE.API.Components.ModManager;
@@ -203,14 +204,27 @@ namespace APIShared
         private static string chosenPath;
         private static bool restoreFailed;
         private static bool initialized;
+        private static readonly SavegameMissionPresetLease ActivePreset = new SavegameMissionPresetLease();
+        private static IDisposable missionEndSubscription;
 
         internal static void Initialize(ManualLogSource logger)
         {
             lock (Sync)
             {
                 if (initialized) return;
-                if (!ModSaveDataAPI.Instance.RegisterModDataHandler(Identifier, Save, Load))
-                    throw new InvalidOperationException("Savegame ModSettings handler already exists.");
+                Shared.MissionEvents.SetOwner("APIShared_Serp");
+                missionEndSubscription = Shared.MissionEvents.Ended.Subscribe(OnMissionEnded);
+                try
+                {
+                    if (!ModSaveDataAPI.Instance.RegisterModDataHandler(Identifier, Save, Load))
+                        throw new InvalidOperationException("Savegame ModSettings handler already exists.");
+                }
+                catch
+                {
+                    missionEndSubscription.Dispose();
+                    missionEndSubscription = null;
+                    throw;
+                }
                 GameModeHelper.ReadSavedModeEvidence = () =>
                 {
                     bool present = TryGetRestoredMode(out GameModeKind kind,
@@ -420,6 +434,9 @@ namespace APIShared
                     }
                     participant.Value.Endpoint.System_ExitMissionPreset();
                     participant.Value.Endpoint.System_EnterMissionPreset(snapshot, "Savegame", false);
+                    if (!participant.Value.Endpoint.IsMissionPresetActive)
+                        throw new InvalidOperationException("The savegame preset did not become active.");
+                    ActivePreset.Track(context.SessionId, participant.Key, participant.Value.Endpoint);
                 }
                 catch (Exception error)
                 {
@@ -440,6 +457,14 @@ namespace APIShared
                 legacyChoice = false;
                 restoreFailed = false;
             }
+        }
+
+        private static void OnMissionEnded(MissionLifecycleNotification notification)
+        {
+            if (notification?.Context?.IsSave != true) return;
+            ActivePreset.ReleaseOnEnd(notification.Context.SessionId,
+                (modId, error) => NativeApiLog.Error(log,
+                    "Could not leave savegame settings for " + modId + ": " + error));
         }
 
         private static byte[] Save(SaveContext context)
@@ -785,6 +810,47 @@ namespace APIShared
             if (string.IsNullOrWhiteSpace(path)) return string.Empty;
             try { return Path.GetFullPath(path ?? string.Empty); }
             catch { return string.Empty; }
+        }
+    }
+
+    internal sealed class SavegameMissionPresetLease
+    {
+        private readonly object sync = new object();
+        private readonly Dictionary<long, Dictionary<string, IModSettingsPresetEndpoint>> sessions =
+            new Dictionary<long, Dictionary<string, IModSettingsPresetEndpoint>>();
+
+        internal void Track(long sessionId, string modId, IModSettingsPresetEndpoint endpoint)
+        {
+            if (sessionId <= 0 || string.IsNullOrEmpty(modId) || endpoint == null)
+                throw new ArgumentException("A savegame preset requires a valid session and endpoint.");
+            lock (sync)
+            {
+                if (!sessions.TryGetValue(sessionId, out var participants))
+                {
+                    participants = new Dictionary<string, IModSettingsPresetEndpoint>(StringComparer.Ordinal);
+                    sessions.Add(sessionId, participants);
+                }
+                participants[modId] = endpoint;
+            }
+        }
+
+        internal void ReleaseOnEnd(long sessionId, Action<string, Exception> reportError)
+        {
+            Dictionary<string, IModSettingsPresetEndpoint> participants;
+            lock (sync)
+            {
+                if (!sessions.TryGetValue(sessionId, out participants)) return;
+                sessions.Remove(sessionId);
+            }
+            foreach (KeyValuePair<string, IModSettingsPresetEndpoint> participant in participants)
+            {
+                try { participant.Value.System_ExitMissionPreset(); }
+                catch (Exception error)
+                {
+                    try { reportError?.Invoke(participant.Key, error); }
+                    catch { }
+                }
+            }
         }
     }
 }

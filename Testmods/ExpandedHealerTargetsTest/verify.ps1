@@ -55,6 +55,20 @@ if ($sources -notmatch 'pending\?\.Dispose\s*\(' -or
     $sources -notmatch 'listBuilder\.Original\(manager, playerId\)') {
     throw 'Persistent callback, backend proof, startup marker or Vanilla forwarding is missing.'
 }
+$runtimeSource = [IO.File]::ReadAllText((Join-Path $root 'src\ExpandedHealerTargetsRuntime.cs'))
+if ($runtimeSource -notmatch 'try\s*\{\s*healerIds = FindHealers\(' -or
+    $runtimeSource -notmatch 'catch \(Exception ex\)\s*\{ ReportCatapultDiagnosticFailure\(ex\); \}' -or
+    $runtimeSource -notmatch 'HEALER_TARGETS_CALLBACK_FAILED' -or
+    $runtimeSource -notmatch 'HEALER_TARGETS_LIST_SKIPPED' -or
+    $runtimeSource -notmatch 'HealerListBounds\.IsUsableNextUnitId' -or
+    $runtimeSource -notmatch 'HealerListBounds\.IsUsableListCount') {
+    throw 'Transient list bounds, diagnostic isolation or callback error reporting is missing.'
+}
+$diagnosticBlock = [regex]::Match($runtimeSource,
+    '(?s)private static List<int> FindHealers\(.*?private static bool IsSiegeEngine\(')
+if (-not $diagnosticBlock.Success -or $diagnosticBlock.Value -match 'callbackDisabled') {
+    throw 'Catapult diagnostics can affect the permanent callback activation state.'
+}
 
 $manifest = Get-Content -Raw -LiteralPath (Join-Path $root 'info.json') | ConvertFrom-Json
 if ($manifest.NetworkMode -ne 1 -or $manifest.GUID -ne 'ExpandedHealerTargetsTest_Serp' -or
@@ -130,6 +144,42 @@ for ($i = 0; $i -lt $sourceEnum.Count; $i++) {
         throw "Extender source and installed eChimps differ at index $i."
     }
 }
+if ($installedEnum.Count -ne 89) {
+    throw 'The installed eChimps enum has a new or missing type; review civilian classification.'
+}
+$enumBytes = [Text.Encoding]::UTF8.GetBytes([string]::Join('|', $installedEnum))
+$enumHasher = [Security.Cryptography.SHA256]::Create()
+try { $enumHash = [BitConverter]::ToString($enumHasher.ComputeHash($enumBytes)).Replace('-', '') }
+finally { $enumHasher.Dispose() }
+if ($enumHash -ne 'EF3DAC4B4C29123F95D37B538218EBE20FBA01DB119B597ADAC9E304B060C1D9') {
+    throw 'The installed eChimps enum changed; review all civilian inclusions and exclusions.'
+}
+$expectedCivilians = @(
+    'CHIMP_TYPE_PEASANT', 'CHIMP_TYPE_WOODCUTTER', 'CHIMP_TYPE_FLETCHER',
+    'CHIMP_TYPE_HUNTER', 'CHIMP_TYPE_QUARRY_MASON', 'CHIMP_TYPE_QUARRY_GRUNT',
+    'CHIMP_TYPE_PITCHMAN', 'CHIMP_TYPE_FARMER_WHEAT', 'CHIMP_TYPE_FARMER_HOPS',
+    'CHIMP_TYPE_FARMER_APPLE', 'CHIMP_TYPE_FARMER_CATTLE', 'CHIMP_TYPE_MILLER',
+    'CHIMP_TYPE_BAKER', 'CHIMP_TYPE_BREWER', 'CHIMP_TYPE_POLETURNER',
+    'CHIMP_TYPE_BLACKSMITH', 'CHIMP_TYPE_ARMOURER', 'CHIMP_TYPE_TANNER',
+    'CHIMP_TYPE_PRIEST', 'CHIMP_TYPE_HEALER', 'CHIMP_TYPE_DRUNKARD',
+    'CHIMP_TYPE_INNKEEPER', 'CHIMP_TYPE_TRADER', 'CHIMP_TYPE_FIREMAN',
+    'CHIMP_TYPE_LADY', 'CHIMP_TYPE_JESTER', 'CHIMP_TYPE_MOTHER',
+    'CHIMP_TYPE_CHILD', 'CHIMP_TYPE_JUGGLER', 'CHIMP_TYPE_FIREEATER'
+)
+$civilianSource = [IO.File]::ReadAllText((Join-Path $root 'src\ExpandedHealerTargetsRuntime.cs'))
+$civilianBlock = [regex]::Match($civilianSource,
+    '(?s)private static bool IsHumanCivilian\(eChimps type\)(.*?)private static void CaptureFirstType')
+if (-not $civilianBlock.Success) { throw 'Civilian type switch could not be found.' }
+$actualCivilians = @([regex]::Matches($civilianBlock.Groups[1].Value,
+    'case eChimps\.(CHIMP_[A-Za-z0-9_]+):') | ForEach-Object { $_.Groups[1].Value })
+if ($actualCivilians.Count -ne 30 -or $expectedCivilians.Count -ne 30 -or
+    [string]::Join('|', @($actualCivilians | Sort-Object)) -cne
+    [string]::Join('|', @($expectedCivilians | Sort-Object))) {
+    throw 'Civilian whitelist differs from the reviewed 30 human civilian types.'
+}
+foreach ($name in $expectedCivilians) {
+    if ($name -notin $installedEnum) { throw "Civilian type $name is missing from installed eChimps." }
+}
 $expectedSiege = @{
     CHIMP_TYPE_CATAPULT = 39; CHIMP_TYPE_TREBUCHET = 40; CHIMP_TYPE_MANGONEL = 41
     CHIMP_TYPE_SIEGE_TOWER = 58; CHIMP_TYPE_BATTERING_RAM = 59
@@ -141,4 +191,4 @@ foreach ($name in $expectedSiege.Keys) {
     }
 }
 
-Write-Host 'Expanded healer target verification passed: CRLF, runtime gates, native hash/entry, enum source/assembly, hook forwarding.'
+Write-Host 'Expanded healer target verification passed: CRLF, runtime gates, native hash/entry, full enum/civilian whitelist, hook forwarding.'

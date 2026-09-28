@@ -4,7 +4,7 @@ using System;
 using System.Runtime.InteropServices;
 using static Iced.Intel.AssemblerRegisters;
 
-namespace DamagedHealthBarsTest
+namespace BugfixesAndQoL
 {
     internal static class HealthBarNativeContract
     {

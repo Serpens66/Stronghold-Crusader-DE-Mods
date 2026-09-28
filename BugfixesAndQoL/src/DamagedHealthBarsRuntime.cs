@@ -20,17 +20,17 @@ using System.Security.Cryptography;
 using System.Threading;
 using UnityEngine;
 
-namespace DamagedHealthBarsTest
+namespace BugfixesAndQoL
 {
     internal sealed unsafe class DamagedHealthBarsRuntime
     {
         private readonly ManualLogSource log;
+        private readonly BugfixesAndQoLViewModel settings;
         private readonly HookHandle<X64InlineHook> buildingNorth = new HookHandle<X64InlineHook>();
         private readonly HookHandle<X64InlineHook> buildingSouth = new HookHandle<X64InlineHook>();
         private readonly HookHandle<X64InlineHook> unit = new HookHandle<X64InlineHook>();
         private HookTransaction transaction;
         private IDisposable keyDownSubscription;
-        private GameTimeManagerAPI timeManager;
         private IntPtr activeFlag;
         private int installed;
         private int postStartupLogged;
@@ -38,12 +38,16 @@ namespace DamagedHealthBarsTest
         private int rejectedHotkeys;
         private ulong nativeImageBase;
 
-        private DamagedHealthBarsRuntime(ManualLogSource log) =>
-            this.log = log ?? throw new ArgumentNullException(nameof(log));
-
-        internal static DamagedHealthBarsRuntime Install(CrusaderLibraryLoadContext context, ManualLogSource log)
+        private DamagedHealthBarsRuntime(ManualLogSource log, BugfixesAndQoLViewModel settings)
         {
-            var candidate = new DamagedHealthBarsRuntime(log);
+            this.log = log ?? throw new ArgumentNullException(nameof(log));
+            this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
+        }
+
+        internal static DamagedHealthBarsRuntime Install(CrusaderLibraryLoadContext context,
+            ManualLogSource log, BugfixesAndQoLViewModel settings)
+        {
+            var candidate = new DamagedHealthBarsRuntime(log, settings);
             candidate.InstallCandidate(context);
             return candidate;
         }
@@ -69,11 +73,9 @@ namespace DamagedHealthBarsTest
                 ulong flagAddress = unchecked((ulong)activeFlag.ToInt64());
                 ProbeGeneratedStubs(imageBase, flagAddress);
 
-                // Register against publishers that survive SHCDE's startup component cleanup.
-                timeManager = GameTimeManagerAPI.Instance ??
-                    throw new InvalidOperationException("The game-time event publisher is unavailable.");
-                timeManager.OnTick += OnTick;
+                // InputR3EventHooks is a publisher that survives startup cleanup.
                 keyDownSubscription = InputR3EventHooks.OnKeyDown.Observable.Subscribe(OnKeyDown);
+                settings.SettingChanged += OnSettingChanged;
 
                 pending = new HookTransaction(
                     context.Region,
@@ -118,7 +120,7 @@ namespace DamagedHealthBarsTest
                 // Roll back only this unpublished initialization candidate.
                 pending?.Dispose();
                 keyDownSubscription?.Dispose();
-                if (timeManager != null) timeManager.OnTick -= OnTick;
+                settings.SettingChanged -= OnSettingChanged;
                 if (activeFlag != IntPtr.Zero) Marshal.FreeHGlobal(activeFlag);
                 throw;
             }
@@ -285,31 +287,57 @@ namespace DamagedHealthBarsTest
                 new IntPtr(unchecked((long)instruction.IPRelativeMemoryAddress)))) == target;
         }
 
-        private void OnTick(int tick)
+        private bool EnsurePostStartupReady()
         {
-            if (Volatile.Read(ref installed) == 0 || ReferenceEquals(GameMap.instance, null) ||
-                Interlocked.Exchange(ref postStartupLogged, 1) != 0)
-                return;
+            if (Volatile.Read(ref fieldMapValidated) != 0)
+                return true;
             try
             {
                 ValidateLiveFieldMap();
                 Volatile.Write(ref fieldMapValidated, 1);
-                Info("HEALTH_BARS_POST_STARTUP: persistent native hooks and publisher callbacks are active.");
+                if (Interlocked.Exchange(ref postStartupLogged, 1) == 0)
+                    Info("HEALTH_BARS_POST_STARTUP: persistent native hooks and input publisher are active.");
+                return true;
             }
             catch (Exception ex)
             {
-                Error("HEALTH_BARS_FIELD_MAP_FAILED: Alt+H remains disabled: " + ex);
+                Error("HEALTH_BARS_FIELD_MAP_FAILED: configured hotkey remains disabled: " + ex);
+                return false;
             }
+        }
+
+        private void OnSettingChanged(string propertyName)
+        {
+            if (propertyName != nameof(BugfixesAndQoLViewModel.EnableMod) &&
+                propertyName != nameof(BugfixesAndQoLViewModel.EnableClientFeatures) &&
+                propertyName != nameof(BugfixesAndQoLViewModel.HealthBarHotkeyKeyIndex))
+                return;
+            if (settings.EnableMod && settings.EnableClientFeatures &&
+                settings.HealthBarHotkeyKeyCode != KeyCode.None)
+                return;
+            if (Volatile.Read(ref installed) == 0 || activeFlag == IntPtr.Zero)
+                return;
+            int* flag = (int*)activeFlag.ToPointer();
+            if (Interlocked.Exchange(ref *flag, 0) != 0)
+                Info("HEALTH_BARS_DISABLED_BY_SETTINGS");
         }
 
         private void OnKeyDown(UnityInputEventArgs args)
         {
-            if (args == null || args.Phase != EventHookPhase.Pre || args.Key != KeyCode.H)
+            if (args == null || args.Phase != EventHookPhase.Pre ||
+                args.Key != settings.HealthBarHotkeyKeyCode || args.Key == KeyCode.None)
                 return;
             try
             {
-                if (!Input.GetKey(KeyCode.LeftAlt) && !Input.GetKey(KeyCode.RightAlt)) return;
-                if (Volatile.Read(ref installed) == 0 || Volatile.Read(ref fieldMapValidated) == 0)
+                bool alt = Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt);
+                bool control = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
+                bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+                if (alt != settings.HealthBarHotkeyAlt ||
+                    control != settings.HealthBarHotkeyControl ||
+                    shift != settings.HealthBarHotkeyShift ||
+                    !settings.EnableMod || !settings.EnableClientFeatures)
+                    return;
+                if (Volatile.Read(ref installed) == 0)
                 {
                     RejectHotkey("runtime-not-ready");
                     return;
@@ -317,12 +345,6 @@ namespace DamagedHealthBarsTest
                 if (!args.Result)
                 {
                     RejectHotkey("already-blocked");
-                    return;
-                }
-                if (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl) ||
-                    Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift))
-                {
-                    RejectHotkey("control-or-shift");
                     return;
                 }
                 GameData gameData = GameData.Instance;
@@ -348,6 +370,8 @@ namespace DamagedHealthBarsTest
                     RejectHotkey("text-input-or-no-controller");
                     return;
                 }
+                if (!EnsurePostStartupReady())
+                    return;
 
                 int* flag = (int*)activeFlag.ToPointer();
                 int next = Volatile.Read(ref *flag) == 0 ? 1 : 0;
@@ -356,7 +380,7 @@ namespace DamagedHealthBarsTest
             }
             catch (Exception ex)
             {
-                Error("Alt+H handling failed: " + ex);
+                Error("Health-bar hotkey handling failed: " + ex);
             }
         }
 

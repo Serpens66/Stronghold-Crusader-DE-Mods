@@ -41,6 +41,7 @@ namespace LobbyModSettingsPresetTests
                 ValidatePublishedReleaseSchemaContracts();
                 TestViewModelWithoutPersistentSettings(root);
                 TestDirectLaunchNotices(root);
+                TestSavegameReturnToLobby(root);
                 TestLegacyPublicationFailureRetainsValidStorage(root);
                 TestLegacyPartialPublicationRetry(root);
                 TestPersonalPresetDeletion(root);
@@ -669,6 +670,40 @@ namespace LobbyModSettingsPresetTests
             settings.System_TestSetSettingsMenuContext(false, true, true);
             Assert(settings.System_DirectLaunchNoticeVisibility == Noesis.Visibility.Collapsed,
                 "Ambiguous front-end state incorrectly claims a direct launch.");
+        }
+
+        private static void TestSavegameReturnToLobby(string root)
+        {
+            string folder = Path.Combine(root, "SavegameReturn");
+            string path = Path.Combine(folder, "LobbyModSettings", ModName + ".msgpack");
+            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            WriteLegacy(path, true, 27);
+            FakeSettings settings = Start(Path.Combine(folder, "PresetTest.dll"), path, () => true);
+            bool previousEnabled = settings.EnableMod;
+            int previousNumber = settings.Number;
+            settings.System_EnterMissionPreset(new Dictionary<string, byte[]>
+            {
+                [nameof(FakeSettings.EnableMod)] = MessagePackSerializer.Serialize(false),
+                [nameof(FakeSettings.Number)] = MessagePackSerializer.Serialize(91),
+            }, "Savegame", false);
+            Assert(settings.IsMissionPresetSelected &&
+                !settings.CanChangePreset && !settings.CanEditHostSettings && !settings.CanResetSettings,
+                "loaded savegame did not enter the read-only preset context");
+            settings.System_ExitMissionPreset();
+            Assert(!settings.IsMissionPresetActive &&
+                settings.CanChangePreset && settings.CanEditHostSettings && settings.CanResetSettings &&
+                settings.EnableMod == previousEnabled && settings.Number == previousNumber,
+                "returning to the lobby did not restore the previous editable preset");
+            settings.Number = 34;
+            Assert(settings.Number == 34, "returning to the lobby did not permit a value edit");
+            settings.System_LoadModDefaults();
+            Assert(settings.CanEditHostSettings && settings.CanChangePreset,
+                "returning to the lobby did not permit a default reset");
+            PublishedModSettingsPreset personal = settings.System_TestPublishedPresets.First(item =>
+                item.SourceKind == ModSettingsPresetSourceKind.Personal);
+            settings.System_TestLoadPreset(personal.StableId);
+            Assert(settings.CanEditHostSettings && settings.CanChangePreset,
+                "returning to the lobby did not permit loading a preset");
         }
 
         private static void AttachExtenderSave(

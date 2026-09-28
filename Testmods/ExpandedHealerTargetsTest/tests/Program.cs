@@ -11,6 +11,22 @@ internal static class Program
 
     private static void Main()
     {
+        Check(!ExpandedHealerTargetsTest.HealerListBounds.IsUsableNextUnitId(0),
+            "An empty startup unit manager must skip only this list build.");
+        Check(ExpandedHealerTargetsTest.HealerListBounds.IsUsableNextUnitId(1),
+            "The first valid unit-manager bound must be accepted after startup.");
+        Check(ExpandedHealerTargetsTest.HealerListBounds.IsUsableNextUnitId(10000),
+            "The native unit-manager bound must include the final sentinel value.");
+        Check(!ExpandedHealerTargetsTest.HealerListBounds.IsUsableNextUnitId(10001),
+            "An out-of-capacity unit-manager bound must be skipped.");
+        Check(!ExpandedHealerTargetsTest.HealerListBounds.IsUsableNextUnitId(-1),
+            "An invalid unsigned bound cast to int must be skipped.");
+        Check(!ExpandedHealerTargetsTest.HealerListBounds.IsUsableListCount(-1) &&
+              ExpandedHealerTargetsTest.HealerListBounds.IsUsableListCount(0) &&
+              ExpandedHealerTargetsTest.HealerListBounds.IsUsableListCount(9999) &&
+              !ExpandedHealerTargetsTest.HealerListBounds.IsUsableListCount(10000),
+            "Candidate-list count must stay inside the 10000-entry native array.");
+
         byte[] entry = Convert.FromHexString(
             "48895C241048896C24205741544155415641574883EC30" +
             "33DB4C63FA488D159DECE7FF4C8BF14969");

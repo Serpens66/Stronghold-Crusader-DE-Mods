@@ -43,6 +43,7 @@ namespace BugfixesAndQoL
         public const string PluginVersion = "1.0.170";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
+        private static DamagedHealthBarsRuntime damagedHealthBarsRuntime;
         private static StartupUiReadinessGuardHook startupUiReadinessGuardHook;
         private static ResolutionAwareZoomHook resolutionAwareZoomHook;
         private static SteamLobbyInvitePrompt steamLobbyInvitePrompt;
@@ -316,6 +317,17 @@ namespace BugfixesAndQoL
             }
 
             // Keep UI registration independent so one native feature cannot hide the whole mod.
+            try
+            {
+                if (damagedHealthBarsRuntime == null)
+                    damagedHealthBarsRuntime = DamagedHealthBarsRuntime.Install(context, Logger, Settings);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(Logger,
+                    "BUGFIXES_AND_QOL_DAMAGED_HEALTH_BARS_DISABLED: " + ex);
+            }
+
             try
             {
                 runtime.InitializeNative(

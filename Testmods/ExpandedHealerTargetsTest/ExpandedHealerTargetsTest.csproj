@@ -34,6 +34,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="src\ExpandedHealerTargetsPlugin.cs" />
     <Compile Include="src\ExpandedHealerTargetsRuntime.cs" />
+    <Compile Include="src\HealerListBounds.cs" />
     <Compile Include="src\HealerNativeContract.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

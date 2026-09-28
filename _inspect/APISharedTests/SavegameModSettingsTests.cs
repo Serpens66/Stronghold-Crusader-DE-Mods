@@ -15,8 +15,50 @@ namespace APISharedTests
             public int Broken { get => throw new InvalidOperationException("unreadable"); set { } }
         }
 
+        private sealed class PresetEndpointFixture : IModSettingsPresetEndpoint
+        {
+            public bool IsMissionPresetActive { get; private set; }
+            public int ExitCount { get; private set; }
+            public bool FailExit { get; set; }
+            public Dictionary<string, byte[]> System_CreateDisabledMissionPresetSnapshot() =>
+                new Dictionary<string, byte[]>();
+            public void System_EnterMissionPreset(Dictionary<string, byte[]> snapshot, string label, bool editable) =>
+                IsMissionPresetActive = true;
+            public void System_ExitMissionPreset()
+            {
+                ExitCount++;
+                if (FailExit) throw new InvalidOperationException("exit failed");
+                IsMissionPresetActive = false;
+            }
+        }
+
         internal static void Run(Action<bool, string> check)
         {
+            var lease = new SavegameMissionPresetLease();
+            var first = new PresetEndpointFixture();
+            var second = new PresetEndpointFixture { FailExit = true };
+            var replacement = new PresetEndpointFixture();
+            first.System_EnterMissionPreset(null, "Savegame", false);
+            second.System_EnterMissionPreset(null, "Savegame", false);
+            replacement.System_EnterMissionPreset(null, "Savegame", false);
+            lease.Track(42, "first", first);
+            lease.Track(42, "second", second);
+            lease.Track(43, "replacement", replacement);
+            int exitErrors = 0;
+            lease.ReleaseOnEnd(41, (_, __) => exitErrors++);
+            check(first.IsMissionPresetActive && second.IsMissionPresetActive &&
+                replacement.IsMissionPresetActive, "unrelated mission ended a savegame preset");
+            lease.ReleaseOnEnd(42, (_, __) => exitErrors++);
+            check(!first.IsMissionPresetActive && first.ExitCount == 1 &&
+                second.ExitCount == 1 && exitErrors == 1 && replacement.IsMissionPresetActive,
+                "savegame end did not release every owned participant independently");
+            lease.ReleaseOnEnd(42, (_, __) => exitErrors++);
+            check(first.ExitCount == 1 && second.ExitCount == 1,
+                "duplicate mission end released a participant twice");
+            lease.ReleaseOnEnd(43, (_, __) => exitErrors++);
+            check(!replacement.IsMissionPresetActive && replacement.ExitCount == 1,
+                "replacement session retained its savegame preset");
+
             var record = new SavegameModSettingsRecord
             {
                 Version = 3,

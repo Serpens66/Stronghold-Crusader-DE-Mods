@@ -33,11 +33,14 @@ namespace SpectatorPerspectiveTest
         private static bool[] occupiedSlots;
         private static EngineInterface.PlayState stateBeforeLoad;
         private static EngineInterface.PlayState reportStateBeforeSwitch;
+        private static EngineInterface.PlayState alliesStateBeforeSwitch;
         private static Grid hiddenReportPanel;
         private static Visibility reportPanelVisibility;
+        private static HUD_AlliesPanel hiddenAlliesPanel;
+        private static Visibility alliesPanelVisibility;
         private static Grid guardedFoodPanel;
         private static readonly Button[] guardedFoodButtons = new Button[4];
-        private static readonly bool[] foodButtonEnabledBeforeGuard = new bool[4];
+        private static readonly bool[] foodButtonHitTestBeforeGuard = new bool[4];
         private static readonly string[] foodButtonNames = { "EatingMeat", "EatingCheese", "EatingBread", "EatingApples" };
 
         internal static void Initialize(ManualLogSource logger)
@@ -52,6 +55,12 @@ namespace SpectatorPerspectiveTest
                 log.LogInfo("SPECTATOR_REPORT_HOOKS_READY: Vanilla report navigation, food guard and stable report name installed.");
             }
             catch (Exception error) { log.LogError("SPECTATOR_REPORT_HOOKS_FAILED: " + error); }
+            try
+            {
+                SpectatorAllyHooks.Install();
+                log.LogInfo("SPECTATOR_ALLY_HOOKS_READY: selected-player ally view and CPU-only action guard installed.");
+            }
+            catch (Exception error) { log.LogError("SPECTATOR_ALLY_HOOKS_FAILED: " + error); }
             postLoadSubscription = MapLoaderR3EventHooks.OnPostLoad.Observable.Subscribe(OnPostLoad);
             startSubscription = MapLoaderR3EventHooks.OnStartMap.Observable.Subscribe(OnStartMap);
             unloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable.Subscribe(OnUnloadMap);
@@ -84,7 +93,9 @@ namespace SpectatorPerspectiveTest
         private static void BeginMapLoad()
         {
             RestoreReportPanel();
+            RestoreAllyPanel();
             RestoreFoodControls();
+            SpectatorAllyHooks.RestoreControls();
             mapReady = false;
             spectatorActive = false;
             initializationPending = false;
@@ -107,7 +118,8 @@ namespace SpectatorPerspectiveTest
 
         private static void StopRenderIfIdle()
         {
-            if (!renderSubscribed || resetHudPending || initializationPending || hudPending || reportStateBeforeSwitch != null) return;
+            if (!renderSubscribed || resetHudPending || initializationPending || hudPending ||
+                reportStateBeforeSwitch != null || alliesStateBeforeSwitch != null) return;
             Application.onBeforeRender -= OnPendingRender;
             renderSubscribed = false;
         }
@@ -150,13 +162,15 @@ namespace SpectatorPerspectiveTest
                     GuardFoodControls();
                 }
                 RefreshPendingReport(GameData.Instance?.lastGameState);
-                if ((initializationPending || hudPending || reportStateBeforeSwitch != null) &&
+                RefreshPendingAllies(GameData.Instance?.lastGameState);
+                if ((initializationPending || hudPending || reportStateBeforeSwitch != null || alliesStateBeforeSwitch != null) &&
                     Time.realtimeSinceStartup - pendingSince > 15f)
                 {
                     log.LogWarning("SPECTATOR_PERSPECTIVE_READY_TIMEOUT: pending UI or PlayState did not become ready within 15 seconds.");
                     initializationPending = false;
                     hudPending = false;
                     RestoreReportPanel();
+                    ClosePendingAllies();
                 }
                 StopRenderIfIdle();
             }
@@ -167,6 +181,7 @@ namespace SpectatorPerspectiveTest
                 resetHudPending = false;
                 spectatorActive = false;
                 RestoreReportPanel();
+                ClosePendingAllies();
                 RestoreFoodControls();
                 hud.Hide();
                 StopRenderIfIdle();
@@ -200,6 +215,45 @@ namespace SpectatorPerspectiveTest
             return mapReady && spectatorActive && selectedPlayer > 0 && state != null &&
                    state.game_type == 3 && state.spectatorMode != 0 &&
                    EditorDirector.instance != null && EditorDirector.instance.ActivePlayerID <= 0;
+        }
+
+        internal static int GetAllyViewPlayerId(GameData data)
+        {
+            return IsActiveSpectator() ? selectedPlayer : data.playerID;
+        }
+
+        // The future host setting replaces this one constant decision.
+        private static bool AllyInteractionAllowed => true;
+
+        internal static bool CanInteractWithAllies()
+        {
+            var state = GameData.Instance?.lastGameState;
+            return IsActiveSpectator() && AllyInteractionAllowed && state != null &&
+                   state.is_skirmish_player(selectedPlayer) && !state.is_valid_player(selectedPlayer) &&
+                   EngineInterface.GetMeritData()[selectedPlayer, 1] >= 0;
+        }
+
+        internal static bool CanIssueAllyAction(Enums.GameActionCommand command, int structureID, int stateValue, int value2)
+        {
+            if (!CanInteractWithAllies()) return false;
+            var state = GameData.Instance.lastGameState;
+            if (command == Enums.GameActionCommand.Ally_Orders &&
+                (structureID < 1 || structureID > 6) && structureID != 10 && structureID != 11)
+                return false;
+            int target = command == Enums.GameActionCommand.Ally_Orders ? stateValue : structureID;
+            if (target < 1 || target > 8 || target == selectedPlayer ||
+                !state.is_human_or_skirmish_player(target) || state.teams[target] != state.teams[selectedPlayer])
+                return false;
+            if (command == Enums.GameActionCommand.Ally_Orders && structureID >= 1 && structureID <= 6 &&
+                (value2 < 1 || value2 > 8 || !state.is_human_or_skirmish_player(value2) ||
+                 state.teams[value2] == state.teams[selectedPlayer]))
+                return false;
+            return EngineInterface.GetMeritData()[target, 1] >= 0;
+        }
+
+        internal static void LogAllyAction(Enums.GameActionCommand command, int target, bool allowed)
+        {
+            log.LogInfo($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] SPECTATOR_ALLY_ACTION: viewer={selectedPlayer}, command={command}, target={target}, allowed={allowed}.");
         }
 
         internal static bool TryGetSelectedReportName(out string name)
@@ -254,6 +308,50 @@ namespace SpectatorPerspectiveTest
             reportStateBeforeSwitch = null;
         }
 
+        private static void WaitForFreshAllies(EngineInterface.PlayState oldState)
+        {
+            if (MainViewModel.Instance?.AlliesPanelVisible != true) return;
+            var panel = MainViewModel.Instance.HUDAlliesPanel;
+            if (panel == null) return;
+            if (hiddenAlliesPanel != null && !ReferenceEquals(hiddenAlliesPanel, panel)) RestoreAllyPanel();
+            alliesStateBeforeSwitch = oldState;
+            pendingSince = Time.realtimeSinceStartup;
+            if (hiddenAlliesPanel == null)
+            {
+                hiddenAlliesPanel = panel;
+                alliesPanelVisibility = panel.Visibility;
+            }
+            panel.Visibility = Visibility.Hidden;
+            ArmRenderIfNeeded();
+        }
+
+        private static void RefreshPendingAllies(EngineInterface.PlayState state)
+        {
+            if (alliesStateBeforeSwitch == null) return;
+            if (!mapReady || MainViewModel.Instance?.AlliesPanelVisible != true)
+            {
+                RestoreAllyPanel();
+                return;
+            }
+            if (ReferenceEquals(state, alliesStateBeforeSwitch)) return;
+            try { SpectatorAllyHooks.RefreshOpenPanel(); }
+            finally { RestoreAllyPanel(); }
+        }
+
+        private static void ClosePendingAllies()
+        {
+            if (alliesStateBeforeSwitch != null && MainViewModel.Instance != null)
+                MainViewModel.Instance.AlliesPanelVisible = false;
+            RestoreAllyPanel();
+        }
+
+        private static void RestoreAllyPanel()
+        {
+            if (hiddenAlliesPanel != null) hiddenAlliesPanel.Visibility = alliesPanelVisibility;
+            hiddenAlliesPanel = null;
+            alliesStateBeforeSwitch = null;
+        }
+
         private static void GuardFoodControls()
         {
             var foodPanel = MainViewModel.Instance?.HUDBuildingPanel?.RefReportsFoodPanel;
@@ -265,8 +363,8 @@ namespace SpectatorPerspectiveTest
                 var button = GameXAMLManagerAPI.Instance?.FindElementByName(foodPanel, foodButtonNames[index]) as Button;
                 if (button == null) continue;
                 guardedFoodButtons[index] = button;
-                foodButtonEnabledBeforeGuard[index] = button.IsEnabled;
-                button.IsEnabled = false;
+                foodButtonHitTestBeforeGuard[index] = button.IsHitTestVisible;
+                button.IsHitTestVisible = false;
             }
         }
 
@@ -275,7 +373,7 @@ namespace SpectatorPerspectiveTest
             for (int index = 0; index < guardedFoodButtons.Length; index++)
             {
                 if (guardedFoodButtons[index] != null)
-                    guardedFoodButtons[index].IsEnabled = foodButtonEnabledBeforeGuard[index];
+                    guardedFoodButtons[index].IsHitTestVisible = foodButtonHitTestBeforeGuard[index];
                 guardedFoodButtons[index] = null;
             }
             guardedFoodPanel = null;
@@ -285,6 +383,7 @@ namespace SpectatorPerspectiveTest
         {
             RestoreFoodControls();
             RestoreReportPanel();
+            RestoreAllyPanel();
             if (!mapReady || !spectatorActive) return;
             hudPending = true;
             ArmRenderIfNeeded();
@@ -307,6 +406,7 @@ namespace SpectatorPerspectiveTest
             CacheSelectedName();
             hud.SetSelected(player);
             WaitForFreshReport(state);
+            WaitForFreshAllies(state);
             log.LogInfo($"SPECTATOR_PERSPECTIVE_SELECTED: player={player}; future Vanilla reports and messages use this index.");
         }
 

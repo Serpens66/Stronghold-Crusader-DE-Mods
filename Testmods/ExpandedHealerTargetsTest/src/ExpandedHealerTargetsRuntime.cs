@@ -9,6 +9,7 @@ using SHCDESE.API.LowLevel;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading;
 
@@ -30,6 +31,9 @@ namespace ExpandedHealerTargetsTest
         private int postStartupLogged;
         private int callbackDisabled;
         private int callbackFailures;
+        private int skippedBoundsReports;
+        private int lastNextUnitId;
+        private int lastListCount;
         private int diagnosticReports;
         private int addedSiege;
         private int addedCivilians;
@@ -43,6 +47,9 @@ namespace ExpandedHealerTargetsTest
         private int firstRejectedCivilianStateType;
         private int firstRejectedCivilianHealthType;
         private int firstRejectedCivilianNativeFlagsType;
+        private readonly Dictionary<long, string> catapultTrace = new Dictionary<long, string>();
+        private int catapultDiagnosticReports;
+        private int catapultDiagnosticFailures;
 
         private ExpandedHealerTargetsRuntime(ManualLogSource log,
             ConfigEntry<bool> healSiege, ConfigEntry<bool> healCivilians)
@@ -121,11 +128,24 @@ namespace ExpandedHealerTargetsTest
             {
                 AppendTargets(manager, playerId);
             }
-            catch
+            catch (Exception ex)
             {
                 // The installed hook remains in place and calls Vanilla after fail-open.
-                Interlocked.Increment(ref callbackFailures);
+                int failures = Interlocked.Increment(ref callbackFailures);
                 Volatile.Write(ref callbackDisabled, 1);
+                if (failures == 1)
+                {
+                    try
+                    {
+                        log.LogError($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] " +
+                            "HEALER_TARGETS_CALLBACK_FAILED: playerId=" + playerId +
+                            ", manager=0x" + manager.ToInt64().ToString("X") +
+                            ", lastNextUnitId=" + Volatile.Read(ref lastNextUnitId) +
+                            ", lastListCount=" + Volatile.Read(ref lastListCount) +
+                            ", exception=" + ex);
+                    }
+                    catch { /* Logging must not escape the native callback. */ }
+                }
             }
         }
 
@@ -136,14 +156,23 @@ namespace ExpandedHealerTargetsTest
                 return;
 
             var unitManager = (GameUnitManager*)manager.ToPointer();
-            int nextUnitId = checked((int)unitManager->r_NextUnitId);
-            if (nextUnitId < 1 || nextUnitId > HealerNativeContract.ListCapacity)
-                throw new InvalidOperationException("Unit ID upper bound exceeds the audited native list capacity.");
+            int nextUnitId = unchecked((int)unitManager->r_NextUnitId);
+            Volatile.Write(ref lastNextUnitId, nextUnitId);
+            if (!HealerListBounds.IsUsableNextUnitId(nextUnitId))
+            {
+                LogSkippedBounds(playerId, nextUnitId, -1);
+                return;
+            }
 
             int* count = (int*)(imageBase + HealerNativeContract.CountRva +
                 (ulong)(playerId * HealerNativeContract.PlayerRecordStride));
             int currentCount = *count;
-            if (currentCount < 0 || currentCount >= HealerNativeContract.ListCapacity) return;
+            Volatile.Write(ref lastListCount, currentCount);
+            if (!HealerListBounds.IsUsableListCount(currentCount))
+            {
+                LogSkippedBounds(playerId, nextUnitId, currentCount);
+                return;
+            }
             short* ids = (short*)(imageBase + HealerNativeContract.IdListRva +
                 (ulong)(playerId * HealerNativeContract.IdListStride));
             int* globalIds = (int*)(imageBase + HealerNativeContract.GlobalIdListRva +
@@ -157,15 +186,32 @@ namespace ExpandedHealerTargetsTest
 
             // Native game IDs index the manager's array directly: slot zero is LastOrderedUnit.
             GameUnit* units = &unitManager->GameUnitArray;
+            List<int> healerIds = null;
+            bool healerLookupAttempted = false;
             for (int unitId = 1; unitId < nextUnitId && currentCount < HealerNativeContract.ListCapacity; unitId++)
             {
                 GameUnit* unit = units + unitId;
                 bool siege = healSiege && IsSiegeEngine(unit->r_UnitChimp);
                 bool civilian = healCivilians && IsHumanCivilian(unit->r_UnitChimp);
-                if ((!siege && !civilian) || seen[unitId]) continue;
+                if (!siege && !civilian) continue;
+                bool catapult = unit->r_UnitChimp == eChimps.CHIMP_TYPE_CATAPULT;
+                if (catapult && !healerLookupAttempted)
+                {
+                    healerLookupAttempted = true;
+                    try { healerIds = FindHealers(units, nextUnitId, playerId); }
+                    catch (Exception ex) { ReportCatapultDiagnosticFailure(ex); }
+                }
+                if (seen[unitId])
+                {
+                    if (catapult) TraceCatapult(units, healerIds, unitId, playerId, unit,
+                        "already-listed", currentCount);
+                    continue;
+                }
 
                 if (unit->r_ControllableForPlayerId != playerId || playerId == 0)
                 {
+                    if (catapult) TraceCatapult(units, healerIds, unitId, playerId, unit,
+                        "owner-mismatch", currentCount);
                     if (civilian)
                     {
                         Interlocked.Increment(ref rejectedCivilianOwner);
@@ -175,6 +221,8 @@ namespace ExpandedHealerTargetsTest
                 }
                 if (unit->r_AliveState != AliveState.IsAlive || unit->r_GlobalId == 0)
                 {
+                    if (catapult) TraceCatapult(units, healerIds, unitId, playerId, unit,
+                        "not-alive-or-no-global-id", currentCount);
                     if (civilian)
                     {
                         Interlocked.Increment(ref rejectedCivilianState);
@@ -184,6 +232,8 @@ namespace ExpandedHealerTargetsTest
                 }
                 if (unit->r_CurrentHealth == 0 || unit->r_CurrentHealth >= unit->r_MaxHealth)
                 {
+                    if (catapult) TraceCatapult(units, healerIds, unitId, playerId, unit,
+                        "not-injured", currentCount);
                     if (civilian)
                     {
                         Interlocked.Increment(ref rejectedCivilianHealth);
@@ -195,6 +245,8 @@ namespace ExpandedHealerTargetsTest
                 // These two Vanilla selector guards must hold after list insertion as well.
                 if (*(short*)(record + 0x29C) != 0 || *(byte*)(record + 0x458) != 0)
                 {
+                    if (catapult) TraceCatapult(units, healerIds, unitId, playerId, unit,
+                        "native-selector-flags", currentCount);
                     if (civilian)
                     {
                         Interlocked.Increment(ref rejectedCivilianNativeFlags);
@@ -207,6 +259,8 @@ namespace ExpandedHealerTargetsTest
                 globalIds[currentCount] = unchecked((int)unit->r_GlobalId);
                 currentCount++;
                 seen[unitId] = true;
+                if (catapult) TraceCatapult(units, healerIds, unitId, playerId, unit,
+                    "added", currentCount);
                 if (siege)
                 {
                     Interlocked.Increment(ref addedSiege);
@@ -219,6 +273,102 @@ namespace ExpandedHealerTargetsTest
                 }
             }
             *count = currentCount;
+        }
+
+        private static List<int> FindHealers(GameUnit* units, int nextUnitId, int playerId)
+        {
+            var healerIds = new List<int>();
+            for (int unitId = 1; unitId < nextUnitId; unitId++)
+            {
+                GameUnit* unit = units + unitId;
+                if (unit->r_UnitChimp == eChimps.CHIMP_TYPE_BEDOUIN_HEALER &&
+                    unit->r_AliveState == AliveState.IsAlive &&
+                    unit->r_ControllableForPlayerId == playerId)
+                    healerIds.Add(unitId);
+            }
+            return healerIds;
+        }
+
+        private void TraceCatapult(GameUnit* units, List<int> healerIds, int unitId,
+            int playerId, GameUnit* catapult, string reason, int listCount)
+        {
+            try
+            {
+                if (healerIds == null) return;
+                int healerId = 0;
+                int distance = int.MaxValue;
+                foreach (int candidateId in healerIds)
+                {
+                    GameUnit* candidate = units + candidateId;
+                    int dx = Math.Abs((int)candidate->r_CurrentWorldPositionX -
+                                      catapult->r_CurrentWorldPositionX);
+                    int dy = Math.Abs((int)candidate->r_CurrentWorldPositionY -
+                                      catapult->r_CurrentWorldPositionY);
+                    int candidateDistance = Math.Max(dx, dy);
+                    if (candidateDistance < distance)
+                    {
+                        distance = candidateDistance;
+                        healerId = candidateId;
+                    }
+                }
+                // Vanilla's ordinary search radius is 0x20 world units. Include a
+                // wider margin so a nearby but out-of-range test is still visible.
+                if (healerId == 0 || distance > 0x50) return;
+
+                GameUnit* healer = units + healerId;
+                ushort healerState = *(ushort*)((byte*)healer + 0x2BC);
+                int healerTarget = *(int*)((byte*)healer + 0x450);
+                short assignment = *(short*)((byte*)catapult + 0x29C);
+                short populationFlag = *(short*)((byte*)catapult + 0x2A0);
+                byte selectorFlag = *((byte*)catapult + 0x458);
+                long key = ((long)playerId << 48) | ((long)unitId << 32) | catapult->r_GlobalId;
+                string signature = reason + ":" + healerState + ":" + healerTarget + ":" +
+                    assignment + ":" + selectorFlag + ":" + catapult->r_ControllableForPlayerId;
+                lock (catapultTrace)
+                {
+                    if (catapultDiagnosticReports >= 80 ||
+                        (catapultTrace.TryGetValue(key, out string previous) && previous == signature))
+                        return;
+                    catapultTrace[key] = signature;
+                    catapultDiagnosticReports++;
+                }
+                Info("HEALER_TARGETS_CATAPULT: unitId=" + unitId +
+                     ", globalId=" + catapult->r_GlobalId + ", player=" + playerId +
+                     ", owner=" + catapult->r_ControllableForPlayerId +
+                     ", alive=" + catapult->r_AliveState +
+                     ", hp=" + catapult->r_CurrentHealth + "/" + catapult->r_MaxHealth +
+                     ", field29C=" + assignment + ", field2A0=" + populationFlag +
+                     ", field458=" + selectorFlag + ", listCount=" + listCount +
+                     ", reason=" + reason + ", healerId=" + healerId +
+                     ", healerState=" + healerState + ", healerTarget=" + healerTarget +
+                     ", distance=" + distance);
+            }
+            catch (Exception ex)
+            {
+                ReportCatapultDiagnosticFailure(ex);
+            }
+        }
+
+        private void ReportCatapultDiagnosticFailure(Exception ex)
+        {
+            if (Interlocked.Increment(ref catapultDiagnosticFailures) != 1) return;
+            try
+            {
+                log.LogWarning($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] " +
+                    "HEALER_TARGETS_CATAPULT_DIAGNOSTIC_FAILED: " + ex);
+            }
+            catch { /* Diagnostics and their logger must not affect target insertion. */ }
+        }
+
+        private void LogSkippedBounds(int playerId, int nextUnitId, int count)
+        {
+            if (Interlocked.Increment(ref skippedBoundsReports) > 3) return;
+            try
+            {
+                Info("HEALER_TARGETS_LIST_SKIPPED: playerId=" + playerId +
+                     ", nextUnitId=" + nextUnitId + ", listCount=" + count);
+            }
+            catch { /* A log failure cannot disable later valid lists. */ }
         }
 
         private static bool IsSiegeEngine(eChimps type)
@@ -261,6 +411,7 @@ namespace ExpandedHealerTargetsTest
                 case eChimps.CHIMP_TYPE_BLACKSMITH:
                 case eChimps.CHIMP_TYPE_ARMOURER:
                 case eChimps.CHIMP_TYPE_TANNER:
+                case eChimps.CHIMP_TYPE_PRIEST:
                 case eChimps.CHIMP_TYPE_HEALER:
                 case eChimps.CHIMP_TYPE_DRUNKARD:
                 case eChimps.CHIMP_TYPE_INNKEEPER:
@@ -304,7 +455,8 @@ namespace ExpandedHealerTargetsTest
                  "(" + TypeName(Volatile.Read(ref firstRejectedCivilianHealthType)) + ")" +
                  ", civilianNativeFlags=" + Volatile.Read(ref rejectedCivilianNativeFlags) +
                  "(" + TypeName(Volatile.Read(ref firstRejectedCivilianNativeFlagsType)) + ")" +
-                 ", callbackFailures=" + Volatile.Read(ref callbackFailures));
+                 ", callbackFailures=" + Volatile.Read(ref callbackFailures) +
+                 ", catapultDiagnosticFailures=" + Volatile.Read(ref catapultDiagnosticFailures));
         }
 
         private void Info(string message) =>

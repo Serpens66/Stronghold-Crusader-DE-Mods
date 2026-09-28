@@ -258,6 +258,8 @@
     <Compile Include="src\ResyncHostKickFeature.cs" />
     <Compile Include="src\ResyncHostKickPolicy.cs" />
     <Compile Include="src\SelectedUnitHealthFeature.cs" />
+    <Compile Include="src\DamagedHealthBarsRuntime.cs" />
+    <Compile Include="src\HealthBarNativeContract.cs" />
     <Compile Include="src\SelectedUnitHealthSummary.cs" />
     <Compile Include="src\SiegeAmmoRestockFeature.cs" />
     <Compile Include="src\SiegeAmmoRestockPacket.cs" />

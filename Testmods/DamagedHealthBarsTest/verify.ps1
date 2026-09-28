@@ -46,6 +46,19 @@ if ($sources -notmatch 'HEALTH_BARS_POST_STARTUP' -or
     $sources -notmatch 'DisplacedByteCount') {
     throw 'A persistent publisher, startup marker, atomic flag or hook-length check is missing.'
 }
+$nativeContract = [IO.File]::ReadAllText((Join-Path $root 'src\HealthBarNativeContract.cs'))
+if ($nativeContract -notmatch 'UnitHealthBarBlocks = 0x67E8A90' -or
+    $nativeContract -notmatch 'UnitChimpType = 0x67E8AE6' -or
+    $nativeContract -notmatch 'UnitHealthBarBlocks\], 10' -or
+    $nativeContract -notmatch 'assembler\.cmp\(ax, 48\)' -or
+    $nativeContract -notmatch 'assembler\.cmp\(ax, 49\)' -or
+    $nativeContract -notmatch 'assembler\.cmp\(ax, 54\)' -or
+    $nativeContract -notmatch 'assembler\.cmp\(ax, 62\)' -or
+    $nativeContract -notmatch 'assembler\.cmp\(ax, 64\)' -or
+    $nativeContract -notmatch 'assembler\.cmp\(ax, 68\)' -or
+    $nativeContract -notmatch 'assembler\.cmp\(ax, 69\)') {
+    throw 'Full-bar suppression or audited cosmetic unit exclusions are missing.'
+}
 if ($sources -notmatch 'gameData\.app_mode != 14 && gameData\.app_mode != 16' -or
     $sources -notmatch 'controller\.NoesisHasKeyboard' -or
     $sources -notmatch 'viewModel\.IsMapEditorMode' -or
