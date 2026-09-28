@@ -153,6 +153,9 @@ namespace BugfixesAndQoL
         private ulong activeLayoutIndexBase;
         private ulong nativeModuleBase;
         private ulong lastAivState;
+        // AIBuildDiagnoseTest BEGIN
+        private readonly int[] woodCandidateScans = new int[MaxPlayablePlayerId + 1];
+        // AIBuildDiagnoseTest END
 
         [ThreadStatic] private static int nearbyEconomyPlayerId;
         [ThreadStatic] private static ulong nearbyEconomyState;
@@ -533,8 +536,23 @@ namespace BugfixesAndQoL
         private void EconomyQuarry(ulong state, int playerId) => RunEconomyPlayer(
             economyQuarryHook, state, playerId);
 
-        private void EconomyWood(ulong state, int playerId) => RunEconomyPlayer(
-            economyWoodHook, state, playerId);
+        private void EconomyWood(ulong state, int playerId)
+        {
+            // AIBuildDiagnoseTest BEGIN -- dormant unless the test observer is registered.
+            bool diagnose = APIShared.AiBuildDiagnostic.HasObserver;
+            if (diagnose)
+                APIShared.AiBuildDiagnostic.Publish("wood-build-before", playerId,
+                    sessionEnabled ? 1 : 0, economyFixEnabled ? 1 : 0,
+                    currentMapIsSave ? 1 : 0, economyMapRelevant ? 1 : 0);
+            // AIBuildDiagnoseTest END
+            try { RunEconomyPlayer(economyWoodHook, state, playerId); }
+            finally
+            {
+                if (diagnose)
+                    APIShared.AiBuildDiagnostic.Publish("wood-build-after", playerId,
+                        ReadSearchResult(state, false), ReadSearchResult(state, true));
+            }
+        }
 
         private void RunEconomyPlayer(DetourHandle<EconomyPlayerDelegate> hook, ulong state, int playerId)
         {
@@ -580,6 +598,32 @@ namespace BugfixesAndQoL
 
         private void WoodSearch(ulong state, int playerId)
         {
+            // AIBuildDiagnoseTest BEGIN
+            bool diagnose = APIShared.AiBuildDiagnostic.HasObserver;
+            long cooldownBefore = diagnose ? ReadWoodCooldown(playerId) : -1;
+            if (diagnose)
+                APIShared.AiBuildDiagnostic.Publish("wood-search-before", playerId,
+                    cooldownBefore, ReadSearchResult(state, false),
+                    ReadSearchResult(state, true));
+            try { WoodSearchCore(state, playerId); }
+            finally
+            {
+                if (diagnose)
+                {
+                    APIShared.AiBuildDiagnostic.Publish("wood-search-after", playerId,
+                        ReadWoodCooldown(playerId), ReadSearchResult(state, false),
+                        ReadSearchResult(state, true));
+                    if (cooldownBefore <= 0 && ReadSearchResult(state, false) == -1 &&
+                        playerId >= 1 && playerId <= MaxPlayablePlayerId &&
+                        woodCandidateScans[playerId]++ < 3)
+                        PublishWoodCandidateScan(state, playerId);
+                }
+            }
+            // AIBuildDiagnoseTest END
+        }
+
+        private void WoodSearchCore(ulong state, int playerId)
+        {
             if (!sessionEnabled || !IsExpectedAivState(state) || !economyMapRelevant)
             {
                 woodSearchHook.Original(state, playerId);
@@ -592,6 +636,24 @@ namespace BugfixesAndQoL
         }
 
         private void NearbySearch(ulong state, uint coarseX, uint coarseY)
+        {
+            // AIBuildDiagnoseTest BEGIN
+            bool diagnose = APIShared.AiBuildDiagnostic.HasObserver &&
+                nearbyEconomyPlayerId >= 1 && nearbyEconomyPlayerId <= MaxPlayablePlayerId;
+            if (diagnose)
+                APIShared.AiBuildDiagnostic.Publish("wood-nearby-before", nearbyEconomyPlayerId,
+                    coarseX, coarseY);
+            try { NearbySearchCore(state, coarseX, coarseY); }
+            finally
+            {
+                if (diagnose)
+                    APIShared.AiBuildDiagnostic.Publish("wood-nearby-after", nearbyEconomyPlayerId,
+                        ReadSearchResult(state, false), ReadSearchResult(state, true));
+            }
+            // AIBuildDiagnoseTest END
+        }
+
+        private void NearbySearchCore(ulong state, uint coarseX, uint coarseY)
         {
             if (!sessionEnabled || !IsExpectedAivState(state) || !economyMapRelevant)
             {
@@ -609,6 +671,59 @@ namespace BugfixesAndQoL
             }
             nearbySearchHook.Original(state, coarseX, coarseY);
         }
+
+        // AIBuildDiagnoseTest BEGIN -- read only, with the same audited layout as the existing hooks.
+        private static long ReadSearchResult(ulong state, bool y)
+        {
+            if (state == 0) return -1;
+            try { return Marshal.ReadInt32(new IntPtr(checked((long)state + (y ? 0x1B9840 : 0x1B983C)))); }
+            catch { return -1; }
+        }
+
+        private long ReadWoodCooldown(int playerId)
+        {
+            if (nativeModuleBase == 0 || playerId < 1 || playerId > MaxPlayablePlayerId) return -1;
+            try
+            {
+                return Marshal.ReadInt16(new IntPtr(checked((long)nativeModuleBase +
+                    NativeEconomyStartXRva + (long)playerId * PlayerRuntimeStateStride +
+                    (0x379E748 - NativeEconomyStartXRva))));
+            }
+            catch { return -1; }
+        }
+
+        private static void PublishWoodCandidateScan(ulong state, int playerId)
+        {
+            try
+            {
+                uint generation = unchecked((uint)Marshal.ReadInt32(
+                    new IntPtr(checked((long)state + 0x5B50C))));
+                Span<AivCoarseCell> grid = GameAIVManagerAPI.Instance.GetCoarseGrid();
+                int visited = 0, candidates = 0, bestScore = int.MinValue;
+                for (int cellIndex = 0; cellIndex < grid.Length; cellIndex++)
+                {
+                    ref AivCoarseCell cell = ref grid[cellIndex];
+                    if (cell.CoarseSearchGeneration != generation) continue;
+                    visited++;
+                    if (unchecked((sbyte)cell.ForeignPathComponentTileCount) >= 6 ||
+                        unchecked((sbyte)cell.TreeObstructionWeight) <= 0 ||
+                        cell.WoodcutterRetryDelay != 0) continue;
+                    int score = unchecked((sbyte)cell.TreeObstructionWeight) * 5 -
+                        unchecked((sbyte)cell.CoarseSearchDepth) * 3;
+                    if (cell.Unknown06 != 0) score = score < 1 ? score * 2 : score / 2;
+                    candidates++;
+                    if (score > bestScore) bestScore = score;
+                }
+                APIShared.AiBuildDiagnostic.Publish("wood-candidate-scan", playerId,
+                    visited, candidates, bestScore, generation);
+            }
+            catch (Exception ex)
+            {
+                APIShared.AiBuildDiagnostic.Publish("wood-candidate-scan-error", playerId,
+                    ex.HResult);
+            }
+        }
+        // AIBuildDiagnoseTest END
 
         private EconomyGridOverlayScope EnterEconomyOverlay(ulong state, int playerId, string helper)
         {
@@ -1707,6 +1822,9 @@ namespace BugfixesAndQoL
 
         private void ResetMap()
         {
+            // AIBuildDiagnoseTest BEGIN
+            Array.Clear(woodCandidateScans, 0, woodCandidateScans.Length);
+            // AIBuildDiagnoseTest END
             players.Clear();
             activeEconomyOverlayScopes?.Clear();
             pendingDamage.Clear();

@@ -43,6 +43,7 @@ namespace APISharedTests
                     : null;
             PlayerDefeatTests.Run();
             TestPublicSurface();
+            MarkedSelectionHarmonyTests.Run(Assert);
             TestElevatedMoatAiState();
             TestPublishedPresetJson();
             TestPublishedPresetDiscovery();
@@ -53,6 +54,7 @@ namespace APISharedTests
             TestUnitHudSnapshotImmutability();
             TestLocalSelectionSnapshots();
             TestPlayerPerspectivePolicy();
+            TestPlayerPerspectiveTransition();
             TestLobbyStateCapability();
             TestBriefingGoldPresentation();
             MissionLifecycleTests.Run(Assert);
@@ -113,6 +115,62 @@ namespace APISharedTests
             Assert(!PlayerPerspectiveAPI.ShouldOverrideLocalPlayerId(1,
                 (int)SHCDESE.Interop.Enums.eGameTypeModes.GAMETYPE_MAP, 1, -1),
                 "Other game modes must keep the original result.");
+        }
+
+        private static void TestPlayerPerspectiveTransition()
+        {
+            FieldInfo activeField = typeof(PlayerPerspectiveAPI).GetField("identityOverrideActive",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            FieldInfo selectedField = typeof(PlayerPerspectiveAPI).GetField("selectedSpectatorPlayerId",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            int Active() => (int)activeField.GetValue(null);
+            int Selected() => (int)selectedField.GetValue(null);
+            PlayerPerspectiveAPI.ClearSpectatorView();
+            int native = 1;
+            bool protectedDuringWrite = false;
+            int viewDuringWrite = 0;
+            bool changed = PlayerPerspectiveAPI.TryChangeView(2, () => native, value =>
+            {
+                protectedDuringWrite = Active() == 1 && Selected() == 0;
+                native = value;
+                viewDuringWrite = PlayerPerspectiveAPI.GetViewedPlayerId();
+            }, out string failure);
+            Assert(changed && failure == null && protectedDuringWrite && native == 2 &&
+                Active() == 1 && Selected() == 2 && viewDuringWrite == 1 &&
+                PlayerPerspectiveAPI.GetViewedPlayerId() == 2,
+                "spectator identity is protected and the new viewpoint published only after verification");
+
+            int writes = 0;
+            changed = PlayerPerspectiveAPI.TryChangeView(3, () => native, value =>
+            {
+                writes++;
+                native = writes == 1 ? 4 : value;
+            }, out failure);
+            Assert(!changed && writes == 2 && native == 2 && Active() == 1 && Selected() == 2 &&
+                PlayerPerspectiveAPI.GetViewedPlayerId() == 2 && failure.Contains("rollback=verified"),
+                "a failed switch restores the previous native and published viewpoint");
+
+            PlayerPerspectiveAPI.ClearSpectatorView();
+            native = 1;
+            writes = 0;
+            changed = PlayerPerspectiveAPI.TryChangeView(3, () => native, value =>
+            {
+                writes++;
+                native = writes == 1 ? 4 : value;
+            }, out failure);
+            Assert(!changed && native == 1 && Active() == 0 && Selected() == 0,
+                "a failed initial switch clears the override after verified rollback");
+
+            writes = 0;
+            changed = PlayerPerspectiveAPI.TryChangeView(3, () => native, value =>
+            {
+                if (++writes == 2) throw new InvalidOperationException("rollback unavailable");
+                native = 4;
+            }, out failure);
+            Assert(!changed && native == 4 && Active() == 1 && Selected() == 0 &&
+                PlayerPerspectiveAPI.GetViewedPlayerId() == -1 && failure.Contains("rollback=failed"),
+                "failed rollback keeps the spectator identity protected and does not publish an unverified view");
+            PlayerPerspectiveAPI.ClearSpectatorView();
         }
 
         private static void TestLocalSelectionSnapshots()
@@ -1629,6 +1687,8 @@ namespace APISharedTests
                 "APIShared.IAivBuildStepInvocation",
                 "APIShared.AivBuildStepContext",
                 "APIShared.AivBuildStepCompletion",
+                "APIShared.AiBuildDiagnosticRecord",
+                "APIShared.AiBuildDiagnostic",
                 "APIShared.SavegameModSettingsRecord",
                 "APIShared.TrailCreatorRule",
                 "APIShared.SavegameLoadChoiceState",

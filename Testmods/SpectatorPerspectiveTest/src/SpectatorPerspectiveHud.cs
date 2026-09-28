@@ -1,15 +1,16 @@
 using System;
+using CrusaderDE;
 using Noesis;
-using SHCDESE.API;
 
 namespace SpectatorPerspectiveTest
 {
     internal sealed class SpectatorPerspectiveHud
     {
-        private const float Edge = 12f;
+        private const float DefaultRightInset = 52f;
         private readonly Action<int> selectPlayer;
         private readonly Action<int, MouseButton> jumpToPlayer;
         private readonly Action uiUnavailable;
+        private readonly Action uiAvailable;
         private readonly Button[] buttons = new Button[9];
         private readonly TextBlock[] numbers = new TextBlock[9];
         private readonly RoutedEventHandler[] clickHandlers = new RoutedEventHandler[9];
@@ -18,6 +19,7 @@ namespace SpectatorPerspectiveTest
         private static readonly SolidColorBrush selectedBorder = new SolidColorBrush(Noesis.Color.FromRgb(239, 198, 112));
         private static readonly SolidColorBrush normalBackground = new SolidColorBrush(Noesis.Color.FromArgb(120, 15, 12, 10));
         private static readonly SolidColorBrush selectedBackground = new SolidColorBrush(Noesis.Color.FromArgb(160, 74, 37, 24));
+        private IngameUIScreens screen;
         private Canvas canvas;
         private Border bar;
         private Border dragHandle;
@@ -29,11 +31,13 @@ namespace SpectatorPerspectiveTest
         private float originTop;
         private int selectedPlayer;
 
-        internal SpectatorPerspectiveHud(Action<int> selectPlayer, Action<int, MouseButton> jumpToPlayer, Action uiUnavailable)
+        internal SpectatorPerspectiveHud(Action<int> selectPlayer, Action<int, MouseButton> jumpToPlayer,
+            Action uiUnavailable, Action uiAvailable)
         {
             this.selectPlayer = selectPlayer;
             this.jumpToPlayer = jumpToPlayer;
             this.uiUnavailable = uiUnavailable;
+            this.uiAvailable = uiAvailable;
         }
 
         internal void ResetForSession()
@@ -98,16 +102,20 @@ namespace SpectatorPerspectiveTest
 
         private bool Resolve()
         {
-            if (canvas != null && bar != null && canvas.IsLoaded) return true;
-            var nextCanvas = GameXAMLManagerAPI.Instance?.FindGlobalElement("SpectatorPerspectiveCanvas") as Canvas;
-            if (nextCanvas == null) { Hide(); return false; }
-            if (ReferenceEquals(nextCanvas, canvas) && bar != null) return true;
+            IngameUIScreens nextScreen = MainViewModel.Instance?.IngameUI;
+            if (nextScreen == null) { Hide(); return false; }
+            if (ReferenceEquals(nextScreen, screen) && canvas != null && bar != null &&
+                (canvas.IsLoaded || ReferenceEquals(screen.FindName("SpectatorPerspectiveCanvas"), canvas))) return true;
             Detach();
-            canvas = nextCanvas;
+            screen = nextScreen;
+            screen.Loaded += OnScreenLoaded;
+            canvas = screen.FindName("SpectatorPerspectiveCanvas") as Canvas;
+            if (canvas == null) { Detach(); return false; }
             canvas.SizeChanged += OnCanvasSizeChanged;
+            canvas.Loaded += OnCanvasLoaded;
             canvas.Unloaded += OnCanvasUnloaded;
-            bar = GameXAMLManagerAPI.Instance.FindElementByName(canvas, "SpectatorPerspectiveBar") as Border;
-            dragHandle = GameXAMLManagerAPI.Instance.FindElementByName(canvas, "SpectatorPerspectiveDrag") as Border;
+            bar = screen.FindName("SpectatorPerspectiveBar") as Border;
+            dragHandle = screen.FindName("SpectatorPerspectiveDrag") as Border;
             if (bar == null || dragHandle == null) { Detach(); return false; }
             dragHandle.MouseLeftButtonDown += OnDragDown;
             dragHandle.MouseMove += OnDragMove;
@@ -116,7 +124,7 @@ namespace SpectatorPerspectiveTest
             for (int player = 1; player <= 8; player++)
             {
                 int slot = player;
-                buttons[player] = GameXAMLManagerAPI.Instance.FindElementByName(canvas, "SpectatorPerspectivePlayer" + player) as Button;
+                buttons[player] = screen.FindName("SpectatorPerspectivePlayer" + player) as Button;
                 numbers[player] = buttons[player]?.Content as TextBlock;
                 if (buttons[player] == null || numbers[player] == null) { Detach(); return false; }
                 clickHandlers[player] = (sender, args) => selectPlayer(slot);
@@ -136,9 +144,11 @@ namespace SpectatorPerspectiveTest
 
         private void Detach()
         {
+            if (screen != null) screen.Loaded -= OnScreenLoaded;
             if (canvas != null)
             {
                 canvas.SizeChanged -= OnCanvasSizeChanged;
+                canvas.Loaded -= OnCanvasLoaded;
                 canvas.Unloaded -= OnCanvasUnloaded;
             }
             if (dragHandle != null)
@@ -150,6 +160,7 @@ namespace SpectatorPerspectiveTest
             }
             dragging = false;
             selectedPlayer = 0;
+            screen = null;
             canvas = null;
             bar = null;
             dragHandle = null;
@@ -169,8 +180,8 @@ namespace SpectatorPerspectiveTest
         private void PlaceAtTopRight()
         {
             if (canvas.ActualWidth <= 0f) return;
-            Canvas.SetLeft(bar, Math.Max(Edge, canvas.ActualWidth - bar.Width - Edge));
-            Canvas.SetTop(bar, Edge);
+            Canvas.SetLeft(bar, Math.Max(0f, canvas.ActualWidth - bar.Width - DefaultRightInset));
+            Canvas.SetTop(bar, 0f);
             positioned = true;
         }
 
@@ -220,10 +231,19 @@ namespace SpectatorPerspectiveTest
             ClampPosition();
         }
 
+        private void OnScreenLoaded(object sender, RoutedEventArgs args)
+        {
+            if (ReferenceEquals(sender, screen)) uiAvailable();
+        }
+
+        private void OnCanvasLoaded(object sender, RoutedEventArgs args)
+        {
+            if (ReferenceEquals(sender, canvas)) uiAvailable();
+        }
+
         private void OnCanvasUnloaded(object sender, RoutedEventArgs args)
         {
             Hide();
-            Detach();
             uiUnavailable();
         }
     }

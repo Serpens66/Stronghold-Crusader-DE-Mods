@@ -144,6 +144,11 @@ namespace BugfixesAndQoL
                         // A hub change, including opening the settings, is the safe point to retry visuals.
                         try
                         {
+                            var hub = SHCDESE.BepInEx.Bootstrap.Plugin.ModSettingsHubViewModel;
+                            if (Settings.IsCapturingHealthBarHotkey &&
+                                (hub.WindowVisibility != Noesis.Visibility.Visible ||
+                                 !ReferenceEquals(hub.SelectedTab?.ViewModel, Settings)))
+                                Settings.CancelHealthBarCapture();
                             Settings.RefreshStatisticsTeamBadgePreviewVisual();
                             Settings.RefreshMarketGoodsOrderVisuals();
                         }

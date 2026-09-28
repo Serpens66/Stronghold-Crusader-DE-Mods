@@ -19,6 +19,13 @@ namespace ForeignTroopHudTest
         private readonly TextBlock[] currentHealth = new TextBlock[8];
         private readonly TextBlock[] maxHealth = new TextBlock[8];
         private readonly List<ForeignTroopEntry> visibleEntries = new List<ForeignTroopEntry>();
+        private readonly List<ForeignTroopEntry> visibleEntryPool = new List<ForeignTroopEntry>();
+        private readonly ForeignTroopEntry[] drawnEntries = new ForeignTroopEntry[8];
+        private static readonly SolidColorBrush[] PlayerBrushes = {
+            Brush(210, 204, 188), Brush(235, 72, 56), Brush(238, 156, 55),
+            Brush(237, 212, 72), Brush(87, 147, 229), Brush(163, 158, 155),
+            Brush(171, 105, 203), Brush(107, 211, 223), Brush(103, 207, 92)
+        };
         private Canvas panel;
         private TextBlock pageText;
         private Button previous;
@@ -143,15 +150,18 @@ namespace ForeignTroopHudTest
             {
                 visibleEntries.Clear();
                 foreach (ForeignTroopEntry entry in entries)
-                    visibleEntries.Add(new ForeignTroopEntry
-                    {
-                        Owner = entry.Owner,
-                        Type = entry.Type,
-                        ColorId = entry.ColorId,
-                        Count = entry.Count,
-                        CurrentHealth = entry.CurrentHealth,
-                        MaxHealth = entry.MaxHealth
-                    });
+                {
+                    int index = visibleEntries.Count;
+                    ForeignTroopEntry copy = index < visibleEntryPool.Count ? visibleEntryPool[index] : new ForeignTroopEntry();
+                    if (index == visibleEntryPool.Count) visibleEntryPool.Add(copy);
+                    copy.Owner = entry.Owner;
+                    copy.Type = entry.Type;
+                    copy.ColorId = entry.ColorId;
+                    copy.Count = entry.Count;
+                    copy.CurrentHealth = entry.CurrentHealth;
+                    copy.MaxHealth = entry.MaxHealth;
+                    visibleEntries.Add(copy);
+                }
                 page = Math.Min(page, (visibleEntries.Count - 1) / 8);
                 Draw();
             }
@@ -242,6 +252,8 @@ namespace ForeignTroopHudTest
             if (previous != null) previous.Click -= OnPrevious;
             if (next != null) next.Click -= OnNext;
             visibleEntries.Clear();
+            visibleEntryPool.Clear();
+            Array.Clear(drawnEntries, 0, drawnEntries.Length);
             panel = null;
             activeIngameUi = null;
             pageText = null;
@@ -290,31 +302,47 @@ namespace ForeignTroopHudTest
                 int entryIndex = page * 8 + i;
                 if (entryIndex >= visibleEntries.Count)
                 {
-                    slots[i].Visibility = Visibility.Collapsed;
+                    if (drawnEntries[i] != null) slots[i].Visibility = Visibility.Collapsed;
+                    drawnEntries[i] = null;
                     continue;
                 }
                 ForeignTroopEntry entry = visibleEntries[entryIndex];
-                slots[i].Visibility = Visibility.Visible;
-                SolidColorBrush playerBrush = PlayerBrush(entry.ColorId);
-                ownerLabels[i].Foreground = playerBrush;
-                ownerLabels[i].Text = "P" + entry.Owner;
-                counts[i].Text = entry.Count.ToString();
-                currentHealth[i].Text = ScaleHealth(entry.CurrentHealth);
-                maxHealth[i].Text = ScaleHealth(entry.MaxHealth);
-                currentHealth[i].Foreground = HealthBrush(entry);
-                int portraitCode = entry.Type < PortraitCodes.Length ? PortraitCodes[entry.Type] : 0;
-                ImageSource source = entry.Type == 55 ? Shared.LordPortraitPalette.Get(entry.ColorId) :
-                    portraitCode == 0 ? null : FindPortrait(portraitCode, entry.ColorId);
-                if (entry.Type == 55 && source == null) LordIconMissing = true;
-                Canvas.SetTop(portraits[i], entry.Type == 55 ? 65f : 53f);
-                Canvas.SetTop(typeLabels[i], entry.Type == 55 ? 65f : 53f);
-                PropEx.SetSprite1(portraits[i], source);
-                PropEx.SetSprite2(portraits[i], source);
-                PropEx.SetSprite3(portraits[i], source);
-                PropEx.SetSprite4(portraits[i], source);
-                portraits[i].Visibility = source == null ? Visibility.Collapsed : Visibility.Visible;
-                typeLabels[i].Text = "Typ " + entry.Type;
-                typeLabels[i].Visibility = source == null ? Visibility.Visible : Visibility.Collapsed;
+                ForeignTroopEntry drawn = drawnEntries[i];
+                bool identityChanged = drawn == null || drawn.Owner != entry.Owner ||
+                    drawn.Type != entry.Type || drawn.ColorId != entry.ColorId;
+                if (drawn == null) slots[i].Visibility = Visibility.Visible;
+                if (identityChanged)
+                {
+                    ownerLabels[i].Foreground = PlayerBrush(entry.ColorId);
+                    ownerLabels[i].Text = "P" + entry.Owner;
+                    int portraitCode = entry.Type < PortraitCodes.Length ? PortraitCodes[entry.Type] : 0;
+                    ImageSource source = entry.Type == 55 ? Shared.LordPortraitPalette.Get(entry.ColorId) :
+                        portraitCode == 0 ? null : FindPortrait(portraitCode, entry.ColorId);
+                    if (entry.Type == 55 && source == null) LordIconMissing = true;
+                    Canvas.SetTop(portraits[i], entry.Type == 55 ? 65f : 53f);
+                    Canvas.SetTop(typeLabels[i], entry.Type == 55 ? 65f : 53f);
+                    PropEx.SetSprite1(portraits[i], source);
+                    PropEx.SetSprite2(portraits[i], source);
+                    PropEx.SetSprite3(portraits[i], source);
+                    PropEx.SetSprite4(portraits[i], source);
+                    portraits[i].Visibility = source == null ? Visibility.Collapsed : Visibility.Visible;
+                    typeLabels[i].Text = "Typ " + entry.Type;
+                    typeLabels[i].Visibility = source == null ? Visibility.Visible : Visibility.Collapsed;
+                }
+                if (drawn == null || drawn.Count != entry.Count) counts[i].Text = entry.Count.ToString();
+                if (drawn == null || drawn.CurrentHealth != entry.CurrentHealth)
+                    currentHealth[i].Text = ScaleHealth(entry.CurrentHealth);
+                if (drawn == null || drawn.MaxHealth != entry.MaxHealth)
+                    maxHealth[i].Text = ScaleHealth(entry.MaxHealth);
+                if (drawn == null || drawn.CurrentHealth != entry.CurrentHealth || drawn.MaxHealth != entry.MaxHealth)
+                    currentHealth[i].Foreground = HealthBrush(entry);
+                if (drawn == null) drawnEntries[i] = drawn = new ForeignTroopEntry();
+                drawn.Owner = entry.Owner;
+                drawn.Type = entry.Type;
+                drawn.ColorId = entry.ColorId;
+                drawn.Count = entry.Count;
+                drawn.CurrentHealth = entry.CurrentHealth;
+                drawn.MaxHealth = entry.MaxHealth;
             }
             int pages = (visibleEntries.Count + 7) / 8;
             pageText.Text = pages > 1 ? (page + 1) + "/" + pages : "";
@@ -370,18 +398,7 @@ namespace ForeignTroopHudTest
 
         private static SolidColorBrush PlayerBrush(int colorId)
         {
-            switch (colorId)
-            {
-                case 1: return Brush(235, 72, 56);
-                case 2: return Brush(238, 156, 55);
-                case 3: return Brush(237, 212, 72);
-                case 4: return Brush(87, 147, 229);
-                case 5: return Brush(163, 158, 155);
-                case 6: return Brush(171, 105, 203);
-                case 7: return Brush(107, 211, 223);
-                case 8: return Brush(103, 207, 92);
-                default: return Brush(210, 204, 188);
-            }
+            return colorId >= 1 && colorId < PlayerBrushes.Length ? PlayerBrushes[colorId] : PlayerBrushes[0];
         }
 
         private static SolidColorBrush Brush(byte r, byte g, byte b) =>

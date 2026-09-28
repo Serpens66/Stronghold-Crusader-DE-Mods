@@ -322,11 +322,22 @@ namespace BugfixesAndQoL
 
         private void OnKeyDown(UnityInputEventArgs args)
         {
-            if (args == null || args.Phase != EventHookPhase.Pre ||
-                args.Key != settings.HealthBarHotkeyKeyCode || args.Key == KeyCode.None)
+            if (args == null || args.Phase != EventHookPhase.Pre)
                 return;
             try
             {
+                if (settings.IsCapturingHealthBarHotkey)
+                {
+                    var hub = SHCDESE.BepInEx.Bootstrap.Plugin.ModSettingsHubViewModel;
+                    if (hub != null && hub.WindowVisibility == Noesis.Visibility.Visible &&
+                        ReferenceEquals(hub.SelectedTab?.ViewModel, settings))
+                        settings.CaptureHealthBarHotkeyFromInput(args.Key);
+                    else
+                        settings.CancelHealthBarCapture();
+                    return;
+                }
+                if (args.Key != settings.HealthBarHotkeyKeyCode || args.Key == KeyCode.None)
+                    return;
                 bool alt = Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt);
                 bool control = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
                 bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);

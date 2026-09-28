@@ -25,6 +25,7 @@ if ([Reflection.AssemblyName]::GetAssemblyName((Join-Path $extender 'RedBird.X64
 $runtime = [IO.File]::ReadAllText((Join-Path $root 'src\DamagedHealthBarsRuntime.cs'))
 $contract = [IO.File]::ReadAllText((Join-Path $root 'src\HealthBarNativeContract.cs'))
 $settings = [IO.File]::ReadAllText((Join-Path $root 'src\BugfixesAndQoLViewModel.cs'))
+$plugin = [IO.File]::ReadAllText((Join-Path $root 'src\BugfixesAndQoLPlugin.cs'))
 $xaml = [IO.File]::ReadAllText((Join-Path $root 'Override\ScriptExtenderUI\BugfixesAndQoLSettings.xaml'))
 if ($runtime -notmatch 'InputR3EventHooks\.OnKeyDown' -or
     $runtime -notmatch 'HEALTH_BARS_POST_STARTUP' -or
@@ -32,6 +33,8 @@ if ($runtime -notmatch 'InputR3EventHooks\.OnKeyDown' -or
     $runtime -notmatch 'controller\.NoesisHasKeyboard' -or
     $runtime -notmatch 'viewModel\.IsMapEditorMode' -or
     $runtime -notmatch 'settings\.EnableDamagedHealthBars' -or
+    $runtime -notmatch 'settings\.CaptureHealthBarHotkeyFromInput\(args\.Key\)' -or
+    $runtime -notmatch 'ReferenceEquals\(hub\.SelectedTab\?\.ViewModel, settings\)' -or
     $runtime -match 'HEALTH_BARS_HOTKEY_REJECTED|args\.Result\s*=|transaction\.Dispose\s*\(') {
     throw 'Health-bar runtime lifecycle, input or logging contract failed.'
 }
@@ -48,8 +51,14 @@ if ($contract -notmatch 'UnitHealthBarBlocks\], 10' -or
 if ($settings -notmatch '\[Shared\.PresetLocal\]\s+public bool EnableDamagedHealthBars' -or
     $settings -notmatch '\[Shared\.PresetLocal\]\s+public int HealthBarHotkey' -or
     $settings -notmatch 'DefaultHealthBarHotkey = \(int\)KeyCode\.H \| HealthBarAltMask' -or
+    $settings -notmatch 'modifiers & \(modifiers - 1\)' -or
+    $settings -notmatch 'CaptureHealthBarHotkeyFromInput\(KeyCode key\)' -or
     $settings -match 'HealthBarHotkeyKeyIndex|private bool healthBarHotkeyAlt') {
     throw 'Health-bar local setting or default hotkey contract failed.'
+}
+if ($plugin -notmatch 'Settings\.CancelHealthBarCapture\(\)' -or
+    $plugin -notmatch 'hub\.WindowVisibility != Noesis\.Visibility\.Visible') {
+    throw 'Health-bar capture must be canceled when the settings window or tab closes.'
 }
 if ($xaml -notmatch 'IsChecked="\{Binding EnableDamagedHealthBars, Mode=TwoWay\}"' -or
     $xaml -notmatch 'Command="\{Binding HealthBarHotkeyInputCommand\}"') {
@@ -58,6 +67,7 @@ if ($xaml -notmatch 'IsChecked="\{Binding EnableDamagedHealthBars, Mode=TwoWay\}
 
 $files = @(
     (Join-Path $root 'src\BugfixesAndQoLViewModel.cs'),
+    (Join-Path $root 'src\BugfixesAndQoLPlugin.cs'),
     (Join-Path $root 'src\DamagedHealthBarsRuntime.cs'),
     (Join-Path $root 'src\HealthBarNativeContract.cs'),
     (Join-Path $root 'Override\ScriptExtenderUI\BugfixesAndQoLSettings.xaml')

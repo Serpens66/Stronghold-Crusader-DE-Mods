@@ -1,0 +1,18 @@
+SaveExtractor - portabler Windows-x64-Release
+
+Verwendung:
+1. Das ZIP vollstaendig entpacken.
+2. Eine .sav-Datei auf SaveExtractor-Start.cmd ziehen.
+3. Die extrahierten Dateien liegen im neuen Ordner <Save-Name>.extracted
+   neben der .sav-Datei.
+
+Der Ordner enthaelt die Map zum Speicherzeitpunkt, die im Save enthaltenen
+Lord-Konfigurationen, alle gespeicherten AIV-Kandidaten der CPU-Spieler und
+mapping.md. In mapping.md steht, welche AIV je CPU tatsaechlich aktiv war.
+
+Vorhandene Ausgabeordner werden nicht ueberschrieben. Die urspruengliche
+.sav-Datei wird nicht veraendert. Dieses Paket benoetigt keine installierte
+.NET-Runtime und kein .NET-SDK.
+
+Kommandozeile fuer eigene Skripte:
+  SaveExtractor.exe extract "C:\Pfad\Spielstand.sav" "C:\Pfad\NeuerAusgabeordner"

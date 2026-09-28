@@ -613,6 +613,42 @@
         <member name="M:APIShared.IAivBuildStepCapability.TryRegisterObserver(System.String,APIShared.IAivBuildStepObserver,APIShared.NativeCapabilityDiagnostic@)">
             <summary>Registers one process-lifetime observer under an owner-local stable ID.</summary>
         </member>
+        <member name="T:APIShared.AiBuildDiagnosticRecord">
+            <summary>Read-only evidence from the native AI construction path.</summary>
+        </member>
+        <member name="M:APIShared.AiBuildDiagnosticRecord.#ctor(System.String,System.Int32,System.Int64,System.Int64,System.Int64,System.Int64)">
+            <summary>Creates a read-only diagnostic record.</summary>
+        </member>
+        <member name="P:APIShared.AiBuildDiagnosticRecord.Stage">
+            <summary>Native observation stage.</summary>
+        </member>
+        <member name="P:APIShared.AiBuildDiagnosticRecord.PlayerId">
+            <summary>One-based AI player ID.</summary>
+        </member>
+        <member name="P:APIShared.AiBuildDiagnosticRecord.A">
+            <summary>Stage-specific first value.</summary>
+        </member>
+        <member name="P:APIShared.AiBuildDiagnosticRecord.B">
+            <summary>Stage-specific second value.</summary>
+        </member>
+        <member name="P:APIShared.AiBuildDiagnosticRecord.C">
+            <summary>Stage-specific third value.</summary>
+        </member>
+        <member name="P:APIShared.AiBuildDiagnosticRecord.D">
+            <summary>Stage-specific fourth value.</summary>
+        </member>
+        <member name="T:APIShared.AiBuildDiagnostic">
+            <summary>Optional process-lifetime AI construction observer. Inert without registration.</summary>
+        </member>
+        <member name="P:APIShared.AiBuildDiagnostic.HasObserver">
+            <summary>True only after the test observer has registered.</summary>
+        </member>
+        <member name="M:APIShared.AiBuildDiagnostic.TryRegister(System.String,System.Action{APIShared.AiBuildDiagnosticRecord},System.String@)">
+            <summary>Registers a single observer and then installs the scheduler hook once.</summary>
+        </member>
+        <member name="M:APIShared.AiBuildDiagnostic.Publish(System.String,System.Int32,System.Int64,System.Int64,System.Int64,System.Int64)">
+            <summary>Publishes a record only while the test observer is present.</summary>
+        </member>
         <member name="T:APIShared.LobbyStateSnapshot">
             <summary>Immutable process-wide observation of the current multiplayer lobby.</summary>
         </member>

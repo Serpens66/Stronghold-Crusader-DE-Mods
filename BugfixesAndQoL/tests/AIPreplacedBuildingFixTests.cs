@@ -114,12 +114,15 @@ namespace BugfixesAndQoL
             {
                 ["FarmSearch"] = 2,
                 ["ResourceSearch"] = 2,
-                ["WoodSearch"] = 2,
-                ["NearbySearch"] = 3
+                ["WoodSearchCore"] = 2,
+                ["NearbySearchCore"] = 3
             };
             foreach (KeyValuePair<string, int> wrapper in wrappers)
                 check(Regex.Matches(ExtractMethod(runtime, wrapper.Key), @"\.Original\(").Count == wrapper.Value,
                     wrapper.Key + " retains mutually exclusive paths with one Vanilla call each");
+            check(Regex.Matches(ExtractMethod(runtime, "WoodSearch"), @"WoodSearchCore\(").Count == 1 &&
+                Regex.Matches(ExtractMethod(runtime, "NearbySearch"), @"NearbySearchCore\(").Count == 1,
+                "diagnostic observers invoke each Vanilla search wrapper once");
             check(Regex.Matches(ExtractMethod(runtime, "ReconcileEconomyAvailability"),
                 @"initializeEconomyAvailabilityNative\(").Count == 1,
                 "AI economy Re-Census invokes Vanilla exactly once per activation");

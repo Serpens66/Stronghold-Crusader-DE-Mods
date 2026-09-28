@@ -24,6 +24,13 @@ if ($runtime -notmatch 'Application\.onBeforeRender\s*\+=\s*OnPendingRender' -or
 if ($runtime -notmatch 'MapLoaderR3EventHooks\.OnPostLoad' -or $runtime -notmatch 'MapLoaderR3EventHooks\.OnUnloadMap') {
     throw 'Missing map lifecycle event registration.'
 }
+if ($runtime -notmatch 'var previousState = GameData\.Instance\?\.lastGameState;\s*BeginMapLoad\(\);\s*stateBeforeLoad = previousState;' -or
+    $runtime -notmatch 'var previousState = stateBeforeLoad;\s*BeginMapLoad\(\);\s*stateBeforeLoad = previousState;' -or
+    $runtime -notmatch 'stateBeforeLoad == null \|\| !ReferenceEquals\(state, stateBeforeLoad\)' -or
+    $runtime -notmatch 'SPECTATOR_PERSPECTIVE_READY_TIMEOUT: ' -or
+    $runtime -notmatch 'OnHudAvailable\(\)') {
+    throw 'Loaded-save state capture, delayed readiness or HUD recovery path missing.'
+}
 if ($runtime -notmatch 'PlayerPerspectiveAPI\.TrySetSpectatorView\(first\)' -or
     $runtime -notmatch 'PlayerPerspectiveAPI\.TrySetSpectatorView\(player\)' -or
     $runtime -notmatch 'PlayerPerspectiveAPI\.ClearSpectatorView\(\)' -or
@@ -50,12 +57,27 @@ if ($allyHooks -notmatch 'GetAllyList' -or $allyHooks -notmatch 'GetEnemyList' -
     throw 'Selected-player ally view, CPU-only action guard or event-driven refresh missing.'
 }
 if ($allyHooks -notmatch 'if \(state && active\) RefreshControlState\(\)' -or
+    $allyHooks -notmatch 'if \(SpectatorPerspectiveRuntime\.IsNetworkSpectator\(\)\)' -or
+    $allyHooks -notmatch 'SpectatorPerspectiveRuntime\.IsActiveSpectator\(\) \|\|' -or
+    $runtime -notmatch 'internal static bool IsNetworkSpectator\(\)' -or
     $runtime -notmatch '!state.is_valid_player\(selectedPlayer\)' -or
+    $runtime -notmatch '!GameModeHelper\.IsRealMultiplayer\(\)' -or
     $runtime -match 'GameData\.Instance\.playerID\s*=') {
-    throw 'Ally actions must remain spectator/CPU scoped without changing the managed player identity.'
+    throw 'Ally actions must remain local, spectator/CPU scoped without changing the managed player identity.'
 }
 $hud = [IO.File]::ReadAllText((Join-Path $projectRoot 'src\SpectatorPerspectiveHud.cs'))
+if ($hud -notmatch 'DefaultRightInset = 52f' -or
+    $hud -notmatch 'Canvas\.SetLeft\(bar, Math\.Max\(0f, canvas\.ActualWidth - bar\.Width - DefaultRightInset\)\)' -or
+    $hud -notmatch 'Canvas\.SetTop\(bar, 0f\)') {
+    throw 'The default HUD position must leave room for the clock and touch the top edge.'
+}
 if ($hud -notmatch 'SizeChanged\s*\+=' -or $hud -notmatch 'Unloaded\s*\+=' -or
+    $hud -notmatch 'screen\.Loaded \+= OnScreenLoaded' -or
+    $hud -notmatch 'screen\.Loaded -= OnScreenLoaded' -or
+    $hud -notmatch 'canvas\.Loaded \+= OnCanvasLoaded' -or
+    $hud -notmatch 'canvas\.Loaded -= OnCanvasLoaded' -or
+    $hud -notmatch 'MainViewModel\.Instance\?\.IngameUI' -or
+    $hud -match 'FindGlobalElement\(' -or
     $runtime -match 'hud\.Show\(' -or $runtime -match 'RefreshReport\(') {
     throw 'Spectator HUD must update on lifecycle, selection and resize rather than every render.'
 }

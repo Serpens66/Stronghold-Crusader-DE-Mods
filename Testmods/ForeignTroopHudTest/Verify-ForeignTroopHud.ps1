@@ -30,7 +30,7 @@ foreach ($pattern in $forbidden) {
     if ([regex]::IsMatch($sources + $project, $pattern)) { throw "Forbidden runtime pattern: $pattern" }
 }
 if ($sources -notmatch 'Application\.onBeforeRender\s*\+=\s*OnBeforeRender') { throw 'Persistent publisher missing.' }
-if ($sources -notmatch 'now < nextRefreshAt' -or $sources -notmatch 'nextRefreshAt = now \+ 0\.1f' -or
+if ($sources -notmatch 'now < nextRefreshAt' -or $sources -notmatch 'nextRefreshAt = now \+ \(activeSession == null \? 5f : 0\.1f\)' -or
     $sources -notmatch 'if \(displayChanged\)' -or
     $sources -notmatch 'BuildSpectatorSamples\(units, selection\)') { throw 'Bounded refresh or change-only drawing missing.' }
 if ($sources -notmatch 'MarkedUnitSelectionAPI\.TryCapture' -or
@@ -46,18 +46,19 @@ if ([regex]::IsMatch($sharedSelection, '(?<!\r)\n') -or $sharedSelection.Contain
 }
 $extenderHookPath = Join-Path $modDir '..\..\shcde-script-extender\src\SHCDESE.BepInEx\ManagedHooks\EngineInterface_Hooks.cs'
 $extenderHook = [IO.File]::ReadAllText($extenderHookPath)
-if ($sharedSelection -notmatch 'originalSelection\(mouseState' -or
+if ($sharedSelection -notmatch 'harmony\.Patch\(inputMethod, postfix:' -or
     $sharedSelection -notmatch 'int result = originalRun\(mpFrameSkip\)' -or
     $sharedSelection -notmatch 'originalReturnBuffer\(self, buffer\)' -or
     $sharedSelection -notmatch 'buffer\.beingFilled' -or
-    $sharedSelection -notmatch 'nativeCount != lastNativeCount' -or
+    $sharedSelection -notmatch 'NeedsPositiveMismatchScan\(nativeCount, selected\.Count,' -or
+    $sharedSelection -notmatch 'nativeCount > 0 && selectedCount != nativeCount' -or
     $sharedSelection -notmatch 'FullScan\("initial-session"\)' -or
-    $sharedSelection -notmatch 'FullScan\("native-count-mismatch"\)' -or
+    $sharedSelection -notmatch 'FullScan\("positive-count-mismatch"\)' -or
     $sharedSelection -match 'r_UnitHover\s*=(?!=)' -or
     $extenderHook -notmatch 'engineInterface_TroopSelection_hook\.Trampoline\(') {
     throw 'APIShared selection hook, Vanilla pass-through, or resync contract is incomplete.'
 }
-foreach ($call in @('originalSelection\(mouseState', 'originalRun\(mpFrameSkip\)', 'originalReturnBuffer\(self, buffer\)')) {
+foreach ($call in @('harmony\.Patch\(inputMethod, postfix:', 'originalRun\(mpFrameSkip\)', 'originalReturnBuffer\(self, buffer\)')) {
     if ([regex]::Matches($sharedSelection, $call).Count -ne 1) {
         throw "A Vanilla hook continuation must be called exactly once: $call"
     }

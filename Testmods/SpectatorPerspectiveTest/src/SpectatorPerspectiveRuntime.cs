@@ -4,6 +4,7 @@ using BepInEx.Logging;
 using CrusaderDE;
 using Noesis;
 using R3;
+using Shared;
 using SHCDESE.API;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.MapLoader;
@@ -52,7 +53,7 @@ namespace SpectatorPerspectiveTest
             if (initialized) return;
             initialized = true;
             log = logger;
-            hud = new SpectatorPerspectiveHud(SelectPlayer, JumpToPlayer, OnHudUnavailable);
+            hud = new SpectatorPerspectiveHud(SelectPlayer, JumpToPlayer, OnHudUnavailable, OnHudAvailable);
             try
             {
                 SpectatorReportHooks.Install();
@@ -70,14 +71,18 @@ namespace SpectatorPerspectiveTest
 
         private static void OnStartMap(MapStartEventArgs args)
         {
-            if (args.Phase == EventHookPhase.Pre) BeginMapLoad();
+            if (args.Phase != EventHookPhase.Pre) return;
+            var previousState = GameData.Instance?.lastGameState;
+            BeginMapLoad();
+            stateBeforeLoad = previousState;
         }
 
         private static void OnPostLoad(MapPostLoadEventArgs args)
         {
             if (args.Phase != EventHookPhase.Post) return;
+            var previousState = stateBeforeLoad;
             BeginMapLoad();
-            stateBeforeLoad = GameData.Instance?.lastGameState;
+            stateBeforeLoad = previousState;
             mapReady = true;
             initializationPending = GameData.Instance?.game_type == 3;
             pendingSince = Time.realtimeSinceStartup;
@@ -140,7 +145,7 @@ namespace SpectatorPerspectiveTest
                 if (initializationPending)
                 {
                     var state = GameData.Instance?.lastGameState;
-                    if (state != null && !ReferenceEquals(state, stateBeforeLoad))
+                    if (state != null && (stateBeforeLoad == null || !ReferenceEquals(state, stateBeforeLoad)))
                     {
                         if (!readyLogged)
                         {
@@ -168,7 +173,10 @@ namespace SpectatorPerspectiveTest
                 if ((initializationPending || hudPending || reportStateBeforeSwitch != null || alliesStateBeforeSwitch != null) &&
                     Time.realtimeSinceStartup - pendingSince > 15f)
                 {
-                    log.LogWarning("SPECTATOR_PERSPECTIVE_READY_TIMEOUT: pending UI or PlayState did not become ready within 15 seconds.");
+                    string pending = initializationPending ? "PlayState" : hudPending ? "IngameUI" :
+                        reportStateBeforeSwitch != null ? "report PlayState" : "allies PlayState";
+                    log.LogWarning("SPECTATOR_PERSPECTIVE_READY_TIMEOUT: " + pending +
+                        " did not become ready within 15 seconds.");
                     initializationPending = false;
                     hudPending = false;
                     RestoreReportPanel();
@@ -231,10 +239,17 @@ namespace SpectatorPerspectiveTest
         // The future host setting replaces this one constant decision.
         private static bool AllyInteractionAllowed => true;
 
+        internal static bool IsNetworkSpectator()
+        {
+            var state = GameData.Instance?.lastGameState;
+            return state != null && state.game_type == 3 && state.spectatorMode != 0 &&
+                   GameModeHelper.IsRealMultiplayer();
+        }
+
         internal static bool CanInteractWithAllies()
         {
             var state = GameData.Instance?.lastGameState;
-            return IsActiveSpectator() && AllyInteractionAllowed && state != null &&
+            return IsActiveSpectator() && AllyInteractionAllowed && !GameModeHelper.IsRealMultiplayer() && state != null &&
                    state.is_skirmish_player(selectedPlayer) && !state.is_valid_player(selectedPlayer) &&
                    EngineInterface.GetMeritData()[selectedPlayer, 1] >= 0;
         }
@@ -385,6 +400,13 @@ namespace SpectatorPerspectiveTest
             RestoreFoodControls();
             RestoreReportPanel();
             RestoreAllyPanel();
+            if (!mapReady || !spectatorActive) return;
+            hudPending = true;
+            ArmRenderIfNeeded();
+        }
+
+        private static void OnHudAvailable()
+        {
             if (!mapReady || !spectatorActive) return;
             hudPending = true;
             ArmRenderIfNeeded();

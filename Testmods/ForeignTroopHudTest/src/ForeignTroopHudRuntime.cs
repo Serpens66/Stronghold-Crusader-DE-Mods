@@ -27,6 +27,7 @@ namespace ForeignTroopHudTest
     {
         private static readonly Dictionary<int, ForeignTroopEntry> grouped = new Dictionary<int, ForeignTroopEntry>();
         private static readonly List<ForeignTroopEntry> entries = new List<ForeignTroopEntry>();
+        private static readonly List<ForeignTroopEntry> entryPool = new List<ForeignTroopEntry>();
         private static ManualLogSource log;
         private static ForeignTroopHudView view;
         private static IMissionLifecycleCapability lifecycle;
@@ -114,7 +115,7 @@ namespace ForeignTroopHudTest
             float now = Time.realtimeSinceStartup;
             bool changed = Interlocked.Exchange(ref selectionDirty, 0) != 0;
             if (!resetPending && !changed && now < nextRefreshAt) return;
-            nextRefreshAt = now + 0.1f;
+            nextRefreshAt = now + (activeSession == null ? 5f : 0.1f);
             try
             {
                 if (resetPending)
@@ -122,6 +123,7 @@ namespace ForeignTroopHudTest
                     HideForeignHud();
                     grouped.Clear();
                     entries.Clear();
+                    entryPool.Clear();
                     view.ResetForMap();
                     resetPending = false;
                 }
@@ -205,6 +207,7 @@ namespace ForeignTroopHudTest
             }
             grouped.Clear();
             entries.Clear();
+            int usedEntries = 0;
             Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
             bool invalidCachedId = false;
             for (int index = 0; index < selection.Count; index++)
@@ -248,7 +251,14 @@ namespace ForeignTroopHudTest
                 ForeignTroopEntry entry;
                 if (!grouped.TryGetValue(key, out entry))
                 {
-                    entry = new ForeignTroopEntry { Owner = owner, Type = type, ColorId = (int)unit.r_SpritePlayerColorId };
+                    if (usedEntries == entryPool.Count) entryPool.Add(new ForeignTroopEntry());
+                    entry = entryPool[usedEntries++];
+                    entry.Owner = owner;
+                    entry.Type = type;
+                    entry.ColorId = (int)unit.r_SpritePlayerColorId;
+                    entry.Count = 0;
+                    entry.CurrentHealth = 0;
+                    entry.MaxHealth = 0;
                     grouped.Add(key, entry);
                     entries.Add(entry);
                 }

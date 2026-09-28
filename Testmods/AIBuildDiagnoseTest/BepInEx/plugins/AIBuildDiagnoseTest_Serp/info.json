@@ -1,0 +1,12 @@
+{
+  "GUID": "AIBuildDiagnoseTest_Serp",
+  "Author": "Serpens66",
+  "Name": "AI Build Diagnose Test",
+  "Description": "Read-only diagnostics for AI woodcutter construction decisions.",
+  "Version": "0.1.0",
+  "MinimumScriptExtenderVersion": "2.11.0",
+  "MaximumScriptExtenderVersion": "",
+  "Manifest": 1,
+  "NetworkMode": 1,
+  "SupportedGameVersions": ["2.8.0.2"]
+}

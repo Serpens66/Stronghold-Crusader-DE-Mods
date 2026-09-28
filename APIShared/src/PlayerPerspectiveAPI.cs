@@ -18,7 +18,13 @@ namespace APIShared
 
         private static Hook localPlayerIdHook;
         private static LocalPlayerIdCall originalLocalPlayerId;
+        private static readonly object viewChangeGate = new object();
+        private static ManualLogSource transitionLog;
+        private static int identityOverrideActive;
         private static int selectedSpectatorPlayerId;
+        private static int transitionViewPlayerId;
+        private static int transitionActive;
+        private static int viewUncertain;
 
         internal static void Initialize(ManualLogSource log)
         {
@@ -39,6 +45,7 @@ namespace APIShared
                 originalLocalPlayerId = original;
                 candidate.Apply();
                 localPlayerIdHook = candidate;
+                transitionLog = log;
             }
             catch (Exception error)
             {
@@ -50,9 +57,9 @@ namespace APIShared
 
         private static int OnGetLocalPlayerId(GamePlayerManagerAPI self)
         {
-            // Session changes publish zero before the next map starts. The hot hook never
-            // touches Unity state and leaves every inactive call to the original method.
-            if (Volatile.Read(ref selectedSpectatorPlayerId) != 0) return -1;
+            // The hot hook never touches Unity state. Session teardown clears this flag,
+            // and inactive calls retain the original Script Extender behavior.
+            if (Volatile.Read(ref identityOverrideActive) != 0) return -1;
             return originalLocalPlayerId(self);
         }
 
@@ -73,6 +80,9 @@ namespace APIShared
         /// <summary>Gets the selected report viewpoint; outside spectator mode this is the native view.</summary>
         public static int GetViewedPlayerId()
         {
+            if (Volatile.Read(ref transitionActive) != 0)
+                return Volatile.Read(ref transitionViewPlayerId);
+            if (Volatile.Read(ref viewUncertain) != 0) return -1;
             int selected = Volatile.Read(ref selectedSpectatorPlayerId);
             if (selected != 0) return selected;
             return GetRawNativeViewPlayerId();
@@ -100,13 +110,91 @@ namespace APIShared
                 !state.is_human_or_skirmish_player(playerId))
                 return false;
 
-            EngineInterface.SetEditorPlayer(playerId);
-            if (GetRawNativeViewPlayerId() != playerId) return false;
-            Volatile.Write(ref selectedSpectatorPlayerId, playerId);
-            return true;
+            bool changed = TryChangeView(playerId, GetRawNativeViewPlayerId,
+                EngineInterface.SetEditorPlayer, out string failure);
+            if (!changed) transitionLog?.LogError("PLAYER_PERSPECTIVE_SWITCH_FAILED: " + failure);
+            return changed;
+        }
+
+        // The injected delegates also let the transaction be tested without a running game.
+        internal static bool TryChangeView(int playerId, Func<int> readNativeView,
+            Action<int> setNativeView, out string failure)
+        {
+            failure = null;
+            if (playerId < 1 || playerId > 8 || readNativeView == null || setNativeView == null)
+            {
+                failure = "Invalid view transition request.";
+                return false;
+            }
+
+            lock (viewChangeGate)
+            {
+                int previousRaw;
+                try { previousRaw = readNativeView(); }
+                catch (Exception error)
+                {
+                    failure = "Could not read the previous native view: " + error;
+                    return false;
+                }
+                if (previousRaw < 0 || previousRaw > 8)
+                {
+                    failure = "Previous native view cannot be restored: " + previousRaw + ".";
+                    return false;
+                }
+
+                int previousPublished = Volatile.Read(ref selectedSpectatorPlayerId);
+                if (previousPublished != previousRaw) previousPublished = 0;
+                int previousOverride = Volatile.Read(ref identityOverrideActive);
+                int previousUncertain = Volatile.Read(ref viewUncertain);
+                // Publish protection before Vanilla can write its native viewpoint.
+                Volatile.Write(ref identityOverrideActive, 1);
+                Volatile.Write(ref transitionViewPlayerId, previousUncertain != 0 ? -1 :
+                    previousPublished != 0 ? previousPublished : previousRaw);
+                Volatile.Write(ref transitionActive, 1);
+                Exception changeError = null;
+                try
+                {
+                    setNativeView(playerId);
+                    if (readNativeView() == playerId)
+                    {
+                        Volatile.Write(ref selectedSpectatorPlayerId, playerId);
+                        Volatile.Write(ref viewUncertain, 0);
+                        Volatile.Write(ref transitionActive, 0);
+                        return true;
+                    }
+                }
+                catch (Exception error) { changeError = error; }
+
+                bool restored = false;
+                Exception restoreError = null;
+                try
+                {
+                    setNativeView(previousRaw);
+                    restored = readNativeView() == previousRaw;
+                }
+                catch (Exception error) { restoreError = error; }
+                Volatile.Write(ref selectedSpectatorPlayerId, restored ? previousPublished : 0);
+                Volatile.Write(ref viewUncertain, restored ? previousUncertain : 1);
+                if (restored) Volatile.Write(ref identityOverrideActive, previousOverride);
+                Volatile.Write(ref transitionActive, 0);
+                failure = "Native view " + playerId + " was not confirmed; rollback=" +
+                    (restored ? "verified" : "failed") +
+                    (changeError == null ? string.Empty : ", changeError=" + changeError) +
+                    (restoreError == null ? string.Empty : ", rollbackError=" + restoreError) + ".";
+                return false;
+            }
         }
 
         /// <summary>Clears the identity override when the spectator session ends.</summary>
-        public static void ClearSpectatorView() => Volatile.Write(ref selectedSpectatorPlayerId, 0);
+        public static void ClearSpectatorView()
+        {
+            lock (viewChangeGate)
+            {
+                Volatile.Write(ref selectedSpectatorPlayerId, 0);
+                Volatile.Write(ref viewUncertain, 0);
+                Volatile.Write(ref transitionActive, 0);
+                Volatile.Write(ref identityOverrideActive, 0);
+            }
+        }
     }
 }

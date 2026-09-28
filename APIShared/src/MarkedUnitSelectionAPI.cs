@@ -1,5 +1,6 @@
 using BepInEx.Logging;
 using CrusaderDE;
+using HarmonyLib;
 using MonoMod.RuntimeDetour;
 using SHCDESE.API;
 using SHCDESE.Interop;
@@ -27,21 +28,18 @@ namespace APIShared
     /// <summary>Publishes Vanilla's completed unit-hover selection without polling the full unit array.</summary>
     public static class MarkedUnitSelectionAPI
     {
-        private delegate void TroopSelectionCall(int mouseState, bool rightDown, bool rightUp,
-            int[] selectedChimps, bool selectionOn, bool selectionEstablished, int[] underCursorChimps,
-            int mousePosX, int mousePosY, bool overTopHalf, int[] onScreenChimps);
         private delegate int RunCall(bool mpFrameSkip);
         private delegate void ReturnBufferCall(MemoryBuffers self, MemoryBuffers.MemBuffer buffer);
 
         private static readonly object Sync = new object();
         private static readonly HashSet<int> selected = new HashSet<int>();
         private static readonly HashSet<int> candidates = new HashSet<int>();
+        private static readonly List<int> previousIds = new List<int>();
         private static readonly Dictionary<string, Action<MarkedUnitSelectionSnapshot>> observers =
             new Dictionary<string, Action<MarkedUnitSelectionSnapshot>>(StringComparer.Ordinal);
-        private static Hook selectionHook;
+        private static Harmony selectionHarmony;
         private static Hook runHook;
         private static Hook bufferHook;
-        private static TroopSelectionCall originalSelection;
         private static RunCall originalRun;
         private static ReturnBufferCall originalReturnBuffer;
         private static ManualLogSource log;
@@ -50,6 +48,9 @@ namespace APIShared
         private static bool installed;
         private static bool pendingInput;
         private static int lastNativeCount = -1;
+        private static int lastMismatchCount = -1;
+        private static int lastMismatchSelectionRevision = -1;
+        private static int selectionRevision;
         private static long candidateChecks;
         private static long fullScans;
         private static int completedTick;
@@ -57,42 +58,46 @@ namespace APIShared
         internal static void Initialize(ManualLogSource logger)
         {
             if (installed) return;
-            Hook selection = null, run = null, buffer = null;
+            Hook run = null, buffer = null;
             try
             {
                 MethodInfo inputMethod = typeof(EngineInterface).GetMethod(nameof(EngineInterface.TroopSelection),
-                    BindingFlags.Public | BindingFlags.Static);
+                    BindingFlags.Public | BindingFlags.Static, null,
+                    new[] { typeof(int), typeof(bool), typeof(bool), typeof(int[]), typeof(bool),
+                        typeof(bool), typeof(int[]), typeof(int), typeof(int), typeof(bool), typeof(int[]) }, null);
                 MethodInfo runMethod = typeof(EngineInterface).GetMethod(nameof(EngineInterface.run),
                     BindingFlags.Public | BindingFlags.Static, null, new[] { typeof(bool) }, null);
                 MethodInfo returnMethod = typeof(MemoryBuffers).GetMethod(nameof(MemoryBuffers.returnBuffer),
                     BindingFlags.Public | BindingFlags.Instance, null, new[] { typeof(MemoryBuffers.MemBuffer) }, null);
-                if (inputMethod == null || runMethod == null || returnMethod == null)
+                MethodInfo postfixMethod = typeof(MarkedUnitSelectionAPI).GetMethod(nameof(OnTroopSelection),
+                    BindingFlags.NonPublic | BindingFlags.Static);
+                if (inputMethod == null || inputMethod.ReturnType != typeof(void) ||
+                    runMethod == null || returnMethod == null || postfixMethod == null)
                     throw new MissingMethodException("Installed EngineInterface selection/run signature changed.");
-                selection = new Hook(inputMethod, (TroopSelectionCall)OnTroopSelection,
-                    new HookConfig { ManualApply = true, ID = "APIShared.MarkedSelection.Input" });
                 run = new Hook(runMethod, (RunCall)OnRun,
                     new HookConfig { ManualApply = true, ID = "APIShared.MarkedSelection.PostRun" });
                 buffer = new Hook(returnMethod, (ReturnBufferCall)OnReturnBuffer,
                     new HookConfig { ManualApply = true, ID = "APIShared.MarkedSelection.TickCompleted" });
-                originalSelection = selection.GenerateTrampoline<TroopSelectionCall>();
                 originalRun = run.GenerateTrampoline<RunCall>();
                 originalReturnBuffer = buffer.GenerateTrampoline<ReturnBufferCall>();
-                selection.Apply();
                 buffer.Apply();
                 run.Apply();
-                selectionHook = selection;
+                // Harmony keeps Fog's Prefix and this Postfix in the same patch chain.
+                // Install it last so no later candidate step can require an unpatch.
+                var harmony = new Harmony("APIShared.MarkedSelection.Input");
+                harmony.Patch(inputMethod, postfix: new HarmonyMethod(postfixMethod));
+                selectionHarmony = harmony;
                 runHook = run;
                 bufferHook = buffer;
                 log = logger;
                 installed = true;
-                logger.LogInfo("MARKED_SELECTION_READY: managed input and post-tick hooks installed; Vanilla calls are passed through once.");
+                logger.LogInfo("MARKED_SELECTION_READY: Harmony input postfix and post-tick hooks installed; Vanilla calls are passed through once.");
             }
             catch (Exception error)
             {
                 // Only an unpublished initialization candidate may be rolled back.
                 try { run?.Undo(); run?.Dispose(); } catch { }
                 try { buffer?.Undo(); buffer?.Dispose(); } catch { }
-                try { selection?.Undo(); selection?.Dispose(); } catch { }
                 logger.LogError("MARKED_SELECTION_INSTALL_FAILED: " + error);
             }
         }
@@ -123,7 +128,11 @@ namespace APIShared
                     sessionId = expectedSessionId;
                     selected.Clear();
                     candidates.Clear();
+                    previousIds.Clear();
                     pendingInput = false;
+                    selectionRevision = 0;
+                    lastMismatchCount = -1;
+                    lastMismatchSelectionRevision = -1;
                     FullScan("initial-session");
                     publication = PublishIfChanged(force: true);
                 }
@@ -146,22 +155,19 @@ namespace APIShared
             if (publication != null) Notify(publication);
         }
 
-        private static void OnTroopSelection(int mouseState, bool rightDown, bool rightUp,
-            int[] selectedChimps, bool selectionOn, bool selectionEstablished, int[] underCursorChimps,
-            int mousePosX, int mousePosY, bool overTopHalf, int[] onScreenChimps)
+        private static void OnTroopSelection(int __0, bool __1, bool __2,
+            int[] __3, bool __4, bool __5, int[] __6, int[] __10)
         {
-            originalSelection(mouseState, rightDown, rightUp, selectedChimps, selectionOn,
-                selectionEstablished, underCursorChimps, mousePosX, mousePosY, overTopHalf, onScreenChimps);
-            if (mouseState == 0 && !selectionOn && !selectionEstablished && !rightDown && !rightUp) return;
+            if (!installed || (__0 == 0 && !__4 && !__5 && !__1 && !__2)) return;
             try
             {
                 lock (Sync)
                 {
                     pendingInput = true;
-                    AddCandidates(selectedChimps);
-                    AddCandidates(underCursorChimps);
+                    AddCandidates(__3);
+                    AddCandidates(__6);
                     // Vanilla may use the visible list for same-type/double-click selection.
-                    AddCandidates(onScreenChimps);
+                    AddCandidates(__10);
                 }
             }
             catch (Exception error) { log?.LogError("MARKED_SELECTION_INPUT_ERROR: " + error); }
@@ -209,8 +215,8 @@ namespace APIShared
                 if (pendingInput)
                 {
                     Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
-                    int[] previousIds = new int[selected.Count];
-                    selected.CopyTo(previousIds);
+                    previousIds.Clear();
+                    previousIds.AddRange(selected);
                     foreach (int id in previousIds)
                         if (!IsMarked(units, id)) membershipChanged |= selected.Remove(id);
                     foreach (int id in candidates)
@@ -221,9 +227,18 @@ namespace APIShared
                     candidates.Clear();
                     pendingInput = false;
                 }
-                bool rescan = selected.Count != nativeCount &&
-                    (nativeCount != lastNativeCount || membershipChanged);
-                if (rescan) FullScan("native-count-mismatch");
+                if (membershipChanged) selectionRevision++;
+                // The native hover count is transient: it may be zero or negative while
+                // r_UnitHover still marks units. Only a new positive disagreement can
+                // justify a safety scan for selection paths outside the input candidates.
+                bool rescan = NeedsPositiveMismatchScan(nativeCount, selected.Count,
+                    lastMismatchCount, selectionRevision, lastMismatchSelectionRevision);
+                if (rescan)
+                {
+                    FullScan("positive-count-mismatch");
+                    lastMismatchCount = nativeCount;
+                    lastMismatchSelectionRevision = selectionRevision;
+                }
                 lastNativeCount = nativeCount;
                 if (membershipChanged || rescan) publication = PublishIfChanged();
             }
@@ -232,6 +247,11 @@ namespace APIShared
 
         private static bool IsMarked(Span<GameUnit> units, int id) =>
             id > 0 && id <= units.Length && units[id - 1].r_UnitHover != 0;
+
+        private static bool NeedsPositiveMismatchScan(int nativeCount, int selectedCount,
+            int checkedCount, int revision, int checkedRevision) =>
+            nativeCount > 0 && selectedCount != nativeCount &&
+            (nativeCount != checkedCount || revision != checkedRevision);
 
         private static void FullScan(string reason)
         {

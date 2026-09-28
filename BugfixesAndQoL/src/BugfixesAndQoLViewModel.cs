@@ -609,6 +609,7 @@ namespace BugfixesAndQoL
         internal bool HealthBarHotkeyAlt => (healthBarHotkey & HealthBarAltMask) != 0;
         internal bool HealthBarHotkeyControl => (healthBarHotkey & HealthBarControlMask) != 0;
         internal bool HealthBarHotkeyShift => (healthBarHotkey & HealthBarShiftMask) != 0;
+        internal bool IsCapturingHealthBarHotkey => isCapturingHealthBarHotkey;
         public string HealthBarHotkeyDisplayText
         {
             get
@@ -1406,9 +1407,11 @@ namespace BugfixesAndQoL
             KeyCode key = (KeyCode)(value & HealthBarKeyMask);
             if (value == 0)
                 return 0;
+            int modifiers = value & (HealthBarAltMask | HealthBarControlMask | HealthBarShiftMask);
             if ((value & ~(HealthBarKeyMask | HealthBarAltMask | HealthBarControlMask | HealthBarShiftMask)) != 0 ||
                 !IsSupportedHealthBarKey(key) ||
-                (key == KeyCode.H && (value & (HealthBarAltMask | HealthBarControlMask | HealthBarShiftMask)) == HealthBarControlMask))
+                (modifiers != 0 && (modifiers & (modifiers - 1)) != 0) ||
+                (key == KeyCode.H && modifiers == HealthBarControlMask))
                 return DefaultHealthBarHotkey;
             return value;
         }
@@ -1424,6 +1427,36 @@ namespace BugfixesAndQoL
                 return;
             isCapturingHealthBarHotkey = capture;
             OnPropertyChanged(nameof(HealthBarHotkeyDisplayText));
+        }
+
+        internal void CancelHealthBarCapture() => SetHealthBarCapture(false);
+
+        internal void CaptureHealthBarHotkeyFromInput(KeyCode key)
+        {
+            if (!isCapturingHealthBarHotkey)
+                return;
+            if (key == KeyCode.Escape)
+            {
+                SetHealthBarCapture(false);
+                return;
+            }
+            if (!IsSupportedHealthBarKey(key))
+                return;
+
+            int modifiers =
+                (Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt) ? HealthBarAltMask : 0) |
+                (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl) ? HealthBarControlMask : 0) |
+                (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift) ? HealthBarShiftMask : 0);
+            CompleteHealthBarCapture(key, modifiers);
+        }
+
+        private void CompleteHealthBarCapture(KeyCode key, int modifiers)
+        {
+            int binding = (int)key | modifiers;
+            if (NormalizeHealthBarHotkey(binding) != binding)
+                return;
+            HealthBarHotkey = binding;
+            SetHealthBarCapture(false);
         }
 
         private void CaptureHealthBarHotkey(object parameter)
@@ -1452,19 +1485,16 @@ namespace BugfixesAndQoL
             bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
             if (args.Source is Noesis.UIElement source && source.Keyboard != null)
             {
-                Noesis.ModifierKeys modifiers = source.Keyboard.Modifiers;
-                alt = (modifiers & Noesis.ModifierKeys.Alt) != 0;
-                control = (modifiers & Noesis.ModifierKeys.Control) != 0;
-                shift = (modifiers & Noesis.ModifierKeys.Shift) != 0;
+                Noesis.ModifierKeys noesisModifiers = source.Keyboard.Modifiers;
+                alt = (noesisModifiers & Noesis.ModifierKeys.Alt) != 0;
+                control = (noesisModifiers & Noesis.ModifierKeys.Control) != 0;
+                shift = (noesisModifiers & Noesis.ModifierKeys.Shift) != 0;
             }
-            int binding = (int)key |
+            int modifiers =
                 (alt ? HealthBarAltMask : 0) |
                 (control ? HealthBarControlMask : 0) |
                 (shift ? HealthBarShiftMask : 0);
-            if (NormalizeHealthBarHotkey(binding) != binding)
-                return;
-            HealthBarHotkey = binding;
-            SetHealthBarCapture(false);
+            CompleteHealthBarCapture(key, modifiers);
         }
 
         private sealed class ParameterRelayCommand : ICommand

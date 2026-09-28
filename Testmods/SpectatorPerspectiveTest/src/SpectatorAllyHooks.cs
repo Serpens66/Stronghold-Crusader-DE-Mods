@@ -69,8 +69,14 @@ namespace SpectatorPerspectiveTest
         private static bool AllowAllyAction(Enums.GameActionCommand command, int structureID, int state, int value2,
             ref int __result)
         {
-            if (command < Enums.GameActionCommand.Ally_Orders || command > Enums.GameActionCommand.Ally_CancelOrders ||
-                !SpectatorPerspectiveRuntime.IsActiveSpectator()) return true;
+            if (command < Enums.GameActionCommand.Ally_Orders || command > Enums.GameActionCommand.Ally_CancelOrders)
+                return true;
+            if (SpectatorPerspectiveRuntime.IsNetworkSpectator())
+            {
+                __result = 0;
+                return false;
+            }
+            if (!SpectatorPerspectiveRuntime.IsActiveSpectator()) return true;
             bool allowed = SpectatorPerspectiveRuntime.CanIssueAllyAction(command, structureID, state, value2);
             if (allowed) return true;
             __result = 0;
@@ -79,7 +85,8 @@ namespace SpectatorPerspectiveTest
 
         private static void AfterOpen(bool state)
         {
-            bool active = SpectatorPerspectiveRuntime.IsActiveSpectator();
+            bool active = SpectatorPerspectiveRuntime.IsActiveSpectator() ||
+                SpectatorPerspectiveRuntime.IsNetworkSpectator();
             if (state && active) RefreshControlState();
             else if (!active) RestoreControls();
         }
