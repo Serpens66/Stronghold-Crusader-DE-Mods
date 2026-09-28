@@ -62,14 +62,25 @@ foreach ($path in $textFiles | Where-Object { $_ -like '*.xaml' }) {
         if ($roots.Count -ne 1) { throw "XAML Content must have one root: $path" }
     }
 }
+$settingsXaml = Join-Path $project 'Override\ScriptExtenderUI\ExtraFeaturesSettings.xaml'
+[xml]$settingsDocument = [IO.File]::ReadAllText($settingsXaml)
+$repairCheckbox = $settingsDocument.SelectSingleNode('//*[local-name()="CheckBox" and @IsChecked="{Binding EnableBuildingRepair, Mode=TwoWay}"]')
+$repairContent = @($repairCheckbox.ChildNodes | Where-Object { $_.NodeType -eq [Xml.XmlNodeType]::Element })
+$repairChildren = @($repairContent[0].ChildNodes | Where-Object { $_.NodeType -eq [Xml.XmlNodeType]::Element })
+if ($repairContent.Count -ne 1 -or $repairContent[0].LocalName -ne 'StackPanel' -or
+    $repairChildren.Count -ne 2 -or $repairChildren[0].LocalName -ne 'TextBlock' -or
+    $repairChildren[1].LocalName -ne 'Image' -or
+    $repairChildren[1].GetAttribute('Source') -ne '{Binding BuildingRepairIcon}') {
+    throw 'Building repair settings icon must be bound to the right of its text.'
+}
 foreach ($path in @($info, $packagedInfo)) {
     $metadata = [IO.File]::ReadAllText($path) | ConvertFrom-Json
-    if ($metadata.Version -ne '1.0.104' -or $metadata.MinimumScriptExtenderVersion -ne '2.10.4' -or
-        $metadata.SerpChangelog[0].Version -ne '1.0.104') {
+    if ($metadata.Version -ne '1.0.105' -or $metadata.MinimumScriptExtenderVersion -ne '2.10.4' -or
+        $metadata.SerpChangelog[0].Version -ne '1.0.105') {
         throw "Active version mismatch: $path"
     }
 }
-if ($runtimeText -notmatch 'PluginVersion = "1\.0\.104"' -or
+if ($runtimeText -notmatch 'PluginVersion = "1\.0\.105"' -or
     $runtimeText -notmatch 'BepInDependency\(ApiSharedGuid, "0\.4\.3"\)') {
     throw 'Plugin version or APIShared dependency mismatch.'
 }

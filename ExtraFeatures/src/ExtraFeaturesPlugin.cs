@@ -23,10 +23,11 @@ namespace ExtraFeatures
 
         public const string PluginGuid = "ExtraFeatures_Serp";
         public const string PluginName = "Extra Features";
-        public const string PluginVersion = "1.0.104";
+        public const string PluginVersion = "1.0.105";
 
         private ExtraFeaturesRuntime runtime;
         private bool marketGoodPriceVisualRefreshFailureLogged;
+        private bool buildingRepairIconRefreshFailureLogged;
 
         public ExtraFeaturesViewModel Settings { get; private set; }
 
@@ -75,7 +76,8 @@ namespace ExtraFeatures
             {
                 Settings.InitializeMarketGoodPriceEditor(Logger);
                 SHCDESE.BepInEx.Bootstrap.Plugin.ModSettingsHubViewModel.PropertyChanged +=
-                    (_, __) => RefreshMarketGoodPriceVisuals();
+                    (_, __) => RefreshSettingsVisuals();
+                RefreshSettingsVisuals();
             }
             catch (Exception ex)
             {
@@ -166,6 +168,24 @@ namespace ExtraFeatures
                 Shared.DebugLogHelper.LogError(
                     Logger,
                     $"Extra Features market-price icon refresh failed; multiplier controls remain usable: {ex}");
+            }
+        }
+
+        private void RefreshSettingsVisuals()
+        {
+            RefreshMarketGoodPriceVisuals();
+            try
+            {
+                Settings.RefreshBuildingRepairIcon();
+            }
+            catch (Exception ex)
+            {
+                if (buildingRepairIconRefreshFailureLogged)
+                    return;
+
+                buildingRepairIconRefreshFailureLogged = true;
+                Shared.DebugLogHelper.LogError(Logger,
+                    $"Extra Features building repair settings icon refresh failed: {ex}");
             }
         }
 

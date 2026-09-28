@@ -62,6 +62,7 @@ namespace ExtraFeatures
         private int aiEnemyProximityMultiplayer = EnemyProximityPolicy.VanillaMode;
         private int aiTowerGateRebuildDelaySeconds = 60;
         private bool marketGoodPriceVisualsResolved;
+        private ImageSource buildingRepairIcon;
 
         protected override string ResolveSettingsUiText(string key, string fallback) =>
             SerpLocalization.Get(key);
@@ -87,6 +88,7 @@ namespace ExtraFeatures
         public ImageSource KeepStorageFruitIcon => GetGoodIconImage(eGoods.STORED_FOOD_FRUIT);
         public ImageSource KeepStorageWoodIcon => GetGoodIconImage(eGoods.STORED_WOOD_PLANKS);
         public ImageSource KeepStorageBowsIcon => GetGoodIconImage(eGoods.STORED_BOWS);
+        public ImageSource BuildingRepairIcon => buildingRepairIcon;
         public string EnableFearFactorNeutralizationText => SerpLocalization.Get(SerpLocalization.EnableFearFactorNeutralization);
         public string EnableFearFactorNeutralizationHelpText => SerpLocalization.Get(SerpLocalization.EnableFearFactorNeutralizationHelp);
         public string AllowElevatedMoatText => SerpLocalization.Get("SomeSettings.AllowElevatedMoat");
@@ -462,6 +464,28 @@ namespace ExtraFeatures
             marketGoodPriceVisualsResolved =
                 resolvedIconCount == MarketGoodPriceDefinition.Count &&
                 resolvedNameCount == MarketGoodPriceDefinition.Count;
+        }
+
+        internal void RefreshBuildingRepairIcon()
+        {
+            if (buildingRepairIcon != null || !MainViewModel.viewModelLoaded)
+                return;
+
+            MainViewModel viewModel = MainViewModel.Instance;
+            if (viewModel == null)
+                return;
+
+            const string assetPath = "Assets/GUI/Sprites/ExtraFeatures_RepairHammer.png";
+            if (!GameAssetManagerAPI.Instance.GetFileBinaryContent(assetPath, out byte[] imageBytes) ||
+                imageBytes == null || imageBytes.Length == 0)
+                throw new InvalidOperationException("Building repair settings icon asset is unavailable: " + assetPath);
+
+            ImageSource icon = viewModel.LoadImageFile(imageBytes);
+            if (icon == null)
+                throw new InvalidOperationException("Building repair settings icon could not be decoded: " + assetPath);
+
+            buildingRepairIcon = icon;
+            OnPropertyChanged(nameof(BuildingRepairIcon));
         }
 
         private void RefreshMarketGoodPriceItems()
