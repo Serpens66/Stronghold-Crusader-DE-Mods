@@ -44,7 +44,7 @@ namespace AIBuildDiagnoseTest
                     log, candidate.OnSessionStarted, candidate.OnSessionEnded);
                 GameTimeManagerAPI.Instance.OnTick += OnTick;
                 if (!AiBuildDiagnostic.TryRegister(Guid, candidate.OnNativeRecord, out string error))
-                    Shared.DebugLogHelper.LogWarning(log, "AI_BUILD_SCHEDULER_HOOK_UNAVAILABLE: " + error);
+                    Shared.DebugLogHelper.LogWarning(log, "AI_BUILD_NATIVE_OBSERVATION_INCOMPLETE: " + error);
                 sessionSubscription = candidateSession;
                 runtime = candidate;
                 Shared.DebugLogHelper.LogInfo(log,

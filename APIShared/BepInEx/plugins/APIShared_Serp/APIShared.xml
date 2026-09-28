@@ -616,7 +616,7 @@
         <member name="T:APIShared.AiBuildDiagnosticRecord">
             <summary>Read-only evidence from the native AI construction path.</summary>
         </member>
-        <member name="M:APIShared.AiBuildDiagnosticRecord.#ctor(System.String,System.Int32,System.Int64,System.Int64,System.Int64,System.Int64)">
+        <member name="M:APIShared.AiBuildDiagnosticRecord.#ctor(System.String,System.Int32,System.Int64,System.Int64,System.Int64,System.Int64,System.Int64)">
             <summary>Creates a read-only diagnostic record.</summary>
         </member>
         <member name="P:APIShared.AiBuildDiagnosticRecord.Stage">
@@ -624,6 +624,9 @@
         </member>
         <member name="P:APIShared.AiBuildDiagnosticRecord.PlayerId">
             <summary>One-based AI player ID.</summary>
+        </member>
+        <member name="P:APIShared.AiBuildDiagnosticRecord.AttemptId">
+            <summary>Process-unique wood construction attempt, or zero outside one.</summary>
         </member>
         <member name="P:APIShared.AiBuildDiagnosticRecord.A">
             <summary>Stage-specific first value.</summary>
@@ -644,10 +647,22 @@
             <summary>True only after the test observer has registered.</summary>
         </member>
         <member name="M:APIShared.AiBuildDiagnostic.TryRegister(System.String,System.Action{APIShared.AiBuildDiagnosticRecord},System.String@)">
-            <summary>Registers a single observer and then installs the scheduler hook once.</summary>
+            <summary>Registers a single observer and installs the audited observation hooks once.</summary>
         </member>
         <member name="M:APIShared.AiBuildDiagnostic.Publish(System.String,System.Int32,System.Int64,System.Int64,System.Int64,System.Int64)">
             <summary>Publishes a record only while the test observer is present.</summary>
+        </member>
+        <member name="M:APIShared.AiBuildDiagnostic.BeginWoodAttempt(System.Int32)">
+            <summary>Enters the synchronous Vanilla wood call; zero means diagnostics are absent.</summary>
+        </member>
+        <member name="M:APIShared.AiBuildDiagnostic.EndWoodAttempt(System.Int64)">
+            <summary>Restores the previous synchronous wood context after the Vanilla call.</summary>
+        </member>
+        <member name="M:APIShared.AiBuildDiagnostic.TryGetCurrentWoodAttempt(System.Int64@,System.Int32@)">
+            <summary>Gets the active attempt on the current simulation thread.</summary>
+        </member>
+        <member name="M:APIShared.AiBuildDiagnostic.TryReadPlacementStatus(System.Int32@,System.Int32@,System.Int32@)">
+            <summary>Reads the audited native placement flags without changing them.</summary>
         </member>
         <member name="T:APIShared.LobbyStateSnapshot">
             <summary>Immutable process-wide observation of the current multiplayer lobby.</summary>

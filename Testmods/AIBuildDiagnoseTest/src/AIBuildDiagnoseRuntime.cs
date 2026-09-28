@@ -16,6 +16,9 @@ namespace AIBuildDiagnoseTest
         private readonly ManualLogSource log;
         private readonly bool fixesLoaded;
         private readonly IDisposable buildingSubscription;
+        private readonly IDisposable buildStructureSubscription;
+        private readonly Dictionary<long, Attempt> attempts = new Dictionary<long, Attempt>();
+        private readonly Dictionary<string, int> outcomes = new Dictionary<string, int>();
         private readonly Dictionary<string, int> seen = new Dictionary<string, int>();
         private readonly int[] schedulerCalls = new int[9];
         private readonly int[] woodBuildCalls = new int[9];
@@ -34,6 +37,7 @@ namespace AIBuildDiagnoseTest
             log = logger ?? throw new ArgumentNullException(nameof(logger));
             fixesLoaded = hasFixes;
             buildingSubscription = BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(OnBuildingSpawn);
+            buildStructureSubscription = BuildingR3EventHooks.OnBuildStructure.Observable.Subscribe(OnBuildStructure);
             if (ApiShared.Current.TryGetAivBuildStep(AIBuildDiagnosePlugin.Guid,
                 out IAivBuildStepCapability steps, out NativeCapabilityDiagnostic diagnostic))
             {
@@ -51,6 +55,8 @@ namespace AIBuildDiagnoseTest
             lastTick = -1;
             nextSummaryTick = 0;
             seen.Clear();
+            attempts.Clear();
+            outcomes.Clear();
             Array.Clear(schedulerCalls, 0, schedulerCalls.Length);
             Array.Clear(woodBuildCalls, 0, woodBuildCalls.Length);
             Array.Clear(woodSearchCalls, 0, woodSearchCalls.Length);
@@ -102,23 +108,116 @@ namespace AIBuildDiagnoseTest
                     break;
                 case "wood-search-before": woodSearchCalls[record.PlayerId]++; break;
             }
+            Attempt attempt = null;
+            if (record.AttemptId != 0)
+            {
+                if (record.Stage == "wood-build-before")
+                    attempts[record.AttemptId] = new Attempt(record.PlayerId);
+                attempts.TryGetValue(record.AttemptId, out attempt);
+                if (attempt != null)
+                {
+                    if (record.Stage == "route-result") { attempt.RouteSeen = true; attempt.RouteResult = (int)record.A; }
+                    if (record.Stage == "wood-search-after") attempt.SearchX = (int)record.B;
+                    if (record.Stage == "wood-nearby-after") attempt.NearX = (int)record.A;
+                    if (record.Stage != "wood-build-after") attempt.LastStep = record.Stage;
+                }
+            }
             string key = record.PlayerId + ":" + record.Stage + ":" + record.A + ":" + record.B + ":" + record.C + ":" + record.D;
             if (!seen.TryGetValue(key, out int count)) count = 0;
             seen[key] = count + 1;
             // First occurrence of each exact state is retained; periodic repeats show persistence.
             if (count < 2 || count == 9 || count == 99 || count % 500 == 499)
                 Log($"AI_BUILD_TRACE: session={sessionId}, tick={lastTick}, player={record.PlayerId}, " +
-                    $"stage={record.Stage}, {Describe(record)}, repeat={count + 1}.");
+                    $"attempt={record.AttemptId}, stage={record.Stage}, {Describe(record)}, repeat={count + 1}.");
+            if (record.Stage == "wood-build-after" && attempt != null)
+            {
+                string outcome = Classify(attempt);
+                string outcomeKey = record.PlayerId + ":" + outcome;
+                outcomes.TryGetValue(outcomeKey, out int outcomeCount);
+                outcomes[outcomeKey] = ++outcomeCount;
+                if (outcomeCount <= 2 || outcomeCount == 10 || outcomeCount % 100 == 0)
+                    Log($"AI_BUILD_ATTEMPT: session={sessionId}, tick={lastTick}, player={record.PlayerId}, " +
+                        $"attempt={record.AttemptId}, observedLast={attempt.LastStep}, inference={outcome}, " +
+                        $"route={(attempt.RouteSeen ? attempt.RouteResult.ToString() : "unobserved")}, " +
+                        $"buildPre={attempt.BuildPre}, buildPost={attempt.BuildPost}, " +
+                        $"spawnPre={attempt.SpawnPre}, spawnPost={attempt.SpawnPost}, spawnId={attempt.SpawnId}.");
+                attempts.Remove(record.AttemptId);
+            }
+        }
+
+        private void OnBuildStructure(BuildStructureEventArgs args)
+        {
+            if (!active || args.Mappers != eMappers.MAPPER_WOODSMAN ||
+                !AiBuildDiagnostic.TryGetCurrentWoodAttempt(out long id, out int owner) ||
+                owner != args.PlayerId || !attempts.TryGetValue(id, out Attempt attempt)) return;
+            if (args.Phase == EventHookPhase.Pre) attempt.BuildPre = true;
+            else if (args.Phase == EventHookPhase.Post) attempt.BuildPost = true;
+            attempt.LastStep = "build-structure-" + args.Phase;
+            string placement = AiBuildDiagnostic.TryReadPlacementStatus(out int preparation,
+                out int rejected, out int mode)
+                ? $"placementPreparation={preparation}, placementRejected={rejected}, placementMode={mode}"
+                : "placementStatus=unavailable";
+            try
+            {
+                int cost = GameBuildingManagerAPI.Instance.GetWoodCost(eStructs.STRUCT_WOODCUTTERS_HUT);
+                Log($"AI_BUILD_STRUCTURE: session={sessionId}, tick={lastTick}, player={owner}, attempt={id}, " +
+                    $"phase={args.Phase}, tile=({args.TileX},{args.TileY}), mapper={args.Mappers}, " +
+                    $"scale={args.BuildingScaleUnknown}, free={args.IsFree}, woodCost={cost}, " +
+                    $"{ReadResources(owner)}, {placement}.");
+            }
+            catch (Exception ex) { Log("AI_BUILD_STRUCTURE_OBSERVATION_FAILED: " + ex); }
         }
 
         private void OnBuildingSpawn(BuildingSpawnEventArgs args)
         {
-            if (!active || args.Phase != EventHookPhase.Post ||
+            if (!active ||
                 args.Building != eStructs.STRUCT_WOODCUTTERS_HUT ||
                 args.PlayerId < 1 || args.PlayerId > 8) return;
-            hutSpawns[args.PlayerId]++;
+            long id = 0;
+            if (AiBuildDiagnostic.TryGetCurrentWoodAttempt(out long current, out int owner) &&
+                owner == args.PlayerId && attempts.TryGetValue(current, out Attempt attempt))
+            {
+                id = current;
+                if (args.Phase == EventHookPhase.Pre) attempt.SpawnPre = true;
+                else if (args.Phase == EventHookPhase.Post)
+                {
+                    attempt.SpawnPost = true;
+                    attempt.SpawnId = args.ReturnValue;
+                }
+                attempt.LastStep = "building-spawn-" + args.Phase;
+            }
+            if (args.Phase == EventHookPhase.Post && args.ReturnValue > 0) hutSpawns[args.PlayerId]++;
             Log($"AI_BUILD_WOODCUTTER_SPAWN: session={sessionId}, tick={lastTick}, player={args.PlayerId}, " +
-                $"buildingId={args.ReturnValue}, tile=({args.TileX},{args.TileY}).");
+                $"attempt={id}, phase={args.Phase}, buildingId={(args.Phase == EventHookPhase.Post ? args.ReturnValue.ToString() : "pending")}, " +
+                $"tile=({args.TileX},{args.TileY}).");
+        }
+
+        private static string Classify(Attempt attempt)
+        {
+            if (attempt.SpawnPost && attempt.SpawnId > 0) return "spawn-observed";
+            if (attempt.SpawnPre) return "spawn-entered-without-successful-post";
+            if (attempt.BuildPre) return "building-creation-entered-before-spawn-aborted";
+            if (attempt.RouteSeen && attempt.RouteResult == 0) return "route-rejected";
+            if (attempt.RouteSeen) return "route-accepted-building-event-unobserved";
+            if (attempt.NearX >= 0) return "near-position-found-route-unobserved";
+            if (attempt.SearchX >= 0) return "search-found-near-position-unobserved";
+            return "search-or-earlier-exit";
+        }
+
+        private sealed class Attempt
+        {
+            internal Attempt(int playerId) { PlayerId = playerId; }
+            internal int PlayerId;
+            internal int SearchX = -1;
+            internal int NearX = -1;
+            internal bool RouteSeen;
+            internal int RouteResult;
+            internal bool BuildPre;
+            internal bool BuildPost;
+            internal bool SpawnPre;
+            internal bool SpawnPost;
+            internal long SpawnId;
+            internal string LastStep = "wood-build-before";
         }
 
         private void LogPlayers(string phase)
@@ -144,12 +243,16 @@ namespace AIBuildDiagnoseTest
                 for (int playerId = 1; playerId <= 8; playerId++)
                 {
                     if (!players.IsAIPlayer(playerId)) continue;
+                    string outcomeText = "";
+                    foreach (KeyValuePair<string, int> outcome in outcomes)
+                        if (outcome.Key.StartsWith(playerId + ":", StringComparison.Ordinal))
+                            outcomeText += outcome.Key.Substring(2) + "=" + outcome.Value + ",";
                     Log($"AI_BUILD_SUMMARY: session={sessionId}, phase={phase}, tick={lastTick}, " +
                         $"player={playerId}, lord={players.GetAILord(playerId)}, scheduler={schedulerCalls[playerId]}, " +
                         $"woodBuild={woodBuildCalls[playerId]}, woodSearch={woodSearchCalls[playerId]}, " +
                         $"initialHuts={initialHuts[playerId]}, newHuts={hutSpawns[playerId]}, " +
                         $"lastObserved={lastObservedStage[playerId] ?? "none"}, " +
-                        $"inference={InferStage(playerId)}.");
+                        $"inference={InferStage(playerId)}, attemptOutcomes={outcomeText}.");
                 }
                 LogPlayers(phase);
             }
@@ -223,6 +326,10 @@ namespace AIBuildDiagnoseTest
                     return $"visitedCells={record.A}, formalCandidates={record.B}, bestScore={record.C}, generation={record.D}";
                 case "wood-candidate-scan-error":
                     return $"scanHResult={record.A}";
+                case "route-components":
+                    return $"sourceComponent={record.A}, targetComponent={record.B}, sourceTile={record.C}, targetTile={record.D}";
+                case "route-result":
+                    return $"result={record.A}, mapperIndex={record.B}, target=({record.C},{record.D})";
                 default:
                     return $"a={record.A}, b={record.B}, c={record.C}, d={record.D}";
             }

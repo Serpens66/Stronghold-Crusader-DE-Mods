@@ -540,6 +540,7 @@ namespace BugfixesAndQoL
         {
             // AIBuildDiagnoseTest BEGIN -- dormant unless the test observer is registered.
             bool diagnose = APIShared.AiBuildDiagnostic.HasObserver;
+            long attemptId = diagnose ? APIShared.AiBuildDiagnostic.BeginWoodAttempt(playerId) : 0;
             if (diagnose)
                 APIShared.AiBuildDiagnostic.Publish("wood-build-before", playerId,
                     sessionEnabled ? 1 : 0, economyFixEnabled ? 1 : 0,
@@ -548,9 +549,13 @@ namespace BugfixesAndQoL
             try { RunEconomyPlayer(economyWoodHook, state, playerId); }
             finally
             {
-                if (diagnose)
-                    APIShared.AiBuildDiagnostic.Publish("wood-build-after", playerId,
-                        ReadSearchResult(state, false), ReadSearchResult(state, true));
+                try
+                {
+                    if (diagnose)
+                        APIShared.AiBuildDiagnostic.Publish("wood-build-after", playerId,
+                            ReadSearchResult(state, false), ReadSearchResult(state, true));
+                }
+                finally { APIShared.AiBuildDiagnostic.EndWoodAttempt(attemptId); }
             }
         }
 

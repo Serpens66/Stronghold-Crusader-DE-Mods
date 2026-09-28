@@ -23,6 +23,7 @@ namespace SpectatorPerspectiveTest
         private static IDisposable unloadSubscription;
         private static bool initialized;
         private static bool mapReady;
+        private static bool loadedFromSave;
         private static bool spectatorActive;
         private static bool initializationPending;
         private static bool hudPending;
@@ -53,7 +54,8 @@ namespace SpectatorPerspectiveTest
             if (initialized) return;
             initialized = true;
             log = logger;
-            hud = new SpectatorPerspectiveHud(SelectPlayer, JumpToPlayer, OnHudUnavailable, OnHudAvailable);
+            hud = new SpectatorPerspectiveHud(SelectPlayer, JumpToPlayer, OnHudUnavailable,
+                OnHudAvailable, OnBriefingChanged);
             try
             {
                 SpectatorReportHooks.Install();
@@ -84,6 +86,7 @@ namespace SpectatorPerspectiveTest
             BeginMapLoad();
             stateBeforeLoad = previousState;
             mapReady = true;
+            loadedFromSave = args.FromSaveGame;
             initializationPending = GameData.Instance?.game_type == 3;
             pendingSince = Time.realtimeSinceStartup;
             ArmRenderIfNeeded();
@@ -103,6 +106,7 @@ namespace SpectatorPerspectiveTest
             RestoreFoodControls();
             SpectatorAllyHooks.RestoreControls();
             mapReady = false;
+            loadedFromSave = false;
             spectatorActive = false;
             initializationPending = false;
             hudPending = false;
@@ -154,19 +158,33 @@ namespace SpectatorPerspectiveTest
                         }
                         if (state.game_type != 3 || state.spectatorMode == 0)
                             initializationPending = false;
-                        else if (EditorDirector.instance != null && EditorDirector.instance.ActivePlayerID <= 0)
+                        else if (EditorDirector.instance != null)
                         {
-                            InitializePerspective(state);
-                            initializationPending = false;
+                            bool originalSpectatorSave = loadedFromSave && IsOriginalSpectatorSave(state);
+                            if (EditorDirector.instance.ActivePlayerID <= 0 || originalSpectatorSave)
+                            {
+                                // Vanilla restores a saved spectator's native view as a positive local player.
+                                // Restore only the managed control identity; APIShared owns the native view.
+                                if (originalSpectatorSave && EditorDirector.instance.ActivePlayerID > 0)
+                                    EditorDirector.instance.SetLocalPlayer(-1);
+                                InitializePerspective(state, originalSpectatorSave ?
+                                    PlayerPerspectiveAPI.GetRawNativeViewPlayerId() : 0);
+                                initializationPending = false;
+                            }
                         }
                         if (!initializationPending) stateBeforeLoad = null;
                     }
                 }
-                if (hudPending && spectatorActive && hud.TryShow(occupiedSlots, selectedPlayer))
+                if (hudPending && spectatorActive)
                 {
-                    hudPending = false;
-                    if (selectedName == null) CacheSelectedName();
-                    GuardFoodControls();
+                    if (hud.TryShow(occupiedSlots, selectedPlayer))
+                    {
+                        hudPending = false;
+                        if (selectedName == null) CacheSelectedName();
+                        GuardFoodControls();
+                    }
+                    else if (hud.IsBriefingVisible)
+                        hudPending = false;
                 }
                 RefreshPendingReport(GameData.Instance?.lastGameState);
                 RefreshPendingAllies(GameData.Instance?.lastGameState);
@@ -202,7 +220,23 @@ namespace SpectatorPerspectiveTest
             }
         }
 
-        private static void InitializePerspective(EngineInterface.PlayState state)
+        private static bool IsOriginalSpectatorSave(EngineInterface.PlayState state)
+        {
+            if (state == null || state.game_type != (int)eGameTypeModes.GAMETYPE_MULTIPLAYER ||
+                state.spectatorMode == 0 || state.player_register == null ||
+                state.player_register.Length < 9 || state.computer_register == null ||
+                state.computer_register.Length < 9 ||
+                GameModeHelper.IsRealMultiplayer()) return false;
+            bool hasCpu = false;
+            for (int player = 1; player <= 8; player++)
+            {
+                if (state.is_valid_player(player)) return false;
+                hasCpu |= state.is_skirmish_player(player);
+            }
+            return hasCpu;
+        }
+
+        private static void InitializePerspective(EngineInterface.PlayState state, int savedView)
         {
             if (!mapReady) return;
             occupiedSlots = new bool[9];
@@ -213,12 +247,14 @@ namespace SpectatorPerspectiveTest
                 if (occupiedSlots[player] && first == 0) first = player;
             }
             if (first == 0) return;
-            if (!PlayerPerspectiveAPI.TrySetSpectatorView(first))
+            int initialView = savedView >= 1 && savedView <= 8 && occupiedSlots[savedView]
+                ? savedView : first;
+            if (!PlayerPerspectiveAPI.TrySetSpectatorView(initialView))
             {
                 log.LogError("SPECTATOR_PERSPECTIVE_SELECT_FAILED: APIShared rejected the initial spectator view.");
                 return;
             }
-            selectedPlayer = first;
+            selectedPlayer = initialView;
             spectatorActive = true;
             hudPending = true;
         }
@@ -410,6 +446,22 @@ namespace SpectatorPerspectiveTest
             if (!mapReady || !spectatorActive) return;
             hudPending = true;
             ArmRenderIfNeeded();
+        }
+
+        private static void OnBriefingChanged(bool visible)
+        {
+            if (!mapReady || !spectatorActive) return;
+            if (visible)
+            {
+                hud.Hide();
+                hudPending = false;
+                StopRenderIfIdle();
+            }
+            else
+            {
+                hudPending = true;
+                ArmRenderIfNeeded();
+            }
         }
 
         private static void SelectPlayer(int player)

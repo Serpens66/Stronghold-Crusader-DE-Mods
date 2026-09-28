@@ -31,7 +31,7 @@ if ($runtime -notmatch 'var previousState = GameData\.Instance\?\.lastGameState;
     $runtime -notmatch 'OnHudAvailable\(\)') {
     throw 'Loaded-save state capture, delayed readiness or HUD recovery path missing.'
 }
-if ($runtime -notmatch 'PlayerPerspectiveAPI\.TrySetSpectatorView\(first\)' -or
+if ($runtime -notmatch 'PlayerPerspectiveAPI\.TrySetSpectatorView\(initialView\)' -or
     $runtime -notmatch 'PlayerPerspectiveAPI\.TrySetSpectatorView\(player\)' -or
     $runtime -notmatch 'PlayerPerspectiveAPI\.ClearSpectatorView\(\)' -or
     $runtime -match 'EngineInterface\.SetEditorPlayer\(') {
@@ -76,10 +76,33 @@ if ($hud -notmatch 'SizeChanged\s*\+=' -or $hud -notmatch 'Unloaded\s*\+=' -or
     $hud -notmatch 'screen\.Loaded -= OnScreenLoaded' -or
     $hud -notmatch 'canvas\.Loaded \+= OnCanvasLoaded' -or
     $hud -notmatch 'canvas\.Loaded -= OnCanvasLoaded' -or
-    $hud -notmatch 'MainViewModel\.Instance\?\.IngameUI' -or
+    $hud -notmatch 'MainViewModel\.Instance' -or
+    $hud -notmatch 'nextViewModel\?\.IngameUI' -or
     $hud -match 'FindGlobalElement\(' -or
     $runtime -match 'hud\.Show\(' -or $runtime -match 'RefreshReport\(') {
     throw 'Spectator HUD must update on lifecycle, selection and resize rather than every render.'
+}
+if ($hud -notmatch 'viewModel\.PropertyChanged \+= OnViewModelPropertyChanged' -or
+    $hud -notmatch 'viewModel\.PropertyChanged -= OnViewModelPropertyChanged' -or
+    $hud -notmatch 'if \(IsBriefingVisible\) \{ Hide\(\); return false; \}' -or
+    $hud -notmatch 'briefingChanged\(visible\)' -or
+    $runtime -notmatch 'else if \(hud\.IsBriefingVisible\)\s*hudPending = false;' -or
+    $runtime -notmatch 'private static void OnBriefingChanged\(bool visible\)' -or
+    $runtime -notmatch 'StopRenderIfIdle\(\);') {
+    throw 'Briefing visibility must hide the bar and resume it via a detachable view-model event.'
+}
+if ($runtime -notmatch 'loadedFromSave = args\.FromSaveGame' -or
+    $runtime -notmatch 'loadedFromSave && IsOriginalSpectatorSave\(state\)' -or
+    $runtime -notmatch 'eGameTypeModes\.GAMETYPE_MULTIPLAYER' -or
+    $runtime -notmatch 'state\.is_valid_player\(player\)' -or
+    $runtime -notmatch 'state\.player_register\.Length < 9' -or
+    $runtime -notmatch 'state\.computer_register\.Length < 9' -or
+    $runtime -notmatch 'GameModeHelper\.IsRealMultiplayer\(\)' -or
+    $runtime -notmatch 'EditorDirector\.instance\.SetLocalPlayer\(-1\)' -or
+    $runtime -notmatch 'PlayerPerspectiveAPI\.GetRawNativeViewPlayerId\(\)' -or
+    $runtime -notmatch 'occupiedSlots\[savedView\]' -or
+    $runtime -match 'GameData\.Instance\.playerID\s*=') {
+    throw 'Saved spectator recovery must be roster-guarded and keep the network identity unchanged.'
 }
 if ($hud -notmatch 'SpriteMapping\.RemapMPLoadedColour\(player\)' -or
     $hud -notmatch 'SpriteMapping\.remapColours' -or $hud -notmatch 'OnScreenText\.Instance\.MPTeamColours' -or

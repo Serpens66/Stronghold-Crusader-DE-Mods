@@ -42,6 +42,7 @@ namespace APISharedTests
                     ? Assembly.LoadFrom(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assembly-CSharp-publicized.dll"))
                     : null;
             PlayerDefeatTests.Run();
+            TestAiBuildDiagnosticDormancy();
             TestPublicSurface();
             MarkedSelectionHarmonyTests.Run(Assert);
             TestElevatedMoatAiState();
@@ -82,6 +83,16 @@ namespace APISharedTests
             }
             Console.Error.WriteLine($"FAIL: APIShared tests reported {failures} failure(s).");
             return 1;
+        }
+
+        private static void TestAiBuildDiagnosticDormancy()
+        {
+            Assert(!AiBuildDiagnostic.HasObserver, "AI diagnostic observer is absent before registration");
+            Assert(AiBuildDiagnostic.BeginWoodAttempt(6) == 0,
+                "AI diagnostic attempt is inert without an observer");
+            Assert(!AiBuildDiagnostic.TryGetCurrentWoodAttempt(out long id, out int playerId) &&
+                id == 0 && playerId == 0, "AI diagnostic attempt state is absent");
+            AiBuildDiagnostic.Publish("route-result", 6, 0);
         }
 
         private static bool CaptureSelectionState(int playerId, EngineInterface.PlayState state,

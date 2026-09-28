@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel;
 using CrusaderDE;
 using Noesis;
 
@@ -11,6 +12,7 @@ namespace SpectatorPerspectiveTest
         private readonly Action<int, MouseButton> jumpToPlayer;
         private readonly Action uiUnavailable;
         private readonly Action uiAvailable;
+        private readonly Action<bool> briefingChanged;
         private readonly Button[] buttons = new Button[9];
         private readonly TextBlock[] numbers = new TextBlock[9];
         private readonly RoutedEventHandler[] clickHandlers = new RoutedEventHandler[9];
@@ -19,6 +21,7 @@ namespace SpectatorPerspectiveTest
         private static readonly SolidColorBrush selectedBorder = new SolidColorBrush(Noesis.Color.FromRgb(239, 198, 112));
         private static readonly SolidColorBrush normalBackground = new SolidColorBrush(Noesis.Color.FromArgb(120, 15, 12, 10));
         private static readonly SolidColorBrush selectedBackground = new SolidColorBrush(Noesis.Color.FromArgb(160, 74, 37, 24));
+        private MainViewModel viewModel;
         private IngameUIScreens screen;
         private Canvas canvas;
         private Border bar;
@@ -30,15 +33,19 @@ namespace SpectatorPerspectiveTest
         private float originLeft;
         private float originTop;
         private int selectedPlayer;
+        private bool briefingVisible;
 
         internal SpectatorPerspectiveHud(Action<int> selectPlayer, Action<int, MouseButton> jumpToPlayer,
-            Action uiUnavailable, Action uiAvailable)
+            Action uiUnavailable, Action uiAvailable, Action<bool> briefingChanged)
         {
             this.selectPlayer = selectPlayer;
             this.jumpToPlayer = jumpToPlayer;
             this.uiUnavailable = uiUnavailable;
             this.uiAvailable = uiAvailable;
+            this.briefingChanged = briefingChanged;
         }
+
+        internal bool IsBriefingVisible => viewModel?.Show_HUD_Briefing == true;
 
         internal void ResetForSession()
         {
@@ -59,6 +66,7 @@ namespace SpectatorPerspectiveTest
         internal bool TryShow(bool[] occupied, int selected)
         {
             if (!Resolve()) return false;
+            if (IsBriefingVisible) { Hide(); return false; }
             if (!canvas.IsLoaded || canvas.ActualWidth <= 0f || canvas.ActualHeight <= 0f) { Hide(); return false; }
             int occupiedCount = 0;
             for (int player = 1; player <= 8; player++)
@@ -102,21 +110,31 @@ namespace SpectatorPerspectiveTest
 
         private bool Resolve()
         {
-            IngameUIScreens nextScreen = MainViewModel.Instance?.IngameUI;
-            if (nextScreen == null) { Hide(); return false; }
-            if (ReferenceEquals(nextScreen, screen) && canvas != null && bar != null &&
-                (canvas.IsLoaded || ReferenceEquals(screen.FindName("SpectatorPerspectiveCanvas"), canvas))) return true;
+            MainViewModel nextViewModel = MainViewModel.Instance;
+            IngameUIScreens nextScreen = nextViewModel?.IngameUI;
+            if (nextViewModel == null) { Hide(); Detach(); return false; }
+            if (ReferenceEquals(nextViewModel, viewModel) && nextScreen == null && screen == null)
+                return false;
+            if (ReferenceEquals(nextViewModel, viewModel) && ReferenceEquals(nextScreen, screen) &&
+                canvas != null && bar != null &&
+                ReferenceEquals(screen.FindName("SpectatorPerspectiveCanvas"), canvas)) return true;
+            Hide();
             Detach();
+            viewModel = nextViewModel;
+            briefingVisible = viewModel.Show_HUD_Briefing;
+            viewModel.PropertyChanged += OnViewModelPropertyChanged;
+            if (nextScreen == null) return false;
             screen = nextScreen;
             screen.Loaded += OnScreenLoaded;
             canvas = screen.FindName("SpectatorPerspectiveCanvas") as Canvas;
-            if (canvas == null) { Detach(); return false; }
+            // Keep the view-model event while the XAML tree is still being created.
+            if (canvas == null) return false;
             canvas.SizeChanged += OnCanvasSizeChanged;
             canvas.Loaded += OnCanvasLoaded;
             canvas.Unloaded += OnCanvasUnloaded;
             bar = screen.FindName("SpectatorPerspectiveBar") as Border;
             dragHandle = screen.FindName("SpectatorPerspectiveDrag") as Border;
-            if (bar == null || dragHandle == null) { Detach(); return false; }
+            if (bar == null || dragHandle == null) return false;
             dragHandle.MouseLeftButtonDown += OnDragDown;
             dragHandle.MouseMove += OnDragMove;
             dragHandle.MouseLeftButtonUp += OnDragUp;
@@ -144,6 +162,7 @@ namespace SpectatorPerspectiveTest
 
         private void Detach()
         {
+            if (viewModel != null) viewModel.PropertyChanged -= OnViewModelPropertyChanged;
             if (screen != null) screen.Loaded -= OnScreenLoaded;
             if (canvas != null)
             {
@@ -160,6 +179,8 @@ namespace SpectatorPerspectiveTest
             }
             dragging = false;
             selectedPlayer = 0;
+            briefingVisible = false;
+            viewModel = null;
             screen = null;
             canvas = null;
             bar = null;
@@ -234,6 +255,18 @@ namespace SpectatorPerspectiveTest
         private void OnScreenLoaded(object sender, RoutedEventArgs args)
         {
             if (ReferenceEquals(sender, screen)) uiAvailable();
+        }
+
+        private void OnViewModelPropertyChanged(object sender, PropertyChangedEventArgs args)
+        {
+            if (!ReferenceEquals(sender, viewModel) ||
+                (!string.IsNullOrEmpty(args.PropertyName) &&
+                 args.PropertyName != nameof(MainViewModel.Show_HUD_Briefing))) return;
+            bool visible = viewModel.Show_HUD_Briefing;
+            if (visible == briefingVisible) return;
+            briefingVisible = visible;
+            if (visible) Hide();
+            briefingChanged(visible);
         }
 
         private void OnCanvasLoaded(object sender, RoutedEventArgs args)
