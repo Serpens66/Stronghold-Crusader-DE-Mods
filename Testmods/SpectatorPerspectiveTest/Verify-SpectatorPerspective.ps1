@@ -27,8 +27,8 @@ if ($runtime -notmatch 'MapLoaderR3EventHooks\.OnPostLoad' -or $runtime -notmatc
 $reportHooks = [IO.File]::ReadAllText((Join-Path $projectRoot 'src\SpectatorReportHooks.cs'))
 if ($reportHooks -notmatch 'ButtonReports' -or $reportHooks -notmatch 'ButtonChangeEdibleState' -or
     $reportHooks -notmatch 'PlayerNameText' -or $reportHooks -notmatch 'UseSelectedReportName' -or
-    $reportHooks -notmatch 'replaced != 1' -or $runtime -notmatch 'SPECTATOR_REPORT_HOOKS_READY') {
-    throw 'Report navigation hook, food action guard, stable name hook or post-startup marker missing.'
+    $reportHooks -notmatch 'replaced != 1') {
+    throw 'Report navigation hook, food action guard or stable name hook missing.'
 }
 $foodGuard = [regex]::Match($runtime, '(?s)private static void GuardFoodControls\(\).*?private static void OnHudUnavailable\(').Value
 if (-not $foodGuard -or $foodGuard -notmatch 'button\.IsHitTestVisible = false' -or
@@ -40,10 +40,10 @@ $allyHooks = [IO.File]::ReadAllText((Join-Path $projectRoot 'src\SpectatorAllyHo
 if ($allyHooks -notmatch 'GetAllyList' -or $allyHooks -notmatch 'GetEnemyList' -or
     $allyHooks -notmatch 'UpdateAllies' -or $allyHooks -notmatch 'Ally_CancelOrders' -or
     $allyHooks -notmatch 'AllowAllyAction' -or $runtime -notmatch 'CanIssueAllyAction' -or
-    $runtime -notmatch 'WaitForFreshAllies' -or $runtime -notmatch 'SPECTATOR_ALLY_HOOKS_READY') {
+    $runtime -notmatch 'WaitForFreshAllies') {
     throw 'Selected-player ally view, CPU-only action guard or event-driven refresh missing.'
 }
-if ($allyHooks -notmatch 'state && SpectatorPerspectiveRuntime.IsActiveSpectator\(\)' -or
+if ($allyHooks -notmatch 'if \(state && active\) RefreshControlState\(\)' -or
     $runtime -notmatch '!state.is_valid_player\(selectedPlayer\)' -or
     $runtime -match 'GameData\.Instance\.playerID\s*=') {
     throw 'Ally actions must remain spectator/CPU scoped without changing the managed player identity.'
@@ -59,8 +59,33 @@ if ($hud -notmatch 'SpriteMapping\.RemapMPLoadedColour\(player\)' -or
     $hud -match 'buttons\[selected\]\.Content\s*=') {
     throw 'Compact HUD must use Vanilla player colours once and mark selection without replacing numbers.'
 }
+if ($hud -notmatch 'PreviewMouseDown \+= jumpHandlers\[player\]' -or
+    $hud -notmatch 'PreviewMouseDown -= jumpHandlers\[player\]' -or
+    $hud -notmatch 'args\.ChangedButton != MouseButton\.Right' -or
+    $hud -notmatch 'args\.ChangedButton != MouseButton\.Middle' -or
+    $hud -notmatch 'args\.Handled = true' -or
+    $hud -notmatch 'jumpToPlayer\(slot, args\.ChangedButton\)') {
+    throw 'Camera mouse handlers must be scoped to right/middle clicks and detached with the HUD.'
+}
+$cameraJump = [regex]::Match($runtime, '(?s)private static unsafe void JumpToPlayer\(.*$').Value
+if (-not $cameraJump -or $cameraJump -notmatch 'IsActiveSpectator\(\)' -or
+    $cameraJump -notmatch 'GetPlayerKeepId\(player\)' -or
+    $cameraJump -notmatch 'GetLordUnitId\(player\)' -or
+    $cameraJump -notmatch 'GetLordUnitGlobalId\(player\)' -or
+    $cameraJump -notmatch 'r_AliveState != AliveState\.IsAlive' -or
+    $cameraJump -notmatch 'r_PlayerIdOwner != player' -or
+    $cameraJump -notmatch 'r_ControllableForPlayerId != player' -or
+    $cameraJump -notmatch 'r_GlobalId != unchecked\(\(uint\)lordGlobalId\)' -or
+    $cameraJump -notmatch 'SetScreenCenterToBuilding\(keepId\)' -or
+    $cameraJump -notmatch 'SetScreenCenterToUnit\(lordId\)' -or
+    $cameraJump -match 'SetEditorPlayer\(') {
+    throw 'Camera jump must validate the live target and leave the spectator perspective unchanged.'
+}
 if ([IO.File]::ReadAllText($projectFile.FullName) -notmatch '0Harmony') {
     throw 'Installed Harmony reference missing.'
+}
+if ([IO.File]::ReadAllText($projectFile.FullName) -notmatch '<AllowUnsafeBlocks>true</AllowUnsafeBlocks>') {
+    throw 'Native target validation requires an unsafe-enabled project.'
 }
 $textFiles = @($sourceFiles) + @($projectFile) + @(
     (Get-Item -LiteralPath (Join-Path $projectRoot 'build.bat')),

@@ -157,3 +157,7 @@ Common.SettingsSourceHelp=Resets this mod's settings to the selected source. Per
 Common.PresetLoadFailedTitle=Preset load failed
 ExtraFeatures.EnableBuildingRepair=Repair more buildings
 ExtraFeatures.EnableBuildingRepairHelp=Adds a repair button to owned building panels. Costs include all construction resources. With BugfixesAndQoL, Shift-click repairs all eligible buildings.
+ExtraFeatures.HealerTargets=Bedouin healer heals:
+ExtraFeatures.HealerTargetsCivilian=Civilians
+ExtraFeatures.HealerTargetsSiege=Siege engines
+ExtraFeatures.HealerTargetsHelp=Allows Bedouin healers to heal your wounded human civilians and siege engines. Both options are independent and disabled by default. Soldiers continue to be healed as in the base game.

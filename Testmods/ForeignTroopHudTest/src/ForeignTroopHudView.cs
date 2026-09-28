@@ -42,6 +42,7 @@ namespace ForeignTroopHudTest
         };
 
         internal bool LordIconMissing { get; private set; }
+        internal Action<int, int> CenterOnGroup { get; set; }
 
         internal void ResetForMap()
         {
@@ -123,24 +124,37 @@ namespace ForeignTroopHudTest
         {
             if (!Resolve(main, out failure)) return false;
             bool selectionChanged = entries.Count != visibleEntries.Count;
+            bool displayChanged = selectionChanged;
             if (!selectionChanged)
                 for (int i = 0; i < entries.Count; i++)
                     if (entries[i].Owner != visibleEntries[i].Owner || entries[i].Type != visibleEntries[i].Type)
                     { selectionChanged = true; break; }
+            if (!displayChanged)
+                for (int i = 0; i < entries.Count; i++)
+                    if (entries[i].Owner != visibleEntries[i].Owner ||
+                        entries[i].Type != visibleEntries[i].Type ||
+                        entries[i].ColorId != visibleEntries[i].ColorId ||
+                        entries[i].Count != visibleEntries[i].Count ||
+                        entries[i].CurrentHealth != visibleEntries[i].CurrentHealth ||
+                        entries[i].MaxHealth != visibleEntries[i].MaxHealth)
+                    { displayChanged = true; break; }
             if (selectionChanged) page = 0;
-            visibleEntries.Clear();
-            foreach (ForeignTroopEntry entry in entries)
-                visibleEntries.Add(new ForeignTroopEntry
-                {
-                    Owner = entry.Owner,
-                    Type = entry.Type,
-                    ColorId = entry.ColorId,
-                    Count = entry.Count,
-                    CurrentHealth = entry.CurrentHealth,
-                    MaxHealth = entry.MaxHealth
-                });
-            page = Math.Min(page, (visibleEntries.Count - 1) / 8);
-            Draw();
+            if (displayChanged)
+            {
+                visibleEntries.Clear();
+                foreach (ForeignTroopEntry entry in entries)
+                    visibleEntries.Add(new ForeignTroopEntry
+                    {
+                        Owner = entry.Owner,
+                        Type = entry.Type,
+                        ColorId = entry.ColorId,
+                        Count = entry.Count,
+                        CurrentHealth = entry.CurrentHealth,
+                        MaxHealth = entry.MaxHealth
+                    });
+                page = Math.Min(page, (visibleEntries.Count - 1) / 8);
+                Draw();
+            }
             panel.Visibility = Visibility.Visible;
             return true;
         }
@@ -197,6 +211,11 @@ namespace ForeignTroopHudTest
             Array.Copy(nextCounts, counts, 8);
             Array.Copy(nextCurrentHealth, currentHealth, 8);
             Array.Copy(nextMaxHealth, maxHealth, 8);
+            for (int i = 0; i < portraits.Length; i++)
+            {
+                portraits[i].PreviewMouseDown += OnPortraitMouseDown;
+                typeLabels[i].PreviewMouseDown += OnPortraitMouseDown;
+            }
             previous.Click += OnPrevious;
             next.Click += OnNext;
             return true;
@@ -215,8 +234,14 @@ namespace ForeignTroopHudTest
 
         private void Detach()
         {
+            for (int i = 0; i < portraits.Length; i++)
+            {
+                if (portraits[i] != null) portraits[i].PreviewMouseDown -= OnPortraitMouseDown;
+                if (typeLabels[i] != null) typeLabels[i].PreviewMouseDown -= OnPortraitMouseDown;
+            }
             if (previous != null) previous.Click -= OnPrevious;
             if (next != null) next.Click -= OnNext;
+            visibleEntries.Clear();
             panel = null;
             activeIngameUi = null;
             pageText = null;
@@ -240,6 +265,20 @@ namespace ForeignTroopHudTest
         private void OnNext(object sender, RoutedEventArgs args)
         {
             if ((page + 1) * 8 < visibleEntries.Count) { page++; Draw(); }
+            args.Handled = true;
+        }
+
+        private void OnPortraitMouseDown(object sender, MouseButtonEventArgs args)
+        {
+            if (args == null || args.ChangedButton != MouseButton.Middle || args.ClickCount != 1 ||
+                panel == null || panel.Visibility != Visibility.Visible)
+                return;
+            int slot = Array.IndexOf(portraits, sender);
+            if (slot < 0) slot = Array.IndexOf(typeLabels, sender);
+            int index = page * 8 + slot;
+            if (slot < 0 || index >= visibleEntries.Count) return;
+            ForeignTroopEntry entry = visibleEntries[index];
+            CenterOnGroup?.Invoke(entry.Owner, entry.Type);
             args.Handled = true;
         }
 

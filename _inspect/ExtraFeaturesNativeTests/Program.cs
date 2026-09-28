@@ -27,6 +27,7 @@ namespace ExtraFeatures
                 TestNativeTargetMap(image);
                 TestApothecarySearchRangeHook(image);
                 NoKillRewardContractTests.Run(image);
+                HealerTargetsContractTests.Run(image, FindWorkspace());
                 Console.WriteLine($"PASS: ExtraFeatures native tests ({assertions} assertions).");
                 return 0;
             }

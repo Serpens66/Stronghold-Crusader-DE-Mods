@@ -43,6 +43,7 @@ namespace ExtraFeatures
         private readonly MarketTradeGuardBridge marketTradeGuardBridge;
         private readonly ElevatedMoatRuntime elevatedMoatRuntime;
         private readonly NoKillRewardHook noKillRewardHook;
+        private HealerTargetsRuntime healerTargetsRuntime;
         private static BuildingRepairHudRuntime buildingRepairHudRuntime;
         private bool buildingRepairReadinessRegistered;
 
@@ -130,6 +131,8 @@ namespace ExtraFeatures
             nativeLibraryAvailable = true;
             elevatedMoatRuntime.InitializeNative(context, fixedLayoutHashValidated);
             TryRunFeature("No Kill Reward native hooks", () => noKillRewardHook.Install(context));
+            TryRunFeature("Bedouin healer targets", () =>
+                healerTargetsRuntime = HealerTargetsRuntime.Install(context, log));
 
             try
             {
@@ -167,6 +170,7 @@ namespace ExtraFeatures
         {
             TryRunFeature("building repair HUD configuration", ReconcileBuildingRepairHud);
             ApplyNoKillRewardSetting();
+            ApplyHealerTargetsSetting();
             ReconcileElevatedMoatRuntime();
             TryRunFeature("fear-factor configuration", ApplyFearFactorSetting);
             TryRunFeature("AI defense repair configuration", ReconcileAIDefenseRepairRuntime);
@@ -359,6 +363,14 @@ namespace ExtraFeatures
                 enabled && settings.NoKillRewardAI);
         }
 
+        private void ApplyHealerTargetsSetting()
+        {
+            bool enabled = Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod);
+            healerTargetsRuntime?.SetEnabled(
+                enabled && settings.HealCivilianTargets,
+                enabled && settings.HealSiegeTargets);
+        }
+
         private void ReconcileAIDefenseRepairRuntime()
         {
             aiDefenseRepairRuntime.ReconcileConfiguration();
@@ -426,6 +438,7 @@ namespace ExtraFeatures
             {
                 TryRunFeature("building repair HUD configuration", ReconcileBuildingRepairHud);
                 ApplyNoKillRewardSetting();
+                ApplyHealerTargetsSetting();
                 if (Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
                 {
                     SubscribeHooks();
@@ -456,6 +469,13 @@ namespace ExtraFeatures
                 propertyName == nameof(ExtraFeaturesViewModel.NoKillRewardAI))
             {
                 ApplyNoKillRewardSetting();
+                return;
+            }
+
+            if (propertyName == nameof(ExtraFeaturesViewModel.HealCivilianTargets) ||
+                propertyName == nameof(ExtraFeaturesViewModel.HealSiegeTargets))
+            {
+                ApplyHealerTargetsSetting();
                 return;
             }
 

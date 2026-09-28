@@ -8,10 +8,12 @@ namespace SpectatorPerspectiveTest
     {
         private const float Edge = 12f;
         private readonly Action<int> selectPlayer;
+        private readonly Action<int, MouseButton> jumpToPlayer;
         private readonly Action uiUnavailable;
         private readonly Button[] buttons = new Button[9];
         private readonly TextBlock[] numbers = new TextBlock[9];
         private readonly RoutedEventHandler[] clickHandlers = new RoutedEventHandler[9];
+        private readonly MouseButtonEventHandler[] jumpHandlers = new MouseButtonEventHandler[9];
         private static readonly SolidColorBrush normalBorder = new SolidColorBrush(Noesis.Color.FromArgb(176, 114, 36, 28));
         private static readonly SolidColorBrush selectedBorder = new SolidColorBrush(Noesis.Color.FromRgb(239, 198, 112));
         private static readonly SolidColorBrush normalBackground = new SolidColorBrush(Noesis.Color.FromArgb(120, 15, 12, 10));
@@ -27,9 +29,10 @@ namespace SpectatorPerspectiveTest
         private float originTop;
         private int selectedPlayer;
 
-        internal SpectatorPerspectiveHud(Action<int> selectPlayer, Action uiUnavailable)
+        internal SpectatorPerspectiveHud(Action<int> selectPlayer, Action<int, MouseButton> jumpToPlayer, Action uiUnavailable)
         {
             this.selectPlayer = selectPlayer;
+            this.jumpToPlayer = jumpToPlayer;
             this.uiUnavailable = uiUnavailable;
         }
 
@@ -118,6 +121,13 @@ namespace SpectatorPerspectiveTest
                 if (buttons[player] == null || numbers[player] == null) { Detach(); return false; }
                 clickHandlers[player] = (sender, args) => selectPlayer(slot);
                 buttons[player].Click += clickHandlers[player];
+                jumpHandlers[player] = (sender, args) =>
+                {
+                    if (args.ChangedButton != MouseButton.Right && args.ChangedButton != MouseButton.Middle) return;
+                    args.Handled = true;
+                    jumpToPlayer(slot, args.ChangedButton);
+                };
+                buttons[player].PreviewMouseDown += jumpHandlers[player];
             }
             positioned = false;
             userMoved = false;
@@ -147,9 +157,12 @@ namespace SpectatorPerspectiveTest
             {
                 if (buttons[player] != null && clickHandlers[player] != null)
                     buttons[player].Click -= clickHandlers[player];
+                if (buttons[player] != null && jumpHandlers[player] != null)
+                    buttons[player].PreviewMouseDown -= jumpHandlers[player];
                 buttons[player] = null;
                 numbers[player] = null;
                 clickHandlers[player] = null;
+                jumpHandlers[player] = null;
             }
         }
 

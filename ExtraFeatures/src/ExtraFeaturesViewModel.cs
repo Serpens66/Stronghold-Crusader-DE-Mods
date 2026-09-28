@@ -46,6 +46,8 @@ namespace ExtraFeatures
         private bool allowElevatedMoatHuman;
         private bool noKillRewardHuman;
         private bool noKillRewardAI;
+        private bool healCivilianTargets;
+        private bool healSiegeTargets;
         private bool enableKnightDismount = true;
         private bool instantHorse;
         private int knightTransformationGoldCost;
@@ -97,6 +99,10 @@ namespace ExtraFeatures
         public string NoKillRewardHumanHelpText => SerpLocalization.Get("SomeSettings.NoKillRewardHumanHelp");
         public string NoKillRewardAIHelpText => SerpLocalization.Get("SomeSettings.NoKillRewardAIHelp");
         public string NoKillRewardSearchHelpText => NoKillRewardHumanHelpText + " " + NoKillRewardAIHelpText;
+        public string HealerTargetsText => SerpLocalization.Get("ExtraFeatures.HealerTargets");
+        public string HealerTargetsCivilianText => SerpLocalization.Get("ExtraFeatures.HealerTargetsCivilian");
+        public string HealerTargetsSiegeText => SerpLocalization.Get("ExtraFeatures.HealerTargetsSiege");
+        public string HealerTargetsHelpText => SerpLocalization.Get("ExtraFeatures.HealerTargetsHelp");
         public string EnableMonksAlwaysRunText => SerpLocalization.Get(SerpLocalization.EnableMonksAlwaysRun);
         public string EnableMonksAlwaysRunHelpText => SerpLocalization.Get(SerpLocalization.EnableMonksAlwaysRunHelp);
         public string EnableKnightDismountText => SerpLocalization.Get(SerpLocalization.EnableKnightDismount);
@@ -224,6 +230,8 @@ namespace ExtraFeatures
         [SyncHostOnly] public bool AllowElevatedMoatHuman { get => allowElevatedMoatHuman; set => SetSetting(ref allowElevatedMoatHuman, value, nameof(AllowElevatedMoatHuman)); }
         [SyncHostOnly] public bool NoKillRewardHuman { get => noKillRewardHuman; set => SetSetting(ref noKillRewardHuman, value, nameof(NoKillRewardHuman)); }
         [SyncHostOnly] public bool NoKillRewardAI { get => noKillRewardAI; set => SetSetting(ref noKillRewardAI, value, nameof(NoKillRewardAI)); }
+        [SyncHostOnly] public bool HealCivilianTargets { get => healCivilianTargets; set => SetSetting(ref healCivilianTargets, value, nameof(HealCivilianTargets)); }
+        [SyncHostOnly] public bool HealSiegeTargets { get => healSiegeTargets; set => SetSetting(ref healSiegeTargets, value, nameof(HealSiegeTargets)); }
         [SyncHostOnly] public bool EnableMonksAlwaysRun { get => enableMonksAlwaysRun; set => SetSetting(ref enableMonksAlwaysRun, value, nameof(EnableMonksAlwaysRun)); }
         [SyncHostOnly] public bool EnableKnightDismount { get => enableKnightDismount; set => SetSetting(ref enableKnightDismount, value, nameof(EnableKnightDismount)); }
         [SyncHostOnly] public bool InstantHorse { get => instantHorse; set => SetSetting(ref instantHorse, value, nameof(InstantHorse)); }
@@ -326,6 +334,8 @@ namespace ExtraFeatures
                 AllowElevatedMoatHuman = false;
                 NoKillRewardHuman = false;
                 NoKillRewardAI = false;
+                HealCivilianTargets = false;
+                HealSiegeTargets = false;
                 EnableKnightDismount = true;
                 InstantHorse = false;
                 KnightTransformationGoldCost = 0;

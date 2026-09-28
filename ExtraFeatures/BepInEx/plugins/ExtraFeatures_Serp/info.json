@@ -3,13 +3,19 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.105",
+  "Version": "1.0.106",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.10.4",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.106",
+      "Changes": [
+        "Added independent host settings for Bedouin healers to heal owned human civilians and siege engines."
+      ]
+    },
     {
       "Version": "1.0.105",
       "Changes": [

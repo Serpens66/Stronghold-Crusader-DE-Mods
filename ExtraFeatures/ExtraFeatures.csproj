@@ -29,6 +29,7 @@
     <Reference Include="R3"><HintPath>$(ExtenderDir)\R3.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="System.Memory"><HintPath>$(ExtenderDir)\System.Memory.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="RedBird.Abstractions"><HintPath>$(ExtenderDir)\RedBird.Abstractions.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="RedBird.Backends.NativeX64"><HintPath>$(ExtenderDir)\RedBird.Backends.NativeX64.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="RedBird.Core"><HintPath>$(ExtenderDir)\RedBird.Core.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="RedBird.X64"><HintPath>$(ExtenderDir)\RedBird.X64.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Iced"><HintPath>$(ExtenderDir)\Iced.dll</HintPath><Private>false</Private></Reference>
@@ -43,6 +44,7 @@
     <Compile Include="src\FearFactorNativeDefinition.cs" /><Compile Include="src\FearFactorNeutralizationPolicy.cs" /><Compile Include="src\FearFactorNeutralizationRuntime.cs" />
     <Compile Include="src\NoKillRewardHook.cs" /><Compile Include="src\NoKillRewardStubContract.cs" />
     <Compile Include="src\NoKillRewardPolicy.cs" />
+    <Compile Include="src\HealerNativeContract.cs" /><Compile Include="src\HealerListBounds.cs" /><Compile Include="src\HealerTargetsRuntime.cs" />
     <Compile Include="src\AiFlagDiseaseTracker.cs" /><Compile Include="src\GatehouseAutomationPacket.cs" /><Compile Include="src\GatehouseAutomationRuntime.cs" /><Compile Include="src\GatehouseAutomationSaveState.cs" /><Compile Include="src\KnightDismountRuntime.cs" /><Compile Include="src\KnightDismountDelayRuntime.cs" /><Compile Include="src\KnightTransformationPacket.cs" /><Compile Include="src\KnightTransformationTooltipPolicy.cs" /><Compile Include="src\StableHorseConsumptionPolicy.cs" /><Compile Include="src\LordHealthMultiplierPolicy.cs" /><Compile Include="src\LordHealthRuntime.cs" /><Compile Include="src\MarketGoodPriceDefinition.cs" /><Compile Include="src\MarketGoodPriceItemViewModel.cs" /><Compile Include="src\MarketTradeGuardBridge.cs" /><Compile Include="src\MonkAlwaysRunPatch.cs" /><Compile Include="src\MultiplayerFeatureGate.cs" /><Compile Include="src\PlagueApothecarySearchRangeEmitter.cs" /><Compile Include="src\PlagueApothecarySearchRangePatch.cs" /><Compile Include="src\PlagueDurationPatch.cs" /><Compile Include="src\PlagueFlagDiseaseRegistry.cs" /><Compile Include="src\PlagueFlagDiseaseSaveState.cs" /><Compile Include="src\UnitLimitBridge.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -66,5 +68,5 @@
     <Compile Include="..\Shared\TroopActionButtonLayoutPolicy.cs"><Link>Shared\TroopActionButtonLayoutPolicy.cs</Link></Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <Target Name="ValidateReferences" BeforeTargets="BeforeBuild"><Error Condition="!Exists('$(ExtenderDir)\SHCDESE.dll')" Text="SHCDESE.dll was not found: $(ExtenderDir)" /><Error Condition="!Exists('$(ApiSharedDir)\APIShared.dll')" Text="APIShared.dll was not found: $(ApiSharedDir)" /><Error Condition="!Exists('$(ExtenderDir)\RedBird.Abstractions.dll')" Text="RedBird.Abstractions.dll was not found: $(ExtenderDir)" /><Error Condition="!Exists('$(ExtenderDir)\RedBird.Core.dll')" Text="RedBird.Core.dll was not found: $(ExtenderDir)" /><Error Condition="!Exists('$(ExtenderDir)\RedBird.X64.dll')" Text="RedBird.X64.dll was not found: $(ExtenderDir)" /></Target>
+  <Target Name="ValidateReferences" BeforeTargets="BeforeBuild"><Error Condition="!Exists('$(ExtenderDir)\SHCDESE.dll')" Text="SHCDESE.dll was not found: $(ExtenderDir)" /><Error Condition="!Exists('$(ApiSharedDir)\APIShared.dll')" Text="APIShared.dll was not found: $(ApiSharedDir)" /><Error Condition="!Exists('$(ExtenderDir)\RedBird.Abstractions.dll')" Text="RedBird.Abstractions.dll was not found: $(ExtenderDir)" /><Error Condition="!Exists('$(ExtenderDir)\RedBird.Backends.NativeX64.dll')" Text="RedBird.Backends.NativeX64.dll was not found: $(ExtenderDir)" /><Error Condition="!Exists('$(ExtenderDir)\RedBird.Core.dll')" Text="RedBird.Core.dll was not found: $(ExtenderDir)" /><Error Condition="!Exists('$(ExtenderDir)\RedBird.X64.dll')" Text="RedBird.X64.dll was not found: $(ExtenderDir)" /></Target>
 </Project>

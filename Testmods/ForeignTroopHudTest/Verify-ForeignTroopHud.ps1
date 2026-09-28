@@ -30,6 +30,17 @@ foreach ($pattern in $forbidden) {
     if ([regex]::IsMatch($sources + $project, $pattern)) { throw "Forbidden runtime pattern: $pattern" }
 }
 if ($sources -notmatch 'Application\.onBeforeRender\s*\+=\s*OnBeforeRender') { throw 'Persistent publisher missing.' }
+if ($sources -notmatch 'now < nextRefreshAt' -or $sources -notmatch 'nextRefreshAt = now \+ 0\.1f' -or
+    $sources -notmatch 'if \(displayChanged\)' -or
+    $sources -notmatch 'BuildSpectatorSamples\(units\)') { throw 'Bounded refresh or change-only drawing missing.' }
+if ($sources -notmatch 'PreviewMouseDown \+= OnPortraitMouseDown' -or
+    $sources -notmatch 'ChangedButton != MouseButton\.Middle' -or
+    $sources -notmatch 'ClickCount != 1' -or
+    $sources -notmatch 'SetScreenCenterToUnit\(spanIndex \+ 1\)' -or
+    $sources -notmatch 'unit\.r_UnitHover == 0 \|\|' -or
+    $sources -notmatch 'unit\.r_ControllableForPlayerId != owner') {
+    throw 'Validated middle-click camera interaction missing.'
+}
 if ($sources -notmatch 'TryGetMissionLifecycle' -or $sources -notmatch 'TryRegisterObserver') { throw 'APIShared mission lifecycle missing.' }
 if ($sources -notmatch 'session\.IsEditor' -or $sources -notmatch 'ActivePlayerID' -or $sources -notmatch 'spectatorMode') { throw 'Editor or spectator player handling missing.' }
 if ($sources -match 'app_mode\s*!=\s*14|MapLoaderR3EventHooks') { throw 'Legacy mode or map gate remains.' }
@@ -77,12 +88,15 @@ $hudPatch = [IO.File]::ReadAllText($files[4])
 $portraitButtons = @([regex]::Matches($hudPatch, '(?s)<Button x:Name="ForeignTroopImage\d+".*?/>'))
 if ($portraitButtons.Count -ne 8) { throw 'Expected eight read-only portrait buttons.' }
 foreach ($portrait in $portraitButtons) {
-    if ($portrait.Value -notmatch 'IsHitTestVisible="False"' -or
+    if ($portrait.Value -notmatch 'IsHitTestVisible="True"' -or
         $portrait.Value -notmatch 'Focusable="False"' -or
         $portrait.Value -notmatch 'Style="\{StaticResource BTN_Image\}"' -or
         $portrait.Value -match 'Command=|Click=|EventTrigger') {
-        throw 'A portrait button is interactive or lacks the Vanilla visual style.'
+        throw 'A portrait button has an unsafe command or lacks the Vanilla visual style.'
     }
+}
+if ([regex]::Matches($hudPatch, 'ForeignTroopSlot\d+"[^>]*IsHitTestVisible="True"').Count -ne 8) {
+    throw 'All portrait slots must accept the middle-click event.'
 }
 if ($hudPatch -notmatch "XPath=.*/n:Grid\[@x:Name='MainHUD'\]" -or
     [regex]::Matches($hudPatch, '<Button\s').Count -ne 10 -or

@@ -157,3 +157,7 @@ Common.SettingsSourceHelp=Setzt die Einstellungen dieser Mod auf die gewählte Q
 Common.PresetLoadFailedTitle=Preset konnte nicht geladen werden
 ExtraFeatures.EnableBuildingRepair=Weitere Gebäude reparieren
 ExtraFeatures.EnableBuildingRepairHelp=Fügt den Anzeigen eigener Gebäude einen Reparieren-Knopf hinzu. Die Kosten umfassen alle Baumaterialien. Mit BugfixesAndQoL repariert Shift-Klick alle geeigneten Gebäude.
+ExtraFeatures.HealerTargets=Beduinenheiler heilt:
+ExtraFeatures.HealerTargetsCivilian=Zivilisten
+ExtraFeatures.HealerTargetsSiege=Belagerungsgeräte
+ExtraFeatures.HealerTargetsHelp=Erlaubt Beduinenheilern, eigene verwundete zivile Menschen und Belagerungsgeräte zu heilen. Beide Optionen sind unabhängig und standardmäßig deaktiviert. Soldaten werden weiterhin wie im Grundspiel geheilt.

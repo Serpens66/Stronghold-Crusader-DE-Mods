@@ -6,6 +6,7 @@ using CrusaderDE;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Windows.Input;
 using BepInEx.Logging;
 using Noesis;
 using UnityEngine;
@@ -86,11 +87,14 @@ namespace BugfixesAndQoL
         private bool preserveDisplayResolution = true;
         private bool enableWorkshopUploadLordSelectionFix = true;
         private bool enableDisbandedUnitControlGroupCleanup = true;
-        private int healthBarHotkeyKeyIndex = 8;
-        private bool healthBarHotkeyAlt = true;
-        private bool healthBarHotkeyControl;
-        private bool healthBarHotkeyShift;
-        private static readonly string[] healthBarHotkeyKeyOptions = CreateHealthBarHotkeyKeyOptions();
+        private const int HealthBarKeyMask = 0xffff;
+        private const int HealthBarAltMask = 1 << 16;
+        private const int HealthBarControlMask = 1 << 17;
+        private const int HealthBarShiftMask = 1 << 18;
+        private const int DefaultHealthBarHotkey = (int)KeyCode.H | HealthBarAltMask;
+        private bool enableDamagedHealthBars = true;
+        private int healthBarHotkey = DefaultHealthBarHotkey;
+        private bool isCapturingHealthBarHotkey;
         private readonly LocalPerPlayerSetting<bool> enableClientFeatures = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> enableMinimapCursorFollowFix = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> enableCompleteNotificationSkipOnClick = new LocalPerPlayerSetting<bool>(true);
@@ -189,12 +193,22 @@ namespace BugfixesAndQoL
             ClearSteamInviteBlacklistCommand = new RelayCommand(
                 ConfirmClearSteamInviteBlacklist,
                 CanClearSteamInviteBlacklist);
+            AssignHealthBarHotkeyCommand = new RelayCommand(() => SetHealthBarCapture(true));
+            ClearHealthBarHotkeyCommand = new RelayCommand(() =>
+            {
+                SetHealthBarCapture(false);
+                HealthBarHotkey = 0;
+            });
+            HealthBarHotkeyInputCommand = new ParameterRelayCommand(CaptureHealthBarHotkey);
             steamInviteBlacklist.Changed += OnSteamInviteBlacklistChanged;
         }
 
         public RelayCommand ResetToDefaultCommand { get; }
         public RelayCommand RestoreHdMarketOrderCommand { get; }
         public RelayCommand ClearSteamInviteBlacklistCommand { get; }
+        public RelayCommand AssignHealthBarHotkeyCommand { get; }
+        public RelayCommand ClearHealthBarHotkeyCommand { get; }
+        public ICommand HealthBarHotkeyInputCommand { get; }
         public ObservableCollection<MarketGoodOrderItemViewModel> MarketGoodsOrderItems { get; } =
             new ObservableCollection<MarketGoodOrderItemViewModel>();
         public Visibility LegacyModWarningVisibility { get; }
@@ -314,7 +328,10 @@ namespace BugfixesAndQoL
         public string ShowSelectedUnitHealthHelpText => SerpLocalization.Get("BugfixesAndQoL.ShowSelectedUnitHealthHelp");
         public string DamagedHealthBarsHotkeyText => SerpLocalization.Get("BugfixesAndQoL.DamagedHealthBarsHotkey");
         public string DamagedHealthBarsHotkeyHelpText => SerpLocalization.Get("BugfixesAndQoL.DamagedHealthBarsHotkeyHelp");
-        public string DamagedHealthBarsHotkeyKeyText => SerpLocalization.Get("BugfixesAndQoL.DamagedHealthBarsHotkeyKey");
+        public string DamagedHealthBarsCaptureText => SerpLocalization.Get("BugfixesAndQoL.DamagedHealthBarsCapture");
+        public string DamagedHealthBarsClearText => SerpLocalization.Get("BugfixesAndQoL.DamagedHealthBarsClear");
+        public string DamagedHealthBarsCapturePromptText => SerpLocalization.Get("BugfixesAndQoL.DamagedHealthBarsCapturePrompt");
+        public string DamagedHealthBarsOffText => SerpLocalization.Get("BugfixesAndQoL.DamagedHealthBarsOff");
         public string ShowCountdownTimersText => SerpLocalization.Get("BugfixesAndQoL.ShowCountdownTimers");
         public string ShowCountdownTimersHelpText => SerpLocalization.Get("BugfixesAndQoL.ShowCountdownTimersHelp");
         public string ImproveYellowLobbyContrastText =>
@@ -566,76 +583,54 @@ namespace BugfixesAndQoL
             set => SetPlayerSetting(showSelectedUnitHealth, value, nameof(ShowSelectedUnitHealth));
         }
 
-        public string[] HealthBarHotkeyKeyOptions => healthBarHotkeyKeyOptions;
-
-        internal KeyCode HealthBarHotkeyKeyCode => healthBarHotkeyKeyIndex == 0
-            ? KeyCode.None
-            : healthBarHotkeyKeyIndex <= 26
-                ? (KeyCode)((int)KeyCode.A + healthBarHotkeyKeyIndex - 1)
-                : (KeyCode)((int)KeyCode.F1 + healthBarHotkeyKeyIndex - 27);
-
         [Shared.PresetLocal]
-        public int HealthBarHotkeyKeyIndex
+        public bool EnableDamagedHealthBars
         {
-            get => healthBarHotkeyKeyIndex;
-            set
-            {
-                int normalized = Math.Max(0, Math.Min(38, value));
-                if (IsReservedHealthBarHotkey(normalized, healthBarHotkeyAlt,
-                    healthBarHotkeyControl, healthBarHotkeyShift))
-                {
-                    OnPropertyChanged(nameof(HealthBarHotkeyKeyIndex));
-                    return;
-                }
-                SetSetting(ref healthBarHotkeyKeyIndex, normalized, nameof(HealthBarHotkeyKeyIndex));
-            }
+            get => enableDamagedHealthBars;
+            set => SetSetting(ref enableDamagedHealthBars, value, nameof(EnableDamagedHealthBars));
         }
 
         [Shared.PresetLocal]
-        public bool HealthBarHotkeyAlt
+        public int HealthBarHotkey
         {
-            get => healthBarHotkeyAlt;
+            get => healthBarHotkey;
             set
             {
-                if (IsReservedHealthBarHotkey(healthBarHotkeyKeyIndex, value,
-                    healthBarHotkeyControl, healthBarHotkeyShift))
-                {
-                    OnPropertyChanged(nameof(HealthBarHotkeyAlt));
+                int normalized = NormalizeHealthBarHotkey(value);
+                if (normalized == healthBarHotkey)
                     return;
-                }
-                SetSetting(ref healthBarHotkeyAlt, value, nameof(HealthBarHotkeyAlt));
+                SetSetting(ref healthBarHotkey, normalized, nameof(HealthBarHotkey));
+                if (healthBarHotkey == normalized)
+                    OnPropertyChanged(nameof(HealthBarHotkeyDisplayText));
             }
         }
 
-        [Shared.PresetLocal]
-        public bool HealthBarHotkeyControl
+        internal KeyCode HealthBarHotkeyKeyCode => (KeyCode)(healthBarHotkey & HealthBarKeyMask);
+        internal bool HealthBarHotkeyAlt => (healthBarHotkey & HealthBarAltMask) != 0;
+        internal bool HealthBarHotkeyControl => (healthBarHotkey & HealthBarControlMask) != 0;
+        internal bool HealthBarHotkeyShift => (healthBarHotkey & HealthBarShiftMask) != 0;
+        public string HealthBarHotkeyDisplayText
         {
-            get => healthBarHotkeyControl;
-            set
+            get
             {
-                if (IsReservedHealthBarHotkey(healthBarHotkeyKeyIndex, healthBarHotkeyAlt,
-                    value, healthBarHotkeyShift))
+                if (isCapturingHealthBarHotkey)
+                    return DamagedHealthBarsCapturePromptText;
+                if (HealthBarHotkeyKeyCode == KeyCode.None)
+                    return DamagedHealthBarsOffText;
+                string keyName;
+                try
                 {
-                    OnPropertyChanged(nameof(HealthBarHotkeyControl));
-                    return;
+                    keyName = HUD_Options.GetKeyCodeString(HealthBarHotkeyKeyCode);
                 }
-                SetSetting(ref healthBarHotkeyControl, value, nameof(HealthBarHotkeyControl));
-            }
-        }
-
-        [Shared.PresetLocal]
-        public bool HealthBarHotkeyShift
-        {
-            get => healthBarHotkeyShift;
-            set
-            {
-                if (IsReservedHealthBarHotkey(healthBarHotkeyKeyIndex, healthBarHotkeyAlt,
-                    healthBarHotkeyControl, value))
+                catch
                 {
-                    OnPropertyChanged(nameof(HealthBarHotkeyShift));
-                    return;
+                    keyName = null;
                 }
-                SetSetting(ref healthBarHotkeyShift, value, nameof(HealthBarHotkeyShift));
+                if (string.IsNullOrWhiteSpace(keyName))
+                    keyName = HealthBarHotkeyKeyCode.ToString();
+                return (HealthBarHotkeyControl ? "Ctrl+" : string.Empty) +
+                    (HealthBarHotkeyAlt ? "Alt+" : string.Empty) +
+                    (HealthBarHotkeyShift ? "Shift+" : string.Empty) + keyName;
             }
         }
 
@@ -1391,10 +1386,8 @@ namespace BugfixesAndQoL
             EnableEnemyProximityBulldozeCursorFix = true;
             EnableIngameSteamInvitePrompt = true;
             ShowSelectedUnitHealth = true;
-            HealthBarHotkeyAlt = true;
-            HealthBarHotkeyControl = false;
-            HealthBarHotkeyShift = false;
-            HealthBarHotkeyKeyIndex = 8;
+            EnableDamagedHealthBars = true;
+            HealthBarHotkey = DefaultHealthBarHotkey;
             ShowCountdownTimers = true;
             ImproveYellowLobbyContrast = true;
             EnableBriefingNoStartingGoldFix = true;
@@ -1408,18 +1401,79 @@ namespace BugfixesAndQoL
             EnableAllyGoodsAmountModifiers = true;
         }
 
-        private static bool IsReservedHealthBarHotkey(int keyIndex, bool alt, bool control, bool shift) =>
-            keyIndex == 8 && control && !alt && !shift;
-
-        private static string[] CreateHealthBarHotkeyKeyOptions()
+        private static int NormalizeHealthBarHotkey(int value)
         {
-            string[] result = new string[39];
-            result[0] = "—";
-            for (int i = 1; i <= 26; i++)
-                result[i] = ((char)('A' + i - 1)).ToString();
-            for (int i = 27; i <= 38; i++)
-                result[i] = "F" + (i - 26);
-            return result;
+            KeyCode key = (KeyCode)(value & HealthBarKeyMask);
+            if (value == 0)
+                return 0;
+            if ((value & ~(HealthBarKeyMask | HealthBarAltMask | HealthBarControlMask | HealthBarShiftMask)) != 0 ||
+                !IsSupportedHealthBarKey(key) ||
+                (key == KeyCode.H && (value & (HealthBarAltMask | HealthBarControlMask | HealthBarShiftMask)) == HealthBarControlMask))
+                return DefaultHealthBarHotkey;
+            return value;
+        }
+
+        private static bool IsSupportedHealthBarKey(KeyCode key) =>
+            (key >= KeyCode.A && key <= KeyCode.Z) ||
+            (key >= KeyCode.Alpha0 && key <= KeyCode.Alpha9) ||
+            (key >= KeyCode.F1 && key <= KeyCode.F12);
+
+        private void SetHealthBarCapture(bool capture)
+        {
+            if (isCapturingHealthBarHotkey == capture)
+                return;
+            isCapturingHealthBarHotkey = capture;
+            OnPropertyChanged(nameof(HealthBarHotkeyDisplayText));
+        }
+
+        private void CaptureHealthBarHotkey(object parameter)
+        {
+            if (!isCapturingHealthBarHotkey || !(parameter is Noesis.KeyEventArgs args))
+                return;
+            if (args.Key == Noesis.Key.Escape)
+            {
+                args.Handled = true;
+                SetHealthBarCapture(false);
+                return;
+            }
+            KeyCode key;
+            if (args.Key >= Noesis.Key.A && args.Key <= Noesis.Key.Z)
+                key = (KeyCode)((int)KeyCode.A + (int)args.Key - (int)Noesis.Key.A);
+            else if (args.Key >= Noesis.Key.D0 && args.Key <= Noesis.Key.D9)
+                key = (KeyCode)((int)KeyCode.Alpha0 + (int)args.Key - (int)Noesis.Key.D0);
+            else if (args.Key >= Noesis.Key.F1 && args.Key <= Noesis.Key.F12)
+                key = (KeyCode)((int)KeyCode.F1 + (int)args.Key - (int)Noesis.Key.F1);
+            else
+                return;
+
+            args.Handled = true;
+            bool alt = Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt);
+            bool control = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
+            bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+            if (args.Source is Noesis.UIElement source && source.Keyboard != null)
+            {
+                Noesis.ModifierKeys modifiers = source.Keyboard.Modifiers;
+                alt = (modifiers & Noesis.ModifierKeys.Alt) != 0;
+                control = (modifiers & Noesis.ModifierKeys.Control) != 0;
+                shift = (modifiers & Noesis.ModifierKeys.Shift) != 0;
+            }
+            int binding = (int)key |
+                (alt ? HealthBarAltMask : 0) |
+                (control ? HealthBarControlMask : 0) |
+                (shift ? HealthBarShiftMask : 0);
+            if (NormalizeHealthBarHotkey(binding) != binding)
+                return;
+            HealthBarHotkey = binding;
+            SetHealthBarCapture(false);
+        }
+
+        private sealed class ParameterRelayCommand : ICommand
+        {
+            private readonly Action<object> execute;
+            internal ParameterRelayCommand(Action<object> execute) => this.execute = execute;
+            public bool CanExecute(object parameter) => true;
+            public void Execute(object parameter) => execute(parameter);
+            public event System.EventHandler CanExecuteChanged { add { } remove { } }
         }
 
         private void SetSetting<T>(ref T field, T value, string propertyName)

@@ -38,17 +38,20 @@ namespace ForeignTroopHudTest
         private static string lastHideExceptionKey;
         private static bool resetPending;
         private static int lastFrame = -1;
+        private static float nextRefreshAt;
         private static EngineInterface.PlayState stateBeforeReady;
         private static MainViewModel ownedTroopHud;
         private static string lastDiagnosticKey;
         private static float lastDiagnosticAt = -100f;
         private static string lastSpectatorSelectionKey;
+        private static string lastCameraErrorKey;
 
         internal static void Initialize(ManualLogSource logger)
         {
             if (initialized) return;
             log = logger;
             view = new ForeignTroopHudView();
+            view.CenterOnGroup = CenterOnGroup;
             if (!ApiShared.Current.TryGetMissionLifecycle(ForeignTroopHudPlugin.Guid, out lifecycle, out NativeCapabilityDiagnostic diagnostic))
                 throw new InvalidOperationException("APIShared mission lifecycle unavailable: " + diagnostic?.Reason);
             if (!lifecycle.TryRegisterObserver("ForeignTroopHudTest.Runtime", OnSessionStarted, OnSessionEnded, null, out diagnostic))
@@ -63,11 +66,13 @@ namespace ForeignTroopHudTest
             activeSession = notification.Context;
             stateBeforeReady = GameData.Instance?.lastGameState;
             resetPending = true;
+            nextRefreshAt = 0f;
             lastDiagnosticKey = null;
             lastExceptionKey = null;
             lastHideExceptionKey = null;
             lordIconWarningLogged = false;
             lastSpectatorSelectionKey = null;
+            lastCameraErrorKey = null;
             log.LogInfo("FOREIGN_TROOP_HUD_SESSION_READY: session=" + activeSession.SessionId + ", mode=" + activeSession.Mode.Kind);
         }
 
@@ -77,17 +82,22 @@ namespace ForeignTroopHudTest
             activeSession = null;
             stateBeforeReady = null;
             resetPending = true;
+            nextRefreshAt = 0f;
             lastDiagnosticKey = null;
             lastExceptionKey = null;
             lastHideExceptionKey = null;
             lordIconWarningLogged = false;
             lastSpectatorSelectionKey = null;
+            lastCameraErrorKey = null;
         }
 
         private static void OnBeforeRender()
         {
             if (Time.frameCount == lastFrame) return;
             lastFrame = Time.frameCount;
+            float now = Time.realtimeSinceStartup;
+            if (!resetPending && now < nextRefreshAt) return;
+            nextRefreshAt = now + 0.1f;
             try
             {
                 if (resetPending)
@@ -171,7 +181,6 @@ namespace ForeignTroopHudTest
             int hoveredCount = 0;
             int foreignCount = 0;
             ulong spectatorSignature = 1469598103934665603UL;
-            var spectatorSamples = spectator ? new StringBuilder(320) : null;
             for (int spanIndex = 0; spanIndex < units.Length; spanIndex++)
             {
                 ref GameUnit unit = ref units[spanIndex];
@@ -187,12 +196,6 @@ namespace ForeignTroopHudTest
                         spectatorSignature = (spectatorSignature ^ unit.r_SpritePlayerColorId) * 1099511628211UL;
                         spectatorSignature = (spectatorSignature ^ unit.r_SpawnedForPlayerIndex) * 1099511628211UL;
                     }
-                    if (hoveredCount <= 12)
-                        spectatorSamples.Append(" [unit=").Append(spanIndex + 1)
-                            .Append(",type=").Append((int)unit.r_UnitChimp)
-                            .Append(",owner=").Append(owner)
-                            .Append(",color=").Append(unit.r_SpritePlayerColorId)
-                            .Append(",spawnedFor=").Append(unit.r_SpawnedForPlayerIndex).Append(']');
                 }
                 if (owner == ownPlayerId && ownPlayerId != 0 || owner > 8) continue;
                 int type = (int)unit.r_UnitChimp;
@@ -221,7 +224,7 @@ namespace ForeignTroopHudTest
                     lastSpectatorSelectionKey = selectionKey;
                     log.LogInfo("FOREIGN_TROOP_HUD_SPECTATOR_SELECTION: perspectivePlayer=" + perspectivePlayer +
                         ", editorPlayer=" + editorPlayer + ", selectedUnits=" + hoveredCount +
-                        ", groups=" + entries.Count + ", samples=" + spectatorSamples);
+                        ", groups=" + entries.Count + ", samples=" + BuildSpectatorSamples(units));
                 }
             }
             else lastSpectatorSelectionKey = null;
@@ -256,6 +259,63 @@ namespace ForeignTroopHudTest
                 main.Show_HUD_Troops = true;
             }
             ReportStatus("shown", state, main, ownPlayerId, hoveredCount, foreignCount, entries.Count);
+        }
+
+        private static StringBuilder BuildSpectatorSamples(Span<GameUnit> units)
+        {
+            var samples = new StringBuilder(320);
+            int count = 0;
+            for (int spanIndex = 0; spanIndex < units.Length && count < 12; spanIndex++)
+            {
+                ref GameUnit unit = ref units[spanIndex];
+                if (unit.r_AliveState != AliveState.IsAlive || unit.r_UnitHover == 0) continue;
+                count++;
+                samples.Append(" [unit=").Append(spanIndex + 1)
+                    .Append(",type=").Append((int)unit.r_UnitChimp)
+                    .Append(",owner=").Append(unit.r_ControllableForPlayerId)
+                    .Append(",color=").Append(unit.r_SpritePlayerColorId)
+                    .Append(",spawnedFor=").Append(unit.r_SpawnedForPlayerIndex).Append(']');
+            }
+            return samples;
+        }
+
+        private static void CenterOnGroup(int owner, int type)
+        {
+            try
+            {
+                MissionContext session = activeSession;
+                EngineInterface.PlayState state = GameData.Instance?.lastGameState;
+                MainViewModel main = MainViewModel.Instance;
+                if (session == null || state == null || main == null ||
+                    !ReferenceEquals(main, ownedTroopHud) || !main.Show_HUD_Troops)
+                    return;
+                bool spectator = state.spectatorMode != 0;
+                bool editor = session.IsEditor || session.Mode.IsMapEditor;
+                int ownPlayerId = spectator ? 0 : editor
+                    ? EditorDirector.instance?.ActivePlayerID ?? 0
+                    : GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? 0;
+                if (!spectator && owner == ownPlayerId && ownPlayerId != 0) return;
+                GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
+                GamePlayerManagerAPI playerApi = GamePlayerManagerAPI.Instance;
+                if (unitApi == null || playerApi == null) return;
+                Span<GameUnit> units = unitApi.GetUnitsAsSpan();
+                for (int spanIndex = 0; spanIndex < units.Length; spanIndex++)
+                {
+                    ref GameUnit unit = ref units[spanIndex];
+                    if (unit.r_AliveState != AliveState.IsAlive || unit.r_UnitHover == 0 ||
+                        unit.r_ControllableForPlayerId != owner || (int)unit.r_UnitChimp != type)
+                        continue;
+                    playerApi.SetScreenCenterToUnit(spanIndex + 1);
+                    return;
+                }
+            }
+            catch (Exception error)
+            {
+                string key = error.GetType().FullName + ":" + error.Message;
+                if (key == lastCameraErrorKey) return;
+                lastCameraErrorKey = key;
+                log.LogError("FOREIGN_TROOP_HUD_CAMERA_ERROR: " + error);
+            }
         }
 
         private static void ReportStatus(string reason, EngineInterface.PlayState state, MainViewModel main,

@@ -6,6 +6,8 @@ using R3;
 using SHCDESE.API;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.MapLoader;
+using SHCDESE.Interop;
+using SHCDESE.Interop.Enums;
 using UnityEngine;
 
 namespace SpectatorPerspectiveTest
@@ -26,6 +28,7 @@ namespace SpectatorPerspectiveTest
         private static bool renderSubscribed;
         private static bool readyLogged;
         private static bool failureLogged;
+        private static bool cameraFailureLogged;
         private static int selectedPlayer;
         private static int lastPendingFrame = -1;
         private static float pendingSince;
@@ -48,23 +51,20 @@ namespace SpectatorPerspectiveTest
             if (initialized) return;
             initialized = true;
             log = logger;
-            hud = new SpectatorPerspectiveHud(SelectPlayer, OnHudUnavailable);
+            hud = new SpectatorPerspectiveHud(SelectPlayer, JumpToPlayer, OnHudUnavailable);
             try
             {
                 SpectatorReportHooks.Install();
-                log.LogInfo("SPECTATOR_REPORT_HOOKS_READY: Vanilla report navigation, food guard and stable report name installed.");
             }
             catch (Exception error) { log.LogError("SPECTATOR_REPORT_HOOKS_FAILED: " + error); }
             try
             {
                 SpectatorAllyHooks.Install();
-                log.LogInfo("SPECTATOR_ALLY_HOOKS_READY: selected-player ally view and CPU-only action guard installed.");
             }
             catch (Exception error) { log.LogError("SPECTATOR_ALLY_HOOKS_FAILED: " + error); }
             postLoadSubscription = MapLoaderR3EventHooks.OnPostLoad.Observable.Subscribe(OnPostLoad);
             startSubscription = MapLoaderR3EventHooks.OnStartMap.Observable.Subscribe(OnStartMap);
             unloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable.Subscribe(OnUnloadMap);
-            log.LogInfo("SPECTATOR_PERSPECTIVE_INITIALIZED: static map publishers installed; render callback is armed only while a session needs setup.");
         }
 
         private static void OnStartMap(MapStartEventArgs args)
@@ -87,7 +87,6 @@ namespace SpectatorPerspectiveTest
         {
             if (args.Phase != EventHookPhase.Pre) return;
             BeginMapLoad();
-            log.LogInfo("SPECTATOR_PERSPECTIVE_MAP_UNLOAD: perspective and HUD position reset.");
         }
 
         private static void BeginMapLoad()
@@ -102,6 +101,7 @@ namespace SpectatorPerspectiveTest
             hudPending = false;
             selectedPlayer = 0;
             selectedName = null;
+            cameraFailureLogged = false;
             occupiedSlots = null;
             stateBeforeLoad = null;
             resetHudPending = true;
@@ -206,7 +206,6 @@ namespace SpectatorPerspectiveTest
             selectedPlayer = first;
             spectatorActive = true;
             hudPending = true;
-            log.LogInfo($"SPECTATOR_PERSPECTIVE_ACTIVE: selected={selectedPlayer}, occupied={OccupiedList(occupiedSlots)}.");
         }
 
         internal static bool IsActiveSpectator()
@@ -249,11 +248,6 @@ namespace SpectatorPerspectiveTest
                  state.teams[value2] == state.teams[selectedPlayer]))
                 return false;
             return EngineInterface.GetMeritData()[target, 1] >= 0;
-        }
-
-        internal static void LogAllyAction(Enums.GameActionCommand command, int target, bool allowed)
-        {
-            log.LogInfo($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] SPECTATOR_ALLY_ACTION: viewer={selectedPlayer}, command={command}, target={target}, allowed={allowed}.");
         }
 
         internal static bool TryGetSelectedReportName(out string name)
@@ -407,15 +401,53 @@ namespace SpectatorPerspectiveTest
             hud.SetSelected(player);
             WaitForFreshReport(state);
             WaitForFreshAllies(state);
-            log.LogInfo($"SPECTATOR_PERSPECTIVE_SELECTED: player={player}; future Vanilla reports and messages use this index.");
         }
 
-        private static string OccupiedList(bool[] occupied)
+        private static unsafe void JumpToPlayer(int player, MouseButton button)
         {
-            string result = "";
-            for (int player = 1; player <= 8; player++)
-                if (occupied[player]) result += (result.Length == 0 ? "" : ",") + player;
-            return result;
+            if (player < 1 || player > 8 || !IsActiveSpectator() ||
+                occupiedSlots == null || !occupiedSlots[player] ||
+                !GameData.Instance.lastGameState.is_human_or_skirmish_player(player)) return;
+
+            try
+            {
+                GamePlayerManagerAPI players = GamePlayerManagerAPI.Instance;
+                if (players == null) return;
+
+                if (button == MouseButton.Right)
+                {
+                    GameBuildingManagerAPI buildings = GameBuildingManagerAPI.Instance;
+                    if (buildings == null) return;
+                    int keepId = players.GetPlayerKeepId(player);
+                    if (keepId <= 0 || !buildings.TryGetBuildingById(keepId, out GameBuilding* keep) ||
+                        keep == null || keep->r_AliveState != AliveState.IsAlive ||
+                        keep->r_PlayerIdOwner != player || keep->r_GlobalId == 0 ||
+                        keep->r_BuildingType < eStructs.STRUCT_KEEP_ONE ||
+                        keep->r_BuildingType > eStructs.STRUCT_KEEP_FIVE) return;
+                    players.SetScreenCenterToBuilding(keepId);
+                }
+                else if (button == MouseButton.Middle)
+                {
+                    GameUnitManagerAPI units = GameUnitManagerAPI.Instance;
+                    if (units == null) return;
+                    int lordId = players.GetLordUnitId(player);
+                    int lordGlobalId = players.GetLordUnitGlobalId(player);
+                    if (lordId <= 0 || lordGlobalId == 0 ||
+                        !units.TryGetUnitById(lordId, out GameUnit* lord) || lord == null ||
+                        lord->r_AliveState != AliveState.IsAlive ||
+                        lord->r_ControllableForPlayerId != player ||
+                        lord->r_UnitChimp != eChimps.CHIMP_TYPE_LORD ||
+                        lord->r_CurrentHealth == 0 || lord->r_GlobalId != unchecked((uint)lordGlobalId)) return;
+                    players.SetScreenCenterToUnit(lordId);
+                }
+            }
+            catch (Exception error)
+            {
+                if (cameraFailureLogged) return;
+                cameraFailureLogged = true;
+                log.LogError($"SPECTATOR_PERSPECTIVE_CAMERA_FAILED: player={player}, button={button}, error={error}.");
+            }
         }
+
     }
 }

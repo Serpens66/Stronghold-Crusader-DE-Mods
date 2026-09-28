@@ -72,8 +72,6 @@ namespace SpectatorPerspectiveTest
             if (command < Enums.GameActionCommand.Ally_Orders || command > Enums.GameActionCommand.Ally_CancelOrders ||
                 !SpectatorPerspectiveRuntime.IsActiveSpectator()) return true;
             bool allowed = SpectatorPerspectiveRuntime.CanIssueAllyAction(command, structureID, state, value2);
-            SpectatorPerspectiveRuntime.LogAllyAction(command,
-                command == Enums.GameActionCommand.Ally_Orders ? state : structureID, allowed);
             if (allowed) return true;
             __result = 0;
             return false;
@@ -81,8 +79,9 @@ namespace SpectatorPerspectiveTest
 
         private static void AfterOpen(bool state)
         {
-            if (state && SpectatorPerspectiveRuntime.IsActiveSpectator()) RefreshControlState();
-            else if (!SpectatorPerspectiveRuntime.IsActiveSpectator()) RestoreControls();
+            bool active = SpectatorPerspectiveRuntime.IsActiveSpectator();
+            if (state && active) RefreshControlState();
+            else if (!active) RestoreControls();
         }
 
         internal static void RefreshOpenPanel()
@@ -106,7 +105,10 @@ namespace SpectatorPerspectiveTest
             if (originalButtonStates.Count < 12) FindActionButtons(panel);
             bool enabled = SpectatorPerspectiveRuntime.CanInteractWithAllies();
             foreach (var entry in originalButtonStates)
-                entry.Key.IsEnabled = enabled && entry.Value;
+            {
+                bool shouldEnable = enabled && entry.Value;
+                if (entry.Key.IsEnabled != shouldEnable) entry.Key.IsEnabled = shouldEnable;
+            }
         }
 
         private static void FindActionButtons(DependencyObject root)

@@ -35,7 +35,6 @@ namespace BugfixesAndQoL
         private int installed;
         private int postStartupLogged;
         private int fieldMapValidated;
-        private int rejectedHotkeys;
         private ulong nativeImageBase;
 
         private DamagedHealthBarsRuntime(ManualLogSource log, BugfixesAndQoLViewModel settings)
@@ -109,8 +108,6 @@ namespace BugfixesAndQoL
                     unit.Hook.DisplacedByteCount != HealthBarNativeContract.UnitLength)
                     throw new InvalidOperationException("The three health-bar hooks did not satisfy the audited transaction contract: " + result);
 
-                Info("HEALTH_BARS_HOOKS_READY: north=0x489C4/17, south=0x4F9B4/17, " +
-                     "unit=0x1A1945/24; enabled=false; nativeHash=" + HealthBarNativeContract.NativeSha256);
                 transaction = pending;
                 pending = null;
                 Volatile.Write(ref installed, 1);
@@ -191,8 +188,8 @@ namespace BugfixesAndQoL
                     "/" + building.r_MaxHealth + ", type=" + building.r_BuildingType;
                 break;
             }
-            Info("HEALTH_BARS_FIELD_MAP: unitStride=0x490, buildingStride=0x32C, " +
-                "unitSample={" + unitSample + "}, buildingSample={" + buildingSample + "}.");
+            log.LogDebug("HEALTH_BARS_FIELD_MAP: unitSample={" + unitSample +
+                "}, buildingSample={" + buildingSample + "}.");
         }
 
         private static void ProbeGeneratedStubs(ulong imageBase, ulong flagAddress)
@@ -310,16 +307,17 @@ namespace BugfixesAndQoL
         {
             if (propertyName != nameof(BugfixesAndQoLViewModel.EnableMod) &&
                 propertyName != nameof(BugfixesAndQoLViewModel.EnableClientFeatures) &&
-                propertyName != nameof(BugfixesAndQoLViewModel.HealthBarHotkeyKeyIndex))
+                propertyName != nameof(BugfixesAndQoLViewModel.EnableDamagedHealthBars) &&
+                propertyName != nameof(BugfixesAndQoLViewModel.HealthBarHotkey))
                 return;
             if (settings.EnableMod && settings.EnableClientFeatures &&
+                settings.EnableDamagedHealthBars &&
                 settings.HealthBarHotkeyKeyCode != KeyCode.None)
                 return;
             if (Volatile.Read(ref installed) == 0 || activeFlag == IntPtr.Zero)
                 return;
             int* flag = (int*)activeFlag.ToPointer();
-            if (Interlocked.Exchange(ref *flag, 0) != 0)
-                Info("HEALTH_BARS_DISABLED_BY_SETTINGS");
+            Interlocked.Exchange(ref *flag, 0);
         }
 
         private void OnKeyDown(UnityInputEventArgs args)
@@ -335,41 +333,24 @@ namespace BugfixesAndQoL
                 if (alt != settings.HealthBarHotkeyAlt ||
                     control != settings.HealthBarHotkeyControl ||
                     shift != settings.HealthBarHotkeyShift ||
-                    !settings.EnableMod || !settings.EnableClientFeatures)
+                    !settings.EnableMod || !settings.EnableClientFeatures ||
+                    !settings.EnableDamagedHealthBars)
                     return;
                 if (Volatile.Read(ref installed) == 0)
-                {
-                    RejectHotkey("runtime-not-ready");
                     return;
-                }
                 if (!args.Result)
-                {
-                    RejectHotkey("already-blocked");
                     return;
-                }
                 GameData gameData = GameData.Instance;
                 if (GameMap.instance == null || gameData?.lastGameState == null)
-                {
-                    RejectHotkey("no-active-map");
                     return;
-                }
                 if (gameData.app_mode != 14 && gameData.app_mode != 16)
-                {
-                    RejectHotkey("app-mode-" + gameData.app_mode);
                     return;
-                }
                 MainViewModel viewModel = MainViewModel.Instance;
                 if (viewModel == null || viewModel.IsMapEditorMode)
-                {
-                    RejectHotkey("map-editor-or-no-view-model");
                     return;
-                }
                 FatControler controller = FatControler.instance;
                 if (controller == null || controller.NoesisHasKeyboard)
-                {
-                    RejectHotkey("text-input-or-no-controller");
                     return;
-                }
                 if (!EnsurePostStartupReady())
                     return;
 
@@ -382,13 +363,6 @@ namespace BugfixesAndQoL
             {
                 Error("Health-bar hotkey handling failed: " + ex);
             }
-        }
-
-        private void RejectHotkey(string reason)
-        {
-            int count = Interlocked.Increment(ref rejectedHotkeys);
-            if (count <= 8)
-                Info("HEALTH_BARS_HOTKEY_REJECTED: reason=" + reason + "; count=" + count);
         }
 
         private void Info(string message) =>

@@ -197,6 +197,13 @@
           <CheckBox Content="{Binding AiText}" IsChecked="{Binding NoKillRewardAI, Mode=TwoWay}" Foreground="White" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding NoKillRewardAIHelpText}"/>
         </StackPanel>
       </Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.healer-targets" shared:ModSettingsSearch.Title="{Binding HealerTargetsText}" shared:ModSettingsSearch.ToolTipText="{Binding HealerTargetsHelpText}" Margin="0,0,0,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding HealerTargetsHelpText}">
+        <StackPanel Orientation="Horizontal">
+          <TextBlock Text="{Binding HealerTargetsText}" Foreground="White" VerticalAlignment="Center" Margin="0,0,18,0"/>
+          <CheckBox Content="{Binding HealerTargetsCivilianText}" IsChecked="{Binding HealCivilianTargets, Mode=TwoWay}" Foreground="White" VerticalAlignment="Center" Margin="0,0,18,0" ToolTipService.ShowDuration="60000" ToolTip="{Binding HealerTargetsHelpText}"/>
+          <CheckBox Content="{Binding HealerTargetsSiegeText}" IsChecked="{Binding HealSiegeTargets, Mode=TwoWay}" Foreground="White" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding HealerTargetsHelpText}"/>
+        </StackPanel>
+      </Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.monks-always-run" shared:ModSettingsSearch.Title="{Binding EnableMonksAlwaysRunText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableMonksAlwaysRunHelpText}">
         <CheckBox IsChecked="{Binding EnableMonksAlwaysRun, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableMonksAlwaysRunHelpText}" Margin="0,0,14,8">
           <TextBlock Text="{Binding EnableMonksAlwaysRunText}" Foreground="White" TextWrapping="Wrap"/>
