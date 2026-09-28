@@ -53,6 +53,12 @@ if ($hud -notmatch 'SizeChanged\s*\+=' -or $hud -notmatch 'Unloaded\s*\+=' -or
     $runtime -match 'hud\.Show\(' -or $runtime -match 'RefreshReport\(') {
     throw 'Spectator HUD must update on lifecycle, selection and resize rather than every render.'
 }
+if ($hud -notmatch 'SpriteMapping\.RemapMPLoadedColour\(player\)' -or
+    $hud -notmatch 'SpriteMapping\.remapColours' -or $hud -notmatch 'OnScreenText\.Instance\.MPTeamColours' -or
+    $hud -notmatch 'numbers\[player\]\.Foreground' -or $hud -notmatch 'bar\.Width = 12f \+ occupiedCount \* 34f' -or
+    $hud -match 'buttons\[selected\]\.Content\s*=') {
+    throw 'Compact HUD must use Vanilla player colours once and mark selection without replacing numbers.'
+}
 if ([IO.File]::ReadAllText($projectFile.FullName) -notmatch '0Harmony') {
     throw 'Installed Harmony reference missing.'
 }
@@ -79,4 +85,12 @@ $contents = @($patch.SelectNodes('/Patch/Operation/Content'))
 if ($contents.Count -ne 1) { throw 'Expected exactly one XAML Content node.' }
 $elements = @($contents[0].ChildNodes | Where-Object { $_.NodeType -eq [Xml.XmlNodeType]::Element })
 if ($elements.Count -ne 1) { throw 'XAML Content must have exactly one direct root element.' }
+$canvas = $elements[0]
+if ($canvas.LocalName -ne 'Canvas' -or
+    @($canvas.SelectNodes('.//*[@*[local-name()="Name"]="SpectatorPerspectiveDrag"]')).Count -ne 1 -or
+    @($canvas.SelectNodes('.//*[local-name()="Button" and starts-with(@*[local-name()="Name"], "SpectatorPerspectivePlayer")]')).Count -ne 8 -or
+    @($canvas.SelectNodes('.//*[local-name()="TextBlock" and starts-with(@*[local-name()="Name"], "SpectatorPerspectiveNumber")]')).Count -ne 8 -or
+    $canvas.OuterXml -match 'Zuschauer|▶') {
+    throw 'Compact HUD XAML must contain a drag strip and eight number-only player buttons.'
+}
 Write-Output 'SpectatorPerspectiveTest preflight passed: JSON, lifecycle, permanent hooks, publisher, CRLF, project, metadata and XAML root.'

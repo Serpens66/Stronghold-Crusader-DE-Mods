@@ -10,7 +10,12 @@ namespace SpectatorPerspectiveTest
         private readonly Action<int> selectPlayer;
         private readonly Action uiUnavailable;
         private readonly Button[] buttons = new Button[9];
+        private readonly TextBlock[] numbers = new TextBlock[9];
         private readonly RoutedEventHandler[] clickHandlers = new RoutedEventHandler[9];
+        private static readonly SolidColorBrush normalBorder = new SolidColorBrush(Noesis.Color.FromArgb(176, 114, 36, 28));
+        private static readonly SolidColorBrush selectedBorder = new SolidColorBrush(Noesis.Color.FromRgb(239, 198, 112));
+        private static readonly SolidColorBrush normalBackground = new SolidColorBrush(Noesis.Color.FromArgb(120, 15, 12, 10));
+        private static readonly SolidColorBrush selectedBackground = new SolidColorBrush(Noesis.Color.FromArgb(160, 74, 37, 24));
         private Canvas canvas;
         private Border bar;
         private Border dragHandle;
@@ -52,9 +57,17 @@ namespace SpectatorPerspectiveTest
             for (int player = 1; player <= 8; player++)
             {
                 buttons[player].Visibility = occupied[player] ? Visibility.Visible : Visibility.Collapsed;
-                if (occupied[player]) occupiedCount++;
+                if (!occupied[player]) continue;
+                occupiedCount++;
+                int mappedPlayer = SpriteMapping.RemapMPLoadedColour(player);
+                int[] colourMapping = SpriteMapping.remapColours;
+                int colourIndex = mappedPlayer >= 0 && mappedPlayer < colourMapping.Length ? colourMapping[mappedPlayer] : 0;
+                UnityEngine.Color colour = colourIndex > 0 && colourIndex < OnScreenText.Instance.MPTeamColours.Length
+                    ? OnScreenText.Instance.MPTeamColours[colourIndex] : UnityEngine.Color.white;
+                numbers[player].Foreground = new SolidColorBrush(Noesis.Color.FromRgb(
+                    (byte)(colour.r * 255f), (byte)(colour.g * 255f), (byte)(colour.b * 255f)));
             }
-            bar.Width = 112f + occupiedCount * 42f;
+            bar.Width = 12f + occupiedCount * 34f;
             if (!positioned || !userMoved) PlaceAtTopRight();
             ClampPosition();
             bar.Visibility = Visibility.Visible;
@@ -66,10 +79,18 @@ namespace SpectatorPerspectiveTest
         {
             if (selectedPlayer == selected) return;
             if (selectedPlayer > 0 && buttons[selectedPlayer] != null)
-                buttons[selectedPlayer].Content = selectedPlayer.ToString();
+            {
+                buttons[selectedPlayer].BorderBrush = normalBorder;
+                buttons[selectedPlayer].BorderThickness = new Thickness(1);
+                buttons[selectedPlayer].Background = normalBackground;
+            }
             selectedPlayer = selected;
             if (selected > 0 && buttons[selected] != null)
-                buttons[selected].Content = "▶ " + selected;
+            {
+                buttons[selected].BorderBrush = selectedBorder;
+                buttons[selected].BorderThickness = new Thickness(2);
+                buttons[selected].Background = selectedBackground;
+            }
         }
 
         private bool Resolve()
@@ -93,7 +114,8 @@ namespace SpectatorPerspectiveTest
             {
                 int slot = player;
                 buttons[player] = GameXAMLManagerAPI.Instance.FindElementByName(canvas, "SpectatorPerspectivePlayer" + player) as Button;
-                if (buttons[player] == null) { Detach(); return false; }
+                numbers[player] = buttons[player]?.Content as TextBlock;
+                if (buttons[player] == null || numbers[player] == null) { Detach(); return false; }
                 clickHandlers[player] = (sender, args) => selectPlayer(slot);
                 buttons[player].Click += clickHandlers[player];
             }
@@ -126,6 +148,7 @@ namespace SpectatorPerspectiveTest
                 if (buttons[player] != null && clickHandlers[player] != null)
                     buttons[player].Click -= clickHandlers[player];
                 buttons[player] = null;
+                numbers[player] = null;
                 clickHandlers[player] = null;
             }
         }
