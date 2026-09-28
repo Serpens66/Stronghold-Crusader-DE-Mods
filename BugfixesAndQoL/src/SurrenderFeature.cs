@@ -461,7 +461,7 @@ namespace BugfixesAndQoL
             if (!spectatorPromotionActivated || spectatorPromotionConfirmed || !IsStartSpectator())
                 return;
 
-            int currentLocalPlayerId = GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? -1;
+            int currentLocalPlayerId = PlayerPerspectiveAPI.GetRawNativeViewPlayerId();
             int managedLocalPlayerId = EditorDirector.instance?.ActivePlayerID ?? -1;
             if (currentLocalPlayerId != spectatorPromotionPlayerId ||
                 managedLocalPlayerId != spectatorPromotionPlayerId)
@@ -527,8 +527,7 @@ namespace BugfixesAndQoL
             lordDeathSessionIds[playerId] = notification.SessionId;
             lordDeathSimulationTicks[playerId] = notification.SimulationTick;
 
-            GamePlayerManagerAPI playerManager = GamePlayerManagerAPI.Instance;
-            int localPlayerId = playerManager?.GetLocalPlayerId() ?? -1;
+            int localPlayerId = PlayerPerspectiveAPI.GetControlledPlayerId();
             bool localLordDied = SurrenderPolicy.ShouldLatchPlayerLordDeath(playerId, localPlayerId);
             if (localLordDied)
             {

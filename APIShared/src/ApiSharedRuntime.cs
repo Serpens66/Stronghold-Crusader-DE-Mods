@@ -59,6 +59,8 @@ namespace APIShared
         {
             lock (sync)
             {
+                MarkedUnitSelectionAPI.Initialize(logger);
+                PlayerPerspectiveAPI.Initialize(logger);
                 if (missionLifecycleDiagnostic.State == NativeCapabilityState.Pending)
                     MissionLifecycleService.TryCreate(logger, out missionLifecycle, out missionLifecycleDiagnostic);
                 if (briefingGoldDiagnostic.State == NativeCapabilityState.Pending)

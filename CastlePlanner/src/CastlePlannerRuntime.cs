@@ -2156,7 +2156,7 @@ namespace CastlePlanner
                 DirectorSimRunning = director != null && director.SimRunning,
                 NetworkedEnvironment = sharedMode.LowLevelNetworked,
                 NetworkActivePlayers = networkActivePlayers,
-                NativeLocalPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId(),
+                NativeLocalPlayerId = APIShared.PlayerPerspectiveAPI.GetRawNativeViewPlayerId(),
                 PlatformAvailable = platform != null,
                 PlatformMpGameActive = sharedMode.PlatformMultiplayer,
                 PlatformIsHost = platform != null && platform.IsHost,

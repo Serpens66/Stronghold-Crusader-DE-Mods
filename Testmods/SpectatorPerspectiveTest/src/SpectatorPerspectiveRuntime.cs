@@ -1,4 +1,5 @@
 using System;
+using APIShared;
 using BepInEx.Logging;
 using CrusaderDE;
 using Noesis;
@@ -91,6 +92,7 @@ namespace SpectatorPerspectiveTest
 
         private static void BeginMapLoad()
         {
+            PlayerPerspectiveAPI.ClearSpectatorView();
             RestoreReportPanel();
             RestoreAllyPanel();
             RestoreFoodControls();
@@ -176,6 +178,7 @@ namespace SpectatorPerspectiveTest
             }
             catch (Exception error)
             {
+                PlayerPerspectiveAPI.ClearSpectatorView();
                 initializationPending = false;
                 hudPending = false;
                 resetHudPending = false;
@@ -202,7 +205,11 @@ namespace SpectatorPerspectiveTest
                 if (occupiedSlots[player] && first == 0) first = player;
             }
             if (first == 0) return;
-            EngineInterface.SetEditorPlayer(first);
+            if (!PlayerPerspectiveAPI.TrySetSpectatorView(first))
+            {
+                log.LogError("SPECTATOR_PERSPECTIVE_SELECT_FAILED: APIShared rejected the initial spectator view.");
+                return;
+            }
             selectedPlayer = first;
             spectatorActive = true;
             hudPending = true;
@@ -390,7 +397,10 @@ namespace SpectatorPerspectiveTest
             if (state == null || state.spectatorMode == 0 || state.game_type != 3 ||
                 EditorDirector.instance == null || EditorDirector.instance.ActivePlayerID > 0 ||
                 !state.is_human_or_skirmish_player(player) || selectedPlayer == player) return;
-            try { EngineInterface.SetEditorPlayer(player); }
+            try
+            {
+                if (!PlayerPerspectiveAPI.TrySetSpectatorView(player)) return;
+            }
             catch (Exception error)
             {
                 log.LogError($"SPECTATOR_PERSPECTIVE_SELECT_FAILED: player={player}, error={error}.");

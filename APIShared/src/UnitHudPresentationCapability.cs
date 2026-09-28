@@ -1259,7 +1259,7 @@ namespace APIShared
                 armyHost = resolved;
             }
             Panel host = armyHost;
-            int local = GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? 0;
+            int local = PlayerPerspectiveAPI.GetViewedPlayerId();
             ArmyWorkBuffers buffers = armyBufferPool.Count == 0 ? new ArmyWorkBuffers() : armyBufferPool.Pop();
             try
             {

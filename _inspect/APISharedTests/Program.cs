@@ -52,6 +52,7 @@ namespace APISharedTests
             TestCompiledPatternSearch();
             TestUnitHudSnapshotImmutability();
             TestLocalSelectionSnapshots();
+            TestPlayerPerspectivePolicy();
             TestLobbyStateCapability();
             TestBriefingGoldPresentation();
             MissionLifecycleTests.Run(Assert);
@@ -94,6 +95,24 @@ namespace APISharedTests
             bool success = (bool)capture.Invoke(null, args);
             snapshot = (LocalSelectionSnapshot)args[2];
             return success;
+        }
+
+        private static void TestPlayerPerspectivePolicy()
+        {
+            int multiplayer = (int)SHCDESE.Interop.Enums.eGameTypeModes.GAMETYPE_MULTIPLAYER;
+            Assert(PlayerPerspectiveAPI.ShouldOverrideLocalPlayerId(1, multiplayer, 1, -1),
+                "Original spectators with a selected view must have no controlled player.");
+            Assert(PlayerPerspectiveAPI.ShouldOverrideLocalPlayerId(8, multiplayer, 1, 0),
+                "The last occupied spectator slot must be supported.");
+            Assert(!PlayerPerspectiveAPI.ShouldOverrideLocalPlayerId(1, multiplayer, 1, 1),
+                "Eliminated players retain their controlled identity.");
+            Assert(!PlayerPerspectiveAPI.ShouldOverrideLocalPlayerId(0, multiplayer, 1, -1),
+                "A cleared view must not override the Script Extender result.");
+            Assert(!PlayerPerspectiveAPI.ShouldOverrideLocalPlayerId(1, multiplayer, 0, -1),
+                "Non-spectator matches must keep the original result.");
+            Assert(!PlayerPerspectiveAPI.ShouldOverrideLocalPlayerId(1,
+                (int)SHCDESE.Interop.Enums.eGameTypeModes.GAMETYPE_MAP, 1, -1),
+                "Other game modes must keep the original result.");
         }
 
         private static void TestLocalSelectionSnapshots()
@@ -1645,6 +1664,9 @@ namespace APISharedTests
                 "APIShared.UnitHudImageOverrideResolver",
                 "APIShared.UnitHudImageOverrideDefinition",
                 "APIShared.ApiShared",
+                "APIShared.MarkedUnitSelectionSnapshot",
+                "APIShared.MarkedUnitSelectionAPI",
+                "APIShared.PlayerPerspectiveAPI",
                 // BepInEx discovers the plugin type; it is public but is not a consumer service.
                 "APIShared.APISharedPlugin"
             };

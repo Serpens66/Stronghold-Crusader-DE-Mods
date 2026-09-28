@@ -560,7 +560,7 @@ namespace BugfixesAndQoL
             if (Shared.GameModeHelper.IsMapEditor())
                 return EditorDirector.instance?.ActivePlayerID ?? -1;
             int playerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
-            return playerId > 0 ? playerId : 1;
+            return playerId > 0 ? playerId : -1;
         }
 
         private void ResetPlayerStates()

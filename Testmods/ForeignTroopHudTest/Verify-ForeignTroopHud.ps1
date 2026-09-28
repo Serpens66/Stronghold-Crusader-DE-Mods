@@ -32,7 +32,36 @@ foreach ($pattern in $forbidden) {
 if ($sources -notmatch 'Application\.onBeforeRender\s*\+=\s*OnBeforeRender') { throw 'Persistent publisher missing.' }
 if ($sources -notmatch 'now < nextRefreshAt' -or $sources -notmatch 'nextRefreshAt = now \+ 0\.1f' -or
     $sources -notmatch 'if \(displayChanged\)' -or
-    $sources -notmatch 'BuildSpectatorSamples\(units\)') { throw 'Bounded refresh or change-only drawing missing.' }
+    $sources -notmatch 'BuildSpectatorSamples\(units, selection\)') { throw 'Bounded refresh or change-only drawing missing.' }
+if ($sources -notmatch 'MarkedUnitSelectionAPI\.TryCapture' -or
+    $sources -notmatch 'MarkedUnitSelectionAPI\.TryRegisterObserver' -or
+    $sources -notmatch 'MarkedUnitSelectionAPI\.RequestResync' -or
+    $sources -match 'for \(int spanIndex = 0; spanIndex < units\.Length; spanIndex\+\+\)') {
+    throw 'Foreign HUD must use APIShared marked IDs rather than a periodic full-slot scan.'
+}
+$sharedSelectionPath = Join-Path $modDir '..\..\APIShared\src\MarkedUnitSelectionAPI.cs'
+$sharedSelection = [IO.File]::ReadAllText($sharedSelectionPath)
+if ([regex]::IsMatch($sharedSelection, '(?<!\r)\n') -or $sharedSelection.Contains('\r\n')) {
+    throw 'APIShared marked-selection source must use CRLF without literal newline escapes.'
+}
+$extenderHookPath = Join-Path $modDir '..\..\shcde-script-extender\src\SHCDESE.BepInEx\ManagedHooks\EngineInterface_Hooks.cs'
+$extenderHook = [IO.File]::ReadAllText($extenderHookPath)
+if ($sharedSelection -notmatch 'originalSelection\(mouseState' -or
+    $sharedSelection -notmatch 'int result = originalRun\(mpFrameSkip\)' -or
+    $sharedSelection -notmatch 'originalReturnBuffer\(self, buffer\)' -or
+    $sharedSelection -notmatch 'buffer\.beingFilled' -or
+    $sharedSelection -notmatch 'nativeCount != lastNativeCount' -or
+    $sharedSelection -notmatch 'FullScan\("initial-session"\)' -or
+    $sharedSelection -notmatch 'FullScan\("native-count-mismatch"\)' -or
+    $sharedSelection -match 'r_UnitHover\s*=(?!=)' -or
+    $extenderHook -notmatch 'engineInterface_TroopSelection_hook\.Trampoline\(') {
+    throw 'APIShared selection hook, Vanilla pass-through, or resync contract is incomplete.'
+}
+foreach ($call in @('originalSelection\(mouseState', 'originalRun\(mpFrameSkip\)', 'originalReturnBuffer\(self, buffer\)')) {
+    if ([regex]::Matches($sharedSelection, $call).Count -ne 1) {
+        throw "A Vanilla hook continuation must be called exactly once: $call"
+    }
+}
 if ($sources -notmatch 'PreviewMouseDown \+= OnPortraitMouseDown' -or
     $sources -notmatch 'ChangedButton != MouseButton\.Middle' -or
     $sources -notmatch 'ClickCount != 1' -or
@@ -43,6 +72,11 @@ if ($sources -notmatch 'PreviewMouseDown \+= OnPortraitMouseDown' -or
 }
 if ($sources -notmatch 'TryGetMissionLifecycle' -or $sources -notmatch 'TryRegisterObserver') { throw 'APIShared mission lifecycle missing.' }
 if ($sources -notmatch 'session\.IsEditor' -or $sources -notmatch 'ActivePlayerID' -or $sources -notmatch 'spectatorMode') { throw 'Editor or spectator player handling missing.' }
+if ([regex]::Matches($sources, 'PlayerPerspectiveAPI\.GetControlledPlayerId\(\)').Count -ne 2 -or
+    $sources -notmatch 'PlayerPerspectiveAPI\.GetViewedPlayerId\(\)' -or
+    $sources -match 'GamePlayerManagerAPI\.Instance\?\.GetLocalPlayerId\(\)') {
+    throw 'Controlled-player and spectator-view identities must remain separate.'
+}
 if ($sources -match 'app_mode\s*!=\s*14|MapLoaderR3EventHooks') { throw 'Legacy mode or map gate remains.' }
 if ($sources -notmatch 'FOREIGN_TROOP_HUD_RUNTIME_ALIVE') { throw 'Post-cleanup marker missing.' }
 if ($sources -notmatch 'FOREIGN_TROOP_HUD_DIAGNOSTIC' -or

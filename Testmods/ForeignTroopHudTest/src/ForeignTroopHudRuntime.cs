@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading;
 using APIShared;
 using BepInEx.Logging;
 using CrusaderDE;
@@ -45,6 +46,8 @@ namespace ForeignTroopHudTest
         private static float lastDiagnosticAt = -100f;
         private static string lastSpectatorSelectionKey;
         private static string lastCameraErrorKey;
+        private static MarkedUnitSelectionSnapshot markedSnapshot;
+        private static int selectionDirty;
 
         internal static void Initialize(ManualLogSource logger)
         {
@@ -56,6 +59,8 @@ namespace ForeignTroopHudTest
                 throw new InvalidOperationException("APIShared mission lifecycle unavailable: " + diagnostic?.Reason);
             if (!lifecycle.TryRegisterObserver("ForeignTroopHudTest.Runtime", OnSessionStarted, OnSessionEnded, null, out diagnostic))
                 throw new InvalidOperationException("APIShared mission observer registration failed: " + diagnostic?.Reason);
+            if (!MarkedUnitSelectionAPI.TryRegisterObserver(ForeignTroopHudPlugin.Guid, OnMarkedSelectionChanged))
+                throw new InvalidOperationException("APIShared marked-unit selection observer registration failed.");
             Application.onBeforeRender += OnBeforeRender;
             initialized = true;
             log.LogInfo("FOREIGN_TROOP_HUD_INITIALIZED: static render publisher and APIShared mission events registered.");
@@ -64,6 +69,8 @@ namespace ForeignTroopHudTest
         private static void OnSessionStarted(MissionLifecycleNotification notification)
         {
             activeSession = notification.Context;
+            Volatile.Write(ref markedSnapshot, null);
+            Interlocked.Exchange(ref selectionDirty, 1);
             stateBeforeReady = GameData.Instance?.lastGameState;
             resetPending = true;
             nextRefreshAt = 0f;
@@ -80,6 +87,8 @@ namespace ForeignTroopHudTest
         {
             HideForeignHud();
             activeSession = null;
+            Volatile.Write(ref markedSnapshot, null);
+            Interlocked.Exchange(ref selectionDirty, 0);
             stateBeforeReady = null;
             resetPending = true;
             nextRefreshAt = 0f;
@@ -91,12 +100,20 @@ namespace ForeignTroopHudTest
             lastCameraErrorKey = null;
         }
 
+        private static void OnMarkedSelectionChanged(MarkedUnitSelectionSnapshot selection)
+        {
+            // This may run inside EngineInterface.run. No Noesis or HUD work belongs here.
+            Volatile.Write(ref markedSnapshot, selection);
+            Interlocked.Exchange(ref selectionDirty, 1);
+        }
+
         private static void OnBeforeRender()
         {
             if (Time.frameCount == lastFrame) return;
             lastFrame = Time.frameCount;
             float now = Time.realtimeSinceStartup;
-            if (!resetPending && now < nextRefreshAt) return;
+            bool changed = Interlocked.Exchange(ref selectionDirty, 0) != 0;
+            if (!resetPending && !changed && now < nextRefreshAt) return;
             nextRefreshAt = now + 0.1f;
             try
             {
@@ -173,16 +190,42 @@ namespace ForeignTroopHudTest
             bool editor = session.IsEditor || session.Mode.IsMapEditor;
             int ownPlayerId = spectator ? 0 : editor
                 ? EditorDirector.instance?.ActivePlayerID ?? 0
-                : GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? 0;
+                : PlayerPerspectiveAPI.GetControlledPlayerId();
             if (ownPlayerId < 1 || ownPlayerId > 8) ownPlayerId = 0;
+            MarkedUnitSelectionSnapshot selection = Volatile.Read(ref markedSnapshot);
+            if (selection == null || selection.SessionId != session.SessionId)
+            {
+                if (!MarkedUnitSelectionAPI.TryCapture(session.SessionId, out selection))
+                {
+                    HideForeignHud();
+                    ReportStatus("waiting-marked-selection", state, main, ownPlayerId);
+                    return;
+                }
+                Volatile.Write(ref markedSnapshot, selection);
+            }
             grouped.Clear();
             entries.Clear();
             Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
+            bool invalidCachedId = false;
+            for (int index = 0; index < selection.Count; index++)
+            {
+                int id = selection[index];
+                if (id < 1 || id > units.Length || units[id - 1].r_UnitHover == 0)
+                { invalidCachedId = true; break; }
+            }
+            if (invalidCachedId)
+            {
+                MarkedUnitSelectionAPI.RequestResync(session.SessionId);
+                if (!MarkedUnitSelectionAPI.TryCapture(session.SessionId, out selection)) return;
+                Volatile.Write(ref markedSnapshot, selection);
+            }
             int hoveredCount = 0;
             int foreignCount = 0;
             ulong spectatorSignature = 1469598103934665603UL;
-            for (int spanIndex = 0; spanIndex < units.Length; spanIndex++)
+            for (int index = 0; index < selection.Count; index++)
             {
+                int spanIndex = selection[index] - 1;
+                if (spanIndex < 0 || spanIndex >= units.Length) continue;
                 ref GameUnit unit = ref units[spanIndex];
                 if (unit.r_AliveState != AliveState.IsAlive || unit.r_UnitHover == 0) continue;
                 hoveredCount++;
@@ -215,7 +258,7 @@ namespace ForeignTroopHudTest
             }
             if (spectator)
             {
-                int perspectivePlayer = GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? 0;
+                int perspectivePlayer = PlayerPerspectiveAPI.GetViewedPlayerId();
                 int editorPlayer = EditorDirector.instance?.ActivePlayerID ?? 0;
                 string selectionKey = activeSession.SessionId + ":" + perspectivePlayer + ":" + editorPlayer +
                     ":" + hoveredCount + ":" + spectatorSignature;
@@ -224,7 +267,7 @@ namespace ForeignTroopHudTest
                     lastSpectatorSelectionKey = selectionKey;
                     log.LogInfo("FOREIGN_TROOP_HUD_SPECTATOR_SELECTION: perspectivePlayer=" + perspectivePlayer +
                         ", editorPlayer=" + editorPlayer + ", selectedUnits=" + hoveredCount +
-                        ", groups=" + entries.Count + ", samples=" + BuildSpectatorSamples(units));
+                        ", groups=" + entries.Count + ", samples=" + BuildSpectatorSamples(units, selection));
                 }
             }
             else lastSpectatorSelectionKey = null;
@@ -261,12 +304,14 @@ namespace ForeignTroopHudTest
             ReportStatus("shown", state, main, ownPlayerId, hoveredCount, foreignCount, entries.Count);
         }
 
-        private static StringBuilder BuildSpectatorSamples(Span<GameUnit> units)
+        private static StringBuilder BuildSpectatorSamples(Span<GameUnit> units, MarkedUnitSelectionSnapshot selection)
         {
             var samples = new StringBuilder(320);
             int count = 0;
-            for (int spanIndex = 0; spanIndex < units.Length && count < 12; spanIndex++)
+            for (int index = 0; index < selection.Count && count < 12; index++)
             {
+                int spanIndex = selection[index] - 1;
+                if (spanIndex < 0 || spanIndex >= units.Length) continue;
                 ref GameUnit unit = ref units[spanIndex];
                 if (unit.r_AliveState != AliveState.IsAlive || unit.r_UnitHover == 0) continue;
                 count++;
@@ -293,14 +338,18 @@ namespace ForeignTroopHudTest
                 bool editor = session.IsEditor || session.Mode.IsMapEditor;
                 int ownPlayerId = spectator ? 0 : editor
                     ? EditorDirector.instance?.ActivePlayerID ?? 0
-                    : GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? 0;
+                    : PlayerPerspectiveAPI.GetControlledPlayerId();
                 if (!spectator && owner == ownPlayerId && ownPlayerId != 0) return;
                 GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
                 GamePlayerManagerAPI playerApi = GamePlayerManagerAPI.Instance;
                 if (unitApi == null || playerApi == null) return;
+                MarkedUnitSelectionSnapshot selection = Volatile.Read(ref markedSnapshot);
+                if (selection == null || selection.SessionId != session.SessionId) return;
                 Span<GameUnit> units = unitApi.GetUnitsAsSpan();
-                for (int spanIndex = 0; spanIndex < units.Length; spanIndex++)
+                for (int index = 0; index < selection.Count; index++)
                 {
+                    int spanIndex = selection[index] - 1;
+                    if (spanIndex < 0 || spanIndex >= units.Length) continue;
                     ref GameUnit unit = ref units[spanIndex];
                     if (unit.r_AliveState != AliveState.IsAlive || unit.r_UnitHover == 0 ||
                         unit.r_ControllableForPlayerId != owner || (int)unit.r_UnitChimp != type)

@@ -6,7 +6,7 @@ namespace ForeignTroopHudTest
 {
     [BepInDependency("000shcdese", BepInDependency.DependencyFlags.HardDependency)]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.HardDependency)]
-    [BepInDependency("APIShared_Serp", "0.4.3")]
+    [BepInDependency("APIShared_Serp", "0.4.6")]
     [BepInPlugin(Guid, "Foreign Troop HUD Test", "0.1.0")]
     public sealed class ForeignTroopHudPlugin : BaseUnityPlugin
     {

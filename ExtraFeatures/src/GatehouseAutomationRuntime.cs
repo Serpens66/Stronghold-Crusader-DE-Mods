@@ -895,7 +895,7 @@ namespace ExtraFeatures
             }
 
             int localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
-            return localPlayerId > 0 ? localPlayerId : 1;
+            return localPlayerId > 0 ? localPlayerId : -1;
         }
 
         private static bool IsMapEditor() => Shared.GameModeHelper.IsMapEditor();

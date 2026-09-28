@@ -50,6 +50,8 @@
     <Compile Include="src\BuildingRepairContracts.cs" />
     <Compile Include="src\BuildingRepairCapability.cs" />
     <Compile Include="src\LocalSelectionAPI.cs" />
+    <Compile Include="src\MarkedUnitSelectionAPI.cs" />
+    <Compile Include="src\PlayerPerspectiveAPI.cs" />
     <Compile Include="src\MissionModePolicy.cs" />
     <Compile Include="src\SavegameModSettings.cs" />
     <Compile Include="src\GameplayModModePolicy.cs" />

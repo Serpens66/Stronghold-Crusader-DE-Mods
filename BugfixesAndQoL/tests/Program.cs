@@ -448,7 +448,7 @@ namespace BugfixesAndQoL
             Check(!string.IsNullOrEmpty(requiredExtender) &&
                   plugin.Contains("[BepInDependency(ScriptExtenderGuid, \"" + requiredExtender + "\")]") &&
                   File.ReadAllText(Path.Combine("src", "LocalSelectionSnapshot.cs")).Contains("LocalSelectionAPI.TryCapture") &&
-                  plugin.Contains("[BepInDependency(ApiSharedGuid, \"0.4.2\")]"),
+                  plugin.Contains("[BepInDependency(ApiSharedGuid, \"0.4.6\")]"),
                 "BugfixesAndQoL selection API and dependencies agree with the manifest");
         }
 

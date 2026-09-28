@@ -149,7 +149,7 @@ foreach ($path in @($info, $packagedInfo)) {
     }
 }
 if ($runtimeText -notmatch 'PluginVersion = "1\.0\.106"' -or
-    $runtimeText -notmatch 'BepInDependency\(ApiSharedGuid, "0\.4\.3"\)') {
+    $runtimeText -notmatch 'BepInDependency\(ApiSharedGuid, "0\.4\.6"\)') {
     throw 'Plugin version or APIShared dependency mismatch.'
 }
 $addedCode = & git -C $workspace diff --unified=0 -- '*.cs' '*.csproj'

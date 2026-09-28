@@ -262,6 +262,48 @@
             selection reuses its immutable snapshot, even when Vanilla publishes a new tick.
             </summary>
         </member>
+        <member name="T:APIShared.MarkedUnitSelectionSnapshot">
+            <summary>An immutable list of one-based IDs carrying Vanilla's unit-hover marker.</summary>
+        </member>
+        <member name="P:APIShared.MarkedUnitSelectionSnapshot.SessionId">
+            <summary>The APIShared mission session that owns this selection.</summary>
+        </member>
+        <member name="P:APIShared.MarkedUnitSelectionSnapshot.Count">
+            <summary>Number of marked units, including locally controlled units.</summary>
+        </member>
+        <member name="P:APIShared.MarkedUnitSelectionSnapshot.Item(System.Int32)">
+            <summary>One-based unit Game-ID at the specified index.</summary>
+        </member>
+        <member name="T:APIShared.MarkedUnitSelectionAPI">
+            <summary>Publishes Vanilla's completed unit-hover selection without polling the full unit array.</summary>
+        </member>
+        <member name="M:APIShared.MarkedUnitSelectionAPI.TryRegisterObserver(System.String,System.Action{APIShared.MarkedUnitSelectionSnapshot})">
+            <summary>Registers a process-lifetime observer. Its callback must defer UI work.</summary>
+        </member>
+        <member name="M:APIShared.MarkedUnitSelectionAPI.TryCapture(System.Int64,APIShared.MarkedUnitSelectionSnapshot@)">
+            <summary>Gets the current selection, scanning all slots once on first use of a ready session.</summary>
+        </member>
+        <member name="M:APIShared.MarkedUnitSelectionAPI.RequestResync(System.Int64)">
+            <summary>Requests a one-time resync if a cached ID is no longer marked.</summary>
+        </member>
+        <member name="T:APIShared.PlayerPerspectiveAPI">
+            <summary>Separates the locally controlled player from Vanilla's native report viewpoint.</summary>
+        </member>
+        <member name="M:APIShared.PlayerPerspectiveAPI.GetControlledPlayerId">
+            <summary>Gets the player actually controlled by this client, or -1 for a spectator.</summary>
+        </member>
+        <member name="M:APIShared.PlayerPerspectiveAPI.GetViewedPlayerId">
+            <summary>Gets the selected report viewpoint; outside spectator mode this is the native view.</summary>
+        </member>
+        <member name="M:APIShared.PlayerPerspectiveAPI.GetRawNativeViewPlayerId">
+            <summary>Reads the native index without applying the spectator identity correction.</summary>
+        </member>
+        <member name="M:APIShared.PlayerPerspectiveAPI.TrySetSpectatorView(System.Int32)">
+            <summary>Changes Vanilla's view and publishes it for an original spectator only.</summary>
+        </member>
+        <member name="M:APIShared.PlayerPerspectiveAPI.ClearSpectatorView">
+            <summary>Clears the identity override when the spectator session ends.</summary>
+        </member>
         <member name="T:APIShared.SavegameModSettingsRecord">
             <summary>Versioned savegame metadata for host settings and mission permission mode.</summary>
         </member>

@@ -20,16 +20,16 @@
       "ExtremePowers": "0.4.0",
       "ImprovedHunters": "0.4.0",
       "MoatMove": "0.3.6",
-      "RandomEvents": "0.4.0",
+      "RandomEvents": "0.4.6",
       "SerpsModsHost": "0.4.0",
       "SkinTest": "0.3.6",
       "StartConditions": "0.4.0",
       "UnitCosts": "0.4.0",
       "UnitLimit": "0.4.0",
-      "BugfixesAndQoL": "0.4.2",
-      "CastlePlanner": "0.4.0",
+      "BugfixesAndQoL": "0.4.6",
+      "CastlePlanner": "0.4.6",
       "ExtendedData": "0.4.0",
-      "ExtraFeatures": "0.4.3"
+      "ExtraFeatures": "0.4.6"
     }
   },
   "AdditionalReleaseIndexEntries": [

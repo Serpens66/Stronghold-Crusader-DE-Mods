@@ -24,6 +24,12 @@ if ($runtime -notmatch 'Application\.onBeforeRender\s*\+=\s*OnPendingRender' -or
 if ($runtime -notmatch 'MapLoaderR3EventHooks\.OnPostLoad' -or $runtime -notmatch 'MapLoaderR3EventHooks\.OnUnloadMap') {
     throw 'Missing map lifecycle event registration.'
 }
+if ($runtime -notmatch 'PlayerPerspectiveAPI\.TrySetSpectatorView\(first\)' -or
+    $runtime -notmatch 'PlayerPerspectiveAPI\.TrySetSpectatorView\(player\)' -or
+    $runtime -notmatch 'PlayerPerspectiveAPI\.ClearSpectatorView\(\)' -or
+    $runtime -match 'EngineInterface\.SetEditorPlayer\(') {
+    throw 'Spectator view changes must be owned by APIShared.'
+}
 $reportHooks = [IO.File]::ReadAllText((Join-Path $projectRoot 'src\SpectatorReportHooks.cs'))
 if ($reportHooks -notmatch 'ButtonReports' -or $reportHooks -notmatch 'ButtonChangeEdibleState' -or
     $reportHooks -notmatch 'PlayerNameText' -or $reportHooks -notmatch 'UseSelectedReportName' -or
@@ -83,6 +89,10 @@ if (-not $cameraJump -or $cameraJump -notmatch 'IsActiveSpectator\(\)' -or
 }
 if ([IO.File]::ReadAllText($projectFile.FullName) -notmatch '0Harmony') {
     throw 'Installed Harmony reference missing.'
+}
+if ([IO.File]::ReadAllText($projectFile.FullName) -notmatch 'APIShared' -or
+    $plugin -notmatch 'BepInDependency\("APIShared_Serp", "0\.4\.6"\)') {
+    throw 'APIShared 0.4.6 dependency missing.'
 }
 if ([IO.File]::ReadAllText($projectFile.FullName) -notmatch '<AllowUnsafeBlocks>true</AllowUnsafeBlocks>') {
     throw 'Native target validation requires an unsafe-enabled project.'

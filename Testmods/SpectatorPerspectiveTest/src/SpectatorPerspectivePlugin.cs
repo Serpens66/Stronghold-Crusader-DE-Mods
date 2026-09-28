@@ -6,6 +6,7 @@ namespace SpectatorPerspectiveTest
 {
     [BepInDependency("000shcdese", BepInDependency.DependencyFlags.HardDependency)]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.HardDependency)]
+    [BepInDependency("APIShared_Serp", "0.4.6")]
     [BepInPlugin("SpectatorPerspectiveTest_Serp", "Spectator Perspective Test", "0.1.0")]
     public sealed class SpectatorPerspectivePlugin : BaseUnityPlugin
     {

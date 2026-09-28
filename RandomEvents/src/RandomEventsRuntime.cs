@@ -1010,7 +1010,9 @@ namespace RandomEvents
                     return;
                 }
 
-                initializationAcknowledgedPlayerIds.Add(GamePlayerManagerAPI.Instance.GetLocalPlayerId());
+                int controlledPlayerId = APIShared.PlayerPerspectiveAPI.GetControlledPlayerId();
+                if (controlledPlayerId > 0)
+                    initializationAcknowledgedPlayerIds.Add(controlledPlayerId);
                 TryCompleteInitializationHandshake();
             }
             else
@@ -1033,6 +1035,9 @@ namespace RandomEvents
 
         private void SendInitializationAck()
         {
+            // Original spectators have no participant slot in the host's ACK quorum.
+            int controlledPlayerId = APIShared.PlayerPerspectiveAPI.GetControlledPlayerId();
+            if (controlledPlayerId <= 0) return;
             if (initializationAckPacketHook == null || state == null)
             {
                 mapActive = false;
@@ -1044,7 +1049,7 @@ namespace RandomEvents
             {
                 ProtocolVersion = ChoreProtocolVersion,
                 OperationId = initializationOperationId,
-                PlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId(),
+                PlayerId = controlledPlayerId,
                 StateDigest = initializationStateDigest
             };
 
@@ -1415,7 +1420,7 @@ namespace RandomEvents
             int strength,
             int targetPlayerId)
         {
-            int presentationPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
+            int presentationPlayerId = APIShared.PlayerPerspectiveAPI.GetViewedPlayerId();
             bool suppressLocalPresentation = RandomEventsPresentationScope.ShouldSuppress(
                 targetPlayerId,
                 presentationPlayerId);
@@ -1578,7 +1583,13 @@ namespace RandomEvents
                 return false;
             }
 
-            int originalLocalPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
+            int originalLocalPlayerId = APIShared.PlayerPerspectiveAPI.GetRawNativeViewPlayerId();
+            if (originalLocalPlayerId < 1 || originalLocalPlayerId > GamePlayerManagerAPI.MAX_PLAYERS)
+            {
+                LogError($"Vanilla direct event skipped: event={definition.Name}, targetPlayerId={targetPlayerId}, " +
+                    $"reason=native view player ID {originalLocalPlayerId} is unavailable.");
+                return false;
+            }
             IntPtr localPlayerAddress = new IntPtr(unchecked((long)GameGlobalsManager.Instance.LocalPlayerIdVA));
             bool playerChanged = targetPlayerId != originalLocalPlayerId;
             HashSet<uint> unitGlobalIdsBefore = null;
