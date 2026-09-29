@@ -7,13 +7,72 @@ function Assert-True {
     if (-not $Condition) { throw $Message }
 }
 
+function Assert-ApiSharedMinimum {
+    param(
+        [AllowNull()][string]$ConfiguredMinimum,
+        [AllowEmptyString()][string]$SourceText,
+        [Parameter(Mandatory)][string]$ApiSharedGuid,
+        [Parameter(Mandatory)][string]$ModName
+    )
+
+    $guidLiteral = '"' + [regex]::Escape($ApiSharedGuid) + '"'
+    $guidArguments = [System.Collections.Generic.List[string]]::new()
+    $guidArguments.Add($guidLiteral)
+    $constantPattern = '\bconst\s+string\s+([A-Za-z_]\w*)\s*=\s*' + $guidLiteral + '\s*;'
+    foreach ($constant in [regex]::Matches($SourceText, $constantPattern)) {
+        $guidArguments.Add([regex]::Escape($constant.Groups[1].Value))
+    }
+    $dependencyPattern = '\[\s*BepInDependency\s*\(\s*(?:' + ($guidArguments -join '|') + ')\s*,\s*(?<minimum>"[^"]+"|BepInDependency\.DependencyFlags\.\w+)\s*\)\s*\]'
+    $dependencies = @([regex]::Matches($SourceText, $dependencyPattern))
+    if ($dependencies.Count -gt 1) { throw "$ModName declares multiple APIShared plugin dependencies." }
+    if ([string]::IsNullOrWhiteSpace($ConfiguredMinimum)) {
+        if ($dependencies.Count -gt 0) { throw "$ModName declares an APIShared plugin dependency but has no configured release minimum." }
+        return
+    }
+    if ($dependencies.Count -ne 1) { throw "$ModName has a configured APIShared release minimum but no plugin dependency." }
+    $pluginMinimumArgument = $dependencies[0].Groups['minimum'].Value
+    if (-not $pluginMinimumArgument.StartsWith('"')) { throw "$ModName must declare a versioned APIShared plugin dependency." }
+    $pluginMinimum = $pluginMinimumArgument.Trim('"')
+    if ((Compare-SemanticVersion -Left $ConfiguredMinimum -Right $pluginMinimum) -lt 0) {
+        throw "$ModName release minimum $ConfiguredMinimum is below its plugin requirement $pluginMinimum."
+    }
+}
+
+function Assert-ApiSharedMinimumFails {
+    param([AllowNull()][string]$ConfiguredMinimum, [string]$SourceText, [string]$ExpectedMessage)
+    $failed = $false
+    try {
+        Assert-ApiSharedMinimum -ConfiguredMinimum $ConfiguredMinimum -SourceText $SourceText -ApiSharedGuid 'APIShared_Serp' -ModName 'Fixture'
+    } catch {
+        $failed = $_.Exception.Message -match $ExpectedMessage
+    }
+    Assert-True $failed "APIShared minimum validation must reject the fixture with message '$ExpectedMessage'."
+}
+
+Assert-ApiSharedMinimum -ConfiguredMinimum '0.4.6' -SourceText '[BepInDependency("APIShared_Serp", "0.4.6")]' -ApiSharedGuid 'APIShared_Serp' -ModName 'Fixture'
+Assert-ApiSharedMinimum -ConfiguredMinimum '0.4.7' -SourceText '[BepInDependency("APIShared_Serp", "0.4.6")]' -ApiSharedGuid 'APIShared_Serp' -ModName 'Fixture'
+Assert-ApiSharedMinimumFails -ConfiguredMinimum '0.4.5' -SourceText '[BepInDependency("APIShared_Serp", "0.4.6")]' -ExpectedMessage 'below its plugin requirement'
+Assert-ApiSharedMinimumFails -ConfiguredMinimum '0.4.6' -SourceText '' -ExpectedMessage 'no plugin dependency'
+Assert-ApiSharedMinimumFails -ConfiguredMinimum '0.4.6' -SourceText '[BepInDependency("APIShared_Serp", "0.4.6")][BepInDependency("APIShared_Serp", "0.4.6")]' -ExpectedMessage 'multiple APIShared plugin dependencies'
+Assert-ApiSharedMinimumFails -ConfiguredMinimum $null -SourceText '[BepInDependency("APIShared_Serp", "0.4.6")]' -ExpectedMessage 'no configured release minimum'
+
 $config = Get-ReleaseConfiguration
 Assert-True ([string]$config.ApiShared.Guid -ceq 'APIShared_Serp') 'The resolved release configuration must expose the APIShared GUID.'
 Assert-True ($null -eq $config.ApiShared.PSObject.Properties['Version']) 'The release configuration must not duplicate the current APIShared version.'
-Assert-True ((Get-ApiSharedConsumerMinimum -Config $config -ModName 'BugfixesAndQoL') -ceq '0.4.0') 'BugfixesAndQoL must be recognized as an APIShared consumer.'
-Assert-True ((Get-ApiSharedConsumerMinimum -Config $config -ModName 'ExtraFeatures') -ceq '0.4.0') 'ExtraFeatures must be recognized as an APIShared consumer.'
-Assert-True ((Get-ApiSharedConsumerMinimum -Config $config -ModName 'ExtendedData') -ceq '0.4.0') 'ExtendedData must be recognized as an APIShared consumer.'
-Assert-True ((Get-ApiSharedConsumerMinimum -Config $config -ModName 'BuildingCosts') -ceq '0.4.0') 'BuildingCosts must be classified as an editor lifecycle APIShared consumer.'
+$highestApiSharedMinimum = $null
+foreach ($project in $config.Projects) {
+    if ($project -ceq [string]$config.ApiShared.Project) { continue }
+    $modDir = Join-Path $config.Root (Get-ReleaseProjectDirectory -Config $config -Project $project)
+    $pluginSources = @(Get-ChildItem -LiteralPath (Join-Path $modDir 'src') -Filter '*Plugin.cs' -File)
+    Assert-True ($pluginSources.Count -eq 1) "$project must have exactly one plugin source for APIShared dependency validation."
+    $minimum = Get-ApiSharedConsumerMinimum -Config $config -ModName $project
+    Assert-ApiSharedMinimum -ConfiguredMinimum $minimum -SourceText ([IO.File]::ReadAllText($pluginSources[0].FullName)) -ApiSharedGuid ([string]$config.ApiShared.Guid) -ModName $project
+    if (-not [string]::IsNullOrWhiteSpace($minimum) -and
+        ($null -eq $highestApiSharedMinimum -or (Compare-SemanticVersion -Left $minimum -Right $highestApiSharedMinimum) -gt 0)) {
+        $highestApiSharedMinimum = $minimum
+    }
+}
+Assert-True (-not [string]::IsNullOrWhiteSpace($highestApiSharedMinimum)) 'Release-enabled APIShared consumers must define a minimum.'
 $releaseIndexEntries = @(Get-ReleaseIndexEntries -Config $config)
 Assert-True ([string]$releaseIndexEntries[0].Project -ceq 'SerpsMods') 'The SerpsMods release-index entry must be first.'
 Assert-True ([string]$releaseIndexEntries[0].DisplayName -ceq 'SerpsMods (Modpack)') 'The SerpsMods release-index display name must identify the modpack.'
@@ -24,7 +83,7 @@ Assert-True ((Get-ReleaseIndexSha256 -Entry $releaseIndexEntries[1] -ReleaseBody
 $samplePackRow = New-ReleaseIndexRow -Config $config -Entry $releaseIndexEntries[0] -Version '1.2.3' -Url 'https://example.invalid/SerpsMods-v1.2.3.zip' -Commit '1234567890abcdef' -Sha256 ('a' * 64)
 $samplePackPrefix = "| SerpsMods (Modpack) | [1.2.3](https://example.invalid/SerpsMods-v1.2.3.zip) | $([char]0x2014) | [1234567]"
 Assert-True ($samplePackRow.StartsWith($samplePackPrefix)) 'The SerpsMods release-index row must link the ZIP directly and render no status badge.'
-$apiSharedPackage = Get-ValidatedApiSharedPackage -Config $config -MinimumVersion '0.3.0'
+$apiSharedPackage = Get-ValidatedApiSharedPackage -Config $config -MinimumVersion $highestApiSharedMinimum
 Assert-True ($apiSharedPackage.Directory -ceq (Join-Path $config.Root 'APIShared\BepInEx\plugins\APIShared_Serp')) 'Release builds must resolve the validated workspace APIShared package.'
 Assert-True (Test-Path -LiteralPath $apiSharedPackage.DllPath -PathType Leaf) 'The resolved workspace APIShared package must contain APIShared.dll.'
 $apiSharedSourceInfo = Get-Content -LiteralPath $apiSharedPackage.SourceInfoPath -Raw | ConvertFrom-Json

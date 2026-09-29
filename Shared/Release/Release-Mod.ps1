@@ -85,8 +85,9 @@ try {
         if ($null -ne $apiSharedPackage) {
             $env:SHCDE_API_SHARED_DIR = $apiSharedPackage.Directory
         }
-        $buildOutput = @(& $metadata.BuildBat /nopause 2>&1)
-        $buildExitCode = $LASTEXITCODE
+        $buildResult = Invoke-CheckedCommand -FilePath $metadata.BuildBat -Arguments @('/nopause') -AllowFailure
+        $buildOutput = @($buildResult.Output)
+        $buildExitCode = $buildResult.ExitCode
     } finally {
         if ($apiSharedEnvironmentWasDefined) {
             $env:SHCDE_API_SHARED_DIR = $previousApiSharedEnvironment
