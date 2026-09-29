@@ -40,7 +40,7 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.170";
+        public const string PluginVersion = "1.0.171";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static DamagedHealthBarsRuntime damagedHealthBarsRuntime;
@@ -238,6 +238,16 @@ namespace BugfixesAndQoL
             }
 
             InitializePersistentUiAndMapCallbacks();
+
+            try
+            {
+                SpectatorPerspectiveRuntime.Initialize(Logger, Settings);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(Logger,
+                    "Bugfixes and QoL spectator perspective could not initialize; other features remain available: " + ex);
+            }
 
             try
             {

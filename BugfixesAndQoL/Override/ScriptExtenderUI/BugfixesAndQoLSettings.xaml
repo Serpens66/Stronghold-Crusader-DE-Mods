@@ -463,6 +463,12 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableEliminatedPlayersBecomeSpectatorsText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-spectator-perspective" shared:ModSettingsSearch.Title="{Binding EnableSpectatorPerspectiveText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableSpectatorPerspectiveHelpText}"><CheckBox IsChecked="{Binding EnableSpectatorPerspective, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableSpectatorPerspectiveHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableSpectatorPerspectiveText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox></Grid>
       </StackPanel>
       <StackPanel shared:ModSettingsSearch.SectionKey="bugfixes.section.host-qol-ai-aiv" shared:ModSettingsSearch.SectionTitle="{Binding AiAivTitleText}">
       <Grid Style="{StaticResource ModSettingsSearchSectionGrid}" shared:ModSettingsSearch.IsSection="True"><TextBlock Text="{Binding AiAivTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/></Grid>

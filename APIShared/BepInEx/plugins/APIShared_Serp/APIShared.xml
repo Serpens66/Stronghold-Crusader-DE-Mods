@@ -772,6 +772,12 @@
         <member name="P:APIShared.AiNearbyPathEvidence.NearbyCells">
             <summary>Nearby coarse cells sampled around the search input.</summary>
         </member>
+        <member name="M:APIShared.AiNearbyPathEvidence.GetCapturedAnchor(System.Int32,System.Int32)">
+            <summary>Component-only pre-search snapshot for any coarse anchor.</summary>
+        </member>
+        <member name="M:APIShared.AiNearbyPathEvidence.GetCapturedCoarseCell(System.Int32,System.Int32)">
+            <summary>Raw 16-byte pre-search snapshot for any coarse cell.</summary>
+        </member>
         <member name="T:APIShared.AiBuildDiagnosticRecord">
             <summary>Read-only evidence from the native AI construction path.</summary>
         </member>

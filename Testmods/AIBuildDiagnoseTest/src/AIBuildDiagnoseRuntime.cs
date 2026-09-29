@@ -374,8 +374,14 @@ namespace AIBuildDiagnoseTest
             if (evidence == null) return null;
             foreach (AiPathTileSample sample in evidence.Anchors)
                 if (sample.X == x && sample.Y == y) return sample;
-            return null;
+            foreach (AiPathTileSample sample in evidence.Footprint)
+                if (sample.X == x && sample.Y == y) return sample;
+            if (x < 0 || y < 0 || x % 5 != 0 || y % 5 != 0) return null;
+            return evidence.GetCapturedAnchor(x / 5, y / 5);
         }
+
+        private static bool IsComparableAnchor(AiPathTileSample sample) =>
+            sample != null && (sample.Status == "ok" || sample.Status == "components-only");
 
         private static bool HasViewDifference(AiNearbyPathEvidence evidence)
         {
@@ -406,9 +412,11 @@ namespace AIBuildDiagnoseTest
             int y = after.ResultY * 5;
             AiPathTileSample preTarget = FindAnchor(before, x, y);
             AiPathTileSample postTarget = FindAnchor(after, x, y);
-            if (preTarget == null || postTarget == null ||
-                preTarget.Status != "ok" || postTarget.Status != "ok")
+            if (!IsComparableAnchor(preTarget) || !IsComparableAnchor(postTarget))
                 return "candidate-outside-measured-anchor-window";
+            if (preTarget.NativeComponent != preTarget.ApiComponent ||
+                postTarget.NativeComponent != postTarget.ApiComponent)
+                return "native-api-component-view-divergence";
             if (preTarget.NativeComponent != postTarget.NativeComponent)
                 return "component-changed-during-nearby-search";
             if (attempt.RouteEvidence != null && attempt.RouteEvidence.Status == "ok" &&
@@ -477,7 +485,10 @@ namespace AIBuildDiagnoseTest
         }
 
         private static string FormatSample(AiPathTileSample sample) => sample == null
-            ? "unobserved" : $"tile=({sample.X},{sample.Y}) id={sample.TileId} " +
+            ? "unobserved" : sample.Status == "components-only"
+            ? $"tile=({sample.X},{sample.Y}) native={sample.NativeComponent} api={sample.ApiComponent} " +
+              "tileLayers=unobserved status=components-only"
+            : $"tile=({sample.X},{sample.Y}) id={sample.TileId} " +
               $"native={sample.NativeComponent} api={sample.ApiComponent} " +
               $"rawFlags=0x{sample.PropertyFlags:X8} swamp={((sample.PropertyFlags & 0x20000000u) != 0)} " +
               $"wall={((sample.PropertyFlags & 0x100u) != 0)} type={sample.TileType} " +
@@ -488,7 +499,7 @@ namespace AIBuildDiagnoseTest
             if (evidence == null) return null;
             foreach (AiCoarseCellSample cell in evidence.NearbyCells)
                 if (cell.X == x && cell.Y == y) return cell;
-            return null;
+            return evidence.GetCapturedCoarseCell(x, y);
         }
 
         private static string FormatCoarse(AiCoarseCellSample cell) => cell == null

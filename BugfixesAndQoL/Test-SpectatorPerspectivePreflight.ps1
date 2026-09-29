@@ -1,7 +1,7 @@
 $ErrorActionPreference = 'Stop'
 $projectRoot = $PSScriptRoot
-$sourceFiles = @(Get-ChildItem -LiteralPath (Join-Path $projectRoot 'src') -Filter '*.cs' -File)
-$projectFile = Get-Item -LiteralPath (Join-Path $projectRoot 'SpectatorPerspectiveTest.csproj')
+$sourceFiles = @(Get-ChildItem -LiteralPath (Join-Path $projectRoot 'src') -Filter 'Spectator*.cs' -File)
+$projectFile = Get-Item -LiteralPath (Join-Path $projectRoot 'BugfixesAndQoL.csproj')
 $runtimeFiles = @($sourceFiles) + @($projectFile)
 $forbiddenJson = 'System\.Web\.Extensions|JavaScriptSerializer|System\.Text\.Json|Newtonsoft\.Json|DataContractJsonSerializer|JsonUtility'
 $forbiddenLifecycle = '\b(OnDestroy|OnDisable|OnApplicationQuit|Update|LateUpdate|FixedUpdate|StartCoroutine)\s*\('
@@ -12,18 +12,31 @@ foreach ($file in $runtimeFiles) {
     if ([regex]::IsMatch($body, $forbiddenLifecycle)) { throw "Forbidden lifecycle callback: $($file.FullName)" }
     if ([regex]::IsMatch($body, $forbiddenPatch)) { throw "Unexpected executable hook mutation: $($file.FullName)" }
 }
-$plugin = [IO.File]::ReadAllText((Join-Path $projectRoot 'src\SpectatorPerspectivePlugin.cs'))
+$plugin = [IO.File]::ReadAllText((Join-Path $projectRoot 'src\BugfixesAndQoLPlugin.cs'))
 if ($plugin -match '\bvoid\s+(Update|LateUpdate|FixedUpdate)\s*\(') { throw 'Plugin MonoBehaviour callback found.' }
 $runtime = [IO.File]::ReadAllText((Join-Path $projectRoot 'src\SpectatorPerspectiveRuntime.cs'))
+$missionStart = [regex]::Match($runtime, '(?s)private static void OnMissionStart\(MissionLifecycleNotification notification\).*?private static void OnMissionEnd\(').Value
+$mapReset = [regex]::Match($runtime, '(?s)private static void BeginMapLoad\(\).*?private static void ArmRenderIfNeeded\(').Value
+$advanceInitialization = [regex]::Match($runtime, '(?s)private static void AdvanceInitialization\(EngineInterface\.PlayState state\).*?private static bool TryRecognizeSavedSpectator\(').Value
+if (-not $missionStart -or $missionStart -notmatch 'initializationPending = true;' -or
+    $missionStart -match 'GameData\.Instance\?\.game_type' -or
+    $runtime -notmatch 'state != null && \(stateBeforeLoad == null \|\| !ReferenceEquals\(state, stateBeforeLoad\)\)' -or
+    $advanceInitialization -notmatch 'state\.game_type != \(int\)eGameTypeModes\.GAMETYPE_MULTIPLAYER' -or
+    $advanceInitialization -notmatch 'initializationPending = false;' -or
+    $advanceInitialization -notmatch 'loadedFromSave && TryRecognizeSavedSpectator\(state, out int view\)' -or
+    $mapReset -notmatch 'failureLogged = false;' -or
+    $mapReset -notmatch 'recoveryIdentityApplied = false;' -or
+    $runtime -notmatch 'if \(preparedSessionId != notification\.Context\.SessionId\) return;\s*BeginMapLoad\(\);') {
+    throw 'Fresh PlayState classification, ordinary-mission exit, save recovery or per-session error reset is incomplete.'
+}
 if ($runtime -notmatch 'Application\.onBeforeRender\s*\+=\s*OnPendingRender' -or
     $runtime -notmatch 'Application\.onBeforeRender\s*-=\s*OnPendingRender' -or
-    $runtime -notmatch 'SPECTATOR_PERSPECTIVE_RUNTIME_ALIVE' -or
     $runtime -match 'Application\.onBeforeRender\s*\+=\s*OnBeforeRender') {
-    throw 'Missing temporary post-cleanup render publisher, unsubscribe path or runtime marker.'
+    throw 'Missing temporary render publisher or unsubscribe path.'
 }
 if ($runtime -match 'MapLoaderR3EventHooks\.' -or
-    $runtime -notmatch 'ApiShared\.Current\.TryGetMissionLifecycle\(SpectatorPerspectivePlugin\.PluginGuid' -or
-    $runtime -notmatch 'lifecycle\.TryRegisterObserver\("SpectatorPerspectiveTest\.Session"' -or
+    $runtime -notmatch 'ApiShared\.Current\.TryGetMissionLifecycle\(BugfixesAndQoLPlugin\.PluginGuid' -or
+    $runtime -notmatch 'lifecycle\.TryRegisterObserver\("BugfixesAndQoL\.SpectatorPerspective"' -or
     $runtime -notmatch 'OnMissionStart, OnMissionEnd, OnMissionInitialization') {
     throw 'Spectator session lifecycle must be owned by APIShared.'
 }
@@ -37,7 +50,7 @@ if ($runtime -notmatch 'preparedSessionId == notification\.Context\.SessionId\) 
     $runtime -notmatch 'OnHudAvailable\(\)') {
     throw 'Session-deduplicated save load, delayed readiness or HUD recovery path missing.'
 }
-$bootstrap = [regex]::Match($runtime, '(?s)internal static void Initialize\(ManualLogSource logger\).*?private static void OnMissionInitialization\(').Value
+$bootstrap = [regex]::Match($runtime, '(?s)internal static void Initialize\(ManualLogSource logger, BugfixesAndQoLViewModel currentSettings\).*?private static void OnMissionInitialization\(').Value
 if (-not $bootstrap -or
     $bootstrap -notmatch 'RegisterModDataHandler\(' -or
     $bootstrap -notmatch 'SpectatorReportHooks\.Install\(\)' -or
@@ -48,10 +61,11 @@ if (-not $bootstrap -or
     $bootstrap -notmatch 'catch \(Exception error\)') {
     throw 'Incomplete bootstrap must not activate spectator switching.'
 }
-if ($runtime -notmatch 'return featureReady && mapReady && spectatorActive' -or
+if ($runtime -notmatch 'return featureReady && sessionEnabled && mapReady && spectatorActive' -or
     $runtime -notmatch 'return featureReady && state != null && state\.game_type == 3' -or
     $runtime -notmatch 'IsSpectatorActionRestricted\(\) => featureReady &&' -or
-    $runtime -notmatch 'int view = IsActiveSpectator\(\)' -or
+    $runtime -notmatch 'recoveryIdentityApplied \|\| IsActiveSpectator\(\) \|\| IsOriginalSpectator\(\)' -or
+    $runtime -notmatch 'int candidate = IsActiveSpectator\(\) \? selectedPlayer : PlayerPerspectiveAPI\.GetRawNativeViewPlayerId\(\)' -or
     $runtime -match 'UnregisterModDataHandler\(|UnpatchAll\(') {
     throw 'Partially installed hooks and save handler must remain dormant when bootstrap fails.'
 }
@@ -60,6 +74,25 @@ if ($runtime -notmatch 'PlayerPerspectiveAPI\.TrySetSpectatorView\(initialView\)
     $runtime -notmatch 'PlayerPerspectiveAPI\.ClearSpectatorView\(\)' -or
     $runtime -match 'EngineInterface\.SetEditorPlayer\(') {
     throw 'Spectator view changes must be owned by APIShared.'
+}
+$settings = [IO.File]::ReadAllText((Join-Path $projectRoot 'src\BugfixesAndQoLViewModel.cs'))
+$settingsXaml = [IO.File]::ReadAllText((Join-Path $projectRoot 'Override\ScriptExtenderUI\BugfixesAndQoLSettings.xaml'))
+if ($settings -notmatch 'private bool enableSpectatorPerspective = true;' -or
+    $settings -notmatch '\[SyncHostOnly\]\s*public bool EnableSpectatorPerspective' -or
+    $settings -notmatch 'EnableSpectatorPerspective = true;' -or
+    $settingsXaml -notmatch 'IsChecked="\{Binding EnableSpectatorPerspective, Mode=TwoWay\}"' -or
+    $runtime -notmatch 'sessionEnabled = settings\.EnableMod && settings\.EnableSpectatorPerspective;' -or
+    $runtime -notmatch 'if \(!sessionEnabled\) return;' -or
+    $runtime -notmatch 'featureReady && !GameModeHelper\.IsRealMultiplayer\(\)' -or
+    $plugin -notmatch 'SpectatorPerspectiveRuntime\.Initialize\(Logger, Settings\)') {
+    throw 'Host setting, disabled-session save safety or runtime bootstrap is incomplete.'
+}
+foreach ($culture in @('de-DE', 'en-US')) {
+    $locale = [IO.File]::ReadAllText((Join-Path $projectRoot ("Locales\" + $culture + '.txt')))
+    if ($locale -notmatch 'BugfixesAndQoL\.EnableSpectatorPerspective=' -or
+        $locale -notmatch 'BugfixesAndQoL\.EnableSpectatorPerspectiveHelp=') {
+        throw "Spectator host-setting localization missing: $culture"
+    }
 }
 $reportHooks = [IO.File]::ReadAllText((Join-Path $projectRoot 'src\SpectatorReportHooks.cs'))
 if ($reportHooks -notmatch 'ButtonReports' -or $reportHooks -notmatch 'ButtonChangeEdibleState' -or
@@ -123,7 +156,7 @@ if ($runtime -notmatch 'loadedFromSave && TryRecognizeSavedSpectator\(state, out
     $runtime -notmatch 'PlayerPerspectiveAPI\.GetRawNativeViewPlayerId\(\) != selectedPlayer' -or
     $runtime -notmatch 'cpuOnly \? state\.is_skirmish_player\(player\)' -or
     $runtime -notmatch 'IsSpectatorActionRestricted\(' -or
-    $runtime -notmatch 'SPECTATOR_SAVE_REJECTED' -or
+    $runtime -notmatch 'RestoreSavedViewWithoutExtensions\(savedView\)' -or
     $runtime -notmatch 'saveRecoveryStage = 0;' -or
     $runtime -match 'GameData\.Instance\.playerID\s*=') {
     throw 'Saved spectator recovery must be staged, roster-guarded and keep network identity unchanged.'
@@ -179,7 +212,7 @@ if ([IO.File]::ReadAllText($projectFile.FullName) -notmatch '0Harmony') {
     throw 'Installed Harmony reference missing.'
 }
 if ([IO.File]::ReadAllText($projectFile.FullName) -notmatch 'APIShared' -or
-    $plugin -notmatch 'BepInDependency\("APIShared_Serp", "0\.4\.6"\)') {
+    $plugin -notmatch 'BepInDependency\(ApiSharedGuid, "0\.4\.6"\)') {
     throw 'APIShared 0.4.6 dependency missing.'
 }
 if ([IO.File]::ReadAllText($projectFile.FullName) -notmatch '<AllowUnsafeBlocks>true</AllowUnsafeBlocks>') {
@@ -187,7 +220,7 @@ if ([IO.File]::ReadAllText($projectFile.FullName) -notmatch '<AllowUnsafeBlocks>
 }
 $textFiles = @($sourceFiles) + @($projectFile) + @(
     (Get-Item -LiteralPath (Join-Path $projectRoot 'build.bat')),
-    (Get-Item -LiteralPath (Join-Path $projectRoot 'Verify-SpectatorPerspective.ps1')),
+    (Get-Item -LiteralPath (Join-Path $projectRoot 'Test-SpectatorPerspectivePreflight.ps1')),
     (Get-Item -LiteralPath (Join-Path $projectRoot 'Test-SpectatorSavePolicy.ps1')),
     (Get-Item -LiteralPath (Join-Path $projectRoot 'info.json')),
     (Get-Item -LiteralPath (Join-Path $projectRoot 'Patches\Assets\GUI\XAML\IngameUIScreens.xaml'))
@@ -201,13 +234,16 @@ foreach ($file in $textFiles) {
 }
 [xml]$project = Get-Content -LiteralPath $projectFile.FullName -Raw
 $metadata = Get-Content -LiteralPath (Join-Path $projectRoot 'info.json') -Raw | ConvertFrom-Json
-if ($metadata.GUID -ne 'SpectatorPerspectiveTest_Serp' -or $metadata.Version -ne '0.1.0') { throw 'Mod metadata mismatch.' }
+if ($metadata.GUID -ne 'BugfixesAndQoL_Serp' -or $metadata.Version -ne '1.0.171') { throw 'Mod metadata mismatch.' }
 if ($metadata.NetworkMode -ne 1) { throw 'Gameplay-affecting ally actions require NetworkMode=1.' }
 $patchPath = Join-Path $projectRoot 'Patches\Assets\GUI\XAML\IngameUIScreens.xaml'
 [xml]$patch = Get-Content -LiteralPath $patchPath -Raw
 $contents = @($patch.SelectNodes('/Patch/Operation/Content'))
-if ($contents.Count -ne 1) { throw 'Expected exactly one XAML Content node.' }
-$elements = @($contents[0].ChildNodes | Where-Object { $_.NodeType -eq [Xml.XmlNodeType]::Element })
+if ($contents.Count -ne 2) { throw 'Expected ForeignTroopHud and spectator XAML operations.' }
+if ($patch.OuterXml -notmatch 'ForeignTroopHudPanel') { throw 'Existing ForeignTroopHud XAML was lost.' }
+$spectatorContent = @($contents | Where-Object { $_.OuterXml -match 'SpectatorPerspectiveCanvas' })
+if ($spectatorContent.Count -ne 1) { throw 'Expected one spectator XAML operation.' }
+$elements = @($spectatorContent[0].ChildNodes | Where-Object { $_.NodeType -eq [Xml.XmlNodeType]::Element })
 if ($elements.Count -ne 1) { throw 'XAML Content must have exactly one direct root element.' }
 $canvas = $elements[0]
 if ($canvas.LocalName -ne 'Canvas' -or
@@ -217,4 +253,4 @@ if ($canvas.LocalName -ne 'Canvas' -or
     $canvas.OuterXml -match 'Zuschauer|▶') {
     throw 'Compact HUD XAML must contain a drag strip and eight number-only player buttons.'
 }
-Write-Output 'SpectatorPerspectiveTest preflight passed: JSON, lifecycle, permanent hooks, publisher, CRLF, project, metadata and XAML root.'
+Write-Output 'BugfixesAndQoL spectator perspective preflight passed: JSON, lifecycle, permanent hooks, publisher, CRLF, project, metadata and XAML root.'

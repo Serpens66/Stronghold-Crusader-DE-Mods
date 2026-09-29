@@ -10,14 +10,16 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using UnityEngine;
 
-namespace SpectatorPerspectiveTest
+namespace BugfixesAndQoL
 {
     internal static class SpectatorPerspectiveRuntime
     {
         private static ManualLogSource log;
+        private static BugfixesAndQoLViewModel settings;
         private static SpectatorPerspectiveHud hud;
         private static bool initialized;
         private static bool featureReady;
+        private static bool sessionEnabled;
         private static long preparedSessionId;
         private static bool mapReady;
         private static bool loadedFromSave;
@@ -29,7 +31,6 @@ namespace SpectatorPerspectiveTest
         private static bool hudPending;
         private static bool resetHudPending;
         private static bool renderSubscribed;
-        private static bool readyLogged;
         private static bool failureLogged;
         private static bool cameraFailureLogged;
         private static int selectedPlayer;
@@ -40,20 +41,21 @@ namespace SpectatorPerspectiveTest
         private static EngineInterface.PlayState stateBeforeLoad;
         private static EngineInterface.PlayState reportStateBeforeSwitch;
         private static EngineInterface.PlayState alliesStateBeforeSwitch;
-        private static Grid hiddenReportPanel;
+        private static Noesis.Grid hiddenReportPanel;
         private static Visibility reportPanelVisibility;
         private static HUD_AlliesPanel hiddenAlliesPanel;
         private static Visibility alliesPanelVisibility;
-        private static Grid guardedFoodPanel;
+        private static Noesis.Grid guardedFoodPanel;
         private static readonly Button[] guardedFoodButtons = new Button[4];
         private static readonly bool[] foodButtonHitTestBeforeGuard = new bool[4];
         private static readonly string[] foodButtonNames = { "EatingMeat", "EatingCheese", "EatingBread", "EatingApples" };
 
-        internal static void Initialize(ManualLogSource logger)
+        internal static void Initialize(ManualLogSource logger, BugfixesAndQoLViewModel currentSettings)
         {
             if (initialized) return;
             initialized = true;
             log = logger;
+            settings = currentSettings ?? throw new ArgumentNullException(nameof(currentSettings));
             hud = new SpectatorPerspectiveHud(SelectPlayer, JumpToPlayer, OnHudUnavailable,
                 OnHudAvailable, OnBriefingChanged);
             try
@@ -63,10 +65,10 @@ namespace SpectatorPerspectiveTest
                     throw new InvalidOperationException("Spectator save-data handler already registered.");
                 SpectatorReportHooks.Install();
                 SpectatorAllyHooks.Install();
-                if (!ApiShared.Current.TryGetMissionLifecycle(SpectatorPerspectivePlugin.PluginGuid,
+                if (!ApiShared.Current.TryGetMissionLifecycle(BugfixesAndQoLPlugin.PluginGuid,
                     out IMissionLifecycleCapability lifecycle, out NativeCapabilityDiagnostic diagnostic))
                     throw new InvalidOperationException("Mission lifecycle unavailable: " + diagnostic?.Reason);
-                if (!lifecycle.TryRegisterObserver("SpectatorPerspectiveTest.Session",
+                if (!lifecycle.TryRegisterObserver("BugfixesAndQoL.SpectatorPerspective",
                     OnMissionStart, OnMissionEnd, OnMissionInitialization, out diagnostic))
                     throw new InvalidOperationException("Mission lifecycle registration failed: " + diagnostic?.Reason);
                 featureReady = true;
@@ -96,9 +98,11 @@ namespace SpectatorPerspectiveTest
         {
             if (preparedSessionId != notification.Context.SessionId)
                 PrepareSession(notification.Context.SessionId);
+            sessionEnabled = settings.EnableMod && settings.EnableSpectatorPerspective;
             mapReady = true;
             loadedFromSave = notification.Context.IsSave;
-            initializationPending = GameData.Instance?.game_type == 3;
+            // The managed game type can still be stale here. Decide from the first fresh PlayState.
+            initializationPending = true;
             pendingSince = Time.realtimeSinceStartup;
             ArmRenderIfNeeded();
         }
@@ -118,6 +122,7 @@ namespace SpectatorPerspectiveTest
             RestoreFoodControls();
             SpectatorAllyHooks.RestoreControls();
             mapReady = false;
+            sessionEnabled = false;
             loadedFromSave = false;
             saveRecoveryStage = 0;
             savedView = 0;
@@ -127,6 +132,7 @@ namespace SpectatorPerspectiveTest
             hudPending = false;
             selectedPlayer = 0;
             selectedName = null;
+            failureLogged = false;
             cameraFailureLogged = false;
             occupiedSlots = null;
             stateBeforeLoad = null;
@@ -166,11 +172,6 @@ namespace SpectatorPerspectiveTest
                     var state = GameData.Instance?.lastGameState;
                     if (state != null && (stateBeforeLoad == null || !ReferenceEquals(state, stateBeforeLoad)))
                     {
-                        if (!readyLogged)
-                        {
-                            readyLogged = true;
-                            log.LogInfo("SPECTATOR_PERSPECTIVE_RUNTIME_ALIVE: temporary render readiness callback executed after startup cleanup.");
-                        }
                         AdvanceInitialization(state);
                         if (!initializationPending) stateBeforeLoad = null;
                     }
@@ -235,7 +236,8 @@ namespace SpectatorPerspectiveTest
             {
                 stateBeforeLoad = state;
                 if (state.spectatorMode == 0) return;
-                if (!InitializePerspective(state, savedView, true))
+                if (sessionEnabled ? !InitializePerspective(state, savedView, true) :
+                    !RestoreSavedViewWithoutExtensions(savedView))
                 {
                     initializationPending = false;
                     saveRecoveryStage = 0;
@@ -251,6 +253,7 @@ namespace SpectatorPerspectiveTest
                     return;
                 saveRecoveryStage = 0;
                 initializationPending = false;
+                if (!sessionEnabled) return;
                 spectatorActive = true;
                 hudPending = true;
                 CacheSelectedName();
@@ -270,7 +273,7 @@ namespace SpectatorPerspectiveTest
                 pendingSince = Time.realtimeSinceStartup;
                 return;
             }
-            if (state.spectatorMode != 0 && EditorDirector.instance.ActivePlayerID <= 0)
+            if (sessionEnabled && state.spectatorMode != 0 && EditorDirector.instance.ActivePlayerID <= 0)
             {
                 if (InitializePerspective(state, 0, false))
                 {
@@ -306,18 +309,30 @@ namespace SpectatorPerspectiveTest
             else
                 recognized = SpectatorSavePolicy.TryRecognize(state.player_register, state.computer_register,
                     realMultiplayer, rawView, out view, out reason);
-            if (!recognized && !realMultiplayer && reason != "human registration present")
-                log.LogDebug($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] SPECTATOR_SAVE_REJECTED: {reason}.");
             return recognized;
+        }
+
+        private static bool RestoreSavedViewWithoutExtensions(int view)
+        {
+            if (PlayerPerspectiveAPI.TrySetSpectatorView(view))
+            {
+                selectedPlayer = view;
+                return true;
+            }
+            log.LogError("SPECTATOR_SAVE_RESTORE_FAILED: APIShared rejected the saved CPU view.");
+            return false;
         }
 
         private static byte[] SaveSpectatorMarker(SaveContext context)
         {
             if (context == null || !context.IsSaveFile || context.IsMapEditorSave) return null;
             var state = GameData.Instance?.lastGameState;
-            int view = IsActiveSpectator() && !GameModeHelper.IsRealMultiplayer() &&
-                state != null && state.is_skirmish_player(selectedPlayer) &&
-                !state.is_valid_player(selectedPlayer) ? selectedPlayer : 0;
+            int candidate = IsActiveSpectator() ? selectedPlayer : PlayerPerspectiveAPI.GetRawNativeViewPlayerId();
+            int view = featureReady && !GameModeHelper.IsRealMultiplayer() &&
+                state != null && state.spectatorMode != 0 &&
+                EditorDirector.instance != null && EditorDirector.instance.ActivePlayerID <= 0 &&
+                candidate >= 1 && candidate <= 8 && state.is_skirmish_player(candidate) &&
+                !state.is_valid_player(candidate) ? candidate : 0;
             // Write an explicit non-spectator marker when an existing save archive is overwritten.
             return SpectatorSaveMarker.Encode(view);
         }
@@ -351,12 +366,19 @@ namespace SpectatorPerspectiveTest
         }
 
         internal static bool IsSpectatorActionRestricted() => featureReady &&
-            (recoveryIdentityApplied || IsActiveSpectator());
+            (recoveryIdentityApplied || IsActiveSpectator() || IsOriginalSpectator());
+
+        private static bool IsOriginalSpectator()
+        {
+            var state = GameData.Instance?.lastGameState;
+            return mapReady && state != null && state.game_type == 3 && state.spectatorMode != 0 &&
+                   EditorDirector.instance != null && EditorDirector.instance.ActivePlayerID <= 0;
+        }
 
         internal static bool IsActiveSpectator()
         {
             var state = GameData.Instance?.lastGameState;
-            return featureReady && mapReady && spectatorActive && selectedPlayer > 0 && state != null &&
+            return featureReady && sessionEnabled && mapReady && spectatorActive && selectedPlayer > 0 && state != null &&
                    state.game_type == 3 && state.spectatorMode != 0 &&
                    EditorDirector.instance != null && EditorDirector.instance.ActivePlayerID <= 0;
         }
@@ -365,9 +387,6 @@ namespace SpectatorPerspectiveTest
         {
             return IsActiveSpectator() ? selectedPlayer : data.playerID;
         }
-
-        // The future host setting replaces this one constant decision.
-        private static bool AllyInteractionAllowed => true;
 
         internal static bool IsNetworkSpectator()
         {
@@ -379,7 +398,7 @@ namespace SpectatorPerspectiveTest
         internal static bool CanInteractWithAllies()
         {
             var state = GameData.Instance?.lastGameState;
-            return IsActiveSpectator() && AllyInteractionAllowed && !GameModeHelper.IsRealMultiplayer() && state != null &&
+            return IsActiveSpectator() && !GameModeHelper.IsRealMultiplayer() && state != null &&
                    state.is_skirmish_player(selectedPlayer) && !state.is_valid_player(selectedPlayer) &&
                    EngineInterface.GetMeritData()[selectedPlayer, 1] >= 0;
         }
@@ -406,7 +425,7 @@ namespace SpectatorPerspectiveTest
         {
             name = selectedName;
             var state = GameData.Instance?.lastGameState;
-            return mapReady && spectatorActive && name != null && state != null &&
+            return IsActiveSpectator() && name != null && state != null &&
                    state.app_mode == 16 && state.app_sub_mode == 71;
         }
 

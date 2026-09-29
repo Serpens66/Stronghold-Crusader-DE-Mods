@@ -194,4 +194,70 @@
       </Canvas>
     </Content>
   </Operation>
+  <Operation Type="Add" XPath="/n:UserControl/n:Grid">
+    <Content>
+      <Canvas x:Name="SpectatorPerspectiveCanvas" Grid.Row="0" Grid.RowSpan="4" Grid.Column="0" Grid.ColumnSpan="4"
+              HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Panel.ZIndex="10030">
+        <Canvas.Resources>
+          <Style x:Key="SpectatorPerspectiveButtonStyle" TargetType="{x:Type Button}">
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Background" Value="#780F0C0A"/>
+            <Setter Property="BorderBrush" Value="#B072241C"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Template">
+              <Setter.Value>
+                <ControlTemplate TargetType="{x:Type Button}">
+                  <Border x:Name="ButtonFace" Background="{TemplateBinding Background}"
+                          BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
+                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                  </Border>
+                  <ControlTemplate.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True">
+                      <Setter TargetName="ButtonFace" Property="Background" Value="#A04A2118"/>
+                    </Trigger>
+                  </ControlTemplate.Triggers>
+                </ControlTemplate>
+              </Setter.Value>
+            </Setter>
+          </Style>
+          <Style x:Key="SpectatorPerspectiveNumberStyle" TargetType="{x:Type TextBlock}">
+            <Setter Property="FontSize" Value="19"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Effect">
+              <Setter.Value>
+                <DropShadowEffect Color="Black" ShadowDepth="0" BlurRadius="2" Opacity="1"/>
+              </Setter.Value>
+            </Setter>
+          </Style>
+        </Canvas.Resources>
+        <Border x:Name="SpectatorPerspectiveBar" Width="284" Height="46" Background="#760C0907"
+                BorderBrush="#D0000000" BorderThickness="2"
+                Visibility="Collapsed" Canvas.Left="0" Canvas.Top="0">
+          <Border Background="#540A0807" BorderBrush="#CC7B1714" BorderThickness="2">
+            <Border Background="#540A0807" BorderBrush="#CC000000" BorderThickness="1">
+              <Grid>
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="8"/>
+                  <RowDefinition Height="28"/>
+                </Grid.RowDefinitions>
+                <Border x:Name="SpectatorPerspectiveDrag" Grid.Row="0" Background="#AA6F1712" Cursor="SizeAll"/>
+                <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center">
+                  <Button x:Name="SpectatorPerspectivePlayer1" Width="32" Height="28" Margin="1,0" Style="{StaticResource SpectatorPerspectiveButtonStyle}"><TextBlock x:Name="SpectatorPerspectiveNumber1" Text="1" Style="{StaticResource SpectatorPerspectiveNumberStyle}"/></Button>
+                  <Button x:Name="SpectatorPerspectivePlayer2" Width="32" Height="28" Margin="1,0" Style="{StaticResource SpectatorPerspectiveButtonStyle}"><TextBlock x:Name="SpectatorPerspectiveNumber2" Text="2" Style="{StaticResource SpectatorPerspectiveNumberStyle}"/></Button>
+                  <Button x:Name="SpectatorPerspectivePlayer3" Width="32" Height="28" Margin="1,0" Style="{StaticResource SpectatorPerspectiveButtonStyle}"><TextBlock x:Name="SpectatorPerspectiveNumber3" Text="3" Style="{StaticResource SpectatorPerspectiveNumberStyle}"/></Button>
+                  <Button x:Name="SpectatorPerspectivePlayer4" Width="32" Height="28" Margin="1,0" Style="{StaticResource SpectatorPerspectiveButtonStyle}"><TextBlock x:Name="SpectatorPerspectiveNumber4" Text="4" Style="{StaticResource SpectatorPerspectiveNumberStyle}"/></Button>
+                  <Button x:Name="SpectatorPerspectivePlayer5" Width="32" Height="28" Margin="1,0" Style="{StaticResource SpectatorPerspectiveButtonStyle}"><TextBlock x:Name="SpectatorPerspectiveNumber5" Text="5" Style="{StaticResource SpectatorPerspectiveNumberStyle}"/></Button>
+                  <Button x:Name="SpectatorPerspectivePlayer6" Width="32" Height="28" Margin="1,0" Style="{StaticResource SpectatorPerspectiveButtonStyle}"><TextBlock x:Name="SpectatorPerspectiveNumber6" Text="6" Style="{StaticResource SpectatorPerspectiveNumberStyle}"/></Button>
+                  <Button x:Name="SpectatorPerspectivePlayer7" Width="32" Height="28" Margin="1,0" Style="{StaticResource SpectatorPerspectiveButtonStyle}"><TextBlock x:Name="SpectatorPerspectiveNumber7" Text="7" Style="{StaticResource SpectatorPerspectiveNumberStyle}"/></Button>
+                  <Button x:Name="SpectatorPerspectivePlayer8" Width="32" Height="28" Margin="1,0" Style="{StaticResource SpectatorPerspectiveButtonStyle}"><TextBlock x:Name="SpectatorPerspectiveNumber8" Text="8" Style="{StaticResource SpectatorPerspectiveNumberStyle}"/></Button>
+                </StackPanel>
+              </Grid>
+            </Border>
+          </Border>
+        </Border>
+      </Canvas>
+    </Content>
+  </Operation>
 </Patch>

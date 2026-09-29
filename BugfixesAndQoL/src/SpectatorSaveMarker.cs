@@ -1,4 +1,4 @@
-namespace SpectatorPerspectiveTest
+namespace BugfixesAndQoL
 {
     // ModSaveDataAPI names archive entries with a .msgpack suffix, but accepts arbitrary bytes.
     internal static class SpectatorSaveMarker

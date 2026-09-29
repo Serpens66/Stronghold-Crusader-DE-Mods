@@ -5,7 +5,14 @@ $sourceFiles = @(Get-ChildItem -LiteralPath (Join-Path $project 'src') -Filter '
 $projectFile = Join-Path $project 'AIBuildDiagnoseTest.csproj'
 $native = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll'
 $expectedHash = 'FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2'
-if ((Get-FileHash -LiteralPath $native -Algorithm SHA256).Hash -ne $expectedHash) {
+$nativeStream = [IO.File]::OpenRead($native)
+try {
+    $sha256 = [Security.Cryptography.SHA256]::Create()
+    try { $actualHash = [BitConverter]::ToString($sha256.ComputeHash($nativeStream)).Replace('-', '') }
+    finally { $sha256.Dispose() }
+}
+finally { $nativeStream.Dispose() }
+if (-not [string]::Equals($actualHash, $expectedHash, [StringComparison]::OrdinalIgnoreCase)) {
     throw 'Installed native DLL differs from the audited woodcutter build.'
 }
 $functions = Join-Path $workspace '_inspect\CrusaderDE-Native-Baseline\sem\FBCB9319\exports\semantic-functions.jsonl'

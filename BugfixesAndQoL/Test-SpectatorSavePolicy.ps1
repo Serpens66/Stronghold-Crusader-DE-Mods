@@ -3,9 +3,9 @@ $policyPath = Join-Path $PSScriptRoot 'src\SpectatorSavePolicy.cs'
 $markerPath = Join-Path $PSScriptRoot 'src\SpectatorSaveMarker.cs'
 $types = @(Add-Type -Path @($policyPath, $markerPath) -PassThru -WarningAction SilentlyContinue)
 $policyType = $types |
-    Where-Object FullName -eq 'SpectatorPerspectiveTest.SpectatorSavePolicy'
+    Where-Object FullName -eq 'BugfixesAndQoL.SpectatorSavePolicy'
 $markerType = $types |
-    Where-Object FullName -eq 'SpectatorPerspectiveTest.SpectatorSaveMarker'
+    Where-Object FullName -eq 'BugfixesAndQoL.SpectatorSaveMarker'
 $method = $policyType.GetMethod('TryRecognize',
     [Reflection.BindingFlags]::NonPublic -bor [Reflection.BindingFlags]::Static)
 $markedMethod = $policyType.GetMethod('TryRecognizeMarked',

@@ -5,11 +5,11 @@ using System.Reflection.Emit;
 using CrusaderDE;
 using HarmonyLib;
 
-namespace SpectatorPerspectiveTest
+namespace BugfixesAndQoL
 {
     internal static class SpectatorReportHooks
     {
-        private static readonly Harmony harmony = new Harmony("SpectatorPerspectiveTest_Serp.Reports");
+        private static readonly Harmony harmony = new Harmony("BugfixesAndQoL_Serp.SpectatorReports");
         private static readonly FieldInfo freezeField = AccessTools.Field(typeof(MainViewModel), nameof(MainViewModel.FreezeMainControls));
         private static readonly MethodInfo forceArmyMethod = AccessTools.Method(typeof(SpectatorReportHooks), nameof(ShouldForceArmy));
         private static bool installed;

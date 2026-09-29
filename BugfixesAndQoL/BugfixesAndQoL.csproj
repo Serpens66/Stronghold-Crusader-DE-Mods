@@ -8,8 +8,8 @@
     <OutputType>Library</OutputType>
     <RootNamespace>BugfixesAndQoL</RootNamespace>
     <AssemblyName>BugfixesAndQoL</AssemblyName>
-    <AssemblyVersion>1.0.170.0</AssemblyVersion>
-    <FileVersion>1.0.170.0</FileVersion>
+    <AssemblyVersion>1.0.171.0</AssemblyVersion>
+    <FileVersion>1.0.171.0</FileVersion>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -31,6 +31,7 @@
   <ItemGroup>
     <Reference Include="System" /><Reference Include="System.Core" /><Reference Include="System.Xml" /><Reference Include="System.Xml.Linq" />
     <Reference Include="BepInEx"><HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="0Harmony"><HintPath>$(GameDir)\BepInEx\core\0Harmony.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="APIShared"><HintPath>$(ApiSharedDir)\APIShared.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Mono.Cecil"><HintPath>$(GameDir)\BepInEx\core\Mono.Cecil.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="MonoMod.RuntimeDetour"><HintPath>$(GameDir)\BepInEx\core\MonoMod.RuntimeDetour.dll</HintPath><Private>false</Private></Reference>
@@ -285,6 +286,12 @@
     <Compile Include="src\ShiftRepairAllBuildingsHook.cs" />
     <Compile Include="src\ShiftRepairAllBuildingsPolicy.cs" />
     <Compile Include="src\SurrenderFeature.cs" />
+    <Compile Include="src\SpectatorPerspectiveRuntime.cs" />
+    <Compile Include="src\SpectatorPerspectiveHud.cs" />
+    <Compile Include="src\SpectatorReportHooks.cs" />
+    <Compile Include="src\SpectatorAllyHooks.cs" />
+    <Compile Include="src\SpectatorSavePolicy.cs" />
+    <Compile Include="src\SpectatorSaveMarker.cs" />
     <Compile Include="src\SurrenderSelectionCleanup.cs" />
     <Compile Include="src\SurrenderPackets.cs" />
     <Compile Include="src\SurrenderPolicy.cs" />
@@ -311,6 +318,7 @@
     <Content Include="Patches\Assets\GUI\XAMLResources\HUD_Objectives.xaml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
     <Content Include="Patches\Assets\GUI\XAMLResources\HUD_Briefing.xaml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
     <Content Include="Patches\Assets\GUI\XAMLResources\OST_StartingGoods.xaml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
+    <Content Include="Patches\Assets\GUI\XAML\IngameUIScreens.xaml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
   </ItemGroup>
   <ItemGroup>
     <Reference Include="MessagePack"><HintPath>$(ExtenderDir)\MessagePack.dll</HintPath><Private>false</Private></Reference>

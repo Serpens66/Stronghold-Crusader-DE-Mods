@@ -55,6 +55,7 @@ namespace BugfixesAndQoL
         private bool enableSurrenderAndStatistics = true;
         private bool enableLordUnitControls = true;
         private bool enableEliminatedPlayersBecomeSpectators = true;
+        private bool enableSpectatorPerspective = true;
         private bool enableAbruptHostMigrationFix = true;
         private bool enableConnectionRecoverySave = true;
         private bool enableResyncHostKick = true;
@@ -403,6 +404,8 @@ namespace BugfixesAndQoL
         public string EnableLordUnitControlsHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableLordUnitControlsHelp");
         public string EnableEliminatedPlayersBecomeSpectatorsText => SerpLocalization.Get("BugfixesAndQoL.EnableEliminatedPlayersBecomeSpectators");
         public string EnableEliminatedPlayersBecomeSpectatorsHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableEliminatedPlayersBecomeSpectatorsHelp");
+        public string EnableSpectatorPerspectiveText => SerpLocalization.Get("BugfixesAndQoL.EnableSpectatorPerspective");
+        public string EnableSpectatorPerspectiveHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableSpectatorPerspectiveHelp");
         public string EnableCustomTrailExtremeGoldFixText => SerpLocalization.Get("BugfixesAndQoL.EnableCustomTrailExtremeGoldFix");
         public string EnableCustomTrailExtremeGoldFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableCustomTrailExtremeGoldFixHelp");
         public string EnableTrailCustomizationButtonsText => SerpLocalization.Get(SerpLocalization.EnableTrailCustomizationButtons);
@@ -1222,6 +1225,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableSpectatorPerspective
+        {
+            get => enableSpectatorPerspective;
+            set => SetSetting(ref enableSpectatorPerspective, value, nameof(EnableSpectatorPerspective));
+        }
+
+        [SyncHostOnly]
         public bool EnableAbruptHostMigrationFix
         {
             get => enableAbruptHostMigrationFix;
@@ -1372,6 +1382,7 @@ namespace BugfixesAndQoL
                 EnableSurrenderAndStatistics = true;
                 EnableLordUnitControls = true;
                 EnableEliminatedPlayersBecomeSpectators = true;
+                EnableSpectatorPerspective = true;
                 EnableAbruptHostMigrationFix = true;
                 EnableConnectionRecoverySave = true;
                 EnableResyncHostKick = true;

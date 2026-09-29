@@ -3,7 +3,7 @@ using System.ComponentModel;
 using CrusaderDE;
 using Noesis;
 
-namespace SpectatorPerspectiveTest
+namespace BugfixesAndQoL
 {
     internal sealed class SpectatorPerspectiveHud
     {

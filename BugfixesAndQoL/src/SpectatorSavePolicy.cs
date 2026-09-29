@@ -1,4 +1,4 @@
-namespace SpectatorPerspectiveTest
+namespace BugfixesAndQoL
 {
     // Keep the save decision independent of Unity so every ambiguous roster can be tested.
     internal static class SpectatorSavePolicy

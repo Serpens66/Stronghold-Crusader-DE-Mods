@@ -6,11 +6,11 @@ using CrusaderDE;
 using HarmonyLib;
 using Noesis;
 
-namespace SpectatorPerspectiveTest
+namespace BugfixesAndQoL
 {
     internal static class SpectatorAllyHooks
     {
-        private static readonly Harmony harmony = new Harmony("SpectatorPerspectiveTest_Serp.Allies");
+        private static readonly Harmony harmony = new Harmony("BugfixesAndQoL_Serp.SpectatorAllies");
         private static readonly MethodInfo playerIdGetter = AccessTools.PropertyGetter(typeof(GameData), nameof(GameData.playerID));
         private static readonly MethodInfo viewPlayerGetter = AccessTools.Method(typeof(SpectatorAllyHooks), nameof(GetViewPlayerId));
         private static readonly MethodInfo panelOpen = AccessTools.Method(typeof(HUD_AlliesPanel), "Open", Type.EmptyTypes);
