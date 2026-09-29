@@ -48,8 +48,10 @@ namespace AIBuildDiagnoseTest
                 sessionSubscription = candidateSession;
                 runtime = candidate;
                 Shared.DebugLogHelper.LogInfo(log,
-                    "AI_BUILD_DIAGNOSTIC_READY: publisher=GameTimeManagerAPI.OnTick; nativeObserver=" +
-                    AiBuildDiagnostic.HasObserver + ".");
+                    "AI_BUILD_DIAGNOSTIC_READY: publisher=GameTimeManagerAPI.OnTick; " +
+                    "observer=" + AiBuildDiagnostic.HasObserver +
+                    ", schedulerHook=" + AiBuildDiagnostic.SchedulerReady +
+                    ", routeHook=" + AiBuildDiagnostic.RouteReady + ".");
             }
             catch (Exception ex)
             {

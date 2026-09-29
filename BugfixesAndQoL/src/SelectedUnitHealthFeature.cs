@@ -8,8 +8,8 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using SHCDESE.ViewModels;
 using System;
+using System.Collections.Generic;
 using System.Reflection;
-using UnityEngine;
 
 namespace BugfixesAndQoL
 {
@@ -184,7 +184,7 @@ namespace BugfixesAndQoL
         }
     }
 
-    internal sealed unsafe class SelectedUnitHealthFeature : IDisposable
+    internal sealed unsafe class SelectedUnitHealthFeature
     {
         private static readonly FieldInfo SelectedChimpArrayField = typeof(HUD_Troops).GetField(
             "SelectedChimpArray",
@@ -203,9 +203,9 @@ namespace BugfixesAndQoL
             new SelectedUnitHealthSummary[(int)eChimps.CHIMP_NUM_TYPES];
         private readonly int[] visibleTypes =
             new int[SelectedUnitHealthPageLayout.SlotCount];
-        private int lastFrame = -1;
-        private bool callbackErrorLogged;
-        private bool disposed;
+        private readonly HashSet<int> customIds = new HashSet<int>();
+        private readonly SelectedUnitHealthSummary[] slotSummaries =
+            new SelectedUnitHealthSummary[SelectedUnitHealthPageLayout.SlotCount];
         private string lastEditorVisibilityDiagnostic;
 
         public SelectedUnitHealthFeature(
@@ -218,8 +218,6 @@ namespace BugfixesAndQoL
             this.getPresentation = getPresentation;
             ViewModel = new SelectedUnitHealthViewModel();
 
-            // The BepInEx component is short-lived, but this static Unity event remains available in game.
-            Application.onBeforeRender += OnBeforeRender;
         }
 
         public SelectedUnitHealthViewModel ViewModel { get; }
@@ -230,39 +228,9 @@ namespace BugfixesAndQoL
                 ViewModel.Hide();
         }
 
-        public void Dispose()
-        {
-            if (disposed)
-                return;
-            disposed = true;
-            Application.onBeforeRender -= OnBeforeRender;
-            ViewModel.Hide();
-        }
+        internal void Hide() => ViewModel.Hide();
 
-        private void OnBeforeRender()
-        {
-            if (disposed || lastFrame == Time.frameCount)
-                return;
-            lastFrame = Time.frameCount;
-
-            try
-            {
-                Refresh();
-            }
-            catch (Exception ex)
-            {
-                ViewModel.Hide();
-                if (!callbackErrorLogged)
-                {
-                    callbackErrorLogged = true;
-                    Shared.DebugLogHelper.LogError(
-                        log,
-                        $"Bugfixes and QoL selected-unit health refresh failed; the display remains hidden: {ex}");
-                }
-            }
-        }
-
-        private void Refresh()
+        internal void Refresh()
         {
             MainViewModel mainViewModel = MainViewModel.Instance;
             HUD_Troops troopPanel = mainViewModel?.HUDTroopPanel;
@@ -298,8 +266,15 @@ namespace BugfixesAndQoL
                 return;
             }
 
-            Array.Clear(summaries, 0, summaries.Length);
             int count = Math.Min(selectedCount, state.selectedChimps.Length);
+            IUnitHudPresentationCapability presentation = getPresentation?.Invoke();
+            if (presentation != null && TryShowApiSlots(presentation, state, count, mapEditor, controlledPlayerId))
+            {
+                LogEditorVisibilityState(mapEditor, $"visible via APIShared: selectedUnits={selectedCount}, playerId={controlledPlayerId}");
+                return;
+            }
+
+            Array.Clear(summaries, 0, summaries.Length);
             int eligibleCount = 0;
             GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
             for (int i = 0; i < count; i++)
@@ -339,12 +314,6 @@ namespace BugfixesAndQoL
                 excludedType = (int)eChimps.CHIMP_TYPE_LORD;
             }
             int currentPage = (int)CurrentPageField.GetValue(troopPanel);
-            IUnitHudPresentationCapability presentation = getPresentation?.Invoke();
-            if (presentation != null && TryShowApiSlots(presentation, state, count, mapEditor, controlledPlayerId))
-            {
-                LogEditorVisibilityState(mapEditor, $"visible via APIShared: selectedUnits={selectedCount}, playerId={controlledPlayerId}");
-                return;
-            }
             SelectedUnitHealthPageLayout.FillVisibleTypes(
                 selectedTypeCounts,
                 currentPage,
@@ -358,10 +327,10 @@ namespace BugfixesAndQoL
         {
             var slots = presentation.GetVisibleTroopSlots();
             if (slots == null || slots.Count == 0) return false;
-            var customIds = new System.Collections.Generic.HashSet<int>();
+            customIds.Clear();
             foreach (UnitHudCategorySnapshot category in presentation.GetSelectedCategories())
                 foreach (UnitHudUnitSnapshot unit in category.Units) customIds.Add(unit.GameId);
-            var slotSummaries = new SelectedUnitHealthSummary[SelectedUnitHealthPageLayout.SlotCount];
+            Array.Clear(slotSummaries, 0, slotSummaries.Length);
             GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
             foreach (UnitHudSlotSnapshot slot in slots)
             {

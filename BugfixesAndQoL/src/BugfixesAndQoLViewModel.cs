@@ -103,6 +103,7 @@ namespace BugfixesAndQoL
         private readonly LocalPerPlayerSetting<bool> enableEnemyProximityBulldozeCursorFix = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> enableIngameSteamInvitePrompt = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> showSelectedUnitHealth = new LocalPerPlayerSetting<bool>(true);
+        private readonly LocalPerPlayerSetting<bool> showForeignTroopHud = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> showCountdownTimers = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> improveYellowLobbyContrast =
             new LocalPerPlayerSetting<bool>(true);
@@ -147,6 +148,7 @@ namespace BugfixesAndQoL
                 nameof(EnableEnemyProximityBulldozeCursorFix),
                 nameof(EnableIngameSteamInvitePrompt),
                 nameof(ShowSelectedUnitHealth),
+                nameof(ShowForeignTroopHud),
                 nameof(ShowCountdownTimers),
                 nameof(ImproveYellowLobbyContrast),
                 nameof(EnableBriefingNoStartingGoldFix),
@@ -326,6 +328,8 @@ namespace BugfixesAndQoL
         public string ClearSteamInviteBlacklistHelpText => SerpLocalization.Get("BugfixesAndQoL.ClearSteamInviteBlacklistHelp");
         public string ShowSelectedUnitHealthText => SerpLocalization.Get("BugfixesAndQoL.ShowSelectedUnitHealth");
         public string ShowSelectedUnitHealthHelpText => SerpLocalization.Get("BugfixesAndQoL.ShowSelectedUnitHealthHelp");
+        public string ShowForeignTroopHudText => SerpLocalization.Get("BugfixesAndQoL.ShowForeignTroopHud");
+        public string ShowForeignTroopHudHelpText => SerpLocalization.Get("BugfixesAndQoL.ShowForeignTroopHudHelp");
         public string DamagedHealthBarsHotkeyText => SerpLocalization.Get("BugfixesAndQoL.DamagedHealthBarsHotkey");
         public string DamagedHealthBarsHotkeyHelpText => SerpLocalization.Get("BugfixesAndQoL.DamagedHealthBarsHotkeyHelp");
         public string DamagedHealthBarsCaptureText => SerpLocalization.Get("BugfixesAndQoL.DamagedHealthBarsCapture");
@@ -488,6 +492,7 @@ namespace BugfixesAndQoL
         public bool[] EnableEnemyProximityBulldozeCursorFixData => enableEnemyProximityBulldozeCursorFix.Data;
         public bool[] EnableIngameSteamInvitePromptData => enableIngameSteamInvitePrompt.Data;
         public bool[] ShowSelectedUnitHealthData => showSelectedUnitHealth.Data;
+        public bool[] ShowForeignTroopHudData => showForeignTroopHud.Data;
         public bool[] ShowCountdownTimersData => showCountdownTimers.Data;
         public bool[] ImproveYellowLobbyContrastData => improveYellowLobbyContrast.Data;
         public bool[] EnableBriefingNoStartingGoldFixData => enableBriefingNoStartingGoldFix.Data;
@@ -581,6 +586,13 @@ namespace BugfixesAndQoL
         {
             get => showSelectedUnitHealth.Value;
             set => SetPlayerSetting(showSelectedUnitHealth, value, nameof(ShowSelectedUnitHealth));
+        }
+
+        [SyncPerPlayer]
+        public bool ShowForeignTroopHud
+        {
+            get => showForeignTroopHud.Value;
+            set => SetPlayerSetting(showForeignTroopHud, value, nameof(ShowForeignTroopHud));
         }
 
         [Shared.PresetLocal]
@@ -1387,6 +1399,7 @@ namespace BugfixesAndQoL
             EnableEnemyProximityBulldozeCursorFix = true;
             EnableIngameSteamInvitePrompt = true;
             ShowSelectedUnitHealth = true;
+            ShowForeignTroopHud = true;
             EnableDamagedHealthBars = true;
             HealthBarHotkey = DefaultHealthBarHotkey;
             ShowCountdownTimers = true;
@@ -1552,6 +1565,7 @@ namespace BugfixesAndQoL
             enableEnemyProximityBulldozeCursorFix.TrySetLocalPlayerId(playerId);
             enableIngameSteamInvitePrompt.TrySetLocalPlayerId(playerId);
             showSelectedUnitHealth.TrySetLocalPlayerId(playerId);
+            showForeignTroopHud.TrySetLocalPlayerId(playerId);
             showCountdownTimers.TrySetLocalPlayerId(playerId);
             improveYellowLobbyContrast.TrySetLocalPlayerId(playerId);
             enableBriefingNoStartingGoldFix.TrySetLocalPlayerId(playerId);

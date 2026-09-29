@@ -251,6 +251,7 @@ namespace BugfixesAndQoL
 
             selectedUnitHealthFeature = new SelectedUnitHealthFeature(log, settings, () => lordUnitHudRegistration.Capability);
             selectedUnitHealthFeature.RefreshSetting();
+            ForeignTroopHudRuntime.Initialize(log, settings, selectedUnitHealthFeature, troopHudMiddleClickCameraFeature);
         }
 
         public void InitializeSurrenderFeature()
@@ -632,8 +633,7 @@ namespace BugfixesAndQoL
             // Lord action hooks are process-lifetime registrations and are not torn down here.
             surrenderFeature?.Dispose();
             surrenderFeature = null;
-            selectedUnitHealthFeature?.Dispose();
-            selectedUnitHealthFeature = null;
+            // The static HUD publisher owns this view model for the lifetime of the process.
             DisableAssemblyPointPlacementPatch();
             DisableHealerAttackCommandPatch();
             DisableMountedStockpileMovementPatch();

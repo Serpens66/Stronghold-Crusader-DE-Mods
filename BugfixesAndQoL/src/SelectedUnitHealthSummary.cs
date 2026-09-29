@@ -35,15 +35,15 @@ namespace BugfixesAndQoL
         {
             get
             {
-                if (!HasUnits || MaximumHealth <= 0)
-                    return SelectedUnitHealthBand.Red;
-                if (CurrentHealth * 100 >= MaximumHealth * 75)
-                    return SelectedUnitHealthBand.Green;
-                if (CurrentHealth * 100 >= MaximumHealth * 40)
-                    return SelectedUnitHealthBand.Yellow;
-                return SelectedUnitHealthBand.Red;
+                return HasUnits ? GetBand(CurrentHealth, MaximumHealth) : SelectedUnitHealthBand.Red;
             }
         }
+
+        internal static SelectedUnitHealthBand GetBand(long current, long maximum) =>
+            maximum <= 0 ? SelectedUnitHealthBand.Red :
+            (decimal)current >= (decimal)maximum * 0.75m ? SelectedUnitHealthBand.Green :
+            (decimal)current >= (decimal)maximum * 0.40m ? SelectedUnitHealthBand.Yellow :
+            SelectedUnitHealthBand.Red;
 
         public string FormatCurrent() => ScaleForDisplay(CurrentHealth).ToString();
 

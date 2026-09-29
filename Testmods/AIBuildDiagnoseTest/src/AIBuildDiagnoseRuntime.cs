@@ -3,6 +3,7 @@ using BepInEx.Logging;
 using R3;
 using SHCDESE.API;
 using SHCDESE.EventAPI;
+using SHCDESE.EventAPI.AI;
 using SHCDESE.EventAPI.Buildings;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
@@ -17,6 +18,7 @@ namespace AIBuildDiagnoseTest
         private readonly bool fixesLoaded;
         private readonly IDisposable buildingSubscription;
         private readonly IDisposable buildStructureSubscription;
+        private readonly IDisposable wallSubscription;
         private readonly Dictionary<long, Attempt> attempts = new Dictionary<long, Attempt>();
         private readonly Dictionary<string, int> outcomes = new Dictionary<string, int>();
         private readonly Dictionary<string, int> routeCauses = new Dictionary<string, int>();
@@ -30,6 +32,11 @@ namespace AIBuildDiagnoseTest
         private readonly int[] hutSpawns = new int[9];
         private readonly int[] initialHuts = new int[9];
         private readonly string[] lastObservedStage = new string[9];
+        private readonly List<WallObservation> wallHistory = new List<WallObservation>();
+        private readonly Dictionary<string, WallObservation> pendingWalls =
+            new Dictionary<string, WallObservation>();
+        private readonly HashSet<string> observedWallTargets = new HashSet<string>();
+        private int wallHistoryDropped;
         private bool active;
         private bool firstTick;
         private long sessionId;
@@ -42,6 +49,7 @@ namespace AIBuildDiagnoseTest
             fixesLoaded = hasFixes;
             buildingSubscription = BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(OnBuildingSpawn);
             buildStructureSubscription = BuildingR3EventHooks.OnBuildStructure.Observable.Subscribe(OnBuildStructure);
+            wallSubscription = AIR3EventHooks.OnAIBuildWall.Observable.Subscribe(OnAIBuildWall);
             if (ApiShared.Current.TryGetAivBuildStep(AIBuildDiagnosePlugin.Guid,
                 out IAivBuildStepCapability steps, out NativeCapabilityDiagnostic diagnostic))
             {
@@ -65,6 +73,10 @@ namespace AIBuildDiagnoseTest
             nearbyCauses.Clear();
             detailedRoutes.Clear();
             detailedNearby.Clear();
+            wallHistory.Clear();
+            pendingWalls.Clear();
+            observedWallTargets.Clear();
+            wallHistoryDropped = 0;
             Array.Clear(schedulerCalls, 0, schedulerCalls.Length);
             Array.Clear(woodBuildCalls, 0, woodBuildCalls.Length);
             Array.Clear(woodSearchCalls, 0, woodSearchCalls.Length);
@@ -130,37 +142,24 @@ namespace AIBuildDiagnoseTest
                         attempt.NearbyBefore = record.NearbyPathEvidence;
                     if (record.Stage == "wood-nearby-path-after")
                         attempt.NearbyAfter = record.NearbyPathEvidence;
-                    if (record.Stage == "near-region-result" && record.NearbyRegionEvidence != null)
-                    {
-                        AiNearbyRegionEvidence region = record.NearbyRegionEvidence;
-                        attempt.NearbyRegionCallCount++;
-                        attempt.AnyRegionOverride |= region.VanillaResult != region.EffectiveResult;
-                        attempt.AnyRejectedZeroTarget |= region.Target == 0 &&
-                            region.VanillaResult == 0 && region.EffectiveResult == 0;
-                        if (attempt.NearbyRegions.Count == 128)
-                            attempt.NearbyRegions.RemoveAt(64); // Keep first 64 and most recent 64.
-                        attempt.NearbyRegions.Add(region);
-                    }
                     if (record.Stage == "wood-search-after") attempt.SearchX = (int)record.B;
                     if (record.Stage == "wood-nearby-after") attempt.NearX = (int)record.A;
                     if (record.Stage != "wood-build-after") attempt.LastStep = record.Stage;
                 }
             }
-            if (record.Stage != "near-region-result")
-            {
-                string key = record.PlayerId + ":" + record.Stage + ":" + record.A + ":" + record.B + ":" + record.C + ":" + record.D;
-                if (!seen.TryGetValue(key, out int count)) count = 0;
-                seen[key] = count + 1;
-                // First occurrence of each exact state is retained; periodic repeats show persistence.
-                if (count < 2 || count == 9 || count == 99 || count % 500 == 499)
-                    Log($"AI_BUILD_TRACE: session={sessionId}, tick={lastTick}, player={record.PlayerId}, " +
-                        $"attempt={record.AttemptId}, stage={record.Stage}, {Describe(record)}, repeat={count + 1}.");
-            }
+            string key = record.PlayerId + ":" + record.Stage + ":" + record.A + ":" + record.B + ":" + record.C + ":" + record.D;
+            if (!seen.TryGetValue(key, out int count)) count = 0;
+            seen[key] = count + 1;
+            // First occurrence of each exact state is retained; periodic repeats show persistence.
+            if (count < 2 || count == 9 || count == 99 || count % 500 == 499)
+                Log($"AI_BUILD_TRACE: session={sessionId}, tick={lastTick}, player={record.PlayerId}, " +
+                    $"attempt={record.AttemptId}, stage={record.Stage}, {Describe(record)}, repeat={count + 1}.");
             if (record.Stage == "wood-build-after" && attempt != null)
             {
                 string outcome = Classify(attempt);
                 string routeCause = attempt.RouteSeen && attempt.RouteResult == 0
-                    ? AnalyzeRoute(attempt.RouteEvidence) : "not-rejected";
+                    ? AnalyzeRoute(attempt.RouteEvidence) :
+                    (attempt.RouteSeen ? "not-rejected" : "unobserved");
                 string nearbyCause = AnalyzeNearby(attempt);
                 if (attempt.NearbyAfter != null)
                     LogNearbyEvidence(record.PlayerId, record.AttemptId, attempt, nearbyCause);
@@ -231,6 +230,96 @@ namespace AIBuildDiagnoseTest
             Log($"AI_BUILD_WOODCUTTER_SPAWN: session={sessionId}, tick={lastTick}, player={args.PlayerId}, " +
                 $"attempt={id}, phase={args.Phase}, buildingId={(args.Phase == EventHookPhase.Post ? args.ReturnValue.ToString() : "pending")}, " +
                 $"tile=({args.TileX},{args.TileY}).");
+        }
+
+        private void OnAIBuildWall(AIBuildWallEventArgs args)
+        {
+            if (!active || args.PlayerId < 1 || args.PlayerId > 8) return;
+            try
+            {
+                WallObservation wall = CaptureWall(args);
+                wall.Tick = lastTick;
+                string key = args.PlayerId + ":" + args.TileX + ":" + args.TileY;
+                if (args.Phase == EventHookPhase.Pre) pendingWalls[key] = wall;
+                else if (args.Phase == EventHookPhase.Post)
+                {
+                    if (pendingWalls.TryGetValue(key, out WallObservation before))
+                    {
+                        wall.Materialized = before.Status == "ok" && wall.Status == "ok" &&
+                            (before.PropertyFlags & 0x100u) == 0 &&
+                            (wall.PropertyFlags & 0x100u) != 0;
+                        pendingWalls.Remove(key);
+                    }
+                }
+                if (wallHistory.Count == 1024) { wallHistory.RemoveAt(0); wallHistoryDropped++; }
+                wallHistory.Add(wall);
+                foreach (string target in observedWallTargets)
+                {
+                    string[] parts = target.Split(':');
+                    if (Math.Abs(wall.X - int.Parse(parts[0])) <= 12 &&
+                        Math.Abs(wall.Y - int.Parse(parts[1])) <= 12)
+                    {
+                        LogWall(wall, "live-near-wood-target", 0);
+                        break;
+                    }
+                }
+            }
+            catch (Exception ex) { Log("AI_BUILD_WALL_OBSERVATION_FAILED: " + ex); }
+        }
+
+        private static WallObservation CaptureWall(AIBuildWallEventArgs args)
+        {
+            var wall = new WallObservation
+            {
+                PlayerId = args.PlayerId, X = args.TileX, Y = args.TileY,
+                Phase = args.Phase.ToString(), Mapper = args.Mappers.ToString(),
+                Status = "outside-map"
+            };
+            GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
+            if (!tiles.IsTileInsideMapBounds(wall.X, wall.Y)) return wall;
+            int tileId = tiles.GetTileId(wall.X, wall.Y);
+            Span<byte> owners = tiles.GetWallOwnerLayer();
+            if ((uint)tileId >= (uint)owners.Length)
+            { wall.Status = "wall-layer-out-of-range"; return wall; }
+            wall.TileId = tileId;
+            wall.PropertyFlags = (uint)tiles.GetTilePropertyFlag(tileId);
+            wall.BuildingId = tiles.GetTileBuildingId(tileId);
+            wall.WallOwner = owners[tileId];
+            wall.Status = "ok";
+            return wall;
+        }
+
+        private void FlushWallHistory(int playerId, int x, int y, long attemptId)
+        {
+            if (!observedWallTargets.Add(x + ":" + y)) return;
+            int related = 0;
+            foreach (WallObservation wall in wallHistory)
+                if (Math.Abs(wall.X - x) <= 12 && Math.Abs(wall.Y - y) <= 12)
+                {
+                    related++;
+                    LogWall(wall, "history-near-wood-target", attemptId);
+                }
+            Log($"AI_BUILD_WALL_HISTORY: session={sessionId}, player={playerId}, attempt={attemptId}, " +
+                $"target=({x},{y}), related={related}, retained={wallHistory.Count}, " +
+                $"dropped={wallHistoryDropped}; dropped history cannot prove absence of earlier walls.");
+        }
+
+        private void LogWall(WallObservation wall, string relation, long attemptId) =>
+            Log($"AI_BUILD_WALL_EVENT: session={sessionId}, tick={wall.Tick}, " +
+                $"relation={relation}, attempt={attemptId}, player={wall.PlayerId}, " +
+                $"phase={wall.Phase}, mapper={wall.Mapper}, tile=({wall.X},{wall.Y}), " +
+                $"tileId={wall.TileId}, rawFlags=0x{wall.PropertyFlags:X8}, " +
+                $"swamp={((wall.PropertyFlags & 0x20000000u) != 0)}, " +
+                $"wallPresent={((wall.PropertyFlags & 0x100u) != 0)}, " +
+                $"materializedFromPre={wall.Materialized}, buildingId={wall.BuildingId}, " +
+                $"wallOwner={wall.WallOwner}, status={wall.Status}.");
+
+        private sealed class WallObservation
+        {
+            internal int PlayerId, X, Y, TileId, BuildingId, WallOwner, Tick;
+            internal uint PropertyFlags;
+            internal string Phase, Mapper, Status;
+            internal bool Materialized;
         }
 
         private static string Classify(Attempt attempt)
@@ -325,13 +414,9 @@ namespace AIBuildDiagnoseTest
             if (attempt.RouteEvidence != null && attempt.RouteEvidence.Status == "ok" &&
                 postTarget.NativeComponent != attempt.RouteEvidence.TargetNativeComponent)
                 return "component-changed-after-nearby-search";
-            if (attempt.AnyRegionOverride)
-                return "existing-region-hook-changed-result";
-            if (attempt.NearbyRegionCallCount == 0)
-                return "nearby-region-call-unobserved";
-            if (postTarget.NativeComponent == 0 && attempt.AnyRejectedZeroTarget)
-                return "nearby-returned-after-rejected-zero-region-call";
-            return "nearby-selection-unexplained-by-observed-region-calls";
+            return postTarget.NativeComponent == 0
+                ? "vanilla-coarse-search-selected-zero-component-anchor"
+                : "vanilla-coarse-search-selected-positive-component-anchor";
         }
 
         private void LogNearbyEvidence(int playerId, long attemptId, Attempt attempt, string inference)
@@ -344,6 +429,8 @@ namespace AIBuildDiagnoseTest
             AiPathTileSample postOrigin = FindAnchor(after, after.InputX * 5, after.InputY * 5);
             AiPathTileSample preTarget = FindAnchor(before, x, y);
             AiPathTileSample postTarget = FindAnchor(after, x, y);
+            AiCoarseCellSample preCell = FindCoarseCell(before, after.ResultX, after.ResultY);
+            AiCoarseCellSample postCell = after.ResultCell;
             string signature = playerId + ":" + x + ":" + y + ":" + inference;
             bool full = detailedNearby.Add(signature);
             nearbyCauses.TryGetValue(signature, out int count);
@@ -354,15 +441,18 @@ namespace AIBuildDiagnoseTest
                     $"result=({after.ResultX},{after.ResultY}), " +
                     $"originBefore={FormatSample(preOrigin)}, originAfter={FormatSample(postOrigin)}, " +
                     $"targetBefore={FormatSample(preTarget)}, targetAfter={FormatSample(postTarget)}, " +
+                    $"coarseOriginBefore={FormatCoarse(before.InputCell)}, " +
+                    $"coarseOriginAfter={FormatCoarse(after.InputCell)}, " +
+                    $"coarseTargetBefore={FormatCoarse(preCell)}, " +
+                    $"coarseTargetAfter={FormatCoarse(postCell)}, " +
                     $"routeTargetNative={attempt.RouteEvidence?.TargetNativeComponent.ToString() ?? "unobserved"}, " +
-                    $"regionCalls={attempt.NearbyRegionCallCount}, recordedRegionCalls={attempt.NearbyRegions.Count}, " +
                     $"observedLast={attempt.LastStep}, " +
                     $"inference={inference}, repeat={count}, fullSamples={full}.");
             if (!full) return;
-            foreach (AiNearbyRegionEvidence region in attempt.NearbyRegions)
-                Log($"AI_BUILD_NEARBY_REGION: session={sessionId}, player={playerId}, " +
-                    $"attempt={attemptId}, components=({region.Source},{region.Target}), " +
-                    $"mode={region.Mode}, vanilla={region.VanillaResult}, effective={region.EffectiveResult}.");
+            if (after.ResultX >= 0 && after.ResultY >= 0)
+                FlushWallHistory(playerId, x, y, attemptId);
+            LogCoarseCells("before", playerId, attemptId, before?.NearbyCells);
+            LogCoarseCells("after", playerId, attemptId, after.NearbyCells);
             LogSamples("before-anchor", playerId, attemptId, before?.Anchors);
             LogSamples("after-anchor", playerId, attemptId, after.Anchors);
             LogSamples("after-footprint", playerId, attemptId, after.Footprint);
@@ -377,9 +467,32 @@ namespace AIBuildDiagnoseTest
                     $"attempt={attemptId}, phase={phase}, {FormatSample(sample)}.");
         }
 
+        private void LogCoarseCells(string phase, int playerId, long attemptId,
+            IReadOnlyList<AiCoarseCellSample> cells)
+        {
+            if (cells == null) return;
+            foreach (AiCoarseCellSample cell in cells)
+                Log($"AI_BUILD_COARSE_CELL: session={sessionId}, player={playerId}, " +
+                    $"attempt={attemptId}, phase={phase}, {FormatCoarse(cell)}.");
+        }
+
         private static string FormatSample(AiPathTileSample sample) => sample == null
             ? "unobserved" : $"tile=({sample.X},{sample.Y}) id={sample.TileId} " +
-              $"native={sample.NativeComponent} api={sample.ApiComponent} status={sample.Status}";
+              $"native={sample.NativeComponent} api={sample.ApiComponent} " +
+              $"rawFlags=0x{sample.PropertyFlags:X8} swamp={((sample.PropertyFlags & 0x20000000u) != 0)} " +
+              $"wall={((sample.PropertyFlags & 0x100u) != 0)} type={sample.TileType} " +
+              $"buildingId={sample.BuildingId} wallOwner={sample.WallOwner} status={sample.Status}";
+
+        private static AiCoarseCellSample FindCoarseCell(AiNearbyPathEvidence evidence, int x, int y)
+        {
+            if (evidence == null) return null;
+            foreach (AiCoarseCellSample cell in evidence.NearbyCells)
+                if (cell.X == x && cell.Y == y) return cell;
+            return null;
+        }
+
+        private static string FormatCoarse(AiCoarseCellSample cell) => cell == null
+            ? "unobserved" : $"({cell.X},{cell.Y}) bytes={cell.Bytes} status={cell.Status}";
 
         private static bool CanReach(AiRouteEvidence evidence,
             Func<AiRouteConnection, AiRouteEvidence, bool> eligible)
@@ -447,11 +560,6 @@ namespace AIBuildDiagnoseTest
             internal AiRouteEvidence RouteEvidence;
             internal AiNearbyPathEvidence NearbyBefore;
             internal AiNearbyPathEvidence NearbyAfter;
-            internal readonly List<AiNearbyRegionEvidence> NearbyRegions =
-                new List<AiNearbyRegionEvidence>();
-            internal int NearbyRegionCallCount;
-            internal bool AnyRegionOverride;
-            internal bool AnyRejectedZeroTarget;
             internal bool BuildPre;
             internal bool BuildPost;
             internal bool SpawnPre;
@@ -495,6 +603,8 @@ namespace AIBuildDiagnoseTest
                         $"player={playerId}, lord={players.GetAILord(playerId)}, scheduler={schedulerCalls[playerId]}, " +
                         $"woodBuild={woodBuildCalls[playerId]}, woodSearch={woodSearchCalls[playerId]}, " +
                         $"initialHuts={initialHuts[playerId]}, newHuts={hutSpawns[playerId]}, " +
+                        $"wallEventsRetained={wallHistory.Count}, wallEventsDropped={wallHistoryDropped}, " +
+                        $"routeHookReady={AiBuildDiagnostic.RouteReady}, " +
                         $"lastObserved={lastObservedStage[playerId] ?? "none"}, " +
                         $"inference={InferStage(playerId)}, attemptOutcomes={outcomeText}, " +
                         $"routeCauses={routeCauseText}.");
@@ -584,9 +694,6 @@ namespace AIBuildDiagnoseTest
                 case "wood-nearby-path-after":
                     return $"status={record.NearbyPathEvidence?.Status ?? "missing"}, " +
                         $"input=({record.A},{record.B}), result=({record.C},{record.D})";
-                case "near-region-result":
-                    return $"components=({record.A},{record.B}), " +
-                        $"mode={record.NearbyRegionEvidence?.Mode}, vanilla={record.C}, effective={record.D}";
                 default:
                     return $"a={record.A}, b={record.B}, c={record.C}, d={record.D}";
             }

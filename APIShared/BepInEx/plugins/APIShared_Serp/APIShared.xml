@@ -709,11 +709,38 @@
         <member name="P:APIShared.AiPathTileSample.ApiComponent">
             <summary>Component read through the Script Extender grid view.</summary>
         </member>
+        <member name="P:APIShared.AiPathTileSample.PropertyFlags">
+            <summary>Uninterpreted native tile property bits.</summary>
+        </member>
+        <member name="P:APIShared.AiPathTileSample.TileType">
+            <summary>Visual tile type byte.</summary>
+        </member>
+        <member name="P:APIShared.AiPathTileSample.BuildingId">
+            <summary>Building game ID in the tile layer.</summary>
+        </member>
+        <member name="P:APIShared.AiPathTileSample.WallOwner">
+            <summary>Wall owner byte in the tile layer.</summary>
+        </member>
         <member name="P:APIShared.AiPathTileSample.Status">
             <summary>Whether this tile could be sampled.</summary>
         </member>
+        <member name="T:APIShared.AiCoarseCellSample">
+            <summary>Raw bytes of a Vanilla 0x58950 coarse cell; offsets 0 through 15.</summary>
+        </member>
+        <member name="P:APIShared.AiCoarseCellSample.X">
+            <summary>Coarse cell X coordinate.</summary>
+        </member>
+        <member name="P:APIShared.AiCoarseCellSample.Y">
+            <summary>Coarse cell Y coordinate.</summary>
+        </member>
+        <member name="P:APIShared.AiCoarseCellSample.Bytes">
+            <summary>Hexadecimal representation of the sampled native bytes.</summary>
+        </member>
+        <member name="P:APIShared.AiCoarseCellSample.Status">
+            <summary>Sampling status or reason why the cell was unavailable.</summary>
+        </member>
         <member name="T:APIShared.AiNearbyPathEvidence">
-            <summary>Copied anchor neighborhood and exact 3x3 building footprint.</summary>
+            <summary>Copied anchor neighborhood and sampled 3x3 tiles at the result.</summary>
         </member>
         <member name="P:APIShared.AiNearbyPathEvidence.Status">
             <summary>Whether the neighborhood could be sampled.</summary>
@@ -734,25 +761,16 @@
             <summary>Five by five coarse-cell anchors centered on the search input.</summary>
         </member>
         <member name="P:APIShared.AiNearbyPathEvidence.Footprint">
-            <summary>Exact three by three tile footprint at the search result.</summary>
+            <summary>Three by three tile sample starting at the search result.</summary>
         </member>
-        <member name="T:APIShared.AiNearbyRegionEvidence">
-            <summary>One call observed through BugfixesAndQoL's existing E2610 detour.</summary>
+        <member name="P:APIShared.AiNearbyPathEvidence.InputCell">
+            <summary>Coarse cell at the search input.</summary>
         </member>
-        <member name="P:APIShared.AiNearbyRegionEvidence.Source">
-            <summary>Source path component passed to the existing native hook.</summary>
+        <member name="P:APIShared.AiNearbyPathEvidence.ResultCell">
+            <summary>Coarse cell at the search result, when available.</summary>
         </member>
-        <member name="P:APIShared.AiNearbyRegionEvidence.Target">
-            <summary>Destination path component passed to the existing native hook.</summary>
-        </member>
-        <member name="P:APIShared.AiNearbyRegionEvidence.Mode">
-            <summary>Native path-connection query mode.</summary>
-        </member>
-        <member name="P:APIShared.AiNearbyRegionEvidence.VanillaResult">
-            <summary>Unmodified return from the original native function.</summary>
-        </member>
-        <member name="P:APIShared.AiNearbyRegionEvidence.EffectiveResult">
-            <summary>Return delivered by the existing BugfixesAndQoL hook.</summary>
+        <member name="P:APIShared.AiNearbyPathEvidence.NearbyCells">
+            <summary>Nearby coarse cells sampled around the search input.</summary>
         </member>
         <member name="T:APIShared.AiBuildDiagnosticRecord">
             <summary>Read-only evidence from the native AI construction path.</summary>
@@ -787,14 +805,17 @@
         <member name="P:APIShared.AiBuildDiagnosticRecord.NearbyPathEvidence">
             <summary>Copied nearby-search path samples, when present.</summary>
         </member>
-        <member name="P:APIShared.AiBuildDiagnosticRecord.NearbyRegionEvidence">
-            <summary>Copied nearby-search region call, when present.</summary>
-        </member>
         <member name="T:APIShared.AiBuildDiagnostic">
             <summary>Optional process-lifetime AI construction observer. Inert without registration.</summary>
         </member>
         <member name="P:APIShared.AiBuildDiagnostic.HasObserver">
             <summary>True only after the test observer has registered.</summary>
+        </member>
+        <member name="P:APIShared.AiBuildDiagnostic.SchedulerReady">
+            <summary>Whether the native scheduler observation point is ready.</summary>
+        </member>
+        <member name="P:APIShared.AiBuildDiagnostic.RouteReady">
+            <summary>Whether the native route observation point is ready.</summary>
         </member>
         <member name="M:APIShared.AiBuildDiagnostic.TryRegister(System.String,System.Action{APIShared.AiBuildDiagnosticRecord},System.String@)">
             <summary>Registers a single observer and installs the audited observation hooks once.</summary>
@@ -802,20 +823,8 @@
         <member name="M:APIShared.AiBuildDiagnostic.Publish(System.String,System.Int32,System.Int64,System.Int64,System.Int64,System.Int64)">
             <summary>Publishes a record only while the test observer is present.</summary>
         </member>
-        <member name="M:APIShared.AiBuildDiagnostic.BeginNearbySearch(System.Int32)">
-            <summary>Marks the existing synchronous nearby-search call for the shared E2610 observer.</summary>
-        </member>
-        <member name="M:APIShared.AiBuildDiagnostic.EndNearbySearch(System.Int32)">
-            <summary>Restores the previous synchronous nearby-search context.</summary>
-        </member>
-        <member name="M:APIShared.AiBuildDiagnostic.IsNearbySearchActive(System.Int32)">
-            <summary>Whether this player is inside the observed wood nearby search.</summary>
-        </member>
-        <member name="M:APIShared.AiBuildDiagnostic.PublishNearbyRegionResult(System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32)">
-            <summary>Publishes only calls made inside the marked wood nearby search.</summary>
-        </member>
-        <member name="M:APIShared.AiBuildDiagnostic.PublishNearbyPathEvidence(System.String,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32)">
-            <summary>Copies path labels before or after Vanilla's existing nearby search.</summary>
+        <member name="M:APIShared.AiBuildDiagnostic.PublishNearbyPathEvidence(System.String,System.Int32,System.UInt64,System.Int32,System.Int32,System.Int32,System.Int32)">
+            <summary>Copies coarse cells and tile layers around Vanilla's existing nearby search.</summary>
         </member>
         <member name="M:APIShared.AiBuildDiagnostic.BeginWoodAttempt(System.Int32)">
             <summary>Enters the synchronous Vanilla wood call; zero means diagnostics are absent.</summary>

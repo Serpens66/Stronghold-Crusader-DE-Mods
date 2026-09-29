@@ -163,6 +163,12 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding ShowSelectedUnitHealthText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.show-foreign-troop-hud" shared:ModSettingsSearch.Title="{Binding ShowForeignTroopHudText}" shared:ModSettingsSearch.ToolTipText="{Binding ShowForeignTroopHudHelpText}"><CheckBox IsChecked="{Binding ShowForeignTroopHud, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding ShowForeignTroopHudHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding ShowForeignTroopHudText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox></Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.damaged-health-bars" shared:ModSettingsSearch.Title="{Binding DamagedHealthBarsHotkeyText}" shared:ModSettingsSearch.ToolTipText="{Binding DamagedHealthBarsHotkeyHelpText}" Margin="0,0,0,8">
         <StackPanel Orientation="Horizontal" ToolTipService.ShowDuration="60000" ToolTip="{Binding DamagedHealthBarsHotkeyHelpText}">
           <TextBlock Text="{Binding DamagedHealthBarsHotkeyText}" Foreground="White" VerticalAlignment="Center" Margin="0,0,8,0"/>

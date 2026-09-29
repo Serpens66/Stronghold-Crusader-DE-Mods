@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Operation Type="Add" XPath="/n:UserControl/n:Grid/n:Grid[@x:Name='MainHUD']">
+    <Content>
+      <Canvas x:Name="ForeignTroopHudPanel" xmlns:local="clr-namespace:CrusaderDE"
+              Width="416" Height="170" Margin="0,0,242,0" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+              Panel.ZIndex="10020" ClipToBounds="True" Visibility="Collapsed">
+        <Canvas x:Name="ForeignTroopSlot1" Width="52" Height="170" Canvas.Left="0" Visibility="Collapsed" IsHitTestVisible="True">
+          <Viewbox Width="52" Height="20" Canvas.Left="0" Canvas.Top="42" Stretch="Uniform" StretchDirection="DownOnly">
+            <TextBlock x:Name="ForeignTroopCurrentHealth1" TextAlignment="Center" Foreground="#FF66CC66" FontSize="15">
+              <TextBlock.Effect><DropShadowEffect ShadowDepth="1" Direction="315" Color="#CC000000" BlurRadius="0"/></TextBlock.Effect>
+            </TextBlock>
+          </Viewbox>
+          <Button x:Name="ForeignTroopImage1" Width="45" Height="86" Canvas.Left="4" Canvas.Top="53"
+                  Style="{StaticResource BTN_Image}" IsHitTestVisible="True" Focusable="False" Visibility="Collapsed"/>
+          <TextBlock x:Name="ForeignTroopType1" Width="46" Canvas.Left="3" Canvas.Top="53"
+                     TextAlignment="Center" TextWrapping="Wrap" Foreground="#FFF2E7CB" FontSize="11" Visibility="Collapsed"/>
+          <TextBlock x:Name="ForeignTroopOwner1" Width="24" Canvas.Left="14" Canvas.Top="56"
+                     TextAlignment="Center" Foreground="White" FontSize="10"/>
+          <TextBlock x:Name="ForeignTroopCount1" Width="64" Canvas.Left="-6" Canvas.Top="132"
+                     TextAlignment="Center" Foreground="#FFDDDDDD" FontSize="22">
+            <TextBlock.Effect><DropShadowEffect ShadowDepth="2" Direction="315" Color="#CC000000" BlurRadius="0"/></TextBlock.Effect>
+          </TextBlock>
+          <Viewbox Width="52" Height="18" Canvas.Left="0" Canvas.Top="152" Stretch="Uniform" StretchDirection="DownOnly">
+            <TextBlock x:Name="ForeignTroopMaxHealth1" TextAlignment="Center" Foreground="#FF66CC66" FontSize="15">
+              <TextBlock.Effect><DropShadowEffect ShadowDepth="1" Direction="315" Color="#CC000000" BlurRadius="0"/></TextBlock.Effect>
+            </TextBlock>
+          </Viewbox>
+        </Canvas>
+        <Canvas x:Name="ForeignTroopSlot2" Width="52" Height="170" Canvas.Left="52" Visibility="Collapsed" IsHitTestVisible="True">
+          <Viewbox Width="52" Height="20" Canvas.Left="0" Canvas.Top="42" Stretch="Uniform" StretchDirection="DownOnly">
+            <TextBlock x:Name="ForeignTroopCurrentHealth2" TextAlignment="Center" Foreground="#FF66CC66" FontSize="15">
+              <TextBlock.Effect><DropShadowEffect ShadowDepth="1" Direction="315" Color="#CC000000" BlurRadius="0"/></TextBlock.Effect>
+            </TextBlock>
+          </Viewbox>
+          <Button x:Name="ForeignTroopImage2" Width="45" Height="86" Canvas.Left="4" Canvas.Top="53"
+                  Style="{StaticResource BTN_Image}" IsHitTestVisible="True" Focusable="False" Visibility="Collapsed"/>
+          <TextBlock x:Name="ForeignTroopType2" Width="46" Canvas.Left="3" Canvas.Top="53"
+                     TextAlignment="Center" TextWrapping="Wrap" Foreground="#FFF2E7CB" FontSize="11" Visibility="Collapsed"/>
+          <TextBlock x:Name="ForeignTroopOwner2" Width="24" Canvas.Left="14" Canvas.Top="56"
+                     TextAlignment="Center" Foreground="White" FontSize="10"/>
+          <TextBlock x:Name="ForeignTroopCount2" Width="64" Canvas.Left="-6" Canvas.Top="132"
+                     TextAlignment="Center" Foreground="#FFDDDDDD" FontSize="22">
+            <TextBlock.Effect><DropShadowEffect ShadowDepth="2" Direction="315" Color="#CC000000" BlurRadius="0"/></TextBlock.Effect>
+          </TextBlock>
+          <Viewbox Width="52" Height="18" Canvas.Left="0" Canvas.Top="152" Stretch="Uniform" StretchDirection="DownOnly">
+            <TextBlock x:Name="ForeignTroopMaxHealth2" TextAlignment="Center" Foreground="#FF66CC66" FontSize="15">
+              <TextBlock.Effect><DropShadowEffect ShadowDepth="1" Direction="315" Color="#CC000000" BlurRadius="0"/></TextBlock.Effect>
+            </TextBlock>
+          </Viewbox>
+        </Canvas>
+        <Canvas x:Name="ForeignTroopSlot3" Width="52" Height="170" Canvas.Left="104" Visibility="Collapsed" IsHitTestVisible="True">
+          <Viewbox Width="52" Height="20" Canvas.Left="0" Canvas.Top="42" Stretch="Uniform" StretchDirection="DownOnly">
+            <TextBlock x:Name="ForeignTroopCurrentHealth3" TextAlignment="Center" Foreground="#FF66CC66" FontSize="15">
+              <TextBlock.Effect><DropShadowEffect ShadowDepth="1" Direction="315" Color="#CC000000" BlurRadius="0"/></TextBlock.Effect>
+            </TextBlock>
+          </Viewbox>
+          <Button x:Name="ForeignTroopImage3" Width="45" Height="86" Canvas.Left="4" Canvas.Top="53"
+                  Style="{StaticResource BTN_Image}" IsHitTestVisible="True" Focusable="False" Visibility="Collapsed"/>
+          <TextBlock x:Name="ForeignTroopType3" Width="46" Canvas.Left="3" Canvas.Top="53"
+                     TextAlignment="Center" TextWrapping="Wrap" Foreground="#FFF2E7CB" FontSize="11" Visibility="Collapsed"/>
+          <TextBlock x:Name="ForeignTroopOwner3" Width="24" Canvas.Left="14" Canvas.Top="56"
+                     TextAlignment="Center" Foreground="White" FontSize="10"/>
+          <TextBlock x:Name="ForeignTroopCount3" Width="64" Canvas.Left="-6" Canvas.Top="132"
+                     TextAlignment="Center" Foreground="#FFDDDDDD" FontSize="22">
+            <TextBlock.Effect><DropShadowEffect ShadowDepth="2" Direction="315" Color="#CC000000" BlurRadius="0"/></TextBlock.Effect>
+          </TextBlock>
+          <Viewbox Width="52" Height="18" Canvas.Left="0" Canvas.Top="152" Stretch="Uniform" StretchDirection="DownOnly">
+            <TextBlock x:Name="ForeignTroopMaxHealth3" TextAlignment="Center" Foreground="#FF66CC66" FontSize="15">
+              <TextBlock.Effect><DropShadowEffect ShadowDepth="1" Direction="315" Color="#CC000000" BlurRadius="0"/></TextBlock.Effect>
+            </TextBlock>
+          </Viewbox>
+        </Canvas>
+        <Canvas x:Name="ForeignTroopSlot4" Width="52" Height="170" Canvas.Left="156" Visibility="Collapsed" IsHitTestVisible="True">
+          <Viewbox Width="52" Height="20" Canvas.Left="0" Canvas.Top="42" Stretch="Uniform" StretchDirection="DownOnly">
+            <TextBlock x:Name="ForeignTroopCurrentHealth4" TextAlignment="Center" Foreground="#FF66CC66" FontSize="15">
+              <TextBlock.Effect><DropShadowEffect ShadowDepth="1" Direction="315" Color="#CC000000" BlurRadius="0"/></TextBlock.Effect>
+            </TextBlock>
+          </Viewbox>
+          <Button x:Name="ForeignTroopImage4" Width="45" Height="86" Canvas.Left="4" Canvas.Top="53"
+                  Style="{StaticResource BTN_Image}" IsHitTestVisible="True" Focusable="False" Visibility="Collapsed"/>
+          <TextBlock x:Name="ForeignTroopType4" Width="46" Canvas.Left="3" Canvas.Top="53"
+                     TextAlignment="Center" TextWrapping="Wrap" Foreground="#FFF2E7CB" FontSize="11" Visibility="Collapsed"/>
+          <TextBlock x:Name="ForeignTroopOwner4" Width="24" Canvas.Left="14" Canvas.Top="56"
+                     TextAlignment="Center" Foreground="White" FontSize="10"/>
+          <TextBlock x:Name="ForeignTroopCount4" Width="64" Canvas.Left="-6" Canvas.Top="132"
+                     TextAlignment="Center" Foreground="#FFDDDDDD" FontSize="22">
+            <TextBlock.Effect><DropShadowEffect ShadowDepth="2" Direction="315" Color="#CC000000" BlurRadius="0"/></TextBlock.Effect>
+          </TextBlock>
+          <Viewbox Width="52" Height="18" Canvas.Left="0" Canvas.Top="152" Stretch="Uniform" StretchDirection="DownOnly">
+            <TextBlock x:Name="ForeignTroopMaxHealth4" TextAlignment="Center" Foreground="#FF66CC66" FontSize="15">
+              <TextBlock.Effect><DropShadowEffect ShadowDepth="1" Direction="315" Color="#CC000000" BlurRadius="0"/></TextBlock.Effect>
+            </TextBlock>
+          </Viewbox>
+        </Canvas>
+        <Canvas x:Name="ForeignTroopSlot5" Width="52" Height="170" Canvas.Left="208" Visibility="Collapsed" IsHitTestVisible="True">
+          <Viewbox Width="52" Height="20" Canvas.Left="0" Canvas.Top="42" Stretch="Uniform" StretchDirection="DownOnly">
+            <TextBlock x:Name="ForeignTroopCurrentHealth5" TextAlignment="Center" Foreground="#FF66CC66" FontSize="15">
+              <TextBlock.Effect><DropShadowEffect ShadowDepth="1" Direction="315" Color="#CC000000" BlurRadius="0"/></TextBlock.Effect>
+            </TextBlock>
+          </Viewbox>
+          <Button x:Name="ForeignTroopImage5" Width="45" Height="86" Canvas.Left="4" Canvas.Top="53"
+                  Style="{StaticResource BTN_Image}" IsHitTestVisible="True" Focusable="False" Visibility="Collapsed"/>
+          <TextBlock x:Name="ForeignTroopType5" Width="46" Canvas.Left="3" Canvas.Top="53"
+                     TextAlignment="Center" TextWrapping="Wrap" Foreground="#FFF2E7CB" FontSize="11" Visibility="Collapsed"/>
+          <TextBlock x:Name="ForeignTroopOwner5" Width="24" Canvas.Left="14" Canvas.Top="56"
+                     TextAlignment="Center" Foreground="White" FontSize="10"/>
+          <TextBlock x:Name="ForeignTroopCount5" Width="64" Canvas.Left="-6" Canvas.Top="132"
+                     TextAlignment="Center" Foreground="#FFDDDDDD" FontSize="22">
+            <TextBlock.Effect><DropShadowEffect ShadowDepth="2" Direction="315" Color="#CC000000" BlurRadius="0"/></TextBlock.Effect>
+          </TextBlock>
+          <Viewbox Width="52" Height="18" Canvas.Left="0" Canvas.Top="152" Stretch="Uniform" StretchDirection="DownOnly">
+            <TextBlock x:Name="ForeignTroopMaxHealth5" TextAlignment="Center" Foreground="#FF66CC66" FontSize="15">
+              <TextBlock.Effect><DropShadowEffect ShadowDepth="1" Direction="315" Color="#CC000000" BlurRadius="0"/></TextBlock.Effect>
+            </TextBlock>
+          </Viewbox>
+        </Canvas>
+        <Canvas x:Name="ForeignTroopSlot6" Width="52" Height="170" Canvas.Left="260" Visibility="Collapsed" IsHitTestVisible="True">
+          <Viewbox Width="52" Height="20" Canvas.Left="0" Canvas.Top="42" Stretch="Uniform" StretchDirection="DownOnly">
+            <TextBlock x:Name="ForeignTroopCurrentHealth6" TextAlignment="Center" Foreground="#FF66CC66" FontSize="15">
+              <TextBlock.Effect><DropShadowEffect ShadowDepth="1" Direction="315" Color="#CC000000" BlurRadius="0"/></TextBlock.Effect>
+            </TextBlock>
+          </Viewbox>
+          <Button x:Name="ForeignTroopImage6" Width="45" Height="86" Canvas.Left="4" Canvas.Top="53"
+                  Style="{StaticResource BTN_Image}" IsHitTestVisible="True" Focusable="False" Visibility="Collapsed"/>
+          <TextBlock x:Name="ForeignTroopType6" Width="46" Canvas.Left="3" Canvas.Top="53"
+                     TextAlignment="Center" TextWrapping="Wrap" Foreground="#FFF2E7CB" FontSize="11" Visibility="Collapsed"/>
+          <TextBlock x:Name="ForeignTroopOwner6" Width="24" Canvas.Left="14" Canvas.Top="56"
+                     TextAlignment="Center" Foreground="White" FontSize="10"/>
+          <TextBlock x:Name="ForeignTroopCount6" Width="64" Canvas.Left="-6" Canvas.Top="132"
+                     TextAlignment="Center" Foreground="#FFDDDDDD" FontSize="22">
+            <TextBlock.Effect><DropShadowEffect ShadowDepth="2" Direction="315" Color="#CC000000" BlurRadius="0"/></TextBlock.Effect>
+          </TextBlock>
+          <Viewbox Width="52" Height="18" Canvas.Left="0" Canvas.Top="152" Stretch="Uniform" StretchDirection="DownOnly">
+            <TextBlock x:Name="ForeignTroopMaxHealth6" TextAlignment="Center" Foreground="#FF66CC66" FontSize="15">
+              <TextBlock.Effect><DropShadowEffect ShadowDepth="1" Direction="315" Color="#CC000000" BlurRadius="0"/></TextBlock.Effect>
+            </TextBlock>
+          </Viewbox>
+        </Canvas>
+        <Canvas x:Name="ForeignTroopSlot7" Width="52" Height="170" Canvas.Left="312" Visibility="Collapsed" IsHitTestVisible="True">
+          <Viewbox Width="52" Height="20" Canvas.Left="0" Canvas.Top="42" Stretch="Uniform" StretchDirection="DownOnly">
+            <TextBlock x:Name="ForeignTroopCurrentHealth7" TextAlignment="Center" Foreground="#FF66CC66" FontSize="15">
+              <TextBlock.Effect><DropShadowEffect ShadowDepth="1" Direction="315" Color="#CC000000" BlurRadius="0"/></TextBlock.Effect>
+            </TextBlock>
+          </Viewbox>
+          <Button x:Name="ForeignTroopImage7" Width="45" Height="86" Canvas.Left="4" Canvas.Top="53"
+                  Style="{StaticResource BTN_Image}" IsHitTestVisible="True" Focusable="False" Visibility="Collapsed"/>
+          <TextBlock x:Name="ForeignTroopType7" Width="46" Canvas.Left="3" Canvas.Top="53"
+                     TextAlignment="Center" TextWrapping="Wrap" Foreground="#FFF2E7CB" FontSize="11" Visibility="Collapsed"/>
+          <TextBlock x:Name="ForeignTroopOwner7" Width="24" Canvas.Left="14" Canvas.Top="56"
+                     TextAlignment="Center" Foreground="White" FontSize="10"/>
+          <TextBlock x:Name="ForeignTroopCount7" Width="64" Canvas.Left="-6" Canvas.Top="132"
+                     TextAlignment="Center" Foreground="#FFDDDDDD" FontSize="22">
+            <TextBlock.Effect><DropShadowEffect ShadowDepth="2" Direction="315" Color="#CC000000" BlurRadius="0"/></TextBlock.Effect>
+          </TextBlock>
+          <Viewbox Width="52" Height="18" Canvas.Left="0" Canvas.Top="152" Stretch="Uniform" StretchDirection="DownOnly">
+            <TextBlock x:Name="ForeignTroopMaxHealth7" TextAlignment="Center" Foreground="#FF66CC66" FontSize="15">
+              <TextBlock.Effect><DropShadowEffect ShadowDepth="1" Direction="315" Color="#CC000000" BlurRadius="0"/></TextBlock.Effect>
+            </TextBlock>
+          </Viewbox>
+        </Canvas>
+        <Canvas x:Name="ForeignTroopSlot8" Width="52" Height="170" Canvas.Left="364" Visibility="Collapsed" IsHitTestVisible="True">
+          <Viewbox Width="52" Height="20" Canvas.Left="0" Canvas.Top="42" Stretch="Uniform" StretchDirection="DownOnly">
+            <TextBlock x:Name="ForeignTroopCurrentHealth8" TextAlignment="Center" Foreground="#FF66CC66" FontSize="15">
+              <TextBlock.Effect><DropShadowEffect ShadowDepth="1" Direction="315" Color="#CC000000" BlurRadius="0"/></TextBlock.Effect>
+            </TextBlock>
+          </Viewbox>
+          <Button x:Name="ForeignTroopImage8" Width="45" Height="86" Canvas.Left="4" Canvas.Top="53"
+                  Style="{StaticResource BTN_Image}" IsHitTestVisible="True" Focusable="False" Visibility="Collapsed"/>
+          <TextBlock x:Name="ForeignTroopType8" Width="46" Canvas.Left="3" Canvas.Top="53"
+                     TextAlignment="Center" TextWrapping="Wrap" Foreground="#FFF2E7CB" FontSize="11" Visibility="Collapsed"/>
+          <TextBlock x:Name="ForeignTroopOwner8" Width="24" Canvas.Left="14" Canvas.Top="56"
+                     TextAlignment="Center" Foreground="White" FontSize="10"/>
+          <TextBlock x:Name="ForeignTroopCount8" Width="64" Canvas.Left="-6" Canvas.Top="132"
+                     TextAlignment="Center" Foreground="#FFDDDDDD" FontSize="22">
+            <TextBlock.Effect><DropShadowEffect ShadowDepth="2" Direction="315" Color="#CC000000" BlurRadius="0"/></TextBlock.Effect>
+          </TextBlock>
+          <Viewbox Width="52" Height="18" Canvas.Left="0" Canvas.Top="152" Stretch="Uniform" StretchDirection="DownOnly">
+            <TextBlock x:Name="ForeignTroopMaxHealth8" TextAlignment="Center" Foreground="#FF66CC66" FontSize="15">
+              <TextBlock.Effect><DropShadowEffect ShadowDepth="1" Direction="315" Color="#CC000000" BlurRadius="0"/></TextBlock.Effect>
+            </TextBlock>
+          </Viewbox>
+        </Canvas>
+        <TextBlock x:Name="ForeignTroopPageText" Width="44" Canvas.Left="354" Canvas.Top="119"
+                   TextAlignment="Center" Foreground="#FFDDDDDD" FontSize="12" IsHitTestVisible="False"/>
+        <Button x:Name="ForeignTroopPrevious" Width="21" Height="21" Canvas.Left="371" Canvas.Top="145"
+                local:PropEx.Sprite1="{StaticResource UI-Buttons L003}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons L004}"
+                Style="{StaticResource BTN_Building}" Visibility="Collapsed"/>
+        <Button x:Name="ForeignTroopNext" Width="21" Height="21" Canvas.Left="392" Canvas.Top="145"
+                local:PropEx.Sprite1="{StaticResource UI-Buttons L001}"
+                local:PropEx.Sprite2="{StaticResource UI-Buttons L002}"
+                Style="{StaticResource BTN_Building}" Visibility="Collapsed"/>
+      </Canvas>
+    </Content>
+  </Operation>
+</Patch>
