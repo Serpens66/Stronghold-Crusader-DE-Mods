@@ -28,6 +28,9 @@ namespace AIBuildDiagnoseTest
         private const int AppleFarmLimit = 32;
         private const int AppleFarmSnapshotLimit = 96;
         private const int OrchardTransitionLimit = 512;
+        private const int FarmParcelSnapshotLimit = 48;
+        // Native 0x72490 sets this placement-reservation bit on farm parcel tiles.
+        private const uint NativePlacementReservationFlag = 0x4;
         private const int OrchardObservationTicks = 700;
         // Native 0x72A50, RVA 0x2D3DC0: eight apple-tree offsets from the farm origin.
         private static readonly int[] OrchardDx = { 5, 9, 1, 5, 9, 1, 5, 9 };
@@ -119,6 +122,7 @@ namespace AIBuildDiagnoseTest
         private int nextWallMapTick;
         private bool firstWallChangeLogged;
         private bool firstWoodShadowDone;
+        private int farmParcelSnapshots, farmParcelSnapshotsDropped;
         private int firstWoodShadowPlayer;
         private int firstWoodShadowActualX, firstWoodShadowActualY;
         private readonly HashSet<string> cellWatchSignatures = new HashSet<string>();
@@ -196,6 +200,7 @@ namespace AIBuildDiagnoseTest
             appleFarms.Clear();
             appleFarmDropped = appleFarmSnapshots = appleFarmSnapshotDropped = 0;
             orchardTransitions = orchardTransitionsDropped = 0;
+            farmParcelSnapshots = farmParcelSnapshotsDropped = 0;
             pendingAppleFarmPre = null;
             firstOrchardMismatchSeen = false;
             coarseAuditWritesEnabled = coarseAuditAvailable = coarseAuditReference = -1;
@@ -823,10 +828,12 @@ namespace AIBuildDiagnoseTest
                     out int farmRejected, out int farmMode)
                     ? $"placementPreparation={farmPreparation}, placementRejected={farmRejected}, placementMode={farmMode}"
                     : "placementStatus=unavailable";
+                string farmReason = FormatNativePlacementReason();
                 Log($"AI_BUILD_FARM_STRUCTURE: session={sessionId}, tick={lastTick}, " +
                     $"player={args.PlayerId}, phase={args.Phase}, tile=({args.TileX},{args.TileY}), " +
                     $"mapper={args.Mappers}, scale={args.BuildingScaleUnknown}, free={args.IsFree}, " +
-                    $"{ReadResources(args.PlayerId)}, {farmPlacement}; postEventReturnValueNotAuthoritative=true.");
+                    $"{ReadResources(args.PlayerId)}, {farmPlacement}, {farmReason}; postEventReturnValueNotAuthoritative=true.");
+                CaptureFarmParcel(args.TileX, args.TileY, 0, "build-structure-" + args.Phase);
             }
             if (probeRunning && args.PlayerId == ProbePlayer &&
                 args.Mappers == eMappers.MAPPER_WOODSMAN)
@@ -846,13 +853,14 @@ namespace AIBuildDiagnoseTest
                 out int rejected, out int mode)
                 ? $"placementPreparation={preparation}, placementRejected={rejected}, placementMode={mode}"
                 : "placementStatus=unavailable";
+            string nativeReason = FormatNativePlacementReason();
             try
             {
                 int cost = GameBuildingManagerAPI.Instance.GetWoodCost(eStructs.STRUCT_WOODCUTTERS_HUT);
                 Log($"AI_BUILD_STRUCTURE: session={sessionId}, tick={lastTick}, player={owner}, attempt={id}, " +
                     $"phase={args.Phase}, tile=({args.TileX},{args.TileY}), mapper={args.Mappers}, " +
                     $"scale={args.BuildingScaleUnknown}, free={args.IsFree}, woodCost={cost}, " +
-                    $"{ReadResources(owner)}, {placement}.");
+                    $"{ReadResources(owner)}, {placement}, {nativeReason}.");
             }
             catch (Exception ex) { Log("AI_BUILD_STRUCTURE_OBSERVATION_FAILED: " + ex); }
         }
@@ -1772,6 +1780,7 @@ namespace AIBuildDiagnoseTest
             IReadOnlyList<AiPathTileSample> area)
         {
             int footprintTrees = 0, footprintSwamps = 0, footprintBuildings = 0;
+            int footprintReservations = 0;
             int accessiblePerimeter = 0, blockedPerimeter = 0;
             foreach (AiPathTileSample tile in footprint)
             {
@@ -1780,6 +1789,8 @@ namespace AIBuildDiagnoseTest
                 if (tile.BuildingId != 0 ||
                     (tile.PropertyFlags & (uint)TilePropertyFlag.IsBuilding) != 0)
                     footprintBuildings++;
+                if ((tile.PropertyFlags & NativePlacementReservationFlag) != 0)
+                    footprintReservations++;
             }
             foreach (AiPathTileSample tile in area)
             {
@@ -1791,10 +1802,85 @@ namespace AIBuildDiagnoseTest
             Log($"AI_BUILD_PLACEMENT_INDICATORS: session={sessionId}, attempt={attemptId}, " +
                 $"player={playerId}, anchor=({x},{y}), footprintTiles={footprint.Count}, " +
                 $"footprintTrees={footprintTrees}, footprintSwamps={footprintSwamps}, " +
-                $"footprintBuildings={footprintBuildings}, " +
+                $"footprintBuildings={footprintBuildings}, footprintReservationBit4={footprintReservations}, " +
                 $"perimeterPositiveComponents={accessiblePerimeter}, " +
                 $"perimeterOther={blockedPerimeter}, actualAccessTile=unobserved-before-spawn, " +
                 "vanillaPlacement=unobserved-before-probe; countsAreObservations.");
+        }
+
+        private static string FormatNativePlacementReason()
+        {
+            // 0x77E60 does not clear +0x204E704 on entry. This is a raw, possibly stale
+            // diagnostic value; compare Pre and Post instead of treating it as a verdict.
+            if (!AiBuildDiagnostic.HasObserver) return "placementReasonRaw=unavailable";
+            try
+            {
+                IntPtr tileManager = GameTileManagerAPI.Instance.GetTileManager();
+                if (tileManager == IntPtr.Zero) return "placementReasonRaw=no-tile-manager";
+                int reason = Marshal.ReadInt32(IntPtr.Add(tileManager, 0x204E704));
+                return $"placementReasonRaw={reason}, placementReasonMayBeStale=true";
+            }
+            catch (Exception ex) { return "placementReasonRaw=unavailable:" + ex.GetType().Name; }
+        }
+
+        private void CaptureFarmParcel(int originX, int originY, int buildingId, string stage)
+        {
+            if (!active || !AiBuildDiagnostic.HasObserver) return;
+            if (farmParcelSnapshots >= FarmParcelSnapshotLimit)
+            {
+                if (++farmParcelSnapshotsDropped == 1)
+                    QueueDiagnostic($"AI_BUILD_FARM_PARCEL_OVERFLOW: session={sessionId}, " +
+                        $"limit={FarmParcelSnapshotLimit}; later parcel snapshots omitted.", true);
+                return;
+            }
+            farmParcelSnapshots++;
+            try
+            {
+                // 0x72490 uses the farm's 10-by-10 mapper. Four bounded 5-by-5 reads
+                // preserve APIShared's per-capture limit while covering the entire parcel.
+                var cells = new Dictionary<int, int[]>();
+                int total = 0, reserved = 0, zero = 0, unavailable = 0;
+                for (int blockX = 0; blockX < 2; blockX++)
+                    for (int blockY = 0; blockY < 2; blockY++)
+                        foreach (AiPathTileSample tile in AiBuildDiagnostic.CaptureTiles(
+                            originX + blockX * 5, originY + blockY * 5, 5, 5))
+                        {
+                            total++;
+                            if (tile.Status != "ok") { unavailable++; continue; }
+                            int cellIndex = (tile.X / 5) * 160 + tile.Y / 5;
+                            if (!cells.TryGetValue(cellIndex, out int[] counts))
+                                cells[cellIndex] = counts = new int[3];
+                            counts[0]++;
+                            if ((tile.PropertyFlags & NativePlacementReservationFlag) != 0)
+                            { reserved++; counts[1]++; }
+                            if (tile.NativeComponent == 0) { zero++; counts[2]++; }
+                        }
+                var details = new StringBuilder();
+                var ordered = new List<int>(cells.Keys);
+                ordered.Sort();
+                foreach (int index in ordered)
+                {
+                    int coarseX = index / 160, coarseY = index % 160;
+                    AiEconomyGridEvidence coarse = AiBuildDiagnostic.CaptureEconomyGridEvidence(
+                        coarseX, coarseY);
+                    if (details.Length != 0) details.Append('|');
+                    int[] counts = cells[index];
+                    details.Append($"({coarseX},{coarseY}):sampled={counts[0]}:" +
+                        $"bit4={counts[1]}:pcl0={counts[2]}:" +
+                        $"storedForeign={coarse.StoredForeignCount}:" +
+                        $"liveDifferent={coarse.CurrentDifferentCount}:" +
+                        $"coarseStatus={coarse.Status}");
+                }
+                QueueDiagnostic($"AI_BUILD_FARM_PARCEL: session={sessionId}, tick={lastTick}, " +
+                    $"stage={stage}, buildingId={buildingId}, origin=({originX},{originY}), " +
+                    $"window=10x10, sampled={total}, reservedBit4={reserved}, pclZero={zero}, " +
+                    $"unavailable={unavailable}, cells={details}; rawMeasurementsOnly=true.", true);
+            }
+            catch (Exception ex)
+            {
+                QueueDiagnostic("AI_BUILD_FARM_PARCEL_FAILED: stage=" + stage +
+                    ", error=" + ex.GetType().Name, true);
+            }
         }
 
         private void RunPlacementProbe()
@@ -1949,6 +2035,7 @@ namespace AIBuildDiagnoseTest
                     $"alive={building->r_AliveState}, dueObservedTick={(isNew ? farm.DueTickCount.ToString() : "none")}.");
                 CaptureAppleFarm(farm, stage);
                 CaptureOrchardStage(farm.X, farm.Y, farm.BuildingId, stage);
+                CaptureFarmParcel(farm.X, farm.Y, farm.BuildingId, stage);
                 farm.LastOrchardTiles = ReadOrchardTiles(farm.X, farm.Y);
             }
             catch (Exception ex)

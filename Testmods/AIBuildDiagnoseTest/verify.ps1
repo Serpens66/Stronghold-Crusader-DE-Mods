@@ -114,6 +114,12 @@ foreach ($edge in @(@('575a4','jmp'), @('71a06','call'),
         throw "Economy-grid update edge differs: $($edge[0]) -> 50720"
     }
 }
+$placementSource = (& $rizin -q -e scr.color=false -c 's 0x1800724ea; pd 5; s 0x180078878; pd 9; q' $native) -join "`n"
+if ($placementSource -notmatch '0x1800724ec\s+or\s+dword \[rbx \+ rax\*4 \+ 0x898400\], 4' -or
+    $placementSource -notmatch '0x180078889\s+call\s+0x18007b060' -or
+    $placementSource -notmatch '0x180078892\s+mov\s+dword \[rbx \+ 0x204e6fc\], 1') {
+    throw 'Apple-farm reservation writer or woodsman placement validator differs.'
+}
 $textFiles = @($sourceFiles) + @(
     (Join-Path $project 'Properties\AssemblyInfo.cs'),
     (Join-Path $project 'info.json'),
@@ -162,6 +168,14 @@ if ($runtimeText -notmatch 'NearbyDx = \{ 0, 1, 1, 1, 0, -1, -1, -1 \}' -or
     $runtimeText -notmatch 'nearbyTestUsed = true' -or
     $runtimeText -notmatch 'Config\.Bind\("NearbyWoodTest", "Enabled", false') {
     throw 'Nearby wood shadow or copy-only overlay contract differs.'
+}
+if ($runtimeText -notmatch 'NativePlacementReservationFlag = 0x4' -or
+    $runtimeText -notmatch 'Marshal\.ReadInt32\(IntPtr\.Add\(tileManager, 0x204E704\)\)' -or
+    $runtimeText -notmatch 'placementReasonMayBeStale=true' -or
+    $runtimeText -notmatch 'CaptureFarmParcel\(args\.TileX, args\.TileY, 0, "build-structure-" \+ args\.Phase\)' -or
+    $runtimeText -notmatch 'CaptureFarmParcel\(farm\.X, farm\.Y, farm\.BuildingId, stage\)' -or
+    $runtimeText -notmatch 'FarmParcelSnapshotLimit = 48') {
+    throw 'Farm-parcel or raw native placement-reason diagnostic contract differs.'
 }
 $bugfixRuntime = [IO.File]::ReadAllText((Join-Path $workspace 'BugfixesAndQoL\src\AIPreplacedBuildingFixRuntime.cs'))
 $publisher = [IO.File]::ReadAllText((Join-Path $workspace 'APIShared\src\AiBuildDiagnostic.cs'))

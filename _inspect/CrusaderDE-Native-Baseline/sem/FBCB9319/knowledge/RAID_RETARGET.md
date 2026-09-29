@@ -1,0 +1,11 @@
+# Raid target selection and attack access (FBCB9319)
+
+Native DLL SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`. The addresses below are RVAs for this binary only.
+
+- `0x29190` adds a living building to its owner's bounded candidate list without checking raid-unit reachability. `0x2C620` selects a building from that list using one of three 47-type priority tables. Type `0x14` is `STRUCT_GRANARY` and appears in all three tables, first in the table at VA `0x1802C7E00`. Granaries are therefore intentional Vanilla candidates, regardless of whether this is desirable raid policy.
+- `0x2AE40` schedules the raid update `0x3E200`. For its ordinary harassment-group branch, `0x3E200` validates the stored target at tribe offsets `0x622` (building ID) and `0x626` (global ID), selects a replacement through `0x2C620` when needed, and calls `0x199C70` with command 9, building ID and global ID. The latter forwards to `0x11E960`.
+- Command 9 in `0x11E960` records a command target at tribe offsets `0x64C`/`0x650`, filters eligible units, calls `0xDA020` to enumerate building attack positions, then `0x123090` to rank reachable candidates. Selected units receive movement through `0x196280`. The building can therefore remain the stored raid target even when no suitable approach is assigned.
+- `0xDA020` checks candidate positions around the building with height, occupancy and player-specific path-component conditions. It also has an alternate route check. A building's worker delivery access point is a separate contract and does not demonstrate a valid melee attack position.
+- `0x2DC30` gates raid updates using tribe counters at offsets `0x5EA`, `0x5EC` and `0x5F0`; their exact gameplay meanings are not established here. Other writers of the stored target include `0x30620` and `0x30E90`, so a stored target change alone does not prove command 9 ran.
+
+Runtime observation from `test_Raid_Retarget_Delay.sav`: player 2 harassment group 0 destroyed apple farm building `155/6649` at tick 704. Its stored target became granary `119/6450` by pre-tick 830; it retained that live target through tick 4209 without logged damage to it. The previous diagnostic lacked group-command and unit-path events, so the reason for the absent attack remains unconfirmed.

@@ -1,0 +1,1136 @@
+            0x180077e60      mov   qword [rsp + 0x10], rbx
+            0x180077e65      push  rbp
+            0x180077e66      push  rsi
+            0x180077e67      push  rdi
+            0x180077e68      push  r12
+            0x180077e6a      push  r13
+            0x180077e6c      push  r14
+            0x180077e6e      push  r15
+            0x180077e70      sub   rsp, 0x60
+            0x180077e74      mov   r15d, dword [rsp + 0xc8]
+            0x180077e7c      xor   edi, edi
+            0x180077e7e      movsx r13, word [rsp + 0xc0]
+            0x180077e87      mov   rbx, rcx
+            0x180077e8a      movsxd rbp, edx
+            0x180077e8d      test  r15d, r15d
+            0x180077e90      mov   dword [rcx + 0x204e6fc], edi
+            0x180077e96      mov   r12d, 2
+            0x180077e9c      mov   dword [rcx + 0x204e708], edi
+            0x180077ea2      mov   edx, r13d
+            0x180077ea5      mov   qword [rcx + 0x204e70c], 0xf        ; [0xf:8]=-1 ; 15
+            0x180077eb0      cmovns r12d, r15d
+            0x180077eb4      lea   rcx, [0x1864ccbb0]
+            0x180077ebb      mov   dword [rsp + 0xa0], r8d
+            0x180077ec3      mov   r14d, r9d
+            0x180077ec6      mov   dword [rsp + 0x40], r9d
+            0x180077ecb      mov   esi, r8d
+            0x180077ece      mov   dword [rsp + 0x58], edi
+            0x180077ed2      call  0x1800c77c0
+            0x180077ed7      movsxd rcx, eax
+            0x180077eda      mov   edx, r13d
+            0x180077edd      lea   rax, [0x180000000]                  ; "MZ\x90"
+            0x180077ee4      mov   eax, dword [rax + rcx*4 + 0x2e7af0]
+            0x180077eeb      lea   rcx, [0x1864ccbb0]
+            0x180077ef2      mov   dword [rbx + 0x204e714], eax
+            0x180077ef8      call  0x1800bfbc0
+            0x180077efd      mov   edx, r13d
+            0x180077f00      mov   dword [rbx + 0x204e718], eax
+            0x180077f06      lea   rcx, [0x1864ccbb0]
+            0x180077f0d      call  0x1800bfcf0
+            0x180077f12      mov   edx, r13d
+            0x180077f15      mov   dword [rbx + 0x204e71c], eax
+            0x180077f1b      lea   rcx, [0x1864ccbb0]
+            0x180077f22      call  0x1800c77c0
+            0x180077f27      movsxd rcx, eax
+            0x180077f2a      mov   edx, r13d
+            0x180077f2d      lea   rax, [0x180000000]                  ; "MZ\x90"
+            0x180077f34      mov   eax, dword [rax + rcx*4 + 0x2e51a0]
+            0x180077f3b      lea   rcx, [0x1864ccbb0]
+            0x180077f42      mov   dword [rbx + 0x204e724], eax
+            0x180077f48      call  0x1800c77c0
+            0x180077f4d      movsxd rcx, eax
+            0x180077f50      mov   edx, r13d
+            0x180077f53      lea   rax, [0x180000000]                  ; "MZ\x90"
+            0x180077f5a      mov   eax, dword [rax + rcx*4 + 0x2e5360]
+            0x180077f61      lea   rcx, [0x1864ccbb0]
+            0x180077f68      mov   dword [rbx + 0x204e738], eax
+            0x180077f6e      call  0x1800c77c0
+            0x180077f73      movsxd rcx, eax
+            0x180077f76      mov   edx, r13d
+            0x180077f79      lea   rax, [0x180000000]                  ; "MZ\x90"
+            0x180077f80      mov   eax, dword [rax + rcx*4 + 0x2e5520]
+            0x180077f87      lea   rcx, [0x1864ccbb0]
+            0x180077f8e      mov   dword [rbx + 0x204e73c], eax
+            0x180077f94      call  0x1800c77c0
+            0x180077f99      movsxd rcx, eax
+            0x180077f9c      lea   rdx, [0x180000000]                  ; "MZ\x90"
+            0x180077fa3      mov   eax, dword [rdx + rcx*4 + 0x2e56e0]
+            0x180077faa      mov   dword [rbx + 0x204e740], eax
+            0x180077fb0      cmp   dword [0x188574b90], edi            ; [0x188574b90:4]=0
+        ┌─< 0x180077fb6      je    0x180077fcb
+        │   0x180077fb8      cmp   dword [rdx + rbp*4 + 0x8574bcc], 0xffffffff
+       ┌──< 0x180077fc0      jne   0x180077fcb
+       ││   0x180077fc2      cmp   dword [rdx + rbp*4 + 0x8574c44], edi
+      ┌───< 0x180077fc9      jne   0x180077fd1
+      │└└─> 0x180077fcb      mov   dword [rbx + 0x204e740], edi
+      └───> 0x180077fd1      mov   edx, r13d
+            0x180077fd4      lea   rcx, [0x1864ccbb0]
+            0x180077fdb      call  0x1800c77c0
+            0x180077fe0      movsxd rcx, eax
+            0x180077fe3      mov   edx, r13d
+            0x180077fe6      lea   rax, [0x180000000]                  ; "MZ\x90"
+            0x180077fed      mov   eax, dword [rax + rcx*4 + 0x2e58a0]
+            0x180077ff4      lea   rcx, [0x1864ccbb0]
+            0x180077ffb      mov   dword [rbx + 0x204e744], eax
+            0x180078001      call  0x1800c77c0
+            0x180078006      movsxd rcx, eax
+            0x180078009      mov   edx, r13d
+            0x18007800c      lea   rax, [0x180000000]                  ; "MZ\x90"
+            0x180078013      mov   eax, dword [rax + rcx*4 + 0x2e5a60]
+            0x18007801a      lea   rcx, [0x1864ccbb0]
+            0x180078021      mov   dword [rbx + 0x204e748], eax
+            0x180078027      call  0x1800c77c0
+            0x18007802c      movsxd rcx, eax
+            0x18007802f      mov   edx, r13d
+            0x180078032      lea   rax, [0x180000000]                  ; "MZ\x90"
+            0x180078039      mov   eax, dword [rax + rcx*4 + 0x2e5c20]
+            0x180078040      lea   rcx, [0x1864ccbb0]
+            0x180078047      mov   dword [rbx + 0x204e74c], eax
+            0x18007804d      call  0x1800c77c0
+            0x180078052      cmp   word [rsp + 0xc0], 0x5e
+            0x18007805b      movsxd rcx, eax
+            0x18007805e      lea   rax, [0x180000000]                  ; "MZ\x90"
+            0x180078065      mov   eax, dword [rax + rcx*4 + 0x8fbb30]
+            0x18007806c      mov   dword [rbx + 0x204e750], eax
+        ┌─< 0x180078072      je    0x1800798db
+        │   0x180078078      mov   dword [rsp + 0x44], edi
+        │   0x18007807c      mov   ecx, edi
+        │   0x18007807e      mov   dword [rsp + 0x48], edi
+        │   0x180078082      mov   edx, edi
+        │   0x180078084      mov   r8d, edi
+        │   0x180078087      test  r15d, r15d
+       ┌──< 0x18007808a      js    0x1800786f7
+       ││   0x180078090      mov   r9d, r12d
+       ││   0x180078093      mov   dword [rsp + 0x20], ebp
+       ││   0x180078097      mov   r8d, r14d
+       ││   0x18007809a      mov   edx, esi
+       ││   0x18007809c      mov   rcx, rbx
+       ││   0x18007809f      call  0x1800696d0
+       ││   0x1800780a4      lea   eax, [r13 - 0x33]
+       ││   0x1800780a8      cmp   eax, 0x194                          ; 404
+      ┌───< 0x1800780ad      ja    0x180078586
+      │││   0x1800780b3      lea   rdx, [0x180000000]                  ; "MZ\x90"
+      │││   0x1800780ba      cdqe
+      │││   0x1800780bc      movzx eax, byte [rdx + rax + 0x79914]
+      │││   0x1800780c4      mov   ecx, dword [rdx + rax*4 + 0x798f4]
+      │││   0x1800780cb      add   rcx, rdx
+      │││   0x1800780ce      jmp   rcx
+      │││   0x1800780d0      cmp   dword [0x188574b90], edi            ; [0x188574b90:4]=0
+     ┌────< 0x1800780d6      je    0x180078687
+     ││││   0x1800780dc      mov   r15d, edi
+     ││││   0x1800780df      nop
+    ┌─────> 0x1800780e0      mov   r8d, r12d
+    ╎││││   0x1800780e3      mov   edx, r15d
+    ╎││││   0x1800780e6      mov   rcx, rbx
+    ╎││││   0x1800780e9      call  0x180069850
+    ╎││││   0x1800780ee      mov   r9d, dword [rbx + 0x204e764]
+    ╎││││   0x1800780f5      lea   rcx, [0x1860ad660]
+    ╎││││   0x1800780fc      mov   r8d, dword [rbx + 0x204e760]
+    ╎││││   0x180078103      add   r9d, r14d
+    ╎││││   0x180078106      add   r8d, esi
+    ╎││││   0x180078109      mov   byte [rsp + 0x28], dil
+    ╎││││   0x18007810e      mov   edx, ebp
+    ╎││││   0x180078110      mov   dword [rsp + 0x20], 3
+    ╎││││   0x180078118      call  0x1800ee640
+    ╎││││   0x18007811d      test  eax, eax
+   ┌──────< 0x18007811f      jne   0x1800781fd
+   │╎││││   0x180078125      inc   r15d
+   │╎││││   0x180078128      cmp   r15d, dword [rbx + 0x204e758]
+   │└─────< 0x18007812f      jl    0x1800780e0
+   │ ││││   0x180078131      mov   r15d, edi
+   │ ││││   0x180078134      nop   dword [rax]
+   │ ││││   0x180078138      nop   dword [rax + rax]
+   │┌─────> 0x180078140      mov   r8d, r12d
+   │╎││││   0x180078143      mov   edx, r15d
+   │╎││││   0x180078146      mov   rcx, rbx
+   │╎││││   0x180078149      call  0x180069850
+   │╎││││   0x18007814e      mov   r9d, dword [rbx + 0x204e764]
+   │╎││││   0x180078155      lea   rcx, [0x1860ad660]
+   │╎││││   0x18007815c      mov   r8d, dword [rbx + 0x204e760]
+   │╎││││   0x180078163      add   r9d, r14d
+   │╎││││   0x180078166      mov   dword [rsp + 0x38], 0xffffffff      ; [0xffffffff:4]=-1 ; -1
+   │╎││││   0x18007816e      add   r8d, esi
+   │╎││││   0x180078171      mov   dword [rsp + 0x30], 0xffffffff      ; [0xffffffff:4]=-1 ; -1
+   │╎││││   0x180078179      mov   edx, ebp
+   │╎││││   0x18007817b      mov   dword [rsp + 0x28], 0xffffffff      ; [0xffffffff:4]=-1 ; -1
+   │╎││││   0x180078183      mov   dword [rsp + 0x20], 6
+   │╎││││   0x18007818b      call  0x1800ee320
+   │╎││││   0x180078190      test  eax, eax
+  ┌───────< 0x180078192      jne   0x1800781fd
+  ││╎││││   0x180078194      inc   r15d
+  ││╎││││   0x180078197      cmp   r15d, dword [rbx + 0x204e758]
+  ││└─────< 0x18007819e      jl    0x180078140
+  ││ ││││   0x1800781a0      mov   r15d, edi
+  ││ ││││   0x1800781a3      nop   dword [rax]
+  ││ ││││   0x1800781a7      nop   word [rax + rax]
+  ││┌─────> 0x1800781b0      mov   r8d, r12d
+  ││╎││││   0x1800781b3      mov   edx, r15d
+  ││╎││││   0x1800781b6      mov   rcx, rbx
+  ││╎││││   0x1800781b9      call  0x180069850
+  ││╎││││   0x1800781be      mov   r9d, dword [rbx + 0x204e764]
+  ││╎││││   0x1800781c5      lea   rcx, [0x1860ad660]
+  ││╎││││   0x1800781cc      mov   r8d, dword [rbx + 0x204e760]
+  ││╎││││   0x1800781d3      add   r9d, r14d
+  ││╎││││   0x1800781d6      add   r8d, esi
+  ││╎││││   0x1800781d9      mov   dword [rsp + 0x20], 0xc             ; [0xc:4]=-1 ; 12
+  ││╎││││   0x1800781e1      mov   edx, ebp
+  ││╎││││   0x1800781e3      call  0x1800ee840
+  ││╎││││   0x1800781e8      test  eax, eax
+  ────────< 0x1800781ea      jne   0x1800781fd
+  ││╎││││   0x1800781ec      inc   r15d
+  ││╎││││   0x1800781ef      cmp   r15d, dword [rbx + 0x204e758]
+  ││└─────< 0x1800781f6      jl    0x1800781b0
+  ││┌─────< 0x1800781f8      jmp   0x180078687
+  └└──────> 0x1800781fd      mov   dword [rbx + 0x204e704], 0x11       ; [0x11:4]=-1 ; 17
+   ┌──────< 0x180078207      jmp   0x18007867d
+   ││││││   0x18007820c      cmp   dword [0x183665f28], 1              ; [0x183665f28:4]=0
+  ┌───────< 0x180078213      je    0x1800786f0
+  │││││││   0x180078219      cmp   dword [0x188574b90], edi            ; [0x188574b90:4]=0
+  ────────< 0x18007821f      je    0x18007828e
+  │││││││   0x180078221      mov   r15d, edi
+  │││││││   0x180078224      nop   dword [rax]
+  │││││││   0x180078228      nop   dword [rax + rax]
+  ────────> 0x180078230      mov   r8d, r12d
+  │││││││   0x180078233      mov   edx, r15d
+  │││││││   0x180078236      mov   rcx, rbx
+  │││││││   0x180078239      call  0x180069850
+  │││││││   0x18007823e      mov   r9d, dword [rbx + 0x204e764]
+  │││││││   0x180078245      lea   rcx, [0x1860ad660]
+  │││││││   0x18007824c      mov   r8d, dword [rbx + 0x204e760]
+  │││││││   0x180078253      add   r9d, r14d
+  │││││││   0x180078256      add   r8d, esi
+  │││││││   0x180078259      mov   dword [rsp + 0x20], 0x14            ; [0x14:4]=-1 ; 20
+  │││││││   0x180078261      mov   edx, ebp
+  │││││││   0x180078263      call  0x1800ee840
+  │││││││   0x180078268      test  eax, eax
+  ────────< 0x18007826a      jne   0x18007827a
+  │││││││   0x18007826c      inc   r15d
+  │││││││   0x18007826f      cmp   r15d, dword [rbx + 0x204e758]
+  ────────< 0x180078276      jl    0x180078230
+  ────────< 0x180078278      jmp   0x18007828e
+  ────────> 0x18007827a      mov   dword [rbx + 0x204e704], 0x11       ; [0x11:4]=-1 ; 17
+  │││││││   0x180078284      mov   dword [rbx + 0x204e6fc], 1
+  ────────> 0x18007828e      cmp   dword [0x183665f28], 1              ; [0x183665f28:4]=0
+  ────────< 0x180078295      je    0x1800786f0
+  │││││││   0x18007829b      mov   r15d, edi
+  │││││││   0x18007829e      nop
+  ────────> 0x1800782a0      mov   r8d, r12d
+  │││││││   0x1800782a3      mov   edx, r15d
+  │││││││   0x1800782a6      mov   rcx, rbx
+  │││││││   0x1800782a9      call  0x180069850
+  │││││││   0x1800782ae      mov   r9d, dword [rbx + 0x204e764]
+  │││││││   0x1800782b5      lea   rcx, [0x1860ad660]
+  │││││││   0x1800782bc      mov   r8d, dword [rbx + 0x204e760]
+  │││││││   0x1800782c3      add   r9d, r14d
+  │││││││   0x1800782c6      mov   dword [rsp + 0x38], 0xffffffff      ; [0xffffffff:4]=-1 ; -1
+  │││││││   0x1800782ce      add   r8d, esi
+  │││││││   0x1800782d1      mov   dword [rsp + 0x30], 0xffffffff      ; [0xffffffff:4]=-1 ; -1
+  │││││││   0x1800782d9      mov   edx, ebp
+  │││││││   0x1800782db      mov   dword [rsp + 0x28], 0xffffffff      ; [0xffffffff:4]=-1 ; -1
+  │││││││   0x1800782e3      mov   dword [rsp + 0x20], 2
+  │││││││   0x1800782eb      call  0x1800ee320
+  │││││││   0x1800782f0      test  eax, eax
+  ────────< 0x1800782f2      jne   0x1800786dc
+  │││││││   0x1800782f8      inc   r15d
+  │││││││   0x1800782fb      cmp   r15d, dword [rbx + 0x204e758]
+  ────────< 0x180078302      jl    0x1800782a0
+  ────────< 0x180078304      jmp   0x1800786f0
+  │││││││   0x180078309      imul  rcx, rbp, 0x583c
+  │││││││   0x180078310      cmp   word [rcx + rdx + 0x379e79a], 0xa
+  ────────< 0x180078319      jl    0x180078334
+  │││││││   0x18007831b      mov   dword [rbx + 0x204e6fc], 1
+  │││││││   0x180078325      mov   dword [rbx + 0x204e704], 0x3e8      ; [0x3e8:4]=-1 ; 1000
+  ────────< 0x18007832f      jmp   0x1800798db
+  ────────> 0x180078334      mov   dword [rsp + 0x58], 5
+  │││││││   0x18007833c      cmp   dword [0x183665f28], 1              ; [0x183665f28:4]=0
+  │││││││   0x180078343      mov   r15d, edi
+  ────────< 0x180078346      je    0x1800784b0
+  │││││││   0x18007834c      cmp   dword [0x188574b90], edi            ; [0x188574b90:4]=0
+  │││││││   0x180078352      mov   eax, 0x1e                           ; 30
+  │││││││   0x180078357      mov   ecx, 0xf                            ; 15
+  │││││││   0x18007835c      cmovne eax, ecx
+  │││││││   0x18007835f      mov   dword [rsp + 0x50], eax
+  │││││││   0x180078363      nop   dword [rax]
+  │││││││   0x180078367      nop   word [rax + rax]
+  ────────> 0x180078370      mov   r8d, r12d
+  │││││││   0x180078373      mov   edx, r15d
+  │││││││   0x180078376      mov   rcx, rbx
+  │││││││   0x180078379      call  0x180069850
+  │││││││   0x18007837e      mov   r9d, dword [rbx + 0x204e764]
+  │││││││   0x180078385      lea   rcx, [0x1860ad660]
+  │││││││   0x18007838c      mov   r8d, dword [rbx + 0x204e760]
+  │││││││   0x180078393      add   r9d, r14d
+  │││││││   0x180078396      mov   eax, dword [rsp + 0x50]
+  │││││││   0x18007839a      add   r8d, esi
+  │││││││   0x18007839d      mov   byte [rsp + 0x28], dil
+  │││││││   0x1800783a2      mov   edx, ebp
+  │││││││   0x1800783a4      mov   dword [rsp + 0x20], eax
+  │││││││   0x1800783a8      call  0x1800ee640
+  │││││││   0x1800783ad      test  eax, eax
+  ────────< 0x1800783af      jne   0x180078463
+  │││││││   0x1800783b5      cmp   dword [0x188574b90], edi            ; [0x188574b90:4]=0
+  ────────< 0x1800783bb      je    0x180078421
+  │││││││   0x1800783bd      mov   rcx, rbx
+  │││││││   0x1800783c0      call  0x18006af00
+  │││││││   0x1800783c5      mov   r9d, dword [rbx + 0x204e764]
+  │││││││   0x1800783cc      lea   rcx, [0x1860ad660]
+  │││││││   0x1800783d3      mov   r8d, dword [rbx + 0x204e760]
+  │││││││   0x1800783da      add   r9d, r14d
+  │││││││   0x1800783dd      add   eax, dword [rsp + 0x58]
+  │││││││   0x1800783e1      add   r8d, esi
+  │││││││   0x1800783e4      mov   edx, ebp
+  │││││││   0x1800783e6      mov   dword [rsp + 0x20], eax
+  │││││││   0x1800783ea      call  0x1800eef90
+  │││││││   0x1800783ef      test  eax, eax
+  ────────< 0x1800783f1      jne   0x180078472
+  │││││││   0x1800783f3      mov   r9d, dword [rbx + 0x204e764]
+  │││││││   0x1800783fa      lea   rcx, [0x1860ad660]
+  │││││││   0x180078401      mov   r8d, dword [rbx + 0x204e760]
+  │││││││   0x180078408      add   r9d, r14d
+  │││││││   0x18007840b      add   r8d, esi
+  │││││││   0x18007840e      mov   dword [rsp + 0x20], 0x14            ; [0x14:4]=-1 ; 20
+  │││││││   0x180078416      mov   edx, ebp
+  │││││││   0x180078418      call  0x1800ee840
+  │││││││   0x18007841d      test  eax, eax
+  ────────< 0x18007841f      jne   0x180078463
+  ────────> 0x180078421      inc   r15d
+  │││││││   0x180078424      cmp   r15d, dword [rbx + 0x204e758]
+  ────────< 0x18007842b      jl    0x180078370
+  │││││││   0x180078431      mov   r15d, 1
+  ────────> 0x180078437      mov   r9d, dword [0x1837ef8f8]            ; [0x1837ef8f8:4]=0
+  │││││││   0x18007843e      lea   rcx, [0x1860ad660]
+  │││││││   0x180078445      add   r9d, 5
+  │││││││   0x180078449      mov   r8d, r14d
+  │││││││   0x18007844c      mov   edx, esi
+  │││││││   0x18007844e      call  0x1800ec130
+  │││││││   0x180078453      test  eax, eax
+  ────────< 0x180078455      je    0x180078481
+  │││││││   0x180078457      mov   dword [rbx + 0x204e704], 0x15       ; [0x15:4]=-1 ; 21
+  ────────< 0x180078461      jmp   0x18007848a
+  ────────> 0x180078463      mov   dword [rbx + 0x204e704], 0x11       ; [0x11:4]=-1 ; 17
+  │││││││   0x18007846d      mov   r15d, edi
+  ────────< 0x180078470      jmp   0x180078437
+  ────────> 0x180078472      mov   dword [rbx + 0x204e704], 0x12       ; [0x12:4]=-1 ; 18
+  │││││││   0x18007847c      mov   r15d, edi
+  ────────< 0x18007847f      jmp   0x180078437
+  ────────> 0x180078481      test  r15d, r15d
+  ────────< 0x180078484      jne   0x180078687
+  ────────> 0x18007848a      mov   dword [rbx + 0x204e6fc], 1
+  │││││││   0x180078494      cmp   dword [rbx + 0x204e704], edi
+  ────────< 0x18007849a      jne   0x180078687
+  │││││││   0x1800784a0      mov   dword [rbx + 0x204e704], 0x12       ; [0x12:4]=-1 ; 18
+  ────────< 0x1800784aa      jmp   0x180078687
+  │││││││   0x1800784af      nop
+  ────────> 0x1800784b0      mov   r8d, r12d
+  │││││││   0x1800784b3      mov   edx, r15d
+  │││││││   0x1800784b6      mov   rcx, rbx
+  │││││││   0x1800784b9      call  0x180069850
+  │││││││   0x1800784be      mov   r9d, dword [rbx + 0x204e764]
+  │││││││   0x1800784c5      lea   rcx, [0x1860ad660]
+  │││││││   0x1800784cc      mov   r8d, dword [rbx + 0x204e760]
+  │││││││   0x1800784d3      add   r9d, r14d
+  │││││││   0x1800784d6      mov   dword [rsp + 0x38], 0xffffffff      ; [0xffffffff:4]=-1 ; -1
+  │││││││   0x1800784de      add   r8d, esi
+  │││││││   0x1800784e1      mov   dword [rsp + 0x30], 0xffffffff      ; [0xffffffff:4]=-1 ; -1
+  │││││││   0x1800784e9      mov   edx, ebp
+  │││││││   0x1800784eb      mov   dword [rsp + 0x28], 0xffffffff      ; [0xffffffff:4]=-1 ; -1
+  │││││││   0x1800784f3      mov   dword [rsp + 0x20], 7
+  │││││││   0x1800784fb      call  0x1800ee320
+  │││││││   0x180078500      test  eax, eax
+  ────────< 0x180078502      jne   0x1800781fd
+  │││││││   0x180078508      inc   r15d
+  │││││││   0x18007850b      cmp   r15d, dword [rbx + 0x204e758]
+  ────────< 0x180078512      jl    0x1800784b0
+  ────────< 0x180078514      jmp   0x180078687
+  │││││││   0x180078519      cmp   dword [0x183665f28], 1              ; [0x183665f28:4]=0
+  ────────< 0x180078520      je    0x180078687
+  │││││││   0x180078526      mov   r15d, edi
+  │││││││   0x180078529      nop   dword [rax]
+  ────────> 0x180078530      mov   r8d, r12d
+  │││││││   0x180078533      mov   edx, r15d
+  │││││││   0x180078536      mov   rcx, rbx
+  │││││││   0x180078539      call  0x180069850
+  │││││││   0x18007853e      mov   r9d, dword [rbx + 0x204e764]
+  │││││││   0x180078545      lea   rcx, [0x1860ad660]
+  │││││││   0x18007854c      mov   r8d, dword [rbx + 0x204e760]
+  │││││││   0x180078553      add   r9d, r14d
+  │││││││   0x180078556      add   r8d, esi
+  │││││││   0x180078559      mov   byte [rsp + 0x28], dil
+  │││││││   0x18007855e      mov   edx, ebp
+  │││││││   0x180078560      mov   dword [rsp + 0x20], 3
+  │││││││   0x180078568      call  0x1800ee640
+  │││││││   0x18007856d      test  eax, eax
+  ────────< 0x18007856f      jne   0x1800781fd
+  │││││││   0x180078575      inc   r15d
+  │││││││   0x180078578      cmp   r15d, dword [rbx + 0x204e758]
+  ────────< 0x18007857f      jl    0x180078530
+  ────────< 0x180078581      jmp   0x180078687
+  ││││└───> 0x180078586      cmp   dword [0x183665f28], 1              ; [0x183665f28:4]=0
+  ││││┌───< 0x18007858d      je    0x180078687
+  │││││││   0x180078593      cmp   dword [0x188574b90], edi            ; [0x188574b90:4]=0
+  │││││││   0x180078599      mov   eax, 0x1e                           ; 30
+  │││││││   0x18007859e      mov   ecx, 0xf                            ; 15
+  │││││││   0x1800785a3      mov   r15d, edi
+  │││││││   0x1800785a6      cmovne eax, ecx
+  │││││││   0x1800785a9      mov   dword [rsp + 0x50], eax
+  │││││││   0x1800785ad      nop   dword [rax]
+  ────────> 0x1800785b0      mov   r8d, r12d
+  │││││││   0x1800785b3      mov   edx, r15d
+  │││││││   0x1800785b6      mov   rcx, rbx
+  │││││││   0x1800785b9      call  0x180069850
+  │││││││   0x1800785be      mov   r9d, dword [rbx + 0x204e764]
+  │││││││   0x1800785c5      lea   rcx, [0x1860ad660]
+  │││││││   0x1800785cc      mov   r8d, dword [rbx + 0x204e760]
+  │││││││   0x1800785d3      add   r9d, r14d
+  │││││││   0x1800785d6      mov   eax, dword [rsp + 0x50]
+  │││││││   0x1800785da      add   r8d, esi
+  │││││││   0x1800785dd      mov   byte [rsp + 0x28], dil
+  │││││││   0x1800785e2      mov   edx, ebp
+  │││││││   0x1800785e4      mov   dword [rsp + 0x20], eax
+  │││││││   0x1800785e8      call  0x1800ee640
+  │││││││   0x1800785ed      test  eax, eax
+  ────────< 0x1800785ef      jne   0x180078669
+  │││││││   0x1800785f1      cmp   dword [0x188574b90], edi            ; [0x188574b90:4]=0
+  ────────< 0x1800785f7      je    0x180078627
+  │││││││   0x1800785f9      mov   r9d, dword [rbx + 0x204e764]
+  │││││││   0x180078600      lea   rcx, [0x1860ad660]
+  │││││││   0x180078607      mov   r8d, dword [rbx + 0x204e760]
+  │││││││   0x18007860e      add   r9d, r14d
+  │││││││   0x180078611      add   r8d, esi
+  │││││││   0x180078614      mov   dword [rsp + 0x20], 0x14            ; [0x14:4]=-1 ; 20
+  │││││││   0x18007861c      mov   edx, ebp
+  │││││││   0x18007861e      call  0x1800ee840
+  │││││││   0x180078623      test  eax, eax
+  ────────< 0x180078625      jne   0x180078669
+  ────────> 0x180078627      inc   r15d
+  │││││││   0x18007862a      cmp   r15d, dword [rbx + 0x204e758]
+  ────────< 0x180078631      jl    0x1800785b0
+  │││││││   0x180078637      mov   r15d, 1
+  ────────> 0x18007863d      mov   r9d, dword [0x1837ef8f8]            ; [0x1837ef8f8:4]=0
+  │││││││   0x180078644      lea   rcx, [0x1860ad660]
+  │││││││   0x18007864b      add   r9d, 5
+  │││││││   0x18007864f      mov   r8d, r14d
+  │││││││   0x180078652      mov   edx, esi
+  │││││││   0x180078654      call  0x1800ec130
+  │││││││   0x180078659      test  eax, eax
+  ────────< 0x18007865b      je    0x180078678
+  │││││││   0x18007865d      mov   dword [rbx + 0x204e704], 0x15       ; [0x15:4]=-1 ; 21
+  ────────< 0x180078667      jmp   0x18007867d
+  ────────> 0x180078669      mov   dword [rbx + 0x204e704], 0x11       ; [0x11:4]=-1 ; 17
+  │││││││   0x180078673      mov   r15d, edi
+  ────────< 0x180078676      jmp   0x18007863d
+  ────────> 0x180078678      test  r15d, r15d
+  ────────< 0x18007867b      jne   0x180078687
+  ─└──────> 0x18007867d      mov   dword [rbx + 0x204e6fc], 1
+  ──└└└───> 0x180078687      cmp   dword [rbx + 0x204e6fc], edi
+  │   ┌───< 0x18007868d      jne   0x1800786f0
+  │   │││   0x18007868f      mov   r15d, edi
+  │  ┌────> 0x180078692      mov   r8d, r12d
+  │  ╎│││   0x180078695      mov   edx, r15d
+  │  ╎│││   0x180078698      mov   rcx, rbx
+  │  ╎│││   0x18007869b      call  0x180069850
+  │  ╎│││   0x1800786a0      mov   r9d, dword [rbx + 0x204e764]
+  │  ╎│││   0x1800786a7      lea   rcx, [0x1860ad660]
+  │  ╎│││   0x1800786ae      mov   r8d, dword [rbx + 0x204e760]
+  │  ╎│││   0x1800786b5      add   r9d, r14d
+  │  ╎│││   0x1800786b8      add   r8d, esi
+  │  ╎│││   0x1800786bb      mov   dword [rsp + 0x20], 2
+  │  ╎│││   0x1800786c3      mov   edx, ebp
+  │  ╎│││   0x1800786c5      call  0x1800eb9a0
+  │  ╎│││   0x1800786ca      test  eax, eax
+  │ ┌─────< 0x1800786cc      jne   0x1800786dc
+  │ │╎│││   0x1800786ce      inc   r15d
+  │ │╎│││   0x1800786d1      cmp   r15d, dword [rbx + 0x204e758]
+  │ │└────< 0x1800786d8      jl    0x180078692
+  │ │┌────< 0x1800786da      jmp   0x1800786f0
+  ──└─────> 0x1800786dc      mov   dword [rbx + 0x204e6fc], 1
+  │  ││││   0x1800786e6      mov   dword [rbx + 0x204e704], 0x11       ; [0x11:4]=-1 ; 17
+  └──└└───> 0x1800786f0      mov   r8d, edi
+       ││   0x1800786f3      mov   edx, edi
+       ││   0x1800786f5      mov   ecx, edi
+       └──> 0x1800786f7      cmp   word [rsp + 0xc0], 0x69
+       ┌──< 0x180078700      jne   0x18007871f
+       ││   0x180078702      cmp   dword [rbx + 0x204e72c], 0xc
+      ┌───< 0x180078709      jle   0x18007871f
+      │││   0x18007870b      mov   dword [rbx + 0x204e6fc], 1
+      │││   0x180078715      mov   dword [rbx + 0x204e704], 0x18       ; [0x18:4]=-1 ; 24
+      └└──> 0x18007871f      movzx r15d, byte [rsp + 0xd0]
+        │   0x180078728      mov   eax, edi
+        │   0x18007872a      add   r15d, r15d
+        │   0x18007872d      mov   dword [rsp + 0x58], eax
+       ┌──> 0x180078731      mov   dword [rsp + 0xb8], r8d
+       ╎│   0x180078739      mov   r8d, r12d
+       ╎│   0x18007873c      mov   dword [rsp + 0xb0], edx
+       ╎│   0x180078743      mov   edx, eax
+       ╎│   0x180078745      mov   dword [rsp + 0xc8], ecx
+       ╎│   0x18007874c      mov   rcx, rbx
+       ╎│   0x18007874f      call  0x180069850
+       ╎│   0x180078754      mov   r8d, dword [rbx + 0x204e760]
+       ╎│   0x18007875b      mov   ecx, dword [rbx + 0x204e764]
+       ╎│   0x180078761      add   ecx, r14d
+       ╎│   0x180078764      lea   eax, [r8 + rsi]
+       ╎│   0x180078768      cmp   eax, 0x31f                          ; 799
+      ┌───< 0x18007876d      ja    0x1800798d1
+      │╎│   0x180078773      cmp   ecx, 0x31f                          ; 799
+     ┌────< 0x180078779      ja    0x1800798d1
+     ││╎│   0x18007877f      movsxd rdx, ecx
+     ││╎│   0x180078782      lea   r9, [0x180000000]                   ; "MZ\x90"
+     ││╎│   0x180078789      imul  rcx, rdx, 0x320
+     ││╎│   0x180078790      cdqe
+     ││╎│   0x180078792      add   rcx, rax
+     ││╎│   0x180078795      cmp   byte [rcx + r9 + 0x3a11ea4], dil
+    ┌─────< 0x18007879d      je    0x1800798d1
+    │││╎│   0x1800787a3      lea   rax, [rdx + rdx*2]
+    │││╎│   0x1800787a7      mov   r10d, dword [r9 + rax*4 + 0x402ff2c]
+    │││╎│   0x1800787af      add   r10d, r8d
+    │││╎│   0x1800787b2      add   r10d, esi
+    │││╎│   0x1800787b5      movsxd rcx, r10d
+    │││╎│   0x1800787b8      mov   eax, dword [rbx + rcx*4 + 0x898400]
+    │││╎│   0x1800787bf      test  al, 0x30                            ; 48
+   ┌──────< 0x1800787c1      jne   0x1800798d1
+   ││││╎│   0x1800787c7      mov   edx, dword [rsp + 0xc8]
+   ││││╎│   0x1800787ce      bt    eax, 0x11
+   ││││╎│   0x1800787d2      lea   r8d, [rdx + 1]
+   ││││╎│   0x1800787d6      cmovae r8d, edx
+   ││││╎│   0x1800787da      mov   edx, dword [rsp + 0xb0]
+   ││││╎│   0x1800787e1      mov   dword [rsp + 0xc8], r8d
+   ││││╎│   0x1800787e9      bt    eax, 0x13
+   ││││╎│   0x1800787ed      lea   r8d, [rdx + 1]
+   ││││╎│   0x1800787f1      cmovae r8d, edx
+   ││││╎│   0x1800787f5      mov   edx, dword [rsp + 0xb8]
+   ││││╎│   0x1800787fc      mov   dword [rsp + 0xb0], r8d
+   ││││╎│   0x180078804      test  eax, eax
+   ││││╎│   0x180078806      lea   r8d, [rdx + 1]
+   ││││╎│   0x18007880a      cmovns r8d, edx
+   ││││╎│   0x18007880e      mov   dword [rsp + 0xb8], r8d
+   ││││╎│   0x180078816      bt    eax, 0x14
+  ┌───────< 0x18007881a      jb    0x180078878
+  │││││╎│   0x18007881c      movzx r8d, byte [rcx + rbx + 0x9d2500]
+  │││││╎│   0x180078825      mov   edx, dword [rsp + 0x48]
+  │││││╎│   0x180078829      movzx eax, r8b
+  │││││╎│   0x18007882d      mov   r9d, dword [rsp + 0x44]
+  │││││╎│   0x180078832      and   al, 0x10                            ; 16
+  │││││╎│   0x180078834      movzx eax, r8b
+  │││││╎│   0x180078838      lea   ecx, [rdx + 1]
+  │││││╎│   0x18007883b      cmove ecx, edx
+  │││││╎│   0x18007883e      test  r8b, 0x10                           ; 16
+  │││││╎│   0x180078842      lea   edx, [r9 + 1]
+  │││││╎│   0x180078846      cmove edx, r9d
+  │││││╎│   0x18007884a      and   al, 0x80                            ; 128
+  │││││╎│   0x18007884c      lea   r9d, [rcx + 1]
+  │││││╎│   0x180078850      cmove r9d, ecx
+  │││││╎│   0x180078854      test  r8b, 0x80                           ; 128
+  │││││╎│   0x180078858      lea   ecx, [rdx + 1]
+  │││││╎│   0x18007885b      mov   dword [rsp + 0x48], r9d
+  │││││╎│   0x180078860      cmove ecx, edx
+  │││││╎│   0x180078863      mov   dword [rsp + 0x44], ecx
+  │││││╎│   0x180078867      test  r8b, 1                              ; 1
+  ────────< 0x18007886b      je    0x180078878
+  │││││╎│   0x18007886d      inc   ecx
+  │││││╎│   0x18007886f      mov   dword [rsp + 0x48], r9d
+  │││││╎│   0x180078874      mov   dword [rsp + 0x44], ecx
+  └───────> 0x180078878      mov   r9d, r13d
+   ││││╎│   0x18007887b      mov   dword [rsp + 0x20], r15d
+   ││││╎│   0x180078880      mov   r8d, ebp
+   ││││╎│   0x180078883      mov   edx, r10d
+   ││││╎│   0x180078886      mov   rcx, rbx
+   ││││╎│   0x180078889      call  0x18007b060
+   ││││╎│   0x18007888e      test  eax, eax
+  ┌───────< 0x180078890      je    0x18007889c
+  │││││╎│   0x180078892      mov   dword [rbx + 0x204e6fc], 1
+  └───────> 0x18007889c      mov   eax, dword [rsp + 0x58]
+   ││││╎│   0x1800788a0      mov   ecx, dword [rbx + 0x204e758]
+   ││││╎│   0x1800788a6      inc   eax
+   ││││╎│   0x1800788a8      mov   dword [rsp + 0x58], eax
+   ││││╎│   0x1800788ac      cmp   eax, ecx
+  ┌───────< 0x1800788ae      jge   0x1800788cb
+  │││││╎│   0x1800788b0      mov   ecx, dword [rsp + 0xc8]
+  │││││╎│   0x1800788b7      mov   edx, dword [rsp + 0xb0]
+  │││││╎│   0x1800788be      mov   r8d, dword [rsp + 0xb8]
+  │││││└──< 0x1800788c6      jmp   0x180078731
+  └───────> 0x1800788cb      movzx edx, word [rsp + 0xc0]
+   ││││ │   0x1800788d3      cmp   dx, 0x38                            ; 56
+   ││││┌──< 0x1800788d7      jne   0x1800788f6
+   ││││││   0x1800788d9      cmp   dword [rsp + 0xc8], 8
+  ┌───────< 0x1800788e1      jge   0x1800798db
+  │││││││   0x1800788e7      mov   dword [rbx + 0x204e6fc], 1
+  ────────< 0x1800788f1      jmp   0x1800798db
+  │││││└──> 0x1800788f6      lea   eax, [rdx - 0x46]
+  │││││ │   0x1800788f9      cmp   ax, 3                               ; 3
+  │││││┌──< 0x1800788fd      jbe   0x180079898
+  │││││││   0x180078903      lea   eax, [rdx - 0x3c]
+  │││││││   0x180078906      cmp   ax, 2                               ; 2
+  ────────< 0x18007890a      jbe   0x18007961c
+  │││││││   0x180078910      mov   ecx, 0x8c                           ; 140
+  │││││││   0x180078915      movzx eax, dx
+  │││││││   0x180078918      sub   ax, cx
+  │││││││   0x18007891b      cmp   ax, 3                               ; 3
+  ────────< 0x18007891f      jbe   0x18007937f
+  │││││││   0x180078925      cmp   dx, 0x5a                            ; 90
+  ────────< 0x180078929      jne   0x180078952
+  │││││││   0x18007892b      cmp   dword [rsp + 0xb0], 4
+  ────────< 0x180078933      jge   0x1800798db
+  │││││││   0x180078939      mov   dword [rbx + 0x204e6fc], 1
+  │││││││   0x180078943      mov   dword [rbx + 0x204e704], 5
+  ────────< 0x18007894d      jmp   0x1800798db
+  ────────> 0x180078952      cmp   dx, 0x5b                            ; 91
+  ────────< 0x180078956      jne   0x18007897f
+  │││││││   0x180078958      cmp   dword [rsp + 0xb8], 1
+  ────────< 0x180078960      jge   0x1800798db
+  │││││││   0x180078966      mov   dword [rbx + 0x204e6fc], 1
+  │││││││   0x180078970      mov   dword [rbx + 0x204e704], 6
+  ────────< 0x18007897a      jmp   0x1800798db
+  ────────> 0x18007897f      cmp   dx, 0x34                            ; 52
+  ────────< 0x180078983      jne   0x1800789ff
+  │││││││   0x180078985      imul  rcx, rbp, 0x583c
+  │││││││   0x18007898c      lea   rax, [0x180000000]                  ; "MZ\x90"
+  │││││││   0x180078993      cmp   dword [rcx + rax + 0x379ae8c], edi
+  ────────< 0x18007899a      je    0x1800798db
+  │││││││   0x1800789a0      mov   r8d, 0xa
+  │││││││   0x1800789a6      lea   rcx, [0x1864ccbb0]
+  │││││││   0x1800789ad      mov   edx, ebp
+  │││││││   0x1800789af      call  0x1800b8140
+  │││││││   0x1800789b4      cmp   eax, 0x20                           ; 32
+  ────────< 0x1800789b7      jge   0x180078c75
+  │││││││   0x1800789bd      mov   dword [rsp + 0x28], 0xa
+  │││││││   0x1800789c5      lea   rcx, [0x1864ccbb0]
+  │││││││   0x1800789cc      mov   r9d, r14d
+  │││││││   0x1800789cf      mov   dword [rsp + 0x20], r12d
+  │││││││   0x1800789d4      mov   r8d, esi
+  │││││││   0x1800789d7      mov   edx, ebp
+  │││││││   0x1800789d9      call  0x1800c72c0
+  │││││││   0x1800789de      test  eax, eax
+  ────────< 0x1800789e0      jne   0x1800798db
+  │││││││   0x1800789e6      mov   dword [rbx + 0x204e6fc], 1
+  │││││││   0x1800789f0      mov   dword [rbx + 0x204e704], 3
+  ────────< 0x1800789fa      jmp   0x1800798db
+  ────────> 0x1800789ff      cmp   dx, 0x50                            ; 80
+  ────────< 0x180078a03      jne   0x180078a7f
+  │││││││   0x180078a05      imul  rcx, rbp, 0x583c
+  │││││││   0x180078a0c      lea   rax, [0x180000000]                  ; "MZ\x90"
+  │││││││   0x180078a13      cmp   dword [rcx + rax + 0x379aeb4], edi
+  ────────< 0x180078a1a      je    0x1800798db
+  │││││││   0x180078a20      mov   r8d, 0x13                           ; 19
+  │││││││   0x180078a26      lea   rcx, [0x1864ccbb0]
+  │││││││   0x180078a2d      mov   edx, ebp
+  │││││││   0x180078a2f      call  0x1800b8140
+  │││││││   0x180078a34      cmp   eax, 8                              ; 8
+  ────────< 0x180078a37      jge   0x180078c75
+  │││││││   0x180078a3d      mov   dword [rsp + 0x28], 0x13            ; [0x13:4]=-1 ; 19
+  │││││││   0x180078a45      lea   rcx, [0x1864ccbb0]
+  │││││││   0x180078a4c      mov   r9d, r14d
+  │││││││   0x180078a4f      mov   dword [rsp + 0x20], r12d
+  │││││││   0x180078a54      mov   r8d, esi
+  │││││││   0x180078a57      mov   edx, ebp
+  │││││││   0x180078a59      call  0x1800c72c0
+  │││││││   0x180078a5e      test  eax, eax
+  ────────< 0x180078a60      jne   0x1800798db
+  │││││││   0x180078a66      mov   dword [rbx + 0x204e6fc], 1
+  │││││││   0x180078a70      mov   dword [rbx + 0x204e704], 7
+  ────────< 0x180078a7a      jmp   0x1800798db
+  ────────> 0x180078a7f      cmp   dx, 0x51                            ; 81
+  ────────< 0x180078a83      jne   0x180078aff
+  │││││││   0x180078a85      imul  rcx, rbp, 0x583c
+  │││││││   0x180078a8c      lea   rax, [0x180000000]                  ; "MZ\x90"
+  │││││││   0x180078a93      cmp   dword [rcx + rax + 0x379aedc], edi
+  ────────< 0x180078a9a      je    0x1800798db
+  │││││││   0x180078aa0      mov   r8d, 0xb                            ; 11
+  │││││││   0x180078aa6      lea   rcx, [0x1864ccbb0]
+  │││││││   0x180078aad      mov   edx, ebp
+  │││││││   0x180078aaf      call  0x1800b8140
+  │││││││   0x180078ab4      cmp   eax, 8                              ; 8
+  ────────< 0x180078ab7      jge   0x180078c75
+  │││││││   0x180078abd      mov   dword [rsp + 0x28], 0xb             ; [0xb:4]=-1 ; 11
+  │││││││   0x180078ac5      lea   rcx, [0x1864ccbb0]
+  │││││││   0x180078acc      mov   r9d, r14d
+  │││││││   0x180078acf      mov   dword [rsp + 0x20], r12d
+  │││││││   0x180078ad4      mov   r8d, esi
+  │││││││   0x180078ad7      mov   edx, ebp
+  │││││││   0x180078ad9      call  0x1800c72c0
+  │││││││   0x180078ade      test  eax, eax
+  ────────< 0x180078ae0      jne   0x1800798db
+  │││││││   0x180078ae6      mov   dword [rbx + 0x204e6fc], 1
+  │││││││   0x180078af0      mov   dword [rbx + 0x204e704], 4
+  ────────< 0x180078afa      jmp   0x1800798db
+  ────────> 0x180078aff      lea   eax, [rdx - 0x56]
+  │││││││   0x180078b02      cmp   ax, 1                               ; 1
+  ────────< 0x180078b06      jbe   0x1800790df
+  │││││││   0x180078b0c      cmp   dx, 0x4f                            ; 79
+  ────────< 0x180078b10      je    0x1800790df
+  │││││││   0x180078b16      mov   eax, 0x1bd                          ; 445
+  │││││││   0x180078b1b      cmp   dx, ax
+  ────────< 0x180078b1e      je    0x180078f1f
+  │││││││   0x180078b24      mov   eax, 0x1c3                          ; 451
+  │││││││   0x180078b29      cmp   dx, ax
+  ────────< 0x180078b2c      je    0x180078f1f
+  │││││││   0x180078b32      mov   eax, 0x1c0                          ; 448
+  │││││││   0x180078b37      cmp   dx, ax
+  ────────< 0x180078b3a      je    0x180078d5f
+  │││││││   0x180078b40      mov   eax, 0x1c6                          ; 454
+  │││││││   0x180078b45      cmp   dx, ax
+  ────────< 0x180078b48      je    0x180078d5f
+  │││││││   0x180078b4e      lea   eax, [rdx - 0x58]
+  │││││││   0x180078b51      cmp   ax, 1                               ; 1
+  ────────< 0x180078b55      jbe   0x180078c84
+  │││││││   0x180078b5b      mov   r13d, 0xb4                          ; 180
+  │││││││   0x180078b61      cmp   dx, r13w
+  ────────< 0x180078b65      jne   0x180078c3f
+  │││││││   0x180078b6b      movsxd rax, dword [rbx + 0x204e788]
+  │││││││   0x180078b72      lea   r12, [0x180000000]                  ; "MZ\x90"
+  │││││││   0x180078b79      add   esi, dword [r12 + rax*8 + 0x2d2ef0]
+  │││││││   0x180078b81      add   r14d, dword [r12 + rax*8 + 0x2d2ef4]
+  │││││││   0x180078b89      nop   dword [rax]
+  ────────> 0x180078b90      mov   r8d, 4
+  │││││││   0x180078b96      mov   edx, edi
+  │││││││   0x180078b98      mov   rcx, rbx
+  │││││││   0x180078b9b      call  0x180069850
+  │││││││   0x180078ba0      mov   r8d, dword [rbx + 0x204e760]
+  │││││││   0x180078ba7      mov   ecx, dword [rbx + 0x204e764]
+  │││││││   0x180078bad      add   ecx, r14d
+  │││││││   0x180078bb0      lea   eax, [r8 + rsi]
+  │││││││   0x180078bb4      cmp   eax, 0x31f                          ; 799
+  ────────< 0x180078bb9      ja    0x1800798d1
+  │││││││   0x180078bbf      cmp   ecx, 0x31f                          ; 799
+  ────────< 0x180078bc5      ja    0x1800798d1
+  │││││││   0x180078bcb      movsxd rdx, ecx
+  │││││││   0x180078bce      imul  rcx, rdx, 0x320
+  │││││││   0x180078bd5      cdqe
+  │││││││   0x180078bd7      add   rcx, rax
+  │││││││   0x180078bda      cmp   byte [rcx + r12 + 0x3a11ea4], 0
+  ────────< 0x180078be3      je    0x1800798d1
+  │││││││   0x180078be9      lea   rax, [rdx + rdx*2]
+  │││││││   0x180078bed      mov   edx, dword [r12 + rax*4 + 0x402ff2c]
+  │││││││   0x180078bf5      add   edx, r8d
+  │││││││   0x180078bf8      add   edx, esi
+  │││││││   0x180078bfa      movsxd rax, edx
+  │││││││   0x180078bfd      test  byte [rbx + rax*4 + 0x898400], 0x30
+  ────────< 0x180078c05      jne   0x1800798d1
+  │││││││   0x180078c0b      mov   r9d, r13d
+  │││││││   0x180078c0e      mov   dword [rsp + 0x20], r15d
+  │││││││   0x180078c13      mov   r8d, ebp
+  │││││││   0x180078c16      mov   rcx, rbx
+  │││││││   0x180078c19      call  0x18007b060
+  │││││││   0x180078c1e      test  eax, eax
+  ────────< 0x180078c20      je    0x180078c2c
+  │││││││   0x180078c22      mov   dword [rbx + 0x204e6fc], 1
+  ────────> 0x180078c2c      inc   edi
+  │││││││   0x180078c2e      cmp   edi, dword [rbx + 0x204e758]
+  ────────< 0x180078c34      jl    0x180078b90
+  ────────< 0x180078c3a      jmp   0x1800798db
+  ────────> 0x180078c3f      cmp   dx, 0x42                            ; 66
+  ────────< 0x180078c43      jne   0x1800798db
+  │││││││   0x180078c49      mov   dword [rsp + 0x28], r14d
+  │││││││   0x180078c4e      lea   rcx, [0x1860ad660]
+  │││││││   0x180078c55      mov   r9d, 0x4c                           ; 'L' ; 76
+  │││││││   0x180078c5b      mov   dword [rsp + 0x20], esi
+  │││││││   0x180078c5f      xor   r8d, r8d
+  │││││││   0x180078c62      mov   edx, ebp
+  │││││││   0x180078c64      call  0x1800f1400
+  │││││││   0x180078c69      cmp   dword [0x1860ad694], edi            ; [0x1860ad694:4]=0
+  ────────< 0x180078c6f      jne   0x1800798db
+  ────────> 0x180078c75      mov   dword [rbx + 0x204e6fc], 1
+  ────────< 0x180078c7f      jmp   0x1800798db
+  ────────> 0x180078c84      movsxd rax, dword [rbx + 0x204e788]
+  │││││││   0x180078c8b      lea   r12, [0x180000000]                  ; "MZ\x90"
+  │││││││   0x180078c92      lea   rcx, [rax + rax*2]
+  │││││││   0x180078c96      add   esi, dword [r12 + rcx*8 + 0x2d2e98]
+  │││││││   0x180078c9e      add   r14d, dword [r12 + rcx*8 + 0x2d2e9c]
+  │││││││   0x180078ca6      nop   word [rax + rax]
+  ────────> 0x180078cb0      mov   r8d, 5
+  │││││││   0x180078cb6      mov   edx, edi
+  │││││││   0x180078cb8      mov   rcx, rbx
+  │││││││   0x180078cbb      call  0x180069850
+  │││││││   0x180078cc0      mov   r8d, dword [rbx + 0x204e760]
+  │││││││   0x180078cc7      mov   ecx, dword [rbx + 0x204e764]
+  │││││││   0x180078ccd      add   ecx, r14d
+  │││││││   0x180078cd0      lea   eax, [r8 + rsi]
+  │││││││   0x180078cd4      cmp   eax, 0x31f                          ; 799
+  ────────< 0x180078cd9      ja    0x1800798d1
+  │││││││   0x180078cdf      cmp   ecx, 0x31f                          ; 799
+  ────────< 0x180078ce5      ja    0x1800798d1
+  │││││││   0x180078ceb      movsxd rdx, ecx
+  │││││││   0x180078cee      imul  rcx, rdx, 0x320
+  │││││││   0x180078cf5      cdqe
+  │││││││   0x180078cf7      add   rcx, rax
+  │││││││   0x180078cfa      cmp   byte [rcx + r12 + 0x3a11ea4], 0
+  ────────< 0x180078d03      je    0x1800798d1
+  │││││││   0x180078d09      lea   rax, [rdx + rdx*2]
+  │││││││   0x180078d0d      mov   edx, dword [r12 + rax*4 + 0x402ff2c]
+  │││││││   0x180078d15      add   edx, r8d
+  │││││││   0x180078d18      add   edx, esi
+  │││││││   0x180078d1a      movsxd rax, edx
+  │││││││   0x180078d1d      test  byte [rbx + rax*4 + 0x898400], 0x30
+  ────────< 0x180078d25      jne   0x1800798d1
+  │││││││   0x180078d2b      mov   r9d, r13d
+  │││││││   0x180078d2e      mov   dword [rsp + 0x20], r15d
+  │││││││   0x180078d33      mov   r8d, ebp
+  │││││││   0x180078d36      mov   rcx, rbx
+  │││││││   0x180078d39      call  0x18007b060
+  │││││││   0x180078d3e      test  eax, eax
+  ────────< 0x180078d40      je    0x180078d4c
+  │││││││   0x180078d42      mov   dword [rbx + 0x204e6fc], 1
+  ────────> 0x180078d4c      inc   edi
+  │││││││   0x180078d4e      cmp   edi, dword [rbx + 0x204e758]
+  ────────< 0x180078d54      jl    0x180078cb0
+  ────────< 0x180078d5a      jmp   0x1800798db
+  ────────> 0x180078d5f      movsxd rax, dword [rbx + 0x204e788]
+  │││││││   0x180078d66      lea   rcx, [0x180000000]                  ; "MZ\x90"
+  │││││││   0x180078d6d      add   rax, rax
+  │││││││   0x180078d70      mov   r12d, edi
+  │││││││   0x180078d73      add   esi, dword [rcx + rax*8 + 0x2d3020]
+  │││││││   0x180078d7a      add   r14d, dword [rcx + rax*8 + 0x2d3024]
+  ────────> 0x180078d82      mov   r8d, 6
+  │││││││   0x180078d88      mov   edx, r12d
+  │││││││   0x180078d8b      mov   rcx, rbx
+  │││││││   0x180078d8e      call  0x180069850
+  │││││││   0x180078d93      mov   r8d, dword [rbx + 0x204e760]
+  │││││││   0x180078d9a      mov   ecx, dword [rbx + 0x204e764]
+  │││││││   0x180078da0      add   ecx, r14d
+  │││││││   0x180078da3      lea   eax, [r8 + rsi]
+  │││││││   0x180078da7      cmp   eax, 0x31f                          ; 799
+  ────────< 0x180078dac      ja    0x1800798d1
+  │││││││   0x180078db2      cmp   ecx, 0x31f                          ; 799
+  ────────< 0x180078db8      ja    0x1800798d1
+  │││││││   0x180078dbe      movsxd rdx, ecx
+  │││││││   0x180078dc1      lea   r9, [0x180000000]                   ; "MZ\x90"
+  │││││││   0x180078dc8      imul  rcx, rdx, 0x320
+  │││││││   0x180078dcf      cdqe
+  │││││││   0x180078dd1      add   rcx, rax
+  │││││││   0x180078dd4      cmp   byte [rcx + r9 + 0x3a11ea4], dil
+  ────────< 0x180078ddc      je    0x1800798d1
+  │││││││   0x180078de2      lea   rax, [rdx + rdx*2]
+  │││││││   0x180078de6      mov   edx, dword [r9 + rax*4 + 0x402ff2c]
+  │││││││   0x180078dee      add   edx, r8d
+  │││││││   0x180078df1      add   edx, esi
+  │││││││   0x180078df3      movsxd rax, edx
+  │││││││   0x180078df6      test  byte [rbx + rax*4 + 0x898400], 0x30
+  ────────< 0x180078dfe      jne   0x1800798d1
+  │││││││   0x180078e04      mov   r9d, r13d
+  │││││││   0x180078e07      mov   dword [rsp + 0x20], r15d
+  │││││││   0x180078e0c      mov   r8d, ebp
+  │││││││   0x180078e0f      mov   rcx, rbx
+  │││││││   0x180078e12      call  0x18007b060
+  │││││││   0x180078e17      test  eax, eax
+  ────────< 0x180078e19      je    0x180078e25
+  │││││││   0x180078e1b      mov   dword [rbx + 0x204e6fc], 1
+  ────────> 0x180078e25      inc   r12d
+  │││││││   0x180078e28      cmp   r12d, dword [rbx + 0x204e758]
+  ────────< 0x180078e2f      jl    0x180078d82
+  │││││││   0x180078e35      movsxd rcx, dword [rbx + 0x204e788]
+  │││││││   0x180078e3c      lea   r12, [0x180000000]                  ; "MZ\x90"
+  │││││││   0x180078e43      mov   esi, dword [rsp + 0xa0]
+  │││││││   0x180078e4a      add   rcx, rcx
+  │││││││   0x180078e4d      mov   r14d, dword [rsp + 0x40]
+  │││││││   0x180078e52      add   esi, dword [r12 + rcx*8 + 0x2d3028]
+  │││││││   0x180078e5a      add   r14d, dword [r12 + rcx*8 + 0x2d302c]
+  │││││││   0x180078e62      nop   dword [rax]
+  │││││││   0x180078e66      nop   word [rax + rax]
+  ────────> 0x180078e70      mov   r8d, 6
+  │││││││   0x180078e76      mov   edx, edi
+  │││││││   0x180078e78      mov   rcx, rbx
+  │││││││   0x180078e7b      call  0x180069850
+  │││││││   0x180078e80      mov   r8d, dword [rbx + 0x204e760]
+  │││││││   0x180078e87      mov   ecx, dword [rbx + 0x204e764]
+  │││││││   0x180078e8d      add   ecx, r14d
+  │││││││   0x180078e90      lea   eax, [r8 + rsi]
+  │││││││   0x180078e94      cmp   eax, 0x31f                          ; 799
+  ────────< 0x180078e99      ja    0x1800798d1
+  │││││││   0x180078e9f      cmp   ecx, 0x31f                          ; 799
+  ────────< 0x180078ea5      ja    0x1800798d1
+  │││││││   0x180078eab      movsxd rdx, ecx
+  │││││││   0x180078eae      imul  rcx, rdx, 0x320
+  │││││││   0x180078eb5      cdqe
+  │││││││   0x180078eb7      add   rcx, rax
+  │││││││   0x180078eba      cmp   byte [rcx + r12 + 0x3a11ea4], 0
+  ────────< 0x180078ec3      je    0x1800798d1
+  │││││││   0x180078ec9      lea   rax, [rdx + rdx*2]
+  │││││││   0x180078ecd      mov   edx, dword [r12 + rax*4 + 0x402ff2c]
+  │││││││   0x180078ed5      add   edx, r8d
+  │││││││   0x180078ed8      add   edx, esi
+  │││││││   0x180078eda      movsxd rax, edx
+  │││││││   0x180078edd      test  byte [rbx + rax*4 + 0x898400], 0x30
+  ────────< 0x180078ee5      jne   0x1800798d1
+  │││││││   0x180078eeb      mov   r9d, r13d
+  │││││││   0x180078eee      mov   dword [rsp + 0x20], r15d
+  │││││││   0x180078ef3      mov   r8d, ebp
+  │││││││   0x180078ef6      mov   rcx, rbx
+  │││││││   0x180078ef9      call  0x18007b060
+  │││││││   0x180078efe      test  eax, eax
+  ────────< 0x180078f00      je    0x180078f0c
+  │││││││   0x180078f02      mov   dword [rbx + 0x204e6fc], 1
+  ────────> 0x180078f0c      inc   edi
+  │││││││   0x180078f0e      cmp   edi, dword [rbx + 0x204e758]
+  ────────< 0x180078f14      jl    0x180078e70
+  ────────< 0x180078f1a      jmp   0x1800798db
+  ────────> 0x180078f1f      movsxd rax, dword [rbx + 0x204e788]
+  │││││││   0x180078f26      lea   rcx, [0x180000000]                  ; "MZ\x90"
+  │││││││   0x180078f2d      add   rax, rax
+  │││││││   0x180078f30      mov   r12d, edi
+  │││││││   0x180078f33      add   esi, dword [rcx + rax*8 + 0x2d2fe0]
+  │││││││   0x180078f3a      add   r14d, dword [rcx + rax*8 + 0x2d2fe4]
+  ────────> 0x180078f42      mov   r8d, 6
+  │││││││   0x180078f48      mov   edx, r12d
+  │││││││   0x180078f4b      mov   rcx, rbx
+  │││││││   0x180078f4e      call  0x180069850
+  │││││││   0x180078f53      mov   r8d, dword [rbx + 0x204e760]
+  │││││││   0x180078f5a      mov   ecx, dword [rbx + 0x204e764]
+  │││││││   0x180078f60      add   ecx, r14d
+  │││││││   0x180078f63      lea   eax, [r8 + rsi]
+  │││││││   0x180078f67      cmp   eax, 0x31f                          ; 799
+  ────────< 0x180078f6c      ja    0x1800798d1
+  │││││││   0x180078f72      cmp   ecx, 0x31f                          ; 799
+  ────────< 0x180078f78      ja    0x1800798d1
+  │││││││   0x180078f7e      movsxd rdx, ecx
+  │││││││   0x180078f81      lea   r9, [0x180000000]                   ; "MZ\x90"
+  │││││││   0x180078f88      imul  rcx, rdx, 0x320
+  │││││││   0x180078f8f      cdqe
+  │││││││   0x180078f91      add   rcx, rax
+  │││││││   0x180078f94      cmp   byte [rcx + r9 + 0x3a11ea4], dil
+  ────────< 0x180078f9c      je    0x1800798d1
+  │││││││   0x180078fa2      lea   rax, [rdx + rdx*2]
+  │││││││   0x180078fa6      mov   edx, dword [r9 + rax*4 + 0x402ff2c]
+  │││││││   0x180078fae      add   edx, r8d
+  │││││││   0x180078fb1      add   edx, esi
+  │││││││   0x180078fb3      movsxd rax, edx
+  │││││││   0x180078fb6      test  byte [rbx + rax*4 + 0x898400], 0x30
+  ────────< 0x180078fbe      jne   0x1800798d1
+  │││││││   0x180078fc4      mov   r9d, r13d
+  │││││││   0x180078fc7      mov   dword [rsp + 0x20], r15d
+  │││││││   0x180078fcc      mov   r8d, ebp
+  │││││││   0x180078fcf      mov   rcx, rbx
+  │││││││   0x180078fd2      call  0x18007b060
+  │││││││   0x180078fd7      test  eax, eax
+  ────────< 0x180078fd9      je    0x180078fe5
+  │││││││   0x180078fdb      mov   dword [rbx + 0x204e6fc], 1
+  ────────> 0x180078fe5      inc   r12d
+  │││││││   0x180078fe8      cmp   r12d, dword [rbx + 0x204e758]
+  ────────< 0x180078fef      jl    0x180078f42
+  │││││││   0x180078ff5      movsxd rcx, dword [rbx + 0x204e788]
+  │││││││   0x180078ffc      lea   r12, [0x180000000]                  ; "MZ\x90"
+  │││││││   0x180079003      mov   esi, dword [rsp + 0xa0]
+  │││││││   0x18007900a      add   rcx, rcx
+  │││││││   0x18007900d      mov   r14d, dword [rsp + 0x40]
+  │││││││   0x180079012      add   esi, dword [r12 + rcx*8 + 0x2d2fe8]
+  │││││││   0x18007901a      add   r14d, dword [r12 + rcx*8 + 0x2d2fec]
+  │││││││   0x180079022      nop   dword [rax]
+  │││││││   0x180079026      nop   word [rax + rax]
+  ────────> 0x180079030      mov   r8d, 6
+  │││││││   0x180079036      mov   edx, edi
+  │││││││   0x180079038      mov   rcx, rbx
+  │││││││   0x18007903b      call  0x180069850
+  │││││││   0x180079040      mov   r8d, dword [rbx + 0x204e760]
+  │││││││   0x180079047      mov   ecx, dword [rbx + 0x204e764]
+  │││││││   0x18007904d      add   ecx, r14d
+  │││││││   0x180079050      lea   eax, [r8 + rsi]
+  │││││││   0x180079054      cmp   eax, 0x31f                          ; 799
+  ────────< 0x180079059      ja    0x1800798d1
+  │││││││   0x18007905f      cmp   ecx, 0x31f                          ; 799
+  ────────< 0x180079065      ja    0x1800798d1
+  │││││││   0x18007906b      movsxd rdx, ecx
+  │││││││   0x18007906e      imul  rcx, rdx, 0x320
+  │││││││   0x180079075      cdqe
+  │││││││   0x180079077      add   rcx, rax
+  │││││││   0x18007907a      cmp   byte [rcx + r12 + 0x3a11ea4], 0
+  ────────< 0x180079083      je    0x1800798d1
+  │││││││   0x180079089      lea   rax, [rdx + rdx*2]
+  │││││││   0x18007908d      mov   edx, dword [r12 + rax*4 + 0x402ff2c]
+  │││││││   0x180079095      add   edx, r8d
+  │││││││   0x180079098      add   edx, esi
+  │││││││   0x18007909a      movsxd rax, edx
+  │││││││   0x18007909d      test  byte [rbx + rax*4 + 0x898400], 0x30
+  ────────< 0x1800790a5      jne   0x1800798d1
+  │││││││   0x1800790ab      mov   r9d, r13d
+  │││││││   0x1800790ae      mov   dword [rsp + 0x20], r15d
+  │││││││   0x1800790b3      mov   r8d, ebp
+  │││││││   0x1800790b6      mov   rcx, rbx
+  │││││││   0x1800790b9      call  0x18007b060
+  │││││││   0x1800790be      test  eax, eax
+  ────────< 0x1800790c0      je    0x1800790cc
+  │││││││   0x1800790c2      mov   dword [rbx + 0x204e6fc], 1
+  ────────> 0x1800790cc      inc   edi
+  │││││││   0x1800790ce      cmp   edi, dword [rbx + 0x204e758]
+  ────────< 0x1800790d4      jl    0x180079030
+  ────────< 0x1800790da      jmp   0x1800798db
+  ────────> 0x1800790df      movsxd rax, dword [rbx + 0x204e788]
+  │││││││   0x1800790e6      mov   r12d, edi
+  │││││││   0x1800790e9      lea   rcx, [rax + rax*2]
+  │││││││   0x1800790ed      lea   rax, [0x180000000]                  ; "MZ\x90"
+  │││││││   0x1800790f4      add   esi, dword [rax + rcx*8 + 0x2d2e90]
+  │││││││   0x1800790fb      add   r14d, dword [rax + rcx*8 + 0x2d2e94]
+  ────────> 0x180079103      mov   r8d, 5
+  │││││││   0x180079109      mov   edx, r12d
+  │││││││   0x18007910c      mov   rcx, rbx
+  │││││││   0x18007910f      call  0x180069850
+  │││││││   0x180079114      mov   r8d, dword [rbx + 0x204e760]
+  │││││││   0x18007911b      mov   ecx, dword [rbx + 0x204e764]
+  │││││││   0x180079121      add   ecx, r14d
+  │││││││   0x180079124      lea   eax, [r8 + rsi]
+  │││││││   0x180079128      cmp   eax, 0x31f                          ; 799
+  ────────< 0x18007912d      ja    0x1800798d1
+  │││││││   0x180079133      cmp   ecx, 0x31f                          ; 799
+  ────────< 0x180079139      ja    0x1800798d1
+  │││││││   0x18007913f      movsxd rdx, ecx
+  │││││││   0x180079142      lea   r9, [0x180000000]                   ; "MZ\x90"
+  │││││││   0x180079149      imul  rcx, rdx, 0x320
+  │││││││   0x180079150      cdqe
+  │││││││   0x180079152      add   rcx, rax
+  │││││││   0x180079155      cmp   byte [rcx + r9 + 0x3a11ea4], dil
+  ────────< 0x18007915d      je    0x1800798d1
+  │││││││   0x180079163      lea   rax, [rdx + rdx*2]
+  │││││││   0x180079167      mov   edx, dword [r9 + rax*4 + 0x402ff2c]
+  │││││││   0x18007916f      add   edx, r8d
+  │││││││   0x180079172      add   edx, esi
+  │││││││   0x180079174      movsxd rax, edx
+  │││││││   0x180079177      test  byte [rbx + rax*4 + 0x898400], 0x30
+  ────────< 0x18007917f      jne   0x1800798d1
+  │││││││   0x180079185      mov   r9d, r13d
+  │││││││   0x180079188      mov   dword [rsp + 0x20], r15d
+  │││││││   0x18007918d      mov   r8d, ebp
+  │││││││   0x180079190      mov   rcx, rbx
+  │││││││   0x180079193      call  0x18007b060
+  │││││││   0x180079198      test  eax, eax
+  ────────< 0x18007919a      je    0x1800791a6
+  │││││││   0x18007919c      mov   dword [rbx + 0x204e6fc], 1
+  ────────> 0x1800791a6      inc   r12d
+  │││││││   0x1800791a9      cmp   r12d, dword [rbx + 0x204e758]
+  ────────< 0x1800791b0      jl    0x180079103
+  │││││││   0x1800791b6      movsxd rax, dword [rbx + 0x204e788]
+  │││││││   0x1800791bd      lea   r8, [0x180000000]                   ; "MZ\x90"
+  │││││││   0x1800791c4      mov   r14d, dword [rsp + 0xa0]
+  │││││││   0x1800791cc      mov   esi, edi
+  │││││││   0x1800791ce      mov   r12d, dword [rsp + 0x40]
+  │││││││   0x1800791d3      lea   rcx, [rax + rax*2]
+  │││││││   0x1800791d7      add   r14d, dword [r8 + rcx*8 + 0x2d2e98]
+  │││││││   0x1800791df      add   r12d, dword [r8 + rcx*8 + 0x2d2e9c]
+  │││││││   0x1800791e7      nop   word [rax + rax]
+  ────────> 0x1800791f0      mov   r8d, 5
+  │││││││   0x1800791f6      mov   edx, esi
+  │││││││   0x1800791f8      mov   rcx, rbx
+  │││││││   0x1800791fb      call  0x180069850
+  │││││││   0x180079200      mov   r8d, dword [rbx + 0x204e760]
+  │││││││   0x180079207      mov   ecx, dword [rbx + 0x204e764]
+  │││││││   0x18007920d      add   ecx, r12d
+  │││││││   0x180079210      lea   eax, [r8 + r14]
+  │││││││   0x180079214      cmp   eax, 0x31f                          ; 799
+  ────────< 0x180079219      ja    0x1800798d1
+  │││││││   0x18007921f      cmp   ecx, 0x31f                          ; 799
+  ────────< 0x180079225      ja    0x1800798d1
+  │││││││   0x18007922b      movsxd rdx, ecx
+  │││││││   0x18007922e      lea   r9, [0x180000000]                   ; "MZ\x90"
+  │││││││   0x180079235      imul  rcx, rdx, 0x320
+  │││││││   0x18007923c      cdqe
+  │││││││   0x18007923e      add   rcx, rax
+  │││││││   0x180079241      cmp   byte [rcx + r9 + 0x3a11ea4], dil
+  ────────< 0x180079249      je    0x1800798d1
+  │││││││   0x18007924f      lea   rax, [rdx + rdx*2]
+  │││││││   0x180079253      mov   edx, dword [r9 + rax*4 + 0x402ff2c]
+  │││││││   0x18007925b      add   edx, r8d
+  │││││││   0x18007925e      add   edx, r14d
+  │││││││   0x180079261      movsxd rax, edx
+  │││││││   0x180079264      test  byte [rbx + rax*4 + 0x898400], 0x30
+  ────────< 0x18007926c      jne   0x1800798d1
+  │││││││   0x180079272      mov   r9d, r13d
+  │││││││   0x180079275      mov   dword [rsp + 0x20], r15d
+  │││││││   0x18007927a      mov   r8d, ebp
+  │││││││   0x18007927d      mov   rcx, rbx
+  │││││││   0x180079280      call  0x18007b060
+  │││││││   0x180079285      test  eax, eax
+  ────────< 0x180079287      je    0x180079293
+  │││││││   0x180079289      mov   dword [rbx + 0x204e6fc], 1
+  ────────> 0x180079293      inc   esi
+  │││││││   0x180079295      cmp   esi, dword [rbx + 0x204e758]
+  ────────< 0x18007929b      jl    0x1800791f0
+  │││││││   0x1800792a1      movsxd rax, dword [rbx + 0x204e788]
+  │││││││   0x1800792a8      lea   r12, [0x180000000]                  ; "MZ\x90"
+  │││││││   0x1800792af      mov   esi, dword [rsp + 0xa0]
+  │││││││   0x1800792b6      mov   r14d, dword [rsp + 0x40]
+  │││││││   0x1800792bb      lea   rcx, [rax + rax*2]
+  │││││││   0x1800792bf      add   esi, dword [r12 + rcx*8 + 0x2d2ea0]
+  │││││││   0x1800792c7      add   r14d, dword [r12 + rcx*8 + 0x2d2ea4]
+  │││││││   0x1800792cf      nop
+  ────────> 0x1800792d0      mov   r8d, 5
+  │││││││   0x1800792d6      mov   edx, edi
+  │││││││   0x1800792d8      mov   rcx, rbx
+  │││││││   0x1800792db      call  0x180069850
+  │││││││   0x1800792e0      mov   r8d, dword [rbx + 0x204e760]
+  │││││││   0x1800792e7      mov   ecx, dword [rbx + 0x204e764]
+  │││││││   0x1800792ed      add   ecx, r14d
+  │││││││   0x1800792f0      lea   eax, [r8 + rsi]
+  │││││││   0x1800792f4      cmp   eax, 0x31f                          ; 799
+  ────────< 0x1800792f9      ja    0x1800798d1
+  │││││││   0x1800792ff      cmp   ecx, 0x31f                          ; 799
+  ────────< 0x180079305      ja    0x1800798d1
+  │││││││   0x18007930b      movsxd rdx, ecx
+  │││││││   0x18007930e      imul  rcx, rdx, 0x320
+  │││││││   0x180079315      cdqe
+  │││││││   0x180079317      add   rcx, rax
+  │││││││   0x18007931a      cmp   byte [rcx + r12 + 0x3a11ea4], 0
+  ────────< 0x180079323      je    0x1800798d1
+  │││││││   0x180079329      lea   rax, [rdx + rdx*2]
+  │││││││   0x18007932d      mov   edx, dword [r12 + rax*4 + 0x402ff2c]
+  │││││││   0x180079335      add   edx, r8d
+  │││││││   0x180079338      add   edx, esi
+  │││││││   0x18007933a      movsxd rax, edx
+  │││││││   0x18007933d      test  byte [rbx + rax*4 + 0x898400], 0x30
+  ────────< 0x180079345      jne   0x1800798d1
+  │││││││   0x18007934b      mov   r9d, r13d
+  │││││││   0x18007934e      mov   dword [rsp + 0x20], r15d
+  │││││││   0x180079353      mov   r8d, ebp
+  │││││││   0x180079356      mov   rcx, rbx
+  │││││││   0x180079359      call  0x18007b060
+  │││││││   0x18007935e      test  eax, eax
+  ────────< 0x180079360      je    0x18007936c
+  │││││││   0x180079362      mov   dword [rbx + 0x204e6fc], 1
+  ────────> 0x18007936c      inc   edi
+  │││││││   0x18007936e      cmp   edi, dword [rbx + 0x204e758]
+  ────────< 0x180079374      jl    0x1800792d0
+  ────────< 0x18007937a      jmp   0x1800798db
+  ────────> 0x18007937f      lea   eax, [r13 - 0x8c]
+  │││││││   0x180079386      mov   r12d, edi
+  │││││││   0x180079389      add   eax, eax
+  │││││││   0x18007938b      lea   rcx, [0x180000000]                  ; "MZ\x90"
+  │││││││   0x180079392      cdqe
+  │││││││   0x180079394      mov   qword [rsp + 0x58], rax
+  │││││││   0x180079399      lea   rax, [rax + rax*2]
+  │││││││   0x18007939d      add   esi, dword [rcx + rax*4 + 0x2d3400]
+  │││││││   0x1800793a4      add   r14d, dword [rcx + rax*4 + 0x2d3404]
+  │││││││   0x1800793ac      nop   dword [rax]
+  │││││││   0x1800793b0      mov   r8d, 3
+  │││││││   0x1800793b6      mov   edx, r12d
+  │││││││   0x1800793b9      mov   rcx, rbx
+  │││││││   0x1800793bc      call  0x180069850
+  │││││││   0x1800793c1      mov   r8d, dword [rbx + 0x204e760]
+  │││││││   0x1800793c8      mov   ecx, dword [rbx + 0x204e764]
+  │││││││   0x1800793ce      add   ecx, r14d
+  │││││││   0x1800793d1      lea   eax, [r8 + rsi]
+  │││││││   0x1800793d5      cmp   eax, 0x31f                          ; 799
+  ────────< 0x1800793da      ja    0x1800798d1
+  │││││││   0x1800793e0      cmp   ecx, 0x31f                          ; 799
+  ────────< 0x1800793e6      ja    0x1800798d1
+  │││││││   0x1800793ec      movsxd rdx, ecx
+  │││││││   0x1800793ef      lea   r9, [0x180000000]                   ; "MZ\x90"
+  │││││││   0x1800793f6      imul  rcx, rdx, 0x320
+  │││││││   0x1800793fd      cdqe
+  │││││││   0x1800793ff      add   rcx, rax
+  │││││││   0x180079402      cmp   byte [rcx + r9 + 0x3a11ea4], dil
+  ────────< 0x18007940a      je    0x1800798d1
+  │││││││   0x180079410      lea   rax, [rdx + rdx*2]
+  │││││││   0x180079414      mov   edx, dword [r9 + rax*4 + 0x402ff2c]
+  │││││││   0x18007941c      add   edx, r8d
+  │││││││   0x18007941f      add   edx, esi
+  │││││││   0x180079421      movsxd rax, edx
+  │││││││   0x180079424      test  byte [rbx + rax*4 + 0x898400], 0x30
+  ────────< 0x18007942c      jne   0x1800798d1
+  │││││││   0x180079432      mov   r9d, r13d
+  │││││││   0x180079435      mov   dword [rsp + 0x20], r15d
+  │││││││   0x18007943a      mov   r8d, ebp

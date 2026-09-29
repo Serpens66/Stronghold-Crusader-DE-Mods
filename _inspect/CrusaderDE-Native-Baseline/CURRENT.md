@@ -38,6 +38,7 @@ Semantic reverse-engineering baseline:
 - [Keep main-flag rotation audit](./sem/FBCB9319/knowledge/KEEP_FLAG_ROTATION.md): view-dependent Vanilla micro-anchors, Keep-relative rotation, and projectile coordinate contracts.
 - [AIV lobby selection audit](./sem/FBCB9319/knowledge/AIV_LOBBY_SELECTION.md): candidate order, rotation branches, thresholds, and completed-castle state boundary.
 - [Prebuilt AI workshop production audit](./sem/FBCB9319/knowledge/PREBUILT_WORKSHOP_BOTH.md): Both AIC values, native initialization, balancing, and the pending game-start timing check.
+- [Raid target and attack access audit](./sem/FBCB9319/knowledge/RAID_RETARGET.md): target priorities, granary eligibility, command dispatch, attack-tile checks and the savegame observation.
 
 - [Semantic overview and validation](./sem/FBCB9319/SEMANTIC_INFO.md)
 - [Semantic Ghidra project](./sem/FBCB9319/ghidra/CrusaderDE-Semantic.gpr)
