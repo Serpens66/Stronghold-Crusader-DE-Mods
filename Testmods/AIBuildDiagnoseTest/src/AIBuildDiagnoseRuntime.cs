@@ -1,5 +1,6 @@
 using APIShared;
 using BepInEx.Logging;
+using BepInEx.Bootstrap;
 using R3;
 using SHCDESE.API;
 using SHCDESE.EventAPI;
@@ -11,6 +12,7 @@ using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Text;
 
 namespace AIBuildDiagnoseTest
@@ -48,6 +50,14 @@ namespace AIBuildDiagnoseTest
         private string pendingAppleFarmPre;
         private int pendingAppleFarmX, pendingAppleFarmY, pendingAppleFarmPlayer;
         private bool firstOrchardMismatchSeen;
+        private int coarseAuditWritesEnabled = -1;
+        private int coarseAuditAvailable = -1;
+        private int coarseAuditReference = -1;
+        private long coarseAuditSession;
+        private long coarseAuditSnapshotSession;
+        private bool coarseAuditComplete;
+        private readonly Dictionary<int, string> coarseAuditProposals = new Dictionary<int, string>();
+        private readonly HashSet<int> coarseOriginLogged = new HashSet<int>();
         private int earlyGridDropped;
         private int earlyFarmDropped;
         private int gridModeZeroCalls;
@@ -68,6 +78,24 @@ namespace AIBuildDiagnoseTest
         private readonly int[] schedulerCalls = new int[9];
         private readonly int[] woodBuildCalls = new int[9];
         private readonly int[] woodSearchCalls = new int[9];
+        private readonly int[] farmSelectedFrames = new int[9];
+        private readonly int[] farmSearchCalls = new int[9];
+        private readonly int[] farmTraversals = new int[9];
+        private readonly int[] farmBuildCalls = new int[9];
+        private readonly int[] appleSpawns = new int[9];
+        private readonly int[] lastFarmResult = new int[9];
+        private readonly int[] beforeFarmPhase = new int[9];
+        private readonly int[] beforeFarmType = new int[9];
+        private readonly int[] activeFarmSearchType = new int[9];
+        private readonly bool[] beforeFarmValid = new bool[9];
+        private readonly int[] farmPhaseReached = new int[9];
+        private readonly int[] applePhaseReached = new int[9];
+        private readonly bool[] woodCellDetailDone = new bool[9];
+        private readonly bool[] farmCellDetailDone = new bool[9];
+        private readonly int[] woodOriginX = new int[9], woodOriginY = new int[9];
+        private readonly int[] farmOriginX = new int[9], farmOriginY = new int[9];
+        private readonly int[] woodCandidateScans = new int[9], farmCandidateScans = new int[9];
+        private readonly Dictionary<string, int> candidateReasons = new Dictionary<string, int>();
         private readonly int[] hutSpawns = new int[9];
         private readonly int[] initialHuts = new int[9];
         private readonly string[] lastObservedStage = new string[9];
@@ -76,6 +104,11 @@ namespace AIBuildDiagnoseTest
             new Dictionary<string, WallObservation>();
         private readonly HashSet<string> observedWallTargets = new HashSet<string>();
         private int wallHistoryDropped;
+        private readonly ActiveAivStep[] activeAivSteps = new ActiveAivStep[9];
+        private readonly int[] materializedWalls = new int[9];
+        private int wallEventsLogged;
+        private int wallEventsSuppressed;
+        private long timelineSequence;
         private bool active;
         private bool firstTick;
         private long sessionId;
@@ -126,6 +159,11 @@ namespace AIBuildDiagnoseTest
             orchardTransitions = orchardTransitionsDropped = 0;
             pendingAppleFarmPre = null;
             firstOrchardMismatchSeen = false;
+            coarseAuditWritesEnabled = coarseAuditAvailable = coarseAuditReference = -1;
+            coarseAuditSession = coarseAuditSnapshotSession = 0;
+            coarseAuditComplete = false;
+            coarseAuditProposals.Clear();
+            coarseOriginLogged.Clear();
             earlyGridDropped = earlyFarmDropped = 0;
             loadingSaveName = notification.Context.FilePath;
         }
@@ -133,6 +171,13 @@ namespace AIBuildDiagnoseTest
         internal void OnSessionStarted(Shared.GameplaySessionStartedContext session)
         {
             sessionId = session.SessionId;
+            if (coarseAuditSnapshotSession != sessionId)
+            {
+                coarseAuditProposals.Clear();
+                coarseAuditComplete = false;
+                coarseAuditReference = -1;
+            }
+            coarseOriginLogged.Clear();
             active = !session.IsEditor && !session.IsReplay;
             probeSession = active && session.IsLoadedSave &&
                 string.Equals(Path.GetFileName(session.SaveFileName ?? ""), ProbeSaveName,
@@ -159,14 +204,43 @@ namespace AIBuildDiagnoseTest
             pendingWalls.Clear();
             observedWallTargets.Clear();
             wallHistoryDropped = 0;
+            wallEventsLogged = wallEventsSuppressed = 0;
+            timelineSequence = 0;
+            Array.Clear(activeAivSteps, 0, activeAivSteps.Length);
+            Array.Clear(materializedWalls, 0, materializedWalls.Length);
             Array.Clear(schedulerCalls, 0, schedulerCalls.Length);
             Array.Clear(woodBuildCalls, 0, woodBuildCalls.Length);
             Array.Clear(woodSearchCalls, 0, woodSearchCalls.Length);
+            Array.Clear(farmSelectedFrames, 0, farmSelectedFrames.Length);
+            Array.Clear(farmSearchCalls, 0, farmSearchCalls.Length);
+            Array.Clear(farmTraversals, 0, farmTraversals.Length);
+            Array.Clear(farmBuildCalls, 0, farmBuildCalls.Length);
+            Array.Clear(appleSpawns, 0, appleSpawns.Length);
+            Array.Clear(lastFarmResult, 0, lastFarmResult.Length);
+            Array.Clear(beforeFarmPhase, 0, beforeFarmPhase.Length);
+            Array.Clear(beforeFarmType, 0, beforeFarmType.Length);
+            Array.Clear(activeFarmSearchType, 0, activeFarmSearchType.Length);
+            Array.Clear(beforeFarmValid, 0, beforeFarmValid.Length);
+            Array.Clear(farmPhaseReached, 0, farmPhaseReached.Length);
+            Array.Clear(applePhaseReached, 0, applePhaseReached.Length);
+            Array.Clear(woodCellDetailDone, 0, woodCellDetailDone.Length);
+            Array.Clear(farmCellDetailDone, 0, farmCellDetailDone.Length);
+            Array.Clear(woodOriginX, 0, woodOriginX.Length);
+            Array.Clear(woodOriginY, 0, woodOriginY.Length);
+            Array.Clear(farmOriginX, 0, farmOriginX.Length);
+            Array.Clear(farmOriginY, 0, farmOriginY.Length);
+            Array.Clear(woodCandidateScans, 0, woodCandidateScans.Length);
+            Array.Clear(farmCandidateScans, 0, farmCandidateScans.Length);
+            candidateReasons.Clear();
             Array.Clear(hutSpawns, 0, hutSpawns.Length);
             Array.Clear(initialHuts, 0, initialHuts.Length);
             Array.Clear(lastObservedStage, 0, lastObservedStage.Length);
             Log($"AI_BUILD_SESSION: session={sessionId}, kind={session.Kind}, loadedSave={session.IsLoadedSave}, " +
-                $"file={session.SaveFileName}, fixesLoaded={fixesLoaded}, active={active}, mode={session.Mode.ToDiagnosticString()}.");
+                $"file={session.SaveFileName}, fixesLoaded={fixesLoaded}, active={active}, " +
+                $"coarseAuditTestLoaded={Chainloader.PluginInfos.ContainsKey("AICoarsePathComponentFixTest_Serp")}, " +
+                $"coarseAuditWritesEnabled={(coarseAuditSession == sessionId ? coarseAuditWritesEnabled : -1)}, " +
+                $"coarseAuditAvailable={(coarseAuditSession == sessionId ? coarseAuditAvailable : -1)}, " +
+                $"mode={session.Mode.ToDiagnosticString()}.");
             Log($"AI_BUILD_GRID_HISTORY: session={sessionId}, loadingFile={loadingSaveName ?? "unknown"}, " +
                 $"sessionFile={session.SaveFileName}, retained={earlyGridHistory.Count}, " +
                 $"dropped={earlyGridDropped}, mode0Calls={gridModeZeroCalls}, mode1Calls={gridModeOneCalls}.");
@@ -252,6 +326,51 @@ namespace AIBuildDiagnoseTest
 
         internal void OnNativeRecord(AiBuildDiagnosticRecord record)
         {
+            if (record.Stage == "coarse-generation")
+            {
+                long sequence = ++timelineSequence;
+                Log($"AI_BUILD_TIMELINE: session={sessionId}, sequence={sequence}, tick={record.C}, " +
+                    $"event=pcl-generation, previous={record.A}, current={record.B}, sourceSession={record.D}.");
+                return;
+            }
+            if (record.Stage == "coarse-audit-begin")
+            {
+                coarseAuditProposals.Clear();
+                coarseAuditSnapshotSession = record.A;
+                coarseAuditComplete = false;
+                return;
+            }
+            if (record.Stage == "coarse-audit-cell")
+            {
+                if (record.A >= 0 && record.A < 25600)
+                    coarseAuditProposals[(int)record.A] =
+                        $"storedAtAudit={record.B}:hypotheticalAtAudit={record.C}";
+                return;
+            }
+            if (record.Stage == "coarse-audit-summary")
+            {
+                coarseAuditReference = (int)record.A;
+                coarseAuditSnapshotSession = record.D;
+                coarseAuditComplete = true;
+                return;
+            }
+            if (record.Stage == "coarse-audit-session")
+            {
+                coarseAuditWritesEnabled = (int)record.A;
+                coarseAuditAvailable = (int)record.B;
+                coarseAuditSession = record.C;
+                return;
+            }
+            if (record.Stage == "wood-candidate-scan-request" ||
+                record.Stage == "farm-candidate-scan-request")
+            {
+                bool wood = record.Stage == "wood-candidate-scan-request";
+                int playerId = record.PlayerId;
+                if (active && playerId >= 1 && playerId <= 8 &&
+                    (wood ? woodCandidateScans[playerId]++ < 3 : farmCandidateScans[playerId]++ < 2))
+                    ScanCandidateCells(unchecked((ulong)record.A), playerId, wood);
+                return;
+            }
             if (record.EconomyGridEvidence != null)
             {
                 ObserveGrid(record.Stage, record.EconomyGridEvidence);
@@ -260,6 +379,66 @@ namespace AIBuildDiagnoseTest
                 return;
             }
             if (!active || record.PlayerId < 1 || record.PlayerId > 8) return;
+            if (record.Stage == "wood-candidate-origin")
+            {
+                woodOriginX[record.PlayerId] = (int)record.A;
+                woodOriginY[record.PlayerId] = (int)record.B;
+                LogCoarseOrigin(record.PlayerId, "wood", (int)record.A, (int)record.B,
+                    "failed-search-overlay-snapshot");
+            }
+            if (record.Stage == "farm-candidate-origin")
+            {
+                farmOriginX[record.PlayerId] = (int)record.A;
+                farmOriginY[record.PlayerId] = (int)record.B;
+                LogCoarseOrigin(record.PlayerId, "farm", (int)record.A, (int)record.B,
+                    "failed-search-overlay-snapshot");
+            }
+            if (record.Stage == "wood-candidate-cell" || record.Stage == "farm-candidate-cell")
+            {
+                ObserveCandidateCell(record);
+                return;
+            }
+            if (record.Stage == "wood-candidate-scan") woodCellDetailDone[record.PlayerId] = true;
+            if (record.Stage == "farm-candidate-scan") farmCellDetailDone[record.PlayerId] = true;
+            if (record.Stage == "farm-scheduler-before")
+            {
+                beforeFarmValid[record.PlayerId] = true;
+                beforeFarmPhase[record.PlayerId] = (int)record.D;
+                beforeFarmType[record.PlayerId] = (int)record.C;
+                if (record.C == (long)eStructs.STRUCT_APPLEFARM)
+                    farmSelectedFrames[record.PlayerId]++;
+            }
+            if (record.Stage == "farm-scheduler-after" &&
+                beforeFarmValid[record.PlayerId] &&
+                beforeFarmPhase[record.PlayerId] == 0 && record.D == 1)
+            {
+                farmPhaseReached[record.PlayerId]++;
+                if (beforeFarmType[record.PlayerId] == (int)eStructs.STRUCT_APPLEFARM)
+                {
+                    if (applePhaseReached[record.PlayerId] == 0)
+                        LogResources(record.PlayerId, "first-apple-farm-phase");
+                    applePhaseReached[record.PlayerId]++;
+                }
+            }
+            if (record.Stage == "farm-scheduler-after") beforeFarmValid[record.PlayerId] = false;
+            if (record.Stage == "farm-search-before")
+            {
+                activeFarmSearchType[record.PlayerId] = (int)record.A;
+                if (record.A == (long)eStructs.STRUCT_APPLEFARM)
+                    farmSearchCalls[record.PlayerId]++;
+            }
+            if (record.Stage == "farm-search-after" &&
+                activeFarmSearchType[record.PlayerId] == (int)eStructs.STRUCT_APPLEFARM)
+                lastFarmResult[record.PlayerId] = (int)record.A;
+            if (record.Stage == "wood-search-after")
+                LogFirstSearchOrigin(record.PlayerId, "wood", "post-search-shared-origin");
+            if (record.Stage == "farm-search-generation" &&
+                activeFarmSearchType[record.PlayerId] == (int)eStructs.STRUCT_APPLEFARM &&
+                record.A != record.B)
+            {
+                farmTraversals[record.PlayerId]++;
+                LogFirstSearchOrigin(record.PlayerId, "farm", "traversal-confirmed-post-search");
+            }
             lastObservedStage[record.PlayerId] = record.Stage;
             switch (record.Stage)
             {
@@ -338,6 +517,136 @@ namespace AIBuildDiagnoseTest
             }
         }
 
+        private void LogFirstSearchOrigin(int playerId, string kind, string phase)
+        {
+            int key = playerId * 2 + (kind == "wood" ? 1 : 0);
+            if (coarseOriginLogged.Contains(key)) return;
+            try
+            {
+                AivSystem* state = GameAIVManagerAPI.Instance.GetAIVSystemPointer();
+                if (state == null) throw new InvalidOperationException("AIV state unavailable");
+                long address = checked((long)(ulong)state);
+                int x = Marshal.ReadInt32(new IntPtr(checked(address + 0x18783C)));
+                int y = Marshal.ReadInt32(new IntPtr(checked(address + 0x1A083C)));
+                if ((uint)x >= 160 || (uint)y >= 160)
+                    throw new InvalidOperationException("search origin outside coarse grid");
+                LogCoarseOrigin(playerId, kind, x, y, phase);
+            }
+            catch (Exception ex)
+            {
+                coarseOriginLogged.Add(key);
+                Log($"AI_BUILD_COARSE_ORIGIN_UNAVAILABLE: session={sessionId}, tick={lastTick}, " +
+                    $"player={playerId}, kind={kind}, phase={phase}, reason={ex.GetType().Name}.");
+            }
+        }
+
+        private void LogCoarseOrigin(int playerId, string kind, int x, int y, string phase)
+        {
+            int key = playerId * 2 + (kind == "wood" ? 1 : 0);
+            if (!coarseOriginLogged.Add(key)) return;
+            var details = new StringBuilder();
+            int[] dx = { 0, -1, 0, 0, 1 };
+            int[] dy = { 0, 0, -1, 1, 0 };
+            for (int i = 0; i < dx.Length; i++)
+            {
+                int cx = x + dx[i], cy = y + dy[i];
+                if (i != 0) details.Append('|');
+                if ((uint)cx >= 160 || (uint)cy >= 160)
+                {
+                    details.Append($"({cx},{cy}):outside-grid");
+                    continue;
+                }
+                int index = cx * 160 + cy;
+                coarseAuditProposals.TryGetValue(index, out string proposal);
+                AiEconomyGridEvidence current = AiBuildDiagnostic.CaptureEconomyGridEvidence(cx, cy);
+                var positive = new SortedDictionary<int, int>();
+                int zero = 0, valid = 0, matchingGlobal = 0;
+                foreach (AiPathTileSample tile in current.Tiles)
+                {
+                    if (tile.Status != "ok") continue;
+                    valid++;
+                    if (tile.NativeComponent == 0) zero++;
+                    else if (tile.NativeComponent > 0)
+                    {
+                        positive.TryGetValue(tile.NativeComponent, out int count);
+                        positive[tile.NativeComponent] = count + 1;
+                    }
+                    if (tile.NativeComponent == coarseAuditReference) matchingGlobal++;
+                }
+                var components = new StringBuilder();
+                foreach (var pair in positive)
+                {
+                    if (components.Length != 0) components.Append(',');
+                    components.Append(pair.Key).Append('x').Append(pair.Value);
+                }
+                bool hasAudit = coarseAuditComplete && coarseAuditSnapshotSession == sessionId &&
+                    coarseAuditReference > 0;
+                string hypothetical = hasAudit && valid == 25
+                    ? (25 - matchingGlobal).ToString() : "unobserved";
+                string auditProposal = hasAudit
+                    ? (proposal ?? "no-difference-at-last-audit") : "unobserved";
+                details.Append($"({cx},{cy}):status={current.Status}:storedVanilla={current.StoredForeignCount}:" +
+                    $"hypotheticalGlobalLive={hypothetical}:zero={zero}:positive={components}:" +
+                    $"validTiles={valid}:auditProposal={auditProposal}");
+            }
+            Log($"AI_BUILD_COARSE_SEARCH_ORIGIN: session={sessionId}, tick={lastTick}, player={playerId}, " +
+                $"kind={kind}, phase={phase}, origin=({x},{y}), " +
+                $"auditTestLoaded={Chainloader.PluginInfos.ContainsKey("AICoarsePathComponentFixTest_Serp")}, " +
+                $"auditWritesEnabled={(coarseAuditSession == sessionId ? coarseAuditWritesEnabled : -1)}, " +
+                $"hypotheticalGlobalReference={(coarseAuditComplete ? coarseAuditReference : -1)}, " +
+                $"cells={details}.");
+        }
+
+        private void ObserveCandidateCell(AiBuildDiagnosticRecord record)
+        {
+            bool wood = record.Stage == "wood-candidate-cell";
+            ulong packed = unchecked((ulong)record.C);
+            int foreign = unchecked((sbyte)(byte)packed);
+            int b1 = (byte)(packed >> 8);
+            int b2 = (sbyte)(packed >> 16);
+            int b3 = (byte)(packed >> 24);
+            string reason;
+            string raw;
+            bool origin = record.A == (wood ? woodOriginX[record.PlayerId] : farmOriginX[record.PlayerId]) &&
+                record.B == (wood ? woodOriginY[record.PlayerId] : farmOriginY[record.PlayerId]);
+            if (wood)
+            {
+                int adjustment = (byte)(packed >> 32);
+                reason = origin ? "origin-seed-not-tested-as-neighbor" :
+                    foreign >= 16 ? "not-traversed-foreign" :
+                    b3 != 0 ? "not-traversed-retry" :
+                    foreign >= 6 ? "traversed-no-candidate-foreign" :
+                    b2 <= 0 ? "traversed-no-candidate-tree" : "candidate";
+                raw = $"foreign={foreign}, depth={b1}, treeWeight={b2}, retry={b3}, scoreAdjustment={adjustment}";
+            }
+            else
+            {
+                int flags91 = (sbyte)(packed >> 32);
+                int flags90 = (sbyte)(packed >> 40);
+                int playerMask = (byte)(packed >> 48);
+                int depth = (byte)(packed >> 56);
+                reason = origin ? "origin-seed-not-tested-as-neighbor" :
+                    foreign >= 17 ? "not-traversed-foreign" :
+                    foreign != 0 ? "traversed-no-place-foreign" :
+                    b1 != 0 ? "traversed-no-place-reservation" :
+                    b2 != 0 ? "traversed-no-place-tree" :
+                    b3 != 0 ? "traversed-no-place-retry" :
+                    flags91 <= 24 ? "traversed-no-place-flags91" :
+                    flags90 <= 13 ? "traversed-no-place-flags90" :
+                    "local-gates-passed-mask-or-footprint-unresolved";
+                raw = $"foreign={foreign}, reservation={b1}, treeWeight={b2}, retry={b3}, " +
+                    $"flags91={flags91}, flags90={flags90}, playerMask={playerMask}, depth={depth}";
+            }
+            string key = (wood ? "wood" : "farm") + ":" + record.PlayerId + ":" + reason;
+            candidateReasons.TryGetValue(key, out int count);
+            candidateReasons[key] = count + 1;
+            if (wood ? woodCellDetailDone[record.PlayerId] : farmCellDetailDone[record.PlayerId]) return;
+            Log($"AI_BUILD_CANDIDATE_CELL: session={sessionId}, tick={lastTick}, player={record.PlayerId}, " +
+                $"attempt={record.AttemptId}, kind={(wood ? "wood" : "farm")}, cell=({record.A},{record.B}), " +
+                $"{raw}, liveDifferent={record.D}, cellGate={reason}, " +
+                $"storedVsLiveMismatch={(record.D >= 0 && record.D != foreign)}.");
+        }
+
         private void ObserveGrid(string stage, AiEconomyGridEvidence evidence)
         {
             if (evidence == null) return;
@@ -410,6 +719,19 @@ namespace AIBuildDiagnoseTest
 
         private void OnBuildStructure(BuildStructureEventArgs args)
         {
+            if (active && args.Mappers == eMappers.MAPPER_APPLEFARM &&
+                args.PlayerId >= 1 && args.PlayerId <= 8)
+            {
+                if (args.Phase == EventHookPhase.Pre) farmBuildCalls[args.PlayerId]++;
+                string farmPlacement = AiBuildDiagnostic.TryReadPlacementStatus(out int farmPreparation,
+                    out int farmRejected, out int farmMode)
+                    ? $"placementPreparation={farmPreparation}, placementRejected={farmRejected}, placementMode={farmMode}"
+                    : "placementStatus=unavailable";
+                Log($"AI_BUILD_FARM_STRUCTURE: session={sessionId}, tick={lastTick}, " +
+                    $"player={args.PlayerId}, phase={args.Phase}, tile=({args.TileX},{args.TileY}), " +
+                    $"mapper={args.Mappers}, scale={args.BuildingScaleUnknown}, free={args.IsFree}, " +
+                    $"{ReadResources(args.PlayerId)}, {farmPlacement}; postEventReturnValueNotAuthoritative=true.");
+            }
             if (probeRunning && args.PlayerId == ProbePlayer &&
                 args.Mappers == eMappers.MAPPER_WOODSMAN)
             {
@@ -467,8 +789,11 @@ namespace AIBuildDiagnoseTest
                 }
                 if (active && args.Phase == EventHookPhase.Post && args.ReturnValue > 0 &&
                     args.ReturnValue <= int.MaxValue)
+                {
+                    if (args.PlayerId >= 1 && args.PlayerId <= 8) appleSpawns[args.PlayerId]++;
                     TrackAppleFarm((int)args.ReturnValue, args.PlayerId, args.TileX, args.TileY,
                         true, "spawn-post");
+                }
                 if (active && args.Phase == EventHookPhase.Post)
                 {
                     CaptureOrchardStage(args.TileX, args.TileY,
@@ -552,6 +877,16 @@ namespace AIBuildDiagnoseTest
             {
                 WallObservation wall = CaptureWall(args);
                 wall.Tick = lastTick;
+                wall.Sequence = ++timelineSequence;
+                ActiveAivStep step = activeAivSteps[args.PlayerId];
+                if (step != null)
+                {
+                    wall.AivFrame = step.FrameIndex;
+                    wall.AivMapper = step.Mapper;
+                    wall.AivStateBefore = step.StateBefore;
+                    wall.PlannedTileCount = step.PlannedTiles.Length;
+                    wall.PlannedTile = Array.IndexOf(step.PlannedTiles, wall.TileId) >= 0;
+                }
                 string key = args.PlayerId + ":" + args.TileX + ":" + args.TileY;
                 if (args.Phase == EventHookPhase.Pre) pendingWalls[key] = wall;
                 else if (args.Phase == EventHookPhase.Post)
@@ -566,6 +901,16 @@ namespace AIBuildDiagnoseTest
                 }
                 if (wallHistory.Count == 1024) { wallHistory.RemoveAt(0); wallHistoryDropped++; }
                 wallHistory.Add(wall);
+                if (args.Phase == EventHookPhase.Post)
+                {
+                    if (wall.Materialized) materializedWalls[args.PlayerId]++;
+                    if (wallEventsLogged < 4096)
+                    {
+                        LogWall(wall, "all-ai-wall-post", 0);
+                        wallEventsLogged++;
+                    }
+                    else wallEventsSuppressed++;
+                }
                 foreach (string target in observedWallTargets)
                 {
                     string[] parts = target.Split(':');
@@ -596,6 +941,8 @@ namespace AIBuildDiagnoseTest
             { wall.Status = "wall-layer-out-of-range"; return wall; }
             wall.TileId = tileId;
             wall.PropertyFlags = (uint)tiles.GetTilePropertyFlag(tileId);
+            wall.TileType = (int)tiles.GetTileType(tileId);
+            wall.Height = tiles.GetTileHeight(tileId);
             wall.BuildingId = tiles.GetTileBuildingId(tileId);
             wall.WallOwner = owners[tileId];
             wall.Status = "ok";
@@ -625,11 +972,18 @@ namespace AIBuildDiagnoseTest
                 $"swamp={((wall.PropertyFlags & 0x20000000u) != 0)}, " +
                 $"wallPresent={((wall.PropertyFlags & 0x100u) != 0)}, " +
                 $"materializedFromPre={wall.Materialized}, buildingId={wall.BuildingId}, " +
-                $"wallOwner={wall.WallOwner}, status={wall.Status}.");
+                $"tileType={wall.TileType}, height={wall.Height}, " +
+                $"wallOwner={wall.WallOwner}, status={wall.Status}, sequence={wall.Sequence}, " +
+                $"aivFrame={wall.AivFrame}, aivMapper={wall.AivMapper}, " +
+                $"aivStateBefore={wall.AivStateBefore}, plannedTile={wall.PlannedTile}, " +
+                $"plannedTileCount={wall.PlannedTileCount}.");
 
         private sealed class WallObservation
         {
-            internal int PlayerId, X, Y, TileId, BuildingId, WallOwner, Tick;
+            internal int PlayerId, X, Y, TileId, BuildingId, WallOwner, Tick, TileType, Height;
+            internal int AivFrame = -1, AivMapper = -1, AivStateBefore = -1, PlannedTileCount;
+            internal long Sequence;
+            internal bool PlannedTile;
             internal uint PropertyFlags;
             internal string Phase, Mapper, Status;
             internal bool Materialized;
@@ -978,8 +1332,16 @@ namespace AIBuildDiagnoseTest
                 for (int playerId = 1; playerId <= 8; playerId++)
                 {
                     if (!players.IsAIPlayer(playerId)) continue;
+                    string aiv = "aiv=unavailable";
+                    if (GameAIVManagerAPI.Instance.TryGetVillageByPlayerId(playerId,
+                        out AivVillageState* village) && village != null)
+                        aiv = $"aivVariant={village->SelectedVariantIndex}, " +
+                            $"aivRotation={village->Rotation}, " +
+                            $"keep=({village->KeepX},{village->KeepY}), " +
+                            $"layoutOrigin=({village->LayoutOriginX},{village->LayoutOriginY}), " +
+                            $"aivBuildStep={village->UnlockedBuildStep}/{village->MaximumBuildStep}";
                     Log($"AI_BUILD_PLAYER: session={sessionId}, phase={phase}, player={playerId}, " +
-                        $"lord={players.GetAILord(playerId)}, {ReadResources(playerId)}.");
+                        $"lord={players.GetAILord(playerId)}, {aiv}, {ReadResources(playerId)}.");
                 }
             }
             catch (Exception ex) { Log("AI_BUILD_PLAYER_READ_FAILED: " + ex); }
@@ -1004,15 +1366,38 @@ namespace AIBuildDiagnoseTest
                     foreach (KeyValuePair<string, int> cause in routeCauses)
                         if (cause.Key.StartsWith(playerId + ":", StringComparison.Ordinal))
                             routeCauseText += cause.Key.Substring(2) + "=" + cause.Value + ",";
+                    string candidateText = "";
+                    foreach (KeyValuePair<string, int> reason in candidateReasons)
+                        if (reason.Key.StartsWith("wood:" + playerId + ":", StringComparison.Ordinal) ||
+                            reason.Key.StartsWith("farm:" + playerId + ":", StringComparison.Ordinal))
+                            candidateText += reason.Key + "=" + reason.Value + ",";
+                    string farmInference = appleSpawns[playerId] > 0 ? "apple-spawn-observed" :
+                        farmBuildCalls[playerId] > 0 ? "build-reached-no-spawn" :
+                        farmSearchCalls[playerId] > 0 && farmTraversals[playerId] == 0 ?
+                            "farm-search-entry-pretraversal-gate" :
+                        farmSearchCalls[playerId] > 0 ? "farm-traversal-without-build" :
+                        farmPhaseReached[playerId] == 0 ? "farm-phase-not-reached" :
+                        applePhaseReached[playerId] == 0 ? "apple-not-selected-on-farm-phase" :
+                        "apple-selected-but-pre-search-gate";
                     Log($"AI_BUILD_SUMMARY: session={sessionId}, phase={phase}, tick={lastTick}, " +
                         $"player={playerId}, lord={players.GetAILord(playerId)}, scheduler={schedulerCalls[playerId]}, " +
                         $"woodBuild={woodBuildCalls[playerId]}, woodSearch={woodSearchCalls[playerId]}, " +
                         $"initialHuts={initialHuts[playerId]}, newHuts={hutSpawns[playerId]}, " +
                         $"wallEventsRetained={wallHistory.Count}, wallEventsDropped={wallHistoryDropped}, " +
+                        $"materializedWalls={materializedWalls[playerId]}, wallPostLogged={wallEventsLogged}, " +
+                        $"wallPostSuppressed={wallEventsSuppressed}, timelineLast={timelineSequence}, " +
                         $"routeHookReady={AiBuildDiagnostic.RouteReady}, " +
                         $"lastObserved={lastObservedStage[playerId] ?? "none"}, " +
                         $"inference={InferStage(playerId)}, attemptOutcomes={outcomeText}, " +
-                        $"routeCauses={routeCauseText}.");
+                        $"routeCauses={routeCauseText}, woodAndFarmCellReasons={candidateText}, " +
+                        $"coarseAuditWritesEnabled={(coarseAuditSession == sessionId ? coarseAuditWritesEnabled : -1)}, " +
+                        $"coarseAuditAvailable={(coarseAuditSession == sessionId ? coarseAuditAvailable : -1)}, " +
+                        $"appleSelectedSnapshots={farmSelectedFrames[playerId]}, " +
+                        $"farmPhaseReached={farmPhaseReached[playerId]}, " +
+                        $"applePhaseReached={applePhaseReached[playerId]}, farmSearch={farmSearchCalls[playerId]}, " +
+                        $"farmTraversals={farmTraversals[playerId]}, " +
+                        $"farmBuild={farmBuildCalls[playerId]}, appleSpawns={appleSpawns[playerId]}, " +
+                        $"lastFarmResult={lastFarmResult[playerId]}, farmInference={farmInference}.");
                 }
                 LogPlayers(phase);
             }
@@ -1562,6 +1947,30 @@ namespace AIBuildDiagnoseTest
                     return $"sourceComponent={record.A}, targetComponent={record.B}, sourceTile={record.C}, targetTile={record.D}";
                 case "route-result":
                     return $"result={record.A}, mapperIndex={record.B}, target=({record.C},{record.D})";
+                case "farm-scheduler-before":
+                case "farm-scheduler-after":
+                    return $"profile={record.A}, choiceIndex={record.B}, selectedStructure={record.C}, " +
+                        $"economyPhase={record.D}";
+                case "farm-limits-before":
+                case "farm-limits-after":
+                    return $"farmCount={record.A}, farmLimit={record.B}, searchCooldown={record.C}, " +
+                        $"profileGoal={(int)(record.D >> 32)}, profileMinimum={(int)record.D}";
+                case "farm-search-before":
+                    return $"desiredStructure={record.A}, cooldown={record.B}, " +
+                        $"preplacedEconomyRelevant={record.C}, preplacedFixSession={record.D}";
+                case "farm-search-after":
+                    return $"result={record.A}, cooldown={record.B}, sharedSearchSlot=({record.C},{record.D})";
+                case "farm-search-generation":
+                    return $"generationBefore={record.A}, generationAfter={record.B}, " +
+                        $"coarseTraversalStarted={record.A != record.B}";
+                case "farm-candidate-scan":
+                    return $"lastPassVisitedCells={record.A}, lastPassGeneration={record.B}";
+                case "wood-candidate-origin":
+                case "farm-candidate-origin":
+                    return $"searchOrigin=({record.A},{record.B}), lastPassGeneration={record.C}";
+                case "farm-candidate-overflow":
+                case "wood-candidate-overflow":
+                    return $"suppressedCellDetails={record.A}";
                 case "route-evidence":
                     return $"status={record.RouteEvidence?.Status ?? "missing"}, sourceComponent={record.A}, " +
                         $"targetComponent={record.B}, sourceNative={record.RouteEvidence?.SourceNativeComponent}, " +
@@ -1579,7 +1988,121 @@ namespace AIBuildDiagnoseTest
         public IAivBuildStepInvocation TryBegin(AivBuildStepContext context)
         {
             if (!active || context.PlayerId < 1 || context.PlayerId > 8) return null;
-            return new BuildStepObservation(this, context.PlayerId, context.FrameIndex);
+            ActiveAivStep current = CaptureAivStep(context.PlayerId, context.FrameIndex);
+            ActiveAivStep previous = activeAivSteps[context.PlayerId];
+            if (current != null)
+            {
+                activeAivSteps[context.PlayerId] = current;
+                long sequence = ++timelineSequence;
+                Log($"AI_BUILD_AIV_TIMELINE: session={sessionId}, sequence={sequence}, tick={lastTick}, " +
+                    $"phase=before, player={context.PlayerId}, frame={context.FrameIndex}, " +
+                    $"mapper={current.Mapper}, state={current.StateBefore}, " +
+                    $"plannedTileCount={current.PlannedTiles.Length}, plannedFirst={current.FirstTiles}.");
+            }
+            return new BuildStepObservation(this, context.PlayerId, context.FrameIndex, current, previous);
+        }
+
+        // The existing main-mod hook requests this snapshot while its player overlay is still active.
+        // The scan and interpretation belong to the diagnostic mod, not BugfixesAndQoL.
+        private static void ScanCandidateCells(ulong state, int playerId, bool wood)
+        {
+            string prefix = wood ? "wood" : "farm";
+            try
+            {
+                uint generation = unchecked((uint)Marshal.ReadInt32(
+                    new IntPtr(checked((long)state + 0x5B50C))));
+                int originX = Marshal.ReadInt32(new IntPtr(checked((long)state + 0x18783C)));
+                int originY = Marshal.ReadInt32(new IntPtr(checked((long)state + 0x1A083C)));
+                AiBuildDiagnostic.Publish(prefix + "-candidate-origin", playerId,
+                    originX, originY, generation);
+                Span<AivCoarseCell> grid = GameAIVManagerAPI.Instance.GetCoarseGrid();
+                int visited = 0, candidates = 0, bestScore = int.MinValue;
+                for (int cellIndex = 0; cellIndex < grid.Length; cellIndex++)
+                {
+                    ref AivCoarseCell cell = ref grid[cellIndex];
+                    if (cell.CoarseSearchGeneration != generation) continue;
+                    visited++;
+                    int coarseX = cellIndex / 160;
+                    int coarseY = cellIndex % 160;
+                    long packed = wood ?
+                        cell.ForeignPathComponentTileCount |
+                        ((long)cell.CoarseSearchDepth << 8) |
+                        ((long)cell.TreeObstructionWeight << 16) |
+                        ((long)cell.WoodcutterRetryDelay << 24) |
+                        ((long)cell.Unknown06 << 32) :
+                        cell.ForeignPathComponentTileCount |
+                        ((long)cell.StructureOrReservationCount << 8) |
+                        ((long)cell.TreeObstructionWeight << 16) |
+                        ((long)cell.WoodcutterRetryDelay << 24) |
+                        ((long)cell.UnknownFlags91Count << 32) |
+                        ((long)cell.UnknownFlags90Count << 40) |
+                        ((long)cell.CombinedUnknownFlags << 48) |
+                        ((long)cell.CoarseSearchDepth << 56);
+                    if (visited <= 256)
+                    {
+                        AiEconomyGridEvidence live = AiBuildDiagnostic.CaptureEconomyGridEvidence(
+                            state, -1, coarseX, coarseY);
+                        AiBuildDiagnostic.Publish(prefix + "-candidate-cell", playerId,
+                            coarseX, coarseY, packed, live.CurrentDifferentCount);
+                    }
+                    if (!wood || coarseX == originX && coarseY == originY) continue;
+                    if (unchecked((sbyte)cell.ForeignPathComponentTileCount) >= 6 ||
+                        unchecked((sbyte)cell.TreeObstructionWeight) <= 0 ||
+                        cell.WoodcutterRetryDelay != 0) continue;
+                    int score = unchecked((sbyte)cell.TreeObstructionWeight) * 5 -
+                        unchecked((sbyte)cell.CoarseSearchDepth) * 3;
+                    if (cell.Unknown06 != 0) score = score < 1 ? score * 2 : score / 2;
+                    candidates++;
+                    if (score > bestScore) bestScore = score;
+                }
+                if (wood) AiBuildDiagnostic.Publish("wood-candidate-scan", playerId,
+                    visited, candidates, bestScore, generation);
+                else AiBuildDiagnostic.Publish("farm-candidate-scan", playerId,
+                    visited, generation);
+                if (visited > 256) AiBuildDiagnostic.Publish(prefix + "-candidate-overflow", playerId,
+                    visited - 256);
+            }
+            catch (Exception ex)
+            {
+                AiBuildDiagnostic.Publish(prefix + "-candidate-scan-error", playerId, ex.HResult);
+            }
+        }
+
+        private ActiveAivStep CaptureAivStep(int playerId, int frameIndex)
+        {
+            try
+            {
+                GameAIVManagerAPI api = GameAIVManagerAPI.Instance;
+                if (!api.TryGetVillageSlotByPlayerId(playerId, out int slot) ||
+                    !api.TryGetBuildStep(slot, frameIndex, out AivBuildStep* step)) return null;
+                if (!GameAIVManagerAPI.UsesOrderedMapTileBuffer(step->BuildingType)) return null;
+                Span<int> tiles = api.GetBuildStepMapTiles(slot, frameIndex);
+                int[] copied = new int[tiles.Length];
+                tiles.CopyTo(copied);
+                int shown = Math.Min(copied.Length, 16);
+                string[] first = new string[shown];
+                for (int i = 0; i < shown; i++) first[i] = copied[i].ToString();
+                return new ActiveAivStep(frameIndex, slot, (int)step->BuildingType,
+                    (int)step->State, copied, string.Join("/", first));
+            }
+            catch (Exception ex)
+            {
+                Log("AI_BUILD_AIV_CAPTURE_FAILED: player=" + playerId + ", frame=" + frameIndex + ", error=" + ex);
+                return null;
+            }
+        }
+
+        private sealed class ActiveAivStep
+        {
+            internal readonly int FrameIndex, VillageSlot, Mapper, StateBefore;
+            internal readonly int[] PlannedTiles;
+            internal readonly string FirstTiles;
+            internal ActiveAivStep(int frameIndex, int villageSlot, int mapper, int stateBefore,
+                int[] plannedTiles, string firstTiles)
+            {
+                FrameIndex = frameIndex; VillageSlot = villageSlot; Mapper = mapper;
+                StateBefore = stateBefore; PlannedTiles = plannedTiles; FirstTiles = firstTiles;
+            }
         }
 
         private sealed class BuildStepObservation : IAivBuildStepInvocation
@@ -1587,10 +2110,32 @@ namespace AIBuildDiagnoseTest
             private readonly AIBuildDiagnoseRuntime owner;
             private readonly int playerId;
             private readonly int frameIndex;
-            internal BuildStepObservation(AIBuildDiagnoseRuntime owner, int playerId, int frameIndex)
-            { this.owner = owner; this.playerId = playerId; this.frameIndex = frameIndex; }
+            private readonly ActiveAivStep current;
+            private readonly ActiveAivStep previous;
+            internal BuildStepObservation(AIBuildDiagnoseRuntime owner, int playerId, int frameIndex,
+                ActiveAivStep current, ActiveAivStep previous)
+            {
+                this.owner = owner; this.playerId = playerId; this.frameIndex = frameIndex;
+                this.current = current; this.previous = previous;
+            }
             public void Complete(AivBuildStepCompletion completion)
             {
+                if (current != null)
+                {
+                    int stateAfter = -1;
+                    try
+                    {
+                        if (GameAIVManagerAPI.Instance.TryGetBuildStep(current.VillageSlot,
+                            frameIndex, out AivBuildStep* step)) stateAfter = (int)step->State;
+                    }
+                    catch (Exception ex) { owner.Log("AI_BUILD_AIV_AFTER_FAILED: " + ex); }
+                    long sequence = ++owner.timelineSequence;
+                    owner.Log($"AI_BUILD_AIV_TIMELINE: session={owner.sessionId}, sequence={sequence}, " +
+                        $"tick={owner.lastTick}, phase=after, player={playerId}, frame={frameIndex}, " +
+                        $"mapper={current.Mapper}, stateBefore={current.StateBefore}, stateAfter={stateAfter}, " +
+                        $"completed={completion.VanillaCompleted}, result={completion.VanillaResult}.");
+                    owner.activeAivSteps[playerId] = previous;
+                }
                 if (!owner.active) return;
                 string key = "aiv:" + playerId + ":" + frameIndex + ":" + completion.VanillaResult;
                 if (!owner.seen.TryGetValue(key, out int count)) count = 0;

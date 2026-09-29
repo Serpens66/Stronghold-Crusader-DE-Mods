@@ -61,7 +61,6 @@ namespace BugfixesAndQoL
             TestAiStoneReservePolicy();
             TestShcdeSeCoarseGridBufferWorkaround();
             TestAiStoneReserveIntegration();
-            TestAiCoarsePathSessionLifecycle();
             TestQuarryKeepCenterPolicy();
             TestNativeBuildingCompoundGroup();
             TestAiWallTargetingIntegration();
@@ -98,6 +97,7 @@ namespace BugfixesAndQoL
             TestMultiplayerLobbyReturnIntegration();
             TestClassicMapSizeReader();
             TestVanillaMapEditorPlayerCountColumn();
+            TestSaveDeletionSelection();
             TestLobbyMapSelectionMemory();
             TestLobbyYellowContrast();
             TestBriefingNoStartingGoldFix();
@@ -112,19 +112,6 @@ namespace BugfixesAndQoL
             }
             Console.Error.WriteLine($"BugfixesAndQoL policy and native-contract tests failed: {failures}.");
             return 1;
-        }
-
-        private static void TestAiCoarsePathSessionLifecycle()
-        {
-            string source = File.ReadAllText(Path.Combine(
-                FindProjectDirectory(), "src", "AiCoarsePathComponentFix.cs"));
-            Check(source.Contains("args.Phase == APIShared.MissionInitializationPhase.BeforeLoad") &&
-                source.Contains("Shared.MissionEvents.Started.Subscribe(OnSessionStarted)") &&
-                source.Contains("Shared.MissionEvents.Ended.Subscribe") &&
-                source.Contains("RefreshOrDefer(\"session-start\")") &&
-                !source.Contains("Shared.MissionEvents.NativeStart.Subscribe") &&
-                !source.Contains("Shared.MissionEvents.Loading.Subscribe(_ => ResetMap())"),
-                "AI coarse PCL fix starts after every ready mission and does not reset at NativeLoaded");
         }
 
         private static void TestTimerCountdownMigration()
@@ -319,6 +306,22 @@ namespace BugfixesAndQoL
                     patch.Contains("Volatile.Read(ref enabled) == 0") &&
                     !patch.Contains("class MountedStockpileMovementPatch : IDisposable"),
                 "mounted-stockpile hooks remain rooted and use only an atomic logical activation gate");
+        }
+
+        private static void TestSaveDeletionSelection()
+        {
+            Check(SaveDeletionPolicy.FindNextAvailableIndex(0, 3, _ => true) == 0 &&
+                  SaveDeletionPolicy.FindNextAvailableIndex(1, 3, _ => true) == 1 &&
+                  SaveDeletionPolicy.FindNextAvailableIndex(3, 3, _ => true) == 2,
+                "deleted first, middle and final save select the row that moved into place");
+            Check(SaveDeletionPolicy.FindNextAvailableIndex(0, 1, _ => true) == 0 &&
+                  SaveDeletionPolicy.FindNextAvailableIndex(0, 0, _ => true) == -1 &&
+                  SaveDeletionPolicy.FindNextAvailableIndex(-1, 2, _ => true) == -1,
+                "single remaining save is selected and an empty or missing selection stays empty");
+            Check(SaveDeletionPolicy.FindNextAvailableIndex(1, 4, index => index != 1 && index != 2) == 3 &&
+                  SaveDeletionPolicy.FindNextAvailableIndex(3, 4, index => index == 0) == 0 &&
+                  SaveDeletionPolicy.FindNextAvailableIndex(1, 3, _ => false) == -1,
+                "vanished saves are skipped forward then backward without selecting missing files");
         }
 
         private static void TestVanillaMapEditorPlayerCountColumn()
@@ -2030,11 +2033,50 @@ namespace BugfixesAndQoL
                 Check(text.Contains("BugfixesAndQoL.EnableCompleteNotificationSkipOnClick=") &&
                       text.Contains("BugfixesAndQoL.EnableCompleteNotificationSkipOnClickHelp="),
                     "complete notification skip localization exists in " + Path.GetFileName(locale));
+                Check(text.Contains("BugfixesAndQoL.EnableNotificationLastFrame=") &&
+                      text.Contains("BugfixesAndQoL.EnableNotificationLastFrameHelp="),
+                    "notification last-frame localization exists in " + Path.GetFileName(locale));
             }
+
+            string lastFrame = File.ReadAllText(Path.Combine("src", "NotificationLastFrameFeature.cs"));
+            Check(viewModel.Contains("enableNotificationLastFrame = new LocalPerPlayerSetting<bool>(false)") &&
+                  viewModel.Contains("public bool EnableNotificationLastFrame") &&
+                  viewModel.Contains("EnableNotificationLastFrame = false;") &&
+                  viewModel.Contains("enableNotificationLastFrame.TrySetLocalPlayerId(playerId)") &&
+                  !viewModel.Contains("nameof(EnableNotificationLastFrame),") &&
+                  xaml.Contains("bugfixes.enable-notification-last-frame") &&
+                  xaml.Contains("IsChecked=\"{Binding EnableNotificationLastFrame, Mode=TwoWay}\""),
+                "last-frame setting is local, saved per player, reset off, and visible in client UI");
+            Check(lastFrame.Contains("originalPlayBink(self, binkName, loop, waitForSpeech);") &&
+                  lastFrame.Contains("!feature.Enabled || loop") &&
+                  lastFrame.Contains("value + \"**\"") &&
+                  lastFrame.Contains("if (feature == null || !feature.Enabled)") &&
+                  lastFrame.Contains("originalVideoEnded(self, sender, args);") &&
+                  lastFrame.Contains("media.Pause();") &&
+                  lastFrame.Contains("media.Opacity = 1f;") &&
+                  lastFrame.Contains("sfx.requestBinkPlayState != 3") &&
+                  !lastFrame.Contains("public void Dispose()"),
+                "both permanent video hooks preserve Vanilla when disabled and retain the last frame only during speech");
+            Check(runtime.Contains("private static NotificationLastFrameFeature processNotificationLastFrameFeature;") &&
+                  runtime.Contains("new NotificationLastFrameFeature(log, settings)"),
+                "last-frame feature is rooted for the process lifetime");
 
             Type audioType = typeof(MyAudioManager);
             BindingFlags members = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
             Type mainHudType = audioType.Assembly.GetType("CrusaderDE.MainHUD");
+            Type sfxType = audioType.Assembly.GetType("SFXManager");
+            MethodInfo playBink = sfxType?.GetMethod("playBink", BindingFlags.Instance | BindingFlags.Public,
+                null, new[] { typeof(string), typeof(bool), typeof(bool) }, null);
+            MethodInfo radarEnded = mainHudType?.GetMethod("RadarME_Ended",
+                BindingFlags.Instance | BindingFlags.NonPublic, null,
+                new[] { typeof(object), typeof(Noesis.RoutedEventArgs) }, null);
+            Check(playBink?.ReturnType == typeof(void) && radarEnded?.ReturnType == typeof(void) &&
+                  sfxType.GetField("requestBinkPlaybackURI", members)?.IsPublic == true &&
+                  sfxType.GetField("requestBinkPlayState", members)?.IsPublic == true &&
+                  sfxType.GetField("binkIsPlaying", members)?.IsPublic == true &&
+                  sfxType.GetField("binkWaitForSpeech", members)?.IsPublic == true &&
+                  mainHudType.GetField("RefRadarME", members)?.IsPublic == true,
+                "installed real game assembly exposes the last-frame hooks and direct fields");
             Type radarMediaType = mainHudType?.GetField("RefRadarME", members)?.FieldType;
             Check(radarMediaType?.GetEvent("PreviewMouseDown")?.EventHandlerType?.FullName ==
                       "Noesis.MouseButtonEventHandler",
@@ -4913,7 +4955,6 @@ namespace BugfixesAndQoL
                     new[]
                     {
                         "AIPreplacedBuildingFixRuntime.cs",
-                        "AiCoarsePathComponentFix.cs",
                         "AiStoneReserveFix.cs",
                         "ShcdeSeCoarseGridBufferWorkaround.cs"
                     }),

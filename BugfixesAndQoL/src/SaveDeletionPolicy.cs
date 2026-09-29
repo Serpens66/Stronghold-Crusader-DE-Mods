@@ -5,6 +5,29 @@ namespace BugfixesAndQoL
 {
     internal static class SaveDeletionPolicy
     {
+        internal static int FindNextAvailableIndex(
+            int deletedIndex,
+            int itemCount,
+            Func<int, bool> isAvailable)
+        {
+            if (deletedIndex < 0 || itemCount <= 0 || isAvailable == null)
+                return -1;
+
+            for (int index = Math.Min(deletedIndex, itemCount - 1); index < itemCount; index++)
+            {
+                if (isAvailable(index))
+                    return index;
+            }
+
+            for (int index = Math.Min(deletedIndex, itemCount - 1) - 1; index >= 0; index--)
+            {
+                if (isAvailable(index))
+                    return index;
+            }
+
+            return -1;
+        }
+
         internal static bool TryResolveDeletableSavePath(
             string selectedPath,
             string savesDirectory,

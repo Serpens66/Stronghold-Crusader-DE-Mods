@@ -151,11 +151,11 @@
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.category.client-qol" shared:ModSettingsSearch.Title="{Binding QolTitleText}" shared:ModSettingsSearch.ToolTipText="{Binding QolTitleText}"><TextBlock Text="{Binding QolTitleText}" Style="{StaticResource CategoryHeader}" Margin="0,8,0,4"/></Grid>
       <StackPanel shared:ModSettingsSearch.SectionKey="bugfixes.section.client-qol-interface" shared:ModSettingsSearch.SectionTitle="{Binding InterfaceTitleText}">
       <Grid Style="{StaticResource ModSettingsSearchSectionGrid}" shared:ModSettingsSearch.IsSection="True"><TextBlock Text="{Binding InterfaceTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/></Grid>
-      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.show-vanilla-maps-in-editor" shared:ModSettingsSearch.Title="{Binding ShowVanillaMapsInEditorText}" shared:ModSettingsSearch.ToolTipText="{Binding ShowVanillaMapsInEditorHelpText}"><CheckBox IsChecked="{Binding ShowVanillaMapsInEditor, Mode=TwoWay}"
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.show-vanilla-maps-in-editor" shared:ModSettingsSearch.Title="{Binding ShowLoadSaveDialogControlsText}" shared:ModSettingsSearch.ToolTipText="{Binding ShowLoadSaveDialogControlsHelpText}"><CheckBox IsChecked="{Binding ShowLoadSaveDialogControls, Mode=TwoWay}"
                 Foreground="White"
-                ToolTipService.ShowDuration="60000" ToolTip="{Binding ShowVanillaMapsInEditorHelpText}"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding ShowLoadSaveDialogControlsHelpText}"
                 Margin="0,0,14,8">
-        <TextBlock Text="{Binding ShowVanillaMapsInEditorText}" Foreground="White" TextWrapping="Wrap"/>
+        <TextBlock Text="{Binding ShowLoadSaveDialogControlsText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.show-selected-unit-health" shared:ModSettingsSearch.Title="{Binding ShowSelectedUnitHealthText}" shared:ModSettingsSearch.ToolTipText="{Binding ShowSelectedUnitHealthHelpText}"><CheckBox IsChecked="{Binding ShowSelectedUnitHealth, Mode=TwoWay}"
                 Foreground="White"
@@ -325,6 +325,12 @@
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableCompleteNotificationSkipOnClickHelpText}"
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableCompleteNotificationSkipOnClickText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-notification-last-frame" shared:ModSettingsSearch.Title="{Binding EnableNotificationLastFrameText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableNotificationLastFrameHelpText}"><CheckBox IsChecked="{Binding EnableNotificationLastFrame, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableNotificationLastFrameHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableNotificationLastFrameText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.disbanded-unit-control-group-cleanup" shared:ModSettingsSearch.Title="{Binding EnableDisbandedUnitControlGroupCleanupText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableDisbandedUnitControlGroupCleanupHelpText}"><CheckBox IsChecked="{Binding EnableDisbandedUnitControlGroupCleanup, Mode=TwoWay}"
                 Foreground="White"
@@ -613,12 +619,6 @@
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding FixAIPreplacedMapBuildingsHelpText}"
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding FixAIPreplacedMapBuildingsText}" Foreground="White" TextWrapping="Wrap"/>
-      </CheckBox></Grid>
-      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.fix-ai-coarse-path-components" shared:ModSettingsSearch.Title="{Binding FixAiCoarsePathComponentsText}" shared:ModSettingsSearch.ToolTipText="{Binding FixAiCoarsePathComponentsHelpText}"><CheckBox IsChecked="{Binding FixAiCoarsePathComponents, Mode=TwoWay}"
-                Foreground="White"
-                ToolTipService.ShowDuration="60000" ToolTip="{Binding FixAiCoarsePathComponentsHelpText}"
-                Margin="0,0,14,8">
-        <TextBlock Text="{Binding FixAiCoarsePathComponentsText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.fix-aitower-repair" shared:ModSettingsSearch.Title="{Binding FixAITowerRepairText}" shared:ModSettingsSearch.ToolTipText="{Binding FixAITowerRepairHelpText}"><CheckBox IsChecked="{Binding FixAITowerRepair, Mode=TwoWay}"
                 Foreground="White"

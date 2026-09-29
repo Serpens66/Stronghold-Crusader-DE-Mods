@@ -199,19 +199,19 @@ namespace BugfixesAndQoL
         public string DeleteSaveHelpText => SerpLocalization.Get("BugfixesAndQoL.DeleteSaveHelp");
 
         public Visibility ShowVanillaMapsVisibility =>
-            FeatureEnabled && GetActiveRequesterType() == Enums.RequesterTypes.LoadEditorMap
+            DialogControlsEnabled && GetActiveRequesterType() == Enums.RequesterTypes.LoadEditorMap
                 ? Visibility.Visible
                 : Visibility.Collapsed;
 
         public Visibility DeleteMapVisibility =>
-            FeatureEnabled && IsEditorMapRequester(GetActiveRequesterType())
+            DialogControlsEnabled && IsEditorMapRequester(GetActiveRequesterType())
                 ? Visibility.Visible
                 : Visibility.Collapsed;
 
         public bool DeleteMapEnabled => CanDeleteSelectedMap();
 
         public Visibility DeleteSaveVisibility =>
-            FeatureEnabled && IsLoadSaveRequester(GetActiveRequesterType())
+            DialogControlsEnabled && IsLoadSaveRequester(GetActiveRequesterType())
                 ? Visibility.Visible
                 : Visibility.Collapsed;
 
@@ -219,7 +219,9 @@ namespace BugfixesAndQoL
 
         private bool FeatureEnabled => settings.EnableMod;
 
-        private bool ShouldShowBuiltIns => FeatureEnabled && settings.ShowVanillaMapsInEditor;
+        private bool DialogControlsEnabled => FeatureEnabled && settings.ShowLoadSaveDialogControls;
+
+        private bool ShouldShowBuiltIns => DialogControlsEnabled && settings.ShowVanillaMapsInEditor;
 
         private void PopulateListHook(HUD_LoadSaveRequester self)
         {
@@ -515,6 +517,7 @@ namespace BugfixesAndQoL
         private void SettingsPropertyChanged(object sender, PropertyChangedEventArgs args)
         {
             if (args.PropertyName != nameof(BugfixesAndQoLViewModel.EnableMod) &&
+                args.PropertyName != nameof(BugfixesAndQoLViewModel.ShowLoadSaveDialogControls) &&
                 args.PropertyName != nameof(BugfixesAndQoLViewModel.ShowVanillaMapsInEditor))
             {
                 return;
@@ -552,9 +555,11 @@ namespace BugfixesAndQoL
             HUD_LoadSaveRequester requester = activeRequester;
             try
             {
+                ListView list = (ListView)FileListField.GetValue(requester);
+                int selectedIndex = list?.SelectedIndex ?? -1;
                 HUD_ConfirmationPopup.ShowConfirmationMessage(
                     SerpLocalization.Get("BugfixesAndQoL.DeleteSaveConfirmTitle"),
-                    () => DeleteSaveConfirmed(requester, safePath, saveName),
+                    () => DeleteSaveConfirmed(requester, safePath, saveName, selectedIndex),
                     RefreshUiState,
                     SerpLocalization.Get(
                         "BugfixesAndQoL.DeleteSaveConfirmMessage",
@@ -573,12 +578,13 @@ namespace BugfixesAndQoL
         private void DeleteSaveConfirmed(
             HUD_LoadSaveRequester requester,
             string requestedPath,
-            string saveName)
+            string saveName,
+            int deletedIndex)
         {
             try
             {
                 Enums.RequesterTypes requesterType = GetRequesterType(requester);
-                if (!FeatureEnabled ||
+                if (!DialogControlsEnabled ||
                     !IsLoadSaveRequester(requesterType) ||
                     !SaveDeletionPolicy.TryResolveDeletableSavePath(
                         requestedPath,
@@ -601,6 +607,7 @@ namespace BugfixesAndQoL
                 ClearDeletedSelection(requester, saveName);
                 RemoveMissingSaveRows(requester);
                 RefreshRequesterList(requester);
+                SelectNextAvailableSave(requester, deletedIndex);
                 Shared.DebugLogHelper.LogInfo(
                     log,
                     $"Bugfixes and QoL permanently deleted user save [{safePath}].");
@@ -624,7 +631,7 @@ namespace BugfixesAndQoL
             safePath = null;
             try
             {
-                if (!FeatureEnabled || activeRequester == null)
+                if (!DialogControlsEnabled || activeRequester == null)
                     return false;
 
                 Enums.RequesterTypes requesterType = GetActiveRequesterType();
@@ -685,6 +692,50 @@ namespace BugfixesAndQoL
             }
         }
 
+        private void SelectNextAvailableSave(HUD_LoadSaveRequester requester, int deletedIndex)
+        {
+            try
+            {
+                if (!ReferenceEquals(activeRequester, requester) ||
+                    !IsLoadSaveRequester(GetRequesterType(requester)) ||
+                    !(bool)PanelActiveField.GetValue(requester))
+                {
+                    return;
+                }
+
+                ListView list = (ListView)FileListField.GetValue(requester);
+                if (list == null)
+                    return;
+
+                bool multiplayer = IsMultiplayerSaveRequester(GetRequesterType(requester));
+                string savesPath = ConfigSettings.GetSavesPath();
+                int nextIndex = SaveDeletionPolicy.FindNextAvailableIndex(
+                    deletedIndex,
+                    list.Items.Count,
+                    index =>
+                    {
+                        FileHeader candidate = (list.Items[index] as FileRow)?.fileHeader;
+                        return candidate != null &&
+                            SaveDeletionPolicy.TryResolveDeletableSavePath(
+                                candidate.filePath,
+                                savesPath,
+                                multiplayer,
+                                File.Exists,
+                                out _);
+                    });
+                if (nextIndex < 0)
+                    return;
+
+                object nextRow = list.Items[nextIndex];
+                list.SelectedItem = nextRow;
+                list.ScrollIntoView(nextRow);
+            }
+            catch (Exception ex)
+            {
+                LogUiFailure("select the next save after deletion", ex);
+            }
+        }
+
         private void DeleteSelectedMap()
         {
             if (!TryGetSelectedDeletableMap(out FileHeader header, out string safePath))
@@ -728,7 +779,9 @@ namespace BugfixesAndQoL
         {
             try
             {
-                if (!VanillaMapEditorPolicy.TryResolveDeletableUserMapPath(
+                if (!DialogControlsEnabled ||
+                    !IsEditorMapRequester(GetRequesterType(requester)) ||
+                    !VanillaMapEditorPolicy.TryResolveDeletableUserMapPath(
                         requestedPath,
                         ConfigSettings.GetUserMapsPath(),
                         File.Exists,
@@ -771,7 +824,7 @@ namespace BugfixesAndQoL
             try
             {
                 Enums.RequesterTypes requesterType = GetActiveRequesterType();
-                if (!FeatureEnabled || !IsEditorMapRequester(requesterType) || activeRequester == null)
+                if (!DialogControlsEnabled || !IsEditorMapRequester(requesterType) || activeRequester == null)
                     return false;
 
                 ListView list = (ListView)FileListField.GetValue(activeRequester);

@@ -154,7 +154,6 @@ namespace BugfixesAndQoL
         private ulong nativeModuleBase;
         private ulong lastAivState;
         // AIBuildDiagnoseTest BEGIN
-        private readonly int[] woodCandidateScans = new int[MaxPlayablePlayerId + 1];
         // AIBuildDiagnoseTest END
 
         [ThreadStatic] private static int nearbyEconomyPlayerId;
@@ -596,11 +595,39 @@ namespace BugfixesAndQoL
 
         private long FarmSearch(ulong state, int playerId, int desiredStructureType)
         {
-            if (!sessionEnabled || !IsExpectedAivState(state) || !economyMapRelevant)
-                return farmSearchHook.Original(state, playerId, desiredStructureType);
-            TryActivateOrRefreshEconomyFix(state, playerId);
-            EconomyGridOverlayScope overlay = EnterEconomyOverlay(state, playerId, "farm-search");
-            try { return farmSearchHook.Original(state, playerId, desiredStructureType); }
+            // AIBuildDiagnoseTest: capture before the optional overlay is restored.
+            bool diagnose = APIShared.AiBuildDiagnostic.HasObserver &&
+                playerId >= 1 && playerId <= MaxPlayablePlayerId;
+            long cooldown = diagnose ? ReadFarmCooldown(playerId) : -1;
+            uint generationBefore = diagnose ? ReadSearchGeneration(state) : 0;
+            if (diagnose)
+                APIShared.AiBuildDiagnostic.Publish("farm-search-before", playerId,
+                    desiredStructureType, cooldown, economyMapRelevant ? 1 : 0,
+                    sessionEnabled ? 1 : 0);
+            EconomyGridOverlayScope overlay = null;
+            try
+            {
+                if (sessionEnabled && IsExpectedAivState(state) && economyMapRelevant)
+                {
+                    TryActivateOrRefreshEconomyFix(state, playerId);
+                    overlay = EnterEconomyOverlay(state, playerId, "farm-search");
+                }
+                long result = farmSearchHook.Original(state, playerId, desiredStructureType);
+                if (diagnose)
+                {
+                    APIShared.AiBuildDiagnostic.Publish("farm-search-after", playerId,
+                        result, ReadFarmCooldown(playerId), ReadSearchResult(state, false),
+                        ReadSearchResult(state, true));
+                    APIShared.AiBuildDiagnostic.Publish("farm-search-generation", playerId,
+                        generationBefore, ReadSearchGeneration(state));
+                    if (desiredStructureType == (int)eStructs.STRUCT_APPLEFARM &&
+                        result == 0 && cooldown <= 0 &&
+                        ReadSearchGeneration(state) != generationBefore)
+                        APIShared.AiBuildDiagnostic.Publish("farm-candidate-scan-request", playerId,
+                            unchecked((long)state));
+                }
+                return result;
+            }
             finally { ExitEconomyOverlay(overlay); }
         }
 
@@ -634,10 +661,6 @@ namespace BugfixesAndQoL
                     APIShared.AiBuildDiagnostic.Publish("wood-search-after", playerId,
                         ReadWoodCooldown(playerId), ReadSearchResult(state, false),
                         ReadSearchResult(state, true));
-                    if (cooldownBefore <= 0 && ReadSearchResult(state, false) == -1 &&
-                        playerId >= 1 && playerId <= MaxPlayablePlayerId &&
-                        woodCandidateScans[playerId]++ < 3)
-                        PublishWoodCandidateScan(state, playerId);
                 }
             }
             // AIBuildDiagnoseTest END
@@ -645,14 +668,33 @@ namespace BugfixesAndQoL
 
         private void WoodSearchCore(ulong state, int playerId)
         {
+            bool capture = APIShared.AiBuildDiagnostic.HasObserver &&
+                playerId >= 1 && playerId <= MaxPlayablePlayerId &&
+                ReadWoodCooldown(playerId) <= 0;
+            uint generationBefore = capture ? ReadSearchGeneration(state) : 0;
             if (!sessionEnabled || !IsExpectedAivState(state) || !economyMapRelevant)
             {
                 woodSearchHook.Original(state, playerId);
+                if (capture && ReadSearchGeneration(state) != generationBefore &&
+                    ReadSearchResult(state, false) == -1)
+                {
+                    APIShared.AiBuildDiagnostic.Publish("wood-candidate-scan-request", playerId,
+                        unchecked((long)state));
+                }
                 return;
             }
             TryActivateOrRefreshEconomyFix(state, playerId);
             EconomyGridOverlayScope overlay = EnterEconomyOverlay(state, playerId, "wood-search");
-            try { woodSearchHook.Original(state, playerId); }
+            try
+            {
+                woodSearchHook.Original(state, playerId);
+                if (capture && ReadSearchGeneration(state) != generationBefore &&
+                    ReadSearchResult(state, false) == -1)
+                {
+                    APIShared.AiBuildDiagnostic.Publish("wood-candidate-scan-request", playerId,
+                        unchecked((long)state));
+                }
+            }
             finally { ExitEconomyOverlay(overlay); }
         }
 
@@ -711,6 +753,13 @@ namespace BugfixesAndQoL
             catch { return -1; }
         }
 
+        private static uint ReadSearchGeneration(ulong state)
+        {
+            if (state == 0) return 0;
+            try { return unchecked((uint)Marshal.ReadInt32(new IntPtr(checked((long)state + 0x5B50C)))); }
+            catch { return 0; }
+        }
+
         private long ReadWoodCooldown(int playerId)
         {
             if (nativeModuleBase == 0 || playerId < 1 || playerId > MaxPlayablePlayerId) return -1;
@@ -723,37 +772,14 @@ namespace BugfixesAndQoL
             catch { return -1; }
         }
 
-        private static void PublishWoodCandidateScan(ulong state, int playerId)
+        private long ReadFarmCooldown(int playerId)
         {
-            try
-            {
-                uint generation = unchecked((uint)Marshal.ReadInt32(
-                    new IntPtr(checked((long)state + 0x5B50C))));
-                Span<AivCoarseCell> grid = GameAIVManagerAPI.Instance.GetCoarseGrid();
-                int visited = 0, candidates = 0, bestScore = int.MinValue;
-                for (int cellIndex = 0; cellIndex < grid.Length; cellIndex++)
-                {
-                    ref AivCoarseCell cell = ref grid[cellIndex];
-                    if (cell.CoarseSearchGeneration != generation) continue;
-                    visited++;
-                    if (unchecked((sbyte)cell.ForeignPathComponentTileCount) >= 6 ||
-                        unchecked((sbyte)cell.TreeObstructionWeight) <= 0 ||
-                        cell.WoodcutterRetryDelay != 0) continue;
-                    int score = unchecked((sbyte)cell.TreeObstructionWeight) * 5 -
-                        unchecked((sbyte)cell.CoarseSearchDepth) * 3;
-                    if (cell.Unknown06 != 0) score = score < 1 ? score * 2 : score / 2;
-                    candidates++;
-                    if (score > bestScore) bestScore = score;
-                }
-                APIShared.AiBuildDiagnostic.Publish("wood-candidate-scan", playerId,
-                    visited, candidates, bestScore, generation);
-            }
-            catch (Exception ex)
-            {
-                APIShared.AiBuildDiagnostic.Publish("wood-candidate-scan-error", playerId,
-                    ex.HResult);
-            }
+            if (nativeModuleBase == 0 || playerId < 1 || playerId > MaxPlayablePlayerId) return -1;
+            try { return Marshal.ReadInt16(new IntPtr(checked((long)nativeModuleBase +
+                0x379E74A + (long)playerId * PlayerRuntimeStateStride))); }
+            catch { return -1; }
         }
+
         // AIBuildDiagnoseTest END
 
         private EconomyGridOverlayScope EnterEconomyOverlay(ulong state, int playerId, string helper)
@@ -1260,7 +1286,7 @@ namespace BugfixesAndQoL
             finally
             {
                 overlayScratchInUse = false;
-                BugfixesAndQoLRuntime.FlushDeferredAiCoarsePathRefresh();
+                BugfixesAndQoLRuntime.NotifyAiEconomyOverlayRestored();
             }
             if (!restored)
                 DisableEconomyFix("overlay-restore-verification",
@@ -1861,9 +1887,6 @@ namespace BugfixesAndQoL
 
         private void ResetMap()
         {
-            // AIBuildDiagnoseTest BEGIN
-            Array.Clear(woodCandidateScans, 0, woodCandidateScans.Length);
-            // AIBuildDiagnoseTest END
             players.Clear();
             activeEconomyOverlayScopes?.Clear();
             pendingDamage.Clear();

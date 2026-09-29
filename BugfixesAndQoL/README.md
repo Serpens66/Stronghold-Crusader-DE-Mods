@@ -114,6 +114,9 @@ The enabled-by-default local **Improve yellow contrast** option gives yellow lob
 ### Skip AI and event notifications completely
 Right-click an AI or event notification video to stop its video, audio, and message text and immediately advance to the next queued notification. If the notification has no video, right-click the minimap instead. Left-clicking notification videos and normal minimap use keep their Vanilla behavior. This is an enabled-by-default per-player option.
 
+### Keep the last video frame during speech
+When a minimap video ends before its voice line, keep its last frame visible until the voice line finishes. Left-click still hides the video; the separate right-click option can stop AI and event messages completely. This local per-player option is disabled by default and applies to all minimap videos.
+
 ### Pause a single production building
 Hold Ctrl while clicking a production building's pause button to pause or resume only that building. Clicking without Ctrl keeps the normal behavior of changing every building of that type.
 
@@ -148,6 +151,9 @@ Four independent settings prevent affected AI production buildings from entering
 The map editor's Load Map dialog includes a **Show Vanilla maps** checkbox. When enabled, it adds the editable built-in Skirmish, Free Build, and multiplayer maps to the normal list. Campaign and tutorial maps remain hidden. Saving a loaded Vanilla map always creates or overwrites a separate copy in your user `Maps` folder; the original game files are never changed.
 Its **#** column shows each map's maximum player count and can be clicked to sort the list in either direction.
 The Load Map and Save Map dialogs also include a **Delete Map** button. It asks for confirmation and can delete only maps stored directly in your user `Maps` folder. Vanilla maps and Steam Workshop maps are always protected from deletion.
+
+### Delete savegames from the Load Game dialog
+Select a savegame and click **Delete Save** to remove it after confirmation. This works in singleplayer and multiplayer, including co-op and visible quicksaves. The next savegame is selected automatically afterward.
 
 ### Customize the detailed market's goods order
 The circular order of goods in the detailed market view can be rearranged freely in the mod settings. It defaults to the classic Stronghold Crusader HD order and includes a button that restores that order at any time.

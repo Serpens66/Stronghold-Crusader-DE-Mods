@@ -402,7 +402,13 @@ namespace CastlePlanner.AIVPlacement
                 return;
             }
 
+            bool clearSelection = string.Equals(param, "Clear_Selected", StringComparison.Ordinal);
+            if (clearSelection)
+                SelectCustomAivMode(GetAivInfo(self));
+
             buttonTrampoline(self, param);
+            if (clearSelection)
+                RefreshEmptyCustomMode(self);
             requestRefresh();
             try
             {
@@ -423,7 +429,7 @@ namespace CastlePlanner.AIVPlacement
 
                 FRONT_Multiplayer_AISettings instance = FRONT_Multiplayer_AISettings.Instance;
                 FRONT_Multiplayer.MPAIVInfo info = GetAivInfo(instance);
-                if (info?.aivs == null || !IsCustomAivMode(info))
+                if (info?.aivs == null || !IsCustomAivMode(info, instance))
                     return;
 
                 int index = info.aivs.IndexOf(requestedAiv);
@@ -450,7 +456,7 @@ namespace CastlePlanner.AIVPlacement
         private void RefreshSelectionList(FRONT_Multiplayer_AISettings instance)
         {
             FRONT_Multiplayer.MPAIVInfo info = GetAivInfo(instance) ?? activeInfo;
-            bool allowRemoval = IsCustomAivMode(info);
+            bool allowRemoval = IsCustomAivMode(info, instance);
             IReadOnlyDictionary<int, AivCandidateVisualState> states = null;
             if (info != null && playerIdsByInfo.TryGetValue(info, out int playerId))
                 statesByPlayer.TryGetValue(playerId, out states);
@@ -698,6 +704,31 @@ namespace CastlePlanner.AIVPlacement
 
         private static bool IsCustomAivMode(FRONT_Multiplayer.MPAIVInfo info) =>
             info != null && !info.builtIn && !info.community && !info.historical;
+
+        private static bool IsCustomAivMode(
+            FRONT_Multiplayer.MPAIVInfo info,
+            FRONT_Multiplayer_AISettings instance) =>
+            IsCustomAivMode(info) && IsUserAivOptionChecked(instance);
+
+        private static bool IsUserAivOptionChecked(FRONT_Multiplayer_AISettings instance) =>
+            (instance?.FindName("AIV_User") as RadioButton)?.IsChecked == true;
+
+        private static void SelectCustomAivMode(FRONT_Multiplayer.MPAIVInfo info)
+        {
+            if (info == null)
+                return;
+            info.builtIn = false;
+            info.community = false;
+            info.historical = false;
+        }
+
+        private static void RefreshEmptyCustomMode(FRONT_Multiplayer_AISettings instance)
+        {
+            FRONT_Multiplayer.MPAIVInfo info = GetAivInfo(instance);
+            // Vanilla skips populateList when Clear is pressed on an already empty list.
+            if (info?.aivs?.Count == 0 && !IsUserAivOptionChecked(instance))
+                instance.populateList(null, false);
+        }
 
         private void ApplySelectionListMode(
             FRONT_Multiplayer_AISettings instance,

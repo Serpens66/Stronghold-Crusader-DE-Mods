@@ -112,7 +112,7 @@ namespace BugfixesAndQoL
                 "AI preplaced-building fix has exactly ten detours and one context hook");
             var wrappers = new Dictionary<string, int>
             {
-                ["FarmSearch"] = 2,
+                ["FarmSearch"] = 1,
                 ["ResourceSearch"] = 2,
                 ["WoodSearchCore"] = 2,
                 ["NearbySearchCore"] = 3
@@ -123,6 +123,13 @@ namespace BugfixesAndQoL
             check(Regex.Matches(ExtractMethod(runtime, "WoodSearch"), @"WoodSearchCore\(").Count == 1 &&
                 Regex.Matches(ExtractMethod(runtime, "NearbySearch"), @"NearbySearchCore\(").Count == 1,
                 "diagnostic observers invoke each Vanilla search wrapper once");
+            check(ExtractMethod(runtime, "WoodSearchCore").IndexOf("wood-candidate-scan-request", StringComparison.Ordinal) >= 0 &&
+                  ExtractMethod(runtime, "WoodSearchCore").IndexOf("wood-candidate-scan-request", StringComparison.Ordinal) <
+                  ExtractMethod(runtime, "WoodSearchCore").IndexOf("ExitEconomyOverlay", StringComparison.Ordinal) &&
+                  ExtractMethod(runtime, "FarmSearch").IndexOf("farm-candidate-scan-request", StringComparison.Ordinal) >= 0 &&
+                  ExtractMethod(runtime, "FarmSearch").IndexOf("farm-candidate-scan-request", StringComparison.Ordinal) <
+                  ExtractMethod(runtime, "FarmSearch").IndexOf("ExitEconomyOverlay", StringComparison.Ordinal),
+                "diagnostic candidate requests occur before temporary player overlays are restored");
             check(Regex.Matches(ExtractMethod(runtime, "ReconcileEconomyAvailability"),
                 @"initializeEconomyAvailabilityNative\(").Count == 1,
                 "AI economy Re-Census invokes Vanilla exactly once per activation");

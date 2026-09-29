@@ -345,6 +345,13 @@ namespace APIShared
         private const int VillageSlotRva = 0x379D0CC;
         private const int SchedulerDelayRva = 0x379D8B0;
         private const int EconomyPhaseRva = 0x379E630;
+        // AIBuildDiagnoseTest: native 0x539B0 -> 0x2DBA0/0x2C9F0 -> 0x50D80.
+        private const int FarmProfileRva = 0x379D0D0;
+        private const int FarmChoiceIndexRva = 0x379D824;
+        private const int FarmCountRva = 0x379E6F8;
+        private const int FarmLimitRva = 0x379E754;
+        private const int FarmCooldownRva = 0x379E74A;
+        private const int AicProfileRootRva = 0x404C950;
         private static readonly object Sync = new object();
         private static Action<AiBuildDiagnosticRecord> observer;
         private static SchedulerService scheduler;
@@ -805,6 +812,27 @@ namespace APIShared
                 int delay = Marshal.ReadInt32(new IntPtr(offset + SchedulerDelayRva));
                 int phase = Marshal.ReadInt32(new IntPtr(offset + EconomyPhaseRva));
                 Publish(stage, playerId, village, delay, phase);
+                // The first four values mirror the operands read by Vanilla's farm branch.
+                int profile = Marshal.ReadInt32(new IntPtr(offset + FarmProfileRva));
+                int choiceIndex = Marshal.ReadInt32(new IntPtr(offset + FarmChoiceIndexRva));
+                int selectedType = -1;
+                int profileGoal = -1, profileMinimum = -1;
+                if (profile > 0 && profile <= 64 && choiceIndex >= 0 && choiceIndex < 8)
+                {
+                    long profileBase = checked(moduleBase + AicProfileRootRva +
+                        (long)(profile - 1) * 0x5E4);
+                    selectedType = Marshal.ReadInt32(new IntPtr(profileBase + 0x2C + choiceIndex * 4));
+                    profileGoal = Marshal.ReadInt32(new IntPtr(profileBase + 0x70));
+                    profileMinimum = Marshal.ReadInt32(new IntPtr(profileBase + 0x4C));
+                }
+                string suffix = stage == "scheduler-before" ? "before" : "after";
+                Publish("farm-scheduler-" + suffix, playerId,
+                    profile, choiceIndex, selectedType, phase);
+                Publish("farm-limits-" + suffix, playerId,
+                    Marshal.ReadInt32(new IntPtr(offset + FarmCountRva)),
+                    Marshal.ReadInt16(new IntPtr(offset + FarmLimitRva)),
+                    Marshal.ReadInt16(new IntPtr(offset + FarmCooldownRva)),
+                    ((long)profileGoal << 32) | (uint)profileMinimum);
             }
         }
 

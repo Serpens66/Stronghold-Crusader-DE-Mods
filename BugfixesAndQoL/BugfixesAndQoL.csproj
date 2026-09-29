@@ -8,8 +8,8 @@
     <OutputType>Library</OutputType>
     <RootNamespace>BugfixesAndQoL</RootNamespace>
     <AssemblyName>BugfixesAndQoL</AssemblyName>
-    <AssemblyVersion>1.0.171.0</AssemblyVersion>
-    <FileVersion>1.0.171.0</FileVersion>
+    <AssemblyVersion>1.0.172.0</AssemblyVersion>
+    <FileVersion>1.0.172.0</FileVersion>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -72,7 +72,6 @@
     <Compile Include="src\AIBuildingTemporaryAccessClassifier.cs" />
     <Compile Include="src\AIPreplacedBuildingFixPolicy.cs" />
     <Compile Include="src\AIPreplacedBuildingFixRuntime.cs" />
-    <Compile Include="src\AiCoarsePathComponentFix.cs" />
     <Compile Include="src\AIEconomyProtectionHook.cs" />
     <Compile Include="src\AIResourceShortageSleepNativeDefinition.cs" />
     <Compile Include="src\AIResourceShortageSleepPolicy.cs" />
@@ -206,6 +205,7 @@
     <Compile Include="src\NotificationQueueNativeContract.cs" />
     <Compile Include="src\NotificationSkipBehavior.cs" />
     <Compile Include="src\NotificationSkipFeature.cs" />
+    <Compile Include="src\NotificationLastFrameFeature.cs" />
     <Compile Include="src\NotificationSkipPolicy.cs" />
     <Compile Include="src\UnitMovementContext.cs" />
     <Compile Include="src\WeightedMoatPublication.cs" />

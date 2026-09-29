@@ -156,13 +156,16 @@
                              FontSize="16" Text="{Binding PercentageText}"
                              shared:AiSettingsHelpHover.Enabled="True"
                              shared:AiSettingsHelpHover.Text="{Binding StatusToolTip}" />
-                  <Button Width="29" Margin="0,2,2,0" HorizontalAlignment="Right" VerticalAlignment="Top"
-                          local:PropEx.Sprite1="{StaticResource UI-Buttons L009}"
-                          local:PropEx.Sprite2="{StaticResource UI-Buttons L010}"
-                          Command="{Binding RemoveCommand}" Style="{StaticResource BTN_Building}"
-                          Visibility="{Binding RemoveVisibility}"
-                          shared:AiSettingsHelpHover.Enabled="True"
-                          shared:AiSettingsHelpHover.Text="{Binding RemoveHelpText}" />
+                  <!-- BTN_Building animates Button.Visibility; keep the mode gate on its parent. -->
+                  <Grid Width="29" Height="29" Margin="0,2,2,0" HorizontalAlignment="Right"
+                        VerticalAlignment="Top" Visibility="{Binding RemoveVisibility}">
+                    <Button Width="29" Height="29"
+                            local:PropEx.Sprite1="{StaticResource UI-Buttons L009}"
+                            local:PropEx.Sprite2="{StaticResource UI-Buttons L010}"
+                            Command="{Binding RemoveCommand}" Style="{StaticResource BTN_Building}"
+                            shared:AiSettingsHelpHover.Enabled="True"
+                            shared:AiSettingsHelpHover.Text="{Binding RemoveHelpText}" />
+                  </Grid>
                 </Grid>
               </DataTemplate>
             </ItemsControl.ItemTemplate>

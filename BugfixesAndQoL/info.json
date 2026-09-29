@@ -3,13 +3,20 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.171",
+  "Version": "1.0.172",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.10.4",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.172",
+      "Changes": [
+        "Added a confirmed Delete Save button to singleplayer and multiplayer Load Game dialogs, including co-op and visible quicksaves; the next savegame is selected after deletion.",
+        "Added an optional local setting that keeps the last frame of a minimap video visible until its voice line ends."
+      ]
+    },
     {
       "Version": "1.0.171",
       "Changes": [

@@ -27,6 +27,20 @@ if ($audited['0x51540'].calleeRvas -notcontains '0x58950' -or
     $audited['0x58BE0'].dataRvas -notcontains '0x50EC690') {
     throw 'Audited 0x58950 and 0x58BE0 contracts differ.'
 }
+$farmAudit = @{}
+Get-Content -LiteralPath $functions | Where-Object {
+    $_ -match '"rva":"0x(539B0|2DBA0|2C9F0|50D80|575B0)"'
+} | ForEach-Object { $item = $_ | ConvertFrom-Json; $farmAudit[$item.rva] = $item }
+if ($farmAudit['0x539B0'].calleeRvas -notcontains '0x2DBA0' -or
+    $farmAudit['0x539B0'].calleeRvas -notcontains '0x2C9F0' -or
+    $farmAudit['0x539B0'].calleeRvas -notcontains '0x50D80' -or
+    $farmAudit['0x2DBA0'].calleeRvas -notcontains '0xB81A0' -or
+    $farmAudit['0x2C9F0'].dataRvas -notcontains '0x379D824' -or
+    $farmAudit['0x50D80'].calleeRvas -notcontains '0x575B0' -or
+    $farmAudit['0x575B0'].calleeRvas -notcontains '0x6D580' -or
+    $farmAudit['0x575B0'].dataRvas -notcontains '0x379E74A') {
+    throw 'Audited farm scheduler, choice, cooldown or search contract differs.'
+}
 $orchardFunctions = @{}
 Get-Content -LiteralPath $functions | Where-Object {
     $_ -match '"rva":"0x(72A50|1071A0|E0850|D90D0|50720)"'
@@ -106,6 +120,23 @@ if ($runtimeText -notmatch 'MissionEvents\.Loading\.Subscribe\(OnMapLoading\)' -
     $runtimeText -notmatch 'OrchardObservationTicks = 700' -or
     $runtimeText -notmatch 'building-spawn-pre') {
     throw 'Grid lifecycle or copy-only placement probe guard differs.'
+}
+$bugfixRuntime = [IO.File]::ReadAllText((Join-Path $workspace 'BugfixesAndQoL\src\AIPreplacedBuildingFixRuntime.cs'))
+$publisher = [IO.File]::ReadAllText((Join-Path $workspace 'APIShared\src\AiBuildDiagnostic.cs'))
+if ($bugfixRuntime -notmatch 'wood-candidate-scan-request' -or
+    $bugfixRuntime -notmatch 'farm-candidate-scan-request' -or
+    $bugfixRuntime -match 'PublishWoodCandidateScan|PublishFarmCandidateScan' -or
+    $runtimeText -notmatch 'ScanCandidateCells\(' -or
+    $runtimeText -notmatch 'wood-candidate-origin' -or
+    $runtimeText -notmatch 'farm-candidate-origin' -or
+    $publisher -notmatch 'farm-scheduler-" \+ suffix' -or
+    $runtimeText -notmatch 'origin-seed-not-tested-as-neighbor' -or
+    $runtimeText -notmatch 'coarse-audit-summary' -or
+    $runtimeText -notmatch 'hypotheticalGlobalLive=' -or
+    $runtimeText -notmatch 'LogFirstSearchOrigin\(record.PlayerId, "wood"' -or
+    $runtimeText -notmatch 'LogFirstSearchOrigin\(record.PlayerId, "farm"' -or
+    $runtimeText -notmatch 'farmInference=\{farmInference\}') {
+    throw 'Wood/farm candidate or scheduler diagnostic contract differs.'
 }
 foreach ($path in $textFiles) {
     $fullPath = if ($path -is [IO.FileInfo]) { $path.FullName } else { [string]$path }

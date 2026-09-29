@@ -1,0 +1,12 @@
+{
+  "GUID": "AICoarsePathComponentFixTest_Serp",
+  "Author": "Serpens66",
+  "Name": "AI Coarse Path Component Fix Test",
+  "Description": "Experimental coarse-grid path-component refresh for controlled AI build comparisons.",
+  "Version": "0.1.0",
+  "MinimumScriptExtenderVersion": "2.11.0",
+  "MaximumScriptExtenderVersion": "",
+  "Manifest": 1,
+  "NetworkMode": 1,
+  "SupportedGameVersions": ["2.8.0.2"]
+}

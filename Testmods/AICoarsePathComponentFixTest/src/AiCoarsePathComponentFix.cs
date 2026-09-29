@@ -8,16 +8,18 @@ using SHCDESE.API;
 using SHCDESE.API.LowLevel;
 using SHCDESE.Interop;
 using System;
+using System.IO;
 using System.Runtime.InteropServices;
 
-namespace BugfixesAndQoL
+namespace AICoarsePathComponentFixTest
 {
-    // Keeps the two PCL-derived AIV values in the same state as Vanilla's full 0x50720 build.
+    // Observes the hypothetical full 0x50720 values without changing Vanilla's AIV grid.
     // The installed hook and its event subscriptions are process-lifetime objects.
     internal sealed unsafe class AiCoarsePathComponentFix
     {
         private enum RefreshOutcome { Completed, Deferred, Failed }
         private const int RebuildRva = 0xE49D0;
+        private const string IsolationSaveName = "test_canari_nowoodcutters_probe.sav";
         private const int DisplacedLength = 8;
         private const int PclCount = 320800;
         private const int ComponentCapacity = 10000;
@@ -33,23 +35,29 @@ namespace BugfixesAndQoL
 
         private readonly ManualLogSource log;
         private readonly Func<bool> isEnabled;
+        private readonly int isolationMode;
         private readonly ulong moduleBase;
+        private readonly CrusaderLibraryLoadContext loadContext;
         private readonly DetourHandle<RebuildDelegate> rebuildHook = new DetourHandle<RebuildDelegate>();
         private readonly int[] componentCounts = new int[ComponentCapacity];
         private readonly byte[] foreignCounts = new byte[CoarseCount];
-        private readonly HookTransaction transaction;
+        private HookTransaction transaction;
         private readonly IDisposable loadSubscription;
         private readonly IDisposable startSubscription;
         private readonly IDisposable endSubscription;
+        private int lastPathGeneration;
+        private bool generationKnown;
         private bool mapActive;
+        private bool isolationArmedForMap;
         private bool enabledForMap;
         private bool deferredRefresh;
+        private bool initialRefreshPending;
         private bool refreshing;
         private bool unavailable;
         private long sessionId;
         private long noRebuildCalls;
         private int successfulRebuilds;
-        private int appliedRebuilds;
+        private int auditedRebuilds;
         private int deferredRebuilds;
         private int skippedBeforeStart;
         private int skippedDisabled;
@@ -58,15 +66,19 @@ namespace BugfixesAndQoL
         private int completedRefreshes;
 
         internal AiCoarsePathComponentFix(ManualLogSource log, Func<bool> isEnabled,
-            CrusaderLibraryLoadContext context, bool hashMatches)
+            CrusaderLibraryLoadContext context, bool hashMatches, int isolationMode)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.isEnabled = isEnabled ?? throw new ArgumentNullException(nameof(isEnabled));
+            if (isolationMode < 0 || isolationMode > 5)
+                throw new ArgumentOutOfRangeException(nameof(isolationMode));
+            this.isolationMode = isolationMode;
             if (context == null) throw new ArgumentNullException(nameof(context));
+            loadContext = context;
             if (!hashMatches || !string.Equals(Shared.DebugLogHelper.CurrentNativeSha256,
                 "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
                 StringComparison.OrdinalIgnoreCase))
-                throw new InvalidOperationException("The AI coarse-grid fix requires the audited native DLL.");
+                throw new InvalidOperationException("The AI coarse-grid audit requires the audited native DLL.");
             moduleBase = unchecked((ulong)context.ModuleHandle.ToInt64());
             if (context.Memory.Length < RebuildRva + Prologue.Length ||
                 !context.Memory.Slice(RebuildRva, Prologue.Length).SequenceEqual(Prologue))
@@ -76,44 +88,35 @@ namespace BugfixesAndQoL
                 throw new InvalidOperationException("The installed coarse-cell layout differs.");
 
             ulong target = moduleBase + RebuildRva;
-            var request = new DetourRequest<RebuildDelegate>
+            if (isolationMode >= 1 && isolationMode <= 4)
             {
-                Name = "BugfixesAndQoL AI coarse PCL preflight",
-                TargetAddress = target,
-                Callback = Rebuild
-            };
-            var probe = NativeDetourBackend.Instance.CreateDetour(in request) as NativeDetour<RebuildDelegate>;
-            if (probe == null) throw new InvalidOperationException("The installed RedBird backend is not NativeX64.");
-            using (probe)
-            {
-                if (probe.Scheme.ToString() != "Indirect" || probe.DisplacedByteCount != DisplacedLength ||
-                    probe.TargetAddress != target || probe.HookEntryPointAddress == IntPtr.Zero ||
-                    probe.PointerSlot == IntPtr.Zero)
-                    throw new InvalidOperationException("The PCL rebuild probe does not have the audited indirect eight-byte contract.");
+                var request = new DetourRequest<RebuildDelegate>
+                {
+                    Name = "AICoarsePathComponentFixTest isolation preflight",
+                    TargetAddress = target,
+                    Callback = Rebuild
+                };
+                var probe = NativeDetourBackend.Instance.CreateDetour(in request) as NativeDetour<RebuildDelegate>;
+                if (probe == null) throw new InvalidOperationException("The installed RedBird backend is not NativeX64.");
+                using (probe)
+                {
+                    if (probe.Scheme.ToString() != "Indirect" || probe.DisplacedByteCount != DisplacedLength ||
+                        probe.TargetAddress != target || probe.HookEntryPointAddress == IntPtr.Zero ||
+                        probe.PointerSlot == IntPtr.Zero)
+                        throw new InvalidOperationException("The PCL rebuild probe does not have the audited indirect eight-byte contract.");
+                }
             }
 
-            HookTransaction pending = null;
             IDisposable loading = null;
             IDisposable starting = null;
             IDisposable ending = null;
             try
             {
-                pending = new HookTransaction(context.Region,
-                    SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
-                    new HookTransactionOptions
-                    {
-                        FailureMode = TransactionFailureMode.RollbackAndThrow,
-                        OwnsHooks = true
-                    });
-                pending.AddDetour(rebuildHook, HookTarget.FromAddress(target), Rebuild);
-                CommitResult result = pending.Commit();
-                if (!result.IsCompleteSuccess || !rebuildHook.Success)
-                    throw new InvalidOperationException("The PCL rebuild detour did not install completely: " + result);
-                ValidateInstalledHook(target);
-
                 loading = Shared.MissionEvents.Loading.Subscribe(args =>
                 {
-                    if (args.Phase == APIShared.MissionInitializationPhase.BeforeLoad) ResetMap();
+                    if (args.Phase != APIShared.MissionInitializationPhase.BeforeLoad) return;
+                    ResetMap();
+                    ArmIsolationForSave(args.Context);
                 });
                 starting = Shared.MissionEvents.Started.Subscribe(OnSessionStarted);
                 ending = Shared.MissionEvents.Ended.Subscribe(_ =>
@@ -121,23 +124,65 @@ namespace BugfixesAndQoL
                     LogSessionSummary("ended");
                     ResetMap();
                 });
-                transaction = pending;
                 loadSubscription = loading;
                 startSubscription = starting;
                 endSubscription = ending;
-                pending = null;
             }
             catch
             {
                 ending?.Dispose();
                 starting?.Dispose();
                 loading?.Dispose();
-                pending?.Dispose(); // Only an unpublished installation candidate is rolled back.
                 throw;
             }
             Shared.DebugLogHelper.LogInfo(log,
-                "AI_COARSE_PCL_FIX_READY: publisher=native 0xE49D0; scheme=Indirect; displaced=8; " +
-                "mapBootstrap=MissionEvents.Started.");
+                $"AI_COARSE_PCL_AUDIT_READY: publisher={(isolationMode == 0 || isolationMode == 5 ? "GameTimeManagerAPI.OnTick" : "native 0xE49D0")}; " +
+                $"isolationMode={isolationMode}; hookInstalled={transaction != null}; " +
+                "mapBootstrap=MissionEvents.Started; observationOnly=True; writes=0.");
+        }
+
+        private void ArmIsolationForSave(APIShared.MissionContext context)
+        {
+            if (isolationMode < 1 || isolationMode > 4 || context == null || !context.IsSave ||
+                !string.Equals(Path.GetFileName(context.FilePath ?? ""), IsolationSaveName,
+                    StringComparison.OrdinalIgnoreCase)) return;
+            try
+            {
+                InstallIsolationHook();
+                isolationArmedForMap = true;
+                Shared.DebugLogHelper.LogInfo(log,
+                    $"AI_COARSE_PCL_ISOLATION_ARMED: save={IsolationSaveName}; mode={isolationMode}; hookInstalled=True.");
+            }
+            catch (Exception ex)
+            {
+                unavailable = true;
+                Shared.DebugLogHelper.LogError(log, "AI_COARSE_PCL_ISOLATION_UNAVAILABLE: " + ex);
+            }
+        }
+
+        private void InstallIsolationHook()
+        {
+            if (transaction != null) return;
+            HookTransaction pending = null;
+            try
+            {
+                pending = new HookTransaction(loadContext.Region,
+                    SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
+                    new HookTransactionOptions
+                    {
+                        FailureMode = TransactionFailureMode.RollbackAndThrow,
+                        OwnsHooks = true
+                    });
+                ulong target = moduleBase + RebuildRva;
+                pending.AddDetour(rebuildHook, HookTarget.FromAddress(target), Rebuild);
+                CommitResult result = pending.Commit();
+                if (!result.IsCompleteSuccess || !rebuildHook.Success)
+                    throw new InvalidOperationException("The PCL rebuild detour did not install completely: " + result);
+                ValidateInstalledHook(target);
+                transaction = pending;
+                pending = null;
+            }
+            finally { pending?.Dispose(); } // Only a failed, unpublished installation candidate is rolled back.
         }
 
         private void ValidateInstalledHook(ulong expectedTarget)
@@ -160,6 +205,8 @@ namespace BugfixesAndQoL
         private int Rebuild(ulong pathingContext, int force)
         {
             int rebuilt = rebuildHook.Original(pathingContext, force);
+            if (!isolationArmedForMap) return rebuilt;
+            if (isolationMode == 1) return rebuilt;
             if (rebuilt != 1)
             {
                 if (mapActive) noRebuildCalls++;
@@ -169,13 +216,14 @@ namespace BugfixesAndQoL
             {
                 if (pathingContext != moduleBase + NativePathingContextRva)
                     throw new InvalidOperationException("PCL rebuild received an unexpected native pathing context.");
-                BugfixesAndQoLRuntime.NotifyAiPathComponentGridRebuilt();
+                if (isolationMode >= 2)
+                    BugfixesAndQoL.BugfixesAndQoLRuntime.NotifyAiPathComponentGridRebuilt();
                 successfulRebuilds++;
-                if (mapActive && enabledForMap && !unavailable)
+                if (isolationMode >= 3 && mapActive && enabledForMap && !unavailable)
                 {
-                    switch (RefreshOrDefer("native-rebuild"))
+                    switch (RefreshOrDefer("native-rebuild", isolationMode >= 4))
                     {
-                        case RefreshOutcome.Completed: appliedRebuilds++; break;
+                        case RefreshOutcome.Completed: auditedRebuilds++; break;
                         case RefreshOutcome.Deferred: deferredRebuilds++; break;
                         default: failedRefreshes++; break;
                     }
@@ -187,7 +235,7 @@ namespace BugfixesAndQoL
             catch (Exception ex)
             {
                 unavailable = true;
-                Shared.DebugLogHelper.LogError(log, "AI_COARSE_PCL_FIX_DISABLED: " + ex);
+                Shared.DebugLogHelper.LogError(log, "AI_COARSE_PCL_AUDIT_UNAVAILABLE: " + ex);
             }
             return rebuilt;
         }
@@ -195,18 +243,21 @@ namespace BugfixesAndQoL
         private void ResetMap()
         {
             mapActive = false;
+            isolationArmedForMap = false;
             enabledForMap = false;
             deferredRefresh = false;
+            initialRefreshPending = false;
             sessionId = 0;
             noRebuildCalls = 0;
             successfulRebuilds = 0;
-            appliedRebuilds = 0;
+            auditedRebuilds = 0;
             deferredRebuilds = 0;
             skippedBeforeStart = 0;
             skippedDisabled = 0;
             skippedUnavailable = 0;
             failedRefreshes = 0;
             completedRefreshes = 0;
+            generationKnown = false;
         }
 
         private void OnSessionStarted(APIShared.MissionLifecycleNotification args)
@@ -215,19 +266,61 @@ namespace BugfixesAndQoL
             sessionId = args.Context.SessionId;
             enabledForMap = isEnabled();
             mapActive = true;
+            lastPathGeneration = ReadPathGeneration();
+            generationKnown = true;
+            initialRefreshPending = isolationMode == 5;
             Shared.DebugLogHelper.LogInfo(log,
                 $"AI_COARSE_PCL_SESSION: session={sessionId}; start={args.Context.StartKind}; " +
-                $"mode={args.Context.Mode.Kind}; enabled={enabledForMap}; available={!unavailable}; " +
+                $"mode={args.Context.Mode.Kind}; auditEnabled={enabledForMap}; available={!unavailable}; " +
+                $"isolationMode={isolationMode}; isolationArmed={isolationArmedForMap}; " +
+                $"hookInstalled={transaction != null}; pathGeneration={lastPathGeneration}; observationOnly=True; writes=0; " +
                 $"preStartRebuilds={skippedBeforeStart}; replay={args.IsReplay}.");
-            if (enabledForMap && !unavailable) RefreshOrDefer("session-start");
+            // AIBuildDiagnoseTest: observer-only session status, before the first AI build step.
+            APIShared.AiBuildDiagnostic.Publish("coarse-audit-session", 0,
+                0, unavailable ? 1 : 0, sessionId);
+            if (enabledForMap && !unavailable && isolationArmedForMap &&
+                isolationMode >= 3 && isolationMode <= 4)
+                RefreshOrDefer("session-start", isolationMode >= 4);
             else Shared.DebugLogHelper.LogInfo(log,
                 $"AI_COARSE_PCL_REFRESH: session={sessionId}; reason=session-start; " +
-                $"status={(enabledForMap ? "skipped-unavailable" : "skipped-disabled")}.");
+                $"status={(!enabledForMap ? "skipped-disabled" : unavailable ? "skipped-unavailable" : isolationMode == 5 ? "deferred-first-tick" : "isolation-no-scan")}.");
         }
 
-        private RefreshOutcome RefreshOrDefer(string reason)
+        internal void OnTick(int tick)
         {
-            if (BugfixesAndQoLRuntime.HasActiveAiEconomyOverlay)
+            if (!mapActive || !enabledForMap || unavailable) return;
+            int generation = ReadPathGeneration();
+            if (!generationKnown)
+            {
+                lastPathGeneration = generation;
+                generationKnown = true;
+                return;
+            }
+            bool changed = generation != lastPathGeneration;
+            if (changed)
+            {
+                int previous = lastPathGeneration;
+                lastPathGeneration = generation;
+                Shared.DebugLogHelper.LogInfo(log,
+                    $"AI_COARSE_PCL_GENERATION: session={sessionId}; tick={tick}; previous={previous}; current={generation}; mode={isolationMode}.");
+                APIShared.AiBuildDiagnostic.Publish("coarse-generation", 0, previous, generation, tick, sessionId);
+            }
+            if (isolationMode == 5 && (changed || initialRefreshPending || deferredRefresh))
+            {
+                string reason = initialRefreshPending ? "first-tick" :
+                    deferredRefresh ? "deferred-tick" : "tick-rebuild";
+                initialRefreshPending = false;
+                deferredRefresh = false;
+                RefreshOrDefer(reason, true);
+            }
+        }
+
+        private int ReadPathGeneration() =>
+            *(int*)(moduleBase + NativePathingContextRva + 0x74);
+
+        private RefreshOutcome RefreshOrDefer(string reason, bool publish)
+        {
+            if (BugfixesAndQoL.BugfixesAndQoLRuntime.HasActiveAiEconomyOverlay)
             {
                 deferredRefresh = true;
                 if (reason == "session-start")
@@ -238,19 +331,19 @@ namespace BugfixesAndQoL
             if (refreshing)
             {
                 unavailable = true;
-                Shared.DebugLogHelper.LogError(log, "AI_COARSE_PCL_FIX_DISABLED: nested refresh.");
+                Shared.DebugLogHelper.LogError(log, "AI_COARSE_PCL_AUDIT_UNAVAILABLE: nested refresh.");
                 return RefreshOutcome.Failed;
             }
             try
             {
                 refreshing = true;
-                Refresh(reason);
+                Refresh(reason, publish);
                 return RefreshOutcome.Completed;
             }
             catch (Exception ex)
             {
                 unavailable = true;
-                Shared.DebugLogHelper.LogError(log, "AI_COARSE_PCL_FIX_DISABLED: " + ex);
+                Shared.DebugLogHelper.LogError(log, "AI_COARSE_PCL_AUDIT_UNAVAILABLE: " + ex);
                 return RefreshOutcome.Failed;
             }
             finally
@@ -262,24 +355,26 @@ namespace BugfixesAndQoL
         internal void FlushDeferred()
         {
             if (!deferredRefresh || !mapActive || !enabledForMap || unavailable) return;
+            if (isolationMode == 5) return; // Tick-audit mode only scans from the next persistent game tick.
             deferredRefresh = false;
-            RefreshOrDefer("overlay-restored");
+            RefreshOrDefer("overlay-restored", isolationMode == 0 || isolationMode >= 4);
         }
 
         private void LogSessionSummary(string reason)
         {
             if (!mapActive) return;
             Shared.DebugLogHelper.LogInfo(log,
-                $"AI_COARSE_PCL_SUMMARY: session={sessionId}; reason={reason}; enabled={enabledForMap}; " +
+                $"AI_COARSE_PCL_SUMMARY: session={sessionId}; reason={reason}; auditEnabled={enabledForMap}; " +
                 $"noRebuildCalls={noRebuildCalls}; successfulRebuilds={successfulRebuilds}; " +
-                $"appliedRebuilds={appliedRebuilds}; deferredRebuilds={deferredRebuilds}; " +
+                $"auditedRebuilds={auditedRebuilds}; deferredRebuilds={deferredRebuilds}; " +
                 $"skippedBeforeStart={skippedBeforeStart}; skippedDisabled={skippedDisabled}; " +
                 $"skippedUnavailable={skippedUnavailable}; failedRefreshes={failedRefreshes}; " +
                 $"completedRefreshes={completedRefreshes}; " +
-                $"pendingOverlayRefresh={deferredRefresh}; available={!unavailable}.");
+                $"pendingOverlayRefresh={deferredRefresh}; available={!unavailable}; " +
+                "observationOnly=True; writes=0.");
         }
 
-        private void Refresh(string reason)
+        private void Refresh(string reason, bool publish)
         {
             Span<ushort> pcl = GamePathingManagerAPI.Instance.GetPathComponentGrid();
             Span<AivCoarseCell> coarse = GameAIVManagerAPI.Instance.GetCoarseGrid();
@@ -327,21 +422,30 @@ namespace BugfixesAndQoL
             }
 
             int* nativeReference = (int*)((byte*)state + ReferenceOffset);
-            bool changedReference = *nativeReference != reference;
-            int changedCells = 0;
+            int storedReference = *nativeReference;
+            bool hypotheticalReferenceChange = storedReference != reference;
+            int hypotheticalCellChanges = 0;
             for (int index = 0; index < coarse.Length; index++)
-                if (coarse[index].ForeignPathComponentTileCount != foreignCounts[index]) changedCells++;
-            if (changedReference) *nativeReference = reference;
-            if (changedCells != 0)
+                if (coarse[index].ForeignPathComponentTileCount != foreignCounts[index]) hypotheticalCellChanges++;
+            if (publish && APIShared.AiBuildDiagnostic.HasObserver)
+            {
+                APIShared.AiBuildDiagnostic.Publish("coarse-audit-begin", 0, sessionId);
                 for (int index = 0; index < coarse.Length; index++)
                     if (coarse[index].ForeignPathComponentTileCount != foreignCounts[index])
-                        coarse[index].ForeignPathComponentTileCount = foreignCounts[index];
+                        APIShared.AiBuildDiagnostic.Publish("coarse-audit-cell", 0,
+                            index, coarse[index].ForeignPathComponentTileCount,
+                            foreignCounts[index], sessionId);
+                APIShared.AiBuildDiagnostic.Publish("coarse-audit-summary", 0,
+                    reference, storedReference, hypotheticalCellChanges, sessionId);
+            }
             completedRefreshes++;
             if (reason == "session-start" || completedRefreshes <= 3 ||
-                ((changedReference || changedCells != 0) && completedRefreshes <= 8))
+                ((hypotheticalReferenceChange || hypotheticalCellChanges != 0) && completedRefreshes <= 8))
                 Shared.DebugLogHelper.LogInfo(log,
-                    $"AI_COARSE_PCL_REFRESH: session={sessionId}; reason={reason}; status=completed; " +
-                    $"reference={reference}; referenceChanged={changedReference}; changedCells={changedCells}.");
+                    $"AI_COARSE_PCL_AUDIT: session={sessionId}; reason={reason}; status=completed; " +
+                    $"storedReference={storedReference}; hypotheticalReference={reference}; " +
+                    $"hypotheticalReferenceChange={hypotheticalReferenceChange}; " +
+                    $"hypotheticalCellChanges={hypotheticalCellChanges}; observationOnly=True; writes=0.");
         }
     }
 }

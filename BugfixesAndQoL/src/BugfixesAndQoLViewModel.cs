@@ -29,7 +29,6 @@ namespace BugfixesAndQoL
         private bool enableBakerMillerBreaks;
         private bool enableAivDefenderPositionFix = true;
         private bool fixAIPreplacedMapBuildings = true;
-        private bool fixAiCoarsePathComponents = true;
         private bool fixAITowerRepair = true;
         private bool betterAIOverbuildRules = true;
         private bool enableTroopMovementFix = true;
@@ -85,6 +84,7 @@ namespace BugfixesAndQoL
         private bool enableAllyGoodsAmountModifiers = true;
         private bool enableCustomTrailExtremeGoldFix = true;
         private bool enableTrailCustomizationButtons = true;
+        private bool showLoadSaveDialogControls = true;
         private bool showVanillaMapsInEditor = true;
         private bool preserveDisplayResolution = true;
         private bool enableWorkshopUploadLordSelectionFix = true;
@@ -100,6 +100,7 @@ namespace BugfixesAndQoL
         private readonly LocalPerPlayerSetting<bool> enableClientFeatures = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> enableMinimapCursorFollowFix = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> enableCompleteNotificationSkipOnClick = new LocalPerPlayerSetting<bool>(true);
+        private readonly LocalPerPlayerSetting<bool> enableNotificationLastFrame = new LocalPerPlayerSetting<bool>(false);
         private readonly LocalPerPlayerSetting<bool> enableMarketKeyMainMenuFix = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> enableAutoTradeSellZeroFix = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> enableEnemyProximityBulldozeCursorFix = new LocalPerPlayerSetting<bool>(true);
@@ -265,8 +266,6 @@ namespace BugfixesAndQoL
         public string EnableAivDefenderPositionFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAivDefenderPositionFixHelp");
         public string FixAIPreplacedMapBuildingsText => SerpLocalization.Get("BugfixesAndQoL.FixAIPreplacedMapBuildings");
         public string FixAIPreplacedMapBuildingsHelpText => SerpLocalization.Get("BugfixesAndQoL.FixAIPreplacedMapBuildingsHelp");
-        public string FixAiCoarsePathComponentsText => SerpLocalization.Get("BugfixesAndQoL.FixAiCoarsePathComponents");
-        public string FixAiCoarsePathComponentsHelpText => SerpLocalization.Get("BugfixesAndQoL.FixAiCoarsePathComponentsHelp");
         public string FixAITowerRepairText => SerpLocalization.Get("BugfixesAndQoL.FixAITowerRepair");
         public string FixAITowerRepairHelpText => SerpLocalization.Get("BugfixesAndQoL.FixAITowerRepairHelp");
         public string BetterAIOverbuildRulesText => SerpLocalization.Get("BugfixesAndQoL.BetterAIOverbuildRules");
@@ -320,6 +319,8 @@ namespace BugfixesAndQoL
         public string EnableMinimapCursorFollowFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableMinimapCursorFollowFixHelp");
         public string EnableCompleteNotificationSkipOnClickText => SerpLocalization.Get("BugfixesAndQoL.EnableCompleteNotificationSkipOnClick");
         public string EnableCompleteNotificationSkipOnClickHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableCompleteNotificationSkipOnClickHelp");
+        public string EnableNotificationLastFrameText => SerpLocalization.Get("BugfixesAndQoL.EnableNotificationLastFrame");
+        public string EnableNotificationLastFrameHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableNotificationLastFrameHelp");
         public string EnableMarketKeyMainMenuFixText => SerpLocalization.Get("BugfixesAndQoL.EnableMarketKeyMainMenuFix");
         public string EnableMarketKeyMainMenuFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableMarketKeyMainMenuFixHelp");
         public string EnableAutoTradeSellZeroFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAutoTradeSellZeroFix");
@@ -413,6 +414,8 @@ namespace BugfixesAndQoL
         public string EnableCustomTrailExtremeGoldFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableCustomTrailExtremeGoldFixHelp");
         public string EnableTrailCustomizationButtonsText => SerpLocalization.Get(SerpLocalization.EnableTrailCustomizationButtons);
         public string EnableTrailCustomizationButtonsHelpText => SerpLocalization.Get(SerpLocalization.EnableTrailCustomizationButtonsHelp);
+        public string ShowLoadSaveDialogControlsText => SerpLocalization.Get("BugfixesAndQoL.ShowLoadSaveDialogControls");
+        public string ShowLoadSaveDialogControlsHelpText => SerpLocalization.Get("BugfixesAndQoL.ShowLoadSaveDialogControlsHelp");
         public string ShowVanillaMapsInEditorText => SerpLocalization.Get("BugfixesAndQoL.ShowVanillaMapsInEditor");
         public string ShowVanillaMapsInEditorHelpText => SerpLocalization.Get("BugfixesAndQoL.ShowVanillaMapsInEditorHelp");
         public string PreserveDisplayResolutionText => SerpLocalization.Get("BugfixesAndQoL.PreserveDisplayResolution");
@@ -493,6 +496,7 @@ namespace BugfixesAndQoL
 
         public bool[] EnableMinimapCursorFollowFixData => enableMinimapCursorFollowFix.Data;
         public bool[] EnableCompleteNotificationSkipOnClickData => enableCompleteNotificationSkipOnClick.Data;
+        public bool[] EnableNotificationLastFrameData => enableNotificationLastFrame.Data;
         public bool[] EnableMarketKeyMainMenuFixData => enableMarketKeyMainMenuFix.Data;
         public bool[] EnableAutoTradeSellZeroFixData => enableAutoTradeSellZeroFix.Data;
         public bool[] EnableEnemyProximityBulldozeCursorFixData => enableEnemyProximityBulldozeCursorFix.Data;
@@ -557,6 +561,16 @@ namespace BugfixesAndQoL
                 enableCompleteNotificationSkipOnClick,
                 value,
                 nameof(EnableCompleteNotificationSkipOnClick));
+        }
+
+        [SyncPerPlayer]
+        public bool EnableNotificationLastFrame
+        {
+            get => enableNotificationLastFrame.Value;
+            set => SetPlayerSetting(
+                enableNotificationLastFrame,
+                value,
+                nameof(EnableNotificationLastFrame));
         }
 
         [SyncPerPlayer]
@@ -743,6 +757,13 @@ namespace BugfixesAndQoL
         }
 
         [Shared.PresetLocal]
+        public bool ShowLoadSaveDialogControls
+        {
+            get => showLoadSaveDialogControls;
+            set => SetSetting(ref showLoadSaveDialogControls, value, nameof(ShowLoadSaveDialogControls));
+        }
+
+        [Shared.PresetLocal]
         public bool ShowVanillaMapsInEditor
         {
             get => showVanillaMapsInEditor;
@@ -909,13 +930,6 @@ namespace BugfixesAndQoL
         {
             get => fixAIPreplacedMapBuildings;
             set => SetSetting(ref fixAIPreplacedMapBuildings, value, nameof(FixAIPreplacedMapBuildings));
-        }
-
-        [SyncHostOnly]
-        public bool FixAiCoarsePathComponents
-        {
-            get => fixAiCoarsePathComponents;
-            set => SetSetting(ref fixAiCoarsePathComponents, value, nameof(FixAiCoarsePathComponents));
         }
 
         [SyncHostOnly]
@@ -1351,7 +1365,6 @@ namespace BugfixesAndQoL
                 EnableBakerMillerBreaks = false;
                 EnableAivDefenderPositionFix = true;
                 FixAIPreplacedMapBuildings = true;
-                FixAiCoarsePathComponents = true;
                 FixAITowerRepair = true;
                 BetterAIOverbuildRules = true;
                 RememberAiAivSettings = true;
@@ -1416,6 +1429,7 @@ namespace BugfixesAndQoL
             MarketGoodsOrder = MarketGoodsOrderDefinition.CreateHdOrder();
             EnableMinimapCursorFollowFix = true;
             EnableCompleteNotificationSkipOnClick = true;
+            EnableNotificationLastFrame = false;
             EnableMarketKeyMainMenuFix = true;
             EnableAutoTradeSellZeroFix = true;
             EnableEnemyProximityBulldozeCursorFix = true;
@@ -1431,6 +1445,7 @@ namespace BugfixesAndQoL
             EnableTroopHudMiddleClickCameraJump = true;
             EnableDisbandedUnitControlGroupCleanup = true;
             EnableCustomTrailExtremeGoldFix = true;
+            ShowLoadSaveDialogControls = true;
             ShowVanillaMapsInEditor = true;
             PreserveDisplayResolution = true;
             EnableWorkshopUploadLordSelectionFix = true;
@@ -1582,6 +1597,7 @@ namespace BugfixesAndQoL
 
             enableMinimapCursorFollowFix.TrySetLocalPlayerId(playerId);
             enableCompleteNotificationSkipOnClick.TrySetLocalPlayerId(playerId);
+            enableNotificationLastFrame.TrySetLocalPlayerId(playerId);
             enableMarketKeyMainMenuFix.TrySetLocalPlayerId(playerId);
             enableAutoTradeSellZeroFix.TrySetLocalPlayerId(playerId);
             enableEnemyProximityBulldozeCursorFix.TrySetLocalPlayerId(playerId);

@@ -387,7 +387,13 @@ namespace BugfixesAndQoL
             if (RequiresCanonicalLists(param))
                 RestoreCanonicalLists(self, GetAivInfo(self));
 
+            bool clearSelection = string.Equals(param, "Clear_Selected", StringComparison.Ordinal);
+            if (clearSelection)
+                SelectCustomAivMode(GetAivInfo(self));
+
             buttonClickedTrampoline(self, param);
+            if (clearSelection)
+                RefreshEmptyCustomMode(self);
             if (IsListMutation(param))
                 AttachAndRefresh(self, $"button '{param}'");
             if (string.Equals(param, "Back", StringComparison.Ordinal))
@@ -433,7 +439,8 @@ namespace BugfixesAndQoL
         private void RemoveSelectedAiv(CustomisationFileManager.CustomAIV requested)
         {
             FRONT_Multiplayer.MPAIVInfo info = GetAivInfo(activeView);
-            if (!IsActive || requested == null || info?.aivs == null || !IsCustomAivMode(info))
+            if (!IsActive || requested == null || info?.aivs == null ||
+                !IsCustomAivMode(info, activeView))
                 return;
             int index = info.aivs.FindIndex(aiv =>
                 ReferenceEquals(aiv, requested) || (aiv != null && aiv.checksum == requested.checksum));
@@ -917,7 +924,7 @@ namespace BugfixesAndQoL
             bool aicEnabled = aicListControl.IsEnabled;
             aicHeaderPanel.IsEnabled = aicEnabled;
             aicSearchPanel.IsEnabled = aicEnabled;
-            selectionList.Refresh(info, IsCustomAivMode(info));
+            selectionList.Refresh(info, IsCustomAivMode(info, activeView));
         }
 
         private int CompareAivs(
@@ -1421,6 +1428,31 @@ namespace BugfixesAndQoL
 
         private static bool IsCustomAivMode(FRONT_Multiplayer.MPAIVInfo info) =>
             info != null && !info.builtIn && !info.community && !info.historical;
+
+        private static bool IsCustomAivMode(
+            FRONT_Multiplayer.MPAIVInfo info,
+            FRONT_Multiplayer_AISettings view) =>
+            IsCustomAivMode(info) && IsUserAivOptionChecked(view);
+
+        private static bool IsUserAivOptionChecked(FRONT_Multiplayer_AISettings view) =>
+            (view?.FindName("AIV_User") as RadioButton)?.IsChecked == true;
+
+        private static void SelectCustomAivMode(FRONT_Multiplayer.MPAIVInfo info)
+        {
+            if (info == null)
+                return;
+            info.builtIn = false;
+            info.community = false;
+            info.historical = false;
+        }
+
+        private static void RefreshEmptyCustomMode(FRONT_Multiplayer_AISettings view)
+        {
+            FRONT_Multiplayer.MPAIVInfo info = GetAivInfo(view);
+            // Vanilla skips populateList when Clear is pressed on an already empty list.
+            if (info?.aivs?.Count == 0 && !IsUserAivOptionChecked(view))
+                view.populateList(null, false);
+        }
 
         private void TrimSelection(FRONT_Multiplayer.MPAIVInfo info, int maximum, string reason)
         {

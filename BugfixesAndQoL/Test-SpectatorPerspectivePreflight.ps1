@@ -234,7 +234,7 @@ foreach ($file in $textFiles) {
 }
 [xml]$project = Get-Content -LiteralPath $projectFile.FullName -Raw
 $metadata = Get-Content -LiteralPath (Join-Path $projectRoot 'info.json') -Raw | ConvertFrom-Json
-if ($metadata.GUID -ne 'BugfixesAndQoL_Serp' -or $metadata.Version -ne '1.0.171') { throw 'Mod metadata mismatch.' }
+if ($metadata.GUID -ne 'BugfixesAndQoL_Serp' -or $metadata.Version -ne '1.0.172') { throw 'Mod metadata mismatch.' }
 if ($metadata.NetworkMode -ne 1) { throw 'Gameplay-affecting ally actions require NetworkMode=1.' }
 $patchPath = Join-Path $projectRoot 'Patches\Assets\GUI\XAML\IngameUIScreens.xaml'
 [xml]$patch = Get-Content -LiteralPath $patchPath -Raw
