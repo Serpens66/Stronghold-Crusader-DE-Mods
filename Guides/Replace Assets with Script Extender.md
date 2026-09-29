@@ -2,6 +2,9 @@
 
 [English](#english) | [Deutsch](#deutsch)
 
+Other Tools and Guides:  
+https://github.com/Ensrick/llm-art-pipeline
+
 ## English
 
 ### Result
