@@ -9,16 +9,36 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Text;
 
 namespace AIBuildDiagnoseTest
 {
     internal sealed unsafe class AIBuildDiagnoseRuntime : IAivBuildStepObserver
     {
+        private const string ProbeSaveName = "test_canari_nowoodcutters_probe.sav";
+        private const int ProbePlayer = 6;
+        private const int ProbeX = 345;
+        private const int ProbeY = 485;
+        private const int GridHistoryLimit = 64;
         private readonly ManualLogSource log;
         private readonly bool fixesLoaded;
         private readonly IDisposable buildingSubscription;
         private readonly IDisposable buildStructureSubscription;
         private readonly IDisposable wallSubscription;
+        private readonly IDisposable loadingSubscription;
+        private readonly List<string> earlyGridHistory = new List<string>();
+        private readonly List<string> earlyFarmHistory = new List<string>();
+        private int earlyGridDropped;
+        private int earlyFarmDropped;
+        private int gridModeZeroCalls;
+        private int gridModeOneCalls;
+        private long gridSequence;
+        private ulong gridState;
+        private string lastGridSignature;
+        private string loadingSaveName;
+        private bool firstGridMismatchSeen;
+        private string firstGridMismatchLine;
         private readonly Dictionary<long, Attempt> attempts = new Dictionary<long, Attempt>();
         private readonly Dictionary<string, int> outcomes = new Dictionary<string, int>();
         private readonly Dictionary<string, int> routeCauses = new Dictionary<string, int>();
@@ -42,6 +62,12 @@ namespace AIBuildDiagnoseTest
         private long sessionId;
         private int lastTick;
         private int nextSummaryTick;
+        private bool probeSession;
+        private bool probePending;
+        private bool probeDone;
+        private bool probeRunning;
+        private long probeAttemptId;
+        private long probeSpawnId;
 
         internal AIBuildDiagnoseRuntime(ManualLogSource logger, bool hasFixes)
         {
@@ -50,6 +76,7 @@ namespace AIBuildDiagnoseTest
             buildingSubscription = BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(OnBuildingSpawn);
             buildStructureSubscription = BuildingR3EventHooks.OnBuildStructure.Observable.Subscribe(OnBuildStructure);
             wallSubscription = AIR3EventHooks.OnAIBuildWall.Observable.Subscribe(OnAIBuildWall);
+            loadingSubscription = Shared.MissionEvents.Loading.Subscribe(OnMapLoading);
             if (ApiShared.Current.TryGetAivBuildStep(AIBuildDiagnosePlugin.Guid,
                 out IAivBuildStepCapability steps, out NativeCapabilityDiagnostic diagnostic))
             {
@@ -59,10 +86,32 @@ namespace AIBuildDiagnoseTest
             else Log("AI_BUILD_AIV_OBSERVER_UNAVAILABLE: " + diagnostic?.Reason);
         }
 
+        private void OnMapLoading(MissionLifecycleNotification notification)
+        {
+            if (notification.Phase != MissionInitializationPhase.BeforeLoad) return;
+            active = false;
+            gridState = 0;
+            gridSequence = 0;
+            gridModeZeroCalls = gridModeOneCalls = 0;
+            lastGridSignature = null;
+            firstGridMismatchSeen = false;
+            firstGridMismatchLine = null;
+            lastTick = -1;
+            earlyGridHistory.Clear();
+            earlyFarmHistory.Clear();
+            earlyGridDropped = earlyFarmDropped = 0;
+            loadingSaveName = notification.Context.FilePath;
+        }
+
         internal void OnSessionStarted(Shared.GameplaySessionStartedContext session)
         {
             sessionId = session.SessionId;
             active = !session.IsEditor && !session.IsReplay;
+            probeSession = active && session.IsLoadedSave &&
+                string.Equals(Path.GetFileName(session.SaveFileName ?? ""), ProbeSaveName,
+                    StringComparison.OrdinalIgnoreCase);
+            probePending = probeDone = probeRunning = false;
+            probeAttemptId = probeSpawnId = 0;
             firstTick = false;
             lastTick = -1;
             nextSummaryTick = 0;
@@ -85,6 +134,19 @@ namespace AIBuildDiagnoseTest
             Array.Clear(lastObservedStage, 0, lastObservedStage.Length);
             Log($"AI_BUILD_SESSION: session={sessionId}, kind={session.Kind}, loadedSave={session.IsLoadedSave}, " +
                 $"file={session.SaveFileName}, fixesLoaded={fixesLoaded}, active={active}, mode={session.Mode.ToDiagnosticString()}.");
+            Log($"AI_BUILD_GRID_HISTORY: session={sessionId}, loadingFile={loadingSaveName ?? "unknown"}, " +
+                $"sessionFile={session.SaveFileName}, retained={earlyGridHistory.Count}, " +
+                $"dropped={earlyGridDropped}, mode0Calls={gridModeZeroCalls}, mode1Calls={gridModeOneCalls}.");
+            foreach (string entry in earlyGridHistory) Log("AI_BUILD_GRID_EARLY: session=" + sessionId + ", " + entry);
+            if (firstGridMismatchLine != null && earlyGridDropped != 0)
+                Log("AI_BUILD_GRID_FIRST_MISMATCH_PRESERVED: session=" + sessionId + ", " + firstGridMismatchLine);
+            foreach (string entry in earlyFarmHistory) Log("AI_BUILD_APPLEFARM_EARLY: session=" + sessionId + ", " + entry);
+            if (earlyFarmDropped != 0)
+                Log($"AI_BUILD_APPLEFARM_EARLY_OVERFLOW: session={sessionId}, dropped={earlyFarmDropped}.");
+            earlyGridHistory.Clear();
+            earlyFarmHistory.Clear();
+            Log($"AI_BUILD_PROBE_ARMED: session={sessionId}, armed={probeSession}, " +
+                $"requiredSave={ProbeSaveName}, player={ProbePlayer}, target=({ProbeX},{ProbeY}).");
             if (active)
             {
                 CaptureInitialHuts();
@@ -96,12 +158,27 @@ namespace AIBuildDiagnoseTest
         {
             if (active) LogSummary("end");
             active = false;
+            probeSession = probePending = probeRunning = false;
+            gridState = 0;
         }
 
         internal void OnTick(int tick)
         {
             if (!active) return;
             lastTick = tick;
+            if (gridState != 0)
+                ObserveGrid("tick", AiBuildDiagnostic.CaptureEconomyGridEvidence(gridState, -1));
+            if (probePending)
+            {
+                try { RunPlacementProbe(); }
+                catch (Exception ex)
+                {
+                    probePending = false;
+                    probeDone = true;
+                    probeRunning = false;
+                    Log("AI_BUILD_PROBE_FAILED_CLOSED: " + ex);
+                }
+            }
             if (!firstTick)
             {
                 firstTick = true;
@@ -117,6 +194,11 @@ namespace AIBuildDiagnoseTest
 
         internal void OnNativeRecord(AiBuildDiagnosticRecord record)
         {
+            if (record.EconomyGridEvidence != null)
+            {
+                ObserveGrid(record.Stage, record.EconomyGridEvidence);
+                return;
+            }
             if (!active || record.PlayerId < 1 || record.PlayerId > 8) return;
             lastObservedStage[record.PlayerId] = record.Stage;
             switch (record.Stage)
@@ -163,6 +245,17 @@ namespace AIBuildDiagnoseTest
                 string nearbyCause = AnalyzeNearby(attempt);
                 if (attempt.NearbyAfter != null)
                     LogNearbyEvidence(record.PlayerId, record.AttemptId, attempt, nearbyCause);
+                if (probeSession && !probeDone && !probePending &&
+                    record.PlayerId == ProbePlayer && attempt.RouteSeen &&
+                    attempt.RouteResult == 0 && attempt.NearbyAfter != null &&
+                    attempt.NearbyAfter.ResultX * 5 == ProbeX &&
+                    attempt.NearbyAfter.ResultY * 5 == ProbeY)
+                {
+                    probeAttemptId = record.AttemptId;
+                    probePending = true;
+                    Log($"AI_BUILD_PROBE_QUEUED: session={sessionId}, tick={lastTick}, " +
+                        $"attempt={probeAttemptId}, nextTick=true.");
+                }
                 if (attempt.RouteSeen && attempt.RouteResult == 0)
                 {
                     string causeKey = record.PlayerId + ":" + routeCause;
@@ -185,8 +278,84 @@ namespace AIBuildDiagnoseTest
             }
         }
 
+        private void ObserveGrid(string stage, AiEconomyGridEvidence evidence)
+        {
+            if (evidence == null) return;
+            if (stage == "economy-grid-before")
+            {
+                if (evidence.Mode == 0) gridModeZeroCalls++;
+                else if (evidence.Mode == 1) gridModeOneCalls++;
+            }
+            if (evidence.State != 0 && evidence.Status == "ok") gridState = evidence.State;
+            string signature = GridSignature(evidence);
+            bool changed = !string.Equals(signature, lastGridSignature, StringComparison.Ordinal);
+            bool mismatch = evidence.Status == "ok" &&
+                evidence.StoredForeignCount != evidence.CurrentDifferentCount;
+            bool firstMismatch = mismatch && !firstGridMismatchSeen;
+            if (firstMismatch) firstGridMismatchSeen = true;
+            bool force = evidence.Mode == 1 ||
+                (evidence.Mode == 0 && gridModeZeroCalls == 1) || firstMismatch;
+            if (!changed && !force) return;
+            lastGridSignature = signature;
+            gridSequence++;
+            string line = $"seq={gridSequence}, tick={lastTick}, stage={stage}, mode={evidence.Mode}, " +
+                $"state=0x{evidence.State:X}, status={evidence.Status}, " +
+                $"reference={evidence.ReferenceComponent}, storedForeign={evidence.StoredForeignCount}, " +
+                $"liveDifferent={evidence.CurrentDifferentCount}, liveZero={evidence.CurrentZeroCount}, " +
+                $"treeFlagTiles={evidence.TreeFlagCount}, appleFarmFlagTiles={evidence.AppleFarmFlagCount}, " +
+                $"storedTreeWeight={evidence.TreeWeight}, mismatch={mismatch}, firstMismatch={firstMismatch}, " +
+                $"changed={changed}, tileValues={GridTiles(evidence)}; " +
+                "treeWeightIsRawVanillaValue-not-a-tree-flag-count.";
+            if (firstMismatch) firstGridMismatchLine = line;
+            if (active) Log("AI_BUILD_GRID_TRANSITION: session=" + sessionId + ", " + line);
+            else
+            {
+                if (earlyGridHistory.Count == GridHistoryLimit)
+                {
+                    earlyGridHistory.RemoveAt(0);
+                    earlyGridDropped++;
+                }
+                earlyGridHistory.Add(line);
+            }
+        }
+
+        private static string GridSignature(AiEconomyGridEvidence evidence)
+        {
+            var value = new StringBuilder(330);
+            value.Append(evidence.Status).Append(':').Append(evidence.ReferenceComponent)
+                .Append(':').Append(evidence.StoredForeignCount).Append(':')
+                .Append(evidence.TreeWeight);
+            foreach (AiPathTileSample tile in evidence.Tiles)
+                value.Append('|').Append(tile.X).Append(',').Append(tile.Y).Append(',')
+                    .Append(tile.NativeComponent).Append(',').Append(tile.ApiComponent)
+                    .Append(',').Append(tile.PropertyFlags).Append(',').Append(tile.Organism);
+            return value.ToString();
+        }
+
+        private static string GridTiles(AiEconomyGridEvidence evidence)
+        {
+            var value = new StringBuilder(300);
+            foreach (AiPathTileSample tile in evidence.Tiles)
+            {
+                if (value.Length != 0) value.Append('|');
+                value.Append(tile.X).Append(',').Append(tile.Y).Append(':')
+                    .Append(tile.NativeComponent).Append('/').Append(tile.ApiComponent)
+                    .Append(':').Append(tile.PropertyFlags.ToString("X8"))
+                    .Append(':').Append(tile.Organism);
+            }
+            return value.ToString();
+        }
+
         private void OnBuildStructure(BuildStructureEventArgs args)
         {
+            if (probeRunning && args.PlayerId == ProbePlayer &&
+                args.Mappers == eMappers.MAPPER_WOODSMAN)
+            {
+                Log($"AI_BUILD_PROBE_STRUCTURE: session={sessionId}, attempt={probeAttemptId}, " +
+                    $"phase={args.Phase}, tile=({args.TileX},{args.TileY}), " +
+                    $"scale={args.BuildingScaleUnknown}, free={args.IsFree}.");
+                return;
+            }
             if (!active || args.Mappers != eMappers.MAPPER_WOODSMAN ||
                 !AiBuildDiagnostic.TryGetCurrentWoodAttempt(out long id, out int owner) ||
                 owner != args.PlayerId || !attempts.TryGetValue(id, out Attempt attempt)) return;
@@ -210,9 +379,34 @@ namespace AIBuildDiagnoseTest
 
         private void OnBuildingSpawn(BuildingSpawnEventArgs args)
         {
+            if (args.Building == eStructs.STRUCT_APPLEFARM)
+            {
+                string entry = $"tick={lastTick}, phase={args.Phase}, player={args.PlayerId}, " +
+                    $"tile=({args.TileX},{args.TileY}), " +
+                    $"buildingId={(args.Phase == EventHookPhase.Post ? args.ReturnValue.ToString() : "pending")}; " +
+                    "eventDoesNotProveTreeCreation.";
+                if (active) Log("AI_BUILD_APPLEFARM: session=" + sessionId + ", " + entry);
+                else
+                {
+                    if (earlyFarmHistory.Count == GridHistoryLimit)
+                    {
+                        earlyFarmHistory.RemoveAt(0);
+                        earlyFarmDropped++;
+                    }
+                    earlyFarmHistory.Add(entry);
+                }
+            }
             if (!active ||
                 args.Building != eStructs.STRUCT_WOODCUTTERS_HUT ||
                 args.PlayerId < 1 || args.PlayerId > 8) return;
+            if (probeRunning && args.PlayerId == ProbePlayer)
+            {
+                if (args.Phase == EventHookPhase.Post) probeSpawnId = args.ReturnValue;
+                Log($"AI_BUILD_PROBE_SPAWN: session={sessionId}, attempt={probeAttemptId}, " +
+                    $"phase={args.Phase}, tile=({args.TileX},{args.TileY}), " +
+                    $"buildingId={(args.Phase == EventHookPhase.Post ? args.ReturnValue.ToString() : "pending")}.");
+                return;
+            }
             long id = 0;
             if (AiBuildDiagnostic.TryGetCurrentWoodAttempt(out long current, out int owner) &&
                 owner == args.PlayerId && attempts.TryGetValue(current, out Attempt attempt))
@@ -464,6 +658,80 @@ namespace AIBuildDiagnoseTest
             LogSamples("before-anchor", playerId, attemptId, before?.Anchors);
             LogSamples("after-anchor", playerId, attemptId, after.Anchors);
             LogSamples("after-footprint", playerId, attemptId, after.Footprint);
+            LogCoarseExplanation(playerId, attemptId, before, after);
+            LogSamples("selected-coarse-5x5", playerId, attemptId, after.CoarseTiles);
+            LogFootprintArea("footprint-and-ring", playerId, attemptId,
+                x, y, after.FootprintRing);
+            LogPlacementIndicators(playerId, attemptId, x, y,
+                after.Footprint, after.FootprintRing);
+        }
+
+        private void LogCoarseExplanation(int playerId, long attemptId,
+            AiNearbyPathEvidence before, AiNearbyPathEvidence after)
+        {
+            AiCoarseCellSample selected = FindCoarseCell(before, after.ResultX, after.ResultY);
+            int[] raw = ParseCoarseBytes(selected);
+            if (raw == null)
+            {
+                Log($"AI_BUILD_COARSE_EXPLAIN: session={sessionId}, attempt={attemptId}, status=unavailable.");
+                return;
+            }
+            int different = 0, zero = 0, trees = 0, swamps = 0, buildings = 0;
+            foreach (AiPathTileSample tile in after.CoarseTiles)
+            {
+                if (tile.Status != "ok") continue;
+                if (tile.NativeComponent != after.ReferenceComponent) different++;
+                if (tile.NativeComponent == 0) zero++;
+                if ((tile.PropertyFlags & (uint)TilePropertyFlag.IsTree) != 0) trees++;
+                if ((tile.PropertyFlags & (uint)TilePropertyFlag.IsSwamp) != 0) swamps++;
+                if (tile.BuildingId != 0) buildings++;
+            }
+            Log($"AI_BUILD_COARSE_EXPLAIN: session={sessionId}, tick={lastTick}, " +
+                $"player={playerId}, attempt={attemptId}, cell=({after.ResultX},{after.ResultY}), " +
+                $"referenceComponent={after.ReferenceComponent}, storedForeignCount={raw[0]}, " +
+                $"currentDifferentComponentTiles={different}, currentZeroComponentTiles={zero}, " +
+                $"treeTiles={trees}, swampTiles={swamps}, buildingTiles={buildings}, " +
+                $"treeWeight={raw[3]}, stone={raw[4]}, iron={raw[5]}, pitch={raw[6]}, " +
+                $"swamp={raw[7]}, minHeight={raw[8]}, maxHeight={raw[9]}, " +
+                $"heightRangeRejected={raw[10]}, structureOrReservation={raw[11]}, " +
+                $"outsideUsableMap={raw[12]}, impassableEdge={raw[15]}, " +
+                $"candidateFirstFailure={CoarseFailure(raw)}, " +
+                "componentDifferenceMeaning=inference-current-grid-versus-stored-counter, " +
+                "treeWeightMeaning=raw-Vanilla-value-not-tree-flag-count.");
+            foreach (AiCoarseCellSample cell in before.NearbyCells)
+            {
+                int[] values = ParseCoarseBytes(cell);
+                if (values == null) continue;
+                Log($"AI_BUILD_LOCAL_CANDIDATE: session={sessionId}, attempt={attemptId}, " +
+                    $"cell=({cell.X},{cell.Y}), firstFailedPredicate={CoarseFailure(values)}, " +
+                    "actualBfsVisit=unobserved.");
+            }
+        }
+
+        private static int[] ParseCoarseBytes(AiCoarseCellSample cell)
+        {
+            if (cell == null || cell.Bytes == null) return null;
+            string[] parts = cell.Bytes.Split('-');
+            if (parts.Length < 16) return null;
+            var result = new int[16];
+            for (int i = 0; i < 16; i++)
+                if (!int.TryParse(parts[i], System.Globalization.NumberStyles.HexNumber,
+                    System.Globalization.CultureInfo.InvariantCulture, out result[i])) return null;
+            return result;
+        }
+
+        // Order follows the audited 0x58950 acceptance branch, not a generic buildability test.
+        private static string CoarseFailure(int[] cell)
+        {
+            if ((sbyte)cell[0] >= 15) return "traversal-foreign-component-limit";
+            if (cell[10] != 0) return "height-range";
+            if (cell[11] != 0) return "structure-or-reservation";
+            if (cell[12] != 0) return "outside-usable-map";
+            if (cell[15] != 0) return "impassable-edge";
+            if (cell[3] != 0) return "tree-weight";
+            if ((sbyte)cell[4] >= 1) return "stone-count";
+            if (cell[0] != 0) return "foreign-component-count";
+            return "none-coarse-eligible";
         }
 
         private void LogSamples(string phase, int playerId, long attemptId,
@@ -491,8 +759,12 @@ namespace AIBuildDiagnoseTest
             : $"tile=({sample.X},{sample.Y}) id={sample.TileId} " +
               $"native={sample.NativeComponent} api={sample.ApiComponent} " +
               $"rawFlags=0x{sample.PropertyFlags:X8} swamp={((sample.PropertyFlags & 0x20000000u) != 0)} " +
-              $"wall={((sample.PropertyFlags & 0x100u) != 0)} type={sample.TileType} " +
-              $"buildingId={sample.BuildingId} wallOwner={sample.WallOwner} status={sample.Status}";
+              $"wall={((sample.PropertyFlags & 0x100u) != 0)} " +
+              $"tree={((sample.PropertyFlags & (uint)TilePropertyFlag.IsTree) != 0)} " +
+              $"appleFarm={((sample.PropertyFlags & (uint)TilePropertyFlag.IsAppleFarm) != 0)} " +
+              $"type={sample.TileType} organism={sample.Organism} occupancy={sample.Occupancy} " +
+              $"height={sample.Height} buildingId={sample.BuildingId} " +
+              $"wallOwner={sample.WallOwner} status={sample.Status}";
 
         private static AiCoarseCellSample FindCoarseCell(AiNearbyPathEvidence evidence, int x, int y)
         {
@@ -598,6 +870,9 @@ namespace AIBuildDiagnoseTest
         {
             try
             {
+                Log($"AI_BUILD_GRID_SUMMARY: session={sessionId}, phase={phase}, tick={lastTick}, " +
+                    $"mode0Calls={gridModeZeroCalls}, mode1Calls={gridModeOneCalls}, " +
+                    $"firstMismatchSeen={firstGridMismatchSeen}, earlyDropped={earlyGridDropped}.");
                 var players = GamePlayerManagerAPI.Instance;
                 for (int playerId = 1; playerId <= 8; playerId++)
                 {
@@ -642,6 +917,134 @@ namespace AIBuildDiagnoseTest
                 return "resources=unavailable";
             return $"gold={resources->r_TotalGoodsGold}, woodLogs={resources->r_TotalGoodsWoodLogs}, " +
                 $"woodPlanks={resources->r_TotalGoodsWoodPlanks}";
+        }
+
+        private void LogFootprintArea(string phase, int playerId, long attemptId,
+            int anchorX, int anchorY, IReadOnlyList<AiPathTileSample> samples)
+        {
+            if (samples == null) return;
+            foreach (AiPathTileSample sample in samples)
+            {
+                bool footprint = sample.X >= anchorX && sample.X < anchorX + 3 &&
+                    sample.Y >= anchorY && sample.Y < anchorY + 3;
+                string role = sample.X == anchorX && sample.Y == anchorY ? "anchor-footprint" :
+                    footprint ? "footprint" : "perimeter-possible-access";
+                Log($"AI_BUILD_PLACE_TILE: session={sessionId}, player={playerId}, " +
+                    $"attempt={attemptId}, phase={phase}, role={role}, " +
+                    $"apparentBuildingFree={(sample.Status == "ok" && sample.BuildingId == 0)}, " +
+                    $"{FormatSample(sample)}.");
+            }
+        }
+
+        private void LogPlacementIndicators(int playerId, long attemptId,
+            int x, int y, IReadOnlyList<AiPathTileSample> footprint,
+            IReadOnlyList<AiPathTileSample> area)
+        {
+            int footprintTrees = 0, footprintSwamps = 0, footprintBuildings = 0;
+            int accessiblePerimeter = 0, blockedPerimeter = 0;
+            foreach (AiPathTileSample tile in footprint)
+            {
+                if ((tile.PropertyFlags & (uint)TilePropertyFlag.IsTree) != 0) footprintTrees++;
+                if ((tile.PropertyFlags & (uint)TilePropertyFlag.IsSwamp) != 0) footprintSwamps++;
+                if (tile.BuildingId != 0 ||
+                    (tile.PropertyFlags & (uint)TilePropertyFlag.IsBuilding) != 0)
+                    footprintBuildings++;
+            }
+            foreach (AiPathTileSample tile in area)
+            {
+                if (tile.X >= x && tile.X < x + 3 && tile.Y >= y && tile.Y < y + 3)
+                    continue;
+                if (tile.Status == "ok" && tile.NativeComponent > 0) accessiblePerimeter++;
+                else blockedPerimeter++;
+            }
+            Log($"AI_BUILD_PLACEMENT_INDICATORS: session={sessionId}, attempt={attemptId}, " +
+                $"player={playerId}, anchor=({x},{y}), footprintTiles={footprint.Count}, " +
+                $"footprintTrees={footprintTrees}, footprintSwamps={footprintSwamps}, " +
+                $"footprintBuildings={footprintBuildings}, " +
+                $"perimeterPositiveComponents={accessiblePerimeter}, " +
+                $"perimeterOther={blockedPerimeter}, actualAccessTile=unobserved-before-spawn, " +
+                "vanillaPlacement=unobserved-before-probe; countsAreObservations.");
+        }
+
+        private void RunPlacementProbe()
+        {
+            probePending = false;
+            probeDone = true; // Never retry after a native call, including an exception.
+            if (!active || !probeSession ||
+                !GamePlayerManagerAPI.Instance.IsAIPlayer(ProbePlayer) ||
+                !GameTileManagerAPI.Instance.IsTileInsideMapBounds(ProbeX + 2, ProbeY + 2))
+            {
+                Log($"AI_BUILD_PROBE_SKIPPED: session={sessionId}, attempt={probeAttemptId}, " +
+                    "reason=session-player-or-footprint-changed.");
+                return;
+            }
+            if (GameTileManagerAPI.Instance.TileManager.UsePlacementBlockedOverride ||
+                !AiBuildDiagnostic.TryReadPlacementStatus(out int prePreparation,
+                    out int preRejected, out int preMode) || prePreparation != 0)
+            {
+                Log($"AI_BUILD_PROBE_SKIPPED: session={sessionId}, attempt={probeAttemptId}, " +
+                    "reason=placement-override-or-preparation-state.");
+                return;
+            }
+            IReadOnlyList<AiPathTileSample> before =
+                AiBuildDiagnostic.CaptureTiles(ProbeX - 1, ProbeY - 1, 5, 5);
+            string resourcesBefore = ReadResources(ProbePlayer);
+            if (before.Count != 25)
+            {
+                Log($"AI_BUILD_PROBE_SKIPPED: session={sessionId}, attempt={probeAttemptId}, " +
+                    "reason=tile-snapshot-unavailable.");
+                return;
+            }
+            Log($"AI_BUILD_PROBE_BEGIN: session={sessionId}, tick={lastTick}, attempt={probeAttemptId}, " +
+                $"player={ProbePlayer}, anchor=({ProbeX},{ProbeY}), mapper=0x33, scale=3, " +
+                $"variant=15, free=false, bypassPlacementRules=false, " +
+                $"preparation={prePreparation}, rejected={preRejected}, mode={preMode}, {resourcesBefore}.");
+            LogFootprintArea("probe-before-footprint-and-ring", ProbePlayer,
+                probeAttemptId, ProbeX, ProbeY, before);
+            long callResult = 0;
+            string failure = "none";
+            try
+            {
+                probeRunning = true;
+                // Exact 0x51540 -> 0x6D580 construction parameters, in the disposable save only.
+                callResult = GameBuildingManagerAPI.Instance.CreatePrefab(ProbePlayer,
+                    ProbeX, ProbeY, eMappers.MAPPER_WOODSMAN, 3, 15, false, false);
+            }
+            catch (Exception ex) { failure = ex.ToString(); }
+            finally { probeRunning = false; }
+            IReadOnlyList<AiPathTileSample> after =
+                AiBuildDiagnostic.CaptureTiles(ProbeX - 1, ProbeY - 1, 5, 5);
+            LogFootprintArea("probe-after-footprint-and-ring", ProbePlayer,
+                probeAttemptId, ProbeX, ProbeY, after);
+            string access = "unobserved-no-spawn";
+            if (probeSpawnId > 0 && probeSpawnId <= int.MaxValue)
+            {
+                var point = GameBuildingManagerAPI.Instance.GetAccessPosition((int)probeSpawnId);
+                access = $"({point.X},{point.Y})";
+                if (GameTileManagerAPI.Instance.IsTileInsideMapBounds(point.X, point.Y))
+                {
+                    IReadOnlyList<AiPathTileSample> accessTile =
+                        AiBuildDiagnostic.CaptureTiles(point.X, point.Y, 1, 1);
+                    LogSamples("probe-actual-access", ProbePlayer, probeAttemptId, accessTile);
+                }
+            }
+            bool changed = false;
+            if (after.Count == before.Count)
+                for (int i = 0; i < before.Count; i++)
+                    if (before[i].PropertyFlags != after[i].PropertyFlags ||
+                        before[i].BuildingId != after[i].BuildingId ||
+                        before[i].Organism != after[i].Organism ||
+                        before[i].NativeComponent != after[i].NativeComponent)
+                    { changed = true; break; }
+            string placement = AiBuildDiagnostic.TryReadPlacementStatus(out int preparation,
+                out int rejected, out int mode)
+                ? $"preparation={preparation}, rejected={rejected}, mode={mode}"
+                : "placementStatus=unavailable";
+            Log($"AI_BUILD_PROBE_RESULT: session={sessionId}, attempt={probeAttemptId}, " +
+                $"callResult={callResult}, spawnId={probeSpawnId}, access={access}, " +
+                $"tileChanged={changed}, {placement}, resourcesBefore=[{resourcesBefore}], " +
+                $"resourcesAfter=[{ReadResources(ProbePlayer)}], exception={failure}, " +
+                $"observedPlacement={(probeSpawnId > 0 ? "spawned" : "no-spawn")}.");
         }
 
         private void CaptureInitialHuts()

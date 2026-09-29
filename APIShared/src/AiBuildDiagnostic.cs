@@ -7,6 +7,7 @@ using RedBird.Backends.NativeX64;
 using Iced.Intel;
 using SHCDESE.API;
 using SHCDESE.Interop;
+using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
@@ -97,12 +98,14 @@ namespace APIShared
     {
         internal AiPathTileSample(int x, int y, int tileId, int nativeComponent,
             int apiComponent, uint propertyFlags, int tileType, int buildingId,
-            int wallOwner, string status)
+            int wallOwner, string status, int organism = -1, int occupancy = -1,
+            int height = -1)
         {
             X = x; Y = y; TileId = tileId; NativeComponent = nativeComponent;
             ApiComponent = apiComponent; PropertyFlags = propertyFlags;
             TileType = tileType; BuildingId = buildingId; WallOwner = wallOwner;
-            Status = status;
+            Status = status; Organism = organism; Occupancy = occupancy;
+            Height = height;
         }
         /// <summary>Map X coordinate.</summary>
         public int X { get; }
@@ -122,6 +125,12 @@ namespace APIShared
         public int BuildingId { get; }
         /// <summary>Wall owner byte in the tile layer.</summary>
         public int WallOwner { get; }
+        /// <summary>Raw organism layer entry; minus one if unavailable.</summary>
+        public int Organism { get; }
+        /// <summary>Raw player occupancy mask; minus one if unavailable.</summary>
+        public int Occupancy { get; }
+        /// <summary>Raw tile height; minus one if unavailable.</summary>
+        public int Height { get; }
         /// <summary>Whether this tile could be sampled.</summary>
         public string Status { get; }
     }
@@ -155,12 +164,16 @@ namespace APIShared
             AiPathTileSample[] footprint, AiCoarseCellSample inputCell,
             AiCoarseCellSample resultCell, AiCoarseCellSample[] nearbyCells,
             int[] nativeAnchors = null, int[] apiAnchors = null,
-            byte[] coarseCells = null)
+            byte[] coarseCells = null, AiPathTileSample[] coarseTiles = null,
+            AiPathTileSample[] footprintRing = null, int referenceComponent = -1)
         {
             Status = status; InputX = inputX; InputY = inputY;
             ResultX = resultX; ResultY = resultY;
             Anchors = Array.AsReadOnly(anchors ?? new AiPathTileSample[0]);
             Footprint = Array.AsReadOnly(footprint ?? new AiPathTileSample[0]);
+            CoarseTiles = Array.AsReadOnly(coarseTiles ?? new AiPathTileSample[0]);
+            FootprintRing = Array.AsReadOnly(footprintRing ?? new AiPathTileSample[0]);
+            ReferenceComponent = referenceComponent;
             InputCell = inputCell; ResultCell = resultCell;
             NearbyCells = Array.AsReadOnly(nearbyCells ?? new AiCoarseCellSample[0]);
             capturedNativeAnchors = nativeAnchors;
@@ -181,6 +194,12 @@ namespace APIShared
         public IReadOnlyList<AiPathTileSample> Anchors { get; }
         /// <summary>Three by three tile sample starting at the search result.</summary>
         public IReadOnlyList<AiPathTileSample> Footprint { get; }
+        /// <summary>All 25 live tiles in the selected coarse cell.</summary>
+        public IReadOnlyList<AiPathTileSample> CoarseTiles { get; }
+        /// <summary>Five by five footprint neighborhood, including its one-tile ring.</summary>
+        public IReadOnlyList<AiPathTileSample> FootprintRing { get; }
+        /// <summary>Native PCL used when 0x50720 populated foreign-component counts.</summary>
+        public int ReferenceComponent { get; }
         /// <summary>Coarse cell at the search input.</summary>
         public AiCoarseCellSample InputCell { get; }
         /// <summary>Coarse cell at the search result, when available.</summary>
@@ -225,7 +244,8 @@ namespace APIShared
 
         internal AiBuildDiagnosticRecord(string stage, int playerId, long attemptId,
             long a, long b, long c, long d, AiRouteEvidence routeEvidence,
-            AiNearbyPathEvidence nearbyPathEvidence = null)
+            AiNearbyPathEvidence nearbyPathEvidence = null,
+            AiEconomyGridEvidence economyGridEvidence = null)
         {
             Stage = stage;
             PlayerId = playerId;
@@ -233,6 +253,7 @@ namespace APIShared
             A = a; B = b; C = c; D = d;
             RouteEvidence = routeEvidence;
             NearbyPathEvidence = nearbyPathEvidence;
+            EconomyGridEvidence = economyGridEvidence;
         }
         /// <summary>Native observation stage.</summary>
         public string Stage { get; }
@@ -252,6 +273,55 @@ namespace APIShared
         public AiRouteEvidence RouteEvidence { get; }
         /// <summary>Copied nearby-search path samples, when present.</summary>
         public AiNearbyPathEvidence NearbyPathEvidence { get; }
+        /// <summary>Copied state of the monitored 5-by-5 economy cell.</summary>
+        public AiEconomyGridEvidence EconomyGridEvidence { get; }
+    }
+
+    /// <summary>Read-only snapshot of the Canari coarse cell and its live tile layers.</summary>
+    public sealed class AiEconomyGridEvidence
+    {
+        internal AiEconomyGridEvidence(string status, ulong state, int mode, int referenceComponent,
+            int storedForeignCount, int treeWeight, IReadOnlyList<AiPathTileSample> tiles)
+        {
+            Status = status; State = state; Mode = mode; ReferenceComponent = referenceComponent;
+            StoredForeignCount = storedForeignCount; TreeWeight = treeWeight;
+            Tiles = tiles ?? Array.AsReadOnly(new AiPathTileSample[0]);
+            int different = 0, zero = 0, trees = 0, apples = 0;
+            foreach (AiPathTileSample tile in Tiles)
+            {
+                if (tile.Status != "ok") continue;
+                if (referenceComponent > 0 && tile.NativeComponent != referenceComponent) different++;
+                if (tile.NativeComponent == 0) zero++;
+                if ((tile.PropertyFlags & 0x1000u) != 0) trees++;
+                if ((tile.PropertyFlags & 0x04000000u) != 0) apples++;
+            }
+            CurrentDifferentCount = referenceComponent > 0 && Tiles.Count == 25 ? different : -1;
+            CurrentZeroCount = Tiles.Count == 25 ? zero : -1;
+            TreeFlagCount = Tiles.Count == 25 ? trees : -1;
+            AppleFarmFlagCount = Tiles.Count == 25 ? apples : -1;
+        }
+        /// <summary>ok only when all monitored tiles and the reference component were read.</summary>
+        public string Status { get; }
+        /// <summary>Native AIV state pointer; valid only during the current map.</summary>
+        public ulong State { get; }
+        /// <summary>Native update mode, or minus one for a tick snapshot.</summary>
+        public int Mode { get; }
+        /// <summary>Reference path component stored by Vanilla's full coarse rebuild.</summary>
+        public int ReferenceComponent { get; }
+        /// <summary>Stored foreign-component count in coarse cell 69,97.</summary>
+        public int StoredForeignCount { get; }
+        /// <summary>Stored Vanilla tree weight; not a count of tree-flagged tiles.</summary>
+        public int TreeWeight { get; }
+        /// <summary>Current tiles whose native component differs from the reference.</summary>
+        public int CurrentDifferentCount { get; }
+        /// <summary>Current tiles with native component zero.</summary>
+        public int CurrentZeroCount { get; }
+        /// <summary>Current tiles carrying the raw tree property bit.</summary>
+        public int TreeFlagCount { get; }
+        /// <summary>Current tiles carrying the apple-farm property bit.</summary>
+        public int AppleFarmFlagCount { get; }
+        /// <summary>Copies of all 25 monitored tile records.</summary>
+        public IReadOnlyList<AiPathTileSample> Tiles { get; }
     }
 
     /// <summary>Optional process-lifetime AI construction observer. Inert without registration.</summary>
@@ -389,6 +459,45 @@ namespace APIShared
             catch (Exception ex) { NativeApiLog.Error(log, "AI diagnostic observer failed: " + ex); }
         }
 
+        /// <summary>Diagnostic-only snapshot around Vanilla's existing 0x50720 call.</summary>
+        public static void PublishEconomyGridEvidence(string stage, ulong state, int mode)
+        {
+            Action<AiBuildDiagnosticRecord> target = Volatile.Read(ref observer);
+            if (target == null) return;
+            AiEconomyGridEvidence evidence = CaptureEconomyGridEvidence(state, mode);
+            try { target(new AiBuildDiagnosticRecord(stage, 0, 0, mode, 0, 0, 0,
+                null, null, evidence)); }
+            catch (Exception ex) { NativeApiLog.Error(log, "AI economy grid observer failed: " + ex); }
+        }
+
+        /// <summary>Copies one monitored coarse cell; intended for the diagnostic tick publisher.</summary>
+        public static AiEconomyGridEvidence CaptureEconomyGridEvidence(ulong state, int mode)
+        {
+            if (!HasObserver || state == 0 || moduleBase == 0)
+                return new AiEconomyGridEvidence("unavailable", state, mode, -1, -1, -1, null);
+            try
+            {
+                const int coarseX = 69, coarseY = 97;
+                long cell = checked((long)state + 0x5B834 +
+                    ((long)coarseX * 160 + coarseY) * 0x30);
+                int reference = Marshal.ReadInt32(new IntPtr(checked((long)state + 0x5B504)));
+                int foreign = Marshal.ReadByte(new IntPtr(cell));
+                int treeWeight = Marshal.ReadByte(new IntPtr(cell + 3));
+                IReadOnlyList<AiPathTileSample> tiles = CaptureTiles(345, 485, 5, 5);
+                bool allTilesReady = tiles.Count == 25;
+                foreach (AiPathTileSample tile in tiles)
+                    if (tile.Status != "ok") allTilesReady = false;
+                string status = allTilesReady && reference > 0 ? "ok" : "tile-grid-not-ready";
+                return new AiEconomyGridEvidence(status, state, mode, reference,
+                    foreign, treeWeight, tiles);
+            }
+            catch (Exception ex)
+            {
+                return new AiEconomyGridEvidence("capture-exception:" + ex.GetType().Name,
+                    state, mode, -1, -1, -1, null);
+            }
+        }
+
         private static void PublishRouteEvidence(int playerId, AiRouteEvidence evidence)
         {
             Action<AiBuildDiagnosticRecord> target = Volatile.Read(ref observer);
@@ -489,9 +598,36 @@ namespace APIShared
                         apiAnchors[snapshotIndex] = grid[tileId];
                     }
             }
+            AiPathTileSample[] coarseTiles = resultX >= 0 && resultY >= 0
+                ? CaptureTiles(resultX * 5, resultY * 5, 5, 5, grid) : null;
+            AiPathTileSample[] footprintRing = resultX >= 0 && resultY >= 0
+                ? CaptureTiles(resultX * 5 - 1, resultY * 5 - 1, 5, 5, grid) : null;
             return new AiNearbyPathEvidence("ok", inputX, inputY, resultX, resultY,
                 anchors, footprint, inputCell, resultCell, nearbyCells,
-                nativeAnchors, apiAnchors, coarseCells);
+                nativeAnchors, apiAnchors, coarseCells, coarseTiles, footprintRing,
+                state == 0 ? -1 : Marshal.ReadInt32(new IntPtr(checked((long)state + 0x5B504))));
+        }
+
+        /// <summary>Copies a bounded live tile rectangle for a diagnostic probe.</summary>
+        public static IReadOnlyList<AiPathTileSample> CaptureTiles(int x, int y,
+            int width, int height)
+        {
+            if (!HasObserver || width < 1 || height < 1 || width > 8 || height > 8 ||
+                moduleBase == 0) return Array.AsReadOnly(new AiPathTileSample[0]);
+            Span<ushort> grid = GamePathingManagerAPI.Instance.GetPathComponentGrid();
+            if (grid.Length != 320800) return Array.AsReadOnly(new AiPathTileSample[0]);
+            return Array.AsReadOnly(CaptureTiles(x, y, width, height, grid));
+        }
+
+        private static AiPathTileSample[] CaptureTiles(int x, int y, int width,
+            int height, Span<ushort> grid)
+        {
+            var samples = new AiPathTileSample[width * height];
+            int index = 0;
+            for (int dy = 0; dy < height; dy++)
+                for (int dx = 0; dx < width; dx++)
+                    samples[index++] = SamplePathTile(x + dx, y + dy, grid);
+            return samples;
         }
 
         private static AiCoarseCellSample SampleCoarseCell(ulong state, int x, int y)
@@ -517,12 +653,19 @@ namespace APIShared
                 moduleBase + 0x50EC690 + (long)tileId * 2)));
             GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
             Span<byte> wallOwners = tiles.GetWallOwnerLayer();
-            if ((uint)tileId >= (uint)wallOwners.Length)
+            Span<ushort> organisms = tiles.GetOrganismLayer();
+            Span<CompactPlayerBitMask> occupancies = tiles.GetOccupancyLayer();
+            Span<byte> heights = tiles.GetHeightLayer();
+            if ((uint)tileId >= (uint)wallOwners.Length ||
+                (uint)tileId >= (uint)organisms.Length ||
+                (uint)tileId >= (uint)occupancies.Length ||
+                (uint)tileId >= (uint)heights.Length)
                 return new AiPathTileSample(x, y, tileId, nativeComponent, grid[tileId],
-                    0, -1, -1, -1, "wall-layer-out-of-range");
+                    0, -1, -1, -1, "tile-layer-out-of-range");
             return new AiPathTileSample(x, y, tileId, nativeComponent, grid[tileId],
                 (uint)tiles.GetTilePropertyFlag(tileId), (int)tiles.GetTileType(tileId),
-                tiles.GetTileBuildingId(tileId), wallOwners[tileId], "ok");
+                tiles.GetTileBuildingId(tileId), wallOwners[tileId], "ok",
+                organisms[tileId], (byte)occupancies[tileId], heights[tileId]);
         }
 
         /// <summary>Enters the synchronous Vanilla wood call; zero means diagnostics are absent.</summary>

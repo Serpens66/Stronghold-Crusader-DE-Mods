@@ -169,7 +169,13 @@ namespace ExtendedData
             {
                 if (!File.Exists(source))
                     return ExtendedDataModDataReadResult.FileNotFound(modGuid, source);
-                return ReadUtf8(File.ReadAllBytes(source), modGuid, source);
+                return ModDataNamespaceReader.Read(LordDataSnapshot.ReadModLordFile(source), modGuid, source);
+            }
+            catch (Exception exception) when (exception is InvalidDataException ||
+                exception is DecoderFallbackException || exception is FormatException)
+            {
+                return ExtendedDataModDataReadResult.InvalidDocument(modGuid, source,
+                    "Invalid Custom Lord mod-data sidecar: " + exception.Message);
             }
             catch (Exception exception)
             {

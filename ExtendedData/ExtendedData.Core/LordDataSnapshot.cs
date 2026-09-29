@@ -20,8 +20,9 @@ namespace ExtendedData
     public sealed class LordDataSnapshot
     {
         public const int MaxSidecarBytes = 64 * 1024;
-        public const int MaxSnapshotBytes = 128 * 1024;
-        public const int ProtocolVersion = 1;
+        public const int MaxNamespaceBytes = 16 * 1024;
+        public const int MaxSnapshotBytes = 256 * 1024;
+        public const int ProtocolVersion = 2;
 
         public string SessionId { get; private set; }
         public string Digest { get; private set; }
@@ -34,8 +35,7 @@ namespace ExtendedData
 
         public static LordDataSnapshot CreateTrail(string sessionId, bool fixesInstalled,
             IEnumerable<LordDataSlot> slots)
-            => CreateWithLimit(sessionId, fixesInstalled, slots,
-                TrailLordRequirements.MaximumBytes * 2 + 64 * 1024);
+            => CreateWithLimit(sessionId, fixesInstalled, slots, MaxSnapshotBytes);
 
         private static LordDataSnapshot CreateWithLimit(string sessionId, bool fixesInstalled,
             IEnumerable<LordDataSlot> slots, int maximumBytes)
@@ -55,19 +55,19 @@ namespace ExtendedData
                     ["lordName"] = item.LordName,
                     ["configName"] = item.ConfigName,
                     ["configChecksum"] = item.ConfigChecksum,
-                    ["modLordJson"] = item.ModLordJson,
+                    ["modLordData"] = item.ModLordJson == null ? null : ParseModLord(item.ModLordJson),
                     ["fixesJson"] = item.FixesJson,
                 }).ToList(),
             };
-            string payloadJson = Shared.DependencyFreeJson.Serialize(payload);
+            string payloadJson = SerializeCompact(payload);
             string digest = Hash(payloadJson);
-            string wireJson = Shared.DependencyFreeJson.Serialize(new Dictionary<string, object>
+            string wireJson = SerializeCompact(new Dictionary<string, object>
             {
                 ["digest"] = digest,
-                ["payload"] = payloadJson,
+                ["payload"] = payload,
             });
             if (Encoding.UTF8.GetByteCount(wireJson) > maximumBytes)
-                throw new InvalidDataException("The selected Lord data exceeds its size limit.");
+                throw new InvalidDataException("The selected Lord-data snapshot exceeds 256 KiB.");
             return new LordDataSnapshot
             {
                 SessionId = sessionId,
@@ -83,12 +83,18 @@ namespace ExtendedData
             if (string.IsNullOrEmpty(wireJson) || Encoding.UTF8.GetByteCount(wireJson) > MaxSnapshotBytes)
                 throw new InvalidDataException("The Lord-data snapshot is missing or too large.");
             var envelope = RequireObject(Shared.DependencyFreeJson.Parse(wireJson));
-            string payloadJson = RequireString(envelope, "payload");
             string digest = RequireString(envelope, "digest");
+            if (!envelope.TryGetValue("payload", out object payloadValue))
+                throw new InvalidDataException("The Lord-data payload is missing.");
+            bool legacy = payloadValue is string;
+            var payload = legacy
+                ? RequireObject(Shared.DependencyFreeJson.Parse((string)payloadValue))
+                : RequireObject(payloadValue);
+            string payloadJson = legacy ? (string)payloadValue : SerializeCompact(payload);
             if (!string.Equals(Hash(payloadJson), digest, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidDataException("The Lord-data snapshot checksum does not match.");
-            var payload = RequireObject(Shared.DependencyFreeJson.Parse(payloadJson));
-            if (Convert.ToInt32(payload["version"]) != ProtocolVersion)
+            int version = Convert.ToInt32(payload["version"]);
+            if (version != (legacy ? 1 : ProtocolVersion))
                 throw new InvalidDataException("Unsupported Lord-data snapshot version.");
             if (!payload.TryGetValue("fixesInstalled", out object installedValue) || !(installedValue is bool fixesInstalled))
                 throw new InvalidDataException("The Fixes installation marker is invalid.");
@@ -104,7 +110,10 @@ namespace ExtendedData
                     LordName = RequireString(item, "lordName"),
                     ConfigName = RequireString(item, "configName"),
                     ConfigChecksum = RequireString(item, "configChecksum"),
-                    ModLordJson = OptionalString(item, "modLordJson"),
+                    ModLordJson = legacy ? OptionalString(item, "modLordJson") :
+                        item.TryGetValue("modLordData", out object modData) && modData != null
+                            ? SerializeCompact(RequireObject(modData))
+                            : null,
                     FixesJson = OptionalString(item, "fixesJson"),
                 };
             }).ToArray();
@@ -127,12 +136,62 @@ namespace ExtendedData
                 return;
             if (Encoding.UTF8.GetByteCount(json) > MaxSidecarBytes)
                 throw new InvalidDataException("A selected .modlord.json exceeds 64 KiB.");
+            ParseModLord(json);
+        }
+
+        public static string ReadModLordFile(string path)
+        {
+            if (new FileInfo(path).Length > MaxSidecarBytes)
+                throw new InvalidDataException("The .modlord.json exceeds 64 KiB: " + path);
+            byte[] bytes = File.ReadAllBytes(path);
+            if (bytes.Length > MaxSidecarBytes)
+                throw new InvalidDataException("The .modlord.json exceeds 64 KiB: " + path);
+            string json = new UTF8Encoding(false, true).GetString(bytes).TrimStart('\uFEFF');
+            ValidateModLord(json);
+            return json;
+        }
+
+        private static Dictionary<string, object> ParseModLord(string json)
+        {
             var root = RequireObject(Shared.DependencyFreeJson.Parse(json));
             if (root.Keys.Distinct(StringComparer.OrdinalIgnoreCase).Count() != root.Count)
                 throw new InvalidDataException("The .modlord.json contains duplicate GUID namespaces.");
             foreach (KeyValuePair<string, object> entry in root)
+            {
                 if (string.IsNullOrWhiteSpace(entry.Key) || !(entry.Value is Dictionary<string, object>))
                     throw new InvalidDataException("Every .modlord.json GUID namespace must be an object.");
+                int namespaceBytes = Encoding.UTF8.GetByteCount(SerializeCompact(entry.Value));
+                if (namespaceBytes > MaxNamespaceBytes)
+                    throw new InvalidDataException("The .modlord.json GUID namespace '" + entry.Key +
+                        "' exceeds 16 KiB.");
+            }
+            return root;
+        }
+
+        private static string SerializeCompact(object value)
+        {
+            string pretty = Shared.DependencyFreeJson.Serialize(value);
+            var result = new StringBuilder(pretty.Length);
+            bool inString = false;
+            bool escaped = false;
+            foreach (char character in pretty)
+            {
+                if (inString)
+                {
+                    result.Append(character);
+                    if (escaped) escaped = false;
+                    else if (character == '\\') escaped = true;
+                    else if (character == '"') inString = false;
+                }
+                else if (character == '"')
+                {
+                    inString = true;
+                    result.Append(character);
+                }
+                else if (character != ' ' && character != '\t' && character != '\r' && character != '\n')
+                    result.Append(character);
+            }
+            return result.ToString();
         }
 
         private static void ValidateSlots(LordDataSlot[] slots, bool fixesInstalled)

@@ -1708,6 +1708,7 @@ namespace APISharedTests
                 "APIShared.AiPathTileSample",
                 "APIShared.AiCoarseCellSample",
                 "APIShared.AiNearbyPathEvidence",
+                "APIShared.AiEconomyGridEvidence",
                 "APIShared.AiBuildDiagnostic",
                 "APIShared.SavegameModSettingsRecord",
                 "APIShared.TrailCreatorRule",

@@ -26,7 +26,8 @@ namespace AIBuildDiagnoseTest
         private void Awake()
         {
             log = Logger;
-            Shared.DebugLogHelper.LogInfo(log, Name + " " + Version + " loaded; readOnly=true.");
+            Shared.DebugLogHelper.LogInfo(log, Name + " " + Version +
+                " loaded; readOnly except one placement probe in test_canari_nowoodcutters_probe.sav.");
             if (registered) return;
             CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;
             registered = true;

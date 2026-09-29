@@ -46,15 +46,7 @@ namespace ExtendedData
                 Candidate source = matching[sourceIndex];
                 LordPackageFileState package = LordPackageFingerprint.Capture(source.Config.path, source.Config.name);
                 string sidecar = Path.Combine(source.Config.path, source.Config.name + ".modlord.json");
-                string modJson = null;
-                if (File.Exists(sidecar))
-                {
-                    byte[] bytes = File.ReadAllBytes(sidecar);
-                    if (bytes.Length > LordDataSnapshot.MaxSidecarBytes)
-                        throw new InvalidDataException("Lord mod values exceed 64 KiB: " + sidecar);
-                    modJson = new UTF8Encoding(false, true).GetString(bytes).TrimStart('\uFEFF');
-                    LordDataSnapshot.ValidateModLord(modJson);
-                }
+                string modJson = File.Exists(sidecar) ? LordDataSnapshot.ReadModLordFile(sidecar) : null;
                 result.Add(new TrailLordSlot
                 {
                     PlayerId = index + 1,

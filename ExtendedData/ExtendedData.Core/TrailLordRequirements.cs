@@ -131,6 +131,17 @@ namespace ExtendedData
                     throw new InvalidDataException("Invalid Lord requirement slot.");
                 LordDataSnapshot.ValidateModLord(slot.ModLordJson);
             }
+            LordDataSnapshot.CreateTrail("trail:" + value.MissionDigest,
+                value.Slots.Any(slot => slot.FixesJson != null),
+                value.Slots.Select(slot => new LordDataSlot
+                {
+                    PlayerId = slot.PlayerId,
+                    LordName = slot.LordName,
+                    ConfigName = slot.ConfigName,
+                    ConfigChecksum = slot.ConfigChecksum,
+                    ModLordJson = slot.ModLordJson,
+                    FixesJson = slot.FixesJson,
+                }));
         }
 
         private static Dictionary<string, object> Object(object value) =>

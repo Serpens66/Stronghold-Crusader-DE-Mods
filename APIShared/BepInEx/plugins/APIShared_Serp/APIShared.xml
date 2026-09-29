@@ -721,6 +721,15 @@
         <member name="P:APIShared.AiPathTileSample.WallOwner">
             <summary>Wall owner byte in the tile layer.</summary>
         </member>
+        <member name="P:APIShared.AiPathTileSample.Organism">
+            <summary>Raw organism layer entry; minus one if unavailable.</summary>
+        </member>
+        <member name="P:APIShared.AiPathTileSample.Occupancy">
+            <summary>Raw player occupancy mask; minus one if unavailable.</summary>
+        </member>
+        <member name="P:APIShared.AiPathTileSample.Height">
+            <summary>Raw tile height; minus one if unavailable.</summary>
+        </member>
         <member name="P:APIShared.AiPathTileSample.Status">
             <summary>Whether this tile could be sampled.</summary>
         </member>
@@ -762,6 +771,15 @@
         </member>
         <member name="P:APIShared.AiNearbyPathEvidence.Footprint">
             <summary>Three by three tile sample starting at the search result.</summary>
+        </member>
+        <member name="P:APIShared.AiNearbyPathEvidence.CoarseTiles">
+            <summary>All 25 live tiles in the selected coarse cell.</summary>
+        </member>
+        <member name="P:APIShared.AiNearbyPathEvidence.FootprintRing">
+            <summary>Five by five footprint neighborhood, including its one-tile ring.</summary>
+        </member>
+        <member name="P:APIShared.AiNearbyPathEvidence.ReferenceComponent">
+            <summary>Native PCL used when 0x50720 populated foreign-component counts.</summary>
         </member>
         <member name="P:APIShared.AiNearbyPathEvidence.InputCell">
             <summary>Coarse cell at the search input.</summary>
@@ -811,6 +829,45 @@
         <member name="P:APIShared.AiBuildDiagnosticRecord.NearbyPathEvidence">
             <summary>Copied nearby-search path samples, when present.</summary>
         </member>
+        <member name="P:APIShared.AiBuildDiagnosticRecord.EconomyGridEvidence">
+            <summary>Copied state of the monitored 5-by-5 economy cell.</summary>
+        </member>
+        <member name="T:APIShared.AiEconomyGridEvidence">
+            <summary>Read-only snapshot of the Canari coarse cell and its live tile layers.</summary>
+        </member>
+        <member name="P:APIShared.AiEconomyGridEvidence.Status">
+            <summary>ok only when all monitored tiles and the reference component were read.</summary>
+        </member>
+        <member name="P:APIShared.AiEconomyGridEvidence.State">
+            <summary>Native AIV state pointer; valid only during the current map.</summary>
+        </member>
+        <member name="P:APIShared.AiEconomyGridEvidence.Mode">
+            <summary>Native update mode, or minus one for a tick snapshot.</summary>
+        </member>
+        <member name="P:APIShared.AiEconomyGridEvidence.ReferenceComponent">
+            <summary>Reference path component stored by Vanilla's full coarse rebuild.</summary>
+        </member>
+        <member name="P:APIShared.AiEconomyGridEvidence.StoredForeignCount">
+            <summary>Stored foreign-component count in coarse cell 69,97.</summary>
+        </member>
+        <member name="P:APIShared.AiEconomyGridEvidence.TreeWeight">
+            <summary>Stored Vanilla tree weight; not a count of tree-flagged tiles.</summary>
+        </member>
+        <member name="P:APIShared.AiEconomyGridEvidence.CurrentDifferentCount">
+            <summary>Current tiles whose native component differs from the reference.</summary>
+        </member>
+        <member name="P:APIShared.AiEconomyGridEvidence.CurrentZeroCount">
+            <summary>Current tiles with native component zero.</summary>
+        </member>
+        <member name="P:APIShared.AiEconomyGridEvidence.TreeFlagCount">
+            <summary>Current tiles carrying the raw tree property bit.</summary>
+        </member>
+        <member name="P:APIShared.AiEconomyGridEvidence.AppleFarmFlagCount">
+            <summary>Current tiles carrying the apple-farm property bit.</summary>
+        </member>
+        <member name="P:APIShared.AiEconomyGridEvidence.Tiles">
+            <summary>Copies of all 25 monitored tile records.</summary>
+        </member>
         <member name="T:APIShared.AiBuildDiagnostic">
             <summary>Optional process-lifetime AI construction observer. Inert without registration.</summary>
         </member>
@@ -829,8 +886,17 @@
         <member name="M:APIShared.AiBuildDiagnostic.Publish(System.String,System.Int32,System.Int64,System.Int64,System.Int64,System.Int64)">
             <summary>Publishes a record only while the test observer is present.</summary>
         </member>
+        <member name="M:APIShared.AiBuildDiagnostic.PublishEconomyGridEvidence(System.String,System.UInt64,System.Int32)">
+            <summary>Diagnostic-only snapshot around Vanilla's existing 0x50720 call.</summary>
+        </member>
+        <member name="M:APIShared.AiBuildDiagnostic.CaptureEconomyGridEvidence(System.UInt64,System.Int32)">
+            <summary>Copies one monitored coarse cell; intended for the diagnostic tick publisher.</summary>
+        </member>
         <member name="M:APIShared.AiBuildDiagnostic.PublishNearbyPathEvidence(System.String,System.Int32,System.UInt64,System.Int32,System.Int32,System.Int32,System.Int32)">
             <summary>Copies coarse cells and tile layers around Vanilla's existing nearby search.</summary>
+        </member>
+        <member name="M:APIShared.AiBuildDiagnostic.CaptureTiles(System.Int32,System.Int32,System.Int32,System.Int32)">
+            <summary>Copies a bounded live tile rectangle for a diagnostic probe.</summary>
         </member>
         <member name="M:APIShared.AiBuildDiagnostic.BeginWoodAttempt(System.Int32)">
             <summary>Enters the synchronous Vanilla wood call; zero means diagnostics are absent.</summary>

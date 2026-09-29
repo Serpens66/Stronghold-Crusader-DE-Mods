@@ -1065,15 +1065,7 @@ namespace ExtendedData
                 string.IsNullOrWhiteSpace(config.path))
                 throw new InvalidDataException("Selected Lord " + lordName + " has no local configuration on the host.");
             string path = Path.Combine(config.path, config.name + ".modlord.json");
-            string modLordJson = null;
-            if (File.Exists(path))
-            {
-                byte[] bytes = File.ReadAllBytes(path);
-                if (bytes.Length > LordDataSnapshot.MaxSidecarBytes)
-                    throw new InvalidDataException(path + " exceeds 64 KiB.");
-                modLordJson = StrictUtf8.GetString(bytes).TrimStart('\uFEFF');
-                LordDataSnapshot.ValidateModLord(modLordJson);
-            }
+            string modLordJson = File.Exists(path) ? LordDataSnapshot.ReadModLordFile(path) : null;
             string fixesJson = fixes.Capture(lordName);
             LogFixesAssetSource(lordName, fixesJson);
             return new LordDataSlot

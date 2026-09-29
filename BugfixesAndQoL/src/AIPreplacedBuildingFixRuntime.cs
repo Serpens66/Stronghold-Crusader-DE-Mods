@@ -417,7 +417,23 @@ namespace BugfixesAndQoL
 
         private void EconomyGridUpdate(ulong state, int mode)
         {
-            economyGridUpdateHook.Original(state, mode);
+            // AIBuildDiagnoseTest BEGIN -- read-only evidence around the existing Vanilla call.
+            bool diagnose = APIShared.AiBuildDiagnostic.HasObserver;
+            if (diagnose)
+            {
+                try { APIShared.AiBuildDiagnostic.PublishEconomyGridEvidence("economy-grid-before", state, mode); }
+                catch (Exception ex) { Shared.DebugLogHelper.LogWarning(log, "AI grid pre-observation failed: " + ex.Message); }
+            }
+            try { economyGridUpdateHook.Original(state, mode); }
+            finally
+            {
+                if (diagnose)
+                {
+                    try { APIShared.AiBuildDiagnostic.PublishEconomyGridEvidence("economy-grid-after", state, mode); }
+                    catch (Exception ex) { Shared.DebugLogHelper.LogWarning(log, "AI grid post-observation failed: " + ex.Message); }
+                }
+            }
+            // AIBuildDiagnoseTest END
             if (!sessionEnabled || !IsExpectedAivState(state)) return;
             lastAivState = state;
             if (economyProfileResolved && economyMapRelevant && mode != 0)

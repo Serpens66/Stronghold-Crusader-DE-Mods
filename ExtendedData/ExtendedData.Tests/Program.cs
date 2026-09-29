@@ -1,6 +1,7 @@
 using ExtendedData.Core;
 using ExtendedData;
 using Shared;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
@@ -70,6 +71,9 @@ var tests = new (string Name, Action Run)[]
     ("Custom Lord mod-data API supports paths and configs", TestLordModDataApi),
     ("selected Lord data uses host snapshots without local files", TestSelectedLordDataSnapshot),
     ("Lord data rejects altered and oversized snapshots", TestInvalidLordDataSnapshot),
+    ("Lord mod data validates local limits and UTF-8", TestLordModDataLimits),
+    ("Lord snapshot version 2 holds six mods across eight slots", TestLargeLordDataSnapshot),
+    ("Lord snapshot version 1 remains readable", TestLegacyLordDataSnapshot),
     ("Fixes preference snapshots retain every current and future property", TestFixesPreferenceCodec),
     ("Fixes preference snapshots reject incompatible schemas and lossy values", TestFixesPreferenceIncompatibility),
     ("Lord sync diagnostics identify state without logging JSON values", TestLordSyncDiagnostics),
@@ -366,6 +370,160 @@ static void TestInvalidLordDataSnapshot()
         new LordDataSlot { PlayerId = 2, LordName = "Lord", ConfigName = "a", ConfigChecksum = "1",
             FixesJson = "{}" },
     }), "Fixes preferences without Fixes were accepted");
+}
+
+static void TestLordModDataLimits()
+{
+    string root = Path.Combine(Path.GetTempPath(), "ExtendedDataModLordLimits", Guid.NewGuid().ToString("N"));
+    Directory.CreateDirectory(root);
+    try
+    {
+        string lordPath = Path.Combine(root, "example.lordjson");
+        string sidecar = Path.Combine(root, "example.modlord.json");
+        string valid = "{\"first.mod\":{\"value\":\"" +
+            new string('x', LordDataSnapshot.MaxNamespaceBytes - 12) + "\"}}";
+        Assert(Encoding.UTF8.GetByteCount("{\"value\":\"" +
+            new string('x', LordDataSnapshot.MaxNamespaceBytes - 12) + "\"}") ==
+            LordDataSnapshot.MaxNamespaceBytes,
+            "the 16-KiB boundary fixture has the wrong size");
+        File.WriteAllText(sidecar, valid, new UTF8Encoding(false));
+        Assert(ExtendedDataModDataApi.ReadLordNamespace(lordPath, "first.mod").Success,
+            "a namespace below 16 KiB was rejected by the local API");
+        Assert(LordDataSnapshot.ReadModLordFile(sidecar) == valid,
+            "host and Trail readers did not preserve the validated sidecar");
+
+        string oversizedNamespace = "{\"first.mod\":{\"value\":\"" +
+            new string('x', LordDataSnapshot.MaxNamespaceBytes) + "\"}}";
+        File.WriteAllText(sidecar, oversizedNamespace, new UTF8Encoding(false));
+        Assert(ExtendedDataModDataApi.ReadLordNamespace(lordPath, "first.mod").Status ==
+            ExtendedDataModDataReadStatus.InvalidDocument,
+            "the local API accepted a namespace over 16 KiB");
+        AssertThrows<InvalidDataException>(() => LordDataSnapshot.ReadModLordFile(sidecar),
+            "host and Trail readers accepted a namespace over 16 KiB");
+
+        File.WriteAllText(sidecar, "{}" + new string(' ', LordDataSnapshot.MaxSidecarBytes - 2),
+            new UTF8Encoding(false));
+        Assert(new FileInfo(sidecar).Length == LordDataSnapshot.MaxSidecarBytes &&
+            ExtendedDataModDataApi.ReadLordNamespace(lordPath, "first.mod").Status ==
+                ExtendedDataModDataReadStatus.NamespaceNotFound,
+            "a valid file at the 64-KiB boundary was rejected");
+        File.WriteAllText(sidecar, "{}" + new string(' ', LordDataSnapshot.MaxSidecarBytes - 1),
+            new UTF8Encoding(false));
+        Assert(ExtendedDataModDataApi.ReadLordNamespace(lordPath, "first.mod").Status ==
+            ExtendedDataModDataReadStatus.InvalidDocument,
+            "the local API accepted a file over 64 KiB");
+        AssertThrows<InvalidDataException>(() => LordDataSnapshot.ReadModLordFile(sidecar),
+            "host and Trail readers accepted a file over 64 KiB");
+
+        File.WriteAllBytes(sidecar, new byte[] { 0xFF });
+        Assert(ExtendedDataModDataApi.ReadLordNamespace(lordPath, "first.mod").Status ==
+            ExtendedDataModDataReadStatus.InvalidDocument,
+            "the local API accepted invalid UTF-8");
+        AssertThrows<DecoderFallbackException>(() => LordDataSnapshot.ReadModLordFile(sidecar),
+            "host and Trail readers accepted invalid UTF-8");
+    }
+    finally { Directory.Delete(root, true); }
+}
+
+static void TestLargeLordDataSnapshot()
+{
+    var namespaces = new Dictionary<string, object>();
+    for (int mod = 0; mod < 6; mod++)
+    {
+        var values = new Dictionary<string, object>();
+        for (int setting = 0; setting < 100; setting++)
+            values["SettingName" + setting.ToString("D9")] = new string('v', 15);
+        namespaces["com.example.mod" + mod] = values;
+    }
+    string sidecar = Shared.DependencyFreeJson.Serialize(namespaces).TrimEnd('\r', '\n');
+    LordDataSnapshot.ValidateModLord(sidecar);
+    LordDataSlot[] slots = Enumerable.Range(1, 8).Select(playerId => new LordDataSlot
+    {
+        PlayerId = playerId,
+        LordName = "Example Lord " + playerId,
+        ConfigName = "example",
+        ConfigChecksum = "1234567890",
+        ModLordJson = sidecar,
+    }).ToArray();
+    LordDataSnapshot created = LordDataSnapshot.Create("six-mod-lobby", false, slots);
+    Assert(Encoding.UTF8.GetByteCount(created.WireJson) <= LordDataSnapshot.MaxSnapshotBytes,
+        "six mods with 100 settings across eight Lords exceeded 256 KiB");
+    var envelope = (Dictionary<string, object>)Shared.DependencyFreeJson.Parse(created.WireJson);
+    var payload = (Dictionary<string, object>)envelope["payload"];
+    var firstSlot = (Dictionary<string, object>)((List<object>)payload["slots"])[0];
+    Assert(payload["version"] is int version && version == 2 &&
+        firstSlot["modLordData"] is Dictionary<string, object>,
+        "version 2 still embeds escaped mod-data JSON");
+    LordDataSnapshot restored = LordDataSnapshot.Parse(created.WireJson);
+    ExtendedDataModDataApi.SetNetworkSnapshot(restored, true);
+    try
+    {
+        for (int playerId = 1; playerId <= 8; playerId++)
+        {
+            ExtendedDataModDataReadResult result =
+                ExtendedDataModDataApi.ReadSelectedLordNamespace(playerId, "com.example.mod5");
+            Assert(result.Success && result.Data.Count == 100 &&
+                (string)result.Data["SettingName000000099"] == new string('v', 15),
+                "a selected player lost its mod namespace in the version-2 roundtrip");
+        }
+    }
+    finally { ExtendedDataModDataApi.SetNetworkSnapshot(null, false); }
+
+    string largeNamespace = "{\"blob\":\"" + new string('x', 14000) + "\"}";
+    var largeDocument = new Dictionary<string, object>();
+    for (int mod = 0; mod < 4; mod++)
+        largeDocument["large.mod" + mod] = Shared.DependencyFreeJson.Parse(largeNamespace);
+    string largeSidecar = Shared.DependencyFreeJson.Serialize(largeDocument).TrimEnd('\r', '\n');
+    LordDataSnapshot.ValidateModLord(largeSidecar);
+    LordDataSlot[] tooLarge = slots.Select(slot => new LordDataSlot
+    {
+        PlayerId = slot.PlayerId, LordName = slot.LordName, ConfigName = slot.ConfigName,
+        ConfigChecksum = slot.ConfigChecksum, ModLordJson = largeSidecar,
+    }).ToArray();
+    AssertThrows<InvalidDataException>(() => LordDataSnapshot.Create("too-large", false, tooLarge),
+        "a snapshot over 256 KiB was published");
+    AssertThrows<InvalidDataException>(() => LordDataSnapshot.CreateTrail("too-large", false, tooLarge),
+        "a Trail snapshot over 256 KiB was accepted");
+    string mission = Path.Combine(Path.GetTempPath(), "ExtendedDataLargeLord-" +
+        Guid.NewGuid().ToString("N") + ".trail");
+    File.WriteAllText(mission, "mission", new UTF8Encoding(false));
+    try
+    {
+        AssertThrows<InvalidDataException>(() => TrailLordRequirements.Create(mission,
+            tooLarge.Select(slot => new TrailLordSlot
+            {
+                PlayerId = slot.PlayerId, LordName = slot.LordName,
+                ConfigName = slot.ConfigName, ConfigChecksum = slot.ConfigChecksum,
+                AivChecksums = Array.Empty<string>(), ModLordJson = slot.ModLordJson,
+            })), "Trail export accepted Lord values that cannot fit in a snapshot");
+    }
+    finally { File.Delete(mission); }
+}
+
+static void TestLegacyLordDataSnapshot()
+{
+    string payload = Shared.DependencyFreeJson.Serialize(new Dictionary<string, object>
+    {
+        ["version"] = 1,
+        ["session"] = "legacy-lobby",
+        ["fixesInstalled"] = true,
+        ["slots"] = new List<object> { new Dictionary<string, object>
+        {
+            ["playerId"] = 2, ["lordName"] = "Legacy Lord", ["configName"] = "legacy",
+            ["configChecksum"] = "123", ["modLordJson"] = null,
+            ["fixesJson"] = "{\"EnableHopsFarmFix\":true}",
+        } },
+    });
+    string digest;
+    using (SHA256 sha = SHA256.Create())
+        digest = BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(payload))).Replace("-", "");
+    string wire = Shared.DependencyFreeJson.Serialize(new Dictionary<string, object>
+    {
+        ["digest"] = digest, ["payload"] = payload,
+    });
+    LordDataSnapshot restored = LordDataSnapshot.Parse(wire);
+    Assert(restored.GetSlot(2).FixesJson == "{\"EnableHopsFarmFix\":true}",
+        "a version-1 save lost its Fixes preferences");
 }
 
 static void TestFixesPreferenceCodec()

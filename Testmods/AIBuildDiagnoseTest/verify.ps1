@@ -43,6 +43,13 @@ foreach ($edge in @(@('51587','58020'), @('515cd','58950'),
         throw "Woodcutter call edge differs: $($edge[0]) -> $($edge[1])"
     }
 }
+$gridEdges = (& $rizin -q -e scr.color=false -c 's 0x1800575a4; pd 1; s 0x180071a06; pd 1; s 0x180084d1e; pd 1; s 0x180096d49; pd 1; q' $native) -join "`n"
+foreach ($edge in @(@('575a4','jmp'), @('71a06','call'),
+    @('84d1e','call'), @('96d49','call'))) {
+    if ($gridEdges -notmatch ("0x1800" + $edge[0] + '\s+' + $edge[1] + '\s+0x180050720')) {
+        throw "Economy-grid update edge differs: $($edge[0]) -> 50720"
+    }
+}
 $textFiles = @($sourceFiles) + @(
     (Join-Path $project 'Properties\AssemblyInfo.cs'),
     (Join-Path $project 'info.json'),
@@ -59,6 +66,11 @@ if ($runtimeText -match '\b(OnDestroy|OnDisable|OnApplicationQuit|OnApplicationP
 }
 if ($runtimeText -match 'CodePatch\.Write|Marshal\.Write|VirtualProtect|NativeDetour|X64InlineHook|HookTransaction|\.Apply\s*\(|\.Undo\s*\(|\.Enable\s*\(|\.Disable\s*\(') {
     throw 'Diagnostic mod must not own executable-memory mutations.'
+}
+if ($runtimeText -notmatch 'MissionEvents\.Loading\.Subscribe\(OnMapLoading\)' -or
+    $runtimeText -notmatch 'AiBuildDiagnostic\.CaptureEconomyGridEvidence\(gridState, -1\)' -or
+    $runtimeText -notmatch 'probeSession = active && session\.IsLoadedSave') {
+    throw 'Grid lifecycle or copy-only placement probe guard differs.'
 }
 foreach ($path in $textFiles) {
     $fullPath = if ($path -is [IO.FileInfo]) { $path.FullName } else { [string]$path }
