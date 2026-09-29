@@ -73,6 +73,24 @@ for ($i = 0; $i -lt $expectedOrchard.Count; $i++) {
         throw 'Native apple-tree offset table differs from the diagnostic.'
     }
 }
+$woodDirectionRva = 0x2d2e50
+$woodDirectionOffset = -1
+for ($i = 0; $i -lt $sectionCount; $i++) {
+    $section = $pe + 24 + $optionalSize + $i * 40
+    $size = [BitConverter]::ToInt32($nativeBytes, $section + 8)
+    $rva = [BitConverter]::ToInt32($nativeBytes, $section + 12)
+    if ($rva -le $woodDirectionRva -and $woodDirectionRva + 64 -le $rva + $size) {
+        $woodDirectionOffset = [BitConverter]::ToInt32($nativeBytes, $section + 20) + $woodDirectionRva - $rva
+        break
+    }
+}
+if ($woodDirectionOffset -lt 0) { throw 'Native wood-search direction table unavailable.' }
+$expectedWoodDirections = @(0,-1,1,-1,1,0,1,1,0,1,-1,1,-1,0,-1,-1)
+for ($i = 0; $i -lt $expectedWoodDirections.Count; $i++) {
+    if ([BitConverter]::ToInt32($nativeBytes, $woodDirectionOffset + $i * 4) -ne $expectedWoodDirections[$i]) {
+        throw 'Native wood-search direction order differs from the read-only replay.'
+    }
+}
 $rizin = Join-Path $workspace '.tools\Cutter-v2.4.1-Windows-x86_64\Cutter-v2.4.1-Windows-x86_64\rizin.exe'
 $routeEntry = (& $rizin -q -e scr.color=false -c 's 0x1800c3bf0; p8 7; q' $native) -join ''
 if ($routeEntry.Trim().ToLowerInvariant() -ne '4883ec384963c0') {
@@ -116,10 +134,21 @@ if ($runtimeText -match 'CodePatch\.Write|Marshal\.Write|VirtualProtect|NativeDe
 if ($runtimeText -notmatch 'MissionEvents\.Loading\.Subscribe\(OnMapLoading\)' -or
     $runtimeText -notmatch 'AiBuildDiagnostic\.CaptureEconomyGridEvidence\(gridState, -1\)' -or
     $runtimeText -notmatch 'probeSession = active && session\.IsLoadedSave' -or
+    $runtimeText -notmatch 'placementProbeEnabled &&' -or
+    $runtimeText -notmatch 'Config\.Bind\("PlacementProbe", "Enabled", false' -or
     $runtimeText -notmatch 'OnVegetationCreate\.Observable\.Subscribe\(OnVegetationCreate\)' -or
     $runtimeText -notmatch 'OrchardObservationTicks = 700' -or
     $runtimeText -notmatch 'building-spawn-pre') {
     throw 'Grid lifecycle or copy-only placement probe guard differs.'
+}
+if ($runtimeText -notmatch 'WoodSearchDx = \{ 0, 1, 0, -1 \}' -or
+    $runtimeText -notmatch 'WoodSearchDy = \{ -1, 0, 1, 0 \}' -or
+    $runtimeText -notmatch 'CaptureWallMap\("session-start"\)' -or
+    $runtimeText -notmatch 'nextWallMapTick = tick \+ 50' -or
+    $runtimeText -notmatch 'DiagnosticBudgetBytes = 64 \* 1024 \* 1024' -or
+    $runtimeText -notmatch 'if \(reproduced\)' -or
+    $runtimeText -notmatch 'CaptureWoodSearchShadow\(') {
+    throw 'Wood shadow, wall-map scan or diagnostic budget contract differs.'
 }
 $bugfixRuntime = [IO.File]::ReadAllText((Join-Path $workspace 'BugfixesAndQoL\src\AIPreplacedBuildingFixRuntime.cs'))
 $publisher = [IO.File]::ReadAllText((Join-Path $workspace 'APIShared\src\AiBuildDiagnostic.cs'))

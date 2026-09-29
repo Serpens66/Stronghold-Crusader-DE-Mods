@@ -143,15 +143,15 @@ namespace AICoarsePathComponentFixTest
 
         private void ArmIsolationForSave(APIShared.MissionContext context)
         {
-            if (isolationMode < 1 || isolationMode > 4 || context == null || !context.IsSave ||
+            if (isolationMode < 1 || isolationMode > 5 || context == null || !context.IsSave ||
                 !string.Equals(Path.GetFileName(context.FilePath ?? ""), IsolationSaveName,
                     StringComparison.OrdinalIgnoreCase)) return;
             try
             {
-                InstallIsolationHook();
+                if (isolationMode <= 4) InstallIsolationHook();
                 isolationArmedForMap = true;
                 Shared.DebugLogHelper.LogInfo(log,
-                    $"AI_COARSE_PCL_ISOLATION_ARMED: save={IsolationSaveName}; mode={isolationMode}; hookInstalled=True.");
+                    $"AI_COARSE_PCL_ISOLATION_ARMED: save={IsolationSaveName}; mode={isolationMode}; hookInstalled={transaction != null}.");
             }
             catch (Exception ex)
             {
@@ -268,7 +268,7 @@ namespace AICoarsePathComponentFixTest
             mapActive = true;
             lastPathGeneration = ReadPathGeneration();
             generationKnown = true;
-            initialRefreshPending = isolationMode == 5;
+            initialRefreshPending = isolationMode == 5 && isolationArmedForMap;
             Shared.DebugLogHelper.LogInfo(log,
                 $"AI_COARSE_PCL_SESSION: session={sessionId}; start={args.Context.StartKind}; " +
                 $"mode={args.Context.Mode.Kind}; auditEnabled={enabledForMap}; available={!unavailable}; " +
@@ -305,7 +305,8 @@ namespace AICoarsePathComponentFixTest
                     $"AI_COARSE_PCL_GENERATION: session={sessionId}; tick={tick}; previous={previous}; current={generation}; mode={isolationMode}.");
                 APIShared.AiBuildDiagnostic.Publish("coarse-generation", 0, previous, generation, tick, sessionId);
             }
-            if (isolationMode == 5 && (changed || initialRefreshPending || deferredRefresh))
+            if (isolationMode == 5 && isolationArmedForMap &&
+                (changed || initialRefreshPending || deferredRefresh))
             {
                 string reason = initialRefreshPending ? "first-tick" :
                     deferredRefresh ? "deferred-tick" : "tick-rebuild";

@@ -66,6 +66,8 @@ if ($source -notmatch 'DisplacedLength = 8' -or
     $source -notmatch 'context\.IsSave' -or
     $source -notmatch 'if \(!isolationArmedForMap\) return rebuilt;' -or
     $source -notmatch 'if \(isolationMode == 5 &&' -or
+    $source -notmatch 'isolationMode == 5 && isolationArmedForMap' -or
+    $source -notmatch 'if \(isolationMode <= 4\) InstallIsolationHook\(\)' -or
     $source -notmatch 'ReadPathGeneration\(' -or
     $plugin -notmatch 'GameTimeManagerAPI\.Instance\.OnTick \+= OnTick' -or
     $plugin -notmatch '"Mode", 0' -or

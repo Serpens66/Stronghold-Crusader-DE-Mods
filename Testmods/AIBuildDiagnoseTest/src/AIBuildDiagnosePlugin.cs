@@ -1,6 +1,7 @@
 using APIShared;
 using BepInEx;
 using BepInEx.Bootstrap;
+using BepInEx.Configuration;
 using BepInEx.Logging;
 using SHCDESE.API;
 using SHCDESE.API.LowLevel;
@@ -22,12 +23,17 @@ namespace AIBuildDiagnoseTest
         private static AIBuildDiagnoseRuntime runtime;
         private static IDisposable sessionSubscription;
         private static bool registered;
+        private static bool placementProbeEnabled;
 
         private void Awake()
         {
             log = Logger;
+            placementProbeEnabled = Config.Bind("PlacementProbe", "Enabled", false,
+                "Explicitly run the one-time placement probe on test_canari_nowoodcutters_probe.sav. " +
+                "Keep false for wall-isolation runs.").Value;
             Shared.DebugLogHelper.LogInfo(log, Name + " " + Version +
-                " loaded; readOnly except one placement probe in test_canari_nowoodcutters_probe.sav.");
+                $" loaded; placementProbeEnabled={placementProbeEnabled}; " +
+                "probe limited to test_canari_nowoodcutters_probe.sav.");
             if (registered) return;
             CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;
             registered = true;
@@ -39,7 +45,7 @@ namespace AIBuildDiagnoseTest
             try
             {
                 var candidate = new AIBuildDiagnoseRuntime(log,
-                    Chainloader.PluginInfos.ContainsKey("fixes"));
+                    Chainloader.PluginInfos.ContainsKey("fixes"), placementProbeEnabled);
                 // Publisher subscriptions and static fields survive SHCDE startup cleanup.
                 IDisposable candidateSession = Shared.GameplaySessionLifecycle.SubscribeStarted(
                     log, candidate.OnSessionStarted, candidate.OnSessionEnded);

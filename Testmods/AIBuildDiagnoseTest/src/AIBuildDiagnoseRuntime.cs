@@ -34,6 +34,7 @@ namespace AIBuildDiagnoseTest
         private static readonly int[] OrchardDy = { 1, 1, 5, 5, 5, 9, 9, 9 };
         private readonly ManualLogSource log;
         private readonly bool fixesLoaded;
+        private readonly bool placementProbeEnabled;
         private readonly IDisposable buildingSubscription;
         private readonly IDisposable vegetationSubscription;
         private readonly IDisposable buildStructureSubscription;
@@ -106,6 +107,17 @@ namespace AIBuildDiagnoseTest
         private int wallHistoryDropped;
         private readonly ActiveAivStep[] activeAivSteps = new ActiveAivStep[9];
         private readonly int[] materializedWalls = new int[9];
+        private const int DiagnosticBudgetBytes = 64 * 1024 * 1024;
+        private readonly Queue<string> deferredLog = new Queue<string>();
+        private int deferredBytes, writtenBytes, droppedLines;
+        private bool budgetOverflowLogged;
+        private uint[] wallMap;
+        private int nextWallMapTick;
+        private bool firstWallChangeLogged;
+        private bool firstWoodShadowDone;
+        private int firstWoodShadowPlayer;
+        private int firstWoodShadowActualX, firstWoodShadowActualY;
+        private readonly HashSet<string> cellWatchSignatures = new HashSet<string>();
         private int wallEventsLogged;
         private int wallEventsSuppressed;
         private long timelineSequence;
@@ -122,10 +134,12 @@ namespace AIBuildDiagnoseTest
         private long probeAttemptId;
         private long probeSpawnId;
 
-        internal AIBuildDiagnoseRuntime(ManualLogSource logger, bool hasFixes)
+        internal AIBuildDiagnoseRuntime(ManualLogSource logger, bool hasFixes,
+            bool enablePlacementProbe)
         {
             log = logger ?? throw new ArgumentNullException(nameof(logger));
             fixesLoaded = hasFixes;
+            placementProbeEnabled = enablePlacementProbe;
             buildingSubscription = BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(OnBuildingSpawn);
             vegetationSubscription = VegetationR3EventHooks.OnVegetationCreate.Observable.Subscribe(OnVegetationCreate);
             buildStructureSubscription = BuildingR3EventHooks.OnBuildStructure.Observable.Subscribe(OnBuildStructure);
@@ -143,6 +157,21 @@ namespace AIBuildDiagnoseTest
         private void OnMapLoading(MissionLifecycleNotification notification)
         {
             if (notification.Phase != MissionInitializationPhase.BeforeLoad) return;
+            if (deferredLog.Count != 0)
+            {
+                bool wallPreserved = false, shadowPreserved = false;
+                foreach (string line in deferredLog)
+                {
+                    if (!wallPreserved && (line.StartsWith("AI_BUILD_WALL_CHANGE:", StringComparison.Ordinal) ||
+                        line.StartsWith("AI_BUILD_WALL_MAP_CHANGE:", StringComparison.Ordinal)))
+                    { Log(line); wallPreserved = true; }
+                    else if (!shadowPreserved && line.StartsWith("AI_BUILD_WOOD_SHADOW_CHECK:", StringComparison.Ordinal))
+                    { Log(line); shadowPreserved = true; }
+                    if (wallPreserved && shadowPreserved) break;
+                }
+                Log($"AI_BUILD_DIAGNOSTIC_MAP_SWITCH_PENDING: session={sessionId}, " +
+                    $"unflushedLines={deferredLog.Count}; MissionEvents.Ended normally flushes before this point.");
+            }
             active = false;
             gridState = 0;
             gridSequence = 0;
@@ -180,6 +209,7 @@ namespace AIBuildDiagnoseTest
             coarseOriginLogged.Clear();
             active = !session.IsEditor && !session.IsReplay;
             probeSession = active && session.IsLoadedSave &&
+                placementProbeEnabled &&
                 string.Equals(Path.GetFileName(session.SaveFileName ?? ""), ProbeSaveName,
                     StringComparison.OrdinalIgnoreCase);
             probePending = probeDone = probeRunning = false;
@@ -205,6 +235,15 @@ namespace AIBuildDiagnoseTest
             observedWallTargets.Clear();
             wallHistoryDropped = 0;
             wallEventsLogged = wallEventsSuppressed = 0;
+            deferredLog.Clear();
+            deferredBytes = writtenBytes = droppedLines = 0;
+            budgetOverflowLogged = false;
+            wallMap = null;
+            nextWallMapTick = 0;
+            firstWallChangeLogged = false;
+            firstWoodShadowDone = false;
+            firstWoodShadowPlayer = 0;
+            cellWatchSignatures.Clear();
             timelineSequence = 0;
             Array.Clear(activeAivSteps, 0, activeAivSteps.Length);
             Array.Clear(materializedWalls, 0, materializedWalls.Length);
@@ -259,11 +298,14 @@ namespace AIBuildDiagnoseTest
                 CaptureInitialAppleFarms();
                 CaptureInitialHuts();
                 LogPlayers("start");
+                CaptureWallMap("session-start");
+                SnapshotWoodCells("session-start");
             }
         }
 
         internal void OnSessionEnded()
         {
+            FlushDeferredLog();
             if (active) LogSummary("end");
             if (active)
                 Log($"AI_BUILD_APPLEFARM_OBSERVER_SUMMARY: session={sessionId}, tracked={appleFarms.Count}, " +
@@ -276,6 +318,8 @@ namespace AIBuildDiagnoseTest
             probeSession = probePending = probeRunning = false;
             gridState = 0;
             pendingAppleFarmPre = null;
+            Log($"AI_BUILD_DIAGNOSTIC_BUDGET: session={sessionId}, writtenBytes={writtenBytes}, " +
+                $"queuedBytes={deferredBytes}, droppedLines={droppedLines}, limitBytes={DiagnosticBudgetBytes}.");
         }
 
         internal void OnTick(int tick)
@@ -283,6 +327,12 @@ namespace AIBuildDiagnoseTest
             if (!active) return;
             lastTick = tick;
             observedTickCount++;
+            FlushDeferredLog();
+            if (tick >= nextWallMapTick)
+            {
+                CaptureWallMap("periodic");
+                nextWallMapTick = tick + 50;
+            }
             foreach (AppleFarmWatch farm in appleFarms)
             {
                 if (observedTickCount <= farm.OrchardWatchUntilTick)
@@ -316,6 +366,7 @@ namespace AIBuildDiagnoseTest
                 firstTick = true;
                 Log($"AI_BUILD_POST_STARTUP_TICK: session={sessionId}, tick={tick}.");
                 LogPlayers("first-tick");
+                SnapshotWoodCells("first-tick");
             }
             if (tick >= nextSummaryTick)
             {
@@ -331,6 +382,7 @@ namespace AIBuildDiagnoseTest
                 long sequence = ++timelineSequence;
                 Log($"AI_BUILD_TIMELINE: session={sessionId}, sequence={sequence}, tick={record.C}, " +
                     $"event=pcl-generation, previous={record.A}, current={record.B}, sourceSession={record.D}.");
+                if (active) SnapshotWoodCells("pcl-generation-" + record.B);
                 return;
             }
             if (record.Stage == "coarse-audit-begin")
@@ -374,6 +426,9 @@ namespace AIBuildDiagnoseTest
             if (record.EconomyGridEvidence != null)
             {
                 ObserveGrid(record.Stage, record.EconomyGridEvidence);
+                if (active && (record.Stage == "economy-grid-before" ||
+                    record.Stage == "economy-grid-after"))
+                    SnapshotWoodCells(record.Stage);
                 if (active && record.Stage == "economy-grid-after")
                     ObserveAppleFarmsAfterGridUpdate(record.EconomyGridEvidence.Mode);
                 return;
@@ -431,7 +486,14 @@ namespace AIBuildDiagnoseTest
                 activeFarmSearchType[record.PlayerId] == (int)eStructs.STRUCT_APPLEFARM)
                 lastFarmResult[record.PlayerId] = (int)record.A;
             if (record.Stage == "wood-search-after")
+            {
                 LogFirstSearchOrigin(record.PlayerId, "wood", "post-search-shared-origin");
+                SnapshotWoodCells("wood-search-after-player-" + record.PlayerId);
+                if (!firstWoodShadowDone &&
+                    ((loadingSaveName ?? "").IndexOf("test_canari_nowoodcutters",
+                        StringComparison.OrdinalIgnoreCase) < 0 || record.PlayerId == 6))
+                    CaptureWoodSearchShadow(record.PlayerId, (int)record.B, (int)record.C);
+            }
             if (record.Stage == "farm-search-generation" &&
                 activeFarmSearchType[record.PlayerId] == (int)eStructs.STRUCT_APPLEFARM &&
                 record.A != record.B)
@@ -444,6 +506,7 @@ namespace AIBuildDiagnoseTest
             {
                 case "scheduler-before": schedulerCalls[record.PlayerId]++; break;
                 case "wood-build-before":
+                    SnapshotWoodCells("wood-build-before-player-" + record.PlayerId);
                     if (woodBuildCalls[record.PlayerId]++ == 0)
                         LogResources(record.PlayerId, "first-wood-build");
                     break;
@@ -477,6 +540,7 @@ namespace AIBuildDiagnoseTest
                     $"attempt={record.AttemptId}, stage={record.Stage}, {Describe(record)}, repeat={count + 1}.");
             if (record.Stage == "wood-build-after" && attempt != null)
             {
+                SnapshotWoodCells("wood-build-after-player-" + record.PlayerId);
                 string outcome = Classify(attempt);
                 string routeCause = attempt.RouteSeen && attempt.RouteResult == 0
                     ? AnalyzeRoute(attempt.RouteEvidence) :
@@ -530,6 +594,8 @@ namespace AIBuildDiagnoseTest
                 int y = Marshal.ReadInt32(new IntPtr(checked(address + 0x1A083C)));
                 if ((uint)x >= 160 || (uint)y >= 160)
                     throw new InvalidOperationException("search origin outside coarse grid");
+                if (kind == "wood") { woodOriginX[playerId] = x; woodOriginY[playerId] = y; }
+                else { farmOriginX[playerId] = x; farmOriginY[playerId] = y; }
                 LogCoarseOrigin(playerId, kind, x, y, phase);
             }
             catch (Exception ex)
@@ -885,7 +951,8 @@ namespace AIBuildDiagnoseTest
                     wall.AivMapper = step.Mapper;
                     wall.AivStateBefore = step.StateBefore;
                     wall.PlannedTileCount = step.PlannedTiles.Length;
-                    wall.PlannedTile = Array.IndexOf(step.PlannedTiles, wall.TileId) >= 0;
+                    wall.PlannedTile = wall.TileId > 0 &&
+                        Array.IndexOf(step.PlannedTiles, wall.TileId) >= 0;
                 }
                 string key = args.PlayerId + ":" + args.TileX + ":" + args.TileY;
                 if (args.Phase == EventHookPhase.Pre) pendingWalls[key] = wall;
@@ -896,17 +963,33 @@ namespace AIBuildDiagnoseTest
                         wall.Materialized = before.Status == "ok" && wall.Status == "ok" &&
                             (before.PropertyFlags & 0x100u) == 0 &&
                             (wall.PropertyFlags & 0x100u) != 0;
+                        wall.Change = DescribeWallChange(before, wall);
+                        wall.Before = before;
                         pendingWalls.Remove(key);
                     }
+                    else wall.Change = "unpaired-post";
                 }
                 if (wallHistory.Count == 1024) { wallHistory.RemoveAt(0); wallHistoryDropped++; }
                 wallHistory.Add(wall);
                 if (args.Phase == EventHookPhase.Post)
                 {
                     if (wall.Materialized) materializedWalls[args.PlayerId]++;
+                    bool genuineWallChange = wall.Before != null &&
+                        wall.Before.Status == "ok" && wall.Status == "ok" &&
+                        wall.Change != "unchanged";
+                    if (genuineWallChange)
+                        QueueDiagnostic($"AI_BUILD_WALL_CHANGE: session={sessionId}, tick={lastTick}, " +
+                            $"sequence={wall.Sequence}, player={wall.PlayerId}, tileId={wall.TileId}, " +
+                            $"tile=({wall.X},{wall.Y}), change={wall.Change}, " +
+                            $"before={DescribeWallRaw(wall.Before)}, after={DescribeWallRaw(wall)}, " +
+                            $"aivFrame={wall.AivFrame}, aivMapper={wall.AivMapper}, " +
+                            $"aivStateBefore={wall.AivStateBefore}, plannedTile={wall.PlannedTile}.",
+                            !firstWallChangeLogged);
+                    if (genuineWallChange)
+                        firstWallChangeLogged = true;
                     if (wallEventsLogged < 4096)
                     {
-                        LogWall(wall, "all-ai-wall-post", 0);
+                        QueueDiagnostic(FormatWall(wall, "all-ai-wall-post", 0));
                         wallEventsLogged++;
                     }
                     else wallEventsSuppressed++;
@@ -937,14 +1020,16 @@ namespace AIBuildDiagnoseTest
             if (!tiles.IsTileInsideMapBounds(wall.X, wall.Y)) return wall;
             int tileId = tiles.GetTileId(wall.X, wall.Y);
             Span<byte> owners = tiles.GetWallOwnerLayer();
-            if ((uint)tileId >= (uint)owners.Length)
-            { wall.Status = "wall-layer-out-of-range"; return wall; }
+            if (tileId <= 0 || (uint)tileId >= (uint)owners.Length)
+            { wall.Status = tileId == 0 ? "invalid-tile-id-zero" : "wall-layer-out-of-range"; return wall; }
             wall.TileId = tileId;
             wall.PropertyFlags = (uint)tiles.GetTilePropertyFlag(tileId);
             wall.TileType = (int)tiles.GetTileType(tileId);
             wall.Height = tiles.GetTileHeight(tileId);
             wall.BuildingId = tiles.GetTileBuildingId(tileId);
             wall.WallOwner = owners[tileId];
+            Span<ushort> components = GamePathingManagerAPI.Instance.GetPathComponentGrid();
+            wall.PathComponent = (uint)tileId < (uint)components.Length ? components[tileId] : -1;
             wall.Status = "ok";
             return wall;
         }
@@ -964,8 +1049,8 @@ namespace AIBuildDiagnoseTest
                 $"dropped={wallHistoryDropped}; dropped history cannot prove absence of earlier walls.");
         }
 
-        private void LogWall(WallObservation wall, string relation, long attemptId) =>
-            Log($"AI_BUILD_WALL_EVENT: session={sessionId}, tick={wall.Tick}, " +
+        private string FormatWall(WallObservation wall, string relation, long attemptId) =>
+            $"AI_BUILD_WALL_EVENT: session={sessionId}, tick={wall.Tick}, " +
                 $"relation={relation}, attempt={attemptId}, player={wall.PlayerId}, " +
                 $"phase={wall.Phase}, mapper={wall.Mapper}, tile=({wall.X},{wall.Y}), " +
                 $"tileId={wall.TileId}, rawFlags=0x{wall.PropertyFlags:X8}, " +
@@ -973,20 +1058,44 @@ namespace AIBuildDiagnoseTest
                 $"wallPresent={((wall.PropertyFlags & 0x100u) != 0)}, " +
                 $"materializedFromPre={wall.Materialized}, buildingId={wall.BuildingId}, " +
                 $"tileType={wall.TileType}, height={wall.Height}, " +
-                $"wallOwner={wall.WallOwner}, status={wall.Status}, sequence={wall.Sequence}, " +
+                $"wallOwner={wall.WallOwner}, pathComponent={wall.PathComponent}, " +
+                $"change={wall.Change ?? "unobserved"}, status={wall.Status}, sequence={wall.Sequence}, " +
                 $"aivFrame={wall.AivFrame}, aivMapper={wall.AivMapper}, " +
                 $"aivStateBefore={wall.AivStateBefore}, plannedTile={wall.PlannedTile}, " +
-                $"plannedTileCount={wall.PlannedTileCount}.");
+                $"plannedTileCount={wall.PlannedTileCount}.";
+
+        private void LogWall(WallObservation wall, string relation, long attemptId) =>
+            Log(FormatWall(wall, relation, attemptId));
+
+        private static string DescribeWallRaw(WallObservation wall) => wall == null ? "missing" :
+            $"status:{wall.Status}/flags:0x{wall.PropertyFlags:X8}/owner:{wall.WallOwner}/" +
+            $"type:{wall.TileType}/height:{wall.Height}/building:{wall.BuildingId}/pcl:{wall.PathComponent}";
+
+        private static string DescribeWallChange(WallObservation before, WallObservation after)
+        {
+            if (before.Status != "ok" || after.Status != "ok") return "invalid-tile-or-map";
+            bool oldWall = (before.PropertyFlags & 0x100u) != 0;
+            bool newWall = (after.PropertyFlags & 0x100u) != 0;
+            if (!oldWall && newWall) return "new-wall";
+            if (oldWall && !newWall) return "removed-wall";
+            if (before.PropertyFlags != after.PropertyFlags || before.WallOwner != after.WallOwner ||
+                before.TileType != after.TileType || before.Height != after.Height ||
+                before.BuildingId != after.BuildingId || before.PathComponent != after.PathComponent)
+                return "modified-existing-tile";
+            return "unchanged";
+        }
 
         private sealed class WallObservation
         {
-            internal int PlayerId, X, Y, TileId, BuildingId, WallOwner, Tick, TileType, Height;
+            internal int PlayerId, X, Y, TileId, BuildingId, WallOwner, Tick, TileType, Height, PathComponent;
             internal int AivFrame = -1, AivMapper = -1, AivStateBefore = -1, PlannedTileCount;
             internal long Sequence;
             internal bool PlannedTile;
             internal uint PropertyFlags;
             internal string Phase, Mapper, Status;
             internal bool Materialized;
+            internal string Change;
+            internal WallObservation Before;
         }
 
         private static string Classify(Attempt attempt)
@@ -2146,6 +2255,271 @@ namespace AIBuildDiagnoseTest
             }
         }
 
-        private void Log(string value) => Shared.DebugLogHelper.LogInfo(log, value);
+        private void QueueDiagnostic(string value, bool preserveFirst = false)
+        {
+            int bytes = Encoding.UTF8.GetByteCount(value) + 2;
+            if (!preserveFirst && writtenBytes + deferredBytes + bytes > DiagnosticBudgetBytes)
+            {
+                droppedLines++;
+                if (!budgetOverflowLogged)
+                {
+                    budgetOverflowLogged = true;
+                    deferredLog.Enqueue($"AI_BUILD_DIAGNOSTIC_OVERFLOW: session={sessionId}, " +
+                        $"limitBytes={DiagnosticBudgetBytes}, firstDroppedTick={lastTick}.");
+                }
+                return;
+            }
+            deferredLog.Enqueue(value);
+            deferredBytes += bytes;
+        }
+
+        private void FlushDeferredLog()
+        {
+            int flushed = 0;
+            while (deferredLog.Count != 0 && flushed++ < 2048)
+            {
+                string line = deferredLog.Dequeue();
+                int bytes = Encoding.UTF8.GetByteCount(line) + 2;
+                deferredBytes = Math.Max(0, deferredBytes - bytes);
+                Log(line);
+            }
+        }
+
+        private void CaptureWallMap(string phase)
+        {
+            try
+            {
+                GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
+                Span<byte> owners = tiles.GetWallOwnerLayer();
+                uint[] next = new uint[owners.Length];
+                int changed = 0, created = 0, removed = 0, altered = 0;
+                for (int tileId = 1; tileId < next.Length; tileId++)
+                {
+                    uint wall = ((uint)tiles.GetTilePropertyFlag(tileId) & 0x100u) != 0 ? 0x100u : 0;
+                    next[tileId] = wall == 0 ? 0 : wall | owners[tileId];
+                    if (wallMap == null || tileId >= wallMap.Length || wallMap[tileId] == next[tileId]) continue;
+                    uint old = wallMap[tileId];
+                    changed++;
+                    if ((old & 0x100u) == 0 && wall != 0) created++;
+                    else if ((old & 0x100u) != 0 && wall == 0) removed++;
+                    else altered++;
+                    if (changed <= 512 || !firstWallChangeLogged)
+                    {
+                        int y = tiles.MapColumnLookupTable[tileId];
+                        int x = tileId - tiles.MapRowLookupTable[3 * y];
+                        QueueDiagnostic($"AI_BUILD_WALL_MAP_CHANGE: session={sessionId}, tick={lastTick}, " +
+                            $"phase={phase}, sequence={++timelineSequence}, tileId={tileId}, " +
+                            $"tile=({x},{y}), old=0x{old:X3}, new=0x{next[tileId]:X3}, " +
+                            $"kind={(wall != 0 && (old & 0x100u) == 0 ? "new" : wall == 0 &&
+                                (old & 0x100u) != 0 ? "removed" : "owner-changed")}, " +
+                            $"detailFlags=0x{(uint)tiles.GetTilePropertyFlag(tileId):X8}, " +
+                            $"building={tiles.GetTileBuildingId(tileId)}, height={tiles.GetTileHeight(tileId)}.",
+                            !firstWallChangeLogged);
+                        firstWallChangeLogged = true;
+                    }
+                }
+                wallMap = next;
+                QueueDiagnostic($"AI_BUILD_WALL_MAP_SCAN: session={sessionId}, tick={lastTick}, phase={phase}, " +
+                    $"tiles={next.Length}, changed={changed}, created={created}, removed={removed}, " +
+                    $"altered={altered}, detailOmitted={Math.Max(0, changed - 512)}.");
+            }
+            catch (Exception ex) { QueueDiagnostic("AI_BUILD_WALL_MAP_SCAN_FAILED: " + ex); }
+        }
+
+        private void SnapshotWoodCells(string phase)
+        {
+            try
+            {
+                var cells = new HashSet<int> { 69 * 160 + 97 };
+                for (int player = 1; player <= 8; player++)
+                {
+                    int x = woodOriginX[player], y = woodOriginY[player];
+                    if (x <= 0 || x >= 159 || y <= 0 || y >= 159) continue;
+                    cells.Add(x * 160 + y);
+                    cells.Add((x - 1) * 160 + y);
+                    cells.Add((x + 1) * 160 + y);
+                    cells.Add(x * 160 + y - 1);
+                    cells.Add(x * 160 + y + 1);
+                }
+                foreach (int index in cells)
+                {
+                    int x = index / 160, y = index % 160;
+                    AiEconomyGridEvidence sample = gridState != 0
+                        ? AiBuildDiagnostic.CaptureEconomyGridEvidence(gridState, -1, x, y)
+                        : AiBuildDiagnostic.CaptureEconomyGridEvidence(x, y);
+                    string signature = $"{index}:{sample.Status}:{sample.StoredForeignCount}:" +
+                        $"{sample.CurrentDifferentCount}:{sample.CurrentZeroCount}:{sample.TreeWeight}";
+                    bool transition = cellWatchSignatures.Add(signature);
+                    if (phase.StartsWith("wood-build-before", StringComparison.Ordinal) ||
+                        phase == "session-start" || phase == "first-tick" ||
+                        phase.StartsWith("pcl-generation", StringComparison.Ordinal) || transition)
+                        QueueDiagnostic($"AI_BUILD_CELL_SNAPSHOT: session={sessionId}, tick={lastTick}, " +
+                            $"sequence={++timelineSequence}, phase={phase}, cell=({x},{y}), " +
+                            $"status={sample.Status}, reference={sample.ReferenceComponent}, " +
+                            $"storedForeign={sample.StoredForeignCount}, liveDifferent={sample.CurrentDifferentCount}, " +
+                            $"zeroTiles={sample.CurrentZeroCount}, treeWeight={sample.TreeWeight}, " +
+                            $"treeFlags={sample.TreeFlagCount}, appleFlags={sample.AppleFarmFlagCount}, " +
+                            $"mismatch={sample.Status == "ok" && sample.CurrentDifferentCount != sample.StoredForeignCount}.",
+                            !firstGridMismatchSeen && sample.Status == "ok" &&
+                            sample.CurrentDifferentCount != sample.StoredForeignCount);
+                    if (sample.Status == "ok" && sample.CurrentDifferentCount != sample.StoredForeignCount)
+                        firstGridMismatchSeen = true;
+                }
+            }
+            catch (Exception ex) { QueueDiagnostic("AI_BUILD_CELL_SNAPSHOT_FAILED: " + ex); }
+        }
+
+        private static readonly int[] WoodSearchDx = { 0, 1, 0, -1 };
+        private static readonly int[] WoodSearchDy = { -1, 0, 1, 0 };
+
+        private void CaptureWoodSearchShadow(int playerId, int actualX, int actualY)
+        {
+            if (actualX < 0 || actualY < 0) return;
+            try
+            {
+                AivSystem* state = GameAIVManagerAPI.Instance.GetAIVSystemPointer();
+                if (state == null) return;
+                ulong address = (ulong)state;
+                int originX = Marshal.ReadInt32(new IntPtr(checked((long)address + 0x18783C)));
+                int originY = Marshal.ReadInt32(new IntPtr(checked((long)address + 0x1A083C)));
+                Span<AivCoarseCell> grid = GameAIVManagerAPI.Instance.GetCoarseGrid();
+                if (grid.Length < 25600 || (uint)originX >= 160 || (uint)originY >= 160) return;
+                firstWoodShadowDone = true;
+                firstWoodShadowPlayer = playerId;
+                firstWoodShadowActualX = actualX;
+                firstWoodShadowActualY = actualY;
+                (int normalX, int normalY, int visited, int candidates) =
+                    ReplayWoodSearch(grid, originX, originY, false, true);
+                bool reproduced = normalX == actualX && normalY == actualY;
+                QueueDiagnostic($"AI_BUILD_WOOD_SHADOW_CHECK: session={sessionId}, tick={lastTick}, " +
+                    $"player={playerId}, origin=({originX},{originY}), " +
+                    $"vanilla=({actualX},{actualY}), shadow=({normalX},{normalY}), " +
+                    $"reproduced={reproduced}, visited={visited}, candidates={candidates}, " +
+                    "source=native-0x58020-read-only-replay.", true);
+                if (reproduced)
+                {
+                    (int nextX, int nextY, int alternateVisited, int alternateCandidates) =
+                        ReplayWoodSearch(grid, originX, originY, true, false);
+                    QueueDiagnostic($"AI_BUILD_WOOD_SHADOW_ALTERNATE: session={sessionId}, tick={lastTick}, " +
+                        $"player={playerId}, excludedAnchorComponentZero=true, " +
+                        $"candidate=({nextX},{nextY}), visited={alternateVisited}, " +
+                        $"candidates={alternateCandidates}, inferenceOnly=true.", true);
+                    if (nextX >= 0 && nextY >= 0)
+                    {
+                        AiEconomyGridEvidence alternate = AiBuildDiagnostic.CaptureEconomyGridEvidence(
+                            address, -1, nextX, nextY);
+                        QueueDiagnostic($"AI_BUILD_WOOD_SHADOW_ALTERNATE_CELL: session={sessionId}, " +
+                            $"cell=({nextX},{nextY}), storedForeign={alternate.StoredForeignCount}, " +
+                            $"liveDifferent={alternate.CurrentDifferentCount}, " +
+                            $"zeroTiles={alternate.CurrentZeroCount}, treeWeight={alternate.TreeWeight}, " +
+                            $"status={alternate.Status}.", true);
+                    }
+                }
+                else QueueDiagnostic("AI_BUILD_WOOD_SHADOW_UNVERIFIED: alternate suppressed because the normal replay did not reproduce Vanilla.", true);
+            }
+            catch (Exception ex) { QueueDiagnostic("AI_BUILD_WOOD_SHADOW_FAILED: " + ex, true); }
+        }
+
+        private (int X, int Y, int Visited, int Candidates) ReplayWoodSearch(
+            Span<AivCoarseCell> grid, int originX, int originY, bool excludeZeroAnchor, bool logCells)
+        {
+            // 0x58020: FIFO, four cardinal neighbors at DAT_1802D2E50[0,2,4,6],
+            // strict score improvement, candidate-count/depth stop, depth cap 60.
+            bool[] seenCells = new bool[25600];
+            int[] queue = new int[25600];
+            int[] depths = new int[25600];
+            int head = 0, tail = 1, visited = 0, candidates = 0;
+            int bestScore = -100, bestX = -1, bestY = -1;
+            int originIndex = originX * 160 + originY;
+            queue[0] = originIndex;
+            depths[0] = 1;
+            seenCells[originIndex] = true;
+            while (head < tail)
+            {
+                int currentIndex = queue[head];
+                int currentDepth = depths[head++];
+                if (currentDepth > 60) break;
+                int currentX = currentIndex / 160, currentY = currentIndex % 160;
+                for (int direction = 0; direction < 4; direction++)
+                {
+                    int x = currentX + WoodSearchDx[direction];
+                    int y = currentY + WoodSearchDy[direction];
+                    if ((uint)x >= 160 || (uint)y >= 160) continue;
+                    int index = x * 160 + y;
+                    if (seenCells[index]) continue;
+                    seenCells[index] = true;
+                    visited++;
+                    AivCoarseCell cell = grid[index];
+                    int foreign = unchecked((sbyte)cell.ForeignPathComponentTileCount);
+                    int tree = unchecked((sbyte)cell.TreeObstructionWeight);
+                    bool traversed = foreign < 16 && cell.WoodcutterRetryDelay == 0;
+                    bool candidate = traversed && foreign < 6 && tree > 0;
+                    int anchorComponent = ReadCoarseAnchorComponent(x, y);
+                    bool excluded = candidate && excludeZeroAnchor && anchorComponent == 0;
+                    string gate = !traversed ? foreign >= 16 ? "foreign>=16" : "retry" :
+                        !candidate ? foreign >= 6 ? "foreign>=6" : "tree<=0" :
+                        excluded ? "hypothetical-anchor-component-zero" : "candidate";
+                    if (logCells)
+                        QueueDiagnostic($"AI_BUILD_WOOD_SHADOW_VISIT: session={sessionId}, tick={lastTick}, " +
+                            $"ordinal={visited}, cell=({x},{y}), parent=({currentX},{currentY}), " +
+                            $"depth={currentDepth}, foreign={foreign}, treeWeight={tree}, " +
+                            $"retry={cell.WoodcutterRetryDelay}, scoreAdjustment={cell.Unknown06}, " +
+                            $"anchorComponent={anchorComponent}, firstGate={gate}.");
+                    if (!traversed) continue;
+                    if (candidate && !excluded)
+                    {
+                        candidates++;
+                        int score = tree * 5 - currentDepth * 3;
+                        if (cell.Unknown06 != 0) score = score < 1 ? score * 2 : score / 2;
+                        if (score > bestScore)
+                        { bestScore = score; bestX = x; bestY = y; }
+                        if (candidates > 10 || candidates > 5 && currentDepth > 20 ||
+                            candidates > 0 && currentDepth > 30)
+                            break;
+                    }
+                    if (tail < queue.Length)
+                    {
+                        queue[tail] = index;
+                        depths[tail++] = currentDepth + 1;
+                    }
+                }
+            }
+            return (bestX, bestY, visited, candidates);
+        }
+
+        private static int ReadCoarseAnchorComponent(int coarseX, int coarseY)
+        {
+            int x = coarseX * 5, y = coarseY * 5;
+            GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
+            if (!tiles.IsTileInsideMapBounds(x, y)) return -1;
+            int tileId = tiles.GetTileId(x, y);
+            Span<ushort> pcl = GamePathingManagerAPI.Instance.GetPathComponentGrid();
+            return tileId > 0 && (uint)tileId < (uint)pcl.Length ? pcl[tileId] : -1;
+        }
+
+        private void Log(string value)
+        {
+            int bytes = Encoding.UTF8.GetByteCount(value) + 2;
+            bool preserved = value.StartsWith("AI_BUILD_WALL_CHANGE:", StringComparison.Ordinal) ||
+                value.StartsWith("AI_BUILD_WALL_MAP_CHANGE:", StringComparison.Ordinal) ||
+                value.StartsWith("AI_BUILD_DIAGNOSTIC_OVERFLOW:", StringComparison.Ordinal) ||
+                value.StartsWith("AI_BUILD_DIAGNOSTIC_BUDGET:", StringComparison.Ordinal) ||
+                value.StartsWith("AI_BUILD_WOOD_SHADOW_CHECK:", StringComparison.Ordinal) ||
+                value.StartsWith("AI_BUILD_WOOD_SHADOW_ALTERNATE:", StringComparison.Ordinal);
+            if (!preserved && writtenBytes + bytes > DiagnosticBudgetBytes)
+            {
+                droppedLines++;
+                if (!budgetOverflowLogged)
+                {
+                    budgetOverflowLogged = true;
+                    Shared.DebugLogHelper.LogInfo(log,
+                        $"AI_BUILD_DIAGNOSTIC_OVERFLOW: session={sessionId}, " +
+                        $"limitBytes={DiagnosticBudgetBytes}, firstDroppedTick={lastTick}.");
+                }
+                return;
+            }
+            writtenBytes += bytes;
+            Shared.DebugLogHelper.LogInfo(log, value);
+        }
     }
 }
