@@ -22,10 +22,13 @@ namespace NotificationLastFrameTest
         public const string Version = "0.1.0";
 
         private delegate void VideoEndedDelegate(MainHUD self, object sender, RoutedEventArgs args);
+        private delegate void PlayBinkDelegate(SFXManager self, string binkName, bool loop, bool waitForSpeech);
 
         private static ManualLogSource persistentLog;
         private static Hook videoEndedHook;
+        private static Hook playBinkHook;
         private static VideoEndedDelegate originalVideoEnded;
+        private static PlayBinkDelegate originalPlayBink;
         private static bool librarySubscribed;
         private static bool tickSubscribed;
         private static bool postStartupLogged;
@@ -43,48 +46,96 @@ namespace NotificationLastFrameTest
 
         private static void OnLibraryLoaded(CrusaderLibraryLoadContext context)
         {
-            if (videoEndedHook != null)
+            if (videoEndedHook != null || playBinkHook != null)
                 return;
 
-            Hook candidate = null;
+            Hook videoCandidate = null;
+            Hook playCandidate = null;
             try
             {
-                MethodInfo method = typeof(MainHUD).GetMethod(
+                MethodInfo playMethod = typeof(SFXManager).GetMethod(
+                    "playBink",
+                    BindingFlags.Instance | BindingFlags.Public,
+                    null,
+                    new[] { typeof(string), typeof(bool), typeof(bool) },
+                    null);
+                if (playMethod == null || playMethod.ReturnType != typeof(void))
+                    throw new MissingMethodException(typeof(SFXManager).FullName, "playBink(string, bool, bool)");
+
+                MethodInfo endMethod = typeof(MainHUD).GetMethod(
                     "RadarME_Ended",
                     BindingFlags.Instance | BindingFlags.NonPublic,
                     null,
                     new[] { typeof(object), typeof(RoutedEventArgs) },
                     null);
-                if (method == null || method.ReturnType != typeof(void))
+                if (endMethod == null || endMethod.ReturnType != typeof(void))
                     throw new MissingMethodException(typeof(MainHUD).FullName, "RadarME_Ended(object, RoutedEventArgs)");
 
-                candidate = new Hook(method, (VideoEndedDelegate)OnVideoEnded);
-                VideoEndedDelegate trampoline = candidate.GenerateTrampoline<VideoEndedDelegate>();
+                playCandidate = new Hook(playMethod, (PlayBinkDelegate)OnPlayBink);
+                PlayBinkDelegate playTrampoline = playCandidate.GenerateTrampoline<PlayBinkDelegate>();
+                videoCandidate = new Hook(endMethod, (VideoEndedDelegate)OnVideoEnded);
+                VideoEndedDelegate endTrampoline = videoCandidate.GenerateTrampoline<VideoEndedDelegate>();
                 GameTimeManagerAPI.Instance.OnTick += OnGameTick;
                 tickSubscribed = true;
-                originalVideoEnded = trampoline;
-                videoEndedHook = candidate;
-                persistentLog.LogInfo("NOTIFICATION_LAST_FRAME_TEST_INSTALLED: permanent MediaEnded hook installed.");
+                originalPlayBink = playTrampoline;
+                originalVideoEnded = endTrampoline;
+                playBinkHook = playCandidate;
+                videoEndedHook = videoCandidate;
             }
             catch (Exception ex)
             {
-                // Only an unpublished, failed installation candidate may be rolled back.
-                if (videoEndedHook == null && candidate != null)
+                // Only unpublished, failed installation candidates may be rolled back.
+                if (videoEndedHook == null && playBinkHook == null)
                 {
-                    candidate.Undo();
-                    candidate.Dispose();
+                    if (videoCandidate != null)
+                    {
+                        videoCandidate.Undo();
+                        videoCandidate.Dispose();
+                    }
+                    if (playCandidate != null)
+                    {
+                        playCandidate.Undo();
+                        playCandidate.Dispose();
+                    }
                 }
                 persistentLog.LogError("NOTIFICATION_LAST_FRAME_TEST_INSTALL_FAILED: " + ex);
+                return;
             }
+
+            persistentLog.LogInfo("NOTIFICATION_LAST_FRAME_TEST_INSTALLED: permanent playback and MediaEnded hooks installed.");
         }
 
         private static void OnGameTick(int tick)
         {
-            if (postStartupLogged || !tickSubscribed || videoEndedHook == null)
+            if (postStartupLogged || !tickSubscribed || videoEndedHook == null || playBinkHook == null)
                 return;
 
             postStartupLogged = true;
             persistentLog.LogInfo("NOTIFICATION_LAST_FRAME_TEST_POST_STARTUP: permanent hook active after startup cleanup.");
+        }
+
+        private static void OnPlayBink(SFXManager self, string binkName, bool loop, bool waitForSpeech)
+        {
+            originalPlayBink(self, binkName, loop, waitForSpeech);
+            if (loop || self?.requestBinkPlaybackURI == null)
+                return;
+
+            try
+            {
+                Uri original = self.requestBinkPlaybackURI;
+                string value = original.OriginalString;
+                if (string.IsNullOrEmpty(value) || value.EndsWith("*", StringComparison.Ordinal))
+                    return;
+
+                self.requestBinkPlaybackURI = new Uri(
+                    value + "**",
+                    original.IsAbsoluteUri ? UriKind.Absolute : UriKind.Relative);
+                persistentLog.LogInfo("NOTIFICATION_LAST_FRAME_TEST_URI: non-looping MediaEnded playback selected.");
+            }
+            catch (Exception ex)
+            {
+                persistentLog.LogError("NOTIFICATION_LAST_FRAME_TEST_URI_FAILED: Vanilla playback retained: " + ex);
+            }
         }
 
         private static void OnVideoEnded(MainHUD self, object sender, RoutedEventArgs args)
@@ -131,8 +182,9 @@ namespace NotificationLastFrameTest
                     !MyAudioManager.Instance.isSpeechPlaying(1) || media.Source == null)
                     return;
 
+                media.Pause();
                 media.Opacity = 1f;
-                persistentLog.LogInfo("NOTIFICATION_LAST_FRAME_TEST_HELD: video ended; last frame shown while speech continues.");
+                persistentLog.LogInfo("NOTIFICATION_LAST_FRAME_TEST_HELD: playback paused at its end while speech continues.");
             }
             catch (Exception ex)
             {

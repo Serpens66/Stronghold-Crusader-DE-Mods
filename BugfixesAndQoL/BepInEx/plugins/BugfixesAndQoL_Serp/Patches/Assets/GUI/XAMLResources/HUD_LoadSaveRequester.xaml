@@ -8,6 +8,19 @@
              AttributeName="bugfixes"
              Value="clr-namespace:BugfixesAndQoL;assembly=BugfixesAndQoL" />
 
+  <Operation Type="SetAttribute"
+             XPath="//n:CheckBox[@x:Name='HideQuicksaveCheck']"
+             AttributeName="Margin"
+             Value="45,386,67,0" />
+  <Operation Type="SetAttribute"
+             XPath="//n:Button[@Name='ButtonOpenFolder']"
+             AttributeName="Margin"
+             Value="45,420,0,0" />
+  <Operation Type="SetAttribute"
+             XPath="//n:Button[@Name='ButtonAction']"
+             AttributeName="Margin"
+             Value="45,504,0,0" />
+
   <Operation Type="InsertAfter"
              XPath="//n:ListView[@Name='FileList']/n:ListView.View/n:GridView/n:GridViewColumn[4]">
     <Content>
@@ -35,7 +48,7 @@
       <Grid x:Name="BugfixesAndQoLDeleteMapHost"
             Width="220"
             Height="34"
-            Margin="45,440,0,0"
+            Margin="45,462,0,0"
             HorizontalAlignment="Left"
             VerticalAlignment="Top"
             Visibility="{Binding DeleteMapVisibility}">
@@ -85,7 +98,7 @@
       <Grid x:Name="BugfixesAndQoLDeleteSaveHost"
             Width="220"
             Height="34"
-            Margin="45,440,0,0"
+            Margin="45,462,0,0"
             HorizontalAlignment="Left"
             VerticalAlignment="Top"
             Visibility="{Binding DeleteSaveVisibility}">

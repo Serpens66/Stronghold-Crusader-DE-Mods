@@ -6,6 +6,7 @@ $project = $PSScriptRoot
 $game = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition'
 $managed = Join-Path $game 'Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll'
 $native = Join-Path $game 'Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll'
+$noesis = Join-Path $game 'Stronghold Crusader Definitive Edition_Data\Managed\Noesis.NoesisGUI.dll'
 $source = Join-Path $project 'src\NotificationLastFrameTestPlugin.cs'
 $projectFile = Join-Path $project 'NotificationLastFrameTest.csproj'
 $files = @($source, $projectFile, (Join-Path $project 'Properties\AssemblyInfo.cs'),
@@ -31,15 +32,20 @@ if ($runtime -match 'Assembly-CSharp-publicized|NativeDetour|X64InlineHook|HookT
     throw 'Unexpected publicized assembly or executable runtime mutation found.'
 }
 if ($runtime -notmatch 'private static Hook videoEndedHook' -or
+    $runtime -notmatch 'private static Hook playBinkHook' -or
     $runtime -notmatch 'GameTimeManagerAPI\.Instance\.OnTick \+= OnGameTick' -or
     $runtime -notmatch 'NOTIFICATION_LAST_FRAME_TEST_POST_STARTUP' -or
+    $runtime -notmatch 'originalPlayBink\(self, binkName, loop, waitForSpeech\)' -or
     $runtime -notmatch 'originalVideoEnded\(self, sender, args\)' -or
+    $runtime -notmatch 'value \+ "\*\*"' -or
+    $runtime -notmatch 'media\.Pause\(\)' -or
     $runtime -notmatch 'sfx\.requestBinkPlayState != 3' -or
     $runtime -notmatch 'media\.Opacity = 1f') {
     throw 'Permanent publisher, Vanilla trampoline or display contract differs.'
 }
 $rollback = [regex]::Matches($runtime, '\.Undo\s*\(|\.Dispose\s*\(')
-if ($rollback.Count -ne 2 -or $runtime -notmatch 'if \(videoEndedHook == null && candidate != null\)') {
+if ($rollback.Count -ne 4 -or
+    $runtime -notmatch 'if \(videoEndedHook == null && playBinkHook == null\)') {
     throw 'Published hook teardown or unvalidated rollback path found.'
 }
 
@@ -61,6 +67,17 @@ if ((Get-Sha256 $native) -ne
 if ((Get-Sha256 $managed) -ne
     'BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789') {
     throw 'Installed managed DLL differs from the audited baseline.'
+}
+if ((Get-Sha256 $noesis) -ne
+    '98476D3CA84AE0F2DCFBADDCC64B01A1F65474BD44402673FD6856D1B5347648') {
+    throw 'Installed Noesis DLL differs from the audited double-star playback contract.'
+}
+
+$relativeUri = [Uri]::new('Assets/GUI/Video/test.webm**', [UriKind]::Relative)
+$absoluteUri = [Uri]::new('E:/Media/test.webm**', [UriKind]::Absolute)
+if (-not $relativeUri.ToString().EndsWith('**') -or
+    -not $absoluteUri.ToString().EndsWith('**')) {
+    throw 'The URI suffix was not preserved for both media path kinds.'
 }
 
 Write-Host 'Notification last-frame source, lifetime, hash and CRLF checks passed.'
