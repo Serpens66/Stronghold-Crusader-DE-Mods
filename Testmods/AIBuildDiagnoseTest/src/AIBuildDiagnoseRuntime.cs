@@ -35,6 +35,10 @@ namespace AIBuildDiagnoseTest
         private readonly ManualLogSource log;
         private readonly bool fixesLoaded;
         private readonly bool placementProbeEnabled;
+        private readonly bool nearbyWoodTestEnabled;
+        private bool nearbyCopySession, canariSession, nearbyCalibrated, nearbyTestDisabled, nearbyTestUsed;
+        private int nearbyCalibrationAttempts;
+        private bool firstNearbyDetailed;
         private readonly IDisposable buildingSubscription;
         private readonly IDisposable vegetationSubscription;
         private readonly IDisposable buildStructureSubscription;
@@ -135,11 +139,12 @@ namespace AIBuildDiagnoseTest
         private long probeSpawnId;
 
         internal AIBuildDiagnoseRuntime(ManualLogSource logger, bool hasFixes,
-            bool enablePlacementProbe)
+            bool enablePlacementProbe, bool enableNearbyWoodTest)
         {
             log = logger ?? throw new ArgumentNullException(nameof(logger));
             fixesLoaded = hasFixes;
             placementProbeEnabled = enablePlacementProbe;
+            nearbyWoodTestEnabled = enableNearbyWoodTest;
             buildingSubscription = BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(OnBuildingSpawn);
             vegetationSubscription = VegetationR3EventHooks.OnVegetationCreate.Observable.Subscribe(OnVegetationCreate);
             buildStructureSubscription = BuildingR3EventHooks.OnBuildStructure.Observable.Subscribe(OnBuildStructure);
@@ -173,6 +178,11 @@ namespace AIBuildDiagnoseTest
                     $"unflushedLines={deferredLog.Count}; MissionEvents.Ended normally flushes before this point.");
             }
             active = false;
+            nearbyCopySession = nearbyCalibrated = nearbyTestUsed = false;
+            canariSession = false;
+            nearbyTestDisabled = false;
+            nearbyCalibrationAttempts = 0;
+            firstNearbyDetailed = false;
             gridState = 0;
             gridSequence = 0;
             gridModeZeroCalls = gridModeOneCalls = 0;
@@ -212,6 +222,17 @@ namespace AIBuildDiagnoseTest
                 placementProbeEnabled &&
                 string.Equals(Path.GetFileName(session.SaveFileName ?? ""), ProbeSaveName,
                     StringComparison.OrdinalIgnoreCase);
+            nearbyCopySession = active && session.IsLoadedSave && nearbyWoodTestEnabled &&
+                string.Equals(Path.GetFileName(session.SaveFileName ?? ""), ProbeSaveName,
+                    StringComparison.OrdinalIgnoreCase);
+            canariSession = active && session.IsLoadedSave &&
+                (Path.GetFileName(session.SaveFileName ?? "").IndexOf(
+                    "test_canari_nowoodcutters", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                 Path.GetFileName(loadingSaveName ?? "").IndexOf(
+                    "test_canari_nowoodcutters", StringComparison.OrdinalIgnoreCase) >= 0);
+            nearbyCalibrated = nearbyTestDisabled = nearbyTestUsed = false;
+            nearbyCalibrationAttempts = 0;
+            firstNearbyDetailed = false;
             probePending = probeDone = probeRunning = false;
             probeAttemptId = probeSpawnId = 0;
             firstTick = false;
@@ -293,6 +314,8 @@ namespace AIBuildDiagnoseTest
             earlyFarmHistory.Clear();
             Log($"AI_BUILD_PROBE_ARMED: session={sessionId}, armed={probeSession}, " +
                 $"requiredSave={ProbeSaveName}, player={ProbePlayer}, target=({ProbeX},{ProbeY}).");
+            Log($"AI_BUILD_NEARBY_TEST_ARMED: session={sessionId}, armed={nearbyCopySession}, " +
+                $"configured={nearbyWoodTestEnabled}, copy={ProbeSaveName}, calibrationRequired=true.");
             if (active)
             {
                 CaptureInitialAppleFarms();
@@ -316,6 +339,7 @@ namespace AIBuildDiagnoseTest
                     $"dropped={orchardTransitionsDropped}.");
             active = false;
             probeSession = probePending = probeRunning = false;
+            nearbyCopySession = false;
             gridState = 0;
             pendingAppleFarmPre = null;
             Log($"AI_BUILD_DIAGNOSTIC_BUDGET: session={sessionId}, writtenBytes={writtenBytes}, " +
@@ -523,9 +547,15 @@ namespace AIBuildDiagnoseTest
                     if (record.Stage == "route-result") { attempt.RouteSeen = true; attempt.RouteResult = (int)record.A; }
                     if (record.Stage == "route-evidence") attempt.RouteEvidence = record.RouteEvidence;
                     if (record.Stage == "wood-nearby-path-before")
+                    {
                         attempt.NearbyBefore = record.NearbyPathEvidence;
+                        PrepareNearbyWoodShadow(record.AttemptId, attempt);
+                    }
                     if (record.Stage == "wood-nearby-path-after")
+                    {
                         attempt.NearbyAfter = record.NearbyPathEvidence;
+                        CompleteNearbyWoodShadow(record.AttemptId, attempt);
+                    }
                     if (record.Stage == "wood-search-after") attempt.SearchX = (int)record.B;
                     if (record.Stage == "wood-nearby-after") attempt.NearX = (int)record.A;
                     if (record.Stage != "wood-build-after") attempt.LastStep = record.Stage;
@@ -1425,12 +1455,200 @@ namespace AIBuildDiagnoseTest
             internal AiRouteEvidence RouteEvidence;
             internal AiNearbyPathEvidence NearbyBefore;
             internal AiNearbyPathEvidence NearbyAfter;
+            internal NearbyWoodShadow NormalNearby;
+            internal NearbyWoodShadow AlternativeNearby;
+            internal bool NearbyOverlayApplied;
             internal bool BuildPre;
             internal bool BuildPost;
             internal bool SpawnPre;
             internal bool SpawnPost;
             internal long SpawnId;
             internal string LastStep = "wood-build-before";
+        }
+
+        private static readonly int[] NearbyDx = { 0, 1, 1, 1, 0, -1, -1, -1 };
+        private static readonly int[] NearbyDy = { -1, -1, 0, 1, 1, 1, 0, -1 };
+
+        private sealed class NearbyWoodShadow
+        {
+            internal int X = -1, Y = -1, Visited;
+            internal bool Valid = true;
+            internal string Error;
+            internal readonly List<int> ZeroCandidates = new List<int>();
+            internal readonly List<string> Trace = new List<string>();
+        }
+
+        private NearbyWoodShadow ReplayNearbyWood(AiNearbyPathEvidence evidence, bool excludeZero,
+            bool trace)
+        {
+            var result = new NearbyWoodShadow();
+            if (evidence == null || evidence.Status != "ok" ||
+                (uint)evidence.InputX >= 160 || (uint)evidence.InputY >= 160)
+            { result.Valid = false; result.Error = "snapshot-or-input-unavailable"; return result; }
+            int[] seed = ParseCoarseBytes(evidence.GetCapturedCoarseCell(evidence.InputX, evidence.InputY));
+            if (seed == null || seed[12] != 0)
+            { result.Valid = false; result.Error = "seed-outside-usable-map"; return result; }
+            var seenCells = new bool[25600];
+            var queue = new int[25600];
+            int head = 0, tail = 1;
+            int seedIndex = evidence.InputX * 160 + evidence.InputY;
+            queue[0] = seedIndex;
+            seenCells[seedIndex] = true;
+            while (head < tail)
+            {
+                int current = queue[head++];
+                int cx = current / 160, cy = current % 160;
+                int[] parent = ParseCoarseBytes(evidence.GetCapturedCoarseCell(cx, cy));
+                if (parent == null)
+                { result.Valid = false; result.Error = "missing-parent-cell"; break; }
+                for (int direction = 0; direction < 8; direction++)
+                {
+                    int x = cx + NearbyDx[direction], y = cy + NearbyDy[direction];
+                    // Vanilla's outside-map branch is safe only for a blocked parent; never
+                    // simulate a native out-of-bounds read or permit an overlay in that case.
+                    if ((uint)x >= 160 || (uint)y >= 160)
+                    {
+                        if (parent[12] == 0)
+                        { result.Valid = false; result.Error = "native-edge-branch"; }
+                        if (!result.Valid) return result;
+                        continue;
+                    }
+                    int index = x * 160 + y;
+                    if (seenCells[index]) continue;
+                    seenCells[index] = true;
+                    int[] cell = ParseCoarseBytes(evidence.GetCapturedCoarseCell(x, y));
+                    if (cell == null)
+                    { result.Valid = false; result.Error = "missing-candidate-cell"; return result; }
+                    result.Visited++;
+                    string rejection = CoarseFailure(cell);
+                    if (trace)
+                        result.Trace.Add($"cell=({x},{y}), parent=({cx},{cy}), direction={direction}, " +
+                            $"depth={unchecked((sbyte)parent[1]) + 1}, foreign={(sbyte)cell[0]}, " +
+                            $"bytes={evidence.GetCapturedCoarseCell(x, y).Bytes}, firstRule={rejection}");
+                    if ((sbyte)cell[0] >= 15) continue;
+                    if (rejection == "none-coarse-eligible")
+                    {
+                        AiPathTileSample anchor = evidence.GetCapturedAnchor(x, y);
+                        if (anchor == null || anchor.NativeComponent != anchor.ApiComponent)
+                        { result.Valid = false; result.Error = $"anchor-view-mismatch-({x},{y})"; return result; }
+                        if (excludeZero && anchor.NativeComponent == 0)
+                            result.ZeroCandidates.Add(index);
+                        else
+                        { result.X = x; result.Y = y; return result; }
+                    }
+                    if (tail >= queue.Length)
+                    { result.Valid = false; result.Error = "queue-overflow"; return result; }
+                    queue[tail++] = index;
+                }
+            }
+            return result;
+        }
+
+        private void PrepareNearbyWoodShadow(long attemptId, Attempt attempt)
+        {
+            if (attempt.PlayerId != ProbePlayer || !canariSession) return;
+            bool detailed = !firstNearbyDetailed;
+            if (detailed) firstNearbyDetailed = true;
+            attempt.NormalNearby = ReplayNearbyWood(attempt.NearbyBefore, false, detailed);
+            attempt.AlternativeNearby = ReplayNearbyWood(attempt.NearbyBefore, true, detailed);
+            if (detailed)
+            {
+                foreach (string line in attempt.NormalNearby.Trace)
+                    QueueDiagnostic($"AI_BUILD_NEARBY_SHADOW_VISIT: session={sessionId}, attempt={attemptId}, " + line, true);
+                QueueDiagnostic($"AI_BUILD_NEARBY_SHADOW_FIRST: session={sessionId}, attempt={attemptId}, " +
+                    $"input=({attempt.NearbyBefore?.InputX},{attempt.NearbyBefore?.InputY}), " +
+                    $"normal=({attempt.NormalNearby.X},{attempt.NormalNearby.Y}), " +
+                    $"alternative=({attempt.AlternativeNearby.X},{attempt.AlternativeNearby.Y}), " +
+                    $"excludedZero={attempt.AlternativeNearby.ZeroCandidates.Count}, " +
+                    $"normalValid={attempt.NormalNearby.Valid}:{attempt.NormalNearby.Error}, " +
+                    $"alternativeValid={attempt.AlternativeNearby.Valid}:{attempt.AlternativeNearby.Error}.", true);
+            }
+        }
+
+        private void CompleteNearbyWoodShadow(long attemptId, Attempt attempt)
+        {
+            AiNearbyPathEvidence after = attempt.NearbyAfter;
+            NearbyWoodShadow expected = attempt.NearbyOverlayApplied
+                ? attempt.AlternativeNearby : attempt.NormalNearby;
+            bool match = expected != null && expected.Valid && after != null &&
+                expected.X == after.ResultX && expected.Y == after.ResultY;
+            QueueDiagnostic($"AI_BUILD_NEARBY_SHADOW_COMPARE: session={sessionId}, attempt={attemptId}, " +
+                $"player={attempt.PlayerId}, overlay={attempt.NearbyOverlayApplied}, " +
+                $"expected=({expected?.X},{expected?.Y}), vanilla=({after?.ResultX},{after?.ResultY}), " +
+                $"match={match}, route-and-spawn=reported-by-AI_BUILD_ATTEMPT.", true);
+            if (attempt.PlayerId != ProbePlayer || !nearbyCopySession || nearbyTestDisabled) return;
+            if (!attempt.NearbyOverlayApplied && !nearbyCalibrated)
+            {
+                nearbyCalibrationAttempts++;
+                if (match && attempt.NormalNearby.X == 69 && attempt.NormalNearby.Y == 97)
+                { nearbyCalibrated = true; QueueDiagnostic("AI_BUILD_NEARBY_TEST_CALIBRATED: normal shadow matches first Vanilla result.", true); }
+                else { nearbyTestDisabled = true; QueueDiagnostic("AI_BUILD_NEARBY_TEST_DISABLED: first Vanilla result or expected Canari target mismatched.", true); }
+            }
+            else if (attempt.NearbyOverlayApplied && !match)
+            { nearbyTestDisabled = true; QueueDiagnostic("AI_BUILD_NEARBY_TEST_DISABLED: overlay result differed from shadow.", true); }
+        }
+
+        internal Action BeginNearbyWoodOverlay(ulong state, int playerId, int x, int y)
+        {
+            if (!nearbyCopySession || !nearbyCalibrated || nearbyTestDisabled || nearbyTestUsed ||
+                playerId != ProbePlayer || !AiBuildDiagnostic.TryGetCurrentWoodAttempt(
+                    out long attemptId, out int owner) || owner != playerId ||
+                !attempts.TryGetValue(attemptId, out Attempt attempt) ||
+                attempt.NearbyBefore == null || attempt.NearbyBefore.InputX != x ||
+                attempt.NearbyBefore.InputY != y || attempt.NormalNearby == null ||
+                !attempt.NormalNearby.Valid || attempt.NormalNearby.X != 69 ||
+                attempt.NormalNearby.Y != 97 || attempt.AlternativeNearby == null ||
+                !attempt.AlternativeNearby.Valid ||
+                attempt.AlternativeNearby.X < 0 || attempt.AlternativeNearby.Y < 0 ||
+                attempt.AlternativeNearby.ZeroCandidates.Count == 0) return null;
+            var changed = new List<long>();
+            try
+            {
+                foreach (int index in attempt.AlternativeNearby.ZeroCandidates)
+                {
+                    int cx = index / 160, cy = index % 160;
+                    int[] prior = ParseCoarseBytes(attempt.NearbyBefore.GetCapturedCoarseCell(cx, cy));
+                    long cell = checked((long)state + 0x5B834 + (long)index * 0x30);
+                    var live = new byte[16];
+                    Marshal.Copy(new IntPtr(cell), live, 0, live.Length);
+                    bool same = prior != null && prior[0] == 0;
+                    if (same)
+                        for (int i = 0; i < live.Length; i++)
+                            if (live[i] != prior[i]) { same = false; break; }
+                    if (!same)
+                        throw new InvalidOperationException($"Coarse memory changed before overlay at ({cx},{cy}).");
+                    AiPathTileSample anchor = attempt.NearbyBefore.GetCapturedAnchor(cx, cy);
+                    if (anchor == null || anchor.NativeComponent != 0 || anchor.ApiComponent != 0)
+                        throw new InvalidOperationException($"Anchor views differ before overlay at ({cx},{cy}).");
+                    changed.Add(cell);
+                    Marshal.WriteByte(new IntPtr(cell), 1);
+                }
+                attempt.NearbyOverlayApplied = nearbyTestUsed = true;
+                QueueDiagnostic($"AI_BUILD_NEARBY_TEST_APPLIED: session={sessionId}, attempt={attemptId}, " +
+                    $"player={playerId}, input=({x},{y}), expected=({attempt.AlternativeNearby.X}," +
+                    $"{attempt.AlternativeNearby.Y}), masked={changed.Count}, onlyForeignCounter=0-to-1.", true);
+                return () => RestoreNearbyWoodOverlay(changed, attemptId);
+            }
+            catch (Exception ex)
+            {
+                RestoreNearbyWoodOverlay(changed, attemptId);
+                nearbyTestDisabled = true;
+                QueueDiagnostic($"AI_BUILD_NEARBY_TEST_ABORTED: attempt={attemptId}, reason={ex}.", true);
+                return null;
+            }
+        }
+
+        private void RestoreNearbyWoodOverlay(List<long> changed, long attemptId)
+        {
+            bool drift = false;
+            foreach (long address in changed)
+            {
+                if (Marshal.ReadByte(new IntPtr(address)) != 1) drift = true;
+                Marshal.WriteByte(new IntPtr(address), 0);
+            }
+            if (drift) nearbyTestDisabled = true;
+            QueueDiagnostic($"AI_BUILD_NEARBY_TEST_RESTORED: session={sessionId}, attempt={attemptId}, " +
+                $"count={changed.Count}, unexpectedCounterChange={drift}.", true);
         }
 
         private void LogPlayers(string phase)
@@ -2400,7 +2618,7 @@ namespace AIBuildDiagnoseTest
                 {
                     (int nextX, int nextY, int alternateVisited, int alternateCandidates) =
                         ReplayWoodSearch(grid, originX, originY, true, false);
-                    QueueDiagnostic($"AI_BUILD_WOOD_SHADOW_ALTERNATE: session={sessionId}, tick={lastTick}, " +
+                    QueueDiagnostic($"AI_BUILD_WOOD_RESOURCE_SHADOW_ALTERNATE: session={sessionId}, tick={lastTick}, " +
                         $"player={playerId}, excludedAnchorComponentZero=true, " +
                         $"candidate=({nextX},{nextY}), visited={alternateVisited}, " +
                         $"candidates={alternateCandidates}, inferenceOnly=true.", true);
@@ -2408,7 +2626,7 @@ namespace AIBuildDiagnoseTest
                     {
                         AiEconomyGridEvidence alternate = AiBuildDiagnostic.CaptureEconomyGridEvidence(
                             address, -1, nextX, nextY);
-                        QueueDiagnostic($"AI_BUILD_WOOD_SHADOW_ALTERNATE_CELL: session={sessionId}, " +
+                        QueueDiagnostic($"AI_BUILD_WOOD_RESOURCE_SHADOW_ALTERNATE_CELL: session={sessionId}, " +
                             $"cell=({nextX},{nextY}), storedForeign={alternate.StoredForeignCount}, " +
                             $"liveDifferent={alternate.CurrentDifferentCount}, " +
                             $"zeroTiles={alternate.CurrentZeroCount}, treeWeight={alternate.TreeWeight}, " +
@@ -2505,7 +2723,7 @@ namespace AIBuildDiagnoseTest
                 value.StartsWith("AI_BUILD_DIAGNOSTIC_OVERFLOW:", StringComparison.Ordinal) ||
                 value.StartsWith("AI_BUILD_DIAGNOSTIC_BUDGET:", StringComparison.Ordinal) ||
                 value.StartsWith("AI_BUILD_WOOD_SHADOW_CHECK:", StringComparison.Ordinal) ||
-                value.StartsWith("AI_BUILD_WOOD_SHADOW_ALTERNATE:", StringComparison.Ordinal);
+                value.StartsWith("AI_BUILD_WOOD_RESOURCE_SHADOW_ALTERNATE:", StringComparison.Ordinal);
             if (!preserved && writtenBytes + bytes > DiagnosticBudgetBytes)
             {
                 droppedLines++;

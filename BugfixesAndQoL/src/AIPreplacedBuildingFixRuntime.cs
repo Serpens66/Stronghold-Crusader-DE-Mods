@@ -700,37 +700,14 @@ namespace BugfixesAndQoL
 
         private void NearbySearch(ulong state, uint coarseX, uint coarseY)
         {
-            // AIBuildDiagnoseTest BEGIN
-            bool diagnose = APIShared.AiBuildDiagnostic.HasObserver &&
-                nearbyEconomyPlayerId >= 1 && nearbyEconomyPlayerId <= MaxPlayablePlayerId;
-            if (diagnose)
-            {
-                APIShared.AiBuildDiagnostic.Publish("wood-nearby-before", nearbyEconomyPlayerId,
-                    coarseX, coarseY);
-                APIShared.AiBuildDiagnostic.PublishNearbyPathEvidence("wood-nearby-path-before",
-                    nearbyEconomyPlayerId, state, (int)coarseX, (int)coarseY, -1, -1);
-            }
-            try { NearbySearchCore(state, coarseX, coarseY); }
-            finally
-            {
-                if (diagnose)
-                {
-                    int resultX = (int)ReadSearchResult(state, false);
-                    int resultY = (int)ReadSearchResult(state, true);
-                    APIShared.AiBuildDiagnostic.PublishNearbyPathEvidence("wood-nearby-path-after",
-                        nearbyEconomyPlayerId, state, (int)coarseX, (int)coarseY, resultX, resultY);
-                    APIShared.AiBuildDiagnostic.Publish("wood-nearby-after", nearbyEconomyPlayerId,
-                        resultX, resultY);
-                }
-            }
-            // AIBuildDiagnoseTest END
+            NearbySearchCore(state, coarseX, coarseY);
         }
 
         private void NearbySearchCore(ulong state, uint coarseX, uint coarseY)
         {
             if (!sessionEnabled || !IsExpectedAivState(state) || !economyMapRelevant)
             {
-                nearbySearchHook.Original(state, coarseX, coarseY);
+                InvokeNearbyOriginalWithDiagnosticOverlay(state, coarseX, coarseY);
                 return;
             }
             int playerId = nearbyEconomyState == state ? nearbyEconomyPlayerId : 0;
@@ -738,11 +715,21 @@ namespace BugfixesAndQoL
             {
                 TryActivateOrRefreshEconomyFix(state, playerId);
                 EconomyGridOverlayScope overlay = EnterEconomyOverlay(state, playerId, "nearby-search");
-                try { nearbySearchHook.Original(state, coarseX, coarseY); }
+                try { InvokeNearbyOriginalWithDiagnosticOverlay(state, coarseX, coarseY); }
                 finally { ExitEconomyOverlay(overlay); }
                 return;
             }
-            nearbySearchHook.Original(state, coarseX, coarseY);
+            InvokeNearbyOriginalWithDiagnosticOverlay(state, coarseX, coarseY);
+        }
+
+        // The existing hook is the only place the test mod can bracket this Vanilla call.
+        private void InvokeNearbyOriginalWithDiagnosticOverlay(ulong state, uint coarseX, uint coarseY)
+        {
+            Action restore = APIShared.AiBuildDiagnostic.BeginNearbyWoodObservation(
+                state, nearbyEconomyPlayerId, (int)coarseX, (int)coarseY);
+            try { nearbySearchHook.Original(state, coarseX, coarseY); }
+            finally { APIShared.AiBuildDiagnostic.EndNearbyWoodObservation(restore,
+                state, nearbyEconomyPlayerId, (int)coarseX, (int)coarseY); }
         }
 
         // AIBuildDiagnoseTest BEGIN -- read only, with the same audited layout as the existing hooks.

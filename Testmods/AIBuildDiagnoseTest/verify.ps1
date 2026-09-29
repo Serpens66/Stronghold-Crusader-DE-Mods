@@ -128,8 +128,13 @@ if ($runtimeText -match 'System\.Web\.Extensions|JavaScriptSerializer|System\.Te
 if ($runtimeText -match '\b(OnDestroy|OnDisable|OnApplicationQuit|OnApplicationPause|Update|LateUpdate|FixedUpdate|StartCoroutine)\s*\(') {
     throw 'Long-lived or teardown MonoBehaviour callback in diagnostic runtime.'
 }
-if ($runtimeText -match 'CodePatch\.Write|Marshal\.Write|VirtualProtect|NativeDetour|X64InlineHook|HookTransaction|\.Apply\s*\(|\.Undo\s*\(|\.Enable\s*\(|\.Disable\s*\(') {
+if ($runtimeText -match 'CodePatch\.Write|VirtualProtect|NativeDetour|X64InlineHook|HookTransaction|\.Apply\s*\(|\.Undo\s*\(|\.Enable\s*\(|\.Disable\s*\(') {
     throw 'Diagnostic mod must not own executable-memory mutations.'
+}
+if ($runtimeText -match 'Marshal\.Write(?!Byte\(new IntPtr\(cell\), 1\)|Byte\(new IntPtr\(address\), 0\))' -or
+    $runtimeText -notmatch 'nearbyCopySession = active && session\.IsLoadedSave && nearbyWoodTestEnabled' -or
+    $runtimeText -notmatch 'nearbyCalibrated') {
+    throw 'Nearby data overlay has an unexpected write or session guard.'
 }
 if ($runtimeText -notmatch 'MissionEvents\.Loading\.Subscribe\(OnMapLoading\)' -or
     $runtimeText -notmatch 'AiBuildDiagnostic\.CaptureEconomyGridEvidence\(gridState, -1\)' -or
@@ -150,8 +155,27 @@ if ($runtimeText -notmatch 'WoodSearchDx = \{ 0, 1, 0, -1 \}' -or
     $runtimeText -notmatch 'CaptureWoodSearchShadow\(') {
     throw 'Wood shadow, wall-map scan or diagnostic budget contract differs.'
 }
+if ($runtimeText -notmatch 'NearbyDx = \{ 0, 1, 1, 1, 0, -1, -1, -1 \}' -or
+    $runtimeText -notmatch 'NearbyDy = \{ -1, -1, 0, 1, 1, 1, 0, -1 \}' -or
+    $runtimeText -notmatch 'BeginNearbyWoodOverlay\(' -or
+    $runtimeText -notmatch 'RestoreNearbyWoodOverlay\(changed, attemptId\)' -or
+    $runtimeText -notmatch 'nearbyTestUsed = true' -or
+    $runtimeText -notmatch 'Config\.Bind\("NearbyWoodTest", "Enabled", false') {
+    throw 'Nearby wood shadow or copy-only overlay contract differs.'
+}
 $bugfixRuntime = [IO.File]::ReadAllText((Join-Path $workspace 'BugfixesAndQoL\src\AIPreplacedBuildingFixRuntime.cs'))
 $publisher = [IO.File]::ReadAllText((Join-Path $workspace 'APIShared\src\AiBuildDiagnostic.cs'))
+if ($bugfixRuntime -notmatch 'APIShared\.AiBuildDiagnostic\.BeginNearbyWoodObservation\(' -or
+    $bugfixRuntime -notmatch 'APIShared\.AiBuildDiagnostic\.EndNearbyWoodObservation\(restore,' -or
+    $publisher -notmatch 'PublishNearbyPathEvidence\("wood-nearby-path-before"' -or
+    $publisher -notmatch 'PublishNearbyPathEvidence\("wood-nearby-path-after"' -or
+    $publisher -notmatch 'Publish\("wood-nearby-before"' -or
+    $publisher -notmatch 'Publish\("wood-nearby-after"' -or
+    $publisher -notmatch 'TryRegisterNearbyWoodOverlay\(' -or
+    $publisher -notmatch 'AllocateRouteProbeNear\(entry\)' -or
+    $publisher -notmatch 'catch \(Exception ex\) \{ failures.Add\("scheduler: "') {
+    throw 'Main-mod overlay restoration or independent native observation contract differs.'
+}
 if ($bugfixRuntime -notmatch 'wood-candidate-scan-request' -or
     $bugfixRuntime -notmatch 'farm-candidate-scan-request' -or
     $bugfixRuntime -match 'PublishWoodCandidateScan|PublishFarmCandidateScan' -or

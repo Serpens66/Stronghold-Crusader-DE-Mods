@@ -114,12 +114,26 @@ namespace BugfixesAndQoL
             {
                 ["FarmSearch"] = 1,
                 ["ResourceSearch"] = 2,
-                ["WoodSearchCore"] = 2,
-                ["NearbySearchCore"] = 3
+                ["WoodSearchCore"] = 2
             };
             foreach (KeyValuePair<string, int> wrapper in wrappers)
                 check(Regex.Matches(ExtractMethod(runtime, wrapper.Key), @"\.Original\(").Count == wrapper.Value,
                     wrapper.Key + " retains mutually exclusive paths with one Vanilla call each");
+            check(Regex.Matches(ExtractMethod(runtime, "NearbySearchCore"),
+                    @"InvokeNearbyOriginalWithDiagnosticOverlay\(").Count == 3 &&
+                Regex.Matches(ExtractMethod(runtime, "InvokeNearbyOriginalWithDiagnosticOverlay"),
+                    @"nearbySearchHook\.Original\(").Count == 1 &&
+                ExtractMethod(runtime, "InvokeNearbyOriginalWithDiagnosticOverlay").Contains(
+                    "APIShared.AiBuildDiagnostic.BeginNearbyWoodObservation(") &&
+                ExtractMethod(runtime, "InvokeNearbyOriginalWithDiagnosticOverlay").IndexOf(
+                    "BeginNearbyWoodObservation", StringComparison.Ordinal) <
+                ExtractMethod(runtime, "InvokeNearbyOriginalWithDiagnosticOverlay").IndexOf(
+                    "nearbySearchHook.Original", StringComparison.Ordinal) &&
+                ExtractMethod(runtime, "InvokeNearbyOriginalWithDiagnosticOverlay").IndexOf(
+                    "EndNearbyWoodObservation", StringComparison.Ordinal) >
+                ExtractMethod(runtime, "InvokeNearbyOriginalWithDiagnosticOverlay").IndexOf(
+                    "nearbySearchHook.Original", StringComparison.Ordinal),
+                "NearbySearchCore retains one Vanilla call bracketed by the optional diagnostic publisher");
             check(Regex.Matches(ExtractMethod(runtime, "WoodSearch"), @"WoodSearchCore\(").Count == 1 &&
                 Regex.Matches(ExtractMethod(runtime, "NearbySearch"), @"NearbySearchCore\(").Count == 1,
                 "diagnostic observers invoke each Vanilla search wrapper once");

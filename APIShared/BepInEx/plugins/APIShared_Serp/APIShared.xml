@@ -886,6 +886,15 @@
         <member name="P:APIShared.AiBuildDiagnostic.RouteReady">
             <summary>Whether the native route observation point is ready.</summary>
         </member>
+        <member name="M:APIShared.AiBuildDiagnostic.TryRegisterNearbyWoodOverlay(System.String,System.Func{System.UInt64,System.Int32,System.Int32,System.Int32,System.Action},System.String@)">
+            <summary>Registers the optional copy-only wood-nearby data overlay owned by AIBuildDiagnoseTest.</summary>
+        </member>
+        <member name="M:APIShared.AiBuildDiagnostic.BeginNearbyWoodObservation(System.UInt64,System.Int32,System.Int32,System.Int32)">
+            <summary>Starts optional observation at the existing nearby-search call site.</summary>
+        </member>
+        <member name="M:APIShared.AiBuildDiagnostic.EndNearbyWoodObservation(System.Action,System.UInt64,System.Int32,System.Int32,System.Int32)">
+            <summary>Restores test data and publishes the unmodified Vanilla result.</summary>
+        </member>
         <member name="M:APIShared.AiBuildDiagnostic.TryRegister(System.String,System.Action{APIShared.AiBuildDiagnosticRecord},System.String@)">
             <summary>Registers a single observer and installs the audited observation hooks once.</summary>
         </member>

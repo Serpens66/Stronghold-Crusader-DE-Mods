@@ -354,6 +354,8 @@ namespace APIShared
         private const int AicProfileRootRva = 0x404C950;
         private static readonly object Sync = new object();
         private static Action<AiBuildDiagnosticRecord> observer;
+        // Test-only, process-rooted callback. Null in ordinary installations.
+        private static Func<ulong, int, int, int, Action> nearbyWoodOverlay;
         private static SchedulerService scheduler;
         private static RouteService route;
         private static int schedulerReady;
@@ -401,6 +403,69 @@ namespace APIShared
         /// <summary>Whether the native route observation point is ready.</summary>
         public static bool RouteReady => Volatile.Read(ref routeReady) != 0;
 
+        /// <summary>Registers the optional copy-only wood-nearby data overlay owned by AIBuildDiagnoseTest.</summary>
+        public static bool TryRegisterNearbyWoodOverlay(string ownerGuid,
+            Func<ulong, int, int, int, Action> begin, out string error)
+        {
+            error = null;
+            if (ownerGuid != "AIBuildDiagnoseTest_Serp" || begin == null)
+            { error = "Invalid nearby diagnostic owner or callback."; return false; }
+            lock (Sync)
+            {
+                if (nearbyWoodOverlay != null)
+                {
+                    if (ReferenceEquals(nearbyWoodOverlay, begin)) return true;
+                    error = "Another nearby diagnostic callback is already registered.";
+                    return false;
+                }
+                if (Volatile.Read(ref observer) == null)
+                { error = "AI build observer is not registered."; return false; }
+                Volatile.Write(ref nearbyWoodOverlay, begin);
+                return true;
+            }
+        }
+
+        /// <summary>Starts optional observation at the existing nearby-search call site.</summary>
+        public static Action BeginNearbyWoodObservation(ulong state, int playerId, int x, int y)
+        {
+            if (Volatile.Read(ref observer) == null || state == 0 ||
+                playerId < 1 || playerId > 8 || !TryGetCurrentWoodAttempt(out _, out int owner) ||
+                owner != playerId) return null;
+            Publish("wood-nearby-before", playerId, x, y);
+            PublishNearbyPathEvidence("wood-nearby-path-before", playerId, state, x, y, -1, -1);
+            Func<ulong, int, int, int, Action> begin = Volatile.Read(ref nearbyWoodOverlay);
+            if (begin == null) return null;
+            try { return begin(state, playerId, x, y); }
+            catch (Exception ex)
+            {
+                NativeApiLog.Error(log, "AI nearby wood diagnostic begin failed: " + ex);
+                return null;
+            }
+        }
+
+        /// <summary>Restores test data and publishes the unmodified Vanilla result.</summary>
+        public static void EndNearbyWoodObservation(Action restore, ulong state, int playerId, int x, int y)
+        {
+            if (restore != null)
+            {
+                try { restore(); }
+                catch (Exception ex) { NativeApiLog.Error(log, "AI nearby wood diagnostic restore failed: " + ex); }
+            }
+            if (Volatile.Read(ref observer) == null || state == 0 ||
+                playerId < 1 || playerId > 8 || !TryGetCurrentWoodAttempt(out _, out int owner) ||
+                owner != playerId) return;
+            int resultX = -1, resultY = -1;
+            try
+            {
+                resultX = Marshal.ReadInt32(new IntPtr(checked((long)state + 0x1B983C)));
+                resultY = Marshal.ReadInt32(new IntPtr(checked((long)state + 0x1B9840)));
+            }
+            catch (Exception ex) { NativeApiLog.Error(log, "AI nearby wood result read failed: " + ex); }
+            PublishNearbyPathEvidence("wood-nearby-path-after", playerId, state, x, y,
+                resultX, resultY);
+            Publish("wood-nearby-after", playerId, resultX, resultY);
+        }
+
         /// <summary>Registers a single observer and installs the audited observation hooks once.</summary>
         public static bool TryRegister(string ownerGuid, Action<AiBuildDiagnosticRecord> callback, out string error)
         {
@@ -424,6 +489,7 @@ namespace APIShared
                     error = "The validated native module is unavailable.";
                     return false;
                 }
+                var failures = new List<string>();
                 try
                 {
                     byte[] bytes = new byte[SchedulerSize];
@@ -436,6 +502,10 @@ namespace APIShared
                     scheduler = candidate;
                     candidate.Install(moduleBase, region);
                     Volatile.Write(ref schedulerReady, 1);
+                }
+                catch (Exception ex) { failures.Add("scheduler: " + ex.Message); }
+                try
+                {
                     byte[] routeBytes = new byte[RouteSize];
                     Marshal.Copy(new IntPtr(checked(moduleBase + RouteRva)), routeBytes, 0, routeBytes.Length);
                     if (!string.Equals(ApiSharedRuntime.ComputeSha256(routeBytes), RouteHash, StringComparison.OrdinalIgnoreCase))
@@ -447,17 +517,13 @@ namespace APIShared
                     route = routeCandidate;
                     routeCandidate.Install(moduleBase, region);
                     Volatile.Write(ref routeReady, 1);
-                    Volatile.Write(ref observer, callback);
-                    return true;
                 }
-                catch (Exception ex)
-                {
-                    // Any successfully installed hook stays process-rooted. The existing
-                    // BugfixesAndQoL observations remain useful if another hook fails.
-                    Volatile.Write(ref observer, callback);
-                    error = ex.Message;
-                    return false;
-                }
+                catch (Exception ex) { failures.Add("route: " + ex.Message); }
+                // Successfully installed hooks stay rooted even if the other point fails.
+                Volatile.Write(ref observer, callback);
+                if (failures.Count == 0) return true;
+                error = string.Join("; ", failures);
+                return false;
             }
         }
 
@@ -1070,7 +1136,7 @@ namespace APIShared
 
         private static void ProbeBackend(ulong entry, Action<AiBuildDiagnosticRecord> callback)
         {
-            IntPtr copy = Marshal.AllocHGlobal(64);
+            IntPtr copy = AllocateRouteProbeNear(entry);
             NativeDetour<SchedulerDelegate> probe = null;
             try
             {
@@ -1098,7 +1164,8 @@ namespace APIShared
             finally
             {
                 probe?.Dispose();
-                Marshal.FreeHGlobal(copy);
+                if (!VirtualFree(copy, UIntPtr.Zero, 0x8000))
+                    NativeApiLog.Error(log, "AI scheduler probe scratch release failed: " + Marshal.GetLastWin32Error());
             }
         }
 

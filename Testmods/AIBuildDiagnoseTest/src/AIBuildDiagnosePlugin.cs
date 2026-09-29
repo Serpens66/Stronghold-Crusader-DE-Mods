@@ -24,6 +24,7 @@ namespace AIBuildDiagnoseTest
         private static IDisposable sessionSubscription;
         private static bool registered;
         private static bool placementProbeEnabled;
+        private static bool nearbyWoodTestEnabled;
 
         private void Awake()
         {
@@ -31,8 +32,11 @@ namespace AIBuildDiagnoseTest
             placementProbeEnabled = Config.Bind("PlacementProbe", "Enabled", false,
                 "Explicitly run the one-time placement probe on test_canari_nowoodcutters_probe.sav. " +
                 "Keep false for wall-isolation runs.").Value;
+            nearbyWoodTestEnabled = Config.Bind("NearbyWoodTest", "Enabled", false,
+                "Temporarily exclude zero-component wood build candidates only on the named save copy, " +
+                "after a matching read-only calibration attempt.").Value;
             Shared.DebugLogHelper.LogInfo(log, Name + " " + Version +
-                $" loaded; placementProbeEnabled={placementProbeEnabled}; " +
+                $" loaded; placementProbeEnabled={placementProbeEnabled}, nearbyWoodTestEnabled={nearbyWoodTestEnabled}; " +
                 "probe limited to test_canari_nowoodcutters_probe.sav.");
             if (registered) return;
             CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;
@@ -45,13 +49,17 @@ namespace AIBuildDiagnoseTest
             try
             {
                 var candidate = new AIBuildDiagnoseRuntime(log,
-                    Chainloader.PluginInfos.ContainsKey("fixes"), placementProbeEnabled);
+                    Chainloader.PluginInfos.ContainsKey("fixes"), placementProbeEnabled,
+                    nearbyWoodTestEnabled);
                 // Publisher subscriptions and static fields survive SHCDE startup cleanup.
                 IDisposable candidateSession = Shared.GameplaySessionLifecycle.SubscribeStarted(
                     log, candidate.OnSessionStarted, candidate.OnSessionEnded);
                 GameTimeManagerAPI.Instance.OnTick += OnTick;
                 if (!AiBuildDiagnostic.TryRegister(Guid, candidate.OnNativeRecord, out string error))
                     Shared.DebugLogHelper.LogWarning(log, "AI_BUILD_NATIVE_OBSERVATION_INCOMPLETE: " + error);
+                if (!AiBuildDiagnostic.TryRegisterNearbyWoodOverlay(Guid,
+                    candidate.BeginNearbyWoodOverlay, out string overlayError))
+                    Shared.DebugLogHelper.LogWarning(log, "AI_BUILD_NEARBY_TEST_UNAVAILABLE: " + overlayError);
                 sessionSubscription = candidateSession;
                 runtime = candidate;
                 Shared.DebugLogHelper.LogInfo(log,
