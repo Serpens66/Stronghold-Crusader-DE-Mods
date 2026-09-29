@@ -102,6 +102,21 @@ namespace BugfixesAndQoL
             if (!IsValid(order) || direction == 0 || isTradeable == null)
                 return false;
 
+            return TryGetTradeableNeighborValidated(order, currentGood, direction, isTradeable, out neighborGood);
+        }
+
+        // The market hook owns a validated snapshot, so its hot path need not validate it again.
+        internal static bool TryGetTradeableNeighborValidated(
+            int[] order,
+            int currentGood,
+            int direction,
+            Func<int, bool> isTradeable,
+            out int neighborGood)
+        {
+            neighborGood = currentGood;
+            if (order == null || direction == 0 || isTradeable == null)
+                return false;
+
             int currentIndex = Array.IndexOf(order, currentGood);
             if (currentIndex < 0)
                 return false;

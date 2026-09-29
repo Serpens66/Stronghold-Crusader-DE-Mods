@@ -55,6 +55,10 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-Tanne
 if errorlevel 1 goto build_failed_popd
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared\Test-PermanentNativeRuntimePatches.ps1"
 if errorlevel 1 goto build_failed_popd
+"%MSBUILD%" "%PROJECT_DIR%..\_inspect\HostClientPresetTests\HostClientPresetTests.csproj" /p:Configuration=Debug
+if errorlevel 1 goto build_failed_popd
+"%PROJECT_DIR%..\_inspect\HostClientPresetTests\bin\HostClientPresetTests.exe" market-goods-order
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 "%MSBUILD%" tests\WaterboyTargetReservation.Tests\WaterboyTargetReservation.Tests.csproj /p:Configuration=Release /p:ExtenderDir="%EXTENDER_DIR%"
 if errorlevel 1 goto build_failed_popd
 "%PROJECT_DIR%tests\WaterboyTargetReservation.Tests\bin\WaterboyTargetReservation.Tests.exe"
@@ -85,6 +89,7 @@ dotnet run --project "tests\ExtendedShiftCommandQueue.Tests\ExtendedShiftCommand
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 dotnet run --project "tests\AssassinPathfinding.Tests\AssassinPathfinding.Tests.csproj" -- "%PROJECT_DIR%.."
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+set "MOAT_TEST_API_SHARED_DLL=%API_SHARED_DIR%\APIShared.dll"
 dotnet run --project "tests\FriendlyMoatMovement.Tests\FriendlyMoatMovement.Tests.csproj" -- "%PROJECT_DIR%.."
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 popd

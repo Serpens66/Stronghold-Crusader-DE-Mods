@@ -21,6 +21,9 @@ namespace AIBuildDiagnoseTest
         private const int ProbeX = 345;
         private const int ProbeY = 485;
         private const int GridHistoryLimit = 64;
+        private const int ExistingAppleFarmLimit = 16;
+        private const int AppleFarmLimit = 32;
+        private const int AppleFarmSnapshotLimit = 96;
         private readonly ManualLogSource log;
         private readonly bool fixesLoaded;
         private readonly IDisposable buildingSubscription;
@@ -29,6 +32,10 @@ namespace AIBuildDiagnoseTest
         private readonly IDisposable loadingSubscription;
         private readonly List<string> earlyGridHistory = new List<string>();
         private readonly List<string> earlyFarmHistory = new List<string>();
+        private readonly List<AppleFarmWatch> appleFarms = new List<AppleFarmWatch>();
+        private int appleFarmDropped;
+        private int appleFarmSnapshots;
+        private int appleFarmSnapshotDropped;
         private int earlyGridDropped;
         private int earlyFarmDropped;
         private int gridModeZeroCalls;
@@ -61,6 +68,7 @@ namespace AIBuildDiagnoseTest
         private bool firstTick;
         private long sessionId;
         private int lastTick;
+        private long observedTickCount;
         private int nextSummaryTick;
         private bool probeSession;
         private bool probePending;
@@ -97,8 +105,11 @@ namespace AIBuildDiagnoseTest
             firstGridMismatchSeen = false;
             firstGridMismatchLine = null;
             lastTick = -1;
+            observedTickCount = 0;
             earlyGridHistory.Clear();
             earlyFarmHistory.Clear();
+            appleFarms.Clear();
+            appleFarmDropped = appleFarmSnapshots = appleFarmSnapshotDropped = 0;
             earlyGridDropped = earlyFarmDropped = 0;
             loadingSaveName = notification.Context.FilePath;
         }
@@ -114,6 +125,7 @@ namespace AIBuildDiagnoseTest
             probeAttemptId = probeSpawnId = 0;
             firstTick = false;
             lastTick = -1;
+            observedTickCount = 0;
             nextSummaryTick = 0;
             seen.Clear();
             attempts.Clear();
@@ -123,6 +135,8 @@ namespace AIBuildDiagnoseTest
             detailedRoutes.Clear();
             detailedNearby.Clear();
             wallHistory.Clear();
+            appleFarms.Clear();
+            appleFarmDropped = appleFarmSnapshots = appleFarmSnapshotDropped = 0;
             pendingWalls.Clear();
             observedWallTargets.Clear();
             wallHistoryDropped = 0;
@@ -149,6 +163,7 @@ namespace AIBuildDiagnoseTest
                 $"requiredSave={ProbeSaveName}, player={ProbePlayer}, target=({ProbeX},{ProbeY}).");
             if (active)
             {
+                CaptureInitialAppleFarms();
                 CaptureInitialHuts();
                 LogPlayers("start");
             }
@@ -157,6 +172,10 @@ namespace AIBuildDiagnoseTest
         internal void OnSessionEnded()
         {
             if (active) LogSummary("end");
+            if (active)
+                Log($"AI_BUILD_APPLEFARM_OBSERVER_SUMMARY: session={sessionId}, tracked={appleFarms.Count}, " +
+                    $"dropped={appleFarmDropped}, snapshots={appleFarmSnapshots}, " +
+                    $"snapshotDropped={appleFarmSnapshotDropped}.");
             active = false;
             probeSession = probePending = probeRunning = false;
             gridState = 0;
@@ -166,6 +185,15 @@ namespace AIBuildDiagnoseTest
         {
             if (!active) return;
             lastTick = tick;
+            observedTickCount++;
+            foreach (AppleFarmWatch farm in appleFarms)
+            {
+                if (!farm.IsNew || farm.FiveTickDone || observedTickCount < farm.DueTickCount)
+                    continue;
+                farm.FiveTickDone = true;
+                try { CaptureAppleFarm(farm, "five-ticks-after-spawn"); }
+                catch (Exception ex) { Log("AI_BUILD_APPLEFARM_TICK_CAPTURE_FAILED: " + ex); }
+            }
             if (gridState != 0)
                 ObserveGrid("tick", AiBuildDiagnostic.CaptureEconomyGridEvidence(gridState, -1));
             if (probePending)
@@ -197,6 +225,8 @@ namespace AIBuildDiagnoseTest
             if (record.EconomyGridEvidence != null)
             {
                 ObserveGrid(record.Stage, record.EconomyGridEvidence);
+                if (active && record.Stage == "economy-grid-after")
+                    ObserveAppleFarmsAfterGridUpdate(record.EconomyGridEvidence.Mode);
                 return;
             }
             if (!active || record.PlayerId < 1 || record.PlayerId > 8) return;
@@ -341,7 +371,9 @@ namespace AIBuildDiagnoseTest
                 value.Append(tile.X).Append(',').Append(tile.Y).Append(':')
                     .Append(tile.NativeComponent).Append('/').Append(tile.ApiComponent)
                     .Append(':').Append(tile.PropertyFlags.ToString("X8"))
-                    .Append(':').Append(tile.Organism);
+                    .Append(':').Append(tile.Organism)
+                    .Append(':').Append(tile.BuildingId)
+                    .Append(':').Append(tile.Status);
             }
             return value.ToString();
         }
@@ -395,6 +427,10 @@ namespace AIBuildDiagnoseTest
                     }
                     earlyFarmHistory.Add(entry);
                 }
+                if (active && args.Phase == EventHookPhase.Post && args.ReturnValue > 0 &&
+                    args.ReturnValue <= int.MaxValue)
+                    TrackAppleFarm((int)args.ReturnValue, args.PlayerId, args.TileX, args.TileY,
+                        true, "spawn-post");
             }
             if (!active ||
                 args.Building != eStructs.STRUCT_WOODCUTTERS_HUT ||
@@ -1045,6 +1081,203 @@ namespace AIBuildDiagnoseTest
                 $"tileChanged={changed}, {placement}, resourcesBefore=[{resourcesBefore}], " +
                 $"resourcesAfter=[{ReadResources(ProbePlayer)}], exception={failure}, " +
                 $"observedPlacement={(probeSpawnId > 0 ? "spawned" : "no-spawn")}.");
+        }
+
+        private void CaptureInitialAppleFarms()
+        {
+            int found = 0;
+            try
+            {
+                Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
+                for (int spanIndex = 0; spanIndex < buildings.Length; spanIndex++)
+                {
+                    ref GameBuilding building = ref buildings[spanIndex];
+                    if (building.r_BuildingType != eStructs.STRUCT_APPLEFARM ||
+                        (building.r_AliveState != AliveState.IsAlive &&
+                         building.r_AliveState != AliveState.NeedsInit)) continue;
+                    found++;
+                    if (appleFarms.Count >= ExistingAppleFarmLimit)
+                    {
+                        appleFarmDropped++;
+                        continue;
+                    }
+                    TrackAppleFarm(spanIndex + 1, building.r_PlayerIdOwner,
+                        building.r_TilePositionXBegin, building.r_TilePositionYBegin,
+                        false, "session-start");
+                }
+                Log($"AI_BUILD_APPLEFARM_INITIAL_SCAN: session={sessionId}, found={found}, " +
+                    $"tracked={appleFarms.Count}, dropped={appleFarmDropped}.");
+            }
+            catch (Exception ex) { Log("AI_BUILD_APPLEFARM_INITIAL_SCAN_FAILED: " + ex); }
+        }
+
+        private void TrackAppleFarm(int buildingId, int playerId, int eventX, int eventY,
+            bool isNew, string stage)
+        {
+            try
+            {
+                if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId,
+                    out GameBuilding* building) || building == null ||
+                    building->r_BuildingType != eStructs.STRUCT_APPLEFARM)
+                {
+                    Log($"AI_BUILD_APPLEFARM_UNRESOLVED: session={sessionId}, stage={stage}, " +
+                        $"buildingId={buildingId}, eventTile=({eventX},{eventY}).");
+                    return;
+                }
+                foreach (AppleFarmWatch existing in appleFarms)
+                    if (existing.BuildingId == buildingId && existing.GlobalId == building->r_GlobalId)
+                        return;
+                if (appleFarms.Count >= AppleFarmLimit)
+                {
+                    appleFarmDropped++;
+                    Log($"AI_BUILD_APPLEFARM_OVERFLOW: session={sessionId}, dropped={appleFarmDropped}, " +
+                        $"buildingId={buildingId}.");
+                    return;
+                }
+                var farm = new AppleFarmWatch
+                {
+                    BuildingId = buildingId,
+                    GlobalId = building->r_GlobalId,
+                    PlayerId = building->r_PlayerIdOwner,
+                    X = building->r_TilePositionXBegin,
+                    Y = building->r_TilePositionYBegin,
+                    Size = checked((int)building->r_OccupyTileGridSize),
+                    IsNew = isNew,
+                    DueTickCount = observedTickCount + 5
+                };
+                appleFarms.Add(farm);
+                Log($"AI_BUILD_APPLEFARM_TRACKED: session={sessionId}, tick={lastTick}, " +
+                    $"stage={stage}, buildingId={buildingId}, globalId={farm.GlobalId}, " +
+                    $"player={farm.PlayerId}, eventPlayer={playerId}, eventTile=({eventX},{eventY}), " +
+                    $"buildingTile=({farm.X},{farm.Y}), occupiedGridSize={farm.Size}, " +
+                    $"alive={building->r_AliveState}, dueObservedTick={(isNew ? farm.DueTickCount.ToString() : "none")}.");
+                CaptureAppleFarm(farm, stage);
+            }
+            catch (Exception ex)
+            {
+                Log($"AI_BUILD_APPLEFARM_TRACK_FAILED: session={sessionId}, stage={stage}, " +
+                    $"buildingId={buildingId}, error={ex}.");
+            }
+        }
+
+        private void ObserveAppleFarmsAfterGridUpdate(int mode)
+        {
+            foreach (AppleFarmWatch farm in appleFarms)
+            {
+                if (farm.GridUpdateDone) continue;
+                farm.GridUpdateDone = true;
+                try { CaptureAppleFarm(farm, "after-grid-update-mode-" + mode); }
+                catch (Exception ex) { Log("AI_BUILD_APPLEFARM_GRID_CAPTURE_FAILED: " + ex); }
+            }
+        }
+
+        private void CaptureAppleFarm(AppleFarmWatch farm, string stage)
+        {
+            if (appleFarmSnapshots >= AppleFarmSnapshotLimit)
+            {
+                appleFarmSnapshotDropped++;
+                if (appleFarmSnapshotDropped == 1)
+                    Log($"AI_BUILD_APPLEFARM_SNAPSHOT_OVERFLOW: session={sessionId}, " +
+                        $"limit={AppleFarmSnapshotLimit}.");
+                return;
+            }
+            appleFarmSnapshots++;
+            if (!AiBuildDiagnostic.HasObserver)
+            {
+                Log($"AI_BUILD_APPLEFARM_SNAPSHOT: session={sessionId}, stage={stage}, " +
+                    $"buildingId={farm.BuildingId}, status=native-observer-unavailable.");
+                return;
+            }
+            string buildingStatus = "unavailable";
+            try
+            {
+                if (GameBuildingManagerAPI.Instance.TryGetBuildingById(farm.BuildingId,
+                    out GameBuilding* current) && current != null)
+                {
+                    if (current->r_BuildingType == eStructs.STRUCT_APPLEFARM &&
+                        (current->r_GlobalId == farm.GlobalId || farm.GlobalId == 0))
+                    {
+                        buildingStatus = current->r_AliveState.ToString();
+                        if (farm.GlobalId == 0) farm.GlobalId = current->r_GlobalId;
+                        farm.PlayerId = current->r_PlayerIdOwner;
+                        int currentSize = checked((int)current->r_OccupyTileGridSize);
+                        if (currentSize >= 1 && currentSize <= 15)
+                        {
+                            farm.X = current->r_TilePositionXBegin;
+                            farm.Y = current->r_TilePositionYBegin;
+                            farm.Size = currentSize;
+                        }
+                    }
+                    else buildingStatus = "identity-changed";
+                }
+            }
+            catch (Exception ex) { buildingStatus = "read-failed:" + ex.GetType().Name; }
+            if (farm.Size < 1 || farm.Size > 15 || farm.X < 0 || farm.Y < 0 ||
+                farm.X + farm.Size > 800 || farm.Y + farm.Size > 800)
+            {
+                Log($"AI_BUILD_APPLEFARM_SNAPSHOT: session={sessionId}, stage={stage}, " +
+                    $"buildingId={farm.BuildingId}, buildingStatus={buildingStatus}, status=invalid-footprint, " +
+                    $"origin=({farm.X},{farm.Y}), size={farm.Size}.");
+                return;
+            }
+            int startX = Math.Max(0, farm.X / 5 - 1);
+            int endX = Math.Min(159, (farm.X + farm.Size - 1) / 5 + 1);
+            int startY = Math.Max(0, farm.Y / 5 - 1);
+            int endY = Math.Min(159, (farm.Y + farm.Size - 1) / 5 + 1);
+            int valid = 0, mismatched = 0, unavailable = 0;
+            int footprintTiles = 0, footprintBuildingTiles = 0;
+            int footprintAppleFlags = 0, footprintTreeFlags = 0, footprintZero = 0;
+            var cellLines = new List<string>();
+            for (int coarseX = startX; coarseX <= endX; coarseX++)
+                for (int coarseY = startY; coarseY <= endY; coarseY++)
+                {
+                    AiEconomyGridEvidence evidence = AiBuildDiagnostic.CaptureEconomyGridEvidence(
+                        coarseX, coarseY);
+                    bool ready = evidence.Status == "ok";
+                    bool mismatch = ready && evidence.StoredForeignCount != evidence.CurrentDifferentCount;
+                    if (ready) valid++; else unavailable++;
+                    if (mismatch) mismatched++;
+                    foreach (AiPathTileSample tile in evidence.Tiles)
+                    {
+                        if (tile.X < farm.X || tile.X >= farm.X + farm.Size ||
+                            tile.Y < farm.Y || tile.Y >= farm.Y + farm.Size || tile.Status != "ok")
+                            continue;
+                        footprintTiles++;
+                        if (tile.BuildingId == farm.BuildingId) footprintBuildingTiles++;
+                        if ((tile.PropertyFlags & (uint)TilePropertyFlag.IsAppleFarm) != 0)
+                            footprintAppleFlags++;
+                        if ((tile.PropertyFlags & (uint)TilePropertyFlag.IsTree) != 0)
+                            footprintTreeFlags++;
+                        if (tile.NativeComponent == 0) footprintZero++;
+                    }
+                    cellLines.Add($"AI_BUILD_APPLEFARM_CELL: session={sessionId}, tick={lastTick}, " +
+                        $"stage={stage}, buildingId={farm.BuildingId}, cell=({coarseX},{coarseY}), " +
+                        $"status={evidence.Status}, reference={evidence.ReferenceComponent}, " +
+                        $"storedForeign={evidence.StoredForeignCount}, liveDifferent={evidence.CurrentDifferentCount}, " +
+                        $"liveZero={evidence.CurrentZeroCount}, appleFlags={evidence.AppleFarmFlagCount}, " +
+                        $"treeFlags={evidence.TreeFlagCount}, storedTreeWeight={evidence.TreeWeight}, " +
+                        $"mismatch={(ready ? mismatch.ToString() : "unobserved")}, " +
+                        $"tiles={GridTiles(evidence)}.");
+                }
+            Log($"AI_BUILD_APPLEFARM_SNAPSHOT: session={sessionId}, tick={lastTick}, " +
+                $"stage={stage}, buildingId={farm.BuildingId}, globalId={farm.GlobalId}, " +
+                $"player={farm.PlayerId}, buildingStatus={buildingStatus}, " +
+                $"occupiedGridBounds=({farm.X},{farm.Y})+{farm.Size}x{farm.Size}, " +
+                $"coarseRange=({startX},{startY})-({endX},{endY}), " +
+                $"cells={cellLines.Count}, valid={valid}, mismatch={mismatched}, unavailable={unavailable}, " +
+                $"boundedTilesRead={footprintTiles}, buildingTiles={footprintBuildingTiles}, " +
+                $"boundedAppleFlags={footprintAppleFlags}, " +
+                $"boundedTreeFlags={footprintTreeFlags}, boundedPclZero={footprintZero}; " +
+                "mismatchComparesRawStoredForeignWithCurrentPclCount; treeWeightIsRawVanillaValue.");
+            foreach (string line in cellLines) Log(line);
+        }
+
+        private sealed class AppleFarmWatch
+        {
+            internal int BuildingId, PlayerId, X, Y, Size;
+            internal uint GlobalId;
+            internal long DueTickCount;
+            internal bool IsNew, FiveTickDone, GridUpdateDone;
         }
 
         private void CaptureInitialHuts()

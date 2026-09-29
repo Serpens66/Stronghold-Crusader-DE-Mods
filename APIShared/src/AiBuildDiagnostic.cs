@@ -277,13 +277,15 @@ namespace APIShared
         public AiEconomyGridEvidence EconomyGridEvidence { get; }
     }
 
-    /// <summary>Read-only snapshot of the Canari coarse cell and its live tile layers.</summary>
+    /// <summary>Read-only snapshot of one coarse cell and its live tile layers.</summary>
     public sealed class AiEconomyGridEvidence
     {
-        internal AiEconomyGridEvidence(string status, ulong state, int mode, int referenceComponent,
+        internal AiEconomyGridEvidence(string status, ulong state, int mode, int coarseX, int coarseY,
+            int referenceComponent,
             int storedForeignCount, int treeWeight, IReadOnlyList<AiPathTileSample> tiles)
         {
             Status = status; State = state; Mode = mode; ReferenceComponent = referenceComponent;
+            CoarseX = coarseX; CoarseY = coarseY;
             StoredForeignCount = storedForeignCount; TreeWeight = treeWeight;
             Tiles = tiles ?? Array.AsReadOnly(new AiPathTileSample[0]);
             int different = 0, zero = 0, trees = 0, apples = 0;
@@ -306,9 +308,13 @@ namespace APIShared
         public ulong State { get; }
         /// <summary>Native update mode, or minus one for a tick snapshot.</summary>
         public int Mode { get; }
+        /// <summary>Zero-based X coordinate of this 5-by-5 coarse-grid cell.</summary>
+        public int CoarseX { get; }
+        /// <summary>Zero-based Y coordinate of this 5-by-5 coarse-grid cell.</summary>
+        public int CoarseY { get; }
         /// <summary>Reference path component stored by Vanilla's full coarse rebuild.</summary>
         public int ReferenceComponent { get; }
-        /// <summary>Stored foreign-component count in coarse cell 69,97.</summary>
+        /// <summary>Stored foreign-component count in the selected coarse cell.</summary>
         public int StoredForeignCount { get; }
         /// <summary>Stored Vanilla tree weight; not a count of tree-flagged tiles.</summary>
         public int TreeWeight { get; }
@@ -472,29 +478,55 @@ namespace APIShared
 
         /// <summary>Copies one monitored coarse cell; intended for the diagnostic tick publisher.</summary>
         public static AiEconomyGridEvidence CaptureEconomyGridEvidence(ulong state, int mode)
+            => CaptureEconomyGridEvidence(state, mode, 69, 97);
+
+        /// <summary>Diagnostic-only snapshot of a selected coarse cell in the current AIV system.</summary>
+        public static unsafe AiEconomyGridEvidence CaptureEconomyGridEvidence(int coarseX, int coarseY)
         {
-            if (!HasObserver || state == 0 || moduleBase == 0)
-                return new AiEconomyGridEvidence("unavailable", state, mode, -1, -1, -1, null);
+            if (!HasObserver)
+                return new AiEconomyGridEvidence("unavailable", 0, -1, coarseX, coarseY,
+                    -1, -1, -1, null);
             try
             {
-                const int coarseX = 69, coarseY = 97;
+                AivSystem* system = GameAIVManagerAPI.Instance.GetAIVSystemPointer();
+                return CaptureEconomyGridEvidence((ulong)system, -1, coarseX, coarseY);
+            }
+            catch (Exception ex)
+            {
+                return new AiEconomyGridEvidence("capture-exception:" + ex.GetType().Name,
+                    0, -1, coarseX, coarseY, -1, -1, -1, null);
+            }
+        }
+
+        /// <summary>Diagnostic-only snapshot of any valid 5-by-5 coarse cell.</summary>
+        public static AiEconomyGridEvidence CaptureEconomyGridEvidence(ulong state, int mode,
+            int coarseX, int coarseY)
+        {
+            if (!HasObserver || state == 0 || moduleBase == 0)
+                return new AiEconomyGridEvidence("unavailable", state, mode, coarseX, coarseY,
+                    -1, -1, -1, null);
+            if (coarseX < 0 || coarseX >= 160 || coarseY < 0 || coarseY >= 160)
+                return new AiEconomyGridEvidence("invalid-coarse-cell", state, mode, coarseX, coarseY,
+                    -1, -1, -1, null);
+            try
+            {
                 long cell = checked((long)state + 0x5B834 +
                     ((long)coarseX * 160 + coarseY) * 0x30);
                 int reference = Marshal.ReadInt32(new IntPtr(checked((long)state + 0x5B504)));
                 int foreign = Marshal.ReadByte(new IntPtr(cell));
                 int treeWeight = Marshal.ReadByte(new IntPtr(cell + 3));
-                IReadOnlyList<AiPathTileSample> tiles = CaptureTiles(345, 485, 5, 5);
+                IReadOnlyList<AiPathTileSample> tiles = CaptureTiles(coarseX * 5, coarseY * 5, 5, 5);
                 bool allTilesReady = tiles.Count == 25;
                 foreach (AiPathTileSample tile in tiles)
                     if (tile.Status != "ok") allTilesReady = false;
                 string status = allTilesReady && reference > 0 ? "ok" : "tile-grid-not-ready";
-                return new AiEconomyGridEvidence(status, state, mode, reference,
+                return new AiEconomyGridEvidence(status, state, mode, coarseX, coarseY, reference,
                     foreign, treeWeight, tiles);
             }
             catch (Exception ex)
             {
                 return new AiEconomyGridEvidence("capture-exception:" + ex.GetType().Name,
-                    state, mode, -1, -1, -1, null);
+                    state, mode, coarseX, coarseY, -1, -1, -1, null);
             }
         }
 

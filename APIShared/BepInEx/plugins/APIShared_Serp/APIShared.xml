@@ -833,7 +833,7 @@
             <summary>Copied state of the monitored 5-by-5 economy cell.</summary>
         </member>
         <member name="T:APIShared.AiEconomyGridEvidence">
-            <summary>Read-only snapshot of the Canari coarse cell and its live tile layers.</summary>
+            <summary>Read-only snapshot of one coarse cell and its live tile layers.</summary>
         </member>
         <member name="P:APIShared.AiEconomyGridEvidence.Status">
             <summary>ok only when all monitored tiles and the reference component were read.</summary>
@@ -844,11 +844,17 @@
         <member name="P:APIShared.AiEconomyGridEvidence.Mode">
             <summary>Native update mode, or minus one for a tick snapshot.</summary>
         </member>
+        <member name="P:APIShared.AiEconomyGridEvidence.CoarseX">
+            <summary>Zero-based X coordinate of this 5-by-5 coarse-grid cell.</summary>
+        </member>
+        <member name="P:APIShared.AiEconomyGridEvidence.CoarseY">
+            <summary>Zero-based Y coordinate of this 5-by-5 coarse-grid cell.</summary>
+        </member>
         <member name="P:APIShared.AiEconomyGridEvidence.ReferenceComponent">
             <summary>Reference path component stored by Vanilla's full coarse rebuild.</summary>
         </member>
         <member name="P:APIShared.AiEconomyGridEvidence.StoredForeignCount">
-            <summary>Stored foreign-component count in coarse cell 69,97.</summary>
+            <summary>Stored foreign-component count in the selected coarse cell.</summary>
         </member>
         <member name="P:APIShared.AiEconomyGridEvidence.TreeWeight">
             <summary>Stored Vanilla tree weight; not a count of tree-flagged tiles.</summary>
@@ -891,6 +897,12 @@
         </member>
         <member name="M:APIShared.AiBuildDiagnostic.CaptureEconomyGridEvidence(System.UInt64,System.Int32)">
             <summary>Copies one monitored coarse cell; intended for the diagnostic tick publisher.</summary>
+        </member>
+        <member name="M:APIShared.AiBuildDiagnostic.CaptureEconomyGridEvidence(System.Int32,System.Int32)">
+            <summary>Diagnostic-only snapshot of a selected coarse cell in the current AIV system.</summary>
+        </member>
+        <member name="M:APIShared.AiBuildDiagnostic.CaptureEconomyGridEvidence(System.UInt64,System.Int32,System.Int32,System.Int32)">
+            <summary>Diagnostic-only snapshot of any valid 5-by-5 coarse cell.</summary>
         </member>
         <member name="M:APIShared.AiBuildDiagnostic.PublishNearbyPathEvidence(System.String,System.Int32,System.UInt64,System.Int32,System.Int32,System.Int32,System.Int32)">
             <summary>Copies coarse cells and tile layers around Vanilla's existing nearby search.</summary>

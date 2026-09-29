@@ -1049,9 +1049,12 @@ namespace BugfixesAndQoL
             // The countdown owns its local presentation; unrelated runtime features need no refresh.
             if (propertyName == nameof(BugfixesAndQoLViewModel.ShowCountdownTimers))
                 return;
-            // The installed market hook reads this local order directly; no hooks need reconciliation.
+            // Refresh the market hook's validated snapshot only when the order changes.
             if (propertyName == nameof(BugfixesAndQoLViewModel.MarketGoodsOrder))
+            {
+                hdMarketViewHook?.UpdateOrder(settings.MarketGoodsOrder);
                 return;
+            }
 
             TryApplyFeature("plague target-reservation fix", () => plagueTargetReservationFix?.ApplySetting());
             if (propertyName == nameof(BugfixesAndQoLViewModel.EnableTroopMovementFix))

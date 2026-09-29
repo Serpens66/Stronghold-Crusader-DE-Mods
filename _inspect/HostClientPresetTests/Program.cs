@@ -52,6 +52,15 @@ internal static class Program
             }
 
             if (args != null && args.Length == 1 &&
+                string.Equals(args[0], "market-goods-order", StringComparison.OrdinalIgnoreCase))
+            {
+                TestMarketGoodsOrderDefinition();
+                TestArrayPerPlayerSetting();
+                Console.WriteLine("PASS: market-goods order, unavailable neighbors and per-player snapshots.");
+                return 0;
+            }
+
+            if (args != null && args.Length == 1 &&
                 string.Equals(args[0], "temporary-gate-blockage", StringComparison.OrdinalIgnoreCase))
             {
                 TestTemporaryGateBlockagePolicy();
@@ -2530,6 +2539,24 @@ internal static class Program
                 good => false,
                 out _),
             "market navigation found a neighbor when every good was unavailable");
+
+        int[] reordered = MarketGoodsOrderDefinition.SwapGoodWithNeighbor(hd, hd[18], 1);
+        foreach (int[] order in new[] { hd, reordered })
+        {
+            for (int index = 0; index < order.Length; index++)
+            {
+                foreach (int direction in new[] { -1, 1 })
+                {
+                    int unavailableIndex = (index + direction + order.Length) % order.Length;
+                    int expectedIndex = (index + 2 * direction + 2 * order.Length) % order.Length;
+                    bool found = MarketGoodsOrderDefinition.TryGetTradeableNeighborValidated(
+                        order, order[index], direction,
+                        candidate => candidate != order[unavailableIndex], out int actual);
+                    Check(found && actual == order[expectedIndex],
+                        $"market snapshot skipped the wrong neighbor for position {index} and direction {direction}");
+                }
+            }
+        }
     }
 
     private static void TestArrayPerPlayerSetting()
