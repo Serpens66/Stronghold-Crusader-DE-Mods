@@ -230,6 +230,7 @@
     <Compile Include="src\MapPlayerCountCellBehavior.cs" />
     <Compile Include="src\VanillaMapEditorHook.cs" />
     <Compile Include="src\VanillaMapEditorPolicy.cs" />
+    <Compile Include="src\SaveDeletionPolicy.cs" />
     <Compile Include="src\MinimapInputFeature.cs" />
     <Compile Include="src\LocalPerPlayerSetting.cs" />
     <Compile Include="src\LordUnitControlsFeature.cs" />

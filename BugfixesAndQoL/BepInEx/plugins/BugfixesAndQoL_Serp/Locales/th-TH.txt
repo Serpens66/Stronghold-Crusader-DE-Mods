@@ -299,6 +299,13 @@ BugfixesAndQoL.DeleteMapConfirmMessage=Permanently delete the map “{MapName}�
 BugfixesAndQoL.DeleteMapErrorTitle=Map Could Not Be Deleted
 BugfixesAndQoL.DeleteMapErrorMessage=The map “{MapName}” could not be deleted. Only existing maps directly in your user Maps folder may be deleted.
 BugfixesAndQoL.DeleteMapUnknownName=Unknown map
+BugfixesAndQoL.DeleteSave=Delete Save
+BugfixesAndQoL.DeleteSaveHelp=Permanently deletes the selected save after confirmation.
+BugfixesAndQoL.DeleteSaveConfirmTitle=Delete Save?
+BugfixesAndQoL.DeleteSaveConfirmMessage=Permanently delete the save “{SaveName}”? This cannot be undone.
+BugfixesAndQoL.DeleteSaveErrorTitle=Save Could Not Be Deleted
+BugfixesAndQoL.DeleteSaveErrorMessage=The save “{SaveName}” could not be deleted. Only existing saves directly in your user Saves folder may be deleted.
+BugfixesAndQoL.DeleteSaveUnknownName=Unknown save
 
 BugfixesAndQoL.EnableFastRecruitRallyMovement=Recruits Run to Rally Points
 BugfixesAndQoL.EnableFastRecruitRallyMovementHelp=Newly recruited human-player units move to their rally points using their own Vanilla Fast pace and animation while keeping terrain and state modifiers. AI units remain unchanged.

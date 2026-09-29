@@ -16,6 +16,7 @@ namespace BugfixesAndQoL
     // The installed hook and its event subscriptions are process-lifetime objects.
     internal sealed unsafe class AiCoarsePathComponentFix
     {
+        private enum RefreshOutcome { Completed, Deferred, Failed }
         private const int RebuildRva = 0xE49D0;
         private const int DisplacedLength = 8;
         private const int PclCount = 320800;
@@ -45,6 +46,16 @@ namespace BugfixesAndQoL
         private bool deferredRefresh;
         private bool refreshing;
         private bool unavailable;
+        private long sessionId;
+        private long noRebuildCalls;
+        private int successfulRebuilds;
+        private int appliedRebuilds;
+        private int deferredRebuilds;
+        private int skippedBeforeStart;
+        private int skippedDisabled;
+        private int skippedUnavailable;
+        private int failedRefreshes;
+        private int completedRefreshes;
 
         internal AiCoarsePathComponentFix(ManualLogSource log, Func<bool> isEnabled,
             CrusaderLibraryLoadContext context, bool hashMatches)
@@ -100,9 +111,16 @@ namespace BugfixesAndQoL
                     throw new InvalidOperationException("The PCL rebuild detour did not install completely: " + result);
                 ValidateInstalledHook(target);
 
-                loading = Shared.MissionEvents.Loading.Subscribe(_ => ResetMap());
-                starting = Shared.MissionEvents.NativeStart.Subscribe(args => OnNativeStart(args));
-                ending = Shared.MissionEvents.Ended.Subscribe(_ => ResetMap());
+                loading = Shared.MissionEvents.Loading.Subscribe(args =>
+                {
+                    if (args.Phase == APIShared.MissionInitializationPhase.BeforeLoad) ResetMap();
+                });
+                starting = Shared.MissionEvents.Started.Subscribe(OnSessionStarted);
+                ending = Shared.MissionEvents.Ended.Subscribe(_ =>
+                {
+                    LogSessionSummary("ended");
+                    ResetMap();
+                });
                 transaction = pending;
                 loadSubscription = loading;
                 startSubscription = starting;
@@ -119,7 +137,7 @@ namespace BugfixesAndQoL
             }
             Shared.DebugLogHelper.LogInfo(log,
                 "AI_COARSE_PCL_FIX_READY: publisher=native 0xE49D0; scheme=Indirect; displaced=8; " +
-                "mapBootstrap=MissionEvents.NativeStart.");
+                "mapBootstrap=MissionEvents.Started.");
         }
 
         private void ValidateInstalledHook(ulong expectedTarget)
@@ -142,14 +160,29 @@ namespace BugfixesAndQoL
         private int Rebuild(ulong pathingContext, int force)
         {
             int rebuilt = rebuildHook.Original(pathingContext, force);
-            if (rebuilt != 1) return rebuilt;
+            if (rebuilt != 1)
+            {
+                if (mapActive) noRebuildCalls++;
+                return rebuilt;
+            }
             try
             {
                 if (pathingContext != moduleBase + NativePathingContextRva)
                     throw new InvalidOperationException("PCL rebuild received an unexpected native pathing context.");
                 BugfixesAndQoLRuntime.NotifyAiPathComponentGridRebuilt();
+                successfulRebuilds++;
                 if (mapActive && enabledForMap && !unavailable)
-                    RefreshOrDefer("native-rebuild");
+                {
+                    switch (RefreshOrDefer("native-rebuild"))
+                    {
+                        case RefreshOutcome.Completed: appliedRebuilds++; break;
+                        case RefreshOutcome.Deferred: deferredRebuilds++; break;
+                        default: failedRefreshes++; break;
+                    }
+                }
+                else if (!mapActive) skippedBeforeStart++;
+                else if (!enabledForMap) skippedDisabled++;
+                else skippedUnavailable++;
             }
             catch (Exception ex)
             {
@@ -164,38 +197,61 @@ namespace BugfixesAndQoL
             mapActive = false;
             enabledForMap = false;
             deferredRefresh = false;
+            sessionId = 0;
+            noRebuildCalls = 0;
+            successfulRebuilds = 0;
+            appliedRebuilds = 0;
+            deferredRebuilds = 0;
+            skippedBeforeStart = 0;
+            skippedDisabled = 0;
+            skippedUnavailable = 0;
+            failedRefreshes = 0;
+            completedRefreshes = 0;
         }
 
-        private void OnNativeStart(APIShared.MissionLifecycleNotification args)
+        private void OnSessionStarted(APIShared.MissionLifecycleNotification args)
         {
-            if (args.IsBeforeInitialization) return;
+            if (mapActive && sessionId == args.Context.SessionId) return;
+            sessionId = args.Context.SessionId;
             enabledForMap = isEnabled();
             mapActive = true;
-            if (enabledForMap && !unavailable) RefreshOrDefer("map-start");
+            Shared.DebugLogHelper.LogInfo(log,
+                $"AI_COARSE_PCL_SESSION: session={sessionId}; start={args.Context.StartKind}; " +
+                $"mode={args.Context.Mode.Kind}; enabled={enabledForMap}; available={!unavailable}; " +
+                $"preStartRebuilds={skippedBeforeStart}; replay={args.IsReplay}.");
+            if (enabledForMap && !unavailable) RefreshOrDefer("session-start");
+            else Shared.DebugLogHelper.LogInfo(log,
+                $"AI_COARSE_PCL_REFRESH: session={sessionId}; reason=session-start; " +
+                $"status={(enabledForMap ? "skipped-unavailable" : "skipped-disabled")}.");
         }
 
-        private void RefreshOrDefer(string reason)
+        private RefreshOutcome RefreshOrDefer(string reason)
         {
             if (BugfixesAndQoLRuntime.HasActiveAiEconomyOverlay)
             {
                 deferredRefresh = true;
-                return;
+                if (reason == "session-start")
+                    Shared.DebugLogHelper.LogInfo(log,
+                        $"AI_COARSE_PCL_REFRESH: session={sessionId}; reason={reason}; status=deferred-overlay.");
+                return RefreshOutcome.Deferred;
             }
             if (refreshing)
             {
                 unavailable = true;
                 Shared.DebugLogHelper.LogError(log, "AI_COARSE_PCL_FIX_DISABLED: nested refresh.");
-                return;
+                return RefreshOutcome.Failed;
             }
             try
             {
                 refreshing = true;
                 Refresh(reason);
+                return RefreshOutcome.Completed;
             }
             catch (Exception ex)
             {
                 unavailable = true;
                 Shared.DebugLogHelper.LogError(log, "AI_COARSE_PCL_FIX_DISABLED: " + ex);
+                return RefreshOutcome.Failed;
             }
             finally
             {
@@ -208,6 +264,19 @@ namespace BugfixesAndQoL
             if (!deferredRefresh || !mapActive || !enabledForMap || unavailable) return;
             deferredRefresh = false;
             RefreshOrDefer("overlay-restored");
+        }
+
+        private void LogSessionSummary(string reason)
+        {
+            if (!mapActive) return;
+            Shared.DebugLogHelper.LogInfo(log,
+                $"AI_COARSE_PCL_SUMMARY: session={sessionId}; reason={reason}; enabled={enabledForMap}; " +
+                $"noRebuildCalls={noRebuildCalls}; successfulRebuilds={successfulRebuilds}; " +
+                $"appliedRebuilds={appliedRebuilds}; deferredRebuilds={deferredRebuilds}; " +
+                $"skippedBeforeStart={skippedBeforeStart}; skippedDisabled={skippedDisabled}; " +
+                $"skippedUnavailable={skippedUnavailable}; failedRefreshes={failedRefreshes}; " +
+                $"completedRefreshes={completedRefreshes}; " +
+                $"pendingOverlayRefresh={deferredRefresh}; available={!unavailable}.");
         }
 
         private void Refresh(string reason)
@@ -267,10 +336,12 @@ namespace BugfixesAndQoL
                 for (int index = 0; index < coarse.Length; index++)
                     if (coarse[index].ForeignPathComponentTileCount != foreignCounts[index])
                         coarse[index].ForeignPathComponentTileCount = foreignCounts[index];
-            if (changedReference || changedCells != 0)
+            completedRefreshes++;
+            if (reason == "session-start" || completedRefreshes <= 3 ||
+                ((changedReference || changedCells != 0) && completedRefreshes <= 8))
                 Shared.DebugLogHelper.LogInfo(log,
-                    $"AI_COARSE_PCL_REFRESH: reason={reason}; reference={reference}; " +
-                    $"referenceChanged={changedReference}; changedCells={changedCells}.");
+                    $"AI_COARSE_PCL_REFRESH: session={sessionId}; reason={reason}; status=completed; " +
+                    $"reference={reference}; referenceChanged={changedReference}; changedCells={changedCells}.");
         }
     }
 }

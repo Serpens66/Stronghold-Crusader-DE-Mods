@@ -303,6 +303,13 @@ BugfixesAndQoL.DeleteMapConfirmMessage=Soll die Karte „{MapName}“ dauerhaft 
 BugfixesAndQoL.DeleteMapErrorTitle=Karte konnte nicht gelöscht werden
 BugfixesAndQoL.DeleteMapErrorMessage=Die Karte „{MapName}“ konnte nicht gelöscht werden. Es können nur vorhandene Karten direkt im Benutzerordner Maps gelöscht werden.
 BugfixesAndQoL.DeleteMapUnknownName=Unbekannte Karte
+BugfixesAndQoL.DeleteSave=Spielstand löschen
+BugfixesAndQoL.DeleteSaveHelp=Löscht den ausgewählten Spielstand nach einer Bestätigung dauerhaft.
+BugfixesAndQoL.DeleteSaveConfirmTitle=Spielstand löschen?
+BugfixesAndQoL.DeleteSaveConfirmMessage=Soll der Spielstand „{SaveName}“ dauerhaft gelöscht werden? Dies kann nicht rückgängig gemacht werden.
+BugfixesAndQoL.DeleteSaveErrorTitle=Spielstand konnte nicht gelöscht werden
+BugfixesAndQoL.DeleteSaveErrorMessage=Der Spielstand „{SaveName}“ konnte nicht gelöscht werden. Es können nur vorhandene Spielstände direkt im Benutzerordner Saves gelöscht werden.
+BugfixesAndQoL.DeleteSaveUnknownName=Unbekannter Spielstand
 
 BugfixesAndQoL.EnableFastRecruitRallyMovement=Rekruten laufen zu Sammelpunkten
 BugfixesAndQoL.EnableFastRecruitRallyMovementHelp=Neu rekrutierte Einheiten menschlicher Spieler laufen mit ihrem eigenen maximalen Vanilla-Tempo und passender Animation zu ihrem Sammelpunkt; Gelände- und Zustandsmodifikatoren bleiben erhalten. KI-Einheiten bleiben unverändert.

@@ -46,6 +46,9 @@ namespace BugfixesAndQoL
         private static readonly FieldInfo SelectedHeaderField = FindRequiredField(
             typeof(HUD_LoadSaveRequester),
             "selectedHeader");
+        private static readonly FieldInfo HeaderListField = FindRequiredField(
+            typeof(HUD_LoadSaveRequester),
+            "headerlist");
         private static readonly FieldInfo PanelActiveField = FindRequiredField(
             typeof(HUD_LoadSaveRequester),
             "panelActive");
@@ -92,6 +95,7 @@ namespace BugfixesAndQoL
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
             DeleteMapCommand = new RelayCommand(DeleteSelectedMap, CanDeleteSelectedMap);
+            DeleteSaveCommand = new RelayCommand(DeleteSelectedSave, CanDeleteSelectedSave);
 
             try
             {
@@ -137,6 +141,9 @@ namespace BugfixesAndQoL
                 GameXAMLManagerAPI.Instance.RegisterBinding(
                     "BugfixesAndQoLDeleteMapHost",
                     this);
+                GameXAMLManagerAPI.Instance.RegisterBinding(
+                    "BugfixesAndQoLDeleteSaveHost",
+                    this);
                 settings.PropertyChanged += SettingsPropertyChanged;
             }
             catch
@@ -172,6 +179,7 @@ namespace BugfixesAndQoL
         public event PropertyChangedEventHandler PropertyChanged;
 
         public RelayCommand DeleteMapCommand { get; }
+        public RelayCommand DeleteSaveCommand { get; }
 
         public bool ShowVanillaMaps
         {
@@ -187,6 +195,8 @@ namespace BugfixesAndQoL
         public string ShowVanillaMapsHelpText => settings.ShowVanillaMapsInEditorHelpText;
         public string DeleteMapText => SerpLocalization.Get("BugfixesAndQoL.DeleteMap");
         public string DeleteMapHelpText => SerpLocalization.Get("BugfixesAndQoL.DeleteMapHelp");
+        public string DeleteSaveText => SerpLocalization.Get("BugfixesAndQoL.DeleteSave");
+        public string DeleteSaveHelpText => SerpLocalization.Get("BugfixesAndQoL.DeleteSaveHelp");
 
         public Visibility ShowVanillaMapsVisibility =>
             FeatureEnabled && GetActiveRequesterType() == Enums.RequesterTypes.LoadEditorMap
@@ -200,6 +210,13 @@ namespace BugfixesAndQoL
 
         public bool DeleteMapEnabled => CanDeleteSelectedMap();
 
+        public Visibility DeleteSaveVisibility =>
+            FeatureEnabled && IsLoadSaveRequester(GetActiveRequesterType())
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+
+        public bool DeleteSaveEnabled => CanDeleteSelectedSave();
+
         private bool FeatureEnabled => settings.EnableMod;
 
         private bool ShouldShowBuiltIns => FeatureEnabled && settings.ShowVanillaMapsInEditor;
@@ -208,6 +225,7 @@ namespace BugfixesAndQoL
         {
             Enums.RequesterTypes requesterType = GetRequesterType(self);
             bool editorMapRequester = IsEditorMapRequester(requesterType);
+            bool loadSaveRequester = IsLoadSaveRequester(requesterType);
             bool exposeBuiltIns = VanillaMapEditorPolicy.ShouldExposeBuiltIns(
                 ShouldShowBuiltIns,
                 requesterType == Enums.RequesterTypes.LoadEditorMap);
@@ -219,14 +237,17 @@ namespace BugfixesAndQoL
             try
             {
                 ConfigurePlayerCountColumn(self, requesterType);
-                if (editorMapRequester)
+                activeRequester = self;
+                RefreshUiState();
+                if (editorMapRequester || loadSaveRequester)
                 {
-                    activeRequester = self;
                     AttachRequester(self);
-                    ResetPlayerSortForNewDialog(self);
-                    RefreshUiState();
+                    if (editorMapRequester)
+                        ResetPlayerSortForNewDialog(self);
                 }
                 populateListOriginal(self);
+                if (loadSaveRequester)
+                    RemoveMissingSaveRows(self);
                 if (requesterType == Enums.RequesterTypes.LoadEditorMap)
                     ApplyPlayerCountSort(self);
             }
@@ -238,8 +259,7 @@ namespace BugfixesAndQoL
                     editorMapPopulateDepth--;
             }
 
-            if (editorMapRequester)
-                RefreshUiState();
+            RefreshUiState();
         }
 
         private void FileListHeaderClickedHook(
@@ -511,6 +531,160 @@ namespace BugfixesAndQoL
             return TryGetSelectedDeletableMap(out _, out _);
         }
 
+        private bool CanDeleteSelectedSave() =>
+            TryGetSelectedDeletableSave(out _, out _);
+
+        private void DeleteSelectedSave()
+        {
+            if (!TryGetSelectedDeletableSave(out FileHeader header, out string safePath))
+            {
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    "Bugfixes and QoL rejected a save deletion because the selection was not a direct user Saves file.");
+                ShowDeleteSaveError(string.Empty);
+                RefreshUiState();
+                return;
+            }
+
+            string saveName = string.IsNullOrWhiteSpace(header.display_filename)
+                ? System.IO.Path.GetFileNameWithoutExtension(safePath)
+                : header.display_filename;
+            HUD_LoadSaveRequester requester = activeRequester;
+            try
+            {
+                HUD_ConfirmationPopup.ShowConfirmationMessage(
+                    SerpLocalization.Get("BugfixesAndQoL.DeleteSaveConfirmTitle"),
+                    () => DeleteSaveConfirmed(requester, safePath, saveName),
+                    RefreshUiState,
+                    SerpLocalization.Get(
+                        "BugfixesAndQoL.DeleteSaveConfirmMessage",
+                        "SaveName",
+                        saveName));
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Bugfixes and QoL could not open the delete confirmation for [{safePath}]: {ex}");
+                ShowDeleteSaveError(saveName);
+            }
+        }
+
+        private void DeleteSaveConfirmed(
+            HUD_LoadSaveRequester requester,
+            string requestedPath,
+            string saveName)
+        {
+            try
+            {
+                Enums.RequesterTypes requesterType = GetRequesterType(requester);
+                if (!FeatureEnabled ||
+                    !IsLoadSaveRequester(requesterType) ||
+                    !SaveDeletionPolicy.TryResolveDeletableSavePath(
+                        requestedPath,
+                        ConfigSettings.GetSavesPath(),
+                        IsMultiplayerSaveRequester(requesterType),
+                        File.Exists,
+                        out string safePath))
+                {
+                    Shared.DebugLogHelper.LogWarning(
+                        log,
+                        $"Bugfixes and QoL rejected a save deletion after confirmation because the path was no longer safe: [{requestedPath}].");
+                    ShowDeleteSaveError(saveName);
+                    return;
+                }
+
+                File.Delete(safePath);
+                if (File.Exists(safePath))
+                    throw new IOException("The save file still exists after File.Delete returned.");
+
+                ClearDeletedSelection(requester, saveName);
+                RemoveMissingSaveRows(requester);
+                RefreshRequesterList(requester);
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"Bugfixes and QoL permanently deleted user save [{safePath}].");
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Bugfixes and QoL could not delete user save [{requestedPath}]: {ex}");
+                ShowDeleteSaveError(saveName);
+            }
+            finally
+            {
+                RefreshUiState();
+            }
+        }
+
+        private bool TryGetSelectedDeletableSave(out FileHeader header, out string safePath)
+        {
+            header = null;
+            safePath = null;
+            try
+            {
+                if (!FeatureEnabled || activeRequester == null)
+                    return false;
+
+                Enums.RequesterTypes requesterType = GetActiveRequesterType();
+                if (!IsLoadSaveRequester(requesterType))
+                    return false;
+
+                ListView list = (ListView)FileListField.GetValue(activeRequester);
+                header = (list?.SelectedItem as FileRow)?.fileHeader;
+                return header != null &&
+                    SaveDeletionPolicy.TryResolveDeletableSavePath(
+                        header.filePath,
+                        ConfigSettings.GetSavesPath(),
+                        IsMultiplayerSaveRequester(requesterType),
+                        File.Exists,
+                        out safePath);
+            }
+            catch (Exception ex)
+            {
+                LogUiFailure("validate the selected save for deletion", ex);
+                header = null;
+                safePath = null;
+                return false;
+            }
+        }
+
+        private void RemoveMissingSaveRows(HUD_LoadSaveRequester requester)
+        {
+            try
+            {
+                List<FileHeader> headers = (List<FileHeader>)HeaderListField.GetValue(requester);
+                if (headers != null)
+                {
+                    for (int index = headers.Count - 1; index >= 0; index--)
+                    {
+                        if (!File.Exists(headers[index]?.filePath))
+                            headers.RemoveAt(index);
+                    }
+                }
+
+                ListView list = (ListView)FileListField.GetValue(requester);
+                ObservableCollection<FileRow> rows = list?.ItemsSource as ObservableCollection<FileRow>;
+                if (rows != null)
+                {
+                    for (int index = rows.Count - 1; index >= 0; index--)
+                    {
+                        if (!File.Exists(rows[index]?.fileHeader?.filePath))
+                            rows.RemoveAt(index);
+                    }
+                }
+
+                FileHeader selected = (FileHeader)SelectedHeaderField.GetValue(requester);
+                if (selected != null && !File.Exists(selected.filePath))
+                    ClearDeletedSelection(requester, selected.display_filename);
+            }
+            catch (Exception ex)
+            {
+                LogUiFailure("remove missing saves from the load dialog", ex);
+            }
+        }
+
         private void DeleteSelectedMap()
         {
             if (!TryGetSelectedDeletableMap(out FileHeader header, out string safePath))
@@ -654,7 +828,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                LogUiFailure("refresh the editor map list", ex);
+                LogUiFailure("refresh the load/save list", ex);
             }
         }
 
@@ -663,7 +837,31 @@ namespace BugfixesAndQoL
             OnPropertyChanged(nameof(ShowVanillaMapsVisibility));
             OnPropertyChanged(nameof(DeleteMapVisibility));
             OnPropertyChanged(nameof(DeleteMapEnabled));
+            OnPropertyChanged(nameof(DeleteSaveVisibility));
+            OnPropertyChanged(nameof(DeleteSaveEnabled));
             DeleteMapCommand.RaiseCanExecuteChanged();
+            DeleteSaveCommand.RaiseCanExecuteChanged();
+        }
+
+        private void ShowDeleteSaveError(string saveName)
+        {
+            try
+            {
+                string displayName = string.IsNullOrWhiteSpace(saveName)
+                    ? SerpLocalization.Get("BugfixesAndQoL.DeleteSaveUnknownName")
+                    : saveName;
+                HUD_ConfirmationPopup.ShowConfirmationOKMessage(
+                    SerpLocalization.Get("BugfixesAndQoL.DeleteSaveErrorTitle"),
+                    RefreshUiState,
+                    SerpLocalization.Get(
+                        "BugfixesAndQoL.DeleteSaveErrorMessage",
+                        "SaveName",
+                        displayName));
+            }
+            catch (Exception ex)
+            {
+                LogUiFailure("show the save-deletion error", ex);
+            }
         }
 
         private void ShowDeleteError(string mapName)
@@ -704,6 +902,16 @@ namespace BugfixesAndQoL
         private static bool IsEditorMapRequester(Enums.RequesterTypes requesterType) =>
             requesterType == Enums.RequesterTypes.LoadEditorMap ||
             requesterType == Enums.RequesterTypes.SaveEditorMap;
+
+        private static bool IsLoadSaveRequester(Enums.RequesterTypes requesterType) =>
+            requesterType == Enums.RequesterTypes.LoadSinglePlayerGame ||
+            requesterType == Enums.RequesterTypes.LoadSinglePlayerCoopGame ||
+            requesterType == Enums.RequesterTypes.LoadMultiplayerGame ||
+            requesterType == Enums.RequesterTypes.LoadMultiplayerCoopGame;
+
+        private static bool IsMultiplayerSaveRequester(Enums.RequesterTypes requesterType) =>
+            requesterType == Enums.RequesterTypes.LoadMultiplayerGame ||
+            requesterType == Enums.RequesterTypes.LoadMultiplayerCoopGame;
 
         private void OnPropertyChanged(string propertyName) =>
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));

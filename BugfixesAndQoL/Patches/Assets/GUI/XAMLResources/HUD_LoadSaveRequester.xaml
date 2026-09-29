@@ -80,6 +80,58 @@
     </Content>
   </Operation>
 
+  <Operation Type="InsertBefore" XPath="//n:CheckBox[@x:Name='HideQuicksaveCheck']">
+    <Content>
+      <Grid x:Name="BugfixesAndQoLDeleteSaveHost"
+            Width="220"
+            Height="34"
+            Margin="45,440,0,0"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top"
+            Visibility="{Binding DeleteSaveVisibility}">
+        <Grid.Resources>
+          <Style TargetType="{x:Type ToolTip}">
+            <Setter Property="Background" Value="#FF1D1710" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="seui:ToolTipResolutionScale.Enabled" Value="True" />
+            <Setter Property="BorderBrush" Value="#FFF2D48A" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Template">
+              <Setter.Value>
+                <ControlTemplate TargetType="{x:Type ToolTip}">
+                  <Border Background="{TemplateBinding Background}"
+                          BorderBrush="{TemplateBinding BorderBrush}"
+                          BorderThickness="1"
+                          CornerRadius="2"
+                          Padding="{TemplateBinding Padding}"
+                          MaxWidth="{TemplateBinding MaxWidth}">
+                    <TextBlock Text="{TemplateBinding Content}"
+                               Foreground="{TemplateBinding Foreground}"
+                               FontSize="{TemplateBinding FontSize}"
+                               TextWrapping="Wrap" />
+                  </Border>
+                </ControlTemplate>
+              </Setter.Value>
+            </Setter>
+          </Style>
+        </Grid.Resources>
+        <Button Width="220"
+                Height="34"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"
+                IsEnabled="{Binding DeleteSaveEnabled}"
+                local:PropEx.TextCentre="{Binding DeleteSaveText}"
+                local:PropEx.TextLeft=""
+                local:PropEx.TextRight=""
+                Command="{Binding DeleteSaveCommand}"
+                MouseEnter="CommonRedButtonEnter"
+                Style="{StaticResource BTN_SH_GlowSDisable}"
+                ToolTip="{Binding DeleteSaveHelpText}"
+                ToolTipService.ShowDuration="60000" />
+      </Grid>
+    </Content>
+  </Operation>
+
   <Operation Type="InsertBefore" XPath="//n:TextBox[@Name='SearchFilter']">
     <Content>
       <Grid x:Name="BugfixesAndQoLShowVanillaMapsHost"

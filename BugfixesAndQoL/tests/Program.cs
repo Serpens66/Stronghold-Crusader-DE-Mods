@@ -61,6 +61,7 @@ namespace BugfixesAndQoL
             TestAiStoneReservePolicy();
             TestShcdeSeCoarseGridBufferWorkaround();
             TestAiStoneReserveIntegration();
+            TestAiCoarsePathSessionLifecycle();
             TestQuarryKeepCenterPolicy();
             TestNativeBuildingCompoundGroup();
             TestAiWallTargetingIntegration();
@@ -111,6 +112,19 @@ namespace BugfixesAndQoL
             }
             Console.Error.WriteLine($"BugfixesAndQoL policy and native-contract tests failed: {failures}.");
             return 1;
+        }
+
+        private static void TestAiCoarsePathSessionLifecycle()
+        {
+            string source = File.ReadAllText(Path.Combine(
+                FindProjectDirectory(), "src", "AiCoarsePathComponentFix.cs"));
+            Check(source.Contains("args.Phase == APIShared.MissionInitializationPhase.BeforeLoad") &&
+                source.Contains("Shared.MissionEvents.Started.Subscribe(OnSessionStarted)") &&
+                source.Contains("Shared.MissionEvents.Ended.Subscribe") &&
+                source.Contains("RefreshOrDefer(\"session-start\")") &&
+                !source.Contains("Shared.MissionEvents.NativeStart.Subscribe") &&
+                !source.Contains("Shared.MissionEvents.Loading.Subscribe(_ => ResetMap())"),
+                "AI coarse PCL fix starts after every ready mission and does not reset at NativeLoaded");
         }
 
         private static void TestTimerCountdownMigration()
