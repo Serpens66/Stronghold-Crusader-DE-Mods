@@ -29,8 +29,13 @@ namespace RaidRetargetDiagnostic
         private const int NativeAttackCandidateCapacity = 500;
         private const int NativeUnreachableCandidateScore = 10000000;
         private const int NativeRaidCandidateCapacity = 100;
-        private const int RaidCandidateListOffset = 0x3560;
-        private const int RaidCandidateCountOffset = 0x3628;
+        private const int NativePlayerResourceStride = 0x583C;
+        private const int NativeResourcePointerBias = 0x5C;
+        private const int NativeRaidCandidateListRva = 0x379E38C;
+        private const int NativeRaidCandidateCountRva = 0x379E454;
+        private const int NativeRaidTargetPlayerRva = 0x379D9A4;
+        private const int RaidCandidateListOffset = 0x3560 + NativeResourcePointerBias;
+        private const int RaidCandidateCountOffset = 0x3628 + NativeResourcePointerBias;
         private const int NativePrioritySelectorRva = 0x856A6D2;
         private const int NativePriorityTable0Rva = 0x2C7F80;
         private const int NativePriorityTable1Rva = 0x2C7EC0;
@@ -605,23 +610,55 @@ namespace RaidRetargetDiagnostic
             result = null;
             reason = "unavailable";
             if (retry.TargetPlayerId < 1 || retry.TargetPlayerId > MaxPlayers ||
+                retry.PlayerId < 1 || retry.PlayerId > MaxPlayers ||
                 !GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(
                     retry.TargetPlayerId, out GamePlayerResources* resources) || resources == null)
                 return false;
-            int count = *(int*)((byte*)resources + RaidCandidateCountOffset);
-            if (count < 0 || count > NativeRaidCandidateCapacity)
-            {
-                reason = $"candidateCountOutOfRange:{count}";
-                return false;
-            }
             if (!TryGetPriorityTable(out _, out byte* library))
             {
                 reason = "nativeModuleUnavailable";
                 return false;
             }
+            byte* nativeIds = library + NativeRaidCandidateListRva +
+                retry.TargetPlayerId * NativePlayerResourceStride;
+            byte* nativeCount = library + NativeRaidCandidateCountRva +
+                retry.TargetPlayerId * NativePlayerResourceStride;
+            if ((byte*)resources + RaidCandidateListOffset != nativeIds ||
+                (byte*)resources + RaidCandidateCountOffset != nativeCount)
+            {
+                reason = "extenderNativeCandidateAddressMismatch";
+                return false;
+            }
+            int nativeTargetPlayer = *(int*)(library + NativeRaidTargetPlayerRva +
+                retry.PlayerId * NativePlayerResourceStride);
+            if (nativeTargetPlayer != retry.TargetPlayerId)
+            {
+                reason = $"nativeTargetPlayerMismatch:{nativeTargetPlayer}/{retry.TargetPlayerId}";
+                return false;
+            }
+            int count = *(int*)nativeCount;
+            if (count < 1 || count > NativeRaidCandidateCapacity)
+            {
+                reason = $"candidateCountContradictsLiveSelection:{count}";
+                return false;
+            }
+            if (!IsLiveBuildingIdentity(retry.LastFailedId, retry.LastFailedGlobalId,
+                    retry.TargetPlayerId))
+            {
+                reason = "selectedBuildingIdentityChanged";
+                return false;
+            }
+            ushort* ids = (ushort*)nativeIds;
+            bool selectedIdInList = false;
+            for (int index = 0; index < count; index++)
+                if (ids[index] == retry.LastFailedId) selectedIdInList = true;
+            if (!selectedIdInList)
+            {
+                reason = $"selectedBuildingMissingFromCandidateList:{retry.LastFailedId}/{count}";
+                return false;
+            }
             int tableRva = retry.PriorityTableRva;
             int* priorities = (int*)(library + tableRva);
-            ushort* ids = (ushort*)((byte*)resources + RaidCandidateListOffset);
             result = new List<BuildingTarget>(count);
             var seen = new HashSet<ulong>();
             for (int rank = 0; rank < NativePriorityCount; rank++)
@@ -641,6 +678,12 @@ namespace RaidRetargetDiagnostic
                     if (seen.Add(identity))
                         result.Add(new BuildingTarget(id, building->r_GlobalId));
                 }
+            }
+            if (!seen.Contains(BuildingIdentity(retry.LastFailedId, retry.LastFailedGlobalId)))
+            {
+                result = null;
+                reason = "selectedBuildingMissingFromPriorityOrder";
+                return false;
             }
             reason = $"count={count},priorityTableRva=0x{tableRva:X}";
             Info($"RAID_FIX_CANDIDATES: session={sessionId}, tick={lastTick}, " +
@@ -956,8 +999,8 @@ namespace RaidRetargetDiagnostic
                 Marshal.OffsetOf(typeof(GamePlayerResources), nameof(GamePlayerResources.N00003F66)).ToInt32() != RetargetCounterOffset ||
                 Marshal.OffsetOf(typeof(GamePlayerResources), nameof(GamePlayerResources.N00005341)).ToInt32() != RemainingCounterOffset ||
                 Marshal.SizeOf(typeof(GamePlayerResources)) != 0x583C ||
-                Marshal.OffsetOf(typeof(GamePlayerResources), nameof(GamePlayerResources.N000040A3)).ToInt32() != RaidCandidateListOffset ||
-                Marshal.OffsetOf(typeof(GamePlayerResources), nameof(GamePlayerResources.N000040BC)).ToInt32() != RaidCandidateCountOffset)
+                Marshal.OffsetOf(typeof(GamePlayerResources), nameof(GamePlayerResources.N0000526D)).ToInt32() != RaidCandidateListOffset ||
+                Marshal.OffsetOf(typeof(GamePlayerResources), nameof(GamePlayerResources.N0000529F)).ToInt32() != RaidCandidateCountOffset)
                 throw new InvalidOperationException("Installed Script Extender raid layout differs from audited native layout.");
         }
 

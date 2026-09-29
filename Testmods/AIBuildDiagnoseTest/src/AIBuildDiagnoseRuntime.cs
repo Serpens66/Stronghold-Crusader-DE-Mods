@@ -27,8 +27,7 @@ namespace AIBuildDiagnoseTest
         private const int ExistingAppleFarmLimit = 64;
         private const int AppleFarmLimit = 64;
         private const int AppleFarmSnapshotLimit = 192;
-        private const int OrchardTransitionLimit = 512;
-        private const int FarmParcelSnapshotLimit = 48;
+        private const int FarmGridRawLimit = 4;
         // Native 0x72490 sets this placement-reservation bit on farm parcel tiles.
         private const uint NativePlacementReservationFlag = 0x4;
         private const int OrchardObservationTicks = 700;
@@ -148,6 +147,10 @@ namespace AIBuildDiagnoseTest
         private bool farmGridPairCaptured;
         private readonly Queue<FarmGridRawSnapshot> farmGridRaw = new Queue<FarmGridRawSnapshot>();
         private int farmGridRawDropped;
+        private readonly HashSet<string> detailedParcelStages = new HashSet<string>();
+        private readonly HashSet<string> detailedOrchardKinds = new HashSet<string>();
+        private readonly Dictionary<string, int> orchardKindCounts = new Dictionary<string, int>();
+        private bool firstParcelMismatchDetailed;
 
         internal AIBuildDiagnoseRuntime(ManualLogSource logger, bool hasFixes,
             bool enablePlacementProbe, bool enableNearbyWoodTest, ulong moduleBase)
@@ -210,6 +213,10 @@ namespace AIBuildDiagnoseTest
             appleFarmDropped = appleFarmSnapshots = appleFarmSnapshotDropped = 0;
             orchardTransitions = orchardTransitionsDropped = 0;
             farmParcelSnapshots = farmParcelSnapshotsDropped = 0;
+            detailedParcelStages.Clear();
+            detailedOrchardKinds.Clear();
+            orchardKindCounts.Clear();
+            firstParcelMismatchDetailed = false;
             farmGridRaw.Clear();
             farmGridPairCaptured = false;
             farmGridRawDropped = 0;
@@ -270,6 +277,11 @@ namespace AIBuildDiagnoseTest
             appleFarms.Clear();
             appleFarmDropped = appleFarmSnapshots = appleFarmSnapshotDropped = 0;
             orchardTransitions = orchardTransitionsDropped = 0;
+            farmParcelSnapshots = farmParcelSnapshotsDropped = 0;
+            detailedParcelStages.Clear();
+            detailedOrchardKinds.Clear();
+            orchardKindCounts.Clear();
+            firstParcelMismatchDetailed = false;
             pendingAppleFarmPre = null;
             firstOrchardMismatchSeen = false;
             pendingWalls.Clear();
@@ -349,6 +361,7 @@ namespace AIBuildDiagnoseTest
 
         internal void OnSessionEnded()
         {
+            FlushFarmGridRaw();
             FlushDeferredLog();
             if (active) LogSummary("end");
             if (active)
@@ -357,7 +370,7 @@ namespace AIBuildDiagnoseTest
                 $"snapshotDropped={appleFarmSnapshotDropped}.");
             if (active)
                 Log($"AI_BUILD_ORCHARD_TRANSITION_SUMMARY: session={sessionId}, logged={orchardTransitions}, " +
-                    $"dropped={orchardTransitionsDropped}.");
+                    $"compact={orchardTransitionsDropped}, kinds={string.Join("|", orchardKindCounts)}.");
             if (active)
                 Log($"AI_BUILD_SOURCE_WATCH_SUMMARY: session={sessionId}, pathGenerationChanges={pathGenerationChanges}, " +
                     $"farmGridPairCaptured={farmGridPairCaptured}, rawSnapshotsDropped={farmGridRawDropped}, " +
@@ -1021,7 +1034,8 @@ namespace AIBuildDiagnoseTest
                     args.TileX / 5, args.TileY / 5);
                 bool mismatch = cell.Status == "ok" &&
                     cell.StoredForeignCount != cell.CurrentDifferentCount;
-                LogOrchardTransition($"source=vegetation-create-{args.Phase}, farm={farmId}, " +
+                LogOrchardTransition("vegetation-create-" + args.Phase,
+                    () => $"source=vegetation-create-{args.Phase}, farm={farmId}, " +
                     $"owner={owner}, offset={offset}, vegetationId=" +
                     (args.Phase == EventHookPhase.Post ? args.ReturnValue.ToString() : "pending") +
                     $", growthStage={args.GrowthStage}, tile={DescribeOrchardTile(tile)}, " +
@@ -1939,17 +1953,121 @@ namespace AIBuildDiagnoseTest
             catch (Exception ex) { return "placementReasonRaw=unavailable:" + ex.GetType().Name; }
         }
 
+        private int ReadPathGeneration()
+        {
+            if (nativeModuleBase == 0) return -1;
+            try
+            {
+                return Marshal.ReadInt32(new IntPtr(checked((long)nativeModuleBase + 0x60AD660 + 0x74)));
+            }
+            catch (Exception ex)
+            {
+                Log("AI_BUILD_PATH_GENERATION_READ_FAILED: " + ex.GetType().Name);
+                return -1;
+            }
+        }
+
+        private void ObservePathGeneration(int tick)
+        {
+            int current = ReadPathGeneration();
+            if (current < 0) return;
+            if (!pathGenerationKnown)
+            {
+                lastPathGeneration = current;
+                pathGenerationKnown = true;
+                return;
+            }
+            if (current == lastPathGeneration) return;
+            int previous = lastPathGeneration;
+            lastPathGeneration = current;
+            pathGenerationChanges++;
+            QueueDiagnostic($"AI_BUILD_PATH_GENERATION: session={sessionId}, tick={tick}, " +
+                $"previous={previous}, current={current}, tickObserverMayCoalesce=true.", true);
+            foreach (AppleFarmWatch farm in appleFarms)
+            {
+                if (farm.GenerationDone) continue;
+                farm.GenerationDone = true;
+                CaptureFarmParcel(farm.X, farm.Y, farm.BuildingId,
+                    "first-path-generation-after-tracking");
+            }
+        }
+
+        // Copy only a few native coarse bytes during the existing 0x50720 callback.
+        // Rendering and tile sampling happen later, on the persistent tick callback.
+        private void CaptureFarmGridRaw(string phase, AiEconomyGridEvidence evidence)
+        {
+            if (evidence == null || evidence.State == 0 || farmGridRaw.Count >= FarmGridRawLimit)
+            {
+                farmGridRawDropped++;
+                return;
+            }
+            var snapshot = new FarmGridRawSnapshot
+            {
+                Phase = phase, Mode = evidence.Mode, Tick = lastTick, Session = sessionId
+            };
+            try
+            {
+                foreach (AppleFarmWatch farm in appleFarms)
+                {
+                    int minX = Math.Max(0, farm.X / 5), maxX = Math.Min(159, (farm.X + 9) / 5);
+                    int minY = Math.Max(0, farm.Y / 5), maxY = Math.Min(159, (farm.Y + 9) / 5);
+                    for (int x = minX; x <= maxX; x++)
+                        for (int y = minY; y <= maxY; y++)
+                        {
+                            int index = x * 160 + y;
+                            long address = checked((long)evidence.State + 0x5B834 + index * 0x30L);
+                            snapshot.Cells.Add(new FarmGridRawCell
+                            {
+                                FarmId = farm.BuildingId, X = x, Y = y,
+                                Foreign = Marshal.ReadByte(new IntPtr(address)),
+                                Reservation = Marshal.ReadByte(new IntPtr(address + 11))
+                            });
+                        }
+                }
+                farmGridRaw.Enqueue(snapshot);
+                if (phase == "economy-grid-after") farmGridPairCaptured = true;
+            }
+            catch (Exception)
+            {
+                farmGridRawDropped++;
+            }
+        }
+
+        private void FlushFarmGridRaw()
+        {
+            while (farmGridRaw.Count != 0)
+            {
+                FarmGridRawSnapshot snapshot = farmGridRaw.Dequeue();
+                if (snapshot.Session != sessionId) continue;
+                var cells = new StringBuilder();
+                foreach (FarmGridRawCell cell in snapshot.Cells)
+                {
+                    if (cells.Length != 0) cells.Append('|');
+                    cells.Append($"farm={cell.FarmId}:({cell.X},{cell.Y}):foreign={cell.Foreign}:reservation={cell.Reservation}");
+                }
+                QueueDiagnostic($"AI_BUILD_FARM_GRID_RAW: session={sessionId}, callbackTick={snapshot.Tick}, " +
+                    $"stage={snapshot.Phase}, mode={snapshot.Mode}, cells={cells}; " +
+                    "coarseBytesCopiedInNativeCallback=true; noTileSnapshotAtCallback=true.", true);
+            }
+        }
+
+        private sealed class FarmGridRawSnapshot
+        {
+            internal string Phase;
+            internal int Mode, Tick;
+            internal long Session;
+            internal readonly List<FarmGridRawCell> Cells = new List<FarmGridRawCell>();
+        }
+
+        private sealed class FarmGridRawCell
+        {
+            internal int FarmId, X, Y;
+            internal byte Foreign, Reservation;
+        }
+
         private void CaptureFarmParcel(int originX, int originY, int buildingId, string stage)
         {
             if (!active || !AiBuildDiagnostic.HasObserver) return;
-            if (farmParcelSnapshots >= FarmParcelSnapshotLimit)
-            {
-                if (++farmParcelSnapshotsDropped == 1)
-                    QueueDiagnostic($"AI_BUILD_FARM_PARCEL_OVERFLOW: session={sessionId}, " +
-                        $"limit={FarmParcelSnapshotLimit}; later parcel snapshots omitted.", true);
-                return;
-            }
-            farmParcelSnapshots++;
             try
             {
                 // 0x72490 uses the farm's 10-by-10 mapper. Four bounded 5-by-5 reads
@@ -1972,6 +2090,7 @@ namespace AIBuildDiagnoseTest
                             if (tile.NativeComponent == 0) { zero++; counts[2]++; }
                         }
                 var details = new StringBuilder();
+                int mismatched = 0;
                 var ordered = new List<int>(cells.Keys);
                 ordered.Sort();
                 foreach (int index in ordered)
@@ -1979,6 +2098,8 @@ namespace AIBuildDiagnoseTest
                     int coarseX = index / 160, coarseY = index % 160;
                     AiEconomyGridEvidence coarse = AiBuildDiagnostic.CaptureEconomyGridEvidence(
                         coarseX, coarseY);
+                    if (coarse.Status == "ok" &&
+                        coarse.StoredForeignCount != coarse.CurrentDifferentCount) mismatched++;
                     if (details.Length != 0) details.Append('|');
                     int[] counts = cells[index];
                     details.Append($"({coarseX},{coarseY}):sampled={counts[0]}:" +
@@ -1988,10 +2109,17 @@ namespace AIBuildDiagnoseTest
                         $"liveDifferent={coarse.CurrentDifferentCount}:" +
                         $"coarseStatus={coarse.Status}");
                 }
+                bool firstMismatch = mismatched != 0 && !firstParcelMismatchDetailed;
+                if (firstMismatch) firstParcelMismatchDetailed = true;
+                bool detailed = detailedParcelStages.Add(stage) || firstMismatch;
+                if (detailed) farmParcelSnapshots++;
+                else farmParcelSnapshotsDropped++;
                 QueueDiagnostic($"AI_BUILD_FARM_PARCEL: session={sessionId}, tick={lastTick}, " +
                     $"stage={stage}, buildingId={buildingId}, origin=({originX},{originY}), " +
                     $"window=10x10, sampled={total}, reservedBit4={reserved}, pclZero={zero}, " +
-                    $"unavailable={unavailable}, cells={details}; rawMeasurementsOnly=true.", true);
+                    $"unavailable={unavailable}, mismatchedCells={mismatched}, detail={detailed}, " +
+                    $"cells={(detailed ? details.ToString() : "summarized")}; rawMeasurementsOnly=true.",
+                    detailed);
             }
             catch (Exception ex)
             {
@@ -2226,21 +2354,21 @@ namespace AIBuildDiagnoseTest
                 $"building={tile.BuildingId}";
         }
 
-        private void LogOrchardTransition(string details, bool mismatch)
+        private void LogOrchardTransition(string kind, Func<string> describe, bool mismatch)
         {
+            orchardTransitions++;
+            orchardKindCounts.TryGetValue(kind, out int count);
+            orchardKindCounts[kind] = count + 1;
             bool firstMismatch = mismatch && !firstOrchardMismatchSeen;
             if (firstMismatch) firstOrchardMismatchSeen = true;
-            if (orchardTransitions >= OrchardTransitionLimit && !firstMismatch)
+            bool detailed = detailedOrchardKinds.Add(kind) || firstMismatch;
+            if (!detailed)
             {
                 orchardTransitionsDropped++;
-                if (orchardTransitionsDropped == 1)
-                    Log($"AI_BUILD_ORCHARD_TRANSITION_OVERFLOW: session={sessionId}, " +
-                        $"limit={OrchardTransitionLimit}; firstMismatchStillReported=true.");
                 return;
             }
-            orchardTransitions++;
             Log($"AI_BUILD_ORCHARD_TRANSITION: session={sessionId}, tick={lastTick}, " +
-                $"observedTick={observedTickCount}, firstMismatch={firstMismatch}, {details}.");
+                $"observedTick={observedTickCount}, kind={kind}, firstMismatch={firstMismatch}, {describe()}.");
         }
 
         private void CaptureOrchardStage(int x, int y, int buildingId, string stage)
@@ -2303,7 +2431,12 @@ namespace AIBuildDiagnoseTest
                         after.X / 5, after.Y / 5);
                     bool mismatch = cell.Status == "ok" &&
                         cell.StoredForeignCount != cell.CurrentDifferentCount;
-                    LogOrchardTransition($"source=tick, farm={farm.BuildingId}, " +
+                    string kind = before != null && before.NativeComponent > 0 &&
+                        after.NativeComponent == 0 ? "pcl-positive-to-zero" :
+                        before != null && before.NativeComponent == 0 &&
+                        after.NativeComponent > 0 ? "pcl-zero-to-positive" :
+                        "tile-or-vegetation-change";
+                    LogOrchardTransition(kind, () => $"source=tick, farm={farm.BuildingId}, " +
                         $"owner={farm.PlayerId}, offset={i}, before={DescribeOrchardTile(before)}, " +
                         $"after={DescribeOrchardTile(after)}, cell=({cell.CoarseX},{cell.CoarseY}), " +
                         $"reference={cell.ReferenceComponent}, storedForeign={cell.StoredForeignCount}, " +
@@ -2424,7 +2557,7 @@ namespace AIBuildDiagnoseTest
             internal uint GlobalId;
             internal long DueTickCount;
             internal long OrchardWatchUntilTick;
-            internal bool IsNew, FiveTickDone, GridUpdateDone;
+            internal bool IsNew, FiveTickDone, GridUpdateDone, GenerationDone;
             internal AiPathTileSample[] LastOrchardTiles;
         }
 

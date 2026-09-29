@@ -178,7 +178,13 @@ if ($runtimeText -notmatch 'NativePlacementReservationFlag = 0x4' -or
     $runtimeText -notmatch 'placementReasonMayBeStale=true' -or
     $runtimeText -notmatch 'CaptureFarmParcel\(args\.TileX, args\.TileY, 0, "build-structure-" \+ args\.Phase\)' -or
     $runtimeText -notmatch 'CaptureFarmParcel\(farm\.X, farm\.Y, farm\.BuildingId, stage\)' -or
-    $runtimeText -notmatch 'FarmParcelSnapshotLimit = 48') {
+    $runtimeText -notmatch 'first-path-generation-after-tracking' -or
+    $runtimeText -notmatch 'CaptureFarmGridRaw\(record\.Stage, record\.EconomyGridEvidence\)' -or
+    $runtimeText -notmatch 'Marshal\.ReadByte\(new IntPtr\(address \+ 11\)\)' -or
+    $runtimeText -notmatch 'farmGridPairCaptured = true' -or
+    $runtimeText -notmatch 'nearbyDetailedByPlayer\[playerId\]' -or
+    $runtimeText -notmatch 'DescribeNearbyFootprint\(x, y\)' -or
+    $runtimeText -notmatch '0x60AD660 \+ 0x74') {
     throw 'Farm-parcel or raw native placement-reason diagnostic contract differs.'
 }
 $coarseNative = [IO.File]::ReadAllText((Join-Path $workspace '_inspect\CrusaderDE-Native-Baseline\sem\FBCB9319\exports\semantic-decompiled-functions.c'))
