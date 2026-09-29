@@ -5,6 +5,7 @@ using SHCDESE.API;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.AI;
 using SHCDESE.EventAPI.Buildings;
+using SHCDESE.EventAPI.Vegetation;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
@@ -24,9 +25,15 @@ namespace AIBuildDiagnoseTest
         private const int ExistingAppleFarmLimit = 16;
         private const int AppleFarmLimit = 32;
         private const int AppleFarmSnapshotLimit = 96;
+        private const int OrchardTransitionLimit = 512;
+        private const int OrchardObservationTicks = 700;
+        // Native 0x72A50, RVA 0x2D3DC0: eight apple-tree offsets from the farm origin.
+        private static readonly int[] OrchardDx = { 5, 9, 1, 5, 9, 1, 5, 9 };
+        private static readonly int[] OrchardDy = { 1, 1, 5, 5, 5, 9, 9, 9 };
         private readonly ManualLogSource log;
         private readonly bool fixesLoaded;
         private readonly IDisposable buildingSubscription;
+        private readonly IDisposable vegetationSubscription;
         private readonly IDisposable buildStructureSubscription;
         private readonly IDisposable wallSubscription;
         private readonly IDisposable loadingSubscription;
@@ -36,6 +43,11 @@ namespace AIBuildDiagnoseTest
         private int appleFarmDropped;
         private int appleFarmSnapshots;
         private int appleFarmSnapshotDropped;
+        private int orchardTransitions;
+        private int orchardTransitionsDropped;
+        private string pendingAppleFarmPre;
+        private int pendingAppleFarmX, pendingAppleFarmY, pendingAppleFarmPlayer;
+        private bool firstOrchardMismatchSeen;
         private int earlyGridDropped;
         private int earlyFarmDropped;
         private int gridModeZeroCalls;
@@ -82,6 +94,7 @@ namespace AIBuildDiagnoseTest
             log = logger ?? throw new ArgumentNullException(nameof(logger));
             fixesLoaded = hasFixes;
             buildingSubscription = BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(OnBuildingSpawn);
+            vegetationSubscription = VegetationR3EventHooks.OnVegetationCreate.Observable.Subscribe(OnVegetationCreate);
             buildStructureSubscription = BuildingR3EventHooks.OnBuildStructure.Observable.Subscribe(OnBuildStructure);
             wallSubscription = AIR3EventHooks.OnAIBuildWall.Observable.Subscribe(OnAIBuildWall);
             loadingSubscription = Shared.MissionEvents.Loading.Subscribe(OnMapLoading);
@@ -110,6 +123,9 @@ namespace AIBuildDiagnoseTest
             earlyFarmHistory.Clear();
             appleFarms.Clear();
             appleFarmDropped = appleFarmSnapshots = appleFarmSnapshotDropped = 0;
+            orchardTransitions = orchardTransitionsDropped = 0;
+            pendingAppleFarmPre = null;
+            firstOrchardMismatchSeen = false;
             earlyGridDropped = earlyFarmDropped = 0;
             loadingSaveName = notification.Context.FilePath;
         }
@@ -137,6 +153,9 @@ namespace AIBuildDiagnoseTest
             wallHistory.Clear();
             appleFarms.Clear();
             appleFarmDropped = appleFarmSnapshots = appleFarmSnapshotDropped = 0;
+            orchardTransitions = orchardTransitionsDropped = 0;
+            pendingAppleFarmPre = null;
+            firstOrchardMismatchSeen = false;
             pendingWalls.Clear();
             observedWallTargets.Clear();
             wallHistoryDropped = 0;
@@ -175,10 +194,14 @@ namespace AIBuildDiagnoseTest
             if (active)
                 Log($"AI_BUILD_APPLEFARM_OBSERVER_SUMMARY: session={sessionId}, tracked={appleFarms.Count}, " +
                     $"dropped={appleFarmDropped}, snapshots={appleFarmSnapshots}, " +
-                    $"snapshotDropped={appleFarmSnapshotDropped}.");
+                $"snapshotDropped={appleFarmSnapshotDropped}.");
+            if (active)
+                Log($"AI_BUILD_ORCHARD_TRANSITION_SUMMARY: session={sessionId}, logged={orchardTransitions}, " +
+                    $"dropped={orchardTransitionsDropped}.");
             active = false;
             probeSession = probePending = probeRunning = false;
             gridState = 0;
+            pendingAppleFarmPre = null;
         }
 
         internal void OnTick(int tick)
@@ -188,10 +211,17 @@ namespace AIBuildDiagnoseTest
             observedTickCount++;
             foreach (AppleFarmWatch farm in appleFarms)
             {
+                if (observedTickCount <= farm.OrchardWatchUntilTick)
+                    ObserveOrchardTransitions(farm);
                 if (!farm.IsNew || farm.FiveTickDone || observedTickCount < farm.DueTickCount)
                     continue;
                 farm.FiveTickDone = true;
-                try { CaptureAppleFarm(farm, "five-ticks-after-spawn"); }
+                try
+                {
+                    CaptureAppleFarm(farm, "five-ticks-after-spawn");
+                    CaptureOrchardStage(farm.X, farm.Y, farm.BuildingId,
+                        "five-ticks-after-spawn");
+                }
                 catch (Exception ex) { Log("AI_BUILD_APPLEFARM_TICK_CAPTURE_FAILED: " + ex); }
             }
             if (gridState != 0)
@@ -413,6 +443,14 @@ namespace AIBuildDiagnoseTest
         {
             if (args.Building == eStructs.STRUCT_APPLEFARM)
             {
+                if (active && args.Phase == EventHookPhase.Pre)
+                {
+                    pendingAppleFarmX = args.TileX;
+                    pendingAppleFarmY = args.TileY;
+                    pendingAppleFarmPlayer = args.PlayerId;
+                    pendingAppleFarmPre = $"({args.TileX},{args.TileY})/player-{args.PlayerId}";
+                    CaptureOrchardStage(args.TileX, args.TileY, 0, "building-spawn-pre");
+                }
                 string entry = $"tick={lastTick}, phase={args.Phase}, player={args.PlayerId}, " +
                     $"tile=({args.TileX},{args.TileY}), " +
                     $"buildingId={(args.Phase == EventHookPhase.Post ? args.ReturnValue.ToString() : "pending")}; " +
@@ -431,6 +469,14 @@ namespace AIBuildDiagnoseTest
                     args.ReturnValue <= int.MaxValue)
                     TrackAppleFarm((int)args.ReturnValue, args.PlayerId, args.TileX, args.TileY,
                         true, "spawn-post");
+                if (active && args.Phase == EventHookPhase.Post)
+                {
+                    CaptureOrchardStage(args.TileX, args.TileY,
+                        args.ReturnValue > 0 && args.ReturnValue <= int.MaxValue
+                            ? (int)args.ReturnValue : 0,
+                        "building-spawn-post");
+                    pendingAppleFarmPre = null;
+                }
             }
             if (!active ||
                 args.Building != eStructs.STRUCT_WOODCUTTERS_HUT ||
@@ -460,6 +506,43 @@ namespace AIBuildDiagnoseTest
             Log($"AI_BUILD_WOODCUTTER_SPAWN: session={sessionId}, tick={lastTick}, player={args.PlayerId}, " +
                 $"attempt={id}, phase={args.Phase}, buildingId={(args.Phase == EventHookPhase.Post ? args.ReturnValue.ToString() : "pending")}, " +
                 $"tile=({args.TileX},{args.TileY}).");
+        }
+
+        private void OnVegetationCreate(VegetationCreateEventArgs args)
+        {
+            if (!active || args.VegetationType != VegetationType.AppleTree) return;
+            int farmId = 0, owner = 0, offset = -1;
+            if (pendingAppleFarmPre != null &&
+                TryGetOrchardOffset(pendingAppleFarmX, pendingAppleFarmY,
+                    args.TileX, args.TileY, out offset))
+                owner = pendingAppleFarmPlayer;
+            else
+            {
+                foreach (AppleFarmWatch farm in appleFarms)
+                    if (TryGetOrchardOffset(farm.X, farm.Y, args.TileX, args.TileY,
+                        out offset))
+                    {
+                        farmId = farm.BuildingId;
+                        owner = farm.PlayerId;
+                        break;
+                    }
+            }
+            if (offset < 0) return;
+            try
+            {
+                AiPathTileSample tile = ReadOrchardTile(args.TileX, args.TileY);
+                AiEconomyGridEvidence cell = AiBuildDiagnostic.CaptureEconomyGridEvidence(
+                    args.TileX / 5, args.TileY / 5);
+                bool mismatch = cell.Status == "ok" &&
+                    cell.StoredForeignCount != cell.CurrentDifferentCount;
+                LogOrchardTransition($"source=vegetation-create-{args.Phase}, farm={farmId}, " +
+                    $"owner={owner}, offset={offset}, vegetationId=" +
+                    (args.Phase == EventHookPhase.Post ? args.ReturnValue.ToString() : "pending") +
+                    $", growthStage={args.GrowthStage}, tile={DescribeOrchardTile(tile)}, " +
+                    $"cell=({cell.CoarseX},{cell.CoarseY}), storedForeign={cell.StoredForeignCount}, " +
+                    $"liveDifferent={cell.CurrentDifferentCount}, mismatch={mismatch}", mismatch);
+            }
+            catch (Exception ex) { Log("AI_BUILD_ORCHARD_VEGETATION_FAILED: " + ex); }
         }
 
         private void OnAIBuildWall(AIBuildWallEventArgs args)
@@ -1143,7 +1226,8 @@ namespace AIBuildDiagnoseTest
                     Y = building->r_TilePositionYBegin,
                     Size = checked((int)building->r_OccupyTileGridSize),
                     IsNew = isNew,
-                    DueTickCount = observedTickCount + 5
+                    DueTickCount = observedTickCount + 5,
+                    OrchardWatchUntilTick = observedTickCount + OrchardObservationTicks
                 };
                 appleFarms.Add(farm);
                 Log($"AI_BUILD_APPLEFARM_TRACKED: session={sessionId}, tick={lastTick}, " +
@@ -1152,6 +1236,8 @@ namespace AIBuildDiagnoseTest
                     $"buildingTile=({farm.X},{farm.Y}), occupiedGridSize={farm.Size}, " +
                     $"alive={building->r_AliveState}, dueObservedTick={(isNew ? farm.DueTickCount.ToString() : "none")}.");
                 CaptureAppleFarm(farm, stage);
+                CaptureOrchardStage(farm.X, farm.Y, farm.BuildingId, stage);
+                farm.LastOrchardTiles = ReadOrchardTiles(farm.X, farm.Y);
             }
             catch (Exception ex)
             {
@@ -1166,9 +1252,151 @@ namespace AIBuildDiagnoseTest
             {
                 if (farm.GridUpdateDone) continue;
                 farm.GridUpdateDone = true;
-                try { CaptureAppleFarm(farm, "after-grid-update-mode-" + mode); }
+                try
+                {
+                    CaptureAppleFarm(farm, "after-grid-update-mode-" + mode);
+                    CaptureOrchardStage(farm.X, farm.Y, farm.BuildingId,
+                        "after-grid-update-mode-" + mode);
+                }
                 catch (Exception ex) { Log("AI_BUILD_APPLEFARM_GRID_CAPTURE_FAILED: " + ex); }
             }
+        }
+
+        private static bool TryGetOrchardOffset(int farmX, int farmY, int tileX,
+            int tileY, out int offset)
+        {
+            for (int i = 0; i < OrchardDx.Length; i++)
+                if (farmX + OrchardDx[i] == tileX && farmY + OrchardDy[i] == tileY)
+                {
+                    offset = i;
+                    return true;
+                }
+            offset = -1;
+            return false;
+        }
+
+        private static AiPathTileSample ReadOrchardTile(int x, int y)
+        {
+            IReadOnlyList<AiPathTileSample> tiles = AiBuildDiagnostic.CaptureTiles(x, y, 1, 1);
+            return tiles.Count == 1 ? tiles[0] : null;
+        }
+
+        private static AiPathTileSample[] ReadOrchardTiles(int x, int y)
+        {
+            var result = new AiPathTileSample[OrchardDx.Length];
+            for (int i = 0; i < result.Length; i++)
+                result[i] = ReadOrchardTile(x + OrchardDx[i], y + OrchardDy[i]);
+            return result;
+        }
+
+        private static bool OrchardTileChanged(AiPathTileSample before,
+            AiPathTileSample after)
+        {
+            if (before == null || after == null) return before != after;
+            return before.Status != after.Status ||
+                before.NativeComponent != after.NativeComponent ||
+                before.ApiComponent != after.ApiComponent ||
+                before.PropertyFlags != after.PropertyFlags ||
+                before.Organism != after.Organism ||
+                before.BuildingId != after.BuildingId ||
+                before.TileType != after.TileType;
+        }
+
+        private static string DescribeOrchardTile(AiPathTileSample tile)
+        {
+            if (tile == null) return "unavailable";
+            return $"({tile.X},{tile.Y}):{tile.Status}:pcl={tile.NativeComponent}/{tile.ApiComponent}:" +
+                $"flags={tile.PropertyFlags:X8}:type={tile.TileType}:organism={tile.Organism}:" +
+                $"building={tile.BuildingId}";
+        }
+
+        private void LogOrchardTransition(string details, bool mismatch)
+        {
+            bool firstMismatch = mismatch && !firstOrchardMismatchSeen;
+            if (firstMismatch) firstOrchardMismatchSeen = true;
+            if (orchardTransitions >= OrchardTransitionLimit && !firstMismatch)
+            {
+                orchardTransitionsDropped++;
+                if (orchardTransitionsDropped == 1)
+                    Log($"AI_BUILD_ORCHARD_TRANSITION_OVERFLOW: session={sessionId}, " +
+                        $"limit={OrchardTransitionLimit}; firstMismatchStillReported=true.");
+                return;
+            }
+            orchardTransitions++;
+            Log($"AI_BUILD_ORCHARD_TRANSITION: session={sessionId}, tick={lastTick}, " +
+                $"observedTick={observedTickCount}, firstMismatch={firstMismatch}, {details}.");
+        }
+
+        private void CaptureOrchardStage(int x, int y, int buildingId, string stage)
+        {
+            if (!AiBuildDiagnostic.HasObserver) return;
+            try
+            {
+                AiPathTileSample[] points = ReadOrchardTiles(x, y);
+                int zero = 0, apple = 0, mismatch = 0, unavailable = 0;
+                var details = new StringBuilder();
+                var cells = new HashSet<int>();
+                foreach (AiPathTileSample tile in points)
+                {
+                    if (details.Length != 0) details.Append('|');
+                    details.Append(DescribeOrchardTile(tile));
+                    if (tile == null || tile.Status != "ok") { unavailable++; continue; }
+                    if (tile.NativeComponent == 0) zero++;
+                    if ((tile.PropertyFlags & (uint)TilePropertyFlag.IsAppleFarm) != 0) apple++;
+                    cells.Add((tile.X / 5) * 160 + tile.Y / 5);
+                }
+                var cellDetails = new StringBuilder();
+                foreach (int index in cells)
+                {
+                    AiEconomyGridEvidence cell = AiBuildDiagnostic.CaptureEconomyGridEvidence(
+                        index / 160, index % 160);
+                    if (cellDetails.Length != 0) cellDetails.Append('|');
+                    bool differs = cell.Status == "ok" &&
+                        cell.StoredForeignCount != cell.CurrentDifferentCount;
+                    if (differs) mismatch++;
+                    cellDetails.Append($"({cell.CoarseX},{cell.CoarseY}):{cell.Status}:" +
+                        $"ref={cell.ReferenceComponent}:stored={cell.StoredForeignCount}:" +
+                        $"live={cell.CurrentDifferentCount}:apple={cell.AppleFarmFlagCount}");
+                }
+                Log($"AI_BUILD_ORCHARD_STAGE: session={sessionId}, tick={lastTick}, " +
+                    $"observedTick={observedTickCount}, stage={stage}, buildingId={buildingId}, " +
+                    $"origin=({x},{y}), points={points.Length}, appleFlags={apple}, " +
+                    $"pclZero={zero}, unavailable={unavailable}, mismatchedCells={mismatch}, " +
+                    $"tiles={details}, cells={cellDetails}.");
+            }
+            catch (Exception ex) { Log("AI_BUILD_ORCHARD_STAGE_FAILED: " + ex); }
+        }
+
+        private void ObserveOrchardTransitions(AppleFarmWatch farm)
+        {
+            if (!AiBuildDiagnostic.HasObserver) return;
+            try
+            {
+                AiPathTileSample[] now = ReadOrchardTiles(farm.X, farm.Y);
+                if (farm.LastOrchardTiles == null)
+                {
+                    farm.LastOrchardTiles = now;
+                    return;
+                }
+                for (int i = 0; i < now.Length; i++)
+                {
+                    AiPathTileSample before = farm.LastOrchardTiles[i];
+                    AiPathTileSample after = now[i];
+                    if (!OrchardTileChanged(before, after) || after == null) continue;
+                    AiEconomyGridEvidence cell = AiBuildDiagnostic.CaptureEconomyGridEvidence(
+                        after.X / 5, after.Y / 5);
+                    bool mismatch = cell.Status == "ok" &&
+                        cell.StoredForeignCount != cell.CurrentDifferentCount;
+                    LogOrchardTransition($"source=tick, farm={farm.BuildingId}, " +
+                        $"owner={farm.PlayerId}, offset={i}, before={DescribeOrchardTile(before)}, " +
+                        $"after={DescribeOrchardTile(after)}, cell=({cell.CoarseX},{cell.CoarseY}), " +
+                        $"reference={cell.ReferenceComponent}, storedForeign={cell.StoredForeignCount}, " +
+                        $"liveDifferent={cell.CurrentDifferentCount}, mismatch={mismatch}, " +
+                        $"cellTiles={(mismatch ? GridTiles(cell) : "omitted")}", mismatch);
+                }
+                farm.LastOrchardTiles = now;
+            }
+            catch (Exception ex) { Log("AI_BUILD_ORCHARD_TICK_FAILED: " + ex); }
         }
 
         private void CaptureAppleFarm(AppleFarmWatch farm, string stage)
@@ -1277,7 +1505,9 @@ namespace AIBuildDiagnoseTest
             internal int BuildingId, PlayerId, X, Y, Size;
             internal uint GlobalId;
             internal long DueTickCount;
+            internal long OrchardWatchUntilTick;
             internal bool IsNew, FiveTickDone, GridUpdateDone;
+            internal AiPathTileSample[] LastOrchardTiles;
         }
 
         private void CaptureInitialHuts()

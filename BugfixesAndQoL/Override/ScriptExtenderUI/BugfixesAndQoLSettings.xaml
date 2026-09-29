@@ -614,6 +614,12 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding FixAIPreplacedMapBuildingsText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.fix-ai-coarse-path-components" shared:ModSettingsSearch.Title="{Binding FixAiCoarsePathComponentsText}" shared:ModSettingsSearch.ToolTipText="{Binding FixAiCoarsePathComponentsHelpText}"><CheckBox IsChecked="{Binding FixAiCoarsePathComponents, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding FixAiCoarsePathComponentsHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding FixAiCoarsePathComponentsText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox></Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.fix-aitower-repair" shared:ModSettingsSearch.Title="{Binding FixAITowerRepairText}" shared:ModSettingsSearch.ToolTipText="{Binding FixAITowerRepairHelpText}"><CheckBox IsChecked="{Binding FixAITowerRepair, Mode=TwoWay}"
                 Foreground="White"
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding FixAITowerRepairHelpText}"

@@ -4,6 +4,7 @@ using MonoMod.RuntimeDetour;
 using R3;
 using SHCDESE.API;
 using SHCDESE.EventAPI;
+using SHCDESE.EventAPI.Buildings;
 using SHCDESE.EventAPI.Input;
 using SHCDESE.EventAPI.MapLoader;
 using SHCDESE.GameGlobals;
@@ -11,6 +12,7 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Reflection;
 using UnityEngine;
@@ -20,6 +22,7 @@ namespace CastlePlanner
     internal sealed class BlueprintRuntimeController
     {
         private delegate void CameraUpdateDelegate(CameraControls2D self);
+        private delegate void EditorPlayerActionDelegate(EditorDirector self, int playerId);
 
         private const float ViewSettleDelaySeconds = 0.5f;
         private static readonly KeyCode[] CaptureMouseButtons =
@@ -50,7 +53,6 @@ namespace CastlePlanner
         private bool controlledKeepAvailable;
         private bool hotkeyCapturePending;
         private int hotkeyCaptureStartFrame;
-        private float nextPrepareAttemptTime;
         private int lastRotation = int.MinValue;
         private bool lastFlattenedLandscape;
         private float pendingViewSettleTime = -1f;
@@ -58,8 +60,13 @@ namespace CastlePlanner
         private float nextRuntimeErrorLogTime;
         private int lastTickFrame = -1;
         private bool beforeRenderCallbackObserved;
+        private bool depthLoadReady;
+        private bool hudObserverPending;
+        private MainViewModel observedHudViewModel;
         private Hook cameraUpdateHook;
         private CameraUpdateDelegate cameraUpdateTrampoline;
+        private Hook editorPlayerHook;
+        private EditorPlayerActionDelegate editorPlayerTrampoline;
 
         public BlueprintHudViewModel Hud { get; private set; }
 
@@ -86,11 +93,13 @@ namespace CastlePlanner
                 new BlueprintBuildingSizeCalibration(log);
             buildingImageLibrary =
                 new BlueprintBuildingImageLibrary(log);
+            buildingImageLibrary.DepthReadCompleted += OnDepthReadCompleted;
             renderer = new BlueprintRenderer(
                 log,
                 sizeCalibration,
                 buildingImageLibrary);
             Hud = new BlueprintHudViewModel(ToggleBlueprint, settings, preview);
+            InstallEditorPlayerHook();
             InstallCameraWheelGuard();
 
             settings.SettingsChanged += OnSettingsChanged;
@@ -100,6 +109,8 @@ namespace CastlePlanner
                 OnBlueprintContentSettingsChanged;
             settings.HotkeyCaptureRequested += OnHotkeyCaptureRequested;
             subscriptions.Add(InputR3EventHooks.OnKeyDown.Observable.Subscribe(OnKeyDown));
+            subscriptions.Add(BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(OnBuildingSpawned));
+            subscriptions.Add(BuildingR3EventHooks.OnBuildingDelete.Observable.Subscribe(OnBuildingDeleted));
             preview.SelectionVisualChanged += OnPreviewSelectionChanged;
             Shared.GameplayModActivationGate.StateChanged += OnModeStateChanged;
             subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(
@@ -157,9 +168,12 @@ namespace CastlePlanner
 
         private void OnBeforeRender()
         {
-            // Setting capture still needs rendered input, but a fully disabled Blueprint feature
-            // should perform no map, camera, image, or overlay work.
-            if (!EffectiveBlueprintMode && !hotkeyCapturePending)
+            // A hidden projection has no frame-dependent work after its one-time preparation.
+            if (!blueprintVisible && !hotkeyCapturePending && !depthLoadReady &&
+                !(mapActive && buildingImageLibrary.HasCompletedDepthRead) &&
+                !(Hud?.RequiresFrameInput ?? false) &&
+                !hudObserverPending &&
+                !(editorSessionActive && editorControlledPlayerId < 1))
                 return;
 
             if (!beforeRenderCallbackObserved)
@@ -203,52 +217,33 @@ namespace CastlePlanner
             if (!initialized)
                 return;
 
-            // Polling applies a completed worker result on the Unity/Noesis thread.
-            // Starting the job here also covers settings enabled after plugin startup.
-            settings.PumpCastleCatalogLoad();
-
-            CrusaderDE.MainViewModel mainViewModel = null;
-            if (CrusaderDE.MainViewModel.viewModelLoaded)
-            {
-                // The Instance getter constructs the vanilla view model when
-                // called too early, while its own startup dependencies are null.
-                mainViewModel = CrusaderDE.MainViewModel.Instance;
-                Hud?.UpdateViewportSize(
-                    CrusaderDE.MainViewModel.iUIScaleValueWidth,
-                    CrusaderDE.MainViewModel.iUIScaleValueHeight);
-            }
-            Hud?.UpdateVanillaButtonSlot(
-                mainViewModel != null &&
-                (mainViewModel.Show_HUD_Extras_Button_Objectves ||
-                 mainViewModel.Show_HUD_Extras_Button_Freebuild));
+            if (hudObserverPending)
+                ObserveHudState();
             Hud?.EnsureInteractiveElementsAttached();
             Hud?.CompleteCastleSearchOpeningClick();
             Hud?.ProcessOpenDropDownWheel();
             UpdateHotkeyCapture();
-            RefreshEditorPlayer();
+            if (editorSessionActive && editorControlledPlayerId < 1)
+                RefreshEditorPlayer();
 
             if (!mapActive)
                 return;
 
             // Decode at most one capture atlas per frame so the first projection
             // stays responsive while exact building layers appear progressively.
-            if (buildingImageLibrary.ProcessOnePendingDepthLoad())
-                RefreshHud();
+            if (depthLoadReady || buildingImageLibrary.HasCompletedDepthRead)
+            {
+                if (buildingImageLibrary.ProcessOnePendingDepthLoad())
+                    RefreshHud();
+                depthLoadReady = buildingImageLibrary.HasCompletedDepthRead;
+            }
 
             if (!EffectiveBlueprintMode)
                 return;
 
-            if (sizeCalibration.Tick() &&
-                blueprintVisible &&
-                layout != null)
+            if (blueprintVisible && layout != null && sizeCalibration.Tick())
             {
                 RenderCurrentLayout("Vanilla building preview calibrated");
-            }
-
-            if (preparePending &&
-                Time.unscaledTime >= nextPrepareAttemptTime)
-            {
-                TryPrepareBlueprint();
             }
 
             if (blueprintVisible && layout != null)
@@ -280,18 +275,36 @@ namespace CastlePlanner
                 }
             }
 
-            KeyCode hotkey = settings.BlueprintHotkeyCode;
-            if (!hotkeyCapturePending &&
-                hotkey != KeyCode.None &&
-                layout != null &&
-                CanUseGameplayHotkeys() &&
-                Input.GetKeyDown(hotkey) &&
-                (Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt)) == settings.BlueprintHotkeyAlt &&
-                (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl)) == settings.BlueprintHotkeyControl &&
-                (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift)) == settings.BlueprintHotkeyShift)
+        }
+
+        private void InstallEditorPlayerHook()
+        {
+            MethodInfo method = typeof(EditorDirector).GetMethod(
+                nameof(EditorDirector.SetEditorPlayerID), BindingFlags.Public | BindingFlags.Instance,
+                null, new[] { typeof(int) }, null) ??
+                throw new MissingMethodException("EditorDirector.SetEditorPlayerID");
+            Hook candidate = null;
+            try
             {
-                ToggleBlueprint();
+                candidate = new Hook(method, (EditorPlayerActionDelegate)OnEditorPlayerAction);
+                EditorPlayerActionDelegate trampoline =
+                    candidate.GenerateTrampoline<EditorPlayerActionDelegate>();
+                editorPlayerTrampoline = trampoline;
+                editorPlayerHook = candidate;
             }
+            catch
+            {
+                try { candidate?.Undo(); } catch { }
+                try { candidate?.Dispose(); } catch { }
+                throw;
+            }
+        }
+
+        private void OnEditorPlayerAction(EditorDirector editor, int playerId)
+        {
+            editorPlayerTrampoline(editor, playerId);
+            if (editorSessionActive)
+                RefreshEditorPlayer();
         }
 
         private void InstallCameraWheelGuard()
@@ -309,7 +322,8 @@ namespace CastlePlanner
 
         private void CameraUpdateHook(CameraControls2D camera)
         {
-            if (Shared.GameplayFeatureModePolicy.IsAllowed(
+            if (Hud?.SettingsPanelVisible == true &&
+                Shared.GameplayFeatureModePolicy.IsAllowed(
                     CastlePlannerPlugin.PluginGuid,
                     Shared.GameplayFeatureId.CastleBlueprints,
                     Shared.GameplayModActivationGate.Snapshot) &&
@@ -357,6 +371,7 @@ namespace CastlePlanner
         private void OnUnloadMap(APIShared.MissionLifecycleNotification args)
         {
             ResetMapState();
+            hudObserverPending = false;
             mapActive = false;
             editorSessionActive = false;
             editorControlledPlayerId = -1;
@@ -400,7 +415,15 @@ namespace CastlePlanner
         private void OnModeStateChanged(bool allowed)
         {
             if (!allowed)
+            {
                 ResetMapState();
+                hudObserverPending = false;
+            }
+            else if (mapActive && settings.IsBlueprintMode)
+            {
+                SchedulePrepare(false);
+                TryPrepareBlueprint();
+            }
             RefreshHud();
         }
 
@@ -462,8 +485,20 @@ namespace CastlePlanner
 
         private void OnKeyDown(UnityInputEventArgs args)
         {
-            if (args == null || args.Phase != EventHookPhase.Pre ||
-                !hotkeyCapturePending || Time.frameCount <= hotkeyCaptureStartFrame)
+            if (args == null || args.Phase != EventHookPhase.Pre)
+                return;
+            if (!hotkeyCapturePending)
+            {
+                if (args.Key == settings.BlueprintHotkeyCode &&
+                    args.Key != KeyCode.None && layout != null &&
+                    EffectiveBlueprintMode && mapActive && CanUseGameplayHotkeys() &&
+                    (Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt)) == settings.BlueprintHotkeyAlt &&
+                    (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl)) == settings.BlueprintHotkeyControl &&
+                    (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift)) == settings.BlueprintHotkeyShift)
+                    ToggleBlueprint();
+                return;
+            }
+            if (Time.frameCount <= hotkeyCaptureStartFrame)
                 return;
             try
             {
@@ -570,13 +605,11 @@ namespace CastlePlanner
         {
             preparePending = true;
             showAfterPrepare = restoreVisibility;
-            nextPrepareAttemptTime = 0f;
             RefreshHud();
         }
 
         private void TryPrepareBlueprint()
         {
-            nextPrepareAttemptTime = Time.unscaledTime + 0.25f;
             if (!TryFindControlledKeep(out int keepX, out int keepY))
             {
                 if (controlledKeepAvailable)
@@ -607,6 +640,39 @@ namespace CastlePlanner
                 SetBlueprintVisible(true, "settings reload");
             else
                 RefreshHud();
+        }
+
+        private void OnDepthReadCompleted()
+        {
+            depthLoadReady = mapActive;
+        }
+
+        private void OnBuildingSpawned(BuildingSpawnEventArgs args)
+        {
+            if (args == null || args.Phase != EventHookPhase.Post ||
+                !IsKeep(args.Building))
+                return;
+
+            int playerId = args.PlayerId;
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
+            {
+                if (mapActive && preparePending && playerId == GetControlledPlayerId())
+                    TryPrepareBlueprint();
+            });
+        }
+
+        private void OnBuildingDeleted(BuildingDeleteEventArgs args)
+        {
+            if (args == null || args.Phase != EventHookPhase.Post)
+                return;
+
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
+            {
+                if (editorSessionActive && layout != null &&
+                    (!TryFindControlledKeep(out int keepX, out int keepY) ||
+                     keepX != layoutKeepX || keepY != layoutKeepY))
+                    OnSettingsChanged();
+            });
         }
 
         private bool TryBuildBlueprintLayout(
@@ -941,6 +1007,10 @@ namespace CastlePlanner
 
         private void ResetMapState()
         {
+            if (observedHudViewModel != null)
+                observedHudViewModel.PropertyChanged -= OnHudPropertyChanged;
+            observedHudViewModel = null;
+            hudObserverPending = true;
             Hud?.ResetForMapLifecycle();
             renderer?.Clear();
             layout = null;
@@ -949,11 +1019,48 @@ namespace CastlePlanner
             preparePending = false;
             showAfterPrepare = false;
             blueprintVisible = false;
+            depthLoadReady = false;
             controlledKeepAvailable = false;
             lastRotation = int.MinValue;
             lastFlattenedLandscape = false;
             pendingViewSettleTime = -1f;
             suppressOverlayUntilViewSettled = false;
+        }
+
+        private void ObserveHudState()
+        {
+            if (!MainViewModel.viewModelLoaded || MainViewModel.Instance?.HUDmain == null)
+                return;
+
+            MainViewModel viewModel = MainViewModel.Instance;
+            if (!ReferenceEquals(observedHudViewModel, viewModel))
+            {
+                if (observedHudViewModel != null)
+                    observedHudViewModel.PropertyChanged -= OnHudPropertyChanged;
+                observedHudViewModel = viewModel;
+                viewModel.PropertyChanged += OnHudPropertyChanged;
+            }
+            hudObserverPending = false;
+            Hud?.UpdateViewportSize(
+                MainViewModel.iUIScaleValueWidth,
+                MainViewModel.iUIScaleValueHeight);
+            UpdateVanillaButtonSlot(viewModel);
+            if (preparePending)
+                TryPrepareBlueprint();
+        }
+
+        private void OnHudPropertyChanged(object sender, PropertyChangedEventArgs args)
+        {
+            if (args?.PropertyName == nameof(MainViewModel.Show_HUD_Extras_Button_Objectves) ||
+                args?.PropertyName == nameof(MainViewModel.Show_HUD_Extras_Button_Freebuild))
+                UpdateVanillaButtonSlot(sender as MainViewModel);
+        }
+
+        private void UpdateVanillaButtonSlot(MainViewModel viewModel)
+        {
+            Hud?.UpdateVanillaButtonSlot(viewModel != null &&
+                (viewModel.Show_HUD_Extras_Button_Objectves ||
+                 viewModel.Show_HUD_Extras_Button_Freebuild));
         }
 
         private void RefreshHud()
@@ -974,6 +1081,7 @@ namespace CastlePlanner
             mapActive = true;
             editorSessionActive = true;
             editorControlledPlayerId = -1;
+            RefreshEditorPlayer();
             RefreshHud();
         }
 

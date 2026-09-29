@@ -1,8 +1,10 @@
 using BepInEx;
+using MonoMod.RuntimeDetour;
 using SHCDESE.API;
 using SHCDESE.API.LowLevel;
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 
 namespace CastlePlanner
 {
@@ -14,6 +16,7 @@ namespace CastlePlanner
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class CastlePlannerPlugin : BaseUnityPlugin
     {
+        private delegate void SteamAwakeDelegate(SteamManager manager);
         private const string ScriptExtenderGuid = "000shcdese";
 
         public const string PluginGuid = "CastlePlanner_Serp";
@@ -26,6 +29,9 @@ namespace CastlePlanner
         private static BlueprintRuntimeController blueprintRuntime;
         private static CastlePlanner.AIVPlacement.AivPlacementRuntime aivPlacementRuntime;
         private static bool libraryLoadedHandled;
+        private static Hook steamAwakeHook;
+        private static SteamAwakeDelegate steamAwakeOriginal;
+        private static CastlePlannerSettingsViewModel processSettings;
 
         public CastlePlannerSettingsViewModel Settings { get; private set; }
 
@@ -34,7 +40,10 @@ namespace CastlePlanner
             if (runtime != null)
                 return;
 
+            Shared.UnityMainThreadDispatch.InitializeForCurrentThread();
             Settings = new CastlePlannerSettingsViewModel(Logger, Info.Location);
+            processSettings = Settings;
+            InstallSteamReadyHook();
             Shared.GameplayModActivationGate.Initialize(Logger, PluginGuid, PluginName, () => Settings.EnableMod);
             previewRuntime = new FreeCastlePreviewRuntime(Logger, Settings);
             runtime = new CastlePlannerRuntime(Logger, Settings, previewRuntime);
@@ -42,6 +51,39 @@ namespace CastlePlanner
             Shared.DebugLogHelper.LogInfo(
                 Logger,
                 $"{PluginName} {PluginVersion} loaded; the AIVJSON catalog will be cached automatically in the lobby.");
+        }
+
+        private static void InstallSteamReadyHook()
+        {
+            if (steamAwakeHook != null)
+                return;
+            MethodInfo awake = typeof(SteamManager).GetMethod(
+                "Awake", BindingFlags.Instance | BindingFlags.NonPublic) ??
+                throw new MissingMethodException(typeof(SteamManager).FullName, "Awake");
+            Hook candidate = null;
+            try
+            {
+                candidate = new Hook(awake, (SteamAwakeDelegate)OnSteamAwake);
+                SteamAwakeDelegate original = candidate.GenerateTrampoline<SteamAwakeDelegate>();
+                steamAwakeOriginal = original;
+                steamAwakeHook = candidate;
+            }
+            catch
+            {
+                try { candidate?.Undo(); } catch { }
+                try { candidate?.Dispose(); } catch { }
+                throw;
+            }
+        }
+
+        private static void OnSteamAwake(SteamManager manager)
+        {
+            steamAwakeOriginal(manager);
+            try { processSettings?.PumpCastleCatalogLoad(); }
+            catch (Exception ex)
+            {
+                UnityEngine.Debug.LogError("CastlePlanner catalog startup failed after Steam initialization: " + ex);
+            }
         }
 
         private void OnDestroy()

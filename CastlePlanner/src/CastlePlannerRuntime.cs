@@ -1317,10 +1317,10 @@ namespace CastlePlanner
 
         private void OnGameTick(int tick)
         {
-            if (!IsCastleSpawningModeAllowed())
+            if (deferredCompoundBuildings.Count == 0)
                 return;
 
-            if (deferredCompoundBuildings.Count == 0)
+            if (!IsCastleSpawningModeAllowed())
                 return;
 
             int keyCount = deferredCompoundBuildings.Count;

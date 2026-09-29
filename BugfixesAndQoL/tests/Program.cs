@@ -4899,6 +4899,7 @@ namespace BugfixesAndQoL
                     new[]
                     {
                         "AIPreplacedBuildingFixRuntime.cs",
+                        "AiCoarsePathComponentFix.cs",
                         "AiStoneReserveFix.cs",
                         "ShcdeSeCoarseGridBufferWorkaround.cs"
                     }),

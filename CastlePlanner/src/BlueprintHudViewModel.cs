@@ -66,6 +66,9 @@ namespace CastlePlanner
         private Noesis.UIElement rotationPopupChild;
         private Noesis.UIElement dragCaptureElement;
 
+        public bool RequiresFrameInput =>
+            SettingsPanelVisible || castleSearchOpeningClickActive || isDragging;
+
         public BlueprintHudViewModel(
             Action toggle,
             CastlePlannerSettingsViewModel settings,
@@ -509,6 +512,9 @@ namespace CastlePlanner
             if (!HudVisible)
                 return;
 
+            UpdateViewportSize(
+                CrusaderDE.MainViewModel.iUIScaleValueWidth,
+                CrusaderDE.MainViewModel.iUIScaleValueHeight);
             Noesis.FrameworkElement host = FindAncestorByName(
                 parameter as Noesis.DependencyObject,
                 HudHostName);
@@ -883,6 +889,9 @@ namespace CastlePlanner
             object sender,
             Noesis.SizeChangedEventArgs args)
         {
+            UpdateViewportSize(
+                CrusaderDE.MainViewModel.iUIScaleValueWidth,
+                CrusaderDE.MainViewModel.iUIScaleValueHeight);
             if (!isDragging)
                 ApplyStoredOrDefaultPosition();
         }

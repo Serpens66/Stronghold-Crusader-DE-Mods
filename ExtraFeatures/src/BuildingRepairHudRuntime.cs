@@ -26,6 +26,10 @@ namespace ExtraFeatures
         private readonly ShowRepairDelegate originalShowRepair;
         private readonly HudUpdateDelegate originalHudUpdate;
         private Grid lastHoverHost;
+        private HUD_Buildings lastHudPanel;
+        private Button lastRepairButton;
+        private bool hovered;
+        private bool? lastSpecialLayout;
         private bool hudFailureLogged;
         private int active;
 
@@ -66,7 +70,11 @@ namespace ExtraFeatures
         {
             Interlocked.Exchange(ref active, enabled ? 1 : 0);
             repair.SetActive(enabled);
-            if (!enabled) repair.EndHover(HoverId);
+            if (!enabled)
+            {
+                hovered = false;
+                repair.EndHover(HoverId);
+            }
         }
 
         private bool IsActive => Volatile.Read(ref active) != 0;
@@ -106,8 +114,36 @@ namespace ExtraFeatures
             MainViewModel view = MainViewModel.Instance;
             if (view?.HUDmain == null || view.HUDBuildingPanel == null) return;
             HUD_Buildings hud = view.HUDBuildingPanel;
-            Button button = hud.FindName(ButtonName) as Button;
-            Grid hoverHost = hud.FindName(HoverHostName) as Grid;
+            if (!ReferenceEquals(hud, lastHudPanel))
+            {
+                if (hovered)
+                    repair.EndHover(HoverId);
+                if (lastHoverHost != null)
+                {
+                    lastHoverHost.MouseEnter -= OnButtonEnter;
+                    lastHoverHost.MouseLeave -= OnButtonLeave;
+                }
+                lastHudPanel = hud;
+                lastHoverHost = null;
+                lastRepairButton = null;
+                hovered = false;
+                lastSpecialLayout = null;
+            }
+            if (!view.Show_HUD_Building)
+            {
+                if (lastHoverHost != null && lastHoverHost.Visibility != Visibility.Hidden)
+                    lastHoverHost.Visibility = Visibility.Hidden;
+                if (hovered)
+                {
+                    hovered = false;
+                    repair.EndHover(HoverId);
+                }
+                return;
+            }
+            if (lastRepairButton == null)
+                lastRepairButton = hud.FindName(ButtonName) as Button;
+            Grid hoverHost = lastHoverHost ?? hud.FindName(HoverHostName) as Grid;
+            Button button = lastRepairButton;
             if (button == null || hoverHost == null) return;
             if (!ReferenceEquals(hoverHost, lastHoverHost))
             {
@@ -117,38 +153,54 @@ namespace ExtraFeatures
             }
             if (!IsActive || !repair.TryGetSelectedQuote(out BuildingRepairQuote quote))
             {
-                hoverHost.Visibility = Visibility.Hidden;
-                button.IsEnabled = false;
-                repair.EndHover(HoverId);
+                if (hoverHost.Visibility != Visibility.Hidden)
+                    hoverHost.Visibility = Visibility.Hidden;
+                if (button.IsEnabled)
+                    button.IsEnabled = false;
+                if (hovered)
+                {
+                    hovered = false;
+                    repair.EndHover(HoverId);
+                }
                 return;
             }
 
             bool special = hud.RefBarracksPanel.Visibility == Visibility.Visible ||
                 hud.RefMercPostPanel.Visibility == Visibility.Visible ||
                 hud.RefBedouinStockadePanel.Visibility == Visibility.Visible;
-            if (special)
+            if (lastSpecialLayout != special)
             {
-                hoverHost.Width = 20;
-                hoverHost.Height = 20;
-                hoverHost.Margin = new Thickness(0, 0, 235, 27);
+                hoverHost.Width = special ? 20 : 24;
+                hoverHost.Height = special ? 20 : 24;
+                hoverHost.Margin = special
+                    ? new Thickness(0, 0, 235, 27)
+                    : new Thickness(0, 0, 262, 44);
+                lastSpecialLayout = special;
             }
-            else
-            {
-                hoverHost.Width = 24;
-                hoverHost.Height = 24;
-                hoverHost.Margin = new Thickness(0, 0, 262, 44);
-            }
-            hoverHost.Visibility = Visibility.Visible;
-            button.IsEnabled = quote.CanRepair && quote.CurrentHealth < quote.MaxHealth &&
+            if (hoverHost.Visibility != Visibility.Visible)
+                hoverHost.Visibility = Visibility.Visible;
+            bool enabled = quote.CanRepair && quote.CurrentHealth < quote.MaxHealth &&
                 quote.HasResources && hud.RefButtonRepair.IsEnabled;
-            button.Opacity = button.IsEnabled ? 1.0f : 0.5f;
+            if (button.IsEnabled != enabled)
+                button.IsEnabled = enabled;
+            float opacity = enabled ? 1.0f : 0.5f;
+            if (button.Opacity != opacity)
+                button.Opacity = opacity;
         }
 
         private void OnButtonEnter(object sender, MouseEventArgs args)
         {
-            if (IsActive) repair.BeginHover(HoverId);
+            if (IsActive)
+            {
+                hovered = true;
+                repair.BeginHover(HoverId);
+            }
         }
 
-        private void OnButtonLeave(object sender, MouseEventArgs args) => repair.EndHover(HoverId);
+        private void OnButtonLeave(object sender, MouseEventArgs args)
+        {
+            hovered = false;
+            repair.EndHover(HoverId);
+        }
     }
 }

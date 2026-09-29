@@ -123,6 +123,7 @@ namespace CastlePlanner
         private long lastAbortSent;
         private string pendingAbortReason;
         private int lastFrame = -1;
+        private int lastDisplayedTimerSeconds = int.MinValue;
         private string selectedChoice = string.Empty;
         private string selectedRotation;
         private string statusText = string.Empty;
@@ -1023,7 +1024,16 @@ namespace CastlePlanner
                 if (!localCatalogReady)
                     return;
             }
-            Notify(nameof(TimerText));
+            int displayedSeconds = countdownStarted == 0
+                ? activeTimeoutSeconds
+                : FreeCastleProtocol.GetRemainingPreviewSeconds(
+                    activeTimeoutSeconds,
+                    (Stopwatch.GetTimestamp() - countdownStarted) / Stopwatch.Frequency);
+            if (displayedSeconds != lastDisplayedTimerSeconds)
+            {
+                lastDisplayedTimerSeconds = displayedSeconds;
+                Notify(nameof(TimerText));
+            }
             if (realMultiplayer && state == PreviewState.Loading &&
                 Platform_Multiplayer.Instance?.activeLobby?.isHost != true &&
                 (lastReadySent == 0 || Stopwatch.GetTimestamp() - lastReadySent >= Stopwatch.Frequency))

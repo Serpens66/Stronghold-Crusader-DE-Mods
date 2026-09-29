@@ -3,6 +3,7 @@ using APIShared;
 using BepInEx.Logging;
 using CrusaderDE;
 using MessagePack;
+using MonoMod.RuntimeDetour;
 using Noesis;
 using R3;
 using SHCDESE.API;
@@ -17,7 +18,9 @@ using SHCDESE.NoesisUtil;
 using SHCDESE.ViewModels;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Globalization;
+using System.Reflection;
 using UnityEngine;
 
 namespace ExtraFeatures
@@ -73,6 +76,8 @@ namespace ExtraFeatures
 
     internal sealed unsafe class GatehouseAutomationRuntime : IDisposable
     {
+        private delegate void BuildingHudActionDelegate(MainViewModel self);
+        private delegate void EditorPlayerActionDelegate(EditorDirector self, int playerId);
         private const string SaveDataIdentifier = "serp-extrafeatures-gatehouse-automation-v1";
         private const string AutomationIconAssetPath = "Assets/GUI/Sprites/ExtraFeatures_GatehouseAutomation.png";
         private const int ChoreProtocolVersion = 1;
@@ -101,8 +106,13 @@ namespace ExtraFeatures
         private bool iconLoadAttempted;
         private int failureLogs;
         private int nextOperationId;
-        private int lastUiFrame = -1;
-        private int lastLocatorResolveFrame = -1;
+        private Hook buildingHudHook;
+        private BuildingHudActionDelegate buildingHudTrampoline;
+        private Hook editorPlayerHook;
+        private EditorPlayerActionDelegate editorPlayerTrampoline;
+        private MainViewModel observedHudViewModel;
+        private IDisposable buildingDeleteSubscription;
+        private IDisposable buildingSpawnSubscription;
         private string lastVisibilityState;
 
         public GatehouseAutomationRuntime(
@@ -138,7 +148,24 @@ namespace ExtraFeatures
             }
 
             saveHandlerRegistered = true;
-            UnityEngine.Application.onBeforeRender += OnBeforeRender;
+            try
+            {
+                buildingDeleteSubscription = BuildingR3EventHooks.OnBuildingDelete.Observable.Subscribe(OnBuildingDeleted);
+                buildingSpawnSubscription = BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(OnBuildingSpawned);
+                InstallHudChangeHooks();
+            }
+            catch
+            {
+                buildingDeleteSubscription?.Dispose();
+                buildingDeleteSubscription = null;
+                buildingSpawnSubscription?.Dispose();
+                buildingSpawnSubscription = null;
+                ModSaveDataAPI.Instance.UnregisterModDataHandler(SaveDataIdentifier);
+                saveHandlerRegistered = false;
+                gatehouseQuerySubscription?.Dispose();
+                gatehouseQuerySubscription = null;
+                throw;
+            }
             initialized = true;
             if (!timingReadinessRegistered)
             {
@@ -195,6 +222,7 @@ namespace ExtraFeatures
 
         public void RefreshButtonVisibility()
         {
+            TryLoadButtonIcon();
             if (loadedMapStatePending)
             {
                 buttonViewModel.Hide();
@@ -241,7 +269,15 @@ namespace ExtraFeatures
                 return;
 
             disposed = true;
-            UnityEngine.Application.onBeforeRender -= OnBeforeRender;
+            if (observedHudViewModel != null)
+            {
+                observedHudViewModel.PropertyChanged -= OnHudPropertyChanged;
+                observedHudViewModel = null;
+            }
+            buildingDeleteSubscription?.Dispose();
+            buildingDeleteSubscription = null;
+            buildingSpawnSubscription?.Dispose();
+            buildingSpawnSubscription = null;
             gatehouseQuerySubscription?.Dispose();
             gatehouseQuerySubscription = null;
             packetSubscription?.Dispose();
@@ -309,32 +345,99 @@ namespace ExtraFeatures
             LogError(failure + ". Gatehouse timing customization remains disabled; other gatehouse automation stays active.");
         }
 
-        private void OnBeforeRender()
+        private void InstallHudChangeHooks()
         {
-            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
-                return;
-
-            if (lastUiFrame == Time.frameCount)
-                return;
-            lastUiFrame = Time.frameCount;
-
+            Hook pendingHud = null;
+            Hook pendingEditor = null;
             try
             {
-                TryLoadButtonIcon();
-                RefreshButtonVisibility();
+                MethodInfo hudMethod = typeof(MainViewModel).GetMethod(
+                    nameof(MainViewModel.InBuildingGameAction), BindingFlags.Public | BindingFlags.Instance);
+                MethodInfo editorMethod = typeof(EditorDirector).GetMethod(
+                    nameof(EditorDirector.SetEditorPlayerID), BindingFlags.Public | BindingFlags.Instance,
+                    null, new[] { typeof(int) }, null);
+                if (hudMethod == null || editorMethod == null)
+                    throw new MissingMethodException("Gatehouse HUD change publisher is unavailable.");
+                pendingHud = new Hook(hudMethod, (BuildingHudActionDelegate)OnBuildingHudAction);
+                buildingHudTrampoline = pendingHud.GenerateTrampoline<BuildingHudActionDelegate>();
+                pendingEditor = new Hook(editorMethod, (EditorPlayerActionDelegate)OnEditorPlayerAction);
+                editorPlayerTrampoline = pendingEditor.GenerateTrampoline<EditorPlayerActionDelegate>();
+                buildingHudHook = pendingHud;
+                editorPlayerHook = pendingEditor;
             }
-            catch (Exception ex)
+            catch
             {
-                LogFailure($"gatehouse button refresh failed: {ex}");
+                try { pendingEditor?.Undo(); } catch { }
+                try { pendingEditor?.Dispose(); } catch { }
+                try { pendingHud?.Undo(); } catch { }
+                try { pendingHud?.Dispose(); } catch { }
+                throw;
             }
+        }
+
+        private void OnBuildingHudAction(MainViewModel viewModel)
+        {
+            buildingHudTrampoline(viewModel);
+            if (!ReferenceEquals(observedHudViewModel, viewModel))
+            {
+                if (observedHudViewModel != null)
+                    observedHudViewModel.PropertyChanged -= OnHudPropertyChanged;
+                observedHudViewModel = viewModel;
+                observedHudViewModel.PropertyChanged += OnHudPropertyChanged;
+            }
+            RefreshButtonVisibilitySafely();
+        }
+
+        private void OnEditorPlayerAction(EditorDirector editor, int playerId)
+        {
+            editorPlayerTrampoline(editor, playerId);
+            if (editorSessionActive)
+                RefreshButtonVisibilitySafely();
+        }
+
+        private void OnHudPropertyChanged(object sender, PropertyChangedEventArgs args)
+        {
+            if (args?.PropertyName == nameof(MainViewModel.Show_HUD_Building) &&
+                sender is MainViewModel viewModel && !viewModel.Show_HUD_Building)
+                buttonViewModel.Hide();
+        }
+
+        private void OnBuildingDeleted(BuildingDeleteEventArgs args)
+        {
+            if (args == null || args.Phase != EventHookPhase.Post)
+                return;
+            int buildingId = args.BuildingId;
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
+            {
+                if (mapActive && GamePlayerManagerAPI.Instance.GetSelectedBuildingId() == buildingId)
+                    RefreshButtonVisibilitySafely();
+            });
+        }
+
+        private void OnBuildingSpawned(BuildingSpawnEventArgs args)
+        {
+            if (args == null || args.Phase != EventHookPhase.Post)
+                return;
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
+            {
+                if (editorSessionActive && pendingMapLocators.Count != 0)
+                    RefreshButtonVisibilitySafely();
+            });
+        }
+
+        private void RefreshButtonVisibilitySafely()
+        {
+            try { RefreshButtonVisibility(); }
+            catch (Exception ex) { LogFailure($"gatehouse button refresh failed: {ex}"); }
         }
 
         private void TryLoadButtonIcon()
         {
-            if (iconLoadAttempted || !MainViewModel.viewModelLoaded || MainViewModel.Instance == null)
+            if (iconLoadAttempted || !MainViewModel.viewModelLoaded ||
+                MainViewModel.Instance?.HUDBuildingPanel == null)
                 return;
 
-            // The plugin initializes before the game HUD; defer the one-time decode until rendering begins.
+            // The plugin initializes before the game HUD; decode once its panel is available.
             iconLoadAttempted = true;
             if (!GameAssetManagerAPI.Instance.GetFileBinaryContent(AutomationIconAssetPath, out byte[] imageBytes) ||
                 imageBytes == null || imageBytes.Length == 0)
@@ -617,10 +720,6 @@ namespace ExtraFeatures
         {
             if (pendingMapLocators.Count == 0)
                 return;
-            if (!removeUnresolved && lastLocatorResolveFrame >= 0 && Time.frameCount - lastLocatorResolveFrame < 30)
-                return;
-            lastLocatorResolveFrame = Time.frameCount;
-
             int resolved = 0;
             int ambiguous = 0;
             var remaining = new List<GatehouseMapLocator>();
@@ -805,7 +904,6 @@ namespace ExtraFeatures
             pendingMapLocators.Clear();
             buttonViewModel.Hide();
             lastVisibilityState = null;
-            lastLocatorResolveFrame = -1;
             firstQueryLogged = false;
             failureLogs = 0;
         }

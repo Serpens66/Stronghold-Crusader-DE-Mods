@@ -29,6 +29,7 @@ namespace BugfixesAndQoL
         private bool enableBakerMillerBreaks;
         private bool enableAivDefenderPositionFix = true;
         private bool fixAIPreplacedMapBuildings = true;
+        private bool fixAiCoarsePathComponents = true;
         private bool fixAITowerRepair = true;
         private bool betterAIOverbuildRules = true;
         private bool enableTroopMovementFix = true;
@@ -264,6 +265,8 @@ namespace BugfixesAndQoL
         public string EnableAivDefenderPositionFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAivDefenderPositionFixHelp");
         public string FixAIPreplacedMapBuildingsText => SerpLocalization.Get("BugfixesAndQoL.FixAIPreplacedMapBuildings");
         public string FixAIPreplacedMapBuildingsHelpText => SerpLocalization.Get("BugfixesAndQoL.FixAIPreplacedMapBuildingsHelp");
+        public string FixAiCoarsePathComponentsText => SerpLocalization.Get("BugfixesAndQoL.FixAiCoarsePathComponents");
+        public string FixAiCoarsePathComponentsHelpText => SerpLocalization.Get("BugfixesAndQoL.FixAiCoarsePathComponentsHelp");
         public string FixAITowerRepairText => SerpLocalization.Get("BugfixesAndQoL.FixAITowerRepair");
         public string FixAITowerRepairHelpText => SerpLocalization.Get("BugfixesAndQoL.FixAITowerRepairHelp");
         public string BetterAIOverbuildRulesText => SerpLocalization.Get("BugfixesAndQoL.BetterAIOverbuildRules");
@@ -909,6 +912,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool FixAiCoarsePathComponents
+        {
+            get => fixAiCoarsePathComponents;
+            set => SetSetting(ref fixAiCoarsePathComponents, value, nameof(FixAiCoarsePathComponents));
+        }
+
+        [SyncHostOnly]
         public bool FixAITowerRepair
         {
             get => fixAITowerRepair;
@@ -1341,6 +1351,7 @@ namespace BugfixesAndQoL
                 EnableBakerMillerBreaks = false;
                 EnableAivDefenderPositionFix = true;
                 FixAIPreplacedMapBuildings = true;
+                FixAiCoarsePathComponents = true;
                 FixAITowerRepair = true;
                 BetterAIOverbuildRules = true;
                 RememberAiAivSettings = true;

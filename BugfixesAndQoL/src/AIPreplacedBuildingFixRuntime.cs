@@ -1214,6 +1214,13 @@ namespace BugfixesAndQoL
             economyOverlayCaches.Clear();
         }
 
+        internal bool HasActiveEconomyOverlay => overlayScratchInUse;
+
+        internal void OnPathComponentGridRebuilt()
+        {
+            InvalidateEconomyOverlayCaches();
+        }
+
         private bool TryGetNativeEconomyStart(int playerId, out int x, out int y)
         {
             x = 0;
@@ -1253,6 +1260,7 @@ namespace BugfixesAndQoL
             finally
             {
                 overlayScratchInUse = false;
+                BugfixesAndQoLRuntime.FlushDeferredAiCoarsePathRefresh();
             }
             if (!restored)
                 DisableEconomyFix("overlay-restore-verification",

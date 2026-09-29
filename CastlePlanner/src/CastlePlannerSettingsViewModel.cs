@@ -179,6 +179,8 @@ namespace CastlePlanner
                     Shared.DebugLogHelper.LogError(
                         log,
                         $"Asynchronous AIVJSON catalog loading failed and will be retried: {error}");
+                    Task.Delay(TimeSpan.FromSeconds(5)).ContinueWith(_ =>
+                        Shared.UnityMainThreadDispatch.TryEnqueue(PumpCastleCatalogLoad));
                     return;
                 }
 
@@ -211,6 +213,8 @@ namespace CastlePlanner
                         options.ToArray(),
                         warnings.ToArray());
                 });
+                castleCatalogTask.ContinueWith(_ =>
+                    Shared.UnityMainThreadDispatch.TryEnqueue(PumpCastleCatalogLoad));
                 Shared.DebugLogHelper.LogInfo(
                     log,
                     "Asynchronous AIVJSON catalog loading started; recursive discovery and hashing will not block the game thread.");
@@ -221,6 +225,8 @@ namespace CastlePlanner
                 Shared.DebugLogHelper.LogError(
                     log,
                     $"AIVJSON catalog source preparation failed and will be retried: {ex}");
+                Task.Delay(TimeSpan.FromSeconds(5)).ContinueWith(_ =>
+                    Shared.UnityMainThreadDispatch.TryEnqueue(PumpCastleCatalogLoad));
             }
         }
 
@@ -383,7 +389,6 @@ namespace CastlePlanner
                 Shared.DebugLogHelper.LogInfo(
                     log,
                     $"CastlePlanner host AIV placement feature changed to {enableAivPlacementLobby}.");
-                SettingsChanged?.Invoke();
             }
         }
 
@@ -498,7 +503,6 @@ namespace CastlePlanner
                 Shared.DebugLogHelper.LogInfo(
                     log,
                     $"CastlePlanner host castle-selection timeout changed to {castleSelectionTimeoutSeconds} real seconds.");
-                SettingsChanged?.Invoke();
             }
         }
 

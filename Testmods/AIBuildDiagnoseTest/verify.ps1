@@ -27,6 +27,38 @@ if ($audited['0x51540'].calleeRvas -notcontains '0x58950' -or
     $audited['0x58BE0'].dataRvas -notcontains '0x50EC690') {
     throw 'Audited 0x58950 and 0x58BE0 contracts differ.'
 }
+$orchardFunctions = @{}
+Get-Content -LiteralPath $functions | Where-Object {
+    $_ -match '"rva":"0x(72A50|1071A0|E0850|D90D0|50720)"'
+} | ForEach-Object { $item = $_ | ConvertFrom-Json; $orchardFunctions[$item.rva] = $item }
+if ($orchardFunctions['0x72A50'].calleeRvas -notcontains '0x1071A0' -or
+    $orchardFunctions['0x1071A0'].calleeRvas -notcontains '0xE0850' -or
+    $orchardFunctions['0xE0850'].calleeRvas -notcontains '0xD90D0' -or
+    $orchardFunctions['0x72A50'].calleeRvas -contains '0x50720') {
+    throw 'Audited orchard creation/pathfinding/coarse-grid call chain differs.'
+}
+$nativeBytes = [IO.File]::ReadAllBytes($native)
+$pe = [BitConverter]::ToInt32($nativeBytes, 0x3c)
+$sectionCount = [BitConverter]::ToUInt16($nativeBytes, $pe + 6)
+$optionalSize = [BitConverter]::ToUInt16($nativeBytes, $pe + 20)
+$orchardRva = 0x2d3dc0
+$orchardOffset = -1
+for ($i = 0; $i -lt $sectionCount; $i++) {
+    $section = $pe + 24 + $optionalSize + $i * 40
+    $size = [BitConverter]::ToInt32($nativeBytes, $section + 8)
+    $rva = [BitConverter]::ToInt32($nativeBytes, $section + 12)
+    if ($rva -le $orchardRva -and $orchardRva + 64 -le $rva + $size) {
+        $orchardOffset = [BitConverter]::ToInt32($nativeBytes, $section + 20) + $orchardRva - $rva
+        break
+    }
+}
+if ($orchardOffset -lt 0) { throw 'Native orchard offset table is unavailable.' }
+$expectedOrchard = @(5,1,9,1,1,5,5,5,9,5,1,9,5,9,9,9)
+for ($i = 0; $i -lt $expectedOrchard.Count; $i++) {
+    if ([BitConverter]::ToInt32($nativeBytes, $orchardOffset + $i * 4) -ne $expectedOrchard[$i]) {
+        throw 'Native apple-tree offset table differs from the diagnostic.'
+    }
+}
 $rizin = Join-Path $workspace '.tools\Cutter-v2.4.1-Windows-x86_64\Cutter-v2.4.1-Windows-x86_64\rizin.exe'
 $routeEntry = (& $rizin -q -e scr.color=false -c 's 0x1800c3bf0; p8 7; q' $native) -join ''
 if ($routeEntry.Trim().ToLowerInvariant() -ne '4883ec384963c0') {
@@ -69,7 +101,10 @@ if ($runtimeText -match 'CodePatch\.Write|Marshal\.Write|VirtualProtect|NativeDe
 }
 if ($runtimeText -notmatch 'MissionEvents\.Loading\.Subscribe\(OnMapLoading\)' -or
     $runtimeText -notmatch 'AiBuildDiagnostic\.CaptureEconomyGridEvidence\(gridState, -1\)' -or
-    $runtimeText -notmatch 'probeSession = active && session\.IsLoadedSave') {
+    $runtimeText -notmatch 'probeSession = active && session\.IsLoadedSave' -or
+    $runtimeText -notmatch 'OnVegetationCreate\.Observable\.Subscribe\(OnVegetationCreate\)' -or
+    $runtimeText -notmatch 'OrchardObservationTicks = 700' -or
+    $runtimeText -notmatch 'building-spawn-pre') {
     throw 'Grid lifecycle or copy-only placement probe guard differs.'
 }
 foreach ($path in $textFiles) {

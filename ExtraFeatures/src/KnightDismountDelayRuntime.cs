@@ -25,6 +25,7 @@ namespace ExtraFeatures
         private static KnightDismountRuntime activeRuntime;
         private static Hook persistentGameActionHook;
         private static Hook persistentSaveHook;
+        private static bool visualSubscriptionsInstalled;
         private static EngineInterfaceGameActionDelegate persistentGameActionTrampoline;
         private static EngineInterfaceSaveDelegate persistentSaveTrampoline;
         private static Texture2D progressTexture;
@@ -100,8 +101,6 @@ namespace ExtraFeatures
                     persistentSaveTrampoline = saveCandidate.GenerateTrampoline<EngineInterfaceSaveDelegate>();
 
                     subscriptionCandidates.Add(UnitR3EventHooks.OnUnitMoveHere.Observable.Subscribe(PersistentUnitMoveHere));
-                    subscriptionCandidates.Add(UnitR3EventHooks.OnUnitUnityVisualInterpolate.Observable.Subscribe(PersistentVisualInterpolate));
-                    subscriptionCandidates.Add(UnitR3EventHooks.OnUnitUnityVisualRemove.Observable.Subscribe(PersistentVisualRemove));
                     subscriptionCandidates.Add(Shared.MissionEvents.Ended.Subscribe(PersistentMapUnload));
                     GameTimeManagerAPI.Instance.OnTick += PersistentGameTick;
                     tickSubscribed = true;
@@ -123,6 +122,32 @@ namespace ExtraFeatures
                     gameActionCandidate?.Dispose();
                     persistentGameActionTrampoline = null;
                     persistentSaveTrampoline = null;
+                    throw;
+                }
+            }
+        }
+
+        private static void EnsureVisualSubscriptions()
+        {
+            lock (PersistentInfrastructureLock)
+            {
+                if (visualSubscriptionsInstalled)
+                    return;
+
+                IDisposable interpolate = null;
+                IDisposable remove = null;
+                try
+                {
+                    interpolate = UnitR3EventHooks.OnUnitUnityVisualInterpolate.Observable.Subscribe(PersistentVisualInterpolate);
+                    remove = UnitR3EventHooks.OnUnitUnityVisualRemove.Observable.Subscribe(PersistentVisualRemove);
+                    PersistentSubscriptions.Add(interpolate);
+                    PersistentSubscriptions.Add(remove);
+                    visualSubscriptionsInstalled = true;
+                }
+                catch
+                {
+                    remove?.Dispose();
+                    interpolate?.Dispose();
                     throw;
                 }
             }
@@ -168,7 +193,8 @@ namespace ExtraFeatures
         private static void PersistentGameTick(int tick)
         {
             KnightDismountRuntime runtime = activeRuntime;
-            if (runtime != null && runtime.IsPendingRuntimeActive())
+            if (runtime != null && runtime.IsPendingRuntimeActive() &&
+                (runtime.pendingTransformations.Count != 0 || runtime.deferredSave != null))
             {
                 runtime.UpdatePendingTransformations();
                 runtime.TryCompleteDeferredSave(tick);
@@ -179,6 +205,7 @@ namespace ExtraFeatures
         {
             KnightDismountRuntime runtime = activeRuntime;
             if (runtime != null && runtime.IsPendingRuntimeActive() &&
+                runtime.pendingTransformations.Count != 0 &&
                 args != null && args.Phase == EventHookPhase.Pre && runtime.IsPendingUnitId(args.UnitId))
             {
                 args.SkipOriginalFunction = true;
@@ -188,7 +215,8 @@ namespace ExtraFeatures
         private static void PersistentVisualInterpolate(UnitUnityVisualInterpolateEventArgs args)
         {
             KnightDismountRuntime runtime = activeRuntime;
-            if (runtime != null && runtime.IsPendingRuntimeActive() && args?.Chimp != null)
+            if (runtime != null && runtime.IsPendingRuntimeActive() &&
+                runtime.pendingTransformations.Count != 0 && args?.Chimp != null)
                 runtime.UpdateProgressVisual(args.Chimp);
         }
 
@@ -312,6 +340,7 @@ namespace ExtraFeatures
                     }
 
                     snapshot = CreateSnapshotFromUnit(currentUnitId, currentUnit);
+                    EnsureVisualSubscriptions();
                     pendingTransformations.Add(snapshot.GlobalId, new PendingKnightTransformation
                     {
                         Snapshot = snapshot,

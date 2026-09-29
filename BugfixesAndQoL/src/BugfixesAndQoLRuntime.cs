@@ -80,11 +80,22 @@ namespace BugfixesAndQoL
         private static CorruptLordDataSpawnRuntime processCorruptLordDataSpawnRuntime;
         private static PrebuiltAiWorkshopBothFixRuntime processPrebuiltAiWorkshopBothFixRuntime;
         private static AIPreplacedBuildingFixRuntime processAIPreplacedBuildingFixRuntime;
+        private static AiCoarsePathComponentFix processAiCoarsePathComponentFix;
         private static WorkerBreakPauseHook processWorkerBreakPauseHook;
         private static NativeTannerFade processNativeTannerFade;
         private static WaterboyTargetReservationRuntime processWaterboyTargetReservationRuntime;
         private static bool workerBreakTickSubscribed;
         private static bool workerBreakTickLogged;
+
+        internal static bool HasActiveAiEconomyOverlay =>
+            processAIPreplacedBuildingFixRuntime?.HasActiveEconomyOverlay == true;
+
+        internal static void NotifyAiPathComponentGridRebuilt() =>
+            processAIPreplacedBuildingFixRuntime?.OnPathComponentGridRebuilt();
+
+        internal static void FlushDeferredAiCoarsePathRefresh() =>
+            processAiCoarsePathComponentFix?.FlushDeferred();
+
         private CtrlMarketTradeHook ctrlMarketTradeHook;
         private NotificationSkipFeature notificationSkipFeature;
         private IntPtr libraryHandle;
@@ -436,6 +447,13 @@ namespace BugfixesAndQoL
                 candidate.TryInstallNativeFixes(context, isFixedLayoutHashValidated);
                 candidate.InstallEventHandlers();
                 processAIPreplacedBuildingFixRuntime = candidate;
+            });
+            TryInitializePersistentFeature("AI coarse path-component fix", () =>
+            {
+                var candidate = new AiCoarsePathComponentFix(log,
+                    () => settings.EnableMod && settings.FixAiCoarsePathComponents,
+                    context, isFixedLayoutHashValidated);
+                processAiCoarsePathComponentFix = candidate;
             });
             TryInitializeFeature("AI tower-ruin repair fix", EnsureAiTowerRuinRepairFix);
             TryInitializeFeature("better AI overbuild rules", EnsureBetterAIOverbuildRulesFix);

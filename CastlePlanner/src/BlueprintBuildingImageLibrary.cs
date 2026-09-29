@@ -36,6 +36,8 @@ namespace CastlePlanner
         private readonly Dictionary<string, Task<DepthReadResult>> depthReadTasks =
             new Dictionary<string, Task<DepthReadResult>>(StringComparer.Ordinal);
         private readonly SemaphoreSlim depthReadSemaphore = new SemaphoreSlim(2, 2);
+        private readonly HashSet<string> completedDepthKeys =
+            new HashSet<string>(StringComparer.Ordinal);
 
         public BlueprintBuildingImageLibrary(ManualLogSource log)
         {
@@ -55,6 +57,7 @@ namespace CastlePlanner
             depthCaptures.Clear();
             depthVisuals.Clear();
             pendingDepthLoads.Clear();
+            completedDepthKeys.Clear();
             queuedDepthLoads.Clear();
             failedFiles.Clear();
             failedDepthCaptures.Clear();
@@ -224,7 +227,18 @@ namespace CastlePlanner
                     depthReadSemaphore.Release();
                 }
             });
+            depthReadTasks[key].ContinueWith(_ =>
+            {
+                Shared.UnityMainThreadDispatch.TryEnqueue(() =>
+                {
+                    completedDepthKeys.Add(key);
+                    DepthReadCompleted?.Invoke();
+                });
+            });
         }
+
+        public event Action DepthReadCompleted;
+        public bool HasCompletedDepthRead => completedDepthKeys.Count != 0;
 
         public bool TryGetLoadedDepthVisual(string key, out BlueprintDepthVisual visual)
         {
@@ -240,7 +254,8 @@ namespace CastlePlanner
             for (int index = 0; index < queued; index++)
             {
                 string candidate = pendingDepthLoads.Dequeue();
-                if (key == null && depthReadTasks.TryGetValue(candidate, out Task<DepthReadResult> task) &&
+                if (key == null && completedDepthKeys.Contains(candidate) &&
+                    depthReadTasks.TryGetValue(candidate, out Task<DepthReadResult> task) &&
                     task.IsCompleted)
                 {
                     key = candidate;
@@ -252,6 +267,7 @@ namespace CastlePlanner
             }
             if (key == null)
                 return false;
+            completedDepthKeys.Remove(key);
             queuedDepthLoads.Remove(key);
             if (depthVisuals.ContainsKey(key) || failedDepthCaptures.Contains(key) ||
                 !depthCaptures.TryGetValue(key, out BlueprintDepthAtlasCaptureDefinition capture))

@@ -166,6 +166,7 @@
 
   <ItemGroup>
     <Compile Include="..\Shared\GameBuildingFootprint.cs"><Link>Shared\GameBuildingFootprint.cs</Link></Compile>
+    <Compile Include="..\Shared\UnityMainThreadDispatch.cs"><Link>Shared\UnityMainThreadDispatch.cs</Link></Compile>
     <Compile Include="..\Shared\ActivePlayerHelper.cs">
       <Link>Shared\ActivePlayerHelper.cs</Link>
     </Compile>
