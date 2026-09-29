@@ -74,7 +74,7 @@ namespace RaidRetargetDiagnostic
                 candidateTick = true;
 
                 Shared.DebugLogHelper.LogInfo(log,
-                    "RAID_DIAG_READY: readOnly=true, publisher=GameTimeManagerAPI.OnTick, " +
+                    "RAID_DIAG_READY: raidMeleeRetarget=true, publisher=GameTimeManagerAPI.OnTick, " +
                     "events=buildingDamage+delete+tribeOrder+tribeMove+unitMove.");
                 // The extender publishers and these static fields survive startup cleanup.
                 sessionSubscription = candidateSession;

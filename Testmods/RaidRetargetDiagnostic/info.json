@@ -2,7 +2,7 @@
   "GUID": "RaidRetargetDiagnostic_Serp",
   "Author": "Serpens66",
   "Name": "Raid Retarget Diagnostic",
-  "Description": "Read-only diagnostics for AI raiding-group building targets, counters, damage, and deletion.",
+  "Description": "AI melee raiding groups retry building targets when Vanilla finds no usable attack point, with diagnostics.",
   "Version": "0.1.0",
   "MinimumScriptExtenderVersion": "2.11.0",
   "MaximumScriptExtenderVersion": "",

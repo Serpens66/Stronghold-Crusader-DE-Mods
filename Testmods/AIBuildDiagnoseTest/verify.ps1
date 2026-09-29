@@ -170,12 +170,23 @@ if ($runtimeText -notmatch 'NearbyDx = \{ 0, 1, 1, 1, 0, -1, -1, -1 \}' -or
     throw 'Nearby wood shadow or copy-only overlay contract differs.'
 }
 if ($runtimeText -notmatch 'NativePlacementReservationFlag = 0x4' -or
+    $runtimeText -notmatch 'ReadCoarseReservation\(AiEconomyGridEvidence evidence\)' -or
+    $runtimeText -notmatch '0x5B83F \+' -or
+    $runtimeText -notmatch 'bit4Tiles=\{CountReservationTiles\(' -or
+    $runtimeText -notmatch 'storedReservation=\{ReadCoarseReservation\(' -or
     $runtimeText -notmatch 'Marshal\.ReadInt32\(IntPtr\.Add\(tileManager, 0x204E704\)\)' -or
     $runtimeText -notmatch 'placementReasonMayBeStale=true' -or
     $runtimeText -notmatch 'CaptureFarmParcel\(args\.TileX, args\.TileY, 0, "build-structure-" \+ args\.Phase\)' -or
     $runtimeText -notmatch 'CaptureFarmParcel\(farm\.X, farm\.Y, farm\.BuildingId, stage\)' -or
     $runtimeText -notmatch 'FarmParcelSnapshotLimit = 48') {
     throw 'Farm-parcel or raw native placement-reason diagnostic contract differs.'
+}
+$coarseNative = [IO.File]::ReadAllText((Join-Path $workspace '_inspect\CrusaderDE-Native-Baseline\sem\FBCB9319\exports\semantic-decompiled-functions.c'))
+foreach ($contract in @('FUNCTION FUN_180050620', 'FUNCTION FUN_180050720',
+    'FUNCTION FUN_1800575b0', 'FUNCTION FUN_180058950', '0x5b83f')) {
+    if (-not $coarseNative.Contains($contract)) {
+        throw "Native coarse reservation reader/writer contract missing: $contract"
+    }
 }
 $bugfixRuntime = [IO.File]::ReadAllText((Join-Path $workspace 'BugfixesAndQoL\src\AIPreplacedBuildingFixRuntime.cs'))
 $publisher = [IO.File]::ReadAllText((Join-Path $workspace 'APIShared\src\AiBuildDiagnostic.cs'))

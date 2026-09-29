@@ -24,9 +24,9 @@ namespace AIBuildDiagnoseTest
         private const int ProbeX = 345;
         private const int ProbeY = 485;
         private const int GridHistoryLimit = 64;
-        private const int ExistingAppleFarmLimit = 16;
-        private const int AppleFarmLimit = 32;
-        private const int AppleFarmSnapshotLimit = 96;
+        private const int ExistingAppleFarmLimit = 64;
+        private const int AppleFarmLimit = 64;
+        private const int AppleFarmSnapshotLimit = 192;
         private const int OrchardTransitionLimit = 512;
         private const int FarmParcelSnapshotLimit = 48;
         // Native 0x72490 sets this placement-reservation bit on farm parcel tiles.
@@ -36,12 +36,13 @@ namespace AIBuildDiagnoseTest
         private static readonly int[] OrchardDx = { 5, 9, 1, 5, 9, 1, 5, 9 };
         private static readonly int[] OrchardDy = { 1, 1, 5, 5, 5, 9, 9, 9 };
         private readonly ManualLogSource log;
+        private readonly ulong nativeModuleBase;
         private readonly bool fixesLoaded;
         private readonly bool placementProbeEnabled;
         private readonly bool nearbyWoodTestEnabled;
-        private bool nearbyCopySession, canariSession, nearbyCalibrated, nearbyTestDisabled, nearbyTestUsed;
+        private bool nearbyCopySession, nearbyCalibrated, nearbyTestDisabled, nearbyTestUsed;
         private int nearbyCalibrationAttempts;
-        private bool firstNearbyDetailed;
+        private readonly bool[] nearbyDetailedByPlayer = new bool[9];
         private readonly IDisposable buildingSubscription;
         private readonly IDisposable vegetationSubscription;
         private readonly IDisposable buildStructureSubscription;
@@ -141,11 +142,20 @@ namespace AIBuildDiagnoseTest
         private bool probeRunning;
         private long probeAttemptId;
         private long probeSpawnId;
+        private int lastPathGeneration;
+        private bool pathGenerationKnown;
+        private int pathGenerationChanges;
+        private bool farmGridPairCaptured;
+        private readonly Queue<FarmGridRawSnapshot> farmGridRaw = new Queue<FarmGridRawSnapshot>();
+        private int farmGridRawDropped;
 
         internal AIBuildDiagnoseRuntime(ManualLogSource logger, bool hasFixes,
-            bool enablePlacementProbe, bool enableNearbyWoodTest)
+            bool enablePlacementProbe, bool enableNearbyWoodTest, ulong moduleBase)
         {
             log = logger ?? throw new ArgumentNullException(nameof(logger));
+            nativeModuleBase = string.Equals(Shared.DebugLogHelper.CurrentNativeSha256,
+                "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+                StringComparison.OrdinalIgnoreCase) ? moduleBase : 0;
             fixesLoaded = hasFixes;
             placementProbeEnabled = enablePlacementProbe;
             nearbyWoodTestEnabled = enableNearbyWoodTest;
@@ -183,10 +193,9 @@ namespace AIBuildDiagnoseTest
             }
             active = false;
             nearbyCopySession = nearbyCalibrated = nearbyTestUsed = false;
-            canariSession = false;
             nearbyTestDisabled = false;
             nearbyCalibrationAttempts = 0;
-            firstNearbyDetailed = false;
+            Array.Clear(nearbyDetailedByPlayer, 0, nearbyDetailedByPlayer.Length);
             gridState = 0;
             gridSequence = 0;
             gridModeZeroCalls = gridModeOneCalls = 0;
@@ -201,6 +210,11 @@ namespace AIBuildDiagnoseTest
             appleFarmDropped = appleFarmSnapshots = appleFarmSnapshotDropped = 0;
             orchardTransitions = orchardTransitionsDropped = 0;
             farmParcelSnapshots = farmParcelSnapshotsDropped = 0;
+            farmGridRaw.Clear();
+            farmGridPairCaptured = false;
+            farmGridRawDropped = 0;
+            pathGenerationKnown = false;
+            pathGenerationChanges = 0;
             pendingAppleFarmPre = null;
             firstOrchardMismatchSeen = false;
             coarseAuditWritesEnabled = coarseAuditAvailable = coarseAuditReference = -1;
@@ -230,19 +244,20 @@ namespace AIBuildDiagnoseTest
             nearbyCopySession = active && session.IsLoadedSave && nearbyWoodTestEnabled &&
                 string.Equals(Path.GetFileName(session.SaveFileName ?? ""), ProbeSaveName,
                     StringComparison.OrdinalIgnoreCase);
-            canariSession = active && session.IsLoadedSave &&
-                (Path.GetFileName(session.SaveFileName ?? "").IndexOf(
-                    "test_canari_nowoodcutters", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                 Path.GetFileName(loadingSaveName ?? "").IndexOf(
-                    "test_canari_nowoodcutters", StringComparison.OrdinalIgnoreCase) >= 0);
             nearbyCalibrated = nearbyTestDisabled = nearbyTestUsed = false;
             nearbyCalibrationAttempts = 0;
-            firstNearbyDetailed = false;
+            Array.Clear(nearbyDetailedByPlayer, 0, nearbyDetailedByPlayer.Length);
             probePending = probeDone = probeRunning = false;
             probeAttemptId = probeSpawnId = 0;
             firstTick = false;
             lastTick = -1;
             observedTickCount = 0;
+            farmGridRaw.Clear();
+            farmGridPairCaptured = false;
+            farmGridRawDropped = 0;
+            pathGenerationChanges = 0;
+            lastPathGeneration = ReadPathGeneration();
+            pathGenerationKnown = lastPathGeneration >= 0;
             nextSummaryTick = 0;
             seen.Clear();
             attempts.Clear();
@@ -308,7 +323,8 @@ namespace AIBuildDiagnoseTest
                 $"mode={session.Mode.ToDiagnosticString()}.");
             Log($"AI_BUILD_GRID_HISTORY: session={sessionId}, loadingFile={loadingSaveName ?? "unknown"}, " +
                 $"sessionFile={session.SaveFileName}, retained={earlyGridHistory.Count}, " +
-                $"dropped={earlyGridDropped}, mode0Calls={gridModeZeroCalls}, mode1Calls={gridModeOneCalls}.");
+                $"dropped={earlyGridDropped}, mode0Calls={gridModeZeroCalls}, mode1Calls={gridModeOneCalls}, " +
+                $"pathGeneration={lastPathGeneration}, generationReady={pathGenerationKnown}.");
             foreach (string entry in earlyGridHistory) Log("AI_BUILD_GRID_EARLY: session=" + sessionId + ", " + entry);
             if (firstGridMismatchLine != null && earlyGridDropped != 0)
                 Log("AI_BUILD_GRID_FIRST_MISMATCH_PRESERVED: session=" + sessionId + ", " + firstGridMismatchLine);
@@ -342,6 +358,10 @@ namespace AIBuildDiagnoseTest
             if (active)
                 Log($"AI_BUILD_ORCHARD_TRANSITION_SUMMARY: session={sessionId}, logged={orchardTransitions}, " +
                     $"dropped={orchardTransitionsDropped}.");
+            if (active)
+                Log($"AI_BUILD_SOURCE_WATCH_SUMMARY: session={sessionId}, pathGenerationChanges={pathGenerationChanges}, " +
+                    $"farmGridPairCaptured={farmGridPairCaptured}, rawSnapshotsDropped={farmGridRawDropped}, " +
+                    $"parcelFull={farmParcelSnapshots}, parcelCompact={farmParcelSnapshotsDropped}.");
             active = false;
             probeSession = probePending = probeRunning = false;
             nearbyCopySession = false;
@@ -357,6 +377,8 @@ namespace AIBuildDiagnoseTest
             lastTick = tick;
             observedTickCount++;
             FlushDeferredLog();
+            FlushFarmGridRaw();
+            ObservePathGeneration(tick);
             if (tick >= nextWallMapTick)
             {
                 CaptureWallMap("periodic");
@@ -455,6 +477,9 @@ namespace AIBuildDiagnoseTest
             if (record.EconomyGridEvidence != null)
             {
                 ObserveGrid(record.Stage, record.EconomyGridEvidence);
+                if (active && !farmGridPairCaptured && appleFarms.Count != 0 &&
+                    (record.Stage == "economy-grid-before" || record.Stage == "economy-grid-after"))
+                    CaptureFarmGridRaw(record.Stage, record.EconomyGridEvidence);
                 if (active && (record.Stage == "economy-grid-before" ||
                     record.Stage == "economy-grid-after"))
                     SnapshotWoodCells(record.Stage);
@@ -687,6 +712,7 @@ namespace AIBuildDiagnoseTest
                 string auditProposal = hasAudit
                     ? (proposal ?? "no-difference-at-last-audit") : "unobserved";
                 details.Append($"({cx},{cy}):status={current.Status}:storedVanilla={current.StoredForeignCount}:" +
+                    $"storedReservation={ReadCoarseReservation(current)}:bit4Tiles={CountReservationTiles(current)}:" +
                     $"hypotheticalGlobalLive={hypothetical}:zero={zero}:positive={components}:" +
                     $"validTiles={valid}:auditProposal={auditProposal}");
             }
@@ -771,6 +797,7 @@ namespace AIBuildDiagnoseTest
             string line = $"seq={gridSequence}, tick={lastTick}, stage={stage}, mode={evidence.Mode}, " +
                 $"state=0x{evidence.State:X}, status={evidence.Status}, " +
                 $"reference={evidence.ReferenceComponent}, storedForeign={evidence.StoredForeignCount}, " +
+                $"storedReservation={ReadCoarseReservation(evidence)}, bit4Tiles={CountReservationTiles(evidence)}, " +
                 $"liveDifferent={evidence.CurrentDifferentCount}, liveZero={evidence.CurrentZeroCount}, " +
                 $"treeFlagTiles={evidence.TreeFlagCount}, appleFarmFlagTiles={evidence.AppleFarmFlagCount}, " +
                 $"storedTreeWeight={evidence.TreeWeight}, mismatch={mismatch}, firstMismatch={firstMismatch}, " +
@@ -794,12 +821,42 @@ namespace AIBuildDiagnoseTest
             var value = new StringBuilder(330);
             value.Append(evidence.Status).Append(':').Append(evidence.ReferenceComponent)
                 .Append(':').Append(evidence.StoredForeignCount).Append(':')
+                .Append(ReadCoarseReservation(evidence)).Append(':')
                 .Append(evidence.TreeWeight);
             foreach (AiPathTileSample tile in evidence.Tiles)
                 value.Append('|').Append(tile.X).Append(',').Append(tile.Y).Append(',')
                     .Append(tile.NativeComponent).Append(',').Append(tile.ApiComponent)
                     .Append(',').Append(tile.PropertyFlags).Append(',').Append(tile.Organism);
             return value.ToString();
+        }
+
+        // Native AIV cell +15 (foreign-byte-relative +11, 0x5B83F) is also
+        // written by AI build attempts;
+        // it is a raw search gate, not an inferred count of bit-4 tiles.
+        private static int ReadCoarseReservation(AiEconomyGridEvidence evidence)
+        {
+            if (evidence == null || evidence.State == 0 ||
+                (uint)evidence.CoarseX >= 160 || (uint)evidence.CoarseY >= 160)
+                return -1;
+            try
+            {
+                long address = checked((long)evidence.State + 0x5B83F +
+                    ((long)evidence.CoarseX * 160 + evidence.CoarseY) * 0x30);
+                return Marshal.ReadByte(new IntPtr(address));
+            }
+            catch { return -1; }
+        }
+
+        private static int CountReservationTiles(AiEconomyGridEvidence evidence)
+        {
+            if (evidence == null || evidence.Tiles.Count != 25) return -1;
+            int count = 0;
+            foreach (AiPathTileSample tile in evidence.Tiles)
+            {
+                if (tile.Status != "ok") return -1;
+                if ((tile.PropertyFlags & NativePlacementReservationFlag) != 0) count++;
+            }
+            return count;
         }
 
         private static string GridTiles(AiEconomyGridEvidence evidence)
@@ -1477,9 +1534,49 @@ namespace AIBuildDiagnoseTest
         private static readonly int[] NearbyDx = { 0, 1, 1, 1, 0, -1, -1, -1 };
         private static readonly int[] NearbyDy = { -1, -1, 0, 1, 1, 1, 0, -1 };
 
+        private static string DescribeNearbyFootprint(int coarseX, int coarseY)
+        {
+            IReadOnlyList<AiPathTileSample> tiles = AiBuildDiagnostic.CaptureTiles(
+                coarseX * 5, coarseY * 5, 3, 3);
+            if (tiles.Count != 9) return "unavailable:tile-count=" + tiles.Count;
+            int unavailable = 0, bit4 = 0, zero = 0, swamp = 0, wall = 0;
+            int trees = 0, buildings = 0, organisms = 0, occupied = 0;
+            var raw = new StringBuilder();
+            foreach (AiPathTileSample tile in tiles)
+            {
+                if (raw.Length != 0) raw.Append('|');
+                raw.Append(tile.X).Append('/').Append(tile.Y).Append(':').Append(tile.Status);
+                if (tile.Status != "ok") { unavailable++; continue; }
+                raw.Append(':').Append(tile.NativeComponent).Append('/')
+                    .Append(tile.ApiComponent).Append(':').Append(tile.PropertyFlags.ToString("X8"))
+                    .Append(':').Append(tile.BuildingId).Append(':').Append(tile.Organism)
+                    .Append(':').Append(tile.Occupancy).Append(':').Append(tile.Height);
+                if ((tile.PropertyFlags & NativePlacementReservationFlag) != 0) bit4++;
+                if (tile.NativeComponent == 0) zero++;
+                if ((tile.PropertyFlags & 0x20000000u) != 0) swamp++;
+                if ((tile.PropertyFlags & 0x100u) != 0) wall++;
+                if ((tile.PropertyFlags & (uint)TilePropertyFlag.IsTree) != 0) trees++;
+                if (tile.BuildingId > 0) buildings++;
+                if (tile.Organism > 0) organisms++;
+                if (tile.Occupancy > 0) occupied++;
+            }
+            AiPathTileSample anchor = tiles[0];
+            string firstObservedConstraint = unavailable != 0 ? "tile-unavailable" :
+                anchor.NativeComponent == 0 ? "anchor-component-zero" :
+                bit4 != 0 ? "parcel-bit4-native-placement-blocker" :
+                wall != 0 ? "wall-flag" : swamp != 0 ? "swamp-flag" :
+                buildings != 0 ? "building-layer" : "none-of-measured-flags";
+            return $"anchor={anchor.NativeComponent}/{anchor.ApiComponent}:bit4={bit4}:pcl0={zero}:" +
+                $"swamp={swamp}:wall={wall}:tree={trees}:building={buildings}:" +
+                $"organism={organisms}:occupied={occupied}:unavailable={unavailable}:" +
+                $"firstObservedConstraint={firstObservedConstraint}:nativePlacementUnobserved=true:" +
+                $"tiles=[{raw}]";
+        }
+
         private sealed class NearbyWoodShadow
         {
             internal int X = -1, Y = -1, Visited;
+            internal int TraceOmitted, FootprintOmitted;
             internal bool Valid = true;
             internal string Error;
             internal readonly List<int> ZeroCandidates = new List<int>();
@@ -1530,9 +1627,19 @@ namespace AIBuildDiagnoseTest
                     result.Visited++;
                     string rejection = CoarseFailure(cell);
                     if (trace)
-                        result.Trace.Add($"cell=({x},{y}), parent=({cx},{cy}), direction={direction}, " +
-                            $"depth={unchecked((sbyte)parent[1]) + 1}, foreign={(sbyte)cell[0]}, " +
-                            $"bytes={evidence.GetCapturedCoarseCell(x, y).Bytes}, firstRule={rejection}");
+                    {
+                        // Bound detailed tile reads inside the existing nearby-search callback.
+                        // Every coarse-eligible candidate is retained even beyond this limit.
+                        bool footprint = result.Visited <= 128 || rejection == "none-coarse-eligible";
+                        if (!footprint) result.FootprintOmitted++;
+                        string placement = footprint ? DescribeNearbyFootprint(x, y) : "not-sampled-limit";
+                        if (result.Trace.Count < 2048 || rejection == "none-coarse-eligible")
+                            result.Trace.Add($"cell=({x},{y}), parent=({cx},{cy}), direction={direction}, " +
+                                $"depth={unchecked((sbyte)parent[1]) + 1}, foreign={(sbyte)cell[0]}, " +
+                                $"bytes={evidence.GetCapturedCoarseCell(x, y).Bytes}, firstRule={rejection}, " +
+                                $"footprint={placement}");
+                        else result.TraceOmitted++;
+                    }
                     if ((sbyte)cell[0] >= 15) continue;
                     if (rejection == "none-coarse-eligible")
                     {
@@ -1554,22 +1661,30 @@ namespace AIBuildDiagnoseTest
 
         private void PrepareNearbyWoodShadow(long attemptId, Attempt attempt)
         {
-            if (attempt.PlayerId != ProbePlayer || !canariSession) return;
-            bool detailed = !firstNearbyDetailed;
-            if (detailed) firstNearbyDetailed = true;
+            int playerId = attempt.PlayerId;
+            if ((uint)(playerId - 1) >= 8 ||
+                (nearbyDetailedByPlayer[playerId] && !(nearbyCopySession && playerId == ProbePlayer)))
+                return;
+            bool detailed = !nearbyDetailedByPlayer[playerId];
+            if (detailed) nearbyDetailedByPlayer[playerId] = true;
             attempt.NormalNearby = ReplayNearbyWood(attempt.NearbyBefore, false, detailed);
-            attempt.AlternativeNearby = ReplayNearbyWood(attempt.NearbyBefore, true, detailed);
+            if (nearbyCopySession && playerId == ProbePlayer)
+                attempt.AlternativeNearby = ReplayNearbyWood(attempt.NearbyBefore, true, false);
             if (detailed)
             {
                 foreach (string line in attempt.NormalNearby.Trace)
                     QueueDiagnostic($"AI_BUILD_NEARBY_SHADOW_VISIT: session={sessionId}, attempt={attemptId}, " + line, true);
                 QueueDiagnostic($"AI_BUILD_NEARBY_SHADOW_FIRST: session={sessionId}, attempt={attemptId}, " +
+                    $"player={playerId}, " +
                     $"input=({attempt.NearbyBefore?.InputX},{attempt.NearbyBefore?.InputY}), " +
                     $"normal=({attempt.NormalNearby.X},{attempt.NormalNearby.Y}), " +
-                    $"alternative=({attempt.AlternativeNearby.X},{attempt.AlternativeNearby.Y}), " +
-                    $"excludedZero={attempt.AlternativeNearby.ZeroCandidates.Count}, " +
+                    $"alternative=({attempt.AlternativeNearby?.X},{attempt.AlternativeNearby?.Y}), " +
+                    $"excludedZero={attempt.AlternativeNearby?.ZeroCandidates.Count ?? 0}, " +
                     $"normalValid={attempt.NormalNearby.Valid}:{attempt.NormalNearby.Error}, " +
-                    $"alternativeValid={attempt.AlternativeNearby.Valid}:{attempt.AlternativeNearby.Error}.", true);
+                    $"alternativeValid={attempt.AlternativeNearby?.Valid.ToString() ?? "unobserved"}:" +
+                    $"{attempt.AlternativeNearby?.Error}, visited={attempt.NormalNearby.Visited}, " +
+                    $"traceOmitted={attempt.NormalNearby.TraceOmitted}, " +
+                    $"footprintsOmitted={attempt.NormalNearby.FootprintOmitted}.", true);
             }
         }
 
@@ -1578,6 +1693,7 @@ namespace AIBuildDiagnoseTest
             AiNearbyPathEvidence after = attempt.NearbyAfter;
             NearbyWoodShadow expected = attempt.NearbyOverlayApplied
                 ? attempt.AlternativeNearby : attempt.NormalNearby;
+            if (expected == null) return;
             bool match = expected != null && expected.Valid && after != null &&
                 expected.X == after.ResultX && expected.Y == after.ResultY;
             QueueDiagnostic($"AI_BUILD_NEARBY_SHADOW_COMPARE: session={sessionId}, attempt={attemptId}, " +
@@ -1868,6 +1984,7 @@ namespace AIBuildDiagnoseTest
                     details.Append($"({coarseX},{coarseY}):sampled={counts[0]}:" +
                         $"bit4={counts[1]}:pcl0={counts[2]}:" +
                         $"storedForeign={coarse.StoredForeignCount}:" +
+                        $"storedReservation={ReadCoarseReservation(coarse)}:" +
                         $"liveDifferent={coarse.CurrentDifferentCount}:" +
                         $"coarseStatus={coarse.Status}");
                 }
@@ -2190,6 +2307,7 @@ namespace AIBuildDiagnoseTest
                         $"owner={farm.PlayerId}, offset={i}, before={DescribeOrchardTile(before)}, " +
                         $"after={DescribeOrchardTile(after)}, cell=({cell.CoarseX},{cell.CoarseY}), " +
                         $"reference={cell.ReferenceComponent}, storedForeign={cell.StoredForeignCount}, " +
+                        $"storedReservation={ReadCoarseReservation(cell)}, bit4Tiles={CountReservationTiles(cell)}, " +
                         $"liveDifferent={cell.CurrentDifferentCount}, mismatch={mismatch}, " +
                         $"cellTiles={(mismatch ? GridTiles(cell) : "omitted")}", mismatch);
                 }
@@ -2280,7 +2398,8 @@ namespace AIBuildDiagnoseTest
                     cellLines.Add($"AI_BUILD_APPLEFARM_CELL: session={sessionId}, tick={lastTick}, " +
                         $"stage={stage}, buildingId={farm.BuildingId}, cell=({coarseX},{coarseY}), " +
                         $"status={evidence.Status}, reference={evidence.ReferenceComponent}, " +
-                        $"storedForeign={evidence.StoredForeignCount}, liveDifferent={evidence.CurrentDifferentCount}, " +
+                        $"storedForeign={evidence.StoredForeignCount}, storedReservation={ReadCoarseReservation(evidence)}, " +
+                        $"bit4Tiles={CountReservationTiles(evidence)}, liveDifferent={evidence.CurrentDifferentCount}, " +
                         $"liveZero={evidence.CurrentZeroCount}, appleFlags={evidence.AppleFarmFlagCount}, " +
                         $"treeFlags={evidence.TreeFlagCount}, storedTreeWeight={evidence.TreeWeight}, " +
                         $"mismatch={(ready ? mismatch.ToString() : "unobserved")}, " +

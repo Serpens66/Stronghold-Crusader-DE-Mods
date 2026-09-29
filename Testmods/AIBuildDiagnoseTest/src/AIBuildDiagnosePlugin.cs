@@ -50,7 +50,7 @@ namespace AIBuildDiagnoseTest
             {
                 var candidate = new AIBuildDiagnoseRuntime(log,
                     Chainloader.PluginInfos.ContainsKey("fixes"), placementProbeEnabled,
-                    nearbyWoodTestEnabled);
+                    nearbyWoodTestEnabled, unchecked((ulong)context.ModuleHandle.ToInt64()));
                 // Publisher subscriptions and static fields survive SHCDE startup cleanup.
                 IDisposable candidateSession = Shared.GameplaySessionLifecycle.SubscribeStarted(
                     log, candidate.OnSessionStarted, candidate.OnSessionEnded);
