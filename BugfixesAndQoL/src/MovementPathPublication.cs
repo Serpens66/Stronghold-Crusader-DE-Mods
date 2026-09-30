@@ -1,4 +1,5 @@
 using BepInEx.Logging;
+using APIShared;
 using R3;
 using SHCDESE.API;
 using SHCDESE.EventAPI;
@@ -17,6 +18,27 @@ namespace BugfixesAndQoL
     internal sealed unsafe partial class FriendlyMoatMovementRuntime
     {
         private int BuildPathWithCompletedMoatRouteVariant(
+            IntPtr pathManager, int movementClass, int movementProfile)
+        {
+            IEnemyGatePathPolicy gate = BeginEnemyGateSearch(
+                movementClass, EnemyGateSearchKind.Builder, out object gateScope);
+            int result = 0;
+            bool completed = false;
+            try
+            {
+                result = BuildPathWithCompletedMoatRouteVariantWithMoat(
+                    pathManager, movementClass, movementProfile);
+                completed = true;
+                return result;
+            }
+            finally
+            {
+                EndEnemyGateSearch(gate, gateScope, EnemyGateSearchKind.Builder,
+                    completed, result > 0);
+            }
+        }
+
+        private int BuildPathWithCompletedMoatRouteVariantWithMoat(
             IntPtr pathManager, int movementClass, int movementProfile)
         {
             PlanScope scopedPlan = GetBuilderPlan(pathManager, reportMismatch: true);

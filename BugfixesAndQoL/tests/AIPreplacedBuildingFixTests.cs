@@ -198,8 +198,8 @@ namespace BugfixesAndQoL
                 viewModel.Contains("fixAIPreplacedMapBuildings = true"),
                 "AI preplaced-building host setting is synchronized and enabled by default");
             check(plugin.Contains("BepInIncompatibility(PreplacedTestGuid)") &&
-                plugin.Contains("BepInIncompatibility(EnemyGatePathfindingTestGuid)"),
-                "overlapping AI preplaced-building test mods are incompatible");
+                !plugin.Contains("BepInIncompatibility(EnemyGatePathfindingTestGuid)"),
+                "preplaced-building test remains incompatible while enemy-gate test can share hooks");
             TestNativeContracts(check, runtime);
         }
 

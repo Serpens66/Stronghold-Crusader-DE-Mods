@@ -1,3 +1,4 @@
+using APIShared;
 using System;
 using System.Diagnostics;
 
@@ -794,6 +795,11 @@ namespace BugfixesAndQoL
                 nextY < 0 || nextY >= MapWidth ||
                 !IsNativeTile(currentTile) || !IsNativeTile(nextTile))
                 return RejectTraversal("coordinate-or-tile");
+
+            IEnemyGatePathPolicy gatePolicy = EnemyGatePathPolicyBridge.Current;
+            if (gatePolicy != null && gatePolicy.HasPublishedMask &&
+                !gatePolicy.IsDirectionAllowed(playerId, currentTile, direction))
+                return RejectTraversal("enemy-gate-policy");
 
             bool currentMoat = IsCompletedMoat(currentTile);
             bool nextMoat = IsCompletedMoat(nextTile);

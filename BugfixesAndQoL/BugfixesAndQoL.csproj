@@ -182,6 +182,7 @@
     <Compile Include="src\CursorConnectivity.cs" />
     <Compile Include="src\CursorRegionGraph.cs" />
     <Compile Include="src\DirectMoatCommandScopes.cs" />
+    <Compile Include="src\EnemyGatePolicyIntegration.cs" />
     <Compile Include="src\FillWeightedRoutes.cs" />
     <Compile Include="src\FriendlyMoatMovementPolicy.cs" />
     <Compile Include="src\FriendlyMoatMovementRuntime.cs" />

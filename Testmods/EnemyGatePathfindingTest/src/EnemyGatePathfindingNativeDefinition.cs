@@ -225,9 +225,12 @@ namespace EnemyGatePathfindingTest
                 "central tile path-builder entry");
         }
 
-        internal static void ValidateSamePclNativeFilterContracts(ReadOnlySpan<byte> memory)
+        internal static void ValidateSamePclNativeFilterContracts(
+            ReadOnlySpan<byte> memory, bool sharedHookOwner = false)
         {
-            ValidateSamePclBuilderContract(memory);
+            // BugfixesAndQoL has already patched these function prologs when it owns
+            // their detours. The inline sites and the remaining entries stay Vanilla.
+            if (!sharedHookOwner) ValidateSamePclBuilderContract(memory);
             ValidateBytes(memory, DirectCursorSearchBlockRva,
                 DirectCursorSearchBlockBytes, "direct cursor DB650 call block");
             ValidateBytes(memory, CursorPclDecisionRva,
@@ -240,19 +243,19 @@ namespace EnemyGatePathfindingTest
                 CursorPclDecisionBytes.Length != CursorPclDecisionLength ||
                 CursorPclDecisionConsumerRva <= CursorPclDecisionReturnRva)
                 throw new InvalidOperationException("Direct cursor call-site boundaries are inconsistent.");
-            ValidateBytes(memory, AttackApproachRva,
+            if (!sharedHookOwner) ValidateBytes(memory, AttackApproachRva,
                 new byte[] { 0x44,0x89,0x4C,0x24,0x20,0x53,0x56,0x41,0x54,0x41,0x55,0x41,0x56,0x48 },
                 "attack-approach function entry");
-            ValidateBytes(memory, BuildingApproachRva,
+            if (!sharedHookOwner) ValidateBytes(memory, BuildingApproachRva,
                 new byte[] { 0x48,0x89,0x4C,0x24,0x08,0x53,0x55,0x56,0x57,0x41,0x54,0x41,0x55,0x41 },
                 "building-approach function entry");
-            ValidateBytes(memory, BuildingConsumerRva,
+            if (!sharedHookOwner) ValidateBytes(memory, BuildingConsumerRva,
                 new byte[] { 0x48,0x89,0x5C,0x24,0x08,0x48,0x89,0x74,0x24,0x10,0x57,0x48,0x83,0xEC },
                 "building-candidate consumer entry");
             ValidateBytes(memory, AlternateBuildingConsumerRva,
                 new byte[] { 0x48,0x89,0x5C,0x24,0x08,0x57,0x48,0x83,0xEC,0x40,0x48,0x63,0xC2,0x48 },
                 "alternate building-candidate consumer entry");
-            ValidateBytes(memory, CursorMoveStagerRva,
+            if (!sharedHookOwner) ValidateBytes(memory, CursorMoveStagerRva,
                 new byte[] { 0x48,0x89,0x5C,0x24,0x10,0x48,0x89,0x6C,0x24,0x18,0x48,0x89,0x74,0x24 },
                 "cursor move-stager entry");
             ValidateBytes(memory, PlayerAwareCandidateSearchRva,

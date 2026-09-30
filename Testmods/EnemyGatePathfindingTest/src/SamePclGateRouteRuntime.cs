@@ -1,4 +1,5 @@
 using BepInEx.Logging;
+using APIShared;
 using Iced.Intel;
 using RedBird.Abstractions.Hooks;
 using RedBird.Abstractions.Hooks.Transaction;
@@ -28,7 +29,8 @@ namespace EnemyGatePathfindingTest
             long cursorDifferentPclEligible,
             long cursorRequestsPublished, long cursorResultForcedZero,
             long cursorNativeRefreshes, long cursorCacheHits,
-            long cursorExactCacheHits, long cursorStickyBlockHits,
+            long cursorExactCacheHits, long cursorReferenceNoRoutes,
+            long cursorProvenPolicyBlocks,
             long cursorThrottleDeferrals, long cursorPolicyBlocked,
             long cursorReachable, long cursorRejectedEdges, long cursorUnitPending,
             long cursorValidationTicks,
@@ -57,7 +59,8 @@ namespace EnemyGatePathfindingTest
             CursorRequestsPublished = cursorRequestsPublished;
             CursorResultForcedZero = cursorResultForcedZero;
             CursorCacheHits = cursorCacheHits; CursorExactCacheHits = cursorExactCacheHits;
-            CursorStickyBlockHits = cursorStickyBlockHits;
+            CursorReferenceNoRoutes = cursorReferenceNoRoutes;
+            CursorProvenPolicyBlocks = cursorProvenPolicyBlocks;
             CursorThrottleDeferrals = cursorThrottleDeferrals;
             CursorPolicyBlocked = cursorPolicyBlocked; CursorReachable = cursorReachable;
             CursorRejectedEdges = cursorRejectedEdges;
@@ -104,7 +107,8 @@ namespace EnemyGatePathfindingTest
         internal long CursorNativeRefreshes { get; }
         internal long CursorCacheHits { get; }
         internal long CursorExactCacheHits { get; }
-        internal long CursorStickyBlockHits { get; }
+        internal long CursorReferenceNoRoutes { get; }
+        internal long CursorProvenPolicyBlocks { get; }
         internal long CursorThrottleDeferrals { get; }
         internal long CursorPolicyBlocked { get; }
         internal long CursorReachable { get; }
@@ -138,7 +142,7 @@ namespace EnemyGatePathfindingTest
     // player mask for the duration of a complete query; eleven movement adapters and
     // three tactical-target adapters AND that mask into Vanilla's own edge checks
     // without changing the global grid.
-    internal sealed unsafe class SamePclGateRouteRuntime
+    internal sealed unsafe class SamePclGateRouteRuntime : IEnemyGatePathPolicy
     {
         private const int ThreadSlotStride = 32;
         private const int NativeSnapshotPoolSize = 4;
@@ -248,6 +252,7 @@ namespace EnemyGatePathfindingTest
         private readonly object maskGate = new object();
         private readonly NativeMaskSnapshot[] maskPool;
         private volatile NativeMaskSnapshot currentMasks = NativeMaskSnapshot.Empty;
+        private volatile RouteTilePolicySnapshot publishedPolicy = RouteTilePolicySnapshot.Empty;
         private RouteTilePolicySnapshot pendingPolicy;
         private int policyGeneration;
         private volatile PlayerKindSnapshot playerKinds = PlayerKindSnapshot.Empty;
@@ -287,7 +292,7 @@ namespace EnemyGatePathfindingTest
             cursorDifferentPcl, cursorDifferentPclEligible,
             cursorRequestsPublished, cursorResultForcedZero;
         private long cursorNativeRefreshes, cursorCacheHits,
-            cursorExactCacheHits, cursorStickyBlockHits;
+            cursorExactCacheHits, cursorReferenceNoRoutes, cursorProvenPolicyBlocks;
         private long cursorThrottleDeferrals, cursorPolicyBlocked, cursorReachable,
             cursorRejectedEdges;
         private long cursorUnitPending, cursorValidationTicks, cursorValidationMaxTicks;
@@ -323,7 +328,7 @@ namespace EnemyGatePathfindingTest
         private int cursorSampleState, cursorSamplePlayer, cursorSampleUnit,
             cursorSampleGlobal, cursorSampleStartX, cursorSampleStartY,
             cursorSampleTargetX, cursorSampleTargetY, cursorSampleTargetTile,
-            cursorSampleAllowed;
+            cursorSampleAllowed, cursorSampleReferenceResult, cursorSampleFilteredResult;
         private long cursorSampleFingerprint, cursorSampleRejectedEdges,
             cursorSampleElapsedTicks;
         private int cursorDecisionSampleState, cursorDecisionSamplePlayer,
@@ -332,6 +337,7 @@ namespace EnemyGatePathfindingTest
             cursorDecisionSampleFinalResult;
         private long nextPlayerRefresh;
         private int installAttempted;
+        private bool hooksInstalled;
 
         internal SamePclGateRouteRuntime(ManualLogSource log, ReadOnlySpan<byte> memory,
             ScanRegion region, ulong libraryBase, bool existingHookOwner,
@@ -342,17 +348,11 @@ namespace EnemyGatePathfindingTest
             this.libraryBase = libraryBase;
             this.attackOrderDiagnostics = attackOrderDiagnostics;
             ownerConflict = existingHookOwner;
-            maskPool = new NativeMaskSnapshot[existingHookOwner ? 0 : NativeSnapshotPoolSize];
+            maskPool = new NativeMaskSnapshot[NativeSnapshotPoolSize];
             for (int index = 0; index < maskPool.Length; index++)
                 maskPool[index] = new NativeMaskSnapshot(true);
-            if (existingHookOwner)
-            {
-                Shared.DebugLogHelper.LogWarning(log,
-                    "Vanilla Gate-Filter suppressed: BugfixesAndQoL_Serp owns overlapping search hooks; " +
-                    "hookOwnerConflict=NOT_APPLICABLE.");
-                return;
-            }
-            EnemyGatePathfindingNativeDefinition.ValidateSamePclNativeFilterContracts(memory);
+            EnemyGatePathfindingNativeDefinition.ValidateSamePclNativeFilterContracts(
+                memory, existingHookOwner);
             originalDirectTileSearch = Marshal.GetDelegateForFunctionPointer<DirectTileSearchDelegate>(
                 new IntPtr(unchecked((long)(libraryBase +
                     EnemyGatePathfindingNativeDefinition.DirectTileSearchRva))));
@@ -382,19 +382,23 @@ namespace EnemyGatePathfindingTest
             transaction = new HookTransaction(region,
                 SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
                 new HookTransactionOptions { FailureMode = TransactionFailureMode.RollbackAndThrow, OwnsHooks = false });
-            builder = AddDetour(EnemyGatePathfindingNativeDefinition.PathBuilderRva,
-                rootedBuilder = FilterBuilder, libraryBase);
-            attack = AddDetour(EnemyGatePathfindingNativeDefinition.AttackApproachRva,
-                rootedAttack = FilterAttack, libraryBase);
-            building = AddDetour(EnemyGatePathfindingNativeDefinition.BuildingApproachRva,
-                rootedBuilding = FilterBuilding, libraryBase);
-            consumer = AddDetour(EnemyGatePathfindingNativeDefinition.BuildingConsumerRva,
-                rootedConsumer = FilterConsumer, libraryBase);
+            if (!ownerConflict)
+            {
+                builder = AddDetour(EnemyGatePathfindingNativeDefinition.PathBuilderRva,
+                    rootedBuilder = FilterBuilder, libraryBase);
+                attack = AddDetour(EnemyGatePathfindingNativeDefinition.AttackApproachRva,
+                    rootedAttack = FilterAttack, libraryBase);
+                building = AddDetour(EnemyGatePathfindingNativeDefinition.BuildingApproachRva,
+                    rootedBuilding = FilterBuilding, libraryBase);
+                consumer = AddDetour(EnemyGatePathfindingNativeDefinition.BuildingConsumerRva,
+                    rootedConsumer = FilterConsumer, libraryBase);
+            }
             alternateConsumer = AddDetour(
                 EnemyGatePathfindingNativeDefinition.AlternateBuildingConsumerRva,
                 rootedAlternateConsumer = FilterAlternateConsumer, libraryBase);
-            cursor = AddDetour(EnemyGatePathfindingNativeDefinition.CursorMoveStagerRva,
-                rootedCursor = FilterCursor, libraryBase);
+            if (!ownerConflict)
+                cursor = AddDetour(EnemyGatePathfindingNativeDefinition.CursorMoveStagerRva,
+                    rootedCursor = FilterCursor, libraryBase);
             candidateSearch = AddDetour(
                 EnemyGatePathfindingNativeDefinition.PlayerAwareCandidateSearchRva,
                 rootedCandidateSearch = FilterCandidateSearch, libraryBase);
@@ -489,9 +493,10 @@ namespace EnemyGatePathfindingTest
                     hookSize: length);
             }
             CommitResult result = transaction.Commit();
-            if (!result.IsCompleteSuccess || !builder.Committed || !attack.Committed ||
-                !building.Committed || !consumer.Committed || !alternateConsumer.Committed ||
-                !cursor.Committed || !candidateSearch.Committed || !aiTacticalTarget.Committed ||
+            if (!result.IsCompleteSuccess ||
+                (!ownerConflict && (!builder.Committed || !attack.Committed ||
+                    !building.Committed || !consumer.Committed || !cursor.Committed)) ||
+                !alternateConsumer.Committed || !candidateSearch.Committed || !aiTacticalTarget.Committed ||
                 !directCursorHook.Success || !directCursorHook.IsInstalled ||
                 directCursorHook.Failure != null ||
                 !cursorPclDecisionHook.Success || !cursorPclDecisionHook.IsInstalled ||
@@ -526,14 +531,19 @@ namespace EnemyGatePathfindingTest
                         $"AI tactical-filter hook {index} failed its committed contract.");
                 }
             }
-            originalBuilder = builder.Handle.Original; originalAttack = attack.Handle.Original;
-            originalBuilding = building.Handle.Original; originalConsumer = consumer.Handle.Original;
+            if (!ownerConflict)
+            {
+                originalBuilder = builder.Handle.Original; originalAttack = attack.Handle.Original;
+                originalBuilding = building.Handle.Original; originalConsumer = consumer.Handle.Original;
+                originalCursor = cursor.Handle.Original;
+            }
             originalAlternateConsumer = alternateConsumer.Handle.Original;
-            originalCursor = cursor.Handle.Original;
             originalCandidateSearch = candidateSearch.Handle.Original;
             originalAiTacticalTarget = aiTacticalTarget.Handle.Original;
+            hooksInstalled = true;
             Shared.DebugLogHelper.LogInfo(log,
                 "Vanilla player-aware gate filter installed: " +
+                $"sharedHookOwner={ownerConflict}, " +
                 "scopes=builder/attack/building/consumer/alternateConsumer/candidateSearch/" +
                 "cursorCommand/directCursorDB650/cursorPclCallAdapter/aiTacticalTarget, " +
                 "directionAdapters=11, tacticalAdapters=3, " +
@@ -549,7 +559,63 @@ namespace EnemyGatePathfindingTest
                 AiTacticalTargetAdapterEmitter.DescribeContracts() + "].");
         }
 
-        internal bool Installed => builder != null && builder.Committed;
+        internal bool Installed => hooksInstalled;
+
+        bool IEnemyGatePathPolicy.HasPublishedMask =>
+            publishedPolicy.NonEmptyPlayerMaskCount != 0;
+
+        bool IEnemyGatePathPolicy.IsDirectionAllowed(int playerId, int tileId, int direction) =>
+            publishedPolicy.IsDirectionAllowed(playerId, tileId, direction);
+
+        int IEnemyGatePathPolicy.ResolveTribePlayer(int tribeId) =>
+            tribePlayers.Resolve(tribeId);
+
+        int IEnemyGatePathPolicy.ResolveBuildingPlayer(int explicitPlayerId, int tribeId) =>
+            ValidateExplicitPlayer(explicitPlayerId, tribePlayers.Resolve(tribeId));
+
+        int IEnemyGatePathPolicy.ResolveCursorPlayer(int tribeId)
+        {
+            int nativePlayer = *(int*)(libraryBase +
+                EnemyGatePathfindingNativeDefinition.ActivePlayerIdRva);
+            return ValidateExplicitPlayer(nativePlayer, tribePlayers.Resolve(tribeId));
+        }
+
+        object IEnemyGatePathPolicy.EnterNativeSearch(int playerId, EnemyGateSearchKind kind)
+        {
+            QueryKind localKind = SharedKind(kind, playerId);
+            if (localKind == QueryKind.AiBuilder) Interlocked.Increment(ref aiQueries);
+            CaptureScopeSample(localKind, playerId, playerId, -1, playerId);
+            return Enter(playerId);
+        }
+
+        void IEnemyGatePathPolicy.ExitNativeSearch(
+            object scope, EnemyGateSearchKind kind, bool completed, bool success)
+        {
+            if (!(scope is QueryScope query)) return;
+            QueryKind localKind = SharedKind(kind, -1);
+            if (kind == EnemyGateSearchKind.Builder)
+                localKind = playerKinds.IsAi(query.PlayerId)
+                    ? QueryKind.AiBuilder : QueryKind.HumanBuilder;
+            long touched = Complete(query, localKind,
+                kind == EnemyGateSearchKind.Builder, completed && success);
+            if (kind == EnemyGateSearchKind.Builder)
+                attackOrderDiagnostics?.ObserveBuilder(
+                    query.PlayerId, completed, success, touched, query.Snapshot.Fingerprint);
+        }
+
+        private QueryKind SharedKind(EnemyGateSearchKind kind, int playerId)
+        {
+            switch (kind)
+            {
+                case EnemyGateSearchKind.Builder:
+                    return playerKinds.IsAi(playerId) ? QueryKind.AiBuilder : QueryKind.HumanBuilder;
+                case EnemyGateSearchKind.Attack: return QueryKind.Attack;
+                case EnemyGateSearchKind.BuildingApproach:
+                case EnemyGateSearchKind.BuildingConsumer: return QueryKind.BuildingApproach;
+                case EnemyGateSearchKind.CursorCommand: return QueryKind.CursorCommand;
+                default: throw new ArgumentOutOfRangeException(nameof(kind));
+            }
+        }
         private DetourCandidate<T> AddDetour<T>(int rva, T callback, ulong libraryBase) where T : Delegate
         {
             ulong address = libraryBase + unchecked((ulong)rva);
@@ -560,13 +626,14 @@ namespace EnemyGatePathfindingTest
 
         internal void UpdatePolicy(RouteTilePolicySnapshot policy)
         {
-            if (ownerConflict || policy == null || policy.NonEmptyPlayerMaskCount == 0)
+            if (policy == null || policy.NonEmptyPlayerMaskCount == 0)
             {
                 lock (maskGate)
                 {
                     policyGeneration++;
                     pendingPolicy = null;
                     currentMasks = NativeMaskSnapshot.Empty;
+                    publishedPolicy = RouteTilePolicySnapshot.Empty;
                 }
                 return;
             }
@@ -575,6 +642,8 @@ namespace EnemyGatePathfindingTest
                 if (!Installed && Interlocked.CompareExchange(ref installAttempted, 1, 0) == 0)
                     InstallHooks();
                 if (!Installed) return;
+                if (ownerConflict && !EnemyGatePathPolicyBridge.TryRegister(this))
+                    throw new InvalidOperationException("another enemy-gate policy provider owns APIShared");
             }
             catch (Exception ex)
             {
@@ -590,6 +659,7 @@ namespace EnemyGatePathfindingTest
                 pendingPolicy = policy;
                 // Never let a query acquire stale access policy while a replacement is built.
                 currentMasks = NativeMaskSnapshot.Empty;
+                publishedPolicy = RouteTilePolicySnapshot.Empty;
             }
             TryPublishPending(policy, generation);
         }
@@ -660,14 +730,14 @@ namespace EnemyGatePathfindingTest
                         if (PublishCursorRequest(player, unitId, targetX, targetY,
                                 tileAfter, targetPcl, sourcePcl, snapshot.Fingerprint))
                             Interlocked.Increment(ref cursorRequestsPublished);
-                        bool allowed, exact;
+                        bool allowed;
                         if (TryReadCursorCache(player, unitId, targetX, targetY,
                                 targetPcl, sourcePcl, snapshot.Fingerprint,
-                                out allowed, out exact))
+                                out allowed) &&
+                            currentMasks.Fingerprint == snapshot.Fingerprint)
                         {
                             Interlocked.Increment(ref cursorCacheHits);
-                            if (exact) Interlocked.Increment(ref cursorExactCacheHits);
-                            else Interlocked.Increment(ref cursorStickyBlockHits);
+                            Interlocked.Increment(ref cursorExactCacheHits);
                             finalResult = EnemyGatePathfindingPolicy.ApplyCursorPreviewResult(
                                 vanillaResult, true, allowed);
                             if (finalResult == 0 && vanillaResult != 0)
@@ -744,10 +814,9 @@ namespace EnemyGatePathfindingTest
 
         private bool TryReadCursorCache(int player, int unitId, int targetX,
             int targetY, int targetPcl, int sourcePcl, ulong fingerprint,
-            out bool allowed, out bool exact)
+            out bool allowed)
         {
             allowed = true;
-            exact = false;
             for (int attempt = 0; attempt < 3; attempt++)
             {
                 int before = Volatile.Read(ref cursorCacheSequence);
@@ -755,6 +824,9 @@ namespace EnemyGatePathfindingTest
                 int valid = cursorCacheValid;
                 int cachedPlayer = cursorCachePlayer;
                 int cachedUnit = cursorCacheUnit;
+                int cachedGlobal = cursorCacheGlobal;
+                int cachedStartX = cursorCacheStartX;
+                int cachedStartY = cursorCacheStartY;
                 int cachedTargetX = cursorCacheTargetX;
                 int cachedTargetY = cursorCacheTargetY;
                 int cachedTargetPcl = cursorCacheTargetPcl;
@@ -762,22 +834,23 @@ namespace EnemyGatePathfindingTest
                 ulong cachedFingerprint = unchecked((ulong)cursorCacheFingerprint);
                 int cachedAllowed = cursorCacheAllowed;
                 if (before != Volatile.Read(ref cursorCacheSequence)) continue;
+                if (valid == 0 || cachedPlayer != player || cachedUnit != unitId ||
+                    cachedTargetX != targetX || cachedTargetY != targetY ||
+                    cachedTargetPcl != targetPcl || cachedSourcePcl != sourcePcl ||
+                    cachedFingerprint != fingerprint) return false;
+                if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                    unit == null || unit->r_AliveState != AliveState.IsAlive ||
+                    unit->r_ControllableForPlayerId != player) return false;
                 if (EnemyGatePathfindingPolicy.CursorPreviewCacheMatches(
-                        valid != 0, cachedPlayer, cachedUnit, cachedTargetX,
+                        valid != 0, cachedPlayer, cachedUnit, cachedGlobal,
+                        cachedStartX, cachedStartY, cachedTargetX,
                         cachedTargetY, cachedTargetPcl, cachedSourcePcl,
-                        cachedFingerprint, player, unitId, targetX, targetY,
+                        cachedFingerprint, player, unitId,
+                        unchecked((int)unit->r_GlobalId), unit->r_CurrentTilePositionX,
+                        unit->r_CurrentTilePositionY, targetX, targetY,
                         targetPcl, sourcePcl, fingerprint))
                 {
-                    exact = true;
                     allowed = cachedAllowed != 0;
-                    return true;
-                }
-                if (EnemyGatePathfindingPolicy.CursorPreviewStickyBlockMatches(
-                        valid != 0, cachedAllowed != 0, cachedPlayer, cachedUnit,
-                        cachedTargetPcl, cachedSourcePcl, cachedFingerprint,
-                        player, unitId, targetPcl, sourcePcl, fingerprint))
-                {
-                    allowed = false;
                     return true;
                 }
                 return false;
@@ -820,24 +893,23 @@ namespace EnemyGatePathfindingTest
                     unchecked((ulong)(targetY * 12))) + targetX != targetTile) return;
 
             long started = Stopwatch.GetTimestamp();
-            int result = 0;
-            bool completed = false;
+            int referenceResult = 0;
+            int filteredResult = 0;
             long touched = 0;
-            CaptureScopeSample(QueryKind.CursorPreview, player, player, -1, player);
-            QueryScope scope = Enter(player);
-            if (scope.Snapshot.Fingerprint != fingerprint)
+            IntPtr manager = new IntPtr(unchecked((long)(libraryBase +
+                EnemyGatePathfindingNativeDefinition.NativePathManagerRva)));
+            QueryScope referenceScope = Enter(player, true);
+            if (referenceScope.Slot == null ||
+                referenceScope.Snapshot.Fingerprint != fingerprint)
             {
-                Complete(scope, QueryKind.CursorPreview, true, false);
+                Complete(referenceScope, QueryKind.CursorPreview, true, false);
                 return;
             }
             try
             {
-                result = originalDirectTileSearch(
-                    new IntPtr(unchecked((long)(libraryBase +
-                        EnemyGatePathfindingNativeDefinition.NativePathManagerRva))),
+                referenceResult = originalDirectTileSearch(manager,
                     startX, startY, targetX, targetY,
                     EnemyGatePathfindingNativeDefinition.DirectCursorSearchNodeLimit);
-                completed = true;
             }
             catch
             {
@@ -846,16 +918,48 @@ namespace EnemyGatePathfindingTest
             }
             finally
             {
-                touched = Complete(scope, QueryKind.CursorPreview, true,
-                    completed && result > 0);
+                Complete(referenceScope, QueryKind.CursorPreview, true,
+                    referenceResult > 0);
             }
+            if (currentMasks.Fingerprint != fingerprint) return;
+            if (referenceResult <= 0)
+                Interlocked.Increment(ref cursorReferenceNoRoutes);
+            else
+            {
+                CaptureScopeSample(QueryKind.CursorPreview, player, player, -1, player);
+                QueryScope filteredScope = Enter(player);
+                if (filteredScope.Slot == null ||
+                    filteredScope.Snapshot.Fingerprint != fingerprint)
+                {
+                    Complete(filteredScope, QueryKind.CursorPreview, true, false);
+                    return;
+                }
+                try
+                {
+                    filteredResult = originalDirectTileSearch(manager,
+                        startX, startY, targetX, targetY,
+                        EnemyGatePathfindingNativeDefinition.DirectCursorSearchNodeLimit);
+                }
+                catch
+                {
+                    Interlocked.Increment(ref exceptions);
+                    return;
+                }
+                finally
+                {
+                    touched = Complete(filteredScope, QueryKind.CursorPreview, true,
+                        filteredResult > 0);
+                }
+            }
+            if (currentMasks.Fingerprint != fingerprint) return;
             long elapsed = Stopwatch.GetTimestamp() - started;
             Interlocked.Increment(ref cursorNativeRefreshes);
             Interlocked.Add(ref cursorValidationTicks, elapsed);
             UpdateMaximum(ref cursorValidationMaxTicks, elapsed);
-            if (result > 0) Interlocked.Increment(ref cursorReachable);
-            bool allowed = !completed ||
-                !EnemyGatePathfindingPolicy.ShouldBlockCursorPreview(result, touched);
+            if (filteredResult > 0) Interlocked.Increment(ref cursorReachable);
+            bool allowed = !EnemyGatePathfindingPolicy.ShouldBlockCursorPreview(
+                referenceResult, filteredResult, touched);
+            if (!allowed) Interlocked.Increment(ref cursorProvenPolicyBlocks);
 
             Interlocked.Increment(ref cursorCacheSequence);
             cursorCachePlayer = player;
@@ -885,6 +989,8 @@ namespace EnemyGatePathfindingTest
                 cursorSampleFingerprint = unchecked((long)fingerprint);
                 cursorSampleRejectedEdges = touched;
                 cursorSampleElapsedTicks = elapsed;
+                cursorSampleReferenceResult = referenceResult;
+                cursorSampleFilteredResult = filteredResult;
                 cursorSampleAllowed = allowed ? 1 : 0;
                 Volatile.Write(ref cursorSampleState, 2);
             }
@@ -934,6 +1040,7 @@ namespace EnemyGatePathfindingTest
                     slot.Filling = false;
                     if (generation != policyGeneration || !ReferenceEquals(policy, pendingPolicy)) return;
                     currentMasks = slot;
+                    publishedPolicy = policy;
                     pendingPolicy = null;
                 }
             }
@@ -958,7 +1065,8 @@ namespace EnemyGatePathfindingTest
                 Read(ref cursorRequestsPublished), Read(ref cursorResultForcedZero),
                 Read(ref cursorNativeRefreshes),
                 Read(ref cursorCacheHits), Read(ref cursorExactCacheHits),
-                Read(ref cursorStickyBlockHits), Read(ref cursorThrottleDeferrals),
+                Read(ref cursorReferenceNoRoutes), Read(ref cursorProvenPolicyBlocks),
+                Read(ref cursorThrottleDeferrals),
                 Read(ref cursorPolicyBlocked), Read(ref cursorReachable),
                 Read(ref cursorRejectedEdges), Read(ref cursorUnitPending),
                 Read(ref cursorValidationTicks),
@@ -983,7 +1091,8 @@ namespace EnemyGatePathfindingTest
             Reset(ref cursorDifferentPclEligible);
             Reset(ref cursorRequestsPublished); Reset(ref cursorResultForcedZero);
             Reset(ref cursorNativeRefreshes); Reset(ref cursorCacheHits);
-            Reset(ref cursorExactCacheHits); Reset(ref cursorStickyBlockHits);
+            Reset(ref cursorExactCacheHits); Reset(ref cursorReferenceNoRoutes);
+            Reset(ref cursorProvenPolicyBlocks);
             Reset(ref cursorThrottleDeferrals); Reset(ref cursorPolicyBlocked);
             Reset(ref cursorReachable); Reset(ref cursorRejectedEdges);
             Reset(ref cursorUnitPending);
@@ -1191,6 +1300,8 @@ namespace EnemyGatePathfindingTest
                 ",tile=" + cursorSampleTargetTile +
                 ",fingerprint=0x" + unchecked((ulong)cursorSampleFingerprint).ToString("X16") +
                 ",rejectedEdges=" + cursorSampleRejectedEdges +
+                ",referenceResult=" + cursorSampleReferenceResult +
+                ",filteredResult=" + cursorSampleFilteredResult +
                 ",allowed=" + (cursorSampleAllowed != 0) +
                 ",elapsedTicks=" + cursorSampleElapsedTicks;
         }
@@ -1222,7 +1333,7 @@ namespace EnemyGatePathfindingTest
             return text.Length == 0 ? "none" : text.ToString();
         }
 
-        private QueryScope Enter(int player)
+        private QueryScope Enter(int player, bool unmasked = false)
         {
             Interlocked.Increment(ref queries);
             NativeMaskSnapshot snapshot;
@@ -1231,7 +1342,7 @@ namespace EnemyGatePathfindingTest
             {
                 snapshot = currentMasks;
                 snapshot.Readers++;
-                mask = player > 0 && player < snapshot.PlayerMasks.Length
+                mask = !unmasked && player > 0 && player < snapshot.PlayerMasks.Length
                     ? snapshot.PlayerMasks[player] : IntPtr.Zero;
             }
             if (player <= 0 || player >= snapshot.PlayerMasks.Length)
@@ -1245,19 +1356,19 @@ namespace EnemyGatePathfindingTest
             int owner = Volatile.Read(ref *(int*)(slot + DirectionFilterAdapterEmitter.SlotOwnerOffset));
             if (owner != 0 && owner != unchecked((int)thread))
             {
-                Interlocked.Increment(ref slotConflicts); return new QueryScope(snapshot, null, IntPtr.Zero, 0);
+                Interlocked.Increment(ref slotConflicts); return new QueryScope(snapshot, null, IntPtr.Zero, 0, player);
             }
             if (owner == 0 && Interlocked.CompareExchange(
                     ref *(int*)(slot + DirectionFilterAdapterEmitter.SlotOwnerOffset), unchecked((int)thread), 0) != 0)
             {
-                Interlocked.Increment(ref slotConflicts); return new QueryScope(snapshot, null, IntPtr.Zero, 0);
+                Interlocked.Increment(ref slotConflicts); return new QueryScope(snapshot, null, IntPtr.Zero, 0, player);
             }
             IntPtr previous = *(IntPtr*)(slot + DirectionFilterAdapterEmitter.SlotMaskOffset);
             long previousTouched = *(long*)(slot + DirectionFilterAdapterEmitter.SlotTouchedOffset);
             (*(int*)(slot + DirectionFilterAdapterEmitter.SlotDepthOffset))++;
             *(IntPtr*)(slot + DirectionFilterAdapterEmitter.SlotMaskOffset) = mask;
             *(long*)(slot + DirectionFilterAdapterEmitter.SlotTouchedOffset) = 0;
-            return new QueryScope(snapshot, slot, previous, previousTouched);
+            return new QueryScope(snapshot, slot, previous, previousTouched, player);
         }
 
         private TacticalQueryScope EnterTactical(int player)
@@ -1402,12 +1513,15 @@ namespace EnemyGatePathfindingTest
 
         private readonly struct QueryScope
         {
-            internal QueryScope(NativeMaskSnapshot snapshot, byte* slot, IntPtr previousMask, long previousTouched)
-            { Snapshot = snapshot; Slot = slot; PreviousMask = previousMask; PreviousTouched = previousTouched; }
+            internal QueryScope(NativeMaskSnapshot snapshot, byte* slot, IntPtr previousMask,
+                long previousTouched, int playerId)
+            { Snapshot = snapshot; Slot = slot; PreviousMask = previousMask;
+              PreviousTouched = previousTouched; PlayerId = playerId; }
             internal NativeMaskSnapshot Snapshot { get; }
             internal byte* Slot { get; }
             internal IntPtr PreviousMask { get; }
             internal long PreviousTouched { get; }
+            internal int PlayerId { get; }
         }
 
         private readonly struct TacticalQueryScope

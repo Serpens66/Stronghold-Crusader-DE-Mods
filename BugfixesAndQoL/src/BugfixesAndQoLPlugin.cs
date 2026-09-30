@@ -22,7 +22,6 @@ namespace BugfixesAndQoL
     [BepInIncompatibility(LegacyMoveMoatGuid)]
     [BepInIncompatibility(LegacyQueueTestGuid)]
     [BepInIncompatibility(PreplacedTestGuid)]
-    [BepInIncompatibility(EnemyGatePathfindingTestGuid)]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class BugfixesAndQoLPlugin : BaseUnityPlugin
@@ -36,7 +35,6 @@ namespace BugfixesAndQoL
         private const string LegacyQueueTestGuid = "QueueTest_Serp";
         private const string LegacySomeSettingsGuid = "SomeSettings_Serp";
         private const string PreplacedTestGuid = "PreplacedTest_Serp";
-        private const string EnemyGatePathfindingTestGuid = "EnemyGatePathfindingTest_Serp";
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";

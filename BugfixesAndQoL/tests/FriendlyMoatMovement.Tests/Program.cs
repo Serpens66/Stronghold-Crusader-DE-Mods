@@ -18,6 +18,7 @@ if (!File.Exists(apiSharedPath))
 string[] runtimeSourceNames =
 {
     "CursorConnectivity.cs", "CursorRegionGraph.cs", "DirectMoatCommandScopes.cs",
+    "EnemyGatePolicyIntegration.cs",
     "LocalSelectionSnapshot.cs",
     "AssassinSelectionAdapters.cs",
     "FastMoatBridge.cs", "FillWeightedRoutes.cs", "FriendlyMoatMovementPolicy.cs",
@@ -63,7 +64,8 @@ var methods = new HashSet<string>(new[] {
     "TryCaptureUnitFallbackPathBuffer", "RestoreFallbackPathBuffer",
     "CaptureAttackApproachState",
     "TryHandleVanillaLadderRegionPair", "RestoreVanillaLadderBuildingCandidates", "GetBuildingApproachPairKey",
-    "BuildPathWithCompletedMoatRouteVariant", "BuildPathWithCompletedMoatRouteVariantCore", "IsValidAttackSourceRegionContext", "ValidatePendingFillApproach",
+    "BuildPathWithCompletedMoatRouteVariant", "BuildPathWithCompletedMoatRouteVariantWithMoat", "BuildPathWithCompletedMoatRouteVariantCore", "IsValidAttackSourceRegionContext", "ValidatePendingFillApproach",
+    "BeginEnemyGateSearch", "EndEnemyGateSearch", "ResolveEnemyGateTribePlayer", "ResolveEnemyGateBuildingPlayer", "ResolveEnemyGateCursorPlayer",
     "TryFindRequiredFriendlyCompletedMoatRouteForPlan", "TryGetCachedRequiredFriendlyRouteForPlan",
     "EnsureMoatWorkReachability", "TryGetMoatWorkRoute",
     "TryFindRequiredFriendlyCompletedMoatRouteToFillEndpoint",
@@ -106,7 +108,7 @@ foreach (var member in cls.Members)
 foreach (string name in methods)
     if (!selected.OfType<MethodDeclarationSyntax>().Any(m => m.Identifier.Text == name))
         throw new Exception("Missing runtime method: " + name);
-string extracted = "using Iced.Intel; using static Iced.Intel.AssemblerRegisters; using RedBird.Abstractions.Hooks; using RedBird.Abstractions.Hooks.Transaction; using RedBird.X64.Hooks.Transaction; using System; using System.Collections.Generic; using System.Diagnostics; " +
+string extracted = "using APIShared; using Iced.Intel; using static Iced.Intel.AssemblerRegisters; using RedBird.Abstractions.Hooks; using RedBird.Abstractions.Hooks.Transaction; using RedBird.X64.Hooks.Transaction; using System; using System.Collections.Generic; using System.Diagnostics; " +
     "using System.Runtime.InteropServices; namespace BugfixesAndQoL { " +
     "internal sealed unsafe partial class FriendlyMoatMovementRuntime {\n" +
     string.Join("\n", selected.Select(m => m.ToFullString())) + "\n} }";
@@ -118,9 +120,11 @@ var references = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES"))
         MetadataReference.CreateFromFile(Path.Combine(installedExtender,"Iced.dll")),
         MetadataReference.CreateFromFile(Path.Combine(installedExtender,"RedBird.Abstractions.dll")),
         MetadataReference.CreateFromFile(Path.Combine(installedExtender,"RedBird.Core.dll")),
-        MetadataReference.CreateFromFile(Path.Combine(installedExtender,"RedBird.X64.dll")) });
+        MetadataReference.CreateFromFile(Path.Combine(installedExtender,"RedBird.X64.dll")),
+        MetadataReference.CreateFromFile(apiSharedPath) });
 foreach (string redBirdReference in new[]{"Iced.dll","RedBird.Abstractions.dll","RedBird.Core.dll","RedBird.X64.dll"})
     Assembly.LoadFrom(Path.Combine(installedExtender,redBirdReference));
+Assembly.LoadFrom(apiSharedPath);
 ValidateMovementEmitterAssembly(references);
 // Pinned pre-optimization blob; read only, compiled exclusively into this test process.
 var referenceStart = new System.Diagnostics.ProcessStartInfo("git") {

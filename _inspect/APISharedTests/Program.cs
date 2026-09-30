@@ -1748,6 +1748,9 @@ namespace APISharedTests
                 "APIShared.MarkedUnitSelectionSnapshot",
                 "APIShared.MarkedUnitSelectionAPI",
                 "APIShared.PlayerPerspectiveAPI",
+                "APIShared.EnemyGateSearchKind",
+                "APIShared.IEnemyGatePathPolicy",
+                "APIShared.EnemyGatePathPolicyBridge",
                 // BepInEx discovers the plugin type; it is public but is not a consumer service.
                 "APIShared.APISharedPlugin"
             };

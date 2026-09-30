@@ -1,4 +1,5 @@
 using SHCDESE.API;
+using APIShared;
 using SHCDESE.EventAPI.Tribes;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
@@ -24,6 +25,25 @@ namespace BugfixesAndQoL
             int targetY,
             int targetContext,
             int actionFlags)
+        {
+            IEnemyGatePathPolicy gate = BeginEnemyGateSearch(
+                ResolveEnemyGateCursorPlayer(tribeId),
+                EnemyGateSearchKind.CursorCommand, out object gateScope);
+            try
+            {
+                StageDirectCursorMoveWithOwnerRouteCore(
+                    unitManager, tribeId, targetX, targetY, targetContext, actionFlags);
+            }
+            finally
+            {
+                EndEnemyGateSearch(gate, gateScope,
+                    EnemyGateSearchKind.CursorCommand, true, false);
+            }
+        }
+
+        private void StageDirectCursorMoveWithOwnerRouteCore(
+            IntPtr unitManager, int tribeId, int targetX, int targetY,
+            int targetContext, int actionFlags)
         {
             DirectCursorMoveScope previous = activeDirectCursorMove;
             DirectCursorMoveScope scope = null;

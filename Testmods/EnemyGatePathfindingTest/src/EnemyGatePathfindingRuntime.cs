@@ -632,7 +632,8 @@ namespace EnemyGatePathfindingTest
                 $"cursorNativeRefreshes={same.CursorNativeRefreshes}," +
                 $"cursorCacheHits={same.CursorCacheHits}," +
                 $"cursorExactCacheHits={same.CursorExactCacheHits}," +
-                $"cursorStickyBlockHits={same.CursorStickyBlockHits}," +
+                $"cursorReferenceNoRoutes={same.CursorReferenceNoRoutes}," +
+                $"cursorProvenPolicyBlocks={same.CursorProvenPolicyBlocks}," +
                 $"cursorThrottleDeferrals={same.CursorThrottleDeferrals}," +
                 $"cursorPolicyBlocked={same.CursorPolicyBlocked}," +
                 $"cursorReachable={same.CursorReachable}," +
@@ -716,7 +717,8 @@ namespace EnemyGatePathfindingTest
                 $"cursorPreviewExecution={EnemyGatePathfindingPolicy.ObservationVerdict(same.CursorPclChecks)}," +
                 $"cursorWrapperExecution={EnemyGatePathfindingPolicy.ObservationVerdict(same.CursorPclWrapperCalls)}," +
                 $"cursorDifferentPclExecution={EnemyGatePathfindingPolicy.ObservationVerdict(same.CursorDifferentPclEligible)}," +
-                $"cursorStickyBlock={EnemyGatePathfindingPolicy.ObservationVerdict(same.CursorStickyBlockHits)}," +
+                $"cursorReferenceNoRoute={EnemyGatePathfindingPolicy.ObservationVerdict(same.CursorReferenceNoRoutes)}," +
+                $"cursorProvenPolicyBlock={EnemyGatePathfindingPolicy.ObservationVerdict(same.CursorProvenPolicyBlocks)}," +
                 $"cursorResultForcedZero={EnemyGatePathfindingPolicy.ObservationVerdict(same.CursorResultForcedZero)}," +
                 $"cursorPreviewRefresh={EnemyGatePathfindingPolicy.ObservationVerdict(same.CursorNativeRefreshes)}," +
                 $"cursorPreviewPolicyBlocked={EnemyGatePathfindingPolicy.ObservationVerdict(same.CursorPolicyBlocked)}," +

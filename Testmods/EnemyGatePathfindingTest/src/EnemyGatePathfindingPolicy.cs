@@ -308,6 +308,9 @@ namespace EnemyGatePathfindingTest
             bool valid,
             int cachedPlayer,
             int cachedUnitId,
+            int cachedGlobalId,
+            int cachedStartX,
+            int cachedStartY,
             int cachedTargetX,
             int cachedTargetY,
             int cachedTargetPcl,
@@ -315,42 +318,31 @@ namespace EnemyGatePathfindingTest
             ulong cachedFingerprint,
             int player,
             int unitId,
+            int globalId,
+            int startX,
+            int startY,
             int targetX,
             int targetY,
             int targetPcl,
             int sourcePcl,
             ulong fingerprint) =>
             valid && cachedPlayer == player && cachedUnitId == unitId &&
+            cachedGlobalId == globalId && cachedStartX == startX &&
+            cachedStartY == startY &&
             cachedTargetX == targetX && cachedTargetY == targetY &&
             cachedTargetPcl == targetPcl && cachedSourcePcl == sourcePcl &&
             cachedFingerprint == fingerprint;
-
-        internal static bool CursorPreviewStickyBlockMatches(
-            bool valid,
-            bool cachedAllowed,
-            int cachedPlayer,
-            int cachedUnitId,
-            int cachedTargetPcl,
-            int cachedSourcePcl,
-            ulong cachedFingerprint,
-            int player,
-            int unitId,
-            int targetPcl,
-            int sourcePcl,
-            ulong fingerprint) =>
-            valid && !cachedAllowed && cachedPlayer == player &&
-            cachedUnitId == unitId && cachedTargetPcl == targetPcl &&
-            cachedSourcePcl == sourcePcl && cachedFingerprint == fingerprint;
 
         internal static int ApplyCursorPreviewResult(int vanillaResult,
             bool cacheValid, bool cacheAllowed) =>
             vanillaResult > 0 && cacheValid && !cacheAllowed
                 ? 0 : vanillaResult;
 
-        // A failed Vanilla search is attributed to the gate policy only when the
-        // native direction adapters actually rejected at least one masked edge.
-        internal static bool ShouldBlockCursorPreview(int nativeResult, long rejectedEdges) =>
-            nativeResult == 0 && rejectedEdges > 0;
+        // Only a successful unmasked reference followed by a failed masked search
+        // establishes that the gate policy changed this exact route decision.
+        internal static bool ShouldBlockCursorPreview(
+            int referenceResult, int filteredResult, long rejectedEdges) =>
+            referenceResult > 0 && filteredResult == 0 && rejectedEdges > 0;
 
         internal static CaptureTransitionKind ClassifyCaptureTransition(
             bool previousValid,

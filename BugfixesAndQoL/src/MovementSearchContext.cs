@@ -1,3 +1,4 @@
+using APIShared;
 using SHCDESE.API;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
@@ -116,9 +117,14 @@ namespace BugfixesAndQoL
         private int BuildReconstructedUnitPath(IntPtr pathManager)
         {
             PlanScope plan = GetBuilderPlan(pathManager, reportMismatch: true);
-            BuilderWeightedScope shadow = TryCaptureBuilderWeightedScope(pathManager, plan);
+            IEnemyGatePathPolicy gate = BeginEnemyGateSearch(
+                plan?.PlayerId ?? -1, EnemyGateSearchKind.Builder, out object gateScope);
+            int gateResult = 0;
+            bool gateCompleted = false;
+            BuilderWeightedScope shadow = null;
             try
             {
+                shadow = TryCaptureBuilderWeightedScope(pathManager, plan);
                 int result = BuildPathWithCompletedMoatRouteVariantCore(pathManager, 0, 0, plan, true, true);
             if (shadow != null)
             {
@@ -135,10 +141,15 @@ namespace BugfixesAndQoL
                             Stopwatch.GetTimestamp() - weightedStarted;
                 }
             }
-                return shadow != null && shadow.PublishedBuilderResult >= 0 ? shadow.PublishedBuilderResult : result;
+                gateResult = shadow != null && shadow.PublishedBuilderResult >= 0
+                    ? shadow.PublishedBuilderResult : result;
+                gateCompleted = true;
+                return gateResult;
             }
             finally
             {
+                EndEnemyGateSearch(gate, gateScope, EnemyGateSearchKind.Builder,
+                    gateCompleted, gateResult > 0);
                 PlanScope handoff = GetCurrentUnitMoveFrame()?.InheritedPlan ?? plan;
                 if (handoff != null && handoff.MoatWorkMovement && ReferenceEquals(pendingPlan, handoff)) pendingPlan = null;
             }

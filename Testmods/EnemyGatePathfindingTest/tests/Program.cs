@@ -1070,9 +1070,10 @@ namespace EnemyGatePathfindingTest
             Assert(samePclSource.IndexOf("globalDirectionGridWrites=0", StringComparison.Ordinal) >= 0 &&
                     samePclSource.IndexOf("PathDirectionGridRva", StringComparison.Ordinal) < 0,
                 "Same-PCL filters loaded bytes without addressing the global grid for writes");
-            Assert(samePclSource.IndexOf("existingHookOwner", StringComparison.Ordinal) >= 0 &&
-                    samePclSource.IndexOf("BugfixesAndQoL_Serp", StringComparison.Ordinal) >= 0,
-                "overlapping builder ownership is explicitly suppressed");
+            Assert(samePclSource.IndexOf("if (!ownerConflict)", StringComparison.Ordinal) >= 0 &&
+                    samePclSource.IndexOf("EnemyGatePathPolicyBridge.TryRegister(this)",
+                        StringComparison.Ordinal) >= 0,
+                "shared mode leaves existing function detours with Bugfixes and registers the policy");
         }
 
         private static void DirectionMaskBlocksOnlyTheGatePassage()
@@ -1636,11 +1637,13 @@ namespace EnemyGatePathfindingTest
                 Assert(callback.IndexOf(forbidden, StringComparison.Ordinal) < 0,
                     "cursor callback hot path excludes " + forbidden);
             Assert(CountOccurrences(deferred, "TryGetUnitById") == 1 &&
-                    CountOccurrences(deferred, "originalDirectTileSearch") == 1 &&
+                    CountOccurrences(deferred, "originalDirectTileSearch") == 2 &&
+                    deferred.IndexOf("Enter(player, true)", StringComparison.Ordinal) <
+                        deferred.IndexOf("Enter(player);", StringComparison.Ordinal) &&
                     deferred.IndexOf("GetSelectedChimps", StringComparison.Ordinal) < 0 &&
                     deferred.IndexOf("for (", StringComparison.Ordinal) < 0 &&
                     deferred.IndexOf("foreach", StringComparison.Ordinal) < 0,
-                "deferred preview validates exactly one unit with one Vanilla DB650 search");
+                "deferred preview validates one unit with reference-first and filtered-last DB650 searches");
             Assert(runtime.IndexOf("Stopwatch.Frequency / 5L", StringComparison.Ordinal) >= 0 &&
                     runtime.IndexOf("cursorRefreshMs=200", StringComparison.Ordinal) >= 0,
                 "cursor preview is globally throttled to five native validations per second");
@@ -1648,58 +1651,48 @@ namespace EnemyGatePathfindingTest
 
         private static void CursorPreviewDecisionIsCausalAndStable()
         {
-            Assert(!EnemyGatePathfindingPolicy.ShouldBlockCursorPreview(0, 0),
-                "ordinary Vanilla no-route without a rejected gate edge stays fail-open");
-            Assert(EnemyGatePathfindingPolicy.ShouldBlockCursorPreview(0, 1),
-                "Vanilla no-route caused by a rejected gate edge blocks the cursor");
-            Assert(!EnemyGatePathfindingPolicy.ShouldBlockCursorPreview(1, 12),
-                "a successful Vanilla detour remains green despite rejected direct edges");
+            Assert(!EnemyGatePathfindingPolicy.ShouldBlockCursorPreview(0, 0, 12),
+                "reference no-route remains open even when the filtered search rejects edges");
+            Assert(EnemyGatePathfindingPolicy.ShouldBlockCursorPreview(1, 0, 1),
+                "only a successful reference and failed filtered search with rejected edges blocks");
+            Assert(!EnemyGatePathfindingPolicy.ShouldBlockCursorPreview(1, 0, 0),
+                "an unexplained filtered failure remains open");
+            Assert(!EnemyGatePathfindingPolicy.ShouldBlockCursorPreview(1, 1, 12),
+                "a successful filtered detour remains green despite rejected direct edges");
 
             Assert(EnemyGatePathfindingPolicy.CursorPreviewCacheMatches(
-                    true, 2, 41, 300, 301, 7, 7, 0x1234UL,
-                    2, 41, 300, 301, 7, 7, 0x1234UL),
+                    true, 2, 41, 99, 280, 281, 300, 301, 7, 7, 0x1234UL,
+                    2, 41, 99, 280, 281, 300, 301, 7, 7, 0x1234UL),
                 "an identical cursor key reuses its stable decision");
             Assert(!EnemyGatePathfindingPolicy.CursorPreviewCacheMatches(
-                    true, 2, 41, 300, 301, 7, 7, 0x1234UL,
-                    2, 41, 301, 301, 7, 7, 0x1234UL),
-                "a changed target invalidates the cursor decision immediately");
+                    true, 2, 41, 99, 280, 281, 300, 301, 7, 7, 0x1234UL,
+                    2, 41, 99, 280, 281, 301, 301, 7, 7, 0x1234UL),
+                "a changed target in the same PCL invalidates a negative decision immediately");
             Assert(!EnemyGatePathfindingPolicy.CursorPreviewCacheMatches(
-                    true, 2, 41, 300, 301, 7, 7, 0x1234UL,
-                    2, 41, 300, 301, 7, 7, 0x1235UL),
+                    true, 2, 41, 99, 280, 281, 300, 301, 7, 7, 0x1234UL,
+                    2, 41, 99, 280, 281, 300, 301, 7, 7, 0x1235UL),
                 "a changed gate policy invalidates the cursor decision immediately");
             Assert(!EnemyGatePathfindingPolicy.CursorPreviewCacheMatches(
-                    false, 2, 41, 300, 301, 7, 7, 0x1234UL,
-                    2, 41, 300, 301, 7, 7, 0x1234UL),
+                    false, 2, 41, 99, 280, 281, 300, 301, 7, 7, 0x1234UL,
+                    2, 41, 99, 280, 281, 300, 301, 7, 7, 0x1234UL),
                 "an unpublished cache never changes Vanilla's cursor decision");
             Assert(!EnemyGatePathfindingPolicy.CursorPreviewCacheMatches(
-                    true, 2, 41, 300, 301, 7, 7, 0x1234UL,
-                    2, 41, 300, 301, 8, 8, 0x1234UL),
+                    true, 2, 41, 99, 280, 281, 300, 301, 7, 7, 0x1234UL,
+                    2, 41, 99, 280, 281, 300, 301, 8, 8, 0x1234UL),
                 "changed source and target PCLs invalidate a cached cursor decision");
 
-            Assert(EnemyGatePathfindingPolicy.CursorPreviewStickyBlockMatches(
-                    true, false, 2, 41, 7, 7, 0x1234UL,
-                    2, 41, 7, 7, 0x1234UL),
-                "a confirmed block remains sticky across target-coordinate changes");
-            Assert(!EnemyGatePathfindingPolicy.CursorPreviewStickyBlockMatches(
-                    true, true, 2, 41, 7, 7, 0x1234UL,
-                    2, 41, 7, 7, 0x1234UL),
-                "an allowing result is never carried to a new cursor key");
-            Assert(!EnemyGatePathfindingPolicy.CursorPreviewStickyBlockMatches(
-                    true, false, 2, 41, 7, 7, 0x1234UL,
-                    2, 41, 8, 7, 0x1234UL),
-                "a target-PCL change invalidates a sticky block");
-            Assert(!EnemyGatePathfindingPolicy.CursorPreviewStickyBlockMatches(
-                    true, false, 2, 41, 7, 7, 0x1234UL,
-                    2, 42, 7, 7, 0x1234UL),
-                "a representative-unit change invalidates a sticky block");
-            Assert(!EnemyGatePathfindingPolicy.CursorPreviewStickyBlockMatches(
-                    true, false, 2, 41, 7, 7, 0x1234UL,
-                    3, 41, 7, 8, 0x1234UL),
-                "a player or source-PCL change invalidates a sticky block");
-            Assert(!EnemyGatePathfindingPolicy.CursorPreviewStickyBlockMatches(
-                    true, false, 2, 41, 7, 7, 0x1234UL,
-                    2, 41, 7, 7, 0x1235UL),
-                "a policy change invalidates a sticky block");
+            Assert(!EnemyGatePathfindingPolicy.CursorPreviewCacheMatches(
+                    true, 2, 41, 99, 280, 281, 300, 301, 7, 7, 0x1234UL,
+                    2, 41, 99, 281, 281, 300, 301, 7, 7, 0x1234UL),
+                "a moved unit invalidates a cached block");
+            Assert(!EnemyGatePathfindingPolicy.CursorPreviewCacheMatches(
+                    true, 2, 41, 99, 280, 281, 300, 301, 7, 7, 0x1234UL,
+                    2, 41, 100, 280, 281, 300, 301, 7, 7, 0x1234UL),
+                "reuse of a unit ID invalidates a cached block");
+            Assert(!EnemyGatePathfindingPolicy.CursorPreviewCacheMatches(
+                    true, 2, 41, 99, 280, 281, 300, 301, 7, 7, 0x1234UL,
+                    3, 41, 99, 280, 281, 300, 301, 7, 7, 0x1234UL),
+                "a different player invalidates a cached block");
 
             Assert(EnemyGatePathfindingPolicy.ApplyCursorPreviewResult(
                     7, true, false) == 0,

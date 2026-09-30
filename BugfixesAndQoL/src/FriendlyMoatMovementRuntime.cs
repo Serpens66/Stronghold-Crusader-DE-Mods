@@ -1,4 +1,5 @@
 using BepInEx.Logging;
+using APIShared;
 using RedBird.Backends.NativeX64;
 using RedBird.Abstractions.Hooks;
 using RedBird.Abstractions.Hooks.Transaction;
@@ -4602,6 +4603,24 @@ namespace BugfixesAndQoL
             int sourceRegion,
             int movementClass)
         {
+            IEnemyGatePathPolicy gate = BeginEnemyGateSearch(
+                movementClass, EnemyGateSearchKind.Attack, out object gateScope);
+            try
+            {
+                ObserveAttackApproachFloodBuilderWithMoat(
+                    pathManager, tribeId, targetContext, targetX, targetY,
+                    requestedResults, sourceRegion, movementClass);
+            }
+            finally
+            {
+                EndEnemyGateSearch(gate, gateScope, EnemyGateSearchKind.Attack, true, false);
+            }
+        }
+
+        private void ObserveAttackApproachFloodBuilderWithMoat(
+            IntPtr pathManager, int tribeId, int targetContext, uint targetX, uint targetY,
+            int requestedResults, int sourceRegion, int movementClass)
+        {
             AttackApproachDiagnosticScope previous = activeAttackApproachDiagnostic;
             AttackApproachDiagnosticScope scope = null;
             AttackCommandScope fastCommand = null;
@@ -4779,6 +4798,26 @@ namespace BugfixesAndQoL
             int sourceRegion,
             int movementClass)
         {
+            IEnemyGatePathPolicy gate = BeginEnemyGateSearch(
+                ResolveEnemyGateBuildingPlayer(movementClass, tribeId),
+                EnemyGateSearchKind.BuildingApproach, out object gateScope);
+            try
+            {
+                ObserveBuildingApproachBuilderWithMoat(
+                    pathManager, tribeId, buildingId, requestedResults,
+                    sourceRegion, movementClass);
+            }
+            finally
+            {
+                EndEnemyGateSearch(gate, gateScope,
+                    EnemyGateSearchKind.BuildingApproach, true, false);
+            }
+        }
+
+        private void ObserveBuildingApproachBuilderWithMoat(
+            IntPtr pathManager, int tribeId, int buildingId, int requestedResults,
+            int sourceRegion, int movementClass)
+        {
             AttackApproachDiagnosticScope previous = activeAttackApproachDiagnostic;
             BuildingApproachPerformanceScope previousPerformance =
                 activeBuildingApproachPerformance;
@@ -4861,6 +4900,24 @@ namespace BugfixesAndQoL
         }
 
         private void ObserveBuildingCandidateConsumer(
+            IntPtr tribeManager, int tribeId, int builderVariant)
+        {
+            IEnemyGatePathPolicy gate = BeginEnemyGateSearch(
+                ResolveEnemyGateTribePlayer(tribeId),
+                EnemyGateSearchKind.BuildingConsumer, out object gateScope);
+            try
+            {
+                ObserveBuildingCandidateConsumerWithMoat(
+                    tribeManager, tribeId, builderVariant);
+            }
+            finally
+            {
+                EndEnemyGateSearch(gate, gateScope,
+                    EnemyGateSearchKind.BuildingConsumer, true, false);
+            }
+        }
+
+        private void ObserveBuildingCandidateConsumerWithMoat(
             IntPtr tribeManager, int tribeId, int builderVariant)
         {
             AttackApproachDiagnosticScope previous = activeAttackApproachDiagnostic;

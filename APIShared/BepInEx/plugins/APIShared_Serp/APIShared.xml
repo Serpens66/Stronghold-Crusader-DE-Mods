@@ -1458,6 +1458,57 @@
         <member name="M:APIShared.IGatehouseDistanceOriginCapability.TryApply(APIShared.GatehouseDistanceOrigin,APIShared.NativeCapabilityDiagnostic@)">
             <summary>Attempts to apply and verify the requested process-wide gatehouse distance origin.</summary>
         </member>
+        <member name="T:APIShared.EnemyGateSearchKind">
+            <summary>Identifies a native path search whose player context can be scoped.</summary>
+        </member>
+        <member name="F:APIShared.EnemyGateSearchKind.Builder">
+            <summary>Central tile route builder.</summary>
+        </member>
+        <member name="F:APIShared.EnemyGateSearchKind.Attack">
+            <summary>Attack approach flood search.</summary>
+        </member>
+        <member name="F:APIShared.EnemyGateSearchKind.BuildingApproach">
+            <summary>Building approach search.</summary>
+        </member>
+        <member name="F:APIShared.EnemyGateSearchKind.BuildingConsumer">
+            <summary>Building candidate consumer.</summary>
+        </member>
+        <member name="F:APIShared.EnemyGateSearchKind.CursorCommand">
+            <summary>Direct cursor command.</summary>
+        </member>
+        <member name="T:APIShared.IEnemyGatePathPolicy">
+            <summary>Optional, immutable player gate policy supplied by a registered mod.</summary>
+        </member>
+        <member name="P:APIShared.IEnemyGatePathPolicy.HasPublishedMask">
+            <summary>Whether at least one player has a published gate mask.</summary>
+        </member>
+        <member name="M:APIShared.IEnemyGatePathPolicy.IsDirectionAllowed(System.Int32,System.Int32,System.Int32)">
+            <summary>Checks one directed tile edge against the published mask.</summary>
+        </member>
+        <member name="M:APIShared.IEnemyGatePathPolicy.ResolveTribePlayer(System.Int32)">
+            <summary>Resolves a native tribe to its player, or an unknown value.</summary>
+        </member>
+        <member name="M:APIShared.IEnemyGatePathPolicy.ResolveBuildingPlayer(System.Int32,System.Int32)">
+            <summary>Validates the explicit building-search player against its tribe.</summary>
+        </member>
+        <member name="M:APIShared.IEnemyGatePathPolicy.ResolveCursorPlayer(System.Int32)">
+            <summary>Validates the cursor player against the active native player.</summary>
+        </member>
+        <member name="M:APIShared.IEnemyGatePathPolicy.EnterNativeSearch(System.Int32,APIShared.EnemyGateSearchKind)">
+            <summary>Scopes a native search and returns an opaque token for its exit.</summary>
+        </member>
+        <member name="M:APIShared.IEnemyGatePathPolicy.ExitNativeSearch(System.Object,APIShared.EnemyGateSearchKind,System.Boolean,System.Boolean)">
+            <summary>Ends the native search scope and records its outcome.</summary>
+        </member>
+        <member name="T:APIShared.EnemyGatePathPolicyBridge">
+            <summary>Passive bridge that holds an optional registered gate policy.</summary>
+        </member>
+        <member name="P:APIShared.EnemyGatePathPolicyBridge.Current">
+            <summary>Gets the registered provider, if any.</summary>
+        </member>
+        <member name="M:APIShared.EnemyGatePathPolicyBridge.TryRegister(APIShared.IEnemyGatePathPolicy)">
+            <summary>Registers a provider once; the provider clears its masks at map end.</summary>
+        </member>
         <member name="T:APIShared.GatehouseTimingValues">
             <summary>Documented Vanilla values and supported UI ranges for gatehouse timing.</summary>
         </member>
