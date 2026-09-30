@@ -40,7 +40,7 @@ namespace EnemyGatePathfindingTest
                 NativeHookByteContractsRejectMutation();
                 VanillaDirectionFilterContractsAreAtomic();
                 AiTacticalTargetContractsAreAtomicAndExecutable();
-                AttackOrderCorrelationIsBoundedAndObservational();
+                AttackOrderCorrelationIsLosslessAndObservational();
                 DirectionAdapterTileRegistersMatchNativeDataFlow();
                 CrashDumpRegisterRegressionsFailOpen();
                 DirectionAdaptersActuallyAssembleAndDecode();
@@ -1140,7 +1140,7 @@ namespace EnemyGatePathfindingTest
             }
         }
 
-        private static void AttackOrderCorrelationIsBoundedAndObservational()
+        private static void AttackOrderCorrelationIsLosslessAndObservational()
         {
             string plugin = File.ReadAllText(Path.Combine("src", "EnemyGatePathfindingTestPlugin.cs"));
             string runtime = File.ReadAllText(Path.Combine("src", "EnemyGatePathfindingRuntime.cs"));
@@ -1148,27 +1148,22 @@ namespace EnemyGatePathfindingTest
             string correlation = File.ReadAllText(
                 Path.Combine("src", "AttackOrderCorrelationDiagnostics.cs"));
 
-            Assert(plugin.IndexOf("OnTribeIssueOrderWithTarget.Observable", StringComparison.Ordinal) >= 0 &&
-                    plugin.IndexOf("Subscribe(ObserveTargetOrder)", StringComparison.Ordinal) >= 0,
-                "AI order correlation uses the existing Script Extender event");
-            Assert(correlation.IndexOf("MaximumNestedOrders = 8", StringComparison.Ordinal) >= 0 &&
-                    correlation.IndexOf("MaximumSamples = 32", StringComparison.Ordinal) >= 0 &&
-                    correlation.IndexOf("[ThreadStatic]", StringComparison.Ordinal) >= 0,
-                "AI order correlation bounds nested state and samples");
+            Assert(plugin.Contains("Subscribe(ObserveTargetOrder)") &&
+                    plugin.Contains("Subscribe(ObserveTribeMove)") &&
+                    plugin.Contains("Subscribe(ObserveUnitMove)"),
+                "all three existing Script Extender command events are observed");
+            Assert(correlation.Contains("[ThreadStatic]") &&
+                    !correlation.Contains("MaximumSamples") &&
+                    !correlation.Contains("MaximumNestedOrders"),
+                "command contexts have no lossy example or pattern limit");
             Assert(correlation.IndexOf("EventHookPhase.Pre", StringComparison.Ordinal) >= 0 &&
                     correlation.IndexOf("EventHookPhase.Post", StringComparison.Ordinal) >= 0 &&
-                    correlation.IndexOf("postMismatches", StringComparison.Ordinal) >= 0,
+                    correlation.IndexOf("post-without-matching-pre", StringComparison.Ordinal) >= 0,
                 "AI order correlation handles nested pre/post event phases defensively");
-            Assert(correlation.IndexOf("AttackUnit", StringComparison.Ordinal) >= 0 &&
-                    correlation.IndexOf("Unknown32", StringComparison.Ordinal) >= 0 &&
-                    correlation.IndexOf("AttackBuilding", StringComparison.Ordinal) >= 0 &&
-                    correlation.IndexOf("AttackWallTileId", StringComparison.Ordinal) >= 0 &&
-                    correlation.IndexOf("DigMoatTileId", StringComparison.Ordinal) >= 0 &&
-                    correlation.IndexOf("AttackTilePosition", StringComparison.Ordinal) >= 0,
-                "all requested attack commands are classified");
-            Assert(correlation.IndexOf("IsAIPlayer(player)", StringComparison.Ordinal) >= 0 &&
-                    correlation.IndexOf("samples[sampleIndex].Matches(frame)", StringComparison.Ordinal) >= 0,
-                "only AI orders are retained and repeated tribe/targets are deduplicated");
+            Assert(correlation.Contains("IsAIPlayer(player)") &&
+                    correlation.Contains("ObserveGatePrecheck") &&
+                    correlation.Contains("ObserveBuilder"),
+                "AI gate precheck and route result use a short command context");
             Assert(correlation.IndexOf("FindPath", StringComparison.OrdinalIgnoreCase) < 0 &&
                     correlation.IndexOf("Breadth", StringComparison.OrdinalIgnoreCase) < 0 &&
                     correlation.IndexOf("Queue<", StringComparison.Ordinal) < 0,
@@ -1177,9 +1172,28 @@ namespace EnemyGatePathfindingTest
                     runtime.IndexOf("plannerState0x419Queries", StringComparison.Ordinal) >= 0 &&
                     runtime.IndexOf("Enemy-gate AI order checkpoint", StringComparison.Ordinal) >= 0,
                 "F4930 results are correlated and state 0x419 is named separately");
-            Assert(correlation.IndexOf("DebugLogHelper.LogInfo", StringComparison.Ordinal) >= 0 &&
-                    correlation.IndexOf("while (publishedSamples < sampleCount)", StringComparison.Ordinal) >= 0,
-                "full samples are emitted once from the deferred path");
+            Assert(correlation.Contains("DebugLogHelper.LogInfo") &&
+                    correlation.Contains("totals.Drain()") &&
+                    correlation.Contains("order-gate-switch") &&
+                    correlation.Contains("CurrentTribeOrder(player, frame?.Tribe ?? 0)"),
+                "aggregate output is emitted from the deferred checkpoint");
+
+            var aggregate = new AiGateDecisionAggregate();
+            for (int i = 0; i < 160; i++)
+            {
+                int gate = i % 2 == 0 ? 101 : 202;
+                aggregate.Record(2, gate, "gate-precheck", "vanilla=open,policy=closed",
+                    4, 77, i, 9);
+                aggregate.Record(2, gate, "unit-context", "one:" + gate,
+                    4, 77, 55, 9);
+            }
+            var rows = aggregate.Drain();
+            long count = 0, changes = 0;
+            foreach (var row in rows) { count += row.Count; changes += row.TargetChanges; }
+            Assert(aggregate.Observations == 320 && count == 320 && rows.Length == 4,
+                "more than 32 distinct commands are counted exactly in four compact rows");
+            Assert(changes >= 159, "repeated A/B gate alternation remains visible");
+            Assert(aggregate.Drain().Length == 0, "a drained interval does not replay rows");
         }
 
         private static void AiTacticalTargetContractsAreAtomicAndExecutable()
@@ -1459,7 +1473,7 @@ namespace EnemyGatePathfindingTest
                 "DBC60 binds its explicit eighth player argument");
             Assert(source.IndexOf("int tribePlayer = ResolveTribePlayer(tribe)",
                         StringComparison.Ordinal) >= 0 &&
-                    source.IndexOf("ValidateExplicitPlayer(player, tribePlayer)",
+                    source.IndexOf("ValidateExplicitPlayer(player, tribePlayer, \"building-approach\")",
                         StringComparison.Ordinal) >= 0,
                 "DA020 validates its explicit sixth player argument against its tribe");
             Assert(source.IndexOf("ActivePlayerIdRva", StringComparison.Ordinal) >= 0 &&

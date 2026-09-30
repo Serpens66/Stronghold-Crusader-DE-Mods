@@ -10,6 +10,7 @@ using RedBird.X64.Hooks.Transaction;
 using SHCDESE.API;
 using SHCDESE.API.LowLevel;
 using SHCDESE.EventAPI.Tribes;
+using SHCDESE.EventAPI.Units;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
@@ -355,6 +356,18 @@ namespace EnemyGatePathfindingTest
             catch (Exception ex) { TryLogDiagnosticFailure(ex); }
         }
 
+        internal void ObserveTribeMove(TribeIssueOrderMoveHereEventArgs args)
+        {
+            try { attackOrderDiagnostics?.ObserveTribeMove(args); }
+            catch (Exception ex) { TryLogDiagnosticFailure(ex); }
+        }
+
+        internal void ObserveUnitMove(UnitMoveHereEventArgs args)
+        {
+            try { attackOrderDiagnostics?.ObserveUnitMove(args); }
+            catch (Exception ex) { TryLogDiagnosticFailure(ex); }
+        }
+
         private void UpdateGateAccess(NativeGateAccessSnapshot updated)
         {
             NativeGateAccessSnapshot next = updated ?? NativeGateAccessSnapshot.Empty;
@@ -524,6 +537,18 @@ namespace EnemyGatePathfindingTest
                     Interlocked.Increment(ref untrackedUnexpectedGate);
                 else
                     Interlocked.Increment(ref untrackedNonGate);
+            }
+            if (builderPrecheck)
+            {
+                try
+                {
+                    int exactGateId = gateAccess.MatchesGateIdentity(buildingId, subjectGlobalId)
+                        ? buildingId : 0;
+                    attackOrderDiagnostics?.ObserveGatePrecheck(queryPlayerId, buildingId,
+                        exactGateId,
+                        originalZero, finalZero, decision, nativeOwner, nativeCaptured);
+                }
+                catch (Exception ex) { TryLogDiagnosticFailure(ex); }
             }
 
             ref CapturerSample sample = ref samples[(site * DecisionCount) + decisionIndex];

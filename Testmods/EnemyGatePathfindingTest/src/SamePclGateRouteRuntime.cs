@@ -571,13 +571,13 @@ namespace EnemyGatePathfindingTest
             tribePlayers.Resolve(tribeId);
 
         int IEnemyGatePathPolicy.ResolveBuildingPlayer(int explicitPlayerId, int tribeId) =>
-            ValidateExplicitPlayer(explicitPlayerId, tribePlayers.Resolve(tribeId));
+            ValidateExplicitPlayer(explicitPlayerId, tribePlayers.Resolve(tribeId), "shared-building");
 
         int IEnemyGatePathPolicy.ResolveCursorPlayer(int tribeId)
         {
             int nativePlayer = *(int*)(libraryBase +
                 EnemyGatePathfindingNativeDefinition.ActivePlayerIdRva);
-            return ValidateExplicitPlayer(nativePlayer, tribePlayers.Resolve(tribeId));
+            return ValidateExplicitPlayer(nativePlayer, tribePlayers.Resolve(tribeId), "shared-cursor");
         }
 
         object IEnemyGatePathPolicy.EnterNativeSearch(int playerId, EnemyGateSearchKind kind)
@@ -585,7 +585,13 @@ namespace EnemyGatePathfindingTest
             QueryKind localKind = SharedKind(kind, playerId);
             if (localKind == QueryKind.AiBuilder) Interlocked.Increment(ref aiQueries);
             CaptureScopeSample(localKind, playerId, playerId, -1, playerId);
-            return Enter(playerId);
+            QueryScope scope = Enter(playerId);
+            if (kind == EnemyGateSearchKind.Builder)
+            {
+                try { attackOrderDiagnostics?.BeginBuilder(); }
+                catch { Interlocked.Increment(ref exceptions); }
+            }
+            return scope;
         }
 
         void IEnemyGatePathPolicy.ExitNativeSearch(
@@ -599,8 +605,11 @@ namespace EnemyGatePathfindingTest
             long touched = Complete(query, localKind,
                 kind == EnemyGateSearchKind.Builder, completed && success);
             if (kind == EnemyGateSearchKind.Builder)
-                attackOrderDiagnostics?.ObserveBuilder(
-                    query.PlayerId, completed, success, touched, query.Snapshot.Fingerprint);
+            {
+                try { attackOrderDiagnostics?.ObserveBuilder(
+                    query.PlayerId, completed, success, touched, query.Snapshot.Fingerprint); }
+                catch { Interlocked.Increment(ref exceptions); }
+            }
         }
 
         private QueryKind SharedKind(EnemyGateSearchKind kind, int playerId)
@@ -1126,13 +1135,16 @@ namespace EnemyGatePathfindingTest
             if (kind == QueryKind.AiBuilder) Interlocked.Increment(ref aiQueries);
             CaptureScopeSample(kind, player, player, -1, player);
             QueryScope scope = Enter(player); int result = 0; bool completed = false;
+            try { attackOrderDiagnostics?.BeginBuilder(); }
+            catch { Interlocked.Increment(ref exceptions); }
             try { result = originalBuilder(manager, player, profile); completed = true; return result; }
             catch { Interlocked.Increment(ref exceptions); throw; }
             finally
             {
                 long touched = Complete(scope, kind, true, completed && result > 0);
-                attackOrderDiagnostics?.ObserveBuilder(player, completed, result > 0,
-                    touched, scope.Snapshot.Fingerprint);
+                try { attackOrderDiagnostics?.ObserveBuilder(player, completed, result > 0,
+                    touched, scope.Snapshot.Fingerprint); }
+                catch { Interlocked.Increment(ref exceptions); }
             }
         }
         private void FilterAttack(IntPtr manager, int unused2, int unused3, uint x, uint y,
@@ -1150,7 +1162,7 @@ namespace EnemyGatePathfindingTest
         {
             Interlocked.Increment(ref buildingApproachQueries);
             int tribePlayer = ResolveTribePlayer(tribe);
-            int used = ValidateExplicitPlayer(player, tribePlayer);
+            int used = ValidateExplicitPlayer(player, tribePlayer, "building-approach");
             CaptureScopeSample(QueryKind.BuildingApproach, player, player, tribePlayer, used);
             QueryScope scope = Enter(used);
             try { originalBuilding(manager, tribe, buildingId, count, targetPcl, player); }
@@ -1223,7 +1235,7 @@ namespace EnemyGatePathfindingTest
             int nativePlayer = *(int*)(libraryBase +
                 EnemyGatePathfindingNativeDefinition.ActivePlayerIdRva);
             int tribePlayer = ResolveTribePlayer(tribe);
-            int player = ValidateExplicitPlayer(nativePlayer, tribePlayer);
+            int player = ValidateExplicitPlayer(nativePlayer, tribePlayer, "cursor-command");
             CaptureScopeSample(QueryKind.CursorCommand, nativePlayer, nativePlayer,
                 tribePlayer, player);
             QueryScope scope = Enter(player);
@@ -1251,13 +1263,15 @@ namespace EnemyGatePathfindingTest
         }
         private int ResolveTribePlayer(int tribeId) => tribePlayers.Resolve(tribeId);
 
-        private int ValidateExplicitPlayer(int nativePlayer, int tribePlayer)
+        private int ValidateExplicitPlayer(int nativePlayer, int tribePlayer, string source)
         {
             if (nativePlayer <= 0 || nativePlayer > 8 || tribePlayer <= 0 || tribePlayer > 8)
                 return -1;
             if (nativePlayer != tribePlayer)
             {
                 Interlocked.Increment(ref scopeMismatches);
+                try { attackOrderDiagnostics?.ObserveScopeMismatch(source, nativePlayer, tribePlayer); }
+                catch { Interlocked.Increment(ref exceptions); }
                 return -1;
             }
             return nativePlayer;

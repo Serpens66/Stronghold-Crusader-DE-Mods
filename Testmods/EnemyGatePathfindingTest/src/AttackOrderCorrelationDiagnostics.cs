@@ -2,395 +2,317 @@ using BepInEx.Logging;
 using SHCDESE.API;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Tribes;
+using SHCDESE.EventAPI.Units;
 using SHCDESE.Interop;
-using SHCDESE.Interop.Enums;
 using System;
-using System.Text;
+using System.Collections.Generic;
 using System.Threading;
 
 namespace EnemyGatePathfindingTest
 {
-    // Bounded, observational correlation around Vanilla's existing 11E960 order call.
-    // No route, PCL, or target search is started here. The only per-order work is a
-    // handful of validated native-structure reads and counter updates.
+    // Observes only the lifetime of a native command call. No unit is tracked after Post.
     internal sealed unsafe class AttackOrderCorrelationDiagnostics
     {
-        private const int MaximumNestedOrders = 8;
-        private const int MaximumSamples = 32;
-        private const int CommandCount = 6;
-
-        [ThreadStatic] private static AttackFrame[] threadFrames;
-        [ThreadStatic] private static int threadDepth;
-
         private readonly ManualLogSource log;
-        private readonly GateTopologySnapshotProvider topology;
-        private readonly object sampleGate = new object();
-        private readonly AttackSample[] samples = new AttackSample[MaximumSamples];
-        private readonly long[] commandCounts = new long[CommandCount];
-        private readonly long[] lastCommandCounts = new long[CommandCount];
-        private int sampleCount;
-        private int publishedSamples;
-        private long orders, completed, skipped, invalidContexts, nestingOverflows,
-            postMismatches, builderCalls, builderSuccesses, builderNoRoutes,
-            builderDetours, rejectedEdges;
-        private long lastOrders, lastBuilderCalls, lastBuilderSuccesses,
-            lastBuilderNoRoutes, lastBuilderDetours, lastRejectedEdges;
+        private readonly AiGateDecisionAggregate totals = new AiGateDecisionAggregate();
+        [ThreadStatic] private static List<Frame> active;
+        [ThreadStatic] private static List<HashSet<int>> searches;
+        private long errors, rawTargetPre, rawTargetPost, rawMovePre, rawMovePost,
+            rawUnitPre, rawUnitPost, unattributedPrechecks;
 
-        internal AttackOrderCorrelationDiagnostics(
-            ManualLogSource log,
-            GateTopologySnapshotProvider topology)
+        private sealed class Frame
         {
-            this.log = log ?? throw new ArgumentNullException(nameof(log));
-            this.topology = topology ?? throw new ArgumentNullException(nameof(topology));
+            internal string Kind;
+            internal int Id, Player, Tribe, Command, Target1, Target2;
+            internal readonly HashSet<int> Gates = new HashSet<int>();
+            internal long Builders, BuilderSuccess, BuilderFailure, RejectedEdges;
+            internal string FirstBuilderCategory, LastBuilderCategory;
+            internal long BuilderCategoryChanges;
+        }
+
+        internal AttackOrderCorrelationDiagnostics(ManualLogSource log,
+            GateTopologySnapshotProvider unusedTopology)
+        { this.log = log; }
+
+        internal void Reset()
+        {
+            totals.Reset();
+            Interlocked.Exchange(ref errors, 0);
+            Interlocked.Exchange(ref rawTargetPre, 0);
+            Interlocked.Exchange(ref rawTargetPost, 0);
+            Interlocked.Exchange(ref rawMovePre, 0);
+            Interlocked.Exchange(ref rawMovePost, 0);
+            Interlocked.Exchange(ref rawUnitPre, 0);
+            Interlocked.Exchange(ref rawUnitPost, 0);
+            Interlocked.Exchange(ref unattributedPrechecks, 0);
+            active?.Clear();
+            searches?.Clear();
         }
 
         internal void ObserveOrder(TribeIssueOrderWithTargetEventArgs args)
         {
-            if (args == null || !TryGetCommandIndex(args.AICommand, out int commandIndex))
-                return;
-
-            if (args.Phase == EventHookPhase.Pre)
-            {
-                AttackFrame frame = CaptureFrame(args, commandIndex);
-                if (!frame.Active)
-                    return;
-                Interlocked.Increment(ref orders);
-                Interlocked.Increment(ref commandCounts[commandIndex]);
-                if (threadFrames == null)
-                    threadFrames = new AttackFrame[MaximumNestedOrders];
-                if (threadDepth >= threadFrames.Length)
-                {
-                    Interlocked.Increment(ref nestingOverflows);
-                    return;
-                }
-                threadFrames[threadDepth++] = frame;
-                if (args.SkipOriginalFunction)
-                {
-                    Interlocked.Increment(ref skipped);
-                    PublishAndPop(frame, threadDepth - 1);
-                }
-                return;
-            }
-
-            if (args.Phase != EventHookPhase.Post || threadDepth <= 0 || threadFrames == null)
-                return;
-
-            if (!GameTribeManagerAPI.Instance.TryGetTribeById(
-                    args.TribeId, out GameTribe* postTribe) || postTribe == null ||
-                postTribe->r_PlayerIdOwner <= 0 || postTribe->r_PlayerIdOwner > 8 ||
-                !GamePlayerManagerAPI.Instance.IsAIPlayer(postTribe->r_PlayerIdOwner))
-                return;
-
-            int index = threadDepth - 1;
-            AttackFrame pending = threadFrames[index];
-            if (pending.TribeId != args.TribeId || pending.Command != args.AICommand)
-                Interlocked.Increment(ref postMismatches);
-            PublishAndPop(pending, index);
+            if (args.Phase != EventHookPhase.Pre && args.Phase != EventHookPhase.Post)
+            { ObserveUnexpectedPhase("tribe-target", (int)args.Phase); return; }
+            bool pre = args.Phase == EventHookPhase.Pre;
+            if (pre) Interlocked.Increment(ref rawTargetPre);
+            else Interlocked.Increment(ref rawTargetPost);
+            int player = ResolveTribePlayer(args.TribeId);
+            if (pre && player == 0) ObserveResolutionFailure("tribe-target", args.TribeId);
+            int command = (int)args.AICommand;
+            string detail = "kind=" + args.AICommand + ",a6=" + args.a6;
+            if (pre) Push("target", args.TribeId, player, args.TribeId,
+                command, args.TargetValue1, args.TargetValue2);
+            else Finish("target", args.TribeId, player, args.TribeId, command,
+                args.TargetValue1, args.TargetValue2, args.ReturnValue);
+            if (!IsAi(player)) return;
+            totals.Record(player, 0, pre ? "tribe-target-pre" : "tribe-target-post",
+                pre ? "called" : Result(args.ReturnValue), command, args.TribeId,
+                args.TargetValue1, args.TargetValue2, detail);
         }
 
-        internal void ObserveBuilder(
-            int player,
-            bool completedNormally,
-            bool success,
-            long policyEdges,
-            ulong policyFingerprint)
+        internal void ObserveTribeMove(TribeIssueOrderMoveHereEventArgs args)
         {
-            if (threadDepth <= 0 || threadFrames == null)
-                return;
-            int index = threadDepth - 1;
-            AttackFrame frame = threadFrames[index];
-            if (!frame.Active || frame.PlayerId != player)
-                return;
-            frame.BuilderCalls++;
-            if (completedNormally)
-            {
-                if (success) frame.BuilderSuccesses++;
-                else frame.BuilderNoRoutes++;
-                if (success && policyEdges > 0) frame.BuilderDetours++;
-            }
-            frame.RejectedEdges += policyEdges;
-            if (frame.PolicyFingerprint == 0)
-                frame.PolicyFingerprint = policyFingerprint;
-            threadFrames[index] = frame;
+            if (args.Phase != EventHookPhase.Pre && args.Phase != EventHookPhase.Post)
+            { ObserveUnexpectedPhase("tribe-move", (int)args.Phase); return; }
+            bool pre = args.Phase == EventHookPhase.Pre;
+            if (pre) Interlocked.Increment(ref rawMovePre);
+            else Interlocked.Increment(ref rawMovePost);
+            int player = ResolveTribePlayer(args.TribeId);
+            if (pre && player == 0) ObserveResolutionFailure("tribe-move", args.TribeId);
+            int command = (int)args.MoveType;
+            string detail = "moveType=" + args.MoveType + ",patrol=" + args.IsPatrolPath +
+                ",new=" + args.IsNewOrder;
+            if (pre) Push("move", args.TribeId, player, args.TribeId,
+                command, args.TileX, args.TileY);
+            else Finish("move", args.TribeId, player, args.TribeId, command,
+                args.TileX, args.TileY, args.ReturnValue);
+            if (!IsAi(player)) return;
+            totals.Record(player, 0, pre ? "tribe-move-pre" : "tribe-move-post",
+                pre ? "called" : Result(args.ReturnValue), command, args.TribeId,
+                args.TileX, args.TileY, detail);
         }
 
-        internal void Reset()
+        internal void ObserveUnitMove(UnitMoveHereEventArgs args)
         {
-            Reset(ref orders); Reset(ref completed); Reset(ref skipped);
-            Reset(ref invalidContexts); Reset(ref nestingOverflows); Reset(ref postMismatches);
-            Reset(ref builderCalls); Reset(ref builderSuccesses); Reset(ref builderNoRoutes);
-            Reset(ref builderDetours); Reset(ref rejectedEdges);
-            Array.Clear(commandCounts, 0, commandCounts.Length);
-            Array.Clear(lastCommandCounts, 0, lastCommandCounts.Length);
-            lock (sampleGate)
-            {
-                Array.Clear(samples, 0, samples.Length);
-                sampleCount = 0;
-                publishedSamples = 0;
-            }
-            lastOrders = lastBuilderCalls = lastBuilderSuccesses = 0;
-            lastBuilderNoRoutes = lastBuilderDetours = lastRejectedEdges = 0;
-            threadDepth = 0;
+            if (args.Phase != EventHookPhase.Pre && args.Phase != EventHookPhase.Post)
+            { ObserveUnexpectedPhase("unit-move", (int)args.Phase); return; }
+            bool pre = args.Phase == EventHookPhase.Pre;
+            if (pre) Interlocked.Increment(ref rawUnitPre);
+            else Interlocked.Increment(ref rawUnitPost);
+            int player = ResolveUnitPlayer(args.UnitId, out int tribe, out int command);
+            if (pre && player == 0) ObserveResolutionFailure("unit-move", args.UnitId);
+            if (pre) Push("unit", args.UnitId, player, tribe, command,
+                args.TileX, args.TileY);
+            else Finish("unit", args.UnitId, player, tribe, command,
+                args.TileX, args.TileY, args.ReturnValue);
+            if (!IsAi(player)) return;
+            totals.Record(player, 0, pre ? "unit-move-pre" : "unit-move-post",
+                pre ? "called" : Result(args.ReturnValue), command, tribe,
+                args.TileX, args.TileY, "unit=" + args.UnitId + ",unknown=" + args.Unknown);
         }
 
-        internal string DescribeCheckpoint()
+        internal void ObserveGatePrecheck(int player, int buildingId, int exactGateId,
+            bool vanillaExcluded,
+            bool policyExcluded, NativeGateSnapshotDecision decision, int owner, int captured)
         {
-            long currentOrders = Read(ref orders);
-            long currentBuilders = Read(ref builderCalls);
-            long currentSuccesses = Read(ref builderSuccesses);
-            long currentNoRoutes = Read(ref builderNoRoutes);
-            long currentDetours = Read(ref builderDetours);
-            long currentEdges = Read(ref rejectedEdges);
-            var text = new StringBuilder();
-            text.Append("orders=").Append(currentOrders).Append("(+")
-                .Append(currentOrders - lastOrders).Append("),commands=[");
-            for (int index = 0; index < CommandCount; index++)
-            {
-                if (index != 0) text.Append(',');
-                long count = Read(ref commandCounts[index]);
-                text.Append(CommandName(index)).Append('=').Append(count).Append("(+")
-                    .Append(count - lastCommandCounts[index]).Append(')');
-                lastCommandCounts[index] = count;
-            }
-            text.Append("],completed=").Append(Read(ref completed))
-                .Append(",skipped=").Append(Read(ref skipped))
-                .Append(",builderCalls=").Append(currentBuilders).Append("(+")
-                .Append(currentBuilders - lastBuilderCalls).Append(')')
-                .Append(",builderSuccess=").Append(currentSuccesses).Append("(+")
-                .Append(currentSuccesses - lastBuilderSuccesses).Append(')')
-                .Append(",builderDetours=").Append(currentDetours).Append("(+")
-                .Append(currentDetours - lastBuilderDetours).Append(')')
-                .Append(",builderNoRoute=").Append(currentNoRoutes).Append("(+")
-                .Append(currentNoRoutes - lastBuilderNoRoutes).Append(')')
-                .Append(",policyEdges=").Append(currentEdges).Append("(+")
-                .Append(currentEdges - lastRejectedEdges).Append(')')
-                .Append(",invalidContext=").Append(Read(ref invalidContexts))
-                .Append(",nestingOverflow=").Append(Read(ref nestingOverflows))
-                .Append(",postMismatch=").Append(Read(ref postMismatches))
-                .Append(",samples=").Append(Volatile.Read(ref sampleCount));
-            lastOrders = currentOrders;
-            lastBuilderCalls = currentBuilders;
-            lastBuilderSuccesses = currentSuccesses;
-            lastBuilderNoRoutes = currentNoRoutes;
-            lastBuilderDetours = currentDetours;
-            lastRejectedEdges = currentEdges;
-            return text.ToString();
+            if (!IsAi(player)) return;
+            int gateId = exactGateId > 0 ? exactGateId : 0;
+            if (gateId == 0) Interlocked.Increment(ref unattributedPrechecks);
+            Frame frame = Current();
+            if (frame != null && frame.Player == player && gateId > 0)
+                frame.Gates.Add(gateId);
+            if (gateId > 0 && searches != null && searches.Count > 0)
+                searches[searches.Count - 1].Add(gateId);
+            totals.Record(player, gateId, "gate-precheck",
+                "vanilla=" + (vanillaExcluded ? "closed" : "open") +
+                ",policy=" + (policyExcluded ? "closed" : "open") +
+                ",decision=" + decision,
+                frame?.Command ?? 0, frame?.Tribe ?? 0,
+                frame?.Target1 ?? 0, frame?.Target2 ?? 0,
+                "rawBuildingId=" + buildingId + ",owner=" + owner +
+                ",captured=" + captured);
         }
 
-        internal void ProcessDeferred()
+        internal void ObserveBuilder(int player, bool completed, bool success,
+            long rejectedEdges, ulong fingerprint)
         {
-            lock (sampleGate)
+            HashSet<int> checkedGates = null;
+            if (searches != null && searches.Count > 0)
             {
-                while (publishedSamples < sampleCount)
-                {
-                    AttackSample sample = samples[publishedSamples++];
-                    Shared.DebugLogHelper.LogInfo(log,
-                        "Enemy-gate AI order correlation sample: " + sample.Format());
-                }
-            }
-        }
-
-        private AttackFrame CaptureFrame(
-            TribeIssueOrderWithTargetEventArgs args,
-            int commandIndex)
-        {
-            if (!GameTribeManagerAPI.Instance.TryGetTribeById(
-                    args.TribeId, out GameTribe* tribe) || tribe == null)
-            {
-                Interlocked.Increment(ref invalidContexts);
-                return default;
-            }
-            int player = tribe->r_PlayerIdOwner;
-            if (player <= 0 || player > 8 || !GamePlayerManagerAPI.Instance.IsAIPlayer(player))
-                return default;
-
-            int sourceUnitId = tribe->r_LeaderUnitId;
-            int sourceGlobal = 0, sourceX = -1, sourceY = -1, sourcePcl = 0;
-            if (sourceUnitId > 0 && GameUnitManagerAPI.Instance.TryGetUnitById(
-                    sourceUnitId, out GameUnit* source) && source != null &&
-                source->r_TribeId == args.TribeId)
-            {
-                sourceGlobal = unchecked((int)source->r_GlobalId);
-                sourceX = source->r_CurrentTilePositionX;
-                sourceY = source->r_CurrentTilePositionY;
-                sourcePcl = ReadPcl(sourceX, sourceY);
-            }
-
-            ResolveTarget(args.AICommand, args.TargetValue1, args.TargetValue2,
-                out int targetId, out int targetGlobal, out int targetX,
-                out int targetY, out int targetTile, out int targetPcl);
-            AttackGateDiagnostic gate = topology.CaptureAttackGateDiagnostic(
-                player, sourcePcl, targetPcl);
-            return new AttackFrame
-            {
-                Active = true,
-                CommandIndex = commandIndex,
-                Command = args.AICommand,
-                TribeId = args.TribeId,
-                PlayerId = player,
-                TargetValue1 = args.TargetValue1,
-                TargetValue2 = args.TargetValue2,
-                TargetId = targetId,
-                TargetGlobal = targetGlobal,
-                TargetX = targetX,
-                TargetY = targetY,
-                TargetTile = targetTile,
-                TargetPcl = targetPcl,
-                SourceUnitId = sourceUnitId,
-                SourceGlobal = sourceGlobal,
-                SourceX = sourceX,
-                SourceY = sourceY,
-                SourcePcl = sourcePcl,
-                PolicyFingerprint = gate.PolicyFingerprint,
-                Gate = gate
-            };
-        }
-
-        private void ResolveTarget(
-            TribeAICommand command,
-            int value1,
-            int value2,
-            out int targetId,
-            out int targetGlobal,
-            out int x,
-            out int y,
-            out int tile,
-            out int pcl)
-        {
-            targetId = 0; targetGlobal = 0; x = y = -1; tile = -1; pcl = 0;
-            if (command == TribeAICommand.AttackUnit || command == TribeAICommand.Unknown32)
-            {
-                targetId = value1; targetGlobal = value2;
-                if (targetId > 0 && GameUnitManagerAPI.Instance.TryGetUnitById(
-                        targetId, out GameUnit* unit) && unit != null &&
-                    (targetGlobal == 0 || unchecked((int)unit->r_GlobalId) == targetGlobal))
-                {
-                    x = unit->r_CurrentTilePositionX; y = unit->r_CurrentTilePositionY;
-                    targetGlobal = unchecked((int)unit->r_GlobalId);
-                }
-            }
-            else if (command == TribeAICommand.AttackBuilding)
-            {
-                targetId = value1; targetGlobal = value2;
-                if (targetId > 0 && GameBuildingManagerAPI.Instance.TryGetBuildingById(
-                        targetId, out GameBuilding* building) && building != null &&
-                    (targetGlobal == 0 || unchecked((int)building->r_GlobalId) == targetGlobal))
-                {
-                    x = building->r_TilePositionXBegin; y = building->r_TilePositionYBegin;
-                    targetGlobal = unchecked((int)building->r_GlobalId);
-                }
-            }
-            else if (command == TribeAICommand.AttackWallTileId)
-            {
-                tile = value1;
-                if ((uint)tile < EnemyGatePathfindingNativeDefinition.MaximumTileIdExclusive)
-                {
-                    var position = GameTileManagerAPI.Instance.GetTileVectorFromId(tile);
-                    x = position.X; y = position.Y;
-                }
+                checkedGates = searches[searches.Count - 1];
+                searches.RemoveAt(searches.Count - 1);
             }
             else
             {
-                x = value1; y = value2;
+                Interlocked.Increment(ref errors);
+                totals.Record(player, 0, "diagnostic-error", "builder-without-begin",
+                    0, 0, 0, 0);
             }
-
-            if (tile < 0 && x >= 0 && y >= 0)
-                tile = GameTileManagerAPI.Instance.GetTileId(x, y);
-            if ((uint)tile < EnemyGatePathfindingNativeDefinition.MaximumTileIdExclusive)
-                pcl = GamePathingManagerAPI.Instance.GetPathComponentIdByTileId(tile);
-        }
-
-        private static int ReadPcl(int x, int y) => x >= 0 && y >= 0
-            ? GamePathingManagerAPI.Instance.GetPathComponentId(x, y) : 0;
-
-        private void PublishAndPop(AttackFrame frame, int index)
-        {
-            threadFrames[index] = default;
-            threadDepth = index;
-            Interlocked.Increment(ref completed);
-            Interlocked.Add(ref builderCalls, frame.BuilderCalls);
-            Interlocked.Add(ref builderSuccesses, frame.BuilderSuccesses);
-            Interlocked.Add(ref builderNoRoutes, frame.BuilderNoRoutes);
-            Interlocked.Add(ref builderDetours, frame.BuilderDetours);
-            Interlocked.Add(ref rejectedEdges, frame.RejectedEdges);
-            lock (sampleGate)
+            if (!IsAi(player)) return;
+            Frame frame = Current();
+            if (frame != null && frame.Player == player)
             {
-                for (int sampleIndex = 0; sampleIndex < sampleCount; sampleIndex++)
+                frame.Builders++;
+                if (completed && success) frame.BuilderSuccess++;
+                else frame.BuilderFailure++;
+                frame.RejectedEdges += rejectedEdges;
+            }
+            totals.Record(player, 0, "builder",
+                !completed ? "exception" : success ? "positive" : "no-route",
+                frame?.Command ?? 0, frame?.Tribe ?? 0,
+                frame?.Target1 ?? 0, frame?.Target2 ?? 0,
+                "rejectedEdges=" + rejectedEdges + ",fingerprint=" + fingerprint);
+            string gateSet = checkedGates == null || checkedGates.Count == 0 ? "none" :
+                checkedGates.Count == 1 ? "one:" + FirstGate(checkedGates) :
+                "multiple:" + JoinGates(checkedGates);
+            int gateKey = checkedGates == null || checkedGates.Count == 0 ? 0 :
+                checkedGates.Count == 1 ? FirstGate(checkedGates) : -1;
+            totals.Record(player, gateKey, "builder-gates", gateSet,
+                frame?.Command ?? 0, frame?.Tribe ?? 0,
+                frame?.Target1 ?? 0, frame?.Target2 ?? 0,
+                "completed=" + completed + ",success=" + success +
+                ",rejectedEdges=" + rejectedEdges);
+            Frame order = CurrentTribeOrder(player, frame?.Tribe ?? 0);
+            if (order != null)
+            {
+                if (order.FirstBuilderCategory == null)
+                    order.FirstBuilderCategory = gateSet;
+                else if (order.LastBuilderCategory != gateSet)
                 {
-                    if (samples[sampleIndex].Matches(frame))
-                        return;
+                    order.BuilderCategoryChanges++;
+                    totals.Record(player, gateKey, "order-gate-switch",
+                        order.LastBuilderCategory + "->" + gateSet,
+                        order.Command, order.Tribe, order.Target1, order.Target2);
                 }
-                if (sampleCount >= samples.Length)
-                    return;
-                samples[sampleCount++] = new AttackSample(frame);
+                order.LastBuilderCategory = gateSet;
             }
         }
 
-        private static bool TryGetCommandIndex(TribeAICommand command, out int index)
+        internal void BeginBuilder()
         {
-            switch (command)
+            if (searches == null) searches = new List<HashSet<int>>();
+            searches.Add(new HashSet<int>());
+        }
+
+        internal void ObserveScopeMismatch(string source, int nativePlayer, int tribePlayer)
+        {
+            totals.Record(nativePlayer, 0, "scope-" + source,
+                "mismatch:tribePlayer=" + tribePlayer, 0, 0, 0, 0);
+        }
+
+        private void ObserveUnexpectedPhase(string source, int phase)
+        {
+            Interlocked.Increment(ref errors);
+            totals.Record(0, 0, "diagnostic-error", "unexpected-phase:" + phase,
+                0, 0, 0, 0, source);
+        }
+
+        private void ObserveResolutionFailure(string source, int id)
+        {
+            Interlocked.Increment(ref errors);
+            totals.Record(0, 0, "diagnostic-error", "unresolved-player:" + source,
+                0, 0, id, 0);
+        }
+
+        private void Push(string kind, int id, int player, int tribe, int command,
+            int target1, int target2)
+        {
+            if (active == null) active = new List<Frame>();
+            active.Add(new Frame { Kind = kind, Id = id, Player = player,
+                Tribe = tribe, Command = command, Target1 = target1, Target2 = target2 });
+        }
+
+        private void Finish(string kind, int id, int player, int tribe, int command,
+            int target1, int target2, long returnValue)
+        {
+            Frame frame = Current();
+            if (frame == null || frame.Kind != kind || frame.Id != id)
             {
-                case TribeAICommand.AttackUnit: index = 0; return true;
-                case TribeAICommand.Unknown32: index = 1; return true;
-                case TribeAICommand.AttackBuilding: index = 2; return true;
-                case TribeAICommand.AttackWallTileId: index = 3; return true;
-                case TribeAICommand.DigMoatTileId: index = 4; return true;
-                case TribeAICommand.AttackTilePosition: index = 5; return true;
-                default: index = -1; return false;
+                Interlocked.Increment(ref errors);
+                totals.Record(player, 0, "diagnostic-error", "post-without-matching-pre",
+                    command, tribe, target1, target2, "kind=" + kind + ",id=" + id);
+                return;
             }
-        }
-
-        private static string CommandName(int index)
-        {
-            switch (index)
+            active.RemoveAt(active.Count - 1);
+            string category = frame.Gates.Count == 0 ? "none" :
+                frame.Gates.Count == 1 ? "one:" + FirstGate(frame.Gates) :
+                "multiple:" + JoinGates(frame.Gates);
+            if (IsAi(frame.Player))
+                totals.Record(frame.Player,
+                    kind == "unit" ? (frame.Gates.Count == 1 ? FirstGate(frame.Gates) :
+                        frame.Gates.Count > 1 ? -1 : 0) : 0,
+                    kind + "-context",
+                    category + ",return=" + Result(returnValue),
+                    frame.Command, frame.Tribe, frame.Target1, frame.Target2,
+                    "id=" + id + ",builders=" + frame.Builders +
+                    ",positive=" + frame.BuilderSuccess + ",noRoute=" + frame.BuilderFailure +
+                    ",rejectedEdges=" + frame.RejectedEdges +
+                    ",firstBuilderGates=" + (frame.FirstBuilderCategory ?? "none") +
+                    ",lastBuilderGates=" + (frame.LastBuilderCategory ?? "none") +
+                    ",builderCategoryChanges=" + frame.BuilderCategoryChanges);
+            Frame parent = Current();
+            if (parent != null && parent.Player == player)
             {
-                case 0: return "AttackUnit";
-                case 1: return "Unknown32";
-                case 2: return "AttackBuilding";
-                case 3: return "AttackWallTileId";
-                case 4: return "DigMoatTileId";
-                case 5: return "AttackTilePosition";
-                default: return "Unknown";
+                parent.Gates.UnionWith(frame.Gates);
+                parent.Builders += frame.Builders;
+                parent.BuilderSuccess += frame.BuilderSuccess;
+                parent.BuilderFailure += frame.BuilderFailure;
+                parent.RejectedEdges += frame.RejectedEdges;
             }
         }
 
-        private static long Read(ref long value) => Interlocked.Read(ref value);
-        private static void Reset(ref long value) => Interlocked.Exchange(ref value, 0);
-
-        private struct AttackFrame
+        private static Frame Current() => active != null && active.Count > 0
+            ? active[active.Count - 1] : null;
+        private static Frame CurrentTribeOrder(int player, int tribe)
         {
-            internal bool Active;
-            internal int CommandIndex, TribeId, PlayerId, TargetValue1, TargetValue2;
-            internal TribeAICommand Command;
-            internal int TargetId, TargetGlobal, TargetX, TargetY, TargetTile, TargetPcl;
-            internal int SourceUnitId, SourceGlobal, SourceX, SourceY, SourcePcl;
-            internal ulong PolicyFingerprint;
-            internal AttackGateDiagnostic Gate;
-            internal long BuilderCalls, BuilderSuccesses, BuilderNoRoutes,
-                BuilderDetours, RejectedEdges;
+            if (active == null) return null;
+            for (int index = active.Count - 1; index >= 0; index--)
+            {
+                Frame frame = active[index];
+                if (frame.Player == player && frame.Tribe == tribe &&
+                    frame.Kind != "unit") return frame;
+            }
+            return null;
+        }
+        private static int FirstGate(HashSet<int> gates)
+        { foreach (int gate in gates) return gate; return 0; }
+        private static string JoinGates(HashSet<int> gates)
+        { var sorted = new List<int>(gates); sorted.Sort(); return string.Join("/", sorted); }
+        private static string Result(long value) => value > 0 ? "positive" :
+            value == 0 ? "zero" : "negative";
+        private static bool IsAi(int player) => player > 0 && player <= 8 &&
+            GamePlayerManagerAPI.Instance.IsAIPlayer(player);
+        private static int ResolveTribePlayer(int tribeId)
+        {
+            if (tribeId <= 0 || !GameTribeManagerAPI.Instance.TryGetTribeById(
+                tribeId, out GameTribe* tribe) || tribe == null) return 0;
+            return tribe->r_PlayerIdOwner;
+        }
+        private static int ResolveUnitPlayer(int unitId, out int tribeId, out int command)
+        {
+            tribeId = command = 0;
+            if (unitId <= 0 || !GameUnitManagerAPI.Instance.TryGetUnitById(
+                unitId, out GameUnit* unit) || unit == null) return 0;
+            tribeId = unit->r_TribeId;
+            command = (int)unit->r_AI_LastIssuedTribeCommand;
+            return tribeId > 0 ? ResolveTribePlayer(tribeId) : 0;
         }
 
-        private readonly struct AttackSample
+        internal void ProcessDeferred() { }
+        internal string DescribeCheckpoint()
         {
-            private readonly AttackFrame frame;
-            internal AttackSample(AttackFrame frame) { this.frame = frame; }
-            internal bool Matches(AttackFrame candidate) =>
-                frame.TribeId == candidate.TribeId && frame.Command == candidate.Command &&
-                frame.TargetValue1 == candidate.TargetValue1 &&
-                frame.TargetValue2 == candidate.TargetValue2;
-            internal string Format() =>
-                "tribe=" + frame.TribeId + ",player=" + frame.PlayerId +
-                ",command=" + frame.Command + ",targetRaw=" + frame.TargetValue1 + "/" +
-                frame.TargetValue2 + ",targetId=" + frame.TargetId + ",targetGlobal=" +
-                frame.TargetGlobal + ",targetXY=" + frame.TargetX + "/" + frame.TargetY +
-                ",targetTile=" + frame.TargetTile + ",targetPcl=" + frame.TargetPcl +
-                ",sourceUnit=" + frame.SourceUnitId + "/g" + frame.SourceGlobal +
-                ",sourceXY=" + frame.SourceX + "/" + frame.SourceY +
-                ",sourcePcl=" + frame.SourcePcl + ",policyFingerprint=0x" +
-                frame.PolicyFingerprint.ToString("X16") + ",builders=" + frame.BuilderCalls +
-                ",success=" + frame.BuilderSuccesses + ",detours=" + frame.BuilderDetours +
-                ",noRoute=" + frame.BuilderNoRoutes + ",policyEdges=" + frame.RejectedEdges +
-                ",gate=[" + frame.Gate.Format() + "]";
+            AiGateDecisionAggregate.RowSnapshot[] rows = totals.Drain();
+            foreach (var row in rows)
+                Shared.DebugLogHelper.LogInfo(log, "Enemy-gate AI decision: " + row + ".");
+            return "observations=" + totals.Observations + ",activeCombinations=" + rows.Length +
+                ",raw(targetPre=" + Interlocked.Read(ref rawTargetPre) +
+                ",targetPost=" + Interlocked.Read(ref rawTargetPost) +
+                ",tribeMovePre=" + Interlocked.Read(ref rawMovePre) +
+                ",tribeMovePost=" + Interlocked.Read(ref rawMovePost) +
+                ",unitPre=" + Interlocked.Read(ref rawUnitPre) +
+                ",unitPost=" + Interlocked.Read(ref rawUnitPost) +
+                "),unattributedPrechecks=" + Interlocked.Read(ref unattributedPrechecks) +
+                ",diagnosticErrors=" + Interlocked.Read(ref errors);
         }
     }
 }

@@ -5,6 +5,7 @@ using SHCDESE.API;
 using SHCDESE.API.LowLevel;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Tribes;
+using SHCDESE.EventAPI.Units;
 using System;
 using System.Diagnostics;
 using System.Reflection;
@@ -32,6 +33,8 @@ namespace EnemyGatePathfindingTest
         private static IDisposable mapStartSubscription;
         private static IDisposable mapUnloadSubscription;
         private static IDisposable targetOrderSubscription;
+        private static IDisposable tribeMoveSubscription;
+        private static IDisposable unitMoveSubscription;
         private static bool librarySubscriptionInstalled;
         private static bool beforeRenderInstalled;
         private static bool gameTickInstalled;
@@ -66,6 +69,12 @@ namespace EnemyGatePathfindingTest
                 targetOrderSubscription = TribeR3EventHooks.OnTribeIssueOrderWithTarget.Observable
                     .Subscribe(ObserveTargetOrder);
             }
+            if (tribeMoveSubscription == null)
+                tribeMoveSubscription = TribeR3EventHooks.OnTribeIssueOrderMoveHere.Observable
+                    .Subscribe(ObserveTribeMove);
+            if (unitMoveSubscription == null)
+                unitMoveSubscription = UnitR3EventHooks.OnUnitMoveHere.Observable
+                    .Subscribe(ObserveUnitMove);
             if (!beforeRenderInstalled)
             {
                 // UPDATE REVIEW (Unity/Script Extender): this proven persistent static
@@ -128,6 +137,12 @@ namespace EnemyGatePathfindingTest
 
         private static void ObserveTargetOrder(TribeIssueOrderWithTargetEventArgs args) =>
             runtime?.ObserveTargetOrder(args);
+
+        private static void ObserveTribeMove(TribeIssueOrderMoveHereEventArgs args) =>
+            runtime?.ObserveTribeMove(args);
+
+        private static void ObserveUnitMove(UnitMoveHereEventArgs args) =>
+            runtime?.ObserveUnitMove(args);
 
         private static void LogScriptExtenderIdentity()
         {
