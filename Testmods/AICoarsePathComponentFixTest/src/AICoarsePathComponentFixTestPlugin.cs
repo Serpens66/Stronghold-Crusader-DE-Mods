@@ -25,6 +25,9 @@ namespace AICoarsePathComponentFixTest
         private static bool subscribed;
         private static int isolationMode;
         private static bool tickSubscribed;
+        private static WoodSiteGuardExperiment woodGuard;
+        private static bool woodGuardRequested;
+        private static string woodGuardScope;
 
         private void Awake()
         {
@@ -35,10 +38,17 @@ namespace AICoarsePathComponentFixTest
                 "3=detour+cache+calculation; 4=detour+cache+calculation+diagnostic publisher. " +
                 "5=tick-only calculation and publisher without native detour. " +
                 "Modes 1-5 are for an expendable save copy only.").Value;
+            woodGuardRequested = Config.Bind("WoodSiteGuard", "Enabled", false,
+                "Opt-in native wood-only candidate guard. Disable AIBuildDiagnoseTest NearbyWoodTest first; " +
+                "test on the disposable Canari save copy and the Rat control map before using an original save.").Value;
+            woodGuardScope = Config.Bind("WoodSiteGuard", "Scope", "CopyOnly",
+                "CopyOnly enables the guard only for test_canari_nowoodcutters_probe.sav; " +
+                "RatControl enables it only for a new game on spezialist 3vs5.map.").Value;
             CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;
             subscribed = true;
             Shared.DebugLogHelper.LogInfo(log, Name + " " + Version +
-                $" loaded; isolationMode={isolationMode}; observationOnly=True; writes=0.");
+                $" loaded; isolationMode={isolationMode}; woodGuardRequested={woodGuardRequested}; " +
+                $"woodGuardScope={woodGuardScope}; coarseWrites=0.");
         }
 
         private static void OnLibraryLoaded(CrusaderLibraryLoadContext context)
@@ -64,6 +74,20 @@ namespace AICoarsePathComponentFixTest
             {
                 Shared.DebugLogHelper.LogError(log, "AI_COARSE_PCL_TEST_UNAVAILABLE: " + ex);
             }
+            if (woodGuardRequested && woodGuard == null)
+            {
+                try
+                {
+                    if (isolationMode != 0)
+                        throw new InvalidOperationException("Wood guard requires safe isolation mode 0.");
+                    woodGuard = new WoodSiteGuardExperiment(log,
+                        unchecked((ulong)context.ModuleHandle.ToInt64()), woodGuardScope);
+                }
+                catch (Exception ex)
+                {
+                    Shared.DebugLogHelper.LogError(log, "AI_WOOD_SITE_GUARD_UNAVAILABLE: " + ex);
+                }
+            }
         }
 
         private static void OnOverlayRestored()
@@ -81,6 +105,11 @@ namespace AICoarsePathComponentFixTest
             catch (Exception ex)
             {
                 Shared.DebugLogHelper.LogError(log, "AI_COARSE_PCL_TEST_TICK_FAILED: " + ex);
+            }
+            try { woodGuard?.OnTick(tick); }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(log, "AI_WOOD_SITE_GUARD_TICK_FAILED: " + ex);
             }
         }
     }

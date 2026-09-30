@@ -9,11 +9,14 @@ namespace BugfixesAndQoL
         public static int Normalize(int value) =>
             value < Minimum || value > Maximum ? Default : value;
 
+        public static bool CanOverrideVanillaSpacing(int vanillaSpacing) =>
+            vanillaSpacing == Default;
+
         public static int ResolveEffectiveSpacing(
             int vanillaSpacing,
             int commandSpacing,
             bool overrideEnabled) =>
-            overrideEnabled && vanillaSpacing >= Minimum && vanillaSpacing <= Maximum
+            overrideEnabled && CanOverrideVanillaSpacing(vanillaSpacing)
                 ? Normalize(commandSpacing)
                 : vanillaSpacing;
 
@@ -122,7 +125,8 @@ namespace BugfixesAndQoL
                 int count = VanillaCounts[vanilla];
                 if (count == 0)
                     continue;
-                int effective = ConfiguredSpacing;
+                int effective = MoveFormationSpacingPolicy.CanOverrideVanillaSpacing(vanilla)
+                    ? ConfiguredSpacing : vanilla;
                 transitions.Add($"{vanilla}->{effective}:{count}");
             }
             if (inferredAssassinStructureCalls != 0)

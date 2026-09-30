@@ -39,7 +39,10 @@ namespace AIBuildDiagnoseTest
         private readonly bool fixesLoaded;
         private readonly bool placementProbeEnabled;
         private readonly bool nearbyWoodTestEnabled;
-        private bool nearbyCopySession, nearbyCalibrated, nearbyTestDisabled, nearbyTestUsed;
+        private const int NearbyCopyMaxApplications = 12;
+        private bool nearbyCopySession, nearbyCalibrated, nearbyTestDisabled;
+        private int nearbyCopyApplications;
+        private int nearbyAlternativeTraces;
         private int nearbyCalibrationAttempts;
         private readonly bool[] nearbyDetailedByPlayer = new bool[9];
         private readonly IDisposable buildingSubscription;
@@ -195,9 +198,11 @@ namespace AIBuildDiagnoseTest
                     $"unflushedLines={deferredLog.Count}; MissionEvents.Ended normally flushes before this point.");
             }
             active = false;
-            nearbyCopySession = nearbyCalibrated = nearbyTestUsed = false;
+            nearbyCopySession = nearbyCalibrated = false;
+            nearbyCopyApplications = 0;
             nearbyTestDisabled = false;
             nearbyCalibrationAttempts = 0;
+            nearbyAlternativeTraces = 0;
             Array.Clear(nearbyDetailedByPlayer, 0, nearbyDetailedByPlayer.Length);
             gridState = 0;
             gridSequence = 0;
@@ -251,8 +256,10 @@ namespace AIBuildDiagnoseTest
             nearbyCopySession = active && session.IsLoadedSave && nearbyWoodTestEnabled &&
                 string.Equals(Path.GetFileName(session.SaveFileName ?? ""), ProbeSaveName,
                     StringComparison.OrdinalIgnoreCase);
-            nearbyCalibrated = nearbyTestDisabled = nearbyTestUsed = false;
+            nearbyCalibrated = nearbyTestDisabled = false;
+            nearbyCopyApplications = 0;
             nearbyCalibrationAttempts = 0;
+            nearbyAlternativeTraces = 0;
             Array.Clear(nearbyDetailedByPlayer, 0, nearbyDetailedByPlayer.Length);
             probePending = probeDone = probeRunning = false;
             probeAttemptId = probeSpawnId = 0;
@@ -1548,43 +1555,76 @@ namespace AIBuildDiagnoseTest
         private static readonly int[] NearbyDx = { 0, 1, 1, 1, 0, -1, -1, -1 };
         private static readonly int[] NearbyDy = { -1, -1, 0, 1, 1, 1, 0, -1 };
 
-        private static string DescribeNearbyFootprint(int coarseX, int coarseY)
+        private sealed class NearbyFootprint
         {
+            internal bool Complete;
+            internal int AnchorNative = -1, AnchorApi = -1;
+            internal int Bit4, Zero, Swamp, Wall, WallOwners, Trees, Buildings, Organisms, Occupied,
+                Unavailable, ViewMismatches;
+            internal string Tiles;
+            internal string FirstObservedConstraint;
+            internal bool ExcludeForCopyProbe => Complete && (AnchorNative == 0 || Bit4 != 0);
+            internal bool NoMeasuredBlockers => Complete && AnchorNative > 0 && Zero == 0 && Bit4 == 0 &&
+                Swamp == 0 && Wall == 0 && WallOwners == 0 && Trees == 0 && Buildings == 0 &&
+                Organisms == 0 && Occupied == 0;
+            internal string Describe() =>
+                $"anchor={AnchorNative}/{AnchorApi}:bit4={Bit4}:pcl0={Zero}:" +
+                $"swamp={Swamp}:wall={Wall}:wallOwner={WallOwners}:tree={Trees}:building={Buildings}:" +
+                $"organism={Organisms}:occupied={Occupied}:unavailable={Unavailable}:" +
+                $"viewMismatches={ViewMismatches}:" +
+                $"firstObservedConstraint={FirstObservedConstraint}:nativePlacementUnobserved=true:" +
+                $"tiles=[{Tiles}]";
+        }
+
+        private static NearbyFootprint CaptureNearbyFootprint(int coarseX, int coarseY)
+        {
+            var result = new NearbyFootprint();
             IReadOnlyList<AiPathTileSample> tiles = AiBuildDiagnostic.CaptureTiles(
                 coarseX * 5, coarseY * 5, 3, 3);
-            if (tiles.Count != 9) return "unavailable:tile-count=" + tiles.Count;
-            int unavailable = 0, bit4 = 0, zero = 0, swamp = 0, wall = 0;
-            int trees = 0, buildings = 0, organisms = 0, occupied = 0;
+            if (tiles.Count != 9)
+            {
+                result.Unavailable = 9;
+                result.Tiles = "tile-count=" + tiles.Count;
+                result.FirstObservedConstraint = "tile-count-unavailable";
+                return result;
+            }
             var raw = new StringBuilder();
             foreach (AiPathTileSample tile in tiles)
             {
                 if (raw.Length != 0) raw.Append('|');
                 raw.Append(tile.X).Append('/').Append(tile.Y).Append(':').Append(tile.Status);
-                if (tile.Status != "ok") { unavailable++; continue; }
+                if (tile.Status != "ok") { result.Unavailable++; continue; }
                 raw.Append(':').Append(tile.NativeComponent).Append('/')
                     .Append(tile.ApiComponent).Append(':').Append(tile.PropertyFlags.ToString("X8"))
                     .Append(':').Append(tile.BuildingId).Append(':').Append(tile.Organism)
-                    .Append(':').Append(tile.Occupancy).Append(':').Append(tile.Height);
-                if ((tile.PropertyFlags & NativePlacementReservationFlag) != 0) bit4++;
-                if (tile.NativeComponent == 0) zero++;
-                if ((tile.PropertyFlags & 0x20000000u) != 0) swamp++;
-                if ((tile.PropertyFlags & 0x100u) != 0) wall++;
-                if ((tile.PropertyFlags & (uint)TilePropertyFlag.IsTree) != 0) trees++;
-                if (tile.BuildingId > 0) buildings++;
-                if (tile.Organism > 0) organisms++;
-                if (tile.Occupancy > 0) occupied++;
+                    .Append(':').Append(tile.Occupancy).Append(':').Append(tile.Height)
+                    .Append(':').Append(tile.TileType).Append(':').Append(tile.WallOwner)
+                    .Append(':').Append(tile.TileId);
+                if ((tile.PropertyFlags & NativePlacementReservationFlag) != 0) result.Bit4++;
+                if (tile.NativeComponent == 0) result.Zero++;
+                if (tile.NativeComponent != tile.ApiComponent) result.ViewMismatches++;
+                if ((tile.PropertyFlags & 0x20000000u) != 0) result.Swamp++;
+                if ((tile.PropertyFlags & 0x100u) != 0) result.Wall++;
+                if (tile.WallOwner > 0) result.WallOwners++;
+                if ((tile.PropertyFlags & (uint)TilePropertyFlag.IsTree) != 0) result.Trees++;
+                if (tile.BuildingId > 0) result.Buildings++;
+                if (tile.Organism > 0) result.Organisms++;
+                if (tile.Occupancy > 0) result.Occupied++;
             }
             AiPathTileSample anchor = tiles[0];
-            string firstObservedConstraint = unavailable != 0 ? "tile-unavailable" :
+            result.AnchorNative = anchor.NativeComponent;
+            result.AnchorApi = anchor.ApiComponent;
+            result.Tiles = raw.ToString();
+            result.Complete = result.Unavailable == 0 && result.ViewMismatches == 0;
+            result.FirstObservedConstraint = result.Unavailable != 0 ? "tile-unavailable" :
+                result.ViewMismatches != 0 ? "native-api-pcl-view-mismatch" :
                 anchor.NativeComponent == 0 ? "anchor-component-zero" :
-                bit4 != 0 ? "parcel-bit4-native-placement-blocker" :
-                wall != 0 ? "wall-flag" : swamp != 0 ? "swamp-flag" :
-                buildings != 0 ? "building-layer" : "none-of-measured-flags";
-            return $"anchor={anchor.NativeComponent}/{anchor.ApiComponent}:bit4={bit4}:pcl0={zero}:" +
-                $"swamp={swamp}:wall={wall}:tree={trees}:building={buildings}:" +
-                $"organism={organisms}:occupied={occupied}:unavailable={unavailable}:" +
-                $"firstObservedConstraint={firstObservedConstraint}:nativePlacementUnobserved=true:" +
-                $"tiles=[{raw}]";
+                result.Bit4 != 0 ? "parcel-bit4-native-placement-blocker" :
+                result.Wall != 0 ? "wall-flag" : result.Swamp != 0 ? "swamp-flag" :
+                result.Buildings != 0 ? "building-layer" :
+                result.Trees != 0 || result.Organisms != 0 || result.Occupied != 0 ?
+                "other-measured-occupancy" : "none-of-measured-flags";
+            return result;
         }
 
         private sealed class NearbyWoodShadow
@@ -1593,11 +1633,20 @@ namespace AIBuildDiagnoseTest
             internal int TraceOmitted, FootprintOmitted;
             internal bool Valid = true;
             internal string Error;
-            internal readonly List<int> ZeroCandidates = new List<int>();
+            internal NearbyFootprint ExpectedFootprint;
+            internal readonly List<NearbyMaskedCandidate> MaskedCandidates =
+                new List<NearbyMaskedCandidate>();
+            internal readonly List<string> CandidateTrace = new List<string>();
             internal readonly List<string> Trace = new List<string>();
         }
 
-        private NearbyWoodShadow ReplayNearbyWood(AiNearbyPathEvidence evidence, bool excludeZero,
+        private sealed class NearbyMaskedCandidate
+        {
+            internal int Index;
+            internal string Reason, FootprintTiles;
+        }
+
+        private NearbyWoodShadow ReplayNearbyWood(AiNearbyPathEvidence evidence, bool excludeInvalidFootprint,
             bool trace)
         {
             var result = new NearbyWoodShadow();
@@ -1640,13 +1689,15 @@ namespace AIBuildDiagnoseTest
                     { result.Valid = false; result.Error = "missing-candidate-cell"; return result; }
                     result.Visited++;
                     string rejection = CoarseFailure(cell);
+                    NearbyFootprint footprint = null;
                     if (trace)
                     {
                         // Bound detailed tile reads inside the existing nearby-search callback.
                         // Every coarse-eligible candidate is retained even beyond this limit.
-                        bool footprint = result.Visited <= 128 || rejection == "none-coarse-eligible";
-                        if (!footprint) result.FootprintOmitted++;
-                        string placement = footprint ? DescribeNearbyFootprint(x, y) : "not-sampled-limit";
+                        bool includeFootprint = result.Visited <= 128 || rejection == "none-coarse-eligible";
+                        if (!includeFootprint) result.FootprintOmitted++;
+                        string placement = includeFootprint ?
+                            (footprint = CaptureNearbyFootprint(x, y)).Describe() : "not-sampled-limit";
                         if (result.Trace.Count < 2048 || rejection == "none-coarse-eligible")
                             result.Trace.Add($"cell=({x},{y}), parent=({cx},{cy}), direction={direction}, " +
                                 $"depth={unchecked((sbyte)parent[1]) + 1}, foreign={(sbyte)cell[0]}, " +
@@ -1660,16 +1711,38 @@ namespace AIBuildDiagnoseTest
                         AiPathTileSample anchor = evidence.GetCapturedAnchor(x, y);
                         if (anchor == null || anchor.NativeComponent != anchor.ApiComponent)
                         { result.Valid = false; result.Error = $"anchor-view-mismatch-({x},{y})"; return result; }
-                        if (excludeZero && anchor.NativeComponent == 0)
-                            result.ZeroCandidates.Add(index);
-                        else
-                        { result.X = x; result.Y = y; return result; }
+                        if (excludeInvalidFootprint)
+                        {
+                            if (result.CandidateTrace.Count >= 256)
+                            { result.Valid = false; result.Error = "candidate-audit-limit-256"; return result; }
+                            footprint = footprint ?? CaptureNearbyFootprint(x, y);
+                            if (!footprint.Complete || anchor.NativeComponent != footprint.AnchorNative)
+                            { result.Valid = false; result.Error = $"footprint-view-unavailable-({x},{y})"; return result; }
+                            string reason = anchor.NativeComponent == 0 && footprint.Bit4 != 0 ?
+                                "anchor-component-zero+parcel-bit4-in-3x3" :
+                                anchor.NativeComponent == 0 ? "anchor-component-zero" :
+                                footprint.Bit4 != 0 ? "parcel-bit4-in-3x3" : "no-proven-exclusion";
+                            result.CandidateTrace.Add($"cell=({x},{y}), coarse={evidence.GetCapturedCoarseCell(x, y).Bytes}, " +
+                                $"decision={reason}, footprint={footprint.Describe()}");
+                            if (footprint.ExcludeForCopyProbe)
+                                result.MaskedCandidates.Add(new NearbyMaskedCandidate
+                                { Index = index, Reason = reason, FootprintTiles = footprint.Tiles });
+                            else
+                            {
+                                result.X = x; result.Y = y;
+                                result.ExpectedFootprint = footprint;
+                                return result;
+                            }
+                        }
+                        else { result.X = x; result.Y = y; return result; }
                     }
                     if (tail >= queue.Length)
                     { result.Valid = false; result.Error = "queue-overflow"; return result; }
                     queue[tail++] = index;
                 }
             }
+            if (excludeInvalidFootprint && result.X < 0 && result.Valid)
+            { result.Valid = false; result.Error = "no-unmasked-candidate"; }
             return result;
         }
 
@@ -1682,8 +1755,24 @@ namespace AIBuildDiagnoseTest
             bool detailed = !nearbyDetailedByPlayer[playerId];
             if (detailed) nearbyDetailedByPlayer[playerId] = true;
             attempt.NormalNearby = ReplayNearbyWood(attempt.NearbyBefore, false, detailed);
-            if (nearbyCopySession && playerId == ProbePlayer)
+            if (nearbyCopySession && playerId == ProbePlayer &&
+                nearbyCopyApplications < NearbyCopyMaxApplications)
                 attempt.AlternativeNearby = ReplayNearbyWood(attempt.NearbyBefore, true, false);
+            if (attempt.AlternativeNearby != null && nearbyAlternativeTraces < 2)
+            {
+                nearbyAlternativeTraces++;
+                foreach (string line in attempt.AlternativeNearby.CandidateTrace)
+                    QueueDiagnostic($"AI_BUILD_NEARBY_COPY_CANDIDATE: session={sessionId}, " +
+                        $"attempt={attemptId}, player={playerId}, {line}", true);
+                QueueDiagnostic($"AI_BUILD_NEARBY_COPY_PREDICTION: session={sessionId}, " +
+                    $"attempt={attemptId}, player={playerId}, normal=({attempt.NormalNearby.X}," +
+                    $"{attempt.NormalNearby.Y}), predicted=({attempt.AlternativeNearby.X}," +
+                    $"{attempt.AlternativeNearby.Y}), masked={attempt.AlternativeNearby.MaskedCandidates.Count}, " +
+                    $"visited={attempt.AlternativeNearby.Visited}, valid={attempt.AlternativeNearby.Valid}, " +
+                    $"probeEligible={attempt.AlternativeNearby.ExpectedFootprint?.NoMeasuredBlockers ?? false}, " +
+                    $"error={attempt.AlternativeNearby.Error}, predictedFootprint=" +
+                    $"{attempt.AlternativeNearby.ExpectedFootprint?.Describe() ?? "unavailable"}.", true);
+            }
             if (detailed)
             {
                 foreach (string line in attempt.NormalNearby.Trace)
@@ -1693,7 +1782,7 @@ namespace AIBuildDiagnoseTest
                     $"input=({attempt.NearbyBefore?.InputX},{attempt.NearbyBefore?.InputY}), " +
                     $"normal=({attempt.NormalNearby.X},{attempt.NormalNearby.Y}), " +
                     $"alternative=({attempt.AlternativeNearby?.X},{attempt.AlternativeNearby?.Y}), " +
-                    $"excludedZero={attempt.AlternativeNearby?.ZeroCandidates.Count ?? 0}, " +
+                    $"excludedAnchorOrBit4={attempt.AlternativeNearby?.MaskedCandidates.Count ?? 0}, " +
                     $"normalValid={attempt.NormalNearby.Valid}:{attempt.NormalNearby.Error}, " +
                     $"alternativeValid={attempt.AlternativeNearby?.Valid.ToString() ?? "unobserved"}:" +
                     $"{attempt.AlternativeNearby?.Error}, visited={attempt.NormalNearby.Visited}, " +
@@ -1728,7 +1817,8 @@ namespace AIBuildDiagnoseTest
 
         internal Action BeginNearbyWoodOverlay(ulong state, int playerId, int x, int y)
         {
-            if (!nearbyCopySession || !nearbyCalibrated || nearbyTestDisabled || nearbyTestUsed ||
+            if (!nearbyCopySession || !nearbyCalibrated || nearbyTestDisabled ||
+                nearbyCopyApplications >= NearbyCopyMaxApplications ||
                 playerId != ProbePlayer || !AiBuildDiagnostic.TryGetCurrentWoodAttempt(
                     out long attemptId, out int owner) || owner != playerId ||
                 !attempts.TryGetValue(attemptId, out Attempt attempt) ||
@@ -1738,12 +1828,21 @@ namespace AIBuildDiagnoseTest
                 attempt.NormalNearby.Y != 97 || attempt.AlternativeNearby == null ||
                 !attempt.AlternativeNearby.Valid ||
                 attempt.AlternativeNearby.X < 0 || attempt.AlternativeNearby.Y < 0 ||
-                attempt.AlternativeNearby.ZeroCandidates.Count == 0) return null;
+                attempt.AlternativeNearby.MaskedCandidates.Count == 0 ||
+                attempt.AlternativeNearby.ExpectedFootprint == null ||
+                !attempt.AlternativeNearby.ExpectedFootprint.NoMeasuredBlockers) return null;
             var changed = new List<long>();
             try
             {
-                foreach (int index in attempt.AlternativeNearby.ZeroCandidates)
+                NearbyFootprint expectedLive = CaptureNearbyFootprint(
+                    attempt.AlternativeNearby.X, attempt.AlternativeNearby.Y);
+                if (!expectedLive.NoMeasuredBlockers ||
+                    !string.Equals(expectedLive.Tiles,
+                        attempt.AlternativeNearby.ExpectedFootprint.Tiles, StringComparison.Ordinal))
+                    throw new InvalidOperationException("Predicted clear footprint changed before overlay.");
+                foreach (NearbyMaskedCandidate candidate in attempt.AlternativeNearby.MaskedCandidates)
                 {
+                    int index = candidate.Index;
                     int cx = index / 160, cy = index % 160;
                     int[] prior = ParseCoarseBytes(attempt.NearbyBefore.GetCapturedCoarseCell(cx, cy));
                     long cell = checked((long)state + 0x5B834 + (long)index * 0x30);
@@ -1755,16 +1854,26 @@ namespace AIBuildDiagnoseTest
                             if (live[i] != prior[i]) { same = false; break; }
                     if (!same)
                         throw new InvalidOperationException($"Coarse memory changed before overlay at ({cx},{cy}).");
-                    AiPathTileSample anchor = attempt.NearbyBefore.GetCapturedAnchor(cx, cy);
-                    if (anchor == null || anchor.NativeComponent != 0 || anchor.ApiComponent != 0)
-                        throw new InvalidOperationException($"Anchor views differ before overlay at ({cx},{cy}).");
+                    NearbyFootprint liveFootprint = CaptureNearbyFootprint(cx, cy);
+                    if (!liveFootprint.ExcludeForCopyProbe ||
+                        !string.Equals(liveFootprint.Tiles, candidate.FootprintTiles,
+                            StringComparison.Ordinal))
+                        throw new InvalidOperationException($"Masked footprint changed before overlay at ({cx},{cy}).");
                     changed.Add(cell);
                     Marshal.WriteByte(new IntPtr(cell), 1);
                 }
-                attempt.NearbyOverlayApplied = nearbyTestUsed = true;
+                attempt.NearbyOverlayApplied = true;
+                nearbyCopyApplications++;
                 QueueDiagnostic($"AI_BUILD_NEARBY_TEST_APPLIED: session={sessionId}, attempt={attemptId}, " +
                     $"player={playerId}, input=({x},{y}), expected=({attempt.AlternativeNearby.X}," +
-                    $"{attempt.AlternativeNearby.Y}), masked={changed.Count}, onlyForeignCounter=0-to-1.", true);
+                    $"{attempt.AlternativeNearby.Y}), masked={changed.Count}, " +
+                    $"application={nearbyCopyApplications}/{NearbyCopyMaxApplications}, " +
+                    $"reasons={string.Join("|", attempt.AlternativeNearby.MaskedCandidates.ConvertAll(c =>
+                        $"({c.Index / 160},{c.Index % 160}):{c.Reason}"))}, " +
+                    "onlyForeignCounter=0-to-1; restoreScheduledAfterSingleVanillaCall=true.", true);
+                if (nearbyCopyApplications == NearbyCopyMaxApplications)
+                    QueueDiagnostic($"AI_BUILD_NEARBY_TEST_LIMIT_REACHED: session={sessionId}, " +
+                        $"applications={nearbyCopyApplications}; further calls are observation-only.", true);
                 return () => RestoreNearbyWoodOverlay(changed, attemptId);
             }
             catch (Exception ex)
@@ -1778,15 +1887,18 @@ namespace AIBuildDiagnoseTest
 
         private void RestoreNearbyWoodOverlay(List<long> changed, long attemptId)
         {
-            bool drift = false;
+            bool drift = false, failed = false;
             foreach (long address in changed)
             {
-                if (Marshal.ReadByte(new IntPtr(address)) != 1) drift = true;
-                Marshal.WriteByte(new IntPtr(address), 0);
+                try { if (Marshal.ReadByte(new IntPtr(address)) != 1) drift = true; }
+                catch { drift = true; }
+                // Restore every touched cell even if another read or write fails.
+                try { Marshal.WriteByte(new IntPtr(address), 0); }
+                catch { failed = true; }
             }
-            if (drift) nearbyTestDisabled = true;
+            if (drift || failed) nearbyTestDisabled = true;
             QueueDiagnostic($"AI_BUILD_NEARBY_TEST_RESTORED: session={sessionId}, attempt={attemptId}, " +
-                $"count={changed.Count}, unexpectedCounterChange={drift}.", true);
+                $"count={changed.Count}, unexpectedCounterChange={drift}, restoreFailed={failed}.", true);
         }
 
         private void LogPlayers(string phase)

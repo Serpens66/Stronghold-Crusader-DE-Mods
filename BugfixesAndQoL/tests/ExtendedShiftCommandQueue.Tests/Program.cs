@@ -171,11 +171,18 @@ internal static class Program
         foreach (int configuredSpacing in new[] { 1, 2, 3, 4 })
         {
             Check(MoveFormationSpacingPolicy.ResolveEffectiveSpacing(
-                    vanillaSpacing, configuredSpacing, overrideEnabled: true) == configuredSpacing,
-                $"normal Vanilla spacing {vanillaSpacing} accepts configured {configuredSpacing}");
+                    vanillaSpacing, configuredSpacing, overrideEnabled: true) ==
+                  (vanillaSpacing == MoveFormationSpacingPolicy.Default
+                      ? configuredSpacing : vanillaSpacing),
+                $"Vanilla spacing {vanillaSpacing} only permits overriding ordinary spacing");
         }
         Check(MoveFormationSpacingPolicy.ResolveEffectiveSpacing(3, 4, overrideEnabled: false) == 3,
             "disabled Move formation feature preserves Vanilla Assassin spacing");
+        Check(!MoveFormationSpacingPolicy.CanOverrideVanillaSpacing(1) &&
+              MoveFormationSpacingPolicy.CanOverrideVanillaSpacing(2) &&
+              !MoveFormationSpacingPolicy.CanOverrideVanillaSpacing(3) &&
+              !MoveFormationSpacingPolicy.CanOverrideVanillaSpacing(4),
+            "keep and special-unit spacing remain owned by Vanilla");
 
         object owner = new object();
         MoveFormationUnitIdentity[] identities = Enumerable.Range(1, 200)
@@ -183,16 +190,16 @@ internal static class Program
             .ToArray();
         MoveFormationCommandSnapshotStore.Begin(owner, 7, 30, 40, 4, identities);
         MoveFormationCommandSnapshotStore.Observe(
-            owner, MoveFormationSelector.AssassinGround, 3, 4);
+            owner, MoveFormationSelector.AssassinGround, 2, 4);
         Check(MoveFormationCommandSnapshotStore.TryConsume(
                 7, 30, 40, out MoveFormationCommandSnapshot snapshot) &&
               snapshot.Units.Length == 200 &&
               snapshot.Units[0].UnitId == 1 && snapshot.Units[0].GlobalId == 1001 &&
               snapshot.Audit is MoveFormationSpacingAudit audit &&
               audit.AssassinGroundCalls == 1 && audit.StandardCalls == 0 &&
-              audit.OverriddenCalls == 1 && audit.VanillaCounts[3] == 1 &&
+              audit.OverriddenCalls == 1 && audit.VanillaCounts[2] == 1 &&
               audit.EffectiveCounts[4] == 1 &&
-              audit.FormatCompact() == "cfg4;selectors=s0/a1/w0;transitions=3->4:1",
+              audit.FormatCompact() == "cfg4;selectors=s0/a1/w0;transitions=2->4:1",
             "large-group snapshot binds identities and reports the observed spacing transition");
         MoveFormationCommandSnapshotStore.Begin(owner, 7, 30, 40, 2, identities);
         MoveFormationCommandSnapshotStore.Observe(
@@ -304,6 +311,13 @@ internal static class Program
         Check(!wrongRelease.TryClaimVanillaRelease(3, false, 1920) &&
               !wrongRelease.Released && !wrongRelease.VanillaReleaseClaimed,
             "the opposite Vanilla release cannot claim a drag transaction");
+
+        MoveFormationReleaseGate shortClick = new MoveFormationReleaseGate(1, 500f);
+        Check(shortClick.OnInputRelease(500f, 1920) ==
+                  MoveFormationGestureResult.Released &&
+              shortClick.TryClaimVanillaRelease(0, true, 1920) &&
+              shortClick.Spacing == MoveFormationSpacingPolicy.Default,
+            "short right-click retains Vanilla spacing without a Dense gesture");
     }
 
     private static void CheckMoveFormationPlanner()
@@ -918,29 +932,23 @@ internal static class Program
             int executeMoveType = SimulateVanillaMoveTypeExecute(packedMoveType);
             Check(QueueNativeContract.TryResolveExecutedFormationSpacing(
                     executeMoveType,
-                    executingMoveChore: true,
                     out int vanillaMoveType,
-                    out int executedSpacing) &&
+                    out int executedSpacing) ==
+                  (spacing != MoveFormationSpacingPolicy.Default) &&
                   executedSpacing == spacing &&
                   vanillaMoveType == ExpectedExecutedVanillaMoveType(producerMoveType),
-                $"tribe {tribeId} spacing {spacing} survives deferred Chore execution");
-            bool resolvesWithoutExecuteScope =
-                QueueNativeContract.TryResolveExecutedFormationSpacing(
-                    executeMoveType,
-                    executingMoveChore: false,
-                    out _,
-                    out _);
-            Check(resolvesWithoutExecuteScope ==
-                  (spacing != MoveFormationSpacingPolicy.Default),
-                $"tribe {tribeId} spacing {spacing} has the expected private-bit identity");
+                $"tribe {tribeId} explicit spacing survives, zero bits stay Vanilla");
         }
         Check(!QueueNativeContract.TryResolveExecutedFormationSpacing(
                   QueueNativeContract.MoveQueueMarker,
-                  executingMoveChore: true,
                   out int queuedMoveType,
                   out _) &&
               queuedMoveType == QueueNativeContract.MoveQueueMarker,
             "Extended Shift marker does not acquire default formation spacing during Chore execution");
+        Check(!QueueNativeContract.TryResolveExecutedFormationSpacing(
+                  0, out int plainMoveType, out int plainSpacing) &&
+              plainMoveType == 0 && plainSpacing == MoveFormationSpacingPolicy.Default,
+            "unmarked deferred Move remains Vanilla");
     }
 
     private static int SimulateVanillaMoveTypeExecute(int wireMoveType)
@@ -1444,6 +1452,16 @@ internal static class Program
               moveFormationDrag.Contains("handoff-command-") &&
               queueRuntime.Contains("moveFormationDrag.Install(context)"),
             "Dense preview and handoff require audited native move mode 1");
+        int shortClickBypass = moveFormationDrag.IndexOf(
+            "if (state.Spacing == MoveFormationSpacingPolicy.Default)",
+            StringComparison.Ordinal);
+        int anchoredHandoff = moveFormationDrag.IndexOf(
+            "return RunAnchoredVanillaTransaction(state, mpFrameSkip);",
+            StringComparison.Ordinal);
+        Check(shortClickBypass >= 0 && shortClickBypass < anchoredHandoff &&
+              nativeFormationSlots.Contains(
+                  "!MoveFormationSpacingPolicy.CanOverrideVanillaSpacing(spacing)"),
+            "short clicks bypass Dense dispatch and fixed Vanilla spacing bypasses managed slots");
         Check(queueRuntime.Contains("QueueNativeContract.ShouldPackFormationSpacing(") &&
               queueRuntime.Contains("MoveFormationCommandContext.EnterMoveChoreExecution()") &&
               queueRuntime.Contains("MoveFormationCommandContext.ExitMoveChoreExecution()") &&

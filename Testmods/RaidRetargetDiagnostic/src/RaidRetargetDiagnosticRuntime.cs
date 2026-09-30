@@ -3,7 +3,6 @@ using SHCDESE.API;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Buildings;
 using SHCDESE.EventAPI.Tribes;
-using SHCDESE.EventAPI.Units;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
@@ -25,7 +24,6 @@ namespace RaidRetargetDiagnostic
         private const int TargetGlobalIdOffset = 0x626;
         private const int AttackCandidateListOffset = 0x1B344;
         private const int AttackCandidateRecordSize = 12;
-        private const int MaxAttackCandidateSnapshotEntries = 32;
         private const int NativeAttackCandidateCapacity = 500;
         private const int NativeUnreachableCandidateScore = 10000000;
         private const int NativeRaidCandidateCapacity = 100;
@@ -43,23 +41,26 @@ namespace RaidRetargetDiagnostic
         private const int NativePriorityCount = 47;
         private const int MaximumRetryCommandsPerTick = 4;
         private const int RejectedTargetDurationTicks = 300;
-        private const int StationarySummaryInterval = 50;
+        private const int SummaryIntervalTicks = 2000;
 
         private readonly ManualLogSource log;
         private readonly bool fixesLoaded;
         private readonly string[,] previousGroups = new string[MaxPlayers + 1, RaidGroupCount];
-        private readonly string[] previousCounters = new string[MaxPlayers + 1];
         private readonly string[,] previousTargetIdentities = new string[MaxPlayers + 1, RaidGroupCount];
-        private readonly Dictionary<string, string> previousUnits = new Dictionary<string, string>();
-        private readonly Dictionary<string, string> previousPositions = new Dictionary<string, string>();
-        private readonly Dictionary<string, int> lastPositionChanges = new Dictionary<string, int>();
+        private readonly Dictionary<ulong, DamageSummary> targetDamage =
+            new Dictionary<ulong, DamageSummary>();
+        private readonly Dictionary<RaidGroupKey, MoveSummary> groupMoves =
+            new Dictionary<RaidGroupKey, MoveSummary>();
+        private readonly Dictionary<string, RepeatSummary> repeatedMessages =
+            new Dictionary<string, RepeatSummary>();
         private readonly Dictionary<int, Stack<DeleteCapture>> pendingDeletes =
             new Dictionary<int, Stack<DeleteCapture>>();
         private readonly Dictionary<int, Stack<AttackCandidateCapture>> pendingAttackCandidates =
             new Dictionary<int, Stack<AttackCandidateCapture>>();
-        private readonly Dictionary<int, RaidRetry> pendingRaidRetries = new Dictionary<int, RaidRetry>();
-        private readonly Dictionary<int, Dictionary<ulong, int>> rejectedRaidTargets =
-            new Dictionary<int, Dictionary<ulong, int>>();
+        private readonly Dictionary<RaidGroupKey, RaidRetry> pendingRaidRetries =
+            new Dictionary<RaidGroupKey, RaidRetry>();
+        private readonly Dictionary<RaidGroupKey, Dictionary<ulong, int>> rejectedRaidTargets =
+            new Dictionary<RaidGroupKey, Dictionary<ulong, int>>();
         private bool issuingFallback;
         private int fallbackTribeId;
         private int fallbackBuildingId;
@@ -69,6 +70,12 @@ namespace RaidRetargetDiagnostic
         private bool firstTickLogged;
         private int lastTick = -1;
         private long sessionId;
+        private int targetChangeCount;
+        private int attackCommandCount;
+        private int retryCount;
+        private int suppressedMessageCount;
+        private int emittedLineCount;
+        private int emittedCharacterCount;
 
         internal RaidRetargetDiagnosticRuntime(ManualLogSource log, bool fixesLoaded)
         {
@@ -86,11 +93,21 @@ namespace RaidRetargetDiagnostic
             lastTick = -1;
             Info($"RAID_DIAG_SESSION: session={sessionId}, kind={session.Kind}, loadedSave={session.IsLoadedSave}, " +
                 $"save={session.SaveFileName}, editor={session.IsEditor}, replay={session.IsReplay}, fixesLoaded={fixesLoaded}.");
+            Info($"RAID_DIAG_CODES: session={sessionId}, retryAttempts=id/global/type:result, " +
+                "result=A(validMeleePoint),N(noMeleePoint),U(unknown), !i=commandNotIssued, !s=targetNotStored.");
         }
 
         internal void OnSessionEnded()
         {
-            if (active) Info($"RAID_DIAG_END: session={sessionId}, tick={lastTick}.");
+            if (active)
+            {
+                FlushPendingRetries("sessionEnded");
+                FlushDamageSummaries("sessionEnded");
+                FlushMoveSummaries("sessionEnded");
+                FlushRepeatSummaries();
+                LogSummary("end");
+                Info($"RAID_DIAG_END: session={sessionId}, tick={lastTick}.");
+            }
             active = false;
             ClearObservations();
         }
@@ -108,12 +125,17 @@ namespace RaidRetargetDiagnostic
                 if (lastTick >= 0 && tick < lastTick)
                 {
                     int resetFrom = lastTick;
+                    FlushPendingRetries("tickReset");
+                    FlushDamageSummaries("tickReset");
+                    FlushMoveSummaries("tickReset");
+                    FlushRepeatSummaries();
+                    LogSummary("tickReset");
                     ClearObservations();
                     lastTick = -1;
                     Warn($"RAID_DIAG_TICK_RESET: session={sessionId}, previous={resetFrom}, current={tick}.");
                 }
-                int previousPreTick = lastTick;
                 lastTick = tick;
+                PruneReplacedRaidGroups();
                 var players = GamePlayerManagerAPI.Instance;
                 var tribes = GameTribeManagerAPI.Instance;
                 for (int playerId = 1; playerId <= MaxPlayers; playerId++)
@@ -121,17 +143,6 @@ namespace RaidRetargetDiagnostic
                     if (!players.IsAIPlayer(playerId) ||
                         !players.TryGetPlayerResourcesById(playerId, out GamePlayerResources* resources))
                         continue;
-
-                    string counters = $"retarget={resources->N00003F66},remaining100={resources->N00005341}";
-                    if (!String.Equals(previousCounters[playerId], counters, StringComparison.Ordinal))
-                    {
-                        string changeWindow = previousCounters[playerId] == null || previousPreTick < 0 ? "initialSample" :
-                            $"afterPreTick:{previousPreTick}/beforePreTick:{tick}";
-                        Info($"RAID_DIAG_COUNTER: session={sessionId}, tick={tick}, player={playerId}, " +
-                            $"previous={previousCounters[playerId] ?? "unseen"}, current={counters}, " +
-                            $"changeWindow={changeWindow}.");
-                        previousCounters[playerId] = counters;
-                    }
 
                     for (int group = 0; group < RaidGroupCount; group++)
                     {
@@ -142,36 +153,63 @@ namespace RaidRetargetDiagnostic
                         bool resolved = hasRole && tribeId != 0 && tribes.IsValidId(tribeId) &&
                             tribes.TryResolveAITribeStorageRole(playerId, role,
                                 out tribe);
-                        string state = FormatGroup(tribeId, tribeGlobalId, resolved ? tribe : null);
-                        if (resolved && tribe != null && tribe->r_UnitsInGroup != 0)
+                        string identity = resolved && tribe != null
+                            ? $"{tribeId}/{tribeGlobalId}" : "none";
+                        string previousIdentity = previousGroups[playerId, group];
+                        if (!String.Equals(previousIdentity, identity, StringComparison.Ordinal))
+                        {
+                            previousGroups[playerId, group] = identity;
+                            previousTargetIdentities[playerId, group] = null;
+                            if (identity != "none" || previousIdentity != null && previousIdentity != "none")
+                            {
+                                string eligibility = identity == "none" ? "none" :
+                                    TryIsMeleeRaidGroup(tribeId, tribeGlobalId, out string reason)
+                                        ? "eligibleMelee" : reason;
+                                Info($"RAID_DIAG_GROUP: session={sessionId}, tick={tick}, " +
+                                    $"player={playerId}, group={group}, role={(int)role}, " +
+                                    $"previous={previousIdentity ?? "none"}, current={identity}, " +
+                                    $"units={(tribe != null ? tribe->r_UnitsInGroup.ToString() : "0")}, " +
+                                    $"eligibility={eligibility}.");
+                            }
+                        }
+                        if (resolved && tribe != null)
                         {
                             byte* bytes = (byte*)tribe;
                             ushort targetId = *(ushort*)(bytes + TargetBuildingIdOffset);
                             uint targetGlobalId = *(uint*)(bytes + TargetGlobalIdOffset);
-                            string targetIdentity = $"{tribeId}/{tribeGlobalId}:{targetId}/{targetGlobalId}";
+                            string targetIdentity = $"{targetId}/{targetGlobalId}";
                             if (!String.Equals(previousTargetIdentities[playerId, group], targetIdentity,
                                     StringComparison.Ordinal))
                             {
+                                string previousTarget = previousTargetIdentities[playerId, group];
                                 previousTargetIdentities[playerId, group] = targetIdentity;
-                                if (targetId != 0)
-                                    LogTargetAccess(playerId, group, tribeId, tribeGlobalId,
-                                        targetId, targetGlobalId);
+                                if (targetId != 0 || previousTarget != null && previousTarget != "0/0")
+                                {
+                                    targetChangeCount++;
+                                    short statusA = *(short*)(bytes + TribeStatusAOffset);
+                                    short statusB = *(short*)(bytes + TribeStatusBOffset);
+                                    short statusC = *(short*)(bytes + TribeStatusCOffset);
+                                    Info($"RAID_DIAG_TARGET: session={sessionId}, tick={tick}, " +
+                                        $"player={playerId}, group={group}, tribe={identity}, " +
+                                        $"previous={previousTarget ?? "none"}, current={targetIdentity}, " +
+                                        $"building={FormatBuilding(targetId, targetGlobalId)}, " +
+                                        $"status={statusA}/{statusB}/{statusC}, " +
+                                        $"retarget={resources->N00003F66},remaining100={resources->N00005341}.");
+                                }
                             }
-                            if (targetId != 0)
-                                LogGroupUnits(playerId, group, tribeId, tribeGlobalId);
                         }
-                        if (String.Equals(previousGroups[playerId, group], state, StringComparison.Ordinal))
-                            continue;
-                        Info($"RAID_DIAG_GROUP: session={sessionId}, tick={tick}, player={playerId}, group={group}, " +
-                            $"role={(int)role}, previous={previousGroups[playerId, group] ?? "unseen"}, current={state}, {counters}.");
-                        previousGroups[playerId, group] = state;
                     }
                 }
                 ProcessRaidRetries();
+                if (tick % SummaryIntervalTicks == 0)
+                {
+                    LogSummary("periodic");
+                }
             }
             catch (Exception ex)
             {
-                Warn($"RAID_DIAG_TICK_ERROR: session={sessionId}, tick={tick}, error={ex}.");
+                LogRepeated($"tickError:{ex.GetType().Name}:{ex.Message}",
+                    $"RAID_DIAG_TICK_ERROR: session={sessionId}, tick={tick}, error={ex}.", true);
             }
         }
 
@@ -187,14 +225,22 @@ namespace RaidRetargetDiagnostic
                 if (!buildingGlobalId.HasValue) return;
                 string groups = MatchingTargetGroups(buildingId, buildingGlobalId.Value);
                 if (groups == "none") return;
-                Info($"RAID_DIAG_DAMAGE: session={sessionId}, tick=afterPreTick:{lastTick}, phase={args.Phase}, " +
-                    $"buildingId={buildingId}, buildingGlobalId={buildingGlobalId.Value}, " +
-                    $"building={FormatBuilding(buildingId, null)}, raidGroups={groups}, " +
-                    $"tile={args.TileId}, xy={args.TileX}/{args.TileY}, damage={args.Damage}, sourcePlayer={args.PlayerIdSource}.");
+                ulong key = BuildingIdentity(buildingId, buildingGlobalId.Value);
+                if (!targetDamage.TryGetValue(key, out DamageSummary summary))
+                {
+                    summary = new DamageSummary(buildingId, buildingGlobalId.Value,
+                        FormatBuilding(buildingId, buildingGlobalId.Value), groups, lastTick);
+                    targetDamage.Add(key, summary);
+                    Info($"RAID_DIAG_DAMAGE_START: session={sessionId}, tick={lastTick}, " +
+                        $"building={buildingId}/{buildingGlobalId.Value}, {summary.Building}, " +
+                        $"raidGroups={groups}, sourcePlayer={args.PlayerIdSource}.");
+                }
+                summary.Add(lastTick, args.Damage, args.PlayerIdSource);
             }
             catch (Exception ex)
             {
-                Warn($"RAID_DIAG_DAMAGE_ERROR: session={sessionId}, tick={lastTick}, error={ex}.");
+                LogRepeated($"damageError:{ex.GetType().Name}:{ex.Message}",
+                    $"RAID_DIAG_DAMAGE_ERROR: session={sessionId}, tick={lastTick}, error={ex}.", true);
             }
         }
 
@@ -208,17 +254,15 @@ namespace RaidRetargetDiagnostic
                     uint? globalId = ReadBuildingGlobalId(args.BuildingId);
                     string groups = globalId.HasValue
                         ? MatchingTargetGroups(args.BuildingId, globalId.Value) : "none";
-                    var capture = new DeleteCapture(globalId, FormatBuilding(args.BuildingId, null), groups);
+                    if (!globalId.HasValue || (groups == "none" &&
+                        !targetDamage.ContainsKey(BuildingIdentity(args.BuildingId, globalId.Value)))) return;
+                    var capture = new DeleteCapture(globalId, FormatBuilding(args.BuildingId, globalId), groups);
                     if (!pendingDeletes.TryGetValue(args.BuildingId, out Stack<DeleteCapture> stack))
                     {
                         stack = new Stack<DeleteCapture>();
                         pendingDeletes.Add(args.BuildingId, stack);
                     }
                     stack.Push(capture);
-                    // All building deletions are logged, regardless of building type or raid target.
-                    Info($"RAID_DIAG_DELETE: session={sessionId}, tick=afterPreTick:{lastTick}, phase=Pre, " +
-                        $"buildingId={args.BuildingId}, preGlobalId={globalId?.ToString() ?? "none"}, " +
-                        $"preBuilding={capture.PreBuilding}, raidGroups={groups}.");
                 }
                 else if (args.Phase == EventHookPhase.Post)
                 {
@@ -229,16 +273,18 @@ namespace RaidRetargetDiagnostic
                         capture = stack.Pop();
                         if (stack.Count == 0) pendingDeletes.Remove(args.BuildingId);
                     }
-                    Info($"RAID_DIAG_DELETE: session={sessionId}, tick=afterPreTick:{lastTick}, phase=Post, " +
-                        $"buildingId={args.BuildingId}, preGlobalId={capture?.GlobalId?.ToString() ?? "missing"}, " +
-                        $"preBuilding={capture?.PreBuilding ?? "missing"}, " +
-                        $"raidGroupsAtPre={capture?.RaidGroups ?? "missing"}, " +
-                        $"postBuilding={FormatBuilding(args.BuildingId, null)}.");
+                    if (capture == null) return;
+                    Info($"RAID_DIAG_DELETE: session={sessionId}, tick={lastTick}, " +
+                        $"building={args.BuildingId}/{capture.GlobalId}, " +
+                        $"preBuilding={capture.PreBuilding}, raidGroupsAtPre={capture.RaidGroups}, " +
+                        $"postSlot={FormatBuilding(args.BuildingId, null)}.");
+                    FlushDamageSummary(BuildingIdentity(args.BuildingId, capture.GlobalId.Value), "deleted");
                 }
             }
             catch (Exception ex)
             {
-                Warn($"RAID_DIAG_DELETE_ERROR: session={sessionId}, tick={lastTick}, error={ex}.");
+                LogRepeated($"deleteError:{ex.GetType().Name}:{ex.Message}",
+                    $"RAID_DIAG_DELETE_ERROR: session={sessionId}, tick={lastTick}, error={ex}.", true);
             }
         }
 
@@ -247,31 +293,15 @@ namespace RaidRetargetDiagnostic
             if (!active) return;
             try
             {
-                if (args.AICommand == TribeAICommand.AttackBuilding ||
-                    args.AICommand == TribeAICommand.ForceAttackBuilding)
-                {
-                    try { LogAttackCandidates(args); }
-                    catch (Exception ex)
-                    {
-                        Warn($"RAID_DIAG_ATTACK_CANDIDATES_ERROR: session={sessionId}, " +
-                            $"tick={lastTick}, tribe={args.TribeId}, error={ex}.");
-                    }
-                }
-                if (!TryIdentifyRaidGroup(args.TribeId,
-                        out int playerId, out int group, out uint tribeGlobalId)) return;
-                string target = args.AICommand == TribeAICommand.AttackBuilding ||
-                    args.AICommand == TribeAICommand.ForceAttackBuilding
-                    ? FormatBuilding(args.TargetValue1, unchecked((uint)args.TargetValue2))
-                    : "notBuildingCommand";
-                Info($"RAID_DIAG_TRIBE_ORDER: session={sessionId}, tick=afterPreTick:{lastTick}, " +
-                    $"phase={args.Phase}, player={playerId}, group={group}, " +
-                    $"tribe={args.TribeId}/{tribeGlobalId}, command={args.AICommand}/{(int)args.AICommand}, " +
-                    $"eventTarget1={args.TargetValue1}, eventTarget2={args.TargetValue2}, a6={args.a6}, " +
-                    $"return={args.ReturnValue}, targetBuilding={target}.");
+                if ((args.AICommand == TribeAICommand.AttackBuilding ||
+                    args.AICommand == TribeAICommand.ForceAttackBuilding) &&
+                    TryIdentifyRaidGroup(args.TribeId, out _, out _, out _))
+                    LogAttackCandidates(args);
             }
             catch (Exception ex)
             {
-                Warn($"RAID_DIAG_TRIBE_ORDER_ERROR: session={sessionId}, tick={lastTick}, error={ex}.");
+                LogRepeated($"orderError:{ex.GetType().Name}:{ex.Message}",
+                    $"RAID_DIAG_TRIBE_ORDER_ERROR: session={sessionId}, tick={lastTick}, error={ex}.", true);
             }
         }
 
@@ -283,10 +313,10 @@ namespace RaidRetargetDiagnostic
                 tribe->r_AliveState != AliveState.IsAlive) return;
 
             uint tribeGlobalId = tribe->r_GlobalId;
-            int owner = tribe->r_PlayerIdOwner;
             bool raid = TryIdentifyRaidGroup(args.TribeId,
                 out int raidPlayer, out int raidGroup, out uint raidGlobalId) &&
                 raidGlobalId == tribeGlobalId;
+            if (!raid) return;
             uint targetGlobalId = unchecked((uint)args.TargetValue2);
             AttackCandidateSnapshot snapshot = ReadAttackCandidateSnapshot();
             AttackCandidateCapture pre = null;
@@ -303,8 +333,9 @@ namespace RaidRetargetDiagnostic
                 }
                 if (stack.Count != 0 && stack.Peek().Tick != lastTick)
                 {
-                    Warn($"RAID_DIAG_ATTACK_UNPAIRED: session={sessionId}, tick={lastTick}, " +
-                        $"tribe={args.TribeId}/{tribeGlobalId}, discardedPreCalls={stack.Count}.");
+                    LogRepeated($"unpaired:{args.TribeId}/{tribeGlobalId}",
+                        $"RAID_DIAG_ATTACK_UNPAIRED: session={sessionId}, tick={lastTick}, " +
+                        $"tribe={args.TribeId}/{tribeGlobalId}, discardedPreCalls={stack.Count}.", true);
                     stack.Clear();
                 }
                 stack.Push(new AttackCandidateCapture(lastTick, tribeGlobalId,
@@ -327,24 +358,13 @@ namespace RaidRetargetDiagnostic
                 freshness = "missingPre";
             }
 
-            string raidLabel = raid ? $"p{raidPlayer}g{raidGroup}" : "none";
             bool possiblyOld = args.Phase != EventHookPhase.Post ||
                 freshness != "changedFromPre" || !snapshot.Available;
             AttackResult result = args.Phase == EventHookPhase.Post &&
                 !possiblyOld && args.ReturnValue == 1
                 ? ClassifyAttackResult(snapshot, args.TargetValue1, targetGlobalId)
                 : AttackResult.Unknown;
-            Info($"RAID_DIAG_ATTACK_CANDIDATES: session={sessionId}, tick=afterPreTick:{lastTick}, " +
-                $"phase={args.Phase}, tribe={args.TribeId}/{tribeGlobalId}, owner={owner}, " +
-                $"raid={raidLabel}, " +
-                $"command={args.AICommand}/{(int)args.AICommand}, " +
-                $"eventTarget={args.TargetValue1}/{targetGlobalId}, " +
-                $"targetBuilding={FormatBuilding(args.TargetValue1, targetGlobalId)}, " +
-                $"return={args.ReturnValue}, pairMatches={pairMatches}, freshness={freshness}, " +
-                $"postScratchMayBeOld={possiblyOld}, meleeAttackResult={result}, " +
-                $"{snapshot.Describe()}.");
-            if (args.Phase != EventHookPhase.Post || args.AICommand != TribeAICommand.AttackBuilding ||
-                !raid) return;
+            if (args.Phase != EventHookPhase.Post) return;
             if (issuingFallback)
             {
                 if (args.TribeId == fallbackTribeId &&
@@ -353,29 +373,42 @@ namespace RaidRetargetDiagnostic
                     fallbackResult = result;
                 return;
             }
-            if (result == AttackResult.NoAttackPoint &&
-                TryIsMeleeRaidGroup(args.TribeId, tribeGlobalId) &&
+            attackCommandCount++;
+            Info($"RAID_DIAG_ATTACK: session={sessionId}, tick={lastTick}, " +
+                $"player={raidPlayer}, role={raidGroup}, tribe={args.TribeId}/{tribeGlobalId}, " +
+                $"command={args.AICommand}, target={args.TargetValue1}/{targetGlobalId}, " +
+                $"building={FormatBuilding(args.TargetValue1, targetGlobalId)}, " +
+                $"return={args.ReturnValue}, prePostMatch={pairMatches}, freshness={freshness}, " +
+                $"result={result}, {snapshot.DescribeCompact()}.");
+            if (args.AICommand != TribeAICommand.AttackBuilding) return;
+            RaidGroupKey raidKey = new RaidGroupKey(raidPlayer, raidGroup,
+                args.TribeId, tribeGlobalId);
+            string eligibilityReason = "notChecked";
+            bool eligible = result == AttackResult.NoAttackPoint &&
+                TryIsMeleeRaidGroup(args.TribeId, tribeGlobalId, out eligibilityReason);
+            if (eligible &&
                 GameBuildingManagerAPI.Instance.TryGetBuildingById(args.TargetValue1,
                     out GameBuilding* failedBuilding) && failedBuilding != null &&
                 failedBuilding->r_GlobalId == targetGlobalId &&
                 TryGetPriorityTable(out int priorityTableRva, out _))
             {
-                RememberRejectedTarget(args.TribeId, args.TargetValue1, targetGlobalId);
-                pendingRaidRetries[args.TribeId] = new RaidRetry(raidPlayer, raidGroup,
+                RememberRejectedTarget(raidKey, args.TargetValue1, targetGlobalId);
+                if (pendingRaidRetries.TryGetValue(raidKey, out RaidRetry prior))
+                    LogRetry(prior, "superseded", 0, 0);
+                pendingRaidRetries[raidKey] = new RaidRetry(raidPlayer, raidGroup,
                     args.TribeId, tribeGlobalId, failedBuilding->r_PlayerIdOwner,
-                    args.TargetValue1, targetGlobalId, priorityTableRva);
-                Info($"RAID_FIX_RETRY_QUEUED: session={sessionId}, tick={lastTick}, " +
-                    $"player={raidPlayer}, group={raidGroup}, tribe={args.TribeId}/{tribeGlobalId}, " +
-                    $"rejected={args.TargetValue1}/{targetGlobalId}.");
+                    args.TargetValue1, targetGlobalId, priorityTableRva, lastTick);
             }
             else if (result == AttackResult.Unknown)
-                Info($"RAID_FIX_UNCERTAIN: session={sessionId}, tick={lastTick}, " +
+                LogRepeated($"uncertain:{freshness}:{raidPlayer}/{raidGroup}",
+                    $"RAID_FIX_UNCERTAIN: session={sessionId}, tick={lastTick}, " +
                     $"tribe={args.TribeId}/{tribeGlobalId}, target={args.TargetValue1}/{targetGlobalId}, " +
-                    $"reason={freshness}; vanillaPreserved=true.");
+                    $"reason={freshness}; vanillaPreserved=true.", false);
             else if (result == AttackResult.NoAttackPoint)
-                Warn($"RAID_FIX_UNCERTAIN: session={sessionId}, tick={lastTick}, " +
+                LogRepeated($"uncertain:{eligibilityReason}:{raidPlayer}/{raidGroup}",
+                    $"RAID_FIX_UNCERTAIN: session={sessionId}, tick={lastTick}, " +
                     $"tribe={args.TribeId}/{tribeGlobalId}, target={args.TargetValue1}/{targetGlobalId}, " +
-                    "reason=raidEligibilityOrPriorityUnavailable; vanillaPreserved=true.");
+                    $"reason={(eligible ? "priorityOrBuildingUnavailable" : eligibilityReason)}; vanillaPreserved=true.", true);
         }
 
         private static AttackCandidateSnapshot ReadAttackCandidateSnapshot()
@@ -435,13 +468,19 @@ namespace RaidRetargetDiagnostic
             return AttackResult.AttackPoint;
         }
 
-        private static bool TryIsMeleeRaidGroup(int tribeId, uint tribeGlobalId)
+        private static bool TryIsMeleeRaidGroup(int tribeId, uint tribeGlobalId,
+            out string reason)
         {
+            reason = "tribeUnavailable";
             var tribes = GameTribeManagerAPI.Instance;
             if (!tribes.TryGetTribeById(tribeId, out GameTribe* tribe) || tribe == null ||
                 tribe->r_GlobalId != tribeGlobalId) return false;
             var unitIds = new List<int>();
-            if (!tribes.GetUnits(tribeId, unitIds)) return false;
+            if (!tribes.GetUnits(tribeId, unitIds))
+            {
+                reason = "unitListUnavailable";
+                return false;
+            }
             int meleeCount = 0;
             var units = GameUnitManagerAPI.Instance;
             foreach (int unitId in unitIds)
@@ -452,44 +491,105 @@ namespace RaidRetargetDiagnostic
                 switch (unit->r_UnitChimp)
                 {
                     case eChimps.CHIMP_TYPE_SPEARMAN:
+                    case eChimps.CHIMP_TYPE_TUNNELER:
                     case eChimps.CHIMP_TYPE_PIKEMAN:
                     case eChimps.CHIMP_TYPE_MACEMAN:
                     case eChimps.CHIMP_TYPE_SWORDSMAN:
                     case eChimps.CHIMP_TYPE_KNIGHT:
                     case eChimps.CHIMP_TYPE_MONK:
+                    case eChimps.CHIMP_TYPE_LORD:
                     case eChimps.CHIMP_TYPE_ARAB_SLAVE:
                     case eChimps.CHIMP_TYPE_ARAB_ASSASIN:
                     case eChimps.CHIMP_TYPE_ARAB_SWORDSMAN:
                     case eChimps.CHIMP_TYPE_BEDOUIN_CAMEL_LANCER:
                     case eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH:
                     case eChimps.CHIMP_TYPE_BEDOUIN_HEAVY_CAMEL:
+                    case eChimps.CHIMP_TYPE_BEDOUIN_SAPPER:
+                    case eChimps.CHIMP_TYPE_BEDOUIN_DEMOLISHER:
                         meleeCount++;
                         break;
+                    case eChimps.CHIMP_TYPE_ARCHER:
+                    case eChimps.CHIMP_TYPE_XBOWMAN:
+                    case eChimps.CHIMP_TYPE_ARAB_BOW:
+                    case eChimps.CHIMP_TYPE_ARAB_SLINGER:
+                    case eChimps.CHIMP_TYPE_BEDOUIN_AMBUSHER:
+                        // Command 9 does not count these toward its melee approach search.
+                        break;
+                    case eChimps.CHIMP_TYPE_CATAPULT:
+                    case eChimps.CHIMP_TYPE_TREBUCHET:
+                    case eChimps.CHIMP_TYPE_MANGONEL:
+                    case eChimps.CHIMP_TYPE_BALLISTA:
+                    case eChimps.CHIMP_TYPE_ARAB_BALLISTA:
+                    case eChimps.CHIMP_TYPE_BATTERING_RAM:
+                        reason = $"buildingCapableSiegeUnit:{unit->r_UnitChimp}";
+                        return false;
                     default:
-                        return false; // Mixed or unknown combat groups retain Vanilla.
+                        reason = $"unknownOrSpecialUnit:{unit->r_UnitChimp}";
+                        return false;
                 }
             }
+            reason = meleeCount != 0 ? "eligibleMelee" : "noMeleeAttackers";
             return meleeCount != 0;
         }
 
         private static ulong BuildingIdentity(int buildingId, uint globalId) =>
             ((ulong)globalId << 32) | (uint)buildingId;
 
-        private void RememberRejectedTarget(int tribeId, int buildingId, uint globalId)
+        private void RememberRejectedTarget(RaidGroupKey groupKey, int buildingId, uint globalId)
         {
-            if (!rejectedRaidTargets.TryGetValue(tribeId, out Dictionary<ulong, int> rejected))
+            if (!rejectedRaidTargets.TryGetValue(groupKey, out Dictionary<ulong, int> rejected))
             {
                 rejected = new Dictionary<ulong, int>();
-                rejectedRaidTargets.Add(tribeId, rejected);
+                rejectedRaidTargets.Add(groupKey, rejected);
             }
             rejected[BuildingIdentity(buildingId, globalId)] =
                 lastTick + RejectedTargetDurationTicks;
         }
 
-        private bool IsRejectedTarget(int tribeId, int buildingId, uint globalId) =>
-            rejectedRaidTargets.TryGetValue(tribeId, out Dictionary<ulong, int> rejected) &&
+        private bool IsRejectedTarget(RaidGroupKey groupKey, int buildingId, uint globalId) =>
+            rejectedRaidTargets.TryGetValue(groupKey, out Dictionary<ulong, int> rejected) &&
             rejected.TryGetValue(BuildingIdentity(buildingId, globalId), out int until) &&
             until > lastTick;
+
+        private void PruneReplacedRaidGroups()
+        {
+            var keys = new HashSet<RaidGroupKey>(rejectedRaidTargets.Keys);
+            keys.UnionWith(pendingRaidRetries.Keys);
+            keys.UnionWith(groupMoves.Keys);
+            foreach (RaidGroupKey key in keys)
+            {
+                if (IsCurrentRaidGroup(key)) continue;
+                rejectedRaidTargets.Remove(key);
+                if (pendingRaidRetries.TryGetValue(key, out RaidRetry replaced))
+                {
+                    LogRetry(replaced, "groupReplaced", 0, 0);
+                    pendingRaidRetries.Remove(key);
+                }
+                if (groupMoves.TryGetValue(key, out MoveSummary oldMove))
+                {
+                    FlushMoveSummary(key, oldMove, "groupReplaced");
+                    groupMoves.Remove(key);
+                }
+                Info($"RAID_FIX_GROUP_REPLACED: session={sessionId}, tick={lastTick}, " +
+                    $"player={key.PlayerId}, group={key.Group}, " +
+                    $"tribe={key.TribeId}/{key.TribeGlobalId}; cachedStateCleared=true.");
+            }
+        }
+
+        private static bool IsCurrentRaidGroup(RaidGroupKey key)
+        {
+            if (key.PlayerId < 1 || key.PlayerId > MaxPlayers ||
+                key.Group < 0 || key.Group >= RaidGroupCount ||
+                !GamePlayerManagerAPI.Instance.IsAIPlayer(key.PlayerId)) return false;
+            AITribeStorageRole16 role = (AITribeStorageRole16)
+                ((int)AITribeStorageRole16.HarassmentCombat0 + key.Group);
+            return GameTribeManagerAPI.Instance.TryGetAITribeStorageRole(key.PlayerId, role,
+                out ushort tribeId, out uint globalId) &&
+                tribeId == key.TribeId && globalId == key.TribeGlobalId &&
+                GameTribeManagerAPI.Instance.TryResolveAITribeStorageRole(key.PlayerId, role,
+                    out GameTribe* tribe) && tribe != null &&
+                tribe->r_GlobalId == key.TribeGlobalId;
+        }
 
         private void ProcessRaidRetries()
         {
@@ -504,25 +604,25 @@ namespace RaidRetargetDiagnostic
                     !GameTribeManagerAPI.Instance.TryGetTribeById(retry.TribeId,
                         out GameTribe* tribe) || tribe == null ||
                     tribe->r_AliveState != AliveState.IsAlive ||
-                    !TryIsMeleeRaidGroup(retry.TribeId, retry.TribeGlobalId)) continue;
+                    !TryIsMeleeRaidGroup(retry.TribeId, retry.TribeGlobalId, out _))
+                {
+                    LogRetry(retry, "groupUnavailableOrIneligible", 0, 0);
+                    continue;
+                }
 
                 byte* tribeBytes = (byte*)tribe;
                 int currentId = *(ushort*)(tribeBytes + TargetBuildingIdOffset);
                 uint currentGlobal = *(uint*)(tribeBytes + TargetGlobalIdOffset);
                 if (currentId != retry.LastFailedId || currentGlobal != retry.LastFailedGlobalId)
                 {
-                    Info($"RAID_FIX_RETRY_CANCELLED: session={sessionId}, tick={lastTick}, " +
-                        $"tribe={retry.TribeId}/{retry.TribeGlobalId}, " +
-                        $"expected={retry.LastFailedId}/{retry.LastFailedGlobalId}, " +
-                        $"current={currentId}/{currentGlobal}.");
+                    LogRetry(retry, $"targetChanged:{currentId}/{currentGlobal}", 0, 0);
                     continue;
                 }
 
                 if (retry.Candidates == null && !TryReadOrderedRaidCandidates(retry,
                         out retry.Candidates, out string reason))
                 {
-                    Warn($"RAID_FIX_RETRY_UNCERTAIN: session={sessionId}, tick={lastTick}, " +
-                        $"tribe={retry.TribeId}/{retry.TribeGlobalId}, reason={reason}; vanillaPreserved=true.");
+                    LogRetry(retry, $"candidateListUncertain:{reason};vanillaPreserved", 0, 0);
                     continue;
                 }
 
@@ -532,7 +632,7 @@ namespace RaidRetargetDiagnostic
                     issued < MaximumRetryCommandsPerTick)
                 {
                     BuildingTarget candidate = retry.Candidates[retry.NextCandidate++];
-                    if (IsRejectedTarget(retry.TribeId, candidate.Id, candidate.GlobalId) ||
+                    if (IsRejectedTarget(retry.Key, candidate.Id, candidate.GlobalId) ||
                         !IsLiveBuildingIdentity(candidate.Id, candidate.GlobalId,
                             retry.TargetPlayerId)) continue;
                     fallbackResult = AttackResult.Unknown;
@@ -557,29 +657,30 @@ namespace RaidRetargetDiagnostic
                         *(uint*)(tribeBytes + TargetGlobalIdOffset) == candidate.GlobalId;
                     if (!storedCandidate) fallbackResult = AttackResult.Unknown;
                     issued++;
-                    Info($"RAID_FIX_RETRY_RESULT: session={sessionId}, tick={lastTick}, " +
-                        $"player={player}, group={group}, tribe={retry.TribeId}/{retry.TribeGlobalId}, " +
-                        $"candidate={candidate.Id}/{candidate.GlobalId}, issued={commandIssued}, " +
-                        $"storedCandidate={storedCandidate}, meleeAttackResult={fallbackResult}, " +
-                        $"attempt={retry.NextCandidate}/{retry.Candidates.Count}.");
+                    string code = fallbackResult == AttackResult.AttackPoint ? "A" :
+                        fallbackResult == AttackResult.NoAttackPoint ? "N" : "U";
+                    retry.Attempts.Add($"{candidate.Id}/{candidate.GlobalId}/{candidate.Type}:{code}" +
+                        (commandIssued ? "" : "!i") + (storedCandidate ? "" : "!s"));
                     if (!commandIssued || fallbackResult == AttackResult.Unknown)
                     {
+                        LogRetry(retry, "uncertain;vanillaPreserved", candidate.Id, candidate.GlobalId);
                         finished = true; // Preserve the command outcome when the scratch result is uncertain.
                         break;
                     }
                     if (fallbackResult == AttackResult.AttackPoint)
                     {
+                        LogRetry(retry, "selected", candidate.Id, candidate.GlobalId);
                         finished = true;
                         break;
                     }
-                    RememberRejectedTarget(retry.TribeId, candidate.Id, candidate.GlobalId);
+                    RememberRejectedTarget(retry.Key, candidate.Id, candidate.GlobalId);
                     retry.LastFailedId = candidate.Id;
                     retry.LastFailedGlobalId = candidate.GlobalId;
                 }
                 if (finished) continue;
                 if (retry.NextCandidate < retry.Candidates.Count)
                 {
-                    pendingRaidRetries[retry.TribeId] = retry;
+                    pendingRaidRetries[retry.Key] = retry;
                     continue;
                 }
                 if (*(ushort*)(tribeBytes + TargetBuildingIdOffset) == retry.LastFailedId &&
@@ -587,11 +688,9 @@ namespace RaidRetargetDiagnostic
                 {
                     *(ushort*)(tribeBytes + TargetBuildingIdOffset) = 0;
                     *(uint*)(tribeBytes + TargetGlobalIdOffset) = 0;
-                    Info($"RAID_FIX_NO_TARGET: session={sessionId}, tick={lastTick}, " +
-                        $"player={player}, group={group}, tribe={retry.TribeId}/{retry.TribeGlobalId}, " +
-                        $"rejected={retry.LastFailedId}/{retry.LastFailedGlobalId}, " +
-                        $"candidateCount={retry.Candidates.Count}; storedTargetCleared=true.");
+                    LogRetry(retry, "noTarget;storedTargetCleared", 0, 0);
                 }
+                else LogRetry(retry, "noTarget;storedTargetChanged", 0, 0);
             }
         }
 
@@ -676,7 +775,8 @@ namespace RaidRetargetDiagnostic
                         (int)building->r_BuildingType != priorities[rank]) continue;
                     ulong identity = BuildingIdentity(id, building->r_GlobalId);
                     if (seen.Add(identity))
-                        result.Add(new BuildingTarget(id, building->r_GlobalId));
+                        result.Add(new BuildingTarget(id, building->r_GlobalId,
+                            (int)building->r_BuildingType));
                 }
             }
             if (!seen.Contains(BuildingIdentity(retry.LastFailedId, retry.LastFailedGlobalId)))
@@ -686,9 +786,6 @@ namespace RaidRetargetDiagnostic
                 return false;
             }
             reason = $"count={count},priorityTableRva=0x{tableRva:X}";
-            Info($"RAID_FIX_CANDIDATES: session={sessionId}, tick={lastTick}, " +
-                $"tribe={retry.TribeId}/{retry.TribeGlobalId}, targetPlayer={retry.TargetPlayerId}, " +
-                $"{reason}, orderedCount={result.Count}.");
             return true;
         }
 
@@ -710,43 +807,31 @@ namespace RaidRetargetDiagnostic
 
         internal void OnTribeMove(TribeIssueOrderMoveHereEventArgs args)
         {
-            if (!active) return;
+            if (!active || args.Phase != EventHookPhase.Post) return;
             try
             {
                 if (!TryIdentifyRaidGroup(args.TribeId,
                         out int playerId, out int group, out uint tribeGlobalId)) return;
-                Info($"RAID_DIAG_TRIBE_MOVE: session={sessionId}, tick=afterPreTick:{lastTick}, " +
-                    $"phase={args.Phase}, player={playerId}, group={group}, " +
-                    $"tribe={args.TribeId}/{tribeGlobalId}, destination={args.TileX}/{args.TileY}, " +
-                    $"patrol={args.IsPatrolPath}, newOrder={args.IsNewOrder}, " +
-                    $"moveType={args.MoveType}, return={args.ReturnValue}.");
+                var key = new RaidGroupKey(playerId, group, args.TribeId, tribeGlobalId);
+                string destination = $"{args.TileX}/{args.TileY}";
+                if (groupMoves.TryGetValue(key, out MoveSummary previous) &&
+                    previous.Destination == destination)
+                {
+                    previous.Repeats++;
+                    suppressedMessageCount++;
+                    return;
+                }
+                if (previous != null) FlushMoveSummary(key, previous, "destinationChanged");
+                groupMoves[key] = new MoveSummary(destination, lastTick);
+                Info($"RAID_DIAG_MOVE_COMMAND: session={sessionId}, tick={lastTick}, " +
+                    $"player={playerId}, role={group}, tribe={args.TribeId}/{tribeGlobalId}, " +
+                    $"destination={destination}, moveType={args.MoveType}, return={args.ReturnValue}; " +
+                    "scope=commandOnly.");
             }
             catch (Exception ex)
             {
-                Warn($"RAID_DIAG_TRIBE_MOVE_ERROR: session={sessionId}, tick={lastTick}, error={ex}.");
-            }
-        }
-
-        internal void OnUnitMove(UnitMoveHereEventArgs args)
-        {
-            if (!active || args.UnitId <= 0) return;
-            try
-            {
-                var units = GameUnitManagerAPI.Instance;
-                if (!units.IsValidId(args.UnitId) ||
-                    !units.TryGetUnitById(args.UnitId, out GameUnit* unit) || unit == null ||
-                    unit->r_AliveState != AliveState.IsAlive ||
-                    !TryIdentifyRaidGroup(unit->r_TribeId,
-                        out int playerId, out int group, out uint tribeGlobalId)) return;
-                Info($"RAID_DIAG_UNIT_MOVE: session={sessionId}, tick=afterPreTick:{lastTick}, " +
-                    $"phase={args.Phase}, player={playerId}, group={group}, " +
-                    $"tribe={unit->r_TribeId}/{tribeGlobalId}, unit={args.UnitId}/{unit->r_GlobalId}, " +
-                    $"destination={args.TileX}/{args.TileY}, unknown={args.Unknown}, " +
-                    $"return={args.ReturnValue}, current={unit->r_CurrentTilePositionX}/{unit->r_CurrentTilePositionY}.");
-            }
-            catch (Exception ex)
-            {
-                Warn($"RAID_DIAG_UNIT_MOVE_ERROR: session={sessionId}, tick={lastTick}, error={ex}.");
+                LogRepeated($"moveError:{ex.GetType().Name}:{ex.Message}",
+                    $"RAID_DIAG_TRIBE_MOVE_ERROR: session={sessionId}, tick={lastTick}, error={ex}.", true);
             }
         }
 
@@ -778,157 +863,6 @@ namespace RaidRetargetDiagnostic
                 }
             }
             return false;
-        }
-
-        private void LogGroupUnits(int playerId, int group, int tribeId, uint tribeGlobalId)
-        {
-            var unitIds = new List<int>();
-            if (!GameTribeManagerAPI.Instance.GetUnits(tribeId, unitIds)) return;
-            var units = GameUnitManagerAPI.Instance;
-            foreach (int unitId in unitIds)
-            {
-                if (!units.IsValidId(unitId) ||
-                    !units.TryGetUnitById(unitId, out GameUnit* unit) || unit == null ||
-                    unit->r_AliveState != AliveState.IsAlive || unit->r_TribeId != tribeId)
-                    continue;
-                string key = $"{playerId}/{group}/{tribeGlobalId}/{unit->r_GlobalId}";
-                string position = $"{unit->r_CurrentTilePositionX}/{unit->r_CurrentTilePositionY}";
-                string state = $"unit={unitId}/{unit->r_GlobalId},type={unit->r_UnitChimp}," +
-                    $"position={position}," +
-                    $"destination={unit->r_TargetTilePositionX}/{unit->r_TargetTilePositionY}," +
-                    $"currentTile={unit->r_CurrentPositionTileId},targetTile={unit->r_TargetPositionTileId}," +
-                    $"pathFlags={unit->r_PathPlanStateBitFlags},pathIndex={unit->r_CurrentPathPlanIndex}," +
-                    $"pathLength={unit->r_PathPlanLength},aiState={unit->r_AIState}," +
-                    $"attackMoveTarget={unit->r_AttackMoveToTargetTileX}/{unit->r_AttackMoveToTargetTileY}," +
-                    $"contextUnit={unit->r_AI_ContextTargetUnitId}/{unit->r_AI_ContextTargetUnitGlobalId}," +
-                    $"contextBuildingTile={unit->r_AI_ContextTargetBuildingTileId}";
-                if (!previousUnits.TryGetValue(key, out string previous) ||
-                    !String.Equals(previous, state, StringComparison.Ordinal))
-                {
-                    Info($"RAID_DIAG_UNIT_STATE: session={sessionId}, tick={lastTick}, " +
-                        $"player={playerId}, group={group}, tribe={tribeId}/{tribeGlobalId}, " +
-                        $"previous={previous ?? "unseen"}, current={state}.");
-                    previousUnits[key] = state;
-                }
-                if (!previousPositions.TryGetValue(key, out string previousPosition) ||
-                    !String.Equals(previousPosition, position, StringComparison.Ordinal))
-                {
-                    previousPositions[key] = position;
-                    lastPositionChanges[key] = lastTick;
-                }
-                else if (lastTick % StationarySummaryInterval == 0 &&
-                    lastPositionChanges.TryGetValue(key, out int changedAt) &&
-                    lastTick - changedAt >= StationarySummaryInterval)
-                {
-                    Info($"RAID_DIAG_UNIT_STILL: session={sessionId}, tick={lastTick}, " +
-                        $"player={playerId}, group={group}, tribe={tribeId}/{tribeGlobalId}, " +
-                        $"positionUnchangedSince={changedAt}, {state}.");
-                }
-            }
-        }
-
-        private void LogTargetAccess(int playerId, int group, int tribeId,
-            uint tribeGlobalId, int buildingId, uint targetGlobalId)
-        {
-            var buildings = GameBuildingManagerAPI.Instance;
-            if (!buildings.IsValidId(buildingId) ||
-                !buildings.TryGetBuildingById(buildingId, out GameBuilding* building) ||
-                building == null || building->r_GlobalId != targetGlobalId ||
-                building->r_AliveState != AliveState.IsAlive)
-            {
-                Info($"RAID_DIAG_ACCESS: session={sessionId}, tick={lastTick}, " +
-                    $"player={playerId}, group={group}, tribe={tribeId}/{tribeGlobalId}, " +
-                    $"building={buildingId}/{targetGlobalId}, targetIdentityValid=false.");
-                return;
-            }
-
-            var pathing = GamePathingManagerAPI.Instance;
-            var tiles = GameTileManagerAPI.Instance;
-            var unitIds = new List<int>();
-            var sourceComponents = new HashSet<ushort>();
-            var sourceUnits = new List<string>();
-            if (GameTribeManagerAPI.Instance.GetUnits(tribeId, unitIds))
-            {
-                foreach (int unitId in unitIds)
-                {
-                    var units = GameUnitManagerAPI.Instance;
-                    if (!units.IsValidId(unitId) ||
-                        !units.TryGetUnitById(unitId, out GameUnit* unit) || unit == null ||
-                        unit->r_AliveState != AliveState.IsAlive || unit->r_TribeId != tribeId)
-                        continue;
-                    bool componentValid = pathing.TryGetPathComponentId(unit->r_CurrentTilePositionX,
-                        unit->r_CurrentTilePositionY, out ushort component);
-                    sourceUnits.Add($"{unitId}/{unit->r_GlobalId}@" +
-                        $"{unit->r_CurrentTilePositionX}/{unit->r_CurrentTilePositionY}:" +
-                        (componentValid ? component.ToString() : "invalidTile"));
-                    if (componentValid && component != 0)
-                        sourceComponents.Add(component);
-                }
-            }
-
-            int beginX = building->r_TilePositionXBegin;
-            int beginY = building->r_TilePositionYBegin;
-            int size = (int)building->r_OccupyTileGridSize;
-            bool accessComponentValid = pathing.TryGetPathComponentId(
-                building->r_TileAccessPositionX, building->r_TileAccessPositionY,
-                out ushort accessComponent);
-            Info($"RAID_DIAG_ACCESS: session={sessionId}, tick={lastTick}, " +
-                $"player={playerId}, group={group}, tribe={tribeId}/{tribeGlobalId}, " +
-                $"building={buildingId}/{targetGlobalId}, targetIdentityValid=true, " +
-                $"type={building->r_BuildingType}, owner={building->r_PlayerIdOwner}, " +
-                $"footprintBegin={beginX}/{beginY}, footprintGridSize={size}, " +
-                $"accessPoint={building->r_TileAccessPositionX}/{building->r_TileAccessPositionY}, " +
-                $"accessComponent={(accessComponentValid ? accessComponent.ToString() : "invalidTile")}, " +
-                $"sourceUnits={String.Join(",", sourceUnits)}, " +
-                $"sourceComponents={String.Join(",", sourceComponents)}.");
-
-            // This bounding ring is a read-only clue, not Vanilla's complete attack-tile test.
-            if (size < 1 || size > 32) return;
-            for (int y = beginY - 1; y <= beginY + size; y++)
-            {
-                for (int x = beginX - 1; x <= beginX + size; x++)
-                {
-                    if (x != beginX - 1 && x != beginX + size &&
-                        y != beginY - 1 && y != beginY + size) continue;
-                    if (!pathing.TryGetPathComponentId(x, y, out ushort destinationComponent))
-                        continue;
-                    int tileId = tiles.GetTileId(x, y);
-                    if ((uint)tileId >= (uint)tiles.GetStructureLayer().Length) continue;
-                    int connectedComponents = 0;
-                    if (destinationComponent != 0)
-                    {
-                        foreach (ushort sourceComponent in sourceComponents)
-                        {
-                            if (pathing.ArePathComponentsConnected(playerId, sourceComponent,
-                                    destinationComponent, PathConnectionQueryMode.ExcludeLadderClimb))
-                                connectedComponents++;
-                        }
-                    }
-                    Info($"RAID_DIAG_ACCESS_TILE: session={sessionId}, tick={lastTick}, " +
-                        $"player={playerId}, group={group}, tribe={tribeId}/{tribeGlobalId}, " +
-                        $"building={buildingId}/{targetGlobalId}, xy={x}/{y}, tile={tileId}, " +
-                        $"component={destinationComponent}, connectedComponents={connectedComponents}/{sourceComponents.Count}, " +
-                        $"walkableNoBuilding={tiles.IsTileWalkableAndUnoccupied(tileId)}, " +
-                        $"occupyingBuilding={tiles.GetTileBuildingId(tileId)}, height={tiles.GetTileHeight(tileId)}, " +
-                        $"scope=boundingRingClue.");
-                }
-            }
-        }
-
-        private static string FormatGroup(ushort tribeId, uint tribeGlobalId, GameTribe* tribe)
-        {
-            if (tribe == null)
-                return $"tribe={tribeId}/{tribeGlobalId},resolved=false";
-
-            byte* bytes = (byte*)tribe;
-            ushort targetId = *(ushort*)(bytes + TargetBuildingIdOffset);
-            uint targetGlobalId = *(uint*)(bytes + TargetGlobalIdOffset);
-            short statusA = *(short*)(bytes + TribeStatusAOffset);
-            short statusB = *(short*)(bytes + TribeStatusBOffset);
-            short statusC = *(short*)(bytes + TribeStatusCOffset);
-            return $"tribe={tribeId}/{tribeGlobalId},resolved=true,units={tribe->r_UnitsInGroup}," +
-                $"stance={tribe->r_TribeStance},status={statusA}/{statusB}/{statusC}," +
-                $"target={targetId}/{targetGlobalId},building={FormatBuilding(targetId, targetGlobalId)}";
         }
 
         private static string FormatBuilding(int buildingId, uint? expectedGlobalId)
@@ -1004,14 +938,106 @@ namespace RaidRetargetDiagnostic
                 throw new InvalidOperationException("Installed Script Extender raid layout differs from audited native layout.");
         }
 
+        private void LogRetry(RaidRetry retry, string outcome, int selectedId, uint selectedGlobalId)
+        {
+            retryCount++;
+            Info($"RAID_FIX_RETRY: session={sessionId}, startTick={retry.StartedTick}, endTick={lastTick}, " +
+                $"elapsedTicks={lastTick - retry.StartedTick}, player={retry.PlayerId}, role={retry.Group}, " +
+                $"tribe={retry.TribeId}/{retry.TribeGlobalId}, targetPlayer={retry.TargetPlayerId}, " +
+                $"original={retry.OriginalFailedId}/{retry.OriginalFailedGlobalId}, " +
+                $"candidateCount={retry.Candidates?.Count.ToString() ?? "unavailable"}, " +
+                $"priorityTable=0x{retry.PriorityTableRva:X}, attempts=[{String.Join(";", retry.Attempts)}], " +
+                $"selected={selectedId}/{selectedGlobalId}, outcome={outcome}.");
+        }
+
+        private void FlushPendingRetries(string reason)
+        {
+            foreach (RaidRetry retry in pendingRaidRetries.Values)
+                LogRetry(retry, reason, 0, 0);
+            pendingRaidRetries.Clear();
+        }
+
+        private void FlushDamageSummary(ulong key, string reason)
+        {
+            if (!targetDamage.TryGetValue(key, out DamageSummary damage)) return;
+            Info($"RAID_DIAG_DAMAGE_SUMMARY: session={sessionId}, firstTick={damage.FirstTick}, " +
+                $"lastTick={damage.LastTick}, building={damage.BuildingId}/{damage.GlobalId}, " +
+                $"{damage.Building}, raidGroupsAtFirst={damage.RaidGroups}, hits={damage.Hits}, " +
+                $"damageTotal={damage.TotalDamage}, sources={String.Join(",", damage.Sources)}, reason={reason}.");
+            targetDamage.Remove(key);
+        }
+
+        private void FlushDamageSummaries(string reason)
+        {
+            foreach (ulong key in new List<ulong>(targetDamage.Keys)) FlushDamageSummary(key, reason);
+        }
+
+        private void FlushMoveSummary(RaidGroupKey key, MoveSummary move, string reason)
+        {
+            if (move.Repeats == 0) return;
+            Info($"RAID_DIAG_MOVE_REPEAT: session={sessionId}, tick={lastTick}, player={key.PlayerId}, " +
+                $"role={key.Group}, tribe={key.TribeId}/{key.TribeGlobalId}, " +
+                $"destination={move.Destination}, firstTick={move.FirstTick}, repeats={move.Repeats}, " +
+                $"reason={reason}; scope=commandOnly.");
+        }
+
+        private void FlushMoveSummaries(string reason)
+        {
+            foreach (var entry in groupMoves) FlushMoveSummary(entry.Key, entry.Value, reason);
+            groupMoves.Clear();
+        }
+
+        private void LogRepeated(string key, string message, bool warning)
+        {
+            if (!repeatedMessages.TryGetValue(key, out RepeatSummary repeat))
+            {
+                repeatedMessages.Add(key, new RepeatSummary(lastTick));
+                if (warning) Warn(message); else Info(message);
+            }
+            else
+            {
+                repeat.Count++;
+                repeat.LastTick = lastTick;
+                suppressedMessageCount++;
+            }
+        }
+
+        private void FlushRepeatSummaries()
+        {
+            foreach (var entry in repeatedMessages)
+                if (entry.Value.Count != 0)
+                    Info($"RAID_DIAG_REPEAT: session={sessionId}, firstTick={entry.Value.FirstTick}, " +
+                        $"lastTick={entry.Value.LastTick}, key={entry.Key}, " +
+                        $"suppressed={entry.Value.Count}.");
+            repeatedMessages.Clear();
+        }
+
+        private void LogSummary(string reason)
+        {
+            int groups = 0, targets = 0;
+            for (int player = 1; player <= MaxPlayers; player++)
+                for (int role = 0; role < RaidGroupCount; role++)
+                    if (previousGroups[player, role] != null && previousGroups[player, role] != "none")
+                    {
+                        groups++;
+                        if (previousTargetIdentities[player, role] != null &&
+                            previousTargetIdentities[player, role] != "0/0") targets++;
+                    }
+            Info($"RAID_DIAG_SUMMARY: session={sessionId}, tick={lastTick}, reason={reason}, " +
+                $"activeGroups={groups}, assignedTargets={targets}, targetChanges={targetChangeCount}, " +
+                $"attackCommands={attackCommandCount}, retries={retryCount}, " +
+                $"pendingRetries={pendingRaidRetries.Count}, trackedDamage={targetDamage.Count}, " +
+                $"suppressedRepeats={suppressedMessageCount}, emittedLines={emittedLineCount + 1}, " +
+                $"payloadCharsBeforeSummary={emittedCharacterCount}.");
+        }
+
         private void ClearObservations()
         {
             Array.Clear(previousGroups, 0, previousGroups.Length);
-            Array.Clear(previousCounters, 0, previousCounters.Length);
             Array.Clear(previousTargetIdentities, 0, previousTargetIdentities.Length);
-            previousUnits.Clear();
-            previousPositions.Clear();
-            lastPositionChanges.Clear();
+            targetDamage.Clear();
+            groupMoves.Clear();
+            repeatedMessages.Clear();
             pendingDeletes.Clear();
             pendingAttackCandidates.Clear();
             pendingRaidRetries.Clear();
@@ -1021,10 +1047,26 @@ namespace RaidRetargetDiagnostic
             fallbackBuildingId = 0;
             fallbackBuildingGlobalId = 0;
             fallbackResult = AttackResult.Unknown;
+            targetChangeCount = 0;
+            attackCommandCount = 0;
+            retryCount = 0;
+            suppressedMessageCount = 0;
+            emittedLineCount = 0;
+            emittedCharacterCount = 0;
         }
 
-        private void Info(string value) => Shared.DebugLogHelper.LogInfo(log, value);
-        private void Warn(string value) => Shared.DebugLogHelper.LogWarning(log, value);
+        private void Info(string value)
+        {
+            emittedLineCount++;
+            emittedCharacterCount += value.Length;
+            Shared.DebugLogHelper.LogInfo(log, value);
+        }
+        private void Warn(string value)
+        {
+            emittedLineCount++;
+            emittedCharacterCount += value.Length;
+            Shared.DebugLogHelper.LogWarning(log, value);
+        }
 
         private sealed class AttackCandidateCapture
         {
@@ -1073,20 +1115,16 @@ namespace RaidRetargetDiagnostic
                 return true;
             }
 
-            internal string Describe()
+            internal string DescribeCompact()
             {
                 CandidateRecord first = Records.Length != 0 ? Records[0] : default;
-                var preview = new List<string>();
-                for (int i = 0; i < Records.Length && i < MaxAttackCandidateSnapshotEntries; i++)
-                    preview.Add($"{i}:{Records[i].ApproachTile}/{Records[i].BuildingTile}/{Records[i].Score}");
                 int pairs = 0;
                 foreach (CandidateRecord record in Records)
                     if (record.BuildingTile != 0) pairs++;
                 return $"scratchAvailable={available}, firstPosition={first.ApproachTile}, " +
                     $"firstAttackTile={first.BuildingTile}, nativeFirstGatePass={available && first.BuildingTile != 0}, " +
                     $"terminatorAt={(terminatorAt >= 0 ? terminatorAt.ToString() : "notInFirst500")}, " +
-                    $"entryCount={Records.Length}, pairedEntries={pairs}, " +
-                    $"entries={String.Join(",", preview)}";
+                    $"entryCount={Records.Length}, pairedEntries={pairs}, firstPair={first.ApproachTile}/{first.BuildingTile}/{first.Score}";
             }
         }
 
@@ -1110,21 +1148,60 @@ namespace RaidRetargetDiagnostic
 
         private enum AttackResult { Unknown, NoAttackPoint, AttackPoint }
 
+        private readonly struct RaidGroupKey : IEquatable<RaidGroupKey>
+        {
+            internal readonly int PlayerId;
+            internal readonly int Group;
+            internal readonly int TribeId;
+            internal readonly uint TribeGlobalId;
+
+            internal RaidGroupKey(int playerId, int group, int tribeId, uint tribeGlobalId)
+            {
+                PlayerId = playerId;
+                Group = group;
+                TribeId = tribeId;
+                TribeGlobalId = tribeGlobalId;
+            }
+
+            public bool Equals(RaidGroupKey other) =>
+                PlayerId == other.PlayerId && Group == other.Group &&
+                TribeId == other.TribeId && TribeGlobalId == other.TribeGlobalId;
+
+            public override bool Equals(object obj) => obj is RaidGroupKey other && Equals(other);
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    int hash = PlayerId;
+                    hash = (hash * 397) ^ Group;
+                    hash = (hash * 397) ^ TribeId;
+                    return (hash * 397) ^ (int)TribeGlobalId;
+                }
+            }
+        }
+
         private sealed class RaidRetry
         {
             internal readonly int PlayerId;
             internal readonly int Group;
             internal readonly int TribeId;
             internal readonly uint TribeGlobalId;
+            internal RaidGroupKey Key => new RaidGroupKey(PlayerId, Group, TribeId, TribeGlobalId);
             internal readonly int TargetPlayerId;
             internal readonly int PriorityTableRva;
+            internal readonly int StartedTick;
+            internal readonly int OriginalFailedId;
+            internal readonly uint OriginalFailedGlobalId;
+            internal readonly List<string> Attempts = new List<string>();
             internal int LastFailedId;
             internal uint LastFailedGlobalId;
             internal List<BuildingTarget> Candidates;
             internal int NextCandidate;
 
             internal RaidRetry(int playerId, int group, int tribeId, uint tribeGlobalId,
-                int targetPlayerId, int failedId, uint failedGlobalId, int priorityTableRva)
+                int targetPlayerId, int failedId, uint failedGlobalId, int priorityTableRva,
+                int startedTick)
             {
                 PlayerId = playerId;
                 Group = group;
@@ -1132,6 +1209,9 @@ namespace RaidRetargetDiagnostic
                 TribeGlobalId = tribeGlobalId;
                 TargetPlayerId = targetPlayerId;
                 PriorityTableRva = priorityTableRva;
+                StartedTick = startedTick;
+                OriginalFailedId = failedId;
+                OriginalFailedGlobalId = failedGlobalId;
                 LastFailedId = failedId;
                 LastFailedGlobalId = failedGlobalId;
             }
@@ -1141,11 +1221,13 @@ namespace RaidRetargetDiagnostic
         {
             internal readonly int Id;
             internal readonly uint GlobalId;
+            internal readonly int Type;
 
-            internal BuildingTarget(int id, uint globalId)
+            internal BuildingTarget(int id, uint globalId, int type)
             {
                 Id = id;
                 GlobalId = globalId;
+                Type = type;
             }
         }
 
@@ -1160,6 +1242,63 @@ namespace RaidRetargetDiagnostic
                 GlobalId = globalId;
                 PreBuilding = preBuilding;
                 RaidGroups = raidGroups;
+            }
+        }
+
+        private sealed class DamageSummary
+        {
+            internal readonly int BuildingId;
+            internal readonly uint GlobalId;
+            internal readonly string Building;
+            internal readonly string RaidGroups;
+            internal readonly int FirstTick;
+            internal int LastTick;
+            internal int Hits;
+            internal long TotalDamage;
+            internal readonly HashSet<int> Sources = new HashSet<int>();
+
+            internal DamageSummary(int id, uint globalId, string building, string raidGroups, int tick)
+            {
+                BuildingId = id;
+                GlobalId = globalId;
+                Building = building;
+                RaidGroups = raidGroups;
+                FirstTick = tick;
+                LastTick = tick;
+            }
+
+            internal void Add(int tick, int damage, int source)
+            {
+                LastTick = tick;
+                Hits++;
+                TotalDamage += damage;
+                Sources.Add(source);
+            }
+        }
+
+        private sealed class MoveSummary
+        {
+            internal readonly string Destination;
+            internal readonly int FirstTick;
+            internal int Repeats;
+
+            internal MoveSummary(string destination, int tick)
+            {
+                Destination = destination;
+                FirstTick = tick;
+            }
+        }
+
+        private sealed class RepeatSummary
+        {
+            internal readonly int FirstTick;
+            internal int LastTick;
+            internal int Count;
+
+            internal RepeatSummary(int tick)
+            {
+                FirstTick = tick;
+                LastTick = tick;
             }
         }
     }

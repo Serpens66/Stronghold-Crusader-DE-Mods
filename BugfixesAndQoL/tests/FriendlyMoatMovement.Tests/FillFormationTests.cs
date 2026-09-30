@@ -270,9 +270,11 @@ namespace BugfixesAndQoL
                 activeMoveCommand.HasFormationSpacing=true;activeMoveCommand.FormationSpacing=4;
                 formationOwner=null;formationExhausted=false;*(int*)(tribes+0x14)=1;
                 ChooseOwnerSafeFormationSlot(nativePathManager,3,60,10);
-                Check(lastSpacing==4,"command spacing overrides the Vanilla unit-type value");
+                Check(lastSpacing==3,"Dense preserves the Vanilla unit-type spacing");
                 ChooseOwnerSafeFormationSlot(nativePathManager,1,60,10);
-                Check(lastSpacing==4,"direct Standard movement uses one command-wide spacing");
+                Check(lastSpacing==1,"Dense preserves the Vanilla structure spacing");
+                ChooseOwnerSafeFormationSlot(nativePathManager,2,60,10);
+                Check(lastSpacing==4,"Dense overrides only ordinary Vanilla spacing");
                 activeMoveCommand.IsPatrolPath=true;*(int*)(tribes+0x14)=1;
                 ChooseOwnerSafeFormationSlot(nativePathManager,2,60,10);
                 Check(lastSpacing==2,"patrol movement retains its Vanilla spacing");
@@ -288,12 +290,13 @@ namespace BugfixesAndQoL
                 foreach(int configured in new[]{1,2,3,4})
                 {
                     activeMoveCommand.FormationSpacing=configured;
-                    Check(ChooseAssassinGroundFormationSlot(nativePathManager,3,60,10)==configured &&
+                    Check(ChooseAssassinGroundFormationSlot(nativePathManager,2,60,10)==configured &&
                         assassinSpacing==configured,
-                        "pure Assassin ground selection uses command Move spacing "+configured);
+                        "ordinary Assassin ground selection uses command Move spacing "+configured);
                 }
-                Check(ChooseAssassinGroundFormationSlot(nativePathManager,1,60,10)==4,
-                    "Assassin ground movement uses one command-wide spacing");
+                Check(ChooseAssassinGroundFormationSlot(nativePathManager,1,60,10)==1 &&
+                    ChooseAssassinGroundFormationSlot(nativePathManager,3,60,10)==3,
+                    "Assassin ground selection preserves special Vanilla spacing");
                 CompleteManagedFormationPlan(null);
                 foreach(int largeCount in new[]{1000,1001,1002,1250,1350,3999,4000,4001,5001})
                 {
@@ -302,7 +305,7 @@ namespace BugfixesAndQoL
                     *(int*)(tribes+0x14)=0;int nativeCallsBefore=calls;
                     for(int index=0;index<largeCount;index++)
                     {
-                        ChooseOwnerSafeFormationSlot(nativePathManager,3,60,10);
+                        ChooseOwnerSafeFormationSlot(nativePathManager,2,60,10);
                         Check(*(int*)(tribes+0x14)==0,"managed selector leaves a safe pre-increment index");
                         *(int*)(tribes+0x14)+=1;
                         Check(*(int*)(tribes+0x14)<4000,"managed selector prevents Vanilla's group abort guard");
@@ -317,7 +320,7 @@ namespace BugfixesAndQoL
                 *(int*)(tribes+0x14)=0;
                 for(int index=0;index<1002;index++)
                 {
-                    ChooseOwnerSafeFormationSlot(nativePathManager,3,60,10);
+                    ChooseOwnerSafeFormationSlot(nativePathManager,2,60,10);
                     *(int*)(tribes+0x14)+=1;
                 }
                 Check(managedFormationCursor==1002,

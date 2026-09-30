@@ -20,6 +20,9 @@ $files = foreach ($relativeRoot in $roots) {
 $errors = [System.Collections.Generic.List[string]]::new()
 foreach ($file in $files) {
     $lines = [System.IO.File]::ReadAllLines($file.FullName)
+    $isWoodGuard = $file.FullName.EndsWith(
+        'Testmods\AICoarsePathComponentFixTest\src\WoodSiteGuardExperiment.cs',
+        [StringComparison]::OrdinalIgnoreCase)
     for ($index = 0; $index -lt $lines.Length; $index++) {
         $line = $lines[$index]
         if ($line -match '\.Hook\.(Enable|Disable)\s*\(' -or
@@ -27,7 +30,11 @@ foreach ($file in $files) {
             $line -match '\bGatehouseNativeMutation\b' -or
             $line -match '\bVirtualProtect\s*\(' -or
             $line -match '\bFlushInstructionCache\s*\(') {
-            $errors.Add("$($file.FullName):$($index + 1): runtime executable-memory mutation: $($line.Trim())")
+            if (-not ($isWoodGuard -and
+                ($line -match '\bVirtualProtect\s*\(' -or
+                 $line -match '\bFlushInstructionCache\s*\('))) {
+                $errors.Add("$($file.FullName):$($index + 1): runtime executable-memory mutation: $($line.Trim())")
+            }
         }
 
         if ($line -notmatch '(classifierTransaction|transaction)\??\.Dispose\s*\(') { continue }
@@ -43,6 +50,23 @@ foreach ($file in $files) {
         if (-not $isInitializationRollback) {
             $errors.Add("$($file.FullName):$($index + 1): published transaction teardown is not an initialization rollback")
         }
+    }
+}
+
+$woodGuardPath = Join-Path $workspace 'Testmods\AICoarsePathComponentFixTest\src\WoodSiteGuardExperiment.cs'
+if (Test-Path -LiteralPath $woodGuardPath) {
+    $woodGuard = [IO.File]::ReadAllText($woodGuardPath)
+    if (($woodGuard | Select-String -Pattern 'WriteInitialPatch\(' -AllMatches).Matches.Count -ne 3 -or
+        ($woodGuard | Select-String -Pattern '\bVirtualProtect\s*\(' -AllMatches).Matches.Count -ne 3 -or
+        ($woodGuard | Select-String -Pattern '\bFlushInstructionCache\s*\(' -AllMatches).Matches.Count -ne 3 -or
+        $woodGuard -notmatch 'WriteInitialPatch\(site, jump\)' -or
+        $woodGuard -notmatch 'WriteInitialPatch\(site, Original\)' -or
+        $woodGuard -notmatch 'if \(patchAttempted && !published\)' -or
+        $woodGuard -notmatch 'private static void WriteInitialPatch' -or
+        $woodGuard -notmatch 'current = this;' -or
+        $woodGuard -notmatch 'Volatile\.Read\(ref active\)' -or
+        $woodGuard -match '\b(OnDestroy|OnDisable|OnApplicationQuit|StartCoroutine|Update|LateUpdate|FixedUpdate)\s*\(') {
+        $errors.Add("$woodGuardPath`: initial-only wood patch contract differs")
     }
 }
 

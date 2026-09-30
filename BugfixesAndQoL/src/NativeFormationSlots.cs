@@ -71,6 +71,15 @@ namespace BugfixesAndQoL
 
         private void ChooseOwnerSafeFormationSlot(IntPtr manager, int spacing, int x, int y)
         {
+            // Vanilla uses fixed spacing for structures and special unit paths.
+            MoveCommandScope command = activeMoveCommand;
+            if (command != null && command.HasFormationSpacing &&
+                IsScopedPureMoveFormationCall(manager, x, y, command) &&
+                !MoveFormationSpacingPolicy.CanOverrideVanillaSpacing(spacing))
+            {
+                InvokeOriginalFormationSlot(manager, spacing, x, y);
+                return;
+            }
             int effectiveSpacing = spacing;
             try
             {
@@ -116,6 +125,11 @@ namespace BugfixesAndQoL
         private int ChooseAssassinGroundFormationSlot(
             IntPtr manager, int spacing, int x, int y)
         {
+            MoveCommandScope command = activeMoveCommand;
+            if (command != null && command.HasFormationSpacing &&
+                IsScopedPureMoveFormationCall(manager, x, y, command) &&
+                !MoveFormationSpacingPolicy.CanOverrideVanillaSpacing(spacing))
+                return originalAssassinGroundFormationSlot(manager, spacing, x, y);
             int effectiveSpacing = spacing;
             try
             {

@@ -36,6 +36,24 @@ $prologue = @(0x40,0x53,0x41,0x57,0x48,0x83,0xEC,0x58)
 for ($i = 0; $i -lt $prologue.Count; $i++) {
     if ($bytes[$offset + $i] -ne $prologue[$i]) { throw 'Native 0xE49D0 eight-byte prologue differs.' }
 }
+$woodSiteRva = 0x58B26
+$woodSiteOffset = -1
+for ($i = 0; $i -lt $sections; $i++) {
+    $section = $pe + 24 + $optionalSize + $i * 40
+    $size = [BitConverter]::ToInt32($bytes, $section + 16)
+    $rva = [BitConverter]::ToInt32($bytes, $section + 12)
+    if ($rva -le $woodSiteRva -and $woodSiteRva + 8 -le $rva + $size) {
+        $woodSiteOffset = [BitConverter]::ToInt32($bytes, $section + 20) + $woodSiteRva - $rva
+        break
+    }
+}
+if ($woodSiteOffset -lt 0) { throw 'Native wood guard site is not in a file-backed section.' }
+$woodSiteBytes = @(0x84,0xDB,0x0F,0x84,0x80,0x00,0x00,0x00)
+for ($i = 0; $i -lt $woodSiteBytes.Count; $i++) {
+    if ($bytes[$woodSiteOffset + $i] -ne $woodSiteBytes[$i]) {
+        throw 'Native 0x58B26 eight-byte branch differs.'
+    }
+}
 $extender = Join-Path $game 'BepInEx\plugins\000shcdese'
 foreach ($name in @('SHCDESE.dll','R3.dll','RedBird.Abstractions.dll',
     'RedBird.Core.dll','RedBird.X64.dll','RedBird.Backends.NativeX64.dll')) {
@@ -50,6 +68,7 @@ if ($fixesText -notmatch '0xE49D0|0xE49D0|ComponentTileCount') {
     throw 'Fixes pathing patch source changed; re-audit the 0xE49D0 entry overlap.'
 }
 $source = [IO.File]::ReadAllText((Join-Path $project 'src\AiCoarsePathComponentFix.cs'))
+$woodGuard = [IO.File]::ReadAllText((Join-Path $project 'src\WoodSiteGuardExperiment.cs'))
 $plugin = [IO.File]::ReadAllText((Join-Path $project 'src\AICoarsePathComponentFixTestPlugin.cs'))
 $main = [IO.File]::ReadAllText((Join-Path $workspace 'BugfixesAndQoL\src\BugfixesAndQoLRuntime.cs'))
 if ($source -notmatch 'DisplacedLength = 8' -or
@@ -74,12 +93,25 @@ if ($source -notmatch 'DisplacedLength = 8' -or
     $source -match '\*nativeReference\s*=(?!=)' -or
     $source -match '\.ForeignPathComponentTileCount\s*=(?!=)' -or
     $plugin -notmatch 'AiEconomyOverlayRestored \+= OnOverlayRestored' -or
+    $plugin -notmatch '"WoodSiteGuard", "Enabled", false' -or
+    $plugin -notmatch '"WoodSiteGuard", "Scope", "CopyOnly"' -or
+    $woodGuard -notmatch 'Original = \{ 0x84, 0xDB, 0x0F, 0x84, 0x80, 0, 0, 0 \}' -or
+    $woodGuard -notmatch 'AiBuildDiagnostic\.TryGetCurrentWoodAttempt' -or
+    $woodGuard -notmatch 'AiBuildDiagnostic\.CaptureTiles' -or
+    $woodGuard -notmatch 'ReportNativeLibraryVersion\(log, "AI wood site guard"' -or
+    $woodGuard -notmatch 'IsOldOverlayEnabled\(' -or
+    $woodGuard -notmatch 'MissionEvents\.Started\.Subscribe' -or
+    $woodGuard -notmatch 'MissionEvents\.Ended\.Subscribe' -or
+    $woodGuard -notmatch 'CopySaveName = "test_canari_nowoodcutters_probe.sav"' -or
+    $woodGuard -notmatch 'RatMapName = "spezialist 3vs5.map"' -or
     $main -match 'new AiCoarsePathComponentFix|processAiCoarsePathComponentFix') {
     throw 'Hook, lifecycle, diagnostic or production-removal contract differs.'
 }
 $textFiles = @(
     (Join-Path $project 'src\AiCoarsePathComponentFix.cs'),
     (Join-Path $project 'src\AICoarsePathComponentFixTestPlugin.cs'),
+    (Join-Path $project 'src\WoodSiteGuardExperiment.cs'),
+    (Join-Path $project 'UpdateToNewDLL.md'),
     (Join-Path $project 'Properties\AssemblyInfo.cs'),
     (Join-Path $project 'AICoarsePathComponentFixTest.csproj'),
     (Join-Path $project 'info.json'),
@@ -94,9 +126,9 @@ foreach ($path in $textFiles) {
         throw "Literal escaped newline: $path"
     }
 }
-$runtimeText = $source + $plugin + [IO.File]::ReadAllText((Join-Path $project 'AICoarsePathComponentFixTest.csproj'))
+$runtimeText = $source + $plugin + $woodGuard + [IO.File]::ReadAllText((Join-Path $project 'AICoarsePathComponentFixTest.csproj'))
 if ($runtimeText -match 'System\.Web\.Extensions|JavaScriptSerializer|System\.Text\.Json|Newtonsoft\.Json|DataContractJsonSerializer|JsonUtility|System\.Runtime\.Serialization\.Json' -or
-    $runtimeText -match '\b(OnDestroy|OnDisable|OnApplicationQuit|StartCoroutine|LateUpdate|FixedUpdate)\s*\(' -or
+    $runtimeText -match '\b(OnDestroy|OnDisable|OnApplicationQuit|StartCoroutine|Update|LateUpdate|FixedUpdate)\s*\(' -or
     $plugin -match '\bUpdate\s*\(') {
     throw 'Forbidden JSON or Unity lifecycle pattern in the test runtime.'
 }

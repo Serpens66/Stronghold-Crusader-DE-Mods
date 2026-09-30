@@ -33,8 +33,8 @@ namespace AIBuildDiagnoseTest
                 "Explicitly run the one-time placement probe on test_canari_nowoodcutters_probe.sav. " +
                 "Keep false for wall-isolation runs.").Value;
             nearbyWoodTestEnabled = Config.Bind("NearbyWoodTest", "Enabled", false,
-                "Temporarily exclude zero-component wood build candidates only on the named save copy, " +
-                "after a matching read-only calibration attempt.").Value;
+                "Temporarily exclude zero-component or parcel-blocked wood build candidates " +
+                "for up to twelve calls only on the named save copy, after matching read-only calibration.").Value;
             Shared.DebugLogHelper.LogInfo(log, Name + " " + Version +
                 $" loaded; placementProbeEnabled={placementProbeEnabled}, nearbyWoodTestEnabled={nearbyWoodTestEnabled}; " +
                 "probe limited to test_canari_nowoodcutters_probe.sav.");

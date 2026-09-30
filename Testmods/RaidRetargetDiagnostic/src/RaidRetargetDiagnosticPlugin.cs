@@ -7,7 +7,6 @@ using SHCDESE.API.LowLevel;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Buildings;
 using SHCDESE.EventAPI.Tribes;
-using SHCDESE.EventAPI.Units;
 using System;
 
 namespace RaidRetargetDiagnostic
@@ -29,7 +28,6 @@ namespace RaidRetargetDiagnostic
         private static IDisposable deleteSubscription;
         private static IDisposable tribeOrderSubscription;
         private static IDisposable tribeMoveSubscription;
-        private static IDisposable unitMoveSubscription;
         private static bool libraryRegistered;
 
         private void Awake()
@@ -52,7 +50,6 @@ namespace RaidRetargetDiagnostic
             IDisposable candidateDelete = null;
             IDisposable candidateTribeOrder = null;
             IDisposable candidateTribeMove = null;
-            IDisposable candidateUnitMove = null;
             bool candidateTick = false;
             try
             {
@@ -68,27 +65,23 @@ namespace RaidRetargetDiagnostic
                     .Subscribe(candidate.OnTribeOrder);
                 candidateTribeMove = TribeR3EventHooks.OnTribeIssueOrderMoveHere.Observable
                     .Subscribe(candidate.OnTribeMove);
-                candidateUnitMove = UnitR3EventHooks.OnUnitMoveHere.Observable
-                    .Subscribe(candidate.OnUnitMove);
                 GameTimeManagerAPI.Instance.OnTick += OnTick;
                 candidateTick = true;
 
                 Shared.DebugLogHelper.LogInfo(log,
                     "RAID_DIAG_READY: raidMeleeRetarget=true, publisher=GameTimeManagerAPI.OnTick, " +
-                    "events=buildingDamage+delete+tribeOrder+tribeMove+unitMove.");
+                    "events=buildingDamage+delete+tribeOrder+tribeMove, logging=compactRaidEvents.");
                 // The extender publishers and these static fields survive startup cleanup.
                 sessionSubscription = candidateSession;
                 damageSubscription = candidateDamage;
                 deleteSubscription = candidateDelete;
                 tribeOrderSubscription = candidateTribeOrder;
                 tribeMoveSubscription = candidateTribeMove;
-                unitMoveSubscription = candidateUnitMove;
                 runtime = candidate;
             }
             catch (Exception ex)
             {
                 if (candidateTick) GameTimeManagerAPI.Instance.OnTick -= OnTick;
-                candidateUnitMove?.Dispose();
                 candidateTribeMove?.Dispose();
                 candidateTribeOrder?.Dispose();
                 candidateDelete?.Dispose();

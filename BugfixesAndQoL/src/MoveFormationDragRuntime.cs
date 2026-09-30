@@ -76,7 +76,6 @@ namespace BugfixesAndQoL
             bool hasTransportSpacing =
                 QueueNativeContract.TryResolveExecutedFormationSpacing(
                     encoded,
-                    executingMoveChore,
                     out int decoded,
                     out int encodedSpacing);
             if (!hasTransportSpacing && !hasPrivateBits)
@@ -656,6 +655,12 @@ namespace BugfixesAndQoL
 
             if (state == null)
                 return engineRunOriginal(mpFrameSkip);
+
+            if (state.Spacing == MoveFormationSpacingPolicy.Default)
+            {
+                markers.ClearPreview();
+                return engineRunOriginal(mpFrameSkip);
+            }
 
             try
             {

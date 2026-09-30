@@ -124,7 +124,6 @@ namespace BugfixesAndQoL
 
         public static bool TryResolveExecutedFormationSpacing(
             int moveType,
-            bool executingMoveChore,
             out int decodedMoveType,
             out int spacing)
         {
@@ -134,8 +133,8 @@ namespace BugfixesAndQoL
 
             bool hasPrivateSpacing =
                 (moveType & MoveFormationSpacingMask) != 0;
-            return hasPrivateSpacing ||
-                (executingMoveChore && (moveType & MoveQueueMarker) == 0);
+            // Zero spacing bits are Vanilla, including a deferred Chore 17.
+            return hasPrivateSpacing;
         }
 
         public static bool TryDecodeQueuedMoveType(int moveType, out int decodedMoveType)

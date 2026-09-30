@@ -165,7 +165,20 @@ if ($runtimeText -notmatch 'NearbyDx = \{ 0, 1, 1, 1, 0, -1, -1, -1 \}' -or
     $runtimeText -notmatch 'NearbyDy = \{ -1, -1, 0, 1, 1, 1, 0, -1 \}' -or
     $runtimeText -notmatch 'BeginNearbyWoodOverlay\(' -or
     $runtimeText -notmatch 'RestoreNearbyWoodOverlay\(changed, attemptId\)' -or
-    $runtimeText -notmatch 'nearbyTestUsed = true' -or
+    $runtimeText -notmatch 'nearbyCalibrated' -or
+    $runtimeText -notmatch 'CandidateTrace\.Count >= 256' -or
+    $runtimeText -notmatch 'footprint\.ExcludeForCopyProbe' -or
+    $runtimeText -notmatch 'result\.MaskedCandidates\.Add' -or
+    $runtimeText -notmatch 'ExpectedFootprint\.NoMeasuredBlockers' -or
+    $runtimeText -notmatch 'liveFootprint\.ExcludeForCopyProbe' -or
+    $runtimeText -notmatch 'string\.Equals\(liveFootprint\.Tiles, candidate\.FootprintTiles' -or
+    $runtimeText -notmatch 'Marshal\.WriteByte\(new IntPtr\(cell\), 1\)' -or
+    $runtimeText -notmatch 'Marshal\.WriteByte\(new IntPtr\(address\), 0\)' -or
+    $runtimeText -notmatch 'NearbyCopyMaxApplications = 12' -or
+    $runtimeText -notmatch 'nearbyCopyApplications >= NearbyCopyMaxApplications' -or
+    $runtimeText -notmatch 'nearbyCopyApplications\+\+' -or
+    $runtimeText -notmatch 'AI_BUILD_NEARBY_TEST_LIMIT_REACHED' -or
+    $runtimeText -notmatch 'restoreFailed=\{failed\}' -or
     $runtimeText -notmatch 'Config\.Bind\("NearbyWoodTest", "Enabled", false') {
     throw 'Nearby wood shadow or copy-only overlay contract differs.'
 }
@@ -183,7 +196,7 @@ if ($runtimeText -notmatch 'NativePlacementReservationFlag = 0x4' -or
     $runtimeText -notmatch 'Marshal\.ReadByte\(new IntPtr\(address \+ 11\)\)' -or
     $runtimeText -notmatch 'farmGridPairCaptured = true' -or
     $runtimeText -notmatch 'nearbyDetailedByPlayer\[playerId\]' -or
-    $runtimeText -notmatch 'DescribeNearbyFootprint\(x, y\)' -or
+    $runtimeText -notmatch 'CaptureNearbyFootprint\(x, y\)' -or
     $runtimeText -notmatch '0x60AD660 \+ 0x74') {
     throw 'Farm-parcel or raw native placement-reason diagnostic contract differs.'
 }
