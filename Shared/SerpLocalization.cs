@@ -37,6 +37,8 @@ public static class SerpLocalization
     public const string BuildingLimitCrusaderDeTweakerWarning = "BuildingLimit.CrusaderDeTweakerWarning";
     public const string UnitCostsTitle = "UnitCosts.Title";
     public const string UnitCostsHelp = "UnitCosts.Help";
+    public const string UnitCostsNoWeapons = "UnitCosts.NoWeapons";
+    public const string UnitCostsNoWeaponsHelp = "UnitCosts.NoWeaponsHelp";
     public const string UnitCostsExtraTitle = "UnitCosts.ExtraTitle";
     public const string UnitCostsExtraHelp = "UnitCosts.ExtraHelp";
     public const string UnitHeader = "UnitCosts.UnitHeader";
@@ -558,7 +560,9 @@ public static class SerpLocalization
         { BuildingLimitsHelp, "Only for Human! -1 = unlimited. Allowed range: -1 to 10000. Variants such as gardens, statues, shrines and ponds are counted together." },
         { BuildingLimitCrusaderDeTweakerWarning, "Crusader DE Tweaker is loaded. Configure building limits in only one of the two mods; if both define limits, the stricter limit applies." },
         { UnitCostsTitle, "Base Costs (Human and AI)" },
-        { UnitCostsHelp, "Good slots apply to European units. unchanged keeps the vanilla slot; gold -1 stays unchanged." },
+        { UnitCostsHelp, "Gold -1 keeps the original cost. No Weapons removes all four European recruitment requirements, including the knight's horse, for human and AI players." },
+        { UnitCostsNoWeapons, "No Weapons" },
+        { UnitCostsNoWeaponsHelp, "{0}: Removes all four weapon and horse requirements for human and AI recruitment. Uncheck to restore the original requirements." },
         { UnitCostsExtraTitle, "Additional Costs (Human only)" },
         { UnitCostsExtraHelp, "0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. A checked horse reserves one available stable horse for the recruited unit. AI players ignore this table." },
         { UnitHeader, "Unit" },

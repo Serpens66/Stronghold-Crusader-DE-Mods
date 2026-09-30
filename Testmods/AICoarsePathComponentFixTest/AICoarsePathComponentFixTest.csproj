@@ -43,6 +43,7 @@
     <Compile Include="src\AICoarsePathComponentFixTestPlugin.cs" />
     <Compile Include="src\AiCoarsePathComponentFix.cs" />
     <Compile Include="src\WoodSiteGuardExperiment.cs" />
+    <Compile Include="src\WoodGuardOutcomeObserver.cs" />
     <Compile Include="..\..\Shared\DebugLogHelper.cs"><Link>Shared\DebugLogHelper.cs</Link></Compile>
     <Compile Include="..\..\Shared\GameplaySessionLifecycle.cs"><Link>Shared\GameplaySessionLifecycle.cs</Link></Compile>
   </ItemGroup>

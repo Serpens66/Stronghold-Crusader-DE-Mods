@@ -36,19 +36,20 @@ namespace UnitCosts
         }
     }
 
-    internal sealed class MakeTroopGameActionHook : IDisposable
+    internal sealed class MakeTroopGameActionHook
     {
         private readonly ManualLogSource log;
+        private readonly Func<bool> isActive;
         private readonly Func<int, eChimps, int, bool, MakeTroopGameActionDecision> decideMakeTroop;
         private readonly Hook hook;
         private readonly EngineInterfaceGameActionDelegate trampoline;
-        private bool disposed;
 
         private delegate int EngineInterfaceGameActionDelegate(Enums.GameActionCommand command, int structureID, int state, int value2);
 
-        public MakeTroopGameActionHook(ManualLogSource log, Func<int, eChimps, int, bool, MakeTroopGameActionDecision> decideMakeTroop)
+        public MakeTroopGameActionHook(ManualLogSource log, Func<bool> isActive, Func<int, eChimps, int, bool, MakeTroopGameActionDecision> decideMakeTroop)
         {
             this.log = log;
+            this.isActive = isActive;
             this.decideMakeTroop = decideMakeTroop;
 
             MethodInfo gameActionMethod = typeof(EngineInterface).GetMethod(
@@ -61,25 +62,25 @@ namespace UnitCosts
             if (gameActionMethod == null)
                 throw new MissingMethodException(typeof(EngineInterface).FullName, nameof(EngineInterface.GameAction));
 
-            hook = new Hook(gameActionMethod, (EngineInterfaceGameActionDelegate)EngineInterfaceGameActionHook);
-            trampoline = hook.GenerateTrampoline<EngineInterfaceGameActionDelegate>();
+            Hook pendingHook = null;
+            try
+            {
+                pendingHook = new Hook(gameActionMethod, (EngineInterfaceGameActionDelegate)EngineInterfaceGameActionHook);
+                EngineInterfaceGameActionDelegate pendingTrampoline = pendingHook.GenerateTrampoline<EngineInterfaceGameActionDelegate>();
+                hook = pendingHook;
+                trampoline = pendingTrampoline;
+            }
+            catch
+            {
+                pendingHook?.Dispose();
+                throw;
+            }
             Shared.DebugLogHelper.LogDebug(log, "UnitCosts MakeTroop GameAction hook installed.");
-        }
-
-        public void Dispose()
-        {
-            if (disposed)
-                return;
-
-            disposed = true;
-            hook?.Undo();
-            hook?.Dispose();
-            Shared.DebugLogHelper.LogDebug(log, "UnitCosts MakeTroop GameAction hook disposed.");
         }
 
         private int EngineInterfaceGameActionHook(Enums.GameActionCommand command, int structureID, int state, int value2)
         {
-            if (command != Enums.GameActionCommand.MakeTroop)
+            if (!isActive() || command != Enums.GameActionCommand.MakeTroop)
                 return trampoline(command, structureID, state, value2);
 
             int amount = NormalizeMakeTroopAmount(structureID, state, value2);

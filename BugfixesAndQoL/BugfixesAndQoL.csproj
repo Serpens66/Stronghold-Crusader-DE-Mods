@@ -72,6 +72,7 @@
     <Compile Include="src\AIBuildingTemporaryAccessClassifier.cs" />
     <Compile Include="src\AIPreplacedBuildingFixPolicy.cs" />
     <Compile Include="src\AIPreplacedBuildingFixRuntime.cs" />
+    <Compile Include="src\AiWoodBuildCallScope.cs" />
     <Compile Include="src\AIEconomyProtectionHook.cs" />
     <Compile Include="src\AIResourceShortageSleepNativeDefinition.cs" />
     <Compile Include="src\AIResourceShortageSleepPolicy.cs" />

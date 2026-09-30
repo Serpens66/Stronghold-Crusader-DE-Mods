@@ -561,6 +561,7 @@ namespace BugfixesAndQoL
                     sessionEnabled ? 1 : 0, economyFixEnabled ? 1 : 0,
                     currentMapIsSave ? 1 : 0, economyMapRelevant ? 1 : 0);
             // AIBuildDiagnoseTest END
+            AiWoodBuildCallScope.Previous woodScope = AiWoodBuildCallScope.Enter(playerId);
             try { RunEconomyPlayer(economyWoodHook, state, playerId); }
             finally
             {
@@ -570,7 +571,11 @@ namespace BugfixesAndQoL
                         APIShared.AiBuildDiagnostic.Publish("wood-build-after", playerId,
                             ReadSearchResult(state, false), ReadSearchResult(state, true));
                 }
-                finally { APIShared.AiBuildDiagnostic.EndWoodAttempt(attemptId); }
+                finally
+                {
+                    try { APIShared.AiBuildDiagnostic.EndWoodAttempt(attemptId); }
+                    finally { AiWoodBuildCallScope.Leave(woodScope); }
+                }
             }
         }
 

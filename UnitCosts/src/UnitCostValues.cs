@@ -2,12 +2,14 @@ namespace UnitCosts
 {
     public sealed class UnitCostValues
     {
-        public UnitCostValues(int gold)
+        public UnitCostValues(int gold, bool noWeapons = false)
         {
             Gold = ClampCost(gold);
+            NoWeapons = noWeapons;
         }
 
         public int Gold { get; }
+        public bool NoWeapons { get; }
 
         public static int ClampCost(int value)
         {

@@ -3,13 +3,19 @@
   "Author": "Serpens66",
   "Name": "Unit Costs",
   "Description": "Configure recruit costs in Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.31",
+  "Version": "1.0.32",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.10.4",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.32",
+      "Changes": [
+        "Added No Weapons for European units, including knights' horse requirement, for human and AI players."
+      ]
+    },
     {
       "Version": "1.0.31",
       "Changes": [

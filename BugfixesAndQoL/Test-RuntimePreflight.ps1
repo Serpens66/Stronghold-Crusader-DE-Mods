@@ -34,6 +34,38 @@ foreach ($file in $pluginSources) {
     }
 }
 
+$woodScopeSource = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\AiWoodBuildCallScope.cs'))
+$woodWrapperSource = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\AIPreplacedBuildingFixRuntime.cs'))
+if ($woodWrapperSource -notmatch 'AiWoodBuildCallScope\.Enter\(playerId\)' -or
+    $woodWrapperSource -notmatch 'AiWoodBuildCallScope\.Leave\(woodScope\)' -or
+    $woodScopeSource -notmatch '\[ThreadStatic\]' -or
+    $woodScopeSource -match 'AiBuildDiagnostic|CaptureTiles|CodePatch') {
+    throw 'Optional wood-call scope is missing or contains diagnostic/native behavior.'
+}
+Add-Type -TypeDefinition $woodScopeSource -Language CSharp
+[int]$scopePlayer = 0
+[long]$scopeCall = 0
+$inactive = [BugfixesAndQoL.AiWoodBuildCallScope]::Enter(6)
+if ([BugfixesAndQoL.AiWoodBuildCallScope]::TryGetCurrent([ref]$scopePlayer, [ref]$scopeCall)) {
+    throw 'Wood-call scope activated without a registered consumer.'
+}
+[BugfixesAndQoL.AiWoodBuildCallScope]::Leave($inactive)
+[BugfixesAndQoL.AiWoodBuildCallScope]::RegisterConsumer()
+$outer = [BugfixesAndQoL.AiWoodBuildCallScope]::Enter(6)
+if (-not [BugfixesAndQoL.AiWoodBuildCallScope]::TryGetCurrent([ref]$scopePlayer, [ref]$scopeCall) -or
+    $scopePlayer -ne 6 -or $scopeCall -le 0) { throw 'Wood-call outer context failed.' }
+$outerCall = $scopeCall
+$inner = [BugfixesAndQoL.AiWoodBuildCallScope]::Enter(2)
+if (-not [BugfixesAndQoL.AiWoodBuildCallScope]::TryGetCurrent([ref]$scopePlayer, [ref]$scopeCall) -or
+    $scopePlayer -ne 2 -or $scopeCall -le $outerCall) { throw 'Nested wood-call context failed.' }
+[BugfixesAndQoL.AiWoodBuildCallScope]::Leave($inner)
+if (-not [BugfixesAndQoL.AiWoodBuildCallScope]::TryGetCurrent([ref]$scopePlayer, [ref]$scopeCall) -or
+    $scopePlayer -ne 6 -or $scopeCall -ne $outerCall) { throw 'Wood-call restoration failed.' }
+[BugfixesAndQoL.AiWoodBuildCallScope]::Leave($outer)
+if ([BugfixesAndQoL.AiWoodBuildCallScope]::TryGetCurrent([ref]$scopePlayer, [ref]$scopeCall)) {
+    throw 'Wood-call context leaked after leaving the wrapper.'
+}
+
 $waterboyRuntimePath = Join-Path $PSScriptRoot 'src\WaterboyTargetReservationRuntime.cs'
 $waterboyRuntime = [System.IO.File]::ReadAllText($waterboyRuntimePath)
 $waterboyViewModel = [System.IO.File]::ReadAllText(

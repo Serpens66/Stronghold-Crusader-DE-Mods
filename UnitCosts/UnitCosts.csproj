@@ -65,6 +65,8 @@
       <HintPath>$(GameDir)\BepInEx\core\MonoMod.RuntimeDetour.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="Mono.Cecil"><HintPath>$(GameDir)\BepInEx\core\Mono.Cecil.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="MonoMod.Utils"><HintPath>$(GameDir)\BepInEx\core\MonoMod.Utils.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine">
       <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.dll</HintPath>
       <Private>false</Private>
@@ -115,6 +117,7 @@
     <Compile Include="src\CreateTroopHoverHook.cs" />
     <Compile Include="src\MakeTroopGameActionHook.cs" />
     <Compile Include="src\RecruitmentAvailabilityUiHook.cs" />
+    <Compile Include="src\RecruitmentWeaponUiIlContract.cs" />
     <Compile Include="src\SiegeBuildHoverHook.cs" />
     <Compile Include="src\UnitCostValues.cs" />
     <Compile Include="src\UnitExtraCostValues.cs" />

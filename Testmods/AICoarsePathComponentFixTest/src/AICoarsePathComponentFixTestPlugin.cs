@@ -26,6 +26,7 @@ namespace AICoarsePathComponentFixTest
         private static int isolationMode;
         private static bool tickSubscribed;
         private static WoodSiteGuardExperiment woodGuard;
+        private static WoodGuardOutcomeObserver outcomeObserver;
         private static bool woodGuardRequested;
         private static string woodGuardScope;
         private static string woodGuardDecision;
@@ -45,7 +46,8 @@ namespace AICoarsePathComponentFixTest
             woodGuardScope = Config.Bind("WoodSiteGuard", "Scope", "CopyOnly",
                 "CopyOnly enables the guard only for test_canari_nowoodcutters_probe.sav; " +
                 "RatControl enables it only for a new game on spezialist 3vs5.map; " +
-                "RatSaveOnly enables it only for rat_wood_guard_control_probe.sav.").Value;
+                "RatSaveOnly enables it only for rat_wood_guard_control_probe.sav; " +
+                "OriginalCanariOnly enables it only for test_canari_nowoodcutters.sav.").Value;
             woodGuardDecision = Config.Bind("WoodSiteGuard", "Decision", "Reject",
                 "ObserveOnly records candidates but preserves Vanilla acceptance; " +
                 "Reject skips zero-component anchors and parcel-blocked wood footprints.").Value;
@@ -66,11 +68,6 @@ namespace AICoarsePathComponentFixTest
                         requireCurrentVersion: true), isolationMode);
                 BugfixesAndQoLRuntime.AiEconomyOverlayRestored += OnOverlayRestored;
                 runtime = candidate;
-                if (!tickSubscribed)
-                {
-                    GameTimeManagerAPI.Instance.OnTick += OnTick;
-                    tickSubscribed = true;
-                }
                 Shared.DebugLogHelper.LogInfo(log,
                     $"AI_COARSE_PCL_TEST_READY: publisher=GameTimeManagerAPI.OnTick; " +
                     $"isolationMode={isolationMode}; nativeHook={isolationMode >= 1 && isolationMode <= 4}; observationOnly=True; writes=0.");
@@ -92,6 +89,26 @@ namespace AICoarsePathComponentFixTest
                 catch (Exception ex)
                 {
                     Shared.DebugLogHelper.LogError(log, "AI_WOOD_SITE_GUARD_UNAVAILABLE: " + ex);
+                }
+            }
+            if (outcomeObserver == null)
+            {
+                try { outcomeObserver = new WoodGuardOutcomeObserver(log, () => woodGuard); }
+                catch (Exception ex)
+                {
+                    Shared.DebugLogHelper.LogError(log, "AI_WOOD_OUTCOME_UNAVAILABLE: " + ex);
+                }
+            }
+            if (!tickSubscribed)
+            {
+                try
+                {
+                    GameTimeManagerAPI.Instance.OnTick += OnTick;
+                    tickSubscribed = true;
+                }
+                catch (Exception ex)
+                {
+                    Shared.DebugLogHelper.LogError(log, "AI_COARSE_PCL_TEST_TICK_UNAVAILABLE: " + ex);
                 }
             }
         }
@@ -116,6 +133,11 @@ namespace AICoarsePathComponentFixTest
             catch (Exception ex)
             {
                 Shared.DebugLogHelper.LogError(log, "AI_WOOD_SITE_GUARD_TICK_FAILED: " + ex);
+            }
+            try { outcomeObserver?.OnTick(tick); }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(log, "AI_WOOD_OUTCOME_TICK_FAILED: " + ex);
             }
         }
     }

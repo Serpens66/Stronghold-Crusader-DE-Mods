@@ -108,6 +108,7 @@ namespace UnitCosts
         public string ExtraTitleText => SerpLocalization.Get(SerpLocalization.UnitCostsExtraTitle);
         public string ExtraHelpText => SerpLocalization.Get(SerpLocalization.UnitCostsExtraHelp);
         public string UnitHeaderText => SerpLocalization.Get(SerpLocalization.UnitHeader);
+        public string NoWeaponsHeaderText => SerpLocalization.Get(SerpLocalization.UnitCostsNoWeapons);
         public string GoldHeaderText => UnitCostsRuntime.GetLocalizedGoodName(eGoods.STORED_GOLD, "Gold");
         public ImageSource GoldHeaderIcon => GetGoodIconImage(eGoods.STORED_GOLD);
         public string HorseHeaderText => SerpLocalization.Get(SerpLocalization.Horse);
@@ -195,6 +196,7 @@ namespace UnitCosts
 
                 entry.DisplayName = UnitCostsRuntime.GetLocalizedUnitName(unitType);
                 entry.ToolTip = UnitCostsRuntime.GetUnitSettingsTooltip(unitType);
+                entry.RefreshNoWeaponsText();
             }
 
             foreach (ExtraCostEntryViewModel entry in ExtraCostEntries)
@@ -244,6 +246,7 @@ namespace UnitCosts
             OnPropertyChanged(nameof(ExtraTitleText));
             OnPropertyChanged(nameof(ExtraHelpText));
             OnPropertyChanged(nameof(UnitHeaderText));
+            OnPropertyChanged(nameof(NoWeaponsHeaderText));
             OnPropertyChanged(nameof(GoldHeaderText));
             OnPropertyChanged(nameof(GoldHeaderIcon));
             OnPropertyChanged(nameof(HorseHeaderText));
@@ -279,12 +282,12 @@ namespace UnitCosts
 
         private static string CreateDefaultUnitCosts()
         {
-            StringBuilder builder = new StringBuilder("# -1 keeps vanilla gold cost; order is gold");
+            StringBuilder builder = new StringBuilder("# -1 keeps vanilla gold cost; order is gold,noWeapons (0 or 1)");
             foreach (string key in DefaultUnitKeys)
             {
                 builder.AppendLine();
                 builder.Append(key);
-                builder.Append("=-1");
+                builder.Append("=-1,0");
             }
 
             return builder.ToString();
@@ -381,14 +384,23 @@ namespace UnitCosts
                     continue;
 
                 string[] costParts = keyValue[1].Split(',');
-                if (costParts.Length != 1 && costParts.Length != 5)
+                if (costParts.Length != 1 && costParts.Length != 2 && costParts.Length != 5)
                     continue;
 
-                string goldText = costParts[costParts.Length - 1].Trim();
+                string goldText = costParts[costParts.Length == 2 ? 0 : costParts.Length - 1].Trim();
                 if (!int.TryParse(goldText, out int gold))
                     continue;
 
-                result[keyValue[0].Trim()] = new UnitCostValues(gold);
+                bool noWeapons = false;
+                if (costParts.Length == 2)
+                {
+                    string flag = costParts[1].Trim();
+                    if (flag != "0" && flag != "1")
+                        continue;
+                    noWeapons = flag == "1";
+                }
+
+                result[keyValue[0].Trim()] = new UnitCostValues(gold, noWeapons);
             }
 
             return result;
@@ -514,13 +526,15 @@ namespace UnitCosts
 
         private string BuildSerializedCosts()
         {
-            StringBuilder builder = new StringBuilder("# -1 keeps vanilla gold cost; order is gold");
+            StringBuilder builder = new StringBuilder("# -1 keeps vanilla gold cost; order is gold,noWeapons (0 or 1)");
             foreach (CostEntryViewModel entry in CostEntries)
             {
                 builder.AppendLine();
                 builder.Append(entry.Key);
                 builder.Append('=');
                 builder.Append(entry.Gold);
+                builder.Append(',');
+                builder.Append(entry.NoWeapons ? '1' : '0');
             }
 
             return builder.ToString();
@@ -713,6 +727,7 @@ namespace UnitCosts
             private string toolTip;
             private string goldToolTip;
             private int gold;
+            private bool noWeapons;
 
             public event PropertyChangedEventHandler PropertyChanged;
 
@@ -730,9 +745,19 @@ namespace UnitCosts
                 this.changed = changed;
 
                 gold = values.Gold;
+                IsEuropeanUnit = Enum.TryParse(key, out eChimps unitType) && UnitCostsRuntime.IsEuropeanRecruit(unitType);
+                noWeapons = IsEuropeanUnit && values.NoWeapons;
             }
 
             public string Key { get; }
+            public bool IsEuropeanUnit { get; }
+            public Visibility NoWeaponsVisibility => IsEuropeanUnit ? Visibility.Visible : Visibility.Collapsed;
+            public string NoWeaponsText => SerpLocalization.Get(SerpLocalization.UnitCostsNoWeapons);
+            public string NoWeaponsSearchKey => IsEuropeanUnit ? Key + ".NoWeapons" : string.Empty;
+            public string NoWeaponsSearchTitle => IsEuropeanUnit ? DisplayName + " / " + NoWeaponsText : string.Empty;
+            public string NoWeaponsToolTip => IsEuropeanUnit
+                ? string.Format(SerpLocalization.Get(SerpLocalization.UnitCostsNoWeaponsHelp), DisplayName)
+                : string.Empty;
             public ImageSource IconImage
             {
                 get
@@ -753,6 +778,8 @@ namespace UnitCosts
 
                     displayName = value;
                     OnPropertyChanged();
+                    OnPropertyChanged(nameof(NoWeaponsSearchTitle));
+                    OnPropertyChanged(nameof(NoWeaponsToolTip));
                 }
             }
 
@@ -776,12 +803,41 @@ namespace UnitCosts
             }
 
             public int Gold { get => gold; set => SetCost(ref gold, value, nameof(Gold), nameof(GoldText)); }
+            public bool NoWeapons
+            {
+                get => noWeapons;
+                set
+                {
+                    if ((canEdit != null && !canEdit()) || !IsEuropeanUnit || noWeapons == value)
+                    {
+                        OnPropertyChanged();
+                        return;
+                    }
+
+                    noWeapons = value;
+                    OnPropertyChanged();
+                    changed?.Invoke();
+                }
+            }
             public int GoldSlider { get => gold > 1000 ? 1000 : gold; set => Gold = value; }
             public string GoldText { get => gold.ToString(); set => SetTextCost(value, v => Gold = v); }
 
             public void SetCostsFromOwner(UnitCostValues values)
             {
                 Gold = values.Gold;
+                bool normalized = IsEuropeanUnit && values.NoWeapons;
+                if (noWeapons != normalized)
+                {
+                    noWeapons = normalized;
+                    OnPropertyChanged(nameof(NoWeapons));
+                }
+            }
+
+            public void RefreshNoWeaponsText()
+            {
+                OnPropertyChanged(nameof(NoWeaponsText));
+                OnPropertyChanged(nameof(NoWeaponsSearchTitle));
+                OnPropertyChanged(nameof(NoWeaponsToolTip));
             }
 
             private void SetTextCost(string value, Action<int> setCost)

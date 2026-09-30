@@ -69,8 +69,11 @@ if ($fixesText -notmatch '0xE49D0|0xE49D0|ComponentTileCount') {
 }
 $source = [IO.File]::ReadAllText((Join-Path $project 'src\AiCoarsePathComponentFix.cs'))
 $woodGuard = [IO.File]::ReadAllText((Join-Path $project 'src\WoodSiteGuardExperiment.cs'))
+$outcome = [IO.File]::ReadAllText((Join-Path $project 'src\WoodGuardOutcomeObserver.cs'))
 $plugin = [IO.File]::ReadAllText((Join-Path $project 'src\AICoarsePathComponentFixTestPlugin.cs'))
 $main = [IO.File]::ReadAllText((Join-Path $workspace 'BugfixesAndQoL\src\BugfixesAndQoLRuntime.cs'))
+$economyMain = [IO.File]::ReadAllText((Join-Path $workspace 'BugfixesAndQoL\src\AIPreplacedBuildingFixRuntime.cs'))
+$woodScope = [IO.File]::ReadAllText((Join-Path $workspace 'BugfixesAndQoL\src\AiWoodBuildCallScope.cs'))
 if ($source -notmatch 'DisplacedLength = 8' -or
     $source -notmatch 'probe\.Scheme\.ToString\(\) != "Indirect"' -or
     $source -notmatch 'ValidateInstalledHook\(target\)' -or
@@ -98,8 +101,18 @@ if ($source -notmatch 'DisplacedLength = 8' -or
     $plugin -notmatch '"WoodSiteGuard", "Decision", "Reject"' -or
     $plugin -notmatch 'woodGuardDecision\);' -or
     $woodGuard -notmatch 'Original = \{ 0x84, 0xDB, 0x0F, 0x84, 0x80, 0, 0, 0 \}' -or
-    $woodGuard -notmatch 'AiBuildDiagnostic\.TryGetCurrentWoodAttempt' -or
-    $woodGuard -notmatch 'AiBuildDiagnostic\.CaptureTiles' -or
+    $woodGuard -match 'AiBuildDiagnostic\.(HasObserver|TryGetCurrentWoodAttempt|CaptureTiles)' -or
+    $woodGuard -notmatch 'AiWoodBuildCallScope\.RegisterConsumer\(' -or
+    $woodGuard -notmatch 'AiWoodBuildCallScope\.TryGetCurrent\(' -or
+    $woodGuard -notmatch 'TryReadCandidate\(' -or
+    $woodGuard -notmatch 'GetPathComponentGrid\(' -or
+    $woodGuard -notmatch 'GetTilePropertyFlag\(' -or
+    $woodGuard -notmatch 'nativeComponent != components\[tileId\]' -or
+    $woodScope -notmatch '\[ThreadStatic\]' -or
+    $woodScope -notmatch 'Volatile\.Read\(ref registered\)' -or
+    $economyMain -notmatch 'AiWoodBuildCallScope\.Enter\(playerId\)' -or
+    $economyMain -notmatch 'AiWoodBuildCallScope\.Leave\(woodScope\)' -or
+    [regex]::Matches($economyMain, 'AiWoodBuildCallScope\.Enter\(').Count -ne 1 -or
     $woodGuard -notmatch 'ReportNativeLibraryVersion\(log, "AI wood site guard"' -or
     $woodGuard -notmatch 'IsOldOverlayEnabled\(' -or
     $woodGuard -notmatch 'MissionEvents\.Started\.Subscribe' -or
@@ -107,11 +120,21 @@ if ($source -notmatch 'DisplacedLength = 8' -or
     $woodGuard -notmatch 'CopySaveName = "test_canari_nowoodcutters_probe.sav"' -or
     $woodGuard -notmatch 'RatMapName = "spezialist 3vs5.map"' -or
     $woodGuard -notmatch 'RatSaveName = "rat_wood_guard_control_probe.sav"' -or
+    $woodGuard -notmatch 'OriginalCanariSaveName = "test_canari_nowoodcutters.sav"' -or
     $woodGuard -notmatch 'scope == "RatSaveOnly" && context\.IsSave' -or
+    $woodGuard -notmatch 'scope == "OriginalCanariOnly" && context\.IsSave' -or
+    $plugin -notmatch 'OriginalCanariOnly enables it only for test_canari_nowoodcutters.sav' -or
     $woodGuard -notmatch 'decision != "ObserveOnly" && decision != "Reject"' -or
     $woodGuard -notmatch 'bool apply = reason != 0 && current\.rejectCandidates;' -or
     $woodGuard -notmatch 'RecordCandidate\(attemptId, playerId, coarseX, coarseY, reason, apply\)' -or
     $woodGuard -notmatch 'FlushCandidateTraces\(\);' -or
+    $woodGuard -notmatch 'DescribeRecentDecisions\(' -or
+    $outcome -notmatch 'OnBuildingSpawn\.Observable\.Subscribe\(OnBuildingSpawn\)' -or
+    $outcome -notmatch 'OnAIBuildWall\.Observable\.Subscribe\(OnWall\)' -or
+    $outcome -notmatch 'GetWallOwnerLayer\(' -or
+    $outcome -notmatch 'GetBuildingsAsSpan\(' -or
+    $outcome -notmatch 'ScanInterval = 50' -or
+    $plugin -notmatch 'outcomeObserver\?\.OnTick\(tick\)' -or
     $main -match 'new AiCoarsePathComponentFix|processAiCoarsePathComponentFix') {
     throw 'Hook, lifecycle, diagnostic or production-removal contract differs.'
 }
@@ -119,6 +142,9 @@ $textFiles = @(
     (Join-Path $project 'src\AiCoarsePathComponentFix.cs'),
     (Join-Path $project 'src\AICoarsePathComponentFixTestPlugin.cs'),
     (Join-Path $project 'src\WoodSiteGuardExperiment.cs'),
+    (Join-Path $project 'src\WoodGuardOutcomeObserver.cs'),
+    (Join-Path $workspace 'BugfixesAndQoL\src\AiWoodBuildCallScope.cs'),
+    (Join-Path $workspace 'BugfixesAndQoL\src\AIPreplacedBuildingFixRuntime.cs'),
     (Join-Path $project 'UpdateToNewDLL.md'),
     (Join-Path $project 'Properties\AssemblyInfo.cs'),
     (Join-Path $project 'AICoarsePathComponentFixTest.csproj'),
@@ -135,7 +161,7 @@ foreach ($path in $textFiles) {
         throw "Literal escaped newline: $path"
     }
 }
-$runtimeText = $source + $plugin + $woodGuard + [IO.File]::ReadAllText((Join-Path $project 'AICoarsePathComponentFixTest.csproj'))
+$runtimeText = $source + $plugin + $woodGuard + $outcome + [IO.File]::ReadAllText((Join-Path $project 'AICoarsePathComponentFixTest.csproj'))
 if ($runtimeText -match 'System\.Web\.Extensions|JavaScriptSerializer|System\.Text\.Json|Newtonsoft\.Json|DataContractJsonSerializer|JsonUtility|System\.Runtime\.Serialization\.Json' -or
     $runtimeText -match '\b(OnDestroy|OnDisable|OnApplicationQuit|StartCoroutine|Update|LateUpdate|FixedUpdate)\s*\(' -or
     $plugin -match '\bUpdate\s*\(') {

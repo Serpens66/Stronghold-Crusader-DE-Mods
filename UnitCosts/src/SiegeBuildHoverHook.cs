@@ -6,22 +6,23 @@ using System.Reflection;
 
 namespace UnitCosts
 {
-    internal sealed class SiegeBuildHoverHook : IDisposable
+    internal sealed class SiegeBuildHoverHook
     {
         private readonly ManualLogSource log;
+        private readonly Func<bool> isActive;
         private readonly Action<object> onEnter;
         private readonly Action onLeave;
         private readonly Hook enterHook;
         private readonly Hook leaveHook;
         private readonly ButtonTroopPanelHoverDelegate enterTrampoline;
         private readonly ButtonTroopPanelHoverDelegate leaveTrampoline;
-        private bool disposed;
 
         private delegate void ButtonTroopPanelHoverDelegate(MainViewModel self, object parameter);
 
-        public SiegeBuildHoverHook(ManualLogSource log, Action<object> onEnter, Action onLeave)
+        public SiegeBuildHoverHook(ManualLogSource log, Func<bool> isActive, Action<object> onEnter, Action onLeave)
         {
             this.log = log;
+            this.isActive = isActive;
             this.onEnter = onEnter;
             this.onLeave = onLeave;
 
@@ -51,19 +52,6 @@ namespace UnitCosts
             Shared.DebugLogHelper.LogDebug(log, "UnitCosts siege build hover hooks installed.");
         }
 
-        public void Dispose()
-        {
-            if (disposed)
-                return;
-
-            disposed = true;
-            enterHook?.Undo();
-            enterHook?.Dispose();
-            leaveHook?.Undo();
-            leaveHook?.Dispose();
-            Shared.DebugLogHelper.LogDebug(log, "UnitCosts siege build hover hooks disposed.");
-        }
-
         private static MethodInfo FindHoverMethod(string methodName)
         {
             MethodInfo method = typeof(MainViewModel).GetMethod(
@@ -83,6 +71,9 @@ namespace UnitCosts
         {
             enterTrampoline(self, parameter);
 
+            if (!isActive())
+                return;
+
             try
             {
                 onEnter(parameter);
@@ -96,6 +87,9 @@ namespace UnitCosts
         private void ButtonTroopPanelMouseLeaveHook(MainViewModel self, object parameter)
         {
             leaveTrampoline(self, parameter);
+
+            if (!isActive())
+                return;
 
             try
             {

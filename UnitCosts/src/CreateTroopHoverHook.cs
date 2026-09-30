@@ -6,22 +6,23 @@ using System.Reflection;
 
 namespace UnitCosts
 {
-    internal sealed class CreateTroopHoverHook : IDisposable
+    internal sealed class CreateTroopHoverHook
     {
         private readonly ManualLogSource log;
+        private readonly Func<bool> isActive;
         private readonly Action<MainViewModel> onEnter;
         private readonly Action onLeave;
         private readonly Hook enterHook;
         private readonly Hook leaveHook;
         private readonly ButtonCreateTroopHoverDelegate enterTrampoline;
         private readonly ButtonCreateTroopHoverDelegate leaveTrampoline;
-        private bool disposed;
 
         private delegate void ButtonCreateTroopHoverDelegate(MainViewModel self, object parameter);
 
-        public CreateTroopHoverHook(ManualLogSource log, Action<MainViewModel> onEnter, Action onLeave)
+        public CreateTroopHoverHook(ManualLogSource log, Func<bool> isActive, Action<MainViewModel> onEnter, Action onLeave)
         {
             this.log = log;
+            this.isActive = isActive;
             this.onEnter = onEnter;
             this.onLeave = onLeave;
 
@@ -51,19 +52,6 @@ namespace UnitCosts
             Shared.DebugLogHelper.LogDebug(log, "UnitCosts create troop hover hooks installed.");
         }
 
-        public void Dispose()
-        {
-            if (disposed)
-                return;
-
-            disposed = true;
-            enterHook?.Undo();
-            enterHook?.Dispose();
-            leaveHook?.Undo();
-            leaveHook?.Dispose();
-            Shared.DebugLogHelper.LogDebug(log, "UnitCosts create troop hover hooks disposed.");
-        }
-
         private static MethodInfo FindHoverMethod(string methodName)
         {
             MethodInfo method = typeof(MainViewModel).GetMethod(
@@ -83,6 +71,9 @@ namespace UnitCosts
         {
             enterTrampoline(self, parameter);
 
+            if (!isActive())
+                return;
+
             try
             {
                 onEnter(self);
@@ -96,6 +87,9 @@ namespace UnitCosts
         private void ButtonLeaveCreateTroopHook(MainViewModel self, object parameter)
         {
             leaveTrampoline(self, parameter);
+
+            if (!isActive())
+                return;
 
             try
             {

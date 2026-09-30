@@ -72,6 +72,36 @@ if (Test-Path -LiteralPath $woodGuardPath) {
 
 $permanentManagedContracts = @(
     @{
+        Path = 'UnitCosts\src\RecruitmentAvailabilityUiHook.cs'
+        Required = @(
+            'new ILHook(updateMethod,',
+            'ManualApply = true',
+            'pendingMaterialHook.Apply();',
+            'materialUiHook = pendingMaterialHook;',
+            'pendingMaterialHook?.Dispose();'
+        )
+        Forbidden = @(
+            'materialUiHook?.Undo()',
+            'materialUiHook?.Dispose()',
+            'materialUiHook.Undo()',
+            'materialUiHook.Dispose()',
+            'public void Dispose()'
+        )
+    },
+    @{
+        Path = 'UnitCosts\src\UnitCostsRuntime.cs'
+        Required = @(
+            'private volatile int noWeaponsUiMask;',
+            'IsNoWeaponsUiActive, RefreshRecruitmentUi',
+            'noWeaponsUiMask = appliedNoWeaponsMask;'
+        )
+        Forbidden = @(
+            'recruitmentAvailabilityUiHook = null',
+            'recruitmentAvailabilityUiHook?.Dispose()',
+            'recruitmentAvailabilityUiHook?.Undo()'
+        )
+    },
+    @{
         Path = 'UnitLimit\src\UnitLimitRuntime.cs'
         Required = @(
             'InstallPermanentHooks();',

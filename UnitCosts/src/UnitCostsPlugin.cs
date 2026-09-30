@@ -20,9 +20,10 @@ namespace UnitCosts
 
         public const string PluginGuid = "UnitCosts_Serp";
         public const string PluginName = "Unit Costs";
-        public const string PluginVersion = "1.0.31";
+        public const string PluginVersion = "1.0.32";
 
         private UnitCostsRuntime runtime;
+        private static UnitCostsRuntime activeRuntime;
         private int libraryInitializationStarted;
 
         public UnitCostsLobbyViewModel Settings { get; private set; }
@@ -33,6 +34,7 @@ namespace UnitCosts
 
             Settings = new UnitCostsLobbyViewModel();
             runtime = new UnitCostsRuntime(Logger, Settings);
+            activeRuntime = runtime; // The startup plugin component is destroyed before later gameplay callbacks.
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
         }
 

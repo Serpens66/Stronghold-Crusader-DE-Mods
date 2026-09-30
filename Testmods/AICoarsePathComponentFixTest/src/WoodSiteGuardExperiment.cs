@@ -4,6 +4,7 @@ using Iced.Intel;
 using R3;
 using RedBird.X64.Assembly;
 using RedBird.X64.Extensions;
+using SHCDESE.API;
 using SHCDESE.API.LowLevel;
 using System;
 using System.Collections.Generic;
@@ -23,6 +24,7 @@ namespace AICoarsePathComponentFixTest
         private const int SuccessRva = 0x58BAE;
         private const int StubCapacity = 0x1000;
         private const string CopySaveName = "test_canari_nowoodcutters_probe.sav";
+        private const string OriginalCanariSaveName = "test_canari_nowoodcutters.sav";
         private const string RatMapName = "spezialist 3vs5.map";
         private const string RatSaveName = "rat_wood_guard_control_probe.sav";
         private const int CandidateTraceLimit = 512;
@@ -41,6 +43,8 @@ namespace AICoarsePathComponentFixTest
         private static readonly object traceSync = new object();
         private static readonly CandidateTrace[] candidateTraces = new CandidateTrace[CandidateTraceLimit];
         private static int candidateTraceCount;
+        private static readonly CandidateTrace[] recentCandidates = new CandidateTrace[8];
+        private static int recentCount, recentNext;
 
         private readonly ManualLogSource log;
         private readonly ulong module;
@@ -77,7 +81,7 @@ namespace AICoarsePathComponentFixTest
             log = logger ?? throw new ArgumentNullException(nameof(logger));
             module = moduleBase;
             if (activationScope != "CopyOnly" && activationScope != "RatControl" &&
-                activationScope != "RatSaveOnly")
+                activationScope != "RatSaveOnly" && activationScope != "OriginalCanariOnly")
                 throw new InvalidOperationException("Unknown wood guard activation scope: " + activationScope);
             scope = activationScope;
             if (decision != "ObserveOnly" && decision != "Reject")
@@ -115,13 +119,14 @@ namespace AICoarsePathComponentFixTest
                 stub = candidate;
                 current = this;
                 published = true;
+                BugfixesAndQoL.AiWoodBuildCallScope.RegisterConsumer();
                 started = Shared.MissionEvents.Started.Subscribe(OnStarted);
                 ended = Shared.MissionEvents.Ended.Subscribe(OnEnded);
                 Shared.DebugLogHelper.LogInfo(log,
                     $"AI_WOOD_SITE_GUARD_READY: nativeRva=0x{SiteRva:X}; displaced=8; " +
                     $"stub=0x{candidate.ToInt64():X}; callback={Marshal.GetFunctionPointerForDelegate(Callback)}; " +
                     $"scope={scope}; decision={decision}; logicalActivation=MissionEvents.Started; " +
-                    "permanentPatch=True; coarseWrites=0.");
+                    "permanentPatch=True; woodContext=BugfixesAndQoL; diagnosticRequired=False; coarseWrites=0.");
             }
             catch
             {
@@ -151,10 +156,29 @@ namespace AICoarsePathComponentFixTest
             LogState("tick=" + tick);
         }
 
+        internal bool IsActive => Volatile.Read(ref active) != 0;
+
+        internal string DescribeRecentDecisions()
+        {
+            lock (traceSync)
+            {
+                if (recentCount == 0) return "none";
+                var parts = new string[recentCount];
+                for (int i = 0; i < recentCount; i++)
+                {
+                    CandidateTrace trace = recentCandidates[(recentNext - recentCount + i + recentCandidates.Length) % recentCandidates.Length];
+                    parts[i] = $"tick:{trace.Tick}/p:{trace.PlayerId}/attempt:{trace.AttemptId}/" +
+                        $"cell:({trace.X},{trace.Y})/reason:{ReasonName(trace.Reason)}/applied:{trace.Applied}";
+                }
+                return string.Join("|", parts);
+            }
+        }
+
         private void OnStarted(MissionLifecycleNotification notification)
         {
             Volatile.Write(ref active, 0);
             FlushCandidateTraces();
+            lock (traceSync) recentCount = recentNext = 0;
             Interlocked.Increment(ref session);
             Interlocked.Exchange(ref examined, 0);
             Interlocked.Exchange(ref noContext, 0);
@@ -172,7 +196,9 @@ namespace AICoarsePathComponentFixTest
                  scope == "RatControl" && !context.IsSave &&
                  string.Equals(file, RatMapName, StringComparison.OrdinalIgnoreCase) ||
                  scope == "RatSaveOnly" && context.IsSave &&
-                 string.Equals(file, RatSaveName, StringComparison.OrdinalIgnoreCase));
+                 string.Equals(file, RatSaveName, StringComparison.OrdinalIgnoreCase) ||
+                 scope == "OriginalCanariOnly" && context.IsSave &&
+                 string.Equals(file, OriginalCanariSaveName, StringComparison.OrdinalIgnoreCase));
             Volatile.Write(ref active, arm ? 1 : 0);
             Shared.DebugLogHelper.LogInfo(log,
                 $"AI_WOOD_SITE_GUARD_SESSION: scope={scope}; decision={(rejectCandidates ? "Reject" : "ObserveOnly")}; file={file}; " +
@@ -219,19 +245,18 @@ namespace AICoarsePathComponentFixTest
         {
             lock (traceSync)
             {
+                var trace = new CandidateTrace
+                {
+                    Session = Interlocked.Read(ref session), Tick = Volatile.Read(ref lastTick),
+                    AttemptId = attemptId, PlayerId = playerId, X = coarseX, Y = coarseY,
+                    Reason = reason, Applied = appliedDecision
+                };
+                recentCandidates[recentNext] = trace;
+                recentNext = (recentNext + 1) % recentCandidates.Length;
+                if (recentCount < recentCandidates.Length) recentCount++;
                 if (candidateTraceCount == CandidateTraceLimit)
                 { Interlocked.Increment(ref candidateTraceDropped); return; }
-                candidateTraces[candidateTraceCount++] = new CandidateTrace
-                {
-                    Session = Interlocked.Read(ref session),
-                    Tick = Volatile.Read(ref lastTick),
-                    AttemptId = attemptId,
-                    PlayerId = playerId,
-                    X = coarseX,
-                    Y = coarseY,
-                    Reason = reason,
-                    Applied = appliedDecision
-                };
+                candidateTraces[candidateTraceCount++] = trace;
             }
         }
 
@@ -239,8 +264,8 @@ namespace AICoarsePathComponentFixTest
         {
             try
             {
-                if (Volatile.Read(ref active) == 0 || !AiBuildDiagnostic.HasObserver ||
-                    !AiBuildDiagnostic.TryGetCurrentWoodAttempt(out long attemptId, out int playerId) ||
+                if (Volatile.Read(ref active) == 0 ||
+                    !BugfixesAndQoL.AiWoodBuildCallScope.TryGetCurrent(out int playerId, out long attemptId) ||
                     playerId < 1 || playerId > 8)
                 { Interlocked.Increment(ref noContext); return 0; }
                 Interlocked.Increment(ref examined);
@@ -250,26 +275,14 @@ namespace AICoarsePathComponentFixTest
                     RecordCandidate(attemptId, playerId, coarseX, coarseY, 3, false);
                     return 0;
                 }
-                var tiles = AiBuildDiagnostic.CaptureTiles(coarseX * 5, coarseY * 5, 3, 3);
-                if (tiles.Count != 9)
+                if (!current.TryReadCandidate(coarseX * 5, coarseY * 5,
+                    out bool anchorIsZero, out bool bit4))
                 {
                     Interlocked.Increment(ref unavailable);
                     RecordCandidate(attemptId, playerId, coarseX, coarseY, 3, false);
                     return 0;
                 }
-                bool bit4 = false;
-                for (int i = 0; i < 9; i++)
-                {
-                    AiPathTileSample tile = tiles[i];
-                    if (tile.Status != "ok" || tile.NativeComponent != tile.ApiComponent)
-                    {
-                        Interlocked.Increment(ref unavailable);
-                        RecordCandidate(attemptId, playerId, coarseX, coarseY, 3, false);
-                        return 0;
-                    }
-                    if ((tile.PropertyFlags & 4u) != 0) bit4 = true;
-                }
-                int reason = tiles[0].NativeComponent == 0 ? 1 : bit4 ? 2 : 0;
+                int reason = anchorIsZero ? 1 : bit4 ? 2 : 0;
                 if (reason == 1) Interlocked.Increment(ref zeroAnchor);
                 if (reason == 2) Interlocked.Increment(ref parcel);
                 bool apply = reason != 0 && current.rejectCandidates;
@@ -279,6 +292,35 @@ namespace AICoarsePathComponentFixTest
             }
             catch
             { Interlocked.Increment(ref unavailable); return 0; }
+        }
+
+        private bool TryReadCandidate(int anchorX, int anchorY,
+            out bool zeroAnchor, out bool parcel)
+        {
+            zeroAnchor = parcel = false;
+            Span<ushort> components = GamePathingManagerAPI.Instance.GetPathComponentGrid();
+            if (components.Length != 320800) return false;
+            GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
+            for (int dy = 0; dy < 3; dy++)
+            {
+                int y = anchorY + dy;
+                if ((uint)y >= 800) return false;
+                int rowBase = Marshal.ReadInt32(new IntPtr(checked((long)module +
+                    0x402FF2C + (long)y * 12)));
+                for (int dx = 0; dx < 3; dx++)
+                {
+                    int x = anchorX + dx;
+                    if ((uint)x >= 800 || !tiles.IsTileInsideMapBounds(x, y)) return false;
+                    int tileId = checked(rowBase + x);
+                    if ((uint)tileId >= (uint)components.Length) return false;
+                    ushort nativeComponent = unchecked((ushort)Marshal.ReadInt16(new IntPtr(
+                        checked((long)module + 0x50EC690 + (long)tileId * 2))));
+                    if (nativeComponent != components[tileId]) return false;
+                    if (dx == 0 && dy == 0) zeroAnchor = nativeComponent == 0;
+                    if (((uint)tiles.GetTilePropertyFlag(tileId) & 4u) != 0) parcel = true;
+                }
+            }
+            return true;
         }
 
         private static byte[] BuildStub(ulong ip, ulong fallback, ulong success, ulong callback)

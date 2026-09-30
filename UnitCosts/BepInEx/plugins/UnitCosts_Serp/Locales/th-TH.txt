@@ -50,7 +50,9 @@ Common.ClientActivationLabel=(Client settings)
 Common.HostSettingsActivationHelp=Enables or disables all host-controlled settings of this mod.
 Common.ClientSettingsActivationHelp=Enables or disables all local and personal client settings of this mod.
 UnitCosts.Title=Base Costs (Human and AI)
-UnitCosts.Help=Only native gold costs can be changed here. Add material costs through extra costs for human players.
+UnitCosts.Help=Gold -1 keeps the original cost. No Weapons removes all four European recruitment requirements, including the knight's horse, for human and AI players.
+UnitCosts.NoWeapons=No Weapons
+UnitCosts.NoWeaponsHelp={0}: Removes all four weapon and horse requirements for human and AI recruitment. Uncheck to restore the original requirements.
 UnitCosts.ExtraTitle=Additional Costs (Human only)
 UnitCosts.ExtraHelp=0 = no extra cost. Positive values are charged in addition; negative gold refunds up to the current gold cost. A checked horse reserves one available stable horse for the recruited unit. AI players ignore this table.
 UnitCosts.UnitHeader=Unit

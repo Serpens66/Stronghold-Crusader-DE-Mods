@@ -123,6 +123,7 @@
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="230"/>
           <ColumnDefinition Width="148"/>
+          <ColumnDefinition Width="140"/>
         </Grid.ColumnDefinitions>
         <TextBlock Grid.Column="0" Text="{Binding UnitHeaderText}" Foreground="#CCCCCC" FontWeight="Bold" Margin="0,0,8,0"/>
         <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="3,0">
@@ -133,15 +134,19 @@
                  Margin="0,0,4,0"/>
           <TextBlock Text="{Binding GoldHeaderText}" Foreground="#CCCCCC" FontWeight="Bold"/>
         </StackPanel>
+        <TextBlock Grid.Column="2" Text="{Binding NoWeaponsHeaderText}" Foreground="#CCCCCC" FontWeight="Bold" Margin="8,0,0,0"/>
       </Grid>
       <ItemsControl ItemsSource="{Binding CostEntries}" Margin="0,3,0,8">
         <ItemsControl.ItemTemplate>
           <DataTemplate>
-            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="{Binding Key}" shared:ModSettingsSearch.Title="{Binding DisplayName}" shared:ModSettingsSearch.ToolTipText="{Binding ToolTip}" Margin="0,1">
+            <Grid Margin="0,1">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="230"/>
                 <ColumnDefinition Width="148"/>
+                <ColumnDefinition Width="140"/>
               </Grid.ColumnDefinitions>
+              <Grid Grid.ColumnSpan="2" Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="{Binding Key}" shared:ModSettingsSearch.Title="{Binding DisplayName}" shared:ModSettingsSearch.ToolTipText="{Binding ToolTip}">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="230"/><ColumnDefinition Width="148"/></Grid.ColumnDefinitions>
               <StackPanel Grid.Column="0"
                           Orientation="Horizontal"
                           ToolTipService.ShowDuration="60000" ToolTip="{Binding ToolTip}"
@@ -160,6 +165,10 @@
                 <Slider Minimum="-1" Maximum="1000" Value="{Binding GoldSlider, Mode=TwoWay}" TickFrequency="1" SmallChange="1" LargeChange="100" IsSnapToTickEnabled="True" ToolTipService.ShowDuration="60000" ToolTip="{Binding GoldToolTip}"/>
                 <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding GoldText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding GoldToolTip}" MinWidth="56" MaxWidth="120" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/>
               </StackPanel>
+              </Grid>
+              <Grid Grid.Column="2" Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="{Binding NoWeaponsSearchKey}" shared:ModSettingsSearch.Title="{Binding NoWeaponsSearchTitle}" shared:ModSettingsSearch.ToolTipText="{Binding NoWeaponsToolTip}">
+                <CheckBox Visibility="{Binding NoWeaponsVisibility}" IsChecked="{Binding NoWeapons, Mode=TwoWay}" Content="{Binding NoWeaponsText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding NoWeaponsToolTip}" Foreground="White" VerticalAlignment="Center" Margin="8,0,0,0"/>
+              </Grid>
             </Grid>
           </DataTemplate>
         </ItemsControl.ItemTemplate>
