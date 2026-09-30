@@ -24,6 +24,8 @@ namespace AICoarsePathComponentFixTest
         private const int StubCapacity = 0x1000;
         private const string CopySaveName = "test_canari_nowoodcutters_probe.sav";
         private const string RatMapName = "spezialist 3vs5.map";
+        private const string RatSaveName = "rat_wood_guard_control_probe.sav";
+        private const int CandidateTraceLimit = 512;
         private static readonly byte[] Original = { 0x84, 0xDB, 0x0F, 0x84, 0x80, 0, 0, 0 };
 
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
@@ -33,11 +35,17 @@ namespace AICoarsePathComponentFixTest
         private static WoodSiteGuardExperiment current;
         private static int active;
         private static long examined, noContext, unavailable, zeroAnchor, parcel;
+        private static long applied, candidateTraceDropped;
         private static long session;
+        private static int lastTick;
+        private static readonly object traceSync = new object();
+        private static readonly CandidateTrace[] candidateTraces = new CandidateTrace[CandidateTraceLimit];
+        private static int candidateTraceCount;
 
         private readonly ManualLogSource log;
         private readonly ulong module;
         private readonly string scope;
+        private readonly bool rejectCandidates;
         private readonly IDisposable started;
         private readonly IDisposable ended;
         private readonly IntPtr stub;
@@ -56,13 +64,25 @@ namespace AICoarsePathComponentFixTest
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool FlushInstructionCache(IntPtr process, IntPtr address, UIntPtr size);
 
-        internal WoodSiteGuardExperiment(ManualLogSource logger, ulong moduleBase, string activationScope)
+        private struct CandidateTrace
+        {
+            internal long Session, AttemptId;
+            internal int Tick, PlayerId, X, Y, Reason;
+            internal bool Applied;
+        }
+
+        internal WoodSiteGuardExperiment(ManualLogSource logger, ulong moduleBase,
+            string activationScope, string decision)
         {
             log = logger ?? throw new ArgumentNullException(nameof(logger));
             module = moduleBase;
-            if (activationScope != "CopyOnly" && activationScope != "RatControl")
+            if (activationScope != "CopyOnly" && activationScope != "RatControl" &&
+                activationScope != "RatSaveOnly")
                 throw new InvalidOperationException("Unknown wood guard activation scope: " + activationScope);
             scope = activationScope;
+            if (decision != "ObserveOnly" && decision != "Reject")
+                throw new InvalidOperationException("Unknown wood guard decision: " + decision);
+            rejectCandidates = decision == "Reject";
             if (current != null) throw new InvalidOperationException("Wood guard is already installed.");
             if (IsOldOverlayEnabled())
                 throw new InvalidOperationException("NearbyWoodTest.Enabled is true. Disable the old overlay before arming the wood guard.");
@@ -100,7 +120,8 @@ namespace AICoarsePathComponentFixTest
                 Shared.DebugLogHelper.LogInfo(log,
                     $"AI_WOOD_SITE_GUARD_READY: nativeRva=0x{SiteRva:X}; displaced=8; " +
                     $"stub=0x{candidate.ToInt64():X}; callback={Marshal.GetFunctionPointerForDelegate(Callback)}; " +
-                    $"scope={scope}; logicalActivation=MissionEvents.Started; permanentPatch=True; coarseWrites=0.");
+                    $"scope={scope}; decision={decision}; logicalActivation=MissionEvents.Started; " +
+                    "permanentPatch=True; coarseWrites=0.");
             }
             catch
             {
@@ -124,23 +145,37 @@ namespace AICoarsePathComponentFixTest
 
         internal void OnTick(int tick)
         {
+            Volatile.Write(ref lastTick, tick);
+            if (tick % 50 == 0) FlushCandidateTraces();
             if (tick != 1 && tick % 500 != 0) return;
             LogState("tick=" + tick);
         }
 
         private void OnStarted(MissionLifecycleNotification notification)
         {
+            Volatile.Write(ref active, 0);
+            FlushCandidateTraces();
             Interlocked.Increment(ref session);
+            Interlocked.Exchange(ref examined, 0);
+            Interlocked.Exchange(ref noContext, 0);
+            Interlocked.Exchange(ref unavailable, 0);
+            Interlocked.Exchange(ref zeroAnchor, 0);
+            Interlocked.Exchange(ref parcel, 0);
+            Interlocked.Exchange(ref applied, 0);
+            Interlocked.Exchange(ref candidateTraceDropped, 0);
+            Volatile.Write(ref lastTick, -1);
             MissionContext context = notification?.Context;
             string file = Path.GetFileName(context?.FilePath ?? "");
-            bool arm = scope == "CopyOnly"
-                ? context != null && context.IsSave &&
-                  string.Equals(file, CopySaveName, StringComparison.OrdinalIgnoreCase)
-                : context != null && !context.IsSave &&
-                  string.Equals(file, RatMapName, StringComparison.OrdinalIgnoreCase);
+            bool arm = context != null &&
+                (scope == "CopyOnly" && context.IsSave &&
+                 string.Equals(file, CopySaveName, StringComparison.OrdinalIgnoreCase) ||
+                 scope == "RatControl" && !context.IsSave &&
+                 string.Equals(file, RatMapName, StringComparison.OrdinalIgnoreCase) ||
+                 scope == "RatSaveOnly" && context.IsSave &&
+                 string.Equals(file, RatSaveName, StringComparison.OrdinalIgnoreCase));
             Volatile.Write(ref active, arm ? 1 : 0);
             Shared.DebugLogHelper.LogInfo(log,
-                $"AI_WOOD_SITE_GUARD_SESSION: scope={scope}; file={file}; " +
+                $"AI_WOOD_SITE_GUARD_SESSION: scope={scope}; decision={(rejectCandidates ? "Reject" : "ObserveOnly")}; file={file}; " +
                 $"isSave={context?.IsSave}; active={arm}.");
             LogState("started");
         }
@@ -148,6 +183,7 @@ namespace AICoarsePathComponentFixTest
         private void OnEnded(MissionLifecycleNotification notification)
         {
             Volatile.Write(ref active, 0);
+            FlushCandidateTraces();
             LogState("ended");
         }
 
@@ -155,35 +191,91 @@ namespace AICoarsePathComponentFixTest
             $"AI_WOOD_SITE_GUARD_STATUS: session={Interlocked.Read(ref session)}; phase={phase}; " +
             $"active={Volatile.Read(ref active) != 0}; examined={Interlocked.Read(ref examined)}; " +
             $"zeroAnchor={Interlocked.Read(ref zeroAnchor)}; parcel={Interlocked.Read(ref parcel)}; " +
-            $"noContext={Interlocked.Read(ref noContext)}; unavailable={Interlocked.Read(ref unavailable)}.");
+            $"applied={Interlocked.Read(ref applied)}; noContext={Interlocked.Read(ref noContext)}; " +
+            $"unavailable={Interlocked.Read(ref unavailable)}; traceDropped={Interlocked.Read(ref candidateTraceDropped)}.");
+
+        private void FlushCandidateTraces()
+        {
+            CandidateTrace[] ready;
+            lock (traceSync)
+            {
+                if (candidateTraceCount == 0) return;
+                ready = new CandidateTrace[candidateTraceCount];
+                Array.Copy(candidateTraces, ready, candidateTraceCount);
+                candidateTraceCount = 0;
+            }
+            foreach (CandidateTrace trace in ready)
+                Shared.DebugLogHelper.LogInfo(log,
+                    $"AI_WOOD_SITE_CANDIDATE: session={trace.Session}; tick={trace.Tick}; " +
+                    $"player={trace.PlayerId}; attempt={trace.AttemptId}; coarse=({trace.X},{trace.Y}); " +
+                    $"reason={ReasonName(trace.Reason)}; applied={trace.Applied}.");
+        }
+
+        private static string ReasonName(int reason) => reason == 1 ? "zero-anchor" :
+            reason == 2 ? "parcel-bit-4" : reason == 3 ? "unavailable" : "accepted";
+
+        private static void RecordCandidate(long attemptId, int playerId,
+            int coarseX, int coarseY, int reason, bool appliedDecision)
+        {
+            lock (traceSync)
+            {
+                if (candidateTraceCount == CandidateTraceLimit)
+                { Interlocked.Increment(ref candidateTraceDropped); return; }
+                candidateTraces[candidateTraceCount++] = new CandidateTrace
+                {
+                    Session = Interlocked.Read(ref session),
+                    Tick = Volatile.Read(ref lastTick),
+                    AttemptId = attemptId,
+                    PlayerId = playerId,
+                    X = coarseX,
+                    Y = coarseY,
+                    Reason = reason,
+                    Applied = appliedDecision
+                };
+            }
+        }
 
         private static int ShouldSkip(int coarseX, int coarseY)
         {
             try
             {
                 if (Volatile.Read(ref active) == 0 || !AiBuildDiagnostic.HasObserver ||
-                    !AiBuildDiagnostic.TryGetCurrentWoodAttempt(out _, out int playerId) ||
+                    !AiBuildDiagnostic.TryGetCurrentWoodAttempt(out long attemptId, out int playerId) ||
                     playerId < 1 || playerId > 8)
                 { Interlocked.Increment(ref noContext); return 0; }
                 Interlocked.Increment(ref examined);
                 if ((uint)coarseX >= 160 || (uint)coarseY >= 160)
-                { Interlocked.Increment(ref unavailable); return 0; }
+                {
+                    Interlocked.Increment(ref unavailable);
+                    RecordCandidate(attemptId, playerId, coarseX, coarseY, 3, false);
+                    return 0;
+                }
                 var tiles = AiBuildDiagnostic.CaptureTiles(coarseX * 5, coarseY * 5, 3, 3);
                 if (tiles.Count != 9)
-                { Interlocked.Increment(ref unavailable); return 0; }
+                {
+                    Interlocked.Increment(ref unavailable);
+                    RecordCandidate(attemptId, playerId, coarseX, coarseY, 3, false);
+                    return 0;
+                }
                 bool bit4 = false;
                 for (int i = 0; i < 9; i++)
                 {
                     AiPathTileSample tile = tiles[i];
                     if (tile.Status != "ok" || tile.NativeComponent != tile.ApiComponent)
-                    { Interlocked.Increment(ref unavailable); return 0; }
+                    {
+                        Interlocked.Increment(ref unavailable);
+                        RecordCandidate(attemptId, playerId, coarseX, coarseY, 3, false);
+                        return 0;
+                    }
                     if ((tile.PropertyFlags & 4u) != 0) bit4 = true;
                 }
-                if (tiles[0].NativeComponent == 0)
-                { Interlocked.Increment(ref zeroAnchor); return 1; }
-                if (bit4)
-                { Interlocked.Increment(ref parcel); return 1; }
-                return 0;
+                int reason = tiles[0].NativeComponent == 0 ? 1 : bit4 ? 2 : 0;
+                if (reason == 1) Interlocked.Increment(ref zeroAnchor);
+                if (reason == 2) Interlocked.Increment(ref parcel);
+                bool apply = reason != 0 && current.rejectCandidates;
+                if (apply) Interlocked.Increment(ref applied);
+                RecordCandidate(attemptId, playerId, coarseX, coarseY, reason, apply);
+                return apply ? 1 : 0;
             }
             catch
             { Interlocked.Increment(ref unavailable); return 0; }

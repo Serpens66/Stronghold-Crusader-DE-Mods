@@ -28,6 +28,7 @@ namespace AICoarsePathComponentFixTest
         private static WoodSiteGuardExperiment woodGuard;
         private static bool woodGuardRequested;
         private static string woodGuardScope;
+        private static string woodGuardDecision;
 
         private void Awake()
         {
@@ -43,12 +44,16 @@ namespace AICoarsePathComponentFixTest
                 "test on the disposable Canari save copy and the Rat control map before using an original save.").Value;
             woodGuardScope = Config.Bind("WoodSiteGuard", "Scope", "CopyOnly",
                 "CopyOnly enables the guard only for test_canari_nowoodcutters_probe.sav; " +
-                "RatControl enables it only for a new game on spezialist 3vs5.map.").Value;
+                "RatControl enables it only for a new game on spezialist 3vs5.map; " +
+                "RatSaveOnly enables it only for rat_wood_guard_control_probe.sav.").Value;
+            woodGuardDecision = Config.Bind("WoodSiteGuard", "Decision", "Reject",
+                "ObserveOnly records candidates but preserves Vanilla acceptance; " +
+                "Reject skips zero-component anchors and parcel-blocked wood footprints.").Value;
             CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;
             subscribed = true;
             Shared.DebugLogHelper.LogInfo(log, Name + " " + Version +
                 $" loaded; isolationMode={isolationMode}; woodGuardRequested={woodGuardRequested}; " +
-                $"woodGuardScope={woodGuardScope}; coarseWrites=0.");
+                $"woodGuardScope={woodGuardScope}; woodGuardDecision={woodGuardDecision}; coarseWrites=0.");
         }
 
         private static void OnLibraryLoaded(CrusaderLibraryLoadContext context)
@@ -81,7 +86,8 @@ namespace AICoarsePathComponentFixTest
                     if (isolationMode != 0)
                         throw new InvalidOperationException("Wood guard requires safe isolation mode 0.");
                     woodGuard = new WoodSiteGuardExperiment(log,
-                        unchecked((ulong)context.ModuleHandle.ToInt64()), woodGuardScope);
+                        unchecked((ulong)context.ModuleHandle.ToInt64()), woodGuardScope,
+                        woodGuardDecision);
                 }
                 catch (Exception ex)
                 {

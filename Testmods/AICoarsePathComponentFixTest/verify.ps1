@@ -95,6 +95,8 @@ if ($source -notmatch 'DisplacedLength = 8' -or
     $plugin -notmatch 'AiEconomyOverlayRestored \+= OnOverlayRestored' -or
     $plugin -notmatch '"WoodSiteGuard", "Enabled", false' -or
     $plugin -notmatch '"WoodSiteGuard", "Scope", "CopyOnly"' -or
+    $plugin -notmatch '"WoodSiteGuard", "Decision", "Reject"' -or
+    $plugin -notmatch 'woodGuardDecision\);' -or
     $woodGuard -notmatch 'Original = \{ 0x84, 0xDB, 0x0F, 0x84, 0x80, 0, 0, 0 \}' -or
     $woodGuard -notmatch 'AiBuildDiagnostic\.TryGetCurrentWoodAttempt' -or
     $woodGuard -notmatch 'AiBuildDiagnostic\.CaptureTiles' -or
@@ -104,6 +106,12 @@ if ($source -notmatch 'DisplacedLength = 8' -or
     $woodGuard -notmatch 'MissionEvents\.Ended\.Subscribe' -or
     $woodGuard -notmatch 'CopySaveName = "test_canari_nowoodcutters_probe.sav"' -or
     $woodGuard -notmatch 'RatMapName = "spezialist 3vs5.map"' -or
+    $woodGuard -notmatch 'RatSaveName = "rat_wood_guard_control_probe.sav"' -or
+    $woodGuard -notmatch 'scope == "RatSaveOnly" && context\.IsSave' -or
+    $woodGuard -notmatch 'decision != "ObserveOnly" && decision != "Reject"' -or
+    $woodGuard -notmatch 'bool apply = reason != 0 && current\.rejectCandidates;' -or
+    $woodGuard -notmatch 'RecordCandidate\(attemptId, playerId, coarseX, coarseY, reason, apply\)' -or
+    $woodGuard -notmatch 'FlushCandidateTraces\(\);' -or
     $main -match 'new AiCoarsePathComponentFix|processAiCoarsePathComponentFix') {
     throw 'Hook, lifecycle, diagnostic or production-removal contract differs.'
 }
@@ -116,6 +124,7 @@ $textFiles = @(
     (Join-Path $project 'AICoarsePathComponentFixTest.csproj'),
     (Join-Path $project 'info.json'),
     (Join-Path $project 'build.bat'),
+    (Join-Path $workspace '_inspect\CrusaderDE-Native-Baseline\sem\FBCB9319\knowledge\AI_WOODCUTTER_BUILD.md'),
     $MyInvocation.MyCommand.Path)
 foreach ($path in $textFiles) {
     $content = [IO.File]::ReadAllText($path)
