@@ -5349,7 +5349,42 @@ namespace BugfixesAndQoL
             int targetRegion,
             int routeKind)
         {
-            int vanillaResult = originalRegionPairReachability(
+            int result = ObserveScopedRegionPairReachabilityCore(
+                pathManager, movementClass, sourceRegion, targetRegion, routeKind,
+                out int vanillaResult);
+            // The already-owned E2610 detour can report its result to the optional
+            // test policy. Without that policy, the existing result is unchanged.
+            try
+            {
+                IEnemyGatePathPolicy policy = EnemyGatePathPolicyBridge.Current;
+                if (policy != null && policy.HasPublishedMask &&
+                    policy is IEnemyGateRegionPairObserver observer &&
+                    movementClass > 0 && movementClass <= 8 &&
+                    pathManager == nativePathManager)
+                {
+                    string source = activeDirectFillCommand != null ? "direct-fill" :
+                        activeAttackApproachDiagnostic != null ? "attack-approach" :
+                        activeMoveCommand != null ? "tribe-move" : "other";
+                    observer.ObserveRegionPair(movementClass, sourceRegion,
+                        targetRegion, routeKind, vanillaResult, result, source);
+                }
+            }
+            catch (Exception ex)
+            {
+                TryLogDiagnosticFailure("enemy-gate-region-observer", ex);
+            }
+            return result;
+        }
+
+        private int ObserveScopedRegionPairReachabilityCore(
+            IntPtr pathManager,
+            int movementClass,
+            int sourceRegion,
+            int targetRegion,
+            int routeKind,
+            out int vanillaResult)
+        {
+            vanillaResult = originalRegionPairReachability(
                 pathManager, movementClass, sourceRegion, targetRegion, routeKind);
             if (TryHandleVanillaLadderRegionPair(
                     pathManager,

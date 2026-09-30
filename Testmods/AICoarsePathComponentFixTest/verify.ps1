@@ -123,7 +123,14 @@ if ($source -notmatch 'DisplacedLength = 8' -or
     $woodGuard -notmatch 'OriginalCanariSaveName = "test_canari_nowoodcutters.sav"' -or
     $woodGuard -notmatch 'scope == "RatSaveOnly" && context\.IsSave' -or
     $woodGuard -notmatch 'scope == "OriginalCanariOnly" && context\.IsSave' -or
+    $woodGuard -notmatch 'scope == "KnownSingleplayer"' -or
+    $woodGuard -notmatch 'context\.StartKind == MissionStartKind\.NewGame \|\| context\.IsSave' -or
+    $woodGuard -notmatch 'context\.Mode\.Kind != Shared\.GameModeKind\.Unknown' -or
+    $woodGuard -notmatch '!context\.Mode\.HasConflictingCustomizedOrigin' -or
+    $woodGuard -notmatch '!context\.Mode\.IsRealMultiplayer' -or
+    $woodGuard -notmatch '!context\.Mode\.MultiplayerSave' -or
     $plugin -notmatch 'OriginalCanariOnly enables it only for test_canari_nowoodcutters.sav' -or
+    $plugin -notmatch 'KnownSingleplayer enables it for recognized' -or
     $woodGuard -notmatch 'decision != "ObserveOnly" && decision != "Reject"' -or
     $woodGuard -notmatch 'bool apply = reason != 0 && current\.rejectCandidates;' -or
     $woodGuard -notmatch 'RecordCandidate\(attemptId, playerId, coarseX, coarseY, reason, apply\)' -or
@@ -131,6 +138,9 @@ if ($source -notmatch 'DisplacedLength = 8' -or
     $woodGuard -notmatch 'DescribeRecentDecisions\(' -or
     $outcome -notmatch 'OnBuildingSpawn\.Observable\.Subscribe\(OnBuildingSpawn\)' -or
     $outcome -notmatch 'OnAIBuildWall\.Observable\.Subscribe\(OnWall\)' -or
+    $outcome -notmatch 'observeAivWalls = guard\(\)\?\.IsActive' -or
+    $outcome -notmatch 'UsesOrderedMapTileBuffer\(step->BuildingType\)' -or
+    $outcome -notmatch 'AI_WOOD_AIV_WALL_MATERIALIZED' -or
     $outcome -notmatch 'GetWallOwnerLayer\(' -or
     $outcome -notmatch 'GetBuildingsAsSpan\(' -or
     $outcome -notmatch 'ScanInterval = 50' -or

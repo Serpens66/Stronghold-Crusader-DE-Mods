@@ -1500,6 +1500,12 @@
         <member name="M:APIShared.IEnemyGatePathPolicy.ExitNativeSearch(System.Object,APIShared.EnemyGateSearchKind,System.Boolean,System.Boolean)">
             <summary>Ends the native search scope and records its outcome.</summary>
         </member>
+        <member name="T:APIShared.IEnemyGateRegionPairObserver">
+            <summary>Optional read-only observer used by a registered gate test policy.</summary>
+        </member>
+        <member name="M:APIShared.IEnemyGateRegionPairObserver.ObserveRegionPair(System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.String)">
+            <summary>Observes one completed native region-pair query without changing its result.</summary>
+        </member>
         <member name="T:APIShared.EnemyGatePathPolicyBridge">
             <summary>Passive bridge that holds an optional registered gate policy.</summary>
         </member>

@@ -14,10 +14,12 @@ namespace EnemyGatePathfindingTest
     internal sealed unsafe class AttackOrderCorrelationDiagnostics
     {
         private readonly ManualLogSource log;
+        private readonly GateTopologySnapshotProvider topology;
         private readonly AiGateDecisionAggregate totals = new AiGateDecisionAggregate();
         [ThreadStatic] private static List<Frame> active;
         [ThreadStatic] private static List<HashSet<int>> searches;
-        private long errors, rawTargetPre, rawTargetPost, rawMovePre, rawMovePost,
+        private long errors, unattributedPlayers, scopeMismatches,
+            rawTargetPre, rawTargetPost, rawMovePre, rawMovePost,
             rawUnitPre, rawUnitPost, unattributedPrechecks;
 
         private sealed class Frame
@@ -31,13 +33,15 @@ namespace EnemyGatePathfindingTest
         }
 
         internal AttackOrderCorrelationDiagnostics(ManualLogSource log,
-            GateTopologySnapshotProvider unusedTopology)
-        { this.log = log; }
+            GateTopologySnapshotProvider topology)
+        { this.log = log; this.topology = topology; }
 
         internal void Reset()
         {
             totals.Reset();
             Interlocked.Exchange(ref errors, 0);
+            Interlocked.Exchange(ref unattributedPlayers, 0);
+            Interlocked.Exchange(ref scopeMismatches, 0);
             Interlocked.Exchange(ref rawTargetPre, 0);
             Interlocked.Exchange(ref rawTargetPost, 0);
             Interlocked.Exchange(ref rawMovePre, 0);
@@ -57,7 +61,7 @@ namespace EnemyGatePathfindingTest
             if (pre) Interlocked.Increment(ref rawTargetPre);
             else Interlocked.Increment(ref rawTargetPost);
             int player = ResolveTribePlayer(args.TribeId);
-            if (pre && player == 0) ObserveResolutionFailure("tribe-target", args.TribeId);
+            if (pre && player == 0) ObserveUnattributedPlayer("tribe-target", args.TribeId);
             int command = (int)args.AICommand;
             string detail = "kind=" + args.AICommand + ",a6=" + args.a6;
             if (pre) Push("target", args.TribeId, player, args.TribeId,
@@ -68,6 +72,8 @@ namespace EnemyGatePathfindingTest
             totals.Record(player, 0, pre ? "tribe-target-pre" : "tribe-target-post",
                 pre ? "called" : Result(args.ReturnValue), command, args.TribeId,
                 args.TargetValue1, args.TargetValue2, detail);
+            ObserveGateStates(player, pre ? "target-pre" : "target-post",
+                command, args.TribeId, args.TargetValue1, args.TargetValue2);
         }
 
         internal void ObserveTribeMove(TribeIssueOrderMoveHereEventArgs args)
@@ -78,7 +84,7 @@ namespace EnemyGatePathfindingTest
             if (pre) Interlocked.Increment(ref rawMovePre);
             else Interlocked.Increment(ref rawMovePost);
             int player = ResolveTribePlayer(args.TribeId);
-            if (pre && player == 0) ObserveResolutionFailure("tribe-move", args.TribeId);
+            if (pre && player == 0) ObserveUnattributedPlayer("tribe-move", args.TribeId);
             int command = (int)args.MoveType;
             string detail = "moveType=" + args.MoveType + ",patrol=" + args.IsPatrolPath +
                 ",new=" + args.IsNewOrder;
@@ -90,6 +96,8 @@ namespace EnemyGatePathfindingTest
             totals.Record(player, 0, pre ? "tribe-move-pre" : "tribe-move-post",
                 pre ? "called" : Result(args.ReturnValue), command, args.TribeId,
                 args.TileX, args.TileY, detail);
+            ObserveGateStates(player, pre ? "move-pre" : "move-post",
+                command, args.TribeId, args.TileX, args.TileY);
         }
 
         internal void ObserveUnitMove(UnitMoveHereEventArgs args)
@@ -100,7 +108,7 @@ namespace EnemyGatePathfindingTest
             if (pre) Interlocked.Increment(ref rawUnitPre);
             else Interlocked.Increment(ref rawUnitPost);
             int player = ResolveUnitPlayer(args.UnitId, out int tribe, out int command);
-            if (pre && player == 0) ObserveResolutionFailure("unit-move", args.UnitId);
+            if (pre && player == 0) ObserveUnattributedPlayer("unit-move", args.UnitId);
             if (pre) Push("unit", args.UnitId, player, tribe, command,
                 args.TileX, args.TileY);
             else Finish("unit", args.UnitId, player, tribe, command,
@@ -196,8 +204,37 @@ namespace EnemyGatePathfindingTest
 
         internal void ObserveScopeMismatch(string source, int nativePlayer, int tribePlayer)
         {
+            Interlocked.Increment(ref scopeMismatches);
+            Interlocked.Increment(ref errors);
             totals.Record(nativePlayer, 0, "scope-" + source,
                 "mismatch:tribePlayer=" + tribePlayer, 0, 0, 0, 0);
+        }
+
+        internal void ObserveRegionPair(int player, int sourceComponentId,
+            int destinationComponentId, int queryMode, int vanillaResult,
+            int effectiveResult, string source)
+        {
+            try
+            {
+                if (!IsAi(player)) return;
+                Frame frame = Current();
+                if (frame != null && frame.Player != player) frame = null;
+                totals.Record(player, 0, "region-pair",
+                    "source=" + source + ",vanilla=" + Result(vanillaResult) +
+                    ",effective=" + Result(effectiveResult),
+                    frame?.Command ?? 0, frame?.Tribe ?? 0,
+                    sourceComponentId, destinationComponentId,
+                    "queryMode=" + queryMode + ",raw=" + vanillaResult +
+                    "/" + effectiveResult + ",orderTarget=" +
+                    (frame == null ? "none" : frame.Target1 + "/" + frame.Target2));
+            }
+            catch (Exception ex)
+            {
+                Interlocked.Increment(ref errors);
+                totals.Record(player, 0, "diagnostic-error",
+                    "region-pair:" + ex.GetType().Name, 0, 0,
+                    sourceComponentId, destinationComponentId);
+            }
         }
 
         private void ObserveUnexpectedPhase(string source, int phase)
@@ -207,10 +244,10 @@ namespace EnemyGatePathfindingTest
                 0, 0, 0, 0, source);
         }
 
-        private void ObserveResolutionFailure(string source, int id)
+        private void ObserveUnattributedPlayer(string source, int id)
         {
-            Interlocked.Increment(ref errors);
-            totals.Record(0, 0, "diagnostic-error", "unresolved-player:" + source,
+            Interlocked.Increment(ref unattributedPlayers);
+            totals.Record(0, 0, "unattributed-player", source,
                 0, 0, id, 0);
         }
 
@@ -298,9 +335,29 @@ namespace EnemyGatePathfindingTest
             return tribeId > 0 ? ResolveTribePlayer(tribeId) : 0;
         }
 
+        private void ObserveGateStates(int player, string stage, int command,
+            int tribe, int target1, int target2)
+        {
+            try
+            {
+                foreach (GateLiveStateObservation observation in
+                    topology.CaptureBridgedGateStates(player))
+                    totals.Record(player, observation.GateId, "gate-live-" + stage,
+                        observation.State, command, tribe, target1, target2,
+                        observation.Detail);
+            }
+            catch (Exception ex)
+            {
+                Interlocked.Increment(ref errors);
+                totals.Record(player, 0, "diagnostic-error",
+                    "gate-live:" + ex.GetType().Name, command, tribe, target1, target2);
+            }
+        }
+
         internal void ProcessDeferred() { }
         internal string DescribeCheckpoint()
         {
+            ObserveGateStates(0, "checkpoint", 0, 0, 0, 0);
             AiGateDecisionAggregate.RowSnapshot[] rows = totals.Drain();
             foreach (var row in rows)
                 Shared.DebugLogHelper.LogInfo(log, "Enemy-gate AI decision: " + row + ".");
@@ -312,6 +369,8 @@ namespace EnemyGatePathfindingTest
                 ",unitPre=" + Interlocked.Read(ref rawUnitPre) +
                 ",unitPost=" + Interlocked.Read(ref rawUnitPost) +
                 "),unattributedPrechecks=" + Interlocked.Read(ref unattributedPrechecks) +
+                ",unattributedPlayers=" + Interlocked.Read(ref unattributedPlayers) +
+                ",scopeMismatches=" + Interlocked.Read(ref scopeMismatches) +
                 ",diagnosticErrors=" + Interlocked.Read(ref errors);
         }
     }

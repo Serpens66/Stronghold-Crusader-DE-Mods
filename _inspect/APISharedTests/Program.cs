@@ -1750,6 +1750,7 @@ namespace APISharedTests
                 "APIShared.PlayerPerspectiveAPI",
                 "APIShared.EnemyGateSearchKind",
                 "APIShared.IEnemyGatePathPolicy",
+                "APIShared.IEnemyGateRegionPairObserver",
                 "APIShared.EnemyGatePathPolicyBridge",
                 // BepInEx discovers the plugin type; it is public but is not a consumer service.
                 "APIShared.APISharedPlugin"

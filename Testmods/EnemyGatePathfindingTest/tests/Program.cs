@@ -1147,6 +1147,12 @@ namespace EnemyGatePathfindingTest
             string samePcl = File.ReadAllText(Path.Combine("src", "SamePclGateRouteRuntime.cs"));
             string correlation = File.ReadAllText(
                 Path.Combine("src", "AttackOrderCorrelationDiagnostics.cs"));
+            string topology = File.ReadAllText(
+                Path.Combine("src", "GateTopologySnapshotProvider.cs"));
+            string bridge = File.ReadAllText(Path.Combine("..", "..", "APIShared",
+                "src", "EnemyGatePathPolicyBridge.cs"));
+            string sharedOwner = File.ReadAllText(Path.Combine("..", "..",
+                "BugfixesAndQoL", "src", "FriendlyMoatMovementRuntime.cs"));
 
             Assert(plugin.Contains("Subscribe(ObserveTargetOrder)") &&
                     plugin.Contains("Subscribe(ObserveTribeMove)") &&
@@ -1177,6 +1183,21 @@ namespace EnemyGatePathfindingTest
                     correlation.Contains("order-gate-switch") &&
                     correlation.Contains("CurrentTribeOrder(player, frame?.Tribe ?? 0)"),
                 "aggregate output is emitted from the deferred checkpoint");
+            Assert(correlation.Contains("CaptureBridgedGateStates(player)") &&
+                    correlation.Contains("ObserveGateStates(0, \"checkpoint\"") &&
+                    topology.Contains("gate->r_GateState") &&
+                    topology.Contains("gate->r_AIWalkableState") &&
+                    topology.Contains("connection->r_IsEnabledOrOpen") &&
+                    topology.Contains("bridge->r_AliveState"),
+                "AI order checkpoints read real gate and drawbridge state without a new hook");
+            Assert(correlation.Contains("stage") &&
+                    correlation.Contains("\"unattributed-player\"") &&
+                    correlation.Contains("\"region-pair\"") &&
+                    bridge.Contains("interface IEnemyGateRegionPairObserver") &&
+                    sharedOwner.Contains("policy is IEnemyGateRegionPairObserver observer") &&
+                    sharedOwner.Contains("ObserveScopedRegionPairReachabilityCore(") &&
+                    sharedOwner.Contains("out int vanillaResult"),
+                "shared E2610 owner reports both results only to a registered observer");
 
             var aggregate = new AiGateDecisionAggregate();
             for (int i = 0; i < 160; i++)

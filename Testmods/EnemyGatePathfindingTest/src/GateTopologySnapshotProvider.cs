@@ -49,7 +49,7 @@ namespace EnemyGatePathfindingTest
             ? "none/fingerprint=0x" + PolicyFingerprint.ToString("X16")
             : "gate#" + GateId + "/g" + GateGlobal + ",bridge#" + BridgeId +
                 "/g" + BridgeGlobal + ",owner=" + Owner + ",captured=" + CapturedBy +
-                ",isOpen=" + IsOpen + ",entryExitPcl=" + EntryPcl + "/" + ExitPcl +
+                ",connectionEnabledAtSnapshot=" + IsOpen + ",entryExitPcl=" + EntryPcl + "/" + ExitPcl +
                 ",entryTile=" + EntryTile + "/vanilla=0x" + EntryDirection.ToString("X2") +
                 "/mod=0x" + EntryMask.ToString("X2") + ",exitTile=" + ExitTile +
                 "/vanilla=0x" + ExitDirection.ToString("X2") + "/mod=0x" +
@@ -82,6 +82,16 @@ namespace EnemyGatePathfindingTest
         internal long CaptureTransitions { get; }
         internal long RecaptureTransitions { get; }
         internal bool DrawbridgeObserved { get; }
+    }
+
+    internal readonly struct GateLiveStateObservation
+    {
+        internal GateLiveStateObservation(int gateId, string state, string detail)
+        { GateId = gateId; State = state; Detail = detail; }
+
+        internal int GateId { get; }
+        internal string State { get; }
+        internal string Detail { get; }
     }
 
     // Builds immutable policy snapshots outside native callbacks.
@@ -257,6 +267,59 @@ namespace EnemyGatePathfindingTest
             unchecked((int)Read(ref peakTrackedRecords)), unchecked((int)Read(ref peakCapturedRecords)),
             unchecked((int)Read(ref peakBlockedPairs)), Read(ref captureTransitions),
             Read(ref recaptureTransitions), Volatile.Read(ref drawbridgeObserved) != 0);
+
+        // Read only the gates with a confirmed drawbridge link. These values are
+        // sampled at the existing order callbacks; no gate or route state is changed.
+        internal GateLiveStateObservation[] CaptureBridgedGateStates(int playerId)
+        {
+            if (Volatile.Read(ref epochActive) == 0)
+                return Array.Empty<GateLiveStateObservation>();
+            TopologySnapshot current = snapshot;
+            var result = new List<GateLiveStateObservation>();
+            GameBuildingManagerAPI buildings = GameBuildingManagerAPI.Instance;
+            GamePathingManagerAPI pathing = GamePathingManagerAPI.Instance;
+            Span<byte> directions = GameTileManagerAPI.Instance.GetGatePathLayer();
+            foreach (GateBridgeInfo info in current.Combinations)
+            {
+                if (info.BridgeId <= 0 || (playerId > 0 &&
+                    (info.UnrelatedByPlayer == null ||
+                     playerId >= info.UnrelatedByPlayer.Length ||
+                     !info.UnrelatedByPlayer[playerId])))
+                    continue;
+                if (!buildings.IsValidId(info.GateId) ||
+                    !buildings.TryGetBuildingById(info.GateId, out GameBuilding* gate) ||
+                    gate == null || gate->r_GlobalId != info.GateGlobal ||
+                    !buildings.IsValidId(info.BridgeId) ||
+                    !buildings.TryGetBuildingById(info.BridgeId, out GameBuilding* bridge) ||
+                    bridge == null || bridge->r_GlobalId != info.BridgeGlobal)
+                {
+                    result.Add(new GateLiveStateObservation(info.GateId,
+                        "identity-changed", "bridge=" + info.BridgeId));
+                    continue;
+                }
+                int connectionEnabled = -1;
+                if (pathing.TryGetPathConnectionRecordByBuildingId(
+                        info.GateId, out PathConnectionRecord* connection) &&
+                    connection != null && connection->r_BuildingId == info.GateId &&
+                    connection->r_SubjectGlobalId == info.GateGlobal)
+                    connectionEnabled = connection->r_IsEnabledOrOpen;
+                int entryDirection = (uint)info.EntryTile < (uint)directions.Length
+                    ? directions[info.EntryTile] : -1;
+                int exitDirection = (uint)info.ExitTile < (uint)directions.Length
+                    ? directions[info.ExitTile] : -1;
+                string state = "gateState=" + gate->r_GateState +
+                    ",savedAt0xCC=" + gate->N0001201E +
+                    ",walkableAt0xD4=" + (int)gate->r_AIWalkableState +
+                    ",connectionEnabled=" + connectionEnabled +
+                    ",entryDir=" + entryDirection + ",exitDir=" + exitDirection +
+                    ",bridgeAlive=" + (int)bridge->r_AliveState;
+                result.Add(new GateLiveStateObservation(info.GateId, state,
+                    "gateGlobal=" + info.GateGlobal + ",bridge=" + info.BridgeId +
+                    "/" + info.BridgeGlobal + ",owner=" + gate->r_PlayerIdOwner +
+                    ",captured=" + gate->r_CapturedByPlayerId));
+            }
+            return result.ToArray();
+        }
 
         internal void ProcessDeferred()
         {
@@ -1861,7 +1924,8 @@ namespace EnemyGatePathfindingTest
                 {
                     text.Append("gate#").Append(GateId).Append("/g").Append(GateGlobal)
                         .Append(" owner=").Append(Owner).Append(" captured=").Append(CapturedBy)
-                        .Append(" state=").Append(GateAliveState).Append(" open=").Append(IsOpen)
+                        .Append(" state=").Append(GateAliveState)
+                        .Append(" connectionEnabledAtSnapshot=").Append(IsOpen)
                         .Append(" entryExitPcl=").Append(EntryPcl).Append('/')
                         .Append(ExitPcl).Append(" entryExitXY=").Append(EntryX).Append('/')
                         .Append(EntryY).Append('-').Append(ExitX).Append('/').Append(ExitY)

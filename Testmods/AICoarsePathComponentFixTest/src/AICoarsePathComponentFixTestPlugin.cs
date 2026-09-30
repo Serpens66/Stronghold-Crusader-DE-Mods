@@ -47,7 +47,8 @@ namespace AICoarsePathComponentFixTest
                 "CopyOnly enables the guard only for test_canari_nowoodcutters_probe.sav; " +
                 "RatControl enables it only for a new game on spezialist 3vs5.map; " +
                 "RatSaveOnly enables it only for rat_wood_guard_control_probe.sav; " +
-                "OriginalCanariOnly enables it only for test_canari_nowoodcutters.sav.").Value;
+                "OriginalCanariOnly enables it only for test_canari_nowoodcutters.sav; " +
+                "KnownSingleplayer enables it for recognized non-editor, non-multiplayer new games and saves.").Value;
             woodGuardDecision = Config.Bind("WoodSiteGuard", "Decision", "Reject",
                 "ObserveOnly records candidates but preserves Vanilla acceptance; " +
                 "Reject skips zero-component anchors and parcel-blocked wood footprints.").Value;
@@ -93,7 +94,19 @@ namespace AICoarsePathComponentFixTest
             }
             if (outcomeObserver == null)
             {
-                try { outcomeObserver = new WoodGuardOutcomeObserver(log, () => woodGuard); }
+                try
+                {
+                    outcomeObserver = new WoodGuardOutcomeObserver(log, () => woodGuard);
+                    if (ApiShared.Current.TryGetAivBuildStep(Guid, out IAivBuildStepCapability aiv,
+                        out NativeCapabilityDiagnostic diagnostic) &&
+                        aiv.TryRegisterObserver("rat-wall-context", outcomeObserver,
+                            out diagnostic))
+                        Shared.DebugLogHelper.LogInfo(log,
+                            "AI_WOOD_AIV_OBSERVER_READY: source=APIShared; processRooted=True; readOnly=True.");
+                    else
+                        Shared.DebugLogHelper.LogError(log,
+                            "AI_WOOD_AIV_OBSERVER_UNAVAILABLE: " + diagnostic);
+                }
                 catch (Exception ex)
                 {
                     Shared.DebugLogHelper.LogError(log, "AI_WOOD_OUTCOME_UNAVAILABLE: " + ex);

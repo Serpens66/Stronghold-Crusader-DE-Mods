@@ -81,7 +81,8 @@ namespace AICoarsePathComponentFixTest
             log = logger ?? throw new ArgumentNullException(nameof(logger));
             module = moduleBase;
             if (activationScope != "CopyOnly" && activationScope != "RatControl" &&
-                activationScope != "RatSaveOnly" && activationScope != "OriginalCanariOnly")
+                activationScope != "RatSaveOnly" && activationScope != "OriginalCanariOnly" &&
+                activationScope != "KnownSingleplayer")
                 throw new InvalidOperationException("Unknown wood guard activation scope: " + activationScope);
             scope = activationScope;
             if (decision != "ObserveOnly" && decision != "Reject")
@@ -191,7 +192,12 @@ namespace AICoarsePathComponentFixTest
             MissionContext context = notification?.Context;
             string file = Path.GetFileName(context?.FilePath ?? "");
             bool arm = context != null &&
-                (scope == "CopyOnly" && context.IsSave &&
+                (scope == "KnownSingleplayer" &&
+                 (context.StartKind == MissionStartKind.NewGame || context.IsSave) &&
+                 context.Mode.Kind != Shared.GameModeKind.Unknown &&
+                 !context.Mode.HasConflictingCustomizedOrigin &&
+                 !context.Mode.IsRealMultiplayer && !context.Mode.MultiplayerSave ||
+                 scope == "CopyOnly" && context.IsSave &&
                  string.Equals(file, CopySaveName, StringComparison.OrdinalIgnoreCase) ||
                  scope == "RatControl" && !context.IsSave &&
                  string.Equals(file, RatMapName, StringComparison.OrdinalIgnoreCase) ||
@@ -202,7 +208,10 @@ namespace AICoarsePathComponentFixTest
             Volatile.Write(ref active, arm ? 1 : 0);
             Shared.DebugLogHelper.LogInfo(log,
                 $"AI_WOOD_SITE_GUARD_SESSION: scope={scope}; decision={(rejectCandidates ? "Reject" : "ObserveOnly")}; file={file}; " +
-                $"isSave={context?.IsSave}; active={arm}.");
+                $"isSave={context?.IsSave}; startKind={context?.StartKind}; " +
+                $"mode={context?.Mode.Kind}; realMultiplayer={context?.Mode.IsRealMultiplayer}; " +
+                $"multiplayerSave={context?.Mode.MultiplayerSave}; " +
+                $"conflictingOrigin={context?.Mode.HasConflictingCustomizedOrigin}; active={arm}.");
             LogState("started");
         }
 

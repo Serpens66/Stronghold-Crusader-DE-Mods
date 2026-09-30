@@ -9,12 +9,13 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Text;
 
 namespace AICoarsePathComponentFixTest
 {
     // Read-only outcome audit. The plugin's static field roots this observer and its subscriptions.
-    internal sealed unsafe class WoodGuardOutcomeObserver
+    internal sealed unsafe class WoodGuardOutcomeObserver : IAivBuildStepObserver
     {
         private const int ScanInterval = 50;
         private const int EventLimit = 128;
@@ -29,7 +30,47 @@ namespace AICoarsePathComponentFixTest
         private int tick, nextScan, hutSpawns, farmSpawns;
         private int wallCalls, wallEventChanges, created, removed, altered, detailCount;
         private int omittedEvents, omittedDetails, failedReads;
-        private bool active, baselineReady, firstChangeLogged, initialBuildingsCaptured;
+        private bool active, ratSession, observeAivWalls, baselineReady, firstChangeLogged, initialBuildingsCaptured;
+        private bool targetPlanCaptured, firstMaterializedCaptured;
+        private int targetPlanAttempts, nextTargetPlanTick;
+        private readonly ActiveWallStep[] activeWallSteps = new ActiveWallStep[9];
+        private const int TargetWallX = 457, TargetWallY = 307;
+
+        private sealed class ActiveWallStep : IAivBuildStepInvocation
+        {
+            internal readonly WoodGuardOutcomeObserver Owner;
+            internal readonly int Player, Slot, Frame, Mapper, StateBefore, Variant, Rotation;
+            internal readonly ActiveWallStep Previous;
+            internal bool Materialized;
+
+            internal ActiveWallStep(WoodGuardOutcomeObserver owner, int player, int slot, int frame,
+                int mapper, int state, int variant, int rotation, ActiveWallStep previous)
+            {
+                Owner = owner; Player = player; Slot = slot; Frame = frame;
+                Mapper = mapper; StateBefore = state; Variant = variant; Rotation = rotation;
+                Previous = previous;
+            }
+
+            public void Complete(AivBuildStepCompletion completion)
+            {
+                try
+                {
+                    if (Materialized)
+                    {
+                        int after = -1;
+                        if (GameAIVManagerAPI.Instance.TryGetBuildStep(Slot, Frame,
+                            out AivBuildStep* step)) after = (int)step->State;
+                        Owner.QueueImportant($"AI_WOOD_AIV_WALL_STEP_AFTER: session={Owner.session}; tick={Owner.tick}; " +
+                            $"player={Player}; slot={Slot}; frame={Frame}; mapper={Mapper}; " +
+                            $"stateBefore={StateBefore}; stateAfter={after}; variant={Variant}; " +
+                            $"rotation={Rotation}; vanillaCompleted={completion.VanillaCompleted}; " +
+                            $"vanillaResult={completion.VanillaResult}.");
+                    }
+                }
+                catch (Exception ex) { Owner.RecordAivFailure("complete", ex); }
+                finally { Owner.activeWallSteps[Player] = Previous; }
+            }
+        }
 
         private struct WallTile
         {
@@ -57,17 +98,26 @@ namespace AICoarsePathComponentFixTest
         {
             session++;
             active = true;
+            ratSession = notification?.Context?.IsSave == true &&
+                string.Equals(Path.GetFileName(notification.Context.FilePath),
+                    "rat_wood_guard_control_probe.sav", StringComparison.OrdinalIgnoreCase);
+            observeAivWalls = guard()?.IsActive ?? false;
             tick = -1;
             nextScan = 0;
             wallMap = null;
             baselineReady = firstChangeLogged = initialBuildingsCaptured = false;
+            targetPlanCaptured = !ratSession;
+            firstMaterializedCaptured = false;
+            targetPlanAttempts = nextTargetPlanTick = 0;
+            Array.Clear(activeWallSteps, 0, activeWallSteps.Length);
             hutSpawns = farmSpawns = wallCalls = wallEventChanges = 0;
             created = removed = altered = detailCount = omittedEvents = omittedDetails = failedReads = 0;
             pending.Clear();
             wallPre.Clear();
             Shared.DebugLogHelper.LogInfo(log,
                 $"AI_WOOD_OUTCOME_SESSION: session={session}; file={notification?.Context?.FilePath}; " +
-                $"guardActive={guard()?.IsActive ?? false}; firstMapScan=pending-first-tick.");
+                $"guardActive={guard()?.IsActive ?? false}; aivWallObservation={observeAivWalls}; " +
+                "firstMapScan=pending-first-tick.");
         }
 
         private void OnEnded(MissionLifecycleNotification notification)
@@ -76,14 +126,18 @@ namespace AICoarsePathComponentFixTest
             Flush();
             LogSummary("ended");
             active = false;
+            ratSession = false;
+            observeAivWalls = false;
             wallMap = null;
             wallPre.Clear();
+            Array.Clear(activeWallSteps, 0, activeWallSteps.Length);
         }
 
         internal void OnTick(int currentTick)
         {
             if (!active) return;
             tick = currentTick;
+            if (!targetPlanCaptured && currentTick >= nextTargetPlanTick) CaptureTargetPlan();
             if (!baselineReady)
             {
                 if (!initialBuildingsCaptured) CaptureInitialBuildings();
@@ -158,6 +212,13 @@ namespace AICoarsePathComponentFixTest
                     before.Type == state.Type && before.Height == state.Height &&
                     before.Building == state.Building && before.Component == state.Component) return;
                 wallEventChanges++;
+                bool materialized = (before.Flags & 0x100u) == 0 && (state.Flags & 0x100u) != 0;
+                if (observeAivWalls && materialized && (!firstMaterializedCaptured ||
+                    ratSession && args.TileX == TargetWallX && args.TileY == TargetWallY))
+                {
+                    firstMaterializedCaptured = true;
+                    CaptureMaterializedStep(args.PlayerId, state, before);
+                }
                 if (wallEventChanges <= DetailLimit)
                     Queue($"AI_WOOD_OUTCOME_WALL_EVENT_CHANGE: session={session}; tick={tick}; " +
                         $"player={args.PlayerId}; mapper={args.Mappers}; tile=({args.TileX},{args.TileY}); " +
@@ -166,6 +227,101 @@ namespace AICoarsePathComponentFixTest
                 else omittedEvents++;
             }
             catch (Exception ex) { failedReads++; if (failedReads == 1) Queue("AI_WOOD_OUTCOME_WALL_EVENT_FAILED: " + ex.Message); }
+        }
+
+        public IAivBuildStepInvocation TryBegin(AivBuildStepContext context)
+        {
+            if (!active || !observeAivWalls || context.PlayerId < 1 || context.PlayerId > 8) return null;
+            try
+            {
+                GameAIVManagerAPI api = GameAIVManagerAPI.Instance;
+                if (!api.TryGetVillageSlotByPlayerId(context.PlayerId, out int slot) ||
+                    !api.TryGetVillageByPlayerId(context.PlayerId, out AivVillageState* village) ||
+                    !api.TryGetBuildStep(slot, context.FrameIndex, out AivBuildStep* step) ||
+                    !GameAIVManagerAPI.UsesOrderedMapTileBuffer(step->BuildingType)) return null;
+                var current = new ActiveWallStep(this, context.PlayerId, slot, context.FrameIndex,
+                    (int)step->BuildingType, (int)step->State, village->SelectedVariantIndex,
+                    (int)village->Rotation, activeWallSteps[context.PlayerId]);
+                activeWallSteps[context.PlayerId] = current;
+                return current;
+            }
+            catch (Exception ex) { RecordAivFailure("begin", ex); return null; }
+        }
+
+        private void CaptureTargetPlan()
+        {
+            try
+            {
+                targetPlanAttempts++;
+                nextTargetPlanTick = tick + 50;
+                GameAIVManagerAPI api = GameAIVManagerAPI.Instance;
+                GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
+                if (!tiles.IsTileInsideMapBounds(TargetWallX, TargetWallY) ||
+                    !api.TryGetVillageSlotByPlayerId(4, out int slot) ||
+                    !api.TryGetVillageByPlayerId(4, out AivVillageState* village)) return;
+                int targetId = tiles.GetTileId(TargetWallX, TargetWallY);
+                var matches = new StringBuilder();
+                int matchCount = 0, wallSteps = 0, invalidSteps = 0;
+                Span<AivBuildStep> steps = api.GetBuildSteps(slot);
+                int stepCount = village->MaximumBuildStep < 0 ? 0 :
+                    village->MaximumBuildStep >= steps.Length - 1 ? steps.Length :
+                    village->MaximumBuildStep + 1;
+                for (int frame = 0; frame < stepCount; frame++)
+                {
+                    if (steps[frame].BuildingType != eMappers.MAPPER_WALL) continue;
+                    wallSteps++;
+                    Span<int> planned = api.GetBuildStepMapTiles(slot, frame);
+                    if (planned.Length == 0) { invalidSteps++; continue; }
+                    if (planned.IndexOf(targetId) >= 0)
+                    {
+                        if (matchCount++ != 0) matches.Append('/');
+                        matches.Append(frame);
+                    }
+                }
+                if (wallSteps == 0 && targetPlanAttempts < 3) return;
+                QueueImportant($"AI_WOOD_AIV_TARGET_PLAN: session={session}; tick={tick}; player=4; " +
+                    $"tile=({TargetWallX},{TargetWallY}); tileId={targetId}; slot={slot}; " +
+                    $"variant={village->SelectedVariantIndex}; rotation={(int)village->Rotation}; " +
+                    $"stepCount={stepCount}; wallSteps={wallSteps}; invalidSteps={invalidSteps}; " +
+                    $"initialWall={((uint)tiles.GetTilePropertyFlag(targetId) & 0x100u) != 0}; " +
+                    $"attempts={targetPlanAttempts}; " +
+                    $"matchingFrames={matches}.");
+                targetPlanCaptured = true;
+            }
+            catch (Exception ex) { RecordAivFailure("plan", ex); targetPlanCaptured = true; }
+        }
+
+        private void CaptureMaterializedStep(int player, WallTile after, WallTile before)
+        {
+            ActiveWallStep step = player >= 1 && player <= 8 ? activeWallSteps[player] : null;
+            int plannedIndex = -1, plannedCount = -1, stateBefore = -1, frame = -1, slot = -1;
+            int variant = -1, rotation = -1;
+            if (step != null)
+            {
+                step.Materialized = true;
+                frame = step.Frame; slot = step.Slot; stateBefore = step.StateBefore;
+                variant = step.Variant; rotation = step.Rotation;
+                try
+                {
+                    Span<int> planned = GameAIVManagerAPI.Instance.GetBuildStepMapTiles(slot, frame);
+                    plannedCount = planned.Length;
+                    plannedIndex = planned.IndexOf(after.TileId);
+                }
+                catch (Exception ex) { RecordAivFailure("materialized", ex); }
+            }
+            string recent = guard()?.DescribeRecentDecisions() ?? "none";
+            QueueImportant($"AI_WOOD_AIV_WALL_MATERIALIZED: session={session}; tick={tick}; player={player}; " +
+                $"tile=({after.X},{after.Y}); tileId={after.TileId}; " +
+                $"aivContext={(step != null)}; slot={slot}; frame={frame}; stateBefore={stateBefore}; " +
+                $"variant={variant}; rotation={rotation}; plannedCount={plannedCount}; " +
+                $"plannedIndex={plannedIndex}; before={Describe(before)}; after={Describe(after)}; " +
+                $"recentGuard={recent}.");
+        }
+
+        private void RecordAivFailure(string phase, Exception ex)
+        {
+            failedReads++;
+            if (failedReads <= 3) Queue($"AI_WOOD_AIV_OBSERVATION_FAILED: phase={phase}; error={ex}");
         }
 
         private static WallTile ReadWall(int x, int y, int player)
@@ -244,6 +400,12 @@ namespace AICoarsePathComponentFixTest
         {
             if (pending.Count < EventLimit) pending.Enqueue(line);
             else omittedEvents++;
+        }
+
+        private void QueueImportant(string line)
+        {
+            if (pending.Count == EventLimit) { pending.Dequeue(); omittedEvents++; }
+            pending.Enqueue(line);
         }
 
         private void Flush()

@@ -142,7 +142,8 @@ namespace EnemyGatePathfindingTest
     // player mask for the duration of a complete query; eleven movement adapters and
     // three tactical-target adapters AND that mask into Vanilla's own edge checks
     // without changing the global grid.
-    internal sealed unsafe class SamePclGateRouteRuntime : IEnemyGatePathPolicy
+    internal sealed unsafe class SamePclGateRouteRuntime : IEnemyGatePathPolicy,
+        IEnemyGateRegionPairObserver
     {
         private const int ThreadSlotStride = 32;
         private const int NativeSnapshotPoolSize = 4;
@@ -563,6 +564,12 @@ namespace EnemyGatePathfindingTest
 
         bool IEnemyGatePathPolicy.HasPublishedMask =>
             publishedPolicy.NonEmptyPlayerMaskCount != 0;
+
+        void IEnemyGateRegionPairObserver.ObserveRegionPair(int playerId,
+            int sourceComponentId, int destinationComponentId, int queryMode,
+            int vanillaResult, int effectiveResult, string source) =>
+            attackOrderDiagnostics?.ObserveRegionPair(playerId, sourceComponentId,
+                destinationComponentId, queryMode, vanillaResult, effectiveResult, source);
 
         bool IEnemyGatePathPolicy.IsDirectionAllowed(int playerId, int tileId, int direction) =>
             publishedPolicy.IsDirectionAllowed(playerId, tileId, direction);

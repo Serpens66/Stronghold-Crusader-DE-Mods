@@ -37,6 +37,15 @@ namespace APIShared
         void ExitNativeSearch(object scope, EnemyGateSearchKind kind, bool completed, bool success);
     }
 
+    /// <summary>Optional read-only observer used by a registered gate test policy.</summary>
+    public interface IEnemyGateRegionPairObserver
+    {
+        /// <summary>Observes one completed native region-pair query without changing its result.</summary>
+        void ObserveRegionPair(int playerId, int sourceComponentId,
+            int destinationComponentId, int queryMode, int vanillaResult,
+            int effectiveResult, string source);
+    }
+
     /// <summary>Passive bridge that holds an optional registered gate policy.</summary>
     public static class EnemyGatePathPolicyBridge
     {
