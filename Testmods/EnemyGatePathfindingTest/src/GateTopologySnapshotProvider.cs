@@ -110,6 +110,9 @@ namespace EnemyGatePathfindingTest
         private NativeGateAccessSnapshot lastStableAccessSnapshot = NativeGateAccessSnapshot.Empty;
         private Action<RouteTilePolicySnapshot> routePolicyConsumer;
         private Action<NativeGateAccessSnapshot> gateAccessConsumer;
+        private readonly DeferredCaptureRefreshRequest captureRefresh = new DeferredCaptureRefreshRequest();
+        internal readonly CaptureTransitionDiagnostics CaptureDiagnostics = new CaptureTransitionDiagnostics();
+        private long accessPublicationGeneration;
         private int epochActive;
         private int epochNumber;
         private int initializedDeferredEpoch;
@@ -226,12 +229,16 @@ namespace EnemyGatePathfindingTest
             pendingEpochReason = reason ?? "unspecified";
             Interlocked.Increment(ref epochNumber);
             ResetHotCounters();
+            captureRefresh.Reset();
+            Interlocked.Exchange(ref accessPublicationGeneration, 0);
+            CaptureDiagnostics.Reset(epochNumber);
         }
 
         internal void EndEpoch(string reason)
         {
             if (Interlocked.CompareExchange(ref epochActive, 0, 1) != 1)
                 return;
+            captureRefresh.Reset();
             Shared.DebugLogHelper.LogInfo(log,
                 $"Gate topology epoch {epochNumber} ended ({reason ?? "unspecified"}): " +
                 $"accessScans={Read(ref accessScans)}, accessChanges={Read(ref accessChanges)}, " +
@@ -343,6 +350,12 @@ namespace EnemyGatePathfindingTest
             try
             {
                 InitializeDeferredEpochIfNeeded();
+                if (captureRefresh.Consume())
+                {
+                    Volatile.Write(ref accessRefreshRequired, 1);
+                    Volatile.Write(ref nextAccessAt, 0);
+                    Volatile.Write(ref nextSnapshotAt, 0);
+                }
                 long now = Stopwatch.GetTimestamp();
                 RefreshGateAccessIfDue(now);
                 RefreshTopologyIfDue(now);
@@ -490,9 +503,7 @@ namespace EnemyGatePathfindingTest
             {
                 RecordAccessCoverage(previous, rebuilt);
                 string changes = FormatAccessChanges(previous, rebuilt, 24);
-                lastStableAccessSnapshot = rebuilt;
-                accessSnapshot = rebuilt;
-                gateAccessConsumer?.Invoke(rebuilt);
+                PublishAccessSnapshot(rebuilt);
                 Volatile.Write(ref accessPolicyWasCleared, 0);
                 Interlocked.Increment(ref accessChanges);
                 Volatile.Write(ref nextSnapshotAt, 0);
@@ -506,15 +517,31 @@ namespace EnemyGatePathfindingTest
 
             if (rawChanged)
                 Interlocked.Increment(ref suppressedRawAccessChanges);
-            if (Interlocked.Exchange(ref accessPolicyWasCleared, 0) != 0)
+            if (Interlocked.Exchange(ref accessPolicyWasCleared, 0) != 0 || forced)
             {
                 // Republish the freshly verified equivalent policy after a tick-side
-                // fail-open window without counting it as a semantic change.
-                lastStableAccessSnapshot = rebuilt;
-                accessSnapshot = rebuilt;
-                gateAccessConsumer?.Invoke(rebuilt);
+                // fail-open window or a capture request, without counting a semantic change.
+                PublishAccessSnapshot(rebuilt);
                 Interlocked.Increment(ref accessRepublishes);
             }
+        }
+
+        internal void ObserveCaptureMismatch(NativeGateAccessSnapshot source,
+            int buildingId, uint globalId, int owner, int captured)
+        {
+            if (Volatile.Read(ref epochActive) != 0 &&
+                CaptureDiagnostics.Observe(source, buildingId, globalId, owner, captured))
+                captureRefresh.Request();
+        }
+
+        private void PublishAccessSnapshot(NativeGateAccessSnapshot rebuilt)
+        {
+            NativeGateAccessSnapshot published = rebuilt.WithDiagnosticPublication(
+                epochNumber, Interlocked.Increment(ref accessPublicationGeneration));
+            lastStableAccessSnapshot = published;
+            accessSnapshot = published;
+            CaptureDiagnostics.Publish(published);
+            gateAccessConsumer?.Invoke(published);
         }
 
         private void RefreshTopologyIfDue(long now)

@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Operation Type="Add" XPath="/n:UserControl/n:Grid">
+    <Content>
+      <Canvas x:Name="SpectatorEditorHumanCanvas" Grid.Row="0" Grid.RowSpan="4" Grid.Column="0" Grid.ColumnSpan="4"
+              HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Panel.ZIndex="10031">
+        <Canvas.Resources>
+          <Style x:Key="SpectatorEditorHumanButtonStyle" TargetType="{x:Type Button}">
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Background" Value="#A0261710"/>
+            <Setter Property="BorderBrush" Value="#FFE5C884"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Template">
+              <Setter.Value>
+                <ControlTemplate TargetType="{x:Type Button}">
+                  <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                          BorderThickness="{TemplateBinding BorderThickness}">
+                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                  </Border>
+                </ControlTemplate>
+              </Setter.Value>
+            </Setter>
+          </Style>
+          <Style x:Key="SpectatorEditorHumanNumberStyle" TargetType="{x:Type TextBlock}">
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Effect">
+              <Setter.Value>
+                <DropShadowEffect Color="Black" ShadowDepth="0" BlurRadius="2" Opacity="1"/>
+              </Setter.Value>
+            </Setter>
+          </Style>
+        </Canvas.Resources>
+        <Border x:Name="SpectatorEditorHumanPanel" Width="412" Height="46" Canvas.Left="0" Canvas.Top="0"
+                Background="#B018100B" BorderBrush="#C0806040" BorderThickness="1" Visibility="Collapsed">
+          <Grid>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="8"/>
+              <RowDefinition Height="30"/>
+            </Grid.RowDefinitions>
+            <Border x:Name="SpectatorEditorHumanDrag" Grid.Row="0" Background="#AA6F1712" Cursor="SizeAll"/>
+            <StackPanel Grid.Row="1" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
+              <Button x:Name="SpectatorEditorHumanToggle" Width="112" Height="30" Margin="2,0"
+                      Style="{StaticResource SpectatorEditorHumanButtonStyle}" Focusable="False">
+                <TextBlock x:Name="SpectatorEditorHumanToggleText" Text="KI platzieren" FontSize="13"
+                           Foreground="White" TextAlignment="Center"/>
+              </Button>
+              <StackPanel x:Name="SpectatorEditorHumanOwners" Orientation="Horizontal" Visibility="Collapsed">
+                <TextBlock Text="KI:" Foreground="White" FontSize="14" VerticalAlignment="Center" Margin="8,0,2,0"/>
+              <Button x:Name="SpectatorEditorHumanOwner1" Width="29" Height="30" Margin="1,0" Style="{StaticResource SpectatorEditorHumanButtonStyle}" Focusable="False"><TextBlock x:Name="SpectatorEditorHumanNumber1" Text="1" Style="{StaticResource SpectatorEditorHumanNumberStyle}"/></Button>
+              <Button x:Name="SpectatorEditorHumanOwner2" Width="29" Height="30" Margin="1,0" Style="{StaticResource SpectatorEditorHumanButtonStyle}" Focusable="False"><TextBlock x:Name="SpectatorEditorHumanNumber2" Text="2" Style="{StaticResource SpectatorEditorHumanNumberStyle}"/></Button>
+              <Button x:Name="SpectatorEditorHumanOwner3" Width="29" Height="30" Margin="1,0" Style="{StaticResource SpectatorEditorHumanButtonStyle}" Focusable="False"><TextBlock x:Name="SpectatorEditorHumanNumber3" Text="3" Style="{StaticResource SpectatorEditorHumanNumberStyle}"/></Button>
+              <Button x:Name="SpectatorEditorHumanOwner4" Width="29" Height="30" Margin="1,0" Style="{StaticResource SpectatorEditorHumanButtonStyle}" Focusable="False"><TextBlock x:Name="SpectatorEditorHumanNumber4" Text="4" Style="{StaticResource SpectatorEditorHumanNumberStyle}"/></Button>
+              <Button x:Name="SpectatorEditorHumanOwner5" Width="29" Height="30" Margin="1,0" Style="{StaticResource SpectatorEditorHumanButtonStyle}" Focusable="False"><TextBlock x:Name="SpectatorEditorHumanNumber5" Text="5" Style="{StaticResource SpectatorEditorHumanNumberStyle}"/></Button>
+              <Button x:Name="SpectatorEditorHumanOwner6" Width="29" Height="30" Margin="1,0" Style="{StaticResource SpectatorEditorHumanButtonStyle}" Focusable="False"><TextBlock x:Name="SpectatorEditorHumanNumber6" Text="6" Style="{StaticResource SpectatorEditorHumanNumberStyle}"/></Button>
+              <Button x:Name="SpectatorEditorHumanOwner7" Width="29" Height="30" Margin="1,0" Style="{StaticResource SpectatorEditorHumanButtonStyle}" Focusable="False"><TextBlock x:Name="SpectatorEditorHumanNumber7" Text="7" Style="{StaticResource SpectatorEditorHumanNumberStyle}"/></Button>
+              <Button x:Name="SpectatorEditorHumanOwner8" Width="29" Height="30" Margin="1,0" Style="{StaticResource SpectatorEditorHumanButtonStyle}" Focusable="False"><TextBlock x:Name="SpectatorEditorHumanNumber8" Text="8" Style="{StaticResource SpectatorEditorHumanNumberStyle}"/></Button>
+              </StackPanel>
+            </StackPanel>
+          </Grid>
+        </Border>
+      </Canvas>
+    </Content>
+  </Operation>
+</Patch>

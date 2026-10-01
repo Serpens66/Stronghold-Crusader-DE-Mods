@@ -464,6 +464,12 @@ namespace EnemyGatePathfindingTest
                 NativeGateSnapshotDecision decision = current.Evaluate(
                     queryPlayerId, buildingId, ownerPlayerId, nativeCapturedByPlayerId,
                     out snapshotRecord);
+                if (decision == NativeGateSnapshotDecision.CaptureMismatch)
+                {
+                    try { topologyProvider?.ObserveCaptureMismatch(current, buildingId,
+                        subjectGlobalId, ownerPlayerId, nativeCapturedByPlayerId); }
+                    catch { Interlocked.Increment(ref callbackWarnings); }
+                }
                 if (decision == NativeGateSnapshotDecision.ExcludeForeignCapture)
                 {
                     registers->R11 &= ~0xFFUL;
@@ -599,6 +605,13 @@ namespace EnemyGatePathfindingTest
 
         private void LogDiagnosticCheckpoint(string kind, string reason)
         {
+            if (topologyProvider != null)
+            {
+                foreach (string change in topologyProvider.CaptureDiagnostics.DrainChanges())
+                    Shared.DebugLogHelper.LogInfo(log, "Enemy-gate capture transition: " + change + ".");
+                Shared.DebugLogHelper.LogInfo(log, "Enemy-gate capture recovery: " +
+                    topologyProvider.CaptureDiagnostics.Summary + ".");
+            }
             long pcl = Read(ref siteCalls[0]);
             long builder = Read(ref siteCalls[1]);
             long pclDelta = pcl - lastSiteCalls[0];
@@ -704,7 +717,8 @@ namespace EnemyGatePathfindingTest
                 DecisionTotal(NativeGateSnapshotDecision.InvalidQueryPlayer) +
                 DecisionTotal(NativeGateSnapshotDecision.RecordIdMismatch) +
                 DecisionTotal(NativeGateSnapshotDecision.OwnerMismatch) +
-                DecisionTotal(NativeGateSnapshotDecision.CaptureMismatch) +
+                Math.Max(0, DecisionTotal(NativeGateSnapshotDecision.CaptureMismatch) -
+                    (topologyProvider?.CaptureDiagnostics.Recovered ?? 0)) +
                 DecisionTotal(NativeGateSnapshotDecision.Exception);
             bool hookActivity = Read(ref siteCalls[0]) > 0 && Read(ref siteCalls[1]) > 0;
             bool runtimeFailed = Volatile.Read(ref callbackWarnings) != 0 ||

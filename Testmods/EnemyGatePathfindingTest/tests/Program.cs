@@ -43,6 +43,7 @@ namespace EnemyGatePathfindingTest
                 AiTacticalTargetContractsAreAtomicAndExecutable();
                 AttackOrderCorrelationIsLosslessAndObservational();
                 GateDiagnosticRolesAndBuildingContextsAreLossless();
+                CaptureRecoveryRequiresFreshExactPublication();
                 DirectionAdapterTileRegistersMatchNativeDataFlow();
                 CrashDumpRegisterRegressionsFailOpen();
                 DirectionAdaptersActuallyAssembleAndDecode();
@@ -1283,6 +1284,91 @@ namespace EnemyGatePathfindingTest
             string correlation = File.ReadAllText(Path.Combine("src", "AttackOrderCorrelationDiagnostics.cs"));
             Assert(correlation.Contains("nativeComparison=") && correlation.Contains("effectiveComparison=") &&
                 !correlation.Contains("\"vanilla=\" + (vanillaExcluded"), "comparison is not called physical open/closed");
+        }
+
+        private static void CaptureRecoveryRequiresFreshExactPublication()
+        {
+            NativeGateAccessSnapshot Publication(int capture, long generation, long epoch = 1,
+                uint global = 1234, int owner = 1)
+            {
+                var records = new NativeGateAccessRecord[2];
+                records[1] = new NativeGateAccessRecord(true, owner, capture, 2, 4, 32);
+                return new NativeGateAccessSnapshot(records, 77, new uint[] { 0, global }, epoch, generation);
+            }
+            var requests = new DeferredCaptureRefreshRequest();
+            var recovery = new CaptureTransitionDiagnostics();
+            recovery.Reset(1);
+            NativeGateAccessSnapshot source = Publication(0, 1);
+            recovery.Publish(source);
+            Assert(!recovery.Observe(null, 1, 1234, 1, 2) &&
+                !recovery.Observe(Publication(0, 99), 1, 1234, 1, 2),
+                "missing or unpublished generation cannot register a transition");
+            for (int i = 0; i < 43; i++)
+            {
+                Assert(recovery.Observe(source, 1, 1234, 1, 2), "verified capture observation counted");
+                requests.Request();
+            }
+            Assert(requests.Consume() && !requests.Consume(), "43 callbacks request one deferred refresh");
+            requests.Request();
+            Assert(requests.Consume(), "request after consumption survives for next deferred pass");
+            string[] pending = recovery.DrainChanges();
+            Assert(pending.Length == 1 && pending[0].Contains("unresolved=43"), "repetitions compact, none lost");
+            recovery.Publish(Publication(2, 1));
+            recovery.Publish(Publication(2, 2, 2));
+            Assert(recovery.Recovered == 0, "old generation and foreign map cannot confirm");
+            recovery.Publish(Publication(3, 2));
+            Assert(recovery.Recovered == 0, "another capturer does not confirm the observed capturer");
+            recovery.Publish(Publication(2, 3, global: 999));
+            Assert(recovery.Recovered == 0, "reused building ID requires original global ID");
+            recovery.Publish(Publication(2, 4, owner: 3));
+            Assert(recovery.Recovered == 0, "changed owner cannot confirm old owner observation");
+            recovery.Publish(Publication(2, 5));
+            Assert(recovery.Recovered == 43 && recovery.Summary.Contains("unresolved=0"), "exact later publication confirms all 43");
+            string[] confirmed = recovery.DrainChanges();
+            Assert(confirmed.Length == 1 && confirmed[0].Contains("proofGeneration=5") &&
+                recovery.DrainChanges().Length == 0, "changed proof logged once");
+            Assert(recovery.Observe(source, 1, 1234, 1, 2), "late observation using old snapshot still counted");
+            recovery.Publish(Publication(2, 5));
+            Assert(recovery.Recovered == 43, "publication predating observation cannot confirm it");
+            recovery.Publish(Publication(2, 6));
+            Assert(recovery.Recovered == 44, "fresh equivalent publication confirms late observation");
+            Assert(!recovery.Observe(source, 1, 999, 1, 2) && !recovery.Observe(source, 1, 1234, 3, 2) &&
+                !recovery.Observe(source, 1, 1234, 1, 9), "unverified mismatch cannot earn recovered credit");
+            Assert(recovery.Observe(Publication(2, 6), 1, 1234, 1, 0), "recapture-to-zero is observed");
+            Assert(recovery.Summary.Contains("unresolved=1"), "unconfirmed transition stays unresolved at final checkpoint");
+            Assert(recovery.Observe(Publication(2, 6), 1, 1234, 1, 3), "second capturer change is counted independently");
+            recovery.Publish(Publication(3, 7));
+            Assert(recovery.Recovered == 45 && recovery.Summary.Contains("unresolved=1"),
+                "different capturer confirms only its own observation, not the missing recapture");
+            recovery.Publish(Publication(0, 8));
+            Assert(recovery.Recovered == 46 && recovery.Summary.Contains("unresolved=0"),
+                "later exact recapture confirms the remaining observation");
+            recovery.Reset(3);
+            Assert(recovery.Recovered == 0 && recovery.Summary.Contains("observed=0") &&
+                !recovery.Observe(source, 1, 1234, 1, 2), "map reset rejects old callbacks and resets generation");
+
+            var oldRecords = new NativeGateAccessRecord[81];
+            var newRecords = new NativeGateAccessRecord[81];
+            var globals = new uint[81];
+            for (int id = 1; id <= 80; id++)
+            {
+                oldRecords[id] = new NativeGateAccessRecord(true, 1, 0, 2, 0, 32);
+                newRecords[id] = new NativeGateAccessRecord(true, 1, 2, 2, 4, 32);
+                globals[id] = (uint)(1000 + id);
+            }
+            var oldSnapshot = new NativeGateAccessSnapshot(oldRecords, 7, globals, 3, 1);
+            recovery.Publish(oldSnapshot);
+            for (int id = 1; id <= 80; id++)
+                for (int repeat = 0; repeat < 5; repeat++)
+                    Assert(recovery.Observe(oldSnapshot, id, globals[id], 1, 2), "more than 32 identities counted");
+            recovery.Publish(new NativeGateAccessSnapshot(newRecords, 8, globals, 3, 2));
+            Assert(recovery.Recovered == 400 && recovery.DrainChanges().Length == 80,
+                "400 observations across 80 identities confirmed in 80 compact rows");
+            NativeGateAccessSnapshot stamped = oldSnapshot.WithDiagnosticPublication(3, 99);
+            Assert(oldSnapshot.PolicyEquals(stamped) && oldSnapshot.TopologyFingerprint == stamped.TopologyFingerprint &&
+                oldSnapshot.Evaluate(5, 1, 1, 0) == stamped.Evaluate(5, 1, 1, 0),
+                "diagnostic generation never changes the access policy");
+            requests.Request(); requests.Reset(); Assert(!requests.Consume(), "map clear drops stale refresh request");
         }
 
         private static void AiTacticalTargetContractsAreAtomicAndExecutable()

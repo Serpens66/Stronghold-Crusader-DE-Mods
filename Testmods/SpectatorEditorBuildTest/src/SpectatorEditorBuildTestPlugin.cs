@@ -16,6 +16,7 @@ using SHCDESE.EventAPI.Buildings;
 using SHCDESE.EventAPI.Player;
 using SHCDESE.EventAPI.Tribes;
 using SHCDESE.Interop;
+using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -24,6 +25,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using Marshal = System.Runtime.InteropServices.Marshal;
 using System.Security.Cryptography;
+using System.Threading;
 
 namespace SpectatorEditorBuildTest
 {
@@ -81,6 +83,34 @@ namespace SpectatorEditorBuildTest
         private static int vanillaWellDiagnostics;
         private static readonly List<BuildingVisualSample> visualSamples = new List<BuildingVisualSample>();
         private static readonly object visualSamplesLock = new object();
+        private static IMissionLifecycleCapability missionLifecycle;
+        private static long activeSessionId;
+        private static bool humanPlacementMode;
+        private static int humanSelectedOwner;
+        private static int humanSavedScreen = 1;
+        private static int humanSavedSubMode;
+        private static bool?[] humanSavedTabs;
+        private static IngameUIScreens humanScreen;
+        private static HUD_Main humanBoundHud;
+        private static Canvas humanCanvas;
+        private static Border humanPanel;
+        private static Border humanDragHandle;
+        private static Button humanToggle;
+        private static TextBlock humanToggleText;
+        private static StackPanel humanOwners;
+        private static readonly Button[] humanOwnerButtons = new Button[9];
+        private static readonly TextBlock[] humanOwnerNumbers = new TextBlock[9];
+        private static readonly RoutedEventHandler[] humanOwnerHandlers = new RoutedEventHandler[9];
+        private static readonly MouseButtonEventHandler[] humanJumpHandlers = new MouseButtonEventHandler[9];
+        private static readonly int[] humanDisplayedColours = new int[9];
+        private static bool humanDragging, humanPositioned, humanUserMoved;
+        private static bool humanCameraFailureLogged;
+        private static Point humanDragStart;
+        private static float humanDragOriginLeft, humanDragOriginTop;
+        private static readonly SolidColorBrush ownerNormalBrush =
+            new SolidColorBrush(Noesis.Color.FromArgb(160, 38, 23, 16));
+        private static readonly SolidColorBrush ownerSelectedBrush =
+            new SolidColorBrush(Noesis.Color.FromArgb(220, 135, 71, 25));
 
         private const string NativeSha256 = "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2";
         private const int AvailabilityRva = 0xCC420;
@@ -94,7 +124,7 @@ namespace SpectatorEditorBuildTest
         {
             internal int Owner, X, Y, Scale;
             internal eMappers Mapper;
-            internal object GameState;
+            internal long SessionId;
             internal bool Spawned;
             internal volatile bool ClickAccepted, BuildStarted;
             internal DateTime ExpiresAtUtc;
@@ -104,7 +134,7 @@ namespace SpectatorEditorBuildTest
         {
             internal int Owner, StartX, StartY, EndX, EndY;
             internal eMappers Mapper;
-            internal object GameState;
+            internal long SessionId;
             internal DateTime ExpiresAtUtc;
         }
 
@@ -146,6 +176,7 @@ namespace SpectatorEditorBuildTest
             IDisposable candidateSubtractResource = null;
             bool tickRegistered = false;
             bool renderRegistered = false;
+            bool libraryRegistered = false;
             try
             {
                 ValidateHudFields();
@@ -207,13 +238,22 @@ namespace SpectatorEditorBuildTest
                 tickRegistered = true;
                 UnityEngine.Application.onBeforeRender += OnBeforeRender;
                 renderRegistered = true;
-                log.LogInfo("SPECTATOR_EDITOR_HOOKS_INSTALLED");
-                harmony = candidate;
                 CrusaderLibrary.Instance.LibraryLoaded += OnNativeLibraryLoaded;
+                libraryRegistered = true;
+                if (!ApiShared.Current.TryGetMissionLifecycle(Guid,
+                    out IMissionLifecycleCapability lifecycle, out NativeCapabilityDiagnostic diagnostic))
+                    throw new InvalidOperationException("Mission lifecycle unavailable: " + diagnostic?.Reason);
+                if (!lifecycle.TryRegisterObserver("SpectatorEditorBuildTest.Session",
+                    OnMissionStart, OnMissionEnd, null, out diagnostic))
+                    throw new InvalidOperationException("Mission lifecycle registration failed: " + diagnostic?.Reason);
+                missionLifecycle = lifecycle;
+                harmony = candidate;
+                log.LogInfo("SPECTATOR_EDITOR_HOOKS_INSTALLED");
             }
             catch (Exception error)
             {
                 // This candidate has not been published; a failed installation may be rolled back.
+                if (libraryRegistered) CrusaderLibrary.Instance.LibraryLoaded -= OnNativeLibraryLoaded;
                 if (renderRegistered) UnityEngine.Application.onBeforeRender -= OnBeforeRender;
                 if (tickRegistered) GameTimeManagerAPI.Instance.OnTick -= OnSimulationTick;
                 candidateTribeSubscription?.Dispose();
@@ -392,10 +432,12 @@ namespace SpectatorEditorBuildTest
             try
             {
                 BuildingRequest click = buildingClickScope;
-                if (click != null && click.Owner == owner && (int)click.Mapper == mapper)
+                if (click != null && IsCurrentSession(click.SessionId) &&
+                    click.Owner == owner && (int)click.Mapper == mapper)
                     return 1;
                 BuildingRequest queued = pendingBuilding;
                 if (queued != null && queued.ClickAccepted && !queued.BuildStarted &&
+                    IsCurrentSession(queued.SessionId) &&
                     DateTime.UtcNow <= queued.ExpiresAtUtc &&
                     queued.Owner == owner && (int)queued.Mapper == mapper && nativeImageBase != 0 &&
                     Marshal.ReadInt32(unchecked((IntPtr)(long)(nativeImageBase + 0x85F8FF4))) == 10 &&
@@ -416,6 +458,53 @@ namespace SpectatorEditorBuildTest
             return availabilityDetour.Original(manager, mapper, owner, showMessage);
         }
 
+        private static long CurrentSessionId => Interlocked.Read(ref activeSessionId);
+
+        private static bool IsCurrentSession(long sessionId) =>
+            sessionId > 0 && sessionId == CurrentSessionId;
+
+        private static void OnMissionStart(MissionLifecycleNotification notification)
+        {
+            long sessionId = notification?.Context?.SessionId ?? 0;
+            if (sessionId <= 0 || sessionId == CurrentSessionId) return;
+            ResetSessionState();
+            Interlocked.Exchange(ref activeSessionId, sessionId);
+            log?.LogInfo("SPECTATOR_EDITOR_SESSION_START id=" + sessionId);
+        }
+
+        private static void OnMissionEnd(MissionLifecycleNotification notification)
+        {
+            long sessionId = notification?.Context?.SessionId ?? 0;
+            if (!IsCurrentSession(sessionId)) return;
+            Interlocked.Exchange(ref activeSessionId, 0);
+            ResetSessionState();
+            log?.LogInfo("SPECTATOR_EDITOR_SESSION_END id=" + sessionId);
+        }
+
+        private static void ResetSessionState()
+        {
+            DetachHumanControls();
+            humanPlacementMode = false;
+            humanSelectedOwner = -1;
+            humanSavedScreen = 1;
+            humanSavedSubMode = 0;
+            humanSavedTabs = null;
+            humanCameraFailureLogged = false;
+            activeWall = null;
+            pendingWall = null;
+            pendingBuilding = null;
+            buildingClickScope = null;
+            buildingWall = null;
+            placingUnitOwner = 0;
+            RestoreDateLayout();
+            activeHud = null;
+            initialLayoutLoggedHud = null;
+            lastOwner = int.MinValue;
+            lastScreen = int.MinValue;
+            pendingVisibilityHud = null;
+            pendingVisibilityAt = DateTime.MaxValue;
+        }
+
         private static bool IsSpectatorSession()
         {
             try
@@ -424,7 +513,8 @@ namespace SpectatorEditorBuildTest
                 var director = Director.instance;
                 var editor = EditorDirector.instance;
                 var view = MainViewModel.Instance;
-                return state != null && director != null && editor != null && view != null &&
+                return CurrentSessionId > 0 && state != null && director != null &&
+                    editor != null && view != null &&
                     state.game_type == 3 && state.spectatorMode != 0 &&
                     editor.ActivePlayerID <= 0 && !view.IsMapEditorMode &&
                     director.SkirmishModeGame && !director.MultiplayerGame &&
@@ -433,23 +523,392 @@ namespace SpectatorEditorBuildTest
             catch { return false; }
         }
 
+        private static bool IsHumanSingleplayerSession()
+        {
+            try
+            {
+                var state = GameData.Instance?.lastGameState;
+                var director = Director.instance;
+                var editor = EditorDirector.instance;
+                var view = MainViewModel.Instance;
+                int controlled = PlayerPerspectiveAPI.GetControlledPlayerId();
+                return CurrentSessionId > 0 && state != null && director != null &&
+                    editor != null && view != null &&
+                    state.game_type == 3 && state.spectatorMode == 0 &&
+                    controlled >= 1 && controlled <= 8 && controlled == editor.ActivePlayerID &&
+                    state.is_valid_player(controlled) && !view.IsMapEditorMode &&
+                    director.SkirmishModeGame && !director.MultiplayerGame &&
+                    !Shared.GameModeHelper.IsRealMultiplayer();
+            }
+            catch { return false; }
+        }
+
+        private static bool IsPlacementSession() => IsSpectatorSession() ||
+            (humanPlacementMode && IsHumanSingleplayerSession());
+
+        private static bool IsSelectableAi(int owner)
+        {
+            try
+            {
+                var state = GameData.Instance?.lastGameState;
+                return state != null && owner >= 1 && owner <= 8 &&
+                    state.is_skirmish_player(owner) &&
+                    GamePlayerManagerAPI.Instance.IsAIPlayer(owner);
+            }
+            catch { return false; }
+        }
+
         private static int CurrentAiOwner()
         {
+            if (humanPlacementMode && IsHumanSingleplayerSession())
+                return IsSelectableAi(humanSelectedOwner) ? humanSelectedOwner : -1;
             if (!IsSpectatorSession()) return -1;
             try
             {
                 int owner = PlayerPerspectiveAPI.GetViewedPlayerId();
-                return owner >= 1 && owner <= 8 &&
-                    GamePlayerManagerAPI.Instance.IsAIPlayer(owner) ? owner : -1;
+                return IsSelectableAi(owner) ? owner : -1;
             }
             catch { return -1; }
+        }
+
+        private static void EnsureHumanControls()
+        {
+            IngameUIScreens screen = MainViewModel.Instance?.IngameUI;
+            HUD_Main hud = MainViewModel.Instance?.HUDmain;
+            if (humanScreen != null && (!ReferenceEquals(screen, humanScreen) ||
+                !ReferenceEquals(hud, humanBoundHud)))
+            {
+                MainControls.instance?.StopAllPlacement();
+                humanPlacementMode = false;
+                humanSelectedOwner = -1;
+                humanSavedTabs = null;
+                activeWall = null;
+                RestoreDateLayout();
+                activeHud = null;
+                DetachHumanControls();
+                log.LogInfo("SPECTATOR_EDITOR_HUMAN_HUD_CHANGED");
+            }
+            if (screen == null || hud == null || humanPanel != null) return;
+            Canvas canvas = screen.FindName("SpectatorEditorHumanCanvas") as Canvas;
+            Border panel = screen.FindName("SpectatorEditorHumanPanel") as Border;
+            Border dragHandle = screen.FindName("SpectatorEditorHumanDrag") as Border;
+            Button toggle = screen.FindName("SpectatorEditorHumanToggle") as Button;
+            TextBlock toggleText = screen.FindName("SpectatorEditorHumanToggleText") as TextBlock;
+            StackPanel owners = screen.FindName("SpectatorEditorHumanOwners") as StackPanel;
+            if (canvas == null || panel == null || dragHandle == null || toggle == null ||
+                toggleText == null || owners == null)
+                return;
+            var found = new Button[9];
+            var numbers = new TextBlock[9];
+            for (int owner = 1; owner <= 8; owner++)
+            {
+                found[owner] = screen.FindName("SpectatorEditorHumanOwner" + owner) as Button;
+                numbers[owner] = screen.FindName("SpectatorEditorHumanNumber" + owner) as TextBlock;
+                if (found[owner] == null || numbers[owner] == null) return;
+            }
+            humanScreen = screen;
+            humanBoundHud = hud;
+            humanCanvas = canvas;
+            humanPanel = panel;
+            humanDragHandle = dragHandle;
+            humanToggle = toggle;
+            humanToggleText = toggleText;
+            humanOwners = owners;
+            toggle.Click += ToggleHumanMode;
+            dragHandle.MouseLeftButtonDown += OnHumanDragDown;
+            dragHandle.MouseMove += OnHumanDragMove;
+            dragHandle.MouseLeftButtonUp += OnHumanDragUp;
+            dragHandle.LostMouseCapture += OnHumanLostCapture;
+            canvas.SizeChanged += OnHumanCanvasSizeChanged;
+            for (int owner = 1; owner <= 8; owner++)
+            {
+                int selected = owner;
+                humanOwnerButtons[owner] = found[owner];
+                humanOwnerNumbers[owner] = numbers[owner];
+                humanDisplayedColours[owner] = -1;
+                humanOwnerHandlers[owner] = (sender, args) => SelectHumanAi(selected);
+                found[owner].Click += humanOwnerHandlers[owner];
+                humanJumpHandlers[owner] = (sender, args) =>
+                {
+                    if (args.ChangedButton != MouseButton.Right &&
+                        args.ChangedButton != MouseButton.Middle) return;
+                    if (!humanPlacementMode || !IsHumanSingleplayerSession() ||
+                        !IsSelectableAi(selected)) return;
+                    args.Handled = true;
+                    JumpToHumanAi(selected, args.ChangedButton);
+                };
+                found[owner].PreviewMouseDown += humanJumpHandlers[owner];
+            }
+            humanPositioned = false;
+            humanUserMoved = false;
+            log.LogInfo("SPECTATOR_EDITOR_HUMAN_CONTROLS_READY");
+        }
+
+        private static void DetachHumanControls()
+        {
+            if (humanToggle != null) humanToggle.Click -= ToggleHumanMode;
+            if (humanDragHandle != null)
+            {
+                humanDragHandle.MouseLeftButtonDown -= OnHumanDragDown;
+                humanDragHandle.MouseMove -= OnHumanDragMove;
+                humanDragHandle.MouseLeftButtonUp -= OnHumanDragUp;
+                humanDragHandle.LostMouseCapture -= OnHumanLostCapture;
+                if (humanDragHandle.IsMouseCaptured) humanDragHandle.ReleaseMouseCapture();
+            }
+            if (humanCanvas != null) humanCanvas.SizeChanged -= OnHumanCanvasSizeChanged;
+            for (int owner = 1; owner <= 8; owner++)
+            {
+                if (humanOwnerButtons[owner] != null && humanOwnerHandlers[owner] != null)
+                    humanOwnerButtons[owner].Click -= humanOwnerHandlers[owner];
+                if (humanOwnerButtons[owner] != null && humanJumpHandlers[owner] != null)
+                    humanOwnerButtons[owner].PreviewMouseDown -= humanJumpHandlers[owner];
+                humanOwnerButtons[owner] = null;
+                humanOwnerNumbers[owner] = null;
+                humanOwnerHandlers[owner] = null;
+                humanJumpHandlers[owner] = null;
+                humanDisplayedColours[owner] = -1;
+            }
+            humanDragging = false;
+            humanPositioned = false;
+            humanUserMoved = false;
+            humanPanel = null;
+            humanDragHandle = null;
+            humanCanvas = null;
+            humanToggle = null;
+            humanToggleText = null;
+            humanOwners = null;
+            humanScreen = null;
+            humanBoundHud = null;
+        }
+
+        private static void RefreshHumanControls(bool eligible)
+        {
+            if (humanPanel == null) return;
+            bool show = eligible && MainViewModel.Instance.Show_HUD_Main &&
+                !MainViewModel.Instance.Show_HUD_Briefing;
+            humanPanel.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+            if (!show) return;
+            int firstAi = -1;
+            for (int owner = 1; owner <= 8; owner++)
+            {
+                bool available = IsSelectableAi(owner);
+                if (available && firstAi < 0) firstAi = owner;
+                Button button = humanOwnerButtons[owner];
+                button.Visibility = available ? Visibility.Visible : Visibility.Collapsed;
+                if (available) RefreshHumanOwnerColour(owner);
+            }
+            if (humanPlacementMode && !IsSelectableAi(humanSelectedOwner))
+            {
+                humanSelectedOwner = firstAi;
+                if (firstAi < 0) MainControls.instance?.StopAllPlacement();
+            }
+            for (int owner = 1; owner <= 8; owner++)
+                humanOwnerButtons[owner].Background = owner == humanSelectedOwner ?
+                    ownerSelectedBrush : ownerNormalBrush;
+            humanToggle.IsEnabled = humanPlacementMode || firstAi > 0;
+            humanToggleText.Text = humanPlacementMode ? "Normal bauen" : "KI platzieren";
+            humanOwners.Visibility = humanPlacementMode ? Visibility.Visible : Visibility.Collapsed;
+            humanPanel.Width = humanPlacementMode ? 412f : 118f;
+            PositionHumanPanel();
+        }
+
+        private static void RefreshHumanOwnerColour(int owner)
+        {
+            int[] mapping = SpriteMapping.remapColours;
+            UnityEngine.Color[] palette = OnScreenText.Instance?.MPTeamColours;
+            int index = mapping != null && owner < mapping.Length ? mapping[owner] : 0;
+            UnityEngine.Color colour = palette != null && index > 0 && index < palette.Length ?
+                palette[index] : UnityEngine.Color.white;
+            byte red = (byte)(colour.r * 255f);
+            byte green = (byte)(colour.g * 255f);
+            byte blue = (byte)(colour.b * 255f);
+            int rgb = red << 16 | green << 8 | blue;
+            if (humanDisplayedColours[owner] == rgb) return;
+            humanOwnerNumbers[owner].Foreground =
+                new SolidColorBrush(Noesis.Color.FromRgb(red, green, blue));
+            humanDisplayedColours[owner] = rgb;
+        }
+
+        private static void PositionHumanPanel()
+        {
+            if (humanCanvas == null || humanPanel == null ||
+                humanCanvas.ActualWidth <= 0f || humanCanvas.ActualHeight <= 0f) return;
+            if (!humanPositioned || !humanUserMoved)
+            {
+                Canvas.SetLeft(humanPanel,
+                    Math.Max(0f, humanCanvas.ActualWidth - humanPanel.Width - 52f));
+                Canvas.SetTop(humanPanel, 54f);
+                humanPositioned = true;
+            }
+            ClampHumanPanel();
+        }
+
+        private static void ClampHumanPanel()
+        {
+            if (!humanPositioned || humanCanvas == null || humanPanel == null ||
+                humanCanvas.ActualWidth <= 0f || humanCanvas.ActualHeight <= 0f) return;
+            float maxLeft = Math.Max(0f, humanCanvas.ActualWidth - humanPanel.Width);
+            float maxTop = Math.Max(0f, humanCanvas.ActualHeight - humanPanel.Height);
+            Canvas.SetLeft(humanPanel, Math.Max(0f, Math.Min(maxLeft, (float)Canvas.GetLeft(humanPanel))));
+            Canvas.SetTop(humanPanel, Math.Max(0f, Math.Min(maxTop, (float)Canvas.GetTop(humanPanel))));
+        }
+
+        private static void OnHumanDragDown(object sender, MouseButtonEventArgs args)
+        {
+            if (humanCanvas == null || humanPanel == null || humanDragHandle == null) return;
+            humanDragStart = args.GetPosition(humanCanvas);
+            humanDragOriginLeft = (float)Canvas.GetLeft(humanPanel);
+            humanDragOriginTop = (float)Canvas.GetTop(humanPanel);
+            humanDragging = humanDragHandle.CaptureMouse();
+            if (humanDragging) humanUserMoved = true;
+            args.Handled = true;
+        }
+
+        private static void OnHumanDragMove(object sender, MouseEventArgs args)
+        {
+            if (!humanDragging || humanCanvas == null || humanPanel == null) return;
+            Point current = args.GetPosition(humanCanvas);
+            Canvas.SetLeft(humanPanel,
+                humanDragOriginLeft + (float)(current.X - humanDragStart.X));
+            Canvas.SetTop(humanPanel,
+                humanDragOriginTop + (float)(current.Y - humanDragStart.Y));
+            ClampHumanPanel();
+            args.Handled = true;
+        }
+
+        private static void OnHumanDragUp(object sender, MouseButtonEventArgs args)
+        {
+            humanDragging = false;
+            if (humanDragHandle != null && humanDragHandle.IsMouseCaptured)
+                humanDragHandle.ReleaseMouseCapture();
+            args.Handled = true;
+        }
+
+        private static void OnHumanLostCapture(object sender, MouseEventArgs args) =>
+            humanDragging = false;
+
+        private static void OnHumanCanvasSizeChanged(object sender, SizeChangedEventArgs args) =>
+            PositionHumanPanel();
+
+        private static RadioButton[] NormalTabs(HUD_Main hud) => new[] {
+            hud.RefTabBuildCastle, hud.RefTabBuildIndustry, hud.RefTabBuildFarms,
+            hud.RefTabBuildTown, hud.RefTabBuildWeapons, hud.RefTabBuildFood
+        };
+
+        private static void ToggleHumanMode(object sender, RoutedEventArgs args)
+        {
+            if (!IsHumanSingleplayerSession()) return;
+            HUD_Main hud = MainViewModel.Instance.HUDmain;
+            if (hud == null || MainControls.instance == null) return;
+            if (humanPlacementMode)
+            {
+                humanPlacementMode = false;
+                MainControls.instance.StopAllPlacement();
+                activeWall = null;
+                RestoreDateLayout();
+                MainViewModel.Instance.SubMode = humanSavedSubMode;
+                hud.SetupNewBuildScreen(-1000);
+                if (humanSavedScreen != 0) hud.SetupNewBuildScreen(humanSavedScreen);
+                hud.StartScrollSwish();
+                RadioButton[] tabs = NormalTabs(hud);
+                if (humanSavedTabs != null)
+                    for (int index = 0; index < tabs.Length; index++)
+                        if (tabs[index] != null) tabs[index].IsChecked = humanSavedTabs[index];
+                activeHud = null;
+                lastOwner = int.MinValue;
+                lastScreen = int.MinValue;
+                log.LogInfo("SPECTATOR_EDITOR_HUMAN_MODE_OFF restoredScreen=" + humanSavedScreen);
+            }
+            else
+            {
+                int firstAi = -1;
+                for (int owner = 1; owner <= 8; owner++)
+                    if (IsSelectableAi(owner)) { firstAi = owner; break; }
+                if (firstAi < 0) return;
+                humanSavedScreen = MainViewModel.Instance.buildScreenID;
+                if (humanSavedScreen < 0 || humanSavedScreen >= 23) humanSavedScreen = 1;
+                humanSavedSubMode = MainViewModel.Instance.SubMode;
+                RadioButton[] tabs = NormalTabs(hud);
+                humanSavedTabs = new bool?[tabs.Length];
+                for (int index = 0; index < tabs.Length; index++)
+                    humanSavedTabs[index] = tabs[index]?.IsChecked;
+                MainControls.instance.StopAllPlacement();
+                if (!IsSelectableAi(humanSelectedOwner)) humanSelectedOwner = firstAi;
+                humanPlacementMode = true;
+                hud.SetupNewBuildScreen(1);
+                RefreshBuildIcons(hud, humanSelectedOwner, "human-enter");
+                log.LogInfo("SPECTATOR_EDITOR_HUMAN_MODE_ON owner=" + humanSelectedOwner +
+                    " savedScreen=" + humanSavedScreen);
+            }
+            RefreshHumanControls(true);
+        }
+
+        private static void SelectHumanAi(int owner)
+        {
+            if (!humanPlacementMode || !IsHumanSingleplayerSession() || !IsSelectableAi(owner)) return;
+            if (humanSelectedOwner == owner) return;
+            MainControls.instance?.StopAllPlacement();
+            activeWall = null;
+            humanSelectedOwner = owner;
+            if (MainViewModel.Instance.HUDmain != null)
+                RefreshBuildIcons(MainViewModel.Instance.HUDmain, owner, "human-owner");
+            RefreshHumanControls(true);
+            log.LogInfo("SPECTATOR_EDITOR_HUMAN_OWNER owner=" + owner);
+        }
+
+        private static unsafe void JumpToHumanAi(int owner, MouseButton button)
+        {
+            if (!humanPlacementMode || !IsHumanSingleplayerSession() || !IsSelectableAi(owner))
+                return;
+            try
+            {
+                GamePlayerManagerAPI players = GamePlayerManagerAPI.Instance;
+                if (players == null) return;
+                if (button == MouseButton.Right)
+                {
+                    GameBuildingManagerAPI buildings = GameBuildingManagerAPI.Instance;
+                    if (buildings == null) return;
+                    int keepId = players.GetPlayerKeepId(owner);
+                    if (keepId <= 0 || !buildings.TryGetBuildingById(keepId, out GameBuilding* keep) ||
+                        keep == null || keep->r_AliveState != AliveState.IsAlive ||
+                        keep->r_PlayerIdOwner != owner || keep->r_GlobalId == 0 ||
+                        keep->r_BuildingType < eStructs.STRUCT_KEEP_ONE ||
+                        keep->r_BuildingType > eStructs.STRUCT_KEEP_FIVE) return;
+                    players.SetScreenCenterToBuilding(keepId);
+                }
+                else if (button == MouseButton.Middle)
+                {
+                    GameUnitManagerAPI units = GameUnitManagerAPI.Instance;
+                    if (units == null) return;
+                    int lordId = players.GetLordUnitId(owner);
+                    int globalId = players.GetLordUnitGlobalId(owner);
+                    if (lordId <= 0 || globalId == 0 ||
+                        !units.TryGetUnitById(lordId, out GameUnit* lord) || lord == null ||
+                        lord->r_AliveState != AliveState.IsAlive ||
+                        lord->r_ControllableForPlayerId != owner ||
+                        lord->r_UnitChimp != eChimps.CHIMP_TYPE_LORD ||
+                        lord->r_CurrentHealth == 0 ||
+                        lord->r_GlobalId != unchecked((uint)globalId)) return;
+                    players.SetScreenCenterToUnit(lordId);
+                }
+            }
+            catch (Exception error)
+            {
+                if (humanCameraFailureLogged) return;
+                humanCameraFailureLogged = true;
+                log.LogError("SPECTATOR_EDITOR_HUMAN_CAMERA_FAILED owner=" + owner +
+                    " button=" + button + " error=" + error);
+            }
         }
 
         private static void OnBeforeRender()
         {
             try
             {
-                if (!IsSpectatorSession())
+                bool humanEligible = IsHumanSingleplayerSession();
+                if (humanEligible) EnsureHumanControls();
+                RefreshHumanControls(humanEligible);
+                if (!IsPlacementSession())
                 {
                     RestoreDateLayout();
                     activeHud = null;
@@ -459,14 +918,12 @@ namespace SpectatorEditorBuildTest
                     pendingVisibilityHud = null;
                     pendingVisibilityAt = DateTime.MaxValue;
                     activeWall = null;
-                    pendingWall = null;
-                    pendingBuilding = null;
                     return;
                 }
                 MainViewModel view = MainViewModel.Instance;
                 HUD_Main hud = view.HUDmain;
                 if (hud == null || !view.Show_HUD_Main) return;
-                bool layoutChanged = EnsureSpectatorHudLayout(hud);
+                bool layoutChanged = EnsurePlacementHudLayout(hud);
                 bool firstLayout = !ReferenceEquals(hud, initialLayoutLoggedHud);
                 if (layoutChanged || firstLayout) hud.UpdateLayout();
                 if (layoutChanged || firstLayout)
@@ -477,7 +934,7 @@ namespace SpectatorEditorBuildTest
                             " tabs=" + EditorTabVisibility(hud) +
                             " corrected=" + layoutChanged);
                 }
-                if (view.FreezeMainControls)
+                if (IsSpectatorSession() && view.FreezeMainControls)
                 {
                     view.buildControlsFreeze(false);
                     log.LogInfo("SPECTATOR_EDITOR_FREEZE_RECOVERED");
@@ -515,12 +972,12 @@ namespace SpectatorEditorBuildTest
 
         private static void AfterSetupModeDependantUI(HUD_Main __instance)
         {
-            if (!IsSpectatorSession()) return;
-            try { EnsureSpectatorHudLayout(__instance); }
+            if (!IsPlacementSession()) return;
+            try { EnsurePlacementHudLayout(__instance); }
             catch (Exception error) { LogOnce("SPECTATOR_EDITOR_UI_ERROR: " + error); }
         }
 
-        private static bool EnsureSpectatorHudLayout(HUD_Main hud)
+        private static bool EnsurePlacementHudLayout(HUD_Main hud)
         {
             bool changed = false;
             changed |= EnsureVisibility(hud, "MainFrameBuildings", Visibility.Visible);
@@ -562,14 +1019,14 @@ namespace SpectatorEditorBuildTest
 
         private static void AfterSetupNewBuildScreen(HUD_Main __instance)
         {
-            if (!IsSpectatorSession()) return;
+            if (!IsPlacementSession()) return;
             try { RefreshBuildIcons(__instance, CurrentAiOwner(), "tab"); }
             catch (Exception error) { LogOnce("SPECTATOR_EDITOR_ICONS_ERROR: " + error); }
         }
 
         private static bool BeforeNewBuildScreenBlank()
         {
-            if (!IsSpectatorSession()) return true;
+            if (!IsPlacementSession()) return true;
             if (++suppressedBlankCalls <= 3)
                 log.LogInfo("SPECTATOR_EDITOR_BLANK_SUPPRESSED screen=" +
                     MainViewModel.Instance.buildScreenID);
@@ -710,7 +1167,7 @@ namespace SpectatorEditorBuildTest
 
         private static void AfterCanPlaceMapper(MainViewModel __instance, object parameter, ref bool __result)
         {
-            if (!IsSpectatorSession()) return;
+            if (!IsPlacementSession()) return;
             string key = parameter as string;
             if (string.IsNullOrEmpty(key)) return;
             if (key == "STRUCT_MENU_RETURN_KEEPS")
@@ -727,7 +1184,7 @@ namespace SpectatorEditorBuildTest
         {
             // Vanilla editor tab handlers already set MainViewModel.SubMode. In a live game,
             // passing editor submodes to SetAppMode would alter unrelated native game state.
-            return !IsSpectatorSession();
+            return !IsPlacementSession();
         }
 
         private static void AfterGetMouseStateForEngine(int __result)
@@ -740,7 +1197,7 @@ namespace SpectatorEditorBuildTest
 
         private static bool BeforeClearMouseStateForEngine()
         {
-            return !IsSpectatorSession() || activeWall == null ||
+            return !IsPlacementSession() || activeWall == null ||
                 MainControls.instance == null || MainControls.instance.CurrentAction != 5 ||
                 (eMappers)MainControls.instance.CurrentSubAction != activeWall.Mapper;
         }
@@ -754,10 +1211,10 @@ namespace SpectatorEditorBuildTest
                 log.LogInfo("SPECTATOR_EDITOR_WALL_FORWARD state=" + state +
                     " tile=" + mouseOverX + "," + mouseOverY);
             if (wall == null || (state != 2 && state != 3)) return;
-            if (!IsSpectatorSession() || MainControls.instance == null ||
+            if (!IsPlacementSession() || MainControls.instance == null ||
                 MainControls.instance.CurrentAction != 5 ||
                 (eMappers)MainControls.instance.CurrentSubAction != wall.Mapper ||
-                !ReferenceEquals(wall.GameState, GameData.Instance?.lastGameState))
+                !IsCurrentSession(wall.SessionId))
             {
                 activeWall = null;
                 return;
@@ -796,7 +1253,7 @@ namespace SpectatorEditorBuildTest
             out WallStoneScope __state)
         {
             __state = null;
-            if (!IsSpectatorSession()) return true;
+            if (!IsPlacementSession()) return true;
             eMappers mapper = (eMappers)item;
             if (!IsAllowedMapper(mapper)) return false;
             WallRequest wall = mouseState == 3 ? pendingWall : activeWall;
@@ -815,7 +1272,7 @@ namespace SpectatorEditorBuildTest
                 if (mouseState == 1 && !constructingOnly)
                     activeWall = new WallRequest { Owner = owner, Mapper = mapper,
                         StartX = x, StartY = y, EndX = x, EndY = y,
-                        GameState = GameData.Instance?.lastGameState };
+                        SessionId = CurrentSessionId };
                 return true;
             }
             if (IsUnitMapper(mapper))
@@ -843,7 +1300,7 @@ namespace SpectatorEditorBuildTest
             if (scale < 0) return false;
             var request = new BuildingRequest { Owner = owner, Mapper = mapper,
                 X = x, Y = y, Scale = scale,
-                GameState = GameData.Instance?.lastGameState,
+                SessionId = CurrentSessionId,
                 ExpiresAtUtc = DateTime.UtcNow.AddSeconds(5) };
             buildingClickScope = request;
             pendingBuilding = request;
@@ -907,7 +1364,7 @@ namespace SpectatorEditorBuildTest
             return request != null && request.Owner == args.PlayerId &&
                 request.Mapper == args.WallType &&
                 DateTime.UtcNow <= request.ExpiresAtUtc &&
-                ReferenceEquals(request.GameState, GameData.Instance?.lastGameState) &&
+                IsCurrentSession(request.SessionId) &&
                 ((NearTile(request.StartX, request.StartY, args.TileXBegin, args.TileYBegin) &&
                   NearTile(request.EndX, request.EndY, args.TileXEnd, args.TileYEnd)) ||
                  (NearTile(request.StartX, request.StartY, args.TileXEnd, args.TileYEnd) &&
@@ -929,7 +1386,7 @@ namespace SpectatorEditorBuildTest
                         " pending=" + (request == null ? "none" : request.Owner + "/" +
                             request.Mapper + "/" + request.StartX + "," + request.StartY + "-" +
                             request.EndX + "," + request.EndY));
-                if (!WallMatches(request, args) || !IsSpectatorSession() ||
+                if (!WallMatches(request, args) ||
                     !GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(args.PlayerId,
                         out GamePlayerResources* resources) || resources == null) return;
                 pendingWall = null;
@@ -1115,8 +1572,7 @@ namespace SpectatorEditorBuildTest
                 args.BuildingScaleUnknown != request.Scale ||
                 args.TileX != request.X - request.Scale / 2 ||
                 args.TileY != request.Y - request.Scale / 2 ||
-                !ReferenceEquals(request.GameState, GameData.Instance?.lastGameState) ||
-                !IsSpectatorSession()) return;
+                !IsCurrentSession(request.SessionId)) return;
             if (args.Phase == EventHookPhase.Pre)
             {
                 request.BuildStarted = true;

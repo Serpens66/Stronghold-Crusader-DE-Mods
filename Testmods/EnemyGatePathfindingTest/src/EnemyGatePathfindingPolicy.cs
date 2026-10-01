@@ -92,8 +92,10 @@ namespace EnemyGatePathfindingTest
         internal NativeGateAccessSnapshot(
             NativeGateAccessRecord[] recordsByBuildingId,
             ulong rawFingerprint,
-            uint[] gateGlobalsByBuildingId = null)
+            uint[] gateGlobalsByBuildingId = null, long diagnosticEpoch = 0, long diagnosticGeneration = 0)
         {
+            DiagnosticEpoch = diagnosticEpoch;
+            DiagnosticGeneration = diagnosticGeneration;
             RecordsByBuildingId = recordsByBuildingId ?? Array.Empty<NativeGateAccessRecord>();
             RawFingerprint = rawFingerprint;
             GateGlobalsByBuildingId = gateGlobalsByBuildingId ?? Array.Empty<uint>();
@@ -129,6 +131,10 @@ namespace EnemyGatePathfindingTest
         }
 
         internal NativeGateAccessRecord[] RecordsByBuildingId { get; }
+        internal long DiagnosticEpoch { get; }
+        internal long DiagnosticGeneration { get; }
+        internal NativeGateAccessSnapshot WithDiagnosticPublication(long epoch, long generation) =>
+            new NativeGateAccessSnapshot(RecordsByBuildingId, RawFingerprint, GateGlobalsByBuildingId, epoch, generation);
         internal ulong RawFingerprint { get; }
         internal uint[] GateGlobalsByBuildingId { get; }
         internal ulong TopologyFingerprint { get; }
