@@ -540,7 +540,7 @@ namespace EnemyGatePathfindingTest
                         ? buildingId : 0;
                     attackOrderDiagnostics?.ObserveGatePrecheck(queryPlayerId, buildingId,
                         exactGateId,
-                        originalZero, finalZero, decision, nativeOwner, nativeCaptured);
+                        originalZero, finalZero, decision, nativeOwner, nativeCaptured, subjectGlobalId);
                 }
                 catch (Exception ex) { TryLogDiagnosticFailure(ex); }
             }

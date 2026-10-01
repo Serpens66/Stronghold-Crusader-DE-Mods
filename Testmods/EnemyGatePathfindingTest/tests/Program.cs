@@ -42,6 +42,7 @@ namespace EnemyGatePathfindingTest
                 VanillaDirectionFilterContractsAreAtomic();
                 AiTacticalTargetContractsAreAtomicAndExecutable();
                 AttackOrderCorrelationIsLosslessAndObservational();
+                GateDiagnosticRolesAndBuildingContextsAreLossless();
                 DirectionAdapterTileRegistersMatchNativeDataFlow();
                 CrashDumpRegisterRegressionsFailOpen();
                 DirectionAdaptersActuallyAssembleAndDecode();
@@ -1171,8 +1172,8 @@ namespace EnemyGatePathfindingTest
                     correlation.Contains("order-gate-switch") &&
                     correlation.Contains("CurrentTribeOrder(player, frame?.Tribe ?? 0)"),
                 "aggregate output is emitted from the deferred checkpoint");
-            Assert(correlation.Contains("CaptureBridgedGateStates(player)") &&
-                    correlation.Contains("ObserveGateStates(0, \"checkpoint\"") &&
+            Assert(correlation.Contains("CaptureGateStates(player)") &&
+                    correlation.Contains("ObserveGateStates(player, \"checkpoint\"") &&
                     topology.Contains("gate->r_GateState") &&
                     topology.Contains("gate->r_AIWalkableState") &&
                     topology.Contains("connection->r_IsEnabledOrOpen") &&
@@ -1203,6 +1204,85 @@ namespace EnemyGatePathfindingTest
                 "more than 32 distinct commands are counted exactly in four compact rows");
             Assert(changes >= 159, "repeated A/B gate alternation remains visible");
             Assert(aggregate.Drain().Length == 0, "a drained interval does not replay rows");
+        }
+
+        private static void GateDiagnosticRolesAndBuildingContextsAreLossless()
+        {
+            var records = new NativeGateAccessRecord[2];
+            var globals = new uint[] { 0, 1234 };
+            foreach (int captured in new[] { 0, 2, 3, 4, 0 })
+            {
+                records[1] = new NativeGateAccessRecord(true, 1, captured,
+                    (ushort)((1 << 1) | (1 << 2)), (ushort)((1 << captured) | (1 << 5)), (ushort)(1 << 6));
+                var snapshot = new NativeGateAccessSnapshot((NativeGateAccessRecord[])records.Clone(), 7, globals);
+                ulong fingerprint = snapshot.TopologyFingerprint;
+                for (int player = 1; player <= 8; player++)
+                {
+                    NativeGateSnapshotDecision before = snapshot.Evaluate(player, 1, 1, captured);
+                    string actual = GateDiagnosticClassification.Describe(snapshot, player, 1, 1234, 1, captured);
+                    string owner = player == 1 ? "own" : player == 2 ? "allied" : "enemy";
+                    string capture = captured == 0 ? "uncaptured" : captured == player ? "captured-by-self" :
+                        player == 5 ? "captured-by-ally" : "captured-by-other";
+                    Assert(actual.Contains("ownerRelation=" + owner) && actual.Contains("captureRelation=" + capture),
+                        "owner and capture classifications remain independent through capture/recapture");
+                    Assert(actual.Contains("policyDecision=" + before) &&
+                        snapshot.Evaluate(player, 1, 1, captured) == before && snapshot.TopologyFingerprint == fingerprint,
+                        "diagnostics preserve the exact policy decision and snapshot");
+                }
+                Assert(GateDiagnosticClassification.Describe(snapshot, 1, 1, 1234, 1, captured)
+                    .Contains("captureRelation=" + (captured == 0 ? "uncaptured" : "captured-by-other")),
+                    "own label never hides foreign capture");
+                Assert(GateDiagnosticClassification.Describe(snapshot, 1, 1, 999, 1, captured).Contains("identity-unverified"),
+                    "reused building slot requires matching global ID");
+                Assert(GateDiagnosticClassification.Describe(snapshot, 1, 1, 1234, 2, captured).Contains("owner-snapshot-mismatch"),
+                    "changed owner cannot receive a trusted role");
+                Assert(GateDiagnosticClassification.Describe(snapshot, 1, 1, 1234, 1, captured == 0 ? 2 : 0)
+                    .Contains("capture-snapshot-mismatch"), "stale capture stays unknown");
+            }
+            var empty = NativeGateAccessSnapshot.Empty;
+            foreach (int invalid in new[] { -1, 0, 9 })
+                Assert(GateDiagnosticClassification.Describe(empty, invalid, 1, 1234, 1, 0)
+                    .Contains("ownerRelation=unknown"), "invalid player is not an enemy label");
+            Assert(GateDiagnosticClassification.Describe(empty, 1, 1, 1234, 1, 0).Contains("identity-unverified"),
+                "untracked and empty snapshots stay unknown");
+            string previousCapture = null;
+            foreach (int captured in new[] { 3, 4 })
+            {
+                records[1] = new NativeGateAccessRecord(true, 1, captured, 2, (ushort)(1 << captured), 64);
+                var snapshot = new NativeGateAccessSnapshot((NativeGateAccessRecord[])records.Clone(), 7, globals);
+                string role = GateDiagnosticClassification.Describe(snapshot, 6, 1, 1234, 1, captured);
+                Assert(previousCapture == null || previousCapture != role,
+                    "different foreign capturers produce different aggregate keys");
+                previousCapture = role;
+            }
+            var aggregate = new AiGateDecisionAggregate();
+            int[] previousMismatchCounts = { 26, 9, 3 };
+            for (int epoch = 0; epoch < 3; epoch++)
+                for (int i = 0; i < previousMismatchCounts[epoch]; i++)
+                    aggregate.Record(5, 0, "building-search-context",
+                        GateDiagnosticClassification.BuildingContextResult(1, 5, -1), epoch, 4000 + i, i, 7,
+                        "tribeGlobal=" + (10000 + i));
+            var scopes = aggregate.Drain();
+            Assert(scopes.Length == 3 && aggregate.Observations == 38, "all previous 26/9/3 conflicts counted");
+            foreach (var row in scopes)
+                Assert(row.Count == previousMismatchCounts[row.Command] && row.Result.Contains("argumentRole=unverified") &&
+                    row.Result.Contains("usedPlayer=-1"), "scope provenance neither substitutes a player nor drops conflicts");
+            for (int i = 0; i < 100; i++)
+                for (int repeat = 0; repeat < 10; repeat++)
+                    aggregate.Record(1, i + 1, "gate-live-checkpoint", "ownerRelation=own,captureRelation=uncaptured",
+                        0, 0, 0, 0);
+            var gates = aggregate.Drain();
+            long count = 0; foreach (var row in gates) count += row.Count;
+            Assert(gates.Length == 100 && count == 1000, "more than 32 gate combinations remain exact and compact");
+            string provider = File.ReadAllText(Path.Combine("src", "GateTopologySnapshotProvider.cs"));
+            int begin = provider.IndexOf("internal GateLiveStateObservation[] CaptureGateStates", StringComparison.Ordinal);
+            int end = provider.IndexOf("internal void ProcessDeferred()", begin, StringComparison.Ordinal);
+            string live = provider.Substring(begin, end - begin);
+            Assert(!live.Contains("UnrelatedByPlayer") && live.Contains("!observed.Add(info.GateId)"),
+                "all gate roles included once, even with multiple or no bridges");
+            string correlation = File.ReadAllText(Path.Combine("src", "AttackOrderCorrelationDiagnostics.cs"));
+            Assert(correlation.Contains("nativeComparison=") && correlation.Contains("effectiveComparison=") &&
+                !correlation.Contains("\"vanilla=\" + (vanillaExcluded"), "comparison is not called physical open/closed");
         }
 
         private static void AiTacticalTargetContractsAreAtomicAndExecutable()

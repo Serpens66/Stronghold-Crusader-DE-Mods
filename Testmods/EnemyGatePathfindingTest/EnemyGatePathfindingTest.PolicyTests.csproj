@@ -47,6 +47,7 @@
     <Compile Include="src\DirectionFilterAdapterEmitter.cs"><Link>DirectionFilterAdapterEmitter.cs</Link></Compile>
     <Compile Include="src\AiTacticalTargetAdapterEmitter.cs"><Link>AiTacticalTargetAdapterEmitter.cs</Link></Compile>
     <Compile Include="src\AiGateDecisionAggregate.cs"><Link>AiGateDecisionAggregate.cs</Link></Compile>
+    <Compile Include="src\GateDiagnosticClassification.cs" />
     <Compile Include="src\DirectCursorCallAdapterEmitter.cs"><Link>DirectCursorCallAdapterEmitter.cs</Link></Compile>
     <Compile Include="src\CapturerComparisonAdapterEmitter.cs"><Link>CapturerComparisonAdapterEmitter.cs</Link></Compile>
     <Compile Include="tests\CapturerAdapterMachineTests.cs" />

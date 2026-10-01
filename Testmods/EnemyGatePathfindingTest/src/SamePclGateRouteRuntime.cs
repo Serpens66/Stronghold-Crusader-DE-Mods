@@ -577,8 +577,14 @@ namespace EnemyGatePathfindingTest
         int IEnemyGatePathPolicy.ResolveTribePlayer(int tribeId) =>
             tribePlayers.Resolve(tribeId);
 
-        int IEnemyGatePathPolicy.ResolveBuildingPlayer(int explicitPlayerId, int tribeId) =>
-            ValidateExplicitPlayer(explicitPlayerId, tribePlayers.Resolve(tribeId), "shared-building");
+        int IEnemyGatePathPolicy.ResolveBuildingPlayer(int rawSearchArgument, int tribeId)
+        {
+            int tribePlayer = tribePlayers.Resolve(tribeId);
+            int usedPlayer = ValidateExplicitPlayer(rawSearchArgument, tribePlayer, "shared-building");
+            try { attackOrderDiagnostics?.ObserveBuildingContext(rawSearchArgument, tribeId, tribePlayer, usedPlayer); }
+            catch { Interlocked.Increment(ref exceptions); }
+            return usedPlayer;
+        }
 
         int IEnemyGatePathPolicy.ResolveCursorPlayer(int tribeId)
         {

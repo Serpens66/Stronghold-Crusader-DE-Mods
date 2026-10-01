@@ -55,6 +55,7 @@
     <Compile Include="src\AiTacticalTargetAdapterEmitter.cs" />
     <Compile Include="src\AttackOrderCorrelationDiagnostics.cs" />
     <Compile Include="src\AiGateDecisionAggregate.cs" />
+    <Compile Include="src\GateDiagnosticClassification.cs" />
     <Compile Include="src\SamePclGateRouteRuntime.cs" />
     <Compile Include="src\EnemyGatePathfindingRuntime.cs" />
     <Compile Include="..\..\Shared\DebugLogHelper.cs"><Link>Shared\DebugLogHelper.cs</Link></Compile>

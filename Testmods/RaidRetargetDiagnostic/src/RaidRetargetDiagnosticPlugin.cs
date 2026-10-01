@@ -78,6 +78,9 @@ namespace RaidRetargetDiagnostic
                 tribeOrderSubscription = candidateTribeOrder;
                 tribeMoveSubscription = candidateTribeMove;
                 runtime = candidate;
+                // Optional observer is permanently rooted and fails independently
+                // of the existing fix and event registrations.
+                RaidSearchObserver.Install(context, log, candidate.OnSearchObserved);
             }
             catch (Exception ex)
             {

@@ -8,17 +8,34 @@ $textFiles = @($sources) + @(
     (Join-Path $project 'info.json'),
     $projectFile,
     (Join-Path $project 'build.bat'),
+    (Join-Path $project 'Verify-NativeSearchSpan.ps1'),
+    (Join-Path $project 'UpdateToNewDLL.md'),
     $MyInvocation.MyCommand.Path)
 $runtimeText = (($sources + @((Get-Item -LiteralPath $projectFile))) |
     ForEach-Object { [IO.File]::ReadAllText($_.FullName) }) -join "`n"
 $forbiddenJson = 'System\.Web\.Extensions|JavaScriptSerializer|System\.Text\.Json|Newtonsoft\.Json|DataContractJsonSerializer|JsonUtility|System\.Runtime\.Serialization\.Json'
 $forbiddenLifecycle = '\b(OnDestroy|OnDisable|OnApplicationQuit|OnApplicationPause|Update|LateUpdate|FixedUpdate|StartCoroutine)\s*\('
-$forbiddenMutations = 'CodePatch\.Write|Marshal\.Write|VirtualProtect|NativeDetour|X64InlineHook|HookTransaction|\.Apply\s*\(|\.Undo\s*\(|\.Enable\s*\(|\.Disable\s*\('
+$forbiddenMutations = 'CodePatch\.Write|Marshal\.Write|VirtualProtect|NativeDetour|\.Apply\s*\(|\.Undo\s*\(|\.Enable\s*\(|\.Disable\s*\('
 if ($runtimeText -match $forbiddenJson) { throw 'Forbidden runtime JSON dependency.' }
 if ($runtimeText -match '\b(OnDestroy|OnDisable|OnApplicationQuit|OnApplicationPause)\s*\(') { throw 'Forbidden runtime lifecycle teardown.' }
 $pluginText = [IO.File]::ReadAllText((Join-Path $project 'src\RaidRetargetDiagnosticPlugin.cs'))
 if ($pluginText -match $forbiddenLifecycle) { throw 'Long-lived MonoBehaviour callback in plugin.' }
 if ($runtimeText -match $forbiddenMutations) { throw 'Runtime executable mutation or detour detected.' }
+foreach ($source in $sources) {
+    $sourceText = [IO.File]::ReadAllText($source.FullName)
+    if ($source.Name -ne 'RaidSearchObserver.cs' -and $sourceText -match 'X64InlineHook|HookTransaction') {
+        throw "Native hooks outside the audited observer: $($source.FullName)"
+    }
+}
+$observer = [IO.File]::ReadAllText((Join-Path $project 'src\RaidSearchObserver.cs'))
+if ($observer -notmatch '(?s)if \(!published\)\s*\{\s*try \{ pending\?\.Dispose\(\); \}' -or
+    $observer -notmatch 'Volatile.Write\(ref enabled, 1\)' -or
+    $observer -notmatch 'handle.Require\(\).DisplacedByteCount != SpanLength' -or
+    ([regex]::Matches($observer, '\.Commit\(')).Count -ne 1 -or
+    ([regex]::Matches($observer, '\.Dispose\(')).Count -ne 1 -or
+    $observer -match 'transaction\??\.Dispose\(|\bpublic void Dispose\(') {
+    throw 'Permanent observation-hook publication contract differs.'
+}
 if ($runtimeText -match 'Assembly-CSharp-publicized') { throw 'Publicized assembly reference detected.' }
 $xamlFiles = @(Get-ChildItem -LiteralPath $project -Recurse -Filter '*.xaml' -File)
 foreach ($xaml in $xamlFiles) {
@@ -39,4 +56,6 @@ foreach ($path in $textFiles) {
 }
 & (Join-Path $workspace 'Shared\Test-PermanentNativeRuntimePatches.ps1')
 if (-not $?) { throw 'Workspace native runtime regression check failed.' }
+& (Join-Path $project 'Verify-NativeSearchSpan.ps1')
+if (-not $?) { throw 'Native search span check failed.' }
 Write-Host 'PASS: Runtime JSON, lifecycle, plugin callbacks, native mutation, XAML, and CRLF checks.'

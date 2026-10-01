@@ -30,12 +30,19 @@
     <Reference Include="R3"><HintPath>$(ExtenderDir)\R3.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="System.Memory"><HintPath>$(ExtenderDir)\System.Memory.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="APIShared"><HintPath>$(ApiSharedDir)\APIShared.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Iced"><HintPath>$(ExtenderDir)\Iced.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="RedBird.Abstractions"><HintPath>$(ExtenderDir)\RedBird.Abstractions.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="RedBird.Core"><HintPath>$(ExtenderDir)\RedBird.Core.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="RedBird.X64"><HintPath>$(ExtenderDir)\RedBird.X64.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Microsoft.Extensions.Logging.Abstractions"><HintPath>$(ExtenderDir)\Microsoft.Extensions.Logging.Abstractions.dll</HintPath><Private>false</Private></Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="src\RaidRetargetDiagnosticPlugin.cs" />
     <Compile Include="src\RaidRetargetDiagnosticRuntime.cs" />
     <Compile Include="src\RaidAttackFieldEvaluation.cs" />
+    <Compile Include="src\RaidSearchEvidence.cs" />
+    <Compile Include="src\RaidSearchObserver.cs" />
     <Compile Include="..\..\Shared\DebugLogHelper.cs"><Link>Shared\DebugLogHelper.cs</Link></Compile>
     <Compile Include="..\..\Shared\GameplaySessionLifecycle.cs"><Link>Shared\GameplaySessionLifecycle.cs</Link></Compile>
   </ItemGroup>

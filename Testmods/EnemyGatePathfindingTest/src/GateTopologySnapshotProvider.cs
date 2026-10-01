@@ -268,9 +268,12 @@ namespace EnemyGatePathfindingTest
             unchecked((int)Read(ref peakBlockedPairs)), Read(ref captureTransitions),
             Read(ref recaptureTransitions), Volatile.Read(ref drawbridgeObserved) != 0);
 
-        // Read only the gates with a confirmed drawbridge link. These values are
-        // sampled at the existing order callbacks; no gate or route state is changed.
-        internal GateLiveStateObservation[] CaptureBridgedGateStates(int playerId)
+        // Read every identified gate once, with optional confirmed drawbridge links.
+        // Values are sampled at existing callbacks; no gate or route state is changed.
+        internal string DescribeGateRole(int playerId, int gateId, uint globalId, int owner, int captured) =>
+            GateDiagnosticClassification.Describe(accessSnapshot, playerId, gateId, globalId, owner, captured);
+
+        internal GateLiveStateObservation[] CaptureGateStates(int playerId)
         {
             if (Volatile.Read(ref epochActive) == 0)
                 return Array.Empty<GateLiveStateObservation>();
@@ -279,23 +282,32 @@ namespace EnemyGatePathfindingTest
             GameBuildingManagerAPI buildings = GameBuildingManagerAPI.Instance;
             GamePathingManagerAPI pathing = GamePathingManagerAPI.Instance;
             Span<byte> directions = GameTileManagerAPI.Instance.GetGatePathLayer();
+            var observed = new HashSet<int>();
             foreach (GateBridgeInfo info in current.Combinations)
             {
-                if (info.BridgeId <= 0 || (playerId > 0 &&
-                    (info.UnrelatedByPlayer == null ||
-                     playerId >= info.UnrelatedByPlayer.Length ||
-                     !info.UnrelatedByPlayer[playerId])))
+                if (info.GateId <= 0 || !observed.Add(info.GateId))
                     continue;
                 if (!buildings.IsValidId(info.GateId) ||
                     !buildings.TryGetBuildingById(info.GateId, out GameBuilding* gate) ||
-                    gate == null || gate->r_GlobalId != info.GateGlobal ||
-                    !buildings.IsValidId(info.BridgeId) ||
-                    !buildings.TryGetBuildingById(info.BridgeId, out GameBuilding* bridge) ||
-                    bridge == null || bridge->r_GlobalId != info.BridgeGlobal)
+                    gate == null || gate->r_GlobalId != info.GateGlobal)
                 {
                     result.Add(new GateLiveStateObservation(info.GateId,
-                        "identity-changed", "bridge=" + info.BridgeId));
+                        GateDiagnosticClassification.Unknown("gate-identity-changed"),
+                        "gateGlobal=" + info.GateGlobal));
                     continue;
+                }
+                var bridges = new StringBuilder();
+                var bridgeIds = new HashSet<int>();
+                bool bridgeIdentityChanged = false;
+                foreach (GateBridgeInfo link in current.Combinations)
+                {
+                    if (link.GateId != info.GateId || link.BridgeId <= 0 || !bridgeIds.Add(link.BridgeId)) continue;
+                    if (bridges.Length != 0) bridges.Append('/');
+                    bridges.Append(link.BridgeId).Append(':').Append(link.BridgeGlobal).Append(':');
+                    if (!buildings.TryGetBuildingById(link.BridgeId, out GameBuilding* bridge) ||
+                        bridge == null || bridge->r_GlobalId != link.BridgeGlobal)
+                    { bridges.Append("identity-changed"); bridgeIdentityChanged = true; }
+                    else bridges.Append((int)bridge->r_AliveState);
                 }
                 int connectionEnabled = -1;
                 if (pathing.TryGetPathConnectionRecordByBuildingId(
@@ -307,15 +319,18 @@ namespace EnemyGatePathfindingTest
                     ? directions[info.EntryTile] : -1;
                 int exitDirection = (uint)info.ExitTile < (uint)directions.Length
                     ? directions[info.ExitTile] : -1;
-                string state = "gateState=" + gate->r_GateState +
+                string role = bridgeIdentityChanged ? GateDiagnosticClassification.Unknown("bridge-identity-changed") :
+                    DescribeGateRole(playerId, info.GateId, info.GateGlobal,
+                        gate->r_PlayerIdOwner, gate->r_CapturedByPlayerId);
+                string state = role + ",gateStateRaw=" + gate->r_GateState +
                     ",savedAt0xCC=" + gate->N0001201E +
                     ",walkableAt0xD4=" + (int)gate->r_AIWalkableState +
                     ",connectionEnabled=" + connectionEnabled +
                     ",entryDir=" + entryDirection + ",exitDir=" + exitDirection +
-                    ",bridgeAlive=" + (int)bridge->r_AliveState;
+                    ",bridgeCount=" + bridgeIds.Count;
                 result.Add(new GateLiveStateObservation(info.GateId, state,
-                    "gateGlobal=" + info.GateGlobal + ",bridge=" + info.BridgeId +
-                    "/" + info.BridgeGlobal + ",owner=" + gate->r_PlayerIdOwner +
+                    "gateGlobal=" + info.GateGlobal + ",bridgesIdGlobalAlive=" +
+                    (bridges.Length == 0 ? "none" : bridges.ToString()) + ",owner=" + gate->r_PlayerIdOwner +
                     ",captured=" + gate->r_CapturedByPlayerId));
             }
             return result.ToArray();

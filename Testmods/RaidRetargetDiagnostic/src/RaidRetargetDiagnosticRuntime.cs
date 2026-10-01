@@ -8,6 +8,7 @@ using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Threading;
 using static RaidRetargetDiagnostic.RaidAttackFieldEvaluation;
 
 namespace RaidRetargetDiagnostic
@@ -55,6 +56,9 @@ namespace RaidRetargetDiagnostic
             new Dictionary<int, Stack<DeleteCapture>>();
         private readonly Dictionary<int, Stack<AttackCandidateCapture>> pendingAttackCandidates =
             new Dictionary<int, Stack<AttackCandidateCapture>>();
+        private readonly object attackCaptureLock = new object();
+        private long attackSequence, observationEpoch;
+        private bool searchConfirmed;
         private readonly Dictionary<RaidGroupKey, RaidRetry> pendingRaidRetries =
             new Dictionary<RaidGroupKey, RaidRetry>();
         private readonly Dictionary<RaidGroupKey, Dictionary<ulong, int>> rejectedRaidTargets =
@@ -65,7 +69,7 @@ namespace RaidRetargetDiagnostic
         private uint fallbackBuildingGlobalId;
         private AttackResult fallbackResult;
         private string fallbackDetails;
-        private bool active;
+        private volatile bool active;
         private bool firstTickLogged;
         private int lastTick = -1;
         private long sessionId;
@@ -292,13 +296,14 @@ namespace RaidRetargetDiagnostic
             if (!active) return;
             try
             {
-                if ((args.AICommand == TribeAICommand.AttackBuilding ||
-                    args.AICommand == TribeAICommand.ForceAttackBuilding) &&
-                    TryIdentifyRaidGroup(args.TribeId, out _, out _, out _))
-                    LogAttackCandidates(args);
+                // All target commands form nesting barriers. Only building
+                // attack commands are evaluated or emitted below.
+                lock (attackCaptureLock) LogAttackCandidates(args);
             }
             catch (Exception ex)
             {
+                lock (attackCaptureLock)
+                    pendingAttackCandidates.Remove(Thread.CurrentThread.ManagedThreadId);
                 LogRepeated($"orderError:{ex.GetType().Name}:{ex.Message}",
                     $"RAID_DIAG_TRIBE_ORDER_ERROR: session={sessionId}, tick={lastTick}, error={ex}.", true);
             }
@@ -307,28 +312,33 @@ namespace RaidRetargetDiagnostic
         private void LogAttackCandidates(TribeIssueOrderWithTargetEventArgs args)
         {
             var tribes = GameTribeManagerAPI.Instance;
-            if (args.TribeId <= 0 || !tribes.IsValidId(args.TribeId) ||
-                !tribes.TryGetTribeById(args.TribeId, out GameTribe* tribe) || tribe == null ||
-                tribe->r_AliveState != AliveState.IsAlive) return;
-
-            uint tribeGlobalId = tribe->r_GlobalId;
+            GameTribe* tribe = null;
+            bool tribeAlive = args.TribeId > 0 && tribes.IsValidId(args.TribeId) &&
+                tribes.TryGetTribeById(args.TribeId, out tribe) && tribe != null &&
+                tribe->r_AliveState == AliveState.IsAlive;
+            if (!tribeAlive && args.Phase == EventHookPhase.Pre) return;
+            uint tribeGlobalId = tribeAlive ? tribe->r_GlobalId : 0;
             bool raid = TryIdentifyRaidGroup(args.TribeId,
                 out int raidPlayer, out int raidGroup, out uint raidGlobalId) &&
                 raidGlobalId == tribeGlobalId;
-            if (!raid) return;
+            if (!raid) { raidPlayer = tribeAlive ? tribe->r_PlayerIdOwner : 0; raidGroup = -1; }
+            int threadId = Thread.CurrentThread.ManagedThreadId;
+            bool buildingCommand = args.AICommand == TribeAICommand.AttackBuilding ||
+                args.AICommand == TribeAICommand.ForceAttackBuilding;
             uint targetGlobalId = unchecked((uint)args.TargetValue2);
-            AttackCandidateSnapshot snapshot = ReadAttackCandidateSnapshot();
+            AttackCandidateSnapshot snapshot = buildingCommand ? ReadAttackCandidateSnapshot() :
+                new AttackCandidateSnapshot(false, -1, Array.Empty<CandidateRecord>());
             AttackCandidateCapture pre = null;
             bool pairMatches = false;
             string freshness = "preCallUnproven";
 
             if (args.Phase == EventHookPhase.Pre)
             {
-                if (!pendingAttackCandidates.TryGetValue(args.TribeId,
+                if (!pendingAttackCandidates.TryGetValue(threadId,
                         out Stack<AttackCandidateCapture> stack))
                 {
                     stack = new Stack<AttackCandidateCapture>();
-                    pendingAttackCandidates.Add(args.TribeId, stack);
+                    pendingAttackCandidates.Add(threadId, stack);
                 }
                 if (stack.Count != 0 && stack.Peek().Tick != lastTick)
                 {
@@ -338,15 +348,21 @@ namespace RaidRetargetDiagnostic
                     stack.Clear();
                 }
                 stack.Push(new AttackCandidateCapture(lastTick, tribeGlobalId,
-                    args.AICommand, args.TargetValue1, targetGlobalId, snapshot));
+                    args.AICommand, args.TargetValue1, targetGlobalId, snapshot,
+                    new RaidSearchEvidence(sessionId, observationEpoch,
+                        Interlocked.Increment(ref attackSequence), threadId, args.TribeId,
+                        tribeGlobalId, args.TargetValue1, targetGlobalId,
+                        buildingCommand ? GamePathingManagerAPI.Instance.GetPathfindingContextView().Address : IntPtr.Zero,
+                        raidPlayer, raidGroup)));
             }
             else if (args.Phase == EventHookPhase.Post &&
-                pendingAttackCandidates.TryGetValue(args.TribeId,
+                pendingAttackCandidates.TryGetValue(threadId,
                     out Stack<AttackCandidateCapture> postStack) && postStack.Count != 0)
             {
                 pre = postStack.Pop();
-                if (postStack.Count == 0) pendingAttackCandidates.Remove(args.TribeId);
-                pairMatches = pre.TribeGlobalId == tribeGlobalId &&
+                if (postStack.Count == 0) pendingAttackCandidates.Remove(threadId);
+                pairMatches = pre.Evidence.Session == sessionId && pre.Evidence.Epoch == observationEpoch &&
+                    pre.Evidence.TribeId == args.TribeId && pre.TribeGlobalId == tribeGlobalId &&
                     pre.Command == args.AICommand && pre.BuildingId == args.TargetValue1 &&
                     pre.BuildingGlobalId == targetGlobalId;
                 freshness = !pairMatches ? "unmatchedPrePost" :
@@ -357,13 +373,26 @@ namespace RaidRetargetDiagnostic
                 freshness = "missingPre";
             }
 
-            if (args.Phase != EventHookPhase.Post) return;
+            if (args.Phase != EventHookPhase.Post || !buildingCommand) return;
             var tiles = GameTileManagerAPI.Instance;
             AttackResult result = Evaluate(snapshot, pairMatches, freshness, args.ReturnValue,
                 ReadBuildingGlobalId(args.TargetValue1) == targetGlobalId, args.TargetValue1,
                 tiles.GetStructureLayer().Length, GetBuildingAtTile, IsCardinalPair,
                 out string validation);
-            if (issuingFallback)
+            string searchDetails = pre == null
+                ? "searchObserved=False,searchAssociation=missingPre,decision=[unavailable]"
+                : pre.Evidence.Describe(pairMatches, snapshot);
+            string observedFreshness = pre == null ? "missingPre" : pre.Evidence.GetFreshness(pairMatches, snapshot);
+            AttackResult diagnosticResult = AttackResult.Unknown;
+            string diagnosticValidation = observedFreshness;
+            if (observedFreshness == "nativeSearchObserved")
+                diagnosticResult = Evaluate(pre.Evidence.DecisionSnapshot, true, "changedFromPre",
+                    args.ReturnValue, ReadBuildingGlobalId(args.TargetValue1) == targetGlobalId,
+                    args.TargetValue1, tiles.GetStructureLayer().Length, GetBuildingAtTile, IsCardinalPair,
+                    out diagnosticValidation);
+            // Only the previous classifier feeds the fix until runtime controls
+            // validate this new execution marker. Manual commands never feed it.
+            if (raid && issuingFallback)
             {
                 if (args.TribeId == fallbackTribeId &&
                     args.TargetValue1 == fallbackBuildingId &&
@@ -371,18 +400,24 @@ namespace RaidRetargetDiagnostic
                 {
                     fallbackResult = result;
                     fallbackDetails = $"freshness={freshness},prePostMatch={pairMatches}," +
-                        $"validation={validation},return={args.ReturnValue},{snapshot.DescribeCompact()}";
+                        $"validation={validation},return={args.ReturnValue},{snapshot.DescribeCompact()}," +
+                        $"{searchDetails},diagnosticResult={diagnosticResult},diagnosticValidation={diagnosticValidation}";
                 }
                 return;
             }
-            attackCommandCount++;
-            Info($"RAID_DIAG_ATTACK: session={sessionId}, tick={lastTick}, " +
+            if (raid) attackCommandCount++;
+            // Non-raid AI attacks still form nesting barriers, but do not add
+            // campaign-scale logging. Human-owned groups are control commands.
+            if (!raid && raidPlayer > 0 && GamePlayerManagerAPI.Instance.IsAIPlayer(raidPlayer)) return;
+            Info($"{(raid ? "RAID_DIAG_ATTACK" : "RAID_DIAG_CONTROL_ATTACK")}: session={sessionId}, tick={lastTick}, " +
                 $"player={raidPlayer}, role={raidGroup}, tribe={args.TribeId}/{tribeGlobalId}, " +
                 $"command={args.AICommand}, target={args.TargetValue1}/{targetGlobalId}, " +
                 $"building={FormatBuilding(args.TargetValue1, targetGlobalId)}, " +
                 $"return={args.ReturnValue}, prePostMatch={pairMatches}, freshness={freshness}, " +
-                $"validation={validation}, result={result}, {snapshot.DescribeCompact()}.");
-            if (args.AICommand != TribeAICommand.AttackBuilding) return;
+                $"validation={validation}, result={result}, {snapshot.DescribeCompact()}, " +
+                $"{searchDetails},diagnosticResult={diagnosticResult},diagnosticValidation={diagnosticValidation}," +
+                "executionEvidenceDrivesFix=False.");
+            if (!raid || args.AICommand != TribeAICommand.AttackBuilding) return;
             RaidGroupKey raidKey = new RaidGroupKey(raidPlayer, raidGroup,
                 args.TribeId, tribeGlobalId);
             string eligibilityReason = "notChecked";
@@ -411,6 +446,53 @@ namespace RaidRetargetDiagnostic
                     $"RAID_FIX_UNCERTAIN: session={sessionId}, tick={lastTick}, " +
                     $"tribe={args.TribeId}/{tribeGlobalId}, target={args.TargetValue1}/{targetGlobalId}, " +
                     $"reason={(eligible ? "priorityOrBuildingUnavailable" : eligibilityReason)}; vanillaPreserved=true.", true);
+        }
+
+        internal void OnSearchObserved(int tribeId, int buildingId, IntPtr context)
+        {
+            if (!active) return;
+            lock (attackCaptureLock)
+            {
+                int threadId = Thread.CurrentThread.ManagedThreadId;
+                if (!pendingAttackCandidates.TryGetValue(threadId, out Stack<AttackCandidateCapture> stack) ||
+                    stack.Count == 0)
+                {
+                    LogRepeated("searchUnscoped", $"RAID_DIAG_SEARCH_UNSCOPED: session={sessionId}," +
+                        $"tick={lastTick},thread={threadId},tribe={tribeId},target={buildingId};" +
+                        "association=missingActiveCommand.", true);
+                    return;
+                }
+                AttackCandidateCapture capture = stack.Peek();
+                if (capture.Command != TribeAICommand.AttackBuilding &&
+                    capture.Command != TribeAICommand.ForceAttackBuilding)
+                {
+                    LogRepeated("searchUnsupportedCommand", $"RAID_DIAG_SEARCH_UNSCOPED: session={sessionId}," +
+                        $"tick={lastTick},thread={threadId},tribe={tribeId},target={buildingId},command={capture.Command};" +
+                        "association=unsupportedActiveCommand.", true);
+                    return;
+                }
+                uint tribeGlobalId = 0;
+                int playerId = 0, raidRole = -1;
+                var tribes = GameTribeManagerAPI.Instance;
+                if (tribes.IsValidId(tribeId) && tribes.TryGetTribeById(tribeId, out GameTribe* tribe) &&
+                    tribe != null && tribe->r_AliveState == AliveState.IsAlive)
+                {
+                    tribeGlobalId = tribe->r_GlobalId;
+                    playerId = tribe->r_PlayerIdOwner;
+                    if (TryIdentifyRaidGroup(tribeId, out int raidPlayer, out int role, out uint global) &&
+                        global == tribeGlobalId) { playerId = raidPlayer; raidRole = role; }
+                }
+                capture.Evidence.Observe(sessionId, observationEpoch, threadId, tribeId, tribeGlobalId,
+                    buildingId, ReadBuildingGlobalId(buildingId) ?? 0, context,
+                    Read(context, AttackCandidateListOffset), playerId, raidRole);
+                if (!searchConfirmed && capture.Evidence.Association == "matchedNativeConsumerReturn")
+                {
+                    searchConfirmed = true;
+                    Info($"RAID_DIAG_SEARCH_CONFIRMED: session={sessionId},tick={lastTick}," +
+                        $"sequence={capture.Evidence.Sequence},thread={threadId},tribe={tribeId}/{tribeGlobalId}," +
+                        $"target={buildingId}/{capture.BuildingGlobalId},rva=0x11FFA7;diagnosticOnly=true.");
+                }
+            }
         }
 
         private static AttackCandidateSnapshot ReadAttackCandidateSnapshot()
@@ -1020,7 +1102,12 @@ namespace RaidRetargetDiagnostic
             groupMoves.Clear();
             repeatedMessages.Clear();
             pendingDeletes.Clear();
-            pendingAttackCandidates.Clear();
+            lock (attackCaptureLock)
+            {
+                pendingAttackCandidates.Clear();
+                observationEpoch++;
+                searchConfirmed = false;
+            }
             pendingRaidRetries.Clear();
             rejectedRaidTargets.Clear();
             issuingFallback = false;
@@ -1058,9 +1145,10 @@ namespace RaidRetargetDiagnostic
             internal readonly int BuildingId;
             internal readonly uint BuildingGlobalId;
             internal readonly AttackCandidateSnapshot Snapshot;
+            internal readonly RaidSearchEvidence Evidence;
 
             internal AttackCandidateCapture(int tick, uint tribeGlobalId, TribeAICommand command,
-                int buildingId, uint buildingGlobalId, AttackCandidateSnapshot snapshot)
+                int buildingId, uint buildingGlobalId, AttackCandidateSnapshot snapshot, RaidSearchEvidence evidence)
             {
                 Tick = tick;
                 TribeGlobalId = tribeGlobalId;
@@ -1068,6 +1156,7 @@ namespace RaidRetargetDiagnostic
                 BuildingId = buildingId;
                 BuildingGlobalId = buildingGlobalId;
                 Snapshot = snapshot;
+                Evidence = evidence;
             }
         }
 

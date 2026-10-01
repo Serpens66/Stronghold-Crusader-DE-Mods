@@ -68,12 +68,12 @@ namespace EnemyGatePathfindingTest
                 command, args.TargetValue1, args.TargetValue2);
             else Finish("target", args.TribeId, player, args.TribeId, command,
                 args.TargetValue1, args.TargetValue2, args.ReturnValue);
+            ObserveGateStates(player, pre ? "target-pre" : "target-post",
+                command, args.TribeId, args.TargetValue1, args.TargetValue2);
             if (!IsAi(player)) return;
             totals.Record(player, 0, pre ? "tribe-target-pre" : "tribe-target-post",
                 pre ? "called" : Result(args.ReturnValue), command, args.TribeId,
                 args.TargetValue1, args.TargetValue2, detail);
-            ObserveGateStates(player, pre ? "target-pre" : "target-post",
-                command, args.TribeId, args.TargetValue1, args.TargetValue2);
         }
 
         internal void ObserveTribeMove(TribeIssueOrderMoveHereEventArgs args)
@@ -92,12 +92,12 @@ namespace EnemyGatePathfindingTest
                 command, args.TileX, args.TileY);
             else Finish("move", args.TribeId, player, args.TribeId, command,
                 args.TileX, args.TileY, args.ReturnValue);
+            ObserveGateStates(player, pre ? "move-pre" : "move-post",
+                command, args.TribeId, args.TileX, args.TileY);
             if (!IsAi(player)) return;
             totals.Record(player, 0, pre ? "tribe-move-pre" : "tribe-move-post",
                 pre ? "called" : Result(args.ReturnValue), command, args.TribeId,
                 args.TileX, args.TileY, detail);
-            ObserveGateStates(player, pre ? "move-pre" : "move-post",
-                command, args.TribeId, args.TileX, args.TileY);
         }
 
         internal void ObserveUnitMove(UnitMoveHereEventArgs args)
@@ -121,9 +121,8 @@ namespace EnemyGatePathfindingTest
 
         internal void ObserveGatePrecheck(int player, int buildingId, int exactGateId,
             bool vanillaExcluded,
-            bool policyExcluded, NativeGateSnapshotDecision decision, int owner, int captured)
+            bool policyExcluded, NativeGateSnapshotDecision decision, int owner, int captured, uint globalId)
         {
-            if (!IsAi(player)) return;
             int gateId = exactGateId > 0 ? exactGateId : 0;
             if (gateId == 0) Interlocked.Increment(ref unattributedPrechecks);
             Frame frame = Current();
@@ -132,13 +131,14 @@ namespace EnemyGatePathfindingTest
             if (gateId > 0 && searches != null && searches.Count > 0)
                 searches[searches.Count - 1].Add(gateId);
             totals.Record(player, gateId, "gate-precheck",
-                "vanilla=" + (vanillaExcluded ? "closed" : "open") +
-                ",policy=" + (policyExcluded ? "closed" : "open") +
-                ",decision=" + decision,
+                "nativeComparison=" + (vanillaExcluded ? "reject" : "accept") +
+                ",effectiveComparison=" + (policyExcluded ? "reject" : "accept") +
+                ",appliedDecision=" + decision + "," +
+                topology.DescribeGateRole(player, gateId, globalId, owner, captured),
                 frame?.Command ?? 0, frame?.Tribe ?? 0,
                 frame?.Target1 ?? 0, frame?.Target2 ?? 0,
                 "rawBuildingId=" + buildingId + ",owner=" + owner +
-                ",captured=" + captured);
+                ",captured=" + captured + ",gateGlobal=" + globalId);
         }
 
         internal void ObserveBuilder(int player, bool completed, bool success,
@@ -208,6 +208,28 @@ namespace EnemyGatePathfindingTest
             Interlocked.Increment(ref errors);
             totals.Record(nativePlayer, 0, "scope-" + source,
                 "mismatch:tribePlayer=" + tribePlayer, 0, 0, 0, 0);
+        }
+
+        internal void ObserveBuildingContext(int rawArgument, int tribeId, int tribePlayer, int usedPlayer)
+        {
+            Frame frame = Current();
+            uint tribeGlobal = 0;
+            int liveTribeOwner = 0;
+            string identity = "unknown";
+            if (tribeId > 0 && GameTribeManagerAPI.Instance.TryGetTribeById(tribeId, out GameTribe* tribe) && tribe != null)
+            {
+                tribeGlobal = tribe->r_GlobalId;
+                liveTribeOwner = tribe->r_PlayerIdOwner;
+                identity = tribeGlobal == 0 ? "global-id-missing" :
+                    liveTribeOwner == tribePlayer ? "verified" : "owner-changed";
+            }
+            totals.Record(tribePlayer, 0, "building-search-context",
+                GateDiagnosticClassification.BuildingContextResult(rawArgument, tribePlayer, usedPlayer) +
+                ",liveTribeOwner=" + liveTribeOwner + ",tribeIdentity=" + identity +
+                ",orderContext=" + (frame == null ? "none" : frame.Kind),
+                frame?.Command ?? 0, tribeId, frame?.Target1 ?? 0, frame?.Target2 ?? 0,
+                "tribeGlobal=" + tribeGlobal + ",orderPlayer=" + (frame?.Player ?? 0) +
+                ",orderTribe=" + (frame?.Tribe ?? 0) + ",orderId=" + (frame?.Id ?? 0));
         }
 
         internal void ObserveRegionPair(int player, int sourceComponentId,
@@ -338,10 +360,11 @@ namespace EnemyGatePathfindingTest
         private void ObserveGateStates(int player, string stage, int command,
             int tribe, int target1, int target2)
         {
+            if (player <= 0 || player > 8) return;
             try
             {
                 foreach (GateLiveStateObservation observation in
-                    topology.CaptureBridgedGateStates(player))
+                    topology.CaptureGateStates(player))
                     totals.Record(player, observation.GateId, "gate-live-" + stage,
                         observation.State, command, tribe, target1, target2,
                         observation.Detail);
@@ -357,10 +380,11 @@ namespace EnemyGatePathfindingTest
         internal void ProcessDeferred() { }
         internal string DescribeCheckpoint()
         {
-            ObserveGateStates(0, "checkpoint", 0, 0, 0, 0);
+            for (int player = 1; player <= 8; player++)
+                ObserveGateStates(player, "checkpoint", 0, 0, 0, 0);
             AiGateDecisionAggregate.RowSnapshot[] rows = totals.Drain();
             foreach (var row in rows)
-                Shared.DebugLogHelper.LogInfo(log, "Enemy-gate AI decision: " + row + ".");
+                Shared.DebugLogHelper.LogInfo(log, "Enemy-gate decision: " + row + ".");
             return "observations=" + totals.Observations + ",activeCombinations=" + rows.Length +
                 ",raw(targetPre=" + Interlocked.Read(ref rawTargetPre) +
                 ",targetPost=" + Interlocked.Read(ref rawTargetPost) +
