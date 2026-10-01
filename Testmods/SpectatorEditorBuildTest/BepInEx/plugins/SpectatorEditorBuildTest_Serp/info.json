@@ -1,0 +1,13 @@
+{
+  "GUID": "SpectatorEditorBuildTest_Serp",
+  "Author": "Serpens66",
+  "Name": "Spectator Editor Build Test",
+  "Description": "Tests free editor-style building and unit placement for a selected AI while spectating a singleplayer skirmish.",
+  "Version": "0.1.0",
+  "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
+  "MinimumScriptExtenderVersion": "2.12.0",
+  "MaximumScriptExtenderVersion": "",
+  "Manifest": 1,
+  "NetworkMode": 1,
+  "SupportedGameVersions": ["2.8.0.2"]
+}

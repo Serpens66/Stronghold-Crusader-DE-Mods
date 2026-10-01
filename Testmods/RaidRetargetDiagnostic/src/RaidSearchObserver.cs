@@ -25,6 +25,7 @@ namespace RaidRetargetDiagnostic
         private static Action<int, int, IntPtr> receiver;
         private static ManualLogSource logger;
         private static int enabled, callbackErrorReported;
+        internal static bool IsAvailable => Volatile.Read(ref enabled) != 0;
 
         internal static void Install(CrusaderLibraryLoadContext context, ManualLogSource log,
             Action<int, int, IntPtr> callback)
@@ -62,7 +63,7 @@ namespace RaidRetargetDiagnostic
                 Shared.DebugLogHelper.LogInfo(log,
                     $"RAID_DIAG_SEARCH_HOOK: method=reference-rva,rva=0x{SiteRva:X}," +
                     $"address=0x{module + SiteRva:X},displaced={SpanLength},continuation=0x{module + SiteRva + SpanLength:X}," +
-                    "backend=X64InlineHook,diagnosticOnly=true.");
+                    "backend=X64InlineHook,observer=readOnly,classification=authoritative.");
             }
             catch (Exception ex)
             {

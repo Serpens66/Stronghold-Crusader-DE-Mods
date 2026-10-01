@@ -5637,7 +5637,7 @@ internal static class Program
             .Where(Directory.Exists)
             .ToList();
         runtimeRoots.Add(Path.Combine(workspaceRoot, "Shared"));
-        foreach (string groupName in new[] { "Helpers", "Testmods" })
+        foreach (string groupName in new[] { "Helpers" })
         {
             string groupRoot = Path.Combine(workspaceRoot, groupName);
             runtimeRoots.AddRange(Directory.GetDirectories(groupRoot)

@@ -54,6 +54,50 @@ foreach ($path in $textFiles) {
     $literalEscapedNewline = ([string][char]92) + 'r' + ([string][char]92) + 'n'
     if ($content.Contains($literalEscapedNewline)) { throw "Literal backslash-r-backslash-n sequence: $fullPath" }
 }
+# The execution marker is mandatory for both original and replacement commands.
+$runtimeSource = [IO.File]::ReadAllText((Join-Path $project 'src\RaidRetargetDiagnosticRuntime.cs'))
+$evaluationSource = [IO.File]::ReadAllText((Join-Path $project 'src\RaidAttackFieldEvaluation.cs'))
+if ([regex]::Matches($runtimeSource, '\bEvaluate\(').Count -ne 1 -or
+    $runtimeSource -match 'diagnosticResult|unchangedPossiblyStale|changedFromPre' -or
+    $evaluationSource -notmatch 'freshness != "nativeSearchObserved"' -or
+    $runtimeSource -notmatch 'pre.Evidence.PlayerId == raidPlayer && pre.Evidence.RaidRole == raidGroup') {
+    throw 'Shared execution-evidence classifier or Post identity guards differ.'
+}
+# Manual commands still consume nesting frames, then return before classification/logging.
+$manualGuard = $runtimeSource.IndexOf('if (args.Phase != EventHookPhase.Post || !buildingCommand || !raid) return;')
+if ($manualGuard -lt $runtimeSource.IndexOf('pre = postStack.Pop();') -or
+    $manualGuard -gt $runtimeSource.IndexOf('AttackResult result = Evaluate(') -or
+    $runtimeSource -match 'RAID_DIAG_CONTROL_ATTACK' -or
+    $pluginText.IndexOf('RaidSearchObserver.Install(') -gt $pluginText.IndexOf('RAID_DIAG_READY:') -or
+    $pluginText.IndexOf('RaidSearchObserver.Install(') -lt $pluginText.IndexOf('candidateSession?.Dispose();') -or
+    $pluginText -notmatch 'raidMeleeRetarget=\{RaidSearchObserver.IsAvailable\}') {
+    throw 'Manual nesting barrier or post-publication readiness contract differs.'
+}
+$manifest = [IO.File]::ReadAllText((Join-Path $project 'info.json')) | ConvertFrom-Json
+$versionMatch = [regex]::Match($pluginText, 'public const string Version = "([^"]+)";')
+$version = $versionMatch.Groups[1].Value
+$assembly = [IO.File]::ReadAllText((Join-Path $project 'Properties\AssemblyInfo.cs'))
+if ($version -ne '0.1.1' -or $manifest.Version -ne $version -or
+    $assembly -notmatch ([regex]::Escape('AssemblyVersion("' + $version + '.0")')) -or
+    $assembly -notmatch ([regex]::Escape('AssemblyFileVersion("' + $version + '.0")')) -or
+    $assembly -notmatch ([regex]::Escape('AssemblyInformationalVersion("' + $version + '")'))) {
+    throw 'Active source/manifest/assembly versions differ.'
+}
+Write-Host 'PASS: manual nesting/log suppression, post-hook readiness and version 0.1.1 consistency.'
+# Existing bounded retries must stop before the exhausted-list clearing path on U.
+$retryBegin = $runtimeSource.IndexOf('private void ProcessRaidRetries()')
+$retryEnd = $runtimeSource.IndexOf('private static bool IsLiveBuildingIdentity', $retryBegin)
+$retrySource = $runtimeSource.Substring($retryBegin, $retryEnd - $retryBegin)
+if ($retrySource -notmatch '(?s)if \(!commandIssued \|\| fallbackResult == AttackResult.Unknown\).*?finished = true;.*?break;' -or
+    $retrySource.IndexOf('if (finished) continue;') -gt $retrySource.IndexOf('TargetBuildingIdOffset) = 0;') -or
+    $retrySource -notmatch 'issued < MaximumRetryCommandsPerTick' -or
+    $runtimeSource -notmatch 'count < 1 \|\| count > NativeRaidCandidateCapacity' -or
+    $runtimeSource -notmatch 'selectedBuildingMissingFromCandidateList' -or
+    $runtimeSource -notmatch 'nativeTargetPlayerMismatch' -or
+    $runtimeSource -notmatch 'extenderNativeCandidateAddressMismatch') {
+    throw 'Bounded retry, unknown-abort or inconsistent-candidate guard differs.'
+}
+Write-Host 'PASS: shared classification, bounded retries, unknown-abort and candidate-list safety guards.'
 & (Join-Path $workspace 'Shared\Test-PermanentNativeRuntimePatches.ps1')
 if (-not $?) { throw 'Workspace native runtime regression check failed.' }
 & (Join-Path $project 'Verify-NativeSearchSpan.ps1')

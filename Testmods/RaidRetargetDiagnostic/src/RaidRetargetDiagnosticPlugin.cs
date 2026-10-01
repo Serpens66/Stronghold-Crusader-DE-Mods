@@ -19,7 +19,7 @@ namespace RaidRetargetDiagnostic
     {
         public const string Guid = "RaidRetargetDiagnostic_Serp";
         public const string Name = "Raid Retarget Diagnostic";
-        public const string Version = "0.1.0";
+        public const string Version = "0.1.1";
 
         private static ManualLogSource log;
         private static RaidRetargetDiagnosticRuntime runtime;
@@ -68,9 +68,6 @@ namespace RaidRetargetDiagnostic
                 GameTimeManagerAPI.Instance.OnTick += OnTick;
                 candidateTick = true;
 
-                Shared.DebugLogHelper.LogInfo(log,
-                    "RAID_DIAG_READY: raidMeleeRetarget=true, publisher=GameTimeManagerAPI.OnTick, " +
-                    "events=buildingDamage+delete+tribeOrder+tribeMove, logging=compactRaidEvents.");
                 // The extender publishers and these static fields survive startup cleanup.
                 sessionSubscription = candidateSession;
                 damageSubscription = candidateDamage;
@@ -78,9 +75,6 @@ namespace RaidRetargetDiagnostic
                 tribeOrderSubscription = candidateTribeOrder;
                 tribeMoveSubscription = candidateTribeMove;
                 runtime = candidate;
-                // Optional observer is permanently rooted and fails independently
-                // of the existing fix and event registrations.
-                RaidSearchObserver.Install(context, log, candidate.OnSearchObserved);
             }
             catch (Exception ex)
             {
@@ -91,7 +85,20 @@ namespace RaidRetargetDiagnostic
                 candidateDamage?.Dispose();
                 candidateSession?.Dispose(); // Rollback only before runtime publication.
                 Shared.DebugLogHelper.LogError(log, "Raid diagnostic initialization failed: " + ex);
+                return;
             }
+
+            // Publication is complete. Hook installation and readiness reporting
+            // must never reach the initialization rollback above.
+            RaidSearchObserver.Install(context, log, runtime.OnSearchObserved);
+            try
+            {
+                Shared.DebugLogHelper.LogInfo(log,
+                    $"RAID_DIAG_READY: version={Version}, raidMeleeRetarget={RaidSearchObserver.IsAvailable}, " +
+                    "publisher=GameTimeManagerAPI.OnTick, observer=readOnly, classification=authoritative, " +
+                    "events=buildingDamage+delete+tribeOrder+tribeMove, logging=compactRaidEvents.");
+            }
+            catch { } // Readiness logging cannot tear down the published runtime.
         }
 
         private static void OnTick(int tick) => runtime?.OnTick(tick);

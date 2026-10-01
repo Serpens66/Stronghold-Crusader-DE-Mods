@@ -68,7 +68,7 @@ namespace RaidRetargetDiagnostic
         private int fallbackBuildingId;
         private uint fallbackBuildingGlobalId;
         private AttackResult fallbackResult;
-        private string fallbackDetails;
+        private string fallbackDetails, fallbackSummary;
         private volatile bool active;
         private bool firstTickLogged;
         private int lastTick = -1;
@@ -330,7 +330,7 @@ namespace RaidRetargetDiagnostic
                 new AttackCandidateSnapshot(false, -1, Array.Empty<CandidateRecord>());
             AttackCandidateCapture pre = null;
             bool pairMatches = false;
-            string freshness = "preCallUnproven";
+            string contentComparison = "preCallUnproven";
 
             if (args.Phase == EventHookPhase.Pre)
             {
@@ -364,34 +364,31 @@ namespace RaidRetargetDiagnostic
                 pairMatches = pre.Evidence.Session == sessionId && pre.Evidence.Epoch == observationEpoch &&
                     pre.Evidence.TribeId == args.TribeId && pre.TribeGlobalId == tribeGlobalId &&
                     pre.Command == args.AICommand && pre.BuildingId == args.TargetValue1 &&
-                    pre.BuildingGlobalId == targetGlobalId;
-                freshness = !pairMatches ? "unmatchedPrePost" :
-                    pre.Snapshot.SameRecords(snapshot) ? "unchangedPossiblyStale" : "changedFromPre";
+                    pre.BuildingGlobalId == targetGlobalId && pre.Evidence.ThreadId == threadId &&
+                    pre.Evidence.PlayerId == raidPlayer && pre.Evidence.RaidRole == raidGroup &&
+                    (!buildingCommand || pre.Evidence.Context ==
+                        GamePathingManagerAPI.Instance.GetPathfindingContextView().Address);
+                contentComparison = pre.Snapshot.SameRecords(snapshot) ? "identical" : "changed";
             }
             else if (args.Phase == EventHookPhase.Post)
             {
-                freshness = "missingPre";
+                contentComparison = "missingPre";
             }
 
-            if (args.Phase != EventHookPhase.Post || !buildingCommand) return;
+            // All commands retain their Pre/Post nesting barriers, but only raid
+            // groups are classified or logged after their frame is consumed.
+            if (args.Phase != EventHookPhase.Post || !buildingCommand || !raid) return;
             var tiles = GameTileManagerAPI.Instance;
+            string freshness = pre == null ? "missingPre" : pre.Evidence.GetFreshness(pairMatches, snapshot);
+            // Both original and replacement commands use this one classifier.
+            // No observed search means no correction, even if scratch content changed.
             AttackResult result = Evaluate(snapshot, pairMatches, freshness, args.ReturnValue,
-                ReadBuildingGlobalId(args.TargetValue1) == targetGlobalId, args.TargetValue1,
-                tiles.GetStructureLayer().Length, GetBuildingAtTile, IsCardinalPair,
+                targetGlobalId != 0 && ReadBuildingGlobalId(args.TargetValue1) == targetGlobalId,
+                args.TargetValue1, tiles.GetStructureLayer().Length, GetBuildingAtTile, IsCardinalPair,
                 out string validation);
             string searchDetails = pre == null
                 ? "searchObserved=False,searchAssociation=missingPre,decision=[unavailable]"
                 : pre.Evidence.Describe(pairMatches, snapshot);
-            string observedFreshness = pre == null ? "missingPre" : pre.Evidence.GetFreshness(pairMatches, snapshot);
-            AttackResult diagnosticResult = AttackResult.Unknown;
-            string diagnosticValidation = observedFreshness;
-            if (observedFreshness == "nativeSearchObserved")
-                diagnosticResult = Evaluate(pre.Evidence.DecisionSnapshot, true, "changedFromPre",
-                    args.ReturnValue, ReadBuildingGlobalId(args.TargetValue1) == targetGlobalId,
-                    args.TargetValue1, tiles.GetStructureLayer().Length, GetBuildingAtTile, IsCardinalPair,
-                    out diagnosticValidation);
-            // Only the previous classifier feeds the fix until runtime controls
-            // validate this new execution marker. Manual commands never feed it.
             if (raid && issuingFallback)
             {
                 if (args.TribeId == fallbackTribeId &&
@@ -399,25 +396,24 @@ namespace RaidRetargetDiagnostic
                     targetGlobalId == fallbackBuildingGlobalId)
                 {
                     fallbackResult = result;
-                    fallbackDetails = $"freshness={freshness},prePostMatch={pairMatches}," +
+                    CandidateRecord first = snapshot.Records.Length == 0 ? default : snapshot.Records[0];
+                    fallbackSummary = $"search={freshness},validation={validation},sequence={pre?.Evidence.Sequence}," +
+                        $"content={contentComparison},first={first.ApproachTile}/{first.BuildingTile}/{first.Score}";
+                    fallbackDetails = $"freshness={freshness},contentComparison={contentComparison},prePostMatch={pairMatches}," +
                         $"validation={validation},return={args.ReturnValue},{snapshot.DescribeCompact()}," +
-                        $"{searchDetails},diagnosticResult={diagnosticResult},diagnosticValidation={diagnosticValidation}";
+                        $"{searchDetails},result={result}";
                 }
                 return;
             }
-            if (raid) attackCommandCount++;
-            // Non-raid AI attacks still form nesting barriers, but do not add
-            // campaign-scale logging. Human-owned groups are control commands.
-            if (!raid && raidPlayer > 0 && GamePlayerManagerAPI.Instance.IsAIPlayer(raidPlayer)) return;
-            Info($"{(raid ? "RAID_DIAG_ATTACK" : "RAID_DIAG_CONTROL_ATTACK")}: session={sessionId}, tick={lastTick}, " +
+            attackCommandCount++;
+            Info($"RAID_DIAG_ATTACK: session={sessionId}, tick={lastTick}, " +
                 $"player={raidPlayer}, role={raidGroup}, tribe={args.TribeId}/{tribeGlobalId}, " +
                 $"command={args.AICommand}, target={args.TargetValue1}/{targetGlobalId}, " +
                 $"building={FormatBuilding(args.TargetValue1, targetGlobalId)}, " +
-                $"return={args.ReturnValue}, prePostMatch={pairMatches}, freshness={freshness}, " +
+                $"return={args.ReturnValue}, prePostMatch={pairMatches}, freshness={freshness}, contentComparison={contentComparison}, " +
                 $"validation={validation}, result={result}, {snapshot.DescribeCompact()}, " +
-                $"{searchDetails},diagnosticResult={diagnosticResult},diagnosticValidation={diagnosticValidation}," +
-                "executionEvidenceDrivesFix=False.");
-            if (!raid || args.AICommand != TribeAICommand.AttackBuilding) return;
+                $"{searchDetails},executionEvidenceDrivesFix={raid && args.AICommand == TribeAICommand.AttackBuilding}.");
+            if (args.AICommand != TribeAICommand.AttackBuilding) return;
             RaidGroupKey raidKey = new RaidGroupKey(raidPlayer, raidGroup,
                 args.TribeId, tribeGlobalId);
             string eligibilityReason = "notChecked";
@@ -490,7 +486,7 @@ namespace RaidRetargetDiagnostic
                     searchConfirmed = true;
                     Info($"RAID_DIAG_SEARCH_CONFIRMED: session={sessionId},tick={lastTick}," +
                         $"sequence={capture.Evidence.Sequence},thread={threadId},tribe={tribeId}/{tribeGlobalId}," +
-                        $"target={buildingId}/{capture.BuildingGlobalId},rva=0x11FFA7;diagnosticOnly=true.");
+                        $"target={buildingId}/{capture.BuildingGlobalId},rva=0x11FFA7;observer=readOnly,classification=authoritative.");
                 }
             }
         }
@@ -681,6 +677,7 @@ namespace RaidRetargetDiagnostic
                         !IsLiveBuildingIdentity(candidate.Id, candidate.GlobalId,
                             retry.TargetPlayerId)) continue;
                     fallbackResult = AttackResult.Unknown;
+                    fallbackSummary = null;
                     fallbackDetails = "freshness=missingPost,validation=notEvaluated," +
                         "entryCount=unavailable,terminatorAt=unavailable,firstPair=unavailable";
                     issuingFallback = true;
@@ -717,7 +714,7 @@ namespace RaidRetargetDiagnostic
                         fallbackResult == AttackResult.NoAttackPoint ? "N" : "U";
                     retry.Attempts.Add($"{candidate.Id}/{candidate.GlobalId}/{candidate.Type}:{code}" +
                         (commandIssued ? "" : "!i") + (storedCandidate ? "" : "!s") +
-                        (fallbackResult == AttackResult.Unknown ? $"{{{fallbackDetails}}}" : ""));
+                        (fallbackResult == AttackResult.Unknown ? $"{{{fallbackDetails}}}" : $"{{{fallbackSummary}}}"));
                     if (!commandIssued || fallbackResult == AttackResult.Unknown)
                     {
                         LogRetry(retry, "uncertain;vanillaPreserved", 0, 0,
@@ -1116,6 +1113,7 @@ namespace RaidRetargetDiagnostic
             fallbackBuildingGlobalId = 0;
             fallbackResult = AttackResult.Unknown;
             fallbackDetails = null;
+            fallbackSummary = null;
             targetChangeCount = 0;
             attackCommandCount = 0;
             retryCount = 0;

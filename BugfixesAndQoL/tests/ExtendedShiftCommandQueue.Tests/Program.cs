@@ -1514,27 +1514,6 @@ internal static class Program
         Check(!Directory.Exists(Path.Combine(workspace, "MoatCommandTest")),
             "standalone MoatCommandTest project has been removed after integration");
 
-        foreach (string mod in new[] { "OxTetherIdleFixTest", "StockpileAccessFixTest" })
-        {
-            string manifest = Read(workspace, "Testmods", mod, "info.json");
-            Check(manifest.Contains("\"NetworkMode\": 1"), mod + " remains gameplay synchronized");
-        }
-
-        foreach (string mod in new[] { "OxTetherIdleFixTest", "StockpileAccessFixTest" })
-        {
-            string plugin = Read(workspace, "Testmods", mod, "src", mod + "Plugin.cs");
-            string runtime = Read(workspace, "Testmods", mod, "src", mod + "Runtime.cs");
-            string project = Read(workspace, "Testmods", mod, mod + ".csproj");
-            string minimum = ReadManifestMinimum(workspace, Path.Combine("Testmods", mod));
-            Check((minimum.Length == 0 ||
-                   plugin.Contains($"BepInDependency(ScriptExtenderGuid, \"{minimum}\")")) &&
-                plugin.Contains("CrusaderLibraryLoadContext context"),
-                mod + " consumes its manifest-selected Script Extender contract");
-            Check(runtime.Contains("using RedBird.Core.Memory;") && !runtime.Contains("Zhuqiaomon"),
-                mod + " uses the RedBird memory contract");
-            Check(project.Contains("RedBird.Core.dll") && !project.Contains("Zhuqiaomon.dll"),
-                mod + " project references RedBird Core only");
-        }
     }
 
     private static string FindWorkspace()

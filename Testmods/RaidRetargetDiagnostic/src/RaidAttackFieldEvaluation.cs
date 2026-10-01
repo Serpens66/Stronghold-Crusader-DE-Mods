@@ -38,7 +38,7 @@ namespace RaidRetargetDiagnostic
             validation = "listEndNotFoundInFirst500";
             if (!snapshot.Complete) return AttackResult.Unknown;
             validation = "notEvaluatedWithoutFreshness";
-            if (!pairMatches || freshness != "changedFromPre") return AttackResult.Unknown;
+            if (!pairMatches || freshness != "nativeSearchObserved") return AttackResult.Unknown;
             validation = "commandReturnNotSuccess";
             if (commandReturn != 1) return AttackResult.Unknown;
             validation = "targetIdentityChanged";

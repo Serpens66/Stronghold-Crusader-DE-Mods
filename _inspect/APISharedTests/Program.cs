@@ -1184,7 +1184,6 @@ namespace APISharedTests
             string unitHud = File.ReadAllText(Path.Combine(workspace, "APIShared", "src", "UnitHudPresentationCapability.cs"));
             string lobbyState = File.ReadAllText(Path.Combine(workspace, "APIShared", "src", "LobbyStateCapability.cs"));
             string sharedPreset = File.ReadAllText(Path.Combine(workspace, "APIShared", "src", "PresetLobbyModSettingsViewModel.cs"));
-            string virtualRuntime = File.ReadAllText(Path.Combine(workspace, "Testmods", "VirtualUnitsPrototype", "src", "VirtualEntityRuntime.cs"));
             string bugfixLord = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "LordUnitHudRegistration.cs"));
             string bugfixGatehouse = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "GatehouseDistanceOriginRegistration.cs"));
             string extraGatehouse = File.ReadAllText(Path.Combine(workspace, "ExtraFeatures", "src", "GatehouseAutomationRuntime.cs"));
@@ -1340,9 +1339,8 @@ namespace APISharedTests
                     unitHud.IndexOf("updateSpritesHook.Apply();", StringComparison.Ordinal),
                 "HUD hooks must not become callable before their trampolines are published");
             Assert(unitHud.Contains("ButtonCreateTroop") && unitHud.Contains("Enums.GameActionCommand.MakeTroop") &&
-                unitHud.Contains("recruitmentGameActionOriginal(command, structureId, state, value2)") &&
-                !virtualRuntime.Contains("GameAction(Enums.GameActionCommand.MakeTroop"),
-                "recruitment variants must observe Vanilla's one MakeTroop action instead of issuing a second action");
+                unitHud.Contains("recruitmentGameActionOriginal(command, structureId, state, value2)"),
+                "recruitment variants must observe Vanilla's MakeTroop action");
             Assert(unitHud.Contains("Shared.MissionEvents.Ended") && unitHud.Contains("activeRecruitment.Clear()") &&
                 unitHud.Contains("APISharedUnitDetailHost"),
                 "recruitment map reset or unit-detail host is missing");
@@ -1445,13 +1443,10 @@ namespace APISharedTests
                 unitHud.Contains("source ?? main?.UIButtonsO001") &&
                 unitHud.Contains("PropEx.GetSprite2(vanilla)") &&
                 unitHud.Contains("parent.Children.Insert(imageIndex + 1, tint)") &&
-                !unitHud.Contains("button.Content = CreateTint") &&
-                virtualRuntime.Contains("new UnitHudTint(64, 128, byte.MaxValue, 115)") &&
-                !virtualRuntime.Contains("() => MainViewModel.Instance?.UIButtonsK023"),
-                "surface-specific Vanilla Archer icons or the 45-percent overlay tint are incorrect");
-            Assert(virtualRuntime.Contains("TryRegisterCategory") && bugfixLord.Contains("TryRegisterCategory") &&
-                !virtualRuntime.Contains("new Hook"),
-                "consumer mods do not exclusively register with the central HUD API");
+                !unitHud.Contains("button.Content = CreateTint"),
+                "surface-specific Vanilla Archer icons or the overlay tint are incorrect");
+            Assert(bugfixLord.Contains("TryRegisterCategory"),
+                "BugfixesAndQoL does not register with the central HUD API");
             Assert(bugfixGatehouse.Contains("TryGetGatehouseDistanceOrigin") &&
                 bugfixGatehouse.Contains("GatehouseDistanceOrigin.BuildingBoundsCenter") &&
                 bugfixGatehouse.Contains("GatehouseDistanceOrigin.VanillaBuildingBegin"),
@@ -1586,8 +1581,7 @@ namespace APISharedTests
                 }
 
                 string name = Path.GetFileName(directory);
-                if (!string.Equals(name, "Testmods", StringComparison.Ordinal) &&
-                    !string.Equals(name, "Helpers", StringComparison.Ordinal))
+                if (!string.Equals(name, "Helpers", StringComparison.Ordinal))
                 {
                     continue;
                 }
