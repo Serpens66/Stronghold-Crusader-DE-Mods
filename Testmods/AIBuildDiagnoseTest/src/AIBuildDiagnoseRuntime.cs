@@ -107,6 +107,13 @@ namespace AIBuildDiagnoseTest
         private readonly int[] farmOriginX = new int[9], farmOriginY = new int[9];
         private readonly int[] woodCandidateScans = new int[9], farmCandidateScans = new int[9];
         private readonly Dictionary<string, int> candidateReasons = new Dictionary<string, int>();
+        private readonly Dictionary<string, int> genericBuildEvents = new Dictionary<string, int>();
+        private readonly Dictionary<string, int> genericSpawnEvents = new Dictionary<string, int>();
+        private readonly Dictionary<int, string> genericSpawnById = new Dictionary<int, string>();
+        private int genericSpawnIdOverflow;
+        private readonly Dictionary<int, string> aivWallPlanByTile = new Dictionary<int, string>();
+        private bool aivWallPlanCaptured;
+        private int aivWallPlanAttempts, aivWallPlanOverflow;
         private readonly int[] hutSpawns = new int[9];
         private readonly int[] initialHuts = new int[9];
         private readonly string[] lastObservedStage = new string[9];
@@ -275,6 +282,13 @@ namespace AIBuildDiagnoseTest
             nextSummaryTick = 0;
             seen.Clear();
             attempts.Clear();
+            genericBuildEvents.Clear();
+            genericSpawnEvents.Clear();
+            genericSpawnById.Clear();
+            genericSpawnIdOverflow = 0;
+            aivWallPlanByTile.Clear();
+            aivWallPlanCaptured = false;
+            aivWallPlanAttempts = aivWallPlanOverflow = 0;
             outcomes.Clear();
             routeCauses.Clear();
             nearbyCauses.Clear();
@@ -382,6 +396,15 @@ namespace AIBuildDiagnoseTest
                 Log($"AI_BUILD_SOURCE_WATCH_SUMMARY: session={sessionId}, pathGenerationChanges={pathGenerationChanges}, " +
                     $"farmGridPairCaptured={farmGridPairCaptured}, rawSnapshotsDropped={farmGridRawDropped}, " +
                     $"parcelFull={farmParcelSnapshots}, parcelCompact={farmParcelSnapshotsDropped}.");
+            if (active)
+                Log($"AI_BUILD_GENERIC_EVENT_SUMMARY: session={sessionId}, " +
+                    $"buildKeys={genericBuildEvents.Count}, spawnKeys={genericSpawnEvents.Count}, " +
+                    $"spawnIdsRetained={genericSpawnById.Count}, spawnIdsOmitted={genericSpawnIdOverflow}; " +
+                    "eventEvidenceOnly=true.");
+            if (active)
+                Log($"AI_BUILD_AIV_WALL_PLAN_SUMMARY: session={sessionId}, " +
+                    $"captured={aivWallPlanCaptured}, tiles={aivWallPlanByTile.Count}, " +
+                    $"attempts={aivWallPlanAttempts}, omitted={aivWallPlanOverflow}.");
             active = false;
             probeSession = probePending = probeRunning = false;
             nearbyCopySession = false;
@@ -396,6 +419,7 @@ namespace AIBuildDiagnoseTest
             if (!active) return;
             lastTick = tick;
             observedTickCount++;
+            if (!aivWallPlanCaptured && aivWallPlanAttempts < 3) CaptureAivWallPlans();
             FlushDeferredLog();
             FlushFarmGridRaw();
             ObservePathGeneration(tick);
@@ -895,8 +919,75 @@ namespace AIBuildDiagnoseTest
             return value.ToString();
         }
 
+        private void ObserveGenericBuild(BuildStructureEventArgs args)
+        {
+            string key = $"{args.PlayerId}:{(int)args.Mappers}:{args.Phase}";
+            genericBuildEvents.TryGetValue(key, out int prior);
+            genericBuildEvents[key] = prior + 1;
+            if (prior >= 2) return;
+            // All mappers are recorded raw; their individual footprints are not inferred here.
+            QueueDiagnostic($"AI_BUILD_GENERIC_STRUCTURE: session={sessionId}, tick={lastTick}, " +
+                $"player={args.PlayerId}, mapper={args.Mappers}, phase={args.Phase}, " +
+                $"ordinal={prior + 1}, tile=({args.TileX},{args.TileY}), " +
+                $"scale={args.BuildingScaleUnknown}, free={args.IsFree}, " +
+                $"{ReadGenericSite(args.TileX, args.TileY)}; footprint=not-audited-for-mapper; " +
+                "postEventReturnValueNotAuthoritative=true.", prior == 0);
+        }
+
+        private void ObserveGenericSpawn(BuildingSpawnEventArgs args)
+        {
+            string key = $"{args.PlayerId}:{(int)args.Building}";
+            genericSpawnEvents.TryGetValue(key, out int prior);
+            genericSpawnEvents[key] = prior + 1;
+            if (args.ReturnValue <= int.MaxValue)
+            {
+                if (genericSpawnById.Count < 4096)
+                    genericSpawnById[(int)args.ReturnValue] =
+                        $"type:{args.Building}/owner:{args.PlayerId}/tick:{lastTick}/" +
+                        $"origin:({args.TileX},{args.TileY})";
+                else genericSpawnIdOverflow++;
+            }
+            else genericSpawnIdOverflow++;
+            if (prior >= 2) return;
+            QueueDiagnostic($"AI_BUILD_GENERIC_SPAWN: session={sessionId}, tick={lastTick}, " +
+                $"player={args.PlayerId}, type={args.Building}, ordinal={prior + 1}, " +
+                $"buildingId={args.ReturnValue}, tile=({args.TileX},{args.TileY}), " +
+                $"{ReadGenericSite(args.TileX, args.TileY)}.", prior == 0);
+        }
+
+        private static string ReadGenericSite(int x, int y)
+        {
+            try
+            {
+                GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
+                if (!tiles.IsTileInsideMapBounds(x, y)) return "anchorStatus=outside-map";
+                int id = tiles.GetTileId(x, y);
+                Span<ushort> pcl = GamePathingManagerAPI.Instance.GetPathComponentGrid();
+                if (id <= 0 || (uint)id >= (uint)pcl.Length)
+                    return $"anchorStatus=invalid-tile-id, anchorTileId={id}, pclLength={pcl.Length}";
+                string coarse = "unavailable";
+                int cx = x / 5, cy = y / 5;
+                Span<AivCoarseCell> grid = GameAIVManagerAPI.Instance.GetCoarseGrid();
+                int index = cx * 160 + cy;
+                if ((uint)cx < 160 && (uint)cy < 160 && (uint)index < (uint)grid.Length)
+                {
+                    ref AivCoarseCell cell = ref grid[index];
+                    coarse = $"foreign:{unchecked((sbyte)cell.ForeignPathComponentTileCount)}/" +
+                        $"reservation:{cell.StructureOrReservationCount}/" +
+                        $"treeWeight:{cell.TreeObstructionWeight}/retry:{cell.WoodcutterRetryDelay}";
+                }
+                return $"anchorStatus=ok, anchorTileId={id}, anchorPcl={pcl[id]}, " +
+                    $"anchorFlags=0x{(uint)tiles.GetTilePropertyFlag(id):X8}, " +
+                    $"anchorBuilding={tiles.GetTileBuildingId(id)}, coarse=({cx},{cy}), " +
+                    $"coarseRaw={coarse}";
+            }
+            catch (Exception ex) { return "anchorStatus=read-failed:" + ex.GetType().Name; }
+        }
+
         private void OnBuildStructure(BuildStructureEventArgs args)
         {
+            if (active && args.PlayerId >= 1 && args.PlayerId <= 8)
+                ObserveGenericBuild(args);
             if (active && args.Mappers == eMappers.MAPPER_APPLEFARM &&
                 args.PlayerId >= 1 && args.PlayerId <= 8)
             {
@@ -944,6 +1035,9 @@ namespace AIBuildDiagnoseTest
 
         private void OnBuildingSpawn(BuildingSpawnEventArgs args)
         {
+            if (active && args.Phase == EventHookPhase.Post && args.ReturnValue > 0 &&
+                args.PlayerId >= 1 && args.PlayerId <= 8)
+                ObserveGenericSpawn(args);
             if (args.Building == eStructs.STRUCT_APPLEFARM)
             {
                 if (active && args.Phase == EventHookPhase.Pre)
@@ -2954,6 +3048,55 @@ namespace AIBuildDiagnoseTest
             }
         }
 
+        private void CaptureAivWallPlans()
+        {
+            aivWallPlanAttempts++;
+            try
+            {
+                GameAIVManagerAPI api = GameAIVManagerAPI.Instance;
+                int wallSteps = 0, invalidTiles = 0;
+                for (int player = 1; player <= 8; player++)
+                {
+                    if (!api.TryGetVillageSlotByPlayerId(player, out int slot) ||
+                        !api.TryGetVillageByPlayerId(player, out AivVillageState* village)) continue;
+                    Span<AivBuildStep> steps = api.GetBuildSteps(slot);
+                    int count = village->MaximumBuildStep < 0 ? 0 :
+                        Math.Min(steps.Length, village->MaximumBuildStep + 1);
+                    for (int frame = 0; frame < count; frame++)
+                    {
+                        if (steps[frame].BuildingType != eMappers.MAPPER_WALL) continue;
+                        wallSteps++;
+                        Span<int> planned = api.GetBuildStepMapTiles(slot, frame);
+                        for (int i = 0; i < planned.Length; i++)
+                        {
+                            int tileId = planned[i];
+                            if (tileId <= 0 || tileId >= 320800) { invalidTiles++; continue; }
+                            string match = $"player:{player}/frame:{frame}/slot:{slot}";
+                            if (aivWallPlanByTile.TryGetValue(tileId, out string earlier))
+                            {
+                                if (earlier.Length < 160) aivWallPlanByTile[tileId] = earlier + "|" + match;
+                                continue;
+                            }
+                            if (aivWallPlanByTile.Count < 100000) aivWallPlanByTile[tileId] = match;
+                            else aivWallPlanOverflow++;
+                        }
+                    }
+                }
+                aivWallPlanCaptured = wallSteps > 0 || aivWallPlanAttempts >= 3;
+                if (aivWallPlanCaptured)
+                    QueueDiagnostic($"AI_BUILD_AIV_WALL_PLAN_CAPTURE: session={sessionId}, tick={lastTick}, " +
+                        $"steps={wallSteps}, mappedTiles={aivWallPlanByTile.Count}, " +
+                        $"invalidTiles={invalidTiles}, omitted={aivWallPlanOverflow}, " +
+                        $"attempts={aivWallPlanAttempts}; membershipDoesNotProveConstruction=true.", true);
+            }
+            catch (Exception ex)
+            {
+                if (aivWallPlanAttempts >= 3) aivWallPlanCaptured = true;
+                QueueDiagnostic($"AI_BUILD_AIV_WALL_PLAN_FAILED: session={sessionId}, " +
+                    $"attempt={aivWallPlanAttempts}, error={ex.GetType().Name}: {ex.Message}.", true);
+            }
+        }
+
         private void CaptureWallMap(string phase)
         {
             try
@@ -2976,13 +3119,19 @@ namespace AIBuildDiagnoseTest
                     {
                         int y = tiles.MapColumnLookupTable[tileId];
                         int x = tileId - tiles.MapRowLookupTable[3 * y];
+                        int buildingId = tiles.GetTileBuildingId(tileId);
+                        string spawned = genericSpawnById.TryGetValue(buildingId, out string source)
+                            ? source : "unmatched";
+                        string planned = aivWallPlanByTile.TryGetValue(tileId, out string plan)
+                            ? plan : "unmatched";
                         QueueDiagnostic($"AI_BUILD_WALL_MAP_CHANGE: session={sessionId}, tick={lastTick}, " +
                             $"phase={phase}, sequence={++timelineSequence}, tileId={tileId}, " +
                             $"tile=({x},{y}), old=0x{old:X3}, new=0x{next[tileId]:X3}, " +
                             $"kind={(wall != 0 && (old & 0x100u) == 0 ? "new" : wall == 0 &&
                                 (old & 0x100u) != 0 ? "removed" : "owner-changed")}, " +
                             $"detailFlags=0x{(uint)tiles.GetTilePropertyFlag(tileId):X8}, " +
-                            $"building={tiles.GetTileBuildingId(tileId)}, height={tiles.GetTileHeight(tileId)}.",
+                            $"building={buildingId}, matchedSpawn={spawned}, aivWallPlan={planned}, " +
+                            $"height={tiles.GetTileHeight(tileId)}.",
                             !firstWallChangeLogged);
                         firstWallChangeLogged = true;
                     }

@@ -81,6 +81,8 @@ namespace BugfixesAndQoL
         private static PrebuiltAiWorkshopBothFixRuntime processPrebuiltAiWorkshopBothFixRuntime;
         private static AIPreplacedBuildingFixRuntime processAIPreplacedBuildingFixRuntime;
         private static WorkerBreakPauseHook processWorkerBreakPauseHook;
+        private static WorkshopIdleDelayHook processWorkshopIdleDelayHook;
+        private static bool workshopIdleTickSubscribed, workshopIdleTickLogged;
         private static NativeTannerFade processNativeTannerFade;
         private static WaterboyTargetReservationRuntime processWaterboyTargetReservationRuntime;
         private static NotificationLastFrameFeature processNotificationLastFrameFeature;
@@ -118,6 +120,7 @@ namespace BugfixesAndQoL
         private bool aiDefensePatrolFixUnavailable;
         private bool aiWallTargetingFixUnavailable;
         private bool workerBreakPauseHookUnavailable;
+        private bool workshopIdleDelayHookUnavailable;
         private bool aivDefenderPositionFixUnavailable;
         private bool aiTowerRuinRepairFixUnavailable;
         private bool betterAIOverbuildRulesFixUnavailable;
@@ -445,6 +448,7 @@ namespace BugfixesAndQoL
             TryInitializeFeature("AI defense patrol fix", EnsureAiDefensePatrolFix);
             TryInitializeFeature("AI wall-targeting fix", EnsureAiWallTargetingFix);
             TryInitializeFeature("baker/miller breaks", EnsureWorkerBreakPauseHook);
+            TryInitializeFeature("workshop idle delay", EnsureWorkshopIdleDelayHook);
             TryInitializeFeature("AIV defender-position fix", EnsureAivDefenderPositionFix);
             TryInitializePersistentFeature("AI preplaced-map-building fix", () =>
             {
@@ -477,6 +481,7 @@ namespace BugfixesAndQoL
             TryInitializeFeature("AI defense patrol fix", EnsureAiDefensePatrolFix);
             TryInitializeFeature("AI wall-targeting fix", EnsureAiWallTargetingFix);
             TryInitializeFeature("baker/miller breaks", EnsureWorkerBreakPauseHook);
+            TryInitializeFeature("workshop idle delay", EnsureWorkshopIdleDelayHook);
             TryInitializeFeature("AIV defender-position fix", EnsureAivDefenderPositionFix);
             TryApplyFeature("ally goods amount modifiers", () => processAllyGoodsAmountModifierHook?.RefreshSetting());
             TryInitializeFeature("surrender", InitializeSurrenderFeature);
@@ -1233,6 +1238,40 @@ namespace BugfixesAndQoL
                     $"Bugfixes and QoL AI defense patrol fix could not be installed; " +
                     $"only this AI fix remains inactive and Vanilla behavior remains active: {ex}");
             }
+        }
+
+        private void EnsureWorkshopIdleDelayHook()
+        {
+            if (processWorkshopIdleDelayHook == null && nativeLibraryAvailable &&
+                !workshopIdleDelayHookUnavailable)
+            {
+                try
+                {
+                    processWorkshopIdleDelayHook = new WorkshopIdleDelayHook(
+                        log, nativeRegion, GetNativeLibraryMemory(),
+                        unchecked((ulong)libraryHandle.ToInt64()), fixedLayoutHashValidated);
+                }
+                catch (Exception ex)
+                {
+                    workshopIdleDelayHookUnavailable = true;
+                    Shared.DebugLogHelper.LogError(log,
+                        "BUGFIXES_AND_QOL_WORKSHOP_IDLE_INACTIVE: Vanilla remains active: " + ex);
+                }
+            }
+            if (processWorkshopIdleDelayHook != null && !workshopIdleTickSubscribed && !workshopIdleTickLogged)
+            {
+                GameTimeManagerAPI.Instance.OnTick += OnWorkshopIdleTick;
+                workshopIdleTickSubscribed = true;
+            }
+            processWorkshopIdleDelayHook?.SetEnabled(settings.EnableMod && settings.EnableWorkshopIdleDelayFix);
+        }
+
+        private static void OnWorkshopIdleTick(int tick)
+        {
+            processWorkshopIdleDelayHook?.LogAfterStartup(tick);
+            workshopIdleTickLogged = true;
+            GameTimeManagerAPI.Instance.OnTick -= OnWorkshopIdleTick;
+            workshopIdleTickSubscribed = false;
         }
 
         private void EnsureWorkerBreakPauseHook()

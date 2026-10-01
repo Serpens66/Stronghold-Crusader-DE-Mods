@@ -18,6 +18,8 @@ Primary reusable artifacts:
 
 Semantic reverse-engineering baseline:
 
+- [Poleturner and tanner idle-delay audit](./sem/FBCB9319/knowledge/WORKSHOP_IDLE_DELAY.md): material predicates, fear breaks and permanent inline-hook boundaries.
+
 - [Spectator report path](./sem/FBCB9319/knowledge/SPECTATOR_REPORTS.md): selected view index, native report buffer, managed Army gate, and Food action controls.
 - [Script Extender 2.11.0 speech-path hook audit](./sem/FBCB9319/knowledge/SE_2_11_SPEECH_PATH.md): module-bound signature, RedBird displacement, continuation, and the earlier path-length defect.
 - [Fireman targeting and extinguishing audit](./sem/FBCB9319/knowledge/FIREMAN_TARGETING.md): target selection, states, compound fires, one-throw extinguishing and verified detour entry.

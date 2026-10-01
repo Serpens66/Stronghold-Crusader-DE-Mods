@@ -172,6 +172,8 @@
     <Compile Include="src\WaterboyNativeDefinition.cs" />
     <Compile Include="src\WaterboyTargetReservationRuntime.cs" />
     <Compile Include="src\WorkerBreakPauseHook.cs" />
+    <Compile Include="src\WorkshopIdleDelayHook.cs" />
+    <Compile Include="src\WorkshopIdleDelayNative.cs" />
     <Compile Include="src\BugfixesAndQoLViewModel.cs" />
     <Compile Include="src\KeepFlagRotationPolicy.cs" />
     <Compile Include="src\KeepFlagRotationRuntime.cs" />

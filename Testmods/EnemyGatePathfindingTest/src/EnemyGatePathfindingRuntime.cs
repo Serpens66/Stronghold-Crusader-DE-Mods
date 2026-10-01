@@ -35,6 +35,8 @@ namespace EnemyGatePathfindingTest
         private SamePclGateRouteRuntime samePclRouteRuntime;
         private AttackOrderCorrelationDiagnostics attackOrderDiagnostics;
         private HookTransaction transaction;
+        private CapturerComparisonCallback rootedPclComparison;
+        private CapturerComparisonCallback rootedBuilderComparison;
         private readonly HookHandle<X64InlineHook> pclGraphCapturedByFilterHook = new HookHandle<X64InlineHook>();
         private readonly HookHandle<X64InlineHook> builderPrecheckCapturedByFilterHook = new HookHandle<X64InlineHook>();
         private volatile NativeGateAccessSnapshot gateAccess = NativeGateAccessSnapshot.Empty;
@@ -117,10 +119,18 @@ namespace EnemyGatePathfindingTest
             topologyProvider.SetGateAccessConsumer(UpdateGateAccess);
             attackOrderDiagnostics = new AttackOrderCorrelationDiagnostics(log, topologyProvider);
 
-            // The displaced integer-only blocks define RCX/RDX before the callback.
-            // RedBird's BeforeCallback stub changes flags while saving context, so the
-            // callback reconstructs CMP from its exact operands and restores ZF itself.
-            // No XMM value is live across either audited block.
+            // Our adapter executes CMP once, saves inequality in R11b, and TESTs
+            // that Boolean after callback cleanup. The real R11 is preserved.
+            rootedPclComparison = FilterUnrelatedCapturedEnemyGatePclGraph;
+            rootedBuilderComparison = FilterUnrelatedCapturedEnemyGateBuilderPrecheck;
+            ulong pclCallback = unchecked((ulong)Marshal.GetFunctionPointerForDelegate(rootedPclComparison).ToInt64());
+            ulong builderCallback = unchecked((ulong)Marshal.GetFunctionPointerForDelegate(rootedBuilderComparison).ToInt64());
+            CapturerComparisonAdapterEmitter.AssembleAndValidate(
+                memory.Slice(pclGraphFilterRva, 20).ToArray(), libraryBase + (ulong)pclGraphFilterRva,
+                pclCallback, libraryBase + 0x02200000UL);
+            CapturerComparisonAdapterEmitter.AssembleAndValidate(
+                memory.Slice(builderPrecheckFilterRva, 20).ToArray(), libraryBase + (ulong)builderPrecheckFilterRva,
+                builderCallback, libraryBase + 0x02200000UL);
             transaction = new HookTransaction(
                 context.Region,
                 SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
@@ -129,28 +139,16 @@ namespace EnemyGatePathfindingTest
                     FailureMode = TransactionFailureMode.RollbackAndThrow,
                     OwnsHooks = false
                 });
-            transaction.AddContextHook(
+            transaction.AddInline(
                 pclGraphCapturedByFilterHook,
                 HookTarget.FromAddress(libraryBase + unchecked((ulong)pclGraphFilterRva)),
-                FilterUnrelatedCapturedEnemyGatePclGraph,
-                new ContextHookOptions
-                {
-                    Registers = X64SmartCPUContextRegs.All,
-                    HookSize = EnemyGatePathfindingNativeDefinition.PclGraphCapturedByFilterHookLength,
-                    ErrorMode = CallbackErrorMode.LogAndContinue,
-                    Placement = OverwrittenInstructionPlacement.BeforeCallback
-                });
-            transaction.AddContextHook(
+                (asm, original, returnAddress) => CapturerComparisonAdapterEmitter.Emit(asm, original, pclCallback),
+                hookSize: EnemyGatePathfindingNativeDefinition.PclGraphCapturedByFilterHookLength);
+            transaction.AddInline(
                 builderPrecheckCapturedByFilterHook,
                 HookTarget.FromAddress(libraryBase + unchecked((ulong)builderPrecheckFilterRva)),
-                FilterUnrelatedCapturedEnemyGateBuilderPrecheck,
-                new ContextHookOptions
-                {
-                    Registers = X64SmartCPUContextRegs.All,
-                    HookSize = EnemyGatePathfindingNativeDefinition.BuilderPrecheckCapturedByFilterHookLength,
-                    ErrorMode = CallbackErrorMode.LogAndContinue,
-                    Placement = OverwrittenInstructionPlacement.BeforeCallback
-                });
+                (asm, original, returnAddress) => CapturerComparisonAdapterEmitter.Emit(asm, original, builderCallback),
+                hookSize: EnemyGatePathfindingNativeDefinition.BuilderPrecheckCapturedByFilterHookLength);
             CommitResult commitResult = transaction.Commit();
             if (!commitResult.IsCompleteSuccess ||
                 !pclGraphCapturedByFilterHook.Success ||
@@ -188,6 +186,7 @@ namespace EnemyGatePathfindingTest
 
             Shared.DebugLogHelper.LogInfo(log,
                 "Crash-safe enemy-gate hooks installed: " +
+                "capturerAdapter=post-cleanup-test, " +
                 $"pclGraphCapturerFilter=0x{pclGraphFilterRva:X} " +
                 $"({pclGraphCompareResolution.Method}+0x" +
                 $"{EnemyGatePathfindingNativeDefinition.PclGraphCapturedByCompareOffsetInPattern:X}), " +
@@ -379,21 +378,21 @@ namespace EnemyGatePathfindingTest
         }
 
         private void FilterUnrelatedCapturedEnemyGatePclGraph(
-            NativePointer<X64SmartCPUContext> context)
+            IntPtr context)
         {
             // UPDATE REVIEW (CrusaderDE.dll): E2610 keeps query player in R14 here.
             FilterUnrelatedCapturedEnemyGate(context, false);
         }
 
         private void FilterUnrelatedCapturedEnemyGateBuilderPrecheck(
-            NativePointer<X64SmartCPUContext> context)
+            IntPtr context)
         {
             // UPDATE REVIEW (CrusaderDE.dll): E2F60 keeps query player in RBP here.
             FilterUnrelatedCapturedEnemyGate(context, true);
         }
 
         private void FilterUnrelatedCapturedEnemyGate(
-            NativePointer<X64SmartCPUContext> context,
+            IntPtr context,
             bool builderPrecheck)
         {
             X64SmartCPUContext* registers = null;
@@ -406,7 +405,7 @@ namespace EnemyGatePathfindingTest
                     Interlocked.Increment(ref siteCalls[builderPrecheck ? 1 : 0]);
                 }
 
-                registers = context.Pointer;
+                registers = (X64SmartCPUContext*)context;
                 if (registers == null)
                 {
                     RecordDecision(builderPrecheck, NativeGateSnapshotDecision.Exception,
@@ -415,19 +414,12 @@ namespace EnemyGatePathfindingTest
                     return;
                 }
 
-                // The original CMP executed immediately before this callback, therefore
-                // rereading the same word uses the already validated native memory contract.
+                // Native SETNE secured the real CMP result before any wrapper code.
+                originalZero = (registers->R11 & 0xFFUL) == 0;
+                originalZeroKnown = true;
                 byte* captureBase = (byte*)(builderPrecheck ? registers->R13 : registers->RAX);
                 ushort nativeCapturedByPlayerId = *(ushort*)(captureBase + registers->RDX +
                     EnemyGatePathfindingNativeDefinition.CapturedByPlayerTableDisplacement);
-                originalZero = builderPrecheck
-                    ? EnemyGatePathfindingNativeDefinition.BuilderPrecheckCaptureCompareIsEqual(
-                        nativeCapturedByPlayerId, unchecked((ushort)registers->RAX))
-                    : EnemyGatePathfindingNativeDefinition.PclGraphCaptureCompareIsEqual(
-                        nativeCapturedByPlayerId);
-                originalZeroKnown = true;
-                registers->Rflags = EnemyGatePathfindingPolicy.SetZeroFlag(
-                    registers->Rflags, originalZero);
 
                 int queryPlayerId = builderPrecheck
                     ? unchecked((int)(uint)registers->RBP)
@@ -474,8 +466,7 @@ namespace EnemyGatePathfindingTest
                     out snapshotRecord);
                 if (decision == NativeGateSnapshotDecision.ExcludeForeignCapture)
                 {
-                    registers->Rflags = EnemyGatePathfindingPolicy.SetZeroFlag(
-                        registers->Rflags, true);
+                    registers->R11 &= ~0xFFUL;
                 }
                 RecordDecision(builderPrecheck, decision, queryPlayerId, buildingId,
                     recordBuildingId, ownerPlayerId, nativeCapturedByPlayerId,
@@ -486,14 +477,17 @@ namespace EnemyGatePathfindingTest
             }
             catch
             {
-                // Any policy failure retains the exact result of Vanilla's displaced CMP.
+                // Restore the secured Vanilla Boolean; the emitter creates ZF later.
                 if (registers != null && originalZeroKnown)
-                    registers->Rflags = EnemyGatePathfindingPolicy.SetZeroFlag(
-                        registers->Rflags, originalZero);
-                RecordDecision(builderPrecheck, NativeGateSnapshotDecision.Exception,
-                    0, 0, 0, 0, 0, 0, 0, 0, default, 0, originalZero,
-                    originalZero, gateAccess.TopologyFingerprint);
+                    registers->R11 = (registers->R11 & ~0xFFUL) | (originalZero ? 0UL : 1UL);
                 Interlocked.Increment(ref callbackWarnings);
+                try
+                {
+                    RecordDecision(builderPrecheck, NativeGateSnapshotDecision.Exception,
+                        0, 0, 0, 0, 0, 0, 0, 0, default, 0, originalZero,
+                        originalZero, gateAccess.TopologyFingerprint);
+                }
+                catch { /* A diagnostic failure must not escape the native callback. */ }
             }
         }
 
@@ -825,7 +819,7 @@ namespace EnemyGatePathfindingTest
                     $"nativeOwner={sample.NativeOwner}, snapshotOwner={sample.SnapshotOwner}, " +
                     $"nativeCaptured={sample.NativeCaptured}, snapshotCaptured={sample.SnapshotCaptured}, " +
                     $"portalPcls={sample.FirstPcl}/{sample.SecondPcl}/{sample.ThirdPcl}, " +
-                    $"compareValue={sample.CompareValue}, originalZF={sample.OriginalZero}, finalZF={sample.FinalZero}, " +
+                    $"compareValue={sample.CompareValue}, nativeCompareEqual={sample.OriginalZero}, branchReject={sample.FinalZero}, adapter=post-cleanup-test, " +
                     $"accessFingerprint=0x{sample.Fingerprint:X16}.");
             }
         }

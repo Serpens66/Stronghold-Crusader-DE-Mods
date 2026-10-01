@@ -222,6 +222,13 @@ namespace BugfixesAndQoL
             Array.Copy(nextCounts, counts, 8);
             Array.Copy(nextCurrentHealth, currentHealth, 8);
             Array.Copy(nextMaxHealth, maxHealth, 8);
+            // Resolved controls may retain their visual state from the previous map.
+            panel.Visibility = Visibility.Collapsed;
+            for (int i = 0; i < slots.Length; i++) slots[i].Visibility = Visibility.Collapsed;
+            pageText.Text = string.Empty;
+            previous.Visibility = Visibility.Collapsed;
+            next.Visibility = Visibility.Collapsed;
+            page = 0;
             for (int i = 0; i < portraits.Length; i++)
             {
                 portraits[i].PreviewMouseDown += OnPortraitMouseDown;
@@ -308,7 +315,7 @@ namespace BugfixesAndQoL
                 int entryIndex = page * 8 + i;
                 if (entryIndex >= visibleEntries.Count)
                 {
-                    if (drawnEntries[i] != null) slots[i].Visibility = Visibility.Collapsed;
+                    slots[i].Visibility = Visibility.Collapsed;
                     drawnEntries[i] = null;
                     continue;
                 }

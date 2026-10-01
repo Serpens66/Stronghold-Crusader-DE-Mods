@@ -50,6 +50,7 @@
     <Compile Include="src\RouteTilePolicySnapshot.cs" />
     <Compile Include="src\PathfindingGlobalsBaseline.cs" />
     <Compile Include="src\DirectCursorCallAdapterEmitter.cs" />
+    <Compile Include="src\CapturerComparisonAdapterEmitter.cs" />
     <Compile Include="src\DirectionFilterAdapterEmitter.cs" />
     <Compile Include="src\AiTacticalTargetAdapterEmitter.cs" />
     <Compile Include="src\AttackOrderCorrelationDiagnostics.cs" />

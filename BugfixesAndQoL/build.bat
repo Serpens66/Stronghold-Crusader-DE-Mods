@@ -53,6 +53,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-Spect
 if errorlevel 1 goto build_failed_popd
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-DamagedHealthBarsPreflight.ps1"
 if errorlevel 1 goto build_failed_popd
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-WorkshopIdleDelayPreflight.ps1"
+if errorlevel 1 goto build_failed_popd
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-TannerFadePreflight.ps1"
 if errorlevel 1 goto build_failed_popd
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared\Test-PermanentNativeRuntimePatches.ps1"
@@ -70,6 +72,10 @@ if errorlevel 1 goto build_failed_popd
 "%MSBUILD%" tests\TannerFade.Tests\TannerFade.Tests.csproj /p:Configuration=Release
 if errorlevel 1 goto build_failed_popd
 "%PROJECT_DIR%tests\TannerFade.Tests\bin\TannerFade.Tests.exe"
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+"%MSBUILD%" tests\WorkshopIdleDelay.Tests\WorkshopIdleDelay.Tests.csproj /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+if errorlevel 1 goto build_failed_popd
+"%PROJECT_DIR%tests\WorkshopIdleDelay.Tests\bin\WorkshopIdleDelay.Tests.exe" "%GAME_DIR%\Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll"
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 "%MSBUILD%" tests\WorkerBreakPause.Tests\WorkerBreakPause.Tests.csproj /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
 if errorlevel 1 goto build_failed_popd

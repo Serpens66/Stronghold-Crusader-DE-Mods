@@ -27,6 +27,7 @@ namespace EnemyGatePathfindingTest
                 AccessPolicyEqualityIgnoresRawScanOnlyChanges();
                 CaptureTransitionCoverageIsDeterministic();
                 CapturerComparisonAndFlagRestorationAreExact();
+                CapturerAdapterMachineTests.Run();
                 NativeContractIncludesDrawbridgePclAndExactFilterSite();
                 CapturerHooksCoverBothNativeSitesAtomically();
                 SnapshotRefreshPathsAreSeparatedAndBounded();
@@ -191,7 +192,8 @@ namespace EnemyGatePathfindingTest
                 EnemyGatePathfindingNativeDefinition.AuditedScriptExtenderCommit ==
                     "5b4d48e732e9b6e2e93c135f0b28ce5b9d8bcd33",
                 "Script Extender 2.8.0 provenance is pinned to the audited commit");
-            Assert(EnemyGatePathfindingNativeDefinition.AuditedRedBirdVersion == "1.3.2.0",
+            Assert(EnemyGatePathfindingNativeDefinition.AuditedRedBirdVersion ==
+                typeof(X64InlineHook).Assembly.GetName().Version.ToString(),
                 "installed RedBird audit version is documented without replacing byte contracts");
 
             string pluginSource = File.ReadAllText(
@@ -478,23 +480,10 @@ namespace EnemyGatePathfindingTest
             Assert(!EnemyGatePathfindingNativeDefinition.BuilderPrecheckCaptureCompareIsEqual(3, 0),
                 "builder CMP detects unequal capture and AX values");
 
-            ulong flagsWithoutZero = 0x202UL & ~EnemyGatePathfindingPolicy.ZeroFlagMask;
-            ulong flagsWithZero = flagsWithoutZero | EnemyGatePathfindingPolicy.ZeroFlagMask;
-            Assert((EnemyGatePathfindingPolicy.SetZeroFlag(flagsWithoutZero, true) &
-                    EnemyGatePathfindingPolicy.ZeroFlagMask) != 0,
-                "reconstructed equality restores ZF");
-            Assert((EnemyGatePathfindingPolicy.SetZeroFlag(flagsWithZero, false) &
-                    EnemyGatePathfindingPolicy.ZeroFlagMask) == 0,
-                "reconstructed inequality clears stale callback ZF");
-            Assert((EnemyGatePathfindingPolicy.SetZeroFlag(flagsWithZero, false) &
-                    ~EnemyGatePathfindingPolicy.ZeroFlagMask) ==
-                    (flagsWithZero & ~EnemyGatePathfindingPolicy.ZeroFlagMask),
-                "ZF restoration preserves every unrelated flag bit");
-
             string runtimeSource = File.ReadAllText(Path.Combine("src", "EnemyGatePathfindingRuntime.cs"));
             string body = ExtractMethodBody(runtimeSource, "FilterUnrelatedCapturedEnemyGate");
-            Assert(body.IndexOf("CapturedByPlayerTableDisplacement", StringComparison.Ordinal) >= 0,
-                "callback rereads the exact native capture-table operand");
+            Assert(body.IndexOf("registers->R11 & 0xFFUL", StringComparison.Ordinal) >= 0,
+                "callback uses the native comparison Boolean secured before cleanup");
             Assert(body.IndexOf("(registers->Rflags &", StringComparison.Ordinal) < 0,
                 "callback never treats RedBird's saved flags as the displaced CMP result");
         }
@@ -502,9 +491,9 @@ namespace EnemyGatePathfindingTest
         private static void NativeContractIncludesDrawbridgePclAndExactFilterSite()
         {
             Assert(EnemyGatePathfindingNativeDefinition.NativeRecordStride == 0x204, "record stride");
-            Assert(EnemyGatePathfindingNativeDefinition.RecordFirstPclOffset == -0x1E8, "first PCL");
-            Assert(EnemyGatePathfindingNativeDefinition.RecordSecondPclOffset == -0x1E4, "second PCL");
-            Assert(EnemyGatePathfindingNativeDefinition.RecordThirdPclOffset == -0x34, "drawbridge PCL");
+            Assert(EnemyGatePathfindingNativeDefinition.RecordFirstPclOffset == 0x1C, "first PCL");
+            Assert(EnemyGatePathfindingNativeDefinition.RecordSecondPclOffset == 0x20, "second PCL");
+            Assert(EnemyGatePathfindingNativeDefinition.RecordThirdPclOffset == 0x1D0, "drawbridge PCL");
             Assert(EnemyGatePathfindingNativeDefinition.PclGraphCapturedByFilterRva == 0xE2705,
                 "PCL-graph filter RVA");
             Assert(EnemyGatePathfindingNativeDefinition.PclGraphCapturedByFilterHookLength == 20,
@@ -603,11 +592,9 @@ namespace EnemyGatePathfindingTest
                 "process-lifetime hook ownership is explicit");
             Assert(runtimeSource.IndexOf("commitResult.IsCompleteSuccess", StringComparison.Ordinal) >= 0,
                 "transaction commit result is checked");
-            Assert(runtimeSource.IndexOf("new ContextHookOptions", StringComparison.Ordinal) >= 0,
-                "context hook options are explicit");
-            Assert(runtimeSource.IndexOf("Placement = OverwrittenInstructionPlacement.BeforeCallback",
-                    StringComparison.Ordinal) >= 0,
-                "displaced comparisons execute before callbacks");
+            Assert(runtimeSource.IndexOf("transaction.AddContextHook", StringComparison.Ordinal) < 0 &&
+                    runtimeSource.IndexOf("CapturerComparisonAdapterEmitter.Emit", StringComparison.Ordinal) >= 0,
+                "both capturer comparisons use the explicit post-cleanup TEST emitter");
             Assert(runtimeSource.IndexOf("ProbeExactHookLength", StringComparison.Ordinal) >= 0,
                 "RedBird spans are probed before publication");
             Assert(runtimeSource.IndexOf("DisplacedByteCount", StringComparison.Ordinal) >= 0,
@@ -622,8 +609,9 @@ namespace EnemyGatePathfindingTest
                         StringComparison.Ordinal) < 0,
                 "RedBird version is diagnostic while concrete hook contracts remain authoritative");
             Assert(sharedBody.IndexOf("originalZeroKnown", StringComparison.Ordinal) >= 0 &&
-                    sharedBody.IndexOf("SetZeroFlag", StringComparison.Ordinal) >= 0,
-                "callback restores reconstructed Vanilla ZF on policy failures");
+                    sharedBody.IndexOf("registers->Rflags", StringComparison.Ordinal) < 0 &&
+                    sharedBody.IndexOf("originalZero ? 0UL : 1UL", StringComparison.Ordinal) >= 0,
+                "callback restores the original Boolean on policy failures");
             Assert(runtimeSource.IndexOf("NativeGateSnapshotDecision.RecordIdMismatch",
                     StringComparison.Ordinal) >= 0,
                 "record-ID mismatch has a dedicated diagnostic outcome");

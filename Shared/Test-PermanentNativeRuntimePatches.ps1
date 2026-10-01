@@ -237,6 +237,16 @@ foreach ($contract in $permanentManagedContracts) {
     }
 }
 
+$workshopPath = Join-Path $workspace 'BugfixesAndQoL\src\WorkshopIdleDelayHook.cs'
+if (Test-Path -LiteralPath $workshopPath) {
+    $workshop = [IO.File]::ReadAllText($workshopPath)
+    if (-not $workshop.Contains('private readonly HookTransaction transaction;') -or
+        -not $workshop.Contains('Volatile.Write(ref *(int*)enabledFlag') -or
+        $workshop -match '(?:transaction|\.Hook)\??\.(?:Dispose|Undo|Enable|Disable)\s*\(' -or
+        $workshop -match '\b(?:OnDestroy|OnDisable|OnApplicationQuit|StartCoroutine|Update|LateUpdate|FixedUpdate|VirtualProtect|CodePatch)\s*\(') {
+        $errors.Add("$workshopPath`: workshop hook must remain published and use only its data gate")
+    }
+}
 if ($errors.Count -ne 0) {
     $errors | ForEach-Object { Write-Error $_ }
     throw "Permanent native runtime regression check failed with $($errors.Count) finding(s)."

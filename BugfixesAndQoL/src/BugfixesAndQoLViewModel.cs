@@ -27,6 +27,7 @@ namespace BugfixesAndQoL
         private bool enableAiWallTargetingFix = true;
         private bool enablePrebuiltAiWorkshopBothFix = true;
         private bool enableBakerMillerBreaks;
+        private bool enableWorkshopIdleDelayFix;
         private bool enableAivDefenderPositionFix = true;
         private bool fixAIPreplacedMapBuildings = true;
         private bool fixAITowerRepair = true;
@@ -227,6 +228,8 @@ namespace BugfixesAndQoL
         public string QolTitleText => SerpLocalization.Get("BugfixesAndQoL.QolTitle");
         public string FixesTitleText => SerpLocalization.Get("BugfixesAndQoL.FixesTitle");
         public string PossibleFixesTitleText => SerpLocalization.Get("BugfixesAndQoL.PossibleFixesTitle");
+        public string EnableWorkshopIdleDelayFixText => SerpLocalization.Get("BugfixesAndQoL.EnableWorkshopIdleDelayFix");
+        public string EnableWorkshopIdleDelayFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableWorkshopIdleDelayFixHelp");
         public string EnableBakerMillerBreaksText => SerpLocalization.Get("BugfixesAndQoL.EnableBakerMillerBreaks");
         public string EnableBakerMillerBreaksHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableBakerMillerBreaksHelp");
         public string InterfaceTitleText => SerpLocalization.Get("BugfixesAndQoL.InterfaceTitle");
@@ -912,6 +915,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableWorkshopIdleDelayFix
+        {
+            get => enableWorkshopIdleDelayFix;
+            set => SetSetting(ref enableWorkshopIdleDelayFix, value, nameof(EnableWorkshopIdleDelayFix));
+        }
+
+        [SyncHostOnly]
         public bool EnableBakerMillerBreaks
         {
             get => enableBakerMillerBreaks;
@@ -1363,6 +1373,7 @@ namespace BugfixesAndQoL
                 EnableAiDefensePatrolFix = true;
                 EnableAiWallTargetingFix = true;
                 EnableBakerMillerBreaks = false;
+                EnableWorkshopIdleDelayFix = false;
                 EnableAivDefenderPositionFix = true;
                 FixAIPreplacedMapBuildings = true;
                 FixAITowerRepair = true;

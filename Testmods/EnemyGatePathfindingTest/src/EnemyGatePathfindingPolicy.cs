@@ -290,12 +290,6 @@ namespace EnemyGatePathfindingTest
 
     internal static class EnemyGatePathfindingPolicy
     {
-        internal const ulong ZeroFlagMask = 1UL << 6;
-
-        internal static ulong SetZeroFlag(ulong flags, bool isEqual) => isEqual
-            ? flags | ZeroFlagMask
-            : flags & ~ZeroFlagMask;
-
         internal static DiagnosticVerdict ObservationVerdict(long count) => count > 0
             ? DiagnosticVerdict.PASS
             : DiagnosticVerdict.NOT_OBSERVED;

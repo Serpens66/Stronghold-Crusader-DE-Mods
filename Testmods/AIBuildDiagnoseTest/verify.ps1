@@ -161,6 +161,19 @@ if ($runtimeText -notmatch 'WoodSearchDx = \{ 0, 1, 0, -1 \}' -or
     $runtimeText -notmatch 'CaptureWoodSearchShadow\(') {
     throw 'Wood shadow, wall-map scan or diagnostic budget contract differs.'
 }
+if ($runtimeText -notmatch 'AI_BUILD_GENERIC_STRUCTURE:' -or
+    $runtimeText -notmatch 'AI_BUILD_GENERIC_SPAWN:' -or
+    $runtimeText -notmatch 'AI_BUILD_GENERIC_EVENT_SUMMARY:' -or
+    $runtimeText -notmatch 'AI_BUILD_AIV_WALL_PLAN_CAPTURE:' -or
+    $runtimeText -notmatch 'matchedSpawn=\{spawned\}, aivWallPlan=\{planned\}' -or
+    $runtimeText -notmatch 'GetCoarseGrid\(\)' -or
+    $runtimeText -notmatch 'postEventReturnValueNotAuthoritative=true' -or
+    $runtimeText -notmatch 'eventEvidenceOnly=true' -or
+    $runtimeText -notmatch 'genericBuildEvents\.Clear\(\)' -or
+    $runtimeText -notmatch 'genericSpawnById\.Clear\(\)' -or
+    $runtimeText -notmatch 'aivWallPlanByTile\.Clear\(\)') {
+    throw 'Generic build/spawn correlation or map-switch reset is incomplete.'
+}
 if ($runtimeText -notmatch 'NearbyDx = \{ 0, 1, 1, 1, 0, -1, -1, -1 \}' -or
     $runtimeText -notmatch 'NearbyDy = \{ -1, -1, 0, 1, 1, 1, 0, -1 \}' -or
     $runtimeText -notmatch 'BeginNearbyWoodOverlay\(' -or
