@@ -3,13 +3,20 @@
   "Author": "Serpens66",
   "Name": "APIShared",
   "Description": "Shared typed native infrastructure and extensible lobby ModSettings preset API for Serps and third-party mods.",
-  "Version": "0.4.6",
+  "Version": "0.4.7",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.9.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.4.7",
+      "Changes": [
+        "Added shared interfaces for optional enemy-gate path policies and region-query observation.",
+        "Improved optional AI wood-building diagnostics and added scoped nearby-search observation."
+      ]
+    },
     {
       "Version": "0.4.6",
       "Changes": [

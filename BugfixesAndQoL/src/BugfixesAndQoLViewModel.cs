@@ -342,6 +342,8 @@ namespace BugfixesAndQoL
         public string DamagedHealthBarsHotkeyHelpText => SerpLocalization.Get("BugfixesAndQoL.DamagedHealthBarsHotkeyHelp");
         public string DamagedHealthBarsCaptureText => SerpLocalization.Get("BugfixesAndQoL.DamagedHealthBarsCapture");
         public string DamagedHealthBarsClearText => SerpLocalization.Get("BugfixesAndQoL.DamagedHealthBarsClear");
+        public string DamagedHealthBarsCaptureHelpText => SerpLocalization.Get("BugfixesAndQoL.DamagedHealthBarsCaptureHelp");
+        public string DamagedHealthBarsClearHelpText => SerpLocalization.Get("BugfixesAndQoL.DamagedHealthBarsClearHelp");
         public string DamagedHealthBarsCapturePromptText => SerpLocalization.Get("BugfixesAndQoL.DamagedHealthBarsCapturePrompt");
         public string DamagedHealthBarsOffText => SerpLocalization.Get("BugfixesAndQoL.DamagedHealthBarsOff");
         public string ShowCountdownTimersText => SerpLocalization.Get("BugfixesAndQoL.ShowCountdownTimers");

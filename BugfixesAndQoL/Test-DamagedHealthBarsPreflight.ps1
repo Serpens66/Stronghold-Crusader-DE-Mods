@@ -31,7 +31,8 @@ if ($runtime -notmatch 'InputR3EventHooks\.OnKeyDown' -or
     $runtime -notmatch 'HEALTH_BARS_POST_STARTUP' -or
     $runtime -notmatch 'DisplacedByteCount' -or
     $runtime -notmatch 'controller\.NoesisHasKeyboard' -or
-    $runtime -notmatch 'viewModel\.IsMapEditorMode' -or
+    $runtime -notmatch 'Shared\.GameModeHelper\.IsMapEditor\(\)' -or
+    $runtime -match 'MainViewModel\.Instance|\.IsMapEditorMode' -or
     $runtime -notmatch 'settings\.EnableDamagedHealthBars' -or
     $runtime -notmatch 'settings\.CaptureHealthBarHotkeyFromInput\(args\.Key\)' -or
     $runtime -notmatch 'ReferenceEquals\(hub\.SelectedTab\?\.ViewModel, settings\)' -or

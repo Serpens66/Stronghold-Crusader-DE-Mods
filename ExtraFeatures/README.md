@@ -21,6 +21,9 @@ Set separate health multipliers for human and AI Lords from 10% to 500%. Both cu
 ### Mount swordsmen and dismount knights
 New troop commands turn selected swordsmen into mounted knights or mounted knights back into swordsmen at the same position. Mounting requires available horses in a stable; after dismounting, the horse can either replenish normally or become available again immediately.
 
+### Let Bedouin healers heal civilians and siege engines
+Two independent host options allow Bedouin healers to heal wounded civilians and siege engines belonging to human players. Both are disabled by default. Soldiers continue to be healed as in the base game.
+
 ## Gatehouse features
 
 ### Customize automatic gate timing and distance

@@ -373,3 +373,5 @@ BugfixesAndQoL.DamagedHealthBarsCapture=Zuweisen
 BugfixesAndQoL.DamagedHealthBarsClear=Löschen
 BugfixesAndQoL.DamagedHealthBarsCapturePrompt=Kombination drücken
 BugfixesAndQoL.DamagedHealthBarsOff=Keine Taste
+BugfixesAndQoL.DamagedHealthBarsCaptureHelp=Klicke hier und drücke dann die gewünschte Tastenkombination zum Umschalten der Lebensbalken beschädigter Objekte.
+BugfixesAndQoL.DamagedHealthBarsClearHelp=Entfernt die zugewiesene Tastenkombination zum Umschalten der Lebensbalken beschädigter Objekte.

@@ -211,9 +211,10 @@ if (-not $cameraJump -or $cameraJump -notmatch 'IsActiveSpectator\(\)' -or
 if ([IO.File]::ReadAllText($projectFile.FullName) -notmatch '0Harmony') {
     throw 'Installed Harmony reference missing.'
 }
+$apiDependency = [regex]::Match($plugin, 'BepInDependency\(ApiSharedGuid, "([^"]+)"\)')
 if ([IO.File]::ReadAllText($projectFile.FullName) -notmatch 'APIShared' -or
-    $plugin -notmatch 'BepInDependency\(ApiSharedGuid, "0\.4\.6"\)') {
-    throw 'APIShared 0.4.6 dependency missing.'
+    -not $apiDependency.Success -or [version]$apiDependency.Groups[1].Value -lt [version]'0.4.6') {
+    throw 'Spectator perspective requires APIShared 0.4.6 or newer.'
 }
 if ([IO.File]::ReadAllText($projectFile.FullName) -notmatch '<AllowUnsafeBlocks>true</AllowUnsafeBlocks>') {
     throw 'Native target validation requires an unsafe-enabled project.'
@@ -234,7 +235,8 @@ foreach ($file in $textFiles) {
 }
 [xml]$project = Get-Content -LiteralPath $projectFile.FullName -Raw
 $metadata = Get-Content -LiteralPath (Join-Path $projectRoot 'info.json') -Raw | ConvertFrom-Json
-if ($metadata.GUID -ne 'BugfixesAndQoL_Serp' -or $metadata.Version -ne '1.0.172') { throw 'Mod metadata mismatch.' }
+$pluginVersion = [regex]::Match($plugin, 'PluginVersion\s*=\s*"([^"]+)"').Groups[1].Value
+if ($metadata.GUID -ne 'BugfixesAndQoL_Serp' -or -not $pluginVersion -or $metadata.Version -ne $pluginVersion) { throw 'Mod metadata mismatch.' }
 if ($metadata.NetworkMode -ne 1) { throw 'Gameplay-affecting ally actions require NetworkMode=1.' }
 $patchPath = Join-Path $projectRoot 'Patches\Assets\GUI\XAML\IngameUIScreens.xaml'
 [xml]$patch = Get-Content -LiteralPath $patchPath -Raw

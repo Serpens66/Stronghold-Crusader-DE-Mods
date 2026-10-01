@@ -356,8 +356,7 @@ namespace BugfixesAndQoL
                     return;
                 if (gameData.app_mode != 14 && gameData.app_mode != 16)
                     return;
-                MainViewModel viewModel = MainViewModel.Instance;
-                if (viewModel == null || viewModel.IsMapEditorMode)
+                if (Shared.GameModeHelper.IsMapEditor())
                     return;
                 FatControler controller = FatControler.instance;
                 if (controller == null || controller.NoesisHasKeyboard)

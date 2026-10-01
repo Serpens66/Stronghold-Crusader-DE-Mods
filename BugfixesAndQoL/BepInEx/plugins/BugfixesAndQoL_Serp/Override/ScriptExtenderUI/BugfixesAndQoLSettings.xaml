@@ -172,12 +172,12 @@
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.damaged-health-bars" shared:ModSettingsSearch.Title="{Binding DamagedHealthBarsHotkeyText}" shared:ModSettingsSearch.ToolTipText="{Binding DamagedHealthBarsHotkeyHelpText}" Margin="0,0,0,8">
         <StackPanel Orientation="Horizontal" ToolTipService.ShowDuration="60000" ToolTip="{Binding DamagedHealthBarsHotkeyHelpText}">
           <TextBlock Text="{Binding DamagedHealthBarsHotkeyText}" Foreground="White" VerticalAlignment="Center" Margin="0,0,8,0"/>
-          <CheckBox IsChecked="{Binding EnableDamagedHealthBars, Mode=TwoWay}" Foreground="White" VerticalAlignment="Center" Margin="0,0,12,0"/>
+          <CheckBox IsChecked="{Binding EnableDamagedHealthBars, Mode=TwoWay}" Foreground="White" VerticalAlignment="Center" Margin="0,0,12,0" ToolTip="{Binding DamagedHealthBarsHotkeyHelpText}" ToolTipService.ShowDuration="60000"/>
           <Border Background="#33000000" BorderBrush="#6677AAFF" BorderThickness="1" MinWidth="90" Padding="8,4" Margin="0,0,6,0">
             <TextBlock Text="{Binding HealthBarHotkeyDisplayText}" Foreground="#EEEEEE" VerticalAlignment="Center"/>
           </Border>
-          <Button Content="{Binding DamagedHealthBarsCaptureText}" Command="{Binding AssignHealthBarHotkeyCommand}" Margin="0,0,6,0"/>
-          <Button Content="{Binding DamagedHealthBarsClearText}" Command="{Binding ClearHealthBarHotkeyCommand}"/>
+          <Button Content="{Binding DamagedHealthBarsCaptureText}" Command="{Binding AssignHealthBarHotkeyCommand}" Margin="0,0,6,0" ToolTip="{Binding DamagedHealthBarsCaptureHelpText}" ToolTipService.ShowDuration="60000"/>
+          <Button Content="{Binding DamagedHealthBarsClearText}" Command="{Binding ClearHealthBarHotkeyCommand}" ToolTip="{Binding DamagedHealthBarsClearHelpText}" ToolTipService.ShowDuration="60000"/>
         </StackPanel>
       </Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.show-countdown-timers" shared:ModSettingsSearch.Title="{Binding ShowCountdownTimersText}" shared:ModSettingsSearch.ToolTipText="{Binding ShowCountdownTimersHelpText}"><CheckBox IsChecked="{Binding ShowCountdownTimers, Mode=TwoWay}"

@@ -4,11 +4,11 @@ APIShared ist ein eigenständiger BepInEx-Mod, der gemeinsam genutzte SHCDE-Funk
 
 Aktueller Stand:
 
-- Version: `0.3.6`
+- Version: `0.4.7`
 - BepInEx-GUID: `APIShared_Serp`
 - Assembly und Namespace: `APIShared`
 - Ziel-Framework: .NET Framework 4.8.1
-- Laufzeitabhängigkeit: Script Extender `000shcdese` ab Version `2.3.0`
+- Laufzeitabhängigkeit: Script Extender `000shcdese` ab Version `2.9.0`
 
 ## Installation
 
@@ -24,7 +24,7 @@ BepInEx/
         └── ...
 ```
 
-Für einzeln installierte Mods wird APIShared separat über den GitHub-Release [`APIShared/v0.3.6`](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/APIShared%2Fv0.3.6) installiert. Ein Verbrauchermod liefert **keine eigene Kopie von `APIShared.dll`** mit. Alle Verbrauchermods referenzieren dieselbe zentral installierte Assembly.
+Für einzeln installierte Mods wird APIShared separat über die [GitHub-Releases](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases?q=APIShared) installiert. Verwende mindestens die von deinen Mods benötigte APIShared-Version; BugfixesAndQoL ab Version 1.0.173 benötigt APIShared 0.4.7. Ein Verbrauchermod liefert **keine eigene Kopie von `APIShared.dll`** mit. Alle Verbrauchermods referenzieren dieselbe zentral installierte Assembly.
 
 Das SerpsMods-Workshop-Modpack ist davon ausgenommen: Es enthält bereits genau eine interne APIShared-Kopie. Neben dem Modpack dürfen weder APIShared noch einzelne darin enthaltene Serps-Mods separat installiert werden.
 
@@ -39,7 +39,7 @@ Der Verbrauchermod deklariert Script Extender und APIShared als harte Abhängigk
 ```csharp
 using BepInEx;
 
-[BepInDependency("000shcdese", "2.3.0")]
+[BepInDependency("000shcdese", "2.9.0")]
 [BepInDependency("APIShared_Serp", "0.3.6")]
 [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
 public sealed class MyPlugin : BaseUnityPlugin

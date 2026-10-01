@@ -141,15 +141,15 @@ if ($repairContent.Count -ne 1 -or $repairContent[0].LocalName -ne 'StackPanel' 
     $repairChildren[1].GetAttribute('Source') -ne '{Binding BuildingRepairIcon}') {
     throw 'Building repair settings icon must be bound to the right of its text.'
 }
+$activeVersion = [regex]::Match($runtimeText, 'PluginVersion\s*=\s*"([^"]+)"').Groups[1].Value
 foreach ($path in @($info, $packagedInfo)) {
     $metadata = [IO.File]::ReadAllText($path) | ConvertFrom-Json
-    if ($metadata.Version -ne '1.0.106' -or $metadata.MinimumScriptExtenderVersion -ne '2.10.4' -or
-        $metadata.SerpChangelog[0].Version -ne '1.0.106') {
+    if (-not $activeVersion -or $metadata.Version -ne $activeVersion -or $metadata.MinimumScriptExtenderVersion -ne '2.10.4' -or
+        $metadata.SerpChangelog[0].Version -ne $activeVersion) {
         throw "Active version mismatch: $path"
     }
 }
-if ($runtimeText -notmatch 'PluginVersion = "1\.0\.106"' -or
-    $runtimeText -notmatch 'BepInDependency\(ApiSharedGuid, "0\.4\.6"\)') {
+if (-not $activeVersion -or $runtimeText -notmatch 'BepInDependency\(ApiSharedGuid, "0\.4\.6"\)') {
     throw 'Plugin version or APIShared dependency mismatch.'
 }
 $addedCode = & git -C $workspace diff --unified=0 -- '*.cs' '*.csproj'

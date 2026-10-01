@@ -373,3 +373,5 @@ BugfixesAndQoL.DamagedHealthBarsCapture=Assign
 BugfixesAndQoL.DamagedHealthBarsClear=Clear
 BugfixesAndQoL.DamagedHealthBarsCapturePrompt=Press shortcut
 BugfixesAndQoL.DamagedHealthBarsOff=No key
+BugfixesAndQoL.DamagedHealthBarsCaptureHelp=Click, then press the shortcut you want to use for toggling damaged-object health bars.
+BugfixesAndQoL.DamagedHealthBarsClearHelp=Remove the assigned shortcut for toggling damaged-object health bars.

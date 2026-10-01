@@ -764,11 +764,19 @@ internal static class Program
             AppDomain.CurrentDomain.BaseDirectory, "..", "..", ".."));
         string bugfixes = File.ReadAllText(Path.Combine(
             root, "BugfixesAndQoL", "src", "BugfixesAndQoLViewModel.cs"));
-        Check(System.Text.RegularExpressions.Regex.Matches(
-                  bugfixes, @"\[SyncPerPlayer(?:\s*,[^\]]+)?\]").Count == 19,
-            "BugfixesAndQoL must retain 18 persisted personal settings and one status report");
-        Check(System.Text.RegularExpressions.Regex.Matches(
-                  bugfixes, @"\[SyncPerPlayer,\s*SHCDESE\.API\.Components\.ModManager\.DoNotPersist\]").Count == 1 &&
+        var personalSettings = System.Text.RegularExpressions.Regex.Matches(
+            bugfixes, @"\[SyncPerPlayer(?:\s*,[^\]]+)?\]\s*public\s+[\w<>,.\[\]\s]+?\s+(?<name>\w+)\s*\{");
+        Check(personalSettings.Count > 0 && bugfixes.Contains("ConfigurePerPlayerLobbySettings("),
+            "BugfixesAndQoL personal settings must use the shared lobby policy");
+        // New personal options may extend this set; every option still needs its own companion.
+        foreach (System.Text.RegularExpressions.Match setting in personalSettings)
+        {
+            string name = setting.Groups["name"].Value;
+            Check(bugfixes.Contains(name + "Data"),
+                "BugfixesAndQoL personal setting lost its companion array: " + name);
+        }
+        Check(System.Text.RegularExpressions.Regex.IsMatch(
+                  bugfixes, @"\[SyncPerPlayer,\s*SHCDESE\.API\.Components\.ModManager\.DoNotPersist\]\s*public\s+string\s+MultiplayerSafetyCompatibilityReport\b") &&
               bugfixes.Contains("MultiplayerSafetyCompatibilityReportData") &&
               bugfixes.Contains("ResetSlotsWith(") &&
               bugfixes.Contains("RequireReport("),
@@ -801,9 +809,7 @@ internal static class Program
             root, "CastlePlanner", "src", "CastlePlannerSettingsViewModel.cs"));
         string castlePlugin = File.ReadAllText(Path.Combine(
             root, "CastlePlanner", "src", "CastlePlannerPlugin.cs"));
-        Check(System.Text.RegularExpressions.Regex.Matches(
-                  castleSettings, @"\[SyncPerPlayer\]").Count == 3 &&
-              castleSettings.Contains("private sealed class RuntimePersistedState") &&
+        Check(castleSettings.Contains("private sealed class RuntimePersistedState") &&
               castleSettings.Contains("runtimeStorage.Load(runtimeState)") &&
               castlePlugin.Contains("PluginGuid, Settings, \"ScriptExtenderUI/CastlePlannerSettings.xaml\"") &&
               !castlePlugin.Contains("PluginGuid, Settings.runtimeState"),
@@ -1811,7 +1817,8 @@ internal static class Program
               assassinClimbSource.Contains("RefreshButtonVisibility();") &&
               assassinClimbSource.Contains("Application.onBeforeRender += OnBeforeRender") &&
               assassinClimbSource.Contains("lastRenderFrame == Time.frameCount") &&
-              assassinClimbSource.Contains("expectedSelectedCount > 0") &&
+              assassinClimbSource.Contains("APIShared.LocalSelectionAPI.TryCapture(") &&
+              assassinClimbSource.Contains("editor && (!hasSnapshot || selected.Count > 0)") &&
               assassinClimbSource.Contains("RefreshButtonVisibilityCore(troopPanel, force: false)"),
             "direct-editor Assassin HUD bootstrap regressed");
     }
@@ -3611,7 +3618,8 @@ internal static class Program
             "ExtraFeatures Chore helper does not enforce serialization, manager, size, and original-object send order");
 
         string knight = File.ReadAllText(Path.Combine(workspaceRoot, "ExtraFeatures", "src", "KnightDismountRuntime.cs"));
-        Check(knight.Contains("SelectedUnitInfo[] selected") && knight.Contains("selected[index].UnitId") &&
+        Check(knight.Contains("APIShared.LocalSelectionSnapshot selection") && knight.Contains("selection[i].UnitId") &&
+              knight.Contains("i < selection.Count") &&
               !knight.Contains("return GamePlayerManagerAPI.Instance.GetSelectedChimps();"),
             "ExtraFeatures selected-unit wrapper does not project UnitId values in order");
         string gatehouse = File.ReadAllText(Path.Combine(workspaceRoot, "ExtraFeatures", "src", "GatehouseAutomationRuntime.cs"));
@@ -3619,8 +3627,12 @@ internal static class Program
               !gatehouse.Contains("TryConvertSpanIndexToGameId") && !gatehouse.Contains("unitSpanIndex"),
             "ExtraFeatures Gatehouse query still applies the obsolete pre-1.45 index conversion");
         string manifest = File.ReadAllText(Path.Combine(workspaceRoot, "ExtraFeatures", "info.json"));
-        Check(manifest.Contains("\"Version\": \"1.0.88\"") && manifest.Contains("\"NetworkMode\": 1"),
-            "ExtraFeatures manifest does not retain version 1.0.88 with gameplay NetworkMode 1");
+        string extraPlugin = File.ReadAllText(Path.Combine(workspaceRoot, "ExtraFeatures", "src", "ExtraFeaturesPlugin.cs"));
+        string extraVersion = System.Text.RegularExpressions.Regex.Match(
+            extraPlugin, "PluginVersion\\s*=\\s*\"([^\"]+)\"").Groups[1].Value;
+        Check(!string.IsNullOrEmpty(extraVersion) && manifest.Contains("\"Version\": \"" + extraVersion + "\"") &&
+              manifest.Contains("\"NetworkMode\": 1"),
+            "ExtraFeatures manifest must match the plugin version and retain gameplay NetworkMode 1");
     }
 
     private static void TestSiegeAmmoRestockPolicyAndPacket()

@@ -8,6 +8,7 @@ using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using static RaidRetargetDiagnostic.RaidAttackFieldEvaluation;
 
 namespace RaidRetargetDiagnostic
 {
@@ -23,9 +24,6 @@ namespace RaidRetargetDiagnostic
         private const int TargetBuildingIdOffset = 0x622;
         private const int TargetGlobalIdOffset = 0x626;
         private const int AttackCandidateListOffset = 0x1B344;
-        private const int AttackCandidateRecordSize = 12;
-        private const int NativeAttackCandidateCapacity = 500;
-        private const int NativeUnreachableCandidateScore = 10000000;
         private const int NativeRaidCandidateCapacity = 100;
         private const int NativePlayerResourceStride = 0x583C;
         private const int NativeResourcePointerBias = 0x5C;
@@ -66,6 +64,7 @@ namespace RaidRetargetDiagnostic
         private int fallbackBuildingId;
         private uint fallbackBuildingGlobalId;
         private AttackResult fallbackResult;
+        private string fallbackDetails;
         private bool active;
         private bool firstTickLogged;
         private int lastTick = -1;
@@ -358,19 +357,22 @@ namespace RaidRetargetDiagnostic
                 freshness = "missingPre";
             }
 
-            bool possiblyOld = args.Phase != EventHookPhase.Post ||
-                freshness != "changedFromPre" || !snapshot.Available;
-            AttackResult result = args.Phase == EventHookPhase.Post &&
-                !possiblyOld && args.ReturnValue == 1
-                ? ClassifyAttackResult(snapshot, args.TargetValue1, targetGlobalId)
-                : AttackResult.Unknown;
             if (args.Phase != EventHookPhase.Post) return;
+            var tiles = GameTileManagerAPI.Instance;
+            AttackResult result = Evaluate(snapshot, pairMatches, freshness, args.ReturnValue,
+                ReadBuildingGlobalId(args.TargetValue1) == targetGlobalId, args.TargetValue1,
+                tiles.GetStructureLayer().Length, GetBuildingAtTile, IsCardinalPair,
+                out string validation);
             if (issuingFallback)
             {
                 if (args.TribeId == fallbackTribeId &&
                     args.TargetValue1 == fallbackBuildingId &&
                     targetGlobalId == fallbackBuildingGlobalId)
+                {
                     fallbackResult = result;
+                    fallbackDetails = $"freshness={freshness},prePostMatch={pairMatches}," +
+                        $"validation={validation},return={args.ReturnValue},{snapshot.DescribeCompact()}";
+                }
                 return;
             }
             attackCommandCount++;
@@ -379,7 +381,7 @@ namespace RaidRetargetDiagnostic
                 $"command={args.AICommand}, target={args.TargetValue1}/{targetGlobalId}, " +
                 $"building={FormatBuilding(args.TargetValue1, targetGlobalId)}, " +
                 $"return={args.ReturnValue}, prePostMatch={pairMatches}, freshness={freshness}, " +
-                $"result={result}, {snapshot.DescribeCompact()}.");
+                $"validation={validation}, result={result}, {snapshot.DescribeCompact()}.");
             if (args.AICommand != TribeAICommand.AttackBuilding) return;
             RaidGroupKey raidKey = new RaidGroupKey(raidPlayer, raidGroup,
                 args.TribeId, tribeGlobalId);
@@ -400,10 +402,10 @@ namespace RaidRetargetDiagnostic
                     args.TargetValue1, targetGlobalId, priorityTableRva, lastTick);
             }
             else if (result == AttackResult.Unknown)
-                LogRepeated($"uncertain:{freshness}:{raidPlayer}/{raidGroup}",
+                LogRepeated($"uncertain:{freshness}:{validation}:{raidPlayer}/{raidGroup}",
                     $"RAID_FIX_UNCERTAIN: session={sessionId}, tick={lastTick}, " +
                     $"tribe={args.TribeId}/{tribeGlobalId}, target={args.TargetValue1}/{targetGlobalId}, " +
-                    $"reason={freshness}; vanillaPreserved=true.", false);
+                    $"freshness={freshness}, validation={validation}; vanillaPreserved=true.", false);
             else if (result == AttackResult.NoAttackPoint)
                 LogRepeated($"uncertain:{eligibilityReason}:{raidPlayer}/{raidGroup}",
                     $"RAID_FIX_UNCERTAIN: session={sessionId}, tick={lastTick}, " +
@@ -414,59 +416,20 @@ namespace RaidRetargetDiagnostic
         private static AttackCandidateSnapshot ReadAttackCandidateSnapshot()
         {
             IntPtr context = GamePathingManagerAPI.Instance.GetPathfindingContextView().Address;
-            if (context == IntPtr.Zero)
-                return new AttackCandidateSnapshot(false, -1, new CandidateRecord[0]);
-
-            byte* firstRecord = (byte*)context.ToPointer() + AttackCandidateListOffset;
-            var entries = new List<CandidateRecord>(NativeAttackCandidateCapacity);
-            int terminatorAt = -1;
-            for (int index = 0; index < NativeAttackCandidateCapacity; index++)
-            {
-                int* record = (int*)(firstRecord + index * AttackCandidateRecordSize);
-                if (record[0] == 0 && record[1] == 0)
-                {
-                    terminatorAt = index;
-                    break;
-                }
-                entries.Add(new CandidateRecord(record[0], record[1], record[2]));
-            }
-            return new AttackCandidateSnapshot(true, terminatorAt, entries.ToArray());
+            return Read(context, AttackCandidateListOffset);
         }
 
-        private static AttackResult ClassifyAttackResult(AttackCandidateSnapshot snapshot,
-            int buildingId, uint buildingGlobalId)
+        private static bool IsCardinalPair(int approachTile, int buildingTile)
         {
-            if (!snapshot.Available || !snapshot.Complete ||
-                ReadBuildingGlobalId(buildingId) != buildingGlobalId)
-                return AttackResult.Unknown;
-            if (snapshot.Records.Length == 0) return AttackResult.NoAttackPoint;
-            CandidateRecord first = snapshot.Records[0];
             var tiles = GameTileManagerAPI.Instance;
-            int capacity = tiles.GetStructureLayer().Length;
-            if (first.ApproachTile <= 0 || first.ApproachTile >= capacity)
-                return AttackResult.Unknown;
-            if (first.BuildingTile == 0)
-            {
-                // Vanilla consumes only the paired prefix. A later approach-only entry
-                // does not rescue a zero first building tile.
-                for (int i = 1; i < snapshot.Records.Length; i++)
-                    if (snapshot.Records[i].BuildingTile != 0)
-                        return AttackResult.Unknown;
-                return AttackResult.NoAttackPoint;
-            }
-            if (first.BuildingTile < 0 || first.BuildingTile >= capacity ||
-                tiles.GetTileBuildingId(first.BuildingTile) != buildingId)
-                return AttackResult.Unknown;
-            if (first.Score >= NativeUnreachableCandidateScore)
-                return AttackResult.Unknown;
-            var stand = tiles.GetTileVectorFromId(first.ApproachTile);
-            var target = tiles.GetTileVectorFromId(first.BuildingTile);
-            if (Math.Abs((int)stand.X - target.X) +
-                Math.Abs((int)stand.Y - target.Y) != 1 ||
-                tiles.GetTileId(stand.X, stand.Y) != first.ApproachTile)
-                return AttackResult.Unknown;
-            return AttackResult.AttackPoint;
+            var stand = tiles.GetTileVectorFromId(approachTile);
+            var target = tiles.GetTileVectorFromId(buildingTile);
+            return Math.Abs((int)stand.X - target.X) + Math.Abs((int)stand.Y - target.Y) == 1 &&
+                tiles.GetTileId(stand.X, stand.Y) == approachTile;
         }
+
+        private static int GetBuildingAtTile(int tileId) =>
+            GameTileManagerAPI.Instance.GetTileBuildingId(tileId);
 
         private static bool TryIsMeleeRaidGroup(int tribeId, uint tribeGlobalId,
             out string reason)
@@ -636,6 +599,8 @@ namespace RaidRetargetDiagnostic
                         !IsLiveBuildingIdentity(candidate.Id, candidate.GlobalId,
                             retry.TargetPlayerId)) continue;
                     fallbackResult = AttackResult.Unknown;
+                    fallbackDetails = "freshness=missingPost,validation=notEvaluated," +
+                        "entryCount=unavailable,terminatorAt=unavailable,firstPair=unavailable";
                     issuingFallback = true;
                     fallbackTribeId = retry.TribeId;
                     fallbackBuildingId = candidate.Id;
@@ -655,15 +620,27 @@ namespace RaidRetargetDiagnostic
                     }
                     bool storedCandidate = *(ushort*)(tribeBytes + TargetBuildingIdOffset) == candidate.Id &&
                         *(uint*)(tribeBytes + TargetGlobalIdOffset) == candidate.GlobalId;
-                    if (!storedCandidate) fallbackResult = AttackResult.Unknown;
+                    if (!commandIssued)
+                    {
+                        fallbackResult = AttackResult.Unknown;
+                        fallbackDetails += ",commandNotIssued=true";
+                    }
+                    if (!storedCandidate)
+                    {
+                        fallbackResult = AttackResult.Unknown;
+                        fallbackDetails += ",storedTargetMismatch=true";
+                    }
                     issued++;
                     string code = fallbackResult == AttackResult.AttackPoint ? "A" :
                         fallbackResult == AttackResult.NoAttackPoint ? "N" : "U";
                     retry.Attempts.Add($"{candidate.Id}/{candidate.GlobalId}/{candidate.Type}:{code}" +
-                        (commandIssued ? "" : "!i") + (storedCandidate ? "" : "!s"));
+                        (commandIssued ? "" : "!i") + (storedCandidate ? "" : "!s") +
+                        (fallbackResult == AttackResult.Unknown ? $"{{{fallbackDetails}}}" : ""));
                     if (!commandIssued || fallbackResult == AttackResult.Unknown)
                     {
-                        LogRetry(retry, "uncertain;vanillaPreserved", candidate.Id, candidate.GlobalId);
+                        LogRetry(retry, "uncertain;vanillaPreserved", 0, 0,
+                            *(ushort*)(tribeBytes + TargetBuildingIdOffset),
+                            *(uint*)(tribeBytes + TargetGlobalIdOffset));
                         finished = true; // Preserve the command outcome when the scratch result is uncertain.
                         break;
                     }
@@ -938,7 +915,8 @@ namespace RaidRetargetDiagnostic
                 throw new InvalidOperationException("Installed Script Extender raid layout differs from audited native layout.");
         }
 
-        private void LogRetry(RaidRetry retry, string outcome, int selectedId, uint selectedGlobalId)
+        private void LogRetry(RaidRetry retry, string outcome, int selectedId, uint selectedGlobalId,
+            int storedId = 0, uint storedGlobalId = 0)
         {
             retryCount++;
             Info($"RAID_FIX_RETRY: session={sessionId}, startTick={retry.StartedTick}, endTick={lastTick}, " +
@@ -947,7 +925,10 @@ namespace RaidRetargetDiagnostic
                 $"original={retry.OriginalFailedId}/{retry.OriginalFailedGlobalId}, " +
                 $"candidateCount={retry.Candidates?.Count.ToString() ?? "unavailable"}, " +
                 $"priorityTable=0x{retry.PriorityTableRva:X}, attempts=[{String.Join(";", retry.Attempts)}], " +
-                $"selected={selectedId}/{selectedGlobalId}, outcome={outcome}.");
+                $"selected={selectedId}/{selectedGlobalId}, " +
+                (outcome.StartsWith("uncertain;", StringComparison.Ordinal)
+                    ? $"storedTargetAtAbort={storedId}/{storedGlobalId}, " : "") +
+                $"outcome={outcome}.");
         }
 
         private void FlushPendingRetries(string reason)
@@ -1047,6 +1028,7 @@ namespace RaidRetargetDiagnostic
             fallbackBuildingId = 0;
             fallbackBuildingGlobalId = 0;
             fallbackResult = AttackResult.Unknown;
+            fallbackDetails = null;
             targetChangeCount = 0;
             attackCommandCount = 0;
             retryCount = 0;
@@ -1088,65 +1070,6 @@ namespace RaidRetargetDiagnostic
                 Snapshot = snapshot;
             }
         }
-
-        private sealed class AttackCandidateSnapshot
-        {
-            private readonly bool available;
-            private readonly int terminatorAt;
-            internal readonly CandidateRecord[] Records;
-
-            internal AttackCandidateSnapshot(bool available, int terminatorAt, CandidateRecord[] records)
-            {
-                this.available = available;
-                this.terminatorAt = terminatorAt;
-                Records = records;
-            }
-
-            internal bool Available => available;
-            internal bool Complete => available && terminatorAt >= 0;
-
-            internal bool SameRecords(AttackCandidateSnapshot other)
-            {
-                if (other == null || available != other.available ||
-                    terminatorAt != other.terminatorAt || Records.Length != other.Records.Length)
-                    return false;
-                for (int i = 0; i < Records.Length; i++)
-                    if (!Records[i].Equals(other.Records[i])) return false;
-                return true;
-            }
-
-            internal string DescribeCompact()
-            {
-                CandidateRecord first = Records.Length != 0 ? Records[0] : default;
-                int pairs = 0;
-                foreach (CandidateRecord record in Records)
-                    if (record.BuildingTile != 0) pairs++;
-                return $"scratchAvailable={available}, firstPosition={first.ApproachTile}, " +
-                    $"firstAttackTile={first.BuildingTile}, nativeFirstGatePass={available && first.BuildingTile != 0}, " +
-                    $"terminatorAt={(terminatorAt >= 0 ? terminatorAt.ToString() : "notInFirst500")}, " +
-                    $"entryCount={Records.Length}, pairedEntries={pairs}, firstPair={first.ApproachTile}/{first.BuildingTile}/{first.Score}";
-            }
-        }
-
-        private readonly struct CandidateRecord : IEquatable<CandidateRecord>
-        {
-            internal readonly int ApproachTile;
-            internal readonly int BuildingTile;
-            internal readonly int Score;
-
-            internal CandidateRecord(int approachTile, int buildingTile, int score)
-            {
-                ApproachTile = approachTile;
-                BuildingTile = buildingTile;
-                Score = score;
-            }
-
-            public bool Equals(CandidateRecord other) =>
-                ApproachTile == other.ApproachTile && BuildingTile == other.BuildingTile &&
-                Score == other.Score;
-        }
-
-        private enum AttackResult { Unknown, NoAttackPoint, AttackPoint }
 
         private readonly struct RaidGroupKey : IEquatable<RaidGroupKey>
         {

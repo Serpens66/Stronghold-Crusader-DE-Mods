@@ -157,3 +157,7 @@ SomeSettings.NoKillRewardHumanHelp=Human players receive no gold or goods for de
 SomeSettings.NoKillRewardAIHelp=AI players receive no gold or goods for defeating an enemy Lord.
 ExtraFeatures.EnableBuildingRepair=Opravovat více budov
 ExtraFeatures.EnableBuildingRepairHelp=Přidá tlačítko opravy k panelům vlastních budov. Cena zahrnuje všechny stavební suroviny. S BugfixesAndQoL opraví kliknutí se Shiftem všechny vhodné budovy.
+ExtraFeatures.HealerTargets=Bedouin healer heals:
+ExtraFeatures.HealerTargetsCivilian=Civilians
+ExtraFeatures.HealerTargetsSiege=Siege engines
+ExtraFeatures.HealerTargetsHelp=Allows Bedouin healers to heal your wounded human civilians and siege engines. Both options are independent and disabled by default. Soldiers continue to be healed as in the base game.

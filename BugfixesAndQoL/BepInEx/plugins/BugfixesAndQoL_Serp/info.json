@@ -3,13 +3,22 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.172",
+  "Version": "1.0.173",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.10.4",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.173",
+      "Changes": [
+        "Added an optional host setting to skip extra poleturner and tanner waiting animations when production inputs are available; disabled by default.",
+        "Improved movement formations, Shift-command queues and allied-moat routing, with integration for optional shared enemy-gate policies.",
+        "Added missing health-bar shortcut tooltips and made the shortcut's editor check lifecycle-safe.",
+        "Requires APIShared 0.4.7 for the new shared interfaces and scoped AI wood-building observations."
+      ]
+    },
     {
       "Version": "1.0.172",
       "Changes": [

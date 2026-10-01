@@ -12,6 +12,9 @@ The enabled-by-default host fix makes the tannery rack animation fade in smoothl
 ### Optional baker and miller breaks
 The off-by-default host option under **Fixes?** lets bakers and all three mill workers occasionally take a positive-fear break after delivering bread or flour, even when more ingredients are available. It uses the game's existing break decision and destination. This Vanilla difference may be intentional, so the option is separate from the established fixes. Wheat and hops farmers retain their Vanilla behavior.
 
+### Remove poleturner and tanner idle delays
+The optional host setting under **Fixes?** skips the extra waiting animation when a poleturner has wood or a tanner has workshop hides or an eligible cow available. Production times and normal positive-fear breaks remain unchanged. Disabled by default, because it is unknown whether the Vanilla delay is intentional.
+
 ### Correct demolition cursor near enemies
 The demolition cursor now changes to the blocked icon when an enemy is close enough to prevent demolition. This restores the visual feedback known from the HD version, so the game no longer appears to accept an action that it will reject.
 
@@ -194,6 +197,8 @@ Adds Multiplayer game-speed and pause controls. Can be restricted to the host or
 ### Add surrender and spectator features
 Active players receive a confirmed Surrender button that kills their lord through the normal game rules, preserving the natural defeat and statistics flow. Spectators can open and refresh the current match statistics without leaving or ending the game. Eliminated players can also receive normal spectator vision and AI information.
 
+The enabled-by-default host option **Expanded spectator perspective** lets players who started as spectators switch between player views, inspect reports and allies, and jump to keeps or Lords. Eliminated players cannot switch views. Ally actions are available only in local CPU games.
+
 ### Identify and kick a disconnected player during resync
 During a stalled multiplayer resynchronization, the host is shown the human player with the oldest overdue connection heartbeat. A confirmation button lets the host authoritatively remove that player.
 
@@ -202,6 +207,9 @@ After a normal multiplayer match, the host prepares a replacement lobby based on
 
 ### Show selected-unit health in the troop HUD
 The troop HUD displays current and maximum health for the selected units. Health is combined separately for each visible troop type and the current value is colored green, yellow, or red according to the remaining proportion.
+
+### Show marked foreign troops in the troop HUD
+The enabled-by-default per-player option shows the counts and player colours of marked troops belonging to other players. Their health is shown when **Show selected unit health** is enabled. This display does not give you control over those troops.
 
 ### Show health bars for damaged units and buildings
 Press Alt+H to show health bars for visible damaged units and buildings without selecting them. Press it again to turn the display off. The display starts off each time you launch the game, and you can change the shortcut in the local mod settings. Fully healed objects and decorative units do not gain a bar from this option.

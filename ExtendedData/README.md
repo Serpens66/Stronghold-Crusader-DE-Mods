@@ -10,6 +10,8 @@ ExtendedData adds shared supplemental data for Custom Trails, Custom Lords, and 
 
 Trail authors can store host-managed settings of compatible mods per mission. ExtendedData also supports portable Coop Trail packages containing their missions and required maps, Lords, and AIV files.
 
+A custom Coop Trail ends after its last included mission. Later mission slots are unavailable while that package is selected; select Vanilla Coop Trails to play the original missions again.
+
 - [Mod settings in Maps and Custom Trails](../Guides/ExtendedData/Custom%20Trail%20Mod%20Settings.md#english)
 - [ExtendedData compatibility for mod authors](../Guides/ExtendedData/Mod%20Compatibilty%20ExtendedData.md#english)
 
@@ -28,6 +30,10 @@ Map authors can add a `modmap.json` file to the appended archive of a Script Ext
 
 The complete index is available under [ExtendedData guides](../Guides/ExtendedData/README.md#english).
 
+### Mod settings in saved games
+
+Saved games retain the host settings of compatible mods. Loading normally restores those saved values. For customizable games, **Use current mod settings** in the Load Game dialog lets you use your currently active host settings instead. Personal settings remain your own.
+
 ---
 
 ## Deutsch
@@ -37,6 +43,8 @@ ExtendedData ergänzt Stronghold Crusader DE um gemeinsam nutzbare Zusatzdaten f
 ### Custom Trails und Koop-Trails
 
 Trail-Ersteller können hostverwaltete Einstellungen kompatibler Mods pro Mission speichern. ExtendedData unterstützt außerdem portable Koop-Trail-Pakete mit ihren Missionen und den benötigten Maps, Lords und AIV-Dateien.
+
+Ein benutzerdefinierter Koop-Trail endet nach seiner letzten enthaltenen Mission. Spätere Missionsplätze sind nicht verfügbar, solange dieses Paket ausgewählt ist. Wähle wieder die Vanilla-Koop-Trails, um die ursprünglichen Missionen zu spielen.
 
 - [Mod-Einstellungen in Maps und Custom Trails](../Guides/ExtendedData/Custom%20Trail%20Mod%20Settings.md#deutsch)
 - [ExtendedData-Kompatibilität für Modentwickler](../Guides/ExtendedData/Mod%20Compatibilty%20ExtendedData.md#deutsch)
@@ -55,3 +63,7 @@ Map-Ersteller können eine `modmap.json` in das angehängte Archiv einer Script-
 - [Mod-spezifische Daten für Maps](../Guides/ExtendedData/ModMapData.md#deutsch)
 
 Das vollständige Inhaltsverzeichnis befindet sich unter [ExtendedData Guides](../Guides/ExtendedData/README.md#deutsch).
+
+### Mod-Einstellungen in Spielständen
+
+Spielstände behalten die Host-Einstellungen kompatibler Mods. Beim Laden werden normalerweise diese gespeicherten Werte wiederhergestellt. Bei anpassbaren Spielen kannst du im Dialog zum Laden mit **Aktuelle Modsettings verwenden** stattdessen deine derzeit aktiven Host-Einstellungen übernehmen. Persönliche Einstellungen bleiben deine eigenen.

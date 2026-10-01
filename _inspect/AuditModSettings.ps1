@@ -524,8 +524,18 @@ foreach ($required in @(
 $sharedToolTipXamlPaths = @($settings.Values)
 if (Test-ModSelected 'BugfixesAndQoL') {
     $sharedToolTipXamlPaths += @(
-        'BugfixesAndQoL/Patches/Assets/GUI/XAMLResources/FRONT_Multiplayer.xaml',
-        'BugfixesAndQoL/Patches/Assets/GUI/XAMLResources/FRONT_Multiplayer_AISettings.xaml')
+        'BugfixesAndQoL/Patches/Assets/GUI/XAMLResources/FRONT_Multiplayer.xaml')
+    # The AI card routes its hover help through Vanilla's bottom help panel;
+    # it no longer declares a ToolTip template.
+    $aiSettingsPatch = [xml][IO.File]::ReadAllText((Join-Path $workspace 'BugfixesAndQoL/Patches/Assets/GUI/XAMLResources/FRONT_Multiplayer_AISettings.xaml'))
+    $hoverHelpNodes = @($aiSettingsPatch.SelectNodes("//*[@*[local-name()='AiSettingsHelpHover.Enabled' and .='True']]"))
+    if ($hoverHelpNodes.Count -eq 0) { throw 'AI settings card hover help is missing.' }
+    foreach ($node in $hoverHelpNodes) {
+        if ([string]::IsNullOrWhiteSpace($node.GetAttribute('AiSettingsHelpHover.Text',
+            'clr-namespace:Shared;assembly=BugfixesAndQoL'))) {
+            throw 'AI settings card hover help text is empty.'
+        }
+    }
 }
 if (Test-ModSelected 'ExtraFeatures') {
     $sharedToolTipXamlPaths += 'ExtraFeatures/Patches/Assets/GUI/XAMLResources/HUD_Buildings.xaml'
@@ -977,6 +987,7 @@ $settingsViewModels = @($productiveCsFiles | Where-Object {
 foreach ($viewModelFile in $settingsViewModels) {
     $relativePath = [IO.Path]::GetRelativePath($workspace, $viewModelFile.FullName)
     $source = [IO.File]::ReadAllText($viewModelFile.FullName)
+    $fullSource = $source
     $nestedTypeStart = $source.IndexOf('private sealed class', [StringComparison]::Ordinal)
     if ($nestedTypeStart -ge 0) {
         $source = $source.Substring(0, $nestedTypeStart)
@@ -994,8 +1005,8 @@ foreach ($viewModelFile in $settingsViewModels) {
         -not $source.Contains('ConfigurePerPlayerLobbySettings(')) {
         throw "${relativePath}: personal settings do not declare their Shared lobby policy."
     }
-    if ($source.Contains('MainViewModel.Instance') -and
-        -not $source.Contains('MainViewModel.viewModelLoaded')) {
+    if ($fullSource.Contains('MainViewModel.Instance') -and
+        -not $fullSource.Contains('MainViewModel.viewModelLoaded')) {
         throw "${relativePath}: MainViewModel.Instance is used without an early-lifecycle viewModelLoaded guard."
     }
 }
@@ -1271,7 +1282,12 @@ foreach ($entry in $settings.GetEnumerator()) {
             }
             $cursor = $cursor.ParentNode
         }
-        if (-not $excluded -and $anchorCount -ne 1) {
+        # APIShared also indexes titled CheckBoxes and Buttons automatically.
+        # Explicit anchors remain necessary for controls without a direct title.
+        $hasAutomaticTitle = $node.LocalName -in @('CheckBox', 'Button') -and
+            -not [string]::IsNullOrWhiteSpace($node.GetAttribute('Content'))
+        if (-not $excluded -and $anchorCount -ne 1 -and
+            -not ($anchorCount -eq 0 -and $hasAutomaticTitle)) {
             throw "$($entry.Key) interactive element [$($node.LocalName)] belongs to $anchorCount logical search targets instead of exactly one."
         }
     }
