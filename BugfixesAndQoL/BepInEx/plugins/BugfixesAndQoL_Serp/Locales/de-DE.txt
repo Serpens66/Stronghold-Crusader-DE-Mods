@@ -375,3 +375,6 @@ BugfixesAndQoL.DamagedHealthBarsCapturePrompt=Kombination drücken
 BugfixesAndQoL.DamagedHealthBarsOff=Keine Taste
 BugfixesAndQoL.DamagedHealthBarsCaptureHelp=Klicke hier und drücke dann die gewünschte Tastenkombination zum Umschalten der Lebensbalken beschädigter Objekte.
 BugfixesAndQoL.DamagedHealthBarsClearHelp=Entfernt die zugewiesene Tastenkombination zum Umschalten der Lebensbalken beschädigter Objekte.
+
+BugfixesAndQoL.EnableAiRaidRetargetFix=KI-Raidziele ohne Nahkampfzugang überspringen
+BugfixesAndQoL.EnableAiRaidRetargetFixHelp=Nahkampf-Raidgruppen versuchen ein anderes Gebäude, wenn Vanilla keinen nutzbaren Angriffspunkt findet. Gebäudeprioritäten bleiben unverändert; erreichbare Kornkammern bleiben gültige Ziele.

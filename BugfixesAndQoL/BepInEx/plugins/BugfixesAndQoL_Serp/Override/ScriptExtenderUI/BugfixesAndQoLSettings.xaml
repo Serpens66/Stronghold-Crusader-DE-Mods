@@ -590,6 +590,7 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableAiStoneReserveFixText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-ai-raid-retarget-fix" shared:ModSettingsSearch.Title="{Binding EnableAiRaidRetargetFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableAiRaidRetargetFixHelpText}"><CheckBox IsChecked="{Binding EnableAiRaidRetargetFix, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableAiRaidRetargetFixHelpText}" Margin="0,0,14,8"><TextBlock Text="{Binding EnableAiRaidRetargetFixText}" Foreground="White" TextWrapping="Wrap"/></CheckBox></Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-ai-defense-patrol-fix" shared:ModSettingsSearch.Title="{Binding EnableAiDefensePatrolFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableAiDefensePatrolFixHelpText}"><CheckBox IsChecked="{Binding EnableAiDefensePatrolFix, Mode=TwoWay}"
                 Foreground="White"
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableAiDefensePatrolFixHelpText}"

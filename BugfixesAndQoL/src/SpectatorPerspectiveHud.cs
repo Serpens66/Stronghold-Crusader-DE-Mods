@@ -74,9 +74,8 @@ namespace BugfixesAndQoL
                 buttons[player].Visibility = occupied[player] ? Visibility.Visible : Visibility.Collapsed;
                 if (!occupied[player]) continue;
                 occupiedCount++;
-                int mappedPlayer = SpriteMapping.RemapMPLoadedColour(player);
                 int[] colourMapping = SpriteMapping.remapColours;
-                int colourIndex = mappedPlayer >= 0 && mappedPlayer < colourMapping.Length ? colourMapping[mappedPlayer] : 0;
+                int colourIndex = player < colourMapping.Length ? colourMapping[player] : 0;
                 UnityEngine.Color colour = colourIndex > 0 && colourIndex < OnScreenText.Instance.MPTeamColours.Length
                     ? OnScreenText.Instance.MPTeamColours[colourIndex] : UnityEngine.Color.white;
                 numbers[player].Foreground = new SolidColorBrush(Noesis.Color.FromRgb(

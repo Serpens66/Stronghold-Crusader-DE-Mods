@@ -6,6 +6,10 @@ BugfixesAndQoL fixes several problems in Stronghold Crusader Definitive Edition 
 
 Complete AI starting castles now use the configured "Both" production choices for their workshops.
 
+### Skip inaccessible AI raid targets
+
+This enabled-by-default host fix makes AI melee raiding groups try another building when Vanilla finds no usable melee attack position for their selected target. It preserves Vanilla's building priorities and does not add proximity scoring. Reachable granaries remain valid targets. Manual attack orders are unchanged.
+
 ### Restore the tannery rack fade
 The enabled-by-default host fix makes the tannery rack animation fade in smoothly instead of remaining almost invisible during its first phase.
 

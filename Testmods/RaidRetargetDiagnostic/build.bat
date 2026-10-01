@@ -1,4 +1,6 @@
 @echo off
+echo This testmod is archived. Use the Raid fix in BugfixesAndQoL 1.0.174.
+exit /b 1
 setlocal EnableExtensions
 set "PROJECT_DIR=%~dp0"
 set "MSBUILD=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe"

@@ -2139,6 +2139,7 @@ internal static class Program
 
         string[] movedBooleanSettings =
         {
+            "EnableAiRaidRetargetFix",
             "EnableSingleBuildingPause",
             "EnableFastRecruitRallyMovement",
             "RequireReachableEnemyForAutomaticGateClosing",

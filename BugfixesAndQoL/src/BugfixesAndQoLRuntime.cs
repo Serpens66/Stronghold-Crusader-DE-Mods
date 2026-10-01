@@ -82,6 +82,8 @@ namespace BugfixesAndQoL
         private static AIPreplacedBuildingFixRuntime processAIPreplacedBuildingFixRuntime;
         private static WorkerBreakPauseHook processWorkerBreakPauseHook;
         private static WorkshopIdleDelayHook processWorkshopIdleDelayHook;
+        private static AiRaidRetargetFixRuntime processAiRaidRetargetFixRuntime;
+        private static bool aiRaidRetargetInitializationAttempted;
         private static bool workshopIdleTickSubscribed, workshopIdleTickLogged;
         private static NativeTannerFade processNativeTannerFade;
         private static WaterboyTargetReservationRuntime processWaterboyTargetReservationRuntime;
@@ -432,6 +434,18 @@ namespace BugfixesAndQoL
             TryInitializeFeature(
                 "friendly moat movement",
                 () => InitializeFriendlyMoatMovement(context, isFixedLayoutHashValidated));
+            TryInitializePersistentFeature("AI melee raid retarget fix", () =>
+            {
+                if (aiRaidRetargetInitializationAttempted) return;
+                aiRaidRetargetInitializationAttempted = true;
+                if (!isFixedLayoutHashValidated)
+                {
+                    Shared.DebugLogHelper.LogError(log, "AI_RAID_INACTIVE: unvalidated Native version; Vanilla preserved.");
+                    return;
+                }
+                processAiRaidRetargetFixRuntime = new AiRaidRetargetFixRuntime(log);
+                processAiRaidRetargetFixRuntime.Initialize(context, settings.EnableMod && settings.EnableAiRaidRetargetFix);
+            });
             TryInitializeFeature(
                 "Extended Shift command queue",
                 () => InitializeExtendedShiftCommandQueue(context, isFixedLayoutHashValidated));
@@ -467,6 +481,8 @@ namespace BugfixesAndQoL
 
         public void ApplySettings()
         {
+            TryApplyFeature("AI melee raid retarget fix", () => processAiRaidRetargetFixRuntime?.SetEnabled(
+                settings.EnableMod && settings.EnableAiRaidRetargetFix));
             processNativeTannerFade?.SetEnabled(
                 settings.EnableMod && settings.EnableTanneryAnimationFix);
             TryApplyFeature(

@@ -24,6 +24,7 @@ namespace BugfixesAndQoL
         private bool enableCustomLordListEnhancements = true;
         private bool enableAiStoneReserveFix = true;
         private bool enableAiDefensePatrolFix = true;
+        private bool enableAiRaidRetargetFix = true;
         private bool enableAiWallTargetingFix = true;
         private bool enablePrebuiltAiWorkshopBothFix = true;
         private bool enableBakerMillerBreaks;
@@ -261,6 +262,8 @@ namespace BugfixesAndQoL
         }
         public string EnableAiStoneReserveFixText => SerpLocalization.Get(SerpLocalization.EnableAiStoneReserveFix);
         public string EnableAiStoneReserveFixHelpText => SerpLocalization.Get(SerpLocalization.EnableAiStoneReserveFixHelp);
+        public string EnableAiRaidRetargetFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAiRaidRetargetFix");
+        public string EnableAiRaidRetargetFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAiRaidRetargetFixHelp");
         public string EnableAiDefensePatrolFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAiDefensePatrolFix");
         public string EnableAiDefensePatrolFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAiDefensePatrolFixHelp");
         public string EnableAiWallTargetingFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAiWallTargetingFix");
@@ -903,6 +906,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableAiRaidRetargetFix
+        {
+            get => enableAiRaidRetargetFix;
+            set => SetSetting(ref enableAiRaidRetargetFix, value, nameof(EnableAiRaidRetargetFix));
+        }
+
+        [SyncHostOnly]
         public bool EnableAiDefensePatrolFix
         {
             get => enableAiDefensePatrolFix;
@@ -1373,6 +1383,7 @@ namespace BugfixesAndQoL
                 ShowMpAdvancedSettingsInSingleplayer = true;
                 EnableAiStoneReserveFix = true;
                 EnableAiDefensePatrolFix = true;
+                EnableAiRaidRetargetFix = true;
                 EnableAiWallTargetingFix = true;
                 EnableBakerMillerBreaks = false;
                 EnableWorkshopIdleDelayFix = false;

@@ -180,8 +180,10 @@ if ([IO.File]::ReadAllText((Join-Path $projectRoot 'src\SpectatorReportHooks.cs'
     throw 'Pending recovery must block report and ally actions and compile the save policy.'
 }
 & (Join-Path $projectRoot 'Test-SpectatorSavePolicy.ps1')
-if ($hud -notmatch 'SpriteMapping\.RemapMPLoadedColour\(player\)' -or
-    $hud -notmatch 'SpriteMapping\.remapColours' -or $hud -notmatch 'OnScreenText\.Instance\.MPTeamColours' -or
+if ($hud -match 'SpriteMapping\.RemapMPLoadedColour\(' -or
+    $hud -notmatch 'SpriteMapping\.remapColours' -or
+    $hud -notmatch 'colourIndex = player < colourMapping\.Length \? colourMapping\[player\] : 0;' -or
+    $hud -notmatch 'OnScreenText\.Instance\.MPTeamColours' -or
     $hud -notmatch 'numbers\[player\]\.Foreground' -or $hud -notmatch 'bar\.Width = 12f \+ occupiedCount \* 34f' -or
     $hud -match 'buttons\[selected\]\.Content\s*=') {
     throw 'Compact HUD must use Vanilla player colours once and mark selection without replacing numbers.'

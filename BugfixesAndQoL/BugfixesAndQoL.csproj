@@ -8,8 +8,8 @@
     <OutputType>Library</OutputType>
     <RootNamespace>BugfixesAndQoL</RootNamespace>
     <AssemblyName>BugfixesAndQoL</AssemblyName>
-    <AssemblyVersion>1.0.173.0</AssemblyVersion>
-    <FileVersion>1.0.173.0</FileVersion>
+    <AssemblyVersion>1.0.174.0</AssemblyVersion>
+    <FileVersion>1.0.174.0</FileVersion>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -59,6 +59,12 @@
   <ItemGroup>
     <Compile Include="..\Shared\SelectedChimpsSnapshotPolicy.cs"><Link>Shared\SelectedChimpsSnapshotPolicy.cs</Link></Compile>
     <Compile Include="src\LocalSelectionSnapshot.cs" />
+    <Compile Include="src\AiRaidRetargetFixRuntime.cs" />
+    <Compile Include="src\RaidActivationState.cs" />
+    <Compile Include="src\RaidAttackFieldEvaluation.cs" />
+    <Compile Include="src\RaidSearchEvidence.cs" />
+    <Compile Include="src\RaidSearchObserver.cs" />
+
     <Compile Include="..\Shared\AtomicFileReplacement.cs"><Link>Shared\AtomicFileReplacement.cs</Link></Compile>
     <Compile Include="..\Shared\CrashBreadcrumbDiagnostics.cs"><Link>Shared\CrashBreadcrumbDiagnostics.cs</Link></Compile>
     <Compile Include="..\Shared\CrashBreadcrumbRecorder.cs"><Link>Shared\CrashBreadcrumbRecorder.cs</Link></Compile>

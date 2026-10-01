@@ -375,3 +375,6 @@ BugfixesAndQoL.DamagedHealthBarsCapturePrompt=Press shortcut
 BugfixesAndQoL.DamagedHealthBarsOff=No key
 BugfixesAndQoL.DamagedHealthBarsCaptureHelp=Click, then press the shortcut you want to use for toggling damaged-object health bars.
 BugfixesAndQoL.DamagedHealthBarsClearHelp=Remove the assigned shortcut for toggling damaged-object health bars.
+
+BugfixesAndQoL.EnableAiRaidRetargetFix=Skip inaccessible AI raid targets
+BugfixesAndQoL.EnableAiRaidRetargetFixHelp=Melee raiding groups try another building when Vanilla finds no usable attack position. Vanilla building priorities remain unchanged; reachable granaries remain valid targets.
