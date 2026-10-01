@@ -135,3 +135,58 @@ depending on the cleared `KeyManager` state.
 - Rejected Pre events clearing the corresponding Script Extender 2.8.0
   `KeyManager.keys` entry: confirmed-static and confirmed-runtime by the lost
   auxiliary release and subsequent blocked Vanilla deselection.
+
+
+## 2026-10-02: final native ground feedback and formation preview
+
+Revalidated installed native SHA-256 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2
+and real managed SHA-256 BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789.
+Feature audit covers RunTick 86680 → 8B7E0 → 8C5F0; representative selection
+18D460 / route mode 18DC40; E7C40, E2610, DB650 and the E2CA0/E9D90/E9FF0
+fallbacks; terminal cursor dispatch; renderer 41D60/436DE/41D10; command staging
+195E30 → chore17/10AE0 → 196100 → 11B520 → 196280/F4930.
+
+Ground reject 8F3DA writes detail -10 at 60AD560, image 41 at 60AD548,
+file AC at 60AD54C and command 11 at 60AD55C. Final cursor dispatch table
+90088 entry 3 goes to 90028: 9002D/90033 publishes kind 3 at 34A9E4C.
+Approved ordinary ground starts file 6B/image 0, command 1/detail 0; applicable
+special ground output uses file 6B/image 20, command 9/detail 0. Type-specific
+positive fallback results remain authoritative. Object/wall contexts are excluded.
+Terminal kind 3, mode 1 and coherent player/group/count/anchor are required;
+unknown or rejected output never authorizes extra green formation markers.
+
+Read-only RVAs: player 88E3D70, active tribe 7CC6720, selection count 67E8420,
+mode 67E8410, cursor X/Y 3A11E2C/3A11E30, hovered unit 3A11DF0,
+hovered building 3A11DE4, wall 3A11E34, cursor kind 34A9E4C,
+file/image/command/detail 60AD54C/548/55C/560. Cursor offsets corroborated by
+installed-layout GameCursorManager (unit +30, building +24, wall +74).
+The new reader validates unchanged rejection, terminal-dispatch and mode bytes
+before use; no executable memory is changed.
+
+IMPORTANT: 41D60 calls 41D10 at the END, after visible tiles and cursor drawing.
+It clears 34A9E4C immediately before that reset. Therefore authorization runs in
+the first existing 436DE callback of each render pass, not in the reset callback;
+reset only invalidates per-pass memoization. A confirmed gesture keeps its fixed
+anchor when hover moves during spacing adjustment. EngineInterface.run and
+existing input/map paths invalidate changed selection/gesture context. No native
+search is added to marker rendering. 195E30 queues before checking feedback;
+no additional command veto or artificial replacement order is introduced.
+
+Cursor adapter 8F1BF uses immediate reference-first/filtered-last DB650 on demand.
+DB650 scratch mutation is confined to this already audited non-search cursor
+callsite; active direct/tactical scopes and reentry defer fail-open. Both scopes
+restore via finally. Snapshot identity, epoch and generation guard memoization.
+No new hook spans/owners, SE/Fixes conflicts or public APIShared interfaces.
+
+
+Buildnachweis 02.10.2026: Beide betroffenen build.bat-Treiber abgeschlossen,
+DLLs lokal/installiert SHA-256-identisch. Testmod: 1.699 Assertions einschließlich
+beider installierten RedBird-Maschinentests, 0 Warnungen/Fehler. Hauptmod:
+9.228 Formations-/Queue-Checks und vollständige Treiber-Regressionen bestanden;
+0 Fehler, 1 MSB3277-Warnung für MonoMod.Utils-Referenzversionen. Der alte
+Quelltexttest im Hauptmod-Nativeharness wurde auf die atomare Veröffentlichung
+von Markerkacheln und Autorisierungsdelegate aktualisiert; der erneute komplette
+Treiber bestand. JSON-/Lifecycle-/Hookmutations-/XAML-/CRLF-Vorprüfungen bestanden.
+Testmod DLL: 19C3DAB31C0B5CEE3054E771CBEA98BB5A20F11FA00DA354EEA97322AC0056B6.
+BugfixesAndQoL DLL: 4CD2567C4565FAA0E916561B40092A78A593DD897EDBC4117E6397BF00A36036.
+APIShared unverändert; keine Versionserhöhung. Spielabnahme weiterhin offen.

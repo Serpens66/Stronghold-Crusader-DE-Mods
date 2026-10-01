@@ -659,14 +659,14 @@ namespace EnemyGatePathfindingTest
                 $"cursorSamePclEligible={same.CursorSamePclEligible}," +
                 $"cursorDifferentPcl={same.CursorDifferentPcl}," +
                 $"cursorDifferentPclEligible={same.CursorDifferentPclEligible}," +
-                $"cursorRequestsPublished={same.CursorRequestsPublished}," +
+                $"cursorValidationRequests={same.CursorValidationRequests}," +
                 $"cursorResultForcedZero={same.CursorResultForcedZero}," +
                 $"cursorNativeRefreshes={same.CursorNativeRefreshes}," +
                 $"cursorCacheHits={same.CursorCacheHits}," +
                 $"cursorExactCacheHits={same.CursorExactCacheHits}," +
                 $"cursorReferenceNoRoutes={same.CursorReferenceNoRoutes}," +
                 $"cursorProvenPolicyBlocks={same.CursorProvenPolicyBlocks}," +
-                $"cursorThrottleDeferrals={same.CursorThrottleDeferrals}," +
+                $"cursorValidationDeferrals={same.CursorValidationDeferrals}," +
                 $"cursorPolicyBlocked={same.CursorPolicyBlocked}," +
                 $"cursorReachable={same.CursorReachable}," +
                 $"cursorRejectedEdges={same.CursorRejectedEdges}," +

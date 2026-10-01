@@ -1,0 +1,153 @@
+# Gebäude-Annäherung: Suchspieler und bewegender Spieler
+
+Audit: 02.10.2026. Native SHA-256:
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+Alle Adressen sind RVAs ausschließlich dieses Builds. Vertrauen: hoch für die
+unten beschriebenen direkten nativen Datenflüsse; keine Zuordnung eines
+konkreten Runtime-Aufrufs allein anhand gleicher Zahlenwerte.
+
+Installierter Script Extender: 2.12.0.0, SHA-256
+`DE5B88749C18A257E5F6A6E246F685300BF8DF970969DF1E6EA35C8C95F2A4AF`.
+Lokaler Fork-Commit `f8d51730fcb54b25af43d3c9348d57db058e077f`,
+Tree `657af449e1397c58e6c5ec054977d83198b68e66`; diese Provenienz stimmt
+mit DATABASE_INFO.json überein. Installierte Feldtypen/-offsets wurden separat
+über die echte SHCDESE.dll geprüft. Keine publicized Assembly verwendet.
+
+## Vertrag
+
+`0xDA020(pathManager, tribeId, buildingId, requestedResults, sourcePcl,
+nativeQueryPlayer)` besitzt zwei direkte native Aufrufer. Das sechste Argument
+ist kein einheitlicher Angreiferspieler und keine Bewegungsklasse.
+
+| Aufrufweg | Quelle des sechsten Arguments | Tatsächlich bewegender Kontext |
+| --- | --- | --- |
+| Zielplaner `0x30620`, Call `0x30A33` | ausgewählter gegnerischer Spieler; außerhalb des Editors Ersatzwert 1 bei gespeichertem null | übergebener Tribe und dessen Anführer; unabhängig vom ausgewählten Gegner |
+| Befehlsverteiler `0x11E960`, Call `0x11FF9A`, Befehle 9 und 38 | vorzeichenbehaftetes 16-Bit-Kontrollfeld des Anführers | derselbe Anführer/Tribe; Kontrollspieler und Tribe-Besitzer dürfen nicht ungeprüft gleichgesetzt werden |
+| derselbe Gebäudezweig, Befehl 36 | null | derselbe bewegende Tribe; null ist eine absichtliche Vanilla-Abfragerolle |
+
+Die Dispatchtabelle bei `0x121D4C` führt 9, 36 und 38 zum gemeinsamen
+Gebäudehandler `0x11FC25`. Andere Befehle sind nicht pauschal Gebäudeabfragen:
+Die Nullzuweisung am gemeinsamen Aufruf gilt für die dort ankommenden Befehle
+außer 9/38. Sie ist kein Beleg, dass jeder andere Befehl DA020 aufruft.
+
+## Vorgelagerte Zielplanung und Feldschreiber
+
+`0x2A720(aiRoot, ownPlayer, tribeId)` sucht unter Spielern 1..8 einen lebenden,
+nicht verbündeten Gegner. Die AIC-Auswahlzweige vergleichen Entfernung bzw.
+Spielerwerte; ohne Treffer folgt die nächste geeignete Gegnerauswahl. Bleibt
+auch sie erfolglos, schreibt der normale Spielpfad 1; im Editor kehrt er ohne
+diesen Ersatz zurück. Die beiden direkten Schreiber bei `0x2A9C5` und
+`0x2A9E6` schreiben ein WORD an
+`module+0x7CC6D6A+tribeId*0x688`.
+
+Der Tribe-Manager beginnt bei `module+0x7CC6720`, sein Array bei +0x2A.
+Damit ist managerrelativ +0x64A gleich strukturrelativ +0x620. Die installierte
+Interop benennt dort das UINT32-Feld `N00000580`; Vanilla liest/schreibt dessen
+unteres WORD. Das benannte Feld `r_AttackTargetOwnerPlayerId` liegt hingegen
+bei +0x61C und ist **nicht** die Quelle dieses Arguments.
+
+`0x30620` liest das WORD bei `0x30682` vorzeichenbehaftet nach EBP. Es verwendet
+denselben Wert zur Auswahl des gegnerischen Gebäudes über `0xCE570` und für
+gegnerische Rückfallkoordinaten. Im direkten Gebäude-Annäherungszweig der
+Speicherrollen 182/185 kopiert `0x30A09` EBP nach `[rsp+0x28]`; `0x30A33`
+ruft DA020 auf. Bei fehlendem Anführer wird dieser Suchaufruf umgangen.
+Eine fehlende geeignete Angriffskachel führt zu den gegnerischen
+Rückfallkoordinaten; anschließend entscheidet `0x3E650` über Bewegung bzw.
+`0x3E9A0`. Die anderen Planungszweige können direkt Gebäudeauftrag 9 oder
+die vorgelagerte Graben-/Sonderzielwahl über `0xF09A0` auslösen. Ein späterer
+Gebäudeauftrag beweist deshalb nicht, dass der direkte Planeraufruf lief.
+
+## Anführer und ID-Basis
+
+`0x11FF47` liest den Anführer aus managerrelativ +0x5A, also
+`GameTribe.r_LeaderUnitId` bei +0x30. `0x11FF4D` multipliziert die unveränderte
+1-basierte Game-ID mit Unitstride 0x490. Die Unitmanagerbasis hat bei +0x65C
+den vorgeschalteten Sentinel/LastOrderedUnit. Die öffentliche Unitspan beginnt
+erst hinter diesem Record und `TryGetUnitById(id)` verwendet dort `id-1`:
+
+`manager+0x65C+id*0x490 == publicSpan+(id-1)*0x490`.
+
+Die native Kontrollabfrage bei `0x11FF73` ist `MOVSX EAX,WORD [unitManager+
+leaderId*0x490+0x6EE]`, entsprechend Unitpointer +0x92. In der installierten
+Interop ist `r_ControllableForPlayerId` bei +0x92 ein **BYTE**, das nächste
+unbenannte BYTE liegt bei +0x93. Beide zusammen bilden das native signed WORD.
+Das obere Byte darf für eine zukünftige exakte Diagnose nicht stillschweigend
+als null angenommen werden. `0x1185A0` aktualisiert beim Tribe-Kontrollwechsel
+Tribe-Besitzer und dieses gesamte Unit-WORD für geeignete Mitglieder. Seine
+Existenz belegt keinen unveränderlichen Gleichstand aller Einheiten/Tribes.
+
+`0x11E986` setzt ESI auf null. Befehle 9/38 lesen das WORD, Befehl 36 behält
+null; `0x11FF89` veröffentlicht EAX als sechstes Argument. Kein ID-Off-by-one
+ist in diesem Zugriff nachgewiesen. Frühere Notizen mit „ushort“ werden durch
+den hier bestätigten **signed WORD → int**-Vertrag präzisiert.
+
+## Nachgelagerte Verwendung und terminale Folgen
+
+DA020 reicht das sechste Argument unverändert als Spielerargument an E2610
+weiter, sowohl im direkten Gebäudering als auch im erweiterten Suchring;
+der Regionsmodus ist jeweils 0. E2610 akzeptiert gleiche PCL unmittelbar,
+verwirft unterschiedliche Null-PCL und prüft sonst aktive Verbindungsrecords
+mit Modus, Besitzer/Allianz und Eroberungswert. Spieler null überspringt in
+dieser Recordauswahl die Spieler-/Allianzbedingung absichtlich. Der anschließende
+Graphdurchlauf kann einen nächsten PCL liefern oder mit null scheitern.
+Sein zweiter Durchlauf und die Scratch-/Ergebnisflags ändern nicht die Herkunft
+des Spielerarguments.
+
+DA020 besitzt davor eine eigene Same-PCL-Akzeptanz. Außerdem kann bei geeignetem
+Tribeprofil (`0x117820`) `0xE2CA0` eine zuvor fehlgeschlagene Regionsprüfung
+ersetzen. Diese alternative Suche hat **kein** Spielerargument: gleiche PCL,
+zehn positive/negative PCL-Paarcacheplätze, sonst `0xD9C40`-Kachelsuche.
+Ein vorhandener Cachetreffer führt nicht erneut durch die Regionsprüfung.
+Ein Scope am E2610 allein deckt deshalb nicht jeden Gebäudezugang ab.
+
+DA020 prüft außerdem Geometrie/Höhe und StructureGrid und erzeugt 12-Byte-
+Annäherungs-/Angriffskandidaten in gemeinsamem Scratchspeicher. Nach dem
+Order-Dispatcher-Aufruf sortiert/filtert `0x123090` anhand einer Suche ab der
+Anführerposition: DB650 bei gesetzter Variante, sonst profilabhängig DA590
+oder D9C40. Diese Suchen erhalten den sechsten DA020-Parameter nicht.
+Der Verbraucher bei `0x11FFAC` verlangt eine geeignete erste Angriffskachel;
+bei Fehlschlag wird die Einzelbewegungszuweisung übersprungen. Bei Erfolg
+folgen Einzelbewegungen über `0x196280`. Die Angriffsliste ist kein permanenter
+Auftrag und der gespeicherte Raid-Zielbezug beweist keinen erfolgreichen Weg.
+Siehe ergänzend RAID_RETARGET.md für Sentinel, Unittypen und den bestehenden
+BugfixesAndQoL-Raidfix.
+
+## Konsequenz für den Testmod und verbleibende Grenze
+
+Die bisherige Gleichheitsannahme des Gebäude-Resolvers ist zu streng:
+Ein Suchwert 2 gegenüber Tribe-Besitzer 5 kann im Planer regulär sein. Sie
+beweist dort keinen Spielerfehler. Ein Wertmatch allein beweist aber auch
+keine Planerherkunft. Die bei 00:51:28 untersuchten zwei Aufrufe von Tribe
+4423/global 2417968 hatten keinen kurzlebigen Auftragskontext; die bisherigen
+Logs besitzen keine Call-Site-Kennung. Beide Ereignisse bleiben daher konkret
+unaufgelöst und werden nicht nachträglich als bestätigte Normalfälle gewertet.
+Die Datenreferenz bei `0x88F4AA4` auf DA020 sowie verwaltete Detour-/Trampolin-
+Aufrufe sind zusätzliche Gründe, „zwei direkte native Aufrufer“ nicht als
+Ausschluss sämtlicher anderer Aufrufquellen zu behandeln.
+
+Diese Untersuchung ändert keine Runtime, Suchargumente, Masken, Hooks oder
+Integritätswertung. Zusätzliche Runtime-Diagnose ist für den jetzt bewiesenen
+Parametervertrag nicht nötig. Der nächste Resolverentwurf muss die zwei Rollen
+explizit trennen: Vanillas Suchspieler für deren Abfrage und einen unabhängig
+identitätsgeprüften bewegenden Kontext für die Gatepolicy. Vor einer Freigabe
+müssen auch Same-PCL, alternative Suche, Cache und nachgelagerte Kandidatenfilter
+betrachtet werden. Weder null noch der ausgewählte Gegner darf im Originalaufruf
+pauschal durch den Tribe-Besitzer ersetzt werden. Erwartbare Rollenunterschiede
+dürfen erst bei belegter Herkunft aus der dauerhaften Fehlerwertung herausfallen;
+Identitätsfehler, unklare Herkunft und echte Scope-Konflikte bleiben getrennt.
+
+## Reproduzierbare Prüfung und Regressionen
+
+Unter `_inspect/EnemyGateBuildingContextAudit` liegen `audit.py`,
+`installed-layout.ps1` und der vollständige Decompiler-/Maschinencodebeleg
+`evidence.txt`. Die Prüfung leitet DB und installierte DLL aus CURRENT.json/
+DATABASE_INFO.json ab, öffnet SQLite read-only, prüft Hash, Instruktionsgrenzen,
+Argumenttransporte, Schreiber, direkte Caller, Dispatchfälle und Sentinelbasis.
+Der Layouttest prüft acht öffentliche installierte Feldverträge und beide
+Recordgrößen. Diese Prüfungen installieren keine Hooks und starten kein Spiel.
+
+Für die spätere Resolveränderung erforderlich: normaler und Raid-Gebäudeangriff,
+vorgelagerte Zielplanung gegen einen anderen Spieler, eigener/kontrollierter
+Anführer, null-Abfrage, Same-PCL und Alternativsuche, eigener/eroberter Torzugang,
+echter Umweg sowie BugfixesAndQoL/APIShared ohne Testmod. Keine neue Spielabnahme
+oder Build wird durch die vorliegende reine Vertragsdokumentation behauptet.

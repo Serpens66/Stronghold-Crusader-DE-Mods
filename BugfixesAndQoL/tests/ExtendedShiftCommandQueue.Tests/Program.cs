@@ -32,10 +32,40 @@ internal static class Program
         CheckMoveFormationPlanner();
         CheckMoveFormationGesture();
         CheckGroundMovePreviewEligibility();
+        CheckGroundMoveAuthorization();
         CheckLargeMoveTargetOverflow();
         CheckMigrationSourceContracts();
         CheckNativeReference();
         Console.WriteLine($"Extended Shift command queue static tests passed: {checks} checks.");
+    }
+
+    private static void CheckGroundMoveAuthorization()
+    {
+        GroundMoveFeedback Feedback(int x = 10, int y = 20, int player = 1,
+            int tribe = 2, int count = 3, int mode = 1, int kind = 3, int file = 0x6B,
+            int image = 0, int command = 1, int detail = 0, int unit = 0, int building = 0,
+            int wall = 0) => new GroundMoveFeedback(player, tribe, count, mode, x, y,
+                kind, file, image, command, detail, unit, building, wall);
+        var gate = new GroundMovePreviewAuthorization(1,2,3,10,20);
+        Check(!gate.Observe(Feedback(x: 11)), "new gesture waits for matching anchor output");
+        Check(gate.Observe(Feedback()), "ordinary native ground approval enables preview");
+        Check(gate.Observe(Feedback(x: 11, kind: 5, file: 0xAC, image: 0x41, detail: -10)),
+            "drag hover rejection does not replace fixed command point");
+        Check(!gate.Observe(Feedback(kind: 5, file: 0xAC, image: 0x41, detail: -10)),
+            "native rejection at anchor hides markers without testmod dependency");
+        Check(!gate.Observe(Feedback(x: 11)), "moving away cannot authorize rejected anchor");
+        Check(gate.Observe(Feedback(image: 0x20, command: 9)), "native alternate ground approval retained");
+        Check(!gate.Observe(Feedback(player: 2)), "player switch clears proof");
+        Check(!gate.Observe(Feedback(x: 11)), "old proof does not return after player switch");
+        foreach (var invalid in new[] { Feedback(tribe: 3), Feedback(count: 4), Feedback(mode: 5),
+            Feedback(kind: -1), Feedback(file: 0), Feedback(image: 0x41), Feedback(command: 17),
+            Feedback(detail: -1), Feedback(unit: 1), Feedback(building: 1), Feedback(wall: 1) })
+        {
+            gate.Observe(Feedback());
+            Check(!gate.Observe(invalid), "unconfirmed/other-command native output hides markers");
+        }
+        gate = new GroundMovePreviewAuthorization(1,2,3,10,20);
+        Check(!gate.Observe(Feedback(x: 11)), "replacement gesture starts unconfirmed");
     }
 
     private static void CheckGroundMovePreviewEligibility()
@@ -1050,6 +1080,20 @@ internal static class Program
         byte[] image = File.ReadAllBytes(path);
         string actualSha = Convert.ToHexString(SHA256.HashData(image));
         Check(string.Equals(actualSha, expectedSha, StringComparison.Ordinal), "canonical native SHA-256");
+        // Validate the runtime's exact feedback contracts against installed PE bytes.
+        byte[] mappedFeedbackCode = new byte[0x90740];
+        foreach (var block in new[] { (0x8F3DA,10), (0x8F3EA,10), (0x8F3FE,10),
+            (0x9002D,13), (0x90729,20), (0x8D323,11) })
+            image.AsSpan(RvaToRawOffset(image, block.Item1), block.Item2)
+                .CopyTo(mappedFeedbackCode.AsSpan(block.Item1));
+        NativeGroundMoveFeedbackReader.ValidateContract(mappedFeedbackCode);
+        Check(true, "installed native cursor rejection/terminal dispatch/mode read contracts");
+        mappedFeedbackCode[0x9002D] ^= 1;
+        bool rejectedFeedbackCode = false;
+        try { NativeGroundMoveFeedbackReader.ValidateContract(mappedFeedbackCode); }
+        catch (InvalidOperationException) { rejectedFeedbackCode = true; }
+        Check(rejectedFeedbackCode, "changed native feedback contract rejects reader installation");
+
 
         CheckWildcardPattern(image, 0x8D3C2,
             "44 39 25 ?? ?? ?? ?? 74 3C 48 8B CE E8 ?? ?? ?? ?? 85 C0 74 30 B8 01 00 00 00 44 8B E8 89 44 24 54",
@@ -1318,7 +1362,7 @@ internal static class Program
             largeMoveRenderer.Contains("LargeMoveTargetOverflowBuffer secondBuffer") &&
             largeMoveRenderer.Contains("publishedOverflow") &&
             largeMoveRenderer.Contains("private readonly object stateRoot") &&
-            largeMoveRenderer.Contains("SetPreviewMarkerTiles(IEnumerable<int> tileIds)") &&
+            largeMoveRenderer.Contains("SetPreviewMarkerTiles(IEnumerable<int> tileIds, Func<bool> authorization)") &&
             largeMoveRenderer.Contains("ClearPreviewMarkerTiles()") &&
             largeMoveRenderer.Contains("TryAddOverflowMarker(") &&
             largeMoveRenderer.Contains("NativeContainsDuplicate(drawManager, tileId, category, spriteId)") &&

@@ -51,6 +51,7 @@ namespace EnemyGatePathfindingTest
                 DirectCursorCallsiteContractIsExact();
                 NormalCursorPreviewContractIsExact();
                 CursorPreviewDecisionIsCausalAndStable();
+                CursorCacheIsExactAndBounded();
                 NativeSnapshotPoolAcquisitionIsSynchronized();
                 PassageAxisEvidenceIsDeterministic();
                 TopologyRejectionClassificationIsDeterministic();
@@ -1800,7 +1801,7 @@ namespace EnemyGatePathfindingTest
 
             string runtime = File.ReadAllText(Path.Combine("src", "SamePclGateRouteRuntime.cs"));
             string callback = ExtractMethodBody(runtime, "FilterCursorPclDecision");
-            string deferred = ExtractMethodBody(runtime, "ProcessCursorPreview");
+            string deferred = ExtractMethodBody(runtime, "TryValidateCursorPreview");
             Assert(runtime.IndexOf("transaction.AddInline(cursorPclDecisionHook",
                         StringComparison.Ordinal) >= 0 &&
                     runtime.IndexOf("FilterNormalCursorPclDecision",
@@ -1817,7 +1818,7 @@ namespace EnemyGatePathfindingTest
             Assert(callback.IndexOf("if (vanillaResult > 0)", StringComparison.Ordinal) >= 0 &&
                     callback.IndexOf("else if (vanillaResult > 0)", StringComparison.Ordinal) < 0 &&
                     callback.IndexOf("cursorDifferentPclEligible", StringComparison.Ordinal) >= 0,
-                "positive Same- and Different-PCL cursor decisions share the throttled tile validation");
+                "positive cursor decisions share immediate tile validation");
             foreach (string forbidden in new[]
             {
                 "GameUnitManagerAPI", "originalDirectTileSearch", "lock (", "new ",
@@ -1832,10 +1833,43 @@ namespace EnemyGatePathfindingTest
                     deferred.IndexOf("GetSelectedChimps", StringComparison.Ordinal) < 0 &&
                     deferred.IndexOf("for (", StringComparison.Ordinal) < 0 &&
                     deferred.IndexOf("foreach", StringComparison.Ordinal) < 0,
-                "deferred preview validates one unit with reference-first and filtered-last DB650 searches");
+                "immediate preview validates one unit with reference-first and filtered-last DB650 searches");
             Assert(runtime.IndexOf("Stopwatch.Frequency / 5L", StringComparison.Ordinal) >= 0 &&
-                    runtime.IndexOf("cursorRefreshMs=200", StringComparison.Ordinal) >= 0,
-                "cursor preview is globally throttled to five native validations per second");
+                    runtime.IndexOf("cursorCacheTtlMs=200", StringComparison.Ordinal) >= 0 &&
+                    callback.Contains("TryValidateCursorPreview") &&
+                    !runtime.Contains("ProcessCursorPreview"),
+                "cursor cache has a 200ms TTL without deferred/global target throttling");
+        }
+
+        private static void CursorCacheIsExactAndBounded()
+        {
+            var cache = new CursorPreviewCache(200);
+            var key = new CursorPreviewCache.Key(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12);
+            cache.Put(key, 1000, false);
+            bool allowed;
+            Assert(cache.TryGet(key, 1200, out allowed) && !allowed, "exact blocked target is reused through TTL");
+            Assert(!cache.TryGet(key, 1201, out allowed) && allowed, "cache reads never extend TTL");
+            cache.Put(key, 1000, false);
+            Assert(!cache.TryGet(key, 999, out allowed), "backwards clock invalidates cache");
+            cache.Put(key, 1000, false);
+            for (int field = 0; field < 12; field++)
+            {
+                int[] values = { 1,2,3,4,5,6,7,8,9,10,11,12 };
+                values[field]++;
+                var changed = new CursorPreviewCache.Key(values[0],values[1],values[2],values[3],
+                    values[4],values[5],values[6],values[7],values[8],values[9],values[10],(ulong)values[11]);
+                Assert(!cache.TryGet(changed, 1000, out allowed), "cache field " + field + " is exact");
+            }
+            cache.Clear();
+            for (int target = 0; target < 100; target++)
+            {
+                var current = new CursorPreviewCache.Key(1,2,3,4,5,target,7,8,9,10,11,12);
+                if (!cache.TryGet(current, 1000, out allowed)) cache.Put(current, 1000, target % 2 == 0);
+                Assert(cache.TryGet(current, 1000, out allowed) && allowed == (target % 2 == 0),
+                    "eviction does not omit target " + target);
+            }
+            cache.Clear();
+            Assert(!cache.TryGet(key, 1000, out allowed), "map reset clears approvals and denials");
         }
 
         private static void CursorPreviewDecisionIsCausalAndStable()

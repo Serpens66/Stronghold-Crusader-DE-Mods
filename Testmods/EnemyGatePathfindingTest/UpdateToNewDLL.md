@@ -15,3 +15,19 @@ RedBird.X64 `1.5.0.0` and installed Script Extender `2.12.0.0` were checked on 2
 The custom context uses X64SmartCPUContext field offsets `0..128` in eight-byte increments and a 144-byte context area. Machine tests verify installed metadata, Win64 shadow space/alignment, actual RedBird displacement, both real branch outcomes, GPR/XMM preservation and stack balance. Re-run these tests on every RedBird update. Runtime callbacks and their function pointers are rooted by the static plugin runtime; no new Assembly-CSharp member access or APIShared interface is introduced.
 
 Other native targets and existing policies remain declared in `EnemyGatePathfindingNativeDefinition` and documented in `PROJECT_FINDINGS.md`. This change introduces no additional native target.
+
+
+## Building query-player contract audit (2026-10-02)
+
+No new runtime address or hook is introduced. The complete static contract is
+recorded in the semantic baseline knowledge/ENEMY_GATE_BUILDING_CONTEXT.md.
+For the reference hash above, DA020's sixth argument is the selected opponent
+in 30620 (call 30A33), but the signed leader control WORD in 11E960 commands
+9/38 (call 11FF9A), or zero for command 36. The planner field is tribe-relative
+0x620, not the named AttackTargetOwnerPlayerId field at 0x61C. The native
+control read at unit-relative 0x92 spans two installed Interop BYTE fields.
+A future implementation must preserve this width and distinguish Vanilla's
+query player from the moving actor. Same-PCL and E2CA0 alternative/cache paths
+must be audited too. Reference-specific machine checks and installed-layout
+checks are retained in _inspect/EnemyGateBuildingContextAudit. Unknown builds
+must not reuse these field/call-site claims as runtime adapters.

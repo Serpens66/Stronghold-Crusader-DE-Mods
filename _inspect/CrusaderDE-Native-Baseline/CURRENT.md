@@ -72,3 +72,5 @@ If the local database is absent after a fresh clone, rebuild it from the tracked
     & '_inspect\CrusaderDE-Native-Baseline\tools\semantic\Build-SemanticBaseline.ps1' RestoreDatabase
 
 For future chats, link this file and require the DLL hash to be checked before using any address or conclusion from the baseline.
+
+- [Enemy gate building-query player contract](./sem/FBCB9319/knowledge/ENEMY_GATE_BUILDING_CONTEXT.md): selected opponent versus leader control, zero query role, one-based leader indexing, and unresolved runtime attribution.

@@ -68,7 +68,16 @@ namespace BugfixesAndQoL
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate int BuildingHeightDelegate(IntPtr buildingManager, int buildingId);
 
-        private static readonly Dictionary<int, int> EmptyPreview = new Dictionary<int, int>();
+        private sealed class PreviewPublication
+        {
+            internal readonly Dictionary<int, int> Tiles;
+            internal readonly Func<bool> Authorization;
+            internal PreviewPublication(Dictionary<int, int> tiles, Func<bool> authorization)
+            { Tiles = tiles; Authorization = authorization; }
+            internal int Count => Tiles.Count;
+        }
+        private static readonly PreviewPublication EmptyPreview =
+            new PreviewPublication(new Dictionary<int, int>(), null);
         private readonly ManualLogSource log;
         private readonly Func<bool> featureEnabled;
         private readonly object stateRoot = new object();
@@ -79,7 +88,7 @@ namespace BugfixesAndQoL
         private readonly LargeMoveTargetOverflowBuffer secondBuffer = new LargeMoveTargetOverflowBuffer();
         private readonly HashSet<int> previewRequestBuffer = new HashSet<int>();
         private volatile LargeMoveTargetOverflowBuffer publishedOverflow;
-        private volatile Dictionary<int, int> publishedPreview = EmptyPreview;
+        private volatile PreviewPublication publishedPreview = EmptyPreview;
         private LargeMoveTargetOverflowBuffer stagingBuffer;
         private HookTransaction transaction;
         private SpriteBuilderDelegate spriteBuilder;
@@ -89,6 +98,8 @@ namespace BugfixesAndQoL
         private volatile bool failed;
         private volatile bool renderingActive;
         private bool overlayPassActive;
+        private PreviewPublication previewCheckedThisPass;
+        private bool previewAllowedThisPass;
         private bool failureLogged;
 
         public LargeMoveTargetMarkerRenderer(ManualLogSource log, Func<bool> featureEnabled)
@@ -250,7 +261,7 @@ namespace BugfixesAndQoL
             }
         }
 
-        public void SetPreviewMarkerTiles(IEnumerable<int> tileIds)
+        public void SetPreviewMarkerTiles(IEnumerable<int> tileIds, Func<bool> authorization)
         {
             lock (stateRoot)
             {
@@ -263,7 +274,7 @@ namespace BugfixesAndQoL
                             previewRequestBuffer.Add(tileId);
                     }
                 }
-                if (PreviewEqualsRequest())
+                if (PreviewEqualsRequest() && ReferenceEquals(publishedPreview.Authorization, authorization))
                     return;
                 if (previewRequestBuffer.Count == 0)
                 {
@@ -282,7 +293,7 @@ namespace BugfixesAndQoL
                     preview.Add(tileId, identity++);
                 }
                 publishedOverflow = null;
-                publishedPreview = preview;
+                publishedPreview = new PreviewPublication(preview, authorization);
                 SetRenderingActiveCore(true);
             }
         }
@@ -309,6 +320,7 @@ namespace BugfixesAndQoL
                 secondBuffer.Clear();
                 publishedOverflow = null;
                 publishedPreview = EmptyPreview;
+                previewCheckedThisPass = null;
                 previewRequestBuffer.Clear();
                 if (ReplacementAvailable)
                     SetRenderingActiveCore(false);
@@ -317,7 +329,7 @@ namespace BugfixesAndQoL
 
         private bool PreviewEqualsRequest()
         {
-            Dictionary<int, int> preview = publishedPreview;
+            Dictionary<int, int> preview = publishedPreview.Tiles;
             if (preview.Count != previewRequestBuffer.Count)
                 return false;
             foreach (int tileId in previewRequestBuffer)
@@ -353,6 +365,8 @@ namespace BugfixesAndQoL
             {
                 if (failed)
                     return;
+                previewCheckedThisPass = null;
+                previewAllowedThisPass = false;
                 bool renderedOverflow = publishedOverflow != null && publishedOverflow.Count != 0;
                 publishedOverflow = null;
                 if (publishedPreview.Count == 0 && !renderedOverflow && renderingActive)
@@ -371,7 +385,8 @@ namespace BugfixesAndQoL
         {
             if (!renderingActive || context.Pointer == null)
                 return;
-            Dictionary<int, int> preview = publishedPreview;
+            PreviewPublication publication = publishedPreview;
+            Dictionary<int, int> preview = publication.Tiles;
             LargeMoveTargetOverflowBuffer overflow = publishedOverflow;
             if ((preview.Count == 0 && overflow == null) || !featureEnabled())
                 return;
@@ -384,6 +399,15 @@ namespace BugfixesAndQoL
 
                 if (preview.Count != 0)
                 {
+                    if (!ReferenceEquals(previewCheckedThisPass, publication))
+                    {
+                        // ResetDrawList runs at the END of the preceding render pass.
+                        // No renderer lock is held across the gesture callback.
+                        Func<bool> authorization = publication.Authorization;
+                        previewAllowedThisPass = authorization != null && authorization();
+                        previewCheckedThisPass = publication;
+                    }
+                    if (!previewAllowedThisPass) return;
                     if (preview.TryGetValue(tileId, out int previewIdentity))
                         DrawPreview(registers, tileId, previewIdentity);
                     return;

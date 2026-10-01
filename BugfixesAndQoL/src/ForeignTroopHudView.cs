@@ -97,8 +97,8 @@ namespace BugfixesAndQoL
             originalTroopHitTest = troopRoot.IsHitTestVisible;
             // Keep the radar frame and editor shields; hide only the building controls to their left.
             mainRoot.Clip = new RectangleGeometry(new Rect(660, 0, 254, 306));
-            // Include Vanilla's sword at the left and its complete radar frame at the right.
-            troopRoot.Clip = new RectangleGeometry(new Rect(130, 0, 670, 155));
+            // Keep Vanilla's sword at the left; stop before the minimap and editor controls.
+            troopRoot.Clip = new RectangleGeometry(new Rect(130, 0, 430, 155));
             troopRoot.IsHitTestVisible = false;
             foreach (FrameworkElement control in nativeControls) control.Opacity = 0;
             return true;

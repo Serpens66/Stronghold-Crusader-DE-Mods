@@ -242,9 +242,9 @@ internal static class Program
 
         string marker = File.ReadAllText(Path.Combine(sourceRoot, "LargeMoveTargetMarkerRenderer.cs"));
         int markerSnapshot = marker.IndexOf(
-            "Dictionary<int, int> preview = publishedPreview;", StringComparison.Ordinal);
+            "Dictionary<int, int> preview = publication.Tiles;", StringComparison.Ordinal);
         int overflowSnapshot = marker.IndexOf(
-            "LargeMoveTargetOverflowBuffer overflow = publishedOverflow;", markerSnapshot, StringComparison.Ordinal);
+            "LargeMoveTargetOverflowBuffer overflow = publishedOverflow;", Math.Max(0, markerSnapshot), StringComparison.Ordinal);
         int emptyGuard = marker.IndexOf(
             "preview.Count == 0 && overflow == null", overflowSnapshot, StringComparison.Ordinal);
         int featureDelegate = marker.IndexOf("featureEnabled()", emptyGuard, StringComparison.Ordinal);
@@ -253,6 +253,11 @@ internal static class Program
               featureDelegate > emptyGuard && dictionaryLookup > featureDelegate &&
               !marker.Contains("new Dictionary<int, int>(stableIdentityByTile)"),
             "visible-tile callback checks allocation-free preview/overflow snapshots before feature work");
+        Check(marker.Contains("PreviewPublication publication = publishedPreview;") &&
+              marker.Contains("publication.Authorization") &&
+              marker.Contains("ReferenceEquals(previewCheckedThisPass, publication)") &&
+              marker.Contains("if (!previewAllowedThisPass) return;"),
+            "marker tiles and native authorization are published atomically and observed once per pass");
 
         string invite = File.ReadAllText(Path.Combine(sourceRoot, "SteamLobbyInvitePrompt.cs"));
         int expireMethod = invite.IndexOf("private void ExpirePendingInvites", StringComparison.Ordinal);

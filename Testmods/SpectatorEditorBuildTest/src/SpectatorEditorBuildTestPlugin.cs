@@ -67,7 +67,9 @@ namespace SpectatorEditorBuildTest
         private static int unitRequests;
         [ThreadStatic] private static int placingUnitOwner;
         [ThreadStatic] private static int lastEditorMouseState;
+        [ThreadStatic] private static bool rawMouseReleasePending;
         [ThreadStatic] private static BuildingRequest buildingClickScope;
+        [ThreadStatic] private static PitchRequest pitchClickScope;
         [ThreadStatic] private static WallBuildScope buildingWall;
         private static volatile BuildingRequest pendingBuilding;
         private static volatile WallRequest activeWall;
@@ -76,9 +78,23 @@ namespace SpectatorEditorBuildTest
         private static IDisposable buildStructureSubscription;
         private static IDisposable wallBuildSubscription;
         private static IDisposable subtractResourceSubscription;
+        private static IDisposable pitchBuildSubscription;
         private static NativeDetour<BuildAvailabilityDelegate> availabilityDetour;
+        private static NativeDetour<VisualMapDelegate> visualMapDetour;
+        private static NativeDetour<VisualFrameDelegate> visualFrameDetour;
+        private static NativeDetour<VisualResourceDelegate> visualResourceDetour;
+        private static int revealHiddenActive;
+        private static int visualMapLogged, visualFrameLogged, visualResourceLogged;
         private static ulong nativeImageBase;
-        private static int wallDiagnostics;
+        private static int wallPreviewDiagnostics;
+        private static int wallInputDiagnostics;
+        private static int wallPressDiagnostics, wallReleaseDiagnostics, wallQueueDiagnostics;
+        private static int wallOrderDiagnostics;
+        private static int wallCostDiagnostics;
+        private static int specialInputDiagnostics, pitchCostDiagnostics;
+        private static volatile SpecialDragRequest activeSpecial;
+        private static readonly List<PitchRequest> pendingPitch = new List<PitchRequest>();
+        private static readonly object pitchLock = new object();
         private static int buildingDiagnostics;
         private static int vanillaWellDiagnostics;
         private static readonly List<BuildingVisualSample> visualSamples = new List<BuildingVisualSample>();
@@ -114,11 +130,31 @@ namespace SpectatorEditorBuildTest
 
         private const string NativeSha256 = "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2";
         private const int AvailabilityRva = 0xCC420;
+        private const int SpectatorFlagRva = 0x3666080;
+        private const int VisualMapRva = 0x65830;
+        private const int VisualFrameRva = 0x41D60;
+        private const int VisualResourceRva = 0x6E620;
+        private static readonly byte[] VisualMapEntry = {
+            0x4C, 0x8B, 0xDC, 0x53, 0x55, 0x48, 0x81, 0xEC, 0x88, 0x00, 0x00, 0x00
+        };
+        private static readonly byte[] VisualFrameEntry = {
+            0x48, 0x89, 0x5C, 0x24, 0x10, 0x48, 0x89, 0x6C, 0x24, 0x18
+        };
+        private static readonly byte[] VisualResourceEntry = {
+            0x48, 0x89, 0x5C, 0x24, 0x18, 0x55
+        };
         private static readonly byte[] AvailabilityEntry = {
             0x48, 0x89, 0x5C, 0x24, 0x20, 0x44, 0x89, 0x44, 0x24, 0x18
         };
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate int BuildAvailabilityDelegate(IntPtr manager, int mapper, int owner, int showMessage);
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate void VisualMapDelegate(IntPtr tileManager);
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate void VisualFrameDelegate(IntPtr map, int left, int right,
+            int top, int bottom, int zoom);
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate byte VisualResourceDelegate(IntPtr tileManager, int buildingId);
 
         private sealed class BuildingRequest
         {
@@ -138,6 +174,21 @@ namespace SpectatorEditorBuildTest
             internal DateTime ExpiresAtUtc;
         }
 
+        private sealed class SpecialDragRequest
+        {
+            internal int Owner;
+            internal eMappers Mapper;
+            internal long SessionId;
+        }
+
+        private sealed class PitchRequest
+        {
+            internal int Owner, X, Y;
+            internal long SessionId;
+            internal DateTime ExpiresAtUtc;
+            internal bool Built;
+        }
+
         private sealed class WallStoneScope
         {
             internal int Owner;
@@ -148,6 +199,9 @@ namespace SpectatorEditorBuildTest
         {
             internal WallRequest Request;
             internal uint OriginalStone, OriginalCost;
+            internal int NativeOwner;
+            internal uint NativeOwnerStone, NativeOwnerCost;
+            internal bool HasNativeOwnerResources;
             internal int Subtractions;
         }
 
@@ -174,6 +228,7 @@ namespace SpectatorEditorBuildTest
             IDisposable candidateBuildStructure = null;
             IDisposable candidateWallBuild = null;
             IDisposable candidateSubtractResource = null;
+            IDisposable candidatePitchBuild = null;
             bool tickRegistered = false;
             bool renderRegistered = false;
             bool libraryRegistered = false;
@@ -195,6 +250,9 @@ namespace SpectatorEditorBuildTest
                 Patch(candidate, typeof(EditorDirector), "getMouseStateForEngine",
                     nameof(AfterGetMouseStateForEngine), postfix: true,
                     typeof(bool).MakeByRefType(), typeof(bool).MakeByRefType());
+                Patch(candidate, typeof(EditorDirector),
+                    nameof(EditorDirector.updateLeftMouseStateForEngine),
+                    nameof(BeforeUpdateLeftMouseStateForEngine), postfix: false, typeof(int));
                 Patch(candidate, typeof(EditorDirector), nameof(EditorDirector.clearMouseStateForEngine),
                     nameof(BeforeClearMouseStateForEngine), postfix: false);
                 Patch(candidate, typeof(EditorDirector), nameof(EditorDirector.preDLLCallActions),
@@ -229,11 +287,14 @@ namespace SpectatorEditorBuildTest
                 candidateWallBuild = BuildingR3EventHooks.OnBuildWall.Observable.Subscribe(OnBuildWall);
                 candidateSubtractResource = PlayerR3EventHooks.OnPlayerSubtractResource.Observable
                     .Where(args => args.Phase == EventHookPhase.Pre).Subscribe(OnSubtractResource);
+                candidatePitchBuild = BuildingR3EventHooks.OnBuildPitchDitch.Observable
+                    .Subscribe(OnBuildPitchDitch);
                 tribeSubscription = candidateTribeSubscription;
                 buildingSpawnSubscription = candidateBuildingSpawn;
                 buildStructureSubscription = candidateBuildStructure;
                 wallBuildSubscription = candidateWallBuild;
                 subtractResourceSubscription = candidateSubtractResource;
+                pitchBuildSubscription = candidatePitchBuild;
                 GameTimeManagerAPI.Instance.OnTick += OnSimulationTick;
                 tickRegistered = true;
                 UnityEngine.Application.onBeforeRender += OnBeforeRender;
@@ -261,6 +322,7 @@ namespace SpectatorEditorBuildTest
                 candidateBuildStructure?.Dispose();
                 candidateWallBuild?.Dispose();
                 candidateSubtractResource?.Dispose();
+                candidatePitchBuild?.Dispose();
                 candidate.UnpatchSelf();
                 log.LogError("SPECTATOR_EDITOR_INIT_FAILED: " + error);
             }
@@ -336,6 +398,7 @@ namespace SpectatorEditorBuildTest
                 candidate = null;
                 published = true;
                 log.LogInfo("SPECTATOR_EDITOR_BUILD_AVAILABILITY_READY rva=0xCC420 scheme=Indirect displaced=10");
+                InstallVisualDetours(context);
             }
             catch (Exception error)
             {
@@ -435,6 +498,16 @@ namespace SpectatorEditorBuildTest
                 if (click != null && IsCurrentSession(click.SessionId) &&
                     click.Owner == owner && (int)click.Mapper == mapper)
                     return 1;
+                if (mapper == (int)eMappers.MAPPER_PITCH_DITCH)
+                {
+                    PitchRequest pitchClick = pitchClickScope;
+                    if (PitchMatches(pitchClick, owner, pitchClick?.X ?? -1,
+                        pitchClick?.Y ?? -1)) return 1;
+                    lock (pitchLock)
+                        foreach (PitchRequest pitch in pendingPitch)
+                            if (PitchMatches(pitch, owner, pitch.X, pitch.Y) &&
+                                PitchChoreMatches(pitch)) return 1;
+                }
                 BuildingRequest queued = pendingBuilding;
                 if (queued != null && queued.ClickAccepted && !queued.BuildStarted &&
                     IsCurrentSession(queued.SessionId) &&
@@ -483,6 +556,7 @@ namespace SpectatorEditorBuildTest
 
         private static void ResetSessionState()
         {
+            Interlocked.Exchange(ref revealHiddenActive, 0);
             DetachHumanControls();
             humanPlacementMode = false;
             humanSelectedOwner = -1;
@@ -492,10 +566,20 @@ namespace SpectatorEditorBuildTest
             humanCameraFailureLogged = false;
             activeWall = null;
             pendingWall = null;
+            activeSpecial = null;
+            lock (pitchLock) pendingPitch.Clear();
+            pitchClickScope = null;
+            wallPreviewDiagnostics = 0;
+            wallInputDiagnostics = 0;
+            wallPressDiagnostics = wallReleaseDiagnostics = wallQueueDiagnostics = 0;
+            wallOrderDiagnostics = 0;
+            wallCostDiagnostics = 0;
+            specialInputDiagnostics = pitchCostDiagnostics = 0;
             pendingBuilding = null;
             buildingClickScope = null;
             buildingWall = null;
             placingUnitOwner = 0;
+            rawMouseReleasePending = false;
             RestoreDateLayout();
             activeHud = null;
             initialLayoutLoggedHud = null;
@@ -580,9 +664,11 @@ namespace SpectatorEditorBuildTest
             {
                 MainControls.instance?.StopAllPlacement();
                 humanPlacementMode = false;
+                Interlocked.Exchange(ref revealHiddenActive, 0);
                 humanSelectedOwner = -1;
                 humanSavedTabs = null;
                 activeWall = null;
+                activeSpecial = null;
                 RestoreDateLayout();
                 activeHud = null;
                 DetachHumanControls();
@@ -715,10 +801,12 @@ namespace SpectatorEditorBuildTest
         private static void RefreshHumanOwnerColour(int owner)
         {
             int[] mapping = SpriteMapping.remapColours;
-            UnityEngine.Color[] palette = OnScreenText.Instance?.MPTeamColours;
             int index = mapping != null && owner < mapping.Length ? mapping[owner] : 0;
-            UnityEngine.Color colour = palette != null && index > 0 && index < palette.Length ?
-                palette[index] : UnityEngine.Color.white;
+            UnityEngine.Color colour = UnityEngine.Color.white;
+            if (mapping != null && index > 0 && index < mapping.Length &&
+                spriteLoader.instance != null)
+                spriteLoader.instance.GetGMMaterial(Enums.GM.GM_BODY_ARCHER,
+                    index, 0, out colour, 0);
             byte red = (byte)(colour.r * 255f);
             byte green = (byte)(colour.g * 255f);
             byte blue = (byte)(colour.b * 255f);
@@ -803,8 +891,10 @@ namespace SpectatorEditorBuildTest
             if (humanPlacementMode)
             {
                 humanPlacementMode = false;
+                Interlocked.Exchange(ref revealHiddenActive, 0);
                 MainControls.instance.StopAllPlacement();
                 activeWall = null;
+                activeSpecial = null;
                 RestoreDateLayout();
                 MainViewModel.Instance.SubMode = humanSavedSubMode;
                 hud.SetupNewBuildScreen(-1000);
@@ -835,6 +925,11 @@ namespace SpectatorEditorBuildTest
                 MainControls.instance.StopAllPlacement();
                 if (!IsSelectableAi(humanSelectedOwner)) humanSelectedOwner = firstAi;
                 humanPlacementMode = true;
+                Interlocked.Exchange(ref revealHiddenActive,
+                    visualMapDetour != null && visualFrameDetour != null &&
+                    visualResourceDetour != null ? 1 : 0);
+                if (Volatile.Read(ref revealHiddenActive) == 0)
+                    log.LogWarning("SPECTATOR_EDITOR_VISUAL_UNAVAILABLE: audited native hooks are not installed");
                 hud.SetupNewBuildScreen(1);
                 RefreshBuildIcons(hud, humanSelectedOwner, "human-enter");
                 log.LogInfo("SPECTATOR_EDITOR_HUMAN_MODE_ON owner=" + humanSelectedOwner +
@@ -849,6 +944,7 @@ namespace SpectatorEditorBuildTest
             if (humanSelectedOwner == owner) return;
             MainControls.instance?.StopAllPlacement();
             activeWall = null;
+            activeSpecial = null;
             humanSelectedOwner = owner;
             if (MainViewModel.Instance.HUDmain != null)
                 RefreshBuildIcons(MainViewModel.Instance.HUDmain, owner, "human-owner");
@@ -906,6 +1002,9 @@ namespace SpectatorEditorBuildTest
             try
             {
                 bool humanEligible = IsHumanSingleplayerSession();
+                Interlocked.Exchange(ref revealHiddenActive,
+                    humanEligible && humanPlacementMode && visualMapDetour != null &&
+                    visualFrameDetour != null && visualResourceDetour != null ? 1 : 0);
                 if (humanEligible) EnsureHumanControls();
                 RefreshHumanControls(humanEligible);
                 if (!IsPlacementSession())
@@ -918,6 +1017,7 @@ namespace SpectatorEditorBuildTest
                     pendingVisibilityHud = null;
                     pendingVisibilityAt = DateTime.MaxValue;
                     activeWall = null;
+                    activeSpecial = null;
                     return;
                 }
                 MainViewModel view = MainViewModel.Instance;
@@ -1190,16 +1290,27 @@ namespace SpectatorEditorBuildTest
         private static void AfterGetMouseStateForEngine(int __result)
         {
             lastEditorMouseState = __result;
-            if (activeWall != null && wallDiagnostics++ < 48)
+            if (activeWall != null && __result == 3 && wallReleaseDiagnostics++ < 16)
                 log.LogInfo("SPECTATOR_EDITOR_WALL_MOUSE state=" + __result +
-                    " owner=" + activeWall.Owner + " mapper=" + activeWall.Mapper);
+                    " owner=" + activeWall.Owner + " mapper=" + activeWall.Mapper +
+                    " overUI=" + EditorDirector.instance.overUI());
+        }
+
+        private static void BeforeUpdateLeftMouseStateForEngine(int state)
+        {
+            if (state == 3 && (activeWall != null || activeSpecial != null))
+                rawMouseReleasePending = true;
         }
 
         private static bool BeforeClearMouseStateForEngine()
         {
-            return !IsPlacementSession() || activeWall == null ||
+            return !IsPlacementSession() ||
+                (activeWall == null && activeSpecial == null) ||
                 MainControls.instance == null || MainControls.instance.CurrentAction != 5 ||
-                (eMappers)MainControls.instance.CurrentSubAction != activeWall.Mapper;
+                (activeWall != null &&
+                    (eMappers)MainControls.instance.CurrentSubAction != activeWall.Mapper) ||
+                (activeSpecial != null &&
+                    (eMappers)MainControls.instance.CurrentSubAction != activeSpecial.Mapper);
         }
 
         private static void AfterPreDLLCallActions(ref int mouseOverX, ref int mouseOverY)
@@ -1207,10 +1318,28 @@ namespace SpectatorEditorBuildTest
             WallRequest wall = activeWall;
             int state = lastEditorMouseState;
             lastEditorMouseState = 0;
-            if (wall != null && wallDiagnostics++ < 48)
+            if ((wall != null || activeSpecial != null) && state == 0 &&
+                rawMouseReleasePending &&
+                EditorDirector.instance != null && !EditorDirector.instance.overUI())
+            {
+                state = 3;
+                if (wallReleaseDiagnostics++ < 16)
+                    log.LogInfo("SPECTATOR_EDITOR_RELEASE_RECOVERED tile=" +
+                        mouseOverX + "," + mouseOverY);
+            }
+            rawMouseReleasePending = false;
+            if (wall != null && (state == 1 || state == 3) &&
+                wallInputDiagnostics++ < 24)
                 log.LogInfo("SPECTATOR_EDITOR_WALL_FORWARD state=" + state +
-                    " tile=" + mouseOverX + "," + mouseOverY);
+                    " tile=" + mouseOverX + "," + mouseOverY +
+                    " action=" + MainControls.instance?.CurrentAction);
+            ForwardSpecialDrag(state, mouseOverX, mouseOverY);
             if (wall == null || (state != 2 && state != 3)) return;
+            if (EditorDirector.instance != null && EditorDirector.instance.overUI())
+            {
+                if (state == 3) activeWall = null;
+                return;
+            }
             if (!IsPlacementSession() || MainControls.instance == null ||
                 MainControls.instance.CurrentAction != 5 ||
                 (eMappers)MainControls.instance.CurrentSubAction != wall.Mapper ||
@@ -1243,9 +1372,35 @@ namespace SpectatorEditorBuildTest
             EngineInterface.PlaceMapperItem((int)wall.Mapper, tileX, tileY,
                 0, wall.Owner, false, state == 2, state);
             if (state == 3)
-                log.LogInfo("SPECTATOR_EDITOR_WALL_REQUEST owner=" + wall.Owner +
+            {
+                wallQueueDiagnostics++;
+                log.LogInfo("SPECTATOR_EDITOR_WALL_REQUEST session=" + wall.SessionId +
+                    " owner=" + wall.Owner +
                     " mapper=" + wall.Mapper + " start=" + wall.StartX + "," + wall.StartY +
                     " end=" + wall.EndX + "," + wall.EndY);
+            }
+        }
+
+        private static void ForwardSpecialDrag(int state, int tileX, int tileY)
+        {
+            SpecialDragRequest special = activeSpecial;
+            if (special == null || (state != 1 && state != 2 && state != 3)) return;
+            if (!IsPlacementSession() || !IsCurrentSession(special.SessionId) ||
+                MainControls.instance == null || MainControls.instance.CurrentAction != 5 ||
+                (eMappers)MainControls.instance.CurrentSubAction != special.Mapper ||
+                EditorDirector.instance == null || EditorDirector.instance.overUI() ||
+                tileX < 0 || tileY < 0)
+            {
+                if (state == 3 || !IsPlacementSession()) activeSpecial = null;
+                return;
+            }
+            EngineInterface.PlaceMapperItem((int)special.Mapper, tileX, tileY, 0,
+                special.Owner, false, false, state);
+            if (specialInputDiagnostics++ < 24 || state == 3)
+                log.LogInfo("SPECTATOR_EDITOR_SPECIAL_FORWARD owner=" + special.Owner +
+                    " mapper=" + special.Mapper + " tile=" + tileX + "," + tileY +
+                    " state=" + state);
+            if (state == 3) activeSpecial = null;
         }
 
         private static bool BeforePlaceMapperItem(int item, int x, int y, int size,
@@ -1257,22 +1412,64 @@ namespace SpectatorEditorBuildTest
             eMappers mapper = (eMappers)item;
             if (!IsAllowedMapper(mapper)) return false;
             WallRequest wall = mouseState == 3 ? pendingWall : activeWall;
+            SpecialDragRequest special = activeSpecial;
             int owner = IsWallMapper(mapper) && (mouseState == 2 || mouseState == 3) &&
                 wall != null && wall.Mapper == mapper ? wall.Owner : CurrentAiOwner();
+            if (IsSpecialDragMapper(mapper) && special != null &&
+                special.Mapper == mapper && IsCurrentSession(special.SessionId))
+                owner = special.Owner;
             if (owner < 1) return false;
             player = owner;
             inGameNotEditor = false;
             if (IsWallMapper(mapper))
             {
                 if (!TryRaiseStone(owner, out __state)) return false;
-                if (wallDiagnostics++ < 48)
+                if (mouseState != 0 ? wallInputDiagnostics++ < 40 :
+                    wallPreviewDiagnostics++ < 12)
                     log.LogInfo("SPECTATOR_EDITOR_WALL_NATIVE state=" + mouseState +
                         " owner=" + owner + " mapper=" + mapper + " tile=" + x + "," + y +
                         " stone=" + __state.OriginalStone);
-                if (mouseState == 1 && !constructingOnly)
+                if (mouseState == 1 && constructingOnly)
+                {
                     activeWall = new WallRequest { Owner = owner, Mapper = mapper,
                         StartX = x, StartY = y, EndX = x, EndY = y,
                         SessionId = CurrentSessionId };
+                    if (wallPressDiagnostics++ < 16)
+                        log.LogInfo("SPECTATOR_EDITOR_WALL_PRESS owner=" + owner +
+                            " mapper=" + mapper + " tile=" + x + "," + y);
+                }
+                return true;
+            }
+            if (IsSpecialDragMapper(mapper))
+            {
+                if (mouseState == 1 && constructingOnly)
+                    activeSpecial = new SpecialDragRequest { Owner = owner, Mapper = mapper,
+                        SessionId = CurrentSessionId };
+                if (!constructingOnly && mapper == eMappers.MAPPER_PITCH_DITCH &&
+                    (mouseState == 1 || mouseState == 2))
+                {
+                    PitchRequest pitch = null;
+                    lock (pitchLock)
+                    {
+                        foreach (PitchRequest existing in pendingPitch)
+                            if (PitchMatches(existing, owner, x, y))
+                            {
+                                pitch = existing;
+                                break;
+                            }
+                        if (pitch == null)
+                        {
+                            pitch = new PitchRequest { Owner = owner, X = x, Y = y,
+                                SessionId = CurrentSessionId,
+                                ExpiresAtUtc = DateTime.UtcNow.AddSeconds(5) };
+                            pendingPitch.Add(pitch);
+                        }
+                    }
+                    pitchClickScope = pitch;
+                    if (specialInputDiagnostics++ < 24)
+                        log.LogInfo("SPECTATOR_EDITOR_PITCH_REQUEST owner=" + owner +
+                            " tile=" + x + "," + y + " state=" + mouseState);
+                }
                 return true;
             }
             if (IsUnitMapper(mapper))
@@ -1313,6 +1510,7 @@ namespace SpectatorEditorBuildTest
         private static void AfterPlaceMapperItem()
         {
             placingUnitOwner = 0;
+            pitchClickScope = null;
             BuildingRequest request = buildingClickScope;
             if (request != null)
             {
@@ -1325,6 +1523,9 @@ namespace SpectatorEditorBuildTest
             WallStoneScope __state)
         {
             if (__state != null) RestoreStone(__state.Owner, __state.OriginalStone);
+            if (__exception != null && pitchClickScope != null)
+                lock (pitchLock) pendingPitch.Remove(pitchClickScope);
+            pitchClickScope = null;
             placingUnitOwner = 0;
             if (__exception != null && buildingClickScope != null &&
                 ReferenceEquals(pendingBuilding, buildingClickScope))
@@ -1339,6 +1540,9 @@ namespace SpectatorEditorBuildTest
                 mapper == eMappers.MAPPER_CRENAL ||
                 mapper == eMappers.MAPPER_WOODWALL;
         }
+
+        private static bool IsSpecialDragMapper(eMappers mapper) =>
+            mapper == eMappers.MAPPER_PITCH_DITCH || mapper == eMappers.MAPPER_MOAT;
 
         private static unsafe bool TryRaiseStone(int owner, out WallStoneScope scope)
         {
@@ -1361,10 +1565,15 @@ namespace SpectatorEditorBuildTest
 
         private static bool WallMatches(WallRequest request, BuildWallEventArgs args)
         {
-            return request != null && request.Owner == args.PlayerId &&
-                request.Mapper == args.WallType &&
+            return request != null && request.Mapper == args.WallType &&
                 DateTime.UtcNow <= request.ExpiresAtUtc &&
                 IsCurrentSession(request.SessionId) &&
+                WallCoordinatesMatch(request, args);
+        }
+
+        private static bool WallCoordinatesMatch(WallRequest request, BuildWallEventArgs args)
+        {
+            return request != null && request.Mapper == args.WallType &&
                 ((NearTile(request.StartX, request.StartY, args.TileXBegin, args.TileYBegin) &&
                   NearTile(request.EndX, request.EndY, args.TileXEnd, args.TileYEnd)) ||
                  (NearTile(request.StartX, request.StartY, args.TileXEnd, args.TileYEnd) &&
@@ -1374,37 +1583,281 @@ namespace SpectatorEditorBuildTest
         private static bool NearTile(int x1, int y1, int x2, int y2) =>
             Math.Abs(x1 - x2) <= 1 && Math.Abs(y1 - y2) <= 1;
 
+        private static bool PitchMatches(PitchRequest request, int owner, int x, int y) =>
+            request != null && request.Owner == owner && request.X == x && request.Y == y &&
+            IsCurrentSession(request.SessionId) && DateTime.UtcNow <= request.ExpiresAtUtc;
+
+        private static bool PitchChoreMatches(PitchRequest request)
+        {
+            if (request == null || nativeImageBase == 0) return false;
+            return Marshal.ReadInt32(unchecked((IntPtr)(long)(nativeImageBase + 0x85F8FF4))) == 10 &&
+                Marshal.ReadInt32(unchecked((IntPtr)(long)(nativeImageBase + 0x85F8FEC))) == 0 &&
+                Marshal.ReadInt32(unchecked((IntPtr)(long)(nativeImageBase + 0x86C132C))) == request.X &&
+                Marshal.ReadInt32(unchecked((IntPtr)(long)(nativeImageBase + 0x86C1330))) == request.Y &&
+                Marshal.ReadInt32(unchecked((IntPtr)(long)(nativeImageBase + 0x86C1334))) ==
+                    (int)eMappers.MAPPER_PITCH_DITCH;
+        }
+
+        private static unsafe void RestoreWallResources(WallBuildScope scope)
+        {
+            if (GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(scope.Request.Owner,
+                out GamePlayerResources* resources) && resources != null)
+            {
+                resources->r_TotalGoodsStoneBlocks = scope.OriginalStone;
+                resources->r_LastBoughtWallStoneCost = scope.OriginalCost;
+            }
+            if (scope.HasNativeOwnerResources && scope.NativeOwner != scope.Request.Owner &&
+                GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(scope.NativeOwner,
+                    out GamePlayerResources* nativeResources) && nativeResources != null)
+            {
+                nativeResources->r_TotalGoodsStoneBlocks = scope.NativeOwnerStone;
+                nativeResources->r_LastBoughtWallStoneCost = scope.NativeOwnerCost;
+            }
+        }
+
+        private static void InstallVisualDetours(CrusaderLibraryLoadContext context)
+        {
+            if (visualMapDetour != null) return;
+            NativeDetour<VisualMapDelegate> map = null;
+            NativeDetour<VisualFrameDelegate> frame = null;
+            NativeDetour<VisualResourceDelegate> resource = null;
+            bool published = false;
+            try
+            {
+                ulong image = unchecked((ulong)context.ModuleHandle.ToInt64());
+                map = CreateVisualDetour("map", image + VisualMapRva,
+                    VisualMapEntry, (VisualMapDelegate)UpdateVisualMap);
+                frame = CreateVisualDetour("frame", image + VisualFrameRva,
+                    VisualFrameEntry, (VisualFrameDelegate)DrawVisualFrame);
+                resource = CreateVisualDetour("resource", image + VisualResourceRva,
+                    VisualResourceEntry, (VisualResourceDelegate)UpdateVisualResource);
+                visualMapDetour = map;
+                visualFrameDetour = frame;
+                visualResourceDetour = resource;
+                map.Enable();
+                frame.Enable();
+                resource.Enable();
+                VerifyVisualPatch(map, image + VisualMapRva, VisualMapEntry.Length);
+                VerifyVisualPatch(frame, image + VisualFrameRva, VisualFrameEntry.Length);
+                VerifyVisualPatch(resource, image + VisualResourceRva, VisualResourceEntry.Length);
+                published = true;
+                log.LogInfo("SPECTATOR_EDITOR_VISUAL_READY map=0x65830 frame=0x41D60 resource=0x6E620");
+            }
+            catch (Exception error)
+            {
+                if (!published)
+                {
+                    Interlocked.Exchange(ref revealHiddenActive, 0);
+                    visualResourceDetour = null;
+                    visualFrameDetour = null;
+                    visualMapDetour = null;
+                    resource?.Dispose();
+                    frame?.Dispose();
+                    map?.Dispose();
+                }
+                log.LogError("SPECTATOR_EDITOR_VISUAL_DISABLED: " + error);
+            }
+        }
+
+        private static NativeDetour<T> CreateVisualDetour<T>(string name, ulong entry,
+            byte[] expected, T callback) where T : Delegate
+        {
+            VerifyVisualEntry(entry, expected);
+            ProbeVisualBackend(entry, expected, callback);
+            VerifyVisualEntry(entry, expected);
+            var request = new DetourRequest<T> {
+                Name = "SpectatorEditorBuildTest visual " + name,
+                TargetAddress = entry, Callback = callback
+            };
+            var candidate = NativeDetourBackend.Instance.CreateDetour(in request) as NativeDetour<T>;
+            if (candidate == null || candidate.Scheme.ToString() != "Indirect" ||
+                candidate.DisplacedByteCount != expected.Length ||
+                candidate.TargetAddress != entry || candidate.IsInstalled)
+            {
+                candidate?.Dispose();
+                throw new InvalidOperationException("Visual detour candidate differs: " + name);
+            }
+            return candidate;
+        }
+
+        private static void VerifyVisualEntry(ulong entry, byte[] expected)
+        {
+            var bytes = new byte[32];
+            Marshal.Copy(unchecked((IntPtr)(long)entry), bytes, 0, bytes.Length);
+            for (int i = 0; i < expected.Length; i++)
+                if (bytes[i] != expected[i])
+                    throw new InvalidOperationException("Visual native entry mismatch at " + i);
+            Decoder decoder = Decoder.Create(64, new ByteArrayCodeReader(bytes));
+            int displaced = 0;
+            while (displaced < expected.Length)
+            {
+                Instruction instruction = decoder.Decode();
+                if (decoder.LastError != DecoderError.None || instruction.IsInvalid ||
+                    instruction.FlowControl != FlowControl.Next)
+                    throw new InvalidOperationException("Visual entry has an unexpected instruction.");
+                displaced += instruction.Length;
+            }
+            if (displaced != expected.Length)
+                throw new InvalidOperationException("Visual entry crosses audited instructions.");
+        }
+
+        private static void ProbeVisualBackend<T>(ulong entry, byte[] expected,
+            T callback) where T : Delegate
+        {
+            IntPtr copy = Marshal.AllocHGlobal(64);
+            var bytes = new byte[64];
+            Marshal.Copy(unchecked((IntPtr)(long)entry), bytes, 0, bytes.Length);
+            NativeDetour<T> probe = null;
+            try
+            {
+                Marshal.Copy(bytes, 0, copy, bytes.Length);
+                ulong target = unchecked((ulong)copy.ToInt64());
+                var request = new DetourRequest<T> {
+                    Name = "SpectatorEditorBuildTest copied visual probe",
+                    TargetAddress = target, Callback = callback
+                };
+                probe = NativeDetourBackend.Instance.CreateDetour(in request) as NativeDetour<T>;
+                if (probe == null || probe.Scheme.ToString() != "Indirect" ||
+                    probe.DisplacedByteCount != expected.Length || probe.IsInstalled)
+                    throw new InvalidOperationException("Visual copied backend probe differs.");
+                probe.Enable();
+                VerifyVisualPatch(probe, target, expected.Length);
+            }
+            finally
+            {
+                probe?.Dispose();
+                var restored = new byte[bytes.Length];
+                Marshal.Copy(copy, restored, 0, restored.Length);
+                if (!EqualBytes(bytes, restored))
+                    throw new InvalidOperationException("Visual probe was not restored.");
+                Marshal.FreeHGlobal(copy);
+            }
+        }
+
+        private static bool EqualBytes(byte[] left, byte[] right)
+        {
+            if (left.Length != right.Length) return false;
+            for (int i = 0; i < left.Length; i++) if (left[i] != right[i]) return false;
+            return true;
+        }
+
+        private static void VerifyVisualPatch<T>(NativeDetour<T> detour, ulong entry,
+            int displaced) where T : Delegate
+        {
+            if (!detour.IsInstalled || detour.TargetAddress != entry ||
+                detour.Scheme.ToString() != "Indirect" ||
+                detour.DisplacedByteCount != displaced ||
+                detour.PointerSlot == IntPtr.Zero || detour.HookEntryPointAddress == IntPtr.Zero ||
+                detour.OriginalEntryPointAddress == IntPtr.Zero ||
+                detour.TrampolineAddress == IntPtr.Zero || detour.ChainDepth != 1)
+                throw new InvalidOperationException("Visual detour backend contract differs.");
+            var patch = new byte[6];
+            Marshal.Copy(unchecked((IntPtr)(long)entry), patch, 0, patch.Length);
+            if (patch[0] != 0xFF || patch[1] != 0x25 ||
+                checked((long)entry + 6 + BitConverter.ToInt32(patch, 2)) !=
+                    detour.PointerSlot.ToInt64() ||
+                Marshal.ReadInt64(detour.PointerSlot) != detour.HookEntryPointAddress.ToInt64())
+                throw new InvalidOperationException("Visual detour patch form differs.");
+        }
+
+        private static unsafe int EnterVisualSpectator()
+        {
+            if (Volatile.Read(ref revealHiddenActive) == 0 || nativeImageBase == 0) return -1;
+            int* flag = (int*)(nativeImageBase + SpectatorFlagRva);
+            int previous = *flag;
+            *flag = 1;
+            return previous;
+        }
+
+        private static unsafe void LeaveVisualSpectator(int previous)
+        {
+            if (previous >= 0 && nativeImageBase != 0)
+                *(int*)(nativeImageBase + SpectatorFlagRva) = previous;
+        }
+
+        private static void UpdateVisualMap(IntPtr tileManager)
+        {
+            int previous = EnterVisualSpectator();
+            try
+            {
+                if (previous >= 0 && Interlocked.Exchange(ref visualMapLogged, 1) == 0)
+                    log.LogInfo("SPECTATOR_EDITOR_VISUAL_ACTIVE source=map");
+                visualMapDetour.Original(tileManager);
+            }
+            finally { LeaveVisualSpectator(previous); }
+        }
+
+        private static void DrawVisualFrame(IntPtr map, int left, int right,
+            int top, int bottom, int zoom)
+        {
+            int previous = EnterVisualSpectator();
+            try
+            {
+                if (previous >= 0 && Interlocked.Exchange(ref visualFrameLogged, 1) == 0)
+                    log.LogInfo("SPECTATOR_EDITOR_VISUAL_ACTIVE source=frame");
+                visualFrameDetour.Original(map, left, right, top, bottom, zoom);
+            }
+            finally { LeaveVisualSpectator(previous); }
+        }
+
+        private static byte UpdateVisualResource(IntPtr tileManager, int buildingId)
+        {
+            int previous = EnterVisualSpectator();
+            try
+            {
+                if (previous >= 0 && Interlocked.Exchange(ref visualResourceLogged, 1) == 0)
+                    log.LogInfo("SPECTATOR_EDITOR_VISUAL_ACTIVE source=resource");
+                return visualResourceDetour.Original(tileManager, buildingId);
+            }
+            finally { LeaveVisualSpectator(previous); }
+        }
+
         private static unsafe void OnBuildWall(BuildWallEventArgs args)
         {
             if (args.Phase == EventHookPhase.Pre)
             {
                 WallRequest request = pendingWall;
-                if (wallDiagnostics++ < 48)
+                if (wallOrderDiagnostics++ < 40)
                     log.LogInfo("SPECTATOR_EDITOR_WALL_EVENT phase=Pre owner=" + args.PlayerId +
                         " mapper=" + args.WallType + " start=" + args.TileXBegin + "," +
                         args.TileYBegin + " end=" + args.TileXEnd + "," + args.TileYEnd +
                         " pending=" + (request == null ? "none" : request.Owner + "/" +
                             request.Mapper + "/" + request.StartX + "," + request.StartY + "-" +
                             request.EndX + "," + request.EndY));
+                int nativeOwner = args.PlayerId;
                 if (!WallMatches(request, args) ||
-                    !GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(args.PlayerId,
+                    (nativeOwner != request.Owner &&
+                     nativeOwner != PlayerPerspectiveAPI.GetControlledPlayerId()) ||
+                    !GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(request.Owner,
                         out GamePlayerResources* resources) || resources == null) return;
+                uint nativeStone = 0, nativeCost = 0;
+                bool hasNativeResources = false;
+                if (nativeOwner != request.Owner &&
+                    GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(nativeOwner,
+                        out GamePlayerResources* nativeResources) && nativeResources != null)
+                {
+                    nativeStone = nativeResources->r_TotalGoodsStoneBlocks;
+                    nativeCost = nativeResources->r_LastBoughtWallStoneCost;
+                    hasNativeResources = true;
+                }
                 pendingWall = null;
                 buildingWall = new WallBuildScope { Request = request,
                     OriginalStone = resources->r_TotalGoodsStoneBlocks,
-                    OriginalCost = resources->r_LastBoughtWallStoneCost };
+                    OriginalCost = resources->r_LastBoughtWallStoneCost,
+                    NativeOwner = nativeOwner, NativeOwnerStone = nativeStone,
+                    NativeOwnerCost = nativeCost,
+                    HasNativeOwnerResources = hasNativeResources };
+                args.PlayerId = request.Owner;
+                log.LogInfo("SPECTATOR_EDITOR_WALL_MATCH session=" + request.SessionId +
+                    " owner=" + request.Owner + " nativeOwner=" + nativeOwner +
+                    " mapper=" + request.Mapper + " stone=" + resources->r_TotalGoodsStoneBlocks);
                 if (resources->r_TotalGoodsStoneBlocks < 125)
                     resources->r_TotalGoodsStoneBlocks = 125;
                 return;
             }
             WallBuildScope scope = buildingWall;
-            if (scope == null || !WallMatches(scope.Request, args)) return;
-            if (GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(args.PlayerId,
-                out GamePlayerResources* postResources) && postResources != null)
-            {
-                postResources->r_TotalGoodsStoneBlocks = scope.OriginalStone;
-                postResources->r_LastBoughtWallStoneCost = scope.OriginalCost;
-            }
+            if (scope == null || !WallCoordinatesMatch(scope.Request, args)) return;
+            RestoreWallResources(scope);
             buildingWall = null;
             log.LogInfo("SPECTATOR_EDITOR_WALL_BUILT owner=" + args.PlayerId +
                 " mapper=" + args.WallType + " start=" + args.TileXBegin + "," +
@@ -1415,26 +1868,52 @@ namespace SpectatorEditorBuildTest
 
         private static void OnSubtractResource(PlayerSubtractResourceEventArgs args)
         {
+            if (args.Good == eGoods.STORED_PITCH_RAW)
+            {
+                lock (pitchLock)
+                    foreach (PitchRequest pitch in pendingPitch)
+                        if (PitchMatches(pitch, args.PlayerId, pitch.X, pitch.Y) &&
+                            PitchChoreMatches(pitch))
+                        {
+                            args.SkipOriginalFunction = true;
+                            if (pitchCostDiagnostics++ < 24)
+                                log.LogInfo("SPECTATOR_EDITOR_PITCH_COST_SKIPPED owner=" +
+                                    args.PlayerId + " tile=" + pitch.X + "," + pitch.Y +
+                                    " amount=" + args.Amount);
+                            return;
+                        }
+            }
             WallBuildScope scope = buildingWall;
             if (scope == null || args.PlayerId != scope.Request.Owner ||
                 args.Good != eGoods.STORED_STONE_BLOCKS) return;
             args.SkipOriginalFunction = true;
             scope.Subtractions++;
-            if (wallDiagnostics++ < 48)
+            if (wallCostDiagnostics++ < 40)
                 log.LogInfo("SPECTATOR_EDITOR_WALL_COST_SKIPPED owner=" + args.PlayerId +
                     " good=" + args.Good + " amount=" + args.Amount);
+        }
+
+        private static void OnBuildPitchDitch(BuildPitchDitchEventArgs args)
+        {
+            lock (pitchLock)
+                foreach (PitchRequest pitch in pendingPitch)
+                    if (PitchMatches(pitch, args.PlayerId, args.TileX, args.TileY) &&
+                        PitchChoreMatches(pitch))
+                    {
+                        if (args.Phase == EventHookPhase.Post) pitch.Built = args.ReturnValue > 0;
+                        if (pitchCostDiagnostics++ < 24)
+                            log.LogInfo("SPECTATOR_EDITOR_PITCH_BUILD phase=" + args.Phase +
+                                " owner=" + args.PlayerId + " tile=" + args.TileX + "," +
+                                args.TileY + " result=" + args.ReturnValue);
+                        return;
+                    }
         }
 
         private static unsafe Exception FinalizeBuildWall(Exception __exception)
         {
             WallBuildScope scope = buildingWall;
             if (scope == null) return __exception;
-            if (GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(scope.Request.Owner,
-                out GamePlayerResources* resources) && resources != null)
-            {
-                resources->r_TotalGoodsStoneBlocks = scope.OriginalStone;
-                resources->r_LastBoughtWallStoneCost = scope.OriginalCost;
-            }
+            RestoreWallResources(scope);
             buildingWall = null;
             log.LogWarning("SPECTATOR_EDITOR_WALL_SCOPE_RECOVERED owner=" +
                 scope.Request.Owner + " error=" + __exception);
@@ -1557,10 +2036,13 @@ namespace SpectatorEditorBuildTest
             if (wall != null && DateTime.UtcNow > wall.ExpiresAtUtc)
             {
                 pendingWall = null;
-                if (wallDiagnostics++ < 48)
+                if (wallOrderDiagnostics++ < 40)
                     log.LogInfo("SPECTATOR_EDITOR_WALL_EXPIRED tick=" + tick +
                         " owner=" + wall.Owner + " mapper=" + wall.Mapper);
             }
+            lock (pitchLock)
+                pendingPitch.RemoveAll(pitch => DateTime.UtcNow > pitch.ExpiresAtUtc ||
+                    !IsCurrentSession(pitch.SessionId));
         }
 
         private static void OnBuildStructure(BuildStructureEventArgs args)

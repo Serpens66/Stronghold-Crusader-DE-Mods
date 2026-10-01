@@ -41,6 +41,7 @@
   </Target>
   <ItemGroup>
     <Compile Include="src\EnemyGatePathfindingNativeDefinition.cs"><Link>EnemyGatePathfindingNativeDefinition.cs</Link></Compile>
+    <Compile Include="src\CursorPreviewCache.cs" />
     <Compile Include="src\EnemyGatePathfindingPolicy.cs"><Link>EnemyGatePathfindingPolicy.cs</Link></Compile>
     <Compile Include="src\SparseBuildingFootprint.cs"><Link>SparseBuildingFootprint.cs</Link></Compile>
     <Compile Include="src\PathfindingGlobalsBaseline.cs"><Link>PathfindingGlobalsBaseline.cs</Link></Compile>

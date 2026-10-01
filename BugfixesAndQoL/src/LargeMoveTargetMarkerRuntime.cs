@@ -29,8 +29,8 @@ namespace BugfixesAndQoL
 
         public bool MarkerReplacementAvailable => renderer.ReplacementAvailable;
 
-        public void SetPreview(IEnumerable<int> tileIds) =>
-            renderer.SetPreviewMarkerTiles(tileIds);
+        public void SetPreview(IEnumerable<int> tileIds, Func<bool> authorization) =>
+            renderer.SetPreviewMarkerTiles(tileIds, authorization);
 
         public void ClearPreview() => renderer.ClearPreviewMarkerTiles();
 

@@ -7,6 +7,7 @@
     <NuGetAudit>false</NuGetAudit>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="..\..\src\GroundMovePreviewAuthorization.cs" Link="GroundMovePreviewAuthorization.cs" />
     <Compile Include="..\..\src\ExtendedShiftCommandQueueModel.cs" Link="ExtendedShiftCommandQueueModel.cs" />
     <Compile Include="..\..\src\LargeMoveTargetOverflowModel.cs" Link="LargeMoveTargetOverflowModel.cs" />
     <Compile Include="..\..\src\MoveFormationSpacingPolicy.cs" Link="MoveFormationSpacingPolicy.cs" />

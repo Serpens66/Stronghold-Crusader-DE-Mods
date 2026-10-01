@@ -377,3 +377,97 @@ Der erneute Caller-Abgleich des unveränderten Native-Builds FBCB93195FC7EFCA9BD
 
 Verbleibende Spielabnahme: Eroberung und Rückeroberung; eigener Tor-/Bergfriedzugang nach gesperrtem Fremdziel; mehrere KI-Angriffswellen; erneutes Laden desselben Saves; kurzer Hauptmodlauf ohne Testmod. Ein zusätzlicher Test der Erobererverbündeten ist aufgrund der beobachteten Aufrufe nicht erforderlich.
 Buildnachweis: build.bat baute und installierte am 01.10.2026 um 23:31 ausschließlich den Testmod mit null Warnungen und Fehlern. 1583 Assertions einschließlich beider installierten RedBird-Adapter-Maschinentests sowie JSON-/Lifecycle-/Hookmutations-/XAML-/CRLF-Prüfungen bestanden. Lokale und installierte DLL: SHA-256 68C520CFE85C8220CA7055A40DDFA2555623BDBAD584FF5378642CC3ED701157. Neue Spielmemberzugriffe: keine. Die Spielabnahme der neuen Refresh-/Aufholungsdiagnose steht aus.
+
+
+## 2026-10-02: unmittelbarer Cursor und native Formationsfreigabe
+
+Logbefund vom 01.10.: Editor-Epoche 23:48:47.548–23:50:15.458: 115 bewiesene
+Gateblockaden, 685 erzwungene Cursorablehnungen, 835 fehlende passende
+Cachetreffer, 208 Doppelprüfungen, 21 erfolglose Referenzen; mittlere Prüfdauer
+0,229 ms, Maximum 0,503 ms. Keine Scope-Konflikte oder Exceptions, Integrität PASS.
+Der Nutzer bestätigte durch deaktivierte Formation, dass die grünen Zielpunkte
+aus der Formationsvorschau stammen. KI-Epoche 23:50:24.292–23:51:41.890:
+9.132 KI-Suchen, 0 NoRoute; Tor 819/global 2423576, Eroberer 6→7,
+Generation 5→6 exakt aufgeholt. Ein Gebäude-Scope-Konflikt (Suchwert 1,
+Tribe-Besitzer 5) bleibt offen; keine Exceptions oder Snapshotfehler.
+
+Der bestehende Cursoradapter prüft bei Cachefehler sofort eine repräsentative
+Vanilla-Einheit: leere Referenzmaske zuerst, Policysuche zuletzt, beide Scopes
+mit finally. Nur Referenzerfolg + Policyfehler + verworfene Gatekante sperren.
+32 exakte LRU-Cacheplätze mit maximal 200 ms Alter beschränken nur gespeicherte
+Ergebnisse; verdrängte Ziele werden neu geprüft. Schlüssel: Spieler, Unit-/Global-ID,
+Start/Ziel, beide PCLs, Karten-Epoche, Policygeneration und Maskenfingerprint.
+Verschachtelung, ungültiger Kontext, Ausnahme oder Snapshotwechsel bleiben offen.
+Der bisherige periodische Cursor-Doppelprüfpfad entfällt. Aggregierte Suchzahl und
+Prüfdauer bleiben erhalten; cursorValidationRequests/Deferrals ersetzen die
+historischen Request-/Throttle-Bezeichnungen.
+
+BugfixesAndQoL bindet nur zusätzliche Formationsvorschauen an die fertige native
+Bodenfreigabe. Der erste bestehende sichtbare Tile-Callback liest einmal pro
+Renderdurchlauf; Draw-List-Reset ist dessen Ende. Keine neue Wegsuche, kein neuer
+Hook und keine Testmod-/APIShared-Abhängigkeit. Bestätigung gilt für Spieler,
+Tribe, Auswahlgröße, Modus und den festen Gestenpunkt. Nicht bestätigte oder
+abgelehnte Ausgabe verbirgt die Vorschau. Beim Ziehen bleibt der Befehlsanker fest;
+Auswahl-/Karten-/Steuerungswechsel und Loslassen verwerfen die Geste. Native
+Vanilla-Befehlsmarker und Overflow-Veröffentlichung bleiben getrennt erhalten.
+
+Runtime-Projekte verwenden die echte installierte Assembly-CSharp.dll. Keine neuen
+Spielmemberzugriffe; bereits benutzte öffentliche Unit-/Player-APIs bleiben gleich.
+Statische Runtime-/Event-/Hookwurzeln tragen die Arbeit nach Startup-Cleanup;
+keine neuen MonoBehaviour-Lifecyclepfade. Hookspannen, RedBird-Adapter und Fixes-/SE-
+Besitzer bleiben unverändert. Versionen und README unverändert.
+
+Spielabnahme dieser Änderung noch offen: schnelle erlaubte/gesperrte Hoverwechsel,
+kurzer Klick und gehaltene Formation unter beiden Maussteuerungen, eigener
+Bergfried, echter Umweg, Kartenwechsel und dieselben Gesten ohne Testmod.
+
+
+Buildnachweis 02.10.2026: Beide betroffenen build.bat-Treiber abgeschlossen,
+DLLs lokal/installiert SHA-256-identisch. Testmod: 1.699 Assertions einschließlich
+beider installierten RedBird-Maschinentests, 0 Warnungen/Fehler. Hauptmod:
+9.228 Formations-/Queue-Checks und vollständige Treiber-Regressionen bestanden;
+0 Fehler, 1 MSB3277-Warnung für MonoMod.Utils-Referenzversionen. Der alte
+Quelltexttest im Hauptmod-Nativeharness wurde auf die atomare Veröffentlichung
+von Markerkacheln und Autorisierungsdelegate aktualisiert; der erneute komplette
+Treiber bestand. JSON-/Lifecycle-/Hookmutations-/XAML-/CRLF-Vorprüfungen bestanden.
+Testmod DLL: 19C3DAB31C0B5CEE3054E771CBEA98BB5A20F11FA00DA354EEA97322AC0056B6.
+BugfixesAndQoL DLL: 4CD2567C4565FAA0E916561B40092A78A593DD897EDBC4117E6397BF00A36036.
+APIShared unverändert; keine Versionserhöhung. Spielabnahme weiterhin offen.
+
+
+## 2026-10-02: Gebäude-Suchspieler statisch geklärt
+
+Der vollständige featurebezogene Audit des unveränderten installierten Native-
+Builds FBCB9319 bestätigt zwei unterschiedliche Rollen des sechsten DA020-
+Arguments. Zielplaner 0x30620 übergibt den ausgewählten Gegner: Quelle ist das
+untere WORD von Tribeoffset 0x620 (N00000580), geschrieben durch 0x2A720.
+Es ist nicht r_AttackTargetOwnerPlayerId bei 0x61C. Im Befehlsverteiler
+0x11E960 verwenden 9 und 38 das signed WORD des Anführers bei Unitoffset 0x92;
+36 verwendet null. Die installierte Interop benennt nur dessen unteres BYTE
+als r_ControllableForPlayerId. Die unveränderte 1-basierte Anführer-ID ist
+wegen des nativen Unit-Sentinels korrekt; kein Nachbarrecordzugriff.
+
+Vanilla reicht den Suchspieler in beiden DA020-Phasen an E2610 weiter. Die
+Same-PCL-Akzeptanz und profilabhängige E2CA0-Alternativsuche können diese
+Regionsprüfung umgehen. Die nachgelagerte Kandidatenfilterung über 123090
+führt eine eigene anführerbezogene Suche aus. Ein pauschaler Ersatz durch
+den Tribe-Besitzer wäre deshalb keine belegte Resolverkorrektur.
+
+Die zwei bisherigen Abweichungen rawSearchArgument=2 / tribePlayer=5 bei
+Tribe 4423/global 2417968 ohne Auftragskontext sind mit einem regulären
+Planeraufruf vereinbar, aber dessen konkrete Herkunft ist nicht geloggt.
+Sie bleiben einzeln offen; keine pauschale Bereinigung der Fehlerwertung.
+
+Vertrag, Schreiber, Branches, ID-Basis und Regressionen sind in
+_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/
+ENEMY_GATE_BUILDING_CONTEXT.md dokumentiert. Reproduzierbare Prüfung:
+64 Native-/Datenflusschecks sowie acht installierte Memberverträge und zwei
+Recordgrößen bestanden. Vollständige Belege liegen unter
+_inspect/EnemyGateBuildingContextAudit/evidence.txt.
+
+Für diese statisch beantwortete Vertragsfrage keine zusätzliche Runtime-
+Diagnose. Suchargumente, Resolverentscheidung, Policy und Integritätswertung
+bleiben unverändert; keine neuen Hooks, APIShared- oder Hauptmodänderungen.
+Version und README unverändert; kein Build erforderlich. Die nächste
+Resolveränderung muss Suchspieler und unabhängig geprüften Bewegungskontext
+getrennt behandeln und alle beschriebenen Suchzweige einschließen.

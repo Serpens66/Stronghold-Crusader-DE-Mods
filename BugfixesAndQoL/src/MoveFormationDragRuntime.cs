@@ -267,6 +267,7 @@ namespace BugfixesAndQoL
         private readonly HashSet<string> loggedRejectReasons = new HashSet<string>();
 
         private NativeTroopCommandModeReader commandModeReader;
+        private NativeGroundMoveFeedbackReader groundFeedbackReader;
         private FieldInfo mouseTileXField;
         private FieldInfo mouseTileYField;
         private FieldInfo mousePosXForEngineField;
@@ -314,6 +315,8 @@ namespace BugfixesAndQoL
                 commandModeReader = new NativeTroopCommandModeReader(
                     libraryContext.ModuleHandle,
                     libraryContext.Memory);
+                groundFeedbackReader = new NativeGroundMoveFeedbackReader(
+                    libraryContext.ModuleHandle, libraryContext.Memory);
                 mouseTileXField = RequireEditorField("mouseTileX", typeof(float));
                 mouseTileYField = RequireEditorField("mouseTileY", typeof(float));
                 mousePosXForEngineField =
@@ -589,7 +592,9 @@ namespace BugfixesAndQoL
                 selection,
                 unitTypes,
                 commandButton,
-                Screen.width);
+                Screen.width,
+                GamePlayerManagerAPI.Instance.GetLocalPlayerId());
+            state.PreviewAuthorization = () => AuthorizePreview(state);
             lock (dragSync)
                 drag = state;
             PublishPreview(state);
@@ -634,6 +639,13 @@ namespace BugfixesAndQoL
                 EditorDirector director = EditorDirector.instance;
                 lock (dragSync)
                 {
+                    // Selection/map/control changes invalidate the anchored proof before
+                    // native cursor dispatch. No extra route search is performed here.
+                    if (drag != null && !ValidateActiveDrag(drag))
+                    {
+                        drag = null;
+                        markers.ClearPreview();
+                    }
                     if (!failed && drag != null && director != null &&
                         drag.CommandButton == MoveFormationSpacingPolicy.GetCommandMouseButton(
                             ConfigSettings.Settings_SH1RTSControls) &&
@@ -837,6 +849,18 @@ namespace BugfixesAndQoL
             }
         }
 
+        private bool AuthorizePreview(DragState state)
+        {
+            lock (dragSync)
+            {
+                if (!Enabled || !ReferenceEquals(drag, state) ||
+                    state.ReleaseGate.Released || state.ReleaseGate.Aborted ||
+                    groundFeedbackReader == null)
+                    return false;
+                return state.Authorization.Observe(groundFeedbackReader.Read());
+            }
+        }
+
         private void PublishPreview(DragState state)
         {
             previewDestinations.Clear();
@@ -865,7 +889,7 @@ namespace BugfixesAndQoL
                     previewDestinations);
                 for (int index = 0; index < previewDestinations.Count; index++)
                     previewTiles.Add(previewDestinations[index].TileId);
-                markers.SetPreview(previewTiles);
+                markers.SetPreview(previewTiles, state.PreviewAuthorization);
             }
             catch (InvalidOperationException)
             {
@@ -1319,8 +1343,11 @@ namespace BugfixesAndQoL
                 SelectionIdentity[] selection,
                 int[] unitTypes,
                 int commandButton,
-                int screenWidth)
+                int screenWidth,
+                int playerId)
             {
+                Authorization = new GroundMovePreviewAuthorization(playerId, tribeId,
+                    selection.Length, target.NativeX, target.NativeY);
                 TribeId = tribeId;
                 Target = target;
                 PressedEngineX = pressedEngineX;
@@ -1332,6 +1359,8 @@ namespace BugfixesAndQoL
                 ScreenWidth = screenWidth;
             }
 
+            internal GroundMovePreviewAuthorization Authorization { get; }
+            internal Func<bool> PreviewAuthorization { get; set; }
             internal int TribeId { get; }
             internal GroundTarget Target { get; }
             internal int PressedEngineX { get; }

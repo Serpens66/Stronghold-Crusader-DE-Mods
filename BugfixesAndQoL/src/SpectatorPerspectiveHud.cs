@@ -76,8 +76,9 @@ namespace BugfixesAndQoL
                 occupiedCount++;
                 int[] colourMapping = SpriteMapping.remapColours;
                 int colourIndex = player < colourMapping.Length ? colourMapping[player] : 0;
-                UnityEngine.Color colour = colourIndex > 0 && colourIndex < OnScreenText.Instance.MPTeamColours.Length
-                    ? OnScreenText.Instance.MPTeamColours[colourIndex] : UnityEngine.Color.white;
+                UnityEngine.Color colour = UnityEngine.Color.white;
+                if (colourIndex > 0 && colourIndex < colourMapping.Length && spriteLoader.instance != null)
+                    spriteLoader.instance.GetGMMaterial(Enums.GM.GM_BODY_ARCHER, colourIndex, 0, out colour, 0);
                 numbers[player].Foreground = new SolidColorBrush(Noesis.Color.FromRgb(
                     (byte)(colour.r * 255f), (byte)(colour.g * 255f), (byte)(colour.b * 255f)));
             }
