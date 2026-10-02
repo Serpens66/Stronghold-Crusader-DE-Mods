@@ -1,0 +1,298 @@
+# APIShared release status
+
+**Status:** code newer
+
+- Release: [v0.4.7](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/APIShared/v0.4.7)
+- Release commit: [26edd4c](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/commit/26edd4ce656ea0de185bb833a52bd867c5eeb1f6)
+- Current main commit: [dbad4e4](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/commit/dbad4e42416b359357ac423585f7ee6a46384534)
+
+## Relevant changed files
+
+- `APIShared/APIShared.csproj`
+- `APIShared/BepInEx/plugins/APIShared_Serp/APIShared.dll`
+- `APIShared/BepInEx/plugins/APIShared_Serp/APIShared.pdb`
+- `APIShared/BepInEx/plugins/APIShared_Serp/APIShared.xml`
+- `APIShared/src/AiBuildDiagnostic.cs`
+- `APIShared/src/EnemyBridgeDiagnosticBridge.cs`
+- `APIShared/src/EnemyGatePathPolicyBridge.cs`
+
+## Diff
+
+```diff
+diff --git a/APIShared/APIShared.csproj b/APIShared/APIShared.csproj
+index e83c1a91..f2266ff6 100644
+--- a/APIShared/APIShared.csproj
++++ b/APIShared/APIShared.csproj
+@@ -82,6 +82,7 @@
+     <Compile Include="src\UniquePatternSearch.cs" />
+     <Compile Include="src\GatehouseDistanceOriginCapability.cs" />
+     <Compile Include="src\EnemyGatePathPolicyBridge.cs" />
++    <Compile Include="src\EnemyBridgeDiagnosticBridge.cs" />
+     <Compile Include="src\GatehouseTimingCapability.cs" />
+     <Compile Include="src\GatehousePermanentRuntimeState.cs" />
+     <Compile Include="src\UnitHudPresentationCapability.cs" />
+
+diff --git a/APIShared/BepInEx/plugins/APIShared_Serp/APIShared.xml b/APIShared/BepInEx/plugins/APIShared_Serp/APIShared.xml
+index 5691bf52..64ff3c3a 100644
+--- a/APIShared/BepInEx/plugins/APIShared_Serp/APIShared.xml
++++ b/APIShared/BepInEx/plugins/APIShared_Serp/APIShared.xml
+@@ -1500,12 +1500,48 @@
+         <member name="M:APIShared.IEnemyGatePathPolicy.ExitNativeSearch(System.Object,APIShared.EnemyGateSearchKind,System.Boolean,System.Boolean)">
+             <summary>Ends the native search scope and records its outcome.</summary>
+         </member>
++        <member name="T:APIShared.IEnemyGateRoutePolicyProvider">
++            <summary>Optional immutable route policy; capturing it performs no native search.</summary>
++        </member>
++        <member name="M:APIShared.IEnemyGateRoutePolicyProvider.TryCaptureRoutePolicy(System.Int32,APIShared.IEnemyGateRoutePolicySnapshot@)">
++            <summary>Captures a policy for a verified movement player, or fails open.</summary>
++        </member>
++        <member name="T:APIShared.IEnemyGateRoutePolicySnapshot">
++            <summary>A player-specific route policy with stable object identity for caches.</summary>
++        </member>
++        <member name="P:APIShared.IEnemyGateRoutePolicySnapshot.PlayerId">
++            <summary>The verified movement player.</summary>
++        </member>
++        <member name="P:APIShared.IEnemyGateRoutePolicySnapshot.IsCurrent">
++            <summary>Whether this publication still belongs to the active map and policy.</summary>
++        </member>
++        <member name="M:APIShared.IEnemyGateRoutePolicySnapshot.IsDirectionAllowed(System.Int32,System.Int32)">
++            <summary>Checks a directed tile edge without reading mutable game state.</summary>
++        </member>
+         <member name="T:APIShared.IEnemyGateRegionPairObserver">
+             <summary>Optional read-only observer used by a registered gate test policy.</summary>
+         </member>
+         <member name="M:APIShared.IEnemyGateRegionPairObserver.ObserveRegionPair(System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.String)">
+             <summary>Observes one completed native region-pair query without changing its result.</summary>
+         </member>
++        <member name="T:APIShared.IEnemyGateAssassinObserver">
++            <summary>Optional read-only Assassin diagnostics; never changes a search result.</summary>
++        </member>
++        <member name="M:APIShared.IEnemyGateAssassinObserver.BeginAssassinSearch(System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.String)">
++            <summary>Captures one synchronous builder call and its immutable gate snapshot.</summary>
++        </member>
++        <member name="M:APIShared.IEnemyGateAssassinObserver.ObserveAssassinEdge(System.Object,System.Int32,System.Int32,System.Int32,System.Int32,System.Boolean)">
++            <summary>Observes a directed edge of an already prepared weighted route.</summary>
++        </member>
++        <member name="M:APIShared.IEnemyGateAssassinObserver.ObserveAssassinPolicyFiltering(System.Object,System.Int32,System.Int64,System.Int64)">
++            <summary>Counts rejected candidate edges separately from materialized route edges.</summary>
++        </member>
++        <member name="M:APIShared.IEnemyGateAssassinObserver.ObserveAssassinBuildingSearch(System.Int32,System.Int32,System.Int32,System.Int32)">
++            <summary>Attaches the existing building request to its active diagnostic scope.</summary>
++        </member>
++        <member name="M:APIShared.IEnemyGateAssassinObserver.EndAssassinSearch(System.Object,System.Int32,System.Int32,System.Int32,System.String,System.Boolean,System.Int32)">
++            <summary>Closes the call, preserving its actual native and published results.</summary>
++        </member>
+         <member name="T:APIShared.EnemyGatePathPolicyBridge">
+             <summary>Passive bridge that holds an optional registered gate policy.</summary>
+         </member>
+@@ -1515,6 +1551,45 @@
+         <member name="M:APIShared.EnemyGatePathPolicyBridge.TryRegister(APIShared.IEnemyGatePathPolicy)">
+             <summary>Registers a provider once; the provider clears its masks at map end.</summary>
+         </member>
++        <member name="T:APIShared.IEnemyBridgePathObserver">
++            <summary>Read-only bridge diagnostics, independent of the gate policy registration.</summary>
++        </member>
++        <member name="M:APIShared.IEnemyBridgePathObserver.BeginSearch(System.String,System.Int32)">
++            <summary>Begins an existing synchronous search; no search is requested by this API.</summary>
++        </member>
++        <member name="M:APIShared.IEnemyBridgePathObserver.EndSearch(System.Object,System.Boolean,System.Nullable{System.Int32},System.Int32,System.Int64)">
++            <summary>Reports actual native/effective returns. Null native means not observed or void.</summary>
++        </member>
++        <member name="M:APIShared.IEnemyBridgePathObserver.ObserveRegion(System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32)">
++            <summary>Reports an already executed region query.</summary>
++        </member>
++        <member name="T:APIShared.EnemyBridgeDiagnosticBridge">
++            <summary>Passive single observer registration; never owns hooks, policies or a scheduler.</summary>
++        </member>
++        <member name="P:APIShared.EnemyBridgeDiagnosticBridge.Current">
++            <summary>The independently registered diagnostic observer.</summary>
++        </member>
++        <member name="P:APIShared.EnemyBridgeDiagnosticBridge.FailureCount">
++            <summary>Exact callback exception count; failures never affect game results.</summary>
++        </member>
++        <member name="P:APIShared.EnemyBridgeDiagnosticBridge.LastFailure">
++            <summary>Last callback error source/type; counts retain every occurrence.</summary>
++        </member>
++        <member name="M:APIShared.EnemyBridgeDiagnosticBridge.TryRegister(APIShared.IEnemyBridgePathObserver)">
++            <summary>Registers once for process lifetime. Map end changes observer state only.</summary>
++        </member>
++        <member name="M:APIShared.EnemyBridgeDiagnosticBridge.BeginSearch(System.String,System.Int32)">
++            <summary>Creates no context when no observer is registered.</summary>
++        </member>
++        <member name="M:APIShared.EnemyBridgeDiagnosticBridge.NativeResult(System.Int32)">
++            <summary>Records a result from an existing native call and returns it unchanged.</summary>
++        </member>
++        <member name="M:APIShared.EnemyBridgeDiagnosticBridge.EndSearch(System.Object,System.Boolean,System.Int32)">
++            <summary>Restores nesting before invoking the observer.</summary>
++        </member>
++        <member name="M:APIShared.EnemyBridgeDiagnosticBridge.ObserveRegion(System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32)">
++            <summary>Forwards an existing query only when subscribed.</summary>
++        </member>
+         <member name="T:APIShared.GatehouseTimingValues">
+             <summary>Documented Vanilla values and supported UI ranges for gatehouse timing.</summary>
+         </member>
+
+diff --git a/APIShared/src/AiBuildDiagnostic.cs b/APIShared/src/AiBuildDiagnostic.cs
+index 882b5a57..76ccc50e 100644
+--- a/APIShared/src/AiBuildDiagnostic.cs
++++ b/APIShared/src/AiBuildDiagnostic.cs
+@@ -949,6 +949,11 @@ namespace APIShared
+                     }
+                 }
+                 int result = hook.Original(manager, playerId, mapperIndex, tileX, tileY);
++                // Only the diagnostic observer receives the small result for other AI site routes.
++                // The full connection snapshot remains limited to the attributed wood attempt.
++                if (!observe && HasObserver && playerId >= 1 && playerId <= 8 &&
++                    (mapperIndex == 4 || mapperIndex == 5 || mapperIndex == 0x14))
++                    Publish("site-route-result", playerId, result, mapperIndex, tileX, tileY);
+                 if (observe)
+                 {
+                     try
+
+diff --git a/APIShared/src/EnemyBridgeDiagnosticBridge.cs b/APIShared/src/EnemyBridgeDiagnosticBridge.cs
+new file mode 100644
+index 00000000..03e146ec
+--- /dev/null
++++ b/APIShared/src/EnemyBridgeDiagnosticBridge.cs
+@@ -0,0 +1,85 @@
++using System;
++using System.Threading;
++
++namespace APIShared
++{
++    /// <summary>Read-only bridge diagnostics, independent of the gate policy registration.</summary>
++    public interface IEnemyBridgePathObserver : IEnemyGateAssassinObserver
++    {
++        /// <summary>Begins an existing synchronous search; no search is requested by this API.</summary>
++        object BeginSearch(string source, int rawPlayer);
++        /// <summary>Reports actual native/effective returns. Null native means not observed or void.</summary>
++        void EndSearch(object token, bool completed, int? nativeResult, int effectiveResult, long nativeCalls);
++        /// <summary>Reports an already executed region query.</summary>
++        void ObserveRegion(int rawPlayer, int sourcePcl, int targetPcl, int mode, int nativeResult, int effectiveResult);
++    }
++
++    /// <summary>Passive single observer registration; never owns hooks, policies or a scheduler.</summary>
++    public static class EnemyBridgeDiagnosticBridge
++    {
++        private static IEnemyBridgePathObserver observer;
++        private static long failures;
++        private static string lastFailure;
++        [ThreadStatic] private static Search active;
++        private sealed class Search
++        {
++            internal IEnemyBridgePathObserver Observer;
++            internal object Token;
++            internal Search Parent;
++            internal int? Native;
++            internal long NativeCalls;
++        }
++        /// <summary>The independently registered diagnostic observer.</summary>
++        public static IEnemyBridgePathObserver Current => Volatile.Read(ref observer);
++        /// <summary>Exact callback exception count; failures never affect game results.</summary>
++        public static long FailureCount => Interlocked.Read(ref failures);
++        /// <summary>Last callback error source/type; counts retain every occurrence.</summary>
++        public static string LastFailure => Volatile.Read(ref lastFailure);
++        private static void Failed(string source, Exception error)
++        {
++            Interlocked.Increment(ref failures);
++            Volatile.Write(ref lastFailure, source + ":" + error.GetType().Name);
++        }
++        /// <summary>Registers once for process lifetime. Map end changes observer state only.</summary>
++        public static bool TryRegister(IEnemyBridgePathObserver candidate)
++        {
++            if (candidate == null) throw new ArgumentNullException(nameof(candidate));
++            var previous = Interlocked.CompareExchange(ref observer, candidate, null);
++            return previous == null || ReferenceEquals(previous, candidate);
++        }
++        /// <summary>Creates no context when no observer is registered.</summary>
++        public static object BeginSearch(string source, int rawPlayer)
++        {
++            var current = Current;
++            if (current == null) return null;
++            var search = new Search { Observer = current, Parent = active };
++            // Preserve nesting even if the observer rejects or throws on Begin.
++            try { search.Token = current.BeginSearch(source, rawPlayer); }
++            catch (Exception ex) { Failed("begin:" + source, ex); }
++            active = search;
++            return search;
++        }
++        /// <summary>Records a result from an existing native call and returns it unchanged.</summary>
++        public static int NativeResult(int value)
++        {
++            if (active != null) { active.Native = value; active.NativeCalls++; }
++            return value;
++        }
++        /// <summary>Restores nesting before invoking the observer.</summary>
++        public static void EndSearch(object token, bool completed, int effectiveResult)
++        {
++            if (!(token is Search search)) return;
++            active = search.Parent;
++            try { search.Observer.EndSearch(search.Token, completed, search.Native, effectiveResult, search.NativeCalls); }
++            catch (Exception ex) { Failed("end", ex); }
++        }
++        /// <summary>Forwards an existing query only when subscribed.</summary>
++        public static void ObserveRegion(int player, int source, int target, int mode, int nativeResult, int effectiveResult)
++        {
++            var current = Current;
++            if (current == null) return;
++            try { current.ObserveRegion(player, source, target, mode, nativeResult, effectiveResult); }
++            catch (Exception ex) { Failed("region", ex); }
++        }
++    }
++}
+
+diff --git a/APIShared/src/EnemyGatePathPolicyBridge.cs b/APIShared/src/EnemyGatePathPolicyBridge.cs
+index 95e3931f..480e541f 100644
+--- a/APIShared/src/EnemyGatePathPolicyBridge.cs
++++ b/APIShared/src/EnemyGatePathPolicyBridge.cs
+@@ -37,6 +37,24 @@ namespace APIShared
+         void ExitNativeSearch(object scope, EnemyGateSearchKind kind, bool completed, bool success);
+     }
+ 
++    /// <summary>Optional immutable route policy; capturing it performs no native search.</summary>
++    public interface IEnemyGateRoutePolicyProvider
++    {
++        /// <summary>Captures a policy for a verified movement player, or fails open.</summary>
++        bool TryCaptureRoutePolicy(int playerId, out IEnemyGateRoutePolicySnapshot snapshot);
++    }
++
++    /// <summary>A player-specific route policy with stable object identity for caches.</summary>
++    public interface IEnemyGateRoutePolicySnapshot
++    {
++        /// <summary>The verified movement player.</summary>
++        int PlayerId { get; }
++        /// <summary>Whether this publication still belongs to the active map and policy.</summary>
++        bool IsCurrent { get; }
++        /// <summary>Checks a directed tile edge without reading mutable game state.</summary>
++        bool IsDirectionAllowed(int tileId, int direction);
++    }
++
+     /// <summary>Optional read-only observer used by a registered gate test policy.</summary>
+     public interface IEnemyGateRegionPairObserver
+     {
+@@ -46,6 +64,24 @@ namespace APIShared
+             int effectiveResult, string source);
+     }
+ 
++    /// <summary>Optional read-only Assassin diagnostics; never changes a search result.</summary>
++    public interface IEnemyGateAssassinObserver
++    {
++        /// <summary>Captures one synchronous builder call and its immutable gate snapshot.</summary>
++        object BeginAssassinSearch(int startX, int startY, int targetX, int targetY,
++            int maximumNodes, int continuation, string nativeState);
++        /// <summary>Observes a directed edge of an already prepared weighted route.</summary>
++        void ObserveAssassinEdge(object token, int playerId, int fromTile, int toTile,
++            int direction, bool climb);
++        /// <summary>Counts rejected candidate edges separately from materialized route edges.</summary>
++        void ObserveAssassinPolicyFiltering(object token, int playerId, long ground, long climb);
++        /// <summary>Attaches the existing building request to its active diagnostic scope.</summary>
++        void ObserveAssassinBuildingSearch(int tribeId, int buildingId, int sourceRegion, int rawSearchPlayer);
++        /// <summary>Closes the call, preserving its actual native and published results.</summary>
++        void EndAssassinSearch(object token, int playerId, int vanillaResult,
++            int effectiveResult, string outcome, bool cacheHit, int routeLength);
++    }
++
+     /// <summary>Passive bridge that holds an optional registered gate policy.</summary>
+     public static class EnemyGatePathPolicyBridge
+     {
+```
