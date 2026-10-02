@@ -130,3 +130,7 @@ Abnahme remains open until paired Assassin runs locate the first different reach
 # Weighted Assassin policy integration (2026-10-02)
 
 No new native targets or hook spans. The optional route snapshot provider follows the existing mask publication and QueryScope lifetime; explicit unmasked scopes retain unmasked semantics. Revalidate native/control-word provenance, nested query restoration and snapshot/cache invalidation on updates. All behavior after an uncertain context retains the already computed native result.
+
+## Lateral bridge policy contract (2026-10-02)
+
+Revalidate the complete creation/animation/raising/lowering/footprint-refresh path and the 25-cell native mapper at 2D1A30. Raising 645C0 uses orientation/2, a nonzero mapper cell and a nonzero moat-record index at tile-manager +1EA23F0 before setting 0x40000000. This produces 15 closure cells in the confirmed build. GameBuilding public fields are occupied-array begin +1C8 (UInt32), grid size +F8 (UInt32), sprite variation/orientation +102 (UInt16); GetMoatWorkTaskIndexLayer is a public parameterless Span<UInt16> API in the installed assembly. Do not substitute a bounding rectangle or gate axis. The new policy has no new native hooks; existing span/owner and permanent-publication contracts remain in force. Equal-PCL planning acceptance remains a separate game regression.

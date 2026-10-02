@@ -28,6 +28,7 @@ namespace EnemyGatePathfindingTest
             internal int Id, Player, Tribe, Command, Target1, Target2;
             internal readonly HashSet<int> Gates = new HashSet<int>();
             internal long Builders, BuilderSuccess, BuilderFailure, RejectedEdges;
+            internal long SamePclAccepts, RegionAccepts;
             internal string FirstBuilderCategory, LastBuilderCategory;
             internal long BuilderCategoryChanges;
         }
@@ -173,6 +174,12 @@ namespace EnemyGatePathfindingTest
                 frame?.Command ?? 0, frame?.Tribe ?? 0,
                 frame?.Target1 ?? 0, frame?.Target2 ?? 0,
                 "rejectedEdges=" + rejectedEdges + ",fingerprint=" + fingerprint);
+            totals.Record(player, 0, "route-after-reachability",
+                "single-route=" + (!completed ? "exception" : success ? "positive" : "no-route") +
+                ",priorSamePclAccept=" + (frame?.SamePclAccepts > 0) +
+                ",priorRegionAccept=" + (frame?.RegionAccepts > 0),
+                frame?.Command ?? 0, frame?.Tribe ?? 0, frame?.Target1 ?? 0, frame?.Target2 ?? 0,
+                "attribution=short-lived-order-context,rejectedEdges=" + rejectedEdges);
             string gateSet = checkedGates == null || checkedGates.Count == 0 ? "none" :
                 checkedGates.Count == 1 ? "one:" + FirstGate(checkedGates) :
                 "multiple:" + JoinGates(checkedGates);
@@ -316,7 +323,9 @@ namespace EnemyGatePathfindingTest
                 (gateId > 0 ? "exact-mask-construction" : gateId < 0 ? "ambiguous" : "unknown") +
                 ",fingerprint=0x" + frame.Probe.Snapshot.TopologyFingerprint.ToString("X"),
                 frame.Order?.Command ?? 0, frame.Tribe,
-                frame.TargetX, frame.TargetY, "from=" + fromTile + ",to=" + toTile +
+                frame.TargetX, frame.TargetY, "bridgeId=" +
+                (frame.Probe.Snapshot.EdgeOwners?[player]?.ResolveBridge(fromTile, direction) ?? 0) +
+                ",from=" + fromTile + ",to=" + toTile +
                 ",direction=" + direction + ",fingerprint=" + frame.Probe.Snapshot.TopologyFingerprint);
         }
 
@@ -385,8 +394,24 @@ namespace EnemyGatePathfindingTest
                 if (!IsAi(player)) return;
                 Frame frame = Current();
                 if (frame != null && frame.Player != player) frame = null;
+                string stage = sourceComponentId > 0 && sourceComponentId == destinationComponentId
+                    ? "same-pcl" : "regions";
+                if (effectiveResult > 0 && frame != null)
+                {
+                    if (stage == "same-pcl") frame.SamePclAccepts++;
+                    else frame.RegionAccepts++;
+                }
+                string sourceBridges = topology.DescribeBridgePclCandidates(player, sourceComponentId);
+                string targetBridges = topology.DescribeBridgePclCandidates(player, destinationComponentId);
+                if (sourceBridges != "none" || targetBridges != "none")
+                    totals.RecordGateState(player, 0, "bridge-reachability",
+                        "searchStage=" + stage + ",source=" + source +
+                        ",vanilla=" + Result(vanillaResult) + ",effective=" + Result(effectiveResult),
+                        frame?.Command ?? 0, frame?.Tribe ?? 0, sourceComponentId, destinationComponentId,
+                        "attribution=pcl-candidates-only,sourceBridges=[" + sourceBridges +
+                        "],targetBridges=[" + targetBridges + "]");
                 totals.Record(player, 0, "region-pair",
-                    "source=" + source + ",vanilla=" + Result(vanillaResult) +
+                    "searchStage=" + stage + ",source=" + source + ",vanilla=" + Result(vanillaResult) +
                     ",effective=" + Result(effectiveResult),
                     frame?.Command ?? 0, frame?.Tribe ?? 0,
                     sourceComponentId, destinationComponentId,
@@ -461,6 +486,8 @@ namespace EnemyGatePathfindingTest
                 parent.BuilderSuccess += frame.BuilderSuccess;
                 parent.BuilderFailure += frame.BuilderFailure;
                 parent.RejectedEdges += frame.RejectedEdges;
+                parent.SamePclAccepts += frame.SamePclAccepts;
+                parent.RegionAccepts += frame.RegionAccepts;
             }
         }
 

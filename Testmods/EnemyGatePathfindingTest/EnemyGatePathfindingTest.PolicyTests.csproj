@@ -51,6 +51,7 @@
     <Compile Include="src\RouteTilePolicySnapshot.cs" />
     <Compile Include="src\GateRoutePolicySource.cs" />
     <Compile Include="src\GateEdgeOwnership.cs" />
+    <Compile Include="src\DrawbridgeClosurePolicy.cs" />
     <Compile Include="src\AiGateDecisionAggregate.cs"><Link>AiGateDecisionAggregate.cs</Link></Compile>
     <Compile Include="src\GateDiagnosticClassification.cs" />
     <Compile Include="src\CaptureTransitionDiagnostics.cs" />
@@ -58,6 +59,7 @@
     <Compile Include="src\CapturerComparisonAdapterEmitter.cs"><Link>CapturerComparisonAdapterEmitter.cs</Link></Compile>
     <Compile Include="tests\CapturerAdapterMachineTests.cs" />
     <Compile Include="tests\Program.cs" />
+    <Compile Include="tests\DrawbridgeClosureTests.cs" />
     <Compile Include="tests\GateRoutePolicyTests.cs" />
     <Compile Include="..\..\APIShared\src\EnemyGatePathPolicyBridge.cs"><Link>EnemyGatePathPolicyBridge.cs</Link></Compile>
   </ItemGroup>

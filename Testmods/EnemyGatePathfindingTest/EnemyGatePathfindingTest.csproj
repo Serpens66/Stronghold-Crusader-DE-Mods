@@ -58,6 +58,7 @@
     <Compile Include="src\AiTacticalTargetAdapterEmitter.cs" />
     <Compile Include="src\AttackOrderCorrelationDiagnostics.cs" />
     <Compile Include="src\GateEdgeOwnership.cs" />
+    <Compile Include="src\DrawbridgeClosurePolicy.cs" />
     <Compile Include="src\AiGateDecisionAggregate.cs" />
     <Compile Include="src\GateDiagnosticClassification.cs" />
     <Compile Include="src\CaptureTransitionDiagnostics.cs" />

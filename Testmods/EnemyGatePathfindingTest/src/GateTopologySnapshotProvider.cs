@@ -216,6 +216,13 @@ namespace EnemyGatePathfindingTest
             return false;
         }
 
+        internal string DescribeBridgePclCandidates(int player, int pcl)
+        {
+            TopologySnapshot current = snapshot;
+            return current.BridgeCandidates.TryGetValue(((long)player << 32) | (uint)pcl,
+                out string candidates) ? candidates : "none";
+        }
+
         internal void SetGateAccessConsumer(Action<NativeGateAccessSnapshot> consumer)
         {
             gateAccessConsumer = consumer;
@@ -985,6 +992,13 @@ namespace EnemyGatePathfindingTest
                     signature = MixSignature(signature, (uint)(footprint.InvalidCellIndex + 1));
                     signature = MixSignature(signature, (uint)footprint.Fingerprint);
                     signature = MixSignature(signature, (uint)(footprint.Fingerprint >> 32));
+                    if (building.r_BuildingType == eStructs.STRUCT_DRAWBRIDGE)
+                    {
+                        bool validClosure = TryReadDrawbridgeClosure(tiles, ref building, null, out ulong closure);
+                        signature = MixSignature(signature, validClosure ? 1u : 0u);
+                        signature = MixSignature(signature, (uint)closure);
+                        signature = MixSignature(signature, (uint)(closure >> 32));
+                    }
                 }
             }
 
@@ -1093,7 +1107,7 @@ namespace EnemyGatePathfindingTest
                 gatesById.TryGetValue(info.GateId, out GateBridgeInfo gateInfo);
                 bridgesByGateId.TryGetValue(info.GateId, out GateBridgeInfo linkedBridge);
                 if (TryResolvePassageAxis(info, gateInfo, linkedBridge,
-                        out bool horizontalPassage, out PassageAxisSource axisSource))
+                        out bool horizontalPassage, out PassageAxisSource axisSource) || isBridge)
                 {
                     int entityEdges = 0;
                     int firstFrom = -1, firstTo = -1, firstDirection = -1;
@@ -1123,7 +1137,7 @@ namespace EnemyGatePathfindingTest
                                 out sampleFrom2, out sampleTo2, out sampleDirection2);
                         else
                             changedEdges = ClearDrawbridgePassageDirections(
-                                tiles, info.Tiles, horizontalPassage, masks, ownership, info.GateId,
+                                tiles, info.Tiles, masks, ownership, info.GateId, info.BridgeId,
                                 out sampleFrom, out sampleTo, out sampleDirection,
                                 out sampleFrom2, out sampleTo2, out sampleDirection2);
                         if (changedEdges == 0 && created)
@@ -1155,7 +1169,7 @@ namespace EnemyGatePathfindingTest
                         AppendAxisDiagnostic(axisDiagnostics, info, horizontalPassage,
                             axisSource, entityEdges, firstFrom, firstTo, firstDirection,
                             secondFrom, secondTo, secondDirection,
-                            isGate ? "entry-exit-outer" : "center");
+                            isGate ? "entry-exit-outer" : "native-closure-cells");
                     }
                 }
                 else
@@ -1238,6 +1252,8 @@ namespace EnemyGatePathfindingTest
                 .Append("/axis=").Append(source == PassageAxisSource.None
                     ? "ambiguous" : horizontal ? "horizontal" : "vertical")
                 .Append("/axisSource=").Append(source)
+                .Append("/gateId=").Append(info.GateId).Append("/gateGlobal=").Append(info.GateGlobal)
+                .Append("/bridgeId=").Append(info.BridgeId).Append("/bridgeGlobal=").Append(info.BridgeGlobal)
                 .Append("/barrier=").Append(barrier)
                 .Append("/maskedEdges=").Append(edges)
                 .Append("/firstEdge=").Append(firstFrom).Append("->").Append(firstTo)
@@ -1295,51 +1311,24 @@ namespace EnemyGatePathfindingTest
 
         private static int ClearDrawbridgePassageDirections(
             GameTileManagerAPI tiles, TileDiagnostic[] diagnostics,
-            bool horizontalPassage, byte[] masks, GateEdgeOwnership ownership, int gateId,
+            byte[] masks, GateEdgeOwnership ownership, int gateId, int bridgeId,
             out int firstFrom, out int firstTo, out int firstDirection,
             out int secondFrom, out int secondTo, out int secondDirection)
         {
             firstFrom = firstTo = firstDirection = -1;
             secondFrom = secondTo = secondDirection = -1;
-            int minX = int.MaxValue, minY = int.MaxValue;
-            int maxX = int.MinValue, maxY = int.MinValue;
-            for (int index = 0; index < diagnostics.Length; index++)
-            {
-                TileDiagnostic tile = diagnostics[index];
-                if (!tile.Footprint) continue;
-                minX = Math.Min(minX, tile.X); maxX = Math.Max(maxX, tile.X);
-                minY = Math.Min(minY, tile.Y); maxY = Math.Max(maxY, tile.Y);
-            }
-            if (minX > maxX || minY > maxY) return 0;
-
             int changed = 0;
-            if (horizontalPassage)
+            foreach (TileDiagnostic tile in diagnostics)
             {
-                int left = (minX + maxX) >> 1;
-                for (int y = minY; y <= maxY; y++)
+                if (!tile.ClosedBridgeCell) continue;
+                if (firstFrom < 0)
                 {
-                    if (firstFrom < 0)
-                    {
-                        firstFrom = tiles.GetTileId(left, y);
-                        firstTo = tiles.GetTileId(left + 1, y);
-                        firstDirection = 2;
-                    }
-                    changed += ClearBoundary(tiles, masks, left, y, left + 1, y, 2, ownership, gateId);
+                    firstFrom = tile.TileId;
+                    firstTo = tiles.GetTileId(tile.X, tile.Y - 1);
+                    firstDirection = 0;
                 }
-            }
-            else
-            {
-                int top = (minY + maxY) >> 1;
-                for (int x = minX; x <= maxX; x++)
-                {
-                    if (firstFrom < 0)
-                    {
-                        firstFrom = tiles.GetTileId(x, top);
-                        firstTo = tiles.GetTileId(x, top + 1);
-                        firstDirection = 4;
-                    }
-                    changed += ClearBoundary(tiles, masks, x, top, x, top + 1, 4, ownership, gateId);
-                }
+                changed += DrawbridgeClosurePolicy.BlockCell(masks, tile.TileId, tile.X, tile.Y,
+                    tiles.GetTileId, ownership, gateId, bridgeId);
             }
             return changed;
         }
@@ -1397,8 +1386,39 @@ namespace EnemyGatePathfindingTest
             var footprint = new HashSet<int>();
             if (!TryReadSparseFootprint(tiles, ref building, footprint, out footprintSummary))
                 return false;
-            diagnostics = BuildTileDiagnostics(tiles, footprint);
+            HashSet<int> closedCells = null;
+            if (building.r_BuildingType == eStructs.STRUCT_DRAWBRIDGE)
+            {
+                closedCells = new HashSet<int>();
+                if (!TryReadDrawbridgeClosure(tiles, ref building, closedCells, out _)) return false;
+            }
+            diagnostics = BuildTileDiagnostics(tiles, footprint, closedCells);
             return diagnostics.Length != 0;
+        }
+
+        private static bool TryReadDrawbridgeClosure(GameTileManagerAPI tiles,
+            ref GameBuilding building, HashSet<int> destination, out ulong signature)
+        {
+            signature = 14695981039346656037UL;
+            int orientation = building.r_SpriteVariationIndex;
+            if (building.r_OccupyTileGridSize != 5 || (uint)orientation > 7) return false;
+            Span<ushort> moatIndex = tiles.GetMoatWorkTaskIndexLayer();
+            fixed (GameBuilding* pointer = &building)
+            {
+                uint* occupied = &pointer->r_OccupiedTileIdsArrayBegin;
+                for (int cell = 0; cell < 25; cell++)
+                {
+                    if (!DrawbridgeClosurePolicy.IsClosureCell(orientation, cell)) continue;
+                    uint rawTile = occupied[cell];
+                    if (rawTile == 0 || rawTile > int.MaxValue ||
+                        rawTile >= moatIndex.Length || !tiles.IsValidTileId((int)rawTile)) return false;
+                    bool closed = moatIndex[(int)rawTile] != 0;
+                    signature = MixSignature(signature, rawTile);
+                    signature = MixSignature(signature, closed ? 1u : 0u);
+                    if (closed) destination?.Add((int)rawTile);
+                }
+            }
+            return true;
         }
 
         private static bool TryReadSparseFootprint(
@@ -1462,7 +1482,7 @@ namespace EnemyGatePathfindingTest
         }
 
         private static TileDiagnostic[] BuildTileDiagnostics(
-            GameTileManagerAPI tiles, HashSet<int> footprint)
+            GameTileManagerAPI tiles, HashSet<int> footprint, HashSet<int> closedCells = null)
         {
             var all = new Dictionary<int, bool>();
             foreach (int tileId in footprint)
@@ -1483,7 +1503,7 @@ namespace EnemyGatePathfindingTest
                 result.Add(new TileDiagnostic(tileId, position.X, position.Y, pair.Value,
                     ReadPcl(tiles, tileId), tiles.TileManager.GatePathGrid[tileId],
                     tiles.GetTileBuildingId(tileId), unchecked((int)tiles.GetTilePropertyFlag(tileId)),
-                    tiles.IsTileWalkableAndUnoccupied(tileId)));
+                    tiles.IsTileWalkableAndUnoccupied(tileId), closedCells?.Contains(tileId) == true));
             }
             result.Sort((left, right) => left.TileId.CompareTo(right.TileId));
             return result.ToArray();
@@ -1708,7 +1728,10 @@ namespace EnemyGatePathfindingTest
                 foreach (TileDiagnostic tile in info.Tiles)
                 {
                     if (tile.Footprint)
+                    {
                         hash = (hash ^ (uint)tile.TileId) * 1099511628211UL;
+                        hash = (hash ^ (tile.ClosedBridgeCell ? 1u : 0u)) * 1099511628211UL;
+                    }
                 }
                 return hash;
             }
@@ -1861,9 +1884,9 @@ namespace EnemyGatePathfindingTest
             var leftTiles = new List<int>();
             var rightTiles = new List<int>();
             foreach (TileDiagnostic tile in left.Tiles)
-                if (tile.Footprint) leftTiles.Add(tile.TileId);
+                if (tile.Footprint) leftTiles.Add(tile.TileId * 2 + (tile.ClosedBridgeCell ? 1 : 0));
             foreach (TileDiagnostic tile in right.Tiles)
-                if (tile.Footprint) rightTiles.Add(tile.TileId);
+                if (tile.Footprint) rightTiles.Add(tile.TileId * 2 + (tile.ClosedBridgeCell ? 1 : 0));
             leftTiles.Sort();
             rightTiles.Sort();
             if (leftTiles.Count != rightTiles.Count)
@@ -1915,7 +1938,26 @@ namespace EnemyGatePathfindingTest
                 string detail, TopologyRejections rejections,
                 RouteTilePolicySnapshot routePolicy)
             { Fingerprint = fingerprint; Combinations = combinations; Detail = detail;
-                Rejections = rejections; RoutePolicy = routePolicy ?? RouteTilePolicySnapshot.Empty; }
+                Rejections = rejections; RoutePolicy = routePolicy ?? RouteTilePolicySnapshot.Empty; BuildBridgeCandidates(); }
+            internal readonly Dictionary<long, string> BridgeCandidates = new Dictionary<long, string>();
+            private void BuildBridgeCandidates()
+            {
+                foreach (GateBridgeInfo info in Combinations)
+                {
+                    if (info.BridgeId <= 0) continue;
+                    for (int player = 1; player <= 8; player++)
+                    foreach (int pcl in info.RelevantPcls)
+                    {
+                        if (pcl <= 0) continue;
+                        long key = ((long)player << 32) | (uint)pcl;
+                        string subject = "gate=" + info.GateId + "/global=" + info.GateGlobal +
+                            "/bridge=" + info.BridgeId + "/global=" + info.BridgeGlobal +
+                            "/policy=" + (info.UnrelatedByPlayer[player] ? "blocked" : "allowed");
+                        BridgeCandidates.TryGetValue(key, out string previous);
+                        BridgeCandidates[key] = previous == null ? subject : previous + ";" + subject;
+                    }
+                }
+            }
             internal ulong Fingerprint { get; }
             internal GateBridgeInfo[] Combinations { get; }
             internal string Detail { get; }
@@ -2090,9 +2132,9 @@ namespace EnemyGatePathfindingTest
         private readonly struct TileDiagnostic
         {
             internal TileDiagnostic(int tileId, int x, int y, bool footprint, int pcl, byte gatePath,
-                int buildingId, int flags, bool walkable)
+                int buildingId, int flags, bool walkable, bool closedBridgeCell = false)
             { TileId = tileId; X = x; Y = y; Footprint = footprint; Pcl = pcl; GatePath = gatePath;
-                BuildingId = buildingId; Flags = flags; Walkable = walkable; }
+                BuildingId = buildingId; Flags = flags; Walkable = walkable; ClosedBridgeCell = closedBridgeCell; }
             internal int TileId { get; }
             internal int X { get; }
             internal int Y { get; }
@@ -2102,9 +2144,10 @@ namespace EnemyGatePathfindingTest
             internal int BuildingId { get; }
             internal int Flags { get; }
             internal bool Walkable { get; }
+            internal bool ClosedBridgeCell { get; }
             internal string Format() => (Footprint ? "F" : "R") + TileId + "@" + X + "/" + Y +
                 ":p" + Pcl + ":g" + GatePath + ":b" + BuildingId + ":f0x" + Flags.ToString("X") +
-                ":w" + (Walkable ? 1 : 0);
+                ":w" + (Walkable ? 1 : 0) + ":closureCell=" + (ClosedBridgeCell ? 1 : 0);
         }
     }
 }
