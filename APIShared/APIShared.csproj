@@ -82,6 +82,7 @@
     <Compile Include="src\UniquePatternSearch.cs" />
     <Compile Include="src\GatehouseDistanceOriginCapability.cs" />
     <Compile Include="src\EnemyGatePathPolicyBridge.cs" />
+    <Compile Include="src\EnemyBridgeDiagnosticBridge.cs" />
     <Compile Include="src\GatehouseTimingCapability.cs" />
     <Compile Include="src\GatehousePermanentRuntimeState.cs" />
     <Compile Include="src\UnitHudPresentationCapability.cs" />

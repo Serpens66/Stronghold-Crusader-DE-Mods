@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 
-namespace EnemyGatePathfindingTest
+namespace EnemyBridgePathTest
 {
     internal static class DrawbridgeClosureTests
     {
@@ -62,36 +62,10 @@ namespace EnemyGatePathfindingTest
                     "repeated masking has no extra changes");
                 // A true opening beside the deck and ordinary wall climbing outside it remain possible.
                 Check((masks[Tile(3,6)] & 1) != 0, "real side path preserved");
-                var snapshots = new byte[9][];
-                snapshots[5] = masks;
-                var edgeOwners = new GateEdgeOwnership[9]; edgeOwners[5] = owners;
-                var policy = new RouteTilePolicySnapshot(snapshots, 123, changed, 0, "closure", edgeOwners);
-                var probe = new AssassinRouteProbe(policy);
-                Check(probe.Observe(5, Tile(6,6), 2, false, out int gate) && gate == 578,
-                    "assassin ground route observes bridge policy");
-                Check(probe.Observe(5, Tile(6,6), 2, true, out gate), "bridge climb fallback cannot bypass closure");
-                Check(!probe.Observe(5, Tile(2,2), 2, true, out gate), "regular wall climb remains outside bridge mask");
-                Check(policy.IsDirectionAllowed(1, Tile(6,6), 2), "own or captured player's unmasked access preserved");
-                var source = new GateRoutePolicySource(); source.Publish(policy);
-                Check(source.TryCaptureRoutePolicy(5, out var before), "bridge snapshot capture");
-                Check(source.TryCaptureRoutePolicy(5, out var cached) && ReferenceEquals(before,cached),
-                    "same bridge generation retains cache identity");
-                source.Publish(new RouteTilePolicySnapshot(new byte[9][],124));
-                bool hasCaptured = source.TryCaptureRoutePolicy(5,out var captured);
-                Check(!before.IsCurrent && hasCaptured &&
-                    captured.IsDirectionAllowed(Tile(6,6),2), "capture invalidates blocked bridge cache identity");
-                source.Publish(policy);
-                bool hasRecaptured = source.TryCaptureRoutePolicy(5,out var recaptured);
-                Check(!captured.IsCurrent && hasRecaptured &&
-                    !recaptured.IsDirectionAllowed(Tile(6,6),2) && !ReferenceEquals(before,recaptured),
-                    "recapture cannot reuse a prior player's or prior generation's bridge decision");
-                source.Publish(RouteTilePolicySnapshot.Empty);
-                Check(!recaptured.IsCurrent, "map change invalidates bridge cache");
-                // Independent reference uses physical blocked cells. Weighted paths consume directed masks.
                 foreach (int destination in new[] { Tile(6,6), Tile(10,6), Tile(2,10) })
                     Check(Cost(Tile(2,6), destination, (a,b,d) => !closed.Contains(a) && !closed.Contains(b)) ==
-                        Cost(Tile(2,6), destination, (a,b,d) => policy.IsDirectionAllowed(5,a,d)),
-                        "weighted reachability agrees with independently closed Vanilla surface");
+                        Cost(Tile(2,6), destination, (a,b,d) => (masks[a] & (1 << d)) != 0),
+                        "hypothetical mask matches independent physical closure");
                 // Several bridges of one gate can overlap: the gate stays exact, bridge ambiguity is explicit.
                 DrawbridgeClosurePolicy.BlockCell(masks, Tile(6,6),6,6,Tile,owners,578,540);
                 Check(owners.Resolve(Tile(6,6),2) == 578 && owners.ResolveBridge(Tile(6,6),2) == -1,
@@ -101,13 +75,7 @@ namespace EnemyGatePathfindingTest
             }
             Check(!DrawbridgeClosurePolicy.IsClosureCell(8,0) && !DrawbridgeClosurePolicy.IsClosureCell(-1,10),
                 "unknown rotation fails open");
-            string provider = File.ReadAllText(Path.Combine("src","GateTopologySnapshotProvider.cs"));
-            Check(provider.Contains("moatIndex[(int)rawTile] != 0") && provider.Contains("out bool horizontalPassage, out PassageAxisSource axisSource) || isBridge"),
-                "production uses native record prerequisite and bridge masking is independent of gate axis");
-            string diagnostics = File.ReadAllText(Path.Combine("src","AttackOrderCorrelationDiagnostics.cs"));
-            Check(diagnostics.Contains("pcl-candidates-only") && diagnostics.Contains("searchStage="),
-                "early PCL evidence never claims an exact bridge traversal");
-            var aggregate = new AiGateDecisionAggregate(); aggregate.Reset();
+            var aggregate = new EnemyGatePathfindingTest.AiGateDecisionAggregate(); aggregate.Reset();
             for (int i = 0; i < 80; i++)
                 aggregate.RecordGateState(5,578,"bridge-reachability","same-pcl",3,i,1,1,"bridge=" + i);
             var rows = aggregate.Drain(out var definitions);

@@ -15,7 +15,6 @@ namespace EnemyGatePathfindingTest
             try
             {
                 assertions += GateRoutePolicyTests.Run();
-                assertions += DrawbridgeClosureTests.Run();
                 UncapturedEnemyPreservesVanillaExclusion();
                 OwnAndAlliedOwnersRemainEligible();
                 OwnAndAlliedCaptureRemainEligible();
@@ -2162,11 +2161,9 @@ namespace EnemyGatePathfindingTest
                     gate.IndexOf("Math.Max(info.EntryY, info.ExitY) != maxY + 1",
                         StringComparison.Ordinal) >= 0,
                 "logged 401/372 to 401/366 gate coordinates validate against 367..371 bounds");
-            string bridge = ExtractMethodBody(topology, "ClearDrawbridgePassageDirections");
-            Assert(bridge.IndexOf("DrawbridgeClosurePolicy.BlockCell", StringComparison.Ordinal) >= 0 &&
-                    bridge.IndexOf("tile.ClosedBridgeCell", StringComparison.Ordinal) >= 0 &&
-                    bridge.IndexOf("horizontalPassage", StringComparison.Ordinal) < 0,
-                "drawbridge isolates native closure cells independently of gate axis");
+            Assert(!topology.Contains("ClearDrawbridgePassageDirections") &&
+                !topology.Contains("ClosedBridgeCell") && topology.Contains("if (!isGate)"),
+                "gate policy cannot mask any bridge edges, including the old center seam");
             Assert(topology.IndexOf("entry-exit-outer", StringComparison.Ordinal) >= 0,
                 "snapshot diagnostics identify the gatehouse barrier contract");
         }

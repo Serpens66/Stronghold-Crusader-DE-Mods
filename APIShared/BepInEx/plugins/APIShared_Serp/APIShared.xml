@@ -1551,6 +1551,45 @@
         <member name="M:APIShared.EnemyGatePathPolicyBridge.TryRegister(APIShared.IEnemyGatePathPolicy)">
             <summary>Registers a provider once; the provider clears its masks at map end.</summary>
         </member>
+        <member name="T:APIShared.IEnemyBridgePathObserver">
+            <summary>Read-only bridge diagnostics, independent of the gate policy registration.</summary>
+        </member>
+        <member name="M:APIShared.IEnemyBridgePathObserver.BeginSearch(System.String,System.Int32)">
+            <summary>Begins an existing synchronous search; no search is requested by this API.</summary>
+        </member>
+        <member name="M:APIShared.IEnemyBridgePathObserver.EndSearch(System.Object,System.Boolean,System.Nullable{System.Int32},System.Int32,System.Int64)">
+            <summary>Reports actual native/effective returns. Null native means not observed or void.</summary>
+        </member>
+        <member name="M:APIShared.IEnemyBridgePathObserver.ObserveRegion(System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32)">
+            <summary>Reports an already executed region query.</summary>
+        </member>
+        <member name="T:APIShared.EnemyBridgeDiagnosticBridge">
+            <summary>Passive single observer registration; never owns hooks, policies or a scheduler.</summary>
+        </member>
+        <member name="P:APIShared.EnemyBridgeDiagnosticBridge.Current">
+            <summary>The independently registered diagnostic observer.</summary>
+        </member>
+        <member name="P:APIShared.EnemyBridgeDiagnosticBridge.FailureCount">
+            <summary>Exact callback exception count; failures never affect game results.</summary>
+        </member>
+        <member name="P:APIShared.EnemyBridgeDiagnosticBridge.LastFailure">
+            <summary>Last callback error source/type; counts retain every occurrence.</summary>
+        </member>
+        <member name="M:APIShared.EnemyBridgeDiagnosticBridge.TryRegister(APIShared.IEnemyBridgePathObserver)">
+            <summary>Registers once for process lifetime. Map end changes observer state only.</summary>
+        </member>
+        <member name="M:APIShared.EnemyBridgeDiagnosticBridge.BeginSearch(System.String,System.Int32)">
+            <summary>Creates no context when no observer is registered.</summary>
+        </member>
+        <member name="M:APIShared.EnemyBridgeDiagnosticBridge.NativeResult(System.Int32)">
+            <summary>Records a result from an existing native call and returns it unchanged.</summary>
+        </member>
+        <member name="M:APIShared.EnemyBridgeDiagnosticBridge.EndSearch(System.Object,System.Boolean,System.Int32)">
+            <summary>Restores nesting before invoking the observer.</summary>
+        </member>
+        <member name="M:APIShared.EnemyBridgeDiagnosticBridge.ObserveRegion(System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32)">
+            <summary>Forwards an existing query only when subscribed.</summary>
+        </member>
         <member name="T:APIShared.GatehouseTimingValues">
             <summary>Documented Vanilla values and supported UI ranges for gatehouse timing.</summary>
         </member>

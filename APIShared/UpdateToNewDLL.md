@@ -14,3 +14,7 @@ IEnemyGateAssassinObserver is an optional read-only capability on the existing g
 # Passive gate route snapshots (2026-10-02)
 
 Optional IEnemyGateRoutePolicyProvider and IEnemyGateRoutePolicySnapshot extend the registered gate provider without hooks, polling or game access in APIShared. Snapshot object identity is immutable and player-specific; IsCurrent checks publication lifetime. Assassin observation also counts rejected search candidates separately from published-route violations. No native contract or background callback added.
+
+## 2026-10-03: independent bridge diagnosis and gatehouse boundary
+
+All bridge edge masks (including the old center seam) have been removed from EnemyGatePathfindingTest. Gate identity/axis linkage is retained. EnemyBridgePathTest 0.1.0 is read-only and independently registered through APIShared; mainmod-owned hooks emit existing results only when an observer is registered. No new native hooks or active bridge policy. The 22:46 experimental mask and its 5,712 NoRoute result are historical, not the current gate policy. Native/SE identities remain confirmed. Pure-gate game acceptance remains pending; see Testmods/EnemyGatePathfindingTest/ACCEPTANCE.md and Testmods/EnemyBridgePathTest/HANDOFF.md. Work commands use existing nested MoveHere and synchronous before/after fields; no task-index or return value is interpreted as proof of work execution.

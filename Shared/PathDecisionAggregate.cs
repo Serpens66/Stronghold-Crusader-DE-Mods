@@ -31,7 +31,7 @@ namespace EnemyGatePathfindingTest
             new Dictionary<StateKey, GateStateDefinition>();
         private readonly List<GateStateDefinition> pendingStates = new List<GateStateDefinition>();
 
-        internal void RecordGateState(int player, int gateId, string stage, string state,
+        internal string RecordGateState(int player, int gateId, string stage, string state,
             int command, int tribeId, int target1, int target2, string detail)
         {
             lock (gate)
@@ -46,6 +46,7 @@ namespace EnemyGatePathfindingTest
                 }
                 Record(player, gateId, stage, "gateState=" + definition.Reference,
                     command, tribeId, target1, target2, "state=" + definition.Reference);
+                return definition.Reference;
             }
         }
 

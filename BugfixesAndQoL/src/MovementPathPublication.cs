@@ -22,6 +22,7 @@ namespace BugfixesAndQoL
         {
             IEnemyGatePathPolicy gate = BeginEnemyGateSearch(
                 movementClass, EnemyGateSearchKind.Builder, out object gateScope);
+            object bridgeSearch = EnemyBridgeDiagnosticBridge.BeginSearch("builder", movementClass);
             int result = 0;
             bool completed = false;
             try
@@ -35,6 +36,7 @@ namespace BugfixesAndQoL
             {
                 EndEnemyGateSearch(gate, gateScope, EnemyGateSearchKind.Builder,
                     completed, result > 0);
+                EnemyBridgeDiagnosticBridge.EndSearch(bridgeSearch, completed, result);
             }
         }
 
@@ -91,7 +93,7 @@ namespace BugfixesAndQoL
                 if (reconstruction) return 0;
                 int inheritedMode = *moatPathMode;
                 *moatPathMode = 0;
-                try { return originalPathBuilder(pathManager, movementClass, movementProfile); }
+                try { return EnemyBridgeDiagnosticBridge.NativeResult(originalPathBuilder(pathManager, movementClass, movementProfile)); }
                 finally { *moatPathMode = inheritedMode; }
             }
             if (disposed || pathManager != nativePathManager || plan == null ||
@@ -251,8 +253,8 @@ namespace BugfixesAndQoL
         }
 
         private int CallVanillaBuilder(IntPtr pathManager, int movementClass, int movementProfile, bool reconstruction) =>
-            reconstruction ? originalPathReconstruction(pathManager) :
-                originalPathBuilder(pathManager, movementClass, movementProfile);
+            reconstruction ? EnemyBridgeDiagnosticBridge.NativeResult(originalPathReconstruction(pathManager)) :
+                EnemyBridgeDiagnosticBridge.NativeResult(originalPathBuilder(pathManager, movementClass, movementProfile));
         private bool TryCaptureUnitFallbackPathBuffer(
             IntPtr pathManager,
             PlanScope plan,

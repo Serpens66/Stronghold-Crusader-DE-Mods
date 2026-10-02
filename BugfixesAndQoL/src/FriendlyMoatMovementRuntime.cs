@@ -4605,14 +4605,18 @@ namespace BugfixesAndQoL
         {
             IEnemyGatePathPolicy gate = BeginEnemyGateSearch(
                 movementClass, EnemyGateSearchKind.Attack, out object gateScope);
+            object bridgeSearch = EnemyBridgeDiagnosticBridge.BeginSearch("Attack", movementClass);
+            bool bridgeCompleted = false;
             try
             {
                 ObserveAttackApproachFloodBuilderWithMoat(
                     pathManager, tribeId, targetContext, targetX, targetY,
                     requestedResults, sourceRegion, movementClass);
+                bridgeCompleted = true;
             }
             finally
             {
+                EnemyBridgeDiagnosticBridge.EndSearch(bridgeSearch, bridgeCompleted, 0);
                 EndEnemyGateSearch(gate, gateScope, EnemyGateSearchKind.Attack, true, false);
             }
         }
@@ -4801,15 +4805,19 @@ namespace BugfixesAndQoL
             IEnemyGatePathPolicy gate = BeginEnemyGateSearch(
                 ResolveEnemyGateBuildingPlayer(movementClass, tribeId),
                 EnemyGateSearchKind.BuildingApproach, out object gateScope);
+            object bridgeSearch = EnemyBridgeDiagnosticBridge.BeginSearch("BuildingApproach", movementClass);
+            bool bridgeCompleted = false;
             try
             {
                 ObserveEnemyGateAssassinBuilding(gate, tribeId, buildingId, sourceRegion, movementClass);
                 ObserveBuildingApproachBuilderWithMoat(
                     pathManager, tribeId, buildingId, requestedResults,
                     sourceRegion, movementClass);
+                bridgeCompleted = true;
             }
             finally
             {
+                EnemyBridgeDiagnosticBridge.EndSearch(bridgeSearch, bridgeCompleted, 0);
                 EndEnemyGateSearch(gate, gateScope,
                     EnemyGateSearchKind.BuildingApproach, true, false);
             }
@@ -4906,13 +4914,17 @@ namespace BugfixesAndQoL
             IEnemyGatePathPolicy gate = BeginEnemyGateSearch(
                 ResolveEnemyGateTribePlayer(tribeId),
                 EnemyGateSearchKind.BuildingConsumer, out object gateScope);
+            object bridgeSearch = EnemyBridgeDiagnosticBridge.BeginSearch("BuildingConsumer", -1);
+            bool bridgeCompleted = false;
             try
             {
                 ObserveBuildingCandidateConsumerWithMoat(
                     tribeManager, tribeId, builderVariant);
+                bridgeCompleted = true;
             }
             finally
             {
+                EnemyBridgeDiagnosticBridge.EndSearch(bridgeSearch, bridgeCompleted, 0);
                 EndEnemyGateSearch(gate, gateScope,
                     EnemyGateSearchKind.BuildingConsumer, true, false);
             }
@@ -5353,6 +5365,7 @@ namespace BugfixesAndQoL
             int result = ObserveScopedRegionPairReachabilityCore(
                 pathManager, movementClass, sourceRegion, targetRegion, routeKind,
                 out int vanillaResult);
+            EnemyBridgeDiagnosticBridge.ObserveRegion(movementClass, sourceRegion, targetRegion, routeKind, vanillaResult, result);
             // The already-owned E2610 detour can report its result to the optional
             // test policy. Without that policy, the existing result is unchanged.
             try

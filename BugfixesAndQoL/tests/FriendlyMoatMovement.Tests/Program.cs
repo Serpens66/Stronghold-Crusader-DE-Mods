@@ -158,6 +158,9 @@ var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "SearchKernelTests.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "RuntimeHarness.cs")))
 }, references, new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true, optimizationLevel: OptimizationLevel.Release));
+if (Assembly.LoadFrom(apiSharedPath).GetType("APIShared.EnemyBridgeDiagnosticBridge", false) == null)
+    compilation = compilation.AddSyntaxTrees(CSharpSyntaxTree.ParseText(File.ReadAllText(
+        Path.Combine(root, "APIShared", "src", "EnemyBridgeDiagnosticBridge.cs"))));
 using var output = new MemoryStream();
 var emitted = compilation.Emit(output);
 if (!emitted.Success)
@@ -580,6 +583,11 @@ void ValidateRuntimeSources()
         "PortalOwnerOffsetDwords=0x882, PortalThirdPclOffsetDwords=0x883; } }");
     var sources=trees.Concat(new[]{settingsStub}).Concat(new[]{"DebugLogHelper.cs","NativePatternResolver.cs","SerpLocalization.cs","ToolTipPresentation.cs","GameModeHelper.cs","GameplaySessionLifecycle.cs","GameBuildingFootprint.cs","SelectedChimpsSnapshotPolicy.cs"}.Select(file=>
         CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"Shared",file)),path:file))).ToArray();
+    // Before installation, validate the new passive contract from source against
+    // the installed API. After build.bat installs it, use the actual assembly.
+    if (Assembly.LoadFrom(apiSharedPath).GetType("APIShared.EnemyBridgeDiagnosticBridge", false) == null)
+        sources = sources.Concat(new[] { CSharpSyntaxTree.ParseText(File.ReadAllText(
+            Path.Combine(root,"APIShared","src","EnemyBridgeDiagnosticBridge.cs")), path:"EnemyBridgeDiagnosticBridge.cs") }).ToArray();
     var check=CSharpCompilation.Create("FriendlyMoatMovementSourceContract",sources,
         paths.Values.Select(p=>MetadataReference.CreateFromFile(p)),
         new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary,allowUnsafe:true));

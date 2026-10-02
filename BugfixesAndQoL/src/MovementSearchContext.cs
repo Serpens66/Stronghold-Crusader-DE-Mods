@@ -119,6 +119,7 @@ namespace BugfixesAndQoL
             PlanScope plan = GetBuilderPlan(pathManager, reportMismatch: true);
             IEnemyGatePathPolicy gate = BeginEnemyGateSearch(
                 plan?.PlayerId ?? -1, EnemyGateSearchKind.Builder, out object gateScope);
+            object bridgeSearch = EnemyBridgeDiagnosticBridge.BeginSearch("reconstructed-builder", plan?.PlayerId ?? -1);
             int gateResult = 0;
             bool gateCompleted = false;
             BuilderWeightedScope shadow = null;
@@ -150,6 +151,7 @@ namespace BugfixesAndQoL
             {
                 EndEnemyGateSearch(gate, gateScope, EnemyGateSearchKind.Builder,
                     gateCompleted, gateResult > 0);
+                EnemyBridgeDiagnosticBridge.EndSearch(bridgeSearch, gateCompleted, gateResult);
                 PlanScope handoff = GetCurrentUnitMoveFrame()?.InheritedPlan ?? plan;
                 if (handoff != null && handoff.MoatWorkMovement && ReferenceEquals(pendingPlan, handoff)) pendingPlan = null;
             }

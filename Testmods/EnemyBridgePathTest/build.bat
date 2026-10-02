@@ -1,0 +1,109 @@
+@echo off
+setlocal EnableExtensions EnableDelayedExpansion
+
+set "PROJECT_DIR=%~dp0"
+set "MSBUILD=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe"
+set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
+set "GAME_SCRIPT_EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
+rem The installed release is canonical; SHCDESE_EXTENDER_DIR is the only explicit override.
+if defined SHCDESE_EXTENDER_DIR set "GAME_SCRIPT_EXTENDER_DIR=%SHCDESE_EXTENDER_DIR%"
+set "PLUGIN_NAME=EnemyBridgePathTest_Serp"
+set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\%PLUGIN_NAME%"
+set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%"
+set "API_SHARED_DIR=%GAME_DIR%\BepInEx\plugins\APIShared_Serp"
+if defined APISHARED_DIR set "API_SHARED_DIR=%APISHARED_DIR%"
+set "EXTENDER_DIR="
+set "NO_PAUSE=0"
+set "NO_INSTALL=0"
+for %%A in (%*) do if /I "%%~A"=="/nopause" set "NO_PAUSE=1"
+for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
+
+rem Never replace plugin files while the game has loaded them.
+powershell.exe -NoProfile -Command "if (Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue) { exit 1 } else { exit 0 }" >nul 2>&1
+if errorlevel 1 (
+  echo Build and installation aborted: Stronghold Crusader Definitive Edition is still running.
+  echo The local package and installed mod were not changed.
+  if "%NO_PAUSE%"=="0" pause
+  exit /b 1
+)
+
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%verify.ps1"
+if errorlevel 1 goto build_failed
+
+if not exist "%MSBUILD%" goto build_failed
+if exist "%GAME_SCRIPT_EXTENDER_DIR%\SHCDESE.dll" (
+  set "EXTENDER_DIR=%GAME_SCRIPT_EXTENDER_DIR%"
+) else goto build_failed
+
+rem Editor lifecycle is a hard runtime dependency. Validate it before replacing
+rem either the local package or the installed test mod.
+powershell.exe -NoProfile -Command "$p='%API_SHARED_DIR%\APIShared.dll'; $m='%API_SHARED_DIR%\info.json'; if (-not (Test-Path -LiteralPath $p -PathType Leaf) -or -not (Test-Path -LiteralPath $m -PathType Leaf)) { exit 2 }; try { $v=[Version]((Get-Content -Raw -LiteralPath $m | ConvertFrom-Json).Version) } catch { exit 3 }; if ($v -lt [Version]'0.3.6') { exit 4 }; Write-Host ('Using APIShared ' + $v + ' from ' + $p); exit 0"
+if errorlevel 1 goto api_shared_failed
+
+if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
+pushd "%PROJECT_DIR%"
+"%MSBUILD%" EnemyBridgePathTest.PolicyTests.csproj /p:Configuration=Debug
+if errorlevel 1 goto build_failed_popd
+"%PROJECT_DIR%tests\bin\EnemyBridgePathTest.PolicyTests.exe"
+if not "%ERRORLEVEL%"=="0" goto test_failed_popd
+"%MSBUILD%" EnemyBridgePathTest.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+if errorlevel 1 goto build_failed_popd
+popd
+
+copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
+if not exist "%LOCAL_PLUGIN_DIR%\EnemyBridgePathTest.dll" goto package_failed
+if not exist "%LOCAL_PLUGIN_DIR%\info.json" goto package_failed
+if "%NO_INSTALL%"=="1" goto built_without_install
+
+if exist "%GAME_PLUGIN_DIR%\" (
+  for /D %%D in ("%GAME_PLUGIN_DIR%\*") do (
+    rmdir /S /Q "%%~fD"
+    if errorlevel 1 goto copy_failed
+  )
+  for %%F in ("%GAME_PLUGIN_DIR%\*") do (
+    if exist "%%~fF" if not exist "%%~fF\" (
+      del /F /Q "%%~fF"
+      if errorlevel 1 goto copy_failed
+    )
+  )
+)
+xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y >nul
+if errorlevel 1 goto copy_failed
+
+echo Enemy Bridge Path Test policy tests passed, mod built and installed successfully.
+if "%NO_PAUSE%"=="0" pause
+exit /b 0
+
+:built_without_install
+echo Enemy Bridge Path Test policy tests passed and local package built. Installation skipped.
+if "%NO_PAUSE%"=="0" pause
+exit /b 0
+
+:test_failed_popd
+popd
+echo Policy tests failed. The mod was not built or installed.
+if "%NO_PAUSE%"=="0" pause
+exit /b 1
+
+:build_failed_popd
+popd
+:build_failed
+echo Build failed.
+if "%NO_PAUSE%"=="0" pause
+exit /b 1
+
+:api_shared_failed
+echo Build and installation aborted: APIShared.dll version 0.3.6 or newer was not found in "%API_SHARED_DIR%".
+echo Build and install APIShared_Serp first. The local package and installed test mod were not changed.
+if "%NO_PAUSE%"=="0" pause
+exit /b 1
+
+:package_failed
+echo Package validation failed.
+if "%NO_PAUSE%"=="0" pause
+exit /b 1
+
+:copy_failed
+echo Installation failed. Is the game still running?
+if "%NO_PAUSE%"=="0" pause
+exit /b 1

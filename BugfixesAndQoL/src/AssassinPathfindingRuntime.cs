@@ -244,6 +244,8 @@ namespace BugfixesAndQoL
         {
             internal IEnemyGateAssassinObserver Observer;
             internal object Token;
+            internal IEnemyBridgePathObserver BridgeObserver;
+            internal object BridgeToken;
             internal int Player = -1, NativeResult, EffectiveResult, RouteLength;
             internal long FilteredGround, FilteredClimb;
             internal bool CacheHit;
@@ -259,20 +261,25 @@ namespace BugfixesAndQoL
                 if (policy != null && policy.HasPublishedMask) observer = policy as IEnemyGateAssassinObserver;
             }
             catch (Exception ex) { LogWarning("Assassin diagnostic registration failed: " + ex.GetType().Name); }
+            IEnemyBridgePathObserver bridgeObserver = EnemyBridgeDiagnosticBridge.Current;
             AssassinObservation previous = activeObservation;
             AssassinObservation observation = null;
             try
             {
-                if (observer != null)
+                if (observer != null || bridgeObserver != null)
                 {
+                    observation = new AssassinObservation { Observer = observer, BridgeObserver = bridgeObserver };
                     try
                     {
-                        observation = new AssassinObservation { Observer = observer,
-                            Token = observer.BeginAssassinSearch(startX, startY, targetX, targetY,
-                                maximumNodes, continuation, DescribeNativeAssassinState(context)) };
+                        observation.Token = observer?.BeginAssassinSearch(startX, startY, targetX, targetY,
+                            maximumNodes, continuation, DescribeNativeAssassinState(context));
                     }
                     catch (Exception ex) { LogWarning("Assassin diagnostic begin failed: " + ex.GetType().Name); }
                 }
+                if (observation != null && bridgeObserver != null)
+                    try { observation.BridgeToken = bridgeObserver.BeginAssassinSearch(startX, startY, targetX, targetY,
+                        maximumNodes, continuation, DescribeNativeAssassinState(context)); }
+                    catch (Exception ex) { LogWarning("Bridge Assassin begin failed: " + ex.GetType().Name); }
                 activeObservation = observation;
                 int result = BuildWeightedPathCore(context, startX, startY, targetX, targetY, maximumNodes, continuation);
                 if (observation != null) observation.EffectiveResult = result;
@@ -281,11 +288,20 @@ namespace BugfixesAndQoL
             finally
             {
                 activeObservation = previous;
-                if (observation != null)
+                if (observation != null && bridgeObserver != null)
+                    try { bridgeObserver.ObserveAssassinPolicyFiltering(observation.BridgeToken, observation.Player,
+                        observation.FilteredGround, observation.FilteredClimb); }
+                    catch (Exception ex) { LogWarning("Bridge Assassin filtering failed: " + ex.GetType().Name); }
+                if (observation != null && bridgeObserver != null)
+                    try { bridgeObserver.EndAssassinSearch(observation.BridgeToken, observation.Player,
+                        observation.NativeResult, observation.EffectiveResult, observation.Outcome + observation.Error,
+                        observation.CacheHit, observation.RouteLength); }
+                    catch (Exception ex) { LogWarning("Bridge Assassin end failed: " + ex.GetType().Name); }
+                if (observation != null && observer != null)
                     try { observer.ObserveAssassinPolicyFiltering(observation.Token, observation.Player,
                         observation.FilteredGround, observation.FilteredClimb); }
                     catch (Exception ex) { LogWarning("Assassin filtering diagnostic failed: " + ex.GetType().Name); }
-                if (observation != null)
+                if (observation != null && observer != null)
                     try { observer.EndAssassinSearch(observation.Token, observation.Player,
                         observation.NativeResult, observation.EffectiveResult, observation.Outcome + observation.Error,
                         observation.CacheHit, observation.RouteLength); }
@@ -334,8 +350,11 @@ namespace BugfixesAndQoL
                     if (direction < 0 || !IsNativeTile(fromTile) || !IsNativeTile(toTile))
                         throw new InvalidOperationException("Invalid prepared diagnostic edge");
                     bool climb = (directionMasks[direction] & occupancyLayer[fromTile]) == 0;
-                    observation.Observer.ObserveAssassinEdge(observation.Token, player,
-                        fromTile, toTile, direction, climb);
+                    try { observation.Observer?.ObserveAssassinEdge(observation.Token, player,
+                        fromTile, toTile, direction, climb); }
+                    catch (Exception ex) { LogWarning("Assassin diagnostic edge failed: " + ex.GetType().Name); }
+                    try { observation.BridgeObserver?.ObserveAssassinEdge(observation.BridgeToken, player, fromTile, toTile, direction, climb); }
+                    catch (Exception ex) { LogWarning("Bridge Assassin edge failed: " + ex.GetType().Name); }
                 }
             }
             catch (Exception ex)

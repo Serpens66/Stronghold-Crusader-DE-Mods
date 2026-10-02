@@ -30,6 +30,8 @@ namespace BugfixesAndQoL
         private void ObserveEnemyGateAssassinBuilding(IEnemyGatePathPolicy policy,
             int tribeId, int buildingId, int sourceRegion, int rawSearchPlayer)
         {
+            try { EnemyBridgeDiagnosticBridge.Current?.ObserveAssassinBuildingSearch(tribeId, buildingId, sourceRegion, rawSearchPlayer); }
+            catch (Exception ex) { TryLogDiagnosticFailure("bridge-building", ex); }
             if (!(policy is IEnemyGateAssassinObserver observer)) return;
             try { observer.ObserveAssassinBuildingSearch(tribeId, buildingId, sourceRegion, rawSearchPlayer); }
             catch (Exception ex) { TryLogDiagnosticFailure("enemy-gate-assassin-building", ex); }

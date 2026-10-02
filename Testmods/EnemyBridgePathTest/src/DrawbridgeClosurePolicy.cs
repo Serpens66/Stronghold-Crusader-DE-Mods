@@ -1,6 +1,6 @@
 using System;
 
-namespace EnemyGatePathfindingTest
+namespace EnemyBridgePathTest
 {
     // Native 645C0 uses the 25-cell mapper at 2D1A30, indexed by orientation / 2.
     // Only its 15 nonzero cells with a moat record receive the closure flag.
