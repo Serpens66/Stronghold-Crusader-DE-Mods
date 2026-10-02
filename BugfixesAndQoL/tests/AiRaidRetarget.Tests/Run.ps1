@@ -19,7 +19,7 @@ $testSources = @($source,(Join-Path $testDir 'Program.cs'),(Join-Path $testDir '
     (Join-Path $workspace 'Shared\DebugLogHelper.cs'),
     (Join-Path $workspace 'BugfixesAndQoL\src\AiRaidRetargetFixRuntime.cs'),
     (Join-Path $workspace 'BugfixesAndQoL\src\RaidActivationState.cs'),
-    (Join-Path $testDir 'RuntimeTestStubs.cs'), (Join-Path $testDir 'ActivationTests.cs'))
+    (Join-Path $testDir 'RuntimeTestStubs.cs'), (Join-Path $testDir 'ActivationTests.cs'), (Join-Path $testDir 'HardeningTests.cs'))
 & $compiler /nologo /unsafe /langversion:latest /target:exe "/out:$executable" @references @testSources
 if ($LASTEXITCODE -ne 0) { throw 'Attack-field regression test compilation failed.' }
 & $executable

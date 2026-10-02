@@ -4,6 +4,7 @@ $game='E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Editi
 [Reflection.Assembly]::Load([IO.File]::ReadAllBytes((Join-Path $game 'BepInEx\core\Mono.Cecil.dll'))) | Out-Null
 $assembly=[Mono.Cecil.AssemblyDefinition]::ReadAssembly((Join-Path $game 'BepInEx\plugins\000shcdese\SHCDESE.dll'))
 $contracts=@{
+ 'EventHookBase'=@('get_SkipOriginalFunction');
  'GameTribeManagerAPI'=@('get_Instance','IsValidId','TryGetTribeById','GetUnits','TryGetAITribeStorageRole','TryResolveAITribeStorageRole','AttackBuildingEx');
  'GameBuildingManagerAPI'=@('get_Instance','TryGetBuildingById','IsValidId');
  'GameUnitManagerAPI'=@('get_Instance','TryGetUnitById','IsValidId');

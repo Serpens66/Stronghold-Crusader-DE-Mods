@@ -13,6 +13,9 @@ foreach ($path in @($projectPath) + $sources) {
     if ($text -match $forbidden) { throw "Forbidden runtime JSON dependency: $path" }
     if ($text -match '\b(?:void|IEnumerator)\s+(?:OnDestroy|OnDisable|OnApplicationQuit|Update|LateUpdate|FixedUpdate|Start|OnEnable)\s*\(' -or
         $text -match '\bStartCoroutine\s*\(') { throw "Runtime lifecycle callback requires audit: $path" }
+    if ($text -match '\b(?:VirtualProtect|FlushInstructionCache)\s*\(|\bCodePatch\.Write\s*\(|\bMarshal\.Write\w*\s*\(|\.(?:Disable|Undo)\s*\(') {
+        throw "Runtime executable mutation or published hook teardown requires audit: $path"
+    }
 }
 $runtime = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/EnemyGatePathfindingRuntime.cs'))
 if ($runtime -match 'registers->Rflags|AddContextHook') { throw 'Capturer callback must not use the old flags transport.' }

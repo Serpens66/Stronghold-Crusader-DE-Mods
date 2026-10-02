@@ -638,14 +638,31 @@ namespace BugfixesAndQoL
 
         private void ResourceSearch(ulong state, int playerId, int mode)
         {
+            bool diagnose = APIShared.AiBuildDiagnostic.HasObserver &&
+                playerId >= 1 && playerId <= MaxPlayablePlayerId;
+            uint generationBefore = diagnose ? ReadSearchGeneration(state) : 0;
+            if (diagnose)
+                APIShared.AiBuildDiagnostic.Publish("resource-search-before", playerId,
+                    mode, generationBefore);
             if (!sessionEnabled || !IsExpectedAivState(state) || !economyMapRelevant)
             {
                 resourceSearchHook.Original(state, playerId, mode);
+                if (diagnose)
+                    APIShared.AiBuildDiagnostic.Publish("resource-search-after", playerId,
+                        mode, ReadSearchResult(state, false), ReadSearchResult(state, true),
+                        ReadSearchGeneration(state));
                 return;
             }
             TryActivateOrRefreshEconomyFix(state, playerId);
             EconomyGridOverlayScope overlay = EnterEconomyOverlay(state, playerId, "resource-search");
-            try { resourceSearchHook.Original(state, playerId, mode); }
+            try
+            {
+                resourceSearchHook.Original(state, playerId, mode);
+                if (diagnose)
+                    APIShared.AiBuildDiagnostic.Publish("resource-search-after", playerId,
+                        mode, ReadSearchResult(state, false), ReadSearchResult(state, true),
+                        ReadSearchGeneration(state));
+            }
             finally { ExitEconomyOverlay(overlay); }
         }
 
@@ -730,9 +747,23 @@ namespace BugfixesAndQoL
         // The existing hook is the only place the test mod can bracket this Vanilla call.
         private void InvokeNearbyOriginalWithDiagnosticOverlay(ulong state, uint coarseX, uint coarseY)
         {
+            bool genericDiagnostic = APIShared.AiBuildDiagnostic.HasObserver &&
+                !APIShared.AiBuildDiagnostic.TryGetCurrentWoodAttempt(out _, out _);
+            int genericPlayer = nearbyEconomyState == state ? nearbyEconomyPlayerId : 0;
+            uint generationBefore = genericDiagnostic ? ReadSearchGeneration(state) : 0;
+            if (genericDiagnostic)
+                APIShared.AiBuildDiagnostic.Publish("site-search-before", genericPlayer,
+                    coarseX, coarseY, generationBefore);
             Action restore = APIShared.AiBuildDiagnostic.BeginNearbyWoodObservation(
                 state, nearbyEconomyPlayerId, (int)coarseX, (int)coarseY);
-            try { nearbySearchHook.Original(state, coarseX, coarseY); }
+            try
+            {
+                nearbySearchHook.Original(state, coarseX, coarseY);
+                if (genericDiagnostic)
+                    APIShared.AiBuildDiagnostic.Publish("site-search-after", genericPlayer,
+                        ReadSearchResult(state, false), ReadSearchResult(state, true),
+                        generationBefore, ReadSearchGeneration(state));
+            }
             finally { APIShared.AiBuildDiagnostic.EndNearbyWoodObservation(restore,
                 state, nearbyEconomyPlayerId, (int)coarseX, (int)coarseY); }
         }

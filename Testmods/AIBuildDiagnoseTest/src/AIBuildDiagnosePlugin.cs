@@ -60,6 +60,7 @@ namespace AIBuildDiagnoseTest
                 if (!AiBuildDiagnostic.TryRegisterNearbyWoodOverlay(Guid,
                     candidate.BeginNearbyWoodOverlay, out string overlayError))
                     Shared.DebugLogHelper.LogWarning(log, "AI_BUILD_NEARBY_TEST_UNAVAILABLE: " + overlayError);
+                candidate.TryInstallGeneralSiteSearchHooks(context);
                 sessionSubscription = candidateSession;
                 runtime = candidate;
                 Shared.DebugLogHelper.LogInfo(log,

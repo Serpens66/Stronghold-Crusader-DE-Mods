@@ -949,6 +949,11 @@ namespace APIShared
                     }
                 }
                 int result = hook.Original(manager, playerId, mapperIndex, tileX, tileY);
+                // Only the diagnostic observer receives the small result for other AI site routes.
+                // The full connection snapshot remains limited to the attributed wood attempt.
+                if (!observe && HasObserver && playerId >= 1 && playerId <= 8 &&
+                    (mapperIndex == 4 || mapperIndex == 5 || mapperIndex == 0x14))
+                    Publish("site-route-result", playerId, result, mapperIndex, tileX, tileY);
                 if (observe)
                 {
                     try

@@ -37,9 +37,13 @@ namespace EnemyGatePathfindingTest
             "ownerRelation=unknown,captureRelation=unknown,policyDecision=unknown,edgePolicy=unknown," +
             "classificationSource=unverified,classificationReason=" + reason;
 
-        internal static string BuildingContextResult(int rawArgument, int tribePlayer, int usedPlayer) =>
-            "rawSearchArgument=" + rawArgument + ",argumentRole=unverified," +
-            "tribePlayer=" + tribePlayer + ",resolution=" +
-            (usedPlayer > 0 ? "validated" : "fail-open") + ",usedPlayer=" + usedPlayer;
+        internal static string BuildingContextResult(BuildingSearchPlayerContext context) =>
+            "rawSearchArgument=" + context.RawSearchPlayer + ",argumentRole=" + context.ArgumentRole +
+            ",caller=unobserved,tribePlayer=" + context.SnapshotOwner +
+            ",liveTribeOwner=" + context.LiveOwner + ",leaderControlWord=" + context.NativeLeaderControl +
+            ",planningPlayer=" + context.PlanningPlayer + ",effectivePlanningPlayer=" + context.EffectivePlanningPlayer +
+            ",editor=" + context.Editor + ",roleDifference=" + context.RoleDifference +
+            ",resolution=" + (context.MovementPlayer > 0 ? "validated-movement-context" : "fail-open") +
+            ",usedPlayer=" + context.MovementPlayer + ",contextFailure=" + (context.Failure ?? "none");
     }
 }

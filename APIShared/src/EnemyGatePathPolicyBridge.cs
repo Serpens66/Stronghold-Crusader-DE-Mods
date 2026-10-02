@@ -37,6 +37,24 @@ namespace APIShared
         void ExitNativeSearch(object scope, EnemyGateSearchKind kind, bool completed, bool success);
     }
 
+    /// <summary>Optional immutable route policy; capturing it performs no native search.</summary>
+    public interface IEnemyGateRoutePolicyProvider
+    {
+        /// <summary>Captures a policy for a verified movement player, or fails open.</summary>
+        bool TryCaptureRoutePolicy(int playerId, out IEnemyGateRoutePolicySnapshot snapshot);
+    }
+
+    /// <summary>A player-specific route policy with stable object identity for caches.</summary>
+    public interface IEnemyGateRoutePolicySnapshot
+    {
+        /// <summary>The verified movement player.</summary>
+        int PlayerId { get; }
+        /// <summary>Whether this publication still belongs to the active map and policy.</summary>
+        bool IsCurrent { get; }
+        /// <summary>Checks a directed tile edge without reading mutable game state.</summary>
+        bool IsDirectionAllowed(int tileId, int direction);
+    }
+
     /// <summary>Optional read-only observer used by a registered gate test policy.</summary>
     public interface IEnemyGateRegionPairObserver
     {
@@ -44,6 +62,24 @@ namespace APIShared
         void ObserveRegionPair(int playerId, int sourceComponentId,
             int destinationComponentId, int queryMode, int vanillaResult,
             int effectiveResult, string source);
+    }
+
+    /// <summary>Optional read-only Assassin diagnostics; never changes a search result.</summary>
+    public interface IEnemyGateAssassinObserver
+    {
+        /// <summary>Captures one synchronous builder call and its immutable gate snapshot.</summary>
+        object BeginAssassinSearch(int startX, int startY, int targetX, int targetY,
+            int maximumNodes, int continuation, string nativeState);
+        /// <summary>Observes a directed edge of an already prepared weighted route.</summary>
+        void ObserveAssassinEdge(object token, int playerId, int fromTile, int toTile,
+            int direction, bool climb);
+        /// <summary>Counts rejected candidate edges separately from materialized route edges.</summary>
+        void ObserveAssassinPolicyFiltering(object token, int playerId, long ground, long climb);
+        /// <summary>Attaches the existing building request to its active diagnostic scope.</summary>
+        void ObserveAssassinBuildingSearch(int tribeId, int buildingId, int sourceRegion, int rawSearchPlayer);
+        /// <summary>Closes the call, preserving its actual native and published results.</summary>
+        void EndAssassinSearch(object token, int playerId, int vanillaResult,
+            int effectiveResult, string outcome, bool cacheHit, int routeLength);
     }
 
     /// <summary>Passive bridge that holds an optional registered gate policy.</summary>

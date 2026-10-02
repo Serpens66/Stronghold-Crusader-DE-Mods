@@ -38,6 +38,7 @@ namespace BugfixesAndQoL
         private const int NativePriorityCount = 47;
         private const int MaximumRetryCommandsPerTick = 4;
         private const int RejectedTargetDurationTicks = 300;
+        private const int RejectionCleanupIntervalTicks = 200;
 
         private readonly ManualLogSource log;
         private readonly RaidActivationState activation = new RaidActivationState();
@@ -48,6 +49,7 @@ namespace BugfixesAndQoL
         private readonly HashSet<string> warningReasons = new HashSet<string>();
         private IDisposable sessionSubscription, orderSubscription;
         private long sessionId, attackSequence, observationEpoch;
+        private long nextRejectionCleanupTick;
         private bool initialized, sessionStarted, firstTickLogged, searchConfirmed, firstRetryLogged, issuingFallback;
         private volatile bool active;
         private int lastTick = -1, fallbackTribeId, fallbackBuildingId;
@@ -64,10 +66,15 @@ namespace BugfixesAndQoL
 
         internal void Initialize(CrusaderLibraryLoadContext context, bool enabled)
         {
-            activation.Requested = enabled;
+            lock (attackCaptureLock) activation.Requested = enabled;
             RaidSearchObserver.Install(context, log, OnSearchObserved);
-            activation.Available = RaidSearchObserver.IsAvailable;
-            if (!activation.Available) { Info("AI_RAID_READY: available=False; Vanilla preserved."); return; }
+            bool available;
+            lock (attackCaptureLock)
+            {
+                activation.Available = RaidSearchObserver.IsAvailable;
+                available = activation.Available;
+            }
+            if (!available) { Info("AI_RAID_READY: available=False; Vanilla preserved."); return; }
             IDisposable pendingSession = null, pendingOrder = null;
             bool pendingTick = false;
             try
@@ -76,22 +83,41 @@ namespace BugfixesAndQoL
                 pendingSession = Shared.GameplaySessionLifecycle.SubscribeStarted(log, OnSessionStarted, OnSessionEnded);
                 GameTimeManagerAPI.Instance.OnTick += OnTick;
                 pendingTick = true;
-                orderSubscription = pendingOrder;
-                sessionSubscription = pendingSession;
-                initialized = true;
+                CompleteInitialization(pendingOrder, pendingSession);
             }
             catch (System.Exception ex)
             {
                 // Only event candidates not yet published by this runtime are rolled back.
-                active = false;
-                activation.Available = false;
+                FailInitialization();
                 if (pendingTick) GameTimeManagerAPI.Instance.OnTick -= OnTick;
                 pendingSession?.Dispose();
                 pendingOrder?.Dispose();
-                ClearObservations();
                 Warn("AI_RAID_INACTIVE: event initialization failed; Vanilla preserved: " + ex);
             }
             Info($"AI_RAID_READY: available={activation.Available && initialized}, requested={enabled}, publisher=GameTimeManagerAPI.OnTick,roles=6,tribeTarget=0x622/0x626,candidates=resource+0x35BC/0x3684,bias=-0x5C.");
+        }
+
+        private void CompleteInitialization(IDisposable pendingOrder, IDisposable pendingSession)
+        {
+            lock (attackCaptureLock)
+            {
+                orderSubscription = pendingOrder;
+                sessionSubscription = pendingSession;
+                initialized = true;
+                // A cached APIShared start may already have supplied the session.
+                active = activation.Active;
+            }
+        }
+
+        private void FailInitialization()
+        {
+            lock (attackCaptureLock)
+            {
+                initialized = false;
+                activation.Available = false;
+                active = false;
+                ClearObservations();
+            }
         }
 
         internal void SetEnabled(bool enabled)
@@ -114,7 +140,7 @@ namespace BugfixesAndQoL
                 sessionStarted = true;
                 // IsReplay is cached lifecycle delivery, not a game replay; it must not disable this persistent feature.
                 activation.SessionAllowed = !session.IsEditor;
-                active = activation.Active;
+                active = initialized && activation.Active;
                 warningReasons.Clear();
                 firstRetryLogged = false;
                 attackCommandCount = validCount = negativeCount = unknownCount = retryCount = selectedCount = abortedCount = suppressedMessageCount = 0;
@@ -148,6 +174,7 @@ namespace BugfixesAndQoL
                     }
                     if (lastTick >= 0 && tick < lastTick) ClearObservations();
                     lastTick = tick;
+                    PruneExpiredRejectedTargets();
                     PruneReplacedRaidGroups();
                     ProcessRaidRetries();
                 }
@@ -164,14 +191,21 @@ namespace BugfixesAndQoL
             {
                 // All target commands form nesting barriers. Only building
                 // attack commands are evaluated or emitted below.
-                lock (attackCaptureLock) LogAttackCandidates(args);
+                lock (attackCaptureLock)
+                {
+                    if (!active) return;
+                    LogAttackCandidates(args);
+                }
             }
             catch (Exception ex)
             {
                 lock (attackCaptureLock)
+                {
+                    if (!active) return;
                     pendingAttackCandidates.Remove(Thread.CurrentThread.ManagedThreadId);
-                LogRepeated($"orderError:{ex.GetType().Name}",
-                    $"AI_RAID_TRIBE_ORDER_ERROR: session={sessionId}, tick={lastTick}, error={ex}.", true);
+                    LogRepeated($"orderError:{ex.GetType().Name}",
+                        $"AI_RAID_TRIBE_ORDER_ERROR: session={sessionId}, tick={lastTick}, error={ex}.", true);
+                }
             }
         }
         private void LogAttackCandidates(TribeIssueOrderWithTargetEventArgs args)
@@ -181,7 +215,8 @@ namespace BugfixesAndQoL
             bool tribeAlive = args.TribeId > 0 && tribes.IsValidId(args.TribeId) &&
                 tribes.TryGetTribeById(args.TribeId, out tribe) && tribe != null &&
                 tribe->r_AliveState == AliveState.IsAlive;
-            if (!tribeAlive && args.Phase == EventHookPhase.Pre) return;
+            // An invalid ID still needs a neutral frame: its Post must not
+            // consume an outer command. No candidate buffer is read for it.
             uint tribeGlobalId = tribeAlive ? tribe->r_GlobalId : 0;
             bool raid = TryIdentifyRaidGroup(args.TribeId,
                 out int raidPlayer, out int raidGroup, out uint raidGlobalId) &&
@@ -191,7 +226,7 @@ namespace BugfixesAndQoL
             bool buildingCommand = args.AICommand == TribeAICommand.AttackBuilding ||
                 args.AICommand == TribeAICommand.ForceAttackBuilding;
             uint targetGlobalId = unchecked((uint)args.TargetValue2);
-            AttackCandidateSnapshot snapshot = buildingCommand ? ReadAttackCandidateSnapshot() :
+            AttackCandidateSnapshot snapshot = buildingCommand && tribeAlive ? ReadAttackCandidateSnapshot() :
                 new AttackCandidateSnapshot(false, -1, Array.Empty<CandidateRecord>());
             AttackCandidateCapture pre = null;
             bool pairMatches = false;
@@ -199,33 +234,17 @@ namespace BugfixesAndQoL
 
             if (args.Phase == EventHookPhase.Pre)
             {
-                if (!pendingAttackCandidates.TryGetValue(threadId,
-                        out Stack<AttackCandidateCapture> stack))
-                {
-                    stack = new Stack<AttackCandidateCapture>();
-                    pendingAttackCandidates.Add(threadId, stack);
-                }
-                if (stack.Count != 0 && stack.Peek().Tick != lastTick)
-                {
-                    LogRepeated($"unpaired:{args.TribeId}/{tribeGlobalId}",
-                        $"AI_RAID_ATTACK_UNPAIRED: session={sessionId}, tick={lastTick}, " +
-                        $"tribe={args.TribeId}/{tribeGlobalId}, discardedPreCalls={stack.Count}.", true);
-                    stack.Clear();
-                }
-                stack.Push(new AttackCandidateCapture(lastTick, tribeGlobalId,
-                    args.AICommand, args.TargetValue1, targetGlobalId, snapshot,
-                    new RaidSearchEvidence(sessionId, observationEpoch,
-                        Interlocked.Increment(ref attackSequence), threadId, args.TribeId,
-                        tribeGlobalId, args.TargetValue1, targetGlobalId,
-                        buildingCommand ? GamePathingManagerAPI.Instance.GetPathfindingContextView().Address : IntPtr.Zero,
-                        raidPlayer, raidGroup)));
+                PushCommandFrame(threadId, args, tribeGlobalId, snapshot,
+                    buildingCommand && tribeAlive ? GamePathingManagerAPI.Instance.GetPathfindingContextView().Address : IntPtr.Zero,
+                    raidPlayer, raidGroup);
             }
             else if (args.Phase == EventHookPhase.Post &&
                 pendingAttackCandidates.TryGetValue(threadId,
                     out Stack<AttackCandidateCapture> postStack) && postStack.Count != 0)
             {
-                pre = postStack.Pop();
+                pre = TakePostFrame(postStack);
                 if (postStack.Count == 0) pendingAttackCandidates.Remove(threadId);
+                if (pre == null) return;
                 pairMatches = pre.Evidence.Session == sessionId && pre.Evidence.Epoch == observationEpoch &&
                     pre.Evidence.TribeId == args.TribeId && pre.TribeGlobalId == tribeGlobalId &&
                     pre.Command == args.AICommand && pre.BuildingId == args.TargetValue1 &&
@@ -309,9 +328,10 @@ namespace BugfixesAndQoL
             if (!active) return;
             lock (attackCaptureLock)
             {
+                if (!active) return;
                 int threadId = Thread.CurrentThread.ManagedThreadId;
                 if (!pendingAttackCandidates.TryGetValue(threadId, out Stack<AttackCandidateCapture> stack) ||
-                    stack.Count == 0)
+                    PeekSearchFrame(stack) == null)
                 {
                     LogRepeated("searchUnscoped", $"AI_RAID_SEARCH_UNSCOPED: session={sessionId}," +
                         $"tick={lastTick},thread={threadId},tribe={tribeId},target={buildingId};" +
@@ -347,6 +367,61 @@ namespace BugfixesAndQoL
                 }
             }
         }
+        private void PushCommandFrame(int threadId, TribeIssueOrderWithTargetEventArgs args,
+            uint tribeGlobalId, AttackCandidateSnapshot snapshot, IntPtr context,
+            int raidPlayer, int raidGroup)
+        {
+            uint targetGlobalId = unchecked((uint)args.TargetValue2);
+            if (!pendingAttackCandidates.TryGetValue(threadId,
+                    out Stack<AttackCandidateCapture> stack))
+            {
+                stack = new Stack<AttackCandidateCapture>();
+                pendingAttackCandidates.Add(threadId, stack);
+            }
+            if (stack.Count != 0 && stack.Peek().Tick != lastTick)
+            {
+                LogRepeated($"unpaired:{args.TribeId}/{tribeGlobalId}",
+                    $"AI_RAID_ATTACK_UNPAIRED: session={sessionId}, tick={lastTick}, " +
+                    $"tribe={args.TribeId}/{tribeGlobalId}, discardedPreCalls={stack.Count}.", true);
+                stack.Clear();
+            }
+            stack.Push(new AttackCandidateCapture(args, lastTick, tribeGlobalId,
+                args.AICommand, args.TargetValue1, targetGlobalId, snapshot,
+                new RaidSearchEvidence(sessionId, observationEpoch,
+                    Interlocked.Increment(ref attackSequence), threadId, args.TribeId,
+                    tribeGlobalId, args.TargetValue1, targetGlobalId,
+                    context,
+                    raidPlayer, raidGroup)));
+        }
+
+        // The Extender emits no Post for skipped calls. Do not prune at Pre:
+        // an outer subscriber may still change its skip flag afterwards.
+        private static AttackCandidateCapture PeekSearchFrame(Stack<AttackCandidateCapture> stack)
+        {
+            while (stack.Count != 0 && stack.Peek().PreEvent.SkipOriginalFunction) stack.Pop();
+            return stack.Count != 0 ? stack.Peek() : null;
+        }
+
+        private static AttackCandidateCapture TakePostFrame(Stack<AttackCandidateCapture> stack)
+        {
+            return PeekSearchFrame(stack) != null ? stack.Pop() : null;
+        }
+
+        private void PruneExpiredRejectedTargets()
+        {
+            if (lastTick < nextRejectionCleanupTick) return;
+            nextRejectionCleanupTick = (long)lastTick + RejectionCleanupIntervalTicks;
+            foreach (RaidGroupKey key in new List<RaidGroupKey>(rejectedRaidTargets.Keys))
+            {
+                Dictionary<ulong, int> rejected = rejectedRaidTargets[key];
+                var expired = new List<ulong>();
+                foreach (KeyValuePair<ulong, int> target in rejected)
+                    if (target.Value <= lastTick) expired.Add(target.Key);
+                foreach (ulong identity in expired) rejected.Remove(identity);
+                if (rejected.Count == 0) rejectedRaidTargets.Remove(key);
+            }
+        }
+
         private void PruneReplacedRaidGroups()
         {
             var keys = new HashSet<RaidGroupKey>(rejectedRaidTargets.Keys);
@@ -831,12 +906,14 @@ namespace BugfixesAndQoL
             fallbackResult = AttackResult.Unknown;
             fallbackDetails = fallbackSummary = null;
             lastTick = -1;
+            nextRejectionCleanupTick = 0;
         }
 
         private void Info(string value) { try { Shared.DebugLogHelper.LogInfo(log, value); } catch { } }
         private void Warn(string value) { try { Shared.DebugLogHelper.LogWarning(log, value); } catch { } }
         private sealed class AttackCandidateCapture
         {
+            internal readonly TribeIssueOrderWithTargetEventArgs PreEvent;
             internal readonly int Tick;
             internal readonly uint TribeGlobalId;
             internal readonly TribeAICommand Command;
@@ -845,9 +922,11 @@ namespace BugfixesAndQoL
             internal readonly AttackCandidateSnapshot Snapshot;
             internal readonly RaidSearchEvidence Evidence;
 
-            internal AttackCandidateCapture(int tick, uint tribeGlobalId, TribeAICommand command,
+            internal AttackCandidateCapture(TribeIssueOrderWithTargetEventArgs preEvent,
+                int tick, uint tribeGlobalId, TribeAICommand command,
                 int buildingId, uint buildingGlobalId, AttackCandidateSnapshot snapshot, RaidSearchEvidence evidence)
             {
+                PreEvent = preEvent;
                 Tick = tick;
                 TribeGlobalId = tribeGlobalId;
                 Command = command;

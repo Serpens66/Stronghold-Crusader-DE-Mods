@@ -3,6 +3,7 @@ using BepInEx.Logging;
 using BepInEx.Bootstrap;
 using R3;
 using SHCDESE.API;
+using SHCDESE.API.LowLevel;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.AI;
 using SHCDESE.EventAPI.Buildings;
@@ -35,6 +36,7 @@ namespace AIBuildDiagnoseTest
         private static readonly int[] OrchardDx = { 5, 9, 1, 5, 9, 1, 5, 9 };
         private static readonly int[] OrchardDy = { 1, 1, 5, 5, 5, 9, 9, 9 };
         private readonly ManualLogSource log;
+        private GeneralSiteSearchHooks generalSearchHooks;
         private readonly ulong nativeModuleBase;
         private readonly bool fixesLoaded;
         private readonly bool placementProbeEnabled;
@@ -110,6 +112,15 @@ namespace AIBuildDiagnoseTest
         private readonly Dictionary<string, int> genericBuildEvents = new Dictionary<string, int>();
         private readonly Dictionary<string, int> genericSpawnEvents = new Dictionary<string, int>();
         private readonly Dictionary<int, string> genericSpawnById = new Dictionary<int, string>();
+        private readonly List<GenericBuildFrame> genericBuildFrames = new List<GenericBuildFrame>();
+        private readonly Dictionary<string, int> genericOutcomeCounts = new Dictionary<string, int>();
+        private readonly string[] recentGenericSearch = new string[9];
+        private readonly string[] recentGenericRoute = new string[9];
+        private readonly int[] recentGenericSearchTick = new int[9];
+        private readonly int[] recentGenericRouteTick = new int[9];
+        private readonly uint[] resourceSearchGenerationBefore = new uint[9];
+        private readonly bool[] farmSearchInCall = new bool[9];
+        private int unattributedSiteSelections, genericFrameOverflow;
         private int genericSpawnIdOverflow;
         private readonly Dictionary<int, string> aivWallPlanByTile = new Dictionary<int, string>();
         private bool aivWallPlanCaptured;
@@ -129,6 +140,8 @@ namespace AIBuildDiagnoseTest
         private int deferredBytes, writtenBytes, droppedLines;
         private bool budgetOverflowLogged;
         private uint[] wallMap;
+        private byte[] goodsYardMap;
+        private int goodsYardTiles, goodsYardCreated, goodsYardRemoved;
         private int nextWallMapTick;
         private bool firstWallChangeLogged;
         private bool firstWoodShadowDone;
@@ -285,6 +298,16 @@ namespace AIBuildDiagnoseTest
             genericBuildEvents.Clear();
             genericSpawnEvents.Clear();
             genericSpawnById.Clear();
+            genericBuildFrames.Clear();
+            genericOutcomeCounts.Clear();
+            Array.Clear(recentGenericSearch, 0, recentGenericSearch.Length);
+            Array.Clear(recentGenericRoute, 0, recentGenericRoute.Length);
+            Array.Clear(recentGenericSearchTick, 0, recentGenericSearchTick.Length);
+            Array.Clear(recentGenericRouteTick, 0, recentGenericRouteTick.Length);
+            Array.Clear(resourceSearchGenerationBefore, 0, resourceSearchGenerationBefore.Length);
+            Array.Clear(farmSearchInCall, 0, farmSearchInCall.Length);
+            unattributedSiteSelections = 0;
+            genericFrameOverflow = 0;
             genericSpawnIdOverflow = 0;
             aivWallPlanByTile.Clear();
             aivWallPlanCaptured = false;
@@ -313,6 +336,8 @@ namespace AIBuildDiagnoseTest
             deferredBytes = writtenBytes = droppedLines = 0;
             budgetOverflowLogged = false;
             wallMap = null;
+            goodsYardMap = null;
+            goodsYardTiles = goodsYardCreated = goodsYardRemoved = 0;
             nextWallMapTick = 0;
             firstWallChangeLogged = false;
             firstWoodShadowDone = false;
@@ -399,12 +424,19 @@ namespace AIBuildDiagnoseTest
             if (active)
                 Log($"AI_BUILD_GENERIC_EVENT_SUMMARY: session={sessionId}, " +
                     $"buildKeys={genericBuildEvents.Count}, spawnKeys={genericSpawnEvents.Count}, " +
-                    $"spawnIdsRetained={genericSpawnById.Count}, spawnIdsOmitted={genericSpawnIdOverflow}; " +
+                    $"spawnIdsRetained={genericSpawnById.Count}, spawnIdsOmitted={genericSpawnIdOverflow}, " +
+                    $"outcomeKeys={genericOutcomeCounts.Count}, openFrames={genericBuildFrames.Count}, " +
+                    $"frameOverflow={genericFrameOverflow}, " +
+                    $"unattributedSiteSelections={unattributedSiteSelections}; " +
                     "eventEvidenceOnly=true.");
             if (active)
                 Log($"AI_BUILD_AIV_WALL_PLAN_SUMMARY: session={sessionId}, " +
                     $"captured={aivWallPlanCaptured}, tiles={aivWallPlanByTile.Count}, " +
                     $"attempts={aivWallPlanAttempts}, omitted={aivWallPlanOverflow}.");
+            if (active)
+                Log($"AI_BUILD_WALL_LAYER_SUMMARY: session={sessionId}, " +
+                    $"goodsYardTiles={goodsYardTiles}, goodsYardAdded={goodsYardCreated}, " +
+                    $"goodsYardRemoved={goodsYardRemoved}; goodsYardIsNotWall=true.");
             active = false;
             probeSession = probePending = probeRunning = false;
             nearbyCopySession = false;
@@ -472,6 +504,15 @@ namespace AIBuildDiagnoseTest
 
         internal void OnNativeRecord(AiBuildDiagnosticRecord record)
         {
+            if (record.Stage == "resource-search-before" ||
+                record.Stage == "resource-search-after" ||
+                record.Stage == "site-search-before" ||
+                record.Stage == "site-search-after" ||
+                record.Stage == "site-route-result")
+            {
+                ObserveGeneralSearch(record);
+                return;
+            }
             if (record.Stage == "coarse-generation")
             {
                 long sequence = ++timelineSequence;
@@ -576,6 +617,7 @@ namespace AIBuildDiagnoseTest
             if (record.Stage == "farm-scheduler-after") beforeFarmValid[record.PlayerId] = false;
             if (record.Stage == "farm-search-before")
             {
+                farmSearchInCall[record.PlayerId] = true;
                 activeFarmSearchType[record.PlayerId] = (int)record.A;
                 if (record.A == (long)eStructs.STRUCT_APPLEFARM)
                     farmSearchCalls[record.PlayerId]++;
@@ -583,6 +625,7 @@ namespace AIBuildDiagnoseTest
             if (record.Stage == "farm-search-after" &&
                 activeFarmSearchType[record.PlayerId] == (int)eStructs.STRUCT_APPLEFARM)
                 lastFarmResult[record.PlayerId] = (int)record.A;
+            if (record.Stage == "farm-search-after") farmSearchInCall[record.PlayerId] = false;
             if (record.Stage == "wood-search-after")
             {
                 LogFirstSearchOrigin(record.PlayerId, "wood", "post-search-shared-origin");
@@ -919,8 +962,181 @@ namespace AIBuildDiagnoseTest
             return value.ToString();
         }
 
+        private sealed class GenericBuildFrame
+        {
+            internal int Player, X, Y, Tick, SpawnCount;
+            internal eMappers Mapper;
+            internal string BeforeSite, Search, Route, Source, SpawnTypes;
+        }
+
+        internal void TryInstallGeneralSiteSearchHooks(CrusaderLibraryLoadContext context)
+        {
+            if (nativeModuleBase == 0)
+            {
+                Log("AI_BUILD_GENERAL_SEARCH_HOOKS_UNAVAILABLE: native hash differs.");
+                return;
+            }
+            try
+            {
+                generalSearchHooks = new GeneralSiteSearchHooks(context, OnGeneralSiteSearch);
+                Log("AI_BUILD_GENERAL_SEARCH_HOOKS_READY: aiv=0x583A0, fine=0x58BE0; " +
+                    "backend=NativeX64/Indirect, displaced=6, readOnly=true.");
+            }
+            catch (Exception ex)
+            {
+                Log("AI_BUILD_GENERAL_SEARCH_HOOKS_UNAVAILABLE: " + ex);
+            }
+        }
+
+        private void OnGeneralSiteSearch(string kind, int playerId, int inputX, int inputY,
+            int resultX, int resultY)
+        {
+            if (!active) return;
+            if (playerId == 0)
+            {
+                for (int candidate = 1; candidate <= 8; candidate++)
+                    if (activeAivSteps[candidate] != null)
+                    {
+                        if (playerId != 0) { playerId = 0; break; }
+                        playerId = candidate;
+                    }
+            }
+            if (playerId < 1 || playerId > 8)
+            {
+                unattributedSiteSelections++;
+                return;
+            }
+            string search = $"kind:{kind}/origin:({inputX},{inputY})/coarse:({resultX},{resultY})";
+            recentGenericSearch[playerId] = search;
+            recentGenericSearchTick[playerId] = lastTick;
+            RecordGenericOutcome(playerId, kind,
+                resultX < 0 || resultY < 0 ? "no-selection" : "selected",
+                $"search={search}, " +
+                (resultX >= 0 && resultY >= 0
+                    ? $"siteRaw={ReadGenericSite(resultX * 5, resultY * 5)}"
+                    : "siteRaw=unavailable") +
+                "; aiv-neighborhood-is-not-final-building-site=true; " +
+                "fine-path-search-already-checks-PCL-and-fine-grid=true");
+        }
+
+        private void ObserveGeneralSearch(AiBuildDiagnosticRecord record)
+        {
+            if (!active) return;
+            int player = record.PlayerId;
+            if (player == 0 && record.Stage.StartsWith("site-search-", StringComparison.Ordinal))
+            {
+                // The AIV caller of 0x58950 has no player argument. Attribute it only
+                // when precisely one AIV build step is active on this thread.
+                for (int candidate = 1; candidate <= 8; candidate++)
+                    if (activeAivSteps[candidate] != null)
+                    {
+                        if (player != 0) { player = 0; break; }
+                        player = candidate;
+                    }
+                if (player == 0 && record.Stage == "site-search-after")
+                    unattributedSiteSelections++;
+            }
+            if (player < 1 || player > 8) return;
+            if (record.Stage == "resource-search-before")
+            {
+                resourceSearchGenerationBefore[player] = unchecked((uint)record.B);
+                return;
+            }
+            if (record.Stage == "site-search-before") return;
+            if (record.Stage == "site-route-result")
+            {
+                string route = $"mode:{record.B}/target:({record.C},{record.D})/result:{record.A}";
+                recentGenericRoute[player] = route;
+                recentGenericRouteTick[player] = lastTick;
+                if (record.A == 0)
+                    RecordGenericOutcome(player, "route-" + record.B, "rejected-before-build",
+                        $"route={route}, search={RecentGenericSearch(player)}, " +
+                        $"target={ReadGenericSite((int)record.C, (int)record.D)}");
+                return;
+            }
+            bool resource = record.Stage == "resource-search-after";
+            if (!resource && record.Stage != "site-search-after") return;
+            int x = resource ? (int)record.B : (int)record.A;
+            int y = resource ? (int)record.C : (int)record.B;
+            long beforeGeneration = resource ? resourceSearchGenerationBefore[player] : record.C;
+            long afterGeneration = record.D;
+            string kind = resource ? "resource-mode-" + record.A : "shared-site";
+            string search = $"kind:{kind}/coarse:({x},{y})/generation:{beforeGeneration}->{afterGeneration}";
+            recentGenericSearch[player] = search;
+            recentGenericSearchTick[player] = lastTick;
+            if (x < 0 || y < 0)
+                RecordGenericOutcome(player, kind,
+                    beforeGeneration == afterGeneration ? "no-selection-before-traversal" : "traversed-without-selection",
+                    $"search={search}; no-placement-attempt-proven=true");
+            else
+                RecordGenericOutcome(player, kind, "selected",
+                    $"search={search}, coarseRaw={ReadGenericSite(x * 5, y * 5)}; " +
+                    "resource-result-is-not-final-building-site=true");
+        }
+
+        private string RecentGenericSearch(int player) =>
+            recentGenericSearchTick[player] == lastTick
+                ? recentGenericSearch[player] ?? "unobserved" : "unattributed-or-older-tick";
+
+        private string RecentGenericRoute(int player) =>
+            recentGenericRouteTick[player] == lastTick
+                ? recentGenericRoute[player] ?? "unobserved" : "unattributed-or-older-tick";
+
+        private void RecordGenericOutcome(int player, string kind, string result, string evidence)
+        {
+            string key = player + ":" + kind + ":" + result;
+            genericOutcomeCounts.TryGetValue(key, out int count);
+            genericOutcomeCounts[key] = count + 1;
+            if (count == 0)
+                QueueDiagnostic($"AI_BUILD_GENERAL_OUTCOME: session={sessionId}, tick={lastTick}, " +
+                    $"player={player}, kind={kind}, observedLast={result}, " +
+                    $"evidence={evidence}, repeat=1.", true);
+            else if (count == 9 || count == 99 || count % 500 == 499)
+                QueueDiagnostic($"AI_BUILD_GENERAL_REPEAT: session={sessionId}, tick={lastTick}, " +
+                    $"player={player}, kind={kind}, observedLast={result}, repeat={count + 1}.");
+        }
+
+        private void TrackGenericBuild(BuildStructureEventArgs args)
+        {
+            if (args.Phase == EventHookPhase.Pre)
+            {
+                if (genericBuildFrames.Count >= 128) { genericFrameOverflow++; return; }
+                ActiveAivStep step = activeAivSteps[args.PlayerId];
+                genericBuildFrames.Add(new GenericBuildFrame
+                {
+                    Player = args.PlayerId, Mapper = args.Mappers, X = args.TileX, Y = args.TileY,
+                    Tick = lastTick, BeforeSite = ReadGenericSite(args.TileX, args.TileY),
+                    Search = RecentGenericSearch(args.PlayerId), Route = RecentGenericRoute(args.PlayerId),
+                    Source = farmSearchInCall[args.PlayerId]
+                        ? "farm-economy/type:" + activeFarmSearchType[args.PlayerId]
+                        : step != null ? $"aiv/frame:{step.FrameIndex}/mapper:{step.Mapper}"
+                        : "unattributed"
+                });
+                return;
+            }
+            if (args.Phase != EventHookPhase.Post) return;
+            for (int index = genericBuildFrames.Count - 1; index >= 0; index--)
+            {
+                GenericBuildFrame frame = genericBuildFrames[index];
+                if (frame.Player != args.PlayerId || frame.Mapper != args.Mappers ||
+                    frame.X != args.TileX || frame.Y != args.TileY) continue;
+                genericBuildFrames.RemoveAt(index);
+                string outcome = frame.SpawnCount > 0 ? "spawn-observed" : "build-returned-without-spawn";
+                RecordGenericOutcome(args.PlayerId, args.Mappers.ToString(), outcome,
+                    $"source={frame.Source}, startTick={frame.Tick}, tile=({frame.X},{frame.Y}), " +
+                    $"search={frame.Search}, route={frame.Route}, before={frame.BeforeSite}, " +
+                    $"after={ReadGenericSite(frame.X, frame.Y)}, spawns={frame.SpawnCount}, " +
+                    $"spawnTypes={frame.SpawnTypes ?? "none"}; " +
+                    "PostReturnValueUnavailable=true; noSpawnDoesNotIdentifyPlacementBranch=true");
+                return;
+            }
+            RecordGenericOutcome(args.PlayerId, args.Mappers.ToString(), "post-without-pre",
+                $"tile=({args.TileX},{args.TileY}); event-pair-unavailable=true");
+        }
+
         private void ObserveGenericBuild(BuildStructureEventArgs args)
         {
+            TrackGenericBuild(args);
             string key = $"{args.PlayerId}:{(int)args.Mappers}:{args.Phase}";
             genericBuildEvents.TryGetValue(key, out int prior);
             genericBuildEvents[key] = prior + 1;
@@ -936,6 +1152,17 @@ namespace AIBuildDiagnoseTest
 
         private void ObserveGenericSpawn(BuildingSpawnEventArgs args)
         {
+            for (int index = genericBuildFrames.Count - 1; index >= 0; index--)
+                if (genericBuildFrames[index].Player == args.PlayerId &&
+                    genericBuildFrames[index].X == args.TileX &&
+                    genericBuildFrames[index].Y == args.TileY)
+                {
+                    GenericBuildFrame frame = genericBuildFrames[index];
+                    frame.SpawnCount++;
+                    frame.SpawnTypes = frame.SpawnTypes == null ? args.Building.ToString() :
+                        frame.SpawnTypes + "|" + args.Building;
+                    break;
+                }
             string key = $"{args.PlayerId}:{(int)args.Building}";
             genericSpawnEvents.TryGetValue(key, out int prior);
             genericSpawnEvents[key] = prior + 1;
@@ -1171,8 +1398,8 @@ namespace AIBuildDiagnoseTest
                     if (pendingWalls.TryGetValue(key, out WallObservation before))
                     {
                         wall.Materialized = before.Status == "ok" && wall.Status == "ok" &&
-                            (before.PropertyFlags & 0x100u) == 0 &&
-                            (wall.PropertyFlags & 0x100u) != 0;
+                            !IsActualWall(before.PropertyFlags) &&
+                            IsActualWall(wall.PropertyFlags);
                         wall.Change = DescribeWallChange(before, wall);
                         wall.Before = before;
                         pendingWalls.Remove(key);
@@ -1265,7 +1492,7 @@ namespace AIBuildDiagnoseTest
                 $"phase={wall.Phase}, mapper={wall.Mapper}, tile=({wall.X},{wall.Y}), " +
                 $"tileId={wall.TileId}, rawFlags=0x{wall.PropertyFlags:X8}, " +
                 $"swamp={((wall.PropertyFlags & 0x20000000u) != 0)}, " +
-                $"wallPresent={((wall.PropertyFlags & 0x100u) != 0)}, " +
+                $"wallPresent={IsActualWall(wall.PropertyFlags)}, " +
                 $"materializedFromPre={wall.Materialized}, buildingId={wall.BuildingId}, " +
                 $"tileType={wall.TileType}, height={wall.Height}, " +
                 $"wallOwner={wall.WallOwner}, pathComponent={wall.PathComponent}, " +
@@ -1284,8 +1511,8 @@ namespace AIBuildDiagnoseTest
         private static string DescribeWallChange(WallObservation before, WallObservation after)
         {
             if (before.Status != "ok" || after.Status != "ok") return "invalid-tile-or-map";
-            bool oldWall = (before.PropertyFlags & 0x100u) != 0;
-            bool newWall = (after.PropertyFlags & 0x100u) != 0;
+            bool oldWall = IsActualWall(before.PropertyFlags);
+            bool newWall = IsActualWall(after.PropertyFlags);
             if (!oldWall && newWall) return "new-wall";
             if (oldWall && !newWall) return "removed-wall";
             if (before.PropertyFlags != after.PropertyFlags || before.WallOwner != after.WallOwner ||
@@ -1551,7 +1778,7 @@ namespace AIBuildDiagnoseTest
             : $"tile=({sample.X},{sample.Y}) id={sample.TileId} " +
               $"native={sample.NativeComponent} api={sample.ApiComponent} " +
               $"rawFlags=0x{sample.PropertyFlags:X8} swamp={((sample.PropertyFlags & 0x20000000u) != 0)} " +
-              $"wall={((sample.PropertyFlags & 0x100u) != 0)} " +
+              $"wall={IsActualWall(sample.PropertyFlags)} " +
               $"tree={((sample.PropertyFlags & (uint)TilePropertyFlag.IsTree) != 0)} " +
               $"appleFarm={((sample.PropertyFlags & (uint)TilePropertyFlag.IsAppleFarm) != 0)} " +
               $"type={sample.TileType} organism={sample.Organism} occupancy={sample.Occupancy} " +
@@ -1698,7 +1925,7 @@ namespace AIBuildDiagnoseTest
                 if (tile.NativeComponent == 0) result.Zero++;
                 if (tile.NativeComponent != tile.ApiComponent) result.ViewMismatches++;
                 if ((tile.PropertyFlags & 0x20000000u) != 0) result.Swamp++;
-                if ((tile.PropertyFlags & 0x100u) != 0) result.Wall++;
+                if (IsActualWall(tile.PropertyFlags)) result.Wall++;
                 if (tile.WallOwner > 0) result.WallOwners++;
                 if ((tile.PropertyFlags & (uint)TilePropertyFlag.IsTree) != 0) result.Trees++;
                 if (tile.BuildingId > 0) result.Buildings++;
@@ -3104,10 +3331,25 @@ namespace AIBuildDiagnoseTest
                 GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
                 Span<byte> owners = tiles.GetWallOwnerLayer();
                 uint[] next = new uint[owners.Length];
+                byte[] nextGoodsYards = new byte[owners.Length];
                 int changed = 0, created = 0, removed = 0, altered = 0;
+                int goodsYards = 0, goodsYardAdded = 0, goodsYardLost = 0;
                 for (int tileId = 1; tileId < next.Length; tileId++)
                 {
-                    uint wall = ((uint)tiles.GetTilePropertyFlag(tileId) & 0x100u) != 0 ? 0x100u : 0;
+                    uint flags = (uint)tiles.GetTilePropertyFlag(tileId);
+                    bool goodsYard = (flags & (uint)TilePropertyFlag.GoodsyardRelated) != 0;
+                    if (goodsYard)
+                    {
+                        nextGoodsYards[tileId] = 1;
+                        goodsYards++;
+                    }
+                    if (goodsYardMap != null && tileId < goodsYardMap.Length)
+                    {
+                        if (goodsYardMap[tileId] == 0 && goodsYard) goodsYardAdded++;
+                        else if (goodsYardMap[tileId] != 0 && !goodsYard) goodsYardLost++;
+                    }
+                    // Goodsyard and connection tiles also carry IsWall; they are not castle walls.
+                    uint wall = IsActualWall(flags) ? (uint)TilePropertyFlag.IsWall : 0;
                     next[tileId] = wall == 0 ? 0 : wall | owners[tileId];
                     if (wallMap == null || tileId >= wallMap.Length || wallMap[tileId] == next[tileId]) continue;
                     uint old = wallMap[tileId];
@@ -3129,7 +3371,7 @@ namespace AIBuildDiagnoseTest
                             $"tile=({x},{y}), old=0x{old:X3}, new=0x{next[tileId]:X3}, " +
                             $"kind={(wall != 0 && (old & 0x100u) == 0 ? "new" : wall == 0 &&
                                 (old & 0x100u) != 0 ? "removed" : "owner-changed")}, " +
-                            $"detailFlags=0x{(uint)tiles.GetTilePropertyFlag(tileId):X8}, " +
+                            $"detailFlags=0x{flags:X8}, " +
                             $"building={buildingId}, matchedSpawn={spawned}, aivWallPlan={planned}, " +
                             $"height={tiles.GetTileHeight(tileId)}.",
                             !firstWallChangeLogged);
@@ -3137,12 +3379,22 @@ namespace AIBuildDiagnoseTest
                     }
                 }
                 wallMap = next;
+                goodsYardMap = nextGoodsYards;
+                goodsYardTiles = goodsYards;
+                goodsYardCreated += goodsYardAdded;
+                goodsYardRemoved += goodsYardLost;
                 QueueDiagnostic($"AI_BUILD_WALL_MAP_SCAN: session={sessionId}, tick={lastTick}, phase={phase}, " +
                     $"tiles={next.Length}, changed={changed}, created={created}, removed={removed}, " +
-                    $"altered={altered}, detailOmitted={Math.Max(0, changed - 512)}.");
+                    $"altered={altered}, detailOmitted={Math.Max(0, changed - 512)}, " +
+                    $"goodsYardTiles={goodsYardTiles}, goodsYardAdded={goodsYardAdded}, " +
+                    $"goodsYardRemoved={goodsYardLost}; goodsYardIsNotWall=true.");
             }
             catch (Exception ex) { QueueDiagnostic("AI_BUILD_WALL_MAP_SCAN_FAILED: " + ex); }
         }
+
+        private static bool IsActualWall(uint flags) =>
+            (flags & (uint)TilePropertyFlag.IsWall) != 0 &&
+            (flags & (uint)TilePropertyFlag.GoodsyardRelated) == 0;
 
         private void SnapshotWoodCells(string phase)
         {

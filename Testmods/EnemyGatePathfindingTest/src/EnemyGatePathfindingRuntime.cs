@@ -205,18 +205,19 @@ namespace EnemyGatePathfindingTest
                     "all searches remain fail-open until then.");
         }
 
-        internal void BeginMap()
+        internal void BeginMap(bool editor = false)
         {
             if (Volatile.Read(ref mapActive) != 0)
                 EndMap("replacement before MissionStart");
-            StartMapEpoch("MissionStart");
+            StartMapEpoch("MissionStart", editor);
         }
 
-        private void StartMapEpoch(string reason)
+        private void StartMapEpoch(string reason, bool editor)
         {
             if (Interlocked.CompareExchange(ref mapActive, 1, 0) != 0) return;
             ResetMapCounters();
             samePclRouteRuntime?.ResetCounters();
+            samePclRouteRuntime?.SetBuildingMapMode(editor);
             attackOrderDiagnostics?.Reset();
             topologyProvider?.BeginExplicitEpoch(reason);
             Shared.DebugLogHelper.LogInfo(log,
@@ -281,8 +282,19 @@ namespace EnemyGatePathfindingTest
                     return;
                 }
 
+                if (comparison.ComparedValuesMatch && !comparison.HasExpectedLengths)
+                {
+                    Shared.DebugLogHelper.LogWarning(log,
+                        "Script Extender pathfinding-global coverage is incomplete or has an " +
+                        "unexpected API extent; all compared values match the canonical FBCB9319 " +
+                        $"tables. This is not evidence of table mutation: {counts}, " +
+                        $"missingNativeCoverage={comparison.MissingCoverage}, " +
+                        "nativeRowStride=90; policy unchanged.");
+                    return;
+                }
+
                 Shared.DebugLogHelper.LogWarning(log,
-                    "Script Extender pathfinding globals differ from the canonical " +
+                    "Compared Script Extender pathfinding-global values differ from the canonical " +
                     "FBCB9319 process-start tables. Another component may have changed " +
                     "process-wide unit-type behavior; the enemy-gate policy remains " +
                     $"read-only and unchanged: {counts}, " +
@@ -309,7 +321,7 @@ namespace EnemyGatePathfindingTest
                 .Append(", invalidValues=").Append(comparison.InvalidValues)
                 .Append(", profilesLarge/Default=").Append(comparison.LargeProfiles)
                 .Append('/').Append(comparison.DefaultProfiles)
-                .Append(", classAllowed=");
+                .Append(", comparedClassAllowed=");
             for (int index = 0; index < comparison.AllowedByClass.Length; index++)
             {
                 if (index != 0) builder.Append('/');
@@ -680,7 +692,7 @@ namespace EnemyGatePathfindingTest
                 $"attackApproachQueries={same.AttackQueries},buildingApproachQueries={same.BuildingApproachQueries}," +
                 $"buildingConsumerQueries={same.BuildingConsumerQueries}," +
                 $"alternateBuildingConsumerQueries={same.AlternateBuildingConsumerQueries}," +
-                $"candidateQueries={same.CandidateQueries}," +
+                $"candidateQueries={same.CandidateQueries},cursorCommandQueries={same.CursorCommandQueries}," +
                 $"plannerState0x419Queries={same.AiTacticalTargetQueries}," +
                 $"plannerState0x419BuildingEdges={same.AiTacticalBuildingEdges}," +
                 $"plannerState0x419UnitEdges={same.AiTacticalUnitEdges}," +

@@ -471,3 +471,157 @@ bleiben unverändert; keine neuen Hooks, APIShared- oder Hauptmodänderungen.
 Version und README unverändert; kein Build erforderlich. Die nächste
 Resolveränderung muss Suchspieler und unabhängig geprüften Bewegungskontext
 getrennt behandeln und alle beschriebenen Suchzweige einschließen.
+
+
+## 2026-10-02: geprüfter Bewegungs-Scope für Gebäude
+
+Gemeinsamer Resolver für standalone DA020 und IEnemyGatePathPolicy.
+Der native sechste Parameter bleibt unverändert. Die Gate-Richtungssuche
+verwendet stattdessen einen identitätsgeprüften Bewegungsspieler:
+Tribe-ID/Global-ID und Besitzer aus dem veröffentlichten Snapshot stimmen mit
+den Livewerten überein; Anführer-ID/Global-ID sind verfügbar und sein signed
+Kontroll-WORD bei Unitoffset 0x92 stimmt mit dem Tribe-Besitzer überein.
+Das WORD wird aus beiden geprüften öffentlichen BYTE-Feldern gebildet.
+Identitäts-/Kontrollwechsel während des Lesens bleiben offen.
+
+Der Suchwert muss zur gespeicherten Planungsrolle (signed unteres WORD von
+N00000580, außerhalb Editor Ersatz 1 bei null), Anführerkontrolle oder null
+passen. Überschneidungen heißen compatible-planner-or-leader; keine
+Callerherkunft wird allein aus diesen Werten behauptet. Editorstatus kommt aus
+dem vorhandenen Mission-Lifecycle. Der Tribe-Snapshot enthält nun Global-IDs
+und wird am Kartenstart zurückgesetzt; sein bisheriger deferred Takt bleibt.
+
+Die existing building-search-context-Aggregate zeigen Rohsuchspieler,
+Bewegungsspieler, Planungswerte, Kontroll-WORD, beide Tribeidentitäten,
+Anführeridentität und konkrete Fehlerursache. buildingRoleDifferences zählt
+geprüfte Rollenunterschiede; buildingContextFailures zählt ungelöste Kontexte.
+Letztere, Exceptions und tatsächliche Scope-Konflikte bleiben Integritätsfehler.
+Historische Ereignisse werden nicht nachträglich als gelöst gewertet.
+Keine neue Wegsuche, zusätzliche Pollingarbeit oder dauerhafte Unitverfolgung.
+
+Gemeinsamer Betrieb braucht keine Hauptmod- oder APIShared-Änderung. Bestehende
+Funktionsbesitzer, Inlineadapter, Graphabfragen, Same-PCL-/Alternativpfade und
+Kandidatenfilter bleiben erhalten; die beiden Gebäudeeinstiege verwenden den
+neuen Resolver und ihre vorhandenen finally-Scopes. Neue Hooks: keine.
+Runtime hängt weiterhin an statisch verwurzelten Hooks, R3-Publishern und dem
+vorhandenen onBeforeRender-Drain nach Startup-Cleanup. Version 0.1.5 und README
+bleiben unverändert. Build- und Testergebnis wird nach dem Treiber ergänzt.
+
+Spielabnahme: bekannte offene Tore versus echter offener Zugang; normales und
+Raid-Gebäudeziel innen/außen; eigener Tor-/Bergfriedzugang und Eroberung /
+Rückeroberung; mehrere Angriffswellen und Save erneut laden; kurzer Hauptmodlauf
+ohne Testmod. Keine neue Verbündetenkarte erforderlich. Neue wiederholte
+NoRoute-Serien verhindern die Abnahme und erfordern gezielte Suchpfaddiagnose.
+
+
+Buildnachweis 02.10.2026: ausschließlich Testmod über build.bat /nopause
+gebaut und installiert. 1824 Assertions einschließlich beider installierten
+RedBird-Capturer-Maschinentests bestanden; 0 Warnungen und 0 Fehler.
+64 native Vertragschecks, zehn öffentliche installierte Feldverträge, zwei
+Recordgrößen und die öffentlichen TryGet-Signaturen geprüft. JSON-, Lifecycle-,
+workspaceweite und modlokale Hookmutations-, XAML- sowie CRLF-Prüfungen bestanden.
+Lokale/installierte Testmod-DLL SHA-256 identisch:
+69C349B4892F3B2850CDB351F21BA5DD3AD173CF7D01FDC2F5700B7832F57BB0.
+BugfixesAndQoL unverändert: 0CCF91D597E287CA5512FD7D7EAE59A123113ABAEA920182AC2DE65D6FB6377A.
+APIShared unverändert: DE37BD7835AC1E76C59AFDB0801FAB17A0E7E4F48F6FDE531C0AFFDA017A342F.
+Buildlog: _inspect/EnemyGateBuildingContextAudit/build.log.
+Spielabnahme und Laufzeitbeobachtung der neuen Rollendiagnose stehen aus.
+Die Scope-Restauration ist unverändert und statisch geprüft; es wird kein
+zusätzlicher nativer Ausführungstest der verschachtelten Building-Scopes behauptet.
+
+
+## Diagnosebereinigung und Spielbefunde, 02.10.2026
+
+Die neue Gebäude-Scope-Fassung wurde in drei aktiven test_gates.sav-Epochen
+beobachtet: 13:35:51.837–13:36:47.889 (KI-Zähler 11100, Rollenunterschiede 13),
+13:36:51.958–13:37:56.844 (14151 / 14), 13:39:09.823–13:41:29.280 (8888 / 30).
+Alle beobachteten Builder-Ergebnisse waren positiv, kein NoRoute, keine
+Gebäude-Kontext-/Scope-/Snapshotfehler oder Exceptions; runtimeIntegrity=PASS.
+Im zweiten Lauf enthielten die Ergebnisaggregate 14157 positive Beobachtungen,
+also sechs mehr als der KI-Eintrittszähler. Das ist eine historische Zähldifferenz,
+kein nachträglich aufgeklärter Einzelfall. Native Entry/Exit und Ergebnisobserver
+verwendeten unterschiedliche KI-Abfragen; künftig bleibt die Entryklassifizierung
+im QueryScope eingefroren und gilt für alle drei Stellen. Originalargumente,
+Suchergebnisse, Scopemasken und Hookadressen bleiben unverändert.
+
+Gemeinsame Suchaufrufe zählen Attack, BuildingApproach, BuildingConsumer,
+CursorCommand und AI Builder jeweils einmal. BuildingConsumer bleibt im
+Kantenzähler dieselbe Suchklasse wie bisher, erhält aber seinen eigenen
+Aufrufzähler. Standalone CursorCommand erhält ebenfalls einen Aufrufzähler.
+
+Gate-live-Zustände werden ohne Obergrenze nach Spieler, Building-ID, vollständigem
+Zustand und vollständigem Detail intern gespeichert. Global-ID, Owner-/Capture-
+Relation, Rohwerte, Policy, Ursachen und Brücken stehen in einer Definition
+`Enemy-gate state: epoch=N,id=M,...`; Ergebniszeilen referenzieren `gateState=N/M`.
+Definitionen erscheinen vor ihrer ersten Verwendung; Definitionen und aktive
+Aggregate werden atomar ausgelesen. Identische Zustände behalten ihre Kennung über
+Zehn-Sekunden-Fenster, Änderungen erhalten eine andere Kennung. Jede Observation,
+erster/letzter Tribe-/Zielwert und bestehende Wechselzähler bleiben erhalten.
+Reset erfolgt nur beim bestehenden Kartenstart; Epoche wird erhöht. Kein Unittracking.
+
+Installierter SE 2.12.0, Tag v2.12.0, Commit f8d51730fcb54b25af43d3c9348d57db058e077f,
+Tree 657af449e1397c58e6c5ec054977d83198b68e66 und Assemblyhash
+DE5B88749C18A257E5F6A6E246F685300BF8DF970969DF1E6EA35C8C95F2A4AF sind auditiert.
+Die Mindestabhängigkeit bleibt unverändert; der Log-Versionsmatch ist weiterhin
+ein Versionsvergleich und beweist keinen Laufzeit-Hashmatch.
+
+Vanilla FBCB9319 liest Connection-Permissions in 0x181E00 mit 90 Int32 pro Zeile
+(IMUL 0x5A, Zeilenabstand 0x168), Klassen 1–6 ab 0x32BDB0. Der aktuelle öffentliche
+API-Konstantwert ist 89. Der flache Getter liefert 534 statt 540 Einträge;
+unser Vergleich interpretiert den vorhandenen Prefix weiterhin korrekt mit
+Native-Stride 90. Es fehlen Profileindex 89 und Permissionindizes 534–539
+(Klasse 6, Unitindices 84–89). Alle gelesenen Werte der letzten Läufe stimmten.
+Die Warnung bezeichnet jetzt unvollständige Abdeckung, keine Tabellenmutation;
+Changed-Value-Warnungen bleiben getrennt. Der öffentliche Row-Getter verwendet
+jedoch Stride 89 und adressiert Klassen 2–6 falsch; dies betrifft auch seinen
+Can/Set-Verbraucher. Unsere Policy verwendet diese Getter/Setter nicht. Fork und
+Hauptmods wurden für diesen Schritt nicht geändert. Vollständige Native-Reader-
+Belege: _inspect/EnemyGateBuildingContextAudit/pathfinding-globals-evidence.txt.
+Der englische Autorenreport liegt daneben als SCRIPT_EXTENDER_PATHFINDING_REPORT.md.
+
+Logabnahmegrenzen: Alle Pre/Post-Paare und Aggregatsummen stimmten. Der dritte
+Lauf beobachtete 12 gefilterte Gebäudekanten. Eroberung, nachgewiesene Cursorsperre
+und Raid-Gebäudebefehl 9 wurden in diesen drei Läufen nicht beobachtet. Die
+Spielbeobachtungen dieser Epochen sind noch nicht zugeordnet. Ein späterer Lauf
+ohne Testmod ist ein eigener Hauptmodvergleich, kein Gatepolicy-Nachweis.
+Offen: normaler/Raid-Gebäudeangriff, Eroberung/Rückeroberung, eigener Zugang nach
+gesperrtem Cursorziel, mehrere Wellen und beobachteter Hauptmodvergleich. Keine
+weitergehende KI-Verhaltensänderung ist aus diesen Logs gerechtfertigt.
+
+Buildabnahme der Diagnosebereinigung: build.bat hat am 02.10.2026 die Fassung
+mit 2847 bestandenen Assertions und null Warnungen/Fehlern gebaut und installiert.
+Beide installierten RedBird-Capturer-Maschinentests bestanden. Die neuen Tests
+prüfen 1500 Beobachtungen über 100 vollständige Torzustände und drei Zeitfenster,
+Rekonstruktion, Epochenreset, eingefrorene KI-Zuordnung und unvollständige Tabellen.
+Ein erster Testlauf stoppte vor der Installation wegen einer unbeabsichtigten
+Änderung am direkten Cursorwrapper; dieser Pfad wurde vollständig wiederhergestellt.
+Danach bestanden Tests und sämtliche Vorprüfungen erneut vor dem finalen Treiberlauf.
+Lokale/installierte Testmod-DLL SHA-256:
+B85CFC510B7912A4D1DF7D6F81ADB7EFB773FBE60B2F41E25853648CF6358C10.
+BugfixesAndQoL und APIShared blieben gegenüber dem Stand vor diesem Build identisch
+(00A0512B1F94C598B5417B6B5790A396E7B67228B27DEE2AB81E4BA466552CF7 /
+02332AF3506C92C47DB066C1C2AC764A312D75E2CAFC144F1FB3B5E27617C6FF).
+Version unverändert 0.1.5, README unverändert. Neue Spielabnahme der Ausgabe steht aus.
+
+## 2026-10-02: read-only Assassin gate diagnosis
+
+See the hash-bound baseline `knowledge/ENEMY_GATE_ASSASSINS.md`. Four pre-change runs had 403/402/207/624 NoRoute results; the first three observed open/open, open/closed and closed/closed configurations. Automatic closure in the open runs led to retargeting; no persistent stuck-unit conclusion follows from the counters.
+
+An optional passive APIShared observer measures the existing D9C40 detour, weighted/cache-route edges and native cache contents; it never changes search results. Existing deferred aggregates retain exact counts and numeric sums with no event cap. Gate edge IDs come from mask construction, overlapping identities remain ambiguous. New Unit fields were checked against installed public SE members, and the complete control WORD is reported. Native singleton reads use +0x84/+0x88/+0x90 and ten positive/negative PCL pairs at +0x416D8C/+0x416DDC with stride 8. No new hooks or executable mutations; original route/search/cache algorithms remain unchanged. Native-only flood fields and cache-hit/fallback measurement gaps are explicitly labeled. Versions and README are unchanged.
+
+Abnahme remains open until paired Assassin runs locate the first different reachability result. No additional Assassin movement correction is included in this diagnostic build.
+
+### Diagnostic build verification
+
+APIShared, BugfixesAndQoL and EnemyGatePathfindingTest were built and installed only through their build.bat drivers. Local and installed SHA-256 values match: APIShared BE36060EA2D7270C9EADDF8437F38801E8D67C3CF04CAF2E977EA284066D112B; BugfixesAndQoL 72CA51A2381603F2EBB64F79B4A3D535BB109B55A18861E6DC7DFCA0548AB37D; Testmod D91CEEE9E4E733D1CBC6FBA4390E3D3ACC686D75F28890183011DBB01DBE0D43.
+
+APIShared baseline/preset/consumer tests passed. Assassin A*/Dijkstra tests: 13871 assertions. Testmod: 3655 assertions, including installed RedBird machine tests and 400 read-only route observations across 80 gates. Full Bugfixes movement tests also passed (269682 unit-plan assertions, 6480 building-field comparisons, 18262 independent search assertions, 1469340 cursor connectivity comparisons). APIShared/Testmod builds have zero warnings/errors; the Bugfixes build has one MSB3277 assembly-reference warning and zero errors. JSON/lifecycle/permanent-hook/XAML/CRLF checks passed. No build process remains running.
+
+Building-approach context now retains explicit tribe/building ID, global ID, owner, source PCL and raw search argument even outside a tribe-order event. Installed public GameBuilding owner/global fields are UInt16 +0xD6 and UInt32 +0xD8. Void building searches are not labeled failed boolean searches. The algorithm/cache/publication suffix of AssassinPathfindingRuntime remains byte-for-byte identical to HEAD, and the Original native call still occurs exactly once. Game validation remains pending; native pair-cache hits and fallback acceptance are explicitly not directly measured.
+# Weighted Assassin compatibility (2026-10-02)
+
+Built and installed through all three build.bat drivers. Assassin tests: 15494 assertions; gate tests: 3830; full APIShared and mainmod native/movement suites passed. Installed DLLs match local packages. Main runtime has one MSB3277 reference warning and no errors; Testmod has zero warnings/errors. Game acceptance is still pending; versions and README unchanged.
+
+The 20:58:48 active run proves 15 native rejections were overwritten by weighted success, with 34 blocked ground-edge occurrences at gates 134/148; no cache hits or blocked climbs were involved. The user confirms native-only Assassin searches choose alternatives.
+
+The testmod now provides immutable, player-specific gate route snapshots to the existing Bugfixes Assassin builder. Query nesting and explicitly unmasked contexts are preserved; publication changes and empty map states invalidate old cache identities. Candidate rejections are counted separately as assassin-policy-filter aggregates, while assassin-route-edge remains a prepared-route violation. No permanent unit tracking or additional searches/hooks. Open/closed, true-access, normal-wall-climb and own/captured-gate game acceptance remains pending.

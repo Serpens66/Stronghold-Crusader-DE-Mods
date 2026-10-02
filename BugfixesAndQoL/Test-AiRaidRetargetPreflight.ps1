@@ -36,7 +36,30 @@ if ($retry -notmatch '(?s)if \(!commandIssued \|\| fallbackResult == AttackResul
     $runtime -notmatch 'TribeGlobalId == other.TribeGlobalId' -or
     $runtime -notmatch 'private const int RaidGroupCount = 6;') { throw 'Bounded replacement / role identity safety changed.' }
 $guard=$runtime.IndexOf('if (args.Phase != EventHookPhase.Post || !buildingCommand || !raid) return;')
-if($guard -lt $runtime.IndexOf('pre = postStack.Pop();') -or $guard -gt $runtime.IndexOf('AttackResult result = Evaluate(')) { throw 'Manual command nesting barrier changed.' }
+if($guard -lt $runtime.IndexOf('pre = TakePostFrame(postStack);') -or $guard -gt $runtime.IndexOf('AttackResult result = Evaluate(')) { throw 'Manual command nesting barrier changed.' }
+# Frame cancellation and runtime publication are managed contracts, not new native hooks.
+if ($runtime -notmatch 'internal readonly TribeIssueOrderWithTargetEventArgs PreEvent;' -or
+    $runtime -notmatch 'stack.Peek\(\).PreEvent.SkipOriginalFunction' -or
+    $runtime -notmatch 'PeekSearchFrame\(stack\) == null' -or
+    $runtime -match 'if \(!tribeAlive && args.Phase == EventHookPhase.Pre\) return;' -or
+    $runtime -notmatch 'buildingCommand && tribeAlive \? ReadAttackCandidateSnapshot\(\)' -or
+    $runtime -notmatch 'active = initialized && activation.Active;' -or
+    $runtime -notmatch '(?s)private void CompleteInitialization.*?lock \(attackCaptureLock\).*?initialized = true;.*?active = activation.Active;' -or
+    $runtime -notmatch 'CompleteInitialization\(pendingOrder, pendingSession\);' -or
+    $runtime -notmatch 'FailInitialization\(\);' -or
+    $runtime -notmatch 'RejectionCleanupIntervalTicks = 200;' -or
+    $runtime -notmatch 'RejectedTargetDurationTicks = 300;' -or
+    $runtime -notmatch 'if \(target.Value <= lastTick\) expired.Add\(target.Key\)' -or
+    $runtime -notmatch 'nextRejectionCleanupTick = 0;') { throw 'Raid cancellation, initialization or expiry cleanup contract changed.' }
+$preStart=$runtime.IndexOf('if (args.Phase == EventHookPhase.Pre)')
+$preEnd=$runtime.IndexOf('else if (args.Phase == EventHookPhase.Post',$preStart)
+if($runtime.Substring($preStart,$preEnd-$preStart) -match 'PeekSearchFrame|TakePostFrame|SkipOriginalFunction') { throw 'New Pre must not prune a still running outer publisher.' }
+foreach($method in @('OnTribeOrder','OnSearchObserved')) {
+ $start=$runtime.IndexOf('internal void '+$method+'(')
+ $end=if($method -eq 'OnTribeOrder'){$runtime.IndexOf('        private void LogAttackCandidates(',$start)}else{$runtime.IndexOf('        private void PushCommandFrame(',$start)}
+ $tail=$runtime.Substring($start,$end-$start)
+ if($tail -notmatch '(?s)lock \(attackCaptureLock\)\s*\{\s*if \(!active\) return;') { throw "$method lacks the in-lock active check." }
+}
 $manifest=[IO.File]::ReadAllText((Join-Path $project 'info.json')) | ConvertFrom-Json
 if($manifest.Version -ne '1.0.174') { throw 'Manifest version mismatch' }
 foreach($path in @('src\BugfixesAndQoLPlugin.cs','src\Properties\AssemblyInfo.cs','BugfixesAndQoL.csproj')) {

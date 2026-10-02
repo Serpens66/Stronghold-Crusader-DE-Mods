@@ -14,6 +14,7 @@ namespace EnemyGatePathfindingTest
         {
             try
             {
+                assertions += GateRoutePolicyTests.Run();
                 UncapturedEnemyPreservesVanillaExclusion();
                 OwnAndAlliedOwnersRemainEligible();
                 OwnAndAlliedCaptureRemainEligible();
@@ -48,6 +49,7 @@ namespace EnemyGatePathfindingTest
                 CrashDumpRegisterRegressionsFailOpen();
                 DirectionAdaptersActuallyAssembleAndDecode();
                 BaselinePlayerScopesUseNativeArguments();
+                BuildingSearchContextsSeparateVanillaAndMovement();
                 DirectCursorCallsiteContractIsExact();
                 NormalCursorPreviewContractIsExact();
                 CursorPreviewDecisionIsCausalAndStable();
@@ -67,7 +69,11 @@ namespace EnemyGatePathfindingTest
                 NativeRouteHotPathsRemainPrimitiveOnly();
                 UnsafeGlobalMutationAndWholePclDetourAreAbsent();
                 ScriptExtenderPathfindingGlobalsAreComparedReadOnly();
-                ScriptExtender280AndFixesContractsArePinned();
+                ScriptExtender2120AndFixesContractsArePinned();
+                SearchDiagnosticIdentitySurvivesPublication();
+                GateStateDefinitionsReconstructEveryObservation();
+                PartialPathfindingCoverageIsNotMutation();
+                AssassinRouteDiagnosisIsLosslessAndReadOnly();
                 Console.WriteLine("EnemyGatePathfindingPolicy: {0} assertions passed.", assertions);
                 return 0;
             }
@@ -76,6 +82,147 @@ namespace EnemyGatePathfindingTest
                 Console.Error.WriteLine(ex);
                 return 1;
             }
+        }
+
+        private static void SearchDiagnosticIdentitySurvivesPublication()
+        {
+            var aggregate = new AiGateDecisionAggregate();
+            long countedAi = 0;
+            for (int i = 0; i < 100; i++)
+            {
+                bool playerIsAi = (i % 2) == 0;
+                var context = new SearchDiagnosticContext(playerIsAi ? QueryKind.AiBuilder : QueryKind.HumanBuilder);
+                if (context.IsAiBuilder) countedAi++;
+                playerIsAi = !playerIsAi; // simulated refreshed player-kind publication
+                if (context.IsAiBuilder)
+                    aggregate.Record(5, 0, "builder", "positive", 3, i + 1, 0, 0);
+                Assert(context.IsAiBuilder != playerIsAi, "entry identity survives a changed player-kind publication");
+            }
+            var rows = aggregate.Drain(); long observed = 0;
+            foreach (var row in rows) observed += row.Count;
+            Assert(countedAi == 50 && observed == countedAi, "count and result aggregates use the same entry classification");
+            string runtime = File.ReadAllText(Path.Combine("src", "SamePclGateRouteRuntime.cs"));
+            string correlation = File.ReadAllText(Path.Combine("src", "AttackOrderCorrelationDiagnostics.cs"));
+            int begin = runtime.IndexOf("void IEnemyGatePathPolicy.ExitNativeSearch", StringComparison.Ordinal);
+            int end = runtime.IndexOf("private void CountSharedSearch", begin, StringComparison.Ordinal);
+            string exit = runtime.Substring(begin, end - begin);
+            Assert(exit.Contains("query.Diagnostic.Kind") && exit.Contains("query.PlayerId, query.Diagnostic") &&
+                !exit.Contains("IsAi("), "shared exit never reclassifies a query");
+            Assert(runtime.Contains("Enter(player, diagnosticKind: kind)") &&
+                runtime.Contains("ObserveBuilder(player, scope.Diagnostic"), "standalone builder carries entry identity too");
+            begin = correlation.IndexOf("internal void ObserveBuilder", StringComparison.Ordinal);
+            end = correlation.IndexOf("internal void BeginBuilder", begin, StringComparison.Ordinal);
+            Assert(!correlation.Substring(begin, end - begin).Contains("IsAi(player)"),
+                "builder result observer does not query a second live AI classification");
+            foreach (string counter in new[] { "attackQueries", "buildingApproachQueries", "buildingConsumerQueries", "cursorCommandQueries", "aiQueries" })
+                Assert(runtime.Substring(runtime.IndexOf("private void CountSharedSearch", StringComparison.Ordinal),
+                    runtime.IndexOf("private QueryKind SharedKind", StringComparison.Ordinal) -
+                    runtime.IndexOf("private void CountSharedSearch", StringComparison.Ordinal)).Contains("ref " + counter),
+                    "shared per-kind count includes " + counter);
+            Assert(runtime.Contains("CountSharedSearch(kind, localKind);") &&
+                runtime.Contains("Enter(playerId, diagnosticKind: localKind)"), "shared counters and scope use one classification");
+        }
+
+        private static void GateStateDefinitionsReconstructEveryObservation()
+        {
+            var aggregate = new AiGateDecisionAggregate(); aggregate.Reset();
+            var definitions = new System.Collections.Generic.Dictionary<string, AiGateDecisionAggregate.GateStateDefinition>();
+            long decoded = 0; long outputCharacters = 0; long uncompressedCharacters = 0;
+            for (int window = 0; window < 3; window++)
+            {
+                for (int state = 0; state < 100; state++)
+                    for (int repeat = 0; repeat < 5; repeat++)
+                    {
+                        string value = "ownerRelation=own,captureRelation=" + (state % 2 == 0 ? "captured-by-other" : "captured-by-self") +
+                            ",generation=" + state + ",owner=1,captured=" + (state % 8 + 1) + ",gateGlobal=" + (2000 + state);
+                        string detail = "bridgeGlobal=" + (3000 + state) + "," + new string('x', 120);
+                        aggregate.RecordGateState(1, 819, "gate-live-target-pre", value, 9, 100 + repeat,
+                            state, repeat, detail);
+                        uncompressedCharacters += ("result=" + value + ",first=100:0/0:" + detail + ",last=104:0/4:" + detail).Length / 5;
+                    }
+                var rows = aggregate.Drain(out var fresh);
+                Assert(fresh.Length == (window == 0 ? 100 : 0), "every new full state is defined once across windows");
+                foreach (var definition in fresh)
+                { definitions.Add(definition.Reference, definition); outputCharacters += definition.ToString().Length; }
+                Assert(rows.Length == 100, "more than 32 state combinations are retained");
+                foreach (var row in rows)
+                {
+                    string reference = row.Result.Substring("gateState=".Length);
+                    Assert(definitions.TryGetValue(reference, out var definition), "definition precedes every referencing row");
+                    Assert(definition.Player == row.Player && definition.GateId == row.GateId &&
+                        definition.State.Contains("generation=") && definition.Detail.Contains("bridgeGlobal="),
+                        "full role, gate identity and bridge data can be reconstructed");
+                    Assert(row.Count == 5 && row.First.StartsWith("100:") && row.Last.StartsWith("104:"),
+                        "counts and concrete first/last tribe values survive compression");
+                    decoded += row.Count; outputCharacters += row.ToString().Length;
+                }
+            }
+            Assert(decoded == 1500 && aggregate.Observations == decoded, "compression loses no observations");
+            Assert(outputCharacters < uncompressedCharacters, "state references reduce repeated log output");
+            aggregate.Reset();
+            aggregate.RecordGateState(1, 819, "gate-live-checkpoint", "unknown:identity-changed", 0, 0, 0, 0, "gateGlobal=9999");
+            var nextRows = aggregate.Drain(out var nextDefinitions);
+            Assert(nextDefinitions.Length == 1 && nextDefinitions[0].Epoch == 2 && nextDefinitions[0].Id == 1 &&
+                !definitions.ContainsKey(nextDefinitions[0].Reference) && nextRows[0].Count == 1,
+                "map reset cannot reuse an old epoch reference");
+        }
+
+        private static void AssassinRouteDiagnosisIsLosslessAndReadOnly()
+        {
+            var masks = new byte[9][]; masks[2] = new byte[400];
+            for (int tile = 0; tile < 400; tile++) masks[2][tile] = 0xFF;
+            var owners = new GateEdgeOwnership[9]; owners[2] = new GateEdgeOwnership();
+            var totals = new AiGateDecisionAggregate();
+            for (int gate = 1; gate <= 80; gate++)
+            {
+                masks[2][gate] = 0xFB;
+                owners[2].Record(gate, 2, gate);
+            }
+            byte[] before = (byte[])masks[2].Clone();
+            var snapshot = new RouteTilePolicySnapshot(masks, 123, edgeOwners: owners);
+            var probe = new AssassinRouteProbe(snapshot);
+            for (int round = 0; round < 5; round++)
+            for (int gate = 1; gate <= 80; gate++)
+            {
+                bool blocked = probe.Observe(2, gate, 2, round % 2 == 1, out int actual);
+                Assert(blocked && actual == gate, "exact mask-construction gate attribution");
+                totals.Record(2, actual, "assassin-route-edge", round % 2 == 1 ? "climb" : "ground", 3, 4410, 402, 305, value: 1);
+            }
+            Assert(probe.Ground == 240 && probe.Climb == 160 &&
+                probe.BlockedGround == 240 && probe.BlockedClimb == 160, "every ground and climb edge counted beyond 32");
+            var rows = totals.Drain(); long count = 0, value = 0;
+            foreach (var row in rows) { count += row.Count; value += row.Value; }
+            Assert(rows.Length == 160 && count == 400 && value == 400, "all gate/type buckets and summed values survive aggregation");
+            for (int tile = 0; tile < before.Length; tile++)
+                Assert(before[tile] == masks[2][tile], "diagnosis cannot change a direction mask");
+            Assert(!probe.Observe(1, 1, 2, false, out _), "own or otherwise unmasked player remains allowed");
+            Assert(!probe.Observe(2, 0, 2, true, out _), "ordinary wall climbing remains outside gate diagnosis");
+            owners[2].Record(1, 2, 200); owners[2].Record(1, 2, 1);
+            Assert(probe.Observe(2, 1, 2, false, out int ambiguous) && ambiguous == -1,
+                "overlap is ambiguous and cannot silently regain a unique identity");
+            Assert(!probe.Observe(0, 1, 2, false, out _) && !probe.Observe(2, 400, 2, false, out _),
+                "invalid context remains unclassified");
+            Assert(probe.Unknown == 2, "unknown contexts are counted");
+            Assert(ReferenceEquals(probe.Snapshot, snapshot), "probe keeps its entry snapshot across later publications");
+        }
+
+        private static void PartialPathfindingCoverageIsNotMutation()
+        {
+            var profiles = new int[89]; var permissions = new int[534];
+            for (int i = 0; i < profiles.Length; i++) profiles[i] = PathfindingGlobalsBaseline.GetExpectedProfile(i);
+            for (int i = 0; i < permissions.Length; i++) permissions[i] = PathfindingGlobalsBaseline.GetExpectedPermission(i / 90 + 1, i % 90);
+            var comparison = PathfindingGlobalsBaseline.Compare(profiles, permissions);
+            Assert(comparison.ComparedValuesMatch && !comparison.HasExpectedLengths && !comparison.MatchesCanonical,
+                "matching prefix is not full native coverage or a mutation");
+            Assert(comparison.ComparedProfiles == 89 && comparison.ComparedPermissions == 534 &&
+                comparison.MissingCoverage == "profiles=89..89;permissions=534..539", "exact missing native indices remain explicit");
+            permissions[90] ^= 1; comparison = PathfindingGlobalsBaseline.Compare(profiles, permissions);
+            Assert(!comparison.ComparedValuesMatch && comparison.PermissionMismatches == 1 &&
+                comparison.Samples[0].ConnectionClass == 2 && comparison.Samples[0].UnitType == 0,
+                "partial API view retains native stride90 and detects a changed class2 value");
+            string source = File.ReadAllText(Path.Combine("src", "EnemyGatePathfindingRuntime.cs"));
+            Assert(source.Contains("comparison.ComparedValuesMatch && !comparison.HasExpectedLengths") &&
+                source.Contains("This is not evidence of table mutation"), "partial coverage is diagnosed separately from changed values");
         }
 
         private static void ScriptExtenderPathfindingGlobalsAreComparedReadOnly()
@@ -188,13 +335,13 @@ namespace EnemyGatePathfindingTest
                 "startup comparison contains no direct native connection-table view");
         }
 
-        private static void ScriptExtender280AndFixesContractsArePinned()
+        private static void ScriptExtender2120AndFixesContractsArePinned()
         {
-            Assert(EnemyGatePathfindingNativeDefinition.AuditedScriptExtenderVersion == "2.8.0" &&
-                EnemyGatePathfindingNativeDefinition.AuditedScriptExtenderTag == "v2.8.0" &&
+            Assert(EnemyGatePathfindingNativeDefinition.AuditedScriptExtenderVersion == "2.12.0" &&
+                EnemyGatePathfindingNativeDefinition.AuditedScriptExtenderTag == "v2.12.0" &&
                 EnemyGatePathfindingNativeDefinition.AuditedScriptExtenderCommit ==
-                    "5b4d48e732e9b6e2e93c135f0b28ce5b9d8bcd33",
-                "Script Extender 2.8.0 provenance is pinned to the audited commit");
+                    "f8d51730fcb54b25af43d3c9348d57db058e077f",
+                "Script Extender 2.12.0 provenance is pinned to the audited commit");
             Assert(EnemyGatePathfindingNativeDefinition.AuditedRedBirdVersion ==
                 typeof(X64InlineHook).Assembly.GetName().Version.ToString(),
                 "installed RedBird audit version is documented without replacing byte contracts");
@@ -203,7 +350,7 @@ namespace EnemyGatePathfindingTest
                 Path.Combine("src", "EnemyGatePathfindingTestPlugin.cs"));
             string runtimeSource = File.ReadAllText(
                 Path.Combine("src", "EnemyGatePathfindingRuntime.cs"));
-            Assert(pluginSource.IndexOf("new Version(2, 8, 0, 0)",
+            Assert(pluginSource.IndexOf("new Version(2, 12, 0, 0)",
                     StringComparison.Ordinal) >= 0 &&
                 pluginSource.IndexOf("audited version 2.7.1",
                     StringComparison.Ordinal) < 0 &&
@@ -1170,7 +1317,7 @@ namespace EnemyGatePathfindingTest
                     runtime.IndexOf("Enemy-gate AI order checkpoint", StringComparison.Ordinal) >= 0,
                 "F4930 results are correlated and state 0x419 is named separately");
             Assert(correlation.Contains("DebugLogHelper.LogInfo") &&
-                    correlation.Contains("totals.Drain()") &&
+                    correlation.Contains("totals.Drain(out var definitions)") &&
                     correlation.Contains("order-gate-switch") &&
                     correlation.Contains("CurrentTribeOrder(player, frame?.Tribe ?? 0)"),
                 "aggregate output is emitted from the deferred checkpoint");
@@ -1262,12 +1409,13 @@ namespace EnemyGatePathfindingTest
             for (int epoch = 0; epoch < 3; epoch++)
                 for (int i = 0; i < previousMismatchCounts[epoch]; i++)
                     aggregate.Record(5, 0, "building-search-context",
-                        GateDiagnosticClassification.BuildingContextResult(1, 5, -1), epoch, 4000 + i, i, 7,
+                        GateDiagnosticClassification.BuildingContextResult(new BuildingSearchPlayerContext(
+                            1, 4000 + i, 5, 10000, 5, 10000, 1, 20000, 5, 2, false)), epoch, 4000 + i, i, 7,
                         "tribeGlobal=" + (10000 + i));
             var scopes = aggregate.Drain();
             Assert(scopes.Length == 3 && aggregate.Observations == 38, "all previous 26/9/3 conflicts counted");
             foreach (var row in scopes)
-                Assert(row.Count == previousMismatchCounts[row.Command] && row.Result.Contains("argumentRole=unverified") &&
+                Assert(row.Count == previousMismatchCounts[row.Command] && row.Result.Contains("argumentRole=unexplained") &&
                     row.Result.Contains("usedPlayer=-1"), "scope provenance neither substitutes a player nor drops conflicts");
             for (int i = 0; i < 100; i++)
                 for (int repeat = 0; repeat < 10; repeat++)
@@ -1647,11 +1795,9 @@ namespace EnemyGatePathfindingTest
             string attack = ExtractMethodBody(source, "FilterAttack");
             Assert(attack.IndexOf("QueryScope scope = Enter(player)", StringComparison.Ordinal) >= 0,
                 "DBC60 binds its explicit eighth player argument");
-            Assert(source.IndexOf("int tribePlayer = ResolveTribePlayer(tribe)",
-                        StringComparison.Ordinal) >= 0 &&
-                    source.IndexOf("ValidateExplicitPlayer(player, tribePlayer, \"building-approach\")",
-                        StringComparison.Ordinal) >= 0,
-                "DA020 validates its explicit sixth player argument against its tribe");
+            Assert(source.Contains("ResolveBuildingMovementPlayer(player, tribe)") &&
+                source.Contains("=> ResolveBuildingMovementPlayer(rawSearchArgument, tribeId)"),
+                "standalone/shared DA020 use one verified movement resolver independently of query player");
             Assert(source.IndexOf("ActivePlayerIdRva", StringComparison.Ordinal) >= 0 &&
                     source.IndexOf("GetLocalPlayerId", StringComparison.Ordinal) < 0,
                 "195E30 follows Vanilla's active native player rather than the editor local-player API");
@@ -1671,6 +1817,72 @@ namespace EnemyGatePathfindingTest
                     EnemyGatePathfindingNativeDefinition.AlternateBuildingConsumerRva == 0x1232E0 &&
                     EnemyGatePathfindingNativeDefinition.PlayerAwareCandidateSearchRva == 0xDC3C0,
                 "baseline-bound player globals and function entries are pinned");
+        }
+
+        private static void BuildingSearchContextsSeparateVanillaAndMovement()
+        {
+            BuildingSearchPlayerContext Context(int raw = 2, int plan = 2, bool editor = false,
+                int snapshotOwner = 5, uint snapshotGlobal = 100, int liveOwner = 5,
+                uint liveGlobal = 100, int leader = 42, uint leaderGlobal = 200, int control = 5) =>
+                new BuildingSearchPlayerContext(raw, 7, snapshotOwner, snapshotGlobal,
+                    liveOwner, liveGlobal, leader, leaderGlobal, control, plan, editor);
+            var planner = Context();
+            Assert(planner.MovementPlayer == 5 && planner.RawSearchPlayer == 2 && planner.RoleDifference &&
+                planner.ArgumentRole == "compatible-planner", "query opponent 2 and actor 5 are separate roles");
+            foreach (int command in new[] { 9, 38 })
+            {
+                var leader = Context(raw: 5);
+                Assert(leader.MovementPlayer == 5 && !leader.RoleDifference &&
+                    leader.ArgumentRole == "compatible-leader-control", "leader query for building command " + command);
+            }
+            Assert(Context(raw: 0).MovementPlayer == 5 && Context(raw: 0).ArgumentRole == "explicit-zero",
+                "zero original query retains independently verified actor");
+            Assert(Context(raw: 5, plan: 5).ArgumentRole == "compatible-planner-or-leader",
+                "overlapping roles never invent a caller");
+            Assert(Context(raw: 1, plan: 0).MovementPlayer == 5 &&
+                Context(raw: 1, plan: 0).EffectivePlanningPlayer == 1, "non-editor fallback player one");
+            Assert(Context(raw: 1, plan: 0, editor: true).MovementPlayer == -1,
+                "editor does not receive Vanilla's normal-game fallback");
+            Assert(Context(raw: 3).Failure == "unexplained-search-player", "unexplained raw query stays open");
+            Assert(Context(snapshotGlobal: 101).Failure == "tribe-identity-mismatch", "reused tribe slot stays open");
+            Assert(Context(snapshotGlobal: 0).Failure == "snapshot-untracked", "unpublished snapshot stays open");
+            Assert(Context(liveOwner: 6).Failure == "tribe-owner-mismatch", "stale ownership stays open");
+            Assert(Context(leader: 0).Failure == "leader-identity-unverified" &&
+                Context(leaderGlobal: 0).Failure == "leader-identity-unverified", "missing leader identity stays open");
+            Assert(Context(control: 6).Failure == "leader-control-mismatch", "control conflict cannot substitute tribe owner");
+            Assert(BuildingSearchPlayerContext.NativeControlWord(5, 1) == 261 &&
+                Context(control: BuildingSearchPlayerContext.NativeControlWord(5, 1)).MovementPlayer == -1,
+                "native control read includes adjacent high byte");
+            Assert(BuildingSearchPlayerContext.NativeControlWord(5, 128) == -32763 &&
+                Context(control: -32763).Failure == "invalid-leader-control-word", "native word sign extension");
+            foreach (int raw in new[] { -1, 9, 261, int.MaxValue })
+                Assert(Context(raw: raw, plan: raw).MovementPlayer == -1, "invalid planner values never authorize a role");
+            string description = GateDiagnosticClassification.BuildingContextResult(planner);
+            Assert(description.Contains("caller=unobserved") && description.Contains("usedPlayer=5") &&
+                description.Contains("rawSearchArgument=2"), "diagnostics report values without caller attribution");
+            var aggregate = new AiGateDecisionAggregate();
+            for (int i = 0; i < 100; i++)
+                for (int repeat = 0; repeat < 10; repeat++)
+                    aggregate.Record(5, 0, "building-search-context", description,
+                        i, 7, 0, 0);
+            var rows = aggregate.Drain(); long total = 0;
+            foreach (var row in rows) { total += row.Count; Assert(row.Count == 10, "each context counted exactly"); }
+            Assert(rows.Length == 100 && total == 1000, "more than 32 combinations survive aggregation");
+
+            string source = File.ReadAllText(Path.Combine("src", "SamePclGateRouteRuntime.cs"));
+            string building = ExtractMethodBody(source, "FilterBuilding");
+            Assert(building.Contains("originalBuilding(manager, tribe, buildingId, count, targetPcl, player)") &&
+                building.Contains("finally") && building.Contains("Complete(scope"),
+                "original sixth argument is unchanged and scope exits on exceptions");
+            Assert(source.Contains("scope.PreviousMask") && source.Contains("scope.PreviousTouched") &&
+                source.Contains("Snapshot.Readers--"), "nested masks, counters and snapshot reader ownership restore");
+            Assert(source.Contains("globals[tribeId] = tribes[tribeId].r_GlobalId") &&
+                source.Contains("tribePlayers = TribePlayerSnapshot.Empty"), "identity snapshot replaces across maps");
+            string shared = File.ReadAllText(Path.Combine("..", "..", "BugfixesAndQoL", "src", "FriendlyMoatMovementRuntime.cs"));
+            string sharedBuilding = ExtractMethodBody(shared, "ObserveBuildingApproachBuilder");
+            Assert(sharedBuilding.Contains("ResolveEnemyGateBuildingPlayer(movementClass, tribeId)") &&
+                sharedBuilding.Contains("sourceRegion, movementClass") && sharedBuilding.Contains("finally"),
+                "mainmod preserves native arguments and closes shared building scope");
         }
 
         private static void DirectCursorCallsiteContractIsExact()

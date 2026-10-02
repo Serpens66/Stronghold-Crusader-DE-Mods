@@ -42,11 +42,15 @@
   <ItemGroup>
     <Compile Include="src\EnemyGatePathfindingNativeDefinition.cs"><Link>EnemyGatePathfindingNativeDefinition.cs</Link></Compile>
     <Compile Include="src\CursorPreviewCache.cs" />
+    <Compile Include="src\BuildingSearchPlayerResolver.cs" />
     <Compile Include="src\EnemyGatePathfindingPolicy.cs"><Link>EnemyGatePathfindingPolicy.cs</Link></Compile>
     <Compile Include="src\SparseBuildingFootprint.cs"><Link>SparseBuildingFootprint.cs</Link></Compile>
     <Compile Include="src\PathfindingGlobalsBaseline.cs"><Link>PathfindingGlobalsBaseline.cs</Link></Compile>
     <Compile Include="src\DirectionFilterAdapterEmitter.cs"><Link>DirectionFilterAdapterEmitter.cs</Link></Compile>
     <Compile Include="src\AiTacticalTargetAdapterEmitter.cs"><Link>AiTacticalTargetAdapterEmitter.cs</Link></Compile>
+    <Compile Include="src\RouteTilePolicySnapshot.cs" />
+    <Compile Include="src\GateRoutePolicySource.cs" />
+    <Compile Include="src\GateEdgeOwnership.cs" />
     <Compile Include="src\AiGateDecisionAggregate.cs"><Link>AiGateDecisionAggregate.cs</Link></Compile>
     <Compile Include="src\GateDiagnosticClassification.cs" />
     <Compile Include="src\CaptureTransitionDiagnostics.cs" />
@@ -54,6 +58,8 @@
     <Compile Include="src\CapturerComparisonAdapterEmitter.cs"><Link>CapturerComparisonAdapterEmitter.cs</Link></Compile>
     <Compile Include="tests\CapturerAdapterMachineTests.cs" />
     <Compile Include="tests\Program.cs" />
+    <Compile Include="tests\GateRoutePolicyTests.cs" />
+    <Compile Include="..\..\APIShared\src\EnemyGatePathPolicyBridge.cs"><Link>EnemyGatePathPolicyBridge.cs</Link></Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

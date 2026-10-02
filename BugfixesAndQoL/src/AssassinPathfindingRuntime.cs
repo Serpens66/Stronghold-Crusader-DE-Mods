@@ -1,5 +1,6 @@
 // Feature: Weighted replacement for Vanilla's Assassin-only path-cost expansion.
 using BepInEx.Logging;
+using APIShared;
 using RedBird.Abstractions.Hooks;
 using RedBird.Abstractions.Hooks.Transaction;
 using RedBird.Core.Memory;
@@ -18,7 +19,7 @@ using System.Runtime.InteropServices;
 
 namespace BugfixesAndQoL
 {
-    internal sealed unsafe class AssassinPathfindingRuntime : IDisposable
+    internal sealed unsafe partial class AssassinPathfindingRuntime : IDisposable
     {
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
         private delegate int AssassinPathBuilderDelegate(
@@ -238,7 +239,113 @@ namespace BugfixesAndQoL
             ClearTransientState();
         }
 
+        [ThreadStatic] private static AssassinObservation activeObservation;
+        private sealed class AssassinObservation
+        {
+            internal IEnemyGateAssassinObserver Observer;
+            internal object Token;
+            internal int Player = -1, NativeResult, EffectiveResult, RouteLength;
+            internal long FilteredGround, FilteredClimb;
+            internal bool CacheHit;
+            internal string Outcome = "native-exception", Error;
+        }
+
         private int BuildWeightedPath(IntPtr context, int startX, int startY, int targetX, int targetY, int maximumNodes, int continuation)
+        {
+            IEnemyGateAssassinObserver observer = null;
+            try
+            {
+                IEnemyGatePathPolicy policy = EnemyGatePathPolicyBridge.Current;
+                if (policy != null && policy.HasPublishedMask) observer = policy as IEnemyGateAssassinObserver;
+            }
+            catch (Exception ex) { LogWarning("Assassin diagnostic registration failed: " + ex.GetType().Name); }
+            AssassinObservation previous = activeObservation;
+            AssassinObservation observation = null;
+            try
+            {
+                if (observer != null)
+                {
+                    try
+                    {
+                        observation = new AssassinObservation { Observer = observer,
+                            Token = observer.BeginAssassinSearch(startX, startY, targetX, targetY,
+                                maximumNodes, continuation, DescribeNativeAssassinState(context)) };
+                    }
+                    catch (Exception ex) { LogWarning("Assassin diagnostic begin failed: " + ex.GetType().Name); }
+                }
+                activeObservation = observation;
+                int result = BuildWeightedPathCore(context, startX, startY, targetX, targetY, maximumNodes, continuation);
+                if (observation != null) observation.EffectiveResult = result;
+                return result;
+            }
+            finally
+            {
+                activeObservation = previous;
+                if (observation != null)
+                    try { observer.ObserveAssassinPolicyFiltering(observation.Token, observation.Player,
+                        observation.FilteredGround, observation.FilteredClimb); }
+                    catch (Exception ex) { LogWarning("Assassin filtering diagnostic failed: " + ex.GetType().Name); }
+                if (observation != null)
+                    try { observer.EndAssassinSearch(observation.Token, observation.Player,
+                        observation.NativeResult, observation.EffectiveResult, observation.Outcome + observation.Error,
+                        observation.CacheHit, observation.RouteLength); }
+                    catch (Exception ex) { LogWarning("Assassin diagnostic end failed: " + ex.GetType().Name); }
+            }
+        }
+
+        private string DescribeNativeAssassinState(IntPtr context)
+        {
+            // Every audited D9C40 caller passes this singleton; unknown pointers are not read.
+            if (context != IntPtr.Add(libraryHandle, 0x60AD660)) return "unknown-context";
+            byte* pointer = (byte*)context.ToPointer();
+            var positive = new List<string>(10);
+            var negative = new List<string>(10);
+            for (int index = 0; index < 10; index++)
+            {
+                int* accepted = (int*)(pointer + 0x416D8C + index * 8);
+                int* rejected = (int*)(pointer + 0x416DDC + index * 8);
+                positive.Add(accepted[0] + "/" + accepted[1]);
+                negative.Add(rejected[0] + "/" + rejected[1]);
+            }
+            return "flags=" + *(int*)(pointer + 0x84) + "/" + *(int*)(pointer + 0x88) +
+                ",pairCacheInitialized=" + *(int*)(pointer + 0x90) +
+                ",positivePairs=[" + string.Join(";", positive) + "],negativePairs=[" +
+                string.Join(";", negative) + "],pairCacheHit=not-observed-at-builder";
+        }
+
+        private void ObservePreparedAssassinRoute(int player, int routeLength)
+        {
+            AssassinObservation observation = activeObservation;
+            if (observation == null) return;
+            observation.RouteLength = routeLength;
+            try
+            {
+                for (int index = routeLength - 1; index > 0; index--)
+                {
+                    int current = route[index], next = route[index - 1];
+                    int dx = next % MapWidth - current % MapWidth;
+                    int dy = next / MapWidth - current / MapWidth;
+                    int direction = -1;
+                    for (int candidate = 0; candidate < 8; candidate++)
+                        if (DirectionX[candidate] == dx && DirectionY[candidate] == dy)
+                        { direction = candidate; break; }
+                    int fromTile = GetTileId(current % MapWidth, current / MapWidth);
+                    int toTile = GetTileId(next % MapWidth, next / MapWidth);
+                    if (direction < 0 || !IsNativeTile(fromTile) || !IsNativeTile(toTile))
+                        throw new InvalidOperationException("Invalid prepared diagnostic edge");
+                    bool climb = (directionMasks[direction] & occupancyLayer[fromTile]) == 0;
+                    observation.Observer.ObserveAssassinEdge(observation.Token, player,
+                        fromTile, toTile, direction, climb);
+                }
+            }
+            catch (Exception ex)
+            {
+                observation.Error = "/diagnostic-edge-error:" + ex.GetType().Name;
+                LogWarning("Assassin diagnostic route failed: " + ex.GetType().Name);
+            }
+        }
+
+        private int BuildWeightedPathCore(IntPtr context, int startX, int startY, int targetX, int targetY, int maximumNodes, int continuation)
         {
             if (!detour.Success)
                 return 0;
@@ -248,15 +355,23 @@ namespace BugfixesAndQoL
             long nativeStarted = requestStarted;
             // Vanilla initializes internal queue state even when our compact route field replaces it.
             int vanillaResult = detour.Original(context, startX, startY, targetX, targetY, maximumNodes, continuation);
+            if (activeObservation != null)
+            { activeObservation.NativeResult = vanillaResult; activeObservation.Outcome = "native-only"; }
             long nativeTicks = Stopwatch.GetTimestamp() - nativeStarted;
             command?.RecordNativeBuilder(nativeTicks);
 
             bool enabled = command?.Enabled ??
                 (settings.EnableMod && settings.EnableImprovedAssassinPathfinding);
             if (!enabled || continuation != 0)
+            {
+                if (activeObservation != null) activeObservation.Outcome = !enabled ? "weighted-disabled" : "continuation";
                 return vanillaResult;
+            }
             if (targetX < 0 || targetY < 0)
+            {
+                if (activeObservation != null) activeObservation.Outcome = "native-flood-field";
                 return vanillaResult;
+            }
 
             try
             {
@@ -264,12 +379,23 @@ namespace BugfixesAndQoL
                 if (!TryResolveAssassinRequest(command, startX, startY, out int playerId, out int speedDelay))
                 {
                     command?.RecordResolution(Stopwatch.GetTimestamp() - resolutionStarted);
+                    if (activeObservation != null) activeObservation.Outcome = "unresolved-player";
                     return vanillaResult;
                 }
                 command?.RecordResolution(Stopwatch.GetTimestamp() - resolutionStarted);
+                if (activeObservation != null) activeObservation.Player = playerId;
                 if (!EnsureCoordinateTileMappingValidated())
+                {
+                    if (activeObservation != null) activeObservation.Outcome = "coordinate-map-unready";
                     return vanillaResult;
+                }
 
+                if (!AssassinGateRoutePolicy.TryCapture(EnemyGatePathPolicyBridge.Current, playerId,
+                    out IEnemyGateRoutePolicySnapshot gatePolicy))
+                {
+                    if (activeObservation != null) activeObservation.Outcome = "gate-context-fallback";
+                    return vanillaResult;
+                }
                 bool allowClimbing = command?.GetClimbingAllowed(playerId, climbRuntime) ??
                     climbRuntime.IsClimbingAllowed(playerId);
                 // Never publish a relaxed route unless Vanilla can reconstruct the same
@@ -277,7 +403,7 @@ namespace BugfixesAndQoL
                 bool allowWalkableReservedClimbEndpoints = reconstructionPatch?.IsApplied == true;
                 var cacheKey = new RouteCacheKey(
                     startX, startY, targetX, targetY, maximumNodes, speedDelay,
-                    playerId, allowClimbing, allowWalkableReservedClimbEndpoints);
+                    playerId, allowClimbing, allowWalkableReservedClimbEndpoints, gatePolicy);
                 RouteSearchSummary routeSummary = default;
                 long cacheStarted = Stopwatch.GetTimestamp();
                 bool routeReady = command != null &&
@@ -295,20 +421,40 @@ namespace BugfixesAndQoL
                         allowClimbing,
                         allowWalkableReservedClimbEndpoints,
                         command,
+                        gatePolicy,
                         out routeSummary);
                     if (routeReady && command != null)
                         CachePreparedRoute(command, cacheKey, routeSummary);
                 }
 
+                if (activeObservation != null)
+                { activeObservation.CacheHit = routeSummary.CacheHit;
+                  activeObservation.Outcome = routeReady ? "weighted-prepared" : "weighted-no-route"; }
+                if (!AssassinGateRoutePolicy.IsCurrent(gatePolicy))
+                {
+                    if (activeObservation != null) activeObservation.Outcome = "gate-snapshot-fallback";
+                    return vanillaResult;
+                }
                 if (!routeReady)
                     return 0;
+                ObservePreparedAssassinRoute(playerId, routeSummary.RouteLength);
 
                 long publicationStarted = Stopwatch.GetTimestamp();
+                // Validate before the first native stamp/distance write. A stale policy
+                // must preserve the original native field, not publish a partial replacement.
+                if (!ValidatePreparedGateRoute(gatePolicy, routeSummary.RouteLength) ||
+                    !AssassinGateRoutePolicy.IsCurrent(gatePolicy))
+                {
+                    if (activeObservation != null) activeObservation.Outcome = "gate-publication-fallback";
+                    return vanillaResult;
+                }
                 bool published = CommitPreparedRoute(context, routeSummary.RouteLength);
                 command?.RecordPublication(
                     Stopwatch.GetTimestamp() - publicationStarted,
                     published,
                     routeSummary);
+                if (activeObservation != null) activeObservation.Outcome = published
+                    ? "weighted-published" : "weighted-publication-failed";
                 if (!published)
                 {
                     LogError(
@@ -321,6 +467,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
+                if (activeObservation != null) activeObservation.Outcome = "exception-fallback:" + ex.GetType().Name;
                 if (!fallbackLogged)
                 {
                     fallbackLogged = true;
@@ -344,6 +491,7 @@ namespace BugfixesAndQoL
             bool allowClimbing,
             bool allowWalkableReservedClimbEndpoints,
             AssassinCommandScope command,
+            IEnemyGateRoutePolicySnapshot gatePolicy,
             out RouteSearchSummary routeSummary)
         {
             long searchStarted = Stopwatch.GetTimestamp();
@@ -364,7 +512,7 @@ namespace BugfixesAndQoL
             heapOperations = 0;
             SuffixCacheKey suffixKey = new SuffixCacheKey(
                 targetX, targetY, speedDelay, allowClimbing,
-                allowWalkableReservedClimbEndpoints);
+                allowWalkableReservedClimbEndpoints, gatePolicy?.PlayerId ?? 0, gatePolicy);
             Touch(startNode, 0, -1, 0,
                 EstimateRemainingTicks(
                     startX, startY, targetX, targetY,
@@ -430,6 +578,15 @@ namespace BugfixesAndQoL
                             continue;
                     }
 
+                    if (!AssassinGateRoutePolicy.Allows(gatePolicy, currentTile, direction))
+                    {
+                        if (activeObservation != null)
+                        {
+                            if (climbEdge) activeObservation.FilteredClimb++;
+                            else activeObservation.FilteredGround++;
+                        }
+                        continue;
+                    }
                     int movementTicks = (direction & 1) == 0
                         ? cardinalTicks
                         : diagonalTicks;
@@ -553,7 +710,8 @@ namespace BugfixesAndQoL
 
             var suffixKey = new SuffixCacheKey(
                 key.TargetX, key.TargetY, key.SpeedDelay,
-                key.AllowClimbing, key.AllowWalkableReservedClimbEndpoints);
+                key.AllowClimbing, key.AllowWalkableReservedClimbEndpoints,
+                key.GatePolicy?.PlayerId ?? 0, key.GatePolicy);
             command.CacheSuffixes(suffixKey, route, summary.RouteLength, costs, summary.TotalCost);
         }
 
@@ -592,6 +750,8 @@ namespace BugfixesAndQoL
                 if (!IsNativeTile(currentTile) || !IsNativeTile(nextTile))
                     return false;
 
+                if (!AssassinGateRoutePolicy.Allows(key.GatePolicy, currentTile, direction))
+                    return false;
                 bool cardinal = (direction & 1) == 0;
                 bool ordinaryEdge = (directionMasks[direction] & occupancyLayer[currentTile]) != 0;
                 int edgeCost;
@@ -693,6 +853,20 @@ namespace BugfixesAndQoL
             return true;
         }
 
+        private bool ValidatePreparedGateRoute(IEnemyGateRoutePolicySnapshot policy, int routeLength)
+        {
+            if (policy == null) return true;
+            for (int index = routeLength - 1; index > 0; index--)
+            {
+                int from = route[index], to = route[index - 1];
+                int direction = GetDirectionIndex(to % MapWidth - from % MapWidth,
+                    to / MapWidth - from / MapWidth);
+                int tile = GetTileId(from % MapWidth, from / MapWidth);
+                if (direction < 0 || !AssassinGateRoutePolicy.Allows(policy, tile, direction)) return false;
+            }
+            return true;
+        }
+
         private bool CommitPreparedRoute(IntPtr context, int routeLength)
         {
             if (routeLength <= 0 || routeLength > MaximumCommittedPathLength)
@@ -743,6 +917,12 @@ namespace BugfixesAndQoL
             }
 
             playerId = info.PlayerId;
+            IEnemyGatePathPolicy gateProvider = EnemyGatePathPolicyBridge.Current;
+            if (gateProvider != null && gateProvider.HasPublishedMask)
+            {
+                if (info.GateAmbiguous || info.GatePlayerId < 1 || info.GatePlayerId > 8) return false;
+                playerId = info.GatePlayerId;
+            }
             speedDelay = info.SpeedDelay;
             if (speedDelay < 0)
                 speedDelay = GameUnitManagerAPI.Instance.GetDefaultSpeed(eChimps.CHIMP_TYPE_ARAB_ASSASIN);
@@ -786,18 +966,21 @@ namespace BugfixesAndQoL
                     continue;
                 int coordinate = GetCoordinateIndex(x, y);
                 int candidatePlayer = candidate.r_ControllableForPlayerId;
+                int gatePlayer = AssassinGateRoutePolicy.ReadControlPlayer(
+                    candidate.r_ControllableForPlayerId, candidate.N00000569);
                 int candidateDelay = candidate.r_CurrentSpeed;
                 if (!index.TryGetValue(coordinate, out AssassinRequestInfo existing))
                 {
                     index.Add(coordinate, new AssassinRequestInfo(
-                        candidatePlayer, candidateDelay, ambiguous: false));
+                        candidatePlayer, candidateDelay, ambiguous: false, gatePlayer, gateAmbiguous: false));
                     continue;
                 }
 
                 bool ambiguous = existing.Ambiguous || existing.PlayerId != candidatePlayer;
                 int slowestDelay = Math.Max(existing.SpeedDelay, candidateDelay);
                 index[coordinate] = new AssassinRequestInfo(
-                    existing.PlayerId, slowestDelay, ambiguous);
+                    existing.PlayerId, slowestDelay, ambiguous, existing.GatePlayerId,
+                    existing.GateAmbiguous || existing.GatePlayerId != gatePlayer);
             }
             return index;
         }
@@ -1141,16 +1324,20 @@ namespace BugfixesAndQoL
 
         private readonly struct AssassinRequestInfo
         {
-            public AssassinRequestInfo(int playerId, int speedDelay, bool ambiguous)
+            public AssassinRequestInfo(int playerId, int speedDelay, bool ambiguous, int gatePlayerId, bool gateAmbiguous)
             {
                 PlayerId = playerId;
                 SpeedDelay = speedDelay;
                 Ambiguous = ambiguous;
+                GatePlayerId = gatePlayerId;
+                GateAmbiguous = gateAmbiguous;
             }
 
             public int PlayerId { get; }
             public int SpeedDelay { get; }
             public bool Ambiguous { get; }
+            public int GatePlayerId { get; }
+            public bool GateAmbiguous { get; }
         }
 
         private readonly struct CachedRoute
@@ -1163,110 +1350,6 @@ namespace BugfixesAndQoL
 
             public int[] Nodes { get; }
             public RouteSearchSummary Summary { get; }
-        }
-
-        private readonly struct RouteCacheKey : IEquatable<RouteCacheKey>
-        {
-            public RouteCacheKey(
-                int startX,
-                int startY,
-                int targetX,
-                int targetY,
-                int maximumNodes,
-                int speedDelay,
-                int playerId,
-                bool allowClimbing,
-                bool allowWalkableReservedClimbEndpoints)
-            {
-                StartX = startX;
-                StartY = startY;
-                TargetX = targetX;
-                TargetY = targetY;
-                MaximumNodes = maximumNodes;
-                SpeedDelay = speedDelay;
-                PlayerId = playerId;
-                AllowClimbing = allowClimbing;
-                AllowWalkableReservedClimbEndpoints = allowWalkableReservedClimbEndpoints;
-            }
-
-            public int StartX { get; }
-            public int StartY { get; }
-            public int TargetX { get; }
-            public int TargetY { get; }
-            public int MaximumNodes { get; }
-            public int SpeedDelay { get; }
-            public int PlayerId { get; }
-            public bool AllowClimbing { get; }
-            public bool AllowWalkableReservedClimbEndpoints { get; }
-
-            public bool Equals(RouteCacheKey other) =>
-                StartX == other.StartX && StartY == other.StartY &&
-                TargetX == other.TargetX && TargetY == other.TargetY &&
-                MaximumNodes == other.MaximumNodes && SpeedDelay == other.SpeedDelay &&
-                PlayerId == other.PlayerId && AllowClimbing == other.AllowClimbing &&
-                AllowWalkableReservedClimbEndpoints == other.AllowWalkableReservedClimbEndpoints;
-
-            public override bool Equals(object obj) =>
-                obj is RouteCacheKey other && Equals(other);
-
-            public override int GetHashCode()
-            {
-                unchecked
-                {
-                    int hash = StartX;
-                    hash = hash * 397 ^ StartY;
-                    hash = hash * 397 ^ TargetX;
-                    hash = hash * 397 ^ TargetY;
-                    hash = hash * 397 ^ MaximumNodes;
-                    hash = hash * 397 ^ SpeedDelay;
-                    hash = hash * 397 ^ PlayerId;
-                    hash = hash * 397 ^ (AllowClimbing ? 1 : 0);
-                    return hash * 397 ^ (AllowWalkableReservedClimbEndpoints ? 1 : 0);
-                }
-            }
-        }
-
-        private readonly struct SuffixCacheKey : IEquatable<SuffixCacheKey>
-        {
-            public SuffixCacheKey(
-                int targetX,
-                int targetY,
-                int speedDelay,
-                bool allowClimbing,
-                bool allowWalkableReservedClimbEndpoints)
-            {
-                TargetX = targetX;
-                TargetY = targetY;
-                SpeedDelay = speedDelay;
-                AllowClimbing = allowClimbing;
-                AllowWalkableReservedClimbEndpoints = allowWalkableReservedClimbEndpoints;
-            }
-
-            public int TargetX { get; }
-            public int TargetY { get; }
-            public int SpeedDelay { get; }
-            public bool AllowClimbing { get; }
-            public bool AllowWalkableReservedClimbEndpoints { get; }
-
-            public bool Equals(SuffixCacheKey other) =>
-                TargetX == other.TargetX && TargetY == other.TargetY &&
-                SpeedDelay == other.SpeedDelay && AllowClimbing == other.AllowClimbing &&
-                AllowWalkableReservedClimbEndpoints == other.AllowWalkableReservedClimbEndpoints;
-
-            public override bool Equals(object obj) =>
-                obj is SuffixCacheKey other && Equals(other);
-
-            public override int GetHashCode()
-            {
-                unchecked
-                {
-                    int hash = TargetX;
-                    hash = hash * 397 ^ TargetY;
-                    hash = hash * 397 ^ SpeedDelay;
-                    hash = hash * 397 ^ (AllowClimbing ? 1 : 0);
-                    return hash * 397 ^ (AllowWalkableReservedClimbEndpoints ? 1 : 0);
-                }
-            }
         }
 
         private sealed class AssassinCommandScope

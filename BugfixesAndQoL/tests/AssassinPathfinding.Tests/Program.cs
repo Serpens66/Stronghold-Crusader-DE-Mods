@@ -1,7 +1,7 @@
 using BugfixesAndQoL;
 using System.Diagnostics;
 
-internal static class Program
+internal static partial class Program
 {
     private static int assertions;
     private static readonly (int X, int Y)[] Directions =
@@ -19,6 +19,7 @@ internal static class Program
             TestRandomOracleAgreement();
             TestPartialSuffixOracleAgreement();
             TestNodeLimit();
+            TestGateCompatibility();
             TestRuntimeIntegration(args);
             BenchmarkWallGroup();
             Console.WriteLine($"PASS: {assertions} Assassin A*/Dijkstra assertions.");
@@ -214,6 +215,18 @@ internal static class Program
         Check(runtime.Contains("AssassinAStarPolicy.EstimateOctileTicks") &&
               runtime.Contains("estimatedTotalCosts"),
             "runtime heap uses the exact A* estimate");
+        Check(runtime.Split("detour.Original(context").Length == 2,
+            "the native builder executes exactly once per request");
+        string expansion = runtime.Substring(runtime.IndexOf("private bool TryBuildWeightedRoute", StringComparison.Ordinal));
+        Check(expansion.IndexOf("AssassinGateRoutePolicy.Allows(gatePolicy", StringComparison.Ordinal) <
+              expansion.IndexOf("int movementTicks", StringComparison.Ordinal),
+            "gate edge filtering precedes cost/heap admission");
+        Check(runtime.Contains("AssassinGateRoutePolicy.Allows(key.GatePolicy") &&
+              runtime.Contains("ValidatePreparedGateRoute(gatePolicy, routeSummary.RouteLength)"),
+            "cache validation and native publication both enforce the captured gate policy");
+        Check(runtime.Contains("gate-snapshot-fallback") && runtime.Contains("gate-context-fallback") &&
+              runtime.Contains("gate-publication-fallback"),
+            "invalid or stale gate contexts retain the already executed native result");
         Check(!runtime.Contains("SamePcl", StringComparison.OrdinalIgnoreCase) &&
               !runtime.Contains("RequiredOnly", StringComparison.OrdinalIgnoreCase),
             "Assassin optimization contains no semantic fast-path shortcut");
@@ -298,6 +311,8 @@ internal static class Program
                 if (edge.Kind == EdgeKind.Blocked ||
                     (edge.Kind == EdgeKind.Climb && !graph.ClimbingAllowed))
                     continue;
+                if (!AssassinGateRoutePolicy.Allows(graph.GatePolicy, current, direction))
+                    continue;
                 int movement = (direction & 1) == 0 ? graph.CardinalTicks : graph.DiagonalTicks;
                 int edgeCost = AssassinAStarPolicy.SaturatingAdd(movement, edge.AdditionalTicks);
                 int nextCost = AssassinAStarPolicy.SaturatingAdd(costs[current], edgeCost);
@@ -378,6 +393,7 @@ internal static class Program
         public int CardinalTicks { get; }
         public int DiagonalTicks { get; }
         public bool ClimbingAllowed { get; set; } = true;
+        public APIShared.IEnemyGateRoutePolicySnapshot GatePolicy { get; set; }
 
         public Edge GetEdge(int x, int y, int direction) => edges[x, y, direction];
         public void SetEdge(int x, int y, int direction, Edge edge) => edges[x, y, direction] = edge;

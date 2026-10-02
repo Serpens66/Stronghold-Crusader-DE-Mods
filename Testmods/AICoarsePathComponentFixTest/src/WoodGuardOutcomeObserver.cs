@@ -26,9 +26,11 @@ namespace AICoarsePathComponentFixTest
         private readonly Queue<string> pending = new Queue<string>();
         private readonly Dictionary<long, WallTile> wallPre = new Dictionary<long, WallTile>();
         private uint[] wallMap;
+        private byte[] goodsYardMap;
         private long session;
         private int tick, nextScan, hutSpawns, farmSpawns;
         private int wallCalls, wallEventChanges, created, removed, altered, detailCount;
+        private int goodsYardTiles, goodsYardAdded, goodsYardRemoved;
         private int omittedEvents, omittedDetails, failedReads;
         private bool active, ratSession, observeAivWalls, baselineReady, firstChangeLogged, initialBuildingsCaptured;
         private bool targetPlanCaptured, firstMaterializedCaptured;
@@ -105,6 +107,8 @@ namespace AICoarsePathComponentFixTest
             tick = -1;
             nextScan = 0;
             wallMap = null;
+            goodsYardMap = null;
+            goodsYardTiles = goodsYardAdded = goodsYardRemoved = 0;
             baselineReady = firstChangeLogged = initialBuildingsCaptured = false;
             targetPlanCaptured = !ratSession;
             firstMaterializedCaptured = false;
@@ -129,6 +133,7 @@ namespace AICoarsePathComponentFixTest
             ratSession = false;
             observeAivWalls = false;
             wallMap = null;
+            goodsYardMap = null;
             wallPre.Clear();
             Array.Clear(activeWallSteps, 0, activeWallSteps.Length);
         }
@@ -212,7 +217,7 @@ namespace AICoarsePathComponentFixTest
                     before.Type == state.Type && before.Height == state.Height &&
                     before.Building == state.Building && before.Component == state.Component) return;
                 wallEventChanges++;
-                bool materialized = (before.Flags & 0x100u) == 0 && (state.Flags & 0x100u) != 0;
+                bool materialized = !IsActualWall(before.Flags) && IsActualWall(state.Flags);
                 if (observeAivWalls && materialized && (!firstMaterializedCaptured ||
                     ratSession && args.TileX == TargetWallX && args.TileY == TargetWallY))
                 {
@@ -283,7 +288,7 @@ namespace AICoarsePathComponentFixTest
                     $"tile=({TargetWallX},{TargetWallY}); tileId={targetId}; slot={slot}; " +
                     $"variant={village->SelectedVariantIndex}; rotation={(int)village->Rotation}; " +
                     $"stepCount={stepCount}; wallSteps={wallSteps}; invalidSteps={invalidSteps}; " +
-                    $"initialWall={((uint)tiles.GetTilePropertyFlag(targetId) & 0x100u) != 0}; " +
+                    $"initialWall={IsActualWall((uint)tiles.GetTilePropertyFlag(targetId))}; " +
                     $"attempts={targetPlanAttempts}; " +
                     $"matchingFrames={matches}.");
                 targetPlanCaptured = true;
@@ -347,8 +352,15 @@ namespace AICoarsePathComponentFixTest
 
         private static string Describe(WallTile tile) =>
             $"status:{tile.Status},id:{tile.TileId},flags:0x{tile.Flags:X8}," +
-            $"wall:{(tile.Flags & 0x100u) != 0},owner:{tile.Owner},type:{tile.Type}," +
+            $"wall:{IsActualWall(tile.Flags)},goodsYard:{IsGoodsYard(tile.Flags)}," +
+            $"owner:{tile.Owner},type:{tile.Type}," +
             $"height:{tile.Height},building:{tile.Building},component:{tile.Component}";
+
+        private static bool IsGoodsYard(uint flags) =>
+            (flags & (uint)TilePropertyFlag.GoodsyardRelated) != 0;
+
+        private static bool IsActualWall(uint flags) =>
+            (flags & (uint)TilePropertyFlag.IsWall) != 0 && !IsGoodsYard(flags);
 
         private void ScanWalls(string phase, bool compare)
         {
@@ -358,10 +370,24 @@ namespace AICoarsePathComponentFixTest
                 Span<byte> owners = tiles.GetWallOwnerLayer();
                 if (owners.Length == 0) return;
                 uint[] next = new uint[owners.Length];
+                byte[] nextGoodsYards = new byte[owners.Length];
                 int changes = 0;
+                int currentGoodsYards = 0, addedGoodsYards = 0, removedGoodsYards = 0;
                 for (int id = 1; id < next.Length; id++)
                 {
-                    uint present = ((uint)tiles.GetTilePropertyFlag(id) & 0x100u) != 0 ? 0x100u : 0;
+                    uint flags = (uint)tiles.GetTilePropertyFlag(id);
+                    bool goodsYard = IsGoodsYard(flags);
+                    if (goodsYard)
+                    {
+                        nextGoodsYards[id] = 1;
+                        currentGoodsYards++;
+                    }
+                    if (compare && goodsYardMap != null && id < goodsYardMap.Length)
+                    {
+                        if (goodsYardMap[id] == 0 && goodsYard) addedGoodsYards++;
+                        else if (goodsYardMap[id] != 0 && !goodsYard) removedGoodsYards++;
+                    }
+                    uint present = IsActualWall(flags) ? (uint)TilePropertyFlag.IsWall : 0;
                     next[id] = present == 0 ? 0 : present | owners[id];
                     if (!compare || wallMap == null || id >= wallMap.Length || next[id] == wallMap[id]) continue;
                     changes++;
@@ -387,11 +413,17 @@ namespace AICoarsePathComponentFixTest
                     else omittedDetails++;
                 }
                 wallMap = next;
+                goodsYardMap = nextGoodsYards;
+                goodsYardTiles = currentGoodsYards;
+                goodsYardAdded += addedGoodsYards;
+                goodsYardRemoved += removedGoodsYards;
                 baselineReady = true;
-                if (phase == "initial" || changes != 0)
+                if (phase == "initial" || changes != 0 || addedGoodsYards != 0 || removedGoodsYards != 0)
                     Queue($"AI_WOOD_OUTCOME_WALL_SCAN: session={session}; tick={tick}; phase={phase}; " +
                         $"tiles={next.Length}; changes={changes}; created={created}; removed={removed}; " +
-                        $"altered={altered}; omittedDetails={omittedDetails}.");
+                        $"altered={altered}; goodsYardTiles={goodsYardTiles}; " +
+                        $"goodsYardAdded={addedGoodsYards}; goodsYardRemoved={removedGoodsYards}; " +
+                        $"omittedDetails={omittedDetails}; goodsYardIsNotWall=true.");
             }
             catch (Exception ex) { failedReads++; if (failedReads == 1) Queue("AI_WOOD_OUTCOME_WALL_SCAN_FAILED: " + ex.Message); }
         }
@@ -418,7 +450,9 @@ namespace AICoarsePathComponentFixTest
             $"guardActive={guard()?.IsActive ?? false}; baselineReady={baselineReady}; " +
             $"hutSpawns={hutSpawns}; farmSpawns={farmSpawns}; wallCalls={wallCalls}; " +
             $"wallEventChanges={wallEventChanges}; wallCreated={created}; wallRemoved={removed}; " +
-            $"wallAltered={altered}; omittedEvents={omittedEvents}; " +
+            $"wallAltered={altered}; goodsYardTiles={goodsYardTiles}; " +
+            $"goodsYardAdded={goodsYardAdded}; goodsYardRemoved={goodsYardRemoved}; " +
+            $"omittedEvents={omittedEvents}; " +
             $"omittedWallDetails={omittedDetails}; failedReads={failedReads}.");
     }
 }

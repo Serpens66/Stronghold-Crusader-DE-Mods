@@ -1068,6 +1068,7 @@ namespace EnemyGatePathfindingTest
             GateBridgeInfo[] combinations)
         {
             byte[][] directionMasks = new byte[9][];
+            var edgeOwners = new GateEdgeOwnership[9];
             var gatesById = new Dictionary<int, GateBridgeInfo>();
             var bridgesByGateId = new Dictionary<int, GateBridgeInfo>();
             for (int index = 0; index < combinations.Length; index++)
@@ -1110,17 +1111,19 @@ namespace EnemyGatePathfindingTest
                             for (int index = 0; index < masks.Length; index++) masks[index] = 0xFF;
                             directionMasks[player] = masks;
                         }
+                        GateEdgeOwnership ownership = edgeOwners[player] ??
+                            (edgeOwners[player] = new GateEdgeOwnership());
                         int sampleFrom, sampleTo, sampleDirection;
                         int sampleFrom2, sampleTo2, sampleDirection2;
                         int changedEdges;
                         if (isGate)
                             changedEdges = ClearGatehouseOuterDirections(
-                                tiles, info, horizontalPassage, masks,
+                                tiles, info, horizontalPassage, masks, ownership, info.GateId,
                                 out sampleFrom, out sampleTo, out sampleDirection,
                                 out sampleFrom2, out sampleTo2, out sampleDirection2);
                         else
                             changedEdges = ClearDrawbridgePassageDirections(
-                                tiles, info.Tiles, horizontalPassage, masks,
+                                tiles, info.Tiles, horizontalPassage, masks, ownership, info.GateId,
                                 out sampleFrom, out sampleTo, out sampleDirection,
                                 out sampleFrom2, out sampleTo2, out sampleDirection2);
                         if (changedEdges == 0 && created)
@@ -1165,7 +1168,7 @@ namespace EnemyGatePathfindingTest
             }
             return new RouteTilePolicySnapshot(
                 directionMasks, fingerprint, maskedDirectedEdges, ambiguousPassages,
-                axisDiagnostics.Length == 0 ? "none" : axisDiagnostics.ToString());
+                axisDiagnostics.Length == 0 ? "none" : axisDiagnostics.ToString(), edgeOwners);
         }
 
         private static bool TryResolvePassageAxis(
@@ -1247,7 +1250,7 @@ namespace EnemyGatePathfindingTest
 
         private static int ClearGatehouseOuterDirections(
             GameTileManagerAPI tiles, GateBridgeInfo info,
-            bool horizontalPassage, byte[] masks,
+            bool horizontalPassage, byte[] masks, GateEdgeOwnership ownership, int gateId,
             out int firstFrom, out int firstTo, out int firstDirection,
             out int secondFrom, out int secondTo, out int secondDirection)
         {
@@ -1268,8 +1271,8 @@ namespace EnemyGatePathfindingTest
                 secondTo = tiles.GetTileId(maxX + 1, minY); secondDirection = 2;
                 for (int y = minY; y <= maxY; y++)
                 {
-                    changed += ClearBoundary(tiles, masks, minX - 1, y, minX, y, 2);
-                    changed += ClearBoundary(tiles, masks, maxX, y, maxX + 1, y, 2);
+                    changed += ClearBoundary(tiles, masks, minX - 1, y, minX, y, 2, ownership, gateId);
+                    changed += ClearBoundary(tiles, masks, maxX, y, maxX + 1, y, 2, ownership, gateId);
                 }
             }
             else
@@ -1283,8 +1286,8 @@ namespace EnemyGatePathfindingTest
                 secondTo = tiles.GetTileId(minX, maxY + 1); secondDirection = 4;
                 for (int x = minX; x <= maxX; x++)
                 {
-                    changed += ClearBoundary(tiles, masks, x, minY - 1, x, minY, 4);
-                    changed += ClearBoundary(tiles, masks, x, maxY, x, maxY + 1, 4);
+                    changed += ClearBoundary(tiles, masks, x, minY - 1, x, minY, 4, ownership, gateId);
+                    changed += ClearBoundary(tiles, masks, x, maxY, x, maxY + 1, 4, ownership, gateId);
                 }
             }
             return changed;
@@ -1292,7 +1295,7 @@ namespace EnemyGatePathfindingTest
 
         private static int ClearDrawbridgePassageDirections(
             GameTileManagerAPI tiles, TileDiagnostic[] diagnostics,
-            bool horizontalPassage, byte[] masks,
+            bool horizontalPassage, byte[] masks, GateEdgeOwnership ownership, int gateId,
             out int firstFrom, out int firstTo, out int firstDirection,
             out int secondFrom, out int secondTo, out int secondDirection)
         {
@@ -1321,7 +1324,7 @@ namespace EnemyGatePathfindingTest
                         firstTo = tiles.GetTileId(left + 1, y);
                         firstDirection = 2;
                     }
-                    changed += ClearBoundary(tiles, masks, left, y, left + 1, y, 2);
+                    changed += ClearBoundary(tiles, masks, left, y, left + 1, y, 2, ownership, gateId);
                 }
             }
             else
@@ -1335,7 +1338,7 @@ namespace EnemyGatePathfindingTest
                         firstTo = tiles.GetTileId(x, top + 1);
                         firstDirection = 4;
                     }
-                    changed += ClearBoundary(tiles, masks, x, top, x, top + 1, 4);
+                    changed += ClearBoundary(tiles, masks, x, top, x, top + 1, 4, ownership, gateId);
                 }
             }
             return changed;
@@ -1343,7 +1346,8 @@ namespace EnemyGatePathfindingTest
 
         private static int ClearBoundary(
             GameTileManagerAPI tiles, byte[] masks,
-            int fromX, int fromY, int toX, int toY, int direction)
+            int fromX, int fromY, int toX, int toY, int direction,
+            GateEdgeOwnership ownership, int gateId)
         {
             int from = tiles.GetTileId(fromX, fromY);
             int to = tiles.GetTileId(toX, toY);
@@ -1355,6 +1359,8 @@ namespace EnemyGatePathfindingTest
             int opposite = (direction + 4) & 7;
             masks[to] = unchecked((byte)(masks[to] & ~(1 << opposite)));
 
+            ownership.Record(from, direction, gateId);
+            ownership.Record(to, opposite, gateId);
             // A diagonal crossing the same barrier would otherwise cut the corner.
             int sideDirectionA = horizontalDirection(direction - 1);
             int sideDirectionB = horizontalDirection(direction + 1);
@@ -1362,6 +1368,10 @@ namespace EnemyGatePathfindingTest
             masks[to] = unchecked((byte)(masks[to] &
                 ~(1 << ((sideDirectionA + 4) & 7)) &
                 ~(1 << ((sideDirectionB + 4) & 7))));
+            ownership.Record(from, sideDirectionA, gateId);
+            ownership.Record(from, sideDirectionB, gateId);
+            ownership.Record(to, (sideDirectionA + 4) & 7, gateId);
+            ownership.Record(to, (sideDirectionB + 4) & 7, gateId);
             return CountBits(unchecked((byte)(beforeFrom ^ masks[from]))) +
                 CountBits(unchecked((byte)(beforeTo ^ masks[to])));
         }

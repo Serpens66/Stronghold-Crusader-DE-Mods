@@ -14,9 +14,10 @@ namespace EnemyGatePathfindingTest
             ulong topologyFingerprint,
             int maskedDirectedEdges = 0,
             int ambiguousPassages = 0,
-            string directionMaskDiagnostics = null)
+            string directionMaskDiagnostics = null, GateEdgeOwnership[] edgeOwners = null)
         {
             DirectionMasks = directionMasks ?? new byte[9][];
+            EdgeOwners = edgeOwners;
             TopologyFingerprint = topologyFingerprint;
             MaskedDirectedEdges = maskedDirectedEdges;
             AmbiguousPassages = ambiguousPassages;
@@ -30,6 +31,7 @@ namespace EnemyGatePathfindingTest
         // Each byte contains the eight Vanilla directions that remain legal when
         // leaving the tile. A null player entry is the all-0xFF fast path.
         internal byte[][] DirectionMasks { get; }
+        internal GateEdgeOwnership[] EdgeOwners { get; }
         internal int NonEmptyPlayerMaskCount { get; }
         internal int MaskedDirectedEdges { get; }
         internal int AmbiguousPassages { get; }

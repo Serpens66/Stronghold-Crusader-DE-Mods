@@ -4803,6 +4803,7 @@ namespace BugfixesAndQoL
                 EnemyGateSearchKind.BuildingApproach, out object gateScope);
             try
             {
+                ObserveEnemyGateAssassinBuilding(gate, tribeId, buildingId, sourceRegion, movementClass);
                 ObserveBuildingApproachBuilderWithMoat(
                     pathManager, tribeId, buildingId, requestedResults,
                     sourceRegion, movementClass);

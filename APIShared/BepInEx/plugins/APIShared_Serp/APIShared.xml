@@ -1500,11 +1500,47 @@
         <member name="M:APIShared.IEnemyGatePathPolicy.ExitNativeSearch(System.Object,APIShared.EnemyGateSearchKind,System.Boolean,System.Boolean)">
             <summary>Ends the native search scope and records its outcome.</summary>
         </member>
+        <member name="T:APIShared.IEnemyGateRoutePolicyProvider">
+            <summary>Optional immutable route policy; capturing it performs no native search.</summary>
+        </member>
+        <member name="M:APIShared.IEnemyGateRoutePolicyProvider.TryCaptureRoutePolicy(System.Int32,APIShared.IEnemyGateRoutePolicySnapshot@)">
+            <summary>Captures a policy for a verified movement player, or fails open.</summary>
+        </member>
+        <member name="T:APIShared.IEnemyGateRoutePolicySnapshot">
+            <summary>A player-specific route policy with stable object identity for caches.</summary>
+        </member>
+        <member name="P:APIShared.IEnemyGateRoutePolicySnapshot.PlayerId">
+            <summary>The verified movement player.</summary>
+        </member>
+        <member name="P:APIShared.IEnemyGateRoutePolicySnapshot.IsCurrent">
+            <summary>Whether this publication still belongs to the active map and policy.</summary>
+        </member>
+        <member name="M:APIShared.IEnemyGateRoutePolicySnapshot.IsDirectionAllowed(System.Int32,System.Int32)">
+            <summary>Checks a directed tile edge without reading mutable game state.</summary>
+        </member>
         <member name="T:APIShared.IEnemyGateRegionPairObserver">
             <summary>Optional read-only observer used by a registered gate test policy.</summary>
         </member>
         <member name="M:APIShared.IEnemyGateRegionPairObserver.ObserveRegionPair(System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.String)">
             <summary>Observes one completed native region-pair query without changing its result.</summary>
+        </member>
+        <member name="T:APIShared.IEnemyGateAssassinObserver">
+            <summary>Optional read-only Assassin diagnostics; never changes a search result.</summary>
+        </member>
+        <member name="M:APIShared.IEnemyGateAssassinObserver.BeginAssassinSearch(System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.String)">
+            <summary>Captures one synchronous builder call and its immutable gate snapshot.</summary>
+        </member>
+        <member name="M:APIShared.IEnemyGateAssassinObserver.ObserveAssassinEdge(System.Object,System.Int32,System.Int32,System.Int32,System.Int32,System.Boolean)">
+            <summary>Observes a directed edge of an already prepared weighted route.</summary>
+        </member>
+        <member name="M:APIShared.IEnemyGateAssassinObserver.ObserveAssassinPolicyFiltering(System.Object,System.Int32,System.Int64,System.Int64)">
+            <summary>Counts rejected candidate edges separately from materialized route edges.</summary>
+        </member>
+        <member name="M:APIShared.IEnemyGateAssassinObserver.ObserveAssassinBuildingSearch(System.Int32,System.Int32,System.Int32,System.Int32)">
+            <summary>Attaches the existing building request to its active diagnostic scope.</summary>
+        </member>
+        <member name="M:APIShared.IEnemyGateAssassinObserver.EndAssassinSearch(System.Object,System.Int32,System.Int32,System.Int32,System.String,System.Boolean,System.Int32)">
+            <summary>Closes the call, preserving its actual native and published results.</summary>
         </member>
         <member name="T:APIShared.EnemyGatePathPolicyBridge">
             <summary>Passive bridge that holds an optional registered gate policy.</summary>

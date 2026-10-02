@@ -55,7 +55,7 @@ namespace EnemyGatePathfindingTest
             {
                 mapStartSubscription = Shared.GameplaySessionLifecycle.SubscribeStarted(
                     persistentLog,
-                    _ => runtime?.BeginMap());
+                    context => runtime?.BeginMap(context.IsEditor));
             }
             if (mapUnloadSubscription == null)
             {
@@ -158,13 +158,15 @@ namespace EnemyGatePathfindingTest
                 string fileVersion = string.IsNullOrEmpty(location)
                     ? "unknown"
                     : FileVersionInfo.GetVersionInfo(location).FileVersion;
-                bool auditedVersion = assembly.GetName().Version == new Version(2, 8, 0, 0);
+                bool auditedVersion = assembly.GetName().Version == new Version(2, 12, 0, 0);
                 Shared.DebugLogHelper.LogInfo(
                     persistentLog,
                     $"Script Extender identity: manifestVersionRange=true, " +
                     $"auditedVersion={EnemyGatePathfindingNativeDefinition.AuditedScriptExtenderVersion}, " +
                     $"auditedTag={EnemyGatePathfindingNativeDefinition.AuditedScriptExtenderTag}, " +
                     $"auditedCommit={EnemyGatePathfindingNativeDefinition.AuditedScriptExtenderCommit}, " +
+                    $"auditedTree={EnemyGatePathfindingNativeDefinition.AuditedScriptExtenderTree}, " +
+                    $"auditedAssemblySha256={EnemyGatePathfindingNativeDefinition.AuditedScriptExtenderSha256}, " +
                     $"assembly={assembly.FullName}, fileVersion={fileVersion}, informationalVersion={informational}, " +
                     $"auditedVersionMatch={auditedVersion}, " +
                     $"redBirdAudited={EnemyGatePathfindingNativeDefinition.AuditedRedBirdVersion}.");

@@ -92,7 +92,10 @@ namespace SpectatorEditorBuildTest
         private static int wallOrderDiagnostics;
         private static int wallCostDiagnostics;
         private static int specialInputDiagnostics, pitchCostDiagnostics;
+        private static int moatInputDiagnostics, moatOutcomeDiagnostics, deleteDiagnostics;
         private static volatile SpecialDragRequest activeSpecial;
+        private static readonly List<MoatProbe> pendingMoat = new List<MoatProbe>();
+        private static readonly object moatLock = new object();
         private static readonly List<PitchRequest> pendingPitch = new List<PitchRequest>();
         private static readonly object pitchLock = new object();
         private static int buildingDiagnostics;
@@ -181,6 +184,15 @@ namespace SpectatorEditorBuildTest
             internal long SessionId;
         }
 
+        private sealed class MoatProbe
+        {
+            internal int Owner, X, Y, BeforeIndex;
+            internal uint BeforeFlags;
+            internal long SessionId;
+            internal DateTime ExpiresAtUtc;
+            internal int Samples;
+        }
+
         private sealed class PitchRequest
         {
             internal int Owner, X, Y;
@@ -262,6 +274,9 @@ namespace SpectatorEditorBuildTest
                     nameof(BeforePlaceMapperItem), postfix: false,
                     typeof(int), typeof(int), typeof(int), typeof(int), typeof(int),
                     typeof(bool), typeof(bool), typeof(int));
+                Patch(candidate, typeof(EngineInterface), nameof(EngineInterface.DeleteBuilding),
+                    nameof(BeforeDeleteBuilding), postfix: false,
+                    typeof(int), typeof(int), typeof(int), typeof(bool), typeof(int));
                 Patch(candidate, typeof(EngineInterface), nameof(EngineInterface.PlaceMapperItem),
                     nameof(AfterPlaceMapperItem), postfix: true,
                     typeof(int), typeof(int), typeof(int), typeof(int), typeof(int),
@@ -567,6 +582,7 @@ namespace SpectatorEditorBuildTest
             activeWall = null;
             pendingWall = null;
             activeSpecial = null;
+            lock (moatLock) pendingMoat.Clear();
             lock (pitchLock) pendingPitch.Clear();
             pitchClickScope = null;
             wallPreviewDiagnostics = 0;
@@ -575,6 +591,7 @@ namespace SpectatorEditorBuildTest
             wallOrderDiagnostics = 0;
             wallCostDiagnostics = 0;
             specialInputDiagnostics = pitchCostDiagnostics = 0;
+            moatInputDiagnostics = moatOutcomeDiagnostics = deleteDiagnostics = 0;
             pendingBuilding = null;
             buildingClickScope = null;
             buildingWall = null;
@@ -1394,6 +1411,13 @@ namespace SpectatorEditorBuildTest
                 if (state == 3 || !IsPlacementSession()) activeSpecial = null;
                 return;
             }
+            if (special.Mapper == eMappers.MAPPER_MOAT)
+            {
+                // The original EditorDirector call already reaches the in-game moat
+                // chore path. Unlike pitch, it must not be issued a second time here.
+                if (state == 3) activeSpecial = null;
+                return;
+            }
             EngineInterface.PlaceMapperItem((int)special.Mapper, tileX, tileY, 0,
                 special.Owner, false, false, state);
             if (specialInputDiagnostics++ < 24 || state == 3)
@@ -1420,7 +1444,9 @@ namespace SpectatorEditorBuildTest
                 owner = special.Owner;
             if (owner < 1) return false;
             player = owner;
-            inGameNotEditor = false;
+            // Moat drawing is a live-game dig order. Keep Vanilla's in-game flag;
+            // editor placement semantics are only needed by the other mappers.
+            inGameNotEditor = mapper == eMappers.MAPPER_MOAT;
             if (IsWallMapper(mapper))
             {
                 if (!TryRaiseStone(owner, out __state)) return false;
@@ -1445,6 +1471,9 @@ namespace SpectatorEditorBuildTest
                 if (mouseState == 1 && constructingOnly)
                     activeSpecial = new SpecialDragRequest { Owner = owner, Mapper = mapper,
                         SessionId = CurrentSessionId };
+                if (mapper == eMappers.MAPPER_MOAT && constructingOnly &&
+                    (mouseState == 1 || mouseState == 2 || mouseState == 3))
+                    TrackMoatTile(owner, x, y, mouseState);
                 if (!constructingOnly && mapper == eMappers.MAPPER_PITCH_DITCH &&
                     (mouseState == 1 || mouseState == 2))
                 {
@@ -1504,6 +1533,29 @@ namespace SpectatorEditorBuildTest
             log.LogInfo("SPECTATOR_EDITOR_BUILD_REQUEST owner=" + owner + " mapper=" + mapper +
                 " cursor=" + x + "," + y + " origin=" + (x - scale / 2) + "," +
                 (y - scale / 2));
+            return true;
+        }
+
+        private static bool BeforeDeleteBuilding(int x, int y, ref int player,
+            ref bool inGameNotEditor, int mouseState)
+        {
+            if (!humanPlacementMode || !IsHumanSingleplayerSession() ||
+                MainControls.instance == null || MainControls.instance.CurrentAction != 6)
+                return true;
+            int owner = CurrentAiOwner();
+            if (owner < 1)
+            {
+                if (deleteDiagnostics++ < 16)
+                    log.LogInfo("SPECTATOR_EDITOR_DELETE_BLOCKED tile=" + x + "," + y +
+                        " state=" + mouseState + " owner=" + owner);
+                return false;
+            }
+            player = owner;
+            inGameNotEditor = true;
+            if (deleteDiagnostics++ < 32)
+                log.LogInfo("SPECTATOR_EDITOR_DELETE_REQUEST session=" + CurrentSessionId +
+                    " owner=" + owner + " tile=" + x + "," + y +
+                    " state=" + mouseState);
             return true;
         }
 
@@ -2007,8 +2059,87 @@ namespace SpectatorEditorBuildTest
             }
         }
 
+        private static unsafe void TrackMoatTile(int owner, int x, int y, int mouseState)
+        {
+            if (x < 0 || x >= 800 || y < 0 || y >= 800) return;
+            GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
+            if (tiles == null) return;
+            int tileId = tiles.GetTileId(x, y);
+            if (!tiles.IsValidTileId(tileId)) return;
+            lock (moatLock)
+            {
+                if (moatInputDiagnostics >= 32) return;
+                foreach (MoatProbe probe in pendingMoat)
+                    if (probe.Owner == owner && probe.X == x && probe.Y == y &&
+                        IsCurrentSession(probe.SessionId)) return;
+                var probeNew = new MoatProbe {
+                    Owner = owner, X = x, Y = y, SessionId = CurrentSessionId,
+                    BeforeIndex = tiles.GetMoatWorkTaskIndexAtTile(x, y),
+                    BeforeFlags = (uint)tiles.GetTilePropertyFlag(tileId),
+                    ExpiresAtUtc = DateTime.UtcNow.AddSeconds(3)
+                };
+                pendingMoat.Add(probeNew);
+                moatInputDiagnostics++;
+                log.LogInfo("SPECTATOR_EDITOR_MOAT_INPUT session=" + probeNew.SessionId +
+                    " owner=" + owner + " tile=" + x + "," + y +
+                    " state=" + mouseState + " priorTask=" + probeNew.BeforeIndex +
+                    " priorFlags=0x" + probeNew.BeforeFlags.ToString("X8") +
+                    " activeTasks=" + tiles.GetMoatWorkTaskActiveCount());
+            }
+        }
+
+        private static unsafe void CheckMoatProbes(int tick)
+        {
+            GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
+            if (tiles == null) return;
+            lock (moatLock)
+            {
+                for (int index = pendingMoat.Count - 1; index >= 0; index--)
+                {
+                    MoatProbe probe = pendingMoat[index];
+                    if (!IsCurrentSession(probe.SessionId))
+                    {
+                        pendingMoat.RemoveAt(index);
+                        continue;
+                    }
+                    int tileId = tiles.GetTileId(probe.X, probe.Y);
+                    if (!tiles.IsValidTileId(tileId))
+                    {
+                        pendingMoat.RemoveAt(index);
+                        continue;
+                    }
+                    int taskIndex = tiles.GetMoatWorkTaskIndexAtTile(probe.X, probe.Y);
+                    uint flags = (uint)tiles.GetTilePropertyFlag(tileId);
+                    int taskOwner = 0;
+                    Span<MoatWorkTask> tasks = tiles.GetMoatWorkTasks();
+                    if (taskIndex > 0 && taskIndex < tasks.Length &&
+                        tasks[taskIndex].r_TileId == tileId)
+                        taskOwner = tasks[taskIndex].r_OwnerPlayerId;
+                    probe.Samples++;
+                    bool completed = taskIndex != probe.BeforeIndex ||
+                        ((flags ^ probe.BeforeFlags) & (uint)TilePropertyFlag.PlannedMoat) != 0;
+                    if (!completed && probe.Samples < 5 &&
+                        DateTime.UtcNow < probe.ExpiresAtUtc) continue;
+                    if (moatOutcomeDiagnostics++ < 32)
+                        log.LogInfo("SPECTATOR_EDITOR_MOAT_OUTCOME tick=" + tick +
+                            " session=" + probe.SessionId + " owner=" + probe.Owner +
+                            " tile=" + probe.X + "," + probe.Y +
+                            " task=" + taskIndex + " taskOwner=" + taskOwner +
+                            " flags=0x" + flags.ToString("X8") +
+                            " activeTasks=" + tiles.GetMoatWorkTaskActiveCount() +
+                            " samples=" + probe.Samples);
+                    pendingMoat.RemoveAt(index);
+                    if (completed && taskOwner == probe.Owner &&
+                        humanPlacementMode && IsHumanSingleplayerSession())
+                        tiles.RefreshTileAreaVisuals(probe.X, probe.Y);
+                }
+            }
+        }
+
         private static void OnSimulationTick(int tick)
         {
+            try { CheckMoatProbes(tick); }
+            catch (Exception error) { LogOnce("SPECTATOR_EDITOR_MOAT_DIAGNOSTIC_ERROR: " + error); }
             lock (visualSamplesLock)
             {
                 for (int index = visualSamples.Count - 1; index >= 0; index--)

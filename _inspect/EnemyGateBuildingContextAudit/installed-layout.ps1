@@ -4,9 +4,11 @@ $se = [Reflection.Assembly]::LoadFrom($sePath)
 $expected = @(
     @('GameUnit', 'r_ControllableForPlayerId', 0x92, 'Byte'),
     @('GameUnit', 'N00000569', 0x93, 'Byte'),
+    @('GameUnit', 'r_GlobalId', 148, 'UInt32'),
     @('GameUnitManager', 'GameUnitArray', 0x65C, 'GameUnit'),
     @('GameTribe', 'r_LeaderUnitId', 0x30, 'UInt16'),
     @('GameTribe', 'r_PlayerIdOwner', 2, 'UInt16'),
+    @('GameTribe', 'r_GlobalId', 10, 'UInt32'),
     @('GameTribe', 'N00000580', 0x620, 'UInt32'),
     @('GameTribe', 'r_AttackTargetOwnerPlayerId', 0x61C, 'UInt32'),
     @('GameTribeManager', 'GameTribeArray', 0x2A, 'GameTribe')
@@ -24,5 +26,5 @@ foreach ($row in @(@('GameUnit', 0x490), @('GameTribe', 0x688))) {
     $type = $se.GetType('SHCDESE.Interop.' + $row[0], $true)
     if ($type.StructLayoutAttribute.Size -ne $row[1]) { throw ('Size mismatch: ' + $row[0]) }
 }
-'PASS: 8 installed member contracts and 2 record sizes; SE=' + $se.GetName().Version
+'PASS: 10 installed member contracts and 2 record sizes; SE=' + $se.GetName().Version
 (Get-FileHash -LiteralPath $sePath -Algorithm SHA256).Hash

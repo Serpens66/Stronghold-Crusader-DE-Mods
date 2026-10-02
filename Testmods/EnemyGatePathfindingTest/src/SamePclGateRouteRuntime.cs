@@ -43,8 +43,9 @@ namespace EnemyGatePathfindingTest
             long aiTacticalTargetQueries, long aiTacticalBuildingEdges,
             long aiTacticalUnitEdges, long aiTacticalFallbackEdges,
             long aiTacticalInvalidPlayers, long aiTacticalScopeConflicts,
-            long aiTacticalExceptions)
+            long aiTacticalExceptions, long cursorCommandQueries)
         {
+            CursorCommandQueries = cursorCommandQueries;
             Installed = installed; OwnerConflict = ownerConflict; Queries = queries;
             Preserved = preserved; RejectedEdges = rejectedEdges; Detours = detours;
             NoRoutes = noRoutes; HumanDetours = humanDetours; AiDetours = aiDetours;
@@ -95,6 +96,7 @@ namespace EnemyGatePathfindingTest
         internal long BuildingEdges { get; }
         internal long CandidateEdges { get; }
         internal long CursorCommandEdges { get; }
+        internal long CursorCommandQueries { get; }
         internal long DirectCursorQueries { get; }
         internal long DirectCursorEdges { get; }
         internal long CursorPclChecks { get; }
@@ -143,19 +145,12 @@ namespace EnemyGatePathfindingTest
     // three tactical-target adapters AND that mask into Vanilla's own edge checks
     // without changing the global grid.
     internal sealed unsafe class SamePclGateRouteRuntime : IEnemyGatePathPolicy,
-        IEnemyGateRegionPairObserver
+        IEnemyGateRegionPairObserver, IEnemyGateAssassinObserver, IEnemyGateRoutePolicyProvider
     {
         private const int ThreadSlotStride = 32;
         private const int NativeSnapshotPoolSize = 4;
         private static readonly long CursorRefreshInterval = Math.Max(
             1L, Stopwatch.Frequency / 5L);
-        private enum QueryKind
-        {
-            HumanBuilder, AiBuilder, Attack, BuildingApproach,
-            AlternateBuildingApproach, CandidateSearch, CursorCommand, DirectCursor,
-            CursorPreview, AiTacticalTarget
-        }
-
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
         private delegate int PathBuilderDelegate(IntPtr manager, int playerId, int profile);
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
@@ -204,11 +199,15 @@ namespace EnemyGatePathfindingTest
         private sealed class TribePlayerSnapshot
         {
             internal static readonly TribePlayerSnapshot Empty =
-                new TribePlayerSnapshot(Array.Empty<int>());
+                new TribePlayerSnapshot(Array.Empty<int>(), Array.Empty<uint>());
             private readonly int[] owners;
-            internal TribePlayerSnapshot(int[] values) { owners = values ?? Array.Empty<int>(); }
+            private readonly uint[] globals;
+            internal TribePlayerSnapshot(int[] values, uint[] identities)
+            { owners = values ?? Array.Empty<int>(); globals = identities ?? Array.Empty<uint>(); }
             internal int Resolve(int tribeId) => tribeId > 0 && tribeId < owners.Length
                 ? owners[tribeId] : -1;
+            internal uint Global(int tribeId) => tribeId > 0 && tribeId < globals.Length
+                ? globals[tribeId] : 0;
         }
 
         private sealed class NativeMaskSnapshot
@@ -254,6 +253,7 @@ namespace EnemyGatePathfindingTest
         private readonly NativeMaskSnapshot[] maskPool;
         private volatile NativeMaskSnapshot currentMasks = NativeMaskSnapshot.Empty;
         private volatile RouteTilePolicySnapshot publishedPolicy = RouteTilePolicySnapshot.Empty;
+        private readonly GateRoutePolicySource routePolicySource = new GateRoutePolicySource();
         private RouteTilePolicySnapshot pendingPolicy;
         private int policyGeneration;
         private volatile PlayerKindSnapshot playerKinds = PlayerKindSnapshot.Empty;
@@ -288,7 +288,7 @@ namespace EnemyGatePathfindingTest
             new HookHandle<X64InlineHook>[EnemyGatePathfindingNativeDefinition.AiTacticalFilterRvas.Length];
         private long queries, preserved, rejectedEdges, detours, noRoutes;
         private long humanDetours, aiDetours, attackEdges, buildingEdges, candidateEdges;
-        private long cursorCommandEdges, directCursorQueries, directCursorEdges;
+        private long cursorCommandQueries, cursorCommandEdges, directCursorQueries, directCursorEdges;
         private long cursorPclChecks, cursorPclWrapperCalls, cursorSamePclEligible,
             cursorDifferentPcl, cursorDifferentPclEligible,
             cursorValidationRequests, cursorResultForcedZero;
@@ -562,19 +562,85 @@ namespace EnemyGatePathfindingTest
             attackOrderDiagnostics?.ObserveRegionPair(playerId, sourceComponentId,
                 destinationComponentId, queryMode, vanillaResult, effectiveResult, source);
 
+        bool IEnemyGateRoutePolicyProvider.TryCaptureRoutePolicy(int playerId,
+            out IEnemyGateRoutePolicySnapshot snapshot) =>
+            routePolicySource.TryCaptureRoutePolicy(playerId, out snapshot);
+
         bool IEnemyGatePathPolicy.IsDirectionAllowed(int playerId, int tileId, int direction) =>
             publishedPolicy.IsDirectionAllowed(playerId, tileId, direction);
+
+        object IEnemyGateAssassinObserver.BeginAssassinSearch(int startX, int startY,
+            int targetX, int targetY, int maximumNodes, int continuation, string nativeState) =>
+            attackOrderDiagnostics?.BeginAssassinSearch(publishedPolicy, startX, startY,
+                targetX, targetY, maximumNodes, continuation, nativeState);
+
+        void IEnemyGateAssassinObserver.ObserveAssassinEdge(object token, int playerId,
+            int fromTile, int toTile, int direction, bool climb) =>
+            attackOrderDiagnostics?.ObserveAssassinEdge(token, playerId, fromTile, toTile, direction, climb);
+
+        void IEnemyGateAssassinObserver.ObserveAssassinPolicyFiltering(object token, int playerId,
+            long ground, long climb) =>
+            attackOrderDiagnostics?.ObserveAssassinPolicyFiltering(token, playerId, ground, climb);
+
+        void IEnemyGateAssassinObserver.ObserveAssassinBuildingSearch(int tribeId,
+            int buildingId, int sourceRegion, int rawSearchPlayer) =>
+            attackOrderDiagnostics?.ObserveAssassinBuildingSearch(tribeId, buildingId, sourceRegion, rawSearchPlayer);
+
+        void IEnemyGateAssassinObserver.EndAssassinSearch(object token, int playerId,
+            int vanillaResult, int effectiveResult, string outcome, bool cacheHit, int routeLength) =>
+            attackOrderDiagnostics?.EndAssassinSearch(token, publishedPolicy, playerId,
+                vanillaResult, effectiveResult, outcome, cacheHit, routeLength);
 
         int IEnemyGatePathPolicy.ResolveTribePlayer(int tribeId) =>
             tribePlayers.Resolve(tribeId);
 
         int IEnemyGatePathPolicy.ResolveBuildingPlayer(int rawSearchArgument, int tribeId)
+            => ResolveBuildingMovementPlayer(rawSearchArgument, tribeId);
+
+        private volatile bool buildingMapEditor;
+        internal void SetBuildingMapMode(bool editor) { buildingMapEditor = editor; }
+
+        private int ResolveBuildingMovementPlayer(int rawSearchArgument, int tribeId)
         {
-            int tribePlayer = tribePlayers.Resolve(tribeId);
-            int usedPlayer = ValidateExplicitPlayer(rawSearchArgument, tribePlayer, "shared-building");
-            try { attackOrderDiagnostics?.ObserveBuildingContext(rawSearchArgument, tribeId, tribePlayer, usedPlayer); }
-            catch { Interlocked.Increment(ref exceptions); }
-            return usedPlayer;
+            try
+            {
+                TribePlayerSnapshot snapshot = tribePlayers;
+                int liveOwner = 0, leaderId = 0, control = -1, planning = 0;
+                uint liveGlobal = 0, leaderGlobal = 0;
+                if (tribeId > 0 && GameTribeManagerAPI.Instance.TryGetTribeById(tribeId, out GameTribe* tribe) && tribe != null)
+                {
+                    liveOwner = tribe->r_PlayerIdOwner; liveGlobal = tribe->r_GlobalId;
+                    leaderId = tribe->r_LeaderUnitId;
+                    planning = unchecked((short)(tribe->N00000580 & 0xFFFF));
+                    if (leaderId > 0 && GameUnitManagerAPI.Instance.TryGetUnitById(leaderId, out GameUnit* leader) && leader != null)
+                    {
+                        leaderGlobal = leader->r_GlobalId;
+                        control = BuildingSearchPlayerContext.NativeControlWord(
+                            leader->r_ControllableForPlayerId, leader->N00000569);
+                        if (leader->r_GlobalId != leaderGlobal ||
+                            BuildingSearchPlayerContext.NativeControlWord(
+                                leader->r_ControllableForPlayerId, leader->N00000569) != control)
+                            leaderGlobal = 0;
+                    }
+                    // Do not accept an identity/control transition across the two lookups.
+                    if (tribe->r_GlobalId != liveGlobal || tribe->r_PlayerIdOwner != liveOwner ||
+                        tribe->r_LeaderUnitId != leaderId) liveGlobal = 0;
+                }
+                var context = new BuildingSearchPlayerContext(rawSearchArgument, tribeId,
+                    snapshot.Resolve(tribeId), snapshot.Global(tribeId), liveOwner, liveGlobal,
+                    leaderId, leaderGlobal, control, planning, buildingMapEditor);
+                if (context.Failure != null) Interlocked.Increment(ref scopeMismatches);
+                try { attackOrderDiagnostics?.ObserveBuildingContext(context); }
+                catch { Interlocked.Increment(ref exceptions); }
+                return context.MovementPlayer;
+            }
+            catch (Exception ex)
+            {
+                Interlocked.Increment(ref exceptions);
+                try { attackOrderDiagnostics?.ObserveBuildingException(rawSearchArgument, tribeId, ex.GetType().Name); }
+                catch { /* The failed context remains open even if diagnostics also fail. */ }
+                return -1;
+            }
         }
 
         int IEnemyGatePathPolicy.ResolveCursorPlayer(int tribeId)
@@ -587,9 +653,11 @@ namespace EnemyGatePathfindingTest
         object IEnemyGatePathPolicy.EnterNativeSearch(int playerId, EnemyGateSearchKind kind)
         {
             QueryKind localKind = SharedKind(kind, playerId);
-            if (localKind == QueryKind.AiBuilder) Interlocked.Increment(ref aiQueries);
             CaptureScopeSample(localKind, playerId, playerId, -1, playerId);
-            QueryScope scope = Enter(playerId);
+            CountSharedSearch(kind, localKind);
+            QueryScope scope = Enter(playerId, diagnosticKind: localKind);
+            try { attackOrderDiagnostics?.BeginNativeSearch(kind.ToString(), playerId); }
+            catch { Interlocked.Increment(ref exceptions); }
             if (kind == EnemyGateSearchKind.Builder)
             {
                 try { attackOrderDiagnostics?.BeginBuilder(); }
@@ -602,17 +670,40 @@ namespace EnemyGatePathfindingTest
             object scope, EnemyGateSearchKind kind, bool completed, bool success)
         {
             if (!(scope is QueryScope query)) return;
-            QueryKind localKind = SharedKind(kind, -1);
-            if (kind == EnemyGateSearchKind.Builder)
-                localKind = playerKinds.IsAi(query.PlayerId)
-                    ? QueryKind.AiBuilder : QueryKind.HumanBuilder;
-            long touched = Complete(query, localKind,
-                kind == EnemyGateSearchKind.Builder, completed && success);
-            if (kind == EnemyGateSearchKind.Builder)
+            try
             {
-                try { attackOrderDiagnostics?.ObserveBuilder(
-                    query.PlayerId, completed, success, touched, query.Snapshot.Fingerprint); }
+                QueryKind localKind = query.Diagnostic.Kind;
+                long touched = Complete(query, localKind,
+                    kind == EnemyGateSearchKind.Builder, completed && success);
+                if (kind == EnemyGateSearchKind.Builder)
+                {
+                    try { attackOrderDiagnostics?.ObserveBuilder(
+                        query.PlayerId, query.Diagnostic, completed, success, touched, query.Snapshot.Fingerprint); }
+                    catch { Interlocked.Increment(ref exceptions); }
+                }
+            }
+            finally
+            {
+                try { attackOrderDiagnostics?.EndNativeSearch(kind.ToString(), completed, success); }
                 catch { Interlocked.Increment(ref exceptions); }
+            }
+        }
+
+        private void CountSharedSearch(EnemyGateSearchKind kind, QueryKind localKind)
+        {
+            switch (kind)
+            {
+                case EnemyGateSearchKind.Builder:
+                    if (localKind == QueryKind.AiBuilder) Interlocked.Increment(ref aiQueries);
+                    break;
+                case EnemyGateSearchKind.Attack: Interlocked.Increment(ref attackQueries); break;
+                case EnemyGateSearchKind.BuildingApproach:
+                    Interlocked.Increment(ref buildingApproachQueries); break;
+                case EnemyGateSearchKind.BuildingConsumer:
+                    Interlocked.Increment(ref buildingConsumerQueries); break;
+                case EnemyGateSearchKind.CursorCommand:
+                    Interlocked.Increment(ref cursorCommandQueries); break;
+                default: throw new ArgumentOutOfRangeException(nameof(kind));
             }
         }
 
@@ -647,6 +738,7 @@ namespace EnemyGatePathfindingTest
                     pendingPolicy = null;
                     currentMasks = NativeMaskSnapshot.Empty;
                     publishedPolicy = RouteTilePolicySnapshot.Empty;
+                    routePolicySource.Publish(RouteTilePolicySnapshot.Empty);
                 }
                 return;
             }
@@ -673,6 +765,7 @@ namespace EnemyGatePathfindingTest
                 // Never let a query acquire stale access policy while a replacement is built.
                 currentMasks = NativeMaskSnapshot.Empty;
                 publishedPolicy = RouteTilePolicySnapshot.Empty;
+                routePolicySource.Publish(RouteTilePolicySnapshot.Empty);
             }
             TryPublishPending(policy, generation);
         }
@@ -696,11 +789,15 @@ namespace EnemyGatePathfindingTest
             playerKinds = new PlayerKindSnapshot(ai);
             Span<GameTribe> tribes = GameTribeManagerAPI.Instance.GetTribeAsSpan();
             var owners = new int[tribes.Length];
+            var globals = new uint[tribes.Length];
             // Script Extender 2.7 exposes the complete native tribe-slot span.
             // Slot 0 is reserved; every other span index is already the tribe ID.
             for (int tribeId = 1; tribeId < tribes.Length; tribeId++)
+            {
                 owners[tribeId] = tribes[tribeId].r_PlayerIdOwner;
-            tribePlayers = new TribePlayerSnapshot(owners);
+                globals[tribeId] = tribes[tribeId].r_GlobalId;
+            }
+            tribePlayers = new TribePlayerSnapshot(owners, globals);
         }
 
         private int FilterCursorPclDecision(IntPtr manager, int player,
@@ -979,6 +1076,7 @@ namespace EnemyGatePathfindingTest
                     if (generation != policyGeneration || !ReferenceEquals(policy, pendingPolicy)) return;
                     currentMasks = slot;
                     publishedPolicy = policy;
+                    routePolicySource.Publish(policy);
                     pendingPolicy = null;
                 }
             }
@@ -1017,9 +1115,11 @@ namespace EnemyGatePathfindingTest
                 Read(ref aiTacticalTargetQueries), Read(ref aiTacticalBuildingEdges),
                 Read(ref aiTacticalUnitEdges), Read(ref aiTacticalFallbackEdges),
                 Read(ref aiTacticalInvalidPlayers), Read(ref aiTacticalScopeConflicts),
-                Read(ref aiTacticalExceptions));
+                Read(ref aiTacticalExceptions), Read(ref cursorCommandQueries));
         internal void ResetCounters()
         {
+            tribePlayers = TribePlayerSnapshot.Empty;
+            Volatile.Write(ref nextPlayerRefresh, 0);
             Reset(ref queries); Reset(ref preserved); Reset(ref rejectedEdges); Reset(ref detours);
             Reset(ref noRoutes); Reset(ref humanDetours); Reset(ref aiDetours);
             Reset(ref attackEdges); Reset(ref buildingEdges); Reset(ref candidateEdges);
@@ -1038,6 +1138,7 @@ namespace EnemyGatePathfindingTest
             Reset(ref missingContexts); Reset(ref invalidPlayers);
             Reset(ref scopeMismatches); Reset(ref slotConflicts); Reset(ref poolExhaustions);
             Reset(ref exceptions);
+            Reset(ref cursorCommandQueries);
             Reset(ref aiQueries); Reset(ref aiNoRoutes); Reset(ref attackQueries);
             Reset(ref buildingApproachQueries); Reset(ref buildingConsumerQueries);
             Reset(ref alternateBuildingConsumerQueries); Reset(ref candidateQueries);
@@ -1060,7 +1161,7 @@ namespace EnemyGatePathfindingTest
             QueryKind kind = playerKinds.IsAi(player) ? QueryKind.AiBuilder : QueryKind.HumanBuilder;
             if (kind == QueryKind.AiBuilder) Interlocked.Increment(ref aiQueries);
             CaptureScopeSample(kind, player, player, -1, player);
-            QueryScope scope = Enter(player); int result = 0; bool completed = false;
+            QueryScope scope = Enter(player, diagnosticKind: kind); int result = 0; bool completed = false;
             try { attackOrderDiagnostics?.BeginBuilder(); }
             catch { Interlocked.Increment(ref exceptions); }
             try { result = originalBuilder(manager, player, profile); completed = true; return result; }
@@ -1068,7 +1169,7 @@ namespace EnemyGatePathfindingTest
             finally
             {
                 long touched = Complete(scope, kind, true, completed && result > 0);
-                try { attackOrderDiagnostics?.ObserveBuilder(player, completed, result > 0,
+                try { attackOrderDiagnostics?.ObserveBuilder(player, scope.Diagnostic, completed, result > 0,
                     touched, scope.Snapshot.Fingerprint); }
                 catch { Interlocked.Increment(ref exceptions); }
             }
@@ -1088,7 +1189,7 @@ namespace EnemyGatePathfindingTest
         {
             Interlocked.Increment(ref buildingApproachQueries);
             int tribePlayer = ResolveTribePlayer(tribe);
-            int used = ValidateExplicitPlayer(player, tribePlayer, "building-approach");
+            int used = ResolveBuildingMovementPlayer(player, tribe);
             CaptureScopeSample(QueryKind.BuildingApproach, player, player, tribePlayer, used);
             QueryScope scope = Enter(used);
             try { originalBuilding(manager, tribe, buildingId, count, targetPcl, player); }
@@ -1158,6 +1259,7 @@ namespace EnemyGatePathfindingTest
         }
         private void FilterCursor(IntPtr manager, int tribe, int x, int y, int context, int flags)
         {
+            Interlocked.Increment(ref cursorCommandQueries);
             int nativePlayer = *(int*)(libraryBase +
                 EnemyGatePathfindingNativeDefinition.ActivePlayerIdRva);
             int tribePlayer = ResolveTribePlayer(tribe);
@@ -1273,14 +1375,17 @@ namespace EnemyGatePathfindingTest
             return text.Length == 0 ? "none" : text.ToString();
         }
 
-        private QueryScope Enter(int player, bool unmasked = false)
+        private QueryScope Enter(int player, bool unmasked = false,
+            QueryKind diagnosticKind = QueryKind.HumanBuilder)
         {
             Interlocked.Increment(ref queries);
             NativeMaskSnapshot snapshot;
+            GateRoutePolicySource.Publication routePublication;
             IntPtr mask;
             lock (maskGate)
             {
                 snapshot = currentMasks;
+                routePublication = routePolicySource.Current;
                 snapshot.Readers++;
                 mask = !unmasked && player > 0 && player < snapshot.PlayerMasks.Length
                     ? snapshot.PlayerMasks[player] : IntPtr.Zero;
@@ -1296,19 +1401,22 @@ namespace EnemyGatePathfindingTest
             int owner = Volatile.Read(ref *(int*)(slot + DirectionFilterAdapterEmitter.SlotOwnerOffset));
             if (owner != 0 && owner != unchecked((int)thread))
             {
-                Interlocked.Increment(ref slotConflicts); return new QueryScope(snapshot, null, IntPtr.Zero, 0, player);
+                Interlocked.Increment(ref slotConflicts); return new QueryScope(snapshot, null, IntPtr.Zero, 0, player, diagnosticKind,
+                    routePolicySource.Enter(player, unmasked, false, routePublication));
             }
             if (owner == 0 && Interlocked.CompareExchange(
                     ref *(int*)(slot + DirectionFilterAdapterEmitter.SlotOwnerOffset), unchecked((int)thread), 0) != 0)
             {
-                Interlocked.Increment(ref slotConflicts); return new QueryScope(snapshot, null, IntPtr.Zero, 0, player);
+                Interlocked.Increment(ref slotConflicts); return new QueryScope(snapshot, null, IntPtr.Zero, 0, player, diagnosticKind,
+                    routePolicySource.Enter(player, unmasked, false, routePublication));
             }
             IntPtr previous = *(IntPtr*)(slot + DirectionFilterAdapterEmitter.SlotMaskOffset);
             long previousTouched = *(long*)(slot + DirectionFilterAdapterEmitter.SlotTouchedOffset);
             (*(int*)(slot + DirectionFilterAdapterEmitter.SlotDepthOffset))++;
             *(IntPtr*)(slot + DirectionFilterAdapterEmitter.SlotMaskOffset) = mask;
             *(long*)(slot + DirectionFilterAdapterEmitter.SlotTouchedOffset) = 0;
-            return new QueryScope(snapshot, slot, previous, previousTouched, player);
+            return new QueryScope(snapshot, slot, previous, previousTouched, player, diagnosticKind,
+                routePolicySource.Enter(player, unmasked, true, routePublication));
         }
 
         private TacticalQueryScope EnterTactical(int player)
@@ -1409,6 +1517,7 @@ namespace EnemyGatePathfindingTest
                     Volatile.Write(ref *(int*)(scope.Slot + DirectionFilterAdapterEmitter.SlotOwnerOffset), 0);
             }
             lock (maskGate) scope.Snapshot.Readers--;
+            routePolicySource.Leave(scope.RouteQuery);
             if (touched == 0)
             {
                 if (kind != QueryKind.CursorPreview)
@@ -1454,14 +1563,17 @@ namespace EnemyGatePathfindingTest
         private readonly struct QueryScope
         {
             internal QueryScope(NativeMaskSnapshot snapshot, byte* slot, IntPtr previousMask,
-                long previousTouched, int playerId)
+                long previousTouched, int playerId, QueryKind diagnosticKind, GateRoutePolicySource.Query routeQuery)
             { Snapshot = snapshot; Slot = slot; PreviousMask = previousMask;
-              PreviousTouched = previousTouched; PlayerId = playerId; }
+              PreviousTouched = previousTouched; PlayerId = playerId;
+              Diagnostic = new SearchDiagnosticContext(diagnosticKind); RouteQuery = routeQuery; }
             internal NativeMaskSnapshot Snapshot { get; }
             internal byte* Slot { get; }
             internal IntPtr PreviousMask { get; }
             internal long PreviousTouched { get; }
             internal int PlayerId { get; }
+            internal SearchDiagnosticContext Diagnostic { get; }
+            internal GateRoutePolicySource.Query RouteQuery { get; }
         }
 
         private readonly struct TacticalQueryScope

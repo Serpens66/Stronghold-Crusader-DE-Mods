@@ -109,6 +109,8 @@
     <Compile Include="src\AssassinClimbCancellationPolicy.cs" />
     <Compile Include="src\AssassinClimbCancellationRuntime.cs" />
     <Compile Include="src\AssassinAStarPolicy.cs" />
+    <Compile Include="src\AssassinGateRoutePolicy.cs" />
+    <Compile Include="src\AssassinPathfindingRuntime.CacheKeys.cs" />
     <Compile Include="src\AssassinClimbCostPolicy.cs" />
     <Compile Include="src\AssassinClimbRuntime.cs" />
     <Compile Include="src\AssassinClimbStatePacket.cs" />

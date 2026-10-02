@@ -124,6 +124,7 @@ internal static unsafe class Program
             Console.WriteLine($"PASS: {checkedCases} assertions; 1920 detailed retries={bytes} bytes.");
             NativeSearchTests.Run();
             ActivationTests.Run();
+            HardeningTests.Run();
             return 0;
         }
         finally { Marshal.FreeHGlobal(memory); }

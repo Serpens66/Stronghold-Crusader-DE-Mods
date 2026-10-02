@@ -1,0 +1,31 @@
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+PASS: EnemyGate runtime JSON/lifecycle, permanent hooks, XAML and CRLF (24 runtime sources).
+Using APIShared 0.4.7 from E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\APIShared_Serp\APIShared.dll
+MSBuild-Version 17.11.9+a69bbaaf5 für .NET Framework
+Der Buildvorgang wurde am 02.10.2026 14:39:06 gestartet.
+
+Projekt "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\EnemyGatePathfindingTest\EnemyGatePathfindingTest.PolicyTests.csproj" auf Knoten "1" (Standardziele).
+GenerateTargetFrameworkMonikerAttribute:
+Das Ziel "GenerateTargetFrameworkMonikerAttribute" wird übersprungen, da alle Ausgabedateien hinsichtlich der Eingabedateien aktuell sind.
+CoreCompile:
+  C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Roslyn\csc.exe /noconfig /unsafe+ /nowarn:1701,1702 /fullpaths /nostdlib+ /platform:x64 /warn:4 /highentropyva+ /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\Iced.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\Microsoft.Extensions.Logging.Abstractions.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\mscorlib.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\RedBird.Abstractions.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\RedBird.Core.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\RedBird.X64.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\System.Core.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\System.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\System.Memory.dll" /debug+ /out:obj\Debug\EnemyGatePathfindingTest.PolicyTests.exe /subsystemversion:6.00 /target:exe /utf8output /langversion:latest src\EnemyGatePathfindingNativeDefinition.cs src\CursorPreviewCache.cs src\BuildingSearchPlayerResolver.cs src\EnemyGatePathfindingPolicy.cs src\SparseBuildingFootprint.cs src\PathfindingGlobalsBaseline.cs src\DirectionFilterAdapterEmitter.cs src\AiTacticalTargetAdapterEmitter.cs src\AiGateDecisionAggregate.cs src\GateDiagnosticClassification.cs src\CaptureTransitionDiagnostics.cs src\DirectCursorCallAdapterEmitter.cs src\CapturerComparisonAdapterEmitter.cs tests\CapturerAdapterMachineTests.cs tests\Program.cs "obj\Debug\.NETFramework,Version=v4.8.1.AssemblyAttributes.cs"
+  CompilerServer: server - server processed compilation - EnemyGatePathfindingTest.PolicyTests
+_CopyAppConfigFile:
+Das Ziel "_CopyAppConfigFile" wird übersprungen, da alle Ausgabedateien hinsichtlich der Eingabedateien aktuell sind.
+CopyFilesToOutputDirectory:
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\EnemyGatePathfindingTest\obj\Debug\EnemyGatePathfindingTest.PolicyTests.exe" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\EnemyGatePathfindingTest\tests\bin\EnemyGatePathfindingTest.PolicyTests.exe" kopiert.
+  EnemyGatePathfindingTest.PolicyTests -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\EnemyGatePathfindingTest\tests\bin\EnemyGatePathfindingTest.PolicyTests.exe
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\EnemyGatePathfindingTest\obj\Debug\EnemyGatePathfindingTest.PolicyTests.pdb" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\EnemyGatePathfindingTest\tests\bin\EnemyGatePathfindingTest.PolicyTests.pdb" kopiert.
+Die Erstellung von Projekt "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\EnemyGatePathfindingTest\EnemyGatePathfindingTest.PolicyTests.csproj" ist abgeschlossen (Standardziele).
+
+Der Buildvorgang wurde erfolgreich ausgeführt.
+    0 Warnung(en)
+    0 Fehler
+
+Verstrichene Zeit 00:00:00.46
+PASS: both installed-RedBird capturer adapters execute the real JE, preserve registers/XMM/stack, and fail open.
+System.InvalidOperationException: Assertion failed: direct cursor wrapper scopes exactly the original DB650 call
+   bei EnemyGatePathfindingTest.Program.Assert(Boolean condition, String message) in D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\EnemyGatePathfindingTest\tests\Program.cs:Zeile 2304.
+   bei EnemyGatePathfindingTest.Program.DirectCursorCallsiteContractIsExact() in D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\EnemyGatePathfindingTest\tests\Program.cs:Zeile 1877.
+   bei EnemyGatePathfindingTest.Program.Main() in D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\EnemyGatePathfindingTest\tests\Program.cs:Zeile 52.
+Policy tests failed. The mod was not built or installed.

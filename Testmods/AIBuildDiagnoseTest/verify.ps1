@@ -96,6 +96,12 @@ $routeEntry = (& $rizin -q -e scr.color=false -c 's 0x1800c3bf0; p8 7; q' $nativ
 if ($routeEntry.Trim().ToLowerInvariant() -ne '4883ec384963c0') {
     throw 'Route hook displaced instruction bytes differ from the audited seven bytes.'
 }
+$generalEntries = (& $rizin -q -e scr.color=false -c 's 0x1800583a0; p8 6; s 0x180058be0; p8 6; q' $native)
+if ($generalEntries.Count -ne 2 -or
+    $generalEntries[0].Trim().ToLowerInvariant() -ne '41574883ec20' -or
+    $generalEntries[1].Trim().ToLowerInvariant() -ne '895424105355') {
+    throw 'General AI search entry bytes or six-byte instruction boundaries differ.'
+}
 $redbird = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\RedBird.Backends.NativeX64.dll'
 if ((Get-Item -LiteralPath $redbird).VersionInfo.FileVersion -ne '1.5.0.0') {
     throw 'Installed NativeX64 backend version differs from the audited detour implementation.'
@@ -134,8 +140,15 @@ if ($runtimeText -match 'System\.Web\.Extensions|JavaScriptSerializer|System\.Te
 if ($runtimeText -match '\b(OnDestroy|OnDisable|OnApplicationQuit|OnApplicationPause|Update|LateUpdate|FixedUpdate|StartCoroutine)\s*\(') {
     throw 'Long-lived or teardown MonoBehaviour callback in diagnostic runtime.'
 }
-if ($runtimeText -match 'CodePatch\.Write|VirtualProtect|NativeDetour|X64InlineHook|HookTransaction|\.Apply\s*\(|\.Undo\s*\(|\.Enable\s*\(|\.Disable\s*\(') {
-    throw 'Diagnostic mod must not own executable-memory mutations.'
+$generalHook = [IO.File]::ReadAllText((Join-Path $project 'src\GeneralSiteSearchHooks.cs'))
+$otherRuntimeText = (($sourceFiles | Where-Object { $_.Name -ne 'GeneralSiteSearchHooks.cs' }) |
+    ForEach-Object { [IO.File]::ReadAllText($_.FullName) }) -join "`n"
+if ($otherRuntimeText -match 'CodePatch\.Write|VirtualProtect|NativeDetour|X64InlineHook|HookTransaction|\.Apply\s*\(|\.Undo\s*\(|\.Enable\s*\(|\.Disable\s*\(' -or
+    $generalHook -match 'CodePatch\.Write|VirtualProtect|X64InlineHook|\.Apply\s*\(|\.Undo\s*\(|\.Enable\s*\(|\.Disable\s*\(' -or
+    $generalHook -notmatch 'published = this' -or
+    $generalHook -notmatch 'hook\.Original' -and $generalHook -notmatch 'aivHook\.Original' -or
+    $generalHook -notmatch 'fineHook\.Original') {
+    throw 'Diagnostic hook ownership, persistence or one-call Vanilla contract differs.'
 }
 if ($runtimeText -match 'Marshal\.Write(?!Byte\(new IntPtr\(cell\), 1\)|Byte\(new IntPtr\(address\), 0\))' -or
     $runtimeText -notmatch 'nearbyCopySession = active && session\.IsLoadedSave && nearbyWoodTestEnabled' -or

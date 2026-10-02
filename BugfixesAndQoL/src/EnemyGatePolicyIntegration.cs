@@ -27,6 +27,14 @@ namespace BugfixesAndQoL
             }
         }
 
+        private void ObserveEnemyGateAssassinBuilding(IEnemyGatePathPolicy policy,
+            int tribeId, int buildingId, int sourceRegion, int rawSearchPlayer)
+        {
+            if (!(policy is IEnemyGateAssassinObserver observer)) return;
+            try { observer.ObserveAssassinBuildingSearch(tribeId, buildingId, sourceRegion, rawSearchPlayer); }
+            catch (Exception ex) { TryLogDiagnosticFailure("enemy-gate-assassin-building", ex); }
+        }
+
         private void EndEnemyGateSearch(
             IEnemyGatePathPolicy policy, object scope, EnemyGateSearchKind kind,
             bool completed, bool success)

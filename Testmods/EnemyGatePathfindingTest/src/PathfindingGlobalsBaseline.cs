@@ -75,6 +75,15 @@ namespace EnemyGatePathfindingTest
             ProfileLength == PathfindingGlobalsBaseline.UnitTypeCount &&
             PermissionLength == PathfindingGlobalsBaseline.PermissionCount;
 
+        internal bool ComparedValuesMatch => ProfileMismatches == 0 &&
+            PermissionMismatches == 0 && InvalidValues == 0;
+        internal int ComparedProfiles => Math.Min(ProfileLength, PathfindingGlobalsBaseline.UnitTypeCount);
+        internal int ComparedPermissions => Math.Min(PermissionLength, PathfindingGlobalsBaseline.PermissionCount);
+        internal string MissingCoverage => "profiles=" + Missing(ComparedProfiles, PathfindingGlobalsBaseline.UnitTypeCount) +
+            ";permissions=" + Missing(ComparedPermissions, PathfindingGlobalsBaseline.PermissionCount);
+        private static string Missing(int compared, int capacity) => compared >= capacity
+            ? "none" : compared + ".." + (capacity - 1);
+
         internal bool MatchesCanonical =>
             HasExpectedLengths && ProfileMismatches == 0 &&
             PermissionMismatches == 0 && InvalidValues == 0;
