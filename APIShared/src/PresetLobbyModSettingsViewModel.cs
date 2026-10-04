@@ -1399,7 +1399,7 @@ namespace Shared
 
             try
             {
-                presetController?.LoadPreset(selectedPresetLoadEntry.Preset);
+                ApplyConfirmedPresetSelection(selectedPresetLoadEntry.Preset);
                 presetLoadPanelOpen = false;
                 RaisePresetDialogProperties();
                 RaiseAccessProperties();
@@ -1891,6 +1891,13 @@ namespace Shared
 
         protected virtual string ResolveSettingsUiText(string key, string fallback) => fallback;
 
+        /// <summary>Applies an explicitly confirmed selection. Overrides may add deferred application.</summary>
+        protected virtual void ApplyConfirmedPresetSelection(PublishedModSettingsPreset preset)
+        {
+            if (presetController == null) throw new InvalidOperationException("Preset controller is not initialized.");
+            presetController.LoadPreset(preset);
+        }
+
         private string ResolveSettingsUiTextSafe(string key, string fallback)
         {
             string resolved = ResolveSettingsUiText(key, fallback);
@@ -2306,7 +2313,7 @@ namespace Shared
                 string.Equals(item.StableId, stableId, StringComparison.Ordinal));
             if (preset == null)
                 throw new InvalidDataException("The requested test preset is unavailable.");
-            presetController.LoadPreset(preset);
+            ApplyConfirmedPresetSelection(preset);
         }
 
         internal void System_TestDeletePreset(string stableId)

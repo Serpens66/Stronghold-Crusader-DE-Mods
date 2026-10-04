@@ -42,6 +42,11 @@ internal static class DynamicPresetTests
         vm.System_ImportPresetJson(ModSettingsPresetJson.Serialize("CrusaderDETweaker", "second", "Second", "", "", "", mixed));
         vm.System_TestLoadPreset(vm.System_TestPublishedPresets.Single(x => x.Id == "second").StableId);
         Check((long)vm.Source.ReadValue("matrix/row0/column") == 123, "successive preset did not preserve working copy");
+        Check(vm.ConfirmedSelections == 2, "confirmed selection hook was bypassed");
+        vm.FailConfirmation = true;
+        replacements = vm.Source.Replacements;
+        Reject(() => vm.System_TestLoadPreset(vm.System_TestPublishedPresets.Single(x => x.Id == "mixed").StableId));
+        Check(vm.Source.Replacements == replacements, "rejected confirmation applied a snapshot");
         Reject(() => ModSettingsPresetJson.Parse(new string(' ', 8 * 1024 * 1024 + 1), "test", "test", "CrusaderDETweaker", ""));
         var oversized = Enumerable.Range(0, 16385).ToDictionary(i => "key" + i, i => new PublishedPresetSetting { Mode = PublishedPresetValueMode.Player });
         Reject(() => ModSettingsPresetJson.Serialize("CrusaderDETweaker", "large", "Large", "", "", "", oversized));
@@ -52,7 +57,15 @@ internal static class DynamicPresetTests
     private sealed class Model : PresetLobbyModSettingsViewModel
     {
         internal readonly Provider Source = new Provider();
+        internal int ConfirmedSelections;
+        internal bool FailConfirmation;
         protected override IDynamicPresetSettingsProvider DynamicSettingsProvider => Source;
+        protected override void ApplyConfirmedPresetSelection(PublishedModSettingsPreset preset)
+        {
+            if (FailConfirmation) throw new InvalidDataException("Confirmation rejected");
+            base.ApplyConfirmedPresetSelection(preset);
+            ConfirmedSelections++;
+        }
     }
     private sealed class Provider : IDynamicPresetSettingsProvider
     {

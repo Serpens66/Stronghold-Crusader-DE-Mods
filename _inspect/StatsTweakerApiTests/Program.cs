@@ -15,6 +15,23 @@ internal static class Program
         Directory.CreateDirectory(root);
         DocumentTests.Run(root);
         DocumentTests.RunInstalledFiles(root);
+        Run("replacement failure preserves existing pending configuration", () =>
+        {
+            var tx = Create("pending-replacement");
+            string own = ConfigurationFileTransaction.Revision(tx.ReadOwn());
+            tx.Stage(Values("preset"), own);
+            string pending = ConfigurationFileTransaction.Revision(tx.ReadPending());
+            var invalid = Values("defaults");
+            invalid.Remove(names[0]);
+            Throws(() => tx.Stage(invalid, own));
+            Equal(pending, ConfigurationFileTransaction.Revision(tx.ReadPending()));
+            tx.Stage(Values("defaults"), own);
+            Equal(ConfigurationFileTransaction.Revision(Values("defaults")), ConfigurationFileTransaction.Revision(tx.ReadPending()));
+            Equal(own, ConfigurationFileTransaction.Revision(tx.ReadOwn()));
+            File.WriteAllText(Path.Combine(root, "pending-replacement", names[0]), "external");
+            Throws(() => tx.Stage(Values("preset-again"), own));
+            Equal(ConfigurationFileTransaction.Revision(Values("defaults")), ConfigurationFileTransaction.Revision(tx.ReadPending()));
+        });
         Run("staging does not change active files", () =>
         {
             var tx = Create("stage");

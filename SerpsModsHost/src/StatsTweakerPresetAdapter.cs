@@ -52,6 +52,7 @@ namespace SerpsModsHost
                 LobbyModSettingsPresetRegistration.AttachExternalWorkingCopy(log, storageAssembly, TargetGuid,
                     TargetGuid, plugin.Metadata.Version, candidate, panel);
                 candidate.ImportOwnFiles();
+                candidate.InitializeSelection();
                 scroll.HorizontalScrollBarVisibility = ScrollBarVisibility.Auto;
                 parent.Children.Insert(0, panel);
                 viewModel = candidate; // Root commands and working copy for the process lifetime.
@@ -176,6 +177,11 @@ namespace SerpsModsHost
             return snapshot == null ? "—" : Read<string>(snapshot, "Revision").Substring(0, 12);
         }
         internal void Stage() => Call("StageConfiguration", ReadValues(), OwnRevision);
+        internal void StageValues(Dictionary<string, object> values)
+        {
+            ValidateValues(values);
+            Call("StageConfiguration", values, OwnRevision);
+        }
         internal void Discard() => Call("DiscardPendingConfiguration");
     }
 }

@@ -44,6 +44,8 @@ namespace EnemyBridgePathTest
             internal long Commands, CandidateBuilds;
             internal Arguments AccessInput;
             internal bool AccessValid;
+            internal int AccessNative,AccessEffective; internal bool AccessRegionObserved;
+            internal readonly List<AccessObservation> Accesses=new List<AccessObservation>();
             internal int SelectedUnit;
             internal uint SelectedGlobal;
             internal bool Rebuilt;
@@ -51,6 +53,53 @@ namespace EnemyBridgePathTest
             internal readonly List<SelectionEvidence> Selections=new List<SelectionEvidence>();
             internal readonly HashSet<int> RegionSamples=new HashSet<int>();
             internal bool Detailed;
+        }
+        internal readonly struct AccessObservation
+        {
+            internal readonly long Op,Result; internal readonly int Mode,Native,Effective,Calls; internal readonly bool Observed;
+            internal readonly Arguments Input;
+            internal AccessObservation(Scope s,long result) {Op=s.Id;Result=result;Mode=s.Site.Rva==0xCF400?1:0;Input=s.AccessInput;Native=s.AccessNative;Effective=s.AccessEffective;Observed=s.AccessRegionObserved;Calls=(int)s.Regions;}
+            public override string ToString() => Op+"/"+Mode+"/"+Input+"/"+Result+"/"+(Observed?1:0)+"/"+Native+"/"+Effective+"/"+Calls;
+        }
+        private sealed class DecisionState {internal long Id,Session,Root,AccessSignature;internal Arguments Plan;internal AccessObservation[] Accesses;}
+        private readonly DecisionState[] decisions=new DecisionState[9];
+        private readonly object decisionGate=new object();
+        private long decisionId;
+        internal Action<long> PromoteCommandChain;
+        internal long DecisionFor(int player,Arguments entry)
+        {
+            if(player<1||player>8)return 0;
+            lock(decisionGate)
+            {
+                var value=decisions[player];if(value==null)return 0;
+                if(value.Session!=session||!value.Plan.Equals(entry)) {decisions[player]=null;Emit("decision-state-ended","definition="+value.Id+",player="+player+",reason=plan-or-session-changed");return 0;}
+                return value.Id;
+            }
+        }
+        private static bool SameAccesses(AccessObservation[] prior,List<AccessObservation> current)
+        {
+            if(prior==null||prior.Length!=current.Count)return false;
+            for(int i=0;i<prior.Length;i++) {var a=prior[i];var b=current[i];if(a.Mode!=b.Mode||!a.Input.Equals(b.Input)||a.Result!=b.Result||a.Native!=b.Native||a.Effective!=b.Effective||a.Observed!=b.Observed||a.Calls!=b.Calls)return false;}
+            return true;
+        }
+        private void CompleteDecision(Scope root,Arguments after,bool completed)
+        {
+            int player=root.PlanningPlayer;if(player<1||player>8)return;
+            lock(decisionGate)
+            {
+                var old=decisions[player];
+                if(!completed) {decisions[player]=null;return;}
+                if(old!=null&&!old.Plan.Equals(after)) {Emit("decision-state-ended","definition="+old.Id+",player="+player+",reason=consumed-plan-change");decisions[player]=null;}
+                // Unchanged repeated checks retain their defining operation. A changed phase/target
+                // without an access call is explicit; it never inherits an older permission result.
+                long signature=17;foreach(var access in root.Accesses)
+                {signature=unchecked(signature*397+access.Mode);signature=unchecked(signature*397+access.Result);signature=unchecked(signature*397+access.Input.GetHashCode());signature=unchecked(signature*397+access.Native);signature=unchecked(signature*397+access.Effective);signature=unchecked(signature*397+(access.Observed?1:0));}
+                if(root.PrePlan.Equals(after)&&decisions[player]!=null&&(root.Accesses.Count==0||decisions[player].AccessSignature==signature&&SameAccesses(decisions[player].Accesses,root.Accesses)))return;
+                if(root.Accesses.Count==0&&root.PrePlan.Equals(after))return;
+                var value=new DecisionState {Id=++decisionId,Session=root.Session,Root=root.Id,Plan=after,AccessSignature=signature,Accesses=root.Accesses.ToArray()};decisions[player]=value;
+                var rows=new StringBuilder();foreach(var access in root.Accesses)rows.Append(access).Append(';');
+                Emit("decision-state","definition="+value.Id+",player="+player+",planningRoot="+root.Id+",entryPlan=["+root.PrePlan+"],consumedPlan=["+after+"],planColumns=lord/phase/targetPlayer/targetTile/x/y,accessColumns=op/mode/attackerActive/targetActive/attackerKeepTile/targetKeepTile/attackerKeepPcl/targetKeepPcl/return/regionObserved/native/effective/calls,accesses=["+rows+"],source=completed-caller-state,selectedAccessBranch=not-inferred");
+            }
         }
         private struct Record
         {
@@ -136,7 +185,7 @@ namespace EnemyBridgePathTest
             internal long PhysicalDefinition, Changes;
             internal bool Pending;
             internal readonly long[] Plans=new long[9], PlanDefinitions=new long[9];
-            internal readonly long[] StoredRoutePlans=new long[9],ExecutedRoutePlans=new long[9];
+            internal readonly long[] StoredRoutePlans=new long[9],ExecutedRoutePlans=new long[9],StoredRouteRoots=new long[9],ExecutedRouteRoots=new long[9],StoredRouteDecisions=new long[9],ExecutedRouteDecisions=new long[9];
             internal readonly long[] SelectedPlans=new long[9],AssignedPlans=new long[9],CommandPlans=new long[9];
             internal readonly HashSet<int> Tiles=new HashSet<int>();
         }
@@ -214,7 +263,7 @@ namespace EnemyBridgePathTest
             lock(regionGate) eventCounts.Clear();
             lock(captureGate) {tableImages.Clear();bridgeProgress.Clear();buildingIndex.Invalidate();}
             Interlocked.Exchange(ref session,value);
-            Routes.Begin(value);routeGeometryBuild=-1;
+            Routes.Begin(value);routeGeometryBuild=-1;lock(decisionGate)Array.Clear(decisions,0,decisions.Length);
             Array.Clear(lastPlayerPlan,0,9);Array.Clear(lastPlayerPlanTopology,0,9);Array.Clear(lastPlayerPlanPhysical,0,9);
             freshPlans=followingCommands=0;lastPlanPhysical=lastPlanTopology=-1;
             // Actual cell/index reads wait for the next simulation callback, never run on the render thread.
@@ -258,7 +307,7 @@ namespace EnemyBridgePathTest
             scope.Next=null;scope.Parent=current;scope.Site=site;scope.Args=new Arguments(a,b,c,d,e,f);
             scope.Id=Interlocked.Increment(ref sequence);scope.Session=run;scope.Regions=0;scope.Detailed=false;scope.PreStamp=default;
             scope.PrePlan=default;scope.Commands=scope.CandidateBuilds=0;
-            scope.AccessValid=false;scope.AccessInput=default;scope.SelectedUnit=0;scope.SelectedGlobal=0;
+            scope.AccessValid=false;scope.AccessInput=default;scope.AccessNative=scope.AccessEffective=0;scope.AccessRegionObserved=false;scope.Accesses.Clear();scope.SelectedUnit=0;scope.SelectedGlobal=0;
             scope.Rebuilt=false;scope.SelectionTables.Clear();scope.Selections.Clear();
             scope.RegionSamples.Clear();
             scope.PlanningPlayer=PlanningSite(site.Rva)?a:scope.Parent!=null&&scope.Parent.Session==run?scope.Parent.PlanningPlayer:0;
@@ -272,7 +321,7 @@ namespace EnemyBridgePathTest
                 }
                 else if(site.Rva==0x3C2E0)
                 {
-                    scope.PrePlan=PlanStamp(a);
+                    scope.PrePlan=PlanStamp(a);DecisionFor(a,scope.PrePlan);
                     lock(attackGate) {scope.Detailed=!plans.TryGetValue(a,out Arguments old)||!old.Equals(scope.PrePlan);plans[a]=scope.PrePlan;}
                 }
                 else if(AccessSite(site.Rva))
@@ -335,6 +384,7 @@ namespace EnemyBridgePathTest
                     Arguments after=PlanStamp(scope.Args[0]);
                     if(!after.Equals(scope.PrePlan)&&!scope.Detailed) Entry(scope,false);
                     lock(attackGate) plans[scope.Args[0]]=after;
+                    CompleteDecision(scope,after,completed);
                 }
                 if(scope.Site.Rva==0x11A980)
                 {
@@ -345,6 +395,8 @@ namespace EnemyBridgePathTest
                 if(scope.AccessValid&&completed&&result.HasValue)
                 {
                     CountEvent(new Arguments(5,scope.Args[0],scope.Args[1],scope.Site.Rva==0xCF400?1:0,unchecked((int)result.Value),unchecked((int)(result.Value>>32))));
+                    Scope root=scope.Parent;while(root!=null&&root.Session==scope.Session&&root.Site.Rva!=0x3C2E0)root=root.Parent;
+                    if(root!=null&&root.Session==scope.Session)root.Accesses.Add(new AccessObservation(scope,result.Value));
                     int key=AccessKey(scope);bool changed;
                     lock(attackGate) {changed=!accessResults.TryGetValue(key,out long old)||old!=result.Value;accessResults[key]=result.Value;}
                     if(changed&&!scope.Detailed)Entry(scope,false);
@@ -378,14 +430,16 @@ namespace EnemyBridgePathTest
             finally {current=scope.Parent;if(current!=null&&current.Session==scope.Session) {current.Commands+=scope.Commands;current.CandidateBuilds+=scope.CandidateBuilds;}scope.Parent=null;scope.Next=free;free=scope;lock(counterGate) {exited++;active--;}}
         }
         internal long NewOperation() => Interlocked.Increment(ref sequence);
-        internal void BindRoute(int unit,uint global,int player,int tribe,long operation,long parentEvent,bool changed)
+        internal bool BindRoute(int unit,uint global,int player,int tribe,long operation,long parentEvent,bool changed)
         {
             Scope consumer=CurrentScope,root=consumer;
             while(root!=null&&root.Site.Rva!=0x3C2E0)root=root.Parent;
-            if(root==null&&(!Routes.IsTracked(unit)||!changed))return;
+            if(root==null&&(!Routes.IsTracked(unit)||!changed))return false;
             int attacker=root!=null&&root.PlanningPlayer>=1&&root.PlanningPlayer<=8?root.PlanningPlayer:player;
             long plan=attacker>=1&&attacker<=8?lastPlayerPlan[attacker]:0;
-            if(changed||FreshDecisionContext||!Routes.IsTracked(unit))Routes.Bind(unit,global,attacker,tribe,operation,parentEvent,consumer?.Id??0,root?.Id??0,plan,root==null?-1:root.PrePlan[1],player);
+            if(changed||FreshDecisionContext||!Routes.IsTracked(unit))
+                return Routes.Bind(unit,global,attacker,tribe,operation,parentEvent,consumer?.Id??0,root?.Id??0,plan,root==null?-1:root.PrePlan[1],player,root==null?0:DecisionFor(attacker,root.PrePlan));
+            return false;
         }
         private BridgeRouteTrace.Bridge[] GetRouteGeometry()
         {
@@ -418,15 +472,22 @@ namespace EnemyBridgePathTest
                 routeGeometry=result.ToArray();routeGeometryBuild=buildingIndex.Builds;return routeGeometry;
             }
         }
-        private void RouteEvidence(int id,uint global,int player,long plan,long root,long command,bool moved)
+        private void RouteEvidence(int id,uint global,int player,long plan,long root,long command,long decision,bool moved)
         {
             if(player<1||player>8)return;
+            Scope activeRoot=CurrentScope;while(activeRoot!=null&&activeRoot.Site.Rva!=0x3C2E0)activeRoot=activeRoot.Parent;
+            if(!moved&&root!=0&&activeRoot!=null&&activeRoot.Id==root)
+            {
+                if(!CurrentScope.Detailed)Entry(CurrentScope,false);
+                PromoteCommandChain?.Invoke(command);
+            }
             lock(captureGate)
             {
                 if(!bridgeProgress.TryGetValue(id,out BridgeProgress bridge)||bridge.Global!=global)return;
                 long[] values=moved?bridge.ExecutedRoutePlans:bridge.StoredRoutePlans;
-                bool changed=values[player]!=plan;values[player]=plan;
-                if(changed)Emit("route-comparison","building="+id+"/g"+global+",player="+player+",candidatePlan="+plan+",planningRoot="+root+",commandOp="+command+",stage="+(moved?"observed-deck-movement":"stored-deck-route")+",topologySettled="+!bridge.Pending+",candidateLink=chronological-unless-reservation-proven");
+                var roots=moved?bridge.ExecutedRouteRoots:bridge.StoredRouteRoots;var states=moved?bridge.ExecutedRouteDecisions:bridge.StoredRouteDecisions;
+                bool changed=values[player]!=plan||roots[player]!=root||states[player]!=decision;values[player]=plan;roots[player]=root;states[player]=decision;
+                if(changed)Emit("route-comparison","building="+id+"/g"+global+",player="+player+",candidatePlan="+plan+",planningRoot="+root+",commandOp="+command+",decisionState="+decision+",decisionLink="+(decision==0?"unresolved":"retained-completed-caller-state")+",stage="+(moved?"observed-deck-movement":"stored-deck-route")+",topologySettled="+!bridge.Pending+",candidateLink=chronological-unless-reservation-proven");
             }
         }
         private void CriticalObservation(string kind,string detail)
@@ -546,7 +607,10 @@ namespace EnemyBridgePathTest
         internal void Region(int player,int from,int to,int mode,int nativeResult,int effective)
         {
             Scope context=CurrentScope;
-            if(context!=null) context.Regions++;
+            if(context!=null) {context.Regions++;
+                if(context.AccessValid&&player==context.Args[0]&&from==context.AccessInput[5]&&to==context.AccessInput[4])
+                {context.AccessRegionObserved=true;context.AccessNative=nativeResult;context.AccessEffective=effective;}}
+
             if(Volatile.Read(ref session)==0) return;
             var key=new RegionKey(player,from,to,mode,nativeResult,effective);
             int regionId;
@@ -563,7 +627,7 @@ namespace EnemyBridgePathTest
         }
         internal void FlushRegions()
         {
-            FlushTableReferences();
+            Routes.Flush();FlushTableReferences();
             lock(regionGate)
             {
                 var rows=new StringBuilder();int rowCount=0;

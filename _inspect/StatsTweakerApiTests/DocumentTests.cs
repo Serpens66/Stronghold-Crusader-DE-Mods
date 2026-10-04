@@ -69,6 +69,11 @@ internal static class DocumentTests
         values["m0/Archer/Knight"] = 99L;
         Check(documents.Validate(values).Length == 0, "valid mixed values rejected");
         var rendered = documents.Render(files, values);
+        var standardValues = documents.Options.ToDictionary(x => x.Key, x => x.DefaultValue, StringComparer.Ordinal);
+        var standardFiles = documents.Render(files, standardValues);
+        var standardReloaded = documents.Read(standardFiles);
+        Check(standardValues.All(x => Equals(x.Value, standardReloaded[x.Key])), "full defaults snapshot changed a value");
+        Check(Equals(standardReloaded["multipliers/Debug/DebugLogging"], false), "defaults omitted local CFG setting");
         var roundtrip = documents.Read(rendered);
         Check(values.All(x => Equals(x.Value, roundtrip[x.Key])), "roundtrip changed values");
         Check(Encoding.UTF8.GetString(rendered["units.toml"]).Contains("-1 = unlimited"), "MaxCount migration marker lost");

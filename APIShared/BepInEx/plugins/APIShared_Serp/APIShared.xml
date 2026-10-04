@@ -2053,6 +2053,9 @@
         <member name="M:Shared.PresetLobbyModSettingsViewModel.System_ApplyModSettingsSearchTarget(System.String,System.String)">
             <summary>Safe reflection bridge used by the optional global search host.</summary>
         </member>
+        <member name="M:Shared.PresetLobbyModSettingsViewModel.ApplyConfirmedPresetSelection(Shared.PublishedModSettingsPreset)">
+            <summary>Applies an explicitly confirmed selection. Overrides may add deferred application.</summary>
+        </member>
         <member name="M:Shared.PresetLobbyModSettingsViewModel.SetModDefaultValue``1(System.String,``0)">
             <summary>
             Replaces one captured code-default value without changing the current working settings.

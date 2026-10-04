@@ -14,10 +14,22 @@ namespace SerpsModsHost
         private readonly StatsTweakerConfigurationProvider provider;
         private string filter = "", group = "", status = "", presetFile = "";
         private int page;
+        private bool confirmDefaults;
+        private string pendingRevision, pendingLabel;
         private PresetSaveSettingViewModel[] filtered = Array.Empty<PresetSaveSettingViewModel>();
         protected override IDynamicPresetSettingsProvider DynamicSettingsProvider => provider;
         protected override string ResolveSettingsUiText(string key, string fallback)
         {
+            switch (key)
+            {
+                case "Common.PresetLoad": return T("SelectPreset");
+                case "Common.PresetModeDefault": return T("ModeDefault");
+                case "Common.PresetModePlayer": return T("ModeOwn");
+                case "Common.PresetModeFixed": return T("ModeSaved");
+                case "Common.PresetSaveBulkModeHelp": return T("ModesHelp");
+                case "Common.PresetLoadSelectionHelp": return T("SelectionHelp");
+                case "Common.PresetLoadConfirm": return T("Stage");
+            }
             string text = SerpLocalization.Get(key);
             return string.IsNullOrEmpty(text) || text == key ? fallback : text;
         }
@@ -26,13 +38,27 @@ namespace SerpsModsHost
         {
             this.provider = provider;
             ReadFilesCommand = new RelayCommand(() => Run(ImportOwnFiles));
-            StageCommand = new RelayCommand(() => Run(() =>
+            SaveOwnCommand = new RelayCommand(() => Run(() =>
             {
-                if (!CanChangePreset || !CanEditHostSettings) throw new InvalidOperationException(HostReadOnlyNoticeText);
-                provider.Stage();
-                status = T("Staged");
+                ImportOwnFiles();
+                System_OpenPresetSaveCommand.Execute(null);
+                System_PresetSaveBulkModeIndex = (int)PresetSaveBulkMode.Fixed;
             }));
-            DiscardCommand = new RelayCommand(() => Run(() => { provider.Discard(); status = T("Discarded"); }));
+            OpenDefaultsCommand = new RelayCommand(() => Run(() => { RequireEditable(); confirmDefaults = true; }));
+            CancelDefaultsCommand = new RelayCommand(() => { confirmDefaults = false; RaiseStatus(); });
+            ConfirmDefaultsCommand = new RelayCommand(() => Run(() =>
+            {
+                RequireEditable();
+                if (!confirmDefaults) return;
+                provider.ReadOwn(); // Refresh the optimistic concurrency revision from our files.
+                provider.StageValues(provider.GetSettings().ToDictionary(x => x.Key, x => x.DefaultValue, StringComparer.Ordinal));
+                RememberPending(T("DefaultsPending"));
+                confirmDefaults = false;
+            }));
+            DiscardCommand = new RelayCommand(() => Run(() =>
+            {
+                provider.Discard(); pendingRevision = pendingLabel = null; status = T("Discarded");
+            }));
             PreviousPageCommand = new RelayCommand(() => { if (page > 0) page--; RefreshRows(false); });
             NextPageCommand = new RelayCommand(() => { if ((page + 1) * PageSize < filtered.Length) page++; RefreshRows(false); });
             ImportPresetCommand = new RelayCommand(() => Run(() =>
@@ -59,6 +85,36 @@ namespace SerpsModsHost
                 if (args.PropertyName == nameof(System_PresetSaveSettings)) RefreshRows(true);
             };
         }
+        internal void InitializeSelection() => System_OpenPresetLoadCommand.Execute(null);
+        private void RequireEditable()
+        {
+            if (!CanChangePreset || !CanEditHostSettings) throw new InvalidOperationException(HostReadOnlyNoticeText);
+        }
+        protected override void ApplyConfirmedPresetSelection(PublishedModSettingsPreset preset)
+        {
+            RequireEditable();
+            ImportOwnFiles();
+            status = "";
+            base.ApplyConfirmedPresetSelection(preset);
+            provider.Stage();
+            RememberPending(string.Format(T("PresetPending"), preset.Name));
+            confirmDefaults = false;
+            RaiseStatus();
+        }
+        private void RememberPending(string label)
+        {
+            pendingRevision = PendingRevision;
+            pendingLabel = label;
+            status = T("Staged");
+        }
+        private string PendingRevision
+        {
+            get
+            {
+                object snapshot = provider.Call("GetPendingConfiguration");
+                return snapshot == null ? null : StatsTweakerConfigurationProvider.Read<string>(snapshot, "Revision");
+            }
+        }
         internal void ImportOwnFiles()
         {
             if (!CanChangePreset) throw new InvalidOperationException(HostReadOnlyNoticeText);
@@ -79,8 +135,12 @@ namespace SerpsModsHost
         private void RaiseStatus()
         {
             OnPropertyChanged(nameof(StatusText));
+            OnPropertyChanged(nameof(TechnicalStatus));
             OnPropertyChanged(nameof(LoadedText));
             OnPropertyChanged(nameof(PendingText));
+            OnPropertyChanged(nameof(PendingSummary));
+            OnPropertyChanged(nameof(HasPending));
+            OnPropertyChanged(nameof(DefaultsConfirmationVisibility));
         }
         private void RefreshRows(bool reset)
         {
@@ -101,7 +161,31 @@ namespace SerpsModsHost
         public string Group { get => group; set { if (group == (value ?? "")) return; group = value ?? ""; RefreshRows(true); } }
         public string PageText => (page + 1) + " / " + Math.Max(1, (filtered.Length + PageSize - 1) / PageSize) + " · " + filtered.Length;
         public string PresetFile { get => presetFile; set { presetFile = value ?? ""; OnPropertyChanged(nameof(PresetFile)); } }
-        public string StatusText => status + "\n" + StatsTweakerConfigurationProvider.Read<string>(provider.Call("GetCapabilities"), "Status");
+        public string StatusText => status;
+        public string TechnicalStatus => StatsTweakerConfigurationProvider.Read<string>(provider.Call("GetCapabilities"), "Status");
+        public bool HasPending { get { try { return PendingRevision != null; } catch { return true; } } }
+        public string PendingSummary
+        {
+            get
+            {
+                try
+                {
+                    string revision = PendingRevision;
+                    return revision == null ? T("NonePending") : revision == pendingRevision && pendingLabel != null ? pendingLabel : T("UnknownPending");
+                }
+                catch (Exception ex) { return T("PendingError") + ": " + ex.GetBaseException().Message; }
+            }
+        }
+        public Noesis.Visibility DefaultsConfirmationVisibility => confirmDefaults ? Noesis.Visibility.Visible : Noesis.Visibility.Collapsed;
+        public string SaveOwnText => T("SaveOwn");
+        public string DefaultsText => T("Defaults");
+        public string DefaultsHelp => T("DefaultsHelp");
+        public string DefaultsConfirmText => T("DefaultsConfirm");
+        public string ShareText => T("Share");
+        public string DetailsText => T("Details");
+        public string AdvancedText => T("Advanced");
+        public string SelectionHelp => T("SelectionHelp");
+        public string ModesHelp => T("ModesHelp");
         public string LoadedText => T("Loaded") + ": " + provider.Describe("GetLoadedConfiguration");
         public string PendingText
         {
@@ -122,7 +206,10 @@ namespace SerpsModsHost
         public string ImportText => T("Import");
         public string ExportText => T("Export");
         public RelayCommand ReadFilesCommand { get; }
-        public RelayCommand StageCommand { get; }
+        public RelayCommand SaveOwnCommand { get; }
+        public RelayCommand OpenDefaultsCommand { get; }
+        public RelayCommand CancelDefaultsCommand { get; }
+        public RelayCommand ConfirmDefaultsCommand { get; }
         public RelayCommand DiscardCommand { get; }
         public RelayCommand PreviousPageCommand { get; }
         public RelayCommand NextPageCommand { get; }
