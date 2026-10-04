@@ -85,6 +85,7 @@ namespace EnemyBridgePathTest
         private void CompleteDecision(Scope root,Arguments after,bool completed)
         {
             int player=root.PlanningPlayer;if(player<1||player>8)return;
+            long publishedId;
             lock(decisionGate)
             {
                 var old=decisions[player];
@@ -99,6 +100,12 @@ namespace EnemyBridgePathTest
                 var value=new DecisionState {Id=++decisionId,Session=root.Session,Root=root.Id,Plan=after,AccessSignature=signature,Accesses=root.Accesses.ToArray()};decisions[player]=value;
                 var rows=new StringBuilder();foreach(var access in root.Accesses)rows.Append(access).Append(';');
                 Emit("decision-state","definition="+value.Id+",player="+player+",planningRoot="+root.Id+",entryPlan=["+root.PrePlan+"],consumedPlan=["+after+"],planColumns=lord/phase/targetPlayer/targetTile/x/y,accessColumns=op/mode/attackerActive/targetActive/attackerKeepTile/targetKeepTile/attackerKeepPcl/targetKeepPcl/return/regionObserved/native/effective/calls,accesses=["+rows+"],source=completed-caller-state,selectedAccessBranch=not-inferred");
+                publishedId=value.Id;
+            }
+            lock(captureGate)foreach(var bridge in bridgeProgress)
+            {
+                bridge.Value.Decisions[player]=publishedId;bridge.Value.DecisionPhysical[player]=bridge.Value.PhysicalDefinition;bridge.Value.AccessObserved[player]=root.Accesses.Count!=0;
+                Emit("decision-comparison","building="+bridge.Key+"/g"+bridge.Value.Global+",player="+player+",decisionState="+publishedId+",planningRoot="+root.Id+",physicalDefinition="+bridge.Value.PhysicalDefinition+",topologySettled="+!bridge.Value.Pending+",entryPhase="+root.PrePlan[1]+",consumedPhase="+after[1]+",targetPlayer="+after[2]+",targetTile="+after[3]+",accessObserved="+(root.Accesses.Count!=0)+",followingRoute=not-yet-observed,comparison=same-save-reload-not-proven");
             }
         }
         private struct Record
@@ -186,6 +193,8 @@ namespace EnemyBridgePathTest
             internal bool Pending;
             internal readonly long[] Plans=new long[9], PlanDefinitions=new long[9];
             internal readonly long[] StoredRoutePlans=new long[9],ExecutedRoutePlans=new long[9],StoredRouteRoots=new long[9],ExecutedRouteRoots=new long[9],StoredRouteDecisions=new long[9],ExecutedRouteDecisions=new long[9];
+            internal readonly long[] Decisions=new long[9],DecisionPhysical=new long[9],StoredRoutePhysical=new long[9];
+            internal readonly bool[] AccessObserved=new bool[9];
             internal readonly long[] SelectedPlans=new long[9],AssignedPlans=new long[9],CommandPlans=new long[9];
             internal readonly HashSet<int> Tiles=new HashSet<int>();
         }
@@ -231,7 +240,7 @@ namespace EnemyBridgePathTest
         [ThreadStatic] private static Scope free;
         internal BridgeDecisionTrace(ManualLogSource log,Func<int,AttackStamp> testStamp=null,Func<long> testCapture=null,Func<int,int> testRead=null,Func<int,IntPtr> testUnit=null)
         {this.log=log;this.testStamp=testStamp;this.testCapture=testCapture;this.testRead=testRead;this.testUnit=testUnit;
-            Routes=new BridgeRouteTrace((kind,detail)=>CriticalObservation(kind,detail),GetRouteGeometry,LiveState,evidence:RouteEvidence);}
+            Routes=new BridgeRouteTrace((kind,detail)=>CriticalObservation(kind,detail),GetRouteGeometry,LiveState,evidence:RouteEvidence,unboundChange:UnboundRouteChange);}
         internal void SetNative(IntPtr value,int length) {native=value;nativeLength=length;}
         internal void MarkInstalled(int count) {installed=count;}
         internal bool InsideNative => current!=null;
@@ -256,7 +265,7 @@ namespace EnemyBridgePathTest
         }
         internal void StartSession(long value)
         {
-            FlushTableReferences();
+            Routes.Flush();FlushTableReferences();
             lock(attackGate) attacks.Clear();
             lock(regionGate) {regionCounts.Clear();regionIds.Clear();backgroundCounts.Clear();}
             lock(attackGate) {plans.Clear();commands.Clear();accessInputs.Clear();accessResults.Clear();}
@@ -271,6 +280,13 @@ namespace EnemyBridgePathTest
         internal void End()
         {
             Routes.End();FlushRegions();
+            var currentDecisions=new long[9];lock(decisionGate)for(int player=1;player<=8;player++)currentDecisions[player]=decisions[player]?.Id??0;
+            lock(captureGate)foreach(var pair in bridgeProgress)for(int player=1;player<=8;player++)
+            {
+                var bridge=pair.Value;if(bridge.Decisions[player]==0&&bridge.StoredRouteRoots[player]==0)continue;
+                bool matching=bridge.AccessObserved[player]&&bridge.Decisions[player]!=0&&currentDecisions[player]==bridge.Decisions[player]&&bridge.Decisions[player]==bridge.StoredRouteDecisions[player]&&bridge.DecisionPhysical[player]==bridge.PhysicalDefinition&&bridge.StoredRoutePhysical[player]==bridge.PhysicalDefinition&&!bridge.Pending;
+                Emit("comparison-coverage","building="+pair.Key+"/g"+bridge.Global+",player="+player+",physicalDefinition="+bridge.PhysicalDefinition+",topologySettled="+!bridge.Pending+",decisionState="+bridge.Decisions[player]+",accessObserved="+bridge.AccessObserved[player]+",storedRouteDecision="+bridge.StoredRouteDecisions[player]+",storedRoutePhysical="+bridge.StoredRoutePhysical[player]+",planningRoot="+bridge.StoredRouteRoots[player]+",samePhysicalDecisionAndRoute="+matching+",missing="+(matching?"controlled-same-save-counterrun":"fresh-matching-access-and-route-or-settled-topology")+",execution=separate-evidence,comparison=same-save-reload-not-proven");
+            }
             // One bounded synchronous record survives an immediate process exit.
             // Pending observations continue through the permanent render publisher.
             Safe(() => WriteRecord(StampRecord(new Record {Kind="session-end",Detail=Summary()+",captureComplete="+(active==0&&failures==0&&incompleteCalls==0&&overflow==0&&backgroundOverflow==0)+",deliveryComplete="+(queued==0)+",criticalPending="+(queued-backgroundQueued)+",backgroundPending="+backgroundQueued})));
@@ -472,6 +488,12 @@ namespace EnemyBridgePathTest
                 routeGeometry=result.ToArray();routeGeometryBuild=buildingIndex.Builds;return routeGeometry;
             }
         }
+        private void UnboundRouteChange(long operation,int unit,long path,long priorCommand)
+        {
+            Scope root=CurrentScope;while(root!=null&&root.Site.Rva!=0x3C2E0)root=root.Parent;
+            if(root!=null) {if(!CurrentScope.Detailed)Entry(CurrentScope,false);PromoteCommandChain?.Invoke(operation);}
+            Emit("route-unbound-update","commandOp="+operation+",unitId="+unit+",pathDefinition="+path+",priorBoundCommand="+priorCommand+",planningRoot="+(root?.Id??0)+",decisionState="+(root==null?0:DecisionFor(root.PlanningPlayer,root.PrePlan))+",association=observed-post-state,preBytes=not-captured-for-this-command,causality=unresolved");
+        }
         private void RouteEvidence(int id,uint global,int player,long plan,long root,long command,long decision,bool moved)
         {
             if(player<1||player>8)return;
@@ -487,14 +509,15 @@ namespace EnemyBridgePathTest
                 long[] values=moved?bridge.ExecutedRoutePlans:bridge.StoredRoutePlans;
                 var roots=moved?bridge.ExecutedRouteRoots:bridge.StoredRouteRoots;var states=moved?bridge.ExecutedRouteDecisions:bridge.StoredRouteDecisions;
                 bool changed=values[player]!=plan||roots[player]!=root||states[player]!=decision;values[player]=plan;roots[player]=root;states[player]=decision;
-                if(changed)Emit("route-comparison","building="+id+"/g"+global+",player="+player+",candidatePlan="+plan+",planningRoot="+root+",commandOp="+command+",decisionState="+decision+",decisionLink="+(decision==0?"unresolved":"retained-completed-caller-state")+",stage="+(moved?"observed-deck-movement":"stored-deck-route")+",topologySettled="+!bridge.Pending+",candidateLink=chronological-unless-reservation-proven");
+                if(!moved)bridge.StoredRoutePhysical[player]=bridge.PhysicalDefinition;
+                if(changed)Emit("route-comparison","building="+id+"/g"+global+",player="+player+",candidatePlan="+plan+",planningRoot="+root+",commandOp="+command+",decisionState="+decision+",decisionLink="+(decision==0?"unresolved":"retained-completed-caller-state")+",stage="+(moved?"observed-deck-movement":"stored-deck-route")+",physicalDefinition="+bridge.PhysicalDefinition+",topologySettled="+!bridge.Pending+",candidateLink=chronological-unless-reservation-proven");
             }
         }
         private void CriticalObservation(string kind,string detail)
         {
             if(Volatile.Read(ref session)==0)return;
             if(kind=="route-capture-error")Interlocked.Increment(ref failures);
-            Emit(kind,detail);
+            Enqueue(new Record {Kind=kind,Detail=detail},kind!="route-background-repeat-batch");
         }
         private long TextDefinition(string category,string text)
         {

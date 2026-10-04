@@ -15,6 +15,32 @@ namespace Shared
         public PresetSettingScope Scope { get; set; }
         public string Group { get; set; }
         public string DisplayName { get; set; }
+        public bool RequiresRestart { get; set; }
+    }
+
+    [AttributeUsage(AttributeTargets.Property, Inherited = true)]
+    public sealed class RequiresRestartAttribute : Attribute { }
+
+    /// <summary>Applies a complete configuration, separately from its editable working copy.</summary>
+    public interface IModSettingsApplicationBackend
+    {
+        Dictionary<string, object> ReadDesiredValues();
+        void ReplaceDesiredValues(Dictionary<string, object> values);
+        Dictionary<string, object> ReadActiveValues();
+        Dictionary<string, object> ReadOwnValues();
+        Dictionary<string, object> ReadPendingValues();
+        string ActiveContextId { get; }
+        void StageValues(Dictionary<string, object> values, string contextId);
+        void ApplyValues(Dictionary<string, object> values, string contextId);
+        void ReturnToOwnConfiguration();
+        void DiscardPendingConfiguration();
+    }
+
+    /// <summary>Optional admission check owned by a mod's existing authenticated host transport.</summary>
+    public interface INetworkModSettingsApplicationBackend
+    {
+        bool IsNetworkConfigurationClient { get; }
+        bool PrepareNetworkConfiguration();
     }
 
     /// <summary>Whole-snapshot operations on a local working copy; never a second network transport.</summary>
@@ -49,6 +75,7 @@ namespace Shared
         internal bool CanRead => reflected?.CanRead ?? true;
         internal bool CanWrite => reflected?.CanWrite ?? true;
         internal bool IsDynamic => dynamic != null;
+        internal bool RequiresRestart => dynamic?.RequiresRestart ?? reflected.IsDefined(typeof(RequiresRestartAttribute), true);
         internal object DefaultValue => dynamic?.DefaultValue;
         internal object GetValue(object owner) => reflected != null ? reflected.GetValue(owner) : provider.ReadValue(Name);
         internal void SetValue(object owner, object value)

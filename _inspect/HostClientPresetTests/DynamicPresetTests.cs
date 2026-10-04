@@ -10,6 +10,7 @@ internal static class DynamicPresetTests
 {
     internal static void Run()
     {
+        RestartSettingsTests.Run();
         GameNetworkAPI.LocalHost = true;
         var vm = new Model();
         string root = Path.Combine(Path.GetTempPath(), "DynamicPresetTests", Guid.NewGuid().ToString("N"));

@@ -13,6 +13,7 @@ internal static class Program
     {
         root = Path.Combine(Path.GetTempPath(), "StatsTweakerApiTests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
+        ContextApiTests.Run(root);
         DocumentTests.Run(root);
         DocumentTests.RunInstalledFiles(root);
         Run("replacement failure preserves existing pending configuration", () =>

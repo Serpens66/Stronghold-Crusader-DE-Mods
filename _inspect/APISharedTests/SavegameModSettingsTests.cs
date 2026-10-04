@@ -197,15 +197,19 @@ namespace APISharedTests
                         ["Three"] = new byte[1024 * 1024],
                         ["Four"] = new byte[1024 * 1024],
                         ["Five"] = new byte[1024 * 1024],
+                        ["Six"] = new byte[1024 * 1024],
+                        ["Seven"] = new byte[1024 * 1024],
+                        ["Eight"] = new byte[1024 * 1024],
+                        ["Nine"] = new byte[1024 * 1024],
                     },
                 },
                 CreatorRules = new Dictionary<string, Dictionary<string, TrailCreatorRule>>(StringComparer.Ordinal),
             };
             byte[] reduced = SavegameModSettings.SerializeWithinLimit(large);
-            check(reduced.Length <= 4 * 1024 * 1024 &&
+            check(reduced.Length <= 8 * 1024 * 1024 &&
                 SavegameModSettings.TryDeserialize(reduced, out restored) &&
                 restored.Kind == (int)GameModeKind.Campaign && restored.LockedByConflict &&
-                restored.Mods["large.mod"].Count < 5,
+                restored.Mods["large.mod"].Count < 9,
                 "oversized mod properties displaced required mission metadata");
 
             GameModeKind kind = GameModeKind.CustomGame;

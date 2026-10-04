@@ -167,3 +167,4 @@ WorkshopUpload.IncludeAdditionalFiles=Upload additional files for mod support
 WorkshopUpload.IncludeAdditionalFilesHelp=Uploads mod-specific files alongside Vanilla content. Disable to upload only the files the unmodded game normally includes.
 Common.SettingsSourceHelp=Resets this mod's settings to the selected source. Personal presets are not changed. In multiplayer, only the host can reset host settings.
 Common.PresetLoadFailedTitle=Preset load failed
+ExtendedData.SettingsRestartRequired=Settings prepared. Restart the game and reopen the same mission to apply them.

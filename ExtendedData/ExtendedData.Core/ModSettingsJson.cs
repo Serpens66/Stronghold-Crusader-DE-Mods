@@ -10,10 +10,21 @@ namespace ExtendedData.Core
 {
     public static class ModSettingsJson
     {
-        public static ModSettingsDefinition Read(string path) => ParseObject(File.ReadAllText(path, Encoding.UTF8));
+        public const int MaximumBytes = 8 * 1024 * 1024;
+        public const int MaximumSettingsPerMod = 16384;
+        public static ModSettingsDefinition Read(string path)
+        {
+            using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
+            {
+                if (stream.Length > MaximumBytes) throw new InvalidDataException("Mod settings exceed 8 MiB.");
+                using (var reader = new StreamReader(stream, Encoding.UTF8)) return ParseObject(reader.ReadToEnd());
+            }
+        }
 
         public static ModSettingsDefinition ParseObject(string json)
         {
+            if (json == null || Encoding.UTF8.GetByteCount(json) > MaximumBytes)
+                throw new InvalidDataException("Mod settings exceed 8 MiB or are missing.");
             object rootObject = Shared.DependencyFreeJson.Parse(json);
             if (!(rootObject is Dictionary<string, object> root))
                 throw new InvalidDataException("Trail mod-settings JSON root must be an object.");
@@ -74,6 +85,8 @@ namespace ExtendedData.Core
                 if (string.IsNullOrWhiteSpace(id))
                     throw new InvalidDataException((path ?? "modSettings") + ".mods contains an empty mod id.");
                 ModSettingsEntry entry = mod.Value ?? new ModSettingsEntry();
+                if ((entry.PlayerSettings?.Length ?? 0) + (entry.Overrides?.Count ?? 0) > MaximumSettingsPerMod)
+                    throw new InvalidDataException("Too many mod settings: " + id);
                 if ((entry.PlayerSettings ?? Array.Empty<string>())
                     .Any(name => string.IsNullOrWhiteSpace(name) ||
                         !string.Equals(name, name.Trim(), StringComparison.Ordinal)))
@@ -133,6 +146,12 @@ namespace ExtendedData.Core
             return removed;
         }
 
+        private static string CheckSerializedSize(string json)
+        {
+            if (Encoding.UTF8.GetByteCount(json) > MaximumBytes) throw new InvalidDataException("Mod settings exceed 8 MiB.");
+            return json;
+        }
+
         public static string Serialize(ModSettingsDefinition document)
         {
             document = NormalizeAndValidate(document, "Trail mod-settings");
@@ -166,11 +185,11 @@ namespace ExtendedData.Core
                 }
             }
 
-            return Shared.DependencyFreeJson.Serialize(new OrderedDictionary(StringComparer.Ordinal)
+            return CheckSerializedSize(Shared.DependencyFreeJson.Serialize(new OrderedDictionary(StringComparer.Ordinal)
             {
                 { "schemaVersion", 3 },
                 { "mods", mods }
-            });
+            }));
         }
 
         public static void WriteAtomic(string path, ModSettingsDefinition document)

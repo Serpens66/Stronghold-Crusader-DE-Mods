@@ -285,13 +285,13 @@ namespace EnemyBridgePathTest
             Interlocked.Increment(ref postCount);Trace.CountCommand(false);
             if (frame == null || frame.Kind != kind || frame.Id != id)
             { Interlocked.Increment(ref errors); Record(frame, "diagnostic-error", "pre-post-mismatch", "post=" + kind + "/" + id); return; }
-            if(kind=="unit")Trace.Routes.Observe(id,true,true,result,frame.RouteBound?frame.TraceId:0,frame.RouteBound);
+            if(kind=="unit")Trace.Routes.Observe(id,true,true,result,frame.TraceId,frame.RouteBound);
             frames.RemoveAt(frames.Count - 1);
             Trace.CountEvent(BridgeDecisionTrace.CommandCountData(kind=="target"?1:kind=="move"?2:3,frame.Player,frame.Command,result,false,frame.Global!=0&&frame.Player>=1&&frame.Player<=8));
-            if(frame.Detailed) Trace.Command("command-post","op="+frame.TraceId+",parentEvent="+frame.ParentTrace+",commandKind="+kind+
-                ",id="+id+",return="+result+",retainedPre="+DescribePreArgs(frame.PreEvent)+",postInput=original,regions="+frame.Regions,frame.Player);
             string stage = kind == "move" && frame.SourcePcl > 0 && frame.SourcePcl == frame.TargetPcl && frame.Regions == 0
                 ? "same-pcl-with-no-region-call" : frame.Regions > 0 ? "region-query-executed" : "region-not-observed";
+            if(frame.Detailed) Trace.Command("command-post","op="+frame.TraceId+",parentEvent="+frame.ParentTrace+",commandKind="+kind+
+                ",id="+id+",return="+result+",retainedPre="+DescribePreArgs(frame.PreEvent)+",postInput=original,regions="+frame.Regions+",stage="+stage,frame.Player);
             // No region call for same PCL is distinct from an observed positive E2610.
             if(frame.Detailed) Record(frame, kind + "-post", "return=" + result + ",stage=" + stage,
                 frame.Identity + ",regions=" + frame.Regions + ",searches=" + frame.Searches + ",failed=" + frame.Failed +

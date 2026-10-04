@@ -1,0 +1,6 @@
+ExtendedData runtime JSON/lifecycle preflight succeeded.
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+PASS (mod SerpsModsHost plus APIShared): XAML, shared-only registration, personal-setting declarations, automatic two-axis overflow scrolling, all interactive tooltips, shared styles, locale parity, nonempty translations, and CRLF.
+PASS: JSON, lifecycle, unchanged legacy Tweaker Update, CRLF, injected UI tooltips and XAML patch roots.
+New direct Assembly-CSharp members: none. Publicized visibility check: empty new-member list.
+Lifetime: static configuration API; static adapter roots Noesis commands; registration via persistent Extender registry and EnqueueStatic.

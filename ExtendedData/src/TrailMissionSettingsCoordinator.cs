@@ -230,7 +230,7 @@ namespace ExtendedData
                         modId,
                         displayName,
                         sharedCompatible
-                            ? TrailModCompatibilityContract.GetTrailProperties(entry.ViewModel.GetType())
+                            ? ModSettingsApplication.GetHostProperties(sharedParticipants[modId])
                             : compatibility?.Properties,
                         incompatibility));
                 }
@@ -488,6 +488,7 @@ namespace ExtendedData
                 try
                 {
                     document = ModSettingsJson.NormalizeAndValidate(document, source + ".modSettings");
+                    ModSettingsApplication.EnterContext(BuildRestartContext(source, document));
                     ApplyDocument(document, editable, presetLabel);
                     activeCreatorDocument = CloneDocument(document);
                     DebugLogHelper.LogInfo(log, $"Loaded {source} mod settings; editable={editable}.");
@@ -495,6 +496,7 @@ namespace ExtendedData
                 }
                 catch (Exception exception)
                 {
+                    if (ModSettingsApplication.HasApplicationEndpoints) throw;
                     DebugLogHelper.LogError(log, $"Could not load {source} mod settings; sidecar mod settings are ignored: {exception}");
                     ApplyDocument(ModSettingsDefinition.CreateModDefaults(), editable, presetLabel);
                     activeCreatorDocument = ModSettingsDefinition.CreateModDefaults();
@@ -509,6 +511,7 @@ namespace ExtendedData
                 string presetLabel)
             {
                 document = ValidateStrict(document, source);
+                if (string.IsNullOrEmpty(ModSettingsApplication.ContextId)) ModSettingsApplication.EnterContext(BuildRestartContext(source, document));
                 ApplyDocument(document, editable, presetLabel);
                 activeCreatorDocument = CloneDocument(document);
                 DebugLogHelper.LogInfo(log, $"Loaded {source} mod settings; editable={editable}.");
@@ -570,6 +573,7 @@ namespace ExtendedData
             internal void SetMapSourceDocument(ModSettingsDefinition document, string contextId = null)
             {
                 mapSourceDocument = CloneDocument(document);
+                if (document != null) ModSettingsApplication.EnterContext(BuildRestartContext("map:" + (contextId ?? ""), document, File.Exists(contextId) ? contextId : null));
                 if (trailSourceDocument == null)
                     workingSourceContextId = document == null ? string.Empty : "map:" + (contextId ?? string.Empty);
                 SourcesChanged?.Invoke();
@@ -700,6 +704,7 @@ namespace ExtendedData
                 }
                 if (!trailContext)
                 {
+                    if (ModSettingsApplication.ContextId.Length != 0) ModSettingsApplication.ExitContext();
                     preserveContextForLaunch = false;
                     customTrailLaunchActive = false;
                     customTrailSetupRestartInfo = null;
@@ -719,6 +724,7 @@ namespace ExtendedData
                 }
 
                 ExitActiveParticipants();
+                ModSettingsApplication.ExitContext();
                 trailContext = false;
                 workingContextEditable = false;
                 preserveContextForLaunch = false;
@@ -782,7 +788,11 @@ namespace ExtendedData
             {
                 MissionPresetLaunchKind pending = missionPresetLifecycle.PendingLaunch;
                 if (pending == MissionPresetLaunchKind.None)
+                {
+                    if (notification?.Context?.IsSave == true && ModSettingsApplication.ContextId.StartsWith("save:", StringComparison.Ordinal))
+                        ModSettingsApplication.ConfirmStarted();
                     return true;
+                }
 
                 GameModeKind actual = notification == null || notification.Context == null
                     ? GameModeKind.Unknown
@@ -801,8 +811,37 @@ namespace ExtendedData
                     return false;
                 }
 
+                ModSettingsApplication.ConfirmStarted();
                 DebugLogHelper.LogInfo(log, "Confirmed active mission preset: " + pending + ".");
                 return true;
+            }
+
+            private static string BuildRestartContext(string identity, ModSettingsDefinition document, string contentPath = null)
+            {
+                using (var sha = System.Security.Cryptography.SHA256.Create())
+                {
+                    string contentFingerprint = "";
+                    if (contentPath != null)
+                        using (var content = File.OpenRead(contentPath))
+                            contentFingerprint = BitConverter.ToString(sha.ComputeHash(content));
+                    byte[] digest = sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(ModSettingsJson.Serialize(document) + contentFingerprint));
+                    return identity + "|" + BitConverter.ToString(digest).Replace("-", "");
+                }
+            }
+
+            internal bool TryPrepareRestartSettings()
+            {
+                try
+                {
+                    if (ModSettingsApplication.PrepareLaunch()) return true;
+                    ShowInformation(SerpLocalization.Get("ExtendedData.StartBlockedTitle"), SerpLocalization.Get("ExtendedData.SettingsRestartRequired"));
+                }
+                catch (Exception error)
+                {
+                    DebugLogHelper.LogError(log, "Configuration launch preparation failed: " + error);
+                    ShowInformation(SerpLocalization.Get("ExtendedData.StartBlockedTitle"), error.GetBaseException().Message);
+                }
+                return false;
             }
 
             internal void PrepareCoopMissionLaunch()
@@ -1961,6 +2000,7 @@ namespace ExtendedData
                     ShowInformation(SerpLocalization.Get("ExtendedData.StartBlockedTitle"), exception.Message);
                     return;
                 }
+                if (!TryPrepareRestartSettings()) return;
                 preserveContextForLaunch = false;
                 customTrailLaunchActive = true;
                 missionPresetLifecycle.Prepare(MissionPresetLaunchKind.CustomTrail);
@@ -2161,6 +2201,7 @@ namespace ExtendedData
                         return;
                     }
                 }
+                if (!TryPrepareRestartSettings()) return;
                 startSkirmishGameOriginal(self, customTrailRestartInfo);
                 customTrailSetupRestartInfo = null;
                 customTrailSetupHeader = null;
@@ -3264,6 +3305,7 @@ namespace ExtendedData
                 trailSourceDocument = exists ? CloneDocument(document) : null;
                 activeCreatorDocument = CloneDocument(document);
                 workingSourceContextId = "trail:" + IOPath.GetFullPath(sidecar);
+                ModSettingsApplication.EnterContext(BuildRestartContext(workingSourceContextId, document, trailPath));
                 SourcesChanged?.Invoke();
                 ApplyDocument(document, editable, useFixedDefaults: !exists && editable,
                     previewOnly: previewOnly, preserveCurrentValues: editable);
@@ -3324,6 +3366,9 @@ namespace ExtendedData
             {
                 ClearActiveSidecar();
                 Dictionary<string, IModSettingsPresetEndpoint> allParticipants = FindCompatibleViewModels();
+                foreach (string mentionedMod in document.Mods.Keys)
+                    if (!allParticipants.ContainsKey(mentionedMod))
+                        throw new InvalidDataException("Required Map/Trail settings provider is missing or incompatible: " + mentionedMod);
                 // Capture before leaving the old preset; exiting restores the personal preset.
                 Dictionary<string, Dictionary<string, byte[]>> currentSnapshots =
                     preserveCurrentValues ? CaptureCurrentSnapshots(allParticipants) : null;
@@ -3331,6 +3376,8 @@ namespace ExtendedData
                 var prepared = new List<Tuple<string, IModSettingsPresetEndpoint, Dictionary<string, byte[]>, bool>>(allParticipants.Count);
                 foreach (KeyValuePair<string, IModSettingsPresetEndpoint> participant in allParticipants)
                 {
+                    if (participant.Value is PresetLobbyModSettingsViewModel dynamicParticipant && dynamicParticipant.System_HasApplicationBackend)
+                        dynamicParticipant.System_RefreshOwnConfiguration();
                     Dictionary<string, PropertyInfo> properties = GetPersistedProperties(participant.Value);
                     string[] removedSettings = ModSettingsJson.RemoveUnknownSettings(
                         document,
@@ -3367,7 +3414,7 @@ namespace ExtendedData
                     {
                         // A playable Trail resolves player values from the restored personal
                         // preset. Authoring already captured the current editable values.
-                        foreach (string propertyName in preserveCurrentValues
+                        foreach (string propertyName in preserveCurrentValues && !(participant.Value is PresetLobbyModSettingsViewModel dynamicModel && dynamicModel.System_HasApplicationBackend)
                             ? Array.Empty<string>()
                             : entry.PlayerSettings)
                         {
@@ -3385,6 +3432,7 @@ namespace ExtendedData
                             snapshot[property.Name] = MessagePackSerializer.Serialize(property.PropertyType, converted);
                         }
                     }
+                    snapshot = ModSettingsApplication.ResumeSnapshot(participant.Key) ?? snapshot;
                     prepared.Add(Tuple.Create(participant.Key, participant.Value, snapshot, entry != null));
                 }
 
@@ -3398,6 +3446,7 @@ namespace ExtendedData
                         if (item.Item2 is IModSettingsMissionSourceEndpoint sourceEndpoint)
                             sourceEndpoint.System_SetExplicitMissionSettings(item.Item4);
                         item.Item2.System_EnterMissionPreset(item.Item3, presetLabel, editable);
+                        ModSettingsApplication.RestorePreparedSources(item.Item1);
                         activeParticipantIds.Add(item.Item1);
                     }
                     trailContext = true;
@@ -3468,12 +3517,16 @@ namespace ExtendedData
 
             private Dictionary<string, PropertyInfo> GetPersistedProperties(object viewModel)
             {
+                // Dynamic accessors capture their provider instance and must never share a type cache.
+                if (viewModel is PresetLobbyModSettingsViewModel dynamicModel && dynamicModel.System_HasDynamicSettings)
+                    return ModSettingsApplication.GetHostProperties(viewModel)
+                        .ToDictionary(property => property.Name, StringComparer.Ordinal);
                 Type type = viewModel.GetType();
                 if (persistedPropertiesByType.TryGetValue(type, out Dictionary<string, PropertyInfo> cached))
                     return cached;
                 // Trail sidecars define shared match rules only. Personal and transient
                 // properties remain owned by each participant and never enter .modtrail.json.
-                cached = TrailModCompatibilityContract.GetTrailProperties(type)
+                cached = ModSettingsApplication.GetHostProperties(viewModel)
                     .ToDictionary(property => property.Name, StringComparer.Ordinal);
                 persistedPropertiesByType[type] = cached;
                 return cached;

@@ -97,3 +97,5 @@ Tweaker.SelectionHelp=Selecting a preset changes nothing. Use after restart chec
 Tweaker.Share=Share presets
 Tweaker.UnknownPending=Configuration change pending for next game start
 Tweaker.SelectPreset=Select preset
+Common.RestartRequired=Settings prepared. Restart the game to use them.
+Common.RestartRequiredOption=Restart required

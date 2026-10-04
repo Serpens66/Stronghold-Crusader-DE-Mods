@@ -167,3 +167,4 @@ Common.PresetLoadFailedTitle=Preset load failed
 ExtendedData.CustomCoopTrailEndNotice=This custom Coop Trail ends after mission {Count}. There are no further missions.
 ExtendedData.CustomCoopMissionProgress={Current}/{Count} Missions
 ExtendedData.NoCustomCoopMissions=No missions in this custom Coop Trail
+ExtendedData.SettingsRestartRequired=Settings prepared. Restart the game and reopen the same mission to apply them.

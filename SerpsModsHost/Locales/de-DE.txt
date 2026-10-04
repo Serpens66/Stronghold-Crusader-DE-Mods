@@ -97,3 +97,5 @@ Tweaker.SelectionHelp=Die Auswahl allein ändert nichts. Nach Neustart verwenden
 Tweaker.Share=Presets teilen
 Tweaker.UnknownPending=Konfiguration für nächsten Start vorgemerkt
 Tweaker.SelectPreset=Preset auswählen
+Common.RestartRequired=Einstellungen vorgemerkt. Sie werden nach einem Spielneustart verwendet.
+Common.RestartRequiredOption=Neustart erforderlich

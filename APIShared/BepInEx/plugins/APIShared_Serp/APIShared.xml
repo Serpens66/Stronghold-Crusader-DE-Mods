@@ -379,6 +379,9 @@
         <member name="M:APIShared.SavegameModSettings.PrepareLoad(System.String,System.Boolean)">
             <summary>Records the confirmed host choice for exactly one selected save.</summary>
         </member>
+        <member name="M:APIShared.SavegameModSettings.PrepareLoadWithRestartCheck(System.String,System.Boolean)">
+            <summary>Validates required startup values before the original load callback runs.</summary>
+        </member>
         <member name="M:APIShared.SavegameModSettings.CancelLoadChoice">
             <summary>Discards an unconsumed load-dialog choice after cancellation or failure.</summary>
         </member>
@@ -2100,6 +2103,12 @@
         <member name="M:Shared.LobbyModSettingsPresetRegistration.AttachExternalWorkingCopy(BepInEx.Logging.ManualLogSource,System.String,System.String,System.String,System.Version,Shared.PresetLobbyModSettingsViewModel,System.Object)">
             <summary>Attaches shared presets to an existing foreign mod page without a second network registration.</summary>
         </member>
+        <member name="M:Shared.LobbyModSettingsPresetRegistration.AttachExternalView(System.Object,BepInEx.Logging.ManualLogSource,System.String)">
+            <summary>Attaches shared focus scrolling to a separately registered participant's page.</summary>
+        </member>
+        <member name="M:Shared.LobbyModSettingsPresetRegistration.RegisterExternalWorkingCopy(BepInEx.Logging.ManualLogSource,System.String,System.String,System.String,System.Version,Shared.PresetLobbyModSettingsViewModel)">
+            <summary>Registers an external configuration participant independently of its optional page.</summary>
+        </member>
         <member name="T:Shared.IModSettingsPresetEndpoint">
             <summary>Typed APIShared endpoint consumed by optional mission-setting providers such as ExtendedData.</summary>
         </member>
@@ -2166,8 +2175,20 @@
         <member name="T:Shared.DynamicPresetSetting">
             <summary>Options supplied by an optional external configuration API.</summary>
         </member>
+        <member name="T:Shared.IModSettingsApplicationBackend">
+            <summary>Applies a complete configuration, separately from its editable working copy.</summary>
+        </member>
+        <member name="T:Shared.INetworkModSettingsApplicationBackend">
+            <summary>Optional admission check owned by a mod's existing authenticated host transport.</summary>
+        </member>
         <member name="T:Shared.IDynamicPresetSettingsProvider">
             <summary>Whole-snapshot operations on a local working copy; never a second network transport.</summary>
+        </member>
+        <member name="T:Shared.ModSettingsApplication">
+            <summary>Optional configuration endpoints, independent of their mod's UI registration.</summary>
+        </member>
+        <member name="M:Shared.ModSettingsApplication.PrepareLaunch">
+            <summary>Returns false until all required startup configurations are actually loaded.</summary>
         </member>
     </members>
 </doc>

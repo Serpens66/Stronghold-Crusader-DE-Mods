@@ -1065,7 +1065,7 @@ namespace Shared
         public Visibility System_SettingsSourceVisibility =>
             presetController?.HasPersistentSettings == true ? Visibility.Visible : Visibility.Collapsed;
 
-        public string System_PresetStatusText => presetController?.GetStatusText(
+        public string System_PresetStatusText => !string.IsNullOrEmpty(System_ApplicationNotice) ? System_ApplicationNotice : presetController?.GetStatusText(
             ResolveSettingsUiTextSafe("Common.PresetBasedOn", "Based on"),
             ResolveSettingsUiTextSafe("Common.PresetModified", "modified"),
             ResolveSettingsUiTextSafe("Common.PresetSourcePersonal", "Personal presets"),
@@ -1486,6 +1486,7 @@ namespace Shared
             if (source == null || !System_CanLoadSettingsSource) return;
             try
             {
+                System_RefreshOwnConfiguration();
                 if (string.Equals(source.Id, ModSettingsWorkingSourceRegistry.ModDefaultsId, StringComparison.Ordinal))
                 {
                     if (IsMissionPresetSelected)
@@ -1497,6 +1498,7 @@ namespace Shared
                 {
                     ModSettingsWorkingSourceRegistry.Apply(presetController.TargetGuid, source.Id);
                 }
+                System_CommitConfiguration();
                 DismissPresetStatus();
                 RaiseAccessProperties();
             }
@@ -1628,6 +1630,7 @@ namespace Shared
                     descriptor,
                     ResolvePresetSettingScopeText(descriptor.Scope),
                     modeOptions);
+                setting.RestartHelp = ResolveSettingsUiTextSafe("Common.RestartRequiredOption", "Restart required");
                 setting.PropertyChanged += OnPresetSaveSettingPropertyChanged;
                 presetSaveSettings.Add(setting);
             }
@@ -1895,7 +1898,10 @@ namespace Shared
         protected virtual void ApplyConfirmedPresetSelection(PublishedModSettingsPreset preset)
         {
             if (presetController == null) throw new InvalidOperationException("Preset controller is not initialized.");
+            if (SettingsApplicationBackend != null)
+                SettingsApplicationBackend.ReplaceDesiredValues(SettingsApplicationBackend.ReadOwnValues());
             presetController.LoadPreset(preset);
+            System_CommitConfiguration();
         }
 
         private string ResolveSettingsUiTextSafe(string key, string fallback)
@@ -1977,6 +1983,136 @@ namespace Shared
 
         /// <summary>Optional dynamically described local working configuration.</summary>
         protected virtual IDynamicPresetSettingsProvider DynamicSettingsProvider => null;
+        protected virtual IModSettingsApplicationBackend SettingsApplicationBackend => DynamicSettingsProvider as IModSettingsApplicationBackend;
+        public bool System_HasDynamicSettings => DynamicSettingsProvider != null;
+        public object System_ReadDescribedValue(string key) => DynamicSettingsProvider.ReadValue(key);
+        public bool System_HasApplicationBackend => SettingsApplicationBackend != null;
+        public string System_ApplicationNotice { get; private set; } = "";
+        public bool System_HasPendingConfiguration
+        {
+            get
+            {
+                try { return SettingsApplicationBackend?.ReadPendingValues() != null; }
+                catch { return SettingsApplicationBackend != null; } // Keep discard reachable for a corrupt package.
+            }
+        }
+        public void System_DiscardPendingConfiguration()
+        {
+            SettingsApplicationBackend?.DiscardPendingConfiguration();
+            if (SettingsApplicationBackend != null) SettingsApplicationBackend.ReplaceDesiredValues(SettingsApplicationBackend.ReadActiveValues());
+            ModSettingsApplication.DiscardPreparation();
+            System_ApplicationNotice = "";
+            OnPropertyChanged(nameof(System_ApplicationNotice));
+            OnPropertyChanged(nameof(System_HasPendingConfiguration));
+#if !API_SHARED_PRESET_TESTS
+            OnPropertyChanged(nameof(System_PresetStatusText));
+            OnPropertyChanged(nameof(System_PresetStatusVisibility));
+#endif
+        }
+        public void System_CommitConfiguration()
+        {
+            bool restart = ModSettingsApplication.Commit(presetController.TargetGuid);
+            System_ApplicationNotice = restart ? ResolveSettingsUiTextSafe("Common.RestartRequired", "Settings prepared. Restart the game to apply them.") : "";
+            OnPropertyChanged(nameof(System_ApplicationNotice));
+            OnPropertyChanged(nameof(System_HasPendingConfiguration));
+#if !API_SHARED_PRESET_TESTS
+            OnPropertyChanged(nameof(System_PresetStatusText));
+            OnPropertyChanged(nameof(System_PresetStatusVisibility));
+#endif
+        }
+        internal Dictionary<string, string> CaptureRestartSources()
+        {
+#if API_SHARED_PRESET_TESTS
+            return new Dictionary<string, string>();
+#else
+            return new Dictionary<string, string> {
+                ["resetSource"] = selectedSettingsSource?.Id ?? "",
+                ["label"] = presetController?.GetStatusText("Based on", "modified", "Personal presets", "Bundled with this mod", "External presets") ?? ""
+            };
+#endif
+        }
+        internal void RestoreRestartSources(Dictionary<string, string> sources)
+        {
+#if !API_SHARED_PRESET_TESTS
+            if (sources.TryGetValue("resetSource", out string selected))
+                System_SelectedSettingsSource = settingsSources.FirstOrDefault(x => x.Id == selected) ?? selectedSettingsSource;
+            if (sources.TryGetValue("label", out string label) && !string.IsNullOrWhiteSpace(label))
+                presetController?.RestorePreparationLabel(label);
+            RaiseAccessProperties();
+#endif
+        }
+        public string System_OwnConfigurationFingerprint()
+        {
+            if (SettingsApplicationBackend == null) return "";
+            var values = SettingsApplicationBackend.ReadOwnValues();
+            using (var buffer = new System.IO.MemoryStream())
+            using (var writer = new System.IO.BinaryWriter(buffer))
+            {
+                foreach (var pair in values.OrderBy(x => x.Key, StringComparer.Ordinal))
+                {
+                    writer.Write(pair.Key);
+                    byte[] bytes = MessagePackSerializer.Serialize(pair.Value.GetType(), pair.Value);
+                    writer.Write(bytes.Length); writer.Write(bytes);
+                }
+                writer.Flush();
+                using (var sha = System.Security.Cryptography.SHA256.Create())
+                    return BitConverter.ToString(sha.ComputeHash(buffer.ToArray())).Replace("-", "");
+            }
+        }
+        public void System_RefreshOwnConfiguration()
+        {
+            if (SettingsApplicationBackend != null)
+                SettingsApplicationBackend.ReplaceDesiredValues(SettingsApplicationBackend.ReadOwnValues());
+        }
+        public bool System_ConfigurationNeedsRestart()
+        {
+            if (SettingsApplicationBackend == null) return false;
+            if (SettingsApplicationBackend is INetworkModSettingsApplicationBackend network && network.IsNetworkConfigurationClient)
+                return false; // The provider's authenticated transport owns client startup preparation.
+            var active = SettingsApplicationBackend.ReadActiveValues();
+            var desired = SettingsApplicationBackend.ReadDesiredValues();
+            return System_GetPresetSettingDescriptors().Any(x => x.RequiresRestart &&
+                (!active.TryGetValue(x.PropertyName, out var value) || !Equals(value, desired[x.PropertyName])));
+        }
+        public bool System_ApplyConfiguration(string contextId)
+        {
+            var backend = SettingsApplicationBackend;
+            if (backend == null) return false;
+            if (backend is INetworkModSettingsApplicationBackend network && network.IsNetworkConfigurationClient)
+                return !network.PrepareNetworkConfiguration();
+            var desired = backend.ReadDesiredValues();
+            var active = backend.ReadActiveValues();
+            var changed = System_GetPresetSettingDescriptors().Where(x => !active.TryGetValue(x.PropertyName, out var value) || !Equals(value, desired[x.PropertyName])).ToArray();
+            if (changed.Length == 0)
+            {
+                if (backend.ReadPendingValues() != null) backend.DiscardPendingConfiguration();
+                return false;
+            }
+            if (changed.Any(x => x.RequiresRestart))
+            {
+                backend.StageValues(desired, contextId);
+                return true;
+            }
+            backend.ApplyValues(desired, contextId);
+            var applied = backend.ReadActiveValues();
+            if (desired.Any(x => !applied.TryGetValue(x.Key, out var value) || !Equals(value, x.Value)))
+                throw new InvalidOperationException("Configuration backend did not apply the requested values.");
+            if (backend.ReadPendingValues() != null) backend.DiscardPendingConfiguration();
+            return false;
+        }
+        public void System_ReturnToOwnConfiguration()
+        {
+            var backend = SettingsApplicationBackend;
+            if (backend == null) return;
+            // Leaving for an explicitly prepared restart must not replace that preparation.
+            if (backend.ReadPendingValues() != null) return;
+            backend.ReplaceDesiredValues(backend.ReadOwnValues());
+            if (!string.IsNullOrEmpty(backend.ActiveContextId))
+            {
+                if (System_GetPresetSettingDescriptors().Any(x => x.RequiresRestart)) backend.ReturnToOwnConfiguration();
+                else System_ApplyConfiguration("");
+            }
+        }
 
         protected virtual void OnSettingsSnapshotApplied()
         {
@@ -2166,6 +2302,9 @@ namespace Shared
                 logRoutineActivity);
             presetController.CaptureDefaults();
 #if !API_SHARED_PRESET_TESTS
+            ModSettingsApplication.Register(targetGuid, this, pluginAssemblyLocation);
+#endif
+#if !API_SHARED_PRESET_TESTS
             RebuildSettingsSources();
 #endif
             PropertyChanged += (_, __) => System_RefreshSettingsAccess();
@@ -2262,6 +2401,7 @@ namespace Shared
                 ModSettingsWorkingSourceRegistry.Apply(presetController.TargetGuid, ModSettingsWorkingSourceRegistry.ModDefaultsId);
             else
                 presetController?.ApplyDefaultsAsWorkingCopy();
+            System_CommitConfiguration();
             RaiseAccessProperties();
         }
 
@@ -2650,6 +2790,8 @@ namespace Shared
                         .Select(item => new PresetPropertyAccessor(item)).Where(IsPersistedProperty).ToArray();
                 if (persistedProperties.Length > ModSettingsPresetJson.MaximumSettings)
                     throw new InvalidDataException("Too many preset settings.");
+                if (persistedProperties.Any(x => x.RequiresRestart) && owner.SettingsApplicationBackend == null)
+                    throw new InvalidOperationException("RequiresRestart settings need a configuration application backend.");
                 persistedPropertiesByName = persistedProperties
                     .ToDictionary(property => property.Name, StringComparer.Ordinal);
                 hostProperties = persistedProperties.Where(IsHostProperty).ToArray();
@@ -2658,6 +2800,12 @@ namespace Shared
                 clientSettingsActivationProperty = FindSettingsActivationProperty(clientProperties, "EnableClientFeatures", "EnableMod");
                 if (persistedProperties.Length != 0)
                     RefreshCatalog();
+            }
+
+            internal void RestorePreparationLabel(string label)
+            {
+                missionBasedOnPreset = null;
+                missionPresetLabel = label;
             }
 
             public IReadOnlyList<PublishedModSettingsPreset> PublishedPresets => publishedPresets;
@@ -3208,6 +3356,7 @@ namespace Shared
                     PropertyType = property.PropertyType,
                     Group = property.Group,
                     DisplayName = property.DisplayName,
+                    RequiresRestart = property.RequiresRestart,
                     Scope = IsHostProperty(property)
                         ? PresetSettingScope.Host
                         : property.GetCustomAttribute<SyncPerPlayerAttribute>() != null
@@ -3554,7 +3703,7 @@ namespace Shared
                 applying = true;
                 try
                 {
-                    if (dynamicProvider != null) ApplyDynamicValues(prepared);
+                    if (dynamicProvider != null || owner.SettingsApplicationBackend != null) ApplyDynamicValues(prepared);
                     else foreach (KeyValuePair<PresetPropertyAccessor, byte[]> entry in prepared)
                     {
                         if (!TryApplyProperty(entry.Key, entry.Value))
@@ -3613,7 +3762,7 @@ namespace Shared
                 applying = true;
                 try
                 {
-                    if (dynamicProvider != null)
+                    if (dynamicProvider != null || owner.SettingsApplicationBackend != null)
                     {
                         var prepared = new Dictionary<PresetPropertyAccessor, byte[]>();
                         foreach (PresetPropertyAccessor property in persistedProperties)
@@ -3664,11 +3813,11 @@ namespace Shared
 
             private void ApplyDynamicValues(Dictionary<PresetPropertyAccessor, byte[]> prepared)
             {
-                var values = dynamicProvider.ReadValues();
+                var values = owner.SettingsApplicationBackend?.ReadDesiredValues() ?? dynamicProvider.ReadValues();
                 foreach (var entry in prepared)
                     values[entry.Key.Name] = MessagePackSerializer.Deserialize(entry.Key.PropertyType, entry.Value);
-                dynamicProvider.ValidateValues(values);
-                dynamicProvider.ReplaceValues(values);
+                if (owner.SettingsApplicationBackend != null) owner.SettingsApplicationBackend.ReplaceDesiredValues(values);
+                else { dynamicProvider.ValidateValues(values); dynamicProvider.ReplaceValues(values); }
             }
 
             private bool TryApplyProperty(PresetPropertyAccessor property, byte[] bytes)
@@ -3709,7 +3858,7 @@ namespace Shared
 
                 try
                 {
-                    object value = property.GetValue(owner);
+                    object value = dynamicProvider != null ? dynamicProvider.ReadValue(property.Name) : owner.SettingsApplicationBackend != null ? owner.SettingsApplicationBackend.ReadDesiredValues()[property.Name] : property.GetValue(owner);
                     if (value == null)
                     {
                         snapshot.Remove(property.Name);
@@ -4170,9 +4319,22 @@ namespace Shared
             Version targetVersion, PresetLobbyModSettingsViewModel viewModel, object view)
         {
             if (viewModel == null || view == null) throw new ArgumentNullException();
+            RegisterExternalWorkingCopy(log, storageAssemblyLocation, modName, targetGuid, targetVersion, viewModel);
+            ModSettingsHorizontalFocusScrollGuard.Attach(view, log, modName);
+        }
+
+        /// <summary>Attaches shared focus scrolling to a separately registered participant's page.</summary>
+        public static void AttachExternalView(object view, ManualLogSource log, string modName) =>
+            ModSettingsHorizontalFocusScrollGuard.Attach(view, log, modName);
+
+        /// <summary>Registers an external configuration participant independently of its optional page.</summary>
+        public static void RegisterExternalWorkingCopy(
+            ManualLogSource log, string storageAssemblyLocation, string modName, string targetGuid,
+            Version targetVersion, PresetLobbyModSettingsViewModel viewModel)
+        {
+            if (viewModel == null) throw new ArgumentNullException(nameof(viewModel));
             viewModel.PreparePresets(log, storageAssemblyLocation, modName, targetGuid, targetVersion);
             viewModel.ActivatePresets();
-            ModSettingsHorizontalFocusScrollGuard.Attach(view, log, modName);
 #if !API_SHARED_PRESET_TESTS
             Plugin.ModSettingsHubViewModel.PropertyChanged += (_, __) => viewModel.System_RefreshSettingsAccess();
 #endif

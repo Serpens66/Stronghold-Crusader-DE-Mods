@@ -19,8 +19,8 @@ if ($LASTEXITCODE -ne 0) { throw 'Cannot compare existing Tweaker Update' }
 $pattern = '(?s)private void Update\(\)\s*\{.*?\n        \}'
 if ([regex]::Match($plugin.Replace("`r`n","`n"),$pattern).Value -cne [regex]::Match($upstreamPlugin,$pattern).Value) { throw 'Tweaker component Update changed' }
 
-$changed = @(& git -C $workspace diff --name-only -- APIShared SerpsModsHost _inspect/StatsTweakerApiTests _inspect/HostClientPresetTests _inspect/LobbyModSettingsPresetTests)
-$changed += @(& git -C $workspace ls-files --others --exclude-standard -- APIShared SerpsModsHost _inspect/StatsTweakerApiTests _inspect/HostClientPresetTests _inspect/LobbyModSettingsPresetTests)
+$changed = @(& git -C $workspace diff --name-only -- APIShared SerpsModsHost ExtendedData _inspect/StatsTweakerApiTests _inspect/HostClientPresetTests _inspect/LobbyModSettingsPresetTests)
+$changed += @(& git -C $workspace ls-files --others --exclude-standard -- APIShared SerpsModsHost ExtendedData _inspect/StatsTweakerApiTests _inspect/HostClientPresetTests _inspect/LobbyModSettingsPresetTests)
 $foreign = @(& git -C $tweaker diff --name-only)
 $foreign += @(& git -C $tweaker ls-files --others --exclude-standard)
 $paths = @($changed | ForEach-Object { Join-Path $workspace $_ }) + @($foreign | ForEach-Object { Join-Path $tweaker $_ })
@@ -35,7 +35,7 @@ $xaml = Join-Path $workspace 'SerpsModsHost\Override\ScriptExtenderUI\StatsTweak
 foreach ($control in $xml.SelectNodes("//*[local-name()='Button' or local-name()='TextBox' or local-name()='ComboBox' or local-name()='CheckBox' or local-name()='Slider']")) {
     if ([string]::IsNullOrWhiteSpace($control.GetAttribute('ToolTip')) -or $control.GetAttribute('ToolTipService.ShowDuration') -ne '60000') { throw "Missing tooltip in $xaml" }
 }
-foreach ($root in @((Join-Path $workspace 'APIShared\Patches'), (Join-Path $workspace 'SerpsModsHost\Patches'))) {
+foreach ($root in @((Join-Path $workspace 'APIShared\Patches'), (Join-Path $workspace 'SerpsModsHost\Patches'), (Join-Path $workspace 'ExtendedData\Patches'))) {
     if (!(Test-Path -LiteralPath $root)) { continue }
     foreach ($patch in Get-ChildItem -LiteralPath $root -Recurse -File -Filter '*.xaml') {
         [xml]$patchXml = [IO.File]::ReadAllText($patch.FullName)
@@ -44,6 +44,15 @@ foreach ($root in @((Join-Path $workspace 'APIShared\Patches'), (Join-Path $work
         }
     }
 }
+# The standard ExtendedData preflight validates JSON/teardown and real managed member contracts.
+# Check long-lived component callbacks separately; the standard helper does not cover these.
+foreach ($file in Get-ChildItem -LiteralPath (Join-Path $workspace 'ExtendedData\src') -Recurse -File -Filter '*.cs') {
+    $text = [IO.File]::ReadAllText($file.FullName)
+    if ($text -match '\b(?:void|IEnumerator)\s+(?:Update|LateUpdate|FixedUpdate)\s*\(' -or $text -match '\bStartCoroutine\s*\(') {
+        throw "Unexpected persistent component callback: $($file.FullName)"
+    }
+}
+& (Join-Path $workspace 'ExtendedData\Test-RuntimePreflight.ps1')
 & (Join-Path $workspace 'Shared\Test-PermanentNativeRuntimePatches.ps1')
 if ($LASTEXITCODE -ne 0) { throw 'Permanent runtime audit failed' }
 & (Join-Path $workspace '_inspect\AuditModSettings.ps1') -Mod SerpsModsHost

@@ -30,7 +30,7 @@ namespace ExtendedData
         internal event Func<FRONT_Multiplayer, FileHeader, bool> MultiplayerSaveLaunchPreparing;
         internal const string SaveDataIdentifier = "ExtendedData-MapModSettings";
         internal const string ArchiveEntryName = "_SE_ModData_" + SaveDataIdentifier + ".msgpack";
-        private const int MaxPayloadBytes = 1024 * 1024;
+        private const int MaxPayloadBytes = 8 * 1024 * 1024;
 
         private delegate void SaveSaveGameOrMapDelegate(
             EditorDirector self,
@@ -164,7 +164,10 @@ namespace ExtendedData
             subscriptions.Add(GameplaySessionLifecycle.SubscribeStarted(log, context =>
             {
                 if (!context.IsEditor && IsMapContextCurrent())
+                {
                     mapMissionActive = true;
+                    ModSettingsApplication.ConfirmStarted();
+                }
             }));
             subscriptions.Add(MissionEvents.Ended.Subscribe(_ =>
             {
@@ -235,7 +238,11 @@ namespace ExtendedData
                     }
                     try
                     {
-                        SavegameModSettings.PrepareLoad(header?.filePath, editorSaveOptions.UseCurrentSavegameSettings);
+                        if (!SavegameModSettings.PrepareLoadWithRestartCheck(header?.filePath, editorSaveOptions.UseCurrentSavegameSettings))
+                        {
+                            ShowMessage(SerpLocalization.Get("ExtendedData.StartBlockedTitle"), SerpLocalization.Get("ExtendedData.SettingsRestartRequired"));
+                            return;
+                        }
                         okAction?.Invoke(fileName, header);
                     }
                     catch
@@ -369,6 +376,8 @@ namespace ExtendedData
             if (mapContextActive && !launchInProgress && !mapMissionActive)
                 ExitMapContext(broadcast: IsHostLobby(self), "left lobby");
             leaveLobbyOriginal(self, doLeaveOnSteam, refreshLobbyList);
+            if (!launchInProgress && !mapMissionActive && ModSettingsApplication.ContextId.Length == 0)
+                ModSettingsApplication.ExitContext();
         }
 
         private void StartSkirmishGameHook(
@@ -386,6 +395,7 @@ namespace ExtendedData
                         source: "Map launch working copy",
                         presetLabel: "Map");
                 }
+                if (!settingsCoordinator.TryPrepareRestartSettings()) return;
                 startSkirmishGameOriginal(self, restartInfo);
             }
             finally

@@ -98,9 +98,29 @@ namespace EnemyBridgePathTest
             if(++observationCount==32)Flush();
         }
         private readonly StringBuilder repeatRows=new StringBuilder();private int repeatCount;
+        private readonly long[] backgroundRepeats=new long[9];
+        private readonly StringBuilder replacementRows=new StringBuilder(),backgroundPathRows=new StringBuilder();
+        private int replacementCount,backgroundPathCount;
+        private void Replaced(Track t,long command)
+        {
+            replacementRows.Append(t.Unit).Append('/').Append(t.Global).Append('/').Append(t.Command).Append('/').Append(command).Append('/').Append(Stopwatch.GetTimestamp()).Append(';');
+            if(++replacementCount==32)FlushReplacements();
+        }
+        private void FlushReplacements()
+        {
+            if(replacementCount==0)return;
+            emit("route-replacement-batch","columns=unit/global/oldCommand/newCommand/observationClock,rows=["+replacementRows+"],samePlanMustBeObserved=True,envelopeTiming=batch-flush");replacementRows.Clear();replacementCount=0;
+        }
+        private void FlushBackgroundPaths()
+        {
+            if(backgroundPathCount==0)return;
+            emit("stored-route-background-batch","columns=definition/captureClock/originX/originY/length/cursor/flags/substep/decodedX/decodedY/segmentX/segmentY,rows=["+backgroundPathRows+"],complete=True,bridges=[],packedHex=,execution=not-proven,envelopeTiming=batch-flush,physicalAtCapture=not-recorded");backgroundPathRows.Clear();backgroundPathCount=0;
+        }
         private void FlushRepeats(Track t)
         {
             if(t.Repeats==0)return;
+            if(t.Content!=null&&t.Content.Complete&&!t.Content.Relevant)
+            {backgroundRepeats[(uint)t.Player<9?t.Player:0]+=t.Repeats;t.Repeats=0;return;}
             repeatRows.Append(t.Binding).Append('/').Append(t.Definition).Append('/').Append(t.Repeats).Append('/').Append(t.FirstRepeatClock).Append('/').Append(t.LastRepeatClock).Append('/').Append(t.FirstRepeatCursor).Append('/').Append(t.LastRepeatCursor).Append(';');t.Repeats=0;
             if(++repeatCount==32)FlushRepeatRows();
         }
@@ -108,7 +128,10 @@ namespace EnemyBridgePathTest
         {if(repeatCount==0)return;emit("route-repeat-batch","columns=binding/pathDefinition/count/firstClock/lastClock/firstCursor/lastCursor,rows=["+repeatRows+"],coverage=aggregate-not-movement-proof");repeatRows.Clear();repeatCount=0;}
         internal void Flush()
         {
-            lock(gate) {foreach(var track in tracks.Values)FlushRepeats(track);FlushRepeatRows();FlushBindings();if(observationCount==0)return;
+            lock(gate) {foreach(var track in tracks.Values)FlushRepeats(track);FlushRepeatRows();FlushReplacements();FlushBackgroundPaths();
+                var counts=new StringBuilder();for(int player=0;player<9;player++)if(backgroundRepeats[player]!=0) {counts.Append(player).Append('/').Append(backgroundRepeats[player]).Append(';');backgroundRepeats[player]=0;}
+                if(counts.Length!=0)emit("route-background-repeat-batch","columns=player/count,rows=["+counts+"],coverage=complete-decoded-no-deck-observation-attempts-not-movement");
+                FlushBindings();if(observationCount==0)return;
                 emit("route-observations","columns=binding/pathDefinition/observationClock/x/y/cursor/flags/substep/returnKnown/commandReturn/pathChangedSinceCommandPre/state/progressClass/issuedCommand/contextX/contextY,progressClasses=0-no-deck:1-before-cursor:2-current-position-on-deck:3-cursor-boundary-uncertain:4-cursor-past-not-execution,rows=["+observationRows+"]");observationRows.Clear();observationCount=0;}
         }
         private readonly object gate=new object();
@@ -117,13 +140,14 @@ namespace EnemyBridgePathTest
         private readonly Func<Bridge[]> geometry;
         private readonly Func<long> capture;
         private readonly Action<int,uint,int,long,long,long,long,bool> evidence;
+        private readonly Action<long,int,long,long> unboundChange;
         private readonly Func<int,IntPtr> testUnit;
         private readonly Func<int,GameUnitPathPlanView> testView;
         private bool movementConfirmed;
         private long session,definition,calls,commandReturns,scans,changes,readTicks,bytesRead;
         private long lastCalls,lastCommandReturns,lastScans,lastChanges,lastReadTicks,lastBytes;
-        internal BridgeRouteTrace(Action<string,string> emit,Func<Bridge[]> geometry,Func<long> capture,Func<int,IntPtr> testUnit=null,Func<int,GameUnitPathPlanView> testView=null,Action<int,uint,int,long,long,long,long,bool> evidence=null)
-        {this.emit=emit;this.geometry=geometry;this.capture=capture;this.testUnit=testUnit;this.testView=testView;this.evidence=evidence;}
+        internal BridgeRouteTrace(Action<string,string> emit,Func<Bridge[]> geometry,Func<long> capture,Func<int,IntPtr> testUnit=null,Func<int,GameUnitPathPlanView> testView=null,Action<int,uint,int,long,long,long,long,bool> evidence=null,Action<long,int,long,long> unboundChange=null)
+        {this.emit=emit;this.geometry=geometry;this.capture=capture;this.testUnit=testUnit;this.testView=testView;this.evidence=evidence;this.unboundChange=unboundChange;}
         internal void ForceReobserve() {lock(gate)foreach(var track in tracks.Values)track.HasPlan=false;}
         internal void Begin(long value) {lock(gate) {Flush();tracks.Clear();contents.Clear();contentCount=0;session=value;movementConfirmed=false;}}
         internal string Summary() {lock(gate)return "movementCallbacks="+calls+",commandReturns="+commandReturns+",tracked="+tracks.Count+",pathScans="+scans+",pathChanges="+changes+",routeReadMs="+(readTicks*1000.0/Stopwatch.Frequency).ToString("F3",System.Globalization.CultureInfo.InvariantCulture);}
@@ -145,7 +169,7 @@ namespace EnemyBridgePathTest
                 {
                     if(old.Global!=global) {emit("route-identity-gap","unit="+unit+",oldGlobal="+old.Global+",newGlobal="+global+",oldCommand="+old.Command);FlushRepeats(old);tracks.Remove(unit);}
                     else if(old.Command==command)return false;
-                    else emit("route-command-replaced","unit="+unit+"/g"+global+",oldCommand="+old.Command+",newCommand="+command+",samePlanMustBeObserved=True");
+                    else Replaced(old,command);
                 }
                 var track=old!=null&&old.Global==global?old:new Track {Unit=unit,Global=global,LastProgress=Stopwatch.GetTimestamp()};
                 track.Player=player;track.ControlRaw=controlRaw;track.Tribe=tribe;track.Command=command;track.ParentEvent=parentEvent;track.Consumer=consumer;track.PlanningRoot=planningRoot;track.CandidatePlan=plan;track.Phase=phase;track.Session=session;track.Decision=decision;track.CommandStarted=Stopwatch.GetTimestamp();track.BindingPublished=false;track.Stall=false;track.LastProgressClass=-1;
@@ -206,7 +230,10 @@ namespace EnemyBridgePathTest
                         if(count<=1000) {var packed=track.View.PackedBytes;for(int i=0;i<count;i++)track.SampleBytes[i]=packed[i];}
                         Header after=new Header(value);
                         if(!after.Equals(h)) {emit("route-unresolved",Link(track)+",reason=header-changed-during-read,attribution=non-atomic");track.HasPlan=false;ObserveMovement(track,after,post,started);return;}
+                        long prior=track.Definition;
                         ObservePlan(track,h,track.SampleBytes,started);track.LastScan=started;
+                        if(commandReturn&&!bound&&prior!=track.Definition&&track.Content!=null&&track.Content.Relevant)
+                            unboundChange?.Invoke(expectedCommand,unit,track.Definition,track.Command);
                     }
                     ObserveMovement(track,h,post,started);
                 }
@@ -277,7 +304,15 @@ namespace EnemyBridgePathTest
             var directions=new StringBuilder();if(intersections.Length!=0||!complete)for(int i=0;i<(h.Length+1)/2;i++)directions.Append(packed[i].ToString("X2"));
             t.Content=new PathContent {Header=h,Bytes=packed.Slice(0,(h.Length+1)/2).ToArray(),Id=++definition,Geometry=geo,Complete=complete,Relevant=t.Relevant,First=t.FirstDeck,Last=t.LastDeck,Bridges=intersections.ToString(),Touched=touched.ToArray()};t.Definition=t.Content.Id;
             if(contentCount>=4096) {contents.Clear();contentCount=0;bucket=null;}if(bucket==null) {bucket=new List<PathContent>();contents[hash]=bucket;}bucket.Add(t.Content);contentCount++;
-            emit("stored-route","definition="+t.Definition+",captureClock="+now+",origin="+h.OriginX+"/"+h.OriginY+",length="+h.Length+",cursor="+h.Cursor+",flags="+h.Flags+",substep="+h.Substep+",complete="+complete+",completeness=decoded-stored-transitions,consistency=single-copy-header-stability-only,decodedEndpoint="+decodedX+"/"+decodedY+",nativeSegmentTarget="+h.SegmentX+"/"+h.SegmentY+",endpointMatchesTarget="+endpointMatch+",bridgeColumns=building/global/firstStep/lastStep/entryX/entryY/exitX/exitY/classification,bridges=["+intersections+"],packedHex="+directions+",packedEncoding=low-nibble-first,parentAssociation=candidate-unless-native-link,execution=not-proven,coverage=stored-plan-only");
+            // Relevant and undecodable paths retain full reconstructible definitions.
+            // Background paths previously carried no bytes; retain all their numeric
+            // definition fields in rows rather than duplicating descriptive text.
+            if(complete&&!t.Relevant)
+            {
+                backgroundPathRows.Append(t.Definition).Append('/').Append(now).Append('/').Append(h.OriginX).Append('/').Append(h.OriginY).Append('/').Append(h.Length).Append('/').Append(h.Cursor).Append('/').Append(h.Flags).Append('/').Append(h.Substep).Append('/').Append(decodedX).Append('/').Append(decodedY).Append('/').Append(h.SegmentX).Append('/').Append(h.SegmentY).Append(';');
+                if(++backgroundPathCount==32)FlushBackgroundPaths();
+            }
+            else emit("stored-route","definition="+t.Definition+",captureClock="+now+",origin="+h.OriginX+"/"+h.OriginY+",length="+h.Length+",cursor="+h.Cursor+",flags="+h.Flags+",substep="+h.Substep+",complete="+complete+",completeness=decoded-stored-transitions,consistency=single-copy-header-stability-only,decodedEndpoint="+decodedX+"/"+decodedY+",nativeSegmentTarget="+h.SegmentX+"/"+h.SegmentY+",endpointMatchesTarget="+endpointMatch+",bridgeColumns=building/global/firstStep/lastStep/entryX/entryY/exitX/exitY/classification,bridges=["+intersections+"],packedHex="+directions+",packedEncoding=low-nibble-first,parentAssociation=candidate-unless-native-link,execution=not-proven,coverage=stored-plan-only");
             Observation(t,h,now,true,bridges);
             if(complete&&ProgressClass(t,h,t.Content.Touched)!=4)foreach(var bridge in touched)evidence?.Invoke(bridge.Id,bridge.Global,t.Player,t.CandidatePlan,t.PlanningRoot,t.Command,t.Decision,false);
             if(!complete)emit("route-unresolved",Link(t)+",reason=invalid-direction-or-coordinate,definition="+t.Definition);

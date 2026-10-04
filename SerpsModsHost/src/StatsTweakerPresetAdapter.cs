@@ -18,17 +18,25 @@ namespace SerpsModsHost
     {
         internal const string TargetGuid = "CrusaderDETweaker";
         private static StatsTweakerPresetViewModel viewModel;
-        private static bool failed;
+        private static bool failed, attached;
 
         internal static void TryAttach(string storageAssembly, ManualLogSource log)
         {
-            if (viewModel != null || failed || !Chainloader.PluginInfos.TryGetValue(TargetGuid, out var plugin)) return;
+            if (attached || failed || !Chainloader.PluginInfos.TryGetValue(TargetGuid, out var plugin)) return;
             Type api = plugin.Instance.GetType().Assembly.GetType("CrusaderDETweaker.Configuration.ConfigurationApi", false);
             if (api == null) return; // An older Tweaker remains fully independent.
             try
             {
-                var provider = new StatsTweakerConfigurationProvider(api);
-                if (!provider.IsReady) return;
+                if (viewModel == null)
+                {
+                    var provider = new StatsTweakerConfigurationProvider(api);
+                    if (!provider.IsReady) return;
+                    var candidate = new StatsTweakerPresetViewModel(provider);
+                    LobbyModSettingsPresetRegistration.RegisterExternalWorkingCopy(log, storageAssembly, TargetGuid,
+                        TargetGuid, plugin.Metadata.Version, candidate);
+                    candidate.ImportOwnFiles();
+                    viewModel = candidate;
+                }
                 var entry = GameXAMLManagerAPI.Instance.RegisteredModSettings.FirstOrDefault(item =>
                     item.ViewModel?.GetType().Assembly == api.Assembly);
                 if (!(entry?.View is Grid root)) return;
@@ -47,15 +55,11 @@ namespace SerpsModsHost
                     Converter = PresetViewportWidthConverter.Instance,
                     ConverterParameter = parent.Margin.Left + parent.Margin.Right
                 });
-                var candidate = new StatsTweakerPresetViewModel(provider);
-                panel.DataContext = candidate;
-                LobbyModSettingsPresetRegistration.AttachExternalWorkingCopy(log, storageAssembly, TargetGuid,
-                    TargetGuid, plugin.Metadata.Version, candidate, panel);
-                candidate.ImportOwnFiles();
-                candidate.InitializeSelection();
+                panel.DataContext = viewModel;
+                LobbyModSettingsPresetRegistration.AttachExternalView(panel, log, TargetGuid);
                 scroll.HorizontalScrollBarVisibility = ScrollBarVisibility.Auto;
                 parent.Children.Insert(0, panel);
-                viewModel = candidate; // Root commands and working copy for the process lifetime.
+                attached = true; // The participant remains rooted even when its page is unavailable.
                 log.LogInfo("[TweakerPresets] Configuration API v1 attached; presets require a game restart.");
             }
             catch (Exception ex)
@@ -81,7 +85,7 @@ namespace SerpsModsHost
             => throw new NotSupportedException("Viewport width is a one-way binding.");
     }
 
-    internal sealed class StatsTweakerConfigurationProvider : IDynamicPresetSettingsProvider
+    internal sealed class StatsTweakerConfigurationProvider : IDynamicPresetSettingsProvider, IModSettingsApplicationBackend, INetworkModSettingsApplicationBackend
     {
         private readonly Type api;
         private readonly Dictionary<string, MethodInfo> methods = new Dictionary<string, MethodInfo>();
@@ -101,7 +105,17 @@ namespace SerpsModsHost
             RequireMethod("ValidateConfiguration", new[] { typeof(IDictionary<string, object>) });
             RequireMethod("StageConfiguration", new[] { typeof(IDictionary<string, object>), typeof(string) });
             object capabilities = Call("GetCapabilities");
-            IsReady = Read<bool>(capabilities, "IsReady") && Read<bool>(capabilities, "CanStageForNextStart");
+            bool immediate = Read<bool>(capabilities, "CanApplyWithoutRestart");
+            RequireMethod("StageContextConfiguration", new[] { typeof(IDictionary<string, object>), typeof(string), typeof(string) });
+            RequireMethod("StageReturnToOwnConfiguration", Type.EmptyTypes);
+            RequireMethod("IsNetworkConfigurationClient", Type.EmptyTypes);
+            RequireMethod("PrepareNetworkConfiguration", Type.EmptyTypes);
+            if (immediate)
+            {
+                RequireMethod("ApplyConfiguration", new[] { typeof(IDictionary<string, object>), typeof(string) });
+                RequireMethod("GetActiveConfiguration", Type.EmptyTypes);
+            }
+            IsReady = Read<bool>(capabilities, "IsReady") && (immediate || Read<bool>(capabilities, "CanStageForNextStart"));
             if (!IsReady) return;
             foreach (object option in (IEnumerable)Call("GetOptions"))
             {
@@ -114,11 +128,14 @@ namespace SerpsModsHost
                 {
                     Key = Read<string>(option, "Key"), ValueType = valueType,
                     DefaultValue = Read<object>(option, "DefaultValue"),
+                    RequiresRestart = option.GetType().GetProperty("RequiresRestart") == null ? !immediate : Read<bool>(option, "RequiresRestart"),
                     Scope = Read<bool>(option, "IsLocal") ? PresetSettingScope.Local : PresetSettingScope.Host,
                     Group = Read<string>(option, "File") + " / " + Read<string>(option, "Group"),
                     DisplayName = Read<string>(option, "Group") + " / " + Read<string>(option, "Name") + (supported ? "" : " [" + Read<string>(option, "Notice") + "]")
                 });
             }
+            if (!immediate && options.Any(x => !x.RequiresRestart))
+                throw new InvalidDataException("Tweaker advertises live settings without an immediate application capability.");
             var own = ReadOwn();
             ValidateValues(own);
             working = own;
@@ -131,7 +148,12 @@ namespace SerpsModsHost
             Type expected;
             switch (name)
             {
+                case "IsNetworkConfigurationClient":
+                case "PrepareNetworkConfiguration": expected = typeof(bool); break;
                 case "StageConfiguration":
+                case "StageContextConfiguration":
+                case "StageReturnToOwnConfiguration":
+                case "ApplyConfiguration":
                 case "DiscardPendingConfiguration": expected = typeof(void); break;
                 case "GetCapabilities": expected = api.Assembly.GetType(api.Namespace + ".ConfigurationCapabilities", true); break;
                 case "GetOptions": expected = api.Assembly.GetType(api.Namespace + ".ConfigurationOption", true).MakeArrayType(); break;
@@ -171,17 +193,31 @@ namespace SerpsModsHost
             ValidateValues(values);
             working = new Dictionary<string, object>(values, StringComparer.Ordinal);
         }
-        internal string Describe(string method)
+        internal void Discard() => Call("DiscardPendingConfiguration");
+        public bool IsNetworkConfigurationClient => (bool)Call("IsNetworkConfigurationClient");
+        public bool PrepareNetworkConfiguration() => (bool)Call("PrepareNetworkConfiguration");
+        public Dictionary<string, object> ReadDesiredValues() => ReadValues();
+        public void ReplaceDesiredValues(Dictionary<string, object> values) => ReplaceValues(values);
+        public Dictionary<string, object> ReadOwnValues() => ReadOwn();
+        public Dictionary<string, object> ReadActiveValues() => Read<Dictionary<string, object>>(Call(methods.ContainsKey("GetActiveConfiguration") ? "GetActiveConfiguration" : "GetLoadedConfiguration"), "Values");
+        public Dictionary<string, object> ReadPendingValues()
         {
-            object snapshot = Call(method);
-            return snapshot == null ? "—" : Read<string>(snapshot, "Revision").Substring(0, 12);
+            object pending = Call("GetPendingConfiguration");
+            return pending == null ? null : Read<Dictionary<string, object>>(pending, "Values");
         }
-        internal void Stage() => Call("StageConfiguration", ReadValues(), OwnRevision);
-        internal void StageValues(Dictionary<string, object> values)
+        public string ActiveContextId => Read<string>(Call(methods.ContainsKey("GetActiveConfiguration") ? "GetActiveConfiguration" : "GetLoadedConfiguration"), "ContextId");
+        public void StageValues(Dictionary<string, object> values, string contextId)
         {
             ValidateValues(values);
-            Call("StageConfiguration", values, OwnRevision);
+            if (string.IsNullOrEmpty(contextId)) Call("StageConfiguration", values, OwnRevision);
+            else Call("StageContextConfiguration", values, contextId, OwnRevision);
         }
-        internal void Discard() => Call("DiscardPendingConfiguration");
+        public void ApplyValues(Dictionary<string, object> values, string contextId)
+        {
+            if (!methods.ContainsKey("ApplyConfiguration")) throw new NotSupportedException("Tweaker cannot apply configuration without a restart.");
+            Call("ApplyConfiguration", values, contextId);
+        }
+        public void ReturnToOwnConfiguration() => Call("StageReturnToOwnConfiguration");
+        public void DiscardPendingConfiguration() => Discard();
     }
 }

@@ -38,7 +38,7 @@ namespace EnemyBridgePathTest
             bridge.Gate.Add(BridgeRouteTrace.Bridge.XY(602,474));track.HasPlan=false;trace.ObservePlan(track,h,bytes,0);
             Check(output.Any(x=>x.Contains("gate-footprint-observed")),"gate passage differs from sideways deck intersection");
             trace.ObservePlan(track,h,new byte[]{0x44,0x44},0);
-            Check(output.Last().Contains("bridges=[]"),"same-header replacement reads actual changed bytes and alternative route remains allowed");
+            trace.Flush();Check(output.Any(x=>x.StartsWith("stored-route-background-batch,")&&x.Contains("bridges=[]")),"same-header replacement reads actual changed bytes and alternative route remains allowed");
             track.HasPlan=false;trace.ObservePlan(track,h,new byte[]{0x2F,0x22},0);
             Check(output.Any(x=>x.Contains("complete=False"))&&output.Last().Contains("invalid-direction-or-coordinate"),"unknown native nibble explicitly unresolved, never guessed as movement");
             track.HasPlan=false;trace.ObservePlan(track,new BridgeRouteTrace.Header(track.Global,1,1,1,1,2001,0),new byte[1000],0);
@@ -56,11 +56,32 @@ namespace EnemyBridgePathTest
             ObservedPopulation();
             Completion();
             CompactReferences();
+            BackgroundTransport();
             LatestPopulation();
             Console.WriteLine("PASS route observation: stored plans, deck/gate distinction, actual transitions, replacement/reuse and bounded completion.");
             return checks;
         }
         private static IEnumerable<string[]> Rows(List<string> lines,string kind) => lines.Where(x=>x.StartsWith(kind+",")).SelectMany(x=>x.Substring(x.IndexOf("rows=[",StringComparison.Ordinal)+6).Split(']')[0].Split(new[]{';'},StringSplitOptions.RemoveEmptyEntries)).Select(row=>row.Split('/'));
+        private static void BackgroundTransport()
+        {
+            var output=new List<string>();var trace=new BridgeRouteTrace((k,d)=>output.Add(k+","+d),()=>Array.Empty<BridgeRouteTrace.Bridge>(),()=>throw new Exception("background full capture"));trace.Begin(901);
+            for(int unit=1;unit<=75;unit++)
+            {
+                var track=new BridgeRouteTrace.Track {Unit=unit,Global=(uint)unit,Player=8,Command=unit,Session=901};
+                var header=new BridgeRouteTrace.Header((uint)unit,unit,1,unit,1,1,0);
+                trace.ObservePlan(track,header,new byte[]{2},0);
+                for(int repeat=0;repeat<1000;repeat++)trace.ObservePlan(track,header,new byte[]{2},repeat);
+                // Simulate the same replacement/flush boundary as the production binding.
+                typeof(BridgeRouteTrace).GetMethod("FlushRepeats",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(trace,new object[]{track});
+            }
+            trace.Flush();
+            Check(Rows(output,"stored-route-background-batch").Count()==75,"all background path definitions retained numerically");
+            Check(Rows(output,"route-background-repeat-batch").Sum(row=>long.Parse(row[1]))==75000,"background repeated observations counted exactly");
+            Check(!output.Any(x=>x.StartsWith("route-repeat-batch,")),"unchanged no-deck repeats do not produce per-binding definitions");
+            Check(output.Sum(line=>line.Length+95+2)<40000,"background path and repeat transport fits1MB/min with prefixes");
+            trace.End();trace.Begin(902);trace.Flush();
+            Check(Rows(output,"stored-route-background-batch").Count()==75,"reload does not reemit prior numeric batches");
+        }
         private static void DecisionPersistence()
         {
             int phase=5,target=232127;
@@ -168,23 +189,23 @@ namespace EnemyBridgePathTest
             trace.StartSession(90);long bytes=Shared.DebugLogHelper.Bytes;
             var attack=BridgeNativeDefinition.Sites.Single(x=>x.Rva==0x11A980);
             var topology=BridgeNativeDefinition.Sites.Single(x=>x.Rva==0xE49D0);
-            for(int i=0;i<1571980;i++)
+            for(int i=0;i<1683174;i++)
             {
                 var call=trace.Enter(attack,IntPtr.Zero,4364);trace.Exit(call,true,null,IntPtr.Zero);
-                if(i<9806) {bool rebuild=i<88;call=trace.Enter(topology,IntPtr.Zero,rebuild?1:0);trace.Exit(call,true,rebuild?1:0,IntPtr.Zero);}
-                if(i<32784) {trace.CountCommand(true);trace.CountCommand(false);trace.CountEvent(BridgeDecisionTrace.CommandCountData(3,i%8+1,3,1,false,true));}
+                if(i<10653) {bool rebuild=i<93;call=trace.Enter(topology,IntPtr.Zero,rebuild?1:0);trace.Exit(call,true,rebuild?1:0,IntPtr.Zero);}
+                if(i<34661) {trace.CountCommand(true);trace.CountCommand(false);trace.CountEvent(BridgeDecisionTrace.CommandCountData(3,i%8+1,3,1,false,true));}
                 if(i%1000==0)trace.Drain();
             }
             trace.FlushRegions();while(trace.Pending>0)trace.Drain();
-            Check(trace.Captures==178&&trace.Entered==1581786,"latest ordinary/topology population:88 actual rebuilds, bounded full reads");
+            Check(trace.Captures==188&&trace.Entered==1693827,"latest ordinary/topology population:93 actual rebuilds, bounded full reads");
             Check(Shared.DebugLogHelper.Bytes-bytes<100000,"unchanged latest hot population fits1MB/min including95-byte prefix allowance");
-            int[,] rare={{0x64460,3},{0x645C0,4},{0xD95E0,23},{0xD9190,23},{0x10DF60,16},{0x115B10,16},{0x122B40,12},{0xE7F60,4},{0x110EC0,28},{0x111330,41},{0x111D90,31},{0x3C2E0,343},{0x2D250,23},{0x2C480,16},{0x2C5A0,16},{0x3BD50,7},{0xCF360,1167},{0xCF400,28}};
+            int[,] rare={{0x64460,2},{0x645C0,3},{0xD95E0,28},{0xD9190,28},{0x10DF60,21},{0x115B10,21},{0x122B40,18},{0xE7F60,4},{0x110EC0,26},{0x111330,29},{0x111D90,29},{0x3C2E0,371},{0x2D250,28},{0x2C480,21},{0x2C5A0,21},{0x3BD50,7},{0xCF360,1248},{0xCF400,34}};
             for(int row=0;row<rare.GetLength(0);row++)for(int i=0;i<rare[row,1];i++)
             {var site=BridgeNativeDefinition.Sites.Single(x=>x.Rva==rare[row,0]);var call=trace.Enter(site,IntPtr.Zero,8,1);trace.Exit(call,true,1,IntPtr.Zero);if(i%32==0)trace.Drain();}
             trace.FlushRegions();while(trace.Pending>0)trace.Drain();
-            Check(trace.Entered==1583587&&trace.Entered==trace.Exited,"latest full1583587-call population exact and balanced");
-            Check(trace.Summary().Contains("commandPre=32784,commandPost=32784")&&trace.Failures==0&&trace.Summary().Contains("overflow=0,backgroundOverflow=0"),"latest command counters and capture completeness");
-            Console.WriteLine("Latest full population: calls="+trace.Entered+",commands=32784,bytesWithPrefixAllowance="+(Shared.DebugLogHelper.Bytes-bytes)+" (fixture reads; changed bursts separate)");
+            Check(trace.Entered==1695766&&trace.Entered==trace.Exited,"latest full1695766-call population exact and balanced");
+            Check(trace.Summary().Contains("commandPre=34661,commandPost=34661")&&trace.Failures==0&&trace.Summary().Contains("overflow=0,backgroundOverflow=0"),"latest command counters and capture completeness");
+            Console.WriteLine("Latest full population: calls="+trace.Entered+",commands=34661,bytesWithPrefixAllowance="+(Shared.DebugLogHelper.Bytes-bytes)+" (fixture reads; changed bursts separate)");
         }
         private static void ObservedPopulation()
         {

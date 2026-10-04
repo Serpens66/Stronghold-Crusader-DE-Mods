@@ -515,6 +515,8 @@ namespace ExtendedData
                 buttonTrampoline(self, command);
                 return;
             }
+            if (IsLaunchCommand(command) && !missionSettingsCoordinator.TryPrepareRestartSettings())
+                return;
             if (enabled && IsLaunchCommand(command) && CurrentSlotOutsidePackage(self))
             {
                 BlockLaunch(command, CustomCoopTrailEndNotice(self));
@@ -628,6 +630,7 @@ namespace ExtendedData
                         source: "custom Coop mission " + command);
                     if (IsStartCommand(command))
                     {
+                        if (!missionSettingsCoordinator.TryPrepareRestartSettings()) return;
                         coopLaunchPending = true;
                         missionSettingsCoordinator.PrepareCoopMissionLaunch();
                         if (!self.singlePlayerCoop && self.currentLobby != null && self.currentLobby.isHost)
@@ -1614,7 +1617,7 @@ namespace ExtendedData
             missingMods = missionSettingsCoordinator.Enter(
                 selected.Loaded.Definition.ModSettings,
                 editable,
-                source);
+                "coop:" + settings.ActiveCoopPackageId + ":" + settings.ActiveCoopPackageFingerprint + ":" + selected.Loaded.TrailNumber + ":" + selected.Loaded.MissionNumber);
         }
 
         private void ActivateSelectedMissionSettingsUnlessMap(
@@ -1697,6 +1700,7 @@ namespace ExtendedData
                     lobby,
                     editable: false,
                     source: "single-player Coop restart");
+                if (!missionSettingsCoordinator.TryPrepareRestartSettings()) return false;
                 ExtendedDataLaunchOriginApi.SetCustomizedCoopTrail(trailId, missionId);
                 missionSettingsCoordinator.PrepareCoopMissionLaunch();
                 coopLaunchPending = true;

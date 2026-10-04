@@ -187,9 +187,9 @@ namespace APIShared
         private const string Identifier = "APIShared-SavegameModSettings";
         private const string EntryName = "_SE_ModData_" + Identifier + ".msgpack";
         private const int SchemaVersion = 3;
-        private const int MaximumBytes = 4 * 1024 * 1024;
+        private const int MaximumBytes = 8 * 1024 * 1024;
         private const int MaximumMods = 1024;
-        private const int MaximumPropertiesPerMod = 2048;
+        private const int MaximumPropertiesPerMod = 16384;
         private const int MaximumPropertyBytes = 1024 * 1024;
         private static readonly object Sync = new object();
         private static ManualLogSource log;
@@ -299,6 +299,84 @@ namespace APIShared
             }
         }
 
+        private static Dictionary<string, byte[]> ResolveStartupSnapshot(string modId, CompatibleMod participant,
+            SavegameModSettingsRecord record, Dictionary<string, Dictionary<string, byte[]>> values,
+            Dictionary<string, Dictionary<string, byte[]>> current, bool locked)
+        {
+                    Dictionary<string, byte[]> snapshot =
+                        participant.Endpoint.System_CreateDisabledMissionPresetSnapshot();
+                    if (snapshot == null)
+                    {
+                        throw new InvalidDataException("Savegame baseline unavailable: " + modId);
+                    }
+                    // Player-owned and local values are outside the savegame host contract.
+                    foreach (PropertyInfo property in participant.PersonalProperties)
+                    {
+                        try
+                        {
+                            object value = property.GetValue(participant.Endpoint);
+                            if (value != null)
+                                snapshot[property.Name] = MessagePackSerializer.Serialize(property.PropertyType, value);
+                        }
+                        catch (Exception error)
+                        {
+                            MarkRestoreFailed();
+                            NativeApiLog.Error(log, "Could not preserve local setting " +
+                                modId + "." + property.Name + ": " + error.Message);
+                        }
+                    }
+                    if (values != null && values.TryGetValue(modId, out Dictionary<string, byte[]> stored))
+                        OverlaySavedHostProperties(snapshot, participant.Properties, stored, modId);
+                    bool strictTrail = record != null && !record.TrailCustomizeAllowed &&
+                        (record.Kind == (int)GameModeKind.CustomTrail || record.Kind == (int)GameModeKind.CoopTrail);
+                    if (strictTrail || locked)
+                    {
+                        Dictionary<string, byte[]> baseline = participant.Endpoint.System_CreateDisabledMissionPresetSnapshot();
+                        foreach (PropertyInfo property in participant.Properties)
+                            if (baseline.TryGetValue(property.Name, out byte[] disabled))
+                                snapshot[property.Name] = disabled;
+                    }
+                    if (!locked && record?.CreatorRules != null &&
+                        record.CreatorRules.TryGetValue(modId, out var rules))
+                    {
+                        ApplyCreatorRules(snapshot, participant.Properties, rules,
+                            current != null && current.TryGetValue(modId, out var currentMod) ? currentMod : null,
+                            strictTrail);
+                    }
+            return snapshot;
+        }
+
+        /// <summary>Validates required startup values before the original load callback runs.</summary>
+        public static bool PrepareLoadWithRestartCheck(string savePath, bool useCurrentSettings)
+        {
+            PrepareLoad(savePath, useCurrentSettings);
+            if (!ModSettingsApplication.HasApplicationEndpoints) return true;
+            if (!GameNetworkAPI.IsLocalHost()) return ModSettingsApplication.PrepareLaunch();
+            string path = Normalize(savePath);
+            string fingerprint;
+            using (var file = File.OpenRead(path))
+            using (var sha = System.Security.Cryptography.SHA256.Create())
+                fingerprint = BitConverter.ToString(sha.ComputeHash(file)).Replace("-", "");
+            ModSettingsApplication.EnterContext("save:" + path + "|" + fingerprint);
+            TryReadRecord(path, out var record);
+            if (record?.LockedByConflict == true)
+                throw new InvalidDataException("The savegame has conflicting or incomplete settings; startup configuration cannot be verified.");
+            var values = legacyChoice || useChosenCurrent && IsCurrentChoiceAllowed(record) ? chosenCurrent : record?.Mods;
+            bool locked = record?.LockedByConflict == true;
+            if (locked) values = null;
+            var participants = FindParticipants();
+            foreach (var item in ModSettingsApplication.Endpoints)
+            {
+                if (!item.Value.System_HasApplicationBackend) continue;
+                if (!participants.TryGetValue(item.Key, out var participant))
+                    throw new InvalidDataException("Required savegame settings provider unavailable: " + item.Key);
+                var snapshot = ModSettingsApplication.ResumeSnapshot(item.Key) ??
+                    ResolveStartupSnapshot(item.Key, participant, record, values, chosenCurrent, locked);
+                item.Value.System_EnterMissionPreset(snapshot, "Savegame", false);
+            }
+            return ModSettingsApplication.PrepareLaunch();
+        }
+
         /// <summary>Discards an unconsumed load-dialog choice after cancellation or failure.</summary>
         public static void CancelLoadChoice()
         {
@@ -391,49 +469,11 @@ namespace APIShared
             {
                 try
                 {
-                    Dictionary<string, byte[]> snapshot =
-                        participant.Value.Endpoint.System_CreateDisabledMissionPresetSnapshot();
-                    if (snapshot == null)
-                    {
-                        MarkRestoreFailed();
-                        continue;
-                    }
-                    // Player-owned and local values are outside the savegame host contract.
-                    foreach (PropertyInfo property in participant.Value.PersonalProperties)
-                    {
-                        try
-                        {
-                            object value = property.GetValue(participant.Value.Endpoint);
-                            if (value != null)
-                                snapshot[property.Name] = MessagePackSerializer.Serialize(property.PropertyType, value);
-                        }
-                        catch (Exception error)
-                        {
-                            MarkRestoreFailed();
-                            NativeApiLog.Error(log, "Could not preserve local setting " +
-                                participant.Key + "." + property.Name + ": " + error.Message);
-                        }
-                    }
-                    if (values != null && values.TryGetValue(participant.Key, out Dictionary<string, byte[]> stored))
-                        OverlaySavedHostProperties(snapshot, participant.Value.Properties, stored, participant.Key);
-                    bool strictTrail = record != null && !record.TrailCustomizeAllowed &&
-                        (record.Kind == (int)GameModeKind.CustomTrail || record.Kind == (int)GameModeKind.CoopTrail);
-                    if (strictTrail || locked)
-                    {
-                        Dictionary<string, byte[]> baseline = participant.Value.Endpoint.System_CreateDisabledMissionPresetSnapshot();
-                        foreach (PropertyInfo property in participant.Value.Properties)
-                            if (baseline.TryGetValue(property.Name, out byte[] disabled))
-                                snapshot[property.Name] = disabled;
-                    }
-                    if (!locked && record?.CreatorRules != null &&
-                        record.CreatorRules.TryGetValue(participant.Key, out var rules))
-                    {
-                        ApplyCreatorRules(snapshot, participant.Value.Properties, rules,
-                            current != null && current.TryGetValue(participant.Key, out var currentMod) ? currentMod : null,
-                            strictTrail);
-                    }
+                    Dictionary<string, byte[]> snapshot = ModSettingsApplication.ResumeSnapshot(participant.Key) ??
+                        ResolveStartupSnapshot(participant.Key, participant.Value, record, values, current, locked);
                     participant.Value.Endpoint.System_ExitMissionPreset();
                     participant.Value.Endpoint.System_EnterMissionPreset(snapshot, "Savegame", false);
+                    ModSettingsApplication.RestorePreparedSources(participant.Key);
                     if (!participant.Value.Endpoint.IsMissionPresetActive)
                         throw new InvalidOperationException("The savegame preset did not become active.");
                     ActivePreset.Track(context.SessionId, participant.Key, participant.Value.Endpoint);
@@ -703,6 +743,7 @@ namespace APIShared
         {
             byte[] bytes = MessagePackSerializer.Serialize(record);
             if (bytes.Length <= MaximumBytes) return bytes;
+            record.LockedByConflict = true; // A reduced payload must never admit an unverifiable startup configuration.
             foreach (string modId in record.Mods.Keys.OrderByDescending(value => value, StringComparer.Ordinal).ToArray())
             {
                 Dictionary<string, byte[]> properties = record.Mods[modId];
@@ -793,6 +834,17 @@ namespace APIShared
                 {
                     NativeApiLog.Error(log, "Incompatible savegame settings for " + group.Key + ": " + error.Message);
                 }
+            }
+            foreach (var registered in ModSettingsApplication.Endpoints)
+            {
+                if (!registered.Value.System_HasDynamicSettings) continue;
+                if (result.ContainsKey(registered.Key)) throw new InvalidOperationException("Duplicate settings provider: " + registered.Key);
+                result[registered.Key] = new CompatibleMod
+                {
+                    Endpoint = registered.Value,
+                    Properties = ModSettingsApplication.GetHostProperties(registered.Value),
+                    PersonalProperties = Array.Empty<PropertyInfo>()
+                };
             }
             return result;
         }

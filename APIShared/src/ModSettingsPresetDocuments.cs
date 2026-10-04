@@ -179,6 +179,7 @@ namespace Shared
         public Type PropertyType { get; internal set; }
         public string Group { get; internal set; } = string.Empty;
         public string DisplayName { get; internal set; } = string.Empty;
+        public bool RequiresRestart { get; internal set; }
         public PresetSettingScope Scope { get; internal set; }
     }
 
@@ -206,6 +207,7 @@ namespace Shared
         {
             if (descriptor == null) throw new ArgumentNullException(nameof(descriptor));
             PropertyName = descriptor.PropertyName;
+            RequiresRestart = descriptor.RequiresRestart;
             Group = descriptor.Group;
             DisplayName = string.IsNullOrEmpty(descriptor.DisplayName) ? PropertyName : descriptor.DisplayName;
             Scope = descriptor.Scope;
@@ -216,6 +218,9 @@ namespace Shared
         }
 
         public string PropertyName { get; }
+        public bool RequiresRestart { get; }
+        public string RestartHelp { get; set; } = "Restart required";
+        public string SettingHelp => PropertyName + (RequiresRestart ? " — " + RestartHelp : "");
         public string Group { get; }
         public string DisplayName { get; }
         public PresetSettingScope Scope { get; }
