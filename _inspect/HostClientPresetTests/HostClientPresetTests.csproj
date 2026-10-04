@@ -68,6 +68,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
+    <Compile Include="DynamicPresetTests.cs" />
+    <Compile Include="..\..\APIShared\src\DynamicPresetSettings.cs" />
     <Compile Include="..\..\APIShared\src\ModSettingsPresetDocuments.cs">
       <Link>ModSettingsPresetDocuments.cs</Link>
     </Compile>

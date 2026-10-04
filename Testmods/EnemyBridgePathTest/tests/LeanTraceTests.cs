@@ -31,7 +31,7 @@ namespace EnemyBridgePathTest
             Check(trace.Entered==75117&&trace.Exited==75117,"exact observed load pairing");
             Check(trace.Captures==2&&reads==2,"unchanged attacks capture only initial definition");
             Check(trace.Coalesced==75116,"all repeats counted");
-            Check(trace.Pending==2,"constant output for unchanged attacks");
+            Check(trace.Pending==4,"constant output for unchanged attacks includes two shared context definitions");
             long loggedBefore=Shared.DebugLogHelper.Bytes;
             while(trace.Pending>0) trace.Drain();
             Check(Shared.DebugLogHelper.Bytes-loggedBefore<4096,"less than 4KB steady-load trace for 75117 calls");
@@ -49,7 +49,7 @@ namespace EnemyBridgePathTest
             long before=trace.Pending;trace.FlushRegions();Check(trace.Pending==before+1,"numeric region repeat aggregation");
             for(int i=0;i<100;i++)trace.Observe("fixture","i="+i);
             long records=trace.OutputRecords;trace.Drain();Check(trace.OutputRecords-records<=64&&trace.Pending>0,"bounded rendering drain");
-            long pending=trace.Pending;long delivered=trace.OutputRecords;trace.End();Check(trace.Pending==pending&&trace.OutputRecords==delivered+1,"map end emits one immediate summary and never drains unbounded backlog");
+            long pending=trace.Pending;long delivered=trace.OutputRecords;trace.End();Check(trace.Pending==pending+1&&trace.OutputRecords==delivered+1,"map end emits one immediate summary and never drains unbounded backlog");
             trace.StartSession(2);fail=true;var broken=trace.Enter(site,IntPtr.Zero,4);trace.Exit(broken,true,null,IntPtr.Zero);
             Check(trace.Failures==2&&trace.Entered==trace.Exited&&!trace.InsideNative,"capture exceptions isolated and scopes restored");
             fail=false;trace.StartSession(3);var recovery=trace.Enter(site,IntPtr.Zero,4);trace.StartSession(4);
@@ -66,7 +66,7 @@ namespace EnemyBridgePathTest
             Check(bounded.Pending==4096&&bounded.Summary().Contains("backgroundOverflow=904")&&bounded.Summary().Contains("traceComplete=False"),"overflow bounded and explicitly invalidates completeness");
             // Background saturation cannot consume the reserved decision queue.
             var important=bounded.Enter(site,IntPtr.Zero,5);bounded.Exit(important,true,null,IntPtr.Zero);
-            Check(bounded.Pending==4098&&bounded.Summary().Contains("overflow=0,"),"critical reservation survives background saturation");
+            Check(bounded.Pending==4100&&bounded.Summary().Contains("overflow=0,"),"critical reservation survives background saturation");
             MixedLoad(site);
             PlanningAndCommandFrames();
             FocusedDecisionEvidence();

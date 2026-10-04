@@ -77,3 +77,5 @@ For future chats, link this file and require the DLL hash to be checked before u
 - [Enemy gate building-query player contract](./sem/FBCB9319/knowledge/ENEMY_GATE_BUILDING_CONTEXT.md): selected opponent versus leader control, zero query role, one-based leader indexing, and unresolved runtime attribution.
 
 - [Assassin gate-policy diagnosis](./sem/FBCB9319/knowledge/ENEMY_GATE_ASSASSINS.md): separate native/weighted/cached requests, exact directed-edge attribution and explicitly unmeasured native cache/fallback hits.
+
+- [Drawbridge stored-route contracts](./sem/FBCB9319/knowledge/ENEMY_GATE_BUILDING_CONTEXT.md): packed Unit path origin/cursor, existing movement publisher and passive route evidence; full installed-hash evidence under EnemyGateBuildingContextAudit/bridge-stored-path-evidence.txt.

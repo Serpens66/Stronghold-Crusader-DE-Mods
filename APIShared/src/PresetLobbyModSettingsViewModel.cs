@@ -1968,6 +1968,9 @@ namespace Shared
             presetController.SetDefaultValue(propertyName, value);
         }
 
+        /// <summary>Optional dynamically described local working configuration.</summary>
+        protected virtual IDynamicPresetSettingsProvider DynamicSettingsProvider => null;
+
         protected virtual void OnSettingsSnapshotApplied()
         {
         }
@@ -2259,6 +2262,29 @@ namespace Shared
         public IReadOnlyList<PresetSettingDescriptor> System_GetPresetSettingDescriptors() =>
             presetController?.GetSettingDescriptors() ?? Array.Empty<PresetSettingDescriptor>();
 
+        /// <summary>Imports a validated preset through the shared catalog, without overwriting an existing preset.</summary>
+        public string System_ImportPresetJson(string json)
+        {
+            if (!CanChangePreset) throw new InvalidOperationException("Preset editing is locked.");
+            string path = presetController.ImportPresetJson(json);
+#if !API_SHARED_PRESET_TESTS
+            RebuildPresetDialogCatalogs();
+            RaisePresetDialogProperties();
+#endif
+            return path;
+        }
+
+#if !API_SHARED_PRESET_TESTS
+        /// <summary>Exports the selected catalog preset with its original per-option modes.</summary>
+        public string System_ExportSelectedPresetJson()
+        {
+            PublishedModSettingsPreset preset = selectedPresetLoadEntry?.Preset;
+            if (preset == null) throw new InvalidOperationException("Select a saved preset in the load list first.");
+            return ModSettingsPresetJson.Serialize(presetController.TargetGuid, preset.Id, preset.Name,
+                preset.Description, preset.MinimumTargetVersion, preset.MaximumTargetVersion, preset.Settings);
+        }
+
+#endif
         /// <summary>Saves selected settings as a persistent, personal preset JSON file.</summary>
         public string System_SavePersonalPreset(
             string id,
@@ -2543,12 +2569,13 @@ namespace Shared
             private readonly string personalPresetDirectory;
             private readonly string targetGuid;
             private readonly Version targetVersion;
-            private readonly PropertyInfo[] persistedProperties;
-            private readonly PropertyInfo[] hostProperties;
-            private readonly PropertyInfo[] clientProperties;
-            private readonly PropertyInfo hostSettingsActivationProperty;
-            private readonly PropertyInfo clientSettingsActivationProperty;
-            private readonly Dictionary<string, PropertyInfo> persistedPropertiesByName;
+            private readonly IDynamicPresetSettingsProvider dynamicProvider;
+            private readonly PresetPropertyAccessor[] persistedProperties;
+            private readonly PresetPropertyAccessor[] hostProperties;
+            private readonly PresetPropertyAccessor[] clientProperties;
+            private readonly PresetPropertyAccessor hostSettingsActivationProperty;
+            private readonly PresetPropertyAccessor clientSettingsActivationProperty;
+            private readonly Dictionary<string, PresetPropertyAccessor> persistedPropertiesByName;
             private readonly List<PublishedModSettingsPreset> publishedPresets =
                 new List<PublishedModSettingsPreset>();
 
@@ -2609,10 +2636,13 @@ namespace Shared
                     "Override",
                     this.targetGuid);
 
-                persistedProperties = owner.GetType()
-                    .GetProperties(BindingFlags.Public | BindingFlags.Instance)
-                    .Where(IsPersistedProperty)
-                    .ToArray();
+                dynamicProvider = owner.DynamicSettingsProvider;
+                persistedProperties = dynamicProvider != null
+                    ? dynamicProvider.GetSettings().Select(item => new PresetPropertyAccessor(item, dynamicProvider)).ToArray()
+                    : owner.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                        .Select(item => new PresetPropertyAccessor(item)).Where(IsPersistedProperty).ToArray();
+                if (persistedProperties.Length > ModSettingsPresetJson.MaximumSettings)
+                    throw new InvalidDataException("Too many preset settings.");
                 persistedPropertiesByName = persistedProperties
                     .ToDictionary(property => property.Name, StringComparer.Ordinal);
                 hostProperties = persistedProperties.Where(IsHostProperty).ToArray();
@@ -2808,7 +2838,7 @@ namespace Shared
 
             public bool IsHostPropertyName(string propertyName) =>
                 !string.IsNullOrEmpty(propertyName) &&
-                persistedPropertiesByName.TryGetValue(propertyName, out PropertyInfo property) &&
+                persistedPropertiesByName.TryGetValue(propertyName, out PresetPropertyAccessor property) &&
                 IsHostProperty(property);
 
 #if API_SHARED_PRESET_TESTS
@@ -2822,13 +2852,14 @@ namespace Shared
 
             public void CaptureDefaults()
             {
-                defaults = CaptureCurrentSettings();
+                defaults = dynamicProvider == null ? CaptureCurrentSettings() : persistedProperties.ToDictionary(
+                    item => item.Name, item => MessagePackSerializer.Serialize(item.PropertyType, item.DefaultValue), StringComparer.Ordinal);
             }
 
             public void SetDefaultValue<T>(string propertyName, T value)
             {
                 if (string.IsNullOrWhiteSpace(propertyName) ||
-                    !persistedPropertiesByName.TryGetValue(propertyName, out PropertyInfo property))
+                    !persistedPropertiesByName.TryGetValue(propertyName, out PresetPropertyAccessor property))
                 {
                     throw new InvalidDataException($"Unknown persistent setting [{propertyName}].");
                 }
@@ -2990,6 +3021,12 @@ namespace Shared
                 LogRoutine($"[{modName}] Loaded editable lobby-settings working state; basedOn={SanitizeLogValue(basedOnStableId)}, modified={presetDirty}.");
 
                 active = true;
+                if (dynamicProvider != null)
+                {
+                    // The external provider owns startup files; never revive a stale pre-restart working copy.
+                    preset1 = CaptureCurrentSettings();
+                    SetBasedOn(null, false);
+                }
                 ApplySnapshot(preset1, 0, writeLocalStorage: false);
                 if (legacyPublishedToMaterialize != null)
                     ApplyPublishedPreset(legacyPublishedToMaterialize, writeLocalStorage: false);
@@ -3036,7 +3073,7 @@ namespace Shared
                 if (owner.IsMissionPresetSelected)
                     throw new InvalidOperationException("Mission defaults must be materialized by the registered mission source provider.");
                 var prepared = new Dictionary<string, byte[]>(StringComparer.Ordinal);
-                foreach (PropertyInfo property in persistedProperties)
+                foreach (PresetPropertyAccessor property in persistedProperties)
                 {
                     if (IsHostProperty(property) && !owner.isLocalHost) continue;
                     if (defaults.TryGetValue(property.Name, out byte[] value))
@@ -3127,7 +3164,7 @@ namespace Shared
                 Directory.CreateDirectory(personalPresetDirectory);
                 string path = Path.Combine(personalPresetDirectory, "preset_" + id + ".json");
                 var settings = new Dictionary<string, PublishedPresetSetting>(StringComparer.Ordinal);
-                foreach (PropertyInfo property in persistedProperties)
+                foreach (PresetPropertyAccessor property in persistedProperties)
                 {
                     if (snapshot == null || !snapshot.TryGetValue(property.Name, out byte[] bytes) || bytes == null)
                         continue;
@@ -3162,6 +3199,8 @@ namespace Shared
                 {
                     PropertyName = property.Name,
                     PropertyType = property.PropertyType,
+                    Group = property.Group,
+                    DisplayName = property.DisplayName,
                     Scope = IsHostProperty(property)
                         ? PresetSettingScope.Host
                         : property.GetCustomAttribute<SyncPerPlayerAttribute>() != null
@@ -3188,7 +3227,7 @@ namespace Shared
                 var exported = new Dictionary<string, PublishedPresetSetting>(StringComparer.Ordinal);
                 foreach (PresetSaveSelection selection in selectedSettings)
                 {
-                    if (selection == null || !persistedPropertiesByName.TryGetValue(selection.PropertyName, out PropertyInfo property))
+                    if (selection == null || !persistedPropertiesByName.TryGetValue(selection.PropertyName, out PresetPropertyAccessor property))
                         throw new InvalidDataException($"Unknown persistent setting [{selection?.PropertyName}].");
                     object value = null;
                     if (selection.Mode == PublishedPresetValueMode.Fixed)
@@ -3217,6 +3256,19 @@ namespace Shared
                 RefreshCatalog();
                 LogRoutine(
                     $"[{modName}] {(overwrite ? "Overwrote" : "Saved")} personal preset [{id}] at [{path}].");
+                return path;
+            }
+
+            public string ImportPresetJson(string json)
+            {
+                PublishedModSettingsPreset imported = ModSettingsPresetJson.Parse(json, targetGuid, modName, targetGuid, "");
+                ValidatePublishedPreset(imported);
+                string safeId = string.Concat(imported.Id.Split(Path.GetInvalidFileNameChars()));
+                if (string.IsNullOrWhiteSpace(safeId)) throw new InvalidDataException("Invalid preset id.");
+                string path = Path.Combine(personalPresetDirectory, "preset_" + safeId + ".json");
+                PublishPresetJson(path, ModSettingsPresetJson.Serialize(targetGuid, imported.Id, imported.Name,
+                    imported.Description, imported.MinimumTargetVersion, imported.MaximumTargetVersion, imported.Settings), false);
+                RefreshCatalog();
                 return path;
             }
 
@@ -3323,7 +3375,7 @@ namespace Shared
             public Dictionary<string, byte[]> CreateDisabledSnapshot()
             {
                 Dictionary<string, byte[]> snapshot = CopyProperties(defaults, hostProperties);
-                if (persistedPropertiesByName.TryGetValue("EnableMod", out PropertyInfo enableProperty) &&
+                if (persistedPropertiesByName.TryGetValue("EnableMod", out PresetPropertyAccessor enableProperty) &&
                     enableProperty.PropertyType == typeof(bool))
                 {
                     snapshot[enableProperty.Name] = MessagePackSerializer.Serialize(false);
@@ -3347,7 +3399,7 @@ namespace Shared
                 Dictionary<string, byte[]> merged = Clone(missionPreset ?? defaults);
                 foreach (KeyValuePair<string, byte[]> entry in snapshot)
                 {
-                    if (!persistedPropertiesByName.TryGetValue(entry.Key, out PropertyInfo property))
+                    if (!persistedPropertiesByName.TryGetValue(entry.Key, out PresetPropertyAccessor property))
                         continue;
                     if (IsHostProperty(property) && !owner.isLocalHost)
                         continue;
@@ -3405,7 +3457,7 @@ namespace Shared
 
                 persistedPropertiesByName.TryGetValue(
                     propertyName,
-                    out PropertyInfo property);
+                    out PresetPropertyAccessor property);
 
                 // Keep verified host state in the transient Trail snapshot as well.
                 // Otherwise switching to a local preset and back would restore the
@@ -3461,10 +3513,10 @@ namespace Shared
                 Dictionary<string, byte[]> playerPreset = owner.IsMissionPresetSelected
                     ? Clone(preset1 ?? defaults)
                     : CaptureCurrentSettings();
-                var prepared = new Dictionary<PropertyInfo, byte[]>();
+                var prepared = new Dictionary<PresetPropertyAccessor, byte[]>();
                 foreach (KeyValuePair<string, PublishedPresetSetting> entry in preset.Settings)
                 {
-                    PropertyInfo property = persistedPropertiesByName[entry.Key];
+                    PresetPropertyAccessor property = persistedPropertiesByName[entry.Key];
                     if (IsHostProperty(property) && !owner.isLocalHost)
                         continue;
 
@@ -3495,14 +3547,15 @@ namespace Shared
                 applying = true;
                 try
                 {
-                    foreach (KeyValuePair<PropertyInfo, byte[]> entry in prepared)
+                    if (dynamicProvider != null) ApplyDynamicValues(prepared);
+                    else foreach (KeyValuePair<PresetPropertyAccessor, byte[]> entry in prepared)
                     {
                         if (!TryApplyProperty(entry.Key, entry.Value))
                             throw new InvalidDataException($"Published value for [{entry.Key.Name}] could not be applied.");
                     }
                     if (owner.IsMissionPresetSelected)
                     {
-                        foreach (PropertyInfo property in prepared.Keys)
+                        foreach (PresetPropertyAccessor property in prepared.Keys)
                             StoreProperty(missionPreset, property);
                         // Mission attribution is transient; the normal working preset stays suspended.
                         missionBasedOnPreset = preset;
@@ -3511,7 +3564,7 @@ namespace Shared
                     }
                     else
                     {
-                        foreach (PropertyInfo property in prepared.Keys)
+                        foreach (PresetPropertyAccessor property in prepared.Keys)
                             StoreProperty(preset1, property);
                         SetBasedOn(preset, modified: false);
                         owner.SetSelectedPresetCore(0);
@@ -3533,7 +3586,7 @@ namespace Shared
             {
                 foreach (KeyValuePair<string, PublishedPresetSetting> entry in preset.Settings)
                 {
-                    if (!persistedPropertiesByName.TryGetValue(entry.Key, out PropertyInfo property))
+                    if (!persistedPropertiesByName.TryGetValue(entry.Key, out PresetPropertyAccessor property))
                         throw new InvalidDataException($"Unknown persistent property [{entry.Key}].");
                     if (entry.Value == null)
                         throw new InvalidDataException($"Setting [{entry.Key}] is null.");
@@ -3553,7 +3606,21 @@ namespace Shared
                 applying = true;
                 try
                 {
-                    foreach (PropertyInfo property in persistedProperties)
+                    if (dynamicProvider != null)
+                    {
+                        var prepared = new Dictionary<PresetPropertyAccessor, byte[]>();
+                        foreach (PresetPropertyAccessor property in persistedProperties)
+                        {
+                            if (selected != MissionPresetIndex && !owner.isLocalHost && !IsClientProperty(property)) continue;
+                            byte[] bytes = null;
+                            if (stored != null) stored.TryGetValue(property.Name, out bytes);
+                            if (bytes == null) defaults.TryGetValue(property.Name, out bytes);
+                            if (bytes == null) throw new InvalidDataException("Missing dynamic setting: " + property.Name);
+                            prepared.Add(property, bytes);
+                        }
+                        ApplyDynamicValues(prepared);
+                    }
+                    else foreach (PresetPropertyAccessor property in persistedProperties)
                     {
                         bool include = selected == MissionPresetIndex || owner.isLocalHost || IsClientProperty(property);
                         if (!include)
@@ -3588,7 +3655,16 @@ namespace Shared
                     WriteCombinedPayload();
             }
 
-            private bool TryApplyProperty(PropertyInfo property, byte[] bytes)
+            private void ApplyDynamicValues(Dictionary<PresetPropertyAccessor, byte[]> prepared)
+            {
+                var values = dynamicProvider.ReadValues();
+                foreach (var entry in prepared)
+                    values[entry.Key.Name] = MessagePackSerializer.Deserialize(entry.Key.PropertyType, entry.Value);
+                dynamicProvider.ValidateValues(values);
+                dynamicProvider.ReplaceValues(values);
+            }
+
+            private bool TryApplyProperty(PresetPropertyAccessor property, byte[] bytes)
             {
                 try
                 {
@@ -3612,14 +3688,14 @@ namespace Shared
             {
                 Dictionary<string, byte[]> snapshot =
                     new Dictionary<string, byte[]>(StringComparer.Ordinal);
-                foreach (PropertyInfo property in persistedProperties)
+                foreach (PresetPropertyAccessor property in persistedProperties)
                     StoreProperty(snapshot, property);
                 return snapshot;
             }
 
             private void StoreProperty(
                 Dictionary<string, byte[]> snapshot,
-                PropertyInfo property)
+                PresetPropertyAccessor property)
             {
                 if (!property.CanRead)
                     return;
@@ -3708,7 +3784,7 @@ namespace Shared
                     new Dictionary<string, byte[]>(StringComparer.Ordinal);
                 Dictionary<string, byte[]> ownedPreset = preset1 ?? defaults;
 
-                foreach (PropertyInfo property in persistedProperties)
+                foreach (PresetPropertyAccessor property in persistedProperties)
                 {
                     bool mayCaptureLive = !owner.IsMissionPresetSelected &&
                         (IsClientProperty(property) || owner.isLocalHost);
@@ -3787,7 +3863,7 @@ namespace Shared
                 return selected == 1 ? 1 : 0;
             }
 
-            private static bool IsPersistedProperty(PropertyInfo property)
+            private static bool IsPersistedProperty(PresetPropertyAccessor property)
             {
                 return property.GetCustomAttribute<DoNotPersistAttribute>() == null &&
                     (property.GetCustomAttribute<SyncPerPlayerAttribute>() != null ||
@@ -3795,21 +3871,21 @@ namespace Shared
                     property.GetCustomAttribute<PresetLocalAttribute>() != null);
             }
 
-            private static bool IsHostProperty(PropertyInfo property) =>
+            private static bool IsHostProperty(PresetPropertyAccessor property) =>
                 property.GetCustomAttribute<SyncHostOnlyAttribute>() != null;
 
-            private static bool IsClientProperty(PropertyInfo property) =>
+            private static bool IsClientProperty(PresetPropertyAccessor property) =>
                 property.GetCustomAttribute<SyncHostOnlyAttribute>() == null &&
                 (property.GetCustomAttribute<SyncPerPlayerAttribute>() != null ||
                     property.GetCustomAttribute<PresetLocalAttribute>() != null);
 
-            private static PropertyInfo FindSettingsActivationProperty(
-                IEnumerable<PropertyInfo> properties,
+            private static PresetPropertyAccessor FindSettingsActivationProperty(
+                IEnumerable<PresetPropertyAccessor> properties,
                 params string[] preferredNames)
             {
                 foreach (string name in preferredNames)
                 {
-                    PropertyInfo property = properties.FirstOrDefault(item =>
+                    PresetPropertyAccessor property = properties.FirstOrDefault(item =>
                         item.Name == name &&
                         item.PropertyType == typeof(bool) &&
                         item.CanRead &&
@@ -3821,10 +3897,10 @@ namespace Shared
                 return null;
             }
 
-            private bool ReadSettingsActivation(PropertyInfo property) =>
+            private bool ReadSettingsActivation(PresetPropertyAccessor property) =>
                 property != null && (bool)property.GetValue(owner);
 
-            private void WriteSettingsActivation(PropertyInfo property, bool value)
+            private void WriteSettingsActivation(PresetPropertyAccessor property, bool value)
             {
                 if (property == null || ReadSettingsActivation(property) == value)
                     return;
@@ -3833,7 +3909,7 @@ namespace Shared
             }
 
             private static bool IsSettingsActivationProperty(
-                PropertyInfo property,
+                PresetPropertyAccessor property,
                 string propertyName) =>
                 property != null && string.Equals(property.Name, propertyName, StringComparison.Ordinal);
 
@@ -3846,14 +3922,14 @@ namespace Shared
 
             private static Dictionary<string, byte[]> CopyProperties(
                 Dictionary<string, byte[]> source,
-                IEnumerable<PropertyInfo> properties)
+                IEnumerable<PresetPropertyAccessor> properties)
             {
                 Dictionary<string, byte[]> result =
                     new Dictionary<string, byte[]>(StringComparer.Ordinal);
                 if (source == null)
                     return result;
 
-                foreach (PropertyInfo property in properties)
+                foreach (PresetPropertyAccessor property in properties)
                 {
                     if (source.TryGetValue(property.Name, out byte[] bytes))
                         result[property.Name] = bytes == null ? null : (byte[])bytes.Clone();
@@ -4081,6 +4157,19 @@ namespace Shared
 
     public static class LobbyModSettingsPresetRegistration
     {
+        /// <summary>Attaches shared presets to an existing foreign mod page without a second network registration.</summary>
+        public static void AttachExternalWorkingCopy(
+            ManualLogSource log, string storageAssemblyLocation, string modName, string targetGuid,
+            Version targetVersion, PresetLobbyModSettingsViewModel viewModel, object view)
+        {
+            if (viewModel == null || view == null) throw new ArgumentNullException();
+            viewModel.PreparePresets(log, storageAssemblyLocation, modName, targetGuid, targetVersion);
+            viewModel.ActivatePresets();
+            ModSettingsHorizontalFocusScrollGuard.Attach(view, log, modName);
+#if !API_SHARED_PRESET_TESTS
+            Plugin.ModSettingsHubViewModel.PropertyChanged += (_, __) => viewModel.System_RefreshSettingsAccess();
+#endif
+        }
         public static void Register(
             BaseUnityPlugin plugin,
             ManualLogSource log,

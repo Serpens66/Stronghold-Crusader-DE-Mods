@@ -13,6 +13,8 @@ internal static class Program
     {
         root = Path.Combine(Path.GetTempPath(), "StatsTweakerApiTests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
+        DocumentTests.Run(root);
+        DocumentTests.RunInstalledFiles(root);
         Run("staging does not change active files", () =>
         {
             var tx = Create("stage");
@@ -65,6 +67,46 @@ internal static class Program
             string revision = ConfigurationFileTransaction.Revision(tx.ReadOwn());
             Throws(() => tx.ApplyBeforeLoading());
             Equal(revision, ConfigurationFileTransaction.Revision(tx.ReadOwn()));
+        });
+        Run("successive stages still compare against own files", () =>
+        {
+            var tx = Create("successive");
+            string revision = ConfigurationFileTransaction.Revision(tx.ReadOwn());
+            tx.Stage(Values("first"), revision);
+            tx.Stage(Values("second"), revision);
+            Equal(revision, ConfigurationFileTransaction.Revision(tx.ReadOwn()));
+            tx.ApplyBeforeLoading();
+            Equal(ConfigurationFileTransaction.Revision(Values("second")), ConfigurationFileTransaction.Revision(tx.ReadOwn()));
+        });
+        Run("write failure retains recoverable journal", () =>
+        {
+            var tx = Create("locked");
+            tx.Stage(Values("new"), ConfigurationFileTransaction.Revision(tx.ReadOwn()));
+            using (File.Open(Path.Combine(root, "locked", "units.toml"), FileMode.Open, FileAccess.Read, FileShare.Read))
+                Throws(() => tx.ApplyBeforeLoading());
+            if (!tx.RecoveryRequired) throw new Exception("Missing recovery journal");
+            Throws(() => tx.Cancel());
+            tx.ApplyBeforeLoading();
+            Equal(ConfigurationFileTransaction.Revision(Values("new")), ConfigurationFileTransaction.Revision(tx.ReadOwn()));
+        });
+        Run("external edit at an application boundary is preserved", () =>
+        {
+            var tx = Create("midconflict");
+            tx.Stage(Values("new"), ConfigurationFileTransaction.Revision(tx.ReadOwn()));
+            tx.Checkpoint = mark => { if (mark == "written:DamageMatrices/melee.csv") File.WriteAllText(Path.Combine(root, "midconflict", "units.toml"), "external"); };
+            Throws(() => tx.ApplyBeforeLoading());
+            Equal("external", File.ReadAllText(Path.Combine(root, "midconflict", "units.toml")));
+            tx.Checkpoint = null;
+            Throws(() => tx.ApplyBeforeLoading());
+            Equal("external", File.ReadAllText(Path.Combine(root, "midconflict", "units.toml")));
+        });
+        Run("oversized package is rejected before publication", () =>
+        {
+            var tx = Create("oversized");
+            var after = Values("new");
+            after["units.toml"] = new byte[ConfigurationFileTransaction.MaximumPackageBytes + 1];
+            Throws(() => tx.Stage(after, ConfigurationFileTransaction.Revision(tx.ReadOwn())));
+            if (tx.ReadPending() != null) throw new Exception("Oversized package was published");
         });
         Console.WriteLine("PASS: " + passed + " configuration transaction scenarios. Artifacts: " + root);
     }

@@ -2,7 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
-using SHCDESE.API.Components.ModManager;
+using SHCDESE.API.Components.Network;
 
 namespace Shared
 {
@@ -22,6 +22,7 @@ namespace Shared
     {
         IReadOnlyList<DynamicPresetSetting> GetSettings();
         Dictionary<string, object> ReadValues();
+        object ReadValue(string key);
         void ValidateValues(Dictionary<string, object> values);
         void ReplaceValues(Dictionary<string, object> values);
     }
@@ -41,16 +42,19 @@ namespace Shared
                 setting.Scope == PresetSettingScope.Player)
                 throw new ArgumentException("Invalid dynamic setting descriptor: " + setting.Key);
         }
+        internal string Group => dynamic?.Group ?? string.Empty;
+        internal string DisplayName => dynamic?.DisplayName ?? Name;
         internal string Name => reflected?.Name ?? dynamic.Key;
         internal Type PropertyType => reflected?.PropertyType ?? dynamic.ValueType;
         internal bool CanRead => reflected?.CanRead ?? true;
         internal bool CanWrite => reflected?.CanWrite ?? true;
         internal bool IsDynamic => dynamic != null;
         internal object DefaultValue => dynamic?.DefaultValue;
-        internal object GetValue(object owner) => reflected != null ? reflected.GetValue(owner) : provider.ReadValues()[Name];
+        internal object GetValue(object owner) => reflected != null ? reflected.GetValue(owner) : provider.ReadValue(Name);
         internal void SetValue(object owner, object value)
         {
-            if (reflected != null) reflected.SetValue(owner, value);
+            if (reflected == null) throw new InvalidOperationException("Dynamic settings require a complete snapshot.");
+            reflected.SetValue(owner, value);
             // Dynamic values are validated and replaced together by the preset controller.
         }
         internal T GetCustomAttribute<T>() where T : Attribute

@@ -19,9 +19,9 @@ foreach (string dir in new[] { framework, Path.Combine(framework,"Facades"),
         catch (BadImageFormatException) { }
 string api = Path.Combine(game,"BepInEx","plugins","APIShared_Serp","APIShared.dll");
 references["APIShared.dll"] = api;
-foreach (string mod in new[] { "EnemyGatePathfindingTest", "EnemyBridgePathTest" })
+foreach (string mod in new[] { "EnemyGatePathfindingTest", "EnemyBridgePathTest", "EnemyBridgePathTest.PolicyTests" })
 {
-    string projectDir = Path.Combine(root,"Testmods",mod);
+    string projectDir = Path.Combine(root,"Testmods",mod.Replace(".PolicyTests",""));
     var xml = XDocument.Load(Path.Combine(projectDir,mod+".csproj"));
     var trees = xml.Descendants().Where(e=>e.Name.LocalName=="Compile").Select(e=>
     {

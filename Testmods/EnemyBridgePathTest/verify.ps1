@@ -40,6 +40,20 @@ foreach ($member in @(@('r_AI_ContextTargetBuildingTileId',0x3A4,'UInt32'),@('r_
     $field = $unitType.GetField($member[0])
     if (!$field -or !$field.IsPublic -or $field.FieldType.Name -ne $member[2] -or [Runtime.InteropServices.Marshal]::OffsetOf($unitType,$member[0]).ToInt32() -ne $member[1]) { throw ('Installed assignment member mismatch: '+$member[0]) }
 }
+# Public path contracts must match the installed Extender, not a publicized game DLL.
+foreach ($member in @(@('r_CurrentTilePositionX',0xC0,'UInt16'),@('r_CurrentTilePositionY',0xC2,'UInt16'),@('r_TargetTilePositionX',0xC4,'UInt16'),@('r_TargetTilePositionY',0xC6,'UInt16'),@('r_PreviousTilePositionX',0xC8,'UInt16'),@('r_PreviousTilePositionY',0xCA,'UInt16'),@('r_NextTilePositionX2',0xDC,'UInt16'),@('r_NextTilePositionY2',0xDE,'UInt16'),@('r_PathPlanStateBitFlags',0xF2,'UInt16'),@('r_MovementSubstep',0xF4,'UInt16'),@('r_CurrentPathPlanIndex',0xF6,'UInt16'),@('r_PathPlanLength',0xF8,'UInt16'),@('r_ContextTargetTileX',0x3E4,'UInt16'),@('r_ContextTargetTileY',0x3E6,'UInt16'))) {
+    $field = $unitType.GetField($member[0])
+    if (!$field -or !$field.IsPublic -or $field.FieldType.Name -ne $member[2] -or [Runtime.InteropServices.Marshal]::OffsetOf($unitType,$member[0]).ToInt32() -ne $member[1]) { throw ('Installed path member mismatch: '+$member[0]) }
+}
+$pathApi = $installed.GetType('SHCDESE.API.GamePathingManagerAPI',$true)
+$pathView = $installed.GetType('SHCDESE.Interop.GameUnitPathPlanView',$true)
+$viewMethod = $pathApi.GetMethod('TryGetUnitPathPlanView')
+if (!$viewMethod -or !$viewMethod.IsPublic -or $viewMethod.ReturnType -ne [bool] -or $viewMethod.GetParameters()[0].ParameterType -ne [int] -or $viewMethod.GetParameters()[1].ParameterType.GetElementType() -ne $pathView) { throw 'Installed public path view signature mismatch' }
+if (!$pathView.GetProperty('PackedBytes').GetMethod.IsPublic -or $pathView.GetProperty('PackedBytes').PropertyType.ToString() -ne 'System.Span`1[System.Byte]') { throw 'Installed public packed buffer mismatch' }
+$movementEvent = $installed.GetType('SHCDESE.EventAPI.UnitR3EventHooks',$true).GetField('OnUnitMovement')
+if (!$movementEvent -or !$movementEvent.IsPublic -or !$movementEvent.IsStatic -or $movementEvent.FieldType.GetGenericArguments()[0].FullName -ne 'SHCDESE.EventAPI.Units.UnitMovementEventArgs') { throw 'Installed movement publisher mismatch' }
+$routeSource = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/BridgeRouteTrace.cs'))
+if ($routeSource -match 'TrySet|TryReplace|ClearUnitPath|SetPacked|FindNext|Marshal.Write') { throw 'Passive route observation became a writer/search' }
 $textFiles = @(Get-ChildItem -LiteralPath $PSScriptRoot -Recurse -File | Where-Object {
     $_.FullName -notmatch '\\(?:bin|obj|BepInEx)\\' -and $_.Extension -in @('.cs','.csproj','.ps1','.bat','.md','.json','.xaml')
 })

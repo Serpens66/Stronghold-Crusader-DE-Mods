@@ -50,6 +50,8 @@
     <Compile Include="..\Shared\SerpLocalization.cs"><Link>Shared\SerpLocalization.cs</Link></Compile>
     <Compile Include="..\Shared\ToolTipPresentation.cs"><Link>Shared\ToolTipPresentation.cs</Link></Compile>
     <Compile Include="src\PackManifest.cs" />
+    <Compile Include="src\StatsTweakerPresetAdapter.cs" />
+    <Compile Include="src\StatsTweakerPresetViewModel.cs" />
     <Compile Include="src\PackManifestJson.cs" />
     <Compile Include="src\PackPluginDiagnosticMessages.cs" />
     <Compile Include="src\DuplicateInstallationDetector.cs" />

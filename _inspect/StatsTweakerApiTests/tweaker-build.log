@@ -1,0 +1,20 @@
+=== Building CrusaderDETweaker ===
+  Project: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Fremde Mods\crusader-de-tweaker
+  Output : D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Fremde Mods\crusader-de-tweaker\bin\Release
+
+Using MSBuild: C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe
+Configuration: Release (Build)
+
+Restoring NuGet packages...
+Building project...
+
+  CrusaderDETweaker -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Fremde Mods\crusader-de-tweaker\bin\Release\CrusaderDETweaker.dll
+
+Build successful!
+  DLL: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Fremde Mods\crusader-de-tweaker\bin\Release\CrusaderDETweaker.dll (273408 bytes), version 2.8.0
+
+=== Deploying CrusaderDETweaker ===
+  From: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Fremde Mods\crusader-de-tweaker\bin\Release
+  To  : E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\CrusaderDETweaker
+Game is NOT running
+Deployed 7 file(s), hashes verified. Backed up 7 replaced file(s); moved 0 file(s) not in this build to D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Fremde Mods\crusader-de-tweaker\dist\deploy-backups\20261004-215623.

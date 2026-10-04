@@ -16,7 +16,7 @@ using System.Threading;
 namespace EnemyBridgePathTest
 {
     // Every frame and unit-state capture exists only between Pre and Post. Snapshots
-    // contain buildings/tiles, never a persistent registry of moving units.
+    // contain buildings/tiles. The separate route observer retains validated unit identities.
     internal sealed unsafe class BridgeDiagnostics : IEnemyBridgePathObserver
     {
         private readonly ManualLogSource log;
@@ -145,7 +145,7 @@ namespace EnemyBridgePathTest
             Trace.FlushRegions(); Trace.FlushCosts(); unresolvedSamples=0;
             var rows = totals.Drain(out var definitions);
             foreach (var definition in definitions) Trace.Observe("aggregate-state",definition.ToString());
-            foreach (var row in rows) Trace.Observe("aggregate",row.ToString());
+            Trace.Aggregates(rows);
             Shared.DebugLogHelper.LogInfo(log, "bridge summary epoch=" + epoch + ",observations=" + totals.Observations +
                 ",pre=" + preCount + ",post=" + postCount + ",searches=" + observedSearches + ",errors=" + errors +
                 ",suppressed=" + suppressedCount + ",missingPost=" + missingPostCount +
@@ -245,6 +245,7 @@ namespace EnemyBridgePathTest
                 unresolvedSamples++;
                 Trace.Observe("unresolved-command","op="+frame.TraceId+",kind="+kind+",id="+frame.Id+",global="+frame.Global+",playerRaw="+frame.Player+",commandRaw="+frame.Command+",input="+frame.X+"/"+frame.Y+",sampleLimitPerInterval=8,classification=unknown");
             }
+            if(frame.Kind=="unit") Trace.BindRoute(frame.Id,frame.Global,frame.Player,frame.Tribe,frame.TraceId,frame.ParentTrace,changed);
             if(!frame.Detailed)return;
             if(frame.Kind=="unit"&&frame.Global!=0)
             {
@@ -254,7 +255,7 @@ namespace EnemyBridgePathTest
             if(frame.Kind=="target"&&IsWork(frame.Command))frame.WorkBefore=CaptureWork(frame.Tribe);
             Trace.Command("command-pre","op="+frame.TraceId+",parentEvent="+frame.ParentTrace+",kind="+frame.Kind+
                 ",id="+frame.Id+",tribe="+frame.Tribe+",player="+frame.Player+",command="+frame.Command+
-                ",input="+frame.X+"/"+frame.Y+",pcl="+frame.SourcePcl+"->"+frame.TargetPcl+",nearBridge="+near+",routeAttribution=unproven,"+frame.Identity,frame.Player);
+                ",input="+frame.X+"/"+frame.Y+",pcl="+frame.SourcePcl+"->"+frame.TargetPcl+",nearBridge="+near+",contextAttribution="+(Trace.DetailedNative?"native-decision":near?"bridge-proximity":"unscoped-bounded-example")+",routeAttribution=unproven,"+frame.Identity,frame.Player);
             if(IsWork(frame.Command)) Trace.Observe("terrain-work-command","eventOp="+frame.TraceId+",player="+frame.Player+",command="+frame.Command+",target="+frame.X+"/"+frame.Y+",nearBridge="+near+",execution=not-proven");
             Record(frame,"command-pre","called",frame.Identity);
 
@@ -273,6 +274,7 @@ namespace EnemyBridgePathTest
             if (frame == null || frame.Kind != kind || frame.Id != id)
             { Interlocked.Increment(ref errors); Record(frame, "diagnostic-error", "pre-post-mismatch", "post=" + kind + "/" + id); return; }
             frames.RemoveAt(frames.Count - 1);
+            if(kind=="unit")Trace.Routes.Observe(id,true,true,result,frame.TraceId);
             Trace.CountEvent(BridgeDecisionTrace.CommandCountData(kind=="target"?1:kind=="move"?2:3,frame.Player,frame.Command,result,false,frame.Global!=0&&frame.Player>=1&&frame.Player<=8));
             if(frame.Detailed) Trace.Command("command-post","op="+frame.TraceId+",parentEvent="+frame.ParentTrace+",kind="+kind+
                 ",id="+id+",return="+result+",retainedPre="+DescribePreArgs(frame.PreEvent)+",postInput=original,regions="+frame.Regions,frame.Player);
@@ -338,6 +340,11 @@ namespace EnemyBridgePathTest
                 }
                 else if (args.Phase == EventHookPhase.Post) Pop("move", args.TribeId, args.ReturnValue);
             });
+        }
+        internal void UnitMovement(UnitMovementEventArgs args)
+        {
+            if(!running||args.UnitId>int.MaxValue)return;
+            Trace.Routes.Observe((int)args.UnitId,args.Phase==EventHookPhase.Post);
         }
         internal void UnitMove(UnitMoveHereEventArgs args)
         {

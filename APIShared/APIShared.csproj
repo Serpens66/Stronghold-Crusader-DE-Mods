@@ -66,6 +66,7 @@
     <Compile Include="src\ModSettingsSearch.cs" />
     <Compile Include="src\PresetLobbyModSettingsViewModel.cs" />
     <Compile Include="src\ModSettingsPresetDocuments.cs" />
+    <Compile Include="src\DynamicPresetSettings.cs" />
     <Compile Include="src\MissionLifecycleContracts.cs" />
     <Compile Include="src\MissionLifecycleState.cs" />
     <Compile Include="src\MissionLifecycleCapability.cs" />

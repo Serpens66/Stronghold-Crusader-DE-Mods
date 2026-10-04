@@ -177,6 +177,8 @@ namespace Shared
     {
         public string PropertyName { get; internal set; } = string.Empty;
         public Type PropertyType { get; internal set; }
+        public string Group { get; internal set; } = string.Empty;
+        public string DisplayName { get; internal set; } = string.Empty;
         public PresetSettingScope Scope { get; internal set; }
     }
 
@@ -204,6 +206,8 @@ namespace Shared
         {
             if (descriptor == null) throw new ArgumentNullException(nameof(descriptor));
             PropertyName = descriptor.PropertyName;
+            Group = descriptor.Group;
+            DisplayName = string.IsNullOrEmpty(descriptor.DisplayName) ? PropertyName : descriptor.DisplayName;
             Scope = descriptor.Scope;
             ScopeText = string.IsNullOrWhiteSpace(scopeText) ? descriptor.Scope.ToString() : scopeText;
             ModeOptions = modeOptions != null && modeOptions.Length == 3
@@ -212,6 +216,8 @@ namespace Shared
         }
 
         public string PropertyName { get; }
+        public string Group { get; }
+        public string DisplayName { get; }
         public PresetSettingScope Scope { get; }
         public string ScopeText { get; }
         public string[] ModeOptions { get; }
@@ -298,7 +304,7 @@ namespace Shared
     {
         public const int SchemaVersion = 1;
         public const string EncodedMessagePackPrefix = "messagepack-base64:";
-        public const int MaximumSettings = 1024;
+        public const int MaximumSettings = 16384;
         public const int MaximumDescriptionLength = 8192;
 
         public static PublishedModSettingsPreset Parse(
@@ -308,6 +314,8 @@ namespace Shared
             string expectedTargetGuid,
             string sourcePath)
         {
+            if (json == null || Encoding.UTF8.GetByteCount(json) > ModSettingsPresetCatalog.MaximumFileBytes)
+                throw new InvalidDataException("Preset exceeds the 8 MiB limit.");
             if (!(DependencyFreeJson.Parse(json) is Dictionary<string, object> root))
                 throw new InvalidDataException("Preset JSON root must be an object.");
             RequireKnownKeys(
@@ -422,7 +430,10 @@ namespace Shared
             if (!string.IsNullOrWhiteSpace(minimumTargetVersion)) root.Add("minimumTargetVersion", minimumTargetVersion.Trim());
             if (!string.IsNullOrWhiteSpace(maximumTargetVersion)) root.Add("maximumTargetVersion", maximumTargetVersion.Trim());
             root.Add("settings", serializedSettings);
-            return DependencyFreeJson.Serialize(root);
+            string json = DependencyFreeJson.Serialize(root);
+            if (Encoding.UTF8.GetByteCount(json) > ModSettingsPresetCatalog.MaximumFileBytes)
+                throw new InvalidDataException("Preset exceeds the 8 MiB limit.");
+            return json;
         }
 
         public static object ConvertValue(object value, Type targetType)
@@ -564,7 +575,7 @@ namespace Shared
 
     internal static class ModSettingsPresetCatalog
     {
-        private const long MaximumFileBytes = 1024 * 1024;
+        internal const long MaximumFileBytes = 8 * 1024 * 1024;
         private const int MaximumFilesPerProvider = 512;
         private const int MaximumPresetsPerTarget = 2048;
 

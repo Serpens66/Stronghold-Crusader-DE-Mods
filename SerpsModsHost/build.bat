@@ -59,6 +59,7 @@ popd
 copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
 copy /Y "%PROJECT_DIR%serps-modpack.json" "%LOCAL_PLUGIN_DIR%\serps-modpack.json" >nul
 xcopy "%PROJECT_DIR%Override" "%LOCAL_PLUGIN_DIR%\Override\" /E /I /Q /Y >nul
+xcopy "%PROJECT_DIR%Locales" "%LOCAL_PLUGIN_DIR%\Locales\" /E /I /Q /Y >nul
 if not exist "%LOCAL_PLUGIN_DIR%\SerpsModsHost.dll" goto package_failed
 if not exist "%LOCAL_PLUGIN_DIR%\info.json" goto package_failed
 if not exist "%LOCAL_PLUGIN_DIR%\serps-modpack.json" goto package_failed

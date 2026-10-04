@@ -21,6 +21,7 @@ namespace SerpsModsHost
 {
     [BepInDependency(ScriptExtenderGuid, "2.3.0")]
     [BepInDependency("APIShared_Serp", "0.4.0")]
+    [BepInDependency("CrusaderDETweaker", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class SerpsModsHostPlugin : BaseUnityPlugin
     {
@@ -464,6 +465,7 @@ namespace SerpsModsHost
                 Interlocked.Exchange(ref settingsSortQueued, 0);
                 try
                 {
+                    StatsTweakerPresetAdapter.TryAttach(instance.Info.Location, instance.Logger);
                     var registrations = GameXAMLManagerAPI.Instance.RegisteredModSettings;
                     LobbyModSettingsEntry host = registrations.FirstOrDefault(entry =>
                         string.Equals(entry.Name, PluginGuid, StringComparison.Ordinal));

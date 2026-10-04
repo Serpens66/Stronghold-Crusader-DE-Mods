@@ -45,7 +45,7 @@
     <Compile Include="src\EnemyBridgePathTestPlugin.cs" />
     <Compile Include="src\AssemblyInfo.cs" />
     <Compile Include="src\BridgeDiagnostics.cs" />
-    <Compile Include="src\BridgeDecisionTrace.cs" />
+    <Compile Include="src\BridgeDecisionTrace.cs" /><Compile Include="src\BridgeRouteTrace.cs" />
     <Compile Include="src\BridgeBuildingIndex.cs" />
     <Compile Include="src\BridgeNativeHooks.cs" />
     <Compile Include="src\BridgeNativeDefinition.cs" />

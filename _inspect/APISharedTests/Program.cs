@@ -1661,6 +1661,8 @@ namespace APISharedTests
                 "Shared.PresetSaveBulkMode",
                 "Shared.PresetSettingScope",
                 "Shared.PresetSettingDescriptor",
+                "Shared.DynamicPresetSetting",
+                "Shared.IDynamicPresetSettingsProvider",
                 "Shared.PresetSaveSelection",
                 "Shared.PresetSaveSettingViewModel",
                 "Shared.ModSettingsPresetSourceKind",

@@ -20,6 +20,7 @@ namespace EnemyBridgePathTest
         {
             try
             {
+                count += RouteTraceTests.Run();
                 count += DrawbridgeClosureTests.Run();
                 count += NativeDecisionTests.Run();
                 count += LeanTraceTests.Run();
