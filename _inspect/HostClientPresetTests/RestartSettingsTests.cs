@@ -62,6 +62,7 @@ internal static class RestartSettingsTests
         ModSettingsApplication.Register("RestartProbe", vm, Path.Combine(root, "Probe.dll"));
         ModSettingsApplication.EnterContext("mission|original-content");
         Check(ModSettingsApplication.ResumeSnapshot("RestartProbe") != null, "process restart lost preparation");
+        Check(MessagePack.MessagePackSerializer.Deserialize<long>(ModSettingsApplication.ResumeSnapshot("RestartProbe")["startup"]) == 13L, "restored snapshot did not contain actual desired provider values");
         try { ModSettingsApplication.EnterContext("mission|changed-content"); throw new Exception("changed content accepted"); }
         catch (InvalidDataException) { }
         vm.Source.Own["startup"] = 99L;
@@ -77,6 +78,25 @@ internal static class RestartSettingsTests
         catch (InvalidDataException) { }
         ModSettingsApplication.ResetForTests(Path.Combine(root, "unused.json"));
         Console.WriteLine("PASS: durable restart recovery, failed replacement rollback, changed content, missing provider and corrupt preparation");
+        vm.Source.Working["startup"] = 13L;
+        Check(MessagePack.MessagePackSerializer.Deserialize<long>(vm.System_CreatePlayerMissionPresetSnapshot()["startup"]) == 1L,
+            "player source used prior working or mission values instead of personal values");
+        Check(MessagePack.MessagePackSerializer.Deserialize<long>(vm.System_CreateCurrentWorkingSnapshot()["startup"]) == 13L,
+            "current source did not use desired provider values");
+        Check(!vm.System_ApplyConfiguration("") && (long)vm.Source.Pending["startup"] == 13L,
+            "already active personal choice was lost or unnecessarily required restart");
+        vm.Source.DiscardPendingConfiguration();
+        vm.Source.NetworkClient = true;
+        vm.Source.NetworkReady = false;
+        vm.Source.Working["startup"] = 100L;
+        int stageCount = vm.Source.Staged;
+        Check(vm.System_ApplyConfiguration("client-mission") && vm.Source.Staged == stageCount,
+            "client admission staged working host values as personal values");
+        vm.Source.NetworkReady = true;
+        Check(!vm.System_ApplyConfiguration("client-mission") && vm.Source.Staged == stageCount,
+            "verified network provider was replaced by local configuration application");
+        vm.Source.NetworkClient = false;
+        Console.WriteLine("PASS: personal versus desired sources, unchanged personal persistence and network-owned client admission");
     }
     private static void Check(bool condition, string message) { if (!condition) throw new Exception(message); }
     private sealed class Attributed { [RequiresRestart] public long Startup { get; set; } }
@@ -85,7 +105,7 @@ internal static class RestartSettingsTests
         internal readonly Backend Source = new Backend();
         protected override IDynamicPresetSettingsProvider DynamicSettingsProvider => Source;
     }
-    private sealed class Backend : IDynamicPresetSettingsProvider, IModSettingsApplicationBackend
+    private sealed class Backend : IDynamicPresetSettingsProvider, IModSettingsApplicationBackend, INetworkModSettingsApplicationBackend
     {
         internal readonly DynamicPresetSetting[] Options = {
             new DynamicPresetSetting { Key = "startup", ValueType = typeof(long), DefaultValue = 1L, Scope = PresetSettingScope.Host, RequiresRestart = true },
@@ -93,7 +113,9 @@ internal static class RestartSettingsTests
         };
         internal Dictionary<string, object> Own = new Dictionary<string, object> { ["startup"] = 1L, ["live"] = 1L };
         internal Dictionary<string, object> Working, Active, Pending;
-        internal bool FailStage;
+        internal bool FailStage, NetworkClient, NetworkReady;
+        public bool IsNetworkConfigurationClient => NetworkClient;
+        public bool PrepareNetworkConfiguration() => NetworkReady;
         internal int Staged, Applied;
         internal string PendingContext;
         public string ActiveContextId { get; private set; } = "";

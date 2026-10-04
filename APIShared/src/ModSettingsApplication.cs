@@ -29,7 +29,11 @@ namespace Shared
                 throw new InvalidOperationException("Duplicate configuration endpoint: " + id);
             endpoints[id] = endpoint;
             if (journalPath == null)
-                journalPath = Path.Combine(Path.GetDirectoryName(typeof(ModSettingsApplication).Assembly.Location), "LobbyModSettings", "RestartPreparation.json");
+#if API_SHARED_PRESET_TESTS
+                journalPath = Path.Combine(Path.GetDirectoryName(assemblyPath), "RestartPreparation.json");
+#else
+                journalPath = Path.Combine(BepInEx.Paths.ConfigPath, "APIShared", "RestartPreparation.json");
+#endif
         }
 
         public static PropertyInfo[] GetHostProperties(object endpoint)
@@ -42,6 +46,7 @@ namespace Shared
                     !x.GetCustomAttributes(true).Any(a => a.GetType().Name == "DoNotPersistAttribute")).ToArray();
         }
 
+        public static bool HasRestartPreparation => resume != null || (journalPath != null && File.Exists(journalPath));
         public static bool HasApplicationEndpoints => endpoints.Values.Any(x => x.System_HasApplicationBackend);
 
         // A context is selected before any mission values are materialized. Its identity includes
@@ -117,7 +122,9 @@ namespace Shared
                 foreach (var item in endpoints)
                 {
                     if (!item.Value.System_HasApplicationBackend) continue;
-                    if (item.Value.System_ApplyConfiguration(contextId)) ready = false;
+                    bool restart = item.Value.System_ApplyConfiguration(contextId);
+                    item.Value.ReportConfigurationResult(restart);
+                    if (restart) ready = false;
                 }
                 return ready;
             }
@@ -179,7 +186,7 @@ namespace Shared
             var snapshots = new Dictionary<string, Dictionary<string, byte[]>>(StringComparer.Ordinal);
             foreach (var item in endpoints)
             {
-                var snapshot = item.Value.System_CreateCurrentWorkingSnapshot();
+                var snapshot = item.Value.CaptureApplicationSnapshot();
                 if (snapshot.Count > 16384) throw new InvalidDataException("Too many settings.");
                 snapshots[item.Key] = snapshot;
                 mods[item.Key] = snapshot.ToDictionary(x => x.Key, x => (object)Convert.ToBase64String(x.Value), StringComparer.Ordinal);

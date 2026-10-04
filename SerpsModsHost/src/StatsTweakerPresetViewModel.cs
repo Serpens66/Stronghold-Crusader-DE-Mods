@@ -66,7 +66,7 @@ namespace SerpsModsHost
         private void Run(Action action)
         {
             try { action(); }
-            catch (Exception ex) { status = ex.GetBaseException().Message; }
+            catch (Exception ex) { status = ex.GetBaseException().Message; SetConfigurationNotice(status); }
             RaiseStatus();
         }
         protected override void OnSettingsSnapshotApplied() => RaiseStatus();

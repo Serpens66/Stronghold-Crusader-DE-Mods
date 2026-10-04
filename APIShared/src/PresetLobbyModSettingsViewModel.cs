@@ -2012,13 +2012,25 @@ namespace Shared
         public void System_CommitConfiguration()
         {
             bool restart = ModSettingsApplication.Commit(presetController.TargetGuid);
-            System_ApplicationNotice = restart ? ResolveSettingsUiTextSafe("Common.RestartRequired", "Settings prepared. Restart the game to apply them.") : "";
+            ReportConfigurationResult(restart);
+        }
+        internal void ReportConfigurationResult(bool restart) => SetConfigurationNotice(restart
+            ? ResolveSettingsUiTextSafe("Common.RestartRequired", "Settings prepared. Restart the game to apply them.") : "");
+        protected void SetConfigurationNotice(string message)
+        {
+            System_ApplicationNotice = message ?? "";
             OnPropertyChanged(nameof(System_ApplicationNotice));
             OnPropertyChanged(nameof(System_HasPendingConfiguration));
 #if !API_SHARED_PRESET_TESTS
             OnPropertyChanged(nameof(System_PresetStatusText));
             OnPropertyChanged(nameof(System_PresetStatusVisibility));
 #endif
+        }
+        internal Dictionary<string, byte[]> CaptureApplicationSnapshot()
+        {
+            if (SettingsApplicationBackend == null) return System_CreateCurrentWorkingSnapshot();
+            return SettingsApplicationBackend.ReadDesiredValues().ToDictionary(x => x.Key,
+                x => MessagePackSerializer.Serialize(x.Value.GetType(), x.Value), StringComparer.Ordinal);
         }
         internal Dictionary<string, string> CaptureRestartSources()
         {
@@ -2085,7 +2097,17 @@ namespace Shared
             var changed = System_GetPresetSettingDescriptors().Where(x => !active.TryGetValue(x.PropertyName, out var value) || !Equals(value, desired[x.PropertyName])).ToArray();
             if (changed.Length == 0)
             {
-                if (backend.ReadPendingValues() != null) backend.DiscardPendingConfiguration();
+                // A temporary configuration can already match the requested personal preset.
+                // Preserve that personal choice for future starts without inventing a restart need.
+                var own = backend.ReadOwnValues();
+                bool persistPersonal = string.IsNullOrEmpty(contextId) && desired.Any(x =>
+                    !own.TryGetValue(x.Key, out var value) || !Equals(value, x.Value));
+                if (persistPersonal)
+                {
+                    if (System_GetPresetSettingDescriptors().Any(x => x.RequiresRestart)) backend.StageValues(desired, "");
+                    else backend.ApplyValues(desired, "");
+                }
+                else if (backend.ReadPendingValues() != null) backend.DiscardPendingConfiguration();
                 return false;
             }
             if (changed.Any(x => x.RequiresRestart))
@@ -2375,10 +2397,15 @@ namespace Shared
             presetController?.CreateDefaultSnapshot() ?? new Dictionary<string, byte[]>(StringComparer.Ordinal);
 
         public Dictionary<string, byte[]> System_CreateCurrentMissionPresetSnapshot() =>
-            presetController?.CreateCurrentMissionSnapshot() ?? new Dictionary<string, byte[]>(StringComparer.Ordinal);
+            System_CreateCurrentWorkingSnapshot();
 
-        public Dictionary<string, byte[]> System_CreatePlayerMissionPresetSnapshot() =>
-            presetController?.CreatePlayerMissionSnapshot() ?? new Dictionary<string, byte[]>(StringComparer.Ordinal);
+        public Dictionary<string, byte[]> System_CreatePlayerMissionPresetSnapshot()
+        {
+            if (SettingsApplicationBackend != null)
+                return SettingsApplicationBackend.ReadOwnValues().ToDictionary(x => x.Key,
+                    x => MessagePackSerializer.Serialize(x.Value.GetType(), x.Value), StringComparer.Ordinal);
+            return presetController?.CreatePlayerMissionSnapshot() ?? new Dictionary<string, byte[]>(StringComparer.Ordinal);
+        }
 
         public void System_ApplyMissionPresetSnapshot(Dictionary<string, byte[]> snapshot, string label)
         {
@@ -2387,6 +2414,7 @@ namespace Shared
         }
 
         public Dictionary<string, byte[]> System_CreateCurrentWorkingSnapshot() =>
+            SettingsApplicationBackend != null ? CaptureApplicationSnapshot() :
             presetController?.CreateCurrentMissionSnapshot() ?? new Dictionary<string, byte[]>(StringComparer.Ordinal);
 
         public void System_ApplyWorkingSnapshot(Dictionary<string, byte[]> snapshot)

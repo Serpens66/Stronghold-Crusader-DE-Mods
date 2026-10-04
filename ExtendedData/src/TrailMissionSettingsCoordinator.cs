@@ -1942,6 +1942,7 @@ namespace ExtendedData
                 }
                 if (!enabled)
                 {
+                    if (!TryPrepareRestartSettings()) return;
                     startCustomTrailOriginal(self, trailName, missionId, difficulty);
                     return;
                 }
@@ -1963,6 +1964,11 @@ namespace ExtendedData
                     {
                         ExtendedDataLaunchOriginApi.Clear();
                         DebugLogHelper.LogError(log, $"Could not prepare Custom Trail mod settings: {exception}");
+                        if (ModSettingsApplication.HasApplicationEndpoints)
+                        {
+                            ShowInformation(SerpLocalization.Get("ExtendedData.StartBlockedTitle"), exception.GetBaseException().Message);
+                            return;
+                        }
                         ApplyDocument(ModSettingsDefinition.CreateModDefaults(), editable: false);
                     }
                 }
