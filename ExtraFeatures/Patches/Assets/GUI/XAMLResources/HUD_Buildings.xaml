@@ -70,6 +70,72 @@
       </Grid>
     </Content>
   </Operation>
+  <Operation Type="Add" XPath="//n:Grid[@Name='ShowDrawbridge']">
+    <Content>
+      <Grid x:Name="ExtraFeaturesDrawbridgeAutomationButtonHost"
+            Width="57"
+            Height="57"
+            Margin="0,100,600,0"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Top"
+            Visibility="{Binding ButtonVisibility}">
+        <Button x:Name="ExtraFeaturesDrawbridgeAutomationButton"
+                Width="57"
+                Height="57"
+                Margin="0"
+                Padding="0"
+                Command="{Binding ToggleCommand}"
+                ToolTipService.ShowDuration="60000"
+                Background="#DD1B1B1B"
+                BorderBrush="#FFB08A4A"
+                BorderThickness="2">
+          <Button.ToolTip>
+            <ToolTip seui:ToolTipResolutionScale.Enabled="True" Content="{Binding ToolTipText}"
+                     Background="#FF1D1710"
+                     Foreground="White"
+                     BorderBrush="#FFF2D48A"
+                     BorderThickness="1">
+              <ToolTip.Template>
+                <ControlTemplate TargetType="{x:Type ToolTip}">
+                  <Border Background="{TemplateBinding Background}"
+                          BorderBrush="{TemplateBinding BorderBrush}"
+                          BorderThickness="1"
+                          CornerRadius="2"
+                          Padding="{TemplateBinding Padding}"
+                          MaxWidth="{TemplateBinding MaxWidth}">
+                    <TextBlock Text="{TemplateBinding Content}"
+                               Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}"
+                               TextWrapping="Wrap"/>
+                  </Border>
+                </ControlTemplate>
+              </ToolTip.Template>
+            </ToolTip>
+          </Button.ToolTip>
+          <Grid Width="53" Height="53">
+            <Image Width="49"
+                   Height="49"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   Stretch="Uniform"
+                   Source="{Binding IconImageSource}"
+                   Opacity="{Binding IconOpacity}"/>
+            <Border Width="48"
+                    Height="5"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Background="#FFFF9C38"
+                    BorderBrush="#FF2A1608"
+                    BorderThickness="1"
+                    Visibility="{Binding ManualIndicatorVisibility}">
+              <Border.RenderTransform>
+                <RotateTransform Angle="-42"/>
+              </Border.RenderTransform>
+            </Border>
+          </Grid>
+        </Button>
+      </Grid>
+    </Content>
+  </Operation>
   <Operation Type="Add" XPath="//n:Grid[@x:Name='InBuildingLayoutRoot']">
     <Content>
       <Grid x:Name="ExtraFeaturesBuildingRepairHoverHost"

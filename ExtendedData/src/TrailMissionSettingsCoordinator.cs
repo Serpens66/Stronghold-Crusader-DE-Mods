@@ -508,11 +508,12 @@ namespace ExtendedData
                 ModSettingsDefinition document,
                 bool editable,
                 string source,
-                string presetLabel)
+                string presetLabel,
+                bool materializeCurrentValues = false)
             {
                 document = ValidateStrict(document, source);
                 if (string.IsNullOrEmpty(ModSettingsApplication.ContextId)) ModSettingsApplication.EnterContext(BuildRestartContext(source, document));
-                ApplyDocument(document, editable, presetLabel);
+                ApplyDocument(document, editable, presetLabel, materializeCurrentValues: materializeCurrentValues);
                 activeCreatorDocument = CloneDocument(document);
                 DebugLogHelper.LogInfo(log, $"Loaded {source} mod settings; editable={editable}.");
                 return GetMissingMentionedMods(document);
@@ -1976,7 +1977,7 @@ namespace ExtendedData
                 {
                     // Customize is an editable draft. The launched mission receives the
                     // materialized result as a read-only working snapshot.
-                    ApplyDocument(CaptureDocument(), editable: false, presetLabel: "Trail");
+                    ApplyDocument(CaptureDocument(), editable: false, presetLabel: "Trail", materializeCurrentValues: true);
                 }
                 try
                 {
@@ -3368,7 +3369,8 @@ namespace ExtendedData
                 bool useFixedDefaults = false,
                 bool previewOnly = false,
                 bool preserveCurrentValues = false,
-                Dictionary<string, Dictionary<string, byte[]>> startingSnapshots = null)
+                Dictionary<string, Dictionary<string, byte[]>> startingSnapshots = null,
+                bool materializeCurrentValues = false)
             {
                 ClearActiveSidecar();
                 Dictionary<string, IModSettingsPresetEndpoint> allParticipants = FindCompatibleViewModels();
@@ -3377,7 +3379,7 @@ namespace ExtendedData
                         throw new InvalidDataException("Required Map/Trail settings provider is missing or incompatible: " + mentionedMod);
                 // Capture before leaving the old preset; exiting restores the personal preset.
                 Dictionary<string, Dictionary<string, byte[]>> currentSnapshots =
-                    preserveCurrentValues ? CaptureCurrentSnapshots(allParticipants) : null;
+                    preserveCurrentValues || materializeCurrentValues ? CaptureCurrentSnapshots(allParticipants) : null;
                 ExitActiveParticipants(allParticipants);
                 var prepared = new List<Tuple<string, IModSettingsPresetEndpoint, Dictionary<string, byte[]>, bool>>(allParticipants.Count);
                 foreach (KeyValuePair<string, IModSettingsPresetEndpoint> participant in allParticipants)
@@ -3405,7 +3407,7 @@ namespace ExtendedData
                     // Editable authoring starts from the current values. A playable Trail
                     // still uses the participant's disabled baseline for missing values.
                     Dictionary<string, byte[]> snapshot;
-                    if (preserveCurrentValues)
+                    if (preserveCurrentValues || materializeCurrentValues)
                     {
                         if (startingSnapshots == null ||
                             !startingSnapshots.TryGetValue(participant.Key, out snapshot))
@@ -3416,7 +3418,7 @@ namespace ExtendedData
                     {
                         snapshot = participant.Value.System_CreateDisabledMissionPresetSnapshot();
                     }
-                    if (entry != null)
+                    if (entry != null && !materializeCurrentValues)
                     {
                         // A playable Trail resolves player values from the restored personal
                         // preset. Authoring already captured the current editable values.
@@ -3438,7 +3440,7 @@ namespace ExtendedData
                             snapshot[property.Name] = MessagePackSerializer.Serialize(property.PropertyType, converted);
                         }
                     }
-                    snapshot = ModSettingsApplication.ResumeSnapshot(participant.Key) ?? snapshot;
+                    if (!materializeCurrentValues) snapshot = ModSettingsApplication.ResumeSnapshot(participant.Key) ?? snapshot;
                     prepared.Add(Tuple.Create(participant.Key, participant.Value, snapshot, entry != null));
                 }
 
@@ -3482,7 +3484,9 @@ namespace ExtendedData
                 foreach (KeyValuePair<string, IModSettingsPresetEndpoint> participant in participants)
                 {
                     Dictionary<string, byte[]> snapshot =
-                        participant.Value.System_CreateDisabledMissionPresetSnapshot();
+                        participant.Value is PresetLobbyModSettingsViewModel model && model.System_HasApplicationBackend
+                            ? model.System_CreateCurrentWorkingSnapshot()
+                            : participant.Value.System_CreateDisabledMissionPresetSnapshot();
                     foreach (PropertyInfo property in GetPersistedProperties(participant.Value).Values)
                         snapshot[property.Name] = MessagePackSerializer.Serialize(
                             property.PropertyType, property.GetValue(participant.Value));

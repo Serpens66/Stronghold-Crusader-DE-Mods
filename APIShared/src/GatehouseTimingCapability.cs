@@ -217,6 +217,10 @@ namespace APIShared
 
                 bool installDistance = distanceLiveFailure == null;
                 bool installTiming = timingLiveFailure == null;
+                GatehouseAutomationNativeState automation = nativeRegion != null && installTiming
+                    ? GatehouseAutomationNativeState.Prepare(unchecked((ulong)moduleBase),
+                        nativeRegion, memory, nativeMemory, log)
+                    : null;
                 runtimeState = nativeRegion == null
                     ? GatehousePermanentRuntimeState.CreateTestState(installDistance, installTiming)
                     : installDistance || installTiming
@@ -224,7 +228,8 @@ namespace APIShared
                             nativeRegion,
                             unchecked((ulong)moduleBase),
                             installDistance,
-                            installTiming)
+                            installTiming,
+                            automation)
                         : GatehousePermanentRuntimeState.CreateTestState(false, false);
             }
             catch (NativeResolutionException ex)
@@ -560,6 +565,7 @@ namespace APIShared
         private int expectedAiDelay = GatehouseTimingTarget.VanillaAiDelay;
         private int expectedHumanDistance = GatehouseTimingTarget.VanillaHumanDistance;
         private int expectedHumanDelay = GatehouseTimingTarget.VanillaHumanDelay;
+        private string automationOwner;
 
         public GatehouseTimingService(
             string binaryHash,
@@ -579,6 +585,32 @@ namespace APIShared
         }
 
         public IGatehouseTimingCapability Bind(string ownerGuid) => new OwnerCapability(this, ownerGuid);
+
+        private bool TrySetManualOnlyResolver(string ownerGuid, Func<int, bool> resolver,
+            out NativeCapabilityDiagnostic diagnostic)
+        {
+            lock (mutationSync)
+            {
+                bool available = runtimeState.Automation != null;
+                string failure = available ? null : "The audited gate/bridge automation hooks are unavailable.";
+                NativeCapabilityState state = NativeCapabilityState.ValidationFailed;
+                if (available && automationOwner != null && automationOwner != ownerGuid)
+                {
+                    available = false;
+                    failure = "The per-building automation policy already belongs to another owner.";
+                    state = NativeCapabilityState.Conflict;
+                }
+                if (available)
+                {
+                    available = runtimeState.Automation.TryPublish(resolver, out failure);
+                    if (available) automationOwner = ownerGuid;
+                }
+                diagnostic = new NativeCapabilityDiagnostic(NativeCapabilityIds.GatehouseAutomation,
+                    available ? NativeCapabilityState.Available : state, binaryHash,
+                    available ? "Per-building automation policy published; native hooks remain installed." : failure);
+                return available;
+            }
+        }
 
         private bool TryApply(string ownerGuid, GatehouseTimingSettings settings, out NativeCapabilityDiagnostic diagnostic)
         {
@@ -711,13 +743,15 @@ namespace APIShared
             $"aiClose={aiDistance / (double)UnitsPerTile:0.###}tiles/{aiDistance}units, " +
             $"aiReopen={aiDelay / (double)TicksPerSecond:0.###}s/{aiDelay}ticks";
 
-        private sealed class OwnerCapability : IGatehouseTimingCapability
+        private sealed class OwnerCapability : IGatehouseTimingCapability, IGatehouseAutomationCapability
         {
             private readonly GatehouseTimingService service;
             private readonly string ownerGuid;
             public OwnerCapability(GatehouseTimingService service, string ownerGuid) { this.service = service; this.ownerGuid = ownerGuid; }
             public bool TryApply(GatehouseTimingSettings settings, out NativeCapabilityDiagnostic diagnostic) =>
                 service.TryApply(ownerGuid, settings, out diagnostic);
+            public bool TrySetManualOnlyResolver(Func<int, bool> resolver, out NativeCapabilityDiagnostic diagnostic) =>
+                service.TrySetManualOnlyResolver(ownerGuid, resolver, out diagnostic);
         }
     }
 }

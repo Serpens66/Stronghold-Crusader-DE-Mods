@@ -43,6 +43,8 @@ namespace APIShared
         public const string GatehouseDistanceOrigin = "gatehouse-distance-origin";
         /// <summary>Capability for configuring gatehouse timing and closing distances.</summary>
         public const string GatehouseTiming = "gatehouse-timing";
+        /// <summary>Capability for independent manual gatehouse and drawbridge control.</summary>
+        public const string GatehouseAutomation = "gatehouse-automation";
         /// <summary>Capability for shared unit HUD categories and image overrides.</summary>
         public const string UnitHudPresentation = "unit-hud-presentation";
         /// <summary>Capability for observing the process-wide AIV build-step function.</summary>

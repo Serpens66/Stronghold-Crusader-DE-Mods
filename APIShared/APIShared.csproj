@@ -87,6 +87,7 @@
     <Compile Include="src\EnemyBridgeDiagnosticBridge.cs" />
     <Compile Include="src\GatehouseTimingCapability.cs" />
     <Compile Include="src\GatehousePermanentRuntimeState.cs" />
+    <Compile Include="src\GatehouseAutomationNativeState.cs" />
     <Compile Include="src\UnitHudPresentationCapability.cs" />
     <Compile Include="src\BriefingGoldPresentationCapability.cs" />
     <Compile Include="src\AivBuildStepCapability.cs" />

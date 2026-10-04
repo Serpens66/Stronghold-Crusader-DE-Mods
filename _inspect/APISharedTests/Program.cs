@@ -36,6 +36,9 @@ namespace APISharedTests
 
         private static int Main()
         {
+            // The standalone test host has no BepInEx bootstrap. Keep journal fixtures local.
+            typeof(BepInEx.Paths).GetProperty(nameof(BepInEx.Paths.ConfigPath))
+                .GetSetMethod(true).Invoke(null, new object[] { Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "test-config") });
             // The publicized fixture keeps its file name but has Assembly-CSharp as its identity.
             AppDomain.CurrentDomain.AssemblyResolve += (sender, args) =>
                 new AssemblyName(args.Name).Name == "Assembly-CSharp"
@@ -1679,6 +1682,7 @@ namespace APISharedTests
                 "APIShared.GatehouseTimingValues",
                 "APIShared.IGatehouseDistanceOriginCapability",
                 "APIShared.IGatehouseTimingCapability",
+                "APIShared.IGatehouseAutomationCapability",
                 "APIShared.IUnitHudPresentationCapability",
                 "APIShared.IUnitHudActivationCapability",
                 "APIShared.IAivBuildStepCapability",
@@ -2311,6 +2315,9 @@ namespace APISharedTests
 
         private static void TestGatehouseAssemblerContracts()
         {
+            GateBridgeAutomationTests.Run(Assert, MapPeImage(File.ReadAllBytes(Path.Combine(
+                @"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition",
+                "Stronghold Crusader Definitive Edition_Data", "Plugins", "x86_64", "CrusaderDE.dll"))));
             const ulong moduleBase = 0x00007FF940F90000;
             const ulong stubAddress = 0x00007FF8D1144000;
             Instruction[] displaced = DecodeInstructions(
@@ -2354,7 +2361,7 @@ namespace APISharedTests
             return result.ToArray();
         }
 
-        private static byte[] AssembleAndDecode(Assembler assembler, ulong address)
+        internal static byte[] AssembleAndDecode(Assembler assembler, ulong address)
         {
             using (var stream = new MemoryStream())
             {
@@ -2363,6 +2370,14 @@ namespace APISharedTests
                 int offset = 0;
                 while (offset < bytes.Length)
                 {
+                    // RedBird's unrestricted CALL jumps over an eight-byte target literal.
+                    if (offset <= bytes.Length - 16 && bytes[offset] == 0xEB && bytes[offset + 1] == 8 &&
+                        bytes[offset + 10] == 0xFF && bytes[offset + 11] == 0x15 &&
+                        BitConverter.ToInt32(bytes, offset + 12) == -14)
+                    {
+                        offset += 16;
+                        continue;
+                    }
                     if (offset <= bytes.Length - 14 &&
                         bytes[offset] == 0xFF && bytes[offset + 1] == 0x25 &&
                         bytes[offset + 2] == 0 && bytes[offset + 3] == 0 &&

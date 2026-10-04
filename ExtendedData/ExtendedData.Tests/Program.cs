@@ -1384,7 +1384,7 @@ static void TestCoordinatorOwnership()
         coordinator.Contains("TrailModCompatibilityContract.Evaluate"),
         "Trail saves do not use validated synchronous settings capture");
     Assert(coordinator.Contains("System_CreateDisabledMissionPresetSnapshot") &&
-        coordinator.Contains("preserveCurrentValues ? CaptureCurrentSnapshots(allParticipants) : null") &&
+        coordinator.Contains("preserveCurrentValues || materializeCurrentValues ? CaptureCurrentSnapshots(allParticipants) : null") &&
         coordinator.Contains("? Array.Empty<string>()") &&
         coordinator.Contains(": entry.PlayerSettings)") &&
         coordinator.Contains("Fixed Trail values have final precedence") &&
@@ -1782,6 +1782,12 @@ static void TestMapModSettingsRuntimeIntegration()
         !File.Exists(oldMapButtonXaml) &&
         !coordinator.Contains("ExtendedDataUseMapModSettings"),
         "Map settings must use the common source selector, remain editable in Customize, and lock the materialized copy at launch");
+    Assert(trailCoordinator.Contains("presetLabel: \"Trail\", materializeCurrentValues: true") &&
+        coordinator.Contains("materializeCurrentValues: true") &&
+        trailCoordinator.Contains("if (entry != null && !materializeCurrentValues)") &&
+        trailCoordinator.Contains("if (!materializeCurrentValues) snapshot = ModSettingsApplication.ResumeSnapshot") &&
+        trailCoordinator.Contains("? model.System_CreateCurrentWorkingSnapshot()"),
+        "Customize launch must freeze desired values, including provider-local values, without reapplying creator modes or old preparations");
     string settingsXaml = File.ReadAllText(Path.Combine(projectRoot, "Override", "ScriptExtenderUI", "ExtendedDataSettings.xaml"));
     Assert(settingsXaml.Contains("TextWrapping=\"Wrap\"\r\n                 Width=\"580\"") &&
         settingsXaml.Contains("Width=\"580\" HorizontalAlignment=\"Left\"") &&

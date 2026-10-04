@@ -393,7 +393,8 @@ namespace ExtendedData
                         settingsCoordinator.CaptureCurrentDocument(),
                         editable: false,
                         source: "Map launch working copy",
-                        presetLabel: "Map");
+                        presetLabel: "Map",
+                        materializeCurrentValues: true);
                 }
                 if (!settingsCoordinator.TryPrepareRestartSettings()) return;
                 startSkirmishGameOriginal(self, restartInfo);

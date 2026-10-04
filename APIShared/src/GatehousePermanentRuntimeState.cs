@@ -35,6 +35,7 @@ namespace APIShared
         private readonly HookHandle<X64InlineHook> distanceHook = new HookHandle<X64InlineHook>();
         private readonly HookHandle<X64InlineHook> decisionHook = new HookHandle<X64InlineHook>();
         private readonly bool testOnly;
+        internal GatehouseAutomationNativeState Automation { get; }
 
         private GatehousePermanentRuntimeState()
         {
@@ -46,13 +47,15 @@ namespace APIShared
             ScanRegion region,
             ulong moduleBase,
             bool installDistance,
-            bool installTiming)
+            bool installTiming,
+            GatehouseAutomationNativeState automation = null)
         {
             if (region == null) throw new ArgumentNullException(nameof(region));
             if (moduleBase == 0) throw new ArgumentOutOfRangeException(nameof(moduleBase));
             if (!installDistance && !installTiming)
                 throw new ArgumentException("At least one gatehouse hook must be requested.");
             InitializeState();
+            Automation = automation;
             try
             {
                 transaction = new HookTransaction(
@@ -86,7 +89,8 @@ namespace APIShared
                                 timingPointerAddress,
                                 moduleBase,
                                 moduleBase + DecisionReturnRva,
-                                moduleBase + ClosePathRva),
+                                moduleBase + ClosePathRva,
+                                automation?.QueryAddress ?? 0),
                         hookSize: DecisionDisplacedBytes);
                 }
                 CommitResult result = transaction.Commit();
@@ -258,12 +262,14 @@ namespace APIShared
             ulong timingPointerAddress,
             ulong moduleBase,
             ulong returnAddress,
-            ulong closePathAddress)
+            ulong closePathAddress,
+            ulong automationQueryAddress = 0)
         {
             if (instructions.Length == 0)
                 throw new InvalidOperationException("The gatehouse decision hook displaced no instructions.");
             Label human = assembler.CreateLabel("gatehouseHumanDecision");
             Label noClose = assembler.CreateLabel("gatehouseNoClose");
+            Label close = assembler.CreateLabel("gatehouseCloseDecision");
             assembler.mov(rax, timingPointerAddress);
             assembler.mov(rax, __qword_ptr[rax]);
             assembler.test(sil, sil);
@@ -271,13 +277,15 @@ namespace APIShared
             assembler.cmp(r8d, __dword_ptr[rax]);
             assembler.jge(noClose);
             assembler.mov(eax, __dword_ptr[rax + 4]);
-            assembler.AddUnrestrictedJmp(closePathAddress);
+            assembler.jmp(close);
 
             assembler.Label(ref human);
             assembler.cmp(r8d, __dword_ptr[rax + 8]);
             assembler.jge(noClose);
             assembler.mov(eax, __dword_ptr[rax + 12]);
-            assembler.AddUnrestrictedJmp(closePathAddress);
+            assembler.Label(ref close);
+            GatehouseAutomationNativeState.GenerateCloseRouting(
+                assembler, moduleBase, automationQueryAddress, closePathAddress);
 
             assembler.Label(ref noClose);
             assembler.mov(rax, moduleBase);

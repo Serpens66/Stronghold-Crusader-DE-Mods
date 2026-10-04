@@ -115,6 +115,9 @@ namespace ExtraFeatures
                 GameXAMLManagerAPI.Instance.RegisterBinding(
                     "ExtraFeaturesGatehouseAutomationButtonHost",
                     runtime.GatehouseAutomationButton);
+                GameXAMLManagerAPI.Instance.RegisterBinding(
+                    "ExtraFeaturesDrawbridgeAutomationButtonHost",
+                    runtime.GatehouseAutomationButton);
             }
             catch (Exception ex)
             {

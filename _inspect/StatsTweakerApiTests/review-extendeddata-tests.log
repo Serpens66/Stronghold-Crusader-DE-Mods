@@ -1,0 +1,80 @@
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\ExtendedData\ExtendedData.Core\ExtendedData.Core.csproj : warning NU1900: Fehler beim Abrufen von Paketsicherheitsrisikodaten: Der Dienstindex für die Quelle "https://api.nuget.org/v3/index.json" konnte nicht geladen werden.
+PASS Custom Coop Trail preview names follow the selected lobby slot
+PASS Custom Coop Trail preview separates displayed teams
+PASS Custom Coop Trail team display hooks all four Vanilla pages
+PASS bundled mission loads
+PASS Coop mission modsettings use an optional sidecar
+PASS path escape rejected
+PASS invalid rotation rejected
+PASS package catalog rejects invalid packages
+PASS package catalog ignores in-progress Coop Trail exports
+PASS package catalog logs only state changes
+PASS package catalog reports new and resolved errors
+PASS old mission schemas are rejected
+PASS old Coop package schema is rejected
+PASS locally edited mission JSON reloads from the same slot
+PASS invalid mod settings are isolated
+PASS first two active players become allied humans
+PASS source alliances are normalized for Vanilla Coop
+PASS complete multiplayer setup roundtrips
+PASS malformed multiplayer setup is rejected
+PASS preferred AIV permits differing rotations
+PASS fourth trail tenth slot is addressable
+PASS package fingerprint detects content changes
+PASS Coop Workshop staging filters modsettings
+PASS Coop Lord requirements remain mandatory when modsettings are excluded
+PASS duplicate package IDs are rejected
+PASS identical local and Workshop replicas are merged
+PASS ordinal mapping covers four trails and ignores mission 41
+PASS short Coop packages end at their declared mission
+PASS native mod-settings JSON roundtrip
+PASS dynamic third-party mod ids are preserved
+PASS missing mod entry uses the mod-defined default
+PASS Trail mod compatibility contract is validated
+PASS explicit plugin opt-out marker is honored
+PASS sidecar schema evolution keeps only current settings
+PASS coop mission schema evolution keeps only current settings
+PASS invalid mod-settings documents are rejected
+PASS atomic sidecar write replaces existing file
+PASS Trail coordinator ownership is centralized
+PASS mission preset lifecycle preserves only expected replacements
+PASS Trail Maker authoring preset survives test returns
+PASS BugfixesAndQoL Customize button delegation is optional
+PASS customized launch origin is persisted and fail-closed
+PASS customized launch origin save roundtrip
+PASS Built-in Customize origin packet roundtrip
+PASS Map mod-settings packet roundtrip
+PASS Map mod-settings runtime integration is fail-closed
+PASS lobby packets retain main-thread ordering
+PASS Steam Workshop discovery waits for Steamworks
+PASS local activation setting gates the complete runtime
+PASS Script Extender manifest range contract is explicit
+PASS Trail Maker Coop export is integrated
+PASS Coop package JSON is Unity dependency-free
+PASS mission and manifest JSON use CRLF
+PASS Workshop Trail staging includes nested JSON
+PASS Workshop Trail staging preserves existing JSON
+PASS Workshop Trail staging rejects overlapping roots
+PASS Workshop upload checkbox is unified
+PASS editor saves require an explicit modsettings decision
+PASS mod-data namespaces are isolated and immutable
+PASS invalid mod-data containers fail closed
+PASS map mod-data API distinguishes file and namespace absence
+PASS Custom Lord mod-data API supports paths and configs
+PASS selected Lord data uses host snapshots without local files
+PASS Lord data rejects altered and oversized snapshots
+PASS Lord mod data validates local limits and UTF-8
+PASS Lord snapshot version 2 holds six mods across eight slots
+PASS Lord snapshot version 1 remains readable
+PASS Fixes preference snapshots retain every current and future property
+PASS Fixes preference snapshots reject incompatible schemas and lossy values
+PASS Lord sync diagnostics identify state without logging JSON values
+PASS deferred Lord confirmations reject stale lobby and selection
+PASS Lord sync accepts a confirmed lobby before game mode becomes multiplayer
+PASS selected Lord fingerprint ignores media and detects gameplay files
+PASS Trail Lord requirements bind the mission and survive optional-media changes
+PASS Trail Lord selection distinguishes embedded, replaced Custom, and Vanilla Lords
+PASS Custom Trail launch prepares Lord values and Workshop media on both paths
+PASS Lord Workshop metadata never requires local multiplayer files
+PASS selected Lord package manifest binds identities and mode
+78/78 tests passed.

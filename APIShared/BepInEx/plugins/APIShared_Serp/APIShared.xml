@@ -55,6 +55,9 @@
         <member name="F:APIShared.NativeCapabilityIds.GatehouseTiming">
             <summary>Capability for configuring gatehouse timing and closing distances.</summary>
         </member>
+        <member name="F:APIShared.NativeCapabilityIds.GatehouseAutomation">
+            <summary>Capability for independent manual gatehouse and drawbridge control.</summary>
+        </member>
         <member name="F:APIShared.NativeCapabilityIds.UnitHudPresentation">
             <summary>Capability for shared unit HUD categories and image overrides.</summary>
         </member>
@@ -1657,6 +1660,17 @@
         </member>
         <member name="M:APIShared.IGatehouseTimingCapability.TryApply(APIShared.GatehouseTimingSettings,APIShared.NativeCapabilityDiagnostic@)">
             <summary>Attempts to apply and verify all four gatehouse timing values as one transaction.</summary>
+        </member>
+        <member name="T:APIShared.IGatehouseAutomationCapability">
+            <summary>Optional extension of the timing capability for per-building manual control.</summary>
+        </member>
+        <member name="M:APIShared.IGatehouseAutomationCapability.TrySetManualOnlyResolver(System.Func{System.Int32,System.Boolean},APIShared.NativeCapabilityDiagnostic@)">
+            <summary>
+            Publishes a simulation-thread query receiving a one-based building ID. True prevents
+            automatic/linked commands to that building. Null logically disables the policy.
+            The query must validate the current building identity and must not mutate simulation state.
+            Hooks and callback storage remain rooted until process exit.
+            </summary>
         </member>
         <member name="T:APIShared.APISharedPlugin">
             <summary>BepInEx host for the process-wide APIShared.</summary>

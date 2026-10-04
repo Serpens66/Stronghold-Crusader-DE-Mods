@@ -50,14 +50,14 @@ namespace ExtraFeatures
             IconImageSource = icon;
         }
 
-        public void Show(bool automaticEnabled)
+        public void Show(bool automaticEnabled, bool drawbridge)
         {
             ButtonVisibility = Visibility.Visible;
             ManualIndicatorVisibility = automaticEnabled ? Visibility.Hidden : Visibility.Visible;
             IconOpacity = automaticEnabled ? 1.0 : 0.48;
-            ToolTipText = SerpLocalization.Get(automaticEnabled
-                ? "SomeSettings.GatehouseAutomaticEnabledTooltip"
-                : "SomeSettings.GatehouseManualOnlyTooltip");
+            ToolTipText = SerpLocalization.Get(drawbridge
+                ? (automaticEnabled ? "SomeSettings.DrawbridgeAutomaticEnabledTooltip" : "SomeSettings.DrawbridgeManualOnlyTooltip")
+                : (automaticEnabled ? "SomeSettings.GatehouseAutomaticEnabledTooltip" : "SomeSettings.GatehouseManualOnlyTooltip"));
         }
 
         public void Hide()
@@ -93,6 +93,7 @@ namespace ExtraFeatures
         private R3PacketEventHook<GatehouseAutomationPacket> packetHook;
         private IDisposable packetSubscription;
         private IGatehouseTimingCapability timingCapability;
+        private bool automationReady;
         private bool timingReadinessRegistered;
         private string lastTimingFailure;
         private bool initialized;
@@ -192,7 +193,7 @@ namespace ExtraFeatures
 
             // Save data can arrive before the native map has finished loading.
             // Only the completed session start may resolve saved building IDs.
-            if (!loadedMapStatePending && Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
+            if (!loadedMapStatePending && automationReady && Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
             {
                 if (mapActive)
                     ReconcileManualGateTimers(removeMissing: false);
@@ -230,6 +231,12 @@ namespace ExtraFeatures
                 return;
             }
             RefreshEditorReadiness();
+            if (!automationReady)
+            {
+                buttonViewModel.Hide();
+                LogVisibilityState("hidden: native-automation-unavailable");
+                return;
+            }
             if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
             {
                 buttonViewModel.Hide();
@@ -259,7 +266,7 @@ namespace ExtraFeatures
             }
 
             bool automaticEnabled = !manualOnlyGateGlobalIds.Contains((int)building->r_GlobalId);
-            buttonViewModel.Show(automaticEnabled);
+            buttonViewModel.Show(automaticEnabled, building->r_BuildingType == eStructs.STRUCT_DRAWBRIDGE);
             LogVisibilityState($"visible: editor={IsMapEditor()}, playerId={localPlayerId}, selectedBuildingId={selectedBuildingId}, globalId={building->r_GlobalId}, automaticEnabled={automaticEnabled}");
         }
 
@@ -308,6 +315,16 @@ namespace ExtraFeatures
                 timingCapability = capability;
                 lastTimingFailure = null;
                 ApplyTimingSettings();
+                if (!(capability is IGatehouseAutomationCapability automation) ||
+                    !automation.TrySetManualOnlyResolver(IsManualOnlyBuilding, out diagnostic))
+                {
+                    automationReady = false;
+                    ReleaseManualGateTimers();
+                    LogError($"gate/bridge manual control unavailable: {diagnostic?.Reason ?? "APIShared automation capability missing"}.");
+                    return;
+                }
+                automationReady = true;
+                ApplySettings();
                 LogInfo("gatehouse timing is owned by APIShared; no local native timing patch is installed.");
             }
             catch (Exception ex)
@@ -461,7 +478,7 @@ namespace ExtraFeatures
         {
             try
             {
-                if (loadedMapStatePending || !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || !mapActive)
+                if (!automationReady || loadedMapStatePending || !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || !mapActive)
                     return;
                 RefreshEditorReadiness();
 
@@ -553,6 +570,8 @@ namespace ExtraFeatures
 
         private void ApplyManualState(int playerId, int globalId, bool automaticEnabled, string source)
         {
+            if (!automationReady || !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
+                return;
             if (!TryFindGatehouseByGlobalId(globalId, out GameBuilding* building, out int buildingId) ||
                 building->r_PlayerIdOwner != playerId)
             {
@@ -563,13 +582,12 @@ namespace ExtraFeatures
             if (automaticEnabled)
             {
                 manualOnlyGateGlobalIds.Remove(globalId);
-                building->r_GateDoNotCloseForTicks = 0;
+                SetManualGateTimer(building, false);
             }
             else
             {
                 manualOnlyGateGlobalIds.Add(globalId);
-                // Negative is Vanilla's own permanent manual-close sentinel and skips automatic updates.
-                building->r_GateDoNotCloseForTicks = -1;
+                SetManualGateTimer(building, true);
             }
 
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(RefreshButtonVisibility);
@@ -624,11 +642,8 @@ namespace ExtraFeatures
                         $"Extra Features gatehouse query hook confirmed: buildingId={args.BuildingId}, eventUnitId={eventUnitId}, validatedUnitId={unitId}, globalId={globalId}, owner={building->r_PlayerIdOwner}, tileX={building->r_TilePositionXBegin}, tileY={building->r_TilePositionYBegin}.");
                 }
 
-                if (manualOnlyGateGlobalIds.Contains(globalId))
-                {
-                    args.ShouldClose = false;
-                    return;
-                }
+                // A manual gate still supplies Vanilla's enemy decision to automatic bridges.
+                // APIShared prevents the local gate command and filters each linked recipient.
 
             }
             catch (Exception ex)
@@ -730,7 +745,10 @@ namespace ExtraFeatures
                 if (matches == 1)
                 {
                     manualOnlyGateGlobalIds.Add((int)building->r_GlobalId);
-                    building->r_GateDoNotCloseForTicks = -1;
+                    // Editor locators can resolve later than ApplySettings (HUD/spawn event).
+                    // Release a saved sentinel when disabled; never reintroduce it from a late load.
+                    SetManualGateTimer(building,
+                        automationReady && Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod));
                     resolved++;
                 }
                 else
@@ -857,14 +875,14 @@ namespace ExtraFeatures
 
         private void ReconcileManualGateTimers(bool removeMissing)
         {
-            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || manualOnlyGateGlobalIds.Count == 0)
+            if (!automationReady || !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || manualOnlyGateGlobalIds.Count == 0)
                 return;
 
             List<int> missing = removeMissing ? new List<int>() : null;
             foreach (int globalId in manualOnlyGateGlobalIds)
             {
                 if (TryFindGatehouseByGlobalId(globalId, out GameBuilding* building, out _))
-                    building->r_GateDoNotCloseForTicks = -1;
+                    SetManualGateTimer(building, true);
                 else
                     missing?.Add(globalId);
             }
@@ -883,7 +901,7 @@ namespace ExtraFeatures
             foreach (int globalId in manualOnlyGateGlobalIds)
             {
                 if (TryFindGatehouseByGlobalId(globalId, out GameBuilding* building, out _))
-                    building->r_GateDoNotCloseForTicks = 0;
+                    SetManualGateTimer(building, false);
             }
         }
 
@@ -937,9 +955,15 @@ namespace ExtraFeatures
             building = null;
             gatehouse = null;
             GameBuildingManagerAPI api = GameBuildingManagerAPI.Instance;
-            return buildingId > 0 && api.TryGetBuildingById(buildingId, out building) && building != null &&
-                building->r_AliveState == AliveState.IsAlive &&
-                GamePathingManagerAPI.Instance.TryGetPathConnectionRecordByBuildingId(buildingId, out gatehouse) &&
+            if (buildingId <= 0 || !api.TryGetBuildingById(buildingId, out building) || building == null ||
+                building->r_AliveState != AliveState.IsAlive || building->r_GlobalId == 0 ||
+                building->r_GlobalId > int.MaxValue)
+                return false;
+            if (building->r_BuildingType == eStructs.STRUCT_DRAWBRIDGE)
+                return true;
+            if (!IsGatehouseType(building->r_BuildingType))
+                return false;
+            return GamePathingManagerAPI.Instance.TryGetPathConnectionRecordByBuildingId(buildingId, out gatehouse) &&
                 gatehouse != null && gatehouse->r_BuildingId == buildingId &&
                 gatehouse->r_SubjectGlobalId == building->r_GlobalId;
         }
@@ -959,17 +983,31 @@ namespace ExtraFeatures
                     continue;
 
                 int candidateId = spanIndex + 1;
-                if (GamePathingManagerAPI.Instance.TryGetPathConnectionRecordByBuildingId(candidateId, out PathConnectionRecord* gatehouse) &&
-                    gatehouse != null && gatehouse->r_BuildingId == candidateId &&
-                    gatehouse->r_SubjectGlobalId == candidate.r_GlobalId)
+                if (TryGetLiveGatehouse(candidateId, out building, out _))
                 {
-                    if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(candidateId, out building) || building == null)
-                        continue;
                     buildingId = candidateId;
                     return true;
                 }
             }
             return false;
+        }
+
+        private bool IsManualOnlyBuilding(int buildingId) =>
+            automationReady && mapActive && !loadedMapStatePending &&
+            Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) &&
+            TryGetLiveGatehouse(buildingId, out GameBuilding* building, out _) &&
+            manualOnlyGateGlobalIds.Contains((int)building->r_GlobalId);
+
+        private static bool IsGatehouseType(eStructs type) =>
+            type == eStructs.STRUCT_GATE_MAIN || type == eStructs.STRUCT_GATE_INNER ||
+            type == eStructs.STRUCT_GATE_WOOD || type == eStructs.STRUCT_GATE_POSTERN ||
+            type == eStructs.STRUCT_GATEHOUSE;
+
+        private static void SetManualGateTimer(GameBuilding* building, bool manual)
+        {
+            // The bridge command/state lives in different bytes; never write a gate timer there.
+            if (building != null && IsGatehouseType(building->r_BuildingType))
+                building->r_GateDoNotCloseForTicks = manual ? (short)-1 : (short)0;
         }
 
         private bool IsChoreTransportReady() =>

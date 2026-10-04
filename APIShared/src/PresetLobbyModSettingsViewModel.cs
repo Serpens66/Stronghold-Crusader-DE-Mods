@@ -1992,22 +1992,37 @@ namespace Shared
         {
             get
             {
-                try { return SettingsApplicationBackend?.ReadPendingValues() != null; }
+                try { return SettingsApplicationBackend != null && (SettingsApplicationBackend.ReadPendingValues() != null || ModSettingsApplication.HasRestartPreparation); }
                 catch { return SettingsApplicationBackend != null; } // Keep discard reachable for a corrupt package.
             }
         }
         public void System_DiscardPendingConfiguration()
         {
-            SettingsApplicationBackend?.DiscardPendingConfiguration();
-            if (SettingsApplicationBackend != null) SettingsApplicationBackend.ReplaceDesiredValues(SettingsApplicationBackend.ReadActiveValues());
-            ModSettingsApplication.DiscardPreparation();
-            System_ApplicationNotice = "";
-            OnPropertyChanged(nameof(System_ApplicationNotice));
-            OnPropertyChanged(nameof(System_HasPendingConfiguration));
-#if !API_SHARED_PRESET_TESTS
-            OnPropertyChanged(nameof(System_PresetStatusText));
-            OnPropertyChanged(nameof(System_PresetStatusVisibility));
-#endif
+            if (ModSettingsApplication.HasRestartPreparation) ModSettingsApplication.DiscardPreparation();
+            else DiscardApplicationPackage();
+        }
+        internal void DiscardApplicationPackage()
+        {
+            var backend = SettingsApplicationBackend;
+            if (backend == null) return;
+            backend.DiscardPendingConfiguration();
+            bool returnToOwn = !string.IsNullOrEmpty(backend.ActiveContextId);
+            backend.ReplaceDesiredValues(returnToOwn ? backend.ReadOwnValues() : backend.ReadActiveValues());
+            if (returnToOwn)
+            {
+                if (System_GetPresetSettingDescriptors().Any(x => x.RequiresRestart)) backend.ReturnToOwnConfiguration();
+                else
+                {
+                    backend.ApplyValues(backend.ReadDesiredValues(), "");
+                    var applied = backend.ReadActiveValues();
+                    if (backend.ReadDesiredValues().Any(x => !applied.TryGetValue(x.Key, out var value) || !Equals(value, x.Value)))
+                        throw new InvalidOperationException("Configuration backend did not restore personal values.");
+                }
+            }
+            var activeAfterDiscard = backend.ReadActiveValues();
+            var desiredAfterDiscard = backend.ReadDesiredValues();
+            ReportConfigurationResult(returnToOwn && System_GetPresetSettingDescriptors().Any(x => x.RequiresRestart &&
+                (!activeAfterDiscard.TryGetValue(x.PropertyName, out var value) || !Equals(value, desiredAfterDiscard[x.PropertyName]))));
         }
         public void System_CommitConfiguration()
         {
@@ -2019,6 +2034,10 @@ namespace Shared
         protected void SetConfigurationNotice(string message)
         {
             System_ApplicationNotice = message ?? "";
+            RefreshConfigurationBindings();
+        }
+        internal void RefreshConfigurationBindings()
+        {
             OnPropertyChanged(nameof(System_ApplicationNotice));
             OnPropertyChanged(nameof(System_HasPendingConfiguration));
 #if !API_SHARED_PRESET_TESTS
@@ -2086,7 +2105,8 @@ namespace Shared
             return System_GetPresetSettingDescriptors().Any(x => x.RequiresRestart &&
                 (!active.TryGetValue(x.PropertyName, out var value) || !Equals(value, desired[x.PropertyName])));
         }
-        public bool System_ApplyConfiguration(string contextId)
+        public bool System_ApplyConfiguration(string contextId) => System_ApplyConfiguration(contextId, false);
+        internal bool System_ApplyConfiguration(string contextId, bool personalChoiceConfirmed)
         {
             var backend = SettingsApplicationBackend;
             if (backend == null) return false;
@@ -2102,12 +2122,18 @@ namespace Shared
                 var own = backend.ReadOwnValues();
                 bool persistPersonal = string.IsNullOrEmpty(contextId) && desired.Any(x =>
                     !own.TryGetValue(x.Key, out var value) || !Equals(value, x.Value));
-                if (persistPersonal)
+                if (persistPersonal && personalChoiceConfirmed)
                 {
                     if (System_GetPresetSettingDescriptors().Any(x => x.RequiresRestart)) backend.StageValues(desired, "");
                     else backend.ApplyValues(desired, "");
                 }
-                else if (backend.ReadPendingValues() != null) backend.DiscardPendingConfiguration();
+                else
+                {
+                    var pending = backend.ReadPendingValues();
+                    bool keepConfirmedPersonalChoice = persistPersonal && pending != null && desired.All(x =>
+                        pending.TryGetValue(x.Key, out var value) && Equals(value, x.Value));
+                    if (pending != null && !keepConfirmedPersonalChoice) backend.DiscardPendingConfiguration();
+                }
                 return false;
             }
             if (changed.Any(x => x.RequiresRestart))
@@ -2132,7 +2158,13 @@ namespace Shared
             if (!string.IsNullOrEmpty(backend.ActiveContextId))
             {
                 if (System_GetPresetSettingDescriptors().Any(x => x.RequiresRestart)) backend.ReturnToOwnConfiguration();
-                else System_ApplyConfiguration("");
+                else
+                {
+                    backend.ApplyValues(backend.ReadDesiredValues(), "");
+                    var applied = backend.ReadActiveValues();
+                    if (backend.ReadDesiredValues().Any(x => !applied.TryGetValue(x.Key, out var value) || !Equals(value, x.Value)))
+                        throw new InvalidOperationException("Configuration backend did not restore personal values.");
+                }
             }
         }
 

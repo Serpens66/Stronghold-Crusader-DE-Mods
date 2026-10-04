@@ -90,7 +90,7 @@ namespace Shared
             var previousSources = preparedSources; var previousResume = resume; var previousFingerprints = personalFingerprints; string previousContext = resumeContext;
             bool written = contextId.Length != 0 && endpoint.System_ConfigurationNeedsRestart();
             if (written) SavePreparation(); // Durable intent precedes package publication.
-            try { return endpoint.System_ApplyConfiguration(contextId); }
+            try { return endpoint.System_ApplyConfiguration(contextId, true); }
             catch
             {
                 if (written)
@@ -161,8 +161,10 @@ namespace Shared
 
         public static void DiscardPreparation()
         {
+            foreach (var endpoint in endpoints.Values) endpoint.DiscardApplicationPackage();
             if (journalPath != null && File.Exists(journalPath)) File.Delete(journalPath);
             resume = null; resumeContext = null; consumed = false;
+            foreach (var endpoint in endpoints.Values) endpoint.RefreshConfigurationBindings();
         }
 
 #if API_SHARED_PRESET_TESTS

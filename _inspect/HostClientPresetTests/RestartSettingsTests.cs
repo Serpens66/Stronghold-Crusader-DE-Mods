@@ -83,9 +83,14 @@ internal static class RestartSettingsTests
             "player source used prior working or mission values instead of personal values");
         Check(MessagePack.MessagePackSerializer.Deserialize<long>(vm.System_CreateCurrentWorkingSnapshot()["startup"]) == 13L,
             "current source did not use desired provider values");
-        Check(!vm.System_ApplyConfiguration("") && (long)vm.Source.Pending["startup"] == 13L,
+        Check(!vm.System_ApplyConfiguration("", true) && (long)vm.Source.Pending["startup"] == 13L,
             "already active personal choice was lost or unnecessarily required restart");
+        int persistedChoiceCount = vm.Source.Staged;
+        Check(!vm.System_ApplyConfiguration("") && vm.Source.Pending != null && vm.Source.Staged == persistedChoiceCount,
+            "launch check discarded or republished an already confirmed personal choice");
         vm.Source.DiscardPendingConfiguration();
+        Check(!vm.System_ApplyConfiguration("") && vm.Source.Pending == null,
+            "launch check recreated a discarded personal choice");
         vm.Source.NetworkClient = true;
         vm.Source.NetworkReady = false;
         vm.Source.Working["startup"] = 100L;
@@ -95,6 +100,14 @@ internal static class RestartSettingsTests
         vm.Source.NetworkReady = true;
         Check(!vm.System_ApplyConfiguration("client-mission") && vm.Source.Staged == stageCount,
             "verified network provider was replaced by local configuration application");
+        vm.Source.ApplyValues(new Dictionary<string, object> { ["startup"] = 55L, ["live"] = 2L }, "network:host");
+        vm.DiscardApplicationPackage();
+        Check(vm.Source.Pending != null && (long)vm.Source.Pending["startup"] == 1L && vm.System_ApplicationNotice.Length != 0,
+            "discarding a loaded client context did not prepare and explain personal restoration");
+        vm.Source.Options[0].RequiresRestart = false;
+        vm.DiscardApplicationPackage();
+        Check(vm.Source.Pending == null && (long)vm.Source.Active["startup"] == 1L && vm.System_ApplicationNotice.Length == 0,
+            "runtime upgrade still staged restoration instead of applying personal values");
         vm.Source.NetworkClient = false;
         Console.WriteLine("PASS: personal versus desired sources, unchanged personal persistence and network-owned client admission");
     }
