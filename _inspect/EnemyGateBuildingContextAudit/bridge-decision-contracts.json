@@ -1,0 +1,509 @@
+{
+  "nativeHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+  "backendSha256": "0843DD4C381A3E77DD6D8B51D5CCF95465B3FB49BFDF2980F39A212D774AADB0",
+  "scheme": "Absolute",
+  "functions": [
+    {
+      "rva": 410720,
+      "length": 14,
+      "bytes": "48895C2418895424105556574154",
+      "end": 410734,
+      "size": 349,
+      "confidence": "candidate",
+      "incomingInterior": [],
+      "instructions": [
+        "64460: mov qword ptr [rsp + 0x18], rbx",
+        "64465: mov dword ptr [rsp + 0x10], edx",
+        "64469: push rbp",
+        "6446A: push rsi",
+        "6446B: push rdi",
+        "6446C: push r12"
+      ]
+    },
+    {
+      "rva": 411072,
+      "length": 14,
+      "bytes": "48895C241848896C242089542410",
+      "end": 411086,
+      "size": 312,
+      "confidence": "candidate",
+      "incomingInterior": [],
+      "instructions": [
+        "645C0: mov qword ptr [rsp + 0x18], rbx",
+        "645C5: mov qword ptr [rsp + 0x20], rbp",
+        "645CA: mov dword ptr [rsp + 0x10], edx"
+      ]
+    },
+    {
+      "rva": 936400,
+      "length": 17,
+      "bytes": "405341574883EC58488BD941BF01000000",
+      "end": 936417,
+      "size": 1208,
+      "confidence": "candidate",
+      "incomingInterior": [],
+      "instructions": [
+        "E49D0: push rbx",
+        "E49D2: push r15",
+        "E49D4: sub rsp, 0x58",
+        "E49D8: mov rbx, rcx",
+        "E49DB: mov r15d, 1"
+      ]
+    },
+    {
+      "rva": 1104368,
+      "length": 15,
+      "bytes": "48895C240848896C24104889742418",
+      "end": 1104383,
+      "size": 703,
+      "confidence": "candidate",
+      "incomingInterior": [],
+      "instructions": [
+        "10D9F0: mov qword ptr [rsp + 8], rbx",
+        "10D9F5: mov qword ptr [rsp + 0x10], rbp",
+        "10D9FA: mov qword ptr [rsp + 0x18], rsi"
+      ]
+    },
+    {
+      "rva": 890336,
+      "length": 20,
+      "bytes": "4053415641574883EC304863C24C8D3D0C6AF2FF",
+      "end": 890356,
+      "size": 1629,
+      "confidence": "candidate",
+      "incomingInterior": [],
+      "instructions": [
+        "D95E0: push rbx",
+        "D95E2: push r14",
+        "D95E4: push r15",
+        "D95E6: sub rsp, 0x30",
+        "D95EA: movsxd rax, edx",
+        "D95ED: lea r15, [rip - 0xd95f4]"
+      ]
+    },
+    {
+      "rva": 889232,
+      "length": 14,
+      "bytes": "44894C2420448944241889542410",
+      "end": 889246,
+      "size": 1029,
+      "confidence": "candidate",
+      "incomingInterior": [],
+      "instructions": [
+        "D9190: mov dword ptr [rsp + 0x20], r9d",
+        "D9195: mov dword ptr [rsp + 0x18], r8d",
+        "D919A: mov dword ptr [rsp + 0x10], edx"
+      ]
+    },
+    {
+      "rva": 1110352,
+      "length": 20,
+      "bytes": "4863C2488D15A60EEFFFC705408DD80200000000",
+      "end": 1110372,
+      "size": 149,
+      "confidence": "candidate",
+      "incomingInterior": [],
+      "instructions": [
+        "10F150: movsxd rax, edx",
+        "10F153: lea rdx, [rip - 0x10f15a]",
+        "10F15A: mov dword ptr [rip + 0x2d88d40], 0"
+      ]
+    },
+    {
+      "rva": 1105760,
+      "length": 14,
+      "bytes": "48895C2408448944241889542410",
+      "end": 1105774,
+      "size": 4584,
+      "confidence": "candidate",
+      "incomingInterior": [],
+      "instructions": [
+        "10DF60: mov qword ptr [rsp + 8], rbx",
+        "10DF65: mov dword ptr [rsp + 0x18], r8d",
+        "10DF6A: mov dword ptr [rsp + 0x10], edx"
+      ]
+    },
+    {
+      "rva": 1124304,
+      "length": 15,
+      "bytes": "8B153A55D8024C8D05D3C5F40333C0",
+      "end": 1124319,
+      "size": 61,
+      "confidence": "candidate",
+      "incomingInterior": [],
+      "instructions": [
+        "1127D0: mov edx, dword ptr [rip + 0x2d8553a]",
+        "1127D6: lea r8, [rip + 0x3f4c5d3]",
+        "1127DD: xor eax, eax"
+      ]
+    },
+    {
+      "rva": 1137424,
+      "length": 18,
+      "bytes": "405341564883EC384863DA4C8D35DEA4EEFF",
+      "end": 1137442,
+      "size": 1249,
+      "confidence": "candidate",
+      "incomingInterior": [],
+      "instructions": [
+        "115B10: push rbx",
+        "115B12: push r14",
+        "115B14: sub rsp, 0x38",
+        "115B18: movsxd rbx, edx",
+        "115B1B: lea r14, [rip - 0x115b22]"
+      ]
+    },
+    {
+      "rva": 1134816,
+      "length": 17,
+      "bytes": "48895C24205657415441578B3D0F84DA02",
+      "end": 1134833,
+      "size": 256,
+      "confidence": "candidate",
+      "incomingInterior": [],
+      "instructions": [
+        "1150E0: mov qword ptr [rsp + 0x20], rbx",
+        "1150E5: push rsi",
+        "1150E6: push rdi",
+        "1150E7: push r12",
+        "1150E9: push r15",
+        "1150EB: mov edi, dword ptr [rip + 0x2da840f]"
+      ]
+    },
+    {
+      "rva": 1135072,
+      "length": 18,
+      "bytes": "40534155415641574883EC388B0D0E83DA02",
+      "end": 1135090,
+      "size": 334,
+      "confidence": "candidate",
+      "incomingInterior": [],
+      "instructions": [
+        "1151E0: push rbx",
+        "1151E2: push r13",
+        "1151E4: push r14",
+        "1151E6: push r15",
+        "1151E8: sub rsp, 0x38",
+        "1151EC: mov ecx, dword ptr [rip + 0x2da830e]"
+      ]
+    },
+    {
+      "rva": 1092128,
+      "length": 15,
+      "bytes": "48895C240848896C24104889742418",
+      "end": 1092143,
+      "size": 3441,
+      "confidence": "candidate",
+      "incomingInterior": [],
+      "instructions": [
+        "10AA20: mov qword ptr [rsp + 8], rbx",
+        "10AA25: mov qword ptr [rsp + 0x10], rbp",
+        "10AA2A: mov qword ptr [rsp + 0x18], rsi"
+      ]
+    },
+    {
+      "rva": 1157504,
+      "length": 15,
+      "bytes": "48895C240848896C24184889742420",
+      "end": 1157519,
+      "size": 1523,
+      "confidence": "candidate",
+      "incomingInterior": [],
+      "instructions": [
+        "11A980: mov qword ptr [rsp + 8], rbx",
+        "11A985: mov qword ptr [rsp + 0x18], rbp",
+        "11A98A: mov qword ptr [rsp + 0x20], rsi"
+      ]
+    },
+    {
+      "rva": 1190720,
+      "length": 15,
+      "bytes": "448944241848894C24085356574154",
+      "end": 1190735,
+      "size": 1348,
+      "confidence": "candidate",
+      "incomingInterior": [],
+      "instructions": [
+        "122B40: mov dword ptr [rsp + 0x18], r8d",
+        "122B45: mov qword ptr [rsp + 8], rcx",
+        "122B4A: push rbx",
+        "122B4B: push rsi",
+        "122B4C: push rdi",
+        "122B4D: push r12"
+      ]
+    },
+    {
+      "rva": 950112,
+      "length": 14,
+      "bytes": "4489442418895424105356574154",
+      "end": 950126,
+      "size": 989,
+      "confidence": "candidate",
+      "incomingInterior": [],
+      "instructions": [
+        "E7F60: mov dword ptr [rsp + 0x18], r8d",
+        "E7F65: mov dword ptr [rsp + 0x10], edx",
+        "E7F69: push rbx",
+        "E7F6A: push rsi",
+        "E7F6B: push rdi",
+        "E7F6C: push r12"
+      ]
+    },
+    {
+      "rva": 1117888,
+      "length": 14,
+      "bytes": "895424105657415441564883EC48",
+      "end": 1117902,
+      "size": 401,
+      "confidence": "candidate",
+      "incomingInterior": [],
+      "instructions": [
+        "110EC0: mov dword ptr [rsp + 0x10], edx",
+        "110EC4: push rsi",
+        "110EC5: push rdi",
+        "110EC6: push r12",
+        "110EC8: push r14",
+        "110ECA: sub rsp, 0x48"
+      ]
+    },
+    {
+      "rva": 1118304,
+      "length": 14,
+      "bytes": "48895C2408895424105556574154",
+      "end": 1118318,
+      "size": 714,
+      "confidence": "candidate",
+      "incomingInterior": [],
+      "instructions": [
+        "111060: mov qword ptr [rsp + 8], rbx",
+        "111065: mov dword ptr [rsp + 0x10], edx",
+        "111069: push rbp",
+        "11106A: push rsi",
+        "11106B: push rdi",
+        "11106C: push r12"
+      ]
+    },
+    {
+      "rva": 1119024,
+      "length": 14,
+      "bytes": "48895C2408895424105556574154",
+      "end": 1119038,
+      "size": 747,
+      "confidence": "candidate",
+      "incomingInterior": [],
+      "instructions": [
+        "111330: mov qword ptr [rsp + 8], rbx",
+        "111335: mov dword ptr [rsp + 0x10], edx",
+        "111339: push rbp",
+        "11133A: push rsi",
+        "11133B: push rdi",
+        "11133C: push r12"
+      ]
+    },
+    {
+      "rva": 1119776,
+      "length": 14,
+      "bytes": "895424105657415441564883EC48",
+      "end": 1119790,
+      "size": 401,
+      "confidence": "candidate",
+      "incomingInterior": [],
+      "instructions": [
+        "111620: mov dword ptr [rsp + 0x10], edx",
+        "111624: push rsi",
+        "111625: push rdi",
+        "111626: push r12",
+        "111628: push r14",
+        "11162A: sub rsp, 0x48"
+      ]
+    },
+    {
+      "rva": 1120608,
+      "length": 16,
+      "bytes": "448B0D191ED9024533C0448BDA4C8BD1",
+      "end": 1120624,
+      "size": 201,
+      "confidence": "candidate",
+      "incomingInterior": [],
+      "instructions": [
+        "111960: mov r9d, dword ptr [rip + 0x2d91e19]",
+        "111967: xor r8d, r8d",
+        "11196A: mov r11d, edx",
+        "11196D: mov r10, rcx"
+      ]
+    },
+    {
+      "rva": 1121008,
+      "length": 15,
+      "bytes": "4056574154415541564883EC3033FF",
+      "end": 1121023,
+      "size": 265,
+      "confidence": "candidate",
+      "incomingInterior": [],
+      "instructions": [
+        "111AF0: push rsi",
+        "111AF2: push rdi",
+        "111AF3: push r12",
+        "111AF5: push r13",
+        "111AF7: push r14",
+        "111AF9: sub rsp, 0x30",
+        "111AFD: xor edi, edi"
+      ]
+    },
+    {
+      "rva": 1121280,
+      "length": 14,
+      "bytes": "895424105657415441574883EC48",
+      "end": 1121294,
+      "size": 390,
+      "confidence": "candidate",
+      "incomingInterior": [],
+      "instructions": [
+        "111C00: mov dword ptr [rsp + 0x10], edx",
+        "111C04: push rsi",
+        "111C05: push rdi",
+        "111C06: push r12",
+        "111C08: push r15",
+        "111C0A: sub rsp, 0x48"
+      ]
+    },
+    {
+      "rva": 1121680,
+      "length": 14,
+      "bytes": "895424105657415441564883EC48",
+      "end": 1121694,
+      "size": 398,
+      "confidence": "candidate",
+      "incomingInterior": [],
+      "instructions": [
+        "111D90: mov dword ptr [rsp + 0x10], edx",
+        "111D94: push rsi",
+        "111D95: push rdi",
+        "111D96: push r12",
+        "111D98: push r14",
+        "111D9A: sub rsp, 0x48"
+      ]
+    },
+    {
+      "rva": 1122080,
+      "length": 17,
+      "bytes": "895424104C8BDC5657415441554883EC68",
+      "end": 1122097,
+      "size": 487,
+      "confidence": "candidate",
+      "incomingInterior": [],
+      "instructions": [
+        "111F20: mov dword ptr [rsp + 0x10], edx",
+        "111F24: mov r11, rsp",
+        "111F27: push rsi",
+        "111F28: push rdi",
+        "111F29: push r12",
+        "111F2B: push r13",
+        "111F2D: sub rsp, 0x68"
+      ]
+    },
+    {
+      "rva": 246496,
+      "length": 15,
+      "bytes": "48895C241848897424205741544157",
+      "end": 246511,
+      "size": 1753,
+      "confidence": "candidate",
+      "incomingInterior": [],
+      "instructions": [
+        "3C2E0: mov qword ptr [rsp + 0x18], rbx",
+        "3C2E5: mov qword ptr [rsp + 0x20], rsi",
+        "3C2EA: push rdi",
+        "3C2EB: push r12",
+        "3C2ED: push r15"
+      ]
+    },
+    {
+      "rva": 184912,
+      "length": 15,
+      "bytes": "48895C240848896C24104889742418",
+      "end": 184927,
+      "size": 275,
+      "confidence": "candidate",
+      "incomingInterior": [],
+      "instructions": [
+        "2D250: mov qword ptr [rsp + 8], rbx",
+        "2D255: mov qword ptr [rsp + 0x10], rbp",
+        "2D25A: mov qword ptr [rsp + 0x18], rsi"
+      ]
+    },
+    {
+      "rva": 181376,
+      "length": 15,
+      "bytes": "48895C240848896C24104889742418",
+      "end": 181391,
+      "size": 277,
+      "confidence": "candidate",
+      "incomingInterior": [],
+      "instructions": [
+        "2C480: mov qword ptr [rsp + 8], rbx",
+        "2C485: mov qword ptr [rsp + 0x10], rbp",
+        "2C48A: mov qword ptr [rsp + 0x18], rsi"
+      ]
+    },
+    {
+      "rva": 181664,
+      "length": 17,
+      "bytes": "4C8D0D593AFDFF4863C24869C83C580000",
+      "end": 181681,
+      "size": 113,
+      "confidence": "candidate",
+      "incomingInterior": [],
+      "instructions": [
+        "2C5A0: lea r9, [rip - 0x2c5a7]",
+        "2C5A7: movsxd rax, edx",
+        "2C5AA: imul rcx, rax, 0x583c"
+      ]
+    },
+    {
+      "rva": 245072,
+      "length": 14,
+      "bytes": "48895C2420895424105556574154",
+      "end": 245086,
+      "size": 577,
+      "confidence": "candidate",
+      "incomingInterior": [],
+      "instructions": [
+        "3BD50: mov qword ptr [rsp + 0x20], rbx",
+        "3BD55: mov dword ptr [rsp + 0x10], edx",
+        "3BD59: push rbp",
+        "3BD5A: push rsi",
+        "3BD5B: push rdi",
+        "3BD5C: push r12"
+      ]
+    },
+    {
+      "rva": 848736,
+      "length": 14,
+      "bytes": "4883EC384C63D24D69CA3C580000",
+      "end": 848750,
+      "size": 152,
+      "confidence": "candidate",
+      "incomingInterior": [],
+      "instructions": [
+        "CF360: sub rsp, 0x38",
+        "CF364: movsxd r10, edx",
+        "CF367: imul r9, r10, 0x583c"
+      ]
+    },
+    {
+      "rva": 848896,
+      "length": 14,
+      "bytes": "4883EC384C63D24D69CA3C580000",
+      "end": 848910,
+      "size": 152,
+      "confidence": "candidate",
+      "incomingInterior": [],
+      "instructions": [
+        "CF400: sub rsp, 0x38",
+        "CF404: movsxd r10, edx",
+        "CF407: imul r9, r10, 0x583c"
+      ]
+    }
+  ]
+}

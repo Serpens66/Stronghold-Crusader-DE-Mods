@@ -39,12 +39,12 @@ namespace EnemyBridgePathTest
             internal GameBuilding Value;
             internal readonly HashSet<int> Tiles = new HashSet<int>();
         }
-        private static bool Active(AliveState value) => value == AliveState.IsAlive || value == AliveState.NeedsInit;
-        private static bool IsGate(eStructs type) => type == eStructs.STRUCT_GATEHOUSE || type == eStructs.STRUCT_GATE_MAIN ||
+        internal static bool Active(AliveState value) => value == AliveState.IsAlive || value == AliveState.NeedsInit;
+        internal static bool IsGate(eStructs type) => type == eStructs.STRUCT_GATEHOUSE || type == eStructs.STRUCT_GATE_MAIN ||
             type == eStructs.STRUCT_GATE_INNER || type == eStructs.STRUCT_GATE_WOOD || type == eStructs.STRUCT_GATE_POSTERN;
         private static bool Player(int id) => id > 0 && id <= 8;
-        private static bool Allied(int a, int b) => Player(a) && Player(b) && (a == b || GamePlayerManagerAPI.Instance.IsPlayerAlliedTo(a, b));
-        private static HashSet<int> Footprint(GameBuilding* value)
+        internal static bool Allied(int a, int b) => Player(a) && Player(b) && (a == b || GamePlayerManagerAPI.Instance.IsPlayerAlliedTo(a, b));
+        internal static HashSet<int> Footprint(GameBuilding* value)
         {
             var result = new HashSet<int>();
             // Audited inline occupied array capacity is 6x6 (36 cells), not the
@@ -99,9 +99,9 @@ namespace EnemyBridgePathTest
                 if (parent != null) { bridge.GateId = parent.Id; bridge.GateGlobal = parent.Global;
                     bridge.Owner = parent.Owner; bridge.Captured = parent.Captured; }
                 bool identityStable = bridge.Global != 0 && (parent == null || parent.Global != 0) &&
-                    manager.TryGetBuildingById(bridge.Id, out GameBuilding* liveBridge) &&
+                    manager.IsValidId(bridge.Id) && manager.TryGetBuildingById(bridge.Id, out GameBuilding* liveBridge) &&
                     liveBridge != null && liveBridge->r_GlobalId == bridge.Global && Active(liveBridge->r_AliveState);
-                if (parent != null && (!manager.TryGetBuildingById(parent.Id, out GameBuilding* liveGate) ||
+                if (parent != null && (!manager.IsValidId(parent.Id) || !manager.TryGetBuildingById(parent.Id, out GameBuilding* liveGate) ||
                     liveGate == null || liveGate->r_GlobalId != parent.Global || !Active(liveGate->r_AliveState) ||
                     liveGate->r_PlayerIdOwner != parent.Owner || liveGate->r_CapturedByPlayerId != parent.Captured)) identityStable = false;
                 if (!identityStable) { bridge.Link = "identity-or-live-state-mismatch"; parent = null; }
@@ -176,7 +176,7 @@ namespace EnemyBridgePathTest
             }
             return new BridgeSnapshot(result.ToArray());
         }
-        private static bool Adjacent(HashSet<int> a, HashSet<int> b)
+        internal static bool Adjacent(HashSet<int> a, HashSet<int> b)
         {
             var api = GameTileManagerAPI.Instance;
             foreach (int tileA in a)

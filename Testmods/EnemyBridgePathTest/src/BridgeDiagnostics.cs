@@ -20,6 +20,11 @@ namespace EnemyBridgePathTest
     internal sealed unsafe class BridgeDiagnostics : IEnemyBridgePathObserver
     {
         private readonly ManualLogSource log;
+        internal readonly BridgeDecisionTrace Trace;
+        private BridgeNativeHooks nativeHooks;
+        private int nativeInitializationAttempted;
+        private long boundaryPosts;
+        private int unresolvedSamples;
         private readonly AiGateDecisionAggregate totals = new AiGateDecisionAggregate();
         private BridgeSnapshot snapshot = BridgeSnapshot.Empty;
         private BridgeSnapshot CurrentSnapshot => Volatile.Read(ref snapshot);
@@ -29,9 +34,13 @@ namespace EnemyBridgePathTest
         private sealed class Frame
         {
             internal EventHookBase PreEvent;
+            internal long Epoch, TraceId, ParentTrace;
             internal string Kind, Identity, UnitType = "unknown";
             internal int Id, Tribe, Player, Command, X, Y, SourcePcl, TargetPcl;
             internal long Regions, Searches, Failed, WorkMoves;
+            internal uint Global;
+            internal int StartX=-1,StartY=-1,RawUnitType;
+            internal bool Detailed;
             internal Dictionary<int, UnitState> WorkBefore;
         }
         private readonly struct UnitState
@@ -57,28 +66,42 @@ namespace EnemyBridgePathTest
             internal int X, Y;
             internal readonly Dictionary<string, long> Edges = new Dictionary<string, long>();
         }
-        internal BridgeDiagnostics(ManualLogSource log) { this.log = log; }
-        internal void VerifyNative() => nativeVerified = Shared.DebugLogHelper.ReportNativeLibraryVersion(log,
+        internal BridgeDiagnostics(ManualLogSource log) { this.log = log; Trace = new BridgeDecisionTrace(log); }
+        internal void InitializeNative(SHCDESE.API.LowLevel.CrusaderLibraryLoadContext context)
+        {
+            if(Interlocked.Exchange(ref nativeInitializationAttempted,1)!=0) return;
+            VerifyNative();
+            if(!nativeVerified) return;
+            // Passive data coverage remains bounded even when entry-hook preparation fails.
+            Trace.SetNative(context.ModuleHandle,context.Memory.Length);
+            nativeHooks = new BridgeNativeHooks(Trace);
+            try { nativeHooks.Install(context,log); }
+            catch(Exception error) { Shared.DebugLogHelper.LogError(log,"Bridge native diagnosis unavailable; existing passive coverage only: "+error); }
+            GameTimeManagerAPI.Instance.OnTick += Trace.Tick;
+        }
+        internal void VerifyNative() => nativeVerified = Shared.DebugLogHelper.CurrentNativeSha256 == BridgeNativeDefinition.NativeHash &&
+            Shared.DebugLogHelper.ReportNativeLibraryVersion(log,
             "EnemyBridgePathTest", requireCurrentVersion: true);
-        internal void BeginMap(bool editor)
+        internal void BeginMap(Shared.GameplaySessionStartedContext context)
         {
             if (!nativeVerified)
             { Shared.DebugLogHelper.LogError(log, "Bridge diagnosis inactive: native layout hash not confirmed."); return; }
             if (running) End();
-            totals.Reset(); epoch++; running = true; marker = false;
+            totals.Reset(); epoch++; running = true; marker = false; Trace.Begin(context);
             preCount = postCount = errors = observedSearches = 0;
             suppressedCount = missingPostCount = 0;
-            nextSnapshot = nextFlush = 0; frames?.Clear(); Volatile.Write(ref snapshot, BridgeSnapshot.Empty);
-            Shared.DebugLogHelper.LogInfo(log, "bridge map start epoch=" + epoch + ",editor=" + editor);
+            nextSnapshot = nextFlush = 0; Volatile.Write(ref snapshot, BridgeSnapshot.Empty);
+            Shared.DebugLogHelper.LogInfo(log, "bridge map start epoch=" + epoch + ",editor=" + context.IsEditor);
         }
         internal void End()
         {
             if (!running) return;
-            RetireFrames(); Flush(); running = false; Volatile.Write(ref snapshot, BridgeSnapshot.Empty); frames?.Clear();
+            Flush(); running = false; Trace.End(); Volatile.Write(ref snapshot, BridgeSnapshot.Empty);
         }
         internal void Deferred()
         {
-            if (!running) return;
+            Trace.Drain();
+            if (!running || Trace.InsideNative) return;
             // Rendering is outside synchronous native dispatch. No command frame
             // may survive here, including suppressed calls without a Post event.
             RetireFrames();
@@ -110,6 +133,7 @@ namespace EnemyBridgePathTest
                 {
                     var unfinished = frames[frames.Count - 1];
                     frames.RemoveAt(frames.Count - 1);
+                    if(unfinished.Epoch!=epoch) { boundaryPosts++; continue; }
                     Interlocked.Increment(ref errors);
                     missingPostCount++;
                     Record(unfinished, "diagnostic-error", "missing-post", unfinished.Identity);
@@ -118,15 +142,16 @@ namespace EnemyBridgePathTest
         }
         private void Flush()
         {
+            Trace.FlushRegions(); Trace.FlushCosts(); unresolvedSamples=0;
             var rows = totals.Drain(out var definitions);
-            foreach (var definition in definitions) Shared.DebugLogHelper.LogInfo(log, "bridge state " + definition);
-            foreach (var row in rows) Shared.DebugLogHelper.LogInfo(log, "bridge aggregate " + row);
+            foreach (var definition in definitions) Trace.Observe("aggregate-state",definition.ToString());
+            foreach (var row in rows) Trace.Observe("aggregate",row.ToString());
             Shared.DebugLogHelper.LogInfo(log, "bridge summary epoch=" + epoch + ",observations=" + totals.Observations +
                 ",pre=" + preCount + ",post=" + postCount + ",searches=" + observedSearches + ",errors=" + errors +
                 ",suppressed=" + suppressedCount + ",missingPost=" + missingPostCount +
                 ",adapterFailures=" + EnemyBridgeDiagnosticBridge.FailureCount +
                 ",lastAdapterFailure=" + (EnemyBridgeDiagnosticBridge.LastFailure ?? "none") +
-                ",pendingCalls=" + (frames?.Count ?? 0) + ",bridgeCount=" + CurrentSnapshot.Bridges.Length);
+                ",boundaryPosts="+boundaryPosts+",decisionTrace=["+Trace.Summary()+"],pendingCalls=" + (frames?.Count ?? 0) + ",bridgeCount=" + CurrentSnapshot.Bridges.Length);
         }
         private void Guard(string source, Action action)
         {
@@ -143,6 +168,7 @@ namespace EnemyBridgePathTest
             {
                 var skipped = frames[frames.Count - 1];
                 frames.RemoveAt(frames.Count - 1);
+                if(skipped.Epoch!=epoch) { boundaryPosts++; continue; }
                 suppressedCount++;
                 Record(skipped, "event-suppressed", "original-skipped-no-post", skipped.Identity);
             }
@@ -151,12 +177,13 @@ namespace EnemyBridgePathTest
         {
             get { PruneSkipped(); return frames != null && frames.Count > 0 ? frames[frames.Count - 1] : null; }
         }
+        private Frame SessionFrame { get {var value=Current;return value!=null&&value.Epoch==epoch?value:null;} }
         private Frame WorkParent(int tribe)
         {
             PruneSkipped();
             if (frames == null) return null;
             for (int i = frames.Count - 1; i >= 0; i--)
-                if (frames[i].Kind == "target" && frames[i].Tribe == tribe && IsWork(frames[i].Command) &&
+                if (frames[i].Epoch==epoch && frames[i].Kind == "target" && frames[i].Tribe == tribe && IsWork(frames[i].Command) &&
                     frames[i].PreEvent is TribeIssueOrderWithTargetEventArgs target &&
                     target.TribeId == tribe && (int)target.AICommand == frames[i].Command) return frames[i];
             return null;
@@ -164,6 +191,7 @@ namespace EnemyBridgePathTest
         private static bool IsWork(int command) => command == (int)TribeAICommand.DigMoatTileId || command == (int)TribeAICommand.Unknown7;
         private void Record(Frame frame, string stage, string result, string detail = null, long count = 0)
         {
+            if(frame!=null&&!frame.Detailed&&stage!="diagnostic-error"&&stage!="event-suppressed") {Trace.CountBackground("summarized-frame-observation");return;}
             totals.Record(frame?.Player ?? 0, 0, stage, result + ",unitType=" + (frame?.UnitType ?? "unknown"), frame?.Command ?? 0, frame?.Tribe ?? 0,
                 frame?.X ?? 0, frame?.Y ?? 0, detail, count);
         }
@@ -171,13 +199,14 @@ namespace EnemyBridgePathTest
         {
             var frame = new Frame { Kind = kind, Id = tribeId, Tribe = tribeId, Command = command, X = x, Y = y,
                 SourcePcl = -1, TargetPcl = -1, Identity = "tribe-unavailable" };
-            if (GameTribeManagerAPI.Instance.TryGetTribeById(tribeId, out GameTribe* tribe) && tribe != null)
+            if (GameTribeManagerAPI.Instance.IsValidId(tribeId) && GameTribeManagerAPI.Instance.TryGetTribeById(tribeId, out GameTribe* tribe) && tribe != null)
             {
-                frame.Player = tribe->r_PlayerIdOwner;
+                frame.Player = tribe->r_PlayerIdOwner; frame.Global=tribe->r_GlobalId;
                 frame.Identity = "tribe=" + tribeId + "/g" + tribe->r_GlobalId + ",leader=" + tribe->r_LeaderUnitId;
-                if (GameUnitManagerAPI.Instance.TryGetUnitById(tribe->r_LeaderUnitId, out GameUnit* leader) && leader != null)
+                if (GameUnitManagerAPI.Instance.IsValidId(tribe->r_LeaderUnitId) && GameUnitManagerAPI.Instance.TryGetUnitById(tribe->r_LeaderUnitId, out GameUnit* leader) && leader != null)
                 {
-                    frame.SourcePcl = Pcl(leader->r_CurrentTilePositionX, leader->r_CurrentTilePositionY);
+                    frame.StartX=leader->r_CurrentTilePositionX;frame.StartY=leader->r_CurrentTilePositionY;
+                    frame.SourcePcl = Pcl(frame.StartX,frame.StartY);
                     frame.UnitType = leader->r_UnitChimp.ToString();
                     frame.Identity += "/g" + leader->r_GlobalId + ",type=" + leader->r_UnitChimp +
                         ",controlWord=" + (leader->r_ControllableForPlayerId | ((int)leader->N00000569 << 8)) +
@@ -199,34 +228,62 @@ namespace EnemyBridgePathTest
         private void Push(Frame frame)
         {
             if (frames == null) frames = new List<Frame>();
-            frames.Add(frame); Interlocked.Increment(ref preCount);
-            string stage = frame.Kind == "target" ? "tribe-target-pre" : frame.Kind == "move" ? "tribe-move-pre" : "unit-context";
-            Record(frame, stage, "called", frame.Identity + ",typeSource=" + (frame.Kind == "unit" ? "unit" : "leader") +
-                ",pcl=" + frame.SourcePcl + "->" + frame.TargetPcl);
-            foreach (var bridge in CurrentSnapshot.Bridges)
+            frame.Epoch = running ? epoch : -1;
+            frame.ParentTrace = frames.Count>0&&frames[frames.Count-1].Epoch==frame.Epoch ? frames[frames.Count-1].TraceId : 0;
+            frame.TraceId = Trace.NewOperation(); frames.Add(frame);
+            if(!running) return;
+            Interlocked.Increment(ref preCount);Trace.CountCommand(true);
+            if(frame.Kind=="unit")Trace.TaskCommand(frame.Id,frame.Global,frame.Tribe,frame.Player,frame.Command,frame.TraceId);
+            int kind=frame.Kind=="target"?1:frame.Kind=="move"?2:3;
+            bool resolved=frame.Global!=0&&frame.Player>=1&&frame.Player<=8;
+            bool changed=Trace.CommandIsNew(kind,frame.Id,frame.Global,new BridgeDecisionTrace.Arguments(frame.Tribe,frame.Player,frame.Command,frame.X,frame.Y,0));
+            bool near=Trace.NearBridge(frame.X,frame.Y)||Trace.NearBridge(frame.StartX,frame.StartY);
+            frame.Detailed=Trace.ShouldDetailCommand(frame.Kind!="unit",near,changed);
+            Trace.CountEvent(BridgeDecisionTrace.CommandCountData(kind,frame.Player,frame.Command,0,true,resolved));
+            if(!resolved&&!frame.Detailed&&unresolvedSamples<8)
             {
-                string physical = totals.RecordGateState(0, bridge.Id, "bridge-state", bridge.State, 0, 0, 0, 0,
-                    "snapshotSource=deferred,attribution=state-not-selected-bridge");
-                totals.RecordGateState(frame.Player, bridge.Id, "bridge-" + frame.Kind,
-                    "physicalState=" + physical + "," + ((uint)frame.Player < 9 ? bridge.Relations[frame.Player] : "unknown-player"),
-                    frame.Command, frame.Tribe, frame.X, frame.Y, "unitType=" + frame.UnitType);
+                unresolvedSamples++;
+                Trace.Observe("unresolved-command","op="+frame.TraceId+",kind="+kind+",id="+frame.Id+",global="+frame.Global+",playerRaw="+frame.Player+",commandRaw="+frame.Command+",input="+frame.X+"/"+frame.Y+",sampleLimitPerInterval=8,classification=unknown");
             }
+            if(!frame.Detailed)return;
+            if(frame.Kind=="unit"&&frame.Global!=0)
+            {
+                frame.UnitType=((eChimps)frame.RawUnitType).ToString();
+                frame.Identity="unit="+frame.Id+"/g"+frame.Global+",type="+frame.UnitType+",controlWord="+frame.Player+",start="+frame.StartX+"/"+frame.StartY;
+            }
+            if(frame.Kind=="target"&&IsWork(frame.Command))frame.WorkBefore=CaptureWork(frame.Tribe);
+            Trace.Command("command-pre","op="+frame.TraceId+",parentEvent="+frame.ParentTrace+",kind="+frame.Kind+
+                ",id="+frame.Id+",tribe="+frame.Tribe+",player="+frame.Player+",command="+frame.Command+
+                ",input="+frame.X+"/"+frame.Y+",pcl="+frame.SourcePcl+"->"+frame.TargetPcl+",nearBridge="+near+",routeAttribution=unproven,"+frame.Identity,frame.Player);
+            if(IsWork(frame.Command)) Trace.Observe("terrain-work-command","eventOp="+frame.TraceId+",player="+frame.Player+",command="+frame.Command+",target="+frame.X+"/"+frame.Y+",nearBridge="+near+",execution=not-proven");
+            Record(frame,"command-pre","called",frame.Identity);
+
         }
         private void Pop(string kind, int id, long result)
         {
-            Interlocked.Increment(ref postCount);
             var frame = Current;
+            if(frame!=null && frame.Kind==kind && frame.Id==id && (frame.Epoch!=epoch || !running))
+            {
+                frames.RemoveAt(frames.Count-1); boundaryPosts++;
+                Trace.Observe("event-boundary","op="+frame.TraceId+",preEpoch="+frame.Epoch+",postEpoch="+epoch+",kind="+kind+",id="+id);
+                return;
+            }
+            if(!running) return;
+            Interlocked.Increment(ref postCount);Trace.CountCommand(false);
             if (frame == null || frame.Kind != kind || frame.Id != id)
             { Interlocked.Increment(ref errors); Record(frame, "diagnostic-error", "pre-post-mismatch", "post=" + kind + "/" + id); return; }
             frames.RemoveAt(frames.Count - 1);
+            Trace.CountEvent(BridgeDecisionTrace.CommandCountData(kind=="target"?1:kind=="move"?2:3,frame.Player,frame.Command,result,false,frame.Global!=0&&frame.Player>=1&&frame.Player<=8));
+            if(frame.Detailed) Trace.Command("command-post","op="+frame.TraceId+",parentEvent="+frame.ParentTrace+",kind="+kind+
+                ",id="+id+",return="+result+",retainedPre="+DescribePreArgs(frame.PreEvent)+",postInput=original,regions="+frame.Regions,frame.Player);
             string stage = kind == "move" && frame.SourcePcl > 0 && frame.SourcePcl == frame.TargetPcl && frame.Regions == 0
                 ? "same-pcl-with-no-region-call" : frame.Regions > 0 ? "region-query-executed" : "region-not-observed";
             // No region call for same PCL is distinct from an observed positive E2610.
-            Record(frame, kind + "-post", "return=" + result + ",stage=" + stage,
+            if(frame.Detailed) Record(frame, kind + "-post", "return=" + result + ",stage=" + stage,
                 frame.Identity + ",regions=" + frame.Regions + ",searches=" + frame.Searches + ",failed=" + frame.Failed +
                 ",retainedPreArgs=" + DescribePreArgs(frame.PreEvent) + ",postArgsSource=extender-original-inputs");
             if (frame.WorkBefore != null) CompareWork(frame);
-            if (Current != null) { Current.Regions += frame.Regions; Current.Searches += frame.Searches; Current.Failed += frame.Failed; }
+            if (Current != null&&Current.Epoch==epoch) { Current.Regions += frame.Regions; Current.Searches += frame.Searches; Current.Failed += frame.Failed; }
         }
         private static string DescribePreArgs(EventHookBase args)
         {
@@ -239,14 +296,18 @@ namespace EnemyBridgePathTest
         }
         internal void TargetOrder(TribeIssueOrderWithTargetEventArgs args)
         {
-            if (!running) return;
+            if (!running)
+            {
+                if(args.Phase==EventHookPhase.Pre) { PruneSkipped(); Push(new Frame { Kind="target", Id=args.TribeId, PreEvent=args }); }
+                else if(args.Phase==EventHookPhase.Post) Pop("target",args.TribeId,args.ReturnValue);
+                return;
+            }
             Guard("target", () =>
             {
                 if (args.Phase == EventHookPhase.Pre)
                 {
                     var frame = TribeFrame("target", args.TribeId, (int)args.AICommand, args.TargetValue1, args.TargetValue2);
                     frame.PreEvent = args;
-                    if (IsWork(frame.Command)) frame.WorkBefore = CaptureWork(frame.Tribe);
                     Push(frame);
                 }
                 else if (args.Phase == EventHookPhase.Post) Pop("target", args.TribeId, args.ReturnValue);
@@ -254,7 +315,12 @@ namespace EnemyBridgePathTest
         }
         internal void TribeMove(TribeIssueOrderMoveHereEventArgs args)
         {
-            if (!running) return;
+            if (!running)
+            {
+                if(args.Phase==EventHookPhase.Pre) { PruneSkipped(); Push(new Frame { Kind="move", Id=args.TribeId, PreEvent=args }); }
+                else if(args.Phase==EventHookPhase.Post) Pop("move",args.TribeId,args.ReturnValue);
+                return;
+            }
             Guard("move", () =>
             {
                 if (args.Phase == EventHookPhase.Pre)
@@ -275,7 +341,12 @@ namespace EnemyBridgePathTest
         }
         internal void UnitMove(UnitMoveHereEventArgs args)
         {
-            if (!running) return;
+            if (!running)
+            {
+                if(args.Phase==EventHookPhase.Pre) { PruneSkipped(); Push(new Frame { Kind="unit", Id=args.UnitId, PreEvent=args }); }
+                else if(args.Phase==EventHookPhase.Post) Pop("unit",args.UnitId,args.ReturnValue);
+                return;
+            }
             Guard("unit", () =>
             {
                 if (args.Phase == EventHookPhase.Pre)
@@ -283,14 +354,14 @@ namespace EnemyBridgePathTest
                     var frame = new Frame { Kind = "unit", Id = args.UnitId, X = args.TileX, Y = args.TileY,
                         PreEvent = args,
                         SourcePcl = -1, TargetPcl = Pcl(args.TileX, args.TileY), Identity = "unit-unavailable" };
-                    if (GameUnitManagerAPI.Instance.TryGetUnitById(args.UnitId, out GameUnit* unit) && unit != null)
+                    if (GameUnitManagerAPI.Instance.IsValidId(args.UnitId) && GameUnitManagerAPI.Instance.TryGetUnitById(args.UnitId, out GameUnit* unit) && unit != null)
                     {
+                        frame.Global=unit->r_GlobalId;frame.StartX=unit->r_CurrentTilePositionX;frame.StartY=unit->r_CurrentTilePositionY;
                         frame.Tribe = unit->r_TribeId; frame.Command = unit->r_AI_LastIssuedTribeCommand;
-                        frame.UnitType = unit->r_UnitChimp.ToString();
+                        frame.RawUnitType=(int)unit->r_UnitChimp;
                         frame.Player = unit->r_ControllableForPlayerId | ((int)unit->N00000569 << 8);
                         frame.SourcePcl = Pcl(unit->r_CurrentTilePositionX, unit->r_CurrentTilePositionY);
-                        frame.Identity = "unit=" + args.UnitId + "/g" + unit->r_GlobalId + ",type=" + unit->r_UnitChimp +
-                            ",controlWord=" + frame.Player + ",start=" + unit->r_CurrentTilePositionX + "/" + unit->r_CurrentTilePositionY;
+
                     }
                     Push(frame);
                 }
@@ -335,25 +406,26 @@ namespace EnemyBridgePathTest
                 changed);
         }
         public object BeginSearch(string source, int rawPlayer) => !running ? null :
-            new Search { Frame = Current, Source = source, RawPlayer = rawPlayer };
+            new Search { Frame = SessionFrame, Source = source, RawPlayer = rawPlayer };
         public void EndSearch(object token, bool completed, int? nativeResult, int effectiveResult, long nativeCalls)
         {
             if (!(token is Search search) || !running) return;
+            if(search.Frame?.Detailed==true||Trace.DetailedNative) Trace.Observe("search-result","eventOp="+(search.Frame?.TraceId??0)+",source="+search.Source+",native="+(nativeResult?.ToString()??"unobserved")+",effective="+effectiveResult+",nativeCalls="+nativeCalls+",completed="+completed);
             Interlocked.Increment(ref observedSearches);
+            Trace.CountEvent(new BridgeDecisionTrace.Arguments(4,search.RawPlayer,nativeResult??int.MinValue,effectiveResult,completed?1:0,0));
             bool route = search.Source == "builder" || search.Source == "reconstructed-builder";
             if (search.Frame != null) { search.Frame.Searches++; if (!completed || (route && effectiveResult <= 0)) search.Frame.Failed++; }
-            Record(search.Frame, "search-" + search.Source,
+            if(search.Frame?.Detailed==true||Trace.DetailedNative) Record(search.Frame, "search-" + search.Source,
                 "completed=" + completed + ",native=" + (nativeResult?.ToString() ?? "unobserved-or-void") + ",effective=" + (route ? effectiveResult.ToString() : "void"),
                 "rawPlayer=" + search.RawPlayer + ",movementPlayer=" + (search.Frame?.Player ?? 0) + ",nativeCalls=" + nativeCalls);
         }
         public void ObserveRegion(int rawPlayer, int sourcePcl, int targetPcl, int mode, int nativeResult, int effectiveResult)
         {
             if (!running) return;
-            var frame = Current;
+            Trace.Region(rawPlayer,sourcePcl,targetPcl,mode,nativeResult,effectiveResult);
+            var frame = SessionFrame;
             if (frame != null) frame.Regions++;
-            totals.Record(rawPlayer, 0, "region-executed", "native=" + nativeResult + ",effective=" + effectiveResult +
-                ",samePcl=" + (sourcePcl > 0 && sourcePcl == targetPcl), frame?.Command ?? 0, frame?.Tribe ?? 0,
-                sourcePcl, targetPcl, "mode=" + mode + ",movementPlayer=" + (frame?.Player ?? 0));
+
         }
         public object BeginAssassinSearch(int startX, int startY, int targetX, int targetY, int maximumNodes, int continuation, string nativeState)
         {
@@ -361,7 +433,7 @@ namespace EnemyBridgePathTest
             Assassin token = null;
             Guard("assassin-begin", () =>
             {
-                var frame = Current;
+                var frame = SessionFrame;
                 Record(frame, "assassin-entry", "called", "start=" + startX + "/" + startY + ",target=" + targetX + "/" + targetY +
                     ",continuation=" + continuation + ",limit=" + maximumNodes + "," + nativeState);
                 token = new Assassin { Frame = frame, Snapshot = CurrentSnapshot, X = targetX, Y = targetY };

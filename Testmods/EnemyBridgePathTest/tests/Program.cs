@@ -21,6 +21,8 @@ namespace EnemyBridgePathTest
             try
             {
                 count += DrawbridgeClosureTests.Run();
+                count += NativeDecisionTests.Run();
+                count += LeanTraceTests.Run();
                 Check(EnemyGatePathPolicyBridge.Current == null, "separate provider starts empty");
                 Check(Invoke(3) == 3 && calls == 1, "without observer native once");
                 var observer = new Observer();

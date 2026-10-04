@@ -2,12 +2,24 @@
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" />
   <PropertyGroup>
-    <OutputType>Exe</OutputType><AssemblyName>EnemyBridgePathTest.PolicyTests</AssemblyName>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks><PlatformTarget>x64</PlatformTarget><Prefer32Bit>false</Prefer32Bit><OutputType>Exe</OutputType><AssemblyName>EnemyBridgePathTest.PolicyTests</AssemblyName>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion><LangVersion>latest</LangVersion>
     <OutputPath>tests\bin\</OutputPath>
   </PropertyGroup>
-  <ItemGroup><Reference Include="System" /><Reference Include="System.Core" /></ItemGroup>
+  <ItemGroup><Reference Include="System" /><Reference Include="System.Core" /><Reference Include="RedBird.Abstractions"><HintPath>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\RedBird.Abstractions.dll</HintPath><Private>true</Private></Reference>
+<Reference Include="RedBird.Core"><HintPath>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\RedBird.Core.dll</HintPath><Private>true</Private></Reference>
+<Reference Include="RedBird.X64"><HintPath>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\RedBird.X64.dll</HintPath><Private>true</Private></Reference>
+<Reference Include="RedBird.Backends.NativeX64"><HintPath>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\RedBird.Backends.NativeX64.dll</HintPath><Private>true</Private></Reference>
+<Reference Include="Iced"><HintPath>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\Iced.dll</HintPath><Private>true</Private></Reference>
+<Reference Include="System.Memory"><HintPath>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\System.Memory.dll</HintPath><Private>true</Private></Reference>
+<Reference Include="Microsoft.Extensions.Logging.Abstractions"><HintPath>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\Microsoft.Extensions.Logging.Abstractions.dll</HintPath><Private>true</Private></Reference>
+<Reference Include="SHCDESE"><HintPath>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\SHCDESE.dll</HintPath><Private>true</Private></Reference>
+<Reference Include="BepInEx"><HintPath>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\core\BepInEx.dll</HintPath><Private>true</Private></Reference>
+<Reference Include="Assembly-CSharp"><HintPath>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll</HintPath><Private>true</Private></Reference>
+</ItemGroup>
   <ItemGroup>
+    <Compile Include="tests\NativeDecisionTests.cs" /><Compile Include="src\BridgeNativeDefinition.cs" /><Compile Include="src\BridgeNativeHooks.cs" />
+    <Compile Include="src\BridgeDiagnostics.cs" /><Compile Include="src\BridgeDecisionTrace.cs" /><Compile Include="src\BridgeBuildingIndex.cs" /><Compile Include="src\BridgeSnapshot.cs" /><Compile Include="tests\LeanTraceTests.cs" />
     <Compile Include="tests\Program.cs" /><Compile Include="tests\DrawbridgeClosureTests.cs" />
     <Compile Include="src\DrawbridgeClosurePolicy.cs" /><Compile Include="src\GateEdgeOwnership.cs" />
     <Compile Include="..\..\Shared\PathDecisionAggregate.cs" />

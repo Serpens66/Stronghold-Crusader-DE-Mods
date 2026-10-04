@@ -27,6 +27,7 @@ Semantic reverse-engineering baseline:
 - [HUD presentation scheduling audit](./sem/FBCB9319/knowledge/HUD_PRESENTATION.md): Vanilla writers, render-state flow, visibility and active-consumer boundaries.
 - [Health-bar rendering audit](./sem/FBCB9319/knowledge/HEALTH_BAR_RENDERING.md): visible-map render paths, selection gates, HP storage and candidate hook spans.
 
+- [Drawbridge AI decision audit](./sem/FBCB9319/knowledge/DRAWBRIDGE_AI_DECISIONS.md): player siege planning, candidate/task consumption, physical transitions and passive focused capture.
 - [Drawbridge native contracts](./sem/FBCB9319/knowledge/DRAWBRIDGES.md): tile topology, shared building height, three rendering paths, unit height and verified RedBird spans.
 - [Outpost static audit](./sem/FBCB9319/knowledge/OUTPOSTS.md): profiles, spawn/guard/group flows, selection, rally scope and documented runtime gaps.
 - [Recruit transformation and rally tracking](./sem/FBCB9319/knowledge/RECRUIT_TRANSFORMATION.md): same-slot recruitment, transient AliveState 4, finalization and consumer lifetime contract.
