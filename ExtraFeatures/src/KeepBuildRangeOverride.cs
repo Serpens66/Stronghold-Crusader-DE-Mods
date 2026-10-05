@@ -11,6 +11,14 @@ namespace ExtraFeatures
         private int previousValue;
         private int writtenValue;
 
+        // Simulate the next lobby-start reconciliation without changing ownership or native state.
+        internal int Preview(int requested, int current)
+        {
+            lock (sync)
+                return requested > 0 ? Math.Min(500, requested) :
+                    ownsValue && current == writtenValue ? previousValue : current;
+        }
+
         internal void Reconcile(int requested, Func<int> read, Action<int> write)
         {
             lock (sync)

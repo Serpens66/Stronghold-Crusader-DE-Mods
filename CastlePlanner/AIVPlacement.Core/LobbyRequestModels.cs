@@ -111,7 +111,8 @@ namespace CastlePlanner.AIVPlacement.Core
             IEnumerable<int> keepToPlayerOrder,
             IEnumerable<LobbyAiSlotInput> aiSlots,
             IEnumerable<string> scriptExtenderAivAssets,
-            IEnumerable<int> humanPlayerIds = null)
+            IEnumerable<int> humanPlayerIds = null,
+            KeepRangeSnapshot keepRange = null)
         {
             MapPath = mapPath ?? string.Empty;
             MapName = mapName ?? string.Empty;
@@ -124,6 +125,7 @@ namespace CastlePlanner.AIVPlacement.Core
                 new List<LobbyAiSlotInput>(aiSlots ?? Array.Empty<LobbyAiSlotInput>()));
             ScriptExtenderAivAssets = new ReadOnlyCollection<string>(
                 new List<string>(scriptExtenderAivAssets ?? Array.Empty<string>()));
+            KeepRange = keepRange ?? KeepRangeSnapshot.Vanilla;
             HumanPlayerIds = new ReadOnlyCollection<int>(
                 new List<int>(humanPlayerIds ?? Array.Empty<int>()));
         }
@@ -137,6 +139,7 @@ namespace CastlePlanner.AIVPlacement.Core
         public IReadOnlyList<LobbyAiSlotInput> AiSlots { get; }
         public IReadOnlyList<string> ScriptExtenderAivAssets { get; }
         public IReadOnlyList<int> HumanPlayerIds { get; }
+        public KeepRangeSnapshot KeepRange { get; }
     }
 
     public sealed class AivPlacementCandidateRequest
@@ -252,14 +255,17 @@ namespace CastlePlanner.AIVPlacement.Core
     {
         internal AivPlacementRequestBatch(
             long generation,
-            IEnumerable<AivPlacementCheckRequest> requests)
+            IEnumerable<AivPlacementCheckRequest> requests,
+            KeepRangeSnapshot keepRange = null)
         {
             Generation = generation;
+            KeepRange = keepRange ?? KeepRangeSnapshot.Vanilla;
             Requests = new ReadOnlyCollection<AivPlacementCheckRequest>(
                 new List<AivPlacementCheckRequest>(requests));
         }
 
         public long Generation { get; }
         public IReadOnlyList<AivPlacementCheckRequest> Requests { get; }
+        public KeepRangeSnapshot KeepRange { get; }
     }
 }

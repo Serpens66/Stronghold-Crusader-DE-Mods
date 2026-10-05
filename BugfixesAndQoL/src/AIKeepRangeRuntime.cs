@@ -71,6 +71,10 @@ namespace BugfixesAndQoL
                 ended = Shared.MissionEvents.Ended.Subscribe(_ => Volatile.Write(ref enabled, 0));
         }
 
+        // Mission end clears the live mask, not the capability for the next lobby start.
+        internal bool LobbyBypass => installed && Volatile.Read(ref faulted) == 0 &&
+            settings.EnableMod && settings.RemoveAIKeepRangeLimit;
+
         internal void Refresh() => Volatile.Write(ref enabled,
             installed && Volatile.Read(ref faulted) == 0 && settings.EnableMod && settings.RemoveAIKeepRangeLimit ? 1 : 0);
 

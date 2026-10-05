@@ -12,6 +12,7 @@ namespace CastlePlanner
     [BepInDependency("APIShared_Serp", "0.4.6")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("ExtraFeatures_Serp", BepInDependency.DependencyFlags.SoftDependency)]
+    [BepInDependency("BugfixesAndQoL_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class CastlePlannerPlugin : BaseUnityPlugin
@@ -152,6 +153,7 @@ namespace CastlePlanner
 
             TryInitializeStage("AIV placement runtime", () =>
             {
+                CastlePlanner.AIVPlacement.KeepRangeSettingsBridge.NativeCompatible = currentNativeLayout;
                 aivPlacementRuntime = new CastlePlanner.AIVPlacement.AivPlacementRuntime(
                     Logger,
                     () => Settings.EnableMod && Settings.EnableAivPlacementLobby);

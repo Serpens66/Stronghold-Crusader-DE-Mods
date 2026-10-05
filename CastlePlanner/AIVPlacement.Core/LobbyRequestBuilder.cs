@@ -107,7 +107,7 @@ namespace CastlePlanner.AIVPlacement.Core
                 hasEarlierAi = true;
             }
 
-            return new AivPlacementRequestBatch(generation, requests);
+            return new AivPlacementRequestBatch(generation, requests, capture.KeepRange);
         }
 
         public static string BuildFingerprint(LobbyStateCapture capture)
@@ -117,6 +117,7 @@ namespace CastlePlanner.AIVPlacement.Core
 
             var result = new StringBuilder();
             Append(result, capture.MapPath);
+            Append(result, capture.KeepRange.Fingerprint);
             Append(result, capture.MapName);
             Append(result, capture.MapOrigin);
             result.Append(capture.IsHost ? 'H' : 'C').Append('|');

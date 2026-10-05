@@ -41,9 +41,11 @@ namespace CastlePlanner.AIVPlacement.Core
             IReadOnlyList<int> relevantRotationIndexes = null,
             IReadOnlyList<AivRotation> projectedRotations = null,
             IReadOnlyList<int> elevatedMoatTilesByRotation = null,
-            IReadOnlyList<int> elevatedDrawbridgeTilesByRotation = null)
+            IReadOnlyList<int> elevatedDrawbridgeTilesByRotation = null,
+            IReadOnlyList<KeepRangeResult> keepRangeByRotation = null)
         {
             CandidateId = candidateId;
+            KeepRangeByRotation = keepRangeByRotation ?? Array.Empty<KeepRangeResult>();
             Rotations = rotations;
             Status = status;
             Reason = reason ?? string.Empty;
@@ -53,6 +55,7 @@ namespace CastlePlanner.AIVPlacement.Core
             ElevatedDrawbridgeTilesByRotation = elevatedDrawbridgeTilesByRotation ?? Array.Empty<int>();
         }
         public int CandidateId { get; }
+        public IReadOnlyList<KeepRangeResult> KeepRangeByRotation { get; }
         public IReadOnlyList<AivPracticeRotation> Rotations { get; }
         public AivPlacementStatus Status { get; }
         public string Reason { get; }
@@ -139,6 +142,9 @@ namespace CastlePlanner.AIVPlacement.Core
             internal readonly HashSet<int> All = new HashSet<int>();
             internal readonly HashSet<int> Blocked = new HashSet<int>();
             internal AivPlacementResult Base;
+            internal KeepRangeLayout RangeLayout;
+            internal KeepRangeResult RangeResult;
+            internal readonly HashSet<int> Evaluated = new HashSet<int>();
             internal AivRotation Rotation;
             internal bool HasKnownGeometry;
             internal bool IsEstimate;
@@ -152,7 +158,8 @@ namespace CastlePlanner.AIVPlacement.Core
             int evaluatedTiles, int baseBlockedTiles, IEnumerable<int> fixedTiles, IEnumerable<int> softTiles,
             IEnumerable<int> nativeBlockedTiles, IEnumerable<IEnumerable<int>> otherGuaranteedFixed,
             IEnumerable<IEnumerable<int>> otherPossibleFixed,
-            IEnumerable<int> otherPossibleAll, bool estimate)
+            IEnumerable<int> otherPossibleAll, bool estimate,
+            IEnumerable<int> rangeCertain = null, IEnumerable<int> rangePossible = null)
         {
             var ownFixed = new HashSet<int>(fixedTiles);
             var ownSoft = new HashSet<int>(softTiles);
@@ -163,8 +170,15 @@ namespace CastlePlanner.AIVPlacement.Core
             var possible = new HashSet<int>();
             foreach (IEnumerable<int> group in otherPossibleFixed)
                 possible.UnionWith(group);
-            int minimum = ownFixed.Count(tile => guaranteed.Contains(tile) && !blocked.Contains(tile));
-            int maximum = ownFixed.Count(tile => possible.Contains(tile) && !blocked.Contains(tile));
+            guaranteed.IntersectWith(ownFixed);
+            possible.IntersectWith(ownFixed);
+            guaranteed.UnionWith(rangeCertain ?? Array.Empty<int>());
+            possible.UnionWith(rangePossible ?? Array.Empty<int>());
+            possible.UnionWith(guaranteed);
+            guaranteed.ExceptWith(blocked);
+            possible.ExceptWith(blocked);
+            int minimum = guaranteed.Count;
+            int maximum = possible.Count;
             int denominator = Math.Max(1, evaluatedTiles);
             int low = Math.Max(0, (evaluatedTiles - baseBlockedTiles - maximum) * 100 / denominator);
             int high = Math.Max(0, (evaluatedTiles - baseBlockedTiles - minimum) * 100 / denominator);
@@ -285,6 +299,13 @@ namespace CastlePlanner.AIVPlacement.Core
                                     baseline.Geometry.TryGetTileId(issue.MapCoordinate.X,
                                         issue.MapCoordinate.Y, out int blockedId))
                                     plan.Blocked.Add(blockedId);
+                            foreach (AivProjectedTile tile in castle.OccupiedTiles)
+                                if (baseline.Geometry.TryGetTileId(tile.MapCoordinate.X, tile.MapCoordinate.Y, out int evaluatedId))
+                                    plan.Evaluated.Add(evaluatedId);
+                            var rejected = new HashSet<MapCoordinate>(plan.Base.Issues.Where(issue =>
+                                (issue.Kind & ~(AivPlacementIssueKind.UnresolvedNativeRule |
+                                    AivPlacementIssueKind.InternalOverlap)) != 0).Select(issue => issue.MapCoordinate));
+                            plan.RangeLayout = KeepRangePolicy.Prepare(castle, rejected);
                             rotation = rotation == AivRotation.Degrees270
                                 ? AivRotation.Degrees0 : (AivRotation)((int)rotation + 90);
                         }
@@ -307,7 +328,8 @@ namespace CastlePlanner.AIVPlacement.Core
                 output.Add(request.PlayerId, evaluations);
                 foreach (AivPlacementCandidateRequest candidate in request.Candidates)
                 {
-                    Plan[] own = plans[request.PlayerId][candidate.CandidateId];
+                    if (!plans[request.PlayerId].TryGetValue(candidate.CandidateId, out Plan[] own))
+                        own = new Plan[4];
                     AivRotation[] projectedRotations = own.All(value => value?.HasKnownGeometry == true)
                         ? own.Select(value => value.Rotation).ToArray()
                         : Array.Empty<AivRotation>();
@@ -320,6 +342,18 @@ namespace CastlePlanner.AIVPlacement.Core
                         evaluations.Add(candidate.CandidateId, new AivPracticeCandidate(
                             candidate.CandidateId, Array.Empty<AivPracticeRotation>(),
                             AivPlacementStatus.NotEvaluable, "UnknownGeometry"));
+                        continue;
+                    }
+                    var allies = CaptureAllies(request.PlayerId, batch, plans, nativeByPlayer);
+                    foreach (Plan plan in own)
+                        plan.RangeResult = KeepRangePolicy.Evaluate(plan.RangeLayout, batch.KeepRange,
+                            baseline.Geometry, plan.Evaluated, allies);
+                    KeepRangeResult[] rangeResults = own.Select(plan => plan.RangeResult).ToArray();
+                    if (rangeResults.Any(result => result.Unknown))
+                    {
+                        evaluations.Add(candidate.CandidateId, new AivPracticeCandidate(candidate.CandidateId,
+                            Array.Empty<AivPracticeRotation>(), AivPlacementStatus.NotEvaluable, "KeepRangeUnknown",
+                            projectedRotations: projectedRotations, keepRangeByRotation: rangeResults));
                         continue;
                     }
                     bool otherUnknown = false;
@@ -376,7 +410,8 @@ namespace CastlePlanner.AIVPlacement.Core
                             AivPlacementStatus.NotEvaluable, "OtherFootprintUnknown",
                             projectedRotations: projectedRotations,
                             elevatedMoatTilesByRotation: elevatedMoat,
-                            elevatedDrawbridgeTilesByRotation: elevatedDrawbridge));
+                            elevatedDrawbridgeTilesByRotation: elevatedDrawbridge,
+                            keepRangeByRotation: rangeResults));
                         continue;
                     }
                     var scored = new List<AivPracticeRotation>(4);
@@ -397,7 +432,8 @@ namespace CastlePlanner.AIVPlacement.Core
                             plan.Base.Score.FitPercentage, plan.Base.Score.EvaluatedTileCount,
                             plan.Base.Score.BlockedTileCount,
                             plan.Fixed, plan.Soft, plan.Blocked, guaranteedGroups,
-                            possibleGroups, possibleAll, plan.IsEstimate);
+                            possibleGroups, possibleAll, plan.IsEstimate,
+                            plan.RangeResult.CertainTiles, plan.RangeResult.PossibleTiles);
                         scored.Add(score);
                         if (selectedRotations.Count == 0 || selectedRotations.Contains(index))
                         {
@@ -412,12 +448,63 @@ namespace CastlePlanner.AIVPlacement.Core
                         selectedRotations.Count == 0
                             ? Enumerable.Range(0, own.Length).ToArray()
                             : selectedRotations.OrderBy(value => value).ToArray(),
-                        projectedRotations, elevatedMoat, elevatedDrawbridge));
+                        projectedRotations, elevatedMoat, elevatedDrawbridge, rangeResults));
                 }
             }
             if (!mapStamp.Equals(LobbyFileStamp.Capture(batch.Requests[0].MapPath)))
                 throw new InvalidOperationException("Map changed during geometric assessment.");
             return new AivPracticeBatch(batch.Generation, output);
+        }
+
+        private static IReadOnlyList<KeepRangeAlly> CaptureAllies(int playerId, AivPlacementRequestBatch batch,
+            Dictionary<int, Dictionary<int, Plan[]>> plans,
+            Dictionary<int, AivPlacementCheckResult> native)
+        {
+            var result = new List<KeepRangeAlly>();
+            if (!batch.KeepRange.Teams.TryGetValue(playerId, out int ownTeam))
+            {
+                // Older/offline captures have no roster evidence.
+                if (batch.KeepRange.Teams.Count > 0)
+                    result.Add(new KeepRangeAlly(null, true, true));
+                return result;
+            }
+            foreach (var team in batch.KeepRange.Teams)
+            {
+                if (team.Key == playerId) continue;
+                if (ownTeam < 0 || team.Value < 0)
+                {
+                    result.Add(new KeepRangeAlly(null, true, true));
+                    continue;
+                }
+                // Lobby team zero means independent players, not one allied team.
+                if (ownTeam == 0 || team.Value != ownTeam) continue;
+                if (!plans.TryGetValue(team.Key, out Dictionary<int, Plan[]> candidates) ||
+                    !native.TryGetValue(team.Key, out AivPlacementCheckResult nativeResult))
+                {
+                    // Human starts can be changed by CastlePlanner/Fixes; do not invent their Keep.
+                    result.Add(new KeepRangeAlly(null, true, true));
+                    continue;
+                }
+                IReadOnlyList<NativeAivAutoDecision> outcomes = NativeAivAutoSelector.SelectPossible(nativeResult.Candidates);
+                var references = new List<MapCoordinate>();
+                bool unknown = outcomes.Count == 0;
+                foreach (NativeAivAutoDecision outcome in outcomes)
+                {
+                    if (!outcome.CandidateId.HasValue) continue;
+                    if (!candidates.TryGetValue(outcome.CandidateId.Value, out Plan[] variants) ||
+                        outcome.RotationIndex < 0 || outcome.RotationIndex >= variants.Length ||
+                        variants[outcome.RotationIndex]?.RangeLayout?.KeepReference == null)
+                    {
+                        unknown = true;
+                        continue;
+                    }
+                    references.Add(variants[outcome.RotationIndex].RangeLayout.KeepReference.Value);
+                }
+                // Later start/prebuild cleanup can remove a Keep. Its existence at the build
+                // frame is not generally proven by a successful fit; credit it only as possible help.
+                result.Add(new KeepRangeAlly(references, true, unknown));
+            }
+            return result;
         }
 
         public static AivPlacementStatus ClassifyPercentage(int percentage)

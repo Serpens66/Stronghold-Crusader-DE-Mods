@@ -29,6 +29,14 @@ namespace ExtraFeatures
         private readonly ManualLogSource log;
         private readonly ExtraFeaturesViewModel settings;
         private static KeepBuildRangeRuntime processKeepBuildRangeRuntime;
+
+        internal static bool TryGetLobbyKeepRangeOverride(int currentOverride, out int range)
+        {
+            range = currentOverride;
+            if (processKeepBuildRangeRuntime == null) return false;
+            range = processKeepBuildRangeRuntime.PreviewLobby(currentOverride);
+            return true;
+        }
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private readonly HashSet<string> resourceAddReentryGuards = new HashSet<string>();
         private readonly Dictionary<string, ResourceEventCountGuard> marketBuyResourceGuards = new Dictionary<string, ResourceEventCountGuard>();

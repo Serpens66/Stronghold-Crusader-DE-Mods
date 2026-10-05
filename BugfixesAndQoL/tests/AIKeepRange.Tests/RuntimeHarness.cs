@@ -29,6 +29,7 @@ namespace BugfixesAndQoL
             var settings = new BugfixesAndQoLViewModel();
             var runtime = new AIKeepRangeRuntime(null, settings);
             runtime.Refresh();
+            Check(!runtime.LobbyBypass, "Lobby cannot bypass before installation");
             Check((int)Field("enabled").GetValue(runtime) == 0, "No activation before successful installation");
             // Native installation is independently tested against the real backend in Program.
             Field("installed").SetValue(runtime, true);
@@ -57,12 +58,14 @@ namespace BugfixesAndQoL
             Shared.MissionEvents.Initialization.OnNext(1); // NativeLoaded/save
             Check(callback(IntPtr.Zero, 2, 357, 518, 70) == 0 && originalCount == 4, "Save initialization restores logical state");
             Shared.MissionEvents.Ended.OnNext(0);
+            Check(runtime.LobbyBypass, "Next-game lobby capability survives mission end");
             Check(callback(IntPtr.Zero, 2, 357, 518, 70) == 17 && originalCount == 5, "Mission end disabled");
             Shared.MissionEvents.Initialization.OnNext(0);
             Check(callback(IntPtr.Zero, 2, 357, 518, 70) == 0, "Next mission reactivates");
             classificationFails = true;
             Check(callback(IntPtr.Zero, 2, 357, 518, 70) == 17 && originalCount == 6, "Classifier failure original once");
             classificationFails = false; runtime.Refresh(); Shared.MissionEvents.Initialization.OnNext(1);
+            Check(!runtime.LobbyBypass, "Faulted hook cannot advertise lobby bypass");
             Check(callback(IntPtr.Zero, 2, 357, 518, 70) == 17 && originalCount == 7, "Fault stays disabled across refresh/save");
             Console.WriteLine("PASS: production AI runtime: settings, prebuild/save publishers, mission change, original counts, persistent fail-closed.");
         }

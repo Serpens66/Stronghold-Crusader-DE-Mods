@@ -365,6 +365,7 @@ namespace CastlePlanner.AIVPlacement
             Platform_Multiplayer.MPLobby lobby = frontend?.currentLobby;
             var slots = new List<LobbyAiSlotInput>();
             var humanPlayerIds = new List<int>();
+            var teams = new Dictionary<int, int>();
             var assets = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var playerMappings = new Dictionary<FRONT_Multiplayer.MPAIVInfo, int>();
 
@@ -383,6 +384,7 @@ namespace CastlePlanner.AIVPlacement
                             $"Skipped an active lobby member with invalid playerId={playerId}; aivSlots={frontend.AIVs.Length}.");
                         continue;
                     }
+                    teams[playerId] = lobby.getTeam(member);
                     if (member.SkirmishHumanMember)
                     {
                         humanPlayerIds.Add(playerId);
@@ -448,7 +450,7 @@ namespace CastlePlanner.AIVPlacement
                     : (int[])setup.start_keep_location_order.Clone(),
                 slots,
                 assets,
-                humanPlayerIds);
+                humanPlayerIds, KeepRangeSettingsBridge.Capture(teams, log));
         }
 
         private void ProbeOverrides(string lordEnumName, int count, ISet<string> assets)

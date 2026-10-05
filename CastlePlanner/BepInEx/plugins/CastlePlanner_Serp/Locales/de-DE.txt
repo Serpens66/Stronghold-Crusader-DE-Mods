@@ -163,3 +163,6 @@ Common.ModSettingsSearchClearHelp=Leert den Einstellungsfilter.
 Common.ModSettingsSearchNoResults=Keine passenden Einstellungen gefunden.
 Common.SettingsSourceHelp=Setzt die Einstellungen dieser Mod auf die gewählte Quelle zurück. Eigene Presets bleiben unverändert. Im Mehrspieler kann nur der Host die Host-Einstellungen zurücksetzen.
 Common.PresetLoadFailedTitle=Preset konnte nicht geladen werden
+CastlePlanner.KeepRangeBlocked=Defensive Gebäude liegen außerhalb der Keep-Baureichweite ({Range} Tiles).
+CastlePlanner.KeepRangePossible=Defensive Gebäude könnten außerhalb der Keep-Baureichweite liegen ({Range} Tiles).
+CastlePlanner.KeepRangeUnknown=Die Keep-Baureichweite kann für diese Burg noch nicht sicher ausgewertet werden.

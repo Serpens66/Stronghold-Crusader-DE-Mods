@@ -72,3 +72,29 @@ the unique pattern if local reference bytes were changed by an earlier hook.
 The fixed layouts remain the explicit reason for the hash gate. Blueprint mode
 was not version-sensitive. Native singleplayer and multiplayer spawning still
 need a live smoke test.
+
+## CastlePlanner lobby practice range audit (2026-10-05)
+
+For native SHA256 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2,
+CastlePlanner mirrors the prepared raster (55320 last writer, 53D00 first surviving
+Y/X cell), KEEP2 facing reference (D0630), and whole-footprint rejection through
+51790 -> 6D580 -> 77E60 -> 6AF00 -> EEF90. The 77E60 dispatch gives killing pit,
+pitch ditch, drawbridge and dog cage +5; gate and tower variants receive no bonus.
+AIV wall/moat constructors are distinct and excluded. Allied half-range truncates.
+DLL_RegisterSkirmishUser (86550) records lobby teams; 94350 allocates distinct native
+teams for zero-team players. Zero therefore does not imply an alliance.
+
+The existing native hash gate also gates this offline contract. No native hook is
+added. Positive SE overrides and the mutable range table are captured on the main
+thread. Optional public mod queries preview the next lobby game without writes;
+ExtraFeatures previews restoration of an owned value, and BugfixesAndQoL reports
+only an installed, healthy, enabled AI bypass. Unknown providers withhold a verdict.
+Snapshots include teams and effective policy in the existing generation fingerprint.
+Vanilla fit, caches and selection retain their existing inputs. Allied start positions
+are taken from possible Vanilla outcomes; unproven Keep survival/human starts remain
+possible help rather than guaranteed help. Percent deductions union cell sets.
+
+Automated tests cover all four rotations, exact/over-limit boundaries, complete
+footprint rejection, overwritten anchors, odd allied half-range, duplicate deductions,
+policy fingerprints and all three Baibars Nimrod variants (70 blocked, 80 clear).
+Live lobby host/client refresh and visual acceptance remain game smoke tests.

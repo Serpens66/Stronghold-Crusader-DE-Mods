@@ -13,6 +13,16 @@ namespace ExtraFeatures
         public static void Run()
         {
             CheckWriteOwnership();
+            var preview = new KeepBuildRangeOverride();
+            foreach (int requested in new[] { -1, 0, 1, 70, 99, 100, 500 })
+                Check(preview.Preview(requested, 83) == (requested > 0 ? requested : 83), "lobby preview keeps external default/positive setting");
+            int previewValue = 83;
+            preview.Reconcile(100, () => previewValue, v => previewValue = v);
+            Check(preview.Preview(0, previewValue) == 83 && previewValue == 100, "preview simulates release without mutation");
+            Check(preview.Preview(70, previewValue) == 70 && previewValue == 100, "preview positive change without mutation");
+            Check(preview.Preview(-1, 91) == 91, "preview respects foreign replacement");
+            preview.Reconcile(0, () => previewValue, v => previewValue = v);
+            Check(previewValue == 83, "preview did not change ownership");
             var value = new ManagedValue<int>(-1);
             var policy = new KeepBuildRangeOverride();
             policy.Reconcile(-1, value.GetValue, value.SetValue);

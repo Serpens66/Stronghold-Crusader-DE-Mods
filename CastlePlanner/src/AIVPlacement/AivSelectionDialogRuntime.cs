@@ -638,6 +638,16 @@ namespace CastlePlanner.AIVPlacement
             var notices = candidate == null
                 ? new List<string>() : BuildNativeNotices(candidate, possibleAuto);
             notices.InsertRange(0, BuildMapHeightNotices(practice));
+            KeepRangeResult[] relevantRanges = practice.KeepRangeByRotation
+                .Where((result, index) => practice.RelevantRotationIndexes.Count == 0 ||
+                    practice.RelevantRotationIndexes.Contains(index)).ToArray();
+            KeepRangeResult[] rangeNotices = relevantRanges.Where(result => result.HasNotice).ToArray();
+            if (rangeNotices.Length > 0 && !rangeNotices.Any(result => result.Unknown))
+            {
+                bool certain = relevantRanges.All(result => result.CertainBuildings > 0);
+                notices.Add(SerpLocalization.Get(certain ? "CastlePlanner.KeepRangeBlocked" :
+                    "CastlePlanner.KeepRangePossible", "Range", rangeNotices[0].Range.ToString()));
+            }
             if (practice.Rotations.Any(rotation => rotation.SoftOverlap))
                 notices.Add(SerpLocalization.Get(SerpLocalization.AivPlacementSoftOverlap));
             if (!string.IsNullOrEmpty(practice.Reason))
@@ -653,6 +663,7 @@ namespace CastlePlanner.AIVPlacement
         {
             switch (reason)
             {
+                case "KeepRangeUnknown": return "CastlePlanner.KeepRangeUnknown";
                 case "OtherFootprintUnknown": return SerpLocalization.AivPlacementOtherFootprintUnknown;
                 case "MixedZeroAndPositive": return SerpLocalization.AivPlacementMixedZeroAndPositive;
                 default: return SerpLocalization.AivPlacementUnknownGeometry;

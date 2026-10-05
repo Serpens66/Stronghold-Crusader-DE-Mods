@@ -59,6 +59,10 @@ namespace BugfixesAndQoL
 
         public BugfixesAndQoLViewModel Settings { get; private set; }
 
+        /// <summary>Read-only next-game capability, including installation and classification failures.</summary>
+        public static bool TryGetLobbyAIKeepRangeBypass(out bool bypass) =>
+            BugfixesAndQoLRuntime.TryGetLobbyAIKeepRangeBypass(out bypass);
+
         private void Awake()
         {
             Shared.UnityMainThreadDispatch.InitializeForCurrentThread();

@@ -163,3 +163,6 @@ Common.ModSettingsSearchClearHelp=Clear the settings filter.
 Common.ModSettingsSearchNoResults=No matching settings found.
 Common.SettingsSourceHelp=Resets this mod's settings to the selected source. Personal presets are not changed. In multiplayer, only the host can reset host settings.
 Common.PresetLoadFailedTitle=Preset load failed
+CastlePlanner.KeepRangeBlocked=Defensive buildings are outside the allowed Keep build range ({Range} tiles).
+CastlePlanner.KeepRangePossible=Defensive buildings may be outside the allowed Keep build range ({Range} tiles).
+CastlePlanner.KeepRangeUnknown=The Keep build range cannot yet be reliably evaluated for this castle.

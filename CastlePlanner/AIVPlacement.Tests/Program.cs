@@ -19,8 +19,11 @@ internal static class Program
         if (args.Length >= 2 && string.Equals(args[0], "--validate-spawn-aiv", StringComparison.Ordinal))
             return ValidateSpawnAivFiles(args.Skip(1));
 
+        if (args.Length == 2 && args[0] == "--keep-range-baibars") { KeepRangeTests.Baibars(args[1]); return 0; }
+
         var tests = new (string Name, Action Run)[]
         {
+            ("keep range boundaries, allies, prepared raster and settings", KeepRangeTests.Run),
             ("maps player to keep slot", MapsPlayerToKeepSlot),
             ("maps lobby rotation values to native degrees", MapsLobbyRotationValues),
             ("counts elevated moat exposure independently of fit", CountsElevatedMoatExposure),

@@ -7,7 +7,11 @@
     <RootNamespace>CastlePlanner.AIVPlacement.Core</RootNamespace>
     <AssemblyName>CastlePlanner.AIVPlacement.Core</AssemblyName>
   </PropertyGroup>
+  <PropertyGroup>
+    <ExtenderDir Condition="'$(ExtenderDir)' == ''">E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese</ExtenderDir>
+  </PropertyGroup>
   <ItemGroup>
+    <Reference Include="SHCDESE"><HintPath>$(ExtenderDir)\SHCDESE.dll</HintPath><Private>false</Private></Reference>
     <ProjectReference Include="..\..\AIVPlacement\AIVPlacement.Core\AIVPlacement.Core.csproj" />
   </ItemGroup>
 </Project>

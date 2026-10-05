@@ -81,6 +81,12 @@ namespace BugfixesAndQoL
         private static PrebuiltAiWorkshopBothFixRuntime processPrebuiltAiWorkshopBothFixRuntime;
         private static AIPreplacedBuildingFixRuntime processAIPreplacedBuildingFixRuntime;
         private static AIKeepRangeRuntime processAIKeepRangeRuntime;
+
+        internal static bool TryGetLobbyAIKeepRangeBypass(out bool bypass)
+        {
+            bypass = processAIKeepRangeRuntime?.LobbyBypass == true;
+            return processAIKeepRangeRuntime != null;
+        }
         private bool aiKeepRangeInitializationAttempted;
         private static WorkerBreakPauseHook processWorkerBreakPauseHook;
         private static WorkshopIdleDelayHook processWorkshopIdleDelayHook;

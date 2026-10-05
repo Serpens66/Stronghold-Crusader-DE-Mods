@@ -25,15 +25,15 @@
     <Compile Include="..\src\FreeCastleProtocol.cs" Link="Protocol\FreeCastleProtocol.cs" />
     <Compile Include="..\src\MultiplayerLoadingWarningGate.cs" Link="Protocol\MultiplayerLoadingWarningGate.cs" />
     <Reference Include="SHCDESE">
-      <HintPath>..\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481\SHCDESE.dll</HintPath>
+      <HintPath>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\SHCDESE.dll</HintPath>
       <Private>true</Private>
     </Reference>
     <Reference Include="MessagePack">
-      <HintPath>..\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481\MessagePack.dll</HintPath>
+      <HintPath>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\MessagePack.dll</HintPath>
       <Private>true</Private>
     </Reference>
     <Reference Include="MessagePack.Annotations">
-      <HintPath>..\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481\MessagePack.Annotations.dll</HintPath>
+      <HintPath>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\MessagePack.Annotations.dll</HintPath>
       <Private>true</Private>
     </Reference>
   </ItemGroup>

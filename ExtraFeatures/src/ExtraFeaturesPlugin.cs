@@ -31,6 +31,10 @@ namespace ExtraFeatures
 
         public ExtraFeaturesViewModel Settings { get; private set; }
 
+        /// <summary>Read-only prediction for a regular/customized skirmish lobby, before its mode gate opens.</summary>
+        public static bool TryGetLobbyKeepRangeOverride(int currentOverride, out int range) =>
+            ExtraFeaturesRuntime.TryGetLobbyKeepRangeOverride(currentOverride, out range);
+
         private void Awake()
         {
             Shared.UnityMainThreadDispatch.InitializeForCurrentThread();

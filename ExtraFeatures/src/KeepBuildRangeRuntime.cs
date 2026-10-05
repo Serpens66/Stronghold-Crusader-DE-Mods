@@ -50,6 +50,11 @@ namespace ExtraFeatures
             }
         }
 
+        internal int PreviewLobby(int currentOverride)
+        {
+            return range.Preview(settings.EnableMod ? settings.KeepBuildRange : -1, currentOverride);
+        }
+
         internal void Refresh()
         {
             try
