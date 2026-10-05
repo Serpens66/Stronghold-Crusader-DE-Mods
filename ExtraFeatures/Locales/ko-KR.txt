@@ -163,3 +163,5 @@ ExtraFeatures.HealerTargetsSiege=Siege engines
 ExtraFeatures.HealerTargetsHelp=Allows Bedouin healers to heal your wounded human civilians and siege engines. Both options are independent and disabled by default. Soldiers continue to be healed as in the base game.
 SomeSettings.DrawbridgeAutomaticEnabledTooltip=도개교 자동 제어가 켜져 있습니다. 클릭하면 이 도개교에 직접 내린 명령만 받습니다.
 SomeSettings.DrawbridgeManualOnlyTooltip=도개교가 수동 제어 중이며 성문의 명령을 무시합니다. 클릭하면 연결된 성문을 통한 자동 제어로 돌아갑니다.
+SomeSettings.KeepBuildRange=Build range from the keep
+SomeSettings.KeepBuildRangeHelp=Sets the global defensive build range in tiles for AI and human players. -1 and 0 leave the default range unchanged. Vanilla map size/range: 160/45, 200/50, 300/60, 400/70, 500/80, 600/90, 700 and 800/100; other sizes use 70. Every footprint tile is checked using the larger horizontal/vertical distance from the keep reference, not diagonal distance. Allied keeps provide half this range. 100 covers valid building footprints inside any 100x100 AIV raster. Terrain, occupancy, enemy proximity, resources and access rules still apply.

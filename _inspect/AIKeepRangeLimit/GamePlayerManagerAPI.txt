@@ -1,0 +1,2848 @@
+#define DEBUG
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Linq;
+using System.Numerics;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using System.Threading;
+using CrusaderDE;
+using Noesis;
+using R3;
+using RedBird.Core.Memory;
+using RedBird.Core.Memory.Managed;
+using SHCDESE.API.LowLevel;
+using SHCDESE.Detours;
+using SHCDESE.EventAPI;
+using SHCDESE.EventAPI.MapLoader;
+using SHCDESE.Extensions;
+using SHCDESE.GameGlobals;
+using SHCDESE.Interop;
+using SHCDESE.Interop.Enums;
+using SHCDESE.Interop.Query;
+using SHCDESE.LUA.DocsGen;
+using SHCDESE.Logging;
+using SHCDESE.Lua.DocsGen;
+using Serilog;
+using UnityEngine;
+
+namespace SHCDESE.API;
+
+/// <summary>
+/// Provides a high-level API for interacting with game players and their associated resources.
+/// </summary>
+/// <remarks>
+/// This class is a singleton that serves as the primary entry point for managing player-specific data,
+/// such as gold, popularity, teams, and resource management. It also provides access to map-wide rules
+/// like available buildings, units, and trade goods.
+/// </remarks>
+[LuaApiNamespace("Player")]
+public sealed class GamePlayerManagerAPI
+{
+	/// <summary>
+	/// A set of common, reusable predicates for convenience.
+	/// </summary>
+	public static class PlayerResourcePredicates
+	{
+		/// <summary>A predicate that matches player resources that is currently active.</summary>
+		public static readonly RefPredicate<GamePlayerResources> IsPaused = delegate(in GamePlayerResources playerResources)
+		{
+			return playerResources.r_IsPaused == 1;
+		};
+
+		/// <summary>A predicate that matches player resources that has been marked for deletion.</summary>
+		public static readonly RefPredicate<GamePlayerResources> IsNotPaused = delegate(in GamePlayerResources playerResources)
+		{
+			return playerResources.r_IsPaused == 0;
+		};
+
+		/// <summary>A predicate that matches player resources that are still alive</summary>
+		public static readonly RefPredicate<GamePlayerResources> IsAlive = delegate(in GamePlayerResources playerResources)
+		{
+			return playerResources.r_IsPaused == 0 && playerResources.r_WinLossState == WinLossState.None && playerResources.r_LordUnitId != 0;
+		};
+
+		/// <summary>A predicate that matches any player resources, used as a default for generic queries.</summary>
+		public static readonly RefPredicate<GamePlayerResources> Any = delegate
+		{
+			return true;
+		};
+	}
+
+	private static readonly Lazy<GamePlayerManagerAPI> _lazy = new Lazy<GamePlayerManagerAPI>(() => new GamePlayerManagerAPI());
+
+	private IntPtr _playerManager;
+
+	private SimpleNativeArray<GamePlayerResources> _playerResources;
+
+	private SimpleNativeArray<uint> _defaultSkirmishGold;
+
+	private SimpleNativeArray<uint> _defaultSkirmishResources;
+
+	private unsafe uint* _AIVCastleLayoutTable;
+
+	private SimpleNativeArray<uint> _peasantSpawnRateIncrementsHighPop;
+
+	private SimpleNativeArray<uint> _peasantSpawnRateIncrementsLowPop;
+
+	private SimpleNativeArray<uint> _peasantSpawnRateIncrementsDefault;
+
+	private unsafe uint* _localPlayerId = null;
+
+	private unsafe uint* _selectedBuildingId = null;
+
+	private unsafe int* _activePlayerList = null;
+
+	private unsafe int* _aiLineUp = null;
+
+	private unsafe int* _teamList = null;
+
+	private unsafe int* _localPause = null;
+
+	private IntPtr _currentMapName;
+
+	private unsafe int* _currentMapNameLength;
+
+	private unsafe int* _isInMapEditor = null;
+
+	private unsafe int* _isLocalPlayerKeepEnclosed = null;
+
+	private unsafe int* _isLocalPlayerExtremePowersEnabled = null;
+
+	private unsafe int* _isMonkAvailable = null;
+
+	private unsafe int* _isEngineerAvailable = null;
+
+	private unsafe int* _isLaddermanAvailable = null;
+
+	private bool _isTunnelerAvailable = true;
+
+	private IntPtr _choreManager;
+
+	public unsafe int* _noKnockdownWalls = null;
+
+	public unsafe int* _globalImprovedSiegeBehaviour = null;
+
+	public unsafe int* _globalMoreAggressiveSiegeBehaviour = null;
+
+	public ChoreManagerOptionsInternal _choreManagerOptionsInternal;
+
+	public unsafe eSkirmishGameMode* _currentSkirmishGameMode = null;
+
+	public unsafe SkirmishMode* _currentSkirmishMode = null;
+
+	public unsafe eGameTypeModes* _currentGameTypeMode = null;
+
+	public unsafe int* _currentTrailType = null;
+
+	public unsafe int* _coopTrailId = null;
+
+	public unsafe int* _coopMissionId = null;
+
+	public unsafe AIAdvantage* _aiAdvantage = null;
+
+	private unsafe GameMapRulesInfo* _mapRulesManager = null;
+
+	private SimpleNativeArray<uint> _allowedTradingGoods;
+
+	internal unsafe GameCursorManager* CursorManager = null;
+
+	private const int PLAYER_RESOURCES_OFFSET = 1262588;
+
+	private const int PLAYER_RESOURCES_SIZE = 22588;
+
+	private const int DEFAULT_SKIRMISH_UNITS_OFFSET = 8714;
+
+	private const int PLAYER_ALLOWED_FOOD_OFFSET = 8832;
+
+	private const int BASE_PRICE_TABLE_OFFSET = 1578936;
+
+	/// <summary>
+	/// Cached goods enum amount
+	/// </summary>
+	private static readonly int GoodsEnumCount = Enum.GetValues(typeof(eGoods)).Length;
+
+	/// <summary>The maximum number of players supported by the game engine.</summary>
+	public const int MAX_PLAYERS = 8;
+
+	private int _initialized = 0;
+
+	internal const int DEFAULT_FOOD_CONSUMPTION_RATE = 3;
+
+	public static GamePlayerManagerAPI Instance => _lazy.Value;
+
+	/// <summary>
+	/// The base food consumption rate per peasant
+	/// Default: 3
+	/// </summary>
+	[LuaApiExport("FoodConsumptionRate")]
+	public ManagedValue<int> FoodConsumptionRate { get; }
+
+	/// <summary>
+	/// Initializes a new instance of the <see cref="T:SHCDESE.API.GamePlayerManagerAPI" /> class.
+	/// This constructor is private to enforce the singleton pattern.
+	/// </summary>
+	private unsafe GamePlayerManagerAPI()
+	{
+		_playerManager = (IntPtr)(long)GameGlobalsManager.Instance.GamePlayerManagerVA;
+		_playerResources = new SimpleNativeArray<GamePlayerResources>((byte*)(void*)(_playerManager + 1262588), 8);
+		_localPlayerId = (uint*)GameGlobalsManager.Instance.LocalPlayerIdVA;
+		_defaultSkirmishGold = new SimpleNativeArray<uint>((byte*)(GameGlobalsManager.Instance.PlayerDefaultSkirmishSpawnGoldTable + (ulong)(long)CrusaderLibrary.Instance.LibraryModuleHandle), 3);
+		_defaultSkirmishResources = new SimpleNativeArray<uint>((byte*)GameGlobalsManager.Instance.PlayerDefaultSkirmishResourcesVA, GoodsEnumCount);
+		_AIVCastleLayoutTable = (uint*)GameGlobalsManager.Instance.AIVSystemVA;
+		_selectedBuildingId = (uint*)GameGlobalsManager.Instance.CurrentlySelectedBuildingIdVA;
+		_peasantSpawnRateIncrementsHighPop = new SimpleNativeArray<uint>((byte*)((nint)GameGlobalsManager.Instance.PeasantSpawnRateIncrementsHighPopRVA + (nint)(long)CrusaderLibrary.Instance.LibraryModuleHandle), 24);
+		_peasantSpawnRateIncrementsLowPop = new SimpleNativeArray<uint>((byte*)((nint)GameGlobalsManager.Instance.PeasantSpawnRateIncrementsLowPopRVA + (nint)(long)CrusaderLibrary.Instance.LibraryModuleHandle), 24);
+		_peasantSpawnRateIncrementsDefault = new SimpleNativeArray<uint>((byte*)((nint)GameGlobalsManager.Instance.PeasantSpawnRateIncrementsDefaultsRVA + (nint)(long)CrusaderLibrary.Instance.LibraryModuleHandle), 24);
+		_activePlayerList = (int*)GameGlobalsManager.Instance.ActivePlayerListVA;
+		_aiLineUp = (int*)GameGlobalsManager.Instance.AILineUpVA;
+		_teamList = (int*)((ulong)(long)CrusaderLibrary.Instance.LibraryModuleHandle + GameGlobalsManager.Instance.TeamsListRVA);
+		_localPause = (int*)GameGlobalsManager.Instance.GamePausedVA;
+		_currentMapName = (IntPtr)(long)GameGlobalsManager.Instance.CurrentMapNameVA;
+		_currentMapNameLength = (int*)GameGlobalsManager.Instance.CurrentMapNameLengthVA;
+		_isInMapEditor = (int*)GameGlobalsManager.Instance.IsInMapEditorVA;
+		_isLocalPlayerKeepEnclosed = (int*)GameGlobalsManager.Instance.PlayerKeepIsEnclosedVA;
+		_isLocalPlayerExtremePowersEnabled = (int*)GameGlobalsManager.Instance.PlayerExtremePowersEnabledVA;
+		_isMonkAvailable = (int*)GameGlobalsManager.Instance.MonkAvailableVA;
+		_isEngineerAvailable = (int*)GameGlobalsManager.Instance.EngineerAvailableVA;
+		_isLaddermanAvailable = (int*)GameGlobalsManager.Instance.LaddermanAvailableVA;
+		_currentSkirmishGameMode = (eSkirmishGameMode*)GameGlobalsManager.Instance.CurrentSkirmishGameModeVA;
+		_currentTrailType = (int*)GameGlobalsManager.Instance.CurrentTrailTypeVA;
+		_currentSkirmishMode = (SkirmishMode*)GameGlobalsManager.Instance.CurrentGameSkirmishModeVA;
+		_currentGameTypeMode = (eGameTypeModes*)GameGlobalsManager.Instance.CurrentGameTypeModeVA;
+		_aiAdvantage = (AIAdvantage*)GameGlobalsManager.Instance.AIAdvantageVA;
+		_mapRulesManager = (GameMapRulesInfo*)GameGlobalsManager.Instance.BuildingAvailabilityManager;
+		_allowedTradingGoods = new SimpleNativeArray<uint>((byte*)((nint)GameGlobalsManager.Instance.MapRulesInfo_AllowedTradingGoodsRVA + (nint)(long)CrusaderLibrary.Instance.LibraryModuleHandle), GoodsEnumCount);
+		CursorManager = (GameCursorManager*)GameGlobalsManager.Instance.GameCursorManagerVA;
+		_choreManager = (IntPtr)(long)GameGlobalsManager.Instance.ChoreManagerVA;
+		_noKnockdownWalls = (int*)GameGlobalsManager.Instance.NoKnockdownWallsVA;
+		_globalImprovedSiegeBehaviour = (int*)GameGlobalsManager.Instance.GlobalImprovedSiegingBehaviourVA;
+		_globalMoreAggressiveSiegeBehaviour = (int*)GameGlobalsManager.Instance.GlobalMoreAggressiveAISiegingBehaviourVA;
+		_choreManagerOptionsInternal = new ChoreManagerOptionsInternal((void*)GameGlobalsManager.Instance.ChoreManagerVA);
+		FoodConsumptionRate = new ManagedValue<int>(3);
+		LogHelper.Information("_playerManager: " + _playerManager.ToString("X16"), ".ctor", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+		LogHelper.Information("_playerResources: " + new IntPtr(_playerResources._array).ToString("X16"), ".ctor", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+		LogHelper.Information("_defaultSkirmishGold: " + new IntPtr(_defaultSkirmishGold._array).ToString("X16"), ".ctor", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+		LogHelper.Information("_defaultSkirmishResources: " + new IntPtr(_defaultSkirmishResources._array).ToString("X16"), ".ctor", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+		LogHelper.Information("_defaultSkirmishSettingsTable: " + new IntPtr(_AIVCastleLayoutTable).ToString("X16"), ".ctor", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+		LogHelper.Information("_peasantSpawnRateIncrementsHighPop: " + new IntPtr(_peasantSpawnRateIncrementsHighPop._array).ToString("X16"), ".ctor", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+		LogHelper.Information("_peasantSpawnRateIncrementsLowPop: " + new IntPtr(_peasantSpawnRateIncrementsLowPop._array).ToString("X16"), ".ctor", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+		LogHelper.Information("_peasantSpawnRateIncrementsDefault: " + new IntPtr(_peasantSpawnRateIncrementsDefault._array).ToString("X16"), ".ctor", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+		LogHelper.Information("CursorManager: " + new IntPtr(CursorManager).ToString("X16"), ".ctor", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+		LogHelper.Information("_activePlayerList: " + new IntPtr(_activePlayerList).ToString("X16"), ".ctor", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+		LogHelper.Information("_aiLineUp: " + new IntPtr(_aiLineUp).ToString("X16"), ".ctor", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+		LogHelper.Information("_teamList: " + new IntPtr(_teamList).ToString("X16"), ".ctor", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+		LogHelper.Information("_localPause: " + new IntPtr(_localPause).ToString("X16"), ".ctor", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+		LogHelper.Information("_currentMapName: " + _currentMapName.ToString("X16"), ".ctor", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+		LogHelper.Information("_currentMapNameLength: " + new IntPtr(_currentMapNameLength).ToString("X16"), ".ctor", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+		LogHelper.Information("_isInMapEditor: " + new IntPtr(_isInMapEditor).ToString("X16"), ".ctor", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+		LogHelper.Information("_mapRulesManager: " + GameGlobalsManager.Instance.BuildingAvailabilityManager.ToString("X16"), ".ctor", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+		LogHelper.Information("_allowedTradingGoods: " + new IntPtr(_allowedTradingGoods._array).ToString("X16"), ".ctor", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+		LogHelper.Information("_cursorManager: " + GameGlobalsManager.Instance.GameCursorManagerVA.ToString("X16"), ".ctor", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+		LogHelper.Information("_noKnockdownWalls: " + new IntPtr(_noKnockdownWalls).ToString("X16"), ".ctor", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+		LogHelper.Information("_globalImprovedSiegeBehaviour: " + new IntPtr(_globalImprovedSiegeBehaviour).ToString("X16"), ".ctor", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+		LogHelper.Information("_globalMoreAggressiveSiegeBehaviour: " + new IntPtr(_globalMoreAggressiveSiegeBehaviour).ToString("X16"), ".ctor", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+		LogHelper.Information("_choreManagerOptionsInternal: " + new IntPtr(_choreManagerOptionsInternal._base).ToString("X16"), ".ctor", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+	}
+
+	internal static void InitializeSubscribers()
+	{
+		if (Interlocked.Exchange(ref Instance._initialized, 1) == 0)
+		{
+			LogHelper.Information("Setting up subscribers", "InitializeSubscribers", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+			MapLoaderR3EventHooks.OnUnloadMap.Observable.Subscribe(OnUnloadMap);
+		}
+	}
+
+	/// <summary>
+	/// Event handler called when a map is unloaded.
+	/// </summary>
+	private static void OnUnloadMap(MapUnloadEventArgs args)
+	{
+		LogHelper.Information("Unloading", "OnUnloadMap", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+		Instance._isTunnelerAvailable = true;
+	}
+
+	/// <summary>
+	/// Gets a native pointer to the current game cursor manager instance.
+	/// </summary>
+	/// <returns>A <see cref="T:RedBird.Core.Memory.NativePointer`1" /> representing the game player cursor manager.</returns>
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	public unsafe NativePointer<GameCursorManager> GetCursorManager()
+	{
+		return CursorManager;
+	}
+
+	/// <summary>
+	/// Gets a native pointer to the current game player resource manager instance.
+	/// </summary>
+	/// <returns>A <see cref="T:RedBird.Core.Memory.NativePointer`1" /> representing the game player resource manager.</returns>
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	public SimpleNativeArray<GamePlayerResources> GetPlayerResources()
+	{
+		return _playerResources;
+	}
+
+	/// <summary>
+	/// Gets the player manager native ptr.
+	/// </summary>
+	/// <returns></returns>
+	public IntPtr GetPlayerManager()
+	{
+		return _playerManager;
+	}
+
+	/// <summary>
+	/// Attempts to retrieve a direct, raw pointer to a player's resource data structure by their ID.
+	/// </summary>
+	/// <param name="playerId">The ID of the player (1-8).</param>
+	/// <param name="resources">When this method returns, contains a pointer to the player's resources if found; otherwise, null.</param>
+	/// <returns><c>true</c> if the player ID was valid and the pointer was retrieved; otherwise, <c>false</c>.</returns>
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	public unsafe bool TryGetPlayerResourcesById(int playerId, out GamePlayerResources* resources)
+	{
+		resources = null;
+		if (!IsPlayerIdValid(playerId))
+		{
+			LogHelper.Error($"Tried to access player resources index that was out of range: [{playerId}/{8}]", "TryGetPlayerResourcesById", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+			return false;
+		}
+		if (_playerResources._array == null)
+		{
+			return false;
+		}
+		resources = _playerResources._array + (playerId - 1);
+		return true;
+	}
+
+	/// <summary>
+	/// Attempts to retrieve a safe, wrapped pointer to a player's resource data structure by their ID.
+	/// </summary>
+	/// <param name="playerId">The ID of the player (1-8).</param>
+	/// <param name="resources">When this method returns, contains a <see cref="T:RedBird.Core.Memory.NativePointer`1" /> wrapping the object if found; otherwise, an invalid pointer.</param>
+	/// <returns><c>true</c> if the player ID was valid; otherwise, <c>false</c>.</returns>
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	public unsafe bool TryGetPlayerResourcesByIdEx(int playerId, out NativePointer<GamePlayerResources> resources)
+	{
+		GamePlayerResources* resources2;
+		bool result = TryGetPlayerResourcesById(playerId, out resources2);
+		resources = new NativePointer<GamePlayerResources>(resources2);
+		return result;
+	}
+
+	/// <summary>Returns the AI recruitment FSM mode stored for a player.</summary>
+	[LuaApiExport("GetAIRecruitmentMode")]
+	public unsafe AIRecruitmentMode GetAIRecruitmentMode(int playerId)
+	{
+		GamePlayerResources* resources;
+		return TryGetPlayerResourcesById(playerId, out resources) ? resources->r_AICombatRecruitmentMode : AIRecruitmentMode.Defender;
+	}
+
+	/// <summary>Writes the player's AI recruitment FSM mode.</summary>
+	[LuaApiExport("SetAIRecruitmentMode")]
+	public unsafe bool SetAIRecruitmentMode(int playerId, AIRecruitmentMode mode)
+	{
+		if (mode > AIRecruitmentMode.Siege || !TryGetPlayerResourcesById(playerId, out var resources))
+		{
+			return false;
+		}
+		resources->r_AICombatRecruitmentMode = mode;
+		return true;
+	}
+
+	/// <summary>Returns the live ten-slot defensive-position tile table for one native class.</summary>
+	public unsafe Span<uint> GetAIDefensivePositionTileIds(int playerId, AIDefensivePositionClass positionClass)
+	{
+		if (!IsValidAIDefensivePositionClass(positionClass) || !TryGetPlayerResourcesById(playerId, out var resources))
+		{
+			return Span<uint>.Empty;
+		}
+		uint* ptr = resources->r_AIDefensivePositionTileIdsByClass.r_TileIds;
+		return new Span<uint>(ptr + (int)positionClass * 10, 10);
+	}
+
+	/// <summary>Returns the live 30-entry defensive-position count table for a player.</summary>
+	public unsafe Span<int> GetAIDefensivePositionCounts(int playerId)
+	{
+		if (!TryGetPlayerResourcesById(playerId, out var resources))
+		{
+			return Span<int>.Empty;
+		}
+		return new Span<int>(resources->r_AIDefensivePositionCountsByClass.r_Counts, 30);
+	}
+
+	[LuaApiExport("GetAIDefensivePositionCount")]
+	public int GetAIDefensivePositionCount(int playerId, AIDefensivePositionClass positionClass)
+	{
+		if (!IsValidAIDefensivePositionClass(positionClass))
+		{
+			return 0;
+		}
+		Span<int> aIDefensivePositionCounts = GetAIDefensivePositionCounts(playerId);
+		if (aIDefensivePositionCounts.IsEmpty)
+		{
+			return 0;
+		}
+		return Math.Min(Math.Max(aIDefensivePositionCounts[(int)positionClass], 0), 10);
+	}
+
+	public bool TryGetAIDefensivePositionTileId(int playerId, AIDefensivePositionClass positionClass, int positionIndex, out uint tileId)
+	{
+		tileId = 0u;
+		int aIDefensivePositionCount = GetAIDefensivePositionCount(playerId, positionClass);
+		if ((uint)positionIndex >= (uint)aIDefensivePositionCount)
+		{
+			return false;
+		}
+		Span<uint> aIDefensivePositionTileIds = GetAIDefensivePositionTileIds(playerId, positionClass);
+		if (aIDefensivePositionTileIds.IsEmpty)
+		{
+			return false;
+		}
+		tileId = aIDefensivePositionTileIds[positionIndex];
+		return true;
+	}
+
+	/// <summary>
+	/// Writes one raw defensive-position slot. The caller is responsible for keeping the class count coherent.
+	/// </summary>
+	public bool SetAIDefensivePositionTileIdUnsafe(int playerId, AIDefensivePositionClass positionClass, int positionIndex, uint tileId)
+	{
+		if ((uint)positionIndex >= 10u)
+		{
+			return false;
+		}
+		Span<uint> aIDefensivePositionTileIds = GetAIDefensivePositionTileIds(playerId, positionClass);
+		if (aIDefensivePositionTileIds.IsEmpty)
+		{
+			return false;
+		}
+		aIDefensivePositionTileIds[positionIndex] = tileId;
+		return true;
+	}
+
+	/// <summary>Writes the active position count for one defensive class.</summary>
+	public bool SetAIDefensivePositionCount(int playerId, AIDefensivePositionClass positionClass, int count)
+	{
+		if (!IsValidAIDefensivePositionClass(positionClass) || (uint)count > 10u)
+		{
+			return false;
+		}
+		Span<int> aIDefensivePositionCounts = GetAIDefensivePositionCounts(playerId);
+		if (aIDefensivePositionCounts.IsEmpty)
+		{
+			return false;
+		}
+		aIDefensivePositionCounts[(int)positionClass] = count;
+		return true;
+	}
+
+	/// <summary>Returns the live 300-entry AI tribe-ID storage-role table.</summary>
+	public unsafe Span<ushort> GetAITribeIdsByStorageRole(int playerId)
+	{
+		if (!TryGetPlayerResourcesById(playerId, out var resources))
+		{
+			return Span<ushort>.Empty;
+		}
+		return new Span<ushort>(resources->r_AITribeIdsByStorageRole, 300);
+	}
+
+	/// <summary>Returns the live 300-entry AI tribe global-ID storage-role table.</summary>
+	public unsafe Span<uint> GetAITribeGlobalIdsByStorageRole(int playerId)
+	{
+		if (!TryGetPlayerResourcesById(playerId, out var resources))
+		{
+			return Span<uint>.Empty;
+		}
+		return new Span<uint>(resources->r_AITribeGlobalIdsByStorageRole, 300);
+	}
+
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	private static bool IsValidAIDefensivePositionClass(AIDefensivePositionClass positionClass)
+	{
+		return (uint)positionClass < 30u;
+	}
+
+	/// <summary>
+	/// Returns the current coop trail id
+	/// </summary>
+	/// <returns>The current coop trail id</returns>
+	[LuaApiExport("GetCurrentCoopTrailId")]
+	public unsafe int GetCurrentCoopTrailId()
+	{
+		if (_coopTrailId == null)
+		{
+			LogHelper.Error("_coopTrailId ptr is null. This should never happen!", "GetCurrentCoopTrailId", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+			return 0;
+		}
+		return *_coopTrailId;
+	}
+
+	/// <summary>
+	/// Returns the current coop mission id
+	/// </summary>
+	/// <returns>The current coop mission id</returns>
+	[LuaApiExport("GetCurrentCoopMissionId")]
+	public unsafe int GetCurrentCoopMissionId()
+	{
+		if (_coopMissionId == null)
+		{
+			LogHelper.Error("_coopMissionId ptr is null. This should never happen!", "GetCurrentCoopMissionId", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+			return 0;
+		}
+		return *_coopMissionId;
+	}
+
+	/// <summary>
+	/// Returns the current AI advantage setting
+	/// </summary>
+	/// <returns>The current ai advantage</returns>
+	[LuaApiExport("GetCurrentAIAdvantage")]
+	public unsafe AIAdvantage GetCurrentAIAdvantage()
+	{
+		if (_aiAdvantage == null)
+		{
+			LogHelper.Error("_aiAdvantage ptr is null. This should never happen!", "GetCurrentAIAdvantage", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+			return AIAdvantage.Unknown;
+		}
+		return *_aiAdvantage;
+	}
+
+	/// <summary>
+	/// Sets the current AI advantage setting
+	/// </summary>
+	[LuaApiExport("SetCurrentAIAdvantage")]
+	public unsafe void SetCurrentAIAdvantage(AIAdvantage advantage)
+	{
+		if (_aiAdvantage == null)
+		{
+			LogHelper.Error("_aiAdvantage ptr is null. This should never happen!", "SetCurrentAIAdvantage", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+		}
+		else
+		{
+			*_aiAdvantage = advantage;
+		}
+	}
+
+	/// <summary>
+	/// Returns the game mode of the current skirmish
+	/// </summary>
+	/// <returns>The current skirmish gamemode</returns>
+	[LuaApiExport("GetCurrentSkirmishGameMode")]
+	public unsafe eSkirmishGameMode GetCurrentSkirmishGameMode()
+	{
+		if (_currentSkirmishGameMode == null)
+		{
+			LogHelper.Error("_currentSkirmishGameMode ptr is null. This should never happen!", "GetCurrentSkirmishGameMode", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+			return eSkirmishGameMode.SKIRMISH_GAME_NOT_SKIRMISH;
+		}
+		return *_currentSkirmishGameMode;
+	}
+
+	/// <summary>
+	/// Returns the current trail type
+	/// 0 = First Edition Trail
+	/// 1 = Warchest Trail
+	/// 2 = Extreme Trail
+	/// Further trails exist but are not documented.
+	/// </summary>
+	/// <returns>The current trail type; Otherwise -1 on error.</returns>
+	[LuaApiExport("GetCurrentTrailType")]
+	public unsafe int GetCurrentTrailType()
+	{
+		if (_currentTrailType == null)
+		{
+			LogHelper.Error("_currentTrailType ptr is null. This should never happen!", "GetCurrentTrailType", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+			return -1;
+		}
+		return *_currentTrailType;
+	}
+
+	/// <summary>
+	/// Returns the current game skirmish mode.
+	/// </summary>
+	/// <returns>The current game skirmish mode; Otherwise Unknown on error.</returns>
+	[LuaApiExport("GetCurrentSkirmishMode")]
+	public unsafe SkirmishMode GetCurrentSkirmishMode()
+	{
+		if (_currentSkirmishMode == null)
+		{
+			LogHelper.Error("_currentSkirmishMode ptr is null. This should never happen!", "GetCurrentSkirmishMode", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+			return SkirmishMode.Unknown;
+		}
+		return *_currentSkirmishMode;
+	}
+
+	/// <summary>
+	/// Returns the current game type mode.
+	/// </summary>
+	/// <returns>The current game type mode; Otherwise GAMETYPE_MULTIPLAYER on error.</returns>
+	[LuaApiExport("GetCurrentGameTypeMode")]
+	public unsafe eGameTypeModes GetCurrentGameTypeMode()
+	{
+		if (_currentGameTypeMode == null)
+		{
+			LogHelper.Error("_currentGameTypeMode ptr is null. This should never happen!", "GetCurrentGameTypeMode", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+			return eGameTypeModes.GAMETYPE_MULTIPLAYER;
+		}
+		return *_currentGameTypeMode;
+	}
+
+	/// <summary>
+	/// Sets the camera raw position directly in Unity World Space.
+	/// </summary>
+	/// <param name="position">The target Unity World Space coordinate. This is NOT a game tile coordinate.</param>
+	/// <remarks>
+	/// This function operates on the engine internal camera coordinate system. It does not account for isometric projection, map rotation, or terrain height. 
+	/// Using game tile coordinates (e.g., 400, 400) with this function will result in unpredictable camera movement as the coordinates will be misinterpreted.
+	/// It is preserved for specific low-level use cases or for restoring a previously saved raw camera position. 
+	/// For general use, call <see cref="M:SHCDESE.API.GamePlayerManagerAPI.SetScreenCenterToTilePosition(System.Numerics.Vector2)" /> instead.
+	/// </remarks>
+	[LuaApiExport("SetScreenCenterPosition")]
+	public void SetScreenCenterPosition(Vector2 position)
+	{
+		UnityMainThreadDispatcher.Instance.Enqueue(delegate
+		{
+			CameraControls2D.instance.setCameraPos(position.X, position.Y);
+			GameMap.instance.PreCalcScreenCentre();
+		});
+	}
+
+	/// <summary>
+	/// Moves the camera to center the view on a specific local game tile coordinate. This is the recommended function for camera positioning.
+	/// </summary>
+	/// <param name="position">A Vector2 containing the target local tile coordinates (e.g., X=400, Y=400 on a 400x400 map).</param>
+	/// <remarks>
+	/// This function acts as a translator, converting human-readable grid coordinates into the complex world coordinates required by the camera.
+	/// It should be used instead of SetScreenCenterPosition, which expects raw camera coordinates.
+	/// The conversion process is as follows:
+	/// <para> 1. Takes a Local Tile Coordinate (the game logical grid). </para>
+	/// <para> 2. Converts it to an internal Isometric Tilemap Coordinate, accounting for map rotation. </para>
+	/// <para> 3. Calculates the base Unity World Position for that tile. </para>
+	/// <para> 4. Adjusts the World Position Y-axis based on the tile terrain height. </para>
+	/// <para> 5. Passes the final, calculated World Position to the camera controller. </para>
+	/// </remarks>
+	[LuaApiExport("SetScreenCenterToTilePosition")]
+	public void SetScreenCenterToTilePosition(Vector2 position)
+	{
+		Vector2 cameraWorldPosition = CoordinateConverter.ConvertLocalTileToCameraWorld(position);
+		UnityMainThreadDispatcher.Instance.Enqueue(delegate
+		{
+			if ((Object)(object)CameraControls2D.instance != (Object)null)
+			{
+				CameraControls2D.instance.setCameraPos(cameraWorldPosition.X, cameraWorldPosition.Y);
+			}
+			if ((Object)(object)GameMap.instance != (Object)null)
+			{
+				GameMap.instance.PreCalcScreenCentre();
+				GameMap.instance.ignoreNextCachedBounds = false;
+			}
+		});
+	}
+
+	/// <summary>
+	/// Moves the camera to center the view on a specific unit.
+	/// </summary>
+	/// <param name="unitId">The unique identifier of the unit to center the view on.</param>
+	/// <remarks>
+	/// This is a convenience wrapper function. It retrieves the unit's current tile position and then calls
+	/// <see cref="M:SHCDESE.API.GamePlayerManagerAPI.SetScreenCenterToTilePosition(System.Numerics.Vector2)" /> to perform the camera movement. If the unit ID is not valid, an error will be logged.
+	/// </remarks>
+	[LuaApiExport("SetScreenCenterToUnit")]
+	public unsafe void SetScreenCenterToUnit(int unitId)
+	{
+		if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out var unit))
+		{
+			Log.Error($"SetScreenCenterToUnit: Unit not found by id: {unitId}");
+		}
+		else
+		{
+			SetScreenCenterToTilePosition(unit->CurrentTilePosition()->AsVec2f());
+		}
+	}
+
+	/// <summary>
+	/// Moves the camera to center the view on a specific building.
+	/// </summary>
+	/// <param name="buildingId">The unique identifier of the building to center the view on.</param>
+	/// <remarks>
+	/// This is a convenience wrapper function. It retrieves the building's current tile position and then calls
+	/// <see cref="M:SHCDESE.API.GamePlayerManagerAPI.SetScreenCenterToTilePosition(System.Numerics.Vector2)" /> to perform the camera movement. If the building ID is not valid, an error will be logged.
+	/// </remarks>
+	[LuaApiExport("SetScreenCenterToBuilding")]
+	public unsafe void SetScreenCenterToBuilding(int buildingId)
+	{
+		if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out var building))
+		{
+			Log.Error($"SetScreenCenterToBuilding: Building not found by id: {buildingId}");
+		}
+		else
+		{
+			SetScreenCenterToTilePosition(building->CurrentTilePosition()->AsVec2f());
+		}
+	}
+
+	/// <summary>
+	/// Moves the camera to center the view on a specific projectile.
+	/// </summary>
+	/// <param name="projectileId">The unique identifier of the projectile to center the view on.</param>
+	/// <remarks>
+	/// This is a convenience wrapper function. It retrieves the projectile's current tile position and then calls
+	/// <see cref="M:SHCDESE.API.GamePlayerManagerAPI.SetScreenCenterToTilePosition(System.Numerics.Vector2)" /> to perform the camera movement. If the projectile ID is not valid, an error will be logged.
+	/// </remarks>
+	[LuaApiExport("SetScreenCenterToProjectile")]
+	public unsafe void SetScreenCenterToProjectile(int projectileId)
+	{
+		if (!GameProjectileManagerAPI.Instance.TryGetProjectileById(projectileId, out var projectile))
+		{
+			Log.Error($"SetScreenCenterToProjectile: Projectile not found by id: {projectileId}");
+		}
+		else
+		{
+			SetScreenCenterToTilePosition(projectile->CurrentTilePosition()->AsVec2f());
+		}
+	}
+
+	/// <summary>
+	/// Gets the coordinate at the center of the player's screen.
+	/// </summary>
+	/// <returns>An <see cref="T:System.Numerics.Vector2" /> representing the screen's center tile position.</returns>
+	[LuaApiExport("GetScreenCenterPosition")]
+	public unsafe Vector2 GetScreenCenterPosition()
+	{
+		return *(Vector2*)(&CursorManager->r_ScreenCenterPosX);
+	}
+
+	/// <summary>
+	/// Gets the local game tile coordinate that is currently at the center of the screen.
+	/// </summary>
+	/// <returns>
+	/// A <see cref="T:System.Numerics.Vector2" /> representing the local tile coordinate (e.g., X and Y) at the screen center.
+	/// Returns <see cref="P:System.Numerics.Vector2.Zero" /> if the required game instances are not available or if a valid tile cannot be resolved.
+	/// </returns>
+	/// <remarks>
+	/// This function performs the inverse transformation from screen space to the game local tile coordinate system.
+	/// It works by querying the game internal <see cref="M:GameMap.CalcMapTileFromMousePos(UnityEngine.Vector3,UnityEngine.Vector3@,UnityEngine.Vector3Int@,System.Int32@,System.Boolean,System.Boolean)" /> method with the screen's center point.
+	/// This process accounts for the current camera position, zoom level, map rotation, and isometric terrain height,
+	/// ensuring the returned coordinate matches the same system used by <see cref="M:SHCDESE.API.GamePlayerManagerAPI.SetScreenCenterToTilePosition(System.Numerics.Vector2)" />.
+	/// </remarks>
+	public Vector2 GetScreenCenterTilePosition()
+	{
+		//IL_0034: Unknown result type (might be due to invalid IL or missing references)
+		//IL_0039: Unknown result type (might be due to invalid IL or missing references)
+		//IL_003a: Unknown result type (might be due to invalid IL or missing references)
+		//IL_003f: Unknown result type (might be due to invalid IL or missing references)
+		//IL_006b: Unknown result type (might be due to invalid IL or missing references)
+		if ((Object)(object)GameMap.instance == (Object)null)
+		{
+			LogHelper.Warning("GameMap instance not found.", "GetScreenCenterTilePosition", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+			return Vector2.Zero;
+		}
+		Vector3 zero = Vector3.zero;
+		Vector3Int zero2 = Vector3Int.zero;
+		int num = 0;
+		Vector3 val = default(Vector3);
+		((Vector3)(ref val))..ctor((float)Screen.width / 2f, (float)Screen.height / 2f, 0f);
+		GameMap.instance.CalcMapTileFromMousePos(val, ref zero, ref zero2, ref num, true, true);
+		GameMapTile mapTile = GameMap.instance.getMapTile(((Vector3Int)(ref zero2)).x, ((Vector3Int)(ref zero2)).y);
+		if (mapTile != null)
+		{
+			return new Vector2(mapTile.gameMapX, mapTile.gameMapY);
+		}
+		LogHelper.Warning("Could not resolve a valid map tile at the screen center.", "GetScreenCenterTilePosition", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+		return Vector2.Zero;
+	}
+
+	/// <summary>
+	/// Checks if the camera is currently locked to the playable map boundaries.
+	/// </summary>
+	/// <returns><c>true</c> if the camera is locked within the map bounds; <c>false</c> if it can move freely outside the map.</returns>
+	/// <seealso cref="M:SHCDESE.API.GamePlayerManagerAPI.ToggleMapLocked" />
+	public bool IsMapLocked()
+	{
+		return CameraControls2D.instance.isMapLocked();
+	}
+
+	/// <summary>
+	/// Toggles the camera's lock state, allowing or preventing it from moving outside the playable map boundaries.
+	/// </summary>
+	/// <remarks>
+	/// When unlocked, the player or scripts can move the camera beyond the intended map edges. This is useful for
+	/// developer tools, cinematic sequences, or allowing free-camera exploration.
+	/// </remarks>
+	/// <seealso cref="M:SHCDESE.API.GamePlayerManagerAPI.IsMapLocked" />
+	[LuaApiExport("ToggleMapLocked")]
+	public void ToggleMapLocked()
+	{
+		UnityMainThreadDispatcher.Instance.Enqueue(delegate
+		{
+			CameraControls2D.instance.toggleMapLocked();
+		});
+	}
+
+	/// <summary>
+	/// Checks if the camera can move.
+	/// </summary>
+	/// <returns><c>true</c> if the camera is restricted from moving; <c>false</c> if it can move freely.</returns>
+	public bool IsCameraControlsDisabled()
+	{
+		return CameraControls2D.instance.AllowMove;
+	}
+
+	/// <summary>
+	/// Sets the camera moving restriction.
+	/// </summary>
+	[LuaApiExport("SetCameraControlsEnabled")]
+	public void SetCameraControlsEnabled(bool enabled)
+	{
+		UnityMainThreadDispatcher.Instance.Enqueue(delegate
+		{
+			CameraControls2D.instance.AllowMove = enabled;
+		});
+	}
+
+	/// <summary>
+	/// Gets the camera moving speed
+	/// </summary>
+	/// <returns>The current camera move speed</returns>
+	public float GetCameraMoveSpeed()
+	{
+		return CameraControls2D.instance.MoveSpeed;
+	}
+
+	/// <summary>
+	/// Sets the camera moving speed.
+	/// </summary>
+	[LuaApiExport("SetCameraMoveSpeed")]
+	public void SetCameraMoveSpeed(float speed)
+	{
+		UnityMainThreadDispatcher.Instance.Enqueue(delegate
+		{
+			CameraControls2D.instance.MoveSpeed = speed;
+		});
+	}
+
+	/// <summary>
+	/// Gets the camera zoom speed
+	/// </summary>
+	/// <returns>The current camera move speed</returns>
+	public float GetCameraZoomSpeed()
+	{
+		return CameraControls2D.instance.ZoomSpeed;
+	}
+
+	/// <summary>
+	/// Sets the camera zoom speed.
+	/// </summary>
+	[LuaApiExport("SetCameraZoomSpeed")]
+	public void SetCameraZoomSpeed(float speed)
+	{
+		UnityMainThreadDispatcher.Instance.Enqueue(delegate
+		{
+			CameraControls2D.instance.ZoomSpeed = speed;
+		});
+	}
+
+	/// <summary>
+	/// Gets the current zoom
+	/// </summary>
+	public float GetZoom()
+	{
+		return PerfectPixelWithZoom.instance.pixelsPerUnitScale;
+	}
+
+	/// <summary>
+	/// Sets the current zoom
+	/// </summary>
+	[LuaApiExport("SetZoom")]
+	public void SetZoom(float scale)
+	{
+		UnityMainThreadDispatcher.Instance.Enqueue(delegate
+		{
+			PerfectPixelWithZoom.instance.SetZoomImmediate(scale);
+		});
+	}
+
+	/// <summary>
+	/// Gets the local tile coordinate currently under the mouse cursor.
+	/// </summary>
+	/// <returns>An <see cref="T:SHCDESE.Interop.UnmanagedVector2`1" /> representing the mouse's tile position.</returns>
+	[LuaApiExport("GetMousePosition")]
+	public unsafe UnmanagedVector2<uint> GetMousePosition()
+	{
+		return *(UnmanagedVector2<uint>*)(&CursorManager->r_MouseTileX);
+	}
+
+	/// <summary>
+	/// Checks if the mouse cursor is currently within the playable game area (not over the UI).
+	/// </summary>
+	/// <returns><c>true</c> if the cursor is in the game world; otherwise, <c>false</c>.</returns>
+	[LuaApiExport("IsCursorInGame")]
+	public unsafe bool IsCursorInGame()
+	{
+		return CursorManager->r_IsCursorInGame == 1;
+	}
+
+	/// <summary>
+	/// Gets the ID of the building currently being hovered over by the mouse.
+	/// </summary>
+	/// <returns>The building ID, or 0 if no building is being hovered.</returns>
+	[LuaApiExport("GetHoveredBuildingId")]
+	public unsafe int GetHoveredBuildingId()
+	{
+		return (int)CursorManager->r_HoverOverBuildingId;
+	}
+
+	/// <summary>
+	/// Gets the ID of the unit currently being hovered over by the mouse.
+	/// </summary>
+	/// <returns>The unit ID, or 0 if no unit is being hovered.</returns>
+	[LuaApiExport("GetHoveredUnitId")]
+	public unsafe int GetHoveredUnitId()
+	{
+		return (int)CursorManager->r_HoverOverUnitId;
+	}
+
+	/// <summary>
+	/// Gets the tile ID of the specific part of a building being hovered over by the mouse.
+	/// </summary>
+	/// <returns>The tile ID of the building segment.</returns>
+	[LuaApiExport("GetHoveredBuildingTileId")]
+	public unsafe int GetHoveredBuildingTileId()
+	{
+		return (int)CursorManager->r_HoverOverBuildingTileId;
+	}
+
+	/// <summary>
+	/// Gets the ID of the tile currently under the mouse cursor.
+	/// </summary>
+	/// <returns>The tile ID.</returns>
+	[LuaApiExport("GetHoveredTileId")]
+	public unsafe int GetHoveredTileId()
+	{
+		return (int)CursorManager->r_MouseTileId;
+	}
+
+	/// <summary>
+	/// Gets the number of units currently being hovered over by the mouse (e.g., in a selection box).
+	/// </summary>
+	/// <returns>The count of hovered units.</returns>
+	[LuaApiExport("GetHoveredUnitCount")]
+	public unsafe int GetHoveredChimpsCount()
+	{
+		return (int)GameUnitManagerAPI.Instance.GetUnitManager().Pointer->r_HoveredChimpsCount;
+	}
+
+	/// <summary>
+	/// Gets the ID of the building currently being selected
+	/// </summary>
+	/// <returns>The building ID, or 0 if no building is being selected (typically still remains the last known selected building).</returns>
+	[LuaApiExport("GetSelectedBuildingId")]
+	public unsafe int GetSelectedBuildingId()
+	{
+		return (int)(*_selectedBuildingId);
+	}
+
+	/// <summary>
+	/// Gets the number of units currently selected by the local player.
+	/// </summary>
+	/// <returns>The count of selected units.</returns>
+	[LuaApiExport("GetSelectedChimpsCount")]
+	public unsafe int GetSelectedChimpsCount(int playerId)
+	{
+		return (int)GameUnitManagerAPI.Instance.GetUnitManager().Pointer->r_SelectedChimpsCount[playerId];
+	}
+
+	/// <summary>
+	/// Gets an array containing the IDs of all units currently selected by the local player.
+	/// Uses EngineInterface.selectedChimps, its format is: [unitId1, unitType1, unitId2, unitType2, ...]
+	/// </summary>
+	/// <returns>An array of selected unit information.</returns>
+	[LuaApiExport("GetSelectedChimps")]
+	public unsafe SelectedUnitInfo[] GetSelectedChimps()
+	{
+		int localPlayerId = GameNetworkAPI.GetLocalPlayerId();
+		if (localPlayerId > 8 || localPlayerId < 1)
+		{
+			return Array.Empty<SelectedUnitInfo>();
+		}
+		int selectedChimpsCount = GetSelectedChimpsCount(localPlayerId);
+		List<SelectedUnitInfo> list = new List<SelectedUnitInfo>(selectedChimpsCount);
+		fixed (int* selectedChimps = EngineInterface.selectedChimps)
+		{
+			Span<SelectedUnitInfo> span = new Span<SelectedUnitInfo>(selectedChimps, selectedChimpsCount);
+			for (int i = 0; i < selectedChimpsCount; i++)
+			{
+				list.Add(span[i]);
+			}
+		}
+		return list.ToArray();
+	}
+
+	/// <summary>
+	/// Replaces the active local player's troop selection.
+	/// </summary>
+	/// <param name="unitIds">Unit IDs to select, or an empty array to clear the selection.</param>
+	/// <returns><c>true</c> when the request was accepted for processing.</returns>
+	public bool SetSelectedChimps(List<int> unitIds)
+	{
+		SelectionSetter.Enqueue(unitIds.ToArray());
+		return true;
+	}
+
+	/// <summary>
+	/// Configures the auto-trade settings for a specific good at the market.
+	/// </summary>
+	/// <param name="goods">The good to configure.</param>
+	/// <param name="enabled">Whether auto-trading for this good is enabled.</param>
+	/// <param name="buyLevel">The storage amount below which the good will be automatically bought. Leave at -1 for no-op.</param>
+	/// <param name="sellLevel">The storage amount above which the good will be automatically sold. Leave at -1 for no-op.</param>
+	[LuaApiExport("SetAutoTrade")]
+	public unsafe void SetAutoTrade(eGoods goods, bool enabled, ushort buyLevel, ushort sellLevel = 0)
+	{
+		int num = (int)(goods + 25);
+		ushort* ptr = (ushort*)(void*)(_playerManager + num + 2283957);
+		*ptr = (byte)(enabled ? 1u : 0u);
+		ushort* ptr2 = (ushort*)(void*)(_playerManager + num * 2 + 2284182);
+		ushort* ptr3 = (ushort*)(void*)(_playerManager + num * 2 + 2284632);
+		*ptr2 = buyLevel;
+		*ptr3 = sellLevel;
+		LogHelper.Debug($"Enabled: {*ptr}", "SetAutoTrade", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+		LogHelper.Debug($"Buying when at: {*ptr2}", "SetAutoTrade", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+		LogHelper.Debug($"Selling when at: {*ptr3}", "SetAutoTrade", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+	}
+
+	/// <summary>
+	/// Toggles the visibility of health bars above units and buildings.
+	/// </summary>
+	[LuaApiExport("ToggleHealthBars")]
+	public void ToggleHealthBars()
+	{
+		UnityMainThreadDispatcher.Instance.Enqueue(delegate
+		{
+			GameMap.instance.ToggleHealthBars();
+		});
+	}
+
+	/// <summary>
+	/// Rotates the map view 90 degrees to the left (counter-clockwise).
+	/// </summary>
+	[LuaApiExport("RotateMapLeft")]
+	public void RotateMapLeft()
+	{
+		UnityMainThreadDispatcher.Instance.Enqueue(delegate
+		{
+			GameMap.instance.RotateMapLeft();
+		});
+	}
+
+	/// <summary>
+	/// Rotates the map view 90 degrees to the right (clockwise).
+	/// </summary>
+	[LuaApiExport("RotateMapRight")]
+	public void RotateMapRight()
+	{
+		UnityMainThreadDispatcher.Instance.Enqueue(delegate
+		{
+			GameMap.instance.RotateMapRight();
+		});
+	}
+
+	/// <summary>
+	/// Sets the map view to a specific rotation.
+	/// </summary>
+	/// <param name="rotation">The target rotation direction (<see cref="T:SHCDESE.Interop.Dircs" />).</param>
+	/// <param name="centreX">Optional: The X-coordinate to center the rotation on.</param>
+	/// <param name="centreY">Optional: The Y-coordinate to center the rotation on.</param>
+	/// <param name="force">If true, forces the rotation.</param>
+	[LuaApiExport("SetMapRotation")]
+	public void SetMapRotation(Dircs rotation, int centreX = -1, int centreY = -1, bool force = false)
+	{
+		UnityMainThreadDispatcher.Instance.Enqueue(delegate
+		{
+			GameMap.instance.setMapRotation((Dircs)rotation, centreX, centreY, force);
+		});
+	}
+
+	/// <summary>
+	/// Gets whether the cursor is currently over any noesis GUI
+	/// </summary>
+	/// <returns>Whether the cursor is currently over any noesis GUI</returns>
+	public bool IsOverNoesisGUI()
+	{
+		return FatControler.instance.overNoesisGUI();
+	}
+
+	/// <summary>
+	/// Gets whether noesis is to receive keyboard input or not.
+	/// </summary>
+	/// <returns>Whether noesis is currently receiving keyboard input</returns>
+	public bool GetNoesisHasKeyboard()
+	{
+		return FatControler.instance.noesisHasKeyboard;
+	}
+
+	/// <summary>
+	/// Sets whether noesis is to receive keyboard input or not.
+	/// </summary>
+	/// <param name="hasKeyboard">Whether noesis is currently receiving keyboard input</param>
+	[LuaApiExport("SetNoesisHasKeyboard")]
+	public void SetNoesisHasKeyboard(bool hasKeyboard)
+	{
+		UnityMainThreadDispatcher.Instance.Enqueue(delegate
+		{
+			FatControler.instance.SetNoesisKeyboardState(hasKeyboard);
+		});
+	}
+
+	/// <summary>
+	/// Gets the center point of the current map rotation.
+	/// </summary>
+	/// <returns>An <see cref="T:SHCDESE.Interop.UnmanagedVector2`1" /> representing the rotation's center coordinate.</returns>
+	public UnmanagedVector2<int> GetRotationCentre()
+	{
+		int x = 0;
+		int y = 0;
+		GameMap.instance.getRotationCentre(ref x, ref y);
+		return new UnmanagedVector2<int>(x, y);
+	}
+
+	/// <summary>
+	/// Gets the current rotation of the map view.
+	/// </summary>
+	/// <returns>The current rotation as a <see cref="T:SHCDESE.Interop.Dircs" /> enum value.</returns>
+	public Dircs GetCurrentRotation()
+	{
+		//IL_0006: Unknown result type (might be due to invalid IL or missing references)
+		return (Dircs)GameMap.instance.CurrentRotation();
+	}
+
+	/// <summary>
+	/// Retrieves the name of the currently active map.
+	/// <Remarks>
+	/// This does not contain the full file path, only the file name.
+	/// May or may not contain the .map file extension.
+	/// </Remarks>
+	/// </summary>
+	/// <returns>A string containing the name of the current map. Returns an empty string if no map is active.</returns>
+	[LuaApiExport("GetCurrentMapName")]
+	public unsafe string GetCurrentMapName()
+	{
+		return Marshal.PtrToStringAnsi(_currentMapName, *_currentMapNameLength);
+	}
+
+	/// <summary>
+	/// Checks if the player is in map editor mode.
+	/// </summary>
+	/// <returns>Returns true if in Map Editor.</returns>
+	[LuaApiExport("IsInMapEditor")]
+	public unsafe bool IsInMapEditor()
+	{
+		return *_isInMapEditor == 1;
+	}
+
+	/// <summary>
+	/// Retrieves the local pause state of the current player.
+	/// </summary>
+	/// <returns>Pause state</returns>
+	[LuaApiExport("IsLocalPaused")]
+	public unsafe bool IsLocalPaused()
+	{
+		return *_localPause == 1;
+	}
+
+	/// <summary>
+	/// Sets the local pause state of the current player.
+	/// This does NOT pause the game in a proper multiplayer session. Use with caution.
+	/// </summary>
+	/// <param name="paused">Paused or not</param>
+	[LuaApiExport("SetLocalPaused")]
+	public unsafe void SetLocalPaused(bool paused)
+	{
+		*_localPause = (paused ? 1 : 0);
+	}
+
+	/// <summary>
+	/// Gets the AI Lord type for a specific player slot.
+	/// </summary>
+	/// <param name="playerId">The ID of the player (0-8).</param>
+	/// <returns>The <see cref="T:SHCDESE.Interop.AILords" /> enum value for the player, or <see cref="F:SHCDESE.Interop.AILords.SK_NULL" /> if the player is not an AI or the ID is invalid.</returns>
+	[LuaApiExport("GetAILord")]
+	public unsafe AILords GetAILord(int playerId)
+	{
+		//IL_001f: Unknown result type (might be due to invalid IL or missing references)
+		//IL_0010: Unknown result type (might be due to invalid IL or missing references)
+		//IL_0022: Unknown result type (might be due to invalid IL or missing references)
+		if (!IsPlayerIdValid(playerId))
+		{
+			return (AILords)0;
+		}
+		return (AILords)_aiLineUp[playerId];
+	}
+
+	[LuaApiExport("SetAILord")]
+	public unsafe void SetAILord(int playerId, AILords aiLord)
+	{
+		//IL_001c: Unknown result type (might be due to invalid IL or missing references)
+		//IL_001e: Expected I4, but got Unknown
+		if (IsPlayerIdValid(playerId))
+		{
+			_aiLineUp[playerId] = (int)aiLord;
+		}
+	}
+
+	/// <summary>
+	/// Checks if a specific player slot is controlled by an AI.
+	/// </summary>
+	/// <param name="playerId">The ID of the player to check (1-8).</param>
+	/// <returns><c>true</c> if the player is an AI; otherwise, <c>false</c>.</returns>
+	[LuaApiExport("IsAI")]
+	public bool IsAIPlayer(int playerId)
+	{
+		//IL_0015: Unknown result type (might be due to invalid IL or missing references)
+		//IL_001b: Invalid comparison between Unknown and I4
+		if (!IsPlayerIdValid(playerId))
+		{
+			return false;
+		}
+		return (int)GetAILord(playerId) > 0;
+	}
+
+	/// <summary>
+	/// Validates if a player ID is within the valid range (1 to MAX_PLAYERS).
+	/// </summary>
+	/// <param name="playerId">The player ID to validate.</param>
+	/// <returns><c>true</c> if the player ID is valid; otherwise, <c>false</c>.</returns>
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	[LuaApiExport("IsPlayerIdValid")]
+	public bool IsPlayerIdValid(int playerId)
+	{
+		return playerId > 0 && playerId <= 8;
+	}
+
+	/// <summary>
+	/// Sets whether a specific weapon type is allowed to be produced in the current map.
+	/// </summary>
+	/// <param name="goods">The weapon type (<see cref="T:SHCDESE.Interop.eGoods" />).</param>
+	/// <param name="enabled">The enabled state.</param>
+	[LuaApiExport("SetProductionGoodAllowed")]
+	public unsafe void SetIsProductionGoodAllowed(eGoods goods, bool enabled)
+	{
+		ulong mapRulesInfo_AllowedProductionGoodsVA = GameGlobalsManager.Instance.MapRulesInfo_AllowedProductionGoodsVA;
+		switch (goods)
+		{
+		case eGoods.STORED_CROSSBOWS:
+			*(int*)mapRulesInfo_AllowedProductionGoodsVA = (enabled ? 1 : 0);
+			break;
+		case eGoods.STORED_PIKES:
+			*(int*)((nint)mapRulesInfo_AllowedProductionGoodsVA + 4) = (enabled ? 1 : 0);
+			break;
+		case eGoods.STORED_SWORDS:
+			*(int*)((nint)mapRulesInfo_AllowedProductionGoodsVA + (nint)2 * (nint)4) = (enabled ? 1 : 0);
+			break;
+		case eGoods.STORED_BOWS:
+			*(int*)((nint)mapRulesInfo_AllowedProductionGoodsVA + (nint)3 * (nint)4) = (enabled ? 1 : 0);
+			break;
+		case eGoods.STORED_SPEARS:
+			*(int*)((nint)mapRulesInfo_AllowedProductionGoodsVA + (nint)4 * (nint)4) = (enabled ? 1 : 0);
+			break;
+		case eGoods.STORED_MACES:
+			*(int*)((nint)mapRulesInfo_AllowedProductionGoodsVA + (nint)5 * (nint)4) = (enabled ? 1 : 0);
+			break;
+		}
+	}
+
+	/// <summary>
+	/// Gets whether a specific weapon type is allowed to be produced in the current map.
+	/// </summary>
+	/// <param name="goods">The weapon type (<see cref="T:SHCDESE.Interop.eGoods" />).</param>
+	/// <returns><c>true</c> if production is allowed; otherwise, <c>false</c>.</returns>
+	[LuaApiExport("IsProductionGoodAllowed")]
+	public unsafe bool IsProductionGoodAllowed(eGoods goods)
+	{
+		ulong mapRulesInfo_AllowedProductionGoodsVA = GameGlobalsManager.Instance.MapRulesInfo_AllowedProductionGoodsVA;
+		return goods switch
+		{
+			eGoods.STORED_CROSSBOWS => *(uint*)mapRulesInfo_AllowedProductionGoodsVA == 1, 
+			eGoods.STORED_PIKES => *(uint*)((nint)mapRulesInfo_AllowedProductionGoodsVA + 4) == 1, 
+			eGoods.STORED_SWORDS => *(uint*)((nint)mapRulesInfo_AllowedProductionGoodsVA + (nint)2 * (nint)4) == 1, 
+			eGoods.STORED_BOWS => *(uint*)((nint)mapRulesInfo_AllowedProductionGoodsVA + (nint)3 * (nint)4) == 1, 
+			eGoods.STORED_SPEARS => *(uint*)((nint)mapRulesInfo_AllowedProductionGoodsVA + (nint)4 * (nint)4) == 1, 
+			eGoods.STORED_MACES => *(uint*)((nint)mapRulesInfo_AllowedProductionGoodsVA + (nint)5 * (nint)4) == 1, 
+			_ => false, 
+		};
+	}
+
+	/// <summary>
+	/// Sets all allowed to produce production goods
+	/// </summary>
+	/// <param name="enabled"></param>
+	[LuaApiExport("SetAllProductionGoodAllowed")]
+	public void SetAllProductionGoodAllowed(bool enabled)
+	{
+		//IL_001f: Unknown result type (might be due to invalid IL or missing references)
+		//IL_0024: Unknown result type (might be due to invalid IL or missing references)
+		//IL_0026: Unknown result type (might be due to invalid IL or missing references)
+		foreach (Goods value in Enum.GetValues(typeof(Goods)))
+		{
+			ushort num = (ushort)value;
+			SetIsProductionGoodAllowed((eGoods)num, enabled);
+		}
+	}
+
+	/// <summary>
+	/// Checks if a specific unit type is allowed to be recruited in the current map.
+	/// </summary>
+	/// <param name="unit">The unit type (<see cref="T:SHCDESE.Interop.eChimps" />).</param>
+	/// <returns><c>true</c> if the unit is allowed; otherwise, <c>false</c>.</returns>
+	[LuaApiExport("IsUnitRecruitable")]
+	public unsafe bool IsUnitAllowed(eChimps unit)
+	{
+		switch (unit)
+		{
+		case eChimps.CHIMP_TYPE_MONK:
+			return *_isMonkAvailable == 1;
+		case eChimps.CHIMP_TYPE_ENGINEER:
+			return *_isEngineerAvailable == 1;
+		case eChimps.CHIMP_TYPE_LADDERMAN:
+			return *_isLaddermanAvailable == 1;
+		case eChimps.CHIMP_TYPE_TUNNELER:
+			return _isTunnelerAvailable;
+		default:
+			if ((int)unit >= 70 && (int)unit < 77)
+			{
+				ulong mapRulesInfo_AllowedArabUnitsVA = GameGlobalsManager.Instance.MapRulesInfo_AllowedArabUnitsVA;
+				return *(uint*)((nint)mapRulesInfo_AllowedArabUnitsVA + (nint)(int)(unit - 70) * (nint)4) != 0;
+			}
+			if ((int)unit >= 22 && (int)unit < 28)
+			{
+				ulong mapRulesInfo_AllowedEuroUnitsVA = GameGlobalsManager.Instance.MapRulesInfo_AllowedEuroUnitsVA;
+				return *(uint*)((nint)mapRulesInfo_AllowedEuroUnitsVA + (nint)(int)(unit - 22) * (nint)4) != 0;
+			}
+			if ((int)unit >= 78 && (int)unit < 85)
+			{
+				ulong mapRulesInfo_AllowedBedouinUnitsVA = GameGlobalsManager.Instance.MapRulesInfo_AllowedBedouinUnitsVA;
+				return *(uint*)((nint)mapRulesInfo_AllowedBedouinUnitsVA + (nint)(int)(unit - 78) * (nint)4) != 0;
+			}
+			return false;
+		}
+	}
+
+	/// <summary>
+	/// Sets whether a specific unit type is allowed to be recruited in the current map.
+	/// </summary>
+	/// <param name="unit">The unit type (<see cref="T:SHCDESE.Interop.eChimps" />).</param>
+	/// <param name="enabled">The enabled state.</param>
+	[LuaApiExport("SetUnitRecruitable")]
+	public unsafe void SetIsUnitAllowed(eChimps unit, bool enabled)
+	{
+		LogHelper.Information($"unit: {unit}, enabled: {enabled}", "SetIsUnitAllowed", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+		switch (unit)
+		{
+		case eChimps.CHIMP_TYPE_MONK:
+			*_isMonkAvailable = (enabled ? 1 : 0);
+			UnityMainThreadDispatcher.Instance.Enqueue(delegate
+			{
+				((UIElement)MainViewModel.Instance.HUDBuildingPanel.RefRecruitMonkButton).Visibility = (Visibility)((!enabled) ? 1 : 2);
+				((UIElement)MainViewModel.Instance.HUDBuildingPanel.RefCathedralNoGoldMessage).Visibility = (Visibility)((!enabled) ? 1 : 2);
+			});
+			return;
+		case eChimps.CHIMP_TYPE_ENGINEER:
+			*_isEngineerAvailable = (enabled ? 1 : 0);
+			UnityMainThreadDispatcher.Instance.Enqueue(delegate
+			{
+				((UIElement)MainViewModel.Instance.HUDBuildingPanel.RefRecruitEngineerButton).Visibility = (Visibility)((!enabled) ? 1 : 2);
+				((UIElement)MainViewModel.Instance.HUDBuildingPanel.RefRecruitEngineerButtonX).Visibility = (Visibility)((!enabled) ? 1 : 2);
+			});
+			return;
+		case eChimps.CHIMP_TYPE_LADDERMAN:
+			*_isLaddermanAvailable = (enabled ? 1 : 0);
+			UnityMainThreadDispatcher.Instance.Enqueue(delegate
+			{
+				((UIElement)MainViewModel.Instance.HUDBuildingPanel.RefRecruitLaddermanButton).Visibility = (Visibility)((!enabled) ? 1 : 2);
+				((UIElement)MainViewModel.Instance.HUDBuildingPanel.RefRecruitLaddermanButtonX).Visibility = (Visibility)((!enabled) ? 1 : 2);
+			});
+			return;
+		case eChimps.CHIMP_TYPE_TUNNELER:
+			_isTunnelerAvailable = enabled;
+			return;
+		}
+		if ((int)unit >= 70 && (int)unit < 77)
+		{
+			ulong mapRulesInfo_AllowedArabUnitsVA = GameGlobalsManager.Instance.MapRulesInfo_AllowedArabUnitsVA;
+			LogHelper.Information(string.Format("MapRulesInfo_AllowedArabUnitsVA: {0}, unit={1} - {2}", mapRulesInfo_AllowedArabUnitsVA.ToString("X16"), (int)unit, 70), "SetIsUnitAllowed", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+			*(int*)((nint)mapRulesInfo_AllowedArabUnitsVA + (nint)(int)(unit - 70) * (nint)4) = (enabled ? 1 : 0);
+		}
+		else if ((int)unit >= 22 && (int)unit < 28)
+		{
+			ulong mapRulesInfo_AllowedEuroUnitsVA = GameGlobalsManager.Instance.MapRulesInfo_AllowedEuroUnitsVA;
+			LogHelper.Information(string.Format("MapRulesInfo_AllowedEuroUnitsVA: {0}, unit={1} - {2}", mapRulesInfo_AllowedEuroUnitsVA.ToString("X16"), (int)unit, 22), "SetIsUnitAllowed", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+			*(int*)((nint)mapRulesInfo_AllowedEuroUnitsVA + (nint)(int)(unit - 22) * (nint)4) = (enabled ? 1 : 0);
+		}
+		else if ((int)unit >= 78 && (int)unit < 85)
+		{
+			ulong mapRulesInfo_AllowedBedouinUnitsVA = GameGlobalsManager.Instance.MapRulesInfo_AllowedBedouinUnitsVA;
+			LogHelper.Information(string.Format("MapRulesInfo_AllowedBedouinUnitsVA: {0}, unit={1} - {2}", mapRulesInfo_AllowedBedouinUnitsVA.ToString("X16"), (int)unit, 27), "SetIsUnitAllowed", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+			*(int*)((nint)mapRulesInfo_AllowedBedouinUnitsVA + (nint)(int)(unit - 78) * (nint)4) = (enabled ? 1 : 0);
+		}
+	}
+
+	/// <summary>
+	/// Sets all allowed to be recruited troop types.
+	/// </summary>
+	/// <param name="enabled"></param>
+	[LuaApiExport("SetAllUnitsAllowed")]
+	public void SetAllUnitsAllowed(bool enabled)
+	{
+		foreach (eChimps value in Enum.GetValues(typeof(eChimps)))
+		{
+			uint num = (uint)value;
+			SetIsUnitAllowed((eChimps)num, enabled);
+		}
+	}
+
+	/// <summary>
+	/// Checks if a specific good is allowed to be traded at the market in the current map.
+	/// </summary>
+	/// <param name="good">The good type (<see cref="T:SHCDESE.Interop.eGoods" />).</param>
+	/// <returns><c>true</c> if trading is allowed; otherwise, <c>false</c>.</returns>
+	[LuaApiExport("IsTradeGoodAllowed")]
+	public bool IsTradeGoodAllowed(eGoods good)
+	{
+		return _allowedTradingGoods[(int)good] == 1;
+	}
+
+	/// <summary>
+	/// Sets whether a specific good is allowed to be traded at the market in the current map.
+	/// </summary>
+	/// <param name="good">The good type (<see cref="T:SHCDESE.Interop.eGoods" />).</param>
+	/// <param name="enabled">The enabled state.</param>
+	[LuaApiExport("SetTradeGoodAllowed")]
+	public void SetTradeGoodAllowed(eGoods good, bool enabled)
+	{
+		_allowedTradingGoods[(int)good] = (enabled ? 1u : 0u);
+	}
+
+	/// <summary>
+	/// Sets all trade goods to be allowed/disallowed from trading
+	/// </summary>
+	/// <param name="enabled">The enabled state.</param>
+	[LuaApiExport("SetAllTradeGoodsAllowed")]
+	public void SetAllTradeGoodsAllowed(bool enabled)
+	{
+		//IL_001f: Unknown result type (might be due to invalid IL or missing references)
+		//IL_0024: Unknown result type (might be due to invalid IL or missing references)
+		//IL_0026: Unknown result type (might be due to invalid IL or missing references)
+		foreach (Goods value in Enum.GetValues(typeof(Goods)))
+		{
+			ushort num = (ushort)value;
+			SetTradeGoodAllowed((eGoods)num, enabled);
+		}
+	}
+
+	/// <summary>
+	/// Gets the availability of a specific building type in the build menu for the current map.
+	/// </summary>
+	/// <param name="building">The building type from the editor's palette (<see cref="T:SHCDESE.Interop.eMappers" />).</param>
+	/// <returns><c>true</c> if the building is available; otherwise, <c>false</c>.</returns>
+	[LuaApiExport("IsBuildingAvailable")]
+	public unsafe bool GetBuildingAvailability(eMappers building)
+	{
+		return (&_mapRulesManager->r_EMNullAvailable)[(int)building] == 1;
+	}
+
+	/// <summary>
+	/// Sets the availability of a specific building type in the build menu for the current map.
+	/// </summary>
+	/// <param name="building">The building type from the editor's palette (<see cref="T:SHCDESE.Interop.eMappers" />).</param>
+	/// <param name="enabled">The enabled state.</param>
+	[LuaApiExport("SetBuildingAvailable")]
+	public unsafe void SetBuildingAvailability(eMappers building, bool enabled)
+	{
+		(&_mapRulesManager->r_EMNullAvailable)[(int)building] = (ushort)(enabled ? 1 : 0);
+		UnityMainThreadDispatcher.Instance.Enqueue(delegate
+		{
+			MainViewModel.instance.HUDmain.RefreshBuildScreen();
+		});
+	}
+
+	/// <summary>
+	/// Sets the availability of all buildings for the current map.
+	/// </summary>
+	/// <param name="enabled">The enabled state.</param>
+	[LuaApiExport("SetAllBuildingAvailability")]
+	public void SetAllBuildingAvailability(bool enabled)
+	{
+		//IL_001f: Unknown result type (might be due to invalid IL or missing references)
+		//IL_0024: Unknown result type (might be due to invalid IL or missing references)
+		//IL_0026: Unknown result type (might be due to invalid IL or missing references)
+		foreach (eMappers value in Enum.GetValues(typeof(eMappers)))
+		{
+			short building = (short)value;
+			SetBuildingAvailability((eMappers)building, enabled);
+		}
+	}
+
+	/// <summary>
+	/// Gets the default starting resources for a skirmish game.
+	/// </summary>
+	/// <param name="good">The type of good.</param>
+	/// <returns>The starting amount.</returns>
+	[LuaApiExport("GetSkirmishDefaultResources")]
+	public uint GetPlayerSkirmishDefaultResources(eGoods good)
+	{
+		return _defaultSkirmishResources[(int)good];
+	}
+
+	/// <summary>
+	/// Sets the default starting resources for a skirmish game.
+	/// </summary>
+	/// <param name="good">The type of good.</param>
+	/// <param name="amount">The starting amount.</param>
+	/// <returns>Always returns <c>true</c>.</returns>
+	[LuaApiExport("SetSkirmishDefaultResources")]
+	public bool SetPlayerSkirmishDefaultResources(eGoods good, uint amount)
+	{
+		_defaultSkirmishResources[(int)good] = amount;
+		return true;
+	}
+
+	/// <summary>
+	/// Gets the default starting gold for a skirmish game.
+	/// </summary>
+	/// <param name="level">Difficulty level</param>
+	/// <returns>The starting amount.</returns>
+	[LuaApiExport("GetSkirmishDefaultGold")]
+	public uint GetPlayerSkirmishDefaultGold(int level)
+	{
+		if (level < 0 || level > 2)
+		{
+			return 0u;
+		}
+		return _defaultSkirmishGold[level];
+	}
+
+	/// <summary>
+	/// Sets the default starting gold for a skirmish game.
+	/// </summary>
+	/// <param name="level">Difficulty level</param>
+	/// <param name="gold">The starting amount.</param>
+	/// <returns>Always returns <c>true</c>.</returns>
+	[LuaApiExport("SetSkirmishDefaultGold")]
+	public bool SetPlayerSkirmishDefaultGold(int level, uint gold)
+	{
+		if (level < 0 || level > 2)
+		{
+			return false;
+		}
+		_defaultSkirmishGold[level] = gold;
+		return true;
+	}
+
+	/// <summary>
+	/// Gets the default starting unit amount for a skirmish game.
+	/// </summary>
+	/// <param name="unit">Unit type in question</param>
+	/// <returns>The starting amount</returns>
+	[LuaApiExport("GetSkirmishDefaultUnitsAmount")]
+	public unsafe int GetPlayerSkirmishDefaultUnitsAmount(eChimps unit)
+	{
+		return (int)_AIVCastleLayoutTable[(int)(8714 + unit) / 4];
+	}
+
+	/// <summary>
+	/// Sets the default starting unit amount for a skirmish game.
+	/// NOTE: Not all unit types are supported and may lead to weird results!
+	/// </summary>
+	/// <param name="unit">Unit type in question</param>
+	/// <param name="amount">The starting amount.</param>
+	[LuaApiExport("SetSkirmishDefaultUnitsAmount")]
+	public unsafe void SetPlayerSkirmishDefaultUnitsAmount(eChimps unit, uint amount)
+	{
+		_AIVCastleLayoutTable[(int)(8714 + unit) / 4] = amount;
+	}
+
+	/// <summary>
+	/// Sets the total gold for a specific player.
+	/// </summary>
+	/// <param name="playerId">Target player</param>
+	/// <param name="gold">Gold to set</param>
+	/// <returns>Returns true on success; Otherwise false.</returns>
+	[LuaApiExport("SetGold")]
+	public unsafe bool SetPlayerGold(int playerId, int gold)
+	{
+		if (!TryGetPlayerResourcesById(playerId, out var resources))
+		{
+			return false;
+		}
+		resources->r_TotalGoodsGold = gold;
+		return true;
+	}
+
+	/// <summary>
+	/// Gets the total gold for a specific player.
+	/// </summary>
+	/// <param name="playerId">Target player</param>
+	/// <returns>Returns the gold on success; Otherwise 0.</returns>
+	[LuaApiExport("GetGold")]
+	public unsafe int GetPlayerGold(int playerId)
+	{
+		if (!TryGetPlayerResourcesById(playerId, out var resources))
+		{
+			return 0;
+		}
+		return resources->r_TotalGoodsGold;
+	}
+
+	/// <summary>
+	/// Adds or subtracts gold from a specific player's total. The final amount is clamped at zero.
+	/// </summary>
+	/// <param name="playerId">Target player</param>
+	/// <param name="gold">Gold to add</param>
+	/// <returns>Returns true on success; Otherwise false.</returns>
+	[LuaApiExport("AddGold")]
+	public unsafe bool AddPlayerGold(int playerId, int gold)
+	{
+		if (!TryGetPlayerResourcesById(playerId, out var resources))
+		{
+			return false;
+		}
+		int r_TotalGoodsGold = Math.Max(resources->r_TotalGoodsGold + gold, 0);
+		resources->r_TotalGoodsGold = r_TotalGoodsGold;
+		return true;
+	}
+
+	/// <summary>
+	/// Gets the ID of the player controlling the local client.
+	/// </summary>
+	[LuaApiExport("GetLocalId")]
+	public unsafe int GetLocalPlayerId()
+	{
+		LogHelper.Verbose("Retrieving local player id", "GetLocalPlayerId", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+		return (int)(*_localPlayerId);
+	}
+
+	/// <summary>
+	/// Gets the building ID of a player's keep.
+	/// </summary>
+	/// <param name="playerId">Target player</param>
+	/// <returns>Returns keep id on success; Otherwise -1</returns>
+	[LuaApiExport("GetKeepId")]
+	public unsafe int GetPlayerKeepId(int playerId)
+	{
+		if (!TryGetPlayerResourcesById(playerId, out var resources))
+		{
+			LogHelper.Warning($"Could not find playerresource by id: {playerId}", "GetPlayerKeepId", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+			return -1;
+		}
+		return (int)resources->r_KeepId;
+	}
+
+	/// <summary>
+	/// Gets the top-left tile coordinate of a player's keep.
+	/// </summary>
+	/// <param name="playerId">Target player</param>
+	/// <returns>Returns keep position on success; Otherwise default.</returns>
+	[LuaApiExport("GetKeepPosition")]
+	public unsafe UnmanagedVector2<int> GetPlayerKeepPosition(int playerId)
+	{
+		if (!TryGetPlayerResourcesById(playerId, out var resources))
+		{
+			LogHelper.Warning($"Could not find playerresource by id: {playerId}", "GetPlayerKeepPosition", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+			return default(UnmanagedVector2<int>);
+		}
+		return *(UnmanagedVector2<int>*)(&resources->r_KeepTilePositionX);
+	}
+
+	/// <summary>
+	/// Sets the top-left tile coordinate of a player's keep.
+	/// </summary>
+	/// <param name="playerId">Target player</param>
+	/// <param name="position">Position to set</param>
+	/// <returns>Returns true on success; Otherwise false.</returns>
+	[LuaApiExport("SetKeepPosition")]
+	public unsafe bool SetPlayerKeepPosition(int playerId, UnmanagedVector2<uint> position)
+	{
+		if (!TryGetPlayerResourcesById(playerId, out var resources))
+		{
+			LogHelper.Warning($"Could not find playerresource by id: {playerId}", "SetPlayerKeepPosition", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+			return false;
+		}
+		resources->r_KeepTilePositionX = position.X;
+		resources->r_KeepTilePositionY = position.Y;
+		return true;
+	}
+
+	/// <summary>
+	/// Gets the tile coordinate of a player's keep door.
+	/// </summary>
+	/// <param name="playerId">Target player</param>
+	/// <returns>Returns keep door position on success; Otherwise default.</returns>
+	[LuaApiExport("GetKeepDoorPosition")]
+	public unsafe UnmanagedVector2<int> GetPlayerKeepDoorPosition(int playerId)
+	{
+		if (!TryGetPlayerResourcesById(playerId, out var resources))
+		{
+			LogHelper.Warning($"Could not find playerresource by id: {playerId}", "GetPlayerKeepDoorPosition", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+			return default(UnmanagedVector2<int>);
+		}
+		return *(UnmanagedVector2<int>*)(&resources->r_KeepDoorTilePositionX);
+	}
+
+	/// <summary>
+	/// Sets the tile coordinate of a player's keep door.
+	/// </summary>
+	/// <param name="playerId">Target player</param>
+	/// <param name="position">Position to set</param>
+	/// <returns>Returns true on success; Otherwise false.</returns>
+	[LuaApiExport("SetKeepDoorPosition")]
+	public unsafe bool SetPlayerKeepDoorPosition(int playerId, UnmanagedVector2<uint> position)
+	{
+		if (!TryGetPlayerResourcesById(playerId, out var resources))
+		{
+			LogHelper.Warning($"Could not find playerresource by id: {playerId}", "SetPlayerKeepDoorPosition", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+			return false;
+		}
+		resources->r_KeepDoorTilePositionX = position.X;
+		resources->r_KeepDoorTilePositionY = position.Y;
+		return true;
+	}
+
+	/// <summary>
+	/// Gets an array of all possible player IDs (1 through MAX_PLAYERS).
+	/// </summary>
+	/// <returns>Returns player ids as an array.</returns>
+	[LuaApiExport("GetAllIds")]
+	public int[] GetAllPlayerIds()
+	{
+		return Enumerable.Range(1, 8).ToArray();
+	}
+
+	/// <summary>
+	/// Gets an array of IDs for all players who are currently alive and not defeated.
+	/// </summary>
+	/// <returns>Returns alive player ids as an array.</returns>
+	[LuaApiExport("GetAliveIds")]
+	public int[] GetAlivePlayerIds()
+	{
+		List<int> list = new List<int>();
+		ExecuteQuery(list, PlayerResourcePredicates.IsAlive);
+		return list.ToArray();
+	}
+
+	/// <summary>
+	/// Sets the popularity level for a specific player.
+	/// </summary>
+	/// <param name="playerId">Target player</param>
+	/// <param name="popularity">Popularity to set</param>
+	/// <returns>Returns true on success; Otherwise false.</returns>
+	[LuaApiExport("SetPopularity")]
+	public unsafe bool SetPlayerPopularity(int playerId, uint popularity)
+	{
+		popularity = Math.Min(popularity, 10000u);
+		if (!TryGetPlayerResourcesById(playerId, out var resources))
+		{
+			LogHelper.Warning($"Could not find playerresource by id: {playerId}", "SetPlayerPopularity", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+			return false;
+		}
+		resources->r_CurrentPopularity = popularity;
+		return true;
+	}
+
+	/// <summary>
+	/// Gets the current popularity level for a specific player.
+	/// </summary>
+	/// <param name="playerId">Target player</param>
+	/// <returns>Returns popularity on success; Otherwise 0.</returns>
+	[LuaApiExport("GetPopularity")]
+	public unsafe uint GetPlayerPopularity(int playerId)
+	{
+		if (!TryGetPlayerResourcesById(playerId, out var resources))
+		{
+			LogHelper.Warning($"Could not find playerresource by id: {playerId}", "GetPlayerPopularity", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+			return 0u;
+		}
+		return resources->r_CurrentPopularity;
+	}
+
+	/// <summary>
+	/// Gets the team number for a specific player.
+	/// </summary>
+	/// <param name="playerId">Target player</param>
+	/// <returns>Returns team on success; Otherwise 0.</returns>
+	[LuaApiExport("GetTeam")]
+	public unsafe int GetPlayerTeam(int playerId)
+	{
+		if (!IsPlayerIdValid(playerId))
+		{
+			LogHelper.Error($"Tried to access player index that was out of range: [{playerId}/{8}]", "GetPlayerTeam", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+			return 0;
+		}
+		return _teamList[playerId];
+	}
+
+	/// <summary>
+	/// Sets the team number for a specific player. Players on the same team are allied.
+	/// </summary>
+	/// <param name="playerId">Target player</param>
+	/// <param name="team">Team to set</param>
+	[LuaApiExport("SetTeam")]
+	public unsafe void SetPlayerTeam(int playerId, int team)
+	{
+		if (!IsPlayerIdValid(playerId))
+		{
+			LogHelper.Error($"Tried to access player index that was out of range: [{playerId}/{8}]", "SetPlayerTeam", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+		}
+		else if (team < 0 || team > 8)
+		{
+			LogHelper.Error($"Tried to access team index that was out of range: [{team}/{8}]", "SetPlayerTeam", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+		}
+		else
+		{
+			_teamList[playerId] = team;
+		}
+	}
+
+	/// <summary>
+	/// Checks if two players are on the same team.
+	/// </summary>
+	/// <param name="playerId1">From player</param>
+	/// <param name="playerId2">To player</param>
+	/// <returns>Returns allied state.</returns>
+	[LuaApiExport("IsAlliedTo")]
+	public bool IsPlayerAlliedTo(int playerId1, int playerId2)
+	{
+		int playerTeam = GetPlayerTeam(playerId1);
+		int playerTeam2 = GetPlayerTeam(playerId2);
+		return playerTeam == playerTeam2;
+	}
+
+	/// <summary>
+	/// Clears all incoming goods for the specified player.
+	/// </summary>
+	/// <param name="playerId">Target player</param>
+	[LuaApiExport("ClearIncomingGoods")]
+	public unsafe void ClearIncomingGood(int playerId)
+	{
+		//IL_0070: Unknown result type (might be due to invalid IL or missing references)
+		//IL_0075: Unknown result type (might be due to invalid IL or missing references)
+		//IL_0078: Unknown result type (might be due to invalid IL or missing references)
+		if (!TryGetPlayerResourcesById(playerId, out var _))
+		{
+			LogHelper.Warning($"Could not find playerresource by id: {playerId}", "ClearIncomingGood", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+			return;
+		}
+		int* ptr = (int*)(&_playerResources._array[playerId - 1].r_incomingNull);
+		foreach (Goods value in Enum.GetValues(typeof(Goods)))
+		{
+			ushort num = (ushort)value;
+			ptr[(int)num] = 0;
+		}
+	}
+
+	/// <summary>
+	/// Adds a specified amount to a player's count of incoming goods (e.g., from scenario start).
+	/// </summary>
+	/// <param name="playerId">Target player</param>
+	/// <param name="good">Good to add</param>
+	/// <param name="amount">Amount to add</param>
+	[LuaApiExport("AddIncomingGood")]
+	public unsafe void AddIncomingGood(int playerId, eGoods good, int amount)
+	{
+		if (!TryGetPlayerResourcesById(playerId, out var _))
+		{
+			LogHelper.Warning($"Could not find playerresource by id: {playerId}", "AddIncomingGood", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+			return;
+		}
+		int* ptr = (int*)(&_playerResources._array[playerId - 1].r_incomingNull);
+		ptr[(int)good] += amount;
+	}
+
+	/// <summary>
+	/// Subtracts a specified amount from a player's count of incoming goods.
+	/// </summary>
+	/// <param name="playerId">Target player</param>
+	/// <param name="good">Good to subtract</param>
+	/// <param name="amount">Amount to subtract</param>
+	[LuaApiExport("SubtractIncomingGood")]
+	public unsafe void SubtractIncomingGood(int playerId, eGoods good, int amount)
+	{
+		if (!TryGetPlayerResourcesById(playerId, out var _))
+		{
+			LogHelper.Warning($"Could not find playerresource by id: {playerId}", "SubtractIncomingGood", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+			return;
+		}
+		int* ptr = (int*)(&_playerResources._array[playerId - 1].r_incomingNull);
+		int num = Math.Max(ptr[(int)good] - amount, 0);
+		ptr[(int)good] = num;
+	}
+
+	/// <summary>
+	/// Subtracts a specified amount from a player's count of incoming goods.
+	/// </summary>
+	/// <param name="playerId">Target player</param>
+	/// <returns>Pause state.</returns>
+	[LuaApiExport("IsPaused")]
+	public unsafe bool IsPlayerPaused(int playerId)
+	{
+		if (!TryGetPlayerResourcesById(playerId, out var resources))
+		{
+			LogHelper.Warning($"Could not find playerresource by id: {playerId}", "IsPlayerPaused", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+			return false;
+		}
+		return resources->r_IsPaused == 1;
+	}
+
+	/// <summary>
+	/// Checks if the local player keep is enclosed.
+	/// </summary>
+	/// <returns>Keep enclosed state</returns>
+	[LuaApiExport("IsLocalPlayerKeepEnclosed")]
+	public unsafe bool IsLocalPlayerKeepEnclosed()
+	{
+		return _isLocalPlayerKeepEnclosed != null && *_isLocalPlayerKeepEnclosed == 1;
+	}
+
+	/// <summary>
+	/// Checks if the local player extreme powers are enabled
+	/// </summary>
+	/// <returns>Extreme Powers enabled state</returns>
+	[LuaApiExport("IsLocalPlayerExtremePowersEnabled")]
+	public unsafe bool IsLocalPlayerExtremePowersEnabled()
+	{
+		return _isLocalPlayerExtremePowersEnabled != null && *_isLocalPlayerExtremePowersEnabled == 1;
+	}
+
+	/// <summary>
+	/// Sets the enabled state of the extreme powers for the local player
+	/// </summary>
+	/// <param name="enabled">Extreme Powers enabled state</param>
+	[LuaApiExport("SetLocalPlayerExtremePowersEnabled")]
+	public unsafe void SetLocalPlayerExtremePowersEnabled(bool enabled)
+	{
+		if (_isLocalPlayerExtremePowersEnabled != null)
+		{
+			*_isLocalPlayerExtremePowersEnabled = (enabled ? 1 : 0);
+		}
+	}
+
+	/// <summary>
+	/// Gets the extreme powers mana of the selected player
+	/// </summary>
+	/// <param name="playerId">Target player</param>
+	/// <returns>Extreme Powers mana on success; Otherwise -1</returns>
+	[LuaApiExport("GetLocalPlayerExtremePowersMana")]
+	public unsafe int GetLocalPlayerExtremePowersMana(int playerId)
+	{
+		if (!TryGetPlayerResourcesById(playerId, out var resources))
+		{
+			LogHelper.Warning($"Could not find playerresource by id: {playerId}", "GetLocalPlayerExtremePowersMana", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+			return -1;
+		}
+		return (int)resources->r_ExtremePowersMana;
+	}
+
+	/// <summary>
+	/// Sets the extreme powers mana for the selected player
+	/// </summary>
+	/// <param name="playerId">Target player</param>
+	/// <param name="mana">New Mana</param>
+	[LuaApiExport("SetLocalPlayerExtremePowersMana")]
+	public unsafe void SetLocalPlayerExtremePowersMana(int playerId, int mana)
+	{
+		if (!TryGetPlayerResourcesById(playerId, out var resources))
+		{
+			LogHelper.Warning($"Could not find playerresource by id: {playerId}", "SetLocalPlayerExtremePowersMana", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+		}
+		else
+		{
+			resources->r_ExtremePowersMana = (uint)mana;
+		}
+	}
+
+	/// <summary>
+	/// Sets the paused state for a player.
+	/// This controls whether the player or AI can build or interact with the game in a meaningful way.
+	/// </summary>
+	[LuaApiExport("SetPaused")]
+	public unsafe void SetPlayerIsPaused(int playerId, bool paused)
+	{
+		if (!TryGetPlayerResourcesById(playerId, out var resources))
+		{
+			LogHelper.Warning($"Could not find playerresource by id: {playerId}", "SetPlayerIsPaused", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+		}
+		else
+		{
+			resources->r_IsPaused = (paused ? 1u : 0u);
+		}
+	}
+
+	/// <summary>
+	/// Gets the current food ration mode for a specific player.
+	/// </summary>
+	[LuaApiExport("GetRationsMode")]
+	public unsafe RationsMode GetRationsMode(int playerId)
+	{
+		if (!TryGetPlayerResourcesById(playerId, out var resources))
+		{
+			LogHelper.Warning($"Could not find playerresource by id: {playerId}", "GetRationsMode", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+			return RationsMode.None;
+		}
+		return resources->r_RationMode;
+	}
+
+	/// <summary>
+	/// Sets the food ration mode for a specific player.
+	/// </summary>
+	[LuaApiExport("SetRationsMode")]
+	public unsafe void SetRationsMode(int playerId, RationsMode mode)
+	{
+		if (!TryGetPlayerResourcesById(playerId, out var resources))
+		{
+			LogHelper.Warning($"Could not find playerresource by id: {playerId}", "SetRationsMode", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+		}
+		else
+		{
+			resources->r_RationMode = mode;
+		}
+	}
+
+	/// <summary>
+	/// Gets if a food is allowed
+	/// </summary>
+	[LuaApiExport("IsFoodAllowed")]
+	public unsafe bool IsFoodAllowed(int playerId, eGoods food)
+	{
+		if (!TryGetPlayerResourcesById(playerId, out var resources))
+		{
+			LogHelper.Warning($"Could not find playerresource by id: {playerId}", "IsFoodAllowed", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+			return false;
+		}
+		ushort* ptr = (ushort*)resources + 4416;
+		ushort num = 0;
+		switch (food)
+		{
+		case eGoods.STORED_FOOD_BREAD:
+			num = *ptr;
+			break;
+		case eGoods.STORED_FOOD_CHEESE:
+			num = ptr[1];
+			break;
+		case eGoods.STORED_FOOD_MEAT:
+			num = ptr[2];
+			break;
+		case eGoods.STORED_FOOD_FRUIT:
+			num = ptr[3];
+			break;
+		}
+		return num == 0;
+	}
+
+	/// <summary>
+	/// Sets currently allowed foods
+	/// </summary>
+	[LuaApiExport("SetFoodAllowed")]
+	public unsafe void SetFoodAllowed(int playerId, eGoods food, bool allowed)
+	{
+		if (!TryGetPlayerResourcesById(playerId, out var resources))
+		{
+			LogHelper.Warning($"Could not find playerresource by id: {playerId}", "SetFoodAllowed", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+			return;
+		}
+		ushort* ptr = (ushort*)resources + 4416;
+		LogHelper.Verbose("FoodsArr: 0x" + new IntPtr(ptr).ToString("X16"), "SetFoodAllowed", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+		ushort num = ((!allowed) ? ((ushort)1) : ((ushort)0));
+		switch (food)
+		{
+		case eGoods.STORED_FOOD_BREAD:
+			*ptr = num;
+			break;
+		case eGoods.STORED_FOOD_CHEESE:
+			ptr[1] = num;
+			break;
+		case eGoods.STORED_FOOD_MEAT:
+			ptr[2] = num;
+			break;
+		case eGoods.STORED_FOOD_FRUIT:
+			ptr[3] = num;
+			break;
+		}
+	}
+
+	/// <summary>
+	/// Gets the current tax mode for a specific player.
+	/// </summary>
+	[LuaApiExport("GetTaxesMode")]
+	public unsafe TaxesMode GetTaxesMode(int playerId)
+	{
+		if (!TryGetPlayerResourcesById(playerId, out var resources))
+		{
+			LogHelper.Warning($"Could not find playerresource by id: {playerId}", "GetTaxesMode", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+			return TaxesMode.None;
+		}
+		return resources->r_TaxesMode;
+	}
+
+	/// <summary>
+	/// Sets the tax mode for a specific player.
+	/// </summary>
+	[LuaApiExport("SetTaxesMode")]
+	public unsafe void SetTaxesMode(int playerId, TaxesMode mode)
+	{
+		if (!TryGetPlayerResourcesById(playerId, out var resources))
+		{
+			LogHelper.Warning($"Could not find playerresource by id: {playerId}", "SetTaxesMode", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+		}
+		else
+		{
+			resources->r_TaxesMode = mode;
+		}
+	}
+
+	/// <summary>
+	/// Sets the win or loss state for a specific player.
+	/// </summary>
+	[LuaApiExport("SetWinLossState")]
+	public unsafe void SetWinLossState(int playerId, WinLossState state)
+	{
+		if (!TryGetPlayerResourcesById(playerId, out var resources))
+		{
+			LogHelper.Warning($"Could not find playerresource by id: {playerId}", "SetWinLossState", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+		}
+		else
+		{
+			resources->r_WinLossState = state;
+		}
+	}
+
+	/// <summary>
+	/// Gets the unit ID of a player's Lord.
+	/// </summary>
+	[LuaApiExport("GetLordUnitId")]
+	public unsafe int GetLordUnitId(int playerId)
+	{
+		if (!TryGetPlayerResourcesById(playerId, out var resources))
+		{
+			LogHelper.Warning($"Could not find playerresource by id: {playerId}", "GetLordUnitId", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+			return 0;
+		}
+		return (int)resources->r_LordUnitId;
+	}
+
+	/// <summary>
+	/// Sets the unit ID of a player's Lord.
+	/// </summary>
+	[LuaApiExport("SetLordUnitId")]
+	public unsafe void SetLordUnitId(int playerId, int unitId)
+	{
+		if (!TryGetPlayerResourcesById(playerId, out var resources))
+		{
+			LogHelper.Warning($"Could not find playerresource by id: {playerId}", "SetLordUnitId", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+		}
+		else
+		{
+			resources->r_LordUnitId = (uint)unitId;
+		}
+	}
+
+	/// <summary>
+	/// Gets the global unit ID of a player's Lord.
+	/// </summary>
+	[LuaApiExport("GetLordUnitGlobalId")]
+	public unsafe int GetLordUnitGlobalId(int playerId)
+	{
+		if (!TryGetPlayerResourcesById(playerId, out var resources))
+		{
+			LogHelper.Warning($"Could not find playerresource by id: {playerId}", "GetLordUnitGlobalId", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+			return 0;
+		}
+		return (int)resources->r_LordUnitGlobalId;
+	}
+
+	/// <summary>
+	/// Sets the global unit ID of a player's Lord.
+	/// </summary>
+	[LuaApiExport("SetLordUnitGlobalId")]
+	public unsafe void SetLordUnitGlobalId(int playerId, int globalId)
+	{
+		if (!TryGetPlayerResourcesById(playerId, out var resources))
+		{
+			LogHelper.Warning($"Could not find playerresource by id: {playerId}", "SetLordUnitGlobalId", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+		}
+		else
+		{
+			resources->r_LordUnitGlobalId = (uint)globalId;
+		}
+	}
+
+	/// <summary>
+	/// Adds a specified amount of a good to a player, distributing it among their storage buildings.
+	/// </summary>
+	/// <param name="playerId">The ID of the player.</param>
+	/// <param name="good">The type of good to add.</param>
+	/// <param name="amount">The amount to add.</param>
+	/// <returns><c>true</c> if the operation was successful; otherwise, <c>false</c>.</returns>
+	/// <remarks>This is the recommended function for adding goods as it calls the game's internal logic.</remarks>
+	[LuaApiExport("AddGood")]
+	public bool TryAddGood(int playerId, eGoods good, int amount)
+	{
+		if (amount == 0)
+		{
+			return true;
+		}
+		return BulkPlayerDetours.c_game_player_add_resources_hook_impl(GameBuildingManagerAPI.Instance.GetBuildingManager(), playerId, good, amount) == 1;
+	}
+
+	/// <summary>
+	/// Removes a specified amount of a good from a player, taking it from their storage buildings.
+	/// </summary>
+	/// <param name="playerId">The ID of the player.</param>
+	/// <param name="good">The type of good to remove.</param>
+	/// <param name="amount">The amount to remove.</param>
+	/// <param name="bDontSubtractResources">A flag to prevent the visual subtraction effect (unconfirmed).</param>
+	/// <remarks>This is the recommended high-level function for removing goods.</remarks>
+	[LuaApiExport("RemoveGood")]
+	public void RemoveGood(int playerId, eGoods good, int amount, bool bDontSubtractResources = false)
+	{
+		if (amount != 0)
+		{
+			BulkPlayerDetours.c_game_player_subtract_resources_hook_impl(GameBuildingManagerAPI.Instance.GetBuildingManager(), playerId, good, amount, bDontSubtractResources ? 1 : 0);
+		}
+	}
+
+	/// <summary>
+	/// Checks if a player has at least a certain amount of a specific good.
+	/// </summary>
+	/// <param name="playerId">The ID of the player.</param>
+	/// <param name="good">The type of good to check.</param>
+	/// <param name="amount">The amount required.</param>
+	/// <returns><c>true</c> if the player has the required amount or more; otherwise, <c>false</c>.</returns>
+	[LuaApiExport("HasGoodsAmount")]
+	public bool HasGoodsAmount(int playerId, eGoods good, int amount)
+	{
+		return GetGoodAmount(playerId, good) >= amount;
+	}
+
+	/// <summary>
+	/// Retrieves the quantity of the specified good owned by the given player.
+	/// </summary>
+	/// <param name="playerId">The ID of the player.</param>
+	/// <param name="good">The type of good to check.</param>
+	/// <returns>The number of units of the specified good owned by the player. Returns 0 if the player does not own any of the
+	/// specified good.</returns>
+	[LuaApiExport("GetGoodAmount")]
+	public unsafe int GetGoodAmount(int playerId, eGoods good)
+	{
+		int* ptr = (int*)(&_playerResources._array[playerId - 1].r_TotalGoodsNull);
+		return ptr[(int)good];
+	}
+
+	/// <summary>
+	/// A custom, experimental implementation for removing goods from storage buildings. Do not use.
+	/// </summary>
+	/// <remarks>This function is obsolete because its visual update component is non-functional.</remarks>
+	[EditorBrowsable(EditorBrowsableState.Never)]
+	[Obsolete("Do not use.")]
+	public unsafe bool TryRemoveGoodEx(int playerId, eGoods good, int toRemoveAmount, bool onlyRemoveIfHasEnough)
+	{
+		if (toRemoveAmount == 0)
+		{
+			return true;
+		}
+		if (!TryGetPlayerResourcesById(playerId, out var _))
+		{
+			LogHelper.Warning($"Could not find player resource by id: {playerId}", "TryRemoveGoodEx", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+			return false;
+		}
+		GameStructQuery<GameBuilding> gameStructQuery = GameBuildingManagerAPI.Instance.QueryBuildings().Where(GameBuildingManagerAPI.BuildingPredicates.IsStorage).Where(GameBuildingManagerAPI.BuildingPredicates.IsOwnedByPlayer(playerId))
+			.Where(GameBuildingManagerAPI.BuildingPredicates.ContainsGoodInAnyStorage(good));
+		long num = 0L;
+		List<NativePointer<GameBuilding>> list = new List<NativePointer<GameBuilding>>();
+		GameStructQuery<GameBuilding>.Enumerator enumerator = gameStructQuery.GetEnumerator();
+		while (enumerator.MoveNext())
+		{
+			ref GameBuilding current = ref enumerator.Current;
+			num += current.GetLocalGoodsAmount(good);
+			list.Add((GameBuilding*)Unsafe.AsPointer(ref Unsafe.AsRef(in current)));
+		}
+		if (onlyRemoveIfHasEnough && num < toRemoveAmount)
+		{
+			return false;
+		}
+		long num2 = Math.Min(toRemoveAmount, num);
+		if (num2 == 0)
+		{
+			return true;
+		}
+		long num3 = num2;
+		foreach (NativePointer<GameBuilding> item in list)
+		{
+			GameBuilding* source = item;
+			if (num3 <= 0)
+			{
+				break;
+			}
+			ref GameBuilding self = ref Unsafe.AsRef<GameBuilding>(source);
+			int localGoodsAmount = self.GetLocalGoodsAmount(good);
+			long num4 = Math.Min(num3, localGoodsAmount);
+			self.RemoveLocalGoodsAmount(good, (int)(-num4));
+			self.UpdateLocalGoodsResourceVisuals();
+			num3 -= num4;
+		}
+		return true;
+	}
+
+	/// <summary>
+	/// Gets the local frame time for the native engine.
+	/// </summary>
+	/// <returns>Frame time / Tickrate of the native engine.</returns>
+	public double GetFrameTime()
+	{
+		return Director.instance.EngineFrameTime;
+	}
+
+	/// <summary>
+	/// Gets the local frame time for the native engine
+	/// Do not call in multiplayer.
+	/// </summary>
+	/// <param name="fps">The desired new tickrate.</param>
+	/// <returns>Frame time / Tickrate of the native engine.</returns>
+	[LuaApiExport("SetFrameTime")]
+	public void SetFrameTime(double fps)
+	{
+		UnityMainThreadDispatcher.Instance.Enqueue(delegate
+		{
+			if (GameNetworkAPI.IsNetworkedEnvironment())
+			{
+				LogHelper.Warning("Called from a networked environment! This is not safe!", "SetFrameTime", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+			}
+			Director.instance.SetEngineFrameRate(fps);
+		});
+	}
+
+	/// <summary>
+	/// Gameplay Option: Strong Walls
+	/// </summary>
+	/// <returns>Enabled</returns>
+	[LuaApiExport("IsNoKnockdownWalls")]
+	public unsafe bool IsNoKnockdownWalls()
+	{
+		if (_noKnockdownWalls == null)
+		{
+			return false;
+		}
+		return *_noKnockdownWalls == 1;
+	}
+
+	/// <summary>
+	/// Gameplay Option: Strong Walls
+	/// Warning: This can break AI behaviour.
+	/// </summary>
+	/// <param name="enabled">Enabled</param>
+	[LuaApiExport("SetNoKnockdownWalls")]
+	public unsafe void SetNoKnockdownWalls(bool enabled)
+	{
+		if (_noKnockdownWalls != null)
+		{
+			*_noKnockdownWalls = (enabled ? 1 : 0);
+		}
+	}
+
+	/// <summary>
+	/// Gameplay Option: Global Improved Siegeing Behaviour
+	/// </summary>
+	/// <returns>Enabled</returns>
+	[LuaApiExport("IsGlobalImprovedSiegeBehaviour")]
+	public unsafe bool IsGlobalImprovedSiegeBehaviour()
+	{
+		if (_globalImprovedSiegeBehaviour == null)
+		{
+			return false;
+		}
+		return *_globalImprovedSiegeBehaviour == 1;
+	}
+
+	/// <summary>
+	/// Gameplay Option: Global Improved Siegeing Behaviour
+	/// </summary>
+	/// <param name="enabled">Enabled</param>
+	[LuaApiExport("SetGlobalImprovedSiegeBehaviour")]
+	public unsafe void SetGlobalImprovedSiegeBehaviour(bool enabled)
+	{
+		if (_globalImprovedSiegeBehaviour != null)
+		{
+			*_globalImprovedSiegeBehaviour = (enabled ? 1 : 0);
+		}
+	}
+
+	/// <summary>
+	/// Gameplay Option: Global More Aggressive Siegeing Behaviour
+	/// </summary>
+	/// <returns>Enabled</returns>
+	[LuaApiExport("IsGlobalMoreAggressiveSiegeBehaviour")]
+	public unsafe bool IsGlobalMoreAggressiveSiegeBehaviour()
+	{
+		if (_globalMoreAggressiveSiegeBehaviour == null)
+		{
+			return false;
+		}
+		return *_globalMoreAggressiveSiegeBehaviour == 1;
+	}
+
+	/// <summary>
+	/// Gameplay Option: Global More Aggressive Siegeing Behaviour
+	/// </summary>
+	/// <param name="enabled">Enabled</param>
+	[LuaApiExport("SetGlobalMoreAggressiveSiegeBehaviour")]
+	public unsafe void SetGlobalMoreAggressiveSiegeBehaviour(bool enabled)
+	{
+		if (_globalMoreAggressiveSiegeBehaviour != null)
+		{
+			*_globalMoreAggressiveSiegeBehaviour = (enabled ? 1 : 0);
+		}
+	}
+
+	/// <summary>
+	/// Gameplay Option: Improved Arab Swordsman
+	/// </summary>
+	/// <returns>Enabled</returns>
+	[LuaApiExport("IsImprovedArabSwordsman")]
+	public bool IsImprovedArabSwordsman()
+	{
+		if (!_choreManagerOptionsInternal.IsValid())
+		{
+			return false;
+		}
+		return _choreManagerOptionsInternal.AdvOpt_ImprovedArabSwordsmen == 1;
+	}
+
+	/// <summary>
+	/// Gameplay Option: Improved Arab Swordsman
+	/// </summary>
+	/// <param name="enabled">Enabled</param>
+	[LuaApiExport("SetImprovedArabSwordsman")]
+	public void SetImprovedArabSwordsman(bool enabled)
+	{
+		if (_choreManagerOptionsInternal.IsValid())
+		{
+			_choreManagerOptionsInternal.AdvOpt_ImprovedArabSwordsmen = (enabled ? 1 : 0);
+		}
+	}
+
+	/// <summary>
+	/// Gameplay Option: Improved Ladderman
+	/// </summary>
+	/// <returns>Enabled</returns>
+	[LuaApiExport("IsImprovedLadderman")]
+	public bool IsImprovedLadderman()
+	{
+		if (!_choreManagerOptionsInternal.IsValid())
+		{
+			return false;
+		}
+		return _choreManagerOptionsInternal.AdvOpt_ImprovedLaddermen == 1;
+	}
+
+	/// <summary>
+	/// Gameplay Option: Improved Ladderman
+	/// </summary>
+	/// <param name="enabled">Enabled</param>
+	[LuaApiExport("SetImprovedLadderman")]
+	public void SetImprovedLadderman(bool enabled)
+	{
+		if (_choreManagerOptionsInternal.IsValid())
+		{
+			_choreManagerOptionsInternal.AdvOpt_ImprovedLaddermen = (enabled ? 1 : 0);
+		}
+	}
+
+	/// <summary>
+	/// Gameplay Option: Improved Spearman
+	/// </summary>
+	/// <returns>Enabled</returns>
+	[LuaApiExport("IsImprovedSpearman")]
+	public bool IsImprovedSpearman()
+	{
+		if (!_choreManagerOptionsInternal.IsValid())
+		{
+			return false;
+		}
+		return _choreManagerOptionsInternal.AdvOpt_ImprovedSpearmen == 1;
+	}
+
+	/// <summary>
+	/// Gameplay Option: Improved Spearman
+	/// </summary>
+	/// <param name="enabled">Enabled</param>
+	[LuaApiExport("SetImprovedSpearman")]
+	public void SetImprovedSpearman(bool enabled)
+	{
+		if (_choreManagerOptionsInternal.IsValid())
+		{
+			_choreManagerOptionsInternal.AdvOpt_ImprovedSpearmen = (enabled ? 1 : 0);
+		}
+	}
+
+	/// <summary>
+	/// Gameplay Option: Uncapped Peasants
+	/// </summary>
+	/// <returns>Enabled</returns>
+	[LuaApiExport("IsUncappedPeasants")]
+	public bool IsUncappedPeasants()
+	{
+		if (!_choreManagerOptionsInternal.IsValid())
+		{
+			return false;
+		}
+		return _choreManagerOptionsInternal.AdvOpt_UncappedPeasants == 1;
+	}
+
+	/// <summary>
+	/// Gameplay Option: Uncapped Peasants
+	/// </summary>
+	/// <param name="enabled">Enabled</param>
+	[LuaApiExport("SetUncappedPeasants")]
+	public void SetUncappedPeasants(bool enabled)
+	{
+		if (_choreManagerOptionsInternal.IsValid())
+		{
+			_choreManagerOptionsInternal.AdvOpt_UncappedPeasants = (enabled ? 1 : 0);
+		}
+	}
+
+	/// <summary>
+	/// Gameplay Option: Faster Peasants
+	/// </summary>
+	/// <returns>Enabled</returns>
+	[LuaApiExport("IsFasterPeasants")]
+	public bool IsFasterPeasants()
+	{
+		if (!_choreManagerOptionsInternal.IsValid())
+		{
+			return false;
+		}
+		return _choreManagerOptionsInternal.AdvOpt_FasterPeasants == 1;
+	}
+
+	/// <summary>
+	/// Gameplay Option: Faster Peasants
+	/// </summary>
+	/// <param name="enabled">Enabled</param>
+	[LuaApiExport("SetFasterPeasants")]
+	public void SetFasterPeasants(bool enabled)
+	{
+		if (_choreManagerOptionsInternal.IsValid())
+		{
+			_choreManagerOptionsInternal.AdvOpt_FasterPeasants = (enabled ? 1 : 0);
+		}
+	}
+
+	/// <summary>
+	/// Gameplay Option: Nerf Eunuchs
+	/// </summary>
+	/// <returns>Enabled</returns>
+	[LuaApiExport("IsNerfEunuchs")]
+	public bool IsNerfEunuchs()
+	{
+		if (!_choreManagerOptionsInternal.IsValid())
+		{
+			return false;
+		}
+		return _choreManagerOptionsInternal.AdvOpt_Eunuchs == 1;
+	}
+
+	/// <summary>
+	/// Gameplay Option: Nerf Eunuchs
+	/// </summary>
+	/// <param name="enabled">Enabled</param>
+	[LuaApiExport("SetNerfEunuchs")]
+	public void SetNerfEunuchs(bool enabled)
+	{
+		if (_choreManagerOptionsInternal.IsValid())
+		{
+			_choreManagerOptionsInternal.AdvOpt_Eunuchs = (enabled ? 1 : 0);
+		}
+	}
+
+	/// <summary>
+	/// Gameplay Option: Enemy Health
+	/// </summary>
+	/// <returns>Enabled</returns>
+	[LuaApiExport("GetEnemyHealthModifier")]
+	public EnemyHPModifier GetEnemyHealthModifier()
+	{
+		if (!_choreManagerOptionsInternal.IsValid())
+		{
+			return EnemyHPModifier.Normal;
+		}
+		return (EnemyHPModifier)_choreManagerOptionsInternal.AdvOpt_EnemyHPS;
+	}
+
+	/// <summary>
+	/// Gameplay Option: Enemy Health
+	/// </summary>
+	/// <param name="modifier">Modifier</param>
+	[LuaApiExport("SetEnemyHealthModifier")]
+	public void SetEnemyHealthModifier(EnemyHPModifier modifier)
+	{
+		if (_choreManagerOptionsInternal.IsValid())
+		{
+			_choreManagerOptionsInternal.AdvOpt_EnemyHPS = (int)modifier;
+		}
+	}
+
+	/// <summary>
+	/// Gameplay Option: Healers
+	/// </summary>
+	/// <returns>Enabled</returns>
+	[LuaApiExport("IsBetterHealers")]
+	public bool IsBetterHealers()
+	{
+		if (!_choreManagerOptionsInternal.IsValid())
+		{
+			return false;
+		}
+		return _choreManagerOptionsInternal.AdvOpt_Healers == 1;
+	}
+
+	/// <summary>
+	/// Gameplay Option: Healers
+	/// </summary>
+	/// <param name="enabled">Enabled</param>
+	[LuaApiExport("SetBetterHealers")]
+	public void SetBetterHealers(bool enabled)
+	{
+		if (_choreManagerOptionsInternal.IsValid())
+		{
+			_choreManagerOptionsInternal.AdvOpt_Healers = (enabled ? 1 : 0);
+		}
+	}
+
+	/// <summary>
+	/// Gameplay Option: Rebalanced Horse Archers
+	/// </summary>
+	/// <returns>Enabled</returns>
+	[LuaApiExport("IsRebalancedHorseArchers")]
+	public bool IsRebalancedHorseArchers()
+	{
+		if (!_choreManagerOptionsInternal.IsValid())
+		{
+			return false;
+		}
+		return _choreManagerOptionsInternal.AdvOpt_RebalancedHorseArchers == 1;
+	}
+
+	/// <summary>
+	/// Gameplay Option: Rebalanced Horse Archers
+	/// </summary>
+	/// <param name="enabled">Enabled</param>
+	[LuaApiExport("SetRebalancedHorseArchers")]
+	public void SetRebalancedHorseArchers(bool enabled)
+	{
+		if (_choreManagerOptionsInternal.IsValid())
+		{
+			_choreManagerOptionsInternal.AdvOpt_RebalancedHorseArchers = (enabled ? 1 : 0);
+		}
+	}
+
+	/// <summary>
+	/// Gameplay Option: Improved Fletchers
+	/// </summary>
+	/// <returns>Enabled</returns>
+	[LuaApiExport("IsImprovedFletchers")]
+	public bool IsImprovedFletchers()
+	{
+		if (!_choreManagerOptionsInternal.IsValid())
+		{
+			return false;
+		}
+		return _choreManagerOptionsInternal.AdvOpt_ImprovedFletchers == 1;
+	}
+
+	/// <summary>
+	/// Gameplay Option: Improved Fletchers
+	/// </summary>
+	/// <param name="enabled">Enabled</param>
+	[LuaApiExport("SetImprovedFletchers")]
+	public void SetImprovedFletchers(bool enabled)
+	{
+		if (_choreManagerOptionsInternal.IsValid())
+		{
+			_choreManagerOptionsInternal.AdvOpt_ImprovedFletchers = (enabled ? 1 : 0);
+		}
+	}
+
+	/// <summary>
+	/// Gameplay Option: Advanced Options
+	/// </summary>
+	/// <returns>Enabled</returns>
+	[LuaApiExport("IsAdvancedOptionsEnabled")]
+	public bool IsAdvancedOptionsEnabled()
+	{
+		if (!_choreManagerOptionsInternal.IsValid())
+		{
+			return false;
+		}
+		return _choreManagerOptionsInternal.AdvancedOptions == 1;
+	}
+
+	/// <summary>
+	/// Gameplay Option: Advanced Options
+	/// </summary>
+	/// <param name="enabled">Enabled</param>
+	[LuaApiExport("SetAdvancedOptionsEnabled")]
+	public void SetAdvancedOptionsEnabled(bool enabled)
+	{
+		if (_choreManagerOptionsInternal.IsValid())
+		{
+			_choreManagerOptionsInternal.AdvancedOptions = (enabled ? 1 : 0);
+		}
+	}
+
+	/// <summary>
+	/// Gameplay Option: Advanced Skirmish Options
+	/// </summary>
+	/// <returns>Enabled</returns>
+	[LuaApiExport("IsAdvancedSkirmishOptionsEnabled")]
+	public bool IsAdvancedSkirmishOptionsEnabled()
+	{
+		if (!_choreManagerOptionsInternal.IsValid())
+		{
+			return false;
+		}
+		return _choreManagerOptionsInternal.AdvancedSkirmishOptions == 1;
+	}
+
+	/// <summary>
+	/// Gameplay Option: Advanced Skirmish Options
+	/// </summary>
+	/// <param name="enabled">Enabled</param>
+	[LuaApiExport("SetAdvancedSkirmishOptionsEnabled")]
+	public void SetAdvancedSkirmishOptionsEnabled(bool enabled)
+	{
+		if (_choreManagerOptionsInternal.IsValid())
+		{
+			_choreManagerOptionsInternal.AdvancedSkirmishOptions = (enabled ? 1 : 0);
+		}
+	}
+
+	/// <summary>
+	/// Get the current base trade price of a good.
+	/// </summary>
+	/// <param name="good">The good to query</param>
+	/// <returns>The base price.</returns>
+	/// <example>
+	/// print(Player_GetTradeBasePrice(eGoods.STORED_WOOD_PLANKS).SellPrice)
+	/// </example>
+	[LuaApiExport("GetTradeBasePrice")]
+	public unsafe PackedGoodPrice GetTradeBasePrice(eGoods good)
+	{
+		PackedGoodPrice* ptr = (PackedGoodPrice*)((long)_playerManager + 1578936);
+		LogHelper.Verbose("PriceTable: " + new IntPtr(ptr).ToString("X16"), "GetTradeBasePrice", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+		if ((int)good > GoodsEnumCount || good < eGoods.STORED_NULL)
+		{
+			LogHelper.Warning($"Attempted to get base price of a good that is out of bounds: {(int)good}", "GetTradeBasePrice", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+			return default(PackedGoodPrice);
+		}
+		return ptr[(int)good];
+	}
+
+	/// <summary>
+	/// Set the current base trade price of a good (this gets overwritten per map by defaults)
+	/// </summary>
+	/// <param name="good">The good to query</param>
+	/// <param name="price">The new price</param>
+	public unsafe void SetTradeBasePrice(eGoods good, PackedGoodPrice price)
+	{
+		PackedGoodPrice* ptr = (PackedGoodPrice*)((long)_playerManager + 1578936);
+		if ((int)good > GoodsEnumCount || good < eGoods.STORED_NULL)
+		{
+			LogHelper.Warning($"Attempted to set base price of a good that is out of bounds: {(int)good}", "SetTradeBasePrice", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+		}
+		else
+		{
+			ptr[(int)good] = price;
+		}
+	}
+
+	/// <summary>
+	/// Get the default base trade price of a good.
+	/// </summary>
+	/// <param name="good">The good to query</param>
+	/// <returns>The default base price.</returns>
+	/// <example>
+	/// print(Player_GetDefaultTradeBasePrice(eGoods.STORED_WOOD_PLANKS).BuyPrice)
+	/// </example>
+	[LuaApiExport("GetDefaultTradeBasePrice")]
+	public unsafe PackedGoodPrice GetDefaultTradeBasePrice(eGoods good)
+	{
+		int num = 112;
+		int* ptr = (int*)((ulong)(long)CrusaderLibrary.Instance.LibraryModuleHandle + GameGlobalsManager.Instance.DefaultTradeBuyPriceTableRVA);
+		int* ptr2 = (int*)((long)CrusaderLibrary.Instance.LibraryModuleHandle + (long)GameGlobalsManager.Instance.DefaultTradeBuyPriceTableRVA + num);
+		if ((int)good > GoodsEnumCount || good < eGoods.STORED_NULL)
+		{
+			LogHelper.Warning($"Attempted to get default base price of a good that is out of bounds: {(int)good}", "GetDefaultTradeBasePrice", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+			return default(PackedGoodPrice);
+		}
+		return new PackedGoodPrice(ptr[(int)good], ptr2[(int)good]);
+	}
+
+	/// <summary>
+	/// Set the default base trade price of a good (the current price that every map load pulls from is from this)
+	/// </summary>
+	/// <param name="good">The good to query</param>
+	/// <param name="price">The new default price</param>
+	public unsafe void SetDefaultTradeBasePrice(eGoods good, PackedGoodPrice price)
+	{
+		int num = 112;
+		int* ptr = (int*)((ulong)(long)CrusaderLibrary.Instance.LibraryModuleHandle + GameGlobalsManager.Instance.DefaultTradeBuyPriceTableRVA);
+		int* ptr2 = (int*)((long)CrusaderLibrary.Instance.LibraryModuleHandle + (long)GameGlobalsManager.Instance.DefaultTradeBuyPriceTableRVA + num);
+		if ((int)good > GoodsEnumCount || good < eGoods.STORED_NULL)
+		{
+			LogHelper.Warning($"Attempted to set default base price of a good that is out of bounds: {(int)good}", "SetDefaultTradeBasePrice", "C:\\Users\\Serpens66\\AppData\\Local\\Temp\\shcdese-local-build-19079-6972\\source\\src\\SHCDESE.BepInEx\\API\\GamePlayerManagerAPI.cs");
+			return;
+		}
+		ptr[(int)good] = price.BuyPrice;
+		ptr2[(int)good] = price.SellPrice;
+	}
+
+	/// <summary>
+	/// Plays a lord message.
+	/// </summary>
+	/// <param name="playerId">The player id the message will be owned by.</param>
+	/// <param name="lord">The AILord associated with the message.</param>
+	/// <param name="msgType">The message type id.</param>
+	/// <returns></returns>
+	[LuaApiExport("PlayMessage")]
+	public ulong PlayMessage(int playerId, AILords lord, AILordMessageType msgType)
+	{
+		return BulkAIDetours.c_game_ai_enqueue_message_wrapper_hook_impl(GameGlobalsManager.Instance.MessageManagerVA, (ulong)playerId, lord, (ulong)msgType);
+	}
+
+	/// <summary>
+	/// Begins a high-performance query over all possible player resources slots.
+	/// </summary>
+	/// <returns>A <see cref="T:SHCDESE.Interop.Query.GameStructQuery`1" /> instance to build upon.</returns>
+	public unsafe GameStructQuery<GamePlayerResources> QueryPlayerResources()
+	{
+		return new GameStructQuery<GamePlayerResources>(_playerResources._array, _playerResources.Length);
+	}
+
+	/// <summary>
+	/// The core query execution method. All public query functions delegate to this.
+	/// </summary>
+	public void ExecuteQuery(List<int> results, RefPredicate<GamePlayerResources> basePredicate)
+	{
+		QueryPlayerResources().Where(basePredicate).ToIdList(results);
+	}
+
+	/// <summary>
+	/// Fills a list with IDs of all player resources, with optional filters (no spatial constraint).
+	/// </summary>
+	/// <param name="results">The list to be cleared and filled with player resources IDs.</param>
+	public void GetAllPlayerResources(List<int> results)
+	{
+		ExecuteQuery(results, PlayerResourcePredicates.Any);
+	}
+}

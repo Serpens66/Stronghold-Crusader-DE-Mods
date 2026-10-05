@@ -1,5 +1,13 @@
 # AI tower rebuilding and tower-ruin cleanup
 
+> Correction, 2026-10-05, same native hash: the native cleanup radius below was
+> misidentified as Manhattan distance. `0x79C0` returns the sum but writes the
+> maximum axis delta at buffer +12 (`0x1834A9F5C`); `0x5CD90` compares that
+> output. Its native boundary is therefore Chebyshev <=20. Statements below
+> about a diamond-shaped native region are superseded. The existing mod's
+> Manhattan policy remains a separate implementation, not proof of Vanilla.
+> See `../../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/AIV_BUILD_RANGE.md`.
+
 ## Scope and reference build
 
 This document records the native analysis and runtime evidence used by

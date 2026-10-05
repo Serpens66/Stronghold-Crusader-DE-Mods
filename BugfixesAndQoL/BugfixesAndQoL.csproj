@@ -349,6 +349,11 @@
     <Compile Include="..\Shared\TroopActionButtonLayoutPolicy.cs"><Link>Shared\TroopActionButtonLayoutPolicy.cs</Link></Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <ItemGroup>
+    <Compile Include="src\AIKeepRangeRuntime.cs" />
+    <Compile Include="src\AIKeepRangeNativeContract.cs" />
+    <Compile Include="src\AIKeepRangeDecision.cs" />
+  </ItemGroup>
   <Target Name="ValidateScriptExtenderReference" BeforeTargets="BeforeBuild">
     <Error Condition="!Exists('$(ApiSharedDir)\APIShared.dll')" Text="APIShared.dll was not found: $(ApiSharedDir)" />
     <Error Condition="!Exists('$(ExtenderDir)\SHCDESE.dll')" Text="SHCDESE.dll was not found: $(ExtenderDir)" />

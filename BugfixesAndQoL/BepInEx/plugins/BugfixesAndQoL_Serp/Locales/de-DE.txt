@@ -378,3 +378,5 @@ BugfixesAndQoL.DamagedHealthBarsClearHelp=Entfernt die zugewiesene Tastenkombina
 
 BugfixesAndQoL.EnableAiRaidRetargetFix=KI-Raidziele ohne Nahkampfzugang überspringen
 BugfixesAndQoL.EnableAiRaidRetargetFixHelp=Nahkampf-Raidgruppen versuchen ein anderes Gebäude, wenn Vanilla keinen nutzbaren Angriffspunkt findet. Gebäudeprioritäten bleiben unverändert; erreichbare Kornkammern bleiben gültige Ziele.
+BugfixesAndQoL.RemoveAIKeepRangeLimit=KI-Baureichweite nicht begrenzen
+BugfixesAndQoL.RemoveAIKeepRangeLimitHelp=Entfernt nur die Entfernungsprüfung zum eigenen oder verbündeten Keep für alle KI-Baupfade. Für Menschen bleibt die normale Reichweite erhalten, einschließlich eines optionalen ExtraFeatures-Overrides. Gelände, Belegung, Gegnernähe und alle weiteren Bauvoraussetzungen gelten weiterhin.

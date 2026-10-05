@@ -159,3 +159,4 @@ if ($addedLines -match 'CodePatch\.Write|Marshal\.Write|VirtualProtect|\.Apply\s
     throw 'New executable runtime mutation detected.'
 }
 Write-Host 'Repair preflight passed: binary hashes, JSON, lifecycle, hook rollback, XAML, CRLF, versions and workspace mutations.'
+& (Join-Path $project 'Test-KeepBuildRange.ps1')

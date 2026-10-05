@@ -123,3 +123,143 @@ The existing D9C40 owner also filters its own weighted routes when an APIShared 
 ## 2026-10-03: independent bridge diagnosis and gatehouse boundary
 
 All bridge edge masks (including the old center seam) have been removed from EnemyGatePathfindingTest. Gate identity/axis linkage is retained. EnemyBridgePathTest 0.1.0 is read-only and independently registered through APIShared; mainmod-owned hooks emit existing results only when an observer is registered. No new native hooks or active bridge policy. The 22:46 experimental mask and its 5,712 NoRoute result are historical, not the current gate policy. Native/SE identities remain confirmed. Pure-gate game acceptance remains pending; see Testmods/EnemyGatePathfindingTest/ACCEPTANCE.md and Testmods/EnemyBridgePathTest/HANDOFF.md. Work commands use existing nested MoveHere and synchronous before/after fields; no task-index or return value is interpreted as proof of work execution.
+
+# AI-only Keep build range (integrated from AIKeepRangeLimitTest)
+
+Integrated feature; BugfixesAndQoL version remains unchanged during integration tests. Host-controlled `EnableMod` and
+`RemoveAIKeepRangeLimit` default to true. Both use `[SyncHostOnly]`, APIShared's
+`PresetLobbyModSettingsViewModel` and `LobbyModSettingsPresetRegistration`.
+No separate transport, session settings copy, engine lock or polling exists.
+All peers need the matching BugfixesAndQoL NetworkMode=1 mod. README files are intentionally unchanged.
+
+## Native identity and resolution
+
+Owner: removal of the own/allied Keep distance limit for **all AI callers**.
+Canonical CrusaderDE.dll SHA-256:
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+Entry RVA `0xEEF90`, length 317 bytes, body SHA-256
+`83D062DDDBAFEC9EB33F704FA914609B6761E16DAE351A64F7491319984DF12E`.
+Windows x64 ABI: `int64 (void* manager, int32 playerId, uint32 x, uint32 y, int32 range)`.
+Zero accepts; one rejects with reason 18. Own Keep uses inclusive max-axis
+distance <= range; allied Keeps use integer(range/2). This helper performs no
+terrain, occupation, enemy-distance or resource validation. Its coordinate
+guard returns zero for out-of-map cells; the caller owns other validity checks.
+
+Resolution validates the reference entry against the full 40-byte prologue
+pattern in `AIKeepRangeNativeContract.Pattern`. If that fails, the shared resolver searches
+executable PE sections for a unique match, including when the file hash matches.
+Then require the audited file hash, original RVA and complete function body.
+A new binary remains disabled even with a matching prologue: incoming-edge and
+caller semantics have not been proved for that binary. Error-level timestamped
+diagnostics identify validation failures; no global override or alternate hook
+is used. Successful resolution reports its method and actual RVA at Info level.
+
+## Detour and ABI contract
+
+Installed RedBird.NativeX64 1.5.0.0 is tested with its actual NativeDetour backend,
+not an inline/context hook. Accept only `Indirect`: six patch bytes, rounded to
+two five-byte instructions, `[0xEEF90,0xEEF9A)`. These instructions save RBX to
+`[rsp+8]` and RBP to `[rsp+16]`; they do not clobber arguments, flags or registers.
+The first undisplaced instruction at `0xEEF9A` saves RSI. The trampoline must
+contain both unchanged instructions and jump to target+10. No custom register or
+flags wrapper is required for this full-function ABI detour.
+
+Validate Scheme, DisplacedByteCount, target, chain depth, trampoline and original
+entry before installation; afterwards verify them again plus FF25 entry jump,
+pointer slot, hook entry and four NOP padding bytes. Probe the copied entry first.
+The full predicate is decoded with Iced and checked for interior branch targets.
+The semantic database has calls at `0x7A73A`, `0xEE611` and a function reference
+at `0x88F5680`, all to the entry, none to its interior. Placement's `0x783EA` call
+is confirmed from actual bytes despite the baseline callgraph coverage gap.
+The executable-section raw rel32 candidate scan also rejects any potential
+interior edge; it is conservative and does not claim every byte is an instruction.
+There is no jump table or indirect entry in this predicate. Preserve this full
+audit when updating rather than relying on a prologue-only match.
+
+The original delegate is assigned before enabling the unpublished candidate.
+Only an installation failure can dispose that candidate. A published hook, its
+delegate, runtime, logger and subscriptions remain rooted until process exit.
+Activation changes only the logical integer flag. No runtime Dispose method or
+Unity teardown path exists. Central initialization refreshes before prebuilt
+castles and after loading; mission end clears the logical flag. Activation follows BugfixesAndQoL EnableMod and RemoveAIKeepRangeLimit; no extra game-mode restriction is introduced.
+
+## Player identity, compatibility and side effects
+
+Use the installed public `GamePlayerManagerAPI.MAX_PLAYERS` (8) and
+`IsAIPlayer(int) -> bool`. The API bounds player IDs and tests GetAILord against
+SK_NULL. No new Assembly-CSharp member access or publicized reference is used.
+Invalid IDs, humans, disabled settings and failed AI classification run the
+original exactly once with unchanged arguments. Classification errors turn off
+the logical exception and are logged once. Logging cannot suppress or repeat
+Vanilla. Successful AI decisions return zero without the distance helper's
+rejection/scratch writes; callers' subsequent checks still run.
+
+Caller audit includes ordinary footprint validation `0x77E60`, `0x7A3B0` and
+`0xEE320`, AIV construction/prebuild and procedural economy construction
+`0x52270 -> 0x6D580 -> 0x77E60`. This deliberately covers more than AIV frames.
+Script Extender owns global range provider `0x6AF00`; this mod never changes
+`KeepProximityOverride`. ExtraFeatures' global slider continues to affect humans;
+AI ignores the resulting distance threshold while this test is enabled.
+The inspected Extender and canonical Fixes sources have no competing EEF90 hook.
+Soft dependencies order this mod after Fixes and ExtraFeatures when present;
+neither is required. A foreign native patch fails full-body validation.
+
+## Validation and pending gameplay acceptance
+
+`Test-AIKeepRangePreflight.ps1` checks runtime JSON/lifecycle/polling, candidate-only mutations,
+workspace permanent hooks, host metadata, XAML, all locale keys and CRLF. It runs
+the hash/xref audit and tests compiled against the installed RedBird binaries.
+The tests execute an actual detour and original trampoline over the audited
+prologue with a synthetic continuation, preserving the fifth stack argument.
+They cover AI, human, invalid and disabled branches and exact original call counts.
+This proves the tested ABI and decision policy, not live native game behavior.
+Existing `_inspect/HostClientPresetTests` exercises shared host/preset/trail rules.
+
+Runtime evidence from the former testmod, 2026-10-05: installation at 14:09:28,
+AI player 2 bypass at 14:11:28 with native range 70, human player 1 forwarded
+at 14:12:35 with range 70, across two singleplayer sessions. No Error/Fatal or
+classification failures in that start section. The user confirmed successful
+castle construction. This is prior behavior evidence, not an integration test.
+
+Integrated runtime logging: one Info installation line (resolution method, RVA,
+Indirect/10), one first-callback Debug marker AI_KEEP_RANGE_CALLBACK, and a single
+classification Error that disables the exception until process restart. No
+per-cell/player success counters or recurring messages remain. Lifecycle and
+settings changes cannot clear a classification fault. Central mission events
+still apply before prebuild, after save initialization and at mission end.
+
+RemoveAIKeepRangeLimit defaults/resets to true and uses the existing host-setting
+system under Fixes?. It is independent of EnableClientFeatures. Settings changes
+refresh this feature once; EnableMod follows the normal ApplySettings path.
+The runtime, callback and hook are statically rooted and excluded from the parent
+runtime's generic Dispose. No new public API or private Assembly-CSharp access.
+The existing Extender/APIShared minimum versions remain unchanged: all required
+native/public API dependencies were already referenced by BugfixesAndQoL.
+
+A soft dependency orders initialization after any residual AIKeepRangeLimitTest_Serp.
+A loaded-testmod guard rejects only this new feature before native resolution,
+leaving unrelated BugfixesAndQoL features active. After verified installation,
+remove the old testmod project and its installed plugin folder while the game is
+stopped. No old test settings are imported; defaults apply. Analysis artifacts
+in _inspect/AIKeepRangeLimit remain. Backend/decision tests now live in
+BugfixesAndQoL/tests/AIKeepRange.Tests and are invoked by the main build driver.
+They also compile the production runtime with test settings/publishers to check
+prebuild/save initialization, mission change, host disable and permanent fault
+handling. Existing shared host/client/preset/trail tests remain authoritative
+for transport, roles and persistence.
+
+Pending integration gameplay acceptance: Baibars 400x400 at global -1 with the
+new checkbox on/off; human fortifications; prebuilt castles, rebuilding,
+additional AI construction callers, saves and genuine host/client multiplayer.
+Other ExtraFeatures slider values remain untested in game.
+Integration validation: the AI-specific preflight and 105 backend/decision
+checks passed, plus the production-runtime lifecycle/fault harness. The existing
+build driver completed its host/client/preset/trail and other regression suites,
+built and installed version 1.0.174 with no errors. Dependency assembly-version
+warnings remain in the existing build graph; this feature adds no references.
+Installed DLL SHA-256:
+DCDD0D1D8EF43453591AF4F0E2AB17204D306BF91EA27315BADA54A5BC89A042.
+All 24 DLL/metadata/XAML/locale files matched the local package. With the game
+stopped and both absolute paths verified, the former testmod project and installed
+AIKeepRangeLimitTest_Serp plugin folder were removed. Analysis artifacts remain.
+No integrated in-game tests were performed during this implementation.

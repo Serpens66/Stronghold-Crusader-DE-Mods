@@ -16,6 +16,7 @@ namespace BugfixesAndQoL
     [BepInDependency("ExtraFeatures_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(LegacySomeSettingsGuid, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
+    [BepInDependency("AIKeepRangeLimitTest_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInIncompatibility(LegacyTroopMovementFixGuid)]
     [BepInIncompatibility(TroopMovementFix2Guid)]
     [BepInIncompatibility(TroopMovementFix3Guid)]

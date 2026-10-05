@@ -36,6 +36,7 @@ namespace ExtraFeatures
         private double plagueDurationMultiplier = 4.0;
         private int apothecaryPlagueSearchDistance = 50;
         private int campfirePeasantsLimit = -1;
+        private int keepBuildRange = -1;
         private int vanillaPeaceTimeMinutes;
         private int humanLordHealthPercent = LordHealthMultiplierPolicy.DefaultPercent;
         private int aiLordHealthPercent = LordHealthMultiplierPolicy.DefaultPercent;
@@ -273,6 +274,10 @@ namespace ExtraFeatures
             set => SetIntValueText(value, parsed => ApothecaryPlagueSearchDistance = parsed, nameof(ApothecaryPlagueSearchDistanceValueText));
         }
         public string CampfirePeasantsLimitText { get => CampfirePeasantsLimit.ToString(CultureInfo.InvariantCulture); set => SetIntValueText(value, parsed => CampfirePeasantsLimit = parsed, nameof(CampfirePeasantsLimitText)); }
+        [SyncHostOnly] public int KeepBuildRange { get => keepBuildRange; set => SetIntSetting(ref keepBuildRange, value, -1, 500, nameof(KeepBuildRange), nameof(KeepBuildRangeValueText)); }
+        public string KeepBuildRangeText => SerpLocalization.Get("SomeSettings.KeepBuildRange");
+        public string KeepBuildRangeHelpText => SerpLocalization.Get("SomeSettings.KeepBuildRangeHelp");
+        public string KeepBuildRangeValueText { get => FormatWholeTiles(KeepBuildRange); set => SetIntValueText(value, parsed => KeepBuildRange = parsed, nameof(KeepBuildRangeValueText)); }
         [Obsolete("Peace Time is now configured through Vanilla Game Options in BugfixesAndQoL.")]
         public string VanillaPeaceTimeMinutesText
         {
@@ -326,6 +331,7 @@ namespace ExtraFeatures
                 PlagueDurationMultiplier = 4.0;
                 ApothecaryPlagueSearchDistance = 50;
                 CampfirePeasantsLimit = -1;
+                KeepBuildRange = -1;
                 HumanLordHealthPercent = LordHealthMultiplierPolicy.DefaultPercent;
                 AILordHealthPercent = LordHealthMultiplierPolicy.DefaultPercent;
                 EnableMonksAlwaysRun = false;

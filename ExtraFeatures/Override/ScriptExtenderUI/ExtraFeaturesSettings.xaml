@@ -284,6 +284,12 @@
           </StackPanel>
         </CheckBox>
       </Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.keep-build-range" shared:ModSettingsSearch.Title="{Binding KeepBuildRangeText}" shared:ModSettingsSearch.ToolTipText="{Binding KeepBuildRangeHelpText}" Margin="0,0,0,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding KeepBuildRangeHelpText}">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="260"/><ColumnDefinition Width="220"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions>
+        <TextBlock Grid.Column="0" Text="{Binding KeepBuildRangeText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
+        <Slider Grid.Column="1" Minimum="-1" Maximum="500" Value="{Binding KeepBuildRange, Mode=TwoWay}" TickFrequency="1" SmallChange="1" LargeChange="1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding KeepBuildRangeHelpText}"/>
+        <TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Column="2" Text="{Binding KeepBuildRangeValueText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding KeepBuildRangeHelpText}" MinWidth="56" MaxWidth="120" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/>
+      </Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.campfire-peasants" shared:ModSettingsSearch.Title="{Binding CampfirePeasantsText}" shared:ModSettingsSearch.ToolTipText="{Binding CampfirePeasantsHelpText}" Margin="0,0,0,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding CampfirePeasantsHelpText}">
         <Grid.ColumnDefinitions><ColumnDefinition Width="260"/><ColumnDefinition Width="220"/><ColumnDefinition Width="55"/></Grid.ColumnDefinitions>
         <TextBlock Grid.Column="0" Text="{Binding CampfirePeasantsText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>

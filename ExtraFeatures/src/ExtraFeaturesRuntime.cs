@@ -28,6 +28,7 @@ namespace ExtraFeatures
 
         private readonly ManualLogSource log;
         private readonly ExtraFeaturesViewModel settings;
+        private static KeepBuildRangeRuntime processKeepBuildRangeRuntime;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private readonly HashSet<string> resourceAddReentryGuards = new HashSet<string>();
         private readonly Dictionary<string, ResourceEventCountGuard> marketBuyResourceGuards = new Dictionary<string, ResourceEventCountGuard>();
@@ -93,6 +94,12 @@ namespace ExtraFeatures
         public object GatehouseAutomationButton => gatehouseAutomationRuntime.ButtonViewModel;
         public void InitializeNetwork()
         {
+            TryRunFeature("keep build range lifecycle", () =>
+            {
+                if (processKeepBuildRangeRuntime == null)
+                    processKeepBuildRangeRuntime = new KeepBuildRangeRuntime(log, settings);
+                processKeepBuildRangeRuntime.Initialize();
+            });
             TryRunFeature("troop action HUD coordinator", troopActionHudCoordinator.Initialize);
             try
             {
@@ -168,6 +175,7 @@ namespace ExtraFeatures
 
         public void ApplySettings()
         {
+            processKeepBuildRangeRuntime?.Refresh();
             TryRunFeature("building repair HUD configuration", ReconcileBuildingRepairHud);
             ApplyNoKillRewardSetting();
             ApplyHealerTargetsSetting();
@@ -431,6 +439,13 @@ namespace ExtraFeatures
 
         private void OnSettingChanged(string propertyName)
         {
+            if (propertyName == nameof(ExtraFeaturesViewModel.KeepBuildRange))
+            {
+                processKeepBuildRangeRuntime?.Refresh();
+                return;
+            }
+            if (propertyName == nameof(ExtraFeaturesViewModel.EnableMod))
+                processKeepBuildRangeRuntime?.Refresh();
             if (propertyName == nameof(ExtraFeaturesViewModel.EnableMod) ||
                 propertyName == nameof(ExtraFeaturesViewModel.EnableFearFactorNeutralization))
                 TryRunFeature("fear-factor configuration", ApplyFearFactorSetting);

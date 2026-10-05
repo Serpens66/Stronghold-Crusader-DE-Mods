@@ -54,6 +54,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="src\LordHealthSaveState.cs" />
+    <Compile Include="src\KeepBuildRangeOverride.cs" />
+    <Compile Include="src\KeepBuildRangeRuntime.cs" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\Shared\GameModeHelper.cs"><Link>Shared\GameModeHelper.cs</Link></Compile>

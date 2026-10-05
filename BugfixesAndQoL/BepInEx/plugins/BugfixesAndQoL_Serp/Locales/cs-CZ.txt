@@ -378,3 +378,5 @@ BugfixesAndQoL.DamagedHealthBarsClearHelp=Remove the assigned shortcut for toggl
 
 BugfixesAndQoL.EnableAiRaidRetargetFix=Skip inaccessible AI raid targets
 BugfixesAndQoL.EnableAiRaidRetargetFixHelp=Melee raiding groups try another building when Vanilla finds no usable attack position. Vanilla building priorities remain unchanged; reachable granaries remain valid targets.
+BugfixesAndQoL.RemoveAIKeepRangeLimit=Do not limit AI keep build range
+BugfixesAndQoL.RemoveAIKeepRangeLimitHelp=Removes only the own/allied Keep distance check for all AI construction paths. Human players retain their normal range, including an optional ExtraFeatures override. Terrain, occupancy, enemy proximity and all other building requirements still apply.

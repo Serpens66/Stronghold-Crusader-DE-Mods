@@ -403,3 +403,54 @@ The existing gate controls now also support `STRUCT_DRAWBRIDGE` in `ShowDrawbrid
 The callback receives a one-based building ID and resolves its live typed record and current Global-ID before consulting the saved manual set. Gatehouses additionally require the matching path connection record; drawbridges explicitly do not. Only gatehouse types may read/write the manual gate timer. Removed the manual gate's blanket candidate veto: Vanilla and BugfixesAndQoL still decide whether an enemy is eligible; APIShared changes only the recipient of the resulting automatic command. Both linking directions filter each manual recipient before any writes. Direct commands and accepted animations remain Vanilla.
 
 Keep the existing Chore packet identifiers, five fields, save Version 2 and typed map locators. Older Version 1 saves retain support. A reused slot with a different Global-ID is automatic; bridges need no new payload field. All peers must install this implementation. Hooks are permanent and publisher-rooted beyond startup cleanup. A missing/rejected automation capability hides only this button and releases gate sentinels; independent timing settings remain active. JSON/Lifecycle/XAML and workspace hook preflight: `../_inspect/GateBridgeAutomation/Verify.ps1`. No new managed Assembly-CSharp members are accessed. Keep versions unchanged until real gameplay acceptance, including mixed modes, two bridges, orientations, save/load/editor, occupancy, elevated bridges and genuine host/client synchronization.
+# Keep build range (2026-10-05)
+
+Host setting `KeepBuildRange`: default -1, whole tiles -1..500; -1/0 release
+our override, positive values apply globally to humans and AI in allowed modes.
+Uses public `GameBuildingManagerAPI.Instance.KeepProximityOverride.GetValue/SetValue`
+and central `MissionEvents.Initialization/Ended`; no new native hook or direct
+game member access. Process-static runtime retains callbacks past startup.
+
+Native provenance: SHA-256
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+Semantic derivation: placement `0x77E60` -> range provider `0x6AF00` ->
+full-footprint predicate `0xEEF90` (max-axis output from `0x79C0`). The installed
+Extender detours the range provider and accepts a global override only if >0.
+These RVAs document the API's implementation, not runtime addresses used by
+ExtraFeatures. Search scope on updates: Extender BulkBuildingDetours and
+GameBuildingManagerAPI, plus their current native targets; no mod AOB fallback.
+If the API operation fails, log the feature error and leave unrelated features
+running; do not fall back to direct RVA calls or executable-memory changes.
+
+Audit details and default range table: workspace native baseline
+`sem/FBCB9319/knowledge/AIV_BUILD_RANGE.md`. On dependency updates verify the
+public property/signatures, >0 test, range table, full-footprint semantics,
+RedBird SetValue/ClearOverrides behavior and initialization before prebuilt AIVs.
+SetValue replaces the top value; it may survive unload at base depth. Restoration
+is conditional on matching our last write. No owner tokens exist for identical
+foreign values. Local Fixes source has no competing range override.
+
+Regression: `Test-KeepBuildRange.ps1` exercises the actual installed RedBird value,
+ownership restoration, all 500 positive integers, map resets, raster bounds,
+host slider contract and locale parity. Live 400-map slider/prebuild/save/MP
+validation is still required; the user's 500-map success predates this feature.
+
+## Settings-flow correction and AI-only test (2026-10-05)
+
+Repeated identical positive values return without SetValue. A matching foreign
+value is not adopted; a foreign replacement releases stale ownership before the
+comparison. Positive owned changes retain the original predecessor. The dedicated
+KeepBuildRange setting path returns before the general ApplySettings pass.
+The internal lock protects ownership bookkeeping only, not external API readers.
+Host sync, presets, trails and editing permissions remain entirely in the existing
+settings system; there is no engine threadLock access or extra session copy.
+
+The earlier parallel ManagedValue stress test demonstrated that this API is not
+thread-safe (142 IndexOutOfRangeException events and 8111 transient default reads
+in that synthetic run). It did not demonstrate overlapping writes/reads in the
+normal pregame modsettings flow and is not evidence of a reproduced gameplay bug.
+
+The AI-only feature is integrated into BugfixesAndQoL (RemoveAIKeepRangeLimit). Its permanent
+EEF90 function detour bypasses only the own/allied Keep distance check for valid
+AI players, leaving this global slider and humans' range unchanged. See that
+project's UpdateToNewDLL.md for hash, ABI, candidate-only rollback and tests. The former testmod has been removed.

@@ -80,6 +80,8 @@ namespace BugfixesAndQoL
         private static CorruptLordDataSpawnRuntime processCorruptLordDataSpawnRuntime;
         private static PrebuiltAiWorkshopBothFixRuntime processPrebuiltAiWorkshopBothFixRuntime;
         private static AIPreplacedBuildingFixRuntime processAIPreplacedBuildingFixRuntime;
+        private static AIKeepRangeRuntime processAIKeepRangeRuntime;
+        private bool aiKeepRangeInitializationAttempted;
         private static WorkerBreakPauseHook processWorkerBreakPauseHook;
         private static WorkshopIdleDelayHook processWorkshopIdleDelayHook;
         private static AiRaidRetargetFixRuntime processAiRaidRetargetFixRuntime;
@@ -459,6 +461,13 @@ namespace BugfixesAndQoL
             TryInitializeFeature("disbanded-unit control-group cleanup", EnsureControlGroupDisbandCleanup);
             TryInitializeFeature("Lord control groups", ApplyLordControlGroupPatchSetting);
             TryInitializeFeature("AI stone-reserve fix", EnsureAiStoneReserveFix);
+            TryInitializePersistentFeature("AI keep build range", () =>
+            {
+                if (aiKeepRangeInitializationAttempted) return;
+                aiKeepRangeInitializationAttempted = true;
+                processAIKeepRangeRuntime = new AIKeepRangeRuntime(log, settings);
+                processAIKeepRangeRuntime.Initialize(context);
+            });
             TryInitializeFeature("AI defense patrol fix", EnsureAiDefensePatrolFix);
             TryInitializeFeature("AI wall-targeting fix", EnsureAiWallTargetingFix);
             TryInitializeFeature("baker/miller breaks", EnsureWorkerBreakPauseHook);
@@ -481,6 +490,7 @@ namespace BugfixesAndQoL
 
         public void ApplySettings()
         {
+            processAIKeepRangeRuntime?.Refresh();
             TryApplyFeature("AI melee raid retarget fix", () => processAiRaidRetargetFixRuntime?.SetEnabled(
                 settings.EnableMod && settings.EnableAiRaidRetargetFix));
             processNativeTannerFade?.SetEnabled(
@@ -1085,6 +1095,11 @@ namespace BugfixesAndQoL
 
         private void OnSettingChanged(string propertyName)
         {
+            if (propertyName == nameof(BugfixesAndQoLViewModel.RemoveAIKeepRangeLimit))
+            {
+                processAIKeepRangeRuntime?.Refresh();
+                return;
+            }
             // The countdown owns its local presentation; unrelated runtime features need no refresh.
             if (propertyName == nameof(BugfixesAndQoLViewModel.ShowCountdownTimers))
                 return;

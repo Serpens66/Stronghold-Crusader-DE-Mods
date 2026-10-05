@@ -29,6 +29,7 @@ namespace BugfixesAndQoL
         private bool enablePrebuiltAiWorkshopBothFix = true;
         private bool enableBakerMillerBreaks;
         private bool enableWorkshopIdleDelayFix;
+        private bool removeAIKeepRangeLimit = true;
         private bool enableAivDefenderPositionFix = true;
         private bool fixAIPreplacedMapBuildings = true;
         private bool fixAITowerRepair = true;
@@ -230,6 +231,8 @@ namespace BugfixesAndQoL
         public string FixesTitleText => SerpLocalization.Get("BugfixesAndQoL.FixesTitle");
         public string PossibleFixesTitleText => SerpLocalization.Get("BugfixesAndQoL.PossibleFixesTitle");
         public string EnableWorkshopIdleDelayFixText => SerpLocalization.Get("BugfixesAndQoL.EnableWorkshopIdleDelayFix");
+        public string RemoveAIKeepRangeLimitText => SerpLocalization.Get("BugfixesAndQoL.RemoveAIKeepRangeLimit");
+        public string RemoveAIKeepRangeLimitHelpText => SerpLocalization.Get("BugfixesAndQoL.RemoveAIKeepRangeLimitHelp");
         public string EnableWorkshopIdleDelayFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableWorkshopIdleDelayFixHelp");
         public string EnableBakerMillerBreaksText => SerpLocalization.Get("BugfixesAndQoL.EnableBakerMillerBreaks");
         public string EnableBakerMillerBreaksHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableBakerMillerBreaksHelp");
@@ -927,6 +930,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool RemoveAIKeepRangeLimit
+        {
+            get => removeAIKeepRangeLimit;
+            set => SetSetting(ref removeAIKeepRangeLimit, value, nameof(RemoveAIKeepRangeLimit));
+        }
+
+        [SyncHostOnly]
         public bool EnableWorkshopIdleDelayFix
         {
             get => enableWorkshopIdleDelayFix;
@@ -1387,6 +1397,7 @@ namespace BugfixesAndQoL
                 EnableAiWallTargetingFix = true;
                 EnableBakerMillerBreaks = false;
                 EnableWorkshopIdleDelayFix = false;
+                RemoveAIKeepRangeLimit = true;
                 EnableAivDefenderPositionFix = true;
                 FixAIPreplacedMapBuildings = true;
                 FixAITowerRepair = true;
