@@ -32,14 +32,15 @@ namespace ExtendedData
             string modId,
             string displayName,
             PropertyInfo[] properties,
-            string incompatibilityReason)
+            string incompatibilityReason, object endpoint = null)
         {
-            ModId = modId;
+            ModId = modId; Endpoint = endpoint;
             DisplayName = displayName;
             Properties = properties ?? Array.Empty<PropertyInfo>();
             IncompatibilityReason = incompatibilityReason;
         }
 
+        public object Endpoint { get; }
         public string ModId { get; }
         public string DisplayName { get; }
         public PropertyInfo[] Properties { get; }
@@ -232,7 +233,7 @@ namespace ExtendedData
                         sharedCompatible
                             ? ModSettingsApplication.GetHostProperties(sharedParticipants[modId])
                             : compatibility?.Properties,
-                        incompatibility));
+                        incompatibility, sharedCompatible ? (object)sharedParticipants[modId] : entry?.ViewModel));
                 }
                 TrailModCompatibilityInfo[] catalog = result
                     .OrderBy(item => item.DisplayName, StringComparer.CurrentCultureIgnoreCase)

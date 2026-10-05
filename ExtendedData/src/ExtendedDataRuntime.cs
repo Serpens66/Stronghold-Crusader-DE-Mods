@@ -369,14 +369,19 @@ namespace ExtendedData
                 (value ? "apply Custom Trail and Coop replacements." : "pass through to Vanilla."));
         }
 
+        private int compatibilityMeasurements;
         public void RefreshModCompatibility()
         {
             if (missionSettingsCoordinator == null)
                 return;
+            var compatibilityWatch = System.Diagnostics.Stopwatch.StartNew();
             TrailModCompatibilityInfo[] catalog = missionSettingsCoordinator
                 .DiscoverModCompatibility()
                 .ToArray();
-            settings.RefreshModCompatibility(catalog);
+            double discoveryMs = compatibilityWatch.Elapsed.TotalMilliseconds;
+            settings.RefreshModCompatibility(catalog, message => LogInfo(message));
+            if (++compatibilityMeasurements <= 3)
+                LogInfo("[PresetPerf] compatibility refresh: call=" + compatibilityMeasurements + ", discoveryMs=" + discoveryMs.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) + ", totalMs=" + compatibilityWatch.Elapsed.TotalMilliseconds.ToString("F2", System.Globalization.CultureInfo.InvariantCulture));
             string compatible = string.Join(", ", catalog
                 .Where(item => item.IsCompatible)
                 .Select(item => item.DisplayName)

@@ -7,6 +7,7 @@ using System.Text.Json;
 
 var tests = new (string Name, Action Run)[]
 {
+    ("deferred settings remain complete at 4233, 12000 and 16384 options", DeferredSettingsTests.Run),
     ("Custom Coop Trail preview names follow the selected lobby slot", TestCoopTrailPreviewNames),
     ("Custom Coop Trail preview separates displayed teams", TestCoopTrailPreviewTeams),
     ("Custom Coop Trail team display hooks all four Vanilla pages", TestCoopTrailPreviewTeamIntegration),

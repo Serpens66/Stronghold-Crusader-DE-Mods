@@ -1,0 +1,20 @@
+PASS: production configuration facade, temporary startup, exact personal preservation, restoration and external conflict
+PASS: host receive versus confirmation, isolated client preparation, rejoin comparison, changed host and personal restoration
+PASS document catalog, stable coordinates, exact roundtrip, sentinels, diagnostics and validation
+PASS installed 11-file configuration: 4233 unique options/cells roundtrip (read-only source)
+PASS replacement failure preserves existing pending configuration
+PASS staging does not change active files
+PASS external edits reject stale snapshots
+PASS external edits after staging stay untouched
+PASS restart recovery at journal-published
+PASS restart recovery at written:DamageMatrices/melee.csv
+PASS restart recovery at written:multipliers.cfg
+PASS restart recovery at written:units.toml
+PASS restart recovery at verified
+PASS restart recovery at completed
+PASS corrupt package does not touch files
+PASS successive stages still compare against own files
+PASS write failure retains recoverable journal
+PASS external edit at an application boundary is preserved
+PASS oversized package is rejected before publication
+PASS: 15 configuration transaction scenarios. Artifacts: C:\Users\Serpens66\AppData\Local\Temp\StatsTweakerApiTests\90587b8a66164d6dbab849ea2329fcc8

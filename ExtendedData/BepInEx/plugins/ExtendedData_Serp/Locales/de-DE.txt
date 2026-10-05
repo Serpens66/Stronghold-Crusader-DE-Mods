@@ -168,3 +168,7 @@ WorkshopUpload.IncludeAdditionalFilesHelp=Lädt zusätzlich zu den Vanilla-Inhal
 Common.SettingsSourceHelp=Setzt die Einstellungen dieser Mod auf die gewählte Quelle zurück. Eigene Presets bleiben unverändert. Im Mehrspieler kann nur der Host die Host-Einstellungen zurücksetzen.
 Common.PresetLoadFailedTitle=Preset konnte nicht geladen werden
 ExtendedData.SettingsRestartRequired=Einstellungen vorgemerkt. Bitte das Spiel neu starten und dieselbe Mission erneut öffnen.
+
+ExtendedData.Options.Filter=Einstellungen filtern
+ExtendedData.Options.Previous=Vorherige Seite
+ExtendedData.Options.Next=Nächste Seite

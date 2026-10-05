@@ -175,6 +175,13 @@
                   <ToggleButton.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" Content="{Binding HelpText}"/></ToggleButton.ToolTip>
                 </ToggleButton>
               </Grid>
+              <WrapPanel Visibility="{Binding PagingVisibility}" Margin="26,4,0,4" shared:ModSettingsSearch.Exclude="True">
+                <TextBlock Text="{Binding FilterHelp}" Foreground="White" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding Filter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="240" ToolTip="{Binding FilterHelp}" ToolTipService.ShowDuration="60000"/>
+                <Button Content="◀" Command="{Binding PreviousPageCommand}" ToolTip="{Binding PreviousHelp}" ToolTipService.ShowDuration="60000" Margin="8,0,0,0"/>
+                <TextBlock Text="{Binding PageText}" Foreground="White" VerticalAlignment="Center" Margin="8,0"/>
+                <Button Content="▶" Command="{Binding NextPageCommand}" ToolTip="{Binding NextHelp}" ToolTipService.ShowDuration="60000"/>
+              </WrapPanel>
               <ItemsControl ItemsSource="{Binding Settings}" Visibility="{Binding IsExpanded, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="26,4,0,5">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate>

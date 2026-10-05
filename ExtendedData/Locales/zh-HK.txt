@@ -168,3 +168,7 @@ ExtendedData.CustomCoopTrailEndNotice=This custom Coop Trail ends after mission 
 ExtendedData.CustomCoopMissionProgress={Current}/{Count} Missions
 ExtendedData.NoCustomCoopMissions=No missions in this custom Coop Trail
 ExtendedData.SettingsRestartRequired=Settings prepared. Restart the game and reopen the same mission to apply them.
+
+ExtendedData.Options.Filter=Filter settings
+ExtendedData.Options.Previous=Previous page
+ExtendedData.Options.Next=Next page

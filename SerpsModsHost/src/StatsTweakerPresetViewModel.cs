@@ -53,16 +53,6 @@ namespace SerpsModsHost
                 if (args.PropertyName == nameof(System_HasPendingConfiguration)) OnPropertyChanged(nameof(ApplicationPendingVisibility));
             };
         }
-        internal void ImportOwnFiles()
-        {
-            if (!CanChangePreset) throw new InvalidOperationException(HostReadOnlyNoticeText);
-            var own = provider.ReadOwn();
-            provider.ReplaceValues(own); // This is our own working copy, never received host state.
-            System_ApplyWorkingSnapshot(provider.GetSettings().ToDictionary(item => item.Key,
-                item => MessagePackSerializer.Serialize(item.ValueType, own[item.Key]), StringComparer.Ordinal));
-            status = T("ReadDone");
-            RaiseStatus();
-        }
         private void Run(Action action)
         {
             try { action(); }

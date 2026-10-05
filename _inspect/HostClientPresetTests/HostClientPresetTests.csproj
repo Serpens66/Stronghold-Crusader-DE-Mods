@@ -70,6 +70,8 @@
     <Compile Include="Program.cs" />
     <Compile Include="DynamicPresetTests.cs" />
     <Compile Include="RestartSettingsTests.cs" />
+    <Compile Include="TweakerProviderTests.cs" />
+    <Compile Include="..\..\SerpsModsHost\src\StatsTweakerConfigurationProvider.cs" />
     <Compile Include="..\..\APIShared\src\DynamicPresetSettings.cs" />
     <Compile Include="..\..\APIShared\src\ModSettingsApplication.cs" />
     <Compile Include="..\..\APIShared\src\ModSettingsPresetDocuments.cs">

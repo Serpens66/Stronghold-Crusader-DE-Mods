@@ -12,6 +12,7 @@ internal static class DynamicPresetTests
     {
         RestartSettingsTests.Run();
         GameNetworkAPI.LocalHost = true;
+        TweakerProviderTests.Run();
         var vm = new Model();
         string root = Path.Combine(Path.GetTempPath(), "DynamicPresetTests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);

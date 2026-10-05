@@ -168,3 +168,7 @@ WorkshopUpload.IncludeAdditionalFilesHelp=Uploads mod-specific files alongside V
 Common.SettingsSourceHelp=Resets this mod's settings to the selected source. Personal presets are not changed. In multiplayer, only the host can reset host settings.
 Common.PresetLoadFailedTitle=Preset load failed
 ExtendedData.SettingsRestartRequired=Settings prepared. Restart the game and reopen the same mission to apply them.
+
+ExtendedData.Options.Filter=Filter settings
+ExtendedData.Options.Previous=Previous page
+ExtendedData.Options.Next=Next page

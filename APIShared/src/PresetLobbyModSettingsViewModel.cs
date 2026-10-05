@@ -3409,8 +3409,16 @@ namespace Shared
                 PublishPresetJson(path, json, overwrite: false);
             }
 
-            public IReadOnlyList<PresetSettingDescriptor> GetSettingDescriptors() =>
-                persistedProperties.Select(property => new PresetSettingDescriptor
+            private PresetPropertyAccessor[] descriptorOrder;
+            public IReadOnlyList<PresetSettingDescriptor> GetSettingDescriptors()
+            {
+                if (descriptorOrder == null)
+                    descriptorOrder = persistedProperties.OrderBy(p => IsHostProperty(p) ? PresetSettingScope.Host :
+                        p.GetCustomAttribute<SyncPerPlayerAttribute>() != null ? PresetSettingScope.Player : PresetSettingScope.Local)
+                        .ThenBy(p => p.Name, StringComparer.Ordinal).ToArray();
+                // Return fresh descriptors; capabilities remain live and callers cannot mutate the cache.
+                return
+                descriptorOrder.Select(property => new PresetSettingDescriptor
                 {
                     PropertyName = property.Name,
                     PropertyType = property.PropertyType,
@@ -3422,7 +3430,8 @@ namespace Shared
                         : property.GetCustomAttribute<SyncPerPlayerAttribute>() != null
                             ? PresetSettingScope.Player
                             : PresetSettingScope.Local,
-                }).OrderBy(item => item.Scope).ThenBy(item => item.PropertyName, StringComparer.Ordinal).ToArray();
+                }).ToArray();
+            }
 
             public string SavePersonalPreset(
                 string id,
