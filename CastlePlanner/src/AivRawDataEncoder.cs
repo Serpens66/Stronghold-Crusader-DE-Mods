@@ -61,14 +61,16 @@ namespace CastlePlanner
                 ValidateItemType(frame.itemType, $"frames[{frameIndex}].itemType");
                 if (frame.itemType == 0)
                 {
-                    if (frame.tilePositionOfsets != null && frame.tilePositionOfsets.Count != 0)
+                    if (frame.tilePositionOfsets != null && frame.tilePositionOfsets.Count > 1)
                     {
                         throw new InvalidDataException(
-                            $"frames[{frameIndex}] with itemType 0 must not contain positions.");
+                            $"frames[{frameIndex}] with itemType 0 cannot encode multiple positions.");
                     }
 
                     raw.Add(0);
-                    raw.Add(0);
+                    raw.Add(frame.tilePositionOfsets == null || frame.tilePositionOfsets.Count == 0
+                        ? (short)0
+                        : ToPosition(frame.tilePositionOfsets[0], $"frames[{frameIndex}].tilePositionOfsets[0]"));
                     continue;
                 }
                 if (frame.tilePositionOfsets == null)

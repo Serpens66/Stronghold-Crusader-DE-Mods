@@ -45,7 +45,7 @@ namespace BugfixesAndQoL
                 {
                     Name = "AI keep distance predicate", TargetAddress = target, Callback = callback
                 };
-                candidate = NativeDetourBackend.Instance.CreateDetour(in request) as NativeDetour<AIKeepDistanceCheck>;
+                candidate = AIKeepRangeNativeContract.Backend.CreateDetour(in request) as NativeDetour<AIKeepDistanceCheck>;
                 AIKeepRangeNativeContract.ValidateDetour(candidate, target, false);
                 original = candidate.Original;
                 candidate.Enable();

@@ -141,15 +141,18 @@ namespace AIVParser.Core
                         "Required array 'tilePositionOfsets' is missing.",
                         frameLocation + ".tilePositionOfsets"));
                 }
-                else if (source.itemType == 0 && source.tilePositionOfsets.Count != 0)
+                else if (source.itemType == 0 && source.tilePositionOfsets.Count > 1)
                 {
                     diagnostics.Add(Error(
                         "AIV012",
-                        "A no-op frame with itemType 0 must not contain tile offsets.",
+                        "A frame with itemType 0 cannot encode multiple tile offsets.",
                         frameLocation + ".tilePositionOfsets"));
                 }
                 else
                 {
+                    // Empty legacy frames encode as [0, 0], which clears native cell zero.
+                    if (source.itemType == 0 && source.tilePositionOfsets.Count == 0)
+                        positions.Add(new AivGridPoint(0));
                     if (source.tilePositionOfsets.Count > short.MaxValue)
                     {
                         diagnostics.Add(Error(

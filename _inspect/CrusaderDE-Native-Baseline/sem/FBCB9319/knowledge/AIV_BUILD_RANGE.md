@@ -1,5 +1,35 @@
 # AIV tower and gate construction range
 
+## Follow-up: copied-entry probe allocation failure
+
+The 2026-10-05 18:51 startup logged a BugfixesAndQoL probe failure at heap address
+0x2D00FCCD100: RedBird could not allocate a 65536-byte slab in its nearby window.
+The actual EEF90 detour was never attempted. The fix places the full scan buffer
+near the real target with NativeMemoryManager.AllocateStub and initializes it
+through WriteStub. The process-wide slab is not freed; only the never-published
+probe hook is rolled back. Both probe and live hook now allow only Indirect.
+No change to the audited native range predicate, ABI, full function hash or
+Indirect/10 contract. Installed SHCDESE hash remains DE5B88749C18A257E5F6A6E246F685300BF8DF970969DF1E6EA35C8C95F2A4AF;
+RedBird.Core hash EE4B036C486077F7D8898AE054F124EDDE73E6AE1A059E8991C361E2B720D29F.
+The allocator's near-target behavior and public write API were read from the
+installed assembly. Corrected gameplay acceptance is pending.
+
+## Follow-up: zero mapper records in imported AIVs
+
+High confidence for the same native hash: current managed AIVLoader.SaveData.GetRawData
+encodes one-position type-zero frames as [0,offset]. Import 0x55320 tests signed
+type < 0 for the counted branch, so zero consumes one offset. 0x53CA0 transforms
+that offset; 0x6A190's -1 result is clamped to footprint one before the zero mapper
+and frame index overwrite the raster. Rotation 0x56670 preserves the cell value;
+0x57080 excludes zero cells from fit checks, and 0x53D00 marks them processed
+without emitting a build record. This is a cell clear, not a positionless no-op.
+The existing prepared/prebuild execution chain therefore needs no new hook.
+Empty legacy [0,0] remains byte-compatible and clears cell zero. Multiple
+positions for JSON type zero have no valid counted native representation.
+The 18:51 log's snake2, snake7 and snake8-elite Goodwins Workshop warnings were
+caused by our encoder/parser rejection and decoder's erroneous <=0 count branch.
+See CastlePlanner/UpdateToNewDLL.md for the coordinated repair and regressions.
+
 Audit date: 2026-10-05. Canonical installed native SHA-256:
 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
 All addresses below are RVAs for this binary (image base `0x180000000`).

@@ -85,6 +85,7 @@ internal static class Program
             ("wires the host castle-selection timeout setting", WiresHostCastleSelectionTimeoutSetting),
             ("rejects invalid free-castle decisions", RejectsInvalidFreeCastleDecisions),
             ("roundtrips Vanilla no-op AIV frames", RoundtripsVanillaNoOpFrames),
+            ("clears blueprint cells without unknown markers in all rotations", ClearsBlueprintCells),
             ("accepts native Int16 AIV frame counts", AcceptsNativeInt16FrameCounts),
             ("resolves LordJSON flag types deterministically", ResolvesLordJsonFlagTypesDeterministically),
             ("rejects malformed AIVJSON spawn data", RejectsMalformedAivJsonSpawnData),
@@ -150,6 +151,18 @@ internal static class Program
                     File.ReadAllText(path));
                 short[] raw = CastlePlanner.AivRawDataEncoder.Encode(document);
                 CastlePlanner.AivJsonDocument decoded = CastlePlanner.AivSpawnPlan.Decode(raw);
+                Equal(document.frames.Count, decoded.frames.Count);
+                Equal(document.miscItems.Count, decoded.miscItems.Count);
+                for (int index = 0; index < document.frames.Count; index++)
+                {
+                    var before = document.frames[index];
+                    var after = decoded.frames[index];
+                    Equal(before.itemType, after.itemType);
+                    Equal(before.shouldPause, after.shouldPause);
+                    if (before.tilePositionOfsets?.Count > 0)
+                        Assert(before.tilePositionOfsets.SequenceEqual(after.tilePositionOfsets),
+                            $"positions changed at frame {index} in '{path}'");
+                }
                 ushort flagType = CastlePlanner.AivLordJsonResolver.ResolveFlagProjectileType(
                     path,
                     out string lordPath,
@@ -2130,13 +2143,36 @@ internal static class Program
         Assert(encoded.SequenceEqual(CastlePlanner.AivRawDataEncoder.Encode(decoded)), "native AIV roundtrip changed data");
         Assert(decoded.frames[1].shouldPause, "no-op pause frame was not decoded");
         Equal(0, decoded.frames[1].itemType);
-        Equal(0, decoded.frames[1].tilePositionOfsets.Count);
+        Assert(decoded.frames[1].tilePositionOfsets.SequenceEqual([0]), "legacy empty frame must decode as native clear at zero");
         Equal(80, decoded.frames[2].itemType);
         Equal(0, decoded.frames[2].tilePositionOfsets.Count);
         Equal(2, decoded.miscItems.Count);
         Equal(6, decoded.miscItems[0].itemType);
         Equal(7, decoded.miscItems[0].number);
         Equal(3, decoded.miscItems[1].number);
+    }
+
+    private static void ClearsBlueprintCells()
+    {
+        var document = new CastlePlanner.AivJsonDocument
+        {
+            frames = [
+                new CastlePlanner.AivJsonFrame { itemType = 61, tilePositionOfsets = [5643] },
+                new CastlePlanner.AivJsonFrame { itemType = 25, tilePositionOfsets = [4040, 4041] },
+                new CastlePlanner.AivJsonFrame { itemType = 0, tilePositionOfsets = [4040], shouldPause = true }
+            ], miscItems = []
+        };
+        foreach (AivRotation rotation in Enum.GetValues<AivRotation>())
+        foreach (BlueprintProjectionMode mode in Enum.GetValues<BlueprintProjectionMode>())
+        {
+            var layout = BlueprintLayoutBuilder.Build(document, 200, 200, rotation, mode);
+            Equal(1, layout.Tiles.Count);
+            Equal(0, layout.UnknownMapperCount);
+            Assert(layout.Icons.All(icon => icon.MapperValue != 0), "clear created a blueprint icon");
+            document.frames.Add(new CastlePlanner.AivJsonFrame { itemType = 25, tilePositionOfsets = [4040] });
+            Equal(2, BlueprintLayoutBuilder.Build(document, 200, 200, rotation, mode).Tiles.Count);
+            document.frames.RemoveAt(document.frames.Count - 1);
+        }
     }
 
     private static void RoundtripsVanillaNoOpFrames()
@@ -2164,13 +2200,13 @@ internal static class Program
         short[] raw = CastlePlanner.AivRawDataEncoder.Encode(document);
         CastlePlanner.AivJsonDocument decoded = CastlePlanner.AivSpawnPlan.Decode(raw);
         Equal(0, decoded.frames[1].itemType);
-        Equal(0, decoded.frames[1].tilePositionOfsets.Count);
+        Assert(decoded.frames[1].tilePositionOfsets.SequenceEqual([0]), "legacy empty frame must retain native zero position");
         Assert(!decoded.frames[1].shouldPause, "unpaused no-op changed");
         Equal(80, decoded.frames[2].itemType);
         Equal(0, decoded.frames[2].tilePositionOfsets.Count);
         Assert(decoded.frames[2].shouldPause, "typed empty pause was lost");
         Equal(0, decoded.frames[3].itemType);
-        Equal(0, decoded.frames[3].tilePositionOfsets.Count);
+        Assert(decoded.frames[3].tilePositionOfsets.SequenceEqual([0]), "paused empty frame must decode as native clear at zero");
         Assert(decoded.frames[3].shouldPause, "no-op pause was lost");
         Assert(raw.SequenceEqual(CastlePlanner.AivRawDataEncoder.Encode(decoded)),
             "Vanilla no-op native roundtrip changed data");
@@ -2184,6 +2220,25 @@ internal static class Program
             });
         Assert(filtered.frames.Any(frame => frame.itemType == 0 && frame.shouldPause),
             "content filter removed a no-op frame");
+
+        foreach (int offset in new[] { 0, 101, 4040, 9999 })
+        {
+            document.frames[1].tilePositionOfsets = [offset];
+            document.frames[1].shouldPause = true;
+            raw = CastlePlanner.AivRawDataEncoder.Encode(document);
+            decoded = CastlePlanner.AivSpawnPlan.Decode(raw);
+            Assert(decoded.frames[1].tilePositionOfsets.SequenceEqual([offset]), "clear position lost");
+            Assert(decoded.frames[1].shouldPause, "clear pause lost");
+            Assert(raw.SequenceEqual(CastlePlanner.AivRawDataEncoder.Encode(decoded)), "clear roundtrip changed following frames/misc");
+            filtered = CastlePlanner.AivSpawnPlan.Filter(decoded, new CastlePlanner.AivSpawnOptions());
+            Assert(filtered.frames.Any(frame => frame.itemType == 0 && frame.tilePositionOfsets.SequenceEqual([offset])),
+                "spawn filter lost clear position");
+        }
+        foreach (int offset in new[] { -1, 10000 })
+        {
+            document.frames[1].tilePositionOfsets = [offset];
+            AssertAivJsonRejected(document, "frames[1].tilePositionOfsets[0]");
+        }
     }
 
     private static void AcceptsNativeInt16FrameCounts()
@@ -2344,7 +2399,10 @@ internal static class Program
 
         CastlePlanner.AivJsonDocument noOpWithPosition = CreateStrictSpawnDocument();
         noOpWithPosition.frames[1].itemType = 0;
-        AssertAivJsonRejected(noOpWithPosition, "itemType 0 must not contain positions");
+        noOpWithPosition.frames[1].tilePositionOfsets = [4040];
+        CastlePlanner.AivRawDataEncoder.Encode(noOpWithPosition);
+        noOpWithPosition.frames[1].tilePositionOfsets.Add(4041);
+        AssertAivJsonRejected(noOpWithPosition, "itemType 0 cannot encode multiple positions");
 
         CastlePlanner.AivJsonDocument emptyKeep = CreateStrictSpawnDocument();
         emptyKeep.frames[0].tilePositionOfsets.Clear();
@@ -2497,7 +2555,9 @@ internal static class Program
         {
             rejectedNoOpPositions = true;
         }
-        Assert(rejectedNoOpPositions, "native item type 0 with positions was accepted");
+        Assert(rejectedNoOpPositions, "malformed count-style zero record was accepted");
+        var clearRecord = CastlePlanner.AivSpawnPlan.Decode([0, 1, 0, 2, 61, 5044, 0, 4040, 0]);
+        Assert(clearRecord.frames[1].tilePositionOfsets.SequenceEqual([4040]), "native zero is followed by one position, not a count");
 
         bool rejectedCompoundKeep = false;
         try

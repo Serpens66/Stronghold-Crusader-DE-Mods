@@ -1,0 +1,79 @@
+CULTURE de-DE
+========================================
+=== CORE LOGIC UNIT TEST SUITE ===
+========================================
+--- PropertyHandler Test Suite ---
+EXPECTED TEST WARNING: [ShieldHealth] 100000 is above the game's maximum for this property; clamped to 65535.
+EXPECTED TEST WARNING: [ShieldHealth] -5 is below the game's minimum (0) for this property; value ignored.
+ERROR:     [FAIL] FormatValue_Float
+ERROR:     [FAIL] Float_Invariant_de-DE_0
+ERROR:     [FAIL] Double_Invariant_de-DE_0
+ERROR: Test suite 'PropertyHandler' threw exception: (1,11) : error : Unexpected token found `,` (token: `comma`) while expecting token `newline`
+(1,15) : error : Expecting `=` after a key instead of ␤
+(2,11) : error : Unexpected token found `,` (token: `comma`) while expecting token `newline`
+(2,15) : error : Expecting `=` after a key instead of ␤
+
+--- PropertyRegistry Test Suite ---
+EXPECTED TEST WARNING: Property handler 'Health' is already registered. Overwriting.
+  PropertyRegistry: 15/15 tests passed
+--- EntityProcessor Test Suite ---
+EXPECTED TEST WARNING: Unknown TestEntity in config: UnknownEntity
+EXPECTED TEST WARNING: Unknown property 'UnknownProperty' for TestEntity EntityA
+  EntityProcessor: 7/7 tests passed
+--- CsvHelper Test Suite ---
+EXPECTED TEST WARNING: [CSV] Skipping data row with an empty defender name: ' , -1, -1'
+EXPECTED TEST WARNING: [CSV] Unparseable value 'abc'; treating as -1 (skipped).
+  CsvHelper: 8/8 tests passed
+--- TemplateBaseline Test Suite ---
+  TemplateBaseline: 3/3 tests passed
+--- ConfigSync Test Suite ---
+  ConfigSync: 22/22 tests passed
+========================================
+=== TEST SUMMARY ===
+  [FAIL] PropertyHandler: 0 test(s)
+  [PASS] PropertyRegistry: 15 test(s)
+  [PASS] EntityProcessor: 7 test(s)
+  [PASS] CsvHelper: 8 test(s)
+  [PASS] TemplateBaseline: 3 test(s)
+  [PASS] ConfigSync: 22 test(s)
+========================================
+ERROR: === 1 TEST SUITE(S) FAILED ===
+CULTURE en-US
+========================================
+=== CORE LOGIC UNIT TEST SUITE ===
+========================================
+--- PropertyHandler Test Suite ---
+EXPECTED TEST WARNING: [ShieldHealth] 100000 is above the game's maximum for this property; clamped to 65535.
+EXPECTED TEST WARNING: [ShieldHealth] -5 is below the game's minimum (0) for this property; value ignored.
+ERROR:     [FAIL] Float_Invariant_de-DE_0
+ERROR:     [FAIL] Double_Invariant_de-DE_0
+ERROR: Test suite 'PropertyHandler' threw exception: (1,11) : error : Unexpected token found `,` (token: `comma`) while expecting token `newline`
+(1,15) : error : Expecting `=` after a key instead of ␤
+(2,11) : error : Unexpected token found `,` (token: `comma`) while expecting token `newline`
+(2,15) : error : Expecting `=` after a key instead of ␤
+
+--- PropertyRegistry Test Suite ---
+EXPECTED TEST WARNING: Property handler 'Health' is already registered. Overwriting.
+  PropertyRegistry: 15/15 tests passed
+--- EntityProcessor Test Suite ---
+EXPECTED TEST WARNING: Unknown TestEntity in config: UnknownEntity
+EXPECTED TEST WARNING: Unknown property 'UnknownProperty' for TestEntity EntityA
+  EntityProcessor: 7/7 tests passed
+--- CsvHelper Test Suite ---
+EXPECTED TEST WARNING: [CSV] Skipping data row with an empty defender name: ' , -1, -1'
+EXPECTED TEST WARNING: [CSV] Unparseable value 'abc'; treating as -1 (skipped).
+  CsvHelper: 8/8 tests passed
+--- TemplateBaseline Test Suite ---
+  TemplateBaseline: 3/3 tests passed
+--- ConfigSync Test Suite ---
+  ConfigSync: 22/22 tests passed
+========================================
+=== TEST SUMMARY ===
+  [FAIL] PropertyHandler: 0 test(s)
+  [PASS] PropertyRegistry: 15 test(s)
+  [PASS] EntityProcessor: 7 test(s)
+  [PASS] CsvHelper: 8 test(s)
+  [PASS] TemplateBaseline: 3 test(s)
+  [PASS] ConfigSync: 22 test(s)
+========================================
+ERROR: === 1 TEST SUITE(S) FAILED ===

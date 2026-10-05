@@ -61,13 +61,12 @@ namespace AIVParser.Core
                     throw new InvalidDataException($"Invalid native item type at frame {frameIndex}: {encodedType}.");
 
                 int itemType = Math.Abs(encodedType);
-                int positionCount = encodedType > 0
+                // Zero is a single-cell clear; only negative types introduce a count.
+                int positionCount = encodedType >= 0
                     ? 1
                     : Read(raw, ref cursor, $"frame[{frameIndex}].positionCount");
                 if (positionCount < 0)
                     throw new InvalidDataException($"Invalid position count at frame {frameIndex}: {positionCount}.");
-                if (encodedType == 0 && positionCount != 0)
-                    throw new InvalidDataException($"Native no-op frame {frameIndex} contains positions.");
 
                 var positions = new List<int>(positionCount);
                 for (int positionIndex = 0; positionIndex < positionCount; positionIndex++)

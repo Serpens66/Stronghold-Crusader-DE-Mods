@@ -18,7 +18,7 @@ Primary reusable artifacts:
 
 Semantic reverse-engineering baseline:
 
-- [AIV defensive build range](./sem/FBCB9319/knowledge/AIV_BUILD_RANGE.md): map-size limits, Keep reference, full-footprint range, Baibars reproduction, ExtraFeatures API ownership and integrated BugfixesAndQoL AI-only EEF90 detour and prior runtime evidence.
+- [AIV defensive build range](./sem/FBCB9319/knowledge/AIV_BUILD_RANGE.md): map-size limits, Keep reference, full-footprint range, Baibars reproduction, ExtraFeatures API ownership, integrated BugfixesAndQoL AI-only EEF90 detour, target-relative probe allocation, and type-zero AIV cell-clear import semantics.
 
 - [Poleturner and tanner idle-delay audit](./sem/FBCB9319/knowledge/WORKSHOP_IDLE_DELAY.md): material predicates, fear breaks and permanent inline-hook boundaries.
 

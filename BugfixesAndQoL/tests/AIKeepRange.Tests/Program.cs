@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
+using RedBird.Core.Memory;
 using RedBird.Abstractions.Hooks;
 using RedBird.Backends.NativeX64;
 
@@ -22,13 +23,40 @@ namespace BugfixesAndQoL
             {
                 byte[] body = File.ReadAllBytes(args[0]);
                 AIKeepRangeNativeContract.ValidateFunction(body, 0x1800EEF90);
-                IntPtr bodyCopy = Marshal.AllocHGlobal(body.Length);
+                IntPtr bodyCopy = VirtualAlloc(IntPtr.Zero, (UIntPtr)16384, 0x3000, 0x40);
+                Check(bodyCopy != IntPtr.Zero, "isolated native target allocation");
                 try
                 {
                     Marshal.Copy(body, 0, bodyCopy, body.Length);
-                    AIKeepRangeNativeContract.ProbeBackend(unchecked((ulong)bodyCopy.ToInt64()));
+                    ulong target = unchecked((ulong)bodyCopy.ToInt64());
+                    Check(AIKeepRangeNativeContract.Backend.Options.AllowedSchemes == DetourScheme.Indirect,
+                        "only the audited Indirect scheme may be prepared");
+                    bool allocationFailed = false;
+                    try { AIKeepRangeNativeContract.ProbeBackend(target, (_, __) => IntPtr.Zero); }
+                    catch (InvalidOperationException ex) { allocationFailed = ex.Message.Contains("probe allocation failed"); }
+                    Check(allocationFailed, "controlled allocation failure is actionable and fail-closed");
+                    IntPtr probeCopy = IntPtr.Zero;
+                    int probeCapacity = 0;
+                    AIKeepRangeNativeContract.ProbeBackend(target, (near, size) =>
+                    {
+                        Check(near == target, "probe must allocate near the actual target");
+                        probeCapacity = size;
+                        probeCopy = NativeMemoryManager.AllocateStub(near, size);
+                        return probeCopy;
+                    });
+                    Check(probeCapacity >= AIKeepRangeNativeContract.Backend.Options.FunctionScanLimit,
+                        "probe owns the complete scan window");
+                    // Fresh slabs may start exactly at BoundAlloc's inclusive lower bound.
+                    Check(Math.Abs(probeCopy.ToInt64() - bodyCopy.ToInt64()) <= 0x70000000L,
+                        "probe resides in target-relative allocation range: target=0x" + bodyCopy.ToInt64().ToString("X") +
+                        ", copy=0x" + probeCopy.ToInt64().ToString("X"));
+                    byte[] restored = AIKeepRangeNativeContract.Capture((ulong)probeCopy.ToInt64(), probeCapacity);
+                    Check(System.Linq.Enumerable.SequenceEqual(body, System.Linq.Enumerable.Take(restored, body.Length)),
+                        "probe rollback restores full function");
+                    Check(System.Linq.Enumerable.All(System.Linq.Enumerable.Skip(restored, body.Length), b => b == 0),
+                        "probe scan padding initialized and untouched");
                 }
-                finally { Marshal.FreeHGlobal(bodyCopy); }
+                finally { VirtualFree(bodyCopy, UIntPtr.Zero, 0x8000); }
                 TestPolicy();
                 RuntimeHarness.Run();
                 TestBackend(body);
@@ -89,7 +117,7 @@ namespace BugfixesAndQoL
                 ulong address = unchecked((ulong)target.ToInt64());
                 AIKeepRangeNativeContract.ProbeBackend(address);
                 var request = new DetourRequest<AIKeepDistanceCheck> { Name = "AI range execution test", TargetAddress = address, Callback = callback };
-                candidate = NativeDetourBackend.Instance.CreateDetour(in request) as NativeDetour<AIKeepDistanceCheck>;
+                candidate = AIKeepRangeNativeContract.Backend.CreateDetour(in request) as NativeDetour<AIKeepDistanceCheck>;
                 AIKeepRangeNativeContract.ValidateDetour(candidate, address, false);
                 original = candidate.Original;
                 candidate.Enable();

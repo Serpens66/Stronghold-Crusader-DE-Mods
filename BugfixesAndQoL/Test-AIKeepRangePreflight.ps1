@@ -6,6 +6,13 @@ $runtime = [IO.File]::ReadAllText($runtimePath)
 $contract = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\AIKeepRangeNativeContract.cs'))
 $decision = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\AIKeepRangeDecision.cs'))
 $source = $runtime + $contract + $decision
+if ($contract -match 'AllocHGlobal|FreeHGlobal|VirtualFree|NativeMemoryManager.Free' -or
+    $contract -notmatch 'ProbeBackend\(target, NativeMemoryManager.AllocateStub\)' -or
+    $contract -notmatch 'AllowedSchemes = DetourScheme.Indirect' -or
+    $contract -notmatch 'NativeMemoryManager.WriteStub\(copy, buffer\)' -or
+    $runtime -notmatch 'AIKeepRangeNativeContract.Backend.CreateDetour') {
+    throw 'Probe storage must use target-relative RedBird slabs and the same Indirect-only backend as the real hook.'
+}
 $vm = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\BugfixesAndQoLViewModel.cs'))
 $parent = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\BugfixesAndQoLRuntime.cs'))
 if ($source -match 'System\.Web\.Extensions|JavaScriptSerializer|System\.Text\.Json|Newtonsoft|DataContractJsonSerializer|JsonUtility|threadLock|KeepProximityOverride|SetKeepProximityRange|CodePatch\.Write|Marshal\.Write|VirtualProtect|\.Undo\s*\(|\.Disable\s*\(') { throw 'Forbidden serializer/engine access/global override/executable mutation.' }

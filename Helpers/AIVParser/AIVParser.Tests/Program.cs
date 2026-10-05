@@ -1470,7 +1470,8 @@ internal static class Program
         Assert(!parsed.Diagnostics.Any(diagnostic => diagnostic.Code == "AIV005"),
             "The obsolete 1000-frame warning remains active.");
         AssertEqual(1025, parsed.Blueprint.Frames.Count);
-        AssertEqual(0, parsed.Blueprint.Frames[1].Positions.Count);
+        AssertEqual(1, parsed.Blueprint.Frames[1].Positions.Count);
+        AssertEqual(0, parsed.Blueprint.Frames[1].Positions[0].EncodedOffset);
         AssertEqual(0, parsed.Blueprint.Frames[2].Positions.Count);
         Assert(parsed.Blueprint.Frames[2].ShouldPause, "Typed empty pause was not preserved.");
     }
@@ -1554,6 +1555,9 @@ internal static class Program
 
         AivJsonDocument invalidNoOp = CreateValidDocument();
         invalidNoOp.frames[1].itemType = 0;
+        invalidNoOp.frames[1].tilePositionOfsets = new List<int> { 4040 };
+        Assert(new AivBlueprintParser().Parse(invalidNoOp).IsValid, "single clear position rejected");
+        invalidNoOp.frames[1].tilePositionOfsets.Add(4041);
         AssertHasError(new AivBlueprintParser().Parse(invalidNoOp), "AIV012");
 
         AivJsonDocument offGrid = CreateValidDocument();
@@ -1735,6 +1739,28 @@ internal static class Program
                 svg.Descendants(ns + "text")
                     .Any(element => element.Attribute("data-label-for") != null),
                 "Building labels are missing.");
+            // A later zero frame cuts the earlier footprint in every orientation;
+            // it is not rendered as an unknown building on top of that cell.
+            var clearDocument = CreateValidDocument();
+            clearDocument.frames.Add(new AivJsonFrame
+            {
+                itemType = 0, tilePositionOfsets = new List<int> { 5044 }, shouldPause = true
+            });
+            var clearParsed = new AivBlueprintParser().Parse(clearDocument);
+            foreach (AivRotation rotation in Enum.GetValues<AivRotation>())
+            {
+                SvgExporter.Write(svgPath, clearParsed, rotation);
+                var clearSvg = XDocument.Load(svgPath);
+                Assert(clearSvg.Descendants(ns + "rect").Any(element => element.Attribute("mask") != null),
+                    "clear did not mask earlier footprint");
+                Assert(!clearSvg.Descendants(ns + "rect").Any(element => (string?)element.Attribute("data-item-type") == "0"),
+                    "clear rendered as a building");
+                AivGridPoint rotated = AivGridTransform.Rotate(new AivGridPoint(5044), rotation);
+                Assert(clearSvg.Descendants(ns + "mask").Elements(ns + "rect").Any(element =>
+                    (string?)element.Attribute("fill") == "black" &&
+                    (int?)element.Attribute("x") == 60 + rotated.Column * 8 &&
+                    (int?)element.Attribute("y") == 80 + (99 - rotated.Row) * 8), "clear mask rotation mismatch");
+            }
             Assert(
                 svg.Descendants(ns + "pattern")
                     .Any(element => (string?)element.Attribute("id") == "stair-pattern"),

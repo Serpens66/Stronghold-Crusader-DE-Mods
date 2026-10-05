@@ -7,12 +7,15 @@ using BepInEx.Logging;
 using Iced.Intel;
 using RedBird.Abstractions.Hooks;
 using RedBird.Backends.NativeX64;
+using RedBird.Core.Memory;
 using SHCDESE.API.LowLevel;
 
 namespace BugfixesAndQoL
 {
     internal static class AIKeepRangeNativeContract
     {
+        internal static readonly NativeDetourBackend Backend = new NativeDetourBackend(
+            new NativeDetourOptions { AllowedSchemes = DetourScheme.Indirect });
         internal const string NativeHash = "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2";
         internal const string FunctionHash = "83D062DDDBAFEC9EB33F704FA914609B6761E16DAE351A64F7491319984DF12E";
         internal const int Rva = 0xEEF90, FunctionSize = 317, Displaced = 10;
@@ -95,20 +98,34 @@ namespace BugfixesAndQoL
 
         internal static void ProbeBackend(ulong target)
         {
+            ProbeBackend(target, NativeMemoryManager.AllocateStub);
+        }
+
+        // The allocator parameter permits deterministic allocation-failure tests without
+        // changing the process-wide RedBird allocator or the production backend.
+        internal static void ProbeBackend(ulong target, Func<ulong, int, IntPtr> allocate)
+        {
             // The backend scans to the function end (default limit 16 KiB). A 64-byte
             // prefix would let it read unowned memory before this predicate's RET.
             byte[] entry = Capture(target, FunctionSize);
-            int capacity = Math.Max(FunctionSize, NativeDetourOptions.Default.FunctionScanLimit);
-            IntPtr copy = Marshal.AllocHGlobal(capacity);
+            int capacity = Math.Max(FunctionSize, Backend.Options.FunctionScanLimit);
+            IntPtr copy = allocate(target, capacity);
+            if (copy == IntPtr.Zero)
+                throw new InvalidOperationException("AI distance probe allocation failed near native target 0x" +
+                    target.ToString("X") + ": RedBird returned no target-relative stub storage.");
             NativeDetour<AIKeepDistanceCheck> candidate = null;
             AIKeepDistanceCheck callback = (_, __, ___, ____, _____) => 0;
+            bool initialized = false;
             try
             {
-                Marshal.Copy(new byte[capacity], 0, copy, capacity);
-                Marshal.Copy(entry, 0, copy, entry.Length);
+                var buffer = new byte[capacity];
+                Array.Copy(entry, buffer, entry.Length);
+                if (!NativeMemoryManager.WriteStub(copy, buffer))
+                    throw new InvalidOperationException("AI distance probe buffer could not be initialized.");
+                initialized = true;
                 ulong address = unchecked((ulong)copy.ToInt64());
                 var request = new DetourRequest<AIKeepDistanceCheck> { Name = "AI distance copied-entry probe", TargetAddress = address, Callback = callback };
-                candidate = NativeDetourBackend.Instance.CreateDetour(in request) as NativeDetour<AIKeepDistanceCheck>;
+                candidate = Backend.CreateDetour(in request) as NativeDetour<AIKeepDistanceCheck>;
                 ValidateDetour(candidate, address, false);
                 candidate.Enable();
                 ValidateDetour(candidate, address, true);
@@ -116,11 +133,15 @@ namespace BugfixesAndQoL
             finally
             {
                 candidate?.Dispose(); // Private nonexecuted probe, never published to the game.
-                byte[] restored = Capture(unchecked((ulong)copy.ToInt64()), entry.Length);
-                Marshal.FreeHGlobal(copy);
+                // Slab storage belongs to RedBird and remains allocated until process exit.
+                // Only this private, never-executed detour is rolled back.
                 GC.KeepAlive(callback);
-                for (int i = 0; i < entry.Length; i++)
-                    if (restored[i] != entry[i]) throw new InvalidOperationException("Probe rollback changed original bytes.");
+                if (initialized)
+                {
+                    byte[] restored = Capture(unchecked((ulong)copy.ToInt64()), entry.Length);
+                    for (int i = 0; i < entry.Length; i++)
+                        if (restored[i] != entry[i]) throw new InvalidOperationException("Probe rollback changed original bytes.");
+                }
             }
         }
 

@@ -199,6 +199,23 @@ namespace CastlePlanner
                 AivJsonFrame frame = document.frames[frameIndex];
                 if (frame == null || AivMapperCatalog.IsKeep(frame.itemType))
                     continue;
+                if (frame.itemType == 0)
+                {
+                    if (frame.tilePositionOfsets != null && frame.tilePositionOfsets.Count > 1)
+                        throw new FormatException("A type-0 frame cannot encode multiple positions.");
+                    int offset = frame.tilePositionOfsets == null || frame.tilePositionOfsets.Count == 0
+                        ? 0 : frame.tilePositionOfsets[0];
+                    AivWorldTile cleared = Project(CreateGridPoint(offset, "Clear"), keepAnchor,
+                        keepWorldX, keepWorldY, castleRotation, projectionMode);
+                    tiles.Remove(new BlueprintWorldTile(cleared.X, cleared.Y));
+                    // Preserve a partially surviving structure's icon, but never retain
+                    // an icon whose entire core has been cleared by ordered frames.
+                    icons.RemoveAll(icon => cleared.X >= icon.MinimumWorldX && cleared.X <= icon.MaximumWorldX &&
+                        cleared.Y >= icon.MinimumWorldY && cleared.Y <= icon.MaximumWorldY &&
+                        !tiles.Keys.Any(tile => tile.X >= icon.MinimumWorldX && tile.X <= icon.MaximumWorldX &&
+                            tile.Y >= icon.MinimumWorldY && tile.Y <= icon.MaximumWorldY));
+                    continue;
+                }
                 if (frame.tilePositionOfsets == null ||
                     frame.tilePositionOfsets.Count == 0)
                 {

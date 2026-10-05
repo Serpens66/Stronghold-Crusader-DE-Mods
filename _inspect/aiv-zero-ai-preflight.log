@@ -1,0 +1,9 @@
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+PASS: AI keep range lifetime, migration guard, minimal logging, host settings, Fixes? XAML, locale parity and CRLF.
+PASS: xrefs (including data/function references) enter only at EEF90: [{'binary_hash': 'FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2', 'from_rva': '0x7A73A', 'to_rva': '0xEEF90', 'type': 'UNCONDITIONAL_CALL', 'source_function': 'FUN_18007a3b0'}, {'binary_hash': 'FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2', 'from_rva': '0xEE611', 'to_rva': '0xEEF90', 'type': 'UNCONDITIONAL_CALL', 'source_function': 'FUN_1800ee320'}, {'binary_hash': 'FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2', 'from_rva': '0x88F5680', 'to_rva': '0xEEF90', 'type': 'DATA', 'source_function': None}]
+function sha: 83D062DDDBAFEC9EB33F704FA914609B6761E16DAE351A64F7491319984DF12E
+PASS: executable-section rel32 candidate scan: no incoming interior edge; complete 317-byte body captured for Iced tests.
+MSBuild-Version 18.6.14+e730f1db7 für .NET
+  AIKeepRange.Tests -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\tests\AIKeepRange.Tests\bin\AIKeepRangeTests.exe
+PASS: production AI runtime: settings, prebuild/save publishers, mission change, original counts, persistent fail-closed.
+PASS: AI keep range: 113 checks; actual NativeX64 Indirect/10, trampoline execution, AI/human/invalid/disabled forwarding.

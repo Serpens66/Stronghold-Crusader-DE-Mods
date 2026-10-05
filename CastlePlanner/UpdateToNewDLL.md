@@ -1,5 +1,26 @@
 # Updating CastlePlanner for a new CrusaderDE.dll
 
+## Type-zero AIV frames (2026-10-05)
+
+For native hash FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2,
+the signed raw frame discriminator in 0x55320 uses a count only for negative
+types. Type zero consumes one offset and writes a one-cell zero mapper with the
+current frame index. 0x6A190 returns -1 for mapper zero, clamped to size one by
+the importer; 0x53CA0 transforms the raw coordinate. 0x57080 skips zero cells
+in fit evaluation; 0x53D00 skips them during prepared construction. A zero frame
+can therefore erase an earlier raster cell and must not be discarded or rendered
+as an unknown building. Frame order and pause indices remain significant.
+
+Encoder, shared raw decoder, blueprint parser, projected footprints, HUD layout
+and SVG export retain this behavior. Empty legacy zero frames still encode [0,0]
+and decode as one zero-position clear; a single offset is preserved exactly.
+Multiple offsets are rejected because negative zero cannot introduce a count.
+Bounds, Keep cardinality and other validation remain in place. Reaudit the full
+managed GetRawData -> native import -> fit/preparation chain on future updates.
+The three Goodwins Snake files from the 18:51 log are read-only regression inputs;
+their Workshop sources must not be rewritten. No protocol or setting change is
+required; unchanged raw encodings retain their existing content hashes.
+
 ## Audited baseline
 
 - Steam build ID: `24816905`

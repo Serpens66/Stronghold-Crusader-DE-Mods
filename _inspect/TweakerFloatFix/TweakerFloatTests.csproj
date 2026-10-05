@@ -1,0 +1,20 @@
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" />
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion><OutputPath>bin\</OutputPath><AssemblyName>TweakerFloatTests</AssemblyName><LangVersion>latest</LangVersion><TweakerRoot Condition="'$(TweakerRoot)' == ''">..\..\..\Fremde Mods\crusader-de-tweaker-float-fix</TweakerRoot></PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System"/><Reference Include="System.Core"/><Reference Include="System.IO.Compression"/>
+    <PackageReference Include="Tomlyn" Version="0.19.0" />
+    <Compile Include="Program.cs" />
+    <Compile Include="$(TweakerRoot)\Config\PublicApi\GeneratedConfigurationCapture.cs" Condition="Exists('$(TweakerRoot)\Config\PublicApi\GeneratedConfigurationCapture.cs')" />
+    <Compile Include="$(TweakerRoot)\Config\Toml\ConfigPaths.cs" />
+    <Compile Include="$(TweakerRoot)\Config\DamageMatrix\Core\MatrixPaths.cs" />
+    <Compile Include="$(TweakerRoot)\Config\Core\AtomicFileWriter.cs" />
+    <Compile Include="$(TweakerRoot)\Tests\*.cs" />
+    <Compile Include="$(TweakerRoot)\Config\Toml\Core\Handlers\*.cs" />
+    <Compile Include="$(TweakerRoot)\Config\Toml\Core\Logging\ErrorLogging.cs" />
+    <Compile Include="$(TweakerRoot)\Config\Core\TemplateBaseline.cs" />
+    <Compile Include="$(TweakerRoot)\Config\DamageMatrix\Core\CsvHelper.cs" />
+    <Compile Include="$(TweakerRoot)\Config\Sync\ConfigSyncCodec.cs" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

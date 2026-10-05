@@ -1,5 +1,24 @@
 # Native update contract: Bugfixes and QoL damaged health bars
 
+## AI keep-range probe allocation (2026-10-05)
+
+The 18:51 startup failed before the actual EEF90 hook: the copied-entry probe
+used heap storage, and RedBird could not reserve a 64-KiB executable slab within
+its target-relative allocation window around that copy. This is not evidence
+of exhaustion near the real native target or of a general RAM shortage.
+The probe now uses the installed public `NativeMemoryManager.AllocateStub(target,
+capacity)` and `WriteStub` APIs, with the complete scan window initialized.
+Storage belongs to RedBird's process-lifetime slab allocator and must not be
+passed to FreeHGlobal/VirtualFree. Only the private nonexecuted probe detour is
+disposed; the published game hook remains permanent. Probe and game hook share
+an explicitly Indirect-only NativeX64 backend. Existing full-function, 10-byte
+displacement, pointer-slot and continuation checks still apply before/after enable.
+On updates recheck the public allocation/write signatures, slab ownership and
+near-range behavior against the installed RedBird implementation, not just its
+assembly version. Tests cover allocation failure, initialized scan padding,
+private rollback and actual trampoline execution. A corrected in-game startup
+and Baibars 400x400 acceptance are still pending.
+
 Reference: `CrusaderDE.dll` SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`. This health-bar feature is bound to the hash because it reads fixed native unit/building layouts and depends on render control flow. An unknown DLL must fail closed before any hook is installed.
 
 | Feature target | Reference RVA / image-base offset | Signature or derivation | Validation and failure |

@@ -27,6 +27,11 @@ namespace AIVPlacement.Core
             var buildSteps = new List<AivProjectedBuildStep>(blueprint.Frames.Count);
             var elements = new List<AivProjectedElement>();
             var occupiedTiles = new List<AivProjectedTile>();
+            var lastClearByOffset = new Dictionary<int, int>();
+            foreach (AivBuildFrame frame in blueprint.Frames)
+                if (frame.RawItemType == 0)
+                    foreach (AivGridPoint point in frame.Positions)
+                        lastClearByOffset[point.EncodedOffset] = frame.BuildIndex;
 
             // Frame order is the original AIV build order and must remain untouched.
             foreach (AivBuildFrame frame in blueprint.Frames)
@@ -37,6 +42,10 @@ namespace AIVPlacement.Core
                      positionIndex++)
                 {
                     AivGridPoint sourceAnchor = frame.Positions[positionIndex];
+                    // A clear participates in native raster import, never in construction.
+                    // Its build step and pause remain below, with no placement element.
+                    if (frame.RawItemType == 0)
+                        continue;
                     int elementIndex = elements.Count;
                     var elementTiles = new List<AivProjectedTile>();
                     AivProjectedElementKind elementKind =
@@ -78,6 +87,12 @@ namespace AIVPlacement.Core
                                 blockedArea.Source);
                         }
                     }
+
+                    // Apply later clears to both core and associated cells. Subsequent
+                    // ordinary frames still repaint these cells in their original order.
+                    elementTiles.RemoveAll(tile =>
+                        lastClearByOffset.TryGetValue(tile.SourceAivCoordinate.EncodedOffset, out int clearFrame) &&
+                        clearFrame > frame.BuildIndex);
 
                     AivWorldTile projectedAnchor = AivWorldTransform.ProjectNativeFit(
                         sourceAnchor,

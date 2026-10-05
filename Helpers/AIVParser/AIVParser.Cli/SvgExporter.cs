@@ -14,6 +14,34 @@ public static class SvgExporter
     private const int GridPixelSize = AivGridPoint.GridSize * CellSize;
     private static readonly XNamespace Svg = "http://www.w3.org/2000/svg";
 
+    private static void ApplyClearMask(XElement shape, AivFootprint footprint, int buildIndex,
+        IReadOnlyDictionary<AivGridPoint, int> lastClear, XElement definitions)
+    {
+        XElement? mask = null;
+        for (int row = footprint.Minimum.Row; row <= footprint.Maximum.Row; row++)
+        for (int column = footprint.Minimum.Column; column <= footprint.Maximum.Column; column++)
+        {
+            if (!lastClear.TryGetValue(new AivGridPoint(row, column), out int clearFrame) || clearFrame <= buildIndex)
+                continue;
+            if (mask == null)
+            {
+                string id = "clear-mask-" + definitions.Elements().Count();
+                mask = new XElement(Svg + "mask", new XAttribute("id", id),
+                    new XAttribute("maskUnits", "userSpaceOnUse"),
+                    new XAttribute("x", 0), new XAttribute("y", 0),
+                    new XAttribute("width", 1160), new XAttribute("height", 940),
+                    new XElement(Svg + "rect", new XAttribute("width", 1160),
+                        new XAttribute("height", 940), new XAttribute("fill", "white")));
+                definitions.Add(mask);
+                shape.SetAttributeValue("mask", "url(#" + id + ")");
+            }
+            mask.Add(new XElement(Svg + "rect", new XAttribute("fill", "black"),
+                new XAttribute("x", GridOriginX + column * CellSize),
+                new XAttribute("y", ToSvgCellY(row)), new XAttribute("width", CellSize),
+                new XAttribute("height", CellSize)));
+        }
+    }
+
     public static void Write(
         string path,
         AivParseResult result,
@@ -29,6 +57,13 @@ public static class SvgExporter
             new XAttribute("aria-label", "Stronghold Crusader DE AIV castle blueprint"));
 
         AddPatterns(root);
+        var lastClear = new Dictionary<AivGridPoint, int>();
+        foreach (AivBuildFrame frame in blueprint.Frames)
+            if (frame.RawItemType == 0)
+                foreach (AivGridPoint point in frame.Positions)
+                    lastClear[AivGridTransform.Rotate(point, rotation)] = frame.BuildIndex;
+        var clearMasks = new XElement(Svg + "defs");
+        root.Add(clearMasks);
         root.Add(new XElement(
             Svg + "style",
             """
@@ -130,6 +165,7 @@ public static class SvgExporter
                         $"{area.Name}; owner frame {frame.BuildIndex}; {frame.Mapper.Name}; " +
                         $"raw anchor {footprint.RawAnchor.Row},{footprint.RawAnchor.Column}; " +
                         $"size {footprint.Size}x{footprint.Size}; source {area.Source}"));
+                    ApplyClearMask(rect, footprint, frame.BuildIndex, lastClear, clearMasks);
                     blockedAreas.Add(rect);
                 }
             }
@@ -147,6 +183,8 @@ public static class SvgExporter
             foreach (AivGridPoint rawPoint in frame.Positions)
             {
                 int size = frame.Mapper.FootprintSize ?? 1;
+                if (frame.RawItemType == 0)
+                    continue;
                 AivFootprint footprint =
                     AivGridTransform.GetFootprint(rawPoint, size, rotation);
                 AivGridPoint point = footprint.RotatedAnchor;
@@ -173,6 +211,7 @@ public static class SvgExporter
                     $"offset {rawPoint.EncodedOffset}; row {rawPoint.Row}; column {rawPoint.Column}; " +
                     $"footprint {size}x{size}; rotated anchor {point.Row},{point.Column}; " +
                     $"pause {frame.ShouldPause}"));
+                ApplyClearMask(rect, footprint, frame.BuildIndex, lastClear, clearMasks);
                 placements.Add(rect);
 
                 if (size > 1)

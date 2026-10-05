@@ -14,6 +14,7 @@ internal static class Program
         (string Name, Action Test)[] tests =
         {
             ("Project all four rotations", TestRotations),
+            ("Apply ordered single-cell clears in all rotations", TestClearFrames),
             ("Use the native fixed keep reference", TestFixedNativeKeepReference),
             ("Project asymmetric building footprints", TestAsymmetricFootprints),
             ("Retain the native Dog Cage area while classifying it as a trap", TestDogCageFootprint),
@@ -69,6 +70,38 @@ internal static class Program
 
         Console.WriteLine($"{tests.Length - failures}/{tests.Length} tests passed.");
         return failures == 0 ? 0 : 1;
+    }
+
+    private static void TestClearFrames()
+    {
+        var keep = Point(56, 43);
+        var erased = Point(50, 40);
+        var repainted = Point(50, 41);
+        var survivor = Point(50, 42);
+        var frames = new[]
+        {
+            Frame(0, 61, false, keep),
+            Frame(1, 25, false, erased, repainted, survivor),
+            Frame(2, 0, true, erased),
+            Frame(3, 0, false, repainted),
+            Frame(4, 25, false, repainted)
+        };
+        var blueprint = new AivBlueprint("clear-test", 5, frames,
+            Array.Empty<AivMiscPlacement>(), keep);
+        foreach (AivRotation rotation in Enum.GetValues(typeof(AivRotation)))
+        {
+            var castle = Projector.Project(blueprint, new MapCoordinate(200, 200), rotation);
+            AssertEqual(5, castle.BuildSteps.Count);
+            Assert(castle.BuildSteps[2].ShouldPause, "clear pause removed");
+            AssertEqual(0, castle.BuildSteps[2].Elements.Count);
+            Assert(!castle.Elements.Any(element => element.RawItemType == 0), "clear became a building");
+            Assert(!castle.OccupiedTiles.Any(tile => tile.SourceAivCoordinate.Equals(erased)), "cleared cell still occupied");
+            AssertEqual(1, castle.OccupiedTiles.Count(tile => tile.SourceAivCoordinate.Equals(repainted)));
+            AssertEqual(1, castle.OccupiedTiles.Count(tile => tile.SourceAivCoordinate.Equals(survivor)));
+            var world = AivWorldTransform.ProjectNativeFit(repainted, 200, 200, rotation);
+            Assert(castle.OccupiedTiles.Any(tile => tile.MapCoordinate.Equals(new MapCoordinate(world.X, world.Y))),
+                "repainted cell has wrong rotated coordinate");
+        }
     }
 
     private static void TestRotations()
