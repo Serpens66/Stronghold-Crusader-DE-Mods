@@ -1,0 +1,275 @@
+{
+  "logHash": "a6dd8fb7ee22f4f144f0fa1d82499c7c8db4e739fcebe0e8f2ffaa0f40549675",
+  "coverage": {
+    "eventCaptureComplete": true,
+    "nativeReady": true,
+    "nativeCallsObserved": true,
+    "nativeCoverageComplete": true,
+    "coherentTopologyCaptures": 57,
+    "shadowResultsDelivered": true,
+    "selectedShadowComputationComplete": false,
+    "shadowCoverageComplete": false,
+    "usableGeometricResults": 125
+  },
+  "virtual": {
+    "summarizedRepeats": 4,
+    "rejected": 154,
+    "backgroundDeferred": 0,
+    "unresolvedGroupLinks": 0,
+    "retainedGroupEvictions": 0,
+    "instrumented": true,
+    "inputs": 260,
+    "results": 257,
+    "cancelled": 3,
+    "pending": 0,
+    "policyUnknown": 257,
+    "geometricResults": {
+      "Unknown": 132,
+      "Reachable": 125
+    }
+  },
+  "movement": [
+    {
+      "player": "5",
+      "observations": 14,
+      "units": 4,
+      "commands": 5,
+      "unitsWithEntryAndExit": 2,
+      "unmatchedEntries": 2,
+      "unmatchedExits": 0
+    },
+    {
+      "player": "8",
+      "observations": 100,
+      "units": 25,
+      "commands": 32,
+      "unitsWithEntryAndExit": 25,
+      "unmatchedEntries": 0,
+      "unmatchedExits": 0
+    }
+  ],
+  "routeChains": [
+    {
+      "session": "1",
+      "planningRoot": "125428",
+      "decision": "2",
+      "observations": 8,
+      "units": 8,
+      "commands": 8,
+      "groups": 3,
+      "paths": 8,
+      "positiveAccessObservations": 8,
+      "linkedObservations": 8
+    },
+    {
+      "session": "1",
+      "planningRoot": "156102",
+      "decision": "2",
+      "observations": 8,
+      "units": 8,
+      "commands": 8,
+      "groups": 3,
+      "paths": 8,
+      "positiveAccessObservations": 8,
+      "linkedObservations": 8
+    },
+    {
+      "session": "1",
+      "planningRoot": "186993",
+      "decision": "2",
+      "observations": 13,
+      "units": 8,
+      "commands": 8,
+      "groups": 3,
+      "paths": 8,
+      "positiveAccessObservations": 13,
+      "linkedObservations": 13
+    },
+    {
+      "session": "1",
+      "planningRoot": "217059",
+      "decision": "2",
+      "observations": 9,
+      "units": 4,
+      "commands": 4,
+      "groups": 3,
+      "paths": 4,
+      "positiveAccessObservations": 9,
+      "linkedObservations": 9
+    },
+    {
+      "session": "1",
+      "planningRoot": "701283",
+      "decision": "12",
+      "observations": 25,
+      "units": 25,
+      "commands": 25,
+      "groups": 4,
+      "paths": 25,
+      "positiveAccessObservations": 25,
+      "linkedObservations": 25
+    },
+    {
+      "session": "1",
+      "planningRoot": "732963",
+      "decision": "12",
+      "observations": 25,
+      "units": 25,
+      "commands": 25,
+      "groups": 4,
+      "paths": 25,
+      "positiveAccessObservations": 25,
+      "linkedObservations": 25
+    },
+    {
+      "session": "1",
+      "planningRoot": "764594",
+      "decision": "12",
+      "observations": 25,
+      "units": 25,
+      "commands": 25,
+      "groups": 4,
+      "paths": 25,
+      "positiveAccessObservations": 25,
+      "linkedObservations": 25
+    },
+    {
+      "session": "1",
+      "planningRoot": "796269",
+      "decision": "12",
+      "observations": 78,
+      "units": 25,
+      "commands": 25,
+      "groups": 4,
+      "paths": 25,
+      "positiveAccessObservations": 78,
+      "linkedObservations": 78
+    },
+    {
+      "session": "1",
+      "planningRoot": "828295",
+      "decision": "12",
+      "observations": 30,
+      "units": 23,
+      "commands": 26,
+      "groups": 6,
+      "paths": 26,
+      "positiveAccessObservations": 30,
+      "linkedObservations": 30
+    },
+    {
+      "session": "1",
+      "planningRoot": "860061",
+      "decision": "12",
+      "observations": 11,
+      "units": 11,
+      "commands": 11,
+      "groups": 4,
+      "paths": 11,
+      "positiveAccessObservations": 11,
+      "linkedObservations": 11
+    },
+    {
+      "session": "1",
+      "planningRoot": "891879",
+      "decision": "12",
+      "observations": 18,
+      "units": 6,
+      "commands": 6,
+      "groups": 2,
+      "paths": 6,
+      "positiveAccessObservations": 18,
+      "linkedObservations": 18
+    },
+    {
+      "session": "1",
+      "planningRoot": "923916",
+      "decision": "12",
+      "observations": 22,
+      "units": 22,
+      "commands": 22,
+      "groups": 4,
+      "paths": 22,
+      "positiveAccessObservations": 22,
+      "linkedObservations": 22
+    },
+    {
+      "session": "1",
+      "planningRoot": "95233",
+      "decision": "2",
+      "observations": 8,
+      "units": 8,
+      "commands": 8,
+      "groups": 3,
+      "paths": 8,
+      "positiveAccessObservations": 8,
+      "linkedObservations": 8
+    },
+    {
+      "session": "1",
+      "planningRoot": "955901",
+      "decision": "12",
+      "observations": 11,
+      "units": 11,
+      "commands": 11,
+      "groups": 4,
+      "paths": 9,
+      "positiveAccessObservations": 11,
+      "linkedObservations": 11
+    },
+    {
+      "session": "1",
+      "planningRoot": "987645",
+      "decision": "12",
+      "observations": 5,
+      "units": 5,
+      "commands": 5,
+      "groups": 1,
+      "paths": 5,
+      "positiveAccessObservations": 5,
+      "linkedObservations": 5
+    }
+  ],
+  "replays": [
+    {
+      "definition": 174,
+      "hash": "c1765553075387d23183d792726dac98bf1dea8e6b444c908ee6c8325c0283fc",
+      "mode": "--replay",
+      "cost": "offline-cost:elapsedMs=77.868,preparationHits=3,inputBytes=4619815,timing=offline-not-game-frame",
+      "controls": [
+        "virtual-control:definition=174,op=670225,parentOp=670149,player=8,direction=attacker-to-target,mode=0,modeEvidence=observed-CF-mode,macroBasis=raw-native-components,geometryBasis=copied-directed-tiles-with-optional-Gate-filter,noCut=Reachable,only703=NoRoute,allHostile=NoRoute,cutCells=0/15/45,reasons=[copied-directed-witness;exhausted-known-graph-equivalent-second-pass;exhausted-known-graph-equivalent-second-pass],macroControl=Reachable,nativeBoolean=1,nativeDirection=target-to-attacker,macroMatchesNative=True,geometryMatchesNative=True,cutAssessment=conditional-baseline-agrees,historicalInput=True,captureClock=888374767,revision=38,policyResult=Unknown,behavior=unchanged",
+        "virtual-control:definition=174,op=670225,parentOp=670149,player=8,direction=target-to-attacker,mode=0,modeEvidence=observed-CF-mode,macroBasis=raw-native-components,geometryBasis=copied-directed-tiles-with-optional-Gate-filter,noCut=Reachable,only703=NoRoute,allHostile=NoRoute,cutCells=0/15/45,reasons=[copied-directed-witness;exhausted-known-graph-equivalent-second-pass;exhausted-known-graph-equivalent-second-pass],macroControl=Reachable,nativeBoolean=1,nativeDirection=target-to-attacker,macroMatchesNative=True,geometryMatchesNative=True,cutAssessment=conditional-baseline-agrees,historicalInput=True,captureClock=888374767,revision=38,policyResult=Unknown,behavior=unchanged"
+      ]
+    },
+    {
+      "definition": 174,
+      "hash": "c1765553075387d23183d792726dac98bf1dea8e6b444c908ee6c8325c0283fc",
+      "mode": "--replay-alternate-mode",
+      "cost": "offline-cost:elapsedMs=81.990,preparationHits=3,inputBytes=4619815,timing=offline-not-game-frame",
+      "controls": [
+        "virtual-control:definition=174,op=670225,parentOp=670149,player=8,direction=attacker-to-target,mode=1,modeEvidence=hypothesis,macroBasis=raw-native-components,geometryBasis=copied-directed-tiles-with-optional-Gate-filter,noCut=Reachable,only703=NoRoute,allHostile=NoRoute,cutCells=0/15/45,reasons=[copied-directed-witness;exhausted-known-graph-equivalent-second-pass;exhausted-known-graph-equivalent-second-pass],macroControl=Unknown,nativeBoolean=-1,nativeDirection=not-observed,macroMatchesNative=False,geometryMatchesNative=False,cutAssessment=geometric-hypothesis-only,historicalInput=True,captureClock=888374767,revision=38,policyResult=Unknown,behavior=unchanged",
+        "virtual-control:definition=174,op=670225,parentOp=670149,player=8,direction=target-to-attacker,mode=1,modeEvidence=hypothesis,macroBasis=raw-native-components,geometryBasis=copied-directed-tiles-with-optional-Gate-filter,noCut=Reachable,only703=NoRoute,allHostile=NoRoute,cutCells=0/15/45,reasons=[copied-directed-witness;exhausted-known-graph-equivalent-second-pass;exhausted-known-graph-equivalent-second-pass],macroControl=Unknown,nativeBoolean=-1,nativeDirection=not-observed,macroMatchesNative=False,geometryMatchesNative=False,cutAssessment=geometric-hypothesis-only,historicalInput=True,captureClock=888374767,revision=38,policyResult=Unknown,behavior=unchanged"
+      ]
+    },
+    {
+      "definition": 204,
+      "hash": "3e5d974b7684c5f00490e2de1d0bcbc388bb50a37efea7eacd798bf1a83c6121",
+      "mode": "--replay",
+      "cost": "offline-cost:elapsedMs=74.803,preparationHits=3,inputBytes=4619839,timing=offline-not-game-frame",
+      "controls": [
+        "virtual-control:definition=204,op=828296,parentOp=0,player=8,direction=attacker-to-target,mode=0,modeEvidence=hypothesis,macroBasis=raw-native-components,geometryBasis=copied-directed-tiles-with-optional-Gate-filter,noCut=Reachable,only703=NoRoute,allHostile=NoRoute,cutCells=0/15/45,reasons=[copied-directed-witness;exhausted-known-graph-equivalent-second-pass;exhausted-known-graph-equivalent-second-pass],macroControl=Unknown,nativeBoolean=-1,nativeDirection=not-observed,macroMatchesNative=False,geometryMatchesNative=False,cutAssessment=geometric-hypothesis-only,historicalInput=True,captureClock=960729849,revision=48,policyResult=Unknown,behavior=unchanged",
+        "virtual-control:definition=204,op=828296,parentOp=0,player=8,direction=target-to-attacker,mode=0,modeEvidence=hypothesis,macroBasis=raw-native-components,geometryBasis=copied-directed-tiles-with-optional-Gate-filter,noCut=Reachable,only703=NoRoute,allHostile=NoRoute,cutCells=0/15/45,reasons=[copied-directed-witness;exhausted-known-graph-equivalent-second-pass;exhausted-known-graph-equivalent-second-pass],macroControl=Unknown,nativeBoolean=-1,nativeDirection=not-observed,macroMatchesNative=False,geometryMatchesNative=False,cutAssessment=geometric-hypothesis-only,historicalInput=True,captureClock=960729849,revision=48,policyResult=Unknown,behavior=unchanged"
+      ]
+    },
+    {
+      "definition": 204,
+      "hash": "3e5d974b7684c5f00490e2de1d0bcbc388bb50a37efea7eacd798bf1a83c6121",
+      "mode": "--replay-alternate-mode",
+      "cost": "offline-cost:elapsedMs=78.903,preparationHits=3,inputBytes=4619839,timing=offline-not-game-frame",
+      "controls": [
+        "virtual-control:definition=204,op=828296,parentOp=0,player=8,direction=attacker-to-target,mode=1,modeEvidence=hypothesis,macroBasis=raw-native-components,geometryBasis=copied-directed-tiles-with-optional-Gate-filter,noCut=Reachable,only703=NoRoute,allHostile=NoRoute,cutCells=0/15/45,reasons=[copied-directed-witness;exhausted-known-graph-equivalent-second-pass;exhausted-known-graph-equivalent-second-pass],macroControl=Unknown,nativeBoolean=-1,nativeDirection=not-observed,macroMatchesNative=False,geometryMatchesNative=False,cutAssessment=geometric-hypothesis-only,historicalInput=True,captureClock=960729849,revision=48,policyResult=Unknown,behavior=unchanged",
+        "virtual-control:definition=204,op=828296,parentOp=0,player=8,direction=target-to-attacker,mode=1,modeEvidence=hypothesis,macroBasis=raw-native-components,geometryBasis=copied-directed-tiles-with-optional-Gate-filter,noCut=Reachable,only703=NoRoute,allHostile=NoRoute,cutCells=0/15/45,reasons=[copied-directed-witness;exhausted-known-graph-equivalent-second-pass;exhausted-known-graph-equivalent-second-pass],macroControl=Unknown,nativeBoolean=-1,nativeDirection=not-observed,macroMatchesNative=False,geometryMatchesNative=False,cutAssessment=geometric-hypothesis-only,historicalInput=True,captureClock=960729849,revision=48,policyResult=Unknown,behavior=unchanged"
+      ]
+    }
+  ]
+}

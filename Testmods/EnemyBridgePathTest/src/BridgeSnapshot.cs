@@ -71,6 +71,7 @@ namespace EnemyBridgePathTest
                 fixed (GameBuilding* pointer = &building) gate.Tiles.UnionWith(Footprint(pointer));
                 gates.Add(gate.Id, gate);
             }
+            var coupling=new BridgeBuildingIndex();coupling.Refresh();
             var result = new List<Bridge>();
             var scratch = new byte[tiles.GetMoatWorkTaskIndexLayer().Length];
             for (int i = 0; i < scratch.Length; i++) scratch[i] = 255;
@@ -83,19 +84,10 @@ namespace EnemyBridgePathTest
                 HashSet<int> footprint;
                 fixed (GameBuilding* pointer = &building) footprint = Footprint(pointer);
                 Gate parent = null;
-                if (gates.TryGetValue(building.r_GatehouseId, out var nativeParent) && nativeParent.Owner == building.r_PlayerIdOwner)
-                { parent = nativeParent; bridge.Link = "native-building-id"; }
-                else
-                {
-                    int candidates = 0;
-                    foreach (var gate in gates.Values)
-                    {
-                        if (gate.Owner != building.r_PlayerIdOwner || !Adjacent(footprint, gate.Tiles)) continue;
-                        parent = gate; candidates++;
-                    }
-                    if (candidates == 1) bridge.Link = "unique-footprint-adjacency";
-                    else { parent = null; bridge.Link = candidates == 0 ? "unlinked" : "ambiguous-adjacency"; }
-                }
+                foreach(var entry in coupling.Entries)
+                    if(entry.Id==bridge.Id&&entry.Global==bridge.Global&&entry.Link=="native-ordered-footprint-coupling"&&
+                        gates.TryGetValue(entry.ParentId,out var linkedGate)&&linkedGate.Global==entry.ParentGlobal)
+                    {parent=linkedGate;bridge.Link=entry.Link;break;}
                 if (parent != null) { bridge.GateId = parent.Id; bridge.GateGlobal = parent.Global;
                     bridge.Owner = parent.Owner; bridge.Captured = parent.Captured; }
                 bool identityStable = bridge.Global != 0 && (parent == null || parent.Global != 0) &&
@@ -107,7 +99,7 @@ namespace EnemyBridgePathTest
                 if (!identityStable) { bridge.Link = "identity-or-live-state-mismatch"; parent = null; }
                 var state = new StringBuilder("bridge=").Append(bridge.Id).Append("/g").Append(bridge.Global)
                     .Append(",parentGate=").Append(bridge.GateId).Append("/g").Append(bridge.GateGlobal)
-                    .Append(",link=").Append(bridge.Link).Append(",rawGatehouseId=").Append(building.r_GatehouseId)
+                    .Append(",link=").Append(bridge.Link).Append(",connectionRecordRaw=").Append(building.r_GatehouseId)
                     .Append(",bridgeOwner=").Append(building.r_PlayerIdOwner).Append(",owner=").Append(bridge.Owner)
                     .Append(",bridgeCapturerRaw=").Append(building.r_CapturedByPlayerId)
                     .Append(",capturer=").Append(bridge.Captured).Append(",bridgeAliveRaw=").Append((int)building.r_AliveState)

@@ -49,6 +49,7 @@
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="src\Contracts.cs" />
+    <Compile Include="src\GatehouseDrawbridgeCoupling.cs" />
     <Compile Include="src\BuildingRepairContracts.cs" />
     <Compile Include="src\BuildingRepairCapability.cs" />
     <Compile Include="src\LocalSelectionAPI.cs" />

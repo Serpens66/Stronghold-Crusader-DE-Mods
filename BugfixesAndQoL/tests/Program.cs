@@ -1,3 +1,4 @@
+using VanillaFootprintCandidate = APIShared.GatehouseFootprintCandidate;
 using System;
 using System.Collections.Generic;
 using System.IO;

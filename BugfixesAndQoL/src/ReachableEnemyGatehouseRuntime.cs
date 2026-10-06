@@ -1,3 +1,4 @@
+using VanillaFootprintCandidate = APIShared.GatehouseFootprintCandidate;
 // Feature: Prevent unreachable enemies from closing protected inner gatehouses.
 using BepInEx.Logging;
 using R3;

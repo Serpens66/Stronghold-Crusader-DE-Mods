@@ -514,7 +514,7 @@ namespace EnemyBridgePathTest
                         {var pos=tiles.GetTileVectorFromId((int)occupied[i]);if(BridgeRouteTrace.ValidXY(pos.X,pos.Y))bridge.Deck.Add(BridgeRouteTrace.Bridge.XY(pos.X,pos.Y));}
                     }
                     int parent=BridgeBuildingIndex.SpanIndex(entry.ParentId,buildings.Length);
-                    if(parent>=0&&buildings[parent].r_GlobalId==entry.ParentGlobal&&BridgeSnapshot.Active(buildings[parent].r_AliveState)&&buildings[parent].r_PlayerIdOwner==b.r_PlayerIdOwner&&BridgeSnapshot.IsGate(buildings[parent].r_BuildingType))
+                    if(parent>=0&&buildings[parent].r_GlobalId==entry.ParentGlobal&&BridgeSnapshot.Active(buildings[parent].r_AliveState)&&BridgeSnapshot.IsGate(buildings[parent].r_BuildingType))
                     {fixed(GameBuilding* ptr=&buildings[parent])foreach(int tile in BridgeSnapshot.Footprint(ptr))if((uint)tile<320800) {var pos=tiles.GetTileVectorFromId(tile);bridge.Gate.Add(BridgeRouteTrace.Bridge.XY(pos.X,pos.Y));}}
                     else {bridge.Parent=0;bridge.ParentGlobal=0;}
                     result.Add(bridge);
@@ -637,7 +637,7 @@ namespace EnemyBridgePathTest
                 {
                     int slot=BridgeBuildingIndex.SpanIndex(entry.Id,buildings.Length);if(slot<0)continue;
                     ref GameBuilding b=ref buildings[slot];
-                    if(!BridgeBuildingIndex.IsCurrent(entry,b.r_GlobalId,b.r_PlayerIdOwner,b.r_GatehouseId,(int)b.r_OccupyTileGridSize,b.r_SpriteVariationIndex)) {buildingIndex.Invalidate();continue;}
+                    if(!BridgeBuildingIndex.IsCurrent(entry,b.r_GlobalId,b.r_PlayerIdOwner,b.r_GatehouseId,(int)b.r_OccupyTileGridSize,b.r_SpriteVariationIndex,b.r_TilePositionXBegin,b.r_TilePositionYBegin)) {buildingIndex.Invalidate();continue;}
                     if(entry.MaxX>=0&&x>=entry.MinX-1&&x<=entry.MaxX+1&&y>=entry.MinY-1&&y<=entry.MaxY+1)return true;
                 }
                 return false;
@@ -891,7 +891,7 @@ namespace EnemyBridgePathTest
                 int slot=BridgeBuildingIndex.SpanIndex(entry.Id,buildings.Length);
                 if(slot<0) {buildingIndex.Invalidate();Failure(new InvalidOperationException("Indexed bridge missing: "+entry.Id));continue;}
                 ref GameBuilding b=ref buildings[slot];
-                if(!BridgeBuildingIndex.IsCurrent(entry,b.r_GlobalId,b.r_PlayerIdOwner,b.r_GatehouseId,(int)b.r_OccupyTileGridSize,b.r_SpriteVariationIndex))
+                if(!BridgeBuildingIndex.IsCurrent(entry,b.r_GlobalId,b.r_PlayerIdOwner,b.r_GatehouseId,(int)b.r_OccupyTileGridSize,b.r_SpriteVariationIndex,b.r_TilePositionXBegin,b.r_TilePositionYBegin))
                 {buildingIndex.Invalidate();Failure(new InvalidOperationException("Indexed bridge identity changed: "+entry.Id));continue;}
                 if(b.r_BuildingType!=eStructs.STRUCT_DRAWBRIDGE||!BridgeSnapshot.Active(b.r_AliveState))continue;
                 physicalScratch.Count=planningScratch.Count=0;
@@ -902,7 +902,7 @@ namespace EnemyBridgePathTest
                 physicalScratch.Add(b.r_CapturedByPlayerId);physicalScratch.Add(b.r_GatehouseId);physicalScratch.Add((b.r_GateState | (b.r_GateState2 << 8)));
                 physicalScratch.Add(b.r_SpriteVariationIndex);physicalScratch.Add(b.r_OccupyTileGridSize);
                 int parent=BridgeBuildingIndex.SpanIndex(entry.ParentId,buildings.Length);
-                bool validParent=parent>=0&&buildings[parent].r_GlobalId==entry.ParentGlobal&&BridgeSnapshot.Active(buildings[parent].r_AliveState)&&BridgeSnapshot.IsGate(buildings[parent].r_BuildingType)&&buildings[parent].r_PlayerIdOwner==b.r_PlayerIdOwner;
+                bool validParent=parent>=0&&buildings[parent].r_GlobalId==entry.ParentGlobal&&BridgeSnapshot.Active(buildings[parent].r_AliveState)&&BridgeSnapshot.IsGate(buildings[parent].r_BuildingType);
                 if(parent>=0&&!validParent) {buildingIndex.Invalidate();physicalScratch.Link="identity-mismatch";}
                 physicalScratch.Add(validParent?entry.ParentId:0);physicalScratch.Add(validParent?entry.ParentGlobal:0);
                 physicalScratch.Add(validParent?buildings[parent].r_PlayerIdOwner:0);physicalScratch.Add(validParent?buildings[parent].r_CapturedByPlayerId:0);
@@ -974,7 +974,7 @@ namespace EnemyBridgePathTest
         }
         private static string FormatPhysical(NumericImage image)
         {
-            var d=image.Data;var text=new StringBuilder("bridge=").Append(d[0]).Append("/g").Append(d[1]).Append(",owner=").Append(d[2]).Append(",capturerRaw=").Append(d[3]).Append(",gateIdRaw=").Append(d[4]).Append(",stateRaw=").Append(d[5]).Append(",orientation=").Append(d[6]).Append(",grid=").Append(d[7]).Append(",parentLink=").Append(image.Link);
+            var d=image.Data;var text=new StringBuilder("bridge=").Append(d[0]).Append("/g").Append(d[1]).Append(",owner=").Append(d[2]).Append(",capturerRaw=").Append(d[3]).Append(",connectionRecordRaw=").Append(d[4]).Append(",stateRaw=").Append(d[5]).Append(",orientation=").Append(d[6]).Append(",grid=").Append(d[7]).Append(",parentLink=").Append(image.Link);
             if(d[8]!=0)
             {
                 text.Append(",parentCandidate=").Append(d[8]).Append("/g").Append(d[9]).Append(",parentOwner=").Append(d[10]).Append(",parentCapturer=").Append(d[11]).Append(",roles=[");

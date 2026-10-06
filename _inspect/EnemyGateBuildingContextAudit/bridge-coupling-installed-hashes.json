@@ -1,0 +1,17 @@
+[
+  {
+    "Mod": "APIShared_Serp",
+    "SHA256": "DD27FEBD116D11E8E58CDEF1F8467927EEBD39473C64BC1DFA627805698F0CFE",
+    "Matching": true
+  },
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "SHA256": "67A040C57866FD561EACA83743657FA032A52F81A89ECC9E9BD778D9BFBC690E",
+    "Matching": true
+  },
+  {
+    "Mod": "EnemyBridgePathTest_Serp",
+    "SHA256": "AA432194BD358EE0198734B483AD5879EFE589882444DBAA3E19FE4A9AA099E5",
+    "Matching": true
+  }
+]

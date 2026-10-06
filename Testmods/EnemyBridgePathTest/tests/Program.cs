@@ -21,6 +21,7 @@ namespace EnemyBridgePathTest
             try
             {
                 if(args.Length==2&&args[0]=="--replay")return ShadowControlTests.Replay(args[1]);
+                if(args.Length==2&&args[0]=="--replay-alternate-mode")return ShadowControlTests.Replay(args[1],true);
                 count += ShadowControlTests.Run();
                 count += VirtualBridgeTests.Run();
                 count += SharedTests.CaptureRefreshTests.Run();

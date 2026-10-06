@@ -1678,6 +1678,8 @@ namespace APISharedTests
                 "Shared.PublishedPresetSetting",
                 "Shared.PublishedModSettingsPreset",
                 "Shared.ModSettingsPresetJson",
+                "APIShared.GatehouseFootprintCandidate",
+                "APIShared.GatehouseDrawbridgeCoupling",
                 "APIShared.GatehouseDistanceOrigin",
                 "APIShared.GatehouseTimingSettings",
                 "APIShared.GatehouseTimingValues",

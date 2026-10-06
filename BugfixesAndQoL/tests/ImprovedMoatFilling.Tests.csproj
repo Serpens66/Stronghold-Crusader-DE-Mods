@@ -44,6 +44,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
+    <Compile Include="..\..\APIShared\src\GatehouseDrawbridgeCoupling.cs"><Link>GatehouseDrawbridgeCoupling.cs</Link></Compile>
     <Compile Include="..\src\NativeInstructionReplayEmitter.cs"><Link>NativeInstructionReplayEmitter.cs</Link></Compile>
     <Compile Include="KeepFlagRotationTests.cs" />
     <Compile Include="CorruptLordDataSpawnTests.cs" />

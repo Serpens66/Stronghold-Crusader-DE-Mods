@@ -223,12 +223,16 @@ def analyze(raw):
     for line,f in actual_transport: volumes[f['kind']]+=len((line+'\r\n').encode('utf-8'))
     virtual_inputs={(f['session'],f['definition']):f for _,f in records if f['kind']=='virtual-shadow-input'}
     virtual_results={(f['session'],f['definition']):f for _,f in records if f['kind']=='virtual-shadow'}
-    virtual_cancelled=set();virtual_repeats=0
+    virtual_cancelled=set();virtual_repeats=0;virtual_rejected=0;virtual_deferred=0;virtual_unresolved=0;virtual_evictions=0
     for _,f in records:
         if f['kind']=='virtual-shadow' and (f['session'],f.get('definition')) not in virtual_inputs:
             missing.append((f['seq'],'virtual-input',f.get('definition')))
         if f['kind']=='virtual-shadow-end':
             virtual_cancelled.update((f['session'],v) for v in f.get('cancelledDefinitions','[]').strip('[]').split(';') if v)
+            virtual_rejected+=int(f.get('rejected','0'))
+            virtual_deferred+=int(f.get('backgroundDeferred','0'))
+            virtual_unresolved+=int(f.get('unresolvedGroupLinks','0'))
+            virtual_evictions+=int(f.get('retainedGroupEvictions','0'))
         if f['kind']=='virtual-shadow-repeat-batch':
             for row in f.get('rows','[]').strip('[]').split(';'):
                 if not row:continue
@@ -254,7 +258,7 @@ def analyze(raw):
     artifact_summary=dict(requested=len(artifact_inputs),completed=len(artifact_done),failed=len(artifact_fail),pending=len(artifact_pending),
                           deliveryComplete=not artifact_pending and not artifact_fail,filesVerified=False)
     if artifact_pending or artifact_fail:delivery=False
-    virtual_summary=dict(summarizedRepeats=virtual_repeats,instrumented=bool(virtual_inputs),inputs=len(virtual_inputs),results=len(virtual_results),cancelled=len(virtual_cancelled),pending=len(virtual_pending),
+    virtual_summary=dict(summarizedRepeats=virtual_repeats,rejected=virtual_rejected,backgroundDeferred=virtual_deferred,unresolvedGroupLinks=virtual_unresolved,retainedGroupEvictions=virtual_evictions,instrumented=bool(virtual_inputs),inputs=len(virtual_inputs),results=len(virtual_results),cancelled=len(virtual_cancelled),pending=len(virtual_pending),
                          policyUnknown=sum(f.get('policyResult')=='Unknown' for f in virtual_results.values()),
                          geometricResults=dict(collections.Counter(f.get('geometricResult') for f in virtual_results.values())))
     native_ready=bool(ends) and all(int(f.get('installedEntries','0'))>0 and f.get('installedEntries')==f.get('expectedEntries',f.get('installedEntries')) for f in ends)
@@ -266,7 +270,9 @@ def analyze(raw):
         any(key[0]==end['session'] for key in virtual_results) and not any(key[0]==end['session'] for key in virtual_pending)
         for end in ends) and not missing
     coverage=dict(eventCaptureComplete=capture,nativeReady=native_ready,nativeCallsObserved=native_observed,nativeCoverageComplete=native_coverage,
-                  coherentTopologyCaptures=shadow_captures,shadowCoverageComplete=shadow_coverage,
+                  coherentTopologyCaptures=shadow_captures,shadowResultsDelivered=shadow_coverage,
+                  selectedShadowComputationComplete=shadow_coverage and not virtual_rejected and not virtual_cancelled and not virtual_unresolved,
+                  shadowCoverageComplete=shadow_coverage and not virtual_rejected and not virtual_cancelled and not virtual_deferred,
                   usableGeometricResults=sum(f.get('geometricResult') in ('Reachable','NoRoute') for f in virtual_results.values()))
     return dict(artifactSummary=artifact_summary,controlSummary=dict(records=len(controls),baselineAgreements=sum(f.get("macroMatchesNative")=="True" and f.get("geometryMatchesNative")=="True" for f in controls),blocked=sum(f.get("cutAssessment","").startswith("blocked") for f in controls)),coverage=coverage,virtualSummary=virtual_summary,records=records,torn=torn,missing=missing,captureComplete=capture,deliveryComplete=delivery,
                 bridgeFileComplete=bridge_file_complete,bridgeComplete=capture and delivery and bridge_file_complete and not missing and not reconstruction,

@@ -29,4 +29,5 @@
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <ItemGroup><Compile Include="..\..\Shared\DeferredSnapshotRefreshRequest.cs" /></ItemGroup>
 <ItemGroup><Compile Include="tests\CaptureRefreshTests.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="..\..\APIShared\src\GatehouseDrawbridgeCoupling.cs"><Link>GatehouseDrawbridgeCoupling.cs</Link></Compile></ItemGroup>
 </Project>

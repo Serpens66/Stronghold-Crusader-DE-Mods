@@ -68,6 +68,25 @@ $nativeBytes = [IO.File]::ReadAllBytes($native)
 $pe = [BitConverter]::ToInt32($nativeBytes, 0x3c)
 $sectionCount = [BitConverter]::ToUInt16($nativeBytes, $pe + 6)
 $optionalSize = [BitConverter]::ToUInt16($nativeBytes, $pe + 20)
+$gateRva = 0x58B12
+$gateOffset = -1
+for ($i = 0; $i -lt $sectionCount; $i++) {
+    $section = $pe + 24 + $optionalSize + $i * 40
+    $size = [BitConverter]::ToInt32($nativeBytes, $section + 8)
+    $rva = [BitConverter]::ToInt32($nativeBytes, $section + 12)
+    if ($rva -le $gateRva -and $gateRva + 24 -le $rva + $size) {
+        $gateOffset = [BitConverter]::ToInt32($nativeBytes, $section + 20) + $gateRva - $rva
+        break
+    }
+}
+if ($gateOffset -lt 0) { throw 'Native farmland candidate gate is unavailable.' }
+$expectedGate = [byte[]]@(0x75,0x1A,0x44,0x38,0xB2,0x37,0xB8,0x05,0x00,0x75,0x11,0x44,
+    0x38,0xB2,0x38,0xB8,0x05,0x00,0x7F,0x08,0x84,0xDB,0x0F,0x84)
+for ($i = 0; $i -lt $expectedGate.Length; $i++) {
+    if ($nativeBytes[$gateOffset + $i] -ne $expectedGate[$i]) {
+        throw 'Native farmland candidate gate differs from the runtime compatibility check.'
+    }
+}
 $orchardRva = 0x2d3dc0
 $orchardOffset = -1
 for ($i = 0; $i -lt $sectionCount; $i++) {
@@ -253,6 +272,21 @@ if ($farmProbe -notmatch 'rat_farm_site_contract_probe\.sav' -or
     throw 'The active farm contract probe is not copy-only, bounded or Vanilla-placement preserving.'
 }
 $swap = [IO.File]::ReadAllText((Join-Path $project 'src\CanariFarmSwapProbe.cs'))
+$fixesOverride = [IO.File]::ReadAllText((Join-Path $project 'src\FixesFarmFilterOverride.cs'))
+$plugin = [IO.File]::ReadAllText((Join-Path $project 'src\AIBuildDiagnosePlugin.cs'))
+if ($fixesOverride -notmatch 'TryGetEntry<bool>\(' -or
+    $fixesOverride -notmatch '"FixPlacementSelectionNotAccountingForFarmland", "Enabled"' -or
+    $fixesOverride -notmatch 'source\.SaveOnConfigSet = false;\s*setting\.Value = false' -or
+    $fixesOverride -notmatch 'entry\.Value = originalValue' -or
+    $fixesOverride -notmatch 'config\.SaveOnConfigSet = originalSaveOnSet' -or
+    $fixesOverride -notmatch 'IsVanillaCandidateGate\(moduleHandle\)' -or
+    $fixesOverride -notmatch 'string\.Equals\(HashFile\(config\.ConfigFilePath\), originalFileHash' -or
+    $plugin -notmatch 'fixesFarmFilterOverride = FixesFarmFilterOverride\.Begin\(log\)' -or
+    $plugin -notmatch 'fixesFarmFilterOverride\.Complete\(context\.ModuleHandle\)' -or
+    $plugin -notmatch 'vanillaComparisonReady && canariFarmSwapEnabled' -or
+    $plugin -notmatch 'vanillaComparisonReady && farmContractProbeEnabled') {
+    throw 'Fixes in-memory startup override or active-probe fail-closed contract differs.'
+}
 $demolition = @{}
 Get-Content -LiteralPath $functions | Where-Object {
     $_ -match '"rva":"0x(B8310|61FC0|62240|62780)"'

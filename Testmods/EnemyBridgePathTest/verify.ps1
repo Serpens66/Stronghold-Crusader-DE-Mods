@@ -98,7 +98,7 @@ foreach ($member in @(@('MapRowLookupTable','System.Int32*'),@('MapColumnLookupT
 $shadowSource=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/BridgeVirtualShadow.cs'))
 $coreSource=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/VirtualBridgeGraph.cs'))
 if ($shadowSource -match 'TryGetBuildingById|TryGetUnitById|FindNext|FindPath|Marshal.Write|TrySet|TryReplace' -or $coreSource -match 'SHCDESE|APIShared|Marshal|IntPtr') { throw 'Virtual shadow is no longer a pure copied-input observer' }
-if ($shadowSource -notmatch 'pending.Count>=32' -or $shadowSource -notmatch 'request.Authorization=authorized&&boundary&&deck.Count==0' -or $shadowSource -notmatch 'read\(0x60AD6CC\)!=0\|\|read\(0x60AD6D4\)!=nativeRevision') { throw 'Virtual coherence/negative-policy gate regression' }
+if ($shadowSource -notmatch 'pending.Count>=32' -or $shadowSource -notmatch 'request.Authorization=prepared.Authorized&&prepared.Boundary&&prepared.Deck.Length==0' -or $shadowSource -notmatch 'read\(0x60AD6CC\)!=0\|\|read\(0x60AD6D4\)!=nativeRevision') { throw 'Virtual coherence/negative-policy gate regression' }
 Write-Host 'PASS: virtual public copy/member contracts, bounded shadow queue and unvalidated policy fail-open.'
 if ($hookSource -notmatch 'site.Rva==0x3C2E0\?site.Bytes.Length:site.Size' -or
     $hookSource -notmatch 'ValidateAttackBody\(context.Memory.Slice' -or
@@ -120,3 +120,27 @@ if ($componentSource -match 'SHCDESE|APIShared|Marshal|IntPtr' -or
     $traceSource -notmatch 'ArtifactPending\(ended\)' -or
     [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/BridgeDiagnostics.cs')) -notmatch 'PumpArtifacts\(\);Trace.Drain\(\)') { throw 'Copied-input control, bounded artifact writer or durable completion regression' }
 Write-Host 'PASS: historical copied inputs, no guessed third endpoint, six controls, max two artifacts and one 64KiB render block.'
+
+# Partial macro knowledge must never manufacture C or discard verified A/B witnesses.
+if ($coreSource -notmatch 'if\(connection.ThirdEndpointUnknown\)uncertain=true' -or
+    $shadowSource -match 'PathComponentC>0\) \{known=false' -or
+    $shadowSource -notmatch 'private static bool SameContent' -or $shadowSource -notmatch 'ReferenceEquals\(content,b.content\)' -or
+    $shadowSource -notmatch 'if\(stage.StartsWith\("group-formation"\)\)' -or $shadowSource -notmatch 'if\(!Promote\(request\)\)return' -or
+    $shadowSource -notmatch 'preparations.Count>=8' -or $shadowSource -notmatch 'lastContent.Token:new object\(\)' -or
+    $coreSource -notmatch 'Workspace capacity mismatch') { throw 'Partial endpoint, bounded content cache, deferred promotion or workspace contract regression' }
+Write-Host 'PASS: independently known A/B endpoints, conservative C, exact content reuse and selected group promotion.'
+
+# Reconstructed gate C uses copied coordinates and exact native class layouts.
+if ($shadowSource -notmatch 'VirtualGateEndpoint.TryResolve' -or
+    $shadowSource -match 'SpanIndex\(b.r_GatehouseId' -or $indexSource -match 'ParentId=b.r_GatehouseId|native-building-id' -or
+    $indexSource -notmatch 'CollectFirstDistinctBuildingIds' -or $indexSource -notmatch 'native-ordered-footprint-coupling') { throw 'Native C reconstruction or spatial coupling regression' }
+$buildingType=$installed.GetType('SHCDESE.Interop.GameBuilding',$true)
+foreach ($spec in @(@('r_TilePositionXBegin',238,'UInt16'),@('r_TilePositionYBegin',240,'UInt16'),@('r_OccupyTileGridSize',248,'UInt32'))) {
+    $field=$buildingType.GetField($spec[0]);if (!$field -or !$field.IsPublic -or $field.FieldType.Name -ne $spec[2] -or [Runtime.InteropServices.Marshal]::OffsetOf($buildingType,$spec[0]).ToInt32() -ne $spec[1]) { throw ('Coupling member mismatch: '+$spec[0]) }
+}
+$tileType=$installed.GetType('SHCDESE.API.GameTileManagerAPI',$true)
+foreach ($spec in @(@('GetTileBuildingId',[UInt16],[int]),@('GetTileId',[int],[int],[int]),@('IsTileInsideMapBounds',[bool],[int],[int]),@('IsValidTileId',[bool],[int]))) {
+    $args=@($spec | Select-Object -Skip 2);$method=$tileType.GetMethod($spec[0],[type[]]$args)
+    if (!$method -or !$method.IsPublic -or $method.ReturnType -ne $spec[1]) { throw ('Coupling API mismatch: '+$spec[0]) }
+}
+Write-Host 'PASS: installed coupling views/signatures, copied class3/4 C endpoints and opaque connection-record field.'

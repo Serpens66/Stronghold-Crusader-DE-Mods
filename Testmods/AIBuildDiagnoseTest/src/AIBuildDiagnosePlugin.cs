@@ -27,6 +27,7 @@ namespace AIBuildDiagnoseTest
         private static bool nearbyWoodTestEnabled;
         private static bool farmContractProbeEnabled;
         private static bool canariFarmSwapEnabled;
+        private static FixesFarmFilterOverride fixesFarmFilterOverride;
 
         private void Awake()
         {
@@ -49,19 +50,37 @@ namespace AIBuildDiagnoseTest
                 $"canariFarmSwapEnabled={canariFarmSwapEnabled}; " +
                 "probe limited to test_canari_nowoodcutters_probe.sav.");
             if (registered) return;
+            try { fixesFarmFilterOverride = FixesFarmFilterOverride.Begin(log); }
+            catch (Exception ex)
+            {
+                fixesFarmFilterOverride = null;
+                Shared.DebugLogHelper.LogError(log,
+                    "AI_BUILD_FIXES_FILTER: startup check failed; active probes disabled: " + ex);
+            }
             CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;
             registered = true;
         }
 
         private static void OnLibraryLoaded(CrusaderLibraryLoadContext context)
         {
+            bool vanillaComparisonReady;
+            try { vanillaComparisonReady = fixesFarmFilterOverride != null &&
+                fixesFarmFilterOverride.Complete(context.ModuleHandle); }
+            catch (Exception ex)
+            {
+                vanillaComparisonReady = false;
+                Shared.DebugLogHelper.LogError(log,
+                    "AI_BUILD_FIXES_FILTER: compatibility check failed: " + ex);
+            }
             if (runtime != null) return;
             try
             {
                 var candidate = new AIBuildDiagnoseRuntime(log,
-                    Chainloader.PluginInfos.ContainsKey("fixes"), placementProbeEnabled,
-                    nearbyWoodTestEnabled, farmContractProbeEnabled,
-                    canariFarmSwapEnabled,
+                    Chainloader.PluginInfos.ContainsKey("fixes"),
+                    vanillaComparisonReady && placementProbeEnabled,
+                    vanillaComparisonReady && nearbyWoodTestEnabled,
+                    vanillaComparisonReady && farmContractProbeEnabled,
+                    vanillaComparisonReady && canariFarmSwapEnabled,
                     unchecked((ulong)context.ModuleHandle.ToInt64()));
                 // Publisher subscriptions and static fields survive SHCDE startup cleanup.
                 IDisposable candidateSession = Shared.GameplaySessionLifecycle.SubscribeStarted(

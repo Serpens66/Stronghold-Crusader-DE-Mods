@@ -1,25 +1,10 @@
 // Feature: Mirror Vanilla's footprint-edge lookup for gatehouse-coupled drawbridges.
+using VanillaFootprintCandidate = APIShared.GatehouseFootprintCandidate;
 using System;
 using System.Collections.Generic;
 
 namespace BugfixesAndQoL
 {
-    internal readonly struct VanillaFootprintCandidate
-    {
-        internal VanillaFootprintCandidate(int x, int y, int outwardX, int outwardY)
-        {
-            X = x;
-            Y = y;
-            OutwardX = outwardX;
-            OutwardY = outwardY;
-        }
-
-        internal int X { get; }
-        internal int Y { get; }
-        internal int OutwardX { get; }
-        internal int OutwardY { get; }
-    }
-
     internal readonly struct DrawbridgeApproachSnapshot
     {
         internal DrawbridgeApproachSnapshot(
@@ -62,73 +47,14 @@ namespace BugfixesAndQoL
 
     internal static class SynchronizedGatehouseReachabilityPolicy
     {
-        internal const int MaximumSynchronizedDrawbridges = 2;
+        internal const int MaximumSynchronizedDrawbridges = APIShared.GatehouseDrawbridgeCoupling.MaximumCoupledDrawbridges;
 
-        internal static List<VanillaFootprintCandidate> BuildOrderedFootprintCandidates(
-            int originX,
-            int originY,
-            int occupyTileGridSize)
-        {
-            var candidates = new List<VanillaFootprintCandidate>();
-            if (occupyTileGridSize <= 0)
-                return candidates;
+        internal static List<VanillaFootprintCandidate> BuildOrderedFootprintCandidates(int originX, int originY, int occupyTileGridSize) =>
+            APIShared.GatehouseDrawbridgeCoupling.BuildOrderedFootprintCandidates(originX, originY, occupyTileGridSize);
 
-            int midpoint = occupyTileGridSize / 2;
-            for (int x = midpoint; x < occupyTileGridSize; x++)
-            {
-                candidates.Add(new VanillaFootprintCandidate(
-                    originX + x, originY - 1, 0, -1));
-            }
-            for (int y = 0; y < occupyTileGridSize; y++)
-            {
-                candidates.Add(new VanillaFootprintCandidate(
-                    originX + occupyTileGridSize, originY + y, 1, 0));
-            }
-            for (int x = occupyTileGridSize - 1; x >= 0; x--)
-            {
-                candidates.Add(new VanillaFootprintCandidate(
-                    originX + x, originY + occupyTileGridSize, 0, 1));
-            }
-            for (int y = occupyTileGridSize - 1; y >= 0; y--)
-            {
-                candidates.Add(new VanillaFootprintCandidate(
-                    originX - 1, originY + y, -1, 0));
-            }
-            for (int x = 0; x < midpoint; x++)
-            {
-                candidates.Add(new VanillaFootprintCandidate(
-                    originX + x, originY - 1, 0, -1));
-            }
-
-            return candidates;
-        }
-
-        internal static List<int> CollectFirstDistinctBuildingIds(
-            IReadOnlyList<VanillaFootprintCandidate> candidates,
-            Func<int, int, int> getBuildingId,
-            Func<int, bool> isEligibleDrawbridge)
-        {
-            var result = new List<int>(MaximumSynchronizedDrawbridges);
-            if (candidates == null || getBuildingId == null || isEligibleDrawbridge == null)
-                return result;
-
-            for (int index = 0; index < candidates.Count; index++)
-            {
-                VanillaFootprintCandidate candidate = candidates[index];
-                int buildingId = getBuildingId(candidate.X, candidate.Y);
-                if (buildingId <= 0 || result.Contains(buildingId) ||
-                    !isEligibleDrawbridge(buildingId))
-                {
-                    continue;
-                }
-
-                result.Add(buildingId);
-                if (result.Count == MaximumSynchronizedDrawbridges)
-                    break;
-            }
-
-            return result;
-        }
+        internal static List<int> CollectFirstDistinctBuildingIds(IReadOnlyList<VanillaFootprintCandidate> candidates,
+            Func<int, int, int> getBuildingId, Func<int, bool> isEligibleDrawbridge) =>
+            APIShared.GatehouseDrawbridgeCoupling.CollectFirstDistinctBuildingIds(candidates, getBuildingId, isEligibleDrawbridge);
 
         internal static bool TryTraceExteriorApproach(
             VanillaFootprintCandidate contact,

@@ -142,6 +142,36 @@
             registrations run synchronously.
             </summary>
         </member>
+        <member name="T:APIShared.GatehouseFootprintCandidate">
+            <summary>One ordered perimeter contact and its outward direction.</summary>
+        </member>
+        <member name="M:APIShared.GatehouseFootprintCandidate.#ctor(System.Int32,System.Int32,System.Int32,System.Int32)">
+            <summary>Creates a perimeter contact.</summary>
+        </member>
+        <member name="P:APIShared.GatehouseFootprintCandidate.X">
+            <summary>Coordinate or outward direction of this contact.</summary>
+        </member>
+        <member name="P:APIShared.GatehouseFootprintCandidate.Y">
+            <summary>Coordinate or outward direction of this contact.</summary>
+        </member>
+        <member name="P:APIShared.GatehouseFootprintCandidate.OutwardX">
+            <summary>Coordinate or outward direction of this contact.</summary>
+        </member>
+        <member name="P:APIShared.GatehouseFootprintCandidate.OutwardY">
+            <summary>Coordinate or outward direction of this contact.</summary>
+        </member>
+        <member name="T:APIShared.GatehouseDrawbridgeCoupling">
+            <summary>Pure Vanilla gatehouse/drawbridge spatial coupling, independent of permissions and connection-record IDs.</summary>
+        </member>
+        <member name="F:APIShared.GatehouseDrawbridgeCoupling.MaximumCoupledDrawbridges">
+            <summary>Native C5300 maximum number of coupled drawbridges.</summary>
+        </member>
+        <member name="M:APIShared.GatehouseDrawbridgeCoupling.BuildOrderedFootprintCandidates(System.Int32,System.Int32,System.Int32)">
+            <summary>Returns Vanilla B9330 perimeter order; callers validate the live footprint and map bounds.</summary>
+        </member>
+        <member name="M:APIShared.GatehouseDrawbridgeCoupling.CollectFirstDistinctBuildingIds(System.Collections.Generic.IReadOnlyList{APIShared.GatehouseFootprintCandidate},System.Func{System.Int32,System.Int32,System.Int32},System.Func{System.Int32,System.Boolean})">
+            <summary>Selects at most two distinct positive Game-IDs in native order. The caller supplies live drawbridge eligibility; no ownership or access policy is inferred.</summary>
+        </member>
         <member name="T:APIShared.BuildingRepairQuote">
             <summary>Immutable repair costs and resource amounts for the selected owned building.</summary>
         </member>

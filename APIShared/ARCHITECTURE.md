@@ -49,3 +49,8 @@ Only a demonstrated identical process-wide target shared by independently loadab
 ## Compatibility basis
 
 The active native catalog targets SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`. The managed lobby audit targets installed `Assembly-CSharp.dll` SHA-256 `BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789` and Script Extender 2.6.0 commit `2cee24e33b5a5d81d1c275efabc714ac59917b7b`. APIShared itself retains minimum Script Extender 2.3.0 because its current public and runtime contracts require no newer API.
+
+
+## Shared drawbridge coupling (2026-10-07)
+
+At the user's explicit request, APIShared now exposes GatehouseDrawbridgeCoupling and GatehouseFootprintCandidate. BuildOrderedFootprintCandidates reproduces B9330 order; CollectFirstDistinctBuildingIds selects at most two different positive Game-IDs using the caller's live drawbridge predicate. Callers validate footprint/map bounds and identities. No ownership, access permission, parent ID from r_GatehouseId, cache or hook is inferred by this pure API. BugfixesAndQoL's existing approach policy delegates to this shared core; EnemyBridgePathTest calls it directly. Offline projects source-link the same API implementation. CastlePlanner's AIV geometry remains separate. This explicit request supersedes the earlier restriction on adding a public API for this helper; the behavior fix remains disabled.

@@ -17,10 +17,11 @@ namespace EnemyBridgePathTest
             Check(BridgeBuildingIndex.SpanIndex(4000,3999)==-1&&BridgeBuildingIndex.SpanIndex(1,3999)==0&&BridgeBuildingIndex.SpanIndex(3999,3999)==3998,"exact 1-based building boundary");
             var bridgeA=new BridgeBuildingIndex.Entry {Id=720,Global=2432353,Owner=1,NativeParent=0,Grid=5,Orientation=6};
             var bridgeB=new BridgeBuildingIndex.Entry {Id=721,Global=2432354,Owner=2,NativeParent=826,Grid=5,Orientation=0};
-            Check(BridgeBuildingIndex.IsCurrent(bridgeA,2432353,1,0,5,6)&&BridgeBuildingIndex.IsCurrent(bridgeB,2432354,2,826,5,0),"independent bridges including unknown native parent");
+            Check(BridgeBuildingIndex.IsCurrent(bridgeA,2432353,1,0,5,6)&&BridgeBuildingIndex.IsCurrent(bridgeB,2432354,2,826,5,0),"independent bridges including opaque native connection field");
             Check(!BridgeBuildingIndex.IsCurrent(bridgeA,2432355,1,0,5,6),"reused building slot invalidates association");
-            Check(!BridgeBuildingIndex.IsCurrent(bridgeA,2432353,2,0,5,6)&&!BridgeBuildingIndex.IsCurrent(bridgeA,2432353,1,827,5,6),"ownership and parent change invalidate association");
+            Check(!BridgeBuildingIndex.IsCurrent(bridgeA,2432353,2,0,5,6)&&!BridgeBuildingIndex.IsCurrent(bridgeA,2432353,1,827,5,6),"ownership and raw field change invalidate association");
             Check(!BridgeBuildingIndex.IsCurrent(bridgeA,2432353,1,0,0,6)&&!BridgeBuildingIndex.IsCurrent(bridgeA,2432353,1,0,5,0),"initializing footprint and orientation invalidate association");
+            Check(!BridgeBuildingIndex.IsCurrent(bridgeA,2432353,1,0,5,6,1,0),"position change invalidates cached spatial coupling");
             var site=BridgeNativeDefinition.Sites.First(s=>s.Rva==0x11A980);
             int reads=0;uint global=7;int target=0;bool fail=false;
             var trace=new BridgeDecisionTrace(null,id=>new BridgeDecisionTrace.AttackStamp(global,2,3,0,0,target,12),()=>{reads++;if(fail)throw new Exception("fixture capture failure");return 1;});
@@ -74,6 +75,7 @@ namespace EnemyBridgePathTest
             ObservedPlayerEightAccess();
             StablePopulationAndTransport();
             RaisedPopulation();
+            LatestShadowPopulation();
             Console.WriteLine("PASS lean trace: 75117 repeated attacks, two initial captures; exact counts, changes, nesting, exceptions and bounded drain.");
             return checks;
         }
@@ -99,6 +101,27 @@ namespace EnemyBridgePathTest
             long bytes=Shared.DebugLogHelper.Bytes-startBytes;
             Check(bytes*60.0/123.428<1000000,"raised synthetic unchanged population below1MB/min including prefixes");
             Console.WriteLine("Raised population:2500812 calls,40729 command pairs,bytesWithPrefixAllowance="+bytes);
+        }
+        private static void LatestShadowPopulation()
+        {
+            var trace=new BridgeDecisionTrace(null,_=>new BridgeDecisionTrace.AttackStamp(1,8,125,6,0,1,1),()=>1,r=>r==0x60AD6CC?1:r==0x37ED4CC?2:0);
+            trace.StartSession(605);long bytes=Shared.DebugLogHelper.Bytes;
+            int[,] calls={{0x11A980,975674},{0xE49D0,6557},{0x64460,1},{0xD95E0,8},{0xD9190,8},{0x10DF60,3},{0x115B10,3},{0x3C2E0,224},{0x2D250,8},{0x2C480,3},{0x2C5A0,3},{0x3BD50,5},{0xCF360,370},{0xCF400,1}};
+            for(int row=0;row<calls.GetLength(0);row++)
+            {
+                var site=BridgeNativeDefinition.Sites.Single(s=>s.Rva==calls[row,0]);
+                for(int i=0;i<calls[row,1];i++)
+                {
+                    var scope=trace.Enter(site,IntPtr.Zero,site.Rva==0xE49D0?(i<57?1:0):8,1);trace.Exit(scope,true,site.Rva==0xE49D0&&i<57?1:0,IntPtr.Zero);
+                    if(row==0&&i<21456) {trace.CountCommand(true);trace.CountCommand(false);trace.CountEvent(BridgeDecisionTrace.CommandCountData(3,8,3,1,false,true));}
+                    if(i%(row==0?1000:16)==0)trace.Drain();
+                }
+            }
+            trace.FlushRegions();while(trace.Pending>0)trace.Drain();
+            Check(trace.Entered==982868&&trace.Exited==982868,"latest shadow run exact982868 calls");
+            Check(trace.Summary().Contains("commandPre=21456,commandPost=21456")&&trace.Failures==0&&trace.Summary().Contains("overflow=0,backgroundOverflow=0"),"latest command population complete");
+            long volume=Shared.DebugLogHelper.Bytes-bytes;Check(volume*60.0/61.824<1000000,"latest unchanged population under1MB/min including prefix allowance");
+            Console.WriteLine("Latest shadow population:982868 calls,21456 commands,57 rebuilds,quietBytesWithPrefixes="+volume);
         }
         private static void StablePopulationAndTransport()
         {

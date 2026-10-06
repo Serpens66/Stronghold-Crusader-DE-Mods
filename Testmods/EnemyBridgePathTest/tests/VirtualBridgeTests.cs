@@ -28,9 +28,36 @@ namespace EnemyBridgePathTest
             while(!query.Complete) {query.Step(2);Check(++steps<map.Components.Length*4+20,"bounded traversal");}
             return query;
         }
+        private static void TestGateEndpoints()
+        {
+            foreach(int kind in new[]{3,4})foreach(int orientation in new[]{0,2})
+            {
+                var map=Map(16,16,true);int size=kind==3?7:5,ox=3,oy=4,mid=size/2;
+                int entry=orientation==0?map.Tile(ox+mid,oy+size):map.Tile(ox+size,oy+mid);
+                int exit=orientation==0?map.Tile(ox+mid,oy-1):map.Tile(ox-1,oy+mid);
+                int expected=map.Tile(ox+1,oy+1);map.Components[expected]=3;
+                Check(VirtualGateEndpoint.TryResolve(map,kind,entry,exit,3,out int tile)&&tile==expected,"native C from class/oriented endpoints");
+                Check(!VirtualGateEndpoint.TryResolve(map,kind,exit,entry,3,out _),"swapped endpoints cannot invent orientation");
+                Check(!VirtualGateEndpoint.TryResolve(map,kind,entry,exit,2,out _),"stale C component fails closed");
+                Check(!VirtualGateEndpoint.TryResolve(map,5,entry,exit,3,out _),"unconfirmed class5 is unresolved");
+                Check(!VirtualGateEndpoint.TryResolve(map,kind,-1,exit,3,out _),"invalid endpoint fails closed");
+                Check(!VirtualGateEndpoint.TryResolve(map,kind,entry,exit,0,out _),"absent C is not a physical anchor");
+                map.X[expected]++;Check(!VirtualGateEndpoint.TryResolve(map,kind,entry,exit,3,out _),"packed coordinate mismatch fails closed");
+            }
+        }
+        private static void TestNativeCoupling()
+        {
+            var candidates=APIShared.GatehouseDrawbridgeCoupling.BuildOrderedFootprintCandidates(10,20,5);
+            Check(candidates.Count==20&&candidates[0].X==12&&candidates[0].Y==19,"native perimeter begins at north midpoint");
+            int reads=0;var ids=APIShared.GatehouseDrawbridgeCoupling.CollectFirstDistinctBuildingIds(candidates,
+                (x,y)=>{reads++;return reads==1?0:reads<4?703:reads==4?720:828;},id=>id==703||id==720||id==828);
+            Check(ids.Count==2&&ids[0]==703&&ids[1]==720&&reads==4,"first two distinct live bridges; no owner filter or ID0 lookup");
+            ids=APIShared.GatehouseDrawbridgeCoupling.CollectFirstDistinctBuildingIds(candidates,(x,y)=>703,id=>false);
+            Check(ids.Count==0,"inactive identities cannot couple");
+        }
         internal static int Run()
         {
-            checks=0;var line=Map(5,1,false);
+            checks=0;TestGateEndpoints();TestNativeCoupling();var line=Map(5,1,false);
             Check(Run(line,0,4,0,new[]{2}).Result==VirtualReachability.NoRoute,"equal native PCL splits at enemy deck");
             Check(Run(line,0,4,1,Array.Empty<int>()).Result==VirtualReachability.Reachable,"owner/allied/capturer no cut");
             Check(Run(Map(5,2,true),0,4,0,new[]{2}).Result==VirtualReachability.Reachable,"alternate terrain route survives");
@@ -54,6 +81,18 @@ namespace EnemyBridgePathTest
             }
             Check(Run(line.WithConnections(new[]{new VirtualConnection(0,1,4,2,true,true,true,true)}),0,4,0,new[]{2}).Result==VirtualReachability.Reachable,"third endpoint remapped to actual tile");
             Check(Run(line.WithConnections(new[]{new VirtualConnection(0,1,-1,2,true,true,true,false)}),0,4,0,new[]{2}).Result==VirtualReachability.Unknown,"unresolved third endpoint cannot prove no route");
+            foreach(int mode in new[]{0,1})foreach(bool reversed in new[]{false,true})
+            {
+                var partial=line.WithConnections(new[]{new VirtualConnection(0,4,-1,2,true,true,true,true,true)});
+                Check(Run(partial,reversed?4:0,reversed?0:4,mode,new[]{2}).Result==VirtualReachability.Reachable,"known A/B direct transition independent of C and direction");
+            }
+            var work=new VirtualBridgeWorkspace(line.Components.Length);
+            foreach(var cut in new[]{new[]{2},Array.Empty<int>(),new[]{2}})
+            {
+                var reused=new VirtualBridgeQuery(line,0,4,0,cut,true,workspace:work);while(!reused.Complete)reused.Step(64);
+                Check(reused.Result==(cut.Length==0?VirtualReachability.Reachable:VirtualReachability.NoRoute),"workspace clears cut and visited state between variants");
+                Check(cut.Length==0||reused.Expanded==2,"equivalent second macro pass is skipped when no known class1 edges exist");
+            }
             var components=new ushort[]{1,1};var edgeCopy=new byte[]{4,64};var map=new VirtualBridgeMap(1,8,components,edgeCopy,new int[2],new ushort[]{0,1},new ushort[2],new int[1],Array.Empty<VirtualConnection>(),true);
             components[0]=0;edgeCopy[0]=0;
             Check(Run(map,0,1,0,Array.Empty<int>()).Result==VirtualReachability.Reachable,"copied inputs immune to ID/map replacement writes");

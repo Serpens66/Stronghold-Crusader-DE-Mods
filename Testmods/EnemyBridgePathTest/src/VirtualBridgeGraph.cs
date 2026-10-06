@@ -52,12 +52,39 @@ namespace EnemyBridgePathTest
         internal int Neighbor(int tile,int direction) => Tile(X[tile]+Dx[direction],Y[tile]+Dy[direction]);
         internal static readonly int[] Dx={0,1,1,1,0,-1,-1,-1},Dy={-1,-1,0,1,1,1,0,-1};
     }
+    // Full native class updaters D7E90 (class3) and D8040 (class4).
+    // Their C lookup is PCL(originX+1,originY+1), not an arbitrary PCL anchor.
+    internal static class VirtualGateEndpoint
+    {
+        internal static bool TryResolve(VirtualBridgeMap map,int kind,int entry,int exit,int component,out int tile)
+        {
+            tile=-1;int size=kind==3?7:kind==4?5:0;
+            if(size==0||component<=0||(uint)entry>=(uint)map.X.Length||(uint)exit>=(uint)map.X.Length)return false;
+            int ox,oy,mid=size/2;
+            // Audited orientations: 0 has the entry south; 2 has the entry east.
+            if(map.X[entry]==map.X[exit]&&map.Y[entry]-map.Y[exit]==size+1)
+            {ox=map.X[entry]-mid;oy=map.Y[exit]+1;}
+            else if(map.Y[entry]==map.Y[exit]&&map.X[entry]-map.X[exit]==size+1)
+            {ox=map.X[exit]+1;oy=map.Y[entry]-mid;}
+            else return false;
+            if(ox<0||oy<0||ox+size>800||oy+size>800)return false;
+            int candidate=map.Tile(ox+1,oy+1);
+            if(candidate<0||map.Components[candidate]!=component)return false;
+            tile=candidate;return true;
+        }
+    }
     internal readonly struct VirtualConnection
     {
         internal readonly int A,B,C,Class;
-        internal readonly bool Active,Enabled,AccessAllowed,EndpointsKnown;
-        internal VirtualConnection(int a,int b,int c,int kind,bool active,bool enabled,bool allowed,bool known)
-        {A=a;B=b;C=c;Class=kind;Active=active;Enabled=enabled;AccessAllowed=allowed;EndpointsKnown=known;}
+        internal readonly bool Active,Enabled,AccessAllowed,EndpointsKnown,ThirdEndpointUnknown;
+        internal VirtualConnection(int a,int b,int c,int kind,bool active,bool enabled,bool allowed,bool known,bool thirdUnknown=false)
+        {A=a;B=b;C=c;Class=kind;Active=active;Enabled=enabled;AccessAllowed=allowed;EndpointsKnown=known;ThirdEndpointUnknown=thirdUnknown;}
+    }
+    internal sealed class VirtualBridgeWorkspace
+    {
+        internal readonly bool[] Cut,Seen;
+        internal readonly int[] Queue;
+        internal VirtualBridgeWorkspace(int count) {Cut=new bool[count];Seen=new bool[count];Queue=new int[count];}
     }
     // Incremental directed tile traversal. Actual endpoint tiles express a split even
     // when Vanilla gives source and target the same PCL. Never merge directed edges.
@@ -73,16 +100,19 @@ namespace EnemyBridgePathTest
         private int head,tail,pass;
         private readonly bool negativeProofComplete;
         private bool uncertain;
+        private bool secondPassChangesKnownGraph;
         internal VirtualReachability Result {get;private set;}=VirtualReachability.Unknown;
         internal bool Complete {get;private set;}
         internal bool StructureRequired {get;private set;}
         internal long Expanded {get;private set;}
         internal string Reason {get;private set;}="pending";
         internal VirtualBridgeQuery(VirtualBridgeMap map,int source,int target,int mode,IEnumerable<int> deck,
-            bool authoritative,Func<int,int,bool> edgeAllowed=null,bool negativeProofComplete=true)
+            bool authoritative,Func<int,int,bool> edgeAllowed=null,bool negativeProofComplete=true,VirtualBridgeWorkspace workspace=null)
         {
             this.map=map;this.target=target;this.mode=mode;this.authoritative=authoritative;this.edgeAllowed=edgeAllowed;this.negativeProofComplete=negativeProofComplete;
-            cut=new bool[map.Components.Length];seen=new bool[cut.Length];queue=new int[cut.Length];
+            if(workspace!=null&&workspace.Cut.Length!=map.Components.Length)throw new ArgumentException("Workspace capacity mismatch");
+            cut=workspace?.Cut??new bool[map.Components.Length];seen=workspace?.Seen??new bool[cut.Length];queue=workspace?.Queue??new int[cut.Length];
+            if(workspace!=null) {Array.Clear(cut,0,cut.Length);Array.Clear(seen,0,seen.Length);}
             foreach(int tile in deck) {if((uint)tile<(uint)cut.Length)cut[tile]=true;else uncertain=true;}
             if(uncertain||!map.Complete||mode<0||mode>1||(uint)source>=(uint)cut.Length||(uint)target>=(uint)cut.Length)
                 {Finish(VirtualReachability.Unknown,"incomplete-input-or-mode");return;}
@@ -91,6 +121,7 @@ namespace EnemyBridgePathTest
             foreach(var connection in map.Connections)
             {
                 if(!connection.Active||!connection.Enabled||!connection.AccessAllowed||connection.Class==1&&mode==0)continue;
+                if(connection.ThirdEndpointUnknown)uncertain=true; // Unknown C blocks negative proof, never a known A/B witness.
                 if(!connection.EndpointsKnown) {uncertain=true;continue;}
                 foreach(int endpoint in new[]{connection.A,connection.B,connection.C})
                 {
@@ -98,6 +129,7 @@ namespace EnemyBridgePathTest
                     if((uint)endpoint>=(uint)cut.Length||map.Components[endpoint]==0) {uncertain=true;continue;}
                     if(!macro.TryGetValue(endpoint,out List<VirtualConnection> records))macro[endpoint]=records=new List<VirtualConnection>();
                     records.Add(connection);
+                    if(connection.Class==1)secondPassChangesKnownGraph=true;
                 }
             }
             Push(source);Source=source;
@@ -112,9 +144,9 @@ namespace EnemyBridgePathTest
             {
                 if(head==tail)
                 {
-                    if(pass==0) {pass=1;Array.Clear(seen,0,seen.Length);head=tail=0;Push(Source);continue;}
+                    if(pass==0&&secondPassChangesKnownGraph) {pass=1;Array.Clear(seen,0,seen.Length);head=tail=0;Push(Source);continue;}
                     Finish(uncertain||!authoritative||!negativeProofComplete?VirtualReachability.Unknown:VirtualReachability.NoRoute,
-                        uncertain?"unresolved-transition":!negativeProofComplete?"closed-boundary-or-special-contract-unverified":!authoritative?"authorization-unresolved":"exhausted-both-native-macro-passes");break;
+                        uncertain?"unresolved-transition":!negativeProofComplete?"closed-boundary-or-special-contract-unverified":!authoritative?"authorization-unresolved":secondPassChangesKnownGraph?"exhausted-both-native-macro-passes":"exhausted-known-graph-equivalent-second-pass");break;
                 }
                 int tile=queue[head++];Expanded++;
                 if(tile==target) {StructureRequired=pass==1;Finish(authoritative?VirtualReachability.Reachable:VirtualReachability.Unknown,

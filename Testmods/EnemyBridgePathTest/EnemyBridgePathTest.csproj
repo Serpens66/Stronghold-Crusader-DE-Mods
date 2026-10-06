@@ -75,4 +75,5 @@
     <Error Condition="!Exists('$(ApiSharedDir)\APIShared.dll')" Text="APIShared.dll with editor lifecycle capability is required in ApiSharedDir." />
   </Target>
   <ItemGroup><Compile Include="..\..\Shared\DeferredSnapshotRefreshRequest.cs" /></ItemGroup>
+
 </Project>

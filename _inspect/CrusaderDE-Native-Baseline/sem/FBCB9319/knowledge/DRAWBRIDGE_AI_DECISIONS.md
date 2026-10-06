@@ -38,7 +38,7 @@ The passive milestone audit is complete. Still requiring game evidence: earliest
 
 ## Reproduction-driven extension: player siege planning
 
-The 18:24:53Ã¢â‚¬â€œ18:25:35 session matches 2D250 -> D95E0(target player, CF360 result!=0, 1) -> D9190(110, selected radius or0, attacking keep PCL, attacking player). The strategic10D9F0 had zero calls. The actual common caller is2AE40 ->3C2E0(ctx, playerId), operating1-based player records stride583C, with phase at379D974, target player379D9A8, target tile379D968, targetY379D96C and targetX379D970. Player-resource native origin379AE2C must not be confused with the Extender root pointer's header adjustment. Global88E3D70 is not this invocation's attacker.
+The 18:24:53ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“18:25:35 session matches 2D250 -> D95E0(target player, CF360 result!=0, 1) -> D9190(110, selected radius or0, attacking keep PCL, attacking player). The strategic10D9F0 had zero calls. The actual common caller is2AE40 ->3C2E0(ctx, playerId), operating1-based player records stride583C, with phase at379D974, target player379D9A8, target tile379D968, targetY379D96C and targetX379D970. Player-resource native origin379AE2C must not be confused with the Extender root pointer's header adjustment. Global88E3D70 is not this invocation's attacker.
 
 3C2E0 phases1..9 include preparation, candidate rebuilding, active attack, access reassessment and retreat. 3BD50 resets ctx+EBA0/EBA4 candidate count/rows, invokes2D250(mode1), weights potential positions, writes the retained target tile/coordinates and prepares formation positions. 2C480 clears the plan grid, invokes2C5A0(ctx,attacker,targetPlayer),1126B0,10DF60(ctx,attacker,targetPlayer),115B10(ctx,targetPlayer,attacker), then112370/1123E0/112200/112450/112190(ctx,1,attacker) andCF020(targetPlayer). 2C5A0 takes the selected tile's signed seed and PCL, its component count, and the target player's keep PCL. Fixes replaces component-count loading at2C5E1..2C5EF; the entry2C5A0..2C5B1 is disjoint. Probe returns/global results with internal Fixes patches are effective function outputs, not pristine Vanilla results.
 
@@ -363,3 +363,178 @@ end the map and await both artifact completion and session-delivered before exit
 
 
 Build/installation 2026-10-06 21:30:20: the prescribed elevated build.bat ran once successfully, with zero warnings/errors. Bridge assertions: 38012; Gate assertions: 3840; all seven frozen log/transport/topology regressions passed. Installed and local DLL SHA256: 3CBEC1AC3B0FDBF6542B67FEC3DD773D4D2BAEE821CD84C3E99308E2674E44F5. Native SHA256 was rechecked unchanged after installation. Build transcript: _inspect/EnemyGateBuildingContextAudit/bridge-shadow-controls-build.log. Binary fixture integrity and replay were independently checked by the Python decoder and production C# adapter. The real uncut/cut comparison and live costs remain pending the next targeted game run.
+
+
+## 2026-10-07: independently verified A/B endpoints and offline parity
+
+Frozen process: bridge-20261006-235642.log (5,108,252 bytes), SHA256
+A6DD8FB7EE22F4F144F0FA1D82499C7C8DB4E739FCEBE0E8F2FFAA0F40549675.
+Map session 2026-10-06 23:56:42.346--23:57:44.170: 982,868 completed
+Native calls, 21,456 paired commands, 57 rebuilds/captures. Full Bridge and
+file delivery are verified, including session-delivered and two completed inputs.
+154 rejected shadow requests and three explicitly cancelled definitions mean
+calculation coverage is incomplete despite successful delivery. The analyzer now
+separates delivered results, selected calculations and exhaustive shadow coverage.
+Player8 has 25 observed entry/exit units, 100 movement observations and 32 distinct
+movement command identities; observations and unique commands are not conflated.
+
+Retained original schema1 inputs in bridge-inputs-20261006-235642:
+- bridge-1-174.bin: 4,619,815 bytes; SHA256
+  C1765553075387D23183D792726DAC98BF1DEA8E6B444C908EE6C8325C0283FC.
+  Keep op670225/parent670149, raw native components101/1, CF mode0,
+  native order target1 -> attacker101, native boolean1.
+- bridge-1-204.bin: 4,619,839 bytes; SHA256
+  3E5D974B7684C5F00490E2DE1D0BCBC388BB50A37EFEA7EACD798BF1A83C6121.
+  Group op828296, planning root828295, stored decision12, phase6,
+  tribe4364/global2416650. Its mode remains a hypothesis. The original process
+  links this root/decision with 30 stored-route observations, 26 distinct commands,
+  23 units and six groups, not 30 new commands.
+
+Audit renewed: all122 decision functions, all32 full Absolute contracts, all42
+physical/virtual topology functions against installed Native SHA256
+FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
+No new Native entry/ABI/backend/owner is introduced. E2610 directly tests A/B
+before considering C, including symmetric A/B branches in each applicable pass.
+Eligibility/mode gates are unchanged: mode0 excludes class1; mode1 first excludes
+class1, then permits it. Raw native access permits native-team ownership or nonzero
+building capturer. The geometric adapter additionally retains the Gate-mod rule
+that owner or capturer must be allied to the actual requesting player. Immutable
+Gate direction filters remain distinct from raw native component control. The
+89/90 and534/540 permission warning is still not full unit permission coverage.
+Fixes1.24/SE2.13 topology changes are already included in the installed input;
+no shared owner, Extender source, public interface or executable patch is changed.
+
+The old adapter incorrectly made known A/B endpoints unknown whenever C>0.
+Now EndpointsKnown independently validates A/B tiles, matching PCLs and subject
+Global IDs. ThirdEndpointUnknown records unresolved C without discarding these
+edges. Known routes can prove Reachable; unresolved transitions still prevent
+NoRoute. No arbitrary component anchor is used for C. In the retained keep input,
+records8/9 (buildings466/472, owner8) connect101/1 with correct endpoint PCLs;
+their C100 remains physically unresolved. Gate adjacency is not accepted as a
+confirmed bridge-parent assignment.
+
+Production Prepare/Pump replay of BOTH ORIGINAL inputs now yields:
+             uncut           only703         all-hostile
+forward      Reachable       Unknown         Unknown
+reverse      Reachable       Unknown         Unknown
+The same results hold in the alternate-mode replay, explicitly marked hypothesis
+instead of reusing the observed mode0 CF result as a mode1 observation. Original
+keep replay matches both raw macro boolean and native-direction uncut geometry.
+This is conditional parity, not permission for a behavioral policy. Effective
+policy stays Unknown for every result. Missing actual C endpoints and uncertain
+bridge-parent/boundary authorization still block a negative cut interpretation.
+The next evidence task is to trace physical C-endpoint production against the
+native connection layout using these offline inputs, not request another broad
+raised/lowered game comparison or invent anchors.
+
+Cost/coverage changes: ordinary group hypotheses are counted, but group Pre
+inputs for every player are retained in a bounded group index and scheduled in both modes only
+after stored deck-route evidence. Keep checks and selected-target comparisons
+remain scheduled; keep and proven groups are prioritized. Unresolved bindings,
+retention evictions, queue rejections and cancelled definitions are explicit.
+Historical Pre input/clock and planning/decision context survive promotion. Exact
+query definitions are reused with separate current observation references.
+
+All consumed copied grids, special predicates, connection fields, identities,
+roles, alliances and deck contracts are compared before sharing a content token.
+Tokens contain no map arrays; result keys cannot keep all historical snapshots
+alive. At most eight prepared content/player/Gate-publication entries are held.
+Prepared maps/connections/decks are shared by both directions and modes; the
+permanent shadow runtime serially reuses one private traversal workspace. Cut/
+visited state is cleared before reuse. Where no known class1 transition exists,
+the second traversal has identical known adjacency and is omitted; uncertainty
+still produces Unknown. Class1 second-pass and structure-required semantics remain.
+
+Capture, content comparison, live input validation, preparation, search and result
+formatting costs are reported separately. Capture includes content comparison;
+compute includes preparation/search/result formatting; formatting scope is result
+and control records, so the totals must not be added as independent measurements.
+Writer costs remain separate. Existing64-record/2ms and64-KiB/2ms output bounds and
+post-map delivery markers are unchanged. Offline quiet-load prefix allowances
+are not a measured live-volume claim. Real changed planning/command bursts may
+still exceed1MB/min; no general new game run is required for this offline step.
+
+Regression entry: bridge-uncut-regression.py; report bridge-uncut-results.json and
+four production replay transcripts retain hashes, directions/modes and outcomes.
+Runtime preflight covers all19 compiled sources, installed public members, JSON,
+MonoBehaviour callbacks, permanently rooted publishers/hooks, workspace mutation
+checks, XAML and CRLF. No new game field is used. Version and README unchanged.
+
+Build/installation 2026-10-07 00:35:12: the prescribed elevated build.bat ran once successfully with zero warnings/errors. Bridge assertions:38041; Gate assertions:3840; eight frozen regressions passed. Installed/local DLL SHA256: 99E58D4687EA4F146380E8A3043686D6A799ADD77995BEF238FA54A858359E61. Transcript: bridge-uncut-build.log. Latest quiet production fixture:982868 calls,21456 command pairs,57 rebuilds,41255 bytes with prefix allowance over61.824s. Original artifact full comparisons took78.478/74.643ms offline; these are not live frame measurements. Uncut baseline parity is established; cut variants remain Unknown and behavior remains inactive. No further game start is requested for this step.
+
+## 2026-10-07: exact third endpoints and native coupling correction
+
+Installed Native SHA256 remains FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
+The existing full 122-function decision audit, 42-function physical topology audit
+and 32 Absolute hook contracts were renewed before runtime edits. Eighteen complete
+additional/overlapping bodies, class dispatch bytes and data references are retained
+in bridge-third-endpoint-evidence.txt. Database omissions are explicit: D7D50,
+D7E90, D8040, D81F0 and D83B0 have complete installed bodies but no function rows.
+They are not new hooks or inferred signatures.
+
+F4540 dispatches by connection class through table3125D0; class3 -> D7E90,
+class4 -> D8040. Their endpoint geometry uses gate origin/size, orientation0
+(south entry/north exit) or2 (east entry/west exit). Large size7 uses midpoint3
+and separation8; small size5 uses midpoint2 and separation6. Both read C from
+PCL(originX+1,originY+1). The pure adapter reconstructs this coordinate from
+A/B positions only when the exact signed geometry, packed lookup, C and subject
+Global-ID all agree. Unconfirmed classes retain verified A/B and unresolved C.
+All11 small gates in each original input have matching C, including own gates
+466/472; no arbitrary PCL anchor and no additional native search are used.
+
+The production adapter, not only an independent probe, replays both original
+inputs in both directions and both modes: noCut Reachable, only703 NoRoute,
+allHostile NoRoute, cuts0/15/45, unknownRecords0. Original artifact hashes are
+unchanged. Keep mode0 also matches raw native control and native-direction
+geometry. Group modes remain hypotheses. Every effective policy stays Unknown;
+this proves the copied-graph separation, not full raised-map/unit authorization.
+
+Correction to earlier parent claims: gate updaters write connection record index
+to native building manager+GameID*32C+32E, corresponding to public field2D2
+r_GatehouseId. This is not an audited bridge-parent Building-ID. The old Bridge
+index, deferred snapshot and shadow authorization incorrectly interpreted it as
+one. All three consumers now use confirmed spatial coupling. Raw field values
+remain opaque, including the retained schema1 slot name NativeParent.
+
+Coupling source-links BugfixesAndQoL/SynchronizedGatehouseReachabilityPolicy.cs
+into the Bridge runtime/tests: B9330's ordered perimeter, exclusion of previously
+selected ID, first two distinct eligible live bridges. Native eligible alive=2;
+NeedsInit is not silently accepted for this lookup. No owner filter is added to
+coupling. Multiple gate sources produce an explicit ambiguous association. Parent
+identity/owner/capturer are separate from bridge ownership and permission. Negative
+policy authorization remains conservative, including differing parent/bridge owners.
+Copied parent identity/roles participate in exact-content cache equality and live
+validation. Optional schema1 coupledParents5 records those facts for new captures;
+old original captures remain valid and do not acquire invented parent evidence.
+
+Workspace review: BugfixesAndQoL ReachableEnemyGatehouseRuntime already uses this
+native perimeter lookup for up to2 synchronized drawbridges and tests exterior
+approaches. It does not prove enemy lateral deck exclusion. AIPreplacedBuildingFix
+only stores r_GatehouseId in a diagnostic snapshot; the property is not consumed
+as a lookup. EnemyGatePathfindingTest logs/fingerprints the value as explicitly
+opaque. CastlePlanner BlueprintLayout.TryFindAdjacentGate matches AIV footprint
+axis, centered five-tile shared edge and frame/build order for blueprint/render
+orientation. It is not a runtime identity or reachability provider. ExtraFeatures
+and APIShared gate automation follow C5300 recipient lookup and do not interpret
+r_GatehouseId as a bridge parent. No change to those mods is required by this finding.
+
+Runtime preflight: actual public SHCDESE fields XBegin238,
+YBegin240 and grid248; public tile API GetTileBuildingId(int)->ushort,
+GetTileId(int,int)->int, IsTileInsideMapBounds(int,int)->bool and
+IsValidTileId(int)->bool verified against installed assembly. No publicized-only
+member was added. Static publishers/rooted native callbacks survive startup
+cleanup; JSON/lifecycle/published-hook mutation and CRLF checks pass.
+
+Remaining gates before behavior activation: full raised-boundary equivalence for
+all supported orientations/height/special cases, authoritative Gate permission
+coverage and synchronous bounded decision-time answers. Queue/offline completion
+must not change an already issued command retroactively. Existing89/90,534/540
+coverage warning remains an explicit limitation. No physical flags/PCL/path writes,
+API additions, new hooks, version or README edits.
+
+
+## Offline acceptance and installation (2026-10-07)
+
+Production replay of both immutable original artifacts passed in both directions and modes: Reachable uncut, NoRoute after cutting only703 and after all hostile decks. Eleven gate C endpoints per original input match the reconstructed native field. Original hashes are unchanged. Bridge tests passed 38082 assertions; all eight frozen log/control regression scripts passed. APIShared baseline/preset/consumer tests and BugfixesAndQoL policy/native/queue/movement regressions passed through their prescribed drivers. Installed DLLs match workspace package hashes in bridge-coupling-installed-hashes.json. APIShared and Bridge runtime builds had no warnings/errors; BugfixesAndQoL retained the known Mono.Cecil version warning only. Runtime/JSON/lifecycle/public member/permanent hook/XAML/CRLF gates passed. No game was started. Version, README and the Script Extender fork were not changed.
+
+This establishes conditional copied-graph reachability, not full permission or early planning equivalence. Effective policy remains Unknown and behavior unchanged. Early seed/distance output, complete effective Gate permissions and physical raised-state equivalence remain activation prerequisites described in BRIDGE_FIX_INTEGRATION.md. Quiet synthetic load produced 41255 bytes including prefix allowance for 982868 calls and21456 commands; this is not a live volume or frame-cost measurement.
