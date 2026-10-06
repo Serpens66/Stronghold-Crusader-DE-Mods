@@ -106,8 +106,17 @@ if not "%ERRORLEVEL%"=="0" (
   goto build_failed
 )
 
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Prepare-ThinPackage.ps1" -PackageDirectory "%PROJECT_DIR%BepInEx\plugins\CastlePlanner_Serp"
+if errorlevel 1 (
+  popd
+  goto build_failed
+)
 "%MSBUILD%" CastlePlanner.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%"
 set "BUILD_EXIT_CODE=%ERRORLEVEL%"
+if "%BUILD_EXIT_CODE%"=="0" (
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Prepare-ThinPackage.ps1" -PackageDirectory "%PROJECT_DIR%BepInEx\plugins\CastlePlanner_Serp" -ValidateOnly
+  if errorlevel 1 set "BUILD_EXIT_CODE=1"
+)
 popd
 
 echo.
@@ -130,6 +139,9 @@ if "%BUILD_EXIT_CODE%"=="0" (
     del /Q "!LEGACY_MAIN_HUD_PATCH!"
     if exist "!LEGACY_MAIN_HUD_PATCH!" goto copy_failed
   )
+
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Prepare-ThinPackage.ps1" -PackageDirectory "!GAME_PLUGIN_DIR!"
+  if errorlevel 1 goto copy_failed
 
   rem Overlay managed files so Script Extender Msgpack settings survive rebuilds.
   xcopy "!LOCAL_PLUGIN_DIR!" "!GAME_PLUGIN_DIR!\" /E /I /Q /Y

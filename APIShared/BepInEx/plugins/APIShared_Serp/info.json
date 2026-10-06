@@ -3,13 +3,22 @@
   "Author": "Serpens66",
   "Name": "APIShared",
   "Description": "Shared typed native infrastructure and extensible lobby ModSettings preset API for Serps and third-party mods.",
-  "Version": "0.4.7",
+  "Version": "0.4.8",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.9.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.4.8",
+      "Changes": [
+        "Added shared gatehouse and drawbridge automation capabilities and manual-control state handling.",
+        "Extended dynamic preset settings, grouped setting descriptions, and preset/savegame capacity limits.",
+        "Added startup-setting preparation and restart checks for presets and savegame loading.",
+        "Improved optional AI build diagnostics and enemy-gate/bridge path-policy integration."
+      ]
+    },
     {
       "Version": "0.4.7",
       "Changes": [

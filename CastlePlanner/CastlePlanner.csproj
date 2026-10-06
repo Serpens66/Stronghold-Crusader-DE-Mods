@@ -249,6 +249,15 @@
 
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 
+  <!-- Shared game/Extender libraries are supplied by the declared dependencies.
+       Only our four private companion assemblies belong in this thin package. -->
+  <Target Name="FilterThinPackageReferences" AfterTargets="ResolveReferences">
+    <ItemGroup>
+      <ReferenceCopyLocalPaths Remove="@(ReferenceCopyLocalPaths)"
+        Condition="'%(ReferenceCopyLocalPaths.Filename)' != 'CastlePlanner.AIVPlacement.Core' and '%(ReferenceCopyLocalPaths.Filename)' != 'AIVPlacement.Core' and '%(ReferenceCopyLocalPaths.Filename)' != 'AIVParser.Core' and '%(ReferenceCopyLocalPaths.Filename)' != 'MapParser.Core'" />
+    </ItemGroup>
+  </Target>
+
   <Target Name="ValidateScriptExtenderReference" BeforeTargets="BeforeBuild">
     <Error Condition="!Exists('$(ApiSharedDir)\APIShared.dll')"
            Text="APIShared.dll wurde im ApiSharedDir nicht gefunden: $(ApiSharedDir)" />

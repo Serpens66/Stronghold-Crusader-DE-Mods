@@ -18,7 +18,7 @@ namespace ExtendedData
     {
         public const string PluginGuid = "ExtendedData_Serp";
         public const string PluginName = "Extended Data";
-        public const string PluginVersion = "1.0.5";
+        public const string PluginVersion = "1.0.6";
         public const bool ExtendedDataModSettingsOptOut = true;
 
         private static ExtendedDataRuntime runtime;

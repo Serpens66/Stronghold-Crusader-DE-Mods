@@ -13,7 +13,11 @@
     {
       "Version": "1.0.174",
       "Changes": [
-        "Added an enabled-by-default host fix that makes AI melee raiding groups skip buildings without usable native melee attack positions and try another Vanilla-priority target."
+        "Added an enabled-by-default host fix that makes AI melee raiding groups skip buildings without usable native melee attack positions and try another Vanilla-priority target.",
+        "Added an enabled-by-default option to remove the AI keep build-range limit.",
+        "Improved assassin gate-route caching and movement-preview authorization, formation dragging, and target markers.",
+        "Corrected spectator player colors and kept the foreign troop HUD clear of minimap and editor controls.",
+        "Extended optional AI building and nearby-site search diagnostics."
       ]
     },
     {

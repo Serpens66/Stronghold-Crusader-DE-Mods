@@ -3,13 +3,22 @@
   "Author": "Serpens66",
   "Name": "CastlePlanner",
   "Description": "Displays AIVJSON blueprints, spawns personal human castles, and contains the gated AI lobby placement workflow.",
-  "Version": "0.8.35",
+  "Version": "0.8.36",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.10.4",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.8.36",
+      "Changes": [
+        "Included configured keep build ranges and AI keep-range policy in AIV placement evaluation.",
+        "Captured keep-range settings with lobby placement requests so candidate checks use a consistent configuration.",
+        "Updated placement feedback and localized keep-range messages.",
+        "Kept shared game and Script Extender dependencies out of the thin mod package."
+      ]
+    },
     {
       "Version": "0.8.35",
       "Changes": [
