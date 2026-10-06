@@ -74,6 +74,9 @@ echo Verwende Script Extender Referenzen:
 echo !EXTENDER_DIR!
 echo.
 
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\_inspect\Fixes124Implementation\Verify-Implementation.ps1"
+if errorlevel 1 goto build_failed
+
 pushd "%PROJECT_DIR%"
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-RuntimePreflight.ps1" -GameDir "%GAME_DIR%"
 if errorlevel 1 goto forbidden_source_popd

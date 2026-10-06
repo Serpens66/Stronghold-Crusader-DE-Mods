@@ -175,7 +175,7 @@ namespace EnemyBridgePathTest
             for(int i=0;i<10;i++) {var call=trace.Enter(lower,IntPtr.Zero,703);trace.Exit(call,true,null,IntPtr.Zero);}
             while(trace.Pending>0)trace.Drain();
             var lines=Shared.DebugLogHelper.Recent.Skip(start).ToArray();
-            Check(lines.Count(x=>x.Contains("kind=text-definition,"))==2&&lines.Count(x=>x.Contains("kind=native-enter,"))==10&&lines.Where(x=>x.Contains("kind=native-enter,")).All(x=>x.Contains("contextDefinition=")),"shared contexts preserve every changed operation using two definitions");
+            Check(lines.Count(x=>x.Contains("kind=text-definition,"))==2&&lines.Where(x=>x.Contains("kind=native-frame-batch,")).Sum(x=>x.Split(';').Length-1)==20&&lines.Where(x=>x.Contains("kind=native-frame-batch,")).All(x=>x.Contains("contextDefinition/values26")),"fixed native frames preserve every changed operation using two definitions");
             var first=new BridgeDecisionTrace.TableImage {Rva=0x2EB6B64,Slot=8,Count=1,Available=1,Rows=new[]{214724,214725,40,0}};
             var second=new BridgeDecisionTrace.TableImage {Rva=0x2EB6B64,Slot=7,Count=1,Available=1,Rows=new[]{214724,214725,40,0}};
             trace.PublishTable(first,"pre");trace.PublishTable(second,"pre");

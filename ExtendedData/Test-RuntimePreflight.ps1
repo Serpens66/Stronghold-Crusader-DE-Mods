@@ -136,6 +136,7 @@ try {
         @('CrusaderDE.HUD_IngameMenu/RestartSkirmishMapInfo', 'aivs', 'CrusaderDE.FRONT_Multiplayer/MPAIVInfo[]'),
         @('CrusaderDE.FRONT_Multiplayer/MPAIVInfo', 'builtInLord', 'System.Boolean'),
         @('CrusaderDE.FRONT_Multiplayer/MPAIVInfo', 'lordConfig', 'CustomisationFileManager/CustomLordConfig'),
+        @('CustomisationFileManager/CustomLordConfig', 'lordType', 'System.Int32'),
         @('CustomisationFileManager/CustomLordConfig', 'name', 'System.String'),
         @('CustomisationFileManager/CustomLordConfig', 'checksum', 'System.UInt64')
     )) {

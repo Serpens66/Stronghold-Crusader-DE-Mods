@@ -32,7 +32,7 @@ namespace ExtendedData
             if (values == null)
                 throw new InvalidDataException("Fixes preferences must be a JSON object.");
             object restored = ConvertObject(values, type, "Fixes preferences", 0);
-            if (!string.Equals(json, Serialize(restored, type), StringComparison.Ordinal))
+            if (!PreservesSuppliedValues(values, Shared.DependencyFreeJson.Parse(Serialize(restored, type))))
                 throw new InvalidDataException("Fixes preferences cannot be reconstructed without value loss.");
             return restored;
         }
@@ -136,22 +136,56 @@ namespace ExtendedData
             }
         }
 
-        private static object ConvertObject(Dictionary<string, object> values, Type type, string path, int depth)
+        private static object ConvertObject(Dictionary<string, object> values, Type type, string path, int depth, object current = null)
         {
             PropertyInfo[] properties = Properties(type);
-            string[] missing = properties.Where(item => !values.ContainsKey(item.Name)).Select(item => item.Name).ToArray();
             string[] unknown = values.Keys.Where(name => !properties.Any(item => item.Name == name)).ToArray();
-            if (missing.Length != 0 || unknown.Length != 0)
+            if (unknown.Length != 0)
                 throw new InvalidDataException(path + " differs from the installed Fixes property schema: " +
-                    "missing=[" + string.Join(",", missing) + "], unknown=[" + string.Join(",", unknown) + "].");
+                    "unknown=[" + string.Join(",", unknown) + "].");
             object entry = Activator.CreateInstance(type);
-            foreach (PropertyInfo property in properties)
+            if (current != null)
+                foreach (PropertyInfo property in properties)
+                    property.SetValue(entry, CloneDefault(property.GetValue(current), property.PropertyType));
+            foreach (PropertyInfo property in properties.Where(item => values.ContainsKey(item.Name)))
                 property.SetValue(entry, ConvertValue(values[property.Name], property.PropertyType,
-                    path + "." + property.Name, depth + 1));
+                    path + "." + property.Name, depth + 1, property.GetValue(entry)));
             return entry;
         }
 
-        private static object ConvertValue(object value, Type type, string path, int depth)
+        // Constructor defaults can contain shared mutable references. Clone them before merging
+        // so validating a snapshot cannot mutate another Lord's entry or a static default object.
+        private static object CloneDefault(object value, Type type)
+        {
+            if (value == null) return null;
+            type = Nullable.GetUnderlyingType(type) ?? type;
+            if (type.IsEnum || type.IsPrimitive || type == typeof(string) || type == typeof(decimal) ||
+                type == typeof(DateTime) || type == typeof(DateTimeOffset) || type == typeof(Guid) || type == typeof(TimeSpan)) return value;
+            if (type.IsArray)
+            {
+                var source = (Array)value; Type element = type.GetElementType(); Array copy = Array.CreateInstance(element, source.Length);
+                for (int i = 0; i < source.Length; i++) copy.SetValue(CloneDefault(source.GetValue(i), element), i);
+                return copy;
+            }
+            Type[] arguments = type.IsGenericType ? type.GetGenericArguments() : Type.EmptyTypes;
+            if (arguments.Length == 1)
+            {
+                var copy = (IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(arguments));
+                foreach (object item in (IEnumerable)value) copy.Add(CloneDefault(item, arguments[0]));
+                return copy;
+            }
+            if (arguments.Length == 2)
+            {
+                var copy = (IDictionary)Activator.CreateInstance(typeof(Dictionary<,>).MakeGenericType(arguments));
+                foreach (DictionaryEntry item in (IDictionary)value) copy.Add(item.Key, CloneDefault(item.Value, arguments[1]));
+                return copy;
+            }
+            object result = Activator.CreateInstance(type);
+            foreach (PropertyInfo property in Properties(type)) property.SetValue(result, CloneDefault(property.GetValue(value), property.PropertyType));
+            return result;
+        }
+
+        private static object ConvertValue(object value, Type type, string path, int depth, object current = null)
         {
             if (depth > Shared.DependencyFreeJson.MaximumDepth)
                 throw new InvalidDataException(path + " exceeds the JSON depth limit.");
@@ -212,13 +246,50 @@ namespace ExtendedData
                         dictionary.Add(item.Key, ConvertValue(item.Value, args[1], path + "." + item.Key, depth + 1));
                     return dictionary;
                 }
-                return ConvertObject(value as Dictionary<string, object> ?? throw new InvalidCastException(), type, path, depth);
+                return ConvertObject(value as Dictionary<string, object> ?? throw new InvalidCastException(), type, path, depth, current);
             }
             catch (Exception exception) when (exception is InvalidCastException || exception is FormatException ||
                 exception is OverflowException || exception is ArgumentException)
             {
                 throw new InvalidDataException(path + " cannot be converted to the installed Fixes type " + type.FullName + ".", exception);
             }
+        }
+
+        // Compare supplied values only: additive properties retain current constructor defaults.
+        // Projecting and parsing the restored value exposes rounding and overflow in conversion.
+        private static bool PreservesSuppliedValues(object supplied, object restored)
+        {
+            if (supplied is Dictionary<string, object> fields)
+                return restored is Dictionary<string, object> actual && fields.All(item =>
+                    actual.TryGetValue(item.Key, out object value) && PreservesSuppliedValues(item.Value, value));
+            if (supplied is List<object> items)
+                return restored is List<object> actualItems && items.Count == actualItems.Count &&
+                    items.Select((item, index) => PreservesSuppliedValues(item, actualItems[index])).All(equal => equal);
+            if (Equals(supplied, restored)) return true;
+            if (supplied is double && restored is double) return false;
+            if (IsNumber(supplied) && IsNumber(restored))
+            {
+                return CanonicalNumber(supplied) == CanonicalNumber(restored);
+            }
+            return false;
+        }
+
+        private static bool IsNumber(object value) => value is int || value is long || value is ulong || value is double;
+        private static string CanonicalNumber(object value)
+        {
+            string text = value is double number ? number.ToString("R", CultureInfo.InvariantCulture) :
+                Convert.ToString(value, CultureInfo.InvariantCulture);
+            bool negative = text.StartsWith("-", StringComparison.Ordinal);
+            if (negative) text = text.Substring(1);
+            int exponent = 0, e = text.IndexOfAny(new[] { 'e', 'E' });
+            if (e >= 0) { exponent = int.Parse(text.Substring(e + 1), CultureInfo.InvariantCulture); text = text.Substring(0, e); }
+            int point = text.IndexOf('.');
+            if (point >= 0) { exponent -= text.Length - point - 1; text = text.Remove(point, 1); }
+            text = text.TrimStart('0');
+            if (text.Length == 0) return "0";
+            int length = text.Length;
+            text = text.TrimEnd('0'); exponent += length - text.Length;
+            return (negative ? "-" : "") + text + "e" + exponent.ToString(CultureInfo.InvariantCulture);
         }
 
         private static string RequireString(object value) => value as string ?? throw new InvalidCastException();

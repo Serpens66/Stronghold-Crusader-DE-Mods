@@ -19,6 +19,7 @@ namespace SerpsModsHost
         private readonly Dictionary<string, MethodInfo> methods = new Dictionary<string, MethodInfo>();
         private readonly List<DynamicPresetSetting> options = new List<DynamicPresetSetting>();
         private Dictionary<string, object> working;
+        private Exception synchronizationFailure;
         internal string OwnRevision { get; private set; }
         internal bool IsReady { get; }
 
@@ -38,6 +39,7 @@ namespace SerpsModsHost
             RequireMethod("StageReturnToOwnConfiguration", Type.EmptyTypes);
             RequireMethod("IsNetworkConfigurationClient", Type.EmptyTypes);
             RequireMethod("PrepareNetworkConfiguration", Type.EmptyTypes);
+            RequireMethod("EnableRestartManagedSynchronization", Type.EmptyTypes);
             if (immediate)
             {
                 RequireMethod("ApplyConfiguration", new[] { typeof(IDictionary<string, object>), typeof(string) });
@@ -77,6 +79,7 @@ namespace SerpsModsHost
                 case "IsNetworkConfigurationClient":
                 case "PrepareNetworkConfiguration": expected = typeof(bool); break;
                 case "StageConfiguration":
+                case "EnableRestartManagedSynchronization":
                 case "StageContextConfiguration":
                 case "StageReturnToOwnConfiguration":
                 case "ApplyConfiguration":
@@ -133,11 +136,33 @@ namespace SerpsModsHost
         }
         internal void Discard() => Call("DiscardPendingConfiguration");
         public bool IsNetworkConfigurationClient => (bool)Call("IsNetworkConfigurationClient");
-        public bool PrepareNetworkConfiguration() => (bool)Call("PrepareNetworkConfiguration");
+        internal void EnableRestartManagedSynchronization()
+        {
+            try { Call("EnableRestartManagedSynchronization"); }
+            catch (Exception ex)
+            {
+                synchronizationFailure = ex.GetBaseException();
+                throw;
+            }
+        }
+        private void RequireValidStartupEvidence()
+        {
+            if (synchronizationFailure != null)
+                throw new InvalidOperationException(synchronizationFailure.Message, synchronizationFailure);
+        }
+        public bool PrepareNetworkConfiguration()
+        {
+            RequireValidStartupEvidence();
+            return (bool)Call("PrepareNetworkConfiguration");
+        }
         public Dictionary<string, object> ReadDesiredValues() => ReadValues();
         public void ReplaceDesiredValues(Dictionary<string, object> values) => ReplaceValues(values);
         public Dictionary<string, object> ReadOwnValues() => ReadOwn();
-        public Dictionary<string, object> ReadActiveValues() => Read<Dictionary<string, object>>(Call(methods.ContainsKey("GetActiveConfiguration") ? "GetActiveConfiguration" : "GetLoadedConfiguration"), "Values");
+        public Dictionary<string, object> ReadActiveValues()
+        {
+            RequireValidStartupEvidence();
+            return Read<Dictionary<string, object>>(Call(methods.ContainsKey("GetActiveConfiguration") ? "GetActiveConfiguration" : "GetLoadedConfiguration"), "Values");
+        }
         public Dictionary<string, object> ReadPendingValues()
         {
             object pending = Call("GetPendingConfiguration");

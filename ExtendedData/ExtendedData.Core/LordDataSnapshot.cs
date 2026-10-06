@@ -10,6 +10,8 @@ namespace ExtendedData
     public sealed class LordDataSlot
     {
         public int PlayerId { get; set; }
+        // null identifies a legacy payload; -1 is Custom, >=0 is the configuration Lord type.
+        public int? LordType { get; set; }
         public string LordName { get; set; }
         public string ConfigName { get; set; }
         public string ConfigChecksum { get; set; }
@@ -22,7 +24,7 @@ namespace ExtendedData
         public const int MaxSidecarBytes = 64 * 1024;
         public const int MaxNamespaceBytes = 16 * 1024;
         public const int MaxSnapshotBytes = 256 * 1024;
-        public const int ProtocolVersion = 2;
+        public const int ProtocolVersion = 3;
 
         public string SessionId { get; private set; }
         public string Digest { get; private set; }
@@ -52,6 +54,7 @@ namespace ExtendedData
                 ["slots"] = ordered.Select(item => (object)new Dictionary<string, object>(StringComparer.Ordinal)
                 {
                     ["playerId"] = item.PlayerId,
+                    ["lordType"] = item.LordType,
                     ["lordName"] = item.LordName,
                     ["configName"] = item.ConfigName,
                     ["configChecksum"] = item.ConfigChecksum,
@@ -94,7 +97,7 @@ namespace ExtendedData
             if (!string.Equals(Hash(payloadJson), digest, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidDataException("The Lord-data snapshot checksum does not match.");
             int version = Convert.ToInt32(payload["version"]);
-            if (version != (legacy ? 1 : ProtocolVersion))
+            if (legacy ? version != 1 : version != 2 && version != ProtocolVersion)
                 throw new InvalidDataException("Unsupported Lord-data snapshot version.");
             if (!payload.TryGetValue("fixesInstalled", out object installedValue) || !(installedValue is bool fixesInstalled))
                 throw new InvalidDataException("The Fixes installation marker is invalid.");
@@ -107,6 +110,7 @@ namespace ExtendedData
                 return new LordDataSlot
                 {
                     PlayerId = Convert.ToInt32(item["playerId"]),
+                    LordType = version >= 3 && item.TryGetValue("lordType", out object identity) && identity != null ? (int?)Convert.ToInt32(identity) : null,
                     LordName = RequireString(item, "lordName"),
                     ConfigName = RequireString(item, "configName"),
                     ConfigChecksum = RequireString(item, "configChecksum"),
@@ -202,6 +206,7 @@ namespace ExtendedData
                 throw new InvalidDataException("The selected Lord slots are invalid.");
             foreach (LordDataSlot slot in slots)
             {
+                if (slot.LordType < -1) throw new InvalidDataException("Invalid Lord type identity.");
                 ValidateModLord(slot.ModLordJson);
                 if (!fixesInstalled && slot.FixesJson != null)
                     throw new InvalidDataException("Fixes preferences were supplied without Fixes.");

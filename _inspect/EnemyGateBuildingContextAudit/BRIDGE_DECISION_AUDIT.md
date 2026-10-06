@@ -1,5 +1,33 @@
 # Feature audit: drawbridge decision chain (2026-10-04)
 
+## 2026-10-06: stable execution and virtual-topology completion
+
+The stable13:39:13..13:41:06 run is frozen as bridge-20261006-133913.log, SHA256
+26AD1EC083B8A65835E77C012ADC5E2E463DEE64AF35DC0D7797AF282C79C4FD.
+2118706 native calls and36923 commands are balanced with full capture/delivery/file
+coverage. One lower/no raises;91 units generate364 concrete side-deck transitions.
+Player8 decision12 consumes102/1 positive access and phase4->6; root710831 then
+issues four groups/25 commands with83 linked observations and20 executed crossings.
+The complete trace has535 path observations/511 retained-state links. Explicit
+access proof is distinct from retained-state identity, and observations are not
+unique orders. No task-consumer call occurs in this run.
+
+The supplemental42-function full-body/installed-byte audit is retained in
+bridge-virtual-evidence.txt/bridge-virtual-contracts.json. Its special-record,
+surface/height/diagonal predicates, native seed ordering, temporary gate closure,
+three-endpoint macro records and two-phase E2610 semantics are documented in
+Testmods/EnemyBridgePathTest/DECISION_FIX_DESIGN.md. The49-cell local closed/down
+fixture validates every direction byte under a deck cut; complete global virtual
+reachability is not derivable from these local captures. Parent0 remains unresolved.
+One stable raised counterrun replaces the earlier two-raised test requirement.
+
+Native-frame and numeric shared command-context transport preserve every recorded
+operation. Frozen round-trip evidence shows4765869->4450257 prefix-inclusive bytes
+with unchanged routes/movement; this active decision run is not a quiet benchmark.
+The current load fixture separately exercises2118706 calls/36923 commands and
+bounded114 topology rebuild captures. Public APIs, behavior, fork and version stay
+unchanged; the89-vs90 Extender permission stride warning remains substantiated.
+
 Native full SHA-256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2. All 115 retained bodies/xrefs were selected by this full hash and decisive prologues checked against installed CrusaderDE.dll. NativeX64 backend SHA-256: 0843DD4C381A3E77DD6D8B51D5CCF95465B3FB49BFDF2980F39A212D774AADB0. Companion evidence/contract files are retained, not disposable scratch.
 
 ## Physical chain
@@ -34,7 +62,7 @@ The passive milestone audit is complete. Still requiring game evidence: earliest
 
 ## Reproduction-driven extension: player siege planning
 
-The 18:24:53â€“18:25:35 session matches 2D250 -> D95E0(target player, CF360 result!=0, 1) -> D9190(110, selected radius or0, attacking keep PCL, attacking player). The strategic10D9F0 had zero calls. The actual common caller is2AE40 ->3C2E0(ctx, playerId), operating1-based player records stride583C, with phase at379D974, target player379D9A8, target tile379D968, targetY379D96C and targetX379D970. Player-resource native origin379AE2C must not be confused with the Extender root pointer's header adjustment. Global88E3D70 is not this invocation's attacker.
+The 18:24:53Ã¢â‚¬â€œ18:25:35 session matches 2D250 -> D95E0(target player, CF360 result!=0, 1) -> D9190(110, selected radius or0, attacking keep PCL, attacking player). The strategic10D9F0 had zero calls. The actual common caller is2AE40 ->3C2E0(ctx, playerId), operating1-based player records stride583C, with phase at379D974, target player379D9A8, target tile379D968, targetY379D96C and targetX379D970. Player-resource native origin379AE2C must not be confused with the Extender root pointer's header adjustment. Global88E3D70 is not this invocation's attacker.
 
 3C2E0 phases1..9 include preparation, candidate rebuilding, active attack, access reassessment and retreat. 3BD50 resets ctx+EBA0/EBA4 candidate count/rows, invokes2D250(mode1), weights potential positions, writes the retained target tile/coordinates and prepares formation positions. 2C480 clears the plan grid, invokes2C5A0(ctx,attacker,targetPlayer),1126B0,10DF60(ctx,attacker,targetPlayer),115B10(ctx,targetPlayer,attacker), then112370/1123E0/112200/112450/112190(ctx,1,attacker) andCF020(targetPlayer). 2C5A0 takes the selected tile's signed seed and PCL, its component count, and the target player's keep PCL. Fixes replaces component-count loading at2C5E1..2C5EF; the entry2C5A0..2C5B1 is disjoint. Probe returns/global results with internal Fixes patches are effective function outputs, not pristine Vanilla results.
 
@@ -133,3 +161,97 @@ Per-bridge decision-comparison and final comparison-coverage markers identify ac
 Frozen transport replay:4243980->3396576 bytes including prefixes (847404 saved), preserving all definitions and105 linked observations. This is a serialization regression, not proof of runtime volume or performance. Updated load fixture reproduces1695766 calls/34661 command pairs/93 rebuilds; separate unchanged/background-volume fixture includes prefixes. New graph design in Testmods/EnemyBridgePathTest/DECISION_FIX_DESIGN.md specifies virtual split-components with remapped macro endpoints and Gate authorization. It is not installed; native parent0, physical-closed boundary equivalence, special unit/mode semantics and same-save raised->lowered->raised remain prerequisites.
 
 Verification/install: the single prescribed elevated build.bat completed successfully with37731 Bridge assertions and0 warnings/0 errors. Existing3830 Gate assertions passed. Latest1695766-call/34661-command fixture emitted337855 bytes with per-record prefix allowance;75117 unchanged attacks emitted1324 bytes/four records. These are offline workload/serialization bounds, not measured in-game MB/min. Installed and local DLL SHA256 both AB5298051F3303584CE4819A38A316F81065AECFD757D742EDE7752F2CF3305F. Build transcript: _inspect/EnemyGateBuildingContextAudit/bridge-virtual-design-build.log. Runtime behavior remains passive; version0.1.0 and README unchanged. Controlled same-save raised->lowered->raised game validation remains pending; wait for session-delivered after each session.
+
+
+## 2026-10-06 raised counterrun and shadow implementation
+
+Frozen bridge-20261006-155247.log has9941535 bytes and SHA256
+D0DE38D7BEA5C0FDD41CDCE44D8557106598236930805038F0CCA5FC06098CBC.
+The exact byte boundary matters: a new BepInEx header was appended directly to
+the torn final Bridge row. Cutting by whole lines loses that fragment and falsely
+reports file completeness. Capture is complete:2500812 balanced native calls,
+40729 paired commands, no capture/ID/queue/reference failures. At session end53
+critical+14 background rows remain; no delivery marker exists. Both delivery and
+Bridge file completeness are false, while complete earlier chains remain valid.
+
+Player8 starts from the same entry plan4/0/1/224222/543/489. Lowered uses
+D95E0(1,1,1), target225464 and4->6; raised usesD95E0(1,0,1), target232127,
+negative modes0/1 and4->5, then remains5. No stored deck route or actual crossing
+was captured in the raised run. Early transient openings and the player5 positive
+5->6 decision are excluded from the settled player8 comparison. This completes
+the requested counterrun; another general raised replay is unnecessary.
+
+Installed SE2.13.0, local85ab962b342c18f663da830570884a25b85116d0, current Native
+FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2, unchanged
+NativeX64 backend0843DD4C381A3E77DD6D8B51D5CCF95465B3FB49BFDF2980F39A212D774AADB0.
+The122-function and42-function audits/32 entries have been renewed. The89/90,
+534/540 warning remains; no completeness or new permission claim follows from
+this update. Current byte gate-state fields are reconstructed as low|high<<8.
+
+VirtualBridgeMap owns copied packed components, edges, coordinates, flags and
+signed107160 special-record inputs. The read-only core follows directed edges,
+removes candidate deck vertices, keeps actual macro A/B endpoints and preserves
+the two E2610 passes. Important correction: the first-pass comparison at context
++record*0x204+0x2028 is record class+4, not an independent closed flag; class1 is
+excluded in mode0 and is a structure-required second-pass connection in mode1.
+No live native structure-required flag or visit table is modified.
+
+Runtime capture occurs only in the existing successful E49D0 post, with matching
+pre/post dirty/revision and identity checks. It is throttled to at most one capture
+per second. Spawn/delete, physical change, capture, ownership/identity/alliance
+change, incomplete publication and session replacement invalidate inputs. Queries
+compare keep access, completed target choice and formation endpoints. Group/target
+mode hypotheses are explicitly marked; they are not observed native group modes.
+CF's actual macro query order is target-component to attacker-component, while
+the shadow evaluates movement from attacker tile to target tile. Pure managed
+jobs run in64-node steps under an intended1ms render budget, separately from the
+existing64-record/2ms output budget. Queues are bounded32; rejected and cancelled
+jobs and interval capture/compute costs are explicit. No Vanilla search is added.
+
+This is a geometric shadow, not a validated exact replacement for E49D0. Seed
+predicate data are copied and tested, but complete closed-state relabelling and
+all orientation/height exceptions have not yet been compared on a full map.
+ComponentC has no public exact tile field: it can use an unchanged component
+anchor, but an affected third component makes a negative result Unknown. Invalid
+subject globals do likewise. Geometric NoRoute remains conditional. Cut policies,
+unresolved parent authorization, missing Gate snapshot and unobserved group/unit
+mode permissions yield policy Unknown. No behavioral result is installed.
+
+The pure core covers alternative routes, directed asymmetry, diagonal packed
+coordinates, class/mode/access eligibility, second-pass structure status, exact
+third endpoints, unknown inputs and signed seed exceptions. Live full-map parity
+will be assessed from shadow output; synthetic grid tests are not that evidence.
+
+Native output uses bounded16-row packets with each original37-field row envelope
+and numeric zero runs. Definitions and per-operation metadata remain recoverable.
+Both frozen logs round-trip with identical native fields, decision/route/movement
+chains and completeness: prefix-inclusive bytes4765869->4339452 (lowered),
+7052551->5974835 (raised). Active-run volume still exceeds1MB/min. The separate
+unchanged production fixture falls to53139 bytes over113.069s (about0.028MB/min).
+This is a fixture measurement, not proof of quiet in-game runtime cost.
+
+## Shadow validation and installation (2026-10-06 16:53)
+
+The final elevated build.bat ran once and completed with zero warnings/errors.
+Local and installed EnemyBridgePathTest.dll SHA256 both equal
+3353B181AF4D28991637E9829AA6A7FCFEA1BED3469DA1D4F05E6FBDF36C61B6.
+The retained transcript is _inspect/EnemyGateBuildingContextAudit/bridge-shadow-build.log.
+Bridge tests passed37885 assertions; the Gate compatibility suite passed3840.
+Analyzer completeness, both frozen counterruns, lossless native batches, local
+boundary and previous decision/route regressions passed. Installed public view,
+layout, lifecycle, JSON, CRLF and workspace permanent-hook checks passed.
+
+Every queued shadow query has a unique definition, including two modes of one
+operation. Repeated observations reference it; session cancellation lists its
+pending definitions. Calculation exceptions deliver Unknown. The analyzer reports
+shadow inputs/results/cancelled/pending independently of Bridge delivery and
+validates result/reference definitions. No behavior decision has changed.
+
+Remaining acceptance is explicit: no full-map in-game shadow result has yet been
+measured. Geometric deck-cut results are hypotheses; a cut policy remains Unknown
+until complete closed-state topology, macro endpoint and authorization parity is
+proven. The evidence establishes the planning difference but does not yet make
+this geometric model an authoritative replacement. Active trace volume remains
+above1MB/min; the lower background fixture result does not claim otherwise.
+The next focused run can reuse the known save to inspect virtual-shadow output;
+another broad raised baseline comparison is unnecessary.

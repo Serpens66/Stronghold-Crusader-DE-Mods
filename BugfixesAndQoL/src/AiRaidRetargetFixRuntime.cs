@@ -835,8 +835,8 @@ namespace BugfixesAndQoL
                 Marshal.OffsetOf(typeof(GamePlayerResources), nameof(GamePlayerResources.N00003F66)).ToInt32() != RetargetCounterOffset ||
                 Marshal.OffsetOf(typeof(GamePlayerResources), nameof(GamePlayerResources.N00005341)).ToInt32() != RemainingCounterOffset ||
                 Marshal.SizeOf(typeof(GamePlayerResources)) != 0x583C ||
-                Marshal.OffsetOf(typeof(GamePlayerResources), nameof(GamePlayerResources.N0000526D)).ToInt32() != RaidCandidateListOffset ||
-                Marshal.OffsetOf(typeof(GamePlayerResources), nameof(GamePlayerResources.N0000529F)).ToInt32() != RaidCandidateCountOffset)
+                Marshal.OffsetOf(typeof(GamePlayerResources), nameof(GamePlayerResources.r_BuildingIds)).ToInt32() != RaidCandidateListOffset ||
+                Marshal.OffsetOf(typeof(GamePlayerResources), nameof(GamePlayerResources.r_TrackedBuildingCount)).ToInt32() != RaidCandidateCountOffset)
                 throw new InvalidOperationException("Installed Script Extender raid layout differs from audited native layout.");
         }
 

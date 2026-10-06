@@ -35,6 +35,9 @@ powershell.exe -NoProfile -Command "$codeFiles = Get-ChildItem -LiteralPath '%PR
 if errorlevel 1 goto preflight_failed
 
 if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\..\_inspect\Fixes124Implementation\Verify-Implementation.ps1"
+if errorlevel 1 goto build_failed
+
 pushd "%PROJECT_DIR%"
 "%MSBUILD%" tests\AIAttackTest.Tests.csproj /p:Configuration=Debug /p:ExtenderDir="%EXTENDER_DIR%"
 if errorlevel 1 goto build_failed_popd

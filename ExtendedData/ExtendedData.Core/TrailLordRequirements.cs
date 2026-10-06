@@ -10,6 +10,8 @@ namespace ExtendedData
     public sealed class TrailLordSlot
     {
         public int PlayerId { get; set; }
+        // null identifies a legacy payload; -1 is Custom, >=0 is the configuration Lord type.
+        public int? LordType { get; set; }
         public string LordName { get; set; }
         public string ConfigName { get; set; }
         public string ConfigChecksum { get; set; }
@@ -55,11 +57,12 @@ namespace ExtendedData
             Validate(this);
             string json = Shared.DependencyFreeJson.Serialize(new Dictionary<string, object>
             {
-                ["version"] = 1,
+                ["version"] = 2,
                 ["missionDigest"] = MissionDigest,
                 ["slots"] = Slots.Select(slot => (object)new Dictionary<string, object>
                 {
                     ["playerId"] = slot.PlayerId,
+                    ["lordType"] = slot.LordType,
                     ["lordName"] = slot.LordName,
                     ["configName"] = slot.ConfigName,
                     ["configChecksum"] = slot.ConfigChecksum,
@@ -90,7 +93,8 @@ namespace ExtendedData
             byte[] bytes = File.ReadAllBytes(path);
             if (bytes.Length > MaximumBytes) throw new InvalidDataException("Lord requirements exceed 512 KiB.");
             var root = Object(Shared.DependencyFreeJson.Parse(new UTF8Encoding(false, true).GetString(bytes)));
-            if (Convert.ToInt32(root["version"]) != 1)
+            int version = Convert.ToInt32(root["version"]);
+            if (version != 1 && version != 2)
                 throw new InvalidDataException("Unsupported Lord requirements version.");
             var rows = root["slots"] as List<object> ?? throw new InvalidDataException("Invalid Lord requirements slots.");
             var slots = rows.Select(value =>
@@ -100,6 +104,7 @@ namespace ExtendedData
                 return new TrailLordSlot
                 {
                     PlayerId = Convert.ToInt32(row["playerId"]),
+                    LordType = version >= 2 && row.TryGetValue("lordType", out object identity) && identity != null ? (int?)Convert.ToInt32(identity) : null,
                     LordName = row["lordName"] as string,
                     ConfigName = row["configName"] as string,
                     ConfigChecksum = row["configChecksum"] as string,
@@ -136,6 +141,7 @@ namespace ExtendedData
                 value.Slots.Select(slot => new LordDataSlot
                 {
                     PlayerId = slot.PlayerId,
+                    LordType = slot.LordType,
                     LordName = slot.LordName,
                     ConfigName = slot.ConfigName,
                     ConfigChecksum = slot.ConfigChecksum,

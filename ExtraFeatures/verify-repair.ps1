@@ -142,9 +142,13 @@ if ($repairContent.Count -ne 1 -or $repairContent[0].LocalName -ne 'StackPanel' 
     throw 'Building repair settings icon must be bound to the right of its text.'
 }
 $activeVersion = [regex]::Match($runtimeText, 'PluginVersion\s*=\s*"([^"]+)"').Groups[1].Value
-foreach ($path in @($info, $packagedInfo)) {
+$minimumVersion = [regex]::Match($runtimeText,
+    'BepInDependency\(ScriptExtenderGuid,\s*"([^"]+)"\)').Groups[1].Value
+# Generated package metadata is replaced after the build. Validate authoritative
+# source metadata here; the update driver's post-build hash audit checks the package.
+foreach ($path in @($info)) {
     $metadata = [IO.File]::ReadAllText($path) | ConvertFrom-Json
-    if (-not $activeVersion -or $metadata.Version -ne $activeVersion -or $metadata.MinimumScriptExtenderVersion -ne '2.10.4' -or
+    if (-not $activeVersion -or -not $minimumVersion -or $metadata.Version -ne $activeVersion -or $metadata.MinimumScriptExtenderVersion -ne $minimumVersion -or
         $metadata.SerpChangelog[0].Version -ne $activeVersion) {
         throw "Active version mismatch: $path"
     }

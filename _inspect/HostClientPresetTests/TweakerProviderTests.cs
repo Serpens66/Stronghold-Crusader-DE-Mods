@@ -18,6 +18,7 @@ internal static class TweakerProviderTests
             Directory.CreateDirectory(path);
             model.PreparePresets(null, Path.Combine(path, "probe.dll"), "Probe", "Probe", new Version(1, 0));
             model.ActivatePresets();
+            provider.EnableRestartManagedSynchronization();
             Check(ProviderProbe.ConfigurationApi.Reads == 1 && ProviderProbe.ConfigurationApi.Validations == 1,
                 "initialization read/validated the same configuration repeatedly");
             var descriptors = model.System_GetPresetSettingDescriptors();
@@ -34,6 +35,13 @@ internal static class TweakerProviderTests
             Check((long)provider.ReadOwnValues()["key0"] == 42L && ProviderProbe.ConfigurationApi.Reads == 2,
                 "later personal read returned cached file values");
         }
+        ProviderProbe.ConfigurationApi.Reset(3);
+        var lateProvider = new StatsTweakerConfigurationProvider(typeof(ProviderProbe.ConfigurationApi));
+        ProviderProbe.ConfigurationApi.RejectEnable = true;
+        bool enableRejected = false, activeRejected = false;
+        try { lateProvider.EnableRestartManagedSynchronization(); } catch (System.Reflection.TargetInvocationException) { enableRejected = true; }
+        try { lateProvider.ReadActiveValues(); } catch (InvalidOperationException) { activeRejected = true; }
+        Check(enableRejected && activeRejected, "late activation exposed invalid startup evidence");
         Console.WriteLine("PASS: actual Tweaker adapter initializes once, validates changes, refreshes personal values and exposes live metadata at 4233/12000/16384 options");
     }
     private static void Check(bool value, string message) { if (!value) throw new Exception(message); }
@@ -65,7 +73,9 @@ namespace ProviderProbe
     {
         internal static Dictionary<string, object> Own;
         internal static int Reads, Validations;
-        internal static void Reset(int count) { Reads = Validations = 0; Own = Enumerable.Range(0,count).ToDictionary(i => "key"+i, i => (object)0L); }
+        internal static bool RejectEnable;
+        internal static void Reset(int count) { RejectEnable = false; Reads = Validations = 0; Own = Enumerable.Range(0,count).ToDictionary(i => "key"+i, i => (object)0L); }
+        public static void EnableRestartManagedSynchronization() { if (RejectEnable) throw new InvalidOperationException("Restart required after legacy host application."); }
         public static int ApiVersion => 1;
         public static ConfigurationCapabilities GetCapabilities() => new ConfigurationCapabilities();
         public static ConfigurationOption[] GetOptions() => Own.Keys.Select(key => new ConfigurationOption { Key = key }).ToArray();

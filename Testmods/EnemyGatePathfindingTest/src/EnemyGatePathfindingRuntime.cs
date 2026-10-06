@@ -10,6 +10,8 @@ using RedBird.X64.Hooks.Transaction;
 using SHCDESE.API;
 using SHCDESE.API.LowLevel;
 using SHCDESE.EventAPI.Tribes;
+using SHCDESE.EventAPI;
+using SHCDESE.EventAPI.Buildings;
 using SHCDESE.EventAPI.Units;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
@@ -63,6 +65,12 @@ namespace EnemyGatePathfindingTest
         internal EnemyGatePathfindingRuntime(ManualLogSource log)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
+        }
+
+        internal void ObserveBuildingCapture(BuildingCaptureEventArgs args)
+        {
+            if (args != null && args.BuildingId > 0)
+                topologyProvider?.RequestCaptureSnapshot(args.Phase == EventHookPhase.Post);
         }
 
         internal void InitializeNative(

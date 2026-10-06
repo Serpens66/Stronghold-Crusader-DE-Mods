@@ -111,9 +111,9 @@ namespace EnemyBridgePathTest
                     .Append(",bridgeOwner=").Append(building.r_PlayerIdOwner).Append(",owner=").Append(bridge.Owner)
                     .Append(",bridgeCapturerRaw=").Append(building.r_CapturedByPlayerId)
                     .Append(",capturer=").Append(bridge.Captured).Append(",bridgeAliveRaw=").Append((int)building.r_AliveState)
-                    .Append(",bridgeGateStateRaw=").Append(building.r_GateState).Append(",orientation=").Append(building.r_SpriteVariationIndex)
+                    .Append(",bridgeGateStateRaw=").Append((building.r_GateState | (building.r_GateState2 << 8))).Append(",orientation=").Append(building.r_SpriteVariationIndex)
                     .Append(",grid=").Append(building.r_OccupyTileGridSize);
-                if (parent != null) state.Append(",gateStateRaw=").Append(parent.Value.r_GateState)
+                if (parent != null) state.Append(",gateStateRaw=").Append((parent.Value.r_GateState | (parent.Value.r_GateState2 << 8)))
                     .Append(",gateAIWalkableRaw=").Append(parent.Value.r_AIWalkableState);
                 var pcl = GamePathingManagerAPI.Instance.GetPathComponentGrid();
                 var moat = tiles.GetMoatWorkTaskIndexLayer();

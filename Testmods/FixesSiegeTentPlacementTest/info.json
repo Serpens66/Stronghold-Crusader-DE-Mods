@@ -1,0 +1,14 @@
+{
+  "GUID": "FixesSiegeTentPlacementTest_Serp",
+  "Author": "Serpens66",
+  "Name": "FixesSiegeTentPlacementTest",
+  "Description": "Passive Fixes 1.24 evidence collection; inconclusive until prerequisites and controls are verified.",
+  "Version": "0.1.0",
+  "MinimumScriptExtenderVersion": "2.13.0",
+  "MaximumScriptExtenderVersion": "",
+  "Manifest": 1,
+  "NetworkMode": 1,
+  "SupportedGameVersions": [
+    "2.8.0.2"
+  ]
+}

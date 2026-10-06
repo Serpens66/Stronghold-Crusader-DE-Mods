@@ -19,6 +19,7 @@ namespace AIAttackTest
             TestPolicy();
             TestManagedLayout();
             TestNativeContract();
+            TestNativeGenerators();
             TestSourceAndPackageContracts();
             Console.WriteLine($"AIAttackTest tests: {assertions} assertions passed.");
             return 0;
@@ -124,6 +125,38 @@ namespace AIAttackTest
             Check(AIAttackNativeContract.LordBranchRva + 2 <
                   AIAttackNativeContract.AiWallTargetingFixRva,
                 "lord patch is disjoint from AiWallTargetingFix");
+        }
+
+        private delegate void NativeGenerator(Iced.Intel.Assembler assembler, ReadOnlySpan<Iced.Intel.Instruction> instructions, ulong flag, ulong address);
+        private static void TestNativeGenerators()
+        {
+            PeImage image=PeImage.Load(File.ReadAllBytes(NativeDllPath));
+            const ulong module=0x180000000, stub=module+0x100000;
+            foreach(var spec in new[] { Tuple.Create("GenerateRecruitComparison",0x2F2C5,15), Tuple.Create("GenerateLordBranch",0x3B5DB,14) })
+            {
+                byte[] bytes=image.ReadBytes(spec.Item2,spec.Item3);
+                var decoder=Iced.Intel.Decoder.Create(64,new Iced.Intel.ByteArrayCodeReader(bytes)); decoder.IP=module+(uint)spec.Item2;
+                var instructions=new List<Iced.Intel.Instruction>(); int consumed=0;
+                while(consumed<bytes.Length) { var instruction=decoder.Decode(); Check(!instruction.IsInvalid,"native input decodes"); instructions.Add(instruction); consumed+=instruction.Length; }
+                Check(consumed==spec.Item3,"complete native displacement boundary");
+                var method=typeof(AIAttackPermanentNativeOverrides).GetMethod(spec.Item1,System.Reflection.BindingFlags.Static|System.Reflection.BindingFlags.NonPublic);
+                var generate=(NativeGenerator)method.CreateDelegate(typeof(NativeGenerator));
+                var assembler=new Iced.Intel.Assembler(64);
+                generate(assembler,instructions.ToArray(),module+0x800000,spec.Item1=="GenerateRecruitComparison" ? module+0x900000 : module+0x3B5EF);
+                using(var stream=new MemoryStream())
+                {
+                    assembler.Assemble(new Iced.Intel.StreamCodeWriter(stream),stub);
+                    byte[] emitted=stream.ToArray(); int offset=0;
+                    while(offset<emitted.Length)
+                    {
+                        if(offset<=emitted.Length-14 && emitted[offset]==0xFF && emitted[offset+1]==0x25 && BitConverter.ToInt32(emitted,offset+2)==0) { offset+=14; continue; }
+                        var reader=new Iced.Intel.ByteArrayCodeReader(emitted.Skip(offset).ToArray());
+                        var generated=Iced.Intel.Decoder.Create(64,reader); generated.IP=stub+(uint)offset;
+                        var instruction=generated.Decode(); Check(!instruction.IsInvalid && instruction.Length<=emitted.Length-offset,"production generator output decodes"); offset+=instruction.Length;
+                    }
+                    Check(offset==emitted.Length,"production generator completely assembled and decoded");
+                }
+            }
         }
 
         private static void TestSourceAndPackageContracts()
@@ -333,5 +366,13 @@ namespace AIAttackTest
                 internal int Length { get; }
             }
         }
+    }
+}
+
+namespace Shared
+{
+    internal static class NativePatternResolver
+    {
+        public static int ReadInt32(ReadOnlySpan<byte> memory,int offset) => BitConverter.ToInt32(memory.Slice(offset,4).ToArray(),0);
     }
 }

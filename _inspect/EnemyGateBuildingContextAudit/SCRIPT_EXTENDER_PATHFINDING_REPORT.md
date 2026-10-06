@@ -1,5 +1,10 @@
 # Pathfinding connection-class API uses the wrong native row stride
 
+Revalidated on2026-10-06: installed public constant89, assembly2.12.0 and local
+commitf8d51730fcb54b25af43d3c9348d57db058e077f are unchanged. The stable bridge
+run again reports89/90 profiles and534/540 flat permissions, zero mismatches.
+The warning is coverage evidence; it must not be dismissed as a cosmetic warning.
+
 Verified with installed SHCDESE 2.12.0 (v2.12.0, commit
 f8d51730fcb54b25af43d3c9348d57db058e077f) and CrusaderDE.dll SHA-256
 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.

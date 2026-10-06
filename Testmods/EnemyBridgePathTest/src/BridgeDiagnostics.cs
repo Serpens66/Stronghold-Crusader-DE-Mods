@@ -4,6 +4,7 @@ using EnemyGatePathfindingTest;
 using SHCDESE.API;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Tribes;
+using SHCDESE.EventAPI.Buildings;
 using SHCDESE.EventAPI.Units;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
@@ -28,7 +29,9 @@ namespace EnemyBridgePathTest
         private readonly AiGateDecisionAggregate totals = new AiGateDecisionAggregate();
         private BridgeSnapshot snapshot = BridgeSnapshot.Empty;
         private BridgeSnapshot CurrentSnapshot => Volatile.Read(ref snapshot);
-        private bool running, marker, nativeVerified;
+        private volatile bool running;
+        private bool marker, nativeVerified;
+        private readonly Shared.DeferredSnapshotRefreshRequest captureRefresh = new Shared.DeferredSnapshotRefreshRequest();
         private long epoch, nextSnapshot, nextFlush, errors, preCount, postCount, observedSearches, suppressedCount, missingPostCount;
         [ThreadStatic] private static List<Frame> frames;
         private sealed class Frame
@@ -87,7 +90,7 @@ namespace EnemyBridgePathTest
             if (!nativeVerified)
             { Shared.DebugLogHelper.LogError(log, "Bridge diagnosis inactive: native layout hash not confirmed."); return; }
             if (running) End();
-            totals.Reset(); epoch++; running = true; marker = false; Trace.Begin(context);
+            totals.Reset(); captureRefresh.Reset(); epoch++; running = true; marker = false; Trace.Begin(context);
             preCount = postCount = errors = observedSearches = 0;
             suppressedCount = missingPostCount = 0;
             nextSnapshot = nextFlush = 0; Volatile.Write(ref snapshot, BridgeSnapshot.Empty);
@@ -96,11 +99,19 @@ namespace EnemyBridgePathTest
         internal void End()
         {
             if (!running) return;
-            Flush(); running = false; Trace.End(); Volatile.Write(ref snapshot, BridgeSnapshot.Empty);
+            Flush(); running = false; captureRefresh.Reset(); Trace.End(); Volatile.Write(ref snapshot, BridgeSnapshot.Empty);
+        }
+        internal void BuildingCapture(BuildingCaptureEventArgs args)
+        {
+            if (args != null && args.BuildingId > 0)
+                {
+                if(running&&args.Phase==EventHookPhase.Post)Trace.VirtualShadow?.Invalidate();
+                captureRefresh.Request(running, args.Phase == EventHookPhase.Post);
+            }
         }
         internal void Deferred()
         {
-            Trace.Drain();
+            Trace.VirtualShadow?.Pump();Trace.Drain();
             if (!running || Trace.InsideNative) return;
             // Rendering is outside synchronous native dispatch. No command frame
             // may survive here, including suppressed calls without a Post event.
@@ -113,6 +124,12 @@ namespace EnemyBridgePathTest
                     "Missing callbacks are missing coverage, never negative reachability evidence.");
             }
             long now = Stopwatch.GetTimestamp();
+            if (captureRefresh.Consume())
+            {
+                Trace.InvalidateBuildings();
+                nextSnapshot = 0;
+                Shared.DebugLogHelper.LogInfo(log, "bridge capture Post refresh deferred, epoch=" + epoch);
+            }
             if (now >= nextSnapshot)
             {
                 nextSnapshot = now + Stopwatch.Frequency;
@@ -349,6 +366,7 @@ namespace EnemyBridgePathTest
                     var frame = TribeFrame("move", args.TribeId, (int)args.MoveType, args.TileX, args.TileY);
                     frame.PreEvent = args;
                     Push(frame);
+                    Trace.VirtualShadow?.CompareXY("group-formation",frame.TraceId,frame.ParentTrace,frame.Player,frame.StartX,frame.StartY,frame.X,frame.Y);
                 }
                 else if (args.Phase == EventHookPhase.Post) Pop("move", args.TribeId, args.ReturnValue);
             });

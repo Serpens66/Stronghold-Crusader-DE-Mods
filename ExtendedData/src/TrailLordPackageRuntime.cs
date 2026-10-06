@@ -50,6 +50,7 @@ namespace ExtendedData
                 result.Add(new TrailLordSlot
                 {
                     PlayerId = index + 1,
+                    LordType = source.Config.lordType,
                     LordName = info.lordName,
                     ConfigName = info.lordConfig.name,
                     ConfigChecksum = checksum,
@@ -58,7 +59,7 @@ namespace ExtendedData
                     RequiresInstalledPackage = package.HasUnsupportedGameplayFiles,
                     PackageDigest = package.HasUnsupportedGameplayFiles ? package.Digest : null,
                     ModLordJson = modJson,
-                    FixesJson = fixes.Capture(info.lordName),
+                    FixesJson = fixes.Capture(info.lordName, source.Config.lordType),
                 });
             }
             return result;
@@ -70,7 +71,10 @@ namespace ExtendedData
             internalName = null;
             requiredLordPath = null;
             reason = string.Empty;
-            Candidate[] candidates = FindCandidates(slot.ConfigChecksum, slot.AivChecksums);
+            Candidate[] candidates = FindCandidates(slot.ConfigChecksum, slot.AivChecksums)
+                .Where(item => !slot.LordType.HasValue || item.Config.lordType == slot.LordType.Value).ToArray();
+            if (candidates.Select(item => item.Config.lordType).Distinct().Count() != 1)
+            { reason = "Lord type is missing or ambiguous: " + slot.LordName; return false; }
             if (slot.RequiresInstalledPackage)
             {
                 candidates = candidates.Where(item =>

@@ -33,6 +33,9 @@ if exist "%GAME_SCRIPT_EXTENDER_DIR%\SHCDESE.dll" (
   set "EXTENDER_DIR=%GAME_SCRIPT_EXTENDER_DIR%"
 ) else goto build_failed
 
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\_inspect\Fixes124Implementation\Verify-Implementation.ps1"
+if errorlevel 1 goto build_failed
+
 if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
 pushd "%PROJECT_DIR%"
 "%MSBUILD%" "%PROJECT_DIR%..\_inspect\APISharedTests\APISharedTests.csproj" /t:Rebuild /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"

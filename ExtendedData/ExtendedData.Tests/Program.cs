@@ -7,6 +7,7 @@ using System.Text.Json;
 
 var tests = new (string Name, Action Run)[]
 {
+    ("Fixes bridge owns custom aliases, extended identity, defaults and originals", FixesBridgeTests.Run),
     ("deferred settings remain complete at 4233, 12000 and 16384 options", DeferredSettingsTests.Run),
     ("Custom Coop Trail preview names follow the selected lobby slot", TestCoopTrailPreviewNames),
     ("Custom Coop Trail preview separates displayed teams", TestCoopTrailPreviewTeams),
@@ -73,7 +74,7 @@ var tests = new (string Name, Action Run)[]
     ("selected Lord data uses host snapshots without local files", TestSelectedLordDataSnapshot),
     ("Lord data rejects altered and oversized snapshots", TestInvalidLordDataSnapshot),
     ("Lord mod data validates local limits and UTF-8", TestLordModDataLimits),
-    ("Lord snapshot version 2 holds six mods across eight slots", TestLargeLordDataSnapshot),
+    ("Lord snapshot version 3 holds six mods across eight slots", TestLargeLordDataSnapshot),
     ("Lord snapshot version 1 remains readable", TestLegacyLordDataSnapshot),
     ("Fixes preference snapshots retain every current and future property", TestFixesPreferenceCodec),
     ("Fixes preference snapshots reject incompatible schemas and lossy values", TestFixesPreferenceIncompatibility),
@@ -452,9 +453,9 @@ static void TestLargeLordDataSnapshot()
     var envelope = (Dictionary<string, object>)Shared.DependencyFreeJson.Parse(created.WireJson);
     var payload = (Dictionary<string, object>)envelope["payload"];
     var firstSlot = (Dictionary<string, object>)((List<object>)payload["slots"])[0];
-    Assert(payload["version"] is int version && version == 2 &&
+    Assert(payload["version"] is int version && version == 3 &&
         firstSlot["modLordData"] is Dictionary<string, object>,
-        "version 2 still embeds escaped mod-data JSON");
+        "version 3 still embeds escaped mod-data JSON");
     LordDataSnapshot restored = LordDataSnapshot.Parse(created.WireJson);
     ExtendedDataModDataApi.SetNetworkSnapshot(restored, true);
     try
@@ -539,6 +540,11 @@ static void TestFixesPreferenceCodec()
         Nested = new FutureFixesNested { Weight = 2.5, Enabled = false },
         Values = Enumerable.Range(0, 100).ToDictionary(index => "setting" + index, index => new List<int> { index, -index }),
     };
+    var additive = (FutureFixesPreferences)TypedPreferenceSnapshotCodec.Restore(typeof(FutureFixesPreferences), "{ \"Field01\": true, \"Nested\": { \"Weight\": 2.5 } }");
+    Assert(additive.Field01 == true && additive.Field18 == null && additive.Nested.Weight == 2.5,
+        "older preference snapshots must retain additive constructor defaults");
+    AssertThrows<InvalidDataException>(() => TypedPreferenceSnapshotCodec.Restore(typeof(FutureFixesPreferences),
+        "{\"Field02\": 1.5}"), "fractional integers must not be rounded silently");
     string json = TypedPreferenceSnapshotCodec.Capture(host);
     var client = (FutureFixesPreferences)TypedPreferenceSnapshotCodec.Restore(typeof(FutureFixesPreferences), json);
     Assert(client.Field01 == true && client.Field18 == 18 && client.Nested.Weight == 2.5,
@@ -3264,10 +3270,14 @@ namespace SHCDESE.API
 
 public sealed class CustomisationFileManager
 {
+    public static readonly CustomisationFileManager Instance=new();
+    public CustomLordConfig[] Configs=System.Array.Empty<CustomLordConfig>();
+    public List<CustomLordConfig> getLordLordList(int type,string name)=>Configs.Where(c=>c.lordType==type).ToList();
     public sealed class CustomLordConfig
     {
         public string name;
         public string path;
+        public int lordType;
         public ulong checksum;
     }
 }

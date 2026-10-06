@@ -70,3 +70,24 @@ foreach ($file in @(Get-ChildItem -LiteralPath $PSScriptRoot -Recurse -File -Fil
 }
 & (Join-Path $workspace 'Shared/Test-PermanentNativeRuntimePatches.ps1')
 Write-Host "PASS: EnemyBridge runtime JSON/lifecycle, permanent hooks, XAML and CRLF ($($sources.Count) runtime sources)."
+
+# Virtual shadow uses installed public views; raw 107160 reads stay hash-bound.
+foreach ($methodSpec in @(@('SHCDESE.API.GameUnitManagerAPI','GetUnitsAsSpan','System.Span`1[SHCDESE.Interop.GameUnit]'),@('SHCDESE.API.GamePathingManagerAPI','GetPathComponentGrid','System.Span`1[System.UInt16]'),@('SHCDESE.API.GamePathingManagerAPI','GetPathEdgeMaskGrid','System.Span`1[System.Byte]'),@('SHCDESE.API.GamePathingManagerAPI','GetPathConnectionRecords','System.Span`1[SHCDESE.Interop.PathConnectionRecord]'),@('SHCDESE.API.GameTileManagerAPI','GetLogicLayer','System.Span`1[System.Int32]'),@('SHCDESE.API.GameTileManagerAPI','GetOrganismLayer','System.Span`1[System.UInt16]'))) {
+    $method=$installed.GetType($methodSpec[0],$true).GetMethod($methodSpec[1])
+    if (!$method -or !$method.IsPublic -or $method.GetParameters().Count -ne 0 -or $method.ReturnType.ToString() -ne $methodSpec[2]) { throw ('Virtual copy method mismatch: '+$methodSpec[1]) }
+}
+$recordType=$installed.GetType('SHCDESE.Interop.PathConnectionRecord',$true)
+if ($recordType.StructLayoutAttribute.Size -ne 0x204) { throw 'Native connection record size mismatch' }
+foreach ($member in @(@('r_IsActive',0,'Int32'),@('r_ConnectionClass',4,'PathConnectionClass'),@('r_RecordGlobalId',8,'UInt32'),@('r_BuildingId',12,'Int32'),@('r_UnitId',16,'Int32'),@('r_SubjectGlobalId',20,'UInt32'),@('r_IsEnabledOrOpen',24,'Int32'),@('r_EntryTileId',36,'Int32'),@('r_ExitTileId',48,'Int32'),@('r_PathComponentA',52,'Int32'),@('r_PathComponentB',56,'Int32'),@('r_OwnerOrAccessPlayerId',0x1E4,'Int32'),@('r_PathComponentC',0x1E8,'Int32'))) {
+    $field=$recordType.GetField($member[0])
+    if (!$field -or !$field.IsPublic -or $field.FieldType.Name -ne $member[2] -or [Runtime.InteropServices.Marshal]::OffsetOf($recordType,$member[0]).ToInt32() -ne $member[1]) { throw ('Virtual connection member mismatch: '+$member[0]) }
+}
+foreach ($member in @(@('MapRowLookupTable','System.Int32*'),@('MapColumnLookupTable','System.UInt16*'))) {
+    $field=$installed.GetType('SHCDESE.API.GameTileManagerAPI',$true).GetField($member[0])
+    if (!$field -or !$field.IsPublic -or $field.FieldType.ToString() -ne $member[1]) { throw ('Packed coordinate member mismatch: '+$member[0]) }
+}
+$shadowSource=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/BridgeVirtualShadow.cs'))
+$coreSource=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/VirtualBridgeGraph.cs'))
+if ($shadowSource -match 'TryGetBuildingById|TryGetUnitById|FindNext|FindPath|Marshal.Write|TrySet|TryReplace' -or $coreSource -match 'SHCDESE|APIShared|Marshal|IntPtr') { throw 'Virtual shadow is no longer a pure copied-input observer' }
+if ($shadowSource -notmatch 'pending.Count>=32' -or $shadowSource -notmatch 'request.Authorization=authorized&&boundary&&deck.Count==0' -or $shadowSource -notmatch 'read\(0x60AD6CC\)!=0\|\|read\(0x60AD6D4\)!=nativeRevision') { throw 'Virtual coherence/negative-policy gate regression' }
+Write-Host 'PASS: virtual public copy/member contracts, bounded shadow queue and unvalidated policy fail-open.'

@@ -2044,8 +2044,20 @@ namespace APISharedTests
             FakeMemory preHookedMemory = SeedRuntimeMemory(image, catalog);
             preHookedMemory.SetByte(ModuleBase + catalog.HumanReopenDelayRva + 4, 0xFF);
             runtime = InitializeRuntime(image, catalog, preHookedMemory);
-            AssertTimingValidationFailure(runtime,
-                "an adjacent hook present before APIShared initialization must fail the one-time live layout validation");
+            Assert(runtime.TryGetGatehouseTiming("owner", out var coexistTiming, out _),
+                "Fixes Farmer hook after the seven-byte human delay block must coexist before initialization");
+            preHookedMemory.SetByte(ModuleBase + catalog.HumanDelayBlockRva + 7, 0xEE);
+            Assert(runtime.TryGetGatehouseTiming("owner", out _, out _),
+                "Fixes Farmer hook installed after initialization must remain independent");
+            var invariants = (IReadOnlyList<NativeByteInvariant>)typeof(GatehouseCapabilityResolver)
+                .GetMethod("CreateInstructionInvariants", BindingFlags.NonPublic | BindingFlags.Static)
+                .Invoke(null, new object[] { ModuleBase, catalog });
+            Assert(!invariants.Any(item => item.Address >= ModuleBase + catalog.HumanDelayBlockRva + 7 &&
+                item.Address < ModuleBase + catalog.HumanDelayBlockRva + catalog.HumanDelayBlockBytes.Length),
+                "timing invariants exclude the external Farmer block");
+            preHookedMemory.SetByte(ModuleBase + catalog.HumanDelayBlockRva, 0x90);
+            runtime = InitializeRuntime(image, catalog, preHookedMemory);
+            AssertTimingValidationFailure(runtime,"changes inside our owned human block remain fail-closed");
             Assert(runtime.TryGetGatehouseDistanceOrigin("owner", out _, out _),
                 "a timing-only live layout mismatch must not disable distance origin");
 

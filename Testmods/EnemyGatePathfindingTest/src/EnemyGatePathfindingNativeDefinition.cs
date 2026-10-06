@@ -172,13 +172,13 @@ namespace EnemyGatePathfindingTest
         public const int RecordSecondPclOffset = 0x20;
         public const int RecordThirdPclOffset = 0x1D0;
 
-        public const string AuditedScriptExtenderVersion = "2.12.0";
-        public const string AuditedScriptExtenderTag = "v2.12.0";
+        public const string AuditedScriptExtenderVersion = "2.13.0";
+        public const string AuditedScriptExtenderTag = "v2.13.0";
         public const string AuditedScriptExtenderCommit =
-            "f8d51730fcb54b25af43d3c9348d57db058e077f";
-        public const string AuditedScriptExtenderTree = "657af449e1397c58e6c5ec054977d83198b68e66";
+            "85ab962b342c18f663da830570884a25b85116d0";
+        public const string AuditedScriptExtenderTree = "594f9868b36ff0a2556f1472e3d6283bd2a062de";
         public const string AuditedScriptExtenderSha256 =
-            "DE5B88749C18A257E5F6A6E246F685300BF8DF970969DF1E6EA35C8C95F2A4AF";
+            "7F7750481B392007CCCAD6D609554FBA138D8ED2781AAC54CCE0B235FC5F39F4";
         public const string AuditedRedBirdVersion = "1.5.0.0";
 
         internal static bool PclGraphCaptureCompareIsEqual(ushort nativeCapturedByPlayerId) =>

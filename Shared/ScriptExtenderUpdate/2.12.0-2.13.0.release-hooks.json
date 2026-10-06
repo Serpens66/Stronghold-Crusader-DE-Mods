@@ -1,0 +1,49 @@
+{
+  "OldVersion": "2.12.0",
+  "NewVersion": "2.13.0",
+  "ExtenderCommit": "85ab962b342c18f663da830570884a25b85116d0",
+  "ExtenderTree": "594f9868b36ff0a2556f1472e3d6283bd2a062de",
+  "NativeHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+  "ReleaseProjects": [
+    "APIShared",
+    "BugfixesAndQoL",
+    "BuildingCosts",
+    "BuildingLimit",
+    "CheatMod",
+    "ExtendedData",
+    "ExtraFeatures",
+    "ImprovedHunters",
+    "RandomEvents",
+    "CastlePlanner",
+    "StartConditions",
+    "UnitCosts",
+    "UnitLimit"
+  ],
+  "SourceFileCount": 58,
+  "OperationCount": 123,
+  "SourceFingerprint": "907BFC36BD22E7F2A51A128E24DF21B90569634B3AB2AE1E812421D8D24C1E90",
+  "ExtenderChangesReviewed": true,
+  "Result": "Compatible",
+  "ReviewedInteractions": [
+    {
+      "Rationale": "Complete B73D0..B7CE5 audit: new spans B757A..B7588 (14 bytes) and B790B..B7919 (14 bytes), AfterCallback replay restores CMP flags before JNE. APIShared hooks B7A4E/17, B7BF4/15, C53D5/18, C54A0/16 and decision B7BBB are disjoint. Gate snapshot validates the saved pre-install image. Fixes capture observer issues commands from Post, no competing function detour.",
+      "Classification": "NoOverlap",
+      "Id": "capture-hooks"
+    },
+    {
+      "Rationale": "Full EC880 scoring function and caller 113AB0 audited. New hook ECB33..ECB42 at switch join replays displaced instructions. New 3B8D0 command delegate adds no patch. Workspace and current Fixes do not install a competing detour at this new hook; no new priority API consumption.",
+      "Classification": "DelegateCallThrough",
+      "Id": "assassin-priority"
+    },
+    {
+      "Rationale": "Complete 19D960 editor function audited. Six-byte conditional branch at 1A0137 controls special editor actions. Released mods have no overlapping executable patch; their menu hooks operate on separate managed entry points.",
+      "Classification": "NoOverlap",
+      "Id": "editor-actions"
+    },
+    {
+      "Rationale": "The process-wide SE assassin override remains sole owner of 196870. Existing APIShared/consumer call sites retain SE and Vanilla positive results. BulkPathing and BulkPlayer field/label refinements do not create competing hooks. Interop changes preserve structure sizes; affected field accesses are migrated and rebuilt.",
+      "Classification": "ReferencedOwnedFunction",
+      "Id": "existing-pathing-hooks"
+    }
+  ]
+}

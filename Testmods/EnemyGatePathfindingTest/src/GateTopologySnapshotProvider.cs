@@ -111,6 +111,7 @@ namespace EnemyGatePathfindingTest
         private Action<RouteTilePolicySnapshot> routePolicyConsumer;
         private Action<NativeGateAccessSnapshot> gateAccessConsumer;
         private readonly DeferredCaptureRefreshRequest captureRefresh = new DeferredCaptureRefreshRequest();
+        private readonly Shared.DeferredSnapshotRefreshRequest captureEvents = new Shared.DeferredSnapshotRefreshRequest();
         internal readonly CaptureTransitionDiagnostics CaptureDiagnostics = new CaptureTransitionDiagnostics();
         private long accessPublicationGeneration;
         private int epochActive;
@@ -231,6 +232,7 @@ namespace EnemyGatePathfindingTest
             Interlocked.Increment(ref epochNumber);
             ResetHotCounters();
             captureRefresh.Reset();
+            captureEvents.Reset();
             Interlocked.Exchange(ref accessPublicationGeneration, 0);
             CaptureDiagnostics.Reset(epochNumber);
         }
@@ -240,6 +242,7 @@ namespace EnemyGatePathfindingTest
             if (Interlocked.CompareExchange(ref epochActive, 0, 1) != 1)
                 return;
             captureRefresh.Reset();
+            captureEvents.Reset();
             Shared.DebugLogHelper.LogInfo(log,
                 $"Gate topology epoch {epochNumber} ended ({reason ?? "unspecified"}): " +
                 $"accessScans={Read(ref accessScans)}, accessChanges={Read(ref accessChanges)}, " +
@@ -330,7 +333,7 @@ namespace EnemyGatePathfindingTest
                 string role = bridgeIdentityChanged ? GateDiagnosticClassification.Unknown("bridge-identity-changed") :
                     DescribeGateRole(playerId, info.GateId, info.GateGlobal,
                         gate->r_PlayerIdOwner, gate->r_CapturedByPlayerId);
-                string state = role + ",gateStateRaw=" + gate->r_GateState +
+                string state = role + ",gateStateRaw=" + (gate->r_GateState | (gate->r_GateState2 << 8)) +
                     ",savedAt0xCC=" + gate->N0001201E +
                     ",walkableAt0xD4=" + (int)gate->r_AIWalkableState +
                     ",connectionEnabled=" + connectionEnabled +
@@ -344,6 +347,9 @@ namespace EnemyGatePathfindingTest
             return result.ToArray();
         }
 
+        internal void RequestCaptureSnapshot(bool post) =>
+            captureEvents.Request(Volatile.Read(ref epochActive) != 0, post);
+
         internal void ProcessDeferred()
         {
             if (Volatile.Read(ref epochActive) == 0)
@@ -351,11 +357,15 @@ namespace EnemyGatePathfindingTest
             try
             {
                 InitializeDeferredEpochIfNeeded();
-                if (captureRefresh.Consume())
+                bool capturePost = captureEvents.Consume();
+                if (capturePost | captureRefresh.Consume())
                 {
                     Volatile.Write(ref accessRefreshRequired, 1);
                     Volatile.Write(ref nextAccessAt, 0);
                     Volatile.Write(ref nextSnapshotAt, 0);
+                    if (capturePost)
+                        Shared.DebugLogHelper.LogInfo(log,
+                            "Gate capture Post refresh deferred, epoch=" + Volatile.Read(ref epochNumber));
                 }
                 long now = Stopwatch.GetTimestamp();
                 RefreshGateAccessIfDue(now);

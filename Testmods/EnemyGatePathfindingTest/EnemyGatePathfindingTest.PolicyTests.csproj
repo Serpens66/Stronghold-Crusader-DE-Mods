@@ -62,4 +62,6 @@
     <Compile Include="..\..\APIShared\src\EnemyGatePathPolicyBridge.cs"><Link>EnemyGatePathPolicyBridge.cs</Link></Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <ItemGroup><Compile Include="..\..\Shared\DeferredSnapshotRefreshRequest.cs" /></ItemGroup>
+<ItemGroup><Compile Include="..\EnemyBridgePathTest\tests\CaptureRefreshTests.cs" /></ItemGroup>
 </Project>

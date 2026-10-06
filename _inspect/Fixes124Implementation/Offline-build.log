@@ -1,0 +1,12 @@
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+PASS: Runtime JSON, lifecycle, plugin callbacks, native mutation, layout source, and CRLF checks.
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+ExtendedData runtime JSON/lifecycle preflight succeeded.
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+PASS: Runtime JSON, lifecycle, plugin callbacks, native mutation, layout source, and CRLF checks.
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+PASS: Runtime JSON, lifecycle, plugin callbacks, native mutation, layout source, and CRLF checks.
+PASS: reference native hash, eight-byte-stride directions, edge masks and two-guard-only counterfactual
+PASS: Fixes 1.24 implementation preflight; no runtime build or installation performed.
+PASS: modeled FIFO order, depth, origin, height boundary, occupancy/gap and player metric; synthetic only.
+PASS: unchanged callback and exactly two guard changes; synthetic fixture is not native search validation or gameplay proof.

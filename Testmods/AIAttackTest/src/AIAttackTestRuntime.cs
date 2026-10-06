@@ -46,10 +46,12 @@ namespace AIAttackTest
             ValidateManagedLayout();
             AIAttackNativeContract.ValidateLayout();
 
-            int recruitContext = Shared.NativePatternResolver.FindUniquePattern(
+            bool recruitAvailable = !FixesOwnsRecruitment();
+            if (!recruitAvailable) Shared.DebugLogHelper.LogInfo(log, "Recruitment test capability skipped: Fixes owns the comparison hook; lord and AIC tests remain available.");
+            int recruitContext = recruitAvailable ? Shared.NativePatternResolver.FindUniquePattern(
                 context.Memory,
                 AIAttackNativeContract.RecruitContextPattern,
-                "AI initial defense-only recruitment comparison");
+                "AI initial defense-only recruitment comparison") : AIAttackNativeContract.RecruitContextRva;
             int lordContext = Shared.NativePatternResolver.FindUniquePattern(
                 context.Memory,
                 AIAttackNativeContract.LordContextPattern,
@@ -64,7 +66,7 @@ namespace AIAttackTest
 
             int recruitRva = checked(recruitContext + AIAttackNativeContract.RecruitImmediateOffset);
             int lordRva = checked(lordContext + AIAttackNativeContract.LordBranchOffset);
-            ValidateLoadedBytes(
+            if (recruitAvailable) ValidateLoadedBytes(
                 context.Memory,
                 recruitRva,
                 AIAttackNativeContract.VanillaRecruitTicks,
@@ -79,11 +81,25 @@ namespace AIAttackTest
             nativeOverrides = new AIAttackPermanentNativeOverrides(
                 context.Region,
                 context.Memory,
-                moduleBase);
+                moduleBase, recruitAvailable, message => Shared.DebugLogHelper.LogWarning(log, message));
+            Shared.DebugLogHelper.LogInfo(log, "AI attack capabilities: recruitment=" + nativeOverrides.RecruitmentAvailable + ",lord=" + nativeOverrides.LordAvailable + ",aic=true.");
             Shared.DebugLogHelper.LogInfo(
                 log,
                 $"AI attack native patches resolved: recruitImmediateRva=0x{recruitRva:X}, " +
                 $"lordBranchRva=0x{lordRva:X}, wallTargetingFixRva=0x{AIAttackNativeContract.AiWallTargetingFixRva:X} (separate).");
+        }
+
+        private static bool FixesOwnsRecruitment()
+        {
+            if (!BepInEx.Bootstrap.Chainloader.PluginInfos.TryGetValue("fixes", out var plugin)) return false;
+            try
+            {
+                object option = plugin.Instance.GetType().GetField("EnablePerLordCustomRequiredDefensiveRecruitmentTickTime",
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance)?.GetValue(plugin.Instance);
+                object enabled = option?.GetType().GetProperty("Value")?.GetValue(option);
+                return !(enabled is bool value) || value;
+            }
+            catch { return true; }
         }
 
         internal void BeginMap(Shared.GameplaySessionStartedContext context)

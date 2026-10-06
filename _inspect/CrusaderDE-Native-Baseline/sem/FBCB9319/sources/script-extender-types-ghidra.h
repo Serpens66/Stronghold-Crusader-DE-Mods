@@ -13513,6 +13513,10 @@ typedef struct GameUnitManager
 }; //Size: 0x8F42C
 
 /* Derived from engineinterface.h; C++ syntax normalized for Ghidra CParser. */
+#pragma once
+#include <stdint.h>
+#include <stdbool.h>
+
 typedef struct LoadMapReturnData
 {
     int32_t errorCode;
@@ -14095,13 +14099,16 @@ typedef struct AILordConfigTransferData
     int32_t free100;
 } AILordConfigTransferData;
 
+#pragma pack(push, 1)
 typedef struct evF
 {
     int16_t value;
     uint8_t type;
     uint8_t onoff;
 } evF;
+#pragma pack(pop)
 
+#pragma pack(push, 1)
 typedef struct tl_eventF
 {
     int32_t month;
@@ -14114,8 +14121,50 @@ typedef struct tl_eventF
     int16_t and_or;
     uint8_t repeat;
     uint8_t repeat_count;
+    evF event_value1;
+    evF event_value2;
+    evF event_value3;
+    evF event_value4;
+    evF event_value5;
+    evF event_value6;
+    evF event_value7;
+    evF event_value8;
+    evF event_value9;
+    evF event_value10;
+    evF event_value11;
+    evF event_value12;
+    evF event_value13;
+    evF event_value14;
+    evF event_value15;
+    evF event_value16;
+    evF event_value17;
+    evF event_value18;
+    evF event_value19;
+    evF event_value20;
+    evF event_value21;
+    evF event_value22;
+    evF event_value23;
+    evF event_value24;
+    evF event_value25;
+    evF event_value26;
+    evF event_value27;
+    evF event_value28;
+    evF event_value29;
+    evF event_value30;
+    evF event_value31;
+    evF event_value32;
+    evF event_value33;
+    evF event_value34;
+    evF event_value35;
+    evF event_value36;
+    evF event_value37;
+    evF event_value38;
+    evF event_value39;
+    evF event_value40;
 } tl_eventF;
+#pragma pack(pop)
 
+#pragma pack(push, 1)
 typedef struct tl_messageF
 {
     int32_t month;
@@ -14126,7 +14175,9 @@ typedef struct tl_messageF
     int32_t message_id;
     int32_t action;
 } tl_messageF;
+#pragma pack(pop)
 
+#pragma pack(push, 1)
 typedef struct tl_invasionF
 {
     int32_t month;
@@ -14135,17 +14186,21 @@ typedef struct tl_invasionF
     int16_t done;
     int16_t pre_done;
     int32_t total;
+    int32_t _size[33];
     int32_t invasion_point;
     int32_t start_year;
     int32_t repeat;
     int32_t from;
     int32_t markerID;
-    int32_t FixedElementField;
 } tl_invasionF;
+#pragma pack(pop)
 
+#pragma pack(push, 1)
 typedef struct PlayStateReturnData
 {
+    int32_t resources[25];
     int32_t numSelectedChimps;
+    int32_t selectedChimps[1];
     int32_t popularity;
     int32_t population;
     int32_t gold;
@@ -14170,12 +14225,16 @@ typedef struct PlayStateReturnData
     int32_t fear_factor;
     int32_t fear_factor_next_level;
     int32_t efficiency;
+    int16_t population_graph[300];
+    int16_t food_types_not_eatable[4];
+    int16_t troop_counts[34];
     int16_t num_priests;
     int16_t blessed_percent;
-    int16_t blessed_next_level_at;
     int32_t tax_rate;
+    int16_t blessed_next_level_at;
     int16_t tax_amount;
     int16_t peasants_available_for_troops;
+    uint8_t make_troop_state[10];
     int32_t rationing;
     int32_t food_clock;
     int32_t total_food;
@@ -14241,6 +14300,11 @@ typedef struct PlayStateReturnData
     uint8_t production_no_resources;
     uint8_t playerdesc_message;
     uint8_t playerdesc_message2;
+    uint8_t weapon_types_available[9];
+    int16_t trade_buy_costs[25];
+    int16_t trade_sell_costs[25];
+    int16_t trade_buy_amounts[25];
+    int16_t trade_sell_amounts[25];
     int16_t marry_status;
     int16_t marry_male_type;
     int16_t marry_female_type;
@@ -14255,10 +14319,13 @@ typedef struct PlayStateReturnData
     int16_t scribe_frame;
     int16_t total_horses_available;
     int32_t action_point_count;
+    int16_t action_points_x[20];
+    int16_t action_points_y[20];
     int16_t camera_target_x;
     int16_t camera_target_y;
     int16_t camera_target_z;
     int16_t rotateHappened;
+    int16_t trade_sell_costs_fixed[25];
     int16_t trading_current_goods;
     int16_t trading_next_goods;
     int16_t trading_prev_goods;
@@ -14266,14 +14333,20 @@ typedef struct PlayStateReturnData
     int16_t month;
     int16_t year;
     int16_t pop_months;
+    int32_t keep_storage[25];
+    uint8_t speechFileName[128];
+    uint8_t musicFileName[128];
     int16_t chimp_comments;
     int16_t camera_target_flat;
+    uint8_t binkFileName[128];
     int16_t skirmish_map_num_keeps;
     int16_t inbuilding_help_id;
     int16_t MP_Ahead_By;
     int16_t MP_Behind_By;
     int16_t SkipFrame;
     int16_t undoAvailable;
+    int32_t koth_scores[8];
+    int16_t pingtimes[8];
     int16_t chimps_count;
     int16_t chimps_limit;
     int16_t structs_count;
@@ -14284,6 +14357,7 @@ typedef struct PlayStateReturnData
     int16_t minerals_limit;
     int16_t tribes_count;
     int16_t tribes_limit;
+    uint8_t starting_teams[9];
     uint8_t freeWoodcutter;
     uint8_t freeGranary;
     uint8_t gotSignpost;
@@ -14291,22 +14365,47 @@ typedef struct PlayStateReturnData
     int32_t repair_stone_needed;
     int16_t panel_text_group;
     int16_t panel_text_text;
+    int32_t markers_start_points[40];
+    uint8_t troop_types_available[8];
     uint8_t free_buildingCheat;
     uint8_t editor_time_paused;
     int16_t bld_tiles_built;
     uint8_t game_paused;
     uint8_t numMPChatEntries;
     int16_t ai_clock;
+    int16_t chat_store_data[50];
+    int16_t autotrade_sell_amount[26];
+    int16_t autotrade_buy_amount[26];
+    uint8_t autotrade_onoff[28];
+    uint8_t control_groups_match[10];
+    int16_t control_groups_total[10];
+    uint8_t control_groups_type[40];
+    int16_t control_groups_count[40];
     uint8_t lordOnlySelected;
     uint8_t gotMarket;
+    uint8_t mpkick[8];
     uint8_t keep_enclosed;
     uint8_t can_make_bows;
     uint8_t can_make_mace;
     uint8_t can_make_spear;
+    uint8_t merc_troop_types_available[8];
     uint8_t messageFrom;
     uint8_t troops_show_make_arab_ballista;
     uint8_t starting_goods_level;
     uint8_t fairness;
+    int16_t computer_register[8];
+    int16_t teams[8];
+    int16_t player_register[8];
+    int16_t computer_names[8];
+    int16_t skirmish_needs_help[8];
+    int16_t skirmish_player_requesting_type[10];
+    int16_t skirmish_player_requesting_amount[10];
+    int16_t skirmish_order[8];
+    int16_t skirmish_order_player[8];
+    int16_t skirmish_order_from_player[8];
+    uint8_t mp_stats_valid[8];
+    uint8_t lord_alive[8];
+    uint8_t bed_troop_types_available[8];
     uint32_t elapsedTime;
     uint8_t balanced;
     uint8_t extremeEnabled;
@@ -14334,8 +14433,8 @@ typedef struct PlayStateReturnData
     uint8_t eunuchCost;
     uint8_t spectatorMode;
     uint8_t customisedExtremeTrail;
-    int32_t FixedElementField;
 } PlayStateReturnData;
+#pragma pack(pop)
 
 typedef struct ScoreReturnData
 {
@@ -14375,15 +14474,47 @@ typedef struct ScoreReturnData
     int32_t difficulty_level;
 } ScoreReturnData;
 
+#pragma pack(push, 1)
 typedef struct multiplayer_stats_export
 {
+    int32_t valid[9];
+    int32_t gold_acquired[9];
+    int32_t max_population[9];
+    int32_t fearfactor[9];
+    int32_t time_deceased[9];
+    int32_t who_killed_who[81];
+    int32_t enemy_buildings_destroyed[9];
+    int32_t food_produced[9];
+    int32_t iron_produced[9];
+    int32_t stone_produced[9];
+    int32_t wood_produced[9];
+    int32_t pitch_produced[9];
+    int32_t minfearfactor[9];
+    int32_t winners[9];
+    int32_t troop_points_killed[9];
+    int32_t enemy_buildings_razed_points[9];
+    int32_t troops_produced[9];
+    int32_t goods_received[9];
+    int32_t goods_sent[9];
+    int32_t notable_victories[9];
+    int32_t notable_defeats[9];
+    int32_t time_lord_killed[9];
+    int32_t blank2[9];
+    int32_t blank3[9];
+    int32_t blank4[9];
+    int32_t weapons_produced[9];
+    int32_t buildings_lost[9];
+    int32_t lords_killed[9];
+    int32_t team_shield[9];
+    int32_t computer_register[9];
     int32_t real_time;
     int32_t game_time;
     int32_t ranged_made;
     int32_t melee_made;
     uint64_t unique;
-    int32_t FixedElementField;
+    int32_t teams[9];
 } multiplayer_stats_export;
+#pragma pack(pop)
 
 typedef struct LogicDebugInfo
 {
@@ -22184,6 +22315,250 @@ typedef struct MessageManager
 	uint32_t CurrentQueueCount; //0x094C
 	char pad_0950[904]; //0x0950
 }; //Size: 0x0CD8
+
+/* Derived from PlayStateReturnData.h; C++ syntax normalized for Ghidra CParser. */
+
+#pragma pack(push, 1)
+typedef struct PlayStateReturnData
+{
+    int32_t resources[25];
+    int32_t numSelectedChimps;
+    int32_t selectedChimps[1];
+    int32_t popularity;
+    int32_t population;
+    int32_t gold;
+    int32_t housing_cap;
+    int32_t upcoming_total_popularity;
+    int32_t rationing_popularity;
+    int32_t foodsEaten_popularity;
+    int32_t food_popularity;
+    int32_t tax_popularity;
+    int32_t overcrowding_popularity;
+    int32_t fearFactor_popularity;
+    int32_t religion_popularity;
+    int32_t fairs_popularity;
+    int32_t plague_popularity;
+    int32_t wolves_popularity;
+    int32_t bandits_popularity;
+    int32_t fire_popularity;
+    int32_t marriage_popularity;
+    int32_t jester_popularity;
+    int32_t good_things;
+    int32_t bad_things;
+    int32_t fear_factor;
+    int32_t fear_factor_next_level;
+    int32_t efficiency;
+    int16_t population_graph[300];
+    int16_t food_types_not_eatable[4];
+    int16_t troop_counts[34];
+    int16_t num_priests;
+    int16_t blessed_percent;
+    int32_t tax_rate;
+    int16_t blessed_next_level_at;
+    int16_t tax_amount;
+    int16_t peasants_available_for_troops;
+    uint8_t make_troop_state[10];
+    int32_t rationing;
+    int32_t food_clock;
+    int32_t total_food;
+    int32_t months_of_food;
+    int32_t food_types_eaten;
+    int32_t food_types_available;
+    int32_t app_mode;
+    int32_t app_sub_mode;
+    int32_t debug_value1;
+    int32_t game_time;
+    int32_t in_structure;
+    int32_t in_structure_type;
+    int32_t completeSelectionBox;
+    int32_t in_chimp;
+    int32_t in_chimp_type;
+    int16_t inchimp_name1;
+    int16_t inchimp_name2;
+    int16_t dog_cage_state;
+    int16_t inchimp_n_text;
+    int32_t in_chimp_goods;
+    int32_t gatehouse_state;
+    int16_t repairs_allowed;
+    int16_t can_do_repairs;
+    int16_t building_hps_for_repair;
+    int16_t building_maxhps_for_repair;
+    int16_t sleep_allowed;
+    int16_t building_type_sleeping;
+    int16_t have_building_stats;
+    int16_t workers_have;
+    int16_t job_vacancies;
+    int16_t workers_needed;
+    int16_t got_keep_access;
+    int16_t turned_off;
+    int16_t working;
+    int16_t mill_message;
+    int32_t pints_of_ale;
+    int16_t barrels_of_ale;
+    int16_t working_inns;
+    int16_t total_inns;
+    int16_t inn_coverage_percent;
+    int16_t inn_coverage_popularity;
+    int16_t inn_coverage_next;
+    uint8_t troops_show_disband;
+    uint8_t troops_show_build_menu;
+    uint8_t troops_show_make_catapult;
+    uint8_t troops_show_make_trebuchet;
+    uint8_t troops_show_make_siege_tower;
+    uint8_t troops_show_battering_ram;
+    uint8_t troops_show_portable_shield;
+    uint8_t troops_show_get_ammo;
+    uint8_t troops_show_launch_cow_and_num_cows;
+    uint8_t troops_show_attack_here_and_type;
+    uint8_t troops_show_attack_here_number_rocks;
+    uint8_t troops_show_stance;
+    uint8_t troops_show_patrol;
+    uint8_t troops_patrol_mode;
+    uint8_t weapon_being_made_now;
+    uint8_t game_type;
+    uint8_t can_make_xbows;
+    uint8_t can_make_sword;
+    uint8_t can_make_pike;
+    uint8_t weapon_being_made_next;
+    uint8_t production_no_resources;
+    uint8_t playerdesc_message;
+    uint8_t playerdesc_message2;
+    uint8_t weapon_types_available[9];
+    int16_t trade_buy_costs[25];
+    int16_t trade_sell_costs[25];
+    int16_t trade_buy_amounts[25];
+    int16_t trade_sell_amounts[25];
+    int16_t marry_status;
+    int16_t marry_male_type;
+    int16_t marry_female_type;
+    int16_t marry_text;
+    int16_t marry_m_name1;
+    int16_t marry_m_name2;
+    int16_t marry_f_name1;
+    int16_t marry_f_name2;
+    int16_t blessed_popularity;
+    uint8_t church_adjustment;
+    uint8_t church_missing;
+    int16_t scribe_frame;
+    int16_t total_horses_available;
+    int32_t action_point_count;
+    int16_t action_points_x[20];
+    int16_t action_points_y[20];
+    int16_t camera_target_x;
+    int16_t camera_target_y;
+    int16_t camera_target_z;
+    int16_t rotateHappened;
+    int16_t trade_sell_costs_fixed[25];
+    int16_t trading_current_goods;
+    int16_t trading_next_goods;
+    int16_t trading_prev_goods;
+    int16_t force_app_mode;
+    int16_t month;
+    int16_t year;
+    int16_t pop_months;
+    int32_t keep_storage[25];
+    uint8_t speechFileName[128];
+    uint8_t musicFileName[128];
+    int16_t chimp_comments;
+    int16_t camera_target_flat;
+    uint8_t binkFileName[128];
+    int16_t skirmish_map_num_keeps;
+    int16_t inbuilding_help_id;
+    int16_t MP_Ahead_By;
+    int16_t MP_Behind_By;
+    int16_t SkipFrame;
+    int16_t undoAvailable;
+    int32_t koth_scores[8];
+    int16_t pingtimes[8];
+    int16_t chimps_count;
+    int16_t chimps_limit;
+    int16_t structs_count;
+    int16_t structs_limit;
+    int16_t orgs_count;
+    int16_t orgs_limit;
+    int16_t minerals_count;
+    int16_t minerals_limit;
+    int16_t tribes_count;
+    int16_t tribes_limit;
+    uint8_t starting_teams[9];
+    uint8_t freeWoodcutter;
+    uint8_t freeGranary;
+    uint8_t gotSignpost;
+    int32_t repair_wood_needed;
+    int32_t repair_stone_needed;
+    int16_t panel_text_group;
+    int16_t panel_text_text;
+    int32_t markers_start_points[40];
+    uint8_t troop_types_available[8];
+    uint8_t free_buildingCheat;
+    uint8_t editor_time_paused;
+    int16_t bld_tiles_built;
+    uint8_t game_paused;
+    uint8_t numMPChatEntries;
+    int16_t ai_clock;
+    int16_t chat_store_data[50];
+    int16_t autotrade_sell_amount[26];
+    int16_t autotrade_buy_amount[26];
+    uint8_t autotrade_onoff[28];
+    uint8_t control_groups_match[10];
+    int16_t control_groups_total[10];
+    uint8_t control_groups_type[40];
+    int16_t control_groups_count[40];
+    uint8_t lordOnlySelected;
+    uint8_t gotMarket;
+    uint8_t mpkick[8];
+    uint8_t keep_enclosed;
+    uint8_t can_make_bows;
+    uint8_t can_make_mace;
+    uint8_t can_make_spear;
+    uint8_t merc_troop_types_available[8];
+    uint8_t messageFrom;
+    uint8_t troops_show_make_arab_ballista;
+    uint8_t starting_goods_level;
+    uint8_t fairness;
+    int16_t computer_register[8];
+    int16_t teams[8];
+    int16_t player_register[8];
+    int16_t computer_names[8];
+    int16_t skirmish_needs_help[8];
+    int16_t skirmish_player_requesting_type[10];
+    int16_t skirmish_player_requesting_amount[10];
+    int16_t skirmish_order[8];
+    int16_t skirmish_order_player[8];
+    int16_t skirmish_order_from_player[8];
+    uint8_t mp_stats_valid[8];
+    uint8_t lord_alive[8];
+    uint8_t bed_troop_types_available[8];
+    uint32_t elapsedTime;
+    uint8_t balanced;
+    uint8_t extremeEnabled;
+    int16_t extremeCount;
+    uint8_t mouse_selector_state;
+    uint8_t flattenedHappened;
+    uint8_t skirmishInsultFrom;
+    uint8_t skirmishInsult;
+    uint8_t lord_Type;
+    uint8_t monk_available;
+    uint8_t engineer_available;
+    uint8_t ladderman_available;
+    uint8_t team_shield1;
+    uint8_t team_shield2;
+    uint8_t team_shield3;
+    uint8_t team_shield4;
+    uint8_t team_shield5;
+    uint8_t team_shield6;
+    uint8_t team_shield7;
+    uint8_t team_shield8;
+    uint8_t resyncPercent;
+    uint8_t messageFromcharacter;
+    int16_t debug_value2;
+    uint8_t laddermanCost;
+    uint8_t eunuchCost;
+    uint8_t spectatorMode;
+    uint8_t customisedExtremeTrail;
+} PlayStateReturnData;
+#pragma pack(pop)
+
 
 /* Derived from TileManager.h; C++ syntax normalized for Ghidra CParser. */
 // Created with ReClass.NET 1.2 by KN4CK3R

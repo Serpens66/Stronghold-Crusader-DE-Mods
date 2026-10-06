@@ -1,8 +1,9 @@
 [CmdletBinding()]
-param()
+param([string]$TweakerRoot = '')
 $ErrorActionPreference = 'Stop'
 $workspace = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $tweaker = Join-Path (Split-Path -Parent $workspace) 'Fremde Mods\crusader-de-tweaker'
+if ($TweakerRoot) { $tweaker = [IO.Path]::GetFullPath($TweakerRoot) }
 $roots = @((Join-Path $workspace 'APIShared\src'), (Join-Path $workspace 'SerpsModsHost\src'), (Join-Path $tweaker 'Config'))
 $sources = @(foreach ($root in $roots) { Get-ChildItem -LiteralPath $root -Recurse -File -Filter '*.cs' })
 $sources += Get-Item -LiteralPath (Join-Path $tweaker 'Plugin.cs')

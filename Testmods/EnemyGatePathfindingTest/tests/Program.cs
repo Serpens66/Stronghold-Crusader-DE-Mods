@@ -14,6 +14,7 @@ namespace EnemyGatePathfindingTest
         {
             try
             {
+                assertions += SharedTests.CaptureRefreshTests.Run();
                 assertions += GateRoutePolicyTests.Run();
                 UncapturedEnemyPreservesVanillaExclusion();
                 OwnAndAlliedOwnersRemainEligible();
@@ -69,7 +70,7 @@ namespace EnemyGatePathfindingTest
                 NativeRouteHotPathsRemainPrimitiveOnly();
                 UnsafeGlobalMutationAndWholePclDetourAreAbsent();
                 ScriptExtenderPathfindingGlobalsAreComparedReadOnly();
-                ScriptExtender2120AndFixesContractsArePinned();
+                ScriptExtender2130AndFixesContractsArePinned();
                 SearchDiagnosticIdentitySurvivesPublication();
                 GateStateDefinitionsReconstructEveryObservation();
                 PartialPathfindingCoverageIsNotMutation();
@@ -335,13 +336,13 @@ namespace EnemyGatePathfindingTest
                 "startup comparison contains no direct native connection-table view");
         }
 
-        private static void ScriptExtender2120AndFixesContractsArePinned()
+        private static void ScriptExtender2130AndFixesContractsArePinned()
         {
-            Assert(EnemyGatePathfindingNativeDefinition.AuditedScriptExtenderVersion == "2.12.0" &&
-                EnemyGatePathfindingNativeDefinition.AuditedScriptExtenderTag == "v2.12.0" &&
+            Assert(EnemyGatePathfindingNativeDefinition.AuditedScriptExtenderVersion == "2.13.0" &&
+                EnemyGatePathfindingNativeDefinition.AuditedScriptExtenderTag == "v2.13.0" &&
                 EnemyGatePathfindingNativeDefinition.AuditedScriptExtenderCommit ==
-                    "f8d51730fcb54b25af43d3c9348d57db058e077f",
-                "Script Extender 2.12.0 provenance is pinned to the audited commit");
+                    "85ab962b342c18f663da830570884a25b85116d0",
+                "Script Extender 2.13.0 provenance is pinned to the audited commit");
             Assert(EnemyGatePathfindingNativeDefinition.AuditedRedBirdVersion ==
                 typeof(X64InlineHook).Assembly.GetName().Version.ToString(),
                 "installed RedBird audit version is documented without replacing byte contracts");
@@ -350,7 +351,7 @@ namespace EnemyGatePathfindingTest
                 Path.Combine("src", "EnemyGatePathfindingTestPlugin.cs"));
             string runtimeSource = File.ReadAllText(
                 Path.Combine("src", "EnemyGatePathfindingRuntime.cs"));
-            Assert(pluginSource.IndexOf("new Version(2, 12, 0, 0)",
+            Assert(pluginSource.IndexOf("new Version(EnemyGatePathfindingNativeDefinition.AuditedScriptExtenderVersion",
                     StringComparison.Ordinal) >= 0 &&
                 pluginSource.IndexOf("audited version 2.7.1",
                     StringComparison.Ordinal) < 0 &&

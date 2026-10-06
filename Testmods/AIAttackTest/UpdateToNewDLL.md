@@ -1,0 +1,7 @@
+# Fixes coexistence update contract
+
+Native reference SHA-256 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2. Existing AIAttackNativeContract uniquely validates .text contexts at2F2B8 and3B5D0 with named patterns, field/layout assertions and hash-bound offsets. Recruitment inline hook owns[2F2C5,2F2D4), length15, including cmp/jl/cmp; lord hook owns[3B5DB,3B5E9), length14. Both are the existing installed RedBird X64InlineHook contract, not NativeDetour.
+
+Fixes per-lord defensive timing owns the same recruit span. Load after Fixes (soft dependency); inspect its public ConfigEntry field EnablePerLordCustomRequiredDefensiveRecruitmentTickTime. Enabled/unknown means skip recruitment capability. Disabled means validate live span before installing. Lord and recruitment use independent unpublished transactions and never tear down after MarkPublished. Runtime settings write data flags only. Any optional initialization failure disables just that native capability; AIC tests remain available. Existing full span/control-flow audits still apply; compare actual DisplacedByteCount before publication.
+
+Do not rely on Fixes' separate lethal-lord branch guaranteeing execution of our lord branch: their spans are disjoint but it may bypass ours. No competing detour on the same owner is permitted. Hash/pattern/layout changes fail closed and require a new feature audit. This compatibility change introduces no new RVA or executable generator behavior.

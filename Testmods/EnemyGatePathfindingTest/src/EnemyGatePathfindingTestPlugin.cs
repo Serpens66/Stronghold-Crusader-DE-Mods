@@ -5,6 +5,7 @@ using SHCDESE.API;
 using SHCDESE.API.LowLevel;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Tribes;
+using SHCDESE.EventAPI.Buildings;
 using SHCDESE.EventAPI.Units;
 using System;
 using System.Diagnostics;
@@ -13,7 +14,7 @@ using UnityEngine;
 
 namespace EnemyGatePathfindingTest
 {
-    [BepInDependency(ScriptExtenderGuid, "2.7.1")]
+    [BepInDependency(ScriptExtenderGuid, "2.13.0")]
     // Load after the hook owner when it exists, so PluginInfos can suppress
     // our overlapping observational route hooks while keeping the PCL hook active.
     [BepInDependency("BugfixesAndQoL_Serp", BepInDependency.DependencyFlags.SoftDependency)]
@@ -35,6 +36,7 @@ namespace EnemyGatePathfindingTest
         private static IDisposable targetOrderSubscription;
         private static IDisposable tribeMoveSubscription;
         private static IDisposable unitMoveSubscription;
+        private static IDisposable buildingCaptureSubscription;
         private static bool librarySubscriptionInstalled;
         private static bool beforeRenderInstalled;
         private static bool gameTickInstalled;
@@ -75,6 +77,9 @@ namespace EnemyGatePathfindingTest
             if (unitMoveSubscription == null)
                 unitMoveSubscription = UnitR3EventHooks.OnUnitMoveHere.Observable
                     .Subscribe(ObserveUnitMove);
+            if (buildingCaptureSubscription == null)
+                buildingCaptureSubscription = BuildingR3EventHooks.OnBuildingCapture.Observable
+                    .Subscribe(args => runtime?.ObserveBuildingCapture(args));
             if (!beforeRenderInstalled)
             {
                 // UPDATE REVIEW (Unity/Script Extender): this proven persistent static
@@ -158,7 +163,7 @@ namespace EnemyGatePathfindingTest
                 string fileVersion = string.IsNullOrEmpty(location)
                     ? "unknown"
                     : FileVersionInfo.GetVersionInfo(location).FileVersion;
-                bool auditedVersion = assembly.GetName().Version == new Version(2, 12, 0, 0);
+                bool auditedVersion = assembly.GetName().Version == new Version(EnemyGatePathfindingNativeDefinition.AuditedScriptExtenderVersion + ".0");
                 Shared.DebugLogHelper.LogInfo(
                     persistentLog,
                     $"Script Extender identity: manifestVersionRange=true, " +

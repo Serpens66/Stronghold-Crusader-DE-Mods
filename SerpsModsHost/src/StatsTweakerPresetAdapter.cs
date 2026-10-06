@@ -37,6 +37,8 @@ namespace SerpsModsHost
                         TargetGuid, plugin.Metadata.Version, candidate);
                     log.LogInfo("[PresetPerf] preset activation: ms=" + phase.Elapsed.TotalMilliseconds.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) + ", " + provider.PerformanceCounts);
                     viewModel = candidate;
+                    // The registered participant owns start guards even if its page cannot be attached.
+                    provider.EnableRestartManagedSynchronization();
                 }
                 var entry = GameXAMLManagerAPI.Instance.RegisteredModSettings.FirstOrDefault(item =>
                     item.ViewModel?.GetType().Assembly == api.Assembly);

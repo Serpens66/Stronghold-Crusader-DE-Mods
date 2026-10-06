@@ -1532,7 +1532,8 @@ namespace AIDefenseTest
                     TribeIds.Add(unit->r_TribeId);
 
                 Raw428Values.Add(unit->N000000D8);
-                Raw42CValues.Add(unit->N000001FE);
+                // Preserve the complete raw DWORD after SE split it into two WORDs.
+                Raw42CValues.Add((uint)unit->N000001FE | ((uint)unit->N000001FE_2 << 16));
                 Raw430Values.Add(unit->N000000D9);
                 Raw432Values.Add(unit->r_FarmerAIRelatedUnknown);
             }

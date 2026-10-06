@@ -31,6 +31,7 @@ typedef unsigned long long uint64_t;
 #include "headers/MoatWorkType.h"
 #include "headers/PlayerManagerAndPathfindingContext.h"
 #include "headers/PlayerResources.h"
+#include "headers/PlayStateReturnData.h"
 #include "headers/ProjectileType16.h"
 #include "headers/RationsMode.h"
 #include "headers/ReClassExports.h"

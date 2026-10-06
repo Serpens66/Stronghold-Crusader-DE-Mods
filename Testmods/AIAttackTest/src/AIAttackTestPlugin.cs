@@ -9,6 +9,7 @@ using System;
 namespace AIAttackTest
 {
     [BepInDependency(ScriptExtenderGuid, "2.6.0")]
+    [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("BugfixesAndQoL_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("APIShared_Serp", "0.3.6")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]

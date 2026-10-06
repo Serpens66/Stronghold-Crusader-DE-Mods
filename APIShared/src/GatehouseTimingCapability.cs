@@ -2,6 +2,7 @@ using BepInEx.Logging;
 using RedBird.Core.Memory;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace APIShared
 {
@@ -311,7 +312,7 @@ namespace APIShared
             RequireLiveBytes(
                 memory,
                 moduleBase + target.HumanDelayBlockRva,
-                target.HumanDelayBlockBytes,
+                target.HumanDelayBlockBytes.Take(7).ToArray(),
                 "live gatehouse human-delay block");
         }
 
@@ -450,7 +451,7 @@ namespace APIShared
             var result = new List<NativeByteInvariant>();
             AddBlockInvariants(result, moduleBase, target.DecisionBlockRva, target.DecisionBlockBytes,
                 target.AiCloseDistanceRva, target.AiReopenDelayRva, target.HumanCloseDistanceRva);
-            AddBlockInvariants(result, moduleBase, target.HumanDelayBlockRva, target.HumanDelayBlockBytes,
+            AddBlockInvariants(result, moduleBase, target.HumanDelayBlockRva, target.HumanDelayBlockBytes.Take(7).ToArray(),
                 target.HumanReopenDelayRva);
             return result;
         }

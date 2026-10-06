@@ -72,8 +72,70 @@ namespace EnemyBridgePathTest
             FocusedDecisionEvidence();
             ProductionAssignmentAndCurrentLoad();
             ObservedPlayerEightAccess();
+            StablePopulationAndTransport();
+            RaisedPopulation();
             Console.WriteLine("PASS lean trace: 75117 repeated attacks, two initial captures; exact counts, changes, nesting, exceptions and bounded drain.");
             return checks;
+        }
+        private static void RaisedPopulation()
+        {
+            var trace=new BridgeDecisionTrace(null,_=>new BridgeDecisionTrace.AttackStamp(1,8,125,5,0,1,1),()=>1,r=>r==0x60AD6CC?1:r==0x37ED4CC?2:0);
+            trace.StartSession(604);long startBytes=Shared.DebugLogHelper.Bytes;
+            int[,] calls={{0x11A980,2480079},{0xE49D0,16015},{0x64460,3},{0x645C0,3},{0xD95E0,80},{0xD9190,80},{0x10DF60,73},{0x115B10,73},{0x122B40,119},{0xE7F60,12},{0x110EC0,116},{0x111330,557},{0x111D90,557},{0x3C2E0,560},{0x2D250,80},{0x2C480,73},{0x2C5A0,73},{0x3BD50,7},{0xCF360,2047},{0xCF400,205}};
+            for(int row=0;row<calls.GetLength(0);row++)
+            {
+                var site=BridgeNativeDefinition.Sites.Single(s=>s.Rva==calls[row,0]);
+                for(int i=0;i<calls[row,1];i++)
+                {
+                    var scope=trace.Enter(site,IntPtr.Zero,site.Rva==0xE49D0?(i<131?1:0):8,1);trace.Exit(scope,true,site.Rva==0xE49D0&&i<131?1:0,IntPtr.Zero);
+                    if(row==0&&i<40729) {trace.CountCommand(true);trace.CountCommand(false);trace.CountEvent(BridgeDecisionTrace.CommandCountData(3,i%8+1,3,1,false,true));}
+                    if(i%(row==0?1000:16)==0)trace.Drain();
+                }
+            }
+            trace.FlushRegions();while(trace.Pending>0)trace.Drain();
+            Check(trace.Entered==2500812&&trace.Exited==2500812,"raised exact2500812 native calls");
+            Check(trace.Summary().Contains("commandPre=40729,commandPost=40729")&&trace.Summary().Contains("invalidIds=0"),"raised command pairs and no invalid ID lookups");
+            Check(trace.Failures==0&&trace.Summary().Contains("overflow=0,backgroundOverflow=0"),"raised production load complete without overflow");
+            long bytes=Shared.DebugLogHelper.Bytes-startBytes;
+            Check(bytes*60.0/123.428<1000000,"raised synthetic unchanged population below1MB/min including prefixes");
+            Console.WriteLine("Raised population:2500812 calls,40729 command pairs,bytesWithPrefixAllowance="+bytes);
+        }
+        private static void StablePopulationAndTransport()
+        {
+            var attack=BridgeNativeDefinition.Sites.Single(s=>s.Rva==0x11A980);
+            var topology=BridgeNativeDefinition.Sites.Single(s=>s.Rva==0xE49D0);
+            var trace=new BridgeDecisionTrace(null,_=>new BridgeDecisionTrace.AttackStamp(1,8,125,6,0,1,1),()=>1,r=>r==0x60AD6CC?1:r==0x37ED4CC?2:0);
+            trace.StartSession(601);long bytes=Shared.DebugLogHelper.Bytes;
+            for(int i=0;i<2103209;i++)
+            {
+                var call=trace.Enter(attack,IntPtr.Zero,4340);trace.Exit(call,true,null,IntPtr.Zero);
+                if(i<13747) {call=trace.Enter(topology,IntPtr.Zero,i<114?1:0);trace.Exit(call,true,i<114?1:0,IntPtr.Zero);}
+                if(i<36923) {trace.CountCommand(true);trace.CountCommand(false);trace.CountEvent(BridgeDecisionTrace.CommandCountData(3,i%8+1,3,1,false,true));}
+                if(i%1000==0)trace.Drain();
+            }
+            trace.FlushRegions();while(trace.Pending>0)trace.Drain();
+            long quietBytes=Shared.DebugLogHelper.Bytes-bytes;
+            Check(trace.Entered==2116956&&trace.Exited==2116956&&trace.Captures==230,"stable hot population:114 rebuilt topologies, exact pairing and bounded capture");
+            // The frozen session lasts113.069s. Use its time-normalized acceptance
+            // budget, not an unrelated absolute100KB threshold.
+            Check(quietBytes*60.0/113.069<1000000,"stable hot population including logger prefix allowance below1MB/min; bytes="+quietBytes);
+            int[,] rare={{0x64460,1},{0xD95E0,25},{0xD9190,25},{0x10DF60,18},{0x115B10,18},{0x3C2E0,476},{0x2D250,25},{0x2C480,18},{0x2C5A0,18},{0x3BD50,7},{0xCF360,1118},{0xCF400,1}};
+            for(int row=0;row<rare.GetLength(0);row++)for(int i=0;i<rare[row,1];i++)
+            {var site=BridgeNativeDefinition.Sites.Single(s=>s.Rva==rare[row,0]);var call=trace.Enter(site,IntPtr.Zero,8,1);trace.Exit(call,true,1,IntPtr.Zero);if(i%32==0)trace.Drain();}
+            trace.FlushRegions();while(trace.Pending>0)trace.Drain();
+            Check(trace.Entered==2118706&&trace.Exited==2118706&&trace.Summary().Contains("commandPre=36923,commandPost=36923"),"stable full production call population is exactly counted");
+            Check(trace.Failures==0&&trace.Summary().Contains("overflow=0,backgroundOverflow=0"),"stable workload preserves completeness");
+            var compact=new BridgeDecisionTrace(null,_=>new BridgeDecisionTrace.AttackStamp(uint.MaxValue,8,125,6,0,1,uint.MaxValue),()=>1);
+            compact.StartSession(602);int start=Shared.DebugLogHelper.Recent.Count;
+            var scope=compact.Enter(attack,IntPtr.Zero,4340);
+            for(int i=0;i<4;i++)compact.Command(i%2==0?"command-pre":"command-post","op="+(800+i),8);
+            compact.Exit(scope,true,0x100000001,IntPtr.Zero);while(compact.Pending>0)compact.Drain();
+            var output=Shared.DebugLogHelper.Recent.Skip(start).ToArray();
+            Check(output.Count(s=>s.Contains("kind=command-context,"))==1&&output.Count(s=>s.Contains("commandContext=1,"))==4,"equal numeric command contexts defined once and referenced without dropping commands");
+            Check(output.Any(s=>s.Contains("kind=native-frame-batch,")&&s.Contains("/4294967297/")),"numeric native frame preserves full64-bit return");
+            compact.StartSession(603);compact.Command("command-pre","op=900",8);while(compact.Pending>0)compact.Drain();
+            Check(Shared.DebugLogHelper.Recent.Last().Contains("commandContext=2,"),"map reload redefines context with monotonic identity");
+            Console.WriteLine("Stable production population:2118706 calls,36923 commands,quietBytesWithPrefixes="+quietBytes+"; native frames and numeric context references preserve exact results");
         }
         private static void MixedLoad(BridgeNativeDefinition.Site attack)
         {

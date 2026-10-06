@@ -21,6 +21,7 @@ namespace AIAttackTest
         private const int LordEnabledTargetRva = AIAttackNativeContract.LordBranchRva + 0x14;
 
         private HookTransaction transaction;
+        private HookTransaction recruitTransaction;
         private readonly HookHandle<X64InlineHook> recruitHook = new HookHandle<X64InlineHook>();
         private readonly HookHandle<X64InlineHook> lordHook = new HookHandle<X64InlineHook>();
         private readonly IntPtr recruitTicks;
@@ -30,65 +31,67 @@ namespace AIAttackTest
         internal AIAttackPermanentNativeOverrides(
             ScanRegion region,
             ReadOnlySpan<byte> memory,
-            ulong moduleBase)
+            ulong moduleBase, bool recruitAvailable = true, Action<string> reportUnavailable = null)
         {
             recruitTicks = Marshal.AllocHGlobal(sizeof(int));
             attackLord = Marshal.AllocHGlobal(sizeof(int));
             Marshal.WriteInt32(recruitTicks, VanillaRecruitTicks);
             Marshal.WriteInt32(attackLord, 0);
+            ulong ticksAddress = unchecked((ulong)recruitTicks.ToInt64());
+            ulong lordFlagAddress = unchecked((ulong)attackLord.ToInt64());
+            // Each capability owns an independent unpublished transaction. A failed recruit hook
+            // cannot roll back a valid lord hook or the managed AIC capability.
+            if (recruitAvailable)
+            {
+                try
+                {
+                    ValidateLiveSpan(memory, moduleBase, RecruitInstructionRva, RecruitDisplacedBytes,"AI recruitment comparison");
+                    ulong counterAddress = ResolveRecruitCounterAddress(memory, moduleBase);
+                    recruitTransaction = CreateTransaction(region);
+                    recruitTransaction.AddInline(recruitHook,HookTarget.FromAddress(moduleBase + RecruitInstructionRva),
+                        (assembler,instructions,returnAddress) => GenerateRecruitComparison(assembler,instructions,ticksAddress,counterAddress),hookSize:RecruitDisplacedBytes);
+                    CommitResult result = recruitTransaction.Commit();
+                    if (!result.IsCompleteSuccess || !recruitHook.Success || !recruitHook.IsInstalled || recruitHook.Hook.DisplacedByteCount != RecruitDisplacedBytes)
+                        throw new InvalidOperationException("Recruitment hook contract mismatch.");
+                }
+                catch (Exception ex)
+                {
+                    recruitTransaction?.Dispose(); recruitTransaction = null;
+                    ReportUnavailable(reportUnavailable, "AI Attack recruitment capability unavailable: " + ex);
+                }
+            }
             try
             {
-                ValidateLiveSpan(memory, moduleBase, RecruitInstructionRva, RecruitDisplacedBytes,
-                    "AI recruitment comparison (possibly owned by Fixes)");
-                ValidateLiveSpan(memory, moduleBase, AIAttackNativeContract.LordBranchRva,
-                    LordDisplacedBytes, "AI lord limiter");
-                ulong counterAddress = ResolveRecruitCounterAddress(memory, moduleBase);
-                ulong ticksAddress = unchecked((ulong)recruitTicks.ToInt64());
-                ulong lordFlagAddress = unchecked((ulong)attackLord.ToInt64());
-                transaction = new HookTransaction(
-                    region,
-                    SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
-                    new HookTransactionOptions
-                    {
-                        FailureMode = TransactionFailureMode.RollbackAndThrow,
-                        OwnsHooks = true
-                    });
-                transaction.AddInline(
-                    recruitHook,
-                    HookTarget.FromAddress(moduleBase + RecruitInstructionRva),
-                    (assembler, instructions, returnAddress) =>
-                        GenerateRecruitComparison(assembler, instructions, ticksAddress, counterAddress),
-                    hookSize: RecruitDisplacedBytes);
-                transaction.AddInline(
-                    lordHook,
-                    HookTarget.FromAddress(moduleBase + AIAttackNativeContract.LordBranchRva),
-                    (assembler, instructions, returnAddress) =>
-                        GenerateLordBranch(
-                            assembler, instructions, lordFlagAddress,
-                            moduleBase + LordEnabledTargetRva),
-                    hookSize: LordDisplacedBytes);
+                ValidateLiveSpan(memory,moduleBase,AIAttackNativeContract.LordBranchRva,LordDisplacedBytes,"AI lord limiter");
+                transaction = CreateTransaction(region);
+                transaction.AddInline(lordHook,HookTarget.FromAddress(moduleBase + AIAttackNativeContract.LordBranchRva),
+                    (assembler,instructions,returnAddress) => GenerateLordBranch(assembler,instructions,lordFlagAddress,moduleBase + LordEnabledTargetRva),hookSize:LordDisplacedBytes);
                 CommitResult result = transaction.Commit();
-                if (!result.IsCompleteSuccess || !recruitHook.Success || !lordHook.Success ||
-                    !recruitHook.IsInstalled || !lordHook.IsInstalled ||
-                    recruitHook.Hook.DisplacedByteCount != RecruitDisplacedBytes ||
-                    lordHook.Hook.DisplacedByteCount != LordDisplacedBytes)
-                    throw new InvalidOperationException($"AI attack permanent hooks failed validation: {result}.");
+                if (!result.IsCompleteSuccess || !lordHook.Success || !lordHook.IsInstalled || lordHook.Hook.DisplacedByteCount != LordDisplacedBytes)
+                    throw new InvalidOperationException("Lord hook contract mismatch.");
             }
-            catch
+            catch (Exception ex)
             {
-                transaction?.Dispose();
-                Marshal.FreeHGlobal(recruitTicks);
-                Marshal.FreeHGlobal(attackLord);
-                throw;
+                transaction?.Dispose(); transaction = null;
+                ReportUnavailable(reportUnavailable, "AI Attack lord capability unavailable: " + ex);
             }
         }
+
+        private static void ReportUnavailable(Action<string> report, string message)
+        { try { report?.Invoke(message); } catch { /* Diagnostics must not abandon an installed candidate. */ } }
+
+        private static HookTransaction CreateTransaction(ScanRegion region) => new HookTransaction(region,
+            SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
+            new HookTransactionOptions { FailureMode = TransactionFailureMode.RollbackAndThrow, OwnsHooks = true });
+        internal bool RecruitmentAvailable => recruitTransaction != null;
+        internal bool LordAvailable => transaction != null;
 
         internal void MarkPublished() => published = true;
 
         internal void Apply(int ticks, bool includeLord)
         {
-            if (!recruitHook.IsInstalled || !lordHook.IsInstalled)
-                throw new InvalidOperationException("An AI attack permanent hook is no longer installed.");
+            if (LordAvailable && !lordHook.IsInstalled || RecruitmentAvailable && !recruitHook.IsInstalled)
+                throw new InvalidOperationException("An installed AI attack hook is no longer active.");
             Thread.MemoryBarrier();
             Marshal.WriteInt32(recruitTicks, ticks);
             Marshal.WriteInt32(attackLord, includeLord ? 1 : 0);
@@ -101,7 +104,8 @@ namespace AIAttackTest
         {
             if (published) return;
             transaction?.Dispose();
-            transaction = null;
+            recruitTransaction?.Dispose();
+            transaction = null; recruitTransaction = null;
             Marshal.FreeHGlobal(recruitTicks);
             Marshal.FreeHGlobal(attackLord);
         }

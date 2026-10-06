@@ -1,0 +1,187 @@
+{
+  "OldVersion": "2.12.0",
+  "NewVersion": "2.13.0",
+  "TargetCommit": "85ab962b342c18f663da830570884a25b85116d0",
+  "ImpactReview": {
+    "CrusaderNativeFiles": [
+      "ReverseEngineering/EngineInterface.cs",
+      "ReverseEngineering/structs/PlayStateReturnData.h",
+      "ReverseEngineering/structs/engineinterface.h",
+      "src/SHCDESE.BepInEx/API/GameAIManagerAPI.cs",
+      "src/SHCDESE.BepInEx/API/GamePathingManagerAPI.cs",
+      "src/SHCDESE.BepInEx/Detours/BulkAIDetours.cs",
+      "src/SHCDESE.BepInEx/Detours/BulkBuildingDetours.cs",
+      "src/SHCDESE.BepInEx/Detours/BulkMapEditorDetours.cs",
+      "src/SHCDESE.BepInEx/Detours/BulkPathingDetours.cs",
+      "src/SHCDESE.BepInEx/Detours/BulkPlayerDetours.cs",
+      "src/SHCDESE.BepInEx/GameGlobals/GameGlobalsManager.cs",
+      "src/SHCDESE.BepInEx/Interop/Enums/AISiegeState.cs",
+      "src/SHCDESE.BepInEx/Interop/Enums/AITribeObjectiveRole.cs",
+      "src/SHCDESE.BepInEx/Interop/Enums/ChoreType.cs",
+      "src/SHCDESE.BepInEx/Interop/Enums/OutpostSpawnProfileFlags.cs",
+      "src/SHCDESE.BepInEx/Interop/Enums/ProjectileType.cs",
+      "src/SHCDESE.BepInEx/Interop/GameBuilding.cs",
+      "src/SHCDESE.BepInEx/Interop/GamePlayerResources.cs",
+      "src/SHCDESE.BepInEx/Interop/GameProjectile.cs",
+      "src/SHCDESE.BepInEx/Interop/GameRandomStruct.cs",
+      "src/SHCDESE.BepInEx/Interop/GameTribe.cs",
+      "src/SHCDESE.BepInEx/Interop/GameTribeManager.cs",
+      "src/SHCDESE.BepInEx/Interop/GameUnit.cs",
+      "src/SHCDESE.BepInEx/Interop/GameUnitManager.cs",
+      "src/SHCDESE.BepInEx/Interop/GameVegetation.cs",
+      "src/SHCDESE.BepInEx/NativeHooks/DetourManager.cs"
+    ],
+    "AffectedMods": [
+      "BugfixesAndQoL",
+      "ExtraFeatures"
+    ],
+    "BuildMods": [
+      "APIShared",
+      "BugfixesAndQoL",
+      "ExtraFeatures"
+    ],
+    "ChangedPublicContracts": [
+      {
+        "Path": "src/SHCDESE.BepInEx/Interop/GamePlayerResources.cs",
+        "Consumers": [
+          "BugfixesAndQoL"
+        ],
+        "Compatibility": "Rename only: fixed ushort[100] at 0x35BC and uint at 0x3684, size 0x583C. Migrate layout guards. Former RaidRetargetDiagnostic was removed completely at user request; the fix is in BugfixesAndQoL.",
+        "Symbol": "r_BuildingIds / r_TrackedBuildingCount"
+      },
+      {
+        "Path": "src/SHCDESE.BepInEx/Interop/GameBuilding.cs",
+        "Consumers": [
+          "ExtraFeatures",
+          "EnemyBridgePathTest",
+          "EnemyGatePathfindingTest"
+        ],
+        "Compatibility": "Split ushort into two bytes at 0x2A2/0x2A3, size 0x32C. Rebuild consumers; diagnostic raw state retains both bytes.",
+        "Symbol": "r_GateState / r_GateState2"
+      },
+      {
+        "Path": "src/SHCDESE.BepInEx/Interop/GameUnit.cs",
+        "Consumers": [
+          "AIDefenseTest"
+        ],
+        "Compatibility": "Two ushort fields at 0x42C/0x42E retain the previous 32-bit diagnostic payload; N000000D8 is ushort. Size 0x490.",
+        "Symbol": "N000001FE / N000001FE_2 and N000000D8"
+      },
+      {
+        "Path": "src/SHCDESE.BepInEx/EventAPI/BuildingR3EventHooks.cs",
+        "Consumers": [
+          "EnemyBridgePathTest",
+          "EnemyGatePathfindingTest"
+        ],
+        "Compatibility": "Additive Pre/Post event. Static subscription requests coalesced Post refresh only; existing persistent deferred publisher reads native state.",
+        "Symbol": "OnBuildingCapture"
+      },
+      {
+        "Path": "src/SHCDESE.BepInEx/Detours/BulkAIDetours.cs",
+        "Consumers": [],
+        "Compatibility": "New native delegates unused by our mods. The former bool result is not proof of successful ordering; hash-bound native usage note only.",
+        "Symbol": "OrderSiegeAssassinsToGatehouseOrEnemyUnit / TryOrderTribeToNearestEnemyGatehouse"
+      },
+      {
+        "Path": "src/SHCDESE.BepInEx/API/GamePathingManagerAPI.cs",
+        "Consumers": [],
+        "Compatibility": "Additive process-wide per-unit-type C# and Lua score API, unused by our mods.",
+        "Symbol": "Get/SetSiegeAssassinUnitTargetingScore"
+      },
+      {
+        "Path": "src/SHCDESE.BepInEx/API/GameAIManagerAPI.cs",
+        "Consumers": [],
+        "Compatibility": "Lord subtype now selects the nickname directly; negative indices fail gracefully. No affected workspace caller.",
+        "Symbol": "TryGetLordTitle"
+      },
+      {
+        "Path": "src/SHCDESE.BepInEx/EventAPI/AI/AIProcessCustomLordEventArgs.cs",
+        "Consumers": [],
+        "Compatibility": "Additive property and constructor; existing constructor preserved.",
+        "Symbol": "SourceDirectory"
+      },
+      {
+        "Path": "src/SHCDESE.BepInEx/API/GamePathingManagerAPI.cs",
+        "Consumers": [
+          "APIShared",
+          "BugfixesAndQoL",
+          "EnemyBridgePathTest",
+          "EnemyGatePathfindingTest"
+        ],
+        "Compatibility": "Existing component/grid contracts retained; installed layout and native capacity audit remains valid.",
+        "Symbol": "Pathing interop"
+      }
+    ],
+    "NonSemanticArtifacts": [
+      ".gitlab-ci.yml",
+      "CHANGELOG.md",
+      "README.md",
+      "ReverseEngineering/latest/CrusaderDE.dll.7z",
+      "ReverseEngineering/struct-cs-to-h.ps1",
+      "ReverseEngineering/structs/scde-main-2802-v6.rcnet",
+      "deps/Override/Assets/GUI/Sprites/loadedmodspanel.png",
+      "deps/Patches/Assets/GUI/XAML/FrontendMenus.xaml",
+      "docs/guides/mod-kill-switch.md",
+      "docs/guides/mod-lobby-settings.md",
+      "docs/guides/signed-bepinex-plugins.md",
+      "docs/guides/toc.yml",
+      "scripts/post-build.ps1",
+      "security/kill-switch.txt",
+      "security/trusted-mod-signers.json",
+      "src/SHCDESE.BepInEx/API/Components/Archive/MapModManager.cs",
+      "src/SHCDESE.BepInEx/API/Components/ModManager/GameAssetModManager.cs",
+      "src/SHCDESE.BepInEx/API/Components/ModManager/LobbyModSettingsEntry.cs",
+      "src/SHCDESE.BepInEx/Bootstrap/Plugin.cs",
+      "src/SHCDESE.BepInEx/Bootstrap/PluginOptions.cs",
+      "src/SHCDESE.BepInEx/EventAPI/AI/AIProcessCustomLordEventArgs.cs",
+      "src/SHCDESE.BepInEx/EventAPI/BuildingR3EventHooks.cs",
+      "src/SHCDESE.BepInEx/EventAPI/Buildings/BuildingCaptureEventArgs.cs",
+      "src/SHCDESE.BepInEx/ManagedHooks/CustomisationFileManager_Hooks.cs",
+      "src/SHCDESE.BepInEx/ManagedHooks/ILHooks/FrontendMenus_ILHooks.cs",
+      "src/SHCDESE.BepInEx/ManagedHooks/ILHooks/GameMap_AddUpdateChimpILHooks.cs",
+      "src/SHCDESE.BepInEx/ManagedHooks/ILHooks/ILHooksManager.cs",
+      "src/SHCDESE.BepInEx/ManagedHooks/OnScreenText_Hooks.cs",
+      "src/SHCDESE.BepInEx/ManagedHooks/Platform_Workshop_Hooks.cs",
+      "src/SHCDESE.BepInEx/SHCDESE.csproj",
+      "src/SHCDESE.BepInEx/Security/KillSwitchRegistry.cs",
+      "src/SHCDESE.BepInEx/ViewModels/LoadedModsViewModel.cs",
+      "src/SHCDESE.BepInEx/ViewModels/LobbyModSettingsHubViewModel.cs",
+      "src/SHCDESE.KillSwitch.Preloader/KillSwitchPatcher.cs",
+      "src/SHCDESE.KillSwitch.Preloader/SHCDESE.KillSwitch.Preloader.csproj",
+      "src/SHCDESE.KillSwitch.Preloader/SignedPluginManifest.cs",
+      "src/SHCDESE.ModSigner/Program.cs",
+      "src/SHCDESE.ModSigner/SHCDESE.ModSigner.csproj"
+    ],
+    "ExternalNativeFiles": [
+      "src/SHCDESE.BepInEx/AntiTamper/AntiTamper.cs"
+    ],
+    "BaselinePreviousCommit": "f8d51730fcb54b25af43d3c9348d57db058e077f"
+  },
+  "Mods": {
+    "ExtraFeatures": {
+      "Changes": [
+        "Added missing fallback translations for the Bedouin healer civilian and siege-engine options."
+      ],
+      "MinimumScriptExtenderVersion": "2.13.0",
+      "Version": "1.0.107"
+    },
+    "BugfixesAndQoL": {
+      "Changes": [
+        "Added an enabled-by-default host fix that makes AI melee raiding groups skip buildings without usable native melee attack positions and try another Vanilla-priority target."
+      ],
+      "MinimumScriptExtenderVersion": "2.13.0",
+      "Version": "1.0.174"
+    }
+  },
+  "TestMods": [
+    "EnemyBridgePathTest",
+    "EnemyGatePathfindingTest",
+    "AIDefenseTest"
+  ],
+  "CompatibilityNotes": [
+    "Testmods are reviewed and built separately; all five remaining affected consumers require SE 2.13.0. Mod versions and existing changelog entries remain unchanged during acceptance. The archived RaidRetargetDiagnostic was removed completely at explicit user request.",
+    "Native DLL is unchanged. Complete feature audit covers raid, capture, assassin scoring and editor actions; current Fixes clone fcf3258 is compatible.",
+    "Tracked extender sources remain unchanged. The excluded local build driver packages and installs the new preloader with its required dependencies.",
+    "No confirmed new gameplay bug; ambiguous ordering bool is a baseline usage note. Early crash-handler false alarm remains pending a controlled runtime check."
+  ]
+}
