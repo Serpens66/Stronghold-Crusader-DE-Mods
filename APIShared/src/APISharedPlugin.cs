@@ -19,7 +19,7 @@ namespace APIShared
         /// <summary>Display name of the API plugin.</summary>
         public const string PluginName = "APIShared";
         /// <summary>Current API plugin version.</summary>
-        public const string PluginVersion = "0.4.8";
+        public const string PluginVersion = "0.4.9";
 
         private void Awake()
         {

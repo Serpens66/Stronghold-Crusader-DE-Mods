@@ -12,7 +12,7 @@ using SHCDESE.API.Components.ModManager;
 
 namespace SerpsModsHost
 {
-    public sealed class SerpsModsDiagnosticsViewModel : Shared.PresetLobbyModSettingsViewModel
+    public sealed partial class SerpsModsDiagnosticsViewModel : Shared.PresetLobbyModSettingsViewModel
     {
         private readonly object sync = new object();
         private readonly List<string> errors = new List<string>();
@@ -33,7 +33,8 @@ namespace SerpsModsHost
 
         public SerpsModsDiagnosticsViewModel()
         {
-            RefreshCommand = new RelayCommand(() => refreshAction?.Invoke());
+            RefreshCommand = new RelayCommand(() => { RefreshRestartPreparation(); refreshAction?.Invoke(); });
+            InitializeRestartPreparation();
             ClearErrorsCommand = new RelayCommand(ClearErrors);
             LoadGlobalSettingsSourceCommand = new RelayCommand(RequestGlobalSettingsReset);
             ConfirmGlobalSettingsResetCommand = new RelayCommand(ConfirmGlobalSettingsReset);

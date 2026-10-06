@@ -15,36 +15,42 @@ namespace SerpsModsHost
     internal static class StatsTweakerPresetAdapter
     {
         internal const string TargetGuid = "CrusaderDETweaker";
-        private static StatsTweakerPresetViewModel viewModel;
-        private static bool failed, attached;
+        private static readonly OptionalSettingsIntegration<StatsTweakerPresetViewModel> integration = new OptionalSettingsIntegration<StatsTweakerPresetViewModel>();
+        private static Type observedApi;
 
         internal static void TryAttach(string storageAssembly, ManualLogSource log)
         {
-            if (attached || failed || !Chainloader.PluginInfos.TryGetValue(TargetGuid, out var plugin)) return;
-            Type api = plugin.Instance.GetType().Assembly.GetType("CrusaderDETweaker.Configuration.ConfigurationApi", false);
-            if (api == null) return; // An older Tweaker remains fully independent.
-            try
+            bool installed = Chainloader.PluginInfos.TryGetValue(TargetGuid, out var plugin);
+            Type api = plugin?.Instance?.GetType().Assembly.GetType("CrusaderDETweaker.Configuration.ConfigurationApi", false);
+            integration.Discover(installed, api, () =>
             {
-                if (viewModel == null)
+                var phase = Stopwatch.StartNew();
+                var provider = new StatsTweakerConfigurationProvider(api, message => log.LogInfo(message));
+                if (observedApi != api)
                 {
-                    var phase = Stopwatch.StartNew();
-                    var provider = new StatsTweakerConfigurationProvider(api, message => log.LogInfo(message));
-                    if (!provider.IsReady) return;
-                    log.LogInfo("[PresetPerf] provider ready: options=" + provider.GetSettings().Count + ", ms=" + phase.Elapsed.TotalMilliseconds.ToString("F2", System.Globalization.CultureInfo.InvariantCulture));
-                    phase.Restart();
-                    var candidate = new StatsTweakerPresetViewModel(provider);
-                    LobbyModSettingsPresetRegistration.RegisterExternalWorkingCopy(log, storageAssembly, TargetGuid,
-                        TargetGuid, plugin.Metadata.Version, candidate);
-                    log.LogInfo("[PresetPerf] preset activation: ms=" + phase.Elapsed.TotalMilliseconds.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) + ", " + provider.PerformanceCounts);
-                    viewModel = candidate;
-                    // The registered participant owns start guards even if its page cannot be attached.
-                    provider.EnableRestartManagedSynchronization();
+                    var changed = api.GetEvent("Changed", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+                    if (changed?.EventHandlerType != typeof(Action)) throw new NotSupportedException("Tweaker readiness notification is unavailable.");
+                    changed.AddEventHandler(null, (Action)SerpsModsHostPlugin.QueueModSettingsSort);
+                    observedApi = api;
                 }
+
+                if (!provider.IsReady) return null;
+                var candidate = new StatsTweakerPresetViewModel(provider);
+                var registration = LobbyModSettingsPresetRegistration.PrepareExternalWorkingCopy(log, storageAssembly,
+                    TargetGuid, TargetGuid, plugin.Metadata.Version, candidate);
+                registration.Activate(provider.EnableRestartManagedSynchronization,
+                    error => error.GetBaseException() is InvalidOperationException);
+                log.LogInfo("[PresetPerf] provider activation: options=" + provider.GetSettings().Count + ", ms=" +
+                    phase.Elapsed.TotalMilliseconds.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) + ", " + provider.PerformanceCounts);
+                return candidate;
+            }, error => log.LogWarning("[TweakerPresets] Optional integration unavailable: " + error.GetBaseException().Message));
+            integration.Attach(viewModel =>
+            {
                 var entry = GameXAMLManagerAPI.Instance.RegisteredModSettings.FirstOrDefault(item =>
                     item.ViewModel?.GetType().Assembly == api.Assembly);
-                if (!(entry?.View is Grid root)) return;
+                if (!(entry?.View is Grid root)) return false;
                 var scroll = root.Children.OfType<ScrollViewer>().SingleOrDefault();
-                if (!(scroll?.Content is StackPanel parent)) return;
+                if (!(scroll?.Content is StackPanel parent)) return false;
                 string xaml = Path.Combine(Path.GetDirectoryName(storageAssembly), "Override", "ScriptExtenderUI", "StatsTweakerPresets.xaml");
                 var uiWatch = Stopwatch.StartNew();
                 FrameworkElement panel;
@@ -64,14 +70,9 @@ namespace SerpsModsHost
                 scroll.HorizontalScrollBarVisibility = ScrollBarVisibility.Auto;
                 parent.Children.Insert(0, panel);
                 log.LogInfo("[PresetPerf] preset panel: ms=" + uiWatch.Elapsed.TotalMilliseconds.ToString("F2", System.Globalization.CultureInfo.InvariantCulture));
-                attached = true; // The participant remains rooted even when its page is unavailable.
-                log.LogInfo("[TweakerPresets] Configuration API v1 attached; presets require a game restart.");
-            }
-            catch (Exception ex)
-            {
-                failed = true;
-                log.LogError("[TweakerPresets] Optional preset integration unavailable: " + ex.GetBaseException().Message);
-            }
+                log.LogInfo("[TweakerPresets] Optional configuration integration attached.");
+                return true;
+            }, error => log.LogWarning("[TweakerPresets] Preset page unavailable; configuration guards remain active: " + error.GetBaseException().Message));
         }
     }
 

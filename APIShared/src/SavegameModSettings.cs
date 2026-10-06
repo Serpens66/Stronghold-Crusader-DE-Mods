@@ -350,7 +350,7 @@ namespace APIShared
         public static bool PrepareLoadWithRestartCheck(string savePath, bool useCurrentSettings)
         {
             PrepareLoad(savePath, useCurrentSettings);
-            if (!ModSettingsApplication.HasApplicationEndpoints && !ModSettingsApplication.HasRestartPreparation) return true;
+            if (!ModSettingsApplication.HasApplicationEndpoints && !ModSettingsApplication.HasRestartPreparation && !ModSettingsApplication.HasActivationFailures) return true;
             if (!GameNetworkAPI.IsLocalHost()) return ModSettingsApplication.PrepareLaunch();
             string path = Normalize(savePath);
             string fingerprint;

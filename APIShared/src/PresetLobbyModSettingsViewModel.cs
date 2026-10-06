@@ -895,7 +895,6 @@ namespace Shared
             System_ConfirmPresetInlineActionCommand = new RelayCommand(ConfirmPresetInlineAction);
             System_CancelPresetInlineActionCommand = new RelayCommand(CancelPresetInlineAction);
             System_DismissPresetStatusCommand = new RelayCommand(DismissPresetStatus);
-            ModSettingsWorkingSourceRegistry.SourcesChanged += RebuildSettingsSources;
 #endif
         }
 
@@ -2341,7 +2340,7 @@ namespace Shared
             string modName,
             string targetGuid,
             Version targetVersion,
-            bool logRoutineActivity = true)
+            bool logRoutineActivity = true, bool publishParticipant = true)
         {
             if (presetController != null)
                 throw new InvalidOperationException($"Preset storage for [{modName}] was already prepared.");
@@ -2355,9 +2354,12 @@ namespace Shared
                 targetVersion,
                 logRoutineActivity);
             presetController.CaptureDefaults();
+            if (publishParticipant)
+            {
 #if !API_SHARED_PRESET_TESTS
-            ModSettingsApplication.Register(targetGuid, this, pluginAssemblyLocation);
+                PublishParticipant(targetGuid, pluginAssemblyLocation);
 #endif
+            }
 #if !API_SHARED_PRESET_TESTS
             RebuildSettingsSources();
 #endif
@@ -2386,6 +2388,14 @@ namespace Shared
                 throw new InvalidOperationException("Preset storage must be prepared before it is activated.");
 
             presetController.Activate();
+        }
+
+        internal void PublishParticipant(string id, string assemblyPath)
+        {
+            ModSettingsApplication.Register(id, this, assemblyPath);
+#if !API_SHARED_PRESET_TESTS
+            ModSettingsWorkingSourceRegistry.SourcesChanged += RebuildSettingsSources;
+#endif
         }
 
         internal void PreparePerPlayerLobbySettings(
@@ -4402,11 +4412,53 @@ namespace Shared
             Version targetVersion, PresetLobbyModSettingsViewModel viewModel)
         {
             if (viewModel == null) throw new ArgumentNullException(nameof(viewModel));
-            viewModel.PreparePresets(log, storageAssemblyLocation, modName, targetGuid, targetVersion);
+            PrepareExternalWorkingCopy(log, storageAssemblyLocation, modName, targetGuid, targetVersion, viewModel)
+                .Activate(() => { });
+        }
+
+        /// <summary>Prepares an unpublished candidate. Activation failures cannot leak a participant.</summary>
+        public static PreparedExternalSettings PrepareExternalWorkingCopy(
+            ManualLogSource log, string storageAssemblyLocation, string modName, string targetGuid,
+            Version targetVersion, PresetLobbyModSettingsViewModel viewModel)
+        {
+            if (viewModel == null) throw new ArgumentNullException(nameof(viewModel));
+            ModSettingsApplication.CheckRegistration(targetGuid);
+            viewModel.PreparePresets(log, storageAssemblyLocation, modName, targetGuid, targetVersion, publishParticipant: false);
             viewModel.ActivatePresets();
+            return new PreparedExternalSettings(targetGuid, storageAssemblyLocation, viewModel);
+        }
+
+        public sealed class PreparedExternalSettings
+        {
+            private readonly string id, path;
+            private readonly PresetLobbyModSettingsViewModel model;
+            private bool attempted;
+            internal PreparedExternalSettings(string id, string path, PresetLobbyModSettingsViewModel model)
+            { this.id = id; this.path = path; this.model = model; }
+            public void Activate(Action enable, Func<Exception, bool> definitelyRejected = null)
+            {
+                if (attempted) throw new InvalidOperationException("External registration activation already attempted.");
+                attempted = true;
+                ModSettingsApplication.CheckRegistration(id);
+                ModSettingsApplication.SetActivationFailure(id, "Configuration integration is being activated.");
+                bool enabled = false;
+                try
+                {
+                    enable();
+                    enabled = true;
+                    model.PublishParticipant(id, path);
 #if !API_SHARED_PRESET_TESTS
-            Plugin.ModSettingsHubViewModel.PropertyChanged += (_, __) => viewModel.System_RefreshSettingsAccess();
+                    Plugin.ModSettingsHubViewModel.PropertyChanged += (_, __) => model.System_RefreshSettingsAccess();
 #endif
+                    ModSettingsApplication.SetActivationFailure(id, null);
+                }
+                catch (Exception ex)
+                {
+                    ModSettingsApplication.SetActivationFailure(id,
+                        !enabled && definitelyRejected?.Invoke(ex) == true ? null : ex.GetBaseException().Message);
+                    throw;
+                }
+            }
         }
         public static void Register(
             BaseUnityPlugin plugin,

@@ -99,3 +99,10 @@ Tweaker.UnknownPending=Configuration change pending for next game start
 Tweaker.SelectPreset=Select preset
 Common.RestartRequired=Settings prepared. Restart the game to use them.
 Common.RestartRequiredOption=Restart required
+
+RestartPreparation.Title=Restart preparation
+RestartPreparation.Discard=Discard preparation...
+RestartPreparation.Confirm=Confirm discard
+RestartPreparation.Help=Discard our mission preparation and ask available mods to cancel their pending changes. Unavailable mods may still retain their own pending files. Already active settings are not undone.
+RestartPreparation.Discarded=Mission preparation discarded. Available providers processed the cancellation; a return to personal settings may still require a restart.
+RestartPreparation.Partial=Our mission preparation was discarded. External pending files could not be checked for the following providers; restore their API or resolve their preparation before using them again:

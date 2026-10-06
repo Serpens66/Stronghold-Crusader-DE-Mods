@@ -497,7 +497,7 @@ namespace ExtendedData
                 }
                 catch (Exception exception)
                 {
-                    if (ModSettingsApplication.HasApplicationEndpoints) throw;
+                    if (ModSettingsApplication.HasApplicationEndpoints || ModSettingsApplication.HasRestartPreparation || ModSettingsApplication.HasActivationFailures) throw;
                     DebugLogHelper.LogError(log, $"Could not load {source} mod settings; sidecar mod settings are ignored: {exception}");
                     ApplyDocument(ModSettingsDefinition.CreateModDefaults(), editable, presetLabel);
                     activeCreatorDocument = ModSettingsDefinition.CreateModDefaults();
@@ -1966,7 +1966,7 @@ namespace ExtendedData
                     {
                         ExtendedDataLaunchOriginApi.Clear();
                         DebugLogHelper.LogError(log, $"Could not prepare Custom Trail mod settings: {exception}");
-                        if (ModSettingsApplication.HasApplicationEndpoints)
+                        if (ModSettingsApplication.HasApplicationEndpoints || ModSettingsApplication.HasRestartPreparation || ModSettingsApplication.HasActivationFailures)
                         {
                             ShowInformation(SerpLocalization.Get("ExtendedData.StartBlockedTitle"), exception.GetBaseException().Message);
                             return;

@@ -14,6 +14,28 @@ namespace Shared
     public static class ModSettingsApplication
     {
         private static readonly Dictionary<string, PresetLobbyModSettingsViewModel> endpoints = new Dictionary<string, PresetLobbyModSettingsViewModel>(StringComparer.Ordinal);
+        private static readonly Dictionary<string, string> activationFailures = new Dictionary<string, string>(StringComparer.Ordinal);
+        public static event Action PreparationChanged;
+        public static bool HasActivationFailures => activationFailures.Count != 0;
+        internal static void CheckRegistration(string id)
+        {
+            if (string.IsNullOrWhiteSpace(id) || endpoints.ContainsKey(id))
+                throw new InvalidOperationException("Duplicate or invalid configuration endpoint: " + id);
+        }
+        internal static void SetActivationFailure(string id, string error)
+        {
+            if (error == null) activationFailures.Remove(id); else activationFailures[id] = error;
+            NotifyPreparationChanged();
+        }
+        private static void NotifyPreparationChanged()
+        {
+            foreach (Action callback in PreparationChanged?.GetInvocationList() ?? Array.Empty<Delegate>())
+                try { callback(); } catch { /* A diagnostic view must not interrupt configuration publication. */ }
+        }
+        private static void RequireActivatedIntegrations()
+        {
+            if (HasActivationFailures) throw new InvalidOperationException(string.Join("; ", activationFailures.Select(x => x.Key + ": " + x.Value)) + " Restart the game before starting.");
+        }
         private static string journalPath, contextId = "";
         private static Dictionary<string, Dictionary<string, byte[]>> resume;
         private static string resumeContext;
@@ -46,13 +68,39 @@ namespace Shared
                     !x.GetCustomAttributes(true).Any(a => a.GetType().Name == "DoNotPersistAttribute")).ToArray();
         }
 
-        public static bool HasRestartPreparation => resume != null || (journalPath != null && File.Exists(journalPath));
+        public static bool HasRestartPreparation
+        {
+            get { EnsureJournalPath(); return resume != null || (journalPath != null && File.Exists(journalPath)); }
+        }
+        private static void EnsureJournalPath()
+        {
+#if !API_SHARED_PRESET_TESTS
+            if (journalPath == null) journalPath = Path.Combine(BepInEx.Paths.ConfigPath, "APIShared", "RestartPreparation.json");
+#endif
+        }
+        public static string DescribeRestartPreparation()
+        {
+            var details = activationFailures.Select(x => x.Key + ": " + x.Value).ToList();
+            try
+            {
+                ReadJournal();
+                if (resume != null)
+                {
+                    details.Add(resumeContext);
+                    foreach (string id in personalFingerprints.Keys)
+                        details.Add(id + (endpoints.ContainsKey(id) ? "" : ": configuration provider unavailable"));
+                }
+            }
+            catch (Exception ex) { details.Add(ex.GetBaseException().Message); }
+            return string.Join("\n", details);
+        }
         public static bool HasApplicationEndpoints => endpoints.Values.Any(x => x.System_HasApplicationBackend);
 
         // A context is selected before any mission values are materialized. Its identity includes
         // the source content hash; stale preparations are never silently applied to new content.
         public static void EnterContext(string identity)
         {
+            RequireActivatedIntegrations();
             if (string.IsNullOrWhiteSpace(identity)) throw new ArgumentException("Missing settings context identity.");
             ReadJournal();
             if (resume != null && !consumed && resumeContext != identity &&
@@ -90,7 +138,7 @@ namespace Shared
             var previousSources = preparedSources; var previousResume = resume; var previousFingerprints = personalFingerprints; string previousContext = resumeContext;
             bool written = contextId.Length != 0 && endpoint.System_ConfigurationNeedsRestart();
             if (written) SavePreparation(); // Durable intent precedes package publication.
-            try { return endpoint.System_ApplyConfiguration(contextId, true); }
+            try { bool result = endpoint.System_ApplyConfiguration(contextId, true); NotifyPreparationChanged(); return result; }
             catch
             {
                 if (written)
@@ -106,6 +154,7 @@ namespace Shared
         /// <summary>Returns false until all required startup configurations are actually loaded.</summary>
         public static bool PrepareLaunch()
         {
+            RequireActivatedIntegrations();
             ReadJournal();
             if (resume != null && !consumed && resumeContext == contextId)
                 foreach (string id in resume.Keys)
@@ -126,6 +175,7 @@ namespace Shared
                     item.Value.ReportConfigurationResult(restart);
                     if (restart) ready = false;
                 }
+                NotifyPreparationChanged();
                 return ready;
             }
             catch
@@ -141,10 +191,12 @@ namespace Shared
 
         public static void ConfirmStarted()
         {
+            if (resume != null && resumeContext != contextId) return;
             // Keep active settings and the identity available for an in-session mission restart.
             consumed = true;
             if (journalPath != null && File.Exists(journalPath)) File.Delete(journalPath);
             resume = null;
+            NotifyPreparationChanged();
         }
 
         public static void ExitContext()
@@ -161,16 +213,32 @@ namespace Shared
 
         public static void DiscardPreparation()
         {
+            DiscardPreparationWithReport();
+        }
+
+        /// <summary>Returns providers whose external packages could not be inspected or discarded.</summary>
+        public static string[] DiscardPreparationWithReport()
+        {
+            EnsureJournalPath();
+            var unavailable = new List<string>();
+            try { ReadJournal(); }
+            catch { unavailable.Add("Unknown providers (damaged preparation)"); }
+            if (personalFingerprints != null)
+                unavailable.AddRange(personalFingerprints.Keys.Where(id => !endpoints.ContainsKey(id)));
             foreach (var endpoint in endpoints.Values) endpoint.DiscardApplicationPackage();
             if (journalPath != null && File.Exists(journalPath)) File.Delete(journalPath);
             resume = null; resumeContext = null; consumed = false;
+            personalFingerprints = null; preparedSources = null;
             foreach (var endpoint in endpoints.Values) endpoint.RefreshConfigurationBindings();
+            NotifyPreparationChanged();
+            return unavailable.ToArray();
         }
 
 #if API_SHARED_PRESET_TESTS
         internal static void ResetForTests(string path)
         {
             endpoints.Clear(); journalPath = path; resume = null; resumeContext = null;
+            activationFailures.Clear(); personalFingerprints = null; preparedSources = null;
             contextId = ""; consumed = false;
         }
 #endif
@@ -180,6 +248,9 @@ namespace Shared
 
         private static void SavePreparation()
         {
+            ReadJournal();
+            if (resume != null && !consumed && resumeContext != contextId)
+                throw new InvalidOperationException("Another mission has a restart preparation. Discard it explicitly before replacing it.");
             if (journalPath == null) throw new InvalidOperationException("Restart storage is not initialized.");
             var fingerprints = endpoints.Where(x => x.Value.System_HasApplicationBackend)
                 .ToDictionary(x => x.Key, x => x.Value.System_OwnConfigurationFingerprint(), StringComparer.Ordinal);
@@ -218,6 +289,7 @@ namespace Shared
 
         private static void ReadJournal()
         {
+            EnsureJournalPath();
             if (resume != null || journalPath == null || !File.Exists(journalPath)) return;
             using (var stream = new FileStream(journalPath, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
@@ -242,11 +314,12 @@ namespace Shared
                     }
                     if (!root.TryGetValue("personal", out var personal) || !(personal is Dictionary<string, object> personalMap))
                         throw new InvalidDataException("Restart preparation has no personal configuration provenance.");
-                    personalFingerprints = personalMap.ToDictionary(x => x.Key, x => (string)x.Value, StringComparer.Ordinal);
+                    var fingerprints = personalMap.ToDictionary(x => x.Key, x => (string)x.Value, StringComparer.Ordinal);
                     if (!root.TryGetValue("sources", out var rawSources) || !(rawSources is Dictionary<string, object> sourceMap))
                         throw new InvalidDataException("Restart preparation has no source selection.");
-                    preparedSources = sourceMap.ToDictionary(x => x.Key,
+                    var sources = sourceMap.ToDictionary(x => x.Key,
                         x => ((Dictionary<string, object>)x.Value).ToDictionary(v => v.Key, v => (string)v.Value), StringComparer.Ordinal);
+                    personalFingerprints = fingerprints; preparedSources = sources;
                     resume = parsed; resumeContext = identity;
                 }
             }

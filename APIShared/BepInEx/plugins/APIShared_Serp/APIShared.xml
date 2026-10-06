@@ -2123,6 +2123,9 @@
         <member name="M:Shared.LobbyModSettingsPresetRegistration.RegisterExternalWorkingCopy(BepInEx.Logging.ManualLogSource,System.String,System.String,System.String,System.Version,Shared.PresetLobbyModSettingsViewModel)">
             <summary>Registers an external configuration participant independently of its optional page.</summary>
         </member>
+        <member name="M:Shared.LobbyModSettingsPresetRegistration.PrepareExternalWorkingCopy(BepInEx.Logging.ManualLogSource,System.String,System.String,System.String,System.Version,Shared.PresetLobbyModSettingsViewModel)">
+            <summary>Prepares an unpublished candidate. Activation failures cannot leak a participant.</summary>
+        </member>
         <member name="T:Shared.IModSettingsPresetEndpoint">
             <summary>Typed APIShared endpoint consumed by optional mission-setting providers such as ExtendedData.</summary>
         </member>
@@ -2203,6 +2206,9 @@
         </member>
         <member name="M:Shared.ModSettingsApplication.PrepareLaunch">
             <summary>Returns false until all required startup configurations are actually loaded.</summary>
+        </member>
+        <member name="M:Shared.ModSettingsApplication.DiscardPreparationWithReport">
+            <summary>Returns providers whose external packages could not be inspected or discarded.</summary>
         </member>
     </members>
 </doc>

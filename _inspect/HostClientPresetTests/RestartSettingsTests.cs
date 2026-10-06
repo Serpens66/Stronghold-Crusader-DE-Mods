@@ -72,6 +72,12 @@ internal static class RestartSettingsTests
         ModSettingsApplication.ResetForTests(journal);
         try { ModSettingsApplication.EnterContext("mission|original-content"); ModSettingsApplication.PrepareLaunch(); throw new Exception("missing provider accepted"); }
         catch (InvalidDataException) { }
+        ModSettingsApplication.EnterContext("unrelated|other-content");
+        Check(ModSettingsApplication.PrepareLaunch(), "missing provider blocked unrelated context");
+        ModSettingsApplication.ConfirmStarted();
+        Check(File.Exists(journal), "unrelated mission consumed another preparation");
+        string[] unavailable = ModSettingsApplication.DiscardPreparationWithReport();
+        Check(unavailable.Contains("RestartProbe") && !File.Exists(journal), "missing provider cleanup misreported or inaccessible");
         File.WriteAllText(journal, "{}");
         ModSettingsApplication.ResetForTests(journal);
         try { ModSettingsApplication.EnterContext("mission|original-content"); throw new Exception("corrupt preparation accepted"); }

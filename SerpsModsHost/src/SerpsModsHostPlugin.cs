@@ -20,7 +20,7 @@ using System.Threading;
 namespace SerpsModsHost
 {
     [BepInDependency(ScriptExtenderGuid, "2.3.0")]
-    [BepInDependency("APIShared_Serp", "0.4.0")]
+    [BepInDependency("APIShared_Serp", "0.4.9")]
     [BepInDependency("CrusaderDETweaker", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class SerpsModsHostPlugin : BaseUnityPlugin
@@ -29,7 +29,7 @@ namespace SerpsModsHost
         private const string InfoFileName = "info.json";
         public const string PluginGuid = "SerpsMods_Serp";
         public const string PluginName = "Serps Mods";
-        public const string PluginVersion = "1.0.21";
+        public const string PluginVersion = "1.0.22";
         public const bool ExtendedDataModSettingsOptOut = true;
         private const string ManifestFileName = "serps-modpack.json";
 
@@ -455,7 +455,7 @@ namespace SerpsModsHost
                 QueueModSettingsSort();
         }
 
-        private static void QueueModSettingsSort()
+        internal static void QueueModSettingsSort()
         {
             if (Interlocked.Exchange(ref settingsSortQueued, 1) != 0)
                 return;

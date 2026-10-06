@@ -99,3 +99,10 @@ Tweaker.UnknownPending=Konfiguration für nächsten Start vorgemerkt
 Tweaker.SelectPreset=Preset auswählen
 Common.RestartRequired=Einstellungen vorgemerkt. Sie werden nach einem Spielneustart verwendet.
 Common.RestartRequiredOption=Neustart erforderlich
+
+RestartPreparation.Title=Neustart-Vorbereitung
+RestartPreparation.Discard=Vorbereitung verwerfen...
+RestartPreparation.Confirm=Verwerfen bestätigen
+RestartPreparation.Help=Unsere Missionsvorbereitung verwerfen und erreichbare Mods auffordern, ihre Vormerkungen zurückzunehmen. Nicht erreichbare Mods können weiterhin eigene vorgemerkte Dateien behalten. Bereits aktive Einstellungen werden nicht rückgängig gemacht.
+RestartPreparation.Discarded=Missionsvorbereitung verworfen. Erreichbare Anbieter haben den Abbruch verarbeitet; die Rückkehr zu persönlichen Einstellungen kann weiterhin einen Neustart benötigen.
+RestartPreparation.Partial=Unsere Missionsvorbereitung wurde verworfen. Fremde Vormerkungen konnten für folgende Anbieter nicht geprüft werden; vor erneuter Verwendung deren API wiederherstellen oder ihre Vormerkungen klären:

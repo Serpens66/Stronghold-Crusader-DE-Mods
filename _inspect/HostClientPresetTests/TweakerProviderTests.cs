@@ -9,6 +9,7 @@ internal static class TweakerProviderTests
 {
     internal static void Run()
     {
+        OptionalIntegrationTests.Run();
         foreach (int count in new[] { 4233, 12000, 16384 })
         {
             ProviderProbe.ConfigurationApi.Reset(count);
@@ -54,7 +55,7 @@ internal static class TweakerProviderTests
 }
 namespace ProviderProbe
 {
-    public sealed class ConfigurationCapabilities { public bool IsReady => true; public bool CanApplyWithoutRestart => false; public bool CanStageForNextStart => true; }
+    public sealed class ConfigurationCapabilities { public bool IsReady => ConfigurationApi.Ready; public bool CanApplyWithoutRestart => false; public bool CanStageForNextStart => true; public bool CanStageContextConfigurations => true; }
     public sealed class ConfigurationOption
     {
         public string Key { get; set; }
@@ -66,17 +67,20 @@ namespace ProviderProbe
         public bool RequiresRestart => true;
         public bool IsSupported => true;
         public bool IsLocal => false;
+        public string Notice => "";
     }
     public sealed class ConfigurationProblem { public string Key => "key0"; public string Message => "Invalid test value"; }
-    public sealed class ConfigurationSnapshot { public Dictionary<string, object> Values { get; set; } public string Revision => "test"; public string ContextId => ""; }
+    public sealed class ConfigurationSnapshot { public Dictionary<string, object> Values { get; set; } public string Revision => "test"; public string ContextId => ""; public string Source => "OwnFiles"; }
     public static class ConfigurationApi
     {
         internal static Dictionary<string, object> Own;
         internal static int Reads, Validations;
         internal static bool RejectEnable;
-        internal static void Reset(int count) { RejectEnable = false; Reads = Validations = 0; Own = Enumerable.Range(0,count).ToDictionary(i => "key"+i, i => (object)0L); }
+        internal static bool Ready = true;
+        internal static int Version = 1;
+        internal static void Reset(int count) { Version = 1; Ready = true; RejectEnable = false; Reads = Validations = 0; Own = Enumerable.Range(0,count).ToDictionary(i => "key"+i, i => (object)0L); }
         public static void EnableRestartManagedSynchronization() { if (RejectEnable) throw new InvalidOperationException("Restart required after legacy host application."); }
-        public static int ApiVersion => 1;
+        public static int ApiVersion => Version;
         public static ConfigurationCapabilities GetCapabilities() => new ConfigurationCapabilities();
         public static ConfigurationOption[] GetOptions() => Own.Keys.Select(key => new ConfigurationOption { Key = key }).ToArray();
         public static ConfigurationSnapshot ReadOwnConfiguration() { Reads++; return GetLoadedConfiguration(); }

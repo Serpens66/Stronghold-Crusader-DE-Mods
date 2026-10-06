@@ -34,6 +34,7 @@ namespace SerpsModsHost
             RequireMethod("ValidateConfiguration", new[] { typeof(IDictionary<string, object>) });
             RequireMethod("StageConfiguration", new[] { typeof(IDictionary<string, object>), typeof(string) });
             object capabilities = Call("GetCapabilities");
+            ValidateContract();
             bool immediate = Read<bool>(capabilities, "CanApplyWithoutRestart");
             RequireMethod("StageContextConfiguration", new[] { typeof(IDictionary<string, object>), typeof(string), typeof(string) });
             RequireMethod("StageReturnToOwnConfiguration", Type.EmptyTypes);
@@ -47,6 +48,9 @@ namespace SerpsModsHost
             }
             IsReady = Read<bool>(capabilities, "IsReady") && (immediate || Read<bool>(capabilities, "CanStageForNextStart"));
             if (!IsReady) return;
+            if (!Read<bool>(capabilities, "CanStageContextConfigurations"))
+                throw new NotSupportedException("Tweaker does not support isolated context configurations.");
+            var keys = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
             foreach (object option in (IEnumerable)Call("GetOptions"))
             {
                 string type = Read<string>(option, "ValueType");
@@ -54,6 +58,11 @@ namespace SerpsModsHost
                     type == "Number" ? typeof(double) : type == "String" ? typeof(string) : null;
                 if (valueType == null) throw new InvalidDataException("Unknown configuration value type: " + type);
                 bool supported = Read<bool>(option, "IsSupported");
+                string key = Read<string>(option, "Key");
+                if (string.IsNullOrWhiteSpace(key) || key.Length > 256 || !keys.Add(key) || keys.Count > 16384)
+                    throw new InvalidDataException("Invalid or oversized Tweaker option catalog.");
+                if (Read<object>(option, "DefaultValue")?.GetType() != valueType)
+                    throw new InvalidDataException("Invalid Tweaker option default: " + key);
                 options.Add(new DynamicPresetSetting
                 {
                     Key = Read<string>(option, "Key"), ValueType = valueType,
@@ -64,9 +73,31 @@ namespace SerpsModsHost
                     DisplayName = Read<string>(option, "Group") + " / " + Read<string>(option, "Name") + (supported ? "" : " [" + Read<string>(option, "Notice") + "]")
                 });
             }
+            if (options.Count == 0) throw new InvalidDataException("Tweaker option catalog is empty.");
             if (!immediate && options.Any(x => !x.RequiresRestart))
                 throw new InvalidDataException("Tweaker advertises live settings without an immediate application capability.");
             working = ReadOwn();
+        }
+
+        private void ValidateContract()
+        {
+            RequireProperties("ConfigurationCapabilities", typeof(bool), "IsReady", "CanApplyWithoutRestart", "CanStageForNextStart", "CanStageContextConfigurations");
+            RequireProperties("ConfigurationSnapshot", typeof(string), "Revision", "ContextId", "Source");
+            RequireProperties("ConfigurationSnapshot", typeof(Dictionary<string, object>), "Values");
+            RequireProperties("ConfigurationOption", typeof(string), "Key", "Name", "Group", "File", "ValueType", "Notice");
+            RequireProperties("ConfigurationOption", typeof(bool), "RequiresRestart", "IsSupported", "IsLocal");
+            RequireProperties("ConfigurationOption", typeof(object), "DefaultValue");
+            RequireProperties("ConfigurationProblem", typeof(string), "Key", "Message");
+        }
+        private void RequireProperties(string contract, Type expected, params string[] names)
+        {
+            Type type = api.Assembly.GetType(api.Namespace + "." + contract, true);
+            foreach (string name in names)
+            {
+                var property = type.GetProperty(name, BindingFlags.Public | BindingFlags.Instance);
+                if (property?.GetGetMethod() == null || property.PropertyType != expected || property.GetIndexParameters().Length != 0)
+                    throw new InvalidDataException("Incompatible Tweaker API property: " + contract + "." + name);
+            }
         }
 
         private void RequireMethod(string name, Type[] parameters)

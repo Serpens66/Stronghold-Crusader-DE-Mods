@@ -26,6 +26,23 @@
         <Button Content="{Binding RefreshText}" Command="{Binding RefreshCommand}" Padding="10,3" Margin="0,0,8,0" ToolTipService.ShowDuration="60000" ToolTip="{Binding RefreshHelpText}"/>
         <Button Content="{Binding ClearErrorsText}" Command="{Binding ClearErrorsCommand}" Padding="10,3" ToolTipService.ShowDuration="60000" ToolTip="{Binding ClearErrorsHelpText}"/>
       </StackPanel>
+        <Border Visibility="{Binding RestartPreparationVisibility}" BorderBrush="#FFFFCC66" BorderThickness="1" Padding="8" Margin="0,4,0,10">
+          <StackPanel>
+            <TextBlock Text="{Binding RestartTitle}" Style="{StaticResource SectionHeader}"/>
+            <TextBlock Text="{Binding RestartDetails}" Foreground="White" TextWrapping="Wrap" MaxWidth="700"/>
+            <WrapPanel>
+              <Button Visibility="{Binding RestartDiscardVisibility}" Content="{Binding RestartDiscardText}" Command="{Binding RequestRestartDiscardCommand}" ToolTip="{Binding RestartHelp}" ToolTipService.ShowDuration="60000" Padding="10,3" Margin="0,4,8,0"/>
+              <Button Content="{Binding GlobalSettingsResetDismissText}" Command="{Binding DismissRestartResultCommand}" ToolTip="{Binding GlobalSettingsResetDismissText}" ToolTipService.ShowDuration="60000" Padding="10,3" Margin="0,4,0,0"/>
+            </WrapPanel>
+            <StackPanel Visibility="{Binding RestartConfirmationVisibility}">
+              <TextBlock Text="{Binding RestartHelp}" Foreground="#FFFFCC66" TextWrapping="Wrap" MaxWidth="700" Margin="0,6,0,4"/>
+              <WrapPanel>
+                <Button Content="{Binding RestartConfirmText}" Command="{Binding ConfirmRestartDiscardCommand}" ToolTip="{Binding RestartHelp}" ToolTipService.ShowDuration="60000" Padding="10,3" Margin="0,0,8,0"/>
+                <Button Content="{Binding GlobalSettingsResetCancelText}" Command="{Binding CancelRestartDiscardCommand}" ToolTip="{Binding GlobalSettingsResetCancelText}" ToolTipService.ShowDuration="60000" Padding="10,3"/>
+              </WrapPanel>
+            </StackPanel>
+          </StackPanel>
+        </Border>
         <TextBlock Text="{Binding ErrorsTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/>
         <TextBlock Text="{Binding ErrorsText}" Foreground="#FFFF7777" TextWrapping="Wrap"/>
         <StackPanel Margin="0,14,0,0" shared:ModSettingsSearch.Exclude="True">
