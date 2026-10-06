@@ -892,6 +892,12 @@
         <member name="P:APIShared.AiBuildDiagnostic.RouteReady">
             <summary>Whether the native route observation point is ready.</summary>
         </member>
+        <member name="M:APIShared.AiBuildDiagnostic.TryRegisterWoodBuildGate(System.String,System.Func{System.Int32,System.Boolean},System.String@)">
+            <summary>Registers the optional test-only gate at the existing wood-economy call site.</summary>
+        </member>
+        <member name="M:APIShared.AiBuildDiagnostic.ShouldDeferWoodBuild(System.Int32)">
+            <summary>False in ordinary sessions. A failed test callback never blocks Vanilla.</summary>
+        </member>
         <member name="M:APIShared.AiBuildDiagnostic.TryRegisterNearbyWoodOverlay(System.String,System.Func{System.UInt64,System.Int32,System.Int32,System.Int32,System.Action},System.String@)">
             <summary>Registers the optional copy-only wood-nearby data overlay owned by AIBuildDiagnoseTest.</summary>
         </member>

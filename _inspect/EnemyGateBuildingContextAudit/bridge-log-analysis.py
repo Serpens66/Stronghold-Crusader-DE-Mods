@@ -223,16 +223,38 @@ def analyze(raw):
     for line,f in actual_transport: volumes[f['kind']]+=len((line+'\r\n').encode('utf-8'))
     virtual_inputs={(f['session'],f['definition']):f for _,f in records if f['kind']=='virtual-shadow-input'}
     virtual_results={(f['session'],f['definition']):f for _,f in records if f['kind']=='virtual-shadow'}
-    virtual_cancelled=set()
+    virtual_cancelled=set();virtual_repeats=0
     for _,f in records:
         if f['kind']=='virtual-shadow' and (f['session'],f.get('definition')) not in virtual_inputs:
             missing.append((f['seq'],'virtual-input',f.get('definition')))
         if f['kind']=='virtual-shadow-end':
             virtual_cancelled.update((f['session'],v) for v in f.get('cancelledDefinitions','[]').strip('[]').split(';') if v)
+        if f['kind']=='virtual-shadow-repeat-batch':
+            for row in f.get('rows','[]').strip('[]').split(';'):
+                if not row:continue
+                repeat_fields=row.split('/')
+                if len(repeat_fields)!=5 or not all(v.isdigit() for v in repeat_fields):reconstruction.append((f['seq'],'virtual-repeat-row'));continue
+                if (f['session'],repeat_fields[0]) not in virtual_inputs:missing.append((f['seq'],'virtual-input',repeat_fields[0]))
+                virtual_repeats+=int(repeat_fields[1])
         if f['kind']=='virtual-shadow-reference' and (f['session'],f.get('sourceDefinition')) not in virtual_inputs:
             missing.append((f['seq'],'virtual-input',f.get('sourceDefinition')))
     virtual_pending=set(virtual_inputs)-set(virtual_results)-virtual_cancelled
-    virtual_summary=dict(instrumented=bool(virtual_inputs),inputs=len(virtual_inputs),results=len(virtual_results),cancelled=len(virtual_cancelled),pending=len(virtual_pending),
+    controls=[f for _,f in records if f['kind']=='virtual-control']
+    for f in controls:
+        if (f['session'],f.get('definition')) not in virtual_inputs:missing.append((f['seq'],'virtual-input',f.get('definition')))
+        if f.get('cutAssessment')=='conditional-baseline-agrees' and not (f.get('macroMatchesNative')=='True' and f.get('geometryMatchesNative')=='True' and f.get('noCut')=='Reachable'):
+            reconstruction.append((f['seq'],'cut-assessment-without-baseline'))
+    artifact_inputs={(f['session'],f.get('definition')):f for _,f in records if f['kind']=='input-artifact-pending'}
+    artifact_done={(f['session'],f.get('definition')):f for _,f in records if f['kind']=='input-artifact-complete'}
+    artifact_fail={(f['session'],f.get('definition')):f for _,f in records if f['kind']=='input-artifact-failed'}
+    artifact_pending=set(artifact_inputs)-set(artifact_done)-set(artifact_fail)
+    for key,f in artifact_done.items():
+        if key not in artifact_inputs:missing.append((f['seq'],'artifact-input',key))
+        if not re.fullmatch('[0-9A-Fa-f]{64}',f.get('sha256','')):reconstruction.append((f['seq'],'artifact-hash'))
+    artifact_summary=dict(requested=len(artifact_inputs),completed=len(artifact_done),failed=len(artifact_fail),pending=len(artifact_pending),
+                          deliveryComplete=not artifact_pending and not artifact_fail,filesVerified=False)
+    if artifact_pending or artifact_fail:delivery=False
+    virtual_summary=dict(summarizedRepeats=virtual_repeats,instrumented=bool(virtual_inputs),inputs=len(virtual_inputs),results=len(virtual_results),cancelled=len(virtual_cancelled),pending=len(virtual_pending),
                          policyUnknown=sum(f.get('policyResult')=='Unknown' for f in virtual_results.values()),
                          geometricResults=dict(collections.Counter(f.get('geometricResult') for f in virtual_results.values())))
     native_ready=bool(ends) and all(int(f.get('installedEntries','0'))>0 and f.get('installedEntries')==f.get('expectedEntries',f.get('installedEntries')) for f in ends)
@@ -246,7 +268,7 @@ def analyze(raw):
     coverage=dict(eventCaptureComplete=capture,nativeReady=native_ready,nativeCallsObserved=native_observed,nativeCoverageComplete=native_coverage,
                   coherentTopologyCaptures=shadow_captures,shadowCoverageComplete=shadow_coverage,
                   usableGeometricResults=sum(f.get('geometricResult') in ('Reachable','NoRoute') for f in virtual_results.values()))
-    return dict(coverage=coverage,virtualSummary=virtual_summary,records=records,torn=torn,missing=missing,captureComplete=capture,deliveryComplete=delivery,
+    return dict(artifactSummary=artifact_summary,controlSummary=dict(records=len(controls),baselineAgreements=sum(f.get("macroMatchesNative")=="True" and f.get("geometryMatchesNative")=="True" for f in controls),blocked=sum(f.get("cutAssessment","").startswith("blocked") for f in controls)),coverage=coverage,virtualSummary=virtual_summary,records=records,torn=torn,missing=missing,captureComplete=capture,deliveryComplete=delivery,
                 bridgeFileComplete=bridge_file_complete,bridgeComplete=capture and delivery and bridge_file_complete and not missing and not reconstruction,
                 fileComplete=file_complete,complete=capture and delivery and file_complete and not missing and not reconstruction,
                 reconstructionErrors=reconstruction,routeChains=chains,routeChainGroups=chain_groups,transportRecords=len(wire_transport),
@@ -308,6 +330,14 @@ def self_test():
     assert analyze(raw+shadow.replace(b'kind=virtual-shadow,definition=1',b'kind=virtual-shadow,definition=99'))['missing']
     unavailable=analyze(raw.replace(b'kind=session-end,',b'kind=session-end,installedEntries=0,entered=0,exited=0,'))
     assert unavailable['bridgeComplete'] and not unavailable['coverage']['nativeCoverageComplete'] and not unavailable['coverage']['shadowCoverageComplete']
+    new_control=(prefix+'26,session=1,kind=virtual-control,definition=1,noCut=Reachable,macroMatchesNative=True,geometryMatchesNative=True,cutAssessment=conditional-baseline-agrees\r\n').encode()
+    assert analyze(raw+shadow+new_control)['controlSummary']['baselineAgreements']==1
+    assert analyze(raw+shadow+new_control.replace(b'geometryMatchesNative=True',b'geometryMatchesNative=False'))['reconstructionErrors']
+    artifact=(prefix+'27,session=1,kind=input-artifact-pending,definition=1\r\n').encode()
+    assert not analyze(raw+shadow+artifact)['artifactSummary']['deliveryComplete']
+    complete=(prefix+'28,session=1,kind=input-artifact-complete,definition=1,sha256='+('A'*64)+'\r\n').encode()
+    assert analyze(raw+shadow+artifact+complete)['artifactSummary']['completed']==1
+    assert analyze(raw+shadow+artifact+complete)['artifactSummary']['deliveryComplete']
     print('PASS analyzer: nested fields, exact low-first bytes, decision/group links, consumed-cursor boundaries, bounded completion and torn exit')
 
 def main():
@@ -315,7 +345,7 @@ def main():
     if args.self_test:self_test()
     if not args.log:return
     result=analyze(Path(args.log).read_bytes())
-    for key in ('captureComplete','deliveryComplete','bridgeFileComplete','bridgeComplete','fileComplete','complete','coverage','definitions','missing','reconstructionErrors','routeChainGroups','movementSummary','uniqueBridgeCommands','uniqueBridgeUnits','virtualSummary'):print(key,result[key])
+    for key in ('captureComplete','deliveryComplete','bridgeFileComplete','bridgeComplete','fileComplete','complete','coverage','definitions','missing','reconstructionErrors','routeChainGroups','movementSummary','uniqueBridgeCommands','uniqueBridgeUnits','virtualSummary','controlSummary','artifactSummary'):print(key,result[key])
     print('records',len(result['records']),'torn',len(result['torn']),'traceBytesWithPrefixes',sum(result['volumes'].values()))
     print('volumeByKind',result['volumes'].most_common(12))
     print('bridgeRouteChains',len(result['routeChains']),'withDecision',sum(c.get('decisionMatches',False) for c in result['routeChains']))

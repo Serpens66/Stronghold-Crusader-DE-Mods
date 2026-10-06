@@ -41,6 +41,8 @@
     <Compile Include="src\AIBuildDiagnosePlugin.cs" />
     <Compile Include="src\AIBuildDiagnoseRuntime.cs" />
     <Compile Include="src\GeneralSiteSearchHooks.cs" />
+    <Compile Include="src\FarmSiteContractProbe.cs" />
+    <Compile Include="src\CanariFarmSwapProbe.cs" />
     <Compile Include="..\..\Shared\DebugLogHelper.cs"><Link>Shared\DebugLogHelper.cs</Link></Compile>
     <Compile Include="..\..\Shared\GameplaySessionLifecycle.cs"><Link>Shared\GameplaySessionLifecycle.cs</Link></Compile>
   </ItemGroup>

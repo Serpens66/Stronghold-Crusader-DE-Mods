@@ -105,3 +105,18 @@ if ($hookSource -notmatch 'site.Rva==0x3C2E0\?site.Bytes.Length:site.Size' -or
     $hookSource -notmatch 'Tuple.Create\(0x2F,18\),Tuple.Create\(0xF9,36\)' -or
     $hookSource -notmatch 'Unknown attack-body change') { throw 'Audited patched attack-body scanner contract changed' }
 Write-Host 'PASS: exact bounded attack entry and whole-body patch whitelist; failed unpublished candidates only can roll back.'
+
+$artifactSource=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/BridgeInputArtifact.cs'))
+$componentSource=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/VirtualComponentControl.cs'))
+if ($shadowSource -match 'nextCapture|request.Input.Revision==revision|request.Input.Identity==identity|third=input.Anchors' -or
+    $shadowSource -notmatch 'PolicyValidAtDecision=policyValid' -or
+    $shadowSource -notmatch 'request.Variant%3==1&&bridge.Id!=703' -or
+    $shadowSource -notmatch 'if\(\+\+active.Variant<6\)' -or
+    $shadowSource -notmatch 'sameCoordinates' -or $shadowSource -notmatch 'takeOwnership:true') { throw 'Historical input, exact coordinate reuse or six-control comparison regression' }
+if ($componentSource -match 'SHCDESE|APIShared|Marshal|IntPtr' -or
+    $artifactSource -match 'SHCDESE|FindNext|FindPath|Marshal|ThreadPool|Task.Run' -or
+    $artifactSource -notmatch 'BlockLimit=65536' -or $artifactSource -notmatch 'count>=2' -or
+    $artifactSource -notmatch 'BRGEND01' -or $artifactSource -notmatch 'File.Move\(active.Partial,active.Final\)' -or
+    $traceSource -notmatch 'ArtifactPending\(ended\)' -or
+    [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/BridgeDiagnostics.cs')) -notmatch 'PumpArtifacts\(\);Trace.Drain\(\)') { throw 'Copied-input control, bounded artifact writer or durable completion regression' }
+Write-Host 'PASS: historical copied inputs, no guessed third endpoint, six controls, max two artifacts and one 64KiB render block.'

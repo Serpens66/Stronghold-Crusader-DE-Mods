@@ -234,7 +234,13 @@ namespace EnemyBridgePathTest
         private long textId,groupDefinition;
         private readonly Dictionary<NumericImage,long> groupDefinitions=new Dictionary<NumericImage,long>();
         private readonly NumericImage groupScratch=new NumericImage(2000);
-        private readonly Queue<long> endedSessions=new Queue<long>();
+        private readonly struct EndedSession
+        {
+            internal readonly long Session;
+            internal readonly bool CaptureComplete;
+            internal EndedSession(long session,bool complete) {Session=session;CaptureComplete=complete;}
+        }
+        private readonly Queue<EndedSession> endedSessions=new Queue<EndedSession>();
         private long deliveryErrors;
         private long fragmentId;
         private readonly BridgeBuildingIndex buildingIndex=new BridgeBuildingIndex();
@@ -309,7 +315,7 @@ namespace EnemyBridgePathTest
             // One bounded synchronous record survives an immediate process exit.
             // Pending observations continue through the permanent render publisher.
             Safe(() => WriteRecord(StampRecord(new Record {Kind="session-end",Detail=Summary()+",captureComplete="+(active==0&&failures==0&&incompleteCalls==0&&overflow==0&&backgroundOverflow==0)+",deliveryComplete="+(queued==0)+",criticalPending="+(queued-backgroundQueued)+",backgroundPending="+backgroundQueued})));
-            lock(endedSessions)endedSessions.Enqueue(Volatile.Read(ref session));
+            lock(endedSessions)endedSessions.Enqueue(new EndedSession(Volatile.Read(ref session),active==0&&failures==0&&incompleteCalls==0&&overflow==0&&backgroundOverflow==0));
             Interlocked.Exchange(ref session,0);
         }
         internal long Entered => Interlocked.Read(ref entered);
@@ -467,6 +473,13 @@ namespace EnemyBridgePathTest
             finally {if(scope.Session==Volatile.Read(ref session))Interlocked.Increment(ref sessionNativeExits);current=scope.Parent;if(current!=null&&current.Session==scope.Session) {current.Commands+=scope.Commands;current.CandidateBuilds+=scope.CandidateBuilds;}scope.Parent=null;scope.Next=free;free=scope;lock(counterGate) {exited++;active--;}}
         }
         internal long NewOperation() => Interlocked.Increment(ref sequence);
+        internal void CompareGroupShadow(long op,long parent,int player,int x,int y,int targetX,int targetY,int tribe,uint global)
+        {
+            VirtualShadow?.CompareXY("group-formation",op,parent,player,x,y,targetX,targetY);
+            Scope root=CurrentScope;while(root!=null&&root.Site.Rva!=0x3C2E0)root=root.Parent;
+            bool linked=root!=null&&root.PlanningPlayer==player;
+            VirtualShadow?.GroupContext(op,tribe,global,linked?root.Id:0,linked?DecisionFor(player,root.PrePlan):0,linked?root.PrePlan[1]:-1);
+        }
         internal bool BindRoute(int unit,uint global,int player,int tribe,long operation,long parentEvent,bool changed)
         {
             Scope consumer=CurrentScope,root=consumer;
@@ -657,7 +670,7 @@ namespace EnemyBridgePathTest
         }
         private void ArtifactObservation(long sourceSession,string kind,string detail)
         {
-            var record=StampRecord(new Record {Kind=kind,Detail=detail});record.Session=sourceSession;
+            var record=StampRecord(new Record {Kind=kind,Detail=detail+",envelopeTiming=delivery,inputTiming=binary-metadata"});record.Session=sourceSession;
             // This callback also runs after End; do not replace its historical session.
             Interlocked.Increment(ref queued);lines.Enqueue(record);
         }
@@ -774,8 +787,8 @@ namespace EnemyBridgePathTest
                 if(count<64&&queued==0&&(Stopwatch.GetTimestamp()-start)*1000.0/Stopwatch.Frequency<2)
                     lock(endedSessions)if(endedSessions.Count!=0)
                     {
-                        long ended=endedSessions.Peek();if(VirtualShadow?.ArtifactPending(ended)==true)return;endedSessions.Dequeue();
-                        var marker=StampRecord(new Record {Kind="session-delivered",Detail="captureComplete="+(active==0&&failures==0&&incompleteCalls==0&&overflow==0&&backgroundOverflow==0)+",deliveryComplete="+(deliveryErrors==0)+",deliveryErrors="+deliveryErrors+",queue=0,fileFlush=not-observed,waitForThisMarkerBeforeExit=True"});marker.Session=ended;
+                        var completion=endedSessions.Peek();long ended=completion.Session;if(VirtualShadow?.ArtifactPending(ended)==true)return;endedSessions.Dequeue();
+                        var marker=StampRecord(new Record {Kind="session-delivered",Detail="captureComplete="+completion.CaptureComplete+",deliveryComplete="+(deliveryErrors==0)+",deliveryErrors="+deliveryErrors+",queue=0,"+(VirtualShadow?.ArtifactStatus(ended)??"inputArtifactsRequested=0")+",fileFlush=not-observed,waitForThisMarkerBeforeExit=True"});marker.Session=ended;
                         try {WriteRecord(marker);}catch {Interlocked.Increment(ref deliveryErrors);}
                     }
             }

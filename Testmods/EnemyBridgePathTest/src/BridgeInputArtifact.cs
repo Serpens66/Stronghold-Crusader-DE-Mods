@@ -17,6 +17,7 @@ namespace EnemyBridgePathTest
         private readonly string directory;
         private readonly Dictionary<long,int> accepted=new Dictionary<long,int>();
         private Job active;
+        private readonly HashSet<long> failures=new HashSet<long>();
         private long writtenTicks,writtenBytes;
         private sealed class Job
         {
@@ -31,6 +32,8 @@ namespace EnemyBridgePathTest
         }
         internal BridgeInputArtifact(string directory,Action<long,string,string> emit) {this.directory=directory;this.emit=emit;}
         internal bool Pending(long session) {if(active!=null&&active.Session==session)return true;foreach(var job in jobs)if(job.Session==session)return true;return false;}
+        internal string Status(long session)
+        {accepted.TryGetValue(session,out int count);return "inputArtifactsRequested="+count+",inputArtifactsPending="+Pending(session)+",inputArtifactDeliveryComplete="+(!Pending(session)&&!failures.Contains(session))+",inputArtifactFailed="+failures.Contains(session);}
         internal long Bytes => writtenBytes;
         internal long Ticks => writtenTicks;
         internal bool Enqueue(long session,long id,IEnumerable<byte[]> source)
@@ -78,7 +81,7 @@ namespace EnemyBridgePathTest
             }
             catch(Exception error)
             {
-                if(active!=null) {try {active.Stream?.Close();}catch {}emit(active.Session,"input-artifact-failed","definition="+active.Id+",complete=False,reason="+error.GetType().Name);active=null;}
+                if(active!=null) {failures.Add(active.Session);try {active.Stream?.Close();}catch {}emit(active.Session,"input-artifact-failed","definition="+active.Id+",complete=False,reason="+error.GetType().Name);active=null;}
             }
             finally {writtenTicks+=Stopwatch.GetTimestamp()-start;}
         }

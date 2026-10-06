@@ -38,7 +38,7 @@ The passive milestone audit is complete. Still requiring game evidence: earliest
 
 ## Reproduction-driven extension: player siege planning
 
-The 18:24:53â€“18:25:35 session matches 2D250 -> D95E0(target player, CF360 result!=0, 1) -> D9190(110, selected radius or0, attacking keep PCL, attacking player). The strategic10D9F0 had zero calls. The actual common caller is2AE40 ->3C2E0(ctx, playerId), operating1-based player records stride583C, with phase at379D974, target player379D9A8, target tile379D968, targetY379D96C and targetX379D970. Player-resource native origin379AE2C must not be confused with the Extender root pointer's header adjustment. Global88E3D70 is not this invocation's attacker.
+The 18:24:53Ã¢â‚¬â€œ18:25:35 session matches 2D250 -> D95E0(target player, CF360 result!=0, 1) -> D9190(110, selected radius or0, attacking keep PCL, attacking player). The strategic10D9F0 had zero calls. The actual common caller is2AE40 ->3C2E0(ctx, playerId), operating1-based player records stride583C, with phase at379D974, target player379D9A8, target tile379D968, targetY379D96C and targetX379D970. Player-resource native origin379AE2C must not be confused with the Extender root pointer's header adjustment. Global88E3D70 is not this invocation's attacker.
 
 3C2E0 phases1..9 include preparation, candidate rebuilding, active attack, access reassessment and retreat. 3BD50 resets ctx+EBA0/EBA4 candidate count/rows, invokes2D250(mode1), weights potential positions, writes the retained target tile/coordinates and prepares formation positions. 2C480 clears the plan grid, invokes2C5A0(ctx,attacker,targetPlayer),1126B0,10DF60(ctx,attacker,targetPlayer),115B10(ctx,targetPlayer,attacker), then112370/1123E0/112200/112450/112190(ctx,1,attacker) andCF020(targetPlayer). 2C5A0 takes the selected tile's signed seed and PCL, its component count, and the target player's keep PCL. Fixes replaces component-count loading at2C5E1..2C5EF; the entry2C5A0..2C5B1 is disjoint. Probe returns/global results with internal Fixes patches are effective function outputs, not pristine Vanilla results.
 
@@ -276,3 +276,90 @@ Installed and local DLL SHA256 both 3F24297AFC201783DCC775DBCCBE18B9BE4EF31AA632
 Transcript: _inspect/EnemyGateBuildingContextAudit/bridge-native-repair-build.log.
 A new game start is still required to confirm installation in the real process
 and obtain the first coherent shadow comparison. Version and README are unchanged.
+
+
+## 2026-10-06: controlled shadow inputs and offline artifacts
+
+Frozen process: bridge-20261006-204752.log, 4,924,654 bytes, SHA256
+463A8978B48BFE188947EA2481432B1938B20B366A75A887280BAC56DAA4C1C3.
+It is selected by the BepInEx process boundary, not by the newest appended process.
+The regression retains 1,136,667 completed Native calls, 23,246 paired commands,
+31 coherent captures and 171 shadow results (74 Reachable, 13 NoRoute, 84 Unknown).
+All 171 effective policies remain Unknown. Player8 has 25 units with observed
+entry and exit. Query676422/definition96 returns geometric NoRoute after cutting
+45 tiles across three bridges, whereas CF returns positive. This is not a validated
+negative: query direction differed and no uncut control existed. Capture is complete;
+90 queued records and the missing delivery marker make delivery incomplete.
+
+The full122-function decision audit and42-function topology audit were renewed
+against the entire installed Native hash. E2610 is a component query: equality
+returns the component (including zero), otherwise it expands from destination,
+first excluding class1, then with class1. Mode0 excludes class1 entirely; mode2
+excludes other classes. Eligibility is active==1, enabled!=0 and native team access
+or nonzero building capturer. CF360/CF400 pass target keep component as current,
+attacker keep component as destination, modes0/1. The copied component control
+reproduces boolean reachability only, not the exact next-component return or
+native counters/structure flags. Raw component control and Gate-filtered directed
+tile geometry are separate evidence bases. Gate ownership/capture restrictions
+remain in the geometric adapter; Gate policy publication is frozen per request.
+No new native entry, incoming edge, ABI, backend or hook owner is introduced.
+
+Each request runs six controlled geometric variants on one immutable capture:
+uncut/only703/all-hostile in attacker-to-target and target-to-attacker directions.
+CF comparison uses its observed mode and direction. Group modes remain hypotheses.
+A CF cut interpretation is blocked unless the raw macro boolean and the uncut
+native-direction tile result both match the observed CF boolean; a direction's
+uncut path must also be reachable. This is conditional diagnostic parity, not
+permission to change AI behavior. Unresolved actual endpoints, notably componentC,
+never obtain a physical endpoint from an arbitrary PCL anchor. A positive known
+alternative remains a witness; unresolved transitions prevent negative proof.
+Parent geometry and the Gate permission-table coverage warning remain unresolved.
+
+Every successful E49D0 rebuild now attempts a coherent snapshot without the
+one-second throttle. Dirty/revision/identity checks remain. Coordinate arrays are
+shared only after comparing all800 native row starts and all320,800 packed row
+coordinates; X is exactly tile-rowStart[Y]. Other live topology grids are copied.
+The map adopts only these already-owned immutable arrays, avoiding a second copy.
+A valid input/policy is retained for its historical request even if publication
+changes later. Missing input at the decision, dirty topology, changed identities/
+roles/alliances and a policy already stale at capture have distinct markers.
+Map end cancels pending calculations explicitly; it does not discard file output.
+
+At most two schema1 binary input artifacts are selected per map: the first valid
+player8 keep check and a player8 group proven relevant by stored deck-route evidence.
+The latter retains its original Pre input, group identity, planning root, decision
+and phase where actually linked; a coalesced source query is separately identified.
+The files contain copied grids, signed special records, all consumed connection
+members including raw third components, building/unit globals, owner/capturer and
+alliance inputs, bridge identities/decks/parent authorization, query parameters and
+the complete immutable player-specific Gate direction mask. Unknown input stays
+explicit. No path search or native function is called by the producer or replay.
+
+The permanent render publisher writes at most one64-KiB block per render and aims
+at2ms including lazy encoding/hashing and IO. This is a soft time target, not a hard
+filesystem latency guarantee. Files live under BepInEx/diagnostics/EnemyBridgePathTest/
+<UTC capture instance>/, outside the plugin directory removed by build.bat.
+Only after footer/payload SHA256, close and rename from .partial to .bin is the full
+file hash/completion emitted. Session-delivered waits for pending artifacts. Failed
+artifact status and log/file delivery are evaluated independently. Abrupt process
+exit cannot finish either queue. Do not analyze .partial files.
+
+Offline validation: _inspect/EnemyGateBuildingContextAudit/bridge-artifact-analysis.py
+<absolute .bin path> --replay. It validates schema/extents/footer/hash and invokes
+the PolicyTests --replay mode, which reconstructs inputs and uses production
+Prepare/Pump rather than a separate graph implementation. Versioned inputs permit
+further core tests without restarting the game. Completion records alone do not
+prove that an artifact exists intact; the offline decoder verifies its bytes.
+
+Player8 strategic references remain explicit; other repeated shadow references are
+batched with exact repeat counts and explicitly summarized intermediate parents.
+All Native/event counters and existing relevant route chains remain. The64-record/
+2ms log drain and bounded queue remain. Existing quiet-volume regressions are not
+a live-volume claim for this new full-shadow build; the previous active trace was
+3,276,971 bytes in47.271s. Live capture/compute/output cost and volume still require
+the next targeted run. No behavior policy, public API, SE fork, version or README
+is changed. Test next with a permanently lowered bridge and closed gatehouse, then
+end the map and await both artifact completion and session-delivered before exit.
+
+
+Build/installation 2026-10-06 21:30:20: the prescribed elevated build.bat ran once successfully, with zero warnings/errors. Bridge assertions: 38012; Gate assertions: 3840; all seven frozen log/transport/topology regressions passed. Installed and local DLL SHA256: 3CBEC1AC3B0FDBF6542B67FEC3DD773D4D2BAEE821CD84C3E99308E2674E44F5. Native SHA256 was rechecked unchanged after installation. Build transcript: _inspect/EnemyGateBuildingContextAudit/bridge-shadow-controls-build.log. Binary fixture integrity and replay were independently checked by the Python decoder and production C# adapter. The real uncut/cut comparison and live costs remain pending the next targeted game run.

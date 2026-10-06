@@ -41,6 +41,8 @@ namespace AIBuildDiagnoseTest
         private readonly bool fixesLoaded;
         private readonly bool placementProbeEnabled;
         private readonly bool nearbyWoodTestEnabled;
+        private readonly FarmSiteContractProbe farmContractProbe;
+        private readonly CanariFarmSwapProbe canariFarmSwapProbe;
         private const int NearbyCopyMaxApplications = 12;
         private bool nearbyCopySession, nearbyCalibrated, nearbyTestDisabled;
         private int nearbyCopyApplications;
@@ -55,6 +57,8 @@ namespace AIBuildDiagnoseTest
         private readonly List<string> earlyGridHistory = new List<string>();
         private readonly List<string> earlyFarmHistory = new List<string>();
         private readonly List<AppleFarmWatch> appleFarms = new List<AppleFarmWatch>();
+        private readonly object appleFarmsSync = new object();
+        private volatile bool initialAppleFarmScanComplete;
         private int appleFarmDropped;
         private int appleFarmSnapshots;
         private int appleFarmSnapshotDropped;
@@ -176,7 +180,8 @@ namespace AIBuildDiagnoseTest
         private bool firstParcelMismatchDetailed;
 
         internal AIBuildDiagnoseRuntime(ManualLogSource logger, bool hasFixes,
-            bool enablePlacementProbe, bool enableNearbyWoodTest, ulong moduleBase)
+            bool enablePlacementProbe, bool enableNearbyWoodTest,
+            bool enableFarmContractProbe, bool enableCanariFarmSwap, ulong moduleBase)
         {
             log = logger ?? throw new ArgumentNullException(nameof(logger));
             nativeModuleBase = string.Equals(Shared.DebugLogHelper.CurrentNativeSha256,
@@ -185,6 +190,10 @@ namespace AIBuildDiagnoseTest
             fixesLoaded = hasFixes;
             placementProbeEnabled = enablePlacementProbe;
             nearbyWoodTestEnabled = enableNearbyWoodTest;
+            farmContractProbe = new FarmSiteContractProbe(enableFarmContractProbe,
+                nativeModuleBase, message => Log(message), ReadResources);
+            canariFarmSwapProbe = new CanariFarmSwapProbe(
+                enableCanariFarmSwap && nativeModuleBase != 0, message => Log(message));
             buildingSubscription = BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(OnBuildingSpawn);
             vegetationSubscription = VegetationR3EventHooks.OnVegetationCreate.Observable.Subscribe(OnVegetationCreate);
             buildStructureSubscription = BuildingR3EventHooks.OnBuildStructure.Observable.Subscribe(OnBuildStructure);
@@ -234,7 +243,8 @@ namespace AIBuildDiagnoseTest
             observedTickCount = 0;
             earlyGridHistory.Clear();
             earlyFarmHistory.Clear();
-            appleFarms.Clear();
+            initialAppleFarmScanComplete = false;
+            ClearAppleFarms();
             appleFarmDropped = appleFarmSnapshots = appleFarmSnapshotDropped = 0;
             orchardTransitions = orchardTransitionsDropped = 0;
             farmParcelSnapshots = farmParcelSnapshotsDropped = 0;
@@ -261,6 +271,8 @@ namespace AIBuildDiagnoseTest
         internal void OnSessionStarted(Shared.GameplaySessionStartedContext session)
         {
             sessionId = session.SessionId;
+            farmContractProbe.OnSessionStarted(session);
+            canariFarmSwapProbe.OnSessionStarted(session);
             if (coarseAuditSnapshotSession != sessionId)
             {
                 coarseAuditProposals.Clear();
@@ -318,7 +330,8 @@ namespace AIBuildDiagnoseTest
             detailedRoutes.Clear();
             detailedNearby.Clear();
             wallHistory.Clear();
-            appleFarms.Clear();
+            initialAppleFarmScanComplete = false;
+            ClearAppleFarms();
             appleFarmDropped = appleFarmSnapshots = appleFarmSnapshotDropped = 0;
             orchardTransitions = orchardTransitionsDropped = 0;
             farmParcelSnapshots = farmParcelSnapshotsDropped = 0;
@@ -398,6 +411,7 @@ namespace AIBuildDiagnoseTest
             if (active)
             {
                 CaptureInitialAppleFarms();
+                initialAppleFarmScanComplete = true;
                 CaptureInitialHuts();
                 LogPlayers("start");
                 CaptureWallMap("session-start");
@@ -407,11 +421,13 @@ namespace AIBuildDiagnoseTest
 
         internal void OnSessionEnded()
         {
+            farmContractProbe.OnSessionEnded();
+            canariFarmSwapProbe.OnSessionEnded();
             FlushFarmGridRaw();
             FlushDeferredLog();
             if (active) LogSummary("end");
             if (active)
-                Log($"AI_BUILD_APPLEFARM_OBSERVER_SUMMARY: session={sessionId}, tracked={appleFarms.Count}, " +
+                Log($"AI_BUILD_APPLEFARM_OBSERVER_SUMMARY: session={sessionId}, tracked={CountAppleFarms()}, " +
                     $"dropped={appleFarmDropped}, snapshots={appleFarmSnapshots}, " +
                 $"snapshotDropped={appleFarmSnapshotDropped}.");
             if (active)
@@ -448,8 +464,10 @@ namespace AIBuildDiagnoseTest
 
         internal void OnTick(int tick)
         {
-            if (!active) return;
+            if (!active || !initialAppleFarmScanComplete) return;
             lastTick = tick;
+            farmContractProbe.OnTick(tick, ReadPathGeneration());
+            canariFarmSwapProbe.OnTick(tick, ReadPathGeneration());
             observedTickCount++;
             if (!aivWallPlanCaptured && aivWallPlanAttempts < 3) CaptureAivWallPlans();
             FlushDeferredLog();
@@ -460,7 +478,7 @@ namespace AIBuildDiagnoseTest
                 CaptureWallMap("periodic");
                 nextWallMapTick = tick + 50;
             }
-            foreach (AppleFarmWatch farm in appleFarms)
+            foreach (AppleFarmWatch farm in SnapshotAppleFarms())
             {
                 if (observedTickCount <= farm.OrchardWatchUntilTick)
                     ObserveOrchardTransitions(farm);
@@ -502,8 +520,12 @@ namespace AIBuildDiagnoseTest
             }
         }
 
+        internal bool ShouldDeferCanariWoodBuild(int playerId) =>
+            canariFarmSwapProbe.ShouldDeferWoodBuild(playerId);
+
         internal void OnNativeRecord(AiBuildDiagnosticRecord record)
         {
+            canariFarmSwapProbe.OnNativeRecord(record);
             if (record.Stage == "resource-search-before" ||
                 record.Stage == "resource-search-after" ||
                 record.Stage == "site-search-before" ||
@@ -562,7 +584,7 @@ namespace AIBuildDiagnoseTest
             if (record.EconomyGridEvidence != null)
             {
                 ObserveGrid(record.Stage, record.EconomyGridEvidence);
-                if (active && !farmGridPairCaptured && appleFarms.Count != 0 &&
+                if (active && !farmGridPairCaptured && CountAppleFarms() != 0 &&
                     (record.Stage == "economy-grid-before" || record.Stage == "economy-grid-after"))
                     CaptureFarmGridRaw(record.Stage, record.EconomyGridEvidence);
                 if (active && (record.Stage == "economy-grid-before" ||
@@ -1262,6 +1284,8 @@ namespace AIBuildDiagnoseTest
 
         private void OnBuildingSpawn(BuildingSpawnEventArgs args)
         {
+            farmContractProbe.OnBuildingSpawn(args);
+            canariFarmSwapProbe.OnBuildingSpawn(args);
             if (active && args.Phase == EventHookPhase.Post && args.ReturnValue > 0 &&
                 args.PlayerId >= 1 && args.PlayerId <= 8)
                 ObserveGenericSpawn(args);
@@ -1345,7 +1369,7 @@ namespace AIBuildDiagnoseTest
                 owner = pendingAppleFarmPlayer;
             else
             {
-                foreach (AppleFarmWatch farm in appleFarms)
+                foreach (AppleFarmWatch farm in SnapshotAppleFarms())
                     if (TryGetOrchardOffset(farm.X, farm.Y, args.TileX, args.TileY,
                         out offset))
                     {
@@ -2416,7 +2440,7 @@ namespace AIBuildDiagnoseTest
             pathGenerationChanges++;
             QueueDiagnostic($"AI_BUILD_PATH_GENERATION: session={sessionId}, tick={tick}, " +
                 $"previous={previous}, current={current}, tickObserverMayCoalesce=true.", true);
-            foreach (AppleFarmWatch farm in appleFarms)
+            foreach (AppleFarmWatch farm in SnapshotAppleFarms())
             {
                 if (farm.GenerationDone) continue;
                 farm.GenerationDone = true;
@@ -2440,7 +2464,7 @@ namespace AIBuildDiagnoseTest
             };
             try
             {
-                foreach (AppleFarmWatch farm in appleFarms)
+                foreach (AppleFarmWatch farm in SnapshotAppleFarms())
                 {
                     int minX = Math.Max(0, farm.X / 5), maxX = Math.Min(159, (farm.X + 9) / 5);
                     int minY = Math.Max(0, farm.Y / 5), maxY = Math.Min(159, (farm.Y + 9) / 5);
@@ -2642,6 +2666,21 @@ namespace AIBuildDiagnoseTest
                 $"observedPlacement={(probeSpawnId > 0 ? "spawned" : "no-spawn")}.");
         }
 
+        private AppleFarmWatch[] SnapshotAppleFarms()
+        {
+            lock (appleFarmsSync) return appleFarms.ToArray();
+        }
+
+        private int CountAppleFarms()
+        {
+            lock (appleFarmsSync) return appleFarms.Count;
+        }
+
+        private void ClearAppleFarms()
+        {
+            lock (appleFarmsSync) appleFarms.Clear();
+        }
+
         private void CaptureInitialAppleFarms()
         {
             int found = 0;
@@ -2655,7 +2694,7 @@ namespace AIBuildDiagnoseTest
                         (building.r_AliveState != AliveState.IsAlive &&
                          building.r_AliveState != AliveState.NeedsInit)) continue;
                     found++;
-                    if (appleFarms.Count >= ExistingAppleFarmLimit)
+                    if (CountAppleFarms() >= ExistingAppleFarmLimit)
                     {
                         appleFarmDropped++;
                         continue;
@@ -2665,7 +2704,7 @@ namespace AIBuildDiagnoseTest
                         false, "session-start");
                 }
                 Log($"AI_BUILD_APPLEFARM_INITIAL_SCAN: session={sessionId}, found={found}, " +
-                    $"tracked={appleFarms.Count}, dropped={appleFarmDropped}.");
+                    $"tracked={CountAppleFarms()}, dropped={appleFarmDropped}.");
             }
             catch (Exception ex) { Log("AI_BUILD_APPLEFARM_INITIAL_SCAN_FAILED: " + ex); }
         }
@@ -2683,16 +2722,6 @@ namespace AIBuildDiagnoseTest
                         $"buildingId={buildingId}, eventTile=({eventX},{eventY}).");
                     return;
                 }
-                foreach (AppleFarmWatch existing in appleFarms)
-                    if (existing.BuildingId == buildingId && existing.GlobalId == building->r_GlobalId)
-                        return;
-                if (appleFarms.Count >= AppleFarmLimit)
-                {
-                    appleFarmDropped++;
-                    Log($"AI_BUILD_APPLEFARM_OVERFLOW: session={sessionId}, dropped={appleFarmDropped}, " +
-                        $"buildingId={buildingId}.");
-                    return;
-                }
                 var farm = new AppleFarmWatch
                 {
                     BuildingId = buildingId,
@@ -2705,7 +2734,21 @@ namespace AIBuildDiagnoseTest
                     DueTickCount = observedTickCount + 5,
                     OrchardWatchUntilTick = observedTickCount + OrchardObservationTicks
                 };
-                appleFarms.Add(farm);
+                lock (appleFarmsSync)
+                {
+                    foreach (AppleFarmWatch existing in appleFarms)
+                        if (existing.BuildingId == buildingId &&
+                            existing.GlobalId == building->r_GlobalId)
+                            return;
+                    if (appleFarms.Count >= AppleFarmLimit)
+                    {
+                        appleFarmDropped++;
+                        Log($"AI_BUILD_APPLEFARM_OVERFLOW: session={sessionId}, " +
+                            $"dropped={appleFarmDropped}, buildingId={buildingId}.");
+                        return;
+                    }
+                    appleFarms.Add(farm);
+                }
                 Log($"AI_BUILD_APPLEFARM_TRACKED: session={sessionId}, tick={lastTick}, " +
                     $"stage={stage}, buildingId={buildingId}, globalId={farm.GlobalId}, " +
                     $"player={farm.PlayerId}, eventPlayer={playerId}, eventTile=({eventX},{eventY}), " +
@@ -2725,7 +2768,7 @@ namespace AIBuildDiagnoseTest
 
         private void ObserveAppleFarmsAfterGridUpdate(int mode)
         {
-            foreach (AppleFarmWatch farm in appleFarms)
+            foreach (AppleFarmWatch farm in SnapshotAppleFarms())
             {
                 if (farm.GridUpdateDone) continue;
                 farm.GridUpdateDone = true;
@@ -3571,6 +3614,7 @@ namespace AIBuildDiagnoseTest
         {
             int bytes = Encoding.UTF8.GetByteCount(value) + 2;
             bool preserved = value.StartsWith("AI_BUILD_WALL_CHANGE:", StringComparison.Ordinal) ||
+                value.StartsWith("AI_BUILD_FARM_CONTRACT:", StringComparison.Ordinal) ||
                 value.StartsWith("AI_BUILD_WALL_MAP_CHANGE:", StringComparison.Ordinal) ||
                 value.StartsWith("AI_BUILD_DIAGNOSTIC_OVERFLOW:", StringComparison.Ordinal) ||
                 value.StartsWith("AI_BUILD_DIAGNOSTIC_BUDGET:", StringComparison.Ordinal) ||

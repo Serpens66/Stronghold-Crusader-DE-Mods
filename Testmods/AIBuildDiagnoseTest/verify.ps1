@@ -51,6 +51,19 @@ if ($orchardFunctions['0x72A50'].calleeRvas -notcontains '0x1071A0' -or
     $orchardFunctions['0x72A50'].calleeRvas -contains '0x50720') {
     throw 'Audited orchard creation/pathfinding/coarse-grid call chain differs.'
 }
+$farmCreators = @{}
+Get-Content -LiteralPath $functions | Where-Object {
+    $_ -match '"rva":"0x(72490|73450|74410|776F0|7B060|C3BF0)"'
+} | ForEach-Object { $item = $_ | ConvertFrom-Json; $farmCreators[$item.rva] = $item }
+foreach ($rva in @('0x72A50', '0x73450', '0x74410', '0x776F0')) {
+    $entry = if ($rva -eq '0x72A50') { $orchardFunctions[$rva] } else { $farmCreators[$rva] }
+    if ($null -eq $entry -or $entry.calleeRvas -notcontains '0x72490') {
+        throw "Farm parcel writer call differs at $rva."
+    }
+}
+if ($null -eq $farmCreators['0x7B060'] -or $null -eq $farmCreators['0xC3BF0']) {
+    throw 'Placement or route function metadata is unavailable.'
+}
 $nativeBytes = [IO.File]::ReadAllBytes($native)
 $pe = [BitConverter]::ToInt32($nativeBytes, 0x3c)
 $sectionCount = [BitConverter]::ToUInt16($nativeBytes, $pe + 6)
@@ -226,6 +239,50 @@ if ($runtimeText -notmatch 'NativePlacementReservationFlag = 0x4' -or
     $runtimeText -notmatch '0x60AD660 \+ 0x74') {
     throw 'Farm-parcel or raw native placement-reason diagnostic contract differs.'
 }
+$farmProbe = [IO.File]::ReadAllText((Join-Path $project 'src\FarmSiteContractProbe.cs'))
+if ($farmProbe -notmatch 'rat_farm_site_contract_probe\.sav' -or
+    $farmProbe -notmatch 'SourceHash = "9CE228735067734138E450CD91902C6F8F28FE75634F0952AC5F0643E20D378E"' -or
+    $farmProbe -notmatch 'session\.IsLoadedSave' -or
+    $farmProbe -notmatch 'string\.Equals\(Hash\(path\), SourceHash' -or
+    $farmProbe -notmatch 'CreatePrefab\(PlayerId, x, y,' -or
+    $farmProbe -notmatch 'mapper, scale, 15, freeCost, false\)' -or
+    $farmProbe -notmatch 'eMappers\.MAPPER_WOODSMAN, 3, false\)' -or
+    $farmProbe -match 'Marshal\.Write|CodePatch\.Write|bypassPlacementRules: true' -or
+    $runtimeText -notmatch 'Config\.Bind\("FarmContractProbe", "Enabled", false' -or
+    $runtimeText -notmatch 'farmContractProbe\.OnTick\(tick, ReadPathGeneration\(\)\)') {
+    throw 'The active farm contract probe is not copy-only, bounded or Vanilla-placement preserving.'
+}
+$swap = [IO.File]::ReadAllText((Join-Path $project 'src\CanariFarmSwapProbe.cs'))
+$demolition = @{}
+Get-Content -LiteralPath $functions | Where-Object {
+    $_ -match '"rva":"0x(B8310|61FC0|62240|62780)"'
+} | ForEach-Object { $item = $_ | ConvertFrom-Json; $demolition[$item.rva] = $item }
+if ($demolition['0xB8310'].calleeRvas -notcontains '0x61FC0' -or
+    $demolition['0x61FC0'].calleeRvas -notcontains '0x62240' -or
+    $demolition['0x61FC0'].calleeRvas -notcontains '0x62780' -or
+    $swap -notmatch 'OriginalHash =\s*"17BAB0CA7C73F1254765CEC0DD6BCFEDBA73343D74DE1D7F35DD6715C3EAC31A"' -or
+    $swap -notmatch 'DeleteBuildingSafe\(oldId\)' -or
+    $swap -notmatch 'OriginalOrchardPresent\(\)' -or
+    $swap -match 'r_OccupyTileGridSize != (OrchardSize|scale)' -or
+    $swap -notmatch 'parcelBit4=' -or
+    $swap -notmatch 'OldBuildingGone\(\) \|\| !ParcelClean\(\)' -or
+    $swap -notmatch 'generation == removalGeneration' -or
+    $swap -notmatch 'CreatePrefab\(owner,' -or
+    $swap -notmatch 'OrchardX, OrchardY, mapper, scale, 15, true, false\)' -or
+    $swap -notmatch 'ShouldDeferWoodBuild\(int playerId\)' -or
+    $swap -notmatch 'playerId != 6' -or
+    $swap -notmatch 'Volatile\.Read\(ref state\) == 5' -or
+    $swap -notmatch 'replacement-path-rebuild-timeout' -or
+    $swap -notmatch 'if \(!ReplacementPresent\(\) \|\| !OldAppleTilesGone\(\)\)' -or
+    $swap -match 'path-rebuild-not-observed[^\n]*state = 5' -or
+    $swap -match 'Marshal\.Write|CodePatch\.Write|bypassPlacementRules: true' -or
+    $runtimeText -notmatch 'Config\.Bind\("CanariFarmSwap", "Enabled", false' -or
+    $runtimeText -notmatch 'lock \(appleFarmsSync\) return appleFarms\.ToArray\(\)' -or
+    $runtimeText -notmatch 'initialAppleFarmScanComplete = true' -or
+    $runtimeText -notmatch '!initialAppleFarmScanComplete\) return' -or
+    $runtimeText -match 'foreach \(AppleFarmWatch farm in appleFarms\)') {
+    throw 'The Canari copy-only demolition and replacement contract differs.'
+}
 $coarseNative = [IO.File]::ReadAllText((Join-Path $workspace '_inspect\CrusaderDE-Native-Baseline\sem\FBCB9319\exports\semantic-decompiled-functions.c'))
 foreach ($contract in @('FUNCTION FUN_180050620', 'FUNCTION FUN_180050720',
     'FUNCTION FUN_1800575b0', 'FUNCTION FUN_180058950', '0x5b83f')) {
@@ -236,6 +293,11 @@ foreach ($contract in @('FUNCTION FUN_180050620', 'FUNCTION FUN_180050720',
 $bugfixRuntime = [IO.File]::ReadAllText((Join-Path $workspace 'BugfixesAndQoL\src\AIPreplacedBuildingFixRuntime.cs'))
 $publisher = [IO.File]::ReadAllText((Join-Path $workspace 'APIShared\src\AiBuildDiagnostic.cs'))
 if ($bugfixRuntime -notmatch 'APIShared\.AiBuildDiagnostic\.BeginNearbyWoodObservation\(' -or
+    $bugfixRuntime -notmatch 'AiBuildDiagnostic\.ShouldDeferWoodBuild\(playerId\)' -or
+    $bugfixRuntime -notmatch 'Publish\("wood-build-deferred", playerId\)' -or
+    $publisher -notmatch 'TryRegisterWoodBuildGate\(' -or
+    $publisher -notmatch 'Volatile\.Write\(ref woodBuildGate, gate\)' -or
+    $runtimeText -notmatch 'candidate\.ShouldDeferCanariWoodBuild' -or
     $bugfixRuntime -notmatch 'APIShared\.AiBuildDiagnostic\.EndNearbyWoodObservation\(restore,' -or
     $publisher -notmatch 'PublishNearbyPathEvidence\("wood-nearby-path-before"' -or
     $publisher -notmatch 'PublishNearbyPathEvidence\("wood-nearby-path-after"' -or

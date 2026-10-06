@@ -16,10 +16,12 @@ namespace EnemyBridgePathTest
             finally { EnemyBridgeDiagnosticBridge.EndSearch(token, true, result); }
         }
         private static int calls;
-        private static int Main()
+        private static int Main(string[] args)
         {
             try
             {
+                if(args.Length==2&&args[0]=="--replay")return ShadowControlTests.Replay(args[1]);
+                count += ShadowControlTests.Run();
                 count += VirtualBridgeTests.Run();
                 count += SharedTests.CaptureRefreshTests.Run();
                 count += RouteTraceTests.Run();

@@ -20,7 +20,7 @@
   <ItemGroup>
     <Compile Include="tests\NativeDecisionTests.cs" /><Compile Include="src\BridgeNativeDefinition.cs" /><Compile Include="src\BridgeNativeHooks.cs" />
     <Compile Include="src\BridgeDiagnostics.cs" /><Compile Include="src\BridgeDecisionTrace.cs" /><Compile Include="src\BridgeRouteTrace.cs" /><Compile Include="src\BridgeBuildingIndex.cs" /><Compile Include="src\VirtualBridgeGraph.cs" /><Compile Include="src\VirtualComponentControl.cs" /><Compile Include="src\BridgeInputArtifact.cs" /><Compile Include="src\BridgeVirtualShadow.cs" /><Compile Include="src\BridgeSnapshot.cs" /><Compile Include="tests\LeanTraceTests.cs" /><Compile Include="tests\RouteTraceTests.cs" />
-    <Compile Include="tests\Program.cs" /><Compile Include="tests\VirtualBridgeTests.cs" /><Compile Include="tests\DrawbridgeClosureTests.cs" />
+    <Compile Include="tests\Program.cs" /><Compile Include="tests\VirtualBridgeTests.cs" /><Compile Include="tests\ShadowControlTests.cs" /><Compile Include="tests\DrawbridgeClosureTests.cs" />
     <Compile Include="src\DrawbridgeClosurePolicy.cs" /><Compile Include="src\GateEdgeOwnership.cs" />
     <Compile Include="..\..\Shared\PathDecisionAggregate.cs" />
     <Compile Include="..\..\APIShared\src\EnemyGatePathPolicyBridge.cs" />

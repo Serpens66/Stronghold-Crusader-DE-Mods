@@ -553,6 +553,12 @@ namespace BugfixesAndQoL
 
         private void EconomyWood(ulong state, int playerId)
         {
+            // AIBuildDiagnoseTest only. The registered gate is false in ordinary sessions.
+            if (APIShared.AiBuildDiagnostic.ShouldDeferWoodBuild(playerId))
+            {
+                APIShared.AiBuildDiagnostic.Publish("wood-build-deferred", playerId);
+                return;
+            }
             // AIBuildDiagnoseTest BEGIN -- dormant unless the test observer is registered.
             bool diagnose = APIShared.AiBuildDiagnostic.HasObserver;
             long attemptId = diagnose ? APIShared.AiBuildDiagnostic.BeginWoodAttempt(playerId) : 0;

@@ -374,7 +374,7 @@ namespace EnemyBridgePathTest
                     var frame = TribeFrame("move", args.TribeId, (int)args.MoveType, args.TileX, args.TileY);
                     frame.PreEvent = args;
                     Push(frame);
-                    Trace.VirtualShadow?.CompareXY("group-formation",frame.TraceId,frame.ParentTrace,frame.Player,frame.StartX,frame.StartY,frame.X,frame.Y);
+                    Trace.CompareGroupShadow(frame.TraceId,frame.ParentTrace,frame.Player,frame.StartX,frame.StartY,frame.X,frame.Y,frame.Tribe,frame.Global);
                 }
                 else if (args.Phase == EventHookPhase.Post) Pop("move", args.TribeId, args.ReturnValue);
             });

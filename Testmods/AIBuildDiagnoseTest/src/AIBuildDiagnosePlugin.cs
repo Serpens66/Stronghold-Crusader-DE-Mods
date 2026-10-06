@@ -25,6 +25,8 @@ namespace AIBuildDiagnoseTest
         private static bool registered;
         private static bool placementProbeEnabled;
         private static bool nearbyWoodTestEnabled;
+        private static bool farmContractProbeEnabled;
+        private static bool canariFarmSwapEnabled;
 
         private void Awake()
         {
@@ -35,8 +37,16 @@ namespace AIBuildDiagnoseTest
             nearbyWoodTestEnabled = Config.Bind("NearbyWoodTest", "Enabled", false,
                 "Temporarily exclude zero-component or parcel-blocked wood build candidates " +
                 "for up to twelve calls only on the named save copy, after matching read-only calibration.").Value;
+            farmContractProbeEnabled = Config.Bind("FarmContractProbe", "Enabled", false,
+                "On rat_farm_site_contract_probe.sav only, place four farms and run controlled " +
+                "wood-site probes. This changes the running copy; never save it.").Value;
+            canariFarmSwapEnabled = Config.Bind("CanariFarmSwap", "Enabled", false,
+                "Only on the three byte-verified test_canari_farm_swap_*.sav copies, " +
+                "replace the orchard through Vanilla deletion and placement. Never save the result.").Value;
             Shared.DebugLogHelper.LogInfo(log, Name + " " + Version +
-                $" loaded; placementProbeEnabled={placementProbeEnabled}, nearbyWoodTestEnabled={nearbyWoodTestEnabled}; " +
+                $" loaded; placementProbeEnabled={placementProbeEnabled}, nearbyWoodTestEnabled={nearbyWoodTestEnabled}, " +
+                $"farmContractProbeEnabled={farmContractProbeEnabled}, " +
+                $"canariFarmSwapEnabled={canariFarmSwapEnabled}; " +
                 "probe limited to test_canari_nowoodcutters_probe.sav.");
             if (registered) return;
             CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;
@@ -50,13 +60,18 @@ namespace AIBuildDiagnoseTest
             {
                 var candidate = new AIBuildDiagnoseRuntime(log,
                     Chainloader.PluginInfos.ContainsKey("fixes"), placementProbeEnabled,
-                    nearbyWoodTestEnabled, unchecked((ulong)context.ModuleHandle.ToInt64()));
+                    nearbyWoodTestEnabled, farmContractProbeEnabled,
+                    canariFarmSwapEnabled,
+                    unchecked((ulong)context.ModuleHandle.ToInt64()));
                 // Publisher subscriptions and static fields survive SHCDE startup cleanup.
                 IDisposable candidateSession = Shared.GameplaySessionLifecycle.SubscribeStarted(
                     log, candidate.OnSessionStarted, candidate.OnSessionEnded);
                 GameTimeManagerAPI.Instance.OnTick += OnTick;
                 if (!AiBuildDiagnostic.TryRegister(Guid, candidate.OnNativeRecord, out string error))
                     Shared.DebugLogHelper.LogWarning(log, "AI_BUILD_NATIVE_OBSERVATION_INCOMPLETE: " + error);
+                if (!AiBuildDiagnostic.TryRegisterWoodBuildGate(Guid,
+                    candidate.ShouldDeferCanariWoodBuild, out string gateError))
+                    Shared.DebugLogHelper.LogWarning(log, "AI_BUILD_CANARI_WOOD_GATE_UNAVAILABLE: " + gateError);
                 if (!AiBuildDiagnostic.TryRegisterNearbyWoodOverlay(Guid,
                     candidate.BeginNearbyWoodOverlay, out string overlayError))
                     Shared.DebugLogHelper.LogWarning(log, "AI_BUILD_NEARBY_TEST_UNAVAILABLE: " + overlayError);

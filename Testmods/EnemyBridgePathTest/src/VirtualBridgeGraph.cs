@@ -16,12 +16,12 @@ namespace EnemyBridgePathTest
         internal readonly ushort[] SpecialIds;
         internal readonly short[] SpecialKinds;
         internal VirtualBridgeMap(long session,long revision,ushort[] components,byte[] edges,int[] flags,
-            ushort[] x,ushort[] y,int[] rows,VirtualConnection[] connections,bool complete,ushort[] specialIds=null,short[] specialKinds=null)
+            ushort[] x,ushort[] y,int[] rows,VirtualConnection[] connections,bool complete,ushort[] specialIds=null,short[] specialKinds=null,bool takeOwnership=false)
         {
-            Session=session;Revision=revision;Components=(ushort[])components.Clone();Edges=(byte[])edges.Clone();
-            Flags=(int[])flags.Clone();X=(ushort[])x.Clone();Y=(ushort[])y.Clone();RowStarts=(int[])rows.Clone();
+            Session=session;Revision=revision;Components=takeOwnership?components:(ushort[])components.Clone();Edges=takeOwnership?edges:(byte[])edges.Clone();
+            Flags=takeOwnership?flags:(int[])flags.Clone();X=takeOwnership?x:(ushort[])x.Clone();Y=takeOwnership?y:(ushort[])y.Clone();RowStarts=takeOwnership?rows:(int[])rows.Clone();
             Connections=(VirtualConnection[])connections.Clone();Complete=complete;
-            SpecialIds=specialIds==null?Array.Empty<ushort>():(ushort[])specialIds.Clone();SpecialKinds=specialKinds==null?Array.Empty<short>():(short[])specialKinds.Clone();
+            SpecialIds=specialIds==null?Array.Empty<ushort>():takeOwnership?specialIds:(ushort[])specialIds.Clone();SpecialKinds=specialKinds==null?Array.Empty<short>():takeOwnership?specialKinds:(short[])specialKinds.Clone();
             if(Components.Length!=Edges.Length||Components.Length!=Flags.Length||Components.Length!=X.Length||X.Length!=Y.Length)
                 throw new ArgumentException("Different packed grid capacities");
         }

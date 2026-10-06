@@ -356,6 +356,8 @@ namespace APIShared
         private static Action<AiBuildDiagnosticRecord> observer;
         // Test-only, process-rooted callback. Null in ordinary installations.
         private static Func<ulong, int, int, int, Action> nearbyWoodOverlay;
+        // AIBuildDiagnoseTest only: optional, process-rooted gate for disposable save-copy probes.
+        private static Func<int, bool> woodBuildGate;
         private static SchedulerService scheduler;
         private static RouteService route;
         private static int schedulerReady;
@@ -402,6 +404,41 @@ namespace APIShared
         public static bool SchedulerReady => Volatile.Read(ref schedulerReady) != 0;
         /// <summary>Whether the native route observation point is ready.</summary>
         public static bool RouteReady => Volatile.Read(ref routeReady) != 0;
+
+        /// <summary>Registers the optional test-only gate at the existing wood-economy call site.</summary>
+        public static bool TryRegisterWoodBuildGate(string ownerGuid, Func<int, bool> gate,
+            out string error)
+        {
+            error = null;
+            if (ownerGuid != "AIBuildDiagnoseTest_Serp" || gate == null)
+            { error = "Invalid wood-build test gate owner or callback."; return false; }
+            lock (Sync)
+            {
+                if (woodBuildGate != null)
+                {
+                    if (ReferenceEquals(woodBuildGate, gate)) return true;
+                    error = "Another wood-build test gate is already registered.";
+                    return false;
+                }
+                if (Volatile.Read(ref observer) == null)
+                { error = "AI build observer is not registered."; return false; }
+                Volatile.Write(ref woodBuildGate, gate);
+                return true;
+            }
+        }
+
+        /// <summary>False in ordinary sessions. A failed test callback never blocks Vanilla.</summary>
+        public static bool ShouldDeferWoodBuild(int playerId)
+        {
+            Func<int, bool> gate = Volatile.Read(ref woodBuildGate);
+            if (gate == null) return false;
+            try { return gate(playerId); }
+            catch (Exception ex)
+            {
+                NativeApiLog.Error(log, "AI wood-build test gate failed: " + ex);
+                return false;
+            }
+        }
 
         /// <summary>Registers the optional copy-only wood-nearby data overlay owned by AIBuildDiagnoseTest.</summary>
         public static bool TryRegisterNearbyWoodOverlay(string ownerGuid,
