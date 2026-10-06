@@ -1,4 +1,4 @@
-param([switch]$SkipTests)
+param([switch]$SkipTests, [string]$GameDir, [string]$ExtenderDir, [string]$ApiSharedDir)
 $ErrorActionPreference = 'Stop'
 $workspace = Split-Path -Parent $PSScriptRoot
 $runtimePath = Join-Path $PSScriptRoot 'src\AIKeepRangeRuntime.cs'
@@ -56,7 +56,13 @@ Write-Output 'PASS: AI keep range lifetime, migration guard, minimal logging, ho
 if (-not $SkipTests) {
     & 'D:\CDesktopLink\Portable\Python\WinPy64\python\python.exe' (Join-Path $workspace '_inspect\AIKeepRangeLimit\audit.py')
     if ($LASTEXITCODE -ne 0) { throw 'Native identity/xref audit failed.' }
-    & dotnet msbuild (Join-Path $PSScriptRoot 'tests\AIKeepRange.Tests\AIKeepRange.Tests.csproj') /t:Build /p:Configuration=Release /verbosity:minimal
+    $buildArguments = @('/t:Build', '/p:Configuration=Release', '/verbosity:minimal')
+    foreach ($dependency in @(@('GameDir', $GameDir), @('ExtenderDir', $ExtenderDir), @('ApiSharedDir', $ApiSharedDir))) {
+        if (-not [string]::IsNullOrWhiteSpace($dependency[1])) {
+            $buildArguments += '/p:{0}={1}' -f $dependency[0], $dependency[1]
+        }
+    }
+    & dotnet msbuild (Join-Path $PSScriptRoot 'tests\AIKeepRange.Tests\AIKeepRange.Tests.csproj') @buildArguments
     if ($LASTEXITCODE -ne 0) { throw 'AI keep range tests compilation failed.' }
     & (Join-Path $PSScriptRoot 'tests\AIKeepRange.Tests\bin\AIKeepRangeTests.exe') (Join-Path $workspace '_inspect\AIKeepRangeLimit\EEF90.bin')
     if ($LASTEXITCODE -ne 0) { throw 'AI keep range native/runtime tests failed.' }
