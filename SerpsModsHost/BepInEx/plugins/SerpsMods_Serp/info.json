@@ -9,11 +9,13 @@
     "MaximumScriptExtenderVersion":  "",
     "Manifest":  1,
     "NetworkMode":  1,
-    "SerpChangelog": [
-    {
-      "Version": "1.0.22",
-      "Changes": ["Keep Tweaker integration optional and provide independent restart preparation cancellation."]
-    },
+    "SerpChangelog":  [
+                          {
+                              "Version":  "1.0.22",
+                              "Changes":  [
+                                              "Keep Tweaker integration optional and provide independent restart preparation cancellation."
+                                          ]
+                          },
                           {
                               "Version":  "1.0.21",
                               "Changes":  [
