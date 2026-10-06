@@ -36,13 +36,15 @@ namespace APIShared
         internal const int CouplingExitRva = 0xC54E8;
         internal const int NextBridgeRva = 0xC54D8;
         internal const int ReopenTimerRva = 0x64CCECC; // signed 16-bit Vanilla timer, not a domain ID
-        internal static readonly int[] HookRvas = { 0xB7A4E, 0xB7BF4, 0xC53D5, 0xC54A0 };
+        internal static readonly int[] HookRvas = { 0xB7A4E, 0xB7BF4, 0xC53D5, 0xC54A0, 0xD5835, 0xB79E2 };
         internal static readonly byte[][] HookBytes =
         {
             Hex("0F B7 84 1D C4 CE 4C 06 66 85 C0 0F 88 55 02 00 00"),
             Hex("66 83 BC 2B CC CE 4C 06 00 0F 85 7C 00 00 00"),
             Hex("48 98 48 69 C8 2C 03 00 00 42 0F B6 84 29 FE 02 00 00"),
-            Hex("48 69 D1 2C 03 00 00 42 0F B6 8C 2A F0 02 00 00")
+            Hex("48 69 D1 2C 03 00 00 42 0F B6 8C 2A F0 02 00 00"),
+            Hex("66 41 89 84 0A 1C 03 00 00 41 83 F8 0A 75 09"),
+            Hex("66 89 84 2B CC CE 4C 06 44 39 B4 29 58 CE 79 03 75 11")
         };
         private static readonly byte[] CouplingEntry = Hex("48 89 6C 24 08 48 89 74 24 10 48 89 7C 24 18");
         private static readonly List<GatehouseAutomationNativeState> Published = new List<GatehouseAutomationNativeState>();
@@ -57,6 +59,7 @@ namespace APIShared
         private readonly HookHandle<X64InlineHook>[] hooks =
         {
             new HookHandle<X64InlineHook>(), new HookHandle<X64InlineHook>(),
+            new HookHandle<X64InlineHook>(), new HookHandle<X64InlineHook>(),
             new HookHandle<X64InlineHook>(), new HookHandle<X64InlineHook>()
         };
         private HookTransaction transaction;
@@ -65,8 +68,15 @@ namespace APIShared
         private string installationFailure;
         private int callbackFailureLogged;
         private int callbackConfirmed;
+        private ulong timingPointerAddress;
 
         internal ulong QueryAddress { get; }
+
+        internal void BindTimingPointer(ulong address)
+        {
+            if (installed || address == 0) throw new InvalidOperationException("Timing pointer must be bound before publication.");
+            timingPointerAddress = address;
+        }
 
         private GatehouseAutomationNativeState(ulong moduleBase, ScanRegion region,
             INativeMemory memory, ManualLogSource log, NativeSection section)
@@ -102,13 +112,17 @@ namespace APIShared
             if (ApiSharedRuntime.ComputeSha256(image.Slice(CouplingRva, 519)) !=
                 "71652656B8970E86BBBAE5E3EC95C422489F9B5DE4B020ACEC4C01BA044612A1")
                 throw new InvalidOperationException("Gate/bridge coupling function hash changed.");
+            pe.RequireExecutableRange(0xD5810, 96, "direct gate command");
+            if (ApiSharedRuntime.ComputeSha256(image.Slice(0xD5810, 96)) !=
+                "93BFC31E3B3FF25DBECFCF9624EE26A1AAA1A1A169ADDAD0ED1233201B811504")
+                throw new InvalidOperationException("Direct gate command function hash changed.");
             for (int site = 0; site < HookRvas.Length; site++)
             {
                 pe.RequireExecutableRange(HookRvas[site], HookBytes[site].Length, "gate automation hook");
                 if (!image.Slice(HookRvas[site], HookBytes[site].Length).SequenceEqual(HookBytes[site]))
                     throw new InvalidOperationException($"Gate automation bytes changed at 0x{HookRvas[site]:X}.");
-                int start = site < 2 ? 0xB73D0 : CouplingRva;
-                int length = site < 2 ? 2325 : 519;
+                int start = site == 4 ? 0xD5810 : site < 2 || site == 5 ? 0xB73D0 : CouplingRva;
+                int length = site == 4 ? 96 : site < 2 || site == 5 ? 2325 : 519;
                 ValidateSpan(image.Slice(start, length).ToArray(), moduleBase + (ulong)start,
                     moduleBase + (ulong)HookRvas[site], HookBytes[site].Length);
             }
@@ -148,6 +162,7 @@ namespace APIShared
                 if (installationFailure != null) { failure = installationFailure; return false; }
                 try
                 {
+                    if (timingPointerAddress == 0) throw new InvalidOperationException("Gate timing snapshot is not bound.");
                     // All targets are checked before the first patch. A foreign hook is never overwritten.
                     for (int site = 0; site < HookRvas.Length; site++) RequireLive(HookRvas[site], HookBytes[site]);
                     RequireLive(CouplingRva, CouplingEntry);
@@ -158,7 +173,7 @@ namespace APIShared
                         int capturedSite = site;
                         transaction.AddInline(hooks[site], HookTarget.FromAddress(moduleBase + (ulong)HookRvas[site]),
                             (asm, displaced, continuation) => GenerateHook(asm, displaced.ToArray(),
-                                capturedSite, moduleBase, QueryAddress, continuation), hookSize: HookBytes[site].Length);
+                                capturedSite, moduleBase, QueryAddress, continuation, timingPointerAddress), hookSize: HookBytes[site].Length);
                     }
                     CommitResult result = transaction.Commit();
                     if (!result.IsCompleteSuccess) throw new InvalidOperationException($"Incomplete gate automation transaction: {result}.");
@@ -179,7 +194,7 @@ namespace APIShared
                 }
                 lock (Published) Published.Add(this);
                 installed = true;
-                NativeApiLog.Info(log, "capability=gatehouse-automation, status=installed, spans=B7A4E/17,B7BF4/15,C53D5/18,C54A0/16; permanent hooks published.");
+                NativeApiLog.Info(log, "capability=gatehouse-automation, status=installed, spans=B7A4E/17,B7BF4/15,C53D5/18,C54A0/16,D5835/15,B79E2/18; permanent hooks published.");
             }
             Volatile.Write(ref resolver, value);
             return true;
@@ -224,10 +239,16 @@ namespace APIShared
         }
 
         internal static void GenerateHook(Assembler asm, Instruction[] displaced, int site,
-            ulong moduleBase, ulong queryAddress, ulong continuation)
+            ulong moduleBase, ulong queryAddress, ulong continuation, ulong timingPointerAddress = 0)
         {
             Label manual = asm.CreateLabel("manualDestination");
             Label vanilla = asm.CreateLabel("vanillaDestination");
+            if (site == 4)
+            {
+                if (timingPointerAddress == 0) throw new ArgumentException("Direct close requires a timing snapshot.");
+                asm.cmp(r8d, 10); // Audited native close command; other commands stay Vanilla.
+                asm.jne(vanilla);
+            }
             EmitQuery(asm, queryAddress, site, manual, vanilla);
             asm.Label(ref vanilla);
             foreach (Instruction instruction in displaced) asm.AddInstruction(instruction);
@@ -248,8 +269,52 @@ namespace APIShared
                     break;
                 case 2: asm.AddUnrestrictedJmp(moduleBase + CouplingExitRva); break;
                 case 3: asm.AddUnrestrictedJmp(moduleBase + NextBridgeRva); break;
+                case 4:
+                    EmitDirectCloseDelay(asm, moduleBase, timingPointerAddress);
+                    asm.cmp(r8d, 10); // Preserve the displaced comparison's flags on the close continuation.
+                    asm.AddUnrestrictedJmp(continuation);
+                    break;
+                case 5:
+                    // AX was decremented by Vanilla immediately before this span. Keep that
+                    // write, but do not zero an active manual-gate delay when the enemy list is empty.
+                    asm.mov(__word_ptr[rbx + rbp + ReopenTimerRva], ax);
+                    asm.AddUnrestrictedJmp(moduleBase + 0xB7A05);
+                    break;
                 default: throw new ArgumentOutOfRangeException(nameof(site));
             }
+        }
+
+        private static void EmitDirectCloseDelay(Assembler asm, ulong moduleBase, ulong timingPointerAddress)
+        {
+            // D5810 has already validated the Global-ID. RCX=manager, R10=building stride.
+            // Reproduce B7AB2..B7AED's EXACT role predicate (including mission mode 99),
+            // not the local player or a simplified human/AI heuristic. No enemy search here.
+            asm.push(rax); asm.push(r9); asm.push(r11);
+            asm.mov(r11, moduleBase);
+            asm.mov(r9, timingPointerAddress);
+            asm.mov(r9, __qword_ptr[r9]);
+            Label ai = asm.CreateLabel("directCloseAiDelay");
+            Label human = asm.CreateLabel("directCloseHumanDelay");
+            Label store = asm.CreateLabel("directCloseStoreDelay");
+            asm.cmp(__dword_ptr[r11 + 0x8574B90], 0);
+            asm.je(ai);
+            asm.movsx(rax, __word_ptr[rcx + r10 + 0x132]);
+            asm.cmp(__dword_ptr[r11 + rax * 4 + 0x8574BCC], -1);
+            asm.jne(ai);
+            asm.cmp(__dword_ptr[r11 + rax * 4 + 0x8574C44], 0);
+            asm.je(ai);
+            asm.cmp(__dword_ptr[r11 + 0x8574B90], 99);
+            asm.jne(human);
+            asm.cmp(__dword_ptr[r11 + 0x3669040], 0);
+            asm.jne(ai);
+            asm.Label(ref human);
+            asm.mov(eax, __dword_ptr[r9 + 12]);
+            asm.jmp(store);
+            asm.Label(ref ai);
+            asm.mov(eax, __dword_ptr[r9 + 4]);
+            asm.Label(ref store);
+            asm.mov(__word_ptr[rcx + r10 + 0x31C], ax);
+            asm.pop(r11); asm.pop(r9); asm.pop(rax);
         }
 
         internal static void GenerateCloseRouting(Assembler asm, ulong moduleBase, ulong queryAddress, ulong closePath)
@@ -274,8 +339,9 @@ namespace APIShared
             asm.push(rax);
             asm.X64FastcallSafe(address, 1, a =>
             {
-                if (site < 2) a.mov(ecx, r10d);
+                if (site < 2 || site == 5) a.mov(ecx, r10d);
                 else if (site == 2) a.mov(ecx, eax);
+                else if (site == 4) a.mov(ecx, edx);
                 // site 3 already has the recipient's one-based ID in RCX.
             }, preserveRAX: false, preserveXMM: true);
             // Recompute AFTER the wrapper; it changes flags while aligning/restoring RSP.

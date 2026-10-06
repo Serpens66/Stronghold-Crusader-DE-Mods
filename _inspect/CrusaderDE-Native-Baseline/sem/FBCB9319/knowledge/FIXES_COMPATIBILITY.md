@@ -2,6 +2,13 @@
 
 Audit date: 2026-10-06. External source: clean v1.24.0, commit fcf32589586e874f9ea56a885c48ef33d8b10a08. Installed Fixes was 1.23 during the initial analysis; implementation preflight now observes 1.24.0.0. Installed SHCDESE is 2.13.0.0; canonical fork commit 85ab962b342c18f663da830570884a25b85116d0. Native SHA-256 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2; actual managed Assembly-CSharp SHA-256 BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789. This note is feature-scoped and does not certify unrelated baseline records or replace their provenance.
 
+## User decision: retain integration notes, stop evidence work
+
+On 2026-10-06 the user cancelled further evidence for the popularity activation dependency and unreachable siege direction logic. Both testmods, their shared observer and their offline project have been removed. Historical source probes and build logs remain analysis artifacts. Do not recreate the tests or prepare author reports for these findings without a new request. Neither finding is classified as a demonstrated gamebreaking bug. This decision supersedes the former test/evidence workflow below.
+
+For future implementations: explicitly supply the Bad Thing attempt count when our own generated settings request a popularity threshold (100 retains Vanilla frequency); do not silently change foreign settings. The limit alone is ineffective in the audited implementation. The requirement is not stated in the README, which allows selecting only desired keys. Popularity5000/9000 means displayed50/90, not out-of-range input. For siege integration, only the extra Fixes5x5 gap check is operational; do not rely on the unreachable direction block to prevent forward placement or guarantee engineer access. Preserve the distinction between code behavior and unproven gameplay consequences. Recheck these implementation contracts after Fixes updates.
+
+
 ## Confirmed compatibility changes in our source
 
 - ExtendedData preference conversion reflects all public readable/writable properties. Missing current properties keep constructor/property initializers, recursively including initialized nested objects. Unknown properties, unsupported types and lossy conversions fail with a diagnostic. Supplied values are compared structurally, with exact decimal-text normalization for JSON numbers; arbitrary representable modder values are not clamped. Capture retains a complete round-trip check. Original save/snapshot and package checksums are verified before new canonical payloads are published.
@@ -16,7 +23,7 @@ Audit date: 2026-10-06. External source: clean v1.24.0, commit fcf32589586e874f9
 
 `FixesMapEvents` activates the bad-thing override only if CustomBuildAttemptsRequiredForBadThings is supplied. Min popularity 9000 alone therefore leaves the override disabled/default minimum 5000. The exact source handler was exercised in memory: minimum-only gave disabled/5000; adding attempts100 gave enabled/9000. Native 0x41280 has a reachable AIV-building caller path through 0x51790/0x52270 and gates bad mappers176/177/301..311 on popularity5000 and attempt count100. Static logic and handler behavior are proven; natural in-game building effect/control are not yet recorded here.
 
-Realistic integration: our preset/merge/export code independently changes only the documented minimum; a naturally building AI may then construct Bad Things below the requested limit. Preserve independently supplied values, log this known coupling and ensure our own generated presets include the intended complete pair. Do not silently rewrite foreign preferences. Testmod: FixesBadThingPopularityTest, A minimum9000 vs B minimum9000/attempts100, identical AIC/AIV.
+Realistic integration: our preset/merge/export code independently changes only the documented minimum; a naturally building AI may then construct Bad Things below the requested limit. Preserve independently supplied values, log this known coupling and ensure our own generated presets include the intended complete pair. Do not silently rewrite foreign preferences. Former diagnostic design compared A minimum9000 vs B minimum9000/attempts100 with identical AIC/AIV; cancelled by user.
 
 ### Siege direction guard
 
@@ -52,7 +59,7 @@ Function names/role associations remain candidate-level where the semantic datab
 
 The author intentionally accepts modder-supplied values. No author report is generated solely for absent plausibility checks, unusual limits or incomplete input. Our own generated fixtures use ordinary representable values. Existing compatibility tests cover new properties, legacy envelopes, aliases, type identity, original restoration and map override preservation.
 
-Observers are static/publisher rooted, use session lifecycle plus OnTick and Building events, source-link DependencyFreeJson, and install no native hooks or decision changes. Author evidence requires unchanged Fixes1.24, an isolated mod set, fixture/save/settings/log provenance, concrete natural gameplay effect and a matched control. Missing conditions mean INCONCLUSIVE; absence alone does not mean NOT_REPRODUCED. At most three targeted runs precede reassessment; no candidate or failed model validation stops map experiments. No gameplay-confirmed external report currently exists in this implementation.
+The removed observers were static/publisher rooted and passive; they are no longer installed or maintained. Author evidence requires unchanged Fixes1.24, an isolated mod set, fixture/save/settings/log provenance, concrete natural gameplay effect and a matched control. Missing conditions mean INCONCLUSIVE; absence alone does not mean NOT_REPRODUCED. At most three targeted runs precede reassessment; no candidate or failed model validation stops map experiments. No gameplay-confirmed external report currently exists in this implementation.
 
 ## Documentation contract checked on 2026-10-06
 

@@ -1,5 +1,7 @@
 # Implementation status - 2026-10-06
 
+Current disposition: both Fixes evidence testmods, shared observer and offline project removed at user request. Evidence workflow cancelled; retain baseline integration notes only. The build/test entries below are historical. Existing compatibility changes remain installed. Active preflight no longer depends on the removed projects.
+
 Compatibility source implemented and installed through each own build.bat:
 - ExtendedData: additive recursive preference defaults, lossless value checks, validated storage adapter, LordType identity, snapshot3/trail2 and legacy readers. 80/80 regression tests plus both upload suites pass.
 - APIShared: seven-byte live gatehouse ownership; pristine/full hook contracts retained. Baseline-hardened tests and productive native execution tests pass.

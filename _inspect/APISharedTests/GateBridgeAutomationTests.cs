@@ -12,7 +12,7 @@ namespace APISharedTests
 {
     // Executes the PRODUCTIVE generators through the installed RedBird backend on a private
     // synthetic module. The only replacements are native continuation/coupling test endpoints.
-    internal static class GateBridgeAutomationTests
+    internal static partial class GateBridgeAutomationTests
     {
         [DllImport("kernel32.dll", SetLastError = true)]
         private static extern IntPtr VirtualAlloc(IntPtr address, UIntPtr size, uint allocation, uint protection);
@@ -162,6 +162,7 @@ namespace APISharedTests
                 VirtualFree(allocation, UIntPtr.Zero, 0x8000);
             }
             RunCompleteCoupling(assert, installedImage);
+            RunDelayFlow(assert, installedImage);
         }
 
         private static void RunCompleteCoupling(Action<bool, string> assert, byte[] installedImage)

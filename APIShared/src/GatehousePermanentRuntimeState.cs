@@ -68,6 +68,7 @@ namespace APIShared
                     });
                 ulong originAddress = unchecked((ulong)originFlag.ToInt64());
                 ulong timingPointerAddress = unchecked((ulong)publishedTiming.ToInt64());
+                automation?.BindTimingPointer(timingPointerAddress);
                 if (installDistance)
                 {
                     transaction.AddInline(

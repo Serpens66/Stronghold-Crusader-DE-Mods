@@ -32,4 +32,10 @@ Complete coupling body hash (519 bytes at C5300): `71652656B8970E86BBBAE5E3EC95C
 
 ## Validation and remaining runtime evidence
 
+### 2026-10-06: direct-close timer correction
+
+Full D5810 (96 bytes, hash `93BFC31E3B3FF25DBECFCF9624EE26A1AAA1A1A169ADDAD0ED1233201B811504`) validates Global-ID, writes the command, then unconditionally clears the reopen timer before coupling. This explains immediate bridge reopening when a manually controlled gate is closed without enemies. Separately, B79E2 stores the decremented timer, and B79EA..B79FD clears it early when the native enemy list is empty. Setting a delay only in the direct command is insufficient.
+
+New audited spans are D5835..D5844 (15 bytes: timer zero write, compare close, conditional jump to D584D) and B79E2..B79F4 (18 bytes: decrement-result store, enemy count compare, conditional jump to B7A05). Manual close chooses the existing snapshot delay using the exact B7AB2..B7AED role predicate; manual countdown skips the empty-list clear via B7A05. No enemy-search algorithm or separate timing state is added. Native flags/GPR/XMM preservation and complete function/spans are checked by productive backend tests. Detailed data references and fallback constraints are in APIShared/UpdateToNewDLL.md. Existing user game feedback confirms basic mixed-mode operation; direct-close delay gameplay acceptance is still pending.
+
 `_inspect/APISharedTests/GateBridgeAutomationTests.cs` uses the installed inline backend and productive generators on private native buffers, including deliberately clobbering predicate calls. `_inspect/GateBridgeAutomation/Verify.ps1` checks source/XAML/lifecycle/publication contracts. The final in-game acceptance matrix must cover all four preferences, two bridges with differing preferences, blocked raising, ongoing animation, direct commands in both directions, save/map restore, recycled slots, and a genuine synchronized multiplayer session.
