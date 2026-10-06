@@ -1,0 +1,24 @@
+PASS: production core self-tests under en-US
+PASS: production core self-tests under de-DE
+PASS: 21 real handlers; 4233 real options, production validator binding and document roundtrip
+PASS: standalone synchronization policy, idempotent opt-in and permanent late-registration rejection
+PASS: production configuration facade, temporary startup, exact personal preservation, restoration and external conflict
+PASS: unlocked notifications, invalid return preserves pending package, original package migration
+PASS: host receive versus confirmation, isolated client preparation, rejoin comparison, changed host and personal restoration
+PASS: facade rejects unstarted packages without changing files; legacy recovery blocks mixed-state loading
+PASS document catalog, stable coordinates, exact roundtrip, sentinels, diagnostics and validation
+PASS staging does not change active files
+PASS external edits reject stale snapshots
+PASS external edits after staging stay untouched
+PASS restart recovery at journal-published
+PASS restart recovery at written:DamageMatrices/melee.csv
+PASS restart recovery at written:multipliers.cfg
+PASS restart recovery at written:units.toml
+PASS restart recovery at verified
+PASS restart recovery at completed
+PASS corrupt package does not touch files
+PASS successive stages still compare against own files
+PASS write failure retains recoverable journal
+PASS external edit at an application boundary is preserved
+PASS oversized package is rejected before publication
+PASS: 14 configuration transaction scenarios. Artifacts: C:\Users\Serpens66\AppData\Local\Temp\StatsTweakerApiTests\c0518345a1fc4f8aad1c1c5bd35e71af

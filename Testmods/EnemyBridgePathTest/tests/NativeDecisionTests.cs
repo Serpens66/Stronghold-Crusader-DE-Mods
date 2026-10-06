@@ -21,6 +21,7 @@ namespace EnemyBridgePathTest
             const string path="E:/ProgrammeE/Steam/steamapps/common/Stronghold Crusader Definitive Edition/Stronghold Crusader Definitive Edition_Data/Plugins/x86_64/CrusaderDE.dll";
             byte[] image=File.ReadAllBytes(path);
             using(var sha=SHA256.Create()) Check(BitConverter.ToString(sha.ComputeHash(image)).Replace("-","")==BridgeNativeDefinition.NativeHash,"canonical hash");
+            ReproducePatchedAttack(image);
             foreach(var site in BridgeNativeDefinition.Sites)
             {
                 int fileOffset=Offset(image,site.Rva);
@@ -62,11 +63,72 @@ namespace EnemyBridgePathTest
                 var invoke=Marshal.GetDelegateForFunctionPointer<Leaf>(leaf);
                 foreach(int value in new[]{0,1,-1,123456,int.MinValue,int.MaxValue}) Check(invoke(IntPtr.Zero,value)==value,"actual wrapper preserves native return");
                 Check(trace.Entered==6&&trace.Exited==6,"actual wrapper pairs exactly once");
+                trace.MarkInstalled(BridgeNativeDefinition.Sites.Length);
+                Check(trace.NativeReadiness.Contains("nativeCallsObserved=True")&&trace.Summary().Contains("nativeCoverageComplete=True"),"ready and completed current-map calls are separate evidence");
+                trace.StartSession(2);
+                Check(trace.NativeReadiness.Contains("nativeCallsObserved=False")&&trace.Summary().Contains("nativeCoverageComplete=False"),"previous map native counts cannot satisfy new-map coverage");
             }
             finally { hooks[0].Dispose(); VirtualFree(leaf,UIntPtr.Zero,0x8000); GC.KeepAlive(runtime); }
             ExerciseVoidWrappers();
             ExerciseAccessWrapper();
             return checks;
+        }
+        private static void ReproducePatchedAttack(byte[] image)
+        {
+            var site=Array.Find(BridgeNativeDefinition.Sites,s=>s.Rva==0x3C2E0);
+            var bytes=new byte[site.Size];Array.Copy(image,Offset(image,site.Rva),bytes,0,bytes.Length);
+            // Exact Fixes patch sites and stub pointers from the failed 20:22 start.
+            var baseline=(byte[])bytes.Clone();
+            BridgeNativeHooks.ValidateAttackBody(baseline,baseline);
+            foreach(var patch in new[]{Tuple.Create(0x3C30F,0x00007FFDC7716490L,18),Tuple.Create(0x3C3D9,0x00007FFDC7716310L,36)})
+            {
+                int offset=patch.Item1-site.Rva;for(int i=0;i<patch.Item3;i++)bytes[offset+i]=0x90;
+                bytes[offset]=0xFF;bytes[offset+1]=0x25;Array.Clear(bytes,offset+2,4);
+                Array.Copy(BitConverter.GetBytes(patch.Item2),0,bytes,offset+6,8);
+            }
+            BridgeNativeHooks.ValidateAttackBody(baseline,bytes);
+            var unknown=(byte[])bytes.Clone();unknown[80]^=1;bool refused=false;
+            try {BridgeNativeHooks.ValidateAttackBody(baseline,unknown);}catch(InvalidOperationException){refused=true;}
+            Check(refused,"unknown live-body mutation rejected");
+            unknown=(byte[])bytes.Clone();unknown[0x2F+17]=0xCC;refused=false;
+            try {BridgeNativeHooks.ValidateAttackBody(baseline,unknown);}catch(InvalidOperationException){refused=true;}
+            Check(refused,"unknown inline tail rejected");
+            IntPtr copy=Marshal.AllocHGlobal(bytes.Length);NativeDetour<BridgeNativeHooks.V2> hook=null;
+            BridgeNativeHooks.V2 callback=(_,a)=>{};
+            try
+            {
+                Marshal.Copy(bytes,0,copy,bytes.Length);
+                var request=new DetourRequest<BridgeNativeHooks.V2>{Name="failed live-body replay",TargetAddress=unchecked((ulong)copy.ToInt64()),Callback=callback};
+                hook=(NativeDetour<BridgeNativeHooks.V2>)BridgeNativeHooks.CreateBackend(site.Size).CreateDetour(in request);
+                Console.WriteLine("Patched attack full-body scan: expected="+site.Bytes.Length+",actual="+hook.DisplacedByteCount+",scheme="+hook.Scheme);
+                Check(hook.DisplacedByteCount!=site.Bytes.Length,"reproduced inline pointer interpreted as incoming branch");
+                refused=false;
+                try {BridgeNativeHooks.Validate(hook,site,unchecked((ulong)copy.ToInt64()));}
+                catch(InvalidOperationException error) {refused=error.Message.Contains("displaced=57/expected:15")&&error.Message.Contains("phase=prepared")&&error.Message.Contains("pointerSlot=")&&error.Message.Contains("trampoline=");}
+                Check(refused,"mismatch explains exact prepared contract without relaxing it");
+                hook.Dispose();hook=null;
+                hook=(NativeDetour<BridgeNativeHooks.V2>)BridgeNativeHooks.CreateBackend(BridgeNativeHooks.ScanLimit(site)).CreateDetour(in request);
+                BridgeNativeHooks.Validate(hook,site,unchecked((ulong)copy.ToInt64()));
+                hook.Enable();BridgeNativeHooks.Validate(hook,site,unchecked((ulong)copy.ToInt64()));
+                Check(hook.DisplacedByteCount==15,"patched body with bounded audited scan publishes exact 15-byte V2 contract");
+            }
+            finally {hook?.Dispose();Marshal.FreeHGlobal(copy);GC.KeepAlive(callback);}
+            ExercisePreparationRollback();
+        }
+        private static void ExercisePreparationRollback()
+        {
+            var bytes=new byte[32];for(int i=0;i<bytes.Length;i++)bytes[i]=0x90;bytes[14]=0xC3;
+            IntPtr copy=Marshal.AllocHGlobal(bytes.Length);Marshal.Copy(bytes,0,copy,bytes.Length);
+            var runtime=new BridgeNativeHooks(new BridgeDecisionTrace(null,testCapture:()=>1));
+            typeof(BridgeNativeHooks).GetField("libraryBase",BindingFlags.NonPublic|BindingFlags.Instance).SetValue(runtime,unchecked((ulong)copy.ToInt64()));
+            var site=new BridgeNativeDefinition.Site(0,"rollback-copy","V2","9090909090909090909090909090",32);
+            typeof(BridgeNativeHooks).GetMethod("AddV2",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(runtime,new object[]{site});
+            var hooks=(List<IHook>)typeof(BridgeNativeHooks).GetField("permanent",BindingFlags.NonPublic|BindingFlags.Instance).GetValue(runtime);
+            Check(hooks.Count==1&&!hooks[0].IsInstalled,"candidate prepared but never published");
+            typeof(BridgeNativeHooks).GetMethod("RollbackUnpublished",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(runtime,null);
+            Check(hooks.Count==0,"failed candidate rollback clears roots");
+            var restored=new byte[32];Marshal.Copy(copy,restored,0,32);Check(Equal(bytes,restored),"candidate rollback preserves live bytes");
+            Marshal.FreeHGlobal(copy);
         }
         private static void ExerciseVoidWrappers()
         {

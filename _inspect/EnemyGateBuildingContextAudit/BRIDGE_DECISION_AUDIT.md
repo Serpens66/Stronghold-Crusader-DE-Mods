@@ -255,3 +255,55 @@ this geometric model an authoritative replacement. Active trace volume remains
 above1MB/min; the lower background fixture result does not claim otherwise.
 The next focused run can reuse the known save to inspect virtual-shadow output;
 another broad raised baseline comparison is unnecessary.
+## 2026-10-06 native installation failure and repair
+
+Frozen bridge-20261006-202236.log:59587638 bytes, SHA256
+2265CFEA8D18ED975FAC1C74B4245E4D01B08ADD2060BBEC75BA7C899C41332D.
+The20:22:36.457..20:24:41.505 session delivered37258 matching command pairs
+and a complete Bridge delivery marker. The final non-Bridge SE line is torn.
+There are no Native hooks/calls, coherent captures or shadow queries; balanced0/0
+and event captureComplete do not establish Native coverage. Bridge703 lowers,
+then all15 deck fields belong to PCL1. Bridge trace704197 bytes is not a valid
+full Native diagnostic volume benchmark. AI Build Diagnose Test contributes
+55959965 bytes to the59587638-byte file. Duplicate plugins were removed by the
+user; only the canonical Bridge DLL remains in the plugin search path.
+
+The copied live-body replay with actual V2 and installed NativeX64 reproduces
+attack-phases displacement57 instead of15. Fixes enabled its two inline patches
+at3C30F (18 displaced bytes) and3C3D9 (36 bytes). The first stub pointer in the
+failed run was0x00007FFDC7716490. Its inline bytes90 64 71 C7 FD 7F 00 00 include
+a spurious FS-prefixed JNO when scanned as code: branch from function+0x36 to
+function entry. The backend widens its prologue to include this data branch.
+This is an ASLR-dependent parsing artifact, not a genuine incoming Vanilla edge.
+The canonical full122-function/32-entry and42-function topology audits were
+renewed against the unchanged Native and backend hashes before this repair.
+
+Only attack-phases now uses scanLimit15. Its full baseline function has no incoming
+interior edges into this straight-line prefix. The trampoline resumes at3C2EF.
+Before preparation the entire1753-byte live body must match the immutable load-time
+snapshot except the two audited Fixes windows, each exactlyFF25/zero displacement,
+a nonzero eight-byte pointer and NOP tail. Unknown modifications fail closed.
+This does not relax scheme, displaced count, target, pointer-slot, entry or
+trampoline checks. The installed backend test also validates the bounded hook
+before/after Enable on a private copy. No game function or Fixes hook is executed
+by the reproduction; existing V2/V3 original-call fixtures retain ABI/return tests.
+
+Preparation failure releases only unpublished candidates after checking both the
+publicationStarted guard and every hook's uninstalled state. Enable starts the
+permanent publication boundary; no failure beyond it rolls back code. Detailed
+contract errors report expected/actual fields and phase. Startup logs the loaded
+managed DLL path/hash, and the first durable render publisher emits readiness.
+Native counters for the current map reset independently of process totals, so
+old-map calls cannot establish new-map coverage. The analyzer separates event
+capture, Native installation/calls, coherent shadow capture/results and delivery.
+Unknown shadow results remain explicit; this repair activates no behavior policy.
+
+Prebuild checks:37895 Bridge assertions,3840 Gate assertions, frozen unavailable,
+positive/negative planning, route, topology and lossless transport regressions,
+installed snapshot/public members, JSON/lifecycle, permanent hooks and CRLF pass.
+
+Installation20:43:55: the single elevated build.bat completed with zero warnings/errors.
+Installed and local DLL SHA256 both 3F24297AFC201783DCC775DBCCBE18B9BE4EF31AA6323C60EBAAE54F18D9E651.
+Transcript: _inspect/EnemyGateBuildingContextAudit/bridge-native-repair-build.log.
+A new game start is still required to confirm installation in the real process
+and obtain the first coherent shadow comparison. Version and README are unchanged.

@@ -19,6 +19,8 @@ namespace EnemyBridgePathTest
         private readonly List<Action> validate = new List<Action>();
         private readonly List<Delegate> callbacks = new List<Delegate>();
         private ulong libraryBase;
+        private bool publicationStarted;
+        internal static int ScanLimit(BridgeNativeDefinition.Site site) => site.Rva==0x3C2E0?site.Bytes.Length:site.Size;
         [UnmanagedFunctionPointer(CallingConvention.Winapi)] internal delegate void V0();
         [UnmanagedFunctionPointer(CallingConvention.Winapi)] internal delegate void V2(IntPtr p, int a);
         [UnmanagedFunctionPointer(CallingConvention.Winapi)] internal delegate void V3(IntPtr p, int a, int b);
@@ -55,10 +57,16 @@ namespace EnemyBridgePathTest
                 Marshal.Copy(new IntPtr(unchecked((long)(libraryBase + (uint)site.Rva))), live, 0, live.Length);
                 for (int i = 0; i < live.Length; i++)
                     if (live[i] != site.Bytes[i]) throw new InvalidOperationException("Native entry already changed: " + site.Name);
+                if(site.Rva==0x3C2E0)
+                {
+                    var body=new byte[site.Size];Marshal.Copy(new IntPtr(unchecked((long)(libraryBase+(uint)site.Rva))),body,0,body.Length);
+                    ValidateAttackBody(context.Memory.Slice(site.Rva,site.Size).ToArray(),body);
+                }
             }
-            PrepareAll();
-            foreach (var check in validate) check();
+            try {PrepareAll();foreach (var check in validate) check();}
+            catch {RollbackUnpublished();throw;}
             // All originals and delegates already rooted. No normal path ever disables these hooks.
+            publicationStarted=true;
             foreach (var hook in permanent) hook.Enable();
             foreach (var hook in permanent)
                 if(!hook.IsInstalled) throw new InvalidOperationException("Native diagnostic hook not installed");
@@ -72,7 +80,7 @@ namespace EnemyBridgePathTest
             callbacks.Add(callback);
             var request = new DetourRequest<T> { Name = "bridge-diagnosis-" + site.Name,
                 TargetAddress = libraryBase + (uint)site.Rva, Callback = callback };
-            var hook = (NativeDetour<T>)CreateBackend(site.Size).CreateDetour(in request);
+            var hook = (NativeDetour<T>)CreateBackend(ScanLimit(site)).CreateDetour(in request);
             permanent.Add(hook);
             validate.Add(() => Validate(hook, site, libraryBase + (uint)site.Rva));
             return hook;
@@ -82,15 +90,44 @@ namespace EnemyBridgePathTest
             if (hook.Scheme != DetourScheme.Absolute || hook.DisplacedByteCount != site.Bytes.Length ||
                 hook.TargetAddress != address || hook.PointerSlot != IntPtr.Zero ||
                 hook.HookEntryPointAddress == IntPtr.Zero || hook.TrampolineAddress == IntPtr.Zero)
-                throw new InvalidOperationException("NativeX64 contract mismatch: " + site.Name);
+                throw new InvalidOperationException("NativeX64 contract mismatch: " + Contract(hook,site,address));
             if (!hook.IsInstalled) return;
             byte[] patch = new byte[site.Bytes.Length];
             Marshal.Copy(new IntPtr(unchecked((long)address)), patch, 0, patch.Length);
             if (patch[0] != 0xFF || patch[1] != 0x25 || BitConverter.ToInt32(patch, 2) != 0 ||
                 BitConverter.ToInt64(patch, 6) != hook.HookEntryPointAddress.ToInt64())
-                throw new InvalidOperationException("NativeX64 Absolute patch mismatch: " + site.Name);
+                throw new InvalidOperationException("NativeX64 Absolute patch mismatch: " + Contract(hook,site,address));
             for (int i = 14; i < patch.Length; i++)
-                if (patch[i] != 0x90) throw new InvalidOperationException("NativeX64 padding mismatch");
+                if (patch[i] != 0x90) throw new InvalidOperationException("NativeX64 padding mismatch: "+Contract(hook,site,address));
+        }
+        private static string Contract<T>(NativeDetour<T> hook,BridgeNativeDefinition.Site site,ulong address) where T:Delegate =>
+            "site="+site.Name+",phase="+(hook.IsInstalled?"published":"prepared")+",scheme="+hook.Scheme+"/expected:Absolute,displaced="+hook.DisplacedByteCount+"/expected:"+site.Bytes.Length+
+            ",target=0x"+hook.TargetAddress.ToString("X")+"/expected:0x"+address.ToString("X")+",pointerSlot=0x"+hook.PointerSlot.ToInt64().ToString("X")+"/expected:0,hookEntry=0x"+hook.HookEntryPointAddress.ToInt64().ToString("X")+
+            "/expected:nonzero,trampoline=0x"+hook.TrampolineAddress.ToInt64().ToString("X")+"/expected:nonzero,scanLimit="+ScanLimit(site);
+        // Only a failed preparation candidate can reach this path. Published hooks
+        // stay rooted even when a later publication check fails.
+        private void RollbackUnpublished()
+        {
+            if(publicationStarted)throw new InvalidOperationException("Published hook rollback forbidden");
+            foreach(var hook in permanent)if(hook.IsInstalled)throw new InvalidOperationException("Installed hook rollback forbidden");
+            for(int i=permanent.Count-1;i>=0;i--)((IDisposable)permanent[i]).Dispose();
+            permanent.Clear();validate.Clear();callbacks.Clear();
+        }
+        internal static void ValidateAttackBody(byte[] baseline,byte[] live)
+        {
+            if(baseline.Length!=1753||live.Length!=baseline.Length)throw new InvalidOperationException("Attack body capacity mismatch");
+            var accepted=new bool[live.Length];
+            foreach(var window in new[]{Tuple.Create(0x2F,18),Tuple.Create(0xF9,36)})
+            {
+                int start=window.Item1,count=window.Item2;bool changed=false;
+                for(int i=0;i<count;i++)changed|=live[start+i]!=baseline[start+i];
+                if(!changed)continue;
+                if(live[start]!=0xFF||live[start+1]!=0x25||BitConverter.ToInt32(live,start+2)!=0||BitConverter.ToInt64(live,start+6)==0)
+                    throw new InvalidOperationException("Unknown attack-body owner patch at +0x"+start.ToString("X"));
+                for(int i=14;i<count;i++)if(live[start+i]!=0x90)throw new InvalidOperationException("Unknown attack-body patch tail");
+                for(int i=0;i<count;i++)accepted[start+i]=true;
+            }
+            for(int i=0;i<live.Length;i++)if(!accepted[i]&&live[i]!=baseline[i])throw new InvalidOperationException("Unknown attack-body change at +0x"+i.ToString("X"));
         }
         // Each wrapper has exactly one original call, outside diagnostic exception handling.
         private void AddV2(BridgeNativeDefinition.Site s)

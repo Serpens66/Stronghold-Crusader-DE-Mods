@@ -1,0 +1,12 @@
+MSBuild-Version 17.11.9+a69bbaaf5 für .NET Framework
+
+  Wiederherzustellende Projekte werden ermittelt...
+  Alle Projekte sind für die Wiederherstellung auf dem neuesten Stand.
+MSBuild-Version 17.11.9+a69bbaaf5 für .NET Framework
+
+  CrusaderDETweaker -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Fremde Mods\crusader-de-tweaker-api-integration\bin\Release\CrusaderDETweaker.dll
+=== Deploying CrusaderDETweaker ===
+  From: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Fremde Mods\crusader-de-tweaker-api-integration\bin\Release
+  To  : E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\CrusaderDETweaker
+Game is NOT running
+Deployed 7 file(s), hashes verified. Backed up 0 replaced file(s); moved 0 file(s) not in this build.

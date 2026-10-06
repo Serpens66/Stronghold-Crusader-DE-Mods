@@ -1,0 +1,21 @@
+Title: Add an independent configuration API with safe next-start application
+
+The Tweaker currently exposes configuration through files, which makes external preset tools duplicate parsing or mistake file changes for active game settings. This adds a versioned, dependency-neutral API for the option catalog, snapshots, validation and explicitly staged next-start changes.
+
+The existing generators and property handlers remain the source of defaults and validation. A bounded, checksummed transaction journal applies complete file sets before any loader runs and recovers interrupted applications. Temporary startup sets preserve personal files byte-for-byte. The facade distinguishes personal, loaded and pending configurations.
+
+Host synchronization retains its existing behavior unless a consumer explicitly opts into restart-managed synchronization. The consumer owns confirmation and start guards; the Tweaker owns transport and isolated file preparation. No consumer assembly, preset format or specific confirmation button is required.
+
+Implementation guide: docs/CONFIGURATION_API.md. Most code is contained in Config/PublicApi; existing-code changes are limited to startup ordering, generator capture, validator exposure and opt-in synchronization.
+
+Validation completed:
+- Independent facade, document and transaction tests, including malformed pending packages, legacy migration conflicts and interruption recovery.
+- Production catalog: 4,233 options and 21 property handlers; validation and document roundtrips.
+- Production core self-tests under en-US and de-DE with the separate invariant-float fix applied.
+- Runtime source checks, build and installation of the combined integration branch.
+
+Dependency: culture-independent TOML float formatting is a separate change (codex/fix-invariant-toml-floats). It is deliberately excluded here. The API-only branch builds and passes isolated API tests; the pre-existing production self-tests still fail under de-DE until that fix is applied.
+
+Acceptance still pending: standalone multiplayer without a consumer, and consumer-managed confirmation, client restart and rejoin. Do not mark these as passed until tested in game.
+
+No version, README, native-hook, Script Extender or build-detection changes are included.

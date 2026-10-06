@@ -252,10 +252,14 @@ namespace EnemyBridgePathTest
         [ThreadStatic] private static Scope current;
         [ThreadStatic] private static Scope free;
         internal BridgeDecisionTrace(ManualLogSource log,Func<int,AttackStamp> testStamp=null,Func<long> testCapture=null,Func<int,int> testRead=null,Func<int,IntPtr> testUnit=null)
-        {this.log=log;VirtualShadow=testCapture==null?new BridgeVirtualShadow(Observe,Read):null;this.testStamp=testStamp;this.testCapture=testCapture;this.testRead=testRead;this.testUnit=testUnit;
+        {this.log=log;VirtualShadow=testCapture==null?new BridgeVirtualShadow(Observe,Read,ArtifactObservation):null;this.testStamp=testStamp;this.testCapture=testCapture;this.testRead=testRead;this.testUnit=testUnit;
             Routes=new BridgeRouteTrace((kind,detail)=>CriticalObservation(kind,detail),GetRouteGeometry,LiveState,evidence:RouteEvidence,unboundChange:UnboundRouteChange);}
         internal void SetNative(IntPtr value,int length) {native=value;nativeLength=length;}
-        internal void MarkInstalled(int count) {installed=count;}
+        private string nativeUnavailable="initialization-not-completed";
+        private long sessionNativeCalls,sessionNativeExits;
+        internal void MarkInstalled(int count) {installed=count;nativeUnavailable="none";}
+        internal void MarkNativeUnavailable(string reason) {nativeUnavailable=reason.Replace(',',';').Replace('\r',' ').Replace('\n',' ');}
+        internal string NativeReadiness => "installedEntries="+installed+",expectedEntries="+BridgeNativeDefinition.Sites.Length+",nativeReady="+(installed==BridgeNativeDefinition.Sites.Length)+",nativeCallsObserved="+(Interlocked.Read(ref sessionNativeCalls)!=0)+",shadowStatus="+(installed==BridgeNativeDefinition.Sites.Length?"waiting-for-observed-rebuild-and-fresh-decision":"unavailable")+",reason=["+nativeUnavailable+"]";
         internal bool InsideNative => current!=null;
         private Scope CurrentScope => current!=null&&current.Session==Volatile.Read(ref session)?current:null;
         private long CurrentId => CurrentScope?.Id??0;
@@ -286,6 +290,7 @@ namespace EnemyBridgePathTest
             lock(regionGate) eventCounts.Clear();
             lock(captureGate) {tableImages.Clear();bridgeProgress.Clear();buildingIndex.Invalidate();}
             Interlocked.Exchange(ref session,value);
+            Interlocked.Exchange(ref sessionNativeCalls,0);Interlocked.Exchange(ref sessionNativeExits,0);
             VirtualShadow?.Begin(value);Routes.Begin(value);routeGeometryBuild=-1;lock(decisionGate)Array.Clear(decisions,0,decisions.Length);
             Array.Clear(lastPlayerPlan,0,9);Array.Clear(lastPlayerPlanTopology,0,9);Array.Clear(lastPlayerPlanPhysical,0,9);
             freshPlans=followingCommands=0;lastPlanPhysical=lastPlanTopology=-1;
@@ -322,7 +327,7 @@ namespace EnemyBridgePathTest
             var sites=new StringBuilder();
             foreach(var site in BridgeNativeDefinition.Sites) sites.Append(site.Name).Append(':').Append(Interlocked.Read(ref siteCalls[site.Index])).Append(';');
             return "entered="+capturedEntered+",exited="+capturedExited+",active="+capturedActive+",balanced="+(capturedEntered==capturedExited+capturedActive)+
-                ",incompleteCalls="+incompleteCalls+",captureFailures="+failures+",overflow="+overflow+",backgroundOverflow="+backgroundOverflow+",traceComplete="+(failures==0&&incompleteCalls==0&&overflow==0&&backgroundOverflow==0)+",deliveryPending="+(queued!=0)+",installedEntries="+installed+
+                ",incompleteCalls="+incompleteCalls+",captureFailures="+failures+",overflow="+overflow+",backgroundOverflow="+backgroundOverflow+",traceComplete="+(failures==0&&incompleteCalls==0&&overflow==0&&backgroundOverflow==0)+",deliveryPending="+(queued!=0)+",installedEntries="+installed+",expectedEntries="+BridgeNativeDefinition.Sites.Length+",sessionNativeCalls="+Interlocked.Read(ref sessionNativeCalls)+",sessionNativeExits="+Interlocked.Read(ref sessionNativeExits)+",nativeCoverageComplete="+(installed==BridgeNativeDefinition.Sites.Length&&Interlocked.Read(ref sessionNativeCalls)>0&&Interlocked.Read(ref sessionNativeCalls)==Interlocked.Read(ref sessionNativeExits)&&capturedEntered==capturedExited&&capturedActive==0&&failures==0&&incompleteCalls==0)+",nativeUnavailable=["+nativeUnavailable+"]"+
                 ",physicalGeneration="+physical+",topologyGeneration="+topology+",fullCaptures="+captures+",indexBuilds="+buildingIndex.Builds+",indexBuildMs="+(buildingIndex.BuildTicks*1000.0/Stopwatch.Frequency).ToString("F3")+
                 ",coalesced="+coalesced+",invalidIds="+invalidIds+",pooledScopesCreated="+pooledScopes+",queue="+queued+
                 ",commandPre="+commandPre+",commandPost="+commandPost+",detailedCommands="+detailedCommands+",backgroundCalls="+backgroundCalls+
@@ -341,7 +346,7 @@ namespace EnemyBridgePathTest
             scope.Rebuilt=false;scope.SelectionTables.Clear();scope.Selections.Clear();
             scope.RegionSamples.Clear();
             scope.PlanningPlayer=PlanningSite(site.Rva)?a:scope.Parent!=null&&scope.Parent.Session==run?scope.Parent.PlanningPlayer:0;
-            current=scope;lock(counterGate) {entered++;active++;} Interlocked.Increment(ref siteCalls[site.Index]);
+            current=scope;lock(counterGate) {entered++;active++;} Interlocked.Increment(ref siteCalls[site.Index]);Interlocked.Increment(ref sessionNativeCalls);
             try
             {
                 if(site.Rva==0x11A980)
@@ -459,7 +464,7 @@ namespace EnemyBridgePathTest
                 else Interlocked.Increment(ref coalesced);
             }
             catch(Exception error) {Failure(error);}
-            finally {current=scope.Parent;if(current!=null&&current.Session==scope.Session) {current.Commands+=scope.Commands;current.CandidateBuilds+=scope.CandidateBuilds;}scope.Parent=null;scope.Next=free;free=scope;lock(counterGate) {exited++;active--;}}
+            finally {if(scope.Session==Volatile.Read(ref session))Interlocked.Increment(ref sessionNativeExits);current=scope.Parent;if(current!=null&&current.Session==scope.Session) {current.Commands+=scope.Commands;current.CandidateBuilds+=scope.CandidateBuilds;}scope.Parent=null;scope.Next=free;free=scope;lock(counterGate) {exited++;active--;}}
         }
         internal long NewOperation() => Interlocked.Increment(ref sequence);
         internal bool BindRoute(int unit,uint global,int player,int tribe,long operation,long parentEvent,bool changed)
@@ -650,6 +655,12 @@ namespace EnemyBridgePathTest
                     if(bridge.Value.Plans[player]!=0)
                         Emit("bridge-comparison-status","building="+bridge.Key+"/g"+bridge.Value.Global+",player="+player+",plan="+bridge.Value.Plans[player]+",topologySettled="+!bridge.Value.Pending+",freshPlanForRelevantFields="+(bridge.Value.PlanDefinitions[player]==bridge.Value.PhysicalDefinition)+",candidateSelectionObserved="+(bridge.Value.SelectedPlans[player]==bridge.Value.Plans[player])+",assignmentObserved="+(bridge.Value.AssignedPlans[player]==bridge.Value.Plans[player])+",movementCommandObserved="+(bridge.Value.CommandPlans[player]==bridge.Value.Plans[player])+",storedRouteObserved="+(bridge.Value.StoredRoutePlans[player]!=0&&bridge.Value.StoredRoutePlans[player]==bridge.Value.Plans[player])+",movementTransitionObserved="+(bridge.Value.ExecutedRoutePlans[player]!=0&&bridge.Value.ExecutedRoutePlans[player]==bridge.Value.Plans[player])+",routePlanLink=chronological-unless-reservation-proven,globalTopologyEqualityRequired=False,routeAttribution=unproven");
         }
+        private void ArtifactObservation(long sourceSession,string kind,string detail)
+        {
+            var record=StampRecord(new Record {Kind=kind,Detail=detail});record.Session=sourceSession;
+            // This callback also runs after End; do not replace its historical session.
+            Interlocked.Increment(ref queued);lines.Enqueue(record);
+        }
         internal void Observe(string kind,string detail)
         {
             if(Volatile.Read(ref session)==0) return;
@@ -763,7 +774,7 @@ namespace EnemyBridgePathTest
                 if(count<64&&queued==0&&(Stopwatch.GetTimestamp()-start)*1000.0/Stopwatch.Frequency<2)
                     lock(endedSessions)if(endedSessions.Count!=0)
                     {
-                        long ended=endedSessions.Dequeue();
+                        long ended=endedSessions.Peek();if(VirtualShadow?.ArtifactPending(ended)==true)return;endedSessions.Dequeue();
                         var marker=StampRecord(new Record {Kind="session-delivered",Detail="captureComplete="+(active==0&&failures==0&&incompleteCalls==0&&overflow==0&&backgroundOverflow==0)+",deliveryComplete="+(deliveryErrors==0)+",deliveryErrors="+deliveryErrors+",queue=0,fileFlush=not-observed,waitForThisMarkerBeforeExit=True"});marker.Session=ended;
                         try {WriteRecord(marker);}catch {Interlocked.Increment(ref deliveryErrors);}
                     }

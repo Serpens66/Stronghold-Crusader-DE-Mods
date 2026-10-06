@@ -235,7 +235,18 @@ def analyze(raw):
     virtual_summary=dict(instrumented=bool(virtual_inputs),inputs=len(virtual_inputs),results=len(virtual_results),cancelled=len(virtual_cancelled),pending=len(virtual_pending),
                          policyUnknown=sum(f.get('policyResult')=='Unknown' for f in virtual_results.values()),
                          geometricResults=dict(collections.Counter(f.get('geometricResult') for f in virtual_results.values())))
-    return dict(virtualSummary=virtual_summary,records=records,torn=torn,missing=missing,captureComplete=capture,deliveryComplete=delivery,
+    native_ready=bool(ends) and all(int(f.get('installedEntries','0'))>0 and f.get('installedEntries')==f.get('expectedEntries',f.get('installedEntries')) for f in ends)
+    native_observed=bool(ends) and all(int(f.get('sessionNativeCalls',f.get('entered','0')))>0 for f in ends)
+    native_coverage=native_ready and native_observed and capture and not missing
+    shadow_captures=sum(f['kind']=='virtual-topology' for _,f in records)
+    shadow_coverage=native_coverage and bool(ends) and all(
+        any(f['kind']=='virtual-topology' and f['session']==end['session'] for _,f in records) and
+        any(key[0]==end['session'] for key in virtual_results) and not any(key[0]==end['session'] for key in virtual_pending)
+        for end in ends) and not missing
+    coverage=dict(eventCaptureComplete=capture,nativeReady=native_ready,nativeCallsObserved=native_observed,nativeCoverageComplete=native_coverage,
+                  coherentTopologyCaptures=shadow_captures,shadowCoverageComplete=shadow_coverage,
+                  usableGeometricResults=sum(f.get('geometricResult') in ('Reachable','NoRoute') for f in virtual_results.values()))
+    return dict(coverage=coverage,virtualSummary=virtual_summary,records=records,torn=torn,missing=missing,captureComplete=capture,deliveryComplete=delivery,
                 bridgeFileComplete=bridge_file_complete,bridgeComplete=capture and delivery and bridge_file_complete and not missing and not reconstruction,
                 fileComplete=file_complete,complete=capture and delivery and file_complete and not missing and not reconstruction,
                 reconstructionErrors=reconstruction,routeChains=chains,routeChainGroups=chain_groups,transportRecords=len(wire_transport),
@@ -295,6 +306,8 @@ def self_test():
     assert analyze(raw+shadow.splitlines(keepends=True)[0])['virtualSummary']['pending']==1
     assert analyze(raw+shadow.replace(b'sourceDefinition=1',b'sourceDefinition=99'))['missing']
     assert analyze(raw+shadow.replace(b'kind=virtual-shadow,definition=1',b'kind=virtual-shadow,definition=99'))['missing']
+    unavailable=analyze(raw.replace(b'kind=session-end,',b'kind=session-end,installedEntries=0,entered=0,exited=0,'))
+    assert unavailable['bridgeComplete'] and not unavailable['coverage']['nativeCoverageComplete'] and not unavailable['coverage']['shadowCoverageComplete']
     print('PASS analyzer: nested fields, exact low-first bytes, decision/group links, consumed-cursor boundaries, bounded completion and torn exit')
 
 def main():
@@ -302,7 +315,7 @@ def main():
     if args.self_test:self_test()
     if not args.log:return
     result=analyze(Path(args.log).read_bytes())
-    for key in ('captureComplete','deliveryComplete','bridgeFileComplete','bridgeComplete','fileComplete','complete','definitions','missing','reconstructionErrors','routeChainGroups','movementSummary','uniqueBridgeCommands','uniqueBridgeUnits','virtualSummary'):print(key,result[key])
+    for key in ('captureComplete','deliveryComplete','bridgeFileComplete','bridgeComplete','fileComplete','complete','coverage','definitions','missing','reconstructionErrors','routeChainGroups','movementSummary','uniqueBridgeCommands','uniqueBridgeUnits','virtualSummary'):print(key,result[key])
     print('records',len(result['records']),'torn',len(result['torn']),'traceBytesWithPrefixes',sum(result['volumes'].values()))
     print('volumeByKind',result['volumes'].most_common(12))
     print('bridgeRouteChains',len(result['routeChains']),'withDecision',sum(c.get('decisionMatches',False) for c in result['routeChains']))

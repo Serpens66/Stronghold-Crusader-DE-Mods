@@ -73,13 +73,17 @@ namespace EnemyBridgePathTest
         internal void InitializeNative(SHCDESE.API.LowLevel.CrusaderLibraryLoadContext context)
         {
             if(Interlocked.Exchange(ref nativeInitializationAttempted,1)!=0) return;
+            string assemblyPath=typeof(BridgeDiagnostics).Assembly.Location;
+            using(var sha=System.Security.Cryptography.SHA256.Create())
+            using(var file=System.IO.File.OpenRead(assemblyPath))
+                Shared.DebugLogHelper.LogInfo(log,"bridge loaded assembly: path="+assemblyPath+",sha256="+BitConverter.ToString(sha.ComputeHash(file)).Replace("-", ""));
             VerifyNative();
             if(!nativeVerified) return;
             // Passive data coverage remains bounded even when entry-hook preparation fails.
             Trace.SetNative(context.ModuleHandle,context.Memory.Length);
             nativeHooks = new BridgeNativeHooks(Trace);
             try { nativeHooks.Install(context,log); }
-            catch(Exception error) { Shared.DebugLogHelper.LogError(log,"Bridge native diagnosis unavailable; existing passive coverage only: "+error); }
+            catch(Exception error) { Trace.MarkNativeUnavailable(error.GetType().Name+":"+error.Message);Shared.DebugLogHelper.LogError(log,"Bridge native diagnosis unavailable; existing passive coverage only: "+error); }
             GameTimeManagerAPI.Instance.OnTick += Trace.Tick;
         }
         internal void VerifyNative() => nativeVerified = Shared.DebugLogHelper.CurrentNativeSha256 == BridgeNativeDefinition.NativeHash &&
@@ -111,7 +115,7 @@ namespace EnemyBridgePathTest
         }
         internal void Deferred()
         {
-            Trace.VirtualShadow?.Pump();Trace.Drain();
+            Trace.VirtualShadow?.Pump();Trace.VirtualShadow?.PumpArtifacts();Trace.Drain();
             if (!running || Trace.InsideNative) return;
             // Rendering is outside synchronous native dispatch. No command frame
             // may survive here, including suppressed calls without a Post event.
@@ -119,6 +123,7 @@ namespace EnemyBridgePathTest
             if (!marker)
             {
                 marker = true;
+                Trace.Observe("native-readiness",Trace.NativeReadiness);
                 Shared.DebugLogHelper.LogInfo(log, "bridge runtime confirmed after startup cleanup, epoch=" + epoch +
                     "; region/builder coverage requires mainmod movement hooks; Assassin coverage requires its existing hook. " +
                     "Missing callbacks are missing coverage, never negative reachability evidence.");
@@ -283,11 +288,14 @@ namespace EnemyBridgePathTest
             // Unit and group frames are retained through the passive Post capture.
             // Emit frozen Pre fields only, never fabricate an entry capture.
             foreach(var frame in frames)
+            {
+                if(frame.Epoch==epoch&&frame.Kind!="unit")Trace.VirtualShadow?.BridgeGroup(frame.TraceId,frame.Player);
                 if(frame.Epoch==epoch&&!frame.Detailed)
                 {
                     frame.Detailed=true;
                     Trace.Command("command-pre","op="+frame.TraceId+",parentEvent="+frame.ParentTrace+",commandKind="+frame.Kind+",id="+frame.Id+",global="+frame.Global+",tribe="+frame.Tribe+",player="+frame.Player+",command="+frame.Command+",input="+frame.X+"/"+frame.Y+",start="+frame.StartX+"/"+frame.StartY+",pcl="+frame.SourcePcl+"->"+frame.TargetPcl+",promotion=bridge-route-observed,entryData=retained-pre-fields,liveStateTiming=promotion,followingUnitOp="+unitOperation,frame.Player);
                 }
+            }
         }
         private void Pop(string kind, int id, long result)
         {

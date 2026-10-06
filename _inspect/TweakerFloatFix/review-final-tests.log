@@ -1,0 +1,6 @@
+PASS: production core self-tests under en-US
+
+Unbehandelte Ausnahme: System.Exception: Production mock self-tests failed under de-DE
+   bei RuntimeCatalogTests.Check(Boolean condition, String message) in D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Fremde Mods\crusader-de-tweaker-api-review\Tests\ConfigurationApi\RuntimeCatalogTests.cs:Zeile 106.
+   bei RuntimeCatalogTests.Run(String assemblyPath, String gameDirectory, String configurationDirectory, String output) in D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Fremde Mods\crusader-de-tweaker-api-review\Tests\ConfigurationApi\RuntimeCatalogTests.cs:Zeile 97.
+   bei Program.Main(String[] args) in D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Fremde Mods\crusader-de-tweaker-api-review\Tests\ConfigurationApi\Program.cs:Zeile 19.

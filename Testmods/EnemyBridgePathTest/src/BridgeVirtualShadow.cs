@@ -29,10 +29,15 @@ namespace EnemyBridgePathTest
             public override bool Equals(object b) => b is QueryKey value&&Equals(value);
             public override int GetHashCode() => unchecked(stage.GetHashCode()*397^player*31^from*11^to^mode*17^result^revision.GetHashCode()^identity.GetHashCode());
         }
-        private long queryId,session,revision=-1,identity,nextCapture,captureTicks,computeTicks,captures,coalesced,rejected;
+        private long queryId,session,revision=-1,identity,captureTicks,computeTicks,captures,coalesced,rejected,completedQueries;
         private long costClock,lastCaptureTicks,lastComputeTicks,lastCaptures,lastCoalesced,lastRejected;
         private Captured captured;
         private Request active;
+        private readonly BridgeInputArtifact artifacts;
+        private readonly Dictionary<long,Request> groups=new Dictionary<long,Request>();
+        private bool keepArtifact,groupArtifact;
+        internal bool ArtifactPending(long value) {lock(gate)return artifacts.Pending(value);}
+        internal void PumpArtifacts() {lock(gate)artifacts.Pump();}
         private sealed class Captured
         {
             internal long Session,Revision,Identity,Clock;
@@ -58,17 +63,28 @@ namespace EnemyBridgePathTest
             internal Captured Input;
             internal IEnemyGateRoutePolicySnapshot GatePolicy;
             internal VirtualBridgeQuery Query;
-            internal bool Authorization;
+            internal bool Authorization,PolicyValidAtDecision;
+            internal int Variant;
+            internal VirtualReachability Macro=VirtualReachability.Unknown;
+            internal readonly VirtualReachability[] Results=new VirtualReachability[6];
+            internal readonly string[] Reasons=new string[6];
+            internal readonly int[] Cuts=new int[6];
+            internal readonly long[] Expansions=new long[6];
         }
-        internal BridgeVirtualShadow(Action<string,string> emit,Func<int,int> read) {this.emit=emit;this.read=read;}
-        internal void Begin(long value) {lock(gate) {session=value;revision=-1;captured=null;pending.Clear();active=null;repeats.Clear();nextCapture=0;identity++;captures=coalesced=rejected=captureTicks=computeTicks=0;costClock=lastCaptureTicks=lastComputeTicks=lastCaptures=lastCoalesced=lastRejected=0;}}
+        internal BridgeVirtualShadow(Action<string,string> emit,Func<int,int> read,Action<long,string,string> artifactEmit=null,string artifactDirectory=null)
+        {
+            this.emit=emit;this.read=read;
+            string folder=artifactDirectory??System.IO.Path.Combine(System.IO.Path.GetDirectoryName(typeof(BridgeVirtualShadow).Assembly.Location),"Diagnostics",DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fffffff"));
+            artifacts=new BridgeInputArtifact(folder,artifactEmit??((_,kind,detail)=>emit(kind,detail)));
+        }
+        internal void Begin(long value) {lock(gate) {session=value;revision=-1;captured=null;pending.Clear();active=null;repeats.Clear();groups.Clear();keepArtifact=groupArtifact=false;identity++;completedQueries=captures=coalesced=rejected=captureTicks=computeTicks=0;costClock=lastCaptureTicks=lastComputeTicks=lastCaptures=lastCoalesced=lastRejected=0;}}
         internal void Invalidate() {lock(gate) {identity++;captured=null;}}
         internal void End()
         {
             lock(gate)
             {
                 var cancelled=new System.Text.StringBuilder();if(active!=null)cancelled.Append(active.Id).Append(';');foreach(var request in pending)cancelled.Append(request.Id).Append(';');
-                emit("virtual-shadow-end","shadowSession="+session+",captureCount="+captures+",captureMs="+Ms(captureTicks)+",computeMs="+Ms(computeTicks)+",coalesced="+coalesced+",rejected="+rejected+",pending="+(pending.Count+(active==null?0:1))+",pendingOutcome=cancelled-at-session-end,cancelledDefinitions=["+cancelled+"],behavior=unchanged");
+                emit("virtual-shadow-end","shadowSession="+session+",captureCount="+captures+",completedQueries="+completedQueries+",captureMs="+Ms(captureTicks)+",computeMs="+Ms(computeTicks)+",coalesced="+coalesced+",rejected="+rejected+",pending="+(pending.Count+(active==null?0:1))+",pendingOutcome=cancelled-at-session-end,cancelledDefinitions=["+cancelled+"],behavior=unchanged");
                 session=0;captured=null;pending.Clear();active=null;
             }
         }
@@ -79,8 +95,7 @@ namespace EnemyBridgePathTest
             {
                 revision=traceRevision;captured=null;
                 if(session==0||session!=traceSession)return;
-                long now=Stopwatch.GetTimestamp();if(now<nextCapture)return;
-                nextCapture=now+Stopwatch.Frequency;
+                long now=Stopwatch.GetTimestamp();
                 long start=now;
                 try
                 {
@@ -187,8 +202,12 @@ namespace EnemyBridgePathTest
                 IEnemyGateRoutePolicySnapshot gatePolicy=null;
                 var provider=EnemyGatePathPolicyBridge.Current as IEnemyGateRoutePolicyProvider;
                 if(provider!=null)provider.TryCaptureRoutePolicy(player,out gatePolicy);
-                var request=new Request {Id=definition,Stage=stage,Op=op,Parent=parent,Player=player,From=from,To=to,Mode=mode,Native=native,Clock=Stopwatch.GetTimestamp(),Input=captured,GatePolicy=gatePolicy};
+                var request=new Request {Id=definition,Stage=stage,Op=op,Parent=parent,Player=player,From=from,To=to,Mode=mode,Native=native,Clock=Stopwatch.GetTimestamp(),Input=captured,GatePolicy=gatePolicy,PolicyValidAtDecision=gatePolicy==null||gatePolicy.IsCurrent};
                 emit("virtual-shadow-input","definition="+definition+",stage="+stage+",op="+op+",parentOp="+parent+",player="+player+",fromTile="+from+",toTile="+to+",mode="+mode+",observationClock="+request.Clock+",sourceSession="+(captured?.Session??0)+",captureClock="+(captured?.Clock??0)+",revision="+(captured?.Revision??-1)+",captureAvailable="+(captured!=null));
+                if(player==8&&request.Input!=null&&request.PolicyValidAtDecision&&stage=="keep-access"&&!keepArtifact)
+                {keepArtifact=artifacts.Enqueue(session,definition,Artifact(request));}
+                if(stage.StartsWith("group-formation")&&mode==0)
+                {if(groups.Count>=32)groups.Clear();groups[op]=request;}
                 if(stage=="keep-access")pending.AddFirst(request);else pending.AddLast(request);
             }
         }
@@ -205,23 +224,36 @@ namespace EnemyBridgePathTest
         }
         private static int Tile(Captured input,int x,int y)
         {if((uint)x>=800||(uint)y>=800)return -1;long tile=(long)input.Rows[y]+x;return tile>=0&&tile<input.Pcl.Length&&input.X[tile]==x&&input.Y[tile]==y?(int)tile:-1;}
-        private bool Current(Request request) => request.Input!=null&&request.Input.Session==session&&request.Input.Revision==revision&&request.Input.Identity==identity&&(request.GatePolicy==null||request.GatePolicy.IsCurrent);
+        // Publication changes do not invalidate an immutable historical input.
+        // The live checks were made once, at the decision, on the simulation thread.
+        private bool Current(Request request) => request.Input!=null&&request.Input.Session==session&&request.PolicyValidAtDecision;
+        internal void BridgeGroup(long groupOp,int player)
+        {
+            lock(gate)
+            {
+                if(player!=8||groupArtifact||!groups.TryGetValue(groupOp,out Request request)||request.Input==null)return;
+                groupArtifact=artifacts.Enqueue(request.Input.Session,request.Id,Artifact(request));
+            }
+        }
         private void Prepare(Request request)
         {
             var input=request.Input;var deck=new List<int>();var affected=new HashSet<int>();bool authorized=true,boundary=true;
             foreach(var bridge in input.Decks)
             {
+                if(request.Variant%3==0||request.Variant%3==1&&bridge.Id!=703)continue;
                 if(bridge.Owner<1||bridge.Owner>8||bridge.Capturer<0||bridge.Capturer>8) {authorized=false;continue;}
                 if(input.Allies[request.Player,bridge.Owner]||bridge.Capturer!=0&&input.Allies[request.Player,bridge.Capturer])continue;
                 bool open=false;foreach(int tile in bridge.Tiles)if((input.Flags[tile]&0x40000000)==0)open=true;
                 if(open) {authorized&=bridge.Authorized;boundary&=bridge.BoundaryVerified;}
                 foreach(int tile in bridge.Tiles) {if((input.Flags[tile]&0x40000000)!=0)continue;deck.Add(tile);if(input.Pcl[tile]!=0)affected.Add(input.Pcl[tile]);}
             }
-            var connections=new List<VirtualConnection>();
+            var connections=new List<VirtualConnection>();var componentLinks=new List<VirtualComponentLink>();
+            request.UnknownRecords=0;
             for(int recordId=1;recordId<input.ConnectionLimit;recordId++)
             {
                 var r=input.Records[recordId];int buildingSlot=BridgeBuildingIndex.SpanIndex(r.r_BuildingId,input.Owners.Length);
                 bool nativeAccess=(r.r_OwnerOrAccessPlayerId>0&&r.r_OwnerOrAccessPlayerId<9&&input.Allies[request.Player,r.r_OwnerOrAccessPlayerId])||buildingSlot>=0&&input.Capturers[buildingSlot]!=0;
+                componentLinks.Add(new VirtualComponentLink(r.r_PathComponentA,r.r_PathComponentB,r.r_PathComponentC,(int)r.r_ConnectionClass,r.r_IsActive==1&&r.r_IsEnabledOrOpen!=0&&nativeAccess));
                 if(buildingSlot>=0&&input.Owners[buildingSlot]>0&&input.Owners[buildingSlot]<9)
                     nativeAccess&=input.Allies[request.Player,input.Owners[buildingSlot]]||input.Capturers[buildingSlot]>0&&input.Capturers[buildingSlot]<9&&input.Allies[request.Player,input.Capturers[buildingSlot]];
                 bool known=NativeEndpoint(input,r.r_EntryTileId,r.r_PathComponentA)&&NativeEndpoint(input,r.r_ExitTileId,r.r_PathComponentB);
@@ -233,14 +265,18 @@ namespace EnemyBridgePathTest
                 if(r.r_IsActive==1&&r.r_IsEnabledOrOpen!=0&&nativeAccess&&!known)
                 {
                     request.UnknownRecords++;
-                    if(request.UnknownRecords<=2)emit("virtual-connection-unknown","op="+request.Op+",recordId="+recordId+",captureClock="+input.Clock+",recordGlobal="+r.r_RecordGlobalId+",subjectGlobal="+r.r_SubjectGlobalId+",buildingId="+r.r_BuildingId+",unitId="+r.r_UnitId+",class="+(int)r.r_ConnectionClass+",entry="+r.r_EntryTileId+",exit="+r.r_ExitTileId+",components="+r.r_PathComponentA+"/"+r.r_PathComponentB+"/"+r.r_PathComponentC+",thirdAffected="+affected.Contains(r.r_PathComponentC)+",reason=endpoint-or-subject-global-unresolved");
+                    if(request.Variant==0&&request.UnknownRecords<=2)emit("virtual-connection-unknown","op="+request.Op+",recordId="+recordId+",captureClock="+input.Clock+",recordGlobal="+r.r_RecordGlobalId+",subjectGlobal="+r.r_SubjectGlobalId+",buildingId="+r.r_BuildingId+",unitId="+r.r_UnitId+",class="+(int)r.r_ConnectionClass+",entry="+r.r_EntryTileId+",exit="+r.r_ExitTileId+",components="+r.r_PathComponentA+"/"+r.r_PathComponentB+"/"+r.r_PathComponentC+",thirdAffected="+affected.Contains(r.r_PathComponentC)+",reason=endpoint-or-subject-global-unresolved");
                 }
                 connections.Add(new VirtualConnection(r.r_EntryTileId,r.r_ExitTileId,third,(int)r.r_ConnectionClass,r.r_IsActive==1,r.r_IsEnabledOrOpen!=0,nativeAccess,known));
             }
             var map=input.Map.WithConnections(connections.ToArray());
             request.DeckCells=deck.Count;
             request.Authorization=authorized&&boundary&&deck.Count==0&&request.GatePolicy!=null&&!request.Stage.Contains("hypothesis");
-            request.Query=new VirtualBridgeQuery(map,request.From,request.To,request.Mode,deck,true,
+            if(request.Variant==0&&request.Stage=="keep-access"&&(uint)request.From<(uint)input.Pcl.Length&&(uint)request.To<(uint)input.Pcl.Length)
+                request.Macro=VirtualComponentControl.Evaluate(input.Pcl[request.To],input.Pcl[request.From],request.Mode,componentLinks.ToArray());
+            request.Cuts[request.Variant]=deck.Count;
+            int from=request.Variant<3?request.From:request.To,to=request.Variant<3?request.To:request.From;
+            request.Query=new VirtualBridgeQuery(map,from,to,request.Mode,deck,true,
                 request.GatePolicy==null?(Func<int,int,bool>)null:request.GatePolicy.IsDirectionAllowed,
                 // The tile cut is a hypothesis until all seed/closed-boundary contracts are proven.
                 negativeProofComplete:true);
@@ -256,11 +292,13 @@ namespace EnemyBridgePathTest
                     while((Stopwatch.GetTimestamp()-start)*1000.0/Stopwatch.Frequency<1)
                     {
                         if(active==null) {if(pending.Count==0)break;active=pending.First.Value;pending.RemoveFirst();}
-                        if(!Current(active)) {Deliver("Unknown","Unknown","stale-or-missing-topology-or-policy",0,false);active=null;continue;}
+                        if(!Current(active)) {Deliver("Unknown","Unknown","missing-decision-input-or-policy",0,false);active=null;continue;}
                         if(active.Query==null)Prepare(active);
                         active.Query.Step(64);
                         if(!active.Query.Complete)continue;
-                        Deliver(active.Query.Result.ToString(),active.Authorization?active.Query.Result.ToString():"Unknown",active.Query.Reason,active.Query.Expanded,active.Query.StructureRequired);active=null;
+                        active.Results[active.Variant]=active.Query.Result;active.Reasons[active.Variant]=active.Query.Reason;active.Expansions[active.Variant]=active.Query.Expanded;
+                        if(++active.Variant<6) {active.Query=null;continue;}
+                        Deliver(active.Results[2].ToString(),"Unknown","controlled-six-variant-comparison",Sum(active.Expansions),false);active=null;
                     }
                 }
                 catch(Exception error)
@@ -272,19 +310,71 @@ namespace EnemyBridgePathTest
                 finally {computeTicks+=Stopwatch.GetTimestamp()-start;}
             }
         }
+        private IEnumerable<byte[]> Artifact(Request request)
+        {
+            var input=request.Input;
+            yield return BridgeInputArtifact.Header("nativeHash="+BridgeNativeDefinition.NativeHash+"\nbackendHash="+BridgeNativeDefinition.BackendHash+"\nsession="+input.Session+"\nrevision="+input.Revision+"\nidentity="+input.Identity+"\ncaptureClock="+input.Clock+"\nobservationClock="+request.Clock+"\ndefinition="+request.Id+"\nop="+request.Op+"\nparent="+request.Parent+"\nstage="+request.Stage+"\nplayer="+request.Player+"\nfrom="+request.From+"\nto="+request.To+"\nmode="+request.Mode+"\nnativeBoolean="+request.Native+"\nconnectionLimit="+input.ConnectionLimit+"\npolicyValidAtDecision="+request.PolicyValidAtDecision+"\nnativeDirection=target-to-attacker\nmovementDirection=attacker-to-target\nvariants=none,only703,all-hostile\ngateFilter="+(request.GatePolicy==null?"absent":"immutable-player-direction-mask"));
+            foreach(var block in BridgeInputArtifact.Section("components",input.Pcl,2))yield return block;
+            foreach(var block in BridgeInputArtifact.Section("edges",input.Edges,1))yield return block;
+            foreach(var block in BridgeInputArtifact.Section("flags",input.Flags,4))yield return block;
+            foreach(var block in BridgeInputArtifact.Section("x",input.X,2))yield return block;
+            foreach(var block in BridgeInputArtifact.Section("y",input.Y,2))yield return block;
+            foreach(var block in BridgeInputArtifact.Section("rows",input.Rows,4))yield return block;
+            foreach(var block in BridgeInputArtifact.Section("specialIds",input.SpecialIds,2))yield return block;
+            foreach(var block in BridgeInputArtifact.Section("specialKinds",input.SpecialKinds,2))yield return block;
+            foreach(var block in BridgeInputArtifact.Section("owners",input.Owners,4))yield return block;
+            foreach(var block in BridgeInputArtifact.Section("capturers",input.Capturers,4))yield return block;
+            foreach(var block in BridgeInputArtifact.Section("globals",input.Globals,4))yield return block;
+            foreach(var block in BridgeInputArtifact.Section("unitGlobals",input.UnitGlobals,4))yield return block;
+            var allies=new byte[81];for(int a=0;a<9;a++)for(int b=0;b<9;b++)allies[a*9+b]=(byte)(input.Allies[a,b]?1:0);
+            foreach(var block in BridgeInputArtifact.Section("allies",allies,1))yield return block;
+            // All consumed public record members, including raw component C (no guessed endpoint).
+            var records=new int[input.Records.Length*13];for(int i=0;i<input.Records.Length;i++)
+            {
+                var r=input.Records[i];int p=i*13;
+                records[p]=r.r_IsActive;records[p+1]=(int)r.r_ConnectionClass;records[p+2]=unchecked((int)r.r_RecordGlobalId);
+                records[p+3]=r.r_BuildingId;records[p+4]=r.r_UnitId;records[p+5]=unchecked((int)r.r_SubjectGlobalId);records[p+6]=r.r_IsEnabledOrOpen;
+                records[p+7]=r.r_EntryTileId;records[p+8]=r.r_ExitTileId;records[p+9]=r.r_PathComponentA;records[p+10]=r.r_PathComponentB;records[p+11]=r.r_OwnerOrAccessPlayerId;records[p+12]=r.r_PathComponentC;
+            }
+            foreach(var block in BridgeInputArtifact.Section("records13",records,4))yield return block;
+            var decks=new List<int>();foreach(var d in input.Decks)
+            {decks.Add(d.Id);decks.Add(unchecked((int)d.Global));decks.Add(d.Owner);decks.Add(d.Capturer);decks.Add(d.NativeParent);decks.Add(d.Authorized?1:0);decks.Add(d.BoundaryVerified?1:0);decks.Add(d.Tiles.Length);decks.AddRange(d.Tiles);}
+            foreach(var block in BridgeInputArtifact.Section("decks",decks.ToArray(),4))yield return block;
+            // Mask generation is lazy in small pieces; snapshot getter is copied managed data.
+            foreach(var block in BridgeInputArtifact.Section("gateMaskHeader",new[]{input.Pcl.Length,request.GatePolicy==null?0:1},4))yield return block;
+            for(int start=0;start<input.Pcl.Length;start+=512)
+            {
+                var mask=new byte[Math.Min(512,input.Pcl.Length-start)];for(int i=0;i<mask.Length;i++)
+                    for(int direction=0;direction<8;direction++)if(request.GatePolicy==null||request.GatePolicy.IsDirectionAllowed(start+i,direction))mask[i]|=(byte)(1<<direction);
+                foreach(var block in BridgeInputArtifact.Section("gateMaskChunk",mask,1))yield return block;
+            }
+        }
         internal void FlushCosts()
         {
             lock(gate)
             {
                 long now=Stopwatch.GetTimestamp();if(costClock==0) {costClock=now;return;}
                 double seconds=(now-costClock)/(double)Stopwatch.Frequency;if(seconds<10)return;
-                emit("interval-virtual-cost","seconds="+seconds.ToString("F3",System.Globalization.CultureInfo.InvariantCulture)+",captures="+(captures-lastCaptures)+",captureMs="+Ms(captureTicks-lastCaptureTicks)+",computeMs="+Ms(computeTicks-lastComputeTicks)+",coalesced="+(coalesced-lastCoalesced)+",rejected="+(rejected-lastRejected)+",pending="+(pending.Count+(active==null?0:1))+",activeRevision="+revision+",retainedSnapshot="+(captured!=null));
+                emit("interval-virtual-cost","seconds="+seconds.ToString("F3",System.Globalization.CultureInfo.InvariantCulture)+",captures="+(captures-lastCaptures)+",captureMs="+Ms(captureTicks-lastCaptureTicks)+",computeMs="+Ms(computeTicks-lastComputeTicks)+",coalesced="+(coalesced-lastCoalesced)+",rejected="+(rejected-lastRejected)+",pending="+(pending.Count+(active==null?0:1))+",activeRevision="+revision+",retainedSnapshot="+(captured!=null)+",artifactBytes="+artifacts.Bytes+",artifactWriteMs="+Ms(artifacts.Ticks));
                 costClock=now;lastCaptures=captures;lastCaptureTicks=captureTicks;lastComputeTicks=computeTicks;lastCoalesced=coalesced;lastRejected=rejected;
             }
         }
+        private static long Sum(long[] values) {long sum=0;foreach(long value in values)sum+=value;return sum;}
         private void Deliver(string hypothesis,string policy,string reason,long expanded,bool structure)
         {
-            emit("virtual-shadow","definition="+active.Id+",stage="+active.Stage+",op="+active.Op+",parentOp="+active.Parent+",player="+active.Player+",fromTile="+active.From+",toTile="+active.To+",nativeQueryOrder="+(active.Stage=="keep-access"?"keep-target-to-attacker":"not-observed")+",comparisonDirection=attacker-to-target,mode="+active.Mode+",observedOriginalReturn="+active.Native+",observationClock="+active.Clock+",sourceSession="+(active.Input?.Session??0)+",captureClock="+(active.Input?.Clock??0)+",revision="+(active.Input?.Revision??-1)+",geometricResult="+hypothesis+",policyResult="+policy+",policyEvidence="+(active.Authorization?"copied-baseline":"authorization-boundary-mode-or-gate-policy-unvalidated")+",reason="+reason+",candidateCutCells="+active.DeckCells+",unknownRecords="+active.UnknownRecords+",expanded="+expanded+",structureRequired="+structure+",behavior=unchanged");
+            completedQueries++;
+            if(active.Variant==6)
+            {
+                bool observed=active.Stage=="keep-access"&&active.Native>=0;
+                bool macroMatch=observed&&active.Macro!=VirtualReachability.Unknown&&(active.Macro==VirtualReachability.Reachable)==(active.Native!=0);
+                bool geometryMatch=observed&&active.Results[3]!=VirtualReachability.Unknown&&(active.Results[3]==VirtualReachability.Reachable)==(active.Native!=0);
+                for(int direction=0;direction<2;direction++)
+                {
+                    int b=direction*3;bool baseline=active.Results[b]==VirtualReachability.Reachable;
+                    emit("virtual-control","definition="+active.Id+",op="+active.Op+",parentOp="+active.Parent+",player="+active.Player+",direction="+(direction==0?"attacker-to-target":"target-to-attacker")+",mode="+active.Mode+",modeEvidence="+(observed?"observed-CF-mode":"hypothesis")+",noCut="+active.Results[b]+",only703="+active.Results[b+1]+",allHostile="+active.Results[b+2]+",cutCells="+active.Cuts[b]+"/"+active.Cuts[b+1]+"/"+active.Cuts[b+2]+",reasons=["+active.Reasons[b]+";"+active.Reasons[b+1]+";"+active.Reasons[b+2]+"],macroControl="+active.Macro+",nativeBoolean="+active.Native+",nativeDirection=target-to-attacker,macroMatchesNative="+macroMatch+",geometryMatchesNative="+geometryMatch+",cutAssessment="+(observed?macroMatch&&geometryMatch&&baseline?"conditional-baseline-agrees":"blocked-baseline-mismatch-or-unknown":baseline?"geometric-hypothesis-only":"blocked-geometric-baseline")+",historicalInput=True,captureClock="+active.Input.Clock+",revision="+active.Input.Revision+",policyResult=Unknown,behavior=unchanged");
+                }
+            }
+            emit("virtual-shadow","definition="+active.Id+",stage="+active.Stage+",op="+active.Op+",parentOp="+active.Parent+",player="+active.Player+",fromTile="+active.From+",toTile="+active.To+",nativeQueryOrder="+(active.Stage=="keep-access"?"keep-target-to-attacker":"not-observed")+",comparisonDirection=attacker-to-target,mode="+active.Mode+",observedOriginalReturn="+active.Native+",observationClock="+active.Clock+",sourceSession="+(active.Input?.Session??0)+",captureClock="+(active.Input?.Clock??0)+",revision="+(active.Input?.Revision??-1)+",geometricResult="+hypothesis+",policyResult="+policy+",policyEvidence="+(active.Authorization?"copied-baseline":"authorization-boundary-mode-or-gate-policy-unvalidated")+",historicalInput=True,decisionInputMissing="+(active.Input==null)+",policyValidAtDecision="+active.PolicyValidAtDecision+",reason="+reason+",candidateCutCells="+(active.Variant==6?active.Cuts[2]:active.DeckCells)+",unknownRecords="+active.UnknownRecords+",expanded="+expanded+",structureRequired="+structure+",behavior=unchanged");
         }
     }
 }

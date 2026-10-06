@@ -67,7 +67,7 @@ namespace EnemyBridgePathTest
             var messages=new List<string>();int reads=0;
             var shadow=new BridgeVirtualShadow((kind,detail)=>messages.Add(kind+":"+detail),_=>{reads++;throw new Exception("unexpected native read");});
             shadow.Begin(10);shadow.Compare("keep-access",1,0,8,0,4,0,0);shadow.Pump();
-            Check(messages.Count==2&&messages[1].Contains("stale-or-missing-topology-or-policy")&&reads==0,"missing capture is explicit Unknown with no render read");
+            Check(messages.Count==2&&messages[1].Contains("missing-decision-input-or-policy")&&reads==0,"missing capture is explicit Unknown with no render read");
             shadow.Compare("keep-access",2,0,8,0,4,0,0);shadow.Compare("keep-access",3,0,8,0,4,0,0);shadow.Pump();
             Check(messages.Count==2,"unchanged missing-input observations coalesced before queue");
             shadow.Invalidate();shadow.Compare("keep-access",4,0,8,0,4,0,0);shadow.End();shadow.Begin(11);shadow.Pump();

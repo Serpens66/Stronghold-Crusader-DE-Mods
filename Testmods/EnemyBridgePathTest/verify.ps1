@@ -18,7 +18,14 @@ foreach ($path in @($projectPath) + $sources) {
     }
 }
 foreach ($path in $sources) {
-    if ($path -like '*EnemyBridgePathTest\src\*' -and [IO.File]::ReadAllText($path) -match '\.(?:Dispose|Apply)\s*\(') { throw "Published diagnostic runtime teardown: $path" }
+    $runtimeText=[IO.File]::ReadAllText($path)
+    if ($path -like '*EnemyBridgePathTest\src\BridgeNativeHooks.cs') {
+        if ($runtimeText -notmatch 'if\(publicationStarted\)throw' -or $runtimeText -notmatch 'if\(hook.IsInstalled\)throw' -or
+            $runtimeText -notmatch 'catch \{RollbackUnpublished\(\);throw;\}' -or
+            [regex]::Matches($runtimeText,'\(\(IDisposable\)permanent\[i\]\)\.Dispose\(\);').Count -ne 1) { throw 'Unpublished native rollback guard changed' }
+        $runtimeText=$runtimeText.Replace('((IDisposable)permanent[i]).Dispose();','/* guarded unpublished candidate release */')
+    }
+    if ($path -like '*EnemyBridgePathTest\src\*' -and $runtimeText -match '\.(?:Dispose|Apply)\s*\(') { throw "Published diagnostic runtime teardown: $path" }
 }
 # Shared lifecycle Pair.Dispose only releases observer tokens; the static plugin retains its Pair.
 $hookSource = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/BridgeNativeHooks.cs'))
@@ -35,6 +42,8 @@ if ($traceSource -match '667E8E00|SplitLiveState|Regex|PlanCell' -or
     $traceSource -notmatch 'unit->r_AIState==0x65\|\|unit->r_AIState==0x67' -or
     $traceSource -notmatch 'WriteRecord\(StampRecord\(new Record \{Kind="session-end"') { throw 'Numeric capture/task-state/end-delivery contract regression' }
 $installed = [Reflection.Assembly]::LoadFrom('E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\SHCDESE.dll')
+$memoryProperty=$installed.GetType('SHCDESE.API.LowLevel.CrusaderLibraryLoadContext',$true).GetProperty('Memory')
+if (!$memoryProperty -or !$memoryProperty.GetMethod.IsPublic -or $memoryProperty.PropertyType.ToString() -ne 'System.ReadOnlySpan`1[System.Byte]') { throw 'Installed immutable load-time snapshot contract changed' }
 $unitType = $installed.GetType('SHCDESE.Interop.GameUnit',$true)
 foreach ($member in @(@('r_AI_ContextTargetBuildingTileId',0x3A4,'UInt32'),@('r_AIState',0x2BC,'UInt16'),@('r_AI_LastIssuedTribeCommand',0x398,'UInt16'))) {
     $field = $unitType.GetField($member[0])
@@ -91,3 +100,8 @@ $coreSource=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/VirtualBridgeGr
 if ($shadowSource -match 'TryGetBuildingById|TryGetUnitById|FindNext|FindPath|Marshal.Write|TrySet|TryReplace' -or $coreSource -match 'SHCDESE|APIShared|Marshal|IntPtr') { throw 'Virtual shadow is no longer a pure copied-input observer' }
 if ($shadowSource -notmatch 'pending.Count>=32' -or $shadowSource -notmatch 'request.Authorization=authorized&&boundary&&deck.Count==0' -or $shadowSource -notmatch 'read\(0x60AD6CC\)!=0\|\|read\(0x60AD6D4\)!=nativeRevision') { throw 'Virtual coherence/negative-policy gate regression' }
 Write-Host 'PASS: virtual public copy/member contracts, bounded shadow queue and unvalidated policy fail-open.'
+if ($hookSource -notmatch 'site.Rva==0x3C2E0\?site.Bytes.Length:site.Size' -or
+    $hookSource -notmatch 'ValidateAttackBody\(context.Memory.Slice' -or
+    $hookSource -notmatch 'Tuple.Create\(0x2F,18\),Tuple.Create\(0xF9,36\)' -or
+    $hookSource -notmatch 'Unknown attack-body change') { throw 'Audited patched attack-body scanner contract changed' }
+Write-Host 'PASS: exact bounded attack entry and whole-body patch whitelist; failed unpublished candidates only can roll back.'
