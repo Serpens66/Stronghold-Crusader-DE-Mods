@@ -2,10 +2,12 @@ using APIShared;
 using RedBird.X64.Assembly;
 using SHCDESE.Interop;
 
-namespace GatehouseLivingCaptureTest
+namespace BugfixesAndQoL.GatehouseLivingCapture
 {
     internal static unsafe class CaptureDecision
     {
+        internal static bool IsEnabled(bool enableMod, bool enableFix) => enableMod && enableFix;
+
         // Never make a Vanilla-ineligible unit eligible. A failed lookup keeps Vanilla's result.
         internal static void Apply(X64SmartCPUContext* context, GameUnit* unit, bool active)
         {

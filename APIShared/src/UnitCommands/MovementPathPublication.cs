@@ -17,6 +17,7 @@ namespace APIShared.UnitCommands
 {
     internal sealed unsafe partial class UnitCommandPathRuntime
     {
+        private bool assassinExactPublicationLogged;
         internal int BuildPathWithCompletedMoatRouteVariant(
             IntPtr pathManager, int movementClass, int movementProfile)
         {
@@ -27,20 +28,82 @@ namespace APIShared.UnitCommands
             object temporaryRoute = BeginTemporaryRouteReport(pathManager, "F4930-builder");
             int result = 0;
             bool completed = false;
+            AssassinRouteHandoff assassinRoute;
+            try { assassinRoute = BeginAssassinRoutePublication(pathManager); }
+            catch (Exception ex)
+            {
+                TryLogDiagnosticFailure("assassin-route-capture", ex);
+                assassinRoute = new AssassinRouteHandoff(pathManager, 0, 0, 0, 0, 0, null, null);
+            }
             try
             {
                 result = BuildPathWithCompletedMoatRouteVariantWithMoat(
                     pathManager, movementClass, movementProfile);
+                try { result = assassinRoute.Complete(result); }
+                catch (Exception ex) { TryLogDiagnosticFailure("assassin-route-publication", ex); }
                 completed = true;
                 return result;
             }
             finally
             {
+                assassinRoute.Leave();
                 EndTemporaryRouteReport(pathManager, temporaryRoute, completed, result);
                 EndEnemyGateSearch(gate, gateScope, EnemyGateSearchKind.Builder,
                     completed, result > 0);
                 EnemyBridgeDiagnosticBridge.EndSearch(bridgeSearch, completed, result);
             }
+        }
+
+        private AssassinRouteHandoff BeginAssassinRoutePublication(IntPtr pathManager)
+        {
+            // Even an unqualified nested builder must shadow the outer handoff.
+            if (nativeManualProbe || pathManager != nativePathManager || nativeUnitManager == null)
+                return new AssassinRouteHandoff(pathManager, 0, 0, 0, 0, 0, null, null);
+            byte* manager = (byte*)pathManager.ToPointer();
+            byte* path = *(byte**)(manager + PathManagerOutputBufferOffset);
+            long offset = path - (nativeUnitManager + NativeUnitPathBufferOffset);
+            int unitId = offset > 0 && offset % NativeUnitPathBufferStride == 0 &&
+                offset / NativeUnitPathBufferStride <= MaximumUnitCount
+                ? (int)(offset / NativeUnitPathBufferStride) : 0;
+            int sx = *(int*)(manager + 8), sy = *(int*)(manager + 12);
+            int tx = *(int*)(manager + 16), ty = *(int*)(manager + 20);
+            if (!UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
+                unit == null || unit->r_UnitChimp != eChimps.CHIMP_TYPE_ARAB_ASSASIN)
+                return new AssassinRouteHandoff(pathManager, sx, sy, tx, ty, 0, null, null);
+            uint global = unit->r_GlobalId;
+            int player = unit->r_ControllableForPlayerId;
+            IntPtr expectedPath = (IntPtr)path;
+            Func<bool> valid = () =>
+            {
+                if (pathManager != nativePathManager || nativeUnitManager == null ||
+                    !UnitAccess.TryGetById(unitId, out GameUnit* live, out _) ||
+                    !UnitAccess.IsReallyAlive(live) || live->r_GlobalId != global ||
+                    live->r_UnitChimp != eChimps.CHIMP_TYPE_ARAB_ASSASIN ||
+                    live->r_ControllableForPlayerId != player) return false;
+                GetNativeMovementStart(live, out int x, out int y);
+                byte* m = (byte*)pathManager.ToPointer();
+                int length = *(int*)(m + PathManagerOutputLengthOffset);
+                return x == sx && y == sy && *(int*)(m + 8) == sx && *(int*)(m + 12) == sy &&
+                    *(int*)(m + 16) == tx && *(int*)(m + 20) == ty && length >= 0 && length <= 2000 &&
+                    *(int*)(m + 0x88) != 0 && *(int*)(m + 0x84) == 0 && *(int*)(m + 0x94) == 0 &&
+                    *(IntPtr*)(m + PathManagerOutputBufferOffset) == expectedPath &&
+                    (byte*)expectedPath == nativeUnitManager + NativeUnitPathBufferOffset + unitId * NativeUnitPathBufferStride;
+            };
+            return new AssassinRouteHandoff(pathManager, sx, sy, tx, ty, player, valid, (bytes, count) =>
+            {
+                // No callback or fallible conversion occurs between the final proof and these data writes.
+                byte* destination = (byte*)expectedPath;
+                for (int i = 0; i < NativeUnitPathBufferStride; i++)
+                    destination[i] = i < bytes.Length ? bytes[i] : (byte)0;
+                *(int*)((byte*)pathManager.ToPointer() + PathManagerOutputLengthOffset) = count;
+                if (!assassinExactPublicationLogged)
+                {
+                    assassinExactPublicationLogged = true;
+                    try { Shared.DebugLogHelper.LogInfo(log, $"Assassin exact route published after native reconstruction; unit={unitId} global={global} start=({sx},{sy}) target=({tx},{ty}) directions={count}."); }
+                    catch { /* Logging cannot turn a published route into a native failure. */ }
+                }
+                return count;
+            });
         }
 
         internal int BuildPathWithCompletedMoatRouteVariantWithMoat(

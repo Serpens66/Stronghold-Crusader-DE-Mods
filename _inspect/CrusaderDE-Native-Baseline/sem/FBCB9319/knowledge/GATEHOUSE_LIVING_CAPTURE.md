@@ -24,7 +24,7 @@ Installed SE exposes public `r_AliveState : AliveState` (signed Int16) and `N000
 
 SE scoring/capture hooks at `B757A/B790B`, Fixes farmer hook at `B7C39`, and APIShared later distance/timing/automation spans do not overlap. Canonical local Fixes source reviewed at commit `226e2e6960ad6f5992d4f5410d701161bb1cdc77`. Baseline SE provenance remains recorded in DATABASE_INFO.json; current fork/installed assembly are checked separately and not assumed equal to that older provenance.
 
-Runtime installation is native-hash/layout/byte/backend guarded. Offline native and machine tests belong to Testmods/GatehouseLivingCaptureTest; actual gatehouse, save/load and real multiplayer acceptance require gameplay evidence and must not be inferred from successful installation.
+Runtime installation is native-hash/layout/byte/backend guarded. Offline native and machine tests now belong to BugfixesAndQoL/tests/GatehouseLivingCapture.Tests; actual gatehouse, save/load and real multiplayer acceptance require gameplay evidence and must not be inferred from successful installation.
 ## Gameplay log evidence, 2026-10-07
 
 The user reports successful in-game capture testing. The relevant BepInEx session ran approximately 22:28-22:33 with Fixes 1.25.1.0 loaded, in MapEditor. A later 22:34-22:36 session contains no GatehouseLivingCaptureTest markers and is not evidence for this hook.
@@ -37,3 +37,9 @@ The user reports successful in-game capture testing. The relevant BepInEx sessio
 - Separate warnings concern map archives, Lua unload state and ImGui exports. The log provides no link between those warnings and the gatehouse filter.
 
 This establishes execution and exclusion of a death-marked IsAlive unit alongside Fixes, together with the user's positive visual test. It does not independently establish every gatehouse variant, save/load or real multiplayer acceptance. Previous statements that gameplay/Fixes acceptance remained wholly unperformed are superseded by this limited evidence.
+
+## Main-mod integration, 2026-10-07
+
+The tested capture filter is integrated into BugfixesAndQoL with default-enabled host setting EnableGatehouseLivingCaptureFix, gated by EnableMod. Static runtime/delegate/transaction roots survive startup cleanup. LibraryLoaded installs once; settings update an atomic data flag, preserving Vanilla when inactive. No timer, scan, hook repatch or normal teardown is introduced. Emitter/native definition/decision and installation/callback error boundaries were compared directly with the testmod before removal; only namespace, activation and diagnostics change. The integrated production sources pass the same 648 actual RedBird machine cases and additional activation/reactivation checks. Host/preset tests cover missing keys, stored false, client lock and host synchronization; reset and UI placement are statically checked. One execution confirmation remains at Info; installation details are Debug-only; per-unit logs are removed. In-game acceptance of this integration and real multiplayer are still pending, independently of the successful original testmod gameplay evidence above.
+
+Integration installation completed: BugfixesAndQoL 1.0.176 (assembly 1.0.176.0), all driver regressions passed, 48 installed package files match local hashes. Standalone testmod removed; backend tests and comparison remain in BugfixesAndQoL/tests/GatehouseLivingCapture.Tests. Installed/local APIShared match A1B08496BEE16EDCACB66B657BD342168F6B74B7F0508BF7F0ABC02F964A2DB1 following the other chat's dependency build. Main-mod gameplay and real multiplayer acceptance remain pending.

@@ -2,10 +2,10 @@
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" />
   <PropertyGroup>
-    <OutputType>Exe</OutputType><AssemblyName>GatehouseLivingCaptureTest.Tests</AssemblyName>
+    <OutputType>Exe</OutputType><AssemblyName>GatehouseLivingCapture.Tests</AssemblyName>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion><LangVersion>latest</LangVersion>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks><PlatformTarget>x64</PlatformTarget><OutputPath>tests\bin\</OutputPath>
-    <BaseIntermediateOutputPath>tests\obj\</BaseIntermediateOutputPath>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks><PlatformTarget>x64</PlatformTarget><OutputPath>bin\</OutputPath>
+    <BaseIntermediateOutputPath>obj\</BaseIntermediateOutputPath>
     <GameDir Condition="'$(GameDir)' == ''">E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir>
     <ExtenderDir Condition="'$(ExtenderDir)' == ''">$(GameDir)\BepInEx\plugins\000shcdese</ExtenderDir>
   </PropertyGroup>
@@ -23,11 +23,11 @@
     <Reference Include="Microsoft.Extensions.Logging.Abstractions"><HintPath>$(ExtenderDir)\Microsoft.Extensions.Logging.Abstractions.dll</HintPath><Private>true</Private></Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="src\CaptureAdapterEmitter.cs" /><Compile Include="src\NativeDefinition.cs" /><Compile Include="src\CaptureDecision.cs" />
-    <Compile Include="src\CaptureRuntime.cs" /><Compile Include="src\GatehouseLivingCaptureTestPlugin.cs" />
-    <Compile Include="..\..\Shared\NativePatternResolver.cs" /><Compile Include="..\..\Shared\DebugLogHelper.cs" />
-    <Compile Include="..\..\APIShared\src\UnitAccess.cs"><Link>Production\UnitAccess.cs</Link></Compile>
-    <Compile Include="tests\Program.cs" /><Compile Include="tests\NativeAudit.cs" />
+    <Compile Include="..\..\src\GatehouseLivingCapture\CaptureAdapterEmitter.cs" /><Compile Include="..\..\src\GatehouseLivingCapture\NativeDefinition.cs" /><Compile Include="..\..\src\GatehouseLivingCapture\CaptureDecision.cs" />
+    <Compile Include="..\..\src\GatehouseLivingCapture\CaptureRuntime.cs" />
+    <Compile Include="..\..\..\Shared\NativePatternResolver.cs" /><Compile Include="..\..\..\Shared\DebugLogHelper.cs" />
+    <Compile Include="..\..\..\APIShared\src\UnitAccess.cs"><Link>Production\UnitAccess.cs</Link></Compile>
+    <Compile Include="Program.cs" /><Compile Include="NativeAudit.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

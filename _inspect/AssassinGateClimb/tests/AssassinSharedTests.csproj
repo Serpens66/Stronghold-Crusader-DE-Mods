@@ -29,6 +29,7 @@
     <Compile Include="Program.cs" />
     <Compile Include="..\..\..\APIShared\src\AssassinGateTransitionPolicy.cs" />
     <Compile Include="..\..\..\APIShared\src\AssassinPathAPI.cs" />
+    <Compile Include="..\..\..\APIShared\src\AssassinRouteHandoff.cs" />
     <Compile Include="..\..\..\APIShared\src\AssassinEndpointEmitter.cs" />
     <Compile Include="..\..\..\APIShared\src\AssassinPathNativeDefinition.cs" />
     <Compile Include="..\..\..\APIShared\src\NativeInfrastructure.cs" />

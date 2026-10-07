@@ -90,6 +90,8 @@ namespace BugfixesAndQoL
         private bool aiKeepRangeInitializationAttempted;
         private static WorkerBreakPauseHook processWorkerBreakPauseHook;
         private static WorkshopIdleDelayHook processWorkshopIdleDelayHook;
+        private static GatehouseLivingCapture.CaptureRuntime processGatehouseLivingCaptureRuntime;
+        private static bool gatehouseLivingCaptureInitializationAttempted;
         private static AiRaidRetargetFixRuntime processAiRaidRetargetFixRuntime;
         private static bool aiRaidRetargetInitializationAttempted;
         private static bool workshopIdleTickSubscribed, workshopIdleTickLogged;
@@ -442,6 +444,13 @@ namespace BugfixesAndQoL
             TryInitializeFeature(
                 "friendly moat movement",
                 () => InitializeFriendlyMoatMovement(context, isFixedLayoutHashValidated));
+            TryInitializePersistentFeature("gatehouse living capture", () =>
+            {
+                if (gatehouseLivingCaptureInitializationAttempted) return;
+                gatehouseLivingCaptureInitializationAttempted = true;
+                processGatehouseLivingCaptureRuntime = new GatehouseLivingCapture.CaptureRuntime(log);
+                processGatehouseLivingCaptureRuntime.Install(context, settings.EnableMod, settings.EnableGatehouseLivingCaptureFix);
+            });
             TryInitializePersistentFeature("AI melee raid retarget fix", () =>
             {
                 if (aiRaidRetargetInitializationAttempted) return;
@@ -496,6 +505,7 @@ namespace BugfixesAndQoL
 
         public void ApplySettings()
         {
+            processGatehouseLivingCaptureRuntime?.SetEnabled(settings.EnableMod, settings.EnableGatehouseLivingCaptureFix);
             processAIKeepRangeRuntime?.Refresh();
             TryApplyFeature("AI melee raid retarget fix", () => processAiRaidRetargetFixRuntime?.SetEnabled(
                 settings.EnableMod && settings.EnableAiRaidRetargetFix));

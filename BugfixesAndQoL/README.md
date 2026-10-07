@@ -107,6 +107,10 @@ When the host leaves a running two-player match without Vanilla's normal leave p
 ### Remove disbanded units from control groups
 Fix that immediately removes disbanded units from every control group. This prevents the resulting peasants, or soldiers later recruited from them, from inheriting stale group membership.
 
+### Ignore dead units during gatehouse capture
+
+Gatehouses can be captured while dead units are still visible on top. Dead attackers and defenders no longer count; living defenders still block capture. This host setting is enabled by default and can be switched off under Fixes.
+
 ### Gate distance from center
 Gatehouses now measure the distance to enemy based on their center, not based on on of the gates. It was only noticeable with small closing distance, that the clsing distance was different depending from which side you got closer to the gate.
 

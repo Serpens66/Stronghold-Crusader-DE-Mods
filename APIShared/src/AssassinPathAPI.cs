@@ -163,6 +163,22 @@ namespace APIShared
             Volatile.Write(ref flags, value);
         }
 
+        /// <summary>
+        /// Stages an exact low-nibble-first route for the current owned single-unit builder.
+        /// The synchronous validator is called again before publication; no route survives its frame.
+        /// </summary>
+        public static bool TryStageWeightedRoute(string ownerGuid, IntPtr context,
+            int startX, int startY, int targetX, int targetY, int playerId,
+            byte[] packedDirections, int directionCount, Func<bool> validate)
+        {
+            if (!string.Equals(weightedOwner, ownerGuid, StringComparison.Ordinal)) return false;
+            return AssassinRouteHandoff.Stage(context, startX, startY, targetX, targetY,
+                playerId, packedDirections, directionCount, validate);
+        }
+
+        /// <summary>A single-unit builder is active; failed staging must preserve its native field.</summary>
+        public static bool HasSingleUnitRoutePublication => AssassinRouteHandoff.HasFrame;
+
         private static int Build(IntPtr context, int startX, int startY, int targetX,
             int targetY, int maximumNodes, int continuation)
         {

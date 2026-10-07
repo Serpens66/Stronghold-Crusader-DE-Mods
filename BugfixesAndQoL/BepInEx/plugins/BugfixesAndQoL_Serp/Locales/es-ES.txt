@@ -377,3 +377,5 @@ BugfixesAndQoL.RemoveAIKeepRangeLimit=Do not limit AI keep build range
 BugfixesAndQoL.RemoveAIKeepRangeLimitHelp=Removes only the own/allied Keep distance check for all AI construction paths. Human players retain their normal range, including an optional ExtraFeatures override. Terrain, occupancy, enemy proximity and all other building requirements still apply.
 BugfixesAndQoL.EnableImprovedManualUnitCommands=Órdenes manuales mejoradas para unidades
 BugfixesAndQoL.EnableImprovedManualUnitCommandsHelp=Permite que las unidades que pueden llegar al destino ejecuten órdenes manuales de movimiento, movimiento en cola, patrulla, ataque y trabajo en el foso, incluso si ya están dentro de él. Usa las rutas originales del juego; los cruces adicionales de fosos aliados requieren MoatMove. Ajuste del anfitrión.
+BugfixesAndQoL.EnableGatehouseLivingCaptureFix=Gatehouse capture: ignore dead units
+BugfixesAndQoL.EnableGatehouseLivingCaptureFixHelp=Dead attackers and defenders no longer count during Vanilla's regular gatehouse capture check. Living defenders still block capture.

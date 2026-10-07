@@ -268,6 +268,15 @@
         <member name="M:APIShared.AssassinPathAPI.ClassifyNativeTransition(System.Int32,System.Int32,System.Int32,System.Boolean)">
             <summary>Reads the physical connection/surface branch only; never invokes a native step or changes state.</summary>
         </member>
+        <member name="M:APIShared.AssassinPathAPI.TryStageWeightedRoute(System.String,System.IntPtr,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Byte[],System.Int32,System.Func{System.Boolean})">
+            <summary>
+            Stages an exact low-nibble-first route for the current owned single-unit builder.
+            The synchronous validator is called again before publication; no route survives its frame.
+            </summary>
+        </member>
+        <member name="P:APIShared.AssassinPathAPI.HasSingleUnitRoutePublication">
+            <summary>A single-unit builder is active; failed staging must preserve its native field.</summary>
+        </member>
         <member name="T:APIShared.AssassinTransitionKind">
             <summary>The physical Assassin movement branch, not merely search eligibility.</summary>
         </member>
@@ -285,6 +294,9 @@
         </member>
         <member name="T:APIShared.AssassinGateTransitionPolicy">
             <summary>Pure rules from DCE60 and E1640; no hooks, game queries or mutable state.</summary>
+        </member>
+        <member name="M:APIShared.AssassinGateTransitionPolicy.HasOrdinaryConnection(System.Byte,System.Byte,System.Byte,System.Byte)">
+            <summary>Vanilla physical stepping accepts either endpoint's native connection.</summary>
         </member>
         <member name="M:APIShared.AssassinGateTransitionPolicy.Classify(System.Int32,System.Byte,System.Byte,System.Byte,System.Byte,System.UInt32,System.UInt32,System.Boolean,System.Boolean,System.Boolean)">
             <summary>Both connection directions precede the physical climb branch.</summary>

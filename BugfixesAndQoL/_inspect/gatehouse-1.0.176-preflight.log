@@ -1,0 +1,7 @@
+BugfixesAndQoL runtime JSON/lifecycle and XAML patch preflight succeeded.
+
+  GatehouseLivingCapture.Tests -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\tests\GatehouseLivingCapture.Tests\bin\GatehouseLivingCapture.Tests.exe
+PASS: exact native/full-handler hashes, all handler branch boundaries, chain backedge, unique executable signature.
+PASS: feature/main switches, unpublished state, disable and reactivation.
+PASS: 648 native machine cases; callback errors=243
+PASS: installed GameUnit layout, life helper, real RedBird span/patch/JE, registers, XMM, stack, entry/backedge, inactive/invalid/error paths.

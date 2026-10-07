@@ -28,6 +28,7 @@ namespace BugfixesAndQoL
         private bool enableAiStoneReserveFix = true;
         private bool enableAiDefensePatrolFix = true;
         private bool enableAiRaidRetargetFix = true;
+        private bool enableGatehouseLivingCaptureFix = true;
         private bool enableAiWallTargetingFix = true;
         private bool enablePrebuiltAiWorkshopBothFix = true;
         private bool enableBakerMillerBreaks;
@@ -231,6 +232,8 @@ namespace BugfixesAndQoL
         public string EnableHostFeaturesHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableHostFeaturesHelp");
         public string ResetToDefaultText => SerpLocalization.Get(SerpLocalization.ResetToDefault);
         public string QolTitleText => SerpLocalization.Get("BugfixesAndQoL.QolTitle");
+        public string EnableGatehouseLivingCaptureFixText => SerpLocalization.Get("BugfixesAndQoL.EnableGatehouseLivingCaptureFix");
+        public string EnableGatehouseLivingCaptureFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableGatehouseLivingCaptureFixHelp");
         public string FixesTitleText => SerpLocalization.Get("BugfixesAndQoL.FixesTitle");
         public string PossibleFixesTitleText => SerpLocalization.Get("BugfixesAndQoL.PossibleFixesTitle");
         public string EnableWorkshopIdleDelayFixText => SerpLocalization.Get("BugfixesAndQoL.EnableWorkshopIdleDelayFix");
@@ -905,6 +908,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableGatehouseLivingCaptureFix
+        {
+            get => enableGatehouseLivingCaptureFix;
+            set => SetSetting(ref enableGatehouseLivingCaptureFix, value, nameof(EnableGatehouseLivingCaptureFix));
+        }
+
+        [SyncHostOnly]
         public bool EnableAiDefensePatrolFix
         {
             get => enableAiDefensePatrolFix;
@@ -1362,6 +1372,7 @@ namespace BugfixesAndQoL
                 EnableAiStoneReserveFix = true;
                 EnableAiDefensePatrolFix = true;
                 EnableAiRaidRetargetFix = true;
+                EnableGatehouseLivingCaptureFix = true;
                 EnableAiWallTargetingFix = true;
                 EnableBakerMillerBreaks = false;
                 EnableWorkshopIdleDelayFix = false;

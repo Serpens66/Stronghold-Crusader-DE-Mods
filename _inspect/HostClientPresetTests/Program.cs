@@ -2033,6 +2033,7 @@ internal static class Program
         var setting = new SurrenderAndStatisticsSettingViewModel();
         setting.PreparePresets(null, pluginPath, "SurrenderAndStatisticsSettingTest");
         setting.ActivatePresets();
+        Check(setting.EnableGatehouseLivingCaptureFix, "gatehouse fix did not default to true" );
         Check(setting.EnableAiFixes, "EnableAiFixes did not default to true");
         Check(setting.EnableSurrenderAndStatistics, "EnableSurrenderAndStatistics did not default to true");
         Check(setting.EnableLordUnitControls, "EnableLordUnitControls did not default to true");
@@ -2046,6 +2047,7 @@ internal static class Program
             "AllowFullAiMultiplayerLobby did not default to true");
         Check(typeof(SurrenderAndStatisticsSettingViewModel).GetProperty("EnableSurrender") == null,
             "obsolete EnableSurrender property remains present");
+        setting.EnableGatehouseLivingCaptureFix = false;
         setting.EnableAiFixes = false;
         setting.EnableSurrenderAndStatistics = false;
         setting.EnableLordUnitControls = false;
@@ -2053,6 +2055,7 @@ internal static class Program
         setting.EnableAbruptHostMigrationFix = false;
         setting.EnableReturnToMultiplayerLobby = false;
         setting.AllowFullAiMultiplayerLobby = false;
+        Check(!setting.EnableGatehouseLivingCaptureFix, "gatehouse false did not round-trip through presets");
         Check(!setting.EnableAiFixes, "EnableAiFixes did not round-trip through presets");
         Check(!setting.EnableSurrenderAndStatistics, "shared host value did not round-trip through presets");
         Check(!setting.EnableLordUnitControls, "Lord-controls host value did not round-trip through presets");
@@ -2089,6 +2092,14 @@ internal static class Program
             $"(EnableAiFixes={migratedSetting.EnableAiFixes}, " +
             $"EnableSurrenderAndStatistics={migratedSetting.EnableSurrenderAndStatistics}, " +
             $"SelectedPreset={migratedSetting.SelectedPreset})");
+        Check(!migratedSetting.EnableGatehouseLivingCaptureFix, "stored gatehouse false did not survive reload");
+        stalePreset.Remove(nameof(setting.EnableGatehouseLivingCaptureFix));
+        stalePayload["__SerpCurrentSettings"] = MessagePackSerializer.Serialize(stalePreset);
+        File.WriteAllBytes(settingsPath, MessagePackSerializer.Serialize(stalePayload));
+        var missingGatehouseSetting = new SurrenderAndStatisticsSettingViewModel();
+        missingGatehouseSetting.PreparePresets(null, pluginPath, "SurrenderAndStatisticsSettingTest");
+        missingGatehouseSetting.ActivatePresets();
+        Check(missingGatehouseSetting.EnableGatehouseLivingCaptureFix, "missing gatehouse preset key did not retain true default");
         string workspaceRoot = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", ".."));
         string bugfixesViewModelSource = File.ReadAllText(
             Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "BugfixesAndQoLViewModel.cs"));
@@ -2112,6 +2123,11 @@ internal static class Program
               normalizedBugfixesViewModelSource.Contains("[SyncHostOnly]\n        public bool EnableShiftRepairAllBuildings") &&
               bugfixesViewModelSource.Contains("EnableShiftRepairAllBuildings = true;"),
             "Shift-repair all buildings is not a default-enabled, resettable host setting");
+        Check(normalizedBugfixesViewModelSource.Contains("private bool enableGatehouseLivingCaptureFix = true;") &&
+              normalizedBugfixesViewModelSource.Contains("[SyncHostOnly]\n        public bool EnableGatehouseLivingCaptureFix") &&
+              bugfixesViewModelSource.Contains("EnableGatehouseLivingCaptureFix = true;") &&
+              bugfixesViewModelSource.Contains("SetSetting(ref enableGatehouseLivingCaptureFix, value, nameof(EnableGatehouseLivingCaptureFix))"),
+            "gatehouse production setting is not default-enabled, resettable and host-managed");
         string bugfixesRuntimeSource = File.ReadAllText(
             Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "BugfixesAndQoLRuntime.cs"));
         Check(bugfixesRuntimeSource.Contains(
@@ -2215,10 +2231,13 @@ internal static class Program
             "client mutated the host-only EnableAbruptHostMigrationFix setting");
         Check(!setting.EnableReturnToMultiplayerLobby,
             "client mutated the host-only EnableReturnToMultiplayerLobby setting");
+        setting.EnableGatehouseLivingCaptureFix = true;
+        Check(!setting.EnableGatehouseLivingCaptureFix, "client changed the gatehouse host setting");
         Check(!setting.AllowFullAiMultiplayerLobby,
             "client mutated the host-only AllowFullAiMultiplayerLobby setting");
         GameXAMLManagerAPI.Instance.ApplyNetworkSync(setting, () =>
         {
+            setting.EnableGatehouseLivingCaptureFix = true;
             setting.EnableAiFixes = true;
             setting.EnableSurrenderAndStatistics = true;
             setting.EnableLordUnitControls = true;
@@ -2227,6 +2246,7 @@ internal static class Program
             setting.EnableReturnToMultiplayerLobby = true;
             setting.AllowFullAiMultiplayerLobby = true;
         });
+        Check(setting.EnableGatehouseLivingCaptureFix, "host sync did not update gatehouse fix");
         Check(setting.EnableAiFixes, "authoritative host sync did not update EnableAiFixes");
         Check(setting.EnableSurrenderAndStatistics, "authoritative host sync did not update EnableSurrenderAndStatistics");
         Check(setting.EnableLordUnitControls, "authoritative host sync did not update EnableLordUnitControls");
@@ -5966,12 +5986,26 @@ internal sealed class SnapshotCompletionProbeViewModel : PresetLobbyModSettingsV
 internal sealed class SurrenderAndStatisticsSettingViewModel : PresetLobbyModSettingsViewModel
 {
     private bool enableAiFixes = true;
+    private bool enableGatehouseLivingCaptureFix = true;
     private bool enableSurrenderAndStatistics = true;
     private bool enableLordUnitControls = true;
     private bool enableEliminatedPlayersBecomeSpectators = true;
     private bool enableAbruptHostMigrationFix = true;
     private bool enableReturnToMultiplayerLobby = true;
     private bool allowFullAiMultiplayerLobby = true;
+
+    [SyncHostOnly]
+    public bool EnableGatehouseLivingCaptureFix
+    {
+        get => enableGatehouseLivingCaptureFix;
+        set
+        {
+            if (!CanMutateSetting(nameof(EnableGatehouseLivingCaptureFix)) || enableGatehouseLivingCaptureFix == value)
+                return;
+            enableGatehouseLivingCaptureFix = value;
+            OnPropertyChanged(nameof(EnableGatehouseLivingCaptureFix));
+        }
+    }
 
     [SyncHostOnly]
     public bool EnableAiFixes

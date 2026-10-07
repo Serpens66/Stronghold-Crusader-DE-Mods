@@ -31,3 +31,23 @@ The user reports successful in-game capture testing. The relevant BepInEx sessio
 - Separate warnings concern map archives, Lua unload state and ImGui exports. The log provides no link between those warnings and the gatehouse filter.
 
 This establishes execution and exclusion of a death-marked IsAlive unit alongside Fixes, together with the user's positive visual test. It does not independently establish every gatehouse variant, save/load or real multiplayer acceptance. Previous statements that gameplay/Fixes acceptance remained wholly unperformed are superseded by this limited evidence.
+
+## Main-mod integration, 2026-10-07
+
+- PASS: original and integrated production sources each pass 648 installed-backend machine cases; 243 synthetic exceptions are deliberate fail-open cases.
+- PASS: direct original comparison (ORIGINAL_COMPARISON.md); emitter/native definition identical apart from namespace, life decision unchanged, installation/patch/callback error blocks unchanged.
+- PASS: unpublished activation, main/feature switch combinations, disable/reactivation; synchronized default-true host property, Fixes/gameplay UI/search placement and locale keys.
+- PASS: existing host/preset suite including added missing-key default, persisted false/reload, client-lock and authoritative-sync cases. Restricted sandbox temporary-path failure is resolved by an unchanged executable rerun outside the sandbox.
+- PASS: main build driver's existing regressions, including native suite (1323 assertions, 67 signatures), peace-time suite (499401 assertions), assassin paths (15890 assertions), actual manual paths (676 assertions), and 35 actual moat-mode detours; remaining preflights/suites passed.
+- Main production build stopped on three missing APIs in installed APIShared: AssassinPathAPI.HasSingleUnitRoutePublication, AssassinPathAPI.TryStageWeightedRoute and AssassinGateTransitionPolicy.HasOrdinaryConnection. They belong to the parallel assassin changes and exist in current APIShared source; no gatehouse compiler errors were reported. Main-mod installation and testmod deletion await matching dependency installation and successful rebuild.
+- APIShared source, Script Extender, Fixes, versions and READMEs were not changed by this integration. Integrated gameplay and real multiplayer acceptance remain pending.
+
+Evidence logs: ../../_inspect/gatehouse-original-verification.log, gatehouse-integrated-verification.log, gatehouse-host-presets-rerun.log and gatehouse-integration-build.log.
+
+## Final installation, version 1.0.176
+
+The parallel APIShared build was completed by the other chat. Installed and local APIShared DLLs match SHA-256 A1B08496BEE16EDCACB66B657BD342168F6B74B7F0508BF7F0ABC02F964A2DB1; all three formerly missing Assassin APIs were checked in the installed assembly. The previous dependency blocker is resolved.
+
+PASS: elevated direct build.bat /nopause completed with all preflight/regression suites and zero build errors. Main assembly version 1.0.176.0 and manifest/plugin version 1.0.176 are consistent. All 48 installed package files match local SHA-256 hashes. Existing dependency/compiler warnings remain; no new gatehouse build error occurred. Build log: ../../_inspect/gatehouse-1.0.176-build.log.
+
+The workspace standalone Testmods/GatehouseLivingCaptureTest folder was removed only after successful installation and exact-path/reparse-point checks. No corresponding testmod DLL was found under installed BepInEx/plugins. Tests, original comparison, native contract and historical verification/build logs are retained under the main mod. README contains a short user-facing description under Fixes. This version increase was explicitly requested; the earlier testing-only unchanged-version status is superseded. Integrated gameplay and real multiplayer acceptance remain pending.

@@ -1,0 +1,4 @@
+
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\APIShared\src\MissionModePolicy.cs(97,49): warning CS0649: Dem Feld "GameModeHelper.ReadSavedModeEvidence" wird nie etwas zugewiesen, und es hat immer seinen Standardwert von "null". [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\HostClientPresetTests\HostClientPresetTests.csproj]
+  HostClientPresetTests -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\HostClientPresetTests\bin\HostClientPresetTests.exe
+PASS: fear-factor host working state, client lock, sync and persistence

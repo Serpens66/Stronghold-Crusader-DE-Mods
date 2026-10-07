@@ -10,7 +10,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using static Iced.Intel.AssemblerRegisters;
 
-namespace GatehouseLivingCaptureTest
+namespace BugfixesAndQoL.GatehouseLivingCapture
 {
     internal static unsafe class Program
     {
@@ -33,6 +33,7 @@ namespace GatehouseLivingCaptureTest
                 NativeDefinition.ValidateLayout();
                 NativeAudit.Run();
                 TestLifePredicate();
+                TestActivation();
                 TestAdapter();
                 Console.WriteLine("PASS: installed GameUnit layout, life helper, real RedBird span/patch/JE, registers, XMM, stack, entry/backedge, inactive/invalid/error paths.");
                 return 0;
@@ -52,6 +53,35 @@ namespace GatehouseLivingCaptureTest
                 Require(UnitAccess.IsReallyAlive(&unit) == expected, "pointer predicate");
             }
             Require(!UnitAccess.IsReallyAlive((GameUnit*)null), "null predicate");
+        }
+
+        private static void TestActivation()
+        {
+            GameUnit dead = new GameUnit { r_AliveState = AliveState.IsAlive, N0000019A = 1 };
+            foreach (bool mod in new[] { false, true })
+            foreach (bool fix in new[] { false, true })
+            {
+                X64SmartCPUContext context = default;
+                context.R11 = Sentinel | 1;
+                CaptureDecision.Apply(&context, &dead, CaptureDecision.IsEnabled(mod, fix));
+                Require(context.R11 == (mod && fix ? Sentinel : Sentinel | 1), "main mod/feature activation");
+            }
+            var runtime = new CaptureRuntime(null);
+            foreach (bool enabled in new[] { true, false, true })
+            {
+                runtime.SetEnabled(true, enabled);
+                var field = typeof(CaptureRuntime).GetField("active", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                Require((int)field.GetValue(runtime) == 0, "unpublished candidate remains inactive");
+            }
+            typeof(CaptureRuntime).GetField("published", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).SetValue(runtime, true);
+            foreach (bool enabled in new[] { true, false, true })
+            {
+                runtime.SetEnabled(true, enabled);
+                Require((int)typeof(CaptureRuntime).GetField("active", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).GetValue(runtime) == (enabled ? 1 : 0), "atomic reactivation");
+            }
+            runtime.SetEnabled(false, true);
+            Require((int)typeof(CaptureRuntime).GetField("active", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).GetValue(runtime) == 0, "main switch disables correction");
+            Console.WriteLine("PASS: feature/main switches, unpublished state, disable and reactivation.");
         }
 
         private static void TestAdapter()

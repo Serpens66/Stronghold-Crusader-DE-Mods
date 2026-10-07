@@ -8,8 +8,8 @@
     <OutputType>Library</OutputType>
     <RootNamespace>BugfixesAndQoL</RootNamespace>
     <AssemblyName>BugfixesAndQoL</AssemblyName>
-    <AssemblyVersion>1.0.175.0</AssemblyVersion>
-    <FileVersion>1.0.175.0</FileVersion>
+    <AssemblyVersion>1.0.176.0</AssemblyVersion>
+    <FileVersion>1.0.176.0</FileVersion>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -29,6 +29,10 @@
   <PropertyGroup Condition="'$(ExtenderDir)' == '' and Exists('$(LocalScriptExtenderBuildOutput)\SHCDESE.dll')"><ExtenderDir>$(LocalScriptExtenderBuildOutput)</ExtenderDir></PropertyGroup>
   <PropertyGroup Condition="'$(ExtenderDir)' == '' and Exists('$(LocalScriptExtenderModOutput)\SHCDESE.dll')"><ExtenderDir>$(LocalScriptExtenderModOutput)</ExtenderDir></PropertyGroup>
   <ItemGroup>
+    <Compile Include="src\GatehouseLivingCapture\CaptureAdapterEmitter.cs" />
+    <Compile Include="src\GatehouseLivingCapture\NativeDefinition.cs" />
+    <Compile Include="src\GatehouseLivingCapture\CaptureDecision.cs" />
+    <Compile Include="src\GatehouseLivingCapture\CaptureRuntime.cs" />
     <Compile Include="src\GroundMovePreviewAuthorization.cs" />
     <Reference Include="System" /><Reference Include="System.Core" /><Reference Include="System.Xml" /><Reference Include="System.Xml.Linq" />
     <Reference Include="BepInEx"><HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath><Private>false</Private></Reference>
@@ -112,6 +116,7 @@
     <Compile Include="src\AssassinGateRoutePolicy.cs" />
     <Compile Include="src\AssassinPathfindingRuntime.CacheKeys.cs" />
     <Compile Include="src\AssassinClimbCostPolicy.cs" />
+    <Compile Include="src\AssassinRouteEncoding.cs" />
     <Compile Include="src\AssassinClimbRuntime.cs" />
     <Compile Include="src\AssassinClimbStatePacket.cs" />
     <Compile Include="src\AssassinClimbTransitionPolicy.cs" />

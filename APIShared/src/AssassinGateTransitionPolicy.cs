@@ -19,13 +19,18 @@ namespace APIShared
     /// <summary>Pure rules from DCE60 and E1640; no hooks, game queries or mutable state.</summary>
     public static class AssassinGateTransitionPolicy
     {
+        /// <summary>Vanilla physical stepping accepts either endpoint's native connection.</summary>
+        public static bool HasOrdinaryConnection(byte sourceConnections, byte targetConnections,
+            byte forwardMask, byte reverseMask) =>
+            (sourceConnections & forwardMask) != 0 || (targetConnections & reverseMask) != 0;
+
         /// <summary>Both connection directions precede the physical climb branch.</summary>
         public static AssassinTransitionKind Classify(int direction, byte sourceConnections,
             byte targetConnections, byte forwardMask, byte reverseMask, uint sourceFlags,
             uint targetFlags, bool targetSurfaceAccepted, bool climbEnabled, bool endpointsAccepted)
         {
             if ((uint)direction > 7) return AssassinTransitionKind.Unknown;
-            if ((sourceConnections & forwardMask) != 0 || (targetConnections & reverseMask) != 0)
+            if (HasOrdinaryConnection(sourceConnections, targetConnections, forwardMask, reverseMask))
                 return AssassinTransitionKind.Ground;
             if ((direction & 1) != 0 || !climbEnabled || !endpointsAccepted ||
                 !targetSurfaceAccepted || ((sourceFlags | targetFlags) & 0x100) == 0)

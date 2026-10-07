@@ -377,3 +377,5 @@ BugfixesAndQoL.RemoveAIKeepRangeLimit=Do not limit AI keep build range
 BugfixesAndQoL.RemoveAIKeepRangeLimitHelp=Removes only the own/allied Keep distance check for all AI construction paths. Human players retain their normal range, including an optional ExtraFeatures override. Terrain, occupancy, enemy proximity and all other building requirements still apply.
 BugfixesAndQoL.EnableImprovedManualUnitCommands=수동 유닛 명령 개선
 BugfixesAndQoL.EnableImprovedManualUnitCommandsHelp=목적지에 도달할 수 있는 선택된 유닛이 이동, 예약 이동, 순찰, 공격 및 해자 작업 명령을 실행할 수 있습니다. 이미 해자 안에 있는 유닛도 포함됩니다. 게임의 기존 경로를 사용하며, 아군 해자를 추가로 건너려면 MoatMove가 필요합니다. 호스트 설정.
+BugfixesAndQoL.EnableGatehouseLivingCaptureFix=Gatehouse capture: ignore dead units
+BugfixesAndQoL.EnableGatehouseLivingCaptureFixHelp=Dead attackers and defenders no longer count during Vanilla's regular gatehouse capture check. Living defenders still block capture.

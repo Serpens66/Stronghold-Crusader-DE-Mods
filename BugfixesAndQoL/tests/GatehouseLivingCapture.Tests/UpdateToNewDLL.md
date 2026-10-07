@@ -1,11 +1,11 @@
 # Gatehouse living capture: native contract
 
 Reference DLL SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
-Feature audit: `../../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/GATEHOUSE_LIVING_CAPTURE.md`.
+Feature audit: `../../../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/GATEHOUSE_LIVING_CAPTURE.md`.
 
 ## Targets and resolution
 
-- Owner: this standalone testmod. Common gatehouse handler `B73D0..B7CE5`, pristine full hash `F73E9FF6F69D9EC1ECD59D528BC6D4861739F54E0A9C59C6E6BAD91369FA57C8`.
+- Owner: BugfixesAndQoL, controlled by EnableMod && EnableGatehouseLivingCaptureFix. Common gatehouse handler `B73D0..B7CE5`, pristine full hash `F73E9FF6F69D9EC1ECD59D528BC6D4861739F54E0A9C59C6E6BAD91369FA57C8`.
 - Hook `B7540..B7552`, 18 bytes: `CDQE` (2), `IMUL RDI,RAX,490h` (7), `CMP word [RDI+R13+67E8CFCh],R14W` (9). Exact bytes and signature in `NativeDefinition.cs`.
 - Continuation `B7552`: original `74 63` / `JE B75B7`. `B75B7` reads the next tile-chain unit ID; `B75C2` loops to `B7540`. The full-function decode and semantic xrefs have no incoming target inside the displaced block. No displaced RIP-relative operands, calls or branches.
 - Resolution first checks reference RVA bytes, then a unique signature in executable PE sections, including after a reference-byte mismatch. Resolved RVA must still be `B7540`: fixed continuation and structure contracts have no independent update fallback. Unknown file hash, nonunique signature, changed layout, live bytes or backend span fail closed before publication, logging a timestamped Error and preserving Vanilla.
@@ -25,6 +25,6 @@ Hook/delegate/runtime/logger remain process-rooted. Active state is data only; n
 
 Script Extender capture-score and capture-event hooks start at `B757A` and `B790B`; Fixes' farmer hook starts at `B7C39`. APIShared timing/distance/automation hooks occupy separate later blocks. The new span ends before all of them. Keep a Fixes soft dependency and check live bytes before installation. Neither external project is modified.
 
-On a native/SE/RedBird update repeat the complete capture/death/removal audit, ID and member-layout validation, all incoming-edge checks and actual-backend machine tests. Recheck helper semantics in ranged/melee targeting, not health alone. Run static JSON/lifecycle/permanent-hook/CRLF/XAML checks before build. Build/install using build.bat; the APIShared build must precede this mod. Versions remain in testing.
+On a native/SE/RedBird update repeat the complete capture/death/removal audit, ID and member-layout validation, all incoming-edge checks and actual-backend machine tests. Recheck helper semantics in ranged/melee targeting, not health alone. Run static JSON/lifecycle/permanent-hook/CRLF/XAML checks before build. Build/install using build.bat; installed APIShared must expose both IsReallyAlive overloads. Versions remain in testing.
 
-Gameplay acceptance (not proved by offline tests): large/small stone and wooden gates, last enemy dying with corpse still present, another living defender blocking, friendly corpse not capturing, team/tie rules, linked drawbridge behavior, save/load and matching real host/client installations with Fixes. Inspect `GATEHOUSE_LIVING_CAPTURE_READY`, `...CONFIRMED`, `...FIRST_EXCLUSION` and absence of `...CALLBACK_ERROR` in the latest launch section. READY alone is not a gameplay result.
+Gameplay acceptance (not proved by offline tests): large/small stone and wooden gates, last enemy dying with corpse still present, another living defender blocking, friendly corpse not capturing, team/tie rules, linked drawbridge behavior, save/load and matching real host/client installations with Fixes. Inspect the one-time `GATEHOUSE_LIVING_CAPTURE_CONFIRMED` and absence of `...CALLBACK_ERROR`; READY is Debug-only and per-unit exclusion logging was removed. Inspect activation/deactivation through the synchronized host setting in the latest launch section. READY alone is not a gameplay result.

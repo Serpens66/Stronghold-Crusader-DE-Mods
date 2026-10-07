@@ -15,7 +15,7 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Threading;
 
-namespace GatehouseLivingCaptureTest
+namespace BugfixesAndQoL.GatehouseLivingCapture
 {
     internal sealed unsafe class CaptureRuntime
     {
@@ -24,7 +24,7 @@ namespace GatehouseLivingCaptureTest
         private readonly CaptureCallback rootedCallback;
         private HookTransaction transaction;
         private bool published;
-        private int active, confirmed, errorLogged, filteredLogged;
+        private int active, confirmed, errorLogged;
 
         internal CaptureRuntime(ManualLogSource log)
         {
@@ -32,7 +32,7 @@ namespace GatehouseLivingCaptureTest
             rootedCallback = OnCandidate;
         }
 
-        internal void Install(CrusaderLibraryLoadContext context)
+        internal void Install(CrusaderLibraryLoadContext context, bool enableMod, bool enableFix)
         {
             NativeDefinition.ValidateLayout();
             string path = Path.Combine(Paths.GameRootPath,
@@ -69,14 +69,14 @@ namespace GatehouseLivingCaptureTest
                 ValidateCommittedPatch(target);
                 // Publication happens only after the exact committed hook has been validated.
                 published = true;
-                Volatile.Write(ref active, 1);
+                SetEnabled(enableMod, enableFix);
             }
             catch
             {
                 if (!published) transaction?.Dispose(); // Roll back only an unpublished initialization candidate.
                 throw;
             }
-            try { LogInfo($"GATEHOUSE_LIVING_CAPTURE_READY: method={resolved.Method}, rva=0x{resolved.Rva:X}, " +
+            try { log.LogDebug($"GATEHOUSE_LIVING_CAPTURE_READY: method={resolved.Method}, rva=0x{resolved.Rva:X}, " +
                 $"end=0x{NativeDefinition.ContinueRva:X}, skip=0x{NativeDefinition.SkipRva:X}, displaced=18 (2+7+9), " +
                 $"redBird={typeof(X64InlineHook).Assembly.GetName().Version}, sha256={hash}; " +
                 "GameUnit size=0x490, alive=0x88, deathLowWord=0x29C, owner=0x92, health=0x3C4; original cadence/scoring retained."); }
@@ -117,19 +117,17 @@ namespace GatehouseLivingCaptureTest
                     TryLogError("GATEHOUSE_LIVING_CAPTURE_CALLBACK_ERROR: Vanilla preserved; " + ex);
                 return;
             }
-            // Diagnostics have their own failure boundary; they cannot undo/prevent the correction.
+            // Diagnostics cannot undo/prevent the correction.
             try
             {
                 if (Interlocked.Exchange(ref confirmed, 1) == 0)
-                    LogInfo($"GATEHOUSE_LIVING_CAPTURE_CONFIRMED: hook confirmed after startup; unitId={unitId}, " +
-                        $"globalId={unit->r_GlobalId}, alive={unit->r_AliveState}, deathLowWord={unit->N0000019A & 0xFFFFu}, " +
-                        $"owner={unit->r_ControllableForPlayerId}, position={unit->r_CurrentPositionTileId}; no timer/scan.");
-                if ((context->R11 & 0xFF) == 0 && Interlocked.Exchange(ref filteredLogged, 1) == 0)
-                    LogInfo($"GATEHOUSE_LIVING_CAPTURE_FIRST_EXCLUSION: unitId={unitId}, globalId={unit->r_GlobalId}, " +
-                        $"alive={unit->r_AliveState}, deathLowWord={unit->N0000019A & 0xFFFFu}; original JE skips this candidate.");
+                    LogInfo("GATEHOUSE_LIVING_CAPTURE_CONFIRMED: capture hook executed after startup.");
             }
             catch { /* Logging is observational only. */ }
         }
+
+        internal void SetEnabled(bool enableMod, bool enableFix) =>
+            Volatile.Write(ref active, published && CaptureDecision.IsEnabled(enableMod, enableFix) ? 1 : 0);
 
         private void LogInfo(string message) => log.LogInfo($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {message}");
         private void TryLogError(string message)

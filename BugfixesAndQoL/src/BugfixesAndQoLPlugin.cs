@@ -23,6 +23,7 @@ namespace BugfixesAndQoL
     [BepInIncompatibility(LegacyMoveMoatGuid)]
     [BepInIncompatibility(LegacyQueueTestGuid)]
     [BepInIncompatibility(PreplacedTestGuid)]
+    [BepInIncompatibility("GatehouseLivingCaptureTest_Serp")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("APIShared_Serp", "0.4.10")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
@@ -40,7 +41,7 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.175";
+        public const string PluginVersion = "1.0.176";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static DamagedHealthBarsRuntime damagedHealthBarsRuntime;

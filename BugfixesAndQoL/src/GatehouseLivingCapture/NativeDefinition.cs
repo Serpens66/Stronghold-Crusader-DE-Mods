@@ -5,7 +5,7 @@ using SHCDESE.Interop.Enums;
 using System;
 using System.Runtime.InteropServices;
 
-namespace GatehouseLivingCaptureTest
+namespace BugfixesAndQoL.GatehouseLivingCapture
 {
     internal static class NativeDefinition
     {

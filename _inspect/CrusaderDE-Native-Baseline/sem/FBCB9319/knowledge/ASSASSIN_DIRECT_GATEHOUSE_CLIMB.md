@@ -142,3 +142,73 @@ After the parallel APIShared work finished, the installed APIShared was verified
 All pre-build Native/Interop, compatibility, JSON, Lifecycle, permanent-hook, XAML and CRLF checks passed. Independent Assassin tests: 15,862 assertions; Gate tests: 9,900; installed RedBird Assassin execution tests: 1,396. The full BugfixesAndQoL build driver and all its regression suites completed successfully, with zero errors and the existing MSB3277 assembly-binding warning. EnemyGatePathfindingTest build.bat completed with zero warnings/errors. Both drivers installed successfully. Installed/local package hashes match for APIShared, BugfixesAndQoL and EnemyGatePathfindingTest; evidence: _inspect/EnemyGateBuildingContextAudit/transition-installed-hashes.json. Successful build logs: transition-main-build-complete.log and transition-gate-build-complete.log in the same directory. Earlier failed-attempt logs remain historical evidence.
 
 AssassinGatehouseClimbTest is unchanged and needs no rebuild. Versions and README files remain unchanged. No new native hooks or changes to cursor, formation or physical climb execution were introduced. In-game acceptance remains pending: Assassin commands to the roof and behind open/closed enemy gates, ordinary soldiers denied the ground passage, improvement enabled/disabled, and AI behavior at the same setup. Bridges remain outside this acceptance. Native-only historical mask overlaps are not retroactively marked resolved.
+
+## Exact weighted single-unit route publication (2026-10-07)
+
+Native reference hash: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
+E1640 reconstructs from step distances, with a mutable best distance inside its direction loop.
+For target-first nodes T(1,1,d4),R(2,1,d3),P(2,2,d2),S(1,2,d1), it can accept R at direction 2,
+then S at direction 4 against the already reduced distance 3. This replaces the cheap
+S->P->R->T entrance route with a costly S->T climb. Weighted parents and tick costs
+are not represented by the published unit-step distances. This is a confirmed static
+counterexample, not yet causal proof of the user's particular gameplay run.
+
+APIShared's existing F4930 owner now opens a synchronous, thread-local single-unit
+handoff. Bugfixes stages a copied exact low-nibble-first forward direction sequence;
+F4930 still executes once, then its checked output buffer receives the prepared bytes
+before the 196280 consumer latches length/cursor/state. Successful staging retains the
+original D9C40 field/result until the outer builder publishes. Failure inside a unit
+frame preserves native data. Flood/continuation calls never stage; standalone queries
+retain the checked stamp/distance publication path. Nested builders shadow all outer
+frames, including unqualified/manual-probe frames. Delegates live only in the synchronous
+frame, whose Leave restores its predecessor in finally; native hook roots remain permanent.
+
+Existing hash-bound data contracts (no additional hook, fixed RVA, AOB or executable write):
+- Path manager at module+60AD660: source int32 +8/+C, destination int32 +10/+14;
+  Assassin flag int32 +88, moat flag +84, later alternate-builder flag +94.
+  Exact publication requires Assassin enabled and the other two flags zero.
+- F4930/E1640/E4E90/196280 prove output pointer +155F60, direction-count int32 +155F68.
+- Unit manager module+67E8400: buffer +B4FE78 + one-based unitId*1000, capacity
+  1000 bytes/2000 directions. Buffer arithmetic derives the ID and checks it against
+  UnitAccess, type, true life, Global-ID, control player and native movement start.
+- Existing grid bases: connections 51890D0, direction masks 312620, row table 402FF2C,
+  heights 4DDD350, surfaces 48F71B0, building IDs 4B6AA50. Physical DCE60 accepts
+  source-forward OR destination-reverse before climbing. E1640 tests its own
+  target-to-predecessor connection, so reconstruction capability is checked separately.
+
+All addresses derive from the canonical installed-hash disassembly and the existing
+shared command layout validator. Fixed layouts have no independent semantic fallback;
+search scope is the supported installed module only. Unknown hashes retain the existing
+fail-closed feature initialization. F4930 hook resolution/backend remain unchanged;
+its existing section-bounded function signature fallback and displacement checks apply.
+On native updates re-audit field layout, buffer ownership, nibble reversal, movement-start
+selection, alternate builders and the terminal 196280 consumer before permitting publication.
+No new Assembly-CSharp access. Fixes gate targeting and Script Extender selection ownership
+remain unchanged; the existing soft dependency loads the mainmod after Fixes.
+
+Regression sources compile the productive handoff, encoder, and actual shared builder/
+publication methods. Tests cover the expensive reconstruction shortcut, exact buffer bytes,
+length, ID reuse, changed policy/pointer, nested frames and native exceptions. Physical
+walking/climbing and open owned/captured gate roof acceptance still require an in-game run.
+README files and versions remain unchanged during that acceptance.
+
+Validation completed 2026-10-07:
+- 15,890 Assassin A*/Dijkstra, physical-transition and exact-publication assertions passed.
+- 1,396 source-linked Assassin checks passed on the installed NativeX64 backend.
+- Actual F4930 wrapper/publication methods compiled in an isolated memory fixture:
+  exact entrance bytes/count, changed identity/policy/buffer and native exceptions passed.
+- Shared source/API visibility, JSON, lifecycle, permanent-hook, XAML, CRLF, UnitAccess
+  and Fixes compatibility preflights passed; existing native command/moat suites passed.
+- APIShared public API regression now permits only the audited context parameter of
+  TryStageWeightedRoute in addition to the existing native builder bridge exceptions.
+- Elevated direct build.bat drivers completed for APIShared and BugfixesAndQoL.
+  The first APIShared driver stopped in its public API test before runtime build;
+  the corrected test passed before the successful driver retry.
+- Installed standalone APIShared SHA-256:
+  A1B08496BEE16EDCACB66B657BD342168F6B74B7F0508BF7F0ABC02F964A2DB1.
+- Installed standalone BugfixesAndQoL SHA-256:
+  1041E2AFFD6B90C2E3A33774B02E58F9F5EE64F7F4B1162CB2AB7C0FFF1799DE.
+  Both match their local package DLLs. Build logs: _inspect/AssassinGateClimb/
+  exact-route-APIShared-build-retry.log and exact-route-BugfixesAndQoL-build.log.
+- No in-game acceptance claimed. Test roof orders on both gate sizes, owned/captured
+  open gates and different approach sides, with Improved Pathfinding on/off.

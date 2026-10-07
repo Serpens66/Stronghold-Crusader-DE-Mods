@@ -377,3 +377,5 @@ BugfixesAndQoL.RemoveAIKeepRangeLimit=KI-Baureichweite nicht begrenzen
 BugfixesAndQoL.RemoveAIKeepRangeLimitHelp=Entfernt nur die Entfernungsprüfung zum eigenen oder verbündeten Keep für alle KI-Baupfade. Für Menschen bleibt die normale Reichweite erhalten, einschließlich eines optionalen ExtraFeatures-Overrides. Gelände, Belegung, Gegnernähe und alle weiteren Bauvoraussetzungen gelten weiterhin.
 BugfixesAndQoL.EnableImprovedManualUnitCommands=Verbesserte manuelle Einheitenbefehle
 BugfixesAndQoL.EnableImprovedManualUnitCommandsHelp=Erreichbare Mitglieder einer Auswahl führen manuelle Bewegungs-, Warteschlangen-, Patrouillen-, Angriffs- und Grabenarbeitsbefehle aus, auch wenn sie bereits im Graben stehen. Nutzt vorhandene Vanilla-Wege; zusätzliche Querungen freundlicher Gräben benötigen MoatMove. Host-Einstellung.
+BugfixesAndQoL.EnableGatehouseLivingCaptureFix=Torhauseroberung: tote Einheiten ignorieren
+BugfixesAndQoL.EnableGatehouseLivingCaptureFixHelp=Tote Angreifer und Verteidiger zählen bei Vanillas regulärer Torhauseroberungsprüfung nicht mehr. Lebende Verteidiger blockieren die Eroberung weiterhin.

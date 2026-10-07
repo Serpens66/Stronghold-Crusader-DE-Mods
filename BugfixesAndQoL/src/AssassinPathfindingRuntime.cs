@@ -335,7 +335,7 @@ namespace BugfixesAndQoL
                     int toTile = GetTileId(next % MapWidth, next / MapWidth);
                     if (direction < 0 || !IsNativeTile(fromTile) || !IsNativeTile(toTile))
                         throw new InvalidOperationException("Invalid prepared diagnostic edge");
-                    bool climb = (directionMasks[direction] & occupancyLayer[fromTile]) == 0;
+                    bool climb = !HasOrdinaryConnection(fromTile, toTile, direction);
                     try { observation.Observer?.ObserveAssassinEdge(observation.Token, player,
                         fromTile, toTile, direction, climb); }
                     catch (Exception ex) { LogWarning("Assassin diagnostic edge failed: " + ex.GetType().Name); }
@@ -445,6 +445,18 @@ namespace BugfixesAndQoL
                 ObservePreparedAssassinRoute(playerId, routeSummary.RouteLength);
 
                 long publicationStarted = Stopwatch.GetTimestamp();
+                // E1640 selects its own neighbors from step distances, losing our weights.
+                // An owned F4930 frame instead receives the exact route after Vanilla returns.
+                if (TryStagePreparedRoute(context, cacheKey, routeSummary))
+                {
+                    if (activeObservation != null) activeObservation.Outcome = "weighted-staged-exact";
+                    return vanillaResult;
+                }
+                if (AssassinPathAPI.HasSingleUnitRoutePublication)
+                {
+                    if (activeObservation != null) activeObservation.Outcome = "weighted-exact-fallback";
+                    return vanillaResult;
+                }
                 // Validate before the first native stamp/distance write. A stale policy
                 // must preserve the original native field, not publish a partial replacement.
                 if (cacheKey.DirectGatehouseClimbing != AssassinPathAPI.DirectGatehouseClimbingEnabled ||
@@ -566,7 +578,7 @@ namespace BugfixesAndQoL
                     int nextNode = GetCoordinateIndex(nextX, nextY);
                     uint nextFlags = tileFlags[nextTile];
                     bool cardinal = (direction & 1) == 0;
-                    bool ordinaryEdge = (directionMasks[direction] & occupancyLayer[currentTile]) != 0;
+                    bool ordinaryEdge = HasOrdinaryConnection(currentTile, nextTile, direction);
                     bool climbEdge = false;
                     if (!ordinaryEdge)
                     {
@@ -717,7 +729,7 @@ namespace BugfixesAndQoL
             var suffixKey = new SuffixCacheKey(
                 key.TargetX, key.TargetY, key.SpeedDelay,
                 key.AllowClimbing, key.AllowWalkableReservedClimbEndpoints,
-                key.GatePolicy?.PlayerId ?? 0, key.GatePolicy);
+                key.GatePolicy?.PlayerId ?? 0, key.GatePolicy, key.DirectGatehouseClimbing);
             command.CacheSuffixes(suffixKey, route, summary.RouteLength, costs, summary.TotalCost);
         }
 
@@ -760,7 +772,7 @@ namespace BugfixesAndQoL
                     !AllowsAssassinTransition(key.GatePolicy, currentTile, nextTile, direction, key.AllowClimbing, key.AllowWalkableReservedClimbEndpoints))
                     return false;
                 bool cardinal = (direction & 1) == 0;
-                bool ordinaryEdge = (directionMasks[direction] & occupancyLayer[currentTile]) != 0;
+                bool ordinaryEdge = HasOrdinaryConnection(currentTile, nextTile, direction);
                 int edgeCost;
                 if (ordinaryEdge)
                 {
@@ -810,6 +822,27 @@ namespace BugfixesAndQoL
                 targetIsLowWall: (targetFlags & IsLowWallFlag) != 0,
                 targetIsNormalWall: (targetFlags & IsWallFlag) != 0,
                 targetIsStairs: (targetFlags & IsStairsFlag) != 0);
+        }
+
+        private bool HasOrdinaryConnection(int from, int to, int direction) =>
+            AssassinGateTransitionPolicy.HasOrdinaryConnection(occupancyLayer[from], occupancyLayer[to],
+                directionMasks[direction], directionMasks[direction ^ 4]);
+
+        private bool TryStagePreparedRoute(IntPtr context, RouteCacheKey key, RouteSearchSummary summary)
+        {
+            int length = summary.RouteLength;
+            if (length < 2) return false;
+            var nodes = new int[length];
+            Array.Copy(route, nodes, length);
+            byte[] bytes = AssassinRouteEncoding.EncodeTargetFirst(nodes, MapWidth);
+            if (bytes == null) return false;
+            var prepared = new CachedRoute(nodes, summary);
+            int epoch = mapEpoch;
+            return AssassinPathAPI.TryStageWeightedRoute(BugfixesAndQoLPlugin.PluginGuid, context,
+                key.StartX, key.StartY, key.TargetX, key.TargetY, key.PlayerId, bytes, length - 1,
+                () => epoch == mapEpoch && settings.EnableMod && settings.EnableImprovedAssassinPathfinding &&
+                    key.AllowClimbing == climbRuntime.IsClimbingAllowed(key.PlayerId) &&
+                    AssassinGateRoutePolicy.IsCurrent(key.GatePolicy) && ValidateCachedRoute(key, prepared));
         }
 
         private bool PrepareRoute(
@@ -887,7 +920,6 @@ namespace BugfixesAndQoL
         private bool ValidatePreparedGateRoute(IEnemyGateRoutePolicySnapshot policy, int routeLength,
             bool allowClimbing, bool allowReserved)
         {
-            if (policy == null) return true;
             // Validate every candidate the native distance reconstruction could choose,
             // including shortcuts. Reject the replacement before writing any native data;
             // the previously computed native result/field remains intact on failure.
@@ -896,8 +928,18 @@ namespace BugfixesAndQoL
                 int direction = GetDirectionIndex(to % MapWidth - from % MapWidth, to / MapWidth - from / MapWidth);
                 return direction >= 0 && AllowsAssassinTransition(policy,
                     GetTileId(from % MapWidth, from / MapWidth), GetTileId(to % MapWidth, to / MapWidth),
-                    direction, allowClimbing, allowReserved);
+                    direction, allowClimbing, allowReserved) &&
+                    CanReconstructTransition(GetTileId(from % MapWidth, from / MapWidth),
+                        GetTileId(to % MapWidth, to / MapWidth), direction, allowClimbing, allowReserved);
             });
+        }
+
+        private bool CanReconstructTransition(int from, int to, int direction, bool allowClimbing, bool allowReserved)
+        {
+            // E1640 traverses target -> predecessor, unlike the physical forward step.
+            return (occupancyLayer[to] & directionMasks[direction ^ 4]) != 0 ||
+                ((direction & 1) == 0 && allowClimbing &&
+                    IsVanillaAssassinFallback(to, from, tileFlags[to], allowReserved));
         }
 
         private bool CommitPreparedRoute(IntPtr context, int routeLength)

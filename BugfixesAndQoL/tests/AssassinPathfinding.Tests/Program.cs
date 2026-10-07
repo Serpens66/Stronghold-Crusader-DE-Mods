@@ -21,7 +21,9 @@ internal static partial class Program
             TestNodeLimit();
             TestGateCompatibility();
             TestGateTransitions();
+            TestExactRouteHandoff();
             TestRuntimeIntegration(args);
+            TestActualPublication(args);
             BenchmarkWallGroup();
             Console.WriteLine($"PASS: {assertions} Assassin A*/Dijkstra assertions.");
             return 0;

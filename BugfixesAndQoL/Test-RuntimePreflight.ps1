@@ -14,7 +14,7 @@ if ($mod.Count -ne 1) {
 
 Assert-SERuntimeModPreflight $mod[0] $workspace
 
-$runtimeSources = @(Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'src') -Filter '*.cs' -File)
+$runtimeSources = @(Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'src') -Filter '*.cs' -File -Recurse)
 $pluginSources = @($runtimeSources | Where-Object { $_.Name -like '*Plugin.cs' })
 $projectText = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'BugfixesAndQoL.csproj'))
 $sourceText = (@($runtimeSources | ForEach-Object { [IO.File]::ReadAllText($_.FullName) }) -join "`n")

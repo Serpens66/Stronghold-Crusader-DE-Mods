@@ -8,9 +8,13 @@
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Microsoft.CodeAnalysis"><HintPath>$(MSBuildSDKsPath)\..\Roslyn\bincore\Microsoft.CodeAnalysis.dll</HintPath></Reference>
+    <Reference Include="Microsoft.CodeAnalysis.CSharp"><HintPath>$(MSBuildSDKsPath)\..\Roslyn\bincore\Microsoft.CodeAnalysis.CSharp.dll</HintPath></Reference>
     <Compile Include="..\..\..\APIShared\src\AssassinGateTransitionPolicy.cs" Link="Runtime\AssassinGateTransitionPolicy.cs" />
     <Compile Include="..\..\src\AssassinAStarPolicy.cs" Link="Runtime\AssassinAStarPolicy.cs" />
     <Compile Include="..\..\src\AssassinClimbCostPolicy.cs" Link="Runtime\AssassinClimbCostPolicy.cs" />
+    <Compile Include="..\..\src\AssassinRouteEncoding.cs" Link="Runtime\AssassinRouteEncoding.cs" />
+    <Compile Include="..\..\..\APIShared\src\AssassinRouteHandoff.cs" Link="Runtime\AssassinRouteHandoff.cs" />
     <Compile Include="..\..\src\AssassinGateRoutePolicy.cs" Link="Runtime\AssassinGateRoutePolicy.cs" />
     <Compile Include="..\..\src\AssassinPathfindingRuntime.CacheKeys.cs" Link="Runtime\AssassinPathfindingRuntime.CacheKeys.cs" />
     <Compile Include="..\..\..\APIShared\src\EnemyGatePathPolicyBridge.cs" Link="Runtime\EnemyGatePathPolicyBridge.cs" />

@@ -1805,7 +1805,8 @@ namespace APISharedTests
                             continue;
                         if ((type == typeof(AssassinPathBuilder) &&
                                 (method.Name == "Invoke" || method.Name == "BeginInvoke") ||
-                             type == typeof(AssassinPathAPI) && method.Name == "RunVanillaBuilder") &&
+                             type == typeof(AssassinPathAPI) && (method.Name == "RunVanillaBuilder" ||
+                                method.Name == "TryStageWeightedRoute")) &&
                             parameter.Name == "context" && parameter.ParameterType == typeof(IntPtr))
                             continue;
                         AssertSafePublicType(parameter.ParameterType, $"{type.FullName}.{method.Name} parameter {parameter.Name}");

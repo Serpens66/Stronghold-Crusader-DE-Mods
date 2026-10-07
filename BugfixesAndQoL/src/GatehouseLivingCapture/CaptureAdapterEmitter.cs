@@ -5,7 +5,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using static Iced.Intel.AssemblerRegisters;
 
-namespace GatehouseLivingCaptureTest
+namespace BugfixesAndQoL.GatehouseLivingCapture
 {
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     internal delegate void CaptureCallback(IntPtr context);
