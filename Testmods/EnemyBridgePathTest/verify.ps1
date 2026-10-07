@@ -165,3 +165,10 @@ if ($collector -notmatch 'ObserveConsumerChild' -or $collector -notmatch 'parent
 $importer=[IO.File]::ReadAllText((Join-Path $PSScriptRoot "src/BridgePlanningImporter.cs"))
 if ($importer -notmatch 'consumer-pre-post-binding' -or $importer -notmatch 'missing-versioned-consumer') { throw 'Consumer artifact identity/version validation missing' }
 Write-Host 'PASS: bounded own-frame consumer capture, native unit/tribe capacities, additive schema2 validation.'
+
+# Extended immutable input provenance; all paths remain bounded/passive.
+foreach ($field in @('buildingUpdaterControls','buildingUpdaterSlots','packedValidity','combatClassMask','workQueueX','gameModeValues')) {
+    if ($collector -notmatch $field -or $importer -notmatch $field) { throw ('Consumer v2 provenance/capacity check missing: '+$field) }
+}
+if ($importer -notmatch 'weight-mode-changed-during-call') { throw 'Weight mode stability contract missing' }
+Write-Host 'PASS: consumer v2 records actual weight modes, full updater input and bounded work fields.'

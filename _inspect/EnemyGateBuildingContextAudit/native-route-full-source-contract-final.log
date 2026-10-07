@@ -1,0 +1,2 @@
+PASS: full runtime source/installed assembly compilation contract BugfixesAndQoL (no runtime assembly emitted)
+PASS: full runtime source/installed assembly compilation contract EnemyGatePathfindingTest (no runtime assembly emitted)

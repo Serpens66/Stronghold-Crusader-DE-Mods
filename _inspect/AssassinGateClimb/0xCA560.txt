@@ -1,0 +1,40 @@
+Hash FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2
+FUN_1800ca560 0xCA560 size=53 confidence=candidate
+Callers [('0xC8380',)]
+Callees []
+/* FUNCTION FUN_1800ca560 VA=0x1800CA560 RVA=0xCA560 */
+
+void FUN_1800ca560(void)
+
+{
+  short *psVar1;
+  
+  psVar1 = &DAT_1864cd00a;
+  do {
+    if ((psVar1[-1] != 0) && (*psVar1 == 0x43)) {
+      psVar1[0x25] = 0;
+      psVar1[0x18] = 0xf;
+    }
+    psVar1 = psVar1 + 0x196;
+  } while ((longlong)psVar1 < 0x1867e5c5e);
+  return;
+}
+
+
+
+
+ASM:
+000CA560 33d2 xor edx, edx
+000CA562 488d05a12a4006 lea rax, [rip + 0x6402aa1]
+000CA569 488d0deeb67106 lea rcx, [rip + 0x671b6ee]
+000CA570 448d420f lea r8d, [rdx + 0xf]
+000CA574 663950fe cmp word ptr [rax - 2], dx
+000CA578 740f je 0x1800ca589
+000CA57A 66833843 cmp word ptr [rax], 0x43
+000CA57E 7509 jne 0x1800ca589
+000CA580 6689504a mov word ptr [rax + 0x4a], dx
+000CA584 6644894030 mov word ptr [rax + 0x30], r8w
+000CA589 48052c030000 add rax, 0x32c
+000CA58F 483bc1 cmp rax, rcx
+000CA592 7ce0 jl 0x1800ca574
+000CA594 c3 ret 

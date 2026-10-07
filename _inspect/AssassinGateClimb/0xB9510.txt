@@ -1,0 +1,110 @@
+Hash FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2
+FUN_1800b9510 0xB9510 size=296 confidence=candidate
+Callers [('0xC8380',)]
+Callees [('0x69850',)]
+/* FUNCTION FUN_1800b9510 VA=0x1800B9510 RVA=0xB9510 */
+
+void FUN_1800b9510(void)
+
+{
+  short sVar1;
+  int iVar2;
+  short *psVar3;
+  longlong lVar4;
+  int iVar5;
+  
+  psVar3 = &DAT_1864cd00a;
+  lVar4 = 3999;
+  do {
+    if ((psVar3[-1] != 0) && ((ushort)(*psVar3 - 0x2dU) < 3)) {
+      iVar5 = 0;
+      do {
+        FUN_180069850(&DAT_18405edb0,iVar5,*(undefined4 *)(psVar3 + 0x13));
+        iVar2 = (&DAT_18402ff2c)[(longlong)(psVar3[0xf] + DAT_1860ad514) * 3] + (int)psVar3[0xe] +
+                DAT_1860ad510;
+        if (*psVar3 == 0x2f) {
+          (&DAT_1848f71b0)[iVar2] = (&DAT_1848f71b0)[iVar2] & 0xfffefeff | 0x10000000;
+          sVar1 = psVar3[0xd];
+          (&DAT_184f64cf0)[iVar2] = (&DAT_184f64cf0)[iVar2] & 0xffdf;
+          (&DAT_184ddd350)[iVar2] = (char)sVar1;
+        }
+        else {
+          (&DAT_1848f71b0)[iVar2] = (&DAT_1848f71b0)[iVar2] | 0x100;
+          (&DAT_184e79d90)[iVar2] = (&DAT_184e79d90)[iVar2] & 0xf8 | (char)psVar3[2] - 1U;
+        }
+        (&DAT_1848f71b0)[iVar2] = (&DAT_1848f71b0)[iVar2] & 0xfffffbff;
+        iVar5 = iVar5 + 1;
+      } while (iVar5 < DAT_1860ad508);
+    }
+    psVar3 = psVar3 + 0x196;
+    lVar4 = lVar4 + -1;
+  } while (lVar4 != 0);
+  return;
+}
+
+
+
+
+ASM:
+000B9510 48895c2408 mov qword ptr [rsp + 8], rbx
+000B9515 48896c2410 mov qword ptr [rsp + 0x10], rbp
+000B951A 4889742418 mov qword ptr [rsp + 0x18], rsi
+000B951F 48897c2420 mov qword ptr [rsp + 0x20], rdi
+000B9524 4156 push r14
+000B9526 4883ec20 sub rsp, 0x20
+000B952A 488d1dd93a4106 lea rbx, [rip + 0x6413ad9]
+000B9531 be9f0f0000 mov esi, 0xf9f
+000B9536 488d2d7358fa03 lea rbp, [rip + 0x3fa5873]
+000B953D 4c8d35e869f703 lea r14, [rip + 0x3f769e8]
+000B9544 66837bfe00 cmp word ptr [rbx - 2], 0
+000B9549 0f84bd000000 je 0x1800b960c
+000B954F 0fb703 movzx eax, word ptr [rbx]
+000B9552 6683e82d sub ax, 0x2d
+000B9556 6683f802 cmp ax, 2
+000B955A 0f87ac000000 ja 0x1800b960c
+000B9560 33ff xor edi, edi
+000B9562 448b4326 mov r8d, dword ptr [rbx + 0x26]
+000B9566 8bd7 mov edx, edi
+000B9568 488bcd mov rcx, rbp
+000B956B e8e002fbff call 0x180069850
+000B9570 0fbf431e movsx eax, word ptr [rbx + 0x1e]
+000B9574 03059a3fff05 add eax, dword ptr [rip + 0x5ff3f9a]
+000B957A 4898 cdqe 
+000B957C 488d0c40 lea rcx, [rax + rax*2]
+000B9580 0fbf431c movsx eax, word ptr [rbx + 0x1c]
+000B9584 418b148e mov edx, dword ptr [r14 + rcx*4]
+000B9588 03d0 add edx, eax
+000B958A 0315803fff05 add edx, dword ptr [rip + 0x5ff3f80]
+000B9590 66833b2f cmp word ptr [rbx], 0x2f
+000B9594 4c63c2 movsxd r8, edx
+000B9597 428b848500848900 mov eax, dword ptr [rbp + r8*4 + 0x898400]
+000B959F 7529 jne 0x1800b95ca
+000B95A1 25fffefeff and eax, 0xfffefeff
+000B95A6 0fbae81c bts eax, 0x1c
+000B95AA 4289848500848900 mov dword ptr [rbp + r8*4 + 0x898400], eax
+000B95B2 0fb6431a movzx eax, byte ptr [rbx + 0x1a]
+000B95B6 664283a445405ff000df and word ptr [rbp + r8*2 + 0xf05f40], 0xffdf
+000B95C0 41888428a0e5d700 mov byte ptr [r8 + rbp + 0xd7e5a0], al
+000B95C8 eb28 jmp 0x1800b95f2
+000B95CA 0fbae808 bts eax, 8
+000B95CE 4289848500848900 mov dword ptr [rbp + r8*4 + 0x898400], eax
+000B95D6 410fb68c28e0afe100 movzx ecx, byte ptr [r8 + rbp + 0xe1afe0]
+000B95DF 0fb64304 movzx eax, byte ptr [rbx + 4]
+000B95E3 80e1f8 and cl, 0xf8
+000B95E6 fec8 dec al
+000B95E8 0ac8 or cl, al
+000B95EA 41888c28e0afe100 mov byte ptr [r8 + rbp + 0xe1afe0], cl
+000B95F2 4281a48500848900fffbffff and dword ptr [rbp + r8*4 + 0x898400], 0xfffffbff
+000B95FE ffc7 inc edi
+000B9600 3b3d023fff05 cmp edi, dword ptr [rip + 0x5ff3f02]
+000B9606 0f8c56ffffff jl 0x1800b9562
+000B960C 4881c32c030000 add rbx, 0x32c
+000B9613 4883ee01 sub rsi, 1
+000B9617 0f8527ffffff jne 0x1800b9544
+000B961D 488b5c2430 mov rbx, qword ptr [rsp + 0x30]
+000B9622 488b6c2438 mov rbp, qword ptr [rsp + 0x38]
+000B9627 488b742440 mov rsi, qword ptr [rsp + 0x40]
+000B962C 488b7c2448 mov rdi, qword ptr [rsp + 0x48]
+000B9631 4883c420 add rsp, 0x20
+000B9635 415e pop r14
+000B9637 c3 ret 

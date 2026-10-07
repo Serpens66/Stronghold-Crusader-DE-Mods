@@ -23,10 +23,10 @@ namespace EnemyBridgePathTest
             var h=new BridgeRouteTrace.Header(track.Global,600,474,600,474,4,0);
             byte[] bytes={0x22,0x22};
             trace.ObservePlan(track,h,bytes,0);
-            Check(output.Single().Contains("703/2432893/0/2/600/474/604/474/deck-without-parent-footprint"),"sideways route intersects exact deck even when endpoints are outside");
-            Check(output[0].Contains("packedHex=2222")&&track.PlanningRoot==1320345,"stored route reconstructible; binding retains actual root separately");
+            Check(output.Single(x=>x.StartsWith("stored-route,")).Contains("703/2432893/0/2/600/474/604/474/deck-without-parent-footprint"),"sideways route intersects exact deck even when endpoints are outside");
+            Check(output.Single(x=>x.StartsWith("stored-route,")).Contains("packedHex=2222")&&track.PlanningRoot==1320345,"stored route reconstructible; binding retains actual root separately");
             for(int i=0;i<10000;i++)trace.ObservePlan(track,h,bytes,0);
-            Check(output.Count==1&&captures==1,"unchanged full paths do not capture or format again");
+            Check(output.Count==2&&output.Count(x=>x.StartsWith("route-format,"))==1&&captures==1,"unchanged full paths do not capture or format again");
             trace.ObserveMovement(track,h,false,0);
             trace.ObserveMovement(track,new BridgeRouteTrace.Header(track.Global,601,474,600,474,4,1),true,1);
             trace.ObserveMovement(track,new BridgeRouteTrace.Header(track.Global,604,474,600,474,4,4),true,2);

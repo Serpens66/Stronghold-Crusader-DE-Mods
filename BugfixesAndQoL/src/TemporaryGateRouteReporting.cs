@@ -54,12 +54,12 @@ namespace BugfixesAndQoL
             }
             catch (Exception error) { TemporaryGateRouteAcceptanceBridge.ReportFailure("native-search-correlation", error); }
         }
-        private static object UnavailableTemporaryRoute(ITemporaryGateRouteAcceptanceObserver observer, string reason)
-        { observer.BeginRoute(0, 0, 0, 0, 0, -1, -1, -1, -1, -1, reason); return null; }
+        private static object UnavailableTemporaryRoute(ITemporaryGateRouteAcceptanceObserver observer, string reason, string source)
+        { observer.BeginRoute(0, 0, 0, 0, 0, -1, -1, -1, -1, -1, reason + ",builderSource=" + source); return null; }
         private object BeginTemporaryRouteReport(IntPtr manager, string source = "unspecified-builder")
         {
             if (TemporaryGateRouteAcceptanceBridge.Current == null) return null;
-            TemporaryRouteReport report = CaptureTemporaryRouteReport(manager) as TemporaryRouteReport ?? new TemporaryRouteReport();
+            TemporaryRouteReport report = CaptureTemporaryRouteReport(manager, source) as TemporaryRouteReport ?? new TemporaryRouteReport();
             report.Previous = temporaryRouteCall; report.Source = source; report.Manager = manager;
             if (report.Token != null)
             {
@@ -70,34 +70,34 @@ namespace BugfixesAndQoL
             temporaryRouteCall = report;
             return report;
         }
-        private object CaptureTemporaryRouteReport(IntPtr manager)
+        private object CaptureTemporaryRouteReport(IntPtr manager, string source)
         {
             var observer = TemporaryGateRouteAcceptanceBridge.Current;
             if (observer == null) return null;
             try
             {
                 if (manager != nativePathManager || manager == IntPtr.Zero || nativeUnitManager == null)
-                    return UnavailableTemporaryRoute(observer, "unknown-path-manager");
+                    return UnavailableTemporaryRoute(observer, "unknown-path-manager", source);
                 byte* context = (byte*)manager.ToPointer();
                 byte* path = *(byte**)(context + PathManagerOutputBufferOffset);
                 // Read the existing frame directly. Its accessor can abandon frames; no such mutation belongs in diagnosis.
                 UnitMoveFrame frame = unitMoveFrame;
                 if (frame != null && (frame.Args.SkipOriginalFunction || frame.MapEpoch != mapEpoch ||
                     frame.Tick != CaptureCurrentGameTick() || !ReferenceEquals(frame.Command, activeMoveCommand)))
-                    return UnavailableTemporaryRoute(observer, "stale-or-skipped-unit-frame");
+                    return UnavailableTemporaryRoute(observer, "stale-or-skipped-unit-frame", source);
                 if (frame != null && !GameUnitManagerAPI.Instance.IsValidId(frame.Args.UnitId))
-                    return UnavailableTemporaryRoute(observer, "invalid-unit-frame");
+                    return UnavailableTemporaryRoute(observer, "invalid-unit-frame", source);
                 if (!Shared.TemporaryPackedRouteInspection.TryResolveUnit(path - (nativeUnitManager + NativeUnitPathBufferOffset),
                     NativeUnitPathBufferStride, MaximumUnitCount, frame?.Args.UnitId ?? 0, out int unitId))
-                    return UnavailableTemporaryRoute(observer, "unit-buffer-mismatch");
+                    return UnavailableTemporaryRoute(observer, "unit-buffer-mismatch", source);
                 var units = GameUnitManagerAPI.Instance;
                 if (!units.IsValidId(unitId) || !units.TryGetUnitById(unitId, out GameUnit* unit) || unit == null || unit->r_GlobalId == 0)
-                    return UnavailableTemporaryRoute(observer, "missing-unit-identity");
+                    return UnavailableTemporaryRoute(observer, "missing-unit-identity", source);
                 GetNativeMovementStart(unit, out int x, out int y);
                 int tx = *(int*)(context + 0x10), ty = *(int*)(context + 0x14);
                 if ((uint)x >= MapWidth || (uint)y >= MapWidth || (uint)tx >= MapWidth || (uint)ty >= MapWidth ||
                     *(int*)(context + 0x08) != x || *(int*)(context + 0x0C) != y)
-                    return UnavailableTemporaryRoute(observer, "start-or-target-mismatch");
+                    return UnavailableTemporaryRoute(observer, "start-or-target-mismatch", source);
                 int player = unit->r_ControllableForPlayerId | ((int)unit->N00000569 << 8);
                 uint tribeGlobal = 0;
                 var tribes = GameTribeManagerAPI.Instance;

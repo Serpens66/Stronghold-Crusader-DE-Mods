@@ -1,0 +1,149 @@
+Hash FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2
+FUN_18011ca70 0x11CA70 size=341 confidence=candidate
+Callers [('0x8C5F0',), ('0x11C3F0',), ('0x11C490',)]
+Callees [('0x38A0',), ('0x3BC0',), ('0x11A1B0',), ('0x18D460',)]
+/* FUNCTION FUN_18011ca70 VA=0x18011CA70 RVA=0x11CA70 */
+
+void FUN_18011ca70(undefined8 param_1,undefined4 param_2)
+
+{
+  int iVar1;
+  undefined4 uVar2;
+  longlong lVar3;
+  undefined8 uVar4;
+  undefined1 local_res18 [8];
+  
+  iVar1 = FUN_18018d460(&DAT_1867e8400,1);
+  lVar3 = (longlong)iVar1;
+  uVar2 = FUN_18011a1b0(param_1,param_2,local_res18);
+  switch(uVar2) {
+  case 0x16:
+  case 0x17:
+  case 0x46:
+  case 0x48:
+  case 0x4a:
+  case 0x4c:
+  case 0x51:
+  case 0x52:
+  case 0x53:
+    uVar4 = 0x1d;
+    break;
+  default:
+    goto switchD_18011cada_caseD_18;
+  case 0x27:
+    if ((&DAT_1867e8e0c)[lVar3 * 0x248] == 0) {
+      return;
+    }
+    if (*(short *)(&DAT_1867e8dba + lVar3 * 0x490) < 1) {
+LAB_18011cb0f:
+      FUN_1800038a0(&DAT_1864c4490,0x2e);
+      return;
+    }
+    uVar4 = 0x10;
+    break;
+  case 0x28:
+    if ((&DAT_1867e8e0c)[lVar3 * 0x248] == 0) {
+      return;
+    }
+    if (*(short *)(&DAT_1867e8dba + lVar3 * 0x490) < 1) goto LAB_18011cb0f;
+    uVar4 = 0x11;
+    break;
+  case 0x29:
+    if ((&DAT_1867e8e0c)[lVar3 * 0x248] == 0) {
+      return;
+    }
+    uVar4 = 0xf;
+    break;
+  case 0x3b:
+    if ((&DAT_1867e8e0c)[lVar3 * 0x248] == 0) {
+      return;
+    }
+    uVar4 = 0x13;
+    break;
+  case 0x3d:
+  case 0x4d:
+    if ((&DAT_1867e8e0c)[lVar3 * 0x248] == 0) {
+      return;
+    }
+    uVar4 = 0x12;
+  }
+  FUN_180003bc0(&DAT_1864c4490,uVar2,uVar4,0);
+switchD_18011cada_caseD_18:
+  return;
+}
+
+
+
+
+ASM:
+0011CA70 48895c2408 mov qword ptr [rsp + 8], rbx
+0011CA75 48896c2410 mov qword ptr [rsp + 0x10], rbp
+0011CA7A 4889742420 mov qword ptr [rsp + 0x20], rsi
+0011CA7F 57 push rdi
+0011CA80 4883ec20 sub rsp, 0x20
+0011CA84 8bda mov ebx, edx
+0011CA86 488d2d73b96c06 lea rbp, [rip + 0x66cb973]
+0011CA8D 488bf9 mov rdi, rcx
+0011CA90 ba01000000 mov edx, 1
+0011CA95 488bcd mov rcx, rbp
+0011CA98 e8c3090700 call 0x18018d460
+0011CA9D 4c8d442440 lea r8, [rsp + 0x40]
+0011CAA2 4863f0 movsxd rsi, eax
+0011CAA5 8bd3 mov edx, ebx
+0011CAA7 488bcf mov rcx, rdi
+0011CAAA e801d7ffff call 0x18011a1b0
+0011CAAF 448bd0 mov r10d, eax
+0011CAB2 83c0ea add eax, -0x16
+0011CAB5 83f83d cmp eax, 0x3d
+0011CAB8 0f87f2000000 ja 0x18011cbb0
+0011CABE 4863c8 movsxd rcx, eax
+0011CAC1 488d053835eeff lea rax, [rip - 0x11cac8]
+0011CAC8 0fb68c08e4cb1100 movzx ecx, byte ptr [rax + rcx + 0x11cbe4]
+0011CAD0 8b9488c8cb1100 mov edx, dword ptr [rax + rcx*4 + 0x11cbc8]
+0011CAD7 4803d0 add rdx, rax
+0011CADA ffe2 jmp rdx
+0011CADC 41b81d000000 mov r8d, 0x1d
+0011CAE2 e9b7000000 jmp 0x18011cb9e
+0011CAE7 4869ce90040000 imul rcx, rsi, 0x490
+0011CAEE 6683bc290c0a000000 cmp word ptr [rcx + rbp + 0xa0c], 0
+0011CAF7 0f84b3000000 je 0x18011cbb0
+0011CAFD 6683bc29ba09000001 cmp word ptr [rcx + rbp + 0x9ba], 1
+0011CB06 488d0d83793a06 lea rcx, [rip + 0x63a7983]
+0011CB0D 7d0f jge 0x18011cb1e
+0011CB0F ba2e000000 mov edx, 0x2e
+0011CB14 e8876deeff call 0x1800038a0
+0011CB19 e992000000 jmp 0x18011cbb0
+0011CB1E 41b810000000 mov r8d, 0x10
+0011CB24 eb7f jmp 0x18011cba5
+0011CB26 4869ce90040000 imul rcx, rsi, 0x490
+0011CB2D 6683bc290c0a000000 cmp word ptr [rcx + rbp + 0xa0c], 0
+0011CB36 7478 je 0x18011cbb0
+0011CB38 6683bc29ba09000001 cmp word ptr [rcx + rbp + 0x9ba], 1
+0011CB41 488d0d48793a06 lea rcx, [rip + 0x63a7948]
+0011CB48 7cc5 jl 0x18011cb0f
+0011CB4A 41b811000000 mov r8d, 0x11
+0011CB50 eb53 jmp 0x18011cba5
+0011CB52 4869ce90040000 imul rcx, rsi, 0x490
+0011CB59 6683bc290c0a000000 cmp word ptr [rcx + rbp + 0xa0c], 0
+0011CB62 744c je 0x18011cbb0
+0011CB64 41b80f000000 mov r8d, 0xf
+0011CB6A eb32 jmp 0x18011cb9e
+0011CB6C 4869ce90040000 imul rcx, rsi, 0x490
+0011CB73 6683bc290c0a000000 cmp word ptr [rcx + rbp + 0xa0c], 0
+0011CB7C 7432 je 0x18011cbb0
+0011CB7E 41b812000000 mov r8d, 0x12
+0011CB84 eb18 jmp 0x18011cb9e
+0011CB86 4869ce90040000 imul rcx, rsi, 0x490
+0011CB8D 6683bc290c0a000000 cmp word ptr [rcx + rbp + 0xa0c], 0
+0011CB96 7418 je 0x18011cbb0
+0011CB98 41b813000000 mov r8d, 0x13
+0011CB9E 488d0deb783a06 lea rcx, [rip + 0x63a78eb]
+0011CBA5 4533c9 xor r9d, r9d
+0011CBA8 418bd2 mov edx, r10d
+0011CBAB e81070eeff call 0x180003bc0
+0011CBB0 488b5c2430 mov rbx, qword ptr [rsp + 0x30]
+0011CBB5 488b6c2438 mov rbp, qword ptr [rsp + 0x38]
+0011CBBA 488b742448 mov rsi, qword ptr [rsp + 0x48]
+0011CBBF 4883c420 add rsp, 0x20
+0011CBC3 5f pop rdi
+0011CBC4 c3 ret 

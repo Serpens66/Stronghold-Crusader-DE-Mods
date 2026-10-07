@@ -45,3 +45,11 @@ Synthetic test: 576,000 changing-target events over 120 minute windows; 48 rows/
 ## In-game run
 
 Enable EnemyGatePathfindingTest and the improved Assassin pathfinding in BugfixesAndQoL. Run a longer eight-AI game with foreign gatehouses, reachable outside buildings and buildings behind gates. Leave EnemyBridgePathTest disabled for this gate acceptance. End the map normally to flush the final coverage report. Only missing observed cases need targeted follow-up.
+
+## Format 3: native Assassin publication follow-up
+
+Publication aggregates retain source (F4930-builder/E32B0-reconstruction), raw modes, logical reconstruction relaxation and only synchronously nested Assassin results. Unknown preexisting fields and the unobserved native accepted branch stay unknown. Packed climb evidence is unknown, not false. Gate-attack order overlaps, gate endpoints and other-purpose mask intersections remain separate; none alone proves executed passage. Exact SiegeAssassins classification uses storage role 11 plus live generation/owner. Fixes presence does not prove hook causality or live preference values.
+
+Removal additions: remove the TemporaryReconstructionRelaxation reader/root in AssassinPathfindingRuntime and its Begin/EndTemporaryAssassinSearch attachments; remove the thread-local publication correlation from TemporaryGateRouteReporting and the source argument at both existing publication attachments. Remove the compile-only sibling reader/optional source parameter from FriendlyMoatMovement test fixtures. Native flags, surface/building samples and meaning dimensions are contained in the already marked temporary modules; APIShared needs no new interface.
+
+Next game: same castle with improved Assassin pathfinding enabled, open then closed gates, Fixes unchanged; then open gates with the improvement disabled. End each map normally. Look for format=3 and paired publication/search evidence. The 78 historical intersections remain unresolved.

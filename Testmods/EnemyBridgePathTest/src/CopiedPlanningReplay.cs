@@ -189,9 +189,24 @@ namespace EnemyBridgePathTest
                 int count;var unitTargets=VirtualCandidateConsumers.UnitTargets(CopiedPlanningBundle.Resolve(b,"consumer/pre/unitManager"),b.Attacker,out count);
                 var after=CopiedPlanningBundle.Resolve(b,"consumer/build-pre/candidates");int at=0x2E93E8C-VirtualCandidateConsumers.Root;
                 var recorded=new byte[4000*4];Buffer.BlockCopy(after,at,recorded,0,recorded.Length);Equal(unitTargets,recorded,"unit-target-handoff");if(BitConverter.ToInt32(after,0x2E97D0C-VirtualCandidateConsumers.Root)!=count)throw new InvalidOperationException("unit-target-count");
-                reason="captured-local-handoffs-match;fullCandidateBuildAndWeightReplay=Unknown;fullMilitaryConsumer=Unknown;behaviorFix=disabled";return true;
+                var beforeWeights=CopiedPlanningBundle.Resolve(b,"consumer/weight-pre/candidates");
+                byte[] Weights(int maximum)=>VirtualCandidateWeights.Run(beforeWeights,b.Attacker,b.Target,CopiedPlanningBundle.Resolve(b,"consumer/pre/players"),CopiedPlanningBundle.Resolve(b,"distance-post/distance"),b.Bank,CopiedPlanningBundle.Resolve(b,"consumer/pre/flags"),CopiedPlanningBundle.Resolve(b,"consumer/pre/unitTiles"),CopiedPlanningBundle.Resolve(b,"consumer/pre/unitManager"),CopiedPlanningBundle.Resolve(b,"tileRows"),CopiedPlanningBundle.Resolve(b,"directionOffsets"),maximum);
+                string weight="Unknown:missing-weight-mode-values-at-3665F10-and-3665F28";
+                if(b.Sections.ContainsKey("consumer/weight-pre/gameModeValues"))
+                {
+                    byte[] values=CopiedPlanningBundle.Resolve(b,"consumer/weight-pre/gameModeValues");if(values.Length!=8)throw new ArgumentException("weight-mode-values-extent");int maximum=BitConverter.ToInt32(values,4)==0&&BitConverter.ToInt32(values,0)==28?150:70;
+                    Equal(Weights(maximum),CopiedPlanningBundle.Resolve(b,"consumer/weight-post/candidates"),"full-weight-handoff");weight="Matched-actual-input-limit-"+maximum;
+                }
+                reason="captured-local-handoffs-match;fullWeightReplay="+weight+";fullCandidateBuildAndWeightReplay=Unknown;fullMilitaryConsumer=Unknown;behaviorFix=disabled";return true;
             }
             catch(Exception error){reason="Unknown:consumer-stage-mismatch:"+error.Message;return false;}
+        }
+        internal static bool TryConsumerInputClosure(BridgePlanningImporter.Artifact artifact,out string reason)
+        {
+            var b=artifact?.Planning;if(b==null){reason="Unknown:missing-planning";return false;}
+            string[] required={"consumer/weight-pre/gameModeValues","buildingUpdaterControls","buildingUpdaterSlots","consumer/pre/packedValidity","consumer/pre/combatClassMask","consumer/pre/buildingTransitionClasses","consumer/pre/buildingSeedClasses","consumer/pre/workControls","consumer/pre/workQueueControls","consumer/pre/workQueue","consumer/pre/workQueueRows","consumer/pre/workQueueX","consumer/pre/workDistances","consumer/pre/workVisits","consumer/pre/workTargets","consumer/post/workControls","consumer/post/workQueueControls","consumer/post/workQueue","consumer/post/workQueueRows","consumer/post/workQueueX","consumer/post/workDistances","consumer/post/workVisits","consumer/post/workTargets"};
+            var missing=new List<string>();foreach(string key in required)if(!b.Sections.ContainsKey(key)&&!b.References.ContainsKey(key))missing.Add(key);
+            reason=missing.Count==0?"bounded-extra-inputs-present;fullCandidateBuilderAndMilitaryReplay=Unknown;negativeEligible=False":"Unknown:missing-native-inputs=["+string.Join(";",missing)+"];no-defaults;negativeEligible=False";return missing.Count==0;
         }
         private static int[] Histogram(ushort[] components)
         {var counts=new int[1000];foreach(int component in components){if(component>=counts.Length)throw new ArgumentException("unsupported-component-capacity");if(component!=0)counts[component]++;}return counts;}

@@ -1,0 +1,113 @@
+Hash FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2
+FUN_1800c4290 0xC4290 size=257 confidence=candidate
+Callers [('0x12400',), ('0x2D810',), ('0x3B1D0',), ('0x3B270',), ('0x3B360',), ('0x5D3A0',), ('0x7DF60',), ('0x7EB00',), ('0xA65A0',), ('0xA7580',), ('0xA8E40',), ('0xA93C0',), ('0xA9A30',), ('0xAA030',), ('0xAA630',), ('0xAB6E0',), ('0xAD180',), ('0xC3F10',), ('0xD0630',), ('0xED2E0',), ('0x11E960',), ('0x12E400',), ('0x1855A0',)]
+Callees [('0xB82D0',), ('0xBCEB0',), ('0xC7260',), ('0xC7280',), ('0xCCD20',)]
+/* FUNCTION FUN_1800c4290 VA=0x1800C4290 RVA=0xC4290 */
+
+void FUN_1800c4290(longlong param_1,int param_2)
+
+{
+  int iVar1;
+  short *psVar2;
+  int iVar3;
+  longlong lVar4;
+  
+  iVar3 = 1;
+  lVar4 = (longlong)param_2 * 0x32c + param_1;
+  *(undefined2 *)(lVar4 + 300) = 3;
+  if (DAT_1860ad528 == 0) {
+    *(undefined2 *)(lVar4 + 0x120) = 1;
+  }
+  if (*(short *)(lVar4 + 0x12e) == 0x34) {
+    FUN_1800b82d0(param_1,param_2);
+  }
+  iVar1 = FUN_1800c7280(param_1,param_2);
+  if (iVar1 != 0) {
+    FUN_1800bceb0(&DAT_1864ccbb0);
+  }
+  iVar1 = FUN_1800c7260(param_1,param_2);
+  if (iVar1 != 0) {
+    FUN_1800ccd20(&DAT_18366c210);
+  }
+  iVar1 = *(int *)(lVar4 + 0x304);
+  if ((iVar1 != 0) && (1 < *(int *)(param_1 + 0x50))) {
+    psVar2 = (short *)(param_1 + 0x458);
+    do {
+      if (((*psVar2 != 0) && (*(int *)(psVar2 + 0xec) == iVar1)) &&
+         (*psVar2 = 3, DAT_1860ad528 == 0)) {
+        psVar2[-6] = 1;
+      }
+      iVar3 = iVar3 + 1;
+      psVar2 = psVar2 + 0x196;
+    } while (iVar3 < *(int *)(param_1 + 0x50));
+  }
+  DAT_1860ad528 = 0;
+  return;
+}
+
+
+
+
+ASM:
+000C4290 48895c2408 mov qword ptr [rsp + 8], rbx
+000C4295 48896c2410 mov qword ptr [rsp + 0x10], rbp
+000C429A 4889742418 mov qword ptr [rsp + 0x18], rsi
+000C429F 48897c2420 mov qword ptr [rsp + 0x20], rdi
+000C42A4 4156 push r14
+000C42A6 4883ec20 sub rsp, 0x20
+000C42AA 41be03000000 mov r14d, 3
+000C42B0 4863f2 movsxd rsi, edx
+000C42B3 4869fe2c030000 imul rdi, rsi, 0x32c
+000C42BA 488bd9 mov rbx, rcx
+000C42BD 418d6efe lea ebp, [r14 - 2]
+000C42C1 4803f9 add rdi, rcx
+000C42C4 664489b72c010000 mov word ptr [rdi + 0x12c], r14w
+000C42CC 833d5592fe0500 cmp dword ptr [rip + 0x5fe9255], 0
+000C42D3 7507 jne 0x1800c42dc
+000C42D5 6689af20010000 mov word ptr [rdi + 0x120], bp
+000C42DC 6683bf2e01000034 cmp word ptr [rdi + 0x12e], 0x34
+000C42E4 7507 jne 0x1800c42ed
+000C42E6 8bd6 mov edx, esi
+000C42E8 e8e33fffff call 0x1800b82d0
+000C42ED 8bd6 mov edx, esi
+000C42EF 488bcb mov rcx, rbx
+000C42F2 e8892f0000 call 0x1800c7280
+000C42F7 85c0 test eax, eax
+000C42F9 740c je 0x1800c4307
+000C42FB 488d0dae884006 lea rcx, [rip + 0x64088ae]
+000C4302 e8a98bffff call 0x1800bceb0
+000C4307 8bd6 mov edx, esi
+000C4309 488bcb mov rcx, rbx
+000C430C e84f2f0000 call 0x1800c7260
+000C4311 85c0 test eax, eax
+000C4313 740c je 0x1800c4321
+000C4315 488d0df47e5a03 lea rcx, [rip + 0x35a7ef4]
+000C431C e8ff890000 call 0x1800ccd20
+000C4321 8b9704030000 mov edx, dword ptr [rdi + 0x304]
+000C4327 85d2 test edx, edx
+000C4329 7441 je 0x1800c436c
+000C432B 8bcd mov ecx, ebp
+000C432D 394b50 cmp dword ptr [rbx + 0x50], ecx
+000C4330 7e3a jle 0x1800c436c
+000C4332 488d8358040000 lea rax, [rbx + 0x458]
+000C4339 0f1f8000000000 nop dword ptr [rax]
+000C4340 66833800 cmp word ptr [rax], 0
+000C4344 7419 je 0x1800c435f
+000C4346 3990d8010000 cmp dword ptr [rax + 0x1d8], edx
+000C434C 7511 jne 0x1800c435f
+000C434E 66448930 mov word ptr [rax], r14w
+000C4352 833dcf91fe0500 cmp dword ptr [rip + 0x5fe91cf], 0
+000C4359 7504 jne 0x1800c435f
+000C435B 668968f4 mov word ptr [rax - 0xc], bp
+000C435F ffc1 inc ecx
+000C4361 48052c030000 add rax, 0x32c
+000C4367 3b4b50 cmp ecx, dword ptr [rbx + 0x50]
+000C436A 7cd4 jl 0x1800c4340
+000C436C 488b5c2430 mov rbx, qword ptr [rsp + 0x30]
+000C4371 488b6c2438 mov rbp, qword ptr [rsp + 0x38]
+000C4376 488b742440 mov rsi, qword ptr [rsp + 0x40]
+000C437B 488b7c2448 mov rdi, qword ptr [rsp + 0x48]
+000C4380 c7059e91fe0500000000 mov dword ptr [rip + 0x5fe919e], 0
+000C438A 4883c420 add rsp, 0x20
+000C438E 415e pop r14
+000C4390 c3 ret 

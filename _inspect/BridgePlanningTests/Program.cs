@@ -361,6 +361,8 @@ namespace BridgePlanningTests
             Check(CopiedPlanningReplay.TryConsumerStages(imported,out replayReason),"productive unit/availability handoffs replay from disk: "+replayReason);
             imported.Planning.Sections["target/703/identity5"][0]^=1;var wrongBlocks=new List<byte[]> {BridgeInputArtifact.Header("fixture=True\n"+imported.Planning.Metadata,2)};wrongBlocks.AddRange(imported.Planning.Serialize());Check(writer.Enqueue(7,701,wrongBlocks,2),"wrong session fixture accepted by writer only");while(writer.Pending(7))writer.Pump();Check(!BridgePlanningImporter.TryRead(Path.Combine(folder,"bridge-7-701.bin"),out imported,out importReason),"valid hash with wrong selection session rejected");
             BridgePlanningImporter.Artifact validConsumer;Check(BridgePlanningImporter.TryRead(Path.Combine(folder,"bridge-7-700.bin"),out validConsumer,out importReason),"consumer fixture remains independently loadable");
+            Check(CopiedPlanningReplay.TryConsumerInputClosure(validConsumer,out replayReason),"version2 extra inputs present without authorizing full counterfactual");
+            validConsumer.Planning.Sections["consumer/weight-post/gameModeValues"][0]^=1;var unstableMode=new List<byte[]> {BridgeInputArtifact.Header("fixture=True\n"+validConsumer.Planning.Metadata,2)};unstableMode.AddRange(validConsumer.Planning.Serialize());Check(writer.Enqueue(8,703,unstableMode,2),"unstable mode artifact has valid delivery hash");while(writer.Pending(8))writer.Pump();Check(!BridgePlanningImporter.TryRead(Path.Combine(folder,"bridge-8-703.bin"),out imported,out importReason)&&importReason.Contains("weight-mode-changed-during-call"),"mode instability rejected independently of file hash");validConsumer.Planning.Sections["consumer/weight-post/gameModeValues"][0]^=1;
             validConsumer.Planning.Sections["consumer/post/identity"][16]^=1;var brokenConsumer=new List<byte[]> {BridgeInputArtifact.Header("fixture=True\n"+validConsumer.Planning.Metadata,2)};brokenConsumer.AddRange(validConsumer.Planning.Serialize());Check(writer.Enqueue(8,702,brokenConsumer,2),"mismatched consumer frame fixture writes with valid file hash");while(writer.Pending(8))writer.Pump();Check(!BridgePlanningImporter.TryRead(Path.Combine(folder,"bridge-8-702.bin"),out imported,out importReason)&&importReason.Contains("consumer-pre-post-binding"),"wrong consumer frame rejected independently of file delivery");
             capture.Begin(8);capture.Observe(0x2D250,false,8,799,790,8,8,1,0,0,true,0,false);Check(capture.ActiveFamily==0&&capture.Status.Contains("planningCaptureAttempts=0"),"preparatory phases skipped without consuming capture attempt");
             f.Install(m);m.Int(0x379D9A8+8*0x583c,1);m.Int(Root+0x6c,dirty);m.Int(Root+0x74,4);capture.Begin(8);capture.Observe(0x2D250,false,8,800,790,8,8,1,0,0,true);m.Int(Root+0x74,5);capture.Observe(0xD95E0,false,8,801,800,8,1,1,1,0,true);Check(capture.ActiveFamily==0,"rebuild during capture rejects family even with same map identity");
@@ -420,13 +422,55 @@ namespace BridgePlanningTests
             }
             Console.WriteLine("PASS native 1126B0 and five candidate consumers; complete buffers, signed5999 boundary, reservation modes, unit IDs");
         }
+
+        private static void WeightComparisons(NativeImage m)
+        {
+            foreach(int maximum in new[]{70,150})foreach(bool blocked in new[]{false,true})foreach(bool active in new[]{false,true})
+            {
+                var f=new Fixture(32,12);f.Install(m);int[] values={-1,0,1,5,10,11,15,16,20,21,25,26,50,51,70,71,150,151};var before=new byte[VirtualCandidateConsumers.Bytes];int shift=8*0x177bc-VirtualCandidateConsumers.Root;
+                void Put(int at,int value)=>Buffer.BlockCopy(BitConverter.GetBytes(value),0,before,at+shift,4);
+                Put(0x2ea70dc,2);foreach(int table in new[]{0x2ea70e4,0x2eaaf90,0x2eaee2c,0x2eb2cc8,0x2ebaa00,0x2eb6b64}){Put(table,values.Length);for(int n=0;n<values.Length;n++){Put(table+8+n*16,f.SeedTile+n);Put(table+16+n*16,345);}}
+                Put(0x2ea70e4,values.Length-2);for(int n=0;n<values.Length-2;n++)Put(0x2ea70ec+n*16,f.SeedTile+n+2);
+                byte[] players=new byte[9*0x583c];Buffer.BlockCopy(BitConverter.GetBytes(active?1:0),0,players,2*0x583c+0x1a4,4);byte[] units=new byte[0x65c+2*0x490];Buffer.BlockCopy(BitConverter.GetBytes(2),0,units,0,4);byte[] occupancy=new byte[N*2];byte[] distance=new byte[N*2];
+                for(int n=0;n<values.Length;n++)Buffer.BlockCopy(BitConverter.GetBytes((short)values[n]),0,distance,(f.SeedTile+n)*2,2);
+                if(blocked){int neighbor=f.SeedTile+2+f.Offsets[100*8];f.Flag[neighbor]=0;Buffer.BlockCopy(BitConverter.GetBytes((short)1),0,occupancy,neighbor*2,2);Buffer.BlockCopy(BitConverter.GetBytes((short)29),0,units,0x490+0x6e6,2);Buffer.BlockCopy(BitConverter.GetBytes((short)3),0,units,0x490+0x918,2);}
+                byte[] flags=new byte[N*4],rows=new byte[N*2],offsets=new byte[6400*4];Buffer.BlockCopy(f.Flag,0,flags,0,flags.Length);Buffer.BlockCopy(f.Y,0,rows,0,rows.Length);Buffer.BlockCopy(f.Offsets,0,offsets,0,offsets.Length);
+                var managed=VirtualCandidateWeights.Run(before,8,2,players,distance,2,flags,occupancy,units,rows,offsets,maximum);
+                m.Put(Flags,flags);m.Put(VirtualCandidateConsumers.Root,before);m.Put(0x379ae00,players);m.Put(Distances+2*N*2,distance);m.Put(0x4c559b0,occupancy);m.Put(0x67e8400,units);m.Int(0x3665f10,maximum==150?28:0);m.Int(0x3665f28,0);m.Function<V3>(0x115b10)(m.Ptr(VirtualCandidateConsumers.Root),2,8);Equal(m.Bytes(VirtualCandidateConsumers.Root,before.Length),managed,"complete native weight score boundaries/blocker/active/70-150");cases++;if(active)Check(BitConverter.ToInt32(managed,0x2ea70f4+shift)==(blocked?9999:1),"actual blocker changes first candidate score");
+                if(blocked&&active){Buffer.BlockCopy(BitConverter.GetBytes((short)1),0,units,0x490+0x8fa,2);Buffer.BlockCopy(BitConverter.GetBytes((short)0),0,units,0x490+0x6e6,2);bool rejected=false;try{VirtualCandidateWeights.Run(before,8,2,players,distance,2,flags,occupancy,units,rows,offsets,maximum);}catch(ArgumentException){rejected=true;}Check(rejected,"copied linked unit cycle rejects instead of looping");}
+            }
+            Console.WriteLine("PASS full115B10 weight boundaries, active target, adjacent native blocker,70/150 and copied unit cycle rejection");
+            m.Put(0x4c559b0,new byte[N*2]);m.Put(VirtualCandidateConsumers.Root,new byte[VirtualCandidateConsumers.Bytes]);
+            m.Put(0x67E8400,new byte[0x65c+0x490]);m.Int(0x67E8400,1);
+        }
         private static T[] Section<T>(BridgePlanningImporter.Artifact a,string name,int width)
         {byte[] bytes=a.Sections[name];if(bytes.Length%width!=0)throw new Exception("section extent");var data=new T[bytes.Length/width];Buffer.BlockCopy(bytes,0,data,0,bytes.Length);return data;}
+
+        private static int HistoricalWeights(string path)
+        {
+            BridgePlanningImporter.Artifact a;string reason;if(!BridgePlanningImporter.TryRead(path,out a,out reason))throw new Exception(reason);var b=a.Planning;
+            if(a.Hash!="3C5290A9081930B4E0B3D55A537217DA2CDD04A497034403585D29ED059DB7AB"||b==null)throw new Exception("unapproved historical weight input");
+            byte[] Get(string name)=>CopiedPlanningBundle.Resolve(b,name);
+            byte[] before=Get("consumer/weight-pre/candidates"),expected=Get("consumer/weight-post/candidates");
+            foreach(int maximum in new[]{70,150})
+            using(var m=new NativeImage(Native,Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"..","native-contracts.tsv")))
+            {
+                var managed=VirtualCandidateWeights.Run(before,b.Attacker,b.Target,Get("consumer/pre/players"),Get("distance-post/distance"),b.Bank,Get("consumer/pre/flags"),Get("consumer/pre/unitTiles"),Get("consumer/pre/unitManager"),Get("tileRows"),Get("directionOffsets"),maximum);
+                m.Put(VirtualCandidateConsumers.Root,before);m.Put(0x379ae00,Get("consumer/pre/players"));m.Put(Distances+b.Bank*N*2,Get("distance-post/distance"));m.Put(Flags,Get("consumer/pre/flags"));m.Put(0x4c559b0,Get("consumer/pre/unitTiles"));m.Put(0x67e8400,Get("consumer/pre/unitManager"));m.Put(0x3aae2a4,Get("tileRows"));m.Put(TileRoot,Get("directionOffsets"));
+                // Both exhaustive native game-mode branches, not assumed history.
+                m.Int(0x3665f10,maximum==150?28:0);m.Int(0x3665f28,0);
+                m.Function<V3>(0x115b10)(m.Ptr(VirtualCandidateConsumers.Root),b.Target,b.Attacker);
+                Equal(m.Bytes(VirtualCandidateConsumers.Root,before.Length),managed,"entire historical native/managed weight manager threshold"+maximum);
+                int differences=0;for(int k=0;k<managed.Length;k++)if(managed[k]!=expected[k])differences++;Console.WriteLine("realWeightLimit="+maximum+",nativeManagedMatch=True,recordedChangedBytes="+differences+",inputGameMode=not-recorded,policy=Unknown");
+            }
+            Console.WriteLine("PASS real complete115B10/193C80/193D90 native and managed buffers for both exhaustive70/150 branches; actual game-mode input missing; fullCandidateBuilder=Unknown; policy=Unknown");return 0;
+        }
         private static int HistoricalRebuild(string path)
         {
             BridgePlanningImporter.Artifact a;string reason;if(!BridgePlanningImporter.TryRead(path,out a,out reason))throw new Exception(reason);
             var components=Section<ushort>(a,"components",2);var flags=Section<int>(a,"flags",4);var edges=Section<byte>(a,"edges",1);var rows=Section<int>(a,"rows",4);var xx=Section<ushort>(a,"x",2);var yy=Section<ushort>(a,"y",2);var ids=Section<ushort>(a,"specialIds",2);var kinds=Section<short>(a,"specialKinds",2);
             var b=a.Planning;if(b==null)throw new Exception("historical planning required");
+            if(a.Hash=="3C5290A9081930B4E0B3D55A537217DA2CDD04A497034403585D29ED059DB7AB"&&!b.Sections.ContainsKey("buildingUpdaterControls"))throw new Exception("Unknown:missing-native-building-updater-controls-at-67E6424-and-complete3999-slots;fullBuildingUpdaterReplay=False;negativeEligible=False");
             if(a.Hash!="48EB96C1902815BC062B4C87777679A49FFCF6B38997AEA3F72FE5BCA373A552")throw new Exception("unapproved historical reference input");int[] offsets=new int[6400];Buffer.BlockCopy(CopiedPlanningBundle.Resolve(b,"directionOffsets"),0,offsets,0,25600);int[] records=new int[2400];Buffer.BlockCopy(CopiedPlanningBundle.Resolve(b,"rowRecords"),0,records,0,9600);var ends=new int[800];for(int n=0;n<800;n++)ends[n]=records[n*3+2];
             var physical=new VirtualBridgeMap(b.Session,b.Revision,components,edges,flags,xx,yy,rows,Array.Empty<VirtualConnection>(),true,ids,kinds);
             byte[] closed,blocks;ushort[] types;if(!VirtualPlanningBuildings.TryPrepare(physical,CopiedPlanningBundle.Resolve(b,"buildingRecords"),Section<ushort>(a,"plan/buildingIds",2),out closed,out types,out blocks,out reason))throw new Exception(reason);
@@ -446,9 +490,10 @@ namespace BridgePlanningTests
         }
         private static int Main(string[] args)
         {
-            if(args.Length==2&&args[0]=="--historical-rebuild"){try{return HistoricalRebuild(args[1]);}catch(Exception error){Console.Error.WriteLine(error);return 2;}}
+            if(args.Length==2&&args[0]=="--historical-weights"){try{return HistoricalWeights(args[1]);}catch(Exception error){Console.Error.WriteLine(error);return 2;}}
+                if(args.Length==2&&args[0]=="--historical-rebuild"){try{return HistoricalRebuild(args[1]);}catch(Exception error){Console.Error.WriteLine(error);return 2;}}
             var elapsed=System.Diagnostics.Stopwatch.StartNew();
-            try{Check(IntPtr.Size==8,"x64 process");using(var m=new NativeImage(Native,Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"..","native-contracts.tsv"))){Tables(m);CandidateConsumers(m);Callers(m);Planning(m);GatePlanning(m);Raised(m);SpecialSeeds(m);MacroRoles(m);PackedAndLimit(m);Capture(m,0);Capture(m,1);}Console.WriteLine("PASS private native planning: "+cases+" synthetic differential cases, "+checks+" checks; no game/library initialization");Console.WriteLine("offline-cost: totalMs="+elapsed.Elapsed.TotalMilliseconds.ToString("F1",System.Globalization.CultureInfo.InvariantCulture)+",scope=all-fixtures-native-and-managed-including-copies-and-full-grid-checks,gameCost=not-measured,behaviorFix=disabled");return 0;}
+            try{Check(IntPtr.Size==8,"x64 process");using(var m=new NativeImage(Native,Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"..","native-contracts.tsv"))){Tables(m);CandidateConsumers(m);WeightComparisons(m);Callers(m);Planning(m);GatePlanning(m);Raised(m);SpecialSeeds(m);MacroRoles(m);PackedAndLimit(m);Capture(m,0);Capture(m,1);}Console.WriteLine("PASS private native planning: "+cases+" synthetic differential cases, "+checks+" checks; no game/library initialization");Console.WriteLine("offline-cost: totalMs="+elapsed.Elapsed.TotalMilliseconds.ToString("F1",System.Globalization.CultureInfo.InvariantCulture)+",scope=all-fixtures-native-and-managed-including-copies-and-full-grid-checks,gameCost=not-measured,behaviorFix=disabled");return 0;}
             catch(Exception ex){Console.Error.WriteLine(ex);return 1;}
         }
     }

@@ -1,0 +1,117 @@
+Hash FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2
+FUN_1800b72c0 0xB72C0 size=270 confidence=candidate
+Callers [('0x8C5F0',)]
+Callees [('0xE2610',), ('0x18DC40',), ('0x196870',)]
+/* FUNCTION FUN_1800b72c0 VA=0x1800B72C0 RVA=0xB72C0 */
+
+undefined8 FUN_1800b72c0(undefined8 param_1,int param_2,int param_3)
+
+{
+  byte bVar1;
+  short sVar2;
+  short sVar3;
+  short sVar4;
+  int iVar5;
+  undefined4 uVar6;
+  uint uVar7;
+  longlong lVar8;
+  
+  sVar2 = (&DAT_183aae2a4)[param_2];
+  bVar1 = (&DAT_184ddd350)[param_2];
+  sVar3 = (&DAT_1850ec690)[(int)(&DAT_1867e8b2c)[(longlong)param_3 * 0x124]];
+  iVar5 = FUN_180196870(&DAT_1867e8400);
+  if (iVar5 == 0) {
+    lVar8 = 0;
+    do {
+      uVar7 = (int)((uint)bVar1 - (uint)(byte)(&DAT_184ddd350)[param_2]) >> 0x1f;
+      if (((int)(((uint)bVar1 - (uint)(byte)(&DAT_184ddd350)[param_2] ^ uVar7) - uVar7) < 0x10) &&
+         (sVar4 = (&DAT_1850ec690)
+                  [*(int *)(&DAT_18405edb0 + (lVar8 + (longlong)sVar2 * 8) * 4) + param_2],
+         sVar4 != 0)) {
+        uVar6 = FUN_18018dc40(&DAT_1867e8400);
+        iVar5 = c_game_get_next_reachable_pcl_to_destination_for_player
+                          (&DAT_1860ad660,(int)(short)(&DAT_1867e8aee)[(longlong)param_3 * 0x248],
+                           (int)sVar3,(int)sVar4,uVar6);
+        if (iVar5 != 0) {
+          return 1;
+        }
+      }
+      lVar8 = lVar8 + 1;
+    } while (lVar8 < 8);
+  }
+  return 0;
+}
+
+
+
+
+ASM:
+000B72C0 48895c2408 mov qword ptr [rsp + 8], rbx
+000B72C5 48896c2410 mov qword ptr [rsp + 0x10], rbp
+000B72CA 4889742418 mov qword ptr [rsp + 0x18], rsi
+000B72CF 57 push rdi
+000B72D0 4154 push r12
+000B72D2 4155 push r13
+000B72D4 4156 push r14
+000B72D6 4157 push r15
+000B72D8 4883ec30 sub rsp, 0x30
+000B72DC 4c63fa movsxd r15, edx
+000B72DF 488d3d1a8df4ff lea rdi, [rip - 0xb72e6]
+000B72E6 4963c0 movsxd rax, r8d
+000B72E9 488d1510117306 lea rdx, [rip + 0x6731110]
+000B72F0 4c69e090040000 imul r12, rax, 0x490
+000B72F7 4a0fbf9c7fa4e2aa03 movsx rbx, word ptr [rdi + r15*2 + 0x3aae2a4]
+000B7300 488daf50d3dd04 lea rbp, [rdi + 0x4ddd350]
+000B7307 460fb6743d00 movzx r14d, byte ptr [rbp + r15]
+000B730D 488bca mov rcx, rdx
+000B7310 496384142c070000 movsxd rax, dword ptr [r12 + rdx + 0x72c]
+000B7318 440fbfac4790c60e05 movsx r13d, word ptr [rdi + rax*2 + 0x50ec690]
+000B7321 e84af50d00 call 0x180196870
+000B7326 85c0 test eax, eax
+000B7328 757e jne 0x1800b73a8
+000B732A 488bf3 mov rsi, rbx
+000B732D 33db xor ebx, ebx
+000B732F 90 nop 
+000B7330 420fb64c3d00 movzx ecx, byte ptr [rbp + r15]
+000B7336 418bc6 mov eax, r14d
+000B7339 2bc1 sub eax, ecx
+000B733B 99 cdq 
+000B733C 33c2 xor eax, edx
+000B733E 2bc2 sub eax, edx
+000B7340 83f810 cmp eax, 0x10
+000B7343 7d5a jge 0x1800b739f
+000B7345 488d04f3 lea rax, [rbx + rsi*8]
+000B7349 8b8487b0ed0504 mov eax, dword ptr [rdi + rax*4 + 0x405edb0]
+000B7350 4103c7 add eax, r15d
+000B7353 4863c8 movsxd rcx, eax
+000B7356 0fbfbc4f90c60e05 movsx edi, word ptr [rdi + rcx*2 + 0x50ec690]
+000B735E 85ff test edi, edi
+000B7360 7436 je 0x1800b7398
+000B7362 488d0d97107306 lea rcx, [rip + 0x6731097]
+000B7369 e8d2680d00 call 0x18018dc40
+000B736E 488d0d8b107306 lea rcx, [rip + 0x673108b]
+000B7375 89442420 mov dword ptr [rsp + 0x20], eax
+000B7379 410fbf940cee060000 movsx edx, word ptr [r12 + rcx + 0x6ee]
+000B7382 448bcf mov r9d, edi
+000B7385 488d0dd462ff05 lea rcx, [rip + 0x5ff62d4]
+000B738C 458bc5 mov r8d, r13d
+000B738F e87cb20200 call 0x1800e2610
+000B7394 85c0 test eax, eax
+000B7396 752f jne 0x1800b73c7
+000B7398 488d3d618cf4ff lea rdi, [rip - 0xb739f]
+000B739F 48ffc3 inc rbx
+000B73A2 4883fb08 cmp rbx, 8
+000B73A6 7c88 jl 0x1800b7330
+000B73A8 33c0 xor eax, eax
+000B73AA 488b5c2460 mov rbx, qword ptr [rsp + 0x60]
+000B73AF 488b6c2468 mov rbp, qword ptr [rsp + 0x68]
+000B73B4 488b742470 mov rsi, qword ptr [rsp + 0x70]
+000B73B9 4883c430 add rsp, 0x30
+000B73BD 415f pop r15
+000B73BF 415e pop r14
+000B73C1 415d pop r13
+000B73C3 415c pop r12
+000B73C5 5f pop rdi
+000B73C6 c3 ret 
+000B73C7 b801000000 mov eax, 1
+000B73CC ebdc jmp 0x1800b73aa

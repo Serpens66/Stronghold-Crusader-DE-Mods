@@ -1,0 +1,44 @@
+Hash FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2
+FUN_1800ca5a0 0xCA5A0 size=71 confidence=candidate
+Callers [('0xC8380',)]
+Callees [('0xB9B50',), ('0xBD8E0',), ('0xC0880',)]
+/* FUNCTION FUN_1800ca5a0 VA=0x1800CA5A0 RVA=0xCA5A0 */
+
+void FUN_1800ca5a0(void)
+
+{
+  int iVar1;
+  
+  iVar1 = 1;
+  do {
+    FUN_1800c0880(&DAT_1864ccbb0,iVar1);
+    FUN_1800bd8e0(&DAT_1864ccbb0,iVar1);
+    FUN_1800b9b50(&DAT_1864ccbb0,iVar1);
+    iVar1 = iVar1 + 1;
+  } while (iVar1 < 9);
+  return;
+}
+
+
+
+
+ASM:
+000CA5A0 4053 push rbx
+000CA5A2 4883ec20 sub rsp, 0x20
+000CA5A6 bb01000000 mov ebx, 1
+000CA5AB 0f1f440000 nop dword ptr [rax + rax]
+000CA5B0 8bd3 mov edx, ebx
+000CA5B2 488d0df7254006 lea rcx, [rip + 0x64025f7]
+000CA5B9 e8c262ffff call 0x1800c0880
+000CA5BE 8bd3 mov edx, ebx
+000CA5C0 488d0de9254006 lea rcx, [rip + 0x64025e9]
+000CA5C7 e81433ffff call 0x1800bd8e0
+000CA5CC 8bd3 mov edx, ebx
+000CA5CE 488d0ddb254006 lea rcx, [rip + 0x64025db]
+000CA5D5 e876f5feff call 0x1800b9b50
+000CA5DA ffc3 inc ebx
+000CA5DC 83fb09 cmp ebx, 9
+000CA5DF 7ccf jl 0x1800ca5b0
+000CA5E1 4883c420 add rsp, 0x20
+000CA5E5 5b pop rbx
+000CA5E6 c3 ret 

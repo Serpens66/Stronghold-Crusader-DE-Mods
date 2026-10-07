@@ -88,6 +88,12 @@ def analyze(raw):
                 unbatched.append((line,item))
             except (AssertionError,ValueError):torn.append(line)
     records=unbatched
+    formats={(f.get('session'),f.get('format')):f for _,f in records if f['kind']=='route-format'}
+    for line,f in records:
+        if f['kind']=='stored-route' and f.get('format')=='2':
+            contract=formats.get((f.get('session'),'2'))
+            if not contract or any(key not in contract for key in ('completeness','consistency','bridgeColumns','packedEncoding','parentAssociation','execution','coverage')) or contract.get('packedEncoding')!='low-nibble-first':torn.append(line);continue
+            for key in ('completeness','consistency','bridgeColumns','packedEncoding','parentAssociation','execution','coverage'):f.setdefault(key,contract[key])
     command_contexts={f['definition']:f for _,f in records if f['kind']=='command-context'}
     expanded=[]
     for line,f in records:
@@ -338,6 +344,14 @@ def self_test():
     path=(prefix+'3,session=1,kind=stored-route,definition=1,origin=1/1,length=3,complete=True,decodedEndpoint=4/1,bridges=[703/1/0/1/1/1/4/1/deck-without-parent-footprint;],packedHex=2202\r\n').encode()
     assert not analyze(raw+path)['reconstructionErrors']
     assert analyze(raw+path.replace(b'2202',b'2204'))['reconstructionErrors']
+    contract=(prefix+'30,session=1,kind=route-format,format=2,completeness=decoded-stored-transitions,consistency=single-copy-header-stability-only,bridgeColumns=building/global/firstStep/lastStep/entryX/entryY/exitX/exitY/classification,packedEncoding=low-nibble-first,parentAssociation=candidate-unless-native-link,execution=not-proven,coverage=stored-plan-only\r\n').encode()
+    short_path=path.replace(b'kind=stored-route,',b'kind=stored-route,format=2,')
+    decoded=analyze(raw+contract+short_path)
+    assert decoded['bridgeComplete'] and not decoded['reconstructionErrors']
+    assert next(f for _,f in decoded['records'] if f['kind']=='stored-route')['execution']=='not-proven'
+    assert not analyze(raw+short_path)['bridgeComplete']
+    assert not analyze(raw+contract.replace(b'coverage=stored-plan-only',b'wrong=stored-plan-only')+short_path)['bridgeComplete']
+
     extra=(prefix+'4,session=1,kind=decision-state,definition=9,player=8,consumedPlan=[0/6/1/0/0/0]\r\n'+
            prefix+'5,session=1,kind=native-enter,op=20,retainedEntryPlanStamp=[0/6/1/0/0/0]\r\n'+
            prefix+'6,session=1,kind=command-pre,op=21,commandKind=move\r\n'+

@@ -66,4 +66,60 @@ namespace EnemyBridgePathTest
         }
     }
 
+    // Complete 115B10 and 193C80/193D90 over immutable byte copies. The caller
+    // supplies the actual game-dependent 70/150 limit or compares both outcomes.
+    internal static class VirtualCandidateWeights
+    {
+        internal static byte[] Run(byte[] before,int attacker,int target,byte[] players,byte[] distances,int bank,byte[] flags,byte[] occupancy,byte[] units,byte[] tileRows,byte[] directionOffsets,int maximum)
+        {
+            if(before.Length!=VirtualCandidateConsumers.Bytes||players.Length!=9*0x583c||distances.Length!=320800*2||flags.Length!=320800*4||occupancy.Length!=320800*2||tileRows.Length!=320800*2||directionOffsets.Length!=6400*4||attacker<1||attacker>8||target<1||target>8||(maximum!=70&&maximum!=150))throw new ArgumentException("weight-input-extent-or-identity");
+            if(units.Length<0x65c)throw new ArgumentException("weight-unit-extent");int limit=BitConverter.ToInt32(units,0);if(limit<1||limit>10000||units.Length!=0x65c+limit*0x490)throw new ArgumentException("weight-unit-extent");
+            byte[] result=(byte[])before.Clone();if(BitConverter.ToInt32(players,target*0x583c+0x1a4)==0)return result;
+            int shift=attacker*0x177bc-VirtualCandidateConsumers.Root;
+            int Get(int absolute)=>BitConverter.ToInt32(result,checked(absolute+shift));
+            void Set(int absolute,int value)=>Buffer.BlockCopy(BitConverter.GetBytes(value),0,result,checked(absolute+shift),4);
+            int Count(int absolute){int n=Get(absolute);if(n>1000)throw new ArgumentException("weight-candidate-capacity");return n;}
+            int Distance(int tile,int requestedBank){if(requestedBank!=bank||(uint)tile>=320800)throw new ArgumentException("unknown-weight-bank-or-tile");return BitConverter.ToInt16(distances,tile*2);}
+            bool Blocked(int tile)
+            {
+                if((uint)tile>=320800)throw new ArgumentException("weight-neighbor-origin");int row=BitConverter.ToInt16(tileRows,tile*2);if((uint)row>=800)throw new ArgumentException("weight-neighbor-row");
+                for(int d=0;d<8;d+=2)
+                {
+                    int neighbor=checked(tile+BitConverter.ToInt32(directionOffsets,(row*8+d)*4));if((uint)neighbor>=320800)throw new ArgumentException("weight-neighbor-tile");
+                    if((BitConverter.ToInt32(flags,neighbor*4)&0x4a5015b1)!=0)continue;
+                    int id=BitConverter.ToInt16(occupancy,neighbor*2),steps=0;
+                    while(id!=0)
+                    {
+                        if(id<1||id>=limit||++steps>=limit)throw new ArgumentException("weight-unit-list-identity-or-cycle");int a=checked(id*0x490);
+                        if(BitConverter.ToInt16(units,a+0x6e6)==29&&BitConverter.ToInt16(units,a+0x918)==3)return true;
+                        id=BitConverter.ToInt16(units,a+0x8fa);
+                    }
+                }
+                return false;
+            }
+            int n=Count(0x2ea70e4),minimum=10000;Set(0x2eaaf7c,minimum);
+            for(int i=0;i<n;i++){int distance=Distance(Get(0x2ea70ec+i*16),target);if(distance<minimum){minimum=distance;Set(0x2eaaf7c,minimum);}}
+            Set(0x2ea70e8,0);
+            for(int i=0;i<n;i++)
+            {
+                int tile=Get(0x2ea70ec+i*16),distance=Distance(tile,target),score=9999;
+                if(!Blocked(tile)&&distance>=1&&minimum<50&&distance<minimum+15){score=distance;Set(0x2ea70e8,Get(0x2ea70e8)+1);}Set(0x2ea70f4+i*16,score);
+            }
+            int selectedBank=Get(0x2ea70dc);
+            foreach(int table in new[]{0x2eaaf90,0x2ebaa00})for(int i=0;i<Count(table);i++)Set(table+16+i*16,Distance(Get(table+8+i*16),selectedBank)>5?9999:0);
+            for(int i=0;i<Count(0x2eaee2c);i++){int distance=Distance(Get(0x2eaee34+i*16),selectedBank);Set(0x2eaee3c+i*16,distance<1?100:distance);}
+            n=Count(0x2eb2cc8);minimum=10000;Set(0x2eaaf80,minimum);
+            for(int i=0;i<n;i++){int distance=Distance(Get(0x2eb2cd0+i*16),selectedBank);if(distance<minimum){minimum=distance;Set(0x2eaaf80,minimum);}}
+            for(int i=0;i<n;i++){int distance=Distance(Get(0x2eb2cd0+i*16),selectedBank);Set(0x2eb2cd8+i*16,minimum<11?(distance<11?0:9999):(distance>20?9999:0));}
+            for(int i=0;i<Count(0x2eb6b64);i++)
+            {
+                int distance=Distance(Get(0x2eb6b6c+i*16),selectedBank),score=distance;
+                if(distance<1||distance>maximum)score=9999;
+                else if(distance>10)score=distance*(distance<16?2:distance<21?3:distance<26?4:distance<51?5:6);
+                Set(0x2eb6b74+i*16,score);
+            }
+            return result;
+        }
+    }
+
 }

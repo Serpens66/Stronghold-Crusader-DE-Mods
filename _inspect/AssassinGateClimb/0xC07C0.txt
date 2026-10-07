@@ -1,0 +1,71 @@
+Hash FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2
+FUN_1800c07c0 0xC07C0 size=112 confidence=candidate
+Callers [('0x41D60',), ('0x698E0',), ('0x6A780',), ('0x6B530',), ('0x6B910',), ('0x6B990',), ('0xB70C0',), ('0xBAD50',), ('0xBB3D0',), ('0xC90E0',), ('0xC9310',), ('0xD86F0',), ('0xDAFD0',), ('0xDBC60',), ('0xE0C20',), ('0xE0EB0',), ('0xF0D70',), ('0x107E00',), ('0x10DF60',), ('0x184FD0',)]
+Callees []
+/* FUNCTION FUN_1800c07c0 VA=0x1800C07C0 RVA=0xC07C0 */
+
+undefined8 FUN_1800c07c0(longlong param_1,int param_2)
+
+{
+  switch(*(undefined2 *)((longlong)param_2 * 0x32c + 0x12e + param_1)) {
+  case 0x28:
+    return 0x40;
+  case 0x29:
+    return 0x5c;
+  case 0x2a:
+    return 0xbe;
+  default:
+    return 0;
+  case 0x2d:
+  case 0x2e:
+    return 0x80;
+  case 0x45:
+    return 0x76;
+  case 0x4a:
+    return 0x128;
+  case 0x4b:
+    return 0x94;
+  case 0x4c:
+    return 0xb4;
+  case 0x4d:
+  case 0x4e:
+    return 0xc0;
+  }
+}
+
+
+
+
+ASM:
+000C07C0 4863c2 movsxd rax, edx
+000C07C3 4869d02c030000 imul rdx, rax, 0x32c
+000C07CA 0fbf840a2e010000 movsx eax, word ptr [rdx + rcx + 0x12e]
+000C07D2 83c0d8 add eax, -0x28
+000C07D5 83f826 cmp eax, 0x26
+000C07D8 7753 ja 0x1800c082d
+000C07DA 488d151ff8f3ff lea rdx, [rip - 0xc07e1]
+000C07E1 4898 cdqe 
+000C07E3 0fb6840258080c00 movzx eax, byte ptr [rdx + rax + 0xc0858]
+000C07EB 8b8c8230080c00 mov ecx, dword ptr [rdx + rax*4 + 0xc0830]
+000C07F2 4803ca add rcx, rdx
+000C07F5 ffe1 jmp rcx
+000C07F7 b840000000 mov eax, 0x40
+000C07FC c3 ret 
+000C07FD b85c000000 mov eax, 0x5c
+000C0802 c3 ret 
+000C0803 b8be000000 mov eax, 0xbe
+000C0808 c3 ret 
+000C0809 b828010000 mov eax, 0x128
+000C080E c3 ret 
+000C080F b894000000 mov eax, 0x94
+000C0814 c3 ret 
+000C0815 b8b4000000 mov eax, 0xb4
+000C081A c3 ret 
+000C081B b8c0000000 mov eax, 0xc0
+000C0820 c3 ret 
+000C0821 b880000000 mov eax, 0x80
+000C0826 c3 ret 
+000C0827 b876000000 mov eax, 0x76
+000C082C c3 ret 
+000C082D 33c0 xor eax, eax
+000C082F c3 ret 

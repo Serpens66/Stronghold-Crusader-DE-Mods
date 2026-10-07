@@ -1,6 +1,6 @@
-# Fixes 1.25.0 compatibility
+# Fixes 1.25.1 compatibility
 
-Source review date: 2026-10-07. Canonical external clone: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Fremde Mods\shcde-fixes-main. Clean v1.25.0 source, commit 9d793e9332d4eb7a13110c46102e136b76140b4a, tree 29415f2e6c55ff4237e65cf37697554002c8fae0. This identifies the reviewed source, not the installed Fixes assembly. Native SHA-256 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2 matches the installed DLL and CURRENT.json. Native conclusions below are scoped to that hash.
+Source review date: 2026-10-07. Canonical external clone: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Fremde Mods\shcde-fixes-main. Clean v1.25.1 source, commit 226e2e6960ad6f5992d4f5410d701161bb1cdc77, tree f65a826f16b8cc67d0c7a8acc80f41fd06796546. This identifies the reviewed source, not the installed Fixes assembly. Native SHA-256 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2 matches the installed DLL and CURRENT.json. Native conclusions below are scoped to that hash.
 
 ## Preference integration contracts
 
@@ -27,11 +27,11 @@ Our siege integration may rely on the additional gap check, but must not rely on
 
 Source: src/shcde-fixes/Detours/AIDetours.cs, c_game_ai_find_valid_siege_tent_site_hook. API contract: shcde-script-extender/src/SHCDESE.BepInEx/API/GamePlayerManagerAPI.cs, IsPlayerIdValid and TryGetPlayerResourcesById (valid player IDs 1..8).
 
-## PCL component-count value discarded
+## PCL component-count integration
 
-In src/shcde-fixes/Detours/PathingDetours.cs, sub_18010F150_hook replaces the load at 0x10F1B3 inside native function 0x10F150. Its generator emits push rax, loads the replacement table address into RAX, loads the component count into EAX, then executes pop rax before replaying the remaining original instructions. Because EAX is the low 32 bits of RAX, this restores the incoming EAX and discards the new count. The following Vanilla store at 0x10F1BA writes that restored value to the global at 0x2E9CA14.
+In src/shcde-fixes/Detours/PathingDetours.cs, sub_18010F150_hook replaces the load at 0x10F1B3 inside native function 0x10F150 when EnableExtendedPCLArray is enabled. Its generator loads the replacement table address into RAX, reads the component count into EAX using RCX as the component index, and replays the remaining original instructions. The Vanilla store at 0x10F1BA writes that loaded count to the global at 0x2E9CA14. The following instructions replace RAX with the current player context before continuing.
 
-This is a static source/data-flow finding. No natural-gameplay consequence has been demonstrated, and the current note does not classify it as a gamebreaking bug.
+This describes the reviewed source/data flow, not a gameplay validation of the installed Fixes assembly.
 
 A live entry to the separate neighbor-search routines 0x10DCB0 and 0x114760 is not established. The known chain to 0x10DCB0 is 0x40180 -> 0x114680 -> 0x10DCB0; references to 0x114760 in .rdata are unwind metadata. Do not infer dormant status for 0x10F150 from those separate routines: its recorded callers are 0x10C1C0,0x10D9F0 and 0x1102D0. Any new adapter to a native routine needs a complete active caller-chain audit.
 
@@ -47,4 +47,4 @@ Function names/role associations remain candidate-level where the semantic datab
 
 ## Evidence limits
 
-Static source behavior and natural-gameplay consequences are separate claims. The siege and PCL findings above have no demonstrated gameplay failure. Do not create additional testmods, gameplay evidence or author reports without a new user request.
+Static source behavior and natural-gameplay consequences are separate claims. The siege finding above has no demonstrated gameplay failure; the reviewed PCL value flow has not been validated in a gameplay test of Fixes 1.25.1. Do not create additional testmods, gameplay evidence or author reports without a new user request.

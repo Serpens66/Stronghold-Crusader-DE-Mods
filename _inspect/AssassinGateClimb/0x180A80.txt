@@ -1,0 +1,83 @@
+Hash FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2
+FUN_180180a80 0x180A80 size=219 confidence=candidate
+Callers [('0x16CD70',)]
+Callees [('0x180230',), ('0x184FD0',), ('0x186AD0',), ('0x18BE50',)]
+/* FUNCTION FUN_180180a80 VA=0x180180A80 RVA=0x180A80 */
+
+void FUN_180180a80(longlong param_1,int param_2)
+
+{
+  short sVar1;
+  short sVar2;
+  int iVar3;
+  longlong lVar4;
+  
+  lVar4 = (longlong)param_2 * 0x490 + param_1;
+  *(undefined2 *)(lVar4 + 0x750) = 8;
+  *(undefined4 *)(lVar4 + 0x740) = 0;
+  FUN_180186ad0(param_1,param_2);
+  sVar1 = *(short *)(lVar4 + 0x738);
+  sVar2 = *(short *)(lVar4 + 0x73a);
+  *(short *)(lVar4 + 0x71c) = sVar1;
+  *(short *)(lVar4 + 0x70e) = sVar1 * 8 + 4;
+  *(short *)(lVar4 + 0x71e) = sVar2;
+  *(short *)(lVar4 + 0x710) = sVar2 * 8 + 4;
+  iVar3 = (&DAT_18402ff2c)[(longlong)sVar2 * 3];
+  *(int *)(lVar4 + 0x72c) = sVar1 + iVar3;
+  *(ushort *)(lVar4 + 0x712) = (ushort)(byte)(&DAT_184ddd350)[sVar1 + iVar3];
+  FUN_180180230(param_1,param_2);
+  FUN_18018be50(param_1,param_2);
+  FUN_180184fd0(param_1,param_2);
+  return;
+}
+
+
+
+
+ASM:
+00180A80 48895c2408 mov qword ptr [rsp + 8], rbx
+00180A85 4889742410 mov qword ptr [rsp + 0x10], rsi
+00180A8A 57 push rdi
+00180A8B 4883ec20 sub rsp, 0x20
+00180A8F 4863fa movsxd rdi, edx
+00180A92 b808000000 mov eax, 8
+00180A97 4869df90040000 imul rbx, rdi, 0x490
+00180A9E 8bd7 mov edx, edi
+00180AA0 488bf1 mov rsi, rcx
+00180AA3 4803d9 add rbx, rcx
+00180AA6 66898350070000 mov word ptr [rbx + 0x750], ax
+00180AAD c7834007000000000000 mov dword ptr [rbx + 0x740], 0
+00180AB7 e814600000 call 0x180186ad0
+00180ABC 440fbf8b38070000 movsx r9d, word ptr [rbx + 0x738]
+00180AC4 488d1535f5e7ff lea rdx, [rip - 0x180acb]
+00180ACB 4c0fbf833a070000 movsx r8, word ptr [rbx + 0x73a]
+00180AD3 410fb7c1 movzx eax, r9w
+00180AD7 66c1e003 shl ax, 3
+00180ADB 6683c004 add ax, 4
+00180ADF 6644898b1c070000 mov word ptr [rbx + 0x71c], r9w
+00180AE7 6689830e070000 mov word ptr [rbx + 0x70e], ax
+00180AEE 410fb7c0 movzx eax, r8w
+00180AF2 66c1e003 shl ax, 3
+00180AF6 4b8d0c40 lea rcx, [r8 + r8*2]
+00180AFA 6683c004 add ax, 4
+00180AFE 664489831e070000 mov word ptr [rbx + 0x71e], r8w
+00180B06 66898310070000 mov word ptr [rbx + 0x710], ax
+00180B0D 418bc1 mov eax, r9d
+00180B10 03848a2cff0204 add eax, dword ptr [rdx + rcx*4 + 0x402ff2c]
+00180B17 488bce mov rcx, rsi
+00180B1A 89832c070000 mov dword ptr [rbx + 0x72c], eax
+00180B20 4898 cdqe 
+00180B22 0fb6841050d3dd04 movzx eax, byte ptr [rax + rdx + 0x4ddd350]
+00180B2A 8bd7 mov edx, edi
+00180B2C 66898312070000 mov word ptr [rbx + 0x712], ax
+00180B33 e8f8f6ffff call 0x180180230
+00180B38 8bd7 mov edx, edi
+00180B3A 488bce mov rcx, rsi
+00180B3D e80eb30000 call 0x18018be50
+00180B42 8bd7 mov edx, edi
+00180B44 488bce mov rcx, rsi
+00180B47 488b5c2430 mov rbx, qword ptr [rsp + 0x30]
+00180B4C 488b742438 mov rsi, qword ptr [rsp + 0x38]
+00180B51 4883c420 add rsp, 0x20
+00180B55 5f pop rdi
+00180B56 e975440000 jmp 0x180184fd0

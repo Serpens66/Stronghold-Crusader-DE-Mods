@@ -13,6 +13,7 @@ namespace EnemyBridgePathTest
         {
             internal long Session,Op,Parent,Root,Clock,Ticks,ConsumerTicks;
             internal int Attacker,Target,Mode,Bank,Thread,Revision,Dirty;
+            internal int ConsumerVersion=2;
             internal bool NegativeEligible => false; // Capture completeness never authorizes the dormant policy.
             internal string Reason="pending";
             internal readonly Dictionary<string,byte[]> Sections=new Dictionary<string,byte[]>();
@@ -24,7 +25,7 @@ namespace EnemyBridgePathTest
                 foreach(var pair in Sections)foreach(var block in BridgeInputArtifact.Section("plan/"+pair.Key,pair.Value,1))yield return block;
                 foreach(var pair in References)foreach(var block in BridgeInputArtifact.Section("plan/ref/"+pair.Key,System.Text.Encoding.UTF8.GetBytes(pair.Value),1))yield return block;
             }
-            internal string Metadata => "planningSession="+Session+"\nplanningBundleOp="+Op+"\nplanningParent="+Parent+"\nplanningBundleRoot="+Root+"\nplanningCaptureClock="+Clock+"\nplanningRevision="+Revision+"\nplanningDirty="+Dirty+"\nplanningNegativeEligible="+NegativeEligible+"\nplanningComplete="+Complete+"\nplanningReason="+Reason+"\nplanningAttacker="+Attacker+"\nplanningTarget="+Target+"\nplanningConsumerCaptureVersion="+(Sections.ContainsKey("consumer/pre/identity")?1:0)+"\nplanningMode="+Mode+"\nplanningBank="+Bank+"\nplanningThread="+Thread+"\nplanningConsumerCopyMs="+(ConsumerTicks*1000.0/Stopwatch.Frequency).ToString("F3",System.Globalization.CultureInfo.InvariantCulture)+"\nplanningCaptureMs="+(Ticks*1000.0/Stopwatch.Frequency).ToString("F3",System.Globalization.CultureInfo.InvariantCulture);
+            internal string Metadata => "planningSession="+Session+"\nplanningBundleOp="+Op+"\nplanningParent="+Parent+"\nplanningBundleRoot="+Root+"\nplanningCaptureClock="+Clock+"\nplanningRevision="+Revision+"\nplanningDirty="+Dirty+"\nplanningNegativeEligible="+NegativeEligible+"\nplanningComplete="+Complete+"\nplanningReason="+Reason+"\nplanningAttacker="+Attacker+"\nplanningTarget="+Target+"\nplanningConsumerCaptureVersion="+(Sections.ContainsKey("consumer/pre/identity")?ConsumerVersion:0)+"\nplanningMode="+Mode+"\nplanningBank="+Bank+"\nplanningThread="+Thread+"\nplanningConsumerCopyMs="+(ConsumerTicks*1000.0/Stopwatch.Frequency).ToString("F3",System.Globalization.CultureInfo.InvariantCulture)+"\nplanningCaptureMs="+(Ticks*1000.0/Stopwatch.Frequency).ToString("F3",System.Globalization.CultureInfo.InvariantCulture);
         }
         private const int N=320800,Root=0x60AD660;
         private readonly Func<int,int,byte[]> read;
@@ -94,6 +95,7 @@ namespace EnemyBridgePathTest
                     Copy("directionOffsets",0x405EDB0,6400*4);Copy("rowRecords",0x402FF2C,800*12);Copy("tileRows",0x3AAE2A4,N*2);
                     Copy("buildingIds",0x4B6AA50,N*2);int count=Int(0x64CCBB0+0x50);
                     if(count<1||count>4001)throw new InvalidOperationException("building-high-water-invalid");
+                    Copy("buildingUpdaterControls",0x64CCBB0+0x319874,8);Copy("buildingUpdaterSlots",0x64CCBB0+0x32c,3999*0x32c);
                     Copy("buildingCount",0x64CCBB0+0x50,4);Copy("buildingRecords",0x64CCBB0+0x32c,(count-1)*0x32c);
                     var gateConnections=new byte[(count-1)*2];for(int id=1;id<count;id++){byte[] value=Read(0x64CCBB0+id*0x32c+0x32e,2);Buffer.BlockCopy(value,0,gateConnections,(id-1)*2,2);}Store("gateConnectionIds",gateConnections);
                     Copy("nativeAlliances9",0x37EDF3C,9*4);
@@ -173,6 +175,7 @@ namespace EnemyBridgePathTest
                 string stage="consumer/"+(rva==0x10DF60?"build":"weight")+(post?"-post":"-pre");
                 var context=new long[]{run,root,op,parent,a,b,c,Stopwatch.GetTimestamp(),Int(Root+0x6c),Int(Root+0x74)};var bytes=new byte[context.Length*8];Buffer.BlockCopy(context,0,bytes,0,bytes.Length);ready.Sections.Add(stage+"/identity",bytes);
                 ConsumerCopy(stage,"candidates",VirtualCandidateConsumers.Root,VirtualCandidateConsumers.Bytes);ConsumerCopy(stage,"selectionMask",0x53AD4B0,N);ConsumerCopy(stage,"seeds",0x535EF90,N);
+                if(rva==0x115B10){var modes=new byte[8];Buffer.BlockCopy(Read(0x3665f10,4),0,modes,0,4);Buffer.BlockCopy(Read(0x3665f28,4),0,modes,4,4);ready.Sections.Add(stage+"/gameModeValues",modes);}
             }
             catch(Exception error){lastReason="consumer-incomplete:"+error.Message;emit("planning-consumer-incomplete","op="+op+",reason="+error.Message);ready=null;selected=false;rejected++;targetFrames.Clear();consumerOp=0;consumerIdentity=null;}
             finally{if(ready!=null){long elapsed=Stopwatch.GetTimestamp()-start;ready.Ticks+=elapsed;ready.ConsumerTicks+=elapsed;}}
@@ -197,8 +200,10 @@ namespace EnemyBridgePathTest
                 ConsumerCopy(stage,"players",0x379AE00,9*0x583c);
                 ConsumerCopy(stage,"selectionMask",0x53AD4B0,N);
                 ConsumerCopy(stage,"seeds",0x535EF90,N);
+                ConsumerCopy(stage,"workControls",Root,0xe0);ConsumerCopy(stage,"workQueueControls",Root+0x155f38,0x34);ConsumerCopy(stage,"workQueue",Root+0x155f6c,N*4);ConsumerCopy(stage,"workQueueRows",Root+0x28f3ec,N*2);ConsumerCopy(stage,"workQueueX",Root+0x32be2c,N*2);ConsumerCopy(stage,"workDistances",0x5225b10,N*2);ConsumerCopy(stage,"workVisits",0x52c2550,N*2);ConsumerCopy(stage,"workTargets",0x37f1edc,9*50*16);
                 if(!post)
                 {
+                    ConsumerCopy(stage,"buildingTransitionClasses",0x2e6710,336*4);ConsumerCopy(stage,"buildingSeedClasses",0x2e6c50,336*4);ConsumerCopy(stage,"packedValidity",0x3a11ea4,800*800);ConsumerCopy(stage,"combatClassMask",0x8574bcc,90);
                     ConsumerCopy(stage,"unitTiles",0x4C559B0,N*2);ConsumerCopy(stage,"height",0x4DDD350,N);ConsumerCopy(stage,"baseHeight",0x4E2B870,N);ConsumerCopy(stage,"terrainOwner",0x4E79D90,N);
                     int macroLimit=Int(Root);if(macroLimit<1||macroLimit>1000)throw new InvalidOperationException("consumer-macro-limit");ConsumerCopy(stage,"macroLimit",Root,4);ConsumerCopy(stage,"macroRecords",Root+0x2024+0x204,(macroLimit-1)*0x204);ConsumerCopy(stage,"nativeAlliances9",0x37EDF3C,36);
                     ConsumerCopy(stage,"flags",0x48F71B0,N*4);ConsumerCopy(stage,"components",0x50EC690,N*2);ConsumerCopy(stage,"edges",0x51890D0,N);ConsumerCopy(stage,"buildingIds",0x4B6AA50,N*2);
@@ -228,7 +233,7 @@ namespace EnemyBridgePathTest
                         if(!ready.Sections.ContainsKey("military/entryPlayer"))throw new InvalidOperationException("missing-own-military-entry");
                     }
                     ready.Sections.Add("military/exitPlayer",Read(0x379AE00+ready.Attacker*0x583c,0x583c));
-                    emit("planning-consumer-coverage","op="+ready.Op+",root="+root+",hasConsumer="+ready.Sections.ContainsKey("consumer/post/identity")+",hasMilitaryEntry="+ready.Sections.ContainsKey("military/entryPlayer"));
+                    emit("planning-consumer-coverage","op="+ready.Op+",root="+ready.Root+",hasConsumer="+ready.Sections.ContainsKey("consumer/post/identity")+",hasMilitaryEntry="+ready.Sections.ContainsKey("military/entryPlayer"));
                     if(targetFrames.Count!=0)throw new InvalidOperationException("unfinished-target-selection-frame");
                     Bundle done=ready;lastTicks=done.Ticks;ready=null;completedBundles++;emit("planning-target-coverage","op="+done.Op+",root="+done.Root+",targetRecords="+TargetRecordCount(done)+",missingTargetOutcome="+(TargetRecordCount(done)==0));deliver(done);return;
                 }

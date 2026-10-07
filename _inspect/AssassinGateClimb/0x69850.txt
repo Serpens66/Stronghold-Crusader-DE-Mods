@@ -1,0 +1,76 @@
+Hash FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2
+FUN_180069850 0x69850 size=142 confidence=candidate
+Callers [('0x5CA40',), ('0x5CCD0',), ('0x5CD90',), ('0x5D3A0',), ('0x5D8D0',), ('0x5DC20',), ('0x5DD70',), ('0x60CB0',), ('0x61EF0',), ('0x62240',), ('0x622D0',), ('0x628F0',), ('0x62F60',), ('0x63080',), ('0x635D0',), ('0x64460',), ('0x645C0',), ('0x69610',), ('0x696D0',), ('0x6C3B0',), ('0x6C540',), ('0x6CA30',), ('0x6CDD0',), ('0x6D130',), ('0x6D580',), ('0x6E150',), ('0x6E510',), ('0x6E620',), ('0x6FE90',), ('0x71CA0',), ('0x71D60',), ('0x72490',), ('0x725E0',), ('0x72A50',), ('0x72E10',), ('0x73450',), ('0x737E0',), ('0x739C0',), ('0x73BB0',), ('0x73EA0',), ('0x74080',), ('0x74240',), ('0x74410',), ('0x74C30',), ('0x74DA0',), ('0x75780',), ('0x75B00',), ('0x75DF0',), ('0x76060',), ('0x76780',), ('0x76C00',), ('0x76D40',), ('0x76E80',), ('0x770F0',), ('0x77230',), ('0x77400',), ('0x776F0',), ('0x77E60',), ('0x7D680',), ('0xA7C90',), ('0xA8010',), ('0xA8350',), ('0xA8690',), ('0xA8B00',), ('0xB5C40',), ('0xB73D0',), ('0xB9510',), ('0xB9640',), ('0xC1B40',), ('0xC3C80',), ('0xC4D30',), ('0xF3A80',), ('0x10D6E0',), ('0x198C40',)]
+Callees []
+/* FUNCTION FUN_180069850 VA=0x180069850 RVA=0x69850 */
+
+void FUN_180069850(longlong param_1,int param_2,int param_3)
+
+{
+  longlong lVar1;
+  int iVar2;
+  
+  *(int *)(param_1 + 0x204e758) = param_3 * param_3;
+  lVar1 = ((longlong)param_3 * 0xa9 + (longlong)param_2) * 0x18;
+  *(undefined4 *)(param_1 + 0x204e760) = *(undefined4 *)(&DAT_1808ddcc0 + lVar1);
+  *(undefined4 *)(param_1 + 0x204e764) = *(undefined4 *)(&DAT_1808ddcc4 + lVar1);
+  iVar2 = *(int *)(param_1 + 0x204e65c);
+  if (iVar2 == 0) {
+    *(undefined4 *)(param_1 + 0x204e768) = *(undefined4 *)(&DAT_1808ddcc8 + lVar1);
+  }
+  else {
+    if (iVar2 == 2) {
+      *(undefined4 *)(param_1 + 0x204e768) = *(undefined4 *)(&DAT_1808ddccc + lVar1);
+      return;
+    }
+    if (iVar2 == 4) {
+      *(undefined4 *)(param_1 + 0x204e768) = *(undefined4 *)(&DAT_1808ddcd0 + lVar1);
+      return;
+    }
+    if (iVar2 == 6) {
+      *(undefined4 *)(param_1 + 0x204e768) = *(undefined4 *)(&DAT_1808ddcd4 + lVar1);
+      return;
+    }
+  }
+  return;
+}
+
+
+
+
+ASM:
+00069850 418bc0 mov eax, r8d
+00069853 410fafc0 imul eax, r8d
+00069857 898158e70402 mov dword ptr [rcx + 0x204e758], eax
+0006985D 4963c0 movsxd rax, r8d
+00069860 4c69c0a9000000 imul r8, rax, 0xa9
+00069867 4863c2 movsxd rax, edx
+0006986A 4c03c0 add r8, rax
+0006986D 4b8d0440 lea rax, [r8 + r8*2]
+00069871 488d14c500000000 lea rdx, [rax*8]
+00069879 4c8d0540448700 lea r8, [rip + 0x874440]
+00069880 428b0402 mov eax, dword ptr [rdx + r8]
+00069884 898160e70402 mov dword ptr [rcx + 0x204e760], eax
+0006988A 428b440204 mov eax, dword ptr [rdx + r8 + 4]
+0006988F 898164e70402 mov dword ptr [rcx + 0x204e764], eax
+00069895 8b815ce60402 mov eax, dword ptr [rcx + 0x204e65c]
+0006989B 85c0 test eax, eax
+0006989D 7433 je 0x1800698d2
+0006989F 83f802 cmp eax, 2
+000698A2 7422 je 0x1800698c6
+000698A4 83f804 cmp eax, 4
+000698A7 7411 je 0x1800698ba
+000698A9 83f806 cmp eax, 6
+000698AC 752f jne 0x1800698dd
+000698AE 428b440214 mov eax, dword ptr [rdx + r8 + 0x14]
+000698B3 898168e70402 mov dword ptr [rcx + 0x204e768], eax
+000698B9 c3 ret 
+000698BA 428b440210 mov eax, dword ptr [rdx + r8 + 0x10]
+000698BF 898168e70402 mov dword ptr [rcx + 0x204e768], eax
+000698C5 c3 ret 
+000698C6 428b44020c mov eax, dword ptr [rdx + r8 + 0xc]
+000698CB 898168e70402 mov dword ptr [rcx + 0x204e768], eax
+000698D1 c3 ret 
+000698D2 428b440208 mov eax, dword ptr [rdx + r8 + 8]
+000698D7 898168e70402 mov dword ptr [rcx + 0x204e768], eax
+000698DD c3 ret 

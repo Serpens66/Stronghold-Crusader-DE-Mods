@@ -1,0 +1,44 @@
+Hash FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2
+FUN_1800c99d0 0xC99D0 size=81 confidence=candidate
+Callers [('0xC8380',)]
+Callees []
+/* FUNCTION FUN_1800c99d0 VA=0x1800C99D0 RVA=0xC99D0 */
+
+void FUN_1800c99d0(void)
+
+{
+  short *psVar1;
+  longlong lVar2;
+  
+  psVar1 = &DAT_1864cd00a;
+  lVar2 = 3999;
+  do {
+    if (psVar1[-1] != 0) {
+      psVar1[0x1b] = *(short *)(&DAT_1802e61d0 + (longlong)*psVar1 * 4);
+      psVar1[0xdd] = *(short *)(&DAT_1802e6fd0 + (longlong)*psVar1 * 4);
+    }
+    psVar1 = psVar1 + 0x196;
+    lVar2 = lVar2 + -1;
+  } while (lVar2 != 0);
+  return;
+}
+
+
+
+
+ASM:
+000C99D0 488d0533364006 lea rax, [rip + 0x6403633]
+000C99D7 41b89f0f0000 mov r8d, 0xf9f
+000C99DD 4c8d0d1c66f3ff lea r9, [rip - 0xc99e4]
+000C99E4 668378fe00 cmp word ptr [rax - 2], 0
+000C99E9 7429 je 0x1800c9a14
+000C99EB 480fbf08 movsx rcx, word ptr [rax]
+000C99EF 488d148d00000000 lea rdx, [rcx*4]
+000C99F7 420fb78c0ad0612e00 movzx ecx, word ptr [rdx + r9 + 0x2e61d0]
+000C9A00 66894836 mov word ptr [rax + 0x36], cx
+000C9A04 420fb78c0ad06f2e00 movzx ecx, word ptr [rdx + r9 + 0x2e6fd0]
+000C9A0D 668988ba010000 mov word ptr [rax + 0x1ba], cx
+000C9A14 48052c030000 add rax, 0x32c
+000C9A1A 4983e801 sub r8, 1
+000C9A1E 75c4 jne 0x1800c99e4
+000C9A20 c3 ret 

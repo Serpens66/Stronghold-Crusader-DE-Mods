@@ -34,6 +34,7 @@ namespace EnemyGatePathfindingTest
             internal int AttackBuilding;
             internal uint AttackBuildingGlobal;
             internal readonly Dictionary<int, string> Violations = new Dictionary<int, string>();
+            internal readonly Dictionary<int, string> FirstViolations = new Dictionary<int, string>();
             internal readonly Dictionary<int, long> ViolationCounts = new Dictionary<int, long>();
             internal readonly Dictionary<int, uint> LiveGateGlobals = new Dictionary<int, uint>();
             internal readonly Dictionary<int, string> ViolationMeanings = new Dictionary<int, string>();
@@ -196,6 +197,7 @@ namespace EnemyGatePathfindingTest
                     detail += ",gateTypeRaw=" + (int)live->r_BuildingType + ",gateOwnerRaw=" + live->r_PlayerIdOwner +
                         ",gateCapturerRaw=" + live->r_CapturedByPlayerId + ",gateAliveRaw=" + (int)live->r_AliveState;
             }
+            if (!route.FirstViolations.ContainsKey(gate)) route.FirstViolations[gate] = detail;
             route.Violations[gate] = detail;
             route.ViolationCounts.TryGetValue(gate, out long count); route.ViolationCounts[gate] = count + 1;
         }
@@ -238,7 +240,8 @@ namespace EnemyGatePathfindingTest
                 foreach (var pair in route.Violations)
                     Record(route.Player, route.Role, "violation", "gate=" + pair.Key + "/attribution=" + (pair.Key > 0 ? "exact" : pair.Key < 0 ? "ambiguous" : "unknown") +
                         "/meaning=" + (route.ViolationMeanings.TryGetValue(pair.Key, out string meaning) ? meaning : "weighted-policy-edge"), route.Target,
-                        route.Detail + ",blockedEdges=" + route.ViolationCounts[pair.Key] + "," + pair.Value, route.Dimensions);
+                        route.Detail + ",blockedEdges=" + route.ViolationCounts[pair.Key] +
+                        ",firstBlockedEdge=[" + route.FirstViolations[pair.Key] + "],lastBlockedEdge=[" + pair.Value + "]", route.Dimensions);
         }
         private void MissingContext(int player, string source, string reason, int tribe)
         { Record(player, -1, "context", source + "/" + reason, "", "tribe=" + tribe); }

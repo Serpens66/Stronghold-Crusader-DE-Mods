@@ -1,0 +1,102 @@
+Hash FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2
+FUN_18019ba40 0x19BA40 size=281 confidence=candidate
+Callers [('0x6D580',), ('0x6F230',), ('0x12E400',), ('0x13F540',), ('0x141DA0',), ('0x143400',), ('0x145030',), ('0x146A70',), ('0x1483F0',), ('0x1493E0',), ('0x14A3F0',), ('0x14AED0',), ('0x151090',), ('0x15A950',), ('0x167D40',), ('0x169B70',), ('0x16B220',), ('0x16CD70',), ('0x16E440',), ('0x16F590',), ('0x170570',), ('0x1731F0',), ('0x174100',), ('0x174F90',), ('0x1768A0',), ('0x178350',), ('0x17A590',), ('0x17B540',), ('0x17CF50',), ('0x181890',), ('0x1819D0',), ('0x182B00',), ('0x190CA0',), ('0x198ED0',)]
+Callees [('0x180230',), ('0x186AD0',), ('0x18BE50',)]
+/* FUNCTION FUN_18019ba40 VA=0x18019BA40 RVA=0x19BA40 */
+
+void FUN_18019ba40(longlong param_1,int param_2,uint param_3,uint param_4,undefined2 param_5)
+
+{
+  longlong lVar1;
+  short sVar2;
+  short sVar3;
+  
+  if (((param_3 < 800) && (param_4 < 800)) &&
+     ((&DAT_183a11ea4)[(longlong)(int)param_4 * 800 + (longlong)(int)param_3] != '\0')) {
+    lVar1 = (longlong)param_2 * 0x490 + param_1;
+    *(undefined2 *)(lVar1 + 0x74e) = 0;
+    *(undefined4 *)(lVar1 + 0x740) = 0;
+    *(undefined4 *)(lVar1 + 0x750) = 8;
+    FUN_180186ad0(param_1,param_2);
+    sVar2 = (short)param_3;
+    *(short *)(lVar1 + 0x738) = sVar2;
+    *(short *)(lVar1 + 0x71c) = sVar2;
+    *(short *)(lVar1 + 0x70e) = sVar2 * 8 + 4;
+    sVar3 = (short)param_4;
+    *(short *)(lVar1 + 0x73a) = sVar3;
+    *(short *)(lVar1 + 0x710) = sVar3 * 8 + 4;
+    *(undefined2 *)(lVar1 + 0x712) = param_5;
+    *(short *)(lVar1 + 0x71e) = sVar3;
+    *(int *)(lVar1 + 0x72c) = (int)sVar2 + (&DAT_18402ff2c)[(longlong)sVar3 * 3];
+    FUN_180180230(param_1,param_2);
+    FUN_18018be50(param_1,param_2);
+  }
+  return;
+}
+
+
+
+
+ASM:
+0019BA40 48896c2418 mov qword ptr [rsp + 0x18], rbp
+0019BA45 56 push rsi
+0019BA46 57 push rdi
+0019BA47 4156 push r14
+0019BA49 4883ec20 sub rsp, 0x20
+0019BA4D 4963f0 movsxd rsi, r8d
+0019BA50 4c8bf1 mov r14, rcx
+0019BA53 4963f9 movsxd rdi, r9d
+0019BA56 4863ea movsxd rbp, edx
+0019BA59 81fe1f030000 cmp esi, 0x31f
+0019BA5F 0f87e6000000 ja 0x18019bb4b
+0019BA65 81ff1f030000 cmp edi, 0x31f
+0019BA6B 0f87da000000 ja 0x18019bb4b
+0019BA71 4c69d720030000 imul r10, rdi, 0x320
+0019BA78 4c897c2448 mov qword ptr [rsp + 0x48], r15
+0019BA7D 4c8d3d3c638703 lea r15, [rip + 0x387633c]
+0019BA84 4c03d6 add r10, rsi
+0019BA87 4380bc3ae400000000 cmp byte ptr [r10 + r15 + 0xe4], 0
+0019BA90 0f84b0000000 je 0x18019bb46
+0019BA96 48895c2440 mov qword ptr [rsp + 0x40], rbx
+0019BA9B 8bd5 mov edx, ebp
+0019BA9D 4869dd90040000 imul rbx, rbp, 0x490
+0019BAA4 4803d9 add rbx, rcx
+0019BAA7 33c9 xor ecx, ecx
+0019BAA9 66898b4e070000 mov word ptr [rbx + 0x74e], cx
+0019BAB0 898b40070000 mov dword ptr [rbx + 0x740], ecx
+0019BAB6 498bce mov rcx, r14
+0019BAB9 c7835007000008000000 mov dword ptr [rbx + 0x750], 8
+0019BAC3 e808b0feff call 0x180186ad0
+0019BAC8 0fb7c6 movzx eax, si
+0019BACB 6689b338070000 mov word ptr [rbx + 0x738], si
+0019BAD2 66c1e003 shl ax, 3
+0019BAD6 8bd5 mov edx, ebp
+0019BAD8 6683c004 add ax, 4
+0019BADC 6689b31c070000 mov word ptr [rbx + 0x71c], si
+0019BAE3 6689830e070000 mov word ptr [rbx + 0x70e], ax
+0019BAEA 0fb7c7 movzx eax, di
+0019BAED 66c1e003 shl ax, 3
+0019BAF1 6683c004 add ax, 4
+0019BAF5 6689bb3a070000 mov word ptr [rbx + 0x73a], di
+0019BAFC 66898310070000 mov word ptr [rbx + 0x710], ax
+0019BB03 0fb7442460 movzx eax, word ptr [rsp + 0x60]
+0019BB08 66898312070000 mov word ptr [rbx + 0x712], ax
+0019BB0F 480fbfc7 movsx rax, di
+0019BB13 6689bb1e070000 mov word ptr [rbx + 0x71e], di
+0019BB1A 488d0c40 lea rcx, [rax + rax*2]
+0019BB1E 0fbfc6 movsx eax, si
+0019BB21 4103848f6ce16100 add eax, dword ptr [r15 + rcx*4 + 0x61e16c]
+0019BB29 498bce mov rcx, r14
+0019BB2C 89832c070000 mov dword ptr [rbx + 0x72c], eax
+0019BB32 e8f946feff call 0x180180230
+0019BB37 8bd5 mov edx, ebp
+0019BB39 498bce mov rcx, r14
+0019BB3C e80f03ffff call 0x18018be50
+0019BB41 488b5c2440 mov rbx, qword ptr [rsp + 0x40]
+0019BB46 4c8b7c2448 mov r15, qword ptr [rsp + 0x48]
+0019BB4B 488b6c2450 mov rbp, qword ptr [rsp + 0x50]
+0019BB50 4883c420 add rsp, 0x20
+0019BB54 415e pop r14
+0019BB56 5f pop rdi
+0019BB57 5e pop rsi
+0019BB58 c3 ret 

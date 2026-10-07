@@ -19,10 +19,22 @@ foreach (string dir in new[] { framework, Path.Combine(framework,"Facades"),
         catch (BadImageFormatException) { }
 string api = Path.Combine(game,"BepInEx","plugins","APIShared_Serp","APIShared.dll");
 references["APIShared.dll"] = api;
-foreach (string mod in new[] { "EnemyGatePathfindingTest", "EnemyBridgePathTest", "EnemyBridgePathTest.PolicyTests" })
+foreach (string mod in args.Length > 1 ? args.Skip(1) : new[] { "EnemyGatePathfindingTest", "EnemyBridgePathTest", "EnemyBridgePathTest.PolicyTests" })
 {
-    string projectDir = Path.Combine(root,"Testmods",mod.Replace(".PolicyTests",""));
+    string projectDir = mod == "BugfixesAndQoL" ? Path.Combine(root,mod) : Path.Combine(root,"Testmods",mod.Replace(".PolicyTests",""));
     var xml = XDocument.Load(Path.Combine(projectDir,mod+".csproj"));
+    var modReferences = new Dictionary<string,string>(references, StringComparer.OrdinalIgnoreCase);
+    // Honor explicit runtime references; do not import the compatibility Harmony assembly alongside 0Harmony.
+    if (mod == "BugfixesAndQoL") modReferences.Remove("0Harmony20.dll");
+    foreach (var hint in xml.Descendants().Where(e=>e.Name.LocalName=="HintPath"))
+    {
+        string path = hint.Value.Replace("$(GameDir)", game)
+            .Replace("$(ExtenderDir)", Path.Combine(game,"BepInEx","plugins","000shcdese"))
+            .Replace("$(ApiSharedDir)", Path.Combine(game,"BepInEx","plugins","APIShared_Serp"));
+        if (path.Contains("$(")) continue;
+        path = Path.GetFullPath(Path.Combine(projectDir,path));
+        if (File.Exists(path)) modReferences[Path.GetFileName(path)] = path;
+    }
     var trees = xml.Descendants().Where(e=>e.Name.LocalName=="Compile").Select(e=>
     {
         string path = Path.GetFullPath(Path.Combine(projectDir,e.Attribute("Include")!.Value));
@@ -36,7 +48,7 @@ foreach (string mod in new[] { "EnemyGatePathfindingTest", "EnemyBridgePathTest"
     if (Assembly.LoadFrom(api).GetType("APIShared.TemporaryGateRouteAcceptanceBridge",false)==null)
         trees.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"APIShared","src","TemporaryGateRouteAcceptanceBridge.cs"))));
     var compilation = CSharpCompilation.Create(mod+"StaticContract",trees,
-        references.Values.Select(p=>MetadataReference.CreateFromFile(p)),
+        modReferences.Values.Select(p=>MetadataReference.CreateFromFile(p)),
         new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary,allowUnsafe:true));
     var errors = compilation.GetDiagnostics().Where(d=>d.Severity==DiagnosticSeverity.Error).ToArray();
     foreach (var error in errors) Console.Error.WriteLine(error);

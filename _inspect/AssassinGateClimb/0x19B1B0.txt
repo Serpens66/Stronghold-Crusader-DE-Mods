@@ -1,0 +1,69 @@
+Hash FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2
+FUN_18019b1b0 0x19B1B0 size=165 confidence=candidate
+Callers [('0x196280',)]
+Callees [('0x18BE50',)]
+/* FUNCTION FUN_18019b1b0 VA=0x18019B1B0 RVA=0x19B1B0 */
+
+void FUN_18019b1b0(longlong param_1,int param_2)
+
+{
+  short sVar1;
+  longlong lVar2;
+  short sVar3;
+  int iVar4;
+  longlong lVar5;
+  
+  lVar2 = (longlong)param_2;
+  lVar5 = lVar2 * 0x490;
+  sVar1 = (&DAT_183aae2a4)[(int)(&DAT_1867e8b2c)[lVar2 * 0x124]];
+  iVar4 = (&DAT_1867e8b2c)[lVar2 * 0x124] - (&DAT_18402ff2c)[(longlong)sVar1 * 3];
+  if ((sVar1 == (&DAT_1867e8b1e)[lVar2 * 0x248]) &&
+     (iVar4 == (short)(&DAT_1867e8b1c)[lVar2 * 0x248])) {
+    return;
+  }
+  sVar3 = (short)iVar4;
+  *(short *)(lVar5 + 0x738 + param_1) = sVar3;
+  *(short *)(lVar5 + 0x71c + param_1) = sVar3;
+  *(short *)(lVar5 + 0x70e + param_1) = sVar3 * 8 + 4;
+  *(short *)(lVar5 + 0x73a + param_1) = sVar1;
+  *(short *)(lVar5 + 0x710 + param_1) = sVar1 * 8 + 4;
+  *(short *)(lVar5 + 0x71e + param_1) = sVar1;
+  FUN_18018be50(param_1);
+  return;
+}
+
+
+
+
+ASM:
+0019B1B0 4053 push rbx
+0019B1B2 488d1d474ee6ff lea rbx, [rip - 0x19b1b9]
+0019B1B9 4863c2 movsxd rax, edx
+0019B1BC 4c69d090040000 imul r10, rax, 0x490
+0019B1C3 4c8bd9 mov r11, rcx
+0019B1C6 4d63841a2c8b7e06 movsxd r8, dword ptr [r10 + rbx + 0x67e8b2c]
+0019B1CE 4e0fbf8c43a4e2aa03 movsx r9, word ptr [rbx + r8*2 + 0x3aae2a4]
+0019B1D7 4b8d0c49 lea rcx, [r9 + r9*2]
+0019B1DB 442b848b2cff0204 sub r8d, dword ptr [rbx + rcx*4 + 0x402ff2c]
+0019B1E3 66453b8c1a1e8b7e06 cmp r9w, word ptr [r10 + rbx + 0x67e8b1e]
+0019B1EC 750e jne 0x18019b1fc
+0019B1EE 410fbf841a1c8b7e06 movsx eax, word ptr [r10 + rbx + 0x67e8b1c]
+0019B1F7 443bc0 cmp r8d, eax
+0019B1FA 7457 je 0x18019b253
+0019B1FC 410fb7c0 movzx eax, r8w
+0019B200 664789841a38070000 mov word ptr [r10 + r11 + 0x738], r8w
+0019B209 66c1e003 shl ax, 3
+0019B20D 498bcb mov rcx, r11
+0019B210 6683c004 add ax, 4
+0019B214 664789841a1c070000 mov word ptr [r10 + r11 + 0x71c], r8w
+0019B21D 664389841a0e070000 mov word ptr [r10 + r11 + 0x70e], ax
+0019B226 410fb7c1 movzx eax, r9w
+0019B22A 66c1e003 shl ax, 3
+0019B22E 6683c004 add ax, 4
+0019B232 6647898c1a3a070000 mov word ptr [r10 + r11 + 0x73a], r9w
+0019B23B 664389841a10070000 mov word ptr [r10 + r11 + 0x710], ax
+0019B244 6647898c1a1e070000 mov word ptr [r10 + r11 + 0x71e], r9w
+0019B24D 5b pop rbx
+0019B24E e9fd0bffff jmp 0x18018be50
+0019B253 5b pop rbx
+0019B254 c3 ret 

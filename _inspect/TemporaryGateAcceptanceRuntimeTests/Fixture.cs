@@ -52,8 +52,8 @@ namespace SHCDESE.API {
     }
     public unsafe class GameBuildingManagerAPI {
         public static readonly GameBuildingManagerAPI Instance=new GameBuildingManagerAPI();
-        public GameBuilding* Building;
-        public bool IsValidId(int id)=>id==578;
+        public GameBuilding* Building; public int BuildingId=578;
+        public bool IsValidId(int id)=>id==BuildingId;
         public bool TryGetBuildingById(int id,out GameBuilding* building) { building=IsValidId(id)?Building:null; return building!=null; }
     }
 }
@@ -114,8 +114,8 @@ namespace BugfixesAndQoL {
             unitMoveFrame=null;
             var u=GameUnitManagerAPI.Instance.Unit; *u=new GameUnit {r_GlobalId=12,r_UnitChimp=0x49,r_ControllableForPlayerId=5,X=100,Y=100};
         }
-        internal int Invoke(int result=3, Action change=null) {
-            object token=BeginTemporaryRouteReport(nativePathManager);
+        internal int Invoke(int result=3, Action change=null,string source="F4930-builder") {
+            object token=BeginTemporaryRouteReport(nativePathManager,source);
             Calls++;
             byte* context=(byte*)nativePathManager;
             byte* path=*(byte**)(context+PathManagerOutputBufferOffset);
@@ -249,6 +249,21 @@ public static unsafe class RuntimeAcceptanceTests {
             acceptance.EndRoute(packed,"decoded",1); acceptance.End();
             Check(Contains("unclear:invalid-edge-or-player") && Contains("checked=0"),"gate ID reuse during observation cannot pass");
             GameTribeManagerAPI.Instance.StorageRole=183;
+            GameTileManagerAPI.Instance.Buildings.Clear(); GameBuildingManagerAPI.Instance.Building->r_GlobalId=99;
+            Shared.DebugLogHelper.Lines.Clear(); acceptance.Begin(); runtime.Reset();
+            runtime.Invoke(source:"E32B0-reconstruction"); acceptance.End();
+            Check(Contains("builderSource=E32B0-reconstruction") && Contains("fieldOrigin=unknown-preexisting-field"),"reconstruction source is explicit; field origin remains unknown");
+            Shared.DebugLogHelper.Lines.Clear(); acceptance.Begin(); int routeCallsBefore=runtime.Calls;
+            for(int gate=100;gate<140;gate++) {
+                GameBuildingManagerAPI.Instance.BuildingId=gate;
+                var varyingOwners=new GateEdgeOwnership[9]; varyingOwners[5]=new GateEdgeOwnership(); varyingOwners[5].Record(80100,2,gate);
+                snapshot=new RouteTilePolicySnapshot(masks,(ulong)gate,edgeOwners:varyingOwners);
+                runtime.Reset(); runtime.Invoke();
+            }
+            acceptance.End();
+            Check(Contains("checked=40,violated=40") && Shared.DebugLogHelper.Lines.FindAll(s=>s.Contains("kind=violation,")).Count==40 &&
+                runtime.Calls==routeCallsBefore+40,"more than 32 exact gates counted without event cap or extra native calls");
+            GameBuildingManagerAPI.Instance.BuildingId=578;
             Console.WriteLine("PASS: "+assertions+" actual diagnostic path assertions; no moat-plan helper present in fixture.");
         } finally { runtime.DisposeFixture(); Marshal.FreeHGlobal((IntPtr)GameUnitManagerAPI.Instance.Unit); Marshal.FreeHGlobal((IntPtr)GameTribeManagerAPI.Instance.Tribe); Marshal.FreeHGlobal((IntPtr)GameBuildingManagerAPI.Instance.Building); }
     }

@@ -1,0 +1,82 @@
+Hash FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2
+FUN_1800b9510 0xB9510 size=296 confidence=candidate
+Callers [('0xC8380',)]
+Callees [('0x69850',)]
+/* FUNCTION FUN_1800b9510 VA=0x1800B9510 RVA=0xB9510 */
+
+void FUN_1800b9510(void)
+
+{
+  short sVar1;
+  int iVar2;
+  short *psVar3;
+  longlong lVar4;
+  int iVar5;
+  
+  psVar3 = &DAT_1864cd00a;
+  lVar4 = 3999;
+  do {
+    if ((psVar3[-1] != 0) && ((ushort)(*psVar3 - 0x2dU) < 3)) {
+      iVar5 = 0;
+      do {
+        FUN_180069850(&DAT_18405edb0,iVar5,*(undefined4 *)(psVar3 + 0x13));
+        iVar2 = (&DAT_18402ff2c)[(longlong)(psVar3[0xf] + DAT_1860ad514) * 3] + (int)psVar3[0xe] +
+                DAT_1860ad510;
+        if (*psVar3 == 0x2f) {
+          (&DAT_1848f71b0)[iVar2] = (&DAT_1848f71b0)[iVar2] & 0xfffefeff | 0x10000000;
+          sVar1 = psVar3[0xd];
+          (&DAT_184f64cf0)[iVar2] = (&DAT_184f64cf0)[iVar2] & 0xffdf;
+          (&DAT_184ddd350)[iVar2] = (char)sVar1;
+        }
+        else {
+          (&DAT_1848f71b0)[iVar2] = (&DAT_1848f71b0)[iVar2] | 0x100;
+          (&DAT_184e79d90)[iVar2] = (&DAT_184e79d90)[iVar2] & 0xf8 | (char)psVar3[2] - 1U;
+        }
+        (&DAT_1848f71b0)[iVar2] = (&DAT_1848f71b0)[iVar2] & 0xfffffbff;
+        iVar5 = iVar5 + 1;
+      } while (iVar5 < DAT_1860ad508);
+    }
+    psVar3 = psVar3 + 0x196;
+    lVar4 = lVar4 + -1;
+  } while (lVar4 != 0);
+  return;
+}
+
+
+
+
+
+Hash FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2
+FUN_1800b9640 0xB9640 size=204 confidence=candidate
+Callers [('0xC8380',)]
+Callees [('0x69850',)]
+/* FUNCTION FUN_1800b9640 VA=0x1800B9640 RVA=0xB9640 */
+
+void FUN_1800b9640(void)
+
+{
+  int iVar1;
+  short *psVar2;
+  int iVar3;
+  
+  psVar2 = &DAT_1864cd00a;
+  do {
+    if ((psVar2[-1] != 0) && (*(int *)(&DAT_1802e6a90 + (longlong)*psVar2 * 4) != 0)) {
+      iVar3 = 0;
+      do {
+        FUN_180069850(&DAT_18405edb0,iVar3,*(undefined4 *)(psVar2 + 0x13));
+        iVar3 = iVar3 + 1;
+        iVar1 = (&DAT_18402ff2c)[(longlong)(psVar2[0xf] + DAT_1860ad514) * 3] + (int)psVar2[0xe] +
+                DAT_1860ad510;
+        (&DAT_1848f71b0)[iVar1] = (&DAT_1848f71b0)[iVar1] & 0xfffffbff | 0x10000000;
+      } while (iVar3 < DAT_1860ad508);
+    }
+    psVar2 = psVar2 + 0x196;
+  } while ((longlong)psVar2 < 0x1867e5c5e);
+  return;
+}
+
+
+
+
+

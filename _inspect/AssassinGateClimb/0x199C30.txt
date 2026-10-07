@@ -1,0 +1,33 @@
+Hash FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2
+FUN_180199c30 0x199C30 size=54 confidence=candidate
+Callers [('0x8C5F0',)]
+Callees [('0x23990',)]
+/* FUNCTION FUN_180199c30 VA=0x180199C30 RVA=0x199C30 */
+
+void FUN_180199c30(undefined8 param_1,undefined4 param_2,undefined4 param_3,undefined4 param_4,
+                  undefined4 param_5,undefined4 param_6)
+
+{
+  DAT_1886c1338 = param_5;
+  DAT_1886c133c = param_6;
+  DAT_1886c132c = param_2;
+  DAT_1886c1330 = param_3;
+  DAT_1886c1334 = param_4;
+  FUN_180023990(&DAT_188574320,0x24);
+  return;
+}
+
+
+
+
+ASM:
+00199C30 8b442428 mov eax, dword ptr [rsp + 0x28]
+00199C34 488d0de5a63d08 lea rcx, [rip + 0x83da6e5]
+00199C3B 8905f7765208 mov dword ptr [rip + 0x85276f7], eax
+00199C41 8b442430 mov eax, dword ptr [rsp + 0x30]
+00199C45 8915e1765208 mov dword ptr [rip + 0x85276e1], edx
+00199C4B b224 mov dl, 0x24
+00199C4D 8905e9765208 mov dword ptr [rip + 0x85276e9], eax
+00199C53 448905d6765208 mov dword ptr [rip + 0x85276d6], r8d
+00199C5A 44890dd3765208 mov dword ptr [rip + 0x85276d3], r9d
+00199C61 e92a9de8ff jmp 0x180023990

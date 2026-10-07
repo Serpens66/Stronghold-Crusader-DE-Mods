@@ -1,0 +1,56 @@
+Hash FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2
+FUN_1800c2280 0xC2280 size=81 confidence=candidate
+Callers [('0x8C5F0',), ('0xEDF30',)]
+Callees []
+/* FUNCTION FUN_1800c2280 VA=0x1800C2280 RVA=0xC2280 */
+
+undefined8 FUN_1800c2280(longlong param_1,int param_2)
+
+{
+  short sVar1;
+  
+  if (param_2 == 0) {
+    return 0;
+  }
+  sVar1 = *(short *)((longlong)param_2 * 0x32c + 0x12e + param_1);
+  switch(sVar1) {
+  case 0x2d:
+  case 0x2e:
+  case 0x4a:
+  case 0x4b:
+  case 0x4c:
+  case 0x4d:
+  case 0x4e:
+    break;
+  default:
+    if (*(int *)(&DAT_1802e6710 + (longlong)sVar1 * 4) == 0) {
+      return 0;
+    }
+  }
+  return 1;
+}
+
+
+
+
+ASM:
+000C2280 85d2 test edx, edx
+000C2282 744a je 0x1800c22ce
+000C2284 4863c2 movsxd rax, edx
+000C2287 4869d02c030000 imul rdx, rax, 0x32c
+000C228E 4c0fbf840a2e010000 movsx r8, word ptr [rdx + rcx + 0x12e]
+000C2297 488d1562ddf3ff lea rdx, [rip - 0xc229e]
+000C229E 418d40d3 lea eax, [r8 - 0x2d]
+000C22A2 83f821 cmp eax, 0x21
+000C22A5 7716 ja 0x1800c22bd
+000C22A7 4898 cdqe 
+000C22A9 0fb68402dc220c00 movzx eax, byte ptr [rdx + rax + 0xc22dc]
+000C22B1 8b8c82d4220c00 mov ecx, dword ptr [rdx + rax*4 + 0xc22d4]
+000C22B8 4803ca add rcx, rdx
+000C22BB ffe1 jmp rcx
+000C22BD 4283bc8210672e0000 cmp dword ptr [rdx + r8*4 + 0x2e6710], 0
+000C22C6 7406 je 0x1800c22ce
+000C22C8 b801000000 mov eax, 1
+000C22CD c3 ret 
+000C22CE 33c0 xor eax, eax
+000C22D0 c3 ret 

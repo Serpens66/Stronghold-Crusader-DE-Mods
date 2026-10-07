@@ -1,0 +1,81 @@
+Hash FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2
+FUN_1800b9640 0xB9640 size=204 confidence=candidate
+Callers [('0xC8380',)]
+Callees [('0x69850',)]
+/* FUNCTION FUN_1800b9640 VA=0x1800B9640 RVA=0xB9640 */
+
+void FUN_1800b9640(void)
+
+{
+  int iVar1;
+  short *psVar2;
+  int iVar3;
+  
+  psVar2 = &DAT_1864cd00a;
+  do {
+    if ((psVar2[-1] != 0) && (*(int *)(&DAT_1802e6a90 + (longlong)*psVar2 * 4) != 0)) {
+      iVar3 = 0;
+      do {
+        FUN_180069850(&DAT_18405edb0,iVar3,*(undefined4 *)(psVar2 + 0x13));
+        iVar3 = iVar3 + 1;
+        iVar1 = (&DAT_18402ff2c)[(longlong)(psVar2[0xf] + DAT_1860ad514) * 3] + (int)psVar2[0xe] +
+                DAT_1860ad510;
+        (&DAT_1848f71b0)[iVar1] = (&DAT_1848f71b0)[iVar1] & 0xfffffbff | 0x10000000;
+      } while (iVar3 < DAT_1860ad508);
+    }
+    psVar2 = psVar2 + 0x196;
+  } while ((longlong)psVar2 < 0x1867e5c5e);
+  return;
+}
+
+
+
+
+ASM:
+000B9640 48895c2408 mov qword ptr [rsp + 8], rbx
+000B9645 48896c2410 mov qword ptr [rsp + 0x10], rbp
+000B964A 4889742418 mov qword ptr [rsp + 0x18], rsi
+000B964F 48897c2420 mov qword ptr [rsp + 0x20], rdi
+000B9654 4156 push r14
+000B9656 4883ec20 sub rsp, 0x20
+000B965A 488d1da9394106 lea rbx, [rip + 0x64139a9]
+000B9661 4c8d359869f4ff lea r14, [rip - 0xb9668]
+000B9668 488d354157fa03 lea rsi, [rip + 0x3fa5741]
+000B966F 488d2de8c57206 lea rbp, [rip + 0x672c5e8]
+000B9676 66837bfe00 cmp word ptr [rbx - 2], 0
+000B967B 7468 je 0x1800b96e5
+000B967D 480fbf03 movsx rax, word ptr [rbx]
+000B9681 4183bc86906a2e0000 cmp dword ptr [r14 + rax*4 + 0x2e6a90], 0
+000B968A 7459 je 0x1800b96e5
+000B968C 33ff xor edi, edi
+000B968E 6690 nop 
+000B9690 448b4326 mov r8d, dword ptr [rbx + 0x26]
+000B9694 8bd7 mov edx, edi
+000B9696 488bce mov rcx, rsi
+000B9699 e8b201fbff call 0x180069850
+000B969E 0fbf431e movsx eax, word ptr [rbx + 0x1e]
+000B96A2 ffc7 inc edi
+000B96A4 03056a3eff05 add eax, dword ptr [rip + 0x5ff3e6a]
+000B96AA 4898 cdqe 
+000B96AC 488d0c40 lea rcx, [rax + rax*2]
+000B96B0 0fbf431c movsx eax, word ptr [rbx + 0x1c]
+000B96B4 418b948e2cff0204 mov edx, dword ptr [r14 + rcx*4 + 0x402ff2c]
+000B96BC 03d0 add edx, eax
+000B96BE 03154c3eff05 add edx, dword ptr [rip + 0x5ff3e4c]
+000B96C4 4863ca movsxd rcx, edx
+000B96C7 8b848e00848900 mov eax, dword ptr [rsi + rcx*4 + 0x898400]
+000B96CE 0fbaf00a btr eax, 0xa
+000B96D2 0fbae81c bts eax, 0x1c
+000B96D6 89848e00848900 mov dword ptr [rsi + rcx*4 + 0x898400], eax
+000B96DD 3b3d253eff05 cmp edi, dword ptr [rip + 0x5ff3e25]
+000B96E3 7cab jl 0x1800b9690
+000B96E5 4881c32c030000 add rbx, 0x32c
+000B96EC 483bdd cmp rbx, rbp
+000B96EF 7c85 jl 0x1800b9676
+000B96F1 488b5c2430 mov rbx, qword ptr [rsp + 0x30]
+000B96F6 488b6c2438 mov rbp, qword ptr [rsp + 0x38]
+000B96FB 488b742440 mov rsi, qword ptr [rsp + 0x40]
+000B9700 488b7c2448 mov rdi, qword ptr [rsp + 0x48]
+000B9705 4883c420 add rsp, 0x20
+000B9709 415e pop r14
+000B970B c3 ret 

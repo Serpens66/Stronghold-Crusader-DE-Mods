@@ -28,6 +28,10 @@ namespace EnemyBridgePathTest
                     if(!BridgePlanningImporter.TryRead(args[1],out artifact,out reason)){Console.WriteLine(reason);return 2;}
                     bool matched=CopiedPlanningReplay.TryBaseline(artifact,out reason);Console.WriteLine("planningBaselineMatched="+matched+",reason="+reason+",artifactSHA256="+artifact.Hash+",behaviorFix=disabled");return matched?0:2;
                 }
+                if(args.Length==2&&args[0]=="--consumer-closure")
+                {
+                    BridgePlanningImporter.Artifact artifact;string reason;if(!BridgePlanningImporter.TryRead(args[1],out artifact,out reason)){Console.WriteLine(reason);return 2;}bool known=CopiedPlanningReplay.TryConsumerInputClosure(artifact,out reason);Console.WriteLine(reason);return known?0:2;
+                }
                 if(args.Length==2&&args[0]=="--consumer-replay")
                 {
                     BridgePlanningImporter.Artifact artifact;string report;

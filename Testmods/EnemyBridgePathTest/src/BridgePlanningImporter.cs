@@ -90,8 +90,9 @@ namespace EnemyBridgePathTest
                         long op;if(!long.TryParse(pair.Key.Split('/')[1],out op)||pair.Value.Length!=32||identity.Length!=40||BitConverter.ToInt64(identity,0)!=b.Session||BitConverter.ToInt64(identity,8)!=op||BitConverter.ToInt64(identity,24)!=b.Root||BitConverter.ToInt32(pair.Value,0)!=b.Attacker)throw new InvalidDataException("target-selection-identity");
                         byte[] args=CopiedPlanningBundle.Resolve(b,pair.Key.Substring(0,pair.Key.Length-7)+"argumentsAndTiles4");if(args.Length!=16||BitConverter.ToInt32(args,0)!=b.Attacker||BitConverter.ToInt32(args,4)!=BitConverter.ToInt32(pair.Value,4))throw new InvalidDataException("target-argument-identity");
                     }
-                    if(a.Metadata.TryGetValue("planningConsumerCaptureVersion",out string consumerVersion)&&consumerVersion!="0"&&consumerVersion!="1")throw new InvalidDataException("consumer-version");
-                    if(consumerVersion=="1"&&!b.Sections.ContainsKey("consumer/pre/identity"))throw new InvalidDataException("missing-versioned-consumer");
+                    if(a.Metadata.TryGetValue("planningConsumerCaptureVersion",out string consumerVersion)&&consumerVersion!="0"&&consumerVersion!="1"&&consumerVersion!="2")throw new InvalidDataException("consumer-version");
+                    b.ConsumerVersion=string.IsNullOrEmpty(consumerVersion)?0:int.Parse(consumerVersion);
+                    if((consumerVersion=="1"||consumerVersion=="2")&&!b.Sections.ContainsKey("consumer/pre/identity"))throw new InvalidDataException("missing-versioned-consumer");
                     if(b.Sections.ContainsKey("consumer/pre/identity"))
                     {
                         foreach(string stage in new[]{"consumer/pre","consumer/post","consumer/build-pre","consumer/build-post","consumer/weight-pre","consumer/weight-post"})
@@ -112,6 +113,15 @@ namespace EnemyBridgePathTest
                         int macroLimit=BitConverter.ToInt32(CopiedPlanningBundle.Resolve(b,"consumer/pre/macroLimit"),0);if(macroLimit<1||macroLimit>1000||CopiedPlanningBundle.Resolve(b,"consumer/pre/macroRecords").Length!=(macroLimit-1)*0x204||CopiedPlanningBundle.Resolve(b,"consumer/pre/nativeAlliances9").Length!=36)throw new InvalidDataException("consumer-macro-capacity");
                         byte[] units=CopiedPlanningBundle.Resolve(b,"consumer/pre/unitManager");int unused;VirtualCandidateConsumers.UnitTargets(units,b.Attacker,out unused);
                         string[] consumerNames={"unitTiles","height","baseHeight","terrainOwner","flags","components","edges","buildingIds","costBranch","players","tribes"};int[] consumerSizes={641600,320800,320800,320800,1283200,641600,320800,641600,1,9*0x583c,0x2a+4500*0x688};for(int n=0;n<consumerNames.Length;n++)if(CopiedPlanningBundle.Resolve(b,"consumer/pre/"+consumerNames[n]).Length!=consumerSizes[n])throw new InvalidDataException("consumer-input-extent:"+consumerNames[n]);
+                        if(consumerVersion=="2")
+                        {
+                            if(CopiedPlanningBundle.Resolve(b,"buildingUpdaterControls").Length!=8||CopiedPlanningBundle.Resolve(b,"buildingUpdaterSlots").Length!=3999*0x32c||CopiedPlanningBundle.Resolve(b,"consumer/pre/packedValidity").Length!=800*800||CopiedPlanningBundle.Resolve(b,"consumer/pre/combatClassMask").Length!=90||CopiedPlanningBundle.Resolve(b,"consumer/pre/buildingTransitionClasses").Length!=336*4||CopiedPlanningBundle.Resolve(b,"consumer/pre/buildingSeedClasses").Length!=336*4)throw new InvalidDataException("consumer-v2-native-input-extents");
+                            foreach(string stage in new[]{"consumer/pre","consumer/post"})
+                            {
+                                string[] names={"workControls","workQueueControls","workQueue","workQueueRows","workQueueX","workDistances","workVisits","workTargets"};int[] sizes2={224,52,1283200,641600,641600,641600,641600,7200};for(int n=0;n<names.Length;n++)if(CopiedPlanningBundle.Resolve(b,stage+"/"+names[n]).Length!=sizes2[n])throw new InvalidDataException("consumer-v2-work-extent:"+names[n]);
+                            }
+                            byte[] modePre=CopiedPlanningBundle.Resolve(b,"consumer/weight-pre/gameModeValues"),modePost=CopiedPlanningBundle.Resolve(b,"consumer/weight-post/gameModeValues");if(modePre.Length!=8||modePost.Length!=8)throw new InvalidDataException("consumer-v2-mode-extent");for(int n=0;n<8;n++)if(modePre[n]!=modePost[n])throw new InvalidDataException("weight-mode-changed-during-call");
+                        }
                         foreach(string state in new[]{"entryPlayer","exitPlayer"})if(CopiedPlanningBundle.Resolve(b,"military/"+state).Length!=0x583c)throw new InvalidDataException("military-player-extent");
                     }
                     b.Stages.AddRange(new[]{0,1,2,3});a.Planning=b;
