@@ -379,3 +379,6 @@ BugfixesAndQoL.EnableImprovedManualUnitCommands=Förbättrade manuella enhetsord
 BugfixesAndQoL.EnableImprovedManualUnitCommandsHelp=Låter enheter som kan nå målet utföra manuella order för förflyttning, köad förflyttning, patrullering, anfall och vallgravsarbete, även när de redan står i en vallgrav. Använder spelets ursprungliga vägar; ytterligare passager genom vänliga vallgravar kräver MoatMove. Värdinställning.
 BugfixesAndQoL.EnableGatehouseLivingCaptureFix=Gatehouse capture: ignore dead units
 BugfixesAndQoL.EnableGatehouseLivingCaptureFixHelp=Dead attackers and defenders no longer count during Vanilla's regular gatehouse capture check. Living defenders still block capture.
+
+BugfixesAndQoL.EnableAssassinGatehouseClimbFix=Assassins can climb gatehouses directly
+BugfixesAndQoL.EnableAssassinGatehouseClimbFixHelp=Allows humans and AI to choose direct Assassin climbs onto gatehouses using Vanilla climbing. Existing player climbing restrictions still apply.

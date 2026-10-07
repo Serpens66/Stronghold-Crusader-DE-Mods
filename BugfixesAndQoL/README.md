@@ -52,6 +52,9 @@ Vanilla can find a route over a wall with a placed ladder for an ordinary moveme
 ### Resume Assassin movement after combat
 Assassins resume their original movement order after automatically fighting an enemy encountered along the way, including routes that climb onto or down from walls.
 
+### Allow Assassins to climb gatehouses directly
+This enabled-by-default host setting lets human players and AI choose direct Assassin climbs onto freestanding gatehouses, using Vanilla's existing climbing execution. Existing player climbing restrictions still apply. Find it under **Fixes**.
+
 ### Fix plague and apothecary behavior
 Each active plague outbreak now applies exactly one point of negative popularity, which is reliably removed after all associated clouds are gone. Apothecary treatments make every affected cloud fade correctly, while reserving the entire treatment area so other healers choose a different useful target. The intended building-exit transition is also completed when a target is found, preventing apothecaries from becoming stuck inside their buildings.
 

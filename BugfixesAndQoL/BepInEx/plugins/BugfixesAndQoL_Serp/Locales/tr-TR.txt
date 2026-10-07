@@ -379,3 +379,6 @@ BugfixesAndQoL.EnableImprovedManualUnitCommands=Geliştirilmiş elle verilen bir
 BugfixesAndQoL.EnableImprovedManualUnitCommandsHelp=Hedefe ulaşabilen seçili birimlerin hareket, sıraya alınmış hareket, devriye, saldırı ve hendek çalışması emirlerini uygulamasını sağlar; hendekte duran birimler de dahildir. Oyunun mevcut yollarını kullanır; dost hendeklerden ek geçişler için MoatMove gerekir. Sunucu ayarı.
 BugfixesAndQoL.EnableGatehouseLivingCaptureFix=Gatehouse capture: ignore dead units
 BugfixesAndQoL.EnableGatehouseLivingCaptureFixHelp=Dead attackers and defenders no longer count during Vanilla's regular gatehouse capture check. Living defenders still block capture.
+
+BugfixesAndQoL.EnableAssassinGatehouseClimbFix=Assassins can climb gatehouses directly
+BugfixesAndQoL.EnableAssassinGatehouseClimbFixHelp=Allows humans and AI to choose direct Assassin climbs onto gatehouses using Vanilla climbing. Existing player climbing restrictions still apply.

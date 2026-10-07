@@ -379,3 +379,6 @@ BugfixesAndQoL.EnableImprovedManualUnitCommands=أوامر يدوية محسّن
 BugfixesAndQoL.EnableImprovedManualUnitCommandsHelp=يسمح للوحدات القادرة على الوصول بتنفيذ أوامر الحركة والحركة المتتابعة والدوريات والهجوم والعمل في الخندق، بما في ذلك الوحدات الموجودة داخله. يستخدم مسارات اللعبة الأصلية؛ يتطلب عبور الخنادق الصديقة الإضافي MoatMove. إعداد المضيف.
 BugfixesAndQoL.EnableGatehouseLivingCaptureFix=Gatehouse capture: ignore dead units
 BugfixesAndQoL.EnableGatehouseLivingCaptureFixHelp=Dead attackers and defenders no longer count during Vanilla's regular gatehouse capture check. Living defenders still block capture.
+
+BugfixesAndQoL.EnableAssassinGatehouseClimbFix=Assassins can climb gatehouses directly
+BugfixesAndQoL.EnableAssassinGatehouseClimbFixHelp=Allows humans and AI to choose direct Assassin climbs onto gatehouses using Vanilla climbing. Existing player climbing restrictions still apply.

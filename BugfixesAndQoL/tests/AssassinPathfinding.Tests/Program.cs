@@ -35,6 +35,7 @@ internal static partial class Program
             TestRuntimeIntegration(args);
             TestActualPublication(args);
             TestActualRequestIndex(args);
+            TestGatehouseActivation(args);
             TestProductionKernel(Path.GetFullPath(args[0]));
             BenchmarkWallGroup();
             Console.WriteLine($"PASS: {assertions} Assassin A*/Dijkstra assertions.");

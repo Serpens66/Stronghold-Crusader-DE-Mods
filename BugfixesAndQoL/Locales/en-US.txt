@@ -379,3 +379,6 @@ BugfixesAndQoL.EnableImprovedManualUnitCommands=Improved manual unit commands
 BugfixesAndQoL.EnableImprovedManualUnitCommandsHelp=Allows reachable members of a selection to execute manual movement, queued movement, patrol, attack and moat work commands, including units already standing in a moat. Uses existing native paths; additional friendly moat crossing requires MoatMove. Host setting.
 BugfixesAndQoL.EnableGatehouseLivingCaptureFix=Gatehouse capture: ignore dead units
 BugfixesAndQoL.EnableGatehouseLivingCaptureFixHelp=Dead attackers and defenders no longer count during Vanilla's regular gatehouse capture check. Living defenders still block capture.
+
+BugfixesAndQoL.EnableAssassinGatehouseClimbFix=Assassins can climb gatehouses directly
+BugfixesAndQoL.EnableAssassinGatehouseClimbFixHelp=Allows humans and AI to choose direct Assassin climbs onto gatehouses using Vanilla climbing. Existing player climbing restrictions still apply.

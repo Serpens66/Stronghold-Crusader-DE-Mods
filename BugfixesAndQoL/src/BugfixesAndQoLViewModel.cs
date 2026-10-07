@@ -29,6 +29,7 @@ namespace BugfixesAndQoL
         private bool enableAiDefensePatrolFix = true;
         private bool enableAiRaidRetargetFix = true;
         private bool enableGatehouseLivingCaptureFix = true;
+        private bool enableAssassinGatehouseClimbFix = true;
         private bool enableAiWallTargetingFix = true;
         private bool enablePrebuiltAiWorkshopBothFix = true;
         private bool enableBakerMillerBreaks;
@@ -233,6 +234,8 @@ namespace BugfixesAndQoL
         public string ResetToDefaultText => SerpLocalization.Get(SerpLocalization.ResetToDefault);
         public string QolTitleText => SerpLocalization.Get("BugfixesAndQoL.QolTitle");
         public string EnableGatehouseLivingCaptureFixText => SerpLocalization.Get("BugfixesAndQoL.EnableGatehouseLivingCaptureFix");
+        public string EnableAssassinGatehouseClimbFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAssassinGatehouseClimbFix");
+        public string EnableAssassinGatehouseClimbFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAssassinGatehouseClimbFixHelp");
         public string EnableGatehouseLivingCaptureFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableGatehouseLivingCaptureFixHelp");
         public string FixesTitleText => SerpLocalization.Get("BugfixesAndQoL.FixesTitle");
         public string PossibleFixesTitleText => SerpLocalization.Get("BugfixesAndQoL.PossibleFixesTitle");
@@ -915,6 +918,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableAssassinGatehouseClimbFix
+        {
+            get => enableAssassinGatehouseClimbFix;
+            set => SetSetting(ref enableAssassinGatehouseClimbFix, value, nameof(EnableAssassinGatehouseClimbFix));
+        }
+
+        [SyncHostOnly]
         public bool EnableAiDefensePatrolFix
         {
             get => enableAiDefensePatrolFix;
@@ -1373,6 +1383,7 @@ namespace BugfixesAndQoL
                 EnableAiDefensePatrolFix = true;
                 EnableAiRaidRetargetFix = true;
                 EnableGatehouseLivingCaptureFix = true;
+                EnableAssassinGatehouseClimbFix = true;
                 EnableAiWallTargetingFix = true;
                 EnableBakerMillerBreaks = false;
                 EnableWorkshopIdleDelayFix = false;

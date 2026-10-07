@@ -2034,6 +2034,7 @@ internal static class Program
         setting.PreparePresets(null, pluginPath, "SurrenderAndStatisticsSettingTest");
         setting.ActivatePresets();
         Check(setting.EnableGatehouseLivingCaptureFix, "gatehouse fix did not default to true" );
+        Check(setting.EnableAssassinGatehouseClimbFix, "gatehouse fix did not default to true" );
         Check(setting.EnableAiFixes, "EnableAiFixes did not default to true");
         Check(setting.EnableSurrenderAndStatistics, "EnableSurrenderAndStatistics did not default to true");
         Check(setting.EnableLordUnitControls, "EnableLordUnitControls did not default to true");
@@ -2048,6 +2049,7 @@ internal static class Program
         Check(typeof(SurrenderAndStatisticsSettingViewModel).GetProperty("EnableSurrender") == null,
             "obsolete EnableSurrender property remains present");
         setting.EnableGatehouseLivingCaptureFix = false;
+        setting.EnableAssassinGatehouseClimbFix = false;
         setting.EnableAiFixes = false;
         setting.EnableSurrenderAndStatistics = false;
         setting.EnableLordUnitControls = false;
@@ -2056,6 +2058,7 @@ internal static class Program
         setting.EnableReturnToMultiplayerLobby = false;
         setting.AllowFullAiMultiplayerLobby = false;
         Check(!setting.EnableGatehouseLivingCaptureFix, "gatehouse false did not round-trip through presets");
+        Check(!setting.EnableAssassinGatehouseClimbFix, "gatehouse false did not round-trip through presets");
         Check(!setting.EnableAiFixes, "EnableAiFixes did not round-trip through presets");
         Check(!setting.EnableSurrenderAndStatistics, "shared host value did not round-trip through presets");
         Check(!setting.EnableLordUnitControls, "Lord-controls host value did not round-trip through presets");
@@ -2093,13 +2096,16 @@ internal static class Program
             $"EnableSurrenderAndStatistics={migratedSetting.EnableSurrenderAndStatistics}, " +
             $"SelectedPreset={migratedSetting.SelectedPreset})");
         Check(!migratedSetting.EnableGatehouseLivingCaptureFix, "stored gatehouse false did not survive reload");
+        Check(!migratedSetting.EnableAssassinGatehouseClimbFix, "stored gatehouse false did not survive reload");
         stalePreset.Remove(nameof(setting.EnableGatehouseLivingCaptureFix));
+        stalePreset.Remove(nameof(setting.EnableAssassinGatehouseClimbFix));
         stalePayload["__SerpCurrentSettings"] = MessagePackSerializer.Serialize(stalePreset);
         File.WriteAllBytes(settingsPath, MessagePackSerializer.Serialize(stalePayload));
         var missingGatehouseSetting = new SurrenderAndStatisticsSettingViewModel();
         missingGatehouseSetting.PreparePresets(null, pluginPath, "SurrenderAndStatisticsSettingTest");
         missingGatehouseSetting.ActivatePresets();
         Check(missingGatehouseSetting.EnableGatehouseLivingCaptureFix, "missing gatehouse preset key did not retain true default");
+        Check(missingGatehouseSetting.EnableAssassinGatehouseClimbFix, "missing gatehouse preset key did not retain true default");
         string workspaceRoot = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", ".."));
         string bugfixesViewModelSource = File.ReadAllText(
             Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "BugfixesAndQoLViewModel.cs"));
@@ -2232,12 +2238,15 @@ internal static class Program
         Check(!setting.EnableReturnToMultiplayerLobby,
             "client mutated the host-only EnableReturnToMultiplayerLobby setting");
         setting.EnableGatehouseLivingCaptureFix = true;
+        setting.EnableAssassinGatehouseClimbFix = true;
         Check(!setting.EnableGatehouseLivingCaptureFix, "client changed the gatehouse host setting");
+        Check(!setting.EnableAssassinGatehouseClimbFix, "client changed the gatehouse host setting");
         Check(!setting.AllowFullAiMultiplayerLobby,
             "client mutated the host-only AllowFullAiMultiplayerLobby setting");
         GameXAMLManagerAPI.Instance.ApplyNetworkSync(setting, () =>
         {
             setting.EnableGatehouseLivingCaptureFix = true;
+            setting.EnableAssassinGatehouseClimbFix = true;
             setting.EnableAiFixes = true;
             setting.EnableSurrenderAndStatistics = true;
             setting.EnableLordUnitControls = true;
@@ -2247,6 +2256,7 @@ internal static class Program
             setting.AllowFullAiMultiplayerLobby = true;
         });
         Check(setting.EnableGatehouseLivingCaptureFix, "host sync did not update gatehouse fix");
+        Check(setting.EnableAssassinGatehouseClimbFix, "host sync did not update gatehouse fix");
         Check(setting.EnableAiFixes, "authoritative host sync did not update EnableAiFixes");
         Check(setting.EnableSurrenderAndStatistics, "authoritative host sync did not update EnableSurrenderAndStatistics");
         Check(setting.EnableLordUnitControls, "authoritative host sync did not update EnableLordUnitControls");
@@ -5987,6 +5997,7 @@ internal sealed class SurrenderAndStatisticsSettingViewModel : PresetLobbyModSet
 {
     private bool enableAiFixes = true;
     private bool enableGatehouseLivingCaptureFix = true;
+    private bool enableAssassinGatehouseClimbFix = true;
     private bool enableSurrenderAndStatistics = true;
     private bool enableLordUnitControls = true;
     private bool enableEliminatedPlayersBecomeSpectators = true;
@@ -6004,6 +6015,19 @@ internal sealed class SurrenderAndStatisticsSettingViewModel : PresetLobbyModSet
                 return;
             enableGatehouseLivingCaptureFix = value;
             OnPropertyChanged(nameof(EnableGatehouseLivingCaptureFix));
+        }
+    }
+
+    [SyncHostOnly]
+    public bool EnableAssassinGatehouseClimbFix
+    {
+        get => enableAssassinGatehouseClimbFix;
+        set
+        {
+            if (!CanMutateSetting(nameof(EnableAssassinGatehouseClimbFix)) || enableAssassinGatehouseClimbFix == value)
+                return;
+            enableAssassinGatehouseClimbFix = value;
+            OnPropertyChanged(nameof(EnableAssassinGatehouseClimbFix));
         }
     }
 

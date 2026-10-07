@@ -379,3 +379,6 @@ BugfixesAndQoL.EnableImprovedManualUnitCommands=ปรับปรุงคำ�
 BugfixesAndQoL.EnableImprovedManualUnitCommandsHelp=ให้ยูนิตที่เลือกซึ่งไปถึงเป้าหมายได้ทำตามคำสั่งเคลื่อนที่ เคลื่อนที่แบบเข้าคิว ลาดตระเวน โจมตี และงานคูน้ำ รวมถึงยูนิตที่อยู่ในคูน้ำแล้ว ใช้เส้นทางเดิมของเกม การข้ามคูน้ำฝ่ายเดียวกันเพิ่มเติมต้องใช้ MoatMove เป็นการตั้งค่าของโฮสต์
 BugfixesAndQoL.EnableGatehouseLivingCaptureFix=Gatehouse capture: ignore dead units
 BugfixesAndQoL.EnableGatehouseLivingCaptureFixHelp=Dead attackers and defenders no longer count during Vanilla's regular gatehouse capture check. Living defenders still block capture.
+
+BugfixesAndQoL.EnableAssassinGatehouseClimbFix=Assassins can climb gatehouses directly
+BugfixesAndQoL.EnableAssassinGatehouseClimbFixHelp=Allows humans and AI to choose direct Assassin climbs onto gatehouses using Vanilla climbing. Existing player climbing restrictions still apply.

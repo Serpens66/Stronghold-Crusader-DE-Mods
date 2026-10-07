@@ -379,3 +379,6 @@ BugfixesAndQoL.EnableImprovedManualUnitCommands=Улучшенные ручны�
 BugfixesAndQoL.EnableImprovedManualUnitCommandsHelp=Позволяет выбранным бойцам, способным добраться до цели, выполнять ручные приказы движения, движения по очереди, патрулирования, атаки и работы со рвом, даже если они уже находятся во рву. Используются исходные пути игры; дополнительные переходы через дружественные рвы требуют MoatMove. Настройка хоста.
 BugfixesAndQoL.EnableGatehouseLivingCaptureFix=Gatehouse capture: ignore dead units
 BugfixesAndQoL.EnableGatehouseLivingCaptureFixHelp=Dead attackers and defenders no longer count during Vanilla's regular gatehouse capture check. Living defenders still block capture.
+
+BugfixesAndQoL.EnableAssassinGatehouseClimbFix=Assassins can climb gatehouses directly
+BugfixesAndQoL.EnableAssassinGatehouseClimbFixHelp=Allows humans and AI to choose direct Assassin climbs onto gatehouses using Vanilla climbing. Existing player climbing restrictions still apply.

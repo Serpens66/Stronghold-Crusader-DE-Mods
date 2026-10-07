@@ -379,3 +379,6 @@ BugfixesAndQoL.EnableImprovedManualUnitCommands=Βελτιωμένες χειρ�
 BugfixesAndQoL.EnableImprovedManualUnitCommandsHelp=Επιτρέπει στις μονάδες που μπορούν να φτάσουν στον στόχο να εκτελούν χειροκίνητες εντολές κίνησης, ουράς, περιπολίας, επίθεσης και εργασίας στην τάφρο, ακόμη και όταν βρίσκονται ήδη μέσα σε αυτή. Χρησιμοποιεί τις αρχικές διαδρομές του παιχνιδιού· επιπλέον διαβάσεις φιλικών τάφρων απαιτούν το MoatMove. Ρύθμιση οικοδεσπότη.
 BugfixesAndQoL.EnableGatehouseLivingCaptureFix=Gatehouse capture: ignore dead units
 BugfixesAndQoL.EnableGatehouseLivingCaptureFixHelp=Dead attackers and defenders no longer count during Vanilla's regular gatehouse capture check. Living defenders still block capture.
+
+BugfixesAndQoL.EnableAssassinGatehouseClimbFix=Assassins can climb gatehouses directly
+BugfixesAndQoL.EnableAssassinGatehouseClimbFixHelp=Allows humans and AI to choose direct Assassin climbs onto gatehouses using Vanilla climbing. Existing player climbing restrictions still apply.

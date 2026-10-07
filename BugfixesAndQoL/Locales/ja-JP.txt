@@ -379,3 +379,6 @@ BugfixesAndQoL.EnableImprovedManualUnitCommands=手動ユニット命令の改�
 BugfixesAndQoL.EnableImprovedManualUnitCommandsHelp=目的地に到達できる選択中のユニットが、移動、予約移動、巡回、攻撃、堀作業の手動命令を実行します。すでに堀の中にいるユニットも対象です。ゲーム本来の経路を使用し、味方の堀を外から新たに横断するには MoatMove が必要です。ホスト設定。
 BugfixesAndQoL.EnableGatehouseLivingCaptureFix=Gatehouse capture: ignore dead units
 BugfixesAndQoL.EnableGatehouseLivingCaptureFixHelp=Dead attackers and defenders no longer count during Vanilla's regular gatehouse capture check. Living defenders still block capture.
+
+BugfixesAndQoL.EnableAssassinGatehouseClimbFix=Assassins can climb gatehouses directly
+BugfixesAndQoL.EnableAssassinGatehouseClimbFixHelp=Allows humans and AI to choose direct Assassin climbs onto gatehouses using Vanilla climbing. Existing player climbing restrictions still apply.

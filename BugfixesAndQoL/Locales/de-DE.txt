@@ -379,3 +379,6 @@ BugfixesAndQoL.EnableImprovedManualUnitCommands=Verbesserte manuelle Einheitenbe
 BugfixesAndQoL.EnableImprovedManualUnitCommandsHelp=Erreichbare Mitglieder einer Auswahl führen manuelle Bewegungs-, Warteschlangen-, Patrouillen-, Angriffs- und Grabenarbeitsbefehle aus, auch wenn sie bereits im Graben stehen. Nutzt vorhandene Vanilla-Wege; zusätzliche Querungen freundlicher Gräben benötigen MoatMove. Host-Einstellung.
 BugfixesAndQoL.EnableGatehouseLivingCaptureFix=Torhauseroberung: tote Einheiten ignorieren
 BugfixesAndQoL.EnableGatehouseLivingCaptureFixHelp=Tote Angreifer und Verteidiger zählen bei Vanillas regulärer Torhauseroberungsprüfung nicht mehr. Lebende Verteidiger blockieren die Eroberung weiterhin.
+
+BugfixesAndQoL.EnableAssassinGatehouseClimbFix=Assassinen können Torhäuser direkt erklimmen
+BugfixesAndQoL.EnableAssassinGatehouseClimbFixHelp=Ermöglicht Menschen und KI direkte Assassin-Kletterwege auf Torhäuser mit Vanillas Kletterausführung. Bestehende spielerbezogene Kletterverbote bleiben wirksam.

@@ -444,6 +444,7 @@ namespace BugfixesAndQoL
             TryInitializeFeature(
                 "friendly moat movement",
                 () => InitializeFriendlyMoatMovement(context, isFixedLayoutHashValidated));
+            TryInitializePersistentFeature("Assassin gatehouse climb", ApplyAssassinGatehouseClimbFix);
             TryInitializePersistentFeature("gatehouse living capture", () =>
             {
                 if (gatehouseLivingCaptureInitializationAttempted) return;
@@ -503,8 +504,18 @@ namespace BugfixesAndQoL
             TryInitializeFeature("Ctrl single-unit market trade", InstallCtrlMarketTradeHook);
         }
 
+        // APIShared owns permanent hooks and publishes only a logical activation flag.
+        // Both initialization and host-setting changes use the existing rooted runtime publishers.
+        private void ApplyAssassinGatehouseClimbFix()
+        {
+            if (!nativeLibraryAvailable) return;
+            APIShared.AssassinPathAPI.SetDirectGatehouseClimbing(
+                BugfixesAndQoLPlugin.PluginGuid, settings.EnableMod && settings.EnableAssassinGatehouseClimbFix);
+        }
+
         public void ApplySettings()
         {
+            TryApplyFeature("Assassin gatehouse climb", ApplyAssassinGatehouseClimbFix);
             processGatehouseLivingCaptureRuntime?.SetEnabled(settings.EnableMod, settings.EnableGatehouseLivingCaptureFix);
             processAIKeepRangeRuntime?.Refresh();
             TryApplyFeature("AI melee raid retarget fix", () => processAiRaidRetargetFixRuntime?.SetEnabled(

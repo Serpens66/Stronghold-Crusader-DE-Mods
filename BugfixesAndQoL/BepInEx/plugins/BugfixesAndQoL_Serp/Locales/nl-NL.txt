@@ -379,3 +379,6 @@ BugfixesAndQoL.EnableImprovedManualUnitCommands=Verbeterde handmatige eenheidsbe
 BugfixesAndQoL.EnableImprovedManualUnitCommandsHelp=Laat eenheden die het doel kunnen bereiken handmatige bevelen uitvoeren voor verplaatsing, verplaatsing in de wachtrij, patrouille, aanval en grachtenwerk, ook als ze al in een gracht staan. Gebruikt de oorspronkelijke spelroutes; extra oversteekroutes door bevriende grachten vereisen MoatMove. Hostinstelling.
 BugfixesAndQoL.EnableGatehouseLivingCaptureFix=Gatehouse capture: ignore dead units
 BugfixesAndQoL.EnableGatehouseLivingCaptureFixHelp=Dead attackers and defenders no longer count during Vanilla's regular gatehouse capture check. Living defenders still block capture.
+
+BugfixesAndQoL.EnableAssassinGatehouseClimbFix=Assassins can climb gatehouses directly
+BugfixesAndQoL.EnableAssassinGatehouseClimbFixHelp=Allows humans and AI to choose direct Assassin climbs onto gatehouses using Vanilla climbing. Existing player climbing restrictions still apply.

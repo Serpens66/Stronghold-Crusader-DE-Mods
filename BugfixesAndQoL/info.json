@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.176",
+  "Version": "1.0.177",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.13.0",
   "MaximumScriptExtenderVersion": "",
@@ -11,7 +11,7 @@
   "NetworkMode": 1,
   "SerpChangelog": [
     {
-      "Version": "1.0.176",
+      "Version": "1.0.177",
       "Changes": [
         "Added a default-enabled host fix that ignores dead attackers and defenders during gatehouse capture, allowing capture while their bodies are still visible."
       ]
