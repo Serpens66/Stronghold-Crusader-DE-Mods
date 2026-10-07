@@ -136,6 +136,7 @@ namespace APIShared.UnitCommands
                     // Clear even for irrelevant nested calls: never borrow a parent's slots.
                     placementBatch = null;
                     if (TraversalEnabled && manager == nativeTribeManager && activeMoveCommand != null &&
+                        !activeMoveCommand.NativeCommonFallback &&
                         activeMoveCommand.TribeId == tribe && activeAttackCommand == null && activeMoatWorkSelection == null &&
                         (uint)x < MapWidth && (uint)y < MapWidth &&
                         (activeMoveCommand.UnitsOnMoatAtDispatch > 0 ||

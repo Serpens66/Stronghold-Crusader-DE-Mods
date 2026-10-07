@@ -10,6 +10,7 @@ namespace CommandFixture
         internal AliveState r_AliveState;
         internal int r_ControllableForPlayerId, r_CurrentTilePositionX, r_CurrentTilePositionY;
         internal uint r_GlobalId, r_CurrentPositionTileId;
+        internal bool Digger;
     }
     internal struct GameTribe { internal int r_PlayerIdOwner, r_LeaderUnitId; }
     internal unsafe sealed class GameTribeManagerAPI
@@ -42,6 +43,10 @@ namespace CommandFixture
     {
         private const int MapWidth=800;
         private IntPtr nativePathManager;
+        private IntPtr nativeTribeManager;
+        private bool disposed;
+        private Func<IntPtr,int,int> originalFirstGroupUnitOnCompletedMoat;
+        private Func<IntPtr,int,int,int,int,int> originalRegionReachability;
         private byte* nativeUnitManager;
         private bool ManualCommandsEnabled=true, TraversalEnabled;
         private MaintenanceProvider Traversal;
@@ -92,6 +97,9 @@ namespace CommandFixture
         { order.Add("target-"+args.Phase); activeAttackCommand=args.Phase==EventHookPhase.Pre?new AttackCommandScope():null; }
         private void EnsureMoveCommandGroupSummary(MoveCommandScope command) {}
         private static bool IsValidTileId(int tile)=>(uint)tile<800*800;
+        private readonly HashSet<int> completedMoatTiles = new();
+        private bool IsCompletedMoatTile(int tile) => completedMoatTiles.Contains(tile);
+        private static bool CanDigMoat(GameUnit* unit) => unit->Digger;
         private static int assertions;
         private static void Check(bool value,string text) { assertions++;if(!value)throw new Exception(text); }
         public static void Run()
@@ -151,6 +159,7 @@ namespace CommandFixture
             {
                 APIShared.UnitAccess.Units=units; nativeUnitManager=(byte*)units;
                 nativePathManager=(IntPtr)manager; GameTribeManagerAPI.Instance.Tribe=tribe;
+                nativeTribeManager=(IntPtr)tribe;
                 tribe->r_PlayerIdOwner=1; tribe->r_LeaderUnitId=1;
                 units[1].r_ControllableForPlayerId=units[2].r_ControllableForPlayerId=1;
                 units[1].r_GlobalId=41; units[2].r_GlobalId=42;
@@ -222,6 +231,63 @@ namespace CommandFixture
                     Check(!activeMoveCommand.NativeCommonFallback,"no reachable witness, disabled setting, addon, dry group and AI preserve vanilla");
                 }
                 GamePlayerManagerAPI.Instance.Ai=false; ManualCommandsEnabled=true; TraversalEnabled=false;
+                foreach (int addonMode in new[] { -1, 0, 1, 2 })
+                foreach (int moatUnit in new[] { 1, 2 })
+                foreach (int leader in new[] { 1, 2 })
+                foreach (bool reverse in new[] { false, true })
+                foreach (int reachableMask in new[] { 0, 1, 2, 3 })
+                {
+                    TraversalEnabled=addonMode>=0;
+                    tribe->r_LeaderUnitId=leader;
+                    completedMoatTiles.Clear(); completedMoatTiles.Add(100+moatUnit);
+                    for(int id=1;id<=2;id++)
+                    {
+                        units[id].r_CurrentPositionTileId=(uint)(100+id);
+                        units[id].Digger=id!=moatUnit;
+                    }
+                    activeMoveCommand=new MoveCommandScope {
+                        ActiveUnitIdsAtDispatch=reverse?new[]{2,1}:new[]{1,2} };
+                    originalCentralMovementPlan=(m,id,x,y)=>
+                        ((reachableMask & (1<<(id-1)))!=0 && x==20 && y==20)?1:0;
+                    PrepareNativeManualGroup(command);
+                    Check(activeMoveCommand.NativeCommonFallback==(reachableMask!=0),
+                        $"native-only moat starter: addon={addonMode}, moat={moatUnit}, leader={leader}, reverse={reverse}, reachable={reachableMask}");
+                    Check(units[moatUnit].Digger==false && !nativeManualProbe,
+                        "qualification neither grants digging capability nor leaves a probe context");
+                    if(reachableMask!=0)
+                    {
+                        originalFirstGroupUnitOnCompletedMoat=(m,t)=>moatUnit;
+                        Check(SelectOwnerSafeGroupMoatMode(nativeTribeManager,1)==leader,
+                            "native group mode resolves to the actual leader before addon capability filtering");
+                        Check(IsNativeManualGroupFlood(nativePathManager,1,37,
+                            units[leader].r_CurrentTilePositionX,units[leader].r_CurrentTilePositionY),
+                            "native fallback remains bound to the actual leader in every provider mode");
+                        int floods=0;
+                        originalRegionReachability=(m,p,r,x,y)=> { floods++; manager[0x18]=91; return 37; };
+                        Check(AllowBuilderAfterFailedRegionSearch(nativePathManager,1,37,
+                            units[leader].r_CurrentTilePositionX,units[leader].r_CurrentTilePositionY)==0 &&
+                            floods==1 && manager[0x18]==91,
+                            "group selects native per-unit fallback after exactly one original flood with preserved outputs");
+                        unitMoveFrame=new UnitMoveFrame();
+                        Check(AllowBuilderAfterFailedRegionSearch(nativePathManager,1,37,
+                            units[leader].r_CurrentTilePositionX,units[leader].r_CurrentTilePositionY)==37 && floods==2,
+                            "member flood keeps its own native result instead of consuming the group override");
+                        unitMoveFrame=null;
+                    }
+                }
+                // A non-digger outside a moat must not change the addon's group mode.
+                TraversalEnabled=true; units[1].Digger=false; units[2].Digger=true;
+                completedMoatTiles.Clear(); completedMoatTiles.Add(102);
+                activeMoveCommand=new MoveCommandScope();
+                originalCentralMovementPlan=(m,id,x,y)=>1;
+                PrepareNativeManualGroup(command);
+                Check(!activeMoveCommand.NativeCommonFallback,"dry non-digger does not alter addon group routing");
+                completedMoatTiles.Clear(); completedMoatTiles.Add(101);
+                units[1].r_ControllableForPlayerId=2;
+                PrepareNativeManualGroup(command);
+                Check(!activeMoveCommand.NativeCommonFallback,"foreign non-digger cannot authorize the special group path");
+                units[1].r_ControllableForPlayerId=1;
+                completedMoatTiles.Clear(); TraversalEnabled=false;
                 activeMoveCommand=new MoveCommandScope(); command.SkipOriginalFunction=true;
                 PrepareNativeManualGroup(command);
                 Check(!activeMoveCommand.NativeCommonFallback,"consumed queue command is not executed twice");

@@ -222,13 +222,32 @@ namespace APIShared.UnitCommands
 
         internal void PrepareNativeManualGroup(TribeIssueOrderMoveHereEventArgs args)
         {
-            if (!ManualCommandsEnabled || TraversalEnabled || args.SkipOriginalFunction ||
+            if (!ManualCommandsEnabled || args.SkipOriginalFunction ||
                 activeMoveCommand == null ||
                 !GameTribeManagerAPI.Instance.TryGetTribeById(args.TribeId, out GameTribe* tribe) || tribe == null ||
                 GamePlayerManagerAPI.Instance.IsAIPlayer(tribe->r_PlayerIdOwner)) return;
             EnsureMoveCommandGroupSummary(activeMoveCommand);
             if (activeMoveCommand.UnitsOnMoatAtDispatch == 0 ||
                 (uint)args.TileX >= MapWidth || (uint)args.TileY >= MapWidth) return;
+            if (TraversalEnabled)
+            {
+                // Additional moat entry remains digger-only. A non-digger already
+                // standing in a moat needs the independent native command path,
+                // even while the traversal provider is active. Other addon groups
+                // retain their existing precise/fast group routing.
+                bool nativeOnlyMoatStarter = false;
+                foreach (int unitId in activeMoveCommand.ActiveUnitIdsAtDispatch)
+                    if (APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) &&
+                        unit != null && unit->r_AliveState == AliveState.IsAlive &&
+                        unit->r_ControllableForPlayerId == tribe->r_PlayerIdOwner &&
+                        IsCompletedMoatTile(unchecked((int)unit->r_CurrentPositionTileId)) &&
+                        !CanDigMoat(unit))
+                    {
+                        nativeOnlyMoatStarter = true;
+                        break;
+                    }
+                if (!nativeOnlyMoatStarter) return;
+            }
             foreach (int unitId in activeMoveCommand.ActiveUnitIdsAtDispatch)
                 if (ProbeNativeManualPath(unitId, args.TileX, args.TileY))
                 {

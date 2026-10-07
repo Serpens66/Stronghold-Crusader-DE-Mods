@@ -31,7 +31,10 @@ string GitSource(string path)
 {
     var start = new System.Diagnostics.ProcessStartInfo("git") { WorkingDirectory=root,
         RedirectStandardOutput=true, RedirectStandardError=true, UseShellExecute=false, CreateNoWindow=true };
-    start.ArgumentList.Add("show"); start.ArgumentList.Add("HEAD:" + path);
+    // Last accepted main-mod implementation before the APIShared split. HEAD
+    // no longer owns these files and must not silently become its own oracle.
+    const string preciseReferenceCommit = "7d5a5a9ef33fce47e09f545480829a5ebb13b060";
+    start.ArgumentList.Add("show"); start.ArgumentList.Add(preciseReferenceCommit + ":" + path);
     using var process = System.Diagnostics.Process.Start(start);
     string text = process.StandardOutput.ReadToEnd(); string error = process.StandardError.ReadToEnd();
     process.WaitForExit(); if(process.ExitCode != 0) throw new Exception(error); return text;
