@@ -252,7 +252,7 @@ namespace APIShared.UnitCommands
                 batch.Epoch != mapEpoch || batch.Tick != CaptureCurrentGameTick() ||
                 !ReferenceEquals(batch.Command, activeMoveCommand) || args.TileX != batch.X || args.TileY != batch.Y ||
                 !APIShared.UnitAccess.TryGetById(args.UnitId, out GameUnit* unit, out _) || unit == null ||
-                unit->r_TribeId != batch.Tribe || unit->r_AliveState != AliveState.IsAlive ||
+                unit->r_TribeId != batch.Tribe || !APIShared.UnitAccess.IsReallyAlive(unit) ||
                 (!batch.NativePlacement && !CanDigMoat(unit))) return;
             if (unit->r_AttackMoveToTargetTileX != batch.X || unit->r_AttackMoveToTargetTileY != batch.Y) return;
             int player = unit->r_ControllableForPlayerId;
@@ -366,7 +366,7 @@ namespace APIShared.UnitCommands
             return pending.Epoch == mapEpoch && pending.Tick == CaptureCurrentGameTick() &&
                 APIShared.UnitAccess.TryGetById(pending.Id, out unit, out _) && unit != null &&
                 unit->r_GlobalId == pending.Global && unit->r_ControllableForPlayerId == pending.Player &&
-                unit->r_AliveState == AliveState.IsAlive;
+                APIShared.UnitAccess.IsReallyAlive(unit);
         }
 
         internal void FinishPlacement(PlacementUnit pending, bool accepted)
@@ -401,7 +401,7 @@ namespace APIShared.UnitCommands
                     if (TraversalEnabled && manager == (IntPtr)nativeUnitManager &&
                         (nativeExecutingUnitId != null && *nativeExecutingUnitId == id) &&
                         APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _) && unit != null &&
-                        unit->r_AliveState == AliveState.IsAlive && CanDigMoat(unit) &&
+                        APIShared.UnitAccess.IsReallyAlive(unit) && CanDigMoat(unit) &&
                         GamePlayerManagerAPI.Instance.IsPlayerIdValid(unit->r_ControllableForPlayerId))
                     {
                         int tile = unchecked((int)unit->r_CurrentPositionTileId);

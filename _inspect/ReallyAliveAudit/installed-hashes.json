@@ -1,0 +1,107 @@
+[
+  {
+    "Mod": "APIShared",
+    "Local": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\APIShared\\BepInEx\\plugins\\APIShared_Serp\\APIShared.dll",
+    "Installed": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\APIShared_Serp\\APIShared.dll",
+    "SHA256": "CC82D5217A80200264C97336F15D10FF7E13F764F85A8AF5FF76914AE955E092",
+    "Matches": true
+  },
+  {
+    "Mod": "BugfixesAndQoL",
+    "Local": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\BugfixesAndQoL\\BepInEx\\plugins\\BugfixesAndQoL_Serp\\BugfixesAndQoL.dll",
+    "Installed": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\BugfixesAndQoL_Serp\\BugfixesAndQoL.dll",
+    "SHA256": "1108A1ED77EFB8F04B0A81D70796716B79E4580D463899D0E62E96B13C78F223",
+    "Matches": true
+  },
+  {
+    "Mod": "ExtraFeatures",
+    "Local": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\ExtraFeatures\\BepInEx\\plugins\\ExtraFeatures_Serp\\ExtraFeatures.dll",
+    "Installed": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\ExtraFeatures_Serp\\ExtraFeatures.dll",
+    "SHA256": "4F782E9767CCFC5A1311B35A06C0849301C3975DEBF6FC3E3590E20EE08C76D6",
+    "Matches": true
+  },
+  {
+    "Mod": "ImprovedHunters",
+    "Local": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\ImprovedHunters\\BepInEx\\plugins\\ImprovedHunters_Serp\\ImprovedHunters.dll",
+    "Installed": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\ImprovedHunters_Serp\\ImprovedHunters.dll",
+    "SHA256": "643BBF1CFCDDD7A923E7B600D08349AFD62F750F04CC6671AD4E2A54BA283945",
+    "Matches": true
+  },
+  {
+    "Mod": "RandomEvents",
+    "Local": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\RandomEvents\\BepInEx\\plugins\\RandomEvents_Serp\\RandomEvents.dll",
+    "Installed": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\RandomEvents_Serp\\RandomEvents.dll",
+    "SHA256": "C120416DC78F375DEEDBEB4C115EAB873D1F4A1088E52A43472E5D9D88C0EDD5",
+    "Matches": true
+  },
+  {
+    "Mod": "StartConditions",
+    "Local": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\StartConditions\\BepInEx\\plugins\\StartConditions_Serp\\StartConditions.dll",
+    "Installed": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\StartConditions_Serp\\StartConditions.dll",
+    "SHA256": "1E31C3AF512529A91961E7D2F837C659AD4C8DB71681530003CFB804B1181818",
+    "Matches": true
+  },
+  {
+    "Mod": "Testmods\\AIDefenseTest",
+    "Local": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\AIDefenseTest\\BepInEx\\plugins\\AIDefenseTest_Serp\\AIDefenseTest.dll",
+    "Installed": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\AIDefenseTest_Serp\\AIDefenseTest.dll",
+    "SHA256": "7D76BF49A943F583BCF3C87652CE5BFB7DD2FE640AEB32D7DD9188DE0F480722",
+    "Matches": true
+  },
+  {
+    "Mod": "Testmods\\EnemyGatePathfindingTest",
+    "Local": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\EnemyGatePathfindingTest\\BepInEx\\plugins\\EnemyGatePathfindingTest_Serp\\EnemyGatePathfindingTest.dll",
+    "Installed": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\EnemyGatePathfindingTest_Serp\\EnemyGatePathfindingTest.dll",
+    "SHA256": "CAE4605B46B4E68E71CBD349FF49831B4617B75374A8AEB0D593EAEA386C299E",
+    "Matches": true
+  },
+  {
+    "Mod": "Testmods\\EngineerSiegeFixTest",
+    "Local": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\EngineerSiegeFixTest\\BepInEx\\plugins\\EngineerSiegeFixTest_Serp\\EngineerSiegeFixTest.dll",
+    "Installed": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\EngineerSiegeFixTest_Serp\\EngineerSiegeFixTest.dll",
+    "SHA256": "087DD22D42EFC22DCB8A1BE86489D787422B619F144C7BF6E789BBFAF0D94860",
+    "Matches": true
+  },
+  {
+    "Mod": "Testmods\\FormationTest",
+    "Local": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\FormationTest\\BepInEx\\plugins\\FormationTest_Serp\\FormationTest.dll",
+    "Installed": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\FormationTest_Serp\\FormationTest.dll",
+    "SHA256": "28827D45CE222199D62DAE419E05BCA5298444685C61245D6441BFD4DCBE92FC",
+    "Matches": true
+  },
+  {
+    "Mod": "Testmods\\MoatMove",
+    "Local": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\MoatMove\\BepInEx\\plugins\\MoatMove_Serp\\MoatMove.dll",
+    "Installed": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\MoatMove_Serp\\MoatMove.dll",
+    "SHA256": "56F93F6EF6C288E0484E5841C9ADBE15E28884B310400597D77C33866C0E9A1F",
+    "Matches": true
+  },
+  {
+    "Mod": "Testmods\\OutpostTest",
+    "Local": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\OutpostTest\\BepInEx\\plugins\\OutpostTest_Serp\\OutpostTest.dll",
+    "Installed": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\OutpostTest_Serp\\OutpostTest.dll",
+    "SHA256": "B790E4FA4F218009E9B6E60E965A586FC9CC1F1619A45700D22567662C05123B",
+    "Matches": true
+  },
+  {
+    "Mod": "Testmods\\SpectatorEditorBuildTest",
+    "Local": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\SpectatorEditorBuildTest\\BepInEx\\plugins\\SpectatorEditorBuildTest_Serp\\SpectatorEditorBuildTest.dll",
+    "Installed": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SpectatorEditorBuildTest_Serp\\SpectatorEditorBuildTest.dll",
+    "SHA256": "864B2370788A1A22EAE1D324CAC8CA13F144D5295749D5F6B347B4461A906E85",
+    "Matches": true
+  },
+  {
+    "Mod": "Testmods\\StockpileAccessFixTest",
+    "Local": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\StockpileAccessFixTest\\BepInEx\\plugins\\StockpileAccessFixTest_Serp\\StockpileAccessFixTest.dll",
+    "Installed": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\StockpileAccessFixTest_Serp\\StockpileAccessFixTest.dll",
+    "SHA256": "50BDC5F32EA038A74E0762EEFAE916AE65357C402111E2BF9B88AB84ACEA228B",
+    "Matches": true
+  },
+  {
+    "Mod": "Testmods\\VirtualUnitsPrototype",
+    "Local": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Testmods\\VirtualUnitsPrototype\\BepInEx\\plugins\\VirtualUnitsPrototype_Serp\\VirtualUnitsPrototype.dll",
+    "Installed": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\VirtualUnitsPrototype_Serp\\VirtualUnitsPrototype.dll",
+    "SHA256": "8F7D83BCA8E3501D8E1F74A456AC789F0C8C743B0F92E995538FCADEB1847A69",
+    "Matches": true
+  }
+]

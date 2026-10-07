@@ -325,7 +325,7 @@ namespace ImprovedHunters
             {
                 GameUnit* hunter = (GameUnit*)hunterAddress.ToPointer();
                 if (hunter == null ||
-                    hunter->r_AliveState != AliveState.IsAlive ||
+                    !APIShared.UnitAccess.IsReallyAlive(hunter) ||
                     hunter->r_CurrentHealth == 0 ||
                     hunter->r_GlobalId == 0)
                 {
@@ -346,7 +346,7 @@ namespace ImprovedHunters
 
                 GameUnit* prey = units.GetValuePointer(targetUnitId - 1);
                 if (prey == null ||
-                    prey->r_AliveState != AliveState.IsAlive ||
+                    !APIShared.UnitAccess.IsReallyAlive(prey) ||
                     prey->r_CurrentHealth == 0 ||
                     prey->r_GlobalId != targetGlobalId ||
                     !settings.IsKnownAnimal(prey->r_UnitChimp) ||
@@ -371,12 +371,12 @@ namespace ImprovedHunters
                 // Revalidate after the native query. Invalidating only the stored
                 // global ID enters HunterUpdate's own state-1 identity-failure
                 // branch, which stops the old order and runs Vanilla's search.
-                if (hunter->r_AliveState != AliveState.IsAlive ||
+                if (!APIShared.UnitAccess.IsReallyAlive(hunter) ||
                     hunter->r_CurrentHealth == 0 ||
                     *(ushort*)(hunterBytes + 0x2BC) != 1 ||
                     *(ushort*)(hunterBytes + 0x39A) != targetUnitId ||
                     *(uint*)(hunterBytes + 0x39C) != targetGlobalId ||
-                    prey->r_AliveState != AliveState.IsAlive ||
+                    !APIShared.UnitAccess.IsReallyAlive(prey) ||
                     prey->r_CurrentHealth == 0 ||
                     prey->r_GlobalId != targetGlobalId)
                 {
@@ -933,7 +933,7 @@ namespace ImprovedHunters
             for (int index = 0; index < units.Length; index++)
             {
                 GameUnit* hunter = units.GetValuePointer(index);
-                if (hunter->r_AliveState != AliveState.IsAlive ||
+                if (!APIShared.UnitAccess.IsReallyAlive(hunter) ||
                     hunter->r_UnitChimp != eChimps.CHIMP_TYPE_HUNTER)
                 {
                     continue;
@@ -1061,7 +1061,7 @@ namespace ImprovedHunters
                 $"nativeReachability=({hunterPclReachability?.GetDiagnosticSummary() ?? "unavailable"}).");
         }
 
-        private void OnCalculateBonusYield(UnitCalculateBonusYieldEventArgs args)
+        private unsafe void OnCalculateBonusYield(UnitCalculateBonusYieldEventArgs args)
         {
             if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) ||
                 !IsValidUnitId(args.UnitId) ||

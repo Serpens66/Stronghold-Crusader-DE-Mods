@@ -31,7 +31,7 @@ namespace APIShared.UnitCommands
             workTile = -1;
             if (plan == null || unit == null || !plan.MoatWorkMovement ||
                 plan.TargetX != targetX || plan.TargetY != targetY ||
-                unit->r_AliveState != AliveState.IsAlive || !CanDigMoat(unit) ||
+                !APIShared.UnitAccess.IsReallyAlive(unit) || !CanDigMoat(unit) ||
                 (TribeAICommand)unit->r_AI_LastIssuedTribeCommand != TribeAICommand.Unknown7 ||
                 plan.PlayerId != unit->r_ControllableForPlayerId ||
                 (plan.IdentityBound && plan.UnitGlobalId != unit->r_GlobalId) ||

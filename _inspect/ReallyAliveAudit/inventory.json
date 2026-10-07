@@ -1,0 +1,2494 @@
+[
+  {
+    "file": "APIShared/src/BuildingRepairCapability.cs",
+    "line": 203,
+    "original": "building->r_AliveState != AliveState.IsAlive || building->r_GlobalId == 0 ||",
+    "result": "building->r_AliveState != AliveState.IsAlive || building->r_GlobalId == 0 ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "APIShared/src/BuildingRepairCapability.cs",
+    "line": 287,
+    "original": "building->r_AliveState != AliveState.IsAlive || building->r_MaxHealth == 0 ||",
+    "result": "building->r_AliveState != AliveState.IsAlive || building->r_MaxHealth == 0 ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "APIShared/src/PlayerDefeatCapability.cs",
+    "line": 119,
+    "original": "unit->r_AliveState == AliveState.IsAlive &&",
+    "result": "APIShared.UnitAccess.IsReallyAlive(unit) &&",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitAccess.cs",
+    "line": 40,
+    "original": "/// <remarks>AliveState can remain IsAlive throughout the death animation and corpse phase.",
+    "result": "/// <remarks>AliveState can remain IsAlive throughout the death animation and corpse phase.",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "APIShared/src/UnitAccess.cs",
+    "line": 45,
+    "original": "/// <returns>True when AliveState is IsAlive and the native death marker is zero.</returns>",
+    "result": "/// <returns>True when AliveState is IsAlive and the native death marker is zero.</returns>",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "APIShared/src/UnitAccess.cs",
+    "line": 47,
+    "original": "unit.r_AliveState == AliveState.IsAlive && (unit.N0000019A & 0xFFFFu) == 0;",
+    "result": "unit.r_AliveState == AliveState.IsAlive && (unit.N0000019A & 0xFFFFu) == 0;",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "APIShared/src/UnitHudContracts.cs",
+    "line": 83,
+    "original": "GameId = gameId; GlobalId = globalId; VanillaType = vanillaType; OwnerPlayerId = ownerPlayerId; IsAlive = isAlive;",
+    "result": "GameId = gameId; GlobalId = globalId; VanillaType = vanillaType; OwnerPlayerId = ownerPlayerId; IsAlive = isAlive;",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "APIShared/src/UnitHudContracts.cs",
+    "line": 94,
+    "original": "public bool IsAlive { get; }",
+    "result": "public bool IsAlive { get; }",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "APIShared/src/UnitHudPresentationCapability.cs",
+    "line": 1276,
+    "original": "foreach (int unitId in GameUnitManagerAPI.Instance.GetAllAliveUnits())",
+    "result": "foreach (int unitId in APIShared.UnitAccess.GetAllReallyAliveUnits())",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitHudPresentationCapability.cs",
+    "line": 1461,
+    "original": "if (unitId <= 0 || GameUnitManagerAPI.Instance == null || !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) || unit == null || unit->r_AliveState != AliveState.IsAlive || unit->r_GlobalId == 0) return false;",
+    "result": "if (unitId <= 0 || GameUnitManagerAPI.Instance == null || !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) || unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) || unit->r_GlobalId == 0) return false;",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/CursorConnectivity.cs",
+    "line": 446,
+    "original": "if (unit->r_AliveState == AliveState.IsAlive && (player < 0 || identity.Player == player)) valid++;",
+    "result": "if (APIShared.UnitAccess.IsReallyAlive(unit) && (player < 0 || identity.Player == player)) valid++;",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/DirectMoatCommandScopes.cs",
+    "line": 108,
+    "original": "unit == null || unit->r_AliveState != AliveState.IsAlive ||",
+    "result": "unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/DirectMoatCommandScopes.cs",
+    "line": 209,
+    "original": "unit == null || unit->r_AliveState != AliveState.IsAlive ||",
+    "result": "unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/FillWeightedRoutes.cs",
+    "line": 34,
+    "original": "unit->r_AliveState != AliveState.IsAlive || !CanDigMoat(unit) ||",
+    "result": "!APIShared.UnitAccess.IsReallyAlive(unit) || !CanDigMoat(unit) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/ManualUnitCommands.cs",
+    "line": 75,
+    "original": "unit == null || unit->r_AliveState != AliveState.IsAlive ||",
+    "result": "unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/ManualUnitCommands.cs",
+    "line": 194,
+    "original": "unit->r_AliveState != AliveState.IsAlive || unit->r_ControllableForPlayerId != template.PlayerId) continue;",
+    "result": "!APIShared.UnitAccess.IsReallyAlive(unit) || unit->r_ControllableForPlayerId != template.PlayerId) continue;",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/ManualUnitCommands.cs",
+    "line": 241,
+    "original": "unit != null && unit->r_AliveState == AliveState.IsAlive &&",
+    "result": "unit != null && APIShared.UnitAccess.IsReallyAlive(unit) &&",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/MoatPlacement.cs",
+    "line": 255,
+    "original": "unit->r_TribeId != batch.Tribe || unit->r_AliveState != AliveState.IsAlive ||",
+    "result": "unit->r_TribeId != batch.Tribe || !APIShared.UnitAccess.IsReallyAlive(unit) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/MoatPlacement.cs",
+    "line": 369,
+    "original": "unit->r_AliveState == AliveState.IsAlive;",
+    "result": "APIShared.UnitAccess.IsReallyAlive(unit);",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/MoatPlacement.cs",
+    "line": 404,
+    "original": "unit->r_AliveState == AliveState.IsAlive && CanDigMoat(unit) &&",
+    "result": "APIShared.UnitAccess.IsReallyAlive(unit) && CanDigMoat(unit) &&",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/MoatWorkTargetSelection.cs",
+    "line": 377,
+    "original": "unit == null || unit->r_AliveState != AliveState.IsAlive ||",
+    "result": "unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/MoatWorkTargetSelection.cs",
+    "line": 653,
+    "original": "unit == null || unit->r_AliveState != AliveState.IsAlive ||",
+    "result": "unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/MoatWorkTargetSelection.cs",
+    "line": 697,
+    "original": "unit == null || unit->r_AliveState != AliveState.IsAlive ||",
+    "result": "unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/MoatWorkTargetSelection.cs",
+    "line": 836,
+    "original": "unit == null || unit->r_AliveState != AliveState.IsAlive || !CanDigMoat(unit) ||",
+    "result": "unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) || !CanDigMoat(unit) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/MoatWorkTargetSelection.cs",
+    "line": 945,
+    "original": "unit == null || unit->r_AliveState != AliveState.IsAlive ||",
+    "result": "unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/MoatWorkTargetSelection.cs",
+    "line": 1113,
+    "original": "occupant != null && occupant->r_AliveState == AliveState.IsAlive;",
+    "result": "occupant != null && APIShared.UnitAccess.IsReallyAlive(occupant);",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/MovementPathPublication.cs",
+    "line": 615,
+    "original": "unit->r_AliveState != AliveState.IsAlive ||",
+    "result": "!APIShared.UnitAccess.IsReallyAlive(unit) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/UnitCommandPathRuntime.cs",
+    "line": 1872,
+    "original": "unit == null || unit->r_AliveState != AliveState.IsAlive ||",
+    "result": "unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/UnitCommandPathRuntime.cs",
+    "line": 1899,
+    "original": "unit != null && unit->r_AliveState == AliveState.IsAlive &&",
+    "result": "unit != null && APIShared.UnitAccess.IsReallyAlive(unit) &&",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/UnitCommandPathRuntime.cs",
+    "line": 2114,
+    "original": "unit == null || unit->r_AliveState != AliveState.IsAlive)",
+    "result": "unit == null || !APIShared.UnitAccess.IsReallyAlive(unit))",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/UnitCommandPathRuntime.cs",
+    "line": 2363,
+    "original": "unit == null || unit->r_AliveState != AliveState.IsAlive)",
+    "result": "unit == null || !APIShared.UnitAccess.IsReallyAlive(unit))",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/UnitCommandPathRuntime.cs",
+    "line": 2444,
+    "original": "unit == null || unit->r_AliveState != AliveState.IsAlive)",
+    "result": "unit == null || !APIShared.UnitAccess.IsReallyAlive(unit))",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/UnitCommandPathRuntime.cs",
+    "line": 2543,
+    "original": "unit == null || unit->r_AliveState != AliveState.IsAlive)",
+    "result": "unit == null || !APIShared.UnitAccess.IsReallyAlive(unit))",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/UnitCommandPathRuntime.cs",
+    "line": 3452,
+    "original": "preferred != null && preferred->r_AliveState == AliveState.IsAlive &&",
+    "result": "preferred != null && APIShared.UnitAccess.IsReallyAlive(preferred) &&",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/UnitCommandPathRuntime.cs",
+    "line": 3468,
+    "original": "selected == null || selected->r_AliveState != AliveState.IsAlive ||",
+    "result": "selected == null || !APIShared.UnitAccess.IsReallyAlive(selected) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/UnitCommandPathRuntime.cs",
+    "line": 3585,
+    "original": "unit == null || unit->r_AliveState != AliveState.IsAlive ||",
+    "result": "unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/UnitCommandPathRuntime.cs",
+    "line": 3764,
+    "original": "unit == null || unit->r_AliveState != AliveState.IsAlive)",
+    "result": "unit == null || !APIShared.UnitAccess.IsReallyAlive(unit))",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/UnitCommandPathRuntime.cs",
+    "line": 4020,
+    "original": "if (unit->r_AliveState != AliveState.IsAlive || unit->r_TribeId != scope.TribeId)",
+    "result": "if (!APIShared.UnitAccess.IsReallyAlive(unit) || unit->r_TribeId != scope.TribeId)",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/UnitCommandPathRuntime.cs",
+    "line": 4329,
+    "original": "unit == null || unit->r_AliveState != AliveState.IsAlive ||",
+    "result": "unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/UnitCommandPathRuntime.cs",
+    "line": 4378,
+    "original": "unit != null && unit->r_AliveState == AliveState.IsAlive &&",
+    "result": "unit != null && APIShared.UnitAccess.IsReallyAlive(unit) &&",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/UnitCommandPathRuntime.cs",
+    "line": 4514,
+    "original": "unit == null || unit->r_AliveState != AliveState.IsAlive ||",
+    "result": "unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/UnitCommandPathRuntime.cs",
+    "line": 5180,
+    "original": "unit == null || unit->r_AliveState != AliveState.IsAlive ||",
+    "result": "unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/UnitCommandPathRuntime.cs",
+    "line": 5604,
+    "original": "unit == null || unit->r_AliveState != AliveState.IsAlive ||",
+    "result": "unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/UnitCommandPathRuntime.cs",
+    "line": 5719,
+    "original": "unit == null || unit->r_AliveState != AliveState.IsAlive ||",
+    "result": "unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/UnitCommandPathRuntime.cs",
+    "line": 5908,
+    "original": "unit == null || unit->r_AliveState != AliveState.IsAlive ||",
+    "result": "unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/UnitCommandPathRuntime.cs",
+    "line": 5942,
+    "original": "unit == null || unit->r_AliveState != AliveState.IsAlive ||",
+    "result": "unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/UnitCommandPathRuntime.cs",
+    "line": 6357,
+    "original": "unit->r_AliveState != AliveState.IsAlive)",
+    "result": "!APIShared.UnitAccess.IsReallyAlive(unit))",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/UnitCommandPathRuntime.cs",
+    "line": 7028,
+    "original": "unit == null || unit->r_AliveState != AliveState.IsAlive ||",
+    "result": "unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/UnitCommandPathRuntime.cs",
+    "line": 7159,
+    "original": "unit->r_AliveState != AliveState.IsAlive || unit->r_ControllableForPlayerId != template.PlayerId) continue;",
+    "result": "!APIShared.UnitAccess.IsReallyAlive(unit) || unit->r_ControllableForPlayerId != template.PlayerId) continue;",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/UnitCommandPathRuntime.cs",
+    "line": 7346,
+    "original": "target == null || target->r_AliveState != AliveState.IsAlive ||",
+    "result": "target == null || !APIShared.UnitAccess.IsReallyAlive(target) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/UnitCommandPathRuntime.cs",
+    "line": 7402,
+    "original": "building == null || building->r_AliveState != AliveState.IsAlive ||",
+    "result": "building == null || building->r_AliveState != AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/UnitCommandPathRuntime.cs",
+    "line": 7599,
+    "original": "building == null || building->r_AliveState != AliveState.IsAlive ||",
+    "result": "building == null || building->r_AliveState != AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/UnitCommandPathRuntime.cs",
+    "line": 7642,
+    "original": "candidate == null || candidate->r_AliveState != AliveState.IsAlive ||",
+    "result": "candidate == null || candidate->r_AliveState != AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/UnitCommandPathRuntime.cs",
+    "line": 7767,
+    "original": "building->r_AliveState != AliveState.IsAlive ||",
+    "result": "building->r_AliveState != AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/UnitCommandPathRuntime.cs",
+    "line": 7872,
+    "original": "target == null || target->r_AliveState != AliveState.IsAlive ||",
+    "result": "target == null || !APIShared.UnitAccess.IsReallyAlive(target) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/UnitCommandPathRuntime.cs",
+    "line": 8679,
+    "original": "unit == null || unit->r_AliveState != AliveState.IsAlive ||",
+    "result": "unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/UnitCommandPathRuntime.LadderAttackFix.cs",
+    "line": 258,
+    "original": "unit == null || unit->r_AliveState != AliveState.IsAlive ||",
+    "result": "unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/UnitMovementContext.cs",
+    "line": 108,
+    "original": "unit->r_AliveState != AliveState.IsAlive || !CanDigMoat(unit))",
+    "result": "!APIShared.UnitAccess.IsReallyAlive(unit) || !CanDigMoat(unit))",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/WeightedMoatPublication.cs",
+    "line": 47,
+    "original": "unit == null || unit->r_AliveState != AliveState.IsAlive || !CanDigMoat(unit))",
+    "result": "unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) || !CanDigMoat(unit))",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "APIShared/src/UnitCommands/WeightedMoatPublication.cs",
+    "line": 149,
+    "original": "snapshotUnit->r_AliveState == AliveState.IsAlive;",
+    "result": "APIShared.UnitAccess.IsReallyAlive(snapshotUnit);",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "BugfixesAndQoL/src/AIBuildingTemporaryAccessClassifier.cs",
+    "line": 99,
+    "original": "if (building->r_AliveState != AliveState.IsAlive || building->r_GlobalId == 0)",
+    "result": "if (building->r_AliveState != AliveState.IsAlive || building->r_GlobalId == 0)",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/AIBuildingTemporaryAccessClassifier.cs",
+    "line": 242,
+    "original": "portalBuilding == null || portalBuilding->r_AliveState != AliveState.IsAlive ||",
+    "result": "portalBuilding == null || portalBuilding->r_AliveState != AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/AiDefensePatrolFix.cs",
+    "line": 143,
+    "original": "recruitedUnit->r_AliveState != AliveState.IsAlive))",
+    "result": "!APIShared.UnitAccess.IsReallyAlive(recruitedUnit)))",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "BugfixesAndQoL/src/AiDefensePatrolFix.cs",
+    "line": 189,
+    "original": "unit->r_AliveState != AliveState.IsAlive ||",
+    "result": "!APIShared.UnitAccess.IsReallyAlive(unit) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "BugfixesAndQoL/src/AIEconomyProtectionHook.cs",
+    "line": 527,
+    "original": "building->r_AliveState == AliveState.IsAlive &&",
+    "result": "building->r_AliveState == AliveState.IsAlive &&",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/AIPreplacedBuildingFixRuntime.cs",
+    "line": 1563,
+    "original": "remaining.Alive != AliveState.IsAlive);",
+    "result": "remaining.Alive != AliveState.IsAlive);",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/AIPreplacedBuildingFixRuntime.cs",
+    "line": 1643,
+    "original": "(building.Alive == AliveState.IsAlive || building.Alive == AliveState.NeedsInit) &&",
+    "result": "(building.Alive == AliveState.IsAlive || building.Alive == AliveState.NeedsInit) &&",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/AIPreplacedBuildingFixRuntime.cs",
+    "line": 1915,
+    "original": "building.Alive == AliveState.IsAlive || building.Alive == AliveState.NeedsInit;",
+    "result": "building.Alive == AliveState.IsAlive || building.Alive == AliveState.NeedsInit;",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/AiRaidRetargetFixRuntime.cs",
+    "line": 217,
+    "original": "tribe->r_AliveState == AliveState.IsAlive;",
+    "result": "tribe->r_AliveState == AliveState.IsAlive;",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/AiRaidRetargetFixRuntime.cs",
+    "line": 362,
+    "original": "tribe != null && tribe->r_AliveState == AliveState.IsAlive)",
+    "result": "tribe != null && tribe->r_AliveState == AliveState.IsAlive)",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/AiRaidRetargetFixRuntime.cs",
+    "line": 487,
+    "original": "unit == null || unit->r_AliveState != AliveState.IsAlive ||",
+    "result": "unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "BugfixesAndQoL/src/AiRaidRetargetFixRuntime.cs",
+    "line": 579,
+    "original": "tribe->r_AliveState != AliveState.IsAlive ||",
+    "result": "tribe->r_AliveState != AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/AiRaidRetargetFixRuntime.cs",
+    "line": 690,
+    "original": "building != null && building->r_AliveState == AliveState.IsAlive &&",
+    "result": "building != null && building->r_AliveState == AliveState.IsAlive &&",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/AiRaidRetargetFixRuntime.cs",
+    "line": 761,
+    "original": "building == null || building->r_AliveState != AliveState.IsAlive ||",
+    "result": "building == null || building->r_AliveState != AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/AiRaidRetargetFixRuntime.cs",
+    "line": 827,
+    "original": "building == null || building->r_AliveState != AliveState.IsAlive)",
+    "result": "building == null || building->r_AliveState != AliveState.IsAlive)",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/AITowerRuinRepairFix.cs",
+    "line": 208,
+    "original": "building->r_AliveState != AliveState.IsAlive ||",
+    "result": "building->r_AliveState != AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/AITowerRuinRepairFix.cs",
+    "line": 280,
+    "original": "if (building.r_AliveState != AliveState.IsAlive ||",
+    "result": "if (building.r_AliveState != AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/AITowerRuinRepairFix.cs",
+    "line": 333,
+    "original": "building->r_AliveState != AliveState.IsAlive))",
+    "result": "building->r_AliveState != AliveState.IsAlive))",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/AssassinClimbCancellationRuntime.cs",
+    "line": 109,
+    "original": "if (unit->r_AliveState != AliveState.IsAlive ||",
+    "result": "if (!APIShared.UnitAccess.IsReallyAlive(unit) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "BugfixesAndQoL/src/AssassinClimbRuntime.cs",
+    "line": 440,
+    "original": "unit.r_AliveState == AliveState.IsAlive &&",
+    "result": "APIShared.UnitAccess.IsReallyAlive(in unit) &&",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "BugfixesAndQoL/src/AssassinClimbRuntime.cs",
+    "line": 462,
+    "original": "return unit != null && unit->r_AliveState == AliveState.IsAlive &&",
+    "result": "return unit != null && APIShared.UnitAccess.IsReallyAlive(unit) &&",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "BugfixesAndQoL/src/AssassinCombatResumePolicy.cs",
+    "line": 37,
+    "original": "aliveState == AliveState.IsAlive &&",
+    "result": "aliveState == AliveState.IsAlive &&",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/AutoTradeSellZeroHook.cs",
+    "line": 176,
+    "original": "building->r_AliveState == SHCDESE.Interop.Enums.AliveState.IsAlive &&",
+    "result": "building->r_AliveState == SHCDESE.Interop.Enums.AliveState.IsAlive &&",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/BetterAIOverbuildRulesFix.cs",
+    "line": 235,
+    "original": "blocker->r_AliveState != AliveState.IsAlive) ||",
+    "result": "blocker->r_AliveState != AliveState.IsAlive) ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/BetterAIOverbuildRulesFix.cs",
+    "line": 350,
+    "original": "candidate.r_AliveState != AliveState.IsAlive) ||",
+    "result": "candidate.r_AliveState != AliveState.IsAlive) ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/CorruptLordDataSpawnRuntime.cs",
+    "line": 293,
+    "original": "return lord->r_AliveState == AliveState.IsAlive &&",
+    "result": "return APIShared.UnitAccess.IsReallyAlive(lord) &&",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "BugfixesAndQoL/src/CorruptLordDataSpawnRuntime.cs",
+    "line": 327,
+    "original": "bool validOwnedKeep = keep.Exists && keep.OwnerPlayerId == playerId && keep.IsAlive && IsKeep(keep.Type);",
+    "result": "bool validOwnedKeep = keep.Exists && keep.OwnerPlayerId == playerId && keep.IsAlive && IsKeep(keep.Type);",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/CorruptLordDataSpawnRuntime.cs",
+    "line": 329,
+    "original": "keepDoor.IsAlive;",
+    "result": "keepDoor.IsAlive;",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/CorruptLordDataSpawnRuntime.cs",
+    "line": 340,
+    "original": "(lord->r_AliveState == AliveState.NeedsInit || lord->r_AliveState == AliveState.IsAlive) &&",
+    "result": "(lord->r_AliveState == AliveState.NeedsInit || lord->r_AliveState == AliveState.IsAlive) &&",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/CorruptLordDataSpawnRuntime.cs",
+    "line": 349,
+    "original": "lordIdentity.AliveState == AliveState.IsAlive &&",
+    "result": "lordIdentity.AliveState == AliveState.IsAlive &&",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/CorruptLordDataSpawnRuntime.cs",
+    "line": 367,
+    "original": "building->r_AliveState == AliveState.IsAlive;",
+    "result": "building->r_AliveState == AliveState.IsAlive;",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/CorruptLordDataSpawnRuntime.cs",
+    "line": 386,
+    "original": "IsAlive = isAlive;",
+    "result": "IsAlive = isAlive;",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/CorruptLordDataSpawnRuntime.cs",
+    "line": 392,
+    "original": "internal bool IsAlive { get; }",
+    "result": "internal bool IsAlive { get; }",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/CtrlMarketTradeHook.cs",
+    "line": 525,
+    "original": "building->r_AliveState == AliveState.IsAlive &&",
+    "result": "building->r_AliveState == AliveState.IsAlive &&",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs",
+    "line": 1548,
+    "original": "unit == null || unit->r_AliveState != AliveState.IsAlive || unit->r_CurrentHealth <= 0 ||",
+    "result": "unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) || unit->r_CurrentHealth <= 0 ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs",
+    "line": 1564,
+    "original": "building == null || building->r_AliveState != AliveState.IsAlive ||",
+    "result": "building == null || building->r_AliveState != AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs",
+    "line": 2467,
+    "original": "unit->r_AliveState == AliveState.IsAlive && unit->r_GlobalId == identity.GlobalId;",
+    "result": "APIShared.UnitAccess.IsReallyAlive(unit) && unit->r_GlobalId == identity.GlobalId;",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs",
+    "line": 2557,
+    "original": "if (unit.r_AliveState != AliveState.IsAlive || unit.r_TribeId != tribeId)",
+    "result": "if (!APIShared.UnitAccess.IsReallyAlive(in unit) || unit.r_TribeId != tribeId)",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs",
+    "line": 2569,
+    "original": "tribe == null || tribe->r_AliveState != AliveState.IsAlive ||",
+    "result": "tribe == null || tribe->r_AliveState != AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs",
+    "line": 2591,
+    "original": "if (unit->r_AliveState == AliveState.IsAlive && unit->r_TribeId == tribeId)",
+    "result": "if (APIShared.UnitAccess.IsReallyAlive(unit) && unit->r_TribeId == tribeId)",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs",
+    "line": 2611,
+    "original": "tribe->r_AliveState == AliveState.IsAlive;",
+    "result": "tribe->r_AliveState == AliveState.IsAlive;",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs",
+    "line": 2628,
+    "original": "tribe->r_AliveState == AliveState.IsAlive &&",
+    "result": "tribe->r_AliveState == AliveState.IsAlive &&",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs",
+    "line": 2646,
+    "original": "return unit->r_AliveState == AliveState.IsAlive &&",
+    "result": "return APIShared.UnitAccess.IsReallyAlive(unit) &&",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs",
+    "line": 2657,
+    "original": "return building->r_AliveState == AliveState.IsAlive &&",
+    "result": "return building->r_AliveState == AliveState.IsAlive &&",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/FastRecruitRallyMovementRuntime.cs",
+    "line": 155,
+    "original": "if (unit->r_AliveState != AliveState.IsAlive)",
+    "result": "if (!APIShared.UnitAccess.IsReallyAlive(unit))",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "BugfixesAndQoL/src/ForeignTroopHudRuntime.cs",
+    "line": 264,
+    "original": "if (unit.r_AliveState != AliveState.IsAlive || unit.r_UnitHover == 0) continue;",
+    "result": "if (!APIShared.UnitAccess.IsReallyAlive(in unit) || unit.r_UnitHover == 0) continue;",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "BugfixesAndQoL/src/ForeignTroopHudRuntime.cs",
+    "line": 357,
+    "original": "if (unit.r_AliveState != AliveState.IsAlive || unit.r_UnitHover == 0) continue;",
+    "result": "if (!APIShared.UnitAccess.IsReallyAlive(in unit) || unit.r_UnitHover == 0) continue;",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "BugfixesAndQoL/src/ForeignTroopHudRuntime.cs",
+    "line": 395,
+    "original": "if (unit.r_AliveState != AliveState.IsAlive || unit.r_UnitHover == 0 ||",
+    "result": "if (!APIShared.UnitAccess.IsReallyAlive(in unit) || unit.r_UnitHover == 0 ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "BugfixesAndQoL/src/HdMarketViewHook.cs",
+    "line": 368,
+    "original": "building->r_AliveState == SHCDESE.Interop.Enums.AliveState.IsAlive &&",
+    "result": "building->r_AliveState == SHCDESE.Interop.Enums.AliveState.IsAlive &&",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/KeepFlagRotationRuntime.cs",
+    "line": 406,
+    "original": "projectile.r_AliveState != AliveState.IsAlive) ||",
+    "result": "projectile.r_AliveState != AliveState.IsAlive) ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/LordUnitControlsFeature.cs",
+    "line": 171,
+    "original": "if (state.selectedChimps[i] > 0 && APIShared.UnitAccess.TryGetById(state.selectedChimps[i], out GameUnit* unit, out _) && unit != null && unit->r_AliveState == AliveState.IsAlive && unit->r_UnitChimp != eChimps.CHIMP_TYPE_LORD) return true;",
+    "result": "if (state.selectedChimps[i] > 0 && APIShared.UnitAccess.TryGetById(state.selectedChimps[i], out GameUnit* unit, out _) && unit != null && APIShared.UnitAccess.IsReallyAlive(unit) && unit->r_UnitChimp != eChimps.CHIMP_TYPE_LORD) return true;",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "BugfixesAndQoL/src/LordUnitControlsFeature.cs",
+    "line": 188,
+    "original": "return new SurrenderLordSnapshot(playerId, unitId, (int)unit->r_GlobalId, unit->r_ControllableForPlayerId, unit->r_AliveState == AliveState.IsAlive && unit->r_UnitChimp == eChimps.CHIMP_TYPE_LORD && unit->r_CurrentHealth > 0);",
+    "result": "return new SurrenderLordSnapshot(playerId, unitId, (int)unit->r_GlobalId, unit->r_ControllableForPlayerId, APIShared.UnitAccess.IsReallyAlive(unit) && unit->r_UnitChimp == eChimps.CHIMP_TYPE_LORD && unit->r_CurrentHealth > 0);",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "BugfixesAndQoL/src/LordUnitHudRegistration.cs",
+    "line": 63,
+    "original": "if (!settings.EnableMod || !settings.EnableLordUnitControls || !unit.IsAlive || unit.VanillaType != (int)eChimps.CHIMP_TYPE_LORD)",
+    "result": "if (!settings.EnableMod || !settings.EnableLordUnitControls || !unit.IsAlive || unit.VanillaType != (int)eChimps.CHIMP_TYPE_LORD)",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/MarketKeyMainTradeMenuHook.cs",
+    "line": 102,
+    "original": "building->r_AliveState == AliveState.IsAlive &&",
+    "result": "building->r_AliveState == AliveState.IsAlive &&",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/MountedStockpileMovementPatch.cs",
+    "line": 301,
+    "original": "currentUnit->r_AliveState == AliveState.IsAlive &&",
+    "result": "APIShared.UnitAccess.IsReallyAlive(currentUnit) &&",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "BugfixesAndQoL/src/MountedStockpileMovementPatch.cs",
+    "line": 387,
+    "original": "unit->r_AliveState != AliveState.IsAlive)",
+    "result": "!APIShared.UnitAccess.IsReallyAlive(unit))",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "BugfixesAndQoL/src/MoveFormationDragRuntime.cs",
+    "line": 707,
+    "original": "unit == null || unit->r_AliveState != AliveState.IsAlive ||",
+    "result": "unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "BugfixesAndQoL/src/MoveFormationDragRuntime.cs",
+    "line": 742,
+    "original": "tribe == null || tribe->r_AliveState != AliveState.IsAlive ||",
+    "result": "tribe == null || tribe->r_AliveState != AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/PlagueApothecaryStateTransitionFix.cs",
+    "line": 167,
+    "original": "healer->r_AliveState == AliveState.IsAlive &&",
+    "result": "APIShared.UnitAccess.IsReallyAlive(healer) &&",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "BugfixesAndQoL/src/PlaguePopularityFix.cs",
+    "line": 570,
+    "original": "projectile->r_AliveState == AliveState.IsAlive) &&",
+    "result": "projectile->r_AliveState == AliveState.IsAlive) &&",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/PlagueTargetReservationFix.cs",
+    "line": 236,
+    "original": "if (healer->r_AliveState != AliveState.IsAlive ||",
+    "result": "if (!APIShared.UnitAccess.IsReallyAlive(healer) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "BugfixesAndQoL/src/PlagueTargetReservationFix.cs",
+    "line": 325,
+    "original": "if (projectile.r_AliveState != AliveState.IsAlive ||",
+    "result": "if (projectile.r_AliveState != AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/PlagueTargetReservationFix.cs",
+    "line": 560,
+    "original": "healer->r_AliveState == AliveState.IsAlive &&",
+    "result": "APIShared.UnitAccess.IsReallyAlive(healer) &&",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "BugfixesAndQoL/src/PlagueTargetReservationFix.cs",
+    "line": 581,
+    "original": "projectile->r_AliveState == AliveState.IsAlive &&",
+    "result": "projectile->r_AliveState == AliveState.IsAlive &&",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/PlagueTreatmentFadeFix.cs",
+    "line": 153,
+    "original": "target->r_AliveState == AliveState.IsAlive &&",
+    "result": "target->r_AliveState == AliveState.IsAlive &&",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/PlagueTreatmentFadeFix.cs",
+    "line": 166,
+    "original": "if (projectile.r_AliveState != AliveState.IsAlive ||",
+    "result": "if (projectile.r_AliveState != AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/PlagueTreatmentFadeFix.cs",
+    "line": 202,
+    "original": "healer->r_AliveState == AliveState.IsAlive &&",
+    "result": "APIShared.UnitAccess.IsReallyAlive(healer) &&",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "BugfixesAndQoL/src/PrebuiltAiWorkshopBothFixRuntime.cs",
+    "line": 160,
+    "original": "if (other.r_AliveState != AliveState.IsAlive || other.r_PlayerIdOwner != playerId ||",
+    "result": "if (other.r_AliveState != AliveState.IsAlive || other.r_PlayerIdOwner != playerId ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/QuarryPileRelocationRuntime.cs",
+    "line": 629,
+    "original": "if (quarry->r_AliveState != AliveState.IsAlive ||",
+    "result": "if (quarry->r_AliveState != AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/QuarryPileRelocationRuntime.cs",
+    "line": 640,
+    "original": "(keep->r_AliveState != AliveState.NeedsInit && keep->r_AliveState != AliveState.IsAlive))",
+    "result": "(keep->r_AliveState != AliveState.NeedsInit && keep->r_AliveState != AliveState.IsAlive))",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/QuarryPileRelocationRuntime.cs",
+    "line": 1429,
+    "original": "if ((building.r_AliveState == AliveState.NeedsInit || building.r_AliveState == AliveState.IsAlive) &&",
+    "result": "if ((building.r_AliveState == AliveState.NeedsInit || building.r_AliveState == AliveState.IsAlive) &&",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/QuarryPileRelocationRuntime.cs",
+    "line": 1550,
+    "original": "building->r_AliveState == AliveState.IsAlive &&",
+    "result": "building->r_AliveState == AliveState.IsAlive &&",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/QuarryPileRelocationRuntime.cs",
+    "line": 1558,
+    "original": "(building->r_AliveState == AliveState.NeedsInit || building->r_AliveState == AliveState.IsAlive) &&",
+    "result": "(building->r_AliveState == AliveState.NeedsInit || building->r_AliveState == AliveState.IsAlive) &&",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/QuarryPileRelocationRuntime.cs",
+    "line": 1578,
+    "original": "if (building.r_AliveState == AliveState.IsAlive && (int)building.r_GlobalId == globalId)",
+    "result": "if (building.r_AliveState == AliveState.IsAlive && (int)building.r_GlobalId == globalId)",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/QuarryPileRelocationRuntime.cs",
+    "line": 1665,
+    "original": "if (quarry.r_AliveState != AliveState.IsAlive ||",
+    "result": "if (quarry.r_AliveState != AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/ReachableEnemyGatehouseRuntime.cs",
+    "line": 99,
+    "original": "unit->r_AliveState == AliveState.IsAlive &&",
+    "result": "APIShared.UnitAccess.IsReallyAlive(unit) &&",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "BugfixesAndQoL/src/ReachableEnemyGatehouseRuntime.cs",
+    "line": 137,
+    "original": "unit->r_AliveState != AliveState.IsAlive || unit->r_CurrentHealth == 0 ||",
+    "result": "!APIShared.UnitAccess.IsReallyAlive(unit) || unit->r_CurrentHealth == 0 ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "BugfixesAndQoL/src/ReachableEnemyGatehouseRuntime.cs",
+    "line": 333,
+    "original": "drawbridge != null && drawbridge->r_AliveState == AliveState.IsAlive &&",
+    "result": "drawbridge != null && drawbridge->r_AliveState == AliveState.IsAlive &&",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/ReachableEnemyGatehouseRuntime.cs",
+    "line": 355,
+    "original": "building->r_AliveState == AliveState.IsAlive &&",
+    "result": "building->r_AliveState == AliveState.IsAlive &&",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/SelectedUnitHealthFeature.cs",
+    "line": 286,
+    "original": "unit->r_AliveState != AliveState.IsAlive ||",
+    "result": "!APIShared.UnitAccess.IsReallyAlive(unit) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "BugfixesAndQoL/src/SelectedUnitHealthFeature.cs",
+    "line": 358,
+    "original": "if (unitId <= 0 || unitApi == null || !APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _) || unit == null || unit->r_AliveState != AliveState.IsAlive || (mapEditor && unit->r_ControllableForPlayerId != controlledPlayerId)) return;",
+    "result": "if (unitId <= 0 || unitApi == null || !APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _) || unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) || (mapEditor && unit->r_ControllableForPlayerId != controlledPlayerId)) return;",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "BugfixesAndQoL/src/ShiftRepairAllBuildingsHook.cs",
+    "line": 116,
+    "original": "AliveState.IsAlive,",
+    "result": "AliveState.IsAlive,",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/ShiftRepairAllBuildingsHook.cs",
+    "line": 135,
+    "original": "building->r_AliveState == AliveState.IsAlive,",
+    "result": "building->r_AliveState == AliveState.IsAlive,",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/SiegeAmmoRestockFeature.cs",
+    "line": 441,
+    "original": "int[] alive = GameUnitManagerAPI.Instance.GetAllAliveUnits();",
+    "result": "int[] alive = APIShared.UnitAccess.GetAllReallyAliveUnits();",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "BugfixesAndQoL/src/SiegeAmmoRestockFeature.cs",
+    "line": 453,
+    "original": "unit != null && unit->r_AliveState == AliveState.IsAlive &&",
+    "result": "unit != null && APIShared.UnitAccess.IsReallyAlive(unit) &&",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "BugfixesAndQoL/src/SingleBuildingPauseHook.cs",
+    "line": 176,
+    "original": "building->r_AliveState != AliveState.IsAlive ||",
+    "result": "building->r_AliveState != AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/SingleBuildingPauseHook.cs",
+    "line": 558,
+    "original": "if (building.r_AliveState == AliveState.IsAlive && (int)building.r_GlobalId == globalId)",
+    "result": "if (building.r_AliveState == AliveState.IsAlive && (int)building.r_GlobalId == globalId)",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/SingleBuildingPauseHook.cs",
+    "line": 581,
+    "original": "building->r_AliveState == AliveState.IsAlive &&",
+    "result": "building->r_AliveState == AliveState.IsAlive &&",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/SingleBuildingPauseHook.cs",
+    "line": 667,
+    "original": "building->r_AliveState != AliveState.IsAlive || building->r_GlobalId == 0 ||",
+    "result": "building->r_AliveState != AliveState.IsAlive || building->r_GlobalId == 0 ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/SingleBuildingPauseHook.cs",
+    "line": 699,
+    "original": "building->r_AliveState == AliveState.IsAlive,",
+    "result": "building->r_AliveState == AliveState.IsAlive,",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/SingleBuildingPauseHook.cs",
+    "line": 775,
+    "original": "building->r_AliveState != AliveState.IsAlive)",
+    "result": "building->r_AliveState != AliveState.IsAlive)",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/SpectatorPerspectiveRuntime.cs",
+    "line": 620,
+    "original": "keep == null || keep->r_AliveState != AliveState.IsAlive ||",
+    "result": "keep == null || keep->r_AliveState != AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/SpectatorPerspectiveRuntime.cs",
+    "line": 634,
+    "original": "lord->r_AliveState != AliveState.IsAlive ||",
+    "result": "!APIShared.UnitAccess.IsReallyAlive(lord) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "BugfixesAndQoL/src/SurrenderFeature.cs",
+    "line": 1659,
+    "original": "$\"currentLordOwner={lord.OwnerPlayerId}, currentLordAlive={lord.IsAlive}, \" +",
+    "result": "$\"currentLordOwner={lord.OwnerPlayerId}, currentLordAlive={lord.IsAlive}, \" +",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/SurrenderFeature.cs",
+    "line": 1796,
+    "original": "unit->r_AliveState == AliveState.IsAlive &&",
+    "result": "APIShared.UnitAccess.IsReallyAlive(unit) &&",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "BugfixesAndQoL/src/SurrenderPolicy.cs",
+    "line": 16,
+    "original": "IsAlive = isAlive;",
+    "result": "IsAlive = isAlive;",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/SurrenderPolicy.cs",
+    "line": 23,
+    "original": "internal bool IsAlive { get; }",
+    "result": "internal bool IsAlive { get; }",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/SurrenderPolicy.cs",
+    "line": 59,
+    "original": "lord.IsAlive;",
+    "result": "lord.IsAlive;",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/TroopHudMiddleClickCameraFeature.cs",
+    "line": 113,
+    "original": "unit->r_AliveState != AliveState.IsAlive ||",
+    "result": "!APIShared.UnitAccess.IsReallyAlive(unit) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "BugfixesAndQoL/src/TroopMovementFix3Runtime.cs",
+    "line": 498,
+    "original": "unit->r_AliveState != AliveState.IsAlive)",
+    "result": "!APIShared.UnitAccess.IsReallyAlive(unit))",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "BugfixesAndQoL/src/TroopMovementFix3SynchronizedMovementCadencePatch.cs",
+    "line": 534,
+    "original": "(int)AliveState.IsAlive);",
+    "result": "(int)AliveState.IsAlive);",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/TroopMovementFix3SynchronizedMovementCadencePatch.cs",
+    "line": 623,
+    "original": "(int)AliveState.IsAlive);",
+    "result": "(int)AliveState.IsAlive);",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/TunnelPlacementDistanceFeature.cs",
+    "line": 227,
+    "original": "if (building->r_AliveState == AliveState.IsAlive &&",
+    "result": "if (building->r_AliveState == AliveState.IsAlive &&",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/WaterboyTargetReservationRuntime.cs",
+    "line": 262,
+    "original": "unit == null || unit->r_AliveState != AliveState.IsAlive ||",
+    "result": "unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "BugfixesAndQoL/src/WaterboyTargetReservationRuntime.cs",
+    "line": 321,
+    "original": "building == null || building->r_AliveState != AliveState.IsAlive || building->r_OnFireTicks == 0)",
+    "result": "building == null || building->r_AliveState != AliveState.IsAlive || building->r_OnFireTicks == 0)",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/WaterboyTargetReservationRuntime.cs",
+    "line": 383,
+    "original": "unit == null || unit->r_AliveState != AliveState.IsAlive ||",
+    "result": "unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "BugfixesAndQoL/src/WaterboyTargetReservationRuntime.cs",
+    "line": 398,
+    "original": "unit->r_GlobalId == identity.GlobalId && unit->r_AliveState == AliveState.IsAlive &&",
+    "result": "unit->r_GlobalId == identity.GlobalId && APIShared.UnitAccess.IsReallyAlive(unit) &&",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "BugfixesAndQoL/src/WaterboyTargetReservationRuntime.cs",
+    "line": 404,
+    "original": "building == null || building->r_AliveState != AliveState.IsAlive ||",
+    "result": "building == null || building->r_AliveState != AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/WaterboyTargetReservationRuntime.cs",
+    "line": 413,
+    "original": "building->r_AliveState == AliveState.IsAlive && building->r_OnFireTicks != 0;",
+    "result": "building->r_AliveState == AliveState.IsAlive && building->r_OnFireTicks != 0;",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/WorkshopIdleDelayNative.cs",
+    "line": 69,
+    "original": "a.cmp(__word_ptr[r10 + 0x6E4], (int)AliveState.IsAlive); a.jne(vanilla);",
+    "result": "a.cmp(__word_ptr[r10 + 0x6E4], (int)AliveState.IsAlive); a.jne(vanilla);",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/WorkshopIdleDelayNative.cs",
+    "line": 82,
+    "original": "a.cmp(__word_ptr[rax + 0x12C], (int)AliveState.IsAlive); a.jne(vanilla);",
+    "result": "a.cmp(__word_ptr[rax + 0x12C], (int)AliveState.IsAlive); a.jne(vanilla);",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/WorkshopIdleDelayNative.cs",
+    "line": 94,
+    "original": "a.cmp(__word_ptr[r9 + 0x6E4], (int)AliveState.IsAlive); a.jne(next);",
+    "result": "a.cmp(__word_ptr[r9 + 0x6E4], (int)AliveState.IsAlive); a.jne(next);",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/WorkshopIdleDelayNative.cs",
+    "line": 114,
+    "original": "a.cmp(__word_ptr[r9 + 0x12C], (int)AliveState.IsAlive); a.jne(next);",
+    "result": "a.cmp(__word_ptr[r9 + 0x12C], (int)AliveState.IsAlive); a.jne(next);",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BugfixesAndQoL/src/GatehouseLivingCapture/NativeDefinition.cs",
+    "line": 32,
+    "original": "(short)AliveState.IsAlive != 2)",
+    "result": "(short)AliveState.IsAlive != 2)",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BuildingLimit/src/ActiveBuildingCache.cs",
+    "line": 512,
+    "original": "return aliveState == AliveState.IsAlive || aliveState == AliveState.NeedsInit;",
+    "result": "return aliveState == AliveState.IsAlive || aliveState == AliveState.NeedsInit;",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "BuildingLimit/src/TowerSiegeUnitCache.cs",
+    "line": 156,
+    "original": "state == AliveState.IsAlive || state == AliveState.NeedsInit;",
+    "result": "state == AliveState.IsAlive || state == AliveState.NeedsInit;",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "CastlePlanner/src/BlueprintRuntimeController.cs",
+    "line": 796,
+    "original": "building.r_AliveState != AliveState.IsAlive))",
+    "result": "building.r_AliveState != AliveState.IsAlive))",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "CastlePlanner/src/CastlePlannerRuntime.cs",
+    "line": 644,
+    "original": "building.r_AliveState != AliveState.IsAlive) ||",
+    "result": "building.r_AliveState != AliveState.IsAlive) ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "CastlePlanner/src/CastlePlannerRuntime.cs",
+    "line": 1079,
+    "original": "(projectile->r_AliveState != AliveState.NeedsInit && projectile->r_AliveState != AliveState.IsAlive))",
+    "result": "(projectile->r_AliveState != AliveState.NeedsInit && projectile->r_AliveState != AliveState.IsAlive))",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "CastlePlanner/src/CastlePlannerRuntime.cs",
+    "line": 1268,
+    "original": "(building->r_AliveState != AliveState.NeedsInit && building->r_AliveState != AliveState.IsAlive))",
+    "result": "(building->r_AliveState != AliveState.NeedsInit && building->r_AliveState != AliveState.IsAlive))",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "CastlePlanner/src/CastlePlannerRuntime.cs",
+    "line": 1393,
+    "original": "if (existingState != AliveState.IsAlive)",
+    "result": "if (existingState != AliveState.IsAlive)",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "CastlePlanner/src/CastlePlannerRuntime.cs",
+    "line": 1417,
+    "original": "predecessorState != AliveState.IsAlive)",
+    "result": "predecessorState != AliveState.IsAlive)",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "CastlePlanner/src/CastlePlannerRuntime.cs",
+    "line": 1529,
+    "original": "building.r_AliveState == AliveState.IsAlive))",
+    "result": "building.r_AliveState == AliveState.IsAlive))",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "CastlePlanner/src/CastlePlannerRuntime.cs",
+    "line": 2262,
+    "original": "building.r_AliveState == AliveState.IsAlive))",
+    "result": "building.r_AliveState == AliveState.IsAlive))",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "CastlePlanner/src/DecorationVerificationPolicy.cs",
+    "line": 29,
+    "original": "(aliveState == AliveState.NeedsInit || aliveState == AliveState.IsAlive) &&",
+    "result": "(aliveState == AliveState.NeedsInit || aliveState == AliveState.IsAlive) &&",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "ExtraFeatures/src/AIDefenseRepairRuntime.cs",
+    "line": 290,
+    "original": "if (building.r_AliveState != AliveState.IsAlive || building.r_GlobalId == 0 ||",
+    "result": "if (building.r_AliveState != AliveState.IsAlive || building.r_GlobalId == 0 ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "ExtraFeatures/src/AIDefenseRepairRuntime.cs",
+    "line": 412,
+    "original": "(building->r_AliveState == AliveState.IsAlive ||",
+    "result": "(building->r_AliveState == AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "ExtraFeatures/src/AIDefenseRepairRuntime.cs",
+    "line": 828,
+    "original": "building->r_AliveState != AliveState.IsAlive))",
+    "result": "building->r_AliveState != AliveState.IsAlive))",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "ExtraFeatures/src/AIDefenseRepairRuntime.cs",
+    "line": 881,
+    "original": "building->r_AliveState != AliveState.IsAlive ||",
+    "result": "building->r_AliveState != AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "ExtraFeatures/src/AiFlagDiseaseTracker.cs",
+    "line": 131,
+    "original": "projectile->r_AliveState != AliveState.IsAlive))",
+    "result": "projectile->r_AliveState != AliveState.IsAlive))",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "ExtraFeatures/src/AiFlagDiseaseTracker.cs",
+    "line": 283,
+    "original": "building.r_AliveState != AliveState.IsAlive))",
+    "result": "building.r_AliveState != AliveState.IsAlive))",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "ExtraFeatures/src/AiFlagDiseaseTracker.cs",
+    "line": 354,
+    "original": "(projectile->r_AliveState != AliveState.NeedsInit && projectile->r_AliveState != AliveState.IsAlive))",
+    "result": "(projectile->r_AliveState != AliveState.NeedsInit && projectile->r_AliveState != AliveState.IsAlive))",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "ExtraFeatures/src/ChurchPriestCountRuntime.cs",
+    "line": 88,
+    "original": "GameBuildingManagerAPI.Instance.GetAllBuildings(buildingIds, AliveState.IsAlive, structure);",
+    "result": "GameBuildingManagerAPI.Instance.GetAllBuildings(buildingIds, AliveState.IsAlive, structure);",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "ExtraFeatures/src/ChurchPriestCountRuntime.cs",
+    "line": 106,
+    "original": "if (building->r_AliveState != AliveState.IsAlive || building->r_BuildingType != expectedStructure)",
+    "result": "if (building->r_AliveState != AliveState.IsAlive || building->r_BuildingType != expectedStructure)",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "ExtraFeatures/src/ChurchPriestCountRuntime.cs",
+    "line": 138,
+    "original": "return building->r_AliveState == AliveState.IsAlive && building->r_BuildingType == expectedStructure;",
+    "result": "return building->r_AliveState == AliveState.IsAlive && building->r_BuildingType == expectedStructure;",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "ExtraFeatures/src/GatehouseAutomationRuntime.cs",
+    "line": 625,
+    "original": "unit->r_AliveState == AliveState.IsAlive &&",
+    "result": "APIShared.UnitAccess.IsReallyAlive(unit) &&",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "ExtraFeatures/src/GatehouseAutomationRuntime.cs",
+    "line": 815,
+    "original": "if (candidate.r_AliveState != AliveState.IsAlive ||",
+    "result": "if (candidate.r_AliveState != AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "ExtraFeatures/src/GatehouseAutomationRuntime.cs",
+    "line": 959,
+    "original": "building->r_AliveState != AliveState.IsAlive || building->r_GlobalId == 0 ||",
+    "result": "building->r_AliveState != AliveState.IsAlive || building->r_GlobalId == 0 ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "ExtraFeatures/src/GatehouseAutomationRuntime.cs",
+    "line": 982,
+    "original": "if (candidate.r_AliveState != AliveState.IsAlive || candidate.r_GlobalId != (uint)globalId)",
+    "result": "if (candidate.r_AliveState != AliveState.IsAlive || candidate.r_GlobalId != (uint)globalId)",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "ExtraFeatures/src/HealerTargetsRuntime.cs",
+    "line": 171,
+    "original": "unit->r_AliveState != AliveState.IsAlive || unit->r_GlobalId == 0 ||",
+    "result": "!APIShared.UnitAccess.IsReallyAlive(unit) || unit->r_GlobalId == 0 ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "ExtraFeatures/src/KnightDismountDelayRuntime.cs",
+    "line": 540,
+    "original": "return source != null && source->r_AliveState == AliveState.IsAlive &&",
+    "result": "return source != null && APIShared.UnitAccess.IsReallyAlive(source) &&",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "ExtraFeatures/src/KnightDismountDelayRuntime.cs",
+    "line": 554,
+    "original": "unit->r_AliveState != AliveState.IsAlive ||",
+    "result": "!APIShared.UnitAccess.IsReallyAlive(unit) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "ExtraFeatures/src/KnightDismountDelayRuntime.cs",
+    "line": 591,
+    "original": "foreach (int unitId in unitApi.GetAllAliveUnits())",
+    "result": "foreach (int unitId in APIShared.UnitAccess.GetAllReallyAliveUnits())",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "ExtraFeatures/src/KnightDismountDelayRuntime.cs",
+    "line": 619,
+    "original": "if (!found || unit->r_AliveState != AliveState.IsAlive ||",
+    "result": "if (!found || !APIShared.UnitAccess.IsReallyAlive(unit) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "ExtraFeatures/src/KnightDismountDelayRuntime.cs",
+    "line": 635,
+    "original": "foreach (int unitId in unitApi.GetAllAliveUnits())",
+    "result": "foreach (int unitId in APIShared.UnitAccess.GetAllReallyAliveUnits())",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "ExtraFeatures/src/KnightDismountDelayRuntime.cs",
+    "line": 647,
+    "original": "unit->r_AliveState == AliveState.IsAlive &&",
+    "result": "APIShared.UnitAccess.IsReallyAlive(unit) &&",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "ExtraFeatures/src/KnightDismountDelayRuntime.cs",
+    "line": 938,
+    "original": "int[] aliveIds = GameUnitManagerAPI.Instance.GetAllAliveUnits();",
+    "result": "int[] aliveIds = APIShared.UnitAccess.GetAllReallyAliveUnits();",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "ExtraFeatures/src/KnightDismountRuntime.cs",
+    "line": 639,
+    "original": "int[] aliveUnits = unitApi.GetAllAliveUnits();",
+    "result": "int[] aliveUnits = APIShared.UnitAccess.GetAllReallyAliveUnits();",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "ExtraFeatures/src/KnightDismountRuntime.cs",
+    "line": 982,
+    "original": "int[] aliveUnits = unitApi.GetAllAliveUnits();",
+    "result": "int[] aliveUnits = APIShared.UnitAccess.GetAllReallyAliveUnits();",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "ExtraFeatures/src/KnightDismountRuntime.cs",
+    "line": 1229,
+    "original": "if (unit->r_AliveState != AliveState.IsAlive ||",
+    "result": "if (!APIShared.UnitAccess.IsReallyAlive(unit) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "ExtraFeatures/src/KnightDismountRuntime.cs",
+    "line": 1330,
+    "original": "GameBuildingManagerAPI.Instance.GetAllBuildings(stableIds, AliveState.IsAlive, eStructs.STRUCT_STABLES, PlayerRelationship.Self, playerId);",
+    "result": "GameBuildingManagerAPI.Instance.GetAllBuildings(stableIds, AliveState.IsAlive, eStructs.STRUCT_STABLES, PlayerRelationship.Self, playerId);",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "ExtraFeatures/src/KnightDismountRuntime.cs",
+    "line": 1426,
+    "original": "stable->r_AliveState == AliveState.IsAlive &&",
+    "result": "stable->r_AliveState == AliveState.IsAlive &&",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "ExtraFeatures/src/KnightDismountRuntime.cs",
+    "line": 1551,
+    "original": "stable->r_AliveState != AliveState.IsAlive ||",
+    "result": "stable->r_AliveState != AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "ExtraFeatures/src/KnightDismountRuntime.cs",
+    "line": 1626,
+    "original": "stable->r_AliveState != AliveState.IsAlive ||",
+    "result": "stable->r_AliveState != AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "ExtraFeatures/src/KnightDismountRuntime.cs",
+    "line": 1684,
+    "original": "GameBuildingManagerAPI.Instance.GetAllBuildings(stableIds, AliveState.IsAlive, eStructs.STRUCT_STABLES);",
+    "result": "GameBuildingManagerAPI.Instance.GetAllBuildings(stableIds, AliveState.IsAlive, eStructs.STRUCT_STABLES);",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "ExtraFeatures/src/KnightDismountRuntime.cs",
+    "line": 1719,
+    "original": "int[] aliveUnitIds = unitApi.GetAllAliveUnits();",
+    "result": "int[] aliveUnitIds = APIShared.UnitAccess.GetAllReallyAliveUnits();",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "ExtraFeatures/src/KnightDismountRuntime.cs",
+    "line": 1754,
+    "original": "unit->r_AliveState == AliveState.IsAlive &&",
+    "result": "APIShared.UnitAccess.IsReallyAlive(unit) &&",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "ExtraFeatures/src/LordHealthRuntime.cs",
+    "line": 183,
+    "original": "return lord->r_AliveState == AliveState.IsAlive || (capturePending && retry);",
+    "result": "return APIShared.UnitAccess.IsReallyAlive(lord) || (capturePending && retry);",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "ImprovedHunters/src/HunterActiveTargetVisibilitySnapshot.cs",
+    "line": 719,
+    "original": "if (hunter->r_AliveState != AliveState.IsAlive)",
+    "result": "if (hunter->r_AliveState != AliveState.IsAlive)",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "ImprovedHunters/src/HunterActiveTargetVisibilitySnapshot.cs",
+    "line": 788,
+    "original": "if (prey->r_AliveState != AliveState.IsAlive)",
+    "result": "if (prey->r_AliveState != AliveState.IsAlive)",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "ImprovedHunters/src/HunterAnimalCompatibilityFeature.cs",
+    "line": 211,
+    "original": "unit->r_AliveState != AliveState.IsAlive)",
+    "result": "!APIShared.UnitAccess.IsReallyAlive(unit))",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "ImprovedHunters/src/HunterChickenCompatibilityFeature.cs",
+    "line": 306,
+    "original": "if (building->r_AliveState != AliveState.IsAlive ||",
+    "result": "if (building->r_AliveState != AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "ImprovedHunters/src/HunterChickenCompatibilityFeature.cs",
+    "line": 367,
+    "original": "if (chicken->r_AliveState != AliveState.IsAlive || chicken->r_CurrentHealth <= 0)",
+    "result": "if (!APIShared.UnitAccess.IsReallyAlive(chicken) || chicken->r_CurrentHealth <= 0)",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "ImprovedHunters/src/HunterMovingTargetPathfindingDiagnostic.cs",
+    "line": 190,
+    "original": "prey->r_AliveState != AliveState.IsAlive ||",
+    "result": "!APIShared.UnitAccess.IsReallyAlive(prey) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "ImprovedHunters/src/HunterNativeVisibilityProbe.cs",
+    "line": 194,
+    "original": "hunter->r_AliveState != AliveState.IsAlive ||",
+    "result": "hunter->r_AliveState != AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "ImprovedHunters/src/HunterNativeVisibilityProbe.cs",
+    "line": 195,
+    "original": "prey->r_AliveState != AliveState.IsAlive ||",
+    "result": "prey->r_AliveState != AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "ImprovedHunters/src/HunterNativeVisibilityProbe.cs",
+    "line": 239,
+    "original": "hunter->r_AliveState != AliveState.IsAlive ||",
+    "result": "hunter->r_AliveState != AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "ImprovedHunters/src/HunterNativeVisibilityProbe.cs",
+    "line": 240,
+    "original": "prey->r_AliveState != AliveState.IsAlive ||",
+    "result": "prey->r_AliveState != AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "ImprovedHunters/src/HunterNativeVisibilityProbe.cs",
+    "line": 281,
+    "original": "hunter->r_AliveState != AliveState.IsAlive ||",
+    "result": "hunter->r_AliveState != AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "ImprovedHunters/src/HunterNativeVisibilityProbe.cs",
+    "line": 283,
+    "original": "prey->r_AliveState != AliveState.IsAlive ||",
+    "result": "prey->r_AliveState != AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "ImprovedHunters/src/HunterNativeVisibilityProbe.cs",
+    "line": 520,
+    "original": "hunter->r_AliveState != AliveState.IsAlive ||",
+    "result": "hunter->r_AliveState != AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "ImprovedHunters/src/HunterNativeVisibilityProbe.cs",
+    "line": 521,
+    "original": "prey->r_AliveState != AliveState.IsAlive ||",
+    "result": "prey->r_AliveState != AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "ImprovedHunters/src/HunterPclReachability.cs",
+    "line": 245,
+    "original": "hunter->r_AliveState != AliveState.IsAlive ||",
+    "result": "!APIShared.UnitAccess.IsReallyAlive(hunter) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "ImprovedHunters/src/HunterPclReachability.cs",
+    "line": 257,
+    "original": "prey->r_AliveState != AliveState.IsAlive ||",
+    "result": "!APIShared.UnitAccess.IsReallyAlive(prey) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "ImprovedHunters/src/HunterPclReachabilityDiagnostic.cs",
+    "line": 252,
+    "original": "hunter->r_AliveState != AliveState.IsAlive ||",
+    "result": "hunter->r_AliveState != AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "ImprovedHunters/src/HunterPclReachabilityDiagnostic.cs",
+    "line": 264,
+    "original": "prey->r_AliveState != AliveState.IsAlive ||",
+    "result": "prey->r_AliveState != AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "ImprovedHunters/src/HunterPostShotContinuationDiagnostic.cs",
+    "line": 898,
+    "original": "if (hunter->r_AliveState != AliveState.IsAlive || hunter->r_CurrentHealth == 0)",
+    "result": "if (!APIShared.UnitAccess.IsReallyAlive(hunter) || hunter->r_CurrentHealth == 0)",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "ImprovedHunters/src/HunterPostShotContinuationDiagnostic.cs",
+    "line": 909,
+    "original": "if (prey->r_AliveState != AliveState.IsAlive || prey->r_CurrentHealth == 0)",
+    "result": "if (!APIShared.UnitAccess.IsReallyAlive(prey) || prey->r_CurrentHealth == 0)",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "ImprovedHunters/src/HunterPostShotContinuationDiagnostic.cs",
+    "line": 1029,
+    "original": "if (otherHunter->r_AliveState != AliveState.IsAlive ||",
+    "result": "if (!APIShared.UnitAccess.IsReallyAlive(otherHunter) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "ImprovedHunters/src/HunterProjectileObservationFeature.cs",
+    "line": 143,
+    "original": "if (unit->r_AliveState != AliveState.IsAlive ||",
+    "result": "if (!APIShared.UnitAccess.IsReallyAlive(unit) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "ImprovedHunters/src/HunterProjectileObservationFeature.cs",
+    "line": 182,
+    "original": "eligibility.AliveState == (short)AliveState.IsAlive &&",
+    "result": "eligibility.AliveState == (short)AliveState.IsAlive &&",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "ImprovedHunters/src/HunterRemainingPathSpeedRecovery.cs",
+    "line": 328,
+    "original": "hunter->r_AliveState != AliveState.IsAlive ||",
+    "result": "!APIShared.UnitAccess.IsReallyAlive(hunter) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "ImprovedHunters/src/HunterRemainingPathSpeedRecovery.cs",
+    "line": 349,
+    "original": "prey->r_AliveState != AliveState.IsAlive ||",
+    "result": "!APIShared.UnitAccess.IsReallyAlive(prey) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "ImprovedHunters/src/HunterRemainingPathSpeedRecovery.cs",
+    "line": 461,
+    "original": "hunter->r_AliveState != AliveState.IsAlive ||",
+    "result": "!APIShared.UnitAccess.IsReallyAlive(hunter) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "ImprovedHunters/src/HunterRemainingPathSpeedRecovery.cs",
+    "line": 462,
+    "original": "prey->r_AliveState != AliveState.IsAlive ||",
+    "result": "!APIShared.UnitAccess.IsReallyAlive(prey) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "ImprovedHunters/src/HunterTargetSearchFallbackDiagnostic.cs",
+    "line": 828,
+    "original": "prey->r_AliveState != AliveState.IsAlive ||",
+    "result": "!APIShared.UnitAccess.IsReallyAlive(prey) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "ImprovedHunters/src/HunterTargetSearchFallbackDiagnostic.cs",
+    "line": 887,
+    "original": "prey->r_AliveState != AliveState.IsAlive ||",
+    "result": "!APIShared.UnitAccess.IsReallyAlive(prey) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "ImprovedHunters/src/HunterTargetSearchFallbackDiagnostic.cs",
+    "line": 911,
+    "original": "hunter->r_AliveState != AliveState.IsAlive ||",
+    "result": "!APIShared.UnitAccess.IsReallyAlive(hunter) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "ImprovedHunters/src/HunterTargetSearchFallbackDiagnostic.cs",
+    "line": 996,
+    "original": "if (hunter->r_AliveState != AliveState.IsAlive ||",
+    "result": "if (!APIShared.UnitAccess.IsReallyAlive(hunter) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "ImprovedHunters/src/HunterTargetSelectionFeature.cs",
+    "line": 218,
+    "original": "unit->r_AliveState == AliveState.IsAlive &&",
+    "result": "APIShared.UnitAccess.IsReallyAlive(unit) &&",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "ImprovedHunters/src/HunterTargetSelectionFeature.cs",
+    "line": 250,
+    "original": "hunter->r_AliveState != AliveState.IsAlive ||",
+    "result": "!APIShared.UnitAccess.IsReallyAlive(hunter) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "ImprovedHunters/src/HunterTargetSelectionFeature.cs",
+    "line": 418,
+    "original": "building->r_AliveState == AliveState.IsAlive &&",
+    "result": "building->r_AliveState == AliveState.IsAlive &&",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "ImprovedHunters/src/HunterTargetSelectionFeature.cs",
+    "line": 470,
+    "original": "if (building->r_AliveState != AliveState.IsAlive ||",
+    "result": "if (building->r_AliveState != AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "ImprovedHunters/src/HunterTargetSelectionFeature.cs",
+    "line": 611,
+    "original": "if (unit->r_AliveState != AliveState.IsAlive ||",
+    "result": "if (!APIShared.UnitAccess.IsReallyAlive(unit) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "ImprovedHunters/src/HunterTargetSelectionFeature.cs",
+    "line": 634,
+    "original": "eligibility.AliveState != (short)AliveState.IsAlive ||",
+    "result": "eligibility.AliveState != (short)AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "ImprovedHunters/src/HunterTargetSelectionFeature.cs",
+    "line": 730,
+    "original": "if (eligibility.AliveState != (short)AliveState.IsAlive)",
+    "result": "if (eligibility.AliveState != (short)AliveState.IsAlive)",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "ImprovedHunters/src/HunterVanillaPathContinuationDiagnostic.cs",
+    "line": 786,
+    "original": "hunter->r_AliveState != AliveState.IsAlive ||",
+    "result": "!APIShared.UnitAccess.IsReallyAlive(hunter) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "ImprovedHunters/src/HunterVanillaPathContinuationDiagnostic.cs",
+    "line": 804,
+    "original": "prey->r_AliveState != AliveState.IsAlive ||",
+    "result": "!APIShared.UnitAccess.IsReallyAlive(prey) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "ImprovedHunters/src/ImprovedHuntersRuntime.cs",
+    "line": 328,
+    "original": "hunter->r_AliveState != AliveState.IsAlive ||",
+    "result": "!APIShared.UnitAccess.IsReallyAlive(hunter) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "ImprovedHunters/src/ImprovedHuntersRuntime.cs",
+    "line": 349,
+    "original": "prey->r_AliveState != AliveState.IsAlive ||",
+    "result": "!APIShared.UnitAccess.IsReallyAlive(prey) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "ImprovedHunters/src/ImprovedHuntersRuntime.cs",
+    "line": 374,
+    "original": "if (hunter->r_AliveState != AliveState.IsAlive ||",
+    "result": "if (!APIShared.UnitAccess.IsReallyAlive(hunter) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "ImprovedHunters/src/ImprovedHuntersRuntime.cs",
+    "line": 379,
+    "original": "prey->r_AliveState != AliveState.IsAlive ||",
+    "result": "!APIShared.UnitAccess.IsReallyAlive(prey) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "ImprovedHunters/src/ImprovedHuntersRuntime.cs",
+    "line": 656,
+    "original": "eligibility.AliveState == (short)AliveState.IsAlive &&",
+    "result": "eligibility.AliveState == (short)AliveState.IsAlive &&",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "ImprovedHunters/src/ImprovedHuntersRuntime.cs",
+    "line": 887,
+    "original": "eligibility.AliveState != (short)AliveState.IsAlive ||",
+    "result": "eligibility.AliveState != (short)AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "ImprovedHunters/src/ImprovedHuntersRuntime.cs",
+    "line": 936,
+    "original": "if (hunter->r_AliveState != AliveState.IsAlive ||",
+    "result": "if (!APIShared.UnitAccess.IsReallyAlive(hunter) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "ImprovedHunters/src/ManualChickenAttackPatch.cs",
+    "line": 171,
+    "original": "target->r_AliveState != AliveState.IsAlive ||",
+    "result": "!APIShared.UnitAccess.IsReallyAlive(target) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "ImprovedHunters/src/ManualChickenAttackPatch.cs",
+    "line": 174,
+    "original": "attacker->r_AliveState != AliveState.IsAlive ||",
+    "result": "!APIShared.UnitAccess.IsReallyAlive(attacker) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "RandomEvents/src/RandomEventsParticipantResolver.cs",
+    "line": 55,
+    "original": "if (lord->r_AliveState != AliveState.IsAlive)",
+    "result": "if (!APIShared.UnitAccess.IsReallyAlive(lord))",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "RandomEvents/src/RandomEventsRuntime.cs",
+    "line": 2016,
+    "original": "building->r_AliveState != AliveState.IsAlive ||",
+    "result": "building->r_AliveState != AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "RandomEvents/src/RandomEventsRuntime.cs",
+    "line": 2033,
+    "original": "unit->r_AliveState != AliveState.IsAlive)",
+    "result": "!APIShared.UnitAccess.IsReallyAlive(unit))",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "RandomEvents/src/RandomEventsRuntime.cs",
+    "line": 2117,
+    "original": "building.r_AliveState != AliveState.IsAlive ||",
+    "result": "building.r_AliveState != AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "RandomEvents/src/RandomEventsRuntime.cs",
+    "line": 2236,
+    "original": "signpost->r_AliveState != AliveState.IsAlive ||",
+    "result": "signpost->r_AliveState != AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "RandomEvents/src/RandomEventsRuntime.cs",
+    "line": 2319,
+    "original": "building.r_AliveState == AliveState.IsAlive &&",
+    "result": "building.r_AliveState == AliveState.IsAlive &&",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "RandomEvents/src/RandomEventsRuntime.cs",
+    "line": 2357,
+    "original": "building.r_AliveState != AliveState.IsAlive ||",
+    "result": "building.r_AliveState != AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "RandomEvents/src/ScenarioSignpostRegistry.cs",
+    "line": 174,
+    "original": "signpost == null || signpost->r_GlobalId == 0 || signpost->r_AliveState != AliveState.IsAlive)",
+    "result": "signpost == null || signpost->r_GlobalId == 0 || signpost->r_AliveState != AliveState.IsAlive)",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "RandomEvents/src/ScenarioSignpostRegistry.cs",
+    "line": 253,
+    "original": "building.r_AliveState != AliveState.IsAlive)",
+    "result": "building.r_AliveState != AliveState.IsAlive)",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "RandomEvents/src/ScenarioSignpostRegistry.cs",
+    "line": 274,
+    "original": "lord != null && lord->r_AliveState == AliveState.IsAlive &&",
+    "result": "lord != null && APIShared.UnitAccess.IsReallyAlive(lord) &&",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "RandomEvents/src/ScenarioSignpostRegistry.cs",
+    "line": 411,
+    "original": "(building->r_AliveState != AliveState.NeedsInit && building->r_AliveState != AliveState.IsAlive))",
+    "result": "(building->r_AliveState != AliveState.NeedsInit && building->r_AliveState != AliveState.IsAlive))",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "RandomEvents/src/ScenarioSignpostRegistry.cs",
+    "line": 501,
+    "original": "(building->r_AliveState == AliveState.NeedsInit || building->r_AliveState == AliveState.IsAlive);",
+    "result": "(building->r_AliveState == AliveState.NeedsInit || building->r_AliveState == AliveState.IsAlive);",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "RandomEvents/src/ScenarioSignpostRegistry.cs",
+    "line": 530,
+    "original": "(keep->r_AliveState != AliveState.NeedsInit && keep->r_AliveState != AliveState.IsAlive))",
+    "result": "(keep->r_AliveState != AliveState.NeedsInit && keep->r_AliveState != AliveState.IsAlive))",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "RandomEvents/src/ScenarioSignpostRegistry.cs",
+    "line": 571,
+    "original": "else if (lord->r_AliveState != AliveState.IsAlive ||",
+    "result": "else if (!APIShared.UnitAccess.IsReallyAlive(lord) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "RandomEvents/src/SignpostPlacementService.cs",
+    "line": 113,
+    "original": "(signpost->r_AliveState == AliveState.NeedsInit || signpost->r_AliveState == AliveState.IsAlive) &&",
+    "result": "(signpost->r_AliveState == AliveState.NeedsInit || signpost->r_AliveState == AliveState.IsAlive) &&",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "RandomEvents/src/SignpostPlacementService.cs",
+    "line": 431,
+    "original": "(building->r_AliveState != AliveState.NeedsInit && building->r_AliveState != AliveState.IsAlive) ||",
+    "result": "(building->r_AliveState != AliveState.NeedsInit && building->r_AliveState != AliveState.IsAlive) ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "RandomEvents/src/SignpostPlacementService.cs",
+    "line": 553,
+    "original": "building->r_AliveState != AliveState.IsAlive ||",
+    "result": "building->r_AliveState != AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "RandomEvents/src/SignpostPlacementService.cs",
+    "line": 613,
+    "original": "(building.r_AliveState != AliveState.NeedsInit && building.r_AliveState != AliveState.IsAlive))",
+    "result": "(building.r_AliveState != AliveState.NeedsInit && building.r_AliveState != AliveState.IsAlive))",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "StartConditions/src/StartConditionsRuntime.AIStartTroopIsolation.cs",
+    "line": 870,
+    "original": "return state == AliveState.NeedsInit || state == AliveState.IsAlive;",
+    "result": "return state == AliveState.NeedsInit || state == AliveState.IsAlive;",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "StartConditions/src/StartConditionsRuntime.AIStartTroopIsolation.cs",
+    "line": 875,
+    "original": "return state == AliveState.NeedsInit || state == AliveState.IsAlive;",
+    "result": "return state == AliveState.NeedsInit || state == AliveState.IsAlive;",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "StartConditions/src/StartConditionsRuntime.StartTroops.cs",
+    "line": 335,
+    "original": "GameUnitManagerAPI.Instance.GetAllUnits(unitIds, AliveState.IsAlive);",
+    "result": "GameUnitManagerAPI.Instance.GetAllUnits(unitIds, AliveState.IsAlive);",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "StartConditions/src/StartConditionsRuntime.StartTroops.cs",
+    "line": 387,
+    "original": "GameUnitManagerAPI.Instance.GetAllUnits(unitIds, AliveState.IsAlive);",
+    "result": "unitIds.AddRange(APIShared.UnitAccess.GetAllReallyAliveUnits());",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "Testmods/AIBuildDiagnoseTest/src/AIBuildDiagnoseRuntime.cs",
+    "line": 2694,
+    "original": "(building.r_AliveState != AliveState.IsAlive &&",
+    "result": "(building.r_AliveState != AliveState.IsAlive &&",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "Testmods/AIBuildDiagnoseTest/src/AIBuildDiagnoseRuntime.cs",
+    "line": 3050,
+    "original": "building.r_AliveState == AliveState.IsAlive &&",
+    "result": "building.r_AliveState == AliveState.IsAlive &&",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "Testmods/AIBuildDiagnoseTest/src/CanariFarmSwapProbe.cs",
+    "line": 151,
+    "original": "b.r_AliveState != AliveState.IsAlive) continue;",
+    "result": "b.r_AliveState != AliveState.IsAlive) continue;",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "Testmods/AIBuildDiagnoseTest/src/CanariFarmSwapProbe.cs",
+    "line": 339,
+    "original": "building->r_AliveState == AliveState.IsAlive;",
+    "result": "building->r_AliveState == AliveState.IsAlive;",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "Testmods/AICoarsePathComponentFixTest/src/WoodGuardOutcomeObserver.cs",
+    "line": 171,
+    "original": "if (owner < 1 || owner > 8 || item.r_AliveState != AliveState.IsAlive) continue;",
+    "result": "if (owner < 1 || owner > 8 || item.r_AliveState != AliveState.IsAlive) continue;",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "Testmods/AIDefenseTest/src/AIDefenseTestRuntime.cs",
+    "line": 431,
+    "original": "unitApi.GetAllUnits(",
+    "result": "unitApi.GetAllUnits(",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "Testmods/AIDefenseTest/src/AIDefenseTestRuntime.cs",
+    "line": 433,
+    "original": "AliveState.IsAlive,",
+    "result": "AliveState.IsAlive,",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "Testmods/AIDefenseTest/src/AIDefenseTestRuntime.cs",
+    "line": 442,
+    "original": "if (!APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _) || unit == null || unit->r_AliveState != AliveState.IsAlive)",
+    "result": "if (!APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _) || unit == null || !APIShared.UnitAccess.IsReallyAlive(unit))",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "Testmods/AIDefenseTest/src/AIDefenseTestRuntime.cs",
+    "line": 475,
+    "original": "tower->r_AliveState != AliveState.IsAlive ||",
+    "result": "tower->r_AliveState != AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "Testmods/AIDefenseTest/src/AIDefenseTestRuntime.cs",
+    "line": 601,
+    "original": "unit->r_AliveState != AliveState.IsAlive ||",
+    "result": "!APIShared.UnitAccess.IsReallyAlive(unit) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "Testmods/AIDefenseTest/src/AIDefenseTestRuntime.cs",
+    "line": 828,
+    "original": "unit->r_AliveState == AliveState.IsAlive &&",
+    "result": "APIShared.UnitAccess.IsReallyAlive(unit) &&",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "Testmods/AIDefenseTest/src/AIDefenseTestRuntime.cs",
+    "line": 1436,
+    "original": "return state == AliveState.NeedsInit || state == AliveState.IsAlive;",
+    "result": "return state == AliveState.NeedsInit || state == AliveState.IsAlive;",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "Testmods/AIDefenseTest/src/AIDefenseTestRuntime.cs",
+    "line": 1441,
+    "original": "return state == AliveState.NeedsInit || state == AliveState.IsAlive;",
+    "result": "return state == AliveState.NeedsInit || state == AliveState.IsAlive;",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "Testmods/EnemyBridgePathTest/src/BridgeBuildingIndex.cs",
+    "line": 53,
+    "original": "var eligible=new HashSet<int>();foreach(var bridge in bridges)if(buildings[bridge.Id-1].r_AliveState==AliveState.IsAlive)eligible.Add(bridge.Id);",
+    "result": "var eligible=new HashSet<int>();foreach(var bridge in bridges)if(buildings[bridge.Id-1].r_AliveState==AliveState.IsAlive)eligible.Add(bridge.Id);",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "Testmods/EnemyBridgePathTest/src/BridgeBuildingIndex.cs",
+    "line": 59,
+    "original": "if(gate.Grid<=0||gate.Grid>7||buildings[gate.Id-1].r_AliveState!=AliveState.IsAlive)continue;",
+    "result": "if(gate.Grid<=0||gate.Grid>7||buildings[gate.Id-1].r_AliveState!=AliveState.IsAlive)continue;",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "Testmods/EnemyBridgePathTest/src/BridgeSnapshot.cs",
+    "line": 42,
+    "original": "internal static bool Active(AliveState value) => value == AliveState.IsAlive || value == AliveState.NeedsInit;",
+    "result": "internal static bool Active(AliveState value) => value == AliveState.IsAlive || value == AliveState.NeedsInit;",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "Testmods/EnemyBridgePathTest/src/BridgeVirtualShadow.cs",
+    "line": 265,
+    "original": "if(parentSlot<0||currentBuildings[parentSlot].r_AliveState!=AliveState.IsAlive||currentBuildings[parentSlot].r_GlobalId!=bridge.ParentGlobal||currentBuildings[parentSlot].r_PlayerIdOwner!=bridge.ParentOwner||currentBuildings[parentSlot].r_CapturedByPlayerId!=bridge.ParentCapturer)coherent=false;",
+    "result": "if(parentSlot<0||currentBuildings[parentSlot].r_AliveState!=AliveState.IsAlive||currentBuildings[parentSlot].r_GlobalId!=bridge.ParentGlobal||currentBuildings[parentSlot].r_PlayerIdOwner!=bridge.ParentOwner||currentBuildings[parentSlot].r_CapturedByPlayerId!=bridge.ParentCapturer)coherent=false;",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "Testmods/EnemyGatePathfindingTest/src/GateTopologySnapshotProvider.cs",
+    "line": 1638,
+    "original": "aliveState == AliveState.NeedsInit || aliveState == AliveState.IsAlive;",
+    "result": "aliveState == AliveState.NeedsInit || aliveState == AliveState.IsAlive;",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "Testmods/EnemyGatePathfindingTest/src/SamePclGateRouteRuntime.cs",
+    "line": 905,
+    "original": "unit == null || unit->r_AliveState != AliveState.IsAlive ||",
+    "result": "unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "Testmods/EnemyGatePathfindingTest/src/SamePclGateRouteRuntime.cs",
+    "line": 1001,
+    "original": "unit->r_AliveState != AliveState.IsAlive || unit->r_ControllableForPlayerId != player)",
+    "result": "!APIShared.UnitAccess.IsReallyAlive(unit) || unit->r_ControllableForPlayerId != player)",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "Testmods/EngineerSiegeFixTest/src/EngineerCrewHandoffPolicy.cs",
+    "line": 64,
+    "original": "if (!candidate.IsAlive || candidate.UnitType != EngineerType ||",
+    "result": "if (!candidate.IsAlive || candidate.UnitType != EngineerType ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "Testmods/EngineerSiegeFixTest/src/EngineerCrewHandoffPolicy.cs",
+    "line": 153,
+    "original": "IsAlive = isAlive;",
+    "result": "IsAlive = isAlive;",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "Testmods/EngineerSiegeFixTest/src/EngineerCrewHandoffPolicy.cs",
+    "line": 169,
+    "original": "public bool IsAlive { get; }",
+    "result": "public bool IsAlive { get; }",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "Testmods/FormationTest/src/FormationTestRuntime.cs",
+    "line": 1390,
+    "original": "unit != null && unit->r_AliveState == AliveState.IsAlive &&",
+    "result": "unit != null && APIShared.UnitAccess.IsReallyAlive(unit) &&",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "Testmods/FormationTest/src/FormationTestRuntime.cs",
+    "line": 1894,
+    "original": "unit == null || unit->r_AliveState != AliveState.IsAlive ||",
+    "result": "unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "Testmods/FormationTest/src/FormationTestRuntime.cs",
+    "line": 2145,
+    "original": "unit == null || unit->r_AliveState != AliveState.IsAlive ||",
+    "result": "unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "Testmods/FormationTest/src/FormationTestRuntime.cs",
+    "line": 2165,
+    "original": "tribe == null || tribe->r_AliveState != AliveState.IsAlive)",
+    "result": "tribe == null || tribe->r_AliveState != AliveState.IsAlive)",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "Testmods/MoatMove/src/FastMovementScheduler.cs",
+    "line": 120,
+    "original": "unit->r_GlobalId == identity.Global && unit->r_AliveState == AliveState.IsAlive &&",
+    "result": "unit->r_GlobalId == identity.Global && APIShared.UnitAccess.IsReallyAlive(unit) &&",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "Testmods/MoatMove/src/FastMovementScheduler.cs",
+    "line": 137,
+    "original": "tribe->r_AliveState != AliveState.IsAlive ||",
+    "result": "tribe->r_AliveState != AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "Testmods/MoatMove/src/FastMovementScheduler.cs",
+    "line": 337,
+    "original": "original->r_AliveState != AliveState.IsAlive || original->r_PlayerIdOwner != player)) return false;",
+    "result": "original->r_AliveState != AliveState.IsAlive || original->r_PlayerIdOwner != player)) return false;",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "Testmods/MoatMove/src/FastMovementScheduler.cs",
+    "line": 356,
+    "original": "candidate->r_AliveState != AliveState.IsAlive || candidate->r_PlayerIdOwner != player || candidate->r_UnitsInGroup != 0)",
+    "result": "candidate->r_AliveState != AliveState.IsAlive || candidate->r_PlayerIdOwner != player || candidate->r_UnitsInGroup != 0)",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "Testmods/MoatMove/src/FastMovementScheduler.cs",
+    "line": 428,
+    "original": "tribe->r_PlayerIdOwner != player || tribe->r_AliveState != AliveState.IsAlive) return false;",
+    "result": "tribe->r_PlayerIdOwner != player || tribe->r_AliveState != AliveState.IsAlive) return false;",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "Testmods/OutpostTest/src/OutpostRallyRuntime.cs",
+    "line": 69,
+    "original": "return GameBuildingManagerAPI.Instance.TryGetBuildingById(r.Building,out b) && b->r_AliveState==AliveState.IsAlive &&",
+    "result": "return GameBuildingManagerAPI.Instance.TryGetBuildingById(r.Building,out b) && b->r_AliveState==AliveState.IsAlive &&",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "Testmods/OutpostTest/src/OutpostRallyRuntime.cs",
+    "line": 80,
+    "original": "if(!GameBuildingManagerAPI.Instance.TryGetBuildingById(id,out var b) || b->r_AliveState!=AliveState.IsAlive ||",
+    "result": "if(!GameBuildingManagerAPI.Instance.TryGetBuildingById(id,out var b) || b->r_AliveState!=AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "Testmods/OutpostTest/src/OutpostRallyRuntime.cs",
+    "line": 147,
+    "original": "(u->r_AliveState==AliveState.NeedsInit || u->r_AliveState==AliveState.IsAlive) && u->r_CurrentHealth>0 &&",
+    "result": "(u->r_AliveState==AliveState.NeedsInit || u->r_AliveState==AliveState.IsAlive) && u->r_CurrentHealth>0 &&",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "Testmods/OutpostTest/src/OutpostRallyRuntime.cs",
+    "line": 162,
+    "original": "if(!OutpostRallyState.Ready(u->r_AliveState==AliveState.NeedsInit,u->r_AliveState==AliveState.IsAlive,tribe->r_UnitsInGroup,u->r_TribeId,p.Tribe))",
+    "result": "if(!OutpostRallyState.Ready(u->r_AliveState==AliveState.NeedsInit,APIShared.UnitAccess.IsReallyAlive(u),tribe->r_UnitsInGroup,u->r_TribeId,p.Tribe))",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "Testmods/OutpostTest/src/OutpostRallyRuntime.cs",
+    "line": 221,
+    "original": "if(tribe->r_PlayerIdOwner!=e.Owner || tribe->r_UnitsInGroup!=0 || tribe->r_AliveState!=AliveState.IsAlive)",
+    "result": "if(tribe->r_PlayerIdOwner!=e.Owner || tribe->r_UnitsInGroup!=0 || tribe->r_AliveState!=AliveState.IsAlive)",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "Testmods/OutpostTest/src/OutpostRallyRuntime.cs",
+    "line": 230,
+    "original": "(u->r_AliveState!=AliveState.NeedsInit && u->r_AliveState!=AliveState.IsAlive)) throw new InvalidOperationException(\"Human spawn contract changed.\");",
+    "result": "(u->r_AliveState!=AliveState.NeedsInit && u->r_AliveState!=AliveState.IsAlive)) throw new InvalidOperationException(\"Human spawn contract changed.\");",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "Testmods/OutpostTest/src/OutpostRuntime.cs",
+    "line": 57,
+    "original": "tribe->r_GlobalId == global && tribe->r_AliveState == AliveState.IsAlive;",
+    "result": "tribe->r_GlobalId == global && tribe->r_AliveState == AliveState.IsAlive;",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "Testmods/OutpostTest/src/OutpostRuntime.cs",
+    "line": 77,
+    "original": "if (b->r_AliveState != AliveState.IsAlive || !OutpostSchedule.IsOutpost((int)b->r_BuildingType) ||",
+    "result": "if (b->r_AliveState != AliveState.IsAlive || !OutpostSchedule.IsOutpost((int)b->r_BuildingType) ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "Testmods/OutpostTest/src/OutpostRuntime.cs",
+    "line": 166,
+    "original": "if (tribe->r_PlayerIdOwner != e.Owner || tribe->r_AliveState != AliveState.IsAlive || tribe->r_UnitsInGroup != 0)",
+    "result": "if (tribe->r_PlayerIdOwner != e.Owner || tribe->r_AliveState != AliveState.IsAlive || tribe->r_UnitsInGroup != 0)",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "Testmods/OutpostTest/src/OutpostRuntime.cs",
+    "line": 193,
+    "original": "(u->r_AliveState != AliveState.NeedsInit && u->r_AliveState != AliveState.IsAlive))",
+    "result": "(u->r_AliveState != AliveState.NeedsInit && u->r_AliveState != AliveState.IsAlive))",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "Testmods/PrebuiltWorkshopBothFixTest/src/PrebuiltWorkshopBothFixTestRuntime.cs",
+    "line": 207,
+    "original": "if (other.r_AliveState != AliveState.IsAlive || other.r_PlayerIdOwner != playerId ||",
+    "result": "if (other.r_AliveState != AliveState.IsAlive || other.r_PlayerIdOwner != playerId ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "Testmods/SpectatorEditorBuildTest/src/SpectatorEditorBuildTestPlugin.cs",
+    "line": 986,
+    "original": "keep == null || keep->r_AliveState != AliveState.IsAlive ||",
+    "result": "keep == null || keep->r_AliveState != AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "Testmods/SpectatorEditorBuildTest/src/SpectatorEditorBuildTestPlugin.cs",
+    "line": 1000,
+    "original": "lord->r_AliveState != AliveState.IsAlive ||",
+    "result": "!APIShared.UnitAccess.IsReallyAlive(lord) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "Testmods/StockpileAccessFixTest/src/StockpileAccessFixTestRuntime.cs",
+    "line": 676,
+    "original": "if (unit == null || unit->r_AliveState != AliveState.IsAlive ||",
+    "result": "if (unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "Testmods/StockpileAccessFixTest/src/StockpileAccessFixTestRuntime.cs",
+    "line": 790,
+    "original": "blocker == null || blocker->r_AliveState != AliveState.IsAlive ||",
+    "result": "blocker == null || !APIShared.UnitAccess.IsReallyAlive(blocker) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "Testmods/StockpileAccessFixTest/src/StockpileAccessFixTestRuntime.cs",
+    "line": 948,
+    "original": "unit == null || unit->r_AliveState != AliveState.IsAlive ||",
+    "result": "unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "Testmods/StockpileAccessFixTest/src/StockpileAccessFixTestRuntime.cs",
+    "line": 983,
+    "original": "blocker == null || blocker->r_AliveState != AliveState.IsAlive ||",
+    "result": "blocker == null || !APIShared.UnitAccess.IsReallyAlive(blocker) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "Testmods/StockpileAccessFixTest/src/StockpileAccessFixTestRuntime.cs",
+    "line": 1011,
+    "original": "blocker == null || blocker->r_AliveState != AliveState.IsAlive ||",
+    "result": "blocker == null || !APIShared.UnitAccess.IsReallyAlive(blocker) ||",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "Testmods/StockpileAccessFixTest/src/StockpileAccessFixTestRuntime.cs",
+    "line": 1149,
+    "original": "bool alive = unit != null && unit->r_AliveState == AliveState.IsAlive;",
+    "result": "bool alive = unit != null && APIShared.UnitAccess.IsReallyAlive(unit);",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "Testmods/StockpileAccessFixTest/src/StockpileAccessFixTestRuntime.cs",
+    "line": 1169,
+    "original": "ownedStockpile = building->r_AliveState == AliveState.IsAlive &&",
+    "result": "ownedStockpile = building->r_AliveState == AliveState.IsAlive &&",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "Testmods/VirtualUnitsPrototype/src/VirtualEntityRuntime.cs",
+    "line": 150,
+    "original": "if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* assignedUnit, out _) || assignedUnit == null || assignedUnit->r_AliveState != AliveState.IsAlive)",
+    "result": "if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* assignedUnit, out _) || assignedUnit == null || !APIShared.UnitAccess.IsReallyAlive(assignedUnit))",
+    "decision": "replace: action/selection requires a living unit"
+  },
+  {
+    "file": "Testmods/VirtualUnitsPrototype/src/VirtualEntityRuntime.cs",
+    "line": 173,
+    "original": "if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* assignedBuilding) || assignedBuilding == null || assignedBuilding->r_AliveState != AliveState.IsAlive)",
+    "result": "if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* assignedBuilding) || assignedBuilding == null || assignedBuilding->r_AliveState != AliveState.IsAlive)",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "Testmods/VirtualUnitsPrototype/src/VirtualEntityRuntime.cs",
+    "line": 255,
+    "original": "unit->r_GlobalId != globalId || unit->r_UnitChimp != definition.BaseType || unit->r_AliveState != AliveState.IsAlive)",
+    "result": "unit->r_GlobalId != globalId || unit->r_UnitChimp != definition.BaseType || unit->r_AliveState != AliveState.IsAlive)",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "Testmods/VirtualUnitsPrototype/src/VirtualEntityRuntime.cs",
+    "line": 641,
+    "original": "if (unit->r_AliveState == AliveState.IsAlive)",
+    "result": "if (unit->r_AliveState == AliveState.IsAlive)",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "Testmods/VirtualUnitsPrototype/src/VirtualEntityRuntime.cs",
+    "line": 682,
+    "original": "if (building->r_AliveState == AliveState.IsAlive)",
+    "result": "if (building->r_AliveState == AliveState.IsAlive)",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "Testmods/VirtualUnitsPrototype/src/VirtualEntityRuntime.cs",
+    "line": 845,
+    "original": "unit->r_GlobalId == stored.GlobalId && unit->r_UnitChimp == definition.BaseType && unit->r_AliveState == AliveState.IsAlive;",
+    "result": "unit->r_GlobalId == stored.GlobalId && unit->r_UnitChimp == definition.BaseType && unit->r_AliveState == AliveState.IsAlive;",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "Testmods/VirtualUnitsPrototype/src/VirtualEntityRuntime.cs",
+    "line": 851,
+    "original": "building->r_GlobalId == stored.GlobalId && building->r_BuildingType == definition.BaseType && building->r_AliveState == AliveState.IsAlive;",
+    "result": "building->r_GlobalId == stored.GlobalId && building->r_BuildingType == definition.BaseType && building->r_AliveState == AliveState.IsAlive;",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "Testmods/VirtualUnitsPrototype/src/VirtualEntityRuntime.cs",
+    "line": 879,
+    "original": "if (!APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _) || unit == null || (unit->r_AliveState != AliveState.NeedsInit && unit->r_AliveState != AliveState.IsAlive)) { failure = Result(VirtualApiResultCode.EntityNotFound, \"Unit is not active.\"); return false; }",
+    "result": "if (!APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _) || unit == null || (unit->r_AliveState != AliveState.NeedsInit && unit->r_AliveState != AliveState.IsAlive)) { failure = Result(VirtualApiResultCode.EntityNotFound, \"Unit is not active.\"); return false; }",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "Testmods/VirtualUnitsPrototype/src/VirtualEntityRuntime.cs",
+    "line": 890,
+    "original": "if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(id, out GameBuilding* building) || building == null || (building->r_AliveState != AliveState.NeedsInit && building->r_AliveState != AliveState.IsAlive)) { failure = Result(VirtualApiResultCode.EntityNotFound, \"Building is not active.\"); return false; }",
+    "result": "if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(id, out GameBuilding* building) || building == null || (building->r_AliveState != AliveState.NeedsInit && building->r_AliveState != AliveState.IsAlive)) { failure = Result(VirtualApiResultCode.EntityNotFound, \"Building is not active.\"); return false; }",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "UnitCosts/src/UnitCostsRuntime.cs",
+    "line": 1122,
+    "original": "AliveState.IsAlive,",
+    "result": "AliveState.IsAlive,",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "UnitCosts/src/UnitCostsRuntime.cs",
+    "line": 1150,
+    "original": "AliveState.IsAlive,",
+    "result": "AliveState.IsAlive,",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "UnitCosts/src/UnitCostsRuntime.cs",
+    "line": 1550,
+    "original": "stable->r_AliveState == AliveState.IsAlive &&",
+    "result": "stable->r_AliveState == AliveState.IsAlive &&",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "UnitLimit/src/ActiveSiegeTentCache.cs",
+    "line": 332,
+    "original": "return aliveState == AliveState.IsAlive || aliveState == AliveState.NeedsInit;",
+    "result": "return aliveState == AliveState.IsAlive || aliveState == AliveState.NeedsInit;",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "UnitLimit/src/ActiveUnitCache.cs",
+    "line": 644,
+    "original": "return aliveState == AliveState.IsAlive ||",
+    "result": "return aliveState == AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  },
+  {
+    "file": "UnitLimit/src/UnitLimitRuntime.UnitLimits.cs",
+    "line": 488,
+    "original": "return aliveState == AliveState.IsAlive ||",
+    "result": "return aliveState == AliveState.IsAlive ||",
+    "decision": "retain: non-unit, state/initialization, corpse or diagnostic contract"
+  }
+]

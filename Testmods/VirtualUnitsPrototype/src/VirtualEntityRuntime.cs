@@ -147,7 +147,7 @@ namespace VirtualUnitsPrototype
             if (!CanMutate) return Result(VirtualApiResultCode.UnsupportedGameMode, "Assignments are allowed only in a loaded singleplayer skirmish.");
             if (!unitDefinitions.TryGetValue(typeId ?? string.Empty, out VirtualUnitDefinition definition)) return Result(VirtualApiResultCode.UnknownTypeId, "Unknown unit type ID.");
             if (!TryReadUnit(unitId, definition.BaseType, out uint globalId, out int maxHealth, out int currentHealth, out int speed, out VirtualApiResult failure)) return failure;
-            if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* assignedUnit, out _) || assignedUnit == null || assignedUnit->r_AliveState != AliveState.IsAlive)
+            if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* assignedUnit, out _) || assignedUnit == null || !APIShared.UnitAccess.IsReallyAlive(assignedUnit))
                 return Result(VirtualApiResultCode.EntityNotFound, "Unit is not fully initialized.");
             PendingSpawn pending;
             lock (sync)
@@ -254,6 +254,8 @@ namespace VirtualUnitsPrototype
                 if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) || unit == null ||
                     unit->r_GlobalId != globalId || unit->r_UnitChimp != definition.BaseType || unit->r_AliveState != AliveState.IsAlive)
                 { instances.Remove(UnitKind, unitId); instance = null; definition = null; return false; }
+                // Reject action/HUD queries without discarding the corpse's visual assignment.
+                if (!APIShared.UnitAccess.IsReallyAlive(unit)) { instance = null; definition = null; return false; }
                 instance = stored.Snapshot; return true;
             }
         }
@@ -372,12 +374,12 @@ namespace VirtualUnitsPrototype
                 int unitId = (int)created;
                 if (!TryReadUnit(unitId, definition.BaseType, out uint globalId, out int maxHealth, out int currentHealth, out int speed, out VirtualApiResult failure))
                 {
-                    (APIShared.UnitAccess.TryGetById(unitId, out _, out _) && GameUnitManagerAPI.Instance.DeleteUnitSafe(unitId));
+                    _ = APIShared.UnitAccess.TryGetById(unitId, out _, out _) && GameUnitManagerAPI.Instance.DeleteUnitSafe(unitId);
                     return failure;
                 }
                 if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) || unit == null || unit->r_ControllableForPlayerId != playerId)
                 {
-                    (APIShared.UnitAccess.TryGetById(unitId, out _, out _) && GameUnitManagerAPI.Instance.DeleteUnitSafe(unitId));
+                    _ = APIShared.UnitAccess.TryGetById(unitId, out _, out _) && GameUnitManagerAPI.Instance.DeleteUnitSafe(unitId);
                     return Result(VirtualApiResultCode.SpawnFailed, $"Spawned unit {unitId} has an unexpected owner.");
                 }
                 var pending = PendingSpawn.ForUnit(unitId, globalId, typeId, definition.DefinitionVersion, playerId, tileX, tileY, maxHealth, currentHealth, speed, unit->r_AliveState, currentSimulationTick + SpawnInitializationTickBudget, ticket);
@@ -643,7 +645,7 @@ namespace VirtualUnitsPrototype
                     int currentTileId = unchecked((int)unit->r_CurrentPositionTileId);
                     bool positionValid = GameTileManagerAPI.Instance.IsTileInsideMapBounds(unit->r_CurrentTilePositionX, unit->r_CurrentTilePositionY) &&
                         currentTileId == GameTileManagerAPI.Instance.GetTileId(unit->r_CurrentTilePositionX, unit->r_CurrentTilePositionY);
-                    if (SpawnInitializationPolicy.CanFinalize(identityMatches, true, positionValid, true, pending.RendererSeen && pending.UnitHookSeen))
+                    if (SpawnInitializationPolicy.CanFinalize(identityMatches, APIShared.UnitAccess.IsReallyAlive(unit), positionValid, true, pending.RendererSeen && pending.UnitHookSeen))
                     {
                         FinalizeUnit(pending, unit);
                         continue;

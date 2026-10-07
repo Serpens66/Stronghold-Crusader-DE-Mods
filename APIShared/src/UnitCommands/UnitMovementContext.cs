@@ -105,7 +105,7 @@ namespace APIShared.UnitCommands
             if (frame == null || frame.Args.UnitId != unitId || unitId <= 0 ||
                 unitId > MaximumUnitCount ||
                 !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) || unit == null ||
-                unit->r_AliveState != AliveState.IsAlive || !CanDigMoat(unit))
+                !APIShared.UnitAccess.IsReallyAlive(unit) || !CanDigMoat(unit))
                 return null;
             if (frame.Plan != null && frame.Plan.IdentityBound &&
                 (frame.Plan.UnitGlobalId != unit->r_GlobalId || frame.Plan.PlayerId != unit->r_ControllableForPlayerId))

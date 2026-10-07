@@ -187,7 +187,7 @@ namespace ImprovedHunters
             if (!TryValidateHunter(hunterUnitId, requiredAiState: 1, out GameUnit* hunter) ||
                 !APIShared.UnitAccess.TryGetById(candidate.PreyUnitId, out GameUnit* prey, out _) ||
                 prey == null ||
-                prey->r_AliveState != AliveState.IsAlive ||
+                !APIShared.UnitAccess.IsReallyAlive(prey) ||
                 prey->r_GlobalId != candidate.PreyGlobalId)
             {
                 LogInvalidStateOneContextOnce(

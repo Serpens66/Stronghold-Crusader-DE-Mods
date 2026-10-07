@@ -168,10 +168,10 @@ namespace ImprovedHunters
                 }
 
                 if (target->r_UnitChimp != eChimps.CHIMP_TYPE_CHICKEN ||
-                    target->r_AliveState != AliveState.IsAlive ||
+                    !APIShared.UnitAccess.IsReallyAlive(target) ||
                     target->r_CurrentHealth == 0 ||
                     target->r_GlobalId == 0 ||
-                    attacker->r_AliveState != AliveState.IsAlive ||
+                    !APIShared.UnitAccess.IsReallyAlive(attacker) ||
                     attacker->r_CurrentHealth == 0 ||
                     attacker->r_GlobalId == 0)
                 {

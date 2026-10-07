@@ -67,6 +67,8 @@ namespace BugfixesAndQoL
             a.cmp(eax, __dword_ptr[r12]); a.jae(vanilla);
             a.lea(r10, __[rbx + r12]);
             a.cmp(__word_ptr[r10 + 0x6E4], (int)AliveState.IsAlive); a.jne(vanilla);
+            // IsReallyAlive: manager-relative low-word death marker (GameUnit+0x29C).
+            a.cmp(__word_ptr[r10 + 0x8F8], 0); a.jne(vanilla);
             a.cmp(__word_ptr[r10 + 0x6E6], (int)(tanner ? eChimps.CHIMP_TYPE_TANNER : eChimps.CHIMP_TYPE_POLETURNER)); a.jne(vanilla);
             // State 1 is also used during entertainment. The helper can return zero mid-animation.
             a.cmp(__word_ptr[r10 + 0x918], 1); a.jne(vanilla);

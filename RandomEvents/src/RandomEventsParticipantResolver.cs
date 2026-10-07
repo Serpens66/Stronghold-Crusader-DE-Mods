@@ -52,7 +52,7 @@ namespace RandomEvents
                 failure = "registered Lord unit cannot be resolved";
                 return false;
             }
-            if (lord->r_AliveState != AliveState.IsAlive)
+            if (!APIShared.UnitAccess.IsReallyAlive(lord))
             {
                 failure = $"registered Lord unit state is {lord->r_AliveState}";
                 return false;

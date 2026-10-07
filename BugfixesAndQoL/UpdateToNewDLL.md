@@ -408,3 +408,8 @@ Validation completed 2026-10-07:
   exact-route-APIShared-build-retry.log and exact-route-BugfixesAndQoL-build.log.
 - No in-game acceptance claimed. Test roof orders on both gate sizes, owned/captured
   open gates and different approach sides, with Improved Pathfinding on/off.
+## 2026-10-08: living-unit action guards
+
+Native SHA-256 remains FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2. The complete death/combat/removal chain is documented in the current baseline knowledge/GATEHOUSE_LIVING_CAPTURE.md; transient recruitment states and persistent slot identity in RECRUIT_TRANSFORMATION.md. Managed action guards use APIShared.UnitAccess.IsReallyAlive; snapshot property names and identity checks are preserved.
+
+Existing synchronized movement generators and the poleturner/tanner idle-delay generator additionally test the low WORD at manager-relative unit offset 0x8F8 (record origin 0x65C, GameUnit+0x29C). This follows the existing IsAlive check at manager+0x6E4. No full-DWORD marker test, health substitute or new hook is introduced. Death-marked units follow the existing restore-and-replay path without changing tracking tables, speed or animation. The native upper marker word is deliberately ignored. Existing hook RVAs, patterns, pristine replay instructions, displacement checks, ownership and native-hash fail-closed policy are unchanged; no relocation fallback for this fixed layout is added. Revalidate the origin formula, installed GameUnit.N0000019A layout and full death/combat flow on native/interop updates. Workshop tests execute the actual emitted stubs with dying-worker and upper-word cases; movement parity tests cover exclusion without erasing recruitment tracking.

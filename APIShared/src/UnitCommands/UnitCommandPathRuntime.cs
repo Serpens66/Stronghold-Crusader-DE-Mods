@@ -1869,7 +1869,7 @@ namespace APIShared.UnitCommands
             foreach (int unitId in scope.CandidateUnitIds)
             {
                 if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
-                    unit == null || unit->r_AliveState != AliveState.IsAlive ||
+                    unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
                     unit->r_TribeId != args.TribeId ||
                     !MatchesCompletedAttackTargetContext(unit, scope))
                 {
@@ -1896,7 +1896,7 @@ namespace APIShared.UnitCommands
             foreach (int unitId in unitIds)
             {
                 if (APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) &&
-                    unit != null && unit->r_AliveState == AliveState.IsAlive &&
+                    unit != null && APIShared.UnitAccess.IsReallyAlive(unit) &&
                     unit->r_TribeId == scope.TribeId)
                 {
                     scope.CandidateUnitIds.Add(unitId);
@@ -2111,7 +2111,7 @@ namespace APIShared.UnitCommands
                             continue;
                         }
                         if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
-                            unit == null || unit->r_AliveState != AliveState.IsAlive)
+                            unit == null || !APIShared.UnitAccess.IsReallyAlive(unit))
                         {
                             EndTrackedAttack(unitId, tracker, "unit-dead-or-invalid");
                             continue;
@@ -2360,7 +2360,7 @@ namespace APIShared.UnitCommands
             try
             {
                 if (!APIShared.UnitAccess.TryGetById(plan.UnitId, out GameUnit* unit, out _) ||
-                    unit == null || unit->r_AliveState != AliveState.IsAlive)
+                    unit == null || !APIShared.UnitAccess.IsReallyAlive(unit))
                 {
                     return;
                 }
@@ -2441,7 +2441,7 @@ namespace APIShared.UnitCommands
             string decision)
         {
             if (!APIShared.UnitAccess.TryGetById(shadow.UnitId, out GameUnit* unit, out _) ||
-                unit == null || unit->r_AliveState != AliveState.IsAlive)
+                unit == null || !APIShared.UnitAccess.IsReallyAlive(unit))
             {
                 return;
             }
@@ -2540,7 +2540,7 @@ namespace APIShared.UnitCommands
                         continue;
                     }
                     if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
-                        unit == null || unit->r_AliveState != AliveState.IsAlive)
+                        unit == null || !APIShared.UnitAccess.IsReallyAlive(unit))
                     {
                         EndTrackedMoatMove(unitId, tracker, "unit-dead-or-invalid");
                         continue;
@@ -3449,7 +3449,7 @@ namespace APIShared.UnitCommands
             unit = null;
             if (preferredUnitId > 0 &&
                 APIShared.UnitAccess.TryGetById(preferredUnitId, out GameUnit* preferred, out _) &&
-                preferred != null && preferred->r_AliveState == AliveState.IsAlive &&
+                preferred != null && APIShared.UnitAccess.IsReallyAlive(preferred) &&
                 (expectedPlayerId < 0 || preferred->r_ControllableForPlayerId == expectedPlayerId) &&
                 preferred->r_UnitSelected != 0 &&
                 CanDigMoat(preferred))
@@ -3465,7 +3465,7 @@ namespace APIShared.UnitCommands
                 int selectedUnitId = selectedUnitIds[index];
                 if (selectedUnitId <= 0 ||
                     !APIShared.UnitAccess.TryGetById(selectedUnitId, out GameUnit* selected, out _) ||
-                    selected == null || selected->r_AliveState != AliveState.IsAlive ||
+                    selected == null || !APIShared.UnitAccess.IsReallyAlive(selected) ||
                     (expectedPlayerId >= 0 && selected->r_ControllableForPlayerId != expectedPlayerId) ||
                     !CanDigMoat(selected))
                 {
@@ -3582,7 +3582,7 @@ namespace APIShared.UnitCommands
                 if (disposed || unitManager == IntPtr.Zero || unitId <= 0 ||
                     unitManager != (IntPtr)nativeUnitManager ||
                     !APIShared.UnitAccess.TryGetById(unitId, out unit, out _) ||
-                    unit == null || unit->r_AliveState != AliveState.IsAlive ||
+                    unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
                     !CanDigMoat(unit) ||
                     *(short*)((byte*)unit + UnitCombatFinishGateOffset) != 0 ||
                     *(short*)((byte*)unit + UnitGroupInactiveStateOffset) != 0 ||
@@ -3761,7 +3761,7 @@ namespace APIShared.UnitCommands
             foreach (int unitId in unitIds)
             {
                 if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
-                    unit == null || unit->r_AliveState != AliveState.IsAlive)
+                    unit == null || !APIShared.UnitAccess.IsReallyAlive(unit))
                 {
                     continue;
                 }
@@ -4017,7 +4017,7 @@ namespace APIShared.UnitCommands
             {
                 // Candidate diagnostics must not reject an otherwise valid attack scope.
             }
-            if (unit->r_AliveState != AliveState.IsAlive || unit->r_TribeId != scope.TribeId)
+            if (!APIShared.UnitAccess.IsReallyAlive(unit) || unit->r_TribeId != scope.TribeId)
             {
                 rejectionReason = "unit-or-tribe-mismatch";
                 return false;
@@ -4326,7 +4326,7 @@ namespace APIShared.UnitCommands
             foreach (int unitId in unitIds)
             {
                 if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
-                    unit == null || unit->r_AliveState != AliveState.IsAlive ||
+                    unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
                     unit->r_TribeId != command.TribeId ||
                     unit->r_ControllableForPlayerId != playerId || !CanDigMoat(unit))
                 {
@@ -4375,7 +4375,7 @@ namespace APIShared.UnitCommands
             foreach (int unitId in unitIds)
             {
                 if (APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) &&
-                    unit != null && unit->r_AliveState == AliveState.IsAlive &&
+                    unit != null && APIShared.UnitAccess.IsReallyAlive(unit) &&
                     unit->r_ControllableForPlayerId == playerId &&
                     unit->r_CurrentTilePositionX == startX &&
                     unit->r_CurrentTilePositionY == startY)
@@ -4511,7 +4511,7 @@ namespace APIShared.UnitCommands
                     int unitId = getGroupUnitId(tribeManager, tribeId, ordinal);
                     if (unitId <= 0 ||
                         !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
-                        unit == null || unit->r_AliveState != AliveState.IsAlive ||
+                        unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
                         *(ushort*)((byte*)unit + UnitGroupInactiveStateOffset) != 0)
                     {
                         continue;
@@ -5177,7 +5177,7 @@ namespace APIShared.UnitCommands
                 foreach (int unitId in groupUnitIds)
                 {
                     if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
-                        unit == null || unit->r_AliveState != AliveState.IsAlive ||
+                        unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
                         unit->r_TribeId != scope.TribeId || !CanDigMoat(unit))
                     {
                         continue;
@@ -5601,7 +5601,7 @@ namespace APIShared.UnitCommands
                 return AttackRegionFallbackDecision.Reject("movement-or-region-context-mismatch");
             }
             if (!APIShared.UnitAccess.TryGetById(scope.UnitId, out GameUnit* unit, out _) ||
-                unit == null || unit->r_AliveState != AliveState.IsAlive ||
+                unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
                 unit->r_TribeId != scope.TribeId ||
                 unit->r_ControllableForPlayerId != scope.PlayerId || !CanDigMoat(unit))
             {
@@ -5716,7 +5716,7 @@ namespace APIShared.UnitCommands
             foreach (int unitId in groupUnitIds)
             {
                 if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
-                    unit == null || unit->r_AliveState != AliveState.IsAlive ||
+                    unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
                     unit->r_TribeId != scope.TribeId || !CanDigMoat(unit))
                 {
                     continue;
@@ -5905,7 +5905,7 @@ namespace APIShared.UnitCommands
             foreach (int candidateId in command.CandidateUnitIds)
             {
                 if (!APIShared.UnitAccess.TryGetById(candidateId, out GameUnit* unit, out _) ||
-                    unit == null || unit->r_AliveState != AliveState.IsAlive ||
+                    unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
                     unit->r_TribeId != command.TribeId || !CanDigMoat(unit))
                 {
                     continue;
@@ -5939,7 +5939,7 @@ namespace APIShared.UnitCommands
                 int unitId = getGroupUnitId(tribeManager, tribeId, ordinal);
                 if (unitId <= 0 ||
                     !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
-                    unit == null || unit->r_AliveState != AliveState.IsAlive ||
+                    unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
                     unit->r_TribeId != tribeId ||
                     *(ushort*)((byte*)unit + UnitGroupInactiveStateOffset) != 0)
                 {
@@ -6354,7 +6354,7 @@ namespace APIShared.UnitCommands
                     if (buildingId <= 0 || unitId <= 0 ||
                         !APIShared.UnitAccess.TryGetById(
                             unitId, out GameUnit* unit, out _) || unit == null ||
-                        unit->r_AliveState != AliveState.IsAlive)
+                        !APIShared.UnitAccess.IsReallyAlive(unit))
                     {
                         reason = "invalid-unit-or-building-id";
                     }
@@ -7025,7 +7025,7 @@ namespace APIShared.UnitCommands
             foreach (int unitId in command.ActiveUnitIdsAtDispatch)
             {
                 if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
-                    unit == null || unit->r_AliveState != AliveState.IsAlive ||
+                    unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
                     unit->r_TribeId != command.TribeId || !CanDigMoat(unit))
                 {
                     continue;
@@ -7156,7 +7156,7 @@ namespace APIShared.UnitCommands
             foreach (int id in ids)
             {
                 if (!APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _) || unit == null ||
-                    unit->r_AliveState != AliveState.IsAlive || unit->r_ControllableForPlayerId != template.PlayerId) continue;
+                    !APIShared.UnitAccess.IsReallyAlive(unit) || unit->r_ControllableForPlayerId != template.PlayerId) continue;
                 group.SelectedUnits++;
                 bool canDig = CanDigMoat(unit);
                 if (canDig) group.DiggerUnits++;
@@ -7343,7 +7343,7 @@ namespace APIShared.UnitCommands
 
             int unitId = (int)rawUnitId;
             if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* target, out _) ||
-                target == null || target->r_AliveState != AliveState.IsAlive ||
+                target == null || !APIShared.UnitAccess.IsReallyAlive(target) ||
                 target->r_GlobalId == 0)
             {
                 return false;
@@ -7869,7 +7869,7 @@ namespace APIShared.UnitCommands
                 if (requiredUnitId > 0 && unitId != requiredUnitId)
                     continue;
                 if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* target, out _) ||
-                    target == null || target->r_AliveState != AliveState.IsAlive ||
+                    target == null || !APIShared.UnitAccess.IsReallyAlive(target) ||
                     target->r_CurrentTilePositionX != targetX ||
                     target->r_CurrentTilePositionY != targetY)
                 {
@@ -8676,7 +8676,7 @@ namespace APIShared.UnitCommands
             foreach (int unitId in command.ActiveUnitIdsAtDispatch)
             {
                 if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
-                    unit == null || unit->r_AliveState != AliveState.IsAlive ||
+                    unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
                     unit->r_TribeId != command.TribeId)
                 {
                     continue;

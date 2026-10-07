@@ -290,7 +290,7 @@ namespace BugfixesAndQoL
                 return false;
             }
 
-            return lord->r_AliveState == AliveState.IsAlive &&
+            return APIShared.UnitAccess.IsReallyAlive(lord) &&
                 lord->r_ControllableForPlayerId == playerId &&
                 lord->r_UnitChimp == eChimps.CHIMP_TYPE_LORD &&
                 lord->r_GlobalId != 0 &&

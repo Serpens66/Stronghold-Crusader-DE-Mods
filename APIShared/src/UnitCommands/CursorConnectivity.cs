@@ -443,7 +443,7 @@ namespace APIShared.UnitCommands
                 {
                     identity.Global = unit->r_GlobalId; identity.X = unit->r_CurrentTilePositionX; identity.Y = unit->r_CurrentTilePositionY;
                     identity.Player = unit->r_ControllableForPlayerId; identity.Type = (int)unit->r_UnitChimp; identity.Alive = (int)unit->r_AliveState;
-                    if (unit->r_AliveState == AliveState.IsAlive && (player < 0 || identity.Player == player)) valid++;
+                    if (APIShared.UnitAccess.IsReallyAlive(unit) && (player < 0 || identity.Player == player)) valid++;
                 }
                 changed |= !identity.Same(selectedCursorIdentity[i]);
                 selectedCursorIdentity[i] = identity; selectedCursorIds[i] = id;

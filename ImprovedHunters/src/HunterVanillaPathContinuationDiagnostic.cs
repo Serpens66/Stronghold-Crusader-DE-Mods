@@ -783,7 +783,7 @@ namespace ImprovedHunters
             if (hunterUnitId <= 0 ||
                 !APIShared.UnitAccess.TryGetById(unitApi, hunterUnitId, out hunter, out _) ||
                 hunter == null ||
-                hunter->r_AliveState != AliveState.IsAlive ||
+                !APIShared.UnitAccess.IsReallyAlive(hunter) ||
                 hunter->r_CurrentHealth == 0 ||
                 hunter->r_GlobalId == 0 ||
                 hunter->r_UnitChimp != eChimps.CHIMP_TYPE_HUNTER)
@@ -801,7 +801,7 @@ namespace ImprovedHunters
                 preyGlobalId == 0 ||
                 !APIShared.UnitAccess.TryGetById(unitApi, preyUnitId, out prey, out _) ||
                 prey == null ||
-                prey->r_AliveState != AliveState.IsAlive ||
+                !APIShared.UnitAccess.IsReallyAlive(prey) ||
                 prey->r_CurrentHealth == 0 ||
                 prey->r_GlobalId != preyGlobalId ||
                 !settings.IsKnownAnimal(prey->r_UnitChimp) ||

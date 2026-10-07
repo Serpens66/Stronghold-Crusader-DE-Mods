@@ -45,6 +45,22 @@ namespace MoatMove
     internal unsafe struct CursorPointer { public GameCursorManager* Pointer; }
     internal unsafe class GameUnitManagerAPI
     {
+        public UnitQuery QueryUnits() => new UnitQuery(this);
+        public delegate bool UnitPredicate(in GameUnit unit);
+        public sealed class UnitQuery
+        {
+            private readonly GameUnitManagerAPI manager;
+            private UnitPredicate predicate;
+            public UnitQuery(GameUnitManagerAPI manager) { this.manager = manager; }
+            public UnitQuery Where(UnitPredicate filter) { predicate = filter; return this; }
+            public void ToIdList(System.Collections.Generic.List<int> ids)
+            {
+                var records = manager.GetUnitsAsSpan();
+                for (int spanIndex = 0; spanIndex < records.Length; spanIndex++)
+                    if (predicate == null || predicate(in records[spanIndex])) ids.Add(spanIndex + 1);
+            }
+        }
+
         public static GameUnitManagerAPI Instance = new GameUnitManagerAPI();
         public GameUnit* Units;
         public int LookupCalls;

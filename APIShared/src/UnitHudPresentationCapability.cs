@@ -1273,7 +1273,7 @@ namespace APIShared
                     if (reportIndex > 0 && reportIndex < main.AllTroops.Count && reportIndex - 1 < state.troop_counts.Length)
                         desiredCounts[reportIndex] = state.troop_counts[reportIndex - 1];
                 }
-                foreach (int unitId in GameUnitManagerAPI.Instance.GetAllAliveUnits())
+                foreach (int unitId in APIShared.UnitAccess.GetAllReallyAliveUnits())
                 {
                     if (!TryCapture(unitId, out UnitHudUnitSnapshot unit) || unit.OwnerPlayerId != local) continue;
                     CategoryRegistration category = Classify(unit, UnitHudSurface.ArmyReport);
@@ -1458,7 +1458,7 @@ namespace APIShared
         private static bool TryCapture(int unitId, out UnitHudUnitSnapshot snapshot)
         {
             snapshot = null;
-            if (unitId <= 0 || GameUnitManagerAPI.Instance == null || !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) || unit == null || unit->r_AliveState != AliveState.IsAlive || unit->r_GlobalId == 0) return false;
+            if (unitId <= 0 || GameUnitManagerAPI.Instance == null || !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) || unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) || unit->r_GlobalId == 0) return false;
             snapshot = new UnitHudUnitSnapshot(unitId, unit->r_GlobalId, (int)unit->r_UnitChimp, unit->r_ControllableForPlayerId, true);
             return true;
         }

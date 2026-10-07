@@ -168,7 +168,7 @@ namespace ExtraFeatures
                 bool civilian = (mask & CivilianMask) != 0 && IsHumanCivilian(unit->r_UnitChimp);
                 if ((!siege && !civilian) || seen[unitId] ||
                     unit->r_ControllableForPlayerId != playerId ||
-                    unit->r_AliveState != AliveState.IsAlive || unit->r_GlobalId == 0 ||
+                    !APIShared.UnitAccess.IsReallyAlive(unit) || unit->r_GlobalId == 0 ||
                     unit->r_CurrentHealth == 0 || unit->r_CurrentHealth >= unit->r_MaxHealth)
                     continue;
 

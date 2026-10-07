@@ -207,6 +207,12 @@
             <param name="unit">An immediate valid unit pointer, or null.</param>
             <returns>True only for a non-null unit passing the combat life predicate.</returns>
         </member>
+        <member name="M:APIShared.UnitAccess.GetAllReallyAliveUnits">
+            <summary>Gets one-based game IDs of units passing Vanilla's combat life predicate.</summary>
+            <remarks>Use on the game thread. The result is a momentary list, not an identity or
+            lifetime guarantee; revalidate identity and life before later actions.</remarks>
+            <returns>Unit game IDs in the Script Extender query's native array order.</returns>
+        </member>
         <member name="M:APIShared.UnitAccess.TryGetById(System.Int32,SHCDESE.Interop.GameUnit*@,APIShared.UnitLookupFailure@,System.String,System.String,System.Int32)">
             <summary>Resolves a unit ID without passing invalid IDs to the Script Extender.</summary>
             <param name="unitId">One-based game ID, never a span index.</param>

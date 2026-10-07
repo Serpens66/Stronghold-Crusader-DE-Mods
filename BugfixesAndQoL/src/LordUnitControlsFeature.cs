@@ -168,7 +168,7 @@ namespace BugfixesAndQoL
             if (state?.selectedChimps == null || GameUnitManagerAPI.Instance == null) return false;
             int count = Math.Min(state.numSelectedChimps, state.selectedChimps.Length);
             for (int i = 0; i < count; i++)
-                if (state.selectedChimps[i] > 0 && APIShared.UnitAccess.TryGetById(state.selectedChimps[i], out GameUnit* unit, out _) && unit != null && unit->r_AliveState == AliveState.IsAlive && unit->r_UnitChimp != eChimps.CHIMP_TYPE_LORD) return true;
+                if (state.selectedChimps[i] > 0 && APIShared.UnitAccess.TryGetById(state.selectedChimps[i], out GameUnit* unit, out _) && unit != null && APIShared.UnitAccess.IsReallyAlive(unit) && unit->r_UnitChimp != eChimps.CHIMP_TYPE_LORD) return true;
             return false;
         }
 
@@ -185,7 +185,7 @@ namespace BugfixesAndQoL
             if (playerId < 1 || playerId > 8 || GamePlayerManagerAPI.Instance == null || GameUnitManagerAPI.Instance == null) return default(SurrenderLordSnapshot);
             int unitId = GamePlayerManagerAPI.Instance.GetLordUnitId(playerId);
             if (unitId <= 0 || !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) || unit == null) return new SurrenderLordSnapshot(playerId, unitId, -1, -1, false);
-            return new SurrenderLordSnapshot(playerId, unitId, (int)unit->r_GlobalId, unit->r_ControllableForPlayerId, unit->r_AliveState == AliveState.IsAlive && unit->r_UnitChimp == eChimps.CHIMP_TYPE_LORD && unit->r_CurrentHealth > 0);
+            return new SurrenderLordSnapshot(playerId, unitId, (int)unit->r_GlobalId, unit->r_ControllableForPlayerId, APIShared.UnitAccess.IsReallyAlive(unit) && unit->r_UnitChimp == eChimps.CHIMP_TYPE_LORD && unit->r_CurrentHealth > 0);
         }
 
         private static bool IsActiveMatch() => FatControler.currentScene == Enums.SceneIDS.ActualMainGame && Director.instance != null && Director.instance.SimRunning && GameData.Instance?.lastGameState != null;

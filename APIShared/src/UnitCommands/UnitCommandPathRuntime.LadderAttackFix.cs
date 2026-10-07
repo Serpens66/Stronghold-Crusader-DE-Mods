@@ -255,7 +255,7 @@ namespace APIShared.UnitCommands
             int leadUnitId = *(ushort*)(tribe + TribeLeadUnitIdOffset);
             if (leadUnitId <= 0 || leadUnitId > MaximumUnitCount ||
                 !APIShared.UnitAccess.TryGetById(leadUnitId, out GameUnit* unit, out _) ||
-                unit == null || unit->r_AliveState != AliveState.IsAlive ||
+                unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
                 unit->r_TribeId != tribeId || unit->r_ControllableForPlayerId != playerId)
             {
                 rejectionReason = "invalid-leader-unit";

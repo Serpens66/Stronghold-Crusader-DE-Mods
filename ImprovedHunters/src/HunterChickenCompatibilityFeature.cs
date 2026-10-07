@@ -364,7 +364,7 @@ namespace ImprovedHunters
                 return false;
             if (chicken->r_AliveState == AliveState.NeedsInit)
                 return true;
-            if (chicken->r_AliveState != AliveState.IsAlive || chicken->r_CurrentHealth <= 0)
+            if (!APIShared.UnitAccess.IsReallyAlive(chicken) || chicken->r_CurrentHealth <= 0)
                 return false;
 
             return *(ushort*)((byte*)chicken + 0x29C) == 0;

@@ -374,7 +374,7 @@ namespace APIShared.UnitCommands
                 (relationshipMode != 1 && relationshipMode != 2) ||
                 !GamePlayerManagerAPI.Instance.IsPlayerIdValid(playerId) ||
                 !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
-                unit == null || unit->r_AliveState != AliveState.IsAlive ||
+                unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
                 unit->r_ControllableForPlayerId != playerId || !CanDigMoat(unit))
             {
                 return false;
@@ -650,7 +650,7 @@ namespace APIShared.UnitCommands
             {
                 if (!APIShared.UnitAccess.TryGetById(
                         pending.UnitId, out GameUnit* unit, out _) ||
-                    unit == null || unit->r_AliveState != AliveState.IsAlive ||
+                    unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
                     unit->r_ControllableForPlayerId != pending.PlayerId || !CanDigMoat(unit) ||
                     unit->r_CurrentTilePositionX != pending.StartX ||
                     unit->r_CurrentTilePositionY != pending.StartY ||
@@ -694,7 +694,7 @@ namespace APIShared.UnitCommands
                 pending.TileManager != GameTileManagerAPI.Instance.GetTileManager() ||
                 !APIShared.UnitAccess.TryGetById(
                     pending.UnitId, out GameUnit* unit, out _) ||
-                unit == null || unit->r_AliveState != AliveState.IsAlive ||
+                unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
                 unit->r_ControllableForPlayerId != pending.PlayerId || !CanDigMoat(unit) ||
                 unit->r_CurrentTilePositionX != pending.StartX ||
                 unit->r_CurrentTilePositionY != pending.StartY ||
@@ -833,7 +833,7 @@ namespace APIShared.UnitCommands
                 scope.CapturedTick != CaptureCurrentGameTick() ||
                 (uint)targetX >= MapWidth || (uint)targetY >= MapWidth ||
                 !APIShared.UnitAccess.TryGetById(scope.UnitId, out GameUnit* unit, out _) ||
-                unit == null || unit->r_AliveState != AliveState.IsAlive || !CanDigMoat(unit) ||
+                unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) || !CanDigMoat(unit) ||
                 unit->r_ControllableForPlayerId != scope.PlayerId ||
                 unit->r_CurrentTilePositionX != scope.StartX ||
                 unit->r_CurrentTilePositionY != scope.StartY)
@@ -942,7 +942,7 @@ namespace APIShared.UnitCommands
                 scope.TileManager != GameTileManagerAPI.Instance.GetTileManager() ||
                 !APIShared.UnitAccess.TryGetById(
                     scope.UnitId, out GameUnit* unit, out _) ||
-                unit == null || unit->r_AliveState != AliveState.IsAlive ||
+                unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
                 unit->r_ControllableForPlayerId != scope.PlayerId || !CanDigMoat(unit) ||
                 unit->r_CurrentTilePositionX != scope.StartX ||
                 unit->r_CurrentTilePositionY != scope.StartY)
@@ -1110,7 +1110,7 @@ namespace APIShared.UnitCommands
                 return false;
             return APIShared.UnitAccess.TryGetById(
                     occupantUnitId, out GameUnit* occupant, out _) &&
-                occupant != null && occupant->r_AliveState == AliveState.IsAlive;
+                occupant != null && APIShared.UnitAccess.IsReallyAlive(occupant);
         }
 
         internal static bool TryReadMoatRecord(

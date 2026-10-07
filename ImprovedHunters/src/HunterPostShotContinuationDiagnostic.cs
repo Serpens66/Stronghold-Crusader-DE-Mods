@@ -895,7 +895,7 @@ namespace ImprovedHunters
             if (!APIShared.UnitAccess.TryGetById(candidate.HunterUnitId, out hunter, out _) ||
                 hunter == null)
                 return Reject("hunter-not-found", out validation);
-            if (hunter->r_AliveState != AliveState.IsAlive || hunter->r_CurrentHealth == 0)
+            if (!APIShared.UnitAccess.IsReallyAlive(hunter) || hunter->r_CurrentHealth == 0)
                 return Reject("hunter-not-live", out validation);
             if (hunter->r_GlobalId != candidate.HunterGlobalId ||
                 hunter->r_UnitChimp != eChimps.CHIMP_TYPE_HUNTER)
@@ -906,7 +906,7 @@ namespace ImprovedHunters
                 return Reject($"hunter-state-{actualState}-expected-{requiredHunterState}", out validation);
             if (!APIShared.UnitAccess.TryGetById(candidate.PreyUnitId, out prey, out _) || prey == null)
                 return Reject("prey-not-found", out validation);
-            if (prey->r_AliveState != AliveState.IsAlive || prey->r_CurrentHealth == 0)
+            if (!APIShared.UnitAccess.IsReallyAlive(prey) || prey->r_CurrentHealth == 0)
                 return Reject("prey-not-live", out validation);
             if (prey->r_GlobalId != candidate.PreyGlobalId || prey->r_UnitChimp != candidate.PreyType)
                 return Reject("prey-identity-changed", out validation);
@@ -1026,7 +1026,7 @@ namespace ImprovedHunters
                     continue;
 
                 GameUnit* otherHunter = units.GetValuePointer(index);
-                if (otherHunter->r_AliveState != AliveState.IsAlive ||
+                if (!APIShared.UnitAccess.IsReallyAlive(otherHunter) ||
                     otherHunter->r_UnitChimp != eChimps.CHIMP_TYPE_HUNTER)
                 {
                     continue;

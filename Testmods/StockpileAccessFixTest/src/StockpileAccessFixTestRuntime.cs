@@ -673,7 +673,7 @@ namespace StockpileAccessFixTest
                 if (unitId == victim.UnitId)
                     continue;
                 GameUnit* unit = units.GetValuePointer(spanIndex);
-                if (unit == null || unit->r_AliveState != AliveState.IsAlive ||
+                if (unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
                     unit->r_UnitChimp != eChimps.CHIMP_TYPE_FLETCHER)
                 {
                     continue;
@@ -787,7 +787,7 @@ namespace StockpileAccessFixTest
             if (occupyingUnitId != testBlockerUnitId)
             {
                 if (!APIShared.UnitAccess.TryGetById(testBlockerUnitId, out GameUnit* blocker, out _) ||
-                    blocker == null || blocker->r_AliveState != AliveState.IsAlive ||
+                    blocker == null || !APIShared.UnitAccess.IsReallyAlive(blocker) ||
                     blocker->r_GlobalId != testBlockerUnitGlobalId)
                 {
                     TryRestoreTestBlocker("blocker identity changed before native occupancy");
@@ -945,7 +945,7 @@ namespace StockpileAccessFixTest
         {
             globalId = 0;
             if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
-                unit == null || unit->r_AliveState != AliveState.IsAlive ||
+                unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
                 unit->r_CurrentTilePositionX != expectedX ||
                 unit->r_CurrentTilePositionY != expectedY)
             {
@@ -980,7 +980,7 @@ namespace StockpileAccessFixTest
         private bool RestoreUnregisteredBlocker()
         {
             if (!APIShared.UnitAccess.TryGetById(testBlockerUnitId, out GameUnit* blocker, out _) ||
-                blocker == null || blocker->r_AliveState != AliveState.IsAlive ||
+                blocker == null || !APIShared.UnitAccess.IsReallyAlive(blocker) ||
                 blocker->r_GlobalId != testBlockerUnitGlobalId)
             {
                 return false;
@@ -1008,7 +1008,7 @@ namespace StockpileAccessFixTest
             bool routeAccepted = false;
             string disposition;
             if (!APIShared.UnitAccess.TryGetById(testBlockerUnitId, out GameUnit* blocker, out _) ||
-                blocker == null || blocker->r_AliveState != AliveState.IsAlive ||
+                blocker == null || !APIShared.UnitAccess.IsReallyAlive(blocker) ||
                 blocker->r_GlobalId != testBlockerUnitGlobalId)
             {
                 disposition = "blockerIdentityChanged";
@@ -1146,7 +1146,7 @@ namespace StockpileAccessFixTest
 
         private static StockpileObservation Capture(int unitId, GameUnit* unit)
         {
-            bool alive = unit != null && unit->r_AliveState == AliveState.IsAlive;
+            bool alive = unit != null && APIShared.UnitAccess.IsReallyAlive(unit);
             eChimps unitType = unit == null ? eChimps.CHIMP_TYPE_NULL : unit->r_UnitChimp;
             ushort state = unit == null ? (ushort)0 : unit->r_AIState;
             bool supported = StockpileWorkerContracts.TryGet(unitType, out StockpileWorkerContract contract) &&

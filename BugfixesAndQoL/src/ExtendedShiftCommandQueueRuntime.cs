@@ -1545,7 +1545,7 @@ namespace BugfixesAndQoL
             if (command.Kind == QueueCommandKind.AttackUnit)
             {
                 if (!APIShared.UnitAccess.TryGetById(command.Argument1, out GameUnit* unit, out _) ||
-                    unit == null || unit->r_AliveState != AliveState.IsAlive || unit->r_CurrentHealth <= 0 ||
+                    unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) || unit->r_CurrentHealth <= 0 ||
                     unit->r_GlobalId != unchecked((uint)command.Argument2))
                 {
                     return false;
@@ -2464,7 +2464,7 @@ namespace BugfixesAndQoL
             unit = null;
             return GameUnitManagerAPI.Instance.IsValidId(identity.UnitId) &&
                 APIShared.UnitAccess.TryGetById(identity.UnitId, out unit, out _) && unit != null &&
-                unit->r_AliveState == AliveState.IsAlive && unit->r_GlobalId == identity.GlobalId;
+                APIShared.UnitAccess.IsReallyAlive(unit) && unit->r_GlobalId == identity.GlobalId;
         }
 
         private bool TryConsumeExpectedMoveSignal(
@@ -2554,7 +2554,7 @@ namespace BugfixesAndQoL
             for (int spanIndex = 0; spanIndex < units.Length; spanIndex++)
             {
                 ref GameUnit unit = ref units[spanIndex];
-                if (unit.r_AliveState != AliveState.IsAlive || unit.r_TribeId != tribeId)
+                if (!APIShared.UnitAccess.IsReallyAlive(in unit) || unit.r_TribeId != tribeId)
                     continue;
                 int unitId = spanIndex + 1;
                 members.Add(new QueueUnitIdentity(unitId, unit.r_GlobalId));
@@ -2588,7 +2588,7 @@ namespace BugfixesAndQoL
                     continue;
                 }
 
-                if (unit->r_AliveState == AliveState.IsAlive && unit->r_TribeId == tribeId)
+                if (APIShared.UnitAccess.IsReallyAlive(unit) && unit->r_TribeId == tribeId)
                     return true;
             }
             return false;
@@ -2643,7 +2643,7 @@ namespace BugfixesAndQoL
                 {
                     return false;
                 }
-                return unit->r_AliveState == AliveState.IsAlive &&
+                return APIShared.UnitAccess.IsReallyAlive(unit) &&
                     unit->r_GlobalId == unchecked((uint)command.Argument2) &&
                     unit->r_CurrentHealth != 0;
             }

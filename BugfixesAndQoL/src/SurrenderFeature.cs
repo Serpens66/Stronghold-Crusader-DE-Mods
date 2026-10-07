@@ -1793,7 +1793,7 @@ namespace BugfixesAndQoL
                 unitId,
                 (int)unit->r_GlobalId,
                 unit->r_ControllableForPlayerId,
-                unit->r_AliveState == AliveState.IsAlive &&
+                APIShared.UnitAccess.IsReallyAlive(unit) &&
                     unit->r_UnitChimp == eChimps.CHIMP_TYPE_LORD &&
                     unit->r_CurrentHealth > 0);
         }

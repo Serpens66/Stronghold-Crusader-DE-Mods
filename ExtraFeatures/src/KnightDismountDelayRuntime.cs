@@ -537,7 +537,7 @@ namespace ExtraFeatures
 
         private static bool ShouldTransferSelection(int ownerPlayerId, GameUnit* source)
         {
-            return source != null && source->r_AliveState == AliveState.IsAlive &&
+            return source != null && APIShared.UnitAccess.IsReallyAlive(source) &&
                 IsSelected(source) && ownerPlayerId == GetSelectionPlayerId();
         }
 
@@ -551,7 +551,7 @@ namespace ExtraFeatures
             foreach (int unitId in pendingSelectionRequestIds)
             {
                 if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
-                    unit->r_AliveState != AliveState.IsAlive ||
+                    !APIShared.UnitAccess.IsReallyAlive(unit) ||
                     unit->r_ControllableForPlayerId != localPlayerId)
                 {
                     invalidIds.Add(unitId);
@@ -588,7 +588,7 @@ namespace ExtraFeatures
             {
                 int localPlayerId = GetSelectionPlayerId();
                 GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
-                foreach (int unitId in unitApi.GetAllAliveUnits())
+                foreach (int unitId in APIShared.UnitAccess.GetAllReallyAliveUnits())
                 {
                     if (APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _) &&
                         unit->r_ControllableForPlayerId == localPlayerId &&
@@ -616,7 +616,7 @@ namespace ExtraFeatures
                 foreach (int unitId in pendingSelectionTransferIds)
                 {
                     bool found = APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _);
-                    if (!found || unit->r_AliveState != AliveState.IsAlive ||
+                    if (!found || !APIShared.UnitAccess.IsReallyAlive(unit) ||
                         unit->r_ControllableForPlayerId != localPlayerId)
                     {
                         pendingSelectionTransferTicks++;
@@ -632,7 +632,7 @@ namespace ExtraFeatures
 
                 var selectedUnitIds = new List<int>();
                 var seen = new HashSet<int>();
-                foreach (int unitId in unitApi.GetAllAliveUnits())
+                foreach (int unitId in APIShared.UnitAccess.GetAllReallyAliveUnits())
                 {
                     if (APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _) &&
                         unit->r_ControllableForPlayerId == localPlayerId &&
@@ -644,7 +644,7 @@ namespace ExtraFeatures
                 foreach (int unitId in pendingSelectionRequestIds)
                 {
                     if (APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _) &&
-                        unit->r_AliveState == AliveState.IsAlive &&
+                        APIShared.UnitAccess.IsReallyAlive(unit) &&
                         unit->r_ControllableForPlayerId == localPlayerId && seen.Add(unitId))
                     {
                         selectedUnitIds.Add(unitId);
@@ -935,7 +935,7 @@ namespace ExtraFeatures
             for (int index = 0; selection != null && index < selection.Count; index++)
                 AddSelectedPendingGlobalId(playerId, selection[index].UnitId, result, seen);
 
-            int[] aliveIds = GameUnitManagerAPI.Instance.GetAllAliveUnits();
+            int[] aliveIds = APIShared.UnitAccess.GetAllReallyAliveUnits();
             for (int index = 0; index < aliveIds.Length; index++)
             {
                 int unitId = aliveIds[index];

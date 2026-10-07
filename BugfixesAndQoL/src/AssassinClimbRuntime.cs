@@ -437,7 +437,7 @@ namespace BugfixesAndQoL
                 {
                     ref GameUnit unit = ref units[spanIndex];
                     if (unit.r_UnitSelected != 0 &&
-                        unit.r_AliveState == AliveState.IsAlive &&
+                        APIShared.UnitAccess.IsReallyAlive(in unit) &&
                         unit.r_UnitChimp == eChimps.CHIMP_TYPE_ARAB_ASSASIN &&
                         unit.r_ControllableForPlayerId == playerId)
                     {
@@ -459,7 +459,7 @@ namespace BugfixesAndQoL
 
         private static bool IsOwnAssassin(GameUnit* unit, int playerId)
         {
-            return unit != null && unit->r_AliveState == AliveState.IsAlive &&
+            return unit != null && APIShared.UnitAccess.IsReallyAlive(unit) &&
                 unit->r_UnitChimp == eChimps.CHIMP_TYPE_ARAB_ASSASIN && unit->r_ControllableForPlayerId == playerId;
         }
 

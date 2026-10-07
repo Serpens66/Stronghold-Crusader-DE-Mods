@@ -283,7 +283,7 @@ namespace BugfixesAndQoL
                 if (unitId <= 0 ||
                     !APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _) ||
                     unit == null ||
-                    unit->r_AliveState != AliveState.IsAlive ||
+                    !APIShared.UnitAccess.IsReallyAlive(unit) ||
                     (mapEditor && unit->r_ControllableForPlayerId != controlledPlayerId))
                 {
                     continue;
@@ -355,7 +355,7 @@ namespace BugfixesAndQoL
 
         private static void AddHealth(int unitId, ref SelectedUnitHealthSummary summary, GameUnitManagerAPI unitApi, bool mapEditor, int controlledPlayerId)
         {
-            if (unitId <= 0 || unitApi == null || !APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _) || unit == null || unit->r_AliveState != AliveState.IsAlive || (mapEditor && unit->r_ControllableForPlayerId != controlledPlayerId)) return;
+            if (unitId <= 0 || unitApi == null || !APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _) || unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) || (mapEditor && unit->r_ControllableForPlayerId != controlledPlayerId)) return;
             summary.Add(unit->r_CurrentHealth, unit->r_MaxHealth);
         }
 

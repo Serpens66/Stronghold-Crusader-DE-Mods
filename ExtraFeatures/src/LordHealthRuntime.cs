@@ -180,7 +180,7 @@ namespace ExtraFeatures
             // Never revive a dying Lord whose alive flag has not yet changed.
             if (lord->r_CurrentHealth == 0) return false;
             retry = lord->r_AliveState == AliveState.NeedsInit;
-            return lord->r_AliveState == AliveState.IsAlive || (capturePending && retry);
+            return APIShared.UnitAccess.IsReallyAlive(lord) || (capturePending && retry);
         }
 
         private bool TryGetBasis(int playerId, GameUnit* lord, out LordHealthBasis basis)

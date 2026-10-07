@@ -825,7 +825,7 @@ namespace ImprovedHunters
             GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
             if (!APIShared.UnitAccess.TryGetById(unitApi, candidate.PreyUnitId, out GameUnit* prey, out _) ||
                 prey == null ||
-                prey->r_AliveState != AliveState.IsAlive ||
+                !APIShared.UnitAccess.IsReallyAlive(prey) ||
                 prey->r_CurrentHealth == 0 ||
                 prey->r_GlobalId != candidate.PreyGlobalId ||
                 prey->r_UnitChimp != candidate.PreyType ||
@@ -884,7 +884,7 @@ namespace ImprovedHunters
             GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
             if (!APIShared.UnitAccess.TryGetById(unitApi, candidate.PreyUnitId, out GameUnit* prey, out _) ||
                 prey == null ||
-                prey->r_AliveState != AliveState.IsAlive ||
+                !APIShared.UnitAccess.IsReallyAlive(prey) ||
                 prey->r_CurrentHealth == 0 ||
                 prey->r_GlobalId != candidate.PreyGlobalId ||
                 prey->r_UnitChimp != candidate.PreyType ||
@@ -908,7 +908,7 @@ namespace ImprovedHunters
             if (hunterUnitId <= 0 ||
                 !APIShared.UnitAccess.TryGetById(hunterUnitId, out hunter, out _) ||
                 hunter == null ||
-                hunter->r_AliveState != AliveState.IsAlive ||
+                !APIShared.UnitAccess.IsReallyAlive(hunter) ||
                 hunter->r_CurrentHealth == 0 ||
                 hunter->r_GlobalId == 0 ||
                 hunter->r_UnitChimp != eChimps.CHIMP_TYPE_HUNTER)
@@ -993,7 +993,7 @@ namespace ImprovedHunters
                     continue;
 
                 GameUnit* hunter = units.GetValuePointer(index);
-                if (hunter->r_AliveState != AliveState.IsAlive ||
+                if (!APIShared.UnitAccess.IsReallyAlive(hunter) ||
                     hunter->r_UnitChimp != eChimps.CHIMP_TYPE_HUNTER)
                 {
                     continue;

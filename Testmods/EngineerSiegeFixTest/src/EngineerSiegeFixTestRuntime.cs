@@ -385,7 +385,8 @@ namespace EngineerSiegeFixTest
             EngineerCrewInspection inspection,
             uint currentTick)
         {
-            if (liveProofCompletedTypes.Contains(tracker.DeviceType) || !inspection.AllBound ||
+            if (!APIShared.UnitAccess.IsReallyAlive((GameUnit*)Unit(manager, tracker.DeviceUnitId)) ||
+                liveProofCompletedTypes.Contains(tracker.DeviceType) || !inspection.AllBound ||
                 !inspection.AllIdentitiesValid || tracker.RequiredCrew == 0)
             {
                 return false;
@@ -418,6 +419,8 @@ namespace EngineerSiegeFixTest
                 }
 
                 byte* crewUnit = Unit(manager, unitId);
+                if (!APIShared.UnitAccess.IsReallyAlive((GameUnit*)crewUnit))
+                    return false;
                 unitIds.Add(unitId);
                 targets.Add((IntPtr)crewUnit);
                 snapshots.Add(EngineerRecoverySnapshot.Capture(crewUnit));
@@ -536,6 +539,7 @@ namespace EngineerSiegeFixTest
                     currentTick,
                     out UnitObservation device) ||
                 device.AliveState != EngineerHandoffDiagnosticPolicy.LiveUnitState ||
+                !APIShared.UnitAccess.IsReallyAlive((GameUnit*)Unit(manager, tracker.DeviceUnitId)) ||
                 device.Type != tracker.DeviceType || device.Owner != tracker.Owner ||
                 !tracker.CrewMatches(device))
             {
@@ -555,7 +559,8 @@ namespace EngineerSiegeFixTest
 
                 byte* unit = Unit(manager, unitId);
                 UnitObservation engineer = Capture(unit, unitId, currentTick);
-                if (!EngineerHandoffRepairPolicy.IsRepairableIdleEngineer(
+                if (!APIShared.UnitAccess.IsReallyAlive((GameUnit*)unit) ||
+                    !EngineerHandoffRepairPolicy.IsRepairableIdleEngineer(
                     tracker.DeviceType,
                     unitId,
                     tracker.CrewGlobals[crewIndex],

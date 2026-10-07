@@ -140,7 +140,7 @@ namespace BugfixesAndQoL
                         recruitedUnit == null ||
                         recruitedUnit->r_GlobalId == 0 ||
                         (recruitedUnit->r_AliveState != AliveState.NeedsInit &&
-                         recruitedUnit->r_AliveState != AliveState.IsAlive))
+                         !APIShared.UnitAccess.IsReallyAlive(recruitedUnit)))
                     {
                         throw new InvalidOperationException(
                             $"Fresh defensive recruit is invalid: unitId={unitId}.");
@@ -186,7 +186,7 @@ namespace BugfixesAndQoL
             {
                 GameUnit* unit = units.GetValuePointer(spanIndex);
                 if (unit == null ||
-                    unit->r_AliveState != AliveState.IsAlive ||
+                    !APIShared.UnitAccess.IsReallyAlive(unit) ||
                     unit->r_ControllableForPlayerId != ownerId)
                 {
                     continue;

@@ -22,6 +22,21 @@ unsafe
         Check(UnitAccess.IsReallyAlive(in life) == expected, "health is not an additional rule");
     }
     Check(!UnitAccess.IsReallyAlive((GameUnit*)null), "null life view");
+    var queryManager = new GameUnitManagerAPI();
+    GameUnitManagerAPI.Current = queryManager;
+    Check(UnitAccess.GetAllReallyAliveUnits().Length == 0, "empty query");
+    queryManager.QueryRecords = new[] {
+        new GameUnit { r_AliveState = SHCDESE.Interop.Enums.AliveState.IsAlive },
+        new GameUnit { r_AliveState = SHCDESE.Interop.Enums.AliveState.IsAlive, N0000019A = 1 },
+        new GameUnit { r_AliveState = SHCDESE.Interop.Enums.AliveState.NeedsInit },
+        new GameUnit { r_AliveState = SHCDESE.Interop.Enums.AliveState.IsAlive, N0000019A = 0x10000 },
+        new GameUnit { r_AliveState = SHCDESE.Interop.Enums.AliveState.MarkedForDeletion },
+    };
+    int[] livingIds = UnitAccess.GetAllReallyAliveUnits();
+    Check(livingIds.SequenceEqual(new[] { 1, 4 }), "query filters death low word and returns ordered one-based IDs");
+    queryManager.QueryRecords[0].N0000019A = 1;
+    Check(livingIds.SequenceEqual(new[] { 1, 4 }) && UnitAccess.GetAllReallyAliveUnits().SequenceEqual(new[] { 4 }),
+        "query is a momentary copy, later life changes require revalidation");
     GameUnit record = new GameUnit { Alive = 4, GlobalId = 0 }; // NeedsInit is still resolvable.
     var manager = new GameUnitManagerAPI { Pointer = &record };
     GameUnitManagerAPI.Current = manager;
@@ -161,6 +176,21 @@ namespace SHCDESE.API
         public GameUnit* Pointer;
         public int Reads, Validations, LastId;
         public bool ReturnFalse;
+        public GameUnit[] QueryRecords = Array.Empty<GameUnit>();
+        public UnitQuery QueryUnits() => new UnitQuery(QueryRecords);
+        public delegate bool UnitPredicate(in GameUnit unit);
+        public sealed class UnitQuery
+        {
+            private readonly GameUnit[] records;
+            private UnitPredicate predicate;
+            public UnitQuery(GameUnit[] records) { this.records = records; }
+            public UnitQuery Where(UnitPredicate filter) { predicate = filter; return this; }
+            public void ToIdList(List<int> ids)
+            {
+                for (int spanIndex = 0; spanIndex < records.Length; spanIndex++)
+                    if (predicate == null || predicate(in records[spanIndex])) ids.Add(spanIndex + 1);
+            }
+        }
         public bool IsValidId(int id) { Validations++; return id>0 && id<=9999; }
         public bool TryGetUnitById(int id, out GameUnit* unit) { Reads++; LastId=id; unit=Pointer; return !ReturnFalse; }
     }

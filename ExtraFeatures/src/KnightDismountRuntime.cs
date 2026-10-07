@@ -636,7 +636,7 @@ namespace ExtraFeatures
                     return true;
             }
 
-            int[] aliveUnits = unitApi.GetAllAliveUnits();
+            int[] aliveUnits = APIShared.UnitAccess.GetAllReallyAliveUnits();
             for (int i = 0; i < aliveUnits.Length; i++)
             {
                 int unitId = aliveUnits[i];
@@ -979,7 +979,7 @@ namespace ExtraFeatures
                 AddSnapshot(snapshots, seenGlobalIds, unitId, unit);
             }
 
-            int[] aliveUnits = unitApi.GetAllAliveUnits();
+            int[] aliveUnits = APIShared.UnitAccess.GetAllReallyAliveUnits();
             for (int i = 0; i < aliveUnits.Length; i++)
             {
                 int unitId = aliveUnits[i];
@@ -1226,7 +1226,7 @@ namespace ExtraFeatures
             if (currentUnitId <= 0 || !APIShared.UnitAccess.TryGetById(currentUnitId, out GameUnit* unit, out _))
                 return false;
 
-            if (unit->r_AliveState != AliveState.IsAlive ||
+            if (!APIShared.UnitAccess.IsReallyAlive(unit) ||
                 unit->r_UnitChimp != expectedType ||
                 unit->r_ControllableForPlayerId != snapshot.OwnerPlayerId)
                 return false;
@@ -1716,7 +1716,7 @@ namespace ExtraFeatures
                 return -1;
 
             GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
-            int[] aliveUnitIds = unitApi.GetAllAliveUnits();
+            int[] aliveUnitIds = APIShared.UnitAccess.GetAllReallyAliveUnits();
             for (int i = 0; i < aliveUnitIds.Length; i++)
             {
                 int unitId = aliveUnitIds[i];
@@ -1751,7 +1751,7 @@ namespace ExtraFeatures
         private static bool IsOwnAliveUnit(GameUnit* unit, int localPlayerId, eChimps unitType)
         {
             return unit != null &&
-                unit->r_AliveState == AliveState.IsAlive &&
+                APIShared.UnitAccess.IsReallyAlive(unit) &&
                 unit->r_UnitChimp == unitType &&
                 unit->r_ControllableForPlayerId == localPlayerId;
         }

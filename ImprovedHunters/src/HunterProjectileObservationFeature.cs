@@ -140,7 +140,7 @@ namespace ImprovedHunters
             for (int index = 0; index < units.Length; index++)
             {
                 GameUnit* unit = units.GetValuePointer(index);
-                if (unit->r_AliveState != AliveState.IsAlive ||
+                if (!APIShared.UnitAccess.IsReallyAlive(unit) ||
                     unit->r_UnitChimp != eChimps.CHIMP_TYPE_HUNTER)
                 {
                     continue;

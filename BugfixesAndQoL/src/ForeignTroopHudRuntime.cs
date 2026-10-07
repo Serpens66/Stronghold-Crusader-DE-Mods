@@ -261,7 +261,7 @@ namespace BugfixesAndQoL
                 int spanIndex = selection[index] - 1;
                 if (spanIndex < 0 || spanIndex >= units.Length) continue;
                 ref GameUnit unit = ref units[spanIndex];
-                if (unit.r_AliveState != AliveState.IsAlive || unit.r_UnitHover == 0) continue;
+                if (!APIShared.UnitAccess.IsReallyAlive(in unit) || unit.r_UnitHover == 0) continue;
                 hoveredCount++;
                 int owner = unit.r_ControllableForPlayerId;
                 if (spectator)
@@ -354,7 +354,7 @@ namespace BugfixesAndQoL
                 int spanIndex = selection[index] - 1;
                 if (spanIndex < 0 || spanIndex >= units.Length) continue;
                 ref GameUnit unit = ref units[spanIndex];
-                if (unit.r_AliveState != AliveState.IsAlive || unit.r_UnitHover == 0) continue;
+                if (!APIShared.UnitAccess.IsReallyAlive(in unit) || unit.r_UnitHover == 0) continue;
                 count++;
                 samples.Append(" [unit=").Append(spanIndex + 1)
                     .Append(",type=").Append((int)unit.r_UnitChimp)
@@ -392,7 +392,7 @@ namespace BugfixesAndQoL
                     int spanIndex = selection[index] - 1;
                     if (spanIndex < 0 || spanIndex >= units.Length) continue;
                     ref GameUnit unit = ref units[spanIndex];
-                    if (unit.r_AliveState != AliveState.IsAlive || unit.r_UnitHover == 0 ||
+                    if (!APIShared.UnitAccess.IsReallyAlive(in unit) || unit.r_UnitHover == 0 ||
                         unit.r_ControllableForPlayerId != owner || (int)unit.r_UnitChimp != type)
                         continue;
                     camera.JumpToUnit(spanIndex + 1);

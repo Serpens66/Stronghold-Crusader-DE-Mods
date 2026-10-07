@@ -1,0 +1,1436 @@
+diff --git a/APIShared/src/PlayerDefeatCapability.cs b/APIShared/src/PlayerDefeatCapability.cs
+index ea7ce10c8..249e1661c 100644
+--- a/APIShared/src/PlayerDefeatCapability.cs
++++ b/APIShared/src/PlayerDefeatCapability.cs
+@@ -117,5 +117,5 @@ namespace APIShared
+                 APIShared.UnitAccess.TryGetById(units, lordUnitId, out unit, out _) &&
+                 unit != null &&
+-                unit->r_AliveState == AliveState.IsAlive &&
++                APIShared.UnitAccess.IsReallyAlive(unit) &&
+                 unit->r_UnitChimp == eChimps.CHIMP_TYPE_LORD &&
+                 unit->r_CurrentHealth > 0 &&
+diff --git a/APIShared/src/UnitAccess.cs b/APIShared/src/UnitAccess.cs
+index 5f2328e74..6e35c9e51 100644
+--- a/APIShared/src/UnitAccess.cs
++++ b/APIShared/src/UnitAccess.cs
+@@ -52,4 +52,17 @@ namespace APIShared
+         public static bool IsReallyAlive(GameUnit* unit) => unit != null && IsReallyAlive(in *unit);
+ 
++        /// <summary>Gets one-based game IDs of units passing Vanilla's combat life predicate.</summary>
++        /// <remarks>Use on the game thread. The result is a momentary list, not an identity or
++        /// lifetime guarantee; revalidate identity and life before later actions.</remarks>
++        /// <returns>Unit game IDs in the Script Extender query's native array order.</returns>
++        public static int[] GetAllReallyAliveUnits()
++        {
++            var results = new List<int>();
++            GameUnitManagerAPI.Instance.QueryUnits()
++                .Where((in GameUnit unit) => IsReallyAlive(in unit))
++                .ToIdList(results);
++            return results.ToArray();
++        }
++
+         /// <summary>Resolves a unit ID without passing invalid IDs to the Script Extender.</summary>
+         /// <param name="unitId">One-based game ID, never a span index.</param>
+diff --git a/APIShared/src/UnitCommands/CursorConnectivity.cs b/APIShared/src/UnitCommands/CursorConnectivity.cs
+index b80960681..1d8ad6b04 100644
+--- a/APIShared/src/UnitCommands/CursorConnectivity.cs
++++ b/APIShared/src/UnitCommands/CursorConnectivity.cs
+@@ -444,5 +444,5 @@ namespace APIShared.UnitCommands
+                     identity.Global = unit->r_GlobalId; identity.X = unit->r_CurrentTilePositionX; identity.Y = unit->r_CurrentTilePositionY;
+                     identity.Player = unit->r_ControllableForPlayerId; identity.Type = (int)unit->r_UnitChimp; identity.Alive = (int)unit->r_AliveState;
+-                    if (unit->r_AliveState == AliveState.IsAlive && (player < 0 || identity.Player == player)) valid++;
++                    if (APIShared.UnitAccess.IsReallyAlive(unit) && (player < 0 || identity.Player == player)) valid++;
+                 }
+                 changed |= !identity.Same(selectedCursorIdentity[i]);
+diff --git a/APIShared/src/UnitCommands/DirectMoatCommandScopes.cs b/APIShared/src/UnitCommands/DirectMoatCommandScopes.cs
+index 8b24deee1..0cb5610df 100644
+--- a/APIShared/src/UnitCommands/DirectMoatCommandScopes.cs
++++ b/APIShared/src/UnitCommands/DirectMoatCommandScopes.cs
+@@ -106,5 +106,5 @@ namespace APIShared.UnitCommands
+             {
+                 if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
+-                    unit == null || unit->r_AliveState != AliveState.IsAlive ||
++                    unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
+                     unit->r_TribeId != tribeId || !CanDigMoat(unit))
+                 {
+@@ -207,5 +207,5 @@ namespace APIShared.UnitCommands
+             {
+                 if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
+-                    unit == null || unit->r_AliveState != AliveState.IsAlive ||
++                    unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
+                     unit->r_TribeId != args.TribeId || !CanDigMoat(unit))
+                 {
+diff --git a/APIShared/src/UnitCommands/FillWeightedRoutes.cs b/APIShared/src/UnitCommands/FillWeightedRoutes.cs
+index d8aa43553..9aff1681b 100644
+--- a/APIShared/src/UnitCommands/FillWeightedRoutes.cs
++++ b/APIShared/src/UnitCommands/FillWeightedRoutes.cs
+@@ -32,5 +32,5 @@ namespace APIShared.UnitCommands
+             if (plan == null || unit == null || !plan.MoatWorkMovement ||
+                 plan.TargetX != targetX || plan.TargetY != targetY ||
+-                unit->r_AliveState != AliveState.IsAlive || !CanDigMoat(unit) ||
++                !APIShared.UnitAccess.IsReallyAlive(unit) || !CanDigMoat(unit) ||
+                 (TribeAICommand)unit->r_AI_LastIssuedTribeCommand != TribeAICommand.Unknown7 ||
+                 plan.PlayerId != unit->r_ControllableForPlayerId ||
+diff --git a/APIShared/src/UnitCommands/ManualUnitCommands.cs b/APIShared/src/UnitCommands/ManualUnitCommands.cs
+index 0b76742b3..482916d9a 100644
+--- a/APIShared/src/UnitCommands/ManualUnitCommands.cs
++++ b/APIShared/src/UnitCommands/ManualUnitCommands.cs
+@@ -73,5 +73,5 @@ namespace APIShared.UnitCommands
+             if (nativeManualProbe || (uint)x >= MapWidth || (uint)y >= MapWidth ||
+                 !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
+-                unit == null || unit->r_AliveState != AliveState.IsAlive ||
++                unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
+                 nativePathManager == IntPtr.Zero || nativeProbeGrid == null ||
+                 nativeProbeRectangle == null || originalCentralMovementPlan == null)
+@@ -192,5 +192,5 @@ namespace APIShared.UnitCommands
+             {
+                 if (!APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _) || unit == null ||
+-                    unit->r_AliveState != AliveState.IsAlive || unit->r_ControllableForPlayerId != template.PlayerId) continue;
++                    !APIShared.UnitAccess.IsReallyAlive(unit) || unit->r_ControllableForPlayerId != template.PlayerId) continue;
+                 group.SelectedUnits++;
+                 if (CanDigMoat(unit)) group.DiggerUnits++;
+@@ -239,5 +239,5 @@ namespace APIShared.UnitCommands
+                 foreach (int unitId in activeMoveCommand.ActiveUnitIdsAtDispatch)
+                     if (APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) &&
+-                        unit != null && unit->r_AliveState == AliveState.IsAlive &&
++                        unit != null && APIShared.UnitAccess.IsReallyAlive(unit) &&
+                         unit->r_ControllableForPlayerId == tribe->r_PlayerIdOwner &&
+                         IsCompletedMoatTile(unchecked((int)unit->r_CurrentPositionTileId)) &&
+diff --git a/APIShared/src/UnitCommands/MoatPlacement.cs b/APIShared/src/UnitCommands/MoatPlacement.cs
+index b2cb4725d..9d18a63ed 100644
+--- a/APIShared/src/UnitCommands/MoatPlacement.cs
++++ b/APIShared/src/UnitCommands/MoatPlacement.cs
+@@ -253,5 +253,5 @@ namespace APIShared.UnitCommands
+                 !ReferenceEquals(batch.Command, activeMoveCommand) || args.TileX != batch.X || args.TileY != batch.Y ||
+                 !APIShared.UnitAccess.TryGetById(args.UnitId, out GameUnit* unit, out _) || unit == null ||
+-                unit->r_TribeId != batch.Tribe || unit->r_AliveState != AliveState.IsAlive ||
++                unit->r_TribeId != batch.Tribe || !APIShared.UnitAccess.IsReallyAlive(unit) ||
+                 (!batch.NativePlacement && !CanDigMoat(unit))) return;
+             if (unit->r_AttackMoveToTargetTileX != batch.X || unit->r_AttackMoveToTargetTileY != batch.Y) return;
+@@ -367,5 +367,5 @@ namespace APIShared.UnitCommands
+                 APIShared.UnitAccess.TryGetById(pending.Id, out unit, out _) && unit != null &&
+                 unit->r_GlobalId == pending.Global && unit->r_ControllableForPlayerId == pending.Player &&
+-                unit->r_AliveState == AliveState.IsAlive;
++                APIShared.UnitAccess.IsReallyAlive(unit);
+         }
+ 
+@@ -402,5 +402,5 @@ namespace APIShared.UnitCommands
+                         (nativeExecutingUnitId != null && *nativeExecutingUnitId == id) &&
+                         APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _) && unit != null &&
+-                        unit->r_AliveState == AliveState.IsAlive && CanDigMoat(unit) &&
++                        APIShared.UnitAccess.IsReallyAlive(unit) && CanDigMoat(unit) &&
+                         GamePlayerManagerAPI.Instance.IsPlayerIdValid(unit->r_ControllableForPlayerId))
+                     {
+diff --git a/APIShared/src/UnitCommands/MoatWorkTargetSelection.cs b/APIShared/src/UnitCommands/MoatWorkTargetSelection.cs
+index 13a4b48a1..553fbe2cb 100644
+--- a/APIShared/src/UnitCommands/MoatWorkTargetSelection.cs
++++ b/APIShared/src/UnitCommands/MoatWorkTargetSelection.cs
+@@ -375,5 +375,5 @@ namespace APIShared.UnitCommands
+                 !GamePlayerManagerAPI.Instance.IsPlayerIdValid(playerId) ||
+                 !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
+-                unit == null || unit->r_AliveState != AliveState.IsAlive ||
++                unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
+                 unit->r_ControllableForPlayerId != playerId || !CanDigMoat(unit))
+             {
+@@ -651,5 +651,5 @@ namespace APIShared.UnitCommands
+                 if (!APIShared.UnitAccess.TryGetById(
+                         pending.UnitId, out GameUnit* unit, out _) ||
+-                    unit == null || unit->r_AliveState != AliveState.IsAlive ||
++                    unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
+                     unit->r_ControllableForPlayerId != pending.PlayerId || !CanDigMoat(unit) ||
+                     unit->r_CurrentTilePositionX != pending.StartX ||
+@@ -695,5 +695,5 @@ namespace APIShared.UnitCommands
+                 !APIShared.UnitAccess.TryGetById(
+                     pending.UnitId, out GameUnit* unit, out _) ||
+-                unit == null || unit->r_AliveState != AliveState.IsAlive ||
++                unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
+                 unit->r_ControllableForPlayerId != pending.PlayerId || !CanDigMoat(unit) ||
+                 unit->r_CurrentTilePositionX != pending.StartX ||
+@@ -834,5 +834,5 @@ namespace APIShared.UnitCommands
+                 (uint)targetX >= MapWidth || (uint)targetY >= MapWidth ||
+                 !APIShared.UnitAccess.TryGetById(scope.UnitId, out GameUnit* unit, out _) ||
+-                unit == null || unit->r_AliveState != AliveState.IsAlive || !CanDigMoat(unit) ||
++                unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) || !CanDigMoat(unit) ||
+                 unit->r_ControllableForPlayerId != scope.PlayerId ||
+                 unit->r_CurrentTilePositionX != scope.StartX ||
+@@ -943,5 +943,5 @@ namespace APIShared.UnitCommands
+                 !APIShared.UnitAccess.TryGetById(
+                     scope.UnitId, out GameUnit* unit, out _) ||
+-                unit == null || unit->r_AliveState != AliveState.IsAlive ||
++                unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
+                 unit->r_ControllableForPlayerId != scope.PlayerId || !CanDigMoat(unit) ||
+                 unit->r_CurrentTilePositionX != scope.StartX ||
+@@ -1111,5 +1111,5 @@ namespace APIShared.UnitCommands
+             return APIShared.UnitAccess.TryGetById(
+                     occupantUnitId, out GameUnit* occupant, out _) &&
+-                occupant != null && occupant->r_AliveState == AliveState.IsAlive;
++                occupant != null && APIShared.UnitAccess.IsReallyAlive(occupant);
+         }
+ 
+diff --git a/APIShared/src/UnitCommands/MovementPathPublication.cs b/APIShared/src/UnitCommands/MovementPathPublication.cs
+index 36a417317..8b183b224 100644
+--- a/APIShared/src/UnitCommands/MovementPathPublication.cs
++++ b/APIShared/src/UnitCommands/MovementPathPublication.cs
+@@ -613,5 +613,5 @@ namespace APIShared.UnitCommands
+                 plan.UnitId <= 0 || plan.UnitId > MaximumUnitCount ||
+                 !APIShared.UnitAccess.TryGetById(plan.UnitId, out GameUnit* liveUnit, out _) || liveUnit != unit ||
+-                unit->r_AliveState != AliveState.IsAlive ||
++                !APIShared.UnitAccess.IsReallyAlive(unit) ||
+                 path != nativeUnitManager + NativeUnitPathBufferOffset + plan.UnitId * NativeUnitPathBufferStride ||
+                 x != liveStartX || y != liveStartY ||
+diff --git a/APIShared/src/UnitCommands/UnitCommandPathRuntime.LadderAttackFix.cs b/APIShared/src/UnitCommands/UnitCommandPathRuntime.LadderAttackFix.cs
+index 544b6e5e8..e42d33fd4 100644
+--- a/APIShared/src/UnitCommands/UnitCommandPathRuntime.LadderAttackFix.cs
++++ b/APIShared/src/UnitCommands/UnitCommandPathRuntime.LadderAttackFix.cs
+@@ -256,5 +256,5 @@ namespace APIShared.UnitCommands
+             if (leadUnitId <= 0 || leadUnitId > MaximumUnitCount ||
+                 !APIShared.UnitAccess.TryGetById(leadUnitId, out GameUnit* unit, out _) ||
+-                unit == null || unit->r_AliveState != AliveState.IsAlive ||
++                unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
+                 unit->r_TribeId != tribeId || unit->r_ControllableForPlayerId != playerId)
+             {
+diff --git a/APIShared/src/UnitCommands/UnitCommandPathRuntime.cs b/APIShared/src/UnitCommands/UnitCommandPathRuntime.cs
+index 3712a7544..4db7147fa 100644
+--- a/APIShared/src/UnitCommands/UnitCommandPathRuntime.cs
++++ b/APIShared/src/UnitCommands/UnitCommandPathRuntime.cs
+@@ -1870,5 +1870,5 @@ namespace APIShared.UnitCommands
+             {
+                 if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
+-                    unit == null || unit->r_AliveState != AliveState.IsAlive ||
++                    unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
+                     unit->r_TribeId != args.TribeId ||
+                     !MatchesCompletedAttackTargetContext(unit, scope))
+@@ -1897,5 +1897,5 @@ namespace APIShared.UnitCommands
+             {
+                 if (APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) &&
+-                    unit != null && unit->r_AliveState == AliveState.IsAlive &&
++                    unit != null && APIShared.UnitAccess.IsReallyAlive(unit) &&
+                     unit->r_TribeId == scope.TribeId)
+                 {
+@@ -2112,5 +2112,5 @@ namespace APIShared.UnitCommands
+                         }
+                         if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
+-                            unit == null || unit->r_AliveState != AliveState.IsAlive)
++                            unit == null || !APIShared.UnitAccess.IsReallyAlive(unit))
+                         {
+                             EndTrackedAttack(unitId, tracker, "unit-dead-or-invalid");
+@@ -2361,5 +2361,5 @@ namespace APIShared.UnitCommands
+             {
+                 if (!APIShared.UnitAccess.TryGetById(plan.UnitId, out GameUnit* unit, out _) ||
+-                    unit == null || unit->r_AliveState != AliveState.IsAlive)
++                    unit == null || !APIShared.UnitAccess.IsReallyAlive(unit))
+                 {
+                     return;
+@@ -2442,5 +2442,5 @@ namespace APIShared.UnitCommands
+         {
+             if (!APIShared.UnitAccess.TryGetById(shadow.UnitId, out GameUnit* unit, out _) ||
+-                unit == null || unit->r_AliveState != AliveState.IsAlive)
++                unit == null || !APIShared.UnitAccess.IsReallyAlive(unit))
+             {
+                 return;
+@@ -2541,5 +2541,5 @@ namespace APIShared.UnitCommands
+                     }
+                     if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
+-                        unit == null || unit->r_AliveState != AliveState.IsAlive)
++                        unit == null || !APIShared.UnitAccess.IsReallyAlive(unit))
+                     {
+                         EndTrackedMoatMove(unitId, tracker, "unit-dead-or-invalid");
+@@ -3450,5 +3450,5 @@ namespace APIShared.UnitCommands
+             if (preferredUnitId > 0 &&
+                 APIShared.UnitAccess.TryGetById(preferredUnitId, out GameUnit* preferred, out _) &&
+-                preferred != null && preferred->r_AliveState == AliveState.IsAlive &&
++                preferred != null && APIShared.UnitAccess.IsReallyAlive(preferred) &&
+                 (expectedPlayerId < 0 || preferred->r_ControllableForPlayerId == expectedPlayerId) &&
+                 preferred->r_UnitSelected != 0 &&
+@@ -3466,5 +3466,5 @@ namespace APIShared.UnitCommands
+                 if (selectedUnitId <= 0 ||
+                     !APIShared.UnitAccess.TryGetById(selectedUnitId, out GameUnit* selected, out _) ||
+-                    selected == null || selected->r_AliveState != AliveState.IsAlive ||
++                    selected == null || !APIShared.UnitAccess.IsReallyAlive(selected) ||
+                     (expectedPlayerId >= 0 && selected->r_ControllableForPlayerId != expectedPlayerId) ||
+                     !CanDigMoat(selected))
+@@ -3583,5 +3583,5 @@ namespace APIShared.UnitCommands
+                     unitManager != (IntPtr)nativeUnitManager ||
+                     !APIShared.UnitAccess.TryGetById(unitId, out unit, out _) ||
+-                    unit == null || unit->r_AliveState != AliveState.IsAlive ||
++                    unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
+                     !CanDigMoat(unit) ||
+                     *(short*)((byte*)unit + UnitCombatFinishGateOffset) != 0 ||
+@@ -3762,5 +3762,5 @@ namespace APIShared.UnitCommands
+             {
+                 if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
+-                    unit == null || unit->r_AliveState != AliveState.IsAlive)
++                    unit == null || !APIShared.UnitAccess.IsReallyAlive(unit))
+                 {
+                     continue;
+@@ -4018,5 +4018,5 @@ namespace APIShared.UnitCommands
+                 // Candidate diagnostics must not reject an otherwise valid attack scope.
+             }
+-            if (unit->r_AliveState != AliveState.IsAlive || unit->r_TribeId != scope.TribeId)
++            if (!APIShared.UnitAccess.IsReallyAlive(unit) || unit->r_TribeId != scope.TribeId)
+             {
+                 rejectionReason = "unit-or-tribe-mismatch";
+@@ -4327,5 +4327,5 @@ namespace APIShared.UnitCommands
+             {
+                 if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
+-                    unit == null || unit->r_AliveState != AliveState.IsAlive ||
++                    unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
+                     unit->r_TribeId != command.TribeId ||
+                     unit->r_ControllableForPlayerId != playerId || !CanDigMoat(unit))
+@@ -4376,5 +4376,5 @@ namespace APIShared.UnitCommands
+             {
+                 if (APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) &&
+-                    unit != null && unit->r_AliveState == AliveState.IsAlive &&
++                    unit != null && APIShared.UnitAccess.IsReallyAlive(unit) &&
+                     unit->r_ControllableForPlayerId == playerId &&
+                     unit->r_CurrentTilePositionX == startX &&
+@@ -4512,5 +4512,5 @@ namespace APIShared.UnitCommands
+                     if (unitId <= 0 ||
+                         !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
+-                        unit == null || unit->r_AliveState != AliveState.IsAlive ||
++                        unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
+                         *(ushort*)((byte*)unit + UnitGroupInactiveStateOffset) != 0)
+                     {
+@@ -5178,5 +5178,5 @@ namespace APIShared.UnitCommands
+                 {
+                     if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
+-                        unit == null || unit->r_AliveState != AliveState.IsAlive ||
++                        unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
+                         unit->r_TribeId != scope.TribeId || !CanDigMoat(unit))
+                     {
+@@ -5602,5 +5602,5 @@ namespace APIShared.UnitCommands
+             }
+             if (!APIShared.UnitAccess.TryGetById(scope.UnitId, out GameUnit* unit, out _) ||
+-                unit == null || unit->r_AliveState != AliveState.IsAlive ||
++                unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
+                 unit->r_TribeId != scope.TribeId ||
+                 unit->r_ControllableForPlayerId != scope.PlayerId || !CanDigMoat(unit))
+@@ -5717,5 +5717,5 @@ namespace APIShared.UnitCommands
+             {
+                 if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
+-                    unit == null || unit->r_AliveState != AliveState.IsAlive ||
++                    unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
+                     unit->r_TribeId != scope.TribeId || !CanDigMoat(unit))
+                 {
+@@ -5906,5 +5906,5 @@ namespace APIShared.UnitCommands
+             {
+                 if (!APIShared.UnitAccess.TryGetById(candidateId, out GameUnit* unit, out _) ||
+-                    unit == null || unit->r_AliveState != AliveState.IsAlive ||
++                    unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
+                     unit->r_TribeId != command.TribeId || !CanDigMoat(unit))
+                 {
+@@ -5940,5 +5940,5 @@ namespace APIShared.UnitCommands
+                 if (unitId <= 0 ||
+                     !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
+-                    unit == null || unit->r_AliveState != AliveState.IsAlive ||
++                    unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
+                     unit->r_TribeId != tribeId ||
+                     *(ushort*)((byte*)unit + UnitGroupInactiveStateOffset) != 0)
+@@ -6355,5 +6355,5 @@ namespace APIShared.UnitCommands
+                         !APIShared.UnitAccess.TryGetById(
+                             unitId, out GameUnit* unit, out _) || unit == null ||
+-                        unit->r_AliveState != AliveState.IsAlive)
++                        !APIShared.UnitAccess.IsReallyAlive(unit))
+                     {
+                         reason = "invalid-unit-or-building-id";
+@@ -7026,5 +7026,5 @@ namespace APIShared.UnitCommands
+             {
+                 if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
+-                    unit == null || unit->r_AliveState != AliveState.IsAlive ||
++                    unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
+                     unit->r_TribeId != command.TribeId || !CanDigMoat(unit))
+                 {
+@@ -7157,5 +7157,5 @@ namespace APIShared.UnitCommands
+             {
+                 if (!APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _) || unit == null ||
+-                    unit->r_AliveState != AliveState.IsAlive || unit->r_ControllableForPlayerId != template.PlayerId) continue;
++                    !APIShared.UnitAccess.IsReallyAlive(unit) || unit->r_ControllableForPlayerId != template.PlayerId) continue;
+                 group.SelectedUnits++;
+                 bool canDig = CanDigMoat(unit);
+@@ -7344,5 +7344,5 @@ namespace APIShared.UnitCommands
+             int unitId = (int)rawUnitId;
+             if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* target, out _) ||
+-                target == null || target->r_AliveState != AliveState.IsAlive ||
++                target == null || !APIShared.UnitAccess.IsReallyAlive(target) ||
+                 target->r_GlobalId == 0)
+             {
+@@ -7870,5 +7870,5 @@ namespace APIShared.UnitCommands
+                     continue;
+                 if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* target, out _) ||
+-                    target == null || target->r_AliveState != AliveState.IsAlive ||
++                    target == null || !APIShared.UnitAccess.IsReallyAlive(target) ||
+                     target->r_CurrentTilePositionX != targetX ||
+                     target->r_CurrentTilePositionY != targetY)
+@@ -8677,5 +8677,5 @@ namespace APIShared.UnitCommands
+             {
+                 if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
+-                    unit == null || unit->r_AliveState != AliveState.IsAlive ||
++                    unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
+                     unit->r_TribeId != command.TribeId)
+                 {
+diff --git a/APIShared/src/UnitCommands/UnitMovementContext.cs b/APIShared/src/UnitCommands/UnitMovementContext.cs
+index 21167fa74..8fb020c5a 100644
+--- a/APIShared/src/UnitCommands/UnitMovementContext.cs
++++ b/APIShared/src/UnitCommands/UnitMovementContext.cs
+@@ -106,5 +106,5 @@ namespace APIShared.UnitCommands
+                 unitId > MaximumUnitCount ||
+                 !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) || unit == null ||
+-                unit->r_AliveState != AliveState.IsAlive || !CanDigMoat(unit))
++                !APIShared.UnitAccess.IsReallyAlive(unit) || !CanDigMoat(unit))
+                 return null;
+             if (frame.Plan != null && frame.Plan.IdentityBound &&
+diff --git a/APIShared/src/UnitCommands/WeightedMoatPublication.cs b/APIShared/src/UnitCommands/WeightedMoatPublication.cs
+index a42b5b8a9..a7c0be534 100644
+--- a/APIShared/src/UnitCommands/WeightedMoatPublication.cs
++++ b/APIShared/src/UnitCommands/WeightedMoatPublication.cs
+@@ -45,5 +45,5 @@ namespace APIShared.UnitCommands
+                 if (ownerFrame != null && ownerFrame.Args.UnitId != unitId) return RejectWeightedCapture("frame-owner");
+                 if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
+-                    unit == null || unit->r_AliveState != AliveState.IsAlive || !CanDigMoat(unit))
++                    unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) || !CanDigMoat(unit))
+                     return null;
+ 
+@@ -147,5 +147,5 @@ namespace APIShared.UnitCommands
+                 bool snapshotAvailable = APIShared.UnitAccess.TryGetById(
+                     shadow.UnitId, out GameUnit* snapshotUnit, out _) && snapshotUnit != null &&
+-                    snapshotUnit->r_AliveState == AliveState.IsAlive;
++                    APIShared.UnitAccess.IsReallyAlive(snapshotUnit);
+                 bool identityMatches = snapshotAvailable && snapshotUnit->r_GlobalId == shadow.UnitGlobalId && CanDigMoat(snapshotUnit) &&
+                     snapshotUnit->r_UnitChimp == shadow.UnitType &&
+diff --git a/APIShared/src/UnitHudPresentationCapability.cs b/APIShared/src/UnitHudPresentationCapability.cs
+index 2a2e7e843..71fa8f5f7 100644
+--- a/APIShared/src/UnitHudPresentationCapability.cs
++++ b/APIShared/src/UnitHudPresentationCapability.cs
+@@ -1274,5 +1274,5 @@ namespace APIShared
+                         desiredCounts[reportIndex] = state.troop_counts[reportIndex - 1];
+                 }
+-                foreach (int unitId in GameUnitManagerAPI.Instance.GetAllAliveUnits())
++                foreach (int unitId in APIShared.UnitAccess.GetAllReallyAliveUnits())
+                 {
+                     if (!TryCapture(unitId, out UnitHudUnitSnapshot unit) || unit.OwnerPlayerId != local) continue;
+@@ -1459,5 +1459,5 @@ namespace APIShared
+         {
+             snapshot = null;
+-            if (unitId <= 0 || GameUnitManagerAPI.Instance == null || !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) || unit == null || unit->r_AliveState != AliveState.IsAlive || unit->r_GlobalId == 0) return false;
++            if (unitId <= 0 || GameUnitManagerAPI.Instance == null || !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) || unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) || unit->r_GlobalId == 0) return false;
+             snapshot = new UnitHudUnitSnapshot(unitId, unit->r_GlobalId, (int)unit->r_UnitChimp, unit->r_ControllableForPlayerId, true);
+             return true;
+diff --git a/BugfixesAndQoL/src/AiDefensePatrolFix.cs b/BugfixesAndQoL/src/AiDefensePatrolFix.cs
+index 2ac442c91..7a5c0cde2 100644
+--- a/BugfixesAndQoL/src/AiDefensePatrolFix.cs
++++ b/BugfixesAndQoL/src/AiDefensePatrolFix.cs
+@@ -141,5 +141,5 @@ namespace BugfixesAndQoL
+                         recruitedUnit->r_GlobalId == 0 ||
+                         (recruitedUnit->r_AliveState != AliveState.NeedsInit &&
+-                         recruitedUnit->r_AliveState != AliveState.IsAlive))
++                         !APIShared.UnitAccess.IsReallyAlive(recruitedUnit)))
+                     {
+                         throw new InvalidOperationException(
+@@ -187,5 +187,5 @@ namespace BugfixesAndQoL
+                 GameUnit* unit = units.GetValuePointer(spanIndex);
+                 if (unit == null ||
+-                    unit->r_AliveState != AliveState.IsAlive ||
++                    !APIShared.UnitAccess.IsReallyAlive(unit) ||
+                     unit->r_ControllableForPlayerId != ownerId)
+                 {
+diff --git a/BugfixesAndQoL/src/AiRaidRetargetFixRuntime.cs b/BugfixesAndQoL/src/AiRaidRetargetFixRuntime.cs
+index 3550ebf00..ffc07c4c5 100644
+--- a/BugfixesAndQoL/src/AiRaidRetargetFixRuntime.cs
++++ b/BugfixesAndQoL/src/AiRaidRetargetFixRuntime.cs
+@@ -485,5 +485,5 @@ namespace BugfixesAndQoL
+             {
+                 if (!units.IsValidId(unitId) || !APIShared.UnitAccess.TryGetById(units, unitId, out GameUnit* unit, out _) ||
+-                    unit == null || unit->r_AliveState != AliveState.IsAlive ||
++                    unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
+                     unit->r_TribeId != tribeId) continue;
+                 switch (unit->r_UnitChimp)
+diff --git a/BugfixesAndQoL/src/AssassinClimbCancellationRuntime.cs b/BugfixesAndQoL/src/AssassinClimbCancellationRuntime.cs
+index 9c40dc303..82cbec3c7 100644
+--- a/BugfixesAndQoL/src/AssassinClimbCancellationRuntime.cs
++++ b/BugfixesAndQoL/src/AssassinClimbCancellationRuntime.cs
+@@ -107,5 +107,5 @@ namespace BugfixesAndQoL
+                     if (localUnitId <= 0 || !APIShared.UnitAccess.TryGetById(unitApi, localUnitId, out GameUnit* unit, out _) || unit == null)
+                         continue;
+-                    if (unit->r_AliveState != AliveState.IsAlive ||
++                    if (!APIShared.UnitAccess.IsReallyAlive(unit) ||
+                         unit->r_UnitChimp != eChimps.CHIMP_TYPE_ARAB_ASSASIN ||
+                         !AssassinClimbCancellationPolicy.IsClimbingState(unit->r_AIState))
+diff --git a/BugfixesAndQoL/src/AssassinClimbRuntime.cs b/BugfixesAndQoL/src/AssassinClimbRuntime.cs
+index dce4cd3d2..dc18b7df8 100644
+--- a/BugfixesAndQoL/src/AssassinClimbRuntime.cs
++++ b/BugfixesAndQoL/src/AssassinClimbRuntime.cs
+@@ -438,5 +438,5 @@ namespace BugfixesAndQoL
+                     ref GameUnit unit = ref units[spanIndex];
+                     if (unit.r_UnitSelected != 0 &&
+-                        unit.r_AliveState == AliveState.IsAlive &&
++                        APIShared.UnitAccess.IsReallyAlive(in unit) &&
+                         unit.r_UnitChimp == eChimps.CHIMP_TYPE_ARAB_ASSASIN &&
+                         unit.r_ControllableForPlayerId == playerId)
+@@ -460,5 +460,5 @@ namespace BugfixesAndQoL
+         private static bool IsOwnAssassin(GameUnit* unit, int playerId)
+         {
+-            return unit != null && unit->r_AliveState == AliveState.IsAlive &&
++            return unit != null && APIShared.UnitAccess.IsReallyAlive(unit) &&
+                 unit->r_UnitChimp == eChimps.CHIMP_TYPE_ARAB_ASSASIN && unit->r_ControllableForPlayerId == playerId;
+         }
+diff --git a/BugfixesAndQoL/src/AssassinCombatResumeRuntime.cs b/BugfixesAndQoL/src/AssassinCombatResumeRuntime.cs
+index bdf1527a1..839ed74a2 100644
+--- a/BugfixesAndQoL/src/AssassinCombatResumeRuntime.cs
++++ b/BugfixesAndQoL/src/AssassinCombatResumeRuntime.cs
+@@ -115,6 +115,7 @@ namespace BugfixesAndQoL
+                 }
+ 
+-                GameUnit unit = units[spanIndex];
+-                if (!AssassinCombatResumePolicy.IsEligibleAssassin(
++                ref GameUnit unit = ref units[spanIndex];
++                if (!APIShared.UnitAccess.IsReallyAlive(in unit) ||
++                    !AssassinCombatResumePolicy.IsEligibleAssassin(
+                         true,
+                         unit.r_AliveState,
+diff --git a/BugfixesAndQoL/src/CorruptLordDataSpawnRuntime.cs b/BugfixesAndQoL/src/CorruptLordDataSpawnRuntime.cs
+index da1ce9091..b56b4f9f0 100644
+--- a/BugfixesAndQoL/src/CorruptLordDataSpawnRuntime.cs
++++ b/BugfixesAndQoL/src/CorruptLordDataSpawnRuntime.cs
+@@ -291,5 +291,5 @@ namespace BugfixesAndQoL
+             }
+ 
+-            return lord->r_AliveState == AliveState.IsAlive &&
++            return APIShared.UnitAccess.IsReallyAlive(lord) &&
+                 lord->r_ControllableForPlayerId == playerId &&
+                 lord->r_UnitChimp == eChimps.CHIMP_TYPE_LORD &&
+diff --git a/BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs b/BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs
+index 787834134..9b1dbf3d6 100644
+--- a/BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs
++++ b/BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs
+@@ -1546,5 +1546,5 @@ namespace BugfixesAndQoL
+             {
+                 if (!APIShared.UnitAccess.TryGetById(command.Argument1, out GameUnit* unit, out _) ||
+-                    unit == null || unit->r_AliveState != AliveState.IsAlive || unit->r_CurrentHealth <= 0 ||
++                    unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) || unit->r_CurrentHealth <= 0 ||
+                     unit->r_GlobalId != unchecked((uint)command.Argument2))
+                 {
+@@ -2465,5 +2465,5 @@ namespace BugfixesAndQoL
+             return GameUnitManagerAPI.Instance.IsValidId(identity.UnitId) &&
+                 APIShared.UnitAccess.TryGetById(identity.UnitId, out unit, out _) && unit != null &&
+-                unit->r_AliveState == AliveState.IsAlive && unit->r_GlobalId == identity.GlobalId;
++                APIShared.UnitAccess.IsReallyAlive(unit) && unit->r_GlobalId == identity.GlobalId;
+         }
+ 
+@@ -2555,5 +2555,5 @@ namespace BugfixesAndQoL
+             {
+                 ref GameUnit unit = ref units[spanIndex];
+-                if (unit.r_AliveState != AliveState.IsAlive || unit.r_TribeId != tribeId)
++                if (!APIShared.UnitAccess.IsReallyAlive(in unit) || unit.r_TribeId != tribeId)
+                     continue;
+                 int unitId = spanIndex + 1;
+@@ -2589,5 +2589,5 @@ namespace BugfixesAndQoL
+                 }
+ 
+-                if (unit->r_AliveState == AliveState.IsAlive && unit->r_TribeId == tribeId)
++                if (APIShared.UnitAccess.IsReallyAlive(unit) && unit->r_TribeId == tribeId)
+                     return true;
+             }
+@@ -2644,5 +2644,5 @@ namespace BugfixesAndQoL
+                     return false;
+                 }
+-                return unit->r_AliveState == AliveState.IsAlive &&
++                return APIShared.UnitAccess.IsReallyAlive(unit) &&
+                     unit->r_GlobalId == unchecked((uint)command.Argument2) &&
+                     unit->r_CurrentHealth != 0;
+diff --git a/BugfixesAndQoL/src/FastRecruitRallyMovementRuntime.cs b/BugfixesAndQoL/src/FastRecruitRallyMovementRuntime.cs
+index 7030851f1..d43502454 100644
+--- a/BugfixesAndQoL/src/FastRecruitRallyMovementRuntime.cs
++++ b/BugfixesAndQoL/src/FastRecruitRallyMovementRuntime.cs
+@@ -153,5 +153,5 @@ namespace BugfixesAndQoL
+ 
+             GameUnit* unit = unitArray + unitId - 1;
+-            if (unit->r_AliveState != AliveState.IsAlive)
++            if (!APIShared.UnitAccess.IsReallyAlive(unit))
+                 return;
+ 
+diff --git a/BugfixesAndQoL/src/ForeignTroopHudRuntime.cs b/BugfixesAndQoL/src/ForeignTroopHudRuntime.cs
+index 83235deba..d55e7dd27 100644
+--- a/BugfixesAndQoL/src/ForeignTroopHudRuntime.cs
++++ b/BugfixesAndQoL/src/ForeignTroopHudRuntime.cs
+@@ -262,5 +262,5 @@ namespace BugfixesAndQoL
+                 if (spanIndex < 0 || spanIndex >= units.Length) continue;
+                 ref GameUnit unit = ref units[spanIndex];
+-                if (unit.r_AliveState != AliveState.IsAlive || unit.r_UnitHover == 0) continue;
++                if (!APIShared.UnitAccess.IsReallyAlive(in unit) || unit.r_UnitHover == 0) continue;
+                 hoveredCount++;
+                 int owner = unit.r_ControllableForPlayerId;
+@@ -355,5 +355,5 @@ namespace BugfixesAndQoL
+                 if (spanIndex < 0 || spanIndex >= units.Length) continue;
+                 ref GameUnit unit = ref units[spanIndex];
+-                if (unit.r_AliveState != AliveState.IsAlive || unit.r_UnitHover == 0) continue;
++                if (!APIShared.UnitAccess.IsReallyAlive(in unit) || unit.r_UnitHover == 0) continue;
+                 count++;
+                 samples.Append(" [unit=").Append(spanIndex + 1)
+@@ -393,5 +393,5 @@ namespace BugfixesAndQoL
+                     if (spanIndex < 0 || spanIndex >= units.Length) continue;
+                     ref GameUnit unit = ref units[spanIndex];
+-                    if (unit.r_AliveState != AliveState.IsAlive || unit.r_UnitHover == 0 ||
++                    if (!APIShared.UnitAccess.IsReallyAlive(in unit) || unit.r_UnitHover == 0 ||
+                         unit.r_ControllableForPlayerId != owner || (int)unit.r_UnitChimp != type)
+                         continue;
+diff --git a/BugfixesAndQoL/src/LordUnitControlsFeature.cs b/BugfixesAndQoL/src/LordUnitControlsFeature.cs
+index 95ec1c2f0..492288db0 100644
+--- a/BugfixesAndQoL/src/LordUnitControlsFeature.cs
++++ b/BugfixesAndQoL/src/LordUnitControlsFeature.cs
+@@ -169,5 +169,5 @@ namespace BugfixesAndQoL
+             int count = Math.Min(state.numSelectedChimps, state.selectedChimps.Length);
+             for (int i = 0; i < count; i++)
+-                if (state.selectedChimps[i] > 0 && APIShared.UnitAccess.TryGetById(state.selectedChimps[i], out GameUnit* unit, out _) && unit != null && unit->r_AliveState == AliveState.IsAlive && unit->r_UnitChimp != eChimps.CHIMP_TYPE_LORD) return true;
++                if (state.selectedChimps[i] > 0 && APIShared.UnitAccess.TryGetById(state.selectedChimps[i], out GameUnit* unit, out _) && unit != null && APIShared.UnitAccess.IsReallyAlive(unit) && unit->r_UnitChimp != eChimps.CHIMP_TYPE_LORD) return true;
+             return false;
+         }
+@@ -186,5 +186,5 @@ namespace BugfixesAndQoL
+             int unitId = GamePlayerManagerAPI.Instance.GetLordUnitId(playerId);
+             if (unitId <= 0 || !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) || unit == null) return new SurrenderLordSnapshot(playerId, unitId, -1, -1, false);
+-            return new SurrenderLordSnapshot(playerId, unitId, (int)unit->r_GlobalId, unit->r_ControllableForPlayerId, unit->r_AliveState == AliveState.IsAlive && unit->r_UnitChimp == eChimps.CHIMP_TYPE_LORD && unit->r_CurrentHealth > 0);
++            return new SurrenderLordSnapshot(playerId, unitId, (int)unit->r_GlobalId, unit->r_ControllableForPlayerId, APIShared.UnitAccess.IsReallyAlive(unit) && unit->r_UnitChimp == eChimps.CHIMP_TYPE_LORD && unit->r_CurrentHealth > 0);
+         }
+ 
+diff --git a/BugfixesAndQoL/src/MountedStockpileMovementPatch.cs b/BugfixesAndQoL/src/MountedStockpileMovementPatch.cs
+index 5d450f437..8080f8baa 100644
+--- a/BugfixesAndQoL/src/MountedStockpileMovementPatch.cs
++++ b/BugfixesAndQoL/src/MountedStockpileMovementPatch.cs
+@@ -299,5 +299,5 @@ namespace BugfixesAndQoL
+                     currentUnit != null &&
+                     (ulong)currentUnit == context.Pointer->RDI + UnitFromManagerRelativeBaseOffset &&
+-                    currentUnit->r_AliveState == AliveState.IsAlive &&
++                    APIShared.UnitAccess.IsReallyAlive(currentUnit) &&
+                     IsPlayableMountedType(currentUnit->r_UnitChimp);
+ 
+@@ -385,5 +385,5 @@ namespace BugfixesAndQoL
+                     !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
+                     unit == null ||
+-                    unit->r_AliveState != AliveState.IsAlive)
++                    !APIShared.UnitAccess.IsReallyAlive(unit))
+                 {
+                     allResolved = false;
+diff --git a/BugfixesAndQoL/src/MoveFormationDragRuntime.cs b/BugfixesAndQoL/src/MoveFormationDragRuntime.cs
+index 30f8ed63d..06c7da45f 100644
+--- a/BugfixesAndQoL/src/MoveFormationDragRuntime.cs
++++ b/BugfixesAndQoL/src/MoveFormationDragRuntime.cs
+@@ -705,5 +705,5 @@ namespace BugfixesAndQoL
+                 if (!APIShared.UnitAccess.TryGetById(
+                         unitId, out GameUnit* unit, out _) ||
+-                    unit == null || unit->r_AliveState != AliveState.IsAlive ||
++                    unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
+                     unit->r_GlobalId == 0)
+                 {
+diff --git a/BugfixesAndQoL/src/PlagueApothecaryStateTransitionFix.cs b/BugfixesAndQoL/src/PlagueApothecaryStateTransitionFix.cs
+index 1fca5a4d3..7a28b122c 100644
+--- a/BugfixesAndQoL/src/PlagueApothecaryStateTransitionFix.cs
++++ b/BugfixesAndQoL/src/PlagueApothecaryStateTransitionFix.cs
+@@ -165,5 +165,5 @@ namespace BugfixesAndQoL
+                 APIShared.UnitAccess.TryGetById(unitId, out healer, out _) &&
+                 healer != null &&
+-                healer->r_AliveState == AliveState.IsAlive &&
++                APIShared.UnitAccess.IsReallyAlive(healer) &&
+                 healer->r_UnitChimp == eChimps.CHIMP_TYPE_HEALER;
+         }
+diff --git a/BugfixesAndQoL/src/PlagueTargetReservationFix.cs b/BugfixesAndQoL/src/PlagueTargetReservationFix.cs
+index ab35d5a05..cb945f420 100644
+--- a/BugfixesAndQoL/src/PlagueTargetReservationFix.cs
++++ b/BugfixesAndQoL/src/PlagueTargetReservationFix.cs
+@@ -234,5 +234,5 @@ namespace BugfixesAndQoL
+                 uint ownerGlobalId = healer->r_GlobalId;
+                 PruneInvalidReservations();
+-                if (healer->r_AliveState != AliveState.IsAlive ||
++                if (!APIShared.UnitAccess.IsReallyAlive(healer) ||
+                     healer->r_UnitChimp != eChimps.CHIMP_TYPE_HEALER)
+                 {
+@@ -558,5 +558,5 @@ namespace BugfixesAndQoL
+                 APIShared.UnitAccess.TryGetById(unitId, out healer, out _) &&
+                 healer != null &&
+-                healer->r_AliveState == AliveState.IsAlive &&
++                APIShared.UnitAccess.IsReallyAlive(healer) &&
+                 healer->r_UnitChimp == eChimps.CHIMP_TYPE_HEALER &&
+                 (expectedGlobalId == 0 || healer->r_GlobalId == expectedGlobalId);
+diff --git a/BugfixesAndQoL/src/PlagueTreatmentFadeFix.cs b/BugfixesAndQoL/src/PlagueTreatmentFadeFix.cs
+index a9fc4c610..833a38847 100644
+--- a/BugfixesAndQoL/src/PlagueTreatmentFadeFix.cs
++++ b/BugfixesAndQoL/src/PlagueTreatmentFadeFix.cs
+@@ -200,5 +200,5 @@ namespace BugfixesAndQoL
+                 APIShared.UnitAccess.TryGetById(unitId, out healer, out _) &&
+                 healer != null &&
+-                healer->r_AliveState == AliveState.IsAlive &&
++                APIShared.UnitAccess.IsReallyAlive(healer) &&
+                 healer->r_UnitChimp == eChimps.CHIMP_TYPE_HEALER;
+         }
+diff --git a/BugfixesAndQoL/src/ReachableEnemyGatehouseRuntime.cs b/BugfixesAndQoL/src/ReachableEnemyGatehouseRuntime.cs
+index e5b9ff570..5b15510e3 100644
+--- a/BugfixesAndQoL/src/ReachableEnemyGatehouseRuntime.cs
++++ b/BugfixesAndQoL/src/ReachableEnemyGatehouseRuntime.cs
+@@ -97,5 +97,5 @@ namespace BugfixesAndQoL
+ 
+                 bool vanillaCandidateCanClose =
+-                    unit->r_AliveState == AliveState.IsAlive &&
++                    APIShared.UnitAccess.IsReallyAlive(unit) &&
+                     unit->r_UnitChimp != eChimps.CHIMP_TYPE_LION &&
+                     unit->r_ControllableForPlayerId != 0;
+@@ -135,5 +135,5 @@ namespace BugfixesAndQoL
+             if (unitId <= 0 || gatehouseBuildingId <= 0 || gatehouseBuilding == null ||
+                 gatehouse == null || unit == null ||
+-                unit->r_AliveState != AliveState.IsAlive || unit->r_CurrentHealth == 0 ||
++                !APIShared.UnitAccess.IsReallyAlive(unit) || unit->r_CurrentHealth == 0 ||
+                 unit->r_ControllableForPlayerId <= 0)
+             {
+diff --git a/BugfixesAndQoL/src/SelectedUnitHealthFeature.cs b/BugfixesAndQoL/src/SelectedUnitHealthFeature.cs
+index 31e715183..c782d9d8b 100644
+--- a/BugfixesAndQoL/src/SelectedUnitHealthFeature.cs
++++ b/BugfixesAndQoL/src/SelectedUnitHealthFeature.cs
+@@ -284,5 +284,5 @@ namespace BugfixesAndQoL
+                     !APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _) ||
+                     unit == null ||
+-                    unit->r_AliveState != AliveState.IsAlive ||
++                    !APIShared.UnitAccess.IsReallyAlive(unit) ||
+                     (mapEditor && unit->r_ControllableForPlayerId != controlledPlayerId))
+                 {
+@@ -356,5 +356,5 @@ namespace BugfixesAndQoL
+         private static void AddHealth(int unitId, ref SelectedUnitHealthSummary summary, GameUnitManagerAPI unitApi, bool mapEditor, int controlledPlayerId)
+         {
+-            if (unitId <= 0 || unitApi == null || !APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _) || unit == null || unit->r_AliveState != AliveState.IsAlive || (mapEditor && unit->r_ControllableForPlayerId != controlledPlayerId)) return;
++            if (unitId <= 0 || unitApi == null || !APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _) || unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) || (mapEditor && unit->r_ControllableForPlayerId != controlledPlayerId)) return;
+             summary.Add(unit->r_CurrentHealth, unit->r_MaxHealth);
+         }
+diff --git a/BugfixesAndQoL/src/SiegeAmmoRestockFeature.cs b/BugfixesAndQoL/src/SiegeAmmoRestockFeature.cs
+index 3d0235354..0d481a763 100644
+--- a/BugfixesAndQoL/src/SiegeAmmoRestockFeature.cs
++++ b/BugfixesAndQoL/src/SiegeAmmoRestockFeature.cs
+@@ -439,5 +439,5 @@ namespace BugfixesAndQoL
+             var requested = new HashSet<int>(globalIds);
+             if (requested.Count != globalIds.Length || requested.Contains(0)) return false;
+-            int[] alive = GameUnitManagerAPI.Instance.GetAllAliveUnits();
++            int[] alive = APIShared.UnitAccess.GetAllReallyAliveUnits();
+             for (int index = 0; index < alive.Length && resolved.Count < requested.Count; index++)
+             {
+@@ -451,5 +451,5 @@ namespace BugfixesAndQoL
+ 
+         private static bool IsEligible(GameUnit* unit, int playerId) =>
+-            unit != null && unit->r_AliveState == AliveState.IsAlive &&
++            unit != null && APIShared.UnitAccess.IsReallyAlive(unit) &&
+             unit->r_ControllableForPlayerId == playerId &&
+             (unit->r_UnitChimp == eChimps.CHIMP_TYPE_CATAPULT || unit->r_UnitChimp == eChimps.CHIMP_TYPE_TREBUCHET);
+diff --git a/BugfixesAndQoL/src/SpectatorPerspectiveRuntime.cs b/BugfixesAndQoL/src/SpectatorPerspectiveRuntime.cs
+index ae4e263b3..7fd463b7c 100644
+--- a/BugfixesAndQoL/src/SpectatorPerspectiveRuntime.cs
++++ b/BugfixesAndQoL/src/SpectatorPerspectiveRuntime.cs
+@@ -632,5 +632,5 @@ namespace BugfixesAndQoL
+                     if (lordId <= 0 || lordGlobalId == 0 ||
+                         !APIShared.UnitAccess.TryGetById(units, lordId, out GameUnit* lord, out _) || lord == null ||
+-                        lord->r_AliveState != AliveState.IsAlive ||
++                        !APIShared.UnitAccess.IsReallyAlive(lord) ||
+                         lord->r_ControllableForPlayerId != player ||
+                         lord->r_UnitChimp != eChimps.CHIMP_TYPE_LORD ||
+diff --git a/BugfixesAndQoL/src/SurrenderFeature.cs b/BugfixesAndQoL/src/SurrenderFeature.cs
+index 3ca8cdbdd..6ed35900a 100644
+--- a/BugfixesAndQoL/src/SurrenderFeature.cs
++++ b/BugfixesAndQoL/src/SurrenderFeature.cs
+@@ -1794,5 +1794,5 @@ namespace BugfixesAndQoL
+                 (int)unit->r_GlobalId,
+                 unit->r_ControllableForPlayerId,
+-                unit->r_AliveState == AliveState.IsAlive &&
++                APIShared.UnitAccess.IsReallyAlive(unit) &&
+                     unit->r_UnitChimp == eChimps.CHIMP_TYPE_LORD &&
+                     unit->r_CurrentHealth > 0);
+diff --git a/BugfixesAndQoL/src/TroopHudMiddleClickCameraFeature.cs b/BugfixesAndQoL/src/TroopHudMiddleClickCameraFeature.cs
+index ce528789a..762956468 100644
+--- a/BugfixesAndQoL/src/TroopHudMiddleClickCameraFeature.cs
++++ b/BugfixesAndQoL/src/TroopHudMiddleClickCameraFeature.cs
+@@ -111,5 +111,5 @@ namespace BugfixesAndQoL
+                         !APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _) ||
+                         unit == null ||
+-                        unit->r_AliveState != AliveState.IsAlive ||
++                        !APIShared.UnitAccess.IsReallyAlive(unit) ||
+                         unit->r_UnitChimp != unitType)
+                     {
+diff --git a/BugfixesAndQoL/src/TroopMovementFix3Runtime.cs b/BugfixesAndQoL/src/TroopMovementFix3Runtime.cs
+index aa395fce1..f3ba59baf 100644
+--- a/BugfixesAndQoL/src/TroopMovementFix3Runtime.cs
++++ b/BugfixesAndQoL/src/TroopMovementFix3Runtime.cs
+@@ -496,5 +496,5 @@ namespace BugfixesAndQoL
+                 GameUnit* unit = unitArray + unitId - 1;
+                 if (unit == null ||
+-                    unit->r_AliveState != AliveState.IsAlive)
++                    !APIShared.UnitAccess.IsReallyAlive(unit))
+                 {
+                     continue;
+diff --git a/BugfixesAndQoL/src/TroopMovementFix3SynchronizedMovementCadencePatch.cs b/BugfixesAndQoL/src/TroopMovementFix3SynchronizedMovementCadencePatch.cs
+index f34c2efe5..0bf0ed8cb 100644
+--- a/BugfixesAndQoL/src/TroopMovementFix3SynchronizedMovementCadencePatch.cs
++++ b/BugfixesAndQoL/src/TroopMovementFix3SynchronizedMovementCadencePatch.cs
+@@ -71,4 +71,6 @@ namespace BugfixesAndQoL
+         private const int UnitAnimationStateManagerOffset = 0x660;
+         private const int UnitAliveStateManagerOffset = 0x6E4;
++        // IsReallyAlive low word at GameUnit+0x29C, relative to the audited manager base.
++        private const int UnitDeathMarkerManagerOffset = 0x8F8;
+         private const int UnitTypeManagerOffset = 0x6E6;
+         private const int UnitOwnerManagerOffset = 0x6EE;
+@@ -534,4 +536,6 @@ namespace BugfixesAndQoL
+                 (int)AliveState.IsAlive);
+             assembler.jne(restoreAndReplay);
++            assembler.cmp(__word_ptr[rbx + UnitDeathMarkerManagerOffset], 0);
++            assembler.jne(restoreAndReplay);
+             assembler.mov(eax, __dword_ptr[rcx + RallyGenerationGlobalIdOffset]);
+             assembler.test(eax, eax);
+@@ -623,4 +627,6 @@ namespace BugfixesAndQoL
+                 (int)AliveState.IsAlive);
+             assembler.jne(replayVanilla);
++            assembler.cmp(__word_ptr[r8 + UnitDeathMarkerManagerOffset], 0);
++            assembler.jne(replayVanilla);
+             assembler.mov(rax, unchecked((ulong)rallyEnabledFlag));
+             assembler.cmp(__dword_ptr[rax], 0);
+diff --git a/BugfixesAndQoL/src/WaterboyTargetReservationRuntime.cs b/BugfixesAndQoL/src/WaterboyTargetReservationRuntime.cs
+index fc4943687..cb6fd0da3 100644
+--- a/BugfixesAndQoL/src/WaterboyTargetReservationRuntime.cs
++++ b/BugfixesAndQoL/src/WaterboyTargetReservationRuntime.cs
+@@ -260,5 +260,5 @@ namespace BugfixesAndQoL
+             {
+                 if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
+-                    unit == null || unit->r_AliveState != AliveState.IsAlive ||
++                    unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
+                     unit->r_UnitChimp != eChimps.CHIMP_TYPE_FIREMAN ||
+                     unit->r_ControllableForPlayerId != playerId ||
+@@ -381,5 +381,5 @@ namespace BugfixesAndQoL
+         {
+             if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
+-                unit == null || unit->r_AliveState != AliveState.IsAlive ||
++                unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
+                 unit->r_UnitChimp != eChimps.CHIMP_TYPE_FIREMAN || unit->r_GlobalId == 0)
+                 throw new InvalidOperationException($"Target search received an invalid fireman unit: {unitId}.");
+@@ -396,5 +396,5 @@ namespace BugfixesAndQoL
+         private static bool TryResolveLivingFireman(NativeIdentity identity, out GameUnit* unit) =>
+             APIShared.UnitAccess.TryGetById(identity.Slot, out unit, out _) && unit != null &&
+-            unit->r_GlobalId == identity.GlobalId && unit->r_AliveState == AliveState.IsAlive &&
++            unit->r_GlobalId == identity.GlobalId && APIShared.UnitAccess.IsReallyAlive(unit) &&
+             unit->r_UnitChimp == eChimps.CHIMP_TYPE_FIREMAN;
+ 
+diff --git a/BugfixesAndQoL/src/WorkshopIdleDelayNative.cs b/BugfixesAndQoL/src/WorkshopIdleDelayNative.cs
+index 9be7e5859..a26a452f7 100644
+--- a/BugfixesAndQoL/src/WorkshopIdleDelayNative.cs
++++ b/BugfixesAndQoL/src/WorkshopIdleDelayNative.cs
+@@ -68,4 +68,6 @@ namespace BugfixesAndQoL
+             a.lea(r10, __[rbx + r12]);
+             a.cmp(__word_ptr[r10 + 0x6E4], (int)AliveState.IsAlive); a.jne(vanilla);
++            // IsReallyAlive: manager-relative low-word death marker (GameUnit+0x29C).
++            a.cmp(__word_ptr[r10 + 0x8F8], 0); a.jne(vanilla);
+             a.cmp(__word_ptr[r10 + 0x6E6], (int)(tanner ? eChimps.CHIMP_TYPE_TANNER : eChimps.CHIMP_TYPE_POLETURNER)); a.jne(vanilla);
+             // State 1 is also used during entertainment. The helper can return zero mid-animation.
+diff --git a/ExtraFeatures/src/GatehouseAutomationRuntime.cs b/ExtraFeatures/src/GatehouseAutomationRuntime.cs
+index c408de52f..832cb5475 100644
+--- a/ExtraFeatures/src/GatehouseAutomationRuntime.cs
++++ b/ExtraFeatures/src/GatehouseAutomationRuntime.cs
+@@ -623,5 +623,5 @@ namespace ExtraFeatures
+                 // native hook. Re-evaluate them for the corrected candidate slot.
+                 bool vanillaCandidateCanClose =
+-                    unit->r_AliveState == AliveState.IsAlive &&
++                    APIShared.UnitAccess.IsReallyAlive(unit) &&
+                     unit->r_UnitChimp != eChimps.CHIMP_TYPE_LION &&
+                     unit->r_ControllableForPlayerId != 0;
+diff --git a/ExtraFeatures/src/HealerTargetsRuntime.cs b/ExtraFeatures/src/HealerTargetsRuntime.cs
+index 491c71f93..4a7f4037c 100644
+--- a/ExtraFeatures/src/HealerTargetsRuntime.cs
++++ b/ExtraFeatures/src/HealerTargetsRuntime.cs
+@@ -169,5 +169,5 @@ namespace ExtraFeatures
+                 if ((!siege && !civilian) || seen[unitId] ||
+                     unit->r_ControllableForPlayerId != playerId ||
+-                    unit->r_AliveState != AliveState.IsAlive || unit->r_GlobalId == 0 ||
++                    !APIShared.UnitAccess.IsReallyAlive(unit) || unit->r_GlobalId == 0 ||
+                     unit->r_CurrentHealth == 0 || unit->r_CurrentHealth >= unit->r_MaxHealth)
+                     continue;
+diff --git a/ExtraFeatures/src/KnightDismountDelayRuntime.cs b/ExtraFeatures/src/KnightDismountDelayRuntime.cs
+index 20f1f3a28..6ed2b29eb 100644
+--- a/ExtraFeatures/src/KnightDismountDelayRuntime.cs
++++ b/ExtraFeatures/src/KnightDismountDelayRuntime.cs
+@@ -552,5 +552,5 @@ namespace ExtraFeatures
+             {
+                 if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
+-                    unit->r_AliveState != AliveState.IsAlive ||
++                    !APIShared.UnitAccess.IsReallyAlive(unit) ||
+                     unit->r_ControllableForPlayerId != localPlayerId)
+                 {
+@@ -589,5 +589,5 @@ namespace ExtraFeatures
+                 int localPlayerId = GetSelectionPlayerId();
+                 GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
+-                foreach (int unitId in unitApi.GetAllAliveUnits())
++                foreach (int unitId in APIShared.UnitAccess.GetAllReallyAliveUnits())
+                 {
+                     if (APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _) &&
+@@ -617,5 +617,5 @@ namespace ExtraFeatures
+                 {
+                     bool found = APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _);
+-                    if (!found || unit->r_AliveState != AliveState.IsAlive ||
++                    if (!found || !APIShared.UnitAccess.IsReallyAlive(unit) ||
+                         unit->r_ControllableForPlayerId != localPlayerId)
+                     {
+@@ -633,5 +633,5 @@ namespace ExtraFeatures
+                 var selectedUnitIds = new List<int>();
+                 var seen = new HashSet<int>();
+-                foreach (int unitId in unitApi.GetAllAliveUnits())
++                foreach (int unitId in APIShared.UnitAccess.GetAllReallyAliveUnits())
+                 {
+                     if (APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _) &&
+@@ -645,5 +645,5 @@ namespace ExtraFeatures
+                 {
+                     if (APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _) &&
+-                        unit->r_AliveState == AliveState.IsAlive &&
++                        APIShared.UnitAccess.IsReallyAlive(unit) &&
+                         unit->r_ControllableForPlayerId == localPlayerId && seen.Add(unitId))
+                     {
+@@ -936,5 +936,5 @@ namespace ExtraFeatures
+                 AddSelectedPendingGlobalId(playerId, selection[index].UnitId, result, seen);
+ 
+-            int[] aliveIds = GameUnitManagerAPI.Instance.GetAllAliveUnits();
++            int[] aliveIds = APIShared.UnitAccess.GetAllReallyAliveUnits();
+             for (int index = 0; index < aliveIds.Length; index++)
+             {
+diff --git a/ExtraFeatures/src/KnightDismountRuntime.cs b/ExtraFeatures/src/KnightDismountRuntime.cs
+index 1e74edd94..888a752ee 100644
+--- a/ExtraFeatures/src/KnightDismountRuntime.cs
++++ b/ExtraFeatures/src/KnightDismountRuntime.cs
+@@ -637,5 +637,5 @@ namespace ExtraFeatures
+             }
+ 
+-            int[] aliveUnits = unitApi.GetAllAliveUnits();
++            int[] aliveUnits = APIShared.UnitAccess.GetAllReallyAliveUnits();
+             for (int i = 0; i < aliveUnits.Length; i++)
+             {
+@@ -980,5 +980,5 @@ namespace ExtraFeatures
+             }
+ 
+-            int[] aliveUnits = unitApi.GetAllAliveUnits();
++            int[] aliveUnits = APIShared.UnitAccess.GetAllReallyAliveUnits();
+             for (int i = 0; i < aliveUnits.Length; i++)
+             {
+@@ -1227,5 +1227,5 @@ namespace ExtraFeatures
+                 return false;
+ 
+-            if (unit->r_AliveState != AliveState.IsAlive ||
++            if (!APIShared.UnitAccess.IsReallyAlive(unit) ||
+                 unit->r_UnitChimp != expectedType ||
+                 unit->r_ControllableForPlayerId != snapshot.OwnerPlayerId)
+@@ -1717,5 +1717,5 @@ namespace ExtraFeatures
+ 
+             GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
+-            int[] aliveUnitIds = unitApi.GetAllAliveUnits();
++            int[] aliveUnitIds = APIShared.UnitAccess.GetAllReallyAliveUnits();
+             for (int i = 0; i < aliveUnitIds.Length; i++)
+             {
+@@ -1752,5 +1752,5 @@ namespace ExtraFeatures
+         {
+             return unit != null &&
+-                unit->r_AliveState == AliveState.IsAlive &&
++                APIShared.UnitAccess.IsReallyAlive(unit) &&
+                 unit->r_UnitChimp == unitType &&
+                 unit->r_ControllableForPlayerId == localPlayerId;
+diff --git a/ExtraFeatures/src/LordHealthRuntime.cs b/ExtraFeatures/src/LordHealthRuntime.cs
+index 21bc3ce2a..6c28d1dbe 100644
+--- a/ExtraFeatures/src/LordHealthRuntime.cs
++++ b/ExtraFeatures/src/LordHealthRuntime.cs
+@@ -181,5 +181,5 @@ namespace ExtraFeatures
+             if (lord->r_CurrentHealth == 0) return false;
+             retry = lord->r_AliveState == AliveState.NeedsInit;
+-            return lord->r_AliveState == AliveState.IsAlive || (capturePending && retry);
++            return APIShared.UnitAccess.IsReallyAlive(lord) || (capturePending && retry);
+         }
+ 
+diff --git a/ImprovedHunters/src/HunterAnimalCompatibilityFeature.cs b/ImprovedHunters/src/HunterAnimalCompatibilityFeature.cs
+index 5885b9043..f69700e13 100644
+--- a/ImprovedHunters/src/HunterAnimalCompatibilityFeature.cs
++++ b/ImprovedHunters/src/HunterAnimalCompatibilityFeature.cs
+@@ -209,5 +209,5 @@ namespace ImprovedHunters
+                 unit == null ||
+                 unit->r_UnitChimp != eChimps.CHIMP_TYPE_CAMEL ||
+-                unit->r_AliveState != AliveState.IsAlive)
++                !APIShared.UnitAccess.IsReallyAlive(unit))
+             {
+                 return false;
+diff --git a/ImprovedHunters/src/HunterChickenCompatibilityFeature.cs b/ImprovedHunters/src/HunterChickenCompatibilityFeature.cs
+index 1c09a1f76..ad8c23633 100644
+--- a/ImprovedHunters/src/HunterChickenCompatibilityFeature.cs
++++ b/ImprovedHunters/src/HunterChickenCompatibilityFeature.cs
+@@ -365,5 +365,5 @@ namespace ImprovedHunters
+             if (chicken->r_AliveState == AliveState.NeedsInit)
+                 return true;
+-            if (chicken->r_AliveState != AliveState.IsAlive || chicken->r_CurrentHealth <= 0)
++            if (!APIShared.UnitAccess.IsReallyAlive(chicken) || chicken->r_CurrentHealth <= 0)
+                 return false;
+ 
+diff --git a/ImprovedHunters/src/HunterMovingTargetPathfindingDiagnostic.cs b/ImprovedHunters/src/HunterMovingTargetPathfindingDiagnostic.cs
+index 56b5e82e1..b9777593d 100644
+--- a/ImprovedHunters/src/HunterMovingTargetPathfindingDiagnostic.cs
++++ b/ImprovedHunters/src/HunterMovingTargetPathfindingDiagnostic.cs
+@@ -188,5 +188,5 @@ namespace ImprovedHunters
+                 !APIShared.UnitAccess.TryGetById(candidate.PreyUnitId, out GameUnit* prey, out _) ||
+                 prey == null ||
+-                prey->r_AliveState != AliveState.IsAlive ||
++                !APIShared.UnitAccess.IsReallyAlive(prey) ||
+                 prey->r_GlobalId != candidate.PreyGlobalId)
+             {
+diff --git a/ImprovedHunters/src/HunterPclReachability.cs b/ImprovedHunters/src/HunterPclReachability.cs
+index b816c9761..c52bd2153 100644
+--- a/ImprovedHunters/src/HunterPclReachability.cs
++++ b/ImprovedHunters/src/HunterPclReachability.cs
+@@ -243,5 +243,5 @@ namespace ImprovedHunters
+                 !APIShared.UnitAccess.TryGetById(unitApi, hunterUnitId, out GameUnit* hunter, out _) ||
+                 hunter == null ||
+-                hunter->r_AliveState != AliveState.IsAlive ||
++                !APIShared.UnitAccess.IsReallyAlive(hunter) ||
+                 hunter->r_CurrentHealth == 0 ||
+                 hunter->r_GlobalId == 0 ||
+@@ -255,5 +255,5 @@ namespace ImprovedHunters
+                 !APIShared.UnitAccess.TryGetById(unitApi, preyUnitId, out GameUnit* prey, out _) ||
+                 prey == null ||
+-                prey->r_AliveState != AliveState.IsAlive ||
++                !APIShared.UnitAccess.IsReallyAlive(prey) ||
+                 prey->r_CurrentHealth == 0 ||
+                 prey->r_GlobalId != preyGlobalId ||
+diff --git a/ImprovedHunters/src/HunterPostShotContinuationDiagnostic.cs b/ImprovedHunters/src/HunterPostShotContinuationDiagnostic.cs
+index a34ca3563..a56d8e845 100644
+--- a/ImprovedHunters/src/HunterPostShotContinuationDiagnostic.cs
++++ b/ImprovedHunters/src/HunterPostShotContinuationDiagnostic.cs
+@@ -896,5 +896,5 @@ namespace ImprovedHunters
+                 hunter == null)
+                 return Reject("hunter-not-found", out validation);
+-            if (hunter->r_AliveState != AliveState.IsAlive || hunter->r_CurrentHealth == 0)
++            if (!APIShared.UnitAccess.IsReallyAlive(hunter) || hunter->r_CurrentHealth == 0)
+                 return Reject("hunter-not-live", out validation);
+             if (hunter->r_GlobalId != candidate.HunterGlobalId ||
+@@ -907,5 +907,5 @@ namespace ImprovedHunters
+             if (!APIShared.UnitAccess.TryGetById(candidate.PreyUnitId, out prey, out _) || prey == null)
+                 return Reject("prey-not-found", out validation);
+-            if (prey->r_AliveState != AliveState.IsAlive || prey->r_CurrentHealth == 0)
++            if (!APIShared.UnitAccess.IsReallyAlive(prey) || prey->r_CurrentHealth == 0)
+                 return Reject("prey-not-live", out validation);
+             if (prey->r_GlobalId != candidate.PreyGlobalId || prey->r_UnitChimp != candidate.PreyType)
+@@ -1027,5 +1027,5 @@ namespace ImprovedHunters
+ 
+                 GameUnit* otherHunter = units.GetValuePointer(index);
+-                if (otherHunter->r_AliveState != AliveState.IsAlive ||
++                if (!APIShared.UnitAccess.IsReallyAlive(otherHunter) ||
+                     otherHunter->r_UnitChimp != eChimps.CHIMP_TYPE_HUNTER)
+                 {
+diff --git a/ImprovedHunters/src/HunterProjectileObservationFeature.cs b/ImprovedHunters/src/HunterProjectileObservationFeature.cs
+index 49d8b048d..ed60c4191 100644
+--- a/ImprovedHunters/src/HunterProjectileObservationFeature.cs
++++ b/ImprovedHunters/src/HunterProjectileObservationFeature.cs
+@@ -141,5 +141,5 @@ namespace ImprovedHunters
+             {
+                 GameUnit* unit = units.GetValuePointer(index);
+-                if (unit->r_AliveState != AliveState.IsAlive ||
++                if (!APIShared.UnitAccess.IsReallyAlive(unit) ||
+                     unit->r_UnitChimp != eChimps.CHIMP_TYPE_HUNTER)
+                 {
+diff --git a/ImprovedHunters/src/HunterRemainingPathSpeedRecovery.cs b/ImprovedHunters/src/HunterRemainingPathSpeedRecovery.cs
+index b72cd6c69..1165b84d5 100644
+--- a/ImprovedHunters/src/HunterRemainingPathSpeedRecovery.cs
++++ b/ImprovedHunters/src/HunterRemainingPathSpeedRecovery.cs
+@@ -326,5 +326,5 @@ namespace ImprovedHunters
+                 !APIShared.UnitAccess.TryGetById(unitApi, hunterUnitId, out hunter, out _) ||
+                 hunter == null ||
+-                hunter->r_AliveState != AliveState.IsAlive ||
++                !APIShared.UnitAccess.IsReallyAlive(hunter) ||
+                 hunter->r_CurrentHealth == 0 ||
+                 hunter->r_GlobalId == 0 ||
+@@ -347,5 +347,5 @@ namespace ImprovedHunters
+                 !APIShared.UnitAccess.TryGetById(unitApi, preyUnitId, out prey, out _) ||
+                 prey == null ||
+-                prey->r_AliveState != AliveState.IsAlive ||
++                !APIShared.UnitAccess.IsReallyAlive(prey) ||
+                 prey->r_CurrentHealth == 0 ||
+                 prey->r_GlobalId != preyGlobalId ||
+@@ -459,6 +459,6 @@ namespace ImprovedHunters
+             if (hunter == null ||
+                 prey == null ||
+-                hunter->r_AliveState != AliveState.IsAlive ||
+-                prey->r_AliveState != AliveState.IsAlive ||
++                !APIShared.UnitAccess.IsReallyAlive(hunter) ||
++                !APIShared.UnitAccess.IsReallyAlive(prey) ||
+                 prey->r_GlobalId != snapshot.PreyGlobalId)
+             {
+diff --git a/ImprovedHunters/src/HunterTargetSearchFallbackDiagnostic.cs b/ImprovedHunters/src/HunterTargetSearchFallbackDiagnostic.cs
+index 4aa109376..4c322c943 100644
+--- a/ImprovedHunters/src/HunterTargetSearchFallbackDiagnostic.cs
++++ b/ImprovedHunters/src/HunterTargetSearchFallbackDiagnostic.cs
+@@ -826,5 +826,5 @@ namespace ImprovedHunters
+             if (!APIShared.UnitAccess.TryGetById(unitApi, candidate.PreyUnitId, out GameUnit* prey, out _) ||
+                 prey == null ||
+-                prey->r_AliveState != AliveState.IsAlive ||
++                !APIShared.UnitAccess.IsReallyAlive(prey) ||
+                 prey->r_CurrentHealth == 0 ||
+                 prey->r_GlobalId != candidate.PreyGlobalId ||
+@@ -885,5 +885,5 @@ namespace ImprovedHunters
+             if (!APIShared.UnitAccess.TryGetById(unitApi, candidate.PreyUnitId, out GameUnit* prey, out _) ||
+                 prey == null ||
+-                prey->r_AliveState != AliveState.IsAlive ||
++                !APIShared.UnitAccess.IsReallyAlive(prey) ||
+                 prey->r_CurrentHealth == 0 ||
+                 prey->r_GlobalId != candidate.PreyGlobalId ||
+@@ -909,5 +909,5 @@ namespace ImprovedHunters
+                 !APIShared.UnitAccess.TryGetById(hunterUnitId, out hunter, out _) ||
+                 hunter == null ||
+-                hunter->r_AliveState != AliveState.IsAlive ||
++                !APIShared.UnitAccess.IsReallyAlive(hunter) ||
+                 hunter->r_CurrentHealth == 0 ||
+                 hunter->r_GlobalId == 0 ||
+@@ -994,5 +994,5 @@ namespace ImprovedHunters
+ 
+                 GameUnit* hunter = units.GetValuePointer(index);
+-                if (hunter->r_AliveState != AliveState.IsAlive ||
++                if (!APIShared.UnitAccess.IsReallyAlive(hunter) ||
+                     hunter->r_UnitChimp != eChimps.CHIMP_TYPE_HUNTER)
+                 {
+diff --git a/ImprovedHunters/src/HunterTargetSelectionFeature.cs b/ImprovedHunters/src/HunterTargetSelectionFeature.cs
+index ec6d65d7d..f837a361e 100644
+--- a/ImprovedHunters/src/HunterTargetSelectionFeature.cs
++++ b/ImprovedHunters/src/HunterTargetSelectionFeature.cs
+@@ -20,5 +20,5 @@ namespace ImprovedHunters
+     {
+         // Candidate discovery, cost ranking, initial reachability and State-0 selection handoff.
+-        private void OnHunterQueryTarget(UnitHunterQueryTargetEventArgs args)
++        private unsafe void OnHunterQueryTarget(UnitHunterQueryTargetEventArgs args)
+         {
+             if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
+@@ -216,5 +216,5 @@ namespace ImprovedHunters
+                 APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _) &&
+                 unit != null &&
+-                unit->r_AliveState == AliveState.IsAlive &&
++                APIShared.UnitAccess.IsReallyAlive(unit) &&
+                 unit->r_UnitChimp == eChimps.CHIMP_TYPE_HUNTER;
+         }
+@@ -248,5 +248,5 @@ namespace ImprovedHunters
+             if (!APIShared.UnitAccess.TryGetById(unitApi, hunterUnitId, out GameUnit* hunter, out _) ||
+                 hunter == null ||
+-                hunter->r_AliveState != AliveState.IsAlive ||
++                !APIShared.UnitAccess.IsReallyAlive(hunter) ||
+                 hunter->r_UnitChimp != eChimps.CHIMP_TYPE_HUNTER)
+             {
+@@ -609,5 +609,5 @@ namespace ImprovedHunters
+             {
+                 GameUnit* unit = units.GetValuePointer(index);
+-                if (unit->r_AliveState != AliveState.IsAlive ||
++                if (!APIShared.UnitAccess.IsReallyAlive(unit) ||
+                     unit->r_UnitChimp != eChimps.CHIMP_TYPE_HUNTER)
+                 {
+diff --git a/ImprovedHunters/src/HunterVanillaPathContinuationDiagnostic.cs b/ImprovedHunters/src/HunterVanillaPathContinuationDiagnostic.cs
+index 8f9eca084..f1c16bbce 100644
+--- a/ImprovedHunters/src/HunterVanillaPathContinuationDiagnostic.cs
++++ b/ImprovedHunters/src/HunterVanillaPathContinuationDiagnostic.cs
+@@ -784,5 +784,5 @@ namespace ImprovedHunters
+                 !APIShared.UnitAccess.TryGetById(unitApi, hunterUnitId, out hunter, out _) ||
+                 hunter == null ||
+-                hunter->r_AliveState != AliveState.IsAlive ||
++                !APIShared.UnitAccess.IsReallyAlive(hunter) ||
+                 hunter->r_CurrentHealth == 0 ||
+                 hunter->r_GlobalId == 0 ||
+@@ -802,5 +802,5 @@ namespace ImprovedHunters
+                 !APIShared.UnitAccess.TryGetById(unitApi, preyUnitId, out prey, out _) ||
+                 prey == null ||
+-                prey->r_AliveState != AliveState.IsAlive ||
++                !APIShared.UnitAccess.IsReallyAlive(prey) ||
+                 prey->r_CurrentHealth == 0 ||
+                 prey->r_GlobalId != preyGlobalId ||
+diff --git a/ImprovedHunters/src/ImprovedHuntersRuntime.cs b/ImprovedHunters/src/ImprovedHuntersRuntime.cs
+index 0ab419802..1f50c483c 100644
+--- a/ImprovedHunters/src/ImprovedHuntersRuntime.cs
++++ b/ImprovedHunters/src/ImprovedHuntersRuntime.cs
+@@ -326,5 +326,5 @@ namespace ImprovedHunters
+                 GameUnit* hunter = (GameUnit*)hunterAddress.ToPointer();
+                 if (hunter == null ||
+-                    hunter->r_AliveState != AliveState.IsAlive ||
++                    !APIShared.UnitAccess.IsReallyAlive(hunter) ||
+                     hunter->r_CurrentHealth == 0 ||
+                     hunter->r_GlobalId == 0)
+@@ -347,5 +347,5 @@ namespace ImprovedHunters
+                 GameUnit* prey = units.GetValuePointer(targetUnitId - 1);
+                 if (prey == null ||
+-                    prey->r_AliveState != AliveState.IsAlive ||
++                    !APIShared.UnitAccess.IsReallyAlive(prey) ||
+                     prey->r_CurrentHealth == 0 ||
+                     prey->r_GlobalId != targetGlobalId ||
+@@ -372,10 +372,10 @@ namespace ImprovedHunters
+                 // global ID enters HunterUpdate's own state-1 identity-failure
+                 // branch, which stops the old order and runs Vanilla's search.
+-                if (hunter->r_AliveState != AliveState.IsAlive ||
++                if (!APIShared.UnitAccess.IsReallyAlive(hunter) ||
+                     hunter->r_CurrentHealth == 0 ||
+                     *(ushort*)(hunterBytes + 0x2BC) != 1 ||
+                     *(ushort*)(hunterBytes + 0x39A) != targetUnitId ||
+                     *(uint*)(hunterBytes + 0x39C) != targetGlobalId ||
+-                    prey->r_AliveState != AliveState.IsAlive ||
++                    !APIShared.UnitAccess.IsReallyAlive(prey) ||
+                     prey->r_CurrentHealth == 0 ||
+                     prey->r_GlobalId != targetGlobalId)
+@@ -934,5 +934,5 @@ namespace ImprovedHunters
+             {
+                 GameUnit* hunter = units.GetValuePointer(index);
+-                if (hunter->r_AliveState != AliveState.IsAlive ||
++                if (!APIShared.UnitAccess.IsReallyAlive(hunter) ||
+                     hunter->r_UnitChimp != eChimps.CHIMP_TYPE_HUNTER)
+                 {
+@@ -1062,5 +1062,5 @@ namespace ImprovedHunters
+         }
+ 
+-        private void OnCalculateBonusYield(UnitCalculateBonusYieldEventArgs args)
++        private unsafe void OnCalculateBonusYield(UnitCalculateBonusYieldEventArgs args)
+         {
+             if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) ||
+diff --git a/ImprovedHunters/src/ManualChickenAttackPatch.cs b/ImprovedHunters/src/ManualChickenAttackPatch.cs
+index 293be6dba..6f0550f15 100644
+--- a/ImprovedHunters/src/ManualChickenAttackPatch.cs
++++ b/ImprovedHunters/src/ManualChickenAttackPatch.cs
+@@ -169,8 +169,8 @@ namespace ImprovedHunters
+ 
+                 if (target->r_UnitChimp != eChimps.CHIMP_TYPE_CHICKEN ||
+-                    target->r_AliveState != AliveState.IsAlive ||
++                    !APIShared.UnitAccess.IsReallyAlive(target) ||
+                     target->r_CurrentHealth == 0 ||
+                     target->r_GlobalId == 0 ||
+-                    attacker->r_AliveState != AliveState.IsAlive ||
++                    !APIShared.UnitAccess.IsReallyAlive(attacker) ||
+                     attacker->r_CurrentHealth == 0 ||
+                     attacker->r_GlobalId == 0)
+diff --git a/RandomEvents/src/RandomEventsParticipantResolver.cs b/RandomEvents/src/RandomEventsParticipantResolver.cs
+index 5f897205e..8c4699bf1 100644
+--- a/RandomEvents/src/RandomEventsParticipantResolver.cs
++++ b/RandomEvents/src/RandomEventsParticipantResolver.cs
+@@ -53,5 +53,5 @@ namespace RandomEvents
+                 return false;
+             }
+-            if (lord->r_AliveState != AliveState.IsAlive)
++            if (!APIShared.UnitAccess.IsReallyAlive(lord))
+             {
+                 failure = $"registered Lord unit state is {lord->r_AliveState}";
+diff --git a/RandomEvents/src/RandomEventsRuntime.cs b/RandomEvents/src/RandomEventsRuntime.cs
+index fd7400234..6c5a7e751 100644
+--- a/RandomEvents/src/RandomEventsRuntime.cs
++++ b/RandomEvents/src/RandomEventsRuntime.cs
+@@ -2031,5 +2031,5 @@ namespace RandomEvents
+                     unit == null ||
+                     unit->r_GlobalId != unitReference.GlobalId ||
+-                    unit->r_AliveState != AliveState.IsAlive)
++                    !APIShared.UnitAccess.IsReallyAlive(unit))
+                 {
+                     LogWarning(
+diff --git a/RandomEvents/src/ScenarioSignpostRegistry.cs b/RandomEvents/src/ScenarioSignpostRegistry.cs
+index 60c30181b..779f1344d 100644
+--- a/RandomEvents/src/ScenarioSignpostRegistry.cs
++++ b/RandomEvents/src/ScenarioSignpostRegistry.cs
+@@ -272,5 +272,5 @@ namespace RandomEvents
+                 resources != null && resources->r_LordUnitId > 0 && resources->r_LordUnitId <= int.MaxValue &&
+                 APIShared.UnitAccess.TryGetById((int)resources->r_LordUnitId, out GameUnit* lord, out _) &&
+-                lord != null && lord->r_AliveState == AliveState.IsAlive &&
++                lord != null && APIShared.UnitAccess.IsReallyAlive(lord) &&
+                 lord->r_UnitChimp == eChimps.CHIMP_TYPE_LORD && lord->r_ControllableForPlayerId == targetPlayerId)
+             {
+@@ -569,5 +569,5 @@ namespace RandomEvents
+                     lordFailure = $"registered Lord unit {resources->r_LordUnitId} cannot be resolved";
+                 }
+-                else if (lord->r_AliveState != AliveState.IsAlive ||
++                else if (!APIShared.UnitAccess.IsReallyAlive(lord) ||
+                          lord->r_UnitChimp != eChimps.CHIMP_TYPE_LORD ||
+                          lord->r_ControllableForPlayerId != playerId)
+diff --git a/StartConditions/src/StartConditionsRuntime.StartTroops.cs b/StartConditions/src/StartConditionsRuntime.StartTroops.cs
+index faded9f78..cff56221b 100644
+--- a/StartConditions/src/StartConditionsRuntime.StartTroops.cs
++++ b/StartConditions/src/StartConditionsRuntime.StartTroops.cs
+@@ -330,5 +330,5 @@ namespace StartConditions
+         }
+ 
+-        private void DeleteSoldiersForPlayer(int playerId)
++        private unsafe void DeleteSoldiersForPlayer(int playerId)
+         {
+             List<int> unitIds = new List<int>();
+@@ -381,9 +381,9 @@ namespace StartConditions
+         }
+ 
+-        private Dictionary<int, Dictionary<eChimps, int>> CountSoldiersForPlayers()
++        private unsafe Dictionary<int, Dictionary<eChimps, int>> CountSoldiersForPlayers()
+         {
+             Dictionary<int, Dictionary<eChimps, int>> troopCounts = new Dictionary<int, Dictionary<eChimps, int>>();
+             List<int> unitIds = new List<int>();
+-            GameUnitManagerAPI.Instance.GetAllUnits(unitIds, AliveState.IsAlive);
++            unitIds.AddRange(APIShared.UnitAccess.GetAllReallyAliveUnits());
+             int skippedInvalidUnitIds = 0;
+ 
+diff --git a/Testmods/AIDefenseTest/src/AIDefenseTestRuntime.cs b/Testmods/AIDefenseTest/src/AIDefenseTestRuntime.cs
+index 872d8f67d..596af7261 100644
+--- a/Testmods/AIDefenseTest/src/AIDefenseTestRuntime.cs
++++ b/Testmods/AIDefenseTest/src/AIDefenseTestRuntime.cs
+@@ -440,5 +440,5 @@ namespace AIDefenseTest
+             foreach (int unitId in aliveUnitIds)
+             {
+-                if (!APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _) || unit == null || unit->r_AliveState != AliveState.IsAlive)
++                if (!APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _) || unit == null || !APIShared.UnitAccess.IsReallyAlive(unit))
+                     continue;
+ 
+@@ -599,5 +599,5 @@ namespace AIDefenseTest
+                 if (!APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _) ||
+                     unit == null ||
+-                    unit->r_AliveState != AliveState.IsAlive ||
++                    !APIShared.UnitAccess.IsReallyAlive(unit) ||
+                     !IsDiagnosticCombatUnit(unit->r_UnitChimp))
+                 {
+@@ -826,5 +826,5 @@ namespace AIDefenseTest
+                     if (APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _) &&
+                         unit != null &&
+-                        unit->r_AliveState == AliveState.IsAlive &&
++                        APIShared.UnitAccess.IsReallyAlive(unit) &&
+                         unit->r_ControllableForPlayerId == ownerPlayerId)
+                     {
+diff --git a/Testmods/EnemyGatePathfindingTest/src/SamePclGateRouteRuntime.cs b/Testmods/EnemyGatePathfindingTest/src/SamePclGateRouteRuntime.cs
+index bd4c62ae7..4e83329a1 100644
+--- a/Testmods/EnemyGatePathfindingTest/src/SamePclGateRouteRuntime.cs
++++ b/Testmods/EnemyGatePathfindingTest/src/SamePclGateRouteRuntime.cs
+@@ -903,5 +903,5 @@ namespace EnemyGatePathfindingTest
+                     snapshot.PlayerMasks[player] == IntPtr.Zero) return false;
+                 if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
+-                    unit == null || unit->r_AliveState != AliveState.IsAlive ||
++                    unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
+                     unit->r_ControllableForPlayerId != player)
+                 {
+@@ -999,5 +999,5 @@ namespace EnemyGatePathfindingTest
+                 if (unit->r_GlobalId != unchecked((uint)key.Global) ||
+                     unit->r_CurrentTilePositionX != startX || unit->r_CurrentTilePositionY != startY ||
+-                    unit->r_AliveState != AliveState.IsAlive || unit->r_ControllableForPlayerId != player)
++                    !APIShared.UnitAccess.IsReallyAlive(unit) || unit->r_ControllableForPlayerId != player)
+                     return false;
+                 cursorCache.Put(key, now, allowed);
+diff --git a/Testmods/FormationTest/src/FormationTestRuntime.cs b/Testmods/FormationTest/src/FormationTestRuntime.cs
+index 6beb1b02e..bf0e5e8c8 100644
+--- a/Testmods/FormationTest/src/FormationTestRuntime.cs
++++ b/Testmods/FormationTest/src/FormationTestRuntime.cs
+@@ -1388,5 +1388,5 @@ namespace FormationTest
+             return globalId != 0 &&
+                 APIShared.UnitAccess.TryGetById(unitId, out unit, out _) &&
+-                unit != null && unit->r_AliveState == AliveState.IsAlive &&
++                unit != null && APIShared.UnitAccess.IsReallyAlive(unit) &&
+                 unit->r_GlobalId == globalId;
+         }
+@@ -1892,5 +1892,5 @@ namespace FormationTest
+                 if (unitId <= 0 ||
+                     !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
+-                    unit == null || unit->r_AliveState != AliveState.IsAlive ||
++                    unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
+                     unit->r_TribeId != tribeId ||
+                     *(ushort*)((byte*)unit + UnitGroupInactiveStateOffset) != 0)
+@@ -2143,5 +2143,5 @@ namespace FormationTest
+                 int unitId = selected[index].UnitId;
+                 if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
+-                    unit == null || unit->r_AliveState != AliveState.IsAlive ||
++                    unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
+                     unit->r_GlobalId == 0)
+                     return false;
+diff --git a/Testmods/MoatMove/src/FastMovementScheduler.cs b/Testmods/MoatMove/src/FastMovementScheduler.cs
+index 2e3652991..a5f9000bf 100644
+--- a/Testmods/MoatMove/src/FastMovementScheduler.cs
++++ b/Testmods/MoatMove/src/FastMovementScheduler.cs
+@@ -118,5 +118,5 @@ namespace MoatMove
+         {
+             return APIShared.UnitAccess.TryGetById(identity.Id, out unit, out _) && unit != null &&
+-                unit->r_GlobalId == identity.Global && unit->r_AliveState == AliveState.IsAlive &&
++                unit->r_GlobalId == identity.Global && APIShared.UnitAccess.IsReallyAlive(unit) &&
+                 unit->r_ControllableForPlayerId == player;
+         }
+diff --git a/Testmods/OutpostTest/src/OutpostRallyRuntime.cs b/Testmods/OutpostTest/src/OutpostRallyRuntime.cs
+index cc5f738eb..bd6276e87 100644
+--- a/Testmods/OutpostTest/src/OutpostRallyRuntime.cs
++++ b/Testmods/OutpostTest/src/OutpostRallyRuntime.cs
+@@ -160,5 +160,5 @@ namespace OutpostTest
+                 var p=rally.Pending[i];
+                 if(!ValidPending(p,out var u,out var tribe)) { rally.Pending.RemoveAt(i); continue; }
+-                if(!OutpostRallyState.Ready(u->r_AliveState==AliveState.NeedsInit,u->r_AliveState==AliveState.IsAlive,tribe->r_UnitsInGroup,u->r_TribeId,p.Tribe))
++                if(!OutpostRallyState.Ready(u->r_AliveState==AliveState.NeedsInit,APIShared.UnitAccess.IsReallyAlive(u),tribe->r_UnitsInGroup,u->r_TribeId,p.Tribe))
+                 { if(++p.Wait>=80) { rally.Pending.RemoveAt(i);Info($"rally-cancel unit={p.Unit}/{p.UnitGlobal} reason=initialization-timeout"); } continue; }
+                 rally.Pending.RemoveAt(i); dispatchingRally=true;dispatchTribe=p.Tribe;moveResult=null;
+diff --git a/Testmods/SpectatorEditorBuildTest/src/SpectatorEditorBuildTestPlugin.cs b/Testmods/SpectatorEditorBuildTest/src/SpectatorEditorBuildTestPlugin.cs
+index b64f369b7..62bccfedd 100644
+--- a/Testmods/SpectatorEditorBuildTest/src/SpectatorEditorBuildTestPlugin.cs
++++ b/Testmods/SpectatorEditorBuildTest/src/SpectatorEditorBuildTestPlugin.cs
+@@ -998,5 +998,5 @@ namespace SpectatorEditorBuildTest
+                     if (lordId <= 0 || globalId == 0 ||
+                         !APIShared.UnitAccess.TryGetById(units, lordId, out GameUnit* lord, out _) || lord == null ||
+-                        lord->r_AliveState != AliveState.IsAlive ||
++                        !APIShared.UnitAccess.IsReallyAlive(lord) ||
+                         lord->r_ControllableForPlayerId != owner ||
+                         lord->r_UnitChimp != eChimps.CHIMP_TYPE_LORD ||
+diff --git a/Testmods/StockpileAccessFixTest/src/StockpileAccessFixTestRuntime.cs b/Testmods/StockpileAccessFixTest/src/StockpileAccessFixTestRuntime.cs
+index 3d522dc27..5011d729c 100644
+--- a/Testmods/StockpileAccessFixTest/src/StockpileAccessFixTestRuntime.cs
++++ b/Testmods/StockpileAccessFixTest/src/StockpileAccessFixTestRuntime.cs
+@@ -674,5 +674,5 @@ namespace StockpileAccessFixTest
+                     continue;
+                 GameUnit* unit = units.GetValuePointer(spanIndex);
+-                if (unit == null || unit->r_AliveState != AliveState.IsAlive ||
++                if (unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
+                     unit->r_UnitChimp != eChimps.CHIMP_TYPE_FLETCHER)
+                 {
+@@ -788,5 +788,5 @@ namespace StockpileAccessFixTest
+             {
+                 if (!APIShared.UnitAccess.TryGetById(testBlockerUnitId, out GameUnit* blocker, out _) ||
+-                    blocker == null || blocker->r_AliveState != AliveState.IsAlive ||
++                    blocker == null || !APIShared.UnitAccess.IsReallyAlive(blocker) ||
+                     blocker->r_GlobalId != testBlockerUnitGlobalId)
+                 {
+@@ -946,5 +946,5 @@ namespace StockpileAccessFixTest
+             globalId = 0;
+             if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
+-                unit == null || unit->r_AliveState != AliveState.IsAlive ||
++                unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
+                 unit->r_CurrentTilePositionX != expectedX ||
+                 unit->r_CurrentTilePositionY != expectedY)
+@@ -981,5 +981,5 @@ namespace StockpileAccessFixTest
+         {
+             if (!APIShared.UnitAccess.TryGetById(testBlockerUnitId, out GameUnit* blocker, out _) ||
+-                blocker == null || blocker->r_AliveState != AliveState.IsAlive ||
++                blocker == null || !APIShared.UnitAccess.IsReallyAlive(blocker) ||
+                 blocker->r_GlobalId != testBlockerUnitGlobalId)
+             {
+@@ -1009,5 +1009,5 @@ namespace StockpileAccessFixTest
+             string disposition;
+             if (!APIShared.UnitAccess.TryGetById(testBlockerUnitId, out GameUnit* blocker, out _) ||
+-                blocker == null || blocker->r_AliveState != AliveState.IsAlive ||
++                blocker == null || !APIShared.UnitAccess.IsReallyAlive(blocker) ||
+                 blocker->r_GlobalId != testBlockerUnitGlobalId)
+             {
+@@ -1147,5 +1147,5 @@ namespace StockpileAccessFixTest
+         private static StockpileObservation Capture(int unitId, GameUnit* unit)
+         {
+-            bool alive = unit != null && unit->r_AliveState == AliveState.IsAlive;
++            bool alive = unit != null && APIShared.UnitAccess.IsReallyAlive(unit);
+             eChimps unitType = unit == null ? eChimps.CHIMP_TYPE_NULL : unit->r_UnitChimp;
+             ushort state = unit == null ? (ushort)0 : unit->r_AIState;
+diff --git a/Testmods/VirtualUnitsPrototype/src/VirtualEntityRuntime.cs b/Testmods/VirtualUnitsPrototype/src/VirtualEntityRuntime.cs
+index 585a74f3c..c167f131c 100644
+--- a/Testmods/VirtualUnitsPrototype/src/VirtualEntityRuntime.cs
++++ b/Testmods/VirtualUnitsPrototype/src/VirtualEntityRuntime.cs
+@@ -148,5 +148,5 @@ namespace VirtualUnitsPrototype
+             if (!unitDefinitions.TryGetValue(typeId ?? string.Empty, out VirtualUnitDefinition definition)) return Result(VirtualApiResultCode.UnknownTypeId, "Unknown unit type ID.");
+             if (!TryReadUnit(unitId, definition.BaseType, out uint globalId, out int maxHealth, out int currentHealth, out int speed, out VirtualApiResult failure)) return failure;
+-            if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* assignedUnit, out _) || assignedUnit == null || assignedUnit->r_AliveState != AliveState.IsAlive)
++            if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* assignedUnit, out _) || assignedUnit == null || !APIShared.UnitAccess.IsReallyAlive(assignedUnit))
+                 return Result(VirtualApiResultCode.EntityNotFound, "Unit is not fully initialized.");
+             PendingSpawn pending;
+@@ -255,4 +255,6 @@ namespace VirtualUnitsPrototype
+                     unit->r_GlobalId != globalId || unit->r_UnitChimp != definition.BaseType || unit->r_AliveState != AliveState.IsAlive)
+                 { instances.Remove(UnitKind, unitId); instance = null; definition = null; return false; }
++                // Reject action/HUD queries without discarding the corpse's visual assignment.
++                if (!APIShared.UnitAccess.IsReallyAlive(unit)) { instance = null; definition = null; return false; }
+                 instance = stored.Snapshot; return true;
+             }
+@@ -373,10 +375,10 @@ namespace VirtualUnitsPrototype
+                 if (!TryReadUnit(unitId, definition.BaseType, out uint globalId, out int maxHealth, out int currentHealth, out int speed, out VirtualApiResult failure))
+                 {
+-                    (APIShared.UnitAccess.TryGetById(unitId, out _, out _) && GameUnitManagerAPI.Instance.DeleteUnitSafe(unitId));
++                    _ = APIShared.UnitAccess.TryGetById(unitId, out _, out _) && GameUnitManagerAPI.Instance.DeleteUnitSafe(unitId);
+                     return failure;
+                 }
+                 if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) || unit == null || unit->r_ControllableForPlayerId != playerId)
+                 {
+-                    (APIShared.UnitAccess.TryGetById(unitId, out _, out _) && GameUnitManagerAPI.Instance.DeleteUnitSafe(unitId));
++                    _ = APIShared.UnitAccess.TryGetById(unitId, out _, out _) && GameUnitManagerAPI.Instance.DeleteUnitSafe(unitId);
+                     return Result(VirtualApiResultCode.SpawnFailed, $"Spawned unit {unitId} has an unexpected owner.");
+                 }

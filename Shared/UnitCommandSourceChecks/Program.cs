@@ -11,6 +11,20 @@ var root = Path.GetFullPath(args[0]);
 var game = @"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition";
 var framework = @"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1";
 var projects = new[] {"APIShared/APIShared.csproj", "BugfixesAndQoL/BugfixesAndQoL.csproj", "Testmods/MoatMove/MoatMove.csproj"};
+if (args.Contains("--really-alive"))
+    projects = new[] {
+        "APIShared/APIShared.csproj", "BugfixesAndQoL/BugfixesAndQoL.csproj",
+        "ExtraFeatures/ExtraFeatures.csproj", "ImprovedHunters/ImprovedHunters.csproj",
+        "RandomEvents/RandomEvents.csproj", "StartConditions/StartConditions.csproj",
+        "Testmods/AIDefenseTest/AIDefenseTest.csproj",
+        "Testmods/EnemyGatePathfindingTest/EnemyGatePathfindingTest.csproj",
+        "Testmods/EngineerSiegeFixTest/EngineerSiegeFixTest.csproj",
+        "Testmods/FormationTest/FormationTest.csproj", "Testmods/MoatMove/MoatMove.csproj",
+        "Testmods/OutpostTest/OutpostTest.csproj",
+        "Testmods/SpectatorEditorBuildTest/SpectatorEditorBuildTest.csproj",
+        "Testmods/StockpileAccessFixTest/StockpileAccessFixTest.csproj",
+        "Testmods/VirtualUnitsPrototype/VirtualUnitsPrototype.csproj"
+    };
 var compilations = new Dictionary<string, CSharpCompilation>();
 int errors = 0;
 foreach (var relative in projects)
@@ -21,7 +35,10 @@ foreach (var relative in projects)
     var name = xml.Descendants().First(e => e.Name.LocalName == "AssemblyName").Value;
     var defines = xml.Descendants().Where(e => e.Name.LocalName == "DefineConstants").SelectMany(e => e.Value.Split(';')).Where(s => !s.Contains('$') && s.Length > 0);
     var parse = new CSharpParseOptions(LanguageVersion.Preview, preprocessorSymbols: defines);
-    var sources = xml.Descendants().Where(e => e.Name.LocalName == "Compile").Select(e => Path.GetFullPath(Path.Combine(folder, (string)e.Attribute("Include")))).Distinct().ToArray();
+    var sources = xml.Descendants().Where(e => e.Name.LocalName == "Compile").SelectMany(e => {
+        string path = Path.GetFullPath(Path.Combine(folder, (string)e.Attribute("Include")));
+        return path.Contains('*') ? Directory.GetFiles(Path.GetDirectoryName(path), Path.GetFileName(path)) : new[] { path };
+    }).Distinct().ToArray();
     var trees = sources.Select(p => CSharpSyntaxTree.ParseText(File.ReadAllText(p), parse, p)).ToArray();
     var refs = new List<MetadataReference>();
     foreach (var path in Directory.GetFiles(framework, "*.dll").Where(p => !p.Contains(".Thunk.") && !p.Contains(".Wrapper."))) refs.Add(MetadataReference.CreateFromFile(path));
@@ -61,6 +78,25 @@ foreach (var relative in projects)
                 throw new Exception("The documented preexisting private access changed.");
             Console.WriteLine("Known unchanged HEAD access: MissionLifecycleCapability gameLocalPlayerID; all new accesses checked against real Assembly-CSharp.");
             diagnostics = diagnostics.Except(baseline).ToArray();
+        }
+    }
+    if (args.Contains("--real") && args.Contains("--really-alive") && name == "FormationTest")
+    {
+        string path = Path.GetFullPath(Path.Combine(root, "Testmods/FormationTest/src/FormationTestRuntime.cs"));
+        var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("git") {
+            WorkingDirectory = root, RedirectStandardOutput = true,
+            ArgumentList = { "show", "HEAD:Testmods/FormationTest/src/FormationTestRuntime.cs" } });
+        string old = process.StandardOutput.ReadToEnd(); process.WaitForExit();
+        if (process.ExitCode != 0) throw new Exception("Missing FormationTest comparison source.");
+        var tree = trees.Single(t => t.FilePath == path);
+        var oldCompilation = compilation.ReplaceSyntaxTree(tree, CSharpSyntaxTree.ParseText(old, parse, path));
+        var oldErrors = oldCompilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
+        var known = diagnostics.Where(d => d.Id == "CS0117" && d.GetMessage().Contains("instance") &&
+            d.GetMessage().Contains("MainViewModel") && oldErrors.Any(o => o.Id == d.Id && o.GetMessage() == d.GetMessage())).ToArray();
+        if (known.Length > 0 && known.Length == oldErrors.Length)
+        {
+            Console.WriteLine("Known unchanged HEAD FormationTest MainViewModel.instance accesses: " + known.Length);
+            diagnostics = diagnostics.Except(known).ToArray();
         }
     }
     errors += diagnostics.Length;

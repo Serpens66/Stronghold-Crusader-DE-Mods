@@ -2030,7 +2030,7 @@ namespace RandomEvents
                 if (!APIShared.UnitAccess.TryGetById(units, unitReference.UnitId, out GameUnit* unit, out _) ||
                     unit == null ||
                     unit->r_GlobalId != unitReference.GlobalId ||
-                    unit->r_AliveState != AliveState.IsAlive)
+                    !APIShared.UnitAccess.IsReallyAlive(unit))
                 {
                     LogWarning(
                         $"Bandit omitted from delayed group activation: unitId={unitReference.UnitId}, " +

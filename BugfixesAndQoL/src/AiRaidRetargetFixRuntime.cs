@@ -484,7 +484,7 @@ namespace BugfixesAndQoL
             foreach (int unitId in unitIds)
             {
                 if (!units.IsValidId(unitId) || !APIShared.UnitAccess.TryGetById(units, unitId, out GameUnit* unit, out _) ||
-                    unit == null || unit->r_AliveState != AliveState.IsAlive ||
+                    unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
                     unit->r_TribeId != tribeId) continue;
                 switch (unit->r_UnitChimp)
                 {

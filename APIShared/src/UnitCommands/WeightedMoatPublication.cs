@@ -44,7 +44,7 @@ namespace APIShared.UnitCommands
                 PlanScope effectivePlan = builderPlan ?? ownerFrame?.Plan;
                 if (ownerFrame != null && ownerFrame.Args.UnitId != unitId) return RejectWeightedCapture("frame-owner");
                 if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
-                    unit == null || unit->r_AliveState != AliveState.IsAlive || !CanDigMoat(unit))
+                    unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) || !CanDigMoat(unit))
                     return null;
 
                 if (ownerFrame?.Plan != null && ownerFrame.Plan.IdentityBound &&
@@ -146,7 +146,7 @@ namespace APIShared.UnitCommands
 
                 bool snapshotAvailable = APIShared.UnitAccess.TryGetById(
                     shadow.UnitId, out GameUnit* snapshotUnit, out _) && snapshotUnit != null &&
-                    snapshotUnit->r_AliveState == AliveState.IsAlive;
+                    APIShared.UnitAccess.IsReallyAlive(snapshotUnit);
                 bool identityMatches = snapshotAvailable && snapshotUnit->r_GlobalId == shadow.UnitGlobalId && CanDigMoat(snapshotUnit) &&
                     snapshotUnit->r_UnitChimp == shadow.UnitType &&
                     snapshotUnit->r_ControllableForPlayerId == shadow.PlayerId &&

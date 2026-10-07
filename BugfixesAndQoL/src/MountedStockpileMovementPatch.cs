@@ -298,7 +298,7 @@ namespace BugfixesAndQoL
                     APIShared.UnitAccess.TryGetById(unitId, out currentUnit, out _) &&
                     currentUnit != null &&
                     (ulong)currentUnit == context.Pointer->RDI + UnitFromManagerRelativeBaseOffset &&
-                    currentUnit->r_AliveState == AliveState.IsAlive &&
+                    APIShared.UnitAccess.IsReallyAlive(currentUnit) &&
                     IsPlayableMountedType(currentUnit->r_UnitChimp);
 
                 if (!MountedStockpileMovementPolicy.ShouldBypassMountedEndpointWallGate(
@@ -384,7 +384,7 @@ namespace BugfixesAndQoL
                 if (unitId <= 0 ||
                     !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
                     unit == null ||
-                    unit->r_AliveState != AliveState.IsAlive)
+                    !APIShared.UnitAccess.IsReallyAlive(unit))
                 {
                     allResolved = false;
                     continue;

@@ -117,7 +117,7 @@ namespace MoatMove
         private bool TryGetFastMember(FastUnitIdentity identity, int player, out GameUnit* unit)
         {
             return APIShared.UnitAccess.TryGetById(identity.Id, out unit, out _) && unit != null &&
-                unit->r_GlobalId == identity.Global && unit->r_AliveState == AliveState.IsAlive &&
+                unit->r_GlobalId == identity.Global && APIShared.UnitAccess.IsReallyAlive(unit) &&
                 unit->r_ControllableForPlayerId == player;
         }
 

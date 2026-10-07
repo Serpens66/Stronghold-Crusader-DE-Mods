@@ -114,8 +114,9 @@ namespace BugfixesAndQoL
                     return;
                 }
 
-                GameUnit unit = units[spanIndex];
-                if (!AssassinCombatResumePolicy.IsEligibleAssassin(
+                ref GameUnit unit = ref units[spanIndex];
+                if (!APIShared.UnitAccess.IsReallyAlive(in unit) ||
+                    !AssassinCombatResumePolicy.IsEligibleAssassin(
                         true,
                         unit.r_AliveState,
                         unit.r_UnitChimp,

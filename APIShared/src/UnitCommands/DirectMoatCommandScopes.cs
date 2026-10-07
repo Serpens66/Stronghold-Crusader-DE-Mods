@@ -105,7 +105,7 @@ namespace APIShared.UnitCommands
             foreach (int unitId in groupUnitIds)
             {
                 if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
-                    unit == null || unit->r_AliveState != AliveState.IsAlive ||
+                    unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
                     unit->r_TribeId != tribeId || !CanDigMoat(unit))
                 {
                     continue;
@@ -206,7 +206,7 @@ namespace APIShared.UnitCommands
             foreach (int unitId in groupUnitIds)
             {
                 if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
-                    unit == null || unit->r_AliveState != AliveState.IsAlive ||
+                    unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
                     unit->r_TribeId != args.TribeId || !CanDigMoat(unit))
                 {
                     continue;

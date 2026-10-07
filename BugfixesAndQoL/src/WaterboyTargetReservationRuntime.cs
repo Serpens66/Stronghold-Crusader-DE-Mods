@@ -259,7 +259,7 @@ namespace BugfixesAndQoL
             for (int unitId = 1; unitId <= unitCount; unitId++)
             {
                 if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
-                    unit == null || unit->r_AliveState != AliveState.IsAlive ||
+                    unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
                     unit->r_UnitChimp != eChimps.CHIMP_TYPE_FIREMAN ||
                     unit->r_ControllableForPlayerId != playerId ||
                     (unit->r_AIState != ReservationLedger.WalkingState &&
@@ -380,7 +380,7 @@ namespace BugfixesAndQoL
         private NativeIdentity ResolveLivingFiremanIdentity(int unitId)
         {
             if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
-                unit == null || unit->r_AliveState != AliveState.IsAlive ||
+                unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
                 unit->r_UnitChimp != eChimps.CHIMP_TYPE_FIREMAN || unit->r_GlobalId == 0)
                 throw new InvalidOperationException($"Target search received an invalid fireman unit: {unitId}.");
             return new NativeIdentity(unitId, unit->r_GlobalId);
@@ -395,7 +395,7 @@ namespace BugfixesAndQoL
 
         private static bool TryResolveLivingFireman(NativeIdentity identity, out GameUnit* unit) =>
             APIShared.UnitAccess.TryGetById(identity.Slot, out unit, out _) && unit != null &&
-            unit->r_GlobalId == identity.GlobalId && unit->r_AliveState == AliveState.IsAlive &&
+            unit->r_GlobalId == identity.GlobalId && APIShared.UnitAccess.IsReallyAlive(unit) &&
             unit->r_UnitChimp == eChimps.CHIMP_TYPE_FIREMAN;
 
         private static GameBuilding* ResolveBurningBuilding(int buildingId)

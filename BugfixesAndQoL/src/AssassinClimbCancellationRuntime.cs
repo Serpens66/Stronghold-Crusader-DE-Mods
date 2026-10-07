@@ -106,7 +106,7 @@ namespace BugfixesAndQoL
                     int localUnitId = wordIndex * UnitIdBitsPerWord + bitIndex;
                     if (localUnitId <= 0 || !APIShared.UnitAccess.TryGetById(unitApi, localUnitId, out GameUnit* unit, out _) || unit == null)
                         continue;
-                    if (unit->r_AliveState != AliveState.IsAlive ||
+                    if (!APIShared.UnitAccess.IsReallyAlive(unit) ||
                         unit->r_UnitChimp != eChimps.CHIMP_TYPE_ARAB_ASSASIN ||
                         !AssassinClimbCancellationPolicy.IsClimbingState(unit->r_AIState))
                         continue;

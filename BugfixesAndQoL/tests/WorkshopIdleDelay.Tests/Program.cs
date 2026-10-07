@@ -78,6 +78,9 @@ internal static class Program
         {
             f.Reset(); f.Expect(0, "no material");
             f.Wood(1); f.CowReady(); f.Expect(1, "own material available");
+            f.WorkerWord(0x8F8, 1); f.Expect(0, "dying worker replays Vanilla");
+            f.WorkerInt(0x8F8, 0x10000); f.Expect(1, "worker death predicate ignores upper word");
+            f.WorkerInt(0x8F8, 0);
             f.Flag(false); f.Expect(0, "disabled exact Vanilla exit");
             f.Flag(true); f.WorkerWord(0x956, 1); f.Expect(0, "ongoing entertainment");
             f.WorkerWord(0x956, 0); f.WorkerWord(0x918, 4); f.Expect(0, "outside state 1");

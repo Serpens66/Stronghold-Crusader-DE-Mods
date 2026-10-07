@@ -19,7 +19,7 @@ namespace ImprovedHunters
     internal sealed partial class ImprovedHuntersRuntime
     {
         // Candidate discovery, cost ranking, initial reachability and State-0 selection handoff.
-        private void OnHunterQueryTarget(UnitHunterQueryTargetEventArgs args)
+        private unsafe void OnHunterQueryTarget(UnitHunterQueryTargetEventArgs args)
         {
             if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
                 return;
@@ -215,7 +215,7 @@ namespace ImprovedHunters
             return IsValidUnitId(unitId) &&
                 APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _) &&
                 unit != null &&
-                unit->r_AliveState == AliveState.IsAlive &&
+                APIShared.UnitAccess.IsReallyAlive(unit) &&
                 unit->r_UnitChimp == eChimps.CHIMP_TYPE_HUNTER;
         }
 
@@ -247,7 +247,7 @@ namespace ImprovedHunters
             GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
             if (!APIShared.UnitAccess.TryGetById(unitApi, hunterUnitId, out GameUnit* hunter, out _) ||
                 hunter == null ||
-                hunter->r_AliveState != AliveState.IsAlive ||
+                !APIShared.UnitAccess.IsReallyAlive(hunter) ||
                 hunter->r_UnitChimp != eChimps.CHIMP_TYPE_HUNTER)
             {
                 CacheTargetSelection(hunterUnitId, default, timestamp);
@@ -608,7 +608,7 @@ namespace ImprovedHunters
             for (int index = 0; index < units.Length; index++)
             {
                 GameUnit* unit = units.GetValuePointer(index);
-                if (unit->r_AliveState != AliveState.IsAlive ||
+                if (!APIShared.UnitAccess.IsReallyAlive(unit) ||
                     unit->r_UnitChimp != eChimps.CHIMP_TYPE_HUNTER)
                 {
                     continue;

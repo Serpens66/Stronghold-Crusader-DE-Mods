@@ -208,7 +208,7 @@ namespace ImprovedHunters
                 desiredCamelHealth == 0 ||
                 unit == null ||
                 unit->r_UnitChimp != eChimps.CHIMP_TYPE_CAMEL ||
-                unit->r_AliveState != AliveState.IsAlive)
+                !APIShared.UnitAccess.IsReallyAlive(unit))
             {
                 return false;
             }

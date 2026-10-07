@@ -159,7 +159,7 @@ namespace OutpostTest
             {
                 var p=rally.Pending[i];
                 if(!ValidPending(p,out var u,out var tribe)) { rally.Pending.RemoveAt(i); continue; }
-                if(!OutpostRallyState.Ready(u->r_AliveState==AliveState.NeedsInit,u->r_AliveState==AliveState.IsAlive,tribe->r_UnitsInGroup,u->r_TribeId,p.Tribe))
+                if(!OutpostRallyState.Ready(u->r_AliveState==AliveState.NeedsInit,APIShared.UnitAccess.IsReallyAlive(u),tribe->r_UnitsInGroup,u->r_TribeId,p.Tribe))
                 { if(++p.Wait>=80) { rally.Pending.RemoveAt(i);Info($"rally-cancel unit={p.Unit}/{p.UnitGlobal} reason=initialization-timeout"); } continue; }
                 rally.Pending.RemoveAt(i); dispatchingRally=true;dispatchTribe=p.Tribe;moveResult=null;
                 try {

@@ -96,7 +96,7 @@ namespace BugfixesAndQoL
                 }
 
                 bool vanillaCandidateCanClose =
-                    unit->r_AliveState == AliveState.IsAlive &&
+                    APIShared.UnitAccess.IsReallyAlive(unit) &&
                     unit->r_UnitChimp != eChimps.CHIMP_TYPE_LION &&
                     unit->r_ControllableForPlayerId != 0;
                 args.ShouldClose = Shared.GatehouseQueryUnitIdPolicy.ResolveCandidateDecision(
@@ -134,7 +134,7 @@ namespace BugfixesAndQoL
             reachable = true;
             if (unitId <= 0 || gatehouseBuildingId <= 0 || gatehouseBuilding == null ||
                 gatehouse == null || unit == null ||
-                unit->r_AliveState != AliveState.IsAlive || unit->r_CurrentHealth == 0 ||
+                !APIShared.UnitAccess.IsReallyAlive(unit) || unit->r_CurrentHealth == 0 ||
                 unit->r_ControllableForPlayerId <= 0)
             {
                 return false;

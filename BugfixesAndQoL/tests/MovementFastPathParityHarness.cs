@@ -60,7 +60,34 @@ namespace BugfixesAndQoL
             RunRallyTransformationSequence(failures, profiles);
             RunSpeedMatrix(failures);
             RunActivationFlagMatrix(failures, profiles);
+            RunDeathMarkerCases(failures, profiles);
             return failures;
+        }
+
+        private static void RunDeathMarkerCases(List<string> failures, Dictionary<ushort, Profile> profiles)
+        {
+            foreach (uint marker in new uint[] { 0, 1, 0xFFFF, 0x10000, 0xFFFF0000, uint.MaxValue })
+            {
+                Unit reference = UnitFor((ushort)eChimps.CHIMP_TYPE_ARCHER, 1, true);
+                reference.DeathMarker = marker;
+                reference.CurrentSpeed = 17;
+                reference.CurrentSpeed2 = 31;
+                reference.SpeedBonus = 55;
+                Unit table = reference.Clone();
+                Tracking referenceTracking = TrackingFor(reference.Type);
+                Tracking tableTracking = referenceTracking.Clone();
+                ApplyCombinedReference(reference, referenceTracking, profiles, true, true);
+                ApplyCombinedTable(table, tableTracking, profiles, true, true);
+                ApplySpeedReference(reference, referenceTracking);
+                ApplySpeedTable(table, tableTracking);
+                Compare(reference, table, failures, "death-marker-" + marker);
+                Compare(referenceTracking, tableTracking, failures, "death-marker-tracking-" + marker);
+                if ((marker & 0xFFFFu) != 0 && (reference.Animation != 1 || reference.SpeedBonus != 55 ||
+                    reference.CurrentSpeed2 != 31 || !referenceTracking.Active))
+                    failures.Add("death-marked unit changed movement or invalidated slot tracking: " + marker);
+                if ((marker & 0xFFFFu) == 0 && reference.CurrentSpeed2 != 17)
+                    failures.Add("upper death word incorrectly suppressed movement: " + marker);
+            }
         }
 
         private static void RunGroupMatrix(List<string> failures)
@@ -324,7 +351,7 @@ namespace BugfixesAndQoL
         {
             if (!tracking.Active)
                 return false;
-            if (unit.AliveState != AliveStateValue)
+            if (unit.AliveState != AliveStateValue || (unit.DeathMarker & 0xFFFFu) != 0)
                 return false;
             if (tracking.GlobalId != 0 && unit.GlobalId != tracking.GlobalId)
             {
@@ -375,7 +402,7 @@ namespace BugfixesAndQoL
         {
             if (!tracking.Active)
                 return false;
-            if (unit.AliveState != AliveStateValue)
+            if (unit.AliveState != AliveStateValue || (unit.DeathMarker & 0xFFFFu) != 0)
                 return false;
             if ((tracking.GlobalId != 0 && unit.GlobalId != tracking.GlobalId) ||
                 unit.Owner != tracking.Owner)
@@ -442,7 +469,7 @@ namespace BugfixesAndQoL
             bool running,
             ushort bonus)
         {
-            if (unit.AliveState != AliveStateValue)
+            if (unit.AliveState != AliveStateValue || (unit.DeathMarker & 0xFFFFu) != 0)
                 return;
             unit.SpeedBonus = running ? bonus : (ushort)0;
             if (!profiles.TryGetValue(unit.Type, out Profile profile))
@@ -458,7 +485,7 @@ namespace BugfixesAndQoL
             bool running,
             ushort bonus)
         {
-            if (unit.AliveState != AliveStateValue)
+            if (unit.AliveState != AliveStateValue || (unit.DeathMarker & 0xFFFFu) != 0)
                 return;
             unit.SpeedBonus = running ? bonus : (ushort)0;
             if (!profiles.TryGetValue(unit.Type, out Profile profile))
@@ -475,7 +502,7 @@ namespace BugfixesAndQoL
 
         private static void ApplySpeedReference(Unit unit, Tracking tracking)
         {
-            if (tracking.Active && unit.AliveState == AliveStateValue && unit.HasPath &&
+            if (tracking.Active && unit.AliveState == AliveStateValue && (unit.DeathMarker & 0xFFFFu) == 0 && unit.HasPath &&
                 (tracking.GlobalId == 0 || unit.GlobalId == tracking.GlobalId) &&
                 unit.Owner == tracking.Owner && unit.Type == tracking.ExpectedType)
                 unit.CurrentSpeed2 = unit.CurrentSpeed;
@@ -483,7 +510,7 @@ namespace BugfixesAndQoL
 
         private static void ApplySpeedTable(Unit unit, Tracking tracking)
         {
-            if (!tracking.Active || unit.AliveState != AliveStateValue)
+            if (!tracking.Active || unit.AliveState != AliveStateValue || (unit.DeathMarker & 0xFFFFu) != 0)
                 return;
             if (tracking.GlobalId != 0 && unit.GlobalId != tracking.GlobalId)
                 return;
@@ -678,6 +705,7 @@ namespace BugfixesAndQoL
         private sealed class Unit
         {
             public ushort AliveState;
+            public uint DeathMarker;
             public uint GlobalId;
             public int Owner;
             public ushort Type;

@@ -1,0 +1,13 @@
+PASS: production UnitAccess boundaries, no invalid SDK calls, NeedsInit/identity neutrality, unload/reload, failure pointer clearing and bounded diagnostics.
+PASS: 913 runtime source files; SDK unit lookups are confined to UnitAccess and callers consume their boolean results.
+PASS: affected runtime projects and linked sources checked for JSON, plugin scheduling, lifecycle teardown and XAML roots.
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+OutpostTest JSON/lifecycle, CRLF, project and metadata preflight passed.
+Incremental production entry-point check passed.
+Selection/presentation lifecycle boundary check passed.
+
+  OutpostTest.Tests -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\OutpostTest\tests\bin\OutpostTest.Tests.exe
+OutpostTest: 193 checks passed (static/native synthetic tests, not a game test).
+
+  OutpostTest -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\OutpostTest\BepInEx\plugins\OutpostTest_Serp\OutpostTest.dll
+OutpostTest tests passed; installed in E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\OutpostTest_Serp

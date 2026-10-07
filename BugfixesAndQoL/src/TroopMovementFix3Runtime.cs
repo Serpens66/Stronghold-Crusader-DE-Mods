@@ -495,7 +495,7 @@ namespace BugfixesAndQoL
 
                 GameUnit* unit = unitArray + unitId - 1;
                 if (unit == null ||
-                    unit->r_AliveState != AliveState.IsAlive)
+                    !APIShared.UnitAccess.IsReallyAlive(unit))
                 {
                     continue;
                 }

@@ -704,7 +704,7 @@ namespace BugfixesAndQoL
                 int unitId = selected[index].UnitId;
                 if (!APIShared.UnitAccess.TryGetById(
                         unitId, out GameUnit* unit, out _) ||
-                    unit == null || unit->r_AliveState != AliveState.IsAlive ||
+                    unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
                     unit->r_GlobalId == 0)
                 {
                     unitTypes = Array.Empty<int>();

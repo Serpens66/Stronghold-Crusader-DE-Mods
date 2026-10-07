@@ -51,6 +51,19 @@ namespace APIShared
         /// <returns>True only for a non-null unit passing the combat life predicate.</returns>
         public static bool IsReallyAlive(GameUnit* unit) => unit != null && IsReallyAlive(in *unit);
 
+        /// <summary>Gets one-based game IDs of units passing Vanilla's combat life predicate.</summary>
+        /// <remarks>Use on the game thread. The result is a momentary list, not an identity or
+        /// lifetime guarantee; revalidate identity and life before later actions.</remarks>
+        /// <returns>Unit game IDs in the Script Extender query's native array order.</returns>
+        public static int[] GetAllReallyAliveUnits()
+        {
+            var results = new List<int>();
+            GameUnitManagerAPI.Instance.QueryUnits()
+                .Where((in GameUnit unit) => IsReallyAlive(in unit))
+                .ToIdList(results);
+            return results.ToArray();
+        }
+
         /// <summary>Resolves a unit ID without passing invalid IDs to the Script Extender.</summary>
         /// <param name="unitId">One-based game ID, never a span index.</param>
         /// <param name="unit">The immediate pointer on success; null on any failure.</param>

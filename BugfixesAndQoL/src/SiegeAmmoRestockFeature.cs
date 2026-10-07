@@ -438,7 +438,7 @@ namespace BugfixesAndQoL
                 return false;
             var requested = new HashSet<int>(globalIds);
             if (requested.Count != globalIds.Length || requested.Contains(0)) return false;
-            int[] alive = GameUnitManagerAPI.Instance.GetAllAliveUnits();
+            int[] alive = APIShared.UnitAccess.GetAllReallyAliveUnits();
             for (int index = 0; index < alive.Length && resolved.Count < requested.Count; index++)
             {
                 if (!APIShared.UnitAccess.TryGetById(alive[index], out GameUnit* unit, out _)) continue;
@@ -450,7 +450,7 @@ namespace BugfixesAndQoL
         }
 
         private static bool IsEligible(GameUnit* unit, int playerId) =>
-            unit != null && unit->r_AliveState == AliveState.IsAlive &&
+            unit != null && APIShared.UnitAccess.IsReallyAlive(unit) &&
             unit->r_ControllableForPlayerId == playerId &&
             (unit->r_UnitChimp == eChimps.CHIMP_TYPE_CATAPULT || unit->r_UnitChimp == eChimps.CHIMP_TYPE_TREBUCHET);
 

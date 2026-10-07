@@ -152,7 +152,7 @@ namespace BugfixesAndQoL
             }
 
             GameUnit* unit = unitArray + unitId - 1;
-            if (unit->r_AliveState != AliveState.IsAlive)
+            if (!APIShared.UnitAccess.IsReallyAlive(unit))
                 return;
 
             int ownerPlayerId = unit->r_ControllableForPlayerId;

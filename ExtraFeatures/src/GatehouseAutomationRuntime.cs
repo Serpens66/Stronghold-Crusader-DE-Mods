@@ -622,7 +622,7 @@ namespace ExtraFeatures
                 // The Script Extender replaces these Vanilla comparisons at the
                 // native hook. Re-evaluate them for the corrected candidate slot.
                 bool vanillaCandidateCanClose =
-                    unit->r_AliveState == AliveState.IsAlive &&
+                    APIShared.UnitAccess.IsReallyAlive(unit) &&
                     unit->r_UnitChimp != eChimps.CHIMP_TYPE_LION &&
                     unit->r_ControllableForPlayerId != 0;
                 // Preserve an intentional decision made by an earlier event

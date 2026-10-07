@@ -612,7 +612,7 @@ namespace APIShared.UnitCommands
             if (pathManager != nativePathManager || nativeUnitManager == null ||
                 plan.UnitId <= 0 || plan.UnitId > MaximumUnitCount ||
                 !APIShared.UnitAccess.TryGetById(plan.UnitId, out GameUnit* liveUnit, out _) || liveUnit != unit ||
-                unit->r_AliveState != AliveState.IsAlive ||
+                !APIShared.UnitAccess.IsReallyAlive(unit) ||
                 path != nativeUnitManager + NativeUnitPathBufferOffset + plan.UnitId * NativeUnitPathBufferStride ||
                 x != liveStartX || y != liveStartY ||
                 (plan.IdentityBound && (plan.UnitGlobalId != unit->r_GlobalId || plan.PlayerId != playerId)) ||

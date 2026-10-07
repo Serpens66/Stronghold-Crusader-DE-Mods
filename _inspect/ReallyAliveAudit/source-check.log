@@ -1,0 +1,21 @@
+APIShared: 95 sources, 1 errors
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\APIShared\src\MissionLifecycleCapability.cs(225,60): error CS1061: "EditorDirector" enthält keine Definition für "gameLocalPlayerID", und es konnte keine zugängliche gameLocalPlayerID-Erweiterungsmethode gefunden werden, die ein erstes Argument vom Typ "EditorDirector" akzeptiert (möglicherweise fehlt eine using-Direktive oder ein Assemblyverweis).
+Known unchanged HEAD access: MissionLifecycleCapability gameLocalPlayerID; all new accesses checked against real Assembly-CSharp.
+BugfixesAndQoL: 260 sources, 0 errors
+ExtraFeatures: 72 sources, 0 errors
+ImprovedHunters: 42 sources, 0 errors
+RandomEvents: 37 sources, 0 errors
+StartConditions: 27 sources, 0 errors
+AIDefenseTest: 5 sources, 0 errors
+EnemyGatePathfindingTest: 29 sources, 0 errors
+FormationTest: 15 sources, 4 errors
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\FormationTest\src\FormationTestRuntime.cs(2117,42): error CS0117: "MainViewModel" enthält keine Definition für "instance".
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\FormationTest\src\FormationTestRuntime.cs(2117,76): error CS0117: "MainViewModel" enthält keine Definition für "instance".
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\FormationTest\src\FormationTestRuntime.cs(2167,46): error CS0117: "MainViewModel" enthält keine Definition für "instance".
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\FormationTest\src\FormationTestRuntime.cs(2168,31): error CS0117: "MainViewModel" enthält keine Definition für "instance".
+Known unchanged HEAD FormationTest MainViewModel.instance accesses: 4
+MoatMove: 23 sources, 0 errors
+OutpostTest: 15 sources, 0 errors
+SpectatorEditorBuildTest: 1 sources, 0 errors
+StockpileAccessFixTest: 7 sources, 0 errors
+VirtualUnitsPrototype: 14 sources, 0 errors

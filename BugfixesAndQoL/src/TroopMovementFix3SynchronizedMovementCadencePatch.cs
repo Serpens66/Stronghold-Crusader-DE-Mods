@@ -70,6 +70,8 @@ namespace BugfixesAndQoL
 
         private const int UnitAnimationStateManagerOffset = 0x660;
         private const int UnitAliveStateManagerOffset = 0x6E4;
+        // IsReallyAlive low word at GameUnit+0x29C, relative to the audited manager base.
+        private const int UnitDeathMarkerManagerOffset = 0x8F8;
         private const int UnitTypeManagerOffset = 0x6E6;
         private const int UnitOwnerManagerOffset = 0x6EE;
         private const int UnitGlobalIdManagerOffset = 0x6F0;
@@ -533,6 +535,8 @@ namespace BugfixesAndQoL
                 __word_ptr[rbx + UnitAliveStateManagerOffset],
                 (int)AliveState.IsAlive);
             assembler.jne(restoreAndReplay);
+            assembler.cmp(__word_ptr[rbx + UnitDeathMarkerManagerOffset], 0);
+            assembler.jne(restoreAndReplay);
             assembler.mov(eax, __dword_ptr[rcx + RallyGenerationGlobalIdOffset]);
             assembler.test(eax, eax);
             assembler.je(globalIdMatches);
@@ -621,6 +625,8 @@ namespace BugfixesAndQoL
             assembler.cmp(
                 __word_ptr[r8 + UnitAliveStateManagerOffset],
                 (int)AliveState.IsAlive);
+            assembler.jne(replayVanilla);
+            assembler.cmp(__word_ptr[r8 + UnitDeathMarkerManagerOffset], 0);
             assembler.jne(replayVanilla);
             assembler.mov(rax, unchecked((ulong)rallyEnabledFlag));
             assembler.cmp(__dword_ptr[rax], 0);

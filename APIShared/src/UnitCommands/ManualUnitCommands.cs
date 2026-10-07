@@ -72,7 +72,7 @@ namespace APIShared.UnitCommands
         {
             if (nativeManualProbe || (uint)x >= MapWidth || (uint)y >= MapWidth ||
                 !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
-                unit == null || unit->r_AliveState != AliveState.IsAlive ||
+                unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
                 nativePathManager == IntPtr.Zero || nativeProbeGrid == null ||
                 nativeProbeRectangle == null || originalCentralMovementPlan == null)
                 return false;
@@ -191,7 +191,7 @@ namespace APIShared.UnitCommands
             foreach (int id in ids)
             {
                 if (!APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _) || unit == null ||
-                    unit->r_AliveState != AliveState.IsAlive || unit->r_ControllableForPlayerId != template.PlayerId) continue;
+                    !APIShared.UnitAccess.IsReallyAlive(unit) || unit->r_ControllableForPlayerId != template.PlayerId) continue;
                 group.SelectedUnits++;
                 if (CanDigMoat(unit)) group.DiggerUnits++;
                 var source = new SelectedCursorUnitSnapshot(id, unit->r_CurrentTilePositionX,
@@ -238,7 +238,7 @@ namespace APIShared.UnitCommands
                 bool nativeOnlyMoatStarter = false;
                 foreach (int unitId in activeMoveCommand.ActiveUnitIdsAtDispatch)
                     if (APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) &&
-                        unit != null && unit->r_AliveState == AliveState.IsAlive &&
+                        unit != null && APIShared.UnitAccess.IsReallyAlive(unit) &&
                         unit->r_ControllableForPlayerId == tribe->r_PlayerIdOwner &&
                         IsCompletedMoatTile(unchecked((int)unit->r_CurrentPositionTileId)) &&
                         !CanDigMoat(unit))

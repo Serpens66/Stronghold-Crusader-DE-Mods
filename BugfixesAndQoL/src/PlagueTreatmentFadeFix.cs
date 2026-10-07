@@ -199,7 +199,7 @@ namespace BugfixesAndQoL
             return unitId > 0 &&
                 APIShared.UnitAccess.TryGetById(unitId, out healer, out _) &&
                 healer != null &&
-                healer->r_AliveState == AliveState.IsAlive &&
+                APIShared.UnitAccess.IsReallyAlive(healer) &&
                 healer->r_UnitChimp == eChimps.CHIMP_TYPE_HEALER;
         }
 

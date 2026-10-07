@@ -110,7 +110,7 @@ namespace BugfixesAndQoL
                     if (unitId <= 0 ||
                         !APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _) ||
                         unit == null ||
-                        unit->r_AliveState != AliveState.IsAlive ||
+                        !APIShared.UnitAccess.IsReallyAlive(unit) ||
                         unit->r_UnitChimp != unitType)
                     {
                         continue;

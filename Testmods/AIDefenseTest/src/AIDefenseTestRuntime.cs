@@ -439,7 +439,7 @@ namespace AIDefenseTest
 
             foreach (int unitId in aliveUnitIds)
             {
-                if (!APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _) || unit == null || unit->r_AliveState != AliveState.IsAlive)
+                if (!APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _) || unit == null || !APIShared.UnitAccess.IsReallyAlive(unit))
                     continue;
 
                 uint tileId = unit->r_CurrentPositionTileId;
@@ -598,7 +598,7 @@ namespace AIDefenseTest
             {
                 if (!APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _) ||
                     unit == null ||
-                    unit->r_AliveState != AliveState.IsAlive ||
+                    !APIShared.UnitAccess.IsReallyAlive(unit) ||
                     !IsDiagnosticCombatUnit(unit->r_UnitChimp))
                 {
                     continue;
@@ -825,7 +825,7 @@ namespace AIDefenseTest
                 {
                     if (APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _) &&
                         unit != null &&
-                        unit->r_AliveState == AliveState.IsAlive &&
+                        APIShared.UnitAccess.IsReallyAlive(unit) &&
                         unit->r_ControllableForPlayerId == ownerPlayerId)
                     {
                         return true;

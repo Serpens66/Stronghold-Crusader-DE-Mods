@@ -1387,7 +1387,7 @@ namespace FormationTest
             unit = null;
             return globalId != 0 &&
                 APIShared.UnitAccess.TryGetById(unitId, out unit, out _) &&
-                unit != null && unit->r_AliveState == AliveState.IsAlive &&
+                unit != null && APIShared.UnitAccess.IsReallyAlive(unit) &&
                 unit->r_GlobalId == globalId;
         }
 
@@ -1891,7 +1891,7 @@ namespace FormationTest
                 int unitId = getGroupUnitId(nativeTribeManager, tribeId, ordinal);
                 if (unitId <= 0 ||
                     !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
-                    unit == null || unit->r_AliveState != AliveState.IsAlive ||
+                    unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
                     unit->r_TribeId != tribeId ||
                     *(ushort*)((byte*)unit + UnitGroupInactiveStateOffset) != 0)
                     continue;
@@ -2142,7 +2142,7 @@ namespace FormationTest
             {
                 int unitId = selected[index].UnitId;
                 if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
-                    unit == null || unit->r_AliveState != AliveState.IsAlive ||
+                    unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
                     unit->r_GlobalId == 0)
                     return false;
                 if (tribeId < 0)

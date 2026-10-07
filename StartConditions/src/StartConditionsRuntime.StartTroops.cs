@@ -329,7 +329,7 @@ namespace StartConditions
             }
         }
 
-        private void DeleteSoldiersForPlayer(int playerId)
+        private unsafe void DeleteSoldiersForPlayer(int playerId)
         {
             List<int> unitIds = new List<int>();
             GameUnitManagerAPI.Instance.GetAllUnits(unitIds, AliveState.IsAlive);
@@ -380,11 +380,11 @@ namespace StartConditions
             });
         }
 
-        private Dictionary<int, Dictionary<eChimps, int>> CountSoldiersForPlayers()
+        private unsafe Dictionary<int, Dictionary<eChimps, int>> CountSoldiersForPlayers()
         {
             Dictionary<int, Dictionary<eChimps, int>> troopCounts = new Dictionary<int, Dictionary<eChimps, int>>();
             List<int> unitIds = new List<int>();
-            GameUnitManagerAPI.Instance.GetAllUnits(unitIds, AliveState.IsAlive);
+            unitIds.AddRange(APIShared.UnitAccess.GetAllReallyAliveUnits());
             int skippedInvalidUnitIds = 0;
 
             foreach (int unitId in unitIds)

@@ -271,7 +271,7 @@ namespace RandomEvents
             if (GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(targetPlayerId, out GamePlayerResources* resources) &&
                 resources != null && resources->r_LordUnitId > 0 && resources->r_LordUnitId <= int.MaxValue &&
                 APIShared.UnitAccess.TryGetById((int)resources->r_LordUnitId, out GameUnit* lord, out _) &&
-                lord != null && lord->r_AliveState == AliveState.IsAlive &&
+                lord != null && APIShared.UnitAccess.IsReallyAlive(lord) &&
                 lord->r_UnitChimp == eChimps.CHIMP_TYPE_LORD && lord->r_ControllableForPlayerId == targetPlayerId)
             {
                 AddPerimeterPathComponents(
@@ -568,7 +568,7 @@ namespace RandomEvents
                 {
                     lordFailure = $"registered Lord unit {resources->r_LordUnitId} cannot be resolved";
                 }
-                else if (lord->r_AliveState != AliveState.IsAlive ||
+                else if (!APIShared.UnitAccess.IsReallyAlive(lord) ||
                          lord->r_UnitChimp != eChimps.CHIMP_TYPE_LORD ||
                          lord->r_ControllableForPlayerId != playerId)
                 {

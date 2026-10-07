@@ -902,7 +902,7 @@ namespace EnemyGatePathfindingTest
                     snapshot.Fingerprint != fingerprint ||
                     snapshot.PlayerMasks[player] == IntPtr.Zero) return false;
                 if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
-                    unit == null || unit->r_AliveState != AliveState.IsAlive ||
+                    unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
                     unit->r_ControllableForPlayerId != player)
                 {
                     Interlocked.Increment(ref cursorUnitPending);
@@ -998,7 +998,7 @@ namespace EnemyGatePathfindingTest
 
                 if (unit->r_GlobalId != unchecked((uint)key.Global) ||
                     unit->r_CurrentTilePositionX != startX || unit->r_CurrentTilePositionY != startY ||
-                    unit->r_AliveState != AliveState.IsAlive || unit->r_ControllableForPlayerId != player)
+                    !APIShared.UnitAccess.IsReallyAlive(unit) || unit->r_ControllableForPlayerId != player)
                     return false;
                 cursorCache.Put(key, now, allowed);
 

@@ -1,5 +1,9 @@
 # Building repair capability: native update checklist
 
+## 2026-10-08: really-alive unit queries and consumers
+
+UnitAccess.GetAllReallyAliveUnits uses the public Script Extender QueryUnits/Where/ToIdList contract with IsReallyAlive and returns one-based game IDs in array order. Script Extender sources and predicates remain unchanged. Callers must revalidate slot identity and life before later actions. Spawn/NeedsInit, occupied-slot accounting, unit deletion and corpse visual/harvest paths retain their separate contracts. No new native hook or Assembly-CSharp member is used. Reference native hash and the complete death/combat audit remain those documented below.
+
 ## 2026-10-07: UnitAccess.IsReallyAlive
 
 New public reference/pointer helper mirrors Vanilla's combat predicate: `AliveState.IsAlive` and zero low 16-bit death marker in `GameUnit.N0000019A`. Installed SE field offsets are `88` and `29C`, record size `490`; no health/animation test, native hook or new Assembly-CSharp member access is introduced by this helper. On native/interop updates re-audit complete death, corpse and removal flow plus melee/ranged targeting, then validate installed public field types/offsets and the enum value before native consumers use it. Source/contract tests are in `_inspect/UnitIdAccess/Tests`; real installed-layout/backend tests and the sole capture hook owner are in `../Testmods/GatehouseLivingCaptureTest`. Full audit: `../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/GATEHOUSE_LIVING_CAPTURE.md`. Native reference hash remains `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.

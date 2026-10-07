@@ -1,0 +1,3 @@
+MSBuild-Version 18.6.14+e730f1db7 für .NET
+  ExtraFeaturesSessionTests -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\ExtraFeaturesSessionTests\bin\ExtraFeaturesSessionTests.exe
+4554 checks passed; 10000 settled Lord ticks: zero player/mode reads; market snapshots/reload/live AI validated. Callback arithmetic, original fallback and breadcrumbs unchanged.

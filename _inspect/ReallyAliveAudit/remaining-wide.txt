@@ -1,0 +1,199 @@
+BuildingLimit\src\TowerSiegeUnitCache.cs:156:            state == AliveState.IsAlive || state == AliveState.NeedsInit;
+ExtraFeatures\src\AIDefenseRepairRuntime.cs:290:                    if (building.r_AliveState != AliveState.IsAlive || building.r_GlobalId == 0 ||
+ExtraFeatures\src\AIDefenseRepairRuntime.cs:412:                (building->r_AliveState == AliveState.IsAlive ||
+ExtraFeatures\src\AIDefenseRepairRuntime.cs:828:                             building->r_AliveState != AliveState.IsAlive))
+ExtraFeatures\src\AIDefenseRepairRuntime.cs:881:                        building->r_AliveState != AliveState.IsAlive ||
+ExtraFeatures\src\AiFlagDiseaseTracker.cs:131:                     projectile->r_AliveState != AliveState.IsAlive))
+ExtraFeatures\src\AiFlagDiseaseTracker.cs:283:                     building.r_AliveState != AliveState.IsAlive))
+ExtraFeatures\src\AiFlagDiseaseTracker.cs:354:                    (projectile->r_AliveState != AliveState.NeedsInit && projectile->r_AliveState != AliveState.IsAlive))
+BuildingLimit\src\ActiveBuildingCache.cs:512:            return aliveState == AliveState.IsAlive || aliveState == AliveState.NeedsInit;
+ExtraFeatures\src\ChurchPriestCountRuntime.cs:88:            GameBuildingManagerAPI.Instance.GetAllBuildings(buildingIds, AliveState.IsAlive, structure);
+ExtraFeatures\src\ChurchPriestCountRuntime.cs:106:                if (building->r_AliveState != AliveState.IsAlive || building->r_BuildingType != expectedStructure)
+ExtraFeatures\src\ChurchPriestCountRuntime.cs:138:            return building->r_AliveState == AliveState.IsAlive && building->r_BuildingType == expectedStructure;
+RandomEvents\src\SignpostPlacementService.cs:113:                    (signpost->r_AliveState == AliveState.NeedsInit || signpost->r_AliveState == AliveState.IsAlive) &&
+RandomEvents\src\SignpostPlacementService.cs:431:                (building->r_AliveState != AliveState.NeedsInit && building->r_AliveState != AliveState.IsAlive) ||
+RandomEvents\src\SignpostPlacementService.cs:553:                    building->r_AliveState != AliveState.IsAlive ||
+RandomEvents\src\SignpostPlacementService.cs:613:                        (building.r_AliveState != AliveState.NeedsInit && building.r_AliveState != AliveState.IsAlive))
+RandomEvents\src\ScenarioSignpostRegistry.cs:174:                signpost == null || signpost->r_GlobalId == 0 || signpost->r_AliveState != AliveState.IsAlive)
+RandomEvents\src\ScenarioSignpostRegistry.cs:253:                    building.r_AliveState != AliveState.IsAlive)
+RandomEvents\src\ScenarioSignpostRegistry.cs:411:                (building->r_AliveState != AliveState.NeedsInit && building->r_AliveState != AliveState.IsAlive))
+RandomEvents\src\ScenarioSignpostRegistry.cs:501:                (building->r_AliveState == AliveState.NeedsInit || building->r_AliveState == AliveState.IsAlive);
+RandomEvents\src\ScenarioSignpostRegistry.cs:530:                     (keep->r_AliveState != AliveState.NeedsInit && keep->r_AliveState != AliveState.IsAlive))
+ExtraFeatures\src\GatehouseAutomationRuntime.cs:815:                if (candidate.r_AliveState != AliveState.IsAlive ||
+ExtraFeatures\src\GatehouseAutomationRuntime.cs:959:                building->r_AliveState != AliveState.IsAlive || building->r_GlobalId == 0 ||
+ExtraFeatures\src\GatehouseAutomationRuntime.cs:982:                if (candidate.r_AliveState != AliveState.IsAlive || candidate.r_GlobalId != (uint)globalId)
+AIVPlacement\AIVPlacement.Core\AivPreplacementMapState.cs:17:        private const int AliveStateOffset = 0xD0;
+AIVPlacement\AIVPlacement.Core\AivPreplacementMapState.cs:240:                ushort aliveState = ReadUInt16(records, offset + AliveStateOffset);
+AIVPlacement\AIVPlacement.Core\AivPreplacementMapState.cs:305:                if (ReadUInt16(records, offset + AliveStateOffset) == AliveStateIsAlive &&
+RandomEvents\src\RandomEventsRuntime.cs:2016:                building->r_AliveState != AliveState.IsAlive ||
+RandomEvents\src\RandomEventsRuntime.cs:2117:                    building.r_AliveState != AliveState.IsAlive ||
+RandomEvents\src\RandomEventsRuntime.cs:2236:                signpost->r_AliveState != AliveState.IsAlive ||
+RandomEvents\src\RandomEventsRuntime.cs:2319:                    building.r_AliveState == AliveState.IsAlive &&
+RandomEvents\src\RandomEventsRuntime.cs:2357:                    building.r_AliveState != AliveState.IsAlive ||
+UnitLimit\src\UnitLimitRuntime.UnitLimits.cs:488:            return aliveState == AliveState.IsAlive ||
+CastlePlanner\src\DecorationVerificationPolicy.cs:29:                (aliveState == AliveState.NeedsInit || aliveState == AliveState.IsAlive) &&
+ExtraFeatures\src\KnightDismountRuntime.cs:1330:            GameBuildingManagerAPI.Instance.GetAllBuildings(stableIds, AliveState.IsAlive, eStructs.STRUCT_STABLES, PlayerRelationship.Self, playerId);
+ExtraFeatures\src\KnightDismountRuntime.cs:1426:                stable->r_AliveState == AliveState.IsAlive &&
+ExtraFeatures\src\KnightDismountRuntime.cs:1551:                stable->r_AliveState != AliveState.IsAlive ||
+ExtraFeatures\src\KnightDismountRuntime.cs:1626:                stable->r_AliveState != AliveState.IsAlive ||
+ExtraFeatures\src\KnightDismountRuntime.cs:1684:            GameBuildingManagerAPI.Instance.GetAllBuildings(stableIds, AliveState.IsAlive, eStructs.STRUCT_STABLES);
+CastlePlanner\src\CastlePlannerRuntime.cs:644:                     building.r_AliveState != AliveState.IsAlive) ||
+CastlePlanner\src\CastlePlannerRuntime.cs:1079:                (projectile->r_AliveState != AliveState.NeedsInit && projectile->r_AliveState != AliveState.IsAlive))
+CastlePlanner\src\CastlePlannerRuntime.cs:1268:                (building->r_AliveState != AliveState.NeedsInit && building->r_AliveState != AliveState.IsAlive))
+CastlePlanner\src\CastlePlannerRuntime.cs:1393:                    if (existingState != AliveState.IsAlive)
+CastlePlanner\src\CastlePlannerRuntime.cs:1417:                    predecessorState != AliveState.IsAlive)
+CastlePlanner\src\CastlePlannerRuntime.cs:1529:                     building.r_AliveState == AliveState.IsAlive))
+CastlePlanner\src\CastlePlannerRuntime.cs:2262:                     building.r_AliveState == AliveState.IsAlive))
+ImprovedHunters\src\ImprovedHuntersRuntime.cs:656:                eligibility.AliveState == (short)AliveState.IsAlive &&
+ImprovedHunters\src\ImprovedHuntersRuntime.cs:887:                eligibility.AliveState != (short)AliveState.IsAlive ||
+UnitLimit\src\ActiveUnitCache.cs:644:            return aliveState == AliveState.IsAlive ||
+CastlePlanner\src\BlueprintRuntimeController.cs:796:                     building.r_AliveState != AliveState.IsAlive))
+UnitLimit\src\ActiveSiegeTentCache.cs:332:            return aliveState == AliveState.IsAlive || aliveState == AliveState.NeedsInit;
+ImprovedHunters\src\HunterTargetSelectionFeature.cs:418:                building->r_AliveState == AliveState.IsAlive &&
+ImprovedHunters\src\HunterTargetSelectionFeature.cs:470:                if (building->r_AliveState != AliveState.IsAlive ||
+ImprovedHunters\src\HunterTargetSelectionFeature.cs:634:                    eligibility.AliveState != (short)AliveState.IsAlive ||
+ImprovedHunters\src\HunterTargetSelectionFeature.cs:730:            if (eligibility.AliveState != (short)AliveState.IsAlive)
+ImprovedHunters\src\HunterChickenCompatibilityFeature.cs:306:                if (building->r_AliveState != AliveState.IsAlive ||
+ImprovedHunters\src\HunterActiveTargetVisibilitySnapshot.cs:719:            if (hunter->r_AliveState != AliveState.IsAlive)
+ImprovedHunters\src\HunterActiveTargetVisibilitySnapshot.cs:788:            if (prey->r_AliveState != AliveState.IsAlive)
+ImprovedHunters\src\HunterProjectileObservationFeature.cs:182:                eligibility.AliveState == (short)AliveState.IsAlive &&
+ImprovedHunters\src\HunterNativeVisibilityProbe.cs:194:                hunter->r_AliveState != AliveState.IsAlive ||
+ImprovedHunters\src\HunterNativeVisibilityProbe.cs:195:                prey->r_AliveState != AliveState.IsAlive ||
+ImprovedHunters\src\HunterNativeVisibilityProbe.cs:239:                hunter->r_AliveState != AliveState.IsAlive ||
+ImprovedHunters\src\HunterNativeVisibilityProbe.cs:240:                prey->r_AliveState != AliveState.IsAlive ||
+ImprovedHunters\src\HunterNativeVisibilityProbe.cs:281:                    hunter->r_AliveState != AliveState.IsAlive ||
+ImprovedHunters\src\HunterNativeVisibilityProbe.cs:283:                    prey->r_AliveState != AliveState.IsAlive ||
+ImprovedHunters\src\HunterNativeVisibilityProbe.cs:520:                hunter->r_AliveState != AliveState.IsAlive ||
+ImprovedHunters\src\HunterNativeVisibilityProbe.cs:521:                prey->r_AliveState != AliveState.IsAlive ||
+ImprovedHunters\src\HunterPclReachabilityDiagnostic.cs:252:                hunter->r_AliveState != AliveState.IsAlive ||
+ImprovedHunters\src\HunterPclReachabilityDiagnostic.cs:264:                prey->r_AliveState != AliveState.IsAlive ||
+Shared\ActivePlayerKeepReadiness.cs:226:                    keep->r_AliveState == AliveState.IsAlive);
+CastlePlanner\AIVPlacement.Tests\Program.cs:2896:                AliveState.IsAlive,
+CastlePlanner\AIVPlacement.Tests\Program.cs:2915:                321, 322, AliveState.IsAlive, ProjectileType.Brazier, ProjectileType.Brazier,
+CastlePlanner\AIVPlacement.Tests\Program.cs:2919:                0, 0, AliveState.IsAlive, ProjectileType.Brazier, ProjectileType.Brazier,
+APIShared\src\UnitCommands\UnitCommandPathRuntime.cs:7402:                building == null || building->r_AliveState != AliveState.IsAlive ||
+APIShared\src\UnitCommands\UnitCommandPathRuntime.cs:7599:                building == null || building->r_AliveState != AliveState.IsAlive ||
+APIShared\src\UnitCommands\UnitCommandPathRuntime.cs:7642:                candidate == null || candidate->r_AliveState != AliveState.IsAlive ||
+APIShared\src\UnitCommands\UnitCommandPathRuntime.cs:7767:                building->r_AliveState != AliveState.IsAlive ||
+UnitCosts\src\UnitCostsRuntime.cs:1122:                AliveState.IsAlive,
+UnitCosts\src\UnitCostsRuntime.cs:1150:                AliveState.IsAlive,
+UnitCosts\src\UnitCostsRuntime.cs:1550:                stable->r_AliveState == AliveState.IsAlive &&
+Testmods\AIDefenseTest\src\AIDefenseTestRuntime.cs:433:                AliveState.IsAlive,
+Testmods\AIDefenseTest\src\AIDefenseTestRuntime.cs:475:                    tower->r_AliveState != AliveState.IsAlive ||
+Testmods\AIDefenseTest\src\AIDefenseTestRuntime.cs:1436:            return state == AliveState.NeedsInit || state == AliveState.IsAlive;
+Testmods\AIDefenseTest\src\AIDefenseTestRuntime.cs:1441:            return state == AliveState.NeedsInit || state == AliveState.IsAlive;
+APIShared\src\BuildingRepairCapability.cs:203:                building->r_AliveState != AliveState.IsAlive || building->r_GlobalId == 0 ||
+APIShared\src\BuildingRepairCapability.cs:287:                        building->r_AliveState != AliveState.IsAlive || building->r_MaxHealth == 0 ||
+Testmods\PrebuiltWorkshopBothFixTest\src\PrebuiltWorkshopBothFixTestRuntime.cs:207:                    if (other.r_AliveState != AliveState.IsAlive || other.r_PlayerIdOwner != playerId ||
+APIShared\src\UnitAccess.cs:47:            unit.r_AliveState == AliveState.IsAlive && (unit.N0000019A & 0xFFFFu) == 0;
+Testmods\AIBuildDiagnoseTest\src\CanariFarmSwapProbe.cs:151:                            b.r_AliveState != AliveState.IsAlive) continue;
+Testmods\AIBuildDiagnoseTest\src\CanariFarmSwapProbe.cs:339:                building->r_AliveState == AliveState.IsAlive;
+Testmods\AIBuildDiagnoseTest\src\AIBuildDiagnoseRuntime.cs:2694:                        (building.r_AliveState != AliveState.IsAlive &&
+Testmods\AIBuildDiagnoseTest\src\AIBuildDiagnoseRuntime.cs:3050:                        building.r_AliveState == AliveState.IsAlive &&
+Testmods\FormationTest\src\FormationTestRuntime.cs:2165:                tribe == null || tribe->r_AliveState != AliveState.IsAlive)
+Testmods\AICoarsePathComponentFixTest\src\WoodGuardOutcomeObserver.cs:171:                    if (owner < 1 || owner > 8 || item.r_AliveState != AliveState.IsAlive) continue;
+BugfixesAndQoL\src\AIEconomyProtectionHook.cs:527:                    building->r_AliveState == AliveState.IsAlive &&
+Testmods\VirtualUnitsPrototype\src\VirtualEntityRuntime.cs:173:            if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* assignedBuilding) || assignedBuilding == null || assignedBuilding->r_AliveState != AliveState.IsAlive)
+Testmods\VirtualUnitsPrototype\src\VirtualEntityRuntime.cs:255:                    unit->r_GlobalId != globalId || unit->r_UnitChimp != definition.BaseType || unit->r_AliveState != AliveState.IsAlive)
+Testmods\VirtualUnitsPrototype\src\VirtualEntityRuntime.cs:643:                if (unit->r_AliveState == AliveState.IsAlive)
+Testmods\VirtualUnitsPrototype\src\VirtualEntityRuntime.cs:684:                if (building->r_AliveState == AliveState.IsAlive)
+Testmods\VirtualUnitsPrototype\src\VirtualEntityRuntime.cs:847:                        unit->r_GlobalId == stored.GlobalId && unit->r_UnitChimp == definition.BaseType && unit->r_AliveState == AliveState.IsAlive;
+Testmods\VirtualUnitsPrototype\src\VirtualEntityRuntime.cs:853:                        building->r_GlobalId == stored.GlobalId && building->r_BuildingType == definition.BaseType && building->r_AliveState == AliveState.IsAlive;
+Testmods\VirtualUnitsPrototype\src\VirtualEntityRuntime.cs:881:            if (!APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _) || unit == null || (unit->r_AliveState != AliveState.NeedsInit && unit->r_AliveState != AliveState.IsAlive)) { failure = Result(VirtualApiResultCode.EntityNotFound, "Unit is not active."); return false; }
+Testmods\VirtualUnitsPrototype\src\VirtualEntityRuntime.cs:892:            if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(id, out GameBuilding* building) || building == null || (building->r_AliveState != AliveState.NeedsInit && building->r_AliveState != AliveState.IsAlive)) { failure = Result(VirtualApiResultCode.EntityNotFound, "Building is not active."); return false; }
+BugfixesAndQoL\src\AiRaidRetargetFixRuntime.cs:217:                tribe->r_AliveState == AliveState.IsAlive;
+BugfixesAndQoL\src\AiRaidRetargetFixRuntime.cs:362:                    tribe != null && tribe->r_AliveState == AliveState.IsAlive)
+BugfixesAndQoL\src\AiRaidRetargetFixRuntime.cs:579:                    tribe->r_AliveState != AliveState.IsAlive ||
+BugfixesAndQoL\src\AiRaidRetargetFixRuntime.cs:690:                building != null && building->r_AliveState == AliveState.IsAlive &&
+BugfixesAndQoL\src\AiRaidRetargetFixRuntime.cs:761:                        building == null || building->r_AliveState != AliveState.IsAlive ||
+BugfixesAndQoL\src\AiRaidRetargetFixRuntime.cs:827:                building == null || building->r_AliveState != AliveState.IsAlive)
+BugfixesAndQoL\src\AIPreplacedBuildingFixRuntime.cs:1563:                     remaining.Alive != AliveState.IsAlive);
+BugfixesAndQoL\src\AIPreplacedBuildingFixRuntime.cs:1643:                    (building.Alive == AliveState.IsAlive || building.Alive == AliveState.NeedsInit) &&
+BugfixesAndQoL\src\AIPreplacedBuildingFixRuntime.cs:1915:            building.Alive == AliveState.IsAlive || building.Alive == AliveState.NeedsInit;
+BugfixesAndQoL\src\AITowerRuinRepairFix.cs:208:                    building->r_AliveState != AliveState.IsAlive ||
+BugfixesAndQoL\src\AITowerRuinRepairFix.cs:280:                    if (building.r_AliveState != AliveState.IsAlive ||
+BugfixesAndQoL\src\AITowerRuinRepairFix.cs:333:                     building->r_AliveState != AliveState.IsAlive))
+BugfixesAndQoL\src\AIBuildingTemporaryAccessClassifier.cs:99:                if (building->r_AliveState != AliveState.IsAlive || building->r_GlobalId == 0)
+BugfixesAndQoL\src\AIBuildingTemporaryAccessClassifier.cs:242:                    portalBuilding == null || portalBuilding->r_AliveState != AliveState.IsAlive ||
+Testmods\EngineerSiegeFixTest\src\EngineerSiegeFixTestRuntime.cs:13:        private const int AliveStateOffset = 0x88;
+Testmods\EngineerSiegeFixTest\src\EngineerSiegeFixTestRuntime.cs:929:                ReadInt16(unit, AliveStateOffset),
+Testmods\OutpostTest\src\OutpostRuntime.cs:57:                tribe->r_GlobalId == global && tribe->r_AliveState == AliveState.IsAlive;
+Testmods\OutpostTest\src\OutpostRuntime.cs:77:                        if (b->r_AliveState != AliveState.IsAlive || !OutpostSchedule.IsOutpost((int)b->r_BuildingType) ||
+Testmods\OutpostTest\src\OutpostRuntime.cs:166:                if (tribe->r_PlayerIdOwner != e.Owner || tribe->r_AliveState != AliveState.IsAlive || tribe->r_UnitsInGroup != 0)
+Testmods\OutpostTest\src\OutpostRuntime.cs:193:                    (u->r_AliveState != AliveState.NeedsInit && u->r_AliveState != AliveState.IsAlive))
+BugfixesAndQoL\src\AutoTradeSellZeroHook.cs:176:                building->r_AliveState == SHCDESE.Interop.Enums.AliveState.IsAlive &&
+Testmods\OutpostTest\src\OutpostRallyRuntime.cs:69:            return GameBuildingManagerAPI.Instance.TryGetBuildingById(r.Building,out b) && b->r_AliveState==AliveState.IsAlive &&
+Testmods\OutpostTest\src\OutpostRallyRuntime.cs:80:            if(!GameBuildingManagerAPI.Instance.TryGetBuildingById(id,out var b) || b->r_AliveState!=AliveState.IsAlive ||
+Testmods\OutpostTest\src\OutpostRallyRuntime.cs:147:                (u->r_AliveState==AliveState.NeedsInit || u->r_AliveState==AliveState.IsAlive) && u->r_CurrentHealth>0 &&
+Testmods\OutpostTest\src\OutpostRallyRuntime.cs:221:            if(tribe->r_PlayerIdOwner!=e.Owner || tribe->r_UnitsInGroup!=0 || tribe->r_AliveState!=AliveState.IsAlive)
+Testmods\OutpostTest\src\OutpostRallyRuntime.cs:230:                    (u->r_AliveState!=AliveState.NeedsInit && u->r_AliveState!=AliveState.IsAlive)) throw new InvalidOperationException("Human spawn contract changed.");
+BugfixesAndQoL\src\AssassinCombatResumePolicy.cs:37:                aliveState == AliveState.IsAlive &&
+BugfixesAndQoL\src\BetterAIOverbuildRulesFix.cs:235:                     blocker->r_AliveState != AliveState.IsAlive) ||
+BugfixesAndQoL\src\BetterAIOverbuildRulesFix.cs:350:                     candidate.r_AliveState != AliveState.IsAlive) ||
+Testmods\StockpileAccessFixTest\src\StockpileAccessFixTestRuntime.cs:1169:                ownedStockpile = building->r_AliveState == AliveState.IsAlive &&
+Testmods\SpectatorEditorBuildTest\src\SpectatorEditorBuildTestPlugin.cs:986:                        keep == null || keep->r_AliveState != AliveState.IsAlive ||
+StartConditions\src\StartConditionsRuntime.StartTroops.cs:335:            GameUnitManagerAPI.Instance.GetAllUnits(unitIds, AliveState.IsAlive);
+Testmods\MoatMove\src\FastMovementScheduler.cs:137:                tribe->r_AliveState != AliveState.IsAlive ||
+Testmods\MoatMove\src\FastMovementScheduler.cs:337:                original->r_AliveState != AliveState.IsAlive || original->r_PlayerIdOwner != player)) return false;
+Testmods\MoatMove\src\FastMovementScheduler.cs:356:                    candidate->r_AliveState != AliveState.IsAlive || candidate->r_PlayerIdOwner != player || candidate->r_UnitsInGroup != 0)
+Testmods\MoatMove\src\FastMovementScheduler.cs:428:                tribe->r_PlayerIdOwner != player || tribe->r_AliveState != AliveState.IsAlive) return false;
+StartConditions\src\StartConditionsRuntime.AIStartTroopIsolation.cs:870:            return state == AliveState.NeedsInit || state == AliveState.IsAlive;
+StartConditions\src\StartConditionsRuntime.AIStartTroopIsolation.cs:875:            return state == AliveState.NeedsInit || state == AliveState.IsAlive;
+Testmods\EnemyGatePathfindingTest\src\GateTopologySnapshotProvider.cs:1638:            aliveState == AliveState.NeedsInit || aliveState == AliveState.IsAlive;
+BugfixesAndQoL\src\CtrlMarketTradeHook.cs:525:                building->r_AliveState == AliveState.IsAlive &&
+BugfixesAndQoL\src\CorruptLordDataSpawnRuntime.cs:340:                    (lord->r_AliveState == AliveState.NeedsInit || lord->r_AliveState == AliveState.IsAlive) &&
+BugfixesAndQoL\src\CorruptLordDataSpawnRuntime.cs:349:                lordIdentity.AliveState == AliveState.IsAlive &&
+BugfixesAndQoL\src\CorruptLordDataSpawnRuntime.cs:367:                building->r_AliveState == AliveState.IsAlive;
+BugfixesAndQoL\src\HdMarketViewHook.cs:368:                building->r_AliveState == SHCDESE.Interop.Enums.AliveState.IsAlive &&
+BugfixesAndQoL\src\GatehouseLivingCapture\NativeDefinition.cs:32:                (short)AliveState.IsAlive != 2)
+BugfixesAndQoL\src\KeepFlagRotationRuntime.cs:406:                     projectile.r_AliveState != AliveState.IsAlive) ||
+BugfixesAndQoL\src\ExtendedShiftCommandQueueRuntime.cs:1564:                building == null || building->r_AliveState != AliveState.IsAlive ||
+BugfixesAndQoL\src\ExtendedShiftCommandQueueRuntime.cs:2569:                tribe == null || tribe->r_AliveState != AliveState.IsAlive ||
+BugfixesAndQoL\src\ExtendedShiftCommandQueueRuntime.cs:2611:                tribe->r_AliveState == AliveState.IsAlive;
+BugfixesAndQoL\src\ExtendedShiftCommandQueueRuntime.cs:2628:                tribe->r_AliveState == AliveState.IsAlive &&
+BugfixesAndQoL\src\ExtendedShiftCommandQueueRuntime.cs:2657:            return building->r_AliveState == AliveState.IsAlive &&
+Testmods\EnemyBridgePathTest\src\BridgeBuildingIndex.cs:53:            var eligible=new HashSet<int>();foreach(var bridge in bridges)if(buildings[bridge.Id-1].r_AliveState==AliveState.IsAlive)eligible.Add(bridge.Id);
+Testmods\EnemyBridgePathTest\src\BridgeBuildingIndex.cs:59:                if(gate.Grid<=0||gate.Grid>7||buildings[gate.Id-1].r_AliveState!=AliveState.IsAlive)continue;
+BugfixesAndQoL\src\MarketKeyMainTradeMenuHook.cs:102:                building->r_AliveState == AliveState.IsAlive &&
+Testmods\EnemyBridgePathTest\src\BridgeSnapshot.cs:42:        internal static bool Active(AliveState value) => value == AliveState.IsAlive || value == AliveState.NeedsInit;
+Testmods\EnemyBridgePathTest\src\BridgeVirtualShadow.cs:265:                            if(parentSlot<0||currentBuildings[parentSlot].r_AliveState!=AliveState.IsAlive||currentBuildings[parentSlot].r_GlobalId!=bridge.ParentGlobal||currentBuildings[parentSlot].r_PlayerIdOwner!=bridge.ParentOwner||currentBuildings[parentSlot].r_CapturedByPlayerId!=bridge.ParentCapturer)coherent=false;
+BugfixesAndQoL\src\MoveFormationDragRuntime.cs:742:                tribe == null || tribe->r_AliveState != AliveState.IsAlive ||
+BugfixesAndQoL\src\NativeTannerFade.cs:28:        private const int AliveStateOffset = 0x12C;
+BugfixesAndQoL\src\NativeTannerFade.cs:129:                        *(short*)(record + AliveStateOffset) != 0;
+BugfixesAndQoL\src\NativeTannerFade.cs:161:                        : $"NATIVE_UPDATER_CALLBACK_FIRST building={buildingId} type={*(short*)(record + BuildingTypeOffset)} alive={*(short*)(record + AliveStateOffset)} phase={*(short*)(record + PhaseOffset)} image={*(int*)(record + ImageOffset)} vanilla_raw={(ushort)*(short*)(record + AlphaOffset)} eligible={eligible}");
+BugfixesAndQoL\src\NativeTannerFade.cs:164:                    *(short*)(record + AliveStateOffset) == 0 ||
+BugfixesAndQoL\src\PlaguePopularityFix.cs:570:                    projectile->r_AliveState == AliveState.IsAlive) &&
+BugfixesAndQoL\src\PlagueTargetReservationFix.cs:325:                if (projectile.r_AliveState != AliveState.IsAlive ||
+BugfixesAndQoL\src\PlagueTargetReservationFix.cs:581:                projectile->r_AliveState == AliveState.IsAlive &&
+BugfixesAndQoL\src\PlagueTreatmentFadeFix.cs:153:                target->r_AliveState == AliveState.IsAlive &&
+BugfixesAndQoL\src\PlagueTreatmentFadeFix.cs:166:                if (projectile.r_AliveState != AliveState.IsAlive ||
+BugfixesAndQoL\src\PrebuiltAiWorkshopBothFixRuntime.cs:160:                if (other.r_AliveState != AliveState.IsAlive || other.r_PlayerIdOwner != playerId ||
+BugfixesAndQoL\src\QuarryPileRelocationRuntime.cs:629:            if (quarry->r_AliveState != AliveState.IsAlive ||
+BugfixesAndQoL\src\QuarryPileRelocationRuntime.cs:640:                (keep->r_AliveState != AliveState.NeedsInit && keep->r_AliveState != AliveState.IsAlive))
+BugfixesAndQoL\src\QuarryPileRelocationRuntime.cs:1429:                if ((building.r_AliveState == AliveState.NeedsInit || building.r_AliveState == AliveState.IsAlive) &&
+BugfixesAndQoL\src\QuarryPileRelocationRuntime.cs:1550:                building->r_AliveState == AliveState.IsAlive &&
+BugfixesAndQoL\src\QuarryPileRelocationRuntime.cs:1558:                (building->r_AliveState == AliveState.NeedsInit || building->r_AliveState == AliveState.IsAlive) &&
+BugfixesAndQoL\src\QuarryPileRelocationRuntime.cs:1578:                if (building.r_AliveState == AliveState.IsAlive && (int)building.r_GlobalId == globalId)
+BugfixesAndQoL\src\QuarryPileRelocationRuntime.cs:1665:                if (quarry.r_AliveState != AliveState.IsAlive ||
+BugfixesAndQoL\src\ReachableEnemyGatehouseRuntime.cs:333:                drawbridge != null && drawbridge->r_AliveState == AliveState.IsAlive &&
+BugfixesAndQoL\src\ReachableEnemyGatehouseRuntime.cs:355:                building->r_AliveState == AliveState.IsAlive &&
+BugfixesAndQoL\src\ShiftRepairAllBuildingsHook.cs:116:                AliveState.IsAlive,
+BugfixesAndQoL\src\ShiftRepairAllBuildingsHook.cs:135:                        building->r_AliveState == AliveState.IsAlive,
+BugfixesAndQoL\src\SingleBuildingPauseHook.cs:176:                building->r_AliveState != AliveState.IsAlive ||
+BugfixesAndQoL\src\SingleBuildingPauseHook.cs:558:                if (building.r_AliveState == AliveState.IsAlive && (int)building.r_GlobalId == globalId)
+BugfixesAndQoL\src\SingleBuildingPauseHook.cs:581:                building->r_AliveState == AliveState.IsAlive &&
+BugfixesAndQoL\src\SingleBuildingPauseHook.cs:667:                building->r_AliveState != AliveState.IsAlive || building->r_GlobalId == 0 ||
+BugfixesAndQoL\src\SingleBuildingPauseHook.cs:699:                    building->r_AliveState == AliveState.IsAlive,
+BugfixesAndQoL\src\SingleBuildingPauseHook.cs:775:                building->r_AliveState != AliveState.IsAlive)
+BugfixesAndQoL\src\SpectatorPerspectiveRuntime.cs:620:                        keep == null || keep->r_AliveState != AliveState.IsAlive ||
+BugfixesAndQoL\src\TroopMovementFix3SynchronizedMovementCadencePatch.cs:72:        private const int UnitAliveStateManagerOffset = 0x6E4;
+BugfixesAndQoL\src\TroopMovementFix3SynchronizedMovementCadencePatch.cs:536:                (int)AliveState.IsAlive);
+BugfixesAndQoL\src\TroopMovementFix3SynchronizedMovementCadencePatch.cs:627:                (int)AliveState.IsAlive);
+BugfixesAndQoL\src\TunnelPlacementDistanceFeature.cs:227:                    if (building->r_AliveState == AliveState.IsAlive &&
+BugfixesAndQoL\src\WaterboyTargetReservationRuntime.cs:321:                    building == null || building->r_AliveState != AliveState.IsAlive || building->r_OnFireTicks == 0)
+BugfixesAndQoL\src\WaterboyTargetReservationRuntime.cs:404:                building == null || building->r_AliveState != AliveState.IsAlive ||
+BugfixesAndQoL\src\WaterboyTargetReservationRuntime.cs:413:            building->r_AliveState == AliveState.IsAlive && building->r_OnFireTicks != 0;
+BugfixesAndQoL\src\WorkshopIdleDelayNative.cs:69:            a.cmp(__word_ptr[r10 + 0x6E4], (int)AliveState.IsAlive); a.jne(vanilla);
+BugfixesAndQoL\src\WorkshopIdleDelayNative.cs:84:            a.cmp(__word_ptr[rax + 0x12C], (int)AliveState.IsAlive); a.jne(vanilla);
+BugfixesAndQoL\src\WorkshopIdleDelayNative.cs:96:                a.cmp(__word_ptr[r9 + 0x6E4], (int)AliveState.IsAlive); a.jne(next);
+BugfixesAndQoL\src\WorkshopIdleDelayNative.cs:116:                a.cmp(__word_ptr[r9 + 0x12C], (int)AliveState.IsAlive); a.jne(next);
