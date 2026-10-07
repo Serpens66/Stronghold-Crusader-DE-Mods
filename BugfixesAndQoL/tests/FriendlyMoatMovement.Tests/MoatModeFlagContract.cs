@@ -1,4 +1,4 @@
-using BugfixesAndQoL;
+using APIShared.UnitCommands;
 using Iced.Intel;
 using RedBird.Abstractions.Hooks;
 using RedBird.Backends.NativeX64;
@@ -60,7 +60,7 @@ internal static class MoatModeFlagContract
             Callback = callback,
             IntermediaryFactory = MoatModeFlagIntermediaryFactory.Instance
         };
-        var candidate = (NativeDetour<ModeProbe>)NativeDetourBackend.Instance.CreateDetour(in request);
+        var candidate = (NativeDetour<ModeProbe>)new NativeDetourBackend(new NativeDetourOptions { AllowedSchemes=DetourScheme.Indirect, FollowJumps=false }).CreateDetour(in request);
         // A published executable hook remains rooted until this test process exits.
         targetRoot = target;
         callerRoot = caller;

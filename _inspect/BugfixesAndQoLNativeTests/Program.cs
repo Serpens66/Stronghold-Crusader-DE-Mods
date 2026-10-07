@@ -234,7 +234,7 @@ internal static class Program
               !health.Contains("selectedTypeCounts.Clone()"),
             "Selected-health uses reusable summary/page buffers without Lord cloning");
 
-        string cursor = File.ReadAllText(Path.Combine(sourceRoot, "CursorConnectivity.cs"));
+        string cursor = File.ReadAllText(Path.Combine(workspace, "APIShared", "src", "UnitCommands", "CursorConnectivity.cs"));
         int queryGuard = cursor.IndexOf("if (cursorQueries == cursorLastLogQueries)", StringComparison.Ordinal);
         int cursorStopwatch = cursor.IndexOf("long now = Stopwatch.GetTimestamp();", queryGuard, StringComparison.Ordinal);
         Check(queryGuard >= 0 && cursorStopwatch > queryGuard,
@@ -996,8 +996,8 @@ internal static class Program
               infrastructure.Contains("new ContextHookOptions"),
             "P6b shared hook infrastructure preserves atomic ownership and explicit context options");
 
-        string moat = File.ReadAllText(Path.Combine(sourceDirectory, "MoatWorkTargetSelection.cs"));
-        Check(moat.Contains("pendingTransaction.Commit()") &&
+        string moat = File.ReadAllText(Path.Combine(workspace, "APIShared", "src", "UnitCommands", "MoatWorkTargetSelection.cs"));
+        Check(moat.Contains("CommitPermanentHooks(pendingTransaction)") &&
               moat.Contains("!pendingFind.Committed") &&
               moat.Contains("!pendingResolve.Committed") &&
               moat.Contains("!pendingFillApproach.Committed") &&
@@ -1025,7 +1025,7 @@ internal static class Program
               assassinPathfinding.Contains("AssassinPathAPI.RegisterWeightedBuilder") &&
               !assassinPathfinding.Contains("AddDetour("),
             "Assassin hooks have one shared owner and published command subscriptions survive runtime disposal");
-        Check(manifest.Contains("\"Version\": \"1.0.129\"") && manifest.Contains("\"NetworkMode\": 1"),
+        Check(manifest.Contains("\"Version\": \"1.0.175\"") && manifest.Contains("\"NetworkMode\": 1"),
             "integrated manifest version and gameplay NetworkMode 1");
     }
 

@@ -6,15 +6,15 @@ $workspace = Split-Path -Parent $PSScriptRoot
 $roots = @('.')
 $excludedSegments = @(
     '\.git\', '\bin\', '\obj\', '\tests\', '\.inspect\', '\_inspect\',
-    '\.release-output\', '\BepInEx\plugins\', '\packages\', '\shcde-script-extender\',
-    '\Testmods\'
+    '\.release-output\', '\BepInEx\plugins\', '\packages\', '\shcde-script-extender\'
 )
 $files = foreach ($relativeRoot in $roots) {
     $root = Join-Path $workspace $relativeRoot
     if (-not (Test-Path -LiteralPath $root)) { continue }
     Get-ChildItem -LiteralPath $root -Recurse -File -Filter '*.cs' -ErrorAction SilentlyContinue | Where-Object {
         $path = $_.FullName
-        -not ($excludedSegments | Where-Object { $path.Contains($_) })
+        (-not ($excludedSegments | Where-Object { $path.Contains($_) })) -and
+        (-not $path.Contains('\Testmods\') -or $path.Contains('\Testmods\MoatMove\'))
     }
 }
 

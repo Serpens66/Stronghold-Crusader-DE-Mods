@@ -4,6 +4,34 @@
         <name>APIShared</name>
     </assembly>
     <members>
+        <member name="T:APIShared.UnitCommands.NativeMovementCadenceResolver">
+            <summary>
+            Reads the installed game's per-unit update handlers without calling or patching them.
+            It deliberately returns every statically reachable AI-state-101 speed-bonus value;
+            callers must treat that set conservatively rather than guessing a unit profile.
+            </summary>
+        </member>
+        <member name="T:APIShared.UnitCommands.IUnitCommandSettings">
+            <summary>Host-synchronized command policy supplied by the main mod.</summary>
+        </member>
+        <member name="P:APIShared.UnitCommands.IUnitCommandSettings.EnableMod">
+            <summary>Master activation.</summary>
+        </member>
+        <member name="P:APIShared.UnitCommands.IUnitCommandSettings.EnableImprovedManualUnitCommands">
+            <summary>Improve human commands using existing native paths.</summary>
+        </member>
+        <member name="P:APIShared.UnitCommands.IUnitCommandSettings.EnableImprovedMoatFilling">
+            <summary>Independent moat work policy.</summary>
+        </member>
+        <member name="P:APIShared.UnitCommands.IUnitCommandSettings.EnableLadderAttackPathfindingFix">
+            <summary>Independent ladder attack policy.</summary>
+        </member>
+        <member name="P:APIShared.UnitCommands.IUnitCommandSettings.EnableMoveFormationEnhancements">
+            <summary>Independent formation policy.</summary>
+        </member>
+        <member name="T:APIShared.UnitCommands.UnitCommandPathAPI">
+            <summary>Process-owned native command dispatcher. Settings change logical policy only.</summary>
+        </member>
         <member name="T:APIShared.NativeApiState">
             <summary>Describes whether the process-wide API has completed initialization.</summary>
         </member>
@@ -2272,6 +2300,9 @@
             Adds two local presets to a Script Extender lobby-settings ViewModel while
             keeping the outer MessagePack dictionary readable by the Script Extender.
             </summary>
+        </member>
+        <member name="M:Shared.PresetLobbyModSettingsViewModel.IsRetiredPresetProperty(System.String)">
+            <summary>Recognizes removed properties whose stored preset values may be ignored.</summary>
         </member>
         <member name="M:Shared.PresetLobbyModSettingsViewModel.System_ApplyModSettingsSearchTarget(System.String,System.String)">
             <summary>Safe reflection bridge used by the optional global search host.</summary>

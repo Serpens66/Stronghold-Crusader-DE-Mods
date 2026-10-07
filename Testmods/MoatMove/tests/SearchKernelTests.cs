@@ -271,6 +271,7 @@ namespace MoatMove
                         (p, t) => CompletedMoatRelationship.Friendly, t => false);
                     var current = new WeightedMoatRoutePlanner(rows, flags, buildings, heights, masks, directions, types,
                         (p, t) => CompletedMoatRelationship.Friendly, t => false);
+                    current.AllowAdditionalMoatEntry=()=>true; current.KernelFactory=(w,h,e)=>new MoatSearchKernel(w,h,e);
                     object session = new object();
                     previous.SetSearchSession(session, 1, 1, 1); current.SetSearchSession(session, 1, 1, 1);
                     var paths = new WeightedMoatEncodedRoute[units];

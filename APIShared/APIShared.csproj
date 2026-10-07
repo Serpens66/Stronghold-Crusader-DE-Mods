@@ -47,6 +47,7 @@
     <Reference Include="RedBird.Backends.NativeX64"><HintPath>$(ExtenderDir)\RedBird.Backends.NativeX64.dll</HintPath><Private>false</Private></Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="src\UnitCommands\NativeDetourContracts.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="src\Contracts.cs" />
     <Compile Include="src\UnitAccess.cs" />
@@ -100,12 +101,50 @@
     <Compile Include="src\LobbyStateCapability.cs" />
     <Compile Include="src\PlayerDefeatCapability.cs" />
     <Compile Include="src\ApiSharedRuntime.cs" />
+    <Compile Include="..\Shared\NativePatternResolver.cs"><Link>Shared\NativePatternResolver.cs</Link></Compile>
+    <Compile Include="..\Shared\GameBuildingFootprint.cs"><Link>Shared\GameBuildingFootprint.cs</Link></Compile>
+    <Compile Include="..\Shared\TemporaryPackedRouteInspection.cs"><Link>Shared\TemporaryPackedRouteInspection.cs</Link></Compile>
+        <Compile Include="src\UnitCommands\AssassinSelectionAdapters.cs" />
+    <Compile Include="src\UnitCommands\CursorConnectivity.cs" />
+    <Compile Include="src\UnitCommands\CursorRegionGraph.cs" />
+    <Compile Include="src\UnitCommands\DirectMoatCommandScopes.cs" />
+    <Compile Include="src\UnitCommands\EnemyGatePolicyIntegration.cs" />
+    <Compile Include="src\UnitCommands\FillWeightedRoutes.cs" />
+    <Compile Include="src\UnitCommands\WeightedGridSearchKernel.cs" />
+    <Compile Include="src\UnitCommands\MoatCandidateField.cs" />
+    <Compile Include="src\UnitCommands\MoatModeFlagIntermediaryFactory.cs" />
+    <Compile Include="src\UnitCommands\MoatPlacement.cs" />
+    <Compile Include="src\UnitCommands\MoatPlacementSearch.cs" />
+    <Compile Include="src\UnitCommands\MoatWorkTargetSelection.cs" />
+    <Compile Include="src\UnitCommands\MoveFormationCommandContext.cs" />
+    <Compile Include="src\UnitCommands\MoveFormationPreviewPlanner.cs" />
+    <Compile Include="src\UnitCommands\MoveFormationSpacingPolicy.cs" />
+    <Compile Include="src\UnitCommands\MovementOptionsSnapshot.cs" />
+    <Compile Include="src\UnitCommands\MovementPathPublication.cs" />
+    <Compile Include="src\UnitCommands\MovementSearchContext.cs" />
+    <Compile Include="src\UnitCommands\NativeFormationSlots.cs" />
+    <Compile Include="src\UnitCommands\NativeMovementCadenceResolver.cs" />
+    <Compile Include="src\UnitCommands\NativeMovementRecovery.cs" />
+    <Compile Include="src\UnitCommands\QueueNativeContract.cs" />
+    <Compile Include="src\UnitCommands\TemporaryGateRouteReporting.cs" />
+    <Compile Include="src\UnitCommands\UnitCommandPathRuntime.cs" />
+    <Compile Include="src\UnitCommands\UnitCommandPathRuntime.LadderAttackFix.cs" />
+    <Compile Include="src\UnitCommands\UnitMovementContext.cs" />
+    <Compile Include="src\UnitCommands\WeightedMoatPublication.cs" />
+    <Compile Include="src\UnitCommands\WeightedMoatRoutePlanner.cs" />
+    <Compile Include="src\UnitCommands\UnitCommandContracts.cs" />
+    <Compile Include="src\UnitCommands\UnitCommandPathAPI.cs" />
+    <Compile Include="src\UnitCommands\ManualUnitCommands.cs" />
+    <Compile Include="src\UnitCommands\ManualProbeRepairGuards.cs" />
+    <Compile Include="src\UnitCommands\PermanentCommandHooks.cs" />
+    <Compile Include="src\UnitCommands\TraversalDispatch.cs" />
     <Compile Include="src\APISharedPlugin.cs" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Patches\**\*.xaml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
     <Content Include="info.json"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
   </ItemGroup>
+  <ItemGroup><Compile Include="src\UnitCommands\TraversalProvider.cs" /></ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="ValidateReferences" BeforeTargets="BeforeBuild">
     <Error Condition="!Exists('$(ExtenderDir)\SHCDESE.dll')" Text="SHCDESE.dll was not found: $(ExtenderDir)" />

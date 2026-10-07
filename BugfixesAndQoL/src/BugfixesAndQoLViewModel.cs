@@ -13,8 +13,11 @@ using UnityEngine;
 
 namespace BugfixesAndQoL
 {
-    public sealed class BugfixesAndQoLViewModel : Shared.PresetLobbyModSettingsViewModel
+    public sealed class BugfixesAndQoLViewModel : Shared.PresetLobbyModSettingsViewModel, IUnitCommandSettings
     {
+        protected override bool IsRetiredPresetProperty(string propertyName) =>
+            string.Equals(propertyName, "FriendlyMoatMovementMode", StringComparison.Ordinal);
+
         public event Action<string> SettingChanged;
 
         private bool enableMod = true;
@@ -37,7 +40,7 @@ namespace BugfixesAndQoL
         private bool enableTroopMovementFix = true;
         private bool enableExtendedShiftCommandQueue = true;
         private bool enableMoveFormationEnhancements = true;
-        private int friendlyMoatMovementMode = FriendlyMoatMovementPolicy.DefaultMode;
+        private bool enableImprovedManualUnitCommands = true;
         private bool enableImprovedMoatFilling = true;
         private bool enableMountedStockpileMovementFix = true;
         private bool enableLadderAttackPathfindingFix = true;
@@ -451,23 +454,9 @@ namespace BugfixesAndQoL
             SerpLocalization.Get("BugfixesAndQoL.EnableMoveFormationEnhancements");
         public string EnableMoveFormationEnhancementsHelpText =>
             SerpLocalization.Get("BugfixesAndQoL.EnableMoveFormationEnhancementsHelp");
-        public string FriendlyMoatMovementModeText => SerpLocalization.Get("BugfixesAndQoL.FriendlyMoatMovementMode");
-        public string FriendlyMoatMovementModeHelpText => SerpLocalization.Get("BugfixesAndQoL.FriendlyMoatMovementModeHelp");
-        public string FriendlyMoatMovementModeValueText
-        {
-            get
-            {
-                switch (GetFriendlyMoatMovementMode())
-                {
-                    case BugfixesAndQoL.FriendlyMoatMovementMode.Exact:
-                        return SerpLocalization.Get("BugfixesAndQoL.FriendlyMoatMovementExact");
-                    case BugfixesAndQoL.FriendlyMoatMovementMode.RequiredOnly:
-                        return SerpLocalization.Get("BugfixesAndQoL.FriendlyMoatMovementRequiredOnly");
-                    default:
-                        return SerpLocalization.Get("BugfixesAndQoL.FriendlyMoatMovementDisabled");
-                }
-            }
-        }
+        public string EnableImprovedManualUnitCommandsText => SerpLocalization.Get("BugfixesAndQoL.EnableImprovedManualUnitCommands");
+        public string EnableImprovedManualUnitCommandsHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableImprovedManualUnitCommandsHelp");
+
         public string EnableImprovedMoatFillingText => SerpLocalization.Get(SerpLocalization.EnableImprovedMoatFilling);
         public string EnableImprovedMoatFillingHelpText => SerpLocalization.Get(SerpLocalization.EnableImprovedMoatFillingHelp);
         public string EnableMountedStockpileMovementFixText => SerpLocalization.Get("BugfixesAndQoL.EnableMountedStockpileMovementFix");
@@ -1020,32 +1009,11 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
-        public int FriendlyMoatMovementMode
+        public bool EnableImprovedManualUnitCommands
         {
-            get => friendlyMoatMovementMode;
-            set
-            {
-                int validated = FriendlyMoatMovementPolicy.Normalize(value);
-                int previous = friendlyMoatMovementMode;
-                SetSetting(ref friendlyMoatMovementMode, validated, nameof(FriendlyMoatMovementMode));
-                if (previous != friendlyMoatMovementMode)
-                {
-                    OnPropertyChanged(nameof(FriendlyMoatMovementSliderValue));
-                    OnPropertyChanged(nameof(FriendlyMoatMovementModeValueText));
-                }
-            }
+            get => enableImprovedManualUnitCommands;
+            set => SetSetting(ref enableImprovedManualUnitCommands, value, nameof(EnableImprovedManualUnitCommands));
         }
-
-        // Slider order differs deliberately from the stable persisted mode values.
-        public int FriendlyMoatMovementSliderValue
-        {
-            get => FriendlyMoatMovementPolicy.ToSliderValue(FriendlyMoatMovementMode);
-            set => FriendlyMoatMovementMode = FriendlyMoatMovementPolicy.FromSliderValue(value);
-        }
-
-        internal FriendlyMoatMovementMode GetFriendlyMoatMovementMode() =>
-            (BugfixesAndQoL.FriendlyMoatMovementMode)
-                FriendlyMoatMovementPolicy.Normalize(FriendlyMoatMovementMode);
 
         [SyncHostOnly]
         public bool EnableImprovedMoatFilling
@@ -1407,7 +1375,7 @@ namespace BugfixesAndQoL
                 EnableTroopMovementFix = true;
                 EnableExtendedShiftCommandQueue = true;
                 EnableMoveFormationEnhancements = true;
-                FriendlyMoatMovementMode = FriendlyMoatMovementPolicy.DefaultMode;
+                EnableImprovedManualUnitCommands = true;
                 EnableImprovedMoatFilling = true;
                 EnableMountedStockpileMovementFix = true;
                 EnableLadderAttackPathfindingFix = true;

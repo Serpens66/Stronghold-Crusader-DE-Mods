@@ -1,5 +1,5 @@
+using APIShared.UnitCommands;
 using BepInEx;
-using BepInEx.Bootstrap;
 using BepInEx.Configuration;
 using BepInEx.Logging;
 using R3;
@@ -15,17 +15,17 @@ using System.Reflection;
 
 namespace MoatMove
 {
-    [BepInDependency("APIShared_Serp", "0.3.6")]
+    [BepInDependency("APIShared_Serp", "0.4.10")]
     [BepInPlugin(PluginGuid, "MoatMove", PluginVersion)]
     [BepInDependency("000shcdese", "2.10.0")]
-    [BepInDependency("BugfixesAndQoL_Serp", BepInDependency.DependencyFlags.SoftDependency)]
+    [BepInDependency("BugfixesAndQoL_Serp", "1.0.175")]
     [BepInDependency("EnemyGatePathfindingTest_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     public sealed class MoatMovePlugin : BaseUnityPlugin
     {
         public const string PluginGuid = "MoatMove_Serp";
         public const string PluginVersion = "0.1.3";
         private static ManualLogSource persistentLog;
-        private static FriendlyMoatMovementRuntime runtime;
+        private static FriendlyMoatTraversalProvider runtime;
         private static MoatMoveOptions options;
         private static IDisposable mapStartSubscription;
         private static IDisposable mapUnloadSubscription;
@@ -39,38 +39,29 @@ namespace MoatMove
             if (initialized) return;
             initialized = true;
             persistentLog = Logger;
-            if (ReportConflict()) return;
             string mode = Config.Bind("Movement", "Mode", "precise",
                 new ConfigDescription(
                     "precise: weighted friendly/allied moat routes. fast: moat only when no ground alternative exists, shared group calculations, no extra moat cost. FastNative: Fast rules with a private native shared field. Restart the game after changing this setting. Use the same mode on all multiplayer peers.")).Value;
             options = new MoatMoveOptions(mode);
             Shared.DebugLogHelper.LogInfo(persistentLog,
-                $"MoatMove {PluginVersion} loaded; mode={options.ModeName}, improvedFill=false, ladderAttackFix=false, formationEnhancements=false; awaiting native library.");
+                $"MoatMove {PluginVersion} loaded; mode={options.ModeName}, commandPolicy=BugfixesAndQoL, hookOwner=APIShared; awaiting native library.");
             CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;
-        }
-
-        private static bool ReportConflict()
-        {
-            string conflict = MoatMoveConflictPolicy.FindConflict(Chainloader.PluginInfos.Keys);
-            if (conflict == null) return false;
-            Shared.DebugLogHelper.LogError(persistentLog,
-                $"MoatMove disabled before hook installation: conflicting plugin {conflict} is loaded. Test MoatMove alone or with APIShared; remove the conflicting plugin from this test configuration.");
-            return true;
         }
 
         private static void OnLibraryLoaded(CrusaderLibraryLoadContext context)
         {
-            if (runtime != null || ReportConflict()) return;
+            if (runtime != null) return;
             try
             {
                 bool referenceHashMatches = Shared.DebugLogHelper.ReportNativeLibraryVersion(
                     persistentLog, "MoatMove", requireCurrentVersion: true);
                 if (!referenceHashMatches) return;
-                // Constructor rolls back failed initialization. A successfully published
-                // runtime is process-owned and is never disposed by a plugin/map event.
-                runtime = new FriendlyMoatMovementRuntime(persistentLog, options, context, referenceHashMatches);
+                // Registration roots the candidate before native publication. Failure
+                // disables its policy; published hooks remain owned by APIShared.
+                runtime = new FriendlyMoatTraversalProvider(persistentLog, options);
+                runtime.Install(context);
                 Shared.DebugLogHelper.LogInfo(persistentLog,
-                    $"MoatMove runtime published; mode={options.ModeName}; APIShared is optional; detailed diagnostics disabled.");
+                    $"MoatMove runtime published; mode={options.ModeName}; shared command hooks owned by APIShared; detailed diagnostics disabled.");
             }
             catch (Exception ex)
             {

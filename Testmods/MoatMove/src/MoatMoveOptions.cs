@@ -1,3 +1,4 @@
+using APIShared.UnitCommands;
 namespace MoatMove
 {
     // Capture the config once at startup; command snapshots cannot change mid-order.

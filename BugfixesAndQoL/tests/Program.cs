@@ -503,7 +503,7 @@ namespace BugfixesAndQoL
 
         private static void TestFriendlyMoatCursorIdGuard()
         {
-            string moatCursor = File.ReadAllText(Path.Combine("src", "CursorConnectivity.cs"));
+            string moatCursor = File.ReadAllText(Path.Combine("..", "APIShared", "src", "UnitCommands", "CursorConnectivity.cs"));
             Check(moatCursor.Contains("disposed || unitId <= 0 || buildingId <= 0") &&
                   moatCursor.IndexOf("unitId <= 0", StringComparison.Ordinal) <
                   moatCursor.IndexOf("UnitAccess.TryGetById", StringComparison.Ordinal),
@@ -1730,7 +1730,7 @@ namespace BugfixesAndQoL
                     .Contains("if (!installed || args.SkipOriginalFunction)") &&
                   !File.ReadAllText(Path.Combine("src", "FastRecruitRallyMovementRuntime.cs"))
                     .Contains("if (!args.SkipOriginalFunction &&") &&
-                  !File.ReadAllText(Path.Combine("src", "FriendlyMoatMovementRuntime.cs"))
+                  !File.ReadAllText(Path.Combine("..", "APIShared", "src", "UnitCommands", "UnitCommandPathRuntime.cs"))
                     .Contains("if (disposed || args.SkipOriginalFunction)") &&
                   !File.ReadAllText(Path.Combine("src", "TroopMovementFix3Runtime.cs"))
                     .Contains("if (!IsFeatureEnabled || args.SkipOriginalFunction"),
@@ -4232,26 +4232,11 @@ namespace BugfixesAndQoL
 
         private static void TestFriendlyMoatMovementPolicy()
         {
-            Check(FriendlyMoatMovementPolicy.DefaultMode == 0,
-                "Off is the default mode while the feature remains experimental");
-            Check(FriendlyMoatMovementPolicy.Normalize(0) == 0 &&
-                    FriendlyMoatMovementPolicy.Normalize(1) == 1 &&
-                    FriendlyMoatMovementPolicy.Normalize(2) == 2,
-                "all three public mode values are preserved");
-            Check(FriendlyMoatMovementPolicy.Normalize(-1) == 0 &&
-                    FriendlyMoatMovementPolicy.Normalize(3) == 0 &&
-                    FriendlyMoatMovementPolicy.Normalize(int.MaxValue) == 0,
-                "invalid friendly-moat modes fail closed to Off");
-            Check(FriendlyMoatMovementPolicy.ToSliderValue(0) == 0 &&
-                    FriendlyMoatMovementPolicy.ToSliderValue(2) == 1 &&
-                    FriendlyMoatMovementPolicy.ToSliderValue(1) == 2,
-                "friendly-moat slider is ordered Off, Fast, Precise without changing persisted values");
-            Check(FriendlyMoatMovementPolicy.FromSliderValue(0) == 0 &&
-                    FriendlyMoatMovementPolicy.FromSliderValue(1) == 2 &&
-                    FriendlyMoatMovementPolicy.FromSliderValue(2) == 1 &&
-                    FriendlyMoatMovementPolicy.FromSliderValue(-1) == 0 &&
-                    FriendlyMoatMovementPolicy.FromSliderValue(3) == 0,
-                "friendly-moat slider maps back to stable modes and fails closed");
+            string source = File.ReadAllText(Path.Combine(FindProjectDirectory(), "src", "BugfixesAndQoLViewModel.cs"));
+            Check(source.Contains("private bool enableImprovedManualUnitCommands = true;") &&
+                source.Contains("EnableImprovedManualUnitCommands = true;"), "manual commands default on and reset on");
+            Check(!source.Contains("public int FriendlyMoatMovementMode") &&
+                source.Contains("IsRetiredPresetProperty"), "old traversal setting retired without mapping");
         }
 
         private static void TestAicDropdownPolicy()
@@ -4347,10 +4332,10 @@ namespace BugfixesAndQoL
             string projectDirectory = FindProjectDirectory();
             string runtime = File.ReadAllText(Path.Combine(projectDirectory, "src", "BugfixesAndQoLRuntime.cs"));
             string friendlyRuntime = File.ReadAllText(Path.Combine(
-                projectDirectory, "src", "FriendlyMoatMovementRuntime.cs"));
+                projectDirectory, "..", "APIShared", "src", "UnitCommands", "UnitCommandPathRuntime.cs"));
             string selectionAdapters = File.ReadAllText(Path.Combine(
-                projectDirectory, "src", "AssassinSelectionAdapters.cs"));
-            string moatWork = File.ReadAllText(Path.Combine(projectDirectory, "src", "MoatWorkTargetSelection.cs"));
+                projectDirectory, "..", "APIShared", "src", "UnitCommands", "AssassinSelectionAdapters.cs"));
+            string moatWork = File.ReadAllText(Path.Combine(projectDirectory, "..", "APIShared", "src", "UnitCommands", "MoatWorkTargetSelection.cs"));
             string viewModel = File.ReadAllText(Path.Combine(projectDirectory, "src", "BugfixesAndQoLViewModel.cs"));
             string xaml = File.ReadAllText(Path.Combine(
                 projectDirectory, "Override", "ScriptExtenderUI", "BugfixesAndQoLSettings.xaml"));
@@ -4361,8 +4346,8 @@ namespace BugfixesAndQoL
                 projectDirectory, "Patches", "Assets", "GUI", "XAMLResources", "FRONT_Multiplayer_AISettings.xaml"));
             string troopPatch = File.ReadAllText(Path.Combine(
                 projectDirectory, "Patches", "Assets", "GUI", "XAMLResources", "HUD_Troops.xaml"));
-            Check(runtime.Contains("processFriendlyMoatMovementRuntime") &&
-                    runtime.Contains("new FriendlyMoatMovementRuntime(") &&
+            Check(runtime.Contains("processUnitCommandPathRuntime") &&
+                    runtime.Contains("UnitCommandPathAPI.RegisterCommands(") &&
                     !runtime.Contains("friendlyMoatMovementRuntime?.Dispose()"),
                 "integrated native runtime remains process-rooted and is not disposed by plugin teardown");
             Check(!aiSettingsPatch.Contains("<Attribute Name=") &&
@@ -4377,24 +4362,13 @@ namespace BugfixesAndQoL
                     moatWork.Contains("if (!ExtensionsEnabled)") &&
                     !moatWork.Contains("RegisterImprovedMoatFillingProvider"),
                 "hostile filling remains independent while Off blocks every friendly moat work route");
-            Check(viewModel.Contains("[SyncHostOnly]") &&
-                    viewModel.Contains("public int FriendlyMoatMovementMode") &&
-                    viewModel.Contains("FriendlyMoatMovementPolicy.DefaultMode"),
-                "friendly moat movement is a default-required synchronized host setting");
-            Check(viewModel.Contains("public int FriendlyMoatMovementSliderValue") &&
-                    viewModel.Contains("FriendlyMoatMovementModeValueText") &&
-                    !viewModel.Contains("FriendlyMoatMovementModeOptions") &&
-                    !viewModel.Contains("FriendlyMoatMovementModeIndex"),
-                "friendly moat movement exposes the ordered slider adapter and value label");
-            Check(xaml.Contains("Value=\"{Binding FriendlyMoatMovementSliderValue, Mode=TwoWay}\"") &&
-                    xaml.Contains("Text=\"{Binding FriendlyMoatMovementModeValueText}\"") &&
-                    !xaml.Contains("ItemsSource=\"{Binding FriendlyMoatMovementModeOptions}\""),
-                "friendly moat movement uses the standard three-position slider layout");
-            Check(english.Contains("FriendlyMoatMovementModeHelp=Experimental:") &&
-                    english.Contains("Precise (Exact) can cause noticeable lag when commanding large groups") &&
-                    german.Contains("FriendlyMoatMovementModeHelp=Experiementell:") &&
-                    german.Contains("kann aber beim Kommandieren großer Gruppen spürbare Lags verursachen"),
-                "friendly moat tooltips start with the experimental warning and mention precise-mode group lag");
+            Check(viewModel.Contains("private bool enableImprovedManualUnitCommands = true;") &&
+                    viewModel.Contains("public bool EnableImprovedManualUnitCommands") &&
+                    !viewModel.Contains("public int FriendlyMoatMovementMode"), "manual commands are a synchronized boolean host setting");
+            Check(xaml.Contains("IsChecked=\"{Binding EnableImprovedManualUnitCommands, Mode=TwoWay}\"") &&
+                    !xaml.Contains("FriendlyMoatMovementSliderValue"), "manual commands use a checkbox");
+            Check(english.Contains("EnableImprovedManualUnitCommandsHelp=") && german.Contains("EnableImprovedManualUnitCommandsHelp="),
+                "manual command help is localized");
             Check(plugin.Contains("[BepInIncompatibility(LegacyMoveMoatGuid)]"),
                 "legacy standalone plugin is explicitly incompatible");
             Check(friendlyRuntime.Contains("selectionCallAdapters=6") &&
@@ -4414,7 +4388,7 @@ namespace BugfixesAndQoL
                     selectionAdapters.Contains("asm.popfq()") &&
                     selectionAdapters.Contains("for (int i = 1; i < original.Length; i++)"),
                 "selection adapters preserve stack, volatile SIMD state, flags, and relocated instructions");
-            Check(friendlyRuntime.Contains("private long ObserveCursorTilePairFallbackSelection(") &&
+            Check(friendlyRuntime.Contains("internal long ObserveCursorTilePairFallbackSelection(") &&
                     friendlyRuntime.Contains("if (vanillaResult != 0)") &&
                     friendlyRuntime.Contains("if (vanillaResult == 0 && functionalArmed)"),
                 "friendly moat selection preserves full-width nonzero SE results and only lifts rejection");

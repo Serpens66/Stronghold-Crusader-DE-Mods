@@ -72,7 +72,6 @@
     <Compile Include="..\src\TemporaryGateBlockagePolicy.cs"><Link>TemporaryGateBlockagePolicy.cs</Link></Compile>
     <Compile Include="..\src\SynchronizedGatehouseReachabilityPolicy.cs"><Link>SynchronizedGatehouseReachabilityPolicy.cs</Link></Compile>
     <Compile Include="..\src\TrailCustomizationProviderHostApi.cs"><Link>TrailCustomizationProviderHostApi.cs</Link></Compile>
-    <Compile Include="..\src\FriendlyMoatMovementPolicy.cs"><Link>FriendlyMoatMovementPolicy.cs</Link></Compile>
     <Compile Include="..\src\TunnelPlacementDistancePolicy.cs"><Link>TunnelPlacementDistancePolicy.cs</Link></Compile>
     <Compile Include="..\src\StartupUiReadinessGuardPolicy.cs"><Link>StartupUiReadinessGuardPolicy.cs</Link></Compile>
     <Compile Include="..\src\StartupUiReadinessGuardIlContract.cs"><Link>StartupUiReadinessGuardIlContract.cs</Link></Compile>

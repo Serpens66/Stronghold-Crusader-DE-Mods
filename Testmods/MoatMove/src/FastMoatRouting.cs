@@ -1,3 +1,5 @@
+using APIShared.UnitCommands;
+using static APIShared.UnitCommands.UnitCommandPathRuntime;
 using System;
 using System.Collections.Generic;
 using SHCDESE.API;
@@ -5,7 +7,7 @@ using SHCDESE.Interop;
 
 namespace MoatMove
 {
-    internal sealed unsafe partial class FriendlyMoatMovementRuntime
+    internal sealed unsafe partial class FriendlyMoatTraversalProvider
     {
         private sealed class FastRoutingState
         {
@@ -51,7 +53,7 @@ namespace MoatMove
             if (!state.Maps.TryGetValue(key.Player, out FastTraversalCache map))
             {
                 int player = key.Player;
-                EnsureCursorTopology(player, false);
+                runtime.EnsureCursorTopology(player, false);
                 map = new FastTraversalCache(MapWidth, MapWidth,
                     (int a, int b, int direction, bool ground, out bool wet, out bool structure) =>
                         FastLiveEdge(player, a, b, direction, ground, out wet, out structure));
@@ -69,10 +71,10 @@ namespace MoatMove
             int x = from % MapWidth, y = from / MapWidth, nx = to % MapWidth, ny = to / MapWidth;
             int a = GameTileManagerAPI.Instance.GetTileId(x, y), b = GameTileManagerAPI.Instance.GetTileId(nx, ny);
             if (!IsValidTileId(a) || !IsValidTileId(b)) return false;
-            if (cursorTopologies.TryGetValue(player, out CursorTopology topology) &&
-                (topology.BlockedBuildings.Contains(nativeBuildingLayer[a]) ||
-                 topology.BlockedBuildings.Contains(nativeBuildingLayer[b]))) return false;
-            bool allowed = weightedMoatRoutePlanner.TryGetTraversalEdge(player, x, y, a, nx, ny, b,
+            if (runtime.cursorTopologies.TryGetValue(player, out CursorTopology topology) &&
+                (topology.BlockedBuildings.Contains(runtime.nativeBuildingLayer[a]) ||
+                 topology.BlockedBuildings.Contains(runtime.nativeBuildingLayer[b]))) return false;
+            bool allowed = runtime.weightedMoatRoutePlanner.TryGetTraversalEdge(player, x, y, a, nx, ny, b,
                 direction, false, false, ground ? MoatTraversalPolicy.GroundOnly : MoatTraversalPolicy.FriendlyOnly,
                 out MoatTraversalEdgeKind kind, out structure);
             wet = kind != MoatTraversalEdgeKind.Ground;
@@ -84,8 +86,8 @@ namespace MoatMove
             ulong hash = 14695981039346656037UL;
             for (int a = 1; a <= 8; a++) for (int b = 1; b <= 8; b++)
                 hash = unchecked((hash ^ (GamePlayerManagerAPI.Instance.IsPlayerAlliedTo(a, b) ? 1UL : 0)) * 1099511628211UL);
-            if (nativePathManager == IntPtr.Zero) return hash;
-            int* context = (int*)nativePathManager;
+            if (runtime.nativePathManager == IntPtr.Zero) return hash;
+            int* context = (int*)runtime.nativePathManager;
             int count = Math.Min(Math.Max(context[0], 1), 200);
             hash = unchecked((hash ^ (uint)count) * 1099511628211UL);
             for (int id = 1; id < count; id++)
@@ -98,8 +100,8 @@ namespace MoatMove
                 hash = unchecked((hash ^ (uint)context[offset + 0x882]) * 1099511628211UL);
                 int building = context[offset + 0x80C];
                 hash = unchecked((hash ^ (uint)building) * 1099511628211UL);
-                if (nativePortalGateStates != null && building > 0 && building <= 10000)
-                    hash = unchecked((hash ^ (ushort)*(short*)(nativePortalGateStates + building * 0x32C)) * 1099511628211UL);
+                if (runtime.nativePortalGateStates != null && building > 0 && building <= 10000)
+                    hash = unchecked((hash ^ (ushort)*(short*)(runtime.nativePortalGateStates + building * 0x32C)) * 1099511628211UL);
             }
             return hash;
         }
@@ -111,7 +113,7 @@ namespace MoatMove
             state.Access = access; state.AccessKnown = true;
             foreach (var pair in state.Maps)
             {
-                EnsureCursorTopology(pair.Key, false);
+                runtime.EnsureCursorTopology(pair.Key, false);
                 if (changed) pair.Value.MarkAll();
                 IReadOnlyCollection<int> nodes = pair.Value.Refresh();
                 if (nodes.Count != 0)
@@ -198,12 +200,31 @@ namespace MoatMove
             }
         }
 
-        private bool TryBuildMovementReachabilityEncoded(int player, int sx, int sy, int tx, int ty, bool reserved,
+        internal override bool TryBuildMovementReachabilityEncoded(int player, int sx, int sy, int tx, int ty, bool reserved,
             out WeightedMoatRouteSummary summary, out WeightedMoatEncodedRoute route)
         {
             return RequiredOnlyMode
                 ? TryFastEncoded(player, sx, sy, tx, ty, reserved, out summary, out route)
-                : weightedMoatRoutePlanner.TryBuildReachabilityEncoded(player, sx, sy, tx, ty, reserved, out summary, out route);
+                : runtime.weightedMoatRoutePlanner.TryBuildReachabilityEncoded(player, sx, sy, tx, ty, reserved, out summary, out route);
+        }
+
+        internal override bool TryPrepareGroundReconstruction(PlanScope plan, GameUnit* unit)
+        {
+            GetNativeMovementStart(unit, out int sx, out int sy);
+            FastRoutingState state = GetFastRouting(false); RefreshFastRouting(state);
+            bool ground = FastGroundReachable(state, plan.PlayerId,
+                sy * MapWidth + sx, plan.TargetY * MapWidth + plan.TargetX, plan.UnitId);
+            if (ground)
+            {
+                plan.QualifiedRoute = null; plan.QualifiedTerminalRoute = default;
+                if (TryFastEncoded(plan.PlayerId, sx, sy, plan.TargetX, plan.TargetY, false,
+                    out WeightedMoatRouteSummary summary, out WeightedMoatEncodedRoute route,
+                    plan.UnitId, groundOnly: true))
+                    plan.QualifiedRoute = new QualifiedMovementRoute(sx, sy, plan.TargetX, plan.TargetY,
+                        plan.PlayerId, runtime.mapEpoch, CaptureCurrentGameTick(), runtime.placementRevision,
+                        route, summary, default, false);
+            }
+            return ground;
         }
 
         private bool FastGroundReachable(FastRoutingState state, int player, int start, int target, int unitId)
@@ -211,7 +232,7 @@ namespace MoatMove
             if (TryFastGroupSuffix(player, target, out int anchor, out _, unitId)) target = anchor;
             int a = GameTileManagerAPI.Instance.GetTileId(start % MapWidth, start / MapWidth);
             int b = GameTileManagerAPI.Instance.GetTileId(target % MapWidth, target / MapWidth);
-            if (!IsValidTileId(a) || !IsValidTileId(b) || IsCompletedMoatTile(a) || IsCompletedMoatTile(b)) return false;
+            if (!IsValidTileId(a) || !IsValidTileId(b) || runtime.IsCompletedMoatTile(a) || runtime.IsCompletedMoatTile(b)) return false;
             using (FastFieldLease lease = state.Pool.Acquire(new FastFieldKey(player, target, true)))
             {
                 if (lease == null) throw new InvalidOperationException("Fast synchronous ground reserve unavailable.");
@@ -220,7 +241,7 @@ namespace MoatMove
             }
         }
 
-        private bool TryFindFastRequiredRoute(PlanScope plan, bool reserved, bool evaluateMissing, out RouteProbeSummary summary)
+        internal override bool TryFindFastRequiredRoute(PlanScope plan, bool reserved, bool evaluateMissing, out RouteProbeSummary summary)
         {
             long started = StartFastMeasurement();
             try { return TryFindFastRequiredRouteCore(plan, reserved, evaluateMissing, out summary); }
@@ -231,10 +252,10 @@ namespace MoatMove
         {
             summary = default;
             if (plan == null || !APIShared.UnitAccess.TryGetById(plan.UnitId, out GameUnit* unit, out _) ||
-                unit == null || !CanDigMoat(unit) || (uint)plan.TargetX >= MapWidth || (uint)plan.TargetY >= MapWidth ||
+                unit == null || !runtime.CanDigMoat(unit) || (uint)plan.TargetX >= MapWidth || (uint)plan.TargetY >= MapWidth ||
                 (plan.IdentityBound && (plan.UnitGlobalId != unit->r_GlobalId || plan.PlayerId != unit->r_ControllableForPlayerId))) return false;
             plan.PlayerId = unit->r_ControllableForPlayerId; plan.UnitGlobalId = unit->r_GlobalId; plan.IdentityBound = true;
-            QualifiedMovementRoute cached = GetReusableQualifiedRoute(plan, unit);
+            QualifiedMovementRoute cached = runtime.GetReusableQualifiedRoute(plan, unit);
             if (cached != null)
             {
                 summary = FastSummary(plan.PlayerId, cached.StartX, cached.StartY, plan.TargetX, plan.TargetY, false, cached.Summary);
@@ -253,9 +274,9 @@ namespace MoatMove
             WeightedMoatRouteSummary found = default;
             if (!ground && TryFastEncoded(plan.PlayerId, sx, sy, plan.TargetX, plan.TargetY, reserved, out found, out WeightedMoatEncodedRoute route, plan.UnitId))
                 plan.QualifiedRoute = new QualifiedMovementRoute(sx, sy, plan.TargetX, plan.TargetY, plan.PlayerId,
-                    mapEpoch, CaptureCurrentGameTick(), placementRevision, route, found, default, false);
+                    runtime.mapEpoch, CaptureCurrentGameTick(), runtime.placementRevision, route, found, default, false);
             if (!ground && plan.QualifiedRoute == null && plan.MoatWorkMovement &&
-                TryBuildTerminalFillRoute(plan, unit, sx, sy, out found, out WeightedMoatEncodedRoute terminal))
+                runtime.TryBuildTerminalFillRoute(plan, unit, sx, sy, out found, out WeightedMoatEncodedRoute terminal))
             { plan.QualifiedTerminalRoute = terminal; plan.QualifiedTerminalSummary = found; }
             summary = FastSummary(plan.PlayerId, sx, sy, plan.TargetX, plan.TargetY, ground, found);
             return !ground && (plan.QualifiedRoute != null || plan.QualifiedTerminalRoute.IsValid) && found.MoatEdges > 0;
@@ -264,8 +285,8 @@ namespace MoatMove
         private RouteProbeSummary FastSummary(int player, int sx, int sy, int tx, int ty, bool ground, WeightedMoatRouteSummary found)
         {
             int a = GameTileManagerAPI.Instance.GetTileId(sx, sy), b = GameTileManagerAPI.Instance.GetTileId(tx, ty);
-            return new RouteProbeSummary(player) { StartRegion = IsValidTileId(a) ? pathRegionGrid[a] : 0,
-                TargetRegion = IsValidTileId(b) ? pathRegionGrid[b] : 0, RouteFound = !ground && found.Found && found.MoatEdges > 0,
+            return new RouteProbeSummary(player) { StartRegion = IsValidTileId(a) ? runtime.pathRegionGrid[a] : 0,
+                TargetRegion = IsValidTileId(b) ? runtime.pathRegionGrid[b] : 0, RouteFound = !ground && found.Found && found.MoatEdges > 0,
                 AttackProbeEvaluated = true, ReachedWithoutMoat = ground, ReachedWithMoat = !ground && found.Found,
                 FriendlyMoatTiles = found.MoatEdges, StructuralEdgesObserved = found.StructuralEdges,
                 RouteDistance = found.RouteLength };

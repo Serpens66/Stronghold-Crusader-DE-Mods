@@ -120,16 +120,15 @@ namespace BugfixesAndQoL
         private HookTransaction nativeTransaction;
         private HookTransaction multiplayerTransaction;
         private HookTransaction drawFilterTransaction;
-        private readonly DetourHandle<AppendMovementWaypointDelegate> waypointAppendHook =
-            new DetourHandle<AppendMovementWaypointDelegate>();
+        private UnitCommandPathRuntime.FastAppendDelegate originalSharedAppend;
+        private UnitCommandPathRuntime.FastChoreDelegate originalSharedTarget;
         private readonly DetourHandle<RenderTribeOverlayDelegate> tribeOverlayRenderHook =
             new DetourHandle<RenderTribeOverlayDelegate>();
         private readonly DetourHandle<DrawSubmissionDelegate> drawSubmissionHook =
             new DetourHandle<DrawSubmissionDelegate>();
         private readonly DetourHandle<ChoreHandlerDelegate> moveChoreHandlerHook =
             new DetourHandle<ChoreHandlerDelegate>();
-        private readonly DetourHandle<ChoreHandlerDelegate> targetOrderChoreHandlerHook =
-            new DetourHandle<ChoreHandlerDelegate>();
+
         private IsTribeMovementCompleteDelegate isTribeMovementComplete;
         private IntPtr tribeManagerPointer;
         private IntPtr choreModePointer;
@@ -162,7 +161,7 @@ namespace BugfixesAndQoL
         public ExtendedShiftCommandQueueRuntime(
             ManualLogSource log,
             BugfixesAndQoLViewModel settings,
-            FriendlyMoatMovementRuntime formationRuntime)
+            UnitCommandPathRuntime formationRuntime)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
@@ -305,17 +304,18 @@ namespace BugfixesAndQoL
                 context.Region,
                 SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
                 CreateTransactionOptions());
-            nativeTransaction.AddDetour(
-                waypointAppendHook,
-                HookTarget.FromAddress(libraryBase + ReferenceWaypointAppendRva),
-                AppendMovementWaypoint);
+            UnitCommandPathRuntime sharedCommands = UnitCommandPathAPI.Runtime;
+            originalSharedAppend = sharedCommands.ContinueQueueAppend;
+            originalSharedTarget = sharedCommands.ContinueQueueTarget;
+            sharedCommands.InstallQueueCommandHooks(memory, libraryBase,
+                AppendMovementWaypoint, HandleTargetOrderChore);
             nativeTransaction.AddDetour(
                 tribeOverlayRenderHook,
                 HookTarget.FromAddress(libraryBase + ReferenceTribeOverlayRenderRva),
                 RenderTribeOverlay);
             CommitResult nativeCommitResult = nativeTransaction.Commit();
             if (!nativeCommitResult.IsCompleteSuccess ||
-                !waypointAppendHook.Success || !tribeOverlayRenderHook.Success)
+                !tribeOverlayRenderHook.Success)
                 throw new InvalidOperationException(
                     "One or more Extended Shift command queue native hooks were not installed.");
 
@@ -334,11 +334,8 @@ namespace BugfixesAndQoL
                 moveFormationDrag.DisableForProcess("hook-install", exception);
             }
 
-            subscriptions.Add(TribeR3EventHooks.OnTribeIssueOrderWithTarget.Observable
-                .Where(args => args.Phase == EventHookPhase.Pre)
-                .Subscribe(OnTargetOrder));
-            subscriptions.Add(TribeR3EventHooks.OnTribeIssueOrderMoveHere.Observable
-                .Subscribe(OnMoveOrder));
+            sharedCommands.queueTargetEvent = OnTargetOrder;
+            sharedCommands.queueMoveEvent = OnMoveOrder;
             subscriptions.Add(TribeR3EventHooks.OnTribeAssignUnit.Observable
                 .Subscribe(OnTribeAssignUnit));
             subscriptions.Add(TribeR3EventHooks.OnTribeCreate.Observable
@@ -403,18 +400,8 @@ namespace BugfixesAndQoL
                     referenceHashMatches,
                     name: "Vanilla Chore 17 handler",
                     log: null);
-                Shared.NativeResolution targetResolution = Shared.NativePatternResolver.ResolveUnique(
-                    memory,
-                    TargetOrderChoreHandlerPattern,
-                    QueueNativeContract.TargetOrderChoreHandlerRva,
-                    referenceHashMatches,
-                    name: "Vanilla Chore 36 handler",
-                    log: null);
-                if (moveResolution.Rva != QueueNativeContract.MoveChoreHandlerRva ||
-                    targetResolution.Rva != QueueNativeContract.TargetOrderChoreHandlerRva)
-                {
-                    throw new InvalidOperationException("One or more Chore handlers resolved at an unexpected RVA.");
-                }
+                if (moveResolution.Rva != QueueNativeContract.MoveChoreHandlerRva)
+                    throw new InvalidOperationException("Move Chore handler resolved at an unexpected RVA.");
 
                 // The table is populated at runtime. Checking it proves that opcodes 17, 36 and
                 // 71 still select the exact handlers whose payload layouts this feature extends.
@@ -439,14 +426,11 @@ namespace BugfixesAndQoL
                     moveChoreHandlerHook,
                     HookTarget.FromAddress(libraryBase + QueueNativeContract.MoveChoreHandlerRva),
                     HandleMoveChore);
-                multiplayerTransaction.AddDetour(
-                    targetOrderChoreHandlerHook,
-                    HookTarget.FromAddress(libraryBase + QueueNativeContract.TargetOrderChoreHandlerRva),
-                    HandleTargetOrderChore);
+
                 CommitResult multiplayerCommitResult = multiplayerTransaction.Commit();
                 multiplayerSynchronizationReady =
                     multiplayerCommitResult.IsCompleteSuccess &&
-                    moveChoreHandlerHook.Success && targetOrderChoreHandlerHook.Success;
+                    moveChoreHandlerHook.Success;
                 if (!multiplayerSynchronizationReady)
                     throw new InvalidOperationException("A multiplayer Chore marker hook reported no success.");
             }
@@ -612,7 +596,7 @@ namespace BugfixesAndQoL
                 }
 
                 trampolineEntered = true;
-                targetOrderChoreHandlerHook.Original();
+                originalSharedTarget();
             }
             catch (Exception exception)
             {
@@ -621,7 +605,7 @@ namespace BugfixesAndQoL
                 {
                     try
                     {
-                        targetOrderChoreHandlerHook.Original();
+                        originalSharedTarget();
                     }
                     catch (Exception trampolineException)
                     {
@@ -1299,7 +1283,7 @@ namespace BugfixesAndQoL
             }
 
         Vanilla:
-            waypointAppendHook.Original(
+            originalSharedAppend(
                 tribeManager,
                 serializedTribeId,
                 tileX,
@@ -1862,6 +1846,14 @@ namespace BugfixesAndQoL
 
         private bool HasCompletedMovementSequence(int tribeId, GameTribe* tribe)
         {
+            UnitCommandTraversalProvider traversal = UnitCommandPathAPI.Traversal;
+            if (traversal != null)
+            {
+                var members = new List<QueueUnitIdentity>();
+                CaptureTribeMembers(tribeId, members);
+                foreach (QueueUnitIdentity member in members)
+                    if (traversal.HasPendingUnit(member.UnitId, member.GlobalId)) return false;
+            }
             return ReadMovementMode(tribe) == 0 &&
                 isTribeMovementComplete(tribeManagerPointer, tribeId) == 1;
         }

@@ -12,11 +12,36 @@ if (args.Contains("--native-only")) { FastNativeBackendTests.Validate(root); ret
 if (args.Contains("--redbird-only")) { InstalledRedBirdContract.Validate(); return; }
 string sourceDir = Path.Combine(root, "Testmods", "MoatMove", "src");
 string testDir = Path.Combine(root, "Testmods", "MoatMove", "tests");
+string RuntimeSource(string name)
+{
+    string sharedName = name.Replace("FriendlyMoatMovementRuntime", "UnitCommandPathRuntime");
+    string shared = Path.Combine(root, "APIShared", "src", "UnitCommands", sharedName);
+    string file = File.Exists(shared) ? shared : Path.Combine(sourceDir, name);
+    string text = File.ReadAllText(file).Replace("namespace APIShared.UnitCommands", "namespace MoatMove")
+        .Replace("using APIShared.UnitCommands;", "")
+        .Replace("UnitCommandPathRuntime", "FriendlyMoatMovementRuntime")
+        .Replace("FriendlyMoatTraversalProvider", "FriendlyMoatMovementRuntime")
+        .Replace("internal override ", "private ").Replace("runtime.", "");
+    text = text.Replace("using static APIShared.UnitCommands.FriendlyMoatMovementRuntime;", "using static MoatMove.FriendlyMoatMovementRuntime;");
+    if (text.Contains("partial class FriendlyMoatMovementRuntime"))
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"(?m)^        internal ", "        private ");
+    return System.Text.RegularExpressions.Regex.Replace(text, @"(?m)^using SHCDESE[^;]*;", "");
+}
+string GitSource(string path)
+{
+    var start = new System.Diagnostics.ProcessStartInfo("git") { WorkingDirectory=root,
+        RedirectStandardOutput=true, RedirectStandardError=true, UseShellExecute=false, CreateNoWindow=true };
+    start.ArgumentList.Add("show"); start.ArgumentList.Add("HEAD:" + path);
+    using var process = System.Diagnostics.Process.Start(start);
+    string text = process.StandardOutput.ReadToEnd(); string error = process.StandardError.ReadToEnd();
+    process.WaitForExit(); if(process.ExitCode != 0) throw new Exception(error); return text;
+}
+
 if (args.Contains("--fast-model-only"))
 {
     var modelSources = new[] { "IFastRouteField.cs", "FastRouteField.cs", "FastCommandQueue.cs", "FastRoutePool.cs", "FastTraversalCache.cs" }
         .Select(name => CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, name)))).ToList();
-    var edgeDeclaration = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "MoatSearchKernel.cs")))
+    var edgeDeclaration = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/UnitCommands/MoatCandidateField.cs")))
         .GetRoot().DescendantNodes().OfType<DelegateDeclarationSyntax>().Single(d => d.Identifier.Text == "MoatSearchEdge");
     modelSources.Add(CSharpSyntaxTree.ParseText("namespace MoatMove {" + edgeDeclaration + "}"));
     foreach (string test in new[] { "FastRouteFieldTests.cs", "FastStateTests.cs" })
@@ -34,7 +59,7 @@ if (args.Contains("--fast-model-only"))
 }
 if (args.Contains("--standalone-only"))
 {
-    StandaloneContracts.Validate(root, sourceDir);
+    SplitContracts.Validate(root);
     InstalledRedBirdContract.Validate();
     return;
 }
@@ -57,19 +82,15 @@ string[] runtimeSourceNames =
     "NativeMovementCadenceResolver.cs", "NativeMovementRecovery.cs", "UnitMovementContext.cs",
     "WeightedMoatPublication.cs", "WeightedMoatRoutePlanner.cs"
 };
-var trees = runtimeSourceNames.Select(name => Path.Combine(sourceDir, name))
-    .Select(p => CSharpSyntaxTree.ParseText(File.ReadAllText(p), path: p)).ToArray();
+var trees = runtimeSourceNames.Select(name => CSharpSyntaxTree.ParseText(RuntimeSource(name), path: name)).ToArray();
 var syntaxErrors = trees.SelectMany(t => t.GetDiagnostics())
     .Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
 if (syntaxErrors.Length > 0)
     throw new Exception(string.Join("\n", syntaxErrors.Select(d => d.ToString())));
-if (args.Contains("--source-only")) { ValidateRuntimeSources(); return; }
+if (args.Contains("--source-only")) { SplitContracts.Validate(root); return; }
 ValidateSelectionMetadata();
 ValidateDetailedDiagnostics();
-ValidateUnsignedRegionAndDeferredFastContracts();
-ValidateScriptExtenderIntegration();
-ValidateRuntimeSources();
-ValidateModeSettings();
+SplitContracts.Validate(root);
 
 var methods = new HashSet<string>(new[] {
     "EmitSelectionCallAdapter",
@@ -82,7 +103,7 @@ var methods = new HashSet<string>(new[] {
     "TryCreateMoatWorkSelectionScope", "TryCreatePendingDigMoatTarget", "ResolveMoatWorkTileWithOwnerRoute",
     "ValidatePendingDigTarget", "TryReadMoatRecordTile",
     "TryAllowDirectCursorMoveRegionPair", "SelectOwnerSafeGroupMoatMode", "ObserveCursorTilePairFallbackSelection", "TryProbeUnitApproachCursorRoute", "TryResolveHostileLivingUnitFromRawCursor", "TryGetHostileLivingUnitAtTile", "TryGetSelectedVanillaDigger", "AllowAttackCursorTilePairThroughCompletedMoat", "TryQualifySelectedGroupCursorRoute", "CreateCursorScopeForSnapshot", "TryQualifyCursorScope", "TryProbeDirectCursorRoute", "TryCaptureSelectedGroup", "CursorStartMatchesBoundSelection", "CursorScopeMatchesTargetTile", "EmitRecoveryAdapter", "SelectMoatWorkTarget", "AllowFillMoatApproachThroughFriendlyMoat", "TryGetMoatRecord", "TryReadMoatRecord", "TryFindBestFillMoatApproach", "IsOccupiedByOtherLivingUnit", "RestoreFailedRecovery", "ObserveNativeModeEntry", "TryRecoverBeforeBuilder", "RejectPreBuilder", "ValidateRecoveryEdges", "IsValidMoatRecordId", "PrepareMovementSearch", "TryDeferToNativeGroundPlan", "TryBuildTerminalFillRoute", "IsTerminalFillEdgeValid", "TryAllowUnitMoveRegion", "AllowBuilderAfterFailedRegionSearch", "CallVanillaBuilder", "TryReplaceUnsafeFallbackPath", "BuildReconstructedUnitPath", "TryPublishSafelyFasterWeightedRoute",
-    "ObserveUnitMoveOrder", "GetCurrentUnitMoveFrame", "AbandonUnitMoveFrame", "ClearUnitMoveFrames",
+    "RentBuildingFallbackWorkBuffers", "ReturnBuildingFallbackWorkBuffers", "BuildPathWithCompletedMoatRouteVariantWithMoat", "ObserveUnitMoveOrder", "GetCurrentUnitMoveFrame", "AbandonUnitMoveFrame", "ClearUnitMoveFrames",
     "GetUnitMovePlan", "CopyMovementPlan", "GetNativeMovementStart", "TryAuditFallbackPath", "TryAuditFallbackPathCore", "IsCompletedEnemyMoatForPlayer",
     "DescribeFallbackContractFailure",
     "EnableCompletedMoatModeForScopedMovement", "GetBuilderPlan", "MatchesBuilderPlan",
@@ -98,7 +119,7 @@ var methods = new HashSet<string>(new[] {
     "GetCachedRouteSummaryForTarget", "GetCachedRouteSummaryForRegion"
 });
 var types = new HashSet<string>(new[] {
-    "RedBirdDetour",
+    "BuildingFallbackWorkBuffers", "RedBirdDetour",
     "BuildingApproachCandidate", "BuildingConsumerFallbackResult", "BuildingConsumerPerformanceScope", "AttackApproachState",
     "AttackApproachKind", "LadderAttackProbeScope", "LadderRegionTransition", "LadderBuildingCandidateRestoreResult",
     "QualifiedMovementRoute", "RouteDecisionKey", "RequiredRouteMetrics", "RequiredRouteCache",
@@ -107,7 +128,7 @@ var types = new HashSet<string>(new[] {
 });
 var properties = new HashSet<string>(new[] { "CurrentOptions", "ExtensionsEnabled", "RequiredOnlyMode" });
 var constants = new HashSet<string>(new[] {
-    "DetailedDiagnosticsEnabled",
+    "buildingFallbackWorkBuffers", "DetailedDiagnosticsEnabled",
     "VanillaUnreachableCandidateScore", "buildingCandidateFields", "BuildingContextBlockingTileFlagMask", "VanillaAttackFloodResultCapacity", "PathManagerFloodGenerationOffset", "PathManagerFloodDepthOffset", "PathManagerFloodQueueHeadOffset", "PathManagerFloodQueueTailOffset", "PathManagerFloodResultTileOffset", "PathManagerFloodResultStride", "BuildingCandidateApproachTileOffset", "BuildingCandidateFootprintTileOffset", "BuildingCandidateScoreOffset",
     "SelectedMoatTileIdOffset", "SelectedMoatApproachXOffset", "SelectedMoatApproachYOffset",
     "TribeRecordSize", "TribeLeadUnitIdOffset", "TribeUnitCountOffset", "UnitGroupInactiveStateOffset", "MaximumTribeCount", "MoatRecordArrayOffset", "MoatRecordCountOffset", "MoatRecordSize", "MoatRecordTileIdOffset", "MoatRecordXOffset", "MoatRecordYOffset", "NativeUnitSlotDataOffset", "MaximumMoatRecordId", "MaximumRegionId", "MaximumUnitCount", "MapWidth", "MapCellCount", "NativeTileCount",
@@ -160,13 +181,11 @@ var referenceClass=CSharpSyntaxTree.ParseText(referenceSource).GetRoot().Descend
     .Single(c=>c.Identifier.Text=="MoatSearchKernel").ToFullString().Replace("MoatSearchKernel","ReferenceMoatSearchKernel");
 var referenceTree=CSharpSyntaxTree.ParseText("using System; using System.Collections.Generic; namespace MoatMove {"+referenceClass+"}");
 // The accepted precise copy, not the older benchmark blob, is the optimization oracle.
-var comparisonClass = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,
-    "BugfixesAndQoL", "src", "MoatSearchKernel.cs"))).GetRoot().DescendantNodes()
+var comparisonClass = CSharpSyntaxTree.ParseText(GitSource("BugfixesAndQoL/src/MoatSearchKernel.cs")).GetRoot().DescendantNodes()
     .OfType<ClassDeclarationSyntax>().Single(c => c.Identifier.Text == "MoatSearchKernel")
     .ToFullString().Replace("MoatSearchKernel", "ComparisonMoatSearchKernel");
 var comparisonTree = CSharpSyntaxTree.ParseText("using APIShared; using System; using System.Collections.Generic; namespace MoatMove {" + comparisonClass + "}");
-var comparisonPlannerClass = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,
-    "BugfixesAndQoL", "src", "WeightedMoatRoutePlanner.cs"))).GetRoot().DescendantNodes()
+var comparisonPlannerClass = CSharpSyntaxTree.ParseText(GitSource("BugfixesAndQoL/src/WeightedMoatRoutePlanner.cs")).GetRoot().DescendantNodes()
     .OfType<ClassDeclarationSyntax>().Single(c => c.Identifier.Text == "WeightedMoatRoutePlanner")
     .ToFullString().Replace("WeightedMoatRoutePlanner", "ComparisonWeightedMoatRoutePlanner")
     .Replace("MoatSearchKernel", "ComparisonMoatSearchKernel");
@@ -175,6 +194,7 @@ var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared", "src", "UnitAccess.cs"))
         .Replace("using SHCDESE.API;", "using GameUnitManagerAPI = MoatMove.GameUnitManagerAPI;")
         .Replace("using SHCDESE.Interop;", "using GameUnit = MoatMove.GameUnit;")
+        .Replace("using SHCDESE.Interop.Enums;", "using AliveState = MoatMove.AliveState;")
         .Replace("public static unsafe class UnitAccess", "internal static unsafe class UnitAccess")),
     CSharpSyntaxTree.ParseText("namespace BepInEx.Logging { public class ManualLogSource { public void LogDebug(object message) { } } }"),
     
@@ -183,28 +203,35 @@ var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
     comparisonTree,
     comparisonPlannerTree,
     CSharpSyntaxTree.ParseText(extracted),
-    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "WeightedMoatRoutePlanner.cs"))),
-    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "MoatSearchKernel.cs"))),
-    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "FastNativeKernel.cs"))),
-    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "FastNativeRouteField.cs"))),
+    CSharpSyntaxTree.ParseText(RuntimeSource("WeightedMoatRoutePlanner.cs")),
+    CSharpSyntaxTree.ParseText(RuntimeSource("MoveFormationPreviewPlanner.cs").Replace("using SHCDESE.API;", "").Replace("using SHCDESE.Interop.Enums;", "")),
+    CSharpSyntaxTree.ParseText(RuntimeSource("MoatSearchKernel.cs")),
+    CSharpSyntaxTree.ParseText(RuntimeSource("WeightedGridSearchKernel.cs")),
+    CSharpSyntaxTree.ParseText(RuntimeSource("MoatCandidateField.cs")),
+    CSharpSyntaxTree.ParseText("namespace MoatMove {" + CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/UnitCommands/UnitCommandContracts.cs"))).GetRoot().DescendantNodes().OfType<InterfaceDeclarationSyntax>().Single(n => n.Identifier.Text == "IMoatSearchKernel") + "}"),
+    CSharpSyntaxTree.ParseText(RuntimeSource("FastNativeKernel.cs")),
+    CSharpSyntaxTree.ParseText(RuntimeSource("FastNativeRouteField.cs")),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "FastNativeFixtures.cs"))),
-    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "IFastRouteField.cs"))),
-    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "FastRouteField.cs"))),
-    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "FastCommandQueue.cs"))),
-    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "FastRoutePool.cs"))),
-    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "FastTraversalCache.cs"))),
-    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "FastMoatRouting.cs")).Replace("using SHCDESE.API;", "").Replace("using SHCDESE.Interop;", "")),
-    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "FastGroupDistribution.cs")).Replace("using SHCDESE.API;", "")),
-    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "FastIntegration.cs")).Replace("using SHCDESE.API;", "")),
+    CSharpSyntaxTree.ParseText(RuntimeSource("IFastRouteField.cs")),
+    CSharpSyntaxTree.ParseText(RuntimeSource("FastRouteField.cs")),
+    CSharpSyntaxTree.ParseText(RuntimeSource("FastCommandQueue.cs")),
+    CSharpSyntaxTree.ParseText(RuntimeSource("FastRoutePool.cs")),
+    CSharpSyntaxTree.ParseText(RuntimeSource("FastTraversalCache.cs")),
+    CSharpSyntaxTree.ParseText(RuntimeSource("FastMoatRouting.cs").Replace("using SHCDESE.API;", "").Replace("using SHCDESE.Interop;", "")),
+    CSharpSyntaxTree.ParseText(RuntimeSource("FastGroupDistribution.cs").Replace("using SHCDESE.API;", "")),
+    CSharpSyntaxTree.ParseText(RuntimeSource("FastIntegration.cs").Replace("using SHCDESE.API;", "")),
+    CSharpSyntaxTree.ParseText(RuntimeSource("TraversalCommandState.cs")),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/EnemyBridgeDiagnosticBridge.cs"))),
+    CSharpSyntaxTree.ParseText(RuntimeSource("EnemyGatePolicyIntegration.cs")),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "FastStateTests.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "FastRouteFieldTests.cs"))),
-    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "MoatPlacementSearch.cs"))),
-    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "NativeFormationSlots.cs")).Replace("using SHCDESE.API;", "")),
-    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "MoveFormationSpacingPolicy.cs"))),
-    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "FillWeightedRoutes.cs")).Replace("using SHCDESE.API;", "").Replace("using SHCDESE.Interop;", "").Replace("using SHCDESE.Interop.Enums;", "")),
-    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "MoatPlacement.cs")).Replace("using SHCDESE.API;", "").Replace("using SHCDESE.EventAPI.Units;", "").Replace("using SHCDESE.Interop;", "").Replace("using SHCDESE.Interop.Enums;", "")),
-    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "CursorRegionGraph.cs"))),
-    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "CursorConnectivity.cs")).Replace("using SHCDESE.API;", "").Replace("using SHCDESE.Interop;", "").Replace("using SHCDESE.Interop.Enums;", "")),
+    CSharpSyntaxTree.ParseText(RuntimeSource("MoatPlacementSearch.cs")),
+    CSharpSyntaxTree.ParseText(RuntimeSource("NativeFormationSlots.cs").Replace("using SHCDESE.API;", "")),
+    CSharpSyntaxTree.ParseText(RuntimeSource("MoveFormationSpacingPolicy.cs")),
+    CSharpSyntaxTree.ParseText(RuntimeSource("FillWeightedRoutes.cs").Replace("using SHCDESE.API;", "").Replace("using SHCDESE.Interop;", "").Replace("using SHCDESE.Interop.Enums;", "")),
+    CSharpSyntaxTree.ParseText(RuntimeSource("MoatPlacement.cs").Replace("using SHCDESE.API;", "").Replace("using SHCDESE.EventAPI.Units;", "").Replace("using SHCDESE.Interop;", "").Replace("using SHCDESE.Interop.Enums;", "")),
+    CSharpSyntaxTree.ParseText(RuntimeSource("CursorRegionGraph.cs")),
+    CSharpSyntaxTree.ParseText(RuntimeSource("CursorConnectivity.cs").Replace("using SHCDESE.API;", "").Replace("using SHCDESE.Interop;", "").Replace("using SHCDESE.Interop.Enums;", "")),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "CursorTests.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "PlacementTests.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "FillFormationTests.cs"))),
@@ -257,8 +284,7 @@ void ValidateDetailedDiagnostics()
     if (!helper.Contains("if (DetailedDiagnosticsEnabled)", StringComparison.Ordinal) ||
         !buffer.Contains("if (!DetailedDiagnosticsEnabled)", StringComparison.Ordinal))
         throw new Exception("Detailed diagnostics are not guarded at both logging entry points.");
-    string ladderFix = File.ReadAllText(Path.Combine(sourceDir,
-        "FriendlyMoatMovementRuntime.LadderAttackFix.cs"));
+    string ladderFix = RuntimeSource("FriendlyMoatMovementRuntime.LadderAttackFix.cs");
     if (!ladderFix.Contains("if (DetailedDiagnosticsEnabled)", StringComparison.Ordinal) ||
         !ladderFix.Contains("if (!DetailedDiagnosticsEnabled || activeAttackCommand == null)",
             StringComparison.Ordinal))
@@ -266,142 +292,11 @@ void ValidateDetailedDiagnostics()
     Console.WriteLine("PASS: detailed movement and ladder diagnostics are disabled for production logging.");
 }
 
-void ValidateUnsignedRegionAndDeferredFastContracts()
-{
-    string runtime = File.ReadAllText(Path.Combine(sourceDir, "FriendlyMoatMovementRuntime.cs"));
-    string bridge = File.ReadAllText(Path.Combine(sourceDir, "FastIntegration.cs"));
-    string recovery = File.ReadAllText(Path.Combine(sourceDir, "NativeMovementRecovery.cs"));
-    if (!runtime.Contains("private readonly ushort* pathRegionGrid;", StringComparison.Ordinal) ||
-        !runtime.Contains("MaximumRegionId = ushort.MaxValue", StringComparison.Ordinal) ||
-        runtime.Contains("private readonly short* pathRegionGrid;", StringComparison.Ordinal))
-        throw new Exception("PathConnectionGrid must retain its Script Extender UInt16 contract.");
-    string scheduler = File.ReadAllText(Path.Combine(sourceDir, "FastMovementScheduler.cs"));
-    string queue = File.ReadAllText(Path.Combine(sourceDir, "FastCommandQueue.cs"));
-    if (recovery.Contains("IsDeferredFastMoveAuthorized", StringComparison.Ordinal) ||
-        scheduler.Contains("Stopwatch", StringComparison.Ordinal) ||
-        !scheduler.Contains("unit->r_GlobalId == identity.Global", StringComparison.Ordinal) ||
-        !scheduler.Contains("int budget = 8192;", StringComparison.Ordinal) ||
-        !queue.Contains("command.Members.RemoveAll(replaced.Contains)", StringComparison.Ordinal))
-        throw new Exception("Fast identity ownership or deterministic budget contract missing.");
-    if (!bridge.Contains("pending={fastCommands.Commands.Count}", StringComparison.Ordinal))
-        throw new Exception("Fast completion diagnostics missing.");
-    Console.WriteLine("PASS: UInt16 path regions; Fast identity ownership, deterministic budget and no expiring permit.");
-}
 
-void ValidateScriptExtenderIntegration()
-{
-    string plugin = File.ReadAllText(Path.Combine(sourceDir, "MoatMovePlugin.cs"));
-    string runtime = string.Join("\n", trees.Select(tree => tree.ToString()));
-    string project = File.ReadAllText(Path.Combine(root, "Testmods", "MoatMove", "MoatMove.csproj"));
-    if (!plugin.Contains("private static FriendlyMoatMovementRuntime runtime;", StringComparison.Ordinal) ||
-        !plugin.Contains("MoatMoveConflictPolicy.FindConflict", StringComparison.Ordinal) ||
-        plugin.Contains("runtime.Dispose(", StringComparison.Ordinal))
-        throw new Exception("Standalone ownership/conflict contract missing.");
-    foreach (string forbidden in new[]{"MonoMod.RuntimeDetour", "NativeDetour", "Zhuqiaomon", "GenerateTrampoline", ".Apply()", ".Undo()"})
-        if (runtime.Contains(forbidden, StringComparison.Ordinal))
-            throw new Exception("Legacy hook contract remains: " + forbidden);
-    foreach (string required in new[]{"RedBird.Abstractions.dll", "RedBird.Core.dll", "RedBird.X64.dll"})
-        if (!project.Contains(required, StringComparison.Ordinal))
-            throw new Exception("Missing RedBird reference shipped with the Script Extender: " + required);
-    if (!runtime.Contains("FailureMode = TransactionFailureMode.RollbackAndThrow", StringComparison.Ordinal) ||
-        !runtime.Contains("OwnsHooks = true", StringComparison.Ordinal) ||
-        !runtime.Contains("Handle.Failure == null", StringComparison.Ordinal) ||
-        !runtime.Contains("Handle.ResolvedAddress == targetAddress", StringComparison.Ordinal) ||
-        !runtime.Contains("Handle.IsInstalled", StringComparison.Ordinal) ||
-        !runtime.Contains("GetSelectedChimps() ?? Array.Empty<SelectedUnitInfo>()", StringComparison.Ordinal))
-        throw new Exception("Friendly moat movement is missing a required transaction or selection guard.");
-    if (runtime.Contains("RegisterImprovedMoatFillingProvider", StringComparison.Ordinal) ||
-        Directory.Exists(Path.Combine(root, "MoveMoatTest")) ||
-        File.Exists(Path.Combine(sourceDir, "MoveMoatCompatibility.cs")))
-        throw new Exception("A standalone MoveMoat bridge or project remains active.");
 
-    var installMethods = new[]{
-        "TryInstallBuildingCursorReachability",
-        "TryInstallAttackApproachDiagnostics",
-        "TryInstallMoatWorkTargetSelection",
-        "InstallConnectivityAndRecovery"
-    };
-    foreach (string methodName in installMethods)
-    {
-        string source = trees.SelectMany(tree => tree.GetRoot().DescendantNodes()
-                .OfType<MethodDeclarationSyntax>())
-            .Single(method => method.Identifier.Text == methodName).ToFullString();
-        int commit = source.IndexOf(".Commit()", StringComparison.Ordinal);
-        int original = source.IndexOf(".Original", StringComparison.Ordinal);
-        int rollback = source.IndexOf("pendingTransaction?.Dispose()", StringComparison.Ordinal);
-        if (commit < 0 || original < commit || rollback < commit)
-            throw new Exception("Atomic RedBird commit/original/rollback order is invalid in " + methodName);
-    }
-    string constructor = trees.SelectMany(tree => tree.GetRoot().DescendantNodes()
-            .OfType<ConstructorDeclarationSyntax>())
-        .Single(item => item.Identifier.Text == "FriendlyMoatMovementRuntime").ToFullString();
-    int constructorCommit = constructor.IndexOf(".Commit()", StringComparison.Ordinal);
-    int constructorOriginal = constructor.IndexOf(".Original", StringComparison.Ordinal);
-    int constructorRollback = constructor.IndexOf("pendingTransaction?.Dispose()", StringComparison.Ordinal);
-    if (constructorCommit < 0 || constructorOriginal < constructorCommit ||
-        constructorRollback < constructorCommit ||
-        !constructor.Contains("RollbackUnpublishedConnectivityHooks()", StringComparison.Ordinal) ||
-        !constructor.Contains("RollbackUnpublishedMoatWorkTargetSelection()", StringComparison.Ordinal))
-        throw new Exception("Central RedBird constructor rollback is incomplete.");
-    Console.WriteLine("PASS: integrated ownership, RedBird references, selection, atomic commits and rollbacks.");
-}
 
-void ValidateRuntimeSources()
-{
-    string framework=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
-        "Reference Assemblies", "Microsoft", "Framework", ".NETFramework", "v4.8.1");
-    string game=@"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition";
-    string extender=Path.Combine(game,"BepInEx","plugins","000shcdese");
-    if(!File.Exists(Path.Combine(extender,"SHCDESE.dll")))
-        throw new Exception("Installed Script Extender test references are required.");
-    (string minimum, string maximum) = ReadExtenderRange();
-    string productVersion=System.Diagnostics.FileVersionInfo.GetVersionInfo(Path.Combine(extender,"SHCDESE.dll")).ProductVersion;
-    string referenceVersion=productVersion?.Split('+')[0];
-    if(!IsExtenderVersionAllowed(referenceVersion, minimum, maximum))
-        throw new Exception("Installed reference is outside the manifest Script Extender range: "+productVersion);
-    var paths=new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);
-    void Include(string path)
-    {
-        try { AssemblyName.GetAssemblyName(path); paths[Path.GetFileName(path)]=path; }
-        catch(BadImageFormatException) { /* Framework also ships native COM helper DLLs. */ }
-    }
-    foreach(string path in Directory.GetFiles(framework,"*.dll"))Include(path);
-    foreach(string path in Directory.GetFiles(Path.Combine(framework,"Facades"),"*.dll"))Include(path);
-    foreach(string path in Directory.GetFiles(Path.Combine(game,"BepInEx","core"),"*.dll"))Include(path);
-    foreach(string file in new[]{"SHCDESE.dll","R3.dll","System.Memory.dll","RedBird.Abstractions.dll","RedBird.Core.dll","RedBird.X64.dll","Iced.dll",
-        "Microsoft.Extensions.Logging.Abstractions.dll","System.Threading.Tasks.Extensions.dll","System.Runtime.CompilerServices.Unsafe.dll","MessagePack.dll","MessagePack.Annotations.dll"})
-        Include(Path.Combine(extender,file));
-    foreach(string file in new[]{"UnityEngine.dll","UnityEngine.CoreModule.dll","UnityEngine.InputLegacyModule.dll","Assembly-CSharp.dll","Noesis.NoesisGUI.dll","com.rlabrecque.steamworks.net.dll"})
-        Include(Path.Combine(game,"Stronghold Crusader Definitive Edition_Data","Managed",file));
-    Include(apiSharedPath);
-    var sources = Directory.GetFiles(sourceDir, "*.cs")
-        .Select(file => CSharpSyntaxTree.ParseText(File.ReadAllText(file), path: file))
-        .Concat(new[]{"DebugLogHelper.cs", "NativePatternResolver.cs", "GameplaySessionLifecycle.cs", "GameModeHelper.cs", "GameBuildingFootprint.cs"}.Select(file =>
-            CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"Shared",file)),path:file))).ToArray();
-    if (Assembly.LoadFrom(apiSharedPath).GetType("APIShared.UnitAccess", false) == null)
-        sources = sources.Concat(new[]{CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"APIShared","src","UnitAccess.cs")))}).ToArray();
-    var check=CSharpCompilation.Create("FriendlyMoatMovementSourceContract",sources,
-        paths.Values.Select(p=>MetadataReference.CreateFromFile(p)),
-        new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary,allowUnsafe:true));
-    var diagnostics=check.GetDiagnostics();
-    foreach(var group in diagnostics.Where(d=>d.Severity==DiagnosticSeverity.Warning).GroupBy(d=>d.Id))
-        Console.WriteLine($"SOURCE WARNING {group.Key}: {group.Count()} occurrences; {group.First()}");
-    var failures=diagnostics.Where(d=>d.Severity==DiagnosticSeverity.Error).ToArray();
-    if(failures.Length>0)throw new Exception(string.Join("\n",failures.Select(d=>d.ToString())));
-    foreach (string file in new[]{"SHCDESE.dll","R3.dll","System.Memory.dll","RedBird.Abstractions.dll","RedBird.Core.dll","RedBird.X64.dll","Iced.dll",
-        "Microsoft.Extensions.Logging.Abstractions.dll","System.Threading.Tasks.Extensions.dll","System.Runtime.CompilerServices.Unsafe.dll","MessagePack.dll","MessagePack.Annotations.dll"})
-        Include(Path.Combine(game,"BepInEx","plugins","000shcdese",file));
-    string installedVersion=System.Diagnostics.FileVersionInfo.GetVersionInfo(Path.Combine(game,"BepInEx","plugins","000shcdese","SHCDESE.dll")).ProductVersion;
-    string installedRelease=installedVersion?.Split('+')[0];
-    if(!IsExtenderVersionAllowed(installedRelease, minimum, maximum))
-        throw new Exception("Installed extender is outside the manifest Script Extender range: "+installedVersion);
-    var installed=CSharpCompilation.Create("FriendlyMoatMovementInstalledContract",sources,
-        paths.Values.Select(p=>MetadataReference.CreateFromFile(p)), new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary,allowUnsafe:true));
-    var installedFailures=installed.GetDiagnostics().Where(d=>d.Severity==DiagnosticSeverity.Error).ToArray();
-    if(installedFailures.Length>0)throw new Exception(string.Join("\n",installedFailures.Select(d=>d.ToString())));
-    Console.WriteLine($"PASS: installed Script Extender {installedRelease} assembly API surface matches all runtime sources.");
-    Console.WriteLine($"PASS: complete runtime semantic source check against Script Extender {referenceVersion}; no mod assembly emitted.");
-}
+
+
 
 (string Minimum, string Maximum) ReadExtenderRange()
 {
@@ -443,11 +338,7 @@ void ValidateSelectionMetadata()
     Console.WriteLine($"PASS installed metadata: Assembly-CSharp / global EngineInterface / selectedChimps static int[] ({field.Attributes}).");
 }
 
-void ValidateModeSettings()
-{
-    if (args.Contains("--integration-work")) return;
-    StandaloneContracts.Validate(root, sourceDir);
-}
+
 }
 catch (FileNotFoundException exception)
 {

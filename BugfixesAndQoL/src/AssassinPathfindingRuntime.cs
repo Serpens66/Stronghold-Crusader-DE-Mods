@@ -242,7 +242,7 @@ namespace BugfixesAndQoL
             AssassinObservation previous = activeObservation;
             AssassinObservation observation = null;
             // TEMP_GATE_ROUTE_ACCEPTANCE: link only to an already active publication call.
-            object temporaryNativeSearch = FriendlyMoatMovementRuntime.BeginTemporaryAssassinSearch(context,
+            object temporaryNativeSearch = UnitCommandPathRuntime.BeginTemporaryAssassinSearch(context,
                 startX, startY, targetX, targetY, continuation);
             bool temporaryCompleted = false;
             int temporaryResult = 0;
@@ -270,7 +270,7 @@ namespace BugfixesAndQoL
             }
             finally
             {
-                FriendlyMoatMovementRuntime.EndTemporaryAssassinSearch(temporaryNativeSearch, temporaryCompleted,
+                UnitCommandPathRuntime.EndTemporaryAssassinSearch(temporaryNativeSearch, temporaryCompleted,
                     observation?.NativeResult ?? 0, temporaryResult, observation?.Player ?? -1,
                     observation?.Outcome ?? "unobserved", observation?.CacheHit ?? false, observation?.RouteLength ?? 0);
                 activeObservation = previous;

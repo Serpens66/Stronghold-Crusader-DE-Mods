@@ -1,10 +1,12 @@
+using APIShared.UnitCommands;
+using static APIShared.UnitCommands.UnitCommandPathRuntime;
 using System;
 using System.Collections.Generic;
 using SHCDESE.API;
 
 namespace MoatMove
 {
-    internal sealed unsafe partial class FriendlyMoatMovementRuntime
+    internal sealed unsafe partial class FriendlyMoatTraversalProvider
     {
         private sealed class FastGroupDistribution
         {
@@ -30,16 +32,16 @@ namespace MoatMove
                 }
         }
 
-        private bool TryChooseFastFormation(IntPtr manager, int x, int y, out int tile)
+        internal override bool TryChooseFastFormation(IntPtr manager, int x, int y, out int tile)
         {
             tile = 0;
-            if (!RequiredOnlyMode || !IsScopedPureMoveFormationCall(manager, x, y, activeMoveCommand)) return false;
+            if (!RequiredOnlyMode || !runtime.IsScopedPureMoveFormationCall(manager, x, y, activeMoveCommand)) return false;
             MoveCommandScope command = activeMoveCommand;
-            EnsureMoveCommandGroupSummary(command);
+            runtime.EnsureMoveCommandGroupSummary(command);
             if (!command.MoatRelevant || command.ActiveUnitsAtDispatch == 0 ||
                 command.DiggersAtDispatch != command.ActiveUnitsAtDispatch) return false;
-            if (nativeTribeManager == IntPtr.Zero || command.TribeId <= 0 || command.TribeId >= MaximumTribeCount) return false;
-            int player = *(ushort*)((byte*)nativeTribeManager + command.TribeId * TribeRecordSize + 0x2C);
+            if (runtime.nativeTribeManager == IntPtr.Zero || command.TribeId <= 0 || command.TribeId >= MaximumTribeCount) return false;
+            int player = *(ushort*)((byte*)runtime.nativeTribeManager + command.TribeId * TribeRecordSize + 0x2C);
             FastRoutingState state = GetFastRouting(false); RefreshFastRouting(state);
             MakeFastEdge(state, new FastFieldKey(player, y * MapWidth + x, false));
             FastTraversalCache map = state.Maps[player];
@@ -48,7 +50,7 @@ namespace MoatMove
             if (fastDistribution.Slots.Count == 0) return false;
             int cell = fastDistribution.Slots[fastDistribution.Next++ % fastDistribution.Slots.Count];
             tile = GameTileManagerAPI.Instance.GetTileId(cell % MapWidth, cell / MapWidth);
-            int* output = (int*)((byte*)nativeTribeManager + 0x0C);
+            int* output = (int*)((byte*)runtime.nativeTribeManager + 0x0C);
             output[0] = cell % MapWidth; output[1] = cell / MapWidth;
             // The native field cursor is not consumed by this selector. Keep its
             // original value for any subsequent native-only selector in this command.
@@ -62,7 +64,7 @@ namespace MoatMove
             var result = new FastGroupDistribution { Command = command, Player = player, Anchor = anchor, Revision = map.Revision };
             int anchorTile = GameTileManagerAPI.Instance.GetTileId(command.TargetX, command.TargetY);
             if (!IsValidTileId(anchorTile)) return result;
-            bool ground = !IsCompletedMoatTile(anchorTile);
+            bool ground = !runtime.IsCompletedMoatTile(anchorTile);
             int Global(int local)
             {
                 int x = command.TargetX + local % side - radius, y = command.TargetY + local / side - radius;
@@ -90,11 +92,11 @@ namespace MoatMove
             foreach (int local in candidates)
             {
                 int global = Global(local);
-                if (global < 0 || movementTargetAvailability[global] == 0) continue;
+                if (global < 0 || runtime.movementTargetAvailability[global] == 0) continue;
                 int tile = GameTileManagerAPI.Instance.GetTileId(global % MapWidth, global / MapWidth);
                 // Keep ground and moat anchors on their respective surface. Thus a
                 // distributed ground target never acquires an extra moat crossing.
-                if (!IsValidTileId(tile) || ground == IsCompletedMoatTile(tile)) continue;
+                if (!IsValidTileId(tile) || ground == runtime.IsCompletedMoatTile(tile)) continue;
                 if (toward.Advance(local, side * side) != FastRouteStatus.Found ||
                     away.Advance(local, side * side) != FastRouteStatus.Found) continue;
                 away.GetPath(local, out int[] reverse);

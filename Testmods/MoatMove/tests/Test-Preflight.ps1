@@ -9,16 +9,18 @@ foreach ($file in @($runtimePaths) + @(Join-Path $modDir 'MoatMove.csproj')) {
     if ([regex]::IsMatch($text, '(?<!\r)\n')) { throw "Bare LF: $file" }
 }
 $plugin = [IO.File]::ReadAllText((Join-Path $modDir 'src\MoatMovePlugin.cs'))
-if ($plugin -match '\.Dispose\s*\(' -or $plugin -notmatch 'private static FriendlyMoatMovementRuntime runtime;' -or $plugin -notmatch 'private static ManualLogSource persistentLog;') { throw 'Invalid process lifetime ownership.' }
+if ($plugin -match '\.Dispose\s*\(' -or $plugin -notmatch 'private static FriendlyMoatTraversalProvider runtime;' -or $plugin -notmatch 'private static ManualLogSource persistentLog;') { throw 'Invalid process lifetime ownership.' }
 foreach ($path in $runtimePaths) {
     if ([IO.File]::ReadAllText($path) -match '\bruntime\??\.Dispose\s*\(') { throw "Published runtime teardown: $path" }
 }
-foreach ($reference in $project.Project.ItemGroup.Reference) {
-    if ($reference.Include -eq 'BugfixesAndQoL') { throw 'Standalone mod references the BugfixesAndQoL feature implementation.' }
+foreach ($dependency in @('APIShared','BugfixesAndQoL')) {
+    if (-not ($project.Project.ItemGroup.Reference | Where-Object { $_.Include -eq $dependency })) {
+        throw "Missing addon reference: $dependency"
+    }
 }
-if (-not ($project.Project.ItemGroup.Reference | Where-Object { $_.Include -eq 'APIShared' }) -or
-    $plugin -notmatch 'BepInDependency\("APIShared_Serp", "0\.3\.6"\)') {
-    throw 'Central editor lifecycle requires the declared APIShared dependency.'
+if ($plugin -notmatch 'BepInDependency\("APIShared_Serp", "0\.4\.10"\)' -or
+    $plugin -notmatch 'BepInDependency\("BugfixesAndQoL_Serp", "1\.0\.175"\)') {
+    throw 'Missing hard dependencies for shared command ownership.'
 }
 $textPaths = @(Get-ChildItem -LiteralPath $modDir,(Join-Path $modDir 'src'),$PSScriptRoot -File | Where-Object { $_.Extension -in @('.cs','.csproj','.ps1','.py','.bat','.json','.md') })
 foreach ($file in $textPaths) {
@@ -31,4 +33,4 @@ $versionPattern = [regex]::Escape([string]$manifest.Version)
 if ($plugin -notmatch ('PluginVersion = "' + $versionPattern + '"') -or
     $plugin -notmatch ('AssemblyVersion\("' + $versionPattern + '\.0"\)') -or
     $plugin -notmatch ('AssemblyFileVersion\("' + $versionPattern + '\.0"\)')) { throw 'Assembly version mismatch.' }
-Write-Output "PASS preflight: $($runtimePaths.Count) runtime sources, JSON/lifecycle rules, process ownership, standalone references, CRLF and version $($manifest.Version)."
+Write-Output "PASS preflight: $($runtimePaths.Count) runtime sources, JSON/lifecycle rules, process ownership, addon dependencies, CRLF and version $($manifest.Version)."

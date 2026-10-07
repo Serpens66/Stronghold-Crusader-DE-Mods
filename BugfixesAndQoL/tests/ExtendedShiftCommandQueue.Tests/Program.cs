@@ -1273,18 +1273,20 @@ internal static class Program
             "LargeMoveTargetMarkerRenderer.cs");
         string nativeFormationSlots = Read(
             workspace,
-            "BugfixesAndQoL",
-            "src",
+            "APIShared",
+            "src", "UnitCommands",
             "NativeFormationSlots.cs");
-        string moveFormationDrag = Read(
+        string moveFormationContext = Read(workspace, "APIShared", "src", "UnitCommands", "MoveFormationCommandContext.cs");
+        string sharedProject = Read(workspace, "APIShared", "APIShared.csproj");
+        string moveFormationDrag = moveFormationContext + Read(
             workspace,
             "BugfixesAndQoL",
             "src",
             "MoveFormationDragRuntime.cs");
         string moveFormationPreview = Read(
             workspace,
-            "BugfixesAndQoL",
-            "src",
+            "APIShared",
+            "src", "UnitCommands",
             "MoveFormationPreviewPlanner.cs");
         string viewModel = Read(workspace, "BugfixesAndQoL", "src", "BugfixesAndQoLViewModel.cs");
         string settingsXaml = Read(
@@ -1307,11 +1309,11 @@ internal static class Program
         Check(queueRuntime.Contains("APIShared.LocalSelectionSnapshot selectedUnits") &&
             !queueRuntime.Contains("GetSelectedChimps("),
             "integrated queue consumes the shared selected-unit contract");
-        Check(CountText(queueRuntime, "new DetourHandle<") == 5,
-            "integrated queue owns five typed RedBird detour handles");
-        Check(CountText(queueRuntime, "HookTarget.FromAddress(") == 5,
-            "integrated queue registers five explicit native targets");
-        Check(CountText(queueRuntime, ".Original(") == 6 &&
+        Check(CountText(queueRuntime, "new DetourHandle<") == 3,
+            "integrated queue owns three exclusive detours; append and target dispatch belong to APIShared");
+        Check(CountText(queueRuntime, "HookTarget.FromAddress(") == 3,
+            "integrated queue registers three exclusive native targets");
+        Check(CountText(queueRuntime, ".Original(") == 3 &&
             CountText(queueRuntime, "InvokeOriginalMoveChore(") == 3 &&
             CountText(queueRuntime, "InvokeOriginalTribeOverlay(") == 5,
             "integrated queue preserves every original-call path through typed handles and the observed overlay wrapper");
@@ -1319,7 +1321,7 @@ internal static class Program
             "integrated queue checks all three transaction commits");
         Check(queueRuntime.Contains("largeMoveTargets.TryCaptureOverflowCandidate(") &&
             !queueRuntime.Contains("ObserveAndShouldSuppressMarker(") &&
-            CountText(queueRuntime, "new DetourHandle<") == 5,
+            CountText(queueRuntime, "new DetourHandle<") == 3,
             "large Move markers reuse the existing draw hook without overlapping detours");
         Check(queueRuntime.Contains("args.Phase == EventHookPhase.Post") &&
             queueRuntime.Contains("args.IsNewOrder") &&
@@ -1522,11 +1524,11 @@ internal static class Program
               moveFormationPreview.Contains("destination.Count < requiredCount") &&
               moveFormationPreview.Contains("relaxedQueueIndices") &&
               moveFormationPreview.Contains("while (destination.Count < requiredCount)") &&
-              bugfixesProject.Contains("src\\MoveFormationPreviewPlanner.cs"),
+              sharedProject.Contains("src\\UnitCommands\\MoveFormationPreviewPlanner.cs"),
             "formation preview and execution planner cover the full native grid with deterministic overflow");
         Check(bugfixesRuntime.Contains("settings.EnableMoveFormationEnhancements") &&
               bugfixesRuntime.Contains("!FeatureEnabled ||") &&
-              bugfixesRuntime.Contains("setting-disabled"),
+              bugfixesRuntime.Contains("moveFormationDrag.ResetTransientState()"),
             "Move spacing, diagnostics, suppression, and replacement obey their feature setting");
         Check(nativeFormationSlots.Contains("libraryBase, 0xE0970") &&
               nativeFormationSlots.Contains("MoveFormationSelector.AssassinGround") &&

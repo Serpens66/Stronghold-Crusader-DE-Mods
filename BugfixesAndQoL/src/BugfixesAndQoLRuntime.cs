@@ -72,8 +72,8 @@ namespace BugfixesAndQoL
         private PlagueTreatmentFadeFix plagueTreatmentFadeFix;
         private PlagueTargetReservationFix plagueTargetReservationFix;
         private PlagueApothecaryStateTransitionFix plagueApothecaryStateTransitionFix;
-        private FriendlyMoatMovementRuntime friendlyMoatMovementRuntime;
-        private static FriendlyMoatMovementRuntime processFriendlyMoatMovementRuntime;
+        private UnitCommandPathRuntime friendlyMoatMovementRuntime;
+        private static UnitCommandPathRuntime processUnitCommandPathRuntime;
         private static AllyGoodsAmountModifierHook processAllyGoodsAmountModifierHook;
         private static WorkshopUploadLordSelectionFix processWorkshopUploadLordSelectionFix;
         private static KeepFlagRotationRuntime processKeepFlagRotationRuntime;
@@ -567,16 +567,17 @@ namespace BugfixesAndQoL
         {
             if (!nativeLibraryAvailable || friendlyMoatMovementRuntime != null)
                 return;
-            if (processFriendlyMoatMovementRuntime == null)
+            if (processUnitCommandPathRuntime == null)
             {
-                processFriendlyMoatMovementRuntime = new FriendlyMoatMovementRuntime(
+                UnitCommandPathAPI.AssassinReconstructionRelaxation = () => AssassinPathfindingRuntime.TemporaryReconstructionRelaxation;
+                processUnitCommandPathRuntime = UnitCommandPathAPI.RegisterCommands(
                     log, settings, context, referenceHashMatches);
             }
-            friendlyMoatMovementRuntime = processFriendlyMoatMovementRuntime;
+            friendlyMoatMovementRuntime = processUnitCommandPathRuntime;
             Shared.DebugLogHelper.LogInfo(
                 log,
-                "Bugfixes and QoL friendly moat movement initialized: " +
-                $"mode={settings.FriendlyMoatMovementMode}, improvedFill=" +
+                "Bugfixes and QoL shared unit commands initialized: " +
+                $"manualCommands={settings.EnableImprovedManualUnitCommands}, improvedFill=" +
                 $"{settings.EnableMod && settings.EnableImprovedMoatFilling}, " +
                 $"ladderAttackFix={settings.EnableMod && settings.EnableLadderAttackPathfindingFix}.");
         }

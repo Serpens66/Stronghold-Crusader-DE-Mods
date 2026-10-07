@@ -132,7 +132,6 @@
     <Compile Include="src\FastRecruitMovementBridge.cs" />
     <Compile Include="src\FastRecruitRallyMovementModLog.cs" />
     <Compile Include="src\FastRecruitRallyMovementRuntime.cs" />
-    <Compile Include="src\FastMoatBridge.cs" />
     <Compile Include="src\MarketTradeIntegration.cs" />
     <Compile Include="src\MarketGoldPolicy.cs" />
     <Compile Include="src\MultiplayerFeatureGate.cs" />
@@ -174,7 +173,7 @@
     <Compile Include="src\CustomLordListEnhancementHook.cs" />
     <Compile Include="src\DisplayResolutionPersistenceHook.cs" />
     <Compile Include="src\DisplayResolutionFocusState.cs" />
-    <Compile Include="src\BugfixesAndQoLPlugin.cs" />
+    <Compile Include="src\BugfixesAndQoLPlugin.cs" /><Compile Include="src\UnitCommandImports.cs" />
     <Compile Include="src\Properties\AssemblyInfo.cs" />
     <Compile Include="src\BugfixesAndQoLRuntime.cs" />
     <Compile Include="src\WaterboyReservationLedger.cs" />
@@ -189,30 +188,8 @@
     <Compile Include="src\CorruptLordDataSpawnPolicy.cs" />
     <Compile Include="src\CorruptLordDataSpawnRuntime.cs" />
     <Compile Include="src\PrebuiltAiWorkshopBothFixRuntime.cs" />
-    <Compile Include="src\AssassinSelectionAdapters.cs" />
-    <Compile Include="src\CursorConnectivity.cs" />
-    <Compile Include="src\CursorRegionGraph.cs" />
-    <Compile Include="src\DirectMoatCommandScopes.cs" />
-    <Compile Include="src\EnemyGatePolicyIntegration.cs" />
-    <Compile Include="src\FillWeightedRoutes.cs" />
-    <Compile Include="src\FriendlyMoatMovementPolicy.cs" />
-    <Compile Include="src\FriendlyMoatMovementRuntime.cs" />
-    <Compile Include="src\MoatModeFlagIntermediaryFactory.cs" />
-    <Compile Include="src\FriendlyMoatMovementRuntime.LadderAttackFix.cs" />
-    <Compile Include="src\MoatPlacement.cs" />
-    <Compile Include="src\MoatPlacementSearch.cs" />
-    <Compile Include="src\MoatSearchKernel.cs" />
-    <Compile Include="src\MoatWorkTargetSelection.cs" />
-    <Compile Include="src\MovementOptionsSnapshot.cs" />
-    <Compile Include="src\MovementPathPublication.cs" /><Compile Include="src\TemporaryGateRouteReporting.cs" /><Compile Include="..\Shared\TemporaryPackedRouteInspection.cs" />
-    <Compile Include="src\MovementSearchContext.cs" />
-    <Compile Include="src\MoveFormationSpacingPolicy.cs" />
     <Compile Include="src\MoveFormationDragGesture.cs" />
-    <Compile Include="src\MoveFormationPreviewPlanner.cs" />
     <Compile Include="src\MoveFormationDragRuntime.cs" />
-    <Compile Include="src\NativeFormationSlots.cs" />
-    <Compile Include="src\NativeMovementCadenceResolver.cs" />
-    <Compile Include="src\NativeMovementRecovery.cs" />
     <Compile Include="src\NativeTannerFade.cs" />
     <Compile Include="src\NativeTannerFadeState.cs" />
     <Compile Include="src\NotificationQueueNativeContract.cs" />
@@ -220,9 +197,6 @@
     <Compile Include="src\NotificationSkipFeature.cs" />
     <Compile Include="src\NotificationLastFrameFeature.cs" />
     <Compile Include="src\NotificationSkipPolicy.cs" />
-    <Compile Include="src\UnitMovementContext.cs" />
-    <Compile Include="src\WeightedMoatPublication.cs" />
-    <Compile Include="src\WeightedMoatRoutePlanner.cs" />
     <Compile Include="src\EnemyProximityBulldozeCursorHook.cs" />
     <Compile Include="src\ExtendedShiftCommandQueueModel.cs" />
     <Compile Include="src\ExtendedShiftCommandQueueRuntime.cs" />

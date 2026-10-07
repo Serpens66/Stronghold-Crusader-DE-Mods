@@ -1,10 +1,12 @@
+using APIShared.UnitCommands;
+using static APIShared.UnitCommands.UnitCommandPathRuntime;
 using System;
 using System.Collections.Generic;
 using SHCDESE.API;
 
 namespace MoatMove
 {
-    internal sealed unsafe partial class FriendlyMoatMovementRuntime
+    internal sealed unsafe partial class FriendlyMoatTraversalProvider
     {
         private long fastVanillaBypasses;
         private IFastRouteField fastCandidateField;
@@ -20,7 +22,7 @@ namespace MoatMove
             ? (IFastRouteField)new FastNativeRouteField(MapWidth, MapWidth, edge)
             : new FastRouteField(MapWidth, MapWidth, edge);
 
-        private int[] ResolveMovementCandidates(MoatCandidateField precise, IList<int> starts,
+        internal override int[] ResolveMovementCandidates(MoatCandidateField precise, IList<int> starts,
             IList<int> targets, MoatSearchEdge edge, MoatSearchEdge terminal, out int expanded)
         {
             if (!RequiredOnlyMode)
@@ -62,7 +64,7 @@ namespace MoatMove
             finally { fastCandidateEdge = null; fastCandidateBusy = false; }
         }
 
-        private bool TryProbeFastCursorRoute(int playerId, int startTileId, int targetTileId,
+        internal override bool TryProbeFastCursorRoute(int playerId, int startTileId, int targetTileId,
             out RouteProbeSummary summary)
         {
             summary = new RouteProbeSummary(playerId);
@@ -76,7 +78,7 @@ namespace MoatMove
             {
                 // Separate UI state cannot consume simulation budgets or seed its fields.
                 FastRouteStatus status = ground?.Field.Advance(start, 8192, int.MaxValue) ?? FastRouteStatus.Pending;
-                summary.StartRegion = pathRegionGrid[startTileId]; summary.TargetRegion = pathRegionGrid[targetTileId];
+                summary.StartRegion = runtime.pathRegionGrid[startTileId]; summary.TargetRegion = runtime.pathRegionGrid[targetTileId];
                 if (status == FastRouteStatus.Pending) return false;
                 summary.ReachedWithoutMoat = status == FastRouteStatus.Found;
                 if (summary.ReachedWithoutMoat)
@@ -90,7 +92,7 @@ namespace MoatMove
             }
         }
 
-        private void LogAndResetFastMoatMetrics()
+        internal override void LogAndResetFastMoatMetrics()
         {
             if (settings.NativeFast)
             {

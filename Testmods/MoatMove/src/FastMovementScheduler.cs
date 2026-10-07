@@ -1,3 +1,5 @@
+using APIShared.UnitCommands;
+using static APIShared.UnitCommands.UnitCommandPathRuntime;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
@@ -11,14 +13,8 @@ using SHCDESE.Interop.Enums;
 
 namespace MoatMove
 {
-    internal sealed unsafe partial class FriendlyMoatMovementRuntime
+    internal sealed unsafe partial class FriendlyMoatTraversalProvider
     {
-        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
-        private delegate void FastPlayerMoveDelegate(IntPtr manager, int tribe, int x, int y, int patrol, int flags);
-        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
-        private delegate void FastChoreDelegate();
-        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
-        private delegate void FastAppendDelegate(IntPtr manager, int tribe, ushort x, ushort y, int index, short mode);
         private FastPlayerMoveDelegate originalFastPlayerMove;
         private FastChoreDelegate originalFastTargetChore;
         private FastAppendDelegate originalFastAppend;
@@ -47,34 +43,19 @@ namespace MoatMove
                 0x48,0x83,0xEC,0x48,0x48,0x63,0xC2,0x4C,0x8D,0x1D,0x12,0x06,0xB3,0x07 }, "Fast player move entry");
             originalFastPlayerMove = Marshal.GetDelegateForFunctionPointer<FastPlayerMoveDelegate>((IntPtr)(libraryBase + 0x196100));
             // Saved Fast queues can also be restored while running Precise.
-            ValidateExactBytes(memory, 0x11C3A0, new byte[] {
-                0x4C,0x63,0x5C,0x24,0x28,0x4C,0x63,0xD2,0x49,0x69,0xC2,0x88,0x06,0,0,
-                0x49,0x69,0xD2,0xA2,0x01,0,0 }, "Fast saved waypoint entry");
-            originalFastAppend = Marshal.GetDelegateForFunctionPointer<FastAppendDelegate>((IntPtr)(libraryBase + 0x11C3A0));
+            // APIShared already validated and owns the waypoint entry.
+            originalFastAppend = runtime.ContinueQueueAppend;
             HookTransaction pending = null;
             bool registered = false, tickRegistered = false;
             try
             {
                 if (RequiredOnlyMode)
                 {
-                    pending = CreateOwnedHookTransaction();
-                    FastPlayerMoveDelegate move = CaptureFastPlayerMove;
-                    FastChoreDelegate target = ObserveFastTargetChore;
-                    FastAppendDelegate append = AppendAfterFastPendingMove;
-                    fastCommandDelegates.Add(move); fastCommandDelegates.Add(target); fastCommandDelegates.Add(append);
-                    var moveHook = InstallConnectivityObserver(pending, memory, libraryBase, 0x196100,
-                        "48 83 EC 48 48 63 C2 4C 8D 1D 12 06 B3 07", move);
-                    // Full first 22-byte span; RIP-relative reads/writes are relocated by RedBird.
-                    var targetHook = InstallConnectivityObserver(pending, memory, libraryBase, 0x12BF0,
-                        "40 53 48 83 EC 30 8B 05 F0 63 5E 08 C7 05 EE 63 5E 08 0F 00 00 00", target);
-                    var appendHook = InstallConnectivityObserver(pending, memory, libraryBase, 0x11C3A0,
-                        "4C 63 5C 24 28 4C 63 D2 49 69 C2 88 06 00 00 49 69 D2 A2 01 00 00", append);
-                    var result = pending.Commit();
-                    if (!result.IsCompleteSuccess || !moveHook.Committed || !targetHook.Committed || !appendHook.Committed)
-                        throw new InvalidOperationException("Fast command hook transaction failed.");
-                    originalFastPlayerMove = moveHook.Original;
-                    originalFastTargetChore = targetHook.Original;
-                    originalFastAppend = appendHook.Original;
+                    var originals = runtime.InstallTraversalCommandHooks(memory, libraryBase,
+                        CaptureFastPlayerMove, ObserveFastTargetChore, AppendAfterFastPendingMove);
+                    originalFastPlayerMove = originals.Move;
+                    originalFastTargetChore = originals.Target;
+                    originalFastAppend = originals.Append;
                     fastChoreMode = (IntPtr)(libraryBase + 0x85F8FEC);
                 }
                 fastCommands.Removed += ReleaseFastPendingSearch;
@@ -105,7 +86,7 @@ namespace MoatMove
                 if (registered) ModSaveDataAPI.Instance.UnregisterModDataHandler("MoatMove_Serp");
                 fastCancelSubscription?.Dispose(); fastLoadSubscription?.Dispose();
                 fastCommands.Removed -= ReleaseFastPendingSearch;
-                pending?.Dispose();
+                // Native hooks belong to APIShared and survive failed provider initialization.
                 throw;
             }
         }
@@ -126,7 +107,7 @@ namespace MoatMove
         private List<FastUnitIdentity> CaptureFastMembers(int tribeId)
         {
             var result = new List<FastUnitIdentity>();
-            if (!TryCaptureOrderedActiveGroupUnits(nativeTribeManager, tribeId, out int[] ids)) return result;
+            if (!runtime.TryCaptureOrderedActiveGroupUnits(runtime.nativeTribeManager, tribeId, out int[] ids)) return result;
             foreach (int id in ids)
                 if (APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _) && unit != null && unit->r_GlobalId != 0)
                     result.Add(new FastUnitIdentity(id, unit->r_GlobalId));
@@ -143,14 +124,15 @@ namespace MoatMove
         private void CaptureFastPlayerMove(IntPtr manager, int tribeId, int x, int y, int patrol, int flags)
         {
             try { if (TryCaptureFastPlayerMove(tribeId, x, y, patrol, flags)) return; }
-            catch (Exception ex) { TryLogDiagnosticFailure("fast-capture", ex); }
+            catch (Exception ex) { runtime.TryLogDiagnosticFailure("fast-capture", ex); }
             // No catch around Original: a failing native invocation must never be replayed.
             originalFastPlayerMove(manager, tribeId, x, y, patrol, flags);
         }
 
         private bool TryCaptureFastPlayerMove(int tribeId, int x, int y, int patrol, int flags)
         {
-            if (!fastSchedulerInitialized || fastDispatching || !RequiredOnlyMode || (uint)x >= MapWidth || (uint)y >= MapWidth ||
+            if (!Enabled || !runtime.TraversalEnabled || !fastSchedulerInitialized || fastDispatching || !RequiredOnlyMode ||
+                QueueNativeContract.TryDecodeQueuedMoveType(flags, out _) || (uint)x >= MapWidth || (uint)y >= MapWidth ||
                 !GameTribeManagerAPI.Instance.TryGetTribeById(tribeId, out GameTribe* tribe) || tribe == null ||
                 tribe->r_AliveState != AliveState.IsAlive ||
                 !GamePlayerManagerAPI.Instance.IsPlayerIdValid(tribe->r_PlayerIdOwner) ||
@@ -164,10 +146,10 @@ namespace MoatMove
             bool needsSearch = false;
             foreach (FastUnitIdentity member in members)
             {
-                if (!TryGetFastMember(member, tribe->r_PlayerIdOwner, out GameUnit* unit) || !CanDigMoat(unit)) continue;
+                if (!TryGetFastMember(member, tribe->r_PlayerIdOwner, out GameUnit* unit) || !runtime.CanDigMoat(unit)) continue;
                 GetNativeMovementStart(unit, out int sx, out int sy);
                 if ((uint)sx >= MapWidth || (uint)sy >= MapWidth ||
-                    !IsSamePositiveGroundRegion(GameTileManagerAPI.Instance.GetTileId(sx, sy), target)) needsSearch = true;
+                    !runtime.IsSamePositiveGroundRegion(GameTileManagerAPI.Instance.GetTileId(sx, sy), target)) needsSearch = true;
             }
             if (!ordinary || !needsSearch)
                 return false;
@@ -194,13 +176,13 @@ namespace MoatMove
                 fastCommands.Supersede(members);
                 foreach (var member in members) fastUnitDistributions.Remove(member);
             }
-            catch (Exception ex) { TryLogDiagnosticFailure("fast-replacement", ex); }
+            catch (Exception ex) { runtime.TryLogDiagnosticFailure("fast-replacement", ex); }
         }
 
         private void AppendAfterFastPendingMove(IntPtr manager, int tribeId, ushort x, ushort y, int index, short mode)
         {
             try { if (TryHoldFastWaypoint(tribeId, x, y, index, mode)) return; }
-            catch (Exception ex) { TryLogDiagnosticFailure("fast-waypoint-capture", ex); }
+            catch (Exception ex) { runtime.TryLogDiagnosticFailure("fast-waypoint-capture", ex); }
             originalFastAppend(manager, tribeId, x, y, index, mode);
         }
 
@@ -238,7 +220,7 @@ namespace MoatMove
                         if (!TryGetFastMember(identity, fastUnitDistributions[identity].Player, out _))
                             fastUnitDistributions.Remove(identity);
                 if (fastCommands.Commands.Count == 0) return;
-                if (!RequiredOnlyMode)
+                if (!RequiredOnlyMode || !runtime.TraversalEnabled)
                 {
                     foreach (FastPendingCommand command in new List<FastPendingCommand>(fastCommands.Commands))
                         if (!fastCommands.HasPredecessor(command.Members, command.Sequence)) DispatchFastCommand(command);
@@ -265,7 +247,7 @@ namespace MoatMove
                     else if (budget == before) idle++; else idle = 0;
                 }
             }
-            catch (Exception ex) { fastCommandRetries++; TryLogDiagnosticFailure("fast-scheduler-retry", ex); }
+            catch (Exception ex) { fastCommandRetries++; runtime.TryLogDiagnosticFailure("fast-scheduler-retry", ex); }
             finally { if ((tick & 255) == 0) LogAndResetFastMoatMetrics(); }
         }
 
@@ -282,7 +264,7 @@ namespace MoatMove
             bool pending = false;
             foreach (FastUnitIdentity member in command.Members)
             {
-                if (!TryGetFastMember(member, command.Player, out GameUnit* unit) || !CanDigMoat(unit)) continue;
+                if (!TryGetFastMember(member, command.Player, out GameUnit* unit) || !runtime.CanDigMoat(unit)) continue;
                 GetNativeMovementStart(unit, out int x, out int y);
                 if ((uint)x >= MapWidth || (uint)y >= MapWidth) continue;
                 int start = y * MapWidth + x;
@@ -334,9 +316,9 @@ namespace MoatMove
                     if (command.IsWaypoint)
                     {
                         if (tribe != group.Key) RestoreFastNativeQueue(tribe, inheritedQueue);
-                        originalFastAppend(nativeTribeManager, tribe, (ushort)command.X, (ushort)command.Y, command.MoveFlags, (short)command.Patrol);
+                        originalFastAppend(runtime.nativeTribeManager, tribe, (ushort)command.X, (ushort)command.Y, command.MoveFlags, (short)command.Patrol);
                     }
-                    else originalFastPlayerMove((IntPtr)nativeUnitManager, tribe, command.X, command.Y, command.Patrol, command.MoveFlags);
+                    else originalFastPlayerMove((IntPtr)runtime.nativeUnitManager, tribe, command.X, command.Y, command.Patrol, command.MoveFlags);
                     foreach (FastUnitIdentity member in group.Value) command.Members.Remove(member);
                 }
                 fastMaximumQueueWaitTicks = Math.Max(fastMaximumQueueWaitTicks,
@@ -402,7 +384,7 @@ namespace MoatMove
                             unit->r_TribeLeaderUnitId = snapshot.Leader;
                             unit->UnknownAIFlag = snapshot.Ordinal; unit->N000000AF = snapshot.GroupGlobal;
                         }
-                        catch (Exception ex) { restored = false; TryLogDiagnosticFailure("fast-group-rollback", ex); }
+                        catch (Exception ex) { restored = false; runtime.TryLogDiagnosticFailure("fast-group-rollback", ex); }
                     }
                     if (restored && originalId > 0 && tribes.TryGetTribeById(originalId, out original) && original != null &&
                         original->r_GlobalId == previousGlobal)
@@ -428,7 +410,7 @@ namespace MoatMove
         private bool FastGroupContains(int tribeId, int unitId)
         {
             if (tribeId <= 0 || tribeId >= MaximumTribeCount || unitId <= 0 || unitId > 10000) return false;
-            ushort bits = *(ushort*)((byte*)nativeTribeManager + tribeId * TribeRecordSize + 0x60 + (unitId >> 4) * 2);
+            ushort bits = *(ushort*)((byte*)runtime.nativeTribeManager + tribeId * TribeRecordSize + 0x60 + (unitId >> 4) * 2);
             return (bits & (1 << (unitId & 15))) != 0;
         }
 
@@ -444,7 +426,7 @@ namespace MoatMove
             if (tribeId <= 0 || tribeId >= MaximumTribeCount ||
                 !GameTribeManagerAPI.Instance.TryGetTribeById(tribeId, out GameTribe* tribe) || tribe == null ||
                 tribe->r_PlayerIdOwner != player || tribe->r_AliveState != AliveState.IsAlive) return false;
-            byte* record = (byte*)nativeTribeManager + tribeId * TribeRecordSize;
+            byte* record = (byte*)runtime.nativeTribeManager + tribeId * TribeRecordSize;
             short count = *(short*)(record + 0x5DE), index = *(short*)(record + 0x5DC);
             if (count < 0 || count > 10 || index < 0 || index >= 10) return false;
             snapshot = new NativeFastQueueSnapshot { Count = count, Index = index,
@@ -458,9 +440,9 @@ namespace MoatMove
             // 11C3A0 writes exact coordinates/count/mode; 11A980 advances the
             // signed 16-bit index only after its 16-bit timer and arrival test.
             for (int i = 0; i < snapshot.Count; i++)
-                originalFastAppend(nativeTribeManager, tribeId, snapshot.Coordinates[i * 2],
+                originalFastAppend(runtime.nativeTribeManager, tribeId, snapshot.Coordinates[i * 2],
                     snapshot.Coordinates[i * 2 + 1], i, snapshot.Mode);
-            byte* record = (byte*)nativeTribeManager + tribeId * TribeRecordSize;
+            byte* record = (byte*)runtime.nativeTribeManager + tribeId * TribeRecordSize;
             *(short*)(record + 0x5DC) = snapshot.Index;
             *(short*)(record + 0x56) = snapshot.Timer;
         }

@@ -951,6 +951,9 @@ namespace Shared
         public bool CanEditHostSettings =>
             isLocalHost && (!IsMissionPresetSelected || missionPresetEditable);
 
+        /// <summary>Recognizes removed properties whose stored preset values may be ignored.</summary>
+        protected virtual bool IsRetiredPresetProperty(string propertyName) => false;
+
         public bool CanEditClientSettings => !IsMissionPresetSelected || missionPresetEditable;
 
         public bool CanToggleHostSettings =>
@@ -3751,6 +3754,7 @@ namespace Shared
                 var prepared = new Dictionary<PresetPropertyAccessor, byte[]>();
                 foreach (KeyValuePair<string, PublishedPresetSetting> entry in preset.Settings)
                 {
+                    if (owner.IsRetiredPresetProperty(entry.Key)) continue;
                     PresetPropertyAccessor property = persistedPropertiesByName[entry.Key];
                     if (IsHostProperty(property) && !owner.isLocalHost)
                         continue;
@@ -3821,6 +3825,7 @@ namespace Shared
             {
                 foreach (KeyValuePair<string, PublishedPresetSetting> entry in preset.Settings)
                 {
+                    if (owner.IsRetiredPresetProperty(entry.Key)) continue;
                     if (!persistedPropertiesByName.TryGetValue(entry.Key, out PresetPropertyAccessor property))
                         throw new InvalidDataException($"Unknown persistent property [{entry.Key}].");
                     if (entry.Value == null)

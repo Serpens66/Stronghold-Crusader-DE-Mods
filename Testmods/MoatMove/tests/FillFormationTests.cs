@@ -267,10 +267,10 @@ namespace MoatMove
                 int exhaustedCalls=calls;
                 for(int i=0;i<120;i++){*(int*)(tribes+0x14)=1;ChooseOwnerSafeFormationSlot(nativePathManager,1,60,10);}
                 Check(calls<=exhaustedCalls+1,"exhausted unchanged candidate list is not scanned per unit");
-                TestSettings.Settings.MoveFormationSpacing=4;
+                activeMoveCommand.HasFormationSpacing=true; activeMoveCommand.FormationSpacing=4;
                 formationOwner=null;formationExhausted=false;*(int*)(tribes+0x14)=1;
                 ChooseOwnerSafeFormationSlot(nativePathManager,3,60,10);
-                Check(lastSpacing==4,"Move spacing setting overrides the Vanilla unit-type value");
+                Check(lastSpacing==3,"command spacing preserves native unit-type spacing three");
                 ChooseOwnerSafeFormationSlot(nativePathManager,1,60,10);
                 Check(lastSpacing==1,"Move spacing setting never replaces Vanilla safety spacing one");
                 activeMoveCommand.IsPatrolPath=true;*(int*)(tribes+0x14)=1;
@@ -281,16 +281,16 @@ namespace MoatMove
                 ChooseOwnerSafeFormationSlot(nativePathManager,3,60,10);
                 Check(lastSpacing==3,"disabled Move formation feature retains all Vanilla spacing");
                 TestSettings.Settings.EnableMoveFormationEnhancements=true;
-                TestSettings.Settings.MoveFormationSpacing=MoveFormationSpacingPolicy.Default;
+                activeMoveCommand.HasFormationSpacing=false; activeMoveCommand.FormationSpacing=MoveFormationSpacingPolicy.Default;
                 int assassinSpacing=0;
                 originalAssassinGroundFormationSlot=(m,spacing,x,y)=>{assassinSpacing=spacing;return spacing;};
                 activeMoveCommand.IsPatrolPath=false;
                 foreach(int configured in new[]{1,2,3,4})
                 {
-                    TestSettings.Settings.MoveFormationSpacing=configured;
-                    Check(ChooseAssassinGroundFormationSlot(nativePathManager,3,60,10)==configured &&
-                        assassinSpacing==configured,
-                        "pure Assassin ground selection uses configured Move spacing "+configured);
+                    activeMoveCommand.HasFormationSpacing=true; activeMoveCommand.FormationSpacing=configured;
+                    Check(ChooseAssassinGroundFormationSlot(nativePathManager,3,60,10)==3 &&
+                        assassinSpacing==3,
+                        "Assassin unit-type spacing remains authoritative with command snapshot "+configured);
                 }
                 Check(ChooseAssassinGroundFormationSlot(nativePathManager,1,60,10)==1,
                     "Assassin safety spacing one remains unchanged");
@@ -298,7 +298,7 @@ namespace MoatMove
                 Check(ChooseAssassinGroundFormationSlot(nativePathManager,3,60,10)==3,
                     "disabled feature restores Vanilla Assassin ground spacing three");
                 TestSettings.Settings.EnableMoveFormationEnhancements=true;
-                TestSettings.Settings.MoveFormationSpacing=MoveFormationSpacingPolicy.Default;
+                activeMoveCommand.HasFormationSpacing=false; activeMoveCommand.FormationSpacing=MoveFormationSpacingPolicy.Default;
                 tileFlags[1060]|=CursorSpecialStructureTileFlagMask;
                 ChooseOwnerSafeFormationSlot(nativePathManager,1,60,10);
                 Check(*(int*)(tribes+0x0C)==60,"native common fallback retains structure target for individual portal validation");

@@ -36,6 +36,7 @@ namespace MoatMove
         public int r_UnitSelected, r_UnitHover;
         public bool Digger;
         public int r_UnitChimp;
+        public int N0000019A;
     }
     internal struct GameCursorManager { public uint r_HoverOverBuildingId,r_HoverOverUnitId,r_HoverOverBuildingTileId,r_MouseTileId2,r_HoveringOverWall,r_MouseTileId,r_MouseTileX,r_MouseTileY; }
     internal unsafe struct CursorPointer { public GameCursorManager* Pointer; }
@@ -54,6 +55,7 @@ namespace MoatMove
         public static GamePlayerManagerAPI Instance = new GamePlayerManagerAPI();
         public GameCursorManager* Cursor;
         public CursorPointer GetCursorManager() => new CursorPointer { Pointer=Cursor };
+        public bool IsAIPlayer(int id) => false;
         public bool IsPlayerIdValid(int id) => id > 0 && id <= 8;
         public bool IsPlayerAlliedTo(int a, int b) => a == b;
         public int GetLocalPlayerId() => 1;
@@ -79,7 +81,7 @@ namespace MoatMove
         public ushort* Buildings;
         public ushort GetTileBuildingId(int tile) => Buildings[tile];
         public int GetTileId(int x, int y) => x >= 0 && x < 800 && y >= 0 && y < 800 ? Rows[y * 3] + x : -1;
-        public IntPtr TileManager = (IntPtr)1;
+        public GameTileManagerView TileManager = new GameTileManagerView();
         public IntPtr GetTileManager() => TileManager;
         public readonly Dictionary<int,int> Occupants = new Dictionary<int,int>();
         public bool ForceOccupied;
@@ -90,6 +92,21 @@ namespace MoatMove
     }
     internal sealed unsafe partial class FriendlyMoatMovementRuntime
     {
+        private bool TraversalEnabled => ExtensionsEnabled;
+        private bool ManualCommandsEnabled => false;
+        private static bool nativeManualProbe;
+        private const int FastSearchNodeBudget = 16384;
+        private long fastSearches;
+        private object BeginTemporaryRouteReport(IntPtr m,string source="fixture")=>null;
+        private void EndTemporaryRouteReport(IntPtr m,object token,bool completed,int result) {}
+        private void ResetFastCommandMap() {}
+
+        private bool IsNativeManualGroupFlood(IntPtr manager,int p,int r,int x,int y)=>false;
+        private bool TryQualifyNativeMoatStart(PlanScope p,out RouteProbeSummary s) { s=default; return false; }
+        private bool ProbeNativeManualPath(int id,int x,int y)=>false;
+        private bool ProbeNativeCursorConnectivity(int p,int a,int b,out RouteProbeSummary s) { s=default;return false; }
+        private bool TryQualifyNativeSelection(AttackCursorPairScope p,int[] ids,string token,out AttackCursorPairScope b,out CursorGroupRouteSummary s) { b=null;s=default;return false; }
+
         private static int tick = 10;
         private object log;
         private readonly MoatMoveOptions settings = TestSettings.Settings;
@@ -171,7 +188,8 @@ namespace MoatMove
             public int TargetedRouteSearchPasses, BuilderCalls, FloodFillBypasses, FallbackBuilderCalls, FallbackRollbacks;
             public bool BuilderReached;
             public int RegionCalls, TribeId, UnitsOnMoatAtDispatch;
-            public bool MoatRelevant;
+            public bool MoatRelevant, NativeCommonFallback, HasFormationSpacing;
+            public int FormationSpacing;
             public string LastGroupMoatModeDiagnostic;
             public int UnitMoveCalls, UnitMoveCompleted, UnitMovePositive, UnitMoveWithoutBuilder, UnitMoveAlreadyArrived;
             public int UnitMoveAbandoned, BuilderIntermediateTargets, FallbackContractRejections;
@@ -340,6 +358,19 @@ namespace MoatMove
                 tileFlags[1013] = CompletedMoatTileFlag;
                 weightedMoatRoutePlanner = new WeightedMoatRoutePlanner(rows, tileFlags, buildings,
                     heights, masks, directions, types, ResolveCompletedMoatRelationship, tile => false);
+                weightedMoatRoutePlanner.KernelFactory=(w,h,e)=>new MoatSearchKernel(w,h,e);
+                weightedMoatRoutePlanner.AllowAdditionalMoatEntry=()=>true;
+                weightedMoatRoutePlanner.AllowAdditionalMoatEntry=()=>false;
+                Check(!weightedMoatRoutePlanner.TryGetTraversalEdge(1,12,10,1012,13,10,1013,2,
+                    false,false,MoatTraversalPolicy.FriendlyOnly,out _,out _),
+                    "main alone rejects additional ground-to-completed-moat entry");
+                Check(weightedMoatRoutePlanner.TryGetTraversalEdge(1,13,10,1013,14,10,1014,2,
+                    false,false,MoatTraversalPolicy.FriendlyOnly,out _,out _),
+                    "current moat retains exit edge when addon is absent");
+                Check(weightedMoatRoutePlanner.TryGetTraversalEdge(1,12,10,1012,13,10,1013,2,
+                    true,false,MoatTraversalPolicy.AllowEnemyForDiagnostic,out _,out _),
+                    "independent fill terminal contact remains available without addon");
+                weightedMoatRoutePlanner.AllowAdditionalMoatEntry=()=>true;
                 GameUnit* units = (GameUnit*)Alloc(1025 * sizeof(GameUnit));
                 GameUnitManagerAPI.Instance.Units = units;
                 for (int id = 1; id <= 1000; id++)
@@ -1195,7 +1226,7 @@ namespace Shared {
  using MoatMove;
  internal readonly struct GameBuildingFootprintBounds { public GameBuildingFootprintBounds(int minX,int minY,int maxX,int maxY){MinX=minX;MinY=minY;MaxX=maxX;MaxY=maxY;} public int MinX{get;} public int MinY{get;} public int MaxX{get;} public int MaxY{get;} public int CenterXTimesTwo=>MinX+MaxX; public int CenterYTimesTwo=>MinY+MaxY; }
  internal static unsafe class GameBuildingFootprint { public const int MaximumGridSize=6; public static bool TryGetBounds(GameBuilding* building,out GameBuildingFootprintBounds bounds){bounds=default;if(building==null||building->r_OccupyTileGridSize==0||building->r_OccupyTileGridSize>MaximumGridSize)return false;int count=checked((int)(building->r_OccupyTileGridSize*building->r_OccupyTileGridSize));uint* ids=&building->r_OccupiedTileIdsArrayBegin;int minX=int.MaxValue,minY=int.MaxValue,maxX=int.MinValue,maxY=int.MinValue;for(int index=0;index<count;index++){if(ids[index]>int.MaxValue||!GameTileManagerAPI.Instance.IsValidTileId((int)ids[index]))return false;var p=GameTileManagerAPI.Instance.GetTileVectorFromId((int)ids[index]);if(p.X<minX)minX=p.X;if(p.Y<minY)minY=p.Y;if(p.X>maxX)maxX=p.X;if(p.Y>maxY)maxY=p.Y;}bounds=new GameBuildingFootprintBounds(minX,minY,maxX,maxY);return true;} public static bool TryGetBounds(GameBuilding building,out GameBuildingFootprintBounds bounds)=>TryGetBounds(&building,out bounds); public static bool TryGetBounds(ref GameBuilding building,out GameBuildingFootprintBounds bounds){fixed(GameBuilding* pointer=&building)return TryGetBounds(pointer,out bounds);} public static bool ContainsTileId(GameBuilding* building,int tileId){if(building==null||tileId<0||building->r_OccupyTileGridSize==0||building->r_OccupyTileGridSize>MaximumGridSize)return false;int count=checked((int)(building->r_OccupyTileGridSize*building->r_OccupyTileGridSize));uint* ids=&building->r_OccupiedTileIdsArrayBegin;for(int index=0;index<count;index++)if(ids[index]==(uint)tileId)return true;return false;} public static bool ContainsTileId(GameBuilding building,int tileId)=>ContainsTileId(&building,tileId); }
- internal static class DebugLogHelper { public static void LogInfo(object log,string text) {} public static void LogWarning(object log,string text) {} } }
+ internal static class DebugLogHelper { public static void LogInfo(object log,string text) {} public static void LogWarning(object log,string text) {} public static void LogDebug(object log,string text) {} } }
 
 namespace MoatMove {
  internal enum RouteCalculationMode { Exact = 0, RequiredOnly = 1 }
@@ -1219,5 +1250,35 @@ namespace MoatMove {
   internal bool EnableLadderAttackPathfindingFix=true;
   internal int RouteMode=1;
   internal bool NativeFast;
+ }
+}
+
+namespace Shared { internal static class GameModeHelper { internal static bool IsMapEditor()=>true; } }
+namespace MoatMove {
+ internal unsafe struct GameTribe { public int r_LeaderUnitId; }
+ internal unsafe sealed class GameTribeManagerAPI {
+  internal static readonly GameTribeManagerAPI Instance=new GameTribeManagerAPI();
+  internal bool TryGetTribeById(int id,out GameTribe* tribe) { tribe=null;return false; }
+ }
+ internal sealed class GameTileManagerView {
+  internal const int NativePackedTileCapacity=320800;
+  internal byte[] PathEdgeMaskGrid=new byte[NativePackedTileCapacity];
+  internal ushort[] PathConnectionGrid=new ushort[NativePackedTileCapacity];
+  internal int[] LogicGrid=new int[NativePackedTileCapacity];
+  internal IntPtr Pointer=(IntPtr)1; public static implicit operator IntPtr(GameTileManagerView view)=>view.Pointer;
+  public static implicit operator GameTileManagerView(IntPtr pointer)=>new GameTileManagerView { Pointer=pointer };
+ }
+}
+namespace APIShared {
+ internal sealed class LocalSelectionSnapshot {
+  internal MoatMove.SelectedUnitInfo[] units;
+  internal int Count=>units.Length;
+  internal MoatMove.SelectedUnitInfo this[int i]=>units[i];
+ }
+ internal static class LocalSelectionAPI {
+  internal static bool TryCapture(int player,out LocalSelectionSnapshot s) {
+   s=null; if(player != MoatMove.GamePlayerManagerAPI.Instance.GetLocalPlayerId())return false;
+   s=new LocalSelectionSnapshot { units=MoatMove.GamePlayerManagerAPI.Instance.GetSelectedChimps() };return true;
+  }
  }
 }

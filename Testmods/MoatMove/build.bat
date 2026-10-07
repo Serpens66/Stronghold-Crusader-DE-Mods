@@ -1,4 +1,6 @@
 @echo off
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\Shared\Test-UnitCommandSplit.ps1"
+if errorlevel 1 exit /b 1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\Shared\Test-UnitAccess.ps1"
 if errorlevel 1 exit /b 1
 setlocal EnableExtensions
@@ -18,6 +20,10 @@ if errorlevel 1 (
 )
 if not exist "%MSBUILD%" goto failed
 if not exist "%EXTENDER_DIR%\SHCDESE.dll" goto failed
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%tests\Test-Preflight.ps1"
+if errorlevel 1 goto failed
+dotnet run --project "%PROJECT_DIR%tests\MoatMove.Tests.csproj" -- "%PROJECT_DIR%..\.."
+if errorlevel 1 goto failed
 "%MSBUILD%" "%PROJECT_DIR%MoatMove.csproj" /t:Build /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /nologo /v:minimal
 if errorlevel 1 goto failed
 if "%NO_INSTALL%"=="1" goto built_without_install
