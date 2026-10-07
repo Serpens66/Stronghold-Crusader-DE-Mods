@@ -568,6 +568,8 @@ namespace EnemyGatePathfindingTest
 
         bool IEnemyGatePathPolicy.IsDirectionAllowed(int playerId, int tileId, int direction) =>
             publishedPolicy.IsDirectionAllowed(playerId, tileId, direction);
+        // TEMP_GATE_ROUTE_ACCEPTANCE: read-only publication identity.
+        internal RouteTilePolicySnapshot TemporaryAcceptanceSnapshot => publishedPolicy;
 
         object IEnemyGateAssassinObserver.BeginAssassinSearch(int startX, int startY,
             int targetX, int targetY, int maximumNodes, int continuation, string nativeState) =>

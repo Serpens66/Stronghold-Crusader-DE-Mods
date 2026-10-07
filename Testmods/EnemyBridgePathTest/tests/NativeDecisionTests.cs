@@ -22,6 +22,7 @@ namespace EnemyBridgePathTest
             byte[] image=File.ReadAllBytes(path);
             using(var sha=SHA256.Create()) Check(BitConverter.ToString(sha.ComputeHash(image)).Replace("-","")==BridgeNativeDefinition.NativeHash,"canonical hash");
             ReproducePatchedAttack(image);
+            ReproducePatchedSelection(image);
             foreach(var site in BridgeNativeDefinition.Sites)
             {
                 int fileOffset=Offset(image,site.Rva);
@@ -72,6 +73,21 @@ namespace EnemyBridgePathTest
             ExerciseVoidWrappers();
             ExerciseAccessWrapper();
             return checks;
+        }
+        private static void ReproducePatchedSelection(byte[] image)
+        {
+            var site=Array.Find(BridgeNativeDefinition.Sites,s=>s.Rva==0x2C5A0);
+            byte[] bytes=new byte[site.Size];Array.Copy(image,Offset(image,site.Rva),bytes,0,bytes.Length);
+            IntPtr copy=Marshal.AllocHGlobal(bytes.Length),stub=Marshal.AllocHGlobal(32);NativeDetour<Leaf> hook=null;Leaf callback=(_,a)=>a;
+            try
+            {
+                int patch=0x2C5E1-site.Rva;bytes[patch]=0xff;bytes[patch+1]=0x25;Array.Clear(bytes,patch+2,4);Array.Copy(BitConverter.GetBytes(stub.ToInt64()),0,bytes,patch+6,8);Marshal.Copy(bytes,0,copy,bytes.Length);
+                var request=new DetourRequest<Leaf>{Name="copied Fixes-owned target-count body",TargetAddress=unchecked((ulong)copy.ToInt64()),Callback=callback};
+                hook=(NativeDetour<Leaf>)BridgeNativeHooks.CreateBackend(site.Size).CreateDetour(in request);
+                BridgeNativeHooks.Validate(hook,site,unchecked((ulong)copy.ToInt64()));hook.Enable();BridgeNativeHooks.Validate(hook,site,unchecked((ulong)copy.ToInt64()));
+                Console.WriteLine("PASS exact installed NativeX64 backend on copied Fixes-patched 2C5A0 body");
+            }
+            finally {hook?.Dispose();Marshal.FreeHGlobal(copy);Marshal.FreeHGlobal(stub);GC.KeepAlive(callback);}
         }
         private static void ReproducePatchedAttack(byte[] image)
         {

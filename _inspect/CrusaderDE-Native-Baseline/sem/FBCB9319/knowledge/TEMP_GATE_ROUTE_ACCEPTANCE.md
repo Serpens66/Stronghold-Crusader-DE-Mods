@@ -1,0 +1,19 @@
+# Temporary Raid / Assassin gate acceptance, 2026-10-07
+
+Implementation and attachment-removal contract: `Testmods/EnemyGatePathfindingTest/TEMP_GATE_ROUTE_ACCEPTANCE.md`.
+
+The diagnosis uses the existing Raid post-classifier/retarget-completion and two unit-builder publication paths. No new hook, native call or route search is introduced. The optional APIShared observer is independent of both gate policy and bridge diagnosis. With no observer the new route helper returns before any game reads or route copying; Raid payload construction is likewise guarded.
+
+Feature audit: Raid scheduler `0x3E200`, harassment roles 180..185, target selection, `0x11E960` building command, fresh `0xDA020` candidates / `0x123090` first-field gate, `0x196280` individual orders and `0xF4930` publication. Assassin-only groups bypass the ordinary regions check in `0x117820`; D9C40 fields/targets/continuations and E1640 reconstruction remain distinct observations. Original native outcomes are retained exactly once. Positive commands and selected buildings are not route proof.
+
+The existing unit-path buffer contract is reused: low nibble first, maximum 2,000 directed steps, output pointer/length and matching source/destination required. A path with no complete matching endpoint is explicitly unverified. Packed native/final-builder directions do not establish ground versus climb; only the existing weighted Assassin edge observer supplies that classification. Flood-fill results are not route failures.
+
+Installed SDK provenance: Script Extender 2.13.1.0, SHA-256 `225441FC02215359AF9C70F954EF83B9B2FD60608AC867E38B51C81F3E0C1A71`; fork commit `2a0e1a2ac2d4b5261ec1c27289b3d8e32eb835ec`, tree `792b0c1051ba3eccbb5cbe7b4468d1e7c863b426`. Installed public role APIs, unit/Tribe identities and full control WORD were checked. Native hash remains CURRENT's FBCB9319 build. Permanent hook mutation, lifecycle, JSON, XAML and CRLF preflights pass.
+
+Pre-build checks: gate suite 9,883 assertions (6,043 temporary diagnosis assertions; 576,000 events / 120 minute windows), installed RedBird execution for both gate comparisons; Assassin suite 15,494 independent A*/Dijkstra assertions; Raid 1,945 classifier, 89 native/assembler, 13 activation and 35 hardening assertions. Main movement suite additionally passes 269,682 unit-plan, 6,480 building-distance, 18,262 search and 1,469,340 cursor comparisons, with 204 actual runtime members compiled/exercised. Full changed runtime source compiles against installed assemblies before runtime build.
+
+During the Raid fixture run, an existing MOV-immediate to arbitrary absolute 64-bit heap address failed assembly. The **test-only** consumer now addresses scratch memory through RAX; its CMP uses explicit RIP-relative addressing, preserving the production emitter's contract. Both native branch cases then pass. This is not evidence of a production hook error.
+
+Long match acceptance is pending. Final minute/report counts must show observed Raid roles and Assassin cache/climb/continuation coverage. Missing cases remain not observed; bridge behavior is outside this acceptance. No earlier gameplay or historical identity conflicts are reclassified by these synthetic checks.
+
+Build/install confirmation: APIShared, BugfixesAndQoL and EnemyGatePathfindingTest build.bat completed successfully. Installed DLL hashes equal their local packages; recorded in _inspect/EnemyGateBuildingContextAudit/temporary-installed-hashes.json. Gate runtime: zero warnings/errors. Mainmod runtime: zero errors with its existing Mono.Cecil MSB3277 reference warning. APIShared baseline and lobby-preset tests pass. Existing mod metadata versions and README files are unchanged. The first APIShared attempt stopped on required public XML documentation; comments were added and its checked driver then passed. No gameplay acceptance is claimed by these builds.

@@ -1762,7 +1762,7 @@ namespace APISharedTests
                 "APIShared.IEnemyGateRoutePolicySnapshot",
                 "APIShared.EnemyGatePathPolicyBridge",
                 "APIShared.IEnemyBridgePathObserver",
-                "APIShared.EnemyBridgeDiagnosticBridge",
+                "APIShared.EnemyBridgeDiagnosticBridge", "APIShared.TemporaryGateRouteAcceptanceBridge", "APIShared.ITemporaryGateRouteAcceptanceObserver",
                 // BepInEx discovers the plugin type; it is public but is not a consumer service.
                 "APIShared.APISharedPlugin"
             };

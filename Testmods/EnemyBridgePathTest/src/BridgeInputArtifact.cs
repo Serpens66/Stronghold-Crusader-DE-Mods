@@ -22,6 +22,7 @@ namespace EnemyBridgePathTest
         private sealed class Job
         {
             internal long Session,Id,Bytes;
+            internal int Schema;
             internal string Partial,Final;
             internal IEnumerator<byte[]> Source;
             internal FileStream Stream;
@@ -36,13 +37,13 @@ namespace EnemyBridgePathTest
         {accepted.TryGetValue(session,out int count);return "inputArtifactsRequested="+count+",inputArtifactsPending="+Pending(session)+",inputArtifactDeliveryComplete="+(!Pending(session)&&!failures.Contains(session))+",inputArtifactFailed="+failures.Contains(session);}
         internal long Bytes => writtenBytes;
         internal long Ticks => writtenTicks;
-        internal bool Enqueue(long session,long id,IEnumerable<byte[]> source)
+        internal bool Enqueue(long session,long id,IEnumerable<byte[]> source,int schema=1)
         {
             accepted.TryGetValue(session,out int count);if(count>=2||jobs.Count>=4)return false;
             accepted[session]=count+1;
             string name="bridge-"+session+"-"+id;
-            jobs.Enqueue(new Job {Session=session,Id=id,Source=source.GetEnumerator(),Partial=Path.Combine(directory,name+".partial"),Final=Path.Combine(directory,name+".bin")});
-            emit(session,"input-artifact-pending","definition="+id+",schema=1,slot="+(count+1)+",complete=False");return true;
+            jobs.Enqueue(new Job {Session=session,Id=id,Schema=schema,Source=source.GetEnumerator(),Partial=Path.Combine(directory,name+".partial"),Final=Path.Combine(directory,name+".bin")});
+            emit(session,"input-artifact-pending","definition="+id+",schema="+schema+",slot="+(count+1)+",complete=False");return true;
         }
         internal void Pump()
         {
@@ -76,7 +77,7 @@ namespace EnemyBridgePathTest
                 {
                     active.Whole.TransformFinalBlock(Array.Empty<byte>(),0,0);active.Stream.Close();active.Stream=null;
                     File.Move(active.Partial,active.Final);
-                    emit(active.Session,"input-artifact-complete","definition="+active.Id+",schema=1,path=["+active.Final+"],bytes="+(active.Bytes+48)+",sha256="+Hex(active.Whole.Hash)+",payloadSha256="+Hex(active.Payload.Hash)+",complete=True");active=null;
+                    emit(active.Session,"input-artifact-complete","definition="+active.Id+",schema="+active.Schema+",path=["+active.Final+"],bytes="+(active.Bytes+48)+",sha256="+Hex(active.Whole.Hash)+",payloadSha256="+Hex(active.Payload.Hash)+",complete=True");active=null;
                 }
             }
             catch(Exception error)
@@ -94,10 +95,10 @@ namespace EnemyBridgePathTest
             int bytes=checked(data.Length*width);for(int offset=0;offset<bytes;offset+=32768)
             {var block=new byte[Math.Min(32768,bytes-offset)];Buffer.BlockCopy(data,offset,block,0,block.Length);yield return block;}
         }
-        internal static byte[] Header(string metadata)
+        internal static byte[] Header(string metadata,int schema=1)
         {
             byte[] text=Encoding.UTF8.GetBytes(metadata);var result=new byte[16+text.Length];Buffer.BlockCopy(Encoding.ASCII.GetBytes("BRGINP01"),0,result,0,8);
-            Buffer.BlockCopy(BitConverter.GetBytes(1),0,result,8,4);Buffer.BlockCopy(BitConverter.GetBytes(text.Length),0,result,12,4);Buffer.BlockCopy(text,0,result,16,text.Length);return result;
+            Buffer.BlockCopy(BitConverter.GetBytes(schema),0,result,8,4);Buffer.BlockCopy(BitConverter.GetBytes(text.Length),0,result,12,4);Buffer.BlockCopy(text,0,result,16,text.Length);return result;
         }
     }
 }

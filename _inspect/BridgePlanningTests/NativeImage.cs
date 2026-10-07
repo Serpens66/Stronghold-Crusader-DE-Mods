@@ -50,6 +50,9 @@ namespace BridgePlanningTests
         internal short[] Shorts(int rva,int length){short[] v=new short[length];Marshal.Copy(Ptr(rva,checked(length*2)),v,0,length);return v;}
         internal int[] Ints(int rva,int length){int[] v=new int[length];Marshal.Copy(Ptr(rva,checked(length*4)),v,0,length);return v;}
         internal T Function<T>(int rva) where T:class => Marshal.GetDelegateForFunctionPointer(Ptr(rva),typeof(T)) as T;
+        // Unpublished private image only; never touches installed hooks or library.
+        internal void PrivateExecutable(int rva,int length)
+        {uint previous;if(!VirtualProtect(Ptr(rva,length),(UIntPtr)length,0x40,out previous))throw new Exception("Private stub protection");}
         public void Dispose(){VirtualFree(Base,UIntPtr.Zero,0x8000);} // exclusively unpublished private test memory.
     }
 }

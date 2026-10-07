@@ -1,0 +1,41 @@
+[
+  {
+    "Mod": "APIShared",
+    "Version": {
+      "Major": 0,
+      "Minor": 0,
+      "Build": 0,
+      "Revision": 0,
+      "MajorRevision": 0,
+      "MinorRevision": 0
+    },
+    "SHA256": "4CB2E4B2A5B23119E9B784AE3EC60249549E004C93CB5981EC3855909A862DA3",
+    "Match": true
+  },
+  {
+    "Mod": "BugfixesAndQoL",
+    "Version": {
+      "Major": 1,
+      "Minor": 0,
+      "Build": 175,
+      "Revision": 0,
+      "MajorRevision": 0,
+      "MinorRevision": 0
+    },
+    "SHA256": "84088AF9BF60E0CFE9EF88CA2FBF6C72A0946200207D0DB0D86C71D2A225C88C",
+    "Match": true
+  },
+  {
+    "Mod": "EnemyGatePathfindingTest",
+    "Version": {
+      "Major": 0,
+      "Minor": 0,
+      "Build": 0,
+      "Revision": 0,
+      "MajorRevision": 0,
+      "MinorRevision": 0
+    },
+    "SHA256": "35F2A33409116B33E094602672C321749F55BB24CDEB6CCF21D3F7FAA2A9FB79",
+    "Match": true
+  }
+]

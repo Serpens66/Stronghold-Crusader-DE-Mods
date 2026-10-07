@@ -455,7 +455,7 @@ namespace EnemyBridgePathTest
         public void EndSearch(object token, bool completed, int? nativeResult, int effectiveResult, long nativeCalls)
         {
             if (!(token is Search search) || !running) return;
-            if(search.Frame?.Detailed==true||Trace.DetailedNative) Trace.Observe("search-result","eventOp="+(search.Frame?.TraceId??0)+",source="+search.Source+",native="+(nativeResult?.ToString()??"unobserved")+",effective="+effectiveResult+",nativeCalls="+nativeCalls+",completed="+completed);
+            if(search.Frame?.Detailed==true||Trace.DetailedNative) Trace.SearchResult(search.Frame?.TraceId??0,search.Source,nativeResult,effectiveResult,nativeCalls,completed);
             Interlocked.Increment(ref observedSearches);
             Trace.CountEvent(new BridgeDecisionTrace.Arguments(4,search.RawPlayer,nativeResult??int.MinValue,effectiveResult,completed?1:0,0));
             bool route = search.Source == "builder" || search.Source == "reconstructed-builder";

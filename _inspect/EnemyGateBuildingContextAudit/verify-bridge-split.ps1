@@ -24,7 +24,7 @@ foreach ($name in @('X','Y')) {
 foreach ($row in @(@('GameUnit','r_AIState',0x2BC),@('GameUnit','r_AI_ContextTargetBuildingTileId',0x3A4),@('GameUnit','r_AI_LastIssuedTribeCommand',0x398),@('GameUnit','r_ContextTargetTileX',0x3E4),@('GameUnit','r_ContextTargetTileY',0x3E6),@('GameUnit','r_MoatWorkTaskIndex',0x3B4))) {
     if ([Runtime.InteropServices.Marshal]::OffsetOf($assembly.GetType('SHCDESE.Interop.' + $row[0]),$row[1]).ToInt32() -ne $row[2]) { throw 'Native work layout mismatch' }
 }
-foreach ($row in @(@('GameTileManagerAPI','GetTileId'),@('GameTileManagerAPI','IsValidTileId'),@('GameTileManagerAPI','GetTilePropertyFlag'),@('GameTileManagerAPI','GetTileVectorFromId'),@('GameTileManagerAPI','GetMoatWorkTaskIndexLayer'),@('GamePathingManagerAPI','GetPathComponentGrid'),@('GameUnitManagerAPI','GetUnitsAsSpan'),@('GameBuildingManagerAPI','GetBuildingsAsSpan'))) {
+foreach ($row in @(@('GameTribeManagerAPI','TryGetAITribeStorageRole'),@('GameTribeManagerAPI','TryResolveAITribeStorageRole'),@('GameTileManagerAPI','GetTileId'),@('GameTileManagerAPI','IsValidTileId'),@('GameTileManagerAPI','GetTilePropertyFlag'),@('GameTileManagerAPI','GetTileVectorFromId'),@('GameTileManagerAPI','GetMoatWorkTaskIndexLayer'),@('GamePathingManagerAPI','GetPathComponentGrid'),@('GameUnitManagerAPI','GetUnitsAsSpan'),@('GameBuildingManagerAPI','GetBuildingsAsSpan'))) {
     $methods = @($assembly.GetType('SHCDESE.API.' + $row[0],$true).GetMethods() | Where-Object Name -eq $row[1])
     if (!$methods.Count) { throw "Missing installed method $($row[1])" }
     foreach ($method in $methods) { Write-Host ($method.ToString()) }

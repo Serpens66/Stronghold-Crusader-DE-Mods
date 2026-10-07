@@ -23,6 +23,8 @@ namespace BugfixesAndQoL
             IEnemyGatePathPolicy gate = BeginEnemyGateSearch(
                 movementClass, EnemyGateSearchKind.Builder, out object gateScope);
             object bridgeSearch = EnemyBridgeDiagnosticBridge.BeginSearch("builder", movementClass);
+            // TEMP_GATE_ROUTE_ACCEPTANCE
+            object temporaryRoute = BeginTemporaryRouteReport(pathManager);
             int result = 0;
             bool completed = false;
             try
@@ -34,6 +36,7 @@ namespace BugfixesAndQoL
             }
             finally
             {
+                EndTemporaryRouteReport(pathManager, temporaryRoute, completed, result);
                 EndEnemyGateSearch(gate, gateScope, EnemyGateSearchKind.Builder,
                     completed, result > 0);
                 EnemyBridgeDiagnosticBridge.EndSearch(bridgeSearch, completed, result);

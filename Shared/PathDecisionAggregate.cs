@@ -22,6 +22,8 @@ namespace EnemyGatePathfindingTest
     // retained at both ends of the interval, never used to cap or discard events.
     internal sealed class AiGateDecisionAggregate
     {
+        // TEMP_GATE_ROUTE_ACCEPTANCE: suppress generic histories, preserve all raw counts/errors.
+        internal bool TemporaryCountsOnly;
         private readonly object gate = new object();
         private readonly Dictionary<Key, Row> rows = new Dictionary<Key, Row>();
         private readonly Dictionary<TribeKey, Target> lastTargets =
@@ -36,6 +38,8 @@ namespace EnemyGatePathfindingTest
         {
             lock (gate)
             {
+                if (TemporaryCountsOnly && !stage.StartsWith("gate-live-", StringComparison.Ordinal))
+                { observations++; return "temporary-counted-only"; }
                 var key = new StateKey(player, gateId, state, detail);
                 if (!states.TryGetValue(key, out GateStateDefinition definition))
                 {
@@ -87,6 +91,7 @@ namespace EnemyGatePathfindingTest
             lock (gate)
             {
                 observations++;
+                if (TemporaryCountsOnly && stage != "diagnostic-error") return;
                 if (!rows.TryGetValue(key, out Row row))
                 {
                     row = new Row(key, target);

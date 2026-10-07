@@ -26,7 +26,7 @@ string[] runtimeSourceNames =
     "MoatPlacement.cs", "MoatPlacementSearch.cs",
     "MoatModeFlagIntermediaryFactory.cs",
     "MoatSearchKernel.cs", "MoatWorkTargetSelection.cs", "MovementOptionsSnapshot.cs",
-    "MovementPathPublication.cs", "MovementSearchContext.cs", "NativeFormationSlots.cs",
+    "MovementPathPublication.cs", "MovementSearchContext.cs", "TemporaryGateRouteReporting.cs", "NativeFormationSlots.cs",
     "MoveFormationSpacingPolicy.cs", "MoveFormationPreviewPlanner.cs",
     "NativeMovementCadenceResolver.cs", "NativeMovementRecovery.cs", "UnitMovementContext.cs",
     "WeightedMoatPublication.cs", "WeightedMoatRoutePlanner.cs", "BugfixesHookInfrastructure.cs"
@@ -111,7 +111,7 @@ foreach (string name in methods)
 string extracted = "using APIShared; using Iced.Intel; using static Iced.Intel.AssemblerRegisters; using RedBird.Abstractions.Hooks; using RedBird.Abstractions.Hooks.Transaction; using RedBird.X64.Hooks.Transaction; using System; using System.Collections.Generic; using System.Diagnostics; " +
     "using System.Runtime.InteropServices; namespace BugfixesAndQoL { " +
     "internal sealed unsafe partial class FriendlyMoatMovementRuntime {\n" +
-    string.Join("\n", selected.Select(m => m.ToFullString())) + "\n} }";
+    string.Join("\n", selected.Select(m => m.ToFullString())) + "\n// TEMP_GATE_ROUTE_ACCEPTANCE: absent observer oracle in synthetic native-grid fixture.\nprivate object BeginTemporaryRouteReport(IntPtr p) => null; private void EndTemporaryRouteReport(IntPtr p,object t,bool c,int r) {}\n} }";
 string installedExtender = Path.Combine(
     @"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition",
     "BepInEx", "plugins", "000shcdese");
@@ -161,6 +161,8 @@ var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
 if (Assembly.LoadFrom(apiSharedPath).GetType("APIShared.EnemyBridgeDiagnosticBridge", false) == null)
     compilation = compilation.AddSyntaxTrees(CSharpSyntaxTree.ParseText(File.ReadAllText(
         Path.Combine(root, "APIShared", "src", "EnemyBridgeDiagnosticBridge.cs"))));
+if (Assembly.LoadFrom(apiSharedPath).GetType("APIShared.TemporaryGateRouteAcceptanceBridge", false) == null)
+    compilation = compilation.AddSyntaxTrees(CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"APIShared","src","TemporaryGateRouteAcceptanceBridge.cs"))));
 using var output = new MemoryStream();
 var emitted = compilation.Emit(output);
 if (!emitted.Success)
@@ -401,7 +403,9 @@ public static class MovementEmitterContract {
         compilerReferences,
         new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary,
             allowUnsafe: true, optimizationLevel: OptimizationLevel.Release));
-    using var output = new MemoryStream();
+    if (Assembly.LoadFrom(apiSharedPath).GetType("APIShared.TemporaryGateRouteAcceptanceBridge", false) == null)
+    compilation = compilation.AddSyntaxTrees(CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"APIShared","src","TemporaryGateRouteAcceptanceBridge.cs"))));
+using var output = new MemoryStream();
     var result = compilation.Emit(output);
     if (!result.Success)
         throw new Exception(string.Join("\n", result.Diagnostics
@@ -588,6 +592,9 @@ void ValidateRuntimeSources()
     if (Assembly.LoadFrom(apiSharedPath).GetType("APIShared.EnemyBridgeDiagnosticBridge", false) == null)
         sources = sources.Concat(new[] { CSharpSyntaxTree.ParseText(File.ReadAllText(
             Path.Combine(root,"APIShared","src","EnemyBridgeDiagnosticBridge.cs")), path:"EnemyBridgeDiagnosticBridge.cs") }).ToArray();
+    if (Assembly.LoadFrom(apiSharedPath).GetType("APIShared.TemporaryGateRouteAcceptanceBridge", false) == null)
+        sources = sources.Concat(new[]{CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"APIShared","src","TemporaryGateRouteAcceptanceBridge.cs")))}).ToArray();
+    sources = sources.Concat(new[]{CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"Shared","TemporaryPackedRouteInspection.cs")))}).ToArray();
     var check=CSharpCompilation.Create("FriendlyMoatMovementSourceContract",sources,
         paths.Values.Select(p=>MetadataReference.CreateFromFile(p)),
         new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary,allowUnsafe:true));

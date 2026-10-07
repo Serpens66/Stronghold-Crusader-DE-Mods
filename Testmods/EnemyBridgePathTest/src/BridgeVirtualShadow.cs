@@ -35,6 +35,7 @@ namespace EnemyBridgePathTest
         private long queryId,session,revision=-1,identity,captureTicks,computeTicks,captures,coalesced,rejected,completedQueries;
         private long costClock,lastCaptureTicks,lastComputeTicks,lastCaptures,lastCoalesced,lastRejected,lastArtifactBytes,lastArtifactTicks;
         private Captured captured,lastContent;
+        private long decisionCaptureTicks,decisionCaptures,lastDecisionCaptureTicks,lastDecisionCaptures;
         private readonly Dictionary<QueryKey,Preparation[]> preparations=new Dictionary<QueryKey,Preparation[]>();
         private VirtualBridgeWorkspace workspace;
         private long attempted,backgroundDeferred,prepareTicks,searchTicks,formatTicks,comparisonTicks,preparationHits,contentReused,validationTicks,retainedGroupEvictions,unresolvedGroupLinks;
@@ -48,12 +49,52 @@ namespace EnemyBridgePathTest
         private readonly BridgeInputArtifact artifacts;
         private readonly Dictionary<long,Request> groups=new Dictionary<long,Request>();
         private bool keepArtifact,groupArtifact;
+        private Request planningRequest;
+        private Captured decisionCaptured;
+        private long decisionCaptureOp;
+        private BridgeBuildingIndex decisionIndex;
+        private long planningBundleOp,planningBundleDefinition,expectedPlanningFamily;
+        internal void ExpectPlanningFamily(long op) {lock(gate)expectedPlanningFamily=op;}
+        internal object PlanningInputToken {get {lock(gate)return captured?.Token;}}
+        internal bool PreparePlanning(BridgePlanningCapture.Bundle bundle,BridgeBuildingIndex index,bool decisionOnly=false)
+        {
+            lock(gate)
+            {
+                decisionCaptured=null;decisionCaptureOp=bundle.Op;decisionIndex=index;
+                Rebuilt(bundle.Session,bundle.Revision,index,true);
+                var input=decisionCaptured;
+                if(input==null||input.Session!=bundle.Session||input.NativeRevision!=bundle.Revision||input.Dirty!=bundle.Dirty)return false;
+                foreach(var pair in new[]{new KeyValuePair<string,Array>("flags",input.Flags),new KeyValuePair<string,Array>("components",input.Pcl),new KeyValuePair<string,Array>("edges",input.Edges)})
+                {var copy=new byte[Buffer.ByteLength(pair.Value)];Buffer.BlockCopy(pair.Value,0,copy,0,copy.Length);byte[] original=CopiedPlanningBundle.Resolve(bundle,pair.Key);if(copy.Length!=original.Length)return false;for(int i=0;i<copy.Length;i++)if(copy[i]!=original[i])return false;}
+                emit("planning-input-copied","op="+bundle.Op+",dirty="+bundle.Dirty+",nativeRevision="+bundle.Revision+",captureClock="+input.Clock+",decisionCapture=True,pendingTopology="+(bundle.Dirty!=0)+",negativeEligible=False,behavior=unchanged");return true;
+            }
+        }
+        internal bool PlanningCompleted(BridgePlanningCapture.Bundle bundle)
+        {
+            lock(gate)
+            {
+                var request=planningRequest;
+                if(keepArtifact||!bundle.Complete||request==null||request.Parent!=bundle.Op||decisionCaptureOp!=bundle.Op||decisionCaptured==null||decisionCaptured.Session!=bundle.Session)
+                {emit("planning-artifact-unresolved","op="+bundle.Op+",reason=no-matching-historical-keep-input");return false;}
+                request=request.ArtifactCopy();request.Input=decisionCaptured;request.InputReason="own-decision-copy-pending-topology-"+bundle.Dirty;keepArtifact=artifacts.Enqueue(bundle.Session,request.Id,Artifact(request,bundle),2);
+                if(keepArtifact)
+                {
+                    planningBundleOp=bundle.Root;planningBundleDefinition=request.Id;
+                    Request first=null;foreach(var group in groups.Values)if(group.BridgeRelevant&&group.Player==8&&group.Input!=null&&group.PolicyValidAtDecision&&(group.PlanningRoot==planningBundleOp||group.DecisionRoot==planningBundleOp)&&(first==null||group.Clock<first.Clock))first=group;
+                    if(first!=null)groupArtifact=artifacts.Enqueue(first.Input.Session,first.Id,Artifact(first),2);
+                }
+                emit("planning-artifact-selected","op="+bundle.Op+",definition="+request.Id+",complete="+bundle.Complete+",accepted="+keepArtifact+",captureMs="+(bundle.Ticks*1000.0/Stopwatch.Frequency).ToString("F3",System.Globalization.CultureInfo.InvariantCulture));
+                planningRequest=null;
+                return keepArtifact;
+            }
+        }
         internal bool ArtifactPending(long value) {lock(gate)return artifacts.Pending(value);}
         internal void PumpArtifacts() {lock(gate)artifacts.Pump();}
         internal string ArtifactStatus(long value) {lock(gate)return artifacts.Status(value);}
         private sealed class Captured
         {
             internal long Session,Revision,Identity,Clock;
+            internal int Dirty,NativeRevision;
             internal object Token;
             internal VirtualBridgeMap Map;
             internal ushort[] Pcl,X,Y,SpecialIds;
@@ -74,11 +115,13 @@ namespace EnemyBridgePathTest
         {
             internal string Stage,InputReason;
             internal Request Alternative;
-            internal bool Scheduled;
-            internal long Id,Op,Parent,Clock,QuerySourceOp,PlanningRoot,Decision;
+            internal bool Scheduled,BridgeRelevant;
+            internal Request ArtifactCopy() => (Request)MemberwiseClone();
+            internal long Id,Op,Parent,Clock,QuerySourceOp,PlanningRoot,Decision,DecisionRoot;
             internal int Tribe,Phase=-1;
             internal uint TribeGlobal;
-            internal int Player,From,To,Mode,Native,UnknownRecords,DeckCells;
+            internal int Player,From,To,Mode,Native,UnknownRecords,DeckCells,FromX,FromY,ToX,ToY;
+            internal bool XYKnown;
             internal Captured Input;
             internal IEnemyGateRoutePolicySnapshot GatePolicy;
             internal VirtualBridgeQuery Query;
@@ -96,7 +139,7 @@ namespace EnemyBridgePathTest
             string folder=artifactDirectory??System.IO.Path.GetFullPath(System.IO.Path.Combine(System.IO.Path.GetDirectoryName(typeof(BridgeVirtualShadow).Assembly.Location),"..","..","diagnostics","EnemyBridgePathTest",DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fffffff")));
             artifacts=new BridgeInputArtifact(folder,artifactEmit??((_,kind,detail)=>emit(kind,detail)));
         }
-        internal void Begin(long value) {lock(gate) {session=value;revision=-1;captured=null;coordinateX=coordinateY=null;coordinateRows=null;missingInput="awaiting-observed-rebuild";pending.Clear();active=null;repeats.Clear();groups.Clear();preparations.Clear();lastContent=null;workspace=null;keepArtifact=groupArtifact=false;identity++;completedQueries=captures=coalesced=rejected=captureTicks=computeTicks=0;costClock=lastCaptureTicks=lastComputeTicks=lastCaptures=lastCoalesced=lastRejected=0;lastArtifactBytes=artifacts.Bytes;lastArtifactTicks=artifacts.Ticks;attempted=backgroundDeferred=prepareTicks=searchTicks=formatTicks=comparisonTicks=preparationHits=contentReused=validationTicks=retainedGroupEvictions=unresolvedGroupLinks=0;lastPrepareTicks=lastSearchTicks=lastFormatTicks=lastComparisonTicks=lastPreparationHits=lastContentReused=lastDeferred=lastValidationTicks=0;}}
+        internal void Begin(long value) {lock(gate) {session=value;revision=-1;captured=null;coordinateX=coordinateY=null;coordinateRows=null;missingInput="awaiting-observed-rebuild";pending.Clear();active=null;repeats.Clear();groups.Clear();preparations.Clear();lastContent=null;workspace=null;keepArtifact=groupArtifact=false;planningRequest=null;decisionCaptured=null;decisionCaptureOp=0;decisionIndex=null;planningBundleOp=planningBundleDefinition=expectedPlanningFamily=0;identity++;decisionCaptureTicks=decisionCaptures=lastDecisionCaptureTicks=lastDecisionCaptures=0;completedQueries=captures=coalesced=rejected=captureTicks=computeTicks=0;costClock=lastCaptureTicks=lastComputeTicks=lastCaptures=lastCoalesced=lastRejected=0;lastArtifactBytes=artifacts.Bytes;lastArtifactTicks=artifacts.Ticks;attempted=backgroundDeferred=prepareTicks=searchTicks=formatTicks=comparisonTicks=preparationHits=contentReused=validationTicks=retainedGroupEvictions=unresolvedGroupLinks=0;lastPrepareTicks=lastSearchTicks=lastFormatTicks=lastComparisonTicks=lastPreparationHits=lastContentReused=lastDeferred=lastValidationTicks=0;}}
         internal void Invalidate() {lock(gate) {identity++;captured=null;missingInput="identity-or-physical-invalidation-awaiting-rebuild";}}
         internal void End()
         {
@@ -104,16 +147,16 @@ namespace EnemyBridgePathTest
             {
                 FlushRepeats();
                 var cancelled=new System.Text.StringBuilder();if(active!=null)cancelled.Append(active.Id).Append(';');foreach(var request in pending)cancelled.Append(request.Id).Append(';');
-                emit("virtual-shadow-end","shadowSession="+session+",captureCount="+captures+",completedQueries="+completedQueries+",captureMs="+Ms(captureTicks)+",computeMs="+Ms(computeTicks)+",prepareMs="+Ms(prepareTicks)+",searchMs="+Ms(searchTicks)+",formatMs="+Ms(formatTicks)+",validationMs="+Ms(validationTicks)+",retainedGroupEvictions="+retainedGroupEvictions+",unresolvedGroupLinks="+unresolvedGroupLinks+",contentCompareMs="+Ms(comparisonTicks)+",preparationHits="+preparationHits+",contentReused="+contentReused+",attempted="+attempted+",backgroundDeferred="+backgroundDeferred+",comparisonScope=fresh-keeps-selected-targets-proven-bridge-groups,coalesced="+coalesced+",rejected="+rejected+",pending="+(pending.Count+(active==null?0:1))+",pendingOutcome=cancelled-at-session-end,cancelledDefinitions=["+cancelled+"],keepArtifactSelected="+keepArtifact+",bridgeGroupArtifactSelected="+groupArtifact+","+artifacts.Status(session)+",behavior=unchanged");
+                emit("virtual-shadow-end","decisionInputCopies="+decisionCaptures+",decisionInputCopyMs="+Ms(decisionCaptureTicks)+",shadowSession="+session+",captureCount="+captures+",completedQueries="+completedQueries+",captureMs="+Ms(captureTicks)+",computeMs="+Ms(computeTicks)+",prepareMs="+Ms(prepareTicks)+",searchMs="+Ms(searchTicks)+",formatMs="+Ms(formatTicks)+",validationMs="+Ms(validationTicks)+",retainedGroupEvictions="+retainedGroupEvictions+",unresolvedGroupLinks="+unresolvedGroupLinks+",contentCompareMs="+Ms(comparisonTicks)+",preparationHits="+preparationHits+",contentReused="+contentReused+",attempted="+attempted+",backgroundDeferred="+backgroundDeferred+",comparisonScope=fresh-keeps-selected-targets-proven-bridge-groups,coalesced="+coalesced+",rejected="+rejected+",pending="+(pending.Count+(active==null?0:1))+",pendingOutcome=cancelled-at-session-end,cancelledDefinitions=["+cancelled+"],keepArtifactSelected="+keepArtifact+",bridgeGroupArtifactSelected="+groupArtifact+","+artifacts.Status(session)+",behavior=unchanged");
                 session=0;captured=lastContent=null;pending.Clear();groups.Clear();preparations.Clear();repeats.Clear();workspace=null;active=null;
             }
         }
         private static string Ms(long ticks) => (ticks*1000.0/Stopwatch.Frequency).ToString("F3",System.Globalization.CultureInfo.InvariantCulture);
-        internal void Rebuilt(long traceSession,long traceRevision,BridgeBuildingIndex index)
+        internal void Rebuilt(long traceSession,long traceRevision,BridgeBuildingIndex index,bool decisionOnly=false)
         {
             lock(gate)
             {
-                revision=traceRevision;captured=null;missingInput="post-rebuild-capture-unavailable";
+                if(!decisionOnly){revision=traceRevision;captured=null;missingInput="post-rebuild-capture-unavailable";}
                 if(session==0||session!=traceSession)return;
                 long now=Stopwatch.GetTimestamp();
                 long start=now;
@@ -121,11 +164,11 @@ namespace EnemyBridgePathTest
                 {
                     // The audited E49D0 post is the only publication opportunity.
                     int nativeRevision=read(0x60AD6D4);
-                    if(read(0x60AD6CC)!=0)return;
+                    int dirty=read(0x60AD6CC);if(!decisionOnly&&dirty!=0)return;
                     var path=GamePathingManagerAPI.Instance;var tiles=GameTileManagerAPI.Instance;
                     var pcl=path.GetPathComponentGrid();var edges=path.GetPathEdgeMaskGrid();var flags=tiles.GetLogicLayer();
                     if(pcl.Length!=320800||edges.Length!=pcl.Length||flags.Length!=pcl.Length)throw new InvalidOperationException("Packed capacity changed");
-                    var result=new Captured {Session=session,Revision=revision,Identity=identity,Clock=now,Pcl=pcl.ToArray(),Edges=edges.ToArray(),Flags=flags.ToArray(),Anchors=new int[65536]};
+                    var result=new Captured {Session=session,Revision=traceRevision,NativeRevision=nativeRevision,Dirty=dirty,Identity=identity,Clock=now,Pcl=pcl.ToArray(),Edges=edges.ToArray(),Flags=flags.ToArray(),Anchors=new int[65536]};
                     for(int i=0;i<result.Anchors.Length;i++)result.Anchors[i]=-1;
                     if(tiles.MapRowLookupTable==null||tiles.MapColumnLookupTable==null)throw new InvalidOperationException("Packed coordinate view absent");
                     bool sameCoordinates=coordinateRows!=null&&coordinateY.Length==pcl.Length;
@@ -183,15 +226,16 @@ namespace EnemyBridgePathTest
                             BoundaryVerified=b.r_SpriteVariationIndex==0&&deck.Count==15});
                     }
                     result.Decks=decks.ToArray();
-                    if(read(0x60AD6CC)!=0||read(0x60AD6D4)!=nativeRevision||session!=result.Session||identity!=result.Identity)return;
+                    if(read(0x60AD6CC)!=dirty||read(0x60AD6D4)!=nativeRevision||session!=result.Session||identity!=result.Identity)return;
                     result.Map=new VirtualBridgeMap(result.Session,result.Revision,result.Pcl,result.Edges,result.Flags,result.X,result.Y,result.Rows,Array.Empty<VirtualConnection>(),true,result.SpecialIds,result.SpecialKinds,takeOwnership:true);
+                    if(decisionOnly){result.Token=new object();decisionCaptured=result;return;}
                     long comparisonStart=Stopwatch.GetTimestamp();bool sameContent=SameContent(lastContent,result);comparisonTicks+=Stopwatch.GetTimestamp()-comparisonStart;
                     result.Token=sameContent?lastContent.Token:new object();if(sameContent)contentReused++;lastContent=result;
                     captured=result;coordinateRows=result.Rows;coordinateX=result.X;coordinateY=result.Y;missingInput="none";captures++;
                     emit("virtual-topology","revision="+revision+",nativeRevision="+nativeRevision+",captureClock="+now+",tiles="+pcl.Length+",connections="+result.Records.Length+",bridges="+decks.Count+",contentReusedAfterExactCompare="+sameContent+",coordinatesReusedAfterExactCompare="+sameCoordinates+",input=copied-after-rebuild,seedExceptions=copied-signed-107160-records,macroThirdEndpoints=conditional,negativeCutPolicy=unvalidated,behavior=unchanged");
                 }
                 catch(Exception error) {emit("virtual-input-unknown","reason="+error.GetType().Name+",message="+error.Message);}
-                finally {captureTicks+=Stopwatch.GetTimestamp()-start;}
+                finally {if(decisionOnly){decisionCaptureTicks+=Stopwatch.GetTimestamp()-start;decisionCaptures++;}else captureTicks+=Stopwatch.GetTimestamp()-start;}
             }
         }
         internal void Compare(string stage,long op,long parent,int player,int from,int to,int mode,int native)
@@ -239,7 +283,7 @@ namespace EnemyBridgePathTest
                     return; // Promote retained Pre inputs only after stored deck-route evidence.
                 }
                 var key=new QueryKey(stage,player,from,to,mode,native,revision,identity,gatePolicy,policyValid,captured);
-                if(repeats.TryGetValue(key,out Repeat repeat))
+                if((expectedPlanningFamily==0||parent!=expectedPlanningFamily)&&repeats.TryGetValue(key,out Repeat repeat))
                 {
                     coalesced++;repeat.Count++;
                     if(repeat.Parent!=parent&&player==8)
@@ -247,13 +291,13 @@ namespace EnemyBridgePathTest
                     repeat.Parent=parent;repeat.LastOp=op;repeats[key]=repeat;return;
                 }
                 if(repeats.Count>4096) {FlushRepeats();repeats.Clear();}
-                if(pending.Count>=32) {rejected++;if(rejected<=8)emit("virtual-shadow-rejected","op="+op+",player="+player+",stage="+stage+",reason=selected-queue-full");return;}
+                if(pending.Count>=32&&(expectedPlanningFamily==0||parent!=expectedPlanningFamily)) {rejected++;if(rejected<=8)emit("virtual-shadow-rejected","op="+op+",player="+player+",stage="+stage+",reason=selected-queue-full");return;}
                 long definition=++queryId;repeats[key]=new Repeat {Id=definition,Op=op,Parent=parent,Count=1,LastOp=op};
                 var request=new Request {Id=definition,QuerySourceOp=op,Stage=stage,Op=op,Parent=parent,Player=player,From=from,To=to,Mode=mode,Native=native,Clock=Stopwatch.GetTimestamp(),Input=captured,InputReason=captured==null?missingInput:"valid-at-decision",GatePolicy=gatePolicy,PolicyValidAtDecision=policyValid};
                 emit("virtual-shadow-input","definition="+definition+",stage="+stage+",op="+op+",parentOp="+parent+",player="+player+",fromTile="+from+",toTile="+to+",mode="+mode+",observationClock="+request.Clock+",sourceSession="+(captured?.Session??0)+",captureClock="+(captured?.Clock??0)+",revision="+(captured?.Revision??-1)+",captureAvailable="+(captured!=null)+",inputReason="+request.InputReason+",policyValidAtDecision="+request.PolicyValidAtDecision);
                 request.Scheduled=true;
-                if(player==8&&request.Input!=null&&request.PolicyValidAtDecision&&stage=="keep-access"&&!keepArtifact)
-                {keepArtifact=artifacts.Enqueue(session,definition,Artifact(request));}
+                if(player==8&&stage=="keep-access"&&!keepArtifact&&parent==decisionCaptureOp)
+                {planningRequest=request;}
                 if(stage=="keep-access")pending.AddFirst(request);else pending.AddLast(request);
             }
         }
@@ -266,6 +310,7 @@ namespace EnemyBridgePathTest
                 // Event exposes no audited group mode. Report both hypotheses explicitly.
                 Compare(stage+"-mode-hypothesis",op,parent,player,from,to,0,-1);
                 Compare(stage+"-mode-hypothesis",op,parent,player,from,to,1,-1);
+                if(groups.TryGetValue(op,out Request group)){group.XYKnown=true;group.FromX=x;group.FromY=y;group.ToX=targetX;group.ToY=targetY;if(group.Alternative!=null){group.Alternative.XYKnown=true;group.Alternative.FromX=x;group.Alternative.FromY=y;group.Alternative.ToX=targetX;group.Alternative.ToY=targetY;}}
             }
         }
         private static int Tile(Captured input,int x,int y)
@@ -273,26 +318,34 @@ namespace EnemyBridgePathTest
         // Publication changes do not invalidate an immutable historical input.
         // The live checks were made once, at the decision, on the simulation thread.
         private bool Current(Request request) => request.Input!=null&&request.Input.Session==session&&request.PolicyValidAtDecision;
-        internal void GroupContext(long op,int tribe,uint global,long root,long decision,int phase)
+        internal void GroupContext(long op,int tribe,uint global,long root,long decision,int phase,long decisionRoot=0)
         {
             lock(gate)if(groups.TryGetValue(op,out Request request))
-            {request.Tribe=tribe;request.TribeGlobal=global;request.PlanningRoot=root;request.Decision=decision;request.Phase=phase;if(request.Alternative!=null) {request.Alternative.Tribe=tribe;request.Alternative.TribeGlobal=global;request.Alternative.PlanningRoot=root;request.Alternative.Decision=decision;request.Alternative.Phase=phase;}}
+            {request.Tribe=tribe;request.TribeGlobal=global;request.PlanningRoot=root;request.Decision=decision;request.DecisionRoot=decisionRoot;request.Phase=phase;if(request.Alternative!=null) {request.Alternative.Tribe=tribe;request.Alternative.TribeGlobal=global;request.Alternative.PlanningRoot=root;request.Alternative.Decision=decision;request.Alternative.DecisionRoot=decisionRoot;request.Alternative.Phase=phase;}}
         }
         internal void BridgeGroup(long groupOp,int player)
         {
             lock(gate)
             {
                 if(player<1||player>8)return;
-                if(!groups.TryGetValue(groupOp,out Request request)||request.Input==null||!request.PolicyValidAtDecision)
+                groups.TryGetValue(groupOp,out Request request);
+                if(request!=null&&request.Input==null&&player==8&&keepArtifact&&!groupArtifact&&decisionIndex!=null&&(request.PlanningRoot==planningBundleOp||request.DecisionRoot==planningBundleOp))
+                {
+                    var planInput=decisionCaptured;decisionCaptured=null;Rebuilt(session,revision,decisionIndex,true);var groupInput=decisionCaptured;decisionCaptured=planInput;
+                    if(groupInput!=null){request.Input=groupInput;request.InputReason="synchronous-stored-path-observation-not-command-pre";if(request.XYKnown){request.From=Tile(groupInput,request.FromX,request.FromY);request.To=Tile(groupInput,request.ToX,request.ToY);}if(request.Alternative!=null){request.Alternative.Input=groupInput;request.Alternative.InputReason=request.InputReason;request.Alternative.From=request.From;request.Alternative.To=request.To;}}
+                }
+                if(request==null||request.Input==null||!request.PolicyValidAtDecision)
                 {unresolvedGroupLinks++;if(unresolvedGroupLinks<=8)emit("virtual-group-unresolved","op="+groupOp+",player="+player+",reason="+(request==null?"no-retained-group-pre":request.Input==null?request.InputReason:"policy-stale-at-decision"));return;}
+                request.BridgeRelevant=true;
                 if(!Promote(request))return;
                 if(request.Alternative!=null)Promote(request.Alternative);
-                if(player==8&&!groupArtifact)groupArtifact=artifacts.Enqueue(request.Input.Session,request.Id,Artifact(request));
+                if(player==8&&!groupArtifact&&keepArtifact&&planningBundleOp!=0&&(request.PlanningRoot==planningBundleOp||request.DecisionRoot==planningBundleOp))groupArtifact=artifacts.Enqueue(request.Input.Session,request.Id,Artifact(request),2);
             }
         }
         private bool Promote(Request request)
         {
             if(request.Scheduled)return true;
+            if(request.Input.Dirty!=0){request.Id=++queryId;request.Scheduled=true;emit("virtual-shadow-deferred","definition="+request.Id+",op="+request.Op+",reason=pending-topology-at-own-capture,dirty="+request.Input.Dirty+",captureClock="+request.Input.Clock+",negativeEligible=False,artifactOnly=True,behavior=unchanged");return true;}
             var key=new QueryKey(request.Stage,request.Player,request.From,request.To,request.Mode,request.Native,request.Input.Revision,request.Input.Identity,request.GatePolicy,request.PolicyValidAtDecision,request.Input);
             if(repeats.TryGetValue(key,out Repeat repeat))
             {
@@ -305,7 +358,7 @@ namespace EnemyBridgePathTest
             request.Id=++queryId;request.Scheduled=true;
             repeats[key]=new Repeat {Id=request.Id,Op=request.Op,Parent=request.Parent,Count=1,LastOp=request.Op};
             emit("virtual-shadow-input","definition="+request.Id+",stage="+request.Stage+",op="+request.Op+",parentOp="+request.Parent+",player="+request.Player+",fromTile="+request.From+",toTile="+request.To+",mode="+request.Mode+",observationClock="+request.Clock+",sourceSession="+request.Input.Session+",captureClock="+request.Input.Clock+",revision="+request.Input.Revision+",captureAvailable=True,inputReason="+request.InputReason+",policyValidAtDecision="+request.PolicyValidAtDecision+",selection=stored-deck-route,planningRoot="+request.PlanningRoot+",decision="+request.Decision+",phase="+request.Phase+",tribe="+request.Tribe+",tribeGlobal="+request.TribeGlobal);
-            pending.AddFirst(request);return true;
+            pending.AddLast(request);return true;
         }
         private void Prepare(Request request)
         {
@@ -414,10 +467,13 @@ namespace EnemyBridgePathTest
                 finally {computeTicks+=Stopwatch.GetTimestamp()-start;}
             }
         }
-        private IEnumerable<byte[]> Artifact(Request request)
+        private IEnumerable<byte[]> Artifact(Request request,BridgePlanningCapture.Bundle planning=null)
+        {return ArtifactCore(request.ArtifactCopy(),planning,planningBundleDefinition,planningBundleOp);}
+        private IEnumerable<byte[]> ArtifactCore(Request request,BridgePlanningCapture.Bundle planning,long bundleDefinition,long bundleRoot)
         {
             var input=request.Input;
-            yield return BridgeInputArtifact.Header("nativeHash="+BridgeNativeDefinition.NativeHash+"\nbackendHash="+BridgeNativeDefinition.BackendHash+"\nsession="+input.Session+"\nrevision="+input.Revision+"\nidentity="+input.Identity+"\ncaptureClock="+input.Clock+"\nobservationClock="+request.Clock+"\ndefinition="+request.Id+"\nop="+request.Op+"\nquerySourceOp="+request.QuerySourceOp+"\nparent="+request.Parent+"\ntribe="+request.Tribe+"\ntribeGlobal="+request.TribeGlobal+"\nplanningRoot="+request.PlanningRoot+"\ndecision="+request.Decision+"\nphase="+request.Phase+"\nstage="+request.Stage+"\nplayer="+request.Player+"\nfrom="+request.From+"\nto="+request.To+"\nmode="+request.Mode+"\nnativeBoolean="+request.Native+"\nconnectionLimit="+input.ConnectionLimit+"\npolicyValidAtDecision="+request.PolicyValidAtDecision+"\nnativeDirection="+(request.Stage=="keep-access"?"target-to-attacker":"not-observed")+"\nmovementDirection=attacker-to-target\nvariants=none,only703,all-hostile\ngateFilter="+(request.GatePolicy==null?"absent":"immutable-player-direction-mask"));
+            yield return BridgeInputArtifact.Header((planning==null?"planningBundleDefinition="+bundleDefinition+"\nplanningBundleRoot="+bundleRoot+"\nplanningAssociation="+(request.PlanningRoot==bundleRoot?"same-parent-root":request.DecisionRoot==bundleRoot?"retained-decision-root":"unresolved")+"\n":planning.Metadata+"\n")+"nativeHash="+BridgeNativeDefinition.NativeHash+"\nbackendHash="+BridgeNativeDefinition.BackendHash+"\nsession="+input.Session+"\nrevision="+input.Revision+"\nnativeRevision="+input.NativeRevision+"\ndirty="+input.Dirty+"\nnegativeEligible=False\ninputTiming="+request.InputReason+"\nidentity="+input.Identity+"\ncaptureClock="+input.Clock+"\nobservationClock="+request.Clock+"\ndefinition="+request.Id+"\nop="+request.Op+"\nquerySourceOp="+request.QuerySourceOp+"\nparent="+request.Parent+"\ntribe="+request.Tribe+"\ntribeGlobal="+request.TribeGlobal+"\nplanningRoot="+request.PlanningRoot+"\ndecision="+request.Decision+"\ndecisionRoot="+request.DecisionRoot+"\nphase="+request.Phase+"\nstage="+request.Stage+"\nplayer="+request.Player+"\nfrom="+request.From+"\nto="+request.To+"\nmode="+request.Mode+"\nnativeBoolean="+request.Native+"\nconnectionLimit="+input.ConnectionLimit+"\npolicyValidAtDecision="+request.PolicyValidAtDecision+"\nnativeDirection="+(request.Stage=="keep-access"?"target-to-attacker":"not-observed")+"\nmovementDirection=attacker-to-target\nvariants=none,only703,all-hostile\ngateFilter="+(request.GatePolicy==null?"absent":"immutable-player-direction-mask"),2);
+            if(planning!=null)foreach(var block in planning.Serialize())yield return block;
             foreach(var block in BridgeInputArtifact.Section("components",input.Pcl,2))yield return block;
             foreach(var block in BridgeInputArtifact.Section("edges",input.Edges,1))yield return block;
             foreach(var block in BridgeInputArtifact.Section("flags",input.Flags,4))yield return block;
@@ -476,8 +532,8 @@ namespace EnemyBridgePathTest
                 long now=Stopwatch.GetTimestamp();if(costClock==0) {costClock=now;return;}
                 double seconds=(now-costClock)/(double)Stopwatch.Frequency;if(seconds<10)return;
                 FlushRepeats();
-                emit("interval-virtual-cost","seconds="+seconds.ToString("F3",System.Globalization.CultureInfo.InvariantCulture)+",captures="+(captures-lastCaptures)+",captureMs="+Ms(captureTicks-lastCaptureTicks)+",computeMs="+Ms(computeTicks-lastComputeTicks)+",prepareMs="+Ms(prepareTicks-lastPrepareTicks)+",searchMs="+Ms(searchTicks-lastSearchTicks)+",formatMs="+Ms(formatTicks-lastFormatTicks)+",validationMs="+Ms(validationTicks-lastValidationTicks)+",contentCompareMs="+Ms(comparisonTicks-lastComparisonTicks)+",preparationHits="+(preparationHits-lastPreparationHits)+",contentReused="+(contentReused-lastContentReused)+",backgroundDeferred="+(backgroundDeferred-lastDeferred)+",coalesced="+(coalesced-lastCoalesced)+",rejected="+(rejected-lastRejected)+",pending="+(pending.Count+(active==null?0:1))+",activeRevision="+revision+",retainedSnapshot="+(captured!=null)+",artifactBytes="+(artifacts.Bytes-lastArtifactBytes)+",formatScope=result-control-records,computeIncludesPrepareSearchFormat=True,captureIncludesContentCompare=True,artifactWriteMs="+Ms(artifacts.Ticks-lastArtifactTicks));
-                costClock=now;lastValidationTicks=validationTicks;lastPrepareTicks=prepareTicks;lastSearchTicks=searchTicks;lastFormatTicks=formatTicks;lastComparisonTicks=comparisonTicks;lastPreparationHits=preparationHits;lastContentReused=contentReused;lastDeferred=backgroundDeferred;lastCaptures=captures;lastCaptureTicks=captureTicks;lastComputeTicks=computeTicks;lastCoalesced=coalesced;lastRejected=rejected;lastArtifactBytes=artifacts.Bytes;lastArtifactTicks=artifacts.Ticks;
+                emit("interval-virtual-cost","decisionInputCopies="+(decisionCaptures-lastDecisionCaptures)+",decisionInputCopyMs="+Ms(decisionCaptureTicks-lastDecisionCaptureTicks)+",seconds="+seconds.ToString("F3",System.Globalization.CultureInfo.InvariantCulture)+",captures="+(captures-lastCaptures)+",captureMs="+Ms(captureTicks-lastCaptureTicks)+",computeMs="+Ms(computeTicks-lastComputeTicks)+",prepareMs="+Ms(prepareTicks-lastPrepareTicks)+",searchMs="+Ms(searchTicks-lastSearchTicks)+",formatMs="+Ms(formatTicks-lastFormatTicks)+",validationMs="+Ms(validationTicks-lastValidationTicks)+",contentCompareMs="+Ms(comparisonTicks-lastComparisonTicks)+",preparationHits="+(preparationHits-lastPreparationHits)+",contentReused="+(contentReused-lastContentReused)+",backgroundDeferred="+(backgroundDeferred-lastDeferred)+",coalesced="+(coalesced-lastCoalesced)+",rejected="+(rejected-lastRejected)+",pending="+(pending.Count+(active==null?0:1))+",activeRevision="+revision+",retainedSnapshot="+(captured!=null)+",artifactBytes="+(artifacts.Bytes-lastArtifactBytes)+",formatScope=result-control-records,computeIncludesPrepareSearchFormat=True,captureIncludesContentCompare=True,artifactWriteMs="+Ms(artifacts.Ticks-lastArtifactTicks));
+                costClock=now;lastDecisionCaptures=decisionCaptures;lastDecisionCaptureTicks=decisionCaptureTicks;lastValidationTicks=validationTicks;lastPrepareTicks=prepareTicks;lastSearchTicks=searchTicks;lastFormatTicks=formatTicks;lastComparisonTicks=comparisonTicks;lastPreparationHits=preparationHits;lastContentReused=contentReused;lastDeferred=backgroundDeferred;lastCaptures=captures;lastCaptureTicks=captureTicks;lastComputeTicks=computeTicks;lastCoalesced=coalesced;lastRejected=rejected;lastArtifactBytes=artifacts.Bytes;lastArtifactTicks=artifacts.Ticks;
             }
         }
         private static long Sum(long[] values) {long sum=0;foreach(long value in values)sum+=value;return sum;}

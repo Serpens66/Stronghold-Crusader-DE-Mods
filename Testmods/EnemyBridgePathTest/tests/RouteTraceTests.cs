@@ -101,6 +101,14 @@ namespace EnemyBridgePathTest
             trace.FlushRegions();while(trace.Pending>0)trace.Drain();
             Check(Shared.DebugLogHelper.Recent.Any(x=>x.Contains("kind=decision-state,")&&x.Contains("/102/102/1;")&&x.Contains("consumedPlan=[0/6/1/232127/0/0]")),"native/effective result and consumed phase are retained separately");
         }
+        private static bool CommandPayload(long op,params string[] terms)
+        {
+            var lines=Shared.DebugLogHelper.Recent;
+            foreach(var line in lines.Where(v=>v.Contains("kind=command-frame-batch,")))
+            foreach(var row in line.Split(new[]{"rows=["},StringSplitOptions.None)[1].Split(']')[0].Split(';'))
+            {var v=row.Split('/');if(v.Length!=12||v[8]!=op.ToString())continue;string definition=v[11];if(lines.Any(s=>s.Contains("kind=text-definition,")&&s.Contains("definition="+definition+",")&&s.Contains("category=command-payload,")&&terms.All(s.Contains)))return true;}
+            return false;
+        }
         private static void PromotedCommandFrames()
         {
             var trace=new BridgeDecisionTrace(null,_=>default,()=>1);trace.StartSession(779);
@@ -119,8 +127,8 @@ namespace EnemyBridgePathTest
             Check((bool)ft.GetField("Detailed",flags).GetValue(group)&&(bool)ft.GetField("Detailed",flags).GetValue(unit)&&root.Detailed,"bridge route promotes frozen unit and group frames plus quiet native parent");
             var pop=typeof(BridgeDiagnostics).GetMethod("Pop",flags);pop.Invoke(diagnostics,new object[]{"unit",1143,1L});pop.Invoke(diagnostics,new object[]{"move",4364,1L});trace.Exit(root,true,null,IntPtr.Zero);
             trace.FlushRegions();while(trace.Pending>0)trace.Drain();
-            Check(Shared.DebugLogHelper.Recent.Any(x=>x.Contains("op=210,")&&x.Contains("promotion=bridge-route-observed")&&x.Contains("entryData=retained-pre-fields")),"retained input is explicit, no fabricated entry snapshot");
-            Check(Shared.DebugLogHelper.Recent.Any(x=>x.Contains("op=210,")&&x.Contains("stage=same-pcl-with-no-region-call")),"promoted group return distinguishes equality from a positive query");
+            Check(CommandPayload(210,"promotion=bridge-route-observed","entryData=retained-pre-fields"),"retained input is explicit, no fabricated entry snapshot");
+            Check(CommandPayload(210,"stage=same-pcl-with-no-region-call"),"promoted group return distinguishes equality from a positive query");
         }
         private static void CommandAgeAndCursor()
         {

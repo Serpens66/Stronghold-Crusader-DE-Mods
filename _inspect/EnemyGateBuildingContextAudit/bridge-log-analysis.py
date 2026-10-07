@@ -34,8 +34,35 @@ def analyze(raw):
     # Bounded lossless native rows preserve their original envelopes; the batch
     # envelope is delivery timing only. Missing/truncated rows remain incomplete.
     wire_transport=list(records)
+    command_payloads={f['definition']:f['text'][1:-1] for _,f in records if f['kind']=='text-definition' and f.get('category')=='command-payload'}
+    search_sources={f['definition']:f['text'][1:-1] for _,f in records if f['kind']=='text-definition' and f.get('category')=='search-source'}
     unbatched=[]
     for line,f in records:
+        if f['kind']=='search-result-batch':
+            for row in f.get('rows','[]').strip('[]').split(';'):
+                if not row:continue
+                try:
+                    v=row.split('/');assert len(v)==15 and v[10] in ('0','1') and v[14] in ('0','1')
+                    for n in v:int(n)
+                    assert v[9] in search_sources
+                    item=dict(zip(('seq','session','thread','tick','clock','physical','topology'),v[:7]))
+                    item.update(kind='search-result',eventOp=v[7],parent=v[8],source=search_sources[v[9]],native=v[11] if v[10]=='1' else 'unobserved',effective=v[12],nativeCalls=v[13],completed='True' if v[14]=='1' else 'False')
+                    unbatched.append((line,item))
+                except (AssertionError,ValueError,KeyError):torn.append(line)
+            continue
+        if f['kind']=='command-frame-batch':
+            for row in f.get('rows','[]').strip('[]').split(';'):
+                if not row:continue
+                try:
+                    v=row.split('/');assert len(v)==12 and v[7] in ('0','1')
+                    for n in v:int(n)
+                    assert v[11] in command_payloads
+                    item=dict(zip(('seq','session','thread','tick','clock','physical','topology'),v[:7]))
+                    item.update(kind='command-pre' if v[7]=='0' else 'command-post',op=v[8],parentEvent=v[9],commandContext=v[10])
+                    for key,value in fields(command_payloads[v[11]]).items():item.setdefault(key,value)
+                    unbatched.append((line,item))
+                except (AssertionError,ValueError,KeyError):torn.append(line)
+            continue
         if f['kind']!='native-frame-batch':unbatched.append((line,f));continue
         for row in f.get('rows','[]').strip('[]').split(';'):
             if not row:continue

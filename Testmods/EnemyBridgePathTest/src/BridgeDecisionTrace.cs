@@ -76,6 +76,8 @@ namespace EnemyBridgePathTest
                 return value.Id;
             }
         }
+        private long DecisionRootFor(int player,long id)
+        {if(player<1||player>8||id==0)return 0;lock(decisionGate){var value=decisions[player];return value!=null&&value.Id==id&&value.Session==session?value.Root:0;}}
         private static bool SameAccesses(AccessObservation[] prior,List<AccessObservation> current)
         {
             if(prior==null||prior.Length!=current.Count)return false;
@@ -218,6 +220,9 @@ namespace EnemyBridgePathTest
         private BridgeRouteTrace.Bridge[] routeGeometry=Array.Empty<BridgeRouteTrace.Bridge>();
         private long routeGeometryBuild=-1;
         private readonly Dictionary<string,long> textDefinitions=new Dictionary<string,long>(StringComparer.Ordinal);
+        private readonly StringBuilder commandRows=new StringBuilder();
+        private int commandRowCount;
+        private readonly StringBuilder searchRows=new StringBuilder();private int searchRowCount;
         private readonly Dictionary<CommandContext,long> commandContexts=new Dictionary<CommandContext,long>();
         private long commandContextId;
         private readonly struct CommandContext : IEquatable<CommandContext>
@@ -260,15 +265,23 @@ namespace EnemyBridgePathTest
         internal BridgeDecisionTrace(ManualLogSource log,Func<int,AttackStamp> testStamp=null,Func<long> testCapture=null,Func<int,int> testRead=null,Func<int,IntPtr> testUnit=null)
         {this.log=log;VirtualShadow=testCapture==null?new BridgeVirtualShadow(Observe,Read,ArtifactObservation):null;this.testStamp=testStamp;this.testCapture=testCapture;this.testRead=testRead;this.testUnit=testUnit;
             Routes=new BridgeRouteTrace((kind,detail)=>CriticalObservation(kind,detail),GetRouteGeometry,LiveState,evidence:RouteEvidence,unboundChange:UnboundRouteChange);}
-        internal void SetNative(IntPtr value,int length) {native=value;nativeLength=length;}
+        private BridgePlanningCapture planningCapture;
+        internal void SetNative(IntPtr value,int length)
+        {
+            native=value;nativeLength=length;
+            planningCapture=new BridgePlanningCapture(length,(r,n)=>{if(r<0||n<0||(long)r+n>nativeLength)throw new InvalidOperationException("Planning copy outside module");var bytes=new byte[n];Marshal.Copy(IntPtr.Add(native,r),bytes,0,n);return bytes;},()=>planningMapIdentity, bundle=>{if(VirtualShadow==null||!VirtualShadow.PlanningCompleted(bundle))planningCapture?.PublicationRejected(bundle.Op,"no-matching-artifact-input");},Observe,requireMilitaryRoot:true,prepare:bundle=>VirtualShadow!=null&&VirtualShadow.PreparePlanning(bundle,buildingIndex));
+        }
         private string nativeUnavailable="initialization-not-completed";
         private long sessionNativeCalls,sessionNativeExits;
+        private object planningMapIdentity;
         internal void MarkInstalled(int count) {installed=count;nativeUnavailable="none";}
         internal void MarkNativeUnavailable(string reason) {nativeUnavailable=reason.Replace(',',';').Replace('\r',' ').Replace('\n',' ');}
         internal string NativeReadiness => "installedEntries="+installed+",expectedEntries="+BridgeNativeDefinition.Sites.Length+",nativeReady="+(installed==BridgeNativeDefinition.Sites.Length)+",nativeCallsObserved="+(Interlocked.Read(ref sessionNativeCalls)!=0)+",shadowStatus="+(installed==BridgeNativeDefinition.Sites.Length?"waiting-for-observed-rebuild-and-fresh-decision":"unavailable")+",reason=["+nativeUnavailable+"]";
         internal bool InsideNative => current!=null;
         private Scope CurrentScope => current!=null&&current.Session==Volatile.Read(ref session)?current:null;
         private long CurrentId => CurrentScope?.Id??0;
+        private static bool SuitablePlanningCapture(Scope scope){for(var value=scope.Parent;value!=null&&value.Session==scope.Session;value=value.Parent)if(value.Site.Rva==0x3C2E0)return value.PrePlan[1]==4;return false;}
+        private static long PlanningRootId(Scope scope) {for(var value=scope.Parent;value!=null&&value.Session==scope.Session;value=value.Parent)if(value.Site.Rva==0x3C2E0)return value.PlanningPlayer==scope.PlanningPlayer?value.Id:0;return 0;}
         private static long ParentId(Scope scope) => scope.Parent!=null&&scope.Parent.Session==scope.Session?scope.Parent.Id:0;
         internal bool DetailedNative => CurrentScope!=null&&CurrentScope.Detailed&&CurrentScope.Site.Rva!=0xE49D0;
         private bool FreshDecisionContext
@@ -288,23 +301,23 @@ namespace EnemyBridgePathTest
         }
         internal void StartSession(long value)
         {
-            Routes.Flush();FlushTableReferences();
+            Routes.Flush();FlushCommandRows();FlushSearchRows();FlushTableReferences();
             lock(attackGate) attacks.Clear();
             lock(regionGate) {regionCounts.Clear();regionIds.Clear();backgroundCounts.Clear();}
             lock(attackGate) {plans.Clear();commands.Clear();accessInputs.Clear();accessResults.Clear();}
             lock(textGate)commandContexts.Clear();
             lock(regionGate) eventCounts.Clear();
             lock(captureGate) {tableImages.Clear();bridgeProgress.Clear();buildingIndex.Invalidate();}
-            Interlocked.Exchange(ref session,value);
+            planningMapIdentity=new object();Interlocked.Exchange(ref session,value);
             Interlocked.Exchange(ref sessionNativeCalls,0);Interlocked.Exchange(ref sessionNativeExits,0);
-            VirtualShadow?.Begin(value);Routes.Begin(value);routeGeometryBuild=-1;lock(decisionGate)Array.Clear(decisions,0,decisions.Length);
+            VirtualShadow?.Begin(value);planningCapture?.Begin(value);Routes.Begin(value);routeGeometryBuild=-1;lock(decisionGate)Array.Clear(decisions,0,decisions.Length);
             Array.Clear(lastPlayerPlan,0,9);Array.Clear(lastPlayerPlanTopology,0,9);Array.Clear(lastPlayerPlanPhysical,0,9);
             freshPlans=followingCommands=0;lastPlanPhysical=lastPlanTopology=-1;
             // Actual cell/index reads wait for the next simulation callback, never run on the render thread.
         }
         internal void End()
         {
-            VirtualShadow?.End();Routes.End();FlushRegions();
+            planningMapIdentity=null;planningCapture?.End();VirtualShadow?.End();Routes.End();FlushRegions();
             var currentDecisions=new long[9];lock(decisionGate)for(int player=1;player<=8;player++)currentDecisions[player]=decisions[player]?.Id??0;
             lock(captureGate)foreach(var pair in bridgeProgress)for(int player=1;player<=8;player++)
             {
@@ -334,7 +347,7 @@ namespace EnemyBridgePathTest
             foreach(var site in BridgeNativeDefinition.Sites) sites.Append(site.Name).Append(':').Append(Interlocked.Read(ref siteCalls[site.Index])).Append(';');
             return "entered="+capturedEntered+",exited="+capturedExited+",active="+capturedActive+",balanced="+(capturedEntered==capturedExited+capturedActive)+
                 ",incompleteCalls="+incompleteCalls+",captureFailures="+failures+",overflow="+overflow+",backgroundOverflow="+backgroundOverflow+",traceComplete="+(failures==0&&incompleteCalls==0&&overflow==0&&backgroundOverflow==0)+",deliveryPending="+(queued!=0)+",installedEntries="+installed+",expectedEntries="+BridgeNativeDefinition.Sites.Length+",sessionNativeCalls="+Interlocked.Read(ref sessionNativeCalls)+",sessionNativeExits="+Interlocked.Read(ref sessionNativeExits)+",nativeCoverageComplete="+(installed==BridgeNativeDefinition.Sites.Length&&Interlocked.Read(ref sessionNativeCalls)>0&&Interlocked.Read(ref sessionNativeCalls)==Interlocked.Read(ref sessionNativeExits)&&capturedEntered==capturedExited&&capturedActive==0&&failures==0&&incompleteCalls==0)+",nativeUnavailable=["+nativeUnavailable+"]"+
-                ",physicalGeneration="+physical+",topologyGeneration="+topology+",fullCaptures="+captures+",indexBuilds="+buildingIndex.Builds+",indexBuildMs="+(buildingIndex.BuildTicks*1000.0/Stopwatch.Frequency).ToString("F3")+
+                ","+(planningCapture?.Status??"planningCapture=unavailable")+",physicalGeneration="+physical+",topologyGeneration="+topology+",fullCaptures="+captures+",indexBuilds="+buildingIndex.Builds+",indexBuildMs="+(buildingIndex.BuildTicks*1000.0/Stopwatch.Frequency).ToString("F3")+
                 ",coalesced="+coalesced+",invalidIds="+invalidIds+",pooledScopesCreated="+pooledScopes+",queue="+queued+
                 ",commandPre="+commandPre+",commandPost="+commandPost+",detailedCommands="+detailedCommands+",backgroundCalls="+backgroundCalls+
                 ",deliveryErrors="+deliveryErrors+",outputBytes="+outputBytes+",outputRecords="+outputRecords+",captureMs="+(captureTicks*1000.0/Stopwatch.Frequency).ToString("F3")+
@@ -355,6 +368,8 @@ namespace EnemyBridgePathTest
             current=scope;lock(counterGate) {entered++;active++;} Interlocked.Increment(ref siteCalls[site.Index]);Interlocked.Increment(ref sessionNativeCalls);
             try
             {
+                planningCapture?.Observe(site.Rva,false,run,scope.Id,ParentId(scope),scope.PlanningPlayer,a,b,c,d,true,PlanningRootId(scope),SuitablePlanningCapture(scope));
+                if(site.Rva==0x2D250)VirtualShadow?.ExpectPlanningFamily(planningCapture?.ActiveFamily??0);
                 if(site.Rva==0x11A980)
                 {
                     scope.PreStamp=ReadStamp(a);
@@ -416,6 +431,9 @@ namespace EnemyBridgePathTest
             if(scope==null) return;
             try
             {
+                if(scope.Site.Rva==0x3C2E0){var consumed=PlanStamp(scope.Args[0]);planningCapture?.Outcome(scope.Session,scope.Id,new[]{scope.PrePlan[0],scope.PrePlan[1],scope.PrePlan[2],scope.PrePlan[3],scope.PrePlan[4],scope.PrePlan[5]},new[]{consumed[0],consumed[1],consumed[2],consumed[3],consumed[4],consumed[5]});}
+                planningCapture?.Observe(scope.Site.Rva,true,scope.Session,scope.Id,ParentId(scope),scope.PlanningPlayer,scope.Args[0],scope.Args[1],scope.Args[2],scope.Args[3],completed,PlanningRootId(scope));
+                if(scope.Site.Rva==0x2D250)VirtualShadow?.ExpectPlanningFamily(0);
                 if(!completed)Interlocked.Increment(ref incompleteCalls);
                 if(scope.Session!=Volatile.Read(ref session)) {Emit("native-session-boundary","op="+scope.Id+",preSession="+scope.Session+",postSession="+session+",nativeCalls=1,completed="+completed);return;}
                 if(completed&&(scope.Site.Rva==0x64460||scope.Site.Rva==0x645C0)) {Interlocked.Increment(ref physical);VirtualShadow?.Invalidate();Routes.ForceReobserve();lock(captureGate) {if(bridgeProgress.TryGetValue(scope.Args[0],out BridgeProgress bridge)) {bridge.Pending=true;bridge.Changes++;}}Emit("comparison-marker","stage=physical-call-completed,building="+scope.Args[0]+",action="+scope.Site.Name+",settledTopology=false");}
@@ -439,7 +457,7 @@ namespace EnemyBridgePathTest
                     VirtualShadow?.Compare("keep-access",scope.Id,ParentId(scope),scope.Args[0],scope.AccessInput[2],scope.AccessInput[3],scope.Site.Rva==0xCF400?1:0,unchecked((int)result.Value));
                     CountEvent(new Arguments(5,scope.Args[0],scope.Args[1],scope.Site.Rva==0xCF400?1:0,unchecked((int)result.Value),unchecked((int)(result.Value>>32))));
                     Scope root=scope.Parent;while(root!=null&&root.Session==scope.Session&&root.Site.Rva!=0x3C2E0)root=root.Parent;
-                    if(root!=null&&root.Session==scope.Session)root.Accesses.Add(new AccessObservation(scope,result.Value));
+                    if(root!=null&&root.Session==scope.Session){root.Accesses.Add(new AccessObservation(scope,result.Value));planningCapture?.Access(scope.Session,root.Id,scope.Id,scope.Site.Rva==0xCF400?1:0,scope.AccessNative,scope.AccessEffective,scope.AccessRegionObserved,result.Value,new[]{scope.AccessInput[0],scope.AccessInput[1],scope.AccessInput[2],scope.AccessInput[3],scope.AccessInput[4],scope.AccessInput[5]});}
                     int key=AccessKey(scope);bool changed;
                     lock(attackGate) {changed=!accessResults.TryGetValue(key,out long old)||old!=result.Value;accessResults[key]=result.Value;}
                     if(changed&&!scope.Detailed)Entry(scope,false);
@@ -478,7 +496,8 @@ namespace EnemyBridgePathTest
             VirtualShadow?.CompareXY("group-formation",op,parent,player,x,y,targetX,targetY);
             Scope root=CurrentScope;while(root!=null&&root.Site.Rva!=0x3C2E0)root=root.Parent;
             bool linked=root!=null&&root.PlanningPlayer==player;
-            VirtualShadow?.GroupContext(op,tribe,global,linked?root.Id:0,linked?DecisionFor(player,root.PrePlan):0,linked?root.PrePlan[1]:-1);
+            long decision=linked?DecisionFor(player,root.PrePlan):0;
+            VirtualShadow?.GroupContext(op,tribe,global,linked?root.Id:0,decision,linked?root.PrePlan[1]:-1,DecisionRootFor(player,decision));
         }
         internal bool BindRoute(int unit,uint global,int player,int tribe,long operation,long parentEvent,bool changed)
         {
@@ -595,9 +614,22 @@ namespace EnemyBridgePathTest
                         Emit("command-context","definition="+definition+",values=["+key+"],priorLink=chronological-not-proven-causality");
                     }
                 }
-                Enqueue(new Record {Kind=kind,Detail=detail,CommandContext=definition});
+                // Command prefix is emitted by our own frozen Pre/Post writer, in this exact order.
+                int first=detail.IndexOf(',');int second=first<0?-1:detail.IndexOf(',',first+1);
+                if(first<0||second<0||!detail.StartsWith("op=",StringComparison.Ordinal)||!detail.Substring(first+1).StartsWith("parentEvent=",StringComparison.Ordinal)){Enqueue(new Record {Kind=kind,Detail=detail,CommandContext=definition});return;}
+                long op=long.Parse(detail.Substring(3,first-3),System.Globalization.CultureInfo.InvariantCulture),parent=long.Parse(detail.Substring(first+13,second-first-13),System.Globalization.CultureInfo.InvariantCulture);
+                long payload=TextDefinition("command-payload",detail.Substring(second+1));
+                var record=StampRecord(new Record());
+                lock(textGate){commandRows.Append(record.Seq).Append('/').Append(record.Session).Append('/').Append(record.Thread).Append('/').Append(record.Tick).Append('/').Append(record.Clock).Append('/').Append(record.Physical).Append('/').Append(record.Topology).Append('/').Append(kind=="command-pre"?0:1).Append('/').Append(op).Append('/').Append(parent).Append('/').Append(definition).Append('/').Append(payload).Append(';');if(++commandRowCount==32)FlushCommandRows();}
             });
         }
+        internal void SearchResult(long eventOp,string source,int? nativeResult,int effective,long calls,bool completed)
+        {
+            long sourceId=TextDefinition("search-source",source);var r=StampRecord(new Record());
+            lock(textGate){searchRows.Append(r.Seq).Append('/').Append(r.Session).Append('/').Append(r.Thread).Append('/').Append(r.Tick).Append('/').Append(r.Clock).Append('/').Append(r.Physical).Append('/').Append(r.Topology).Append('/').Append(eventOp).Append('/').Append(CurrentId).Append('/').Append(sourceId).Append('/').Append(nativeResult.HasValue?1:0).Append('/').Append(nativeResult??0).Append('/').Append(effective).Append('/').Append(calls).Append('/').Append(completed?1:0).Append(';');if(++searchRowCount==32)FlushSearchRows();}
+        }
+        private void FlushSearchRows(){lock(textGate){if(searchRowCount==0)return;Enqueue(new Record {Kind="search-result-batch",Detail="columns=seq/session/thread/tick/clock/physical/topology/eventOp/parent/sourceDefinition/nativeKnown/native/effective/nativeCalls/completed,rows=["+searchRows+"],envelopeTiming=batch-flush"});searchRows.Clear();searchRowCount=0;}}
+        private void FlushCommandRows(){lock(textGate){if(commandRowCount==0)return;Enqueue(new Record {Kind="command-frame-batch",Detail="columns=seq/session/thread/tick/clock/physical/topology/post/op/parentEvent/commandContext/payloadDefinition,rows=["+commandRows+"],envelopeTiming=batch-flush"});commandRows.Clear();commandRowCount=0;}}
         internal void CountCommand(bool pre) {if(pre) {Interlocked.Increment(ref commandPre);if(CurrentScope!=null)CurrentScope.Commands++;}else Interlocked.Increment(ref commandPost);}
         internal void TaskCommand(int unit,uint global,int tribe,int player,int command,long operation)
         {
@@ -702,7 +734,7 @@ namespace EnemyBridgePathTest
         }
         internal void FlushRegions()
         {
-            Routes.Flush();FlushTableReferences();
+            Routes.Flush();FlushCommandRows();FlushSearchRows();FlushTableReferences();
             lock(regionGate)
             {
                 var rows=new StringBuilder();int rowCount=0;

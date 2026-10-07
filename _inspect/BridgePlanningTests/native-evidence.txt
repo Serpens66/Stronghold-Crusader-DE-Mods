@@ -2,6 +2,231 @@ E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stro
 
 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2
 
+Decoded 275/275 bytes; remaining raw body=
+
+2D250 FUN_18002d250 275
+
+/* FUNCTION FUN_18002d250 VA=0x18002D250 RVA=0x2D250 */
+
+void FUN_18002d250(undefined8 param_1,int param_2,int param_3)
+
+{
+  short sVar1;
+  undefined4 uVar2;
+  int iVar3;
+  longlong lVar4;
+  undefined4 uVar5;
+
+  lVar4 = (longlong)param_2 * 0x583c;
+  sVar1 = (&DAT_1850ec690)[*(int *)(&DAT_18379afb0 + lVar4)];
+  if (*(int *)(&DAT_18379e768 + (longlong)*(int *)(&DAT_18379d9a8 + lVar4) * 0x583c) < 0x79) {
+    uVar2 = 0x32;
+    if (0x5a < *(int *)(&DAT_18379e768 + (longlong)*(int *)(&DAT_18379d9a8 + lVar4) * 0x583c)) {
+      uVar2 = 0x46;
+    }
+  }
+  else {
+    uVar2 = 0x62;
+  }
+  uVar5 = 0;
+  if (param_3 != 0) {
+    uVar5 = uVar2;
+  }
+  *(int *)(&DAT_182ea70dc + (longlong)param_2 * 0x177bc) = *(int *)(&DAT_18379d9a8 + lVar4);
+  FUN_180007490(&DAT_1860ad648,0x4e520,0,&DAT_18535ef90);
+  iVar3 = FUN_1800cf360(&DAT_18366c210,param_2,*(undefined4 *)(&DAT_18379d9a8 + lVar4));
+  FUN_1800d95e0(&DAT_1860ad660,*(undefined4 *)(&DAT_18379d9a8 + lVar4),iVar3 != 0,1);
+  FUN_1800d9190(&DAT_1860ad660,0x6e,uVar5,(int)sVar1,param_2);
+  return;
+}
+
+
+
+
+
+2D250 48895c2408 mov qword ptr [rsp + 8], rbx
+2D255 48896c2410 mov qword ptr [rsp + 0x10], rbp
+2D25A 4889742418 mov qword ptr [rsp + 0x18], rsi
+2D25F 57 push rdi
+2D260 4156 push r14
+2D262 4157 push r15
+2D264 4883ec30 sub rsp, 0x30
+2D268 4863ea movsxd rbp, edx
+2D26B 4c8d3d9eef6303 lea r15, [rip + 0x363ef9e]
+2D272 4869f53c580000 imul rsi, rbp, 0x583c
+2D279 4c8d1d802dfdff lea r11, [rip - 0x2d280]
+2D280 4c8bcd mov r9, rbp
+2D283 4e63943e98171300 movsxd r10, dword ptr [rsi + r15 + 0x131798]
+2D28B 4a63843ea0ed1200 movsxd rax, dword ptr [rsi + r15 + 0x12eda0]
+2D293 4969ca3c580000 imul rcx, r10, 0x583c
+2D29A 450fbfb44390c60e05 movsx r14d, word ptr [r11 + rax*2 + 0x50ec690]
+2D2A3 428b943958251300 mov edx, dword ptr [rcx + r15 + 0x132558]
+2D2AB 83fa78 cmp edx, 0x78
+2D2AE 7e07 jle 0x2d2b7
+2D2B0 b862000000 mov eax, 0x62
+2D2B5 eb10 jmp 0x2d2c7
+2D2B7 83fa5a cmp edx, 0x5a
+2D2BA b832000000 mov eax, 0x32
+2D2BF b946000000 mov ecx, 0x46
+2D2C4 0f4fc1 cmovg eax, ecx
+2D2C7 33db xor ebx, ebx
+2D2C9 488d0d78030806 lea rcx, [rip + 0x6080378]
+2D2D0 4585c0 test r8d, r8d
+2D2D3 8bfb mov edi, ebx
+2D2D5 ba20e50400 mov edx, 0x4e520
+2D2DA 0f45f8 cmovne edi, eax
+2D2DD 4533c0 xor r8d, r8d
+2D2E0 4969c1bc770100 imul rax, r9, 0x177bc
+2D2E7 4c8d0da21c3305 lea r9, [rip + 0x5331ca2]
+2D2EE 46899418dc70ea02 mov dword ptr [rax + r11 + 0x2ea70dc], r10d
+2D2F6 e895a1fdff call 0x7490
+2D2FB 468b843e98171300 mov r8d, dword ptr [rsi + r15 + 0x131798]
+2D303 8bd5 mov edx, ebp
+2D305 498bcf mov rcx, r15
+2D308 e853200a00 call 0xcf360
+2D30D 428b943e98171300 mov edx, dword ptr [rsi + r15 + 0x131798]
+2D315 488d0d44030806 lea rcx, [rip + 0x6080344]
+2D31C 85c0 test eax, eax
+2D31E 41b901000000 mov r9d, 1
+2D324 0f95c3 setne bl
+2D327 448bc3 mov r8d, ebx
+2D32A e8b1c20a00 call 0xd95e0
+2D32F 458bce mov r9d, r14d
+2D332 896c2420 mov dword ptr [rsp + 0x20], ebp
+2D336 448bc7 mov r8d, edi
+2D339 488d0d20030806 lea rcx, [rip + 0x6080320]
+2D340 ba6e000000 mov edx, 0x6e
+2D345 e846be0a00 call 0xd9190
+2D34A 488b5c2450 mov rbx, qword ptr [rsp + 0x50]
+2D34F 488b6c2458 mov rbp, qword ptr [rsp + 0x58]
+2D354 488b742460 mov rsi, qword ptr [rsp + 0x60]
+2D359 4883c430 add rsp, 0x30
+2D35D 415f pop r15
+2D35F 415e pop r14
+2D361 5f pop rdi
+2D362 c3 ret
+
+Decoded 113/113 bytes; remaining raw body=
+
+2C5A0 FUN_18002c5a0 113
+
+/* FUNCTION FUN_18002c5a0 VA=0x18002C5A0 RVA=0x2C5A0 */
+
+/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */
+
+void FUN_18002c5a0(undefined8 param_1,int param_2,int param_3)
+
+{
+  _DAT_182e97eac = 1;
+  _DAT_182e97ea8 =
+       (int)(char)(&DAT_18535ef90)[*(int *)(&DAT_18379d968 + (longlong)param_2 * 0x583c)];
+  DAT_182e97d10 =
+       (int)(short)(&DAT_1850ec690)[*(int *)(&DAT_18379d968 + (longlong)param_2 * 0x583c)];
+  DAT_182e9ca14 =
+       *(undefined4 *)
+        (&DAT_1860ad740 +
+        (longlong)(short)(&DAT_1850ec690)[*(int *)(&DAT_18379d968 + (longlong)param_2 * 0x583c)] * 4
+        );
+  _DAT_182e97d14 =
+       (int)(short)(&DAT_1850ec690)[*(int *)(&DAT_18379afb0 + (longlong)param_3 * 0x583c)];
+  return;
+}
+
+
+
+
+
+2C5A0 4c8d0d593afdff lea r9, [rip - 0x2c5a7]
+2C5A7 4863c2 movsxd rax, edx
+2C5AA 4869c83c580000 imul rcx, rax, 0x583c
+2C5B1 c705f1b8e60201000000 mov dword ptr [rip + 0x2e6b8f1], 1
+2C5BB 4a63940968d97903 movsxd rdx, dword ptr [rcx + r9 + 0x379d968]
+2C5C3 490fbf8c5190c60e05 movsx rcx, word ptr [r9 + rdx*2 + 0x50ec690]
+2C5CC 420fbe840a90ef3505 movsx eax, byte ptr [rdx + r9 + 0x535ef90]
+2C5D5 8905cdb8e602 mov dword ptr [rip + 0x2e6b8cd], eax
+2C5DB 890d2fb7e602 mov dword ptr [rip + 0x2e6b72f], ecx
+2C5E1 418b848940d70a06 mov eax, dword ptr [r9 + rcx*4 + 0x60ad740]
+2C5E9 89052504e702 mov dword ptr [rip + 0x2e70425], eax
+2C5EF 4963c0 movsxd rax, r8d
+2C5F2 4869c83c580000 imul rcx, rax, 0x583c
+2C5F9 4a638409b0af7903 movsxd rax, dword ptr [rcx + r9 + 0x379afb0]
+2C601 410fbf844190c60e05 movsx eax, word ptr [r9 + rax*2 + 0x50ec690]
+2C60A 890504b7e602 mov dword ptr [rip + 0x2e6b704], eax
+2C610 c3 ret
+
+Decoded 152/152 bytes; remaining raw body=
+
+CF360 FUN_1800cf360 152
+
+/* FUNCTION FUN_1800cf360 VA=0x1800CF360 RVA=0xCF360 */
+
+undefined8 FUN_1800cf360(longlong param_1,int param_2,int param_3)
+
+{
+  short sVar1;
+  short sVar2;
+  int iVar3;
+
+  if (*(int *)((longlong)param_2 * 0x583c + 0x12ec54 + param_1) == 0) {
+    return 1;
+  }
+  if (*(int *)((longlong)param_3 * 0x583c + 0x12ec54 + param_1) != 0) {
+    sVar1 = (&DAT_1850ec690)[*(int *)((longlong)param_3 * 0x583c + 0x12eda0 + param_1)];
+    if (sVar1 != 0) {
+      sVar2 = (&DAT_1850ec690)[*(int *)((longlong)param_2 * 0x583c + 0x12eda0 + param_1)];
+      if (sVar2 != 0) {
+        if ((sVar2 != sVar1) &&
+           (iVar3 = c_game_get_next_reachable_pcl_to_destination_for_player
+                              (&DAT_1860ad660,param_2,(int)sVar1,(int)sVar2,0), iVar3 == 0)) {
+          return 0;
+        }
+        return 1;
+      }
+    }
+    return 0;
+  }
+  return 1;
+}
+
+
+
+
+
+CF360 4883ec38 sub rsp, 0x38
+CF364 4c63d2 movsxd r10, edx
+CF367 4d69ca3c580000 imul r9, r10, 0x583c
+CF36E 4183bc0954ec120000 cmp dword ptr [r9 + rcx + 0x12ec54], 0
+CF377 7475 je 0xcf3ee
+CF379 4963c0 movsxd rax, r8d
+CF37C 4c69c03c580000 imul r8, rax, 0x583c
+CF383 4183bc0854ec120000 cmp dword ptr [r8 + rcx + 0x12ec54], 0
+CF38C 7460 je 0xcf3ee
+CF38E 49638408a0ed1200 movsxd rax, dword ptr [r8 + rcx + 0x12eda0]
+CF396 4c8d0513faf803 lea r8, [rip + 0x3f8fa13]
+CF39D 410fbf9440e0d80801 movsx edx, word ptr [r8 + rax*2 + 0x108d8e0]
+CF3A6 6685d2 test dx, dx
+CF3A9 743c je 0xcf3e7
+CF3AB 49638409a0ed1200 movsxd rax, dword ptr [r9 + rcx + 0x12eda0]
+CF3B3 410fbf8c40e0d80801 movsx ecx, word ptr [r8 + rax*2 + 0x108d8e0]
+CF3BC 6685c9 test cx, cx
+CF3BF 7426 je 0xcf3e7
+CF3C1 663bca cmp cx, dx
+CF3C4 7428 je 0xcf3ee
+CF3C6 448bc9 mov r9d, ecx
+CF3C9 c744242000000000 mov dword ptr [rsp + 0x20], 0
+CF3D1 448bc2 mov r8d, edx
+CF3D4 488d0d85e2fd05 lea rcx, [rip + 0x5fde285]
+CF3DB 418bd2 mov edx, r10d
+CF3DE e82d320100 call 0xe2610
+CF3E3 85c0 test eax, eax
+CF3E5 7507 jne 0xcf3ee
+CF3E7 33c0 xor eax, eax
+CF3E9 4883c438 add rsp, 0x38
+CF3ED c3 ret
+CF3EE b801000000 mov eax, 1
+CF3F3 4883c438 add rsp, 0x38
+CF3F7 c3 ret
+
 Decoded 1629/1629 bytes; remaining raw body=
 
 D95E0 FUN_1800d95e0 1629

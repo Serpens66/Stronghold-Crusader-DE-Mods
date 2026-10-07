@@ -22,6 +22,18 @@ namespace EnemyBridgePathTest
             {
                 if(args.Length==2&&args[0]=="--replay")return ShadowControlTests.Replay(args[1]);
                 if(args.Length==2&&args[0]=="--replay-alternate-mode")return ShadowControlTests.Replay(args[1],true);
+                if(args.Length==2&&args[0]=="--planning-replay")
+                {
+                    BridgePlanningImporter.Artifact artifact;string reason;
+                    if(!BridgePlanningImporter.TryRead(args[1],out artifact,out reason)){Console.WriteLine(reason);return 2;}
+                    bool matched=CopiedPlanningReplay.TryBaseline(artifact,out reason);Console.WriteLine("planningBaselineMatched="+matched+",reason="+reason+",artifactSHA256="+artifact.Hash+",behaviorFix=disabled");return matched?0:2;
+                }
+                if(args.Length==3&&args[0]=="--planning-group-check")
+                {
+                    BridgePlanningImporter.Artifact planning,group;string reason;
+                    if(!BridgePlanningImporter.TryRead(args[1],out planning,out reason)||!BridgePlanningImporter.TryRead(args[2],out group,out reason)){Console.WriteLine(reason);return 2;}
+                    bool linked=BridgePlanningImporter.TryLinkGroup(planning,group,out reason);Console.WriteLine("planningGroupLinked="+linked+",reason="+reason+",behaviorFix=disabled");return linked?0:2;
+                }
                 count += ShadowControlTests.Run();
                 count += VirtualBridgeTests.Run();
                 count += SharedTests.CaptureRefreshTests.Run();

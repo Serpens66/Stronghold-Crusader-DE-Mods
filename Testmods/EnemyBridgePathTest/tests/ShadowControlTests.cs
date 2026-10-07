@@ -63,7 +63,7 @@ namespace EnemyBridgePathTest
             var sections=new Dictionary<string,byte[]>();metadata=new Dictionary<string,string>();
             using(var reader=new BinaryReader(new MemoryStream(bytes,0,(int)payload),Encoding.UTF8))
             {
-                if(Encoding.ASCII.GetString(reader.ReadBytes(8))!="BRGINP01"||reader.ReadInt32()!=1)throw new InvalidDataException("Unknown schema");
+                if(Encoding.ASCII.GetString(reader.ReadBytes(8))!="BRGINP01"||!new[]{1,2}.Contains(reader.ReadInt32()))throw new InvalidDataException("Unknown schema");
                 int size=reader.ReadInt32();if(size<0||size>65536)throw new InvalidDataException("Metadata extent");
                 foreach(string line in Encoding.UTF8.GetString(reader.ReadBytes(size)).Split('\n')) {int eq=line.IndexOf('=');if(eq>0)metadata.Add(line.Substring(0,eq),line.Substring(eq+1));}
                 while(reader.BaseStream.Position<payload)
@@ -171,6 +171,11 @@ namespace EnemyBridgePathTest
             focused.GroupContext(77,4364,2416650,828295,12,6);focused.BridgeGroup(77,8);focused.BridgeGroup(77,8);
             Check((long)Get(promoted,"Id")>0&&(long)Get(promoted,"Decision")==12&&focusedMessages.Count(v=>v.StartsWith("virtual-shadow-input:"))==1,"proven group is promoted once with original decision context");
             while(Get(focused,"active")!=null||((System.Collections.ICollection)Get(focused,"pending")).Count>0)focused.Pump();
+            Set(focused,"keepArtifact",true);Set(focused,"planningBundleOp",10L);Set(focused,"planningBundleDefinition",100L);
+            focused.GroupContext(77,4364,2416650,828295,12,6,9);focused.BridgeGroup(77,8);
+            Check(!(bool)Get(focused,"groupArtifact"),"different retained decision root cannot claim planning bundle");
+            focused.GroupContext(77,4364,2416650,828295,12,6,10);focused.BridgeGroup(77,8);
+            Check((bool)Get(focused,"groupArtifact")&&(long)Get(promoted,"DecisionRoot")==10,"later military frame references exact retained source decision root");
             Check((long)Get(focused,"preparationHits")==3,"reverse direction reuses exact prepared connections/decks");
             object identical=Request(Get(promoted,"Input"),null);Set(identical,"Stage","group-formation-mode-hypothesis");Set(identical,"Op",78L);Set(identical,"Clock",999L);
             Check((bool)typeof(BridgeVirtualShadow).GetMethod("Promote",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(focused,new[]{identical})&&(long)Get(identical,"Id")== (long)Get(promoted,"Id"),"exact query result binding reused with current observation timestamp");
@@ -180,6 +185,16 @@ namespace EnemyBridgePathTest
             var saturated=new BridgeVirtualShadow((k,d)=>focusedMessages.Add(k+":"+d),_=>throw new Exception("native read"));saturated.Begin(2);
             for(int i=0;i<34;i++)saturated.Compare("keep-access",100+i,0,8,i,4,0,0);
             Check((long)Get(saturated,"attempted")==34&&(long)Get(saturated,"rejected")==2,"selected queue rejections counted exactly");saturated.End();
+            string ownFolder=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"own-decision-copy-"+Guid.NewGuid().ToString("N"));
+            var ownMessages=new List<string>();var own=new BridgeVirtualShadow((k,d)=>ownMessages.Add(k+":"+d),_=>throw new Exception("no live read during delivery"),artifactDirectory:ownFolder);own.Begin(1);
+            object ownInput=Input(5,false);Set(ownInput,"Dirty",1);Set(ownInput,"NativeRevision",4);Set(own,"decisionCaptured",ownInput);Set(own,"decisionCaptureOp",22L);
+            object ownRequest=Request(null,null);Set(ownRequest,"Parent",22L);Set(own,"planningRequest",ownRequest);own.Invalidate();
+            var ownBundle=new BridgePlanningCapture.Bundle {Session=1,Op=22,Root=10,Complete=true,Dirty=1,Revision=4,Attacker=8,Target=1,Bank=1};
+            Check(own.PlanningCompleted(ownBundle),"own complete dirty decision artifact publishes without coherent shadow snapshot");own.End();while(own.ArtifactPending(1))own.PumpArtifacts();
+            var ownSections=Decode(Path.Combine(ownFolder,"bridge-1-1.bin"),out var ownMetadata);
+            Check(ownMetadata["planningDirty"]=="1"&&ownMetadata["dirty"]=="1"&&ownMetadata["planningRevision"]=="4"&&ownMetadata["negativeEligible"]=="False"&&ownSections["components"].Length==10,"own immutable decision copy and unknown negative policy survive bounded post-map delivery");
+            var rejectedMessages=new List<string>();var load=new BridgeVirtualShadow((k,d)=>rejectedMessages.Add(k+":"+d),_=>throw new Exception("no native read"));load.Begin(1);for(int i=0;i<132;i++)load.Compare("keep-access",i,0,8,i,4,0,0);Check((long)Get(load,"rejected")==100,"100 queue rejections retained separately from delivery");load.End();
+            var cancelledMessages=new List<string>();var cancels=new BridgeVirtualShadow((k,d)=>cancelledMessages.Add(k+":"+d),_=>throw new Exception("no native read"));cancels.Begin(1);for(int i=0;i<21;i++)cancels.Compare("keep-access",i,0,8,i,4,0,0);cancels.End();Check(cancelledMessages.Single(v=>v.StartsWith("virtual-shadow-end:")).Contains("pending=21,pendingOutcome=cancelled-at-session-end"),"21 explicit map-end cancellations do not become completed computations");
             object rolesA=Input(5,false),rolesB=Input(5,false);Set(((Array)Get(rolesB,"Decks")).GetValue(0),"Global",99u);
             Check(typeof(BridgeVirtualShadow).GetMethod("SameContent",BindingFlags.NonPublic|BindingFlags.Static).Invoke(null,new[]{rolesA,rolesB}).Equals(false),"reused building ID with new Global invalidates cache");
             Set(rolesB,"Session",2L);Check(typeof(BridgeVirtualShadow).GetMethod("SameContent",BindingFlags.NonPublic|BindingFlags.Static).Invoke(null,new[]{rolesA,rolesB}).Equals(false),"new session invalidates cache");
@@ -200,10 +215,15 @@ namespace EnemyBridgePathTest
             // Exercise the actual production artifact iterator, then actual production replay.
             object realInput=Input(5,false),realDeck=((Array)Get(realInput,"Decks")).GetValue(0);Set(realDeck,"ParentId",600);Set(realDeck,"ParentGlobal",123u);Set(realDeck,"ParentOwner",1);Set(realDeck,"ParentCapturer",8);
             object realRequest=Request(realInput,new Policy {Mask=Enumerable.Repeat((byte)255,5).ToArray()});var shadowSource=new BridgeVirtualShadow((k,d)=>{},_=>throw new Exception("artifact native read"));
-            var source=(IEnumerable<byte[]>)typeof(BridgeVirtualShadow).GetMethod("Artifact",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(shadowSource,new[]{realRequest});
+            Set(shadowSource,"planningBundleDefinition",100L);Set(shadowSource,"planningBundleOp",10L);Set(realRequest,"PlanningRoot",828295L);Set(realRequest,"DecisionRoot",10L);Set(realRequest,"Decision",12L);
+            var source=(IEnumerable<byte[]>)typeof(BridgeVirtualShadow).GetMethod("Artifact",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(shadowSource,new object[]{realRequest,null});
+            shadowSource.Begin(2);Set(realRequest,"DecisionRoot",9L); // queued source must own old numeric bindings
             Check(writer.Enqueue(3,4,source),"production artifact accepted");while(writer.Pending(3))writer.Pump();
             var parentDecoded=Decode(Path.Combine(folder,"bridge-3-4.bin"),out var parentMetadata);
             Check(ArrayOf<int>(parentDecoded["coupledParents5"],4).SequenceEqual(new[]{703,600,123,1,8}),"production copied coupling identity/roles round trip");
+            Check(parentMetadata["planningBundleDefinition"]=="100"&&parentMetadata["planningBundleRoot"]=="10"&&parentMetadata["decisionRoot"]=="10"&&parentMetadata["planningAssociation"]=="retained-decision-root","queued group preserves source planning definition and retained root through map change");
+            BridgePlanningImporter.Artifact importedGroup;string linkReason;Check(BridgePlanningImporter.TryRead(Path.Combine(folder,"bridge-3-4.bin"),out importedGroup,out linkReason),"productive group disk importer");
+            var sourcePlanning=new BridgePlanningImporter.Artifact {Schema=2,Planning=new BridgePlanningCapture.Bundle {Complete=true,Session=1,Root=10,Attacker=8}};sourcePlanning.Metadata.Add("definition","100");Check(BridgePlanningImporter.TryLinkGroup(sourcePlanning,importedGroup,out linkReason)&&linkReason.Contains("not-a-positive-region-proof"),"actual imported later frame links through retained root without inventing region proof");sourcePlanning.Planning.Root=9;Check(!BridgePlanningImporter.TryLinkGroup(sourcePlanning,importedGroup,out linkReason),"mismatched source artifact cannot link");
             Replay(Path.Combine(folder,"bridge-3-4.bin"));
             Console.WriteLine("Artifact regression retained at "+folder);return checks;
         }

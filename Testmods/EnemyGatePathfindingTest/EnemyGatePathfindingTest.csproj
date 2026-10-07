@@ -56,7 +56,7 @@
     <Compile Include="src\CapturerComparisonAdapterEmitter.cs" />
     <Compile Include="src\DirectionFilterAdapterEmitter.cs" />
     <Compile Include="src\AiTacticalTargetAdapterEmitter.cs" />
-    <Compile Include="src\AttackOrderCorrelationDiagnostics.cs" />
+    <Compile Include="src\AttackOrderCorrelationDiagnostics.cs" /><Compile Include="src\TemporaryGateAcceptanceAggregate.cs" /><Compile Include="src\TemporaryGateRouteAcceptance.cs" />
     <Compile Include="src\GateEdgeOwnership.cs" />
     <Compile Include="..\..\Shared\PathDecisionAggregate.cs"><Link>Shared\PathDecisionAggregate.cs</Link></Compile>
     <Compile Include="src\GateDiagnosticClassification.cs" />

@@ -10,7 +10,7 @@ def decode(path):
     payload=struct.unpack_from('<q',raw,len(raw)-16)[0]
     if payload!=len(raw)-48:raise ValueError('payload extent mismatch')
     if hashlib.sha256(raw[:payload]).digest()!=raw[-48:-16]:raise ValueError('payload SHA256 mismatch')
-    if raw[:8]!=b'BRGINP01' or struct.unpack_from('<i',raw,8)[0]!=1:raise ValueError('unsupported schema')
+    if raw[:8]!=b'BRGINP01' or struct.unpack_from('<i',raw,8)[0] not in (1,2):raise ValueError('unsupported schema')
     size=struct.unpack_from('<i',raw,12)[0]
     if not 0<=size<=65536 or 16+size>payload:raise ValueError('metadata extent')
     meta=dict(line.split('=',1) for line in raw[16:16+size].decode('utf8').splitlines())
@@ -26,6 +26,18 @@ def decode(path):
         if name=='gateMaskChunk':sections.setdefault('gateMask',bytearray()).extend(value)
         elif name in sections:raise ValueError('duplicate section '+name)
         else:sections[name]=value
+    for name,value in list(sections.items()):
+        if name.startswith('plan/ref/'):
+            target='plan/'+value.decode('utf8')
+            if target not in sections or target.startswith('plan/ref/'):raise ValueError('missing planning definition '+target)
+            resolved='plan/'+name[len('plan/ref/'):]
+            if resolved in sections:raise ValueError('duplicate planning definition '+resolved)
+            sections[resolved]=sections[target]
+    if meta.get('planningComplete')=='True':
+        for stage in ('seed-pre','seed-post','distance-pre','distance-post'):
+            for field,width in [('seeds',1),('visits',2),('distance',2),('queue',4),('queueRows',2)]:
+                if len(sections.get('plan/'+stage+'/'+field,b''))!=320800*width:raise ValueError('planning stage capacity '+stage+'/'+field)
+        if len(sections.get('plan/profiles90',b''))!=360 or len(sections.get('plan/permissions540',b''))!=2160:raise ValueError('planning table capacities')
     if 'fixture' not in meta:
         n=len(sections['components'])//2
         if not 1<=n<=320800:raise ValueError('map extent')
@@ -37,7 +49,7 @@ def decode(path):
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('artifact');parser.add_argument('--replay',action='store_true');args=parser.parse_args()
     meta,sections,digest=decode(args.artifact)
-    print('complete=True schema=1 SHA256='+digest)
+    print('complete=True schema='+str(struct.unpack_from('<i',Path(args.artifact).read_bytes(),8)[0])+' SHA256='+digest)
     print(meta);print('sectionBytes', {k:len(v) for k,v in sections.items()})
     if args.replay:
         mod=Path(__file__).resolve().parents[2]/'Testmods/EnemyBridgePathTest'

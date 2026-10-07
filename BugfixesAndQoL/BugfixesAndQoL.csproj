@@ -204,7 +204,7 @@
     <Compile Include="src\MoatSearchKernel.cs" />
     <Compile Include="src\MoatWorkTargetSelection.cs" />
     <Compile Include="src\MovementOptionsSnapshot.cs" />
-    <Compile Include="src\MovementPathPublication.cs" />
+    <Compile Include="src\MovementPathPublication.cs" /><Compile Include="src\TemporaryGateRouteReporting.cs" /><Compile Include="..\Shared\TemporaryPackedRouteInspection.cs" />
     <Compile Include="src\MovementSearchContext.cs" />
     <Compile Include="src\MoveFormationSpacingPolicy.cs" />
     <Compile Include="src\MoveFormationDragGesture.cs" />

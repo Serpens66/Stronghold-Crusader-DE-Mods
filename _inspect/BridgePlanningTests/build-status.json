@@ -1,16 +1,18 @@
 {
   "NativeHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
-  "BridgePackageHash": "D06AB1D735765FF0F8361D587ED51F4B3745FDA521D086CE6A20EA21F757ED10",
+  "BridgePackageHash": "DF3C2C0F32B791A43E1E19EB6042D3233DA5EDE5A696B1AFB492B35D94AADA7E",
   "ApiSharedPackageHash": "7F199A3CDDD63767C838596AE4BB24F84FDAC9F0D3C4E5E0E46B9646F2CAC311",
-  "NativePlanningCases": 69,
+  "NativePlanningCases": 103,
   "NativeRaiseCases": 144,
-  "NativeAssertions": 7616,
-  "BridgeAssertions": 38082,
+  "NativeAssertions": 10068,
+  "BridgeAssertions": 38092,
   "GateAssertions": 3840,
-  "FrozenRegressions": 8,
+  "FrozenRegressions": 9,
+  "ArtifactSchema": 2,
   "BehaviorPatchActive": false,
   "GameStarted": false,
   "Built": true,
   "Installed": true,
-  "Reason": "User-authorized APIShared0.4.10 version bump; both prescribed build drivers passed and installed packages match hashes."
+  "RuntimeWarnings": 1,
+  "Reason": "Prescribed elevated build installed. Own Dirty0/1 decision capture, exact phase4 origin, bounded delivery and compact command/search reconstruction verified. Shared PathDecisionAggregate TemporaryCountsOnly has CS0649 (unchanged by this task). Real plan remains required; behavior disabled; APIShared0.4.10 unchanged."
 }

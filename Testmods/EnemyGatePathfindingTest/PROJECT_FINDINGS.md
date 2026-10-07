@@ -659,3 +659,9 @@ Cursor: 781 requests, 172 refreshes, 609 exact cache hits, no validation deferra
 
 Known path-table coverage warning remains 89/90 profiles and 534/540 permissions; all compared values match, no mutation evidence. No Error/Fatal log lines. The legacy hookOwnerConflict=True label denotes shared mainmod ownership, not a failing integrity verdict. No runtime code or installed DLL was changed for this analysis. This run supports the gate-only regression and independence from the bridge observer; remaining targeted acceptance cases retain their documented limits.
 Source log SHA-256: 53FCE6F47F5086030DCB0334CAA84393A421933DB4950A526A1C984BBAFA893C.
+
+## 2026-10-07: TEMP_GATE_ROUTE_ACCEPTANCE
+
+Added separately marked, read-only Raid/Assassin acceptance diagnosis. See TEMP_GATE_ROUTE_ACCEPTANCE.md for observation limits, attachment/removal checklist, installed SDK provenance and the planned eight-AI match. Sixty-second aggregates replace generic per-pattern detail while retaining raw counts, gate-state definitions, integrity and capture evidence. No new hooks, native searches or persistent unit monitoring. Existing versions and README files remain unchanged. Pre-build gate, Raid, Assassin and movement/source-contract checks pass; gameplay acceptance remains pending.
+
+Build/install confirmation: APIShared, BugfixesAndQoL and EnemyGatePathfindingTest build.bat completed successfully. Installed DLL hashes equal their local packages; recorded in _inspect/EnemyGateBuildingContextAudit/temporary-installed-hashes.json. Gate runtime: zero warnings/errors. Mainmod runtime: zero errors with its existing Mono.Cecil MSB3277 reference warning. APIShared baseline and lobby-preset tests pass. Existing mod metadata versions and README files are unchanged. The first APIShared attempt stopped on required public XML documentation; comments were added and its checked driver then passed. No gameplay acceptance is claimed by these builds.

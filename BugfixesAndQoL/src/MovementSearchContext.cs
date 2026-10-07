@@ -120,6 +120,8 @@ namespace BugfixesAndQoL
             IEnemyGatePathPolicy gate = BeginEnemyGateSearch(
                 plan?.PlayerId ?? -1, EnemyGateSearchKind.Builder, out object gateScope);
             object bridgeSearch = EnemyBridgeDiagnosticBridge.BeginSearch("reconstructed-builder", plan?.PlayerId ?? -1);
+            // TEMP_GATE_ROUTE_ACCEPTANCE
+            object temporaryRoute = BeginTemporaryRouteReport(pathManager);
             int gateResult = 0;
             bool gateCompleted = false;
             BuilderWeightedScope shadow = null;
@@ -149,6 +151,7 @@ namespace BugfixesAndQoL
             }
             finally
             {
+                EndTemporaryRouteReport(pathManager, temporaryRoute, gateCompleted, gateResult);
                 EndEnemyGateSearch(gate, gateScope, EnemyGateSearchKind.Builder,
                     gateCompleted, gateResult > 0);
                 EnemyBridgeDiagnosticBridge.EndSearch(bridgeSearch, gateCompleted, gateResult);

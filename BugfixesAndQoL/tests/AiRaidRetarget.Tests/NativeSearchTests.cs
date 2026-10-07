@@ -165,10 +165,14 @@ internal static class NativeSearchTests
                 Check(tribe==4390 && building==808 && context==new IntPtr(123), "Native ABI observation arguments");
                 Check(Marshal.ReadInt32(new IntPtr((long)field))==(usable?101:0), "Filter completed before callback"); observed++;
             };
-            var consumer = new Assembler(64); consumer.mov(__dword_ptr[field],usable?101:0); consumer.ret();
+            // The allocated scratch page can be above 4 GiB; x64 has no arbitrary absolute disp64 MOV-immediate.
+            var consumer = new Assembler(64); consumer.mov(rax,field); consumer.mov(__dword_ptr[rax],usable?101:0); consumer.ret();
             byte[] consumerBytes = Assemble(consumer,start+0x600); Marshal.Copy(consumerBytes,0,new IntPtr((long)start+0x600),consumerBytes.Length);
             var nativeOriginal = new Assembler(64);
-            nativeOriginal.call(start+0x600); nativeOriginal.cmp(__dword_ptr[field],esi); nativeOriginal.je(start+0x800);
+            nativeOriginal.call(start+0x600);
+            nativeOriginal.AddInstruction(Instruction.Create(Code.Cmp_rm32_r32,
+                new MemoryOperand(Register.RIP, Register.None, 1, unchecked((long)field), 8, false, Register.None), Register.ESI));
+            nativeOriginal.je(start+0x800);
             var original=Decode(Assemble(nativeOriginal,start+0x500),start+0x500);
             var program = new Assembler(64);
             program.push(rsi); program.push(rdi); program.push(r14); program.sub(rsp,0x20);

@@ -8,6 +8,8 @@ namespace EnemyBridgePathTest
         internal const int Types=90,Classes=6,ProfileRva=0x322540,PermissionsRva=0x32BDB0,StrideBytes=0x168;
         private readonly int[] profiles,permissions;
         private NativePathfindingTableCopy(int[] p,int[] c){profiles=p;permissions=c;}
+        internal int[] CopyProfiles()=>(int[])profiles.Clone();
+        internal int[] CopyPermissions()=>(int[])permissions.Clone();
         internal int? Profile(int type)=>(uint)type<Types?(int?)profiles[type]:null;
         internal bool? Permission(int kind,int type)
         {if(kind<1||kind>Classes||(uint)type>=Types)return null;int v=permissions[(kind-1)*Types+type];return v==0?false:v==1?true:(bool?)null;}

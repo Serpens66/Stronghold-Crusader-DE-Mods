@@ -1,0 +1,5 @@
+warning CS1702: Es wird angenommen, dass der von "RedBird.X64" verwendete Assemblyverweis "Microsoft.Extensions.Logging.Abstractions, Version=10.0.0.10, Culture=neutral, PublicKeyToken=adb9793829ddae60" mit "Microsoft.Extensions.Logging.Abstractions, Version=10.0.0.12, Culture=neutral, PublicKeyToken=adb9793829ddae60" von "Microsoft.Extensions.Logging.Abstractions" übereinstimmt. Möglicherweise müssen Sie eine Laufzeitrichtlinie bereitstellen.
+PASS: 1945 assertions; 1920 detailed retries=1138560 bytes.
+PASS: native search evidence and assembler tests (89 assertions).
+PASS: 13 runtime activation/lifecycle/logging assertions; simulated stream log bytes=440.
+PASS: 35 raid hardening assertions (publication, actual frame helpers, expiration and waiting callbacks).

@@ -1632,6 +1632,42 @@
         <member name="M:APIShared.EnemyBridgeDiagnosticBridge.ObserveRegion(System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32)">
             <summary>Forwards an existing query only when subscribed.</summary>
         </member>
+        <member name="T:APIShared.ITemporaryGateRouteAcceptanceObserver">
+            <summary>Read-only TEMP_GATE_ROUTE_ACCEPTANCE observer; callbacks must never alter native decisions.</summary>
+        </member>
+        <member name="M:APIShared.ITemporaryGateRouteAcceptanceObserver.BeginRoute(System.Int32,System.Int32,System.UInt32,System.Int32,System.UInt32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.String)">
+            <summary>Begins a short-lived published-route inspection, or returns null to decline observation.</summary>
+        </member>
+        <member name="M:APIShared.ITemporaryGateRouteAcceptanceObserver.RouteEdge(System.Object,System.Int32,System.Int32,System.Int32)">
+            <summary>Observes one decoded directed edge belonging to the entry token.</summary>
+        </member>
+        <member name="M:APIShared.ITemporaryGateRouteAcceptanceObserver.EndRoute(System.Object,System.String,System.Int32)">
+            <summary>Completes an inspection; incomplete or ambiguous output must remain unverified.</summary>
+        </member>
+        <member name="M:APIShared.ITemporaryGateRouteAcceptanceObserver.Raid(System.Int32,System.Int32,System.Int32,System.UInt32,System.Int32,System.UInt32,System.String,System.String,System.String)">
+            <summary>Observes existing identity-checked Raid classification or retarget completion.</summary>
+        </member>
+        <member name="T:APIShared.TemporaryGateRouteAcceptanceBridge">
+            <summary>Passive optional TEMP_GATE_ROUTE_ACCEPTANCE registration with isolated observer failures.</summary>
+        </member>
+        <member name="P:APIShared.TemporaryGateRouteAcceptanceBridge.Current">
+            <summary>Gets the permanently rooted optional observer; null requires no game inspection.</summary>
+        </member>
+        <member name="P:APIShared.TemporaryGateRouteAcceptanceBridge.Failures">
+            <summary>Gets the full process-wide diagnostic failure count.</summary>
+        </member>
+        <member name="P:APIShared.TemporaryGateRouteAcceptanceBridge.LastFailureCause">
+            <summary>Gets the most recently observed diagnostic source and exception type.</summary>
+        </member>
+        <member name="M:APIShared.TemporaryGateRouteAcceptanceBridge.Register(APIShared.ITemporaryGateRouteAcceptanceObserver)">
+            <summary>Registers one process-wide observer; map lifecycle changes only its logical state.</summary>
+        </member>
+        <member name="M:APIShared.TemporaryGateRouteAcceptanceBridge.ReportRaid(System.Int32,System.Int32,System.Int32,System.UInt32,System.Int32,System.UInt32,System.String,System.String,System.String)">
+            <summary>Reports existing Raid evidence when registered; observer exceptions cannot change its result.</summary>
+        </member>
+        <member name="M:APIShared.TemporaryGateRouteAcceptanceBridge.ReportFailure(System.String,System.Exception)">
+            <summary>Counts a diagnostic failure without retaining exceptions or an event history.</summary>
+        </member>
         <member name="T:APIShared.GatehouseTimingValues">
             <summary>Documented Vanilla values and supported UI ranges for gatehouse timing.</summary>
         </member>

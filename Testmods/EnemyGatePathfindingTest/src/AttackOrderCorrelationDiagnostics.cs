@@ -15,7 +15,9 @@ namespace EnemyGatePathfindingTest
     {
         private readonly ManualLogSource log;
         private readonly GateTopologySnapshotProvider topology;
-        private readonly AiGateDecisionAggregate totals = new AiGateDecisionAggregate();
+        // TEMP_GATE_ROUTE_ACCEPTANCE: generic counters remain, new focused rows carry evidence.
+        private readonly AiGateDecisionAggregate totals = new AiGateDecisionAggregate { TemporaryCountsOnly = true };
+        internal TemporaryGateRouteAcceptance TemporaryAcceptance;
         [ThreadStatic] private static List<Frame> active;
         [ThreadStatic] private static List<HashSet<int>> searches;
         private long errors, unattributedPlayers, scopeMismatches,
@@ -88,6 +90,9 @@ namespace EnemyGatePathfindingTest
             else Interlocked.Increment(ref rawMovePost);
             int player = ResolveTribePlayer(args.TribeId);
             if (pre && player == 0) ObserveUnattributedPlayer("tribe-move", args.TribeId);
+            // TEMP_GATE_ROUTE_ACCEPTANCE: all six identity-verified raid roles.
+            try { TemporaryAcceptance?.RaidMove(player, args.TribeId, pre, args.TileX, args.TileY, args.ReturnValue); }
+            catch (Exception error) { APIShared.TemporaryGateRouteAcceptanceBridge.ReportFailure("raid-move", error); }
             int command = (int)args.MoveType;
             string detail = "moveType=" + args.MoveType + ",patrol=" + args.IsPatrolPath +
                 ",new=" + args.IsNewOrder;
@@ -281,12 +286,20 @@ namespace EnemyGatePathfindingTest
 
         private sealed class AssassinFrame
         {
+            internal object Temporary;
             internal AssassinRouteProbe Probe;
             internal Frame Order;
             internal int Tribe, ScopePlayer;
             internal string Building;
             internal int StartX, StartY, TargetX, TargetY, Nodes, Continuation;
             internal string NativeState, Source;
+        }
+
+        // TEMP_GATE_ROUTE_ACCEPTANCE: a diagnostic exception never interrupts existing observers.
+        private object BeginTemporaryAssassin(int player, int tribe, int x, int y)
+        {
+            try { return TemporaryAcceptance?.BeginAssassin(player, tribe, x, y); }
+            catch (Exception error) { APIShared.TemporaryGateRouteAcceptanceBridge.ReportFailure("assassin-begin", error); return null; }
         }
 
         internal object BeginAssassinSearch(RouteTilePolicySnapshot snapshot, int startX,
@@ -302,6 +315,8 @@ namespace EnemyGatePathfindingTest
                 Source = native?.Source ?? "outside-native-scope",
                 Tribe = native?.Tribe > 0 ? native.Tribe : Current()?.Tribe ?? 0,
                 Building = native?.Building, ScopePlayer = native?.Player ?? 0,
+                Temporary = BeginTemporaryAssassin(native?.Player ?? Current()?.Player ?? 0,
+                    native?.Tribe ?? Current()?.Tribe ?? 0, targetX, targetY),
                 StartX = startX, StartY = startY, TargetX = targetX, TargetY = targetY,
                 Nodes = maximumNodes, Continuation = continuation, NativeState = nativeState };
         }
@@ -310,6 +325,8 @@ namespace EnemyGatePathfindingTest
             int direction, bool climb)
         {
             if (!(token is AssassinFrame frame)) return;
+            try { TemporaryAcceptance?.AssassinEdge(frame.Temporary, player, fromTile, toTile, direction, climb); }
+            catch (Exception error) { APIShared.TemporaryGateRouteAcceptanceBridge.ReportFailure("assassin-edge", error); }
             if (!frame.Probe.Observe(player, fromTile, direction, climb, out int gateId)) return;
             totals.Record(player, gateId > 0 ? gateId : 0, "assassin-route-edge",
                 (climb ? "climb" : "ground") + ",policy=blocked,attribution=" +
@@ -335,6 +352,8 @@ namespace EnemyGatePathfindingTest
             if (!(token is AssassinFrame frame)) return;
             string playerContext = player > 0 ? "builder-resolved" : frame.ScopePlayer > 0 ? "native-scope" : "order-observed";
             if (player <= 0) player = frame.ScopePlayer > 0 ? frame.ScopePlayer : frame.Order?.Player ?? 0;
+            try { TemporaryAcceptance?.EndAssassin(frame.Temporary, player, vanillaResult, effectiveResult, outcome, cacheHit, routeLength, frame.Continuation); }
+            catch (Exception error) { APIShared.TemporaryGateRouteAcceptanceBridge.ReportFailure("assassin-end", error); }
             AssassinRouteProbe probe = frame.Probe;
             bool stable = ReferenceEquals(current, probe.Snapshot);
             foreach (var metric in new[] {

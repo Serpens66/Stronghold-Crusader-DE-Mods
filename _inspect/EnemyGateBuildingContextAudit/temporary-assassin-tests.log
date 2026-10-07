@@ -1,0 +1,2 @@
+ASSASSIN SEARCH MODEL units=900 dijkstraExpanded=4134441 astarExpanded=589409 dijkstraMs=334,65 astarMs=43,31
+PASS: 15494 Assassin A*/Dijkstra assertions.

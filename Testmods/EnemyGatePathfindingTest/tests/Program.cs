@@ -16,6 +16,7 @@ namespace EnemyGatePathfindingTest
             {
                 assertions += SharedTests.CaptureRefreshTests.Run();
                 assertions += GateRoutePolicyTests.Run();
+                assertions += TemporaryGateAcceptanceTests.Run();
                 UncapturedEnemyPreservesVanillaExclusion();
                 OwnAndAlliedOwnersRemainEligible();
                 OwnAndAlliedCaptureRemainEligible();
@@ -807,9 +808,9 @@ namespace EnemyGatePathfindingTest
             Assert(runtime.IndexOf("replacement before MissionStart",
                     StringComparison.Ordinal) >= 0,
                 "new map defensively finalizes a missed unload");
-            Assert(runtime.IndexOf("DiagnosticInterval = Stopwatch.Frequency * 10L",
+            Assert(runtime.IndexOf("DiagnosticInterval = Stopwatch.Frequency * 60L",
                     StringComparison.Ordinal) >= 0,
-                "one central ten-second diagnostic cadence is used");
+                "TEMP_GATE_ROUTE_ACCEPTANCE central minute cadence is used");
             Assert(runtime.IndexOf(":NOT_OBSERVED", StringComparison.Ordinal) >= 0,
                 "uncovered capturer cases are explicit");
             Assert(runtime.IndexOf("implicit editor map-size probe", StringComparison.Ordinal) < 0 &&

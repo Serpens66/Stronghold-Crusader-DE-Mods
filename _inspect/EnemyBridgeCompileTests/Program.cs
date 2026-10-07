@@ -33,6 +33,8 @@ foreach (string mod in new[] { "EnemyGatePathfindingTest", "EnemyBridgePathTest"
         string path = Path.Combine(root,"APIShared","src","EnemyBridgeDiagnosticBridge.cs");
         trees.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(path),path:path));
     }
+    if (Assembly.LoadFrom(api).GetType("APIShared.TemporaryGateRouteAcceptanceBridge",false)==null)
+        trees.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"APIShared","src","TemporaryGateRouteAcceptanceBridge.cs"))));
     var compilation = CSharpCompilation.Create(mod+"StaticContract",trees,
         references.Values.Select(p=>MetadataReference.CreateFromFile(p)),
         new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary,allowUnsafe:true));

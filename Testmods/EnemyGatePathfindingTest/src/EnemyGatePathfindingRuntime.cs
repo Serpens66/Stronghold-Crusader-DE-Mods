@@ -30,7 +30,9 @@ namespace EnemyGatePathfindingTest
         private const int SiteCount = 2;
         private static readonly int DecisionCount =
             Enum.GetValues(typeof(NativeGateSnapshotDecision)).Length;
-        private static readonly long DiagnosticInterval = Stopwatch.Frequency * 10L;
+        // TEMP_GATE_ROUTE_ACCEPTANCE: compact minute windows for the endurance test.
+        private static readonly long DiagnosticInterval = Stopwatch.Frequency * 60L;
+        private TemporaryGateRouteAcceptance temporaryAcceptance;
 
         private readonly ManualLogSource log;
         private GateTopologySnapshotProvider topologyProvider;
@@ -126,6 +128,10 @@ namespace EnemyGatePathfindingTest
             topologyProvider = new GateTopologySnapshotProvider(log);
             topologyProvider.SetGateAccessConsumer(UpdateGateAccess);
             attackOrderDiagnostics = new AttackOrderCorrelationDiagnostics(log, topologyProvider);
+            // TEMP_GATE_ROUTE_ACCEPTANCE: process-rooted through this existing static runtime owner.
+            temporaryAcceptance = new TemporaryGateRouteAcceptance(log,
+                () => samePclRouteRuntime?.TemporaryAcceptanceSnapshot ?? RouteTilePolicySnapshot.Empty);
+            attackOrderDiagnostics.TemporaryAcceptance = temporaryAcceptance;
 
             // Our adapter executes CMP once, saves inequality in R11b, and TESTs
             // that Boolean after callback cleanup. The real R11 is preserved.
@@ -191,6 +197,8 @@ namespace EnemyGatePathfindingTest
             }
             topologyProvider.SetRoutePolicyConsumer(updated =>
                 samePclRouteRuntime?.UpdatePolicy(updated));
+            // TEMP_GATE_ROUTE_ACCEPTANCE: publish only after the existing initialization succeeds.
+            APIShared.TemporaryGateRouteAcceptanceBridge.Register(temporaryAcceptance);
 
             Shared.DebugLogHelper.LogInfo(log,
                 "Crash-safe enemy-gate hooks installed: " +
@@ -227,6 +235,7 @@ namespace EnemyGatePathfindingTest
             samePclRouteRuntime?.ResetCounters();
             samePclRouteRuntime?.SetBuildingMapMode(editor);
             attackOrderDiagnostics?.Reset();
+            temporaryAcceptance?.Begin();
             topologyProvider?.BeginExplicitEpoch(reason);
             Shared.DebugLogHelper.LogInfo(log,
                 "Enemy-gate map started: Different-PCL filter and native Same-PCL " +
@@ -240,6 +249,7 @@ namespace EnemyGatePathfindingTest
             if (!hadActiveEpoch)
                 return;
             LogDiagnosticCheckpoint("final", reason);
+            temporaryAcceptance?.End();
             topologyProvider?.EndEpoch(reason);
             gateAccess = NativeGateAccessSnapshot.Empty;
         }
@@ -252,12 +262,13 @@ namespace EnemyGatePathfindingTest
                 topologyProvider?.ProcessDeferred();
                 samePclRouteRuntime?.ProcessDeferred();
                 attackOrderDiagnostics?.ProcessDeferred();
+                temporaryAcceptance?.Deferred();
                 long now = Stopwatch.GetTimestamp();
                 if (Volatile.Read(ref mapActive) != 0 &&
                     now >= Volatile.Read(ref nextDiagnosticAt))
                 {
                     Volatile.Write(ref nextDiagnosticAt, now + DiagnosticInterval);
-                    LogDiagnosticCheckpoint("periodic", "10-second interval");
+                    LogDiagnosticCheckpoint("periodic", "TEMP_GATE_ROUTE_ACCEPTANCE 60-second interval");
                 }
             }
             catch (Exception ex)

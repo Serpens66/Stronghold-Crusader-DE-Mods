@@ -98,7 +98,8 @@ foreach ($member in @(@('MapRowLookupTable','System.Int32*'),@('MapColumnLookupT
 $shadowSource=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/BridgeVirtualShadow.cs'))
 $coreSource=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/VirtualBridgeGraph.cs'))
 if ($shadowSource -match 'TryGetBuildingById|TryGetUnitById|FindNext|FindPath|Marshal.Write|TrySet|TryReplace' -or $coreSource -match 'SHCDESE|APIShared|Marshal|IntPtr') { throw 'Virtual shadow is no longer a pure copied-input observer' }
-if ($shadowSource -notmatch 'pending.Count>=32' -or $shadowSource -notmatch 'request.Authorization=prepared.Authorized&&prepared.Boundary&&prepared.Deck.Length==0' -or $shadowSource -notmatch 'read\(0x60AD6CC\)!=0\|\|read\(0x60AD6D4\)!=nativeRevision') { throw 'Virtual coherence/negative-policy gate regression' }
+if ($shadowSource -notmatch 'pending.Count>=32' -or $shadowSource -notmatch 'request.Authorization=prepared.Authorized&&prepared.Boundary&&prepared.Deck.Length==0' -or $shadowSource -notmatch 'read\(0x60AD6CC\)!=dirty\|\|read\(0x60AD6D4\)!=nativeRevision') { throw 'Virtual coherence/negative-policy gate regression' }
+if ($shadowSource -notmatch '!decisionOnly&&dirty!=0' -or $shadowSource -notmatch 'if\(decisionOnly\)\{result.Token=new object\(\);decisionCaptured=result;return;' -or $shadowSource -notmatch 'request.Input.Dirty!=0') { throw 'Decision copy must not publish dirty negative topology' }
 Write-Host 'PASS: virtual public copy/member contracts, bounded shadow queue and unvalidated policy fail-open.'
 if ($hookSource -notmatch 'site.Rva==0x3C2E0\?site.Bytes.Length:site.Size' -or
     $hookSource -notmatch 'ValidateAttackBody\(context.Memory.Slice' -or
@@ -146,11 +147,15 @@ foreach ($spec in @(@('GetTileBuildingId',[UInt16],[int]),@('GetTileId',[int],[i
 Write-Host 'PASS: installed coupling views/signatures, copied class3/4 C endpoints and opaque connection-record field.'
 
 # New planning/table preparations are pure, dormant copied-input kernels.
-foreach ($name in @('VirtualBridgePlanning.cs','NativePathfindingTableCopy.cs')) {
+foreach ($name in @('VirtualBridgePlanning.cs','NativePathfindingTableCopy.cs','VirtualTopologyRebuild.cs','VirtualPlanningCaller.cs','VirtualRaisedPlanning.cs','VirtualPlanningBuildings.cs','CopiedPlanningBundle.cs','BridgePlanningImporter.cs','CopiedPlanningRegions.cs','CopiedPlanningReplay.cs')) {
     $pure=[IO.File]::ReadAllText((Join-Path $PSScriptRoot ('src/'+$name)))
     if ($pure -match 'SHCDESE|APIShared|Marshal|IntPtr|DllImport|FindNext|FindPath|UnityEngine|ThreadPool|Task.Run') { throw ('Planning/table preparation is not pure: '+$name) }
 }
-foreach ($path in $sources | Where-Object { $_ -notmatch 'VirtualBridgePlanning.cs|NativePathfindingTableCopy.cs' }) {
+foreach ($path in $sources | Where-Object { $_ -notmatch 'VirtualBridgePlanning.cs|NativePathfindingTableCopy.cs|VirtualPlanningCaller.cs|VirtualRaisedPlanning.cs|BridgePlanningCapture.cs|BridgePlanningImporter.cs|CopiedPlanningReplay.cs' }) {
     if ([IO.File]::ReadAllText($path) -match 'VirtualBridgePlanning\.|NativePathfindingTableCopy\.') { throw 'Offline preparations unexpectedly activated in a live callback' }
 }
 Write-Host 'PASS: dormant copied planning/permission kernels; no live integration, searches or new game-member accesses.'
+
+$collector=[IO.File]::ReadAllText((Join-Path $PSScriptRoot "src/BridgePlanningCapture.cs"))
+if ($collector -match "Marshal.Write|FindNext|FindPath|Game.*API|VirtualBridgePlanning\.") { throw "Passive planning capture contains an active access" }
+Write-Host "PASS: hash-bound passive planning copy, no live planning execution or native writes."
