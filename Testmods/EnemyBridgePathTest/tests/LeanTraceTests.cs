@@ -41,7 +41,7 @@ namespace EnemyBridgePathTest
             Check(trace.Captures==4,"target change retains entry and exit");
             global=8;var reused=trace.Enter(site,IntPtr.Zero,4);trace.Exit(reused,true,null,IntPtr.Zero);
             Check(trace.Captures==6,"tribe ID reuse distinguished by global identity");
-            var parent=trace.Enter(site,IntPtr.Zero,4);trace.Command("command-pre","op=10");trace.Command("command-post","op=10");trace.Exit(parent,true,null,IntPtr.Zero);
+            var parent=trace.Enter(site,IntPtr.Zero,4);trace.Command("command-pre",new BridgeDecisionTrace.CommandData(10));trace.Command("command-post",new BridgeDecisionTrace.CommandData(10));trace.Exit(parent,true,null,IntPtr.Zero);trace.FlushRegions();
             Check(trace.Captures==10,"command promotes quiet parent and captures actual command state");
             Check(trace.Entered==trace.Exited,"promoted parent still balanced");
             var outer=trace.Enter(site,IntPtr.Zero,4);var inner=trace.Enter(site,IntPtr.Zero,5);trace.Exit(inner,true,null,IntPtr.Zero);trace.Exit(outer,true,null,IntPtr.Zero);
@@ -151,13 +151,13 @@ namespace EnemyBridgePathTest
             var compact=new BridgeDecisionTrace(null,_=>new BridgeDecisionTrace.AttackStamp(uint.MaxValue,8,125,6,0,1,uint.MaxValue),()=>1);
             compact.StartSession(602);int start=Shared.DebugLogHelper.Recent.Count;
             var scope=compact.Enter(attack,IntPtr.Zero,4340);
-            for(int i=0;i<4;i++)compact.Command(i%2==0?"command-pre":"command-post","op="+(800+i),8);
-            compact.Exit(scope,true,0x100000001,IntPtr.Zero);while(compact.Pending>0)compact.Drain();
+            for(int i=0;i<4;i++)compact.Command(i%2==0?"command-pre":"command-post",new BridgeDecisionTrace.CommandData(800+i),8);
+            compact.Exit(scope,true,0x100000001,IntPtr.Zero);compact.FlushRegions();while(compact.Pending>0)compact.Drain();
             var output=Shared.DebugLogHelper.Recent.Skip(start).ToArray();
-            Check(output.Count(s=>s.Contains("kind=command-context,"))==1&&output.Count(s=>s.Contains("commandContext=1,"))==4,"equal numeric command contexts defined once and referenced without dropping commands");
+            Check(output.Count(s=>s.Contains("kind=command-context,"))==1&&output.Where(s=>s.Contains("kind=command-frame-batch,")).Sum(s=>s.Split(';').Length-1)==4,"equal numeric command contexts defined once and referenced without dropping commands");
             Check(output.Any(s=>s.Contains("kind=native-frame-batch,")&&s.Contains("/4294967297/")),"numeric native frame preserves full64-bit return");
-            compact.StartSession(603);compact.Command("command-pre","op=900",8);while(compact.Pending>0)compact.Drain();
-            Check(Shared.DebugLogHelper.Recent.Last().Contains("commandContext=2,"),"map reload redefines context with monotonic identity");
+            compact.StartSession(603);compact.Command("command-pre",new BridgeDecisionTrace.CommandData(900),8);compact.FlushRegions();while(compact.Pending>0)compact.Drain();
+            Check(Shared.DebugLogHelper.Recent.Any(s=>s.Contains("kind=command-context,")&&s.Contains("definition=2,")),"map reload redefines context with monotonic identity");
             Console.WriteLine("Stable production population:2118706 calls,36923 commands,quietBytesWithPrefixes="+quietBytes+"; native frames and numeric context references preserve exact results");
         }
         private static void MixedLoad(BridgeNativeDefinition.Site attack)
@@ -355,7 +355,7 @@ namespace EnemyBridgePathTest
             Check(trace.DetailedNative&&trace.ShouldDetailCommand(false,false,false),"fresh candidate child promotes parent and preserves even unchanged following command");
             long prior=trace.Pending;for(int i=0;i<1000;i++)trace.Region(5,1,2,0,0,1);
             Check(trace.Pending==prior+1&&outer.Regions==1000,"detailed region repetition produces one branch record and exact counters");
-            trace.Command("command-pre","fixture-follow",5);trace.Command("command-post","fixture-follow",5);trace.Exit(outer,true,null,IntPtr.Zero);
+            trace.Command("command-pre",new BridgeDecisionTrace.CommandData(99),5);trace.Command("command-post",new BridgeDecisionTrace.CommandData(99),5);trace.Exit(outer,true,null,IntPtr.Zero);
             phase=6;target=214725;var changed=trace.Enter(root,IntPtr.Zero,5);trace.Exit(changed,true,null,IntPtr.Zero);
             trace.FlushCosts();while(trace.Pending>0)trace.Drain();
             Check(trace.Entered==trace.Exited&&trace.Summary().Contains("overflow=0,backgroundOverflow=0"),"changed planning phases and child chain pair without loss");

@@ -178,26 +178,26 @@ namespace CastlePlanner
                     [BlueprintDrawbridgePosition.BottomLeft] =
                         new BlueprintDrawbridgeImageDefinition(
                             "ST49_Drawbridge.png",
-                            false,
+                            true,
                             false,
                             false),
                     [BlueprintDrawbridgePosition.BottomRight] =
                         new BlueprintDrawbridgeImageDefinition(
                             "ST49_Drawbridge.png",
-                            true,
+                            false,
                             false,
                             false),
                     [BlueprintDrawbridgePosition.TopLeft] =
                         new BlueprintDrawbridgeImageDefinition(
                             "MAPPER_DRAWBRIDGE_Generic_DrawbridgeRear.png",
-                            true,
+                            false,
                             false,
                             true,
                             80.5f),
                     [BlueprintDrawbridgePosition.TopRight] =
                         new BlueprintDrawbridgeImageDefinition(
                             "MAPPER_DRAWBRIDGE_Generic_DrawbridgeRear.png",
-                            false,
+                            true,
                             false,
                             true,
                             80.5f)

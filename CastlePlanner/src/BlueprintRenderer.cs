@@ -922,7 +922,7 @@ namespace CastlePlanner
         private BlueprintDrawbridgePosition ResolveDrawbridgePosition(
             BlueprintIconPlacement placement)
         {
-            if (placement.MapperValue != 105)
+            if (placement.MapperValue != (int)eMappers.MAPPER_DRAWBRIDGE)
                 return BlueprintDrawbridgePosition.NotApplicable;
             if (!placement.AdjacentGateCenter.HasValue)
                 return BlueprintDrawbridgePosition.Unknown;
@@ -933,11 +933,11 @@ namespace CastlePlanner
                 (placement.MinimumWorldY + placement.MaximumWorldY) / 2;
             BlueprintWorldTile gateCenter =
                 placement.AdjacentGateCenter.Value;
-            if (!TryGetGroundPosition(
+            if (!TryGetPlanarPosition(
                     bridgeCenterX,
                     bridgeCenterY,
                     out Vector3 bridgePosition) ||
-                !TryGetGroundPosition(
+                !TryGetPlanarPosition(
                     gateCenter.X,
                     gateCenter.Y,
                     out Vector3 gatePosition))
@@ -998,6 +998,27 @@ namespace CastlePlanner
             // Both front/back stair captures are normalized with the high end
             // on the right; the other diagonal is the mirrored equivalent.
             return highPosition.x < lowPosition.x;
+        }
+
+        private bool TryGetPlanarPosition(
+            int worldX,
+            int worldY,
+            out Vector3 position)
+        {
+            if (!TryGetRenderedTile(
+                    worldX,
+                    worldY,
+                    out GameMapTile mapTile,
+                    out Vector3Int tilePosition))
+            {
+                position = default;
+                return false;
+            }
+
+            // Direction follows the camera-rotated grid, never terrain height
+            // or flattened-view height. Ground positioning remains separate.
+            position = mapTile.tilemapRef.GetCellCenterWorld(tilePosition);
+            return true;
         }
 
         private bool TryGetGroundPosition(

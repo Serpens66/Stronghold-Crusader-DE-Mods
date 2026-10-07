@@ -43,6 +43,11 @@ namespace EnemyGatePathfindingTest
             check(Shared.TemporaryPackedRouteInspection.Decode(new byte[]{0}, 1, 100,100,100,100,dx,dy,out _) == "partial-endpoint");
             check(Shared.TemporaryPackedRouteInspection.Decode(new byte[]{0}, 1, 100,0,100,0,dx,dy,out _) == "invalid-coordinate");
             check(Shared.TemporaryPackedRouteInspection.Decode(new byte[]{0}, 3, 100,100,100,97,dx,dy,out _) == "invalid-length");
+            check(Shared.TemporaryPackedRouteInspection.TryResolveUnit(1000,1000,10000,0,out int resolved) && resolved == 1);
+            check(Shared.TemporaryPackedRouteInspection.TryResolveUnit(10000000,1000,10000,10000,out resolved) && resolved == 10000);
+            foreach(long offset in new[]{0L,-1000L,999L,10000001L,10001000L,long.MaxValue})
+                check(!Shared.TemporaryPackedRouteInspection.TryResolveUnit(offset,1000,10000,0,out _));
+            check(!Shared.TemporaryPackedRouteInspection.TryResolveUnit(1000,1000,10000,2,out _));
             var snapshot = new RouteTilePolicySnapshot(new byte[9][], 42);
             for (int player = 1; player <= 8; player++)
             {
@@ -55,6 +60,8 @@ namespace EnemyGatePathfindingTest
             check(TemporaryGateAcceptanceAggregate.RouteVerdict(snapshot,snapshot,5,2,3,"decoded",false,false) == "unclear:incomplete-edges");
             check(TemporaryGateAcceptanceAggregate.RouteVerdict(snapshot,snapshot,5,3,3,"partial-endpoint",false,false) == "unclear:partial-endpoint");
             check(TemporaryGateAcceptanceAggregate.RouteVerdict(RouteTilePolicySnapshot.Empty,RouteTilePolicySnapshot.Empty,5,3,3,"decoded",false,false) == "unclear:no-policy-snapshot");
+            check(TemporaryGateAcceptanceAggregate.RouteVerdict(snapshot,snapshot,5,0,0,"decoded",false,false,true) == "checked");
+            check(TemporaryGateAcceptanceAggregate.RouteVerdict(snapshot,snapshot,5,0,0,"decoded",false,false) == "unclear:incomplete-edges");
             check(APIShared.TemporaryGateRouteAcceptanceBridge.Current == null);
             APIShared.TemporaryGateRouteAcceptanceBridge.ReportRaid(1,0,1,1,1,1,"command","positive","unused");
             check(APIShared.TemporaryGateRouteAcceptanceBridge.Failures == 0);

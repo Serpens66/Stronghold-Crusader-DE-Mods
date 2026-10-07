@@ -38,7 +38,7 @@ The passive milestone audit is complete. Still requiring game evidence: earliest
 
 ## Reproduction-driven extension: player siege planning
 
-The 18:24:53ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ18:25:35 session matches 2D250 -> D95E0(target player, CF360 result!=0, 1) -> D9190(110, selected radius or0, attacking keep PCL, attacking player). The strategic10D9F0 had zero calls. The actual common caller is2AE40 ->3C2E0(ctx, playerId), operating1-based player records stride583C, with phase at379D974, target player379D9A8, target tile379D968, targetY379D96C and targetX379D970. Player-resource native origin379AE2C must not be confused with the Extender root pointer's header adjustment. Global88E3D70 is not this invocation's attacker.
+The 18:24:53ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“18:25:35 session matches 2D250 -> D95E0(target player, CF360 result!=0, 1) -> D9190(110, selected radius or0, attacking keep PCL, attacking player). The strategic10D9F0 had zero calls. The actual common caller is2AE40 ->3C2E0(ctx, playerId), operating1-based player records stride583C, with phase at379D974, target player379D9A8, target tile379D968, targetY379D96C and targetX379D970. Player-resource native origin379AE2C must not be confused with the Extender root pointer's header adjustment. Global88E3D70 is not this invocation's attacker.
 
 3C2E0 phases1..9 include preparation, candidate rebuilding, active attack, access reassessment and retreat. 3BD50 resets ctx+EBA0/EBA4 candidate count/rows, invokes2D250(mode1), weights potential positions, writes the retained target tile/coordinates and prepares formation positions. 2C480 clears the plan grid, invokes2C5A0(ctx,attacker,targetPlayer),1126B0,10DF60(ctx,attacker,targetPlayer),115B10(ctx,targetPlayer,attacker), then112370/1123E0/112200/112450/112190(ctx,1,attacker) andCF020(targetPlayer). 2C5A0 takes the selected tile's signed seed and PCL, its component count, and the target player's keep PCL. Fixes replaces component-count loading at2C5E1..2C5EF; the entry2C5A0..2C5B1 is disjoint. Probe returns/global results with internal Fixes patches are effective function outputs, not pristine Vanilla results.
 
@@ -743,3 +743,100 @@ pending topology explicitly accounted for. No general raised counterrun needed.
 Prescribed elevated build07.10.2026 14:43:52:PASS; installed/package SHA256 DF3C2C0F32B791A43E1E19EB6042D3233DA5EDE5A696B1AFB492B35D94AADA7E.
 Runtime:0 errors,1 CS0649 warning in shared TemporaryCountsOnly (not modified here).
 APIShared0.4.10 SHA256 unchanged; no game was started.
+
+## 2026-10-07: real continuous planning and conditional raised replay
+
+Frozen regression: `_inspect/EnemyGateBuildingContextAudit/real-plan-20261007-151016`.
+The full archived Log_264 SHA256 is 598639F9EB2DBB7FEB7D9705AE2CFA392BE447556A1E277404B3623F5991D3CB.
+Planning SHA256 48EB96C1902815BC062B4C87777679A49FFCF6B38997AEA3F72FE5BCA373A552;
+linked group SHA256 6E0437D565FCD4CA77D4F1CD1A56DA04F465EE3103D46FD3958893390C0BB461.
+Later LogOutput processes are excluded. Original binary/log files are byte-exact;
+manifest and productive replay reports retain full hashes and source paths.
+
+Full installed native audit remains FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2:
+122 decision/path bodies,42 topology bodies,30 private reference bodies plus2
+native table readers. Installed members/backend, runtime JSON/lifecycle and
+permanent publisher/hook checks passed. Runtime work remains rooted by static
+Application.onBeforeRender and permanent native/event owners after startup cleanup.
+No new hook, public API, game-member access, JSON dependency or executable mutation.
+
+The productive baseline now starts at caller-pre, validates CF360-derived R8,
+its mode0 scratch controls C0/C4 and target-bank selection, clears seed state as
+2D250 does, then carries its calculated Seed output through Distance and caller
+completion. It never reloads recorded seed-post/distance-pre as working state.
+Full field/queue/visit/controls/candidate-column comparisons remain. Tests separate
+shared immutable section references before corruption checks, so mutating one
+input cannot accidentally mutate its expected Post evidence too. Private capture
+fixtures were corrected to put 2D250's bank write BEFORE D95E0, matching native order.
+
+Real uncut replay matches the observed fields and 2C5A0 projection. Native count0
+is kept separate from effective Fixes count132415. The copied PCL histogram and
+zero-cut rebuilt count both confirm132415. The canonical Fixes1.25.0 owner at
+2C5E1 reads its extended table; it is not replaced. Supported virtual labels remain
+bounded to999; unsupported extended labels return unknown rather than being guessed.
+
+Topology states are now explicit: captured physical directions; physical raised
+overlay; E49D0's C4BF0(1) closure for the global flood; restored physical publication;
+then an independent temporary closure for planning. The captured physical map
+supplies special107160 data. Active macro-subject globals and coupling identities
+are validated; A/B use native offsets36/48 and are mapped through concrete tiles.
+Unknown C preserves independently known A/B witnesses, but cannot prove a negative.
+Coupling comes from APIShared; bridge/gate owner, allied owner, capturer and allied
+capturer permission remain separate. No native/default permission table is invented.
+Native D9190 permission semantics are explicitly not effective Gate unit permission.
+
+Controls on the same historical inputs:
+- Original: CF Reachable, seedShortLimit=True, origin103/target1, seed/distance changes0/0.
+- Global rebuild WITHOUT deck cut: CF Reachable; seed/distance changes0/0 and count132415.
+  However one tile is added and one removed. The first removed tile123127 (326,350)
+  has flags0000B000, old/new PCL1/0. No split or merge is observed. Therefore Dirty1
+  is not silently promoted to a current, complete negative topology publication.
+- Only703 (15 fields): CF NoRoute, R8 True->False, origin105/target31;
+  4000 changed seed fields,34878 changed distance fields; observed-target count116982.
+- All unallowed confirmed coupled bridges (45 fields): same first R8 change and
+  same field-change counts; origin107/target31, observed-target count116964.
+
+These are conditional calculations on captured physics, NOT live policy results.
+Revision43, Dirty1, planning clock788991761, physical capture789011290 and query
+observation789073802 are retained. Group input independently retains native
+revision46/Dirty0 and its actual capture timing. Legacy artifacts missing validity
+metadata remain readable but their cut assessment is explicitly blocked.
+
+Important integration limit: this real 2D250 uses mode0/candidateDistance0. D9190
+preserves the434 prior candidate entries, including both table columns. 2C5A0
+projects the stored selection225464; it does not select a new target. Therefore
+reports do NOT call the unchanged candidate table a fresh candidate choice or
+invent a new virtual target/phase. First changed planning parameter is proven;
+a fully replayed subsequent target consumer and pending update semantics remain
+release gates. A future decision patch must use the same valid virtual publication
+for early fields, castle checks and late formation/equal-PCL decisions. Unknown
+preserves Vanilla; successful alternatives stay allowed. No late movement block.
+
+Runtime diagnosis: changing command values are fixed31-column numeric records;
+only constant kind/id/global/type identities are defined. Identity comparisons are
+numeric before formatting. Original envelopes, parent/event/context, full64 returns,
+retained arguments/a6, positions/PCL, search counters, promotion and timing survive.
+Duplicated Post aggregate details point to the command envelope and matching Pre.
+The reader handles both old12-column frozen traces and new31-column transport;
+missing identities/torn rows are rejected. Full-row delivery remains64/target2ms.
+
+Fresh or changed strategic keep decisions are prioritized. Unchanged keeps and
+selected-target hypotheses are counted separately without duplicate six-variant
+searches. In production, full group comparisons focus on the retained planning
+artifact's exact decision root. Other group calculations are marked skipped,
+without dropping their route/command evidence. Queue rejection, cancellation,
+intentional skips, completed calculation and file delivery remain separate facts.
+Groups/alternative modes remain hypotheses; native castle direction stays target
+->attacker. Historical immutable inputs are never replaced by a newer observation.
+Artifact output stays one64KiB block/render; session-delivered remains unchanged.
+
+Frozen population:1837071 native completions,36747 command pairs,105 topology
+copies,239 rejected computations and10 cancellations. Full capture/delivery is not
+full calculation coverage. Command-only transport replay reduces Bridge bytes
+including prefixes7894389->6453084 (18.3percent):6420 detailed observations through
+352 identity definitions. This is OFFLINE serialization, not an in-game timing or
+under1MB/min acceptance. Existing unchanged-population volume fixtures pass;
+active burst volume and game compute cost remain open measurements.
+
+Behavior fix remains disabled. APIShared stays0.4.10; all versions, README and
+Script-Extender fork remain unchanged. No new game start was performed or requested.

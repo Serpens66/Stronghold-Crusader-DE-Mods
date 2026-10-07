@@ -16,11 +16,13 @@ namespace EnemyGatePathfindingTest
         private readonly TemporaryGateAcceptanceAggregate counts = new TemporaryGateAcceptanceAggregate();
         private readonly long[,] coverage = new long[9, 12];
         private bool active;
-        private long epoch, nextFlush, checkedRoutes, violated, unclear, lastFailures;
+        private long epoch, nextFlush, checkedRoutes, violated, unclear, negativeSearches, lastFailures;
         private sealed class Route
         {
             internal RouteTilePolicySnapshot Snapshot;
+            internal long Epoch;
             internal int Player, Role = -1, Tribe;
+            internal int StartX, StartY, TargetX, TargetY;
             internal uint TribeGlobal;
             internal bool Invalid;
             internal long Edges, Climb;
@@ -33,10 +35,11 @@ namespace EnemyGatePathfindingTest
         internal void Begin()
         {
             counts.Reset(); Array.Clear(coverage, 0, coverage.Length); epoch++; active = true;
-            checkedRoutes = violated = unclear = 0; nextFlush = Stopwatch.GetTimestamp() + Stopwatch.Frequency * 60;
+            checkedRoutes = violated = unclear = negativeSearches = 0; nextFlush = Stopwatch.GetTimestamp() + Stopwatch.Frequency * 60;
             lastFailures = TemporaryGateRouteAcceptanceBridge.Failures;
             Shared.DebugLogHelper.LogInfo(log, "TEMP_GATE_ROUTE_ACCEPTANCE begin epoch=" + epoch +
-                ",intervalSeconds=60,noExtraSearches=true,noNewHooks=true,unmeasuredNativeFallbacks=unknown");
+                ",format=2,intervalSeconds=60,weightedLengthUnit=nodes,packedLengthUnit=edges," +
+                "publicationContext=frame-or-owned-buffer,noExtraSearches=true,noNewHooks=true,unmeasuredNativeFallbacks=unknown");
         }
         internal void End()
         {
@@ -50,7 +53,7 @@ namespace EnemyGatePathfindingTest
             foreach (string row in counts.Drain()) Shared.DebugLogHelper.LogInfo(log, "TEMP_GATE_ROUTE_ACCEPTANCE aggregate " + row);
             Shared.DebugLogHelper.LogInfo(log, "TEMP_GATE_ROUTE_ACCEPTANCE summary epoch=" + epoch + ",final=" + final +
                 ",observations=" + counts.Total + ",checked=" + checkedRoutes + ",violated=" + violated +
-                ",unclear=" + unclear + ",adapterFailures=" + (TemporaryGateRouteAcceptanceBridge.Failures - lastFailures) +
+                ",unclear=" + unclear + ",negativeSearches=" + negativeSearches + ",adapterFailures=" + (TemporaryGateRouteAcceptanceBridge.Failures - lastFailures) +
                 ",lastAdapterFailure=" + TemporaryGateRouteAcceptanceBridge.LastFailureCause);
             if (final)
                 for (int player = 1; player <= 8; player++)
@@ -65,7 +68,7 @@ namespace EnemyGatePathfindingTest
         }
         private int Role(int player, int tribe, uint global)
         {
-            if (player <= 0 || player > 8 || global == 0) return -1;
+            if (player <= 0 || player > 8 || global == 0 || !GameTribeManagerAPI.Instance.IsValidId(tribe)) return -1;
             var api = GameTribeManagerAPI.Instance;
             for (int role = 0; role < 6; role++)
             {
@@ -82,7 +85,11 @@ namespace EnemyGatePathfindingTest
         }
         internal void RaidMove(int player, int tribe, bool pre, int x, int y, long result)
         {
-            if (!active || !GameTribeManagerAPI.Instance.TryGetTribeById(tribe, out GameTribe* live) || live == null) return;
+            if (!active) return;
+            if (!GameTribeManagerAPI.Instance.IsValidId(tribe))
+            { MissingContext(player, "raid-move", "invalid-tribe", tribe); return; }
+            if (!GameTribeManagerAPI.Instance.TryGetTribeById(tribe, out GameTribe* live) || live == null)
+            { MissingContext(player, "raid-move", "missing-tribe", tribe); return; }
             int role = Role(player, tribe, live->r_GlobalId);
             if (role < 0) return;
             coverage[player, role]++;
@@ -93,10 +100,14 @@ namespace EnemyGatePathfindingTest
             int type, int x, int y, int tx, int ty, string orderContext)
         {
             if (!active) return null;
+            if (type < 0)
+            { unclear++; Record(player, -1, "publication-context", orderContext, "", "unit=" + unit + "/" + unitGlobal); return null; }
             int role = Role(player, tribe, tribeGlobal);
             bool assassin = type == (int)eChimps.CHIMP_TYPE_ARAB_ASSASIN;
             if (role < 0 && !assassin) return null;
-            return new Route { Snapshot = policy(), Player = player, Tribe = tribe, TribeGlobal = tribeGlobal, Role = role,
+            if (tribeGlobal == 0) MissingContext(player, "published-route", "unverified-tribe", tribe);
+            return new Route { Snapshot = policy(), Epoch = epoch, Player = player, Tribe = tribe, TribeGlobal = tribeGlobal, Role = role,
+                StartX = x, StartY = y, TargetX = tx, TargetY = ty,
                 Kind = assassin ? "assassin-published" : "raid-published", Target = tx + "/" + ty,
                 Detail = "tribe=" + tribe + "/" + tribeGlobal + ",unit=" + unit + "/" + unitGlobal +
                     ",type=" + type + ",start=" + x + "/" + y + ",target=" + tx + "/" + ty + "," + orderContext +
@@ -119,30 +130,39 @@ namespace EnemyGatePathfindingTest
             route.Violations[gate] = "from=" + from + ",to=" + to + ",direction=" + direction + ",climb=" + climb;
             route.ViolationCounts.TryGetValue(gate, out long count); route.ViolationCounts[gate] = count + 1;
         }
-        public void EndRoute(object token, string status, int result)
+        public void EndRoute(object token, string status, int result) => EndRouteCore(token, status, result, false);
+        private void EndRouteCore(object token, string status, int expectedEdges, bool stationary)
         {
             if (!(token is Route route) || !active) return;
+            if (route.Epoch != epoch) status = "map-epoch-changed";
+            if (status == "search-negative")
+            { negativeSearches++; Record(route.Player, route.Role, route.Kind, "negative-search-no-route", route.Target, route.Detail); return; }
             string verdict = TemporaryGateAcceptanceAggregate.RouteVerdict(route.Snapshot, policy(), route.Player,
-                route.Edges, result, status, route.Invalid, route.Violations.Count != 0);
+                route.Edges, expectedEdges, status, route.Invalid, route.Violations.Count != 0, stationary);
             bool complete = verdict == "checked" || verdict == "violated";
             if (route.Kind.EndsWith("-published", StringComparison.Ordinal) && route.Player > 0 && route.Player <= 8) coverage[route.Player, 11]++;
             if (complete) { checkedRoutes++; if (route.Violations.Count != 0) violated++; } else unclear++;
             Record(route.Player, route.Role, route.Kind, verdict, route.Target,
-                route.Detail + ",length=" + result + ",observedEdges=" + route.Edges + ",climbEdges=" + route.Climb);
+                route.Detail + ",expectedEdges=" + expectedEdges + ",observedEdges=" + route.Edges + ",climbEdges=" + route.Climb);
             if (complete)
                 foreach (var pair in route.Violations)
                     Record(route.Player, route.Role, "violation", "gate=" + pair.Key + "/attribution=" + (pair.Key > 0 ? "exact" : pair.Key < 0 ? "ambiguous" : "unknown"), route.Target,
                         route.Detail + ",blockedEdges=" + route.ViolationCounts[pair.Key] + "," + pair.Value);
         }
-        internal object BeginAssassin(int player, int tribe, int tx, int ty)
+        private void MissingContext(int player, string source, string reason, int tribe)
+        { Record(player, -1, "context", source + "/" + reason, "", "tribe=" + tribe); }
+        internal object BeginAssassin(int player, int tribe, int x, int y, int tx, int ty)
         {
             if (!active) return null;
             uint global = 0;
-            if (GameTribeManagerAPI.Instance.TryGetTribeById(tribe, out GameTribe* live) && live != null && live->r_PlayerIdOwner == player)
+            if (!GameTribeManagerAPI.Instance.IsValidId(tribe)) MissingContext(player, "assassin", "invalid-tribe", tribe);
+            else if (GameTribeManagerAPI.Instance.TryGetTribeById(tribe, out GameTribe* live) && live != null && live->r_PlayerIdOwner == player)
                 global = live->r_GlobalId;
-            return new Route { Snapshot = policy(), Player = player, Tribe = tribe, TribeGlobal = global, Role = Role(player, tribe, global),
+            else MissingContext(player, "assassin", "missing-or-owner-mismatched-tribe", tribe);
+            return new Route { Snapshot = policy(), Epoch = epoch, Player = player, Tribe = tribe, TribeGlobal = global, Role = Role(player, tribe, global),
+                StartX = x, StartY = y, TargetX = tx, TargetY = ty,
                 Kind = tx < 0 || ty < 0 ? "assassin-flood" : "assassin-weighted", Target = tx + "/" + ty,
-                Detail = "tribe=" + tribe + "/" + global + ",target=" + tx + "/" + ty };
+                Detail = "tribe=" + tribe + "/" + global + ",start=" + x + "/" + y + ",target=" + tx + "/" + ty };
         }
         internal void AssassinEdge(object token, int player, int from, int to, int direction, bool climb)
         { if (token is Route route) { if (route.Edges > 0 && route.Player != player) route.Invalid = true; route.Player = player; Edge(route, from, to, direction, climb); } }
@@ -150,6 +170,10 @@ namespace EnemyGatePathfindingTest
         {
             if (!(token is Route route) || !active) return;
             if (player > 0) { if (route.Edges > 0 && route.Player != player) route.Invalid = true; route.Player = player; }
+            if (route.TribeGlobal != 0 && (!GameTribeManagerAPI.Instance.IsValidId(route.Tribe) ||
+                !GameTribeManagerAPI.Instance.TryGetTribeById(route.Tribe, out GameTribe* live) || live == null ||
+                live->r_GlobalId != route.TribeGlobal || live->r_PlayerIdOwner != route.Player))
+            { route.Invalid = true; MissingContext(route.Player, "assassin-completion", "tribe-identity-changed", route.Tribe); }
             route.Role = Role(route.Player, route.Tribe, route.TribeGlobal);
             bool target = route.Kind != "assassin-flood";
             if (route.Player > 0 && route.Player <= 8 && target) { coverage[route.Player, 6]++; if (cache) coverage[route.Player, 7]++; }
@@ -157,8 +181,14 @@ namespace EnemyGatePathfindingTest
             route.Kind += cache ? "-cache" : "-fresh";
             route.Detail += ",native=" + native + ",effective=" + effective + ",cache=" + cache + ",continuation=" + continuation + ",outcome=" + outcome;
             Record(route.Player, route.Role, route.Kind, "native=" + native + "/effective=" + effective + "/cache=" + cache + "/continuation=" + (continuation != 0),
-                route.Target, route.Detail + ",outcome=" + outcome);
-            if (target) EndRoute(route, length > 0 ? "decoded" : "no-materialized-route", length);
+                route.Target, route.Detail);
+            if (target)
+            {
+                // Weighted producer supplies nodes including the start; packed output supplies directions.
+                route.Detail += ",nodeCount=" + length;
+                EndRouteCore(route, effective <= 0 ? "search-negative" : length > 0 ? "decoded" : "positive-without-materialized-route",
+                    length > 0 ? length - 1 : -1, length == 1 && route.StartX == route.TargetX && route.StartY == route.TargetY);
+            }
         }
         public void Raid(int player, int role, int tribe, uint tribeGlobal, int building, uint buildingGlobal, string stage, string result, string detail)
         {

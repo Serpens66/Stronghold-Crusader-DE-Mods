@@ -196,10 +196,10 @@ namespace CastlePlanner
             {
                 bool rear = drawbridgePosition == BlueprintDrawbridgePosition.TopLeft ||
                     drawbridgePosition == BlueprintDrawbridgePosition.TopRight;
-                // The bundled rear canonical image is the former TopRight
-                // asset; only TopLeft is derived by mirroring it.
-                bool flip = drawbridgePosition == BlueprintDrawbridgePosition.BottomRight ||
-                    drawbridgePosition == BlueprintDrawbridgePosition.TopLeft;
+                // Canonical PNGs face BottomRight (front) and TopLeft (rear).
+                // Composite, depth-fragment and fallback paths share this mapping.
+                bool flip = BlueprintBuildingIconCatalog
+                    .ResolveDrawbridgeImage(drawbridgePosition).FlipHorizontally;
                 return new BlueprintCaptureRequest(
                     mapperName,
                     skin,

@@ -30,7 +30,7 @@ namespace EnemyBridgePathTest
             int n=width*(alternative?2:1);var pcl=new ushort[n];var edges=new byte[n];var x=new ushort[n];var y=new ushort[n];var rows=new int[alternative?2:1];
             for(int tile=0;tile<n;tile++) {pcl[tile]=1;x[tile]=(ushort)(tile%width);y[tile]=(ushort)(tile/width);if(x[tile]+1<width)edges[tile]|=4;if(x[tile]>0)edges[tile]|=64;if(alternative)edges[tile]|=(byte)(y[tile]==0?16:1);}
             if(alternative)rows[1]=width;
-            object input=Create("Captured");Set(input,"Session",1L);Set(input,"Revision",1L);Set(input,"Identity",1L);Set(input,"Clock",123L);
+            object input=Create("Captured");Set(input,"Session",1L);Set(input,"Revision",1L);Set(input,"Identity",1L);Set(input,"Clock",123L);Set(input,"ValidityKnown",true);
             Set(input,"Pcl",pcl);Set(input,"Edges",edges);Set(input,"Flags",new int[n]);Set(input,"X",x);Set(input,"Y",y);Set(input,"Rows",rows);Set(input,"SpecialIds",new ushort[n]);Set(input,"SpecialKinds",new short[1]);Set(input,"Anchors",new[]{-1,0});
             Set(input,"Owners",new int[1]);Set(input,"Capturers",new int[1]);Set(input,"Globals",new uint[1]);Set(input,"UnitGlobals",new uint[1]);Set(input,"Records",new PathConnectionRecord[1]);Set(input,"ConnectionLimit",1);
             var allies=new bool[9,9];for(int i=1;i<9;i++)allies[i,i]=true;Set(input,"Allies",allies);
@@ -86,6 +86,9 @@ namespace EnemyBridgePathTest
                 object value=field=="edges"?sections[field]:field=="globals"||field=="unitGlobals"?(object)ArrayOf<uint>(sections[field],4):field=="specialKinds"?ArrayOf<short>(sections[field],2):field=="components"||field=="x"||field=="y"||field=="specialIds"?(object)ArrayOf<ushort>(sections[field],2):ArrayOf<int>(sections[field],4);Set(input,member,value);
             }
             foreach(string key in new[]{"session","revision","identity","captureClock"})Set(input,key=="captureClock"?"Clock":char.ToUpperInvariant(key[0])+key.Substring(1),long.Parse(meta[key]));
+            Set(input,"ValidityKnown",meta.ContainsKey("dirty")&&meta.ContainsKey("nativeRevision")&&meta.ContainsKey("inputTiming"));
+            if(meta.TryGetValue("dirty",out string dirty))Set(input,"Dirty",int.Parse(dirty));
+            if(meta.TryGetValue("nativeRevision",out string nativeRevision))Set(input,"NativeRevision",int.Parse(nativeRevision));
             var allies=new bool[9,9];for(int a=0;a<9;a++)for(int b=0;b<9;b++)allies[a,b]=sections["allies"][a*9+b]!=0;Set(input,"Allies",allies);
             int[] raw=ArrayOf<int>(sections["records13"],4);var records=new PathConnectionRecord[raw.Length/13];for(int i=0;i<records.Length;i++)
             {int p=i*13;records[i]=new PathConnectionRecord {r_IsActive=raw[p],r_ConnectionClass=(SHCDESE.Interop.Enums.PathConnectionClass)raw[p+1],r_RecordGlobalId=unchecked((uint)raw[p+2]),r_BuildingId=raw[p+3],r_UnitId=raw[p+4],r_SubjectGlobalId=unchecked((uint)raw[p+5]),r_IsEnabledOrOpen=raw[p+6],r_EntryTileId=raw[p+7],r_ExitTileId=raw[p+8],r_PathComponentA=raw[p+9],r_PathComponentB=raw[p+10],r_OwnerOrAccessPlayerId=raw[p+11],r_PathComponentC=raw[p+12]};}
@@ -103,15 +106,52 @@ namespace EnemyBridgePathTest
             Set(input,"Map",new VirtualBridgeMap(long.Parse(meta["session"]),long.Parse(meta["revision"]),pcl,(byte[])Get(input,"Edges"),(int[])Get(input,"Flags"),(ushort[])Get(input,"X"),(ushort[])Get(input,"Y"),(int[])Get(input,"Rows"),Array.Empty<VirtualConnection>(),true,(ushort[])Get(input,"SpecialIds"),(short[])Get(input,"SpecialKinds")));
             var policy=meta["gateFilter"]=="absent"?null:new Policy {Mask=sections["gateMask"]};object request=Request(input,policy,int.Parse(meta["nativeBoolean"]));
             foreach(string key in new[]{"definition","op","parent","observationClock"})Set(request,key=="definition"?"Id":key=="observationClock"?"Clock":char.ToUpperInvariant(key[0])+key.Substring(1),long.Parse(meta[key]));
-            foreach(string key in new[]{"player","from","to","mode"})Set(request,char.ToUpperInvariant(key[0])+key.Substring(1),int.Parse(meta[key]));Set(request,"Stage",meta["stage"]);Set(request,"PolicyValidAtDecision",bool.Parse(meta["policyValidAtDecision"]));
+            foreach(string key in new[]{"player","from","to","mode"})Set(request,char.ToUpperInvariant(key[0])+key.Substring(1),int.Parse(meta[key]));Set(request,"Stage",meta["stage"]);if(meta.TryGetValue("inputTiming",out string timing))Set(request,"InputReason",timing);Set(request,"PolicyValidAtDecision",bool.Parse(meta["policyValidAtDecision"]));
             if(alternateMode) {Set(request,"Mode",1-int.Parse(meta["mode"]));Set(request,"Stage",meta["stage"]+"-alternate-mode-hypothesis");Set(request,"Native",-1);}
             var messages=new List<string>();var shadow=new BridgeVirtualShadow((k,d)=>messages.Add(k+":"+d),_=>throw new Exception("offline native read"));shadow.Begin(long.Parse(meta["session"]));Set(shadow,"active",request);
             var watch=System.Diagnostics.Stopwatch.StartNew();while(Get(shadow,"active")!=null)shadow.Pump();watch.Stop();foreach(string message in messages)Console.WriteLine(message);
             Console.WriteLine("offline-cost:elapsedMs="+watch.Elapsed.TotalMilliseconds.ToString("F3",System.Globalization.CultureInfo.InvariantCulture)+",preparationHits="+Get(shadow,"preparationHits")+",inputBytes="+new FileInfo(path).Length+",timing=offline-not-game-frame");return 0;
         }
+        private static void RemappedEndpointEvidence()
+        {
+            var b=new BridgePlanningCapture.Bundle {Session=1,Complete=true};var record=new byte[0x204];
+            void Put(int offset,int value){Buffer.BlockCopy(BitConverter.GetBytes(value),0,record,offset,4);}
+            Put(0,1);Put(4,9);Put(12,1);Put(24,1);Put(36,0);Put(48,1);Put(52,1);Put(56,2);Put(0x1e4,8);Put(0x1e8,3);
+            b.Sections.Add("s/macroRecords",record);b.Sections.Add("s/macroLimit",BitConverter.GetBytes(2));b.Sections.Add("buildingRecords",new byte[0x32c]);b.Sections.Add("gateConnectionIds",new byte[2]);var alliances=new byte[36];for(int n=0;n<9;n++)Buffer.BlockCopy(BitConverter.GetBytes(n),0,alliances,n*4,4);b.Sections.Add("nativeAlliances9",alliances);
+            var map=new VirtualBridgeMap(1,1,new ushort[]{1,2,3},new byte[3],new int[3],new ushort[]{0,1,2},new ushort[3],new[]{0},Array.Empty<VirtualConnection>(),true);
+            Func<int,int,int?> oracle;string reason;
+            Check(CopiedPlanningRegions.TryCreate(b,"s",false,8,0,map,new ushort[]{10,20,30},out oracle,out reason),"partial remapped C retains known A/B");
+            Check(oracle(10,20)==1&&oracle(10,30)==null,"known witness reachable, unresolved alternative cannot prove NoRoute");
+            var focused=new BridgeVirtualShadow((_,d)=>{},_=>throw new Exception("focused calculation must not read"),focusedComparisons:true);focused.Begin(1);object request=Request(Input(5,false),null);Set(request,"DecisionRoot",77L);
+            Check(!(bool)typeof(BridgeVirtualShadow).GetMethod("Promote",BindingFlags.NonPublic|BindingFlags.Instance).Invoke(focused,new[]{request})&&(long)Get(focused,"skippedComputations")==1,"unselected group counted as skipped, never completed or calculated");
+            focused.Defer("unchanged-keep");Check((long)Get(focused,"skippedComputations")==2,"native call accounting separated from computation coverage");focused.End();
+            focused.Begin(2);focused.Defer("second-session");focused.End();
+            Check((long)Get(focused,"attempted")==1&&(long)Get(focused,"skippedComputations")==1,"session coverage resets independently of previous session totals");
+        }
+        private static void RealPlanningEvidence()
+        {
+            string folder=Path.GetFullPath(Path.Combine("..","..","_inspect","EnemyGateBuildingContextAudit","real-plan-20261007-151016"));
+            BridgePlanningImporter.Artifact plan,group;string reason;
+            Check(BridgePlanningImporter.TryRead(Path.Combine(folder,"planning.bin"),out plan,out reason),"frozen real plan imports");Check(BridgePlanningImporter.TryRead(Path.Combine(folder,"group.bin"),out group,out reason),"frozen linked group imports");
+            Check(plan.Hash=="48EB96C1902815BC062B4C87777679A49FFCF6B38997AEA3F72FE5BCA373A552"&&group.Hash=="6E0437D565FCD4CA77D4F1CD1A56DA04F465EE3103D46FD3958893390C0BB461","real bytes remain exact");
+            Check(BridgePlanningImporter.TryLinkGroup(plan,group,out reason),"real source decision retained across military frames");
+            Check(CopiedPlanningReplay.TryVariants(plan,out reason)&&reason.Contains("variant=none")&&reason.Contains("seedChanged=0,distanceChanged=0")&&reason.Contains("effectiveCount=132415")&&reason.Contains("variant=only703,cutCells=15")&&reason.Contains("keep=NoRoute,seedShortLimit=False")&&reason.Contains("variant=rebuild-only-control,cutCells=0,partitionEquivalentToRecorded=False")&&reason.Contains("seedChanged=4000,distanceChanged=34878")&&reason.Contains("negativeEligible=False")&&reason.Contains("newTargetChoice=Unknown-unrecorded-consumer"),"real continuous baseline and conditional virtual first branch, no fabricated target choice");
+            var copyMap=new VirtualBridgeMap(1,1,new ushort[320800],new byte[320800],new int[320800],new ushort[320800],new ushort[320800],new int[800],Array.Empty<VirtualConnection>(),true);
+            var copyInput=new VirtualPlanningInput(new int[320800],new int[800],new int[6400],new ushort[320800],new ushort[320800],new short[320800],new byte[320800],new sbyte[25600],new byte[320800]);
+            var rawBuildings=new byte[0x32c];var rawIds=new ushort[320800];
+            var copyPublication=new VirtualRaisedPlanning(copyInput,copyMap,Array.Empty<int>(),new int[800],rawBuildings,rawIds);rawBuildings[0]=7;rawIds[0]=1;
+            Check(((byte[])Get(copyPublication,"buildings"))[0]==0&&((ushort[])Get(copyPublication,"buildingIds"))[0]==0,"continued topology publication owns immutable building copies");
+            // Corrupted before-state must invalidate the calculation even with intact recorded Post data.
+            foreach(string stage in new[]{"seed-pre","seed-post","distance-pre","distance-post","caller-post"})
+            {string name=stage+"/distance";plan.Planning.Sections[name]=(byte[])CopiedPlanningBundle.Resolve(plan.Planning,name).Clone();plan.Planning.References.Remove(name);}
+            byte[] before=CopiedPlanningBundle.Resolve(plan.Planning,"caller-pre/distance");before[0]^=1;
+            Check(!CopiedPlanningReplay.TryBaseline(plan,out reason),"computed baseline does not substitute recorded distance-pre/Post state");before[0]^=1;
+        }
         internal static int Run()
         {
             checks=0;
+            RemappedEndpointEvidence();
+            RealPlanningEvidence();
             Check(VirtualComponentControl.Evaluate(1,1,0,Array.Empty<VirtualComponentLink>())==VirtualReachability.Reachable,"same component shortcut");
             Check(VirtualComponentControl.Evaluate(0,0,0,Array.Empty<VirtualComponentLink>())==VirtualReachability.NoRoute,"zero native result");
             var links=new[]{new VirtualComponentLink(1,2,3,1,true),new VirtualComponentLink(3,4,0,2,true)};

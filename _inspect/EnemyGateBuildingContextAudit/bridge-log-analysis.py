@@ -35,6 +35,7 @@ def analyze(raw):
     # envelope is delivery timing only. Missing/truncated rows remain incomplete.
     wire_transport=list(records)
     command_payloads={f['definition']:f['text'][1:-1] for _,f in records if f['kind']=='text-definition' and f.get('category')=='command-payload'}
+    command_identities={f['definition']:f['text'][1:-1] for _,f in records if f['kind']=='text-definition' and f.get('category')=='command-identity'}
     search_sources={f['definition']:f['text'][1:-1] for _,f in records if f['kind']=='text-definition' and f.get('category')=='search-source'}
     unbatched=[]
     for line,f in records:
@@ -54,12 +55,21 @@ def analyze(raw):
             for row in f.get('rows','[]').strip('[]').split(';'):
                 if not row:continue
                 try:
-                    v=row.split('/');assert len(v)==12 and v[7] in ('0','1')
+                    v=row.split('/');assert len(v) in (12,31) and v[7] in ('0','1')
                     for n in v:int(n)
-                    assert v[11] in command_payloads
+                    assert v[11] in (command_payloads if len(v)==12 else command_identities)
                     item=dict(zip(('seq','session','thread','tick','clock','physical','topology'),v[:7]))
                     item.update(kind='command-pre' if v[7]=='0' else 'command-post',op=v[8],parentEvent=v[9],commandContext=v[10])
-                    for key,value in fields(command_payloads[v[11]]).items():item.setdefault(key,value)
+                    for key,value in fields((command_payloads if len(v)==12 else command_identities)[v[11]]).items():item.setdefault(key,value)
+                    if len(v)==31:
+                        assert v[12] in ("1","2","3") and v[27] in ("0","1") and v[29] in ("0","1") and v[30] in ("1","2","3")
+                        assert item.get("commandKind")=={"1":"target","2":"move","3":"unit"}[v[12]]
+                        item.update(tribe=v[13],player=v[14],command=v[15],input=v[16]+'/'+v[17],start=v[18]+'/'+v[19],pcl=v[20]+'->'+v[21],a6=v[22],regions=v[24],searches=v[25],failed=v[26],nearBridge='True' if v[29]=='1' else 'False',contextAttribution={1:'native-decision',2:'bridge-proximity',3:'unscoped-bounded-example'}.get(int(v[30]),'unknown'),routeAttribution='unproven')
+                        if v[7]=='1':item.update(returnValue=v[23],stage='same-pcl-with-no-region-call' if v[12]=='2' and v[20]!='0' and v[20]==v[21] and v[24]=='0' else 'region-query-executed' if v[24]!='0' else 'region-not-observed',postInput='original')
+                        if v[7]=='1':
+                            item['return']=v[23]
+                            item['retainedPre']=(v[13]+':'+v[15]+':'+v[16]+'/'+v[17]+(':a6='+v[22] if v[12]=='1' else '')) if v[12] in ('1','2') else item['id']+':'+v[16]+'/'+v[17]
+                        if v[27]=='1':item.update(promotion='bridge-route-observed',entryData='retained-pre-fields',liveStateTiming='promotion',followingUnitOp=v[28])
                     unbatched.append((line,item))
                 except (AssertionError,ValueError,KeyError):torn.append(line)
             continue
@@ -250,10 +260,11 @@ def analyze(raw):
     for line,f in actual_transport: volumes[f['kind']]+=len((line+'\r\n').encode('utf-8'))
     virtual_inputs={(f['session'],f['definition']):f for _,f in records if f['kind']=='virtual-shadow-input'}
     virtual_results={(f['session'],f['definition']):f for _,f in records if f['kind']=='virtual-shadow'}
-    virtual_cancelled=set();virtual_repeats=0;virtual_rejected=0;virtual_deferred=0;virtual_unresolved=0;virtual_evictions=0
+    virtual_cancelled=set();virtual_repeats=0;virtual_rejected=0;virtual_deferred=0;virtual_unresolved=0;virtual_evictions=0;virtual_skipped=0
     for _,f in records:
         if f['kind']=='virtual-shadow' and (f['session'],f.get('definition')) not in virtual_inputs:
             missing.append((f['seq'],'virtual-input',f.get('definition')))
+        if f['kind']=='virtual-computation-coverage':virtual_skipped+=int(f.get('skipped','0'))
         if f['kind']=='virtual-shadow-end':
             virtual_cancelled.update((f['session'],v) for v in f.get('cancelledDefinitions','[]').strip('[]').split(';') if v)
             virtual_rejected+=int(f.get('rejected','0'))
@@ -285,7 +296,7 @@ def analyze(raw):
     artifact_summary=dict(requested=len(artifact_inputs),completed=len(artifact_done),failed=len(artifact_fail),pending=len(artifact_pending),
                           deliveryComplete=not artifact_pending and not artifact_fail,filesVerified=False)
     if artifact_pending or artifact_fail:delivery=False
-    virtual_summary=dict(summarizedRepeats=virtual_repeats,rejected=virtual_rejected,backgroundDeferred=virtual_deferred,unresolvedGroupLinks=virtual_unresolved,retainedGroupEvictions=virtual_evictions,instrumented=bool(virtual_inputs),inputs=len(virtual_inputs),results=len(virtual_results),cancelled=len(virtual_cancelled),pending=len(virtual_pending),
+    virtual_summary=dict(skippedComputations=virtual_skipped,summarizedRepeats=virtual_repeats,rejected=virtual_rejected,backgroundDeferred=virtual_deferred,unresolvedGroupLinks=virtual_unresolved,retainedGroupEvictions=virtual_evictions,instrumented=bool(virtual_inputs),inputs=len(virtual_inputs),results=len(virtual_results),cancelled=len(virtual_cancelled),pending=len(virtual_pending),
                          policyUnknown=sum(f.get('policyResult')=='Unknown' for f in virtual_results.values()),
                          geometricResults=dict(collections.Counter(f.get('geometricResult') for f in virtual_results.values())))
     native_ready=bool(ends) and all(int(f.get('installedEntries','0'))>0 and f.get('installedEntries')==f.get('expectedEntries',f.get('installedEntries')) for f in ends)
@@ -299,7 +310,7 @@ def analyze(raw):
     coverage=dict(eventCaptureComplete=capture,nativeReady=native_ready,nativeCallsObserved=native_observed,nativeCoverageComplete=native_coverage,
                   coherentTopologyCaptures=shadow_captures,shadowResultsDelivered=shadow_coverage,
                   selectedShadowComputationComplete=shadow_coverage and not virtual_rejected and not virtual_cancelled and not virtual_unresolved,
-                  shadowCoverageComplete=shadow_coverage and not virtual_rejected and not virtual_cancelled and not virtual_deferred,
+                  shadowCoverageComplete=shadow_coverage and not virtual_rejected and not virtual_cancelled and not virtual_deferred and not virtual_skipped,
                   usableGeometricResults=sum(f.get('geometricResult') in ('Reachable','NoRoute') for f in virtual_results.values()))
     return dict(artifactSummary=artifact_summary,controlSummary=dict(records=len(controls),baselineAgreements=sum(f.get("macroMatchesNative")=="True" and f.get("geometryMatchesNative")=="True" for f in controls),blocked=sum(f.get("cutAssessment","").startswith("blocked") for f in controls)),coverage=coverage,virtualSummary=virtual_summary,records=records,torn=torn,missing=missing,captureComplete=capture,deliveryComplete=delivery,
                 bridgeFileComplete=bridge_file_complete,bridgeComplete=capture and delivery and bridge_file_complete and not missing and not reconstruction,

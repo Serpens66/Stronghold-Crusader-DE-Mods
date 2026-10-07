@@ -106,7 +106,9 @@ namespace EnemyBridgePathTest
             var lines=Shared.DebugLogHelper.Recent;
             foreach(var line in lines.Where(v=>v.Contains("kind=command-frame-batch,")))
             foreach(var row in line.Split(new[]{"rows=["},StringSplitOptions.None)[1].Split(']')[0].Split(';'))
-            {var v=row.Split('/');if(v.Length!=12||v[8]!=op.ToString())continue;string definition=v[11];if(lines.Any(s=>s.Contains("kind=text-definition,")&&s.Contains("definition="+definition+",")&&s.Contains("category=command-payload,")&&terms.All(s.Contains)))return true;}
+            {var v=row.Split('/');if(v.Length!=31||v[8]!=op.ToString())continue;
+                bool promoted=v[27]=="1",same=v[12]=="2"&&v[20]!="0"&&v[20]==v[21]&&v[24]=="0";
+                if(terms.All(term=>term=="promotion=bridge-route-observed"||term=="entryData=retained-pre-fields"?promoted:term=="stage=same-pcl-with-no-region-call"&&v[7]=="1"&&same))return true;}
             return false;
         }
         private static void PromotedCommandFrames()

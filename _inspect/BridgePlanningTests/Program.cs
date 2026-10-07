@@ -296,6 +296,7 @@ namespace BridgePlanningTests
             var capture=new BridgePlanningCapture(m.Size,m.Bytes,()=>token,v=>bundle=v,(k,d)=>reasons.Add(k+":"+d));
             capture.Begin(1);capture.Observe(0x2D250,false,1,100,90,8,8,1,0,0,true);
             discardedShadow=null;Check(discardedShadow==null&&capture.ActiveFamily==100,"discarded shadow publication does not discard own map-bound planning family");
+            m.Int(0x2EA70DC+8*0x177bc,1); // Audited 2D250 bank write precedes both child calls.
             capture.Observe(0xD95E0,false,1,101,100,8,1,1,1,0,true);originalCalls++;m.Function<V4>(0xD95E0)(m.Ptr(Root),1,1,1);capture.Observe(0xD95E0,true,1,101,100,8,1,1,1,0,true);
             m.Int(0x2EA70DC+8*0x177bc,1);
             capture.Observe(0xD9190,false,1,102,100,8,110,50,1,8,true);originalCalls++;m.Function<V5>(0xD9190)(m.Ptr(Root),110,50,1,8);capture.Observe(0xD9190,true,1,102,100,8,110,50,1,8,true);
@@ -343,6 +344,7 @@ namespace BridgePlanningTests
             var unbound=new BridgePlanningCapture(m.Size,(r,n)=>{throw new Exception("unbound family must not read memory");},()=>token,v=>{throw new Exception("unbound delivery");},(k,d)=>reasons.Add(d),requireMilitaryRoot:true);unbound.Begin(6);unbound.Observe(0x2D250,false,6,600,590,8,8,1,0,0,true);Check(reasons.Any(v=>v.Contains("unresolved-military-parent"))&&unbound.ActiveFamily==0,"unresolved parent is distinct and makes no complete copy");
             f.Install(m);m.Int(0x379D9A8+8*0x583c,1);m.Int(Root+0x6c,dirty);m.Int(Root+0x74,4);m.Int(Root+0xe0+4,144);capture.Begin(7);bundle=null;
             capture.Observe(0x2D250,false,7,700,699,8,8,1,0,0,true,699);
+            m.Int(0x2EA70DC+8*0x177bc,1); // Same audited caller ordering for selected-artifact fixture.
             capture.Observe(0xD95E0,false,7,701,700,8,1,1,1,0,true,699);m.Function<V4>(0xD95E0)(m.Ptr(Root),1,1,1);capture.Observe(0xD95E0,true,7,701,700,8,1,1,1,0,true,699);
             m.Int(0x2EA70DC+8*0x177bc,1);capture.Observe(0xD9190,false,7,702,700,8,110,50,1,8,true,699);m.Function<V5>(0xD9190)(m.Ptr(Root),110,50,1,8);capture.Observe(0xD9190,true,7,702,700,8,110,50,1,8,true,699);capture.Observe(0x2D250,true,7,700,699,8,8,1,0,0,true,699);Check(bundle==null,"immutable publication waits for completed military root and selection");
             m.Int(0x379D968+8*0x583c,f.SeedTile);m.Int(0x379AFB0+0x583c,f.SeedTile);m.Int(Root+0xe0+4,144);

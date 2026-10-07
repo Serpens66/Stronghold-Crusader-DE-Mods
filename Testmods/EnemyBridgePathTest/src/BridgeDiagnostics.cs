@@ -37,6 +37,7 @@ namespace EnemyBridgePathTest
         private sealed class Frame
         {
             internal EventHookBase PreEvent;
+            internal int Extra;
             internal long Epoch, TraceId, ParentTrace;
             internal string Kind, Identity, UnitType = "unknown";
             internal int Id, Tribe, Player, Command, X, Y, SourcePcl, TargetPcl;
@@ -229,7 +230,7 @@ namespace EnemyBridgePathTest
                 {
                     frame.StartX=leader->r_CurrentTilePositionX;frame.StartY=leader->r_CurrentTilePositionY;
                     frame.SourcePcl = Pcl(frame.StartX,frame.StartY);
-                    frame.UnitType = leader->r_UnitChimp.ToString();
+                    frame.UnitType = leader->r_UnitChimp.ToString();frame.RawUnitType=(int)leader->r_UnitChimp;
                     frame.Identity += "/g" + leader->r_GlobalId + ",type=" + leader->r_UnitChimp +
                         ",controlWord=" + (leader->r_ControllableForPlayerId | ((int)leader->N00000569 << 8)) +
                         ",start=" + leader->r_CurrentTilePositionX + "/" + leader->r_CurrentTilePositionY;
@@ -252,6 +253,7 @@ namespace EnemyBridgePathTest
             if (frames == null) frames = new List<Frame>();
             frame.Epoch = running ? epoch : -1;
             frame.ParentTrace = frames.Count>0&&frames[frames.Count-1].Epoch==frame.Epoch ? frames[frames.Count-1].TraceId : 0;
+            frame.Extra=frame.PreEvent is TribeIssueOrderWithTargetEventArgs targetArgs?targetArgs.a6:0;
             frame.TraceId = Trace.NewOperation(); frames.Add(frame);
             if(!running) return;
             Interlocked.Increment(ref preCount);Trace.CountCommand(true);
@@ -275,9 +277,7 @@ namespace EnemyBridgePathTest
                 frame.Identity="unit="+frame.Id+"/g"+frame.Global+",type="+frame.UnitType+",controlWord="+frame.Player+",start="+frame.StartX+"/"+frame.StartY;
             }
             if(frame.Kind=="target"&&IsWork(frame.Command))frame.WorkBefore=CaptureWork(frame.Tribe);
-            Trace.Command("command-pre","op="+frame.TraceId+",parentEvent="+frame.ParentTrace+",commandKind="+frame.Kind+
-                ",id="+frame.Id+",tribe="+frame.Tribe+",player="+frame.Player+",command="+frame.Command+
-                ",input="+frame.X+"/"+frame.Y+",pcl="+frame.SourcePcl+"->"+frame.TargetPcl+",nearBridge="+near+",contextAttribution="+(Trace.DetailedNative?"native-decision":near?"bridge-proximity":"unscoped-bounded-example")+",routeAttribution=unproven,"+frame.Identity,frame.Player);
+            Command(frame,false,0,false,0,near);
             if(IsWork(frame.Command)) Trace.Observe("terrain-work-command","eventOp="+frame.TraceId+",player="+frame.Player+",command="+frame.Command+",target="+frame.X+"/"+frame.Y+",nearBridge="+near+",execution=not-proven");
             Record(frame,"command-pre","called",frame.Identity);
 
@@ -293,7 +293,7 @@ namespace EnemyBridgePathTest
                 if(frame.Epoch==epoch&&!frame.Detailed)
                 {
                     frame.Detailed=true;
-                    Trace.Command("command-pre","op="+frame.TraceId+",parentEvent="+frame.ParentTrace+",commandKind="+frame.Kind+",id="+frame.Id+",global="+frame.Global+",tribe="+frame.Tribe+",player="+frame.Player+",command="+frame.Command+",input="+frame.X+"/"+frame.Y+",start="+frame.StartX+"/"+frame.StartY+",pcl="+frame.SourcePcl+"->"+frame.TargetPcl+",promotion=bridge-route-observed,entryData=retained-pre-fields,liveStateTiming=promotion,followingUnitOp="+unitOperation,frame.Player);
+                    Command(frame,false,0,true,unitOperation,false);
                 }
             }
         }
@@ -315,23 +315,17 @@ namespace EnemyBridgePathTest
             Trace.CountEvent(BridgeDecisionTrace.CommandCountData(kind=="target"?1:kind=="move"?2:3,frame.Player,frame.Command,result,false,frame.Global!=0&&frame.Player>=1&&frame.Player<=8));
             string stage = kind == "move" && frame.SourcePcl > 0 && frame.SourcePcl == frame.TargetPcl && frame.Regions == 0
                 ? "same-pcl-with-no-region-call" : frame.Regions > 0 ? "region-query-executed" : "region-not-observed";
-            if(frame.Detailed) Trace.Command("command-post","op="+frame.TraceId+",parentEvent="+frame.ParentTrace+",commandKind="+kind+
-                ",id="+id+",return="+result+",retainedPre="+DescribePreArgs(frame.PreEvent)+",postInput=original,regions="+frame.Regions+",stage="+stage,frame.Player);
+            if(frame.Detailed) Command(frame,true,result,false,0,false);
             // No region call for same PCL is distinct from an observed positive E2610.
             if(frame.Detailed) Record(frame, kind + "-post", "return=" + result + ",stage=" + stage,
-                frame.Identity + ",regions=" + frame.Regions + ",searches=" + frame.Searches + ",failed=" + frame.Failed +
-                ",retainedPreArgs=" + DescribePreArgs(frame.PreEvent) + ",postArgsSource=extender-original-inputs");
+                "identityEvidence=matching-command-pre,countsAndRetainedArgs=fixed-command-frame,postArgsSource=extender-original-inputs");
             if (frame.WorkBefore != null) CompareWork(frame);
             if (Current != null&&Current.Epoch==epoch) { Current.Regions += frame.Regions; Current.Searches += frame.Searches; Current.Failed += frame.Failed; }
         }
-        private static string DescribePreArgs(EventHookBase args)
+        private void Command(Frame f,bool post,long result,bool promoted,long following,bool near)
         {
-            if (args is TribeIssueOrderWithTargetEventArgs target)
-                return target.TribeId + ":" + (int)target.AICommand + ":" + target.TargetValue1 + "/" + target.TargetValue2 + ":a6=" + target.a6;
-            if (args is TribeIssueOrderMoveHereEventArgs move)
-                return move.TribeId + ":" + (int)move.MoveType + ":" + move.TileX + "/" + move.TileY;
-            if (args is UnitMoveHereEventArgs unit) return unit.UnitId + ":" + unit.TileX + "/" + unit.TileY;
-            return "unknown";
+            int extra=f.Extra;
+            Trace.Command(post?"command-post":"command-pre",new BridgeDecisionTrace.CommandData(f.TraceId,f.ParentTrace,f.Kind=="target"?1:f.Kind=="move"?2:3,f.Id,f.Global,f.Tribe,f.Player,f.Command,f.X,f.Y,f.StartX,f.StartY,f.SourcePcl,f.TargetPcl,f.RawUnitType,extra,result,f.Regions,f.Searches,f.Failed,promoted,following,near,Trace.DetailedNative?1:near?2:3),f.Player);
         }
         internal void TargetOrder(TribeIssueOrderWithTargetEventArgs args)
         {

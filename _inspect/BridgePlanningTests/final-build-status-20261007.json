@@ -1,0 +1,19 @@
+{
+  "buildDriver": "Testmods/EnemyBridgePathTest/build.bat /nopause",
+  "elevated": true,
+  "exitCode": 0,
+  "installedPackageHash": "B9339CE2877D0B3FE6344905CB8A9864BC63EC99B26540509A2D1FDA8334DD4D",
+  "bridgeAssertions": 38104,
+  "nativePlanningCases": 103,
+  "nativeChecks": 10068,
+  "nativeRaiseCases": 144,
+  "frozenLogRegressions": 10,
+  "apiShared": "0.4.10",
+  "behaviorFix": "disabled",
+  "gameStarted": false,
+  "remainingReleaseGates": [
+    "historical Dirty=1 differs from rebuilt partition even without cuts",
+    "mode0 preserves candidates; actual counterfactual target consumer not recorded"
+  ],
+  "warning": "existing Shared.PathDecisionAggregate CS0649"
+}

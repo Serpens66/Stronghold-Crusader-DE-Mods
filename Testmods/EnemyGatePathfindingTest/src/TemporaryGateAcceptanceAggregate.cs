@@ -13,13 +13,13 @@ namespace EnemyGatePathfindingTest
         private readonly Dictionary<string, Row> window = new Dictionary<string, Row>();
         internal long Total { get; private set; }
         internal static string RouteVerdict(RouteTilePolicySnapshot entry, RouteTilePolicySnapshot current,
-            int player, long edges, int result, string status, bool invalid, bool violations)
+            int player, long edges, int result, string status, bool invalid, bool violations, bool stationary = false)
         {
             if (invalid || player <= 0 || player > 8) return "unclear:invalid-edge-or-player";
             if (!ReferenceEquals(entry, current)) return "unclear:snapshot-changed";
             if (entry == null || entry == RouteTilePolicySnapshot.Empty) return "unclear:no-policy-snapshot";
             if (status != "decoded") return "unclear:" + status;
-            if (result <= 0 || edges != result) return "unclear:incomplete-edges";
+            if (result < 0 || (result == 0 && !stationary) || edges != result) return "unclear:incomplete-edges";
             return violations ? "violated" : "checked";
         }
         internal void Record(string key, string target, string detail)

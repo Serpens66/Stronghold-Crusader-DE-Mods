@@ -110,7 +110,7 @@ namespace EnemyBridgePathTest
             shadow.Compare("keep-access",2,0,8,0,4,0,0);shadow.Compare("keep-access",3,0,8,0,4,0,0);shadow.Pump();
             Check(messages.Count==2,"unchanged missing-input observations coalesced before queue");
             shadow.Invalidate();shadow.Compare("keep-access",4,0,8,0,4,0,0);shadow.End();shadow.Begin(11);shadow.Pump();
-            Check(reads==0&&messages.Count==5&&messages[3].Contains("repeatCount")&&messages[4].Contains("pending=1"),"map end counts cancellation, reused IDs cannot carry request to new map");
+            Check(reads==0&&messages.Count==6&&messages[3].Contains("repeatCount")&&messages[4].Contains("pending=1"),"map end counts cancellation, reused IDs cannot carry request to new map");
             Check(BridgeDecisionTrace.PackZeros("1/0/0/0/2")=="1/z3/2","numeric zero-run transport");
             // Production-size copied terrain, bounded step work and no native calls.
             var large=Map(800,401,true);var job=new VirtualBridgeQuery(large,0,320799,0,Array.Empty<int>(),true);

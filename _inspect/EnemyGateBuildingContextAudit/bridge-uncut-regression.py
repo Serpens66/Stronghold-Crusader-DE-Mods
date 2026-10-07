@@ -30,7 +30,7 @@ for definition,digest in [(174,'C1765553075387D23183D792726DAC98BF1DEA8E6B444C90
         controls=[line for line in replay.stdout.splitlines() if line.startswith('virtual-control:')]
         assert len(controls)==2 and all('noCut=Reachable,only703=NoRoute,allHostile=NoRoute' in line for line in controls)
         assert all('policyResult=Unknown' in line and 'cutCells=0/15/45' in line for line in controls)
-        if definition==174 and flag=='--replay':assert all('macroMatchesNative=True,geometryMatchesNative=True,cutAssessment=conditional-baseline-agrees' in line for line in controls)
+        if definition==174 and flag=='--replay':assert all('macroMatchesNative=True,geometryMatchesNative=True,cutAssessment=blocked-missing-validity-metadata' in line for line in controls)
         if flag=='--replay-alternate-mode':assert all('modeEvidence=hypothesis' in line for line in controls)
         (base/f'bridge-replay-{definition}-{flag[2:]}.txt').write_bytes(replay.stdout.replace('\r\n','\n').replace('\n','\r\n').encode())
         cost=next(line for line in replay.stdout.splitlines() if line.startswith('offline-cost:'))

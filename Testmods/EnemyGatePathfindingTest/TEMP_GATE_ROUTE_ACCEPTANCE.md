@@ -4,6 +4,16 @@ Temporary read-only acceptance diagnosis, 2026-10-07. Remove after the Raid/Assa
 
 ## Evidence and limits
 
+### Correction after the 2026-10-07 15:19:55–15:24:06 run
+
+That run had 52,070 AI queries and six NoRoute results with integrity PASS, but its acceptance diagnosis was incomplete: 456 invalid Tribe-ID-0 SDK lookups, 399 weighted routes falsely rejected by a node/edge mismatch, 73 target requests with no materialized weighted route, and no packed-publication observations. Two Raid replacements (players 2/4, role 3) reached fresh valid attack points; their actual paths were not established. Historical zero violations are not a route pass.
+
+Format 2 guards every added Tribe lookup with installed IsValidId and counts missing context by source. Weighted node count includes the start: expectedEdges=nodeCount-1; a one-node route passes only for identical endpoints. Packed lengths remain directed-edge counts. Negative searches are separate from positive results lacking a path; floods are never route failures. Entry/exit identities and map/publication changes remain unverified.
+
+The packed-publication helper no longer calls GetBuilderPlan or the mutating frame accessor. The old GetBuilderPlan was moat-specific and could qualify intermediate targets through extra searches; the earlier no-extra-search marker therefore was not sufficient proof. The helper now reads the existing valid frame or derives the one-based Unit-ID from the audited owned buffer slot, validates full control WORD and endpoints, and checks Unit-/Tribe-Global-ID again on return. It neither constructs a moat plan nor invokes a search. Missing context is counted; it is not replaced with a guessed player or Tribe.
+
+Runtime fixture tests execute the actual diagnostic classes, packed-publication helper and the production ObservePreparedAssassinRoute method (extracted without modification), with isolated memory/SDK fixtures. They cover invalid IDs, stationary/multi-node routes, cache/climb, exact violations, missing output, nested calls, reused identities, full control WORD, frame-less/no-moat publication, partial buffers, skipped frames and diagnostic exceptions. They do not replace installed-assembly source compilation or the subsequent game test.
+
 - Raid roles are the six installed `HarassmentCombat0..5` storage roles, checked against player, Tribe-ID and Global-ID. Command classification reuses the retarget fix's paired search evidence and freshness validation. Candidate coordinates, search sequence, native return and replacement outcome remain separate from published routes.
 - Both existing unit-builder publication paths inspect their final packed output only when an observer is registered. Manager, output pointer, unit/control identity, length, endpoints and every nibble must match. Partial output is **unclear**, never checked. Native packed directions do not encode a reliable climb classification: `packed-directions-climb-unknown` is explicit.
 - The existing Assassin observer reports target searches, flood fills, continuations, native/weighted results and cache origins. Materialized weighted routes include the existing per-edge ground/climb classification. Flood fills are not treated as failed target routes.

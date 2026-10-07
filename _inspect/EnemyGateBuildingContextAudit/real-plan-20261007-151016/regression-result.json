@@ -1,0 +1,18 @@
+{
+  "nativeCalls": 1837071,
+  "pairedCommands": 36747,
+  "hashesVerified": true,
+  "baseline": "continuous-original-fields-and-selection-match",
+  "firstChange": "CF360 -> D95E0 R8 True to False",
+  "only703SeedChanges": 4000,
+  "only703DistanceChanges": 34878,
+  "dirty": 1,
+  "negativeEligible": false,
+  "newTargetChoice": "Unknown: D9190 mode0 preserves old candidates; unrecorded consumer",
+  "originalTraceBytes": 7894389,
+  "numericCommandTraceBytes": 6453084,
+  "detailedCommandObservations": 6420,
+  "identityDefinitions": 352,
+  "costScope": "offline-serialization-not-live-game",
+  "behaviorFix": "disabled"
+}

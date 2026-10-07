@@ -4,6 +4,14 @@ namespace Shared
 {
     internal static class TemporaryPackedRouteInspection
     {
+        internal static bool TryResolveUnit(long bufferOffset, int stride, int capacity, int contextUnit, out int unitId)
+        {
+            unitId = 0;
+            if (stride <= 0 || bufferOffset <= 0 || bufferOffset % stride != 0 || bufferOffset / stride > capacity) return false;
+            int candidate = (int)(bufferOffset / stride);
+            if (contextUnit != 0 && candidate != contextUnit) return false;
+            unitId = candidate; return true;
+        }
         internal static string Decode(ReadOnlySpan<byte> packed, int length, int x, int y, int tx, int ty,
             int[] dx, int[] dy, out int[] directions)
         {

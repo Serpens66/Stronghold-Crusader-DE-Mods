@@ -1,0 +1,12 @@
+[
+  {
+    "Mod": "BugfixesAndQoL_Serp",
+    "SHA256": "E2DD7F58A92D9456F2C5ABCCECD71B6182232CFD697417EF35AB02F674004163",
+    "Match": true
+  },
+  {
+    "Mod": "EnemyGatePathfindingTest_Serp",
+    "SHA256": "B743A45C02345B6F012BDE5BE81BC990DF8CF5BE92AC8C99AD2CED2D24EA05A7",
+    "Match": true
+  }
+]

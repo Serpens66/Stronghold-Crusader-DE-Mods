@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Xml.Linq;
 using AIVParser.Cli;
 using AIVParser.Core;
+using SHCDESE.Interop;
 
 namespace AIVParser.Tests;
 
@@ -18,6 +19,7 @@ internal static class Program
             ("Rotate Gatehouse Blueprint images with the map", TestGateVisualRotation),
             ("Resolve four Drawbridge image slots", TestDrawbridgeImageSlots),
             ("Associate Drawbridges with directional gates", TestDrawbridgeGateAssociations),
+            ("Orient Drawbridges across castle and camera rotations", TestDrawbridgeRotatedViews),
             ("Associate all six stair pieces with common endpoints", TestStaircaseEndpoints),
             ("Resolve selected Blueprint help images", TestBlueprintHelpImages),
             ("Resolve lord-dependent Church skins", TestChurchBlueprintSkins),
@@ -394,19 +396,19 @@ internal static class Program
                 "MAPPER_DRAWBRIDGE",
                 false,
                 0,
-                CastlePlanner.BlueprintDrawbridgePosition.BottomLeft);
+                CastlePlanner.BlueprintDrawbridgePosition.BottomRight);
         CastlePlanner.BlueprintCaptureRequest bridgeFrontMirrored =
             CastlePlanner.BlueprintBuildingCaptureCatalog.ResolveRequest(
                 "MAPPER_DRAWBRIDGE",
                 false,
                 0,
-                CastlePlanner.BlueprintDrawbridgePosition.BottomRight);
+                CastlePlanner.BlueprintDrawbridgePosition.BottomLeft);
         CastlePlanner.BlueprintCaptureRequest bridgeFrontAfterMapRotation =
             CastlePlanner.BlueprintBuildingCaptureCatalog.ResolveRequest(
                 "MAPPER_DRAWBRIDGE",
                 false,
                 2,
-                CastlePlanner.BlueprintDrawbridgePosition.BottomLeft);
+                CastlePlanner.BlueprintDrawbridgePosition.BottomRight);
         AssertEqual(CastlePlanner.BlueprintCaptureView.DrawbridgeFront, bridgeFront.View);
         AssertEqual(false, bridgeFront.FlipHorizontally);
         AssertEqual(bridgeFront.Key, bridgeFrontMirrored.Key);
@@ -421,7 +423,7 @@ internal static class Program
                 "MAPPER_DRAWBRIDGE",
                 false,
                 0,
-                CastlePlanner.BlueprintDrawbridgePosition.TopRight);
+                CastlePlanner.BlueprintDrawbridgePosition.TopLeft);
         AssertEqual(CastlePlanner.BlueprintCaptureView.DrawbridgeRear, bridgeRear.View);
         AssertEqual(false, bridgeRear.FlipHorizontally);
         CastlePlanner.BlueprintCaptureRequest bridgeRearMirrored =
@@ -429,7 +431,7 @@ internal static class Program
                 "MAPPER_DRAWBRIDGE",
                 false,
                 0,
-                CastlePlanner.BlueprintDrawbridgePosition.TopLeft);
+                CastlePlanner.BlueprintDrawbridgePosition.TopRight);
         AssertEqual(true, bridgeRearMirrored.FlipHorizontally);
     }
 
@@ -590,28 +592,28 @@ internal static class Program
         AssertDrawbridgeImage(
             CastlePlanner.BlueprintDrawbridgePosition.BottomLeft,
             "ST49_Drawbridge.png",
-            flipHorizontally: false,
+            flipHorizontally: true,
             usesPlaceholderImage: false,
             usesBundledImage: false,
             expectedPivotPixelsFromBottom: 0f);
         AssertDrawbridgeImage(
             CastlePlanner.BlueprintDrawbridgePosition.BottomRight,
             "ST49_Drawbridge.png",
-            flipHorizontally: true,
+            flipHorizontally: false,
             usesPlaceholderImage: false,
             usesBundledImage: false,
             expectedPivotPixelsFromBottom: 0f);
         AssertDrawbridgeImage(
             CastlePlanner.BlueprintDrawbridgePosition.TopLeft,
             "MAPPER_DRAWBRIDGE_Generic_DrawbridgeRear.png",
-            flipHorizontally: true,
+            flipHorizontally: false,
             usesPlaceholderImage: false,
             usesBundledImage: true,
             expectedPivotPixelsFromBottom: 80.5f);
         AssertDrawbridgeImage(
             CastlePlanner.BlueprintDrawbridgePosition.TopRight,
             "MAPPER_DRAWBRIDGE_Generic_DrawbridgeRear.png",
-            flipHorizontally: false,
+            flipHorizontally: true,
             usesPlaceholderImage: false,
             usesBundledImage: true,
             expectedPivotPixelsFromBottom: 80.5f);
@@ -698,6 +700,110 @@ internal static class Program
             betweenTwoGates.AdjacentGateCenter!.Value);
     }
 
+    private static void TestDrawbridgeRotatedViews()
+    {
+        // Frozen screen-direction fixtures, independent of the image catalog:
+        // AIV rows oppose game Y; game X points down-right and Y down-left.
+        var fixtures = new (eMappers Gate, int Bridge, int BaseDirection)[]
+        {
+            (eMappers.MAPPER_GATE_STONE1A, 3540, 0),
+            (eMappers.MAPPER_GATE_STONE1A, 4540, 2),
+            (eMappers.MAPPER_GATE_STONE1B, 4035, 3),
+            (eMappers.MAPPER_GATE_STONE1B, 4045, 1),
+            (eMappers.MAPPER_GATE_STONE2A, 3341, 0),
+            (eMappers.MAPPER_GATE_STONE2A, 4541, 2),
+            (eMappers.MAPPER_GATE_STONE2B, 3935, 3),
+            (eMappers.MAPPER_GATE_STONE2B, 3947, 1)
+        };
+        CastlePlanner.BlueprintDrawbridgePosition[] directions =
+        [
+            CastlePlanner.BlueprintDrawbridgePosition.BottomLeft,
+            CastlePlanner.BlueprintDrawbridgePosition.BottomRight,
+            CastlePlanner.BlueprintDrawbridgePosition.TopRight,
+            CastlePlanner.BlueprintDrawbridgePosition.TopLeft
+        ];
+        bool[] expectedMirrors = [true, false, true, false];
+        foreach (var fixture in fixtures)
+        {
+            for (int castleQuarter = 0; castleQuarter < 4; castleQuarter++)
+            {
+                CastlePlanner.BlueprintIconPlacement bridge =
+                    BuildDrawbridgeLayout((int)fixture.Gate, 4040, fixture.Bridge,
+                        (AivRotation)(castleQuarter * 90))
+                        .Icons.Single(icon => icon.MapperValue == (int)eMappers.MAPPER_DRAWBRIDGE);
+                Assert(bridge.AdjacentGateCenter.HasValue,
+                    $"Rotated bridge lost its gate: {fixture.Gate}, {castleQuarter}.");
+                var gate = bridge.AdjacentGateCenter!.Value;
+                int bridgeX = (bridge.MinimumWorldX + bridge.MaximumWorldX) / 2;
+                int bridgeY = (bridge.MinimumWorldY + bridge.MaximumWorldY) / 2;
+                for (int cameraQuarter = 0; cameraQuarter < 4; cameraQuarter++)
+                {
+                    var bridgeScreen = ProjectVanillaPlanarTile(bridgeX, bridgeY, cameraQuarter);
+                    var gateScreen = ProjectVanillaPlanarTile(gate.X, gate.Y, cameraQuarter);
+                    var position = CastlePlanner.BlueprintBuildingIconCatalog.ResolveDrawbridgePosition(
+                        bridgeScreen.X - gateScreen.X, bridgeScreen.Y - gateScreen.Y);
+                    int expectedIndex = (fixture.BaseDirection + castleQuarter + cameraQuarter) % 4;
+                    AssertEqual(directions[expectedIndex], position);
+                    var image = CastlePlanner.BlueprintBuildingIconCatalog.ResolveDrawbridgeImage(position);
+                    var expectedView = expectedIndex < 2
+                        ? CastlePlanner.BlueprintCaptureView.DrawbridgeFront
+                        : CastlePlanner.BlueprintCaptureView.DrawbridgeRear;
+                    // Both library readers (composite and depth) use this same request.
+                    var capture = CastlePlanner.BlueprintBuildingCaptureCatalog.ResolveRequest(
+                        "MAPPER_DRAWBRIDGE", false, cameraQuarter, position);
+                    AssertEqual(expectedView, capture.View);
+                    AssertEqual(expectedMirrors[expectedIndex], capture.FlipHorizontally);
+                    AssertEqual(capture.FlipHorizontally, image.FlipHorizontally);
+                    AssertEqual(false, image.UsesPlaceholderImage);
+                }
+            }
+        }
+        foreach (var position in new[]
+        {
+            CastlePlanner.BlueprintDrawbridgePosition.Unknown,
+            CastlePlanner.BlueprintDrawbridgePosition.NotApplicable
+        })
+        {
+            AssertEqual(false, CastlePlanner.BlueprintBuildingCaptureCatalog.ResolveRequest(
+                "MAPPER_DRAWBRIDGE", false, 0, position).FlipHorizontally);
+            AssertEqual(true, CastlePlanner.BlueprintBuildingIconCatalog
+                .ResolveDrawbridgeImage(position).UsesPlaceholderImage);
+        }
+        AssertEqual(CastlePlanner.BlueprintDrawbridgePosition.Unknown,
+            CastlePlanner.BlueprintBuildingIconCatalog.ResolveDrawbridgePosition(0f, 1f));
+        AssertEqual(CastlePlanner.BlueprintDrawbridgePosition.Unknown,
+            CastlePlanner.BlueprintBuildingIconCatalog.ResolveDrawbridgePosition(1f, 0f));
+    }
+
+    private static (float X, float Y) ProjectVanillaPlanarTile(int gameX, int gameY, int cameraQuarter)
+    {
+        // Reference: audited Assembly-CSharp GameMap.mapGameTileToTilemapCoord,
+        // followed by the isometric cell projection. No live terrain/wall height.
+        const int tilemapSize = 800;
+        int tileMapX = gameX;
+        int tileMapY = gameY;
+        switch (cameraQuarter)
+        {
+            case 1:
+                (tileMapX, tileMapY) = (tileMapY - 1, tilemapSize - tileMapX);
+                break;
+            case 2:
+                (tileMapX, tileMapY) = (tilemapSize - tileMapX - 1, tilemapSize - tileMapY - 1);
+                break;
+            case 3:
+                (tileMapX, tileMapY) = (tilemapSize - tileMapY, tileMapX - 1);
+                break;
+        }
+        int diagonal = tileMapX + tileMapY - tilemapSize / 2;
+        int halfX = tileMapX - diagonal / 2;
+        diagonal = tilemapSize - diagonal;
+        tileMapX = halfX + diagonal / 2;
+        tileMapY = diagonal + tilemapSize / 2 - tileMapX;
+        tileMapX--;
+        tileMapY--;
+        return ((tileMapX - tileMapY) / 2f, (tileMapX + tileMapY) / 4f);
+    }
+
     private static void AssertDrawbridgeImage(
         CastlePlanner.BlueprintDrawbridgePosition position,
         string expectedFileName,
@@ -735,7 +841,8 @@ internal static class Program
     private static CastlePlanner.BlueprintLayout BuildDrawbridgeLayout(
         int gateMapper,
         int gateOffset,
-        int drawbridgeOffset)
+        int drawbridgeOffset,
+        AivRotation rotation = AivRotation.Degrees0)
     {
         var document = new CastlePlanner.AivJsonDocument
         {
@@ -763,7 +870,8 @@ internal static class Program
         return CastlePlanner.BlueprintLayoutBuilder.Build(
             document,
             400,
-            400);
+            400,
+            rotation);
     }
 
     private static void TestStaircaseEndpoints()

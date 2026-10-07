@@ -296,9 +296,9 @@ namespace EnemyGatePathfindingTest
         }
 
         // TEMP_GATE_ROUTE_ACCEPTANCE: a diagnostic exception never interrupts existing observers.
-        private object BeginTemporaryAssassin(int player, int tribe, int x, int y)
+        private object BeginTemporaryAssassin(int player, int tribe, int x, int y, int tx, int ty)
         {
-            try { return TemporaryAcceptance?.BeginAssassin(player, tribe, x, y); }
+            try { return TemporaryAcceptance?.BeginAssassin(player, tribe, x, y, tx, ty); }
             catch (Exception error) { APIShared.TemporaryGateRouteAcceptanceBridge.ReportFailure("assassin-begin", error); return null; }
         }
 
@@ -311,12 +311,14 @@ namespace EnemyGatePathfindingTest
         {
             NativeFrame native = nativeFrames != null && nativeFrames.Count > 0 ? nativeFrames[nativeFrames.Count - 1] : null;
             if (native != null) native.AssassinBuilders++;
-            return new AssassinFrame { Probe = new AssassinRouteProbe(snapshot), Order = Current(),
+            Frame order = Current();
+            int tribe = native?.Tribe > 0 ? native.Tribe : order?.Tribe ?? 0;
+            return new AssassinFrame { Probe = new AssassinRouteProbe(snapshot), Order = order,
                 Source = native?.Source ?? "outside-native-scope",
-                Tribe = native?.Tribe > 0 ? native.Tribe : Current()?.Tribe ?? 0,
+                Tribe = tribe,
                 Building = native?.Building, ScopePlayer = native?.Player ?? 0,
-                Temporary = BeginTemporaryAssassin(native?.Player ?? Current()?.Player ?? 0,
-                    native?.Tribe ?? Current()?.Tribe ?? 0, targetX, targetY),
+                Temporary = BeginTemporaryAssassin(native?.Player ?? order?.Player ?? 0,
+                    tribe, startX, startY, targetX, targetY),
                 StartX = startX, StartY = startY, TargetX = targetX, TargetY = targetY,
                 Nodes = maximumNodes, Continuation = continuation, NativeState = nativeState };
         }
