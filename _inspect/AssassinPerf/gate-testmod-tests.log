@@ -1,0 +1,6 @@
+MSBuild-Version 17.11.9+a69bbaaf5 für .NET Framework
+
+  EnemyGatePathfindingTest.PolicyTests -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\EnemyGatePathfindingTest\tests\bin\EnemyGatePathfindingTest.PolicyTests.exe
+TEMP_GATE_ROUTE_ACCEPTANCE: 6054 assertions, 576000 events across 120 minute windows
+PASS: both installed-RedBird capturer adapters execute the real JE, preserve registers/XMM/stack, and fail open.
+EnemyGatePathfindingPolicy: 9900 assertions passed.

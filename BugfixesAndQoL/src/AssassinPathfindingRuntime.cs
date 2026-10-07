@@ -49,7 +49,8 @@ namespace BugfixesAndQoL
         private const byte ClimbEdgeKind = 2;
         private const byte MoveCommandKind = 1;
         private const byte TargetCommandKind = 2;
-        private const double SlowCommandThresholdMilliseconds = 100.0;
+        // Enable only for targeted performance diagnostics, then rebuild.
+        private const bool PerformanceDiagnosticsEnabled = false;
         private const int MaximumDetailedRequestsPerCommand = 8;
         private static readonly bool DetailedDiagnosticsEnabled = false;
         private const string AssassinBuilderPattern =
@@ -356,14 +357,14 @@ namespace BugfixesAndQoL
                 return 0;
 
             AssassinCommandScope command = activeCommand;
-            long requestStarted = Stopwatch.GetTimestamp();
+            long requestStarted = (PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0);
             long nativeStarted = requestStarted;
             // Vanilla initializes internal queue state even when our compact route field replaces it.
             int vanillaResult = AssassinPathAPI.RunVanillaBuilder(context, startX, startY, targetX, targetY, maximumNodes, continuation);
             if (activeObservation != null)
             { activeObservation.NativeResult = vanillaResult; activeObservation.Outcome = "native-only"; }
-            long nativeTicks = Stopwatch.GetTimestamp() - nativeStarted;
-            command?.RecordNativeBuilder(nativeTicks);
+            long nativeTicks = (PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0) - nativeStarted;
+            if (PerformanceDiagnosticsEnabled) command?.RecordNativeBuilder(nativeTicks);
 
             bool enabled = command?.Enabled ??
                 (settings.EnableMod && settings.EnableImprovedAssassinPathfinding);
@@ -380,14 +381,14 @@ namespace BugfixesAndQoL
 
             try
             {
-                long resolutionStarted = Stopwatch.GetTimestamp();
-                if (!TryResolveAssassinRequest(command, startX, startY, out int playerId, out int speedDelay))
+                long resolutionStarted = (PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0);
+                if (!TryResolveAssassinRequest(command, context, startX, startY, targetX, targetY, out int playerId, out int speedDelay))
                 {
-                    command?.RecordResolution(Stopwatch.GetTimestamp() - resolutionStarted);
+                    if (PerformanceDiagnosticsEnabled) command?.RecordResolution((PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0) - resolutionStarted);
                     if (activeObservation != null) activeObservation.Outcome = "unresolved-player";
                     return vanillaResult;
                 }
-                command?.RecordResolution(Stopwatch.GetTimestamp() - resolutionStarted);
+                if (PerformanceDiagnosticsEnabled) command?.RecordResolution((PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0) - resolutionStarted);
                 if (activeObservation != null) activeObservation.Player = playerId;
                 if (!EnsureCoordinateTileMappingValidated())
                 {
@@ -410,10 +411,11 @@ namespace BugfixesAndQoL
                     startX, startY, targetX, targetY, maximumNodes, speedDelay,
                     playerId, allowClimbing, allowWalkableReservedClimbEndpoints, gatePolicy, AssassinPathAPI.DirectGatehouseClimbingEnabled);
                 RouteSearchSummary routeSummary = default;
-                long cacheStarted = Stopwatch.GetTimestamp();
+                CachedRoute preparedRoute = null;
+                long cacheStarted = (PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0);
                 bool routeReady = command != null &&
-                    TryLoadCachedRoute(command, cacheKey, out routeSummary);
-                command?.RecordCacheLookup(Stopwatch.GetTimestamp() - cacheStarted);
+                    TryLoadCachedRoute(command, cacheKey, out routeSummary, out preparedRoute);
+                if (PerformanceDiagnosticsEnabled) command?.RecordCacheLookup((PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0) - cacheStarted);
                 if (!routeReady)
                 {
                     routeReady = TryBuildWeightedRoute(
@@ -429,7 +431,7 @@ namespace BugfixesAndQoL
                         gatePolicy,
                         out routeSummary);
                     if (routeReady && command != null)
-                        CachePreparedRoute(command, cacheKey, routeSummary);
+                        preparedRoute = CachePreparedRoute(command, cacheKey, routeSummary);
                 }
 
                 if (activeObservation != null)
@@ -444,10 +446,10 @@ namespace BugfixesAndQoL
                     return 0;
                 ObservePreparedAssassinRoute(playerId, routeSummary.RouteLength);
 
-                long publicationStarted = Stopwatch.GetTimestamp();
+                long publicationStarted = (PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0);
                 // E1640 selects its own neighbors from step distances, losing our weights.
                 // An owned F4930 frame instead receives the exact route after Vanilla returns.
-                if (TryStagePreparedRoute(context, cacheKey, routeSummary))
+                if (TryStagePreparedRoute(context, cacheKey, routeSummary, preparedRoute, command))
                 {
                     if (activeObservation != null) activeObservation.Outcome = "weighted-staged-exact";
                     return vanillaResult;
@@ -467,8 +469,8 @@ namespace BugfixesAndQoL
                     return vanillaResult;
                 }
                 bool published = CommitPreparedRoute(context, routeSummary.RouteLength);
-                command?.RecordPublication(
-                    Stopwatch.GetTimestamp() - publicationStarted,
+                if (PerformanceDiagnosticsEnabled) command?.RecordPublication(
+                    (PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0) - publicationStarted,
                     published,
                     routeSummary);
                 if (activeObservation != null) activeObservation.Outcome = published
@@ -495,7 +497,7 @@ namespace BugfixesAndQoL
             }
             finally
             {
-                command?.RecordTotal(Stopwatch.GetTimestamp() - requestStarted);
+                if (PerformanceDiagnosticsEnabled) command?.RecordTotal((PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0) - requestStarted);
             }
         }
 
@@ -512,7 +514,7 @@ namespace BugfixesAndQoL
             IEnemyGateRoutePolicySnapshot gatePolicy,
             out RouteSearchSummary routeSummary)
         {
-            long searchStarted = Stopwatch.GetTimestamp();
+            long searchStarted = (PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0);
             routeSummary = default;
             if (!IsValidCoordinate(startX, startY) || !IsValidCoordinate(targetX, targetY))
                 return false;
@@ -531,10 +533,11 @@ namespace BugfixesAndQoL
             SuffixCacheKey suffixKey = new SuffixCacheKey(
                 targetX, targetY, speedDelay, allowClimbing,
                 allowWalkableReservedClimbEndpoints, gatePolicy?.PlayerId ?? 0, gatePolicy, AssassinPathAPI.DirectGatehouseClimbingEnabled);
+            Dictionary<int, int> suffixCosts = command?.GetSuffixCosts(suffixKey);
             Touch(startNode, 0, -1, 0,
                 EstimateRemainingTicks(
                     startX, startY, targetX, targetY,
-                    cardinalTicks, diagonalTicks, command, suffixKey, startNode));
+                    cardinalTicks, diagonalTicks, suffixCosts, startNode));
             Push(startNode);
             int expanded = 0;
             int nodeLimit = Math.Max(1, Math.Min(maximumNodes, TileCount));
@@ -545,15 +548,15 @@ namespace BugfixesAndQoL
                 expanded++;
                 if (currentNode == targetNode)
                 {
-                    long reconstructionStarted = Stopwatch.GetTimestamp();
+                    long reconstructionStarted = (PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0);
                     if (!PrepareRoute(startNode, targetNode, costs[targetNode], expanded,
                         heapOperations, searchStarted, reconstructionStarted, out routeSummary))
                     {
-                        command?.RecordFailedSearch(
-                            Stopwatch.GetTimestamp() - searchStarted, expanded, heapOperations);
+                        if (PerformanceDiagnosticsEnabled) command?.RecordFailedSearch(
+                            (PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0) - searchStarted, expanded, heapOperations);
                         return false;
                     }
-                    command?.RecordSearch(routeSummary);
+                    if (PerformanceDiagnosticsEnabled) command?.RecordSearch(routeSummary);
                     return true;
                 }
 
@@ -618,7 +621,7 @@ namespace BugfixesAndQoL
                     {
                         int heuristic = EstimateRemainingTicks(
                             nextX, nextY, targetX, targetY,
-                            cardinalTicks, diagonalTicks, command, suffixKey, nextNode);
+                            cardinalTicks, diagonalTicks, suffixCosts, nextNode);
                         Touch(nextNode, newCost, currentNode,
                             climbEdge ? ClimbEdgeKind : GroundEdgeKind,
                             AssassinAStarPolicy.SaturatingAdd(newCost, heuristic));
@@ -631,7 +634,7 @@ namespace BugfixesAndQoL
                             climbEdge ? ClimbEdgeKind : GroundEdgeKind;
                         int heuristic = EstimateRemainingTicks(
                             nextX, nextY, targetX, targetY,
-                            cardinalTicks, diagonalTicks, command, suffixKey, nextNode);
+                            cardinalTicks, diagonalTicks, suffixCosts, nextNode);
                         estimatedTotalCosts[nextNode] =
                             AssassinAStarPolicy.SaturatingAdd(newCost, heuristic);
                     }
@@ -639,8 +642,8 @@ namespace BugfixesAndQoL
                 }
             }
 
-            command?.RecordFailedSearch(
-                Stopwatch.GetTimestamp() - searchStarted, expanded, heapOperations);
+            if (PerformanceDiagnosticsEnabled) command?.RecordFailedSearch(
+                (PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0) - searchStarted, expanded, heapOperations);
             return false;
         }
 
@@ -678,13 +681,12 @@ namespace BugfixesAndQoL
             int targetY,
             int cardinalTicks,
             int diagonalTicks,
-            AssassinCommandScope command,
-            SuffixCacheKey suffixKey,
+            Dictionary<int, int> suffixCosts,
             int node)
         {
             int estimate = AssassinAStarPolicy.EstimateOctileTicks(
                 x, y, targetX, targetY, cardinalTicks, diagonalTicks);
-            if (command != null && command.TryGetSuffixCost(suffixKey, node, out int suffixCost))
+            if (suffixCosts != null && suffixCosts.TryGetValue(node, out int suffixCost))
                 estimate = Math.Max(estimate, suffixCost);
             return estimate;
         }
@@ -692,9 +694,11 @@ namespace BugfixesAndQoL
         private bool TryLoadCachedRoute(
             AssassinCommandScope command,
             RouteCacheKey key,
-            out RouteSearchSummary summary)
+            out RouteSearchSummary summary,
+            out CachedRoute prepared)
         {
             summary = default;
+            prepared = null;
             if (!command.RouteCache.TryGetValue(key, out CachedRoute cached) ||
                 cached.Nodes == null || cached.Nodes.Length <= 0 ||
                 cached.Nodes.Length > route.Length)
@@ -710,20 +714,23 @@ namespace BugfixesAndQoL
             }
 
             summary = cached.Summary.AsCacheHit();
-            command.RecordCacheHit(summary);
+            prepared = cached;
+            if (PerformanceDiagnosticsEnabled) command.RecordCacheHit(summary);
             return true;
         }
 
-        private void CachePreparedRoute(
+        private CachedRoute CachePreparedRoute(
             AssassinCommandScope command,
             RouteCacheKey key,
             RouteSearchSummary summary)
         {
+            CachedRoute prepared = null;
             if (command.RouteCache.Count < AssassinCommandScope.MaximumCachedRoutes)
             {
                 var nodes = new int[summary.RouteLength];
                 Array.Copy(route, nodes, nodes.Length);
-                command.RouteCache[key] = new CachedRoute(nodes, summary);
+                prepared = new CachedRoute(nodes, summary, this, key, mapEpoch);
+                command.RouteCache[key] = prepared;
             }
 
             var suffixKey = new SuffixCacheKey(
@@ -731,6 +738,7 @@ namespace BugfixesAndQoL
                 key.AllowClimbing, key.AllowWalkableReservedClimbEndpoints,
                 key.GatePolicy?.PlayerId ?? 0, key.GatePolicy, key.DirectGatehouseClimbing);
             command.CacheSuffixes(suffixKey, route, summary.RouteLength, costs, summary.TotalCost);
+            return prepared;
         }
 
         private bool ValidateCachedRoute(RouteCacheKey key, CachedRoute cached)
@@ -802,15 +810,7 @@ namespace BugfixesAndQoL
                 climbEdges == cached.Summary.ClimbEdges;
         }
 
-        private static int GetDirectionIndex(int dx, int dy)
-        {
-            for (int direction = 0; direction < DirectionX.Length; direction++)
-            {
-                if (DirectionX[direction] == dx && DirectionY[direction] == dy)
-                    return direction;
-            }
-            return -1;
-        }
+        private static int GetDirectionIndex(int dx, int dy) => AssassinRouteEncoding.GetDirection(dx, dy);
 
         private int GetClimbTicks(int current, int target)
         {
@@ -828,21 +828,52 @@ namespace BugfixesAndQoL
             AssassinGateTransitionPolicy.HasOrdinaryConnection(occupancyLayer[from], occupancyLayer[to],
                 directionMasks[direction], directionMasks[direction ^ 4]);
 
-        private bool TryStagePreparedRoute(IntPtr context, RouteCacheKey key, RouteSearchSummary summary)
+        private bool TryStagePreparedRoute(IntPtr context, RouteCacheKey key, RouteSearchSummary summary,
+            CachedRoute prepared, AssassinCommandScope command)
+        {
+            long started = (PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0);
+            // Reachability/field callers cannot consume an exact packed single-unit route.
+            if (summary.RouteLength < 2 || !AssassinPathAPI.TryGetCurrentWeightedRequest(BugfixesAndQoLPlugin.PluginGuid, context,
+                key.StartX, key.StartY, key.TargetX, key.TargetY, out _, out _)) return false;
+            // Keep captured delegates in a separate method: C# allocates their closure
+            // at method entry, even when an earlier guard returns without staging.
+            return StagePreparedRouteCore(context, key, summary, prepared, command, started);
+        }
+
+        private bool StagePreparedRouteCore(IntPtr context, RouteCacheKey key, RouteSearchSummary summary,
+            CachedRoute prepared, AssassinCommandScope command, long started)
         {
             int length = summary.RouteLength;
-            if (length < 2) return false;
-            var nodes = new int[length];
-            Array.Copy(route, nodes, length);
-            byte[] bytes = AssassinRouteEncoding.EncodeTargetFirst(nodes, MapWidth);
+            if (prepared == null)
+            {
+                var nodes = new int[length];
+                Array.Copy(route, nodes, length);
+                prepared = new CachedRoute(nodes, summary, this, key, mapEpoch);
+            }
+            byte[] bytes = prepared.GetPackedDirections();
             if (bytes == null) return false;
-            var prepared = new CachedRoute(nodes, summary);
-            int epoch = mapEpoch;
-            return AssassinPathAPI.TryStageWeightedRoute(BugfixesAndQoLPlugin.PluginGuid, context,
+            if (!PerformanceDiagnosticsEnabled || command == null)
+                return AssassinPathAPI.TryStageWeightedRoute(BugfixesAndQoLPlugin.PluginGuid, context,
+                    key.StartX, key.StartY, key.TargetX, key.TargetY, key.PlayerId, bytes, length - 1,
+                    prepared.GetValidator());
+            return StagePreparedRouteWithDiagnostics(context, key, prepared, command, started, bytes, length);
+        }
+
+        // Isolate the measurement closure so disabled diagnostics allocate no callback.
+        private bool StagePreparedRouteWithDiagnostics(IntPtr context, RouteCacheKey key,
+            CachedRoute prepared, AssassinCommandScope command, long started, byte[] bytes, int length)
+        {
+            long stagingTicks = 0;
+            bool staged = AssassinPathAPI.TryStageWeightedRoute(BugfixesAndQoLPlugin.PluginGuid, context,
                 key.StartX, key.StartY, key.TargetX, key.TargetY, key.PlayerId, bytes, length - 1,
-                () => epoch == mapEpoch && settings.EnableMod && settings.EnableImprovedAssassinPathfinding &&
-                    key.AllowClimbing == climbRuntime.IsClimbingAllowed(key.PlayerId) &&
-                    AssassinGateRoutePolicy.IsCurrent(key.GatePolicy) && ValidateCachedRoute(key, prepared));
+                prepared.GetValidator(),
+                (ticks, success) =>
+                {
+                    if (PerformanceDiagnosticsEnabled) command.RecordPublication(stagingTicks + ticks, success, prepared.Summary);
+                    if (PerformanceDiagnosticsEnabled) command.RecordTotal(ticks);
+                });
+            stagingTicks = (PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0) - started;
+            return staged;
         }
 
         private bool PrepareRoute(
@@ -888,7 +919,7 @@ namespace BugfixesAndQoL
                 expanded,
                 searchHeapOperations,
                 reconstructionStarted - searchStarted,
-                Stopwatch.GetTimestamp() - reconstructionStarted,
+                (PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0) - reconstructionStarted,
                 cacheHit: false);
             return true;
         }
@@ -974,8 +1005,11 @@ namespace BugfixesAndQoL
 
         private bool TryResolveAssassinRequest(
             AssassinCommandScope command,
+            IntPtr context,
             int startX,
             int startY,
+            int targetX,
+            int targetY,
             out int playerId,
             out int speedDelay)
         {
@@ -983,6 +1017,18 @@ namespace BugfixesAndQoL
             speedDelay = -1;
             if ((uint)startX >= MapWidth || (uint)startY >= MapWidth)
                 return false;
+
+            IEnemyGatePathPolicy gateProvider = EnemyGatePathPolicyBridge.Current;
+            if (AssassinPathAPI.TryGetCurrentWeightedRequest(BugfixesAndQoLPlugin.PluginGuid, context,
+                startX, startY, targetX, targetY, out int controlPlayer, out int currentSpeed))
+            {
+                playerId = gateProvider != null && gateProvider.HasPublishedMask
+                    ? controlPlayer : controlPlayer & 0xff;
+                if (playerId < 1 || playerId > 8) return false;
+                speedDelay = currentSpeed;
+                if (PerformanceDiagnosticsEnabled) command?.RecordDirectResolution();
+                return true;
+            }
 
             Dictionary<int, AssassinRequestInfo> index = GetRequestIndex(command);
             if (!index.TryGetValue(GetCoordinateIndex(startX, startY), out AssassinRequestInfo info) ||
@@ -992,7 +1038,6 @@ namespace BugfixesAndQoL
             }
 
             playerId = info.PlayerId;
-            IEnemyGatePathPolicy gateProvider = EnemyGatePathPolicyBridge.Current;
             if (gateProvider != null && gateProvider.HasPublishedMask)
             {
                 if (info.GateAmbiguous || info.GatePlayerId < 1 || info.GatePlayerId > 8) return false;
@@ -1010,9 +1055,9 @@ namespace BugfixesAndQoL
             {
                 if (command.RequestIndex == null)
                 {
-                    long started = Stopwatch.GetTimestamp();
+                    long started = (PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0);
                     command.RequestIndex = BuildRequestIndex();
-                    command.RecordRequestIndex(Stopwatch.GetTimestamp() - started);
+                    if (PerformanceDiagnosticsEnabled) command.RecordRequestIndex((PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0) - started);
                 }
                 return command.RequestIndex;
             }
@@ -1186,13 +1231,12 @@ namespace BugfixesAndQoL
 
         private void CompleteCommand(AssassinCommandScope command)
         {
-            if (command == null)
+            if (!PerformanceDiagnosticsEnabled || command == null)
                 return;
 
-            command.ElapsedTicks = Stopwatch.GetTimestamp() - command.StartedTimestamp;
+            command.ElapsedTicks = (PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0) - command.StartedTimestamp;
             double elapsedMilliseconds = ToMilliseconds(command.ElapsedTicks);
-            if (command.BuilderCalls <= 0 ||
-                (!DetailedDiagnosticsEnabled && elapsedMilliseconds < SlowCommandThresholdMilliseconds))
+            if (command.BuilderCalls <= 0)
             {
                 return;
             }
@@ -1208,7 +1252,7 @@ namespace BugfixesAndQoL
                 $"tick={command.Tick} mapEpoch={command.MapEpoch} " +
                 $"elapsedMs={elapsedMilliseconds:F3} enabled={command.Enabled} " +
                 $"builderCalls={command.BuilderCalls} nativeBuilderMs={ToMilliseconds(command.NativeBuilderTicks):F3} " +
-                $"requestIndexBuilds={command.RequestIndexBuilds} requestIndexMs={ToMilliseconds(command.RequestIndexTicks):F3} " +
+                $"requestIndexBuilds={command.RequestIndexBuilds} directResolutions={command.DirectResolutions} requestIndexMs={ToMilliseconds(command.RequestIndexTicks):F3} " +
                 $"profileResolveMs={ToMilliseconds(Math.Max(0L, command.ResolutionTicks - command.RequestIndexTicks)):F3} " +
                 $"searches={command.Searches} cacheHits={command.CacheHits} failedSearches={command.FailedSearches} " +
                 $"cacheLookupMs={ToMilliseconds(command.CacheLookupTicks):F3} " +
@@ -1277,7 +1321,7 @@ namespace BugfixesAndQoL
 
         private void Push(int tile)
         {
-            heapOperations++;
+            if (PerformanceDiagnosticsEnabled) heapOperations++;
             int position = heapCount++;
             heap[position] = tile;
             heapPositions[tile] = position;
@@ -1295,7 +1339,7 @@ namespace BugfixesAndQoL
 
         private int Pop()
         {
-            heapOperations++;
+            if (PerformanceDiagnosticsEnabled) heapOperations++;
             int result = heap[0];
             int tail = heap[--heapCount];
             heapPositions[result] = -1;
@@ -1415,16 +1459,35 @@ namespace BugfixesAndQoL
             public bool GateAmbiguous { get; }
         }
 
-        private readonly struct CachedRoute
+        private sealed class CachedRoute
         {
-            public CachedRoute(int[] nodes, RouteSearchSummary summary)
+            private byte[] packedDirections;
+            private Func<bool> validator;
+            private readonly AssassinPathfindingRuntime runtime;
+            private readonly RouteCacheKey key;
+            private readonly int epoch;
+            public CachedRoute(int[] nodes, RouteSearchSummary summary,
+                AssassinPathfindingRuntime runtime, RouteCacheKey key, int epoch)
             {
                 Nodes = nodes;
                 Summary = summary;
+                this.runtime = runtime;
+                this.key = key;
+                this.epoch = epoch;
             }
 
             public int[] Nodes { get; }
             public RouteSearchSummary Summary { get; }
+            public byte[] GetPackedDirections() => packedDirections ??
+                (packedDirections = AssassinRouteEncoding.EncodeTargetFirst(Nodes, MapWidth));
+            // These are immutable route bindings, not a cached validation result.
+            // Every Stage/Complete invocation still checks current map, settings,
+            // climbing, gate policy, physical edges and costs in full.
+            public Func<bool> GetValidator() => validator ?? (validator = Validate);
+            private bool Validate() => epoch == runtime.mapEpoch && runtime.settings.EnableMod &&
+                runtime.settings.EnableImprovedAssassinPathfinding &&
+                key.AllowClimbing == runtime.climbRuntime.IsClimbingAllowed(key.PlayerId) &&
+                AssassinGateRoutePolicy.IsCurrent(key.GatePolicy) && runtime.ValidateCachedRoute(key, this);
         }
 
         private sealed class AssassinCommandScope
@@ -1460,7 +1523,7 @@ namespace BugfixesAndQoL
                 TargetValue2 = targetValue2;
                 Kind = kind;
                 Enabled = enabled;
-                StartedTimestamp = Stopwatch.GetTimestamp();
+                StartedTimestamp = (PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0);
             }
 
             public AssassinCommandScope Previous { get; }
@@ -1478,15 +1541,16 @@ namespace BugfixesAndQoL
             public Dictionary<int, AssassinRequestInfo> RequestIndex { get; set; }
             public Dictionary<RouteCacheKey, CachedRoute> RouteCache { get; } =
                 new Dictionary<RouteCacheKey, CachedRoute>();
-            public List<string> Details { get; } = new List<string>();
+            public List<string> Details { get; } = PerformanceDiagnosticsEnabled ? new List<string>() : null;
             public int SuppressedDetails { get; private set; }
             public int BuilderCalls { get; private set; }
             public int RequestIndexBuilds { get; private set; }
+            public int DirectResolutions { get; private set; }
             public int Searches { get; private set; }
             public int CacheHits { get; private set; }
             public int FailedSearches { get; private set; }
-            public int ExpandedNodes { get; private set; }
-            public int HeapOperations { get; private set; }
+            public long ExpandedNodes { get; private set; }
+            public long HeapOperations { get; private set; }
             public int PublicationCalls { get; private set; }
             public int PublicationFailures { get; private set; }
             public int GroundEdges { get; private set; }
@@ -1511,12 +1575,8 @@ namespace BugfixesAndQoL
                 return allowed;
             }
 
-            public bool TryGetSuffixCost(SuffixCacheKey key, int node, out int cost)
-            {
-                cost = 0;
-                return suffixCosts.TryGetValue(key, out Dictionary<int, int> field) &&
-                    field.TryGetValue(node, out cost);
-            }
+            public Dictionary<int, int> GetSuffixCosts(SuffixCacheKey key) =>
+                suffixCosts.TryGetValue(key, out Dictionary<int, int> field) ? field : null;
 
             public void CacheSuffixes(
                 SuffixCacheKey key,
@@ -1553,21 +1613,25 @@ namespace BugfixesAndQoL
 
             public void RecordNativeBuilder(long ticks)
             {
+                if (!PerformanceDiagnosticsEnabled) return;
                 BuilderCalls++;
                 NativeBuilderTicks += ticks;
             }
 
             public void RecordRequestIndex(long ticks)
             {
+                if (!PerformanceDiagnosticsEnabled) return;
                 RequestIndexBuilds++;
                 RequestIndexTicks += ticks;
             }
 
-            public void RecordResolution(long ticks) => ResolutionTicks += ticks;
-            public void RecordCacheLookup(long ticks) => CacheLookupTicks += ticks;
+            public void RecordResolution(long ticks) { if (PerformanceDiagnosticsEnabled) ResolutionTicks += ticks; }
+            public void RecordDirectResolution() { if (PerformanceDiagnosticsEnabled) DirectResolutions++; }
+            public void RecordCacheLookup(long ticks) { if (PerformanceDiagnosticsEnabled) CacheLookupTicks += ticks; }
 
             public void RecordSearch(RouteSearchSummary summary)
             {
+                if (!PerformanceDiagnosticsEnabled) return;
                 Searches++;
                 ExpandedNodes += summary.ExpandedNodes;
                 HeapOperations += summary.HeapOperations;
@@ -1578,6 +1642,7 @@ namespace BugfixesAndQoL
 
             public void RecordFailedSearch(long ticks, int expanded, int heapOperations)
             {
+                if (!PerformanceDiagnosticsEnabled) return;
                 Searches++;
                 FailedSearches++;
                 SearchTicks += ticks;
@@ -1587,12 +1652,14 @@ namespace BugfixesAndQoL
 
             public void RecordCacheHit(RouteSearchSummary summary)
             {
+                if (!PerformanceDiagnosticsEnabled) return;
                 CacheHits++;
                 AddDetail(summary, "cache");
             }
 
             public void RecordPublication(long ticks, bool success, RouteSearchSummary summary)
             {
+                if (!PerformanceDiagnosticsEnabled) return;
                 PublicationCalls++;
                 PublicationTicks += ticks;
                 if (!success)
@@ -1605,7 +1672,7 @@ namespace BugfixesAndQoL
                 }
             }
 
-            public void RecordTotal(long ticks) => TotalRequestTicks += ticks;
+            public void RecordTotal(long ticks) { if (PerformanceDiagnosticsEnabled) TotalRequestTicks += ticks; }
 
             private void AddDetail(RouteSearchSummary summary, string source)
             {

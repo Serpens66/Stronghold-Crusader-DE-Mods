@@ -1,0 +1,9 @@
+APIShared: 95 sources, 1 errors
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\APIShared\src\MissionLifecycleCapability.cs(225,60): error CS1061: "EditorDirector" enthält keine Definition für "gameLocalPlayerID", und es konnte keine zugängliche gameLocalPlayerID-Erweiterungsmethode gefunden werden, die ein erstes Argument vom Typ "EditorDirector" akzeptiert (möglicherweise fehlt eine using-Direktive oder ein Assemblyverweis).
+Known unchanged HEAD access: MissionLifecycleCapability gameLocalPlayerID; all new accesses checked against real Assembly-CSharp.
+BugfixesAndQoL: 260 sources, 0 errors
+MoatMove: 23 sources, 0 errors
+PASS: shared command preflight (381 project/source entries), JSON, callbacks, CRLF, XAML, permanent hooks including MoatMove.
+PASS: production UnitAccess boundaries, no invalid SDK calls, NeedsInit/identity neutrality, unload/reload, failure pointer clearing and bounded diagnostics.
+PASS: 915 runtime source files; SDK unit lookups are confined to UnitAccess and callers consume their boolean results.
+PASS: affected runtime projects and linked sources checked for JSON, plugin scheduling, lifecycle teardown and XAML roots.

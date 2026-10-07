@@ -14,6 +14,16 @@ internal static partial class Program
     {
         try
         {
+            if (args.Contains("--diagnostics-performance"))
+            {
+                BenchmarkDiagnosticSwitch(Path.GetFullPath(args[0]));
+                return 0;
+            }
+            if (args.Contains("--performance") || args.Contains("--performance-spread"))
+            {
+                BenchmarkProduction(Path.GetFullPath(args[0]), args.Contains("--performance-spread"));
+                return 0;
+            }
             TestHeuristicContract();
             TestKnownWallChoices();
             TestRandomOracleAgreement();
@@ -25,6 +35,7 @@ internal static partial class Program
             TestRuntimeIntegration(args);
             TestActualPublication(args);
             TestActualRequestIndex(args);
+            TestProductionKernel(Path.GetFullPath(args[0]));
             BenchmarkWallGroup();
             Console.WriteLine($"PASS: {assertions} Assassin A*/Dijkstra assertions.");
             return 0;

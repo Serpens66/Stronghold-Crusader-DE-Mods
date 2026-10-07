@@ -37,6 +37,14 @@ internal static partial class Program
             (a,b) => (a,b) != (11,12) || AssassinGateTransitionPolicy.Allows(false, AssassinTransitionKind.ClimbUp, true)), "same folded field permits a proven climb");
         Check(!AssassinGateTransitionPolicy.ValidateReconstructionField(new[]{12,22,12},3,10,(_,_)=>true), "duplicate tile cannot produce a valid field");
         Check(AssassinGateTransitionPolicy.ValidateReconstructionField(new[]{12},1,10,(_,_)=>false), "stationary route has no transitions");
+        // E1640 updates its comparison distance after each accepted direction:
+        // at T=11 it accepts R=12 (4->3), then S=21 (distance 1 >= 3-2).
+        int[] threeStepCut = { 11, 12, 22, 21 };
+        int probes = 0;
+        Check(!AssassinGateTransitionPolicy.ValidateReconstructionField(threeStepCut, 4, 10,
+            (from,to) => { probes++; return (from,to) != (21,11); }),
+            "mutable E1640 distance rejects forbidden shortcut across three route steps");
+        Check(probes <= 8 * threeStepCut.Length, "reconstruction validation remains linear with at most eight neighbors");
         // Independent conservative earlier-stamp oracle over many folded and straight fields.
         var random = new Random(7041);
         for (int sample = 0; sample < 300; sample++)

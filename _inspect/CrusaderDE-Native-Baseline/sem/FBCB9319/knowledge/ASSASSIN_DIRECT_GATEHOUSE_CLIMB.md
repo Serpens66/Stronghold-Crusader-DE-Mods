@@ -218,3 +218,81 @@ Validation completed 2026-10-07:
 The weighted request index now uses APIShared.UnitAccess.IsReallyAlive rather than AliveState alone. The confirmed low-word death marker at GameUnit+0x29C excludes death-animation/corpse records that remain IsAlive; the unrelated upper word is ignored. Such records previously could create false player/control-player ambiguity or inflate the slowest movement delay when sharing a coordinate with a live Assassin. No native hook, path-edge eligibility or route-publication contract changes.
 
 Regression tests compile and execute the actual BuildRequestIndex, its request record and the actual reference-view life predicate. Cases cover live units mixed with foreign/same-player corpses, corpse-only coordinates, deleted/empty slots, nonzero upper word with zero death marker, preserved slowest live speed and preserved ambiguity between living players. The Assassin suite passes 15,892 assertions. This is automated evidence; no new gameplay acceptance is claimed.
+
+## Weighted-route validation and request cost, 2026-10-08
+
+The complete feature audit above still applies to the unchanged installed native hash.
+Search/physical walking accepts the source forward connection OR the destination
+reverse connection; E1640's reconstruction connectivity is checked separately.
+F4930 capture and terminal 196280 consumption remain under their existing ownership.
+Script Extender v2.13.1 retains its selection override, Fixes v1.25.1 its targeting
+decisions; no hook sites/backends, movement costs, neighbor order, heap ordering or
+search budgets changed. Published hooks remain permanently rooted and installed.
+
+E1640 mutates its comparison distance within the eight-direction loop. For the
+target-first route T=11(d4), R=12(d3), P=22(d2), S=21(d1), width 10, it first
+accepts R and reduces the comparison from 4 to 3. S can then pass `distance >=
+comparison-2 && distance < comparison`, even though S lies three route steps behind
+T. Testing only one/two earlier steps misses this candidate. The conservative field
+validator now examines every adjacent node with smaller stamped distance: at most
+eight neighbor probes per route node, no pairwise route scan. The regression rejects
+forbidden S->T before any replacement field is written. This proves the native
+reconstruction counterexample, not a new observed gameplay failure.
+
+The synchronous F4930 frame optionally provides the already bound unit's full control
+word and current speed. The profile proof uses manager/buffer assignment, one-based
+unit ID, live/type/Global-ID, actual native movement start, start/target, current full
+control word and speed, path flags/counters and capacity. Moving units use the native
+next-tile start when appropriate. Unknown/invalid/nested-shadow contexts provide no
+profile. Ownership is restricted to the registered weighted builder. Gate-mask
+queries still require the complete control word in 1..8; without a mask the existing
+low-byte behavior is retained. Unbound queries retain the existing command index.
+Both added unit fields are public in the installed genuine SHCDESE metadata:
+`r_CurrentSpeed : UInt16`, `N00000569 : Byte`. No new Assembly-CSharp member is used.
+
+Each A* resolves its suffix dictionary once. Exact staging rejects unqualified
+contexts before route/encoding/delegate allocations; C# delegate captures are in a
+separate qualified method to avoid method-entry closure allocation. A command's
+immutable cached route retains its packed bytes and bound validator delegate.
+The delegate rechecks current map epoch, settings, climbing, gate policy, physical
+transitions, costs and direct-gate state every time; no validation result is cached.
+APIShared still clones bytes at its public boundary and performs all final unit,
+buffer, context and route checks before writing. Direction encoding and cached-route
+validation share a static lookup with explicit invalid/row-wrap rejection.
+
+Final validation and packed publication are now included in command publication and
+total-request phase timing. The per-frame completion callback preserves nested
+isolation, reports publication failures and cannot change the result if measurement
+code throws. No per-unit log or cross-command route cache was added.
+
+Production-method correctness, load measurements, methodology and limitations are
+documented in `_inspect/AssassinPerf/RESULTS.md`, with raw CSVs and retained preflight
+logs in that directory. The repaired EnemyGatePathfindingTest source references point
+at APIShared's UnitCommandPathRuntime; its complete suite passes 9,900 assertions.
+Automated evidence covers Dijkstra agreement, cache bounds, cheap entrance/faster
+climb/disabled climb, moving units, profile changes/ID reuse/invalid full player,
+nested frames, fallback and current installed NativeX64 contracts. Offline timings
+exclude real native Vanilla work and do not establish game performance. User reports
+that the earlier roof fix worked; this optimization still needs game acceptance on
+owned/captured open gates, both gate sizes and approach sides. README/version unchanged.
+
+Final comparison against Git f57dfdb02 and 8fe105a11 checks unchanged native fallback,
+physical/cost/cache validation, heap, native field publication and F4930 wrapper
+contracts as normalized C# syntax. The A* body differs only in the once-per-search
+suffix lookup. Accumulated command node/heap counters are now 64-bit: 10,000 searches
+over sufficiently large reachable regions could overflow the previous diagnostic
+Int32 sums. Per-search counters, budgets and route selection stay unchanged; the
+overflow regression exercises the actual accumulator methods.
+
+### Performance diagnostics default off (2026-10-08 follow-up)
+
+BugfixesAndQoL now uses the compile-time `PerformanceDiagnosticsEnabled=false`
+switch independently of gameplay and testmod policy observers. Disabled active
+path methods contain no clock/statistics calls in the compiled IL. Exact-route
+staging does not create a measurement callback; APIShared clocks publication only
+when such a callback was supplied. Native contracts, original builder invocation,
+search budget, route edge counts used by cache validation and live final checks
+remain unchanged. Both switch states pass the source-linked Dijkstra, publication
+and prior Git contract regressions (16,229 assertions). Detailed measurements and
+limitations are recorded in `_inspect/AssassinPerf/RESULTS.md` and the diagnostic
+switch CSV. No new game acceptance or measured native Vanilla timing is claimed.

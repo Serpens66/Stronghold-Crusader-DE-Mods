@@ -66,7 +66,7 @@ namespace APIShared
         internal int Complete(int originalResult)
         {
             if (!ReferenceEquals(current, this) || bytes == null) return originalResult;
-            long started = Stopwatch.GetTimestamp();
+            long started = completion == null ? 0 : Stopwatch.GetTimestamp();
             bool published = false;
             try
             {

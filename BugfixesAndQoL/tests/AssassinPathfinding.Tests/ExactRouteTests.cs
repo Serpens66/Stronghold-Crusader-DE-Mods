@@ -5,6 +5,13 @@ internal static partial class Program
 {
     private static void TestExactRouteHandoff()
     {
+        for (int dy = -3; dy <= 3; dy++)
+        for (int dx = -3; dx <= 3; dx++)
+        {
+            int expected = Array.FindIndex(Directions, step => step.X == dx && step.Y == dy);
+            Check(AssassinRouteEncoding.GetDirection(dx, dy) == expected,
+                "shared static direction lookup preserves all native directions and rejects invalid steps");
+        }
         // T(1,1,d4), R(2,1,d3), P(2,2,d2), S(1,2,d1).
         // E1640 chooses R at direction 2, then S at direction 4 using the
         // already reduced distance 3. S->T is a climb, unlike S->P->R->T.
