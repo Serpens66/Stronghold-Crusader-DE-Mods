@@ -1,0 +1,20 @@
+Public installed member: GameUnit.r_AliveState : SHCDESE.Interop.Enums.AliveState
+Public installed member: GameUnit.N0000019A : System.UInt32
+Public installed member: GameUnit.r_CurrentHealth : System.UInt32
+Public installed member: GameUnit.r_ControllableForPlayerId : System.Byte
+Public installed member: GameUnit.r_GlobalId : System.UInt32
+Public installed member: GameUnit.r_CurrentPositionTileId : System.UInt32
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+PASS: APIShared and new testmod JSON, lifecycle, persistent roots, permanent-hook contracts, CRLF and XAML checked.
+
+  GatehouseLivingCaptureTest.Tests -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\GatehouseLivingCaptureTest\tests\bin\GatehouseLivingCaptureTest.Tests.exe
+PASS: exact native/full-handler hashes, all handler branch boundaries, chain backedge, unique executable signature.
+PASS: 648 native machine cases; callback errors=243
+PASS: installed GameUnit layout, life helper, real RedBird span/patch/JE, registers, XMM, stack, entry/backedge, inactive/invalid/error paths.
+PASS: production UnitAccess boundaries, no invalid SDK calls, NeedsInit/identity neutrality, unload/reload, failure pointer clearing and bounded diagnostics.
+PASS: 922 runtime source files; SDK unit lookups are confined to UnitAccess and callers consume their boolean results.
+PASS: affected runtime projects and linked sources checked for JSON, plugin scheduling, lifecycle teardown and XAML roots.
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+
+  GatehouseLivingCaptureTest -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\GatehouseLivingCaptureTest\BepInEx\plugins\GatehouseLivingCaptureTest_Serp\GatehouseLivingCaptureTest.dll
+Gatehouse Living Capture Test built, tested and installed successfully.

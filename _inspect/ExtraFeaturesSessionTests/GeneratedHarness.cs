@@ -25,7 +25,7 @@ namespace SHCDESE.Interop.Enums { public enum EnemyHPModifier { Normal,Weak,Stro
 namespace SHCDESE.Interop {
     public enum eChimps { CHIMP_TYPE_LORD=55, Soldier=1 }
     public enum eGoods { Count=26 }
-    public struct GameUnit { public uint r_GlobalId,r_CurrentHealth,r_MaxHealth,r_HealthBarBlocks; public ushort r_CurrentHealthPercentage; public int r_ControllableForPlayerId; public eChimps r_UnitChimp; public AliveState r_AliveState; }
+    public struct GameUnit { public uint r_GlobalId,r_CurrentHealth,r_MaxHealth,r_HealthBarBlocks,N0000019A; public ushort r_CurrentHealthPercentage; public int r_ControllableForPlayerId; public eChimps r_UnitChimp; public AliveState r_AliveState; }
 }
 namespace Shared {
     public static class DebugLogHelper { public static void LogDebug(object l,string s){} public static void LogError(object l,string s){} public static void LogWarning(object l,string s){} }

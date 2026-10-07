@@ -408,7 +408,7 @@ namespace BugfixesAndQoL
                 bool allowWalkableReservedClimbEndpoints = reconstructionPatch?.IsApplied == true;
                 var cacheKey = new RouteCacheKey(
                     startX, startY, targetX, targetY, maximumNodes, speedDelay,
-                    playerId, allowClimbing, allowWalkableReservedClimbEndpoints, gatePolicy);
+                    playerId, allowClimbing, allowWalkableReservedClimbEndpoints, gatePolicy, AssassinPathAPI.DirectGatehouseClimbingEnabled);
                 RouteSearchSummary routeSummary = default;
                 long cacheStarted = Stopwatch.GetTimestamp();
                 bool routeReady = command != null &&
@@ -447,7 +447,8 @@ namespace BugfixesAndQoL
                 long publicationStarted = Stopwatch.GetTimestamp();
                 // Validate before the first native stamp/distance write. A stale policy
                 // must preserve the original native field, not publish a partial replacement.
-                if (!ValidatePreparedGateRoute(gatePolicy, routeSummary.RouteLength) ||
+                if (cacheKey.DirectGatehouseClimbing != AssassinPathAPI.DirectGatehouseClimbingEnabled ||
+                    !ValidatePreparedGateRoute(gatePolicy, routeSummary.RouteLength, allowClimbing, allowWalkableReservedClimbEndpoints) ||
                     !AssassinGateRoutePolicy.IsCurrent(gatePolicy))
                 {
                     if (activeObservation != null) activeObservation.Outcome = "gate-publication-fallback";
@@ -517,7 +518,7 @@ namespace BugfixesAndQoL
             heapOperations = 0;
             SuffixCacheKey suffixKey = new SuffixCacheKey(
                 targetX, targetY, speedDelay, allowClimbing,
-                allowWalkableReservedClimbEndpoints, gatePolicy?.PlayerId ?? 0, gatePolicy);
+                allowWalkableReservedClimbEndpoints, gatePolicy?.PlayerId ?? 0, gatePolicy, AssassinPathAPI.DirectGatehouseClimbingEnabled);
             Touch(startNode, 0, -1, 0,
                 EstimateRemainingTicks(
                     startX, startY, targetX, targetY,
@@ -583,7 +584,7 @@ namespace BugfixesAndQoL
                             continue;
                     }
 
-                    if (!AssassinGateRoutePolicy.Allows(gatePolicy, currentTile, direction))
+                    if (!AllowsAssassinTransition(gatePolicy, currentTile, nextTile, direction, allowClimbing, allowWalkableReservedClimbEndpoints))
                     {
                         if (activeObservation != null)
                         {
@@ -755,7 +756,8 @@ namespace BugfixesAndQoL
                 if (!IsNativeTile(currentTile) || !IsNativeTile(nextTile))
                     return false;
 
-                if (!AssassinGateRoutePolicy.Allows(key.GatePolicy, currentTile, direction))
+                if (key.DirectGatehouseClimbing != AssassinPathAPI.DirectGatehouseClimbingEnabled ||
+                    !AllowsAssassinTransition(key.GatePolicy, currentTile, nextTile, direction, key.AllowClimbing, key.AllowWalkableReservedClimbEndpoints))
                     return false;
                 bool cardinal = (direction & 1) == 0;
                 bool ordinaryEdge = (directionMasks[direction] & occupancyLayer[currentTile]) != 0;
@@ -858,18 +860,44 @@ namespace BugfixesAndQoL
             return true;
         }
 
-        private bool ValidatePreparedGateRoute(IEnemyGateRoutePolicySnapshot policy, int routeLength)
+        private bool AllowsAssassinTransition(IEnemyGateRoutePolicySnapshot policy, int from, int to,
+            int direction, bool allowClimbing, bool allowReserved)
+        {
+            if (AssassinGateRoutePolicy.Allows(policy, from, direction)) return true;
+            if (policy == null || !policy.IsCurrent || (uint)direction > 7 || !IsNativeTile(from) || !IsNativeTile(to)) return false;
+            bool endpointAndSurface = (direction & 1) == 0 && allowClimbing &&
+                IsVanillaAssassinFallback(from, to, tileFlags[from], allowReserved);
+            AssassinTransitionKind movement = AssassinGateTransitionPolicy.Classify(direction,
+                occupancyLayer[from], occupancyLayer[to], directionMasks[direction], directionMasks[direction ^ 4],
+                tileFlags[from], tileFlags[to], endpointAndSurface, allowClimbing, endpointAndSurface);
+            if (movement != AssassinTransitionKind.ClimbUp && movement != AssassinTransitionKind.ClimbDown) return false;
+            // A building endpoint exception alone is insufficient. The blocked cut must
+            // belong to this exact, still live gate publication, including capture values.
+            if (!(policy is IEnemyGateClimbRoutePolicySnapshot identities) ||
+                !identities.TryGetBlockedGateIdentity(from, direction, out int gate, out uint global, out int owner, out int capturer) ||
+                (buildingLayer[from] != gate && buildingLayer[to] != gate) ||
+                !GameBuildingManagerAPI.Instance.IsValidId(gate) ||
+                !GameBuildingManagerAPI.Instance.TryGetBuildingById(gate, out GameBuilding* live) || live == null ||
+                live->r_GlobalId != global || live->r_PlayerIdOwner != owner || live->r_CapturedByPlayerId != capturer ||
+                live->r_AliveState == AliveState.None || live->r_AliveState == AliveState.MarkedForDeletion ||
+                (live->r_BuildingType != eStructs.STRUCT_GATE_MAIN && live->r_BuildingType != eStructs.STRUCT_GATE_INNER)) return false;
+            return AssassinGateTransitionPolicy.Allows(false, movement, policy.IsCurrent);
+        }
+
+        private bool ValidatePreparedGateRoute(IEnemyGateRoutePolicySnapshot policy, int routeLength,
+            bool allowClimbing, bool allowReserved)
         {
             if (policy == null) return true;
-            for (int index = routeLength - 1; index > 0; index--)
+            // Validate every candidate the native distance reconstruction could choose,
+            // including shortcuts. Reject the replacement before writing any native data;
+            // the previously computed native result/field remains intact on failure.
+            return AssassinGateTransitionPolicy.ValidateReconstructionField(route, routeLength, MapWidth, (from, to) =>
             {
-                int from = route[index], to = route[index - 1];
-                int direction = GetDirectionIndex(to % MapWidth - from % MapWidth,
-                    to / MapWidth - from / MapWidth);
-                int tile = GetTileId(from % MapWidth, from / MapWidth);
-                if (direction < 0 || !AssassinGateRoutePolicy.Allows(policy, tile, direction)) return false;
-            }
-            return true;
+                int direction = GetDirectionIndex(to % MapWidth - from % MapWidth, to / MapWidth - from / MapWidth);
+                return direction >= 0 && AllowsAssassinTransition(policy,
+                    GetTileId(from % MapWidth, from / MapWidth), GetTileId(to % MapWidth, to / MapWidth),
+                    direction, allowClimbing, allowReserved);
+            });
         }
 
         private bool CommitPreparedRoute(IntPtr context, int routeLength)

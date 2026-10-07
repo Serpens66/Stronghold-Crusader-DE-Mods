@@ -55,6 +55,14 @@ namespace APIShared
         bool IsDirectionAllowed(int tileId, int direction);
     }
 
+    /// <summary>Optional immutable identity of the gate responsible for a blocked edge.</summary>
+    public interface IEnemyGateClimbRoutePolicySnapshot
+    {
+        /// <summary>Ambiguous cuts have no usable identity and cannot authorize a climb exception.</summary>
+        bool TryGetBlockedGateIdentity(int tileId, int direction, out int buildingId,
+            out uint globalId, out int owner, out int capturer);
+    }
+
     /// <summary>Optional read-only observer used by a registered gate test policy.</summary>
     public interface IEnemyGateRegionPairObserver
     {

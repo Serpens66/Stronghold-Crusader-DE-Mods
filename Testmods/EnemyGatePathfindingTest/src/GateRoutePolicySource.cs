@@ -77,13 +77,25 @@ namespace EnemyGatePathfindingTest
             internal readonly IEnemyGateRoutePolicySnapshot[] Unmasked = new IEnemyGateRoutePolicySnapshot[9];
         }
 
-        private sealed class Snapshot : IEnemyGateRoutePolicySnapshot
+        private sealed class Snapshot : IEnemyGateRoutePolicySnapshot, IEnemyGateClimbRoutePolicySnapshot
         {
             private readonly GateRoutePolicySource source;
             private readonly Publication publication;
             private readonly bool unmasked;
             internal Snapshot(GateRoutePolicySource source, Publication publication, int player, bool unmasked)
             { this.source = source; this.publication = publication; PlayerId = player; this.unmasked = unmasked; }
+            public bool TryGetBlockedGateIdentity(int tileId, int direction, out int buildingId,
+                out uint globalId, out int owner, out int capturer)
+            {
+                buildingId = 0; globalId = 0; owner = capturer = 0;
+                if (unmasked || !IsCurrent || (uint)direction > 7 || tileId < 0 ||
+                    publication.Policy.IsDirectionAllowed(PlayerId, tileId, direction)) return false;
+                if (publication.Policy.EdgeOwners == null || PlayerId >= publication.Policy.EdgeOwners.Length) return false;
+                int gate = publication.Policy.EdgeOwners[PlayerId]?.Resolve(tileId, direction) ?? 0;
+                if (gate <= 0 || !publication.Policy.GateIdentities.TryGetValue(gate, out RouteTilePolicySnapshot.GateIdentity identity) || identity.Global == 0) return false;
+                buildingId = gate; globalId = identity.Global; owner = identity.Owner; capturer = identity.Capturer;
+                return true;
+            }
             public int PlayerId { get; }
             public bool IsCurrent => ReferenceEquals(Volatile.Read(ref source.current), publication);
             public bool IsDirectionAllowed(int tileId, int direction) =>

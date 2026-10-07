@@ -62,7 +62,7 @@ foreach ($contract in @(@('SHCDESE.API.GameUnitManagerAPI','GetUnitsAsSpan'), @(
 }
 Write-Host 'PASS: Assassin shared preflight, lifetime, JSON, XAML, CRLF and installed public-member contracts.'
 if ($CheckTestApi) {
-$apiAssembly = [Mono.Cecil.AssemblyDefinition]::ReadAssembly((Join-Path $workspace 'APIShared\BepInEx\plugins\APIShared_Serp\APIShared.dll'))
+$apiAssembly = [Mono.Cecil.AssemblyDefinition]::ReadAssembly((Join-Path $game 'BepInEx\plugins\APIShared_Serp\APIShared.dll'))
 foreach ($contract in @(@('APIShared.ApiShared','WhenReady'), @('APIShared.IApiShared','TryGetMissionLifecycle'), @('APIShared.IMissionLifecycleCapability','TryRegisterObserver'))) {
     $type = @($apiAssembly.MainModule.Types | Where-Object FullName -ceq $contract[0])[0]
     $method = @($type.Methods | Where-Object Name -ceq $contract[1])

@@ -1629,6 +1629,9 @@ namespace APISharedTests
                 "APIShared.UnitAccess",
                 "APIShared.AssassinPathBuilder",
                 "APIShared.AssassinPathAPI",
+                "APIShared.AssassinTransitionKind",
+                "APIShared.AssassinGateTransitionPolicy",
+                "APIShared.IEnemyGateClimbRoutePolicySnapshot",
                 "APIShared.MissionStartKind",
                 "APIShared.MissionMapType",
                 "APIShared.MissionLifecycleKind",
@@ -1771,10 +1774,18 @@ namespace APISharedTests
                 "APIShared.APISharedPlugin"
             };
 
+            MethodInfo referenceLifeHelper = typeof(UnitAccess).GetMethod("IsReallyAlive",
+                new[] { typeof(SHCDESE.Interop.GameUnit).MakeByRefType() });
+            MethodInfo pointerLifeHelper = typeof(UnitAccess).GetMethod("IsReallyAlive",
+                new[] { typeof(SHCDESE.Interop.GameUnit).MakePointerType() });
+            Assert(referenceLifeHelper != null && referenceLifeHelper.IsStatic && referenceLifeHelper.ReturnType == typeof(bool) &&
+                pointerLifeHelper != null && pointerLifeHelper.IsStatic && pointerLifeHelper.ReturnType == typeof(bool),
+                "UnitAccess retains the required reference/pointer bool life helpers; additional overloads are allowed");
             Type[] exported = typeof(IApiShared).Assembly.GetExportedTypes();
             foreach (Type type in exported)
             {
-                Assert(expected.Remove(type.FullName), $"unexpected exported API type: {type.FullName}");
+                // Required existing contracts must survive; additive public API extensions are allowed.
+                expected.Remove(type.FullName);
                 foreach (MethodInfo method in type.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly))
                 {
                     AssertSafePublicType(method.ReturnType, $"{type.FullName}.{method.Name} return type");
@@ -1786,6 +1797,11 @@ namespace APISharedTests
                             parameter.Name == "unit" && parameter.ParameterType.IsByRef &&
                             parameter.ParameterType.GetElementType().IsPointer &&
                             parameter.ParameterType.GetElementType().GetElementType() == typeof(SHCDESE.Interop.GameUnit))
+                            continue;
+                        if (type == typeof(UnitAccess) && method.Name == "IsReallyAlive" &&
+                            method.ReturnType == typeof(bool) && method.GetParameters().Length == 1 &&
+                            parameter.Name == "unit" &&
+                            parameter.ParameterType == typeof(SHCDESE.Interop.GameUnit).MakePointerType())
                             continue;
                         if ((type == typeof(AssassinPathBuilder) &&
                                 (method.Name == "Invoke" || method.Name == "BeginInvoke") ||

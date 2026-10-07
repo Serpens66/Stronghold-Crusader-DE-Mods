@@ -1,6 +1,7 @@
 using BepInEx.Logging;
 using SHCDESE.API;
 using SHCDESE.Interop;
+using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -34,6 +35,21 @@ namespace APIShared
         private const int MaximumDiagnosticSites = 128;
 
         internal static void InitializeDiagnostics(ManualLogSource log) => diagnosticLog = log;
+
+        /// <summary>Tests Vanilla's combat life predicate, excluding dying units and visible corpses.</summary>
+        /// <remarks>AliveState can remain IsAlive throughout the death animation and corpse phase.
+        /// Vanilla additionally tests the low 16-bit death marker at GameUnit+0x29C; the upper
+        /// word of N0000019A is unrelated. Health and animation state are deliberately not tested.
+        /// Use immediate game-thread views; this does not validate slot identity or ownership.</remarks>
+        /// <param name="unit">The immediate Script Extender unit view.</param>
+        /// <returns>True when AliveState is IsAlive and the native death marker is zero.</returns>
+        public static bool IsReallyAlive(in GameUnit unit) =>
+            unit.r_AliveState == AliveState.IsAlive && (unit.N0000019A & 0xFFFFu) == 0;
+
+        /// <summary>Tests Vanilla's combat life predicate; a null pointer returns false.</summary>
+        /// <param name="unit">An immediate valid unit pointer, or null.</param>
+        /// <returns>True only for a non-null unit passing the combat life predicate.</returns>
+        public static bool IsReallyAlive(GameUnit* unit) => unit != null && IsReallyAlive(in *unit);
 
         /// <summary>Resolves a unit ID without passing invalid IDs to the Script Extender.</summary>
         /// <param name="unitId">One-based game ID, never a span index.</param>

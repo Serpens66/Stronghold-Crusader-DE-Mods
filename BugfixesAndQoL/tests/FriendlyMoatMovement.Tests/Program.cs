@@ -142,6 +142,7 @@ var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared", "src", "UnitAccess.cs"))
         .Replace("using SHCDESE.API;", "using GameUnitManagerAPI = BugfixesAndQoL.GameUnitManagerAPI;")
         .Replace("using SHCDESE.Interop;", "using GameUnit = BugfixesAndQoL.GameUnit;")
+        .Replace("using SHCDESE.Interop.Enums;", "using AliveState = BugfixesAndQoL.AliveState;")
         .Replace("public static unsafe class UnitAccess", "internal static unsafe class UnitAccess")),
     CSharpSyntaxTree.ParseText("namespace BepInEx.Logging { public class ManualLogSource { public void LogDebug(object message) { } } }"),
     

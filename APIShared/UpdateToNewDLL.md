@@ -1,5 +1,9 @@
 # Building repair capability: native update checklist
 
+## 2026-10-07: UnitAccess.IsReallyAlive
+
+New public reference/pointer helper mirrors Vanilla's combat predicate: `AliveState.IsAlive` and zero low 16-bit death marker in `GameUnit.N0000019A`. Installed SE field offsets are `88` and `29C`, record size `490`; no health/animation test, native hook or new Assembly-CSharp member access is introduced by this helper. On native/interop updates re-audit complete death, corpse and removal flow plus melee/ranged targeting, then validate installed public field types/offsets and the enum value before native consumers use it. Source/contract tests are in `_inspect/UnitIdAccess/Tests`; real installed-layout/backend tests and the sole capture hook owner are in `../Testmods/GatehouseLivingCaptureTest`. Full audit: `../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/GATEHOUSE_LIVING_CAPTURE.md`. Native reference hash remains `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+
 ## 2026-10-06: direct manual-gate close delay
 
 Same native reference SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`. APIShared's automation transaction additionally owns `D5835/15` (ends `D5844`) and `B79E2/18` (ends `B79F4`). Exact byte patterns are in `GatehouseAutomationNativeState.HookBytes`; live checks and executable-section unique-pattern fallback follow the existing hash-bound policy. New command parent `D5810`, length 96, hash `93BFC31E3B3FF25DBECFCF9624EE26A1AAA1A1A169ADDAD0ED1233201B811504`, is validated in full. Timer parent `B73D0` remains covered by the timing capability's function hash. No new public API or member access into Assembly-CSharp is introduced.

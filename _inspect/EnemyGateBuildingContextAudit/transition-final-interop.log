@@ -1,0 +1,40 @@
+GameTribe.r_GlobalId : public UInt32 offset=10
+GameTribe.r_PlayerIdOwner : public UInt16 offset=2
+GameTribe.r_LeaderUnitId : public UInt16 offset=48
+GameBuilding.r_AliveState : public AliveState offset=208
+GameBuilding.r_BuildingType : public eStructs offset=210
+GameBuilding.r_GlobalId : public UInt32 offset=216
+GameBuilding.r_PlayerIdOwner : public UInt16 offset=214
+GameBuilding.r_CapturedByPlayerId : public UInt16 offset=710
+GameBuilding.r_GatehouseId : public UInt16 offset=722
+GameBuilding.r_GateState : public Byte offset=674
+GameBuilding.r_AIWalkableState : public GatePathOverrideMode offset=212
+GameBuilding.r_SpriteVariationIndex : public UInt16 offset=258
+GameBuilding.r_OccupyTileGridSize : public UInt32 offset=248
+GameBuilding.r_OccupiedTileIdsArrayBegin : public UInt32 offset=456
+GameUnit.r_GlobalId : public UInt32 offset=148
+GameUnit.r_TribeId : public UInt16 offset=724
+GameUnit.r_AIState : public UInt16 offset=700
+GameUnit.r_AI_ContextTargetBuildingTileId : public UInt32 offset=932
+GameUnit.r_AI_LastIssuedTribeCommand : public UInt16 offset=920
+GameUnit.r_ContextTargetTileX : public UInt16 offset=996
+GameUnit.r_ContextTargetTileY : public UInt16 offset=998
+GameUnit.r_MoatWorkTaskIndex : public UInt32 offset=948
+GameUnit.r_CurrentTilePositionX : public UInt16 offset=192
+GameUnit.r_CurrentTilePositionY : public UInt16 offset=194
+GameUnit.r_UnitChimp : public eChimps offset=138
+GameUnit.r_ControllableForPlayerId : public Byte offset=146
+GameUnit.N00000569 : public Byte offset=147
+Boolean TryGetAITribeStorageRole(Int32, SHCDESE.Interop.Enums.AITribeStorageRole16, UInt16 ByRef, UInt32 ByRef)
+Boolean TryResolveAITribeStorageRole(Int32, SHCDESE.Interop.Enums.AITribeStorageRole16, SHCDESE.Interop.GameTribe* ByRef)
+Int32 GetTileId(Int32, Int32)
+Boolean IsValidTileId(Int32)
+SHCDESE.Interop.Enums.TilePropertyFlag GetTilePropertyFlag(Int32)
+SHCDESE.Interop.UnmanagedVector2`1[System.UInt16] GetTileVectorFromId(Int32)
+System.Span`1[System.UInt16] GetMoatWorkTaskIndexLayer()
+System.Span`1[System.UInt16] GetPathComponentGrid()
+System.Span`1[SHCDESE.Interop.GameUnit] GetUnitsAsSpan()
+System.Span`1[SHCDESE.Interop.GameBuilding] GetBuildingsAsSpan()
+Installed persistent publisher: System.Action`1[System.Int32] OnTick
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+PASS: bridge split installed members, JSON/lifecycle, XAML and permanent hooks

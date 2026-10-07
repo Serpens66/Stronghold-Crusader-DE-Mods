@@ -20,6 +20,7 @@ internal static partial class Program
             TestPartialSuffixOracleAgreement();
             TestNodeLimit();
             TestGateCompatibility();
+            TestGateTransitions();
             TestRuntimeIntegration(args);
             BenchmarkWallGroup();
             Console.WriteLine($"PASS: {assertions} Assassin A*/Dijkstra assertions.");
@@ -218,11 +219,11 @@ internal static partial class Program
         Check(runtime.Split("AssassinPathAPI.RunVanillaBuilder(context").Length == 2,
             "the native builder executes exactly once per request");
         string expansion = runtime.Substring(runtime.IndexOf("private bool TryBuildWeightedRoute", StringComparison.Ordinal));
-        Check(expansion.IndexOf("AssassinGateRoutePolicy.Allows(gatePolicy", StringComparison.Ordinal) <
+        Check(expansion.IndexOf("AllowsAssassinTransition(gatePolicy", StringComparison.Ordinal) <
               expansion.IndexOf("int movementTicks", StringComparison.Ordinal),
             "gate edge filtering precedes cost/heap admission");
-        Check(runtime.Contains("AssassinGateRoutePolicy.Allows(key.GatePolicy") &&
-              runtime.Contains("ValidatePreparedGateRoute(gatePolicy, routeSummary.RouteLength)"),
+        Check(runtime.Contains("AllowsAssassinTransition(key.GatePolicy") &&
+              runtime.Contains("ValidatePreparedGateRoute(gatePolicy, routeSummary.RouteLength, allowClimbing"),
             "cache validation and native publication both enforce the captured gate policy");
         Check(runtime.Contains("gate-snapshot-fallback") && runtime.Contains("gate-context-fallback") &&
               runtime.Contains("gate-publication-fallback"),

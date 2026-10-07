@@ -11,6 +11,17 @@ using System.Xml.Linq;
 if (args.Contains("--scan")) { Scan(); return; }
 unsafe
 {
+    foreach (var state in Enum.GetValues<SHCDESE.Interop.Enums.AliveState>())
+    foreach (uint marker in new uint[] { 0, 1, 0xFFFF, 0x10000, 0xFFFF0000, 0xFFFFFFFF })
+    {
+        GameUnit life = new GameUnit { r_AliveState = state, N0000019A = marker, r_CurrentHealth = 0 };
+        bool expected = state == SHCDESE.Interop.Enums.AliveState.IsAlive && (marker & 0xFFFF) == 0;
+        Check(UnitAccess.IsReallyAlive(in life) == expected, "reference life predicate");
+        Check(UnitAccess.IsReallyAlive(&life) == expected, "pointer life predicate");
+        life.r_CurrentHealth = uint.MaxValue;
+        Check(UnitAccess.IsReallyAlive(in life) == expected, "health is not an additional rule");
+    }
+    Check(!UnitAccess.IsReallyAlive((GameUnit*)null), "null life view");
     GameUnit record = new GameUnit { Alive = 4, GlobalId = 0 }; // NeedsInit is still resolvable.
     var manager = new GameUnitManagerAPI { Pointer = &record };
     GameUnitManagerAPI.Current = manager;
@@ -138,7 +149,8 @@ static void Scan()
     }
 }
 
-namespace SHCDESE.Interop { public struct GameUnit { public int Alive, GlobalId; } }
+namespace SHCDESE.Interop.Enums { public enum AliveState : short { None, NeedsInit, IsAlive, MarkedForDeletion, Unknown, Unknown5, Paused } }
+namespace SHCDESE.Interop { public struct GameUnit { public int Alive, GlobalId; public SHCDESE.Interop.Enums.AliveState r_AliveState; public uint N0000019A, r_CurrentHealth; } }
 namespace SHCDESE.API
 {
     public unsafe class GameUnitManagerAPI

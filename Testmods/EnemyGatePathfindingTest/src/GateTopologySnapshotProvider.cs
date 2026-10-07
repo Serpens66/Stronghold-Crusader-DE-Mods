@@ -1096,6 +1096,9 @@ namespace EnemyGatePathfindingTest
                     !bridgesByGateId.ContainsKey(candidate.GateId))
                     bridgesByGateId.Add(candidate.GateId, candidate);
             }
+            var gateIdentities = new Dictionary<int, RouteTilePolicySnapshot.GateIdentity>();
+            foreach (var pair in gatesById)
+                gateIdentities.Add(pair.Key, new RouteTilePolicySnapshot.GateIdentity(pair.Value.GateGlobal, pair.Value.Owner, pair.Value.CapturedBy));
             var axisDiagnostics = new StringBuilder();
             int maskedDirectedEdges = 0;
             int ambiguousPassages = 0;
@@ -1178,7 +1181,7 @@ namespace EnemyGatePathfindingTest
             }
             return new RouteTilePolicySnapshot(
                 directionMasks, fingerprint, maskedDirectedEdges, ambiguousPassages,
-                axisDiagnostics.Length == 0 ? "none" : axisDiagnostics.ToString(), edgeOwners);
+                axisDiagnostics.Length == 0 ? "none" : axisDiagnostics.ToString(), edgeOwners, gateIdentities);
         }
 
         private static bool TryResolvePassageAxis(

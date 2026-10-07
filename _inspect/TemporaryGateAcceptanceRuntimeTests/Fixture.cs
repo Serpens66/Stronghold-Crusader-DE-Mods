@@ -13,13 +13,20 @@ namespace Shared { internal static class DebugLogHelper {
     internal static void LogInfo(BepInEx.Logging.ManualLogSource log, string text) => Lines.Add(text);
 } }
 namespace SHCDESE.Interop.Enums {
+    public enum AliveState : short { None, NeedsInit, IsAlive, MarkedForDeletion, Unknown, Unknown5, Paused }
     public enum eChimps { CHIMP_TYPE_ARAB_ASSASIN = 0x49 }
     public enum AITribeStorageRole16 { HarassmentCombat0 = 180, SiegeAssassins=11 }
 }
 namespace SHCDESE.Interop {
-    public struct GameUnit { public uint r_GlobalId, r_AI_ContextTargetBuildingTileId; public ushort r_TribeId,r_AI_LastIssuedTribeCommand,r_AIState; public byte r_ControllableForPlayerId, N00000569; public ushort r_UnitChimp; public int X,Y; }
+    public struct GameUnit { public uint r_GlobalId, r_AI_ContextTargetBuildingTileId, N0000019A; public SHCDESE.Interop.Enums.AliveState r_AliveState; public ushort r_TribeId,r_AI_LastIssuedTribeCommand,r_AIState; public byte r_ControllableForPlayerId, N00000569; public ushort r_UnitChimp; public int X,Y; }
     public struct GameTribe { public uint r_GlobalId; public ushort r_PlayerIdOwner; }
     public struct GameBuilding { public uint r_GlobalId; public ushort r_BuildingType,r_PlayerIdOwner,r_CapturedByPlayerId,r_AliveState; }
+}
+namespace APIShared {
+    public static class AssassinPathAPI {
+        public static AssassinTransitionKind Movement = AssassinTransitionKind.Ground;
+        public static AssassinTransitionKind ClassifyNativeTransition(int from, int to, int direction, bool climbing) => Movement;
+    }
 }
 namespace SHCDESE.API {
     public unsafe class GameUnitManagerAPI {
@@ -168,6 +175,7 @@ public static unsafe class RuntimeAcceptanceTests {
         GameTribeManagerAPI.Instance.Tribe=(GameTribe*)Marshal.AllocHGlobal(sizeof(GameTribe));
         GameBuildingManagerAPI.Instance.Building=(GameBuilding*)Marshal.AllocHGlobal(sizeof(GameBuilding));
         *GameTribeManagerAPI.Instance.Tribe=new GameTribe {r_GlobalId=9,r_PlayerIdOwner=5};
+        *GameBuildingManagerAPI.Instance.Building = new GameBuilding {r_GlobalId=99,r_BuildingType=45,r_PlayerIdOwner=2,r_AliveState=2};
         var runtime=BugfixesAndQoL.FriendlyMoatMovementRuntime.Create();
         try {
             Check(runtime.Invoke()==3 && runtime.Calls==1 && GameUnitManagerAPI.Instance.Reads==0,"no observer: unchanged result and no SDK reads");
@@ -183,8 +191,29 @@ public static unsafe class RuntimeAcceptanceTests {
             Shared.DebugLogHelper.Lines.Clear(); acceptance.Begin(); producer.Emit(acceptance,3,true,true); acceptance.End(); Check(Contains("kind=assassin-weighted-cache,result=checked") && Contains("climbEdges=1"),"cache and climb retained");
             var masks=new byte[9][]; masks[5]=new byte[320800]; Array.Fill(masks[5],(byte)255); masks[5][80100]&=unchecked((byte)~4);
             var owners=new GateEdgeOwnership[9]; owners[5]=new GateEdgeOwnership(); owners[5].Record(80100,2,578);
-            snapshot=new RouteTilePolicySnapshot(masks,43,edgeOwners:owners);
+            snapshot=new RouteTilePolicySnapshot(masks,43,edgeOwners:owners,gateIdentities:new Dictionary<int,RouteTilePolicySnapshot.GateIdentity>{{578,new RouteTilePolicySnapshot.GateIdentity(99,2,0)}});
             Shared.DebugLogHelper.Lines.Clear(); acceptance.Begin(); producer.Emit(acceptance,3); acceptance.End(); Check(Contains("violated=1") && Contains("gate=578/attribution=exact"),"blocked passage exact gate");
+            Shared.DebugLogHelper.Lines.Clear(); acceptance.Begin(); APIShared.AssassinPathAPI.Movement=APIShared.AssassinTransitionKind.ClimbUp;
+            GameTileManagerAPI.Instance.Buildings[80101]=578;
+            producer.Emit(acceptance,2,climb:true); acceptance.End();
+            Check(Contains("permittedClimbRoutes=1") && Contains("violated=0") && Contains("permittedClimbEdges=1"), "proven weighted climb preserves masked roof access");
+            Shared.DebugLogHelper.Lines.Clear(); acceptance.Begin(); GameTileManagerAPI.Instance.Buildings[80101]=579;
+            producer.Emit(acceptance,2,climb:true); acceptance.End();
+            Check(Contains("permittedClimbRoutes=0") && Contains("mask-overlap-movement-unproven"), "neighbor gate endpoint cannot prove a climb across this gate mask");
+            GameTileManagerAPI.Instance.Buildings[80101]=578;
+            Shared.DebugLogHelper.Lines.Clear(); acceptance.Begin();
+            var changing=acceptance.BeginAssassin(5,37,100,100,101,100); acceptance.AssassinEdge(changing,5,80100,80101,2,true);
+            GameBuildingManagerAPI.Instance.Building->r_GlobalId=100; acceptance.EndAssassin(changing,5,1,1,"fixture",false,2,0); acceptance.End();
+            Check(Contains("checked=0") && Contains("permittedClimbRoutes=0"), "gate reuse after climb observation is never a pass");
+            GameBuildingManagerAPI.Instance.Building->r_GlobalId=99;
+            Shared.DebugLogHelper.Lines.Clear(); acceptance.Begin();
+            changing=acceptance.BeginAssassin(5,37,100,100,101,100); acceptance.AssassinEdge(changing,5,80100,80101,2,true);
+            GameBuildingManagerAPI.Instance.Building->r_CapturedByPlayerId=5; acceptance.EndAssassin(changing,5,1,1,"fixture",false,2,0); acceptance.End();
+            Check(Contains("checked=0") && Contains("permittedClimbRoutes=0"), "capture during synchronous observation is not a confirmed climb");
+            GameBuildingManagerAPI.Instance.Building->r_CapturedByPlayerId=0;
+            Shared.DebugLogHelper.Lines.Clear(); acceptance.Begin(); producer.Emit(acceptance,2,climb:false); acceptance.End();
+            Check(Contains("mask-overlap-movement-unproven") && Contains("violated=0"), "mere native climb compatibility is not proof");
+            APIShared.AssassinPathAPI.Movement=APIShared.AssassinTransitionKind.Ground;
             snapshot=new RouteTilePolicySnapshot(new byte[9][],44);
             Shared.DebugLogHelper.Lines.Clear(); acceptance.Begin(); producer.Emit(acceptance,0); producer.Emit(acceptance,0,flood:true,continuation:1); acceptance.End(); Check(Contains("unclear=1") && Contains("positive-without-materialized-route"),"positive without path unclear; flood not a route failure");
             acceptance.Begin(); var old=acceptance.BeginAssassin(5,0,100,100,101,100); acceptance.AssassinEdge(old,5,80100,80101,2,false); snapshot=new RouteTilePolicySnapshot(new byte[9][],45);
@@ -225,7 +254,7 @@ public static unsafe class RuntimeAcceptanceTests {
             BugfixesAndQoL.AssassinPathfindingRuntime.TemporaryReconstructionRelaxation="active";
             *GameBuildingManagerAPI.Instance.Building=new GameBuilding {r_GlobalId=99,r_BuildingType=45,r_PlayerIdOwner=2,r_AliveState=2};
             masks=new byte[9][]; masks[5]=new byte[320800]; Array.Fill(masks[5],(byte)255); masks[5][80100]&=unchecked((byte)~4);
-            snapshot=new RouteTilePolicySnapshot(masks,46,edgeOwners:owners);
+            snapshot=new RouteTilePolicySnapshot(masks,46,edgeOwners:owners,gateIdentities:new Dictionary<int,RouteTilePolicySnapshot.GateIdentity>{{578,new RouteTilePolicySnapshot.GateIdentity(99,2,0)}});
             GameTileManagerAPI.Instance.Buildings[80103]=578; GameTileManagerAPI.Instance.Buildings[80101]=578;
             Shared.DebugLogHelper.Lines.Clear(); runtime.Reset(); GameUnitManagerAPI.Instance.Unit->r_TribeId=37; GameTribeManagerAPI.Instance.StorageRole=11;
             acceptance.Begin(); runtime.Invoke(); acceptance.End();
@@ -257,13 +286,17 @@ public static unsafe class RuntimeAcceptanceTests {
             for(int gate=100;gate<140;gate++) {
                 GameBuildingManagerAPI.Instance.BuildingId=gate;
                 var varyingOwners=new GateEdgeOwnership[9]; varyingOwners[5]=new GateEdgeOwnership(); varyingOwners[5].Record(80100,2,gate);
-                snapshot=new RouteTilePolicySnapshot(masks,(ulong)gate,edgeOwners:varyingOwners);
+                snapshot=new RouteTilePolicySnapshot(masks,(ulong)gate,edgeOwners:varyingOwners,gateIdentities:new Dictionary<int,RouteTilePolicySnapshot.GateIdentity>{{gate,new RouteTilePolicySnapshot.GateIdentity(99,2,0)}});
                 runtime.Reset(); runtime.Invoke();
             }
             acceptance.End();
-            Check(Contains("checked=40,violated=40") && Shared.DebugLogHelper.Lines.FindAll(s=>s.Contains("kind=violation,")).Count==40 &&
+            Check(Contains("checked=40,violated=40") && Shared.DebugLogHelper.Lines.FindAll(s=>s.Contains("kind=mask-overlap,")).Count==40 &&
                 runtime.Calls==routeCallsBefore+40,"more than 32 exact gates counted without event cap or extra native calls");
             GameBuildingManagerAPI.Instance.BuildingId=578;
+            Shared.DebugLogHelper.Lines.Clear(); acceptance.Begin(); int missingReads=GameTribeManagerAPI.Instance.Reads;
+            var unattributed=acceptance.BeginAssassin(0,0,100,100,101,100); acceptance.EndAssassin(unattributed,0,1,1,"unresolved-player",false,0,0); acceptance.End();
+            Check(Contains("unattributedSearches=1") && Contains("unclear=0") && Contains("context-not-assigned/no-route-inspected") && GameTribeManagerAPI.Instance.Reads==missingReads,
+                "unassigned searches preserve native results and never assert a failed human route");
             Console.WriteLine("PASS: "+assertions+" actual diagnostic path assertions; no moat-plan helper present in fixture.");
         } finally { runtime.DisposeFixture(); Marshal.FreeHGlobal((IntPtr)GameUnitManagerAPI.Instance.Unit); Marshal.FreeHGlobal((IntPtr)GameTribeManagerAPI.Instance.Tribe); Marshal.FreeHGlobal((IntPtr)GameBuildingManagerAPI.Instance.Building); }
     }

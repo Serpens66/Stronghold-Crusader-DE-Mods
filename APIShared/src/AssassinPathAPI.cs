@@ -138,6 +138,25 @@ namespace APIShared
             return type == eStructs.STRUCT_GATE_MAIN || type == eStructs.STRUCT_GATE_INNER;
         }
 
+        // TEMP_GATE_ROUTE_ACCEPTANCE: remove this native reader with the temporary observer.
+        /// <summary>Reads the physical connection/surface branch only; never invokes a native step or changes state.</summary>
+        public static AssassinTransitionKind ClassifyNativeTransition(int fromTile, int toTile, int direction, bool climbEnabled)
+        {
+            if (!supported || module == IntPtr.Zero || (uint)fromTile >= TileCount ||
+                (uint)toTile >= TileCount || (uint)direction > 7) return AssassinTransitionKind.Unknown;
+            byte* connections = (byte*)module + 0x51890D0;
+            byte* masks = (byte*)module + 0x312620;
+            uint* surfaces = (uint*)((byte*)module + TileFlagsRva);
+            ushort* buildings = (ushort*)((byte*)module + BuildingGridRva);
+            // The special-surface predicate is deliberately not called by a read-only observer.
+            bool surfaceAccepted = (surfaces[toTile] & 0x4A5014B1u) == 0;
+            bool endpointsAccepted = (buildings[fromTile] == 0 || IsDirectGatehouseClimbEndpoint(fromTile)) &&
+                (buildings[toTile] == 0 || IsDirectGatehouseClimbEndpoint(toTile));
+            return AssassinGateTransitionPolicy.Classify(direction, connections[fromTile], connections[toTile],
+                masks[direction], masks[direction ^ 4], surfaces[fromTile], surfaces[toTile],
+                surfaceAccepted, climbEnabled, endpointsAccepted);
+        }
+
         private static void PublishFlags(int value)
         {
             Marshal.WriteInt32(policyFlags, value); // Aligned data publication; executable memory never changes.

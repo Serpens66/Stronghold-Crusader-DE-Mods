@@ -68,10 +68,11 @@ internal static partial class Program
         var flags = System.Reflection.BindingFlags.NonPublic;
         Type route = typeof(AssassinPathfindingRuntime).GetNestedType("RouteCacheKey", flags);
         Type suffix = typeof(AssassinPathfindingRuntime).GetNestedType("SuffixCacheKey", flags);
-        object Route(int player, IEnemyGateRoutePolicySnapshot state) =>
-            Activator.CreateInstance(route, 1, 2, 3, 4, 400000, 2, player, true, true, state);
-        object Suffix(int player, IEnemyGateRoutePolicySnapshot state) =>
-            Activator.CreateInstance(suffix, 3, 4, 2, true, true, player, state);
+        object Route(int player, IEnemyGateRoutePolicySnapshot state, bool gateClimb = false) =>
+            Activator.CreateInstance(route, 1, 2, 3, 4, 400000, 2, player, true, true, state, gateClimb);
+        object Suffix(int player, IEnemyGateRoutePolicySnapshot state, bool gateClimb = false) =>
+            Activator.CreateInstance(suffix, 3, 4, 2, true, true, player, state, gateClimb);
+        Check(!Route(2, snapshot).Equals(Route(2, snapshot, true)) && !Suffix(2, snapshot).Equals(Suffix(2, snapshot, true)), "capability toggles isolate route and suffix caches");
         Check(Route(2, snapshot).Equals(Route(2, snapshot)), "production route key reuses identical publication");
         Check(!Route(2, snapshot).Equals(Route(3, snapshot)), "production route key isolates players");
         Check(!Route(2, snapshot).Equals(Route(2, new GateTestSnapshot())), "production route key isolates generations");

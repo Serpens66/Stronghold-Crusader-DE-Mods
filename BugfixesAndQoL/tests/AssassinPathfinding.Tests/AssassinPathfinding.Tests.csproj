@@ -8,6 +8,7 @@
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="..\..\..\APIShared\src\AssassinGateTransitionPolicy.cs" Link="Runtime\AssassinGateTransitionPolicy.cs" />
     <Compile Include="..\..\src\AssassinAStarPolicy.cs" Link="Runtime\AssassinAStarPolicy.cs" />
     <Compile Include="..\..\src\AssassinClimbCostPolicy.cs" Link="Runtime\AssassinClimbCostPolicy.cs" />
     <Compile Include="..\..\src\AssassinGateRoutePolicy.cs" Link="Runtime\AssassinGateRoutePolicy.cs" />

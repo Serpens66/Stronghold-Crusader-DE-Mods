@@ -1,0 +1,3 @@
+TEMP_GATE_ROUTE_ACCEPTANCE: 6054 assertions, 576000 events across 120 minute windows
+PASS: both installed-RedBird capturer adapters execute the real JE, preserve registers/XMM/stack, and fail open.
+EnemyGatePathfindingPolicy: 9900 assertions passed.

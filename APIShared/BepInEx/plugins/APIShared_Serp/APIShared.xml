@@ -165,6 +165,20 @@
             <remarks>Returned pointers are immediate views, never cached. Callers must validate identity,
             ownership and life state themselves and use the existing game-thread contracts.</remarks>
         </member>
+        <member name="M:APIShared.UnitAccess.IsReallyAlive(SHCDESE.Interop.GameUnit@)">
+            <summary>Tests Vanilla's combat life predicate, excluding dying units and visible corpses.</summary>
+            <remarks>AliveState can remain IsAlive throughout the death animation and corpse phase.
+            Vanilla additionally tests the low 16-bit death marker at GameUnit+0x29C; the upper
+            word of N0000019A is unrelated. Health and animation state are deliberately not tested.
+            Use immediate game-thread views; this does not validate slot identity or ownership.</remarks>
+            <param name="unit">The immediate Script Extender unit view.</param>
+            <returns>True when AliveState is IsAlive and the native death marker is zero.</returns>
+        </member>
+        <member name="M:APIShared.UnitAccess.IsReallyAlive(SHCDESE.Interop.GameUnit*)">
+            <summary>Tests Vanilla's combat life predicate; a null pointer returns false.</summary>
+            <param name="unit">An immediate valid unit pointer, or null.</param>
+            <returns>True only for a non-null unit passing the combat life predicate.</returns>
+        </member>
         <member name="M:APIShared.UnitAccess.TryGetById(System.Int32,SHCDESE.Interop.GameUnit*@,APIShared.UnitLookupFailure@,System.String,System.String,System.Int32)">
             <summary>Resolves a unit ID without passing invalid IDs to the Script Extender.</summary>
             <param name="unitId">One-based game ID, never a span index.</param>
@@ -221,6 +235,39 @@
             <summary>
             Checks only the optional building-ID exception for one tile. Callers must still enforce
             Vanilla's direction, surface and wall requirements and their own player policy.
+            </summary>
+        </member>
+        <member name="M:APIShared.AssassinPathAPI.ClassifyNativeTransition(System.Int32,System.Int32,System.Int32,System.Boolean)">
+            <summary>Reads the physical connection/surface branch only; never invokes a native step or changes state.</summary>
+        </member>
+        <member name="T:APIShared.AssassinTransitionKind">
+            <summary>The physical Assassin movement branch, not merely search eligibility.</summary>
+        </member>
+        <member name="F:APIShared.AssassinTransitionKind.Unknown">
+            <summary>The available evidence does not establish a permitted transition.</summary>
+        </member>
+        <member name="F:APIShared.AssassinTransitionKind.Ground">
+            <summary>An ordinary forward or reverse native connection exists.</summary>
+        </member>
+        <member name="F:APIShared.AssassinTransitionKind.ClimbUp">
+            <summary>A verified cardinal transition enters a wall from ground.</summary>
+        </member>
+        <member name="F:APIShared.AssassinTransitionKind.ClimbDown">
+            <summary>A verified cardinal transition leaves a wall.</summary>
+        </member>
+        <member name="T:APIShared.AssassinGateTransitionPolicy">
+            <summary>Pure rules from DCE60 and E1640; no hooks, game queries or mutable state.</summary>
+        </member>
+        <member name="M:APIShared.AssassinGateTransitionPolicy.Classify(System.Int32,System.Byte,System.Byte,System.Byte,System.Byte,System.UInt32,System.UInt32,System.Boolean,System.Boolean,System.Boolean)">
+            <summary>Both connection directions precede the physical climb branch.</summary>
+        </member>
+        <member name="M:APIShared.AssassinGateTransitionPolicy.Allows(System.Boolean,APIShared.AssassinTransitionKind,System.Boolean)">
+            <summary>Only a fully verified climb can cross a masked ground cut.</summary>
+        </member>
+        <member name="M:APIShared.AssassinGateTransitionPolicy.ValidateReconstructionField(System.Int32[],System.Int32,System.Int32,System.Func{System.Int32,System.Int32,System.Boolean})">
+            <summary>
+            Route is target-first. E1640 can select any adjacent stamped node one or two
+            distances earlier, not just the parent used by the weighted builder.
             </summary>
         </member>
         <member name="T:APIShared.GatehouseFootprintCandidate">
@@ -1640,6 +1687,12 @@
         </member>
         <member name="M:APIShared.IEnemyGateRoutePolicySnapshot.IsDirectionAllowed(System.Int32,System.Int32)">
             <summary>Checks a directed tile edge without reading mutable game state.</summary>
+        </member>
+        <member name="T:APIShared.IEnemyGateClimbRoutePolicySnapshot">
+            <summary>Optional immutable identity of the gate responsible for a blocked edge.</summary>
+        </member>
+        <member name="M:APIShared.IEnemyGateClimbRoutePolicySnapshot.TryGetBlockedGateIdentity(System.Int32,System.Int32,System.Int32@,System.UInt32@,System.Int32@,System.Int32@)">
+            <summary>Ambiguous cuts have no usable identity and cannot authorize a climb exception.</summary>
         </member>
         <member name="T:APIShared.IEnemyGateRegionPairObserver">
             <summary>Optional read-only observer used by a registered gate test policy.</summary>

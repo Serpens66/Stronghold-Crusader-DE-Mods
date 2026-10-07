@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace EnemyGatePathfindingTest
 {
@@ -14,10 +15,11 @@ namespace EnemyGatePathfindingTest
             ulong topologyFingerprint,
             int maskedDirectedEdges = 0,
             int ambiguousPassages = 0,
-            string directionMaskDiagnostics = null, GateEdgeOwnership[] edgeOwners = null)
+            string directionMaskDiagnostics = null, GateEdgeOwnership[] edgeOwners = null, Dictionary<int, GateIdentity> gateIdentities = null)
         {
             DirectionMasks = directionMasks ?? new byte[9][];
             EdgeOwners = edgeOwners;
+            GateIdentities = gateIdentities == null ? new Dictionary<int, GateIdentity>() : new Dictionary<int, GateIdentity>(gateIdentities);
             TopologyFingerprint = topologyFingerprint;
             MaskedDirectedEdges = maskedDirectedEdges;
             AmbiguousPassages = ambiguousPassages;
@@ -32,6 +34,13 @@ namespace EnemyGatePathfindingTest
         // leaving the tile. A null player entry is the all-0xFF fast path.
         internal byte[][] DirectionMasks { get; }
         internal GateEdgeOwnership[] EdgeOwners { get; }
+        internal readonly Dictionary<int, GateIdentity> GateIdentities;
+        internal readonly struct GateIdentity
+        {
+            internal GateIdentity(uint global, int owner, int capturer) { Global = global; Owner = owner; Capturer = capturer; }
+            internal readonly uint Global;
+            internal readonly int Owner, Capturer;
+        }
         internal int NonEmptyPlayerMaskCount { get; }
         internal int MaskedDirectedEdges { get; }
         internal int AmbiguousPassages { get; }

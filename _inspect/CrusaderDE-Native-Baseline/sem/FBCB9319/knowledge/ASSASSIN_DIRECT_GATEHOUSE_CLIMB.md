@@ -131,3 +131,14 @@ direct edges were checked for interior incoming branches. Source-linked native
 tests execute the productive assembler, decode it completely, validate actual
 installed RedBird displacement and detour pointer-slot contracts, and exercise
 active/inactive gate eligibility. See `_inspect/AssassinGateClimb`.
+
+## First human acceptance (2026-10-07)
+
+18:32:20-18:36:50 editor run with both testmods, weighted improvement and Fixes 1.25.1: seven completed ascents and two descent sequences; user confirms commands worked. Cursor, formation and physical climb code remain unchanged in the subsequent gate-safety step. This confirms the human experiment, not yet all AI, switches or mainmod regressions. See ENEMY_GATE_ASSASSINS.md for the shared classifier and conservative distance-field guard.
+## Coordinated review and installation completed (2026-10-07)
+
+After the parallel APIShared work finished, the installed APIShared was verified current (package/install SHA256 equality and new public contract present); no redundant APIShared build was needed. The final review also required a weighted diagnostic climb endpoint to match the exact gate responsible for the blocked edge, rather than a neighboring gate. Actual diagnostic runtime tests now pass 46 assertions. The main movement test fixture was adapted to the parallel UnitAccess.IsReallyAlive addition (enum alias and low-word death-marker field); production UnitAccess was preserved.
+
+All pre-build Native/Interop, compatibility, JSON, Lifecycle, permanent-hook, XAML and CRLF checks passed. Independent Assassin tests: 15,862 assertions; Gate tests: 9,900; installed RedBird Assassin execution tests: 1,396. The full BugfixesAndQoL build driver and all its regression suites completed successfully, with zero errors and the existing MSB3277 assembly-binding warning. EnemyGatePathfindingTest build.bat completed with zero warnings/errors. Both drivers installed successfully. Installed/local package hashes match for APIShared, BugfixesAndQoL and EnemyGatePathfindingTest; evidence: _inspect/EnemyGateBuildingContextAudit/transition-installed-hashes.json. Successful build logs: transition-main-build-complete.log and transition-gate-build-complete.log in the same directory. Earlier failed-attempt logs remain historical evidence.
+
+AssassinGatehouseClimbTest is unchanged and needs no rebuild. Versions and README files remain unchanged. No new native hooks or changes to cursor, formation or physical climb execution were introduced. In-game acceptance remains pending: Assassin commands to the roof and behind open/closed enemy gates, ordinary soldiers denied the ground passage, improvement enabled/disabled, and AI behavior at the same setup. Bridges remain outside this acceptance. Native-only historical mask overlaps are not retroactively marked resolved.

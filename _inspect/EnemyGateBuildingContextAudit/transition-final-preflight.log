@@ -1,0 +1,17 @@
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+Public installed member: GameUnit.r_AliveState : SHCDESE.Interop.Enums.AliveState
+Public installed member: GameUnit.r_UnitChimp : SHCDESE.Interop.eChimps
+Public installed member: GameUnit.r_CurrentPositionTileId : System.UInt32
+Public installed member: GameUnit.r_NextPositionTileId2 : System.UInt32
+Public installed member: GameUnit.r_AIState : System.UInt16
+Public installed member: GameUnit.r_GlobalId : System.UInt32
+Public installed member: GameUnit.r_AI_LastIssuedTribeCommand : System.UInt16
+Public installed member: GameUnit.r_ControllableForPlayerId : System.Byte
+Public installed member: GameUnit.r_TargetTilePositionX2 : System.UInt16
+Public installed member: GameUnit.r_TargetTilePositionY2 : System.UInt16
+System.Span`1<SHCDESE.Interop.GameUnit> SHCDESE.API.GameUnitManagerAPI::GetUnitsAsSpan()
+System.Void SHCDESE.API.GameTimeManagerAPI::add_OnTick(System.Action`1<System.Int32>)
+PASS: Assassin shared preflight, lifetime, JSON, XAML, CRLF and installed public-member contracts.
+System.Void APIShared.ApiShared::WhenReady(System.Action`1<APIShared.IApiShared>)
+System.Boolean APIShared.IApiShared::TryGetMissionLifecycle(System.String,APIShared.IMissionLifecycleCapability&,APIShared.NativeCapabilityDiagnostic&)
+System.Boolean APIShared.IMissionLifecycleCapability::TryRegisterObserver(System.String,System.Action`1<APIShared.MissionLifecycleNotification>,System.Action`1<APIShared.MissionLifecycleNotification>,System.Action`1<APIShared.MissionLifecycleNotification>,APIShared.NativeCapabilityDiagnostic&)
