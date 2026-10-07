@@ -281,7 +281,7 @@ namespace BugfixesAndQoL
             {
                 int unitId = state.selectedChimps[i];
                 if (unitId <= 0 ||
-                    !unitApi.TryGetUnitById(unitId, out GameUnit* unit) ||
+                    !APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _) ||
                     unit == null ||
                     unit->r_AliveState != AliveState.IsAlive ||
                     (mapEditor && unit->r_ControllableForPlayerId != controlledPlayerId))
@@ -345,7 +345,7 @@ namespace BugfixesAndQoL
                     int unitId = state.selectedChimps[index];
                     if (unitId <= 0) continue;
                     if (customIds.Contains(unitId)) continue;
-                    if (unitApi.TryGetUnitById(unitId, out GameUnit* unit) && unit != null && (int)unit->r_UnitChimp == slot.VanillaType)
+                    if (APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _) && unit != null && (int)unit->r_UnitChimp == slot.VanillaType)
                         AddHealth(unitId, ref slotSummaries[slot.Slot], unitApi, mapEditor, controlledPlayerId);
                 }
             }
@@ -355,7 +355,7 @@ namespace BugfixesAndQoL
 
         private static void AddHealth(int unitId, ref SelectedUnitHealthSummary summary, GameUnitManagerAPI unitApi, bool mapEditor, int controlledPlayerId)
         {
-            if (unitId <= 0 || unitApi == null || !unitApi.TryGetUnitById(unitId, out GameUnit* unit) || unit == null || unit->r_AliveState != AliveState.IsAlive || (mapEditor && unit->r_ControllableForPlayerId != controlledPlayerId)) return;
+            if (unitId <= 0 || unitApi == null || !APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _) || unit == null || unit->r_AliveState != AliveState.IsAlive || (mapEditor && unit->r_ControllableForPlayerId != controlledPlayerId)) return;
             summary.Add(unit->r_CurrentHealth, unit->r_MaxHealth);
         }
 

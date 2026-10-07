@@ -1,0 +1,43 @@
+Hash FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2
+FUN_180072720 0x72720 size=68 confidence=candidate
+Callers [('0x5BC70',), ('0x71670',), ('0x86680',)]
+Callees [('0x59A30',), ('0x5D8A0',)]
+/* FUNCTION FUN_180072720 VA=0x180072720 RVA=0x72720 */
+
+undefined1 FUN_180072720(longlong param_1,int param_2)
+
+{
+  if (param_2 == *(int *)(param_1 + 0x204e694)) {
+    return 0;
+  }
+  *(int *)(param_1 + 0x204e694) = param_2;
+  *(int *)(param_1 + 0x204e69c) = param_2;
+  *(undefined4 *)(param_1 + 0x204e62c) = 1;
+  FUN_180059a30();
+  FUN_18005d8a0(param_1);
+  return 1;
+}
+
+
+
+
+ASM:
+00072720 4053 push rbx
+00072722 4883ec20 sub rsp, 0x20
+00072726 488bd9 mov rbx, rcx
+00072729 3b9194e60402 cmp edx, dword ptr [rcx + 0x204e694]
+0007272F 7508 jne 0x180072739
+00072731 32c0 xor al, al
+00072733 4883c420 add rsp, 0x20
+00072737 5b pop rbx
+00072738 c3 ret 
+00072739 899194e60402 mov dword ptr [rcx + 0x204e694], edx
+0007273F 89919ce60402 mov dword ptr [rcx + 0x204e69c], edx
+00072745 c7812ce6040201000000 mov dword ptr [rcx + 0x204e62c], 1
+0007274F e8dc72feff call 0x180059a30
+00072754 488bcb mov rcx, rbx
+00072757 e844b1feff call 0x18005d8a0
+0007275C b001 mov al, 1
+0007275E 4883c420 add rsp, 0x20
+00072762 5b pop rbx
+00072763 c3 ret 

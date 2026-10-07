@@ -324,7 +324,7 @@ namespace UnitLimit
         private unsafe bool TryReadSnapshot(int unitId, out UnitSnapshot snapshot)
         {
             snapshot = default(UnitSnapshot);
-            if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit))
+            if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _))
                 return false;
 
             snapshot = UnitSnapshot.From(*unit);

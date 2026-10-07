@@ -614,7 +614,7 @@ namespace EnemyGatePathfindingTest
                     liveOwner = tribe->r_PlayerIdOwner; liveGlobal = tribe->r_GlobalId;
                     leaderId = tribe->r_LeaderUnitId;
                     planning = unchecked((short)(tribe->N00000580 & 0xFFFF));
-                    if (leaderId > 0 && GameUnitManagerAPI.Instance.TryGetUnitById(leaderId, out GameUnit* leader) && leader != null)
+                    if (leaderId > 0 && APIShared.UnitAccess.TryGetById(leaderId, out GameUnit* leader, out _) && leader != null)
                     {
                         leaderGlobal = leader->r_GlobalId;
                         control = BuildingSearchPlayerContext.NativeControlWord(
@@ -901,7 +901,7 @@ namespace EnemyGatePathfindingTest
                 if (player <= 0 || player > 8 || fingerprint == 0 ||
                     snapshot.Fingerprint != fingerprint ||
                     snapshot.PlayerMasks[player] == IntPtr.Zero) return false;
-                if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
                     unit == null || unit->r_AliveState != AliveState.IsAlive ||
                     unit->r_ControllableForPlayerId != player)
                 {

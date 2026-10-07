@@ -230,7 +230,7 @@ namespace MoatMove
         private bool TryFindFastRequiredRouteCore(PlanScope plan, bool reserved, bool evaluateMissing, out RouteProbeSummary summary)
         {
             summary = default;
-            if (plan == null || !GameUnitManagerAPI.Instance.TryGetUnitById(plan.UnitId, out GameUnit* unit) ||
+            if (plan == null || !APIShared.UnitAccess.TryGetById(plan.UnitId, out GameUnit* unit, out _) ||
                 unit == null || !CanDigMoat(unit) || (uint)plan.TargetX >= MapWidth || (uint)plan.TargetY >= MapWidth ||
                 (plan.IdentityBound && (plan.UnitGlobalId != unit->r_GlobalId || plan.PlayerId != unit->r_ControllableForPlayerId))) return false;
             plan.PlayerId = unit->r_ControllableForPlayerId; plan.UnitGlobalId = unit->r_GlobalId; plan.IdentityBound = true;

@@ -73,7 +73,7 @@ namespace MoatMove
                 finally { *moatPathMode = inheritedMode; }
             }
             if (disposed || pathManager != nativePathManager || plan == null ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(plan.UnitId, out GameUnit* unit) ||
+                !APIShared.UnitAccess.TryGetById(plan.UnitId, out GameUnit* unit, out _) ||
                 unit == null || !CanDigMoat(unit))
                 return CallVanillaBuilder(pathManager, movementClass, movementProfile, reconstruction);
 
@@ -290,7 +290,7 @@ namespace MoatMove
             int unitId = plan?.UnitId ?? 0;
             if (pathManager == IntPtr.Zero || pathManager != nativePathManager ||
                 nativeUnitManager == null || unit == null || unitId <= 0 || unitId > MaximumUnitCount ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* actualUnit) || actualUnit != unit ||
+                !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* actualUnit, out _) || actualUnit != unit ||
                 (plan.IdentityBound && (plan.UnitGlobalId != unit->r_GlobalId || plan.PlayerId != unit->r_ControllableForPlayerId)))
             {
                 return false;
@@ -343,7 +343,7 @@ namespace MoatMove
                 else if (path != nativeUnitManager + NativeUnitPathBufferOffset +
                     request.UnitId * NativeUnitPathBufferStride)
                     rejection = "unit-buffer";
-                else if (!GameUnitManagerAPI.Instance.TryGetUnitById(request.UnitId, out GameUnit* unit) || unit == null)
+                else if (!APIShared.UnitAccess.TryGetById(request.UnitId, out GameUnit* unit, out _) || unit == null)
                     rejection = "missing-unit-context";
                 else if (request.IdentityBound && (request.UnitGlobalId != unit->r_GlobalId ||
                     request.PlayerId != unit->r_ControllableForPlayerId)) rejection = "unit-identity-changed";
@@ -401,7 +401,7 @@ namespace MoatMove
             if (pathManager == IntPtr.Zero || pathManager != nativePathManager ||
                 nativeUnitManager == null || plan == null || unit == null ||
                 plan.UnitId <= 0 || plan.UnitId > MaximumUnitCount ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(plan.UnitId, out GameUnit* actual) || actual != unit)
+                !APIShared.UnitAccess.TryGetById(plan.UnitId, out GameUnit* actual, out _) || actual != unit)
                 return "missing-unit-context";
             byte* manager = (byte*)pathManager.ToPointer();
             if (*(byte**)(manager + PathManagerOutputBufferOffset) != nativeUnitManager +
@@ -524,7 +524,7 @@ namespace MoatMove
             GetNativeMovementStart(unit, out int liveStartX, out int liveStartY);
             if (pathManager != nativePathManager || nativeUnitManager == null ||
                 plan.UnitId <= 0 || plan.UnitId > MaximumUnitCount ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(plan.UnitId, out GameUnit* liveUnit) || liveUnit != unit ||
+                !APIShared.UnitAccess.TryGetById(plan.UnitId, out GameUnit* liveUnit, out _) || liveUnit != unit ||
                 unit->r_AliveState != AliveState.IsAlive ||
                 path != nativeUnitManager + NativeUnitPathBufferOffset + plan.UnitId * NativeUnitPathBufferStride ||
                 x != liveStartX || y != liveStartY ||

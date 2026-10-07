@@ -1,0 +1,24 @@
+Hash FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2
+FUN_18005d8a0 0x5D8A0 size=35 confidence=candidate
+Callers [('0x15200',), ('0x6C780',), ('0x72720',), ('0x87460',), ('0x87D10',)]
+Callees [('0x59A30',)]
+/* FUNCTION FUN_18005d8a0 VA=0x18005D8A0 RVA=0x5D8A0 */
+
+void FUN_18005d8a0(longlong param_1)
+
+{
+  *(undefined4 *)(param_1 + 0x204e62c) = 1;
+  *(undefined4 *)(param_1 + 0x204e630) = 1;
+  *(undefined4 *)(param_1 + 0x204e634) = 1;
+  FUN_180059a30();
+  return;
+}
+
+
+
+
+ASM:
+0005D8A0 c7812ce6040201000000 mov dword ptr [rcx + 0x204e62c], 1
+0005D8AA c78130e6040201000000 mov dword ptr [rcx + 0x204e630], 1
+0005D8B4 c78134e6040201000000 mov dword ptr [rcx + 0x204e634], 1
+0005D8BE e96dc1ffff jmp 0x180059a30

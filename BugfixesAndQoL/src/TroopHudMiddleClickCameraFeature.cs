@@ -108,7 +108,7 @@ namespace BugfixesAndQoL
                 {
                     int unitId = state.selectedChimps[selectionIndex];
                     if (unitId <= 0 ||
-                        !unitApi.TryGetUnitById(unitId, out GameUnit* unit) ||
+                        !APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _) ||
                         unit == null ||
                         unit->r_AliveState != AliveState.IsAlive ||
                         unit->r_UnitChimp != unitType)

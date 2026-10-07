@@ -295,7 +295,7 @@ namespace BugfixesAndQoL
                 GameUnit* currentUnit = null;
                 bool currentUnitResolved = (uint)unitId - 1u < NativeUnitCount &&
                     GameUnitManagerAPI.Instance != null &&
-                    GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out currentUnit) &&
+                    APIShared.UnitAccess.TryGetById(unitId, out currentUnit, out _) &&
                     currentUnit != null &&
                     (ulong)currentUnit == context.Pointer->RDI + UnitFromManagerRelativeBaseOffset &&
                     currentUnit->r_AliveState == AliveState.IsAlive &&
@@ -382,7 +382,7 @@ namespace BugfixesAndQoL
             {
                 int unitId = selected[index].UnitId;
                 if (unitId <= 0 ||
-                    !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                    !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
                     unit == null ||
                     unit->r_AliveState != AliveState.IsAlive)
                 {

@@ -58,6 +58,7 @@ namespace EnemyBridgePathTest
             CompactReferences();
             BackgroundTransport();
             LatestPopulation();
+            RealConsumerPopulation();
             Console.WriteLine("PASS route observation: stored plans, deck/gate distinction, actual transitions, replacement/reuse and bounded completion.");
             return checks;
         }
@@ -216,6 +217,25 @@ namespace EnemyBridgePathTest
             Check(trace.Entered==1695766&&trace.Entered==trace.Exited,"latest full1695766-call population exact and balanced");
             Check(trace.Summary().Contains("commandPre=34661,commandPost=34661")&&trace.Failures==0&&trace.Summary().Contains("overflow=0,backgroundOverflow=0"),"latest command counters and capture completeness");
             Console.WriteLine("Latest full population: calls="+trace.Entered+",commands=34661,bytesWithPrefixAllowance="+(Shared.DebugLogHelper.Bytes-bytes)+" (fixture reads; changed bursts separate)");
+        }
+
+        private static void RealConsumerPopulation()
+        {
+            var trace=new BridgeDecisionTrace(null,_=>default,()=>1,_=>0);trace.SetNative(new IntPtr(1),0x8903000);trace.StartSession(90);long bytes=Shared.DebugLogHelper.Bytes;
+            var attack=BridgeNativeDefinition.Sites.Single(x=>x.Rva==0x11a980);var topology=BridgeNativeDefinition.Sites.Single(x=>x.Rva==0xe49d0);
+            for(int i=0;i<3745967;i++)
+            {
+                var call=trace.Enter(attack,IntPtr.Zero,4);trace.Exit(call,true,null,IntPtr.Zero);
+                if(i<24369){bool rebuild=i<191;call=trace.Enter(topology,IntPtr.Zero,rebuild?1:0);trace.Exit(call,true,rebuild?1:0,IntPtr.Zero);}
+                if(i<66689){trace.CountCommand(true);trace.CountCommand(false);trace.CountEvent(BridgeDecisionTrace.CommandCountData(3,i%8+1,3,1,false,true));}
+                if(i%1000==0)trace.Drain();
+            }
+            trace.FlushRegions();while(trace.Pending>0)trace.Drain();Check(trace.Captures==384&&trace.Entered==3770336,"real consumer quiet hot load:191 rebuilds, all3745967 attacks,24369 topology calls");
+            Check(Shared.DebugLogHelper.Bytes-bytes<1000000,"real unchanged background load remains below1MB including prefix allowance");
+            int[,] rare={{0x64460,1},{0xd95e0,52},{0xd9190,52},{0x10df60,42},{0x115b10,42},{0x122b40,42},{0xe7f60,6},{0x110ec0,51},{0x111330,122},{0x111d90,122},{0x3c2e0,784},{0x2d250,52},{0x2c480,42},{0x2c5a0,42},{0x3bd50,10},{0xcf360,4137},{0xcf400,67}};
+            for(int row=0;row<rare.GetLength(0);row++)for(int i=0;i<rare[row,1];i++){var site=BridgeNativeDefinition.Sites.Single(x=>x.Rva==rare[row,0]);var call=trace.Enter(site,IntPtr.Zero,8,1);trace.Exit(call,true,1,IntPtr.Zero);if(i%32==0)trace.Drain();}
+            trace.FlushRegions();while(trace.Pending>0)trace.Drain();Check(trace.Entered==3776002&&trace.Entered==trace.Exited&&trace.Failures==0,"complete latest3776002-call load remains exact/balanced");Check(trace.Summary().Contains("commandPre=66689,commandPost=66689")&&trace.Summary().Contains("overflow=0,backgroundOverflow=0"),"latest command load and delivery coverage exact");
+            Console.WriteLine("PASS actual consumer3776002-call load/66689 commands; bounded copies and quiet output, changed bursts separate");
         }
         private static void ObservedPopulation()
         {

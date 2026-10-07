@@ -1,0 +1,43 @@
+Hash FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2
+FUN_18005b020 0x5B020 size=87 confidence=candidate
+Callers [('0x6CB20',), ('0x6F230',), ('0x725E0',)]
+Callees [('0x61ED0',)]
+/* FUNCTION FUN_18005b020 VA=0x18005B020 RVA=0x5B020 */
+
+void FUN_18005b020(longlong param_1,int param_2)
+
+{
+  uint *puVar1;
+  longlong lVar2;
+  
+  lVar2 = (longlong)param_2;
+  if ((*(uint *)(param_1 + 0x898400 + lVar2 * 4) & 0x4000) != 0) {
+    FUN_180061ed0(param_1,param_2 - (&DAT_18402ff2c)[(longlong)(short)(&DAT_183aae2a4)[lVar2] * 3]);
+    puVar1 = (uint *)(param_1 + 0x898400 + lVar2 * 4);
+    *puVar1 = *puVar1 & 0xffffbfff;
+  }
+  return;
+}
+
+
+
+
+ASM:
+0005B020 48895c2408 mov qword ptr [rsp + 8], rbx
+0005B025 57 push rdi
+0005B026 4883ec20 sub rsp, 0x20
+0005B02A 4863fa movsxd rdi, edx
+0005B02D 488bd9 mov rbx, rcx
+0005B030 f784b90084890000400000 test dword ptr [rcx + rdi*4 + 0x898400], 0x4000
+0005B03B 742f je 0x18005b06c
+0005B03D 488d0d7c6d9b03 lea rcx, [rip + 0x39b6d7c]
+0005B044 4c0fbf8479e4c40900 movsx r8, word ptr [rcx + rdi*2 + 0x9c4e4]
+0005B04D 4f8d0c40 lea r9, [r8 + r8*2]
+0005B051 422b94896ce16100 sub edx, dword ptr [rcx + r9*4 + 0x61e16c]
+0005B059 488bcb mov rcx, rbx
+0005B05C e86f6e0000 call 0x180061ed0
+0005B061 81a4bb00848900ffbfffff and dword ptr [rbx + rdi*4 + 0x898400], 0xffffbfff
+0005B06C 488b5c2430 mov rbx, qword ptr [rsp + 0x30]
+0005B071 4883c420 add rsp, 0x20
+0005B075 5f pop rdi
+0005B076 c3 ret 

@@ -38,7 +38,7 @@ namespace BugfixesAndQoL
         private int CallBuildingCursorWithRegions(IntPtr manager, int buildingId, int unitId)
         {
             if (disposed || unitId <= 0 || buildingId <= 0 ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) || unit == null ||
+                !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) || unit == null ||
                 !CanDigMoat(unit) || !GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) || building == null)
                 return originalBuildingCursorReachability(manager, buildingId, unitId);
             var previous = activeBuildingCursorConnectivity;
@@ -56,7 +56,7 @@ namespace BugfixesAndQoL
             // B70C0 passes E2CA0 arguments in the opposite order to the direct cursor.
             // Its footprint enumeration and strict native height test run unchanged.
             if (scope == null || useCache != 0 || nativeStart != scope.StartTile) return false;
-            if (!GameUnitManagerAPI.Instance.TryGetUnitById(scope.UnitId, out GameUnit* unit) || unit == null ||
+            if (!APIShared.UnitAccess.TryGetById(scope.UnitId, out GameUnit* unit, out _) || unit == null ||
                 unit->r_GlobalId != scope.UnitGlobalId || unit->r_ControllableForPlayerId != scope.PlayerId ||
                 !GameBuildingManagerAPI.Instance.TryGetBuildingById(scope.BuildingId, out GameBuilding* building) || building == null ||
                 building->r_GlobalId != scope.BuildingGlobalId) return true;
@@ -438,7 +438,7 @@ namespace BugfixesAndQoL
             {
                 int id = selected[i].UnitId;
                 var identity = new CursorSelectionIdentity { Id = id };
-                if (id > 0 && GameUnitManagerAPI.Instance.TryGetUnitById(id, out GameUnit* unit) && unit != null)
+                if (id > 0 && APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _) && unit != null)
                 {
                     identity.Global = unit->r_GlobalId; identity.X = unit->r_CurrentTilePositionX; identity.Y = unit->r_CurrentTilePositionY;
                     identity.Player = unit->r_ControllableForPlayerId; identity.Type = (int)unit->r_UnitChimp; identity.Alive = (int)unit->r_AliveState;

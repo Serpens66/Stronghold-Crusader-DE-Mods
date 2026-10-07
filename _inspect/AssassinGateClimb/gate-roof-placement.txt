@@ -1,0 +1,138 @@
+Hash FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2
+FUN_180074240 0x74240 size=433 confidence=candidate
+Callers [('0x6D580',)]
+Callees [('0x69850',), ('0x6CDD0',), ('0x725E0',), ('0xB47E0',), ('0xD8510',)]
+/* FUNCTION FUN_180074240 VA=0x180074240 RVA=0x74240 */
+
+void FUN_180074240(longlong param_1,undefined4 param_2,int param_3,int param_4,undefined1 param_5,
+                  undefined4 param_6,int param_7,char param_8)
+
+{
+  uint *puVar1;
+  byte *pbVar2;
+  ushort *puVar3;
+  char cVar4;
+  int iVar5;
+  undefined4 uVar6;
+  longlong lVar7;
+  int iVar8;
+  int iVar9;
+  longlong lVar10;
+  undefined4 uVar11;
+  int iVar12;
+  
+  uVar6 = DAT_183665f84;
+  cVar4 = (char)param_2;
+  iVar9 = 0;
+  uVar11 = param_6;
+  iVar12 = param_7;
+  iVar5 = FUN_1800b47e0(&DAT_1864ccbb0);
+  *(int *)(param_1 + 0x204e648) = iVar5;
+  *(undefined4 *)(&DAT_1864cceb4 + (longlong)iVar5 * 0x32c) = uVar6;
+  lVar10 = 0;
+  do {
+    FUN_180069850(param_1,iVar9,param_6);
+    iVar8 = (&DAT_18402ff2c)[(longlong)(*(int *)(param_1 + 0x204e764) + param_4) * 3] +
+            *(int *)(param_1 + 0x204e760) + param_3;
+    if (iVar9 < 0x24) {
+      *(int *)(&DAT_1864ccdd4 + ((longlong)iVar5 * 0xcb + lVar10) * 4) = iVar8;
+    }
+    lVar7 = (longlong)iVar8;
+    iVar9 = iVar9 + 1;
+    lVar10 = lVar10 + 1;
+    *(char *)(lVar7 + 0xd7e5a0 + param_1) = param_8 + 'Z';
+    puVar1 = (uint *)(param_1 + 0x898400 + lVar7 * 4);
+    *puVar1 = *puVar1 | 0x100;
+    pbVar2 = (byte *)(lVar7 + 0xe1afe0 + param_1);
+    *pbVar2 = *pbVar2 & 0xf8;
+    pbVar2 = (byte *)(lVar7 + 0xe1afe0 + param_1);
+    *pbVar2 = *pbVar2 | cVar4 - 1U;
+    puVar3 = (ushort *)(param_1 + 0xf05f40 + lVar7 * 2);
+    *puVar3 = *puVar3 | 0x20;
+    *(short *)(param_1 + 0xb0bca0 + lVar7 * 2) = (short)iVar5;
+    *(undefined1 *)(lVar7 + 0xba86e0 + param_1) = param_5;
+    *(undefined1 *)(lVar7 + 0xa20d40 + param_1) = 2;
+  } while (iVar9 < *(int *)(param_1 + 0x204e758));
+  uVar6 = 2;
+  if (param_7 != 0x50) {
+    uVar6 = 0;
+  }
+  FUN_1800d8510(&DAT_1860ad660,3,iVar5,0,uVar6,0,uVar11,param_2,iVar12);
+  FUN_18006cdd0(param_1,iVar5);
+  FUN_1800725e0(param_1,iVar5,0);
+  return;
+}
+
+
+
+
+
+Hash FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2
+FUN_180074080 0x74080 size=433 confidence=candidate
+Callers [('0x6D580',)]
+Callees [('0x69850',), ('0x6CDD0',), ('0x725E0',), ('0xB47E0',), ('0xD8510',)]
+/* FUNCTION FUN_180074080 VA=0x180074080 RVA=0x74080 */
+
+void FUN_180074080(longlong param_1,undefined4 param_2,int param_3,int param_4,undefined1 param_5,
+                  undefined4 param_6,int param_7,char param_8)
+
+{
+  uint *puVar1;
+  byte *pbVar2;
+  ushort *puVar3;
+  char cVar4;
+  int iVar5;
+  undefined4 uVar6;
+  longlong lVar7;
+  int iVar8;
+  int iVar9;
+  longlong lVar10;
+  undefined4 uVar11;
+  int iVar12;
+  
+  uVar6 = DAT_183665f84;
+  cVar4 = (char)param_2;
+  iVar9 = 0;
+  uVar11 = param_6;
+  iVar12 = param_7;
+  iVar5 = FUN_1800b47e0(&DAT_1864ccbb0);
+  *(int *)(param_1 + 0x204e648) = iVar5;
+  *(undefined4 *)(&DAT_1864cceb4 + (longlong)iVar5 * 0x32c) = uVar6;
+  lVar10 = 0;
+  do {
+    FUN_180069850(param_1,iVar9,param_6);
+    iVar8 = (&DAT_18402ff2c)[(longlong)(*(int *)(param_1 + 0x204e764) + param_4) * 3] +
+            *(int *)(param_1 + 0x204e760) + param_3;
+    if (iVar9 < 0x24) {
+      *(int *)(&DAT_1864ccdd4 + ((longlong)iVar5 * 0xcb + lVar10) * 4) = iVar8;
+    }
+    lVar7 = (longlong)iVar8;
+    iVar9 = iVar9 + 1;
+    lVar10 = lVar10 + 1;
+    *(char *)(lVar7 + 0xd7e5a0 + param_1) = param_8 + 'Z';
+    puVar1 = (uint *)(param_1 + 0x898400 + lVar7 * 4);
+    *puVar1 = *puVar1 | 0x100;
+    pbVar2 = (byte *)(lVar7 + 0xe1afe0 + param_1);
+    *pbVar2 = *pbVar2 & 0xf8;
+    pbVar2 = (byte *)(lVar7 + 0xe1afe0 + param_1);
+    *pbVar2 = *pbVar2 | cVar4 - 1U;
+    puVar3 = (ushort *)(param_1 + 0xf05f40 + lVar7 * 2);
+    *puVar3 = *puVar3 | 0x20;
+    *(short *)(param_1 + 0xb0bca0 + lVar7 * 2) = (short)iVar5;
+    *(undefined1 *)(lVar7 + 0xba86e0 + param_1) = param_5;
+    *(undefined1 *)(lVar7 + 0xa20d40 + param_1) = 2;
+  } while (iVar9 < *(int *)(param_1 + 0x204e758));
+  uVar6 = 2;
+  if (param_7 != 0x50) {
+    uVar6 = 0;
+  }
+  FUN_1800d8510(&DAT_1860ad660,4,iVar5,0,uVar6,0,uVar11,param_2,iVar12);
+  FUN_18006cdd0(param_1,iVar5);
+  FUN_1800725e0(param_1,iVar5,0);
+  return;
+}
+
+
+
+
+

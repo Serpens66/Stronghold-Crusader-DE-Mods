@@ -518,8 +518,8 @@ namespace EnemyGatePathfindingTest
         {
             tribeId = command = 0;
             identity = "identity=unavailable";
-            if (unitId <= 0 || !GameUnitManagerAPI.Instance.TryGetUnitById(
-                unitId, out GameUnit* unit) || unit == null) return 0;
+            if (unitId <= 0 || !APIShared.UnitAccess.TryGetById(
+                unitId, out GameUnit* unit, out _) || unit == null) return 0;
             identity = "unitGlobal=" + unit->r_GlobalId + ",unitType=" + unit->r_UnitChimp +
                 ",controlWord=" + (unit->r_ControllableForPlayerId | ((int)unit->N00000569 << 8));
             tribeId = unit->r_TribeId;

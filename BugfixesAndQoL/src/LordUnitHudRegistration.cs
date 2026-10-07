@@ -78,7 +78,7 @@ namespace BugfixesAndQoL
             if (playerId > 0 && GamePlayerManagerAPI.Instance != null && GameUnitManagerAPI.Instance != null)
             {
                 int lordId = GamePlayerManagerAPI.Instance.GetLordUnitId(playerId);
-                if (lordId > 0 && GameUnitManagerAPI.Instance.TryGetUnitById(lordId, out GameUnit* lord) &&
+                if (lordId > 0 && APIShared.UnitAccess.TryGetById(lordId, out GameUnit* lord, out _) &&
                     lord != null && lord->r_ControllableForPlayerId == playerId &&
                     lord->r_UnitChimp == eChimps.CHIMP_TYPE_LORD)
                     colorId = (int)lord->r_SpritePlayerColorId;

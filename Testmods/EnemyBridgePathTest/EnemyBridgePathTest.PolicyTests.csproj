@@ -31,4 +31,5 @@
   <ItemGroup><Compile Include="..\..\Shared\DeferredSnapshotRefreshRequest.cs" /></ItemGroup>
 <ItemGroup><Compile Include="tests\CaptureRefreshTests.cs" /></ItemGroup>
   <ItemGroup><Compile Include="..\..\APIShared\src\GatehouseDrawbridgeCoupling.cs"><Link>GatehouseDrawbridgeCoupling.cs</Link></Compile></ItemGroup>
+  <ItemGroup><Compile Include="..\..\APIShared\src\UnitAccess.cs"><Link>UnitAccess.cs</Link></Compile></ItemGroup>
 </Project>

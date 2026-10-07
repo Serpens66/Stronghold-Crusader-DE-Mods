@@ -195,9 +195,9 @@ internal static partial class Program
             : Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
         string runtimePath = Path.Combine(root, "BugfixesAndQoL", "src", "AssassinPathfindingRuntime.cs");
         string runtime = File.ReadAllText(runtimePath);
-        Check(runtime.Contains("detour.Original(context, startX, startY, targetX, targetY, maximumNodes, continuation)"),
+        Check(runtime.Contains("AssassinPathAPI.RunVanillaBuilder(context, startX, startY, targetX, targetY, maximumNodes, continuation)"),
             "Vanilla builder remains in the Assassin request path");
-        Check(runtime.IndexOf("detour.Original(context", StringComparison.Ordinal) <
+        Check(runtime.IndexOf("AssassinPathAPI.RunVanillaBuilder(context", StringComparison.Ordinal) <
               runtime.IndexOf("TryBuildWeightedRoute(", StringComparison.Ordinal),
             "Vanilla builder still executes before the managed replacement search");
         Check(runtime.Contains("DetailedDiagnosticsEnabled = false"),
@@ -215,7 +215,7 @@ internal static partial class Program
         Check(runtime.Contains("AssassinAStarPolicy.EstimateOctileTicks") &&
               runtime.Contains("estimatedTotalCosts"),
             "runtime heap uses the exact A* estimate");
-        Check(runtime.Split("detour.Original(context").Length == 2,
+        Check(runtime.Split("AssassinPathAPI.RunVanillaBuilder(context").Length == 2,
             "the native builder executes exactly once per request");
         string expansion = runtime.Substring(runtime.IndexOf("private bool TryBuildWeightedRoute", StringComparison.Ordinal));
         Check(expansion.IndexOf("AssassinGateRoutePolicy.Allows(gatePolicy", StringComparison.Ordinal) <

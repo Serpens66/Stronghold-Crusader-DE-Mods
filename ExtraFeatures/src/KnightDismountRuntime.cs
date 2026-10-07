@@ -629,7 +629,7 @@ namespace ExtraFeatures
             for (int i = 0; selection != null && i < selection.Count; i++)
             {
                 int unitId = selection[i].UnitId;
-                if (unitId <= 0 || !unitApi.TryGetUnitById(unitId, out GameUnit* unit))
+                if (unitId <= 0 || !APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _))
                     continue;
 
                 if (IsOwnAliveUnit(unit, localPlayerId, unitType))
@@ -640,7 +640,7 @@ namespace ExtraFeatures
             for (int i = 0; i < aliveUnits.Length; i++)
             {
                 int unitId = aliveUnits[i];
-                if (unitId <= 0 || !unitApi.TryGetUnitById(unitId, out GameUnit* unit))
+                if (unitId <= 0 || !APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _))
                     continue;
 
                 if (IsSelected(unit) && IsOwnAliveUnit(unit, localPlayerId, unitType))
@@ -907,7 +907,7 @@ namespace ExtraFeatures
                     continue;
 
                 int unitId = FindAliveUnitIdByGlobalId(globalId);
-                if (unitId <= 0 || !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                if (unitId <= 0 || !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
                     !IsOwnAliveUnit(unit, playerId, expectedType))
                 {
                     continue;
@@ -970,7 +970,7 @@ namespace ExtraFeatures
             for (int i = 0; selection != null && i < selection.Count; i++)
             {
                 int unitId = selection[i].UnitId;
-                if (unitId <= 0 || !unitApi.TryGetUnitById(unitId, out GameUnit* unit))
+                if (unitId <= 0 || !APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _))
                     continue;
 
                 if (!IsOwnAliveUnit(unit, localPlayerId, unitType))
@@ -983,7 +983,7 @@ namespace ExtraFeatures
             for (int i = 0; i < aliveUnits.Length; i++)
             {
                 int unitId = aliveUnits[i];
-                if (unitId <= 0 || !unitApi.TryGetUnitById(unitId, out GameUnit* unit))
+                if (unitId <= 0 || !APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _))
                     continue;
 
                 if (!IsSelected(unit) || !IsOwnAliveUnit(unit, localPlayerId, unitType))
@@ -1053,7 +1053,7 @@ namespace ExtraFeatures
                 if (!TryResolveAliveUnitByUnitId(resolved.Snapshot, eChimps.CHIMP_TYPE_KNIGHT, out int deleteUnitId))
                     continue;
 
-                if (!GameUnitManagerAPI.Instance.TryGetUnitById(deleteUnitId, out GameUnit* deleteUnit))
+                if (!APIShared.UnitAccess.TryGetById(deleteUnitId, out GameUnit* deleteUnit, out _))
                     continue;
 
                 UnitTransformSnapshot currentSnapshot = CreateSnapshotFromUnit(deleteUnitId, deleteUnit);
@@ -1062,24 +1062,24 @@ namespace ExtraFeatures
                     continue;
 
                 if (!TryResolveAliveUnitByGlobalId(currentSnapshot, eChimps.CHIMP_TYPE_KNIGHT, out int currentKnightId) ||
-                    !GameUnitManagerAPI.Instance.TryGetUnitById(currentKnightId, out GameUnit* currentKnight))
+                    !APIShared.UnitAccess.TryGetById(currentKnightId, out GameUnit* currentKnight, out _))
                 {
                     LogError($"Knight dismount could not reacquire the original knight after spawning its replacement: reason={reason}, originalUnitId={deleteUnitId}, globalId={currentSnapshot.GlobalId}.");
-                    GameUnitManagerAPI.Instance.DeleteUnit(swordsmanUnitId);
+                    if (APIShared.UnitAccess.TryGetById(swordsmanUnitId, out _, out _)) GameUnitManagerAPI.Instance.DeleteUnit(swordsmanUnitId);
                     continue;
                 }
 
                 if (!TryConsumeLinkedStableHorse(currentKnightId, currentKnight, reason, out ConsumedStableHorse consumedHorse))
                 {
-                    GameUnitManagerAPI.Instance.DeleteUnit(swordsmanUnitId);
+                    if (APIShared.UnitAccess.TryGetById(swordsmanUnitId, out _, out _)) GameUnitManagerAPI.Instance.DeleteUnit(swordsmanUnitId);
                     continue;
                 }
 
-                if (!GameUnitManagerAPI.Instance.DeleteUnitSafe(currentKnightId))
+                if (!(APIShared.UnitAccess.TryGetById(currentKnightId, out _, out _) && GameUnitManagerAPI.Instance.DeleteUnitSafe(currentKnightId)))
                 {
                     RollbackConsumedStableHorse(consumedHorse, reason);
                     LogError($"Knight dismount could not mark the original knight for Vanilla deletion: reason={reason}, unitId={currentKnightId}, globalId={currentSnapshot.GlobalId}.");
-                    GameUnitManagerAPI.Instance.DeleteUnit(swordsmanUnitId);
+                    if (APIShared.UnitAccess.TryGetById(swordsmanUnitId, out _, out _)) GameUnitManagerAPI.Instance.DeleteUnit(swordsmanUnitId);
                     continue;
                 }
 
@@ -1093,7 +1093,7 @@ namespace ExtraFeatures
             if (!TryResolveAliveUnitByGlobalId(snapshot, eChimps.CHIMP_TYPE_KNIGHT, out int currentUnitId))
                 return false;
 
-            if (!GameUnitManagerAPI.Instance.TryGetUnitById(currentUnitId, out GameUnit* currentUnit))
+            if (!APIShared.UnitAccess.TryGetById(currentUnitId, out GameUnit* currentUnit, out _))
                 return false;
 
             UnitTransformSnapshot currentSnapshot = CreateSnapshotFromUnit(currentUnitId, currentUnit);
@@ -1107,25 +1107,25 @@ namespace ExtraFeatures
                 return false;
 
             if (!TryResolveAliveUnitByGlobalId(currentSnapshot, eChimps.CHIMP_TYPE_KNIGHT, out int currentKnightId) ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(currentKnightId, out GameUnit* currentKnight))
+                !APIShared.UnitAccess.TryGetById(currentKnightId, out GameUnit* currentKnight, out _))
             {
                 LogError($"Knight dismount could not reacquire the original knight after spawning its replacement: reason={reason}, originalUnitId={currentUnitId}, globalId={currentSnapshot.GlobalId}.");
-                GameUnitManagerAPI.Instance.DeleteUnit(swordsmanUnitId);
+                if (APIShared.UnitAccess.TryGetById(swordsmanUnitId, out _, out _)) GameUnitManagerAPI.Instance.DeleteUnit(swordsmanUnitId);
                 return false;
             }
 
             if (!TryConsumeLinkedStableHorse(currentKnightId, currentKnight, reason, out ConsumedStableHorse consumedHorse))
             {
-                GameUnitManagerAPI.Instance.DeleteUnit(swordsmanUnitId);
+                if (APIShared.UnitAccess.TryGetById(swordsmanUnitId, out _, out _)) GameUnitManagerAPI.Instance.DeleteUnit(swordsmanUnitId);
                 return false;
             }
 
             bool transferSelection = ShouldTransferSelection(currentSnapshot.OwnerPlayerId, currentKnight);
-            if (!GameUnitManagerAPI.Instance.DeleteUnitSafe(currentKnightId))
+            if (!(APIShared.UnitAccess.TryGetById(currentKnightId, out _, out _) && GameUnitManagerAPI.Instance.DeleteUnitSafe(currentKnightId)))
             {
                 RollbackConsumedStableHorse(consumedHorse, reason);
                 LogError($"Knight dismount could not mark the original knight for Vanilla deletion: reason={reason}, unitId={currentKnightId}, globalId={currentSnapshot.GlobalId}.");
-                GameUnitManagerAPI.Instance.DeleteUnit(swordsmanUnitId);
+                if (APIShared.UnitAccess.TryGetById(swordsmanUnitId, out _, out _)) GameUnitManagerAPI.Instance.DeleteUnit(swordsmanUnitId);
                 return false;
             }
 
@@ -1176,11 +1176,11 @@ namespace ExtraFeatures
                 if (!TryResolveAliveUnitByUnitId(resolved.Snapshot, eChimps.CHIMP_TYPE_SWORDSMAN, out int deleteUnitId))
                     continue;
 
-                if (!GameUnitManagerAPI.Instance.TryGetUnitById(deleteUnitId, out GameUnit* deleteUnit))
+                if (!APIShared.UnitAccess.TryGetById(deleteUnitId, out GameUnit* deleteUnit, out _))
                     continue;
 
                 UnitTransformSnapshot currentSnapshot = CreateSnapshotFromUnit(deleteUnitId, deleteUnit);
-                GameUnitManagerAPI.Instance.DeleteUnit(deleteUnitId);
+                if (APIShared.UnitAccess.TryGetById(deleteUnitId, out _, out _)) GameUnitManagerAPI.Instance.DeleteUnit(deleteUnitId);
                 deletedSnapshots.Add(new AppliedMountSnapshot
                 {
                     Snapshot = currentSnapshot,
@@ -1201,11 +1201,11 @@ namespace ExtraFeatures
             if (!TryResolveAliveUnitByGlobalId(snapshot, eChimps.CHIMP_TYPE_SWORDSMAN, out int currentUnitId))
                 return false;
 
-            if (!GameUnitManagerAPI.Instance.TryGetUnitById(currentUnitId, out GameUnit* currentUnit))
+            if (!APIShared.UnitAccess.TryGetById(currentUnitId, out GameUnit* currentUnit, out _))
                 return false;
 
             UnitTransformSnapshot currentSnapshot = CreateSnapshotFromUnit(currentUnitId, currentUnit);
-            GameUnitManagerAPI.Instance.DeleteUnit(currentUnitId);
+            if (APIShared.UnitAccess.TryGetById(currentUnitId, out _, out _)) GameUnitManagerAPI.Instance.DeleteUnit(currentUnitId);
             return CreateMountedKnightFromSnapshot(currentSnapshot, allocation, reason);
         }
 
@@ -1223,7 +1223,7 @@ namespace ExtraFeatures
 
         private bool ValidateAliveUnit(UnitTransformSnapshot snapshot, eChimps expectedType, int currentUnitId)
         {
-            if (currentUnitId <= 0 || !GameUnitManagerAPI.Instance.TryGetUnitById(currentUnitId, out GameUnit* unit))
+            if (currentUnitId <= 0 || !APIShared.UnitAccess.TryGetById(currentUnitId, out GameUnit* unit, out _))
                 return false;
 
             if (unit->r_AliveState != AliveState.IsAlive ||
@@ -1274,7 +1274,7 @@ namespace ExtraFeatures
 
             if (snapshot.LinkedProductionBuildingId > 0 &&
                 snapshot.LinkedProductionBuildingId <= ushort.MaxValue &&
-                GameUnitManagerAPI.Instance.TryGetUnitById((int)createdId, out GameUnit* createdUnit))
+                APIShared.UnitAccess.TryGetById((int)createdId, out GameUnit* createdUnit, out _))
             {
                 // Preserve the barracks/production link; the horse stable has separate hidden fields.
                 createdUnit->r_LinkedProductionBuildingId = (ushort)snapshot.LinkedProductionBuildingId;
@@ -1294,10 +1294,10 @@ namespace ExtraFeatures
                 return false;
             }
 
-            if (!GameUnitManagerAPI.Instance.TryGetUnitById(knightUnitId, out GameUnit* knight))
+            if (!APIShared.UnitAccess.TryGetById(knightUnitId, out GameUnit* knight, out _))
             {
                 LogError($"Knight mount could not resolve spawned knight: reason={reason}, knightUnitId={knightUnitId}, sourceGlobalId={snapshot.GlobalId}.");
-                GameUnitManagerAPI.Instance.DeleteUnit(knightUnitId);
+                if (APIShared.UnitAccess.TryGetById(knightUnitId, out _, out _)) GameUnitManagerAPI.Instance.DeleteUnit(knightUnitId);
                 if (CreateUnitFromSnapshot(snapshot, eChimps.CHIMP_TYPE_SWORDSMAN, "mount-resolve-rollback", reason) <= 0)
                     LogError($"Knight mount resolve rollback could not restore swordsman: reason={reason}, sourceGlobalId={snapshot.GlobalId}.");
                 return false;
@@ -1306,7 +1306,7 @@ namespace ExtraFeatures
             if (!TryConsumeStableHorse(allocation, knightUnitId, (int)knight->r_GlobalId, reason))
             {
                 LogError($"Knight mount could not link stable horse: reason={reason}, knightUnitId={knightUnitId}, stableId={allocation.StableId}, slot={allocation.Slot}.");
-                GameUnitManagerAPI.Instance.DeleteUnit(knightUnitId);
+                if (APIShared.UnitAccess.TryGetById(knightUnitId, out _, out _)) GameUnitManagerAPI.Instance.DeleteUnit(knightUnitId);
                 if (CreateUnitFromSnapshot(snapshot, eChimps.CHIMP_TYPE_SWORDSMAN, "mount-rollback", reason) <= 0)
                     LogError($"Knight mount rollback could not restore swordsman: reason={reason}, sourceGlobalId={snapshot.GlobalId}.");
                 return false;
@@ -1372,7 +1372,7 @@ namespace ExtraFeatures
             if (allocation.Slot < 0 || allocation.Slot >= StableHorseSlotCount)
                 return false;
 
-            if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* mountedUnit))
+            if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* mountedUnit, out _))
                 return false;
 
             if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(allocation.StableId, out GameBuilding* stable))
@@ -1471,7 +1471,7 @@ namespace ExtraFeatures
 
                 if (unitId <= 0 || unitGlobalId <= 0 ||
                     !seenUnitIds.Add(unitId) || !seenGlobalIds.Add(unitGlobalId) ||
-                    !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* linkedUnit) ||
+                    !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* linkedUnit, out _) ||
                     (int)linkedUnit->r_GlobalId != unitGlobalId ||
                     linkedUnit->r_LinkedStableBuildingId != stableId ||
                     linkedUnit->r_LinkedStableGlobalId != (uint)stableGlobalId)
@@ -1626,7 +1626,7 @@ namespace ExtraFeatures
                 stable->r_AliveState != AliveState.IsAlive ||
                 stable->r_BuildingType != eStructs.STRUCT_STABLES ||
                 (int)stable->r_GlobalId != consumedHorse.StableGlobalId ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(consumedHorse.UnitId, out GameUnit* unit) ||
+                !APIShared.UnitAccess.TryGetById(consumedHorse.UnitId, out GameUnit* unit, out _) ||
                 (int)unit->r_GlobalId != consumedHorse.UnitGlobalId)
             {
                 LogError(
@@ -1720,7 +1720,7 @@ namespace ExtraFeatures
             for (int i = 0; i < aliveUnitIds.Length; i++)
             {
                 int unitId = aliveUnitIds[i];
-                if (unitId <= 0 || !unitApi.TryGetUnitById(unitId, out GameUnit* unit))
+                if (unitId <= 0 || !APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _))
                     continue;
 
                 if ((int)unit->r_GlobalId == globalId)
@@ -1732,7 +1732,7 @@ namespace ExtraFeatures
 
         private void ApplyHealthRatio(int targetUnitId, int sourceCurrentHealth, int sourceMaxHealth, string label)
         {
-            if (!GameUnitManagerAPI.Instance.TryGetUnitById(targetUnitId, out GameUnit* unit))
+            if (!APIShared.UnitAccess.TryGetById(targetUnitId, out GameUnit* unit, out _))
             {
                 LogError($"Knight {label} could not set target health, unit not found: targetUnitId={targetUnitId}.");
                 return;

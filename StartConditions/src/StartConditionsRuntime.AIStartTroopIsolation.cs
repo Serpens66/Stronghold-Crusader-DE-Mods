@@ -219,7 +219,7 @@ namespace StartConditions
 
             int unitId = GameUnitManagerAPI.Instance.GetByGlobalId((int)saved.UnitGlobalId);
             if (unitId <= 0 ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
                 unit == null ||
                 unit->r_GlobalId != saved.UnitGlobalId ||
                 !IsActiveAIStartTroopUnit(unit->r_AliveState) ||
@@ -292,7 +292,7 @@ namespace StartConditions
                     throw new InvalidOperationException($"CreateUnitLocal returned invalid id {createdId}.");
 
                 unitId = (int)createdId;
-                if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
                     unit == null ||
                     !IsActiveAIStartTroopUnit(unit->r_AliveState) ||
                     unit->r_GlobalId == 0 ||
@@ -337,7 +337,7 @@ namespace StartConditions
                 {
                     try
                     {
-                        deleteMarked = GameUnitManagerAPI.Instance.DeleteUnitSafe(unitId);
+                        deleteMarked = (APIShared.UnitAccess.TryGetById(unitId, out _, out _) && GameUnitManagerAPI.Instance.DeleteUnitSafe(unitId));
                     }
                     catch (Exception deleteEx)
                     {
@@ -473,7 +473,7 @@ namespace StartConditions
                     if (protectedTroop.PendingDeletion)
                     {
                         EnsureProtectedAIStartTroopBehaviour(unit);
-                        if (GameUnitManagerAPI.Instance.DeleteUnitSafe(protectedTroop.UnitId))
+                        if ((APIShared.UnitAccess.TryGetById(protectedTroop.UnitId, out _, out _) && GameUnitManagerAPI.Instance.DeleteUnitSafe(protectedTroop.UnitId)))
                             RemoveProtectedAIStartTroop(protectedTroop);
                         continue;
                     }
@@ -766,7 +766,7 @@ namespace StartConditions
         {
             unit = null;
             return protectedTroop != null &&
-                GameUnitManagerAPI.Instance.TryGetUnitById(protectedTroop.UnitId, out unit) &&
+                APIShared.UnitAccess.TryGetById(protectedTroop.UnitId, out unit, out _) &&
                 unit != null &&
                 unit->r_GlobalId == protectedTroop.UnitGlobalId &&
                 IsActiveAIStartTroopUnit(unit->r_AliveState);

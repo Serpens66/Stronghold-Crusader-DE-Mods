@@ -139,7 +139,7 @@ namespace ExtraFeatures
             if (!mapActive || args.Phase != EventHookPhase.Post || args.ReturnValue <= 0 || args.ReturnValue > int.MaxValue) return;
             // Post arguments retain original inputs even when Pre subscribers change them.
             // Read the returned unit's actual type/owner; do not write HP here.
-            if (!GameUnitManagerAPI.Instance.TryGetUnitById((int)args.ReturnValue, out GameUnit* unit) ||
+            if (!APIShared.UnitAccess.TryGetById((int)args.ReturnValue, out GameUnit* unit, out _) ||
                 unit == null || unit->r_UnitChimp != eChimps.CHIMP_TYPE_LORD) return;
             int playerId = unit->r_ControllableForPlayerId;
             if (playerId < FirstPlayerId || playerId > LastPlayerId || unit->r_GlobalId == 0) return;
@@ -168,7 +168,7 @@ namespace ExtraFeatures
             int unitId = GamePlayerManagerAPI.Instance.GetLordUnitId(playerId);
             if (unitId <= 0) return false;
             int expectedGlobalId = GamePlayerManagerAPI.Instance.GetLordUnitGlobalId(playerId);
-            if (expectedGlobalId <= 0 || !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out lord) ||
+            if (expectedGlobalId <= 0 || !APIShared.UnitAccess.TryGetById(unitId, out lord, out _) ||
                 lord == null || lord->r_GlobalId != (uint)expectedGlobalId ||
                 lord->r_UnitChimp != eChimps.CHIMP_TYPE_LORD || lord->r_ControllableForPlayerId != playerId)
             {

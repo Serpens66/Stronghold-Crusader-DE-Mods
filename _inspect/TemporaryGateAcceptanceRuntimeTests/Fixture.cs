@@ -6,7 +6,7 @@ using APIShared;
 using SHCDESE.API;
 using SHCDESE.Interop;
 using EnemyGatePathfindingTest;
-namespace BepInEx.Logging { public class ManualLogSource { } }
+namespace BepInEx.Logging { public class ManualLogSource { public void LogDebug(object message) { } } }
 namespace BepInEx.Bootstrap { public static class Chainloader { public static readonly Dictionary<string, object> PluginInfos=new Dictionary<string, object>(); } }
 namespace Shared { internal static class DebugLogHelper {
     internal static readonly List<string> Lines = new List<string>();

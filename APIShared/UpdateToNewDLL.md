@@ -38,3 +38,36 @@ Optional IEnemyGateRoutePolicyProvider and IEnemyGateRoutePolicySnapshot extend 
 ## 2026-10-03: independent bridge diagnosis and gatehouse boundary
 
 All bridge edge masks (including the old center seam) have been removed from EnemyGatePathfindingTest. Gate identity/axis linkage is retained. EnemyBridgePathTest 0.1.0 is read-only and independently registered through APIShared; mainmod-owned hooks emit existing results only when an observer is registered. No new native hooks or active bridge policy. The 22:46 experimental mask and its 5,712 NoRoute result are historical, not the current gate policy. Native/SE identities remain confirmed. Pure-gate game acceptance remains pending; see Testmods/EnemyGatePathfindingTest/ACCEPTANCE.md and Testmods/EnemyBridgePathTest/HANDOFF.md. Work commands use existing nested MoveHere and synchronous before/after fields; no task-index or return value is interpreted as proof of work execution.
+
+## 2026-10-07: shared Assassin path hooks
+
+APIShared.AssassinPathAPI is the sole owner of builder D9C40 and endpoint guards
+D9F0C, D9F1C, E19D8 and E19F9. BugfixesAndQoL registers its existing weighted
+builder and calls the shared original exactly once; its reconstruction wrapper
+publishes logical state only. The testmod registers the optional gate rule.
+Reference SHA-256 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
+Complete audit: _inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/ASSASSIN_DIRECT_GATEHOUSE_CLIMB.md.
+
+NativeX64 Indirect-only builder span is 10 bytes; actual scheme, FF25 entry,
+pointer slot and trampoline displacement are verified before publication.
+X64InlineHook spans are 16/15/18/23 bytes. Patterns and full incoming-edge checks
+are in AssassinPathNativeDefinition; unique executable signature fallback cannot
+authorize relocated continuation/layout contracts. Unknown hashes fail closed.
+The installed RedBird 1.5 implementation was checked and exercised directly.
+Pure assembler guards save flags/RAX/R10/R11, replay remaining wall/surface tests
+and accept nonzero IDs only for live gate roof endpoints (types 45/46, IsWall).
+Weighted reconstruction preserves the prior optional broad guard relaxation.
+
+Hash-bound grids: building ID WORD at 4B6AA50, tile flags DWORD at 48F71B0,
+320800 tiles. One-based building IDs 1..3999 use stride 32C, alive WORD base
+64CCCDC and type WORD base 64CCCDE. These bases include the native sentinel.
+Re-audit layout, roof placement/rebuild, cursor, AI gate action, reconstruction,
+physical climb and neighboring-wall contracts on every native update.
+SE's 196870 detour and mainmod selection adapters retain their owners. Fixes
+1.25.1 gate filtering EAD8C/departure EACC3 has no overlap; preserve its targeting.
+Hooks remain rooted until process exit; activation writes aligned policy data
+only. No executable repatching or published teardown is permitted.
+
+Source-linked production tests: _inspect/AssassinGateClimb/tests. Runtime and
+installed-member preflight: _inspect/AssassinGateClimb/verify.ps1. Real in-game
+human/AI acceptance is pending; see Testmods/AssassinGatehouseClimbTest/ACCEPTANCE.md.

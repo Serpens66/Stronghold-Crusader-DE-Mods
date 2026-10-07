@@ -136,7 +136,7 @@ namespace BugfixesAndQoL
                 {
                     int defensiveTriggerLevel = unchecked((int)(uint)originalRax);
                     int unitId = unchecked((int)(uint)registers->RBX);
-                    if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* recruitedUnit) ||
+                    if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* recruitedUnit, out _) ||
                         recruitedUnit == null ||
                         recruitedUnit->r_GlobalId == 0 ||
                         (recruitedUnit->r_AliveState != AliveState.NeedsInit &&

@@ -916,7 +916,7 @@ namespace BugfixesAndQoL
         {
             if (!installed || !FeatureEnabled || args.Phase != EventHookPhase.Pre ||
                 args.UnitId <= 0 || args.TribeId <= 0 ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(args.UnitId, out GameUnit* unit) ||
+                !APIShared.UnitAccess.TryGetById(args.UnitId, out GameUnit* unit, out _) ||
                 unit == null)
             {
                 return;
@@ -1003,7 +1003,7 @@ namespace BugfixesAndQoL
             foreach (int unitId in memberIds)
             {
                 if (unitId > 0 &&
-                    GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) &&
+                    APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) &&
                     unit != null)
                 {
                     memberGlobalIds[unitId] = unit->r_GlobalId;
@@ -1414,9 +1414,9 @@ namespace BugfixesAndQoL
             ushort savedCount = ReadMovementWaypointCount(tribe);
             ushort originX = 0;
             ushort originY = 0;
-            if (GameUnitManagerAPI.Instance.TryGetUnitById(
+            if (APIShared.UnitAccess.TryGetById(
                     tribe->r_LeaderUnitId,
-                    out GameUnit* leader) && leader != null)
+                    out GameUnit* leader, out _) && leader != null)
             {
                 originX = leader->r_CurrentTilePositionX;
                 originY = leader->r_CurrentTilePositionY;
@@ -1560,7 +1560,7 @@ namespace BugfixesAndQoL
 
             if (command.Kind == QueueCommandKind.AttackUnit)
             {
-                if (!GameUnitManagerAPI.Instance.TryGetUnitById(command.Argument1, out GameUnit* unit) ||
+                if (!APIShared.UnitAccess.TryGetById(command.Argument1, out GameUnit* unit, out _) ||
                     unit == null || unit->r_AliveState != AliveState.IsAlive || unit->r_CurrentHealth <= 0 ||
                     unit->r_GlobalId != unchecked((uint)command.Argument2))
                 {
@@ -2471,7 +2471,7 @@ namespace BugfixesAndQoL
         {
             unit = null;
             return GameUnitManagerAPI.Instance.IsValidId(identity.UnitId) &&
-                GameUnitManagerAPI.Instance.TryGetUnitById(identity.UnitId, out unit) && unit != null &&
+                APIShared.UnitAccess.TryGetById(identity.UnitId, out unit, out _) && unit != null &&
                 unit->r_AliveState == AliveState.IsAlive && unit->r_GlobalId == identity.GlobalId;
         }
 
@@ -2590,7 +2590,7 @@ namespace BugfixesAndQoL
             {
                 int unitId = selectedUnits[index].UnitId;
                 if (!GameUnitManagerAPI.Instance.IsValidId(unitId) ||
-                    !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                    !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
                     unit == null)
                 {
                     continue;
@@ -2646,7 +2646,7 @@ namespace BugfixesAndQoL
             if (command.Kind == QueueCommandKind.AttackUnit)
             {
                 if (!GameUnitManagerAPI.Instance.IsValidId(command.Argument1) ||
-                    !GameUnitManagerAPI.Instance.TryGetUnitById(command.Argument1, out GameUnit* unit) ||
+                    !APIShared.UnitAccess.TryGetById(command.Argument1, out GameUnit* unit, out _) ||
                     unit == null)
                 {
                     return false;

@@ -114,7 +114,7 @@ namespace APIShared
             int lordUnitId = checked((int)resources->r_LordUnitId);
             GameUnit* unit = null;
             bool livingLord = lordUnitId > 0 &&
-                units.TryGetUnitById(lordUnitId, out unit) &&
+                APIShared.UnitAccess.TryGetById(units, lordUnitId, out unit, out _) &&
                 unit != null &&
                 unit->r_AliveState == AliveState.IsAlive &&
                 unit->r_UnitChimp == eChimps.CHIMP_TYPE_LORD &&

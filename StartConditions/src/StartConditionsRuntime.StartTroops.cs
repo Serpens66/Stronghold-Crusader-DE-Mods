@@ -340,16 +340,16 @@ namespace StartConditions
                 if (unitId <= 0)
                     continue;
 
-                if (GameUnitManagerAPI.Instance.GetOwner(unitId) != playerId)
+                if ((APIShared.UnitAccess.TryGetById(unitId, out _, out _) ? GameUnitManagerAPI.Instance.GetOwner(unitId) : -1) != playerId)
                     continue;
 
-                eChimps unitType = GameUnitManagerAPI.Instance.GetType(unitId);
+                eChimps unitType = (APIShared.UnitAccess.TryGetById(unitId, out _, out _) ? GameUnitManagerAPI.Instance.GetType(unitId) : eChimps.CHIMP_TYPE_NULL);
                 if (!SoldierChimps.Contains(unitType))
                     continue;
 
                 try
                 {
-                    if (!GameUnitManagerAPI.Instance.DeleteUnitSafe(unitId))
+                    if (!(APIShared.UnitAccess.TryGetById(unitId, out _, out _) && GameUnitManagerAPI.Instance.DeleteUnitSafe(unitId)))
                         rejected++;
                 }
                 catch (Exception ex)
@@ -395,8 +395,8 @@ namespace StartConditions
                     continue;
                 }
 
-                int playerId = GameUnitManagerAPI.Instance.GetOwner(unitId);
-                eChimps unitType = GameUnitManagerAPI.Instance.GetType(unitId);
+                int playerId = (APIShared.UnitAccess.TryGetById(unitId, out _, out _) ? GameUnitManagerAPI.Instance.GetOwner(unitId) : -1);
+                eChimps unitType = (APIShared.UnitAccess.TryGetById(unitId, out _, out _) ? GameUnitManagerAPI.Instance.GetType(unitId) : eChimps.CHIMP_TYPE_NULL);
                 if (!SoldierChimps.Contains(unitType))
                     continue;
 

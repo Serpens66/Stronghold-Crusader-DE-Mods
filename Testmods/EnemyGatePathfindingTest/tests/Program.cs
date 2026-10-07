@@ -2040,7 +2040,7 @@ namespace EnemyGatePathfindingTest
             })
                 Assert(callback.IndexOf(forbidden, StringComparison.Ordinal) < 0,
                     "cursor callback hot path excludes " + forbidden);
-            Assert(CountOccurrences(deferred, "TryGetUnitById") == 1 &&
+            Assert(CountOccurrences(deferred, "UnitAccess.TryGetById") == 1 &&
                     CountOccurrences(deferred, "originalDirectTileSearch") == 2 &&
                     deferred.IndexOf("Enter(player, true)", StringComparison.Ordinal) <
                         deferred.IndexOf("Enter(player);", StringComparison.Ordinal) &&

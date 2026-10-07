@@ -416,7 +416,7 @@ namespace BugfixesAndQoL
             {
                 int unitId = selected[index].UnitId;
                 if (unitId <= 0 ||
-                    !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                    !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
                     !IsEligible(unit, playerId))
                 {
                     continue;
@@ -441,7 +441,7 @@ namespace BugfixesAndQoL
             int[] alive = GameUnitManagerAPI.Instance.GetAllAliveUnits();
             for (int index = 0; index < alive.Length && resolved.Count < requested.Count; index++)
             {
-                if (!GameUnitManagerAPI.Instance.TryGetUnitById(alive[index], out GameUnit* unit)) continue;
+                if (!APIShared.UnitAccess.TryGetById(alive[index], out GameUnit* unit, out _)) continue;
                 int globalId = (int)unit->r_GlobalId;
                 if (requested.Contains(globalId) && IsEligible(unit, playerId))
                     resolved.Add(new ResolvedTarget(globalId, unit, ReadAmmunition(unit)));

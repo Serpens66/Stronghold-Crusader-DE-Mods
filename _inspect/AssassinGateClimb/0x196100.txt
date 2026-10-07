@@ -1,0 +1,43 @@
+Hash FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2
+FUN_180196100 0x196100 size=89 confidence=candidate
+Callers [('0x10AE0',)]
+Callees [('0x11B520',)]
+/* FUNCTION FUN_180196100 VA=0x180196100 RVA=0x196100 */
+
+void FUN_180196100(undefined8 param_1,int param_2)
+
+{
+  char in_stack_00000030;
+  
+  *(undefined2 *)(&DAT_187cc6c8c + (longlong)param_2 * 0x688) = 0;
+  if (in_stack_00000030 < '\0') {
+    *(undefined2 *)(&DAT_187cc6c8c + (longlong)param_2 * 0x688) = 1;
+  }
+  FUN_18011b520(&DAT_187cc6720);
+  return;
+}
+
+
+
+
+ASM:
+00196100 4883ec48 sub rsp, 0x48
+00196104 4863c2 movsxd rax, edx
+00196107 4c8d1d1206b307 lea r11, [rip + 0x7b30612]
+0019610E 4869c888060000 imul rcx, rax, 0x688
+00196115 33c0 xor eax, eax
+00196117 41ba01000000 mov r10d, 1
+0019611D 66428984196c050000 mov word ptr [rcx + r11 + 0x56c], ax
+00196126 8b442478 mov eax, dword ptr [rsp + 0x78]
+0019612A 84c0 test al, al
+0019612C 790d jns 0x18019613b
+0019612E 0fbaf007 btr eax, 7
+00196132 66468994196c050000 mov word ptr [rcx + r11 + 0x56c], r10w
+0019613B 89442430 mov dword ptr [rsp + 0x30], eax
+0019613F 498bcb mov rcx, r11
+00196142 8b442470 mov eax, dword ptr [rsp + 0x70]
+00196146 4489542428 mov dword ptr [rsp + 0x28], r10d
+0019614B 89442420 mov dword ptr [rsp + 0x20], eax
+0019614F e8cc53f8ff call 0x18011b520
+00196154 4883c448 add rsp, 0x48
+00196158 c3 ret 

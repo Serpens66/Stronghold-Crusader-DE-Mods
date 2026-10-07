@@ -506,7 +506,7 @@ namespace BugfixesAndQoL
             string moatCursor = File.ReadAllText(Path.Combine("src", "CursorConnectivity.cs"));
             Check(moatCursor.Contains("disposed || unitId <= 0 || buildingId <= 0") &&
                   moatCursor.IndexOf("unitId <= 0", StringComparison.Ordinal) <
-                  moatCursor.IndexOf("TryGetUnitById", StringComparison.Ordinal),
+                  moatCursor.IndexOf("UnitAccess.TryGetById", StringComparison.Ordinal),
                 "friendly-moat cursor rejects non-positive IDs before ID API lookups");
         }
 
@@ -4743,7 +4743,7 @@ namespace BugfixesAndQoL
                     runtime.Contains("settings.EnableAiDefensePatrolFix"),
                 "AI defense patrol runtime uses the owned before-callback hook and its specific setting gates");
             Check(runtime.Contains("registers->RAX = originalRax") &&
-                    runtime.Contains("TryGetUnitById(unitId") &&
+                    runtime.Contains("UnitAccess.TryGetById(unitId") &&
                     runtime.Contains("for (int spanIndex = 0; spanIndex < units.Length; spanIndex++)"),
                 "AI defense patrol retains Vanilla fallback and explicit ID/index contracts");
             Check(orchestrator.Contains("EnsureAiDefensePatrolFix") &&
@@ -5441,7 +5441,7 @@ namespace BugfixesAndQoL
             int validation = handler.IndexOf(
                 "GatehouseQueryUnitIdPolicy.TryValidateGameId(", StringComparison.Ordinal);
             int lookup = handler.IndexOf(
-                "TryGetUnitById(unitId,", StringComparison.Ordinal);
+                "UnitAccess.TryGetById(unitId,", StringComparison.Ordinal);
             int pathing = handler.IndexOf(
                 "TryIsUnitReachableToGate(", StringComparison.Ordinal);
             Check(eventRead >= 0 && validation > eventRead && lookup > validation && pathing > lookup,

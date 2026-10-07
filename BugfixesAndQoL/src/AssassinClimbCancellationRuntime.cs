@@ -104,7 +104,7 @@ namespace BugfixesAndQoL
                         continue;
 
                     int localUnitId = wordIndex * UnitIdBitsPerWord + bitIndex;
-                    if (localUnitId <= 0 || !unitApi.TryGetUnitById(localUnitId, out GameUnit* unit) || unit == null)
+                    if (localUnitId <= 0 || !APIShared.UnitAccess.TryGetById(unitApi, localUnitId, out GameUnit* unit, out _) || unit == null)
                         continue;
                     if (unit->r_AliveState != AliveState.IsAlive ||
                         unit->r_UnitChimp != eChimps.CHIMP_TYPE_ARAB_ASSASIN ||

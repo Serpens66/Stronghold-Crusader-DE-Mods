@@ -1,0 +1,28 @@
+SCRIPT bridge-dirty-regression.py EXIT 0
+PASS dirty blocker, phase4 selection, exact command transport; {"processHash": "6CDB31CAAE0C7BF454ED2B25F7C1455E4FCE75E86DABD7EC031808ADDE660F51", "originalBridgeBytes": 7128970, "compactBridgeBytes": 6695933, "pairedCommands": 34009, "transportedCommandObservations": 5176, "nativeCalls": 1673891, "rejected": 100, "cancelled": 21, "behaviorFix": false}
+PASS fixed search transport reconstructs nullable and signed results with full64 call counts
+SCRIPT bridge-latest-regression.py EXIT 0
+PASS frozen latest: 1695766 calls, 34661 commands, 105 linked observations; player8 four groups/25 commands/52 observations; exact definitions and relevant paths survive compact transport
+Transport-only replay bytes including prefixes: 4243980 -> 3396576 saved 847404 ; changed-run replay is not the quiet-volume acceptance test
+SCRIPT bridge-native-batch-regression.py EXIT 0
+PASS bridge-20261006-133913.log trace bytes incl prefixes 4765869 -> 4339452 native frames 1584
+PASS bridge-20261006-155247.log trace bytes incl prefixes 7052551 -> 5974835 native frames 5508
+SCRIPT bridge-native-unavailable-regression.py EXIT 0
+PASS unavailable Native regression:37258 paired commands, complete Bridge delivery, no Native/shadow coverage, settled lowered deck
+SCRIPT bridge-raised-regression.py EXIT 0
+PASS paired counterrun: first planning input/target, phase4->6 versus4->5, transient player5, capture/delivery/file boundaries
+SCRIPT bridge-real-planning-regression.py EXIT 0
+PASS real continuous planning and numeric command population: {'nativeCalls': 1837071, 'pairedCommands': 36747, 'hashesVerified': True, 'baseline': 'continuous-original-fields-and-selection-match', 'firstChange': 'CF360 -> D95E0 R8 True to False', 'only703SeedChanges': 4000, 'only703DistanceChanges': 34878, 'dirty': 1, 'negativeEligible': False, 'newTargetChoice': 'Unknown: D9190 mode0 preserves old candidates; unrecorded consumer', 'originalTraceBytes': 7894389, 'numericCommandTraceBytes': 6453084, 'detailedCommandObservations': 6420, 'identityDefinitions': 352, 'costScope': 'offline-serialization-not-live-game', 'behaviorFix': 'disabled'}
+SCRIPT bridge-shadow-controls-regression.py EXIT 0
+PASS analyzer: nested fields, exact low-first bytes, decision/group links, consumed-cursor boundaries, bounded completion and torn exit
+PASS repaired run:1136667 calls,23246 pairs,171 shadows,25 moving player8 units; 90 pending delivery; cut45 is not validated
+SCRIPT bridge-stable-regression.py EXIT 0
+PASS analyzer: nested fields, exact low-first bytes, decision/group links, consumed-cursor boundaries, bounded completion and torn exit
+PASS stable: 2118706 calls; 36923 commands; 535 route observations/511 linked; 91 executed crossing units/364 movement observations
+Fixed numeric transport including prefixes: 4765869 -> 4450257 saved 315612 ; active-run serialization is not the quiet-volume acceptance test
+SCRIPT bridge-topology-regression.py EXIT 0
+PASS:49 observed boundary cells including diagonals match the deck cut; directed alternatives and signed special seeds tested
+LIMIT:only local boundary proven; full packed map, gate-endpoint remapping, closed-connection fallback and parent authorization remain prerequisites
+SCRIPT bridge-uncut-regression.py EXIT 0
+PASS analyzer: nested fields, exact low-first bytes, decision/group links, consumed-cursor boundaries, bounded completion and torn exit
+PASS frozen 982868 calls/21456 pairs; delivered is not computed coverage; both original inputs reachable uncut in both directions/modes, single703/all-hostile cuts NoRoute with native C endpoints, policy remains conservative

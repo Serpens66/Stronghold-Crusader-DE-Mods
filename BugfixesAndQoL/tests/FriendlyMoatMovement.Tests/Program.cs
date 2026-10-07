@@ -139,6 +139,12 @@ var referenceClass=CSharpSyntaxTree.ParseText(referenceSource).GetRoot().Descend
     .Single(c=>c.Identifier.Text=="MoatSearchKernel").ToFullString().Replace("MoatSearchKernel","ReferenceMoatSearchKernel");
 var referenceTree=CSharpSyntaxTree.ParseText("using System; using System.Collections.Generic; namespace BugfixesAndQoL {"+referenceClass+"}");
 var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared", "src", "UnitAccess.cs"))
+        .Replace("using SHCDESE.API;", "using GameUnitManagerAPI = BugfixesAndQoL.GameUnitManagerAPI;")
+        .Replace("using SHCDESE.Interop;", "using GameUnit = BugfixesAndQoL.GameUnit;")
+        .Replace("public static unsafe class UnitAccess", "internal static unsafe class UnitAccess")),
+    CSharpSyntaxTree.ParseText("namespace BepInEx.Logging { public class ManualLogSource { public void LogDebug(object message) { } } }"),
+    
     referenceTree,
     CSharpSyntaxTree.ParseText(extracted),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "WeightedMoatRoutePlanner.cs"))),
@@ -597,6 +603,8 @@ void ValidateRuntimeSources()
     if (Assembly.LoadFrom(apiSharedPath).GetType("APIShared.TemporaryGateRouteAcceptanceBridge", false) == null)
         sources = sources.Concat(new[]{CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"APIShared","src","TemporaryGateRouteAcceptanceBridge.cs")))}).ToArray();
     sources = sources.Concat(new[]{CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"Shared","TemporaryPackedRouteInspection.cs")))}).ToArray();
+    if (Assembly.LoadFrom(apiSharedPath).GetType("APIShared.UnitAccess", false) == null)
+        sources = sources.Concat(new[]{CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"APIShared","src","UnitAccess.cs")))}).ToArray();
     var check=CSharpCompilation.Create("FriendlyMoatMovementSourceContract",sources,
         paths.Values.Select(p=>MetadataReference.CreateFromFile(p)),
         new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary,allowUnsafe:true));

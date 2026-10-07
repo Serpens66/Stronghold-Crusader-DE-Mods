@@ -188,7 +188,7 @@ PASS native raise/update/rebuild: 144 synthetic orientation/moat cases
 PASS special seed kinds: isolated raised flag1000, including excluded kind15
 PASS native macro roles/modes/directions/C; any nonzero native capturer is NOT sufficient for Gate policy
 PASS alternating packed row widths and native 999-component boundary
-PASS passive production planning capture and schema2 delivery; artifact=D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\BridgePlanningTests\bin\planning-capture-1ccc340cff5545b6b422881a5fa24b8b\bridge-1-100.bin; captureMs=34,815
-PASS passive production planning capture and schema2 delivery; artifact=D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\BridgePlanningTests\bin\planning-capture-4fbf10d378e04bb68bfd18cf136c18e9\bridge-1-100.bin; captureMs=33,667
+PASS passive production planning capture and schema2 delivery; artifact=D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\BridgePlanningTests\bin\planning-capture-159bf77c85404605bae0ba768059f311\bridge-1-100.bin; captureMs=36,233
+PASS passive production planning capture and schema2 delivery; artifact=D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\BridgePlanningTests\bin\planning-capture-2c8b4718dc054bbc969506130699519e\bridge-1-100.bin; captureMs=34,813
 PASS private native planning: 118 synthetic differential cases, 10229 checks; no game/library initialization
-offline-cost: totalMs=8822.9,scope=all-fixtures-native-and-managed-including-copies-and-full-grid-checks,gameCost=not-measured,behaviorFix=disabled
+offline-cost: totalMs=8888.3,scope=all-fixtures-native-and-managed-including-copies-and-full-grid-checks,gameCost=not-measured,behaviorFix=disabled

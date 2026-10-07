@@ -1,0 +1,75 @@
+{
+  "hash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+  "sites": [
+    {
+      "function": "0xd9c40",
+      "start": "0xd9c40",
+      "end": "0xd9c4a",
+      "minimum": 6,
+      "displaced": 10,
+      "bytes": "48895c240848896c2418",
+      "instructions": [
+        "D9C40: mov qword ptr [rsp + 8], rbx",
+        "D9C45: mov qword ptr [rsp + 0x18], rbp"
+      ],
+      "external_interior_predecessors": []
+    },
+    {
+      "function": "0xd9c40",
+      "start": "0xd9f0c",
+      "end": "0xd9f1c",
+      "minimum": 14,
+      "displaced": 16,
+      "bytes": "0f8594000000664183bc1450aab60400",
+      "instructions": [
+        "D9F0C: jne 0x1800d9fa6",
+        "D9F12: cmp word ptr [r12 + rdx + 0x4b6aa50], 0"
+      ],
+      "external_interior_predecessors": []
+    },
+    {
+      "function": "0xd9c40",
+      "start": "0xd9f1c",
+      "end": "0xd9f2b",
+      "minimum": 14,
+      "displaced": 15,
+      "bytes": "0f8584000000410bf90fbae708737b",
+      "instructions": [
+        "D9F1C: jne 0x1800d9fa6",
+        "D9F22: or edi, r9d",
+        "D9F25: bt edi, 8",
+        "D9F29: jae 0x1800d9fa6"
+      ],
+      "external_interior_predecessors": []
+    },
+    {
+      "function": "0xe1640",
+      "start": "0xe19d8",
+      "end": "0xe19ea",
+      "minimum": 14,
+      "displaced": 18,
+      "bytes": "0f85b1000000498d04d6418b8487b0ed0504",
+      "instructions": [
+        "E19D8: jne 0x1800e1a8f",
+        "E19DE: lea rax, [r14 + rdx*8]",
+        "E19E2: mov eax, dword ptr [r15 + rax*4 + 0x405edb0]"
+      ],
+      "external_interior_predecessors": []
+    },
+    {
+      "function": "0xe1640",
+      "start": "0xe19f9",
+      "end": "0xe1a10",
+      "minimum": 14,
+      "displaced": 23,
+      "bytes": "0f85880000004585c9751b41f7848fb0718f0400010000",
+      "instructions": [
+        "E19F9: jne 0x1800e1a87",
+        "E19FF: test r9d, r9d",
+        "E1A02: jne 0x1800e1a1f",
+        "E1A04: test dword ptr [r15 + rcx*4 + 0x48f71b0], 0x100"
+      ],
+      "external_interior_predecessors": []
+    }
+  ]
+}

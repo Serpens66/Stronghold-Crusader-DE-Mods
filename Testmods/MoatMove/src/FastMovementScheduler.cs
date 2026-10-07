@@ -128,14 +128,14 @@ namespace MoatMove
             var result = new List<FastUnitIdentity>();
             if (!TryCaptureOrderedActiveGroupUnits(nativeTribeManager, tribeId, out int[] ids)) return result;
             foreach (int id in ids)
-                if (GameUnitManagerAPI.Instance.TryGetUnitById(id, out GameUnit* unit) && unit != null && unit->r_GlobalId != 0)
+                if (APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _) && unit != null && unit->r_GlobalId != 0)
                     result.Add(new FastUnitIdentity(id, unit->r_GlobalId));
             result.Sort(); return result;
         }
 
         private bool TryGetFastMember(FastUnitIdentity identity, int player, out GameUnit* unit)
         {
-            return GameUnitManagerAPI.Instance.TryGetUnitById(identity.Id, out unit) && unit != null &&
+            return APIShared.UnitAccess.TryGetById(identity.Id, out unit, out _) && unit != null &&
                 unit->r_GlobalId == identity.Global && unit->r_AliveState == AliveState.IsAlive &&
                 unit->r_ControllableForPlayerId == player;
         }

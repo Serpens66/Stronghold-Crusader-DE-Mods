@@ -84,7 +84,7 @@ namespace MoatMove
             bool relevantFriendlyMoat = targetIsMoat;
             foreach (int unitId in groupUnitIds)
             {
-                if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
                     unit == null || unit->r_AliveState != AliveState.IsAlive ||
                     unit->r_TribeId != tribeId || !CanDigMoat(unit))
                 {
@@ -185,7 +185,7 @@ namespace MoatMove
             var units = new List<DirectFillUnitStart>();
             foreach (int unitId in groupUnitIds)
             {
-                if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
                     unit == null || unit->r_AliveState != AliveState.IsAlive ||
                     unit->r_TribeId != args.TribeId || !CanDigMoat(unit))
                 {

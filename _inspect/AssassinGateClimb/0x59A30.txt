@@ -1,0 +1,36 @@
+Hash FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2
+FUN_180059a30 0x59A30 size=81 confidence=candidate
+Callers [('0x58FC0',), ('0x5BC70',), ('0x5D8A0',), ('0x71120',), ('0x71670',), ('0x72720',), ('0x7BAB0',), ('0x87460',)]
+Callees [('0x7490',), ('0xE5E60',), ('0x1A8D20',)]
+/* FUNCTION FUN_180059a30 VA=0x180059A30 RVA=0x59A30 */
+
+void FUN_180059a30(longlong param_1)
+
+{
+  FUN_180007490(&DAT_1860ad648,0x4e520,3,param_1 + 0xa20d40);
+  FUN_1801a8d20(param_1 + 0x1cca5f0,3,0x1900);
+  FUN_1800e5e60(&DAT_1860ad660,1);
+  return;
+}
+
+
+
+
+ASM:
+00059A30 4053 push rbx
+00059A32 4883ec20 sub rsp, 0x20
+00059A36 488bd9 mov rbx, rcx
+00059A39 4c8d89400da200 lea r9, [rcx + 0xa20d40]
+00059A40 488d0d013c0506 lea rcx, [rip + 0x6053c01]
+00059A47 41b003 mov r8b, 3
+00059A4A ba20e50400 mov edx, 0x4e520
+00059A4F e83cdafaff call 0x180007490
+00059A54 488d8bf0a5cc01 lea rcx, [rbx + 0x1cca5f0]
+00059A5B ba03000000 mov edx, 3
+00059A60 41b800190000 mov r8d, 0x1900
+00059A66 e8b5f21400 call 0x1801a8d20
+00059A6B ba01000000 mov edx, 1
+00059A70 488d0de93b0506 lea rcx, [rip + 0x6053be9]
+00059A77 4883c420 add rsp, 0x20
+00059A7B 5b pop rbx
+00059A7C e9dfc30800 jmp 0x1800e5e60

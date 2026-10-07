@@ -1,0 +1,1028 @@
+[
+  {
+    "Path": "APIShared\\src\\PlayerDefeatCapability.cs",
+    "CRLF": 302,
+    "BareLF": 0,
+    "FirstLine": "using BepInEx.Logging;"
+  },
+  {
+    "Path": "APIShared\\src\\UnitHudPresentationCapability.cs",
+    "CRLF": 1899,
+    "BareLF": 0,
+    "FirstLine": "using BepInEx.Logging;"
+  },
+  {
+    "Path": "BugfixesAndQoL\\src\\AiDefensePatrolFix.cs",
+    "CRLF": 205,
+    "BareLF": 0,
+    "FirstLine": "// Feature: Restore Vanilla's intended wall-defense replenishment before outer patrol growth."
+  },
+  {
+    "Path": "BugfixesAndQoL\\src\\AiRaidRetargetFixRuntime.cs",
+    "CRLF": 1039,
+    "BareLF": 0,
+    "FirstLine": "using BepInEx.Logging;"
+  },
+  {
+    "Path": "BugfixesAndQoL\\src\\AssassinClimbCancellationRuntime.cs",
+    "CRLF": 147,
+    "BareLF": 0,
+    "FirstLine": "// Feature: Cancels active Assassin climbing through Vanilla's synchronized Stop command."
+  },
+  {
+    "Path": "BugfixesAndQoL\\src\\AssassinClimbRuntime.cs",
+    "CRLF": 600,
+    "BareLF": 0,
+    "FirstLine": "// Feature: Per-player Assassin climbing mode and its troop-HUD command."
+  },
+  {
+    "Path": "BugfixesAndQoL\\src\\CorruptLordDataSpawnRuntime.cs",
+    "CRLF": 453,
+    "BareLF": 0,
+    "FirstLine": "using APIShared;"
+  },
+  {
+    "Path": "BugfixesAndQoL\\src\\CursorConnectivity.cs",
+    "CRLF": 455,
+    "BareLF": 0,
+    "FirstLine": "using System;"
+  },
+  {
+    "Path": "BugfixesAndQoL\\src\\DirectMoatCommandScopes.cs",
+    "CRLF": 460,
+    "BareLF": 0,
+    "FirstLine": "using SHCDESE.API;"
+  },
+  {
+    "Path": "BugfixesAndQoL\\src\\ExtendedShiftCommandQueueRuntime.cs",
+    "CRLF": 2774,
+    "BareLF": 0,
+    "FirstLine": "using BepInEx.Logging;"
+  },
+  {
+    "Path": "BugfixesAndQoL\\src\\FillWeightedRoutes.cs",
+    "CRLF": 126,
+    "BareLF": 0,
+    "FirstLine": "using System;"
+  },
+  {
+    "Path": "BugfixesAndQoL\\src\\FriendlyMoatMovementRuntime.cs",
+    "CRLF": 10366,
+    "BareLF": 0,
+    "FirstLine": "using BepInEx.Logging;"
+  },
+  {
+    "Path": "BugfixesAndQoL\\src\\FriendlyMoatMovementRuntime.LadderAttackFix.cs",
+    "CRLF": 497,
+    "BareLF": 0,
+    "FirstLine": "using SHCDESE.API;"
+  },
+  {
+    "Path": "BugfixesAndQoL\\src\\LordUnitControlsFeature.cs",
+    "CRLF": 198,
+    "BareLF": 0,
+    "FirstLine": "// Feature: Lord-specific action handling; shared troop presentation lives in APIShared."
+  },
+  {
+    "Path": "BugfixesAndQoL\\src\\LordUnitHudRegistration.cs",
+    "CRLF": 96,
+    "BareLF": 0,
+    "FirstLine": "// Feature: Register the controlled Lord with APIShared's process-wide HUD pipeline."
+  },
+  {
+    "Path": "BugfixesAndQoL\\src\\MoatPlacement.cs",
+    "CRLF": 384,
+    "BareLF": 0,
+    "FirstLine": "using System;"
+  },
+  {
+    "Path": "BugfixesAndQoL\\src\\MoatWorkTargetSelection.cs",
+    "CRLF": 1358,
+    "BareLF": 0,
+    "FirstLine": "using RedBird.X64.Hooks.Transaction;"
+  },
+  {
+    "Path": "BugfixesAndQoL\\src\\MountedStockpileMovementPatch.cs",
+    "CRLF": 477,
+    "BareLF": 0,
+    "FirstLine": "// Feature: Permit cavalry movement commands onto passable stockpile tiles."
+  },
+  {
+    "Path": "BugfixesAndQoL\\src\\MoveFormationDragRuntime.cs",
+    "CRLF": 1425,
+    "BareLF": 0,
+    "FirstLine": "using BepInEx.Logging;"
+  },
+  {
+    "Path": "BugfixesAndQoL\\src\\MovementPathPublication.cs",
+    "CRLF": 717,
+    "BareLF": 0,
+    "FirstLine": "using BepInEx.Logging;"
+  },
+  {
+    "Path": "BugfixesAndQoL\\src\\MovementSearchContext.cs",
+    "CRLF": 205,
+    "BareLF": 0,
+    "FirstLine": "using APIShared;"
+  },
+  {
+    "Path": "BugfixesAndQoL\\src\\NativeMovementRecovery.cs",
+    "CRLF": 322,
+    "BareLF": 0,
+    "FirstLine": "using System;"
+  },
+  {
+    "Path": "BugfixesAndQoL\\src\\PlagueApothecaryStateTransitionFix.cs",
+    "CRLF": 172,
+    "BareLF": 0,
+    "FirstLine": "// Feature: Complete Vanilla's apothecary building-exit transition after a target is found."
+  },
+  {
+    "Path": "BugfixesAndQoL\\src\\PlagueTargetReservationFix.cs",
+    "CRLF": 682,
+    "BareLF": 0,
+    "FirstLine": "// Feature: Reserve an apothecary's complete plague-treatment area during target selection."
+  },
+  {
+    "Path": "BugfixesAndQoL\\src\\PlagueTreatmentFadeFix.cs",
+    "CRLF": 248,
+    "BareLF": 0,
+    "FirstLine": "// Feature: Ensure all plague clouds affected by treatment enter Vanilla's fade path."
+  },
+  {
+    "Path": "BugfixesAndQoL\\src\\ReachableEnemyGatehouseRuntime.cs",
+    "CRLF": 428,
+    "BareLF": 0,
+    "FirstLine": "using VanillaFootprintCandidate = APIShared.GatehouseFootprintCandidate;"
+  },
+  {
+    "Path": "BugfixesAndQoL\\src\\SelectedUnitHealthFeature.cs",
+    "CRLF": 371,
+    "BareLF": 0,
+    "FirstLine": "// Feature: Show health totals for each visible selected troop type in the HUD."
+  },
+  {
+    "Path": "BugfixesAndQoL\\src\\SiegeAmmoRestockFeature.cs",
+    "CRLF": 515,
+    "BareLF": 0,
+    "FirstLine": "// Feature: Fair single- and multi-selection catapult/trebuchet ammunition restocking."
+  },
+  {
+    "Path": "BugfixesAndQoL\\src\\SpectatorPerspectiveRuntime.cs",
+    "CRLF": 650,
+    "BareLF": 0,
+    "FirstLine": "using System;"
+  },
+  {
+    "Path": "BugfixesAndQoL\\src\\SurrenderFeature.cs",
+    "CRLF": 1919,
+    "BareLF": 0,
+    "FirstLine": "// Feature: Confirmed surrender and reversible spectator statistics."
+  },
+  {
+    "Path": "BugfixesAndQoL\\src\\TemporaryGateRouteReporting.cs",
+    "CRLF": 185,
+    "BareLF": 0,
+    "FirstLine": "// TEMP_GATE_ROUTE_ACCEPTANCE: remove this partial and the two builder attachment points after acceptance."
+  },
+  {
+    "Path": "BugfixesAndQoL\\src\\TroopHudMiddleClickCameraFeature.cs",
+    "CRLF": 152,
+    "BareLF": 0,
+    "FirstLine": "// Feature: Center the camera on a selected troop type when its HUD icon is middle-clicked."
+  },
+  {
+    "Path": "BugfixesAndQoL\\src\\TroopMovementFix3Runtime.cs",
+    "CRLF": 699,
+    "BareLF": 0,
+    "FirstLine": "// Feature: Fix synchronized movement speed for mixed troop groups."
+  },
+  {
+    "Path": "BugfixesAndQoL\\src\\UnitMovementContext.cs",
+    "CRLF": 351,
+    "BareLF": 0,
+    "FirstLine": "using BepInEx.Logging;"
+  },
+  {
+    "Path": "BugfixesAndQoL\\src\\WaterboyTargetReservationRuntime.cs",
+    "CRLF": 522,
+    "BareLF": 0,
+    "FirstLine": "using BepInEx.Logging;"
+  },
+  {
+    "Path": "BugfixesAndQoL\\src\\WeightedMoatPublication.cs",
+    "CRLF": 422,
+    "BareLF": 0,
+    "FirstLine": "using BepInEx.Logging;"
+  },
+  {
+    "Path": "BuildingLimit\\src\\TowerSiegeUnitCache.cs",
+    "CRLF": 158,
+    "BareLF": 0,
+    "FirstLine": "using BepInEx.Logging;"
+  },
+  {
+    "Path": "ExtraFeatures\\src\\GatehouseAutomationRuntime.cs",
+    "CRLF": 1073,
+    "BareLF": 0,
+    "FirstLine": "// Feature: Reachability-aware and per-building manual gatehouse automation."
+  },
+  {
+    "Path": "ExtraFeatures\\src\\KnightDismountDelayRuntime.cs",
+    "CRLF": 1186,
+    "BareLF": 0,
+    "FirstLine": "using CrusaderDE;"
+  },
+  {
+    "Path": "ExtraFeatures\\src\\KnightDismountRuntime.cs",
+    "CRLF": 1886,
+    "BareLF": 0,
+    "FirstLine": "// Feature: Mount swordsmen and dismount mounted knights through local commands."
+  },
+  {
+    "Path": "ExtraFeatures\\src\\LordHealthRuntime.cs",
+    "CRLF": 246,
+    "BareLF": 0,
+    "FirstLine": "// Capture completed Vanilla Lord health once; retain that basis across save/load cycles."
+  },
+  {
+    "Path": "Helpers\\HunterQueryTargetDiagnostic\\src\\HunterQueryTargetDiagnosticPlugin.cs",
+    "CRLF": 546,
+    "BareLF": 0,
+    "FirstLine": "using BepInEx;"
+  },
+  {
+    "Path": "ImprovedHunters\\src\\HunterActiveTargetVisibilitySnapshot.cs",
+    "CRLF": 1102,
+    "BareLF": 0,
+    "FirstLine": "using BepInEx.Logging;"
+  },
+  {
+    "Path": "ImprovedHunters\\src\\HunterChickenCompatibilityFeature.cs",
+    "CRLF": 392,
+    "BareLF": 0,
+    "FirstLine": "using BepInEx.Logging;"
+  },
+  {
+    "Path": "ImprovedHunters\\src\\HunterMovingTargetPathfindingDiagnostic.cs",
+    "CRLF": 776,
+    "BareLF": 0,
+    "FirstLine": "using BepInEx.Logging;"
+  },
+  {
+    "Path": "ImprovedHunters\\src\\HunterNativeVisibilityProbe.cs",
+    "CRLF": 981,
+    "BareLF": 0,
+    "FirstLine": "using BepInEx.Logging;"
+  },
+  {
+    "Path": "ImprovedHunters\\src\\HunterPclReachability.cs",
+    "CRLF": 469,
+    "BareLF": 0,
+    "FirstLine": "using BepInEx.Logging;"
+  },
+  {
+    "Path": "ImprovedHunters\\src\\HunterPclReachabilityDiagnostic.cs",
+    "CRLF": 554,
+    "BareLF": 0,
+    "FirstLine": "using BepInEx.Logging;"
+  },
+  {
+    "Path": "ImprovedHunters\\src\\HunterPostShotContinuationDiagnostic.cs",
+    "CRLF": 1436,
+    "BareLF": 0,
+    "FirstLine": "using BepInEx.Logging;"
+  },
+  {
+    "Path": "ImprovedHunters\\src\\HunterProjectileObservationFeature.cs",
+    "CRLF": 188,
+    "BareLF": 0,
+    "FirstLine": "using SHCDESE.API;"
+  },
+  {
+    "Path": "ImprovedHunters\\src\\HunterRemainingPathSpeedRecovery.cs",
+    "CRLF": 900,
+    "BareLF": 0,
+    "FirstLine": "using BepInEx.Logging;"
+  },
+  {
+    "Path": "ImprovedHunters\\src\\HunterTargetSearchFallbackDiagnostic.cs",
+    "CRLF": 1241,
+    "BareLF": 0,
+    "FirstLine": "using BepInEx.Logging;"
+  },
+  {
+    "Path": "ImprovedHunters\\src\\HunterTargetSelectionFeature.cs",
+    "CRLF": 863,
+    "BareLF": 0,
+    "FirstLine": "using BepInEx.Logging;"
+  },
+  {
+    "Path": "ImprovedHunters\\src\\HunterVanillaPathContinuationDiagnostic.cs",
+    "CRLF": 1397,
+    "BareLF": 0,
+    "FirstLine": "using BepInEx.Logging;"
+  },
+  {
+    "Path": "ImprovedHunters\\src\\HunterVisibilityDiagnostic.cs",
+    "CRLF": 646,
+    "BareLF": 0,
+    "FirstLine": "using BepInEx.Logging;"
+  },
+  {
+    "Path": "ImprovedHunters\\src\\ImprovedHuntersRuntime.cs",
+    "CRLF": 2260,
+    "BareLF": 0,
+    "FirstLine": "using BepInEx.Logging;"
+  },
+  {
+    "Path": "ImprovedHunters\\src\\ManualChickenAttackPatch.cs",
+    "CRLF": 293,
+    "BareLF": 0,
+    "FirstLine": "using BepInEx.Logging;"
+  },
+  {
+    "Path": "RandomEvents\\src\\RandomEventsParticipantResolver.cs",
+    "CRLF": 69,
+    "BareLF": 0,
+    "FirstLine": "using SHCDESE.API;"
+  },
+  {
+    "Path": "RandomEvents\\src\\RandomEventsRuntime.cs",
+    "CRLF": 2683,
+    "BareLF": 0,
+    "FirstLine": "using BepInEx.Logging;"
+  },
+  {
+    "Path": "RandomEvents\\src\\ScenarioSignpostRegistry.cs",
+    "CRLF": 784,
+    "BareLF": 0,
+    "FirstLine": "using BepInEx.Logging;"
+  },
+  {
+    "Path": "StartConditions\\src\\StartConditionsRuntime.AIStartTroopIsolation.cs",
+    "CRLF": 897,
+    "BareLF": 0,
+    "FirstLine": "using R3;"
+  },
+  {
+    "Path": "Testmods\\AIDefenseTest\\src\\AIDefenseTestRuntime.cs",
+    "CRLF": 1573,
+    "BareLF": 0,
+    "FirstLine": "using BepInEx.Logging;"
+  },
+  {
+    "Path": "Testmods\\EnemyBridgePathTest\\src\\BridgeDecisionTrace.cs",
+    "CRLF": 1279,
+    "BareLF": 0,
+    "FirstLine": "using BepInEx.Logging;"
+  },
+  {
+    "Path": "Testmods\\EnemyBridgePathTest\\src\\BridgeDiagnostics.cs",
+    "CRLF": 506,
+    "BareLF": 0,
+    "FirstLine": "using APIShared;"
+  },
+  {
+    "Path": "Testmods\\EnemyBridgePathTest\\src\\BridgeRouteTrace.cs",
+    "CRLF": 342,
+    "BareLF": 0,
+    "FirstLine": "using SHCDESE.API;"
+  },
+  {
+    "Path": "Testmods\\EnemyGatePathfindingTest\\src\\AttackOrderCorrelationDiagnostics.cs",
+    "CRLF": 576,
+    "BareLF": 0,
+    "FirstLine": "using BepInEx.Logging;"
+  },
+  {
+    "Path": "Testmods\\EnemyGatePathfindingTest\\src\\SamePclGateRouteRuntime.cs",
+    "CRLF": 1600,
+    "BareLF": 0,
+    "FirstLine": "using BepInEx.Logging;"
+  },
+  {
+    "Path": "Testmods\\FormationTest\\src\\FormationTestRuntime.cs",
+    "CRLF": 2979,
+    "BareLF": 0,
+    "FirstLine": "using BepInEx.Configuration;"
+  },
+  {
+    "Path": "Testmods\\MoatMove\\src\\CursorConnectivity.cs",
+    "CRLF": 450,
+    "BareLF": 0,
+    "FirstLine": "using System;"
+  },
+  {
+    "Path": "Testmods\\MoatMove\\src\\DirectMoatCommandScopes.cs",
+    "CRLF": 440,
+    "BareLF": 0,
+    "FirstLine": "using SHCDESE.API;"
+  },
+  {
+    "Path": "Testmods\\MoatMove\\src\\FastGroupDistribution.cs",
+    "CRLF": 138,
+    "BareLF": 0,
+    "FirstLine": "using System;"
+  },
+  {
+    "Path": "Testmods\\MoatMove\\src\\FastMoatRouting.cs",
+    "CRLF": 274,
+    "BareLF": 0,
+    "FirstLine": "using System;"
+  },
+  {
+    "Path": "Testmods\\MoatMove\\src\\FastMovementScheduler.cs",
+    "CRLF": 478,
+    "BareLF": 0,
+    "FirstLine": "using System;"
+  },
+  {
+    "Path": "Testmods\\MoatMove\\src\\FillWeightedRoutes.cs",
+    "CRLF": 126,
+    "BareLF": 0,
+    "FirstLine": "using System;"
+  },
+  {
+    "Path": "Testmods\\MoatMove\\src\\FriendlyMoatMovementRuntime.cs",
+    "CRLF": 10003,
+    "BareLF": 0,
+    "FirstLine": "using BepInEx.Logging;"
+  },
+  {
+    "Path": "Testmods\\MoatMove\\src\\FriendlyMoatMovementRuntime.LadderAttackFix.cs",
+    "CRLF": 497,
+    "BareLF": 0,
+    "FirstLine": "using SHCDESE.API;"
+  },
+  {
+    "Path": "Testmods\\MoatMove\\src\\MoatPlacement.cs",
+    "CRLF": 384,
+    "BareLF": 0,
+    "FirstLine": "using System;"
+  },
+  {
+    "Path": "Testmods\\MoatMove\\src\\MoatWorkTargetSelection.cs",
+    "CRLF": 1358,
+    "BareLF": 0,
+    "FirstLine": "using RedBird.X64.Hooks.Transaction;"
+  },
+  {
+    "Path": "Testmods\\MoatMove\\src\\MovementPathPublication.cs",
+    "CRLF": 735,
+    "BareLF": 0,
+    "FirstLine": "using BepInEx.Logging;"
+  },
+  {
+    "Path": "Testmods\\MoatMove\\src\\MovementSearchContext.cs",
+    "CRLF": 189,
+    "BareLF": 0,
+    "FirstLine": "using SHCDESE.API;"
+  },
+  {
+    "Path": "Testmods\\MoatMove\\src\\NativeMovementRecovery.cs",
+    "CRLF": 317,
+    "BareLF": 0,
+    "FirstLine": "using System;"
+  },
+  {
+    "Path": "Testmods\\MoatMove\\src\\UnitMovementContext.cs",
+    "CRLF": 351,
+    "BareLF": 0,
+    "FirstLine": "using BepInEx.Logging;"
+  },
+  {
+    "Path": "Testmods\\MoatMove\\src\\WeightedMoatPublication.cs",
+    "CRLF": 422,
+    "BareLF": 0,
+    "FirstLine": "using BepInEx.Logging;"
+  },
+  {
+    "Path": "Testmods\\OutpostTest\\src\\OutpostRallyRuntime.cs",
+    "CRLF": 243,
+    "BareLF": 0,
+    "FirstLine": "using System;"
+  },
+  {
+    "Path": "Testmods\\OutpostTest\\src\\OutpostRuntime.cs",
+    "CRLF": 216,
+    "BareLF": 0,
+    "FirstLine": "using System;"
+  },
+  {
+    "Path": "Testmods\\SkinTest\\src\\SwordsmanSkinRuntime.cs",
+    "CRLF": 1096,
+    "BareLF": 0,
+    "FirstLine": "using APIShared;"
+  },
+  {
+    "Path": "Testmods\\SpectatorEditorBuildTest\\src\\SpectatorEditorBuildTestPlugin.cs",
+    "CRLF": 2304,
+    "BareLF": 0,
+    "FirstLine": "using APIShared;"
+  },
+  {
+    "Path": "Testmods\\StockpileAccessFixTest\\src\\StockpileAccessFixTestRuntime.cs",
+    "CRLF": 1350,
+    "BareLF": 0,
+    "FirstLine": "using BepInEx.Logging;"
+  },
+  {
+    "Path": "Testmods\\VirtualUnitsPrototype\\src\\VirtualEntityRuntime.cs",
+    "CRLF": 1060,
+    "BareLF": 0,
+    "FirstLine": "using APIShared;"
+  },
+  {
+    "Path": "UnitCosts\\src\\UnitCostsRuntime.cs",
+    "CRLF": 2166,
+    "BareLF": 0,
+    "FirstLine": "using BepInEx.Logging;"
+  },
+  {
+    "Path": "UnitLimit\\src\\ActiveUnitCache.cs",
+    "CRLF": 807,
+    "BareLF": 0,
+    "FirstLine": "using BepInEx.Logging;"
+  },
+  {
+    "Path": "APIShared\\APIShared.csproj",
+    "CRLF": 118,
+    "BareLF": 0,
+    "FirstLine": "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+  },
+  {
+    "Path": "APIShared\\build.bat",
+    "CRLF": 86,
+    "BareLF": 0,
+    "FirstLine": "@echo off"
+  },
+  {
+    "Path": "BugfixesAndQoL\\BugfixesAndQoL.csproj",
+    "CRLF": 365,
+    "BareLF": 0,
+    "FirstLine": "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+  },
+  {
+    "Path": "BugfixesAndQoL\\build.bat",
+    "CRLF": 167,
+    "BareLF": 0,
+    "FirstLine": "@echo off"
+  },
+  {
+    "Path": "BuildingLimit\\BuildingLimit.csproj",
+    "CRLF": 153,
+    "BareLF": 0,
+    "FirstLine": "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+  },
+  {
+    "Path": "BuildingLimit\\build.bat",
+    "CRLF": 149,
+    "BareLF": 0,
+    "FirstLine": "@echo off"
+  },
+  {
+    "Path": "ExtraFeatures\\ExtraFeatures.csproj",
+    "CRLF": 74,
+    "BareLF": 0,
+    "FirstLine": "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+  },
+  {
+    "Path": "ExtraFeatures\\build.bat",
+    "CRLF": 95,
+    "BareLF": 0,
+    "FirstLine": "@echo off"
+  },
+  {
+    "Path": "Helpers\\HunterQueryTargetDiagnostic\\HunterQueryTargetDiagnostic.csproj",
+    "CRLF": 106,
+    "BareLF": 0,
+    "FirstLine": "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+  },
+  {
+    "Path": "Helpers\\HunterQueryTargetDiagnostic\\build.bat",
+    "CRLF": 98,
+    "BareLF": 0,
+    "FirstLine": "@echo off"
+  },
+  {
+    "Path": "ImprovedHunters\\ImprovedHunters.csproj",
+    "CRLF": 202,
+    "BareLF": 0,
+    "FirstLine": "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+  },
+  {
+    "Path": "ImprovedHunters\\build.bat",
+    "CRLF": 156,
+    "BareLF": 0,
+    "FirstLine": "@echo off"
+  },
+  {
+    "Path": "RandomEvents\\RandomEvents.csproj",
+    "CRLF": 80,
+    "BareLF": 0,
+    "FirstLine": "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+  },
+  {
+    "Path": "RandomEvents\\build.bat",
+    "CRLF": 87,
+    "BareLF": 0,
+    "FirstLine": "@echo off"
+  },
+  {
+    "Path": "StartConditions\\StartConditions.csproj",
+    "CRLF": 160,
+    "BareLF": 0,
+    "FirstLine": "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+  },
+  {
+    "Path": "StartConditions\\build.bat",
+    "CRLF": 171,
+    "BareLF": 0,
+    "FirstLine": "@echo off"
+  },
+  {
+    "Path": "Testmods\\AIDefenseTest\\AIDefenseTest.csproj",
+    "CRLF": 110,
+    "BareLF": 0,
+    "FirstLine": "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+  },
+  {
+    "Path": "Testmods\\AIDefenseTest\\build.bat",
+    "CRLF": 155,
+    "BareLF": 0,
+    "FirstLine": "@echo off"
+  },
+  {
+    "Path": "Testmods\\EnemyBridgePathTest\\EnemyBridgePathTest.csproj",
+    "CRLF": 80,
+    "BareLF": 0,
+    "FirstLine": "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+  },
+  {
+    "Path": "Testmods\\EnemyBridgePathTest\\build.bat",
+    "CRLF": 117,
+    "BareLF": 0,
+    "FirstLine": "@echo off"
+  },
+  {
+    "Path": "Testmods\\EnemyGatePathfindingTest\\EnemyGatePathfindingTest.csproj",
+    "CRLF": 89,
+    "BareLF": 0,
+    "FirstLine": "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+  },
+  {
+    "Path": "Testmods\\EnemyGatePathfindingTest\\build.bat",
+    "CRLF": 111,
+    "BareLF": 0,
+    "FirstLine": "@echo off"
+  },
+  {
+    "Path": "Testmods\\FormationTest\\FormationTest.csproj",
+    "CRLF": 77,
+    "BareLF": 0,
+    "FirstLine": "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+  },
+  {
+    "Path": "Testmods\\FormationTest\\build.bat",
+    "CRLF": 55,
+    "BareLF": 0,
+    "FirstLine": "@echo off"
+  },
+  {
+    "Path": "Testmods\\MoatMove\\MoatMove.csproj",
+    "CRLF": 92,
+    "BareLF": 0,
+    "FirstLine": "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+  },
+  {
+    "Path": "Testmods\\MoatMove\\build.bat",
+    "CRLF": 36,
+    "BareLF": 0,
+    "FirstLine": "@echo off"
+  },
+  {
+    "Path": "Testmods\\OutpostTest\\OutpostTest.csproj",
+    "CRLF": 44,
+    "BareLF": 0,
+    "FirstLine": "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+  },
+  {
+    "Path": "Testmods\\OutpostTest\\build.bat",
+    "CRLF": 13,
+    "BareLF": 0,
+    "FirstLine": "@echo off"
+  },
+  {
+    "Path": "Testmods\\SkinTest\\SkinTest.csproj",
+    "CRLF": 70,
+    "BareLF": 0,
+    "FirstLine": "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+  },
+  {
+    "Path": "Testmods\\SkinTest\\build.bat",
+    "CRLF": 61,
+    "BareLF": 0,
+    "FirstLine": "@echo off"
+  },
+  {
+    "Path": "Testmods\\SpectatorEditorBuildTest\\SpectatorEditorBuildTest.csproj",
+    "CRLF": 47,
+    "BareLF": 0,
+    "FirstLine": "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+  },
+  {
+    "Path": "Testmods\\SpectatorEditorBuildTest\\build.bat",
+    "CRLF": 43,
+    "BareLF": 0,
+    "FirstLine": "@echo off"
+  },
+  {
+    "Path": "Testmods\\StockpileAccessFixTest\\StockpileAccessFixTest.csproj",
+    "CRLF": 67,
+    "BareLF": 0,
+    "FirstLine": "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+  },
+  {
+    "Path": "Testmods\\StockpileAccessFixTest\\build.bat",
+    "CRLF": 94,
+    "BareLF": 0,
+    "FirstLine": "@echo off"
+  },
+  {
+    "Path": "Testmods\\VirtualUnitsPrototype\\VirtualUnitsPrototype.csproj",
+    "CRLF": 61,
+    "BareLF": 0,
+    "FirstLine": "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+  },
+  {
+    "Path": "Testmods\\VirtualUnitsPrototype\\build.bat",
+    "CRLF": 53,
+    "BareLF": 0,
+    "FirstLine": "@echo off"
+  },
+  {
+    "Path": "UnitCosts\\UnitCosts.csproj",
+    "CRLF": 161,
+    "BareLF": 0,
+    "FirstLine": "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+  },
+  {
+    "Path": "UnitCosts\\build.bat",
+    "CRLF": 148,
+    "BareLF": 0,
+    "FirstLine": "@echo off"
+  },
+  {
+    "Path": "UnitLimit\\UnitLimit.csproj",
+    "CRLF": 172,
+    "BareLF": 0,
+    "FirstLine": "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+  },
+  {
+    "Path": "UnitLimit\\build.bat",
+    "CRLF": 150,
+    "BareLF": 0,
+    "FirstLine": "@echo off"
+  },
+  {
+    "Path": "StartConditions\\src\\StartConditionsRuntime.StartTroops.cs",
+    "CRLF": 508,
+    "BareLF": 0,
+    "FirstLine": "using BepInEx.Logging;"
+  },
+  {
+    "Path": "APIShared\\src\\UnitAccess.cs",
+    "CRLF": 100,
+    "BareLF": 0,
+    "FirstLine": "using BepInEx.Logging;"
+  },
+  {
+    "Path": "APIShared\\src\\APISharedPlugin.cs",
+    "CRLF": 77,
+    "BareLF": 0,
+    "FirstLine": "using BepInEx;"
+  },
+  {
+    "Path": "Shared\\Test-UnitAccess.ps1",
+    "CRLF": 11,
+    "BareLF": 0,
+    "FirstLine": "[CmdletBinding()]"
+  },
+  {
+    "Path": "Helpers\\HunterQueryTargetDiagnostic\\info.json",
+    "CRLF": 33,
+    "BareLF": 0,
+    "FirstLine": "{"
+  },
+  {
+    "Path": "Testmods\\FormationTest\\src\\FormationTestPlugin.cs",
+    "CRLF": 147,
+    "BareLF": 0,
+    "FirstLine": "using BepInEx;"
+  },
+  {
+    "Path": "Testmods\\FormationTest\\info.json",
+    "CRLF": 27,
+    "BareLF": 0,
+    "FirstLine": "{"
+  },
+  {
+    "Path": "BugfixesAndQoL\\tests\\Program.cs",
+    "CRLF": 6186,
+    "BareLF": 0,
+    "FirstLine": "using VanillaFootprintCandidate = APIShared.GatehouseFootprintCandidate;"
+  },
+  {
+    "Path": "Testmods\\SkinTest\\tests\\Program.cs",
+    "CRLF": 694,
+    "BareLF": 0,
+    "FirstLine": "using SHCDESE.Interop;"
+  },
+  {
+    "Path": "Testmods\\EnemyGatePathfindingTest\\tests\\Program.cs",
+    "CRLF": 2348,
+    "BareLF": 0,
+    "FirstLine": "using System;"
+  },
+  {
+    "Path": "_inspect\\BugfixesAndQoLNativeTests\\Program.cs",
+    "CRLF": 1413,
+    "BareLF": 0,
+    "FirstLine": "using System;"
+  },
+  {
+    "Path": "BugfixesAndQoL\\tests\\FriendlyMoatMovement.Tests\\Program.cs",
+    "CRLF": 777,
+    "BareLF": 0,
+    "FirstLine": "using Microsoft.CodeAnalysis;"
+  },
+  {
+    "Path": "BugfixesAndQoL\\tests\\FriendlyMoatMovement.Tests\\RuntimeHarness.cs",
+    "CRLF": 1269,
+    "BareLF": 0,
+    "FirstLine": "using System.Linq;"
+  },
+  {
+    "Path": "Testmods\\MoatMove\\tests\\Program.cs",
+    "CRLF": 462,
+    "BareLF": 0,
+    "FirstLine": "using Microsoft.CodeAnalysis;"
+  },
+  {
+    "Path": "Testmods\\MoatMove\\tests\\RuntimeHarness.cs",
+    "CRLF": 1223,
+    "BareLF": 0,
+    "FirstLine": "using System.Linq;"
+  },
+  {
+    "Path": "Testmods\\MoatMove\\tests\\StandaloneContracts.cs",
+    "CRLF": 165,
+    "BareLF": 0,
+    "FirstLine": "using System.Reflection;"
+  },
+  {
+    "Path": "Testmods\\MoatMove\\UNIT_ACCESS_PROVENANCE.json",
+    "CRLF": 80,
+    "BareLF": 0,
+    "FirstLine": "{"
+  },
+  {
+    "Path": "_inspect\\Test-ExtraFeaturesSessionCallbacks.ps1",
+    "CRLF": 241,
+    "BareLF": 0,
+    "FirstLine": "$ErrorActionPreference='Stop'"
+  },
+  {
+    "Path": "_inspect\\ExtraFeaturesSessionTests\\ExtraFeaturesSessionTests.csproj",
+    "CRLF": 23,
+    "BareLF": 0,
+    "FirstLine": "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+  },
+  {
+    "Path": "_inspect\\TemporaryGateAcceptanceRuntimeTests\\Program.cs",
+    "CRLF": 31,
+    "BareLF": 0,
+    "FirstLine": "// TEMP_GATE_ROUTE_ACCEPTANCE: execute actual diagnostic modules and actual weighted-edge producer with isolated API/memory fixtures."
+  },
+  {
+    "Path": "_inspect\\TemporaryGateAcceptanceRuntimeTests\\Fixture.cs",
+    "CRLF": 270,
+    "BareLF": 0,
+    "FirstLine": "// TEMP_GATE_ROUTE_ACCEPTANCE: fixtures model memory/API contracts only; productive sources are compiled unmodified."
+  },
+  {
+    "Path": "Testmods\\OutpostTest\\Build-OutpostTest.ps1",
+    "CRLF": 40,
+    "BareLF": 0,
+    "FirstLine": "param([switch]$NoInstall)"
+  },
+  {
+    "Path": "_inspect\\UnitIdAccess\\fixtures.py",
+    "CRLF": 31,
+    "BareLF": 0,
+    "FirstLine": "from pathlib import Path"
+  },
+  {
+    "Path": "_inspect\\UnitIdAccess\\indirect.json",
+    "CRLF": 641,
+    "BareLF": 0,
+    "FirstLine": "["
+  },
+  {
+    "Path": "_inspect\\UnitIdAccess\\indirect.py",
+    "CRLF": 25,
+    "BareLF": 0,
+    "FirstLine": "from pathlib import Path"
+  },
+  {
+    "Path": "_inspect\\UnitIdAccess\\Inspect-Installed.ps1",
+    "CRLF": 45,
+    "BareLF": 0,
+    "FirstLine": "$ErrorActionPreference = 'Stop'"
+  },
+  {
+    "Path": "_inspect\\UnitIdAccess\\installed-unit-calls.json",
+    "CRLF": 5491,
+    "BareLF": 0,
+    "FirstLine": "["
+  },
+  {
+    "Path": "_inspect\\UnitIdAccess\\inventory.json",
+    "CRLF": 805,
+    "BareLF": 0,
+    "FirstLine": "{"
+  },
+  {
+    "Path": "_inspect\\UnitIdAccess\\inventory.py",
+    "CRLF": 45,
+    "BareLF": 0,
+    "FirstLine": "from pathlib import Path"
+  },
+  {
+    "Path": "_inspect\\UnitIdAccess\\latest-run.json",
+    "CRLF": 252,
+    "BareLF": 0,
+    "FirstLine": "{"
+  },
+  {
+    "Path": "_inspect\\UnitIdAccess\\latest-run.txt",
+    "CRLF": 22,
+    "BareLF": 0,
+    "FirstLine": "[Info   :   BepInEx] Loading [UU-ImGUI API 1.6.7]"
+  },
+  {
+    "Path": "_inspect\\UnitIdAccess\\migrate_indirect.py",
+    "CRLF": 30,
+    "BareLF": 0,
+    "FirstLine": "from pathlib import Path"
+  },
+  {
+    "Path": "_inspect\\UnitIdAccess\\migrate.py",
+    "CRLF": 55,
+    "BareLF": 0,
+    "FirstLine": "from pathlib import Path"
+  },
+  {
+    "Path": "_inspect\\UnitIdAccess\\Normalize-Text.ps1",
+    "CRLF": 45,
+    "BareLF": 0,
+    "FirstLine": "$ErrorActionPreference = 'Stop'"
+  },
+  {
+    "Path": "_inspect\\UnitIdAccess\\prepare.py",
+    "CRLF": 62,
+    "BareLF": 0,
+    "FirstLine": "from pathlib import Path"
+  },
+  {
+    "Path": "_inspect\\UnitIdAccess\\RESULTS.txt",
+    "CRLF": 36,
+    "BareLF": 0,
+    "FirstLine": "Unit-ID access review — 2026-10-07"
+  },
+  {
+    "Path": "_inspect\\UnitIdAccess\\snapshot.py",
+    "CRLF": 38,
+    "BareLF": 0,
+    "FirstLine": "from pathlib import Path"
+  },
+  {
+    "Path": "_inspect\\UnitIdAccess\\text-check.json",
+    "CRLF": 1022,
+    "BareLF": 0,
+    "FirstLine": "["
+  },
+  {
+    "Path": "_inspect\\UnitIdAccess\\Tests\\Program.cs",
+    "CRLF": 159,
+    "BareLF": 0,
+    "FirstLine": "using APIShared;"
+  },
+  {
+    "Path": "_inspect\\UnitIdAccess\\Tests\\UnitAccess.Tests.csproj",
+    "CRLF": 8,
+    "BareLF": 0,
+    "FirstLine": "<Project Sdk=\"Microsoft.NET.Sdk\">"
+  }
+]

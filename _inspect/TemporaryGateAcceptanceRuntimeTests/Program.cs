@@ -5,7 +5,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System.Reflection;
 string root = Path.GetFullPath(args[0]);
 string[] files = {
-    "APIShared/src/TemporaryGateRouteAcceptanceBridge.cs", "Shared/TemporaryPackedRouteInspection.cs",
+    "APIShared/src/TemporaryGateRouteAcceptanceBridge.cs", "APIShared/src/UnitAccess.cs", "Shared/TemporaryPackedRouteInspection.cs",
     "BugfixesAndQoL/src/TemporaryGateRouteReporting.cs", "Testmods/EnemyGatePathfindingTest/src/TemporaryGateRouteAcceptance.cs",
     "Testmods/EnemyGatePathfindingTest/src/TemporaryGateAcceptanceAggregate.cs", "Testmods/EnemyGatePathfindingTest/src/RouteTilePolicySnapshot.cs",
     "Testmods/EnemyGatePathfindingTest/src/GateEdgeOwnership.cs"

@@ -226,7 +226,7 @@ namespace EnemyBridgePathTest
             {
                 frame.Player = tribe->r_PlayerIdOwner; frame.Global=tribe->r_GlobalId;
                 frame.Identity = "tribe=" + tribeId + "/g" + tribe->r_GlobalId + ",leader=" + tribe->r_LeaderUnitId;
-                if (GameUnitManagerAPI.Instance.IsValidId(tribe->r_LeaderUnitId) && GameUnitManagerAPI.Instance.TryGetUnitById(tribe->r_LeaderUnitId, out GameUnit* leader) && leader != null)
+                if (GameUnitManagerAPI.Instance.IsValidId(tribe->r_LeaderUnitId) && APIShared.UnitAccess.TryGetById(tribe->r_LeaderUnitId, out GameUnit* leader, out _) && leader != null)
                 {
                     frame.StartX=leader->r_CurrentTilePositionX;frame.StartY=leader->r_CurrentTilePositionY;
                     frame.SourcePcl = Pcl(frame.StartX,frame.StartY);
@@ -393,7 +393,7 @@ namespace EnemyBridgePathTest
                     var frame = new Frame { Kind = "unit", Id = args.UnitId, X = args.TileX, Y = args.TileY,
                         PreEvent = args,
                         SourcePcl = -1, TargetPcl = Pcl(args.TileX, args.TileY), Identity = "unit-unavailable" };
-                    if (GameUnitManagerAPI.Instance.IsValidId(args.UnitId) && GameUnitManagerAPI.Instance.TryGetUnitById(args.UnitId, out GameUnit* unit) && unit != null)
+                    if (GameUnitManagerAPI.Instance.IsValidId(args.UnitId) && APIShared.UnitAccess.TryGetById(args.UnitId, out GameUnit* unit, out _) && unit != null)
                     {
                         frame.Global=unit->r_GlobalId;frame.StartX=unit->r_CurrentTilePositionX;frame.StartY=unit->r_CurrentTilePositionY;
                         frame.Tribe = unit->r_TribeId; frame.Command = unit->r_AI_LastIssuedTribeCommand;

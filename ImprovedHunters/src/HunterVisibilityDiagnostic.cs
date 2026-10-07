@@ -183,7 +183,7 @@ namespace ImprovedHunters
             try
             {
                 GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
-                if (!unitApi.TryGetUnitById(hunterUnitId, out GameUnit* hunter) ||
+                if (!APIShared.UnitAccess.TryGetById(unitApi, hunterUnitId, out GameUnit* hunter, out _) ||
                     hunter == null ||
                     hunter->r_UnitChimp != eChimps.CHIMP_TYPE_HUNTER ||
                     !TryResolveChicken(unitApi, chickenUnitId, chickenGlobalId, out GameUnit* chicken))
@@ -500,7 +500,7 @@ namespace ImprovedHunters
             chicken = null;
             return unitId > 0 &&
                 globalId != 0 &&
-                unitApi.TryGetUnitById(unitId, out chicken) &&
+                APIShared.UnitAccess.TryGetById(unitApi, unitId, out chicken, out _) &&
                 chicken != null &&
                 chicken->r_GlobalId == globalId &&
                 chicken->r_UnitChimp == eChimps.CHIMP_TYPE_CHICKEN;

@@ -1,0 +1,806 @@
+{
+  "files": [
+    {
+      "path": "APIShared\\src\\PlayerDefeatCapability.cs",
+      "project": "APIShared\\APIShared.csproj",
+      "sha256": "3cceb0e9aecc25d44698ebae025c5b05c2e595ca2bae15efcab52bb49a27cee4",
+      "calls": 1
+    },
+    {
+      "path": "APIShared\\src\\UnitHudPresentationCapability.cs",
+      "project": "APIShared\\APIShared.csproj",
+      "sha256": "0bbe75365f6e49e6d678760e9677877b7574ab21c4f68e8c0be67db34a5d66af",
+      "calls": 1
+    },
+    {
+      "path": "BugfixesAndQoL\\src\\AiDefensePatrolFix.cs",
+      "project": "BugfixesAndQoL\\BugfixesAndQoL.csproj",
+      "sha256": "43d1cc64d27880a360904b3901aff9b895f795230fe005835c5f0e6738fc6993",
+      "calls": 1
+    },
+    {
+      "path": "BugfixesAndQoL\\src\\AiRaidRetargetFixRuntime.cs",
+      "project": "BugfixesAndQoL\\BugfixesAndQoL.csproj",
+      "sha256": "bc17bdfcf15f80607ac34a1c2f06dbc601ace569a56524176e3199fdfc7f5805",
+      "calls": 1
+    },
+    {
+      "path": "BugfixesAndQoL\\src\\AssassinClimbCancellationRuntime.cs",
+      "project": "BugfixesAndQoL\\BugfixesAndQoL.csproj",
+      "sha256": "0df5cfb0e3324bd5ef1e47c6a1104c339423551d0e9cb99b51011db274e63101",
+      "calls": 1
+    },
+    {
+      "path": "BugfixesAndQoL\\src\\AssassinClimbRuntime.cs",
+      "project": "BugfixesAndQoL\\BugfixesAndQoL.csproj",
+      "sha256": "5b9cb63a45c4a5f25db7e7c0cb52533f989c548d122ae3d96824f0cb63673c86",
+      "calls": 2
+    },
+    {
+      "path": "BugfixesAndQoL\\src\\CorruptLordDataSpawnRuntime.cs",
+      "project": "BugfixesAndQoL\\BugfixesAndQoL.csproj",
+      "sha256": "5343c7feac97512a04a41e418c58f9538ab4f1b3d35a52d0628c0f0ae029d3b4",
+      "calls": 2
+    },
+    {
+      "path": "BugfixesAndQoL\\src\\CursorConnectivity.cs",
+      "project": "BugfixesAndQoL\\BugfixesAndQoL.csproj",
+      "sha256": "29bb131632f16c0b62d96b132547e352a3c7a7c2517d6a80598379e3dfe7a74f",
+      "calls": 3
+    },
+    {
+      "path": "BugfixesAndQoL\\src\\DirectMoatCommandScopes.cs",
+      "project": "BugfixesAndQoL\\BugfixesAndQoL.csproj",
+      "sha256": "c8855f04b2a199cdb9ea7290f8306de7059256b6d72e0711cc627cbe9a42e8c4",
+      "calls": 2
+    },
+    {
+      "path": "BugfixesAndQoL\\src\\ExtendedShiftCommandQueueRuntime.cs",
+      "project": "BugfixesAndQoL\\BugfixesAndQoL.csproj",
+      "sha256": "7ffad61ca4cb1407f35477a3f508f492d71d43725b721d548c5201c5fc2774f5",
+      "calls": 7
+    },
+    {
+      "path": "BugfixesAndQoL\\src\\FillWeightedRoutes.cs",
+      "project": "BugfixesAndQoL\\BugfixesAndQoL.csproj",
+      "sha256": "8a3f4092053d20a1d6bb5d88c032445ffe7b96a97ea2d1874932ef0689f910ed",
+      "calls": 3
+    },
+    {
+      "path": "BugfixesAndQoL\\src\\FriendlyMoatMovementRuntime.cs",
+      "project": "BugfixesAndQoL\\BugfixesAndQoL.csproj",
+      "sha256": "24f4e9a459b49aa81e618d6b30961554efb8de462398e0c0e606765a83f49851",
+      "calls": 37
+    },
+    {
+      "path": "BugfixesAndQoL\\src\\FriendlyMoatMovementRuntime.LadderAttackFix.cs",
+      "project": "BugfixesAndQoL\\BugfixesAndQoL.csproj",
+      "sha256": "93303e03a8009f227edfe6626ad45ca44cf88a38c18177024d733649eadc5f6f",
+      "calls": 1
+    },
+    {
+      "path": "BugfixesAndQoL\\src\\LordUnitControlsFeature.cs",
+      "project": "BugfixesAndQoL\\BugfixesAndQoL.csproj",
+      "sha256": "94e3547aca3581f74429ed29229b5c161208ecf335e71ed5d921e9b31ac3bdb1",
+      "calls": 2
+    },
+    {
+      "path": "BugfixesAndQoL\\src\\LordUnitHudRegistration.cs",
+      "project": "BugfixesAndQoL\\BugfixesAndQoL.csproj",
+      "sha256": "d0a519be7b7364ef3003b174a1126e10898b64c49c9531a0e8511226a15904e4",
+      "calls": 1
+    },
+    {
+      "path": "BugfixesAndQoL\\src\\MoatPlacement.cs",
+      "project": "BugfixesAndQoL\\BugfixesAndQoL.csproj",
+      "sha256": "f71979f0c62be237330a3ed8bd658e6b7575d6af7863caa03df6c51a299ad00f",
+      "calls": 3
+    },
+    {
+      "path": "BugfixesAndQoL\\src\\MoatWorkTargetSelection.cs",
+      "project": "BugfixesAndQoL\\BugfixesAndQoL.csproj",
+      "sha256": "bd7a35f32b41169821d2b8bfc8b0d0cafc2b03666ec905813cace9d9af6542be",
+      "calls": 6
+    },
+    {
+      "path": "BugfixesAndQoL\\src\\MountedStockpileMovementPatch.cs",
+      "project": "BugfixesAndQoL\\BugfixesAndQoL.csproj",
+      "sha256": "f50ea654b5e7ee70ad22081b0f0afdff23582d1042ad3ac41351efd87e627ee8",
+      "calls": 2
+    },
+    {
+      "path": "BugfixesAndQoL\\src\\MoveFormationDragRuntime.cs",
+      "project": "BugfixesAndQoL\\BugfixesAndQoL.csproj",
+      "sha256": "a41f0a767b796c22caa7e532aa51f86607f67186b531edcf96057e2ec257fbac",
+      "calls": 1
+    },
+    {
+      "path": "BugfixesAndQoL\\src\\MovementPathPublication.cs",
+      "project": "BugfixesAndQoL\\BugfixesAndQoL.csproj",
+      "sha256": "cd76d88cffa887e2c4c210aa026194c984e11b307e3ff96da17c8530b1fa19b2",
+      "calls": 5
+    },
+    {
+      "path": "BugfixesAndQoL\\src\\MovementSearchContext.cs",
+      "project": "BugfixesAndQoL\\BugfixesAndQoL.csproj",
+      "sha256": "a6e7295c80641a7ed6c690bd61dffe9309a1d464a91ebabc9ad654c530fa0e66",
+      "calls": 1
+    },
+    {
+      "path": "BugfixesAndQoL\\src\\NativeMovementRecovery.cs",
+      "project": "BugfixesAndQoL\\BugfixesAndQoL.csproj",
+      "sha256": "553a2905e217a84328f057cb743228c62000b8f28fb57d2ce95d0bbd15be7b33",
+      "calls": 3
+    },
+    {
+      "path": "BugfixesAndQoL\\src\\PlagueApothecaryStateTransitionFix.cs",
+      "project": "BugfixesAndQoL\\BugfixesAndQoL.csproj",
+      "sha256": "db2e359b6d0a380a3a4db62ddb57389ce7ea2fe5d5f55101d90b08aa2df7721e",
+      "calls": 1
+    },
+    {
+      "path": "BugfixesAndQoL\\src\\PlagueTargetReservationFix.cs",
+      "project": "BugfixesAndQoL\\BugfixesAndQoL.csproj",
+      "sha256": "880d832265267c115240d37992ed3e9194c375cef8802cbea774e259f66250c2",
+      "calls": 2
+    },
+    {
+      "path": "BugfixesAndQoL\\src\\PlagueTreatmentFadeFix.cs",
+      "project": "BugfixesAndQoL\\BugfixesAndQoL.csproj",
+      "sha256": "8e1608f28f611a863a5c0914c5bbf15c5124b25462fa3fe45953ab4ed33547da",
+      "calls": 1
+    },
+    {
+      "path": "BugfixesAndQoL\\src\\ReachableEnemyGatehouseRuntime.cs",
+      "project": "BugfixesAndQoL\\BugfixesAndQoL.csproj",
+      "sha256": "05e92b66130de8bf973dbec927c158474c2b96ab3b02135b0f45badedab21611",
+      "calls": 1
+    },
+    {
+      "path": "BugfixesAndQoL\\src\\SelectedUnitHealthFeature.cs",
+      "project": "BugfixesAndQoL\\BugfixesAndQoL.csproj",
+      "sha256": "5cc566fd66eb556255d58c15b5db4fd932512bb662564f72b58b1291a8196e3d",
+      "calls": 3
+    },
+    {
+      "path": "BugfixesAndQoL\\src\\SiegeAmmoRestockFeature.cs",
+      "project": "BugfixesAndQoL\\BugfixesAndQoL.csproj",
+      "sha256": "ac53196086ea044bfe680ea97d9813349ec5b0044c1f3cec0499637e182b4238",
+      "calls": 2
+    },
+    {
+      "path": "BugfixesAndQoL\\src\\SpectatorPerspectiveRuntime.cs",
+      "project": "BugfixesAndQoL\\BugfixesAndQoL.csproj",
+      "sha256": "5ca98a76863e4df68e412458cc77853fb4290073f29fb06f742e51ffa6920e3c",
+      "calls": 1
+    },
+    {
+      "path": "BugfixesAndQoL\\src\\SurrenderFeature.cs",
+      "project": "BugfixesAndQoL\\BugfixesAndQoL.csproj",
+      "sha256": "5001165ef7495b25ba59e023ebd79506f921a4ebcee75ecc48ab041c9d64609a",
+      "calls": 2
+    },
+    {
+      "path": "BugfixesAndQoL\\src\\TemporaryGateRouteReporting.cs",
+      "project": "BugfixesAndQoL\\BugfixesAndQoL.csproj",
+      "sha256": "f999c7b21b758d6bbe9c0f089e9d3e57769a1c0ed23fa7cbdcabeed6374ccb9b",
+      "calls": 2
+    },
+    {
+      "path": "BugfixesAndQoL\\src\\TroopHudMiddleClickCameraFeature.cs",
+      "project": "BugfixesAndQoL\\BugfixesAndQoL.csproj",
+      "sha256": "fe5ef1b9f917f1990c2290df24cc4325d02e86006fdf8aa91f45c2bd1b67f6b6",
+      "calls": 1
+    },
+    {
+      "path": "BugfixesAndQoL\\src\\TroopMovementFix3Runtime.cs",
+      "project": "BugfixesAndQoL\\BugfixesAndQoL.csproj",
+      "sha256": "39d32db9cb56f4d6b3ecdf12b206bb281097218344cec3f1930949a6fb98d964",
+      "calls": 2
+    },
+    {
+      "path": "BugfixesAndQoL\\src\\UnitMovementContext.cs",
+      "project": "BugfixesAndQoL\\BugfixesAndQoL.csproj",
+      "sha256": "fa05a129df819678f4645d70db2674d28f83e9490a62ab009652cb9fc2646b95",
+      "calls": 2
+    },
+    {
+      "path": "BugfixesAndQoL\\src\\WaterboyTargetReservationRuntime.cs",
+      "project": "BugfixesAndQoL\\BugfixesAndQoL.csproj",
+      "sha256": "a05c8365825ae041128d3484add2e2d877ebaebb9f9346ac0f145dcfc3210277",
+      "calls": 3
+    },
+    {
+      "path": "BugfixesAndQoL\\src\\WeightedMoatPublication.cs",
+      "project": "BugfixesAndQoL\\BugfixesAndQoL.csproj",
+      "sha256": "afd9da73793f99c03cb2bb3f6084d1c96da480ed64f99ab1837c4a2aa3127f1a",
+      "calls": 4
+    },
+    {
+      "path": "BuildingLimit\\src\\TowerSiegeUnitCache.cs",
+      "project": "BuildingLimit\\BuildingLimit.csproj",
+      "sha256": "dcbc3e5d03f14e8867ae47c0349865dbffadde76f3c0952fe6921e8428535637",
+      "calls": 3
+    },
+    {
+      "path": "ExtraFeatures\\src\\GatehouseAutomationRuntime.cs",
+      "project": "ExtraFeatures\\ExtraFeatures.csproj",
+      "sha256": "31352fb7a9d6efd059bf5a5cfafbd3d214a2442964128bdc3ccc8fd48e87601b",
+      "calls": 1
+    },
+    {
+      "path": "ExtraFeatures\\src\\KnightDismountDelayRuntime.cs",
+      "project": "ExtraFeatures\\ExtraFeatures.csproj",
+      "sha256": "41f8e44780a2a4b994efbd2b2a7756a5aaf228d04767d524a3d8c038fceac7aa",
+      "calls": 18
+    },
+    {
+      "path": "ExtraFeatures\\src\\KnightDismountRuntime.cs",
+      "project": "ExtraFeatures\\ExtraFeatures.csproj",
+      "sha256": "1c5984cb29b3b9f2a0020988a946013df02554abfaf494f0ad495467098affd2",
+      "calls": 19
+    },
+    {
+      "path": "ExtraFeatures\\src\\LordHealthRuntime.cs",
+      "project": "ExtraFeatures\\ExtraFeatures.csproj",
+      "sha256": "54eb46c43e4b15d9b7aa65afdd3531543fee1129e3798f7929b553b57753a512",
+      "calls": 2
+    },
+    {
+      "path": "Helpers\\HunterQueryTargetDiagnostic\\src\\HunterQueryTargetDiagnosticPlugin.cs",
+      "project": "Helpers\\HunterQueryTargetDiagnostic\\HunterQueryTargetDiagnostic.csproj",
+      "sha256": "8180a8b618fb531c1611ca3b173bf826f64eb4e7b75fa4e146dbf8064cb92eac",
+      "calls": 3
+    },
+    {
+      "path": "ImprovedHunters\\src\\HunterActiveTargetVisibilitySnapshot.cs",
+      "project": "ImprovedHunters\\ImprovedHunters.csproj",
+      "sha256": "a87d28d91803fdc425bc3d402fc628cdb4d523dc09e499fb5fdddb560bfd15cf",
+      "calls": 1
+    },
+    {
+      "path": "ImprovedHunters\\src\\HunterChickenCompatibilityFeature.cs",
+      "project": "ImprovedHunters\\ImprovedHunters.csproj",
+      "sha256": "857281a1883be24b4038efa118576d1cb0089cc37d692e498b6648c9c2850ba1",
+      "calls": 2
+    },
+    {
+      "path": "ImprovedHunters\\src\\HunterMovingTargetPathfindingDiagnostic.cs",
+      "project": "ImprovedHunters\\ImprovedHunters.csproj",
+      "sha256": "28e984858334458c56111efd07aaf61c8a172d01c50f12500b1104fb9bb9ccd9",
+      "calls": 6
+    },
+    {
+      "path": "ImprovedHunters\\src\\HunterNativeVisibilityProbe.cs",
+      "project": "ImprovedHunters\\ImprovedHunters.csproj",
+      "sha256": "88b13c8eff95575d2e32ab9f2ac41d801d39b22fd320b214f35cc2ee4d4fe083",
+      "calls": 6
+    },
+    {
+      "path": "ImprovedHunters\\src\\HunterPclReachability.cs",
+      "project": "ImprovedHunters\\ImprovedHunters.csproj",
+      "sha256": "7c745792b8ac38f4e5fafda983e2864e016454434f52daafee2372c72f4bc585",
+      "calls": 2
+    },
+    {
+      "path": "ImprovedHunters\\src\\HunterPclReachabilityDiagnostic.cs",
+      "project": "ImprovedHunters\\ImprovedHunters.csproj",
+      "sha256": "0bdd06e9a2c9d2cf811c5e8299012df7d430e713750e09e28cc4b9bb907635cb",
+      "calls": 2
+    },
+    {
+      "path": "ImprovedHunters\\src\\HunterPostShotContinuationDiagnostic.cs",
+      "project": "ImprovedHunters\\ImprovedHunters.csproj",
+      "sha256": "278b68704c0eec13d282aba33ff60a46512e30beb5cb15e66cbdb28a22b84abc",
+      "calls": 2
+    },
+    {
+      "path": "ImprovedHunters\\src\\HunterProjectileObservationFeature.cs",
+      "project": "ImprovedHunters\\ImprovedHunters.csproj",
+      "sha256": "bd17ebaa374abc9424a8b7f8c83b43489b655eef8e125db7030f4d801baf05bb",
+      "calls": 3
+    },
+    {
+      "path": "ImprovedHunters\\src\\HunterRemainingPathSpeedRecovery.cs",
+      "project": "ImprovedHunters\\ImprovedHunters.csproj",
+      "sha256": "88557b615e5490b9bc45058c6052252886a2d6f9273a87ed1af0dcb4c3f1438e",
+      "calls": 2
+    },
+    {
+      "path": "ImprovedHunters\\src\\HunterTargetSearchFallbackDiagnostic.cs",
+      "project": "ImprovedHunters\\ImprovedHunters.csproj",
+      "sha256": "760861d6257ca617e6f45495731d9c8641b2002ca3ea6bdafbbaac28ac6a2bed",
+      "calls": 8
+    },
+    {
+      "path": "ImprovedHunters\\src\\HunterTargetSelectionFeature.cs",
+      "project": "ImprovedHunters\\ImprovedHunters.csproj",
+      "sha256": "6814563bc051afd14d7a7b2cc342af59bb72fd1e764c4b2788fbd7916ee18421",
+      "calls": 3
+    },
+    {
+      "path": "ImprovedHunters\\src\\HunterVanillaPathContinuationDiagnostic.cs",
+      "project": "ImprovedHunters\\ImprovedHunters.csproj",
+      "sha256": "a6eaaafdfd64010876cfc0848024e0f2d72cacff6f0969fbb363a4eaec31f8d4",
+      "calls": 2
+    },
+    {
+      "path": "ImprovedHunters\\src\\HunterVisibilityDiagnostic.cs",
+      "project": "ImprovedHunters\\ImprovedHunters.csproj",
+      "sha256": "036893c6f6d38e5e7f81d47966267cfcaad892af89acd142aa1582f40dae65b3",
+      "calls": 2
+    },
+    {
+      "path": "ImprovedHunters\\src\\ImprovedHuntersRuntime.cs",
+      "project": "ImprovedHunters\\ImprovedHunters.csproj",
+      "sha256": "1f7a88b5fbd0d607460f9bd76e0de17ca5276e2ee291c035308b0df6e25eff50",
+      "calls": 2
+    },
+    {
+      "path": "ImprovedHunters\\src\\ManualChickenAttackPatch.cs",
+      "project": "ImprovedHunters\\ImprovedHunters.csproj",
+      "sha256": "8d1ac4816f2d3531591a0bc5554347a0c3ef22146b41b684515a15478876146b",
+      "calls": 2
+    },
+    {
+      "path": "RandomEvents\\src\\RandomEventsParticipantResolver.cs",
+      "project": "RandomEvents\\RandomEvents.csproj",
+      "sha256": "ed621975ec2fe603b3d6a62b391f7cd589745f77b1067ee52e742205d11ac742",
+      "calls": 1
+    },
+    {
+      "path": "RandomEvents\\src\\RandomEventsRuntime.cs",
+      "project": "RandomEvents\\RandomEvents.csproj",
+      "sha256": "9465b9ff2c0e2e0c6136fd3a0411dd0f57773778f364e8b2e52b2a5044d82030",
+      "calls": 3
+    },
+    {
+      "path": "RandomEvents\\src\\ScenarioSignpostRegistry.cs",
+      "project": "RandomEvents\\RandomEvents.csproj",
+      "sha256": "3c76c3f0c5e6740431f3ab4d90f29913f688de82cd02798bd480078282d2e553",
+      "calls": 2
+    },
+    {
+      "path": "StartConditions\\src\\StartConditionsRuntime.AIStartTroopIsolation.cs",
+      "project": "StartConditions\\StartConditions.csproj",
+      "sha256": "35b2cb0e4057d011388f5498bd5a6ec1eeac421a39b14f2f7b21446c3c456d2d",
+      "calls": 3
+    },
+    {
+      "path": "Testmods\\AIDefenseTest\\src\\AIDefenseTestRuntime.cs",
+      "project": "Testmods\\AIDefenseTest\\AIDefenseTest.csproj",
+      "sha256": "dacf6bc1b31817a804afc23a2b3b3c7ad5848fa714ef9b1fb4f210ad518c4112",
+      "calls": 9
+    },
+    {
+      "path": "Testmods\\EnemyBridgePathTest\\src\\BridgeDecisionTrace.cs",
+      "project": "Testmods\\EnemyBridgePathTest\\EnemyBridgePathTest.csproj",
+      "sha256": "62a9683597880d97e721f38994ae2acd9f9db395415c36aa8baada8d3c1bd8a0",
+      "calls": 2
+    },
+    {
+      "path": "Testmods\\EnemyBridgePathTest\\src\\BridgeDiagnostics.cs",
+      "project": "Testmods\\EnemyBridgePathTest\\EnemyBridgePathTest.csproj",
+      "sha256": "7700d7322d7d93d0750c0d402f50205767c3c1acc782410be022bde0fc2ccd59",
+      "calls": 2
+    },
+    {
+      "path": "Testmods\\EnemyBridgePathTest\\src\\BridgeRouteTrace.cs",
+      "project": "Testmods\\EnemyBridgePathTest\\EnemyBridgePathTest.csproj",
+      "sha256": "db5aa5310b5493aaaa8c668d2d17fdadb2c32138e4238bc27d42a7ab46761ba2",
+      "calls": 1
+    },
+    {
+      "path": "Testmods\\EnemyGatePathfindingTest\\src\\AttackOrderCorrelationDiagnostics.cs",
+      "project": "Testmods\\EnemyGatePathfindingTest\\EnemyGatePathfindingTest.csproj",
+      "sha256": "cdc599abd8e4b197ef77eaf557654646cc80d4ea9b73e11f3d55efc86ac3a41b",
+      "calls": 1
+    },
+    {
+      "path": "Testmods\\EnemyGatePathfindingTest\\src\\SamePclGateRouteRuntime.cs",
+      "project": "Testmods\\EnemyGatePathfindingTest\\EnemyGatePathfindingTest.csproj",
+      "sha256": "6e2c3382c7488e92020bb312653a93507c4710578485f5722e908aa14fe0dd70",
+      "calls": 2
+    },
+    {
+      "path": "Testmods\\FormationTest\\src\\FormationTestRuntime.cs",
+      "project": "Testmods\\FormationTest\\FormationTest.csproj",
+      "sha256": "2fb4ab74fc899e0b6425520b1c7fc1f6199e55a4171ee1d6ea6a6c40ac9dce72",
+      "calls": 3
+    },
+    {
+      "path": "Testmods\\MoatMove\\src\\CursorConnectivity.cs",
+      "project": "Testmods\\MoatMove\\MoatMove.csproj",
+      "sha256": "bf80a1f945d6000f19826e0b4a936c025cf5a4a72a08e72e9a09d9724a61555f",
+      "calls": 3
+    },
+    {
+      "path": "Testmods\\MoatMove\\src\\DirectMoatCommandScopes.cs",
+      "project": "Testmods\\MoatMove\\MoatMove.csproj",
+      "sha256": "4da751f25f3fbdc963d463e764c69f234b176023ff0215a9dca7bf68b7a4a236",
+      "calls": 2
+    },
+    {
+      "path": "Testmods\\MoatMove\\src\\FastGroupDistribution.cs",
+      "project": "Testmods\\MoatMove\\MoatMove.csproj",
+      "sha256": "32eb83f8390100348e20bb884564e423d448a81b8d31b17e04dfe6953621ad80",
+      "calls": 2
+    },
+    {
+      "path": "Testmods\\MoatMove\\src\\FastMoatRouting.cs",
+      "project": "Testmods\\MoatMove\\MoatMove.csproj",
+      "sha256": "d7f7591de1ba038dffdb18df24f8f5f73564c50a4f56d7b6bac8a0030ea64fc3",
+      "calls": 1
+    },
+    {
+      "path": "Testmods\\MoatMove\\src\\FastMovementScheduler.cs",
+      "project": "Testmods\\MoatMove\\MoatMove.csproj",
+      "sha256": "7921fffc52061611e220533f39e0f689ca5bf713ebd022035af38ee985b303c5",
+      "calls": 2
+    },
+    {
+      "path": "Testmods\\MoatMove\\src\\FillWeightedRoutes.cs",
+      "project": "Testmods\\MoatMove\\MoatMove.csproj",
+      "sha256": "2b90811db832483f66a0428f31b8add84e9f7b47ec374d9d43c36bac4234a5ec",
+      "calls": 3
+    },
+    {
+      "path": "Testmods\\MoatMove\\src\\FriendlyMoatMovementRuntime.cs",
+      "project": "Testmods\\MoatMove\\MoatMove.csproj",
+      "sha256": "fb5bd694c8fced66aa0bc720ec3e4adaefe13c5621efcb6815285c96651afe91",
+      "calls": 37
+    },
+    {
+      "path": "Testmods\\MoatMove\\src\\FriendlyMoatMovementRuntime.LadderAttackFix.cs",
+      "project": "Testmods\\MoatMove\\MoatMove.csproj",
+      "sha256": "8e15642943f86dba10d25f160066b316ff2f8209cd873c6e1fea3ea3f51d4fec",
+      "calls": 1
+    },
+    {
+      "path": "Testmods\\MoatMove\\src\\MoatPlacement.cs",
+      "project": "Testmods\\MoatMove\\MoatMove.csproj",
+      "sha256": "fc0ccbcb0bd79f154c7a9682f356c7b31431e827f7e7e212f5031155f6ce643f",
+      "calls": 3
+    },
+    {
+      "path": "Testmods\\MoatMove\\src\\MoatWorkTargetSelection.cs",
+      "project": "Testmods\\MoatMove\\MoatMove.csproj",
+      "sha256": "c8bbd57b9d59745b0e90ca9060ebaf6592bdbebde88318faa49c74529148464f",
+      "calls": 6
+    },
+    {
+      "path": "Testmods\\MoatMove\\src\\MovementPathPublication.cs",
+      "project": "Testmods\\MoatMove\\MoatMove.csproj",
+      "sha256": "acb290afe1f63bfec663c7d5edb167f0134e9fa9a227a9dbfecc89536c977a3b",
+      "calls": 5
+    },
+    {
+      "path": "Testmods\\MoatMove\\src\\MovementSearchContext.cs",
+      "project": "Testmods\\MoatMove\\MoatMove.csproj",
+      "sha256": "e76570fb6ec5f196adbbd76d0d8de04764b1673e7572c8a681cfe518566dc687",
+      "calls": 1
+    },
+    {
+      "path": "Testmods\\MoatMove\\src\\NativeMovementRecovery.cs",
+      "project": "Testmods\\MoatMove\\MoatMove.csproj",
+      "sha256": "18d7d9a24c0667c0be3cabfd04193acca3309f4e69767f82a4c52a2f97673870",
+      "calls": 3
+    },
+    {
+      "path": "Testmods\\MoatMove\\src\\UnitMovementContext.cs",
+      "project": "Testmods\\MoatMove\\MoatMove.csproj",
+      "sha256": "35cf845d6ffb73cab6b9714d6a92f3109c07b1f264a9b44a63b4e2a9d04cd67c",
+      "calls": 2
+    },
+    {
+      "path": "Testmods\\MoatMove\\src\\WeightedMoatPublication.cs",
+      "project": "Testmods\\MoatMove\\MoatMove.csproj",
+      "sha256": "c654c591fef4e8ae9d72fbe3247d0d82f94d59df359dc34b50034bcefeac2692",
+      "calls": 4
+    },
+    {
+      "path": "Testmods\\OutpostTest\\src\\OutpostRallyRuntime.cs",
+      "project": "Testmods\\OutpostTest\\OutpostTest.csproj",
+      "sha256": "54d6e82ed9ea9b4495e7dd8cd414d80690523705f723619837c40b0a2ce72694",
+      "calls": 2
+    },
+    {
+      "path": "Testmods\\OutpostTest\\src\\OutpostRuntime.cs",
+      "project": "Testmods\\OutpostTest\\OutpostTest.csproj",
+      "sha256": "d59154461ab1dd98a2a809e3ca3cc938969694f746e0415b89dcca4767178a8b",
+      "calls": 1
+    },
+    {
+      "path": "Testmods\\SkinTest\\src\\SwordsmanSkinRuntime.cs",
+      "project": "Testmods\\SkinTest\\SkinTest.csproj",
+      "sha256": "1c0c455e1a5f63d3a4fce33283024450fa12fdaa53b8893a6f3b0ebbd855ca76",
+      "calls": 2
+    },
+    {
+      "path": "Testmods\\SpectatorEditorBuildTest\\src\\SpectatorEditorBuildTestPlugin.cs",
+      "project": "Testmods\\SpectatorEditorBuildTest\\SpectatorEditorBuildTest.csproj",
+      "sha256": "8d5157e352dd9a9d0e572bc24ad70103c9d3e3ce4feb88b3c56495e131fb3772",
+      "calls": 2
+    },
+    {
+      "path": "Testmods\\StockpileAccessFixTest\\src\\StockpileAccessFixTestRuntime.cs",
+      "project": "Testmods\\StockpileAccessFixTest\\StockpileAccessFixTest.csproj",
+      "sha256": "65fb85cdebdf35a0b8853b0fb6e94b50876cf6813c7fd69a3008026aef883cc6",
+      "calls": 9
+    },
+    {
+      "path": "Testmods\\VirtualUnitsPrototype\\src\\VirtualEntityRuntime.cs",
+      "project": "Testmods\\VirtualUnitsPrototype\\VirtualUnitsPrototype.csproj",
+      "sha256": "50a2f075098ddd84a091794dba4c731d45173087c1815f070d59c22107b1e81a",
+      "calls": 8
+    },
+    {
+      "path": "UnitCosts\\src\\UnitCostsRuntime.cs",
+      "project": "UnitCosts\\UnitCosts.csproj",
+      "sha256": "d92487e201de3b716fdfd1a56eca1e6acd645bd688109c385aa542884fb3e4d3",
+      "calls": 3
+    },
+    {
+      "path": "UnitLimit\\src\\ActiveUnitCache.cs",
+      "project": "UnitLimit\\UnitLimit.csproj",
+      "sha256": "612c458bb3609416b6de8f6661b1825faccdd939a26451c83b90a13c702283bc",
+      "calls": 1
+    }
+  ],
+  "projects": {
+    "APIShared\\APIShared.csproj": {
+      "files": [
+        "APIShared\\src\\PlayerDefeatCapability.cs",
+        "APIShared\\src\\UnitHudPresentationCapability.cs"
+      ],
+      "json": [],
+      "lifecycle": [],
+      "callbacks": [
+        "APIShared\\src\\UnitHudPresentationCapability.cs:672: Update();",
+        "APIShared\\src\\UnitHudPresentationCapability.cs:951: Update();",
+        "APIShared\\src\\UnitHudPresentationCapability.cs:997: Update();"
+      ]
+    },
+    "BugfixesAndQoL\\BugfixesAndQoL.csproj": {
+      "files": [
+        "BugfixesAndQoL\\src\\AiDefensePatrolFix.cs",
+        "BugfixesAndQoL\\src\\AiRaidRetargetFixRuntime.cs",
+        "BugfixesAndQoL\\src\\AssassinClimbCancellationRuntime.cs",
+        "BugfixesAndQoL\\src\\AssassinClimbRuntime.cs",
+        "BugfixesAndQoL\\src\\CorruptLordDataSpawnRuntime.cs",
+        "BugfixesAndQoL\\src\\CursorConnectivity.cs",
+        "BugfixesAndQoL\\src\\DirectMoatCommandScopes.cs",
+        "BugfixesAndQoL\\src\\ExtendedShiftCommandQueueRuntime.cs",
+        "BugfixesAndQoL\\src\\FillWeightedRoutes.cs",
+        "BugfixesAndQoL\\src\\FriendlyMoatMovementRuntime.cs",
+        "BugfixesAndQoL\\src\\FriendlyMoatMovementRuntime.LadderAttackFix.cs",
+        "BugfixesAndQoL\\src\\LordUnitControlsFeature.cs",
+        "BugfixesAndQoL\\src\\LordUnitHudRegistration.cs",
+        "BugfixesAndQoL\\src\\MoatPlacement.cs",
+        "BugfixesAndQoL\\src\\MoatWorkTargetSelection.cs",
+        "BugfixesAndQoL\\src\\MountedStockpileMovementPatch.cs",
+        "BugfixesAndQoL\\src\\MoveFormationDragRuntime.cs",
+        "BugfixesAndQoL\\src\\MovementPathPublication.cs",
+        "BugfixesAndQoL\\src\\MovementSearchContext.cs",
+        "BugfixesAndQoL\\src\\NativeMovementRecovery.cs",
+        "BugfixesAndQoL\\src\\PlagueApothecaryStateTransitionFix.cs",
+        "BugfixesAndQoL\\src\\PlagueTargetReservationFix.cs",
+        "BugfixesAndQoL\\src\\PlagueTreatmentFadeFix.cs",
+        "BugfixesAndQoL\\src\\ReachableEnemyGatehouseRuntime.cs",
+        "BugfixesAndQoL\\src\\SelectedUnitHealthFeature.cs",
+        "BugfixesAndQoL\\src\\SiegeAmmoRestockFeature.cs",
+        "BugfixesAndQoL\\src\\SpectatorPerspectiveRuntime.cs",
+        "BugfixesAndQoL\\src\\SurrenderFeature.cs",
+        "BugfixesAndQoL\\src\\TemporaryGateRouteReporting.cs",
+        "BugfixesAndQoL\\src\\TroopHudMiddleClickCameraFeature.cs",
+        "BugfixesAndQoL\\src\\TroopMovementFix3Runtime.cs",
+        "BugfixesAndQoL\\src\\UnitMovementContext.cs",
+        "BugfixesAndQoL\\src\\WaterboyTargetReservationRuntime.cs",
+        "BugfixesAndQoL\\src\\WeightedMoatPublication.cs"
+      ],
+      "json": [],
+      "lifecycle": [],
+      "callbacks": [
+        "BugfixesAndQoL\\src\\AivSelectionListViewModel.cs:55: Update(allowRemoval, status);",
+        "BugfixesAndQoL\\src\\AivSelectionListViewModel.cs:86: Update(activeAllowRemoval, status);",
+        "BugfixesAndQoL\\src\\AivSelectionListViewModel.cs:115: Update(allowRemoval, status);",
+        "BugfixesAndQoL\\src\\AivSelectionListViewModel.cs:130: Update(bool allowRemoval, AivCandidateStatusInfo status)",
+        "BugfixesAndQoL\\src\\BugfixesAndQoLRuntime.cs:1765: Update();",
+        "BugfixesAndQoL\\src\\BugfixesAndQoLViewModel.cs:1830: Update(",
+        "BugfixesAndQoL\\src\\CustomLordListEnhancementHook.cs:91: Update()\");",
+        "BugfixesAndQoL\\src\\GameSpeedRepeatScheduler.cs:12: Update(bool held, bool initiallyPressed, bool blocked, bool atBoundary",
+        "BugfixesAndQoL\\src\\MarketGoodOrderItemViewModel.cs:42: Update(int newPosition, int newGoodId, string newGoodName, ImageSource",
+        "BugfixesAndQoL\\src\\MultiplayerGameSpeedRuntime.cs:237: Update(",
+        "BugfixesAndQoL\\src\\MultiplayerGameSpeedRuntime.cs:244: Update(",
+        "BugfixesAndQoL\\src\\MultiplayerLobbyReturnFeature.cs:520: Update();"
+      ]
+    },
+    "BuildingLimit\\BuildingLimit.csproj": {
+      "files": [
+        "BuildingLimit\\src\\TowerSiegeUnitCache.cs"
+      ],
+      "json": [],
+      "lifecycle": [],
+      "callbacks": []
+    },
+    "ExtraFeatures\\ExtraFeatures.csproj": {
+      "files": [
+        "ExtraFeatures\\src\\GatehouseAutomationRuntime.cs",
+        "ExtraFeatures\\src\\KnightDismountDelayRuntime.cs",
+        "ExtraFeatures\\src\\KnightDismountRuntime.cs",
+        "ExtraFeatures\\src\\LordHealthRuntime.cs"
+      ],
+      "json": [],
+      "lifecycle": [],
+      "callbacks": []
+    },
+    "Helpers\\HunterQueryTargetDiagnostic\\HunterQueryTargetDiagnostic.csproj": {
+      "files": [
+        "Helpers\\HunterQueryTargetDiagnostic\\src\\HunterQueryTargetDiagnosticPlugin.cs"
+      ],
+      "json": [],
+      "lifecycle": [],
+      "callbacks": []
+    },
+    "ImprovedHunters\\ImprovedHunters.csproj": {
+      "files": [
+        "ImprovedHunters\\src\\HunterActiveTargetVisibilitySnapshot.cs",
+        "ImprovedHunters\\src\\HunterChickenCompatibilityFeature.cs",
+        "ImprovedHunters\\src\\HunterMovingTargetPathfindingDiagnostic.cs",
+        "ImprovedHunters\\src\\HunterNativeVisibilityProbe.cs",
+        "ImprovedHunters\\src\\HunterPclReachability.cs",
+        "ImprovedHunters\\src\\HunterPclReachabilityDiagnostic.cs",
+        "ImprovedHunters\\src\\HunterPostShotContinuationDiagnostic.cs",
+        "ImprovedHunters\\src\\HunterProjectileObservationFeature.cs",
+        "ImprovedHunters\\src\\HunterRemainingPathSpeedRecovery.cs",
+        "ImprovedHunters\\src\\HunterTargetSearchFallbackDiagnostic.cs",
+        "ImprovedHunters\\src\\HunterTargetSelectionFeature.cs",
+        "ImprovedHunters\\src\\HunterVanillaPathContinuationDiagnostic.cs",
+        "ImprovedHunters\\src\\HunterVisibilityDiagnostic.cs",
+        "ImprovedHunters\\src\\ImprovedHuntersRuntime.cs",
+        "ImprovedHunters\\src\\ManualChickenAttackPatch.cs"
+      ],
+      "json": [],
+      "lifecycle": [
+        "ImprovedHunters\\src\\ImprovedHuntersPlugin.cs:43: OnDestroy()"
+      ],
+      "callbacks": []
+    },
+    "RandomEvents\\RandomEvents.csproj": {
+      "files": [
+        "RandomEvents\\src\\RandomEventsParticipantResolver.cs",
+        "RandomEvents\\src\\RandomEventsRuntime.cs",
+        "RandomEvents\\src\\ScenarioSignpostRegistry.cs"
+      ],
+      "json": [],
+      "lifecycle": [],
+      "callbacks": []
+    },
+    "StartConditions\\StartConditions.csproj": {
+      "files": [
+        "StartConditions\\src\\StartConditionsRuntime.AIStartTroopIsolation.cs"
+      ],
+      "json": [],
+      "lifecycle": [],
+      "callbacks": []
+    },
+    "Testmods\\AIDefenseTest\\AIDefenseTest.csproj": {
+      "files": [
+        "Testmods\\AIDefenseTest\\src\\AIDefenseTestRuntime.cs"
+      ],
+      "json": [],
+      "lifecycle": [
+        "Testmods\\AIDefenseTest\\src\\AIDefenseTestPlugin.cs:34: OnDestroy()"
+      ],
+      "callbacks": []
+    },
+    "Testmods\\EnemyBridgePathTest\\EnemyBridgePathTest.csproj": {
+      "files": [
+        "Testmods\\EnemyBridgePathTest\\src\\BridgeDecisionTrace.cs",
+        "Testmods\\EnemyBridgePathTest\\src\\BridgeDiagnostics.cs",
+        "Testmods\\EnemyBridgePathTest\\src\\BridgeRouteTrace.cs"
+      ],
+      "json": [],
+      "lifecycle": [],
+      "callbacks": []
+    },
+    "Testmods\\EnemyGatePathfindingTest\\EnemyGatePathfindingTest.csproj": {
+      "files": [
+        "Testmods\\EnemyGatePathfindingTest\\src\\AttackOrderCorrelationDiagnostics.cs",
+        "Testmods\\EnemyGatePathfindingTest\\src\\SamePclGateRouteRuntime.cs"
+      ],
+      "json": [],
+      "lifecycle": [],
+      "callbacks": []
+    },
+    "Testmods\\FormationTest\\FormationTest.csproj": {
+      "files": [
+        "Testmods\\FormationTest\\src\\FormationTestRuntime.cs"
+      ],
+      "json": [],
+      "lifecycle": [],
+      "callbacks": [
+        "Testmods\\FormationTest\\src\\FormationTestRuntime.cs:311: Update()\");"
+      ]
+    },
+    "Testmods\\MoatMove\\MoatMove.csproj": {
+      "files": [
+        "Testmods\\MoatMove\\src\\CursorConnectivity.cs",
+        "Testmods\\MoatMove\\src\\DirectMoatCommandScopes.cs",
+        "Testmods\\MoatMove\\src\\FastGroupDistribution.cs",
+        "Testmods\\MoatMove\\src\\FastMoatRouting.cs",
+        "Testmods\\MoatMove\\src\\FastMovementScheduler.cs",
+        "Testmods\\MoatMove\\src\\FillWeightedRoutes.cs",
+        "Testmods\\MoatMove\\src\\FriendlyMoatMovementRuntime.cs",
+        "Testmods\\MoatMove\\src\\FriendlyMoatMovementRuntime.LadderAttackFix.cs",
+        "Testmods\\MoatMove\\src\\MoatPlacement.cs",
+        "Testmods\\MoatMove\\src\\MoatWorkTargetSelection.cs",
+        "Testmods\\MoatMove\\src\\MovementPathPublication.cs",
+        "Testmods\\MoatMove\\src\\MovementSearchContext.cs",
+        "Testmods\\MoatMove\\src\\NativeMovementRecovery.cs",
+        "Testmods\\MoatMove\\src\\UnitMovementContext.cs",
+        "Testmods\\MoatMove\\src\\WeightedMoatPublication.cs"
+      ],
+      "json": [],
+      "lifecycle": [],
+      "callbacks": []
+    },
+    "Testmods\\OutpostTest\\OutpostTest.csproj": {
+      "files": [
+        "Testmods\\OutpostTest\\src\\OutpostRallyRuntime.cs",
+        "Testmods\\OutpostTest\\src\\OutpostRuntime.cs"
+      ],
+      "json": [],
+      "lifecycle": [],
+      "callbacks": []
+    },
+    "Testmods\\SkinTest\\SkinTest.csproj": {
+      "files": [
+        "Testmods\\SkinTest\\src\\SwordsmanSkinRuntime.cs"
+      ],
+      "json": [],
+      "lifecycle": [],
+      "callbacks": []
+    },
+    "Testmods\\SpectatorEditorBuildTest\\SpectatorEditorBuildTest.csproj": {
+      "files": [
+        "Testmods\\SpectatorEditorBuildTest\\src\\SpectatorEditorBuildTestPlugin.cs"
+      ],
+      "json": [],
+      "lifecycle": [],
+      "callbacks": []
+    },
+    "Testmods\\StockpileAccessFixTest\\StockpileAccessFixTest.csproj": {
+      "files": [
+        "Testmods\\StockpileAccessFixTest\\src\\StockpileAccessFixTestRuntime.cs"
+      ],
+      "json": [],
+      "lifecycle": [],
+      "callbacks": []
+    },
+    "Testmods\\VirtualUnitsPrototype\\VirtualUnitsPrototype.csproj": {
+      "files": [
+        "Testmods\\VirtualUnitsPrototype\\src\\VirtualEntityRuntime.cs"
+      ],
+      "json": [],
+      "lifecycle": [],
+      "callbacks": []
+    },
+    "UnitCosts\\UnitCosts.csproj": {
+      "files": [
+        "UnitCosts\\src\\UnitCostsRuntime.cs"
+      ],
+      "json": [],
+      "lifecycle": [],
+      "callbacks": []
+    },
+    "UnitLimit\\UnitLimit.csproj": {
+      "files": [
+        "UnitLimit\\src\\ActiveUnitCache.cs"
+      ],
+      "json": [],
+      "lifecycle": [],
+      "callbacks": []
+    }
+  }
+}

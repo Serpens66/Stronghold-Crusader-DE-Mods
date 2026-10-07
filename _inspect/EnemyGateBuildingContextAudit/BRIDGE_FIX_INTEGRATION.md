@@ -422,3 +422,82 @@ Installed APIShared0.4.10 unchanged. Behavior fix disabled. No version,README,
 public API,SE fork or competing hook changes. Runtime/game cost of the new bounded
 consumer acquisition still requires the targeted run; synthetic copy timings are
 not game-cost measurements. Build report:consumer-final-build-20261007.log.
+
+
+Offline consumer closure review 2026-10-07 (17:15:58 real session)
+
+Frozen inputs: real-consumer-20261007-171558/Log_267.log SHA256
+71120296E01A098ED7BF45E8DE94A4D36D4C8DADC84238E79FF0051FF782BE2C;
+planning.bin 3C5290A9081930B4E0B3D55A537217DA2CDD04A497034403585D29ED059DB7AB;
+group.bin CDBB2B69FAEA1895A0FA963597A051D64E6D02ADB4F13E78301F4F142CB607D7.
+Process section and sources retained in SHA256.json. No original bytes changed.
+
+Full feature evidence now retains 58 hash-validated private reference bodies and
+two readers, plus the existing decision/topology audits. Retaining a body is not
+proof that its whole historical call chain has executed. The new productive
+115B10 weight kernel and 193C80/193D90 helpers match all output bytes against the
+private native reference for both 70 and150 limits. Eight synthetic weight cases
+cover signed-distance/score boundaries, inactive targets and unit blockers.
+Both real-input weight branches also match native:70 reproduces recorded output;
+150 differs by100 bytes. Actual inputs3665F10/3665F28 were not recorded. Matching
+Post values does not establish those inputs for a counterfactual.
+
+The full2C480 builder/CF020/military3C2E0 consumer remains Unknown. The fullC5040
+Dirty rebuild also remains Unknown:67E6424 building dirty/counter controls and
+all3999 native updater slots are missing. Existing empty-updater flood comparisons
+do not explain132473->132471 or authorize a negative Dirty decision.
+
+Consumer capture version2 adds the exact opaque mode values at weight Pre/Post,
+full updater slots/controls, packed coordinate validity, effective combat and
+building-class tables, and consumer Pre/Post work controls/queues/coordinates/
+visits/distances/targets. These are passive own-frame copies via the existing
+hash/range-checked reader. No hooks, game writes or additional searches added.
+Importer validates extents, stable mode inputs and frame/identity association.
+Old schema1/2 and consumer-version1 artifacts remain readable; absent inputs are
+explicitly Unknown. inputs-present is not full replay or fix authorization.
+
+Private producer/write/import/replay cases pass Dirty0/1, including corrupt mode
+and wrong-frame rejection. Native suite:118 differential cases/10229 checks,
+144 raising cases. Bridge suite:38109 assertions, including3776002-call/66689-
+command population and bounded quiet output. Costs measured offline, not in-game.
+
+Constant stored-route contract fields now have one route-format definition per
+session. Numeric observations, paths, bindings and full decision chains remain.
+Frozen transport model preserves reconstruction, movement counts, definitions
+and chains; saves470140 bytes from11282251, yielding10812111. This changing-run
+model is not the under1MB/min quiet-operation proof or an in-game measurement.
+
+Installed SE2.13.1/native/backend contracts remain valid. Canonical Fixes1.25.1
+preserves2C5E1 counter hook;10F150 removes discarded-EAX push/pop, so later planning
+must retain the effective owner distinction. Permissions remain separate from
+spatial APIShared coupling; negative policy and behavior fix remain disabled.
+No version, README or Script Extender fork changes by this work.
+
+A parallel migration added APIShared.UnitAccess calls in Bridge source. Its source
+is included in offline policy tests; installed APIShared currently lacks it.
+User chose the other chat to finish and install APIShared first. No Bridge runtime
+build/install may proceed until that dependency is available and validated.
+
+Next necessary acquisition after verified Bridge installation: same save, bridge
+permanently DOWN, gate CLOSED, Gate/Fixes/manual bridge feature active, no own
+ongoing moat work. First fresh player8 phase4 planning and exact linked group;
+wait after map end for session-delivered and both complete artifact/hash markers.
+One bounded planning plus one group artifact, maximum two attempts. No raised
+counterrun. Full candidate/Dirty replay and fix approval follow those actual inputs.
+
+Final independent checks: all11 existing frozen-regression scripts pass, plus
+new real-consumer hashes/closure/transport checks and producer v2 artifact tests.
+Runtime verify.ps1 passes JSON/lifecycle/publisher/permanent-hook/real-member/CRLF
+checks after preserving the parallel UnitAccess migration. Source inclusion in the
+offline project is required because it does not reference the runtime APIShared.
+
+The existing Gate test executable was also attempted from its own project folder:
+its native RedBird capturer cases pass, but NormalCursorPreviewContractIsExact
+fails at the reference-first/filtered-last DB650 source assertion. Gate source is
+being changed in parallel; no Gate files were modified to hide this failure.
+This run must not be reported as a successful current Gate regression.
+
+No runtime build or installation executed in this work session. The prescribed
+Bridge driver remains pending the user-selected APIShared installation by the
+other chat; final installed signature/hash and current owner checks must run
+before that build. Do not request the acquisition run until installation succeeds.

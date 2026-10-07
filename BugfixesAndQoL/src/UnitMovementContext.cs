@@ -104,7 +104,7 @@ namespace BugfixesAndQoL
             SynchronizePlacement(frame);
             if (frame == null || frame.Args.UnitId != unitId || unitId <= 0 ||
                 unitId > MaximumUnitCount ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) || unit == null ||
+                !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) || unit == null ||
                 unit->r_AliveState != AliveState.IsAlive || !CanDigMoat(unit))
                 return null;
             if (frame.Plan != null && frame.Plan.IdentityBound &&
@@ -195,7 +195,7 @@ namespace BugfixesAndQoL
 
             try
             {
-                if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) || unit == null)
+                if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) || unit == null)
                     return vanillaResult;
                 if (!CanDigMoat(unit))
                 {

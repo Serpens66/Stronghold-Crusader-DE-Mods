@@ -42,7 +42,7 @@ namespace BugfixesAndQoL
                 UnitMoveFrame ownerFrame = GetCurrentUnitMoveFrame();
                 PlanScope effectivePlan = builderPlan ?? ownerFrame?.Plan;
                 if (ownerFrame != null && ownerFrame.Args.UnitId != unitId) return RejectWeightedCapture("frame-owner");
-                if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
                     unit == null || unit->r_AliveState != AliveState.IsAlive || !CanDigMoat(unit))
                     return null;
 
@@ -142,8 +142,8 @@ namespace BugfixesAndQoL
                     return false;
                 }
 
-                bool snapshotAvailable = GameUnitManagerAPI.Instance.TryGetUnitById(
-                    shadow.UnitId, out GameUnit* snapshotUnit) && snapshotUnit != null &&
+                bool snapshotAvailable = APIShared.UnitAccess.TryGetById(
+                    shadow.UnitId, out GameUnit* snapshotUnit, out _) && snapshotUnit != null &&
                     snapshotUnit->r_AliveState == AliveState.IsAlive;
                 bool identityMatches = snapshotAvailable && snapshotUnit->r_GlobalId == shadow.UnitGlobalId && CanDigMoat(snapshotUnit) &&
                     snapshotUnit->r_UnitChimp == shadow.UnitType &&
@@ -347,7 +347,7 @@ namespace BugfixesAndQoL
             try
             {
                 long runsBefore = weightedMoatRoutePlanner.SearchRuns;
-                GameUnitManagerAPI.Instance.TryGetUnitById(shadow.UnitId, out GameUnit* candidateUnit);
+                if (!APIShared.UnitAccess.TryGetById(shadow.UnitId, out GameUnit* candidateUnit, out _)) return false;
                 QualifiedMovementRoute qualified = GetReusableQualifiedRoute(
                     GetCurrentUnitMoveFrame()?.Plan ?? activePlan ?? pendingPlan, candidateUnit);
                 bool reuse = qualified != null && qualified.Optimal && qualified.Profile.Equals(shadow.CostProfile) &&
@@ -381,7 +381,7 @@ namespace BugfixesAndQoL
                 if (*(byte**)(manager + PathManagerOutputBufferOffset) != nativePath ||
                     *(int*)(manager + PathManagerOutputLengthOffset) != nativeLength ||
                     nativePath != nativeUnitManager + NativeUnitPathBufferOffset + shadow.UnitId * NativeUnitPathBufferStride ||
-                    !GameUnitManagerAPI.Instance.TryGetUnitById(shadow.UnitId, out GameUnit* unit) || unit == null ||
+                    !APIShared.UnitAccess.TryGetById(shadow.UnitId, out GameUnit* unit, out _) || unit == null ||
                     unit->r_GlobalId != shadow.UnitGlobalId || unit->r_ControllableForPlayerId != shadow.PlayerId)
                 { rejectionReason = "publication-owner-changed"; return false; }
                 GetNativeMovementStart(unit, out int startX, out int startY);

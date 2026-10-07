@@ -22,16 +22,6 @@ namespace BugfixesAndQoL
     internal sealed unsafe partial class AssassinPathfindingRuntime : IDisposable
     {
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
-        private delegate int AssassinPathBuilderDelegate(
-            IntPtr context,
-            int startX,
-            int startY,
-            int targetX,
-            int targetY,
-            int maximumNodes,
-            int continuation);
-
-        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
         private delegate byte SpecialTilePredicateDelegate(IntPtr context, int tileId);
 
         private const int MapWidth = 800;
@@ -83,9 +73,7 @@ namespace BugfixesAndQoL
         private readonly byte[] seenTiles = new byte[TileCount];
         private IntPtr libraryHandle;
         private SpecialTilePredicateDelegate specialTilePredicate;
-        private HookTransaction transaction;
-        private readonly DetourHandle<AssassinPathBuilderDelegate> detour =
-            new DetourHandle<AssassinPathBuilderDelegate>();
+        private bool sharedBuilderRegistered;
         private AssassinPathReconstructionPatch reconstructionPatch;
         private byte* validCoordinates;
         private int* rowLookup;
@@ -129,7 +117,7 @@ namespace BugfixesAndQoL
             }
         }
 
-        public bool IsInstalled => detour.Success && detour.IsInstalled;
+        public bool IsInstalled => sharedBuilderRegistered && AssassinPathAPI.IsInstalled;
 
         public void InitializeNative(
             IntPtr newLibraryHandle,
@@ -145,17 +133,6 @@ namespace BugfixesAndQoL
                 throw new InvalidOperationException("fixed native layout hash does not match the supported CrusaderDE.dll");
             if (newLibraryHandle == IntPtr.Zero || memory.Length <= NativeVisitStampLayerRva + TileCount * sizeof(short))
                 throw new InvalidOperationException("native module memory does not cover the required Assassin pathfinding layers");
-
-            Shared.NativeResolution resolution = Shared.NativePatternResolver.ResolveUnique(
-                memory,
-                AssassinBuilderPattern,
-                AssassinBuilderRva,
-                referenceHashMatches: true,
-                "Assassin path-cost builder",
-                log);
-            IntPtr resolved = IntPtr.Add(newLibraryHandle, resolution.Rva);
-            if (resolved != IntPtr.Add(newLibraryHandle, AssassinBuilderRva))
-                throw new InvalidOperationException("Assassin path-cost builder resolved outside its validated RVA");
 
             libraryHandle = newLibraryHandle;
             validCoordinates = (byte*)IntPtr.Add(newLibraryHandle, ValidCoordinateGridRva).ToPointer();
@@ -179,32 +156,25 @@ namespace BugfixesAndQoL
                     region,
                     memory,
                     referenceHashMatches: true);
-                transaction = BugfixesHookInfrastructure.CreateOwnedTransaction(region);
-                transaction.AddDetour(
-                    detour,
-                    HookTarget.FromAddress(unchecked((ulong)resolved.ToInt64())),
-                    BuildWeightedPath);
-                CommitResult commitResult = transaction.Commit();
-                if (!commitResult.IsCompleteSuccess || !detour.Success)
-                    throw new InvalidOperationException("The weighted Assassin pathfinding detour was not installed.");
                 reconstructionPatch = pendingReconstructionPatch;
                 moveCommandSubscription = TribeR3EventHooks.OnTribeIssueOrderMoveHere.Observable
                     .Subscribe(ObserveMoveCommand);
                 targetCommandSubscription = TribeR3EventHooks.OnTribeIssueOrderWithTarget.Observable
                     .Subscribe(ObserveTargetCommand);
+                AssassinPathAPI.RegisterWeightedBuilder(BugfixesAndQoLPlugin.PluginGuid, BuildWeightedPath);
+                sharedBuilderRegistered = true;
                 ApplySetting();
                 LogDebug($"weighted Assassin pathfinding installed at RVA 0x{AssassinBuilderRva:X}; climb costs={AssassinClimbCostPolicy.MinimumClimbTicks}/{AssassinClimbCostPolicy.LowWallClimbTicks}/{AssassinClimbCostPolicy.NormalWallClimbTicks} ticks.");
             }
             catch
             {
+                if (sharedBuilderRegistered) throw; // Published runtime must remain rooted.
                 moveCommandSubscription?.Dispose();
                 moveCommandSubscription = null;
                 targetCommandSubscription?.Dispose();
                 targetCommandSubscription = null;
                 if (pendingReconstructionPatch?.IsApplied == true)
                     pendingReconstructionPatch.SetEnabled(false);
-                transaction?.Dispose();
-                transaction = null;
                 reconstructionPatch = null;
                 throw;
             }
@@ -238,6 +208,7 @@ namespace BugfixesAndQoL
 
         public void Dispose()
         {
+            if (sharedBuilderRegistered) return; // Published handler and subscriptions live until process exit.
             moveCommandSubscription?.Dispose();
             moveCommandSubscription = null;
             targetCommandSubscription?.Dispose();
@@ -381,14 +352,14 @@ namespace BugfixesAndQoL
 
         private int BuildWeightedPathCore(IntPtr context, int startX, int startY, int targetX, int targetY, int maximumNodes, int continuation)
         {
-            if (!detour.Success)
+            if (!IsInstalled)
                 return 0;
 
             AssassinCommandScope command = activeCommand;
             long requestStarted = Stopwatch.GetTimestamp();
             long nativeStarted = requestStarted;
             // Vanilla initializes internal queue state even when our compact route field replaces it.
-            int vanillaResult = detour.Original(context, startX, startY, targetX, targetY, maximumNodes, continuation);
+            int vanillaResult = AssassinPathAPI.RunVanillaBuilder(context, startX, startY, targetX, targetY, maximumNodes, continuation);
             if (activeObservation != null)
             { activeObservation.NativeResult = vanillaResult; activeObservation.Outcome = "native-only"; }
             long nativeTicks = Stopwatch.GetTimestamp() - nativeStarted;
@@ -678,11 +649,11 @@ namespace BugfixesAndQoL
             bool startAccepted = AssassinClimbTransitionPolicy.CanUseStartTile(
                 allowWalkableReservedClimbEndpoints,
                 buildingLayer[current],
-                occupancyLayer[current]);
+                occupancyLayer[current]) || AssassinPathAPI.IsDirectGatehouseClimbEndpoint(current);
             bool targetBuildingAccepted = AssassinClimbTransitionPolicy.CanUseTargetTile(
                 allowWalkableReservedClimbEndpoints,
                 buildingLayer[target],
-                occupancyLayer[target]);
+                occupancyLayer[target]) || AssassinPathAPI.IsDirectGatehouseClimbEndpoint(target);
             bool hasWall = ((currentFlags | targetFlags) & IsWallFlag) != 0;
             return targetAccepted && startAccepted && targetBuildingAccepted && hasWall;
         }

@@ -795,7 +795,7 @@ namespace ImprovedHunters
             uint preyGlobalId = *(uint*)(hunterBytes + HunterTargetGlobalIdOffset);
             if (preyUnitId <= 0 ||
                 preyGlobalId == 0 ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(preyUnitId, out GameUnit* prey) ||
+                !APIShared.UnitAccess.TryGetById(preyUnitId, out GameUnit* prey, out _) ||
                 prey == null ||
                 !settings.IsKnownAnimal(prey->r_UnitChimp))
             {
@@ -823,7 +823,7 @@ namespace ImprovedHunters
             }
 
             GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
-            if (!unitApi.TryGetUnitById(candidate.PreyUnitId, out GameUnit* prey) ||
+            if (!APIShared.UnitAccess.TryGetById(unitApi, candidate.PreyUnitId, out GameUnit* prey, out _) ||
                 prey == null ||
                 prey->r_AliveState != AliveState.IsAlive ||
                 prey->r_CurrentHealth == 0 ||
@@ -857,7 +857,7 @@ namespace ImprovedHunters
             candidate = default;
             if (preyUnitId <= 0 ||
                 preyUnitId > ushort.MaxValue ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(preyUnitId, out GameUnit* prey) ||
+                !APIShared.UnitAccess.TryGetById(preyUnitId, out GameUnit* prey, out _) ||
                 prey == null ||
                 prey->r_GlobalId == 0 ||
                 !settings.IsKnownAnimal(prey->r_UnitChimp) ||
@@ -882,7 +882,7 @@ namespace ImprovedHunters
                 return false;
 
             GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
-            if (!unitApi.TryGetUnitById(candidate.PreyUnitId, out GameUnit* prey) ||
+            if (!APIShared.UnitAccess.TryGetById(unitApi, candidate.PreyUnitId, out GameUnit* prey, out _) ||
                 prey == null ||
                 prey->r_AliveState != AliveState.IsAlive ||
                 prey->r_CurrentHealth == 0 ||
@@ -906,7 +906,7 @@ namespace ImprovedHunters
         {
             hunter = null;
             if (hunterUnitId <= 0 ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(hunterUnitId, out hunter) ||
+                !APIShared.UnitAccess.TryGetById(hunterUnitId, out hunter, out _) ||
                 hunter == null ||
                 hunter->r_AliveState != AliveState.IsAlive ||
                 hunter->r_CurrentHealth == 0 ||
@@ -922,9 +922,9 @@ namespace ImprovedHunters
         private void CleanupRejectedMove(Candidate candidate)
         {
             GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
-            if (!unitApi.TryGetUnitById(candidate.HunterUnitId, out GameUnit* hunter) ||
+            if (!APIShared.UnitAccess.TryGetById(unitApi, candidate.HunterUnitId, out GameUnit* hunter, out _) ||
                 hunter == null ||
-                !unitApi.TryGetUnitById(candidate.PreyUnitId, out GameUnit* prey) ||
+                !APIShared.UnitAccess.TryGetById(unitApi, candidate.PreyUnitId, out GameUnit* prey, out _) ||
                 prey == null ||
                 hunter->r_GlobalId == 0 ||
                 prey->r_GlobalId != candidate.PreyGlobalId)
@@ -1042,7 +1042,7 @@ namespace ImprovedHunters
             try
             {
                 if (hunterUnitId <= 0 ||
-                    !GameUnitManagerAPI.Instance.TryGetUnitById(hunterUnitId, out GameUnit* hunter) ||
+                    !APIShared.UnitAccess.TryGetById(hunterUnitId, out GameUnit* hunter, out _) ||
                     hunter == null)
                 {
                     return "snapshot=unavailable";

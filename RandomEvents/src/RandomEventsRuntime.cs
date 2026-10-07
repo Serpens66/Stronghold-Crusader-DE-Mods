@@ -1757,7 +1757,7 @@ namespace RandomEvents
                         heightElevation: spawnHeight,
                         chimp: eChimps.CHIMP_TYPE_MACEMAN));
                     if (unitId <= 0 ||
-                        !unitApi.TryGetUnitById(unitId, out GameUnit* unit) ||
+                        !APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _) ||
                         unit == null ||
                         unit->r_GlobalId == 0)
                     {
@@ -2027,7 +2027,7 @@ namespace RandomEvents
             List<int> livingUnitIds = new List<int>(pending.Units.Length);
             foreach (BanditUnitReference unitReference in pending.Units)
             {
-                if (!units.TryGetUnitById(unitReference.UnitId, out GameUnit* unit) ||
+                if (!APIShared.UnitAccess.TryGetById(units, unitReference.UnitId, out GameUnit* unit, out _) ||
                     unit == null ||
                     unit->r_GlobalId != unitReference.GlobalId ||
                     unit->r_AliveState != AliveState.IsAlive)
@@ -2071,7 +2071,7 @@ namespace RandomEvents
             foreach (int unitId in livingUnitIds)
             {
                 if (!tribes.AssignUnit(tribeId, unitId) ||
-                    !units.TryGetUnitById(unitId, out GameUnit* assignedUnit) ||
+                    !APIShared.UnitAccess.TryGetById(units, unitId, out GameUnit* assignedUnit, out _) ||
                     assignedUnit == null ||
                     assignedUnit->r_TribeId != tribeId)
                 {

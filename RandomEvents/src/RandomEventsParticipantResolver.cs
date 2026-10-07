@@ -47,7 +47,7 @@ namespace RandomEvents
                 failure = "no valid Lord unit is registered";
                 return false;
             }
-            if (!GameUnitManagerAPI.Instance.TryGetUnitById((int)lordUnitId, out GameUnit* lord) || lord == null)
+            if (!APIShared.UnitAccess.TryGetById((int)lordUnitId, out GameUnit* lord, out _) || lord == null)
             {
                 failure = "registered Lord unit cannot be resolved";
                 return false;

@@ -89,7 +89,7 @@ namespace BugfixesAndQoL
                         candidateUnitId,
                         units.Length,
                         out int unitId) ||
-                    !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                    !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
                     unit == null)
                 {
                     return;

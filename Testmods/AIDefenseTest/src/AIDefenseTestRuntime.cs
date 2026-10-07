@@ -135,7 +135,7 @@ namespace AIDefenseTest
             GameTribe* tribe = null;
             GameUnit* unit = null;
             if (!tribeApi.TryGetTribeById(tribeId, out tribe) || tribe == null ||
-                !unitApi.TryGetUnitById(unitId, out unit) || unit == null ||
+                !APIShared.UnitAccess.TryGetById(unitApi, unitId, out unit, out _) || unit == null ||
                 unit->r_TribeId != tribeId)
             {
                 Shared.DebugLogHelper.LogWarning(
@@ -281,7 +281,7 @@ namespace AIDefenseTest
             ushort behaviourRelatedBefore = 0;
             short behaviourTypeBefore = 0;
             int currentTribeId = 0;
-            if (GameUnitManagerAPI.Instance.TryGetUnitById(args.UnitId, out GameUnit* unit) && unit != null)
+            if (APIShared.UnitAccess.TryGetById(args.UnitId, out GameUnit* unit, out _) && unit != null)
             {
                 behaviourRelatedBefore = unit->r_AITribeRoleRelatedUnknown;
                 behaviourTypeBefore = (short)unit->r_AITribeRole;
@@ -439,7 +439,7 @@ namespace AIDefenseTest
 
             foreach (int unitId in aliveUnitIds)
             {
-                if (!unitApi.TryGetUnitById(unitId, out GameUnit* unit) || unit == null || unit->r_AliveState != AliveState.IsAlive)
+                if (!APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _) || unit == null || unit->r_AliveState != AliveState.IsAlive)
                     continue;
 
                 uint tileId = unit->r_CurrentPositionTileId;
@@ -596,7 +596,7 @@ namespace AIDefenseTest
 
             foreach (int unitId in aliveUnitIds)
             {
-                if (!unitApi.TryGetUnitById(unitId, out GameUnit* unit) ||
+                if (!APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _) ||
                     unit == null ||
                     unit->r_AliveState != AliveState.IsAlive ||
                     !IsDiagnosticCombatUnit(unit->r_UnitChimp))
@@ -823,7 +823,7 @@ namespace AIDefenseTest
 
                 foreach (int unitId in rangedUnitIds)
                 {
-                    if (unitApi.TryGetUnitById(unitId, out GameUnit* unit) &&
+                    if (APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _) &&
                         unit != null &&
                         unit->r_AliveState == AliveState.IsAlive &&
                         unit->r_ControllableForPlayerId == ownerPlayerId)
@@ -908,7 +908,7 @@ namespace AIDefenseTest
             }
 
             unitId = (int)createdId;
-            if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+            if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
                 unit == null ||
                 !IsUnitActive(unit->r_AliveState) ||
                 unit->r_GlobalId == 0)
@@ -967,7 +967,7 @@ namespace AIDefenseTest
             if (!TryGetProtectedDefender(defender.UnitId, out ProtectedDefender current) || !ReferenceEquals(defender, current))
                 return false;
 
-            if (!GameUnitManagerAPI.Instance.TryGetUnitById(defender.UnitId, out GameUnit* unit) || unit == null)
+            if (!APIShared.UnitAccess.TryGetById(defender.UnitId, out GameUnit* unit, out _) || unit == null)
                 return false;
 
             if (unit->r_ControllableForPlayerId != ownerPlayerId || !towerTileIds.Contains(unit->r_CurrentPositionTileId))
@@ -986,7 +986,7 @@ namespace AIDefenseTest
             if (!protectedByUnitId.TryGetValue(unitId, out ProtectedDefender candidate))
                 return false;
 
-            if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+            if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
                 unit == null ||
                 unit->r_GlobalId != candidate.UnitGlobalId ||
                 !IsUnitActive(unit->r_AliveState))
@@ -1273,7 +1273,7 @@ namespace AIDefenseTest
             bool clearedStaleBackReference = false;
             bool deleteMarked = false;
 
-            if (GameUnitManagerAPI.Instance.TryGetUnitById(defender.UnitId, out GameUnit* unit) &&
+            if (APIShared.UnitAccess.TryGetById(defender.UnitId, out GameUnit* unit, out _) &&
                 unit != null &&
                 unit->r_GlobalId == defender.UnitGlobalId &&
                 IsUnitActive(unit->r_AliveState))

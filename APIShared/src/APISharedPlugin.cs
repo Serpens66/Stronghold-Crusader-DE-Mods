@@ -23,6 +23,7 @@ namespace APIShared
 
         private void Awake()
         {
+            UnitAccess.InitializeDiagnostics(Logger);
             ApiSharedRuntime.ProcessInstance.InitializeManaged(Logger);
             NativeApiLog.Info(Logger, $"{PluginName} {PluginVersion} loaded; awaiting CrusaderLibrary.LibraryLoaded.");
             // The Script Extender event roots this plugin's native initialization after BepInEx
@@ -46,6 +47,7 @@ namespace APIShared
                 NativeApiLog.Error(Logger, $"Could not hash the installed CrusaderDE.dll: {ex}");
                 hash = string.Empty;
             }
+            AssassinPathAPI.Initialize(context.ModuleHandle, context.Memory, context.Region, hash, Logger);
             ApiSharedRuntime.ProcessInstance.Initialize(
                 context.ModuleHandle.ToInt64(),
                 context.Memory,

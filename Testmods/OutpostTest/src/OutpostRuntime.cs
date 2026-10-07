@@ -187,9 +187,9 @@ namespace OutpostTest
                 if (!native.HasCapacity(e.Owner,added[e.Owner])) { reason="player-limit"; break; }
                 int unitId=checked((int)GameUnitManagerAPI.Instance.CreateUnitLocal(e.Owner,e.Owner,b->r_TileAccessPositionX,b->r_TileAccessPositionY,8,(eChimps)26));
                 if (unitId == 0) { reason="unit-pool-or-cancelled"; break; }
-                if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId,out var u)) throw new InvalidOperationException("Created unit unresolved.");
+                if (!APIShared.UnitAccess.TryGetById(unitId,out var u, out _)) throw new InvalidOperationException("Created unit unresolved.");
                 native.ValidateUnitPointer(unitId,u); added[e.Owner]++; created++;
-                if ((int)u->r_UnitChimp != 26 || GameUnitManagerAPI.Instance.GetOwner(unitId) != e.Owner ||
+                if ((int)u->r_UnitChimp != 26 || (APIShared.UnitAccess.TryGetById(unitId, out _, out _) ? GameUnitManagerAPI.Instance.GetOwner(unitId) : -1) != e.Owner ||
                     (u->r_AliveState != AliveState.NeedsInit && u->r_AliveState != AliveState.IsAlive))
                     throw new InvalidOperationException("Created unit contract changed.");
                 int members=tribe->r_UnitsInGroup;

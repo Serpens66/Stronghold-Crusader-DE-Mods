@@ -1,0 +1,27 @@
+Hash FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2
+FUN_180107160 0x107160 size=50 confidence=candidate
+Callers [('0x6FE90',), ('0xBAD50',), ('0xBB3D0',), ('0xC90E0',), ('0xC9310',), ('0xD86F0',), ('0xD8CE0',), ('0xD9C40',), ('0xDAFD0',), ('0xDCE60',), ('0xDE6A0',), ('0xDE7A0',), ('0xE1640',), ('0xE49D0',), ('0xE6AE0',), ('0xE7C40',), ('0xE7F60',), ('0xE8AC0',), ('0xEA760',), ('0xEC880',), ('0xEFD20',), ('0xF0030',), ('0xF03C0',), ('0xF09A0',), ('0xF1400',), ('0x1238C0',), ('0x1239C0',), ('0x123AC0',)]
+Callees []
+/* FUNCTION FUN_180107160 VA=0x180107160 RVA=0x107160 */
+
+ulonglong FUN_180107160(longlong param_1,int param_2)
+
+{
+  ushort uVar1;
+  ulonglong uVar2;
+  
+  uVar2 = (ulonglong)param_2;
+  if ((&DAT_184ace010)[uVar2] != 0) {
+    uVar1 = *(ushort *)((longlong)(short)(&DAT_184ace010)[uVar2] * 0x9c + 0x6a + param_1);
+    uVar2 = (ulonglong)uVar1;
+    if ((4 < (short)uVar1) && (uVar1 != 0xf)) {
+      return CONCAT71((uint7)(byte)(uVar1 >> 8),1);
+    }
+  }
+  return uVar2 & 0xffffffffffffff00;
+}
+
+
+
+
+

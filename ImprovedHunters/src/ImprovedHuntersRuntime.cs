@@ -459,7 +459,7 @@ namespace ImprovedHunters
 
                 short hunterTileX = *(short*)(hunterBytes + 0xC0);
                 short hunterTileY = *(short*)(hunterBytes + 0xC2);
-                int hunterOwner = GameUnitManagerAPI.Instance.GetOwner(hunterId);
+                int hunterOwner = (APIShared.UnitAccess.TryGetById(hunterId, out _, out _) ? GameUnitManagerAPI.Instance.GetOwner(hunterId) : -1);
                 bool preyInSearchRadius = false;
 
                 foreach (IntPtr preyAddress in eligiblePrey)
@@ -740,7 +740,7 @@ namespace ImprovedHunters
         private unsafe void TryDeleteCollectedShortLivedCorpse(int hunterUnitId)
         {
             if (!TryGetCollectedCorpseTarget(hunterUnitId, out HunterTargetSnapshot target) ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(target.UnitId, out GameUnit* unit) ||
+                !APIShared.UnitAccess.TryGetById(target.UnitId, out GameUnit* unit, out _) ||
                 unit == null ||
                 unit->r_GlobalId != target.GlobalId ||
                 !IsShortLivedPrey(unit->r_UnitChimp))
@@ -783,7 +783,7 @@ namespace ImprovedHunters
 
         private unsafe bool TryGetCollectedCorpseTarget(int hunterUnitId, out HunterTargetSnapshot target)
         {
-            if (GameUnitManagerAPI.Instance.TryGetUnitById(hunterUnitId, out GameUnit* hunter) &&
+            if (APIShared.UnitAccess.TryGetById(hunterUnitId, out GameUnit* hunter, out _) &&
                 hunter != null &&
                 hunter->r_UnitChimp == eChimps.CHIMP_TYPE_HUNTER)
             {
@@ -1065,7 +1065,7 @@ namespace ImprovedHunters
         {
             if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) ||
                 !IsValidUnitId(args.UnitId) ||
-                GameUnitManagerAPI.Instance.GetType(args.UnitId) != eChimps.CHIMP_TYPE_HUNTER ||
+                (APIShared.UnitAccess.TryGetById(args.UnitId, out _, out _) ? GameUnitManagerAPI.Instance.GetType(args.UnitId) : eChimps.CHIMP_TYPE_NULL) != eChimps.CHIMP_TYPE_HUNTER ||
                 !hunterPreyTypes.TryGetValue(args.UnitId, out eChimps preyType) ||
                 !IsRuntimeHuntingEnabled(preyType))
             {

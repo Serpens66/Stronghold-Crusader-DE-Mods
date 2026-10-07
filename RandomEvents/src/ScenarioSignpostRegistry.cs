@@ -270,7 +270,7 @@ namespace RandomEvents
 
             if (GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(targetPlayerId, out GamePlayerResources* resources) &&
                 resources != null && resources->r_LordUnitId > 0 && resources->r_LordUnitId <= int.MaxValue &&
-                GameUnitManagerAPI.Instance.TryGetUnitById((int)resources->r_LordUnitId, out GameUnit* lord) &&
+                APIShared.UnitAccess.TryGetById((int)resources->r_LordUnitId, out GameUnit* lord, out _) &&
                 lord != null && lord->r_AliveState == AliveState.IsAlive &&
                 lord->r_UnitChimp == eChimps.CHIMP_TYPE_LORD && lord->r_ControllableForPlayerId == targetPlayerId)
             {
@@ -563,7 +563,7 @@ namespace RandomEvents
                 {
                     lordFailure = $"no valid Lord unit is registered (lordUnitId={resources->r_LordUnitId})";
                 }
-                else if (!GameUnitManagerAPI.Instance.TryGetUnitById((int)resources->r_LordUnitId, out GameUnit* lord) ||
+                else if (!APIShared.UnitAccess.TryGetById((int)resources->r_LordUnitId, out GameUnit* lord, out _) ||
                          lord == null)
                 {
                     lordFailure = $"registered Lord unit {resources->r_LordUnitId} cannot be resolved";

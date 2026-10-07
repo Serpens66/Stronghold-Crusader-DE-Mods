@@ -195,7 +195,8 @@ namespace EnemyBridgePathTest
         private GameUnit* Lookup(int unit)
         {
             if(testUnit!=null)return (GameUnit*)testUnit(unit);
-            var api=GameUnitManagerAPI.Instance;GameUnit* value=null;if(api.IsValidId(unit))api.TryGetUnitById(unit,out value);return value;
+            var api=GameUnitManagerAPI.Instance;
+            return APIShared.UnitAccess.TryGetById(api, unit,out GameUnit* value, out _) ? value : null;
         }
         private GameUnitPathPlanView PathView(int unit)
         {

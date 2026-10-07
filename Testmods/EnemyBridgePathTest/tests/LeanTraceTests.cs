@@ -32,7 +32,7 @@ namespace EnemyBridgePathTest
             Check(trace.Entered==75117&&trace.Exited==75117,"exact observed load pairing");
             Check(trace.Captures==2&&reads==2,"unchanged attacks capture only initial definition");
             Check(trace.Coalesced==75116,"all repeats counted");
-            Check(trace.Pending==4,"constant output for unchanged attacks includes two shared context definitions");
+            Check(trace.Pending==5,"constant output for unchanged attacks includes two shared context definitions and one route contract");
             long loggedBefore=Shared.DebugLogHelper.Bytes;
             while(trace.Pending>0) trace.Drain();
             Check(Shared.DebugLogHelper.Bytes-loggedBefore<4096,"less than 4KB steady-load trace for 75117 calls");
@@ -62,12 +62,12 @@ namespace EnemyBridgePathTest
             trace.Exit(recovery,true,null,IntPtr.Zero);
             Check(trace.Entered==trace.Exited,"session crossing preserves scope lifetime");
             Check(trace.ScopeAllocations<=2,"no scope allocation per repeated callback");
-            var bounded=new BridgeDecisionTrace(null,_=>default,()=>1);bounded.StartSession(1);
+            var bounded=new BridgeDecisionTrace(null,_=>default,()=>1);bounded.StartSession(1);long contractPending=bounded.Pending;Check(contractPending==1,"one critical route contract is reserved at session start");
             for(int i=0;i<5000;i++) bounded.Observe("fixture","same");
-            Check(bounded.Pending==4096&&bounded.Summary().Contains("backgroundOverflow=904")&&bounded.Summary().Contains("traceComplete=False"),"overflow bounded and explicitly invalidates completeness");
+            Check(bounded.Pending==4096+contractPending&&bounded.Summary().Contains("backgroundOverflow=904")&&bounded.Summary().Contains("traceComplete=False"),"overflow bounded and explicitly invalidates completeness");
             // Background saturation cannot consume the reserved decision queue.
             var important=bounded.Enter(site,IntPtr.Zero,5);bounded.Exit(important,true,null,IntPtr.Zero);
-            Check(bounded.Pending==4100&&bounded.Summary().Contains("overflow=0,"),"critical reservation survives background saturation");
+            Check(bounded.Pending==4100+contractPending&&bounded.Summary().Contains("overflow=0,"),"critical reservation survives background saturation");
             MixedLoad(site);
             PlanningAndCommandFrames();
             FocusedDecisionEvidence();
@@ -273,7 +273,7 @@ namespace EnemyBridgePathTest
                 scope.Selections.Add(new BridgeDecisionTrace.SelectionEvidence {Op=2,Unit=2,Global=91,Task=181065});
                 scope.Selections.Add(new BridgeDecisionTrace.SelectionEvidence {Op=3,Unit=3,Global=90,Task=181065});
                 typeof(BridgeDecisionTrace).GetMethod("CompleteTaskAssignments",flags).Invoke(trace,new object[]{scope});
-                Check(trace.Failures==1&&trace.Pending==4,"failure is isolated; reused identity and following valid unit still recorded");
+                Check(trace.Failures==1&&trace.Pending==5,"failure is isolated; reused identity and following valid unit still recorded failures="+trace.Failures+",pending="+trace.Pending);
                 while(trace.Pending>0)trace.Drain();
                 Check(Shared.DebugLogHelper.Recent.Any(s=>s.Contains("selection=3")&&s.Contains("aiState=103")&&s.Contains("command=101")&&s.Contains("nativeAssignedTaskRaw=181065")),"production assignment record preserves both distinct state and command plus actual task");
             }

@@ -114,7 +114,7 @@ namespace ImprovedHunters
                 : 0;
             GameUnit* chicken = null;
             bool unitResolved = unitId != 0 &&
-                GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out chicken) &&
+                APIShared.UnitAccess.TryGetById(unitId, out chicken, out _) &&
                 chicken != null;
             if (!GranaryChickenSpawnPolicy.CanAssignCompletedSpawn(
                     IsChickenManagementActive,
@@ -171,7 +171,7 @@ namespace ImprovedHunters
             foreach (KeyValuePair<int, TrackedGranaryChicken> pair in trackedGranaryChickens)
             {
                 TrackedGranaryChicken tracked = pair.Value;
-                if (!unitApi.TryGetUnitById(tracked.UnitId, out GameUnit* chicken) ||
+                if (!APIShared.UnitAccess.TryGetById(unitApi, tracked.UnitId, out GameUnit* chicken, out _) ||
                     chicken == null ||
                     !GranaryChickenSpawnPolicy.IsTrackedIdentityValid(
                         tracked.GlobalId,

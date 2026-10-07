@@ -9,6 +9,7 @@
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 0,
+  "Dependencies": [{ "GUID": "APIShared_Serp", "MinimumVersion": "0.4.10" }],
   "SerpChangelog": [
     {
       "Version": "1.4.7",

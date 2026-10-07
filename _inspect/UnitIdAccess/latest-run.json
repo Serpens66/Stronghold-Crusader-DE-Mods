@@ -1,0 +1,253 @@
+{
+  "log": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\LogOutput.log",
+  "firstLine": 1,
+  "logSha256": "F8207BB1D3AE938860ED72CE30A9AA4AD597E8897075DFA7F7AF341CE0F67E14",
+  "loaded": [
+    [
+      "UU-ImGUI API",
+      "1.6.7"
+    ],
+    [
+      "SHCDE-SE",
+      "2.13.1.0"
+    ],
+    [
+      "APIShared",
+      "0.4.10"
+    ],
+    [
+      "Serps Mods",
+      "1.0.23"
+    ],
+    [
+      "Fixes",
+      "1.25.1.0"
+    ],
+    [
+      "Unit Limit",
+      "1.0.101"
+    ],
+    [
+      "Extra Features",
+      "1.0.108"
+    ],
+    [
+      "Bugfixes and QoL",
+      "1.0.175"
+    ],
+    [
+      "Building Costs",
+      "1.0.109"
+    ],
+    [
+      "Building Limit",
+      "1.0.26"
+    ],
+    [
+      "CastlePlanner",
+      "0.8.37"
+    ],
+    [
+      "Enemy Gate Pathfinding Test",
+      "0.1.5"
+    ],
+    [
+      "Extended Data",
+      "1.0.7"
+    ],
+    [
+      "Random Events",
+      "1.0.47"
+    ],
+    [
+      "Spectator Editor Build Test",
+      "0.1.0"
+    ],
+    [
+      "Start Conditions",
+      "1.0.28"
+    ],
+    [
+      "Unit Costs",
+      "1.0.32"
+    ]
+  ],
+  "errors": [
+    {
+      "line": 5312,
+      "text": "[Error  :  SHCDE-SE] [T15-17:29:38.999] [GameUnitManagerAPI] [TryGetUnitById] Tried to access unit index that was out of range: [0/9999]"
+    },
+    {
+      "line": 5373,
+      "text": "[Error  :  SHCDE-SE] [T15-17:30:18.673] [GameUnitManagerAPI] [TryGetUnitById] Tried to access unit index that was out of range: [0/9999]"
+    },
+    {
+      "line": 5934,
+      "text": "[Error  :  SHCDE-SE] [T15-17:33:58.298] [GameUnitManagerAPI] [TryGetUnitById] Tried to access unit index that was out of range: [0/9999]"
+    },
+    {
+      "line": 5937,
+      "text": "[Error  :  SHCDE-SE] [T15-17:34:08.364] [GameUnitManagerAPI] [TryGetUnitById] Tried to access unit index that was out of range: [0/9999]"
+    }
+  ],
+  "ownInstalledAssemblies": [
+    {
+      "name": "APIShared",
+      "project": "APIShared\\APIShared.csproj",
+      "local": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\APIShared\\BepInEx\\plugins\\APIShared_Serp\\APIShared.dll",
+      "localSha256": "4CB2E4B2A5B23119E9B784AE3EC60249549E004C93CB5981EC3855909A862DA3",
+      "installed": [
+        {
+          "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\APIShared_Serp\\APIShared.dll",
+          "sha256": "4CB2E4B2A5B23119E9B784AE3EC60249549E004C93CB5981EC3855909A862DA3",
+          "matchesLocalOutput": true
+        }
+      ]
+    },
+    {
+      "name": "Building Costs",
+      "project": "BuildingCosts\\BuildingCosts.csproj",
+      "local": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\BuildingCosts\\BepInEx\\plugins\\BuildingCosts_Serp\\BuildingCosts.dll",
+      "localSha256": "101B7A2D09DB1F173202295684D4EEFE3DF18170973E4CB7A064890CF4CE72AF",
+      "installed": [
+        {
+          "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\BuildingCosts_Serp\\BuildingCosts.dll",
+          "sha256": "50AB20FB5AB84A9F5FECABC8AAE363D092E54DAFD62CFA7E0911D040AD8C4229",
+          "matchesLocalOutput": false
+        }
+      ]
+    },
+    {
+      "name": "Building Limit",
+      "project": "BuildingLimit\\BuildingLimit.csproj",
+      "local": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\BuildingLimit\\BepInEx\\plugins\\BuildingLimit_Serp\\BuildingLimit.dll",
+      "localSha256": "FEAAB9F6A9B52FCC96DF4DAD2FE70F21DA4FE35D33479FCE7E724F98120D0657",
+      "installed": [
+        {
+          "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\BuildingLimit_Serp\\BuildingLimit.dll",
+          "sha256": "FEAAB9F6A9B52FCC96DF4DAD2FE70F21DA4FE35D33479FCE7E724F98120D0657",
+          "matchesLocalOutput": true
+        }
+      ]
+    },
+    {
+      "name": "CastlePlanner",
+      "project": "CastlePlanner\\CastlePlanner.csproj",
+      "local": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\CastlePlanner\\BepInEx\\plugins\\CastlePlanner_Serp\\CastlePlanner.dll",
+      "localSha256": "10279C271C0EDEA7AE76A2C202EEC9125DBA7F739B024B5FB468EEE425C149E1",
+      "installed": [
+        {
+          "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\CastlePlanner_Serp\\CastlePlanner.dll",
+          "sha256": "10279C271C0EDEA7AE76A2C202EEC9125DBA7F739B024B5FB468EEE425C149E1",
+          "matchesLocalOutput": true
+        }
+      ]
+    },
+    {
+      "name": "Extended Data",
+      "project": "ExtendedData\\ExtendedData.csproj",
+      "local": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\ExtendedData\\BepInEx\\plugins\\ExtendedData_Serp\\ExtendedData.dll",
+      "localSha256": "88D2B26A7BD8A965FAA365060126AF93D466089E6835997B4928E48C48E4356E",
+      "installed": [
+        {
+          "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\ExtendedData_Serp\\ExtendedData.dll",
+          "sha256": "D2901535A4EEF061C32001DCF2779ED7B9EF1CCBD56E2B318D4357A65414E5C6",
+          "matchesLocalOutput": false
+        }
+      ]
+    },
+    {
+      "name": "Extra Features",
+      "project": "ExtraFeatures\\ExtraFeatures.csproj",
+      "local": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\ExtraFeatures\\BepInEx\\plugins\\ExtraFeatures_Serp\\ExtraFeatures.dll",
+      "localSha256": "9F5D19CA4913F4D68E4D934CC31C43543BE73BBF7E04312FA3506DBC3FF890B9",
+      "installed": [
+        {
+          "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\ExtraFeatures_Serp\\ExtraFeatures.dll",
+          "sha256": "660FF513BF18A13BD36F06CC21B013A4842724C0C04F48327C6B6AC8D6E65F8E",
+          "matchesLocalOutput": false
+        }
+      ]
+    },
+    {
+      "name": "Random Events",
+      "project": "RandomEvents\\RandomEvents.csproj",
+      "local": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\RandomEvents\\BepInEx\\plugins\\RandomEvents_Serp\\RandomEvents.dll",
+      "localSha256": "08A95BE82FB79D0F8376C84E3A952DD6C46E8CFE76685CA43DC7749AD077E82E",
+      "installed": [
+        {
+          "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\RandomEvents_Serp\\RandomEvents.dll",
+          "sha256": "08A95BE82FB79D0F8376C84E3A952DD6C46E8CFE76685CA43DC7749AD077E82E",
+          "matchesLocalOutput": true
+        }
+      ]
+    },
+    {
+      "name": "Serps Mods",
+      "project": "SerpsModsHost\\SerpsModsHost.csproj",
+      "local": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\SerpsModsHost\\BepInEx\\plugins\\SerpsMods_Serp\\SerpsModsHost.dll",
+      "localSha256": "212D76B1814D10A952C37C49E21CD99A3BAD94BD915568D659B739FA8D400899",
+      "installed": [
+        {
+          "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\SerpsMods_Serp\\SerpsModsHost.dll",
+          "sha256": "212D76B1814D10A952C37C49E21CD99A3BAD94BD915568D659B739FA8D400899",
+          "matchesLocalOutput": true
+        }
+      ]
+    },
+    {
+      "name": "Start Conditions",
+      "project": "StartConditions\\StartConditions.csproj",
+      "local": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\StartConditions\\BepInEx\\plugins\\StartConditions_Serp\\StartConditions.dll",
+      "localSha256": "8482493C6FFBD2E4ED867768BD157F13FC023A7C88CE113E65E596E866E383DE",
+      "installed": [
+        {
+          "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\StartConditions_Serp\\StartConditions.dll",
+          "sha256": "8482493C6FFBD2E4ED867768BD157F13FC023A7C88CE113E65E596E866E383DE",
+          "matchesLocalOutput": true
+        }
+      ]
+    },
+    {
+      "name": "Unit Costs",
+      "project": "UnitCosts\\UnitCosts.csproj",
+      "local": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\UnitCosts\\BepInEx\\plugins\\UnitCosts_Serp\\UnitCosts.dll",
+      "localSha256": "83C2CB9C6EC2197B62B6C3254FDAF41D528A68BECD8C817C7BDABD4650BDAC82",
+      "installed": [
+        {
+          "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\UnitCosts_Serp\\UnitCosts.dll",
+          "sha256": "45C898EF24B4514B3C1A9BE19A442A9A59524F8ADAA7484E5599CEC17F768E75",
+          "matchesLocalOutput": false
+        }
+      ]
+    },
+    {
+      "name": "Unit Limit",
+      "project": "UnitLimit\\UnitLimit.csproj",
+      "local": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\UnitLimit\\BepInEx\\plugins\\UnitLimit_Serp\\UnitLimit.dll",
+      "localSha256": "F410EE555A6C3C1F84A6154A7CFDE24CDE5F540806BD421F7149AEFF9E0BE887",
+      "installed": [
+        {
+          "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\UnitLimit_Serp\\UnitLimit.dll",
+          "sha256": "F56750DE1DE486F812499623F44C00D812B6252F39CE8057445F91925DC852B1",
+          "matchesLocalOutput": false
+        }
+      ]
+    },
+    {
+      "name": "Bugfixes and QoL",
+      "project": "BugfixesAndQoL\\BugfixesAndQoL.csproj",
+      "local": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\BugfixesAndQoL\\BepInEx\\plugins\\BugfixesAndQoL_Serp\\BugfixesAndQoL.dll",
+      "localSha256": "272776EB384224D40DCADB4087B74C6DCCAE2819E61EA7C673A7B58E93EF7861",
+      "installed": [
+        {
+          "path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\BugfixesAndQoL_Serp\\BugfixesAndQoL.dll",
+          "sha256": "272776EB384224D40DCADB4087B74C6DCCAE2819E61EA7C673A7B58E93EF7861",
+          "matchesLocalOutput": true
+        }
+      ]
+    }
+  ],
+  "nativeHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+  "extenderHash": "225441FC02215359AF9C70F954EF83B9B2FD60608AC867E38B51C81F3E0C1A71"
+}

@@ -91,7 +91,7 @@ namespace BugfixesAndQoL
                     NativeUnitPathBufferStride, MaximumUnitCount, frame?.Args.UnitId ?? 0, out int unitId))
                     return UnavailableTemporaryRoute(observer, "unit-buffer-mismatch", source);
                 var units = GameUnitManagerAPI.Instance;
-                if (!units.IsValidId(unitId) || !units.TryGetUnitById(unitId, out GameUnit* unit) || unit == null || unit->r_GlobalId == 0)
+                if (!units.IsValidId(unitId) || !APIShared.UnitAccess.TryGetById(units, unitId, out GameUnit* unit, out _) || unit == null || unit->r_GlobalId == 0)
                     return UnavailableTemporaryRoute(observer, "missing-unit-identity", source);
                 GetNativeMovementStart(unit, out int x, out int y);
                 int tx = *(int*)(context + 0x10), ty = *(int*)(context + 0x14);
@@ -129,7 +129,7 @@ namespace BugfixesAndQoL
                 else if (result <= 0) status = "search-negative";
                 else if (manager == nativePathManager && nativeUnitManager != null && report.Unit > 0 && report.Unit <= MaximumUnitCount &&
                     report.Epoch == mapEpoch && ReferenceEquals(report.Frame, unitMoveFrame) &&
-                    GameUnitManagerAPI.Instance.IsValidId(report.Unit) && GameUnitManagerAPI.Instance.TryGetUnitById(report.Unit, out GameUnit* unit) && unit != null &&
+                    GameUnitManagerAPI.Instance.IsValidId(report.Unit) && APIShared.UnitAccess.TryGetById(report.Unit, out GameUnit* unit, out _) && unit != null &&
                     unit->r_GlobalId == report.Global && unit->r_TribeId == report.Tribe &&
                     (unit->r_ControllableForPlayerId | ((int)unit->N00000569 << 8)) == report.Player)
                 {

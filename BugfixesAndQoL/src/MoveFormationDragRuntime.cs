@@ -927,8 +927,8 @@ namespace BugfixesAndQoL
             for (int index = 0; index < selected.Count; index++)
             {
                 int unitId = selected[index].UnitId;
-                if (!GameUnitManagerAPI.Instance.TryGetUnitById(
-                        unitId, out GameUnit* unit) ||
+                if (!APIShared.UnitAccess.TryGetById(
+                        unitId, out GameUnit* unit, out _) ||
                     unit == null || unit->r_AliveState != AliveState.IsAlive ||
                     unit->r_GlobalId == 0)
                 {

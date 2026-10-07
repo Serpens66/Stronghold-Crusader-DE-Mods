@@ -1,0 +1,47 @@
+Hash FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2
+FUN_1800c3e50 0xC3E50 size=73 confidence=candidate
+Callers [('0x71670',), ('0x87460',), ('0x87D10',), ('0xC8380',), ('0xE1110',), ('0xE1640',)]
+Callees [('0x725E0',)]
+/* FUNCTION FUN_1800c3e50 VA=0x1800C3E50 RVA=0xC3E50 */
+
+void FUN_1800c3e50(void)
+
+{
+  int iVar1;
+  short *psVar2;
+  
+  iVar1 = 1;
+  psVar2 = &DAT_1864cd008;
+  do {
+    if (*psVar2 != 0) {
+      FUN_1800725e0(&DAT_18405edb0,iVar1,0);
+    }
+    iVar1 = iVar1 + 1;
+    psVar2 = psVar2 + 0x196;
+  } while (iVar1 < 4000);
+  return;
+}
+
+
+
+
+ASM:
+000C3E50 48895c2408 mov qword ptr [rsp + 8], rbx
+000C3E55 57 push rdi
+000C3E56 4883ec20 sub rsp, 0x20
+000C3E5A bb01000000 mov ebx, 1
+000C3E5F 488d3da2914006 lea rdi, [rip + 0x64091a2]
+000C3E66 66833f00 cmp word ptr [rdi], 0
+000C3E6A 7411 je 0x1800c3e7d
+000C3E6C 4533c0 xor r8d, r8d
+000C3E6F 488d0d3aaff903 lea rcx, [rip + 0x3f9af3a]
+000C3E76 8bd3 mov edx, ebx
+000C3E78 e863e7faff call 0x1800725e0
+000C3E7D ffc3 inc ebx
+000C3E7F 4881c72c030000 add rdi, 0x32c
+000C3E86 81fba00f0000 cmp ebx, 0xfa0
+000C3E8C 7cd8 jl 0x1800c3e66
+000C3E8E 488b5c2430 mov rbx, qword ptr [rsp + 0x30]
+000C3E93 4883c420 add rsp, 0x20
+000C3E97 5f pop rdi
+000C3E98 c3 ret 

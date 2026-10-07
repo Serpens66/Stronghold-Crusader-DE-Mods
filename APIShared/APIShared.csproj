@@ -49,6 +49,10 @@
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="src\Contracts.cs" />
+    <Compile Include="src\UnitAccess.cs" />
+    <Compile Include="src\AssassinPathAPI.cs" />
+    <Compile Include="src\AssassinEndpointEmitter.cs" />
+    <Compile Include="src\AssassinPathNativeDefinition.cs" />
     <Compile Include="src\GatehouseDrawbridgeCoupling.cs" />
     <Compile Include="src\BuildingRepairContracts.cs" />
     <Compile Include="src\BuildingRepairCapability.cs" />

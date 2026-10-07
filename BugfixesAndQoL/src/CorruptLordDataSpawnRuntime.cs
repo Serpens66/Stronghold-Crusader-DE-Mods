@@ -284,7 +284,7 @@ namespace BugfixesAndQoL
             lordUnitId = (int)resources->r_LordUnitId;
             lordGlobalId = (int)resources->r_LordUnitGlobalId;
             if (lordUnitId <= 0 || lordGlobalId <= 0 ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(lordUnitId, out GameUnit* lord) ||
+                !APIShared.UnitAccess.TryGetById(lordUnitId, out GameUnit* lord, out _) ||
                 lord == null)
             {
                 return false;
@@ -330,7 +330,7 @@ namespace BugfixesAndQoL
             UnitIdentity lordIdentity = UnitIdentity.Missing(lordUnitId);
             bool validLordReference = false;
             if (lordUnitId > 0 &&
-                GameUnitManagerAPI.Instance.TryGetUnitById(lordUnitId, out GameUnit* lord) &&
+                APIShared.UnitAccess.TryGetById(lordUnitId, out GameUnit* lord, out _) &&
                 lord != null)
             {
                 lordIdentity = new UnitIdentity(

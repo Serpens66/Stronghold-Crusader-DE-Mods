@@ -74,6 +74,7 @@ namespace BugfixesAndQoL
         public static GameUnitManagerAPI Instance = new GameUnitManagerAPI();
         public GameUnit* Units;
         public Span<GameUnit> GetUnitsAsSpan() => new Span<GameUnit>(Units+1,1024);
+        public bool IsValidId(int id) => id > 0 && id < 1025;
         public bool TryGetUnitById(int id, out GameUnit* unit)
         { unit = id > 0 && id < 1025 ? Units + id : null; return unit != null; }
     }

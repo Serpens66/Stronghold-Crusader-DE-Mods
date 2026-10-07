@@ -35,7 +35,7 @@ namespace BugfixesAndQoL
                 (TribeAICommand)unit->r_AI_LastIssuedTribeCommand != TribeAICommand.Unknown7 ||
                 plan.PlayerId != unit->r_ControllableForPlayerId ||
                 (plan.IdentityBound && plan.UnitGlobalId != unit->r_GlobalId) ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(plan.UnitId, out GameUnit* live) || live != unit ||
+                !APIShared.UnitAccess.TryGetById(plan.UnitId, out GameUnit* live, out _) || live != unit ||
                 (plan.MoatWorkSearch != null && (plan.MoatWorkSearch.MapEpoch != mapEpoch ||
                     plan.MoatWorkSearch.CapturedTick != CaptureCurrentGameTick())) ||
                 !IsCompletedEnemyMoatForPlayer(plan.PlayerId, plan.MoatWorkTargetTileId)) return false;
@@ -51,7 +51,7 @@ namespace BugfixesAndQoL
             int contact = -1;
             if (shadow.FillPlan != null)
             {
-                if (!GameUnitManagerAPI.Instance.TryGetUnitById(shadow.UnitId, out GameUnit* unit) ||
+                if (!APIShared.UnitAccess.TryGetById(shadow.UnitId, out GameUnit* unit, out _) ||
                     unit == null || unit->r_GlobalId != shadow.UnitGlobalId ||
                     !TryGetTerminalFillContact(shadow.FillPlan, unit, shadow.TargetX, shadow.TargetY, out contact))
                 { summary = WeightedMoatRouteSummary.Failed("fill-context-changed", 0); return false; }
@@ -66,7 +66,7 @@ namespace BugfixesAndQoL
         {
             summary = default; route = default;
             if (shadow.FillPlan == null || nativeLength < 3 ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(shadow.UnitId, out GameUnit* unit) ||
+                !APIShared.UnitAccess.TryGetById(shadow.UnitId, out GameUnit* unit, out _) ||
                 !TryGetTerminalFillContact(shadow.FillPlan, unit, shadow.TargetX, shadow.TargetY, out int contact)) return false;
             int last = nativeLength - 1, before = nativeLength - 2;
             int exit = (nativePath[last >> 1] >> ((last & 1) * 4)) & 15;

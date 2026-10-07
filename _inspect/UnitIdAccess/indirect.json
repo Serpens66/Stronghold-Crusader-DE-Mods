@@ -1,0 +1,642 @@
+[
+  {
+    "path": "BugfixesAndQoL\\src\\SurrenderFeature.cs",
+    "line": 1517,
+    "method": "KillUnit",
+    "contract": {
+      "args": "int unitId",
+      "lookup": true
+    },
+    "code": "GameUnitManagerAPI.Instance.KillUnit(lord.UnitId);"
+  },
+  {
+    "path": "BugfixesAndQoL\\src\\SurrenderFeature.cs",
+    "line": 1664,
+    "method": "KillUnit",
+    "contract": {
+      "args": "int unitId",
+      "lookup": true
+    },
+    "code": "GameUnitManagerAPI.Instance.KillUnit(resolvedUnitId);"
+  },
+  {
+    "path": "ExtraFeatures\\src\\KnightDismountDelayRuntime.cs",
+    "line": 508,
+    "method": "DeleteUnit",
+    "contract": {
+      "args": "int unitId",
+      "lookup": false
+    },
+    "code": "GameUnitManagerAPI.Instance.DeleteUnit(knightUnitId);"
+  },
+  {
+    "path": "ExtraFeatures\\src\\KnightDismountDelayRuntime.cs",
+    "line": 516,
+    "method": "DeleteUnit",
+    "contract": {
+      "args": "int unitId",
+      "lookup": false
+    },
+    "code": "GameUnitManagerAPI.Instance.DeleteUnit(knightUnitId);"
+  },
+  {
+    "path": "ExtraFeatures\\src\\KnightDismountDelayRuntime.cs",
+    "line": 521,
+    "method": "DeleteUnitSafe",
+    "contract": {
+      "args": "int unitId",
+      "lookup": true
+    },
+    "code": "if (!GameUnitManagerAPI.Instance.DeleteUnitSafe(swordsmanUnitId))"
+  },
+  {
+    "path": "ExtraFeatures\\src\\KnightDismountDelayRuntime.cs",
+    "line": 525,
+    "method": "DeleteUnit",
+    "contract": {
+      "args": "int unitId",
+      "lookup": false
+    },
+    "code": "GameUnitManagerAPI.Instance.DeleteUnit(knightUnitId);"
+  },
+  {
+    "path": "ExtraFeatures\\src\\KnightDismountRuntime.cs",
+    "line": 1068,
+    "method": "DeleteUnit",
+    "contract": {
+      "args": "int unitId",
+      "lookup": false
+    },
+    "code": "GameUnitManagerAPI.Instance.DeleteUnit(swordsmanUnitId);"
+  },
+  {
+    "path": "ExtraFeatures\\src\\KnightDismountRuntime.cs",
+    "line": 1074,
+    "method": "DeleteUnit",
+    "contract": {
+      "args": "int unitId",
+      "lookup": false
+    },
+    "code": "GameUnitManagerAPI.Instance.DeleteUnit(swordsmanUnitId);"
+  },
+  {
+    "path": "ExtraFeatures\\src\\KnightDismountRuntime.cs",
+    "line": 1078,
+    "method": "DeleteUnitSafe",
+    "contract": {
+      "args": "int unitId",
+      "lookup": true
+    },
+    "code": "if (!GameUnitManagerAPI.Instance.DeleteUnitSafe(currentKnightId))"
+  },
+  {
+    "path": "ExtraFeatures\\src\\KnightDismountRuntime.cs",
+    "line": 1082,
+    "method": "DeleteUnit",
+    "contract": {
+      "args": "int unitId",
+      "lookup": false
+    },
+    "code": "GameUnitManagerAPI.Instance.DeleteUnit(swordsmanUnitId);"
+  },
+  {
+    "path": "ExtraFeatures\\src\\KnightDismountRuntime.cs",
+    "line": 1113,
+    "method": "DeleteUnit",
+    "contract": {
+      "args": "int unitId",
+      "lookup": false
+    },
+    "code": "GameUnitManagerAPI.Instance.DeleteUnit(swordsmanUnitId);"
+  },
+  {
+    "path": "ExtraFeatures\\src\\KnightDismountRuntime.cs",
+    "line": 1119,
+    "method": "DeleteUnit",
+    "contract": {
+      "args": "int unitId",
+      "lookup": false
+    },
+    "code": "GameUnitManagerAPI.Instance.DeleteUnit(swordsmanUnitId);"
+  },
+  {
+    "path": "ExtraFeatures\\src\\KnightDismountRuntime.cs",
+    "line": 1124,
+    "method": "DeleteUnitSafe",
+    "contract": {
+      "args": "int unitId",
+      "lookup": true
+    },
+    "code": "if (!GameUnitManagerAPI.Instance.DeleteUnitSafe(currentKnightId))"
+  },
+  {
+    "path": "ExtraFeatures\\src\\KnightDismountRuntime.cs",
+    "line": 1128,
+    "method": "DeleteUnit",
+    "contract": {
+      "args": "int unitId",
+      "lookup": false
+    },
+    "code": "GameUnitManagerAPI.Instance.DeleteUnit(swordsmanUnitId);"
+  },
+  {
+    "path": "ExtraFeatures\\src\\KnightDismountRuntime.cs",
+    "line": 1183,
+    "method": "DeleteUnit",
+    "contract": {
+      "args": "int unitId",
+      "lookup": false
+    },
+    "code": "GameUnitManagerAPI.Instance.DeleteUnit(deleteUnitId);"
+  },
+  {
+    "path": "ExtraFeatures\\src\\KnightDismountRuntime.cs",
+    "line": 1208,
+    "method": "DeleteUnit",
+    "contract": {
+      "args": "int unitId",
+      "lookup": false
+    },
+    "code": "GameUnitManagerAPI.Instance.DeleteUnit(currentUnitId);"
+  },
+  {
+    "path": "ExtraFeatures\\src\\KnightDismountRuntime.cs",
+    "line": 1300,
+    "method": "DeleteUnit",
+    "contract": {
+      "args": "int unitId",
+      "lookup": false
+    },
+    "code": "GameUnitManagerAPI.Instance.DeleteUnit(knightUnitId);"
+  },
+  {
+    "path": "ExtraFeatures\\src\\KnightDismountRuntime.cs",
+    "line": 1309,
+    "method": "DeleteUnit",
+    "contract": {
+      "args": "int unitId",
+      "lookup": false
+    },
+    "code": "GameUnitManagerAPI.Instance.DeleteUnit(knightUnitId);"
+  },
+  {
+    "path": "ExtremePowers\\api\\Native\\NativeExtremePowersRuntime.cs",
+    "line": 368,
+    "method": "IsValid",
+    "contract": {
+      "args": "int unitId",
+      "lookup": true
+    },
+    "code": "if (target.Kind == ExtremePowerTargetKind.Unit) return GameUnitManagerAPI.Instance.IsValid(target.UnitId);"
+  },
+  {
+    "path": "ExtremePowers\\api\\Networking\\ExtremePowerNetworkRuntime.cs",
+    "line": 102,
+    "method": "IsValid",
+    "contract": {
+      "args": "int unitId",
+      "lookup": true
+    },
+    "code": "if (target.Kind == ExtremePowerTargetKind.Unit) return GameUnitManagerAPI.Instance.IsValid(target.UnitId);"
+  },
+  {
+    "path": "ImprovedHunters\\src\\HunterTargetSelectionFeature.cs",
+    "line": 35,
+    "method": "GetType",
+    "contract": {
+      "args": "int unitId",
+      "lookup": true
+    },
+    "code": "eChimps queryType = unitApi.GetType(args.QueryUnitId);"
+  },
+  {
+    "path": "ImprovedHunters\\src\\HunterTargetSelectionFeature.cs",
+    "line": 36,
+    "method": "GetGlobalId",
+    "contract": {
+      "args": "int unitId",
+      "lookup": true
+    },
+    "code": "int queryGlobalId = unitApi.GetGlobalId(args.QueryUnitId);"
+  },
+  {
+    "path": "ImprovedHunters\\src\\HunterTargetSelectionFeature.cs",
+    "line": 55,
+    "method": "GetOwner",
+    "contract": {
+      "args": "int unitId",
+      "lookup": true
+    },
+    "code": "if (!IsOwnerAllowed(unitApi.GetOwner(hunterUnitId), args.QueryUnitId, queryType))"
+  },
+  {
+    "path": "ImprovedHunters\\src\\HunterTargetSelectionFeature.cs",
+    "line": 257,
+    "method": "GetOwner",
+    "contract": {
+      "args": "int unitId",
+      "lookup": true
+    },
+    "code": "int hunterOwner = unitApi.GetOwner(hunterUnitId);"
+  },
+  {
+    "path": "ImprovedHunters\\src\\ImprovedHuntersRuntime.cs",
+    "line": 462,
+    "method": "GetOwner",
+    "contract": {
+      "args": "int unitId",
+      "lookup": true
+    },
+    "code": "int hunterOwner = GameUnitManagerAPI.Instance.GetOwner(hunterId);"
+  },
+  {
+    "path": "ImprovedHunters\\src\\ImprovedHuntersRuntime.cs",
+    "line": 1068,
+    "method": "GetType",
+    "contract": {
+      "args": "int unitId",
+      "lookup": true
+    },
+    "code": "GameUnitManagerAPI.Instance.GetType(args.UnitId) != eChimps.CHIMP_TYPE_HUNTER ||"
+  },
+  {
+    "path": "StartConditions\\src\\StartConditionsRuntime.AIStartTroopIsolation.cs",
+    "line": 340,
+    "method": "DeleteUnitSafe",
+    "contract": {
+      "args": "int unitId",
+      "lookup": true
+    },
+    "code": "deleteMarked = GameUnitManagerAPI.Instance.DeleteUnitSafe(unitId);"
+  },
+  {
+    "path": "StartConditions\\src\\StartConditionsRuntime.AIStartTroopIsolation.cs",
+    "line": 476,
+    "method": "DeleteUnitSafe",
+    "contract": {
+      "args": "int unitId",
+      "lookup": true
+    },
+    "code": "if (GameUnitManagerAPI.Instance.DeleteUnitSafe(protectedTroop.UnitId))"
+  },
+  {
+    "path": "StartConditions\\src\\StartConditionsRuntime.StartTroops.cs",
+    "line": 343,
+    "method": "GetOwner",
+    "contract": {
+      "args": "int unitId",
+      "lookup": true
+    },
+    "code": "if (GameUnitManagerAPI.Instance.GetOwner(unitId) != playerId)"
+  },
+  {
+    "path": "StartConditions\\src\\StartConditionsRuntime.StartTroops.cs",
+    "line": 346,
+    "method": "GetType",
+    "contract": {
+      "args": "int unitId",
+      "lookup": true
+    },
+    "code": "eChimps unitType = GameUnitManagerAPI.Instance.GetType(unitId);"
+  },
+  {
+    "path": "StartConditions\\src\\StartConditionsRuntime.StartTroops.cs",
+    "line": 352,
+    "method": "DeleteUnitSafe",
+    "contract": {
+      "args": "int unitId",
+      "lookup": true
+    },
+    "code": "if (!GameUnitManagerAPI.Instance.DeleteUnitSafe(unitId))"
+  },
+  {
+    "path": "StartConditions\\src\\StartConditionsRuntime.StartTroops.cs",
+    "line": 398,
+    "method": "GetOwner",
+    "contract": {
+      "args": "int unitId",
+      "lookup": true
+    },
+    "code": "int playerId = GameUnitManagerAPI.Instance.GetOwner(unitId);"
+  },
+  {
+    "path": "StartConditions\\src\\StartConditionsRuntime.StartTroops.cs",
+    "line": 399,
+    "method": "GetType",
+    "contract": {
+      "args": "int unitId",
+      "lookup": true
+    },
+    "code": "eChimps unitType = GameUnitManagerAPI.Instance.GetType(unitId);"
+  },
+  {
+    "path": "Testmods\\FormationTest\\src\\FormationTestRuntime.cs",
+    "line": 1144,
+    "method": "MoveToTile",
+    "contract": {
+      "args": "int unitId, int tileX, int tileY, int unknown = 0",
+      "lookup": false
+    },
+    "code": "GameUnitManagerAPI.Instance.MoveToTile("
+  },
+  {
+    "path": "Testmods\\OutpostTest\\src\\OutpostRallyRuntime.cs",
+    "line": 148,
+    "method": "GetOwner",
+    "contract": {
+      "args": "int unitId",
+      "lookup": true
+    },
+    "code": "GameUnitManagerAPI.Instance.GetOwner(p.Unit)==p.Owner && Human(p.Owner) &&"
+  },
+  {
+    "path": "Testmods\\OutpostTest\\src\\OutpostRallyRuntime.cs",
+    "line": 229,
+    "method": "GetOwner",
+    "contract": {
+      "args": "int unitId",
+      "lookup": true
+    },
+    "code": "if((int)u->r_UnitChimp!=26 || GameUnitManagerAPI.Instance.GetOwner(id)!=e.Owner ||"
+  },
+  {
+    "path": "Testmods\\OutpostTest\\src\\OutpostRuntime.cs",
+    "line": 192,
+    "method": "GetOwner",
+    "contract": {
+      "args": "int unitId",
+      "lookup": true
+    },
+    "code": "if ((int)u->r_UnitChimp != 26 || GameUnitManagerAPI.Instance.GetOwner(unitId) != e.Owner ||"
+  },
+  {
+    "path": "Testmods\\StockpileAccessFixTest\\src\\StockpileAccessFixTestRuntime.cs",
+    "line": 409,
+    "method": "MoveToTile",
+    "contract": {
+      "args": "int unitId, int tileX, int tileY, int unknown = 0",
+      "lookup": false
+    },
+    "code": "GameUnitManagerAPI.Instance.MoveToTile("
+  },
+  {
+    "path": "Testmods\\StockpileAccessFixTest\\src\\StockpileAccessFixTestRuntime.cs",
+    "line": 578,
+    "method": "SetCurrentLocalTilePosition",
+    "contract": {
+      "args": "int unitId, UnmanagedVector2<UInt16> localTilePosition",
+      "lookup": true
+    },
+    "code": "GameUnitManagerAPI.Instance.SetCurrentLocalTilePosition("
+  },
+  {
+    "path": "Testmods\\StockpileAccessFixTest\\src\\StockpileAccessFixTestRuntime.cs",
+    "line": 599,
+    "method": "MoveToTile",
+    "contract": {
+      "args": "int unitId, int tileX, int tileY, int unknown = 0",
+      "lookup": false
+    },
+    "code": "GameUnitManagerAPI.Instance.MoveToTile(blockerUnitId, accessX, accessY, 0);"
+  },
+  {
+    "path": "Testmods\\StockpileAccessFixTest\\src\\StockpileAccessFixTestRuntime.cs",
+    "line": 870,
+    "method": "MoveToTile",
+    "contract": {
+      "args": "int unitId, int tileX, int tileY, int unknown = 0",
+      "lookup": false
+    },
+    "code": "GameUnitManagerAPI.Instance.MoveToTile(testVictimUnitId, testBlockerX, testBlockerY, 0);"
+  },
+  {
+    "path": "Testmods\\StockpileAccessFixTest\\src\\StockpileAccessFixTestRuntime.cs",
+    "line": 990,
+    "method": "SetCurrentLocalTilePosition",
+    "contract": {
+      "args": "int unitId, UnmanagedVector2<UInt16> localTilePosition",
+      "lookup": true
+    },
+    "code": "GameUnitManagerAPI.Instance.SetCurrentLocalTilePosition("
+  },
+  {
+    "path": "Testmods\\StockpileAccessFixTest\\src\\StockpileAccessFixTestRuntime.cs",
+    "line": 995,
+    "method": "MoveToTile",
+    "contract": {
+      "args": "int unitId, int tileX, int tileY, int unknown = 0",
+      "lookup": false
+    },
+    "code": "GameUnitManagerAPI.Instance.MoveToTile("
+  },
+  {
+    "path": "Testmods\\StockpileAccessFixTest\\src\\StockpileAccessFixTestRuntime.cs",
+    "line": 1033,
+    "method": "MoveToTile",
+    "contract": {
+      "args": "int unitId, int tileX, int tileY, int unknown = 0",
+      "lookup": false
+    },
+    "code": "GameUnitManagerAPI.Instance.MoveToTile("
+  },
+  {
+    "path": "Testmods\\VirtualUnitsPrototype\\src\\VirtualEntityRuntime.cs",
+    "line": 375,
+    "method": "DeleteUnitSafe",
+    "contract": {
+      "args": "int unitId",
+      "lookup": true
+    },
+    "code": "GameUnitManagerAPI.Instance.DeleteUnitSafe(unitId);"
+  },
+  {
+    "path": "Testmods\\VirtualUnitsPrototype\\src\\VirtualEntityRuntime.cs",
+    "line": 380,
+    "method": "DeleteUnitSafe",
+    "contract": {
+      "args": "int unitId",
+      "lookup": true
+    },
+    "code": "GameUnitManagerAPI.Instance.DeleteUnitSafe(unitId);"
+  },
+  {
+    "path": "Testmods\\VirtualUnitsPrototype\\src\\VirtualEntityRuntime.cs",
+    "line": 706,
+    "method": "GetCurrentHealth",
+    "contract": {
+      "args": "int unitId",
+      "lookup": true
+    },
+    "code": "int currentHealth = GameUnitManagerAPI.Instance.GetCurrentHealth(pending.GameId);"
+  },
+  {
+    "path": "Testmods\\VirtualUnitsPrototype\\src\\VirtualEntityRuntime.cs",
+    "line": 711,
+    "method": "GetMaxHealth",
+    "contract": {
+      "args": "int unitId",
+      "lookup": true
+    },
+    "code": "Shared.DebugLogHelper.LogInfo(log, $\"Pending unit finalized: {DescribeUnit(unit)}, rendererSeen={pending.RendererSeen}, bodyHookSeen={pending.UnitHookSeen}, maxHealth={GameUnitManagerAPI.Instance.GetMaxHealth(pending.GameId)}, currentHealth={GameUnitManagerAPI.Instance.GetCurrentHealth(pending.GameId)}, speed={GameUnitManagerAPI.Instance.GetSpeed(pending.GameId)}.\");"
+  },
+  {
+    "path": "Testmods\\VirtualUnitsPrototype\\src\\VirtualEntityRuntime.cs",
+    "line": 711,
+    "method": "GetCurrentHealth",
+    "contract": {
+      "args": "int unitId",
+      "lookup": true
+    },
+    "code": "Shared.DebugLogHelper.LogInfo(log, $\"Pending unit finalized: {DescribeUnit(unit)}, rendererSeen={pending.RendererSeen}, bodyHookSeen={pending.UnitHookSeen}, maxHealth={GameUnitManagerAPI.Instance.GetMaxHealth(pending.GameId)}, currentHealth={GameUnitManagerAPI.Instance.GetCurrentHealth(pending.GameId)}, speed={GameUnitManagerAPI.Instance.GetSpeed(pending.GameId)}.\");"
+  },
+  {
+    "path": "Testmods\\VirtualUnitsPrototype\\src\\VirtualEntityRuntime.cs",
+    "line": 711,
+    "method": "GetSpeed",
+    "contract": {
+      "args": "int unitId",
+      "lookup": true
+    },
+    "code": "Shared.DebugLogHelper.LogInfo(log, $\"Pending unit finalized: {DescribeUnit(unit)}, rendererSeen={pending.RendererSeen}, bodyHookSeen={pending.UnitHookSeen}, maxHealth={GameUnitManagerAPI.Instance.GetMaxHealth(pending.GameId)}, currentHealth={GameUnitManagerAPI.Instance.GetCurrentHealth(pending.GameId)}, speed={GameUnitManagerAPI.Instance.GetSpeed(pending.GameId)}.\");"
+  },
+  {
+    "path": "Testmods\\VirtualUnitsPrototype\\src\\VirtualEntityRuntime.cs",
+    "line": 735,
+    "method": "DeleteUnitSafe",
+    "contract": {
+      "args": "int unitId",
+      "lookup": true
+    },
+    "code": "deleteIssued = pending.Kind == VirtualEntityKind.Unit ? GameUnitManagerAPI.Instance.DeleteUnitSafe(pending.GameId) : GameBuildingManagerAPI.Instance.DeleteBuildingSafe(pending.GameId);"
+  },
+  {
+    "path": "Testmods\\VirtualUnitsPrototype\\src\\VirtualEntityRuntime.cs",
+    "line": 742,
+    "method": "GetGlobalId",
+    "contract": {
+      "args": "int unitId",
+      "lookup": true
+    },
+    "code": "? GameUnitManagerAPI.Instance.GetGlobalId(pending.GameId) == unchecked((int)pending.GlobalId)"
+  },
+  {
+    "path": "Testmods\\VirtualUnitsPrototype\\src\\VirtualEntityRuntime.cs",
+    "line": 881,
+    "method": "GetMaxHealth",
+    "contract": {
+      "args": "int unitId",
+      "lookup": true
+    },
+    "code": "global = unit->r_GlobalId; max = GameUnitManagerAPI.Instance.GetMaxHealth(id); current = GameUnitManagerAPI.Instance.GetCurrentHealth(id); speed = GameUnitManagerAPI.Instance.GetSpeed(id);"
+  },
+  {
+    "path": "Testmods\\VirtualUnitsPrototype\\src\\VirtualEntityRuntime.cs",
+    "line": 881,
+    "method": "GetCurrentHealth",
+    "contract": {
+      "args": "int unitId",
+      "lookup": true
+    },
+    "code": "global = unit->r_GlobalId; max = GameUnitManagerAPI.Instance.GetMaxHealth(id); current = GameUnitManagerAPI.Instance.GetCurrentHealth(id); speed = GameUnitManagerAPI.Instance.GetSpeed(id);"
+  },
+  {
+    "path": "Testmods\\VirtualUnitsPrototype\\src\\VirtualEntityRuntime.cs",
+    "line": 881,
+    "method": "GetSpeed",
+    "contract": {
+      "args": "int unitId",
+      "lookup": true
+    },
+    "code": "global = unit->r_GlobalId; max = GameUnitManagerAPI.Instance.GetMaxHealth(id); current = GameUnitManagerAPI.Instance.GetCurrentHealth(id); speed = GameUnitManagerAPI.Instance.GetSpeed(id);"
+  },
+  {
+    "path": "Testmods\\VirtualUnitsPrototype\\src\\VirtualEntityRuntime.cs",
+    "line": 907,
+    "method": "SetMaxHealth",
+    "contract": {
+      "args": "int unitId, int maxHealth",
+      "lookup": true
+    },
+    "code": "GameUnitManagerAPI.Instance.SetMaxHealth(id, newMax); GameUnitManagerAPI.Instance.SetCurrentHealth(id, newCurrent); GameUnitManagerAPI.Instance.SetSpeed(id, (ushort)newSpeed);"
+  },
+  {
+    "path": "Testmods\\VirtualUnitsPrototype\\src\\VirtualEntityRuntime.cs",
+    "line": 907,
+    "method": "SetCurrentHealth",
+    "contract": {
+      "args": "int unitId, int health",
+      "lookup": true
+    },
+    "code": "GameUnitManagerAPI.Instance.SetMaxHealth(id, newMax); GameUnitManagerAPI.Instance.SetCurrentHealth(id, newCurrent); GameUnitManagerAPI.Instance.SetSpeed(id, (ushort)newSpeed);"
+  },
+  {
+    "path": "Testmods\\VirtualUnitsPrototype\\src\\VirtualEntityRuntime.cs",
+    "line": 907,
+    "method": "SetSpeed",
+    "contract": {
+      "args": "int unitId, UInt16 speedLevel",
+      "lookup": true
+    },
+    "code": "GameUnitManagerAPI.Instance.SetMaxHealth(id, newMax); GameUnitManagerAPI.Instance.SetCurrentHealth(id, newCurrent); GameUnitManagerAPI.Instance.SetSpeed(id, (ushort)newSpeed);"
+  },
+  {
+    "path": "Testmods\\VirtualUnitsPrototype\\src\\VirtualEntityRuntime.cs",
+    "line": 920,
+    "method": "SetMaxHealth",
+    "contract": {
+      "args": "int unitId, int maxHealth",
+      "lookup": true
+    },
+    "code": "GameUnitManagerAPI.Instance.SetMaxHealth(stored.GameId, stored.OriginalMaxHealth); GameUnitManagerAPI.Instance.SetCurrentHealth(stored.GameId, restoredCurrent); GameUnitManagerAPI.Instance.SetSpeed(stored.GameId, (ushort)Math.Min(ushort.MaxValue, stored.OriginalSpeed));"
+  },
+  {
+    "path": "Testmods\\VirtualUnitsPrototype\\src\\VirtualEntityRuntime.cs",
+    "line": 920,
+    "method": "SetCurrentHealth",
+    "contract": {
+      "args": "int unitId, int health",
+      "lookup": true
+    },
+    "code": "GameUnitManagerAPI.Instance.SetMaxHealth(stored.GameId, stored.OriginalMaxHealth); GameUnitManagerAPI.Instance.SetCurrentHealth(stored.GameId, restoredCurrent); GameUnitManagerAPI.Instance.SetSpeed(stored.GameId, (ushort)Math.Min(ushort.MaxValue, stored.OriginalSpeed));"
+  },
+  {
+    "path": "Testmods\\VirtualUnitsPrototype\\src\\VirtualEntityRuntime.cs",
+    "line": 920,
+    "method": "SetSpeed",
+    "contract": {
+      "args": "int unitId, UInt16 speedLevel",
+      "lookup": true
+    },
+    "code": "GameUnitManagerAPI.Instance.SetMaxHealth(stored.GameId, stored.OriginalMaxHealth); GameUnitManagerAPI.Instance.SetCurrentHealth(stored.GameId, restoredCurrent); GameUnitManagerAPI.Instance.SetSpeed(stored.GameId, (ushort)Math.Min(ushort.MaxValue, stored.OriginalSpeed));"
+  },
+  {
+    "path": "Testmods\\VirtualUnitsPrototype\\src\\VirtualEntityRuntime.cs",
+    "line": 929,
+    "method": "GetGlobalId",
+    "contract": {
+      "args": "int unitId",
+      "lookup": true
+    },
+    "code": "private bool IdentityMatches(StoredInstance stored) => stored.Kind == VirtualEntityKind.Unit ? GameUnitManagerAPI.Instance.GetGlobalId(stored.GameId) == unchecked((int)stored.GlobalId) : GameBuildingManagerAPI.Instance.GetGlobalId(stored.GameId) == unchecked((int)stored.GlobalId);"
+  },
+  {
+    "path": "UnitCosts\\src\\UnitCostsRuntime.cs",
+    "line": 1193,
+    "method": "GetOwner",
+    "contract": {
+      "args": "int unitId",
+      "lookup": true
+    },
+    "code": "GameUnitManagerAPI.Instance.GetOwner(unitId) != playerId ||"
+  },
+  {
+    "path": "UnitCosts\\src\\UnitCostsRuntime.cs",
+    "line": 1269,
+    "method": "GetOwner",
+    "contract": {
+      "args": "int unitId",
+      "lookup": true
+    },
+    "code": "GameUnitManagerAPI.Instance.GetOwner(unitId) != playerId ||"
+  }
+]

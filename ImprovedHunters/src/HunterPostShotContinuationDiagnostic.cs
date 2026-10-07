@@ -892,7 +892,7 @@ namespace ImprovedHunters
                 return Reject("invalid-candidate", out validation);
             if (!settings.IsHuntingEnabled(candidate.PreyType))
                 return Reject("prey-type-disabled", out validation);
-            if (!GameUnitManagerAPI.Instance.TryGetUnitById(candidate.HunterUnitId, out hunter) ||
+            if (!APIShared.UnitAccess.TryGetById(candidate.HunterUnitId, out hunter, out _) ||
                 hunter == null)
                 return Reject("hunter-not-found", out validation);
             if (hunter->r_AliveState != AliveState.IsAlive || hunter->r_CurrentHealth == 0)
@@ -904,7 +904,7 @@ namespace ImprovedHunters
             ushort actualState = *(ushort*)((byte*)hunter + HunterAiStateOffset);
             if (actualState != requiredHunterState)
                 return Reject($"hunter-state-{actualState}-expected-{requiredHunterState}", out validation);
-            if (!GameUnitManagerAPI.Instance.TryGetUnitById(candidate.PreyUnitId, out prey) || prey == null)
+            if (!APIShared.UnitAccess.TryGetById(candidate.PreyUnitId, out prey, out _) || prey == null)
                 return Reject("prey-not-found", out validation);
             if (prey->r_AliveState != AliveState.IsAlive || prey->r_CurrentHealth == 0)
                 return Reject("prey-not-live", out validation);

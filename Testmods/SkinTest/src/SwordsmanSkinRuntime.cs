@@ -373,7 +373,7 @@ namespace SkinTest
 
                 unsafe
                 {
-                    if (GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit))
+                    if (APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _))
                     {
                         unitFound = true;
                         isSwordsman = unit->r_UnitChimp == eChimps.CHIMP_TYPE_SWORDSMAN;
@@ -578,7 +578,7 @@ namespace SkinTest
             lordMaterial = default;
             source = "unresolved";
             value = -1;
-            if (lordUnitId > 0 && GameUnitManagerAPI.Instance.TryGetUnitById(lordUnitId, out GameUnit* lord))
+            if (lordUnitId > 0 && APIShared.UnitAccess.TryGetById(lordUnitId, out GameUnit* lord, out _))
             {
                 lordMaterial = lord->r_GameMaterialIndex;
                 LordCulture actual = SkinSelectionPolicy.ClassifyLordMaterial(lordMaterial);

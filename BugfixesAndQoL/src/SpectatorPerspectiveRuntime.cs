@@ -630,7 +630,7 @@ namespace BugfixesAndQoL
                     int lordId = players.GetLordUnitId(player);
                     int lordGlobalId = players.GetLordUnitGlobalId(player);
                     if (lordId <= 0 || lordGlobalId == 0 ||
-                        !units.TryGetUnitById(lordId, out GameUnit* lord) || lord == null ||
+                        !APIShared.UnitAccess.TryGetById(units, lordId, out GameUnit* lord, out _) || lord == null ||
                         lord->r_AliveState != AliveState.IsAlive ||
                         lord->r_ControllableForPlayerId != player ||
                         lord->r_UnitChimp != eChimps.CHIMP_TYPE_LORD ||

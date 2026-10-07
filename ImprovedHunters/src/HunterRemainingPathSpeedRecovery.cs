@@ -323,7 +323,7 @@ namespace ImprovedHunters
 
             GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
             if (hunterUnitId <= 0 ||
-                !unitApi.TryGetUnitById(hunterUnitId, out hunter) ||
+                !APIShared.UnitAccess.TryGetById(unitApi, hunterUnitId, out hunter, out _) ||
                 hunter == null ||
                 hunter->r_AliveState != AliveState.IsAlive ||
                 hunter->r_CurrentHealth == 0 ||
@@ -344,7 +344,7 @@ namespace ImprovedHunters
             uint preyGlobalId = *(uint*)(hunterBytes + HunterTargetGlobalIdOffset);
             if (preyUnitId <= 0 ||
                 preyGlobalId == 0 ||
-                !unitApi.TryGetUnitById(preyUnitId, out prey) ||
+                !APIShared.UnitAccess.TryGetById(unitApi, preyUnitId, out prey, out _) ||
                 prey == null ||
                 prey->r_AliveState != AliveState.IsAlive ||
                 prey->r_CurrentHealth == 0 ||

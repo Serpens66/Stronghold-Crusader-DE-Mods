@@ -1,0 +1,37 @@
+Unit-ID access review — 2026-10-07
+
+Status
+Source implementation completed. Mod builds, installation and a comparable new game run are deferred at the user's explicit request until concurrent workspace work is finished. No versions or README files changed by this task. Script Extender and foreign Fixes sources unchanged.
+
+Latest observed run
+Log snapshot: latest-run.txt / latest-run.json, 17 loader entries. Four ID-0 errors on T15 at 17:29:38.999, 17:30:18.673, 17:33:58.298 and 17:34:08.364. No stack traces. Loaded mods: UU-ImGUI API, SHCDE-SE, APIShared, Serps Mods, Fixes, Unit Limit, Extra Features, Bugfixes and QoL, Building Costs, Building Limit, CastlePlanner, Enemy Gate Pathfinding Test, Extended Data, Random Events, Spectator Editor Build Test, Start Conditions, Unit Costs. Loading alone does not prove that each optional feature was enabled; retain feature-specific activation markers in the snapshot.
+
+Attribution
+Confirmed: the Extender rejects ID 0 before an array access. No caller is confirmed as the source of the four recorded errors.
+Possible: own BugfixesAndQoL movement, weighted-moat and recruitment paths had lookups without immediate ID guards. Upstream guards and feature activation affect whether these sites can actually receive zero.
+Possible: installed Fixes AIDetours Lord-target callback looks up targetPlayerLordId before preference checks. Fixes building-capture callback also lacked an immediate ID guard; its failure warning is absent in the observed log, weakening this candidate.
+Possible: Extender gatehouse hook performs an internal lookup after GetIndexByOffset. This is not proof of an index/ID conversion bug. No native ID producer or arithmetic was changed.
+Protected: gate-test invalid-unit-frame is emitted before its lookup. Current own runtime sources route direct unit lookup calls through UnitAccess and guard indirect unit-ID APIs. Identity, ownership, type and life-state requirements remain at each caller.
+
+Assembly/source evidence
+Installed Native SHA256 matches CURRENT.json: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
+Installed SHCDESE 2.13.1 SHA256: 225441FC02215359AF9C70F954EF83B9B2FD60608AC867E38B51C81F3E0C1A71.
+Installed public Instance, IsValidId(int) and TryGetUnitById(int, GameUnit*&) contracts verified via Cecil. Entire managed resolution flow examined: IDs 1..9999; pointer-null handling; ID minus one at array boundary; no native calls in this resolution flow. No native generator correction made. A complete native producer audit would be needed before any such correction or confirmed native causal finding.
+262 installed IL unit-ID call sites recorded in installed-unit-calls.json.
+Local output hashes match installed output for APIShared, BugfixesAndQoL, BuildingLimit, CastlePlanner, RandomEvents, SerpsMods and StartConditions. They differ for BuildingCosts, ExtendedData, ExtraFeatures, UnitCosts and UnitLimit; source-only analysis cannot prove the exact historical behavior of these installed binaries. See latest-run.json for paths and hashes.
+
+Implementation
+APIShared/src/UnitAccess.cs: public failure enum and checked resolver. Rejects IDs <=0 before lazy manager access, checks manager and IsValidId before Extender lookup, returns null on every failure. Does not reject NeedsInit or add life/identity filtering. Captured-manager overload avoids recapturing a manager. Static debug diagnostics identify source/mod/member/reason; one message per site/reason, max 128 sites per process, no warnings/errors for expected sentinel values.
+336 direct calls in 91 source files migrated; 62 indirect calls guarded. Original boolean fallbacks retained; previously ignored lookup results now explicitly abort or continue safely. Existing IsValid paths already validate IDs internally.
+20 affected build drivers call Shared/Test-UnitAccess.ps1. New APIShared dependencies declared for FormationTest and HunterQueryTargetDiagnostic; packed infrastructure paths supported. Inactive drivers can validate without installation via existing/new /noinstall support. APIShared must be installed first when builds resume.
+Tests use the production helper source before installation; no mod DLL emitted by semantic source checks. MoatMove current guarded sources are pinned separately in UNIT_ACCESS_PROVENANCE.json; historical provenance remains unchanged.
+
+Validation
+PASS: negative/zero IDs never reach the SDK or lazy manager; first/last valid ID; excessive IDs; missing manager; null/failed lookup; pointer clearing; NeedsInit and identity neutrality; unload/reload; bounded diagnostics.
+PASS: workspace scanner (915 runtime files), consumed lookup results, indirect guards, affected-project JSON/lifecycle/plugin scheduling/XAML checks, permanent published-hook regression.
+PASS: BugfixesAndQoL full runtime source compatibility against installed Extender and movement tests (269682 assertions, 6480 building-field distances).
+PASS: isolated TemporaryGateAcceptance tests (40 assertions) and ExtraFeatures session tests (4552 checks).
+Own explicit text targets checked for CRLF with ordinal readback; unrelated concurrent files were not normalized.
+PASS: MoatMove complete runtime source compatibility, provenance and actual runtime-member suite: 289388 Fast-field assertions, 1092 ownership/pool/topology/save assertions, 1469340 cursor comparisons; 194 actual runtime members exercised. See moat-move-test.log.
+Pending: broader existing APIShared preflight currently encounters bare LF in the concurrent new AssassinEndpointEmitter.cs; that file was left untouched.
+Pending: all elevated build.bat drivers, installed artifact comparison, comparable new game run and separation of remaining SDK errors from UNIT_LOOKUP_REJECTED debug markers. Builds remain deferred until the user signals that parallel work is finished.

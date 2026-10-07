@@ -406,7 +406,7 @@ namespace StockpileAccessFixTest
             pendingMoveResult = 0;
             try
             {
-                GameUnitManagerAPI.Instance.MoveToTile(
+                if (APIShared.UnitAccess.TryGetById(afterReselection.UnitId, out _, out _)) GameUnitManagerAPI.Instance.MoveToTile(
                     afterReselection.UnitId,
                     afterReselection.EntryX,
                     afterReselection.EntryY,
@@ -484,7 +484,7 @@ namespace StockpileAccessFixTest
             }
             if (!hasTriggerRoute)
                 return;
-            if (!GameUnitManagerAPI.Instance.TryGetUnitById(triggerRoute.UnitId, out GameUnit* unit) || unit == null)
+            if (!APIShared.UnitAccess.TryGetById(triggerRoute.UnitId, out GameUnit* unit, out _) || unit == null)
             {
                 RejectTriggerRoute("armed worker slot is no longer valid");
                 return;
@@ -575,10 +575,10 @@ namespace StockpileAccessFixTest
             testBlockerApproachX = approachX;
             testBlockerApproachY = approachY;
             testBlockerApproachTileId = approachTileId;
-            GameUnitManagerAPI.Instance.SetCurrentLocalTilePosition(
+            if (APIShared.UnitAccess.TryGetById(blockerUnitId, out _, out _)) GameUnitManagerAPI.Instance.SetCurrentLocalTilePosition(
                 blockerUnitId,
                 new UnmanagedVector2<ushort>(approachX, approachY));
-            if (!GameUnitManagerAPI.Instance.TryGetUnitById(blockerUnitId, out GameUnit* teleported) ||
+            if (!APIShared.UnitAccess.TryGetById(blockerUnitId, out GameUnit* teleported, out _) ||
                 teleported == null || teleported->r_GlobalId != blocker.UnitGlobalId ||
                 teleported->r_CurrentTilePositionX != approachX || teleported->r_CurrentTilePositionY != approachY)
             {
@@ -596,14 +596,14 @@ namespace StockpileAccessFixTest
             pendingMoveResult = 0;
             try
             {
-                GameUnitManagerAPI.Instance.MoveToTile(blockerUnitId, accessX, accessY, 0);
+                if (APIShared.UnitAccess.TryGetById(blockerUnitId, out _, out _)) GameUnitManagerAPI.Instance.MoveToTile(blockerUnitId, accessX, accessY, 0);
             }
             finally
             {
                 pendingMoveCapture = false;
             }
 
-            if (!GameUnitManagerAPI.Instance.TryGetUnitById(blockerUnitId, out GameUnit* routedBlocker) ||
+            if (!APIShared.UnitAccess.TryGetById(blockerUnitId, out GameUnit* routedBlocker, out _) ||
                 routedBlocker == null || routedBlocker->r_GlobalId != blocker.UnitGlobalId ||
                 ((routedBlocker->r_CurrentTilePositionX != accessX ||
                   routedBlocker->r_CurrentTilePositionY != accessY) &&
@@ -775,7 +775,7 @@ namespace StockpileAccessFixTest
 
         private int GetUnitOwner(int unitId)
         {
-            if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) || unit == null)
+            if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) || unit == null)
                 return -1;
             return checked((int)unit->r_SpawnedForPlayerIndex);
         }
@@ -786,7 +786,7 @@ namespace StockpileAccessFixTest
             ushort occupyingUnitId = GameTileManagerAPI.Instance.GetTileUnitId(tileId);
             if (occupyingUnitId != testBlockerUnitId)
             {
-                if (!GameUnitManagerAPI.Instance.TryGetUnitById(testBlockerUnitId, out GameUnit* blocker) ||
+                if (!APIShared.UnitAccess.TryGetById(testBlockerUnitId, out GameUnit* blocker, out _) ||
                     blocker == null || blocker->r_AliveState != AliveState.IsAlive ||
                     blocker->r_GlobalId != testBlockerUnitGlobalId)
                 {
@@ -845,7 +845,7 @@ namespace StockpileAccessFixTest
                 return false;
             }
 
-            if (!GameUnitManagerAPI.Instance.TryGetUnitById(testVictimUnitId, out GameUnit* victimUnit) ||
+            if (!APIShared.UnitAccess.TryGetById(testVictimUnitId, out GameUnit* victimUnit, out _) ||
                 victimUnit == null || victimUnit->r_GlobalId != testVictimUnitGlobalId)
             {
                 return false;
@@ -867,7 +867,7 @@ namespace StockpileAccessFixTest
             pendingMoveResult = 0;
             try
             {
-                GameUnitManagerAPI.Instance.MoveToTile(testVictimUnitId, testBlockerX, testBlockerY, 0);
+                if (APIShared.UnitAccess.TryGetById(testVictimUnitId, out _, out _)) GameUnitManagerAPI.Instance.MoveToTile(testVictimUnitId, testBlockerX, testBlockerY, 0);
             }
             finally
             {
@@ -944,7 +944,7 @@ namespace StockpileAccessFixTest
             out uint globalId)
         {
             globalId = 0;
-            if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+            if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
                 unit == null || unit->r_AliveState != AliveState.IsAlive ||
                 unit->r_CurrentTilePositionX != expectedX ||
                 unit->r_CurrentTilePositionY != expectedY)
@@ -979,7 +979,7 @@ namespace StockpileAccessFixTest
 
         private bool RestoreUnregisteredBlocker()
         {
-            if (!GameUnitManagerAPI.Instance.TryGetUnitById(testBlockerUnitId, out GameUnit* blocker) ||
+            if (!APIShared.UnitAccess.TryGetById(testBlockerUnitId, out GameUnit* blocker, out _) ||
                 blocker == null || blocker->r_AliveState != AliveState.IsAlive ||
                 blocker->r_GlobalId != testBlockerUnitGlobalId)
             {
@@ -987,12 +987,12 @@ namespace StockpileAccessFixTest
             }
 
             ushort stateBeforeRestore = blocker->r_AIState;
-            GameUnitManagerAPI.Instance.SetCurrentLocalTilePosition(
+            if (APIShared.UnitAccess.TryGetById(testBlockerUnitId, out _, out _)) GameUnitManagerAPI.Instance.SetCurrentLocalTilePosition(
                 testBlockerUnitId,
                 new UnmanagedVector2<ushort>(testBlockerOriginalX, testBlockerOriginalY));
             if (stateBeforeRestore == 1 && testBlockerOriginalTargetX != 0 && testBlockerOriginalTargetY != 0)
             {
-                GameUnitManagerAPI.Instance.MoveToTile(
+                if (APIShared.UnitAccess.TryGetById(testBlockerUnitId, out _, out _)) GameUnitManagerAPI.Instance.MoveToTile(
                     testBlockerUnitId,
                     testBlockerOriginalTargetX,
                     testBlockerOriginalTargetY,
@@ -1007,7 +1007,7 @@ namespace StockpileAccessFixTest
         {
             bool routeAccepted = false;
             string disposition;
-            if (!GameUnitManagerAPI.Instance.TryGetUnitById(testBlockerUnitId, out GameUnit* blocker) ||
+            if (!APIShared.UnitAccess.TryGetById(testBlockerUnitId, out GameUnit* blocker, out _) ||
                 blocker == null || blocker->r_AliveState != AliveState.IsAlive ||
                 blocker->r_GlobalId != testBlockerUnitGlobalId)
             {
@@ -1030,7 +1030,7 @@ namespace StockpileAccessFixTest
                 pendingMoveResult = 0;
                 try
                 {
-                    GameUnitManagerAPI.Instance.MoveToTile(
+                    if (APIShared.UnitAccess.TryGetById(testBlockerUnitId, out _, out _)) GameUnitManagerAPI.Instance.MoveToTile(
                         testBlockerUnitId,
                         testBlockerOriginalTargetX,
                         testBlockerOriginalTargetY,

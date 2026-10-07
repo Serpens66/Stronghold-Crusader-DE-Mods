@@ -1,0 +1,19 @@
+Hash FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2
+FUN_180059a30 0x59A30 size=81 confidence=candidate
+Callers [('0x58FC0',), ('0x5BC70',), ('0x5D8A0',), ('0x71120',), ('0x71670',), ('0x72720',), ('0x7BAB0',), ('0x87460',)]
+Callees [('0x7490',), ('0xE5E60',), ('0x1A8D20',)]
+/* FUNCTION FUN_180059a30 VA=0x180059A30 RVA=0x59A30 */
+
+void FUN_180059a30(longlong param_1)
+
+{
+  FUN_180007490(&DAT_1860ad648,0x4e520,3,param_1 + 0xa20d40);
+  FUN_1801a8d20(param_1 + 0x1cca5f0,3,0x1900);
+  FUN_1800e5e60(&DAT_1860ad660,1);
+  return;
+}
+
+
+
+
+

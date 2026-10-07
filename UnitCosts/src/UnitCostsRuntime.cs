@@ -1189,8 +1189,8 @@ namespace UnitCosts
                 return false;
             }
 
-            if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
-                GameUnitManagerAPI.Instance.GetOwner(unitId) != playerId ||
+            if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
+                (APIShared.UnitAccess.TryGetById(unitId, out _, out _) ? GameUnitManagerAPI.Instance.GetOwner(unitId) : -1) != playerId ||
                 unit->r_GlobalId == 0 ||
                 unit->r_LinkedStableBuildingId != 0 ||
                 unit->r_LinkedStableGlobalId != 0)
@@ -1265,8 +1265,8 @@ namespace UnitCosts
         private unsafe void TryConsumeStableHorseForDisband(int unitId, int playerId)
         {
             if (unitId <= 0 || unitId > ushort.MaxValue ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
-                GameUnitManagerAPI.Instance.GetOwner(unitId) != playerId ||
+                !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
+                (APIShared.UnitAccess.TryGetById(unitId, out _, out _) ? GameUnitManagerAPI.Instance.GetOwner(unitId) : -1) != playerId ||
                 unit->r_GlobalId == 0)
             {
                 LogDebug(
@@ -1445,7 +1445,7 @@ namespace UnitCosts
                 !GameBuildingManagerAPI.Instance.TryGetBuildingById(stableId, out GameBuilding* stable) ||
                 !IsUsableStable(stable, playerId) ||
                 stable->r_GlobalId != stableGlobalId ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
                 unit->r_GlobalId != unitGlobalId)
             {
                 LogDebug(

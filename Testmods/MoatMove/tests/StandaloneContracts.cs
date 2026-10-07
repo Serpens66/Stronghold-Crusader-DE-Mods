@@ -16,6 +16,8 @@ internal static class StandaloneContracts
         using var se = JsonDocument.Parse(File.ReadAllText(Path.Combine(modDir, "SE26_PROVENANCE.json")));
         using var native = JsonDocument.Parse(File.ReadAllText(Path.Combine(modDir, "FAST_NATIVE_PROVENANCE.json")));
         using var current = JsonDocument.Parse(File.ReadAllText(Path.Combine(modDir, "CURRENT_SOURCE_PROVENANCE.json")));
+        using var unitAccess = JsonDocument.Parse(File.ReadAllText(Path.Combine(modDir, "UNIT_ACCESS_PROVENANCE.json")));
+        var unitChanges = unitAccess.RootElement.GetProperty("files").EnumerateArray().ToDictionary(item => item.GetProperty("file").GetString()!, item => item.GetProperty("sha256").GetString()!);
         var currentChanges = current.RootElement.GetProperty("files").EnumerateArray().ToDictionary(
             item => item.GetProperty("file").GetString()!, item => item);
         Check(currentChanges.Keys.ToHashSet().SetEquals(new[] { "FastMovementScheduler.cs", "FriendlyMoatMovementRuntime.cs", "MoatMovePlugin.cs", "NativeMovementRecovery.cs", "MoatWorkTargetSelection.cs", "CursorConnectivity.cs" }),
@@ -28,18 +30,18 @@ internal static class StandaloneContracts
             byte[] source = currentChanges.ContainsKey(entry.Key)
                 ? ReadHistoricalMoatSource(root, currentChanges[entry.Key].GetProperty("historicalCommit").GetString()!, entry.Key)
                 : File.ReadAllBytes(Path.Combine(sourceDir, entry.Key));
-            Check(Convert.ToHexString(SHA256.HashData(source)) == entry.Value,
+            Check(Convert.ToHexString(SHA256.HashData(source)) == (unitChanges.TryGetValue(entry.Key, out string? unitReviewed) && !currentChanges.ContainsKey(entry.Key) ? unitReviewed : entry.Value),
                 "Unreviewed historical FastNative source change: " + entry.Key);
         }
         foreach (var entry in currentChanges)
-            Check(Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(Path.Combine(sourceDir, entry.Key)))) == entry.Value.GetProperty("sha256").GetString(),
+            Check(Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(Path.Combine(sourceDir, entry.Key)))) == (unitChanges.TryGetValue(entry.Key, out string? unitReviewed) ? unitReviewed : entry.Value.GetProperty("sha256").GetString()),
                 "Unreviewed current source change: " + entry.Key);
         var seChanges = se.RootElement.GetProperty("files").EnumerateArray().ToDictionary(
             item => item.GetProperty("file").GetString()!, item => item.GetProperty("sha256").GetString()!);
         Check(seChanges.Keys.ToHashSet().SetEquals(new[] { "AssassinSelectionAdapters.cs", "FriendlyMoatMovementRuntime.cs", "MoatMovePlugin.cs" }),
             "SE 2.6 change allowance expanded beyond adapters and plugin integration");
         foreach (var entry in seChanges.Where(entry => !nativeChanges.ContainsKey(entry.Key)))
-            Check(Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(Path.Combine(sourceDir, entry.Key)))) == entry.Value,
+            Check(Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(Path.Combine(sourceDir, entry.Key)))) == (unitChanges.TryGetValue(entry.Key, out string? unitReviewed) && !currentChanges.ContainsKey(entry.Key) ? unitReviewed : entry.Value),
                 "Unreviewed SE 2.6 adapter change: " + entry.Key);
         var fastChanges = fast.RootElement.GetProperty("files").EnumerateArray().ToDictionary(
             item => item.GetProperty("file").GetString()!, item => item.GetProperty("sha256").GetString()!);
@@ -50,7 +52,7 @@ internal static class StandaloneContracts
             byte[] source = currentChanges.ContainsKey(entry.Key)
                 ? ReadHistoricalMoatSource(root, currentChanges[entry.Key].GetProperty("historicalCommit").GetString()!, entry.Key)
                 : File.ReadAllBytes(Path.Combine(sourceDir, entry.Key));
-            Check(Convert.ToHexString(SHA256.HashData(source)) == entry.Value,
+            Check(Convert.ToHexString(SHA256.HashData(source)) == (unitChanges.TryGetValue(entry.Key, out string? unitReviewed) && !currentChanges.ContainsKey(entry.Key) ? unitReviewed : entry.Value),
                 "Unreviewed historical Fast source change: " + entry.Key);
         }
         int count = 0;
@@ -64,13 +66,13 @@ internal static class StandaloneContracts
             bool optimized = name == "MoatSearchKernel.cs";
             string expectedHash = currentChanges.TryGetValue(name, out JsonElement currentReviewed) ? currentReviewed.GetProperty("sha256").GetString()! : nativeChanges.TryGetValue(name, out string? nativeReviewed) ? nativeReviewed : seChanges.TryGetValue(name, out string? seReviewed) ? seReviewed : fastChanges.TryGetValue(name, out string? reviewed) ? reviewed :
                 optimized ? optimization.RootElement.GetProperty("kernelSha256").GetString()! : item.GetProperty("copySha256").GetString()!;
-            Check(Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(copied))) == expectedHash, "Unreviewed source change: " + name);
+            Check(Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(copied))) == (unitChanges.TryGetValue(name, out string? unitReviewed) ? unitReviewed : expectedHash), "Unreviewed source change: " + name);
             string expected = System.Text.Encoding.UTF8.GetString(original).TrimStart('\uFEFF').Replace("BugfixesAndQoLViewModel", "MoatMoveOptions")
                 .Replace("BugfixesAndQoL", "MoatMove").Replace("Bugfixes and QoL", "MoatMove");
             if (currentChanges.ContainsKey(name) && !nativeChanges.ContainsKey(name) && !fastChanges.ContainsKey(name) && !seChanges.ContainsKey(name))
                 Check(Convert.ToHexString(SHA256.HashData(ReadHistoricalMoatSource(root, currentChanges[name].GetProperty("historicalCommit").GetString()!, name))) == item.GetProperty("copySha256").GetString(),
                     "Unreviewed historical copied source change: " + name);
-            if (!optimized && !fastChanges.ContainsKey(name) && !seChanges.ContainsKey(name) && !currentChanges.ContainsKey(name)) Check(expected == File.ReadAllText(copied), "Unexpected behavioral edit: " + name);
+            if (!unitChanges.ContainsKey(name) && !optimized && !fastChanges.ContainsKey(name) && !seChanges.ContainsKey(name) && !currentChanges.ContainsKey(name)) Check(expected == File.ReadAllText(copied), "Unexpected behavioral edit: " + name);
             count++;
         }
         Check(count == 22, "Incomplete source closure");

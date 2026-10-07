@@ -205,7 +205,7 @@ namespace BugfixesAndQoL
             if (batch == null || frame.Parent != null || args.SkipOriginalFunction ||
                 batch.Epoch != mapEpoch || batch.Tick != CaptureCurrentGameTick() ||
                 !ReferenceEquals(batch.Command, activeMoveCommand) || args.TileX != batch.X || args.TileY != batch.Y ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(args.UnitId, out GameUnit* unit) || unit == null ||
+                !APIShared.UnitAccess.TryGetById(args.UnitId, out GameUnit* unit, out _) || unit == null ||
                 unit->r_TribeId != batch.Tribe || unit->r_AliveState != AliveState.IsAlive || !CanDigMoat(unit)) return;
             if (unit->r_AttackMoveToTargetTileX != batch.X || unit->r_AttackMoveToTargetTileY != batch.Y) return;
             int player = unit->r_ControllableForPlayerId;
@@ -280,7 +280,7 @@ namespace BugfixesAndQoL
         {
             unit = null;
             return pending.Epoch == mapEpoch && pending.Tick == CaptureCurrentGameTick() &&
-                GameUnitManagerAPI.Instance.TryGetUnitById(pending.Id, out unit) && unit != null &&
+                APIShared.UnitAccess.TryGetById(pending.Id, out unit, out _) && unit != null &&
                 unit->r_GlobalId == pending.Global && unit->r_ControllableForPlayerId == pending.Player &&
                 unit->r_AliveState == AliveState.IsAlive;
         }
@@ -316,7 +316,7 @@ namespace BugfixesAndQoL
                     }
                     if (!disposed && manager == (IntPtr)nativeUnitManager &&
                         (nativeExecutingUnitId != null && *nativeExecutingUnitId == id) &&
-                        GameUnitManagerAPI.Instance.TryGetUnitById(id, out GameUnit* unit) && unit != null &&
+                        APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _) && unit != null &&
                         unit->r_AliveState == AliveState.IsAlive && CanDigMoat(unit) &&
                         GamePlayerManagerAPI.Instance.IsPlayerIdValid(unit->r_ControllableForPlayerId))
                     {

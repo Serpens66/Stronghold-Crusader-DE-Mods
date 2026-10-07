@@ -370,9 +370,9 @@ namespace BugfixesAndQoL
             }
 
             int previousTribeId = 0;
-            if (GameUnitManagerAPI.Instance.TryGetUnitById(
+            if (APIShared.UnitAccess.TryGetById(
                     args.UnitId,
-                    out GameUnit* unit) &&
+                    out GameUnit* unit, out _) &&
                 unit != null)
             {
                 previousTribeId = unit->r_TribeId;
@@ -442,7 +442,7 @@ namespace BugfixesAndQoL
             foreach (int unitId in memberIds)
             {
                 if (unitId > 0 &&
-                    GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) &&
+                    APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) &&
                     unit != null)
                 {
                     memberGlobalIds[unitId] = unit->r_GlobalId;

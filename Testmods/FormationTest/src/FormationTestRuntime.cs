@@ -1141,7 +1141,7 @@ namespace FormationTest
                 }
                 try
                 {
-                    GameUnitManagerAPI.Instance.MoveToTile(
+                    if (APIShared.UnitAccess.TryGetById(request.UnitId, out _, out _)) GameUnitManagerAPI.Instance.MoveToTile(
                         request.UnitId,
                         command.TargetX,
                         command.TargetY,
@@ -1386,7 +1386,7 @@ namespace FormationTest
         {
             unit = null;
             return globalId != 0 &&
-                GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out unit) &&
+                APIShared.UnitAccess.TryGetById(unitId, out unit, out _) &&
                 unit != null && unit->r_AliveState == AliveState.IsAlive &&
                 unit->r_GlobalId == globalId;
         }
@@ -1890,7 +1890,7 @@ namespace FormationTest
             {
                 int unitId = getGroupUnitId(nativeTribeManager, tribeId, ordinal);
                 if (unitId <= 0 ||
-                    !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                    !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
                     unit == null || unit->r_AliveState != AliveState.IsAlive ||
                     unit->r_TribeId != tribeId ||
                     *(ushort*)((byte*)unit + UnitGroupInactiveStateOffset) != 0)
@@ -2141,7 +2141,7 @@ namespace FormationTest
             for (int index = 0; index < selected.Length; index++)
             {
                 int unitId = selected[index].UnitId;
-                if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
                     unit == null || unit->r_AliveState != AliveState.IsAlive ||
                     unit->r_GlobalId == 0)
                     return false;

@@ -88,7 +88,7 @@ namespace ImprovedHunters
 
             GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
             if (IsValidUnitId(sourceUnitId) &&
-                unitApi.TryGetUnitById(sourceUnitId, out GameUnit* sourceUnit) &&
+                APIShared.UnitAccess.TryGetById(unitApi, sourceUnitId, out GameUnit* sourceUnit, out _) &&
                 sourceUnit != null &&
                 sourceUnit->r_UnitChimp == eChimps.CHIMP_TYPE_HUNTER)
             {
@@ -108,7 +108,7 @@ namespace ImprovedHunters
             {
                 if (pair.Value.UnitId != targetUnitId ||
                     pair.Value.GlobalId != targetGlobalId ||
-                    !unitApi.TryGetUnitById(pair.Key, out GameUnit* hunter) ||
+                    !APIShared.UnitAccess.TryGetById(unitApi, pair.Key, out GameUnit* hunter, out _) ||
                     hunter == null ||
                     hunter->r_UnitChimp != eChimps.CHIMP_TYPE_HUNTER)
                 {
@@ -169,7 +169,7 @@ namespace ImprovedHunters
             if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) ||
                 args.ProjectileType != ProjectileType.ArcherArrow ||
                 !IsValidUnitId(args.AttackedUnitId) ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(args.AttackedUnitId, out GameUnit* target) ||
+                !APIShared.UnitAccess.TryGetById(args.AttackedUnitId, out GameUnit* target, out _) ||
                 target == null ||
                 !TryGetPreyEligibility(args.AttackedUnitId, target, out eligibility))
             {

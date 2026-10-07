@@ -1,0 +1,24 @@
+Hash FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2
+FUN_180072720 0x72720 size=68 confidence=candidate
+Callers [('0x5BC70',), ('0x71670',), ('0x86680',)]
+Callees [('0x59A30',), ('0x5D8A0',)]
+/* FUNCTION FUN_180072720 VA=0x180072720 RVA=0x72720 */
+
+undefined1 FUN_180072720(longlong param_1,int param_2)
+
+{
+  if (param_2 == *(int *)(param_1 + 0x204e694)) {
+    return 0;
+  }
+  *(int *)(param_1 + 0x204e694) = param_2;
+  *(int *)(param_1 + 0x204e69c) = param_2;
+  *(undefined4 *)(param_1 + 0x204e62c) = 1;
+  FUN_180059a30();
+  FUN_18005d8a0(param_1);
+  return 1;
+}
+
+
+
+
+

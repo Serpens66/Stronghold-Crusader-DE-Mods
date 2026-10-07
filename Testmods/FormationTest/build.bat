@@ -1,10 +1,14 @@
 @echo off
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\Shared\Test-UnitAccess.ps1"
+if errorlevel 1 exit /b 1
 setlocal EnableExtensions EnableDelayedExpansion
 set "PROJECT_DIR=%~dp0"
 set "MSBUILD=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe"
 set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
 set "EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
 if defined SHCDESE_EXTENDER_DIR set "EXTENDER_DIR=%SHCDESE_EXTENDER_DIR%"
+set "UNIT_ACCESS_API_DIR=%GAME_DIR%\BepInEx\plugins\APIShared_Serp"
+if exist "%GAME_DIR%\BepInEx\plugins\SerpsMods_Serp\Infrastructure\APIShared_Serp\APIShared.dll" set "UNIT_ACCESS_API_DIR=%GAME_DIR%\BepInEx\plugins\SerpsMods_Serp\Infrastructure\APIShared_Serp"
 set "NO_PAUSE=0"
 set "NO_INSTALL=0"
 for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
@@ -25,7 +29,7 @@ if errorlevel 1 ( popd& goto failed )
 "%PROJECT_DIR%tests\bin\FormationTest.Tests.exe"
 if not "%ERRORLEVEL%"=="0" ( popd& goto failed )
 if exist "%PROJECT_DIR%BepInEx\plugins\FormationTest_Serp\" rmdir /S /Q "%PROJECT_DIR%BepInEx\plugins\FormationTest_Serp"
-"%MSBUILD%" FormationTest.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+"%MSBUILD%" FormationTest.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%UNIT_ACCESS_API_DIR%"
 set "BUILD_EXIT_CODE=%ERRORLEVEL%"
 popd
 if not "%BUILD_EXIT_CODE%"=="0" goto failed

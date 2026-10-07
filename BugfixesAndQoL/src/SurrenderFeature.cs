@@ -1514,7 +1514,7 @@ namespace BugfixesAndQoL
 
                 if (!realMultiplayer)
                 {
-                    GameUnitManagerAPI.Instance.KillUnit(lord.UnitId);
+                    if (APIShared.UnitAccess.TryGetById(lord.UnitId, out _, out _)) GameUnitManagerAPI.Instance.KillUnit(lord.UnitId);
                     ClearSurrenderLordSelection(lord.PlayerId, lord.UnitId, lord.GlobalId);
                     Shared.DebugLogHelper.LogInfo(log, $"Singleplayer surrender executed through lord death: playerId={lord.PlayerId}, unitId={lord.UnitId}, globalId={lord.GlobalId}.");
                     return;
@@ -1661,7 +1661,7 @@ namespace BugfixesAndQoL
                     return;
                 }
 
-                GameUnitManagerAPI.Instance.KillUnit(resolvedUnitId);
+                if (APIShared.UnitAccess.TryGetById(resolvedUnitId, out _, out _)) GameUnitManagerAPI.Instance.KillUnit(resolvedUnitId);
                 ClearSurrenderLordSelection(packet.PlayerId, resolvedUnitId, lord.GlobalId);
                 LogPacketInfo(
                     $"Surrender Chore executed: playerId={packet.PlayerId}, unitId={resolvedUnitId}, " +
@@ -1738,7 +1738,7 @@ namespace BugfixesAndQoL
             try
             {
                 GameUnitManagerAPI units = GameUnitManagerAPI.Instance;
-                if (!units.TryGetUnitById(unitId, out GameUnit* unit) || unit == null)
+                if (!APIShared.UnitAccess.TryGetById(units, unitId, out GameUnit* unit, out _) || unit == null)
                 {
                     LogPacketWarning($"Surrender selection cleanup could not resolve Lord slot: playerId={playerId}, unitId={unitId}, globalId={globalId}.");
                     return;
@@ -1785,7 +1785,7 @@ namespace BugfixesAndQoL
                 return default(SurrenderLordSnapshot);
 
             int unitId = GamePlayerManagerAPI.Instance.GetLordUnitId(playerId);
-            if (unitId <= 0 || !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) || unit == null)
+            if (unitId <= 0 || !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) || unit == null)
                 return new SurrenderLordSnapshot(playerId, unitId, -1, -1, false);
 
             return new SurrenderLordSnapshot(

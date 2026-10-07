@@ -1,4 +1,6 @@
 @echo off
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Test-UnitAccess.ps1"
+if errorlevel 1 exit /b 1
 setlocal EnableExtensions EnableDelayedExpansion
 
 set "PROJECT_DIR=%~dp0"
@@ -14,6 +16,8 @@ set "LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT=%GAME_SCRIPT_EXTENDER_DIR%"
 set "LOCAL_SCRIPT_EXTENDER_MOD_OUTPUT=%GAME_SCRIPT_EXTENDER_DIR%"
 set "EXTENDER_DIR="
 set "NO_PAUSE=0"
+set "NO_INSTALL=0"
+for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
 for %%A in (%*) do if /I "%%~A"=="/nopause" set "NO_PAUSE=1"
 
 rem Never touch build or installation output while the game has plugin DLLs loaded.
@@ -79,6 +83,11 @@ set "BUILD_EXIT_CODE=%ERRORLEVEL%"
 popd
 
 echo.
+if "%NO_INSTALL%"=="1" (
+  echo Build and tests finished. Installation skipped.
+  if "%NO_PAUSE%"=="0" pause
+  exit /b %BUILD_EXIT_CODE%
+)
 if "%BUILD_EXIT_CODE%"=="0" (
   echo Build erfolgreich.
   echo Kopiere Plugin in den Spielordner...

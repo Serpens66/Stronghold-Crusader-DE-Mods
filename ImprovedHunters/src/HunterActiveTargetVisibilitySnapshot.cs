@@ -661,7 +661,7 @@ namespace ImprovedHunters
             failure = string.Empty;
             GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
             if (hunterUnitId <= 0 ||
-                !unitApi.TryGetUnitById(hunterUnitId, out GameUnit* hunter) ||
+                !APIShared.UnitAccess.TryGetById(unitApi, hunterUnitId, out GameUnit* hunter, out _) ||
                 hunter == null)
             {
                 failure = "invalid-hunter-slot";

@@ -1625,6 +1625,10 @@ namespace APISharedTests
                 "unit-HUD image slots must retain the four-slot prefix and deterministic seven-slot order");
             var expected = new HashSet<string>(StringComparer.Ordinal)
             {
+                "APIShared.UnitLookupFailure",
+                "APIShared.UnitAccess",
+                "APIShared.AssassinPathBuilder",
+                "APIShared.AssassinPathAPI",
                 "APIShared.MissionStartKind",
                 "APIShared.MissionMapType",
                 "APIShared.MissionLifecycleKind",
@@ -1775,7 +1779,21 @@ namespace APISharedTests
                 {
                     AssertSafePublicType(method.ReturnType, $"{type.FullName}.{method.Name} return type");
                     foreach (ParameterInfo parameter in method.GetParameters())
+                    {
+                        // Explicit native bridges expose only their audited immediate views.
+                        // All other public types and parameters retain the native-type prohibition.
+                        if (type == typeof(UnitAccess) && method.Name == "TryGetById" &&
+                            parameter.Name == "unit" && parameter.ParameterType.IsByRef &&
+                            parameter.ParameterType.GetElementType().IsPointer &&
+                            parameter.ParameterType.GetElementType().GetElementType() == typeof(SHCDESE.Interop.GameUnit))
+                            continue;
+                        if ((type == typeof(AssassinPathBuilder) &&
+                                (method.Name == "Invoke" || method.Name == "BeginInvoke") ||
+                             type == typeof(AssassinPathAPI) && method.Name == "RunVanillaBuilder") &&
+                            parameter.Name == "context" && parameter.ParameterType == typeof(IntPtr))
+                            continue;
                         AssertSafePublicType(parameter.ParameterType, $"{type.FullName}.{method.Name} parameter {parameter.Name}");
+                    }
                 }
                 if (!typeof(Delegate).IsAssignableFrom(type))
                     foreach (ConstructorInfo constructor in type.GetConstructors(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly))

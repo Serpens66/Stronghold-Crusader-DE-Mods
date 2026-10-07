@@ -1458,7 +1458,7 @@ namespace APIShared
         private static bool TryCapture(int unitId, out UnitHudUnitSnapshot snapshot)
         {
             snapshot = null;
-            if (unitId <= 0 || GameUnitManagerAPI.Instance == null || !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) || unit == null || unit->r_AliveState != AliveState.IsAlive || unit->r_GlobalId == 0) return false;
+            if (unitId <= 0 || GameUnitManagerAPI.Instance == null || !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) || unit == null || unit->r_AliveState != AliveState.IsAlive || unit->r_GlobalId == 0) return false;
             snapshot = new UnitHudUnitSnapshot(unitId, unit->r_GlobalId, (int)unit->r_UnitChimp, unit->r_ControllableForPlayerId, true);
             return true;
         }

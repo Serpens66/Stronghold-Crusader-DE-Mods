@@ -1009,8 +1009,8 @@ internal static class Program
         string assassinAStar = File.ReadAllText(
             Path.Combine(sourceDirectory, "AssassinAStarPolicy.cs"));
         Check(assassinPathfinding.Contains(
-                  "detour.Original(context, startX, startY, targetX, targetY, maximumNodes, continuation)") &&
-              assassinPathfinding.IndexOf("detour.Original(context", StringComparison.Ordinal) <
+                  "AssassinPathAPI.RunVanillaBuilder(context, startX, startY, targetX, targetY, maximumNodes, continuation)") &&
+              assassinPathfinding.IndexOf("AssassinPathAPI.RunVanillaBuilder(context", StringComparison.Ordinal) <
                   assassinPathfinding.IndexOf("TryBuildWeightedRoute(", StringComparison.Ordinal) &&
               assassinPathfinding.Contains("DetailedDiagnosticsEnabled = false") &&
               assassinPathfinding.Contains("command.RequestIndex") &&
@@ -1019,8 +1019,12 @@ internal static class Program
               assassinPathfinding.IndexOf("SamePcl", StringComparison.OrdinalIgnoreCase) < 0 &&
               assassinPathfinding.IndexOf("RequiredOnly", StringComparison.OrdinalIgnoreCase) < 0,
             "Assassin pathfinding keeps Vanilla initialization and exact weighted semantics while using command-bound A*");
-        Check(runtime.Contains("assassinPathfindingRuntime.Dispose();"),
-            "Assassin command subscriptions are released only through the rooted runtime disposal path");
+        Check(runtime.Contains("assassinPathfindingRuntime.Dispose();") &&
+              assassinPathfinding.Contains("if (sharedBuilderRegistered) return;") &&
+              assassinPathfinding.Contains("if (sharedBuilderRegistered) throw;") &&
+              assassinPathfinding.Contains("AssassinPathAPI.RegisterWeightedBuilder") &&
+              !assassinPathfinding.Contains("AddDetour("),
+            "Assassin hooks have one shared owner and published command subscriptions survive runtime disposal");
         Check(manifest.Contains("\"Version\": \"1.0.129\"") && manifest.Contains("\"NetworkMode\": 1"),
             "integrated manifest version and gameplay NetworkMode 1");
     }
@@ -1157,7 +1161,7 @@ internal static class Program
               mountedStockpile.Contains("NativeUnitCount = 10000") &&
               mountedStockpile.Contains("(uint)unitId - 1u < NativeUnitCount") &&
               mountedStockpile.Contains("int unitId = unchecked((int)context.Pointer->RSI);") &&
-              mountedStockpile.Contains("TryGetUnitById(unitId") &&
+              mountedStockpile.Contains("UnitAccess.TryGetById(unitId") &&
               mountedStockpile.Contains("context.Pointer->RDI + UnitFromManagerRelativeBaseOffset") &&
               !mountedStockpile.Contains("unitSpanIndex + 1"),
             "mounted-stockpile endpoint maps Vanilla's 1-based ID and manager-relative unit view correctly");

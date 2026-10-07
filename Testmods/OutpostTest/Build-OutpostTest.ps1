@@ -1,3 +1,4 @@
+param([switch]$NoInstall)
 $ErrorActionPreference = 'Stop'
 function Get-OutpostFileHash([string]$Path) {
     $algorithm = [Security.Cryptography.SHA256]::Create()
@@ -22,6 +23,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Runtime build failed.' }
     $package = Join-Path $root 'BepInEx\plugins\OutpostTest_Serp'
     Copy-Item -LiteralPath (Join-Path $root 'info.json') -Destination $package -Force
+    if ($NoInstall) { Write-Output 'OutpostTest build/tests successful; installation skipped.'; exit 0 }
     $destination = Join-Path $game 'BepInEx\plugins\OutpostTest_Serp'
     [IO.Directory]::CreateDirectory($destination) | Out-Null
     foreach ($name in @('OutpostTest.dll', 'OutpostTest.pdb', 'info.json')) {

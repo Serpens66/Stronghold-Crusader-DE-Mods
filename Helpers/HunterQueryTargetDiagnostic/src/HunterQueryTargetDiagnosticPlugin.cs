@@ -15,6 +15,7 @@ using System.Diagnostics;
 namespace HunterQueryTargetDiagnostic
 {
     [BepInDependency(ScriptExtenderGuid, "2.4.0")]
+    [BepInDependency("APIShared_Serp", "0.4.10")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class HunterQueryTargetDiagnosticPlugin : BaseUnityPlugin
     {
@@ -324,7 +325,7 @@ namespace HunterQueryTargetDiagnostic
         {
             hunter = null;
             return unitApi.IsValidId(unitId) &&
-                unitApi.TryGetUnitById(unitId, out hunter) &&
+                APIShared.UnitAccess.TryGetById(unitApi, unitId, out hunter, out _) &&
                 hunter != null &&
                 hunter->r_AliveState == AliveState.IsAlive &&
                 hunter->r_UnitChimp == eChimps.CHIMP_TYPE_HUNTER;
@@ -357,7 +358,7 @@ namespace HunterQueryTargetDiagnostic
         private static unsafe string DescribeUnit(GameUnitManagerAPI unitApi, int unitId)
         {
             if (!unitApi.IsValidId(unitId) ||
-                !unitApi.TryGetUnitById(unitId, out GameUnit* unit) ||
+                !APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _) ||
                 unit == null)
             {
                 return $"id={unitId}/valid=false";
@@ -490,7 +491,7 @@ namespace HunterQueryTargetDiagnostic
                 GameUnit* linkedWorker = null;
                 linkedBuildingWorkerUnitResolved =
                     unitApi.IsValidId(linkedBuildingWorkerUnitId) &&
-                    unitApi.TryGetUnitById(linkedBuildingWorkerUnitId, out linkedWorker) &&
+                    APIShared.UnitAccess.TryGetById(unitApi, linkedBuildingWorkerUnitId, out linkedWorker, out _) &&
                     linkedWorker != null;
                 if (linkedBuildingWorkerUnitResolved)
                 {

@@ -147,7 +147,7 @@ namespace VirtualUnitsPrototype
             if (!CanMutate) return Result(VirtualApiResultCode.UnsupportedGameMode, "Assignments are allowed only in a loaded singleplayer skirmish.");
             if (!unitDefinitions.TryGetValue(typeId ?? string.Empty, out VirtualUnitDefinition definition)) return Result(VirtualApiResultCode.UnknownTypeId, "Unknown unit type ID.");
             if (!TryReadUnit(unitId, definition.BaseType, out uint globalId, out int maxHealth, out int currentHealth, out int speed, out VirtualApiResult failure)) return failure;
-            if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* assignedUnit) || assignedUnit == null || assignedUnit->r_AliveState != AliveState.IsAlive)
+            if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* assignedUnit, out _) || assignedUnit == null || assignedUnit->r_AliveState != AliveState.IsAlive)
                 return Result(VirtualApiResultCode.EntityNotFound, "Unit is not fully initialized.");
             PendingSpawn pending;
             lock (sync)
@@ -251,7 +251,7 @@ namespace VirtualUnitsPrototype
             {
                 if (!instances.TryGetSlot(UnitKind, unitId, out uint globalId, out StoredInstance stored) || !stored.VisualValidated ||
                     !unitDefinitions.TryGetValue(stored.TypeId, out definition)) return false;
-                if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) || unit == null ||
+                if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) || unit == null ||
                     unit->r_GlobalId != globalId || unit->r_UnitChimp != definition.BaseType || unit->r_AliveState != AliveState.IsAlive)
                 { instances.Remove(UnitKind, unitId); instance = null; definition = null; return false; }
                 instance = stored.Snapshot; return true;
@@ -348,7 +348,7 @@ namespace VirtualUnitsPrototype
             foreach (StoredInstance candidate in candidates)
             {
                 if (!TryGetValidatedUnit(candidate.GameId, out VirtualEntityInstance instance, out VirtualUnitDefinition ignored)) continue;
-                if (GameUnitManagerAPI.Instance.TryGetUnitById(candidate.GameId, out GameUnit* unit) && unit != null && unit->r_ControllableForPlayerId == playerId)
+                if (APIShared.UnitAccess.TryGetById(candidate.GameId, out GameUnit* unit, out _) && unit != null && unit->r_ControllableForPlayerId == playerId)
                     result.Add(instance);
             }
             return result.ToArray();
@@ -372,12 +372,12 @@ namespace VirtualUnitsPrototype
                 int unitId = (int)created;
                 if (!TryReadUnit(unitId, definition.BaseType, out uint globalId, out int maxHealth, out int currentHealth, out int speed, out VirtualApiResult failure))
                 {
-                    GameUnitManagerAPI.Instance.DeleteUnitSafe(unitId);
+                    (APIShared.UnitAccess.TryGetById(unitId, out _, out _) && GameUnitManagerAPI.Instance.DeleteUnitSafe(unitId));
                     return failure;
                 }
-                if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) || unit == null || unit->r_ControllableForPlayerId != playerId)
+                if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) || unit == null || unit->r_ControllableForPlayerId != playerId)
                 {
-                    GameUnitManagerAPI.Instance.DeleteUnitSafe(unitId);
+                    (APIShared.UnitAccess.TryGetById(unitId, out _, out _) && GameUnitManagerAPI.Instance.DeleteUnitSafe(unitId));
                     return Result(VirtualApiResultCode.SpawnFailed, $"Spawned unit {unitId} has an unexpected owner.");
                 }
                 var pending = PendingSpawn.ForUnit(unitId, globalId, typeId, definition.DefinitionVersion, playerId, tileX, tileY, maxHealth, currentHealth, speed, unit->r_AliveState, currentSimulationTick + SpawnInitializationTickBudget, ticket);
@@ -500,7 +500,7 @@ namespace VirtualUnitsPrototype
             {
                 if (!TryReadUnit(unitId, eChimps.CHIMP_TYPE_ARCHER, out uint globalId, out int maxHealth,
                     out int currentHealth, out int speed, out VirtualApiResult ignored)) continue;
-                if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) || unit == null ||
+                if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) || unit == null ||
                     unit->r_ControllableForPlayerId != active.Ticket.PlayerId) continue;
                 lock (sync)
                 {
@@ -626,7 +626,7 @@ namespace VirtualUnitsPrototype
             lock (sync) candidates = pendingUnits.Values.ToArray();
             foreach (PendingSpawn pending in candidates)
             {
-                if (!GameUnitManagerAPI.Instance.TryGetUnitById(pending.GameId, out GameUnit* unit) || unit == null)
+                if (!APIShared.UnitAccess.TryGetById(pending.GameId, out GameUnit* unit, out _) || unit == null)
                 {
                     FailPending(pending, "native unit slot is no longer available", false);
                     continue;
@@ -703,12 +703,12 @@ namespace VirtualUnitsPrototype
         private void FinalizeUnit(PendingSpawn pending, GameUnit* unit)
         {
             VirtualUnitDefinition definition = unitDefinitions[pending.TypeId];
-            int currentHealth = GameUnitManagerAPI.Instance.GetCurrentHealth(pending.GameId);
+            int currentHealth = (APIShared.UnitAccess.TryGetById(pending.GameId, out _, out _) ? GameUnitManagerAPI.Instance.GetCurrentHealth(pending.GameId) : 0);
             var stored = new StoredInstance(VirtualEntityKind.Unit, pending.GameId, pending.GlobalId, pending.TypeId, pending.DefinitionVersion, pending.OriginalMaxHealth, pending.OriginalSpeed);
             ApplyUnitStats(pending.GameId, pending.OriginalMaxHealth, currentHealth, pending.OriginalSpeed, definition);
             lock (sync) { pendingUnits.Remove(pending.GameId); instances.Set(UnitKind, pending.GameId, pending.GlobalId, stored); }
             var success = VirtualApiResult.Success("Unit assignment finalized after Vanilla initialization.");
-            Shared.DebugLogHelper.LogInfo(log, $"Pending unit finalized: {DescribeUnit(unit)}, rendererSeen={pending.RendererSeen}, bodyHookSeen={pending.UnitHookSeen}, maxHealth={GameUnitManagerAPI.Instance.GetMaxHealth(pending.GameId)}, currentHealth={GameUnitManagerAPI.Instance.GetCurrentHealth(pending.GameId)}, speed={GameUnitManagerAPI.Instance.GetSpeed(pending.GameId)}.");
+            Shared.DebugLogHelper.LogInfo(log, $"Pending unit finalized: {DescribeUnit(unit)}, rendererSeen={pending.RendererSeen}, bodyHookSeen={pending.UnitHookSeen}, maxHealth={(APIShared.UnitAccess.TryGetById(pending.GameId, out _, out _) ? GameUnitManagerAPI.Instance.GetMaxHealth(pending.GameId) : 0)}, currentHealth={(APIShared.UnitAccess.TryGetById(pending.GameId, out _, out _) ? GameUnitManagerAPI.Instance.GetCurrentHealth(pending.GameId) : 0)}, speed={(APIShared.UnitAccess.TryGetById(pending.GameId, out _, out _) ? GameUnitManagerAPI.Instance.GetSpeed(pending.GameId) : 0)}.");
             VirtualEntityApi.RaiseAssigned(stored.Snapshot, success);
             CompleteOperation(pending.Ticket, success, stored.Snapshot);
         }
@@ -732,14 +732,14 @@ namespace VirtualUnitsPrototype
             lock (sync) (pending.Kind == VirtualEntityKind.Unit ? pendingUnits : pendingBuildings).Remove(pending.GameId);
             bool deleteIssued = false;
             if (!pending.PreserveOnFailure && deleteIfIdentityStillMatches && PendingIdentityMatches(pending))
-                deleteIssued = pending.Kind == VirtualEntityKind.Unit ? GameUnitManagerAPI.Instance.DeleteUnitSafe(pending.GameId) : GameBuildingManagerAPI.Instance.DeleteBuildingSafe(pending.GameId);
+                deleteIssued = pending.Kind == VirtualEntityKind.Unit ? (APIShared.UnitAccess.TryGetById(pending.GameId, out _, out _) && GameUnitManagerAPI.Instance.DeleteUnitSafe(pending.GameId)) : GameBuildingManagerAPI.Instance.DeleteBuildingSafe(pending.GameId);
             var failure = Result(VirtualApiResultCode.SpawnFailed, $"{pending.Kind} {pending.GameId}/{pending.GlobalId} failed initialization: {reason}; safeDeleteIssued={deleteIssued}.");
             LogWarning(failure.Message);
             CompleteOperation(pending.Ticket, failure, null);
         }
 
         private bool PendingIdentityMatches(PendingSpawn pending) => pending.Kind == VirtualEntityKind.Unit
-            ? GameUnitManagerAPI.Instance.GetGlobalId(pending.GameId) == unchecked((int)pending.GlobalId)
+            ? (APIShared.UnitAccess.TryGetById(pending.GameId, out _, out _) ? GameUnitManagerAPI.Instance.GetGlobalId(pending.GameId) : -1) == unchecked((int)pending.GlobalId)
             : GameBuildingManagerAPI.Instance.GetGlobalId(pending.GameId) == unchecked((int)pending.GlobalId);
 
         private int CountLinkedFootprintTiles(int buildingId, GameBuilding* building)
@@ -841,7 +841,7 @@ namespace VirtualUnitsPrototype
                 if (stored.Kind == VirtualEntityKind.Unit)
                 {
                     valid = unitDefinitions.TryGetValue(stored.TypeId, out VirtualUnitDefinition definition) &&
-                        GameUnitManagerAPI.Instance.TryGetUnitById(stored.GameId, out GameUnit* unit) && unit != null &&
+                        APIShared.UnitAccess.TryGetById(stored.GameId, out GameUnit* unit, out _) && unit != null &&
                         unit->r_GlobalId == stored.GlobalId && unit->r_UnitChimp == definition.BaseType && unit->r_AliveState == AliveState.IsAlive;
                 }
                 else
@@ -876,9 +876,9 @@ namespace VirtualUnitsPrototype
         {
             global = 0; max = current = speed = 0;
             if (id <= 0) { failure = Result(VirtualApiResultCode.InvalidGameId, "Unit ID must be 1-based and positive."); return false; }
-            if (!GameUnitManagerAPI.Instance.TryGetUnitById(id, out GameUnit* unit) || unit == null || (unit->r_AliveState != AliveState.NeedsInit && unit->r_AliveState != AliveState.IsAlive)) { failure = Result(VirtualApiResultCode.EntityNotFound, "Unit is not active."); return false; }
+            if (!APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _) || unit == null || (unit->r_AliveState != AliveState.NeedsInit && unit->r_AliveState != AliveState.IsAlive)) { failure = Result(VirtualApiResultCode.EntityNotFound, "Unit is not active."); return false; }
             if (unit->r_UnitChimp != expected) { failure = Result(VirtualApiResultCode.BaseTypeMismatch, "Unit base type differs from the definition."); return false; }
-            global = unit->r_GlobalId; max = GameUnitManagerAPI.Instance.GetMaxHealth(id); current = GameUnitManagerAPI.Instance.GetCurrentHealth(id); speed = GameUnitManagerAPI.Instance.GetSpeed(id);
+            global = unit->r_GlobalId; max = (APIShared.UnitAccess.TryGetById(id, out _, out _) ? GameUnitManagerAPI.Instance.GetMaxHealth(id) : 0); current = (APIShared.UnitAccess.TryGetById(id, out _, out _) ? GameUnitManagerAPI.Instance.GetCurrentHealth(id) : 0); speed = (APIShared.UnitAccess.TryGetById(id, out _, out _) ? GameUnitManagerAPI.Instance.GetSpeed(id) : 0);
             if (global == 0 || max <= 0 || speed < 0) { failure = Result(VirtualApiResultCode.EntityNotFound, "Unit identity or base values are unavailable."); return false; }
             failure = VirtualApiResult.Success(); return true;
         }
@@ -904,7 +904,7 @@ namespace VirtualUnitsPrototype
                 unrepresentableSpeedLogged = true;
                 LogWarning($"Unit speed factor {definition.Stats.SpeedFactor.Numerator}/{definition.Stats.SpeedFactor.Denominator} is not representable for encoded Vanilla speed {speed}; preserving {speed}.");
             }
-            GameUnitManagerAPI.Instance.SetMaxHealth(id, newMax); GameUnitManagerAPI.Instance.SetCurrentHealth(id, newCurrent); GameUnitManagerAPI.Instance.SetSpeed(id, (ushort)newSpeed);
+            if (APIShared.UnitAccess.TryGetById(id, out _, out _)) GameUnitManagerAPI.Instance.SetMaxHealth(id, newMax); if (APIShared.UnitAccess.TryGetById(id, out _, out _)) GameUnitManagerAPI.Instance.SetCurrentHealth(id, newCurrent); if (APIShared.UnitAccess.TryGetById(id, out _, out _)) GameUnitManagerAPI.Instance.SetSpeed(id, (ushort)newSpeed);
         }
         private void ApplyBuildingStats(int id, int max, int current, VirtualBuildingDefinition definition)
         {
@@ -917,7 +917,7 @@ namespace VirtualUnitsPrototype
             if (stored.Kind == VirtualEntityKind.Unit && TryReadUnit(stored.GameId, unitDefinitions[stored.TypeId].BaseType, out uint g, out int max, out int current, out int speed, out VirtualApiResult f) && g == stored.GlobalId)
             {
                 int restoredCurrent = VirtualMath.ScaleHealth(current, max, stored.OriginalMaxHealth);
-                GameUnitManagerAPI.Instance.SetMaxHealth(stored.GameId, stored.OriginalMaxHealth); GameUnitManagerAPI.Instance.SetCurrentHealth(stored.GameId, restoredCurrent); GameUnitManagerAPI.Instance.SetSpeed(stored.GameId, (ushort)Math.Min(ushort.MaxValue, stored.OriginalSpeed));
+                if (APIShared.UnitAccess.TryGetById(stored.GameId, out _, out _)) GameUnitManagerAPI.Instance.SetMaxHealth(stored.GameId, stored.OriginalMaxHealth); if (APIShared.UnitAccess.TryGetById(stored.GameId, out _, out _)) GameUnitManagerAPI.Instance.SetCurrentHealth(stored.GameId, restoredCurrent); if (APIShared.UnitAccess.TryGetById(stored.GameId, out _, out _)) GameUnitManagerAPI.Instance.SetSpeed(stored.GameId, (ushort)Math.Min(ushort.MaxValue, stored.OriginalSpeed));
             }
             else if (stored.Kind == VirtualEntityKind.Building && TryReadBuilding(stored.GameId, buildingDefinitions[stored.TypeId].BaseType, out uint bg, out int bmax, out int bcurrent, out VirtualApiResult bf) && bg == stored.GlobalId)
             {
@@ -926,7 +926,7 @@ namespace VirtualUnitsPrototype
             }
         }
         private void RestoreExistingSlot(VirtualEntityKind kind, int id) { if (instances.TryGetSlot((byte)kind, id, out uint g, out StoredInstance old)) { if (IdentityMatches(old)) Restore(old); instances.Remove((byte)kind, id); } }
-        private bool IdentityMatches(StoredInstance stored) => stored.Kind == VirtualEntityKind.Unit ? GameUnitManagerAPI.Instance.GetGlobalId(stored.GameId) == unchecked((int)stored.GlobalId) : GameBuildingManagerAPI.Instance.GetGlobalId(stored.GameId) == unchecked((int)stored.GlobalId);
+        private bool IdentityMatches(StoredInstance stored) => stored.Kind == VirtualEntityKind.Unit ? (APIShared.UnitAccess.TryGetById(stored.GameId, out _, out _) ? GameUnitManagerAPI.Instance.GetGlobalId(stored.GameId) : -1) == unchecked((int)stored.GlobalId) : GameBuildingManagerAPI.Instance.GetGlobalId(stored.GameId) == unchecked((int)stored.GlobalId);
         private void Forget(VirtualEntityKind kind, int id) { lock (sync) { instances.Remove((byte)kind, id); (kind == VirtualEntityKind.Unit ? pendingUnits : pendingBuildings).Remove(id); } }
         private void ClearMapState()
         {

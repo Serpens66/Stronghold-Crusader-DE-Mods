@@ -1,0 +1,3 @@
+System.Exception: Unknown:missing-native-building-updater-controls-at-67E6424-and-complete3999-slots;fullBuildingUpdaterReplay=False;negativeEligible=False
+   bei BridgePlanningTests.Program.HistoricalRebuild(String path) in D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\BridgePlanningTests\Program.cs:Zeile 474.
+   bei BridgePlanningTests.Program.Main(String[] args) in D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\BridgePlanningTests\Program.cs:Zeile 494.

@@ -70,7 +70,7 @@ namespace BuildingLimit
             {
                 foreach (int unitId in trackedUnitIds)
                 {
-                    if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                    if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
                         !IsActive(unit->r_AliveState))
                         continue;
 
@@ -87,7 +87,7 @@ namespace BuildingLimit
             playerId = 0;
             unitType = eChimps.CHIMP_TYPE_NULL;
             if (unitId <= 0 ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
                 !IsActive(unit->r_AliveState) || !IsTowerSiegeUnit(unit->r_UnitChimp))
                 return false;
 
@@ -146,7 +146,7 @@ namespace BuildingLimit
         }
 
         private unsafe bool TryReadTowerType(int unitId) =>
-            GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) &&
+            APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) &&
             IsTowerSiegeUnit(unit->r_UnitChimp);
 
         private static bool IsTowerSiegeUnit(eChimps type) =>

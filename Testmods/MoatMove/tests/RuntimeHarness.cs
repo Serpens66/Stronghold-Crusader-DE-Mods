@@ -45,6 +45,7 @@ namespace MoatMove
         public GameUnit* Units;
         public int LookupCalls;
         public Span<GameUnit> GetUnitsAsSpan() => new Span<GameUnit>(Units+1,1024);
+        public bool IsValidId(int id) => id > 0 && id < 1025;
         public bool TryGetUnitById(int id, out GameUnit* unit)
         { LookupCalls++; unit = id > 0 && id < 1025 ? Units + id : null; return unit != null; }
     }

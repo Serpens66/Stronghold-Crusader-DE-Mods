@@ -185,7 +185,7 @@ namespace ImprovedHunters
 
             Candidate candidate = observation.Candidate;
             if (!TryValidateHunter(hunterUnitId, requiredAiState: 1, out GameUnit* hunter) ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(candidate.PreyUnitId, out GameUnit* prey) ||
+                !APIShared.UnitAccess.TryGetById(candidate.PreyUnitId, out GameUnit* prey, out _) ||
                 prey == null ||
                 prey->r_AliveState != AliveState.IsAlive ||
                 prey->r_GlobalId != candidate.PreyGlobalId)
@@ -285,13 +285,13 @@ namespace ImprovedHunters
             int movingTargetReplans = candidate.IsMovingTargetReplan
                 ? candidate.MovingTargetReplanAttempt
                 : 0;
-            if (!GameUnitManagerAPI.Instance.TryGetUnitById(
+            if (!APIShared.UnitAccess.TryGetById(
                     candidate.HunterUnitId,
-                    out GameUnit* hunter) ||
+                    out GameUnit* hunter, out _) ||
                 hunter == null ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(
+                !APIShared.UnitAccess.TryGetById(
                     candidate.PreyUnitId,
-                    out GameUnit* prey) ||
+                    out GameUnit* prey, out _) ||
                 prey == null ||
                 prey->r_GlobalId != candidate.PreyGlobalId)
             {
@@ -350,9 +350,9 @@ namespace ImprovedHunters
             }
 
             GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
-            if (!unitApi.TryGetUnitById(refreshCandidate.HunterUnitId, out GameUnit* hunter) ||
+            if (!APIShared.UnitAccess.TryGetById(unitApi, refreshCandidate.HunterUnitId, out GameUnit* hunter, out _) ||
                 hunter == null ||
-                !unitApi.TryGetUnitById(refreshCandidate.PreyUnitId, out GameUnit* prey) ||
+                !APIShared.UnitAccess.TryGetById(unitApi, refreshCandidate.PreyUnitId, out GameUnit* prey, out _) ||
                 prey == null)
             {
                 return false;
@@ -489,9 +489,9 @@ namespace ImprovedHunters
             }
 
             if (!TryValidateHunter(hunterUnitId, requiredAiState: 0, out GameUnit* hunter) ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(
+                !APIShared.UnitAccess.TryGetById(
                     observation.Candidate.PreyUnitId,
-                    out GameUnit* prey) ||
+                    out GameUnit* prey, out _) ||
                 prey == null ||
                 prey->r_GlobalId != observation.Candidate.PreyGlobalId)
             {

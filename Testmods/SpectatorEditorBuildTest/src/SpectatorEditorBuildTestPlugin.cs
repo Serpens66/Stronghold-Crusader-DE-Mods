@@ -996,7 +996,7 @@ namespace SpectatorEditorBuildTest
                     int lordId = players.GetLordUnitId(owner);
                     int globalId = players.GetLordUnitGlobalId(owner);
                     if (lordId <= 0 || globalId == 0 ||
-                        !units.TryGetUnitById(lordId, out GameUnit* lord) || lord == null ||
+                        !APIShared.UnitAccess.TryGetById(units, lordId, out GameUnit* lord, out _) || lord == null ||
                         lord->r_AliveState != AliveState.IsAlive ||
                         lord->r_ControllableForPlayerId != owner ||
                         lord->r_UnitChimp != eChimps.CHIMP_TYPE_LORD ||
@@ -2265,7 +2265,7 @@ namespace SpectatorEditorBuildTest
             if (owner <= 0 || unitDiagnostics >= 32) return;
             try
             {
-                if (!GameUnitManagerAPI.Instance.TryGetUnitById(args.UnitId, out GameUnit* unit) ||
+                if (!APIShared.UnitAccess.TryGetById(args.UnitId, out GameUnit* unit, out _) ||
                     unit == null || unit->r_ControllableForPlayerId != owner)
                     return;
                 unitDiagnostics++;

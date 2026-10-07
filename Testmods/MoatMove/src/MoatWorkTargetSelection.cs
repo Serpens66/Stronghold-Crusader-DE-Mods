@@ -368,7 +368,7 @@ namespace MoatMove
                 tileManager != GameTileManagerAPI.Instance.GetTileManager() ||
                 (relationshipMode != 1 && relationshipMode != 2) ||
                 !GamePlayerManagerAPI.Instance.IsPlayerIdValid(playerId) ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
                 unit == null || unit->r_AliveState != AliveState.IsAlive ||
                 unit->r_ControllableForPlayerId != playerId || !CanDigMoat(unit))
             {
@@ -643,8 +643,8 @@ namespace MoatMove
 
             try
             {
-                if (!GameUnitManagerAPI.Instance.TryGetUnitById(
-                        pending.UnitId, out GameUnit* unit) ||
+                if (!APIShared.UnitAccess.TryGetById(
+                        pending.UnitId, out GameUnit* unit, out _) ||
                     unit == null || unit->r_AliveState != AliveState.IsAlive ||
                     unit->r_ControllableForPlayerId != pending.PlayerId || !CanDigMoat(unit) ||
                     unit->r_CurrentTilePositionX != pending.StartX ||
@@ -687,8 +687,8 @@ namespace MoatMove
         {
             if (pending == null || pending.MapEpoch != mapEpoch ||
                 pending.TileManager != GameTileManagerAPI.Instance.GetTileManager() ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(
-                    pending.UnitId, out GameUnit* unit) ||
+                !APIShared.UnitAccess.TryGetById(
+                    pending.UnitId, out GameUnit* unit, out _) ||
                 unit == null || unit->r_AliveState != AliveState.IsAlive ||
                 unit->r_ControllableForPlayerId != pending.PlayerId || !CanDigMoat(unit) ||
                 unit->r_CurrentTilePositionX != pending.StartX ||
@@ -827,7 +827,7 @@ namespace MoatMove
             if (scope == null || !scope.Matches(mapEpoch, GameTileManagerAPI.Instance.GetTileManager()) ||
                 scope.CapturedTick != CaptureCurrentGameTick() ||
                 (uint)targetX >= MapWidth || (uint)targetY >= MapWidth ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(scope.UnitId, out GameUnit* unit) ||
+                !APIShared.UnitAccess.TryGetById(scope.UnitId, out GameUnit* unit, out _) ||
                 unit == null || unit->r_AliveState != AliveState.IsAlive || !CanDigMoat(unit) ||
                 unit->r_ControllableForPlayerId != scope.PlayerId ||
                 unit->r_CurrentTilePositionX != scope.StartX ||
@@ -924,8 +924,8 @@ namespace MoatMove
         {
             if (!scope.Matches(mapEpoch, scope.TileManager) || disposed ||
                 scope.TileManager != GameTileManagerAPI.Instance.GetTileManager() ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(
-                    scope.UnitId, out GameUnit* unit) ||
+                !APIShared.UnitAccess.TryGetById(
+                    scope.UnitId, out GameUnit* unit, out _) ||
                 unit == null || unit->r_AliveState != AliveState.IsAlive ||
                 unit->r_ControllableForPlayerId != scope.PlayerId || !CanDigMoat(unit) ||
                 unit->r_CurrentTilePositionX != scope.StartX ||
@@ -1092,8 +1092,8 @@ namespace MoatMove
             int occupantUnitId = GameTileManagerAPI.Instance.GetTileUnitId(tileId);
             if (occupantUnitId == 0 || occupantUnitId == currentUnitId)
                 return false;
-            return GameUnitManagerAPI.Instance.TryGetUnitById(
-                    occupantUnitId, out GameUnit* occupant) &&
+            return APIShared.UnitAccess.TryGetById(
+                    occupantUnitId, out GameUnit* occupant, out _) &&
                 occupant != null && occupant->r_AliveState == AliveState.IsAlive;
         }
 

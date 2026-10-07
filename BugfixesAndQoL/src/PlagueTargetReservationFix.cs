@@ -225,7 +225,7 @@ namespace BugfixesAndQoL
                 if (unitId <= 0)
                     return;
 
-                if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* healer) || healer == null)
+                if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* healer, out _) || healer == null)
                 {
                     ReleaseOwnersUsingUnitSlot(unitId, "owner slot unavailable");
                     return;
@@ -555,7 +555,7 @@ namespace BugfixesAndQoL
         {
             healer = null;
             return unitId > 0 &&
-                GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out healer) &&
+                APIShared.UnitAccess.TryGetById(unitId, out healer, out _) &&
                 healer != null &&
                 healer->r_AliveState == AliveState.IsAlive &&
                 healer->r_UnitChimp == eChimps.CHIMP_TYPE_HEALER &&

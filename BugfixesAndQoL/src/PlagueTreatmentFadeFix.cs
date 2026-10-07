@@ -197,7 +197,7 @@ namespace BugfixesAndQoL
         {
             healer = null;
             return unitId > 0 &&
-                GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out healer) &&
+                APIShared.UnitAccess.TryGetById(unitId, out healer, out _) &&
                 healer != null &&
                 healer->r_AliveState == AliveState.IsAlive &&
                 healer->r_UnitChimp == eChimps.CHIMP_TYPE_HEALER;

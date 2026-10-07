@@ -157,9 +157,9 @@ namespace ImprovedHunters
                 GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
                 if (targetUnitId <= 0 ||
                     attackerUnitId <= 0 ||
-                    !unitApi.TryGetUnitById(targetUnitId, out GameUnit* target) ||
+                    !APIShared.UnitAccess.TryGetById(unitApi, targetUnitId, out GameUnit* target, out _) ||
                     target == null ||
-                    !unitApi.TryGetUnitById(attackerUnitId, out GameUnit* attacker) ||
+                    !APIShared.UnitAccess.TryGetById(unitApi, attackerUnitId, out GameUnit* attacker, out _) ||
                     attacker == null)
                 {
                     TryLogInvalidContext(

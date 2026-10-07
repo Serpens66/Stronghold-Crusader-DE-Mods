@@ -1088,7 +1088,7 @@ namespace EnemyBridgePathTest
         private void CaptureSelectionInput(Scope scope)
         {
             int unitId=scope.Args[0];var api=GameUnitManagerAPI.Instance;
-            if(!api.IsValidId(unitId)||!api.TryGetUnitById(unitId,out GameUnit* unit)||unit==null)
+            if(!api.IsValidId(unitId)||!APIShared.UnitAccess.TryGetById(api, unitId,out GameUnit* unit, out _)||unit==null)
             {Emit("task-followup-gap","selection="+scope.Id+",unitRaw="+unitId+",reason=invalid-selector-unit");return;}
             int player=unit->r_ControllableForPlayerId|((int)unit->N00000569<<8);
             if(player<1||player>8) {Emit("task-followup-gap","selection="+scope.Id+",playerRaw="+player+",reason=unresolved-selector-player");return;}
@@ -1135,7 +1135,8 @@ namespace EnemyBridgePathTest
                 else
                 {
                     var api=GameUnitManagerAPI.Instance;
-                    if(api.IsValidId(evidence.Unit))api.TryGetUnitById(evidence.Unit,out unit);
+                    if(!APIShared.UnitAccess.TryGetById(api, evidence.Unit,out unit, out _))
+                    {Emit("task-assignment","selection="+evidence.Op+",identity=unresolved");continue;}
                 }
                 if(unit==null||unit->r_GlobalId!=evidence.Global)
                 {Emit("task-assignment","selection="+evidence.Op+",identity=reused-or-unresolved");continue;}

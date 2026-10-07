@@ -1,0 +1,6 @@
+TEMP_GATE_ROUTE_ACCEPTANCE: 6054 assertions, 576000 events across 120 minute windows
+PASS: both installed-RedBird capturer adapters execute the real JE, preserve registers/XMM/stack, and fail open.
+System.InvalidOperationException: Assertion failed: immediate preview validates one unit with reference-first and filtered-last DB650 searches
+   bei EnemyGatePathfindingTest.Program.Assert(Boolean condition, String message) in D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\EnemyGatePathfindingTest\tests\Program.cs:Zeile 2346.
+   bei EnemyGatePathfindingTest.Program.NormalCursorPreviewContractIsExact() in D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\EnemyGatePathfindingTest\tests\Program.cs:Zeile 2043.
+   bei EnemyGatePathfindingTest.Program.Main() in D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\EnemyGatePathfindingTest\tests\Program.cs:Zeile 56.

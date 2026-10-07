@@ -1789,7 +1789,7 @@ namespace MoatMove
             int trackedCount = 0;
             foreach (int unitId in scope.CandidateUnitIds)
             {
-                if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
                     unit == null || unit->r_AliveState != AliveState.IsAlive ||
                     unit->r_TribeId != args.TribeId ||
                     !MatchesCompletedAttackTargetContext(unit, scope))
@@ -1816,7 +1816,7 @@ namespace MoatMove
                 return;
             foreach (int unitId in unitIds)
             {
-                if (GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) &&
+                if (APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) &&
                     unit != null && unit->r_AliveState == AliveState.IsAlive &&
                     unit->r_TribeId == scope.TribeId)
                 {
@@ -1848,7 +1848,7 @@ namespace MoatMove
             foreach (int unitId in scope.CandidateUnitIds)
             {
                 if (logged >= 24) break;
-                if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) || unit == null)
+                if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) || unit == null)
                     continue;
 
                 string candidateState = GetAttackCandidateSignature(unit);
@@ -1890,7 +1890,7 @@ namespace MoatMove
                     $"changedUnits=0 candidates={scope.CandidateUnitIds.Count}");
                 foreach (int unitId in scope.CandidateUnitIds)
                 {
-                    if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                    if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
                         unit == null)
                     {
                         continue;
@@ -2031,7 +2031,7 @@ namespace MoatMove
                             EndTrackedAttack(unitId, tracker, "map-changed");
                             continue;
                         }
-                        if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                        if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
                             unit == null || unit->r_AliveState != AliveState.IsAlive)
                         {
                             EndTrackedAttack(unitId, tracker, "unit-dead-or-invalid");
@@ -2280,7 +2280,7 @@ namespace MoatMove
         {
             try
             {
-                if (!GameUnitManagerAPI.Instance.TryGetUnitById(plan.UnitId, out GameUnit* unit) ||
+                if (!APIShared.UnitAccess.TryGetById(plan.UnitId, out GameUnit* unit, out _) ||
                     unit == null || unit->r_AliveState != AliveState.IsAlive)
                 {
                     return;
@@ -2361,7 +2361,7 @@ namespace MoatMove
             bool nativeValid,
             string decision)
         {
-            if (!GameUnitManagerAPI.Instance.TryGetUnitById(shadow.UnitId, out GameUnit* unit) ||
+            if (!APIShared.UnitAccess.TryGetById(shadow.UnitId, out GameUnit* unit, out _) ||
                 unit == null || unit->r_AliveState != AliveState.IsAlive)
             {
                 return;
@@ -2460,7 +2460,7 @@ namespace MoatMove
                         EndTrackedMoatMove(unitId, tracker, "map-changed");
                         continue;
                     }
-                    if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                    if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
                         unit == null || unit->r_AliveState != AliveState.IsAlive)
                     {
                         EndTrackedMoatMove(unitId, tracker, "unit-dead-or-invalid");
@@ -3369,7 +3369,7 @@ namespace MoatMove
             unitId = 0;
             unit = null;
             if (preferredUnitId > 0 &&
-                GameUnitManagerAPI.Instance.TryGetUnitById(preferredUnitId, out GameUnit* preferred) &&
+                APIShared.UnitAccess.TryGetById(preferredUnitId, out GameUnit* preferred, out _) &&
                 preferred != null && preferred->r_AliveState == AliveState.IsAlive &&
                 (expectedPlayerId < 0 || preferred->r_ControllableForPlayerId == expectedPlayerId) &&
                 preferred->r_UnitSelected != 0 &&
@@ -3385,7 +3385,7 @@ namespace MoatMove
             {
                 int selectedUnitId = selectedUnitIds[index];
                 if (selectedUnitId <= 0 ||
-                    !GameUnitManagerAPI.Instance.TryGetUnitById(selectedUnitId, out GameUnit* selected) ||
+                    !APIShared.UnitAccess.TryGetById(selectedUnitId, out GameUnit* selected, out _) ||
                     selected == null || selected->r_AliveState != AliveState.IsAlive ||
                     (expectedPlayerId >= 0 && selected->r_ControllableForPlayerId != expectedPlayerId) ||
                     !CanDigMoat(selected))
@@ -3426,7 +3426,7 @@ namespace MoatMove
                 return originalCentralMovementPlan(unitManager, unitId, targetX, targetY);
 
             MarkTrackedAttackPipeline(unitId, AttackPipelineStage.Planner, targetX, targetY, false);
-            if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* plannerUnit) ||
+            if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* plannerUnit, out _) ||
                 plannerUnit == null || !CanDigMoat(plannerUnit))
             {
                 return originalCentralMovementPlan(unitManager, unitId, targetX, targetY);
@@ -3502,7 +3502,7 @@ namespace MoatMove
             {
                 if (disposed || unitManager == IntPtr.Zero || unitId <= 0 ||
                     unitManager != (IntPtr)nativeUnitManager ||
-                    !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out unit) ||
+                    !APIShared.UnitAccess.TryGetById(unitId, out unit, out _) ||
                     unit == null || unit->r_AliveState != AliveState.IsAlive ||
                     !CanDigMoat(unit) ||
                     *(short*)((byte*)unit + UnitCombatFinishGateOffset) != 0 ||
@@ -3681,7 +3681,7 @@ namespace MoatMove
 
             foreach (int unitId in unitIds)
             {
-                if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
                     unit == null || unit->r_AliveState != AliveState.IsAlive)
                 {
                     continue;
@@ -4123,7 +4123,7 @@ namespace MoatMove
                 return vanillaResult;
 
             if (plan == null ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(plan.UnitId, out GameUnit* unit) ||
+                !APIShared.UnitAccess.TryGetById(plan.UnitId, out GameUnit* unit, out _) ||
                 unit == null || !CanDigMoat(unit))
             {
                 return vanillaResult;
@@ -4241,7 +4241,7 @@ namespace MoatMove
             int diggers = 0;
             foreach (int unitId in unitIds)
             {
-                if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
                     unit == null || unit->r_AliveState != AliveState.IsAlive ||
                     unit->r_TribeId != command.TribeId ||
                     unit->r_ControllableForPlayerId != playerId || !CanDigMoat(unit))
@@ -4290,7 +4290,7 @@ namespace MoatMove
         {
             foreach (int unitId in unitIds)
             {
-                if (GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) &&
+                if (APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) &&
                     unit != null && unit->r_AliveState == AliveState.IsAlive &&
                     unit->r_ControllableForPlayerId == playerId &&
                     unit->r_CurrentTilePositionX == startX &&
@@ -4421,7 +4421,7 @@ namespace MoatMove
                 {
                     int unitId = getGroupUnitId(tribeManager, tribeId, ordinal);
                     if (unitId <= 0 ||
-                        !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                        !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
                         unit == null || unit->r_AliveState != AliveState.IsAlive ||
                         *(ushort*)((byte*)unit + UnitGroupInactiveStateOffset) != 0)
                     {
@@ -4486,8 +4486,8 @@ namespace MoatMove
                     : 0;
                 bool targetIsFriendlyCompletedMoat = IsValidTileId(targetTileId) &&
                     IsCompletedMoatTile(targetTileId) && qualifyingUnitId > 0 &&
-                    GameUnitManagerAPI.Instance.TryGetUnitById(
-                        qualifyingUnitId, out GameUnit* qualifyingUnit) &&
+                    APIShared.UnitAccess.TryGetById(
+                        qualifyingUnitId, out GameUnit* qualifyingUnit, out _) &&
                     qualifyingUnit != null &&
                     ResolveCompletedMoatRelationship(
                         qualifyingUnit->r_ControllableForPlayerId, targetTileId) ==
@@ -4697,7 +4697,7 @@ namespace MoatMove
                 scope.Command != TribeAICommand.AttackUnit || scope.TargetContext != scope.OwnerCommand.TargetValue1 ||
                 (uint)scope.TargetX != x || (uint)scope.TargetY != y ||
                 scope.UnitId <= 0 ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(scope.UnitId, out GameUnit* source) ||
+                !APIShared.UnitAccess.TryGetById(scope.UnitId, out GameUnit* source, out _) ||
                 source == null || !CanDigMoat(source) || source->r_TribeId != scope.TribeId ||
                 source->r_ControllableForPlayerId != scope.PlayerId) return false;
             return TryGetHostileLivingUnitAtTile(scope.PlayerId, (int)x, (int)y,
@@ -5016,7 +5016,7 @@ namespace MoatMove
             int playerId = -1;
             foreach (int unitId in groupUnitIds)
             {
-                if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
                     unit == null || unit->r_AliveState != AliveState.IsAlive ||
                     unit->r_TribeId != scope.TribeId || !CanDigMoat(unit))
                 {
@@ -5077,7 +5077,7 @@ namespace MoatMove
             var otherStarts = new List<int>();
             foreach (int id in diggerUnitIds)
             {
-                if (!GameUnitManagerAPI.Instance.TryGetUnitById(id, out GameUnit* unit) || unit == null) continue;
+                if (!APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _) || unit == null) continue;
                 // The native candidate consumer uses current coordinates, not MoveHere's next-step start.
                 int x = unit->r_CurrentTilePositionX, y = unit->r_CurrentTilePositionY;
                 if ((uint)x >= MapWidth || (uint)y >= MapWidth) continue;
@@ -5344,7 +5344,7 @@ namespace MoatMove
             {
                 return AttackRegionFallbackDecision.Reject("movement-or-region-context-mismatch");
             }
-            if (!GameUnitManagerAPI.Instance.TryGetUnitById(scope.UnitId, out GameUnit* unit) ||
+            if (!APIShared.UnitAccess.TryGetById(scope.UnitId, out GameUnit* unit, out _) ||
                 unit == null || unit->r_AliveState != AliveState.IsAlive ||
                 unit->r_TribeId != scope.TribeId ||
                 unit->r_ControllableForPlayerId != scope.PlayerId || !CanDigMoat(unit))
@@ -5459,7 +5459,7 @@ namespace MoatMove
             }
             foreach (int unitId in groupUnitIds)
             {
-                if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
                     unit == null || unit->r_AliveState != AliveState.IsAlive ||
                     unit->r_TribeId != scope.TribeId || !CanDigMoat(unit))
                 {
@@ -5521,7 +5521,7 @@ namespace MoatMove
                 command.TargetValue1, building, targetRegion);
             var starts = new List<int>(); var targets = new List<int>();
             foreach(int id in diggerUnitIds)
-                if(GameUnitManagerAPI.Instance.TryGetUnitById(id,out GameUnit* unit) && unit!=null)
+                if(APIShared.UnitAccess.TryGetById(id,out GameUnit* unit, out _) && unit!=null)
                     starts.Add(unit->r_CurrentTilePositionY*MapWidth+unit->r_CurrentTilePositionX);
             foreach(int tile in approachTiles)
             { var p=GameTileManagerAPI.Instance.GetTileVectorFromId(tile); targets.Add(p.Y*MapWidth+p.X); }
@@ -5641,7 +5641,7 @@ namespace MoatMove
             unitType = default;
             foreach (int candidateId in command.CandidateUnitIds)
             {
-                if (!GameUnitManagerAPI.Instance.TryGetUnitById(candidateId, out GameUnit* unit) ||
+                if (!APIShared.UnitAccess.TryGetById(candidateId, out GameUnit* unit, out _) ||
                     unit == null || unit->r_AliveState != AliveState.IsAlive ||
                     unit->r_TribeId != command.TribeId || !CanDigMoat(unit))
                 {
@@ -5675,7 +5675,7 @@ namespace MoatMove
             {
                 int unitId = getGroupUnitId(tribeManager, tribeId, ordinal);
                 if (unitId <= 0 ||
-                    !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                    !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
                     unit == null || unit->r_AliveState != AliveState.IsAlive ||
                     unit->r_TribeId != tribeId ||
                     *(ushort*)((byte*)unit + UnitGroupInactiveStateOffset) != 0)
@@ -6089,8 +6089,8 @@ namespace MoatMove
                 if (vanillaResult == 0)
                 {
                     if (buildingId <= 0 || unitId <= 0 ||
-                        !GameUnitManagerAPI.Instance.TryGetUnitById(
-                            unitId, out GameUnit* unit) || unit == null ||
+                        !APIShared.UnitAccess.TryGetById(
+                            unitId, out GameUnit* unit, out _) || unit == null ||
                         unit->r_AliveState != AliveState.IsAlive)
                     {
                         reason = "invalid-unit-or-building-id";
@@ -6259,7 +6259,7 @@ namespace MoatMove
                     targetY >= 0 && targetY < MapWidth;
                 GameUnit* unit = null;
                 bool validUnit = unitId > 0 && unitId < nextUnitId &&
-                    GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out unit) && unit != null;
+                    APIShared.UnitAccess.TryGetById(unitId, out unit, out _) && unit != null;
                 int representativePlayerId = validUnit ? unit->r_ControllableForPlayerId : -1;
                 if (hasVanillaDiggerSelection && (!validUnit || !CanDigMoat(unit)) &&
                     TryGetSelectedVanillaDigger(
@@ -6343,8 +6343,8 @@ namespace MoatMove
                             out hostileUnitId,
                             out occupiedByLivingUnit);
                         if (hostileUnitTarget &&
-                            GameUnitManagerAPI.Instance.TryGetUnitById(
-                                hostileUnitId, out GameUnit* hostileUnit) && hostileUnit != null)
+                            APIShared.UnitAccess.TryGetById(
+                                hostileUnitId, out GameUnit* hostileUnit, out _) && hostileUnit != null)
                         {
                             hostileUnitGlobalId = hostileUnit->r_GlobalId;
                         }
@@ -6496,7 +6496,7 @@ namespace MoatMove
             summary = default;
             if (plan == null || plan.TargetX < 0 || plan.TargetX >= MapWidth ||
                 plan.TargetY < 0 || plan.TargetY >= MapWidth ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(plan.UnitId, out GameUnit* unit) ||
+                !APIShared.UnitAccess.TryGetById(plan.UnitId, out GameUnit* unit, out _) ||
                 unit == null)
             {
                 return false;
@@ -6679,7 +6679,7 @@ namespace MoatMove
             var probedSources = new HashSet<string>(StringComparer.Ordinal);
             foreach (int unitId in command.ActiveUnitIdsAtDispatch)
             {
-                if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
                     unit == null || unit->r_AliveState != AliveState.IsAlive ||
                     unit->r_TribeId != command.TribeId || !CanDigMoat(unit))
                 {
@@ -6806,7 +6806,7 @@ namespace MoatMove
             cursorSources.Clear(); cursorSourceCounts.Clear();
             foreach (int id in ids)
             {
-                if (!GameUnitManagerAPI.Instance.TryGetUnitById(id, out GameUnit* unit) || unit == null ||
+                if (!APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _) || unit == null ||
                     unit->r_AliveState != AliveState.IsAlive || unit->r_ControllableForPlayerId != template.PlayerId) continue;
                 group.SelectedUnits++;
                 bool canDig = CanDigMoat(unit);
@@ -6939,8 +6939,8 @@ namespace MoatMove
                         -1,
                         out _,
                         out _) &&
-                    GameUnitManagerAPI.Instance.TryGetUnitById(
-                        scope.TargetUnitId, out GameUnit* targetUnit) &&
+                    APIShared.UnitAccess.TryGetById(
+                        scope.TargetUnitId, out GameUnit* targetUnit, out _) &&
                     targetUnit != null && targetUnit->r_GlobalId == scope.TargetUnitGlobalId &&
                     targetUnit->r_CurrentTilePositionX == scope.TargetX && targetUnit->r_CurrentTilePositionY == scope.TargetY;
             }
@@ -6993,7 +6993,7 @@ namespace MoatMove
                 return false;
 
             int unitId = (int)rawUnitId;
-            if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* target) ||
+            if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* target, out _) ||
                 target == null || target->r_AliveState != AliveState.IsAlive ||
                 target->r_GlobalId == 0)
             {
@@ -7518,7 +7518,7 @@ namespace MoatMove
             {
                 if (requiredUnitId > 0 && unitId != requiredUnitId)
                     continue;
-                if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* target) ||
+                if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* target, out _) ||
                     target == null || target->r_AliveState != AliveState.IsAlive ||
                     target->r_CurrentTilePositionX != targetX ||
                     target->r_CurrentTilePositionY != targetY)
@@ -8319,7 +8319,7 @@ namespace MoatMove
             RouteProbeSummary observed = default;
             foreach (int unitId in command.ActiveUnitIdsAtDispatch)
             {
-                if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
                     unit == null || unit->r_AliveState != AliveState.IsAlive ||
                     unit->r_TribeId != command.TribeId)
                 {
@@ -9660,7 +9660,7 @@ namespace MoatMove
             if (saved == null || unit == null || !saved.Route.IsValid || saved.Epoch != mapEpoch ||
                 saved.Tick != CaptureCurrentGameTick() || saved.Revision != placementRevision ||
                 saved.Player != unit->r_ControllableForPlayerId || saved.TargetX != plan.TargetX || saved.TargetY != plan.TargetY ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(plan.UnitId, out GameUnit* bound) || bound != unit ||
+                !APIShared.UnitAccess.TryGetById(plan.UnitId, out GameUnit* bound, out _) || bound != unit ||
                 (plan.IdentityBound && plan.UnitGlobalId != unit->r_GlobalId))
                 return null;
             GetNativeMovementStart(unit,out int x,out int y);

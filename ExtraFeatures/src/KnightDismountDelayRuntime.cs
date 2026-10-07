@@ -296,7 +296,7 @@ namespace ExtraFeatures
                     ? eChimps.CHIMP_TYPE_SWORDSMAN
                     : eChimps.CHIMP_TYPE_KNIGHT;
                 if (!TryResolveAliveUnitByGlobalId(snapshot, expectedType, out int currentUnitId) ||
-                    !GameUnitManagerAPI.Instance.TryGetUnitById(currentUnitId, out GameUnit* currentUnit))
+                    !APIShared.UnitAccess.TryGetById(currentUnitId, out GameUnit* currentUnit, out _))
                 {
                     continue;
                 }
@@ -435,7 +435,7 @@ namespace ExtraFeatures
                     continue;
                 }
 
-                if (!GameUnitManagerAPI.Instance.TryGetUnitById(currentUnitId, out GameUnit* unit) ||
+                if (!APIShared.UnitAccess.TryGetById(currentUnitId, out GameUnit* unit, out _) ||
                     unit->r_ControllableForPlayerId != pending.PlayerId ||
                     unit->r_UnitChimp != pending.ExpectedType)
                 {
@@ -489,7 +489,7 @@ namespace ExtraFeatures
         {
             selectedReplacementUnitId = 0;
             if (!TryResolveAliveUnitByGlobalId(pending.Snapshot, eChimps.CHIMP_TYPE_SWORDSMAN, out int swordsmanUnitId) ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(swordsmanUnitId, out GameUnit* swordsman) ||
+                !APIShared.UnitAccess.TryGetById(swordsmanUnitId, out GameUnit* swordsman, out _) ||
                 !ReservationMatches(pending, swordsmanUnitId, swordsman))
             {
                 return false;
@@ -502,10 +502,10 @@ namespace ExtraFeatures
                 "mount",
                 reason,
                 pending.LimitReservationId);
-            if (knightUnitId <= 0 || !GameUnitManagerAPI.Instance.TryGetUnitById(knightUnitId, out GameUnit* knight))
+            if (knightUnitId <= 0 || !APIShared.UnitAccess.TryGetById(knightUnitId, out GameUnit* knight, out _))
             {
                 if (knightUnitId > 0)
-                    GameUnitManagerAPI.Instance.DeleteUnit(knightUnitId);
+                    if (APIShared.UnitAccess.TryGetById(knightUnitId, out _, out _)) GameUnitManagerAPI.Instance.DeleteUnit(knightUnitId);
                 return false;
             }
 
@@ -513,16 +513,16 @@ namespace ExtraFeatures
             if (!TryTransferReservationToKnight(
                     pending, swordsmanUnitId, swordsman, knightUnitId, knight, reason + "-transfer"))
             {
-                GameUnitManagerAPI.Instance.DeleteUnit(knightUnitId);
+                if (APIShared.UnitAccess.TryGetById(knightUnitId, out _, out _)) GameUnitManagerAPI.Instance.DeleteUnit(knightUnitId);
                 return false;
             }
 
             bool transferSelection = ShouldTransferSelection(currentSnapshot.OwnerPlayerId, swordsman);
-            if (!GameUnitManagerAPI.Instance.DeleteUnitSafe(swordsmanUnitId))
+            if (!(APIShared.UnitAccess.TryGetById(swordsmanUnitId, out _, out _) && GameUnitManagerAPI.Instance.DeleteUnitSafe(swordsmanUnitId)))
             {
                 ReleaseExactHorseLink(allocation, knightUnitId, (int)knight->r_GlobalId, reason + "-delete-rollback");
                 RestoreReservationToSwordsman(pending, swordsmanUnitId, reason + "-delete-rollback");
-                GameUnitManagerAPI.Instance.DeleteUnit(knightUnitId);
+                if (APIShared.UnitAccess.TryGetById(knightUnitId, out _, out _)) GameUnitManagerAPI.Instance.DeleteUnit(knightUnitId);
                 return false;
             }
 
@@ -550,7 +550,7 @@ namespace ExtraFeatures
             var invalidIds = new List<int>();
             foreach (int unitId in pendingSelectionRequestIds)
             {
-                if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
                     unit->r_AliveState != AliveState.IsAlive ||
                     unit->r_ControllableForPlayerId != localPlayerId)
                 {
@@ -562,7 +562,7 @@ namespace ExtraFeatures
 
             foreach (int unitId in pendingSelectionRequestIds)
             {
-                if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
                     !IsSelected(unit))
                 {
                     return;
@@ -590,7 +590,7 @@ namespace ExtraFeatures
                 GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
                 foreach (int unitId in unitApi.GetAllAliveUnits())
                 {
-                    if (unitApi.TryGetUnitById(unitId, out GameUnit* unit) &&
+                    if (APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _) &&
                         unit->r_ControllableForPlayerId == localPlayerId &&
                         IsSelected(unit))
                         pendingSelectionRequestIds.Add(unitId);
@@ -615,7 +615,7 @@ namespace ExtraFeatures
                 GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
                 foreach (int unitId in pendingSelectionTransferIds)
                 {
-                    bool found = unitApi.TryGetUnitById(unitId, out GameUnit* unit);
+                    bool found = APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _);
                     if (!found || unit->r_AliveState != AliveState.IsAlive ||
                         unit->r_ControllableForPlayerId != localPlayerId)
                     {
@@ -634,7 +634,7 @@ namespace ExtraFeatures
                 var seen = new HashSet<int>();
                 foreach (int unitId in unitApi.GetAllAliveUnits())
                 {
-                    if (unitApi.TryGetUnitById(unitId, out GameUnit* unit) &&
+                    if (APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _) &&
                         unit->r_ControllableForPlayerId == localPlayerId &&
                         IsSelected(unit) && seen.Add(unitId))
                         selectedUnitIds.Add(unitId);
@@ -643,7 +643,7 @@ namespace ExtraFeatures
                 // Keep the previous request and replacements until the new gesture commits.
                 foreach (int unitId in pendingSelectionRequestIds)
                 {
-                    if (unitApi.TryGetUnitById(unitId, out GameUnit* unit) &&
+                    if (APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _) &&
                         unit->r_AliveState == AliveState.IsAlive &&
                         unit->r_ControllableForPlayerId == localPlayerId && seen.Add(unitId))
                     {
@@ -765,7 +765,7 @@ namespace ExtraFeatures
         {
             HorseAllocation allocation = pending.Allocation;
             if (!ReservationSlotIsFree(allocation) ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* swordsman) ||
+                !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* swordsman, out _) ||
                 (int)swordsman->r_GlobalId != pending.Snapshot.GlobalId ||
                 swordsman->r_LinkedStableBuildingId != 0 || swordsman->r_LinkedStableGlobalId != 0)
             {
@@ -809,7 +809,7 @@ namespace ExtraFeatures
 
             if (GetStableHorseSlotUnitId(stable, allocation.Slot) != unitId ||
                 GetStableHorseSlotGlobalId(stable, allocation.Slot) != unitGlobalId ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
                 (int)unit->r_GlobalId != unitGlobalId ||
                 unit->r_LinkedStableBuildingId != allocation.StableId ||
                 unit->r_LinkedStableGlobalId != (uint)allocation.StableGlobalId)
@@ -827,7 +827,7 @@ namespace ExtraFeatures
             int unitGlobalId,
             HorseAllocation allocation)
         {
-            if (GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) &&
+            if (APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) &&
                 (int)unit->r_GlobalId == unitGlobalId &&
                 unit->r_LinkedStableBuildingId == allocation.StableId &&
                 unit->r_LinkedStableGlobalId == (uint)allocation.StableGlobalId)
@@ -939,7 +939,7 @@ namespace ExtraFeatures
             for (int index = 0; index < aliveIds.Length; index++)
             {
                 int unitId = aliveIds[index];
-                if (unitId > 0 && GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) && IsSelected(unit))
+                if (unitId > 0 && APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) && IsSelected(unit))
                     AddSelectedPendingGlobalId(playerId, unitId, result, seen);
             }
 
@@ -953,7 +953,7 @@ namespace ExtraFeatures
             List<int> result,
             HashSet<int> seen)
         {
-            if (unitId <= 0 || !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit))
+            if (unitId <= 0 || !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _))
                 return;
 
             int globalId = (int)unit->r_GlobalId;
@@ -967,7 +967,7 @@ namespace ExtraFeatures
 
         private bool IsPendingUnitId(int unitId)
         {
-            if (unitId <= 0 || !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit))
+            if (unitId <= 0 || !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _))
                 return false;
 
             int globalId = (int)unit->r_GlobalId;
@@ -1062,7 +1062,7 @@ namespace ExtraFeatures
         private void UpdateProgressVisual(Chimp chimp)
         {
             int unitId = chimp.objectID;
-            if (unitId <= 0 || !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit))
+            if (unitId <= 0 || !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _))
                 return;
 
             int globalId = (int)unit->r_GlobalId;
@@ -1120,7 +1120,7 @@ namespace ExtraFeatures
 
         private void RemoveProgressVisualForUnitId(int unitId)
         {
-            if (unitId <= 0 || !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit))
+            if (unitId <= 0 || !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _))
                 return;
 
             RemoveProgressVisual((int)unit->r_GlobalId);

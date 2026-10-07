@@ -189,7 +189,7 @@ namespace BugfixesAndQoL
             frame.RegionReached = true;
             PlanScope plan = GetUnitMovePlan(frame, frame.Args.UnitId);
             if (plan == null || pathManager != nativePathManager || vanilla != 0) return true;
-            if (!GameUnitManagerAPI.Instance.TryGetUnitById(plan.UnitId, out GameUnit* unit) || unit == null)
+            if (!APIShared.UnitAccess.TryGetById(plan.UnitId, out GameUnit* unit, out _) || unit == null)
                 return true;
             GetNativeMovementStart(unit, out int actualX, out int actualY);
             int tile = GameTileManagerAPI.Instance.GetTileId(plan.TargetX, plan.TargetY);

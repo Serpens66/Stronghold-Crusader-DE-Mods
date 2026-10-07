@@ -143,9 +143,9 @@ namespace OutpostTest
         private bool ValidPending(OutpostRallyState.Order p,out GameUnit* u,out GameTribe* t)
         {
             u=null;t=null;
-            return GameUnitManagerAPI.Instance.TryGetUnitById(p.Unit,out u) && u->r_GlobalId==p.UnitGlobal &&
+            return APIShared.UnitAccess.TryGetById(p.Unit,out u, out _) && u->r_GlobalId==p.UnitGlobal &&
                 (u->r_AliveState==AliveState.NeedsInit || u->r_AliveState==AliveState.IsAlive) && u->r_CurrentHealth>0 &&
-                GameUnitManagerAPI.Instance.GetOwner(p.Unit)==p.Owner && Human(p.Owner) &&
+                (APIShared.UnitAccess.TryGetById(p.Unit, out _, out _) ? GameUnitManagerAPI.Instance.GetOwner(p.Unit) : -1)==p.Owner && Human(p.Owner) &&
                 TryGroup(p.Tribe,p.TribeGlobal,out t) && t->r_PlayerIdOwner==p.Owner && t->r_UnitsInGroup==1 && t->r_TribeStance==TribeStance.Hold && u->r_TribeId==p.Tribe;
         }
         private void ProcessRallyOrders()
@@ -224,9 +224,9 @@ namespace OutpostTest
                 int id=checked((int)GameUnitManagerAPI.Instance.CreateUnitLocal(e.Owner,e.Owner,b->r_TileAccessPositionX,b->r_TileAccessPositionY,8,(eChimps)26));
                 if(id==0) { Info($"human-spawn tick={tick} building={e.Id} created=0 reason=unit-pool-or-cancelled");return false; }
                 added[e.Owner]++;
-                if(!GameUnitManagerAPI.Instance.TryGetUnitById(id,out var u)) throw new InvalidOperationException("Human unit unresolved.");
+                if(!APIShared.UnitAccess.TryGetById(id,out var u, out _)) throw new InvalidOperationException("Human unit unresolved.");
                 native.ValidateUnitPointer(id,u);
-                if((int)u->r_UnitChimp!=26 || GameUnitManagerAPI.Instance.GetOwner(id)!=e.Owner ||
+                if((int)u->r_UnitChimp!=26 || (APIShared.UnitAccess.TryGetById(id, out _, out _) ? GameUnitManagerAPI.Instance.GetOwner(id) : -1)!=e.Owner ||
                     (u->r_AliveState!=AliveState.NeedsInit && u->r_AliveState!=AliveState.IsAlive)) throw new InvalidOperationException("Human spawn contract changed.");
                 if(!tribes.AssignUnit(tribeId,id) || u->r_TribeId!=tribeId || tribe->r_UnitsInGroup!=1) throw new InvalidOperationException("Human assignment failed.");
                 OutpostNative.InitializeUnit(u);OutpostNative.SetRole(tribe);

@@ -254,7 +254,7 @@ namespace BugfixesAndQoL
             byte* tribe = (byte*)nativeTribeManager.ToPointer() + tribeId * TribeRecordSize;
             int leadUnitId = *(ushort*)(tribe + TribeLeadUnitIdOffset);
             if (leadUnitId <= 0 || leadUnitId > MaximumUnitCount ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(leadUnitId, out GameUnit* unit) ||
+                !APIShared.UnitAccess.TryGetById(leadUnitId, out GameUnit* unit, out _) ||
                 unit == null || unit->r_AliveState != AliveState.IsAlive ||
                 unit->r_TribeId != tribeId || unit->r_ControllableForPlayerId != playerId)
             {

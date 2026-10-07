@@ -32,8 +32,8 @@ namespace ImprovedHunters
             if (!TryResolveHunterQueryActor(unitApi, args, out int hunterUnitId))
                 return;
 
-            eChimps queryType = unitApi.GetType(args.QueryUnitId);
-            int queryGlobalId = unitApi.GetGlobalId(args.QueryUnitId);
+            eChimps queryType = (APIShared.UnitAccess.TryGetById(unitApi, args.QueryUnitId, out _, out _) ? unitApi.GetType(args.QueryUnitId) : eChimps.CHIMP_TYPE_NULL);
+            int queryGlobalId = (APIShared.UnitAccess.TryGetById(unitApi, args.QueryUnitId, out _, out _) ? unitApi.GetGlobalId(args.QueryUnitId) : -1);
             if (settings.IsKnownAnimal(queryType) && queryGlobalId > 0)
             {
                 hunterNativeVisibilityProbe?.RecordQueryCandidate(
@@ -52,7 +52,7 @@ namespace ImprovedHunters
             if (!IsRuntimeHuntingEnabled(queryType))
                 return;
 
-            if (!IsOwnerAllowed(unitApi.GetOwner(hunterUnitId), args.QueryUnitId, queryType))
+            if (!IsOwnerAllowed((APIShared.UnitAccess.TryGetById(unitApi, hunterUnitId, out _, out _) ? unitApi.GetOwner(hunterUnitId) : -1), args.QueryUnitId, queryType))
             {
                 return;
             }
@@ -213,7 +213,7 @@ namespace ImprovedHunters
         private static unsafe bool IsLiveHunter(GameUnitManagerAPI unitApi, int unitId)
         {
             return IsValidUnitId(unitId) &&
-                unitApi.TryGetUnitById(unitId, out GameUnit* unit) &&
+                APIShared.UnitAccess.TryGetById(unitApi, unitId, out GameUnit* unit, out _) &&
                 unit != null &&
                 unit->r_AliveState == AliveState.IsAlive &&
                 unit->r_UnitChimp == eChimps.CHIMP_TYPE_HUNTER;
@@ -245,7 +245,7 @@ namespace ImprovedHunters
             }
 
             GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
-            if (!unitApi.TryGetUnitById(hunterUnitId, out GameUnit* hunter) ||
+            if (!APIShared.UnitAccess.TryGetById(unitApi, hunterUnitId, out GameUnit* hunter, out _) ||
                 hunter == null ||
                 hunter->r_AliveState != AliveState.IsAlive ||
                 hunter->r_UnitChimp != eChimps.CHIMP_TYPE_HUNTER)
@@ -254,7 +254,7 @@ namespace ImprovedHunters
                 return false;
             }
 
-            int hunterOwner = unitApi.GetOwner(hunterUnitId);
+            int hunterOwner = (APIShared.UnitAccess.TryGetById(unitApi, hunterUnitId, out _, out _) ? unitApi.GetOwner(hunterUnitId) : -1);
             if (!TryGetHunterOrigin(hunter, hunterOwner, out int originTileX, out int originTileY, out int granaryRoundTripHeuristicCost))
             {
                 CacheTargetSelection(hunterUnitId, default, timestamp);
@@ -376,7 +376,7 @@ namespace ImprovedHunters
         {
             livePrey = default;
             GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
-            if (!unitApi.TryGetUnitById(cachedPrey.UnitId, out GameUnit* unit) ||
+            if (!APIShared.UnitAccess.TryGetById(unitApi, cachedPrey.UnitId, out GameUnit* unit, out _) ||
                 unit == null)
             {
                 return false;

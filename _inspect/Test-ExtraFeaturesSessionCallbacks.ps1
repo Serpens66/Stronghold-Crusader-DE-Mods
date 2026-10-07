@@ -31,7 +31,7 @@ using SHCDESE.Interop.Enums;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Units;
 using SHCDESE.API.Components.SaveData;
-namespace BepInEx.Logging { public class ManualLogSource {} }
+namespace BepInEx.Logging { public class ManualLogSource { public void LogDebug(object message){} } }
 namespace CrusaderDE { public class Placeholder {} }
 namespace R3 { public class Subject<T> {
     public Action<T> Changed; public Subject<T> Observable=>this;
@@ -79,6 +79,7 @@ namespace SHCDESE.API {
     public unsafe class GameUnitManagerAPI {
         public static GameUnitManagerAPI Instance=new GameUnitManagerAPI(); public GameUnit* Units; public uint BaseHealth=100;
         public bool TryGetUnitById(int id,out GameUnit* unit){unit=id>0&&id<16?Units+id:null; return unit!=null;}
+        public bool IsValidId(int id)=>id>0&&id<16;
         public uint GetDefaultHealth(eChimps type)=>BaseHealth;
     }
     public class GameAIManagerAPI {

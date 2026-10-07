@@ -403,7 +403,7 @@ namespace BugfixesAndQoL
             {
                 if ((!lastSelectionHasAssassin && !lastSelectionHasAssassinType) ||
                     (lastSelectionAssassinUnitId > 0 &&
-                     api.TryGetUnitById(lastSelectionAssassinUnitId, out GameUnit* cachedUnit) &&
+                     APIShared.UnitAccess.TryGetById(api, lastSelectionAssassinUnitId, out GameUnit* cachedUnit, out _) &&
                      IsOwnAssassin(cachedUnit, playerId)))
                 {
                     selectedOwnAssassin = lastSelectionHasAssassin;
@@ -421,7 +421,7 @@ namespace BugfixesAndQoL
                 if (selected[index].UnitType != (int)eChimps.CHIMP_TYPE_ARAB_ASSASIN)
                     continue;
                 hasAssassinType = true;
-                if (unitId > 0 && api.TryGetUnitById(unitId, out GameUnit* unit) && IsOwnAssassin(unit, playerId))
+                if (unitId > 0 && APIShared.UnitAccess.TryGetById(api, unitId, out GameUnit* unit, out _) && IsOwnAssassin(unit, playerId))
                 {
                     selectedOwnAssassin = true;
                     selectedAssassinUnitId = unitId;

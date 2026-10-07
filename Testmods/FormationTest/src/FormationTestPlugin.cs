@@ -8,6 +8,7 @@ using System;
 namespace FormationTest
 {
     [BepInDependency(ScriptExtenderGuid, "2.10.0")]
+    [BepInDependency("APIShared_Serp", "0.4.10")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class FormationTestPlugin : BaseUnityPlugin
     {

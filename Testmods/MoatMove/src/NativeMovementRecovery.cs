@@ -198,7 +198,7 @@ namespace MoatMove
                 frame.RecoveryAttempted = true;
                 PlanScope plan = GetUnitMovePlan(frame, id);
                 if (plan == null || !plan.ModeObserved || plan.TargetX != targetX || plan.TargetY != targetY ||
-                    !GameUnitManagerAPI.Instance.TryGetUnitById(id, out GameUnit* unit) || unit == null) return RejectPreBuilder(frame, "identity-mode-or-target");
+                    !APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _) || unit == null) return RejectPreBuilder(frame, "identity-mode-or-target");
                 GetNativeMovementStart(unit, out int actualX, out int actualY);
                 if (x != actualX || y != actualY || (uint)targetX >= MapWidth || (uint)targetY >= MapWidth ||
                     movementTargetAvailability[targetY * MapWidth + targetX] == 0) return RejectPreBuilder(frame, "start-or-unavailable-target");
@@ -288,14 +288,14 @@ namespace MoatMove
             nativeModeEntries++;
             if (frame == null || frame.Args.UnitId != id) return;
             frame.NativeModeReached = true;
-            if (GameUnitManagerAPI.Instance.TryGetUnitById(id, out GameUnit* unit) && unit != null)
+            if (APIShared.UnitAccess.TryGetById(id, out GameUnit* unit, out _) && unit != null)
                 frame.PrePortalRegion = *(short*)((byte*)unit + (0x8EC - NativeUnitSlotDataOffset));
         }
 
         private void RestoreFailedRecovery(UnitMoveFrame frame, long result)
         {
             if (result > 0 || !frame.RecoveryApplied || frame.Plan == null ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById(frame.Plan.UnitId, out GameUnit* unit) || unit == null ||
+                !APIShared.UnitAccess.TryGetById(frame.Plan.UnitId, out GameUnit* unit, out _) || unit == null ||
                 frame.Plan.UnitGlobalId != unit->r_GlobalId || frame.Plan.PlayerId != unit->r_ControllableForPlayerId) return;
             *(short*)((byte*)unit + (0x900 - NativeUnitSlotDataOffset)) = frame.FailedDestinationRegion;
             *(short*)((byte*)unit + (0x8EC - NativeUnitSlotDataOffset)) = frame.FailedPortalRegion;

@@ -132,7 +132,7 @@ foreach (var member in cls.Members)
 foreach (string name in methods)
     if (!selected.OfType<MethodDeclarationSyntax>().Any(m => m.Identifier.Text == name))
         throw new Exception("Missing runtime method: " + name);
-string extracted = "using Iced.Intel; using static Iced.Intel.AssemblerRegisters; using RedBird.Abstractions.Hooks; using RedBird.Abstractions.Hooks.Transaction; using RedBird.X64.Hooks.Transaction; using System; using System.Collections.Generic; using System.Diagnostics; " +
+string extracted = "using APIShared; using Iced.Intel; using static Iced.Intel.AssemblerRegisters; using RedBird.Abstractions.Hooks; using RedBird.Abstractions.Hooks.Transaction; using RedBird.X64.Hooks.Transaction; using System; using System.Collections.Generic; using System.Diagnostics; " +
     "using System.Runtime.InteropServices; namespace MoatMove { " +
     "internal sealed unsafe partial class FriendlyMoatMovementRuntime {\n" +
     string.Join("\n", selected.Select(m => m.ToFullString())) + "\n} }";
@@ -164,14 +164,21 @@ var comparisonClass = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(r
     "BugfixesAndQoL", "src", "MoatSearchKernel.cs"))).GetRoot().DescendantNodes()
     .OfType<ClassDeclarationSyntax>().Single(c => c.Identifier.Text == "MoatSearchKernel")
     .ToFullString().Replace("MoatSearchKernel", "ComparisonMoatSearchKernel");
-var comparisonTree = CSharpSyntaxTree.ParseText("using System; using System.Collections.Generic; namespace MoatMove {" + comparisonClass + "}");
+var comparisonTree = CSharpSyntaxTree.ParseText("using APIShared; using System; using System.Collections.Generic; namespace MoatMove {" + comparisonClass + "}");
 var comparisonPlannerClass = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,
     "BugfixesAndQoL", "src", "WeightedMoatRoutePlanner.cs"))).GetRoot().DescendantNodes()
     .OfType<ClassDeclarationSyntax>().Single(c => c.Identifier.Text == "WeightedMoatRoutePlanner")
     .ToFullString().Replace("WeightedMoatRoutePlanner", "ComparisonWeightedMoatRoutePlanner")
     .Replace("MoatSearchKernel", "ComparisonMoatSearchKernel");
-var comparisonPlannerTree = CSharpSyntaxTree.ParseText("using System; using System.Diagnostics; namespace MoatMove {" + comparisonPlannerClass + "}");
+var comparisonPlannerTree = CSharpSyntaxTree.ParseText("using APIShared; using System; using System.Diagnostics; namespace MoatMove {" + comparisonPlannerClass + "}");
 var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared", "src", "UnitAccess.cs"))
+        .Replace("using SHCDESE.API;", "using GameUnitManagerAPI = MoatMove.GameUnitManagerAPI;")
+        .Replace("using SHCDESE.Interop;", "using GameUnit = MoatMove.GameUnit;")
+        .Replace("public static unsafe class UnitAccess", "internal static unsafe class UnitAccess")),
+    CSharpSyntaxTree.ParseText("namespace BepInEx.Logging { public class ManualLogSource { public void LogDebug(object message) { } } }"),
+    
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared", "src", "EnemyGatePathPolicyBridge.cs"))),
     referenceTree,
     comparisonTree,
     comparisonPlannerTree,
@@ -371,6 +378,8 @@ void ValidateRuntimeSources()
         .Select(file => CSharpSyntaxTree.ParseText(File.ReadAllText(file), path: file))
         .Concat(new[]{"DebugLogHelper.cs", "NativePatternResolver.cs", "GameplaySessionLifecycle.cs", "GameModeHelper.cs", "GameBuildingFootprint.cs"}.Select(file =>
             CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"Shared",file)),path:file))).ToArray();
+    if (Assembly.LoadFrom(apiSharedPath).GetType("APIShared.UnitAccess", false) == null)
+        sources = sources.Concat(new[]{CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"APIShared","src","UnitAccess.cs")))}).ToArray();
     var check=CSharpCompilation.Create("FriendlyMoatMovementSourceContract",sources,
         paths.Values.Select(p=>MetadataReference.CreateFromFile(p)),
         new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary,allowUnsafe:true));

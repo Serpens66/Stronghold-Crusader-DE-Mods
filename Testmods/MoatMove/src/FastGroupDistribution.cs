@@ -22,7 +22,7 @@ namespace MoatMove
         {
             if (!RequiredOnlyMode || command == null) return;
             foreach (int id in command.ActiveUnitIdsAtDispatch)
-                if (GameUnitManagerAPI.Instance.TryGetUnitById(id, out var unit) && unit != null)
+                if (APIShared.UnitAccess.TryGetById(id, out var unit, out _) && unit != null)
                 {
                     var identity = new FastUnitIdentity(id, unit->r_GlobalId);
                     fastUnitDistributions.Remove(identity);
@@ -117,7 +117,7 @@ namespace MoatMove
             anchor = target; suffix = null;
             FastGroupDistribution distribution = fastDistribution;
             if (activeMoveCommand == null && unitId > 0 &&
-                GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out var unit) && unit != null)
+                APIShared.UnitAccess.TryGetById(unitId, out var unit, out _) && unit != null)
                 fastUnitDistributions.TryGetValue(new FastUnitIdentity(unitId, unit->r_GlobalId), out distribution);
             else if (distribution?.Command != activeMoveCommand) distribution = null;
             if (distribution == null || activeAttackCommand != null ||

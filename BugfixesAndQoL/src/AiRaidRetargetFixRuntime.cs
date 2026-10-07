@@ -483,7 +483,7 @@ namespace BugfixesAndQoL
             var units = GameUnitManagerAPI.Instance;
             foreach (int unitId in unitIds)
             {
-                if (!units.IsValidId(unitId) || !units.TryGetUnitById(unitId, out GameUnit* unit) ||
+                if (!units.IsValidId(unitId) || !APIShared.UnitAccess.TryGetById(units, unitId, out GameUnit* unit, out _) ||
                     unit == null || unit->r_AliveState != AliveState.IsAlive ||
                     unit->r_TribeId != tribeId) continue;
                 switch (unit->r_UnitChimp)

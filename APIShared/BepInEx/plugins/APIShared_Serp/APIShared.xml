@@ -142,6 +142,87 @@
             registrations run synchronously.
             </summary>
         </member>
+        <member name="T:APIShared.UnitLookupFailure">
+            <summary>Why a unit game ID could not be resolved. Does not describe unit identity or life state.</summary>
+        </member>
+        <member name="F:APIShared.UnitLookupFailure.None">
+            <summary>The lookup succeeded.</summary>
+        </member>
+        <member name="F:APIShared.UnitLookupFailure.InvalidId">
+            <summary>The ID is zero or negative; it is not a unit game ID.</summary>
+        </member>
+        <member name="F:APIShared.UnitLookupFailure.ManagerUnavailable">
+            <summary>No unit manager is available.</summary>
+        </member>
+        <member name="F:APIShared.UnitLookupFailure.OutOfRange">
+            <summary>The ID exceeds the manager's current capacity.</summary>
+        </member>
+        <member name="F:APIShared.UnitLookupFailure.Unavailable">
+            <summary>The manager could not return a non-null pointer.</summary>
+        </member>
+        <member name="T:APIShared.UnitAccess">
+            <summary>Checked access to the Script Extender's one-based unit IDs.</summary>
+            <remarks>Returned pointers are immediate views, never cached. Callers must validate identity,
+            ownership and life state themselves and use the existing game-thread contracts.</remarks>
+        </member>
+        <member name="M:APIShared.UnitAccess.TryGetById(System.Int32,SHCDESE.Interop.GameUnit*@,APIShared.UnitLookupFailure@,System.String,System.String,System.Int32)">
+            <summary>Resolves a unit ID without passing invalid IDs to the Script Extender.</summary>
+            <param name="unitId">One-based game ID, never a span index.</param>
+            <param name="unit">The immediate pointer on success; null on any failure.</param>
+            <param name="failure">The failure reason, or None on success.</param>
+            <param name="sourceFile">Compiler-supplied source path for bounded debug diagnostics.</param>
+            <param name="member">Compiler-supplied caller name.</param>
+            <param name="line">Compiler-supplied call-site line.</param>
+            <returns>True only when a non-null pointer was returned.</returns>
+        </member>
+        <member name="M:APIShared.UnitAccess.TryGetById(SHCDESE.API.GameUnitManagerAPI,System.Int32,SHCDESE.Interop.GameUnit*@,APIShared.UnitLookupFailure@,System.String,System.String,System.Int32)">
+            <summary>Resolves a unit ID using the caller's already captured manager.</summary>
+            <param name="manager">The captured manager; null is safely rejected.</param>
+            <param name="unitId">One-based game ID.</param>
+            <param name="unit">The immediate pointer on success; null on any failure.</param>
+            <param name="failure">The failure reason, or None on success.</param>
+            <param name="sourceFile">Compiler-supplied source path.</param>
+            <param name="member">Compiler-supplied caller name.</param>
+            <param name="line">Compiler-supplied call-site line.</param>
+            <returns>True only when a non-null pointer was returned.</returns>
+        </member>
+        <member name="T:APIShared.AssassinPathBuilder">
+            <summary>A synchronous Assassin distance-field builder, using Vanilla's complete native arguments.</summary>
+        </member>
+        <member name="T:APIShared.AssassinPathAPI">
+            <summary>
+            Process-wide owner of Assassin distance-field and reconstruction hooks.
+            Consumers register behavior; no consumer installs a second hook at these sites.
+            </summary>
+        </member>
+        <member name="P:APIShared.AssassinPathAPI.IsInstalled">
+            <summary>Whether the sole shared hook transaction has been published successfully.</summary>
+        </member>
+        <member name="P:APIShared.AssassinPathAPI.DirectGatehouseClimbingEnabled">
+            <summary>Whether a test consumer currently enables direct gatehouse climb eligibility.</summary>
+        </member>
+        <member name="M:APIShared.AssassinPathAPI.RegisterWeightedBuilder(System.String,APIShared.AssassinPathBuilder)">
+            <summary>
+            Registers the sole weighted builder. The handler must call RunVanillaBuilder exactly
+            once before any optional replacement, and handle its own correction/diagnostic errors.
+            The delegate remains rooted until process exit.
+            </summary>
+        </member>
+        <member name="M:APIShared.AssassinPathAPI.RunVanillaBuilder(System.IntPtr,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32)">
+            <summary>Runs Vanilla through the shared original trampoline; it never calls a registered replacement.</summary>
+        </member>
+        <member name="M:APIShared.AssassinPathAPI.SetWeightedReconstructionEnabled(System.String,System.Boolean)">
+            <summary>Publishes the weighted builder's existing reconstruction relaxation as logical data only.</summary>
+        </member>
+        <member name="M:APIShared.AssassinPathAPI.SetDirectGatehouseClimbing(System.String,System.Boolean)">
+            <summary>Enables or disables the registered experiment's gatehouse endpoint rule without repatching code.</summary>
+        </member>
+        <member name="M:APIShared.AssassinPathAPI.IsDirectGatehouseClimbEndpoint(System.Int32)">
+            <summary>
+            Checks only the optional building-ID exception for one tile. Callers must still enforce
+            Vanilla's direction, surface and wall requirements and their own player policy.
+            </summary>
+        </member>
         <member name="T:APIShared.GatehouseFootprintCandidate">
             <summary>One ordered perimeter contact and its outward direction.</summary>
         </member>

@@ -455,7 +455,7 @@ internal static class Program
               !combinedJsonContract.Contains("DataContractJsonSerializer") &&
               !combinedJsonContract.Contains("JsonUtility"),
             "No external or Unity JSON serializer may remain in SkinTest runtime code.");
-        Check(runtime.Contains("TryGetUnitById(unitId") && runtime.Contains("TryGetUnitById(lordUnitId"),
+        Check(runtime.Contains("UnitAccess.TryGetById(unitId") && runtime.Contains("UnitAccess.TryGetById(lordUnitId"),
             "One-based unit IDs must pass unchanged to TryGetUnitById.");
         Check(runtime.Contains("r_ControllableForPlayerId") && runtime.Contains("GetLordUnitId(ownerPlayerId)"),
             "Owner-to-lord resolution contract is missing.");

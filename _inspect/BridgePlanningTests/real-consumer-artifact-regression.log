@@ -1,0 +1,3 @@
+PASS synthetic capture/write/import/local consumers 0 ea13d0ca2d36a52f74e61f267ebe3c90043a32841d508ca6d870b26fe20a20fe consumerCopyMs 37.427
+PASS synthetic capture/write/import/local consumers 1 18510e078eb50f97ed35292319b11af9e32157f93d35f45dfcad9f34710958cf consumerCopyMs 35.492
+PASS original real consumer coverage remains Unknown; synthetic evidence is not historical evidence
