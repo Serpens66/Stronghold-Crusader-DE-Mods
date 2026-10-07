@@ -177,6 +177,22 @@ namespace EnemyBridgePathTest
             }
             return true;
         }
+        internal static bool TryConsumerStages(BridgePlanningImporter.Artifact artifact,out string reason)
+        {
+            reason="Unknown:missing-historical-consumer-inputs";var b=artifact?.Planning;if(b==null||!b.Sections.ContainsKey("consumer/pre/identity"))return false;
+            try
+            {
+                // This is the captured handoff from weight completion to the five
+                // availability consumers. It is not a replay of candidate building.
+                var computed=VirtualCandidateConsumers.Availability(CopiedPlanningBundle.Resolve(b,"consumer/weight-post/candidates"),b.Attacker,1);
+                Equal(computed,CopiedPlanningBundle.Resolve(b,"consumer/post/candidates"),"availability-handoff-complete-manager");
+                int count;var unitTargets=VirtualCandidateConsumers.UnitTargets(CopiedPlanningBundle.Resolve(b,"consumer/pre/unitManager"),b.Attacker,out count);
+                var after=CopiedPlanningBundle.Resolve(b,"consumer/build-pre/candidates");int at=0x2E93E8C-VirtualCandidateConsumers.Root;
+                var recorded=new byte[4000*4];Buffer.BlockCopy(after,at,recorded,0,recorded.Length);Equal(unitTargets,recorded,"unit-target-handoff");if(BitConverter.ToInt32(after,0x2E97D0C-VirtualCandidateConsumers.Root)!=count)throw new InvalidOperationException("unit-target-count");
+                reason="captured-local-handoffs-match;fullCandidateBuildAndWeightReplay=Unknown;fullMilitaryConsumer=Unknown;behaviorFix=disabled";return true;
+            }
+            catch(Exception error){reason="Unknown:consumer-stage-mismatch:"+error.Message;return false;}
+        }
         private static int[] Histogram(ushort[] components)
         {var counts=new int[1000];foreach(int component in components){if(component>=counts.Length)throw new ArgumentException("unsupported-component-capacity");if(component!=0)counts[component]++;}return counts;}
         private static int Differences(Array values,byte[] expected,int width)

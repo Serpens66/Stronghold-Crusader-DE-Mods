@@ -24,7 +24,7 @@ namespace BugfixesAndQoL
                 movementClass, EnemyGateSearchKind.Builder, out object gateScope);
             object bridgeSearch = EnemyBridgeDiagnosticBridge.BeginSearch("builder", movementClass);
             // TEMP_GATE_ROUTE_ACCEPTANCE
-            object temporaryRoute = BeginTemporaryRouteReport(pathManager);
+            object temporaryRoute = BeginTemporaryRouteReport(pathManager, "F4930-builder");
             int result = 0;
             bool completed = false;
             try

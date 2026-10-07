@@ -270,6 +270,9 @@ namespace EnemyBridgePathTest
         internal void SetNative(IntPtr value,int length)
         {
             native=value;nativeLength=length;
+            // Counter/route fixtures intentionally use non-dereferenceable dummy pointers.
+            // Full capture is tested separately with the bounded private native image.
+            if(testCapture!=null){planningCapture=null;return;}
             planningCapture=new BridgePlanningCapture(length,(r,n)=>{if(r<0||n<0||(long)r+n>nativeLength)throw new InvalidOperationException("Planning copy outside module");var bytes=new byte[n];Marshal.Copy(IntPtr.Add(native,r),bytes,0,n);return bytes;},()=>planningMapIdentity, bundle=>{if(VirtualShadow==null||!VirtualShadow.PlanningCompleted(bundle))planningCapture?.PublicationRejected(bundle.Op,"no-matching-artifact-input");},Observe,requireMilitaryRoot:true,prepare:bundle=>VirtualShadow!=null&&VirtualShadow.PreparePlanning(bundle,buildingIndex));
         }
         private string nativeUnavailable="initialization-not-completed";

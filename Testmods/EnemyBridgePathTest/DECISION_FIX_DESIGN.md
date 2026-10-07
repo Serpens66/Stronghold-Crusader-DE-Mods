@@ -557,3 +557,81 @@ active burst volume and game compute cost remain open measurements.
 
 Behavior fix remains disabled. APIShared stays0.4.10; all versions, README and
 Script-Extender fork remain unchanged. No new game start was performed or requested.
+
+## 2026-10-07: bounded consumer acquisition and historical flood reference
+
+The completed Log264 plan lacks the inputs of2C480's downstream consumers.
+No new virtual target or full phase replay is claimed. Historical replay explicitly
+returns Unknown for missing consumer inputs; captured434 D9190 mode0 candidates
+remain inherited. Recorded Post fields are never substituted for full computation.
+
+The private reference now retains41 hash-checked complete bodies (including3C2E0,
+2C480,10DF60 and115B10), plus2 readers. Unsupported outbound branches trap; full
+3C2E0/2C480 execution is NOT validated merely by including their bodies. Executed
+native comparisons validate1126B0's one-based unit target selection and all five
+availability consumers:112370/1123E0/112200/112450/112190, signed5999 boundary and
+both reservation modes. Productive byte-copy kernels agree on complete buffers.
+
+A hash-bound replay of the original real plan supplies the separately validated
+native temporary gate-closure input to E49D0's full component flood. In this narrow
+reference the building update list is empty; it does NOT claim replay of live
+C5040 building updates. Entire320800 component grid,1000 field-count entries,
+component ceiling and total agree with the productive flood. Changes versus the
+old Dirty1 publication are exactly:
+- tile123127,326/350,flags0000B000,edges0: oldPCL1 ->0.
+- tile290885,414/627,flags00008000,edges249: oldPCL0 ->1.
+The former cannot seed the ordinary flood and has no incoming flood inclusion;
+the latter is included by the copied directions. These differences show disagreement between captured labels and the copied
+physical rebuild; they do not authorize a negative live decision. Dirty/revision and
+old versus rebuilt labels stay distinct. Policy remains Unknown.
+
+Acquisition uses existing3C2E0,2C480,10DF60 and115B10 observers, no new hooks.
+Only the selected player's own phase4 military entry and planning-root consumer
+are captured. Boundaries carry session,root,op,parent,actual players,clock,Dirty and
+native revision. Capture2C480 Pre/Post and builder/weight Pre/Post; retain own
+military exit. Required child stages are checked before artifact publication.
+
+Concrete new inputs at2C480 entry, not replaceable from Log264:
+- unit occupancy4C559B0 (320800 ushort),height4DDD350/base-height4E2B870 and
+  terrain owner4E79D90 (320800 bytes each),selection mask53AD4B0 and seed field;
+- unit manager67E8400: bounded next-ID1..10000,header65C and490-byte records,
+  including reserved storage without public ID0 lookups;
+- tribe manager7CC6720:2A-byte prefix and4500 raw688-byte slots;
+- candidate working span2E76F10..2F91E24,derived from the last eight-player
+  candidate table extent (11AF14 bytes),and nine player records starting379AE00;
+- actual10DF60 cost branch byte8574B90; current consumer flags/components/edges,
+  building-ID grid and bounded live building records.
+All are copied immutable byte storage; no large interop structs constructed.
+Unchanged definitions reuse exact own bytes. Additive consumer capture version1
+uses the existing schema2 artifact; old schemas1/2 remain readable with unknown
+consumer coverage. Import checks complete stages,frame association and capacities.
+Local unit/availability handoff replay is labelled partial: it is not a computed
+candidate-builder/weight or full military counterfactual.
+
+Limits remain two capture attempts,one planning/one linked group artifact,64 log
+records and one64KiB artifact block per render with target2ms. Existing tests with
+dummy native pointers do not dereference them; actual capture is tested on the
+private native image,including file write/import and mismatched-frame rejection.
+APIShared0.4.10,versions,README,public APIs,SE fork and permanent32 owners unchanged.
+
+Next acquisition: same prepared save,bridge permanently DOWN and gate CLOSED,
+Gate/Fixes/manual bridge feature active,no own ongoing moat work. Capture first
+fresh player8 phase4 planning and linked bridge-relevant group. Wait after map end
+for session-delivered and both complete artifact/hash markers. Look for
+planning-consumer-captured and planning-consumer-coverage with hasConsumer=True
+and hasMilitaryEntry=True. No raised counterrun requested. Fix remains disabled.
+
+
+Final review/build 2026-10-07: the second review added explicit consumer building
+count/record and Post player-buffer extent checks. Native capture/write/import
+fixtures Dirty0/1 pass including child-frame corruption rejection. Full historical
+consumer replay remains Unknown; a successful local handoff is not full-chain proof.
+Final prescribed elevated build.bat /nopause completed once, after preflight and
+review:110 native differential cases/10095 checks,144 raising cases,38104 Bridge
+assertions; existing Gate regression9894 assertions and frozen-log regressions pass.
+Only existing Shared CS0649 warning; zero build errors. Package and installed DLL
+SHA256 both68CE104F5FCBBCC833B158B3A4C766525034324AE22C39E8674550311856570C.
+Installed APIShared0.4.10 unchanged. Behavior fix disabled. No version,README,
+public API,SE fork or competing hook changes. Runtime/game cost of the new bounded
+consumer acquisition still requires the targeted run; synthetic copy timings are
+not game-cost measurements. Build report:consumer-final-build-20261007.log.

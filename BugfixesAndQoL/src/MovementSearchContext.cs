@@ -121,7 +121,7 @@ namespace BugfixesAndQoL
                 plan?.PlayerId ?? -1, EnemyGateSearchKind.Builder, out object gateScope);
             object bridgeSearch = EnemyBridgeDiagnosticBridge.BeginSearch("reconstructed-builder", plan?.PlayerId ?? -1);
             // TEMP_GATE_ROUTE_ACCEPTANCE
-            object temporaryRoute = BeginTemporaryRouteReport(pathManager);
+            object temporaryRoute = BeginTemporaryRouteReport(pathManager, "E32B0-reconstruction");
             int gateResult = 0;
             bool gateCompleted = false;
             BuilderWeightedScope shadow = null;

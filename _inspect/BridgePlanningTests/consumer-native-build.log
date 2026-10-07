@@ -1,0 +1,20 @@
+MSBuild-Version 17.11.9+a69bbaaf5 für .NET Framework
+Der Buildvorgang wurde am 07.10.2026 16:52:33 gestartet.
+
+Projekt "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\BridgePlanningTests\BridgePlanningTests.csproj" auf Knoten "1" (Standardziele).
+GenerateTargetFrameworkMonikerAttribute:
+Das Ziel "GenerateTargetFrameworkMonikerAttribute" wird übersprungen, da alle Ausgabedateien hinsichtlich der Eingabedateien aktuell sind.
+CoreCompile:
+  C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Roslyn\csc.exe /noconfig /unsafe+ /nowarn:1701,1702 /fullpaths /nostdlib+ /platform:x64 /highentropyva+ /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\mscorlib.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\System.Core.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\System.dll" /debug+ /out:obj\Debug\BridgePlanningTests.exe /subsystemversion:6.00 /target:exe /utf8output /langversion:latest ..\..\Testmods\EnemyBridgePathTest\src\VirtualComponentControl.cs NativeImage.cs Program.cs ..\..\Testmods\EnemyBridgePathTest\src\VirtualTopologyRebuild.cs ..\..\Testmods\EnemyBridgePathTest\src\VirtualPlanningCaller.cs ..\..\Testmods\EnemyBridgePathTest\src\BridgePlanningCapture.cs ..\..\Testmods\EnemyBridgePathTest\src\BridgeInputArtifact.cs ..\..\Testmods\EnemyBridgePathTest\src\VirtualRaisedPlanning.cs ..\..\Testmods\EnemyBridgePathTest\src\VirtualPlanningBuildings.cs ..\..\Testmods\EnemyBridgePathTest\src\CopiedPlanningBundle.cs ..\..\Testmods\EnemyBridgePathTest\src\BridgePlanningImporter.cs ..\..\Testmods\EnemyBridgePathTest\src\CopiedPlanningRegions.cs ..\..\Testmods\EnemyBridgePathTest\src\CopiedPlanningReplay.cs ..\..\Testmods\EnemyBridgePathTest\src\VirtualBridgePlanning.cs ..\..\Testmods\EnemyBridgePathTest\src\VirtualBridgeGraph.cs ..\..\Testmods\EnemyBridgePathTest\src\NativePathfindingTableCopy.cs "obj\Debug\.NETFramework,Version=v4.8.1.AssemblyAttributes.cs"
+  CompilerServer: server failed - cannot connect to the server - BridgePlanningTests
+CopyFilesToOutputDirectory:
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\BridgePlanningTests\obj\Debug\BridgePlanningTests.exe" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\BridgePlanningTests\bin\BridgePlanningTests.exe" kopiert.
+  BridgePlanningTests -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\BridgePlanningTests\bin\BridgePlanningTests.exe
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\BridgePlanningTests\obj\Debug\BridgePlanningTests.pdb" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\BridgePlanningTests\bin\BridgePlanningTests.pdb" kopiert.
+Die Erstellung von Projekt "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\BridgePlanningTests\BridgePlanningTests.csproj" ist abgeschlossen (Standardziele).
+
+Der Buildvorgang wurde erfolgreich ausgeführt.
+    0 Warnung(en)
+    0 Fehler
+
+Verstrichene Zeit 00:00:20.40

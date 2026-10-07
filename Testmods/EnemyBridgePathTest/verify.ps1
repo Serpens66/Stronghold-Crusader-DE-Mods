@@ -159,3 +159,9 @@ Write-Host 'PASS: dormant copied planning/permission kernels; no live integratio
 $collector=[IO.File]::ReadAllText((Join-Path $PSScriptRoot "src/BridgePlanningCapture.cs"))
 if ($collector -match "Marshal.Write|FindNext|FindPath|Game.*API|VirtualBridgePlanning\.") { throw "Passive planning capture contains an active access" }
 Write-Host "PASS: hash-bound passive planning copy, no live planning execution or native writes."
+
+# Additive consumer capture is confined to existing observers and one bounded bundle.
+if ($collector -notmatch 'ObserveConsumerChild' -or $collector -notmatch 'parent!=consumerOp' -or $collector -notmatch 'consumer/pre' -or $collector -notmatch 'limit>10000' -or $collector -notmatch '4500\*0x688' -or $collector -notmatch '0x8574B90' -or $collector -match '0x88574B90') { throw 'Bounded consumer capture/address contract regression' }
+$importer=[IO.File]::ReadAllText((Join-Path $PSScriptRoot "src/BridgePlanningImporter.cs"))
+if ($importer -notmatch 'consumer-pre-post-binding' -or $importer -notmatch 'missing-versioned-consumer') { throw 'Consumer artifact identity/version validation missing' }
+Write-Host 'PASS: bounded own-frame consumer capture, native unit/tribe capacities, additive schema2 validation.'

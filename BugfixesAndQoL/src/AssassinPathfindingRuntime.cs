@@ -110,11 +110,17 @@ namespace BugfixesAndQoL
         private int commandSequence;
         private bool commandScopeMismatchLogged;
 
+        // TEMP_GATE_ROUTE_ACCEPTANCE: rooted reader only; never drives reconstruction behavior.
+        private static AssassinPathfindingRuntime temporaryDiagnosticRuntime;
+        internal static string TemporaryReconstructionRelaxation => temporaryDiagnosticRuntime?.reconstructionPatch == null
+            ? "unavailable" : temporaryDiagnosticRuntime.reconstructionPatch.IsApplied ? "active" : "inactive";
+
         public AssassinPathfindingRuntime(ManualLogSource log, BugfixesAndQoLViewModel settings, AssassinClimbRuntime climbRuntime)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
             this.climbRuntime = climbRuntime ?? throw new ArgumentNullException(nameof(climbRuntime));
+            temporaryDiagnosticRuntime = this; // TEMP_GATE_ROUTE_ACCEPTANCE
             for (int node = 0; node < CoordinateCount; node++)
             {
                 costs[node] = int.MaxValue;
@@ -264,9 +270,14 @@ namespace BugfixesAndQoL
             IEnemyBridgePathObserver bridgeObserver = EnemyBridgeDiagnosticBridge.Current;
             AssassinObservation previous = activeObservation;
             AssassinObservation observation = null;
+            // TEMP_GATE_ROUTE_ACCEPTANCE: link only to an already active publication call.
+            object temporaryNativeSearch = FriendlyMoatMovementRuntime.BeginTemporaryAssassinSearch(context,
+                startX, startY, targetX, targetY, continuation);
+            bool temporaryCompleted = false;
+            int temporaryResult = 0;
             try
             {
-                if (observer != null || bridgeObserver != null)
+                if (observer != null || bridgeObserver != null || temporaryNativeSearch != null)
                 {
                     observation = new AssassinObservation { Observer = observer, BridgeObserver = bridgeObserver };
                     try
@@ -282,11 +293,15 @@ namespace BugfixesAndQoL
                     catch (Exception ex) { LogWarning("Bridge Assassin begin failed: " + ex.GetType().Name); }
                 activeObservation = observation;
                 int result = BuildWeightedPathCore(context, startX, startY, targetX, targetY, maximumNodes, continuation);
+                temporaryCompleted = true; temporaryResult = result;
                 if (observation != null) observation.EffectiveResult = result;
                 return result;
             }
             finally
             {
+                FriendlyMoatMovementRuntime.EndTemporaryAssassinSearch(temporaryNativeSearch, temporaryCompleted,
+                    observation?.NativeResult ?? 0, temporaryResult, observation?.Player ?? -1,
+                    observation?.Outcome ?? "unobserved", observation?.CacheHit ?? false, observation?.RouteLength ?? 0);
                 activeObservation = previous;
                 if (observation != null && bridgeObserver != null)
                     try { bridgeObserver.ObserveAssassinPolicyFiltering(observation.BridgeToken, observation.Player,

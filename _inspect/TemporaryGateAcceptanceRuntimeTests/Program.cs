@@ -14,8 +14,10 @@ var trees = files.Select(f => CSharpSyntaxTree.ParseText(File.ReadAllText(Path.C
 var production = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "BugfixesAndQoL/src/AssassinPathfindingRuntime.cs")));
 string producer = production.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
     .Single(m => m.Identifier.ValueText == "ObservePreparedAssassinRoute").ToFullString();
+string searchWrapper = production.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
+    .Single(m => m.Identifier.ValueText == "BuildWeightedPath").ToFullString();
 string fixture = File.ReadAllText(Path.Combine(root, "_inspect/TemporaryGateAcceptanceRuntimeTests/Fixture.cs"))
-    .Replace("/* ACTUAL_WEIGHTED_PRODUCER */", producer);
+    .Replace("/* ACTUAL_WEIGHTED_PRODUCER */", producer).Replace("/* ACTUAL_SEARCH_WRAPPER */", searchWrapper);
 trees.Add(CSharpSyntaxTree.ParseText(fixture, path: "Fixture.cs"));
 var refs = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator)
     .Select(p => MetadataReference.CreateFromFile(p));

@@ -90,6 +90,30 @@ namespace EnemyBridgePathTest
                         long op;if(!long.TryParse(pair.Key.Split('/')[1],out op)||pair.Value.Length!=32||identity.Length!=40||BitConverter.ToInt64(identity,0)!=b.Session||BitConverter.ToInt64(identity,8)!=op||BitConverter.ToInt64(identity,24)!=b.Root||BitConverter.ToInt32(pair.Value,0)!=b.Attacker)throw new InvalidDataException("target-selection-identity");
                         byte[] args=CopiedPlanningBundle.Resolve(b,pair.Key.Substring(0,pair.Key.Length-7)+"argumentsAndTiles4");if(args.Length!=16||BitConverter.ToInt32(args,0)!=b.Attacker||BitConverter.ToInt32(args,4)!=BitConverter.ToInt32(pair.Value,4))throw new InvalidDataException("target-argument-identity");
                     }
+                    if(a.Metadata.TryGetValue("planningConsumerCaptureVersion",out string consumerVersion)&&consumerVersion!="0"&&consumerVersion!="1")throw new InvalidDataException("consumer-version");
+                    if(consumerVersion=="1"&&!b.Sections.ContainsKey("consumer/pre/identity"))throw new InvalidDataException("missing-versioned-consumer");
+                    if(b.Sections.ContainsKey("consumer/pre/identity"))
+                    {
+                        foreach(string stage in new[]{"consumer/pre","consumer/post","consumer/build-pre","consumer/build-post","consumer/weight-pre","consumer/weight-post"})
+                        {
+                            byte[] identity=CopiedPlanningBundle.Resolve(b,stage+"/identity");int expected=stage=="consumer/pre"||stage=="consumer/post"?72:80;
+                            if(identity.Length!=expected||BitConverter.ToInt64(identity,0)!=b.Session||BitConverter.ToInt64(identity,8)!=b.Root||BitConverter.ToInt64(identity,16)<=0)throw new InvalidDataException("consumer-identity:"+stage);
+                            if(CopiedPlanningBundle.Resolve(b,stage+"/candidates").Length!=VirtualCandidateConsumers.Bytes||CopiedPlanningBundle.Resolve(b,stage+"/selectionMask").Length!=320800||CopiedPlanningBundle.Resolve(b,stage+"/seeds").Length!=320800)throw new InvalidDataException("consumer-state-extent:"+stage);
+                        }
+                        byte[] before=CopiedPlanningBundle.Resolve(b,"consumer/pre/identity"),after=CopiedPlanningBundle.Resolve(b,"consumer/post/identity");if(BitConverter.ToInt64(before,16)!=BitConverter.ToInt64(after,16)||BitConverter.ToInt64(before,32)!=b.Attacker||BitConverter.ToInt64(before,40)!=b.Target||BitConverter.ToInt64(after,32)!=b.Attacker||BitConverter.ToInt64(after,40)!=b.Target)throw new InvalidDataException("consumer-pre-post-binding");
+                        foreach(string family in new[]{"build","weight"})
+                        {
+                            byte[] entry=CopiedPlanningBundle.Resolve(b,"consumer/"+family+"-pre/identity"),exit=CopiedPlanningBundle.Resolve(b,"consumer/"+family+"-post/identity");
+                            for(int n=0;n<7;n++)if(BitConverter.ToInt64(entry,n*8)!=BitConverter.ToInt64(exit,n*8))throw new InvalidDataException("consumer-child-pre-post-binding");
+                            if(BitConverter.ToInt64(entry,24)!=BitConverter.ToInt64(before,16)||BitConverter.ToInt64(entry,32)!=(family=="build"?b.Attacker:b.Target)||BitConverter.ToInt64(entry,40)!=(family=="build"?b.Target:b.Attacker))throw new InvalidDataException("consumer-child-parent-or-player");
+                        }
+                        if(CopiedPlanningBundle.Resolve(b,"consumer/pre/macroLimit").Length!=4||CopiedPlanningBundle.Resolve(b,"consumer/pre/buildingCount").Length!=4)throw new InvalidDataException("consumer-count-extent");
+                        int consumerBuildings=BitConverter.ToInt32(CopiedPlanningBundle.Resolve(b,"consumer/pre/buildingCount"),0);if(consumerBuildings<1||consumerBuildings>4001||CopiedPlanningBundle.Resolve(b,"consumer/pre/buildingRecords").Length!=(consumerBuildings-1)*0x32c||CopiedPlanningBundle.Resolve(b,"consumer/post/players").Length!=9*0x583c)throw new InvalidDataException("consumer-building-or-player-extent");
+                        int macroLimit=BitConverter.ToInt32(CopiedPlanningBundle.Resolve(b,"consumer/pre/macroLimit"),0);if(macroLimit<1||macroLimit>1000||CopiedPlanningBundle.Resolve(b,"consumer/pre/macroRecords").Length!=(macroLimit-1)*0x204||CopiedPlanningBundle.Resolve(b,"consumer/pre/nativeAlliances9").Length!=36)throw new InvalidDataException("consumer-macro-capacity");
+                        byte[] units=CopiedPlanningBundle.Resolve(b,"consumer/pre/unitManager");int unused;VirtualCandidateConsumers.UnitTargets(units,b.Attacker,out unused);
+                        string[] consumerNames={"unitTiles","height","baseHeight","terrainOwner","flags","components","edges","buildingIds","costBranch","players","tribes"};int[] consumerSizes={641600,320800,320800,320800,1283200,641600,320800,641600,1,9*0x583c,0x2a+4500*0x688};for(int n=0;n<consumerNames.Length;n++)if(CopiedPlanningBundle.Resolve(b,"consumer/pre/"+consumerNames[n]).Length!=consumerSizes[n])throw new InvalidDataException("consumer-input-extent:"+consumerNames[n]);
+                        foreach(string state in new[]{"entryPlayer","exitPlayer"})if(CopiedPlanningBundle.Resolve(b,"military/"+state).Length!=0x583c)throw new InvalidDataException("military-player-extent");
+                    }
                     b.Stages.AddRange(new[]{0,1,2,3});a.Planning=b;
                 }
                 artifact=a;reason=a.Planning==null?"missing-historical-planning-values":"validated-planning-artifact";return true;

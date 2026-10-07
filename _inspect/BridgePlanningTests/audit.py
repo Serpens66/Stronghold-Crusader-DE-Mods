@@ -6,7 +6,7 @@ root=Path('_inspect/CrusaderDE-Native-Baseline');c=json.loads((root/'CURRENT.jso
 n=Path(next(x['sourcePath'] for x in m['binaries'] if x['role']=='current-native'));data=n.read_bytes();assert hashlib.sha256(data).hexdigest().upper()==c['currentNativeHash']
 p=pefile.PE(data=data);d=sqlite3.connect((root/m['database']['path']).resolve().as_uri()+'?mode=ro',uri=True);d.row_factory=sqlite3.Row;cs=Cs(CS_ARCH_X86,CS_MODE_64)
 references=[0x181E00,0x117C70]
-known=[0x2D250,0x2C5A0,0xCF360,0xD95E0,0xD9190,0xC4BF0,0xD8CE0,0x107160,0xE2610,0x1A64D0,0x7490,0x1A8D20,0xE49D0,0xC5040,0x645C0,0x69850,0x69560,0x725A0,0x725E0,0x6E620,0xD90D0,0xD86F0,0xC07C0,0x5B020,0xE3B90,0xE0530,0xE0770,0xE04B0,0xDE6A0,0xE06F0]
+known=[0x1126B0,0x1127D0,0x112370,0x1123E0,0x112200,0x112450,0x112190,0x2C480,0x3C2E0,0x10DF60,0x115B10,0x2D250,0x2C5A0,0xCF360,0xD95E0,0xD9190,0xC4BF0,0xD8CE0,0x107160,0xE2610,0x1A64D0,0x7490,0x1A8D20,0xE49D0,0xC5040,0x645C0,0x69850,0x69560,0x725A0,0x725E0,0x6E620,0xD90D0,0xD86F0,0xC07C0,0x5B020,0xE3B90,0xE0530,0xE0770,0xE04B0,0xDE6A0,0xE06F0]
 lines=[c['currentNativeHash']];evidence=[str(n),c['currentNativeHash']];guards=set()
 for a in known+references:
  row=d.execute('select * from functions where binary_hash=? and rva=?',(c['currentNativeHash'],f'0x{a:X}')).fetchone();assert row and row['pseudocode'],hex(a)
@@ -21,5 +21,5 @@ for a in known+references:
  evidence.extend([f'{a:X} {row["name"]} {row["size"]}',row['pseudocode'],'\n'.join(f'{i.address:X} {i.bytes.hex()} {i.mnemonic} {i.op_str}' for i in ins)])
 lines.extend(f'GUARD\t{g:X}' for g in sorted(guards));evidence.append('Unsupported branch target guards: '+repr([hex(g) for g in sorted(guards)]))
 for name,text in [('native-contracts.tsv','\n'.join(lines)),('native-evidence.txt','\n\n'.join(evidence))]:
- out=Path('_inspect/BridgePlanningTests')/name;out.write_bytes(text.replace('\r\n','\n').replace('\n','\r\n').encode())
+ out=Path('_inspect/BridgePlanningTests')/name;out.write_bytes(('\n'.join(line.rstrip() for line in text.replace('\r\n','\n').split('\n'))).replace('\n','\r\n').encode())
 print('PASS full native audit:',len(known),'installed complete bodies; guarded unsupported branches:',[hex(g) for g in sorted(guards)])
