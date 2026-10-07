@@ -287,6 +287,15 @@ namespace CommandFixture
                 PrepareNativeManualGroup(command);
                 Check(!activeMoveCommand.NativeCommonFallback,"foreign non-digger cannot authorize the special group path");
                 units[1].r_ControllableForPlayerId=1;
+                originalCentralMovementPlan=(m,id,x,y)=>1;
+                foreach (int count in new[] { 1, 120, 680 })
+                {
+                    int probes=count;
+                    var watch=System.Diagnostics.Stopwatch.StartNew();
+                    for(int i=0;i<probes;i++)
+                        Check(ProbeNativeManualPath(1,20,20),"snapshot benchmark restores the actual native probe context");
+                    Console.WriteLine($"NATIVE PROBE SNAPSHOTS units={count} probes={probes} ms={watch.Elapsed.TotalMilliseconds:F3}; native search mocked, snapshot buffers real");
+                }
                 completedMoatTiles.Clear(); TraversalEnabled=false;
                 activeMoveCommand=new MoveCommandScope(); command.SkipOriginalFunction=true;
                 PrepareNativeManualGroup(command);

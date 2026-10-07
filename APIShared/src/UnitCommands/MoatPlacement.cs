@@ -40,6 +40,9 @@ namespace APIShared.UnitCommands
             public int Epoch, Tick, Tribe, X, Y;
             public long Revision;
             public MoveCommandScope Command;
+            public bool NativePlacement;
+            public int Player;
+            public MoatPlacementSearch NativeSearch;
             public readonly Dictionary<int, PlacementSearchState> Searches = new Dictionary<int, PlacementSearchState>();
             public readonly List<PlacementUnit> Pending = new List<PlacementUnit>();
             public readonly HashSet<int> Reserved = new HashSet<int>();
@@ -135,17 +138,35 @@ namespace APIShared.UnitCommands
                 {
                     // Clear even for irrelevant nested calls: never borrow a parent's slots.
                     placementBatch = null;
-                    if (TraversalEnabled && manager == nativeTribeManager && activeMoveCommand != null &&
-                        !activeMoveCommand.NativeCommonFallback &&
+                    if (manager == nativeTribeManager && activeMoveCommand != null &&
+                        (TraversalEnabled || (ManualCommandsEnabled && activeMoveCommand.NativeCommonFallback)) &&
                         activeMoveCommand.TribeId == tribe && activeAttackCommand == null && activeMoatWorkSelection == null &&
                         (uint)x < MapWidth && (uint)y < MapWidth &&
                         (activeMoveCommand.UnitsOnMoatAtDispatch > 0 ||
                          IsCompletedMoatTile(GameTileManagerAPI.Instance.GetTileId(x, y))))
                     {
                         batch = new PlacementBatch { Epoch = mapEpoch, Tick = CaptureCurrentGameTick(),
-                            Revision = placementRevision, Tribe = tribe, X = x, Y = y, Command = activeMoveCommand };
-                        placementBatch = batch; placementCalls++;
-                        activeMoveCommand.MoatRelevant = true;
+                            Revision = placementRevision, Tribe = tribe, X = x, Y = y, Command = activeMoveCommand,
+                            NativePlacement = activeMoveCommand.NativeCommonFallback };
+                        if (batch.NativePlacement)
+                        {
+                            if (!GameTribeManagerAPI.Instance.TryGetTribeById(tribe, out GameTribe* record) || record == null)
+                                batch = null;
+                            else
+                            {
+                                batch.Player = record->r_PlayerIdOwner;
+                                // 118E00 has no slot selector. Enumerate nearby cells only;
+                                // this is not a route graph or a permission to enter moats.
+                                // The native moat-group selector uses spacing one and a
+                                // maximum 4000-slot list; exact unit queries authorize slots.
+                                batch.NativeSearch = CreateNativePlacementSearch(x, y);
+                            }
+                        }
+                        if (batch != null)
+                        {
+                            placementBatch = batch; placementCalls++;
+                            activeMoveCommand.MoatRelevant = true;
+                        }
                     }
                 }
                 catch (Exception ex) { placementBatch = null; TryLogDiagnosticFailure("common-placement-context", ex); }
@@ -157,6 +178,8 @@ namespace APIShared.UnitCommands
                 {
                     foreach (PlacementUnit pending in batch.Pending) FinishPlacement(pending, false);
                     long nodes = 0, checks = 0, hits = 0, connectivity = 0;
+                    if (batch.NativeSearch != null)
+                    { nodes += batch.NativeSearch.ExpandedNodes; checks += batch.NativeSearch.ReachabilityChecks; }
                     foreach (var state in batch.Searches.Values)
                     { nodes += state.Search.ExpandedNodes; checks += state.Search.ReachabilityChecks; hits += state.Search.CacheHits;
                         connectivity += state.ReverseExpanded + state.FromAnchor.ExpandedNodes; }
@@ -167,7 +190,7 @@ namespace APIShared.UnitCommands
                 }
                 placementBatch = previous;
                 // Nested native commands can change occupancy and terrain synchronously.
-                if (previous != null) { previous.Searches.Clear(); previous.Revision = placementRevision; }
+                if (previous != null) { previous.Searches.Clear(); previous.NativeSearch = null; previous.Revision = placementRevision; }
             }
         }
 
@@ -199,6 +222,28 @@ namespace APIShared.UnitCommands
                 CursorNode(player, tile) >= 0 && !IsOccupiedByOtherLivingUnit(tile, unitId);
         }
 
+        internal bool NativePlacementAvailable(int unitId, int cell)
+        {
+            if ((uint)cell >= MapWidth * MapWidth || movementTargetAvailability[cell] == 0) return false;
+            int tile = GameTileManagerAPI.Instance.GetTileId(cell % MapWidth, cell / MapWidth);
+            // Availability/occupancy are only a prefilter. The exact native unit
+            // query below retains structure, height, access and capability rules.
+            return IsValidTileId(tile) && nativePlaceReservations != null &&
+                nativePlaceReservations[tile] == 0 && !IsOccupiedByOtherLivingUnit(tile, unitId);
+        }
+
+        internal MoatPlacementSearch CreateNativePlacementSearch(int x, int y) =>
+            new MoatPlacementSearch(MapWidth, MapWidth, y * MapWidth + x,
+                (from, to) => movementTargetAvailability[from] != 0 && movementTargetAvailability[to] != 0, 4000);
+
+        internal bool CanReachNativePlacement(GameUnit* unit, int unitId, int x, int y)
+        {
+            if (ProbeNativeManualPath(unitId, x, y)) return true;
+            if (!TraversalEnabled || !CanDigMoat(unit)) return false;
+            var probe = new PlanScope(unitId, x, y) { VanillaFailureProven = true, ExactRouteEndpoints = true };
+            return TryFindRequiredFriendlyCompletedMoatRouteForPlan(probe, true, false, out _);
+        }
+
         internal void PreparePlacement(UnitMoveFrame frame)
         {
             PlacementBatch batch = placementBatch;
@@ -207,12 +252,41 @@ namespace APIShared.UnitCommands
                 batch.Epoch != mapEpoch || batch.Tick != CaptureCurrentGameTick() ||
                 !ReferenceEquals(batch.Command, activeMoveCommand) || args.TileX != batch.X || args.TileY != batch.Y ||
                 !APIShared.UnitAccess.TryGetById(args.UnitId, out GameUnit* unit, out _) || unit == null ||
-                unit->r_TribeId != batch.Tribe || unit->r_AliveState != AliveState.IsAlive || !CanDigMoat(unit)) return;
+                unit->r_TribeId != batch.Tribe || unit->r_AliveState != AliveState.IsAlive ||
+                (!batch.NativePlacement && !CanDigMoat(unit))) return;
             if (unit->r_AttackMoveToTargetTileX != batch.X || unit->r_AttackMoveToTargetTileY != batch.Y) return;
             int player = unit->r_ControllableForPlayerId;
             if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(player)) return;
             GetNativeMovementStart(unit, out int sx, out int sy);
             if ((uint)sx >= MapWidth || (uint)sy >= MapWidth) return;
+            if (batch.NativePlacement)
+            {
+                if (player != batch.Player) return;
+                if (batch.NativeSearch == null || batch.Revision != placementRevision)
+                { batch.NativeSearch = CreateNativePlacementSearch(batch.X, batch.Y); batch.Revision = placementRevision; }
+                // No shared PCL answer: units sharing a start tile can still have
+                // different structural access, movement profiles and moat rights.
+                int anchor = batch.Y * MapWidth + batch.X;
+                bool anchorChecked = false, anchorReachable = false, stop = false;
+                if (!batch.NativeSearch.TryReserve(args.UnitId, sy * MapWidth + sx,
+                    cell => !batch.Reserved.Contains(cell) && NativePlacementAvailable(args.UnitId, cell),
+                    cell => {
+                        bool reachable = CanReachNativePlacement(unit, args.UnitId, cell % MapWidth, cell / MapWidth);
+                        if (cell == anchor) { anchorChecked = true; anchorReachable = reachable; }
+                        if (reachable) return true;
+                        // The common case needs only its chosen slot's native query.
+                        // Probe the click point only after a rejected alternative, so
+                        // an unreachable member cannot trigger 4000 native searches.
+                        if (!anchorChecked) {
+                            anchorReachable = CanReachNativePlacement(unit, args.UnitId, batch.X, batch.Y);
+                            anchorChecked = true;
+                        }
+                        stop = !anchorReachable;
+                        return false;
+                    }, out int nativeChosen, cacheReachability: false, stopSearch: () => stop)) return;
+                ApplyPlacement(frame, batch, unit, player, batch.NativeSearch, nativeChosen);
+                return;
+            }
             int start = GameTileManagerAPI.Instance.GetTileId(sx, sy);
             CursorTopology topology = EnsureCursorTopology(player);
             int source = CursorNode(player, start);
@@ -228,18 +302,25 @@ namespace APIShared.UnitCommands
                     cell => !batch.Reserved.Contains(cell) && PlacementAvailable(player, args.UnitId, cell),
                     cell => state.CanReach(source, CursorNode(player,
                         GameTileManagerAPI.Instance.GetTileId(cell % MapWidth, cell / MapWidth))), out int chosen)) return;
-                var pending = new PlacementUnit { Id = args.UnitId, Global = unit->r_GlobalId, Player = player,
-                    X = chosen % MapWidth, Y = chosen / MapWidth,
-                    AppliedX = chosen % MapWidth, AppliedY = chosen / MapWidth, Cell = chosen, Epoch = mapEpoch,
-                    Tick = CaptureCurrentGameTick(), Search = search, Args = args, Batch = batch,
-                    OldX = unit->r_AttackMoveToTargetTileX, OldY = unit->r_AttackMoveToTargetTileY };
-                batch.Pending.Add(pending); batch.Reserved.Add(chosen); frame.Placement = pending;
-                args.TileX = pending.X; args.TileY = pending.Y;
-                unit->r_AttackMoveToTargetTileX = (ushort)pending.X;
-                unit->r_AttackMoveToTargetTileY = (ushort)pending.Y;
-                placementSlots++;
+                ApplyPlacement(frame, batch, unit, player, search, chosen);
             }
             finally { weightedMoatRoutePlanner.EndReachabilityProbe(); }
+        }
+
+        internal void ApplyPlacement(UnitMoveFrame frame, PlacementBatch batch, GameUnit* unit,
+            int player, MoatPlacementSearch search, int chosen)
+        {
+            var args = frame.Args;
+            var pending = new PlacementUnit { Id = args.UnitId, Global = unit->r_GlobalId, Player = player,
+                X = chosen % MapWidth, Y = chosen / MapWidth,
+                AppliedX = chosen % MapWidth, AppliedY = chosen / MapWidth, Cell = chosen, Epoch = mapEpoch,
+                Tick = CaptureCurrentGameTick(), Search = search, Args = args, Batch = batch,
+                OldX = unit->r_AttackMoveToTargetTileX, OldY = unit->r_AttackMoveToTargetTileY };
+            batch.Pending.Add(pending); batch.Reserved.Add(chosen); frame.Placement = pending;
+            args.TileX = pending.X; args.TileY = pending.Y;
+            unit->r_AttackMoveToTargetTileX = (ushort)pending.X;
+            unit->r_AttackMoveToTargetTileY = (ushort)pending.Y;
+            placementSlots++;
         }
 
         internal void SynchronizePlacement(UnitMoveFrame frame)
@@ -267,7 +348,9 @@ namespace APIShared.UnitCommands
             }
             // Late occupation does not change copied native arguments. Give up the slot;
             // Vanilla and the existing endpoint/path audit decide that actual movement.
-            if (firstUse && !PlacementAvailable(pending.Player, pending.Id, pending.Cell)) ReleasePlacement(pending);
+            if (firstUse && !(pending.Batch?.NativePlacement == true
+                ? NativePlacementAvailable(pending.Id, pending.Cell)
+                : PlacementAvailable(pending.Player, pending.Id, pending.Cell))) ReleasePlacement(pending);
         }
 
         internal void ReleasePlacement(PlacementUnit pending)

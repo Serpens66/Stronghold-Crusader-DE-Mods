@@ -176,27 +176,6 @@ namespace APIShared
                 playerId, packedDirections, directionCount, validate);
         }
 
-        /// <summary>Returns the current owned unit's full control word and movement delay without scanning units.</summary>
-        public static bool TryGetCurrentWeightedRequest(string ownerGuid, IntPtr context,
-            int startX, int startY, int targetX, int targetY, out int controlPlayer, out int speedDelay)
-        {
-            controlPlayer = speedDelay = -1;
-            return !string.IsNullOrEmpty(ownerGuid) &&
-                string.Equals(weightedOwner, ownerGuid, StringComparison.Ordinal) &&
-                AssassinRouteHandoff.TryResolve(context, startX, startY, targetX, targetY,
-                    out controlPlayer, out speedDelay);
-        }
-
-        /// <summary>Stages a route and reports final validation/publication duration and success; observer errors are isolated.</summary>
-        public static bool TryStageWeightedRoute(string ownerGuid, IntPtr context,
-            int startX, int startY, int targetX, int targetY, int playerId,
-            byte[] packedDirections, int directionCount, Func<bool> validate, Action<long, bool> completion)
-        {
-            if (string.IsNullOrEmpty(ownerGuid) || !string.Equals(weightedOwner, ownerGuid, StringComparison.Ordinal)) return false;
-            return AssassinRouteHandoff.Stage(context, startX, startY, targetX, targetY,
-                playerId, packedDirections, directionCount, validate, completion);
-        }
-
         /// <summary>A single-unit builder is active; failed staging must preserve its native field.</summary>
         public static bool HasSingleUnitRoutePublication => AssassinRouteHandoff.HasFrame;
 

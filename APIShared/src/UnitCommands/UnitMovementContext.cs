@@ -172,8 +172,10 @@ namespace APIShared.UnitCommands
         internal int EnableCompletedMoatModeForScopedMovement(IntPtr unitManager, int unitId)
         {
             int vanillaResult = originalUnitStandingOnCompletedMoat(unitManager, unitId);
-            if (nativeManualProbe || !TraversalEnabled) return vanillaResult;
+            if (nativeManualProbe) return vanillaResult;
             UnitMoveFrame moveFrame = GetCurrentUnitMoveFrame();
+            SynchronizePlacement(moveFrame);
+            if (!TraversalEnabled) return vanillaResult;
             ObserveNativeModeEntry(moveFrame, unitId);
             PlanScope requestPlan = GetUnitMovePlan(moveFrame, unitId);
             if (moveFrame != null && requestPlan == null) return vanillaResult;

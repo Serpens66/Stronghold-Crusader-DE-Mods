@@ -20,7 +20,7 @@ using APIShared;
 namespace Shared { static class DebugLogHelper { internal static void LogInfo(object log,string text) {} } }
 namespace APIShared.UnitCommands {
 enum eChimps { CHIMP_TYPE_ARAB_ASSASIN=73 }
-unsafe struct GameUnit { public uint r_GlobalId; public eChimps r_UnitChimp; public byte r_ControllableForPlayerId; public bool Alive; public int X,Y; }
+unsafe struct GameUnit { public uint r_GlobalId; public eChimps r_UnitChimp; public byte r_ControllableForPlayerId, N00000569; public int r_CurrentSpeed; public bool Alive; public int X,Y; }
 unsafe static class UnitAccess {
  internal static GameUnit* Unit;
  internal static bool TryGetById(int id,out GameUnit* unit,out int index) { unit=Unit;index=id-1;return id==1; }

@@ -8,6 +8,7 @@ namespace MoatMove
 {
     internal enum AliveState { IsAlive, Dead }
     internal enum eStructs { STRUCT_NULL }
+    internal static class eChimps { internal const int CHIMP_TYPE_ARAB_ASSASIN = 0x49; }
     internal enum TribeAICommand { Move, AttackUnit=4, AttackBuilding=5, DigMoatTileId = 6, Unknown7 = 7 }
     internal enum EventHookPhase { Pre, Post }
     internal class UnitMoveHereEventArgs
@@ -37,6 +38,8 @@ namespace MoatMove
         public bool Digger;
         public int r_UnitChimp;
         public int N0000019A;
+        public byte N00000569;
+        public int r_CurrentSpeed;
     }
     internal struct GameCursorManager { public uint r_HoverOverBuildingId,r_HoverOverUnitId,r_HoverOverBuildingTileId,r_MouseTileId2,r_HoveringOverWall,r_MouseTileId,r_MouseTileX,r_MouseTileY; }
     internal unsafe struct CursorPointer { public GameCursorManager* Pointer; }
@@ -92,8 +95,9 @@ namespace MoatMove
     }
     internal sealed unsafe partial class FriendlyMoatMovementRuntime
     {
-        private bool TraversalEnabled => ExtensionsEnabled;
-        private bool ManualCommandsEnabled => false;
+        private bool nativeTraversalDisabled, manualCommandsEnabled;
+        private bool TraversalEnabled => !nativeTraversalDisabled && ExtensionsEnabled;
+        private bool ManualCommandsEnabled => manualCommandsEnabled;
         private static bool nativeManualProbe;
         private const int FastSearchNodeBudget = 16384;
         private long fastSearches;
@@ -103,7 +107,8 @@ namespace MoatMove
 
         private bool IsNativeManualGroupFlood(IntPtr manager,int p,int r,int x,int y)=>false;
         private bool TryQualifyNativeMoatStart(PlanScope p,out RouteProbeSummary s) { s=default; return false; }
-        private bool ProbeNativeManualPath(int id,int x,int y)=>false;
+        private Func<int,int,int,bool> nativeManualPathProbe;
+        private bool ProbeNativeManualPath(int id,int x,int y)=>nativeManualPathProbe?.Invoke(id,x,y)==true;
         private bool ProbeNativeCursorConnectivity(int p,int a,int b,out RouteProbeSummary s) { s=default;return false; }
         private bool TryQualifyNativeSelection(AttackCursorPairScope p,int[] ids,string token,out AttackCursorPairScope b,out CursorGroupRouteSummary s) { b=null;s=default;return false; }
 
@@ -1255,10 +1260,11 @@ namespace MoatMove {
 
 namespace Shared { internal static class GameModeHelper { internal static bool IsMapEditor()=>true; } }
 namespace MoatMove {
- internal unsafe struct GameTribe { public int r_LeaderUnitId; }
+ internal unsafe struct GameTribe { public int r_LeaderUnitId, r_PlayerIdOwner; }
  internal unsafe sealed class GameTribeManagerAPI {
   internal static readonly GameTribeManagerAPI Instance=new GameTribeManagerAPI();
-  internal bool TryGetTribeById(int id,out GameTribe* tribe) { tribe=null;return false; }
+  internal GameTribe* Tribe;
+  internal bool TryGetTribeById(int id,out GameTribe* tribe) { tribe=Tribe;return tribe!=null; }
  }
  internal sealed class GameTileManagerView {
   internal const int NativePackedTileCapacity=320800;

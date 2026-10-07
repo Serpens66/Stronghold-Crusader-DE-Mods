@@ -43,8 +43,8 @@ namespace APIShared
             groundAllowed || (identityCurrent && (movement == AssassinTransitionKind.ClimbUp || movement == AssassinTransitionKind.ClimbDown));
 
         /// <summary>
-        /// Route is target-first. E1640 can select any adjacent stamped node one or two
-        /// distances earlier, not just the parent used by the weighted builder.
+        /// Route is target-first. E1640 reduces its comparison distance inside the
+        /// direction loop, so every earlier adjacent stamped node must be checked.
         /// </summary>
         public static bool ValidateReconstructionField(int[] targetFirstRoute, int length, int width,
             Func<int, int, bool> allowsTransition)
@@ -64,7 +64,7 @@ namespace APIShared
                     {
                         if ((dx == 0 && dy == 0) || x + dx < 0 || x + dx >= width || y + dy < 0) continue;
                         int candidate = current + dy * width + dx;
-                        if (positions.TryGetValue(candidate, out int earlier) && earlier > i && earlier <= i + 2 &&
+                        if (positions.TryGetValue(candidate, out int earlier) && earlier > i &&
                             !allowsTransition(candidate, current)) return false;
                     }
             }

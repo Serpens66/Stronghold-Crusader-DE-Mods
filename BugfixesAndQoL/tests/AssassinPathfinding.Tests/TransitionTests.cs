@@ -37,7 +37,7 @@ internal static partial class Program
             (a,b) => (a,b) != (11,12) || AssassinGateTransitionPolicy.Allows(false, AssassinTransitionKind.ClimbUp, true)), "same folded field permits a proven climb");
         Check(!AssassinGateTransitionPolicy.ValidateReconstructionField(new[]{12,22,12},3,10,(_,_)=>true), "duplicate tile cannot produce a valid field");
         Check(AssassinGateTransitionPolicy.ValidateReconstructionField(new[]{12},1,10,(_,_)=>false), "stationary route has no transitions");
-        // Independent native stamp/distance oracle over many folded and straight fields.
+        // Independent conservative earlier-stamp oracle over many folded and straight fields.
         var random = new Random(7041);
         for (int sample = 0; sample < 300; sample++)
         {
@@ -50,7 +50,7 @@ internal static partial class Program
                 {
                     int currentDistance = nodes.Length-current, candidateDistance = nodes.Length-candidate;
                     int dx = Math.Abs(nodes[current]%10-nodes[candidate]%10), dy = Math.Abs(nodes[current]/10-nodes[candidate]/10);
-                    if (candidateDistance >= currentDistance-2 && candidateDistance < currentDistance && dx<=1 && dy<=1)
+                    if (candidateDistance < currentDistance && dx<=1 && dy<=1)
                         expected.Add((nodes[candidate],nodes[current]));
                 }
             Check(expected.SetEquals(actual), "all native distance candidates inspected exactly");

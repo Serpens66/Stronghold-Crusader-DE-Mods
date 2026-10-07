@@ -104,51 +104,8 @@ namespace BugfixesAndQoL
                 nativeTribeManager = (IntPtr)91;
             }
 
-            // A qualified native-only group retains its exact common destination.
-            // Exercise the real mode/builder/placement callbacks in all addon modes.
-            int nativeOnlySavedMode = TestSettings.Settings.RouteMode;
-            var nativeOnlySavedBuilder = originalPathBuilder;
-            try
-            {
-                foreach (int routeMode in new[] { 0, 1, 2 })
-                {
-                    TestSettings.Settings.RouteMode = routeMode;
-                    ResetUnits(2); units[2].Digger = false;
-                    activeMoveCommand.NativeCommonFallback = true;
-                    int nativeCalls = 0, builderCalls = 0;
-                    originalPathBuilder = (m, c, p) => {
-                        builderCalls++;
-                        Check(*moatPathMode == 1, "non-digger builder retains the native current-moat mode");
-                        return 7;
-                    };
-                    originalCommonGroupMove = (m, t, x, y, patrol, fresh) => {
-                        nativeCalls++;
-                        Check(placementBatch == null && x == 13 && y == 10,
-                            "native-only common group is not redirected by addon placement");
-                        var args = Pre(2);
-                        Check(unitMoveFrame.Placement == null && args.TileX == 13 && args.TileY == 10 &&
-                            units[2].r_AttackMoveToTargetTileX == 13 && units[2].r_AttackMoveToTargetTileY == 10,
-                            "non-digger keeps its exact native order and destination fields");
-                        *moatPathMode = EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager, 2);
-                        Check(*moatPathMode == 1 && GetUnitMovePlan(unitMoveFrame, 2) == null,
-                            "moat starter keeps vanilla mode without obtaining an addon traversal plan");
-                        Check(BuildPathWithCompletedMoatRouteVariant(nativePathManager, 1, 1) == 7,
-                            "native-only non-digger uses the original builder result");
-                        Post(2, 7);
-                        Check(unitMoveFrame == null && activePlan == null && pendingPlan == null,
-                            "native-only unit completion leaves no inherited route or movement frame");
-                        return 23;
-                    };
-                    Check(ObserveCommonGroupMove(nativeTribeManager, 1, 13, 10, 4, 1) == 23 &&
-                        nativeCalls == 1 && builderCalls == 1 && placementBatch == null,
-                        "native-only group preserves original return and calls each original exactly once");
-                }
-            }
-            finally
-            {
-                TestSettings.Settings.RouteMode = nativeOnlySavedMode;
-                originalPathBuilder = nativeOnlySavedBuilder;
-            }
+            // Native common-group placement is covered with and without a provider
+            // by the shared MoatMove runtime fixture (PlacementTests.cs).
             foreach (int count in new[] { 1, 5, 20, 27, 29, 120 })
             {
                 ResetUnits(count); var goals = new HashSet<int>();

@@ -274,6 +274,12 @@
             The synchronous validator is called again before publication; no route survives its frame.
             </summary>
         </member>
+        <member name="M:APIShared.AssassinPathAPI.TryGetCurrentWeightedRequest(System.String,System.IntPtr,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32@,System.Int32@)">
+            <summary>Returns the current owned unit's full control word and movement delay without scanning units.</summary>
+        </member>
+        <member name="M:APIShared.AssassinPathAPI.TryStageWeightedRoute(System.String,System.IntPtr,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Byte[],System.Int32,System.Func{System.Boolean},System.Action{System.Int64,System.Boolean})">
+            <summary>Stages a route and reports final validation/publication duration and success; observer errors are isolated.</summary>
+        </member>
         <member name="P:APIShared.AssassinPathAPI.HasSingleUnitRoutePublication">
             <summary>A single-unit builder is active; failed staging must preserve its native field.</summary>
         </member>
@@ -306,8 +312,8 @@
         </member>
         <member name="M:APIShared.AssassinGateTransitionPolicy.ValidateReconstructionField(System.Int32[],System.Int32,System.Int32,System.Func{System.Int32,System.Int32,System.Boolean})">
             <summary>
-            Route is target-first. E1640 can select any adjacent stamped node one or two
-            distances earlier, not just the parent used by the weighted builder.
+            Route is target-first. E1640 reduces its comparison distance inside the
+            direction loop, so every earlier adjacent stamped node must be checked.
             </summary>
         </member>
         <member name="T:APIShared.GatehouseFootprintCandidate">

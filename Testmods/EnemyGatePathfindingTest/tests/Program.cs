@@ -1292,7 +1292,7 @@ namespace EnemyGatePathfindingTest
             string bridge = File.ReadAllText(Path.Combine("..", "..", "APIShared",
                 "src", "EnemyGatePathPolicyBridge.cs"));
             string sharedOwner = File.ReadAllText(Path.Combine("..", "..",
-                "BugfixesAndQoL", "src", "FriendlyMoatMovementRuntime.cs"));
+                "APIShared", "src", "UnitCommands", "UnitCommandPathRuntime.cs"));
 
             Assert(plugin.Contains("Subscribe(ObserveTargetOrder)") &&
                     plugin.Contains("Subscribe(ObserveTribeMove)") &&
@@ -1880,7 +1880,7 @@ namespace EnemyGatePathfindingTest
                 source.Contains("Snapshot.Readers--"), "nested masks, counters and snapshot reader ownership restore");
             Assert(source.Contains("globals[tribeId] = tribes[tribeId].r_GlobalId") &&
                 source.Contains("tribePlayers = TribePlayerSnapshot.Empty"), "identity snapshot replaces across maps");
-            string shared = File.ReadAllText(Path.Combine("..", "..", "BugfixesAndQoL", "src", "FriendlyMoatMovementRuntime.cs"));
+            string shared = File.ReadAllText(Path.Combine("..", "..", "APIShared", "src", "UnitCommands", "UnitCommandPathRuntime.cs"));
             string sharedBuilding = ExtractMethodBody(shared, "ObserveBuildingApproachBuilder");
             Assert(sharedBuilding.Contains("ResolveEnemyGateBuildingPlayer(movementClass, tribeId)") &&
                 sharedBuilding.Contains("sourceRegion, movementClass") && sharedBuilding.Contains("finally"),

@@ -212,3 +212,9 @@ Validation completed 2026-10-07:
   exact-route-APIShared-build-retry.log and exact-route-BugfixesAndQoL-build.log.
 - No in-game acceptance claimed. Test roof orders on both gate sizes, owned/captured
   open gates and different approach sides, with Improved Pathfinding on/off.
+
+## Assassin request-index life filter, 2026-10-08
+
+The weighted request index now uses APIShared.UnitAccess.IsReallyAlive rather than AliveState alone. The confirmed low-word death marker at GameUnit+0x29C excludes death-animation/corpse records that remain IsAlive; the unrelated upper word is ignored. Such records previously could create false player/control-player ambiguity or inflate the slowest movement delay when sharing a coordinate with a live Assassin. No native hook, path-edge eligibility or route-publication contract changes.
+
+Regression tests compile and execute the actual BuildRequestIndex, its request record and the actual reference-view life predicate. Cases cover live units mixed with foreign/same-player corpses, corpse-only coordinates, deleted/empty slots, nonzero upper word with zero death marker, preserved slowest live speed and preserved ambiguity between living players. The Assassin suite passes 15,892 assertions. This is automated evidence; no new gameplay acceptance is claimed.

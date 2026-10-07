@@ -15,30 +15,40 @@ namespace APIShared.UnitCommands
         internal readonly Dictionary<int, int> reservations = new Dictionary<int, int>();
         internal readonly Dictionary<long, bool> decisions = new Dictionary<long, bool>();
         internal int expanded;
+        internal readonly int maximumCells;
         public long ExpandedNodes { get; internal set; }
         public long ReachabilityChecks { get; internal set; }
         public long CacheHits { get; internal set; }
 
-        public MoatPlacementSearch(int width, int height, int anchor, Func<int, int, bool> connected)
+        public MoatPlacementSearch(int width, int height, int anchor, Func<int, int, bool> connected,
+            int maximumCells = int.MaxValue)
         {
             if (width <= 0 || height <= 0 || (uint)anchor >= (long)width * height)
                 throw new ArgumentOutOfRangeException(nameof(anchor));
+            if (maximumCells <= 0) throw new ArgumentOutOfRangeException(nameof(maximumCells));
             this.width = width; this.height = height; this.connected = connected;
+            this.maximumCells = maximumCells;
             cells.Add(anchor); discovered.Add(anchor);
         }
 
         public bool TryReserve(int unit, int source, Func<int, bool> available,
-            Func<int, bool> reachable, out int cell)
+            Func<int, bool> reachable, out int cell, bool cacheReachability = true,
+            Func<bool> stopSearch = null)
         {
             for (int index = 0; ; index++)
             {
+                if (stopSearch?.Invoke() == true) break;
                 while (index >= cells.Count && Expand()) { }
                 if (index >= cells.Count) break;
                 int candidate = cells[index];
                 if (reservations.ContainsKey(candidate) || !available(candidate)) continue;
                 long key = ((long)(uint)source << 32) | (uint)candidate;
-                if (!decisions.TryGetValue(key, out bool valid))
-                { ReachabilityChecks++; decisions[key] = valid = reachable(candidate); }
+                bool valid;
+                if (!cacheReachability || !decisions.TryGetValue(key, out valid))
+                {
+                    ReachabilityChecks++; valid = reachable(candidate);
+                    if (cacheReachability) decisions[key] = valid;
+                }
                 else CacheHits++;
                 if (!valid) continue;
                 reservations.Add(candidate, unit); cell = candidate; return true;
@@ -65,7 +75,8 @@ namespace APIShared.UnitCommands
                 int ny = y + WeightedMoatRoutePlanner.DirectionY[d];
                 if ((uint)nx >= width || (uint)ny >= height) continue;
                 int next = ny * width + nx;
-                if (!discovered.Contains(next) && (connected(cell, next) || connected(next, cell)))
+                if (cells.Count < maximumCells && !discovered.Contains(next) &&
+                    (connected(cell, next) || connected(next, cell)))
                 { discovered.Add(next); cells.Add(next); }
             }
             return true;

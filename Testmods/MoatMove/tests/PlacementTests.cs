@@ -139,50 +139,165 @@ namespace MoatMove
                 nativeTribeManager = (IntPtr)91;
             }
 
-            // A qualified native-only group retains its exact common destination.
-            // Exercise the real mode/builder/placement callbacks in all addon modes.
-            int nativeOnlySavedMode = TestSettings.Settings.RouteMode;
-            var nativeOnlySavedBuilder = originalPathBuilder;
+            // Real shared placement callbacks, including the main-mod-only state.
+            int nativeSavedMode = TestSettings.Settings.RouteMode;
+            bool nativeSavedFast = TestSettings.Settings.NativeFast;
+            var nativeSavedBuilder = originalPathBuilder;
+            var nativeSavedProbe = nativeManualPathProbe;
+            GameTribe nativeTribe = new GameTribe { r_PlayerIdOwner = 1 };
+            GameTribeManagerAPI.Instance.Tribe = &nativeTribe;
+            manualCommandsEnabled = true;
             try
             {
-                foreach (int routeMode in new[] { 0, 1, 2 })
+                foreach (int providerMode in new[] { -1, 0, 1, 2 })
+                foreach (int count in new[] { 1, 120, 680 })
                 {
-                    TestSettings.Settings.RouteMode = routeMode;
-                    ResetUnits(2); units[2].Digger = false;
-                    activeMoveCommand.NativeCommonFallback = true;
-                    int nativeCalls = 0, builderCalls = 0;
+                    TestSettings.Settings.RouteMode = Math.Min(1, Math.Max(0, providerMode));
+                    TestSettings.Settings.NativeFast = providerMode == 2;
+                    nativeTraversalDisabled = providerMode < 0;
+                    ResetUnits(count); activeMoveCommand.NativeCommonFallback = true;
+                    for (int x = 10; x <= 750; x++) movementTargetAvailability[10 * 800 + x] = 1;
+                    for (int id = 1; id <= count; id++) units[id].Digger = false;
+                    int nativeCalls = 0, builderCalls = 0, probes = 0;
+                    var goals = new HashSet<int>();
+                    nativeManualPathProbe = (id, x, y) => {
+                        probes++;
+                        return y == 10 && x >= 10 && x <= 750;
+                    };
                     originalPathBuilder = (m, c, p) => {
                         builderCalls++;
-                        Check(*moatPathMode == 1, "non-digger builder retains the native current-moat mode");
+                        Check(*moatPathMode == 0 || *moatPathMode == 1, "native current-tile mode remains intact");
                         return 7;
                     };
+                    long searchesBefore = weightedMoatRoutePlanner.SearchRuns;
+                    var watch = Stopwatch.StartNew();
                     originalCommonGroupMove = (m, t, x, y, patrol, fresh) => {
                         nativeCalls++;
-                        Check(placementBatch == null && x == 13 && y == 10,
-                            "native-only common group is not redirected by addon placement");
-                        var args = Pre(2);
-                        Check(unitMoveFrame.Placement == null && args.TileX == 13 && args.TileY == 10 &&
-                            units[2].r_AttackMoveToTargetTileX == 13 && units[2].r_AttackMoveToTargetTileY == 10,
-                            "non-digger keeps its exact native order and destination fields");
-                        *moatPathMode = EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager, 2);
-                        Check(*moatPathMode == 1 && GetUnitMovePlan(unitMoveFrame, 2) == null,
-                            "moat starter keeps vanilla mode without obtaining an addon traversal plan");
-                        Check(BuildPathWithCompletedMoatRouteVariant(nativePathManager, 1, 1) == 7,
-                            "native-only non-digger uses the original builder result");
-                        Post(2, 7);
-                        Check(unitMoveFrame == null && activePlan == null && pendingPlan == null,
-                            "native-only unit completion leaves no inherited route or movement frame");
+                        Check(placementBatch?.NativePlacement == true && x == 13 && y == 10 && patrol == 4,
+                            "native common order and patrol metadata are preserved with an independent placement batch");
+                        for (int id = 1; id <= count; id++)
+                        {
+                            var args = Pre(id);
+                            Check(unitMoveFrame.Placement != null && goals.Add(args.TileY * 800 + args.TileX),
+                                "each reachable non-digger receives a distinct actual destination");
+                            Check(units[id].r_AttackMoveToTargetTileX == args.TileX &&
+                                units[id].r_AttackMoveToTargetTileY == args.TileY,
+                                "native fields and event arguments agree before original execution");
+                            *moatPathMode = EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager, id);
+                            Check(*moatPathMode == (id % 2 == 0 ? 1 : 0) && GetUnitMovePlan(unitMoveFrame, id) == null,
+                                "non-digger preserves native mode without a traversal plan");
+                            Check(BuildPathWithCompletedMoatRouteVariant(nativePathManager, 1, 1) == 7,
+                                "original builder result remains authoritative for the assigned native slot");
+                            Post(id, 7);
+                        }
+                        Check(placementBatch.NativeSearch.cells.Count <= 4000, "native candidate count stays bounded");
                         return 23;
                     };
                     Check(ObserveCommonGroupMove(nativeTribeManager, 1, 13, 10, 4, 1) == 23 &&
-                        nativeCalls == 1 && builderCalls == 1 && placementBatch == null,
-                        "native-only group preserves original return and calls each original exactly once");
+                        nativeCalls == 1 && builderCalls == count && placementBatch == null,
+                        "individual native destinations retain exactly one original command and one builder per unit");
+                    Check(weightedMoatRoutePlanner.SearchRuns == searchesBefore && probes == count,
+                        "native-reachable placement needs no moat route search and exactly one native probe per assigned unit");
+                    Console.WriteLine($"NATIVE PLACEMENT provider={providerMode} units={count} unique={goals.Count} probes={probes} ms={watch.Elapsed.TotalMilliseconds:F3}");
                 }
+
+                foreach (int providerMode in new[] { -1, 0, 1, 2 })
+                foreach (int leader in new[] { 1, 2 })
+                foreach (bool reverse in new[] { false, true })
+                {
+                    TestSettings.Settings.RouteMode = Math.Min(1, Math.Max(0, providerMode));
+                    TestSettings.Settings.NativeFast = providerMode == 2;
+                    nativeTraversalDisabled = providerMode < 0;
+                    ResetUnits(4); activeMoveCommand.NativeCommonFallback = true;
+                    nativeTribe.r_LeaderUnitId = leader;
+                    for (int x = 10; x <= 750; x++) movementTargetAvailability[10 * 800 + x] = 0;
+                    for (int x = 13; x <= 16; x++) movementTargetAvailability[10 * 800 + x] = 1;
+                    for (int id = 1; id <= 4; id++) {
+                        units[id].Digger = id == 1;
+                        units[id].r_CurrentPositionTileId = 1013;
+                        units[id].r_CurrentTilePositionX = units[id].r_NextTilePositionX2 = 13;
+                    }
+                    nativeManualPathProbe = (id, x, y) => y == 10 && x >= 13 && x <= 16 && id != 3 &&
+                        !(id == 2 && x == 14); // Same start, different structural access.
+                    originalCommonGroupMove = (m, t, x, y, p, n) => {
+                        var order = reverse ? new[] { 4, 3, 2, 1 } : new[] { 1, 2, 3, 4 };
+                        var goals = new HashSet<int>();
+                        foreach (int id in order) {
+                            var args = Pre(id);
+                            if (id == 3) {
+                                Check(unitMoveFrame.Placement == null && args.TileX == 13,
+                                    "unreachable member keeps its original native order without reserving a slot");
+                                Post(id, 0); continue;
+                            }
+                            Check(unitMoveFrame.Placement != null && goals.Add(args.TileX) &&
+                                (id != 2 || args.TileX != 14),
+                                "shared starts cannot inherit another unit's access; reachable mixed members get unique slots");
+                            Post(id, 1);
+                        }
+                        return 1;
+                    };
+                    Check(ObserveCommonGroupMove(nativeTribeManager, 1, 13, 10, 0, 1) == 1,
+                        "both leaders and both iteration orders preserve native common-group completion");
+                }
+
+                ResetUnits(2); units[1].Digger = units[2].Digger = false;
+                activeMoveCommand.NativeCommonFallback = true;
+                nativeManualPathProbe = (id, x, y) => true;
+                originalCommonGroupMove = (m, t, x, y, p, n) => {
+                    var skipped = Pre(1); var slot = unitMoveFrame.Placement;
+                    skipped.SkipOriginalFunction = true;
+                    Check(GetCurrentUnitMoveFrame() == null && slot.Finished && slot.Released,
+                        "consumed native-only member releases its slot without requiring Post");
+                    var next = Pre(2);
+                    Check(next.TileX == 13, "next reachable member can reuse the released nearest slot");
+                    var parent = unitMoveFrame;
+                    ObserveUnitMoveOrder(new UnitMoveHereEventArgs(EventHookPhase.Pre, 1, 13, 10, 0));
+                    Check(unitMoveFrame.Placement == null, "nested unit call cannot consume parent group reservations");
+                    Post(1, 0); Check(ReferenceEquals(parent, unitMoveFrame), "nested unit call restores its parent");
+                    Post(2, 1); return 1;
+                };
+                ObserveCommonGroupMove(nativeTribeManager, 1, 13, 10, 0, 1);
+                nativeTraversalDisabled = true;
+                ResetUnits(2); activeMoveCommand.NativeCommonFallback = true;
+                originalCommonGroupMove = (m, t, x, y, p, n) => {
+                    var failed = Pre(1); var failedSlot = unitMoveFrame.Placement;
+                    Post(1, 0);
+                    Check(failedSlot.Finished && failedSlot.Released &&
+                        units[1].r_AttackMoveToTargetTileX == 13,
+                        "failed native order restores owned fields and releases its place");
+                    var next = Pre(2);
+                    Check(next.TileX == 13, "failed order does not block the next member's nearest place");
+                    next.TileX = 16; // A later Pre subscriber changes the actual target.
+                    EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager, 2);
+                    Check(unitMoveFrame.Placement.Released && units[2].r_AttackMoveToTargetTileX == 16,
+                        "main-only native callback synchronizes later target changes and releases the old place");
+                    Post(2, 1); return 1;
+                };
+                ObserveCommonGroupMove(nativeTribeManager, 1, 13, 10, 0, 1);
+
+                ResetUnits(2); activeMoveCommand.NativeCommonFallback = true;
+                nativeManualPathProbe = (id, x, y) => false;
+                originalCommonGroupMove = (m, t, x, y, p, n) => {
+                    foreach (int id in new[] { 1, 2 }) {
+                        var args = Pre(id);
+                        Check(unitMoveFrame.Placement == null && args.TileX == 13 &&
+                            units[id].r_AttackMoveToTargetTileX == 13,
+                            "fully unreachable native group preserves all original targets without reserving places");
+                        Post(id, 0);
+                    }
+                    Check(placementBatch.Reserved.Count == 0, "unreachable group leaves no reservations");
+                    return 1;
+                };
+                ObserveCommonGroupMove(nativeTribeManager, 1, 13, 10, 0, 1);
             }
             finally
             {
-                TestSettings.Settings.RouteMode = nativeOnlySavedMode;
-                originalPathBuilder = nativeOnlySavedBuilder;
+                TestSettings.Settings.RouteMode = nativeSavedMode;
+                TestSettings.Settings.NativeFast = nativeSavedFast;
+                originalPathBuilder = nativeSavedBuilder; nativeManualPathProbe = nativeSavedProbe;
+                nativeTraversalDisabled = false; manualCommandsEnabled = false;
+                GameTribeManagerAPI.Instance.Tribe = null;
+                for (int x = 10; x <= 750; x++) movementTargetAvailability[10 * 800 + x] = (byte)(x <= 180 ? 1 : 0);
             }
             foreach (int count in new[] { 1, 5, 20, 27, 29, 120 })
             {
