@@ -42,3 +42,23 @@ raised-state equivalence and remaining Gate unit-table coverage are separate gat
 ## Shared drawbridge coupling (2026-10-07)
 
 At the user's explicit request, APIShared now exposes GatehouseDrawbridgeCoupling and GatehouseFootprintCandidate. BuildOrderedFootprintCandidates reproduces B9330 order; CollectFirstDistinctBuildingIds selects at most two different positive Game-IDs using the caller's live drawbridge predicate. Callers validate footprint/map bounds and identities. No ownership, access permission, parent ID from r_GatehouseId, cache or hook is inferred by this pure API. BugfixesAndQoL's existing approach policy delegates to this shared core; EnemyBridgePathTest calls it directly. Offline projects source-link the same API implementation. CastlePlanner's AIV geometry remains separate. This explicit request supersedes the earlier restriction on adding a public API for this helper; the behavior fix remains disabled.
+
+## Offline planning prerequisite update (2026-10-07)
+
+The dormant production seed/distance core now passes69 complete native differential
+cases, including48 actual-raised planning cases; physical direction/PCL equivalence
+passes144 cases. Details and limitations: `../BridgePlanningTests/RESULTS.md`.
+The previous *unverified copied output algorithm* prerequisite is satisfied for
+these audited synthetic inputs. Historical decision-time inputs are still absent
+from the two old artifacts; no historical candidate reproduction is claimed.
+
+Raised-state planning must use transformed flags/edges and correctly rebuilt PCL,
+not remove deck cells from every weight/distance expansion. Special107160 fields
+may survive the raised flag. D95E0's target resolution, R8 queue cap and temporary
+gate roundtrip are independently tested. D9190's region callback must use immutable
+prepared component answers; no additional Vanilla query is permissible.
+
+The internal90/540 table-copy adapter is prepared and tested but remains dormant.
+Installed2.13 still uses89 for API row stride. Effective capturer authorization
+must remain the Gate mod's rightful-capturer rule, not Vanilla's any-capturer test.
+No live wrapper, original call, output, executable page or public API changed.

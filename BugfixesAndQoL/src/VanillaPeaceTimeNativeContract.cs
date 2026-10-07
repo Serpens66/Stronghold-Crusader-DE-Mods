@@ -1,5 +1,7 @@
 // Feature: Audited native contract for Vanilla peace-time gameplay outside multiplayer.
 using Iced.Intel;
+using SHCDESE.Interop;
+using System.Runtime.InteropServices;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,6 +16,7 @@ namespace BugfixesAndQoL
         MoveEbxEdi,
         MoveEdiEbx,
         MoveEbxEbp,
+        MoveEaxOne,
         JumpEqual,
         Jump
     }
@@ -64,6 +67,27 @@ namespace BugfixesAndQoL
         internal const int StartingTroopsDispatcherLength = 2459;
         internal const int StartingTroopsHookLength = 16;
 
+        internal const int HostilityFunctionRva = 0x1867A0;
+        internal const int HostilityFunctionLength = 533;
+        internal const int WildlifeHookLength = 18;
+        internal const int HostilityPeaceModeRva = 0x18699A;
+        internal const int HostilitySharedTestRva = 0x1869A5;
+        // Native IDs are 1-based relative to the LastOrderedUnit sentinel at +0x65C.
+        internal const int NativeUnitSentinelOffset = 0x65C;
+        internal const int NativeUnitStride = 0x490;
+        internal const int NativeUnitTypeOffset = 0x6E6;
+        internal const int NativeUnitPlayerOffset = 0x6EE;
+
+        private static readonly byte[] WildlifeHookBytes =
+        {
+            0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x63, 0xC2,
+            0x48, 0x8B, 0xD9, 0x4C, 0x69, 0xD8, 0x90, 0x04, 0x00, 0x00
+        };
+        private static readonly byte[] HostilitySharedTestBytes =
+        {
+            0x85, 0xC0, 0x0F, 0x85, 0xE1, 0xFE, 0xFF, 0xFF
+        };
+
         private static readonly byte[] StartingTroopsHookBytes =
         {
             0x40, 0x53, 0x56, 0x57, 0x41, 0x54, 0x48, 0x83,
@@ -99,8 +123,9 @@ namespace BugfixesAndQoL
             new VanillaPeaceTimePatchSite(0x1868B6, "75 D6", VanillaPeaceTimePatchKind.Jump, 0x18688E, "hostility active-peace result A"),
             new VanillaPeaceTimePatchSite(0x186976, "74 35", VanillaPeaceTimePatchKind.Nop, 0, "hostility mode-99 bypass B"),
             new VanillaPeaceTimePatchSite(0x18697A, "74 31", VanillaPeaceTimePatchKind.Nop, 0, "hostility mode-0 bypass B"),
-            new VanillaPeaceTimePatchSite(0x1869A3, "74 08", VanillaPeaceTimePatchKind.Nop, 0, "hostility mode-99 bypass C"),
-            new VanillaPeaceTimePatchSite(0x1869A7, "0F 85 E1 FE FF FF", VanillaPeaceTimePatchKind.Jump, 0x18688E, "hostility active-peace result C")
+            // The shared JNE at 0x1869A7 also consumes animal-classification flags.
+            // Change only this peace-owned predecessor; never make that shared JNE unconditional.
+            new VanillaPeaceTimePatchSite(HostilityPeaceModeRva, "8B 05 F0 E1 3E 08", VanillaPeaceTimePatchKind.MoveEaxOne, 0, "hostility peace-only mode selection C")
         };
 
         internal static readonly int[] PeaceFlagReferenceRvas =
@@ -129,6 +154,7 @@ namespace BugfixesAndQoL
             ValidateStartingTroopsHook(memory, imageBase);
             ValidatePeaceTimeUpdateCaller(memory, imageBase);
             ValidatePeaceTimeInitializerFactor(memory, imageBase);
+            ValidateWildlifeHook(memory, imageBase);
 
             foreach (VanillaPeaceTimePatchSite site in PatchSites)
             {
@@ -184,6 +210,10 @@ namespace BugfixesAndQoL
                     assembler.mov(ebx, ebp);
                     assembler.nop();
                     break;
+                case VanillaPeaceTimePatchKind.MoveEaxOne:
+                    assembler.mov(eax, 1);
+                    assembler.nop();
+                    break;
                 case VanillaPeaceTimePatchKind.JumpEqual:
                     assembler.je(imageBase + unchecked((ulong)site.TargetRva));
                     break;
@@ -207,6 +237,71 @@ namespace BugfixesAndQoL
             assembler.je(vanilla);
             assembler.ret();
             assembler.Label(ref vanilla);
+        }
+
+        internal static void EmitWildlifeGuardPrefix(Assembler assembler, ulong peaceFlagAddress)
+        {
+            Label vanilla = assembler.CreateLabel("wildlifeVanilla");
+            Label playerTarget = assembler.CreateLabel("wildlifePlayerTarget");
+            // Only RAX is scratch. The original prologue overwrites RAX and recalculates flags.
+            // RCX=manager, EDX=attacker ID, R8D=target ID and R9B=filter remain intact.
+            assembler.mov(rax, peaceFlagAddress);
+            assembler.cmp(__byte_ptr[rax], 0);
+            assembler.je(vanilla);
+            assembler.movsxd(rax, edx);
+            assembler.imul(rax, rax, NativeUnitStride);
+            assembler.add(rax, rcx);
+            assembler.cmp(__word_ptr[rax + NativeUnitTypeOffset], (int)eChimps.CHIMP_TYPE_LION);
+            assembler.je(playerTarget);
+            assembler.cmp(__word_ptr[rax + NativeUnitTypeOffset], (int)eChimps.CHIMP_TYPE_HYENA);
+            assembler.je(playerTarget);
+            assembler.cmp(__word_ptr[rax + NativeUnitTypeOffset], (int)eChimps.CHIMP_TYPE_CROCODILE);
+            assembler.jne(vanilla);
+            assembler.Label(ref playerTarget);
+            assembler.movsxd(rax, r8d);
+            assembler.imul(rax, rax, NativeUnitStride);
+            assembler.add(rax, rcx);
+            assembler.cmp(__byte_ptr[rax + NativeUnitPlayerOffset], 1);
+            assembler.jb(vanilla);
+            assembler.cmp(__byte_ptr[rax + NativeUnitPlayerOffset], 8);
+            assembler.ja(vanilla);
+            assembler.mov(eax, 1);
+            assembler.ret();
+            assembler.Label(ref vanilla);
+            // Caller binds this label to the first replayed prologue instruction.
+        }
+
+        private static void ValidateWildlifeHook(ReadOnlySpan<byte> memory, ulong imageBase)
+        {
+            if (Marshal.SizeOf<GameUnit>() != NativeUnitStride ||
+                Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_UnitChimp)).ToInt32() +
+                    NativeUnitSentinelOffset != NativeUnitTypeOffset ||
+                Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_ControllableForPlayerId)).ToInt32() +
+                    NativeUnitSentinelOffset != NativeUnitPlayerOffset)
+                throw new InvalidOperationException("The audited wildlife unit ID/layout contract changed.");
+            ValidateBytes(memory, HostilityFunctionRva, WildlifeHookBytes, "wildlife exclusion entry");
+            ValidateBytes(memory, HostilitySharedTestRva, HostilitySharedTestBytes,
+                "shared animal/peace conditional result");
+            ValidateBytes(memory, HostilityFunctionRva + WildlifeHookLength,
+                new byte[] { 0x4C, 0x03, 0xD9 }, "wildlife continuation add r11,rcx");
+            Decoder decoder = CreateDecoder(memory, imageBase, HostilityFunctionRva, WildlifeHookLength);
+            int[] lengths = { 5, 3, 3, 7 };
+            Mnemonic[] mnemonics = { Mnemonic.Mov, Mnemonic.Movsxd, Mnemonic.Mov, Mnemonic.Imul };
+            for (int index = 0; index < lengths.Length; index++)
+            {
+                Instruction instruction = decoder.Decode();
+                if (instruction.IsInvalid || instruction.Length != lengths[index] ||
+                    instruction.Mnemonic != mnemonics[index] || instruction.FlowControl != FlowControl.Next)
+                    throw new InvalidOperationException("The wildlife hook entry no longer matches its ABI.");
+            }
+            if (decoder.IP != imageBase + HostilityFunctionRva + WildlifeHookLength)
+                throw new InvalidOperationException("The wildlife hook boundary changed.");
+            ValidateNoIncomingDirectBranchTargets(memory, imageBase, HostilityFunctionRva,
+                HostilityFunctionLength, HostilityFunctionRva, HostilityFunctionRva + WildlifeHookLength,
+                "wildlife entry hook");
+            ValidateNoIncomingDirectBranchTargets(memory, imageBase, HostilityFunctionRva,
+                HostilityFunctionLength, HostilityPeaceModeRva, HostilityPeaceModeRva + 6,
+                "peace-only hostility mode selection");
         }
 
         private static void ValidateStartingTroopsHook(

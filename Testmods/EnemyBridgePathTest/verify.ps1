@@ -144,3 +144,13 @@ foreach ($spec in @(@('GetTileBuildingId',[UInt16],[int]),@('GetTileId',[int],[i
     if (!$method -or !$method.IsPublic -or $method.ReturnType -ne $spec[1]) { throw ('Coupling API mismatch: '+$spec[0]) }
 }
 Write-Host 'PASS: installed coupling views/signatures, copied class3/4 C endpoints and opaque connection-record field.'
+
+# New planning/table preparations are pure, dormant copied-input kernels.
+foreach ($name in @('VirtualBridgePlanning.cs','NativePathfindingTableCopy.cs')) {
+    $pure=[IO.File]::ReadAllText((Join-Path $PSScriptRoot ('src/'+$name)))
+    if ($pure -match 'SHCDESE|APIShared|Marshal|IntPtr|DllImport|FindNext|FindPath|UnityEngine|ThreadPool|Task.Run') { throw ('Planning/table preparation is not pure: '+$name) }
+}
+foreach ($path in $sources | Where-Object { $_ -notmatch 'VirtualBridgePlanning.cs|NativePathfindingTableCopy.cs' }) {
+    if ([IO.File]::ReadAllText($path) -match 'VirtualBridgePlanning\.|NativePathfindingTableCopy\.') { throw 'Offline preparations unexpectedly activated in a live callback' }
+}
+Write-Host 'PASS: dormant copied planning/permission kernels; no live integration, searches or new game-member accesses.'

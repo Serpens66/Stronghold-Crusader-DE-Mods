@@ -50,6 +50,7 @@
     <Compile Include="src\BridgeNativeHooks.cs" />
     <Compile Include="src\BridgeNativeDefinition.cs" />
     <Compile Include="src\BridgeSnapshot.cs" />
+    <Compile Include="src\VirtualBridgePlanning.cs" /><Compile Include="src\NativePathfindingTableCopy.cs" />
     <Compile Include="src\DrawbridgeClosurePolicy.cs" />
     <Compile Include="src\GateEdgeOwnership.cs" />
     <Compile Include="..\..\Shared\PathDecisionAggregate.cs"><Link>Shared\PathDecisionAggregate.cs</Link></Compile>

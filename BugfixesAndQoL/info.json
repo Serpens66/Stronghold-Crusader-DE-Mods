@@ -3,13 +3,20 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.174",
+  "Version": "1.0.175",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.13.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.175",
+      "Changes": [
+        "Restored Vanilla wild-animal targeting and melee damage outside Peace Time by preserving the shared conditional exclusion branch.",
+        "Prevented lions, hyenas and crocodiles from attacking player units during actual Peace Time, including existing melee contacts."
+      ]
+    },
     {
       "Version": "1.0.174",
       "Changes": [

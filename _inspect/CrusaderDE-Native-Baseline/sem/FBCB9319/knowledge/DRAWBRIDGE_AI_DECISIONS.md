@@ -538,3 +538,23 @@ API additions, new hooks, version or README edits.
 Production replay of both immutable original artifacts passed in both directions and modes: Reachable uncut, NoRoute after cutting only703 and after all hostile decks. Eleven gate C endpoints per original input match the reconstructed native field. Original hashes are unchanged. Bridge tests passed 38082 assertions; all eight frozen log/control regression scripts passed. APIShared baseline/preset/consumer tests and BugfixesAndQoL policy/native/queue/movement regressions passed through their prescribed drivers. Installed DLLs match workspace package hashes in bridge-coupling-installed-hashes.json. APIShared and Bridge runtime builds had no warnings/errors; BugfixesAndQoL retained the known Mono.Cecil version warning only. Runtime/JSON/lifecycle/public member/permanent hook/XAML/CRLF gates passed. No game was started. Version, README and the Script Extender fork were not changed.
 
 This establishes conditional copied-graph reachability, not full permission or early planning equivalence. Effective policy remains Unknown and behavior unchanged. Early seed/distance output, complete effective Gate permissions and physical raised-state equivalence remain activation prerequisites described in BRIDGE_FIX_INTEGRATION.md. Quiet synthetic load produced 41255 bytes including prefix allowance for 982868 calls and21456 commands; this is not a live volume or frame-cost measurement.
+
+## Offline native reference proof (2026-10-07)
+
+Full current hash unchanged. Complete installed planning/raise/helper bodies are
+retained in workspace `_inspect/BridgePlanningTests/native-evidence.txt`, with
+full-body hashes in native-contracts.tsv.69 copied planning comparisons and144
+actual raise/direction/rebuild fixtures pass; see that folder's RESULTS.md.
+D95E0 R8 selects2000/6000 queue cap; R9 is unused. Building blocking byte is
+independent of class. D9190 cardinal expansion mask100031 does NOT reject raised
+flag40000000; a generic deck-blocking planning flood does not reproduce Vanilla.
+107160 special start(kind>=5 except15) can give a component even with40001000.
+Use full special inputs, not a flags-only empty-component assumption.
+
+Installed SE2.13.0.0 hash7F7750481B392007CCCAD6D609554FBA138D8ED2781AAC54CCE0B235FC5F39F4
+still has enum/storage count89 and erroneous per-class stride89; native stride90
+is confirmed by full181E00 body. A dormant copied90/540 adapter is tested;
+slot89 coverage does not extend valid game enum values. Native E2610 accepts any
+nonzero capturer; effective Gate rules are more restrictive and remain authoritative.
+These are private synthetic proofs, not newly observed runtime decisions. No
+behavior patch is activated. Old artifacts lack mutable early planning inputs.

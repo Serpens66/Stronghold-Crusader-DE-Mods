@@ -10,10 +10,13 @@
     <AssemblyName>VanillaPeaceTimeNativeTests</AssemblyName>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
+    <PlatformTarget>x64</PlatformTarget>
+    <Prefer32Bit>false</Prefer32Bit>
     <OutputPath>bin\</OutputPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(GameDir)' == ''"><GameDir>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir></PropertyGroup>
   <ItemGroup>
+    <Reference Include="SHCDESE"><HintPath>$(GameDir)\BepInEx\plugins\000shcdese\SHCDESE.dll</HintPath></Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="Iced"><HintPath>$(GameDir)\BepInEx\plugins\000shcdese\Iced.dll</HintPath></Reference>

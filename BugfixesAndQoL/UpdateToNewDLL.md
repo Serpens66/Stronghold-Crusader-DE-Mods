@@ -282,3 +282,23 @@ All 24 DLL/metadata/XAML/locale files matched the local package. With the game
 stopped and both absolute paths verified, the former testmod project and installed
 AIKeepRangeLimitTest_Serp plugin folder were removed. Analysis artifacts remain.
 No integrated in-game tests were performed during this implementation.
+
+## Wild-animal targeting and actual Peace Time (1.0.175)
+
+Reference SHA-256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2. Owner: VanillaPeaceTimeGameplayPatch. SHCDESE2.13.0/RedBird1.5.0 were verified against installed assemblies and canonical source. APIShared is unchanged. Source review found no overlapping Extender/Fixes hook for the new exclusion entry; the existing fixes soft dependency loads this mod afterwards.
+
+| Target | Reference RVA / signature or derivation | Search/fallback and failure contract |
+| --- | --- | --- |
+| Wildlife exclusion entry |0x1867A0..0x1867B2; `48 89 5C 24 08 48 63 C2 48 8B D9 4C 69 D8 90 04 00 00`; four instructions5/3/3/7; continuation `4C 03 D9` | Exact reference-hash and live-byte validation; full533-byte function branch audit, no interior Xrefs. Hash-bound because fixed unit layout and species/owner data flow cannot be proved by entry signature alone. No pattern fallback on another hash; roll back complete unpublished peace transaction and log existing feature-failure marker. |
+| Peace-only mode read |0x18699A..0x1869A0; `8B 05 F0 E1 3E 08` -> `B8 01 00 00 00 90` | Same hash-bound feature; no interior direct branch; backend BodyByteCount/OverwrittenByteCount6. |
+| Shared result, preserved |0x1869A5..0x1869AD; `85 C0 0F 85 E1 FE FF FF`; conditional target0x18688E | Validate before installation and after commit.0x1868DE also enters the shared JNE with classification flags; never replace with unconditional JMP. |
+| Actual peace flag |0x38722DC, from RIP-relative CMP at0x186991 and the existing audited36 references | Read-only; this flag alone controls suppression and automatic resumption. |
+| Native unit inputs |manager + gameId*0x490, sentinel +0x65C; type +0x6E6, owner byte +0x6EE | Validate against real GameUnit size and named offsets; IDs remain1-based. Symbolic lion/hyena/crocodile eChimps; target owner1..8. No guessed semantics for raw classification byte +0x984. |
+
+The native prefix uses only scratch RAX/flags before the prologue. Original MOVSXD/IMUL and continuation ADD restore Vanilla's data/flag flow. No arguments, nonvolatile registers, stack, SIMD or callback flags are changed. All28 instruction patches and both inline hooks share one transaction; validate actual committed target/spans before publishing the static owner. Published hooks have no teardown. Failure in an unpublished candidate alone may dispose the transaction.
+
+The previous unconditional0x1869A7 patch explains lion/hyena target rejection and lost contact damage outside Peace Time. Target selection0x188A20/0x18E9A0 and contact melee0x187230 share exclusion0x1867A0; retained contact0x195170 rechecks through0x188A20 before damage0x199110. Baseline details and confidence are in current knowledge/VANILLA_PEACE_TIME.md.
+
+Regression tests execute the whole native predicate, historical faulty byte fixture and production guard via the installed RedBird prepared stub:1,520,832 inactive plus1,520,832 active cases, all unit pairs/classes/owners/team/filter combinations in modes0/1/99, owner boundaries and active-to-expired transition. Prepared copied-memory candidates are never enabled; disposal only rolls back unpublished test storage. Mutation tests reject modified entry/shared bytes and incoming branches. Existing generated-patch/timer/start-troop checks remain. In-game acceptance with/without Fixes is still pending; versions were raised at the user's explicit request, not as a claim of completed gameplay validation.
+
+Build/installation verification (2026-10-07): the prescribed elevated build.bat /nopause completed successfully, including all preflight/regression checks and the native execution tests above. Installed AssemblyVersion is 1.0.175.0 and info.json Version is 1.0.175; all 48 package DLL/metadata/resource files match their installed SHA-256. Build log: _inspect/WildlifePeaceTime-1.0.175-build.log. MSB3277 dependency-version warnings remain (Mono.Cecil in the runtime/test references; additional dependency warnings in the existing FriendlyMoatMovement test project); there were no build errors. No in-game acceptance was performed.

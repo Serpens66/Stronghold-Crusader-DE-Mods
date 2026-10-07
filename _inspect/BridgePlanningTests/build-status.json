@@ -1,0 +1,16 @@
+{
+  "NativeHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+  "BridgePackageHash": "3CF25C6A1A5DE5E2D0AAC71CD12D339034EB581AD32E5FBAE07AF934693CD956",
+  "ApiSharedPackageHash": "DD27FEBD116D11E8E58CDEF1F8467927EEBD39473C64BC1DFA627805698F0CFE",
+  "NativePlanningCases": 69,
+  "NativeRaiseCases": 144,
+  "NativeAssertions": 7616,
+  "BridgeAssertions": 38082,
+  "GateAssertions": 3840,
+  "FrozenRegressions": 8,
+  "BehaviorPatchActive": false,
+  "GameStarted": false,
+  "Built": true,
+  "Installed": false,
+  "Reason": "Game plugin folder contains only Script Extender; APIShared is missing. Built via prescribed driver with validated local APIShared override and /noinstall."
+}
