@@ -1,6 +1,0 @@
-<Project>
-  <Import Project="../Directory.Build.targets" />
-  <Target Name="WriteInstalledTestConfiguration" AfterTargets="Build" Condition="'$(NeedsGameAssemblies)' == 'true' and '$(IsTestProject)' == 'true'">
-    <WriteLinesToFile File="$(OutDir)GameDirectory.txt" Lines="$(GameDir)" Overwrite="true" Encoding="UTF-8" />
-  </Target>
-</Project>

@@ -1,9 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup><TargetFramework>net10.0</TargetFramework><AllowUnsafeBlocks>true</AllowUnsafeBlocks><ImplicitUsings>enable</ImplicitUsings></PropertyGroup>
-  <ItemGroup>
-    <Compile Include="../../src/Units/UnitAccess.cs" Link="Production/UnitAccess.cs" />
-    <Compile Include="../../src/ModSettings/Internal/DependencyFreeJson.cs" Link="Production/DependencyFreeJson.cs" />
-    <Compile Include="../../src/ModSettings/Internal/AtomicFileReplacement.cs" Link="Production/AtomicFileReplacement.cs" />
-    <Compile Include="../../src/Core/UniquePatternSearch.cs" Link="Production/UniquePatternSearch.cs" />
-  </ItemGroup>
-</Project>

@@ -1,8 +1,0 @@
-<Project>
-  <PropertyGroup>
-    <LangVersion>latest</LangVersion>
-    <GameDir Condition="'$(GameDir)' == ''">$(SHCDE_GAME_DIR)</GameDir>
-    <ExtenderDir Condition="'$(ExtenderDir)' == '' and '$(SHCDESE_EXTENDER_DIR)' != ''">$(SHCDESE_EXTENDER_DIR)</ExtenderDir>
-    <ExtenderDir Condition="'$(ExtenderDir)' == '' and '$(GameDir)' != ''">$(GameDir)\BepInEx\plugins\000shcdese</ExtenderDir>
-  </PropertyGroup>
-</Project>

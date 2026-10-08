@@ -1,7 +1,0 @@
-<Project>
-  <Target Name="ValidateInstalledDependencies" BeforeTargets="ResolveReferences" Condition="'$(NeedsGameAssemblies)' == 'true'">
-    <Error Condition="'$(GameDir)' == ''" Text="Set SHCDE_GAME_DIR or pass /p:GameDir=your game installation directory." />
-    <Error Condition="!Exists('$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll')" Text="GameDir must contain the real installed Assembly-CSharp.dll. Publicized assemblies are not supported." />
-    <Error Condition="!Exists('$(ExtenderDir)\SHCDESE.dll')" Text="Install Script Extender or set SHCDESE_EXTENDER_DIR / ExtenderDir." />
-  </Target>
-</Project>
