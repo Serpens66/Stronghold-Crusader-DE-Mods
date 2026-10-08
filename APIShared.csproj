@@ -18,7 +18,7 @@
     <DebugType>portable</DebugType>
     <WarningLevel>4</WarningLevel>
     <DocumentationFile>$(OutputPath)APIShared.xml</DocumentationFile>
-    <WarningsAsErrors>1591</WarningsAsErrors>
+    <WarningsAsErrors>1591;2002</WarningsAsErrors>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
@@ -50,14 +50,11 @@
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="src\**\*.cs" />
-
-    <Compile Include="src\Pathfinding\EnemyBridgeDiagnosticBridge.cs" /><Compile Include="src\Pathfinding\TemporaryGateRouteAcceptanceBridge.cs" />
-      </ItemGroup>
+  </ItemGroup>
   <ItemGroup>
     <Content Include="Patches\**\*.xaml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
     <Content Include="info.json"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
   </ItemGroup>
-  <ItemGroup><Compile Include="src\UnitCommands\TraversalProvider.cs" /></ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="ValidateReferences" BeforeTargets="BeforeBuild">
     <Error Condition="!Exists('$(ExtenderDir)\SHCDESE.dll')" Text="SHCDESE.dll was not found: $(ExtenderDir)" />
