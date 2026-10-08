@@ -70,7 +70,7 @@ namespace CastlePlanner
                         selection.PlayerId);
                 }
                 overriddenData = data;
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     $"Temporarily aligned Fixes keep rotations for CastlePlanner players " +
                     $"[{string.Join(",", originalValues.Keys)}].");
@@ -105,7 +105,7 @@ namespace CastlePlanner
             {
                 foreach (KeyValuePair<int, object> pair in originalValues)
                     overriddenData.SetValue(pair.Value, pair.Key);
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     $"Restored Fixes keep rotations after CastlePlanner spawn ({reason}).");
             }

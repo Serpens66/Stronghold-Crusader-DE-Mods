@@ -72,7 +72,7 @@ namespace CastlePlanner
                 return null;
             }
 
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 "CastlePlanner castle dropdown controller attached; " +
                 $"desiredMaximum={DesiredMaximumHeight:0}, " +
@@ -136,7 +136,7 @@ namespace CastlePlanner
             bool loaded = settings.EnsureCastleCatalogLoaded();
             EnsurePopupPlacementBelow();
             UpdateDropDownHeight();
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"CastlePlanner {(loaded ? "loaded" : "reused")} the cached AIVJSON catalog when mod settings opened; " +
                 $"count={settings.AvailableFileCount}.");
@@ -227,7 +227,7 @@ namespace CastlePlanner
                 return;
 
             lastAppliedHeight = height;
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 "CastlePlanner castle dropdown height updated from current Noesis " +
                 $"geometry: viewHeight={viewHeight:0.0}, " +

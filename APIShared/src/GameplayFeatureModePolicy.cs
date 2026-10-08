@@ -229,7 +229,7 @@ namespace Shared
                 if (!RecordDecision(feature.FeatureId, allowed))
                     continue;
 
-                DebugLogHelper.LogInfo(
+                DebugLogHelper.LogDebug(
                     log,
                     $"[{modGuid}] gameplay-feature gate: feature={feature.FeatureId}, source={source}, " +
                     $"kind={snapshot.Kind}, launchVariant={snapshot.LaunchVariant}, " +

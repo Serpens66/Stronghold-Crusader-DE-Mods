@@ -212,7 +212,7 @@ namespace ExtraFeatures
 
         private void LogInfo(string message)
         {
-            log.LogInfo($"[{TimestampNow()}] Extra Features {message}");
+            log.LogDebug($"[{TimestampNow()}] Extra Features {message}");
         }
 
         private void LogError(string message)

@@ -5,12 +5,18 @@ using System.Collections.Generic;
 using BepInEx.Logging;
 using BugfixesAndQoL;
 internal static class ActivationTests {
+ private sealed class DebugListener : ILogListener {
+  public LogLevel DisplayedLogLevel => LogLevel.Debug;
+  public void LogEvent(object sender, LogEventArgs args) { }
+  public void Dispose() { }
+ }
  private static int count;
  private static void Check(bool condition, string reason) { if (!condition) throw new Exception(reason); count++; }
  private static FieldInfo Field(string name) => typeof(AiRaidRetargetFixRuntime).GetField(name, BindingFlags.NonPublic | BindingFlags.Instance);
  internal static void Run() {
   var logger = new ManualLogSource("Raid integration tests");
-  var lines = new List<string>(); logger.LogEvent += (sender, args) => lines.Add(args.Data.ToString());
+  var lines = new List<string>(); var levels = new List<LogLevel>();
+  logger.LogEvent += (sender, args) => { lines.Add(args.Data.ToString()); levels.Add(args.Level); };
   var runtime = new AiRaidRetargetFixRuntime(logger);
   var activation = (RaidActivationState)Field("activation").GetValue(runtime);
   Field("initialized").SetValue(runtime, true);
@@ -45,6 +51,11 @@ internal static class ActivationTests {
   runtime.OnSessionStarted(new Shared.GameplaySessionStartedContext { SessionId=5 });
   var retryType=typeof(AiRaidRetargetFixRuntime).GetNestedType("RaidRetry",BindingFlags.NonPublic);
   var logRetry=typeof(AiRaidRetargetFixRuntime).GetMethod("LogRetry",BindingFlags.NonPublic|BindingFlags.Instance);
+  var debugListener = new DebugListener();
+  Logger.Listeners.Add(debugListener);
+  var cacheExpiry = typeof(Shared.DebugLogHelper).GetField("debugEnabledCacheExpiresAtUtc", BindingFlags.NonPublic | BindingFlags.Static);
+  cacheExpiry.SetValue(null, DateTime.MinValue);
+  levels.Clear();
   for(int i=0;i<24000;i++) {
    object retry=Activator.CreateInstance(retryType,BindingFlags.NonPublic|BindingFlags.Instance,null,
     new object[] {i%8+1,i%6,i+1,(uint)(i+1),2,119,6450u,0,i},null);
@@ -57,8 +68,21 @@ internal static class ActivationTests {
   Check(lines.Count==3 && (int)Field("suppressedMessageCount").GetValue(runtime)==9999,"Warnings bounded but distinct validation reasons retained");
   runtime.OnSessionEnded();
   Check(lines.Count==4 && lines[3].Contains("selected=24000") && lines[3].Contains("suppressedWarnings=9999"),"Single correct session summary after long stream");
+  Check(levels[0]==LogLevel.Debug && levels[1]==LogLevel.Warning && levels[2]==LogLevel.Warning && levels[3]==LogLevel.Debug,
+   "Retry confirmation and summary are Debug; validation warnings remain Warning");
   int bytes=System.Text.Encoding.UTF8.GetByteCount(String.Join("\r\n",lines));
   Check(bytes<100000,"Minimal logging below 100 KB for 34001 simulated operations");
+  Logger.Listeners.Remove(debugListener);
+  cacheExpiry.SetValue(null, DateTime.MinValue);
+  lines.Clear(); levels.Clear();
+  runtime.OnSessionStarted(new Shared.GameplaySessionStartedContext { SessionId=6 });
+  object quietRetry=Activator.CreateInstance(retryType,BindingFlags.NonPublic|BindingFlags.Instance,null,
+   new object[] {1,0,1,1u,2,119,6450u,0,0},null);
+  logRetry.Invoke(runtime,new object[] {quietRetry,"selected",204,1371841u,0,0u});
+  repeated.Invoke(runtime,new object[] {"debug-off-warning","visible validation warning",true});
+  runtime.OnSessionEnded();
+  Check(lines.Count==1 && levels[0]==LogLevel.Warning && lines[0].Contains("visible validation warning"),
+   "Without Debug, confirmations and summaries are suppressed while validation warnings remain visible");
   Console.WriteLine("PASS: "+count+" runtime activation/lifecycle/logging assertions; simulated stream log bytes="+bytes+".");
  }
 }

@@ -62,7 +62,7 @@ namespace APIShared
                 candidate.Install(installed);
                 service = candidate;
                 diagnostic = candidate.Available("Process-wide managed lobby observer is active.");
-                try { NativeApiLog.Info(log, "Process-wide lobby-state observer installed."); } catch { }
+                try { NativeApiLog.Debug(log, "Process-wide lobby-state observer installed."); } catch { }
                 return true;
             }
             catch (Exception ex)

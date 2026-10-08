@@ -124,7 +124,7 @@ namespace BuildingLimit
             try
             {
                 LogDebug("Gameplay session started: " + context.Kind);
-                log.LogInfo("BuildingLimit persistent runtime active after startup cleanup: " + context.Kind);
+                Shared.DebugLogHelper.LogDebug(log, "BuildingLimit persistent runtime active after startup cleanup: " + context.Kind);
                 ClearTowerSiegeReservations();
                 ResetBuildingLimitTooltipCache();
                 ApplyBuildingLimits();

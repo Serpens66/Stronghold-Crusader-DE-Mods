@@ -218,7 +218,7 @@ namespace CastlePlanner
                 if (selectedRotation == normalized)
                     return;
                 selectedRotation = normalized;
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     $"Free-castle rotation changed: ui={selectedRotation}, native={SelectedNativeRotation}.");
                 Notify(nameof(SelectedRotation));
@@ -306,7 +306,7 @@ namespace CastlePlanner
                 delayShowDisconnect,
                 (DelayShowDisconnectDelegate)DelayShowDisconnectHook);
             Application.onBeforeRender += OnBeforeRender;
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Free-castle preview initialized: packetId={packetHook.GetPacketId()}, " +
                 $"defaultTimeout={FreeCastleProtocol.DefaultPreviewTimeoutSeconds}s, " +
@@ -413,7 +413,7 @@ namespace CastlePlanner
                 !bypassPauseHook && IsPreviewPendingOrActive &&
                 command == Enums.GameActionCommand.Game_Paused && actionState == 0)
             {
-                Shared.DebugLogHelper.LogInfo(log, "Unpause command suppressed during castle selection.");
+                Shared.DebugLogHelper.LogDebug(log, "Unpause command suppressed during castle selection.");
                 return 0;
             }
             return gameActionTrampoline(command, structureId, actionState, value2);
@@ -424,7 +424,7 @@ namespace CastlePlanner
             if (IsFeatureModeAllowed() &&
                 !bypassLeaveLobbyHook && IsPreviewPendingOrActive && realMultiplayer)
             {
-                Shared.DebugLogHelper.LogInfo(log, "Vanilla lobby departure deferred during castle selection.");
+                Shared.DebugLogHelper.LogDebug(log, "Vanilla lobby departure deferred during castle selection.");
                 return;
             }
             leaveLobbyTrampoline(self, preserveGameMembers);
@@ -463,7 +463,7 @@ namespace CastlePlanner
                 NotifyAll();
                 if (livenessReady)
                 {
-                    Shared.DebugLogHelper.LogInfo(
+                    Shared.DebugLogHelper.LogDebug(
                         log,
                         $"Castle preview pause armed in OnStartMap(Pre): operation={operationId}, localPlayer={localPlayerId}, multiplayer={realMultiplayer}, roster=[{string.Join(",", roster.OrderBy(id => id))}].");
                 }
@@ -485,7 +485,7 @@ namespace CastlePlanner
             {
                 ApplyPause(true);
                 settings.PumpCastleCatalogLoad();
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     "Castle selection is waiting for Vanilla's start-situation screen to close.");
             }
@@ -563,7 +563,7 @@ namespace CastlePlanner
                 return;
             try
             {
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     $"Free-castle confirmation requested: playerId={localPlayerId}, " +
                     $"choice='{SelectedChoice}', uiRotation={SelectedRotation}, " +
@@ -703,7 +703,7 @@ namespace CastlePlanner
             manifestAcks.Clear();
             manifestAcks.Add(SteamUser.GetSteamID().m_SteamID);
             SendManifestToPeers(encoded);
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 "Castle manifest distributed; waiting for every participant without a connection-speed deadline.");
             NotifyAll();
@@ -1071,7 +1071,7 @@ namespace CastlePlanner
             ApplyPause(true);
             state = PreviewState.Loading;
             NotifyAll();
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 briefingObserved
                     ? "Vanilla start-situation screen closed; castle selection opened."
@@ -1089,7 +1089,7 @@ namespace CastlePlanner
                 if (!catalogWaitLogged)
                 {
                     catalogWaitLogged = true;
-                    Shared.DebugLogHelper.LogInfo(
+                    Shared.DebugLogHelper.LogDebug(
                         log,
                         "Castle selection is waiting for asynchronous AIVJSON catalog loading without blocking rendered frames.");
                 }
@@ -1098,7 +1098,7 @@ namespace CastlePlanner
 
             RebuildChoices();
             localCatalogReady = true;
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Castle selection catalog is ready; choices={castleChoices.Count}.");
             MarkLocalReady();
@@ -1117,7 +1117,7 @@ namespace CastlePlanner
                     Platform_Multiplayer platform = Platform_Multiplayer.Instance ??
                         throw new InvalidOperationException("The multiplayer platform is unavailable.");
 
-                    Shared.DebugLogHelper.LogInfo(
+                    Shared.DebugLogHelper.LogDebug(
                         log,
                         $"Free-castle multiplayer restart reset beginning: " +
                         $"operation={operationId}, mpGameActive={Platform_Multiplayer.MPGameActive}, " +
@@ -1130,7 +1130,7 @@ namespace CastlePlanner
                     initFastMethod.Invoke(platform, null);
                     platform.initFastFollowOn();
                     RelinquishMultiplayerLivenessGuardAfterVanillaReset();
-                    Shared.DebugLogHelper.LogInfo(
+                    Shared.DebugLogHelper.LogDebug(
                         log,
                         $"Free-castle multiplayer restart reset completed: " +
                         $"operation={operationId}, mpGameActive={Platform_Multiplayer.MPGameActive}, " +
@@ -1153,7 +1153,7 @@ namespace CastlePlanner
                     // seed handshake. Vanilla always follows it with this Director
                     // activation so messages and host acknowledgements are processed.
                     Director.instance.StartMultiplayerGame();
-                    Shared.DebugLogHelper.LogInfo(
+                    Shared.DebugLogHelper.LogDebug(
                         log,
                         $"Free-castle multiplayer restart handshake activated: " +
                         $"operation={operationId}, mpGameActive={Platform_Multiplayer.MPGameActive}, " +
@@ -1348,7 +1348,7 @@ namespace CastlePlanner
             previousResyncingOrSaving = platform.resyncingOrSaving;
             platform.resyncingOrSaving = true;
             multiplayerLivenessGuardArmed = true;
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Castle-preview multiplayer liveness guard armed: operation={operationId}, " +
                 $"previousResyncingOrSaving={previousResyncingOrSaving}, " +
@@ -1398,7 +1398,7 @@ namespace CastlePlanner
                 }
             }
 
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Castle-preview multiplayer liveness guard released: operation={operationId}, " +
                 $"reason={reason}, restoredResyncingOrSaving={restoreValue}, " +
@@ -1412,7 +1412,7 @@ namespace CastlePlanner
 
             multiplayerLivenessGuardArmed = false;
             previousResyncingOrSaving = false;
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Castle-preview multiplayer liveness guard ownership relinquished after Vanilla reset: operation={operationId}.");
         }

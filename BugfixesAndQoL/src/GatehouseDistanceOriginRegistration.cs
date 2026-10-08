@@ -37,7 +37,7 @@ namespace BugfixesAndQoL
             capability = sharedCapability;
             lastFailure = null;
             Apply();
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 "Gatehouse distance-origin correction is owned by APIShared; no local native patch is installed.");
         }

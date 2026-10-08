@@ -798,7 +798,7 @@ namespace RandomEvents
         }
 
         private void LogDebug(string message) => Shared.DebugLogHelper.LogDebug(log, message);
-        private void LogInfo(string message) => Shared.DebugLogHelper.LogInfo(log, message);
+        private void LogInfo(string message) => Shared.DebugLogHelper.LogDebug(log, message);
         private void LogWarning(string message) => Shared.DebugLogHelper.LogWarning(log, message);
         private void LogError(string message) => Shared.DebugLogHelper.LogError(log, message);
 

@@ -376,7 +376,7 @@ namespace BugfixesAndQoL
         }
 
         private void Info(string message) =>
-            log.LogInfo($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {message}");
+            log.LogDebug($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {message}");
 
         private void Error(string message) =>
             log.LogError($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {message}");

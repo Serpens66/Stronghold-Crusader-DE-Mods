@@ -234,7 +234,7 @@ namespace APIShared
                 log = logger;
                 initialized = true;
             }
-            NativeApiLog.Info(logger, "Savegame ModSettings handler registered after Script Extender startup cleanup.");
+            NativeApiLog.Debug(logger, "Savegame ModSettings handler registered after Script Extender startup cleanup.");
         }
 
         /// <summary>Reads only the selected save's own appended metadata for the load checkbox.</summary>

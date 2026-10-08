@@ -90,7 +90,7 @@ namespace ExtraFeatures
                 if (probe.DisplacedByteCount != FearFactorNativeDefinition.UiHookLength)
                     throw new InvalidOperationException("Unexpected RedBird UI span before installation.");
             }
-            Shared.DebugLogHelper.LogInfo(log,
+            Shared.DebugLogHelper.LogDebug(log,
                 $"FEAR_FACTOR_VALIDATED: sha256={FearFactorNativeDefinition.ReferenceSha256}, " +
                 "uiStart=0x1A19F2, uiEnd=0x1A1A00, instructionLengths=7,7, next=TEST_EAX_EAX.");
 
@@ -151,7 +151,7 @@ namespace ExtraFeatures
                 throw;
             }
 
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"FEAR_FACTOR_NEUTRALIZATION_READY: damageRva=0x{damageResolution.Rva:X}, " +
                 $"damageDetourLength={FearFactorNativeDefinition.DamageDetourLength}, " +
@@ -192,7 +192,7 @@ namespace ExtraFeatures
                 TryAttachArmyReportViewModel();
                 RefreshArmyReportText();
             }
-            Shared.DebugLogHelper.LogInfo(log,
+            Shared.DebugLogHelper.LogDebug(log,
                 $"FEAR_FACTOR_SETTING: enabled={enabled}, mode={Shared.GameplayModActivationGate.Snapshot.Kind}.");
         }
 

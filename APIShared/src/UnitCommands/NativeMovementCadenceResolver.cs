@@ -92,7 +92,7 @@ namespace APIShared.UnitCommands
                     resolvedTypes++;
             }
 
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Bugfixes and QoL stage=friendly-moat-movement-weighted-cadence-resolver dispatchRva=0x{dispatch.Rva:X} " +
                 $"tableRva=0x{dispatchTable - libraryBase:X} handlers={uniqueHandlers.Count} " +

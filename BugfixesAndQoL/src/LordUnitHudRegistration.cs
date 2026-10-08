@@ -55,7 +55,7 @@ namespace BugfixesAndQoL
             }
             Capability = capability;
             RefreshSetting();
-            Shared.DebugLogHelper.LogInfo(log, "Controlled Lord registered with APIShared unit-HUD presentation.");
+            Shared.DebugLogHelper.LogDebug(log, "Controlled Lord registered with APIShared unit-HUD presentation.");
         }
 
         private bool IsControlledLord(UnitHudUnitSnapshot unit)

@@ -18,7 +18,7 @@ namespace BuildingCosts
 
         public const string PluginGuid = "BuildingCosts_Serp";
         public const string PluginName = "Building Costs";
-        public const string PluginVersion = "1.0.109";
+        public const string PluginVersion = "1.0.110";
 
         internal static readonly BuildingCostTooltipViewModel BuildingCostTooltipViewModel = new BuildingCostTooltipViewModel();
 
@@ -29,7 +29,6 @@ namespace BuildingCosts
 
         private void Awake()
         {
-            Shared.DebugLogHelper.LogDebug(Logger, $"{PluginName} {PluginVersion} loaded.");
 
             Settings = new BuildingCostsLobbyViewModel();
             runtime = new BuildingCostsRuntime(Logger, Settings);

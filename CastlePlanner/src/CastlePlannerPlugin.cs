@@ -22,7 +22,7 @@ namespace CastlePlanner
 
         public const string PluginGuid = "CastlePlanner_Serp";
         public const string PluginName = "CastlePlanner";
-        public const string PluginVersion = "0.8.37";
+        public const string PluginVersion = "0.8.38";
 
         // The BepInEx component is destroyed during startup, so runtime state remains static.
         private static CastlePlannerRuntime runtime;
@@ -49,9 +49,6 @@ namespace CastlePlanner
             previewRuntime = new FreeCastlePreviewRuntime(Logger, Settings);
             runtime = new CastlePlannerRuntime(Logger, Settings, previewRuntime);
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
-            Shared.DebugLogHelper.LogInfo(
-                Logger,
-                $"{PluginName} {PluginVersion} loaded; the AIVJSON catalog will be cached automatically in the lobby.");
         }
 
         private static void InstallSteamReadyHook()
@@ -201,7 +198,7 @@ namespace CastlePlanner
 
             if (failedOptionalStages.Count == 0)
             {
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     Logger,
                     "Crusader library initialization completed; all optional stages completed successfully.");
             }

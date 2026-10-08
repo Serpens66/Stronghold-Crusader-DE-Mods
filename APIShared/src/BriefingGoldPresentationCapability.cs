@@ -286,7 +286,7 @@ namespace APIShared
 
         private static void TryLogInfo(ManualLogSource log, string message)
         {
-            try { NativeApiLog.Info(log, message); } catch { }
+            try { NativeApiLog.Debug(log, message); } catch { }
         }
 
         private static void TryLogError(ManualLogSource log, string message)

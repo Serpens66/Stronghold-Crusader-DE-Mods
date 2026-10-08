@@ -302,7 +302,7 @@ namespace ExtraFeatures
                     liveDefenseTargets[target] = new LiveDefenseIdentity(spanIndex + 1, building.r_GlobalId);
                     count++;
                 }
-                Shared.DebugLogHelper.LogInfo(log,
+                Shared.DebugLogHelper.LogDebug(log,
                     $"AI defense rebuild save-load inventory: intactTargets={count}, tick={SafeCurrentTick()}.");
             }
             catch (Exception ex)
@@ -433,7 +433,7 @@ namespace ExtraFeatures
             if (destroyedDefenseTicks.ContainsKey(target))
                 return;
             destroyedDefenseTicks[target] = tick;
-            Shared.DebugLogHelper.LogInfo(log,
+            Shared.DebugLogHelper.LogDebug(log,
                 $"AI defense rebuild destruction: target={target}, buildingId={identity.BuildingId}, " +
                 $"globalId={identity.GlobalId}, tick={tick}, source={source}.");
         }
@@ -839,7 +839,7 @@ namespace ExtraFeatures
                             if (elapsed >= 0 && elapsed < (long)settings.AITowerGateRebuildDelaySeconds * TicksPerSecond)
                                 Shared.DebugLogHelper.LogError(log, message);
                             else
-                                Shared.DebugLogHelper.LogInfo(log, message);
+                                Shared.DebugLogHelper.LogDebug(log, message);
                         }
                         liveDefenseTargets[target] = new LiveDefenseIdentity(buildingId, building->r_GlobalId);
                         damagedDefenseWatches.Remove(target);
@@ -1001,7 +1001,7 @@ namespace ExtraFeatures
 
                 state = new RebuildDelayState(firstTick, source);
                 rebuildDelays.Add(target, state);
-                Shared.DebugLogHelper.LogInfo(log,
+                Shared.DebugLogHelper.LogDebug(log,
                     $"AI defense rebuild timer started: target={target}, frameIndex={context.FrameIndex}, " +
                     $"tick={context.Tick}, startTick={firstTick}, delaySeconds={delaySeconds}, source={source}.");
             }
@@ -1013,7 +1013,7 @@ namespace ExtraFeatures
                 if (!state.ReleaseLogged)
                 {
                     state.ReleaseLogged = true;
-                    Shared.DebugLogHelper.LogInfo(log,
+                    Shared.DebugLogHelper.LogDebug(log,
                         $"AI defense rebuild timer released: target={target}, frameIndex={context.FrameIndex}, " +
                         $"tick={context.Tick}, startTick={state.FirstDetectedTick}, elapsedTicks={elapsed}, " +
                         $"source={state.Source}.");
@@ -1025,7 +1025,7 @@ namespace ExtraFeatures
             if (!state.BlockLogged)
             {
                 state.BlockLogged = true;
-                Shared.DebugLogHelper.LogInfo(log,
+                Shared.DebugLogHelper.LogDebug(log,
                     $"AI defense rebuild timer blocked: target={target}, frameIndex={context.FrameIndex}, " +
                     $"tick={context.Tick}, startTick={state.FirstDetectedTick}, elapsedTicks={elapsed}, " +
                     $"requiredTicks={requiredTicks}.");

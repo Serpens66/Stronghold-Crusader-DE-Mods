@@ -45,7 +45,7 @@ namespace APIShared
             image.RequireExecutableRange(rva, pattern.Length, "Assassin hook");
             if (pattern.FindUnique(memory.Slice(rva, pattern.Length)) == 0)
             {
-                NativeApiLog.Info(log, $"Assassin native resolution=reference-rva, rva=0x{rva:X}.");
+                NativeApiLog.Debug(log, $"Assassin native resolution=reference-rva, rva=0x{rva:X}.");
                 return;
             }
             int found = -1;
@@ -59,7 +59,7 @@ namespace APIShared
             }
             // Data and structure layouts remain hash-bound; relocated sites are never guessed.
             if (found != rva) throw new InvalidOperationException($"Assassin native pattern at 0x{rva:X} was missing or relocated (0x{found:X}).");
-            NativeApiLog.Info(log, $"Assassin native resolution=pattern-fallback, rva=0x{found:X}.");
+            NativeApiLog.Debug(log, $"Assassin native resolution=pattern-fallback, rva=0x{found:X}.");
         }
 
         private static void ValidateSpan(ReadOnlySpan<byte> memory, ulong module, int rva, int expected, int minimum)

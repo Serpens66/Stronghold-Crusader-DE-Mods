@@ -80,7 +80,7 @@ namespace BugfixesAndQoL
                 }
                 throw;
             }
-            log.LogInfo("NOTIFICATION_LAST_FRAME_INSTALLED: permanent playback and MediaEnded hooks installed.");
+            Shared.DebugLogHelper.LogDebug(log, "NOTIFICATION_LAST_FRAME_INSTALLED: permanent playback and MediaEnded hooks installed.");
         }
 
         private bool Enabled => settings.EnableMod && settings.EnableClientFeatures &&
@@ -91,7 +91,7 @@ namespace BugfixesAndQoL
             if (postStartupLogged || instance == null || videoEndedHook == null || playBinkHook == null)
                 return;
             postStartupLogged = true;
-            instance.log.LogInfo("NOTIFICATION_LAST_FRAME_POST_STARTUP: permanent hooks active after startup cleanup.");
+            Shared.DebugLogHelper.LogDebug(instance.log, "NOTIFICATION_LAST_FRAME_POST_STARTUP: permanent hooks active after startup cleanup.");
         }
 
         private static void OnPlayBink(SFXManager self, string binkName, bool loop, bool waitForSpeech)
@@ -167,7 +167,7 @@ namespace BugfixesAndQoL
                     return;
                 media.Pause();
                 media.Opacity = 1f;
-                feature.log.LogInfo("NOTIFICATION_LAST_FRAME_HELD: final frame held while speech continues.");
+                Shared.DebugLogHelper.LogDebug(feature.log, "NOTIFICATION_LAST_FRAME_HELD: final frame held while speech continues.");
             }
             catch (Exception ex)
             {

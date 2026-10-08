@@ -553,7 +553,7 @@ namespace BugfixesAndQoL
                 int preparedSlots = CoopCustomLordSelectionFeature.BeginCoopStart(
                     self?.activeLobby, coopTrailId);
                 if (coopTrailId > 0)
-                    Shared.DebugLogHelper.LogInfo(log,
+                    Shared.DebugLogHelper.LogDebug(log,
                         $"Coop Trail AIV start snapshot prepared: trail={coopTrailId}, mission={coopMissionId}, " +
                         $"selectedSlots={preparedSlots}, extraCandidateSlots={activeStartManifest?.Slots.Count ?? 0}.");
                 startGameTrampoline(self, setup, map, coopTrailId, coopMissionId);

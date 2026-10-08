@@ -248,7 +248,7 @@ namespace BugfixesAndQoL
                 return;
 
             sessionState.MarkConfirmed(playerId);
-            log.LogInfo(
+            log.LogDebug(
                 $"Vanilla Lord spawn confirmed after corrupt-data repair: session={sessionState.SessionId}, " +
                 $"player={playerId}, unit/global={lordUnitId}/{lordGlobalId}, " +
                 $"observationTick={observationTick}, simulationTick={simulationTick}.");

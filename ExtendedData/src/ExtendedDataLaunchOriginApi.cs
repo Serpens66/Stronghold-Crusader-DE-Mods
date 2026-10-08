@@ -157,7 +157,7 @@ namespace ExtendedData
                 launchPending = false;
             }
             if (previous != ExtendedDataLaunchOriginKind.None)
-                DebugLogHelper.LogInfo(log, $"Cleared customized launch origin: previous={previous}.");
+                DebugLogHelper.LogDebug(log, $"Cleared customized launch origin: previous={previous}.");
         }
 
         internal static void MarkMapStarted()
@@ -224,7 +224,7 @@ namespace ExtendedData
                     data.TrailId,
                     data.MissionId,
                     restored: true);
-                DebugLogHelper.LogInfo(
+                DebugLogHelper.LogDebug(
                     log,
                     $"Restored customized launch origin from save: origin={data.Origin}, trailId={data.TrailId}, missionId={data.MissionId}.");
             }
@@ -275,7 +275,7 @@ namespace ExtendedData
                 restoredFromSave = restored;
                 launchPending = true;
             }
-            DebugLogHelper.LogInfo(
+            DebugLogHelper.LogDebug(
                 log,
                 $"Set customized launch origin: origin={originValue}, trailType={trailTypeValue}, " +
                 $"trailId={trailIdValue}, missionId={missionIdValue}, restored={restored}.");

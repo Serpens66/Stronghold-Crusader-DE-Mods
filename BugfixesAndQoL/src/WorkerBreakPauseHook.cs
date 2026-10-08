@@ -92,7 +92,7 @@ namespace BugfixesAndQoL
         {
             if (afterStartupLogged) return;
             afterStartupLogged = true;
-            Shared.DebugLogHelper.LogInfo(log,
+            Shared.DebugLogHelper.LogDebug(log,
                 "BUGFIXES_AND_QOL_WORKER_BREAK_READY: baker/miller hooks active after startup; tick=" + tick);
         }
 

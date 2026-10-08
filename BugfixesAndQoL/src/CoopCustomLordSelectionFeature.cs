@@ -230,7 +230,7 @@ namespace BugfixesAndQoL
                 throw;
             }
 
-            Shared.DebugLogHelper.LogInfo(log, "Bugfixes and QoL Coop custom-lord selection initialized.");
+            Shared.DebugLogHelper.LogDebug(log, "Bugfixes and QoL Coop custom-lord selection initialized.");
         }
 
         internal void ApplySetting()
@@ -547,7 +547,7 @@ namespace BugfixesAndQoL
                 MainViewModel.Instance.Show_CoopAIAllyPanel = false;
                 MainViewModel.Instance.Show_CoopMapIcons = true;
                 MainViewModel.Instance.Show_CoopHostJoinedPane = true;
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     $"Bugfixes and QoL selected Coop custom lord '{selectedLordName}' in player slot 2.");
             }
@@ -711,7 +711,7 @@ namespace BugfixesAndQoL
                     playerId, lordType, subType, team);
             }
 
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Bugfixes and QoL registering Coop custom lord: playerId={playerId}, lordType={lordType}, subType={subType}, lobbyTeam={self.currentLobby.getTeam(partner)}, requestedTeam={team}, playerTeam={playerTeam}, playerTeamMembers={playerTeamMemberCount}, effectiveTeam={effectiveTeam}.");
             registerSkirmishUserOriginal(playerId, lordType, subType, effectiveTeam);
@@ -941,7 +941,7 @@ namespace BugfixesAndQoL
             }
             if (!info.builtInLord)
                 EngineInterface.setCustomLordConfig(ref info.lordConfig.lordData, playerId);
-            Shared.DebugLogHelper.LogInfo(log,
+            Shared.DebugLogHelper.LogDebug(log,
                 $"Custom Coop Trail imported lobby AIV: playerId={playerId}, lord={info.lordName}, candidates={count}, source=start-snapshot.");
         }
 
@@ -1174,7 +1174,7 @@ namespace BugfixesAndQoL
                     addedCount++;
                 }
                 deleteButtonsByPage.Add(page, buttons);
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     $"Bugfixes and QoL created {buttons.Length} Coop progress delete buttons for {page.GetType().Name}.");
             }

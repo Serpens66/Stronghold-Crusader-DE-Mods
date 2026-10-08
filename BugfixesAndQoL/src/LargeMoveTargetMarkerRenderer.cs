@@ -170,7 +170,7 @@ namespace BugfixesAndQoL
                         $"result={result}, visible={visibleTileHook.Hook?.DisplacedByteCount}.");
                 }
 
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     "Large Move marker renderer ready: " +
                     $"reset=0x{ResetDrawListRva:X}/span{ResetDrawListLength}, " +

@@ -194,7 +194,7 @@ namespace APIShared
                 }
                 lock (Published) Published.Add(this);
                 installed = true;
-                NativeApiLog.Info(log, "capability=gatehouse-automation, status=installed, spans=B7A4E/17,B7BF4/15,C53D5/18,C54A0/16,D5835/15,B79E2/18; permanent hooks published.");
+                NativeApiLog.Debug(log, "capability=gatehouse-automation, status=installed, spans=B7A4E/17,B7BF4/15,C53D5/18,C54A0/16,D5835/15,B79E2/18; permanent hooks published.");
             }
             Volatile.Write(ref resolver, value);
             return true;
@@ -208,7 +208,7 @@ namespace APIShared
             {
                 bool manual = current(buildingId);
                 if (Interlocked.Exchange(ref callbackConfirmed, 1) == 0)
-                    NativeApiLog.Info(log, $"GATE_AUTOMATION_POST_STARTUP: hook confirmed, buildingId={buildingId}, manual={manual}.");
+                    NativeApiLog.Debug(log, $"GATE_AUTOMATION_POST_STARTUP: hook confirmed, buildingId={buildingId}, manual={manual}.");
                 return manual ? 1 : 0;
             }
             catch (Exception ex)
@@ -235,7 +235,7 @@ namespace APIShared
                 if (match < 0 || section.Start + match != rva)
                     throw new InvalidOperationException($"Gate automation target 0x{rva:X} rejected: live reference and unique executable pattern failed (match={match}).");
             }
-            NativeApiLog.Info(log, $"capability=gatehouse-automation, target=0x{rva:X}, method={(matches ? "reference-rva" : "pattern")}, bytes={expected.Length}.");
+            NativeApiLog.Debug(log, $"capability=gatehouse-automation, target=0x{rva:X}, method={(matches ? "reference-rva" : "pattern")}, bytes={expected.Length}.");
         }
 
         internal static void GenerateHook(Assembler asm, Instruction[] displaced, int site,

@@ -20,7 +20,7 @@ namespace UnitCosts
 
         public const string PluginGuid = "UnitCosts_Serp";
         public const string PluginName = "Unit Costs";
-        public const string PluginVersion = "1.0.32";
+        public const string PluginVersion = "1.0.33";
 
         private UnitCostsRuntime runtime;
         private static UnitCostsRuntime activeRuntime;
@@ -30,7 +30,6 @@ namespace UnitCosts
 
         private void Awake()
         {
-            Shared.DebugLogHelper.LogDebug(Logger, $"{PluginName} {PluginVersion} loaded.");
 
             Settings = new UnitCostsLobbyViewModel();
             runtime = new UnitCostsRuntime(Logger, Settings);

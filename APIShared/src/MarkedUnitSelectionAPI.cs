@@ -91,7 +91,7 @@ namespace APIShared
                 bufferHook = buffer;
                 log = logger;
                 installed = true;
-                logger.LogInfo("MARKED_SELECTION_READY: Harmony input postfix and post-tick hooks installed; Vanilla calls are passed through once.");
+                Shared.DebugLogHelper.LogDebug(logger, "MARKED_SELECTION_READY: Harmony input postfix and post-tick hooks installed; Vanilla calls are passed through once.");
             }
             catch (Exception error)
             {
@@ -261,7 +261,7 @@ namespace APIShared
                 if (units[index].r_UnitHover != 0) selected.Add(index + 1);
             lastNativeCount = GamePlayerManagerAPI.Instance.GetHoveredChimpsCount();
             fullScans++;
-            log?.LogInfo("MARKED_SELECTION_SCAN: reason=" + reason + ", session=" + sessionId +
+            Shared.DebugLogHelper.LogDebug(log, () => "MARKED_SELECTION_SCAN: reason=" + reason + ", session=" + sessionId +
                 ", marked=" + selected.Count + ", nativeCount=" + lastNativeCount +
                 ", fullScans=" + fullScans + ", candidateChecks=" + candidateChecks);
         }
@@ -279,7 +279,7 @@ namespace APIShared
                 if (same) return null;
             }
             snapshot = new MarkedUnitSelectionSnapshot(sessionId, ids);
-            log?.LogInfo("MARKED_SELECTION_CHANGED: session=" + sessionId + ", marked=" + ids.Length +
+            Shared.DebugLogHelper.LogDebug(log, () => "MARKED_SELECTION_CHANGED: session=" + sessionId + ", marked=" + ids.Length +
                 ", candidateChecks=" + candidateChecks + ", fullScans=" + fullScans);
             return snapshot;
         }

@@ -103,7 +103,7 @@ namespace BugfixesAndQoL
                 uiUpdateTrampoline = uiUpdateHook.GenerateTrampoline<NoesisGuiUpdateDelegate>();
 
                 nativeReady = true;
-                Shared.DebugLogHelper.LogInfo(log, "Bugfixes and QoL Ctrl single-unit market hooks installed.");
+                Shared.DebugLogHelper.LogDebug(log, "Bugfixes and QoL Ctrl single-unit market hooks installed.");
             }
             catch
             {
@@ -119,7 +119,7 @@ namespace BugfixesAndQoL
 
             disposed = true;
             nativeReady = false;
-            Shared.DebugLogHelper.LogInfo(log, "Bugfixes and QoL Ctrl single-unit market hooks disabled logically.");
+            Shared.DebugLogHelper.LogDebug(log, "Bugfixes and QoL Ctrl single-unit market hooks disabled logically.");
         }
 
         private void RollbackUnpublishedInitialization()
@@ -144,21 +144,21 @@ namespace BugfixesAndQoL
                 return;
             }
 
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Single market execution entered: player={args.PlayerId}, selling={args.Selling}, " +
                 $"good={(int)args.Good} ({args.Good}), mode={args.ShiftModifier}.");
 
             if (!CanExecuteSingleMarketTrade(args.PlayerId, args.Selling, args.Good))
             {
-                Shared.DebugLogHelper.LogInfo(log, "Single market execution rejected by the execution-time guard.");
+                Shared.DebugLogHelper.LogDebug(log, "Single market execution rejected by the execution-time guard.");
                 return;
             }
 
             GamePlayerManagerAPI playerApi = GamePlayerManagerAPI.Instance;
             if (!playerApi.TryGetPlayerResourcesById(args.PlayerId, out GamePlayerResources* resources))
             {
-                Shared.DebugLogHelper.LogInfo(log, $"Single market execution could not resolve resources for player={args.PlayerId}.");
+                Shared.DebugLogHelper.LogWarning(log, $"Single market execution could not resolve resources for player={args.PlayerId}.");
                 return;
             }
 
@@ -171,7 +171,7 @@ namespace BugfixesAndQoL
                 resources->N00004513 += (uint)proceeds;
                 marketSellGoldStatistic[args.PlayerId] += proceeds;
                 playerApi.RemoveGood(args.PlayerId, args.Good, 1);
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     $"Single market sell executed: player={args.PlayerId}, good={(int)args.Good} ({args.Good}), " +
                     $"proceeds={proceeds}, goldAfter={resources->r_TotalGoodsGold}.");
@@ -182,7 +182,7 @@ namespace BugfixesAndQoL
             // AutoMarket deducts gold only after the native storage operation succeeds.
             if (!playerApi.TryAddGood(args.PlayerId, args.Good, 1))
             {
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogWarning(
                     log,
                     $"Single market buy failed in native TryAddGood: player={args.PlayerId}, good={(int)args.Good} ({args.Good}).");
                 return;
@@ -190,7 +190,7 @@ namespace BugfixesAndQoL
 
             resources->r_TotalGoodsGold -= cost;
             resources->N00004513 -= (uint)cost;
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Single market buy executed: player={args.PlayerId}, good={(int)args.Good} ({args.Good}), " +
                 $"cost={cost}, goldAfter={resources->r_TotalGoodsGold}.");
@@ -252,7 +252,7 @@ namespace BugfixesAndQoL
                 sizeof(int) * 9,
                 "AutoMarket sell statistic array");
 
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Ctrl market native dependencies resolved by instruction patterns: " +
                 $"validatorRva=0x{validator - imageBase:X}, packetTailRva=0x{tail - imageBase:X}, " +
@@ -339,12 +339,12 @@ namespace BugfixesAndQoL
 
             // Ctrl+Shift explicitly restores the normal five-unit mode.
             int tradeMode = keys.isShiftDown() ? NormalTradeMode : SingleTradeMode;
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Ctrl market GameAction entering: command={command}, originalMode={structureId}, " +
                 $"mappedMode={tradeMode}, good={state}, value2={value2}, shift={keys.isShiftDown()}.");
             int result = gameActionTrampoline(command, tradeMode, state, value2);
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Ctrl market GameAction returned: command={command}, mappedMode={tradeMode}, good={state}, result={result}.");
             return result;
@@ -373,7 +373,7 @@ namespace BugfixesAndQoL
             int gold = validPlayer ? playerApi.GetPlayerGold(playerId) : 0;
             int storage = validPlayer && validGood ? GetAvailableGoodStorage(playerId, good) : -1;
             PackedGoodPrice price = validGood ? playerApi.GetTradeBasePrice(good) : default(PackedGoodPrice);
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Single market validator entered: selling={selling}, mode={tradeMode}, goodValue={goodValue}, " +
                 $"player={playerId}, validPlayer={validPlayer}, good={goodValue} ({good}), validGood={validGood}, " +
@@ -383,7 +383,7 @@ namespace BugfixesAndQoL
             {
                 // A trade that fails for one unit must also fail for Vanilla's five units.
                 // Let Vanilla produce its exact error code and matching Space_Warning speech.
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     "Single market validator delegated the rejected action to Vanilla's normal-mode error path.");
                 marketValidatorHook.Original(selling, NormalTradeMode, goodValue);
@@ -396,7 +396,7 @@ namespace BugfixesAndQoL
             *marketActionMode = tradeMode;
             sendActionPacket(marketActionPacketContext, 0x26);
             PlaySuccessfulMarketTradeSound();
-            Shared.DebugLogHelper.LogInfo(log, "Single market validator submitted Vanilla packet 0x26.");
+            Shared.DebugLogHelper.LogDebug(log, "Single market validator submitted Vanilla packet 0x26.");
         }
 
         private void NoesisGuiUpdateHook(FatControler self)
@@ -463,7 +463,7 @@ namespace BugfixesAndQoL
         {
             // Vanilla's native Buy/Sell validator queues SFX 26; its managed enum name is a misleading legacy label.
             GameSoundManagerAPI.Instance.PlayUnitySoundEx(VanillaMarketTradeSoundId);
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Queued Vanilla successful market trade sound ID {VanillaMarketTradeSoundId}.");
         }

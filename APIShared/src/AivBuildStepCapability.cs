@@ -102,7 +102,7 @@ namespace APIShared
                 service = candidate;
                 diagnostic = Diagnostic(hash, NativeCapabilityState.Available,
                     $"AIV ExecuteBuildStep is owned by APIShared at RVA 0x{FunctionRva:X}; function SHA-256={FunctionHash}.");
-                NativeApiLog.Info(log, $"capability={NativeCapabilityIds.AivBuildStep}, build={hash}, rva=0x{FunctionRva:X}, status=installed");
+                NativeApiLog.Debug(log, $"capability={NativeCapabilityIds.AivBuildStep}, build={hash}, rva=0x{FunctionRva:X}, status=installed");
                 return true;
             }
             catch (NativeResolutionException ex)

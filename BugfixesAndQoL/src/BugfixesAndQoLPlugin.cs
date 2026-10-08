@@ -41,7 +41,7 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.177";
+        public const string PluginVersion = "1.0.178";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static DamagedHealthBarsRuntime damagedHealthBarsRuntime;
@@ -69,7 +69,6 @@ namespace BugfixesAndQoL
         {
             Shared.UnityMainThreadDispatch.InitializeForCurrentThread();
             Shared.CrashBreadcrumbDiagnostics.Initialize(Logger, PluginGuid, PluginName, PluginVersion);
-            Shared.DebugLogHelper.LogDebug(Logger, $"{PluginName} {PluginVersion} loaded.");
             try
             {
                 if (startupUiReadinessGuardHook == null)

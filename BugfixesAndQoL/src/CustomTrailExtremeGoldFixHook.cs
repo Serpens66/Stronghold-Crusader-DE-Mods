@@ -85,7 +85,7 @@ namespace BugfixesAndQoL
             {
                 if (Normalize(result?.restartSkirmishInfo))
                 {
-                    Shared.DebugLogHelper.LogInfo(
+                    Shared.DebugLogHelper.LogDebug(
                         log,
                         $"Ignored customisedExtremeTrail=true while reading Custom Trail [{realFilePath ?? filePath}].");
                 }
@@ -112,7 +112,7 @@ namespace BugfixesAndQoL
                 {
                     if (Normalize(restartInfo))
                     {
-                        Shared.DebugLogHelper.LogInfo(
+                        Shared.DebugLogHelper.LogDebug(
                             log,
                             $"Writing Custom Trail [{trailPath}] with customisedExtremeTrail=false.");
                     }

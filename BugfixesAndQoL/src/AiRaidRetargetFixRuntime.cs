@@ -925,7 +925,7 @@ namespace BugfixesAndQoL
             nextRejectionCleanupTick = 0;
         }
 
-        private void Info(string value) { try { Shared.DebugLogHelper.LogInfo(log, value); } catch { } }
+        private void Info(string value) { try { Shared.DebugLogHelper.LogDebug(log, value); } catch { } }
         private void Warn(string value) { try { Shared.DebugLogHelper.LogWarning(log, value); } catch { } }
         private sealed class AttackCandidateCapture
         {

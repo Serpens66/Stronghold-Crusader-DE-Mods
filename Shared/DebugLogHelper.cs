@@ -115,7 +115,7 @@ namespace Shared
                 {
                     if (logSuccess)
                     {
-                        LogInfo(
+                        LogDebug(
                             log,
                             $"{label} verified the installed CrusaderDE.dll: sha256={actualHash}, size={fileSize}, path={path}.");
                     }

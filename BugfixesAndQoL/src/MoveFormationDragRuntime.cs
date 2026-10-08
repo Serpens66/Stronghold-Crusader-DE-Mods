@@ -160,7 +160,7 @@ namespace BugfixesAndQoL
                 }
 
                 installed = true;
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     "Move formation drag R3 input, selection transition, and full Vanilla EngineInterface.run transaction installed for the process lifetime.");
             }

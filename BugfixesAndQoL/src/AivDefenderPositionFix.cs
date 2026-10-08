@@ -66,7 +66,7 @@ namespace BugfixesAndQoL
                     RejectJumpInstructionIndex,
                     1,
                     "AIV defender-position exclusion"));
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"AIV defender-position permanent hook installed: rva=0x{patchRva:X}, displaced={ExpectedDisplacedByteCount}.");
         }

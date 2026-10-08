@@ -18,7 +18,7 @@ namespace ExtendedData
     {
         public const string PluginGuid = "ExtendedData_Serp";
         public const string PluginName = "Extended Data";
-        public const string PluginVersion = "1.0.7";
+        public const string PluginVersion = "1.0.8";
         public const bool ExtendedDataModSettingsOptOut = true;
 
         private static ExtendedDataRuntime runtime;
@@ -29,7 +29,6 @@ namespace ExtendedData
         private void Awake()
         {
             Shared.UnityMainThreadDispatch.InitializeForCurrentThread();
-            Shared.DebugLogHelper.LogInfo(Logger, PluginName + " " + PluginVersion + " loaded.");
             CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;
         }
 

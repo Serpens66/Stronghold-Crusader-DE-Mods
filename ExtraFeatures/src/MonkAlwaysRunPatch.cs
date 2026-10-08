@@ -101,7 +101,7 @@ namespace ExtraFeatures
                 throw;
             }
 
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Extra Features Monk movement hook installed disabled: " +
                 $"startRva=0x{decisionRva:X}, endRva=0x{decisionRva + HookSize:X}, " +

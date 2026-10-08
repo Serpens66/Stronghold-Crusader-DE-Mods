@@ -176,7 +176,7 @@ namespace ExtendedData
             }));
 
             RegisterLobbyObserver();
-            DebugLogHelper.LogInfo(log, "Map mod-settings coordinator initialized.");
+            DebugLogHelper.LogDebug(log, "Map mod-settings coordinator initialized.");
         }
 
         internal void SetEnabled(bool value)
@@ -453,7 +453,7 @@ namespace ExtendedData
                         throw new InvalidDataException("Captured Map mod settings exceed the supported payload size.");
                     pendingMapSavePayload = payload;
                     pendingMapSavePath = NormalizePath(path);
-                    DebugLogHelper.LogInfo(
+                    DebugLogHelper.LogDebug(
                         log,
                         "Captured Map mod settings before save; mentioned=[" +
                         string.Join(", ", document.Mods.Keys) + "].");
@@ -708,7 +708,7 @@ namespace ExtendedData
             activeMapPath = NormalizePath(selected.filePath);
             activeMapCrc = selected.crc;
             activeJson = json;
-            DebugLogHelper.LogInfo(
+            DebugLogHelper.LogDebug(
                 log,
                 "Applied Map mod settings from [" + selected.filePath + "]; mentioned=[" +
                 string.Join(", ", document.Mods.Keys) + "].");
@@ -780,7 +780,7 @@ namespace ExtendedData
                     apply: false,
                     mapFileName: clearedMapFileName,
                     mapCrc: clearedMapCrc);
-            DebugLogHelper.LogInfo(log, "Cleared Map mod-settings context: " + reason + ".");
+            DebugLogHelper.LogDebug(log, "Cleared Map mod-settings context: " + reason + ".");
         }
 
         private void OnMapSettingsPacket(ReceiveCustomPacketEventArgs<MapModSettingsPacket> args)
@@ -876,7 +876,7 @@ namespace ExtendedData
                         SerpLocalization.Get("ExtendedData.MapModSettingsMissingTitle"),
                         SerpLocalization.Get("ExtendedData.MapModSettingsMissing") + " " + string.Join(", ", missing));
                 }
-                DebugLogHelper.LogInfo(log, "Applied authenticated host Map mod settings.");
+                DebugLogHelper.LogDebug(log, "Applied authenticated host Map mod settings.");
             }
             catch (Exception exception)
             {
@@ -912,7 +912,7 @@ namespace ExtendedData
                 dataLength = bytes.Length,
                 dataOffset = 0,
             });
-            DebugLogHelper.LogInfo(log, "Broadcast Map mod-settings " + (apply ? "apply" : "clear") + ".");
+            DebugLogHelper.LogDebug(log, "Broadcast Map mod-settings " + (apply ? "apply" : "clear") + ".");
         }
 
         private void RegisterLobbyObserver()

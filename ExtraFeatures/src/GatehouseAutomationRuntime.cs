@@ -1062,7 +1062,7 @@ namespace ExtraFeatures
         }
 
         private void LogInfo(string message) => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
-            () => log.LogInfo($"[{TimestampNow()}] Extra Features {message}"));
+            () => log.LogDebug($"[{TimestampNow()}] Extra Features {message}"));
         private void LogWarning(string message) => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
             () => log.LogWarning($"[{TimestampNow()}] Extra Features {message}"));
         private void LogError(string message) => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(

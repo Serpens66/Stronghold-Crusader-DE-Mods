@@ -351,7 +351,7 @@ namespace BugfixesAndQoL
 
             installed = true;
             ApplySetting();
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"INITIALIZED: waypointRva=0x{resolution.Rva:X}, functionSize=71, " +
                 $"movementCompleteRva=0x{movementCompleteResolution.Rva:X}, " +
@@ -1686,7 +1686,7 @@ namespace BugfixesAndQoL
             if (!runtimeTickLogged)
             {
                 runtimeTickLogged = true;
-                Shared.DebugLogHelper.LogInfo(log, $"RUNTIME_ACTIVE: firstTick={tick}.");
+                Shared.DebugLogHelper.LogDebug(log, $"RUNTIME_ACTIVE: firstTick={tick}.");
             }
             // Keep currentTick and the first runtime marker current even while idle.
             if (cohorts.Count == 0 && expectedMoveChores.Count == 0 && expectedMoveEvents.Count == 0)

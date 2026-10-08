@@ -19,13 +19,12 @@ namespace APIShared
         /// <summary>Display name of the API plugin.</summary>
         public const string PluginName = "APIShared";
         /// <summary>Current API plugin version.</summary>
-        public const string PluginVersion = "0.4.10";
+        public const string PluginVersion = "0.4.11";
 
         private void Awake()
         {
             UnitAccess.InitializeDiagnostics(Logger);
             ApiSharedRuntime.ProcessInstance.InitializeManaged(Logger);
-            NativeApiLog.Info(Logger, $"{PluginName} {PluginVersion} loaded; awaiting CrusaderLibrary.LibraryLoaded.");
             // The Script Extender event roots this plugin's native initialization after BepInEx
             // destroys its short-lived manager object. Native process state is never torn down here.
             CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;

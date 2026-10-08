@@ -114,7 +114,7 @@ namespace RandomEvents
                 memory.Length > PeaceTimeActiveFlagRva)
             {
                 peaceTimeActiveFlagAddress = IntPtr.Add(libraryHandle, PeaceTimeActiveFlagRva);
-                Shared.DebugLogHelper.LogInfo(log,
+                Shared.DebugLogHelper.LogDebug(log,
                     $"Random Events Vanilla Peace Time flag resolved by reference-rva: rva=0x{PeaceTimeActiveFlagRva:X}.");
             }
             else
@@ -2564,7 +2564,7 @@ namespace RandomEvents
                 () => Shared.DebugLogHelper.LogDebug(log, message));
         private void LogInfo(string message) =>
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
-                () => Shared.DebugLogHelper.LogInfo(log, message));
+                () => Shared.DebugLogHelper.LogDebug(log, message));
         private void LogWarning(string message) =>
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
                 () => Shared.DebugLogHelper.LogWarning(log, message));

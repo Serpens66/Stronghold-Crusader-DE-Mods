@@ -174,7 +174,7 @@ namespace BugfixesAndQoL
                     }
                     if (!context.GameIdPresent)
                     {
-                        Shared.DebugLogHelper.LogInfo(
+                        Shared.DebugLogHelper.LogDebug(
                             log,
                             $"Validated Steam lobby invitation from {context.InviterId} for lobby {context.LobbyId} " +
                             "through the SHCDE-SE lobby marker because Steam supplied gameId=0.");

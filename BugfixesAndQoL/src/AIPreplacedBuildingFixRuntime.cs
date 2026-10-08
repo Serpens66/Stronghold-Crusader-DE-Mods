@@ -530,7 +530,7 @@ namespace BugfixesAndQoL
                 int verified = *timer;
                 if (verified != 0)
                     throw new InvalidOperationException("The eligible legacy crushed-building timer could not be normalized.");
-                Shared.DebugLogHelper.LogInfo(log,
+                Shared.DebugLogHelper.LogDebug(log,
                     $"PREPLACED_LEGACY_TIMER_FIX_APPLIED: player={playerId}; timer=1->0; " +
                     $"matchingDestroyedTowers={matchingTowers.Length}.");
             }
@@ -890,7 +890,7 @@ namespace BugfixesAndQoL
                     }
                     economyFixEligiblePlayers.Remove(playerId);
                     session.EconomyFixState = EconomyFixActivationState.Suspended;
-                    Shared.DebugLogHelper.LogInfo(log,
+                    Shared.DebugLogHelper.LogDebug(log,
                         $"PREPLACED_ECONOMY_FIX_SUSPENDED: player={playerId}; mode={activationState}.");
                     activationState = EconomyFixActivationState.Suspended;
                 }
@@ -920,7 +920,7 @@ namespace BugfixesAndQoL
                 session.EconomyFixState = economyAccessFix.Activate(activationState);
                 session.EconomyFixValidatedRevision = economyTopologyRevision;
                 economyFixEligiblePlayers.Add(playerId);
-                Shared.DebugLogHelper.LogInfo(log,
+                Shared.DebugLogHelper.LogDebug(log,
                     $"PREPLACED_ECONOMY_FIX_ACTIVATED: player={playerId}; mode={session.EconomyFixState}.");
             }
             catch (Exception ex)
@@ -958,7 +958,7 @@ namespace BugfixesAndQoL
             session.EconomyFixValidatedRevision = -1;
             dirtyBreachPlayers.Remove(playerId);
             InvalidateEconomyOverlayCaches();
-            Shared.DebugLogHelper.LogInfo(log,
+            Shared.DebugLogHelper.LogDebug(log,
                 $"PREPLACED_CONFIRMED_WALL_BREACH: player={playerId}; wallTile={confirmed.WallTileId}.");
         }
 

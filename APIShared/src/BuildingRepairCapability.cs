@@ -409,7 +409,7 @@ namespace APIShared
                 if (!postStartupLogged)
                 {
                     postStartupLogged = true;
-                    NativeApiLog.Info(log, "Building repair capability executed after startup cleanup on the persistent HUD hook.");
+                    NativeApiLog.Debug(log, "Building repair capability executed after startup cleanup on the persistent HUD hook.");
                 }
                 if (hoveredButton == BigButtonId && (lastBigButton == null || !lastBigButton.IsMouseOver))
                     hoveredButton = null;

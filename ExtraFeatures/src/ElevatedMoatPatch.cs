@@ -540,7 +540,7 @@ namespace ExtraFeatures
                     ElevatedMoatNativeContract.AreaRemovalHeightLength,
                     "area moat-removal height");
 
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     $"Extra Features elevated-moat active; AI={allowAIPlacement}, human={allowHumanPlacement}, editor=true, " +
                     $"adaptiveDepth={ElevatedMoatNativeContract.MoatDepth}, " +
@@ -821,7 +821,7 @@ namespace ExtraFeatures
             if (!ElevatedMoatHealthReporting.ShouldReport(total))
                 return;
 
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Extra Features elevated-moat healthy: corrections={total}, " +
                 $"completed={Interlocked.Read(ref completedHeightCorrections)}, " +

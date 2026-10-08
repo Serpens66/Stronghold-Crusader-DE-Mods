@@ -128,7 +128,7 @@ namespace BugfixesAndQoL
                 throw new InvalidOperationException("Workshop idle signature moved outside the audited control flow.");
             WorkshopIdleDelayNative.ValidateInstructions(WorkshopIdleDelayNative.Decode(expected, imageBase + (uint)rva),
                 imageBase + (uint)exit, rva == WorkshopIdleDelayNative.TannerRva);
-            Shared.DebugLogHelper.LogInfo(log,
+            Shared.DebugLogHelper.LogDebug(log,
                 $"Workshop idle address resolved: method={resolved.Method}, rva=0x{resolved.Rva:X}; span=17.");
         }
 
@@ -157,7 +157,7 @@ namespace BugfixesAndQoL
             CheckOffset(typeof(GameBuilding), nameof(GameBuilding.r_PlayerIdOwner), 0xD6);
             CheckOffset(typeof(GameBuilding), nameof(GameBuilding.r_GlobalId), 0xD8);
             CheckOffset(typeof(GameBuilding), nameof(GameBuilding.r_WoodPlanksAmount), 0x128);
-            Shared.DebugLogHelper.LogInfo(log,
+            Shared.DebugLogHelper.LogDebug(log,
                 "Workshop idle field map validated: unit manager header=0x65C stride=0x490; " +
                 "building header=0x5C stride=0x32C; gameId is 1-based; native hash=" + WorkshopIdleDelayNative.NativeSha256);
         }
@@ -174,7 +174,7 @@ namespace BugfixesAndQoL
         {
             if (afterStartupLogged) return;
             afterStartupLogged = true;
-            Shared.DebugLogHelper.LogInfo(log,
+            Shared.DebugLogHelper.LogDebug(log,
                 "BUGFIXES_AND_QOL_WORKSHOP_IDLE_READY: permanent poleturner/tanner inline hooks; tick=" + tick +
                 "; unit allocation=" + *(int*)unitManager + "; building allocation=" + *(int*)(buildingManager + 0x50));
         }

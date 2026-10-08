@@ -194,7 +194,7 @@ namespace APIShared
                     NativeCapabilityState.Available,
                     hash,
                     groupReason);
-                try { NativeApiLog.Info(log, $"Unit HUD presentation installed; controlGroups={recordAccess}, build={hash}."); } catch { }
+                try { NativeApiLog.Debug(log, $"Unit HUD presentation installed; controlGroups={recordAccess}, build={hash}."); } catch { }
                 return true;
             }
             catch (Exception ex)
@@ -1140,7 +1140,7 @@ namespace APIShared
             if (!recruitmentControlsLogged)
             {
                 recruitmentControlsLogged = true;
-                NativeApiLog.Info(log, "Unit HUD recruitment controls resolved: host, previous, next, tint.");
+                NativeApiLog.Debug(log, "Unit HUD recruitment controls resolved: host, previous, next, tint.");
             }
         }
 

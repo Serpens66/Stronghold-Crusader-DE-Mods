@@ -82,7 +82,7 @@ namespace BugfixesAndQoL
             }
             else
             {
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     $"AI stone-reserve AIV backend: official SHCDE-SE {extenderVersion} API; " +
                     $"{ShcdeSeCoarseGridBufferWorkaround.Marker} workaround inactive.");

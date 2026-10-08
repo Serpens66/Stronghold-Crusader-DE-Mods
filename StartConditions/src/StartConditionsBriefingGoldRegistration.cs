@@ -37,7 +37,7 @@ namespace StartConditions
                 return;
             }
 
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 "Start Conditions briefing-gold adjustment registered with APIShared.");
         }

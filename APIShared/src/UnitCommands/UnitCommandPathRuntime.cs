@@ -1169,7 +1169,7 @@ namespace APIShared.UnitCommands
                 GameTimeManagerAPI.Instance.OnTick += ObserveTrackedAttackStates;
                 attackTickSubscribed = true;
 
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     "Unit command shared hooks installed: " +
                     $"cursorGate=0x{cursorGateResolution.Rva:X}/jump=0x{CursorCurrentTileFlagGateJumpRva:X}(vanilla), " +
@@ -1299,7 +1299,7 @@ namespace APIShared.UnitCommands
                         $"The building cursor hook was not installed atomically: {commitResult}.");
                 buildingCursorReachabilityDetour = pendingBuildingCursor;
                 buildingCursorHookTransaction = pendingTransaction;
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     "Bugfixes and QoL friendly-moat-movement building cursor reachability installed: " +
                     $"helper=0x{buildingCursorResolution.Rva:X}, " +
@@ -1390,7 +1390,7 @@ namespace APIShared.UnitCommands
                 buildingCandidateConsumerDetour = pendingBuildingConsumer;
                 regionPairReachabilityDetour = pendingRegionPair;
                 attackApproachHookTransaction = pendingTransaction;
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     "Bugfixes and QoL friendly-moat-movement attack-approach hooks installed: " +
                     $"unitFlood=0x{unitFloodResolution.Rva:X}, " +
@@ -8426,7 +8426,7 @@ namespace APIShared.UnitCommands
         internal void LogDetailedInfo(string message)
         {
             if (DetailedDiagnosticsEnabled)
-                Shared.DebugLogHelper.LogInfo(log, message);
+                Shared.DebugLogHelper.LogDebug(log, message);
         }
 
         internal void LogPositiveCursorDecision(ref int lastLoggedGeneration, string message)

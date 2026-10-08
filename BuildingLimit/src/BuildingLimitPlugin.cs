@@ -17,7 +17,7 @@ namespace BuildingLimit
 
         public const string PluginGuid = "BuildingLimit_Serp";
         public const string PluginName = "Building Limit";
-        public const string PluginVersion = "1.0.26";
+        public const string PluginVersion = "1.0.27";
 
         private static BuildingLimitRuntime runtime;
         private int libraryInitializationStarted;
@@ -26,7 +26,6 @@ namespace BuildingLimit
 
         private void Awake()
         {
-            Shared.DebugLogHelper.LogDebug(Logger, $"{PluginName} {PluginVersion} loaded.");
 
             Settings = new BuildingLimitLobbyViewModel();
             runtime = new BuildingLimitRuntime(Logger, Settings);

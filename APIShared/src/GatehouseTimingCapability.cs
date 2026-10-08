@@ -681,7 +681,7 @@ namespace APIShared
                     VerifyOwnedValues();
                     string values = FormatValues(aiDistance, aiDelay, humanDistance, humanDelay);
                     diagnostic = Diagnostic(NativeCapabilityState.Available, "Gatehouse timing values were applied and verified: " + values);
-                    NativeApiLog.Info(log, $"capability={NativeCapabilityIds.GatehouseTiming}, build={binaryHash}, owner={ownerGuid}, enabled={settings.Enabled}, status=applied, {values}");
+                    NativeApiLog.Debug(log, $"capability={NativeCapabilityIds.GatehouseTiming}, build={binaryHash}, owner={ownerGuid}, enabled={settings.Enabled}, status=applied, {values}");
                     return true;
                 }
                 catch (Exception ex)

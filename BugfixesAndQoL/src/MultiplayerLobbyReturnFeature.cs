@@ -85,7 +85,7 @@ namespace BugfixesAndQoL
             {
                 Platform_Multiplayer multiplayer = Platform_Multiplayer.Instance;
                 bool isHost = multiplayer?.IsGameMemberHost() == true;
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     $"Post-game lobby handoff armed: host={isHost}, creationRequested={creationRequested}, snapshotReady={snapshot != null}, receivedLobbyId={multiplayer?.CoopContinuationLobbyID ?? 0UL}.");
             }
@@ -118,7 +118,7 @@ namespace BugfixesAndQoL
             {
                 Action<string, string, int> chatCallback =
                     MultiplayerLobbyChatCallback.Capture(multiplayer);
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     $"Creating post-game lobby: trigger={trigger}, name='{snapshot.GameName}', map='{snapshot.MapFileName}', maxPlayers={snapshot.MaxPlayers}, lobbyMode={snapshot.LobbyMode}.");
                 multiplayer.CreateLobby(
@@ -137,7 +137,7 @@ namespace BugfixesAndQoL
                 if (!MultiplayerLobbyChatCallback.IsInstalled(multiplayer, chatCallback))
                     throw new InvalidOperationException(
                         "The replacement multiplayer lobby did not retain its chat callback.");
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     "Post-game host lobby chat callback preserved and verified after CreateLobby.");
                 ApplySnapshotToPendingLobby(multiplayer.activeLobby, snapshot);
@@ -174,7 +174,7 @@ namespace BugfixesAndQoL
             {
                 pendingVanillaExit = vanillaExit;
                 exitWaitStartedAt = Stopwatch.GetTimestamp();
-                Shared.DebugLogHelper.LogInfo(log, "Post-game Exit is waiting for the host's replacement lobby ID.");
+                Shared.DebugLogHelper.LogDebug(log, "Post-game Exit is waiting for the host's replacement lobby ID.");
             }
             return true;
         }
@@ -254,7 +254,7 @@ namespace BugfixesAndQoL
             snapshot = CaptureLobbySnapshot();
             if (snapshot != null)
             {
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     $"Captured multiplayer lobby for post-game return: source={source}, name='{snapshot.GameName}', map='{snapshot.MapFileName}', maxPlayers={snapshot.MaxPlayers}, lobbyMode={snapshot.LobbyMode}, mode={mode.ToDiagnosticString()}.");
             }
@@ -330,7 +330,7 @@ namespace BugfixesAndQoL
                 // Use the exact Vanilla Coop transport. SendPacketToAll already excludes self
                 // and AI members, while SendGameData rejects kicked recipients.
                 multiplayer.SendCoopContinuationLobby(created.identifier);
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     $"Post-game lobby created and announced to connected peers: lobbyId={created.identifier}, steamMembers={created.numLobbyMembers}, eligibleGamePeers={eligiblePeers}.");
             }
@@ -365,7 +365,7 @@ namespace BugfixesAndQoL
                 else
                     JoinClientLobby(multiplayer, lobbyId);
 
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     $"Post-game lobby transition started: role={(transitionAsHost ? "host" : "client")}, lobbyId={lobbyId}.");
                 return true;
@@ -474,7 +474,7 @@ namespace BugfixesAndQoL
                     new[] { typeof(FileHeader), typeof(bool) })
                     .Invoke(front, new object[] { header, false });
 
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     $"Post-game host lobby map presentation restored through Vanilla selection: map='{transitionSnapshot.MapFileName}', crc={transitionSnapshot.Crc}.");
             }

@@ -25,7 +25,7 @@ namespace SerpsModsHost
             integration.Discover(installed, api, () =>
             {
                 var phase = Stopwatch.StartNew();
-                var provider = new StatsTweakerConfigurationProvider(api, message => log.LogInfo(message));
+                var provider = new StatsTweakerConfigurationProvider(api, message => Shared.DebugLogHelper.LogDebug(log, message));
                 if (observedApi != api)
                 {
                     var changed = api.GetEvent("Changed", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
@@ -40,7 +40,7 @@ namespace SerpsModsHost
                     TargetGuid, TargetGuid, plugin.Metadata.Version, candidate);
                 registration.Activate(provider.EnableRestartManagedSynchronization,
                     error => error.GetBaseException() is InvalidOperationException);
-                log.LogInfo("[PresetPerf] provider activation: options=" + provider.GetSettings().Count + ", ms=" +
+                Shared.DebugLogHelper.LogDebug(log, "[PresetPerf] provider activation: options=" + provider.GetSettings().Count + ", ms=" +
                     phase.Elapsed.TotalMilliseconds.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) + ", " + provider.PerformanceCounts);
                 return candidate;
             }, error => log.LogWarning("[TweakerPresets] Optional integration unavailable: " + error.GetBaseException().Message));
@@ -69,8 +69,8 @@ namespace SerpsModsHost
                 LobbyModSettingsPresetRegistration.AttachExternalView(panel, log, TargetGuid);
                 scroll.HorizontalScrollBarVisibility = ScrollBarVisibility.Auto;
                 parent.Children.Insert(0, panel);
-                log.LogInfo("[PresetPerf] preset panel: ms=" + uiWatch.Elapsed.TotalMilliseconds.ToString("F2", System.Globalization.CultureInfo.InvariantCulture));
-                log.LogInfo("[TweakerPresets] Optional configuration integration attached.");
+                Shared.DebugLogHelper.LogDebug(log, "[PresetPerf] preset panel: ms=" + uiWatch.Elapsed.TotalMilliseconds.ToString("F2", System.Globalization.CultureInfo.InvariantCulture));
+                Shared.DebugLogHelper.LogDebug(log, "[TweakerPresets] Optional configuration integration attached.");
                 return true;
             }, error => log.LogWarning("[TweakerPresets] Preset page unavailable; configuration guards remain active: " + error.GetBaseException().Message));
         }

@@ -120,7 +120,7 @@ namespace APIShared
                     diagnostic = Diagnostic(
                         NativeCapabilityState.Available,
                         $"Gatehouse distance origin {origin} was applied and verified.");
-                    NativeApiLog.Info(
+                    NativeApiLog.Debug(
                         log,
                         $"capability={NativeCapabilityIds.GatehouseDistanceOrigin}, build={binaryHash}, owner={ownerGuid}, origin={origin}, status=applied");
                     return true;

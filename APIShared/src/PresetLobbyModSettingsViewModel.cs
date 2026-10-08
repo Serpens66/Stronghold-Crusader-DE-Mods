@@ -674,7 +674,7 @@ namespace Shared
         private void LogRoutine(string message)
         {
             if (routineLoggingEnabled)
-                DebugLogHelper.LogInfo(log, message);
+                DebugLogHelper.LogDebug(log, message);
         }
 
         private static string FormatRoster(IReadOnlyDictionary<int, ulong> players) =>
@@ -4180,7 +4180,7 @@ namespace Shared
             private void LogRoutine(string message)
             {
                 if (routineLoggingEnabled)
-                    DebugLogHelper.LogInfo(log, message);
+                    DebugLogHelper.LogDebug(log, message);
             }
 
             private static Dictionary<string, byte[]> Clone(
@@ -4269,7 +4269,7 @@ namespace Shared
                 scrollViewer.PreviewKeyDown += OnPreviewKeyDown;
                 scrollViewer.ScrollChanged += OnScrollChanged;
                 Log(
-                    $"attached; horizontal={scrollViewer.HorizontalOffset:0.###}, " +
+                    () => $"attached; horizontal={scrollViewer.HorizontalOffset:0.###}, " +
                     $"vertical={scrollViewer.VerticalOffset:0.###}, " +
                     $"extentWidth={scrollViewer.ExtentWidth:0.###}, " +
                     $"viewportWidth={scrollViewer.ViewportWidth:0.###}.");
@@ -4282,7 +4282,7 @@ namespace Shared
                 manualHorizontalScrollAuthorized =
                     IsHorizontalScrollBarInput(args.Source);
                 Log(
-                    $"PreviewMouseDown; source={Describe(args.Source)}, " +
+                    () => $"PreviewMouseDown; source={Describe(args.Source)}, " +
                     $"horizontalScrollbar={manualHorizontalScrollAuthorized}, " +
                     $"acceptedHorizontal={acceptedHorizontalOffset:0.###}, " +
                     $"currentHorizontal={scrollViewer.HorizontalOffset:0.###}.");
@@ -4295,7 +4295,7 @@ namespace Shared
                 manualHorizontalScrollAuthorized =
                     IsHorizontalScrollBarInput(args.Source);
                 Log(
-                    $"PreviewKeyDown; source={Describe(args.Source)}, " +
+                    () => $"PreviewKeyDown; source={Describe(args.Source)}, " +
                     $"horizontalScrollbar={manualHorizontalScrollAuthorized}.");
             }
 
@@ -4323,7 +4323,7 @@ namespace Shared
                 }
 
                 Log(
-                    $"ScrollChanged; horizontal={args.HorizontalOffset:0.###}, " +
+                    () => $"ScrollChanged; horizontal={args.HorizontalOffset:0.###}, " +
                     $"horizontalChange={args.HorizontalChange:0.###}, " +
                     $"vertical={args.VerticalOffset:0.###}, " +
                     $"verticalChange={args.VerticalChange:0.###}.");
@@ -4335,7 +4335,7 @@ namespace Shared
                 {
                     acceptedHorizontalOffset = args.HorizontalOffset;
                     Log(
-                        $"accepted explicit horizontal scrollbar input; horizontal=" +
+                        () => $"accepted explicit horizontal scrollbar input; horizontal=" +
                         $"{acceptedHorizontalOffset:0.###}.");
                     return;
                 }
@@ -4359,18 +4359,18 @@ namespace Shared
                     restoringHorizontalOffset = false;
                 }
                 Log(
-                    $"rejected non-scrollbar horizontal scroll; horizontal=" +
+                    () => $"rejected non-scrollbar horizontal scroll; horizontal=" +
                     $"{scrollViewer.HorizontalOffset:0.###}, preserved=" +
                     $"{acceptedHorizontalOffset:0.###}.");
             }
 
-            private void Log(string message)
+            private void Log(Func<string> message)
             {
                 if (diagnosticsEnabled)
                 {
-                    DebugLogHelper.LogInfo(
+                    DebugLogHelper.LogDebug(
                         log,
-                        $"[CastlePlanner ModSettingsScrollDiagnostic] {message}");
+                        () => $"[CastlePlanner ModSettingsScrollDiagnostic] {message()}");
                 }
             }
 

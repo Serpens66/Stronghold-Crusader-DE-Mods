@@ -82,7 +82,7 @@ namespace ExtendedData
                     fixes.Apply(pendingTrail);
                     ExtendedDataModDataApi.SetNetworkSnapshot(pendingTrail, true);
                     trailApplied = true;
-                    DebugLogHelper.LogInfo(log, "Trail Lord values applied at mission initialization: " +
+                    DebugLogHelper.LogDebug(log, "Trail Lord values applied at mission initialization: " +
                         pendingTrail.Digest);
                     return;
                 }
@@ -95,7 +95,7 @@ namespace ExtendedData
                     packageManifest = null;
                     localLordPaths.Clear();
                     ExtendedDataModDataApi.SetNetworkSnapshot(null, false);
-                    DebugLogHelper.LogInfo(log, "Lord-data session cleared for single-player map initialization.");
+                    DebugLogHelper.LogDebug(log, "Lord-data session cleared for single-player map initialization.");
                     return;
                 }
                 if (packageManifest?.UseLocalValues == true)
@@ -126,7 +126,7 @@ namespace ExtendedData
                     if (!string.Equals(lastMapAppliedDiagnostic, active.Digest, StringComparison.Ordinal))
                     {
                         lastMapAppliedDiagnostic = active.Digest;
-                        DebugLogHelper.LogInfo(log, "Lord-data map initialization applied: " +
+                        DebugLogHelper.LogDebug(log, "Lord-data map initialization applied: " +
                             LordDataSyncDiagnostics.DescribeSnapshot(active));
                     }
                 }
@@ -158,7 +158,7 @@ namespace ExtendedData
                 lastMapTransitionDiagnostic = null;
                 lastMapAppliedDiagnostic = null;
                 if (hadLordSession)
-                    DebugLogHelper.LogInfo(log, "Lord-data map ended; session Fixes preferences restored.");
+                    DebugLogHelper.LogDebug(log, "Lord-data map ended; session Fixes preferences restored.");
             }));
         }
 
@@ -195,7 +195,7 @@ namespace ExtendedData
                 }
             }
             ExtendedDataModDataApi.SetSinglePlayerLords(paths, unresolved);
-            DebugLogHelper.LogInfo(log, "Single-player Lord selection published: " +
+            DebugLogHelper.LogDebug(log, "Single-player Lord selection published: " +
                 "selected=" + (selected == null ? "unavailable" : selected.Length.ToString()) +
                 ",required=" + selectedRosterRequired + ",trail=" + selectedTrail +
                 ",custom=" + paths.Count +
@@ -360,7 +360,7 @@ namespace ExtendedData
                     if (!string.IsNullOrWhiteSpace(mediaName))
                     {
                         names[slot.PlayerId] = mediaName;
-                        DebugLogHelper.LogInfo(log, "Custom Trail Lord media provider for slot " +
+                        DebugLogHelper.LogDebug(log, "Custom Trail Lord media provider for slot " +
                             slot.PlayerId + ": " + mediaName);
                     }
                     else if (!string.IsNullOrWhiteSpace(error))
@@ -391,7 +391,7 @@ namespace ExtendedData
                 ActiveLobbyMatches(lobby) && ObservedLobbyMatches(lobby) &&
                 !string.IsNullOrEmpty(settings.LordDataSnapshot))
             {
-                DebugLogHelper.LogInfo(log, "Lord-data existing host setting observed on lobby open: source=" +
+                DebugLogHelper.LogDebug(log, "Lord-data existing host setting observed on lobby open: source=" +
                     source + ",wire=" + LordDataSyncDiagnostics.DescribeJson(settings.LordDataSnapshot, false));
                 OnSnapshotChanged(settings.LordDataSnapshot);
             }
@@ -418,7 +418,7 @@ namespace ExtendedData
                 string signature = next.SessionId + ":" + next.Digest;
                 if (!string.Equals(signature, lastHostCaptureDiagnostic, StringComparison.Ordinal) ||
                     string.Equals(source, "start-attempt", StringComparison.Ordinal))
-                    DebugLogHelper.LogInfo(log, "Lord-data host capture: source=" + source + "," +
+                    DebugLogHelper.LogDebug(log, "Lord-data host capture: source=" + source + "," +
                         LordDataSyncDiagnostics.DescribeSnapshot(next) +
                         ",selection=" + DescribeLobbySelection(lobby));
                 lastHostCaptureDiagnostic = signature;
@@ -532,7 +532,7 @@ namespace ExtendedData
                                 "Override", "Fixes", "preferences.json"))),
                         FixesDigest = fixesJson == null ? null : LordDataSyncDiagnostics.Hash(fixesJson),
                     });
-                    DebugLogHelper.LogInfo(log, "Lord package inspected: source=" + source +
+                    DebugLogHelper.LogDebug(log, "Lord package inspected: source=" + source +
                         ",slot=" + (index + 1) + ",lord=" + LordDataSyncDiagnostics.SafeLabel(info.lordName) +
                         ",fingerprintedFiles=" + files.GameplayPaths.Count +
                         ",requiresLocalFiles=" + files.HasUnsupportedGameplayFiles +
@@ -572,7 +572,7 @@ namespace ExtendedData
             packageManifest = next;
             SetLocalPackageStatus(next);
             if (changed)
-                DebugLogHelper.LogInfo(log, "Lord package manifest published: source=" + source +
+                DebugLogHelper.LogDebug(log, "Lord package manifest published: source=" + source +
                     ",session=" + next.SessionId + "," +
                     LordDataSyncDiagnostics.DescribePackageMode(next) +
                     ",slots=" + next.Slots.Count);
@@ -599,7 +599,7 @@ namespace ExtendedData
                         received.Digest, wire, settings.LordPackageStatus))
                         throw new InvalidOperationException(
                             "The Lord package confirmation could not be queued for publication.");
-                    DebugLogHelper.LogInfo(log, "Lord package manifest received: session=" +
+                    DebugLogHelper.LogDebug(log, "Lord package manifest received: session=" +
                         received.SessionId + "," +
                         LordDataSyncDiagnostics.DescribePackageMode(received) +
                         ",localStatus=" + LordDataSyncDiagnostics.DescribePackageStatus(
@@ -644,7 +644,7 @@ namespace ExtendedData
                     if (required && !matched)
                         DebugLogHelper.LogWarning(log, message);
                     else
-                        DebugLogHelper.LogInfo(log, message);
+                        DebugLogHelper.LogDebug(log, message);
                 }
                 if (!matched)
                     continue;
@@ -1047,7 +1047,7 @@ namespace ExtendedData
 
         internal void LogStartAttempt(string command, bool runtimeEnabled, FRONT_Multiplayer lobby)
         {
-            DebugLogHelper.LogInfo(log, "Lord-data start hook reached: command=" +
+            DebugLogHelper.LogDebug(log, "Lord-data start hook reached: command=" +
                 LordDataSyncDiagnostics.SafeLabel(command) +
                 ",runtimeEnabled=" + runtimeEnabled + "," + DescribeHostGate(lobby) +
                 "," + DescribeAcknowledgements(lobbyHumanSlots) +
@@ -1057,7 +1057,7 @@ namespace ExtendedData
 
         internal void LogStartDecision(bool captured, bool ready, string reason)
         {
-            DebugLogHelper.LogInfo(log, "Lord-data start decision: captureSucceeded=" + captured +
+            DebugLogHelper.LogDebug(log, "Lord-data start decision: captureSucceeded=" + captured +
                 ",ready=" + ready + ",reason=" + (string.IsNullOrEmpty(reason) ? "none" : reason) +
                 "," + DescribeAcknowledgements(lobbyHumanSlots) +
                 "," + DescribePackageAcknowledgements(lobbyHumanSlots));
@@ -1154,7 +1154,7 @@ namespace ExtendedData
                 changed || string.Equals(source, "start-attempt", StringComparison.Ordinal));
             if (changed || string.Equals(source, "start-attempt", StringComparison.Ordinal))
             {
-                DebugLogHelper.LogInfo(log, "Lord-data host Fixes values applied: source=" + source +
+                DebugLogHelper.LogDebug(log, "Lord-data host Fixes values applied: source=" + source +
                     ",session=" + snapshot.SessionId + ",digest=" + snapshot.Digest +
                     ",selectedLords=" + snapshot.Slots.Count);
             }
@@ -1169,7 +1169,7 @@ namespace ExtendedData
             ExtendedDataModDataApi.SetNetworkSnapshot(snapshot, true);
             settings.LordDataStatus = "READY|" + snapshot.Digest;
             if (changed || string.Equals(source, "start-attempt", StringComparison.Ordinal))
-                DebugLogHelper.LogInfo(log, "Lord-data host publication: source=" + source +
+                DebugLogHelper.LogDebug(log, "Lord-data host publication: source=" + source +
                     ",session=" + snapshot.SessionId + ",digest=" + snapshot.Digest +
                     ",snapshotSettingMatches=" + string.Equals(settings.LordDataSnapshot,
                         snapshot.WireJson, StringComparison.Ordinal) +
@@ -1186,7 +1186,7 @@ namespace ExtendedData
                 if (!string.Equals(signature, lastHostEchoDiagnostic, StringComparison.Ordinal))
                 {
                     lastHostEchoDiagnostic = signature;
-                    DebugLogHelper.LogInfo(log, "Lord-data setting callback ignored as local host echo: lobby=" +
+                    DebugLogHelper.LogDebug(log, "Lord-data setting callback ignored as local host echo: lobby=" +
                         lobbyId + ",wire=" + LordDataSyncDiagnostics.DescribeJson(wireJson, false));
                 }
                 return;
@@ -1195,7 +1195,7 @@ namespace ExtendedData
             if (!string.Equals(receivedSignature, lastClientReceivedDiagnostic, StringComparison.Ordinal))
             {
                 lastClientReceivedDiagnostic = receivedSignature;
-                DebugLogHelper.LogInfo(log, "Lord-data host setting received: lobby=" + lobbyId +
+                DebugLogHelper.LogDebug(log, "Lord-data host setting received: lobby=" + lobbyId +
                     ",wire=" + LordDataSyncDiagnostics.DescribeJson(wireJson, false));
             }
             UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
@@ -1210,7 +1210,7 @@ namespace ExtendedData
                     bool newlyAccepted = !string.Equals(snapshot.Digest, lastClientAcceptedDiagnostic,
                         StringComparison.Ordinal);
                     if (newlyAccepted)
-                        DebugLogHelper.LogInfo(log, "Lord-data snapshot parsed: " +
+                        DebugLogHelper.LogDebug(log, "Lord-data snapshot parsed: " +
                             LordDataSyncDiagnostics.DescribeSnapshot(snapshot));
                     stage = "session-check";
                     FRONT_Multiplayer lobby = ExtendedDataRuntime.GetExistingMainViewModel()?.FRONTMultiplayer;
@@ -1222,7 +1222,7 @@ namespace ExtendedData
                     VerifyEffectiveFixes(snapshot, "client-receive", newlyAccepted);
                     if (newlyAccepted)
                     {
-                        DebugLogHelper.LogInfo(log, "Lord-data client Fixes values applied: session=" +
+                        DebugLogHelper.LogDebug(log, "Lord-data client Fixes values applied: session=" +
                             snapshot.SessionId + ",digest=" + snapshot.Digest +
                             ",selectedLords=" + snapshot.Slots.Count);
                     }
@@ -1237,7 +1237,7 @@ namespace ExtendedData
                         throw new InvalidOperationException(
                             "The Lord-data confirmation could not be queued for publication.");
                     if (newlyAccepted)
-                        DebugLogHelper.LogInfo(log, "Lord-data client values applied; confirmation queued: session=" +
+                        DebugLogHelper.LogDebug(log, "Lord-data client values applied; confirmation queued: session=" +
                             snapshot.SessionId + ",digest=" + snapshot.Digest + ",localStatus=" +
                             LordDataSyncDiagnostics.DescribeStatus(settings.LordDataStatus, snapshot.Digest));
                     lastClientAcceptedDiagnostic = snapshot.Digest;
@@ -1310,7 +1310,7 @@ namespace ExtendedData
         private void OnLobbyChanged(PerPlayerLobbySnapshot snapshot)
         {
             int[] players = snapshot?.Players?.Keys.OrderBy(id => id).ToArray() ?? Array.Empty<int>();
-            DebugLogHelper.LogInfo(log, "Lord-data lobby observation: previous=" + lobbyId +
+            DebugLogHelper.LogDebug(log, "Lord-data lobby observation: previous=" + lobbyId +
                 ",current=" + snapshot?.LobbyId + ",players=[" + string.Join(",", players) +
                 "],unresolved=" + snapshot?.HasUnresolvedPlayers + ",localPlayer=" +
                 snapshot?.LocalPlayerId + "," + DescribeAcknowledgements(players));
@@ -1339,7 +1339,7 @@ namespace ExtendedData
             lastHostEchoDiagnostic = null;
             lastAssetDiagnostics.Clear();
             lastPackageAvailabilityDiagnostics.Clear();
-            DebugLogHelper.LogInfo(log, "Lord-data session reset: lobby=" + lobbyId +
+            DebugLogHelper.LogDebug(log, "Lord-data session reset: lobby=" + lobbyId +
                 ",fixesRestored=true,activeSnapshot=absent.");
             if (snapshot?.LobbyId != null)
                 OnLobbyOpened(ExtendedDataRuntime.GetExistingMainViewModel()?.FRONTMultiplayer, "lobby-change");
@@ -1351,7 +1351,7 @@ namespace ExtendedData
             if (string.Equals(summary, lastRemoteStatusDiagnostic, StringComparison.Ordinal))
                 return;
             lastRemoteStatusDiagnostic = summary;
-            DebugLogHelper.LogInfo(log, "Lord-data remote status changed: " + summary);
+            DebugLogHelper.LogDebug(log, "Lord-data remote status changed: " + summary);
         }
 
         private void VerifyEffectiveFixes(LordDataSnapshot snapshot, string source, bool logSuccess)
@@ -1359,7 +1359,7 @@ namespace ExtendedData
             if (!snapshot.FixesInstalled)
             {
                 if (logSuccess)
-                    DebugLogHelper.LogInfo(log, "Lord-data Fixes verification: source=" + source +
+                    DebugLogHelper.LogDebug(log, "Lord-data Fixes verification: source=" + source +
                         ",digest=" + snapshot.Digest + ",state=not-installed.");
                 return;
             }
@@ -1376,7 +1376,7 @@ namespace ExtendedData
                         ",actual=" + LordDataSyncDiagnostics.DescribeJson(actual, true) +
                         ",matches=" + matches + ",mapOverride=" + fixes.HasMapOverride(slot.PlayerId) + ",scope=lord-defaults";
                     if (matches && logSuccess)
-                        DebugLogHelper.LogInfo(log, message);
+                        DebugLogHelper.LogDebug(log, message);
                     else if (!matches)
                     {
                         DebugLogHelper.LogError(log, message);
@@ -1395,7 +1395,7 @@ namespace ExtendedData
         }
 
         private void OnLocalStatusChanged(string status) =>
-            DebugLogHelper.LogInfo(log, "Lord-data local status changed: lobby=" + lobbyId +
+            DebugLogHelper.LogDebug(log, "Lord-data local status changed: lobby=" + lobbyId +
                 ",digest=" + (active?.Digest ?? "none") + ",status=" +
                 LordDataSyncDiagnostics.DescribeStatus(status, active?.Digest));
 
@@ -1421,7 +1421,7 @@ namespace ExtendedData
                                   settings.LordPackageStatus));
                     if (!current)
                     {
-                        DebugLogHelper.LogInfo(log, "Lord-data deferred confirmation skipped: source=" +
+                        DebugLogHelper.LogDebug(log, "Lord-data deferred confirmation skipped: source=" +
                             source + ",session=" + sessionId + ",digest=" + digest +
                             ",reason=selection-or-lobby-changed.");
                         return;
@@ -1435,7 +1435,7 @@ namespace ExtendedData
                     // an incoming host setting. APIShared republishes the current personal values
                     // after that incoming update has returned.
                     settings.System_RequestPerPlayerSettingsPublish();
-                    DebugLogHelper.LogInfo(log, "Lord-data deferred confirmation publication requested: source=" +
+                    DebugLogHelper.LogDebug(log, "Lord-data deferred confirmation publication requested: source=" +
                         source + ",session=" + sessionId + ",digest=" + digest +
                         ",origin=" + origin +
                         ",status=" + (isSnapshot
@@ -1479,7 +1479,7 @@ namespace ExtendedData
                 packageManifest?.UseLocalValues != true && !AllKnownPlayersAcknowledged())
                 DebugLogHelper.LogError(log, message + ",problem=one or more known player acknowledgements are missing or stale.");
             else
-                DebugLogHelper.LogInfo(log, message);
+                DebugLogHelper.LogDebug(log, message);
         }
 
         private bool AllKnownPlayersAcknowledged()
@@ -1528,7 +1528,7 @@ namespace ExtendedData
             if (string.Equals(signature, lastHostGateDiagnostic, StringComparison.Ordinal))
                 return;
             lastHostGateDiagnostic = signature;
-            DebugLogHelper.LogInfo(log, "Lord-data host capture skipped: source=" + source + "," + gate);
+            DebugLogHelper.LogDebug(log, "Lord-data host capture skipped: source=" + source + "," + gate);
         }
 
         private string DescribeHostGate(FRONT_Multiplayer lobby) =>
@@ -1626,7 +1626,7 @@ namespace ExtendedData
                     ",problem=asset-present-but-effective-entry-missing.");
                 throw new InvalidDataException("Fixes did not load the available preferences for selected Lord " + lordName + ".");
             }
-            DebugLogHelper.LogInfo(log, "Lord-data Fixes source: " + diagnostic);
+            DebugLogHelper.LogDebug(log, "Lord-data Fixes source: " + diagnostic);
         }
 
         private void Invalidate(string message)

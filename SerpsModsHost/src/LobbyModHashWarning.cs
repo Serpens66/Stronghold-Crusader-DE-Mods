@@ -59,7 +59,7 @@ namespace SerpsModsHost
                     template,
                     out string message))
                 {
-                    Shared.DebugLogHelper.LogInfo(
+                    Shared.DebugLogHelper.LogDebug(
                         log,
                         $"[Serps Mods] Lobby mod hashes match: local={localHash}, host={hostHash}.");
                     return;
@@ -68,7 +68,7 @@ namespace SerpsModsHost
                 if (TryBuildNetworkedDifference(lobby.id, out ModInventoryDifference difference) &&
                     difference.Count == 0)
                 {
-                    Shared.DebugLogHelper.LogInfo(
+                    Shared.DebugLogHelper.LogDebug(
                         log,
                         $"[Serps Mods] Lobby mod hashes differ only because of client-side-only mod differences: " +
                         $"local={localHash}, host={hostHash}. No warning was sent.");
@@ -160,7 +160,7 @@ namespace SerpsModsHost
 
         private void LogInventoryDifference(ModInventoryDifference difference)
         {
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 "Gameplay-relevant lobby mod inventory difference: hostOnly=[" +
                 string.Join("; ", difference.HostOnly.Select(entry => entry.LogDisplay)) +

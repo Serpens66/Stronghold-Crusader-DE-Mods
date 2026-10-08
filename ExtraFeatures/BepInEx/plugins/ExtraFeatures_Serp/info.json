@@ -3,13 +3,17 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.108",
+  "Version": "1.0.109",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.13.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.109",
+      "Changes": ["Move routine diagnostics to Debug; preserve warnings, errors and explicit file-operation results."]
+    },
     {
       "Version": "1.0.108",
       "Changes": [

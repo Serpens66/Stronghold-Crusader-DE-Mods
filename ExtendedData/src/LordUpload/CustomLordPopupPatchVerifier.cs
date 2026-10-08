@@ -52,7 +52,7 @@ namespace ExtendedData
                     : Interlocked.Exchange(ref uploadPageVerificationLogged, 1) == 0;
                 if (firstSuccess)
                 {
-                    Shared.DebugLogHelper.LogInfo(
+                    Shared.DebugLogHelper.LogDebug(
                         log,
                         description + " XAML patch matched exactly once.");
                 }

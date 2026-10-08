@@ -37,7 +37,7 @@ namespace BugfixesAndQoL
                 return;
             }
 
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 "Briefing No Starting Gold correction registered with APIShared.");
         }

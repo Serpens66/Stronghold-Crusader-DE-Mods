@@ -88,7 +88,7 @@ namespace BugfixesAndQoL
             }
             else
             {
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     $"{consumer} AIV import backend: official SHCDE-SE {extenderVersion} " +
                     $"GameAIVManagerAPI; {Marker} workaround inactive.");

@@ -6984,6 +6984,7 @@ namespace Shared
     internal static class DebugLogHelper
     {
         public static void LogDebug(BepInEx.Logging.ManualLogSource log, string text) { }
+        public static void LogDebug(BepInEx.Logging.ManualLogSource log, Func<string> text) { }
         public static void LogInfo(BepInEx.Logging.ManualLogSource log, string text) { }
         public static void LogWarning(BepInEx.Logging.ManualLogSource log, string text) { }
         public static void LogError(BepInEx.Logging.ManualLogSource log, string text) { }

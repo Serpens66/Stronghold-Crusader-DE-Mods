@@ -1047,7 +1047,7 @@ public static class SerpLocalization
             if (localizationLog == null)
                 localizationLog = BepInEx.Logging.Logger.CreateLogSource("Serp Localization");
 
-            localizationLog.LogInfo(
+            localizationLog.LogDebug(
                 $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] Locale selected: locale={locale}, " +
                 $"source={source}, rawLanguage={rawLanguage}, configuredProvider={configuredProvider}, " +
                 $"scriptExtenderLanguage={extenderLanguage}, pluginDirectory={pluginDirectory}, " +

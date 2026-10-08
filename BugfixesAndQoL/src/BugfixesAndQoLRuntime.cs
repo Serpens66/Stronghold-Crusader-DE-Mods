@@ -595,7 +595,7 @@ namespace BugfixesAndQoL
                     log, settings, context, referenceHashMatches);
             }
             friendlyMoatMovementRuntime = processUnitCommandPathRuntime;
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 "Bugfixes and QoL shared unit commands initialized: " +
                 $"manualCommands={settings.EnableImprovedManualUnitCommands}, improvedFill=" +

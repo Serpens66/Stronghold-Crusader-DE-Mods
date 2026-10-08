@@ -45,6 +45,7 @@ namespace APISharedTests
                     ? Assembly.LoadFrom(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assembly-CSharp-publicized.dll"))
                     : null;
             PlayerDefeatTests.Run();
+            TestRoutineLoggingLevels();
             TestAiBuildDiagnosticDormancy();
             TestPublicSurface();
             MarkedSelectionHarmonyTests.Run(Assert);
@@ -86,6 +87,62 @@ namespace APISharedTests
             }
             Console.Error.WriteLine($"FAIL: APIShared tests reported {failures} failure(s).");
             return 1;
+        }
+
+        private sealed class LoggingLevelListener : BepInEx.Logging.ILogListener
+        {
+            public BepInEx.Logging.LogLevel DisplayedLogLevel { get; set; }
+            public void LogEvent(object sender, BepInEx.Logging.LogEventArgs args) { }
+            public void Dispose() { }
+        }
+
+        private static void TestRoutineLoggingLevels()
+        {
+            var previousListeners = BepInEx.Logging.Logger.Listeners.ToArray();
+            var cacheExpiry = typeof(DebugLogHelper).GetField("debugEnabledCacheExpiresAtUtc", BindingFlags.Static | BindingFlags.NonPublic);
+            var cacheValue = typeof(DebugLogHelper).GetField("debugEnabledCache", BindingFlags.Static | BindingFlags.NonPublic);
+            object previousExpiry = cacheExpiry.GetValue(null);
+            object previousValue = cacheValue.GetValue(null);
+            var listener = new LoggingLevelListener { DisplayedLogLevel = BepInEx.Logging.LogLevel.Info | BepInEx.Logging.LogLevel.Warning | BepInEx.Logging.LogLevel.Error };
+            var messages = new List<BepInEx.Logging.LogEventArgs>();
+            using (var source = new BepInEx.Logging.ManualLogSource("LoggingReductionTests"))
+            {
+                source.LogEvent += (_, args) => messages.Add(args);
+                try
+                {
+                    BepInEx.Logging.Logger.Listeners.Clear();
+                    BepInEx.Logging.Logger.Listeners.Add(listener);
+                    cacheExpiry.SetValue(null, DateTime.MinValue);
+                    int formats = 0;
+                    DebugLogHelper.LogDebug(source, () => { formats++; return "routine"; });
+                    NativeApiLog.Debug(source, "native routine");
+                    Assert(formats == 0 && messages.Count == 0, "routine diagnostics were emitted or formatted without Debug");
+                    DebugLogHelper.LogInfo(source, "saved file");
+                    NativeApiLog.Info(source, "explicit result");
+                    DebugLogHelper.LogWarning(source, "warning");
+                    DebugLogHelper.LogError(source, "error");
+                    Assert(messages.Select(message => message.Level).SequenceEqual(new[] {
+                        BepInEx.Logging.LogLevel.Info, BepInEx.Logging.LogLevel.Info,
+                        BepInEx.Logging.LogLevel.Warning, BepInEx.Logging.LogLevel.Error }),
+                        "Info, Warning or Error helper semantics changed");
+                    messages.Clear();
+                    listener.DisplayedLogLevel |= BepInEx.Logging.LogLevel.Debug;
+                    cacheExpiry.SetValue(null, DateTime.MinValue);
+                    DebugLogHelper.LogDebug(source, () => { formats++; return "routine"; });
+                    NativeApiLog.Debug(source, "native routine");
+                    Assert(formats == 1 && messages.Count == 2 && messages.All(message =>
+                        message.Level == BepInEx.Logging.LogLevel.Debug &&
+                        System.Text.RegularExpressions.Regex.IsMatch(message.Data.ToString(), @"^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}\] ")),
+                        "Debug diagnostics are unavailable, formatted repeatedly, or lack millisecond timestamps");
+                }
+                finally
+                {
+                    BepInEx.Logging.Logger.Listeners.Clear();
+                    foreach (var previous in previousListeners) BepInEx.Logging.Logger.Listeners.Add(previous);
+                    cacheExpiry.SetValue(null, previousExpiry);
+                    cacheValue.SetValue(null, previousValue);
+                }
+            }
         }
 
         private static void TestAiBuildDiagnosticDormancy()

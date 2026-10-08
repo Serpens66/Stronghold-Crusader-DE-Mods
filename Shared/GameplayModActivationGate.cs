@@ -117,10 +117,7 @@ namespace Shared
                 $"customized={snapshot.IsCustomized}, customizedOrigin={snapshot.CustomizedOriginKind}, " +
                 $"modeAllowed={IsAllowed}, configuredEnabled={configuredEnabled}, " +
                 $"effectiveEnabled={effectiveEnabled}, action={action}, reason={reason}.";
-            if (policyChanged)
-                DebugLogHelper.LogInfo(log, message);
-            else
-                DebugLogHelper.LogDebug(log, message);
+            DebugLogHelper.LogDebug(log, message);
             GameplayFeatureModePolicy.LogDecisions(log, profile.ModGuid, snapshot, source);
         }
 

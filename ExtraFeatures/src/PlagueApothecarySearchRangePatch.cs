@@ -148,7 +148,7 @@ namespace ExtraFeatures
 
                 try
                 {
-                    Shared.DebugLogHelper.LogInfo(
+                    Shared.DebugLogHelper.LogDebug(
                         log,
                         $"Extra Features apothecary plague-search hook installed disabled: " +
                         $"startRva=0x{HookRva:X}, displaced={HookDisplacedBytes}, " +

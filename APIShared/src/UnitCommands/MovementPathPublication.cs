@@ -102,7 +102,7 @@ namespace APIShared.UnitCommands
                 if (!assassinExactPublicationLogged)
                 {
                     assassinExactPublicationLogged = true;
-                    try { Shared.DebugLogHelper.LogInfo(log, $"Assassin exact route published after native reconstruction; unit={unitId} global={global} start=({sx},{sy}) target=({tx},{ty}) directions={count}."); }
+                    try { Shared.DebugLogHelper.LogDebug(log, $"Assassin exact route published after native reconstruction; unit={unitId} global={global} start=({sx},{sy}) target=({tx},{ty}) directions={count}."); }
                     catch { /* Logging cannot turn a published route into a native failure. */ }
                 }
                 return count;

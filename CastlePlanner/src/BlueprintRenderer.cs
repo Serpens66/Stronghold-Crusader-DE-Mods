@@ -227,7 +227,7 @@ namespace CastlePlanner
                 }
             }
 
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Blueprint first visible output prepared: tiles={renderedTiles}, " +
                 $"icons={renderedIcons}, depthReady={CompletedDepthCaptureCount}/" +
@@ -402,7 +402,7 @@ namespace CastlePlanner
             if (progressiveCompletionLogged || progressiveLoadTimer == null || IsDepthLoading)
                 return;
             progressiveCompletionLogged = true;
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Blueprint progressive rendering complete: depthCaptures=" +
                 $"{CompletedDepthCaptureCount}/{RequestedDepthCaptureCount}, " +
@@ -900,7 +900,7 @@ namespace CastlePlanner
                 Object.DontDestroyOnLoad(texture);
                 Object.DontDestroyOnLoad(sprite);
                 helpImageSprites.Add(cacheKey, sprite);
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     $"Loaded bundled directional Drawbridge Blueprint: " +
                     $"file='{fileName}', size={texture.width}x{texture.height}, " +
@@ -1178,7 +1178,7 @@ namespace CastlePlanner
                 Object.DontDestroyOnLoad(texture);
                 Object.DontDestroyOnLoad(sprite);
                 helpImageSprites.Add(fileName, sprite);
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     $"Loaded clean Vanilla help image for Blueprint: " +
                     $"file='{fileName}', source={texture.width}x{texture.height}, " +
@@ -1437,7 +1437,7 @@ namespace CastlePlanner
                 SpriteMeshType.FullRect);
             sprite.name = "CastlePlanner_" +
                 resourceKey.Replace(' ', '_');
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Vanilla build-menu atlas linked: resource='{resourceKey}', " +
                 $"uri='{uri}', crop={crop}, unityRect={spriteRect}, " +

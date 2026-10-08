@@ -71,7 +71,7 @@ namespace Shared
                 // The AppDomain reference keeps the detour alive and prevents another
                 // source-linked Shared copy from installing the same process-wide hook.
                 AppDomain.CurrentDomain.SetData(AnchorKey, anchor);
-                DebugLogHelper.LogInfo(log, "Shared lobby-join lifecycle hook installed.");
+                DebugLogHelper.LogDebug(log, "Shared lobby-join lifecycle hook installed.");
             }
             catch (Exception ex)
             {

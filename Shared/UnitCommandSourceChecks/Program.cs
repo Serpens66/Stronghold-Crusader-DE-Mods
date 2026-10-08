@@ -73,10 +73,14 @@ foreach (var relative in projects)
                 WorkingDirectory = root, RedirectStandardOutput = true,
                 ArgumentList = {"show", "HEAD:APIShared/src/MissionLifecycleCapability.cs"} });
             var old = process.StandardOutput.ReadToEnd(); process.WaitForExit();
+            // This baseline exception permits only the reviewed Info-to-Debug changes;
+            // the member access and every other source character must still match HEAD.
+            string current = File.ReadAllText(Path.Combine(root, "APIShared/src/MissionLifecycleCapability.cs"))
+                .Replace("NativeApiLog.Debug(", "NativeApiLog.Info(").Replace("\r\n", "\n");
             if (process.ExitCode != 0 || !old.Contains("EditorDirector.instance.gameLocalPlayerID") ||
-                File.ReadAllText(Path.Combine(root, "APIShared/src/MissionLifecycleCapability.cs")).Replace("\r\n", "\n") != old.Replace("\r\n", "\n"))
+                current != old.Replace("\r\n", "\n"))
                 throw new Exception("The documented preexisting private access changed.");
-            Console.WriteLine("Known unchanged HEAD access: MissionLifecycleCapability gameLocalPlayerID; all new accesses checked against real Assembly-CSharp.");
+            Console.WriteLine("Known unchanged HEAD access (logging levels excluded): MissionLifecycleCapability gameLocalPlayerID; all new accesses checked against real Assembly-CSharp.");
             diagnostics = diagnostics.Except(baseline).ToArray();
         }
     }

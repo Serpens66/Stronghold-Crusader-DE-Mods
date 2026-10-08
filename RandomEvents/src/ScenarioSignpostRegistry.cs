@@ -476,7 +476,7 @@ namespace RandomEvents
                 archerSourceCoordinatesAddress = new IntPtr(
                     checked((long)playerManager + resolution.SourceXOffset));
                 targetingUnavailableReason = string.Empty;
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     $"Native address resolved: name=archer signpost source, method={resolution.Method}, " +
                     $"rva=0x{resolution.Rva:X}, sourceXOffset=0x{resolution.SourceXOffset:X}, " +
@@ -622,7 +622,7 @@ namespace RandomEvents
                             $"0x{ReferenceSignpostIdsOffset:X}.");
                     }
 
-                    Shared.DebugLogHelper.LogInfo(
+                    Shared.DebugLogHelper.LogDebug(
                         log,
                         $"Native address resolved: name=signpost lookup, method=reference-rva, rva=0x{ExpectedLookupFunctionRva:X}.");
                     return new NativeLookupResolution(slotOffset);
@@ -637,7 +637,7 @@ namespace RandomEvents
                 int match = NativePatternResolver.FindUniquePattern(memory, LookupPattern, "signpost lookup");
                 if (TryValidateLookupCandidate(memory, match, out int slotOffset, out string validationFailure))
                 {
-                    Shared.DebugLogHelper.LogInfo(
+                    Shared.DebugLogHelper.LogDebug(
                         log,
                         $"Native address resolved: name=signpost lookup, method=signature-fallback, rva=0x{match:X}.");
                     return new NativeLookupResolution(slotOffset);
@@ -651,7 +651,7 @@ namespace RandomEvents
 
             if (TryFindUniqueStructuralCandidate(memory, out int structuralRva, out int structuralSlotOffset, out int candidateCount))
             {
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     $"Native address resolved: name=signpost lookup, method=structural-fallback, rva=0x{structuralRva:X}.");
                 return new NativeLookupResolution(structuralSlotOffset);

@@ -215,7 +215,7 @@ namespace UnitCosts
                 if (!loggedPostStartup)
                 {
                     loggedPostStartup = true;
-                    Shared.DebugLogHelper.LogInfo(log, "UnitCosts runtime confirmed after startup cleanup: gameplay session started.");
+                    Shared.DebugLogHelper.LogDebug(log, "UnitCosts runtime confirmed after startup cleanup: gameplay session started.");
                 }
                 if (!EffectsEnabled)
                     return;

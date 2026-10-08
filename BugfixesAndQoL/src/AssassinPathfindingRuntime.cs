@@ -1692,7 +1692,7 @@ namespace BugfixesAndQoL
         }
 
         private void LogDebug(string message) => log.LogDebug($"[{TimestampNow()}] Bugfixes and QoL {message}");
-        private void LogInfo(string message) => log.LogInfo($"[{TimestampNow()}] Bugfixes and QoL {message}");
+        private void LogInfo(string message) => log.LogDebug($"[{TimestampNow()}] Bugfixes and QoL {message}");
         private void LogWarning(string message) => log.LogWarning($"[{TimestampNow()}] Bugfixes and QoL {message}");
         private void LogError(string message) => log.LogError($"[{TimestampNow()}] Bugfixes and QoL {message}");
         private static string TimestampNow() => DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture);

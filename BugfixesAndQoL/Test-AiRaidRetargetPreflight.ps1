@@ -61,10 +61,12 @@ foreach($method in @('OnTribeOrder','OnSearchObserved')) {
  if($tail -notmatch '(?s)lock \(attackCaptureLock\)\s*\{\s*if \(!active\) return;') { throw "$method lacks the in-lock active check." }
 }
 $manifest=[IO.File]::ReadAllText((Join-Path $project 'info.json')) | ConvertFrom-Json
-if($manifest.Version -ne '1.0.177') { throw 'Manifest version mismatch' }
+$pluginVersionSource=[IO.File]::ReadAllText((Join-Path $project 'src\BugfixesAndQoLPlugin.cs'))
+$expectedVersion=[regex]::Match($pluginVersionSource,'PluginVersion\s*=\s*"([^"]+)"').Groups[1].Value
+if(!$expectedVersion -or $manifest.Version -cne $expectedVersion) { throw 'Manifest version mismatch' }
 foreach($path in @('src\BugfixesAndQoLPlugin.cs','src\Properties\AssemblyInfo.cs','BugfixesAndQoL.csproj')) {
  $text=[IO.File]::ReadAllText((Join-Path $project $path))
- if(!$text.Contains('1.0.177') -or $text.Contains('1.0.173')) { throw "Active version mismatch: $path" }
+ if(!$text.Contains($expectedVersion) -or $text.Contains('1.0.173')) { throw "Active version mismatch: $path" }
 }
 $files=@(Get-ChildItem -LiteralPath $project -File -Recurse | Where-Object {
  $_.FullName -notmatch '\\(?:obj|bin|BepInEx)\\' -and $_.Extension -in '.cs','.csproj','.ps1','.bat','.json','.xaml','.txt','.md','.config'

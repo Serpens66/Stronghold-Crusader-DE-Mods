@@ -103,7 +103,7 @@ namespace BugfixesAndQoL
             TrailCustomizationProviderHostApi.Attach(RefreshVisibility);
             EnsureCoopButtons();
             initialized = true;
-            Shared.DebugLogHelper.LogInfo(log, "Trail Customize button feature initialized.");
+            Shared.DebugLogHelper.LogDebug(log, "Trail Customize button feature initialized.");
         }
 
         public void RefreshVisibility()
@@ -270,7 +270,7 @@ namespace BugfixesAndQoL
                 trailMaker: false,
                 customiseTrailType: -1,
                 customiseTrailID: -1);
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Opened standalone Custom Trail setup [{menus.CustomTrailName}] mission {missionId}.");
         }
@@ -432,7 +432,7 @@ namespace BugfixesAndQoL
             if (trailId == 1) MainViewModel.Instance.Show_CoopTrail2 = false;
             if (trailId == 2) MainViewModel.Instance.Show_CoopTrail3 = false;
             if (trailId == 3) MainViewModel.Instance.Show_CoopTrail4 = false;
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Opened standalone Coop Trail setup trail={trailId + 1}, mission={missionId}, source={source}.");
         }

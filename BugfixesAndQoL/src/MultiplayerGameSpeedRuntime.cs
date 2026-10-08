@@ -924,7 +924,7 @@ namespace BugfixesAndQoL
 
         private void LogInfo(string message) =>
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
-                Shared.DebugLogHelper.LogInfo(log, $"Bugfixes and QoL multiplayer game speed: {message}"));
+                Shared.DebugLogHelper.LogDebug(log, $"Bugfixes and QoL multiplayer game speed: {message}"));
 
         private void LogError(string message) =>
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>

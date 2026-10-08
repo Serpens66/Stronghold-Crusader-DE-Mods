@@ -962,7 +962,7 @@ namespace BugfixesAndQoL
         private void LogInfo(string message)
         {
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
-                () => log.LogInfo($"[{TimestampNow()}] Bugfixes and QoL {message}"));
+                () => log.LogDebug($"[{TimestampNow()}] Bugfixes and QoL {message}"));
         }
 
         private static string TimestampNow()

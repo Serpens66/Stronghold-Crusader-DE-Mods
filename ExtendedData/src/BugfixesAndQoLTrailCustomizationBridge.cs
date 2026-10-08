@@ -45,7 +45,7 @@ namespace ExtendedData
                     });
                 if (registered)
                 {
-                    Shared.DebugLogHelper.LogInfo(
+                    Shared.DebugLogHelper.LogDebug(
                         log,
                         "Registered ExtendedData as the BugfixesAndQoL Trail customization provider.");
                 }

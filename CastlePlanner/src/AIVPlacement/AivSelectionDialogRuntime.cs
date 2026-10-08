@@ -841,7 +841,7 @@ namespace CastlePlanner.AIVPlacement
                     string.Equals(prior, value, StringComparison.Ordinal))
                     continue;
                 publishedUiStates[key] = value;
-                Shared.DebugLogHelper.LogInfo(log,
+                Shared.DebugLogHelper.LogDebug(log,
                     $"AIV UI published route={uiRoute} player={playerId} candidate={candidateId} " +
                     $"checksum={aiv.checksum} status={state.Status?.ToString() ?? "Pending"} " +
                     $"practice={state.PercentageText} " +

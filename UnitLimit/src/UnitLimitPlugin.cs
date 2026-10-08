@@ -18,7 +18,7 @@ namespace UnitLimit
 
         public const string PluginGuid = "UnitLimit_Serp";
         public const string PluginName = "Unit Limit";
-        public const string PluginVersion = "1.0.101";
+        public const string PluginVersion = "1.0.102";
 
         private UnitLimitRuntime runtime;
         private int libraryInitializationStarted;
@@ -33,7 +33,6 @@ namespace UnitLimit
                 PluginGuid,
                 PluginName,
                 PluginVersion);
-            Shared.DebugLogHelper.LogDebug(Logger, $"{PluginName} {PluginVersion} loaded.");
 
             verboseUnitEventLogging = Config.Bind(
                 "Diagnostics",

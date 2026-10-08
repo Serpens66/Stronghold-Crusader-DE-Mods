@@ -493,7 +493,7 @@ namespace BugfixesAndQoL
         }
 
         private void LogInfo(string message) => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
-            () => Shared.DebugLogHelper.LogInfo(log, message));
+            () => Shared.DebugLogHelper.LogDebug(log, message));
         private void LogWarning(string message) => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
             () => Shared.DebugLogHelper.LogWarning(log, message));
         private void LogError(string message) => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(

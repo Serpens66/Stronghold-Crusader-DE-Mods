@@ -49,7 +49,7 @@ namespace BugfixesAndQoL
             placementSubscription = BuildingR3EventHooks.OnPlacementValidation.Observable
                 .Where(args => args.Phase == EventHookPhase.Pre)
                 .Subscribe(OnPlacementValidation);
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 "Bugfixes and QoL hostile placement-clearance validation subscribed.");
         }

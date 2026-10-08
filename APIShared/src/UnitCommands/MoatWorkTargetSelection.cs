@@ -145,7 +145,7 @@ namespace APIShared.UnitCommands
 
                 findMoatWorkTargetDetour = pendingFind;
                 resolveMoatWorkTileDetour = pendingResolve;
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     "Bugfixes and QoL friendly-moat-movement moat-work target selection installed: " +
                     $"selector=0x{findResolution.Rva:X}, resolver=0x{resolveResolution.Rva:X}, " +

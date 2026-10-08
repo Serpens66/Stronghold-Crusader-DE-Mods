@@ -89,7 +89,7 @@ namespace BugfixesAndQoL
                 launchPending = false;
             }
             if (previous != TrailCustomizationLaunchOriginKind.None)
-                Shared.DebugLogHelper.LogInfo(log, $"Cleared Trail customization origin: previous={previous}.");
+                Shared.DebugLogHelper.LogDebug(log, $"Cleared Trail customization origin: previous={previous}.");
         }
 
         internal static void MarkMapStarted()
@@ -181,7 +181,7 @@ namespace BugfixesAndQoL
                 restoredFromSave = restored;
                 launchPending = true;
             }
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Set Trail customization origin: origin={value}, trailId={selectedTrailId}, " +
                 $"missionId={selectedMissionId}, restored={restored}.");

@@ -541,15 +541,15 @@ namespace CastlePlanner
                         missingDepth.Add(request.Key);
                 }
             }
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Blueprint capture status: available={required - missing.Count}, required={required}, " +
                 $"missing={missing.Count}, depthAtlases={required - missingDepth.Count}, " +
                 $"missingDepth={missingDepth.Count}.");
             if (missing.Count > 0)
-                Shared.DebugLogHelper.LogInfo(log, "Missing Blueprint captures: " + string.Join(", ", missing));
+                Shared.DebugLogHelper.LogWarning(log, "Missing Blueprint captures: " + string.Join(", ", missing));
             if (missingDepth.Count > 0)
-                Shared.DebugLogHelper.LogInfo(log, "Missing Blueprint depth atlases: " + string.Join(", ", missingDepth));
+                Shared.DebugLogHelper.LogWarning(log, "Missing Blueprint depth atlases: " + string.Join(", ", missingDepth));
         }
 
         private static IEnumerable<BlueprintCaptureRequest> GetRequiredRequests(string mapperName)

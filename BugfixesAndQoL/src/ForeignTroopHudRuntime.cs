@@ -71,7 +71,7 @@ namespace BugfixesAndQoL
                 throw new InvalidOperationException("APIShared marked-unit selection observer registration failed.");
             Application.onBeforeRender += OnBeforeRender;
             initialized = true;
-            log.LogInfo("FOREIGN_TROOP_HUD_INITIALIZED: static render publisher and APIShared mission events registered.");
+            Shared.DebugLogHelper.LogDebug(log, "FOREIGN_TROOP_HUD_INITIALIZED: static render publisher and APIShared mission events registered.");
         }
 
         private static void OnSessionStarted(MissionLifecycleNotification notification)
@@ -88,7 +88,7 @@ namespace BugfixesAndQoL
             lastSpectatorSelectionKey = null;
             lastCameraErrorKey = null;
             lastHealthErrorKey = null;
-            log.LogInfo("FOREIGN_TROOP_HUD_SESSION_READY: session=" + activeSession.SessionId + ", mode=" + activeSession.Mode.Kind);
+            Shared.DebugLogHelper.LogDebug(log, () => "FOREIGN_TROOP_HUD_SESSION_READY: session=" + activeSession.SessionId + ", mode=" + activeSession.Mode.Kind);
         }
 
         private static void OnSessionEnded(MissionLifecycleNotification notification)
@@ -207,7 +207,7 @@ namespace BugfixesAndQoL
             if (!readyLogged)
             {
                 readyLogged = true;
-                log.LogInfo("FOREIGN_TROOP_HUD_RUNTIME_ALIVE: static publisher ran after startup cleanup and map load.");
+                Shared.DebugLogHelper.LogDebug(log, "FOREIGN_TROOP_HUD_RUNTIME_ALIVE: static publisher ran after startup cleanup and map load.");
             }
             if (!layoutValidated)
             {
@@ -255,6 +255,7 @@ namespace BugfixesAndQoL
             }
             int hoveredCount = 0;
             int foreignCount = 0;
+            bool spectatorDiagnostics = spectator && Shared.DebugLogHelper.IsDebugEnabled();
             ulong spectatorSignature = 1469598103934665603UL;
             for (int index = 0; index < selection.Count; index++)
             {
@@ -264,7 +265,7 @@ namespace BugfixesAndQoL
                 if (!APIShared.UnitAccess.IsReallyAlive(in unit) || unit.r_UnitHover == 0) continue;
                 hoveredCount++;
                 int owner = unit.r_ControllableForPlayerId;
-                if (spectator)
+                if (spectatorDiagnostics)
                 {
                     unchecked
                     {
@@ -297,7 +298,7 @@ namespace BugfixesAndQoL
                 entry.CurrentHealth += unit.r_CurrentHealth;
                 entry.MaxHealth += unit.r_MaxHealth;
             }
-            if (spectator)
+            if (spectatorDiagnostics)
             {
                 int perspectivePlayer = PlayerPerspectiveAPI.GetViewedPlayerId();
                 int editorPlayer = EditorDirector.instance?.ActivePlayerID ?? 0;
@@ -306,7 +307,7 @@ namespace BugfixesAndQoL
                 if (selectionKey != lastSpectatorSelectionKey)
                 {
                     lastSpectatorSelectionKey = selectionKey;
-                    log.LogInfo("FOREIGN_TROOP_HUD_SPECTATOR_SELECTION: perspectivePlayer=" + perspectivePlayer +
+                    Shared.DebugLogHelper.LogDebug(log, "FOREIGN_TROOP_HUD_SPECTATOR_SELECTION: perspectivePlayer=" + perspectivePlayer +
                         ", editorPlayer=" + editorPlayer + ", selectedUnits=" + hoveredCount +
                         ", groups=" + entries.Count + ", samples=" + BuildSpectatorSamples(units, selection));
                 }
@@ -411,6 +412,8 @@ namespace BugfixesAndQoL
         private static void ReportStatus(string reason, EngineInterface.PlayState state, MainViewModel main,
             int activePlayer = 0, int hovered = 0, int foreign = 0, int groups = 0)
         {
+            // Status keys and spectator samples are diagnostic work, not HUD state.
+            if (!Shared.DebugLogHelper.IsDebugEnabled()) return;
             bool hidden = reason != "shown";
             string key = reason + ":" + activeSession?.SessionId + ":" + activeSession?.Mode.Kind +
                 ":" + state?.app_mode + ":" + state?.app_sub_mode + ":" + state?.spectatorMode +
@@ -420,7 +423,7 @@ namespace BugfixesAndQoL
             if (key == lastDiagnosticKey && (!hidden || now - lastDiagnosticAt < 5f)) return;
             lastDiagnosticKey = key;
             lastDiagnosticAt = now;
-            log.LogInfo("FOREIGN_TROOP_HUD_DIAGNOSTIC: reason=" + reason +
+            Shared.DebugLogHelper.LogDebug(log, "FOREIGN_TROOP_HUD_DIAGNOSTIC: reason=" + reason +
                 ", session=" + (activeSession == null ? "none" : activeSession.SessionId.ToString()) +
                 ", mode=" + (activeSession == null ? "none" : activeSession.Mode.Kind.ToString()) +
                 ", activePlayer=" + activePlayer +

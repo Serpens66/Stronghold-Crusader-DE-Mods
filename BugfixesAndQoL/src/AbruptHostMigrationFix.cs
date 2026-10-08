@@ -154,7 +154,7 @@ namespace BugfixesAndQoL
                     GameData.Instance?.lastGameState != null)
                 {
                     GameData.Instance.lastGameState = null;
-                    Shared.DebugLogHelper.LogInfo(
+                    Shared.DebugLogHelper.LogDebug(
                         log,
                         "Cleared the previous multiplayer play state before Vanilla enabled lost-player monitoring for a new game.");
                 }
@@ -184,7 +184,7 @@ namespace BugfixesAndQoL
                     // Vanilla's zero-voter branch returns before this call. Reuse its own
                     // promotion routine so native state and localized chat stay authoritative.
                     promoteNewHostMethod.Invoke(self, new object[] { kickMember });
-                    Shared.DebugLogHelper.LogInfo(
+                    Shared.DebugLogHelper.LogDebug(
                         log,
                         $"Promoted the sole local survivor after an abrupt host disconnect: " +
                         $"departingPlayerId={kickMember.playerID}, successorPlayerId={successorPlayerId}.");
@@ -324,7 +324,7 @@ namespace BugfixesAndQoL
 
             if (!recoveryLocalIsHost)
             {
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     $"Delaying native lag removal for up to {MultiplayerSafetyPolicy.RecoveryTimeoutSeconds} seconds while the host creates [{MultiplayerSafetyPolicy.RecoverySaveFileName}].");
                 return true;
@@ -333,7 +333,7 @@ namespace BugfixesAndQoL
             try
             {
                 EngineInterface.TriggerMPSave(MultiplayerSafetyPolicy.RecoverySaveFileName);
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     $"Host queued connection-recovery save [{MultiplayerSafetyPolicy.RecoverySaveFileName}] before native lag removal; targets={string.Join(",", recoveryTargets)}.");
                 return true;
@@ -362,7 +362,7 @@ namespace BugfixesAndQoL
                 string outcome = recoveryLocalIsHost
                     ? $"host file=[{GetRecoverySavePath()}] was updated"
                     : "the synchronized Chore 94 completion was observed";
-                Shared.DebugLogHelper.LogInfo(log,
+                Shared.DebugLogHelper.LogDebug(log,
                     $"Connection-recovery save completed before native lag removal: {outcome}, targets={string.Join(",", recoveryTargets)}.");
             }
             else

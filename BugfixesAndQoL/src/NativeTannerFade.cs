@@ -274,6 +274,6 @@ namespace BugfixesAndQoL
         }
 
         private void Write(string message) =>
-            log.LogInfo($"[{DateTimeOffset.Now:yyyy-MM-ddTHH:mm:ss.fffzzz}] TANNER_FADE_FIX {message}");
+            log.LogDebug($"[{DateTimeOffset.Now:yyyy-MM-ddTHH:mm:ss.fffzzz}] TANNER_FADE_FIX {message}");
     }
 }

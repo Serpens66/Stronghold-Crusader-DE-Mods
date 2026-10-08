@@ -2172,10 +2172,10 @@ static void TestLocalActivationSetting()
         coordinator.Contains("PreferenceContextId = workingSourceContextId") &&
         coordinator.Contains("workingSourceContextId = \"trail:\" + IOPath.GetFullPath(sidecar)"),
         "Trail and Map sources do not expose the required Trail-first mission-context preference");
-    Assert(coordinator.Contains("DebugLogHelper.LogInfo(") &&
+    Assert(coordinator.Contains("DebugLogHelper.LogDebug(") &&
         coordinator.Contains("are not included in creator presets") &&
         !coordinator.Contains("Trail mod-settings compatibility rejected"),
-        "unsupported Map/Trail settings are not reported as informational exclusions");
+        "unsupported Map/Trail settings are not reported as debug exclusions");
     Assert(plugin.Contains("ScheduleDeferredCompatibilityRefresh()") &&
         plugin.Contains("Application.onBeforeRender += RefreshCompatibilityAfterRegistrations") &&
         plugin.Contains("Application.onBeforeRender -= RefreshCompatibilityAfterRegistrations"),
@@ -3199,6 +3199,10 @@ namespace Shared
         }
 
         internal static void LogInfo(BepInEx.Logging.ManualLogSource log, string message)
+        {
+        }
+
+        internal static void LogDebug(BepInEx.Logging.ManualLogSource log, string message)
         {
         }
     }

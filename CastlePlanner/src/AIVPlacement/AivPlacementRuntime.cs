@@ -182,7 +182,7 @@ namespace CastlePlanner.AIVPlacement
                 bool featureEnabled = isEnabled();
                 if (!lobbySetupObserved || lastLobbyFeatureEnabled != featureEnabled)
                 {
-                    Shared.DebugLogHelper.LogInfo(
+                    Shared.DebugLogHelper.LogDebug(
                         log,
                         $"AIV lobby placement: active={featureEnabled}, " +
                         $"host={self?.currentLobby?.isHost == true}.");
@@ -535,7 +535,7 @@ namespace CastlePlanner.AIVPlacement
             // Superseded generations are expected and must not become UI failures.
             if (completed.IsCanceled)
             {
-                Shared.DebugLogHelper.LogInfo(log,
+                Shared.DebugLogHelper.LogDebug(log,
                     $"AIV evaluation canceled: generation={batch.Generation}.");
                 return;
             }
@@ -552,7 +552,7 @@ namespace CastlePlanner.AIVPlacement
                 return;
             }
 
-            Shared.DebugLogHelper.LogInfo(log,
+            Shared.DebugLogHelper.LogDebug(log,
                 $"AIV evaluation completed: generation={batch.Generation}, " +
                 $"current={generations.IsCurrent(batch.Generation)}.");
 
@@ -676,7 +676,7 @@ namespace CastlePlanner.AIVPlacement
                 }
                 if (!generations.IsCurrent(result.Generation))
                 {
-                    Shared.DebugLogHelper.LogInfo(log,
+                    Shared.DebugLogHelper.LogDebug(log,
                         $"AIV evaluation discarded: generation={result.Generation}, " +
                         $"playerId={result.PlayerId}, currentGeneration={activeGeneration}.");
                     continue;
@@ -693,7 +693,7 @@ namespace CastlePlanner.AIVPlacement
                 currentResults[result.PlayerId] = result;
                 selectionDialog.Publish(result);
                 if (pendingPlayerIds.Count == 0)
-                    Shared.DebugLogHelper.LogInfo(log,
+                    Shared.DebugLogHelper.LogDebug(log,
                         $"AIV evaluation published: generation={result.Generation}, all players complete.");
                 int evaluableCandidates = result.Candidates.Count(candidate =>
                     candidate.Status != AivPlacementStatus.NotEvaluable);
@@ -714,7 +714,7 @@ namespace CastlePlanner.AIVPlacement
                             ? candidate.Selection.Variants[outcome.RotationIndex].Rotation.ToString()
                             : "none";
                     }).Distinct());
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     $"AIV lobby placement result: generation={result.Generation}, " +
                     $"playerId={result.PlayerId}, preBuild={result.PreBuildSetting}, " +
@@ -846,7 +846,7 @@ namespace CastlePlanner.AIVPlacement
             evaluationCancellation = new CancellationTokenSource();
             activeGeneration = batch.Generation;
             lastEvaluationActivityTimestamp = Stopwatch.GetTimestamp();
-            Shared.DebugLogHelper.LogInfo(log,
+            Shared.DebugLogHelper.LogDebug(log,
                 $"AIV evaluation started: generation={batch.Generation}, players={batch.Requests.Count}, " +
                 $"trailMaker={frontend?.trailMakerMode == true}, retry={stalledRetries}.");
             currentResults.Clear();
@@ -906,7 +906,7 @@ namespace CastlePlanner.AIVPlacement
             if (!lobbyContextActive)
                 return;
 
-            Shared.DebugLogHelper.LogInfo(log,
+            Shared.DebugLogHelper.LogDebug(log,
                 $"AIV evaluation reset: generation={activeGeneration}, reason={reason}, " +
                 $"pendingPlayers={pendingPlayerIds.Count}.");
             lobbyContextActive = false;

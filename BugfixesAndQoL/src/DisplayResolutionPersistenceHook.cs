@@ -322,7 +322,7 @@ namespace BugfixesAndQoL
 
                 if (action == DisplayRecoveryAction.Completed)
                 {
-                    Shared.DebugLogHelper.LogInfo(
+                    Shared.DebugLogHelper.LogDebug(
                         log,
                         $"Bugfixes and QoL confirmed borderless resolution recovery after two rendered frames: actual={DescribeActual()}.");
                 }

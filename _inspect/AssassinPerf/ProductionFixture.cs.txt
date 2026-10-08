@@ -33,7 +33,7 @@ unsafe static class UnitAccess {
  internal static bool IsReallyAlive(in GameUnit unit)=>unit.r_AliveState==AliveState.IsAlive&&(unit.N0000019A&0xffff)==0;
 }
 namespace BepInEx.Logging { sealed class ManualLogSource {} }
-namespace Shared { static class DebugLogHelper { internal static void LogInfo(object log,string text){} } }
+namespace Shared { static class DebugLogHelper { internal static void LogInfo(object log,string text){} internal static void LogDebug(object log,string text){} } }
 namespace APIShared {
  unsafe static class AssassinPathAPI {
   static string weightedOwner="fixture"; public static bool IsInstalled=>true;

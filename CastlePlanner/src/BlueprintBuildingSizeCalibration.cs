@@ -141,7 +141,7 @@ namespace CastlePlanner
                 BlueprintBuildingIconCatalog
                     .CurrentCalibrationRevision);
             Save();
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Blueprint building alignment calibrated from Vanilla preview: " +
                 $"mapper={mapperName} ({mapperValue}), " +
@@ -510,7 +510,7 @@ namespace CastlePlanner
                     IsUsableMeasurement);
                 int alignedCount = measurements.Values.Count(
                     HasUsableGroundOffset);
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     $"Loaded {measurements.Count} Blueprint building-size " +
                     $"calibrations ({usableCount} usable sizes, " +

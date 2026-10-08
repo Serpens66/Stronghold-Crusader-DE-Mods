@@ -204,7 +204,7 @@ namespace APIShared
             int targetY, int maximumNodes, int continuation)
         {
             if (Interlocked.Exchange(ref callbackLogged, 1) == 0)
-                NativeApiLog.Info(log, "Assassin shared runtime hook confirmed after startup; " +
+                NativeApiLog.Debug(log, "Assassin shared runtime hook confirmed after startup; " +
                     $"source=({startX},{startY}), target=({targetX},{targetY}), limit={maximumNodes}, continuation={continuation}.");
             AssassinPathBuilder handler = Volatile.Read(ref weightedBuilder);
             return handler == null
@@ -250,7 +250,7 @@ namespace APIShared
                 transaction = pending;
                 endpointHooks = pendingEndpoints;
                 builderHook = pendingBuilder; // Publication; no cleanup path can dispose this transaction.
-                NativeApiLog.Info(log, "Assassin shared hooks installed; owner=APIShared, builder=0xD9C40, " +
+                NativeApiLog.Debug(log, "Assassin shared hooks installed; owner=APIShared, builder=0xD9C40, " +
                     "scheme=Indirect/displaced=10, endpoints=0xD9F0C/16,0xD9F1C/15,0xE19D8/18,0xE19F9/23.");
             }
             catch (Exception ex)

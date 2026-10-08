@@ -324,7 +324,7 @@ namespace BugfixesAndQoL
             UnityEngine.Application.onBeforeRender += OnBeforeRender;
 
             initialized = true;
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Bugfixes and QoL surrender/statistics initialized: requestPacketId={requestPacketHook.GetPacketId()}, executionPacketId={executionPacketHook.GetPacketId()}, spectatorPacketId={spectatorPacketHook.GetPacketId()}, requestProtocolVersion={RequestProtocolVersion}, statisticsReady={statisticsReady}, statisticsTeamBadgesReady={statisticsTeamBadgesReady}.");
         }
@@ -477,7 +477,7 @@ namespace BugfixesAndQoL
             }
 
             spectatorPromotionConfirmed = true;
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Vanilla spectator mode confirmed for eliminated local player {spectatorPromotionPlayerId}; local identity remained unchanged and omniscient visibility/AI information are active: mode={spectatorPromotionGameMode}.");
         }
@@ -588,7 +588,7 @@ namespace BugfixesAndQoL
 
             spectatorChoreQueuedPlayers[playerId] = true;
             int queueTick = GameTimeManagerAPI.Instance.GetElapsedMapTicks();
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Eliminated-player spectator Chore queued: sessionId={notification.SessionId}, playerId={playerId}, lordDeathTick={notification.SimulationTick}, queueTick={queueTick}, packetId={packetId}, bodyBytes={body.Length}, bodyHex={ToCompactHex(body)}.");
         }
@@ -683,7 +683,7 @@ namespace BugfixesAndQoL
             spectatorPromotionActivated = true;
             spectatorPromotionPlayerId = localPlayerId;
             spectatorPromotionGameMode = gameMode.ToDiagnosticString();
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Activated Vanilla spectator mode for eliminated local player {localPlayerId}: source={source}, mode={spectatorPromotionGameMode}.");
         }
@@ -829,7 +829,7 @@ namespace BugfixesAndQoL
                 if (!TryApplyStatisticsSnapshot(statisticsPreviewView, snapshot, initializeView: false))
                     return;
 
-                Shared.DebugLogHelper.LogInfo(log, "Spectator statistics refreshed from the current local simulation snapshot.");
+                Shared.DebugLogHelper.LogDebug(log, "Spectator statistics refreshed from the current local simulation snapshot.");
             }
             catch (Exception ex)
             {
@@ -999,7 +999,7 @@ namespace BugfixesAndQoL
                 return;
 
             gameOverStateCorrectionLogged = true;
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Corrected Vanilla spectator game-over result for eliminated local player {spectatorPromotionPlayerId}: source={source}, originalState={originalState}, presentedState={presentedState}.");
         }
@@ -1078,7 +1078,7 @@ namespace BugfixesAndQoL
             statisticsPreviewView = view;
             statisticsPreviewActive = true;
             buttonViewModel.SetStatisticsPreviewActive(true);
-            Shared.DebugLogHelper.LogInfo(log, "Opened spectator statistics from the current local simulation snapshot without entering Vanilla game over.");
+            Shared.DebugLogHelper.LogDebug(log, "Opened spectator statistics from the current local simulation snapshot without entering Vanilla game over.");
             return true;
         }
 
@@ -1516,7 +1516,7 @@ namespace BugfixesAndQoL
                 {
                     if (APIShared.UnitAccess.TryGetById(lord.UnitId, out _, out _)) GameUnitManagerAPI.Instance.KillUnit(lord.UnitId);
                     ClearSurrenderLordSelection(lord.PlayerId, lord.UnitId, lord.GlobalId);
-                    Shared.DebugLogHelper.LogInfo(log, $"Singleplayer surrender executed through lord death: playerId={lord.PlayerId}, unitId={lord.UnitId}, globalId={lord.GlobalId}.");
+                    Shared.DebugLogHelper.LogDebug(log, $"Singleplayer surrender executed through lord death: playerId={lord.PlayerId}, unitId={lord.UnitId}, globalId={lord.GlobalId}.");
                     return;
                 }
 
@@ -1540,7 +1540,7 @@ namespace BugfixesAndQoL
                     RequestId = requestId
                 };
                 GameNetworkAPI.SendPacketToPlayerId(1, request, requestPacketHook.GetPacketId());
-                Shared.DebugLogHelper.LogInfo(log, $"Sent targetless surrender request to host: requestId={requestId}, localPlayerId={localPlayerId}.");
+                Shared.DebugLogHelper.LogDebug(log, $"Sent targetless surrender request to host: requestId={requestId}, localPlayerId={localPlayerId}.");
             }
             catch (Exception ex)
             {
@@ -1675,7 +1675,7 @@ namespace BugfixesAndQoL
 
         private void LogPacketInfo(string message) =>
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
-                () => Shared.DebugLogHelper.LogInfo(log, message));
+                () => Shared.DebugLogHelper.LogDebug(log, message));
 
         private void LogPacketWarning(string message) =>
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
@@ -1722,7 +1722,7 @@ namespace BugfixesAndQoL
             BitConverter.GetBytes(packetId).CopyTo(blob, 0);
             Buffer.BlockCopy(body, 0, blob, sizeof(short), body.Length);
 
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Surrender Chore queued: playerId={lord.PlayerId}, locallyValidatedLordGlobalId={lord.GlobalId}, " +
                 $"bodyBytes={body.Length}, payloadBytes={blob.Length}, " +

@@ -135,7 +135,7 @@ namespace CastlePlanner
             // TickOncePerFrame deduplicates multiple callbacks within the same rendered frame.
             Application.onBeforeRender += OnBeforeRender;
             Application.focusChanged += OnApplicationFocusChanged;
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 "Persistent local blueprint runtime initialized; " +
                 "Application.onBeforeRender frame loop and focus-loss guard " +
@@ -477,7 +477,7 @@ namespace CastlePlanner
                     hotkeyCaptureIgnoredKeys.Add(key);
             }
 
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Blueprint hotkey capture armed; ignoredHeldMouseButtons=" +
                 $"{hotkeyCaptureIgnoredKeys.Count}.");
@@ -574,7 +574,7 @@ namespace CastlePlanner
             if (!settings.CompleteHotkeyCapture(key, alt, control, shift))
                 return false;
             StopHotkeyCapture();
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Blueprint hotkey capture finished: key={key}, " +
                 $"value={(int)key}, source={source}.");
@@ -697,7 +697,7 @@ namespace CastlePlanner
                 layoutKeepX = int.MinValue;
                 layoutKeepY = int.MinValue;
                 renderer.Clear();
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     "Blueprint hidden because the start selection contains no castle.");
                 return false;
@@ -748,7 +748,7 @@ namespace CastlePlanner
                 layoutKeepX = keepX;
                 layoutKeepY = keepY;
                 renderer.PreloadDepthCaptures(layout);
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     $"Blueprint prepared locally: reason={reason}, " +
                     $"file={fullPath}, keep=({keepX},{keepY}), " +
@@ -909,7 +909,7 @@ namespace CastlePlanner
                 blueprintVisible = false;
                 pendingViewSettleTime = -1f;
                 suppressOverlayUntilViewSettled = false;
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     $"Blueprint hidden locally: reason={reason}.");
             }
@@ -950,7 +950,7 @@ namespace CastlePlanner
             suppressOverlayUntilViewSettled = true;
             pendingViewSettleTime =
                 Time.unscaledTime + ViewSettleDelaySeconds;
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Blueprint temporarily hidden while the normal map " +
                 $"projection settles: delay={ViewSettleDelaySeconds:F2}s, " +
@@ -984,7 +984,7 @@ namespace CastlePlanner
                 lastRotation = (int)GameMap.instance.CurrentRotation();
                 lastFlattenedLandscape =
                     EngineInterface.FlattenedLandscape;
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     $"Blueprint rendered locally: reason={reason}, " +
                     $"tiles={result.RenderedTiles}, icons={result.RenderedIcons}, " +

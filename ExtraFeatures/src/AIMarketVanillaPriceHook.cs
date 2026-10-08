@@ -62,7 +62,7 @@ namespace ExtraFeatures
 
             ulong imageBase = unchecked((ulong)libraryHandle.ToInt64());
             ValidateHookPair(memory, imageBase, buyResolution.Rva, sellResolution.Rva);
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Extra Features AI market hook spans validated before installation: " +
                 $"buy=0x{buyResolution.Rva:X}-0x{buyResolution.Rva + ValidatedOverwriteLength:X} (3+7 bytes), " +
@@ -105,7 +105,7 @@ namespace ExtraFeatures
                 throw;
             }
 
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Extra Features AI Vanilla market-price hooks installed atomically: " +
                 $"buyMethod={buyResolution.Method}, buyRva=0x{buyResolution.Rva:X}, buySpan=0x{buyResolution.Rva:X}-0x{buyResolution.Rva + ValidatedOverwriteLength:X}; " +

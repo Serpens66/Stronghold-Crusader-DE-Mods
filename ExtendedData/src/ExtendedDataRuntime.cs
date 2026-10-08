@@ -1802,7 +1802,7 @@ namespace ExtendedData
         private static bool ReadLobbyFlag(FRONT_Multiplayer self, FieldInfo field) =>
             self != null && (bool)field.GetValue(self);
 
-        private void LogInfo(string message) => Shared.DebugLogHelper.LogInfo(log, message);
+        private void LogInfo(string message) => Shared.DebugLogHelper.LogDebug(log, message);
         private void LogError(string message) => Shared.DebugLogHelper.LogError(log, message);
     }
 }

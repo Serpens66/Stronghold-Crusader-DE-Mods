@@ -246,7 +246,7 @@ namespace BugfixesAndQoL
                         building->r_NextProducedGoodId == choice.Good && building->r_ProducedGoodId == choice.Good)
                         verified++;
                 }
-                Shared.DebugLogHelper.LogInfo(log,
+                Shared.DebugLogHelper.LogDebug(log,
                     $"Prebuilt AI workshop Both fix: session={sessionId}, " +
                     $"captured={observed.Count}, corrected={corrected.Count}, verified={verified}, " +
                     $"goods=bows:{bows},crossbows:{crossbows},maces:{maces},swords:{swords}," +
