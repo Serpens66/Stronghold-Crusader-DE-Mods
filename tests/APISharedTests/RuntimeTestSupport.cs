@@ -21,6 +21,37 @@ namespace APISharedTests
     [DoNotParallelize]
     public partial class RuntimeTests
     {
+        // These managed fixtures mutate process-wide state without installing hooks.
+        // Restore it even when an assertion fails, so filtered/repeated runs are independent.
+        private readonly Dictionary<FieldInfo, object> processState = new Dictionary<FieldInfo, object>();
+
+        [TestInitialize]
+        public void IsolateManagedProcessState()
+        {
+            processState.Clear();
+            SnapshotAndReset(typeof(PlayerPerspectiveAPI), "identityOverrideActive", "selectedSpectatorPlayerId",
+                "transitionViewPlayerId", "transitionActive", "viewUncertain");
+            SnapshotAndReset(typeof(ElevatedMoatAiCapability), "current", "Changed");
+        }
+
+        private void SnapshotAndReset(Type type, params string[] names)
+        {
+            foreach (string name in names)
+            {
+                FieldInfo field = type.GetField(name, BindingFlags.Static | BindingFlags.NonPublic);
+                Microsoft.VisualStudio.TestTools.UnitTesting.Assert.IsNotNull(field, type.FullName + "." + name);
+                processState.Add(field, field.GetValue(null));
+                field.SetValue(null, field.FieldType.IsValueType ? Activator.CreateInstance(field.FieldType) : null);
+            }
+        }
+
+        [TestCleanup]
+        public void RestoreManagedProcessState()
+        {
+            foreach (var state in processState) state.Key.SetValue(null, state.Value);
+            processState.Clear();
+        }
+
         private const long ModuleBase = 0x10000000;
         private const int FunctionRva = 0x1100;
         private const int FunctionSize = 0x300;
