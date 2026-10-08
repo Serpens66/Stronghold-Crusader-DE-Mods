@@ -1,0 +1,12 @@
+
+LogLastWrite         : 08.10.2026 18:39:31
+SessionLines         : 2968
+Errors               : 3
+Fatals               : 0
+LinkedFormationHosts : 0
+AppliedOrders        : 0
+ConsumedReleases     : 0
+
+[Error  :Bugfixes and QoL] [2026-10-08 18:36:48.277] Bugfixes and QoL feature 'friendly moat movement' could not be initialized and remains inactive: System.InvalidOperationException: The unit-type update dispatch table is outside the game module.
+[Error  :Bugfixes and QoL] [2026-10-08 18:36:48.339] Bugfixes and QoL feature 'Extended Shift command queue' could not be initialized and remains inactive: System.ArgumentException: Value does not fall within the expected range.
+[Error  :Bugfixes and QoL] [2026-10-08 18:36:49.490] Formation initialization failed; Vanilla remains active: System.InvalidOperationException: Shared command or marker capability unavailable.

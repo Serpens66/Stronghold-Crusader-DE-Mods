@@ -102,17 +102,17 @@
   </Operation>
 <Operation Type="Add" XPath="//n:Grid[@x:Name='LayoutRoot']">
     <Content>
-      <Grid x:Name="BugfixesAndQoLFormationButtonHost" Visibility="{Binding FeatureAvailable, Converter={StaticResource booleanToVisibilityConverter}}" Width="35" Height="35" Margin="480,11,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" Panel.ZIndex="20">
+      <Grid x:Name="BugfixesAndQoLFormationButtonHost" Visibility="{Binding FeatureAvailable, Converter={StaticResource booleanToVisibilityConverter}, FallbackValue=Collapsed}" Width="35" Height="35" Margin="480,11,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" Panel.ZIndex="20">
         <Button Width="35" Height="35" Padding="0" Command="{Binding ToggleMenuCommand}">
           <Viewbox Width="27" Height="27"><Grid Width="32" Height="32" IsHitTestVisible="False">
-            <ContentControl Content="Formation" ContentTemplate="{StaticResource BugfixesFormationIconVanilla}" Visibility="{Binding IsVanilla, Converter={StaticResource booleanToVisibilityConverter}}"/>
-            <ContentControl Content="Formation" ContentTemplate="{StaticResource BugfixesFormationIconBlock}" Visibility="{Binding IsBlock, Converter={StaticResource booleanToVisibilityConverter}}"/>
-            <ContentControl Content="Formation" ContentTemplate="{StaticResource BugfixesFormationIconLine}" Visibility="{Binding IsLine, Converter={StaticResource booleanToVisibilityConverter}}"/>
-            <ContentControl Content="Formation" ContentTemplate="{StaticResource BugfixesFormationIconColumn}" Visibility="{Binding IsColumn, Converter={StaticResource booleanToVisibilityConverter}}"/>
-            <ContentControl Content="Formation" ContentTemplate="{StaticResource BugfixesFormationIconWedge}" Visibility="{Binding IsWedge, Converter={StaticResource booleanToVisibilityConverter}}"/>
-            <ContentControl Content="Formation" ContentTemplate="{StaticResource BugfixesFormationIconCircle}" Visibility="{Binding IsCircle, Converter={StaticResource booleanToVisibilityConverter}}"/>
+            <ContentControl Content="Formation" ContentTemplate="{StaticResource BugfixesFormationIconVanilla}" Visibility="{Binding IsVanilla, Converter={StaticResource booleanToVisibilityConverter}, FallbackValue=Collapsed}"/>
+            <ContentControl Content="Formation" ContentTemplate="{StaticResource BugfixesFormationIconBlock}" Visibility="{Binding IsBlock, Converter={StaticResource booleanToVisibilityConverter}, FallbackValue=Collapsed}"/>
+            <ContentControl Content="Formation" ContentTemplate="{StaticResource BugfixesFormationIconLine}" Visibility="{Binding IsLine, Converter={StaticResource booleanToVisibilityConverter}, FallbackValue=Collapsed}"/>
+            <ContentControl Content="Formation" ContentTemplate="{StaticResource BugfixesFormationIconColumn}" Visibility="{Binding IsColumn, Converter={StaticResource booleanToVisibilityConverter}, FallbackValue=Collapsed}"/>
+            <ContentControl Content="Formation" ContentTemplate="{StaticResource BugfixesFormationIconWedge}" Visibility="{Binding IsWedge, Converter={StaticResource booleanToVisibilityConverter}, FallbackValue=Collapsed}"/>
+            <ContentControl Content="Formation" ContentTemplate="{StaticResource BugfixesFormationIconCircle}" Visibility="{Binding IsCircle, Converter={StaticResource booleanToVisibilityConverter}, FallbackValue=Collapsed}"/>
           </Grid></Viewbox>
-          <b:Interaction.Triggers><b:EventTrigger EventName="MouseEnter"><b:InvokeCommandAction Command="{Binding ShowRolloverCommand}" CommandParameter="Formations"/></b:EventTrigger><b:EventTrigger EventName="MouseLeave"><b:InvokeCommandAction Command="{Binding HideRolloverCommand}"/></b:EventTrigger></b:Interaction.Triggers>
+          <b:Interaction.Triggers><b:EventTrigger EventName="MouseEnter"><b:InvokeCommandAction Command="{Binding ShowRolloverCommand}" CommandParameter="Aufstellung"/></b:EventTrigger><b:EventTrigger EventName="MouseLeave"><b:InvokeCommandAction Command="{Binding HideRolloverCommand}"/></b:EventTrigger></b:Interaction.Triggers>
         </Button>
       </Grid>
     </Content>
@@ -137,14 +137,14 @@
   </Operation>
   <Operation Type="Add" XPath="//n:Grid[@x:Name='LayoutRoot']">
     <Content>
-      <Grid x:Name="BugfixesAndQoLFormationMenuHost" Width="520" Height="178" Margin="-1000,-1000,80,150" HorizontalAlignment="Right" VerticalAlignment="Bottom" Panel.ZIndex="100" Visibility="{Binding MenuVisible, Converter={StaticResource booleanToVisibilityConverter}}">
+      <Grid x:Name="BugfixesAndQoLFormationMenuHost" Width="520" Height="178" Margin="-1000,-1000,80,150" HorizontalAlignment="Right" VerticalAlignment="Bottom" Panel.ZIndex="100" Visibility="{Binding MenuVisible, Converter={StaticResource booleanToVisibilityConverter}, FallbackValue=Collapsed}">
         <Border Background="#CC17130E" BorderBrush="#AA806B45" BorderThickness="1" CornerRadius="12" Padding="10,8">
           <Grid>
             <Grid.RowDefinitions><RowDefinition Height="46"/><RowDefinition Height="38"/><RowDefinition Height="38"/><RowDefinition Height="38"/></Grid.RowDefinitions>
             <Border Grid.Row="0" Background="#66000000" CornerRadius="6"/><Border Grid.Row="2" Background="#66000000" CornerRadius="6"/>
             <Grid Grid.Row="0">
               <Grid.ColumnDefinitions><ColumnDefinition Width="104"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-              <TextBlock Margin="8,0" VerticalAlignment="Center" Foreground="#FFF1E2B7" FontSize="15" Text="Formation"/>
+              <TextBlock Margin="8,0" VerticalAlignment="Center" Foreground="#FFF1E2B7" FontSize="15" Text="Aufstellung"/>
               <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                 <Button Width="40" Height="40" Margin="2" Padding="0" Background="{Binding VanillaBackground}" Command="{Binding SelectFormationCommand}" CommandParameter="Vanilla">
                   <ContentControl Content="Formation" Width="32" Height="32" IsHitTestVisible="False" ContentTemplate="{StaticResource BugfixesFormationIconVanilla}"/>
@@ -170,7 +170,7 @@
   </Operation>
   <Operation Type="Add" XPath="//n:Grid[@x:Name='LayoutRoot']">
     <Content>
-      <TextBlock x:Name="BugfixesAndQoLFormationRolloverHost" Padding="4,2,4,0" Margin="140,3,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" Panel.ZIndex="101" FontSize="16" Foreground="#FFDDDDDD" Background="#55000000" IsHitTestVisible="False" Tag="Ignore" Text="{Binding RolloverText}" Visibility="{Binding RolloverVisible, Converter={StaticResource booleanToVisibilityConverter}}"><TextBlock.Effect><DropShadowEffect ShadowDepth="2" Direction="315" Color="#CC000000" BlurRadius="0"/></TextBlock.Effect></TextBlock>
+      <TextBlock x:Name="BugfixesAndQoLFormationRolloverHost" Padding="4,2,4,0" Margin="140,3,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" Panel.ZIndex="101" FontSize="16" Foreground="#FFDDDDDD" Background="#55000000" IsHitTestVisible="False" Tag="Ignore" Text="{Binding RolloverText}" Visibility="{Binding RolloverVisible, Converter={StaticResource booleanToVisibilityConverter}, FallbackValue=Collapsed}"><TextBlock.Effect><DropShadowEffect ShadowDepth="2" Direction="315" Color="#CC000000" BlurRadius="0"/></TextBlock.Effect></TextBlock>
     </Content>
   </Operation>
 </Patch>

@@ -1,0 +1,9 @@
+--- starting:BugfixesAndQoL/tests/FriendlyMoatMovement.Tests/Program.cs
++++ BugfixesAndQoL/tests/FriendlyMoatMovement.Tests/Program.cs
+@@ -55,4 +55,6 @@
+ NativeCommandDetourContract.Validate(root);
+ MovementLifeGeneratorTests.Validate(root);
+ RallyTerrainGeneratorTests.Validate(root);
++CadenceSnapshotTests.Validate(root);
++FormationStartupTests.Validate(root);
+ Console.WriteLine("PASS: main command fixes use native probes and group fallback; actual installed RedBird contracts verified.");

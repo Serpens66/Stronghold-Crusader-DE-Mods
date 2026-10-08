@@ -325,6 +325,11 @@ namespace APIShared.UnitCommands
             if (weightedShadowBusy || pathManager != nativePathManager || nativePath == null ||
                 nativeLength <= 0 || nativeLength > WeightedMoatRoutePlanner.MaximumRouteEdges ||
                 nativeSummary.StructuralEdges > 0) return false;
+            if (nativeMovementCadenceResolver == null)
+            {
+                rejectionReason = "native-cadence-resolver-unavailable";
+                return false;
+            }
             if (!nativeMovementCadenceResolver.TryGetPlausibleSpeedBonuses((int)shadow.UnitType,
                 shadow.CostProfile.SpeedBonus, out int[] bonuses, out ulong handlerRva, out rejectionReason)) return false;
             var profiles = new List<WeightedMovementCostProfile> { shadow.CostProfile };

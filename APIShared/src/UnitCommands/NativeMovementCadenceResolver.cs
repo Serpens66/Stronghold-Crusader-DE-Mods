@@ -1,6 +1,7 @@
 using BepInEx.Logging;
 using Iced.Intel;
 using SHCDESE.Interop;
+using SHCDESE.API.LowLevel;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
@@ -12,7 +13,7 @@ namespace APIShared.UnitCommands
     /// It deliberately returns every statically reachable AI-state-101 speed-bonus value;
     /// callers must treat that set conservatively rather than guessing a unit profile.
     /// </summary>
-    internal sealed unsafe class NativeMovementCadenceResolver
+    internal sealed class NativeMovementCadenceResolver
     {
         internal const int UnitTypeUpdateDispatchRva = 0x18410C;
         internal const int MaximumUnitTypeHandlerLength = 0x5000;
@@ -26,19 +27,21 @@ namespace APIShared.UnitCommands
         internal const string UnitTypeUpdateDispatchPattern =
             "41 FF 94 C6 ?? ?? ?? ?? 8B 15 ?? ?? ?? ?? 48 63 C2 48 69 C8 90 04 00 00";
 
+        private readonly CrusaderLibraryLoadContext libraryContext;
         internal readonly ulong libraryBase;
         internal readonly ulong moduleEnd;
         internal readonly ulong nativeUnitManager;
         internal readonly HandlerProfile[] profiles;
 
         public NativeMovementCadenceResolver(
-            ReadOnlySpan<byte> memory,
-            ulong libraryBase,
+            CrusaderLibraryLoadContext libraryContext,
             ulong nativeUnitManager,
             ManualLogSource log)
         {
-            this.libraryBase = libraryBase;
-            moduleEnd = libraryBase + unchecked((ulong)memory.Length);
+            this.libraryContext = libraryContext ?? throw new ArgumentNullException(nameof(libraryContext));
+            ReadOnlySpan<byte> memory = libraryContext.Memory;
+            libraryBase = unchecked((ulong)libraryContext.ModuleHandle.ToInt64());
+            moduleEnd = checked(libraryBase + (ulong)memory.Length);
             this.nativeUnitManager = nativeUnitManager;
 
             Shared.NativeResolution dispatch = Shared.NativePatternResolver.ResolveUnique(
@@ -49,18 +52,17 @@ namespace APIShared.UnitCommands
                 name: "unit-type update dispatch for movement cadence",
                 log: log);
             ulong dispatchAddress = libraryBase + unchecked((ulong)dispatch.Rva);
-            int dispatchTableOffset = *(int*)(dispatchAddress + 4);
-            ulong dispatchTable = libraryBase + unchecked((uint)dispatchTableOffset);
+            uint dispatchTableOffset = ReadUInt32(dispatchAddress + 4);
+            ulong dispatchTable = checked(libraryBase + dispatchTableOffset);
             int unitTypeCount = (int)eChimps.CHIMP_NUM_TYPES;
             if (!IsModuleRange(dispatchTable, checked(unitTypeCount * sizeof(ulong))))
                 throw new InvalidOperationException("The unit-type update dispatch table is outside the game module.");
 
             var handlersByType = new ulong[unitTypeCount];
             var uniqueHandlers = new SortedSet<ulong>();
-            ulong* nativeHandlers = (ulong*)dispatchTable;
             for (int unitType = 0; unitType < unitTypeCount; unitType++)
             {
-                ulong handler = nativeHandlers[unitType];
+                ulong handler = ReadUInt64(dispatchTable + (ulong)unitType * sizeof(ulong));
                 if (handler < libraryBase || handler >= moduleEnd)
                     continue;
                 handlersByType[unitType] = handler;
@@ -96,7 +98,7 @@ namespace APIShared.UnitCommands
                 log,
                 $"Bugfixes and QoL stage=friendly-moat-movement-weighted-cadence-resolver dispatchRva=0x{dispatch.Rva:X} " +
                 $"tableRva=0x{dispatchTable - libraryBase:X} handlers={uniqueHandlers.Count} " +
-                $"resolvedTypes={resolvedTypes}/{unitTypeCount} mode=read-only-no-audited-type-table.");
+                $"resolvedTypes={resolvedTypes}/{unitTypeCount} mode=load-snapshot-read-only.");
         }
 
         public bool TryGetPlausibleSpeedBonuses(
@@ -141,7 +143,7 @@ namespace APIShared.UnitCommands
             if (handlerLength <= 0 || !IsModuleRange(handlerAddress, handlerLength))
                 return null;
 
-            byte[] bytes = new ReadOnlySpan<byte>((byte*)handlerAddress, handlerLength).ToArray();
+            byte[] bytes = ReadSnapshot(handlerAddress, handlerLength).ToArray();
             Decoder decoder = Decoder.Create(64, new ByteArrayCodeReader(bytes));
             decoder.IP = handlerAddress;
             var instructions = new List<Instruction>(2048);
@@ -219,7 +221,7 @@ namespace APIShared.UnitCommands
                         continue;
                     }
 
-                    byte compressedCase = *((byte*)stateMap + aiState);
+                    byte compressedCase = ReadSnapshot(stateMap + aiState, 1)[0];
                     Register compressedRegister = NormalizeRegister(mapLoad.Op0Register);
                     int tableSearchEnd = Math.Min(mapIndex + 12, instructions.Count);
                     for (int tableIndex = mapIndex + 1; tableIndex < tableSearchEnd; tableIndex++)
@@ -238,7 +240,7 @@ namespace APIShared.UnitCommands
                             continue;
                         }
 
-                        uint targetRva = *(uint*)(jumpTable + unchecked((ulong)compressedCase * 4));
+                        uint targetRva = ReadUInt32(jumpTable + (ulong)compressedCase * 4);
                         ulong target = libraryBase + targetRva;
                         if (target >= libraryBase && target < moduleEnd)
                         {
@@ -648,6 +650,23 @@ namespace APIShared.UnitCommands
             }
             return false;
         }
+
+        // All static analysis uses the pre-hook snapshot. Never decode live patched code.
+        private ReadOnlySpan<byte> ReadSnapshot(ulong address, int length)
+        {
+            if (!IsModuleRange(address, length))
+                throw new InvalidOperationException("Movement cadence read is outside the load snapshot.");
+            return libraryContext.Memory.Slice(checked((int)(address - libraryBase)), length);
+        }
+
+        private uint ReadUInt32(ulong address)
+        {
+            ReadOnlySpan<byte> bytes = ReadSnapshot(address, sizeof(uint));
+            return (uint)(bytes[0] | bytes[1] << 8 | bytes[2] << 16 | bytes[3] << 24);
+        }
+
+        private ulong ReadUInt64(ulong address) =>
+            ReadUInt32(address) | ((ulong)ReadUInt32(address + sizeof(uint)) << 32);
 
         internal bool IsModuleRange(ulong address, int length) =>
             length >= 0 && address >= libraryBase && address <= moduleEnd &&

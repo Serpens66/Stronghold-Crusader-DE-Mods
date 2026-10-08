@@ -40,11 +40,27 @@ namespace BugfixesAndQoL
             FormationPreviewOverlay.Initialize(log, roles.Value);
             menu = new FormationMenuViewModel(log, config, kind, density, placement, roles);
             menu.Enabled = () => runtime != null && runtime.Enabled;
+            RegisterPresentationBindings();
             config.Save();
             settings.PropertyChanged += (_, __) => {
                 if (!settings.EnableMod || !settings.EnableMoveFormationEnhancements)
                 { runtime?.ResetTransientState(); menu.CloseMenu(); FormationPreviewOverlay.Clear(); }
             };
+        }
+
+        private static void RegisterPresentationBindings()
+        {
+            foreach (string host in new[] {
+                "BugfixesAndQoLFormationButtonHost", "BugfixesAndQoLFormationMenuHost",
+                "BugfixesAndQoLFormationRolloverHost" })
+            {
+                try { GameXAMLManagerAPI.Instance.RegisterBinding(host, menu); }
+                catch (Exception exception)
+                {
+                    Shared.DebugLogHelper.LogWarning(log,
+                        "FORMATION_BINDING_FAILED: host=" + host + "; " + exception);
+                }
+            }
         }
 
         private static string ReadConfig(string path)
@@ -68,20 +84,14 @@ namespace BugfixesAndQoL
                 // failure leaves the rooted candidate logically inactive until process exit.
                 runtime = new FormationRuntime(log, context, kind, density, placement, menu, settings, commands, markers);
                 runtime.Initialize();
-                try
-                {
-                    GameXAMLManagerAPI.Instance.RegisterBinding("BugfixesAndQoLFormationButtonHost", menu);
-                    GameXAMLManagerAPI.Instance.RegisterBinding("BugfixesAndQoLFormationMenuHost", menu);
-                    GameXAMLManagerAPI.Instance.RegisterBinding("BugfixesAndQoLFormationRolloverHost", menu);
-                }
-                catch (Exception ex)
-                {
-                    Shared.DebugLogHelper.LogWarning(log, "Formation menu unavailable; movement runtime remains active: " + ex.Message);
-                }
             }
             catch (Exception ex)
             {
                 Shared.DebugLogHelper.LogError(log, "Formation initialization failed; Vanilla remains active: " + ex);
+            }
+            finally
+            {
+                Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() => menu.RefreshAvailability());
             }
         }
     }

@@ -1,0 +1,27 @@
+--- starting:APIShared/src/UnitCommands/UnitCommandPathRuntime.cs
++++ APIShared/src/UnitCommands/UnitCommandPathRuntime.cs
+@@ -1018,11 +1018,19 @@
+                 (byte*)(libraryBase + NativeBuildingTypeBiasRva),
+                 ResolveCompletedMoatRelationship,
+                 ResolveNativeSpecialStructure);
+-            nativeMovementCadenceResolver = new NativeMovementCadenceResolver(
+-                memory,
+-                libraryBase,
+-                unchecked((ulong)nativeUnitManager),
+-                log);
++            try
++            {
++                nativeMovementCadenceResolver = new NativeMovementCadenceResolver(
++                    context, unchecked((ulong)nativeUnitManager), log);
++            }
++            catch (Exception exception)
++            {
++                // Cadence qualification is optional; keep shared commands and selectors available.
++                nativeMovementCadenceResolver = null;
++                Shared.DebugLogHelper.LogWarning(log,
++                    "CADENCE_RESOLVER_UNAVAILABLE: weighted route publication disabled; " +
++                    "shared movement commands remain available: " + exception);
++            }
+             rootedCentralMovementPlan = RunCentralMovementPlanWithContext;
+             rootedPathBuilder = BuildPathWithCompletedMoatRouteVariant;
+             rootedPathReconstruction = BuildReconstructedUnitPath;

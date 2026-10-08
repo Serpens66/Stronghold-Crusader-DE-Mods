@@ -1,0 +1,19 @@
+--- starting:APIShared/src/UnitCommands/FormationRuntime.cs
++++ APIShared/src/UnitCommands/FormationRuntime.cs
+@@ -1340,6 +1340,8 @@
+                 unitFallbackAttempt = null;
+                 failed = true;
+             }
++            try { menuViewModel.CloseMenu(); } catch { }
++            try { Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(menuViewModel.RefreshHostState); } catch { }
+             try
+             {
+                 Shared.DebugLogHelper.LogError(
+@@ -2385,6 +2387,7 @@
+             // Fail-open must reach Vanilla even if a presentation or logger also fails.
+             try { ClearPreview(); } catch { }
+             try { menuViewModel.CloseMenu(); } catch { }
++            try { Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(menuViewModel.RefreshHostState); } catch { }
+             try
+             {
+                 Shared.DebugLogHelper.LogError(log,

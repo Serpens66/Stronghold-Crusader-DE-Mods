@@ -78,3 +78,25 @@ production generators, covering both independent settings, 26 types,
 owners, original call/registers/flags, death, identity/state changes,
 epoch rejection and single consumption. These are isolated execution
 tests; real in-game terrain routes and save loading still require playtest.
+
+## Startup interaction: immutable static analysis (2026-10-08)
+
+The 18:36 start log confirms the process-owned rally capture was installed at
+RVA 0x18410C before the cadence resolver ran. Reading the original dispatch
+operand from live memory after that installation produced an out-of-module
+handler table and disabled the shared commands, Shift queue and formation.
+Static cadence analysis must read the dispatch displacement, handler pointers,
+handler instructions, compressed state mapping and case jump tables from the
+existing CrusaderLibraryLoadContext.Memory load-time snapshot. Keep the context
+rooted; validate all reads against its span and calculate decoder virtual
+addresses from its real ModuleHandle. Do not decode published live hooks or
+dispose the extender-owned region. No new native hook boundaries are needed.
+
+Cadence qualification is optional. Its failure must reject weighted route
+publication without disabling the shared command/selector runtime. Executable
+production-resolver tests independently mutate live dispatch, handler pointer,
+handler code, state map and jump table, including the combined mutation, and
+verify identical snapshot-derived profiles plus rejection of invalid addresses.
+Fixes' speed-reduction patches remove stores; snapshot analysis retains the
+original possibilities conservatively, in addition to the captured current
+speed bonus. No Fixes or Script Extender sources are changed.

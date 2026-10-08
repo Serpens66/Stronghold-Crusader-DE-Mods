@@ -175,6 +175,14 @@ namespace BugfixesAndQoL
             CrusaderLibraryLoadContext context,
             bool referenceHashMatches)
         {
+            UnitCommandPathRuntime sharedCommands = UnitCommandPathAPI.Runtime;
+            if (sharedCommands == null)
+            {
+                Shared.DebugLogHelper.LogWarning(log,
+                    "SHIFT_QUEUE_UNAVAILABLE: shared command runtime is unavailable; Vanilla remains active.");
+                return;
+            }
+
             if (installed)
                 return;
             if (context == null)
@@ -289,7 +297,6 @@ namespace BugfixesAndQoL
                 context.Region,
                 SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
                 CreateTransactionOptions());
-            UnitCommandPathRuntime sharedCommands = UnitCommandPathAPI.Runtime;
             originalSharedAppend = sharedCommands.ContinueQueueAppend;
             originalSharedTarget = sharedCommands.ContinueQueueTarget;
             sharedCommands.InstallQueueCommandHooks(memory, libraryBase,

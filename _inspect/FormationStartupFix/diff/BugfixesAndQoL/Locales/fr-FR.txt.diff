@@ -1,0 +1,13 @@
+--- starting:BugfixesAndQoL/Locales/fr-FR.txt
++++ BugfixesAndQoL/Locales/fr-FR.txt
+@@ -159,8 +159,8 @@
+ BugfixesAndQoL.TroopMovementTitle=Troop Movement
+ BugfixesAndQoL.EnableExtendedShiftCommandQueue=Enable extended Shift command queues
+ BugfixesAndQoL.EnableExtendedShiftCommandQueueHelp=Combines Shift movement and unit/building attack orders in one queue of up to 128 commands with multi-page destination markers. This is a host setting.
+-BugfixesAndQoL.EnableMoveFormationEnhancements=Enable Move formation and complete target markers
+-BugfixesAndQoL.EnableMoveFormationEnhancementsHelp=Choose formation, density and role placement in the troop HUD. Hold the configured Move mouse button over open ground and drag to set facing. Wheel up removes a row (wider); wheel down adds a row (longer). Circle and Vanilla keep their geometry. Adjust density in the window only. Release issues one synchronized Move. Requires at least two selected units. Shift waypoints retain their existing behavior.
++BugfixesAndQoL.EnableMoveFormationEnhancements=Enable unit arrangement and complete target markers
++BugfixesAndQoL.EnableMoveFormationEnhancementsHelp=Choose unit arrangement, density and role placement in the troop HUD. Hold the configured Move mouse button over open ground and drag to set facing. Wheel up removes a row (wider); wheel down adds a row (longer). Circle and Vanilla keep their geometry. Adjust density in the window only. Release issues one synchronized Move. Requires at least two selected units. Shift waypoints retain their existing behavior.
+ BugfixesAndQoL.PlagueTitle=Plague
+ Common.Preset=Preset
+ Common.ActionsScopeHost=Loading a preset or resetting settings affects host settings and your local client settings.

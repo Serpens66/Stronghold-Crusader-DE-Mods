@@ -73,8 +73,8 @@ namespace BugfixesAndQoL
         public ICommand ShowRolloverCommand { get; }
         public ICommand HideRolloverCommand { get; }
 
-        public bool MenuVisible => menuVisible;
-        public bool RolloverVisible => rolloverVisible;
+        public bool MenuVisible => menuVisible && FeatureAvailable;
+        public bool RolloverVisible => rolloverVisible && FeatureAvailable;
         public string RolloverText => rolloverText;
         public bool IsVanilla => FormationModel.NormalizeKind((int)formation.Value) == FormationKind.Vanilla;
         public bool IsBlock => FormationModel.NormalizeKind((int)formation.Value) == FormationKind.Block;
@@ -98,13 +98,26 @@ namespace BugfixesAndQoL
         public SolidColorBrush RoleMarkersOnBackground => BooleanBrush(showRoleMarkers.Value);
         public SolidColorBrush RoleMarkersOffBackground => BooleanBrush(!showRoleMarkers.Value);
 
+        internal void RefreshAvailability()
+        {
+            bool available = FeatureAvailable;
+            if (!available)
+            {
+                SetMenuVisible(false);
+                HideRollover();
+            }
+            if (lastAvailability != available)
+            {
+                lastAvailability = available;
+                OnChanged(nameof(FeatureAvailable));
+                OnChanged(nameof(MenuVisible));
+                OnChanged(nameof(RolloverVisible));
+            }
+        }
+
         public void RefreshHostState()
         {
-            if (lastAvailability != FeatureAvailable)
-            {
-                lastAvailability = FeatureAvailable;
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(FeatureAvailable)));
-            }
+            RefreshAvailability();
             MainViewModel current = MainViewModel.viewModelLoaded ? MainViewModel.Instance : null;
             if (!ReferenceEquals(current, subscribedMainViewModel) && current != null)
             {
@@ -119,7 +132,11 @@ namespace BugfixesAndQoL
             }
         }
 
-        public void CloseMenu() => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() => SetMenuVisible(false));
+        public void CloseMenu() => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
+        {
+            SetMenuVisible(false);
+            RefreshAvailability();
+        });
 
         private void ToggleMenu()
         {
@@ -142,6 +159,7 @@ namespace BugfixesAndQoL
 
         private void SelectFormation(object parameter)
         {
+            if (!FeatureAvailable) return;
             if (!Enum.TryParse(parameter as string, true, out FormationKind requested))
                 return;
             FormationKind normalized = FormationModel.NormalizeKind((int)requested);
@@ -153,6 +171,7 @@ namespace BugfixesAndQoL
 
         private void SelectDensity(object parameter)
         {
+            if (!FeatureAvailable) return;
             if (!int.TryParse(parameter as string, out int requested))
                 return;
             int normalized = FormationModel.NormalizeDensity(requested);
@@ -164,6 +183,7 @@ namespace BugfixesAndQoL
 
         private void SelectPlacement(object parameter)
         {
+            if (!FeatureAvailable) return;
             if (!Enum.TryParse(parameter as string, true, out RangedPlacementMode requested))
                 return;
             RangedPlacementMode normalized = FormationModel.NormalizePlacementMode((int)requested);
@@ -175,6 +195,7 @@ namespace BugfixesAndQoL
 
         private void SelectRoleMarkers(object parameter)
         {
+            if (!FeatureAvailable) return;
             if (!bool.TryParse(parameter as string, out bool requested) ||
                 showRoleMarkers.Value == requested)
                 return;
@@ -185,6 +206,7 @@ namespace BugfixesAndQoL
 
         private void ShowRollover(object parameter)
         {
+            if (!FeatureAvailable) return;
             string text = parameter as string;
             if (string.IsNullOrWhiteSpace(text))
                 return;
