@@ -39,9 +39,14 @@ namespace CommandFixture
     }
     internal enum EventHookPhase { Pre, Post }
     internal sealed class TribeIssueOrderWithTargetEventArgs { internal EventHookPhase Phase; internal bool SkipOriginalFunction; }
-    internal static class MoveFormationCommandContext { internal static Action CaptureForNestedCommand()=>()=>{}; }
+    internal sealed class FormationRuntime
+    {
+        internal Action<TribeIssueOrderMoveHereEventArgs> Observe;
+        internal void OnTribeIssueOrderMoveHere(TribeIssueOrderMoveHereEventArgs args) => Observe?.Invoke(args);
+    }
     public unsafe partial class UnitCommandPathRuntime
     {
+        private FormationRuntime formationRuntime;
         private const int MapWidth=800;
         private IntPtr nativePathManager;
         private IntPtr nativeTribeManager;
@@ -129,13 +134,24 @@ namespace CommandFixture
             Check(string.Join(",",order)=="queue-Pre,move-Pre,queue-Pre,move-Pre,move-Post,queue-Post,move-Post,queue-Post","dispatcher queue/command order is explicit and each boundary runs once");
             order.Clear();queueMoveEvent=a=>a.SkipOriginalFunction=true;
             DispatchMoveEvent(new TribeIssueOrderMoveHereEventArgs());
-            Check(order.Count==0 && moveEventObservers.Count==0 && moveEventDepths.Count==0 && moveFormationParents.Count==0,"consumed queue has no command or pending Post frame");
+            Check(order.Count==0 && moveEventObservers.Count==0 && moveEventDepths.Count==0 && manualCommandContexts.Count==0,"consumed queue has no command or pending Post frame");
             queueMoveEvent=null;failMovePre=true;
             try{DispatchMoveEvent(new TribeIssueOrderMoveHereEventArgs());}catch(Exception){}
             Check(ReferenceEquals(activeMoveCommand,parent) && manualCommandContexts.Count==0,"failed command Pre restores parent immediately");
             order.Clear();DispatchMoveEvent(new TribeIssueOrderMoveHereEventArgs {Phase=EventHookPhase.Post});
-            Check(order.Count==0 && ReferenceEquals(activeMoveCommand,parent) && moveFormationParents.Count==0,"Post after failed Pre does not consume parent command");
+            Check(order.Count==0 && ReferenceEquals(activeMoveCommand,parent) && manualCommandContexts.Count==0,"Post after failed Pre does not consume parent command");
             failMovePre=false;
+            order.Clear();
+            formationRuntime=new FormationRuntime { Observe=a=> {
+                Check(ReferenceEquals(activeMoveCommand,parent),"formation sees parent context before Pre and after completed Post");
+                order.Add("formation-"+a.Phase);
+            }};
+            queueMoveEvent=a=>order.Add("queue-"+a.Phase);
+            DispatchMoveEvent(new TribeIssueOrderMoveHereEventArgs());
+            DispatchMoveEvent(new TribeIssueOrderMoveHereEventArgs {Phase=EventHookPhase.Post});
+            Check(string.Join(",",order)=="formation-Pre,queue-Pre,move-Pre,move-Post,queue-Post,formation-Post",
+                "integrated formation runs before queue dispatch and after general command cleanup exactly once");
+            formationRuntime=null;
             var attack=new AttackCommandScope();activeAttackCommand=attack;
             queueTargetEvent=a=>order.Add("target-queue");
             DispatchTargetEvent(new TribeIssueOrderWithTargetEventArgs());var outerAttack=activeAttackCommand;

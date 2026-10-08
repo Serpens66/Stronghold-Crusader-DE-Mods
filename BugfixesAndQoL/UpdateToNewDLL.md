@@ -413,3 +413,36 @@ Validation completed 2026-10-07:
 Native SHA-256 remains FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2. The complete death/combat/removal chain is documented in the current baseline knowledge/GATEHOUSE_LIVING_CAPTURE.md; transient recruitment states and persistent slot identity in RECRUIT_TRANSFORMATION.md. Managed action guards use APIShared.UnitAccess.IsReallyAlive; snapshot property names and identity checks are preserved.
 
 Existing synchronized movement generators and the poleturner/tanner idle-delay generator additionally test the low WORD at manager-relative unit offset 0x8F8 (record origin 0x65C, GameUnit+0x29C). This follows the existing IsAlive check at manager+0x6E4. No full-DWORD marker test, health substitute or new hook is introduced. Death-marked units follow the existing restore-and-replay path without changing tracking tables, speed or animation. The native upper marker word is deliberately ignored. Existing hook RVAs, patterns, pristine replay instructions, displacement checks, ownership and native-hash fail-closed policy are unchanged; no relocation fallback for this fixed layout is added. Revalidate the origin formula, installed GameUnit.N0000019A layout and full death/combat flow on native/interop updates. Workshop tests execute the actual emitted stubs with dying-worker and upper-word cases; movement parity tests cover exclusion without erasing recruitment tracking.
+
+## Integrated formation command contract (2026-10-08)
+
+FormationTest is absorbed into BugfixesAndQoL; checkbox/presets/host synchronization keep
+their existing key. FormationRuntime in APIShared uses the existing E1D30/E0970/118E00
+dispatchers rather than installing a second native detour. Native 196280 remains owned
+by the Script Extender event. Formation targets run before UnitMovementContext Pre;
+completion runs after its Post. The accepted protocol-5 command carries kind, density,
+direction, width, role placement, unit count and deterministic identity/target hash.
+Consumed left/right release state is never restored. Shift queue transport retains only
+its own marker; no old density encoding or fallback remains.
+
+FBCB9319 native closure: 879A0/86680, 8B7E0/8C5F0, 195E30, chore 10AE0,
+196100/11B520, E1D30/E0970/118E00/119F90/196280, and cursor/overlay
+8F3DA..90088, 1222A0/417A0/41D10/41D60/436DE/1A13C0. Preserve authoritative
+object, Assassin, terrain, region and owner checks. NativeDetour Indirect contracts are
+validated by NativeDetourContracts; marker context displaces 17 bytes to 436EF,
+AfterCallback, with All GPRs and replayed TEST/JE. Installed RedBird is exercised by
+the copied-buffer regression; no published hook is torn down.
+
+The merged marker renderer is process-owned by UnitCommandPathAPI.MoveMarkers.
+Drag preview authorization is memoized per native pass; role dots use the same
+authorization. Overflow and queue rendering share the original overlay/draw callbacks.
+Installed interop is checked by _inspect/FormationIntegration/Verify-Interop.ps1:
+GameUnit 0x490, GameTribe 0x688, cursor view 0x480, including all consumed field
+widths/offsets. UnitAccess.IsReallyAlive uses UInt16 r_IsKilledByProjectile at 0x29C.
+Game APIs are checked without emission against the true Assembly-CSharp.dll.
+Fixes 1.26.0 additions (111C00 and 6A5D0) do not overlap this closure.
+Formation config migration reads FormationTest_Serp.cfg without modifying it; existing
+main keys win, invalid/missing legacy values use Block/2/Off/true.
+Re-audit the complete closure, editor release fields, tile grids and both installed
+hook backends after native/Extender updates. Runtime versions remain unchanged during
+testing. Multiplayer/gameplay acceptance still requires an actual game session.

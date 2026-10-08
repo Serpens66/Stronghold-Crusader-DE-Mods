@@ -111,6 +111,5 @@ public static class WorkBufferAudit {
 '@
 # Keep source using directives at compilation-unit level.
 $modelBody = $model.Substring($model.IndexOf('namespace BugfixesAndQoL'))
-$spacing = [IO.File]::ReadAllText((Join-Path $root 'BugfixesAndQoL/src/MoveFormationSpacingPolicy.cs'))
-Add-Type -TypeDefinition ($code + "`n" + $modelBody + "`n" + $spacing) -CompilerOptions '/unsafe'
+Add-Type -TypeDefinition ($code + "`n" + $modelBody) -CompilerOptions '/unsafe'
 [BugfixesAndQoL.WorkBufferAudit]::Run()

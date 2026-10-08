@@ -94,7 +94,6 @@ namespace BugfixesAndQoL
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
         private readonly LargeMoveTargetMarkerRuntime largeMoveTargets;
-        private readonly MoveFormationDragRuntime moveFormationDrag;
         // A cohort is the smallest set of units that currently shares mutable queue progress.
         // Unit identities remain authoritative; BoundTribeId is only the current dispatch vessel.
         private readonly Dictionary<long, TribeQueueState> cohorts = new Dictionary<long, TribeQueueState>();
@@ -166,21 +165,7 @@ namespace BugfixesAndQoL
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
             largeMoveTargets = new LargeMoveTargetMarkerRuntime(log, settings);
-            Func<int, int, bool> targetAvailable = formationRuntime != null
-                ? formationRuntime.IsMoveFormationTargetAvailable
-                : (x, y) => false;
-            moveFormationDrag = new MoveFormationDragRuntime(
-                log,
-                settings,
-                largeMoveTargets,
-                targetAvailable);
-            if (formationRuntime == null)
-            {
-                moveFormationDrag.DisableForProcess(
-                    "formation-runtime",
-                    new InvalidOperationException(
-                        "The audited native formation runtime is unavailable."));
-            }
+
         }
 
         private bool FeatureEnabled =>
@@ -325,15 +310,6 @@ namespace BugfixesAndQoL
                 drawFilterInstalled,
                 context,
                 referenceHashMatches);
-            try
-            {
-                moveFormationDrag.Install(context);
-            }
-            catch (Exception exception)
-            {
-                moveFormationDrag.DisableForProcess("hook-install", exception);
-            }
-
             sharedCommands.queueTargetEvent = OnTargetOrder;
             sharedCommands.queueMoveEvent = OnMoveOrder;
             subscriptions.Add(TribeR3EventHooks.OnTribeAssignUnit.Observable
@@ -369,8 +345,6 @@ namespace BugfixesAndQoL
         public void ApplySetting()
         {
             largeMoveTargets.ApplySetting();
-            if (!settings.EnableMod || !settings.EnableMoveFormationEnhancements)
-                moveFormationDrag.ResetTransientState();
             bool enabled = FeatureEnabled;
             if (lastFeatureEnabled == enabled)
                 return;
@@ -437,7 +411,7 @@ namespace BugfixesAndQoL
             catch (Exception exception)
             {
                 multiplayerSynchronizationReady = false;
-                moveFormationDrag.DisableForProcess("chore-17-install", exception);
+
                 Shared.DebugLogHelper.LogWarning(
                     log,
                     $"MULTIPLAYER_QUEUE_DISABLED: Vanilla multiplayer orders remain unchanged; {exception.Message}");
@@ -472,38 +446,6 @@ namespace BugfixesAndQoL
                 int observedTribeId = Marshal.ReadInt32(choreTribeIdPointer);
                 originalMoveType = Marshal.ReadInt32(choreMoveTypePointer);
                 int markedMoveType = originalMoveType;
-                if (ShouldMarkOutgoingFormationOrder())
-                {
-                    bool encoded = MoveFormationCommandContext.TryMarkOutgoing(
-                        observedTribeId,
-                        Marshal.ReadInt32(choreCommandOrTileXPointer),
-                        Marshal.ReadInt32(choreTileYPointer),
-                        markedMoveType,
-                        out int formationMarkedMoveType,
-                        out bool pendingMatched);
-                    if (encoded)
-                    {
-                        markedMoveType = formationMarkedMoveType;
-                        QueueNativeContract.TryDecodeFormationSpacing(
-                            markedMoveType & ~0x80,
-                            out _,
-                            out int markedSpacing);
-                        TryLogFormationChorePacked(
-                            observedTribeId,
-                            Marshal.ReadInt32(choreCommandOrTileXPointer),
-                            Marshal.ReadInt32(choreTileYPointer),
-                            markedSpacing,
-                            originalMoveType,
-                            markedMoveType);
-                    }
-                    else if (pendingMatched)
-                    {
-                        moveFormationDrag.DisableForProcess(
-                            "chore-17-unknown-move-type",
-                            new InvalidOperationException(
-                                $"Outgoing MoveType 0x{markedMoveType:X} is outside the audited Vanilla producer set."));
-                    }
-                }
                 if (ShouldMarkOutgoingMultiplayerOrder())
                 {
                     int tribeId = observedTribeId;
@@ -558,20 +500,8 @@ namespace BugfixesAndQoL
             int choreMode,
             ref bool trampolineEntered)
         {
-            bool executeFormationScope =
-                choreMode == QueueNativeContract.ChoreExecuteMode;
-            if (executeFormationScope)
-                MoveFormationCommandContext.EnterMoveChoreExecution();
-            try
-            {
-                trampolineEntered = true;
-                moveChoreHandlerHook.Original();
-            }
-            finally
-            {
-                if (executeFormationScope)
-                    MoveFormationCommandContext.ExitMoveChoreExecution();
-            }
+            trampolineEntered = true;
+            moveChoreHandlerHook.Original();
         }
 
         private void HandleTargetOrderChore()
@@ -638,45 +568,9 @@ namespace BugfixesAndQoL
             IsRealMultiplayer() &&
             IsShiftPressed();
 
-        private bool ShouldMarkOutgoingFormationOrder() =>
-            QueueNativeContract.ShouldPackFormationSpacing(
-                installed,
-                settings.EnableMod,
-                settings.EnableMoveFormationEnhancements,
-                multiplayerSynchronizationReady,
-                internalDispatch,
-                Marshal.ReadInt32(choreModePointer),
-                IsShiftPressed());
-
-        private void TryLogFormationChorePacked(
-            int tribeId,
-            int tileX,
-            int tileY,
-            int spacing,
-            int originalMoveType,
-            int markedMoveType)
-        {
-            try
-            {
-                Shared.GameModeSnapshot gameMode = Shared.GameModeHelper.Capture();
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    $"MOVE_FORMATION_DRAG: chore-packed; tribe={tribeId}; " +
-                    $"target={tileX},{tileY}; spacing={spacing}; " +
-                    $"moveType=0x{originalMoveType:X}->0x{markedMoveType:X}; " +
-                    $"mode={gameMode.Kind}; realMultiplayer={gameMode.IsRealMultiplayer}.");
-            }
-            catch
-            {
-                // Diagnostics must never prevent the already validated Chore payload
-                // from reaching Vanilla.
-            }
-        }
-
         private void LogMultiplayerMarkerFailure(string chore, Exception exception)
         {
-            if (chore.StartsWith("Chore 17", StringComparison.Ordinal))
-                moveFormationDrag.DisableForProcess("chore-17", exception);
+
             if (multiplayerMarkerFailureLogged)
                 return;
             multiplayerMarkerFailureLogged = true;
@@ -729,7 +623,7 @@ namespace BugfixesAndQoL
 
         private void OnMapStart()
         {
-            moveFormationDrag.ResetTransientState();
+
             largeMoveTargets.Reset();
             cohorts.Clear();
             unitToCohort.Clear();
@@ -751,7 +645,7 @@ namespace BugfixesAndQoL
 
         private void ResetMapState()
         {
-            moveFormationDrag.ResetTransientState();
+
             largeMoveTargets.Reset();
             cohorts.Clear();
             unitToCohort.Clear();
@@ -1066,18 +960,8 @@ namespace BugfixesAndQoL
             if (!installed)
                 return;
 
-            if (args.Phase == EventHookPhase.Pre)
-            {
-                MoveFormationCommandContext.ObserveMoveOrder(
-                    args,
-                    settings.EnableMod && settings.EnableMoveFormationEnhancements);
-            }
-
             if (args.Phase == EventHookPhase.Post)
             {
-                // Formation hooks have completed; never retain an unmatched command snapshot.
-                MoveFormationCommandSnapshotStore.Clear();
-                MoveFormationCommandContext.CompleteMoveOrder();
                 return;
             }
             if (args.Phase != EventHookPhase.Pre)
@@ -1123,7 +1007,6 @@ namespace BugfixesAndQoL
                     }
 
                     // Always consume the queue marker while enabled; 0x40/0x41 are not Vanilla move types.
-                    SuppressCurrentMoveObservation();
                     args.SkipOriginalFunction = true;
                     args.ReturnValue = 1;
                     return;
@@ -1140,7 +1023,7 @@ namespace BugfixesAndQoL
             if (!IsLocalSelectedTribe(args.TribeId, out GameTribe* tribe))
                 return;
 
-            if (!IsShiftPressed())
+            if (!IsShiftPressed() || UnitCommandPathAPI.FormationDispatchActive)
             {
                 observedAttacks.Remove(args.TribeId);
                 CancelQueuesForTribeUnits(args.TribeId);
@@ -1169,16 +1052,11 @@ namespace BugfixesAndQoL
                 }
             }
 
-            SuppressCurrentMoveObservation();
             args.SkipOriginalFunction = true;
             args.ReturnValue = 1;
         }
 
-        private void SuppressCurrentMoveObservation()
-        {
-            MoveFormationCommandSnapshotStore.Clear();
-            MoveFormationCommandContext.CompleteMoveOrder();
-        }
+
 
         private void TryEnqueueSynchronizedCommand(
             int tribeId,

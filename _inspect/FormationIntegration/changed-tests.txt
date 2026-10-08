@@ -1,0 +1,12 @@
+APIShared\src\UnitCommands\UnitCommandPathRuntime.cs
+APIShared\APIShared.csproj
+BugfixesAndQoL\Patches\Assets\GUI\XAML\IngameUIScreens.xaml
+BugfixesAndQoL\Patches\Assets\GUI\XAMLResources\HUD_Troops.xaml
+BugfixesAndQoL\tests\Formations.Tests\Program.cs
+BugfixesAndQoL\tests\Formations.Tests\NativeDetourEntryContract.cs
+BugfixesAndQoL\tests\Formations.Tests\Formations.Tests.csproj
+BugfixesAndQoL\tests\ExtendedShiftCommandQueue.Tests\Program.cs
+BugfixesAndQoL\tests\ExtendedShiftCommandQueue.Tests\ExtendedShiftCommandQueue.Tests.csproj
+BugfixesAndQoL\build.bat
+APIShared\build.bat
+BugfixesAndQoL\build.bat

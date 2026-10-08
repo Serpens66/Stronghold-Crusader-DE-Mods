@@ -1,0 +1,689 @@
+--- HEAD:Testmods/FormationTest/src/FormationTestRuntime.cs
++++ APIShared/src/UnitCommands/FormationRuntime.cs
+@@ -22,9 +22,9 @@
+ using System.Runtime.InteropServices;
+ using UnityEngine;
+ 
+-namespace FormationTest
++namespace APIShared.UnitCommands
+ {
+-    internal sealed unsafe class FormationTestRuntime
++    internal sealed unsafe class FormationRuntime
+     {
+         private delegate int EngineRunDelegate(bool mpFrameSkip);
+         private delegate void CameraUpdateDelegate(CameraControls2D self);
+@@ -48,7 +48,6 @@
+         private const int MaximumTribeCount = 4500;
+         private const int TribeRecordSize = 0x688;
+         private const int TribeUnitCountOffset = 0x5C;
+-        private const int UnitGroupInactiveStateOffset = 0x29C;
+         private const int StandardSelectorRva = 0xE1D30;
+         private const int AssassinSelectorRva = 0xE0970;
+         private const int CommonGroupMoveRva = 0x118E00;
+@@ -118,20 +117,20 @@
+         private readonly ConfigEntry<FormationKind> formationConfig;
+         private readonly ConfigEntry<int> densityConfig;
+         private readonly ConfigEntry<RangedPlacementMode> placementModeConfig;
+-        private readonly FormationMenuViewModel menuViewModel;
++        private readonly IFormationPresentation menuViewModel;
+         private readonly object stateSync = new object();
+         private readonly HashSet<string> loggedTargetRejections =
+             new HashSet<string>(StringComparer.Ordinal);
+-        private readonly DetourHandle<FormationSlotDelegate> standardSelectorHandle =
+-            new DetourHandle<FormationSlotDelegate>();
+-        private readonly DetourHandle<AssassinFormationSlotDelegate> assassinSelectorHandle =
+-            new DetourHandle<AssassinFormationSlotDelegate>();
+-        private readonly DetourHandle<CommonGroupMoveDelegate> commonGroupMoveHandle =
+-            new DetourHandle<CommonGroupMoveDelegate>();
+-
+-        private FormationPreviewMarkerRenderer markerRenderer;
++        private readonly IUnitCommandSettings settings;
++        private readonly UnitCommandPathRuntime commandRuntime;
++        private NativeGroundMoveFeedbackReader groundFeedbackReader;
++        private bool startupConfirmed;
++        internal bool Enabled => initialized && !failed && settings.EnableMod && settings.EnableMoveFormationEnhancements;
++        private int dispatchDepth;
++        internal bool IsDispatching { get { lock (stateSync) return dispatchDepth > 0; } }
++
++        private LargeMoveTargetMarkerRenderer markerRenderer;
+         private Shared.NativeTroopCommandModeReader commandModeReader;
+-        private HookTransaction nativeTransaction;
+         private Hook engineRunHook;
+         private Hook cameraUpdateHook;
+         private EngineRunDelegate engineRunOriginal;
+@@ -140,8 +139,6 @@
+         private IDisposable keyHeldSubscription;
+         private IDisposable keyUpSubscription;
+         private IDisposable packetSubscription;
+-        private IDisposable tribeMoveSubscription;
+-        private IDisposable unitMoveSubscription;
+         private R3PacketEventHook<FormationOrderPacket> packetHook;
+         private FieldInfo leftMouseStateField;
+         private FieldInfo rightMouseDownField;
+@@ -166,14 +163,20 @@
+         private bool initialized;
+         private bool failed;
+ 
+-        internal FormationTestRuntime(
++        internal FormationRuntime(
+             ManualLogSource log,
+             CrusaderLibraryLoadContext libraryContext,
+             ConfigEntry<FormationKind> formationConfig,
+             ConfigEntry<int> densityConfig,
+             ConfigEntry<RangedPlacementMode> placementModeConfig,
+-            FormationMenuViewModel menuViewModel)
+-        {
++            IFormationPresentation menuViewModel,
++            IUnitCommandSettings settings,
++            UnitCommandPathRuntime commandRuntime,
++            LargeMoveTargetMarkerRenderer markerRenderer)
++        {
++            this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
++            this.commandRuntime = commandRuntime ?? throw new ArgumentNullException(nameof(commandRuntime));
++            this.markerRenderer = markerRenderer ?? throw new ArgumentNullException(nameof(markerRenderer));
+             this.log = log ?? throw new ArgumentNullException(nameof(log));
+             this.libraryContext = libraryContext ??
+                 throw new ArgumentNullException(nameof(libraryContext));
+@@ -192,16 +195,12 @@
+             if (initialized)
+                 return;
+ 
+-            HookTransaction pendingNative = null;
+             Hook pendingEngineRun = null;
+             Hook pendingCameraUpdate = null;
+             IDisposable pendingKeyDown = null;
+             IDisposable pendingKeyHeld = null;
+             IDisposable pendingKeyUp = null;
+             IDisposable pendingPacket = null;
+-            IDisposable pendingTribeMove = null;
+-            IDisposable pendingUnitMove = null;
+-            FormationPreviewMarkerRenderer pendingMarkerRenderer = null;
+             try
+             {
+                 mainThreadId = Environment.CurrentManagedThreadId;
+@@ -210,16 +209,9 @@
+                 commandModeReader = new Shared.NativeTroopCommandModeReader(
+                     libraryContext.ModuleHandle,
+                     libraryContext.Memory);
+-                byte[] standardSelectorEntry = NativeDetourEntryContract.Capture(
+-                    libraryBase + StandardSelectorRva);
+-                byte[] assassinSelectorEntry = NativeDetourEntryContract.Capture(
+-                    libraryBase + AssassinSelectorRva);
+-                byte[] commonGroupMoveEntry = NativeDetourEntryContract.Capture(
+-                    libraryBase + CommonGroupMoveRva);
+-                pendingMarkerRenderer = new FormationPreviewMarkerRenderer(
+-                    log,
+-                    FormationPreviewOverlay.Clear);
+-                pendingMarkerRenderer.Install(libraryContext);
++                if (!commandRuntime.FormationHooksAvailable || !markerRenderer.ReplacementAvailable)
++                    throw new InvalidOperationException("Shared formation selectors or marker renderer are unavailable.");
++                groundFeedbackReader = new NativeGroundMoveFeedbackReader(libraryContext.ModuleHandle, libraryContext.Memory);
+                 nativeTribeManager = (IntPtr)(libraryBase + NativeTribeManagerRva);
+                 nativePathManager = (IntPtr)(libraryBase + NativePathManagerRva);
+                 movementTargetAvailability = (byte*)(libraryBase +
+@@ -239,64 +231,6 @@
+                         typeof(GameNetworkAPI).FullName,
+                         "bool SendScriptExtenderChorePayload(byte[])");
+ 
+-                pendingNative = new HookTransaction(
+-                    libraryContext.Region,
+-                    SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
+-                    new HookTransactionOptions
+-                    {
+-                        FailureMode = TransactionFailureMode.RollbackAndThrow,
+-                        OwnsHooks = true
+-                    });
+-                pendingNative.AddDetour(
+-                    standardSelectorHandle,
+-                    HookTarget.FromAddress(libraryBase + StandardSelectorRva),
+-                    (FormationSlotDelegate)ChooseStandardFormationSlot);
+-                pendingNative.AddDetour(
+-                    assassinSelectorHandle,
+-                    HookTarget.FromAddress(libraryBase + AssassinSelectorRva),
+-                    (AssassinFormationSlotDelegate)ChooseAssassinFormationSlot);
+-                pendingNative.AddDetour(
+-                    commonGroupMoveHandle,
+-                    HookTarget.FromAddress(libraryBase + CommonGroupMoveRva),
+-                    (CommonGroupMoveDelegate)CommonGroupMoveHook);
+-                CommitResult nativeResult = pendingNative.Commit();
+-                NativeDetour<FormationSlotDelegate> standardDetour =
+-                    standardSelectorHandle.Hook as NativeDetour<FormationSlotDelegate>;
+-                NativeDetour<AssassinFormationSlotDelegate> assassinDetour =
+-                    assassinSelectorHandle.Hook as NativeDetour<AssassinFormationSlotDelegate>;
+-                NativeDetour<CommonGroupMoveDelegate> commonDetour =
+-                    commonGroupMoveHandle.Hook as NativeDetour<CommonGroupMoveDelegate>;
+-                if (!nativeResult.IsCompleteSuccess || !standardSelectorHandle.Success ||
+-                    !assassinSelectorHandle.Success ||
+-                    !commonGroupMoveHandle.Success ||
+-                    standardDetour == null || assassinDetour == null ||
+-                    commonDetour == null)
+-                {
+-                    throw new InvalidOperationException(
+-                        $"Formation selector transaction failed: " +
+-                        $"result={nativeResult}, standard={standardDetour?.DisplacedByteCount}, " +
+-                        $"assassin={assassinDetour?.DisplacedByteCount}, " +
+-                        $"common={commonDetour?.DisplacedByteCount}.");
+-                }
+-                string standardContract = ValidateNativeDetourContract(
+-                    standardDetour,
+-                    libraryBase + StandardSelectorRva,
+-                    standardSelectorEntry,
+-                    StandardSelectorPrefix,
+-                    "standardSelector");
+-                string assassinContract = ValidateNativeDetourContract(
+-                    assassinDetour,
+-                    libraryBase + AssassinSelectorRva,
+-                    assassinSelectorEntry,
+-                    AssassinSelectorPrefix,
+-                    "assassinSelector");
+-                string commonContract = ValidateNativeDetourContract(
+-                    commonDetour,
+-                    libraryBase + CommonGroupMoveRva,
+-                    commonGroupMoveEntry,
+-                    CommonGroupMovePrefix,
+-                    "commonGroup");
+-
+                 leftMouseStateField = RequireEditorField("leftMouseStateForEngine", typeof(int));
+                 rightMouseDownField = RequireEditorField("rightDownForEngine", typeof(bool));
+                 rightMouseUpField = RequireEditorField("rightUpForEngine", typeof(bool));
+@@ -310,111 +244,64 @@
+                     "Update", BindingFlags.Instance | BindingFlags.NonPublic) ??
+                     throw new MissingMethodException(typeof(CameraControls2D).FullName, "Update()");
+ 
+-                pendingEngineRun = new Hook(engineRun, (EngineRunDelegate)EngineRunHook);
++                pendingEngineRun = new Hook(engineRun, (EngineRunDelegate)EngineRunHook,
++                    new HookConfig { ManualApply = true, ID = "BugfixesAndQoL.Formation.Release" });
+                 engineRunOriginal = pendingEngineRun.GenerateTrampoline<EngineRunDelegate>();
+-                pendingCameraUpdate = new Hook(cameraUpdate, (CameraUpdateDelegate)CameraUpdateHook);
++                pendingCameraUpdate = new Hook(cameraUpdate, (CameraUpdateDelegate)CameraUpdateHook,
++                    new HookConfig { ManualApply = true, ID = "BugfixesAndQoL.Formation.Zoom" });
+                 cameraUpdateOriginal =
+                     pendingCameraUpdate.GenerateTrampoline<CameraUpdateDelegate>();
+ 
++                engineRunHook = pendingEngineRun;
++                pendingEngineRun = null;
++                engineRunHook.Apply();
++                cameraUpdateHook = pendingCameraUpdate;
++                pendingCameraUpdate = null;
++                cameraUpdateHook.Apply();
++
+                 packetHook = GameNetworkAPI.Instance.GetPacketEventFor<FormationOrderPacket>();
+                 pendingPacket = packetHook.GetBaseHook().Observable.Subscribe(OnPacketReceived);
+-                pendingTribeMove = TribeR3EventHooks.OnTribeIssueOrderMoveHere.Observable
+-                    .Subscribe(OnTribeIssueOrderMoveHere);
+-                pendingUnitMove = UnitR3EventHooks.OnUnitMoveHere.Observable
+-                    .Subscribe(OnUnitMoveHere);
+                 pendingKeyDown = InputR3EventHooks.OnKeyDown.Observable.Subscribe(OnKeyDown);
+                 pendingKeyHeld = InputR3EventHooks.OnKey.Observable.Subscribe(OnKeyHeld);
+                 pendingKeyUp = InputR3EventHooks.OnKeyUp.Observable.Subscribe(OnKeyUp);
+ 
+-                nativeTransaction = pendingNative;
+-                pendingNative = null;
+-                engineRunHook = pendingEngineRun;
+-                pendingEngineRun = null;
+-                cameraUpdateHook = pendingCameraUpdate;
+-                pendingCameraUpdate = null;
+                 packetSubscription = pendingPacket;
+                 pendingPacket = null;
+-                tribeMoveSubscription = pendingTribeMove;
+-                pendingTribeMove = null;
+-                unitMoveSubscription = pendingUnitMove;
+-                pendingUnitMove = null;
+                 keyDownSubscription = pendingKeyDown;
+                 pendingKeyDown = null;
+                 keyHeldSubscription = pendingKeyHeld;
+                 pendingKeyHeld = null;
+                 keyUpSubscription = pendingKeyUp;
+                 pendingKeyUp = null;
+-                markerRenderer = pendingMarkerRenderer;
+-                pendingMarkerRenderer.PublishProcessLifetime();
+-                pendingMarkerRenderer = null;
++                commandRuntime.formationRuntime = this;
+                 initialized = true;
+ 
+                 Shared.DebugLogHelper.LogInfo(
+                     log,
+-                    "FormationTest active: synchronized Chore packet, mouse gesture hooks, " +
++                    "BugfixesAndQoL Formation active: synchronized Chore packet, mouse gesture hooks, " +
+                     $"mainThread={mainThreadId}, " +
+-                    $"{standardContract}, {assassinContract}, {commonContract}, " +
++                    "selectors=APIShared/process-owned, " +
+                     $"unitTarget=0x{UnitMoveTargetRva:X}/extender-event, " +
+                     $"nativeAuditSpan={ExpectedUnitMoveTargetAuditBytes}.");
+             }
+             catch
+             {
+-                pendingUnitMove?.Dispose();
+-                pendingTribeMove?.Dispose();
++                failed = true;
+                 pendingKeyUp?.Dispose();
+                 pendingKeyHeld?.Dispose();
+                 pendingKeyDown?.Dispose();
+                 pendingPacket?.Dispose();
+                 pendingCameraUpdate?.Dispose();
+                 pendingEngineRun?.Dispose();
+-                pendingNative?.Dispose();
+-                pendingMarkerRenderer?.RollbackUnpublished();
+                 throw;
+             }
+         }
+ 
+-        private static string ValidateNativeDetourContract<TFunction>(
+-            NativeDetour<TFunction> detour,
+-            ulong expectedTarget,
+-            byte[] entrySnapshot,
+-            byte[] vanillaPrefix,
+-            string name)
+-            where TFunction : Delegate
+-        {
+-            if (!detour.IsInstalled || detour.TargetAddress != expectedTarget ||
+-                detour.TrampolineAddress == IntPtr.Zero || detour.TrampolineSize <= 0 ||
+-                detour.HookEntryPointAddress == IntPtr.Zero ||
+-                detour.OriginalEntryPointAddress == IntPtr.Zero || detour.ChainDepth < 1)
+-            {
+-                throw new InvalidOperationException(
+-                    $"{name} did not publish a complete native detour contract: " +
+-                    $"installed={detour.IsInstalled}, target=0x{detour.TargetAddress:X}, " +
+-                    $"expected=0x{expectedTarget:X}, trampoline=0x{detour.TrampolineAddress.ToInt64():X}, " +
+-                    $"trampolineSize={detour.TrampolineSize}, hookEntry=0x{detour.HookEntryPointAddress.ToInt64():X}, " +
+-                    $"originalEntry=0x{detour.OriginalEntryPointAddress.ToInt64():X}, chain={detour.ChainDepth}.");
+-            }
+-
+-            string scheme = detour.Scheme.ToString();
+-            if (scheme == "Indirect" && detour.PointerSlot == IntPtr.Zero)
+-                throw new InvalidOperationException($"{name} selected Indirect without a pointer slot.");
+-            if (scheme != "Indirect" && detour.PointerSlot != IntPtr.Zero)
+-                throw new InvalidOperationException(
+-                    $"{name} selected {scheme} with an unexpected pointer slot.");
+-
+-            NativeDetourEntryContract.Validate(
+-                entrySnapshot,
+-                vanillaPrefix,
+-                scheme,
+-                detour.DisplacedByteCount,
+-                out bool chainedEntry);
+-            return $"{name}=0x{expectedTarget:X}/scheme{scheme}/" +
+-                $"span{detour.DisplacedByteCount}/chain{detour.ChainDepth}/" +
+-                $"entry{(chainedEntry ? "hook" : "vanilla")}";
+-        }
++
+ 
+         private void OnKeyDown(UnityInputEventArgs args)
+         {
+-            if (!initialized || failed || args == null)
++            if (!Enabled || args == null)
+                 return;
+             try
+             {
+@@ -452,7 +339,7 @@
+ 
+         private void OnKeyHeld(UnityInputEventArgs args)
+         {
+-            if (!initialized || failed || args == null)
++            if (!Enabled || args == null)
+                 return;
+             try
+             {
+@@ -489,7 +376,7 @@
+ 
+         private void OnKeyUp(UnityInputEventArgs args)
+         {
+-            if (!initialized || failed || args == null)
++            if (!Enabled || args == null)
+                 return;
+             try
+             {
+@@ -539,8 +426,17 @@
+ 
+         private int EngineRunHook(bool mpFrameSkip)
+         {
+-            if (!initialized || failed)
++            if (!startupConfirmed && initialized && HasValidMap())
++            {
++                startupConfirmed = true;
++                LogDebugNoThrow("FORMATION_RUNTIME_AFTER_STARTUP_CLEANUP: persistent EngineInterface.run callback reached.");
++            }
++            if (!Enabled)
++            {
++                try { ResetTransientState(); }
++                catch (Exception ex) { FailOpen("disabled-reset", ex); }
+                 return engineRunOriginal(mpFrameSkip);
++            }
+ 
+             bool originalEntered = false;
+             FormationMouseState inputState = default;
+@@ -706,11 +602,15 @@
+             ActiveDrag state;
+             lock (stateSync)
+                 state = drag;
+-            if (!failed && state != null)
++            if (Enabled && state != null)
+                 self.AllowZoom = false;
+             cameraUpdateOriginal(self);
+-            menuViewModel.RefreshHostState();
+-            FormationPreviewOverlay.Refresh();
++            try
++            {
++                menuViewModel.RefreshHostState();
++                menuViewModel.RefreshPreview();
++            }
++            catch (Exception ex) { FailOpen("camera-presentation", ex); }
+         }
+ 
+         private void UpdateGesture(ActiveDrag state)
+@@ -788,6 +688,10 @@
+                 FormationModel.NormalizeKind((int)formationConfig.Value),
+                 FormationModel.NormalizeDensity(densityConfig.Value),
+                 FormationModel.NormalizePlacementMode((int)placementModeConfig.Value));
++            state.Authorization = new GroundMovePreviewAuthorization(
++                GamePlayerManagerAPI.Instance.GetLocalPlayerId(), tribeId, selection.Length,
++                target.NativeX, target.NativeY);
++            state.PreviewAuthorization = () => AuthorizePreview(state);
+             ResolveDirectionAndWidth(state, out int direction, out int width);
+             state.DirectionSector = direction;
+             state.Width = width;
+@@ -900,6 +804,8 @@
+ 
+         private bool ApplyPacket(FormationOrderPacket packet, string source)
+         {
++            if (!Enabled)
++                return TryIssuePacketVanillaFallback(packet, source, "feature-disabled");
+             if (!ValidatePacket(packet, out string rejection))
+             {
+                 LogErrorNoThrow($"Rejected Formation Chore: {rejection}.");
+@@ -913,6 +819,7 @@
+                 if (pendingCommand != null || activeCommand != null)
+                     throw new InvalidOperationException("A nested formation command was rejected.");
+                 pendingCommand = command;
++                dispatchDepth++;
+             }
+             try
+             {
+@@ -936,6 +843,7 @@
+             {
+                 lock (stateSync)
+                 {
++                    dispatchDepth--;
+                     if (ReferenceEquals(pendingCommand, command))
+                         pendingCommand = null;
+                     if (activeCommand != null && activeCommand.Pending == command)
+@@ -963,22 +871,25 @@
+                 (packet.MoveType != (int)TribeMoveType.DefaultInSync &&
+                  packet.MoveType != (int)TribeMoveType.Fast))
+                 return false;
+-            bool issued = GameTribeManagerAPI.Instance.IssueMoveHereCommand(
+-                packet.TribeId,
+-                packet.TargetX,
+-                packet.TargetY,
+-                isPatrolPath: false,
+-                bIsNewOrder: packet.IsNewOrder,
+-                tribeMoveType: (TribeMoveType)packet.MoveType);
++            bool issued;
++            lock (stateSync) dispatchDepth++;
++            try
++            {
++                issued = GameTribeManagerAPI.Instance.IssueMoveHereCommand(
++                    packet.TribeId, packet.TargetX, packet.TargetY,
++                    isPatrolPath: false, bIsNewOrder: packet.IsNewOrder,
++                    tribeMoveType: (TribeMoveType)packet.MoveType);
++            }
++            finally { lock (stateSync) dispatchDepth--; }
+             LogWarningNoThrow(
+                 $"FORMATION_ORDER_FELL_BACK_TO_VANILLA: source={source}, " +
+                 $"operation={packet.OperationId}, reason={reason}, issued={issued}.");
+             return issued;
+         }
+ 
+-        private void OnTribeIssueOrderMoveHere(TribeIssueOrderMoveHereEventArgs args)
+-        {
+-            if (!initialized || failed || args == null)
++        internal void OnTribeIssueOrderMoveHere(TribeIssueOrderMoveHereEventArgs args)
++        {
++            if (!Enabled || args == null)
+                 return;
+ 
+             if (args.Phase == EventHookPhase.Pre)
+@@ -1180,46 +1091,37 @@
+             return new UnitFallbackSummary(succeeded, failedCount);
+         }
+ 
+-        private void ChooseStandardFormationSlot(IntPtr manager, int spacing, int x, int y)
++        internal bool TryChooseStandardFormationSlot(IntPtr manager, int spacing, int x, int y)
+         {
+             ActiveFormationCommand command;
+-            lock (stateSync)
+-                command = activeCommand;
+-            if (!Matches(command, manager, x, y))
+-            {
+-                standardSelectorHandle.Original(manager, spacing, x, y);
+-                return;
+-            }
+-            if (!TryTakeDestination(command, out NativeDestination destination))
+-            {
+-                standardSelectorHandle.Original(manager, command.Density, x, y);
+-                return;
+-            }
++            lock (stateSync) command = activeCommand;
++            if (!Enabled || !Matches(command, manager, x, y) ||
++                !TryTakeDestination(command, out NativeDestination destination)) return false;
+             WriteFormationOutput(destination);
+             RecordSelectorAssignment(command, false);
+-        }
+-
+-        private int ChooseAssassinFormationSlot(IntPtr manager, int spacing, int x, int y)
+-        {
++            return true;
++        }
++
++        internal bool TryChooseAssassinFormationSlot(IntPtr manager, int spacing, int x, int y, out int tileId)
++        {
++            tileId = 0;
+             ActiveFormationCommand command;
+-            lock (stateSync)
+-                command = activeCommand;
+-            if (!Matches(command, manager, x, y))
+-                return assassinSelectorHandle.Original(manager, spacing, x, y);
+-            if (!TryTakeDestination(command, out NativeDestination destination))
+-                return assassinSelectorHandle.Original(manager, command.Density, x, y);
++            lock (stateSync) command = activeCommand;
++            if (!Enabled || !Matches(command, manager, x, y) ||
++                !TryTakeDestination(command, out NativeDestination destination)) return false;
+             WriteFormationOutput(destination);
+             RecordSelectorAssignment(command, true);
+-            return destination.TileId;
+-        }
+-
+-        private long CommonGroupMoveHook(
++            tileId = destination.TileId;
++            return true;
++        }
++
++        internal long CommonGroupMoveHook(
+             IntPtr manager,
+             int tribeId,
+             short x,
+             short y,
+             short patrol,
+-            int newOrder)
++            int newOrder, Func<long> original)
+         {
+             ActiveFormationCommand previous;
+             UnitAssignmentFrame previousUnitFrame;
+@@ -1243,8 +1145,7 @@
+             }
+             try
+             {
+-                return commonGroupMoveHandle.Original(
+-                    manager, tribeId, x, y, patrol, newOrder);
++                return original();
+             }
+             finally
+             {
+@@ -1258,9 +1159,9 @@
+             }
+         }
+ 
+-        private void OnUnitMoveHere(UnitMoveHereEventArgs args)
+-        {
+-            if (!initialized || failed || args == null)
++        internal void OnUnitMoveHere(UnitMoveHereEventArgs args)
++        {
++            if (!Enabled || args == null)
+                 return;
+             if (args.Phase == EventHookPhase.Pre)
+             {
+@@ -1892,8 +1793,7 @@
+                 if (unitId <= 0 ||
+                     !APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
+                     unit == null || !APIShared.UnitAccess.IsReallyAlive(unit) ||
+-                    unit->r_TribeId != tribeId ||
+-                    *(ushort*)((byte*)unit + UnitGroupInactiveStateOffset) != 0)
++                    unit->r_TribeId != tribeId)
+                     continue;
+                 int unitType = (int)unit->r_UnitChimp;
+                 result.Add(new FormationUnit(
+@@ -2058,12 +1958,13 @@
+                 var markerTiles = new int[destinations.Length];
+                 for (int index = 0; index < destinations.Length; index++)
+                     markerTiles[index] = destinations[index].TileId;
+-                if (!markerRenderer.SetPreviewMarkerTiles(markerTiles))
+-                {
+-                    FormationPreviewOverlay.Clear();
++                markerRenderer.SetPreviewMarkerTiles(markerTiles, state.PreviewAuthorization);
++                if (!markerRenderer.ReplacementAvailable)
++                {
++                    menuViewModel.ClearPreview();
+                     return;
+                 }
+-                FormationPreviewOverlay.Publish(points, directionIndicator);
++                menuViewModel.PublishPreview(points, directionIndicator);
+                 Shared.DebugLogHelper.LogDebug(
+                     log,
+                     $"FORMATION_PREVIEW_UPDATED: kind={previewKey.Kind}, " +
+@@ -2114,7 +2015,8 @@
+             out SelectionIdentity[] identities,
+             out int tribeId)
+         {
+-            int playerId = MainViewModel.instance != null && MainViewModel.instance.IsMapEditorMode
++            MainViewModel main = MainViewModel.viewModelLoaded ? MainViewModel.Instance : null;
++            int playerId = main != null && main.IsMapEditorMode
+                 ? EditorDirector.instance?.ActivePlayerID ?? -1
+                 : GamePlayerManagerAPI.Instance.GetLocalPlayerId();
+             if (playerId < 1 || playerId > 8 ||
+@@ -2124,21 +2026,19 @@
+                 tribeId = 0;
+                 return false;
+             }
+-            SelectedUnitInfo[] selected =
+-                GamePlayerManagerAPI.Instance.GetSelectedChimps();
+-            if (selected == null || selected.Length < 2 ||
+-                selected.Length > FormationPreviewMarkerModel.MaximumMarkers)
++            if (!APIShared.LocalSelectionAPI.TryCapture(playerId, out APIShared.LocalSelectionSnapshot selected) ||
++                selected.Count < 2 || selected.Count > FormationPreviewMarkerModel.MaximumMarkers)
+             {
+                 identities = Array.Empty<SelectionIdentity>();
+                 tribeId = 0;
+                 return false;
+             }
+ 
+-            identities = new SelectionIdentity[selected.Length];
++            identities = new SelectionIdentity[selected.Count];
+             tribeId = -1;
+             long sumX = 0;
+             long sumY = 0;
+-            for (int index = 0; index < selected.Length; index++)
++            for (int index = 0; index < selected.Count; index++)
+             {
+                 int unitId = selected[index].UnitId;
+                 if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
+@@ -2164,8 +2064,7 @@
+                 !GameTribeManagerAPI.Instance.TryGetTribeById(tribeId, out GameTribe* tribe) ||
+                 tribe == null || tribe->r_AliveState != AliveState.IsAlive)
+                 return false;
+-            bool isMapEditor = MainViewModel.instance != null &&
+-                MainViewModel.instance.IsMapEditorMode;
++            bool isMapEditor = main != null && main.IsMapEditorMode;
+             if (!isMapEditor &&
+                 (GamePlayerManagerAPI.Instance.IsAIPlayer(tribe->r_PlayerIdOwner) ||
+                  tribe->r_PlayerIdOwner != GamePlayerManagerAPI.Instance.GetLocalPlayerId()))
+@@ -2315,8 +2214,33 @@
+             Shared.GroundMovePreviewRejection rejection) =>
+             rejection.ToString().ToLowerInvariant();
+ 
++        private bool AuthorizePreview(ActiveDrag state)
++        {
++            bool allowed;
++            lock (stateSync)
++                allowed = Enabled && ReferenceEquals(drag, state) && ValidateActiveDrag(state) &&
++                    state.Authorization.Observe(groundFeedbackReader.Read());
++            menuViewModel.SetPreviewAuthorization(allowed);
++            return allowed;
++        }
++
++        internal void ResetTransientState()
++        {
++            lock (stateSync)
++            {
++                if (drag == null && pendingCommand == null && activeCommand == null) return;
++                drag = null;
++                pendingCommand = null;
++                activeCommand = commonGroupCommand = null;
++                ClearUnitAssignmentFrames(null);
++                unitFallbackAttempt = null;
++            }
++            ClearPreview();
++            menuViewModel.CloseMenu();
++        }
++
+         private bool ValidateActiveDrag(ActiveDrag state) =>
+-            state != null && markerRenderer != null &&
++            Enabled && state != null && markerRenderer != null &&
+             markerRenderer.ReplacementAvailable && HasValidMap() && !IsShiftHeld() &&
+             GetCommandMouseButton() == state.CommandButton &&
+             SelectionMatches(state.Selection);
+@@ -2461,6 +2385,8 @@
+             Shared.DebugLogHelper.LogDebug(log, $"FORMATION_DRAG_ABORTED: {reason}.");
+         }
+ 
++        internal void DisableForProcess(string contract, Exception exception) => FailOpen(contract, exception);
++
+         private void FailOpen(string contract, Exception exception)
+         {
+             failed = true;
+@@ -2474,17 +2400,21 @@
+                 unitFallbackAttempt = null;
+                 releaseConsumptionWatch = null;
+             }
+-            ClearPreview();
+-            menuViewModel.CloseMenu();
+-            Shared.DebugLogHelper.LogError(
+-                log,
+-                $"FORMATION_TEST_DISABLED: contract={contract}; Vanilla remains active; {exception}");
++            // Fail-open must reach Vanilla even if a presentation or logger also fails.
++            try { ClearPreview(); } catch { }
++            try { menuViewModel.CloseMenu(); } catch { }
++            try
++            {
++                Shared.DebugLogHelper.LogError(log,
++                    $"FORMATION_DISABLED: contract={contract}; Vanilla remains active; {exception}");
++            }
++            catch { }
+         }
+ 
+         private void ClearPreview()
+         {
+             markerRenderer?.ClearPreviewMarkerTiles();
+-            FormationPreviewOverlay.Clear();
++            menuViewModel.ClearPreview();
+         }
+ 
+         private void RequireMainThread(string contract)
+@@ -2567,6 +2497,8 @@
+ 
+         private sealed class ActiveDrag
+         {
++            internal GroundMovePreviewAuthorization Authorization;
++            internal Func<bool> PreviewAuthorization;
+             internal ActiveDrag(
+                 int commandButton,
+                 int tribeId,

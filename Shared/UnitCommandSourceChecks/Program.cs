@@ -11,6 +11,11 @@ var root = Path.GetFullPath(args[0]);
 var game = @"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition";
 var framework = @"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1";
 var projects = new[] {"APIShared/APIShared.csproj", "BugfixesAndQoL/BugfixesAndQoL.csproj", "Testmods/MoatMove/MoatMove.csproj"};
+if (args.Contains("--formation-tests"))
+    projects = projects.Concat(new[] {
+        "BugfixesAndQoL/tests/Formations.Tests/Formations.Tests.csproj",
+        "BugfixesAndQoL/tests/ExtendedShiftCommandQueue.Tests/ExtendedShiftCommandQueue.Tests.csproj"
+    }).ToArray();
 if (args.Contains("--update-plan"))
 {
     // Compile the reviewed update inventory without emitting or installing mods.
@@ -35,7 +40,7 @@ if (args.Contains("--really-alive"))
         "Testmods/AIDefenseTest/AIDefenseTest.csproj",
         "Testmods/EnemyGatePathfindingTest/EnemyGatePathfindingTest.csproj",
         "Testmods/EngineerSiegeFixTest/EngineerSiegeFixTest.csproj",
-        "Testmods/FormationTest/FormationTest.csproj", "Testmods/MoatMove/MoatMove.csproj",
+        "Testmods/MoatMove/MoatMove.csproj",
         "Testmods/OutpostTest/OutpostTest.csproj",
         "Testmods/SpectatorEditorBuildTest/SpectatorEditorBuildTest.csproj",
         "Testmods/StockpileAccessFixTest/StockpileAccessFixTest.csproj",
@@ -58,7 +63,7 @@ foreach (var relative in orderedProjects)
     var project = Path.Combine(root, relative);
     var folder = Path.GetDirectoryName(project);
     var xml = XDocument.Load(project);
-    var name = xml.Descendants().First(e => e.Name.LocalName == "AssemblyName").Value;
+    var name = xml.Descendants().FirstOrDefault(e => e.Name.LocalName == "AssemblyName")?.Value ?? Path.GetFileNameWithoutExtension(project);
     var properties = new Dictionary<string, string> {
         ["GameDir"] = game, ["ExtenderDir"] = game + @"\BepInEx\plugins\000shcdese",
         ["ApiSharedDir"] = game + @"\BepInEx\plugins\APIShared_Serp", ["MSBuildThisFileDirectory"] = folder + "\\"
@@ -77,10 +82,19 @@ foreach (var relative in orderedProjects)
         string path = Path.GetFullPath(Path.Combine(folder, (string)e.Attribute("Include")));
         return path.Contains('*') ? Directory.GetFiles(Path.GetDirectoryName(path), Path.GetFileName(path)) : new[] { path };
     }).Distinct().ToArray();
+    bool coreProject = xml.Root.Attribute("Sdk") != null;
+    if (coreProject)
+        sources = sources.Concat(Directory.GetFiles(folder, "*.cs", SearchOption.TopDirectoryOnly)).Distinct().ToArray();
     var trees = sources.Select(p => CSharpSyntaxTree.ParseText(File.ReadAllText(p), parse, p)).ToArray();
     var refs = new List<MetadataReference>();
-    foreach (var path in Directory.GetFiles(framework, "*.dll").Where(p => !p.Contains(".Thunk.") && !p.Contains(".Wrapper."))) refs.Add(MetadataReference.CreateFromFile(path));
-    foreach (var path in Directory.GetFiles(Path.Combine(framework, "Facades"), "*.dll")) refs.Add(MetadataReference.CreateFromFile(path));
+    string referenceFramework = coreProject ? Directory.GetDirectories(@"C:\Program Files\dotnet\packs\Microsoft.NETCore.App.Ref")
+        .OrderByDescending(p => Version.Parse(Path.GetFileName(p))).SelectMany(p => Directory.GetDirectories(Path.Combine(p, "ref"))).First() : framework;
+    var frameworkNames = xml.Descendants().Where(e => e.Name.LocalName == "Reference")
+        .Select(e => ((string)e.Attribute("Include")).Split(',')[0]).Append("mscorlib").ToHashSet(StringComparer.OrdinalIgnoreCase);
+    foreach (var path in Directory.GetFiles(referenceFramework, "*.dll").Where(p => !p.Contains(".Thunk.") && !p.Contains(".Wrapper.") &&
+        (coreProject || frameworkNames.Contains(Path.GetFileNameWithoutExtension(p))))) refs.Add(MetadataReference.CreateFromFile(path));
+    if (!coreProject)
+        foreach (var path in Directory.GetFiles(Path.Combine(framework, "Facades"), "*.dll")) refs.Add(MetadataReference.CreateFromFile(path));
     foreach (var entry in xml.Descendants().Where(e => e.Name.LocalName == "ProjectReference"))
     {
         var dependencyPath = Path.GetFullPath(Path.Combine(folder, (string)entry.Attribute("Include")));
@@ -106,25 +120,6 @@ foreach (var relative in orderedProjects)
     var diagnostics = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
     Console.WriteLine(name + ": " + sources.Length + " sources, " + diagnostics.Length + " errors");
     foreach (var diagnostic in diagnostics) Console.WriteLine(diagnostic);
-    if (args.Contains("--real") && args.Contains("--really-alive") && name == "FormationTest")
-    {
-        string path = Path.GetFullPath(Path.Combine(root, "Testmods/FormationTest/src/FormationTestRuntime.cs"));
-        var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("git") {
-            WorkingDirectory = root, RedirectStandardOutput = true,
-            ArgumentList = { "show", "HEAD:Testmods/FormationTest/src/FormationTestRuntime.cs" } });
-        string old = process.StandardOutput.ReadToEnd(); process.WaitForExit();
-        if (process.ExitCode != 0) throw new Exception("Missing FormationTest comparison source.");
-        var tree = trees.Single(t => t.FilePath == path);
-        var oldCompilation = compilation.ReplaceSyntaxTree(tree, CSharpSyntaxTree.ParseText(old, parse, path));
-        var oldErrors = oldCompilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
-        var known = diagnostics.Where(d => d.Id == "CS0117" && d.GetMessage().Contains("instance") &&
-            d.GetMessage().Contains("MainViewModel") && oldErrors.Any(o => o.Id == d.Id && o.GetMessage() == d.GetMessage())).ToArray();
-        if (known.Length > 0 && known.Length == oldErrors.Length)
-        {
-            Console.WriteLine("Known unchanged HEAD FormationTest MainViewModel.instance accesses: " + known.Length);
-            diagnostics = diagnostics.Except(known).ToArray();
-        }
-    }
     errors += diagnostics.Length;
 }
 return errors == 0 ? 0 : 1;

@@ -12,6 +12,13 @@ namespace APIShared.UnitCommands
         internal static Func<string> AssassinReconstructionRelaxation;
         internal static UnitCommandPathRuntime Runtime { get; private set; }
         internal static UnitCommandTraversalProvider Traversal { get; private set; }
+        internal static bool FormationDispatchActive => Runtime?.formationRuntime?.IsDispatching == true;
+        internal static LargeMoveTargetMarkerRenderer MoveMarkers { get; private set; }
+        internal static LargeMoveTargetMarkerRenderer GetMoveMarkers(ManualLogSource log, Func<bool> enabled)
+        {
+            lock (Sync)
+                return MoveMarkers ?? (MoveMarkers = new LargeMoveTargetMarkerRenderer(log, enabled));
+        }
         internal static void RootCandidate(UnitCommandPathRuntime runtime) { lock (Sync) Candidates.Add(runtime); }
         internal static UnitCommandPathRuntime RegisterCommands(ManualLogSource log, IUnitCommandSettings settings,
             CrusaderLibraryLoadContext context, bool referenceHashMatches)

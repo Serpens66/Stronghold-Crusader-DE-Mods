@@ -1,0 +1,78 @@
+--- HEAD:Testmods/FormationTest/src/FormationMenuViewModel.cs
++++ BugfixesAndQoL/src/FormationMenuViewModel.cs
+@@ -1,3 +1,4 @@
++using APIShared.UnitCommands;
+ using BepInEx.Configuration;
+ using BepInEx.Logging;
+ using CrusaderDE;
+@@ -6,14 +7,15 @@
+ using System.ComponentModel;
+ using System.Windows.Input;
+ 
+-namespace FormationTest
++namespace BugfixesAndQoL
+ {
+-    internal sealed class FormationMenuViewModel : INotifyPropertyChanged
++    internal sealed class FormationMenuViewModel : INotifyPropertyChanged, IFormationPresentation
+     {
+         private static SolidColorBrush selectedBrush;
+         private static SolidColorBrush unselectedBrush;
+ 
+         private readonly ManualLogSource log;
++        internal Func<bool> Enabled = () => false;
+         private readonly ConfigFile configFile;
+         private readonly ConfigEntry<FormationKind> formation;
+         private readonly ConfigEntry<int> density;
+@@ -52,6 +54,14 @@
+             placementMode.SettingChanged += ConfigurationChanged;
+             showRoleMarkers.SettingChanged += ConfigurationChanged;
+         }
++
++        public void SetPreviewAuthorization(bool allowed) => FormationPreviewOverlay.SetNativeAllowed(allowed);
++        public bool FeatureAvailable => Enabled();
++        private bool lastAvailability;
++        public void RefreshPreview() => FormationPreviewOverlay.Refresh();
++        public void ClearPreview() => FormationPreviewOverlay.Clear();
++        public void PublishPreview(FormationPreviewPoint[] points, FormationDirectionIndicator direction) =>
++            FormationPreviewOverlay.Publish(points, direction);
+ 
+         public event PropertyChangedEventHandler PropertyChanged;
+ 
+@@ -82,26 +92,32 @@
+         public SolidColorBrush RoleMarkersOnBackground => BooleanBrush(showRoleMarkers.Value);
+         public SolidColorBrush RoleMarkersOffBackground => BooleanBrush(!showRoleMarkers.Value);
+ 
+-        internal void RefreshHostState()
+-        {
++        public void RefreshHostState()
++        {
++            if (lastAvailability != FeatureAvailable)
++            {
++                lastAvailability = FeatureAvailable;
++                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(FeatureAvailable)));
++            }
+             MainViewModel current = MainViewModel.viewModelLoaded ? MainViewModel.Instance : null;
+             if (!ReferenceEquals(current, subscribedMainViewModel) && current != null)
+             {
+                 subscribedMainViewModel = current;
+                 current.PropertyChanged += MainViewModelPropertyChanged;
+             }
+-            if (menuVisible &&
++            if (menuVisible && (!Enabled() ||
+                 (current == null || !current.Show_HUD_Troops ||
+-                 FatControler.currentScene != Enums.SceneIDS.ActualMainGame))
++                 FatControler.currentScene != Enums.SceneIDS.ActualMainGame)))
+             {
+                 SetMenuVisible(false);
+             }
+         }
+ 
+-        internal void CloseMenu() => SetMenuVisible(false);
++        public void CloseMenu() => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() => SetMenuVisible(false));
+ 
+         private void ToggleMenu()
+         {
++            if (!Enabled()) return;
+             RefreshHostState();
+             if (!MainViewModel.viewModelLoaded)
+                 return;

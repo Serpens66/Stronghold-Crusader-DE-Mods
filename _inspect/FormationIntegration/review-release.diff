@@ -1,0 +1,8 @@
+--- HEAD:Testmods/FormationTest/src/FormationReleaseStateModel.cs
++++ APIShared/src/UnitCommands/FormationReleaseStateModel.cs
+@@ -1,4 +1,4 @@
+-namespace FormationTest
++namespace APIShared.UnitCommands
+ {
+     internal readonly struct FormationMouseState
+     {

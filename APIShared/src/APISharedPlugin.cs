@@ -23,6 +23,7 @@ namespace APIShared
 
         private void Awake()
         {
+            Shared.UnityMainThreadDispatch.InitializeForCurrentThread();
             UnitAccess.InitializeDiagnostics(Logger);
             ApiSharedRuntime.ProcessInstance.InitializeManaged(Logger);
             // The Script Extender event roots this plugin's native initialization after BepInEx

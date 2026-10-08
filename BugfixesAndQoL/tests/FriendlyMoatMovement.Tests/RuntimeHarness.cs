@@ -6,36 +6,6 @@ using System.Runtime.InteropServices;
 
 namespace BugfixesAndQoL
 {
-    internal readonly struct MoveFormationDestination
-    {
-        internal MoveFormationDestination(int tileId,int x,int y)
-        { TileId=tileId;X=x;Y=y; }
-        internal int TileId { get; }
-        internal int X { get; }
-        internal int Y { get; }
-    }
-    internal readonly struct MoveFormationPlanMetrics
-    {
-        internal MoveFormationPlanMetrics(int visited,int exact,int relaxed,int reused,int unique)
-        { VisitedTiles=visited;ExactDestinations=exact;RelaxedDestinations=relaxed;ReusedDestinations=reused;UniqueDestinations=unique; }
-        internal int VisitedTiles { get; }
-        internal int ExactDestinations { get; }
-        internal int RelaxedDestinations { get; }
-        internal int ReusedDestinations { get; }
-        internal int UniqueDestinations { get; }
-    }
-    internal sealed class MoveFormationPreviewPlanner
-    {
-        internal MoveFormationPreviewPlanner(Func<int,int,bool> available) { }
-        internal MoveFormationPlanMetrics Plan(int x,int y,int spacing,int required,bool assassin,
-            List<MoveFormationDestination> destination,Func<int,int,bool> filter=null)
-        {
-            destination.Clear();
-            for(int index=0;index<required;index++)
-                destination.Add(new MoveFormationDestination(1000+index,x+index,y));
-            return new MoveFormationPlanMetrics(required,required,0,0,required);
-        }
-    }
     internal enum AliveState { IsAlive, Dead }
     internal enum eStructs { STRUCT_NULL }
     internal enum TribeAICommand { Move, AttackUnit=4, AttackBuilding=5, DigMoatTileId = 6, Unknown7 = 7 }
@@ -183,8 +153,6 @@ namespace BugfixesAndQoL
             internal int[] ActiveUnitIdsAtDispatch = Array.Empty<int>();
             public bool IsNewOrder;
             public bool IsPatrolPath;
-            public bool HasFormationSpacing;
-            public int FormationSpacing = MoveFormationSpacingPolicy.Default;
             public int WeightedPublished, WeightedDecisions;
             public int TargetX, TargetY, ModeCalls, TargetedRouteCacheHits, TargetedRouteSearches, TargetedRouteExpandedNodes;
             public int TargetedRouteSearchPasses, BuilderCalls, FloodFillBypasses, FallbackBuilderCalls, FallbackRollbacks;
@@ -1228,7 +1196,6 @@ namespace BugfixesAndQoL {
  internal sealed class BugfixesAndQoLViewModel {
   internal bool EnableMod=true;
   internal bool EnableMoveFormationEnhancements=true;
-  internal int MoveFormationSpacing=MoveFormationSpacingPolicy.Default;
   internal bool EnableImprovedMoatFilling=true;
   internal bool EnableLadderAttackPathfindingFix=true;
   internal int RouteMode=1;

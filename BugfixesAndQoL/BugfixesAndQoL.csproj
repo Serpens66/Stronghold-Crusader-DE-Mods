@@ -33,8 +33,7 @@
     <Compile Include="src\GatehouseLivingCapture\NativeDefinition.cs" />
     <Compile Include="src\GatehouseLivingCapture\CaptureDecision.cs" />
     <Compile Include="src\GatehouseLivingCapture\CaptureRuntime.cs" />
-    <Compile Include="src\GroundMovePreviewAuthorization.cs" />
-    <Reference Include="System" /><Reference Include="System.Core" /><Reference Include="System.Xml" /><Reference Include="System.Xml.Linq" />
+    <Reference Include="System" /><Reference Include="System.Core" /><Reference Include="System.Numerics" /><Reference Include="System.Xml" /><Reference Include="System.Xml.Linq" />
     <Reference Include="BepInEx"><HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="0Harmony"><HintPath>$(GameDir)\BepInEx\core\0Harmony.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="APIShared"><HintPath>$(ApiSharedDir)\APIShared.dll</HintPath><Private>false</Private></Reference>
@@ -194,8 +193,6 @@
     <Compile Include="src\CorruptLordDataSpawnPolicy.cs" />
     <Compile Include="src\CorruptLordDataSpawnRuntime.cs" />
     <Compile Include="src\PrebuiltAiWorkshopBothFixRuntime.cs" />
-    <Compile Include="src\MoveFormationDragGesture.cs" />
-    <Compile Include="src\MoveFormationDragRuntime.cs" />
     <Compile Include="src\NativeTannerFade.cs" />
     <Compile Include="src\NativeTannerFadeState.cs" />
     <Compile Include="src\NotificationQueueNativeContract.cs" />
@@ -206,9 +203,11 @@
     <Compile Include="src\EnemyProximityBulldozeCursorHook.cs" />
     <Compile Include="src\ExtendedShiftCommandQueueModel.cs" />
     <Compile Include="src\ExtendedShiftCommandQueueRuntime.cs" />
-    <Compile Include="src\LargeMoveTargetOverflowModel.cs" />
+    <Compile Include="src\FormationFeature.cs" />
+    <Compile Include="src\FormationSelectionMigration.cs" />
+    <Compile Include="src\FormationMenuViewModel.cs" />
+    <Compile Include="src\FormationPreviewOverlay.cs" />
     <Compile Include="src\LargeMoveTargetMarkerRuntime.cs" />
-    <Compile Include="src\LargeMoveTargetMarkerRenderer.cs" />
     <Compile Include="src\HdMarketViewHook.cs" />
     <Compile Include="src\MarketKeyMainTradeMenuHook.cs" />
     <Compile Include="src\MarketGoodOrderItemViewModel.cs" />

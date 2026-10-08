@@ -25,12 +25,8 @@ internal static class Program
         CheckAtomicCohortEnqueue();
         CheckNativeLayoutTranslation();
         CheckChoreMarkers();
-        CheckDeferredFormationChoreExecution();
         CheckMoveChoreDeduplication();
         CheckFirstShiftMoveTakeover();
-        CheckMoveFormationSpacing();
-        CheckMoveFormationPlanner();
-        CheckMoveFormationGesture();
         CheckGroundMovePreviewEligibility();
         CheckGroundMoveAuthorization();
         CheckLargeMoveTargetOverflow();
@@ -149,257 +145,11 @@ internal static class Program
             hoveredUnit, tileUnit, hoveredBuilding, hoveringWall,
             tileBuilding, targetAvailable, hasComponent);
 
-    private static void CheckMoveFormationSpacing()
-    {
-        Check(MoveFormationSpacingPolicy.Default == 2,
-            "neutral Move formation click uses spacing two");
-        Check(MoveFormationSpacingPolicy.GetCommandMouseButton(true) == 0 &&
-              MoveFormationSpacingPolicy.GetCommandMouseButton(false) == 1,
-            "Vanilla SH1 and DE control schemes select left and right command buttons");
-        Check(MoveFormationSpacingPolicy.GetHorizontalDragStep(800) == 32f &&
-              Math.Abs(MoveFormationSpacingPolicy.GetHorizontalDragStep(1920) - 57.6f) < 0.001f,
-            "horizontal drag step is resolution independent with a 32-pixel floor");
-        float start = 0f;
-        float step = MoveFormationSpacingPolicy.GetHorizontalDragStep(1920);
-        Check(MoveFormationSpacingPolicy.FromHorizontalDrag(start, start - step, 1920) == 1 &&
-              MoveFormationSpacingPolicy.FromHorizontalDrag(start, start - step + 0.01f, 1920) == 2 &&
-              MoveFormationSpacingPolicy.FromHorizontalDrag(start, start, 1920) == 2 &&
-              MoveFormationSpacingPolicy.FromHorizontalDrag(start, start + step, 1920) == 3 &&
-              MoveFormationSpacingPolicy.FromHorizontalDrag(start, start + 2f * step, 1920) == 4,
-            "drag thresholds select spacings one through four at exact boundaries");
-        foreach (int spacing in new[] { 1, 2, 3, 4 })
-        {
-            MoveFormationOffset[] offsets = MoveFormationSpacingPolicy
-                .EnumerateManhattanOffsets(spacing, 20).Take(100).ToArray();
-            Check(offsets.Length == 100 && offsets[0].X == 0 && offsets[0].Y == 0 &&
-                  offsets.All(offset =>
-                      (Math.Abs(offset.X) + Math.Abs(offset.Y)) % spacing == 0) &&
-                  offsets.Select(offset => $"{offset.X},{offset.Y}").Distinct().Count() == 100,
-                $"spacing {spacing} preview enumerates unique Manhattan-grid candidates");
-        }
-        MoveFormationOffset[] edgeCandidates = MoveFormationSpacingPolicy
-            .EnumerateManhattanOffsets(2, 20)
-            .Where(offset => offset.X >= 0 && offset.Y >= 0 &&
-                !(offset.X == 2 && offset.Y == 0))
-            .Take(25)
-            .ToArray();
-        Check(edgeCandidates.Length == 25 &&
-              edgeCandidates.All(offset => offset.X >= 0 && offset.Y >= 0) &&
-              edgeCandidates.All(offset => offset.X != 2 || offset.Y != 0),
-            "preview candidate stream supports map-edge and blocked-tile filtering");
-        for (int spacing = 1; spacing <= 4; spacing++)
-        {
-            Check(MoveFormationSpacingPolicy.Normalize(spacing) == spacing,
-                $"Move formation spacing accepts {spacing}");
-        }
-        foreach (int invalid in new[] { int.MinValue, -1, 0, 5, int.MaxValue })
-        {
-            Check(MoveFormationSpacingPolicy.Normalize(invalid) == MoveFormationSpacingPolicy.Default,
-                $"invalid Move formation spacing {invalid} resets to default");
-        }
-        foreach (int vanillaSpacing in new[] { 1, 2, 3, 4 })
-        foreach (int configuredSpacing in new[] { 1, 2, 3, 4 })
-        {
-            Check(MoveFormationSpacingPolicy.ResolveEffectiveSpacing(
-                    vanillaSpacing, configuredSpacing, overrideEnabled: true) ==
-                  (vanillaSpacing == MoveFormationSpacingPolicy.Default
-                      ? configuredSpacing : vanillaSpacing),
-                $"Vanilla spacing {vanillaSpacing} only permits overriding ordinary spacing");
-        }
-        Check(MoveFormationSpacingPolicy.ResolveEffectiveSpacing(3, 4, overrideEnabled: false) == 3,
-            "disabled Move formation feature preserves Vanilla Assassin spacing");
-        Check(!MoveFormationSpacingPolicy.CanOverrideVanillaSpacing(1) &&
-              MoveFormationSpacingPolicy.CanOverrideVanillaSpacing(2) &&
-              !MoveFormationSpacingPolicy.CanOverrideVanillaSpacing(3) &&
-              !MoveFormationSpacingPolicy.CanOverrideVanillaSpacing(4),
-            "keep and special-unit spacing remain owned by Vanilla");
 
-        object owner = new object();
-        MoveFormationUnitIdentity[] identities = Enumerable.Range(1, 200)
-            .Select(unitId => new MoveFormationUnitIdentity(unitId, (uint)(1000 + unitId)))
-            .ToArray();
-        MoveFormationCommandSnapshotStore.Begin(owner, 7, 30, 40, 4, identities);
-        MoveFormationCommandSnapshotStore.Observe(
-            owner, MoveFormationSelector.AssassinGround, 2, 4);
-        Check(MoveFormationCommandSnapshotStore.TryConsume(
-                7, 30, 40, out MoveFormationCommandSnapshot snapshot) &&
-              snapshot.Units.Length == 200 &&
-              snapshot.Units[0].UnitId == 1 && snapshot.Units[0].GlobalId == 1001 &&
-              snapshot.Audit is MoveFormationSpacingAudit audit &&
-              audit.AssassinGroundCalls == 1 && audit.StandardCalls == 0 &&
-              audit.OverriddenCalls == 1 && audit.VanillaCounts[2] == 1 &&
-              audit.EffectiveCounts[4] == 1 &&
-              audit.FormatCompact() == "cfg4;selectors=s0/a1/w0;transitions=2->4:1",
-            "large-group snapshot binds identities and reports the observed spacing transition");
-        MoveFormationCommandSnapshotStore.Begin(owner, 7, 30, 40, 2, identities);
-        MoveFormationCommandSnapshotStore.Observe(
-            new object(), MoveFormationSelector.Standard, 4, 2);
-        Check(!MoveFormationCommandSnapshotStore.TryConsume(
-                  7, 31, 40, out MoveFormationCommandSnapshot _) &&
-              !MoveFormationCommandSnapshotStore.TryConsume(
-                  7, 30, 40, out MoveFormationCommandSnapshot _),
-            "mismatched and stale command snapshots are discarded immediately");
-        Check(Enumerable.Range(0, 40).Count(value => value % 1 == 0) >
-              Enumerable.Range(0, 40).Count(value => value % 2 == 0) &&
-              Enumerable.Range(0, 40).Count(value => value % 2 == 0) >
-              Enumerable.Range(0, 40).Count(value => value % 3 == 0) &&
-              Enumerable.Range(0, 40).Count(value => value % 3 == 0) >
-              Enumerable.Range(0, 40).Count(value => value % 4 == 0),
-            "spacing values select monotonically fewer Manhattan grid fields");
-    }
 
-    private static void CheckMoveFormationGesture()
-    {
-        Check(!MoveFormationDragEligibility.RequiresNormalTribeOwnership(
-                  isMapEditor: true) &&
-              MoveFormationDragEligibility.RequiresNormalTribeOwnership(
-                  isMapEditor: false),
-            "map-editor selections including tribe 499 bypass only normal ownership validation");
-        Check(!MoveFormationDragEligibility.IsUsableSelectionCount(-1) &&
-              !MoveFormationDragEligibility.IsUsableSelectionCount(0) &&
-              !MoveFormationDragEligibility.IsUsableSelectionCount(1) &&
-              MoveFormationDragEligibility.IsUsableSelectionCount(2) &&
-              MoveFormationDragEligibility.IsUsableSelectionCount(
-                  MoveFormationDragEligibility.MaximumSelectionCount) &&
-              !MoveFormationDragEligibility.IsUsableSelectionCount(
-                  MoveFormationDragEligibility.MaximumSelectionCount + 1),
-            "transient and implausible native selection counts reject only the current drag gesture");
-        Check(MoveFormationDragEligibility.IsVanillaRelease(0, 3, false) &&
-              !MoveFormationDragEligibility.IsVanillaRelease(0, 2, true) &&
-              MoveFormationDragEligibility.IsVanillaRelease(1, 2, true) &&
-              !MoveFormationDragEligibility.IsVanillaRelease(1, 3, false),
-            "each control scheme releases only on its authoritative Vanilla transport state");
 
-        foreach (int commandButton in new[] { 0, 1 })
-        {
-            float gestureStart = 500f;
-            float gestureStep = MoveFormationSpacingPolicy.GetHorizontalDragStep(1920);
-            MoveFormationDragGesture gesture = new MoveFormationDragGesture(
-                commandButton, gestureStart);
-            Check(gesture.CommandButton == commandButton && gesture.Spacing == 2 &&
-                  !gesture.Released && !gesture.Aborted,
-                $"button {commandButton} starts a neutral spacing-two gesture");
-            Check(gesture.OnHeld(1 - commandButton, 600f, 1920) ==
-                      MoveFormationGestureResult.Ignored && gesture.Spacing == 2,
-                $"button {commandButton} ignores held events from the other button");
-            Check(gesture.OnHeld(commandButton, gestureStart - gestureStep, 1920) ==
-                      MoveFormationGestureResult.SpacingChanged && gesture.Spacing == 1,
-                $"button {commandButton} selects compact spacing one");
-            Check(gesture.OnHeld(commandButton, gestureStart, 1920) ==
-                      MoveFormationGestureResult.SpacingChanged && gesture.Spacing == 2 &&
-                  gesture.OnHeld(commandButton, gestureStart + gestureStep + 0.1f, 1920) ==
-                      MoveFormationGestureResult.SpacingChanged && gesture.Spacing == 3 &&
-                  gesture.OnHeld(commandButton, gestureStart + 2f * gestureStep + 0.1f, 1920) ==
-                      MoveFormationGestureResult.SpacingChanged && gesture.Spacing == 4,
-                $"button {commandButton} traverses spacings two through four");
-            Check(gesture.OnMouseUp(1 - commandButton, gestureStart, 1920) ==
-                      MoveFormationGestureResult.Ignored && !gesture.Released &&
-                  gesture.OnMouseUp(commandButton, gestureStart + gestureStep + 0.1f, 1920) ==
-                      MoveFormationGestureResult.Released && gesture.Released &&
-                  gesture.Spacing == 3,
-                $"button {commandButton} releases only on its matching button and samples final X");
-            Check(gesture.OnHeld(commandButton, 500f, 1920) ==
-                      MoveFormationGestureResult.Ignored && gesture.Spacing == 3,
-                $"button {commandButton} cannot change after release");
-        }
 
-        MoveFormationDragGesture conflicting = new MoveFormationDragGesture(0, 100f);
-        Check(conflicting.OnMouseDown(0) == MoveFormationGestureResult.Ignored &&
-              conflicting.OnMouseDown(1) == MoveFormationGestureResult.Aborted &&
-              conflicting.Aborted &&
-              conflicting.OnMouseUp(0, 100f, 800) == MoveFormationGestureResult.Ignored,
-            "opposite mouse down aborts without releasing a later command");
 
-        MoveFormationDragGesture cancelled = new MoveFormationDragGesture(1, 100f);
-        Check(cancelled.Abort() == MoveFormationGestureResult.Aborted &&
-              cancelled.Abort() == MoveFormationGestureResult.Ignored &&
-              cancelled.OnHeld(1, 200f, 800) == MoveFormationGestureResult.Ignored,
-            "external cancellation is terminal and idempotent");
-
-        MoveFormationReleaseGate upThenRun = new MoveFormationReleaseGate(1, 500f);
-        Check(upThenRun.OnHeld(700f, 1920) ==
-                  MoveFormationGestureResult.SpacingChanged &&
-              upThenRun.OnInputRelease(700f, 1920) ==
-                  MoveFormationGestureResult.Released &&
-              upThenRun.ReleaseEventSeen &&
-              upThenRun.TryClaimVanillaRelease(2, true, 1920) &&
-              upThenRun.VanillaReleaseClaimed && upThenRun.Spacing == 4 &&
-              !upThenRun.TryClaimVanillaRelease(2, true, 1920),
-            "R3 up before Engine run retains spacing until exactly one Vanilla release claim");
-
-        MoveFormationReleaseGate runThenUp = new MoveFormationReleaseGate(0, 500f);
-        Check(runThenUp.OnHeld(565f, 1920) ==
-                  MoveFormationGestureResult.SpacingChanged &&
-              runThenUp.TryClaimVanillaRelease(3, false, 1920) &&
-              runThenUp.Released && !runThenUp.ReleaseEventSeen &&
-              runThenUp.Spacing == 3 &&
-              runThenUp.OnInputRelease(565f, 1920) ==
-                  MoveFormationGestureResult.Ignored,
-            "authoritative Engine release before R3 up samples the last held position");
-
-        MoveFormationReleaseGate wrongRelease = new MoveFormationReleaseGate(1, 500f);
-        Check(!wrongRelease.TryClaimVanillaRelease(3, false, 1920) &&
-              !wrongRelease.Released && !wrongRelease.VanillaReleaseClaimed,
-            "the opposite Vanilla release cannot claim a drag transaction");
-
-        MoveFormationReleaseGate shortClick = new MoveFormationReleaseGate(1, 500f);
-        Check(shortClick.OnInputRelease(500f, 1920) ==
-                  MoveFormationGestureResult.Released &&
-              shortClick.TryClaimVanillaRelease(0, true, 1920) &&
-              shortClick.Spacing == MoveFormationSpacingPolicy.Default,
-            "short right-click retains Vanilla spacing without a Dense gesture");
-    }
-
-    private static void CheckMoveFormationPlanner()
-    {
-        var tiles = new SHCDESE.Interop.GameTileManagerView();
-        SHCDESE.API.GameTileManagerAPI.Instance.TileManager = tiles;
-        bool[] available = new bool[800 * 800];
-        for (int y = 20; y <= 380; y++)
-        for (int x = 20; x <= 779; x++)
-        {
-            int tile = y * 800 + x;
-            available[tile] = true;
-            tiles.Components[tile] = 1;
-            tiles.Edges[tile] = 0xFF;
-        }
-
-        var planner = new MoveFormationPreviewPlanner(
-            (x, y) => (uint)x < 800 && (uint)y < 800 && available[y * 800 + x]);
-        var destinations = new List<MoveFormationDestination>();
-        foreach (int spacing in new[] { 1, 2, 3, 4 })
-        foreach (int required in new[] { 1000, 1001, 1002, 1250, 1350, 3999, 4000, 4001, 5001 })
-        {
-            MoveFormationPlanMetrics metrics = planner.Plan(
-                400, 200, spacing, required, assassinOnly: false, destinations);
-            Check(destinations.Count == required &&
-                  destinations.Select(item => item.TileId).Distinct().Count() == required &&
-                  destinations.All(item =>
-                      (Math.Abs(item.X - 400) + Math.Abs(item.Y - 200)) % spacing == 0) &&
-                  metrics.ExactDestinations == required &&
-                  metrics.RelaxedDestinations == 0 && metrics.ReusedDestinations == 0,
-                $"full-grid planner assigns {required} unique spacing-{spacing} destinations");
-        }
-
-        MoveFormationPlanMetrics overflow = planner.Plan(
-            400,
-            200,
-            4,
-            15,
-            assassinOnly: false,
-            destinations,
-            (x, y) => y == 200 && x >= 400 && x < 410);
-        Check(destinations.Count == 15 && overflow.ExactDestinations == 3 &&
-              overflow.RelaxedDestinations == 7 && overflow.UniqueDestinations == 10 &&
-              overflow.ReusedDestinations == 5,
-            "planner deterministically relaxes density and only then reuses reachable destinations");
-
-        int excludedAssassinTile = 200 * 800 + 404;
-        tiles.Logic[excludedAssassinTile] = 0x100;
-        planner.Plan(400, 200, 4, 20, assassinOnly: true, destinations);
-        Check(destinations.All(item => item.TileId != excludedAssassinTile),
-            "Assassin ground planning retains Vanilla's additional tile-flag filter");
-    }
 
     private static void CheckLargeMoveTargetOverflow()
     {
@@ -840,36 +590,6 @@ internal static class Program
 
     private static void CheckChoreMarkers()
     {
-        foreach (string mode in new[] { "map editor", "singleplayer", "multiplayer" })
-        {
-            Check(QueueNativeContract.ShouldPackFormationSpacing(
-                    installed: true,
-                    modEnabled: true,
-                    featureEnabled: true,
-                    choreTransportReady: true,
-                    internalDispatch: false,
-                    choreMode: QueueNativeContract.ChorePackMode,
-                    shiftPressed: false),
-                $"{mode} direct Move packs formation spacing through Vanilla Chore 17");
-        }
-        Check(!QueueNativeContract.ShouldPackFormationSpacing(
-                  true, true, true, true, false, choreMode: 0, shiftPressed: false) &&
-              !QueueNativeContract.ShouldPackFormationSpacing(
-                  true, true, true, true, false,
-                  QueueNativeContract.ChorePackMode, shiftPressed: true) &&
-              !QueueNativeContract.ShouldPackFormationSpacing(
-                  true, true, false, true, false,
-                  QueueNativeContract.ChorePackMode, shiftPressed: false) &&
-              !QueueNativeContract.ShouldPackFormationSpacing(
-                  installed: true,
-                  modEnabled: true,
-                  featureEnabled: true,
-                  choreTransportReady: true,
-                  internalDispatch: true,
-                  choreMode: QueueNativeContract.ChorePackMode,
-                  shiftPressed: false),
-            "formation spacing packs only for enabled direct non-Shift Moves in Chore pack mode");
-
         int[] producerMoveTypes = { 0, 1, 0x81 };
         foreach (int moveType in producerMoveTypes)
         {
@@ -881,37 +601,6 @@ internal static class Program
             Check(QueueNativeContract.TryDecodeQueuedMoveType(unpackedMoveType, out int decoded) &&
                 decoded == ExpectedExecutedVanillaMoveType(moveType),
                 $"Chore 17 producer value 0x{moveType:X} survives Vanilla bit-7 unpacking");
-        }
-        foreach (int moveType in producerMoveTypes)
-        foreach (int spacing in new[] { 1, 2, 3, 4 })
-        {
-            Check(QueueNativeContract.TryEncodeFormationSpacing(
-                    moveType, spacing, out int spacingMarked),
-                $"Chore 17 producer value 0x{moveType:X} accepts spacing {spacing}");
-            Check(QueueNativeContract.TryMarkMoveTypeForQueue(
-                    spacingMarked, out int queueAndSpacingMarked),
-                $"spacing {spacing} coexists with queue bit 6");
-            int unpacked = SimulateVanillaMoveTypeExecute(queueAndSpacingMarked);
-            Check(QueueNativeContract.TryDecodeFormationSpacing(
-                    unpacked, out int withoutSpacing, out int decodedSpacing) &&
-                  decodedSpacing == spacing &&
-                  (withoutSpacing & QueueNativeContract.MoveFormationSpacingMask) == 0 &&
-                  QueueNativeContract.TryDecodeQueuedMoveType(
-                      withoutSpacing, out int decodedMoveType) &&
-                  decodedMoveType == ExpectedExecutedVanillaMoveType(moveType),
-                $"spacing {spacing} and queue marker roundtrip after Vanilla strips bit 7");
-        }
-        foreach (int invalidSpacing in new[] { 0, 5 })
-        {
-            Check(!QueueNativeContract.TryEncodeFormationSpacing(
-                    0, invalidSpacing, out _),
-                $"invalid command spacing {invalidSpacing} is rejected");
-        }
-        foreach (int unknown in new[] { 2, 0x42, 0x100, -256, -254, -190 })
-        {
-            Check(!QueueNativeContract.TryDecodeFormationSpacing(
-                    unknown, out int unchanged, out _) && unchanged == unknown,
-                $"unknown MoveType 0x{unknown:X} is left unchanged");
         }
         Check(!QueueNativeContract.TryMarkMoveTypeForQueue(2, out _),
             "unknown Chore 17 producer value rejected");
@@ -947,39 +636,7 @@ internal static class Program
             "unmarked target command remains Vanilla");
     }
 
-    private static void CheckDeferredFormationChoreExecution()
-    {
-        foreach (int tribeId in new[] { 7, 498, 499 })
-        foreach (int producerMoveType in new[] { 0, 1, 0x81 })
-        foreach (int spacing in new[] { 1, 2, 3, 4 })
-        {
-            Check(QueueNativeContract.TryEncodeFormationSpacing(
-                    producerMoveType, spacing, out int packedMoveType),
-                $"tribe {tribeId} spacing {spacing} packs before deferred execution");
 
-            // Vanilla stores this byte in its pending Chore. The managed release
-            // context may be cleared before the later execute-mode invocation.
-            int executeMoveType = SimulateVanillaMoveTypeExecute(packedMoveType);
-            Check(QueueNativeContract.TryResolveExecutedFormationSpacing(
-                    executeMoveType,
-                    out int vanillaMoveType,
-                    out int executedSpacing) ==
-                  (spacing != MoveFormationSpacingPolicy.Default) &&
-                  executedSpacing == spacing &&
-                  vanillaMoveType == ExpectedExecutedVanillaMoveType(producerMoveType),
-                $"tribe {tribeId} explicit spacing survives, zero bits stay Vanilla");
-        }
-        Check(!QueueNativeContract.TryResolveExecutedFormationSpacing(
-                  QueueNativeContract.MoveQueueMarker,
-                  out int queuedMoveType,
-                  out _) &&
-              queuedMoveType == QueueNativeContract.MoveQueueMarker,
-            "Extended Shift marker does not acquire default formation spacing during Chore execution");
-        Check(!QueueNativeContract.TryResolveExecutedFormationSpacing(
-                  0, out int plainMoveType, out int plainSpacing) &&
-              plainMoveType == 0 && plainSpacing == MoveFormationSpacingPolicy.Default,
-            "unmarked deferred Move remains Vanilla");
-    }
 
     private static int SimulateVanillaMoveTypeExecute(int wireMoveType)
     {
@@ -1256,51 +913,14 @@ internal static class Program
         string workspace = FindWorkspace();
         string bugfixesPlugin = Read(workspace, "BugfixesAndQoL", "src", "BugfixesAndQoLPlugin.cs");
         string bugfixesMinimum = ReadManifestMinimum(workspace, "BugfixesAndQoL");
-        string queueRuntime = Read(
-            workspace,
-            "BugfixesAndQoL",
-            "src",
-            "ExtendedShiftCommandQueueRuntime.cs");
-        string largeMoveRuntime = Read(
-            workspace,
-            "BugfixesAndQoL",
-            "src",
-            "LargeMoveTargetMarkerRuntime.cs");
-        string largeMoveRenderer = Read(
-            workspace,
-            "BugfixesAndQoL",
-            "src",
-            "LargeMoveTargetMarkerRenderer.cs");
-        string nativeFormationSlots = Read(
-            workspace,
-            "APIShared",
-            "src", "UnitCommands",
-            "NativeFormationSlots.cs");
-        string moveFormationContext = Read(workspace, "APIShared", "src", "UnitCommands", "MoveFormationCommandContext.cs");
+        string queueRuntime = Read(workspace, "BugfixesAndQoL", "src", "ExtendedShiftCommandQueueRuntime.cs");
+        string largeMoveRuntime = Read(workspace, "BugfixesAndQoL", "src", "LargeMoveTargetMarkerRuntime.cs");
+        string largeMoveRenderer = Read(workspace, "APIShared", "src", "UnitCommands", "LargeMoveTargetMarkerRenderer.cs");
         string sharedProject = Read(workspace, "APIShared", "APIShared.csproj");
-        string moveFormationDrag = moveFormationContext + Read(
-            workspace,
-            "BugfixesAndQoL",
-            "src",
-            "MoveFormationDragRuntime.cs");
-        string moveFormationPreview = Read(
-            workspace,
-            "APIShared",
-            "src", "UnitCommands",
-            "MoveFormationPreviewPlanner.cs");
         string viewModel = Read(workspace, "BugfixesAndQoL", "src", "BugfixesAndQoLViewModel.cs");
-        string settingsXaml = Read(
-            workspace,
-            "BugfixesAndQoL",
-            "Override",
-            "ScriptExtenderUI",
-            "BugfixesAndQoLSettings.xaml");
-        string bugfixesRuntime = string.Join(
-            "\n",
-            Directory.GetFiles(Path.Combine(workspace, "BugfixesAndQoL", "src"), "*.cs")
-                .Select(File.ReadAllText));
+        string settingsXaml = Read(workspace, "BugfixesAndQoL", "Override", "ScriptExtenderUI", "BugfixesAndQoLSettings.xaml");
+        string bugfixesRuntime = string.Join("\n", Directory.GetFiles(Path.Combine(workspace, "BugfixesAndQoL", "src"), "*.cs").Select(File.ReadAllText));
         string bugfixesProject = Read(workspace, "BugfixesAndQoL", "BugfixesAndQoL.csproj");
-
         Check(bugfixesMinimum.Length == 0 ||
             bugfixesPlugin.Contains($"BepInDependency(ScriptExtenderGuid, \"{bugfixesMinimum}\")"),
             "integrated queue dependency matches the manifest minimum");
@@ -1338,19 +958,11 @@ internal static class Program
             queueRuntime.Contains("private void RefreshMapContext()") &&
             CountText(queueRuntime, "cachedRealMultiplayerMode = null;") >= 2,
             "AI orders bypass Shift queue work and map-scoped context uses the native in-game player ID");
-        Check(largeMoveRuntime.Contains("DrawListCountOffset = 0x622248") &&
-            largeMoveRuntime.Contains("IsRejectedByFullVanillaList(") &&
-            largeMoveRuntime.Contains("renderer.TryAddOverflowMarker(") &&
-            !largeMoveRuntime.Contains("OnTick(") &&
-            !largeMoveRuntime.Contains("GetUnitsAsSpan(") &&
-            !largeMoveRuntime.Contains("MoveFormationCommandSnapshotStore") &&
-            CountText(bugfixesRuntime, "MOVE_TARGET_" + "RESULT:") == 0,
-            "large Move runtime captures only frame-local records rejected by Vanilla capacity");
         Check(largeMoveRenderer.Contains("VisibleTileHookRva = 0x436DE") &&
             largeMoveRenderer.Contains("ResetDrawListRva = 0x41D10") &&
             largeMoveRenderer.Contains("VisibleTileRendererRva = 0x41D60") &&
             largeMoveRenderer.Contains("SpriteBuilderRva = 0x1A13C0") &&
-            largeMoveRenderer.Contains("BugfixesHookInfrastructure.AddContextHook(") &&
+            largeMoveRenderer.Contains("candidate.AddContextHook(") &&
             largeMoveRenderer.Contains("candidate.AddDetour(") &&
             largeMoveRenderer.Contains("resetDrawListHook.Original(drawManager)") &&
             largeMoveRenderer.Contains("!featureEnabled()") &&
@@ -1420,19 +1032,12 @@ internal static class Program
             !queueRuntime.Contains("RemoveUnitFromTribeRva") &&
             !queueRuntime.Contains("removeUnitFromTribe("),
             "integrated queue uses the corrected public UnassignUnit wrapper");
-
         Check(viewModel.Contains("[SyncHostOnly]\n        public bool EnableExtendedShiftCommandQueue") ||
               viewModel.Contains("[SyncHostOnly]\r\n        public bool EnableExtendedShiftCommandQueue"),
             "extended queue is classified as a synchronized host setting");
         Check(viewModel.Contains("private bool enableExtendedShiftCommandQueue = true;") &&
               viewModel.Contains("EnableExtendedShiftCommandQueue = true;"),
             "extended queue is enabled by default and by preset reset");
-        Check((viewModel.Contains("[SyncHostOnly]\n        public bool EnableMoveFormationEnhancements") ||
-               viewModel.Contains("[SyncHostOnly]\r\n        public bool EnableMoveFormationEnhancements")) &&
-              !viewModel.Contains("public int MoveFormationSpacing") &&
-              !viewModel.Contains("MoveFormationSpacingValueText") &&
-              viewModel.Contains("EnableMoveFormationEnhancements = true;"),
-            "Move formation behavior has only a synchronized host switch");
         Check(queueRuntime.Contains("settings.EnableMod && settings.EnableExtendedShiftCommandQueue") &&
               (queueRuntime.Contains("if (!enabled)\n                ResetMapState();") ||
                queueRuntime.Contains("if (!enabled)\r\n                ResetMapState();")),
@@ -1443,107 +1048,11 @@ internal static class Program
             "marked commands are decoded safely across setting transitions");
         Check(settingsXaml.Contains("EnableExtendedShiftCommandQueue, Mode=TwoWay"),
             "host settings UI exposes the extended queue option");
-        Check(settingsXaml.Contains("EnableMoveFormationEnhancements, Mode=TwoWay") &&
-              !settingsXaml.Contains("MoveFormationSpacing") &&
-              !settingsXaml.Contains("bugfixes.move-formation-spacing"),
-            "host settings UI exposes the Move feature switch without a spacing slider");
-        Check(moveFormationDrag.Contains("GetCommandMouseButton(") &&
-              moveFormationDrag.Contains("InputR3EventHooks.OnKeyDown.Observable") &&
-              moveFormationDrag.Contains("InputR3EventHooks.OnKey.Observable") &&
-              moveFormationDrag.Contains("InputR3EventHooks.OnKeyUp.Observable") &&
-              moveFormationDrag.Contains("args.Phase != EventHookPhase.Post") &&
-              moveFormationDrag.Contains("MoveFormationCommandContext.Arm(") &&
-              moveFormationDrag.Contains("markers.ClearPreview();") &&
-              moveFormationDrag.Contains("RunAnchoredVanillaTransaction(state, mpFrameSkip)") &&
-              moveFormationDrag.Contains("engineRunOriginal(mpFrameSkip)") &&
-              moveFormationDrag.Contains("CalcMapTileFromMousePos(") &&
-              moveFormationDrag.Contains("mapTile.gameMapX") &&
-              moveFormationDrag.Contains("state.Target.TileMapX") &&
-              moveFormationDrag.Contains("state.Target.NativeX") &&
-              moveFormationDrag.Contains("MoveFormationPreviewPlanner") &&
-              moveFormationDrag.Contains("state.Target.UnderCursorUnitIds") &&
-              moveFormationDrag.Contains("state.Target.TroopDepth") &&
-              moveFormationDrag.Contains("state.Target.OverTopHalf") &&
-              moveFormationDrag.Contains("grabTroopsOnScreen(") &&
-              moveFormationDrag.Contains("EvaluateInitialGroundTarget(") &&
-              moveFormationDrag.Contains("EvaluateFixedGroundTarget(") &&
-              moveFormationDrag.Contains("r_HoverOverUnitId") &&
-              moveFormationDrag.Contains("r_HoverOverBuildingId") &&
-              moveFormationDrag.Contains("r_HoveringOverWall") &&
-              moveFormationDrag.Contains("TileUnitIdGrid") &&
-              moveFormationDrag.Contains("StructureGrid") &&
-              !moveFormationDrag.Contains("\"unit-target\"") &&
-              !moveFormationDrag.Contains("\"structure-target\"") &&
-              !moveFormationDrag.Contains("\"unwalkable-ground\"") &&
-              !moveFormationDrag.Contains("CurrentAction != 0") &&
-              moveFormationDrag.Contains("private static readonly object syncRoot") &&
-              moveFormationDrag.Contains("ReferenceEquals(observedPreEvent, args)") &&
-              !moveFormationDrag.Contains("[ThreadStatic]") &&
-              moveFormationDrag.Contains("RestoreInputState(") &&
-              moveFormationDrag.Contains("StartSelectionHook(") &&
-              moveFormationDrag.Contains("MainControls.instance.CurrentAction = 0") &&
-              moveFormationDrag.Contains("leftMouseStateForEngineField") &&
-              moveFormationDrag.Contains("rightUpForEngineField") &&
-              moveFormationDrag.Contains("SelectionMatches(state.Selection)") &&
-              moveFormationDrag.Contains("Shared.GameModeHelper.IsMapEditor()") &&
-              !moveFormationDrag.Contains("MainViewModel.Instance.IsMapEditorMode") &&
-              !moveFormationDrag.Contains("Input.GetMouseButton") &&
-              !moveFormationDrag.Contains("OnBeforeRender") &&
-              !moveFormationDrag.Contains("\"Update\", BindingFlags") &&
-              !moveFormationDrag.Contains("PreDllCallActionsDelegate") &&
-              !moveFormationDrag.Contains("preDLLCallActionsOriginal"),
-            "drag preview uses R3 input and a full Engine run transaction with separate coordinate domains");
-        Check(moveFormationDrag.Contains("NativeTroopCommandModeReader") &&
-              moveFormationDrag.Contains("EvaluateCommandMode()") &&
-              moveFormationDrag.Contains("handoff-command-") &&
-              queueRuntime.Contains("moveFormationDrag.Install(context)"),
-            "Dense preview and handoff require audited native move mode 1");
-        int shortClickBypass = moveFormationDrag.IndexOf(
-            "if (state.Spacing == MoveFormationSpacingPolicy.Default)",
-            StringComparison.Ordinal);
-        int anchoredHandoff = moveFormationDrag.IndexOf(
-            "return RunAnchoredVanillaTransaction(state, mpFrameSkip);",
-            StringComparison.Ordinal);
-        Check(shortClickBypass >= 0 && shortClickBypass < anchoredHandoff &&
-              nativeFormationSlots.Contains(
-                  "!MoveFormationSpacingPolicy.CanOverrideVanillaSpacing(spacing)"),
-            "short clicks bypass Dense dispatch and fixed Vanilla spacing bypasses managed slots");
-        Check(queueRuntime.Contains("QueueNativeContract.ShouldPackFormationSpacing(") &&
-              queueRuntime.Contains("MoveFormationCommandContext.EnterMoveChoreExecution()") &&
-              queueRuntime.Contains("MoveFormationCommandContext.ExitMoveChoreExecution()") &&
-              queueRuntime.Contains("Shared.GameModeHelper.Capture()") &&
-              queueRuntime.Contains("MOVE_FORMATION_DRAG: chore-packed;") &&
-              !queueRuntime.Contains("MOVE_FORMATION_DRAG: chore-marked;") &&
-              !queueRuntime.Contains("IsRealMultiplayer() && !IsShiftPressed()"),
-            "formation spacing uses Vanilla Chore 17 in every mode and Shared mode diagnostics");
-        Check(moveFormationPreview.Contains("PathEdgeMaskGrid") &&
-              moveFormationPreview.Contains("PathConnectionGrid") &&
-              moveFormationPreview.Contains("queueTile = new int[NativeTileCapacity]") &&
-              !moveFormationPreview.Contains("NativeFormationCandidateCapacity = 4001") &&
-              moveFormationPreview.Contains("0x10000100") &&
-              moveFormationPreview.Contains("destination.Count < requiredCount") &&
-              moveFormationPreview.Contains("relaxedQueueIndices") &&
-              moveFormationPreview.Contains("while (destination.Count < requiredCount)") &&
-              sharedProject.Contains("src\\UnitCommands\\MoveFormationPreviewPlanner.cs"),
-            "formation preview and execution planner cover the full native grid with deterministic overflow");
-        Check(bugfixesRuntime.Contains("settings.EnableMoveFormationEnhancements") &&
-              bugfixesRuntime.Contains("!FeatureEnabled ||") &&
-              bugfixesRuntime.Contains("moveFormationDrag.ResetTransientState()"),
-            "Move spacing, diagnostics, suppression, and replacement obey their feature setting");
-        Check(nativeFormationSlots.Contains("libraryBase, 0xE0970") &&
-              nativeFormationSlots.Contains("MoveFormationSelector.AssassinGround") &&
-              nativeFormationSlots.Contains("ResolveEffectiveSpacing") &&
-              nativeFormationSlots.Contains("TryChooseManagedFormationSlot(") &&
-              nativeFormationSlots.Contains("state[2] = 0") &&
-              nativeFormationSlots.Contains("formation-assigned") &&
-              !nativeFormationSlots.Contains("libraryBase, 0xE0AC0"),
-            "Move spacing assigns every managed slot while leaving the Assassin structure selector untouched");
         Check(bugfixesPlugin.Contains("BepInIncompatibility(LegacyQueueTestGuid)") &&
               bugfixesPlugin.Contains("LegacyQueueTestGuid = \"QueueTest_Serp\""),
             "standalone QueueTest is explicitly incompatible");
         Check(!Directory.Exists(Path.Combine(workspace, "QueueTest")),
             "standalone QueueTest project has been removed after integration");
-
         Check((bugfixesMinimum.Length == 0 ||
                bugfixesPlugin.Contains($"BepInDependency(ScriptExtenderGuid, \"{bugfixesMinimum}\")")) &&
             bugfixesPlugin.Contains("BepInIncompatibility(LegacyMoveMoatGuid)"),
@@ -1559,7 +1068,8 @@ internal static class Program
             "BugfixesAndQoL project carries the integrated RedBird hook references");
         Check(!Directory.Exists(Path.Combine(workspace, "MoatCommandTest")),
             "standalone MoatCommandTest project has been removed after integration");
-
+        Check(!queueRuntime.Contains("MoveFormationCommandContext") && !queueRuntime.Contains("ShouldMarkOutgoingFormationOrder"),
+            "queue no longer transports obsolete density bits");
     }
 
     private static string FindWorkspace()

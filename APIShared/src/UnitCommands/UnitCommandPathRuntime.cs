@@ -1160,7 +1160,7 @@ namespace APIShared.UnitCommands
 
                 weightedMoatRoutePlanner.AllowAdditionalMoatEntry = () => TraversalEnabled;
                 tribeMoveSubscription = TribeR3EventHooks.OnTribeIssueOrderMoveHere.Observable.Subscribe(DispatchMoveEvent);
-                unitMoveSubscription = UnitR3EventHooks.OnUnitMoveHere.Observable.Subscribe(ObserveUnitMoveOrder);
+                unitMoveSubscription = UnitR3EventHooks.OnUnitMoveHere.Observable.Subscribe(DispatchUnitMoveEvent);
                 tribeTargetSubscription = TribeR3EventHooks.OnTribeIssueOrderWithTarget.Observable.Subscribe(DispatchTargetEvent);
                 mapLoadSubscription = Shared.MissionEvents.Loading.Subscribe(_ => ResetMapState());
                 // SaveLifecycle: ResetOnly - every save load also raises map unload.
@@ -1579,11 +1579,6 @@ namespace APIShared.UnitCommands
             if (args.Phase == EventHookPhase.Pre)
             {
                 PushManualCommandContext();
-                MoveFormationCommandContext.ObserveMoveOrder(
-                    args,
-                    settings.EnableMod && settings.EnableMoveFormationEnhancements);
-                bool hasFormationSpacing = MoveFormationCommandContext.TryGetActive(
-                    args.TribeId, args.TileX, args.TileY, out int formationSpacing);
                 ClearUnitMoveFrames();
                 RemoveTrackedAttacksForTribe(args.TribeId, "move-command");
                 RemoveTrackedMoatMovesForTribe(args.TribeId, "new-move-command");
@@ -1597,33 +1592,7 @@ namespace APIShared.UnitCommands
                     args.MoveType,
                     activeAttackCommand?.Sequence ?? 0,
                     activeAttackCommand?.Command ?? TribeAICommand.Unknown0,
-                    MovementOptionsSnapshot.Capture(settings),
-                    hasFormationSpacing,
-                    formationSpacing);
-                if (hasFormationSpacing)
-                {
-                    Shared.DebugLogHelper.LogDebug(
-                        log,
-                        $"MOVE_FORMATION_DRAG: movehere-spacing; tribe={args.TribeId}; " +
-                        $"target={args.TileX},{args.TileY}; spacing={formationSpacing}; " +
-                        $"moveType={args.MoveType}.");
-                    if (MoveFormationCommandContext.TryGetActiveDecodeDiagnostic(
-                            args.TribeId,
-                            args.TileX,
-                            args.TileY,
-                            out int rawMoveType,
-                            out int decodedMoveType,
-                            out int decodedSpacing,
-                            out bool executingMoveChore) &&
-                        executingMoveChore &&
-                        loggedFormationExecuteMoveTypes.Add(rawMoveType))
-                    {
-                        Shared.DebugLogHelper.LogDebug(
-                            log,
-                            $"MOVE_FORMATION_DRAG: chore-execute-decoded; raw={rawMoveType}; " +
-                            $"decoded={decodedMoveType}; spacing={decodedSpacing}.");
-                    }
-                }
+                    MovementOptionsSnapshot.Capture(settings));
                 if (!activeMoveCommand.Options.RequiredOnly ||
                     settings.EnableMoveFormationEnhancements)
                     CaptureMoveCommandGroupSummary(activeMoveCommand);
@@ -1748,7 +1717,6 @@ namespace APIShared.UnitCommands
                     ClearDeferredFastMoveScope();
                     TryLogDiagnosticFailure("deferred-fast-move-scope", ex);
                 }
-                CompleteManagedFormationPlan(command);
                 RestoreManualCommandContext();
             }
         }
@@ -3750,7 +3718,6 @@ namespace APIShared.UnitCommands
             if (command == null || command.GroupSummaryCaptured)
                 return;
             command.GroupSummaryCaptured = true;
-            MoveFormationCommandSnapshotStore.Clear();
             if (command == null ||
                 !TryCaptureOrderedActiveGroupUnits(
                     nativeTribeManager, command.TribeId, out int[] unitIds))
@@ -3759,13 +3726,6 @@ namespace APIShared.UnitCommands
             }
 
             command.ActiveUnitIdsAtDispatch = unitIds;
-            MoveFormationUnitIdentity[] formationIdentities =
-                settings.EnableMod && settings.EnableMoveFormationEnhancements &&
-                unitIds.Length >= MoveFormationCommandSnapshotStore.MinimumTrackedUnits
-                    ? new MoveFormationUnitIdentity[unitIds.Length]
-                    : null;
-            int formationIdentityCount = 0;
-
             foreach (int unitId in unitIds)
             {
                 if (!APIShared.UnitAccess.TryGetById(unitId, out GameUnit* unit, out _) ||
@@ -3775,11 +3735,6 @@ namespace APIShared.UnitCommands
                 }
 
                 command.ActiveUnitsAtDispatch++;
-                if (formationIdentities != null)
-                {
-                    formationIdentities[formationIdentityCount++] =
-                        new MoveFormationUnitIdentity(unitId, unit->r_GlobalId);
-                }
                 if (CanDigMoat(unit))
                     command.DiggersAtDispatch++;
                 if (IsCompletedMoatTile(unchecked((int)unit->r_CurrentPositionTileId)))
@@ -3789,15 +3744,7 @@ namespace APIShared.UnitCommands
                     command.PlayerMaskAtDispatch |= 1u << playerId;
             }
 
-            if (formationIdentities != null && formationIdentityCount != formationIdentities.Length)
-                Array.Resize(ref formationIdentities, formationIdentityCount);
-            MoveFormationCommandSnapshotStore.Begin(
-                command,
-                command.TribeId,
-                command.TargetX,
-                command.TargetY,
-                command.FormationSpacing,
-                formationIdentities ?? Array.Empty<MoveFormationUnitIdentity>());
+
         }
 
         internal void EnsureMoveCommandGroupSummary(MoveCommandScope command)
@@ -8387,7 +8334,7 @@ namespace APIShared.UnitCommands
             // TEMP_GATE_ROUTE_ACCEPTANCE: maps never retain an unfinished order association.
             if (temporaryAssassinScope != null) TemporaryGateRouteAcceptanceBridge.ReportFailure("assassin-map-unpaired-order");
             temporaryAssassinScope = null;
-            manualCommandContexts?.Clear(); targetCommandParents?.Clear(); moveFormationParents?.Clear();
+            manualCommandContexts?.Clear(); targetCommandParents?.Clear();
             moveEventObservers?.Clear(); moveEventDepths?.Clear(); targetEventObservers?.Clear();
             nativeCursorAnswers.Clear(); nativeCursorAnswerTick = int.MinValue;
             LogAndResetFastMoatMetrics();
@@ -8397,7 +8344,7 @@ namespace APIShared.UnitCommands
             cursorTopologies.Clear(); noBuilderDetails = 0; preBuilderRejections.Clear();
             cursorDecisionCounts.Clear(); cursorDecisionDetails.Clear();
             fillRouteDecisions.Clear(); fillRouteLogTick = -1; fillRouteLogCount = 0; formationOwner = null;
-            CompleteManagedFormationPlan(null);
+            formationRuntime?.ResetTransientState();
             ResetMoatWorkTargetSelection();
             ResetDirectMoatCommandScopes();
             cacheMapEpoch = -1;
@@ -9901,9 +9848,7 @@ namespace APIShared.UnitCommands
                 TribeMoveType moveType,
                 int parentAttackCommandSequence,
                 TribeAICommand parentAttackCommand,
-                MovementOptionsSnapshot currentOptions,
-                bool hasFormationSpacing = false,
-                int formationSpacing = MoveFormationSpacingPolicy.Default)
+                MovementOptionsSnapshot currentOptions)
             {
                 Options = activeAttackCommand?.Options ?? currentOptions;
                 Required = activeAttackCommand?.Required ?? new RequiredRouteMetrics();
@@ -9919,8 +9864,6 @@ namespace APIShared.UnitCommands
                 MoveType = moveType;
                 ParentAttackCommandSequence = parentAttackCommandSequence;
                 ParentAttackCommand = parentAttackCommand;
-                HasFormationSpacing = hasFormationSpacing;
-                FormationSpacing = MoveFormationSpacingPolicy.Normalize(formationSpacing);
                 StartTimestamp = Stopwatch.GetTimestamp();
             }
 
@@ -9933,8 +9876,6 @@ namespace APIShared.UnitCommands
             public TribeMoveType MoveType { get; }
             public int ParentAttackCommandSequence { get; }
             public TribeAICommand ParentAttackCommand { get; }
-            public bool HasFormationSpacing { get; }
-            public int FormationSpacing { get; }
             public long StartTimestamp { get; }
             public double ElapsedMilliseconds { get; set; }
             public int ActiveUnitsAtDispatch { get; set; }

@@ -1,0 +1,8 @@
+BugfixesAndQoL\src\FormationPreviewOverlay.cs
+APIShared\src\UnitCommands\FormationPresentation.cs
+BugfixesAndQoL\src\FormationMenuViewModel.cs
+BugfixesAndQoL\Patches\Assets\GUI\XAMLResources\HUD_Troops.xaml
+BugfixesAndQoL\src\FormationFeature.cs
+BugfixesAndQoL\src\LargeMoveTargetMarkerRuntime.cs
+APIShared\src\UnitCommands\FormationRuntime.cs
+BugfixesAndQoL\tests\Formations.Tests\Program.cs

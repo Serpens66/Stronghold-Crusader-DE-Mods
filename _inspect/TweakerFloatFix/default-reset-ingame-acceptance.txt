@@ -1,0 +1,31 @@
+Default-reset acceptance: 2026-10-08. Test preset staged four differences; restart loaded four differences; reset staged zero differences; following restart and map start confirmed zero differences across 4233 options in 11 files. No pending configuration remained. Multiplayer acceptance is separate.
+
+[Info   :Crusader DE Tweaker] [ConfigurationApi] 2026-10-08 13:15:46.627 No configuration pending. Startup file set ECBA946017746E31CA9DC40783E5BFEC2E4D8D5AA1BAA4479C9CFA7CD0C85CB7.
+[Info   :Crusader DE Tweaker] [ConfigurationApi] Ready: 4233 options in 11 files.
+[Info   :Crusader DE Tweaker] [ConfigurationApi] 2026-10-08 14:44:20.447 No configuration pending. Startup file set ECBA946017746E31CA9DC40783E5BFEC2E4D8D5AA1BAA4479C9CFA7CD0C85CB7.
+[Info   :Crusader DE Tweaker] [ConfigurationApi] Ready: 4233 options in 11 files.
+[Info   :Tweaker Default Audit (read-only test)] [DefaultAudit] 2026-10-08 14:44:28.813 configuration-event PASS options=4233 files=11 defaults=0E60E90D02709839F347AEC8C492DB77428956D938DB851739F0C51E24C9A0FC ownDifferences=0 loadedDifferences=0 pendingDifferences=none
+[Debug  :Serps Mods] [2026-10-08 14:44:53.998] [CrusaderDETweaker] Loaded Mod defaults as editable working settings.
+[Debug  :Serps Mods] [2026-10-08 14:44:55.405] [CrusaderDETweaker] Loaded Mod defaults as editable working settings.
+[Info   :Crusader DE Tweaker] [ConfigurationApi] 2026-10-08 14:54:42.345 No configuration pending. Startup file set ECBA946017746E31CA9DC40783E5BFEC2E4D8D5AA1BAA4479C9CFA7CD0C85CB7.
+[Info   :Crusader DE Tweaker] [ConfigurationApi] Ready: 4233 options in 11 files.
+[Info   :Tweaker Default Audit (read-only test)] [DefaultAudit] 2026-10-08 14:54:50.721 configuration-event PASS options=4233 files=11 defaults=0E60E90D02709839F347AEC8C492DB77428956D938DB851739F0C51E24C9A0FC ownDifferences=0 loadedDifferences=0 pendingDifferences=none
+[Info   :Crusader DE Tweaker] [ConfigurationApi] 2026-10-08 15:00:22.676 No configuration pending. Startup file set ECBA946017746E31CA9DC40783E5BFEC2E4D8D5AA1BAA4479C9CFA7CD0C85CB7.
+[Info   :Crusader DE Tweaker] [ConfigurationApi] Ready: 4233 options in 11 files.
+[Info   :Tweaker Default Audit (read-only test)] [DefaultAudit] 2026-10-08 15:00:30.935 configuration-event PASS options=4233 files=11 defaults=0E60E90D02709839F347AEC8C492DB77428956D938DB851739F0C51E24C9A0FC ownDifferences=0 loadedDifferences=0 pendingDifferences=none
+[Info   :Crusader DE Tweaker] [ConfigurationApi] 2026-10-08 15:04:39.767 No configuration pending. Startup file set ECBA946017746E31CA9DC40783E5BFEC2E4D8D5AA1BAA4479C9CFA7CD0C85CB7.
+[Info   :Crusader DE Tweaker] [ConfigurationApi] Ready: 4233 options in 11 files.
+[Info   :Tweaker Default Audit (read-only test)] [DefaultAudit] 2026-10-08 15:04:48.537 configuration-event PASS options=4233 files=11 defaults=0E60E90D02709839F347AEC8C492DB77428956D938DB851739F0C51E24C9A0FC ownDifferences=0 loadedDifferences=0 pendingDifferences=none
+[Info   :Crusader DE Tweaker] [ConfigurationApi] 2026-10-08 15:05:14.133 Staged configuration D3537C7346D0A0FA7BEBDFFEC62052A156A198F47FC403E96456750FA8C4843C for next startup.
+[Info   :Tweaker Default Audit (read-only test)] [DefaultAudit] 2026-10-08 15:05:14.236 configuration-event PASS options=4233 files=11 defaults=0E60E90D02709839F347AEC8C492DB77428956D938DB851739F0C51E24C9A0FC ownDifferences=0 loadedDifferences=0 pendingDifferences=4
+[Info   :Crusader DE Tweaker] [ConfigurationApi] 2026-10-08 15:05:40.661 Pending configuration applied successfully. Startup file set 3BD2672E514C7A54CF1FE38883989DA0EA37505BF2719E5B2D8A4F98C97EF762.
+[Info   :Crusader DE Tweaker] [ConfigurationApi] Ready: 4233 options in 11 files.
+[Info   :Tweaker Default Audit (read-only test)] [DefaultAudit] 2026-10-08 15:05:48.988 configuration-event PASS options=4233 files=11 defaults=0E60E90D02709839F347AEC8C492DB77428956D938DB851739F0C51E24C9A0FC ownDifferences=4 loadedDifferences=4 pendingDifferences=none
+[Debug  :Serps Mods] [2026-10-08 15:06:04.397] [CrusaderDETweaker] Loaded Mod defaults as editable working settings.
+[Info   :Crusader DE Tweaker] [ConfigurationApi] 2026-10-08 15:06:04.456 Staged configuration 52B011C82600910C3B57DDDFBA55A895B6D39814C31CCF015AC121CF1E5487F1 for next startup.
+[Info   :Tweaker Default Audit (read-only test)] [DefaultAudit] 2026-10-08 15:06:04.555 configuration-event PASS options=4233 files=11 defaults=0E60E90D02709839F347AEC8C492DB77428956D938DB851739F0C51E24C9A0FC ownDifferences=4 loadedDifferences=4 pendingDifferences=0
+[Info   :Crusader DE Tweaker] [ConfigurationApi] 2026-10-08 15:07:19.905 Pending configuration applied successfully. Startup file set 48A9B11B69D39F87BE0CA6B921717EDCDFF561707B1869BD79E1CB23983207FC.
+[Info   :Crusader DE Tweaker] [ConfigurationApi] Ready: 4233 options in 11 files.
+[Info   :Tweaker Default Audit (read-only test)] [DefaultAudit] 2026-10-08 15:07:28.206 configuration-event PASS options=4233 files=11 defaults=0E60E90D02709839F347AEC8C492DB77428956D938DB851739F0C51E24C9A0FC ownDifferences=0 loadedDifferences=0 pendingDifferences=none
+[Info   :Tweaker Default Audit (read-only test)] [DefaultAudit] Persistent map event reached after startup cleanup.
+[Info   :Tweaker Default Audit (read-only test)] [DefaultAudit] 2026-10-08 15:07:47.423 map-start PASS options=4233 files=11 defaults=0E60E90D02709839F347AEC8C492DB77428956D938DB851739F0C51E24C9A0FC ownDifferences=0 loadedDifferences=0 pendingDifferences=none

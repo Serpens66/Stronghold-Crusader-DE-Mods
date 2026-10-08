@@ -1,0 +1,102 @@
+--- HEAD:Testmods/FormationTest/src/FormationPreviewOverlay.cs
++++ BugfixesAndQoL/src/FormationPreviewOverlay.cs
+@@ -1,3 +1,4 @@
++using APIShared.UnitCommands;
+ using System;
+ using System.Collections.Generic;
+ using BepInEx.Logging;
+@@ -5,7 +6,7 @@
+ using SHCDESE.API;
+ using UnityEngine;
+ 
+-namespace FormationTest
++namespace BugfixesAndQoL
+ {
+     internal static class FormationPreviewOverlay
+     {
+@@ -22,6 +23,13 @@
+         private static bool missingHostLogged;
+         private static bool renderFailureLogged;
+         private static volatile bool showRoleMarkers = true;
++        private static volatile bool nativeAllowed;
++        internal static void SetNativeAllowed(bool allowed)
++        {
++            if (nativeAllowed == allowed) return;
++            nativeAllowed = allowed;
++            Refresh();
++        }
+         private static SolidColorBrush outlineBrush;
+         private static SolidColorBrush frontBrush;
+         private static SolidColorBrush protectedBrush;
+@@ -50,6 +58,7 @@
+ 
+         internal static void Clear()
+         {
++            nativeAllowed = false;
+             lock (Sync)
+                 snapshot = PreviewSnapshot.Empty;
+             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(HideAll);
+@@ -65,7 +74,7 @@
+             PreviewSnapshot current;
+             lock (Sync)
+                 current = snapshot;
+-            if (current.Points.Length == 0)
++            if (!nativeAllowed || current.Points.Length == 0)
+             {
+                 HideAll();
+                 return;
+@@ -126,13 +135,13 @@
+ 
+         private static bool TryResolveCanvas(out Canvas host)
+         {
+-            host = GameXAMLManagerAPI.Instance?.FindGlobalElement("FormationTestPreviewCanvas") as Canvas;
++            host = GameXAMLManagerAPI.Instance?.FindGlobalElement("BugfixesAndQoLFormationPreviewCanvas") as Canvas;
+             if (host == null)
+             {
+                 if (!missingHostLogged)
+                 {
+                     missingHostLogged = true;
+-                    Shared.DebugLogHelper.LogWarning(log, "FORMATION_OVERLAY_SKIPPED: Noesis host FormationTestPreviewCanvas is unavailable.");
++                    Shared.DebugLogHelper.LogWarning(log, "FORMATION_OVERLAY_SKIPPED: Noesis host BugfixesAndQoLFormationPreviewCanvas is unavailable.");
+                 }
+                 HideAll();
+                 return false;
+@@ -295,38 +304,4 @@
+         }
+     }
+ 
+-    internal readonly struct FormationPreviewPoint
+-    {
+-        internal FormationPreviewPoint(int x, int y, FormationRole role) { X = x; Y = y; Role = role; }
+-        internal int X { get; }
+-        internal int Y { get; }
+-        internal FormationRole Role { get; }
+-    }
+-
+-    internal readonly struct FormationDirectionIndicator
+-    {
+-        internal static readonly FormationDirectionIndicator Hidden =
+-            new FormationDirectionIndicator(false, 0, 0, 0, 0, false);
+-        internal FormationDirectionIndicator(
+-            bool visible,
+-            int startX,
+-            int startY,
+-            int endX,
+-            int endY,
+-            bool explicitDirection)
+-        {
+-            Visible = visible;
+-            StartX = startX;
+-            StartY = startY;
+-            EndX = endX;
+-            EndY = endY;
+-            ExplicitDirection = explicitDirection;
+-        }
+-        internal bool Visible { get; }
+-        internal int StartX { get; }
+-        internal int StartY { get; }
+-        internal int EndX { get; }
+-        internal int EndY { get; }
+-        internal bool ExplicitDirection { get; }
+-    }
+ }

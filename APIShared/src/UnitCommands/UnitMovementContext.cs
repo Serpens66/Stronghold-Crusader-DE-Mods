@@ -16,6 +16,20 @@ namespace APIShared.UnitCommands
 {
     internal sealed unsafe partial class UnitCommandPathRuntime
     {
+        internal void DispatchUnitMoveEvent(UnitMoveHereEventArgs args)
+        {
+            if (args.Phase == EventHookPhase.Pre)
+            {
+                formationRuntime?.OnUnitMoveHere(args);
+                ObserveUnitMoveOrder(args);
+            }
+            else
+            {
+                try { ObserveUnitMoveOrder(args); }
+                finally { formationRuntime?.OnUnitMoveHere(args); }
+            }
+        }
+
         internal void ObserveUnitMoveOrder(UnitMoveHereEventArgs args)
         {
             if (disposed)

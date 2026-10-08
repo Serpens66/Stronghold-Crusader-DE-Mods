@@ -170,7 +170,10 @@ namespace APIShared.UnitCommands
                     }
                 }
                 catch (Exception ex) { placementBatch = null; TryLogDiagnosticFailure("common-placement-context", ex); }
-                return originalCommonGroupMove(manager, tribe, x, y, patrol, newOrder);
+                return formationRuntime != null
+                    ? formationRuntime.CommonGroupMoveHook(manager, tribe, x, y, patrol, newOrder,
+                        () => originalCommonGroupMove(manager, tribe, x, y, patrol, newOrder))
+                    : originalCommonGroupMove(manager, tribe, x, y, patrol, newOrder);
             }
             finally
             {

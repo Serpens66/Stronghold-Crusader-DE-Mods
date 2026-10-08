@@ -54,7 +54,6 @@ namespace APIShared.UnitCommands
         private FastAppendDelegate nativeAppend;
         private FastChoreDelegate nativeTarget;
 
-        [ThreadStatic] private static Stack<Action> moveFormationParents;
         [ThreadStatic] private static Stack<bool> moveEventObservers;
         [ThreadStatic] private static Stack<int> moveEventDepths;
         [ThreadStatic] private static Stack<Action> targetCommandParents;
@@ -63,9 +62,7 @@ namespace APIShared.UnitCommands
         {
             if (args.Phase == SHCDESE.EventAPI.EventHookPhase.Pre)
             {
-                if (moveFormationParents == null) moveFormationParents = new Stack<Action>();
-                Action parent = activeMoveCommand != null ? MoveFormationCommandContext.CaptureForNestedCommand() : null;
-                moveFormationParents.Push(parent);
+                formationRuntime?.OnTribeIssueOrderMoveHere(args);
                 int depth = manualCommandContexts?.Count ?? 0;
                 if (moveEventObservers == null) moveEventObservers = new Stack<bool>();
                 if (moveEventDepths == null) moveEventDepths = new Stack<int>();
@@ -81,7 +78,7 @@ namespace APIShared.UnitCommands
                     else
                     {
                         moveEventObservers.Pop(); moveEventDepths.Pop();
-                        moveFormationParents.Pop()?.Invoke(); // No Post for a consumed queue command.
+
                     }
                 }
                 catch
@@ -90,7 +87,7 @@ namespace APIShared.UnitCommands
                     if (args.SkipOriginalFunction)
                     {
                         moveEventObservers.Pop(); moveEventDepths.Pop();
-                        moveFormationParents.Pop()?.Invoke();
+
                     }
                     throw;
                 }
@@ -103,7 +100,7 @@ namespace APIShared.UnitCommands
                 finally
                 {
                     while ((manualCommandContexts?.Count ?? 0) > depth) RestoreManualCommandContext();
-                    if (moveFormationParents?.Count > 0) moveFormationParents.Pop()?.Invoke();
+                    formationRuntime?.OnTribeIssueOrderMoveHere(args);
                 }
             }
         }

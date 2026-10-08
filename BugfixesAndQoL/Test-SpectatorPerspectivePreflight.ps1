@@ -244,7 +244,9 @@ if ($metadata.NetworkMode -ne 1) { throw 'Gameplay-affecting ally actions requir
 $patchPath = Join-Path $projectRoot 'Patches\Assets\GUI\XAML\IngameUIScreens.xaml'
 [xml]$patch = Get-Content -LiteralPath $patchPath -Raw
 $contents = @($patch.SelectNodes('/Patch/Operation/Content'))
-if ($contents.Count -ne 2) { throw 'Expected ForeignTroopHud and spectator XAML operations.' }
+if ($contents.Count -ne 3 -or @($contents | Where-Object { $_.OuterXml -match 'BugfixesAndQoLFormationPreviewCanvas' }).Count -ne 1) {
+    throw 'Expected ForeignTroopHud, spectator and integrated formation XAML operations.'
+}
 if ($patch.OuterXml -notmatch 'ForeignTroopHudPanel') { throw 'Existing ForeignTroopHud XAML was lost.' }
 $spectatorContent = @($contents | Where-Object { $_.OuterXml -match 'SpectatorPerspectiveCanvas' })
 if ($spectatorContent.Count -ne 1) { throw 'Expected one spectator XAML operation.' }

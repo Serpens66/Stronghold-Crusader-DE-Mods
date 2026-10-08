@@ -12,7 +12,7 @@ var names=new HashSet<string> {"nativeManualProbe","manualCommandContexts","Manu
     "nativeProbeManagerBackup","nativeProbeGridBackup","nativeProbeRectangleBackup","nativeProbeMemoryHelperBackup",
     "PushManualCommandContext","RestoreManualCommandContext","ProbeNativeManualPath",
     "PrepareNativeManualGroup","IsNativeManualGroupFlood","CaptureTargetCommandContext",
-    "moveFormationParents","moveEventObservers","moveEventDepths","targetCommandParents","targetEventObservers",
+    "moveEventObservers","moveEventDepths","targetCommandParents","targetEventObservers",
     "DispatchMoveEvent","DispatchTargetEvent","InvalidateFastMoatData","LogAndResetFastMoatMetrics","ClearDeferredFastMoveScope"};
 var permanent=CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"APIShared/src/UnitCommands/PermanentCommandHooks.cs")));
 var traversal=CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"APIShared/src/UnitCommands/TraversalDispatch.cs")));

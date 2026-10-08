@@ -24,6 +24,8 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Numerics" />
+    <Reference Include="UnityEngine.InputLegacyModule"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.InputLegacyModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="System.Xml" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="Iced"><HintPath>$(ExtenderDir)\Iced.dll</HintPath><Private>false</Private></Reference>
@@ -69,6 +71,8 @@
     <Compile Include="src\GameplayModModePolicy.cs" />
     <Compile Include="src\GameplayFeatureModePolicy.cs" />
     <Compile Include="..\Shared\AtomicFileReplacement.cs"><Link>Shared\AtomicFileReplacement.cs</Link></Compile>
+    <Compile Include="..\Shared\UnityMainThreadDispatch.cs"><Link>Shared\UnityMainThreadDispatch.cs</Link></Compile>
+    <Compile Include="..\Shared\GroundMovePreviewEligibility.cs"><Link>Shared\GroundMovePreviewEligibility.cs</Link></Compile>
     <Compile Include="..\Shared\DebugLogHelper.cs"><Link>Shared\DebugLogHelper.cs</Link></Compile>
     <Compile Include="..\Shared\DependencyFreeJson.cs"><Link>Shared\DependencyFreeJson.cs</Link></Compile>
     <Compile Include="..\Shared\GameModeHelper.cs"><Link>Shared\GameModeHelper.cs</Link></Compile>
@@ -119,12 +123,18 @@
     <Compile Include="src\UnitCommands\MoatPlacement.cs" />
     <Compile Include="src\UnitCommands\MoatPlacementSearch.cs" />
     <Compile Include="src\UnitCommands\MoatWorkTargetSelection.cs" />
-    <Compile Include="src\UnitCommands\MoveFormationCommandContext.cs" />
-    <Compile Include="src\UnitCommands\MoveFormationPreviewPlanner.cs" />
-    <Compile Include="src\UnitCommands\MoveFormationSpacingPolicy.cs" />
     <Compile Include="src\UnitCommands\MovementOptionsSnapshot.cs" />
     <Compile Include="src\UnitCommands\MovementPathPublication.cs" />
     <Compile Include="src\UnitCommands\MovementSearchContext.cs" />
+    <Compile Include="src\UnitCommands\FormationModel.cs" />
+    <Compile Include="src\UnitCommands\FormationReleaseStateModel.cs" />
+    <Compile Include="src\UnitCommands\FormationPreviewMarkerModel.cs" />
+    <Compile Include="src\UnitCommands\FormationOrderPacket.cs" />
+    <Compile Include="src\UnitCommands\FormationPresentation.cs" />
+    <Compile Include="src\UnitCommands\FormationRuntime.cs" />
+    <Compile Include="src\UnitCommands\LargeMoveTargetMarkerRenderer.cs" />
+    <Compile Include="src\UnitCommands\LargeMoveTargetOverflowModel.cs" />
+    <Compile Include="src\UnitCommands\GroundMovePreviewAuthorization.cs" />
     <Compile Include="src\UnitCommands\NativeFormationSlots.cs" />
     <Compile Include="src\UnitCommands\NativeMovementCadenceResolver.cs" />
     <Compile Include="src\UnitCommands\NativeMovementRecovery.cs" />

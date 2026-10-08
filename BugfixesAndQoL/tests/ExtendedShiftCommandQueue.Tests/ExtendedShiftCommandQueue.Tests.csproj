@@ -7,12 +7,9 @@
     <NuGetAudit>false</NuGetAudit>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="..\..\src\GroundMovePreviewAuthorization.cs" Link="GroundMovePreviewAuthorization.cs" />
+    <Compile Include="..\..\..\APIShared\src\UnitCommands\GroundMovePreviewAuthorization.cs" Link="GroundMovePreviewAuthorization.cs" />
     <Compile Include="..\..\src\ExtendedShiftCommandQueueModel.cs" Link="ExtendedShiftCommandQueueModel.cs" />
-    <Compile Include="..\..\src\LargeMoveTargetOverflowModel.cs" Link="LargeMoveTargetOverflowModel.cs" />
-    <Compile Include="..\..\..\APIShared\src\UnitCommands\MoveFormationSpacingPolicy.cs" Link="MoveFormationSpacingPolicy.cs" />
-    <Compile Include="..\..\src\MoveFormationDragGesture.cs" Link="MoveFormationDragGesture.cs" />
-    <Compile Include="..\..\..\APIShared\src\UnitCommands\MoveFormationPreviewPlanner.cs" Link="MoveFormationPreviewPlanner.cs" />
+    <Compile Include="..\..\..\APIShared\src\UnitCommands\LargeMoveTargetOverflowModel.cs" Link="LargeMoveTargetOverflowModel.cs" />
     <Compile Include="..\..\..\Shared\GroundMovePreviewEligibility.cs" Link="GroundMovePreviewEligibility.cs" />
     <Compile Include="..\..\..\APIShared\src\UnitCommands\QueueNativeContract.cs" Link="QueueNativeContract.cs" />
   </ItemGroup>

@@ -92,6 +92,7 @@ namespace BugfixesAndQoL
             // Pass the startup result into the view model so the warning occupies no UI space otherwise.
             steamInviteBlacklist = new SteamInviteBlacklistStore(SteamInviteBlacklistStore.GetDefaultPath());
             Settings = new BugfixesAndQoLViewModel(legacySomeSettingsLoaded, steamInviteBlacklist, Logger);
+            FormationFeature.Configure(Logger, Config, Settings);
             skirmishGameOptionsCompatible = !HasLegacyExtraFeaturesPeaceTimeSetting();
             skirmishGameOptionsAccess = new SkirmishGameOptionsAccessViewModel(
                 Settings,
@@ -357,6 +358,8 @@ namespace BugfixesAndQoL
             {
                 Shared.DebugLogHelper.LogError(Logger, $"Bugfixes and QoL native runtime initialization failed; unaffected features may continue: {ex}");
             }
+
+            FormationFeature.Initialize(context);
 
             if (skirmishGameOptionsCompatible)
             {

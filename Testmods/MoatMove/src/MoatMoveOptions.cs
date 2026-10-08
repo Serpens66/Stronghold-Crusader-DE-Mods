@@ -21,7 +21,6 @@ namespace MoatMove
         public bool EnableImprovedMoatFilling => false;
         public bool EnableLadderAttackPathfindingFix => false;
         public bool EnableMoveFormationEnhancements => false;
-        public int MoveFormationSpacing => MoveFormationSpacingPolicy.Default;
         public int FriendlyMoatMovementMode => (int)mode;
         internal FriendlyMoatMovementMode GetFriendlyMoatMovementMode() =>
             mode;

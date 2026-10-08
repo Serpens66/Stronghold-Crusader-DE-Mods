@@ -480,13 +480,13 @@ namespace BugfixesAndQoL
                   Shared.SelectedChimpsSnapshotPolicy.IsPlausibleCount(10000),
                 "selection count policy accepts only Vanilla's 0..10000 capacity");
             string health = File.ReadAllText(Path.Combine("src", "SelectedUnitHealthFeature.cs"));
-            string drag = File.ReadAllText(Path.Combine("src", "MoveFormationDragRuntime.cs"));
+            string formation = File.ReadAllText(Path.Combine("..", "APIShared", "src", "UnitCommands", "FormationRuntime.cs"));
             string assassin = File.ReadAllText(Path.Combine("src", "AssassinClimbRuntime.cs"));
             Check(health.Contains(
                     "int unitId = state.selectedChimps[index];" + Environment.NewLine +
                     "                    if (unitId <= 0) continue;") &&
-                  drag.Contains("LocalSelectionSnapshot.TryCapture(localPlayerId") &&
-                  drag.Contains("selection-unavailable") &&
+                  formation.Contains("APIShared.LocalSelectionAPI.TryCapture(playerId") &&
+                  formation.Contains("selected.Count < 2") &&
                   assassin.Contains("APIShared.LocalSelectionAPI.TryCapture(") &&
                   assassin.Contains("ReferenceEquals(selected, lastSelectionSnapshot)") &&
                   assassin.Contains("!lastSelectionHasAssassin && !lastSelectionHasAssassinType") &&
@@ -496,7 +496,7 @@ namespace BugfixesAndQoL
                   assassin.Contains("lastSelectionHasAssassinType = false;") &&
                   Regex.IsMatch(assassin, @"public void BeginMap\(\)\s*\{[^}]*InvalidateRenderState\(\)") &&
                   Regex.IsMatch(assassin, @"public void EndMap\(\)\s*\{[^}]*InvalidateRenderState\(\)") &&
-                  !drag.Contains("GetSelectedChimps") &&
+                  !formation.Contains("GetSelectedChimps") &&
                   !assassin.Contains("GetSelectedChimps"),
                 "selection failures and changed Assassin ownership invalidate cached button decisions");
         }

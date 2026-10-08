@@ -1,0 +1,24 @@
+GameUnit.r_AliveState type=SHCDESE.Interop.Enums.AliveState offset=0x88 width=2 stride=1168
+GameUnit.r_UnitChimp type=SHCDESE.Interop.eChimps offset=0x8A width=2 stride=1168
+GameUnit.r_GlobalId type=System.UInt32 offset=0x94 width=4 stride=1168
+GameUnit.r_CurrentTilePositionX type=System.UInt16 offset=0xC0 width=2 stride=1168
+GameUnit.r_CurrentTilePositionY type=System.UInt16 offset=0xC2 width=2 stride=1168
+GameUnit.r_TargetTilePositionX type=System.UInt16 offset=0xC4 width=2 stride=1168
+GameUnit.r_TargetTilePositionY type=System.UInt16 offset=0xC6 width=2 stride=1168
+GameUnit.r_IsKilledByProjectile type=System.UInt16 offset=0x29C width=2 stride=1168
+GameUnit.r_TribeId type=System.UInt16 offset=0x2D4 width=2 stride=1168
+GameUnit.r_AttackMoveToTargetTileX type=System.UInt16 offset=0x2D8 width=2 stride=1168
+GameUnit.r_AttackMoveToTargetTileY type=System.UInt16 offset=0x2DA width=2 stride=1168
+GameUnit computedSize=1168 declaredSize=1168 pack=1
+GameTribe.r_PlayerIdOwner type=System.UInt16 offset=0x2 width=2 stride=1672
+GameTribe.r_GlobalId type=System.UInt32 offset=0xA width=4 stride=1672
+GameTribe.r_AliveState type=SHCDESE.Interop.Enums.AliveState offset=0x16 width=2 stride=1672
+GameTribe computedSize=1672 declaredSize=1672 pack=1
+GameCursorManager.r_IsCursorInGame type=System.UInt32 offset=0x8 width=4 stride=0
+GameCursorManager.r_HoverOverBuildingId type=System.UInt32 offset=0x24 width=4 stride=0
+GameCursorManager.r_HoverOverUnitId type=System.UInt32 offset=0x30 width=4 stride=0
+GameCursorManager.r_MouseTileX type=System.UInt32 offset=0x6C width=4 stride=0
+GameCursorManager.r_MouseTileY type=System.UInt32 offset=0x70 width=4 stride=0
+GameCursorManager.r_HoveringOverWall type=System.UInt32 offset=0x74 width=4 stride=0
+GameCursorManager computedSize=1152 declaredSize=0 pack=1
+Installed interop fields, widths and sequential offsets audited.

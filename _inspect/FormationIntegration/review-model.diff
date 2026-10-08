@@ -1,0 +1,100 @@
+--- HEAD:Testmods/FormationTest/src/FormationModel.cs
++++ APIShared/src/UnitCommands/FormationModel.cs
+@@ -1,7 +1,7 @@
+ using System;
+ using System.Collections.Generic;
+ 
+-namespace FormationTest
++namespace APIShared.UnitCommands
+ {
+     internal enum FormationKind : byte
+     {
+@@ -151,88 +151,6 @@
+                 hash = hash * 397 ^ UnitCount;
+                 return hash * 397 ^ ExplicitDirection.GetHashCode();
+             }
+-        }
+-    }
+-
+-    internal readonly struct FormationDefaultsMigration
+-    {
+-        internal const int CurrentRevision = 1;
+-
+-        internal FormationDefaultsMigration(
+-            FormationKind kind,
+-            int revision,
+-            bool kindChanged,
+-            bool revisionChanged)
+-        {
+-            Kind = kind;
+-            Revision = revision;
+-            KindChanged = kindChanged;
+-            RevisionChanged = revisionChanged;
+-        }
+-
+-        internal FormationKind Kind { get; }
+-        internal int Revision { get; }
+-        internal bool KindChanged { get; }
+-        internal bool RevisionChanged { get; }
+-
+-        internal static FormationDefaultsMigration Resolve(
+-            FormationKind currentKind,
+-            int currentRevision)
+-        {
+-            if (currentRevision >= CurrentRevision)
+-            {
+-                return new FormationDefaultsMigration(
+-                    currentKind,
+-                    currentRevision,
+-                    kindChanged: false,
+-                    revisionChanged: false);
+-            }
+-
+-            bool migrateKind = currentKind == FormationKind.Vanilla;
+-            return new FormationDefaultsMigration(
+-                migrateKind ? FormationKind.Block : currentKind,
+-                CurrentRevision,
+-                migrateKind,
+-                revisionChanged: true);
+-        }
+-    }
+-
+-    internal readonly struct PlacementDefaultsMigration
+-    {
+-        internal const int CurrentRevision = 2;
+-
+-        internal PlacementDefaultsMigration(
+-            RangedPlacementMode mode,
+-            int revision,
+-            bool changed)
+-        {
+-            Mode = mode;
+-            Revision = revision;
+-            Changed = changed;
+-        }
+-
+-        internal RangedPlacementMode Mode { get; }
+-        internal int Revision { get; }
+-        internal bool Changed { get; }
+-
+-        internal static PlacementDefaultsMigration Resolve(
+-            int currentRevision,
+-            bool legacyRearSorting,
+-            RangedPlacementMode currentMode)
+-        {
+-            if (currentRevision >= CurrentRevision)
+-            {
+-                return new PlacementDefaultsMigration(
+-                    FormationModel.NormalizePlacementMode((int)currentMode),
+-                    currentRevision,
+-                    changed: false);
+-            }
+-            return new PlacementDefaultsMigration(
+-                legacyRearSorting
+-                    ? RangedPlacementMode.Rear
+-                    : RangedPlacementMode.Off,
+-                CurrentRevision,
+-                changed: true);
+         }
+     }
+ 

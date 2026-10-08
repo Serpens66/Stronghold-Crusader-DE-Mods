@@ -1,0 +1,98 @@
+GameUnit.r_AliveState type=SHCDESE.Interop.Enums.AliveState offset=0x88 width=2 stride=1168
+GameUnit.r_UnitChimp type=SHCDESE.Interop.eChimps offset=0x8A width=2 stride=1168
+GameUnit.r_GlobalId type=System.UInt32 offset=0x94 width=4 stride=1168
+GameUnit.r_CurrentTilePositionX type=System.UInt16 offset=0xC0 width=2 stride=1168
+GameUnit.r_CurrentTilePositionY type=System.UInt16 offset=0xC2 width=2 stride=1168
+GameUnit.r_TargetTilePositionX type=System.UInt16 offset=0xC4 width=2 stride=1168
+GameUnit.r_TargetTilePositionY type=System.UInt16 offset=0xC6 width=2 stride=1168
+GameUnit.r_IsKilledByProjectile type=System.UInt16 offset=0x29C width=2 stride=1168
+GameUnit.r_TribeId type=System.UInt16 offset=0x2D4 width=2 stride=1168
+GameUnit.r_AttackMoveToTargetTileX type=System.UInt16 offset=0x2D8 width=2 stride=1168
+GameUnit.r_AttackMoveToTargetTileY type=System.UInt16 offset=0x2DA width=2 stride=1168
+GameUnit computedSize=1168 declaredSize=1168 pack=1
+GameTribe.r_PlayerIdOwner type=System.UInt16 offset=0x2 width=2 stride=1672
+GameTribe.r_GlobalId type=System.UInt32 offset=0xA width=4 stride=1672
+GameTribe.r_AliveState type=SHCDESE.Interop.Enums.AliveState offset=0x16 width=2 stride=1672
+GameTribe computedSize=1672 declaredSize=1672 pack=1
+GameCursorManager.r_IsCursorInGame type=System.UInt32 offset=0x8 width=4 stride=0
+GameCursorManager.r_HoverOverBuildingId type=System.UInt32 offset=0x24 width=4 stride=0
+GameCursorManager.r_HoverOverUnitId type=System.UInt32 offset=0x30 width=4 stride=0
+GameCursorManager.r_MouseTileX type=System.UInt32 offset=0x6C width=4 stride=0
+GameCursorManager.r_MouseTileY type=System.UInt32 offset=0x70 width=4 stride=0
+GameCursorManager.r_HoveringOverWall type=System.UInt32 offset=0x74 width=4 stride=0
+GameCursorManager computedSize=1152 declaredSize=0 pack=1
+Installed interop fields, widths and sequential offsets audited.
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+APIShared build reference Assembly-CSharp: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\shcde-script-extender\deps\Assembly-CSharp-publicized.dll
+APIShared build reference SHCDESE: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\SHCDESE.dll
+APIShared: 105 sources, 0 errors
+BugfixesAndQoL build reference Assembly-CSharp: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll
+BugfixesAndQoL build reference SHCDESE: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\SHCDESE.dll
+BugfixesAndQoL: 260 sources, 0 errors
+MoatMove build reference Assembly-CSharp: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll
+MoatMove build reference SHCDESE: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\SHCDESE.dll
+MoatMove: 23 sources, 0 errors
+PASS: shared command preflight (391 project/source entries), JSON, callbacks, CRLF, XAML, permanent hooks including MoatMove.
+PASS: production UnitAccess boundaries, no invalid SDK calls, NeedsInit/identity neutrality, unload/reload, failure pointer clearing and bounded diagnostics.
+PASS: 926 runtime source files; SDK unit lookups are confined to UnitAccess and callers consume their boolean results.
+PASS: affected runtime projects and linked sources checked for JSON, plugin scheduling, lifecycle teardown and XAML roots.
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+PASS: gatehouse host setting/UI/locales, installed API visibility, permanent roots/rollback, minimal logging and CRLF.
+
+  GatehouseLivingCapture.Tests -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\tests\GatehouseLivingCapture.Tests\bin\GatehouseLivingCapture.Tests.exe
+PASS: exact native/full-handler hashes, all handler branch boundaries, chain backedge, unique executable signature.
+PASS: feature/main switches, unpublished state, disable and reactivation.
+PASS: 648 native machine cases; callback errors=243
+PASS: installed GameUnit layout, life helper, real RedBird span/patch/JE, registers, XMM, stack, entry/backedge, inactive/invalid/error paths.
+BugfixesAndQoL runtime JSON/lifecycle and XAML patch preflight succeeded.
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+Public installed member: GameUnit.r_AliveState : SHCDESE.Interop.Enums.AliveState
+Public installed member: GameUnit.r_UnitChimp : SHCDESE.Interop.eChimps
+Public installed member: GameUnit.r_CurrentPositionTileId : System.UInt32
+Public installed member: GameUnit.r_NextPositionTileId2 : System.UInt32
+Public installed member: GameUnit.r_AIState : System.UInt16
+Public installed member: GameUnit.r_GlobalId : System.UInt32
+Public installed member: GameUnit.r_AI_LastIssuedTribeCommand : System.UInt16
+Public installed member: GameUnit.r_ControllableForPlayerId : System.UInt16
+Public installed member: GameUnit.r_TargetTilePositionX2 : System.UInt16
+Public installed member: GameUnit.r_TargetTilePositionY2 : System.UInt16
+Public installed member: GameUnit.r_PathPlanStateBitFlags : System.UInt16
+Public installed member: GameUnit.r_MovementSubstep : System.UInt16
+Public installed member: GameUnit.r_CurrentTilePositionX : System.UInt16
+Public installed member: GameUnit.r_CurrentTilePositionY : System.UInt16
+Public installed member: GameUnit.r_NextTilePositionX2 : System.UInt16
+Public installed member: GameUnit.r_NextTilePositionY2 : System.UInt16
+Public installed member: GameUnit.r_IsKilledByProjectile : System.UInt16
+Public installed member: GameUnit.r_CurrentSpeed : System.UInt16
+System.Span`1<SHCDESE.Interop.GameUnit> SHCDESE.API.GameUnitManagerAPI::GetUnitsAsSpan()
+System.Void SHCDESE.API.GameTimeManagerAPI::add_OnTick(System.Action`1<System.Int32>)
+PASS: installed public static AssassinPathAPI.SetDirectGatehouseClimbing(string,bool).
+PASS: Assassin shared preflight, lifetime, JSON, XAML, CRLF and installed public-member contracts.
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+PASS: AI keep range lifetime, migration guard, minimal logging, host settings, Fixes? XAML, locale parity and CRLF.
+PASS: xrefs (including data/function references) enter only at EEF90: [{'binary_hash': 'FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2', 'from_rva': '0x7A73A', 'to_rva': '0xEEF90', 'type': 'UNCONDITIONAL_CALL', 'source_function': 'FUN_18007a3b0'}, {'binary_hash': 'FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2', 'from_rva': '0xEE611', 'to_rva': '0xEEF90', 'type': 'UNCONDITIONAL_CALL', 'source_function': 'FUN_1800ee320'}, {'binary_hash': 'FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2', 'from_rva': '0x88F5680', 'to_rva': '0xEEF90', 'type': 'DATA', 'source_function': None}]
+function sha: 83D062DDDBAFEC9EB33F704FA914609B6761E16DAE351A64F7491319984DF12E
+PASS: executable-section rel32 candidate scan: no incoming interior edge; complete 317-byte body captured for Iced tests.
+MSBuild-Version 18.6.14+e730f1db7 für .NET
+  AIKeepRange.Tests -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\tests\AIKeepRange.Tests\bin\AIKeepRangeTests.exe
+PASS: production AI runtime: settings, prebuild/save publishers, mission change, original counts, persistent fail-closed.
+PASS: AI keep range: 113 checks; actual NativeX64 Indirect/10, trampoline execution, AI/human/invalid/disabled forwarding.
+PASS: installed public API signatures and 6 interop fields; no new private game accesses.
+PASS: native hash, exact 17-byte span, incoming branches, filter and both gate continuations.
+PASS: AI raid host setting, lifecycle, single classifier, permanent hook, compact logs, bounded retry, versions and CRLF.
+warning CS1702: Es wird angenommen, dass der von "RedBird.X64" verwendete Assemblyverweis "Microsoft.Extensions.Logging.Abstractions, Version=10.0.0.10, Culture=neutral, PublicKeyToken=adb9793829ddae60" mit "Microsoft.Extensions.Logging.Abstractions, Version=10.0.0.12, Culture=neutral, PublicKeyToken=adb9793829ddae60" von "Microsoft.Extensions.Logging.Abstractions" übereinstimmt. Möglicherweise müssen Sie eine Laufzeitrichtlinie bereitstellen.
+PASS: 1945 assertions; 1920 detailed retries=1138560 bytes.
+PASS: native search evidence and assembler tests (89 assertions).
+PASS: 15 runtime activation/lifecycle/logging assertions; simulated stream log bytes=440.
+PASS: 35 raid hardening assertions (publication, actual frame helpers, expiration and waiting callbacks).
+Notification last-frame assembly, Noesis, lifecycle, and Vanilla-fallback preflight succeeded.
+PASS: spectator-save marker and recognition fixtures.
+Expected ForeignTroopHud and spectator XAML operations.
+In D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine 
+Mods\BugfixesAndQoL\Test-SpectatorPerspectivePreflight.ps1:247 Zeichen:30
++ ... nt -ne 2) { throw 'Expected ForeignTroopHud and spectator XAML operat ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : OperationStopped: (Expected Foreig...AML operations.:String) [], RuntimeException
+    + FullyQualifiedErrorId : Expected ForeignTroopHud and spectator XAML operations.
+ 
+Build fehlgeschlagen.

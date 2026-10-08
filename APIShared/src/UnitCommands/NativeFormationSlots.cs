@@ -22,15 +22,10 @@ namespace APIShared.UnitCommands
         internal long formationRevision;
         internal bool formationExhausted;
         internal long formationRejected, formationReplaced, formationFallbacks;
-        internal MoveFormationPreviewPlanner managedFormationPlanner;
-        internal readonly List<MoveFormationDestination> managedFormationDestinations =
-            new List<MoveFormationDestination>();
-        internal MoveCommandScope managedFormationOwner;
-        internal MoveCommandScope managedFormationFailedOwner;
-        internal MoveFormationSelector managedFormationSelector;
-        internal MoveFormationPlanMetrics managedFormationMetrics;
-        internal int managedFormationCursor;
-        internal int managedFormationRequired;
+        internal FormationRuntime formationRuntime;
+        internal bool FormationHooksAvailable => formationSlotDetour != null && formationSlotDetour.Committed &&
+            assassinGroundFormationSlotDetour != null && assassinGroundFormationSlotDetour.Committed &&
+            commonGroupMoveDetour != null && commonGroupMoveDetour.Committed;
 
         internal sealed class OriginalFormationSlotException : Exception
         {
@@ -71,36 +66,21 @@ namespace APIShared.UnitCommands
 
         internal void ChooseOwnerSafeFormationSlot(IntPtr manager, int spacing, int x, int y)
         {
-            // Vanilla uses fixed spacing for structures and special unit paths.
-            MoveCommandScope command = activeMoveCommand;
-            if (command != null && command.HasFormationSpacing &&
-                IsScopedPureMoveFormationCall(manager, x, y, command) &&
-                !MoveFormationSpacingPolicy.CanOverrideVanillaSpacing(spacing))
-            {
-                InvokeOriginalFormationSlot(manager, spacing, x, y);
-                return;
-            }
-            int effectiveSpacing = spacing;
+            int* formationOutput = nativeTribeManager == IntPtr.Zero ? null : (int*)((byte*)nativeTribeManager + 0x0C);
+            int beforeX = formationOutput == null ? 0 : formationOutput[0];
+            int beforeY = formationOutput == null ? 0 : formationOutput[1];
+            int beforeIndex = formationOutput == null ? 0 : formationOutput[2];
             try
             {
-                effectiveSpacing = ResolveMoveFormationSpacing(
-                    manager, spacing, x, y, MoveFormationSelector.Standard);
-                if (TryChooseManagedFormationSlot(
-                        manager,
-                        effectiveSpacing,
-                        x,
-                        y,
-                        MoveFormationSelector.Standard,
-                        out _))
-                {
-                    return;
-                }
+                if (formationRuntime != null && formationRuntime.TryChooseStandardFormationSlot(manager, spacing, x, y)) return;
             }
             catch (Exception ex)
             {
-                RejectManagedFormationPlanForCurrentCommand();
-                TryLogDiagnosticFailure("formation-spacing", ex);
+                if (formationOutput != null)
+                { formationOutput[0] = beforeX; formationOutput[1] = beforeY; formationOutput[2] = beforeIndex; }
+                formationRuntime.DisableForProcess("standard-selector", ex);
             }
+            int effectiveSpacing = spacing;
             if (nativeTribeManager == IntPtr.Zero)
             { InvokeOriginalFormationSlot(manager, effectiveSpacing, x, y); return; }
             int* state = (int*)((byte*)nativeTribeManager + 0x0C);
@@ -125,197 +105,22 @@ namespace APIShared.UnitCommands
         internal int ChooseAssassinGroundFormationSlot(
             IntPtr manager, int spacing, int x, int y)
         {
-            MoveCommandScope command = activeMoveCommand;
-            if (command != null && command.HasFormationSpacing &&
-                IsScopedPureMoveFormationCall(manager, x, y, command) &&
-                !MoveFormationSpacingPolicy.CanOverrideVanillaSpacing(spacing))
-                return originalAssassinGroundFormationSlot(manager, spacing, x, y);
-            int effectiveSpacing = spacing;
+            int* formationOutput = nativeTribeManager == IntPtr.Zero ? null : (int*)((byte*)nativeTribeManager + 0x0C);
+            int beforeX = formationOutput == null ? 0 : formationOutput[0];
+            int beforeY = formationOutput == null ? 0 : formationOutput[1];
+            int beforeIndex = formationOutput == null ? 0 : formationOutput[2];
             try
             {
-                effectiveSpacing = ResolveMoveFormationSpacing(
-                    manager, spacing, x, y, MoveFormationSelector.AssassinGround);
-                if (TryChooseManagedFormationSlot(
-                        manager,
-                        effectiveSpacing,
-                        x,
-                        y,
-                        MoveFormationSelector.AssassinGround,
-                        out int tileId))
-                {
+                if (formationRuntime != null && formationRuntime.TryChooseAssassinFormationSlot(manager, spacing, x, y, out int tileId))
                     return tileId;
-                }
             }
             catch (Exception ex)
             {
-                RejectManagedFormationPlanForCurrentCommand();
-                TryLogDiagnosticFailure("assassin-ground-spacing", ex);
+                if (formationOutput != null)
+                { formationOutput[0] = beforeX; formationOutput[1] = beforeY; formationOutput[2] = beforeIndex; }
+                formationRuntime.DisableForProcess("assassin-selector", ex);
             }
-            return originalAssassinGroundFormationSlot(manager, effectiveSpacing, x, y);
-        }
-
-        internal bool TryChooseManagedFormationSlot(
-            IntPtr manager,
-            int spacing,
-            int x,
-            int y,
-            MoveFormationSelector selector,
-            out int tileId)
-        {
-            tileId = 0;
-            MoveCommandScope command = activeMoveCommand;
-            if (!IsScopedPureMoveFormationCall(manager, x, y, command) ||
-                command == null || !command.HasFormationSpacing ||
-                ReferenceEquals(managedFormationFailedOwner, command) ||
-                command.ActiveUnitsAtDispatch <= 0 ||
-                !settings.EnableMod || !settings.EnableMoveFormationEnhancements ||
-                nativeTribeManager == IntPtr.Zero)
-            {
-                return false;
-            }
-
-            byte* tribeManager = (byte*)nativeTribeManager;
-            if (command.TribeId < 0 || command.TribeId >= MaximumTribeCount)
-                return false;
-            int player = *(int*)(tribeManager + command.TribeId * TribeRecordSize + 0x2C);
-            bool playerValid = GamePlayerManagerAPI.Instance.IsPlayerIdValid(player);
-            if (!playerValid && !Shared.GameModeHelper.IsMapEditor())
-                return false;
-
-            int tick = CaptureCurrentGameTick();
-            int nativeStamp = *(int*)((byte*)manager + 4);
-            bool planChanged = !ReferenceEquals(managedFormationOwner, command) ||
-                managedFormationSelector != selector ||
-                formationEpoch != mapEpoch || formationTick != tick ||
-                formationStamp != nativeStamp || formationPlayer != player ||
-                formationRevision != placementRevision || formationSpacing != spacing;
-            if (planChanged)
-            {
-                if (managedFormationOwner != null &&
-                    ReferenceEquals(managedFormationOwner, command) &&
-                    managedFormationCursor != 0)
-                {
-                    // Vanilla selects one formation algorithm for a group. A selector
-                    // transition after assignment would make ordering ambiguous.
-                    return false;
-                }
-
-                if (managedFormationPlanner == null)
-                {
-                    managedFormationPlanner = new MoveFormationPreviewPlanner(
-                        IsMoveFormationTargetAvailable);
-                }
-                managedFormationOwner = null;
-                managedFormationDestinations.Clear();
-                managedFormationCursor = 0;
-                managedFormationRequired = command.ActiveUnitsAtDispatch;
-                managedFormationMetrics = managedFormationPlanner.Plan(
-                    x,
-                    y,
-                    spacing,
-                    managedFormationRequired,
-                    selector == MoveFormationSelector.AssassinGround,
-                    managedFormationDestinations,
-                    playerValid
-                        ? (Func<int, int, bool>)((candidateX, candidateY) =>
-                            !IsForbiddenFormationMoat(player, candidateX, candidateY))
-                        : null);
-                managedFormationOwner = command;
-                managedFormationSelector = selector;
-                managedFormationCursor = 0;
-                formationEpoch = mapEpoch;
-                formationTick = tick;
-                formationStamp = nativeStamp;
-                formationPlayer = player;
-                formationRevision = placementRevision;
-                formationSpacing = spacing;
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    $"MOVE_FORMATION_DRAG: formation-plan; tribe={command.TribeId}; " +
-                    $"target={x},{y}; spacing={spacing}; selector={selector}; " +
-                    $"required={managedFormationRequired}; visited={managedFormationMetrics.VisitedTiles}; " +
-                    $"exact={managedFormationMetrics.ExactDestinations}; " +
-                    $"relaxed={managedFormationMetrics.RelaxedDestinations}; " +
-                    $"reused={managedFormationMetrics.ReusedDestinations}; " +
-                    $"unique={managedFormationMetrics.UniqueDestinations}.");
-            }
-
-            if (managedFormationCursor < 0 ||
-                managedFormationCursor >= managedFormationDestinations.Count)
-            {
-                return false;
-            }
-
-            MoveFormationDestination destination =
-                managedFormationDestinations[managedFormationCursor++];
-            int* state = (int*)((byte*)nativeTribeManager + 0x0C);
-            state[0] = destination.X;
-            state[1] = destination.Y;
-            // MoveHere increments this value and aborts the remaining group above
-            // 3999. The managed cursor is authoritative for this scoped command.
-            state[2] = 0;
-            tileId = destination.TileId;
-            return true;
-        }
-
-        internal void RejectManagedFormationPlanForCurrentCommand()
-        {
-            MoveCommandScope command = activeMoveCommand;
-            if (command != null && command.HasFormationSpacing)
-                managedFormationFailedOwner = command;
-            managedFormationOwner = null;
-            managedFormationDestinations.Clear();
-            managedFormationCursor = 0;
-            managedFormationRequired = 0;
-            managedFormationMetrics = default;
-        }
-
-        internal void CompleteManagedFormationPlan(MoveCommandScope command)
-        {
-            if (managedFormationOwner != null &&
-                (command == null || ReferenceEquals(managedFormationOwner, command)))
-            {
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    $"MOVE_FORMATION_DRAG: formation-assigned; tribe={managedFormationOwner.TribeId}; " +
-                    $"target={managedFormationOwner.TargetX},{managedFormationOwner.TargetY}; " +
-                    $"spacing={managedFormationOwner.FormationSpacing}; " +
-                    $"required={managedFormationRequired}; assigned={managedFormationCursor}; " +
-                    $"unique={managedFormationMetrics.UniqueDestinations}; " +
-                    $"relaxed={managedFormationMetrics.RelaxedDestinations}; " +
-                    $"reused={managedFormationMetrics.ReusedDestinations}.");
-            }
-            managedFormationOwner = null;
-            managedFormationFailedOwner = null;
-            managedFormationDestinations.Clear();
-            managedFormationCursor = 0;
-            managedFormationRequired = 0;
-            managedFormationMetrics = default;
-        }
-
-        internal int ResolveMoveFormationSpacing(
-            IntPtr manager,
-            int vanillaSpacing,
-            int x,
-            int y,
-            MoveFormationSelector selector)
-        {
-            MoveCommandScope command = activeMoveCommand;
-            bool scopedPureMove = IsScopedPureMoveFormationCall(manager, x, y, command);
-            int commandSpacing = command?.FormationSpacing ?? MoveFormationSpacingPolicy.Default;
-            bool overrideEnabled = scopedPureMove && command != null && command.HasFormationSpacing &&
-                settings.EnableMod && settings.EnableMoveFormationEnhancements;
-            int effectiveSpacing = MoveFormationSpacingPolicy.ResolveEffectiveSpacing(
-                vanillaSpacing, commandSpacing, overrideEnabled);
-            if (overrideEnabled)
-            {
-                MoveFormationCommandSnapshotStore.Observe(
-                    command,
-                    selector,
-                    vanillaSpacing,
-                    effectiveSpacing);
-            }
-            return effectiveSpacing;
+            return originalAssassinGroundFormationSlot(manager, spacing, x, y);
         }
 
         internal void InvokeOriginalFormationSlot(IntPtr manager, int spacing, int x, int y)

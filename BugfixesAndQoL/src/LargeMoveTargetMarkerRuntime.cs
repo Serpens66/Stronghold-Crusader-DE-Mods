@@ -21,11 +21,11 @@ namespace BugfixesAndQoL
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
-            renderer = new LargeMoveTargetMarkerRenderer(log, () => FeatureEnabled);
+            renderer = UnitCommandPathAPI.GetMoveMarkers(log, () => FeatureEnabled);
         }
 
         private bool FeatureEnabled =>
-            settings.EnableMod && settings.EnableMoveFormationEnhancements;
+            settings.EnableMod && settings.EnableMoveFormationEnhancements && FormationFeature.RuntimeAvailable;
 
         public bool MarkerReplacementAvailable => renderer.ReplacementAvailable;
 

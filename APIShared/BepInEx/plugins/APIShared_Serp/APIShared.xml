@@ -2351,6 +2351,12 @@
         <member name="M:Shared.GameplayFeatureModePolicy.LogDecisions(BepInEx.Logging.ManualLogSource,System.String,Shared.GameModeSnapshot,System.String)">
             <summary>LogDecisions in the centralized mission policy contract.</summary>
         </member>
+        <member name="T:Shared.UnityMainThreadDispatch">
+            <summary>
+            Process-lifetime, per-mod-assembly dispatcher for work that must leave an
+            arbitrary packet or simulation callback before it touches Unity or Noesis.
+            </summary>
+        </member>
         <member name="T:Shared.ModSettingsSearchMatcher">
             <summary>Pure matching policy shared by runtime filtering and isolated tests.</summary>
         </member>

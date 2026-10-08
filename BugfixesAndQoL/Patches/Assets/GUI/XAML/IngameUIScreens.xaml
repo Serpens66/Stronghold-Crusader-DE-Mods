@@ -268,4 +268,11 @@
       </Canvas>
     </Content>
   </Operation>
+<Operation Type="Add" XPath="/n:UserControl/n:Grid">
+    <Content>
+      <Canvas x:Name="BugfixesAndQoLFormationPreviewCanvas" Grid.Row="0" Grid.RowSpan="4" Grid.Column="0" Grid.ColumnSpan="4"
+              HorizontalAlignment="Stretch" VerticalAlignment="Stretch" IsHitTestVisible="False"
+              Panel.ZIndex="10010" Tag="Ignore"/>
+    </Content>
+  </Operation>
 </Patch>

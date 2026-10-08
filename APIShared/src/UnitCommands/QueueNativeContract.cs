@@ -22,22 +22,10 @@ namespace APIShared.UnitCommands
         public const int ChoreTileYRva = 0x86C1334;
         public const int ChoreMoveTypeRva = 0x86C133C;
         public const int MoveQueueMarker = 0x40;
-        public const int MoveFormationSpacingMask = 0x0C;
         public const int ExecutedFastMoveType = -255;
         public const int TargetQueueMarker = 0x80;
         public const int ChoreExecuteMode = 0;
         public const int ChorePackMode = 1;
-
-        public static bool ShouldPackFormationSpacing(
-            bool installed,
-            bool modEnabled,
-            bool featureEnabled,
-            bool choreTransportReady,
-            bool internalDispatch,
-            int choreMode,
-            bool shiftPressed) =>
-            installed && modEnabled && featureEnabled && choreTransportReady &&
-            !internalDispatch && choreMode == ChorePackMode && !shiftPressed;
 
         public const int GameTribePointerAdjustment = 0x2A;
         public const int ManagerRelativeWaypointIndexOffset = 0x5DC;
@@ -65,7 +53,7 @@ namespace APIShared.UnitCommands
             int payloadByte = serializedMoveType & 0xFF;
             // The sole Vanilla producer emits 0, 1 or 0x81. Bit 7 has its own meaning and
             // is stripped by the unpack thunk; bit 6 reaches the move-order event unchanged.
-            int vanillaPayload = payloadByte & ~MoveFormationSpacingMask;
+            int vanillaPayload = payloadByte;
             if (serializedMoveType != payloadByte ||
                 (vanillaPayload != 0 && vanillaPayload != 1 && vanillaPayload != 0x81))
             {
@@ -75,67 +63,6 @@ namespace APIShared.UnitCommands
 
             markedMoveType = payloadByte | MoveQueueMarker;
             return true;
-        }
-
-        public static bool TryEncodeFormationSpacing(
-            int serializedMoveType,
-            int spacing,
-            out int encodedMoveType)
-        {
-            int payloadByte = serializedMoveType & 0xFF;
-            if (serializedMoveType != payloadByte ||
-                (payloadByte != 0 && payloadByte != 1 && payloadByte != 0x81) ||
-                spacing < MoveFormationSpacingPolicy.Minimum ||
-                spacing > MoveFormationSpacingPolicy.Maximum)
-            {
-                encodedMoveType = serializedMoveType;
-                return false;
-            }
-
-            int spacingBits = spacing == 1 ? 0x04 : spacing == 3 ? 0x08 :
-                spacing == 4 ? 0x0C : 0;
-            encodedMoveType = payloadByte | spacingBits;
-            return true;
-        }
-
-        public static bool TryDecodeFormationSpacing(
-            int moveType,
-            out int decodedMoveType,
-            out int spacing)
-        {
-            // Chore 17 stores MoveType as one byte. During execute mode Vanilla sign-extends
-            // that byte and then clears bit 7 with BTR before calling MoveHere. Consequently
-            // wire value 0x81 becomes Fast (-255), while 0x8D becomes -243. Do not truncate
-            // back to a byte here: retaining the signed Fast representation is part of the
-            // native MoveHere contract, and exact base validation keeps unknown values fail-open.
-            int vanillaOrQueuedMoveType = moveType & ~MoveFormationSpacingMask;
-            if (!IsKnownExecutedMoveType(vanillaOrQueuedMoveType, allowQueueMarker: true))
-            {
-                decodedMoveType = moveType;
-                spacing = MoveFormationSpacingPolicy.Default;
-                return false;
-            }
-
-            int spacingCode = (moveType & MoveFormationSpacingMask) >> 2;
-            spacing = spacingCode == 1 ? 1 : spacingCode == 2 ? 3 :
-                spacingCode == 3 ? 4 : MoveFormationSpacingPolicy.Default;
-            decodedMoveType = vanillaOrQueuedMoveType;
-            return true;
-        }
-
-        public static bool TryResolveExecutedFormationSpacing(
-            int moveType,
-            out int decodedMoveType,
-            out int spacing)
-        {
-            if (!TryDecodeFormationSpacing(
-                    moveType, out decodedMoveType, out spacing))
-                return false;
-
-            bool hasPrivateSpacing =
-                (moveType & MoveFormationSpacingMask) != 0;
-            // Zero spacing bits are Vanilla, including a deferred Chore 17.
-            return hasPrivateSpacing;
         }
 
         public static bool TryDecodeQueuedMoveType(int moveType, out int decodedMoveType)

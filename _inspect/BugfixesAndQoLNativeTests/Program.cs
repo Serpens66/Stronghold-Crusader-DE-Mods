@@ -240,7 +240,7 @@ internal static class Program
         Check(queryGuard >= 0 && cursorStopwatch > queryGuard,
             "Friendly-Moat diagnostics check query dirtiness before reading Stopwatch");
 
-        string marker = File.ReadAllText(Path.Combine(sourceRoot, "LargeMoveTargetMarkerRenderer.cs"));
+        string marker = File.ReadAllText(Path.Combine(workspace, "APIShared", "src", "UnitCommands", "LargeMoveTargetMarkerRenderer.cs"));
         int markerSnapshot = marker.IndexOf(
             "Dictionary<int, int> preview = publication.Tiles;", StringComparison.Ordinal);
         int overflowSnapshot = marker.IndexOf(
@@ -923,7 +923,8 @@ internal static class Program
     private static void CheckP6bRedBirdMigration(string workspace)
     {
         string sourceDirectory = Path.Combine(workspace, "BugfixesAndQoL", "src");
-        string[] sourcePaths = Directory.GetFiles(sourceDirectory, "*.cs", SearchOption.TopDirectoryOnly);
+        string[] sourcePaths = Directory.GetFiles(sourceDirectory, "*.cs", SearchOption.TopDirectoryOnly)
+            .Concat(new[] { Path.Combine(workspace, "APIShared", "src", "UnitCommands", "LargeMoveTargetMarkerRenderer.cs") }).ToArray();
         string production = string.Join("\n", sourcePaths.Select(File.ReadAllText));
         string project = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "BugfixesAndQoL.csproj"));
         string plugin = File.ReadAllText(Path.Combine(sourceDirectory, "BugfixesAndQoLPlugin.cs"));
@@ -957,7 +958,7 @@ internal static class Program
             "P6b borrows all native load-context values without disposing the ScanRegion");
         Check(production.Contains("DetourHandle<ResetDrawListDelegate>") &&
               production.Contains("HookTarget.FromAddress(unchecked((ulong)(libraryHandle + ResetDrawListRva).ToInt64()))"),
-            "BugfixesAndQoL owns the audited production RedBird hook handles including the Vanilla draw-list reset");
+            "BugfixesAndQoL and its shared renderer own the audited RedBird handles including the Vanilla draw-list reset");
         CheckRedBirdOwnershipAndCommitContracts(sourcePaths);
 
         foreach (string fileName in new[]
