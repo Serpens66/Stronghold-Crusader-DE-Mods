@@ -1,10 +1,7 @@
 [CmdletBinding()]
-param([string]$GameDir, [string]$ExtenderDir)
+param()
 $ErrorActionPreference = 'Stop'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..'))
-if (-not $GameDir) { $GameDir = $env:SHCDE_GAME_DIR }
-if (-not $GameDir) { $GameDir = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition' }
-if (-not $ExtenderDir) { $ExtenderDir = Join-Path $GameDir 'BepInEx\plugins\000shcdese' }
 foreach ($script in @('Test-SharedBoundaries.ps1','Test-UnitCommandSplit.ps1','Test-UnitAccess.ps1')) {
     & (Join-Path $PSScriptRoot $script)
     if (-not $?) { throw "Consumer preflight failed: $script" }
