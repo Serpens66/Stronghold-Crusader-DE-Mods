@@ -1,0 +1,29 @@
+--- starting:APIShared\src\UnitCommands\FormationModel.cs
++++ APIShared\src\UnitCommands\FormationModel.cs
+@@ -235,11 +235,14 @@
+         private readonly int count;
+         private double wheelRemainder;
+         private int lastWheelFrame = -1;
+-        internal FormationGestureState(FormationKind kind, int count, int direction)
++        internal FormationGestureState(FormationKind kind, int count, int direction, int rememberedRows = 0)
+         {
+             this.kind = kind;
+             this.count = count;
+-            Rows = FormationModel.ResolveAutomaticRows(kind, count);
++            int selectedRows = FormationModel.NormalizeRememberedRows(rememberedRows);
++            Rows = kind == FormationKind.Circle || kind == FormationKind.Vanilla || selectedRows == 0
++                ? FormationModel.ResolveAutomaticRows(kind, count)
++                : FormationModel.NormalizeRows(selectedRows, count);
+             Direction = direction & 7;
+         }
+         internal int Rows { get; private set; }
+@@ -272,6 +275,9 @@
+             value >= (int)FormationKind.Vanilla && value <= (int)FormationKind.Circle
+                 ? (FormationKind)value
+                 : FormationKind.Vanilla;
++
++        internal static int NormalizeRememberedRows(int value) =>
++            value >= 1 && value <= 10000 ? value : 0;
+ 
+         internal static int NormalizeDensity(int value) =>
+             value < 1 || value > 4 ? 2 : value;

@@ -1,0 +1,12 @@
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+APIShared build reference Assembly-CSharp: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\shcde-script-extender\deps\Assembly-CSharp-publicized.dll
+APIShared build reference SHCDESE: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\SHCDESE.dll
+APIShared: 105 sources, 0 errors
+BugfixesAndQoL build reference Assembly-CSharp: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll
+BugfixesAndQoL build reference SHCDESE: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\SHCDESE.dll
+BugfixesAndQoL: 261 sources, 2 errors
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\src\FormationMenuViewModel.cs(66,43): error CS0234: Der Typ- oder Namespacename "SerpLocalization" ist im Namespace "Shared" nicht vorhanden. (Möglicherweise fehlt ein Assemblyverweis.)
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\src\FormationMenuViewModel.cs(67,43): error CS0234: Der Typ- oder Namespacename "SerpLocalization" ist im Namespace "Shared" nicht vorhanden. (Möglicherweise fehlt ein Assemblyverweis.)
+MoatMove build reference Assembly-CSharp: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll
+MoatMove build reference SHCDESE: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\SHCDESE.dll
+MoatMove: 23 sources, 0 errors

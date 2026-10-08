@@ -21,6 +21,8 @@ namespace BugfixesAndQoL
         private readonly ConfigEntry<int> density;
         private readonly ConfigEntry<RangedPlacementMode> placementMode;
         private readonly ConfigEntry<bool> showRoleMarkers;
+        private readonly ConfigEntry<bool> rememberRows;
+        private readonly ConfigEntry<int>[] rememberedRows;
         private MainViewModel subscribedMainViewModel;
         private bool menuVisible;
         private bool rolloverVisible;
@@ -32,7 +34,9 @@ namespace BugfixesAndQoL
             ConfigEntry<FormationKind> formation,
             ConfigEntry<int> density,
             ConfigEntry<RangedPlacementMode> placementMode,
-            ConfigEntry<bool> showRoleMarkers)
+            ConfigEntry<bool> showRoleMarkers,
+            ConfigEntry<bool> rememberRows,
+            ConfigEntry<int>[] rememberedRows)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.configFile = configFile ?? throw new ArgumentNullException(nameof(configFile));
@@ -40,6 +44,9 @@ namespace BugfixesAndQoL
             this.density = density ?? throw new ArgumentNullException(nameof(density));
             this.placementMode = placementMode ?? throw new ArgumentNullException(nameof(placementMode));
             this.showRoleMarkers = showRoleMarkers ?? throw new ArgumentNullException(nameof(showRoleMarkers));
+
+            this.rememberRows = rememberRows ?? throw new ArgumentNullException(nameof(rememberRows));
+            this.rememberedRows = rememberedRows ?? throw new ArgumentNullException(nameof(rememberedRows));
 
             ToggleMenuCommand = new ParameterCommand(_ => ToggleMenu());
             SelectFormationCommand = new ParameterCommand(SelectFormation);
@@ -53,6 +60,40 @@ namespace BugfixesAndQoL
             density.SettingChanged += ConfigurationChanged;
             placementMode.SettingChanged += ConfigurationChanged;
             showRoleMarkers.SettingChanged += ConfigurationChanged;
+            rememberRows.SettingChanged += ConfigurationChanged;
+        }
+
+        public string RememberRowsText => SerpLocalization.Get("BugfixesAndQoL.RememberRows");
+        public string RememberRowsHelp => SerpLocalization.Get("BugfixesAndQoL.RememberRowsHelp");
+        public bool RememberRows
+        {
+            get => rememberRows.Value;
+            set => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
+            {
+                if (!FeatureAvailable || rememberRows.Value == value) return;
+                try { rememberRows.Value = value; SaveConfiguration("rememberRows", value.ToString()); }
+                catch (Exception ex) { Shared.DebugLogHelper.LogWarning(log, "Arrangement preference save failed: " + ex.Message); }
+            });
+        }
+
+        public int GetRememberedRows(FormationKind kind)
+        {
+            int index = (int)kind;
+            return rememberRows.Value && index >= (int)FormationKind.Block && index <= (int)FormationKind.Wedge
+                ? FormationModel.NormalizeRememberedRows(rememberedRows[index].Value) : 0;
+        }
+
+        public void RememberSelectedRows(FormationKind kind, int rows)
+        {
+            int index = (int)kind;
+            int selectedRows = FormationModel.NormalizeRememberedRows(rows);
+            if (!rememberRows.Value || index < (int)FormationKind.Block || index > (int)FormationKind.Wedge || selectedRows == 0) return;
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
+            {
+                if (!rememberRows.Value || rememberedRows[index].Value == selectedRows) return;
+                try { rememberedRows[index].Value = selectedRows; SaveConfiguration("remembered" + kind + "Rows", selectedRows.ToString()); }
+                catch (Exception ex) { Shared.DebugLogHelper.LogWarning(log, "Arrangement preference save failed: " + ex.Message); }
+            });
         }
 
         public void SetPreviewAuthorization(bool allowed) => FormationPreviewOverlay.SetNativeAllowed(allowed);
@@ -285,6 +326,7 @@ namespace BugfixesAndQoL
 
         private void NotifySelectionsChanged()
         {
+            OnChanged(nameof(RememberRows));
             OnChanged(nameof(IsVanilla));
             OnChanged(nameof(IsBlock));
             OnChanged(nameof(IsLine));

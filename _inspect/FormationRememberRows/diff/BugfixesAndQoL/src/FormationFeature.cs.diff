@@ -1,0 +1,22 @@
+--- starting:BugfixesAndQoL\src\FormationFeature.cs
++++ BugfixesAndQoL\src\FormationFeature.cs
+@@ -37,8 +37,18 @@
+                 "Local placement of ranged, siege, healer, shield and support units.");
+             var roles = config.Bind("Formation", "ShowRoleMarkers",
+                 FormationSelectionMigration.ResolveRoleMarkers(existing, legacy), "Show colored roles over the green formation preview.");
++            var rememberRows = config.Bind("Formation", "RememberRows", true,
++                "Remember wheel-selected row counts separately for each arrangement across restarts.");
++            var rememberedRows = new ConfigEntry<int>[6];
++            foreach (FormationKind rowKind in new[] { FormationKind.Block, FormationKind.Line, FormationKind.Column, FormationKind.Wedge })
++            {
++                var entry = config.Bind("Formation", "Remembered" + rowKind + "Rows", 0,
++                    "Local remembered row count; 0 selects automatic rows. Valid range: 1..10000.");
++                entry.Value = FormationModel.NormalizeRememberedRows(entry.Value);
++                rememberedRows[(int)rowKind] = entry;
++            }
+             FormationPreviewOverlay.Initialize(log, roles.Value);
+-            menu = new FormationMenuViewModel(log, config, kind, density, placement, roles);
++            menu = new FormationMenuViewModel(log, config, kind, density, placement, roles, rememberRows, rememberedRows);
+             menu.Enabled = () => runtime != null && runtime.Enabled;
+             RegisterPresentationBindings();
+             config.Save();

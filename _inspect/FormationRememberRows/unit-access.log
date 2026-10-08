@@ -1,0 +1,5 @@
+PASS: production UnitAccess boundaries, no invalid SDK calls, NeedsInit/identity neutrality, unload/reload, failure pointer clearing and bounded diagnostics.
+PASS: 916 runtime source files; SDK unit lookups are confined to UnitAccess and callers consume their boolean results.
+SKIP: inventory testmod project no longer present: Testmods\FormationTest\FormationTest.csproj
+PASS: affected runtime projects and linked sources checked for JSON, plugin scheduling, lifecycle teardown and XAML roots.
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.

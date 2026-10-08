@@ -1,0 +1,44 @@
+--- starting:APIShared\src\UnitCommands\FormationRuntime.cs
++++ APIShared\src\UnitCommands\FormationRuntime.cs
+@@ -646,9 +646,12 @@
+             if (abort)
+                 AbortDrag("state-changed");
+             else if (changedRows != 0)
++            {
++                menuViewModel.RememberSelectedRows(state.Kind, changedRows);
+                 LogDebugNoThrow(
+                     $"FORMATION_ROWS_CHANGED: rows={changedRows}, " +
+                     $"thread={Environment.CurrentManagedThreadId}.");
++            }
+         }
+ 
+         private void TryStartDrag(int commandButton)
+@@ -684,7 +687,8 @@
+                 selection,
+                 FormationModel.NormalizeKind((int)formationConfig.Value),
+                 FormationModel.NormalizeDensity(densityConfig.Value),
+-                FormationModel.NormalizePlacementMode((int)placementModeConfig.Value));
++                FormationModel.NormalizePlacementMode((int)placementModeConfig.Value),
++                menuViewModel.GetRememberedRows(FormationModel.NormalizeKind((int)formationConfig.Value)));
+             state.Authorization = new GroundMovePreviewAuthorization(
+                 GamePlayerManagerAPI.Instance.GetLocalPlayerId(), tribeId, selection.Length,
+                 target.NativeX, target.NativeY);
+@@ -2491,7 +2495,8 @@
+                 SelectionIdentity[] selection,
+                 FormationKind kind,
+                 int density,
+-                RangedPlacementMode placementMode)
++                RangedPlacementMode placementMode,
++                int rememberedRows)
+             {
+                 CommandButton = commandButton;
+                 TribeId = tribeId;
+@@ -2514,7 +2519,7 @@
+                     target.NativeX - centerX,
+                     target.NativeY - centerY,
+                     0);
+-                Geometry = new FormationGestureState(kind, selection.Length, DefaultDirectionSector);
++                Geometry = new FormationGestureState(kind, selection.Length, DefaultDirectionSector, rememberedRows);
+             }
+ 
+             internal int CommandButton { get; }

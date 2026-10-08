@@ -1,0 +1,11 @@
+--- starting:APIShared\src\UnitCommands\FormationPresentation.cs
++++ APIShared\src\UnitCommands\FormationPresentation.cs
+@@ -3,6 +3,8 @@
+ {
+     internal interface IFormationPresentation
+     {
++        int GetRememberedRows(FormationKind kind);
++        void RememberSelectedRows(FormationKind kind, int rows);
+         void CloseMenu();
+         void RefreshHostState();
+         void RefreshPreview();

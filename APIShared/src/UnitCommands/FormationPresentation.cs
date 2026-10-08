@@ -3,6 +3,8 @@ namespace APIShared.UnitCommands
 {
     internal interface IFormationPresentation
     {
+        int GetRememberedRows(FormationKind kind);
+        void RememberSelectedRows(FormationKind kind, int rows);
         void CloseMenu();
         void RefreshHostState();
         void RefreshPreview();
