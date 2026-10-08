@@ -1,0 +1,21 @@
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" />
+  <PropertyGroup>
+    <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
+    <OutputType>Library</OutputType>
+    <AssemblyName>TweakerDefaultAudit</AssemblyName>
+    <OutputPath>bin\</OutputPath>
+    <LangVersion>latest</LangVersion>
+    <GameDir>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" /><Reference Include="System.Core" />
+    <Reference Include="BepInEx"><HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.CoreModule"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="SHCDESE"><HintPath>$(GameDir)\BepInEx\plugins\000shcdese\SHCDESE.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="R3"><HintPath>$(GameDir)\BepInEx\plugins\000shcdese\R3.dll</HintPath><Private>false</Private></Reference>
+    <Compile Include="DefaultAudit.cs" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

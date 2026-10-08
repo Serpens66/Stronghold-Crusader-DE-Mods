@@ -10,6 +10,7 @@ internal static class TweakerProviderTests
     internal static void Run()
     {
         OptionalIntegrationTests.Run();
+        TweakerDefaultResetTests.Run();
         foreach (int count in new[] { 4233, 12000, 16384 })
         {
             ProviderProbe.ConfigurationApi.Reset(count);
