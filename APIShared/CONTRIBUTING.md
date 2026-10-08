@@ -1,36 +1,71 @@
-# Contributing to APIShared
+# Contributing
 
-APIShared is maintained independently of the SerpsMods workspace. Open an issue
-with a reproducible problem or submit a pull request against `main`. Explain the
-behavior changed, the public contract affected, and the checks you ran. Community
-changes are reviewed and explicitly imported into the mod workspace.
+Open an issue with a reproducible problem or submit a pull request against `main`.
+Describe the resulting behavior, affected contracts and tests you ran. Contributions
+can add services or reorganize implementation; the current folder layout is a guide,
+not a requirement. No AI tools or separate mod workspace are needed.
 
-Install Stronghold Crusader Definitive Edition, BepInEx and the Script Extender.
-Use Visual Studio Build Tools with the .NET Framework 4.8.1 targeting pack and
-the .NET 10 SDK for the isolated UnitAccess tests. No SerpsModsHost or mod workspace
-checkout is needed. Do not upload game assemblies or installed dependencies.
+## Setup
 
-Set `SHCDE_GAME_DIR` to your installation directory. Optional overrides are
-`SHCDESE_EXTENDER_DIR` and `SHCDE_MSBUILD`. From an elevated PowerShell session:
+On Windows, install the .NET 10 SDK and Visual Studio or Build Tools with the
+.NET Framework 4.8.1 targeting pack. Full integration tests also need a local SHCDE
+installation with BepInEx and Script Extender. Never commit these proprietary assemblies.
+
+Set `SHCDE_GAME_DIR` to your installation directory before opening `APIShared.sln` or
+running commands. `GameDir` is the equivalent MSBuild property.
+`SHCDESE_EXTENDER_DIR` / `ExtenderDir` override the usual extender directory.
+The build driver detects MSBuild using Visual Studio Installer; `SHCDE_MSBUILD` is
+an optional override. Paths are not tied to the maintainer's machine.
+
+## Tests
+
+Tests use MSTest and appear in Visual Studio Test Explorer. Run the same commands
+from PowerShell. The core suite needs no game installation:
 
 ```powershell
-& '.\build.bat' /nopause /noinstall
+dotnet test tests/Core.Tests/Core.Tests.csproj
+dotnet test tests/Core.Tests/Core.Tests.csproj --filter FullyQualifiedName~JsonTests
 ```
 
-Omit `/noinstall` to install the tested package. Close the game first. The driver
-runs runtime/dependency/CRLF/XAML/interop checks, API and preset regressions,
-UnitAccess tests, and public consumer examples before packaging.
+With the installed dependencies configured:
 
-Keep generated binaries, proprietary assemblies and local configuration out of
-Git. Public consumer references use `Private=false`. Keep versions unchanged
-while a change is being tested. See [development rules](AGENTS.md),
-[architecture](ARCHITECTURE.md) and [API contracts](docs/API_CATALOG.md).
+```powershell
+dotnet test tests/APISharedTests/APISharedTests.csproj
+dotnet test tests/LobbyModSettingsPresetTests/LobbyModSettingsPresetTests.csproj
+& './build.bat' /nopause /noinstall
+```
 
-Internal helpers with historical workspace provenance are independently owned
-here. A mod-only feature does not belong in these helpers. Review fixes to common
-basic algorithms separately for each implementation; there is no automatic sync.
+The full driver validates runtime contracts and installed interop, runs all suites,
+compiles public consumer examples and prepares the plugin package. Remove `/noinstall`
+to install it after closing the game; elevation is only needed for protected directories.
+TRX results from the driver are stored in `.local/test-results`.
 
-Preserve serialized settings, registration IDs, runtime lifetime and native hook
-contracts. Changes to native behavior require a complete feature-specific audit
-against the selected installed game and hook backend, followed by appropriate
-tests. Clearly identify game tests that have not yet been performed.
+Core tests compile the actual dependency-free implementations. UnitAccess doubles model
+the external SDK boundary, not native layout. Runtime tests use the real installed
+assemblies and isolated memory/backend fixtures. Preset tests compile the actual
+settings implementation with UI/session doubles; they verify persistence and convergence,
+not rendering in the game. Process-wide fixtures run serially and restore mutated state.
+Temporary preset and atomic-file directories are cleaned up after each test.
+
+Pull-request CI runs core tests and source/metadata/XAML checks on a GitHub-hosted
+Windows runner. It does not claim to run installed-game integration or gameplay tests.
+For changes affecting gameplay, report the relevant game checks and any remaining gaps.
+
+## Compatibility and releases
+
+Keep required public contracts and serialized formats compatible unless a breaking
+change is explicitly intended and documented. APIShared owns its sources independently;
+consumer mods use the public DLL. References in consumer packages use `Private=false`.
+Avoid tests that prescribe source wording, filenames or implementation order. Test
+observable behavior; retain byte/layout expectations where they express a native contract.
+
+SHCDE destroys startup plugin components. Persistent services need a static root or
+long-lived publisher. Published hooks remain installed until process exit; settings
+use logical activation. The runtime's dependency-free JSON parser avoids loading extra
+serializer assemblies. See [native compatibility](docs/NATIVE_COMPATIBILITY.md) before
+changing native behavior and the [API catalog](docs/API_CATALOG.md) for threading rules.
+
+Releases are prepared from a reviewed, committed and pushed standalone checkout:
+`release.bat` builds and creates a GitHub draft. Version bumps belong to release preparation,
+not test iterations. Community commits are explicitly imported into the maintainer's
+mod workspace; this does not impose workspace tools on contributors.

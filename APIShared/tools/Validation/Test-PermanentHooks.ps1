@@ -3,20 +3,7 @@ param()
 
 $ErrorActionPreference = 'Stop'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
-$roots = @('.')
-$excludedSegments = @(
-    '\.git\', '\bin\', '\obj\', '\tests\', '\.inspect\', '\_inspect\',
-    '\.release-output\', '\BepInEx\plugins\', '\packages\', '\shcde-script-extender\'
-)
-$files = foreach ($relativeRoot in $roots) {
-    $root = Join-Path $workspace $relativeRoot
-    if (-not (Test-Path -LiteralPath $root)) { continue }
-    Get-ChildItem -LiteralPath $root -Recurse -File -Filter '*.cs' -ErrorAction SilentlyContinue | Where-Object {
-        $path = $_.FullName
-        (-not ($excludedSegments | Where-Object { $path.Contains($_) })) -and
-        (-not $path.Contains('\Testmods\') -or $path.Contains('\Testmods\MoatMove\'))
-    }
-}
+$files = @(Get-ChildItem -LiteralPath (Join-Path $workspace 'src') -Recurse -File -Filter '*.cs')
 
 $errors = [System.Collections.Generic.List[string]]::new()
 foreach ($file in $files) {

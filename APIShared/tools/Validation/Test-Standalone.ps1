@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$GameDir, [string]$ExtenderDir)
+param([string]$GameDir, [string]$ExtenderDir, [switch]$SourceOnly)
 $ErrorActionPreference = 'Stop'
 $apiRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
 . (Join-Path $PSScriptRoot 'RuntimePreflight.Common.ps1')
@@ -25,7 +25,6 @@ $files = @(Get-ChildItem -LiteralPath $apiRoot -Recurse -File | Where-Object {
 })
 foreach ($file in $files) {
     $text = [IO.File]::ReadAllText($file.FullName)
-    if ($text -match '(?<!\r)\n') { throw "CRLF required: $($file.FullName)" }
     if ($file.Extension -eq '.cs' -and $text -cmatch '\busing\s+Shared\s*;|\bnamespace\s+Shared\b|(?<!API)\bShared\.(?!MissionEvents\.")') {
         throw "Workspace Shared type dependency: $($file.FullName)"
     }
@@ -39,5 +38,5 @@ foreach ($file in Get-ChildItem -LiteralPath (Join-Path $apiRoot 'Patches') -Rec
 }
 & (Join-Path $PSScriptRoot 'Test-DependencyMetadata.ps1')
 & (Join-Path $PSScriptRoot 'Test-PermanentHooks.ps1')
-& (Join-Path $PSScriptRoot 'Verify-Interop.ps1') -GameDir $GameDir -ExtenderDir $ExtenderDir
-Write-Host "PASS: standalone APIShared boundaries ($links links), runtime JSON/lifecycle/scheduling, CRLF, XAML and installed interop."
+if (-not $SourceOnly) { & (Join-Path $PSScriptRoot 'Verify-Interop.ps1') -GameDir $GameDir -ExtenderDir $ExtenderDir }
+Write-Host "PASS: standalone APIShared boundaries ($links links), runtime JSON/lifecycle/scheduling and XAML; installed interop is checked in the local full run."

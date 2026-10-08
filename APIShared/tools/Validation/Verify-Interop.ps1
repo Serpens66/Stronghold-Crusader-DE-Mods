@@ -2,7 +2,7 @@ param([string]$GameDir, [string]$ExtenderDir)
 $ErrorActionPreference = 'Stop'
 $apiRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
 if (-not $GameDir) { $GameDir = $env:SHCDE_GAME_DIR }
-if (-not $GameDir) { $GameDir = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition' }
+if (-not $GameDir) { throw 'Set SHCDE_GAME_DIR or supply -GameDir for installed interop verification.' }
 if (-not $ExtenderDir) { $ExtenderDir = Join-Path $GameDir 'BepInEx\plugins\000shcdese' }
 [void][Reflection.Assembly]::Load([IO.File]::ReadAllBytes((Join-Path $GameDir 'BepInEx\core\Mono.Cecil.dll')))
 $assembly = [Mono.Cecil.AssemblyDefinition]::ReadAssembly((Join-Path $ExtenderDir 'SHCDESE.dll'))

@@ -6,14 +6,13 @@
     <Platform Condition="'$(Platform)' == ''">AnyCPU</Platform>
     <ProjectGuid>{5E1808C6-784A-4D95-9EF9-833488F0B31A}</ProjectGuid>
     <OutputType>Library</OutputType>
+    <NeedsGameAssemblies>true</NeedsGameAssemblies>
     <RootNamespace>ThirdPartyMod.Examples</RootNamespace>
     <AssemblyName>ThirdPartyMod.Examples</AssemblyName>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <OutputPath>bin\</OutputPath>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(GameDir)' == ''"><GameDir>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir></PropertyGroup>
-  <PropertyGroup Condition="'$(ExtenderDir)' == ''"><ExtenderDir>$(GameDir)\BepInEx\plugins\000shcdese</ExtenderDir></PropertyGroup>
   <PropertyGroup Condition="'$(ApiSharedDir)' == ''"><ApiSharedDir>$(MSBuildThisFileDirectory)..\..\BepInEx\plugins\APIShared_Serp</ApiSharedDir></PropertyGroup>
   <ItemGroup>
     <Reference Include="UnityEngine"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.dll</HintPath><Private>false</Private></Reference>

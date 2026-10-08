@@ -1,0 +1,25 @@
+name: Tests
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  core:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: Validate sources and metadata
+        shell: pwsh
+        run: ./tools/Validation/Test-Standalone.ps1 -SourceOnly
+      - name: Run game-independent tests
+        run: dotnet test tests/Core.Tests/Core.Tests.csproj --configuration Release --logger trx --results-directory TestResults
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: test-results
+          path: TestResults/*.trx
