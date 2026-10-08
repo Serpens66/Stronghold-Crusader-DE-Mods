@@ -3,11 +3,11 @@ param([string[]]$ExcludedBuildDrivers = @())
 
 $ErrorActionPreference = 'Stop'
 $workspace = Split-Path -Parent $PSScriptRoot
-. (Join-Path $workspace 'Shared\ScriptExtenderUpdate\ScriptExtenderUpdate.Common.ps1')
+. (Join-Path $workspace 'Shared\Tools\ScriptExtenderUpdate\ScriptExtenderUpdate.Common.ps1')
 
 function Assert-True([bool]$Condition, [string]$Message) { if (-not $Condition) { throw $Message } }
 
-$inventory = @(Get-Content -Raw -LiteralPath (Join-Path $workspace 'Shared\ScriptExtenderUpdate\mods.json') | ConvertFrom-Json)
+$inventory = @(Get-Content -Raw -LiteralPath (Join-Path $workspace 'Shared\Tools\ScriptExtenderUpdate\mods.json') | ConvertFrom-Json)
 Assert-True ($inventory.Count -gt 0) 'The mod inventory is empty.'
 Assert-True (@($inventory.Name | Sort-Object -Unique).Count -eq $inventory.Count) 'The mod inventory contains duplicate names.'
 Assert-True (@($inventory | Where-Object { $_.Project -match '^Testmods[\\/]' -or $_.Manifest -match '^Testmods[\\/]' -or $_.Package -match '^Testmods[\\/]' }).Count -eq 0) 'The stable mod inventory contains Testmods projects.'
@@ -60,7 +60,7 @@ $metadataMutationFailed = $false
 try { Assert-SEMetadataMutationArguments $true 'Existing' $false $true } catch { $metadataMutationFailed = $true }
 Assert-True $metadataMutationFailed 'Legacy changelog mutation remained available beside a compatibility plan.'
 
-$driverText = [IO.File]::ReadAllText((Join-Path $workspace 'Shared\ScriptExtenderUpdate\Invoke-ScriptExtenderUpdate.ps1'))
+$driverText = [IO.File]::ReadAllText((Join-Path $workspace 'Shared\Tools\ScriptExtenderUpdate\Invoke-ScriptExtenderUpdate.ps1'))
 Assert-True (-not $driverText.Contains('$targetMinimum = $NewVersion')) 'The update driver still raises unplanned minimum versions.'
 Assert-True (-not $driverText.Contains("elseif (-not `$CompatibilityPlanFile)")) 'The update driver still creates implicit compatibility entries.'
 Assert-True ($driverText.Contains('Get-SEBaselinePreviousCommit')) 'The update driver does not read the previous commit from baseline provenance.'
@@ -80,7 +80,7 @@ Assert-True (-not $rootInstructions.Contains('KilNpc')) 'Obsolete Script Extende
 Assert-True ($rootInstructions.Contains('### Aktuell bekannte Script-Extender-Bugs') -and
     $rootInstructions.Contains('etwa 47 MB großen Minidump') -and
     $rootInstructions.Contains('Bei jedem Script-Extender-Update')) 'Root AGENTS.md does not retain and revalidate current version-neutral Script Extender bugs.'
-$scopedInstructions = [IO.File]::ReadAllText((Join-Path $workspace 'Shared\ScriptExtenderUpdate\AGENTS.md'))
+$scopedInstructions = [IO.File]::ReadAllText((Join-Path $workspace 'Shared\Tools\ScriptExtenderUpdate\AGENTS.md'))
 Assert-True ($scopedInstructions.Contains('Ohne expliziten Kompatibilitätsplaneintrag') -and
     $scopedInstructions.Contains('ohne Versionsnummer') -and
     $scopedInstructions.Contains('Bei jedem Script-Extender-Update') -and
@@ -110,14 +110,14 @@ Assert-True ($unsafeTestExitChecks.Count -eq 0) ("Managed test executables use a
 $extenderRoot = Join-Path $workspace 'shcde-script-extender'
 $currentCommit = (& git -C $extenderRoot rev-parse HEAD).Trim()
 $currentTree = (& git -C $extenderRoot rev-parse 'HEAD^{tree}').Trim()
-$releaseProjectNamesForFingerprint = @((Get-Content -Raw -LiteralPath (Join-Path $workspace 'Shared\Release\release-projects.json') | ConvertFrom-Json).Projects)
+$releaseProjectNamesForFingerprint = @((Get-Content -Raw -LiteralPath (Join-Path $workspace 'Shared\Tools\Release\release-projects.json') | ConvertFrom-Json).Projects)
 $hookFingerprint = Get-SEReleaseNativeHookFingerprint $workspace $releaseProjectNamesForFingerprint
 Assert-True ($hookFingerprint.SourceFileCount -eq $hookFingerprint.Sources.Count) 'Release hook fingerprint source accounting is inconsistent.'
 $missingAuditFailed = $false
-try { Assert-SEReleaseHookAudit (Join-Path $workspace 'Shared\ScriptExtenderUpdate\missing.release-hooks.json') $workspace $extenderRoot 'missing-native.dll' | Out-Null } catch { $missingAuditFailed = $true }
+try { Assert-SEReleaseHookAudit (Join-Path $workspace 'Shared\Tools\ScriptExtenderUpdate\missing.release-hooks.json') $workspace $extenderRoot 'missing-native.dll' | Out-Null } catch { $missingAuditFailed = $true }
 Assert-True $missingAuditFailed 'A missing release hook audit did not fail closed.'
 
-$compatibilityPlanPath = Join-Path $workspace 'Shared\ScriptExtenderUpdate\2.7.1-2.8.0.compatibility.json'
+$compatibilityPlanPath = Join-Path $workspace 'Shared\Tools\ScriptExtenderUpdate\2.7.1-2.8.0.compatibility.json'
 $compatibilityPlan = Get-Content -Raw -LiteralPath $compatibilityPlanPath | ConvertFrom-Json
 $baselineIdentityPath = Join-Path $workspace '_inspect\CrusaderDE-Native-Baseline\sem\FBCB9319\IDENTITY.json'
 $baselineIdentity = Get-Content -Raw -LiteralPath $baselineIdentityPath | ConvertFrom-Json
@@ -217,7 +217,7 @@ finally {
     if (Test-Path -LiteralPath $buildTemp) { Remove-Item -LiteralPath $buildTemp -Recurse -Force }
 }
 
-$releaseProjectNames = @((Get-Content -Raw -LiteralPath (Join-Path $workspace 'Shared\Release\release-projects.json') | ConvertFrom-Json).Projects)
+$releaseProjectNames = @((Get-Content -Raw -LiteralPath (Join-Path $workspace 'Shared\Tools\Release\release-projects.json') | ConvertFrom-Json).Projects)
 $releaseInventory = @($activeInventory | Where-Object { $_.Name -in $releaseProjectNames })
 $projects=@($releaseInventory|Where-Object Plugin|ForEach-Object{Join-Path $workspace $_.Project})
 foreach($project in $projects){$text=[IO.File]::ReadAllText($project);$installed=$text.IndexOf('BepInEx\plugins\000shcdese</ExtenderDir>');$local=$text.IndexOf("LocalScriptExtenderBuildOutput)\SHCDESE.dll");Assert-True ($installed-ge0-and($local-lt0-or$installed-lt$local)) "Installed extender is not first in $project"}

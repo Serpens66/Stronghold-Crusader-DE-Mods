@@ -9,7 +9,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\ExtendedData.Core\ExtendedData.Core.csproj" />
-    <Compile Include="..\..\Shared\WorkshopUploadStaging.cs" Link="WorkshopUploadStaging.cs" />
+    <Compile Include="..\..\Shared\Runtime\Workshop\WorkshopUploadStaging.cs" Link="WorkshopUploadStaging.cs" />
     <Compile Include="..\src\TrailModSelectionItem.cs" Link="TrailModSelectionItem.cs" />
     <Compile Include="..\src\ExtendedDataLaunchOriginApi.cs" Link="ExtendedDataLaunchOriginApi.cs" />
     <Compile Include="..\src\ExtendedDataModDataApi.cs" Link="ExtendedDataModDataApi.cs" />

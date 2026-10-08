@@ -54,7 +54,7 @@ foreach ($file in Get-ChildItem -LiteralPath (Join-Path $workspace 'ExtendedData
     }
 }
 & (Join-Path $workspace 'ExtendedData\Test-RuntimePreflight.ps1')
-& (Join-Path $workspace 'Shared\Test-PermanentNativeRuntimePatches.ps1')
+& (Join-Path $workspace 'Shared\Tools\Validation\Test-PermanentNativeRuntimePatches.ps1')
 if ($LASTEXITCODE -ne 0) { throw 'Permanent runtime audit failed' }
 & (Join-Path $workspace '_inspect\AuditModSettings.ps1') -Mod SerpsModsHost
 Write-Output 'PASS: JSON, lifecycle, unchanged legacy Tweaker Update, CRLF, injected UI tooltips and XAML patch roots.'

@@ -1,5 +1,5 @@
 @echo off
-call "%~dp0..\Shared\Release\Invoke-Release.bat" CheatMod /called %*
+call "%~dp0..\Shared\Tools\Release\Invoke-Release.bat" CheatMod /called %*
 set "EXIT_CODE=%ERRORLEVEL%"
 if not "%EXIT_CODE%"=="0" (
   echo.

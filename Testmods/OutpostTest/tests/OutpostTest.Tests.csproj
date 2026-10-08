@@ -79,7 +79,7 @@
     <Compile Include="..\src\OutpostGate.cs" />
     <Compile Include="..\src\OutpostSelectionGate.cs" />
     <Compile Include="..\src\OutpostNative.cs" />
-    <Compile Include="..\..\..\Shared\DebugLogHelper.cs" />
-    <Compile Include="..\..\..\Shared\NativePatternResolver.cs" />
+    <Compile Include="..\..\..\Shared\Runtime\Diagnostics\DebugLogHelper.cs" />
+    <Compile Include="..\..\..\Shared\Runtime\Native\NativePatternResolver.cs" />
   </ItemGroup>
 </Project>

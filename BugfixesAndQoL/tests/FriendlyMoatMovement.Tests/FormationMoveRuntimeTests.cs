@@ -74,7 +74,7 @@ public class EditorDirector {
     public int Left;public bool RightDown,RightUp,StateRead,UpPending;
     public void clearMouseStateForEngine() {Left=0;StateRead=true;UpPending=false;}
 }
-namespace Shared {
+namespace APIShared.Internal {
     public class NativeTroopCommandModeReader {public int Mode=1;public int Read()=>Mode;}
     public static class DebugLogHelper {public static void LogDebug(object l,string m) {} public static void LogWarning(object l,string m) {}}
     public static class GroundMovePreviewEligibility {
@@ -117,7 +117,7 @@ namespace APIShared.UnitCommands {
         private Commands commandRuntime=new Commands();private long nativeFeedbackGeneration;
         private long nativeFeedbackRunGeneration;private bool nativeFeedbackRunActive;
         private NativeGroundMoveFeedbackReader groundFeedbackReader=new NativeGroundMoveFeedbackReader();
-        private Shared.NativeTroopCommandModeReader commandModeReader=new Shared.NativeTroopCommandModeReader();
+        private APIShared.Internal.NativeTroopCommandModeReader commandModeReader=new APIShared.Internal.NativeTroopCommandModeReader();
         private Entry<FormationKind> formationConfig=new Entry<FormationKind>(FormationKind.Line);
         private Entry<int> densityConfig=new Entry<int>(2);
         private Entry<RangedPlacementMode> placementModeConfig=new Entry<RangedPlacementMode>(RangedPlacementMode.Off);
@@ -136,8 +136,8 @@ namespace APIShared.UnitCommands {
         private void RequireMainThread(string context) {}
         private void AgeReleaseConsumptionWatch() {}
         private void LogDebugNoThrow(string text) {} private void LogWarningNoThrow(string text) {}
-        private void LogTargetRejection(Shared.GroundMovePreviewRejection r,GroundTarget t) {}
-        private string ToRejectionReason(Shared.GroundMovePreviewRejection r)=>r.ToString();
+        private void LogTargetRejection(APIShared.Internal.GroundMovePreviewRejection r,GroundTarget t) {}
+        private string ToRejectionReason(APIShared.Internal.GroundMovePreviewRejection r)=>r.ToString();
         private FormationMouseState CaptureMouseState(EditorDirector d)=>new FormationMouseState(d.Left,d.RightDown,d.RightUp,d.StateRead,d.UpPending);
         private void ApplyMouseState(EditorDirector d,FormationMouseState s) {d.Left=s.LeftState;d.RightDown=s.RightDown;d.RightUp=s.RightUp;d.StateRead=s.StateRead;d.UpPending=s.UpPending;}
         private int engineRunOriginal(bool skip) {Originals++;if(FormationReleaseStateModel.HasCommandRelease(CaptureMouseState(EditorDirector.instance),button))VanillaReleases++;if(RenderInsideOriginal&&OriginalResult>0)Render();return OriginalResult;}

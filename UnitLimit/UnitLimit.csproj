@@ -100,23 +100,23 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="..\Shared\CrashBreadcrumbDiagnostics.cs">
-      <Link>Shared\CrashBreadcrumbDiagnostics.cs</Link>
+    <Compile Include="..\Shared\Runtime\Diagnostics\CrashBreadcrumbDiagnostics.cs">
+      <Link>Shared\Runtime\Diagnostics\CrashBreadcrumbDiagnostics.cs</Link>
     </Compile>
-    <Compile Include="..\Shared\CrashBreadcrumbRecorder.cs">
-      <Link>Shared\CrashBreadcrumbRecorder.cs</Link>
+    <Compile Include="..\Shared\Runtime\Diagnostics\CrashBreadcrumbRecorder.cs">
+      <Link>Shared\Runtime\Diagnostics\CrashBreadcrumbRecorder.cs</Link>
     </Compile>
-    <Compile Include="..\Shared\DebugLogHelper.cs">
-      <Link>Shared\DebugLogHelper.cs</Link>
+    <Compile Include="..\Shared\Runtime\Diagnostics\DebugLogHelper.cs">
+      <Link>Shared\Runtime\Diagnostics\DebugLogHelper.cs</Link>
     </Compile>
-    <Compile Include="..\Shared\SerpLocalization.cs">
-      <Link>Shared\SerpLocalization.cs</Link>
+    <Compile Include="..\Shared\Runtime\Localization\SerpLocalization.cs">
+      <Link>Shared\Runtime\Localization\SerpLocalization.cs</Link>
     </Compile>
-    <Compile Include="..\Shared\RecruitmentRequestPolicy.cs">
-      <Link>Shared\RecruitmentRequestPolicy.cs</Link>
+    <Compile Include="..\Shared\Runtime\Gameplay\RecruitmentRequestPolicy.cs">
+      <Link>Shared\Runtime\Gameplay\RecruitmentRequestPolicy.cs</Link>
     </Compile>
-    <Compile Include="..\Shared\RecruitmentHookContext.cs">
-      <Link>Shared\RecruitmentHookContext.cs</Link>
+    <Compile Include="..\Shared\Runtime\Gameplay\RecruitmentHookContext.cs">
+      <Link>Shared\Runtime\Gameplay\RecruitmentHookContext.cs</Link>
     </Compile>
     <Compile Include="src\ActiveSiegeTentCache.cs" />
     <Compile Include="src\ActiveUnitCache.cs" />
@@ -149,10 +149,10 @@
   <ItemGroup>
     <Reference Include="MessagePack"><HintPath>$(ExtenderDir)\MessagePack.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="MessagePack.Annotations"><HintPath>$(ExtenderDir)\MessagePack.Annotations.dll</HintPath><Private>false</Private></Reference>
-    <Compile Include="..\Shared\GameModeHelper.cs"><Link>Shared\GameModeHelper.cs</Link></Compile>
-    <Compile Include="..\Shared\GameplaySessionLifecycle.cs"><Link>Shared\GameplaySessionLifecycle.cs</Link></Compile>
-    <Compile Include="..\Shared\GameplayModActivationGate.cs"><Link>Shared\GameplayModActivationGate.cs</Link></Compile>
-    <Compile Include="..\Shared\ToolTipPresentation.cs"><Link>Shared\ToolTipPresentation.cs</Link></Compile>
+    <Compile Include="..\Shared\Adapters\APIShared\PlayerIdentityHelper.cs"><Link>Shared\Adapters\APIShared\PlayerIdentityHelper.cs</Link></Compile>
+    <Compile Include="..\Shared\Adapters\APIShared\MissionEventsAdapter.cs"><Link>Shared\Adapters\APIShared\MissionEventsAdapter.cs</Link></Compile>
+    <Compile Include="..\Shared\Adapters\APIShared\GameplayModActivationGate.cs"><Link>Shared\Adapters\APIShared\GameplayModActivationGate.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\UI\ToolTipPresentation.cs"><Link>Shared\Runtime\UI\ToolTipPresentation.cs</Link></Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 

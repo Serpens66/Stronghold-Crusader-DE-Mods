@@ -20,7 +20,7 @@ set "POWERSHELL_FLAGS="
 for %%A in (%*) do if /I "%%~A"=="/nopause" set "NO_PAUSE=1"
 for %%A in (%*) do if /I "%%~A"=="/validate" set "POWERSHELL_FLAGS=-Validate"
 
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Shared\Steam\Upload-Workshop.ps1" ^
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Shared\Tools\Steam\Upload-Workshop.ps1" ^
   -UploadFolder "%UPLOAD_FOLDER%" ^
   -ItemName "%ITEM_NAME%" ^
   -ConfiguredItemId "%ITEM_ID%" ^

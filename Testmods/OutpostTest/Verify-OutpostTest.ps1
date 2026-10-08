@@ -2,7 +2,7 @@ $ErrorActionPreference = 'Stop'
 $files = @(Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'src') -Filter '*.cs' -File)
 $files += Get-Item -LiteralPath (Join-Path $PSScriptRoot 'OutpostTest.csproj')
 $shared = Join-Path $PSScriptRoot '..\..\Shared'
-$files += Get-Item -LiteralPath (Join-Path $shared 'DebugLogHelper.cs'), (Join-Path $shared 'NativePatternResolver.cs')
+$files += Get-Item -LiteralPath (Join-Path $shared 'Runtime\Diagnostics\DebugLogHelper.cs'), (Join-Path $shared 'Runtime\Native\NativePatternResolver.cs')
 if ($files | Select-String -Pattern 'System\.Text\.Json|Newtonsoft\.Json|JavaScriptSerializer|System\.Web\.Extensions|DataContractJsonSerializer|JsonUtility') { throw 'Forbidden runtime JSON dependency.' }
 if ($files | Select-String -Pattern '\b(OnDestroy|OnDisable|OnApplicationQuit|Update|LateUpdate|FixedUpdate|StartCoroutine)\s*\(') { throw 'Forbidden runtime lifecycle teardown.' }
 $textFiles = @(Get-ChildItem -LiteralPath $PSScriptRoot -Recurse -File | Where-Object {

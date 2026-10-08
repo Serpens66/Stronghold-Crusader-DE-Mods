@@ -12,7 +12,7 @@ foreach ($file in (Get-Content -Raw -LiteralPath (Join-Path $PSScriptRoot 'indir
     if ($file.method -ne 'IsValid') { [void]$paths.Add([string]$file.path) }
 }
 foreach ($path in @(
-    'APIShared\src\Units\UnitAccess.cs', 'APIShared\src\Core\APISharedPlugin.cs', 'Shared\Test-UnitAccess.ps1',
+    'APIShared\src\Units\UnitAccess.cs', 'APIShared\src\Core\APISharedPlugin.cs', 'Shared\Tools\Validation\Test-UnitAccess.ps1',
     'Helpers\HunterQueryTargetDiagnostic\src\HunterQueryTargetDiagnosticPlugin.cs',
     'Helpers\HunterQueryTargetDiagnostic\info.json', 'Testmods\FormationTest\src\FormationTestPlugin.cs', 'Testmods\FormationTest\info.json',
     'BugfixesAndQoL\tests\Program.cs', 'Testmods\SkinTest\tests\Program.cs', 'Testmods\EnemyGatePathfindingTest\tests\Program.cs',

@@ -58,15 +58,15 @@
     <Reference Include="ExtendedData.Core"><HintPath>$(CoreOutput)\ExtendedData.Core.dll</HintPath><Private>true</Private></Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="..\Shared\DebugLogHelper.cs"><Link>Shared\DebugLogHelper.cs</Link></Compile>
-    <Compile Include="..\Shared\DependencyFreeJson.cs"><Link>Shared\DependencyFreeJson.cs</Link></Compile>
-    <Compile Include="..\Shared\UnityMainThreadDispatch.cs"><Link>Shared\UnityMainThreadDispatch.cs</Link></Compile>
-    <Compile Include="..\Shared\GameModeHelper.cs"><Link>Shared\GameModeHelper.cs</Link></Compile>
-    <Compile Include="..\Shared\GameplaySessionLifecycle.cs"><Link>Shared\GameplaySessionLifecycle.cs</Link></Compile>
-    <Compile Include="..\Shared\SerpLocalization.cs"><Link>Shared\SerpLocalization.cs</Link></Compile>
-    <Compile Include="..\Shared\ToolTipPresentation.cs"><Link>Shared\ToolTipPresentation.cs</Link></Compile>
-    <Compile Include="..\Shared\WorkshopContentPaths.cs"><Link>Shared\WorkshopContentPaths.cs</Link></Compile>
-    <Compile Include="..\Shared\WorkshopUploadStaging.cs"><Link>Shared\WorkshopUploadStaging.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\Diagnostics\DebugLogHelper.cs"><Link>Shared\Runtime\Diagnostics\DebugLogHelper.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\Persistence\DependencyFreeJson.cs"><Link>Shared\Runtime\Persistence\DependencyFreeJson.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\Threading\UnityMainThreadDispatch.cs"><Link>Shared\Runtime\Threading\UnityMainThreadDispatch.cs</Link></Compile>
+    <Compile Include="..\Shared\Adapters\APIShared\PlayerIdentityHelper.cs"><Link>Shared\Adapters\APIShared\PlayerIdentityHelper.cs</Link></Compile>
+    <Compile Include="..\Shared\Adapters\APIShared\MissionEventsAdapter.cs"><Link>Shared\Adapters\APIShared\MissionEventsAdapter.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\Localization\SerpLocalization.cs"><Link>Shared\Runtime\Localization\SerpLocalization.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\UI\ToolTipPresentation.cs"><Link>Shared\Runtime\UI\ToolTipPresentation.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\Workshop\WorkshopContentPaths.cs"><Link>Shared\Runtime\Workshop\WorkshopContentPaths.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\Workshop\WorkshopUploadStaging.cs"><Link>Shared\Runtime\Workshop\WorkshopUploadStaging.cs</Link></Compile>
     <Compile Include="src\ExtendedDataPlugin.cs" />
     <Compile Include="src\Properties\AssemblyInfo.cs" />
     <Compile Include="src\ExtendedDataSettingsViewModel.cs" />

@@ -17,7 +17,7 @@
     <Compile Include="..\src\AivRawDataEncoder.cs" Link="SpawnPlan\AivRawDataEncoder.cs" />
     <Compile Include="..\src\AivSpawnPlan.cs" Link="SpawnPlan\AivSpawnPlan.cs" />
     <Compile Include="..\src\AivWorldCoordinateTransform.cs" Link="SpawnPlan\AivWorldCoordinateTransform.cs" />
-    <Compile Include="..\..\Shared\DependencyFreeJson.cs" Link="Shared\DependencyFreeJson.cs" />
+    <Compile Include="..\..\Shared\Runtime\Persistence\DependencyFreeJson.cs" Link="Shared\Runtime\Persistence\DependencyFreeJson.cs" />
     <Compile Include="..\src\BlueprintHudPolicy.cs" Link="Blueprint\BlueprintHudPolicy.cs" />
     <Compile Include="..\src\BlueprintLayout.cs" Link="Blueprint\BlueprintLayout.cs" />
     <Compile Include="..\src\BlueprintBuildingIconCatalog.cs" Link="Blueprint\BlueprintBuildingIconCatalog.cs" />

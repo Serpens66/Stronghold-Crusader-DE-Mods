@@ -1,5 +1,5 @@
 using APIShared.ModSettings;
-using Shared;
+using APIShared.Internal;
 #pragma warning disable 1591 // XAML binding surface is documented by the APIShared preset guide.
 using System;
 using System.Globalization;

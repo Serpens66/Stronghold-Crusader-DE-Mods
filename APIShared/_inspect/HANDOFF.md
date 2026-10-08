@@ -1,3 +1,5 @@
+> Historical handoff from the APIShared 0.3.0 migration. This file is evidence, not current build or dependency guidance. Use README.md, ARCHITECTURE.md and CONTRIBUTING.md for the maintained contracts.
+
 # APIShared handoff
 
 Current development target: Script Extender 2.4.0 (`5d5719c1002aec043d331162d72b2e7f3111b34b`). APIShared is now 0.3.0 and keeps minimum Script Extender 2.3.0.

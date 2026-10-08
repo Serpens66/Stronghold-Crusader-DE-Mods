@@ -1768,7 +1768,7 @@ internal static class Program
         }
 
         string gateSource = File.ReadAllText(
-            Path.Combine(workspaceRoot, "Shared", "GameplayModActivationGate.cs"));
+            Path.Combine(workspaceRoot, "Shared", "Adapters", "APIShared", "GameplayModActivationGate.cs"));
         Check(gateSource.Contains("configuredEnabled=") &&
               gateSource.Contains("effectiveEnabled=") &&
               gateSource.Contains("disabled-by-mode") &&
@@ -1820,7 +1820,7 @@ internal static class Program
             "StartConditions mode precedence or map-session reset regressed");
 
         string hudCoordinatorSource = File.ReadAllText(
-            Path.Combine(workspaceRoot, "Shared", "TroopActionButtonLayout.cs"));
+            Path.Combine(workspaceRoot, "Shared", "Runtime", "UI", "TroopActionButtonLayout.cs"));
         string bugfixRuntimeSource = File.ReadAllText(
             Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "BugfixesAndQoLRuntime.cs"));
         string assassinClimbSource = File.ReadAllText(
@@ -5059,7 +5059,7 @@ internal static class Program
         string workspaceRoot = Path.GetFullPath(
             Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", ".."));
         string identityHelperSource = File.ReadAllText(
-            Path.Combine(workspaceRoot, "Shared", "GameModeHelper.cs"));
+            Path.Combine(workspaceRoot, "Shared", "Adapters", "APIShared", "PlayerIdentityHelper.cs"));
         Check(!identityHelperSource.Contains("GameNetworkAPI.GetLocalPlayerId()"),
             "Shared identity capture must not call the warning-producing network fallback");
 
@@ -5706,7 +5706,7 @@ internal static class Program
         }
 
         string lifecycle = File.ReadAllText(
-            Path.Combine(workspaceRoot, "Shared", "GameplaySessionLifecycle.cs"));
+            Path.Combine(workspaceRoot, "Shared", "Adapters", "APIShared", "MissionEventsAdapter.cs"));
         Check(lifecycle.Contains("TryGetMissionLifecycle") &&
               lifecycle.Contains("priority?.Invoke(notification)") &&
               !lifecycle.Contains("OnUnloadMap.Observable") &&
@@ -6995,6 +6995,19 @@ namespace CrusaderDE
 
 namespace Shared
 {
+    internal static class DebugLogHelper
+    {
+        public static void LogDebug(BepInEx.Logging.ManualLogSource log, string text) { }
+        public static void LogDebug(BepInEx.Logging.ManualLogSource log, Func<string> text) { }
+        public static void LogInfo(BepInEx.Logging.ManualLogSource log, string text) { }
+        public static void LogWarning(BepInEx.Logging.ManualLogSource log, string text) { }
+        public static void LogError(BepInEx.Logging.ManualLogSource log, string text) { }
+    }
+}
+
+namespace APIShared.Internal
+{
+    // API logging boundary double; the APIShared tests exercise its real logger.
     internal static class DebugLogHelper
     {
         public static void LogDebug(BepInEx.Logging.ManualLogSource log, string text) { }

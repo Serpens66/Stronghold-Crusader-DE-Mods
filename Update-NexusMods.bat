@@ -1,6 +1,6 @@
 @echo off
 setlocal EnableExtensions
-set "SCRIPT=%~dp0Shared\Release\Update-NexusMods.ps1"
+set "SCRIPT=%~dp0Shared\Tools\Release\Update-NexusMods.ps1"
 
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT%" %*
 set "EXIT_CODE=%ERRORLEVEL%"

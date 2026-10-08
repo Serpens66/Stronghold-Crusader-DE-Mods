@@ -44,7 +44,7 @@ namespace APIShared.UnitCommands
             moduleEnd = checked(libraryBase + (ulong)memory.Length);
             this.nativeUnitManager = nativeUnitManager;
 
-            Shared.NativeResolution dispatch = Shared.NativePatternResolver.ResolveUnique(
+            APIShared.Internal.NativeResolution dispatch = APIShared.Internal.NativePatternResolver.ResolveUnique(
                 memory,
                 UnitTypeUpdateDispatchPattern,
                 UnitTypeUpdateDispatchRva,
@@ -94,7 +94,7 @@ namespace APIShared.UnitCommands
                     resolvedTypes++;
             }
 
-            Shared.DebugLogHelper.LogDebug(
+            APIShared.Internal.DebugLogHelper.LogDebug(
                 log,
                 $"Bugfixes and QoL stage=friendly-moat-movement-weighted-cadence-resolver dispatchRva=0x{dispatch.Rva:X} " +
                 $"tableRva=0x{dispatchTable - libraryBase:X} handlers={uniqueHandlers.Count} " +

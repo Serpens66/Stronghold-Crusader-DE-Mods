@@ -1,4 +1,6 @@
 @echo off
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\Validation\Test-SharedBoundaries.ps1"
+if errorlevel 1 exit /b 1
 setlocal EnableExtensions EnableDelayedExpansion
 
 set "PROJECT_DIR=%~dp0"
@@ -131,7 +133,7 @@ if exist "%LEGACY_TRAIL_PLUGIN_DIR%\" rmdir /S /Q "%LEGACY_TRAIL_PLUGIN_DIR%"
 if errorlevel 1 goto copy_failed
 if exist "%LEGACY_LORD_PLUGIN_DIR%\" rmdir /S /Q "%LEGACY_LORD_PLUGIN_DIR%"
 if errorlevel 1 goto copy_failed
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared\Release\Write-LocalBuildManifest.ps1" -ModName ExtendedData
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared\Tools\Release\Write-LocalBuildManifest.ps1" -ModName ExtendedData
 if errorlevel 1 goto package_failed
 echo.
 echo Build, Tests und Installation erfolgreich.

@@ -162,5 +162,11 @@
         "Added two automatically saved lobby-settings presets with migration of existing settings to preset 1."
       ]
     }
+  ],
+  "Dependencies": [
+    {
+      "GUID": "APIShared_Serp",
+      "MinimumVersion": "0.4.0"
+    }
   ]
 }

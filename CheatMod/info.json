@@ -7,6 +7,12 @@
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.3.0",
   "MaximumScriptExtenderVersion": "",
+  "Dependencies": [
+    {
+      "GUID": "APIShared_Serp",
+      "MinimumVersion": "0.4.0"
+    }
+  ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [

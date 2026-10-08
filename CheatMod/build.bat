@@ -1,4 +1,6 @@
 @echo off
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\Validation\Test-SharedBoundaries.ps1"
+if errorlevel 1 exit /b 1
 setlocal EnableExtensions EnableDelayedExpansion
 
 set "PROJECT_DIR=%~dp0"
@@ -53,7 +55,7 @@ fc /B "%LOCAL_PLUGIN_DIR%\CheatMod.dll" "%GAME_PLUGIN_DIR%\CheatMod.dll" >nul
 if errorlevel 1 goto copy_verification_failed
 fc /B "%LOCAL_PLUGIN_DIR%\info.json" "%GAME_PLUGIN_DIR%\info.json" >nul
 if errorlevel 1 goto copy_verification_failed
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared\Release\Write-LocalBuildManifest.ps1" -ModName CheatMod
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared\Tools\Release\Write-LocalBuildManifest.ps1" -ModName CheatMod
 if errorlevel 1 goto package_failed
 
 echo Build und Installation von Cheat Mod erfolgreich.

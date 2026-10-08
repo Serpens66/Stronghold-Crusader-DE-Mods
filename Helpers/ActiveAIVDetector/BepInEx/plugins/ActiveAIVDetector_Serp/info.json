@@ -151,5 +151,11 @@
         "Log candidate ID, orientation, placement result, AI type, and AIVSpec index with millisecond timestamps."
       ]
     }
+  ],
+  "Dependencies": [
+    {
+      "GUID": "APIShared_Serp",
+      "MinimumVersion": "0.3.6"
+    }
   ]
 }

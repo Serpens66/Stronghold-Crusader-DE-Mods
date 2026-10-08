@@ -122,5 +122,11 @@
         "Add timestamped Info diagnostics for tower scans, spawning, blocked orders, deaths, and cleanup."
       ]
     }
+  ],
+  "Dependencies": [
+    {
+      "GUID": "APIShared_Serp",
+      "MinimumVersion": "0.3.6"
+    }
   ]
 }

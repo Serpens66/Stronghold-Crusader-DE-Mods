@@ -23,8 +23,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
-    <Compile Include="..\..\Shared\DebugLogHelper.cs"><Link>DebugLogHelper.cs</Link></Compile>
-    <Compile Include="..\..\Shared\NativePatternResolver.cs"><Link>NativePatternResolver.cs</Link></Compile>
+    <Compile Include="..\..\Shared\Runtime\Diagnostics\DebugLogHelper.cs"><Link>DebugLogHelper.cs</Link></Compile>
+    <Compile Include="..\..\Shared\Runtime\Native\NativePatternResolver.cs"><Link>NativePatternResolver.cs</Link></Compile>
     <Compile Include="..\..\RandomEvents\src\ArcherSourceNativeLayout.cs"><Link>ArcherSourceNativeLayout.cs</Link></Compile>
     <Compile Include="..\..\RandomEvents\src\BanditTargetEligibility.cs"><Link>BanditTargetEligibility.cs</Link></Compile>
     <Compile Include="..\..\RandomEvents\src\RandomEventDefinitions.cs"><Link>RandomEventDefinitions.cs</Link></Compile>

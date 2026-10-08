@@ -1,15 +1,15 @@
 @echo off
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\_inspect\FormationIntegration\Verify-Interop.ps1"
-if errorlevel 1 exit /b 1
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Test-UnitCommandSplit.ps1"
-if errorlevel 1 exit /b 1
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Test-UnitAccess.ps1"
-if errorlevel 1 exit /b 1
+if exist "%~dp0..\Shared\Tools\Validation\Test-SharedBoundaries.ps1" (
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\Validation\Test-SharedBoundaries.ps1"
+  if errorlevel 1 exit /b 1
+)
 setlocal EnableExtensions EnableDelayedExpansion
 
 set "PROJECT_DIR=%~dp0"
 set "MSBUILD=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe"
+if defined SHCDE_MSBUILD set "MSBUILD=%SHCDE_MSBUILD%"
 set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
+if defined SHCDE_GAME_DIR set "GAME_DIR=%SHCDE_GAME_DIR%"
 set "GAME_SCRIPT_EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
 rem The installed release is canonical; SHCDESE_EXTENDER_DIR is the explicit override.
 if defined SHCDESE_EXTENDER_DIR set "GAME_SCRIPT_EXTENDER_DIR=%SHCDESE_EXTENDER_DIR%"
@@ -25,6 +25,8 @@ if exist "%PACK_PLUGIN_ROOT%\Infrastructure\%PLUGIN_NAME%\APIShared.dll" (
 )
 set "EXTENDER_DIR="
 set "NO_PAUSE=0"
+set "NO_INSTALL=0"
+for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
 for %%A in (%*) do if /I "%%~A"=="/nopause" set "NO_PAUSE=1"
 
 powershell.exe -NoProfile -Command "if (Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue) { exit 1 } else { exit 0 }" >nul 2>&1
@@ -39,24 +41,43 @@ if exist "%GAME_SCRIPT_EXTENDER_DIR%\SHCDESE.dll" (
   set "EXTENDER_DIR=%GAME_SCRIPT_EXTENDER_DIR%"
 ) else goto build_failed
 
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\_inspect\Fixes124Implementation\Verify-Implementation.ps1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%tools\Validation\Test-Standalone.ps1" -GameDir "%GAME_DIR%" -ExtenderDir "%EXTENDER_DIR%"
 if errorlevel 1 goto build_failed
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\_inspect\AssassinGateClimb\verify.ps1"
-if errorlevel 1 goto build_failed
+rem Additional SerpsMods integration checks exist only in the owning workspace.
+if exist "%PROJECT_DIR%..\Shared\Tools\Validation\Test-SharedBoundaries.ps1" (
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared\Tools\Validation\Test-UnitCommandSplit.ps1"
+  if errorlevel 1 goto build_failed
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared\Tools\Validation\Test-UnitAccess.ps1"
+  if errorlevel 1 goto build_failed
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\_inspect\Fixes124Implementation\Verify-Implementation.ps1"
+  if errorlevel 1 goto build_failed
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\_inspect\AssassinGateClimb\verify.ps1"
+  if errorlevel 1 goto build_failed
+)
 
 if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
 pushd "%PROJECT_DIR%"
-"%MSBUILD%" "%PROJECT_DIR%..\_inspect\APISharedTests\APISharedTests.csproj" /t:Rebuild /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+"%MSBUILD%" "%PROJECT_DIR%tests\APISharedTests\APISharedTests.csproj" /t:Rebuild /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
 if errorlevel 1 goto build_failed_popd
-"%PROJECT_DIR%..\_inspect\APISharedTests\bin\APISharedTests.exe"
+"%PROJECT_DIR%tests\APISharedTests\bin\APISharedTests.exe"
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
-"%MSBUILD%" "%PROJECT_DIR%..\_inspect\LobbyModSettingsPresetTests\LobbyModSettingsPresetTests.csproj" /t:Rebuild /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+"%MSBUILD%" "%PROJECT_DIR%tests\LobbyModSettingsPresetTests\LobbyModSettingsPresetTests.csproj" /t:Rebuild /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
 if errorlevel 1 goto build_failed_popd
-"%PROJECT_DIR%..\_inspect\LobbyModSettingsPresetTests\bin\LobbyModSettingsPresetTests.exe"
+"%PROJECT_DIR%tests\LobbyModSettingsPresetTests\bin\LobbyModSettingsPresetTests.exe"
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+dotnet run --project "%PROJECT_DIR%tests\UnitAccess.Tests\UnitAccess.Tests.csproj" --configuration Release
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+if exist "%PROJECT_DIR%..\Shared\Tools\Validation\Test-SharedBoundaries.ps1" (
+  for %%T in (APISharedTests LobbyModSettingsPresetTests) do (
+    "%MSBUILD%" "%PROJECT_DIR%..\_inspect\%%T\%%T.csproj" /t:Rebuild /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+    if errorlevel 1 goto build_failed_popd
+    "%PROJECT_DIR%..\_inspect\%%T\bin\%%T.exe"
+    if not "!ERRORLEVEL!"=="0" goto build_failed_popd
+  )
+)
 "%MSBUILD%" APIShared.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
 if errorlevel 1 goto build_failed_popd
-"%MSBUILD%" "%PROJECT_DIR%..\_inspect\APISharedPresetConsumerTests\APISharedPresetConsumerTests.csproj" /t:Rebuild /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+"%MSBUILD%" "%PROJECT_DIR%tests\PublicPresetConsumer\APISharedPresetConsumerTests.csproj" /t:Rebuild /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
 if errorlevel 1 goto build_failed_popd
 "%MSBUILD%" "%PROJECT_DIR%examples\ThirdPartyMod\ThirdPartyMod.csproj" /t:Rebuild /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
 if errorlevel 1 goto build_failed_popd
@@ -65,6 +86,11 @@ copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
 xcopy "%PROJECT_DIR%Patches" "%LOCAL_PLUGIN_DIR%\Patches\" /E /I /Q /Y >nul
 if not exist "%LOCAL_PLUGIN_DIR%\APIShared.dll" goto package_failed
 if not exist "%LOCAL_PLUGIN_DIR%\info.json" goto package_failed
+if "%NO_INSTALL%"=="1" (
+  echo APIShared built and tested successfully; installation skipped.
+  if "%NO_PAUSE%"=="0" pause
+  exit /b 0
+)
 if exist "%GAME_PLUGIN_DIR%\" rmdir /S /Q "%GAME_PLUGIN_DIR%"
 xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y >nul
 if errorlevel 1 goto copy_failed

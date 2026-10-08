@@ -1,0 +1,11 @@
+/BepInEx/
+**/bin/
+**/obj/
+*.dll
+*.pdb
+*.exe
+*.user
+*.suo
+/.vs/
+/.local/
+*.log

@@ -56,7 +56,7 @@ Current classification after the final overlap audit:
 
 ## Release and compatibility policy
 
-- Workspace release projects live at root, under `Testmods`, or under `Helpers` according to `Shared/Release/release-projects.json` and `Shared/ScriptExtenderUpdate/mods.json`; do not assume a fixed mod count.
+- Workspace release projects live at root, under `Testmods`, or under `Helpers` according to `Shared/Tools/Release/release-projects.json` and `Shared/Tools/ScriptExtenderUpdate/mods.json`; do not assume a fixed mod count.
 - Runtime projects compile against the installed `BepInEx/plugins/000shcdese/SHCDESE.dll`. `ExtenderDir` is the explicit override; local Script Extender output is not an implicit fallback.
 - APIShared is referenced with `<Private>false>` and must never be copied privately beside a consumer DLL.
 - Consumers that call a surface first introduced in APIShared 0.3.0 require 0.3.0 themselves. Preset-capable ModSettings consumers require APIShared 0.4.0. Older consumers retain their actual minimum.

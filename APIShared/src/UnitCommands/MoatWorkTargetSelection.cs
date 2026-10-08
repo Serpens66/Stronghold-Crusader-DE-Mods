@@ -104,13 +104,13 @@ namespace APIShared.UnitCommands
                         "A shared E2610/E7C40 reachability hook is unavailable.");
                 }
 
-                Shared.NativeResolution findResolution = Resolve(
+                APIShared.Internal.NativeResolution findResolution = Resolve(
                     memory, FindMoatWorkTargetPattern, FindMoatWorkTargetRva,
                     "shared moat work-target selector");
-                Shared.NativeResolution resolveResolution = Resolve(
+                APIShared.Internal.NativeResolution resolveResolution = Resolve(
                     memory, ResolveMoatWorkTilePattern, ResolveMoatWorkTileRva,
                     "shared moat work-tile resolver");
-                Shared.NativeResolution fillApproachResolution = Resolve(
+                APIShared.Internal.NativeResolution fillApproachResolution = Resolve(
                     memory, HasFillMoatApproachPattern, HasFillMoatApproachRva,
                     "fill-moat neighbouring approach check");
 
@@ -145,7 +145,7 @@ namespace APIShared.UnitCommands
 
                 findMoatWorkTargetDetour = pendingFind;
                 resolveMoatWorkTileDetour = pendingResolve;
-                Shared.DebugLogHelper.LogDebug(
+                APIShared.Internal.DebugLogHelper.LogDebug(
                     log,
                     "Bugfixes and QoL friendly-moat-movement moat-work target selection installed: " +
                     $"selector=0x{findResolution.Rva:X}, resolver=0x{resolveResolution.Rva:X}, " +
@@ -172,7 +172,7 @@ namespace APIShared.UnitCommands
                 rootedResolveMoatWorkTile = null;
                 rootedHasFillMoatApproach = null;
                 ResetMoatWorkTargetSelection();
-                Shared.DebugLogHelper.LogError(
+                APIShared.Internal.DebugLogHelper.LogError(
                     log,
                     "Bugfixes and QoL friendly-moat-movement moat-work target selection was not installed; " +
                     $"existing movement remains active and work-target selection stays Vanilla: {ex}");

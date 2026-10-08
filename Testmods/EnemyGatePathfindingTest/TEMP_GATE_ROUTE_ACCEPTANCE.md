@@ -27,11 +27,11 @@ Runtime fixture tests execute the actual diagnostic classes, packed-publication 
 All additions carry `TEMP_GATE_ROUTE_ACCEPTANCE` or use a class named `TemporaryGate...`.
 
 1. Remove APIShared `src/TemporaryGateRouteAcceptanceBridge.cs` and its project include/public-test allowlist additions. This is a passive independent observer, not the gate policy registration.
-2. Remove BugfixesAndQoL `src/TemporaryGateRouteReporting.cs`, its project include and the linked `Shared/TemporaryPackedRouteInspection.cs` include. Remove `BeginTemporaryRouteReport`/`EndTemporaryRouteReport` from `MovementPathPublication.cs` and `MovementSearchContext.cs` only.
+2. Remove BugfixesAndQoL `src/TemporaryGateRouteReporting.cs`, its project include and the linked `Shared/Runtime/Native/TemporaryPackedRouteInspection.cs` include. Remove `BeginTemporaryRouteReport`/`EndTemporaryRouteReport` from `MovementPathPublication.cs` and `MovementSearchContext.cs` only.
 3. Remove the optional `ReportRaid` blocks from `AiRaidRetargetFixRuntime.On...` command classification and `LogRetry`. Preserve their existing evaluations, freshness checks and retarget decisions.
 4. Remove Gate `src/TemporaryGateRouteAcceptance.cs`, `src/TemporaryGateAcceptanceAggregate.cs`, project includes and `tests/TemporaryGateAcceptanceTests.cs` plus its invocation/includes. Remove APIShared temporary source include from policy tests.
 5. Remove Gate runtime construction/registration/map begin/end/deferred calls and `SamePclGateRouteRuntime.TemporaryAcceptanceSnapshot`. Remove temporary Raid/Assassin attachments and exception wrappers in `AttackOrderCorrelationDiagnostics`.
-6. Restore the generic 10-second cadence and original cadence test after removing the temporary counts-only profile. Remove `TemporaryCountsOnly` from `Shared/PathDecisionAggregate.cs`; do not change unrelated aggregation logic.
+6. Restore the generic 10-second cadence and original cadence test after removing the temporary counts-only profile. Remove `TemporaryCountsOnly` from `Shared/Runtime/Gameplay/PathDecisionAggregate.cs`; do not change unrelated aggregation logic.
 7. Remove the temporary decoder from Shared only after removing its production and test includes. Remove temporary test-source injection and no-observer fixture stubs in the mainmod source-contract tests and `_inspect/EnemyBridgeCompileTests`, plus the isolated `AiRaidRetarget.Tests/Run.ps1` bridge source include. These fixtures exercise the old no-observer path; real runtime sources compile separately against installed assemblies.
 
 ## Audit and verification

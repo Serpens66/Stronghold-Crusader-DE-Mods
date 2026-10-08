@@ -15,7 +15,7 @@ function Assert-True {
 }
 
 $workspaceRoot = Split-Path -Parent $PSScriptRoot
-$releaseConfig = Get-Content -LiteralPath (Join-Path $workspaceRoot 'Shared\Release\release-projects.json') -Raw | ConvertFrom-Json
+$releaseConfig = Get-Content -LiteralPath (Join-Path $workspaceRoot 'Shared\Tools\Release\release-projects.json') -Raw | ConvertFrom-Json
 $wrapperCandidates = @(foreach ($modName in @($releaseConfig.Projects)) {
     $directoryProperty = $releaseConfig.ProjectDirectories.PSObject.Properties[[string]$modName]
     $relativeDirectory = if ($null -eq $directoryProperty) { [string]$modName } else { [string]$directoryProperty.Value }
@@ -41,7 +41,7 @@ foreach ($entry in $neverReleaseProjects) {
 $tempBase = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
 $tempRoot = [IO.Path]::GetFullPath((Join-Path $tempBase ('SHCDE-ReleaseWrapperTests-' + [Guid]::NewGuid().ToString('N'))))
 Assert-True ($tempRoot.StartsWith($tempBase, [StringComparison]::OrdinalIgnoreCase) -and $tempRoot.Length -gt $tempBase.Length) 'Unsafe temporary test directory.'
-$sharedReleaseDirectory = Join-Path $tempRoot 'Shared\Release'
+$sharedReleaseDirectory = Join-Path $tempRoot 'Shared\Tools\Release'
 $argumentLog = Join-Path $tempRoot 'arguments.txt'
 $expectedExitCode = 37
 
@@ -62,6 +62,19 @@ exit /b $expectedExitCode
         $modName = $entry.ModName
         $wrapper = $entry.File
         $content = [IO.File]::ReadAllText($wrapper.FullName)
+
+        if ($modName -eq 'APIShared') {
+            Assert-True ($content -match 'tools\\Release\\Release\.ps1' -and $content -notmatch 'Shared\\Tools') 'APIShared must use its independent release driver.'
+            $isolatedApiDirectory = Join-Path $tempRoot $entry.RelativeDirectory
+            $isolatedTools = Join-Path $isolatedApiDirectory 'tools\Release'
+            [IO.Directory]::CreateDirectory($isolatedTools) | Out-Null
+            Copy-Item -LiteralPath $wrapper.FullName -Destination (Join-Path $isolatedApiDirectory 'release.bat')
+            [IO.File]::WriteAllText((Join-Path $isolatedTools 'Release.ps1'), "exit $expectedExitCode`r`n", [Text.Encoding]::ASCII)
+            $independentOutput = @(& (Join-Path $isolatedApiDirectory 'release.bat') /nopause 2>&1)
+            Assert-True ($LASTEXITCODE -eq $expectedExitCode) 'APIShared does not propagate the independent release driver exit code.'
+            Assert-True (-not ($independentOutput -match 'Press any key|Drücken Sie eine beliebige Taste')) 'APIShared unexpectedly pauses.'
+            continue
+        }
 
         Assert-True ($content -match [regex]::Escape("Invoke-Release.bat`" $modName /called %*")) "$modName does not forward all arguments."
         Assert-True ($content -match 'findstr\s+/I\s+/C:"/nopause"\s+>nul\s+\|\|\s+pause') "$modName does not suppress pause for /nopause."

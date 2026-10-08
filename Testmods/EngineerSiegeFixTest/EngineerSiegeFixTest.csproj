@@ -76,8 +76,8 @@
     <Compile Include="src\EngineerSiegeFixTestNativeDefinition.cs" />
     <Compile Include="src\EngineerSiegeFixTestRuntime.cs" />
     <Compile Include="src\EngineerSiegeFixTestPlugin.cs" />
-    <Compile Include="..\..\Shared\DebugLogHelper.cs">
-      <Link>Shared\DebugLogHelper.cs</Link>
+    <Compile Include="..\..\Shared\Runtime\Diagnostics\DebugLogHelper.cs">
+      <Link>Shared\Runtime\Diagnostics\DebugLogHelper.cs</Link>
     </Compile>
   </ItemGroup>
 

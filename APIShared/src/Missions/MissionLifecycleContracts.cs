@@ -1,6 +1,6 @@
 using APIShared.GameModes;
 using System;
-using Shared;
+using APIShared.Internal;
 
 namespace APIShared
 {

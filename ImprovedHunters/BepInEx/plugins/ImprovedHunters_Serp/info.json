@@ -630,5 +630,11 @@
         "Keep slain rabbits on the map long enough for hunters to collect them."
       ]
     }
+  ],
+  "Dependencies": [
+    {
+      "GUID": "APIShared_Serp",
+      "MinimumVersion": "0.4.0"
+    }
   ]
 }

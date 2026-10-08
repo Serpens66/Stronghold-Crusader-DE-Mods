@@ -8,7 +8,7 @@ Tweaker, `UnitLimit` und `UnitCosts` detouren dieselbe Methode `EngineInterface.
 
 **Folge:** `UnitLimit` kann mehr ausstehende Rekruten reservieren als tatsächlich an Vanilla weitergereicht wurden und bis zum Ablauf seiner Pending-Reservierung weitere Rekrutierung fälschlich blockieren. Zusätzlich gilt stets die strengere der unabhängig konfigurierten Grenzen, während jede Mod nur ihren eigenen Grenzwert anzeigt.
 
-**Belegt durch:** Tweaker `Config/BepInEx/Systems/Handlers/MakeTroopRecruitHook.cs`; SerpsMods `UnitLimit/src/MakeTroopGameActionHook.cs`, `UnitCosts/src/MakeTroopGameActionHook.cs` und `Shared/RecruitmentHookContext.cs`; nativer Rekrutierungspfad über `MakeTroop` gegen Baseline-Hash `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+**Belegt durch:** Tweaker `Config/BepInEx/Systems/Handlers/MakeTroopRecruitHook.cs`; SerpsMods `UnitLimit/src/MakeTroopGameActionHook.cs`, `UnitCosts/src/MakeTroopGameActionHook.cs` und `Shared/Runtime/Gameplay/RecruitmentHookContext.cs`; nativer Rekrutierungspfad über `MakeTroop` gegen Baseline-Hash `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
 
 ## 2. Gebäudegrenzen werden unabhängig doppelt erzwungen
 

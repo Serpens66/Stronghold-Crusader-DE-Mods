@@ -53,9 +53,9 @@ $sources = @'
     <Compile Include="src\BridgeSnapshot.cs" />
     <Compile Include="src\DrawbridgeClosurePolicy.cs" />
     <Compile Include="src\GateEdgeOwnership.cs" />
-    <Compile Include="..\..\Shared\PathDecisionAggregate.cs"><Link>Shared\PathDecisionAggregate.cs</Link></Compile>
-    <Compile Include="..\..\Shared\DebugLogHelper.cs"><Link>Shared\DebugLogHelper.cs</Link></Compile>
-    <Compile Include="..\..\Shared\GameplaySessionLifecycle.cs"><Link>Shared\GameplaySessionLifecycle.cs</Link></Compile>
+    <Compile Include="..\..\Shared\Runtime\Gameplay\PathDecisionAggregate.cs"><Link>Shared\Runtime\Gameplay\PathDecisionAggregate.cs</Link></Compile>
+    <Compile Include="..\..\Shared\Runtime\Diagnostics\DebugLogHelper.cs"><Link>Shared\Runtime\Diagnostics\DebugLogHelper.cs</Link></Compile>
+    <Compile Include="..\..\Shared\Adapters\APIShared\MissionEventsAdapter.cs"><Link>Shared\Adapters\APIShared\MissionEventsAdapter.cs</Link></Compile>
 
 '@
 $project = $project.Remove($start,$end-$start).Insert($start,$sources)
@@ -73,7 +73,7 @@ $tests = @'
   <ItemGroup>
     <Compile Include="tests\Program.cs" /><Compile Include="tests\DrawbridgeClosureTests.cs" />
     <Compile Include="src\DrawbridgeClosurePolicy.cs" /><Compile Include="src\GateEdgeOwnership.cs" />
-    <Compile Include="..\..\Shared\PathDecisionAggregate.cs" />
+    <Compile Include="..\..\Shared\Runtime\Gameplay\PathDecisionAggregate.cs" />
     <Compile Include="..\..\APIShared\src\Pathfinding\EnemyGatePathPolicyBridge.cs" />
     <Compile Include="..\..\APIShared\src\Pathfinding\EnemyBridgeDiagnosticBridge.cs" />
   </ItemGroup>

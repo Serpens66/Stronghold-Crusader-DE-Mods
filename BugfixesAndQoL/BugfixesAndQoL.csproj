@@ -61,7 +61,7 @@
     <Reference Include="Microsoft.Extensions.Logging.Abstractions"><HintPath>$(ExtenderDir)\Microsoft.Extensions.Logging.Abstractions.dll</HintPath><Private>false</Private></Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="..\Shared\SelectedChimpsSnapshotPolicy.cs"><Link>Shared\SelectedChimpsSnapshotPolicy.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\Gameplay\SelectedChimpsSnapshotPolicy.cs"><Link>Shared\Runtime\Gameplay\SelectedChimpsSnapshotPolicy.cs</Link></Compile>
     <Compile Include="src\LocalSelectionSnapshot.cs" />
     <Compile Include="src\AiRaidRetargetFixRuntime.cs" />
     <Compile Include="src\RaidActivationState.cs" />
@@ -69,15 +69,15 @@
     <Compile Include="src\RaidSearchEvidence.cs" />
     <Compile Include="src\RaidSearchObserver.cs" />
 
-    <Compile Include="..\Shared\AtomicFileReplacement.cs"><Link>Shared\AtomicFileReplacement.cs</Link></Compile>
-    <Compile Include="..\Shared\CrashBreadcrumbDiagnostics.cs"><Link>Shared\CrashBreadcrumbDiagnostics.cs</Link></Compile>
-    <Compile Include="..\Shared\CrashBreadcrumbRecorder.cs"><Link>Shared\CrashBreadcrumbRecorder.cs</Link></Compile>
-    <Compile Include="..\Shared\DebugLogHelper.cs"><Link>Shared\DebugLogHelper.cs</Link></Compile>
-    <Compile Include="..\Shared\DependencyFreeJson.cs"><Link>Shared\DependencyFreeJson.cs</Link></Compile>
-    <Compile Include="..\Shared\NativeBuildingCompoundGroup.cs"><Link>Shared\NativeBuildingCompoundGroup.cs</Link></Compile>
-    <Compile Include="..\Shared\UnityMainThreadDispatch.cs"><Link>Shared\UnityMainThreadDispatch.cs</Link></Compile>
-    <Compile Include="..\Shared\NativePatternResolver.cs"><Link>Shared\NativePatternResolver.cs</Link></Compile>
-    <Compile Include="..\Shared\SerpLocalization.cs"><Link>Shared\SerpLocalization.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\Persistence\AtomicFileReplacement.cs"><Link>Shared\Runtime\Persistence\AtomicFileReplacement.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\Diagnostics\CrashBreadcrumbDiagnostics.cs"><Link>Shared\Runtime\Diagnostics\CrashBreadcrumbDiagnostics.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\Diagnostics\CrashBreadcrumbRecorder.cs"><Link>Shared\Runtime\Diagnostics\CrashBreadcrumbRecorder.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\Diagnostics\DebugLogHelper.cs"><Link>Shared\Runtime\Diagnostics\DebugLogHelper.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\Persistence\DependencyFreeJson.cs"><Link>Shared\Runtime\Persistence\DependencyFreeJson.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\Native\NativeBuildingCompoundGroup.cs"><Link>Shared\Runtime\Native\NativeBuildingCompoundGroup.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\Threading\UnityMainThreadDispatch.cs"><Link>Shared\Runtime\Threading\UnityMainThreadDispatch.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\Native\NativePatternResolver.cs"><Link>Shared\Runtime\Native\NativePatternResolver.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\Localization\SerpLocalization.cs"><Link>Shared\Runtime\Localization\SerpLocalization.cs</Link></Compile>
     <Compile Include="src\AiAivSelectionCodec.cs" />
     <Compile Include="src\AIBuildingTemporaryAccessClassifier.cs" />
     <Compile Include="src\AIPreplacedBuildingFixPolicy.cs" />
@@ -228,7 +228,7 @@
     <Compile Include="src\LocalPerPlayerSetting.cs" />
     <Compile Include="src\LordUnitControlsFeature.cs" />
     <Compile Include="src\LordUnitHudRegistration.cs" />
-    <Compile Include="..\Shared\LordPortraitPalette.cs"><Link>Shared\LordPortraitPalette.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\UI\LordPortraitPalette.cs"><Link>Shared\Runtime\UI\LordPortraitPalette.cs</Link></Compile>
     <Compile Include="src\GatehouseDistanceOriginRegistration.cs" />
     <Compile Include="src\LordControlGroupNativeDefinition.cs" />
     <Compile Include="src\LordControlGroupNativePatch.cs" />
@@ -319,15 +319,15 @@
   <ItemGroup>
     <Reference Include="MessagePack"><HintPath>$(ExtenderDir)\MessagePack.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="MessagePack.Annotations"><HintPath>$(ExtenderDir)\MessagePack.Annotations.dll</HintPath><Private>false</Private></Reference>
-    <Compile Include="..\Shared\GameModeHelper.cs"><Link>Shared\GameModeHelper.cs</Link></Compile>
-    <Compile Include="..\Shared\GroundMovePreviewEligibility.cs"><Link>Shared\GroundMovePreviewEligibility.cs</Link></Compile>
-    <Compile Include="..\Shared\GameplaySessionLifecycle.cs"><Link>Shared\GameplaySessionLifecycle.cs</Link></Compile>
-    <Compile Include="..\Shared\GameBuildingFootprint.cs"><Link>Shared\GameBuildingFootprint.cs</Link></Compile>
-    <Compile Include="..\Shared\GatehouseQueryUnitIdPolicy.cs"><Link>Shared\GatehouseQueryUnitIdPolicy.cs</Link></Compile>
-    <Compile Include="..\Shared\AiSettingsHelpHover.cs"><Link>Shared\AiSettingsHelpHover.cs</Link></Compile>
-    <Compile Include="..\Shared\ToolTipPresentation.cs"><Link>Shared\ToolTipPresentation.cs</Link></Compile>
-    <Compile Include="..\Shared\TroopActionButtonLayout.cs"><Link>Shared\TroopActionButtonLayout.cs</Link></Compile>
-    <Compile Include="..\Shared\TroopActionButtonLayoutPolicy.cs"><Link>Shared\TroopActionButtonLayoutPolicy.cs</Link></Compile>
+    <Compile Include="..\Shared\Adapters\APIShared\PlayerIdentityHelper.cs"><Link>Shared\Adapters\APIShared\PlayerIdentityHelper.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\Gameplay\GroundMovePreviewEligibility.cs"><Link>Shared\Runtime\Gameplay\GroundMovePreviewEligibility.cs</Link></Compile>
+    <Compile Include="..\Shared\Adapters\APIShared\MissionEventsAdapter.cs"><Link>Shared\Adapters\APIShared\MissionEventsAdapter.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\Native\GameBuildingFootprint.cs"><Link>Shared\Runtime\Native\GameBuildingFootprint.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\Gameplay\GatehouseQueryUnitIdPolicy.cs"><Link>Shared\Runtime\Gameplay\GatehouseQueryUnitIdPolicy.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\UI\AiSettingsHelpHover.cs"><Link>Shared\Runtime\UI\AiSettingsHelpHover.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\UI\ToolTipPresentation.cs"><Link>Shared\Runtime\UI\ToolTipPresentation.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\UI\TroopActionButtonLayout.cs"><Link>Shared\Runtime\UI\TroopActionButtonLayout.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\UI\TroopActionButtonLayoutPolicy.cs"><Link>Shared\Runtime\UI\TroopActionButtonLayoutPolicy.cs</Link></Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <ItemGroup>

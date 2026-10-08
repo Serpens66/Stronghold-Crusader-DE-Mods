@@ -17,7 +17,7 @@
     <Reference Include="System.Core" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="..\..\Shared\GatehouseQueryUnitIdPolicy.cs"><Link>GatehouseQueryUnitIdPolicy.cs</Link></Compile>
+    <Compile Include="..\..\Shared\Runtime\Gameplay\GatehouseQueryUnitIdPolicy.cs"><Link>GatehouseQueryUnitIdPolicy.cs</Link></Compile>
     <Compile Include="..\..\BugfixesAndQoL\src\MountedStockpileMovementPolicy.cs"><Link>MountedStockpileMovementPolicy.cs</Link></Compile>
     <Compile Include="..\..\BugfixesAndQoL\src\MarketGoldPolicy.cs"><Link>MarketGoldPolicy.cs</Link></Compile>
     <Compile Include="..\..\BugfixesAndQoL\src\HealerAttackCommandFixNativeDefinition.cs"><Link>HealerAttackCommandFixNativeDefinition.cs</Link></Compile>

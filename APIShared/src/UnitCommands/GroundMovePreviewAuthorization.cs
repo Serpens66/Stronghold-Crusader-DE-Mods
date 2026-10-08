@@ -101,7 +101,7 @@ namespace APIShared.UnitCommands
             Check(image, 0x8F3FE, new byte[] { 0xC7,0x05,0x44,0xE1,0x01,0x06,0xAC,0,0,0 });
             // Terminal dispatch publishes accepted animated movement cursor kind 3.
             Check(image, 0x9002D, new byte[] { 0x41,0xBE,3,0,0,0,0x44,0x89,0x35,0x12,0x9E,0x41,3 });
-            Shared.NativeTroopCommandModeReader.ValidateContract(image);
+            APIShared.Internal.NativeTroopCommandModeReader.ValidateContract(image);
         }
         private static void Check(ReadOnlySpan<byte> image, int rva, byte[] bytes)
         {

@@ -177,6 +177,6 @@ if ($runtimeText -match 'System\.Web\.Extensions|JavaScriptSerializer|System\.Te
     $plugin -match '\bUpdate\s*\(') {
     throw 'Forbidden JSON or Unity lifecycle pattern in the test runtime.'
 }
-& (Join-Path $workspace 'Shared\Test-PermanentNativeRuntimePatches.ps1')
+& (Join-Path $workspace 'Shared\Tools\Validation\Test-PermanentNativeRuntimePatches.ps1')
 if (-not $?) { throw 'Permanent native hook regression failed.' }
 Write-Host 'PASS: safe tick observation and opt-in isolation coarse-grid test mod preflight.'

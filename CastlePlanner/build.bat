@@ -1,4 +1,6 @@
 @echo off
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\Validation\Test-SharedBoundaries.ps1"
+if errorlevel 1 exit /b 1
 setlocal EnableExtensions EnableDelayedExpansion
 
 set "PROJECT_DIR=%~dp0"
@@ -146,7 +148,7 @@ if "%BUILD_EXIT_CODE%"=="0" (
   rem Overlay managed files so Script Extender Msgpack settings survive rebuilds.
   xcopy "!LOCAL_PLUGIN_DIR!" "!GAME_PLUGIN_DIR!\" /E /I /Q /Y
   if errorlevel 1 goto copy_failed
-  powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared\Release\Write-LocalBuildManifest.ps1" -ModName CastlePlanner
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared\Tools\Release\Write-LocalBuildManifest.ps1" -ModName CastlePlanner
   if errorlevel 1 goto copy_failed
   echo Plugin kopiert; vorhandene Laufzeitdaten wurden beibehalten.
 ) else (

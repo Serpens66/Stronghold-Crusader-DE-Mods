@@ -97,17 +97,17 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="..\Shared\ActivePlayerHelper.cs">
-      <Link>Shared\ActivePlayerHelper.cs</Link>
+    <Compile Include="..\Shared\Runtime\Gameplay\ActivePlayerHelper.cs">
+      <Link>Shared\Runtime\Gameplay\ActivePlayerHelper.cs</Link>
     </Compile>
-    <Compile Include="..\Shared\ActivePlayerKeepReadiness.cs">
-      <Link>Shared\ActivePlayerKeepReadiness.cs</Link>
+    <Compile Include="..\Shared\Runtime\Gameplay\ActivePlayerKeepReadiness.cs">
+      <Link>Shared\Runtime\Gameplay\ActivePlayerKeepReadiness.cs</Link>
     </Compile>
-    <Compile Include="..\Shared\DebugLogHelper.cs">
-      <Link>Shared\DebugLogHelper.cs</Link>
+    <Compile Include="..\Shared\Runtime\Diagnostics\DebugLogHelper.cs">
+      <Link>Shared\Runtime\Diagnostics\DebugLogHelper.cs</Link>
     </Compile>
-    <Compile Include="..\Shared\SerpLocalization.cs">
-      <Link>Shared\SerpLocalization.cs</Link>
+    <Compile Include="..\Shared\Runtime\Localization\SerpLocalization.cs">
+      <Link>Shared\Runtime\Localization\SerpLocalization.cs</Link>
     </Compile>
     <Compile Include="src\StartConditionsPlugin.cs" />
     <Compile Include="src\IStartConditionsSettings.cs" />
@@ -139,10 +139,10 @@
   <ItemGroup>
     <Reference Include="MessagePack"><HintPath>$(ExtenderDir)\MessagePack.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="MessagePack.Annotations"><HintPath>$(ExtenderDir)\MessagePack.Annotations.dll</HintPath><Private>false</Private></Reference>
-    <Compile Include="..\Shared\GameModeHelper.cs"><Link>Shared\GameModeHelper.cs</Link></Compile>
-    <Compile Include="..\Shared\GameplaySessionLifecycle.cs"><Link>Shared\GameplaySessionLifecycle.cs</Link></Compile>
-    <Compile Include="..\Shared\GameplayModActivationGate.cs"><Link>Shared\GameplayModActivationGate.cs</Link></Compile>
-    <Compile Include="..\Shared\ToolTipPresentation.cs"><Link>Shared\ToolTipPresentation.cs</Link></Compile>
+    <Compile Include="..\Shared\Adapters\APIShared\PlayerIdentityHelper.cs"><Link>Shared\Adapters\APIShared\PlayerIdentityHelper.cs</Link></Compile>
+    <Compile Include="..\Shared\Adapters\APIShared\MissionEventsAdapter.cs"><Link>Shared\Adapters\APIShared\MissionEventsAdapter.cs</Link></Compile>
+    <Compile Include="..\Shared\Adapters\APIShared\GameplayModActivationGate.cs"><Link>Shared\Adapters\APIShared\GameplayModActivationGate.cs</Link></Compile>
+    <Compile Include="..\Shared\Runtime\UI\ToolTipPresentation.cs"><Link>Shared\Runtime\UI\ToolTipPresentation.cs</Link></Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 

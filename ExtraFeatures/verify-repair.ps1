@@ -153,8 +153,8 @@ foreach ($path in @($info)) {
         throw "Active version mismatch: $path"
     }
 }
-if (-not $activeVersion -or $runtimeText -notmatch 'BepInDependency\(ApiSharedGuid, "0\.4\.6"\)') {
-    throw 'Plugin version or APIShared dependency mismatch.'
+if (-not $activeVersion) {
+    throw 'Plugin version is missing.'
 }
 $addedCode = & git -C $workspace diff --unified=0 -- '*.cs' '*.csproj'
 if ($LASTEXITCODE -ne 0) { throw 'Workspace diff audit failed.' }

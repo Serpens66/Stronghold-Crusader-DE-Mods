@@ -125,7 +125,7 @@ internal static class Program
         string workspace = FindWorkspace();
         string plugin = File.ReadAllText(Path.Combine(workspace, "Testmods", "OxTetherIdleFixTest", "src", "OxTetherIdleFixTestPlugin.cs"));
         string runtime = File.ReadAllText(Path.Combine(workspace, "Testmods", "OxTetherIdleFixTest", "src", "OxTetherIdleFixTestRuntime.cs"));
-        string helper = File.ReadAllText(Path.Combine(workspace, "Shared", "DebugLogHelper.cs"));
+        string helper = File.ReadAllText(Path.Combine(workspace, "Shared", "Runtime", "Diagnostics", "DebugLogHelper.cs"));
         Check(plugin.Contains("requireCurrentVersion: true"), "native hash mismatch fails closed");
         Check(helper.Contains(ExpectedHash), "shared hash matches test contract");
         Check(plugin.Contains("private static OxTetherIdleFixTestRuntime persistentRuntime;"),

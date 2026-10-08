@@ -10,7 +10,10 @@
     <Compile Include="..\..\..\APIShared\src\UnitCommands\GroundMovePreviewAuthorization.cs" Link="GroundMovePreviewAuthorization.cs" />
     <Compile Include="..\..\src\ExtendedShiftCommandQueueModel.cs" Link="ExtendedShiftCommandQueueModel.cs" />
     <Compile Include="..\..\..\APIShared\src\UnitCommands\LargeMoveTargetOverflowModel.cs" Link="LargeMoveTargetOverflowModel.cs" />
-    <Compile Include="..\..\..\Shared\GroundMovePreviewEligibility.cs" Link="GroundMovePreviewEligibility.cs" />
+    <Compile Include="..\..\..\Shared\Runtime\Gameplay\GroundMovePreviewEligibility.cs" Link="GroundMovePreviewEligibility.cs" />
     <Compile Include="..\..\..\APIShared\src\UnitCommands\QueueNativeContract.cs" Link="QueueNativeContract.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\..\..\APIShared\src\UnitCommands\Internal\GroundMovePreviewEligibility.cs" />
   </ItemGroup>
 </Project>

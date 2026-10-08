@@ -1,5 +1,5 @@
 using APIShared.GameModes;
-using Shared;
+using APIShared.Internal;
 using SHCDESE.API;
 using SHCDESE.EventAPI.MapLoader;
 using CrusaderDE;

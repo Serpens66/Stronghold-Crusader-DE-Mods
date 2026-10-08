@@ -12,7 +12,9 @@
   "SerpChangelog": [
     {
       "Version": "1.0.33",
-      "Changes": ["Move routine diagnostics to Debug; preserve warnings, errors and explicit file-operation results."]
+      "Changes": [
+        "Move routine diagnostics to Debug; preserve warnings, errors and explicit file-operation results."
+      ]
     },
     {
       "Version": "1.0.32",
@@ -174,6 +176,12 @@
       "Changes": [
         "Removed support to change vanilla material costs of european units for everyone, because I think the extra costs for humans is enough and it makes this mod less complicated."
       ]
+    }
+  ],
+  "Dependencies": [
+    {
+      "GUID": "APIShared_Serp",
+      "MinimumVersion": "0.4.0"
     }
   ]
 }

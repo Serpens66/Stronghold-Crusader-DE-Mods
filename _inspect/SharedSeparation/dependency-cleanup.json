@@ -1,0 +1,42 @@
+[
+  {
+    "plugin": "BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs",
+    "effectiveMinimum": "0.4.11",
+    "previousDeclarations": [
+      "0.4.7",
+      "0.4.11"
+    ]
+  },
+  {
+    "plugin": "ExtraFeatures/src/ExtraFeaturesPlugin.cs",
+    "effectiveMinimum": "0.4.10",
+    "previousDeclarations": [
+      "0.4.6",
+      "0.4.10"
+    ]
+  },
+  {
+    "plugin": "Helpers/ActiveAIVDetector/src/ActiveAIVDetectorPlugin.cs",
+    "effectiveMinimum": "0.3.6",
+    "previousDeclarations": [
+      "0.3.6",
+      "0.3.6"
+    ]
+  },
+  {
+    "plugin": "Testmods/SkinTest/src/SkinTestPlugin.cs",
+    "effectiveMinimum": "0.3.6",
+    "previousDeclarations": [
+      "0.3.6",
+      "0.3.6"
+    ]
+  },
+  {
+    "plugin": "Testmods/VirtualUnitsPrototype/src/VirtualUnitsPlugin.cs",
+    "effectiveMinimum": "0.3.6",
+    "previousDeclarations": [
+      "0.3.2",
+      "0.3.6"
+    ]
+  }
+]

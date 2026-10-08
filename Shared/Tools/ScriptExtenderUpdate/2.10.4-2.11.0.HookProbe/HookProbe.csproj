@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(GameDir)' == ''">
+    <GameDir>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="..\..\..\ScriptExtenderUpdate\2.10.4-2.11.0.HookProbe\Iced"><HintPath>$(GameDir)\BepInEx\plugins\000shcdese\Iced.dll</HintPath></Reference>
+    <Reference Include="..\..\..\ScriptExtenderUpdate\2.10.4-2.11.0.HookProbe\RedBird.Abstractions"><HintPath>$(GameDir)\BepInEx\plugins\000shcdese\RedBird.Abstractions.dll</HintPath></Reference>
+    <Reference Include="..\..\..\ScriptExtenderUpdate\2.10.4-2.11.0.HookProbe\RedBird.Core"><HintPath>$(GameDir)\BepInEx\plugins\000shcdese\RedBird.Core.dll</HintPath></Reference>
+    <Reference Include="..\..\..\ScriptExtenderUpdate\2.10.4-2.11.0.HookProbe\RedBird.X64"><HintPath>$(GameDir)\BepInEx\plugins\000shcdese\RedBird.X64.dll</HintPath></Reference>
+    <Reference Include="..\..\..\ScriptExtenderUpdate\2.10.4-2.11.0.HookProbe\Microsoft.Extensions.Logging.Abstractions"><HintPath>$(GameDir)\BepInEx\plugins\000shcdese\Microsoft.Extensions.Logging.Abstractions.dll</HintPath></Reference>
+  </ItemGroup>
+</Project>

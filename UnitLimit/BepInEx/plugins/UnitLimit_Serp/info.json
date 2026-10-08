@@ -189,5 +189,11 @@
         "Code improvements"
       ]
     }
+  ],
+  "Dependencies": [
+    {
+      "GUID": "APIShared_Serp",
+      "MinimumVersion": "0.4.0"
+    }
   ]
 }

@@ -27,7 +27,7 @@ foreach ($relative in $roots) {
         }
     }
 }
-& (Join-Path $workspace 'Shared\Test-PermanentNativeRuntimePatches.ps1')
+& (Join-Path $workspace 'Shared\Tools\Validation\Test-PermanentNativeRuntimePatches.ps1')
 if (-not $?) { throw 'Workspace hook regression failed' }
 $api = [IO.File]::ReadAllText((Join-Path $workspace 'APIShared\src\Pathfinding\AssassinPathAPI.cs'))
 if ($api -match '\b(transaction|endpointHooks|builderHook)\??\.Dispose\s*\(' -or

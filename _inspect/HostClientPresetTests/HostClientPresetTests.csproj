@@ -16,7 +16,7 @@
   <ItemGroup>
     <Compile Include="..\..\APIShared\src\Missions\MissionLifecycleContracts.cs" />
     <Compile Include="..\..\APIShared\src\Missions\MissionLifecycleState.cs" />
-    <Compile Include="..\HostClientPresetTests\MissionTestEnvironment.cs" />
+    <Compile Include="MissionTestEnvironment.cs" />
     <Reference Include="R3"><HintPath>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\R3.dll</HintPath></Reference>
 
     <Compile Include="..\..\CastlePlanner\src\CastleSpawnCompatibility.cs">
@@ -94,13 +94,13 @@
     <Compile Include="..\..\SerpsModsHost\src\ModSettingsSearchPolicy.cs">
       <Link>ModSettingsSearchPolicy.cs</Link>
     </Compile>
-    <Compile Include="..\..\Shared\GameModeHelper.cs">
+    <Compile Include="..\..\Shared\Adapters\APIShared\PlayerIdentityHelper.cs">
       <Link>GameModeHelper.cs</Link>
     </Compile>
-    <Compile Include="..\..\Shared\GameplaySessionLifecycle.cs">
+    <Compile Include="..\..\Shared\Adapters\APIShared\MissionEventsAdapter.cs">
       <Link>GameplaySessionLifecycle.cs</Link>
     </Compile>
-    <Compile Include="..\..\Shared\GameplayModActivationGate.cs">
+    <Compile Include="..\..\Shared\Adapters\APIShared\GameplayModActivationGate.cs">
       <Link>GameplayModActivationGate.cs</Link>
     </Compile>
     <Compile Include="..\..\APIShared\src\GameModes\GameplayModModePolicy.cs">
@@ -116,7 +116,7 @@
     <Compile Include="..\..\StartConditions\src\StartGoldPolicy.cs">
       <Link>StartGoldPolicy.cs</Link>
     </Compile>
-    <Compile Include="..\..\Shared\LobbyLifecycle.cs">
+    <Compile Include="..\..\Shared\Runtime\Gameplay\LobbyLifecycle.cs">
       <Link>LobbyLifecycle.cs</Link>
     </Compile>
     <Compile Include="..\..\BugfixesAndQoL\src\LocalPerPlayerSetting.cs">
@@ -233,10 +233,10 @@
     <Compile Include="..\..\BugfixesAndQoL\src\SteamInviteBlacklistStore.cs">
       <Link>SteamInviteBlacklistStore.cs</Link>
     </Compile>
-    <Compile Include="..\..\Shared\DependencyFreeJson.cs">
+    <Compile Include="..\..\Shared\Runtime\Persistence\DependencyFreeJson.cs">
       <Link>DependencyFreeJson.cs</Link>
     </Compile>
-    <Compile Include="..\..\Shared\AtomicFileReplacement.cs">
+    <Compile Include="..\..\Shared\Runtime\Persistence\AtomicFileReplacement.cs">
       <Link>AtomicFileReplacement.cs</Link>
     </Compile>
     <Compile Include="..\..\BugfixesAndQoL\src\MarketTradeIntegration.cs">
@@ -245,13 +245,20 @@
     <Compile Include="..\..\BugfixesAndQoL\src\GameSpeedRepeatScheduler.cs">
       <Link>GameSpeedRepeatScheduler.cs</Link>
     </Compile>
-    <Compile Include="..\..\Shared\NativePatternResolver.cs">
+    <Compile Include="..\..\Shared\Runtime\Native\NativePatternResolver.cs">
       <Link>NativePatternResolver.cs</Link>
     </Compile>
-    <Compile Include="..\..\Shared\TroopActionButtonLayoutPolicy.cs">
+    <Compile Include="..\..\Shared\Runtime\UI\TroopActionButtonLayoutPolicy.cs">
       <Link>TroopActionButtonLayoutPolicy.cs</Link>
     </Compile>
   </ItemGroup>
   <ItemGroup><Compile Include="FearFactorPresetTests.cs" /></ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <ItemGroup>
+    <Compile Include="..\..\APIShared\src\ModSettings\Internal\AtomicFileReplacement.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Internal\DependencyFreeJson.cs" />
+    <Compile Include="..\..\APIShared\src\GameModes\Internal\PlayerIdentityHelper.cs" />
+    <Compile Include="..\..\APIShared\src\Missions\Internal\MissionEventRelay.cs" />
+    <Compile Include="..\..\APIShared\src\Core\Internal\NativePatternResolver.cs" />
+  </ItemGroup>
 </Project>

@@ -1,0 +1,35 @@
+{
+  "Repository": "Serpens66/Stronghold-Crusader-DE-Mods",
+  "Branch": "main",
+  "ProjectDirectories": {},
+  "ApiShared": {
+    "Project": "APIShared",
+    "Guid": "APIShared_Serp",
+    "Repository": "SHCDE-APIShared/APIShared"
+  },
+  "AdditionalReleaseIndexEntries": [
+    {
+      "Project": "SerpsMods",
+      "DisplayName": "SerpsMods (Modpack)",
+      "AssetNameTemplate": "SerpsMods-v{version}.zip",
+      "HashLabel": "ZIP SHA-256",
+      "ShowCodeStatus": false,
+      "Position": "First"
+    }
+  ],
+  "Projects": [
+    "APIShared",
+    "BugfixesAndQoL",
+    "BuildingCosts",
+    "BuildingLimit",
+    "CheatMod",
+    "ExtendedData",
+    "ExtraFeatures",
+    "ImprovedHunters",
+    "RandomEvents",
+    "CastlePlanner",
+    "StartConditions",
+    "UnitCosts",
+    "UnitLimit"
+  ]
+}

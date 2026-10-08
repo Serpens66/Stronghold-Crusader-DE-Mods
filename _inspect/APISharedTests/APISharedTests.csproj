@@ -14,7 +14,7 @@
     <OutputPath>bin\</OutputPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(GameDir)' == ''"><GameDir>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir></PropertyGroup>
-  <PropertyGroup><ExtenderDir>$(MSBuildThisFileDirectory)..\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481</ExtenderDir></PropertyGroup>
+  <PropertyGroup Condition="'$(ExtenderDir)' == ''"><ExtenderDir>$(GameDir)\BepInEx\plugins\000shcdese</ExtenderDir></PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -25,7 +25,7 @@
     <Reference Include="com.rlabrecque.steamworks.net"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\com.rlabrecque.steamworks.net.dll</HintPath></Reference>
     <Reference Include="MonoMod.RuntimeDetour"><HintPath>$(GameDir)\BepInEx\core\MonoMod.RuntimeDetour.dll</HintPath></Reference>
     <Reference Include="Mono.Cecil"><HintPath>$(GameDir)\BepInEx\core\Mono.Cecil.dll</HintPath></Reference>
-    <Reference Include="Assembly-CSharp"><HintPath>$(MSBuildThisFileDirectory)..\..\shcde-script-extender\deps\Assembly-CSharp-publicized.dll</HintPath></Reference>
+    <Reference Include="Assembly-CSharp"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll</HintPath></Reference>
     <Reference Include="Noesis.NoesisGUI"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Noesis.NoesisGUI.dll</HintPath></Reference>
     <Reference Include="R3"><HintPath>$(ExtenderDir)\R3.dll</HintPath></Reference>
     <Reference Include="UnityEngine"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.dll</HintPath></Reference>
@@ -45,7 +45,8 @@
       <Name>APIShared</Name>
     </ProjectReference>
   </ItemGroup>
-  <ItemGroup><Compile Include="Program.cs" /><Compile Include="MissionLifecycleTests.cs" /><Compile Include="SavegameModSettingsTests.cs" /><Compile Include="PlayerDefeatTests.cs" /><Compile Include="MarkedSelectionHarmonyTests.cs" /><Compile Include="GateBridgeAutomationTests.cs" /></ItemGroup>
-  <ItemGroup><Compile Include="GateBridgeDelayTests.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="..\..\APIShared\tests\APISharedTests\Program.cs" /><Compile Include="..\..\APIShared\tests\APISharedTests\MissionLifecycleTests.cs" /><Compile Include="..\..\APIShared\tests\APISharedTests\SavegameModSettingsTests.cs" /><Compile Include="..\..\APIShared\tests\APISharedTests\PlayerDefeatTests.cs" /><Compile Include="..\..\APIShared\tests\APISharedTests\MarkedSelectionHarmonyTests.cs" /><Compile Include="..\..\APIShared\tests\APISharedTests\GateBridgeAutomationTests.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="..\..\APIShared\tests\APISharedTests\GateBridgeDelayTests.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="WorkspaceIntegration.cs" /></ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

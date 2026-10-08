@@ -4,7 +4,7 @@ using CrusaderDE;
 using MonoMod.RuntimeDetour;
 using R3;
 using SHCDESE.EventAPI;
-using Shared;
+using APIShared.Internal;
 using System;
 using System.Collections.Generic;
 using System.Reflection;

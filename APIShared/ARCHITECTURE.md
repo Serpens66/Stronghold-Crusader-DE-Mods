@@ -15,7 +15,7 @@ APIShared owns typed, process-wide services and the common ModSettings integrati
 | `src/ModSettings` | Public settings integration and its implementation |
 | `src/UnitCommands` | Internal BugfixesAndQoL/MoatMove command and formation implementation |
 
-Capability contracts retain the `APIShared` namespace. Directories organize implementation without forcing namespace churn in these contracts. Public former `Shared` types are placed in the three explicit namespaces above. Internal source-linked `Shared` utilities still provide dependency-free JSON, dispatch, logging and per-consumer adapters; they are not a third-party dependency.
+Capability contracts retain the `APIShared` namespace. Directories organize implementation without forcing namespace churn in these contracts. Public former `Shared` types are placed in the three explicit namespaces above. Each API domain owns its internal helpers in an `Internal` subdirectory. APIShared compiles no workspace `Shared` sources. Mod-side helpers and adapters are maintained separately; neither side source-links the other. Historical origin comments are provenance, not active dependencies.
 
 ## Publication and lifetime
 
@@ -29,7 +29,7 @@ Readiness callbacks share one exception boundary for early and late delivery, al
 
 `PresetLobbyModSettingsViewModel` is a partial class: the main file handles integration, permissions and notifications; `.Sources.cs` handles source selection and UI/search commands; `.Persistence.cs` contains the existing preset controller and stable storage schema. `PerPlayerLobbySettings.cs` owns lobby convergence and its builder contracts. `LobbyModSettingsPresetRegistration.cs` owns preparation, registration and horizontal focus-scroll handling.
 
-The extraction preserves executable member bodies and persistence keys. JSON still uses the source-linked `Shared.DependencyFreeJson`. Personal, host, per-player and trail settings retain their existing sync and save boundaries.
+The extraction preserves executable member bodies and persistence keys. JSON uses APIShared's own dependency-free `APIShared.Internal.DependencyFreeJson` in `src/ModSettings/Internal`. The workspace parser is independently maintained and is never compiled into APIShared. Personal, host, per-player and trail settings retain their existing sync and save boundaries.
 
 ## Policy and compatibility
 

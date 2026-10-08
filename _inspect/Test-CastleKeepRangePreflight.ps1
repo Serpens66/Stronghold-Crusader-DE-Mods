@@ -64,6 +64,6 @@ foreach ($file in Get-ChildItem $localeRoot -Filter '*.txt') {
     }
     if ($text -match '(?<!\r)\n|\r(?!\n)') { throw "Locale CRLF: $($file.Name)" }
 }
-& (Join-Path $workspace 'Shared/Test-PermanentNativeRuntimePatches.ps1')
+& (Join-Path $workspace 'Shared/Tools/Validation/Test-PermanentNativeRuntimePatches.ps1')
 Write-Output ('PASS: range runtime JSON/lifecycle, XAML, CRLF, locale keys; real game member: ' + $getTeam[0].FullName)
 Write-Output 'PASS: installed SE public range APIs and complete mapper list; no new executable mutation.'

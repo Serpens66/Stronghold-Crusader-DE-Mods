@@ -9,7 +9,7 @@
     <Nullable>disable</Nullable>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="..\..\Shared\AtomicFileReplacement.cs" Link="Shared\AtomicFileReplacement.cs" />
-    <Compile Include="..\..\Shared\DependencyFreeJson.cs" Link="Shared\DependencyFreeJson.cs" />
+    <Compile Include="..\..\Shared\Runtime\Persistence\AtomicFileReplacement.cs" Link="Shared\Runtime\Persistence\AtomicFileReplacement.cs" />
+    <Compile Include="..\..\Shared\Runtime\Persistence\DependencyFreeJson.cs" Link="Shared\Runtime\Persistence\DependencyFreeJson.cs" />
   </ItemGroup>
 </Project>

@@ -7,7 +7,6 @@ namespace ActiveAIVDetector
 {
     [BepInDependency(ScriptExtenderGuid, "2.10.4")]
     [BepInDependency(ApiSharedGuid, "0.3.6")]
-    [BepInDependency("APIShared_Serp", "0.3.6")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class ActiveAIVDetectorPlugin : BaseUnityPlugin
     {

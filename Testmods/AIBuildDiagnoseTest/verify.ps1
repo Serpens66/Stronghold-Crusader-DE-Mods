@@ -364,6 +364,6 @@ foreach ($path in $textFiles) {
     $literalEscapedNewline = ([string][char]92) + 'r' + ([string][char]92) + 'n'
     if ($content.Contains($literalEscapedNewline)) { throw "Literal backslash-r-backslash-n sequence: $fullPath" }
 }
-& (Join-Path $workspace 'Shared\Test-PermanentNativeRuntimePatches.ps1')
+& (Join-Path $workspace 'Shared\Tools\Validation\Test-PermanentNativeRuntimePatches.ps1')
 if (-not $?) { throw 'Workspace native runtime regression check failed.' }
 Write-Host 'PASS: Diagnostic runtime and CRLF checks.'

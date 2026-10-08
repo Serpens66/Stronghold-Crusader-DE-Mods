@@ -283,7 +283,7 @@ internal static class Program
         Check(!runtime.Contains("CreatePrefab") && !runtime.Contains("MAPPER_WOODWALL") &&
             !runtime.Contains("DeleteBuildingSafe"),
             "automatic test no longer creates or deletes a wall/building");
-        Check(project.Contains(@"Shared\DebugLogHelper.cs") && project.Contains(@"Shared\NativePatternResolver.cs"), "required shared helpers are linked");
+        Check(project.Contains(@"Shared\Runtime\Diagnostics\DebugLogHelper.cs") && project.Contains(@"Shared\Runtime\Native\NativePatternResolver.cs"), "required shared helpers are linked");
         Check(!project.Contains("UnityEngine.InputLegacyModule"), "automatic test has no input-module dependency");
         Check(info.Contains("\"Version\": \"0.1.3\"") && info.Contains("\"NetworkMode\": 1"), "test version and network mode");
 

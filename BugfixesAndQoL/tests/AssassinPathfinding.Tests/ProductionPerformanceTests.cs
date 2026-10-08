@@ -38,6 +38,7 @@ internal static partial class Program
             .Select(m => m.ToFullString()));
         string fixture = File.ReadAllText(Path.Combine(root, "_inspect/AssassinPerf/ProductionFixture.cs.txt"))
             .Replace("RUNTIME_MEMBERS", body).Replace("PUBLICATION_MEMBERS", publishing).Replace("API_BOUNDARY", boundary);
+        if (!before) fixture = fixture.Replace("namespace Shared { static class DebugLogHelper", "namespace APIShared.Internal { static class DebugLogHelper");
         if (before) fixture = fixture.Replace("out var cached,out _", "out var cached");
         fixture = fixture.Replace("VERIFY_BOUND_PROFILE", before ? "" : """
    var direct=new AssassinPathfindingRuntime("open");

@@ -6,7 +6,15 @@
   "Version": "0.1.0",
   "MinimumScriptExtenderVersion": "2.11.0",
   "MaximumScriptExtenderVersion": "",
+  "Dependencies": [
+    {
+      "GUID": "APIShared_Serp",
+      "MinimumVersion": "0.4.2"
+    }
+  ],
   "Manifest": 1,
   "NetworkMode": 1,
-  "SupportedGameVersions": ["2.8.0.2"]
+  "SupportedGameVersions": [
+    "2.8.0.2"
+  ]
 }

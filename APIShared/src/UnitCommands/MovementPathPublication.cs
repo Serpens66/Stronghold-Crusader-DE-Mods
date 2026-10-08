@@ -102,7 +102,7 @@ namespace APIShared.UnitCommands
                 if (!assassinExactPublicationLogged)
                 {
                     assassinExactPublicationLogged = true;
-                    try { Shared.DebugLogHelper.LogDebug(log, $"Assassin exact route published after native reconstruction; unit={unitId} global={global} start=({sx},{sy}) target=({tx},{ty}) directions={count}."); }
+                    try { APIShared.Internal.DebugLogHelper.LogDebug(log, $"Assassin exact route published after native reconstruction; unit={unitId} global={global} start=({sx},{sy}) target=({tx},{ty}) directions={count}."); }
                     catch { /* Logging cannot turn a published route into a native failure. */ }
                 }
                 return count;
@@ -525,7 +525,7 @@ namespace APIShared.UnitCommands
                 {
                     byte* manager = pathManager == nativePathManager ? (byte*)pathManager.ToPointer() : null;
                     UnitMoveFrame frame = GetCurrentUnitMoveFrame();
-                    Shared.DebugLogHelper.LogWarning(log,
+                    APIShared.Internal.DebugLogHelper.LogWarning(log,
                         $"Bugfixes and QoL stage=friendly-moat-movement-fallback-contract-rejected unit={plan?.UnitId ?? 0} " +
                         $"count={fallbackContractRejections} reason={reason} " +
                         $"click=({activeMoveCommand?.TargetX ?? -1},{activeMoveCommand?.TargetY ?? -1}) " +
@@ -797,7 +797,7 @@ namespace APIShared.UnitCommands
                 details = $"replacement-rollback:{ex.GetType().Name}";
                 try
                 {
-                    Shared.DebugLogHelper.LogWarning(
+                    APIShared.Internal.DebugLogHelper.LogWarning(
                         log,
                         $"Bugfixes and QoL stage=friendly-moat-movement-replacement-rollback unit={plan?.UnitId ?? 0} " +
                         $"reason={ex.GetType().Name} bufferRestored=1.");

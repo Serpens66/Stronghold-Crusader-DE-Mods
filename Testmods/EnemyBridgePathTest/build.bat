@@ -1,5 +1,7 @@
 @echo off
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\Shared\Test-UnitAccess.ps1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\Shared\Tools\Validation\Test-SharedBoundaries.ps1"
+if errorlevel 1 exit /b 1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\Shared\Tools\Validation\Test-UnitAccess.ps1"
 if errorlevel 1 exit /b 1
 setlocal EnableExtensions EnableDelayedExpansion
 
@@ -46,7 +48,7 @@ rem Hash-bound native reference runs only in a separate x64 process/private imag
 "%MSBUILD%" "%PROJECT_DIR%..\..\_inspect\BridgePlanningTests\BridgePlanningTests.csproj" /p:Configuration=Debug
 if errorlevel 1 goto build_failed
 "%PROJECT_DIR%..\..\_inspect\BridgePlanningTests\bin\BridgePlanningTests.exe"
-if errorlevel 1 goto build_failed
+if not "%ERRORLEVEL%"=="0" goto build_failed
 
 if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
 pushd "%PROJECT_DIR%"

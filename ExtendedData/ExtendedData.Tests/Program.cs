@@ -1937,7 +1937,7 @@ static void TestLobbyPacketThreadMarshalling()
         coordinator.Contains("ProcessCoopCustomizePacket(packet, new CSteamID(senderSteamId))", StringComparison.Ordinal) &&
         coordinator.Contains("ProcessBuiltInCustomizeOriginPacket(packet, new CSteamID(senderSteamId))", StringComparison.Ordinal),
         "lobby packet callbacks do not copy and conditionally dispatch before UI/lobby access");
-    Assert(project.Contains("Shared\\UnityMainThreadDispatch.cs", StringComparison.Ordinal),
+    Assert(project.Contains("Shared\\Runtime\\Threading\\UnityMainThreadDispatch.cs", StringComparison.Ordinal),
         "ExtendedData does not source-link the validated main-thread dispatcher");
 }
 
@@ -2061,7 +2061,7 @@ static void TestSteamWorkshopReadinessGate()
     string projectRoot = FindProjectRoot();
     string workspaceRoot = Directory.GetParent(projectRoot)?.FullName ??
         throw new InvalidOperationException("workspace root missing");
-    string workshopPaths = File.ReadAllText(Path.Combine(workspaceRoot, "Shared", "WorkshopContentPaths.cs"));
+    string workshopPaths = File.ReadAllText(Path.Combine(workspaceRoot, "Shared", "Runtime", "Workshop", "WorkshopContentPaths.cs"));
     string castleSettings = File.ReadAllText(Path.Combine(
         workspaceRoot,
         "CastlePlanner",

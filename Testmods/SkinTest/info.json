@@ -15,5 +15,11 @@
         "Updated Script Extender 2.14.0 unit field contracts; preserved death-marker and full control-word semantics."
       ]
     }
+  ],
+  "Dependencies": [
+    {
+      "GUID": "APIShared_Serp",
+      "MinimumVersion": "0.3.6"
+    }
   ]
 }

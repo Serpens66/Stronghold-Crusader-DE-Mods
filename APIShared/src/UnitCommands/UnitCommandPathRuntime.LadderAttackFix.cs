@@ -468,7 +468,7 @@ namespace APIShared.UnitCommands
         {
             if (probe.ModeRetryCount == 0)
                 return;
-            Shared.DebugLogHelper.LogDebug(
+            APIShared.Internal.DebugLogHelper.LogDebug(
                 log,
                 $"Bugfixes and QoL Vanilla ladder attack group-mode result: " +
                 $"commandSeq={probe.CommandSequence}, kind={probe.Kind}, " +
@@ -487,7 +487,7 @@ namespace APIShared.UnitCommands
         {
             if (!DetailedDiagnosticsEnabled || activeAttackCommand == null)
                 return;
-            Shared.DebugLogHelper.LogDebug(
+            APIShared.Internal.DebugLogHelper.LogDebug(
                 log,
                 $"Bugfixes and QoL Vanilla ladder attack scope not created: " +
                 $"commandSeq={activeAttackCommand.Sequence}, kind={kind}, tribe={tribeId}, " +

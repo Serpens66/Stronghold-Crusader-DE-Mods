@@ -379,7 +379,7 @@ Empfohlene spätere Architektur:
 - mod-eigene, pro Lord definierte `outer_patrol_troops`-Liste;
 - Sidecar-Datei statt Änderung des festen `InternalAIC`-Layouts von `0x5E4` Bytes;
 - Unterstützung sowohl der Vanilla-Lords als auch klar identifizierter Custom-Lords;
-- Runtime-JSON ausschließlich über `Shared/DependencyFreeJson.cs`;
+- Runtime-JSON ausschließlich über `Shared/Runtime/Persistence/DependencyFreeJson.cs`;
 - fail-closed Schema-, Typ-, Pflichtfeld- und Wertebereichsprüfung im mod-eigenen Adapter;
 - Auswahl aus der Patrouillenliste nur, wenn die tatsächliche Rolle-1-Quote bereits erfüllt ist;
 - Vanilla-Liste als dokumentierter Fallback nur dann, wenn dies ausdrücklich als gewünschtes Verhalten entschieden wurde.

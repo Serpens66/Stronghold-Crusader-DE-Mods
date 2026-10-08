@@ -1,0 +1,378 @@
+[
+  {
+    "Path": "Shared\\ActivePlayerHelper.cs",
+    "Hash": "3F9E73409963668909B805EE097D6B3AB8025B4F8B39F62ECB8DAA8675E704E9"
+  },
+  {
+    "Path": "Shared\\ActivePlayerKeepReadiness.cs",
+    "Hash": "728AC7F183EAFDC6E896D5F0EB7B03FA38340BCF383C61A4BF439D41CABEDF06"
+  },
+  {
+    "Path": "Shared\\AiSettingsHelpHover.cs",
+    "Hash": "E7E628D51E69D73B0EA301D53B8E4FEEAA4017CF716B234DC72EABE4C061102B"
+  },
+  {
+    "Path": "Shared\\AtomicFileReplacement.cs",
+    "Hash": "297809D6621DA8404A1A074636EE8D6C447A8845785715690A6738C56E87112A"
+  },
+  {
+    "Path": "Shared\\CrashBreadcrumbDiagnostics.cs",
+    "Hash": "15155BB912B43A4ABF26C02033F025DCA9E0C0D92CACAC0E85DF4306231EEE60"
+  },
+  {
+    "Path": "Shared\\CrashBreadcrumbRecorder.cs",
+    "Hash": "2654DEA848E59E7301256CFF5A0702102FCDA92C138417EC98F0C6CB91CF53DE"
+  },
+  {
+    "Path": "Shared\\DebugLogHelper.cs",
+    "Hash": "1E9C4C0FAAC80292FBB62F6B4F0BCB2D39960457967AB59AB1BF9D6A68AD0E52"
+  },
+  {
+    "Path": "Shared\\DeferredSnapshotRefreshRequest.cs",
+    "Hash": "DA6ACB1FF6FA5BAE83716A86FD46AFF4BD723DF40EE795441F7B2E350722B69E"
+  },
+  {
+    "Path": "Shared\\DependencyFreeJson.cs",
+    "Hash": "0C1DCADDDD3C0E2049D8EDA86A6EBBD19EB47B1D2A6E21CD5946774A021A779F"
+  },
+  {
+    "Path": "Shared\\GameBuildingFootprint.cs",
+    "Hash": "DD27D127612CF086A22A0D9E1919DD65D451D1B58CB69082D2AB700499E75A81"
+  },
+  {
+    "Path": "Shared\\GameModeHelper.cs",
+    "Hash": "D7A8B42C20CE46749651AE10F23F9A7C93B29A665B1B4B2322597285D6775F36"
+  },
+  {
+    "Path": "Shared\\GameplayModActivationGate.cs",
+    "Hash": "003BA3087AB29343A5EC727D67BCEF7BBACFB1560194E068ACBCF861A63D545B"
+  },
+  {
+    "Path": "Shared\\GameplaySessionLifecycle.cs",
+    "Hash": "175C1B77C14D14E6248AA74A062D14DC4399EFDB665C3F344FCB0CF6AA8999E1"
+  },
+  {
+    "Path": "Shared\\GameProjectileSlotPolicy.cs",
+    "Hash": "1851E94BDA3F525F1537C040B4ECE2A305BBCAD2E721A5728953B4BD6E84E0A5"
+  },
+  {
+    "Path": "Shared\\GatehouseQueryUnitIdPolicy.cs",
+    "Hash": "67C115EE531175FF946D690DFD9A4C45A71B41B0EA9A9A3492215ACF4A37A981"
+  },
+  {
+    "Path": "Shared\\GroundMovePreviewEligibility.cs",
+    "Hash": "ACB059FFBA36174EF8790C53E8BC047911F2DB9080F9E5C0ECA1690FDB67F467"
+  },
+  {
+    "Path": "Shared\\LobbyLifecycle.cs",
+    "Hash": "0C4B2D211EF443C085679EE60231B77514C54868C6AF603FA2DA121D4702BF37"
+  },
+  {
+    "Path": "Shared\\LordPortraitPalette.cs",
+    "Hash": "267F059CB75CE3F66D5C65474ABB56D714D4D4078F99FD1C354C1EEDE81F5C4A"
+  },
+  {
+    "Path": "Shared\\NativeBuildingCompoundGroup.cs",
+    "Hash": "18BA2D5A66A63B1BEC49D6A43402580449FF80CE2AA6E4BCB433934451B60A2B"
+  },
+  {
+    "Path": "Shared\\NativePatternResolver.cs",
+    "Hash": "4155CCA399BB97A955ED875401914DD13EC5895547C167D9D0C0C5C2EE842CC8"
+  },
+  {
+    "Path": "Shared\\NumericTextInput.cs",
+    "Hash": "B2F5DF751D3E25D88B92693FBBFD9BD4D92584BB78B0AB8E91FE311770F94E85"
+  },
+  {
+    "Path": "Shared\\PathDecisionAggregate.cs",
+    "Hash": "26DCC7E393CA42FE434A2C6CCD4F5BEE25F939C94DEAAD56890D13EEC6C00ADE"
+  },
+  {
+    "Path": "Shared\\RecruitmentHookContext.cs",
+    "Hash": "D23818A210644B3E6EEF8D5E6D1D42DB44CB2748F919787028491B748A6D0E64"
+  },
+  {
+    "Path": "Shared\\RecruitmentRequestPolicy.cs",
+    "Hash": "B11208CB7AF09B549BDAAF9C5B3C7D6D94478A2D636AAA035525E2EF927125B0"
+  },
+  {
+    "Path": "Shared\\SelectedChimpsSnapshotPolicy.cs",
+    "Hash": "374B5A773C67D9422ACB98576FD4A81CEA433BD6A0292B78C8F91958E4855B2A"
+  },
+  {
+    "Path": "Shared\\SerpLocalization.cs",
+    "Hash": "F67CA0289A56708212E46E5FF0893AA49319F04487B5FF2EB148FFDAA693AE7F"
+  },
+  {
+    "Path": "Shared\\TemporaryPackedRouteInspection.cs",
+    "Hash": "DDD8BA66FA06BD038E0CE83819B0A83C15AF76C6D13EABB385821B94E5330B5C"
+  },
+  {
+    "Path": "Shared\\Test-PermanentNativeRuntimePatches.ps1",
+    "Hash": "791793AAAF564AA73904A9560D33EC46BC76AF53E62073F4506257DF4C501EF1"
+  },
+  {
+    "Path": "Shared\\Test-UnitAccess.ps1",
+    "Hash": "719B1FA4A62734C04B9EBA26ECEF0A915B79F9B8F345D6FB13AC43AE05FFAF43"
+  },
+  {
+    "Path": "Shared\\Test-UnitCommandSplit.ps1",
+    "Hash": "7B2B707DFBC9831BF034A3553279F055B3C08B9DBF11BB23DA4E53D0210BD644"
+  },
+  {
+    "Path": "Shared\\ToolTipPresentation.cs",
+    "Hash": "FBE3F1C2EDE9A236FE17DF87974FA98BB572D8A1C5757F242081212F516584FE"
+  },
+  {
+    "Path": "Shared\\TroopActionButtonLayout.cs",
+    "Hash": "DF929C7DEE3ECFBEE517A761A853804E6A0ED7A17D19DD4379536804DDE7E164"
+  },
+  {
+    "Path": "Shared\\TroopActionButtonLayoutPolicy.cs",
+    "Hash": "113444525D49DE757BE13196C1816F228E144BAA370D08135B99424E8A7CFCD7"
+  },
+  {
+    "Path": "Shared\\UnitCommandSplit-Validation.md",
+    "Hash": "FA86A09F0E6F8F439C407DE511851DD6F812E5104AA23AA0CF6E8FE653752331"
+  },
+  {
+    "Path": "Shared\\UnityMainThreadDispatch.cs",
+    "Hash": "DC593041C688216D46DC724305452D73B3286940242CAA8A0281B4295B0AE3CB"
+  },
+  {
+    "Path": "Shared\\WorkshopContentPaths.cs",
+    "Hash": "A67C5AC3AD4540210A44A84E0E82CAB40345C7613EC1FA3B5C445A4C61E8D609"
+  },
+  {
+    "Path": "Shared\\WorkshopUploadStaging.cs",
+    "Hash": "086E3606313541A3650C2F2B2DA19839C7DE7CC55364E34CB59FA607E1EA4D41"
+  },
+  {
+    "Path": "Shared\\Docs\\SaveStateArrayLimits.md",
+    "Hash": "891DCBC1ADE3B74BABC800CB6AF98F9EE0037145FEC600303A82664B72A0A51E"
+  },
+  {
+    "Path": "Shared\\DocumentationImages\\CreateDocuImages.ps1",
+    "Hash": "4880AF005990B5CE2DF5E9E6AEADDC22FCC8C5C39CBF77CBA82971BB9B89A423"
+  },
+  {
+    "Path": "Shared\\Examples\\Trail_Mission_1.modjson.example",
+    "Hash": "4DA649CD748A1E07C13A01E845DFEA32501048F91D15134A257A15894D19653C"
+  },
+  {
+    "Path": "Shared\\Release\\Invoke-Release.bat",
+    "Hash": "385524A4D2994E860C50E59EB20C449193DD7F5F7D86690592E0E967948A0B35"
+  },
+  {
+    "Path": "Shared\\Release\\NexusRelease.Common.ps1",
+    "Hash": "FD84C603811894A276D35D9FDAC378AEAB774B7D6A27AA690E6105D75F644171"
+  },
+  {
+    "Path": "Shared\\Release\\Release-Mod.ps1",
+    "Hash": "57B87AAAEF9C5D2BFFD1CD7D6E91F74E93878249BA84C48135CAB22AF2796188"
+  },
+  {
+    "Path": "Shared\\Release\\release-projects.json",
+    "Hash": "EC65F79FD08BF1BBB3BBDA10871F3667826503E33B1613FBBD88D0399864DF47"
+  },
+  {
+    "Path": "Shared\\Release\\Release.Common.ps1",
+    "Hash": "13918D3C6751EAC7999F1D5B2B9D40120DB0CC385541BBBFE9FBAA5162985EDB"
+  },
+  {
+    "Path": "Shared\\Release\\ReleaseStatus.Common.ps1",
+    "Hash": "8357977E3D4557A8C99A1B86A0B5063496361AF1DAFD4D4AB7FFDEE0C7421E87"
+  },
+  {
+    "Path": "Shared\\Release\\SCDEModManagerPackage.ps1",
+    "Hash": "7BB0978BE045DF5A1B59E9E33F0A660DACE5B7FEFE20F4609E2D5BECB4F31314"
+  },
+  {
+    "Path": "Shared\\Release\\Test-NexusRelease.ps1",
+    "Hash": "E78BB6060DE51EBD8879BBF2AD37BF1656BC75639653F315D9065EB10C755146"
+  },
+  {
+    "Path": "Shared\\Release\\Test-ReleaseSetup.ps1",
+    "Hash": "6215E80DE88200D0B43476664284E96B37D7D03D6314B5A1D7D4A5E76DF590EF"
+  },
+  {
+    "Path": "Shared\\Release\\Test-ReleaseStatus.ps1",
+    "Hash": "C292C433A980C33D0FDDE30BDA1212BC7DC2B6BC9D65F4D18DB8BD06235304E1"
+  },
+  {
+    "Path": "Shared\\Release\\Test-SCDEModManagerCompatibility.ps1",
+    "Hash": "5FC80C51DAFDC5EC832AE37E47381BBED3D32C525EBED11771800A0C70E3912E"
+  },
+  {
+    "Path": "Shared\\Release\\Update-NexusMods.ps1",
+    "Hash": "836383E580902C215DD7FBB20A3063BA353D8B5C9D925B90AB2FFBA643D98258"
+  },
+  {
+    "Path": "Shared\\Release\\Update-ReleaseIndex.ps1",
+    "Hash": "9E66009032F0BBA39FB804528B0F5546B2662123346327A124C80847E04FF096"
+  },
+  {
+    "Path": "Shared\\Release\\Update-ReleaseStatus.ps1",
+    "Hash": "B8F972707A056E093293BE6DFACBEAAC0AE643D160F801FDB375C9929CD380B7"
+  },
+  {
+    "Path": "Shared\\Release\\Write-LocalBuildManifest.ps1",
+    "Hash": "4242B57537090073510E84C3A503E3A8997552B0B5B00518CD8F24E225A25E88"
+  },
+  {
+    "Path": "Shared\\ScriptExtenderUpdate\\2.10.1-2.10.4.compatibility.json",
+    "Hash": "6E49639F5E7BC4F4B8B649D2C10DDDC3B4DC2C61443864D8C54F7CB7AC6993E8"
+  },
+  {
+    "Path": "Shared\\ScriptExtenderUpdate\\2.10.4-2.11.0.compatibility.json",
+    "Hash": "8A6A2313EBA929BA9F200A132957368228D1F4EE76BCD7F25AD00D354C870F5F"
+  },
+  {
+    "Path": "Shared\\ScriptExtenderUpdate\\2.10.4-2.11.0.release-hooks.json",
+    "Hash": "9C128D6CDF26DE70EC0B69688B357F34FB37AE86B8C7C8DA547D3A7ECF1A691F"
+  },
+  {
+    "Path": "Shared\\ScriptExtenderUpdate\\2.11.0-2.12.0.compatibility.json",
+    "Hash": "E0F2D2AB2A1502E825AB29BD76069127D4A08893A8AF2A8220505C726AAFA870"
+  },
+  {
+    "Path": "Shared\\ScriptExtenderUpdate\\2.12.0-2.13.0.compatibility.json",
+    "Hash": "151B0829F553E4B4448D9D1573100BFF29345CAC9EC3A7DAC1549192D9CFAB08"
+  },
+  {
+    "Path": "Shared\\ScriptExtenderUpdate\\2.12.0-2.13.0.release-hooks.json",
+    "Hash": "64715E75E7B869CC2AF9215F628EC0363433FC78DB224E81FC8C1BEBCEB734A5"
+  },
+  {
+    "Path": "Shared\\ScriptExtenderUpdate\\2.13.0-2.14.0.compatibility.json",
+    "Hash": "C11CEFD79DD69611162A139FAC4BF559B02E41317130C1136DB539E5DF2121FB"
+  },
+  {
+    "Path": "Shared\\ScriptExtenderUpdate\\2.13.0-2.14.0.release-hooks.json",
+    "Hash": "022F47453486D70C63109EF0BB7276C5258D964018F33B3AC8D6EEBDED482F85"
+  },
+  {
+    "Path": "Shared\\ScriptExtenderUpdate\\2.14.0-2.14.1.compatibility.json",
+    "Hash": "00BBBD1F0DF4F3CC7D7900069F323214F934C205F0EBAE534AE5C1D50ABCBDCA"
+  },
+  {
+    "Path": "Shared\\ScriptExtenderUpdate\\2.14.0-2.14.1.release-hooks.json",
+    "Hash": "FA0358E4C8A8D2F5E42AF76C4A32851B8C68E895B664648A12750B62380D6FBD"
+  },
+  {
+    "Path": "Shared\\ScriptExtenderUpdate\\2.3.0-2.4.0.compatibility.json",
+    "Hash": "6725B62BD758E8EFB9FBB7AE00127E7B0F9BDCBB0C2BFDA82E7AC19805912571"
+  },
+  {
+    "Path": "Shared\\ScriptExtenderUpdate\\2.4.0-2.5.0.compatibility.json",
+    "Hash": "16C2CC57103A7AD18BF18EF3E2159B16A6D9D171AB81F196DE7C308E4F8291D3"
+  },
+  {
+    "Path": "Shared\\ScriptExtenderUpdate\\2.5.0-2.6.0.compatibility.json",
+    "Hash": "559BFA8C8B3EBACE574F0039612482302160CFDA80D880069099C5BDDBF74FB9"
+  },
+  {
+    "Path": "Shared\\ScriptExtenderUpdate\\2.5.0-2.6.0.release-hooks.json",
+    "Hash": "FDF1922FDD0FA223B38E098F51FCA44633BD6BAF87D2B54E6E8A4AA4EE2CD327"
+  },
+  {
+    "Path": "Shared\\ScriptExtenderUpdate\\2.6.0-2.7.1.compatibility.json",
+    "Hash": "FAA157BE0F5804C461136179CC5C041F4227D14F06B8D8A114E200A7358D8DB2"
+  },
+  {
+    "Path": "Shared\\ScriptExtenderUpdate\\2.6.0-2.7.1.release-hooks.json",
+    "Hash": "AE90378C8C959CBE8EF14C66458D2648D8B72CA34A359E958BB1781D750E9725"
+  },
+  {
+    "Path": "Shared\\ScriptExtenderUpdate\\2.7.1-2.8.0.compatibility.json",
+    "Hash": "25187A3B732EB8AA976C446F720C71C19439B117839D77335FED1FE89DD2874F"
+  },
+  {
+    "Path": "Shared\\ScriptExtenderUpdate\\2.8.0-2.9.0.compatibility.json",
+    "Hash": "087645DA75D22B5F1D937493E80330391F7505F00F7BCE4BB2E2A256BF7F2A58"
+  },
+  {
+    "Path": "Shared\\ScriptExtenderUpdate\\2.8.0-2.9.0.release-hooks.json",
+    "Hash": "54D3D0A5DF895EFDF9086C333A943F72B8332406C01B3328575F9476EDCD2FD1"
+  },
+  {
+    "Path": "Shared\\ScriptExtenderUpdate\\2.9.0-2.10.1.compatibility.json",
+    "Hash": "6B5974D534444906ECD9B66DC3238CF9C27C58F9D5E1E1678693D243BED89F4A"
+  },
+  {
+    "Path": "Shared\\ScriptExtenderUpdate\\2.9.0-2.10.1.release-hooks.json",
+    "Hash": "9F4A6E7D0EE3F728BA4EAB6AFCDAA5889D1B5EC02217983EDA371F5A6B02883A"
+  },
+  {
+    "Path": "Shared\\ScriptExtenderUpdate\\AGENTS.md",
+    "Hash": "44E499D4CDFB05E44B5EB8C5B6430DBF8CE9D17F6994F711F1DF07DCF068D9DE"
+  },
+  {
+    "Path": "Shared\\ScriptExtenderUpdate\\Invoke-ScriptExtenderUpdate.ps1",
+    "Hash": "27D2706BD82196EA70BBB38F4AF6E98AAF8FB6164419815931FA4B01238AF632"
+  },
+  {
+    "Path": "Shared\\ScriptExtenderUpdate\\mods.json",
+    "Hash": "C58BE29980098AF32C307038043A4666CDDDF42FA3FBAA1F183E861C5E7C0369"
+  },
+  {
+    "Path": "Shared\\ScriptExtenderUpdate\\ScriptExtenderUpdate.Common.ps1",
+    "Hash": "6CBF979E6E8927BD652299149246583F58C44ED1B05117165C0B06D07C6E53D8"
+  },
+  {
+    "Path": "Shared\\ScriptExtenderUpdate\\Sync-SEPreloader.ps1",
+    "Hash": "4329248C66CDC77924B2984A3D3C50859D7E4DEB5FA0F446DF4A67CEAE7E2E88"
+  },
+  {
+    "Path": "Shared\\ScriptExtenderUpdate\\Test-ScriptExtender271IdContract.ps1",
+    "Hash": "184D4505544B37EB653A5CBB1B12B7B0AAEB543FDD31C9CC597F555E643D0236"
+  },
+  {
+    "Path": "Shared\\ScriptExtenderUpdate\\2.10.4-2.11.0.HookProbe\\HookProbe.csproj",
+    "Hash": "FCC31F9D5FCA0BF3A6291372C03979873809FF68D7D6CF3D3F28D6F90098C4A3"
+  },
+  {
+    "Path": "Shared\\ScriptExtenderUpdate\\2.10.4-2.11.0.HookProbe\\Program.cs",
+    "Hash": "D04EB45D0A61340CC35D8AA38D8192BDB5DDB20E537EB858DDEF319257E11CF7"
+  },
+  {
+    "Path": "Shared\\Steam\\Create-SteamModPack.ps1",
+    "Hash": "685D43DBA52B43DB432F37CA4BA07CA6F2FC53B758F49A64F7510FB357D1B638"
+  },
+  {
+    "Path": "Shared\\Steam\\SerpsMods.upload-history.seed.json",
+    "Hash": "8F2157F0B5A48C76C409150F24849966C18AF882253FF8F1E6437E2278D8A2CE"
+  },
+  {
+    "Path": "Shared\\Steam\\SteamPackPolicy.ps1",
+    "Hash": "1F325A1FBFA2155FD137456FAD7FDAF750E4DBA642E1DD57AD0A53396E7C8BE9"
+  },
+  {
+    "Path": "Shared\\Steam\\SteamWorkshopHistory.ps1",
+    "Hash": "18ED5BD0B4FD789A2C55F0F94AFF471A8FC17CAC7FB9830D9D68E825093A3EFC"
+  },
+  {
+    "Path": "Shared\\Steam\\Test-SteamPackPolicy.ps1",
+    "Hash": "3ADCF46EC5FD78E5D92FBF34853495E39ED4EA2643A7A202437A43D075B339D3"
+  },
+  {
+    "Path": "Shared\\Steam\\Upload-Workshop.ps1",
+    "Hash": "379E3A9AAE48B441EACCE0D08EC31AF2753FA237D95806F31CA8AB6883820DFF"
+  },
+  {
+    "Path": "Shared\\Threading.Tests\\Program.cs",
+    "Hash": "B5C81EA302F17A9242B37EFBC7526BC44657E265E9B4D09F3F79AD9478D21E80"
+  },
+  {
+    "Path": "Shared\\Threading.Tests\\Shared.Threading.Tests.csproj",
+    "Hash": "409C790891B71771547FF59104BC37095533CE49FAE2A06A6565D851290C7E29"
+  },
+  {
+    "Path": "Shared\\UnitCommandSourceChecks\\Program.cs",
+    "Hash": "54A7504EB7A5AED9DCDC1CB00499F296478B94649C21419A349193BC3A595381"
+  },
+  {
+    "Path": "Shared\\UnitCommandSourceChecks\\UnitCommandSourceChecks.csproj",
+    "Hash": "9E1FDA591B7D6833B3D52A5DCA2C636983B145EC7E6FB38CD4EE919B6BAE5B9A"
+  }
+]

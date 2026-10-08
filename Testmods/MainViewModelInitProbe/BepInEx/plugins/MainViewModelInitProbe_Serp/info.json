@@ -7,6 +7,12 @@
   "Website": "",
   "MinimumScriptExtenderVersion": "2.3.0",
   "MaximumScriptExtenderVersion": "",
+  "Dependencies": [
+    {
+      "GUID": "APIShared_Serp",
+      "MinimumVersion": "0.2.0"
+    }
+  ],
   "Manifest": 1,
   "NetworkMode": 0
 }

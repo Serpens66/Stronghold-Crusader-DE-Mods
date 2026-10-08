@@ -207,7 +207,7 @@ static class Program
             uniquelyResolvedNames.Contains(definition.Name[(definition.Name.IndexOf(':') + 1)..]));
         Assert(uniqueFallbackPatterns + ambiguousReferencePatterns == resolvedDefinitionCount,
             "Not every ResolveUnique contract was classified.");
-        string resolver = File.ReadAllText(Path.Combine(FindWorkspaceRoot(), "Shared", "NativePatternResolver.cs"));
+        string resolver = File.ReadAllText(Path.Combine(FindWorkspaceRoot(), "Shared", "Runtime", "Native", "NativePatternResolver.cs"));
         Assert(resolver.Contains("FindUniquePattern(memory, bytes, name, searchScope)", StringComparison.Ordinal),
             "Ambiguous non-reference pattern fallbacks are not guarded fail-closed.");
         Console.WriteLine($"ImprovedHunters native patterns verified: definitions={definitions.Count}, uniqueFallback={uniqueFallbackPatterns}, ambiguousReferenceOnly={ambiguousReferencePatterns}.");

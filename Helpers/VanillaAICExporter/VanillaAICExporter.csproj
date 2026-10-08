@@ -86,11 +86,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="..\..\Shared\DependencyFreeJson.cs">
-      <Link>Shared\DependencyFreeJson.cs</Link>
+    <Compile Include="..\..\Shared\Runtime\Persistence\DependencyFreeJson.cs">
+      <Link>Shared\Runtime\Persistence\DependencyFreeJson.cs</Link>
     </Compile>
-    <Compile Include="..\..\Shared\DebugLogHelper.cs">
-      <Link>Shared\DebugLogHelper.cs</Link>
+    <Compile Include="..\..\Shared\Runtime\Diagnostics\DebugLogHelper.cs">
+      <Link>Shared\Runtime\Diagnostics\DebugLogHelper.cs</Link>
     </Compile>
     <Compile Include="..\..\shcde-script-extender\src\SHCDESE.AICDecoder\src\SHCDESE.AICDecoder\InternalAIC.cs">
       <Link>AICDecoder\InternalAIC.cs</Link>

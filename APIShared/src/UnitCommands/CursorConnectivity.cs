@@ -386,7 +386,7 @@ namespace APIShared.UnitCommands
         internal void DirtyCursorBuilding(int id)
         {
             if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(id, out GameBuilding* building) || building == null) return;
-            if (!Shared.GameBuildingFootprint.TryGetBounds(building, out Shared.GameBuildingFootprintBounds bounds)) return;
+            if (!APIShared.Internal.GameBuildingFootprint.TryGetBounds(building, out APIShared.Internal.GameBuildingFootprintBounds bounds)) return;
             int minX = Math.Max(0, bounds.MinX - 2);
             int maxX = Math.Min(MapWidth - 1, bounds.MaxX + 2);
             int minY = Math.Max(0, bounds.MinY - 2);

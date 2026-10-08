@@ -252,8 +252,8 @@ namespace APIShared
             recruitmentGameActionHook = PrepareHook(RequireMethod(typeof(EngineInterface), "GameAction", new[] { typeof(Enums.GameActionCommand), typeof(int), typeof(int), typeof(int) }), (RecruitmentGameActionDelegate)RecruitmentGameActionHook, "APIShared.UnitHud.RecruitmentGameAction", installed);
             recruitmentGameActionOriginal = recruitmentGameActionHook.GenerateTrampoline<RecruitmentGameActionDelegate>();
             recruitmentGameActionHook.Apply();
-            Shared.MissionEvents.SetOwner("APIShared_Serp");
-            mapUnloadSubscription = Shared.MissionEvents.Ended.Subscribe(_ => ResetRecruitment());
+            APIShared.Internal.MissionEvents.SetOwner("APIShared_Serp");
+            mapUnloadSubscription = APIShared.Internal.MissionEvents.Ended.Subscribe(_ => ResetRecruitment());
             UnityEngine.Application.onBeforeRender += OnBeforeRender;
         }
 

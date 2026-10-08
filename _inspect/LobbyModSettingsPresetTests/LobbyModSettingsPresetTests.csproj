@@ -17,13 +17,13 @@
   </PropertyGroup>
   <PropertyGroup>
     <GameDir>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir>
-    <ExtenderDir>$(MSBuildThisFileDirectory)..\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481</ExtenderDir>
+    <ExtenderDir Condition="'$(ExtenderDir)' == ''">$(GameDir)\BepInEx\plugins\000shcdese</ExtenderDir>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\..\APIShared\src\Missions\MissionLifecycleContracts.cs" />
     <Compile Include="..\..\APIShared\src\Missions\MissionLifecycleState.cs" />
-    <Compile Include="..\HostClientPresetTests\MissionTestEnvironment.cs" />
-    <Reference Include="R3"><HintPath>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\R3.dll</HintPath></Reference>
+    <Compile Include="..\..\APIShared\tests\LobbyModSettingsPresetTests\MissionTestEnvironment.cs" />
+    <Reference Include="R3"><HintPath>$(ExtenderDir)\R3.dll</HintPath></Reference>
 
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -38,9 +38,6 @@
   <Compile Include="..\..\APIShared\src\GameModes\MissionModePolicy.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="..\..\Shared\AtomicFileReplacement.cs"><Link>Shared\AtomicFileReplacement.cs</Link></Compile>
-    <Compile Include="..\..\Shared\DebugLogHelper.cs"><Link>Shared\DebugLogHelper.cs</Link></Compile>
-    <Compile Include="..\..\Shared\DependencyFreeJson.cs"><Link>Shared\DependencyFreeJson.cs</Link></Compile>
     <Compile Include="..\..\APIShared\src\ModSettings\DynamicPresetSettings.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\ModSettingsApplication.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\ModSettingsPresetDocuments.cs"><Link>APIShared\ModSettingsPresetDocuments.cs</Link></Compile>
@@ -51,11 +48,16 @@
     <Compile Include="..\..\APIShared\src\ModSettings\PresetLobbyModSettingsViewModel.Persistence.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\PresetLobbyModSettingsViewModel.Sources.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\LobbyModSettingsPresetRegistration.cs" />
-
-    <Compile Include="..\..\Shared\GameModeHelper.cs"><Link>Shared\GameModeHelper.cs</Link></Compile>
-    <Compile Include="..\..\Shared\GameplaySessionLifecycle.cs"><Link>Shared\GameplaySessionLifecycle.cs</Link></Compile>
-    <Compile Include="Program.cs" />
-    <Compile Include="NoesisStubs.cs" />
+    <Compile Include="..\..\APIShared\tests\LobbyModSettingsPresetTests\Program.cs" />
+    <Compile Include="..\..\APIShared\tests\LobbyModSettingsPresetTests\NoesisStubs.cs" />
   </ItemGroup>
+  <ItemGroup><Compile Include="WorkspaceIntegration.cs" /></ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <ItemGroup>
+    <Compile Include="..\..\APIShared\src\ModSettings\Internal\AtomicFileReplacement.cs" />
+    <Compile Include="..\..\APIShared\src\Core\Internal\DebugLogHelper.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Internal\DependencyFreeJson.cs" />
+    <Compile Include="..\..\APIShared\src\GameModes\Internal\PlayerIdentityHelper.cs" />
+    <Compile Include="..\..\APIShared\src\Missions\Internal\MissionEventRelay.cs" />
+  </ItemGroup>
 </Project>

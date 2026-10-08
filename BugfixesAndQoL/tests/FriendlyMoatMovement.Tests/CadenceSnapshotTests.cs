@@ -9,7 +9,7 @@ internal static class CadenceSnapshotTests
     internal static void Validate(string root)
     {
         string resolver = File.ReadAllText(Path.Combine(root, "APIShared/src/UnitCommands/NativeMovementCadenceResolver.cs"));
-        string patterns = File.ReadAllText(Path.Combine(root, "Shared/NativePatternResolver.cs"));
+        string patterns = File.ReadAllText(Path.Combine(root, "APIShared/src/Core/Internal/NativePatternResolver.cs"));
         var runtime = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,
             "APIShared/src/UnitCommands/UnitCommandPathRuntime.cs"))).GetRoot();
         var optional = runtime.DescendantNodes().OfType<TryStatementSyntax>()
@@ -32,7 +32,7 @@ namespace SHCDESE.API.LowLevel {
         public ReadOnlySpan<byte> Memory => snapshot;
     }
 }
-namespace Shared {
+namespace APIShared.Internal {
     internal static class DebugLogHelper {
         public static void LogDebug(ManualLogSource log,string message) {}
         public static void LogWarning(ManualLogSource log,string message) {}

@@ -646,7 +646,7 @@ namespace SerpsModsHostDuplicateTests
             string hostSource = File.ReadAllText(Path.Combine(
                 workspace, "SerpsModsHost", "src", "SerpsModsHostPlugin.cs"));
             string localizationSource = File.ReadAllText(Path.Combine(
-                workspace, "Shared", "SerpLocalization.cs"));
+                workspace, "Shared", "Runtime", "Localization", "SerpLocalization.cs"));
             if (!hostSource.Contains("SerpsModsScriptExtenderRequiredAction") ||
                 !localizationSource.Contains("Required action: install a Script Extender version") ||
                 !localizationSource.Contains("- {Name}: requires Script Extender {Minimum} or newer."))

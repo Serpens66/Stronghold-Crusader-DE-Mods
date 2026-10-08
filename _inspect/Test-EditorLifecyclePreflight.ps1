@@ -30,7 +30,7 @@ foreach ($relative in $textTargets) {
     Write-Output ("TEXT {0}: CRLF={1}, bareLF={2}, first={3}" -f $relative,
         [regex]::Matches($text, '\r\n').Count, $bareLf, ($text -split "`r`n")[0])
 }
-$projects = @(& rg -l 'Shared\\GameplaySessionLifecycle.cs' --glob '*.csproj' --glob '!_inspect/**')
+$projects = @(& rg -l 'Shared\\Adapters\\APIShared\\MissionEventsAdapter.cs' --glob '*.csproj' --glob '!_inspect/**')
 $projects += 'APIShared\APIShared.csproj'
 foreach ($relative in $projects) {
     $path = Join-Path $workspace $relative
@@ -73,8 +73,9 @@ foreach ($relative in $projects) {
     }
     Write-Output "RUNTIME PASS: $relative"
 }
-$inventory = Get-Content 'Shared\ScriptExtenderUpdate\mods.json' -Raw | ConvertFrom-Json
-$release = Get-Content 'Shared\Release\release-projects.json' -Raw | ConvertFrom-Json
+$inventory = Get-Content 'Shared\Tools\ScriptExtenderUpdate\mods.json' -Raw | ConvertFrom-Json
+. (Join-Path $workspace 'Shared\Tools\Release\Release.Common.ps1')
+$release = Get-ReleaseConfiguration
 foreach ($projectRelative in $projects) {
     $matches = @($inventory | Where-Object { $_.Project -eq $projectRelative })
     if ($matches.Count -ne 1) { throw "Missing or duplicate inventory project: $projectRelative" }
@@ -86,7 +87,7 @@ foreach ($projectRelative in $projects) {
             if ($include -notmatch '[$*]' -and $include -match 'Plugin\.cs$') { [IO.File]::ReadAllText((Join-Path $projectRoot $include)) }
         }) -join "`n")
         $apiDependencyVersion = Get-ApiSharedDependencyVersion $pluginText
-        if (-not $apiDependencyVersion -or $release.ApiShared.Consumers.($matches[0].Name) -ne $apiDependencyVersion) {
+        if (-not $apiDependencyVersion -or (Get-ApiSharedConsumerMinimum -Config $release -ModName $matches[0].Name) -ne $apiDependencyVersion) {
             throw "Release dependency does not match plugin metadata: $projectRelative"
         }
     }

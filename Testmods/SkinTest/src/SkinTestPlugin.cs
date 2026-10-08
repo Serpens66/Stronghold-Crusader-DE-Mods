@@ -6,8 +6,7 @@ using SHCDESE.API.LowLevel;
 namespace SkinTest
 {
     [BepInDependency(ScriptExtenderGuid, ScriptExtenderVersion)]
-    [BepInDependency(ApiSharedGuid, ApiSharedVersion)]
-    [BepInDependency("APIShared_Serp", "0.3.6")]
+    [BepInDependency(ApiSharedGuid, "0.3.6")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class SkinTestPlugin : BaseUnityPlugin
     {

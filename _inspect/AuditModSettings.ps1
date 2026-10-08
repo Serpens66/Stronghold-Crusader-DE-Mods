@@ -509,7 +509,7 @@ foreach ($entry in $settings.GetEnumerator()) {
     }
 }
 
-$toolTipPresentationPath = Join-Path $workspace 'Shared/ToolTipPresentation.cs'
+$toolTipPresentationPath = Join-Path $workspace 'Shared/Runtime/UI/ToolTipPresentation.cs'
 $toolTipPresentation = [IO.File]::ReadAllText($toolTipPresentationPath)
 foreach ($required in @(
     'public static class ToolTipPresentation',

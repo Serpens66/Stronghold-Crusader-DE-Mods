@@ -59,5 +59,5 @@ foreach ($mod in @('APIShared','BugfixesAndQoL','Testmods/EnemyGatePathfindingTe
         }
     }
 }
-& (Join-Path $workspace 'Shared/Test-PermanentNativeRuntimePatches.ps1')
+& (Join-Path $workspace 'Shared/Tools/Validation/Test-PermanentNativeRuntimePatches.ps1')
 Write-Host 'PASS: bridge split installed members, JSON/lifecycle, XAML and permanent hooks'

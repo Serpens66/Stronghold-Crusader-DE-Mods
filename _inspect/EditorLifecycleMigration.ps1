@@ -1,6 +1,7 @@
 $ErrorActionPreference = 'Stop'
 $workspace = Split-Path -Parent $PSScriptRoot
-$release = Get-Content -LiteralPath (Join-Path $workspace 'Shared\Release\release-projects.json') -Raw | ConvertFrom-Json
+. (Join-Path $workspace 'Shared\Tools\Release\Release.Common.ps1')
+$release = Get-ReleaseConfiguration
 function Write-TaskText([string]$relative, [string]$value) {
     $path = [IO.Path]::GetFullPath((Join-Path $workspace $relative))
     if (-not $path.StartsWith($workspace + '\', [StringComparison]::OrdinalIgnoreCase)) { throw $path }
@@ -41,13 +42,13 @@ foreach ($relative in $projects) {
     $source = [IO.File]::ReadAllText($plugin.FullName)
     if ($source -notmatch 'BepInDependency\((?:"APIShared_Serp"|ApiSharedGuid)') {
         $consumer = [IO.Path]::GetFileNameWithoutExtension($relative)
-        $apiSharedMinimum = [string]$release.ApiShared.Consumers.$consumer
+        $apiSharedMinimum = (Get-ApiSharedConsumerMinimum -Config $release -ModName $consumer)
         if (-not $apiSharedMinimum) { throw "Missing APIShared release dependency for $consumer." }
         $source = $source.Replace('[BepInPlugin(', "[BepInDependency(`"APIShared_Serp`", `"$apiSharedMinimum`")]`r`n    [BepInPlugin(")
         Write-TaskText $plugin.FullName.Substring($workspace.Length + 1) $source
     }
 }
-$relative = 'Shared\ScriptExtenderUpdate\mods.json'
+$relative = 'Shared\Tools\ScriptExtenderUpdate\mods.json'
 $inventory = [IO.File]::ReadAllText((Join-Path $workspace $relative))
 $inventory = [regex]::Replace($inventory, '(?ms)^  \{\r?\n.*?^  \}', [Text.RegularExpressions.MatchEvaluator]{
     param($match)

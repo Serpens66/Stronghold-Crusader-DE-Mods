@@ -46,6 +46,6 @@ foreach ($locale in Get-ChildItem -LiteralPath (Join-Path $workspace 'ExtraFeatu
         if ([regex]::Matches($text, '(?m)^' + [regex]::Escape($key) + '=').Count -ne 1) { throw "Missing/duplicate translation $key in $locale" }
     }
 }
-& (Join-Path $workspace 'Shared/Test-PermanentNativeRuntimePatches.ps1')
+& (Join-Path $workspace 'Shared/Tools/Validation/Test-PermanentNativeRuntimePatches.ps1')
 if (-not $?) { throw 'Workspace permanent hook regression failed.' }
 Write-Host 'PASS: gate/bridge preflight (hash, JSON, lifecycle, callbacks, XAML, publication, locales).'

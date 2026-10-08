@@ -1,7 +1,7 @@
 @echo off
 setlocal EnableExtensions
 set "ROOT=%~dp0"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%ROOT%Shared\Release\Test-ReleaseSetup.ps1" %*
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%ROOT%Shared\Tools\Release\Test-ReleaseSetup.ps1" %*
 set "EXIT_CODE=%ERRORLEVEL%"
 echo.
 if "%EXIT_CODE%"=="0" (

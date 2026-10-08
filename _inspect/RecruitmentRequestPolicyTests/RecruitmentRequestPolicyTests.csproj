@@ -8,9 +8,9 @@
   <ItemGroup>
     <Compile Remove="HookContextPeerA/**/*.cs" />
     <Compile Remove="HookContextPeerB/**/*.cs" />
-    <Compile Include="../../Shared/RecruitmentRequestPolicy.cs" Link="RecruitmentRequestPolicy.cs" />
-    <Compile Include="../../Shared/RecruitmentHookContext.cs" Link="RecruitmentHookContext.cs" />
-    <ProjectReference Include="HookContextPeerA/HookContextPeerA.csproj" />
-    <ProjectReference Include="HookContextPeerB/HookContextPeerB.csproj" />
+    <Compile Include="..\..\Shared\Runtime\Gameplay\RecruitmentRequestPolicy.cs" Link="RecruitmentRequestPolicy.cs" />
+    <Compile Include="..\..\Shared\Runtime\Gameplay\RecruitmentHookContext.cs" Link="RecruitmentHookContext.cs" />
+    <ProjectReference Include="HookContextPeerA\HookContextPeerA.csproj" />
+    <ProjectReference Include="HookContextPeerB\HookContextPeerB.csproj" />
   </ItemGroup>
 </Project>

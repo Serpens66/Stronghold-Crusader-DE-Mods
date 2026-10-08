@@ -27,7 +27,7 @@ foreach($relative in $mods) {
         }
     }
 }
-& (Join-Path $workspace 'Shared\Test-PermanentNativeRuntimePatches.ps1')
+& (Join-Path $workspace 'Shared\Tools\Validation\Test-PermanentNativeRuntimePatches.ps1')
 if(-not $?) { throw 'Workspace permanent hook regression failed.' }
 $overrides=[IO.File]::ReadAllText((Join-Path $workspace 'Testmods\AIAttackTest\src\AIAttackPermanentNativeOverrides.cs'))
 if($overrides -notmatch 'if \(published\) return;' -or $overrides -notmatch 'recruitTransaction' -or $overrides -match '\b(CodePatch\.Write|VirtualProtect|Undo|Disable|Enable)\s*\(') { throw 'AIAttackTest permanent capability contract failed.' }

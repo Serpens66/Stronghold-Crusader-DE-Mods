@@ -123,13 +123,13 @@ namespace APIShared.UnitCommands
                     "Large Move marker overflow requires the validated FBCB9319 native layout.");
 
             ReadOnlySpan<byte> memory = context.Memory;
-            Shared.NativeResolution reset = Shared.NativePatternResolver.ResolveUnique(
+            APIShared.Internal.NativeResolution reset = APIShared.Internal.NativePatternResolver.ResolveUnique(
                 memory, ResetDrawListPattern, ResetDrawListRva, true,
                 "Vanilla overlay draw-list reset", null);
-            Shared.NativeResolution traversal = Shared.NativePatternResolver.ResolveUnique(
+            APIShared.Internal.NativeResolution traversal = APIShared.Internal.NativePatternResolver.ResolveUnique(
                 memory, VisibleTileTraversalPattern, VisibleTileHookRva - 7, true,
                 "visible-tile overlay traversal", null);
-            Shared.NativeResolution builder = Shared.NativePatternResolver.ResolveUnique(
+            APIShared.Internal.NativeResolution builder = APIShared.Internal.NativePatternResolver.ResolveUnique(
                 memory, SpriteBuilderPattern, SpriteBuilderRva, true,
                 "native sprite builder", null);
             if (reset.Rva != ResetDrawListRva || traversal.Rva + 7 != VisibleTileHookRva ||
@@ -174,7 +174,7 @@ namespace APIShared.UnitCommands
                         $"result={result}, visible={visibleTileHook.Hook?.DisplacedByteCount}.");
                 }
 
-                Shared.DebugLogHelper.LogDebug(
+                APIShared.Internal.DebugLogHelper.LogDebug(
                     log,
                     "Large Move marker renderer ready: " +
                     $"reset=0x{ResetDrawListRva:X}/span{ResetDrawListLength}, " +
@@ -499,7 +499,7 @@ namespace APIShared.UnitCommands
             if (failureLogged)
                 return;
             failureLogged = true;
-            Shared.DebugLogHelper.LogError(
+            APIShared.Internal.DebugLogHelper.LogError(
                 log,
                 $"MOVE_TARGET_MARKER_RENDER_FAIL_OPEN: Vanilla markers retained; {exception}");
         }

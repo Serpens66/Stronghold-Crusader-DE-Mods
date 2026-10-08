@@ -49,7 +49,7 @@ for %%A in (%*) do (
   if /I "%%~A"=="/validate" set "POWERSHELL_FLAGS=!POWERSHELL_FLAGS! -Validate"
   if /I "%%~A"=="/nopause" set "POWERSHELL_FLAGS=!POWERSHELL_FLAGS! -NoPause"
 )
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Shared\Steam\Create-SteamModPack.ps1" -PackName "%PACK_NAME%" -PackGuid "%PACK_GUID%" -SteamAppId "%STEAM_APP_ID%" -SteamStateName "%STEAM_STATE_NAME%" -WorkshopPackagerPath "%WORKSHOP_PACKAGER_PATH%" -PreviewPath "%PREVIEW_PATH%" !POWERSHELL_FLAGS!
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Shared\Tools\Steam\Create-SteamModPack.ps1" -PackName "%PACK_NAME%" -PackGuid "%PACK_GUID%" -SteamAppId "%STEAM_APP_ID%" -SteamStateName "%STEAM_STATE_NAME%" -WorkshopPackagerPath "%WORKSHOP_PACKAGER_PATH%" -PreviewPath "%PREVIEW_PATH%" !POWERSHELL_FLAGS!
 set "EXIT_CODE=%ERRORLEVEL%"
 
 if not "%EXIT_CODE%"=="0" (

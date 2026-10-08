@@ -1,5 +1,5 @@
 using APIShared.ModSettings;
-using Shared;
+using APIShared.Internal;
 #pragma warning disable 1591 // Public schema members are documented by the APIShared preset guide.
 using BepInEx.Logging;
 using SHCDESE.API.Components.ModManager;

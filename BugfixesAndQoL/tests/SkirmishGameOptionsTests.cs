@@ -206,7 +206,7 @@ namespace BugfixesAndQoL
                 "every supported locale exposes only the generalized Interface title key");
             string localizationFallbacks = File.ReadAllText(Path.Combine(
                 project,
-                @"..\Shared\SerpLocalization.cs"));
+                @"..\Shared\Runtime\Localization\SerpLocalization.cs"));
             check(localizationFallbacks.Contains("{ \"BugfixesAndQoL.InterfaceTitle\",") &&
                   !localizationFallbacks.Contains("{ \"BugfixesAndQoL.ClientInterfaceTitle\","),
                 "the Shared fallback uses only the generalized Interface title key");

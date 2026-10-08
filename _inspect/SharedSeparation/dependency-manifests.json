@@ -1,0 +1,11 @@
+[
+  "BuildingCosts\\BepInEx\\plugins\\BuildingCosts_Serp\\info.json",
+  "BuildingLimit\\BepInEx\\plugins\\BuildingLimit_Serp\\info.json",
+  "CastlePlanner\\BepInEx\\plugins\\CastlePlanner_Serp\\info.json",
+  "ImprovedHunters\\BepInEx\\plugins\\ImprovedHunters_Serp\\info.json",
+  "StartConditions\\BepInEx\\plugins\\StartConditions_Serp\\info.json",
+  "UnitCosts\\BepInEx\\plugins\\UnitCosts_Serp\\info.json",
+  "UnitLimit\\BepInEx\\plugins\\UnitLimit_Serp\\info.json",
+  "Helpers\\ActiveAIVDetector\\BepInEx\\plugins\\ActiveAIVDetector_Serp\\info.json",
+  "Testmods\\AIDefenseTest\\BepInEx\\plugins\\AIDefenseTest_Serp\\info.json"
+]

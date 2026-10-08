@@ -3,7 +3,7 @@ $ErrorActionPreference = 'Stop'
 $workspace = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 & (Join-Path $PSScriptRoot 'Verify-Interop.ps1')
 if (-not $?) { throw 'Installed interop audit failed' }
-& (Join-Path $workspace 'Shared\Test-UnitCommandSplit.ps1')
+& (Join-Path $workspace 'Shared\Tools\Validation\Test-UnitCommandSplit.ps1')
 if (-not $?) { throw 'Runtime preflight failed' }
 $shared = Join-Path $workspace 'APIShared\src\UnitCommands'
 $runtime = [IO.File]::ReadAllText((Join-Path $shared 'FormationRuntime.cs'))

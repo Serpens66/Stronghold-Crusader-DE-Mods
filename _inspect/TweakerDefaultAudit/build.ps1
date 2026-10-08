@@ -7,7 +7,7 @@ foreach ($name in @('DefaultAudit.cs','TweakerDefaultAudit.csproj','build.ps1','
     if ($text -match "(?<!`r)`n") { throw "Bare LF: $name" }
     if ($name -eq 'DefaultAudit.cs' -and $text -match '\b(Update|LateUpdate|FixedUpdate|OnDestroy|OnDisable|OnApplicationQuit|StartCoroutine|Dispose)\s*\(|Newtonsoft|System.Text.Json|JsonUtility|JavaScriptSerializer') { throw 'Forbidden runtime pattern' }
 }
-& (Join-Path $PSScriptRoot '..\..\Shared\Test-PermanentNativeRuntimePatches.ps1')
+& (Join-Path $PSScriptRoot '..\..\Shared\Tools\Validation\Test-PermanentNativeRuntimePatches.ps1')
 if (-not $?) { throw 'Workspace runtime audit failed' }
 & 'C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe' (Join-Path $PSScriptRoot 'TweakerDefaultAudit.csproj') /t:Build /p:Configuration=Release /verbosity:minimal
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

@@ -1,0 +1,182 @@
+[
+  {
+    "Driver": "APIShared/build.bat",
+    "Passed": true,
+    "Installation": "installed"
+  },
+  {
+    "Driver": "BugfixesAndQoL/build.bat",
+    "Passed": true,
+    "Installation": "installed"
+  },
+  {
+    "Driver": "BuildingCosts/build.bat",
+    "Passed": true,
+    "Installation": "installed"
+  },
+  {
+    "Driver": "BuildingLimit/build.bat",
+    "Passed": true,
+    "Installation": "installed"
+  },
+  {
+    "Driver": "CastlePlanner/build.bat",
+    "Passed": true,
+    "Installation": "installed"
+  },
+  {
+    "Driver": "CheatMod/build.bat",
+    "Passed": true,
+    "Installation": "installed"
+  },
+  {
+    "Driver": "ExtendedData/build.bat",
+    "Passed": true,
+    "Installation": "installed"
+  },
+  {
+    "Driver": "ExtraFeatures/build.bat",
+    "Passed": true,
+    "Installation": "installed"
+  },
+  {
+    "Driver": "ExtremePowers/build.bat",
+    "Passed": true,
+    "Installation": "installed"
+  },
+  {
+    "Driver": "Helpers/ActiveAIVDetector/build.bat",
+    "Passed": true,
+    "Installation": "installed"
+  },
+  {
+    "Driver": "Helpers/HunterQueryTargetDiagnostic/build.bat",
+    "Passed": true,
+    "Installation": "intentionally skipped"
+  },
+  {
+    "Driver": "Helpers/VanillaAICExporter/build.bat",
+    "Passed": true,
+    "Installation": "installed"
+  },
+  {
+    "Driver": "ImprovedHunters/build.bat",
+    "Passed": true,
+    "Installation": "installed"
+  },
+  {
+    "Driver": "RandomEvents/build.bat",
+    "Passed": true,
+    "Installation": "installed"
+  },
+  {
+    "Driver": "SerpsModsHost/build.bat",
+    "Passed": true,
+    "Installation": "installed"
+  },
+  {
+    "Driver": "StartConditions/build.bat",
+    "Passed": true,
+    "Installation": "installed"
+  },
+  {
+    "Driver": "Testmods/AIAttackTest/build.bat",
+    "Passed": true,
+    "Installation": "installed"
+  },
+  {
+    "Driver": "Testmods/AIBuildDiagnoseTest/build.bat",
+    "Passed": true,
+    "Installation": "installed"
+  },
+  {
+    "Driver": "Testmods/AICoarsePathComponentFixTest/build.bat",
+    "Passed": true,
+    "Installation": "installed"
+  },
+  {
+    "Driver": "Testmods/AIDefenseTest/build.bat",
+    "Passed": true,
+    "Installation": "installed"
+  },
+  {
+    "Driver": "Testmods/AIMarketOverbuyDiagnostic/build.bat",
+    "Passed": true,
+    "Installation": "installed"
+  },
+  {
+    "Driver": "Testmods/AivLobbyPresetTest/build.bat",
+    "Passed": true,
+    "Installation": "installed"
+  },
+  {
+    "Driver": "Testmods/AssassinAttackControlTest/build.bat",
+    "Passed": true,
+    "Installation": "installed"
+  },
+  {
+    "Driver": "Testmods/EnemyBridgePathTest/build.bat",
+    "Passed": true,
+    "Installation": "intentionally skipped"
+  },
+  {
+    "Driver": "Testmods/EnemyGatePathfindingTest/build.bat",
+    "Passed": true,
+    "Installation": "installed"
+  },
+  {
+    "Driver": "Testmods/EngineerSiegeFixTest/build.bat",
+    "Passed": true,
+    "Installation": "installed"
+  },
+  {
+    "Driver": "Testmods/MainViewModelInitProbe/build.bat",
+    "Passed": true,
+    "Installation": "installed"
+  },
+  {
+    "Driver": "Testmods/MoatMove/build.bat",
+    "Passed": true,
+    "Installation": "installed"
+  },
+  {
+    "Driver": "Testmods/OutpostTest/build.bat",
+    "Passed": true,
+    "Installation": "intentionally skipped"
+  },
+  {
+    "Driver": "Testmods/PrebuiltWorkshopBothFixTest/build.bat",
+    "Passed": true,
+    "Installation": "installed"
+  },
+  {
+    "Driver": "Testmods/SkinTest/build.bat",
+    "Passed": true,
+    "Installation": "installed"
+  },
+  {
+    "Driver": "Testmods/SpectatorEditorBuildTest/build.bat",
+    "Passed": true,
+    "Installation": "installed"
+  },
+  {
+    "Driver": "Testmods/StockpileAccessFixTest/build.bat",
+    "Passed": true,
+    "Installation": "installed"
+  },
+  {
+    "Driver": "Testmods/VirtualUnitsPrototype/build.bat",
+    "Passed": true,
+    "Installation": "installed"
+  },
+  {
+    "Driver": "UnitCosts/build.bat",
+    "Passed": true,
+    "Installation": "installed"
+  },
+  {
+    "Driver": "UnitLimit/build.bat",
+    "Passed": true,
+    "Installation": "installed"
+  }
+]

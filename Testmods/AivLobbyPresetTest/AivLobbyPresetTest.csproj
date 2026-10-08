@@ -33,7 +33,7 @@
     <Compile Include="src\LobbyPreset.cs" />
     <Compile Include="src\TestSeries.cs" />
     <Compile Include="src\AivLobbyPresetTestPlugin.cs" />
-    <Compile Include="..\..\Shared\DependencyFreeJson.cs"><Link>Shared\DependencyFreeJson.cs</Link></Compile>
+    <Compile Include="..\..\Shared\Runtime\Persistence\DependencyFreeJson.cs"><Link>Shared\Runtime\Persistence\DependencyFreeJson.cs</Link></Compile>
     <Content Include="CraterLakePreset.json"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
     <Content Include="AivLobbyTestSeries.json"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
     <Content Include="info.json"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>

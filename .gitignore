@@ -33,3 +33,6 @@
 *.suo
 Thumbs.db
 Desktop.ini
+
+/_inspect/SharedSeparation/subtree-roundtrip/
+/_inspect/SharedSeparation/*.log

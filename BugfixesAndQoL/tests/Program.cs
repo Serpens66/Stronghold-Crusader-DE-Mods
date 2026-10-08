@@ -468,7 +468,7 @@ namespace BugfixesAndQoL
             Check(!string.IsNullOrEmpty(requiredExtender) &&
                   plugin.Contains("[BepInDependency(ScriptExtenderGuid, \"" + requiredExtender + "\")]") &&
                   File.ReadAllText(Path.Combine("src", "LocalSelectionSnapshot.cs")).Contains("LocalSelectionAPI.TryCapture") &&
-                  plugin.Contains("[BepInDependency(ApiSharedGuid, \"0.4.7\")]"),
+                  System.Text.RegularExpressions.Regex.IsMatch(plugin, @"BepInDependency\(ApiSharedGuid, ""[0-9.]+""\)"),
                 "BugfixesAndQoL selection API and dependencies agree with the manifest");
         }
 
@@ -562,7 +562,7 @@ namespace BugfixesAndQoL
                     siegeAmmo.Contains("private void LogWarning") &&
                     siegeAmmo.Contains("private void LogError"),
                 "siege-ammunition Chore logging is not marshalled away from the simulation callback");
-            Check(project.Contains("Shared\\UnityMainThreadDispatch.cs"),
+            Check(project.Contains("Shared\\Runtime\\Threading\\UnityMainThreadDispatch.cs"),
                 "BugfixesAndQoL does not source-link the validated main-thread dispatcher");
         }
 
@@ -4839,8 +4839,7 @@ namespace BugfixesAndQoL
             }
             string sharedLocalization = File.ReadAllText(Path.Combine(
                 Directory.GetParent(projectDirectory).FullName,
-                "Shared",
-                "SerpLocalization.cs"));
+                "Shared", "Runtime", "Localization", "SerpLocalization.cs"));
             removedFromActiveSources &= !sharedLocalization.Contains(removedSettingName);
             Check(removedFromActiveSources,
                 "the removed aggregate AI-fixes setting is absent from active sources, XAML, and localization");

@@ -24,7 +24,7 @@ if (-not $preview.Contains('private void DelayShowDisconnectHook(Director self)'
     -not $preview.Contains('self.StartCoroutine(ShowLoadingWarningAfterDelay(generation));') -or
     [regex]::Matches($preview, '\bStartCoroutine\s*\(').Count -ne 1) { throw 'Director coroutine contract changed' }
 $project = [IO.File]::ReadAllText((Join-Path $modRoot 'CastlePlanner.csproj'))
-if (-not $project.Contains('..\Shared\DependencyFreeJson.cs') -or $project.Contains('Assembly-CSharp-publicized')) { throw 'Runtime reference contract changed' }
+if (-not $project.Contains('..\Shared\Runtime\Persistence\DependencyFreeJson.cs') -or $project.Contains('Assembly-CSharp-publicized')) { throw 'Runtime reference contract changed' }
 foreach ($file in Get-ChildItem $modRoot -Recurse -Filter '*.xaml' | Where-Object { $_.FullName -match '\\Patches\\' }) {
     [xml]$xml = [IO.File]::ReadAllText($file.FullName)
     foreach ($content in $xml.SelectNodes('//*[local-name()="Content"]')) {
@@ -89,7 +89,7 @@ foreach ($relative in $changedTextPaths) {
     $text = [IO.File]::ReadAllText((Join-Path $workspace $relative))
     if ($text -match '(?<!\r)\n|\r(?!\n)') { throw "Changed text is not CRLF: $relative" }
 }
-& (Join-Path $workspace 'Shared/Test-PermanentNativeRuntimePatches.ps1')
+& (Join-Path $workspace 'Shared/Tools/Validation/Test-PermanentNativeRuntimePatches.ps1')
 $addedRuntimeLines = @(git -C $workspace diff --unified=0 -- '*.cs' | Where-Object {
     $_.StartsWith('+') -and -not $_.StartsWith('+++')
 })

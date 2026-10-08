@@ -10,7 +10,7 @@ using SHCDESE.API.Components.Archive;
 using SHCDESE.API.Components.ModManager;
 using SHCDESE.API.Components.SaveData;
 using SHCDESE.IO;
-using Shared;
+using APIShared.Internal;
 using System;
 using System.Buffers;
 using System.Collections.Generic;
@@ -214,8 +214,8 @@ namespace APIShared
             lock (Sync)
             {
                 if (initialized) return;
-                Shared.MissionEvents.SetOwner("APIShared_Serp");
-                missionEndSubscription = Shared.MissionEvents.Ended.Subscribe(OnMissionEnded);
+                APIShared.Internal.MissionEvents.SetOwner("APIShared_Serp");
+                missionEndSubscription = APIShared.Internal.MissionEvents.Ended.Subscribe(OnMissionEnded);
                 try
                 {
                     if (!ModSaveDataAPI.Instance.RegisterModDataHandler(Identifier, Save, Load))

@@ -1,11 +1,12 @@
-param([switch]$NormalizeChangedText)
+param([switch]$NormalizeChangedText, [switch]$SourceOnly)
 $ErrorActionPreference = 'Stop'
 $workspace = Split-Path -Parent $PSScriptRoot
 Set-Location -LiteralPath $workspace
-. 'Shared\ScriptExtenderUpdate\ScriptExtenderUpdate.Common.ps1'
-$projects = @('APIShared\APIShared.csproj') + @(Get-Content '_inspect\MissionLifecycleProjects.json' -Raw | ConvertFrom-Json)
-$inventory = Get-Content 'Shared\ScriptExtenderUpdate\mods.json' -Raw | ConvertFrom-Json
-$release = Get-Content 'Shared\Release\release-projects.json' -Raw | ConvertFrom-Json
+. 'Shared\Tools\ScriptExtenderUpdate\ScriptExtenderUpdate.Common.ps1'
+$projects = @('APIShared\APIShared.csproj') + (Get-Content '_inspect\MissionLifecycleProjects.json' -Raw | ConvertFrom-Json)
+$inventory = Get-Content 'Shared\Tools\ScriptExtenderUpdate\mods.json' -Raw | ConvertFrom-Json
+. (Join-Path $workspace 'Shared\Tools\Release\Release.Common.ps1')
+$release = Get-ReleaseConfiguration
 function Get-ApiSharedDependencyVersion([string]$PluginText) {
     $match = [regex]::Match($PluginText, 'BepInDependency\((?:"APIShared_Serp"|ApiSharedGuid),\s*"(?<version>[^"]+)"\)')
     if ($match.Success) { return $match.Groups['version'].Value }
@@ -48,9 +49,9 @@ foreach ($relative in $projects) {
         $apiDependencyVersion = Get-ApiSharedDependencyVersion $pluginText
         if (-not $apiDependencyVersion) { throw "Missing hard API dependency: $relative" }
         if ($mod[0].DependsOn -notcontains 'APIShared' -or $mod[0].BuildOrder -le 10) { throw "Invalid API build order: $relative" }
-        if ($release.ApiShared.Consumers.($mod[0].Name) -ne $apiDependencyVersion) { throw "API release dependency does not match plugin metadata: $relative" }
+        if ((Get-ApiSharedConsumerMinimum -Config $release -ModName $mod[0].Name) -ne $apiDependencyVersion) { throw "API release dependency does not match plugin metadata: $relative" }
         $installed = Test-Path -LiteralPath ('E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\' + $mod[0].Install)
-        if (-not $installed -and [IO.File]::ReadAllText((Join-Path $workspace $mod[0].BuildDriver)) -notmatch '/noinstall') { throw "Missing /noinstall: $relative" }
+        if (-not $SourceOnly -and -not $installed -and [IO.File]::ReadAllText((Join-Path $workspace $mod[0].BuildDriver)) -notmatch '/noinstall') { throw "Missing /noinstall: $relative" }
     }
     Write-Output "RUNTIME PASS: $relative"
 }
@@ -63,7 +64,7 @@ foreach ($path in $sourceSet) {
     if ($path -notlike '*\APIShared\src\Missions\MissionLifecycleCapability.cs' -and $text -match $lifecyclePattern) { throw "Parallel lifecycle subscription: $path" }
     if ($text -match 'IEditorMapLifecycleCapability|TryGetEditorMapLifecycle|onEditorEnded|EnsureEditorMapState|BeginEditorMapIfApplicable|implicit editor map-size probe|if \((true|false)\)') { throw "Obsolete migration residue: $path" }
 }
-$preserved = @('.github/workflows/release-status.yml', 'Shared/Release/Release.Common.ps1', 'Shared/Release/Test-ReleaseStatus.ps1')
+$preserved = @('.github/workflows/release-status.yml', 'Shared/Tools/Release/Release.Common.ps1', 'Shared/Tools/Release/Test-ReleaseStatus.ps1')
 $changed = @('AGENTS.md') + @(& git diff --name-only --diff-filter=ACMRT) + @(& git ls-files --others --exclude-standard)
 $targets = @($changed | Where-Object {
     $_ -notin $preserved -and $_ -match '\.(cs|csproj|ps1|py|md|json|bat)$' -and

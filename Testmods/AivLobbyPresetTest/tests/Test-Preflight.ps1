@@ -7,7 +7,7 @@ $files = @(
     (Join-Path $root 'src\LobbyPreset.cs'),
     (Join-Path $root 'src\TestSeries.cs'),
     (Join-Path $root 'src\AivLobbyPresetTestPlugin.cs'),
-    (Join-Path $root '..\..\Shared\DependencyFreeJson.cs'),
+    (Join-Path $root '..\..\Shared\Runtime\Persistence\DependencyFreeJson.cs'),
     (Join-Path $root 'CraterLakePreset.json'),
     (Join-Path $root 'AivLobbyTestSeries.json'),
     (Join-Path $root 'AivLobbyStartRebuildRegressionSeries.json'),

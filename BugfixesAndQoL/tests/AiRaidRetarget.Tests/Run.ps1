@@ -16,7 +16,7 @@ $references += '/reference:C:\Program Files (x86)\Reference Assemblies\Microsoft
 $testSources = @($source,(Join-Path $testDir 'Program.cs'),(Join-Path $testDir 'NativeSearchTests.cs'),
     (Join-Path $workspace 'BugfixesAndQoL\src\RaidSearchEvidence.cs'),
     (Join-Path $workspace 'BugfixesAndQoL\src\RaidSearchObserver.cs'),
-    (Join-Path $workspace 'Shared\DebugLogHelper.cs'),
+    (Join-Path $workspace 'Shared\Runtime\Diagnostics\DebugLogHelper.cs'),
     (Join-Path $workspace 'APIShared\src\Units\UnitAccess.cs'),
     (Join-Path $workspace 'BugfixesAndQoL\src\AiRaidRetargetFixRuntime.cs'),
     # TEMP_GATE_ROUTE_ACCEPTANCE: the isolated runtime fixture does not reference APIShared.

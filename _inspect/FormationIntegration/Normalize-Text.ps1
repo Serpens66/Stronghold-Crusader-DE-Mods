@@ -4,7 +4,7 @@ $workspace = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $tracked = @(& git -C $workspace diff --name-only --diff-filter=AM)
 $new = @(& git -C $workspace ls-files --others --exclude-standard)
 $targets = @($tracked + $new | Where-Object {
-    $_ -match '^(APIShared/|BugfixesAndQoL/|_inspect/FormationIntegration/|_inspect/BugfixesAndQoLNativeTests/Program\.cs$|_inspect/Test-ShiftWorkBuffers\.ps1$|Shared/UnitCommandSourceChecks/Program\.cs$|Testmods/MoatMove/src/MoatMoveOptions\.cs$)' -and
+    $_ -match '^(APIShared/|BugfixesAndQoL/|_inspect/FormationIntegration/|_inspect/BugfixesAndQoLNativeTests/Program\.cs$|_inspect/Test-ShiftWorkBuffers\.ps1$|Shared/Tools/Validation/UnitCommandSourceChecks/Program\.cs$|Testmods/MoatMove/src/MoatMoveOptions\.cs$)' -and
     $_ -match '\.(cs|csproj|xaml|ps1|py|md|txt|bat|json)$'
 } | Sort-Object -Unique)
 foreach ($relative in $targets) {

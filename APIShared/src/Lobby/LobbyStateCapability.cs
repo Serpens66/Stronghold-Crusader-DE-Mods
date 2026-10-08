@@ -117,11 +117,11 @@ namespace APIShared
             leaveLobbyOriginal = leaveLobbyHook.GenerateTrampoline<LeaveLobbyDelegate>();
             leaveLobbyHook.Apply();
 
-            Shared.MissionEvents.SetOwner("APIShared_Serp");
-            mapStartSubscription = Shared.MissionEvents.Initialization
+            APIShared.Internal.MissionEvents.SetOwner("APIShared_Serp");
+            mapStartSubscription = APIShared.Internal.MissionEvents.Initialization
                 .Where(args => args.Phase == MissionInitializationPhase.BeforeLoad)
                 .Subscribe(_ => OnMapStarting());
-            mapUnloadSubscription = Shared.MissionEvents.Ended
+            mapUnloadSubscription = APIShared.Internal.MissionEvents.Ended
                 .Subscribe(_ => OnMapUnloaded());
             if (mapStartSubscription == null || mapUnloadSubscription == null)
                 throw new InvalidOperationException("Lobby-state map subscriptions could not be created.");

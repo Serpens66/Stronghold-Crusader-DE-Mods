@@ -18,7 +18,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
-    <Compile Include="..\..\Shared\DependencyFreeJson.cs"><Link>DependencyFreeJson.cs</Link></Compile>
+    <Compile Include="..\..\Shared\Runtime\Persistence\DependencyFreeJson.cs"><Link>DependencyFreeJson.cs</Link></Compile>
     <Compile Include="..\..\SerpsModsHost\src\PackManifest.cs"><Link>PackManifest.cs</Link></Compile>
     <Compile Include="..\..\SerpsModsHost\src\PackManifestJson.cs"><Link>PackManifestJson.cs</Link></Compile>
     <Compile Include="..\..\SerpsModsHost\src\PackPluginDiagnosticMessages.cs"><Link>PackPluginDiagnosticMessages.cs</Link></Compile>

@@ -156,7 +156,7 @@ internal static class Program
         string pluginSource = File.ReadAllText(Path.Combine(modRoot, "src", "ExtremePowersPlugin.cs"));
         string sharedPresetSystem = string.Join("\n", Directory.GetFiles(Path.GetDirectoryName(Path.Combine(modRoot, "..", "APIShared", "src", "ModSettings", "PresetLobbyModSettingsViewModel.cs")), "*.cs").Select(File.ReadAllText));
         Check(!project.Contains("Include=\"src\\") && !project.Contains("Include=\"Locales\\") && !project.Contains("Include=\"Override\\") && !project.Contains("Include=\"Patches\\"), "extractable API project inputs");
-        string[] allowedSharedApiSources = { "..\\Shared\\DebugLogHelper.cs", "..\\Shared\\GameplaySessionLifecycle.cs", "..\\Shared\\UnityMainThreadDispatch.cs" };
+        string[] allowedSharedApiSources = { "..\\Shared\\Runtime\\Diagnostics\\DebugLogHelper.cs", "..\\Shared\\Adapters\\APIShared\\MissionEventsAdapter.cs", "..\\Shared\\Runtime\\Threading\\UnityMainThreadDispatch.cs" };
         foreach (string line in project.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Where(value => value.Contains("<Compile Include=")))
             Check(line.Contains("Include=\"api\\") || allowedSharedApiSources.Any(path => line.Contains("Include=\"" + path + "\"")), "API compile inputs are API sources or approved lifecycle links");
         Check(allowedSharedApiSources.All(path => project.Contains("Include=\"" + path + "\"")), "API project contains the complete approved lifecycle source set");

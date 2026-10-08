@@ -628,65 +628,65 @@ namespace APIShared.UnitCommands
                     "The friendly moat movement feature requires the validated CrusaderDE.dll layout.");
             }
 
-            Shared.NativeResolution floodResolution = Resolve(
+            APIShared.Internal.NativeResolution floodResolution = Resolve(
                 memory, TribeFloodFillMembershipPattern, TribeFloodFillMembershipRva,
                 "Tribe flood-fill membership helper");
-            Shared.NativeResolution groupMoatResolution = Resolve(
+            APIShared.Internal.NativeResolution groupMoatResolution = Resolve(
                 memory, FirstGroupUnitOnCompletedMoatPattern, FirstGroupUnitOnCompletedMoatRva,
                 "first active group unit standing on completed moat helper");
-            Shared.NativeResolution groupUnitResolution = Resolve(
+            APIShared.Internal.NativeResolution groupUnitResolution = Resolve(
                 memory, GetGroupUnitIdPattern, GetGroupUnitIdRva,
                 "group unit iterator");
-            Shared.NativeResolution groupMovementModeResolution = Resolve(
+            APIShared.Internal.NativeResolution groupMovementModeResolution = Resolve(
                 memory, GetTribeMovementModePattern, GetTribeMovementModeRva,
                 "ordinary-movement group route-mode helper");
-            Shared.NativeResolution planResolution = Resolve(
+            APIShared.Internal.NativeResolution planResolution = Resolve(
                 memory, CentralMovementPlanPattern, CentralMovementPlanRva,
                 "central ordinary-movement planner");
-            Shared.NativeResolution combatFinishResumeResolution = Resolve(
+            APIShared.Internal.NativeResolution combatFinishResumeResolution = Resolve(
                 memory, CombatFinishResumePattern, CombatFinishResumeRva,
                 "combat-finish movement-resume helper");
-            Shared.NativeResolution postCombatRepathResolution = Resolve(
+            APIShared.Internal.NativeResolution postCombatRepathResolution = Resolve(
                 memory, PostCombatRepathPattern, PostCombatRepathRva,
                 "post-combat saved-target repath helper");
-            Shared.NativeResolution cursorMoveStagerResolution = Resolve(
+            APIShared.Internal.NativeResolution cursorMoveStagerResolution = Resolve(
                 memory, CursorMoveStagerPattern, CursorMoveStagerRva,
                 "direct cursor move-command stager");
-            Shared.NativeResolution nativeSpecialStructureResolution = Resolve(
+            APIShared.Internal.NativeResolution nativeSpecialStructureResolution = Resolve(
                 memory, NativeSpecialStructurePredicatePattern,
                 NativeSpecialStructurePredicateRva,
                 "DAFD0/E1640 special-structure predicate");
-            Shared.NativeResolution modeResolution = Resolve(
+            APIShared.Internal.NativeResolution modeResolution = Resolve(
                 memory, UnitStandingOnCompletedMoatPattern, UnitStandingOnCompletedMoatRva,
                 "unit-standing-on-completed-moat helper");
-            Shared.NativeResolution regionResolution = Resolve(
+            APIShared.Internal.NativeResolution regionResolution = Resolve(
                 memory, RegionReachabilityPattern, RegionReachabilityRva,
                 "moat-aware region reachability");
-            Shared.NativeResolution builderResolution = Resolve(
+            APIShared.Internal.NativeResolution builderResolution = Resolve(
                 memory, PathBuilderPattern, PathBuilderRva,
                 "central tile path builder");
-            Shared.NativeResolution moatLookupResolution = Resolve(
+            APIShared.Internal.NativeResolution moatLookupResolution = Resolve(
                 memory, GetMoatIdAtTilePattern, GetMoatIdAtTileRva,
                 "moat ID lookup by tile");
-            Shared.NativeResolution cursorResolution = Resolve(
+            APIShared.Internal.NativeResolution cursorResolution = Resolve(
                 memory, CursorReachabilityFunctionPattern, CursorReachabilityRva,
                 "ordinary-movement cursor reachability function");
-            Shared.NativeResolution selectionCanDigResolution = Resolve(
+            APIShared.Internal.NativeResolution selectionCanDigResolution = Resolve(
                 memory, SelectionCanDigMoatPattern, SelectionCanDigMoatRva,
                 "Vanilla selection-can-dig-moat helper");
             Resolve(
                 memory, SelectionCanDigMoatCallPattern, SelectionCanDigMoatCallRva - 0x0C,
                 "DigMoat cursor selection call context");
-            Shared.NativeResolution cursorTilePairResolution = Resolve(
+            APIShared.Internal.NativeResolution cursorTilePairResolution = Resolve(
                 memory, CursorTilePairReachabilityPattern, CursorTilePairReachabilityRva,
                 "cursor tile-pair reachability helper");
-            Shared.NativeResolution representativeUnitResolution = Resolve(
+            APIShared.Internal.NativeResolution representativeUnitResolution = Resolve(
                 memory, GetRepresentativeSelectedUnitPattern, GetRepresentativeSelectedUnitRva,
                 "representative selected-unit helper");
-            Shared.NativeResolution cursorRegionResolution = Resolve(
+            APIShared.Internal.NativeResolution cursorRegionResolution = Resolve(
                 memory, CursorRegionPrecheckPattern, CursorRegionPrecheckRva,
                 "ordinary-movement cursor region precheck");
-            Shared.NativeResolution cursorGateResolution = Resolve(
+            APIShared.Internal.NativeResolution cursorGateResolution = Resolve(
                 memory, CursorCurrentTileFlagGatePattern, CursorCurrentTileFlagGateRva,
                 "ordinary-movement current-tile cursor gate");
             Resolve(memory, AttackUnitPairGatePattern, AttackUnitPairGateJumpRva - 0x0E,
@@ -1027,7 +1027,7 @@ namespace APIShared.UnitCommands
             {
                 // Cadence qualification is optional; keep shared commands and selectors available.
                 nativeMovementCadenceResolver = null;
-                Shared.DebugLogHelper.LogWarning(log,
+                APIShared.Internal.DebugLogHelper.LogWarning(log,
                     "CADENCE_RESOLVER_UNAVAILABLE: weighted route publication disabled; " +
                     "shared movement commands remain available: " + exception);
             }
@@ -1147,7 +1147,7 @@ namespace APIShared.UnitCommands
                 catch (Exception exception)
                 {
                     disposed = true;
-                    Shared.DebugLogHelper.LogError(log,
+                    APIShared.Internal.DebugLogHelper.LogError(log,
                         "Friendly moat movement disabled after a committed mode-detour contract mismatch: " + exception);
                 }
 
@@ -1170,14 +1170,14 @@ namespace APIShared.UnitCommands
                 tribeMoveSubscription = TribeR3EventHooks.OnTribeIssueOrderMoveHere.Observable.Subscribe(DispatchMoveEvent);
                 unitMoveSubscription = UnitR3EventHooks.OnUnitMoveHere.Observable.Subscribe(DispatchUnitMoveEvent);
                 tribeTargetSubscription = TribeR3EventHooks.OnTribeIssueOrderWithTarget.Observable.Subscribe(DispatchTargetEvent);
-                mapLoadSubscription = Shared.MissionEvents.Loading.Subscribe(_ => ResetMapState());
+                mapLoadSubscription = APIShared.Internal.MissionEvents.Loading.Subscribe(_ => ResetMapState());
                 // SaveLifecycle: ResetOnly - every save load also raises map unload.
-                mapStartSubscription = Shared.MissionEvents.NativeStart.Subscribe(_ => ResetMapState());
-                mapUnloadSubscription = Shared.MissionEvents.Ended.Subscribe(_ => ResetMapState());
+                mapStartSubscription = APIShared.Internal.MissionEvents.NativeStart.Subscribe(_ => ResetMapState());
+                mapUnloadSubscription = APIShared.Internal.MissionEvents.Ended.Subscribe(_ => ResetMapState());
                 GameTimeManagerAPI.Instance.OnTick += ObserveTrackedAttackStates;
                 attackTickSubscribed = true;
 
-                Shared.DebugLogHelper.LogDebug(
+                APIShared.Internal.DebugLogHelper.LogDebug(
                     log,
                     "Unit command shared hooks installed: " +
                     $"cursorGate=0x{cursorGateResolution.Rva:X}/jump=0x{CursorCurrentTileFlagGateJumpRva:X}(vanilla), " +
@@ -1275,7 +1275,7 @@ namespace APIShared.UnitCommands
             RedBirdDetour<BuildingCursorReachabilityDelegate> pendingBuildingCursor = null;
             try
             {
-                Shared.NativeResolution buildingCursorResolution = Resolve(
+                APIShared.Internal.NativeResolution buildingCursorResolution = Resolve(
                     memory, BuildingCursorReachabilityPattern, BuildingCursorReachabilityRva,
                     "building cursor approach reachability helper");
                 ValidateExactBytes(
@@ -1307,7 +1307,7 @@ namespace APIShared.UnitCommands
                         $"The building cursor hook was not installed atomically: {commitResult}.");
                 buildingCursorReachabilityDetour = pendingBuildingCursor;
                 buildingCursorHookTransaction = pendingTransaction;
-                Shared.DebugLogHelper.LogDebug(
+                APIShared.Internal.DebugLogHelper.LogDebug(
                     log,
                     "Bugfixes and QoL friendly-moat-movement building cursor reachability installed: " +
                     $"helper=0x{buildingCursorResolution.Rva:X}, " +
@@ -1325,7 +1325,7 @@ namespace APIShared.UnitCommands
                 buildingCursorHookTransaction = null;
                 buildingCursorReachabilityDetour = null;
                 rootedBuildingCursorReachability = null;
-                Shared.DebugLogHelper.LogError(
+                APIShared.Internal.DebugLogHelper.LogError(
                     log,
                     "Bugfixes and QoL friendly-moat-movement building cursor reachability was not installed; " +
                     $"building cursors remain Vanilla and the movement feature remains active: {ex}");
@@ -1341,19 +1341,19 @@ namespace APIShared.UnitCommands
             RedBirdDetour<RegionPairReachabilityDelegate> pendingRegionPair = null;
             try
             {
-                Shared.NativeResolution unitFloodResolution = Resolve(
+                APIShared.Internal.NativeResolution unitFloodResolution = Resolve(
                     memory, AttackApproachFloodBuilderPattern, AttackApproachFloodBuilderRva,
                     "unit attack-approach flood builder");
-                Shared.NativeResolution buildingApproachResolution = Resolve(
+                APIShared.Internal.NativeResolution buildingApproachResolution = Resolve(
                     memory, BuildingApproachBuilderPattern, BuildingApproachBuilderRva,
                     "building attack-approach builder");
-                Shared.NativeResolution buildingConsumerResolution = Resolve(
+                APIShared.Internal.NativeResolution buildingConsumerResolution = Resolve(
                     memory, BuildingCandidateConsumerPattern, BuildingCandidateConsumerRva,
                     "building attack candidate consumer");
-                Shared.NativeResolution regionPairResolution = Resolve(
+                APIShared.Internal.NativeResolution regionPairResolution = Resolve(
                     memory, RegionPairReachabilityPattern, RegionPairReachabilityRva,
                     "attack-approach region-pair reachability helper");
-                Shared.NativeResolution directFillApproachResolution = Resolve(
+                APIShared.Internal.NativeResolution directFillApproachResolution = Resolve(
                     memory, DirectFillApproachPattern, DirectFillApproachRva,
                     "direct FillMoat approach search");
 
@@ -1398,7 +1398,7 @@ namespace APIShared.UnitCommands
                 buildingCandidateConsumerDetour = pendingBuildingConsumer;
                 regionPairReachabilityDetour = pendingRegionPair;
                 attackApproachHookTransaction = pendingTransaction;
-                Shared.DebugLogHelper.LogDebug(
+                APIShared.Internal.DebugLogHelper.LogDebug(
                     log,
                     "Bugfixes and QoL friendly-moat-movement attack-approach hooks installed: " +
                     $"unitFlood=0x{unitFloodResolution.Rva:X}, " +
@@ -1427,7 +1427,7 @@ namespace APIShared.UnitCommands
                 rootedBuildingApproachBuilder = null;
                 rootedBuildingCandidateConsumer = null;
                 rootedRegionPairReachability = null;
-                Shared.DebugLogHelper.LogError(
+                APIShared.Internal.DebugLogHelper.LogError(
                     log,
                     "Bugfixes and QoL friendly-moat-movement shared E2610/attack-approach hooks were not installed; " +
                     "the ladder attack fix, building commands, and direct FillMoat staging remain Vanilla while the " +
@@ -1507,7 +1507,7 @@ namespace APIShared.UnitCommands
 
         internal static void ValidateAttackApproachCalls(ReadOnlySpan<byte> memory)
         {
-            int tribeManagerTarget = Shared.NativePatternResolver.ResolveRelativeTarget(
+            int tribeManagerTarget = APIShared.Internal.NativePatternResolver.ResolveRelativeTarget(
                 memory, AttackApproachFloodBuilderRva + 0x1D, AttackApproachFloodBuilderRva + 0x21);
             if (tribeManagerTarget != NativeTribeManagerRva)
             {
@@ -2613,7 +2613,7 @@ namespace APIShared.UnitCommands
                         {
                             if (contractCounts[2] <= 3)
                             {
-                                Shared.DebugLogHelper.LogWarning(
+                                APIShared.Internal.DebugLogHelper.LogWarning(
                                     log,
                                     $"Bugfixes and QoL stage=friendly-moat-movement-weighted-path-consumer-contract-invalid " +
                                     $"unit={unitId} commandSeq={tracker.WeightedCommandSequence} " +
@@ -7461,7 +7461,7 @@ namespace APIShared.UnitCommands
 
             long bestDistanceSquared = long.MaxValue;
             uint gridSize = building->r_OccupyTileGridSize;
-            if (gridSize == 0 || gridSize > Shared.GameBuildingFootprint.MaximumGridSize)
+            if (gridSize == 0 || gridSize > APIShared.Internal.GameBuildingFootprint.MaximumGridSize)
                 return false;
             int tileCount = checked((int)(gridSize * gridSize));
             uint* occupiedTileIds = &building->r_OccupiedTileIdsArrayBegin;
@@ -7530,7 +7530,7 @@ namespace APIShared.UnitCommands
 
             int candidateTileId = (int)rawTileId;
             if (GameTileManagerAPI.Instance.GetTileBuildingId(candidateTileId) != buildingId ||
-                !Shared.GameBuildingFootprint.ContainsTileId(building, candidateTileId))
+                !APIShared.Internal.GameBuildingFootprint.ContainsTileId(building, candidateTileId))
                 return false;
             UnmanagedVector2<ushort> candidatePosition =
                 GameTileManagerAPI.Instance.GetTileVectorFromId(candidateTileId);
@@ -7738,7 +7738,7 @@ namespace APIShared.UnitCommands
                 return false;
             }
 
-            if (!Shared.GameBuildingFootprint.TryGetBounds(building, out Shared.GameBuildingFootprintBounds bounds))
+            if (!APIShared.Internal.GameBuildingFootprint.TryGetBounds(building, out APIShared.Internal.GameBuildingFootprintBounds bounds))
                 return false;
             int minX = Math.Max(0, bounds.MinX - 1);
             int minY = Math.Max(0, bounds.MinY - 1);
@@ -8394,7 +8394,7 @@ namespace APIShared.UnitCommands
         internal void LogDetailedInfo(string message)
         {
             if (DetailedDiagnosticsEnabled)
-                Shared.DebugLogHelper.LogDebug(log, message);
+                APIShared.Internal.DebugLogHelper.LogDebug(log, message);
         }
 
         internal void LogPositiveCursorDecision(ref int lastLoggedGeneration, string message)
@@ -8763,7 +8763,7 @@ namespace APIShared.UnitCommands
             if (callbackFailureReported)
                 return;
             callbackFailureReported = true;
-            Shared.DebugLogHelper.LogError(
+            APIShared.Internal.DebugLogHelper.LogError(
                 log,
                 $"Bugfixes and QoL friendly-moat-movement {stage} callback failed once; Vanilla behavior remains active: {ex}");
         }
@@ -8774,7 +8774,7 @@ namespace APIShared.UnitCommands
             {
                 if (!reportedDiagnosticFailureStages.Add(stage))
                     return;
-                Shared.DebugLogHelper.LogError(
+                APIShared.Internal.DebugLogHelper.LogError(
                     log,
                     $"Bugfixes and QoL friendly-moat-movement read-only diagnostic stage={stage} failed; " +
                     $"Vanilla behavior remains unchanged: {ex}");
@@ -8785,10 +8785,10 @@ namespace APIShared.UnitCommands
             }
         }
 
-        internal Shared.NativeResolution Resolve(
+        internal APIShared.Internal.NativeResolution Resolve(
             ReadOnlySpan<byte> memory, string pattern, int expectedRva, string label)
         {
-            Shared.NativeResolution resolution = Shared.NativePatternResolver.ResolveUnique(
+            APIShared.Internal.NativeResolution resolution = APIShared.Internal.NativePatternResolver.ResolveUnique(
                 memory,
                 pattern,
                 expectedRva,
@@ -8841,7 +8841,7 @@ namespace APIShared.UnitCommands
             if (expectedBytes.Length != 5 || expectedBytes[0] != 0xE8)
                 throw new InvalidOperationException($"The validated {label} is not a near CALL.");
 
-            int targetRva = Shared.NativePatternResolver.ResolveRelativeTarget(
+            int targetRva = APIShared.Internal.NativePatternResolver.ResolveRelativeTarget(
                 memory, callRva + 1, callRva + 5);
             if (targetRva != expectedTargetRva)
             {

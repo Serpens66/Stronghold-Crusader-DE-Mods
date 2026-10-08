@@ -29,11 +29,11 @@ Write-Source "$bridge/src/DrawbridgeClosurePolicy.cs" (Read-Source "$gate/src/Dr
 $ownership = Read-Source "$gate/src/GateEdgeOwnership.cs"
 Write-Source "$bridge/src/GateEdgeOwnership.cs" ($ownership.Substring(0,$ownership.IndexOf('    // All edges count;')).Replace('namespace EnemyGatePathfindingTest','namespace EnemyBridgePathTest').TrimEnd() + "`n}`n")
 # Share the pure aggregate source; no assembly dependency on the gate test.
-Write-Source 'Shared/PathDecisionAggregate.cs' (Read-Source "$gate/src/AiGateDecisionAggregate.cs")
+Write-Source 'Shared/Runtime/Gameplay/PathDecisionAggregate.cs' (Read-Source "$gate/src/AiGateDecisionAggregate.cs")
 foreach ($project in @('EnemyGatePathfindingTest.csproj','EnemyGatePathfindingTest.PolicyTests.csproj')) {
     $text = Read-Source "$gate/$project"
     $text = $text -replace '    <Compile Include="(?:src\\DrawbridgeClosurePolicy|tests\\DrawbridgeClosureTests)\.cs" />\n', ''
-    $text = $text.Replace('<Compile Include="src\AiGateDecisionAggregate.cs" />','<Compile Include="..\..\Shared\PathDecisionAggregate.cs"><Link>Shared\PathDecisionAggregate.cs</Link></Compile>')
+    $text = $text.Replace('<Compile Include="src\AiGateDecisionAggregate.cs" />','<Compile Include="..\..\Shared\Runtime\Gameplay\PathDecisionAggregate.cs"><Link>Shared\Runtime\Gameplay\PathDecisionAggregate.cs</Link></Compile>')
     Write-Source "$gate/$project" $text
 }
 $path = "$gate/src/GateTopologySnapshotProvider.cs"

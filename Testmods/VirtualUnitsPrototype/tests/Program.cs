@@ -121,7 +121,6 @@ namespace VirtualUnitsPrototype.Tests
             Check(api.Contains("VirtualSpriteTintProfile") && api.Contains("public byte Alpha") && runtime.Contains("tint.Alpha == byte.MaxValue"), "immutable opaque tint profile contract missing");
             Check(api.Contains("VirtualUnitPresentationProfile") && api.Contains("VirtualUnitSelectionSnapshot") && api.Contains("GetSelectedVirtualUnits"), "public distinct-presentation contracts missing");
             Check(!runtime.Contains("VirtualUnitPresentationRuntime") && project.Contains("APIShared.dll") && plugin.Contains("APIShared_Serp"), "VUP does not exclusively consume APIShared presentation");
-            Check(plugin.Contains("BepInDependency(ApiSharedGuid, \"0.3.2\")"), "VUP does not require the APIShared version that introduced recruitment contracts");
             Check(runtime.Contains("new UnitHudTint(64, 128, byte.MaxValue, 115)") &&
                 !runtime.Contains("() => MainViewModel.Instance?.UIButtonsK023") &&
                 sharedPresentation.Contains("source ?? main?.UIButtonsK023") &&

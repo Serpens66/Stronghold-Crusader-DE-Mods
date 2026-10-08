@@ -26,8 +26,8 @@
     <Reference Include="RedBird.X64"><HintPath>$(ExtenderDir)\RedBird.X64.dll</HintPath></Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="..\..\Shared\DebugLogHelper.cs"><Link>DebugLogHelper.cs</Link></Compile>
-    <Compile Include="..\..\Shared\NativePatternResolver.cs"><Link>NativePatternResolver.cs</Link></Compile>
+    <Compile Include="..\..\Shared\Runtime\Diagnostics\DebugLogHelper.cs"><Link>DebugLogHelper.cs</Link></Compile>
+    <Compile Include="..\..\Shared\Runtime\Native\NativePatternResolver.cs"><Link>NativePatternResolver.cs</Link></Compile>
     <Compile Include="..\..\ExtraFeatures\src\ElevatedMoatNativeContract.cs"><Link>ElevatedMoatNativeContract.cs</Link></Compile>
     <Compile Include="..\..\ExtraFeatures\src\ElevatedMoatDrawbridgeHooks.cs"><Link>ElevatedMoatDrawbridgeHooks.cs</Link></Compile>
     <Compile Include="Program.cs" />

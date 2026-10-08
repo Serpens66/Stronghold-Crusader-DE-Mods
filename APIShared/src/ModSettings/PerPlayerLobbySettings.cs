@@ -1,7 +1,7 @@
 using APIShared.GameModes;
 using APIShared.ModSettings;
 using APIShared.SerpsMods;
-using Shared;
+using APIShared.Internal;
 #pragma warning disable 1591 // XAML and integration surface is documented by the APIShared preset guide.
 using BepInEx;
 using BepInEx.Logging;
@@ -184,7 +184,7 @@ namespace APIShared.ModSettings
                 // SaveLifecycle: normal multiplayer starts and Platform_Multiplayer.StartSave
                 // preserve the lobby snapshot and remap Steam identities to final game slots.
                 // Only single-player save loads have no multiplayer lobby convergence.
-                mapStartSubscription = Shared.MissionEvents.NativeStart.Subscribe(args =>
+                mapStartSubscription = APIShared.Internal.MissionEvents.NativeStart.Subscribe(args =>
                 {
                     if (args.IsBeforeInitialization)
                         FinalizeRosterForMapTransition(args.Context.IsSave && args.Context.Mode.IsRealMultiplayer);
@@ -816,4 +816,3 @@ namespace APIShared.ModSettings
         internal Action Observe { get; }
     }
 }
-

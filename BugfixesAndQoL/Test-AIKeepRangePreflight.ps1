@@ -52,7 +52,7 @@ foreach ($file in $files) {
     $text=[IO.File]::ReadAllText((Join-Path $PSScriptRoot $file))
     if ($text -match '(?<!\r)\n|\r(?!\n)') { throw "Non-CRLF: $file" }
 }
-& (Join-Path $workspace 'Shared\Test-PermanentNativeRuntimePatches.ps1')
+& (Join-Path $workspace 'Shared\Tools\Validation\Test-PermanentNativeRuntimePatches.ps1')
 Write-Output 'PASS: AI keep range lifetime, migration guard, minimal logging, host settings, Fixes? XAML, locale parity and CRLF.'
 if (-not $SkipTests) {
     & 'D:\CDesktopLink\Portable\Python\WinPy64\python\python.exe' (Join-Path $workspace '_inspect\AIKeepRangeLimit\audit.py')

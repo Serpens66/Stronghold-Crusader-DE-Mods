@@ -33,5 +33,5 @@ foreach ($file in @(Get-ChildItem -LiteralPath $PSScriptRoot -Recurse -File -Fil
         if ($elements.Count -ne 1) { throw "XAML Content requires exactly one root: $($file.FullName)" }
     }
 }
-& (Join-Path $workspace 'Shared/Test-PermanentNativeRuntimePatches.ps1')
+& (Join-Path $workspace 'Shared/Tools/Validation/Test-PermanentNativeRuntimePatches.ps1')
 Write-Host "PASS: EnemyGate runtime JSON/lifecycle, permanent hooks, XAML and CRLF ($($sources.Count) runtime sources)."

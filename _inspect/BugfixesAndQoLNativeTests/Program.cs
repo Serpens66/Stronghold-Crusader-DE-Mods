@@ -191,7 +191,7 @@ internal static class Program
             "dispatcher mode read resolves to RVA 0x67E8410");
 
         string shared = File.ReadAllText(Path.Combine(
-            workspace, "Shared", "GroundMovePreviewEligibility.cs"));
+            workspace, "Shared", "Runtime", "Gameplay", "GroundMovePreviewEligibility.cs"));
         Check(shared.Contains("CommandModeRva = 0x67E8410") &&
               shared.Contains("AttackHereSetupRva = 0x90729") &&
               shared.Contains("CommandDispatcherReadRva = 0x8D323") &&

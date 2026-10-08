@@ -28,8 +28,8 @@
   <ItemGroup>
     <Compile Include="..\..\..\ExtraFeatures\src\FearFactorNativeDefinition.cs"><Link>FearFactorNativeDefinition.cs</Link></Compile>
     <Compile Include="..\..\..\ExtraFeatures\src\FearFactorNeutralizationPolicy.cs"><Link>FearFactorNeutralizationPolicy.cs</Link></Compile>
-    <Compile Include="..\..\..\Shared\DebugLogHelper.cs"><Link>Shared\DebugLogHelper.cs</Link></Compile>
-    <Compile Include="..\..\..\Shared\NativePatternResolver.cs"><Link>Shared\NativePatternResolver.cs</Link></Compile>
+    <Compile Include="..\..\..\Shared\Runtime\Diagnostics\DebugLogHelper.cs"><Link>Shared\Runtime\Diagnostics\DebugLogHelper.cs</Link></Compile>
+    <Compile Include="..\..\..\Shared\Runtime\Native\NativePatternResolver.cs"><Link>Shared\Runtime\Native\NativePatternResolver.cs</Link></Compile>
     <Compile Include="Program.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

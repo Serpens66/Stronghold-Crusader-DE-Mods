@@ -133,7 +133,7 @@ namespace APIShared.UnitCommands
         internal bool IsDispatching { get { lock (stateSync) return dispatchDepth > 0; } }
 
         private LargeMoveTargetMarkerRenderer markerRenderer;
-        private Shared.NativeTroopCommandModeReader commandModeReader;
+        private APIShared.Internal.NativeTroopCommandModeReader commandModeReader;
         private Hook engineRunHook;
         private Hook cameraUpdateHook;
         private EngineRunDelegate engineRunOriginal;
@@ -209,7 +209,7 @@ namespace APIShared.UnitCommands
                 mainThreadId = Environment.CurrentManagedThreadId;
                 ulong libraryBase = unchecked((ulong)libraryContext.ModuleHandle.ToInt64());
                 ValidateNativeContracts(libraryContext.Memory);
-                commandModeReader = new Shared.NativeTroopCommandModeReader(
+                commandModeReader = new APIShared.Internal.NativeTroopCommandModeReader(
                     libraryContext.ModuleHandle,
                     libraryContext.Memory);
                 if (!commandRuntime.FormationHooksAvailable || !markerRenderer.ReplacementAvailable)
@@ -279,7 +279,7 @@ namespace APIShared.UnitCommands
                 commandRuntime.formationRuntime = this;
                 initialized = true;
 
-                Shared.DebugLogHelper.LogInfo(
+                APIShared.Internal.DebugLogHelper.LogInfo(
                     log,
                     "BugfixesAndQoL Formation active: synchronized Chore packet, mouse gesture hooks, " +
                     $"mainThread={mainThreadId}, " +
@@ -355,16 +355,16 @@ namespace APIShared.UnitCommands
                 if (state == null || !state.ReleaseGate.CanModify ||
                     args.Key != ToKeyCode(state.CommandButton))
                     return;
-                Shared.GroundMovePreviewRejection modeRejection =
+                APIShared.Internal.GroundMovePreviewRejection modeRejection =
                     EvaluateCommandMode();
-                if (modeRejection != Shared.GroundMovePreviewRejection.None)
+                if (modeRejection != APIShared.Internal.GroundMovePreviewRejection.None)
                 {
                     AbortDrag("command-" + ToRejectionReason(modeRejection));
                     return;
                 }
-                Shared.GroundMovePreviewRejection targetRejection =
+                APIShared.Internal.GroundMovePreviewRejection targetRejection =
                     EvaluateFormationTargetBounds(state.Target);
-                if (targetRejection != Shared.GroundMovePreviewRejection.None)
+                if (targetRejection != APIShared.Internal.GroundMovePreviewRejection.None)
                 {
                     AbortDrag("target-" + ToRejectionReason(targetRejection));
                     return;
@@ -397,9 +397,9 @@ namespace APIShared.UnitCommands
                     AbortDrag("release-over-ui");
                     return;
                 }
-                Shared.GroundMovePreviewRejection modeRejection =
+                APIShared.Internal.GroundMovePreviewRejection modeRejection =
                     EvaluateCommandMode();
-                if (modeRejection != Shared.GroundMovePreviewRejection.None)
+                if (modeRejection != APIShared.Internal.GroundMovePreviewRejection.None)
                 {
                     AbortDrag("release-command-" +
                         ToRejectionReason(modeRejection));
@@ -416,7 +416,7 @@ namespace APIShared.UnitCommands
                 if (!releaseObserved)
                     return;
                 ClearPreview();
-                Shared.DebugLogHelper.LogDebug(
+                APIShared.Internal.DebugLogHelper.LogDebug(
                     log,
                     $"FORMATION_RELEASE_EVENT: button={state.CommandButton}, " +
                     $"thread={Environment.CurrentManagedThreadId}; awaiting native release.");
@@ -458,17 +458,17 @@ namespace APIShared.UnitCommands
                 if (state == null)
                     return RunOriginalOnce(mpFrameSkip, ref originalEntered);
 
-                Shared.GroundMovePreviewRejection modeRejection =
+                APIShared.Internal.GroundMovePreviewRejection modeRejection =
                     EvaluateCommandMode();
-                if (modeRejection != Shared.GroundMovePreviewRejection.None)
+                if (modeRejection != APIShared.Internal.GroundMovePreviewRejection.None)
                 {
                     AbortDrag("release-command-" +
                         ToRejectionReason(modeRejection));
                     return RunOriginalOnce(mpFrameSkip, ref originalEntered);
                 }
-                Shared.GroundMovePreviewRejection targetRejection =
+                APIShared.Internal.GroundMovePreviewRejection targetRejection =
                     EvaluateFormationTargetBounds(state.Target);
-                if (targetRejection != Shared.GroundMovePreviewRejection.None)
+                if (targetRejection != APIShared.Internal.GroundMovePreviewRejection.None)
                 {
                     AbortDrag("release-target-" +
                         ToRejectionReason(targetRejection));
@@ -515,7 +515,7 @@ namespace APIShared.UnitCommands
                 DispatchDisposition disposition = TryDispatch(packet, out string rejection);
                 if (disposition != DispatchDisposition.Accepted)
                 {
-                    Shared.DebugLogHelper.LogWarning(
+                    APIShared.Internal.DebugLogHelper.LogWarning(
                         log,
                         $"Formation order fell back to Vanilla: {rejection}.");
                     return RunOriginalOnce(mpFrameSkip, ref originalEntered);
@@ -692,9 +692,9 @@ namespace APIShared.UnitCommands
 
         private void TryStartDrag(int commandButton)
         {
-            Shared.GroundMovePreviewRejection modeRejection =
+            APIShared.Internal.GroundMovePreviewRejection modeRejection =
                 EvaluateCommandMode();
-            if (modeRejection != Shared.GroundMovePreviewRejection.None)
+            if (modeRejection != APIShared.Internal.GroundMovePreviewRejection.None)
             {
                 LogTargetRejection(modeRejection, default);
                 return;
@@ -709,9 +709,9 @@ namespace APIShared.UnitCommands
                 return;
             if (!TryCaptureCommandTarget(
                     out GroundTarget target,
-                    out Shared.GroundMovePreviewRejection targetRejection))
+                    out APIShared.Internal.GroundMovePreviewRejection targetRejection))
             {
-                if (targetRejection != Shared.GroundMovePreviewRejection.None)
+                if (targetRejection != APIShared.Internal.GroundMovePreviewRejection.None)
                     LogTargetRejection(targetRejection, target);
                 return;
             }
@@ -741,7 +741,7 @@ namespace APIShared.UnitCommands
                 drag = state;
                 PublishPreview(state, force: true);
             }
-            Shared.DebugLogHelper.LogDebug(
+            APIShared.Internal.DebugLogHelper.LogDebug(
                 log,
                 $"FORMATION_DRAG_START: tribe={tribeId}, units={selection.Length}, " +
                 $"target={target.NativeX},{target.NativeY}, kind={state.Kind}, " +
@@ -751,7 +751,7 @@ namespace APIShared.UnitCommands
         private bool TryCreatePacket(ActiveDrag state, out FormationOrderPacket packet)
         {
             packet = null;
-            if (EvaluateCommandMode() != Shared.GroundMovePreviewRejection.None)
+            if (EvaluateCommandMode() != APIShared.Internal.GroundMovePreviewRejection.None)
                 return false;
             ResolveDirectionAndWidth(state, out int direction, out int width);
             if (state.TribeId <= 0 || state.TribeId >= MaximumTribeCount ||
@@ -1384,10 +1384,10 @@ namespace APIShared.UnitCommands
                 failed = true;
             }
             try { menuViewModel.CloseMenu(); } catch { }
-            try { Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(menuViewModel.RefreshHostState); } catch { }
+            try { APIShared.Internal.UnityMainThreadDispatch.TryRunInlineOrEnqueue(menuViewModel.RefreshHostState); } catch { }
             try
             {
-                Shared.DebugLogHelper.LogError(
+                APIShared.Internal.DebugLogHelper.LogError(
                     log,
                     $"Formation native assignment failed open at {stage}; " +
                     $"future formation commands are disabled: {exception}");
@@ -1399,11 +1399,11 @@ namespace APIShared.UnitCommands
 
         private void LogDebugNoThrow(string message)
         {
-            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
+            APIShared.Internal.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
             {
                 try
                 {
-                    Shared.DebugLogHelper.LogDebug(log, message);
+                    APIShared.Internal.DebugLogHelper.LogDebug(log, message);
                 }
                 catch
                 {
@@ -1413,11 +1413,11 @@ namespace APIShared.UnitCommands
 
         private void LogWarningNoThrow(string message)
         {
-            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
+            APIShared.Internal.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
             {
                 try
                 {
-                    Shared.DebugLogHelper.LogWarning(log, message);
+                    APIShared.Internal.DebugLogHelper.LogWarning(log, message);
                 }
                 catch
                 {
@@ -1427,11 +1427,11 @@ namespace APIShared.UnitCommands
 
         private void LogErrorNoThrow(string message)
         {
-            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
+            APIShared.Internal.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
             {
                 try
                 {
-                    Shared.DebugLogHelper.LogError(log, message);
+                    APIShared.Internal.DebugLogHelper.LogError(log, message);
                 }
                 catch
                 {
@@ -1915,17 +1915,17 @@ namespace APIShared.UnitCommands
 
         private void PublishPreview(ActiveDrag state, bool force)
         {
-            Shared.GroundMovePreviewRejection modeRejection =
+            APIShared.Internal.GroundMovePreviewRejection modeRejection =
                 EvaluateCommandMode();
-            if (modeRejection != Shared.GroundMovePreviewRejection.None)
+            if (modeRejection != APIShared.Internal.GroundMovePreviewRejection.None)
             {
                 state.HasPreviewPlan = false;
                 ClearPreview();
                 return;
             }
-            Shared.GroundMovePreviewRejection targetRejection =
+            APIShared.Internal.GroundMovePreviewRejection targetRejection =
                 EvaluateFormationTargetBounds(state.Target);
-            if (targetRejection != Shared.GroundMovePreviewRejection.None)
+            if (targetRejection != APIShared.Internal.GroundMovePreviewRejection.None)
             {
                 state.HasPreviewPlan = false;
                 state.PreviewPlanHash = 0UL;
@@ -1999,7 +1999,7 @@ namespace APIShared.UnitCommands
                     return;
                 }
                 menuViewModel.PublishPreview(points, directionIndicator);
-                Shared.DebugLogHelper.LogDebug(
+                APIShared.Internal.DebugLogHelper.LogDebug(
                     log,
                     $"FORMATION_PREVIEW_UPDATED: kind={previewKey.Kind}, " +
                     $"density={previewKey.Density}, placement={previewKey.PlacementMode}, " +
@@ -2013,7 +2013,7 @@ namespace APIShared.UnitCommands
             catch (Exception exception)
             {
                 ClearPreview();
-                Shared.DebugLogHelper.LogDebug(
+                APIShared.Internal.DebugLogHelper.LogDebug(
                     log,
                     $"Formation preview unavailable for this target: {exception.Message}");
             }
@@ -2127,35 +2127,35 @@ namespace APIShared.UnitCommands
 
         private bool TryCaptureCommandTarget(
             out GroundTarget target,
-            out Shared.GroundMovePreviewRejection rejection)
+            out APIShared.Internal.GroundMovePreviewRejection rejection)
         {
-            rejection = Shared.GroundMovePreviewRejection.OutsideMap;
+            rejection = APIShared.Internal.GroundMovePreviewRejection.OutsideMap;
             if (!TryCaptureTarget(out target))
                 return false;
 
             // A candidate is not an object-free-ground verdict. Coherent final
             // Vanilla feedback, observed after native dispatch, authorizes Move.
             rejection = EvaluateFormationTargetBounds(target);
-            return rejection == Shared.GroundMovePreviewRejection.None;
+            return rejection == APIShared.Internal.GroundMovePreviewRejection.None;
         }
 
-        private Shared.GroundMovePreviewRejection EvaluateCommandMode()
+        private APIShared.Internal.GroundMovePreviewRejection EvaluateCommandMode()
         {
             if (commandModeReader == null)
-                return Shared.GroundMovePreviewRejection.NonMoveCommandMode;
-            return Shared.GroundMovePreviewEligibility.EvaluateCommandMode(
+                return APIShared.Internal.GroundMovePreviewRejection.NonMoveCommandMode;
+            return APIShared.Internal.GroundMovePreviewEligibility.EvaluateCommandMode(
                 commandModeReader.Read());
         }
 
-        private Shared.GroundMovePreviewRejection EvaluateFormationTargetBounds(
+        private APIShared.Internal.GroundMovePreviewRejection EvaluateFormationTargetBounds(
             GroundTarget target)
         {
             GameTileManagerView tileManager = GameTileManagerAPI.Instance.TileManager;
             int tileId = GameTileManagerAPI.Instance.GetTileId(
                 target.NativeX, target.NativeY);
             bool insideMap = IsTargetInsideNativeMap(target, tileId, tileManager);
-            return insideMap ? Shared.GroundMovePreviewRejection.None :
-                Shared.GroundMovePreviewRejection.OutsideMap;
+            return insideMap ? APIShared.Internal.GroundMovePreviewRejection.None :
+                APIShared.Internal.GroundMovePreviewRejection.OutsideMap;
         }
 
         private static bool IsTargetInsideNativeMap(
@@ -2172,7 +2172,7 @@ namespace APIShared.UnitCommands
         }
 
         private void LogTargetRejection(
-            Shared.GroundMovePreviewRejection rejection,
+            APIShared.Internal.GroundMovePreviewRejection rejection,
             GroundTarget target)
         {
             string reason = ToRejectionReason(rejection);
@@ -2185,7 +2185,7 @@ namespace APIShared.UnitCommands
         }
 
         private static string ToRejectionReason(
-            Shared.GroundMovePreviewRejection rejection) =>
+            APIShared.Internal.GroundMovePreviewRejection rejection) =>
             rejection.ToString().ToLowerInvariant();
 
         private bool AuthorizePreview(ActiveDrag state)
@@ -2384,7 +2384,7 @@ namespace APIShared.UnitCommands
             if (state == null)
                 return;
             ClearPreview();
-            Shared.DebugLogHelper.LogDebug(log, $"FORMATION_DRAG_ABORTED: {reason}.");
+            APIShared.Internal.DebugLogHelper.LogDebug(log, $"FORMATION_DRAG_ABORTED: {reason}.");
         }
 
         internal void DisableForProcess(string contract, Exception exception) => FailOpen(contract, exception);
@@ -2405,10 +2405,10 @@ namespace APIShared.UnitCommands
             // Fail-open must reach Vanilla even if a presentation or logger also fails.
             try { ClearPreview(); } catch { }
             try { menuViewModel.CloseMenu(); } catch { }
-            try { Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(menuViewModel.RefreshHostState); } catch { }
+            try { APIShared.Internal.UnityMainThreadDispatch.TryRunInlineOrEnqueue(menuViewModel.RefreshHostState); } catch { }
             try
             {
-                Shared.DebugLogHelper.LogError(log,
+                APIShared.Internal.DebugLogHelper.LogError(log,
                     $"FORMATION_DISABLED: contract={contract}; Vanilla remains active; {exception}");
             }
             catch { }
@@ -2753,7 +2753,7 @@ namespace APIShared.UnitCommands
             string[] bytes = new string[expected.Length];
             for (int index = 0; index < expected.Length; index++)
                 bytes[index] = expected[index].ToString("X2");
-            int resolved = Shared.NativePatternResolver.FindUniquePattern(
+            int resolved = APIShared.Internal.NativePatternResolver.FindUniquePattern(
                 memory, string.Join(" ", bytes), name);
             if (resolved != expectedRva)
             {

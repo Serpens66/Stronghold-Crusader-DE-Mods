@@ -7,6 +7,6 @@
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="..\..\Shared\CrashBreadcrumbRecorder.cs" Link="CrashBreadcrumbRecorder.cs" />
+    <Compile Include="..\..\Shared\Runtime\Diagnostics\CrashBreadcrumbRecorder.cs" Link="CrashBreadcrumbRecorder.cs" />
   </ItemGroup>
 </Project>

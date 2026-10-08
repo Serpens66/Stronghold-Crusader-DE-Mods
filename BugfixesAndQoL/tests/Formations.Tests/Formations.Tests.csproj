@@ -41,11 +41,14 @@
     <Compile Include="..\..\..\APIShared\src\UnitCommands\FormationReleaseStateModel.cs"><Link>FormationReleaseStateModel.cs</Link></Compile>
     <Compile Include="NativeDetourEntryContract.cs" />
     <Compile Include="..\..\src\FormationSelectionMigration.cs"><Link>FormationSelectionMigration.cs</Link></Compile>
-    <Compile Include="..\..\..\Shared\GroundMovePreviewEligibility.cs"><Link>GroundMovePreviewEligibility.cs</Link></Compile>
+    <Compile Include="..\..\..\Shared\Runtime\Gameplay\GroundMovePreviewEligibility.cs"><Link>GroundMovePreviewEligibility.cs</Link></Compile>
   </ItemGroup>
   <Target Name="ValidateReferences" BeforeTargets="BeforeBuild">
     <Error Condition="!Exists('$(ExtenderDir)\Iced.dll')" Text="Iced.dll was not found: $(ExtenderDir)" />
     <Error Condition="!Exists('$(ExtenderDir)\System.Memory.dll')" Text="System.Memory.dll was not found: $(ExtenderDir)" />
   </Target>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <ItemGroup>
+    <Compile Include="..\..\..\APIShared\src\UnitCommands\Internal\GroundMovePreviewEligibility.cs" />
+  </ItemGroup>
 </Project>

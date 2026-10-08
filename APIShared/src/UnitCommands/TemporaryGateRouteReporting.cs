@@ -172,7 +172,7 @@ namespace APIShared.UnitCommands
                     return UnavailableTemporaryRoute(observer, "stale-or-skipped-unit-frame", source);
                 if (frame != null && !GameUnitManagerAPI.Instance.IsValidId(frame.Args.UnitId))
                     return UnavailableTemporaryRoute(observer, "invalid-unit-frame", source);
-                if (!Shared.TemporaryPackedRouteInspection.TryResolveUnit(path - (nativeUnitManager + NativeUnitPathBufferOffset),
+                if (!APIShared.Internal.TemporaryPackedRouteInspection.TryResolveUnit(path - (nativeUnitManager + NativeUnitPathBufferOffset),
                     NativeUnitPathBufferStride, MaximumUnitCount, frame?.Args.UnitId ?? 0, out int unitId))
                     return UnavailableTemporaryRoute(observer, "unit-buffer-mismatch", source);
                 var units = GameUnitManagerAPI.Instance;
@@ -230,7 +230,7 @@ namespace APIShared.UnitCommands
                         *(int*)(context + 0x10) == report.TX && *(int*)(context + 0x14) == report.TY)
                     {
                         int x = report.X, y = report.Y;
-                        status = Shared.TemporaryPackedRouteInspection.Decode(new ReadOnlySpan<byte>(path, (result + 1) / 2), result,
+                        status = APIShared.Internal.TemporaryPackedRouteInspection.Decode(new ReadOnlySpan<byte>(path, (result + 1) / 2), result,
                             x, y, report.TX, report.TY, WeightedMoatRoutePlanner.DirectionX, WeightedMoatRoutePlanner.DirectionY, out int[] directions);
                         for (int i = 0; status == "decoded" && i < result; i++)
                         {

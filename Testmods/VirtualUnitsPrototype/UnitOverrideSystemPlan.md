@@ -243,7 +243,7 @@ Diese Punkte sind verpflichtende Gates und dürfen nicht aus diesem Dokument all
 - Alle verwendeten Enumwerte, besonders `CHIMP_TYPE_ARCHER`, `STRUCT_HOVEL` und `MAPPER_HOVEL`, stimmen zwischen Quellcode und Assembly überein.
 - Die Callbacksignaturen und Zeitpunkte von `ModSaveDataAPI` passen zum vorgesehenen Pending-Restore.
 - Die für Map-Start und Map-Unload gewählten Events laufen in der benötigten Reihenfolge.
-- `Shared/GameModeHelper.cs` kann als Quelllink ohne zusätzliche Modabhängigkeit eingebunden werden und seine benötigten Referenzen sind im neuen Projekt vollständig vorhanden.
+- `Shared/Adapters/APIShared/PlayerIdentityHelper.cs` kann als Quelllink ohne zusätzliche Modabhängigkeit eingebunden werden und seine benötigten Referenzen sind im neuen Projekt vollständig vorhanden.
 - Das XAML-Patchziel und alle Bindingnamen kollidieren weder mit Vanilla noch mit gemeinsam installierten Workspace-Mods.
 - `MainControls.getMouseMapTilePosition` liefert die kamerarotierte interne Tilebasis. Wie Vanilla muss der Mod zuerst `GameMap.instance.getMapTile` aufrufen und danach `gameMapX/gameMapY` als lokale Koordinaten an `CreateUnitLocal` beziehungsweise `CreatePrefab` übergeben; eine zusätzliche Achtfachskalierung darf modseitig nicht erfolgen.
 

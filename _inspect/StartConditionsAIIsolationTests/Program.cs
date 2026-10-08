@@ -140,8 +140,7 @@ internal static class Program
             "PresetLobbyModSettingsViewModel.cs")), "*.cs").Select(File.ReadAllText));
         string activationGate = File.ReadAllText(Path.Combine(
             workspaceRoot,
-            "Shared",
-            "GameplayModActivationGate.cs"));
+            "Shared", "Adapters", "APIShared", "GameplayModActivationGate.cs"));
         string normalizedPresetSupport = presetSupport.Replace(Environment.NewLine, "\n");
 
         RequireContains(startTroops, "long createdId = GameUnitManagerAPI.Instance.CreateUnitLocal(");

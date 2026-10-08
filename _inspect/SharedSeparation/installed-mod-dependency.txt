@@ -1,0 +1,20 @@
+/// <summary>
+/// Declares an installed mod requirement using the target mod's GUID and optional inclusive version bounds.
+/// </summary>
+public sealed class ModDependency
+{
+	/// <summary>
+	/// Gets or sets the GUID of the required mod.
+	/// </summary>
+	public string GUID { get; set; } = string.Empty;
+
+	/// <summary>
+	/// Gets or sets the optional inclusive minimum version of the required mod.
+	/// </summary>
+	public string MinimumVersion { get; set; } = string.Empty;
+
+	/// <summary>
+	/// Gets or sets the optional inclusive maximum version of the required mod.
+	/// </summary>
+	public string MaximumVersion { get; set; } = string.Empty;
+}

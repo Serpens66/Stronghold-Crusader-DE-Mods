@@ -102,23 +102,23 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="..\..\Shared\DependencyFreeJson.cs">
-      <Link>Shared\DependencyFreeJson.cs</Link>
+    <Compile Include="..\..\Shared\Runtime\Persistence\DependencyFreeJson.cs">
+      <Link>Shared\Runtime\Persistence\DependencyFreeJson.cs</Link>
     </Compile>
-    <Compile Include="..\..\Shared\DebugLogHelper.cs">
-      <Link>Shared\DebugLogHelper.cs</Link>
+    <Compile Include="..\..\Shared\Runtime\Diagnostics\DebugLogHelper.cs">
+      <Link>Shared\Runtime\Diagnostics\DebugLogHelper.cs</Link>
     </Compile>
-    <Compile Include="..\..\Shared\GameModeHelper.cs">
-      <Link>Shared\GameModeHelper.cs</Link>
+    <Compile Include="..\..\Shared\Adapters\APIShared\PlayerIdentityHelper.cs">
+      <Link>Shared\Adapters\APIShared\PlayerIdentityHelper.cs</Link>
     </Compile>
-    <Compile Include="..\..\Shared\GameplaySessionLifecycle.cs">
-      <Link>Shared\GameplaySessionLifecycle.cs</Link>
+    <Compile Include="..\..\Shared\Adapters\APIShared\MissionEventsAdapter.cs">
+      <Link>Shared\Adapters\APIShared\MissionEventsAdapter.cs</Link>
     </Compile>
-    <Compile Include="..\..\Shared\NativePatternResolver.cs">
-      <Link>Shared\NativePatternResolver.cs</Link>
+    <Compile Include="..\..\Shared\Runtime\Native\NativePatternResolver.cs">
+      <Link>Shared\Runtime\Native\NativePatternResolver.cs</Link>
     </Compile>
-    <Compile Include="..\..\Shared\NativeBuildingCompoundGroup.cs">
-      <Link>Shared\NativeBuildingCompoundGroup.cs</Link>
+    <Compile Include="..\..\Shared\Runtime\Native\NativeBuildingCompoundGroup.cs">
+      <Link>Shared\Runtime\Native\NativeBuildingCompoundGroup.cs</Link>
     </Compile>
     <Compile Include="src\AivPlacementOracle.cs" />
     <Compile Include="src\OraclePrebuildStateCapture.cs" />

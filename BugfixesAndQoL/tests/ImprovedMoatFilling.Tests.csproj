@@ -97,17 +97,23 @@
     <Compile Include="..\src\SkirmishGameOptionsPolicy.cs"><Link>SkirmishGameOptionsPolicy.cs</Link></Compile>
     <Compile Include="..\src\WorkingCopyTransaction.cs"><Link>WorkingCopyTransaction.cs</Link></Compile>
     <Compile Include="..\src\NoDogsNativeContract.cs"><Link>NoDogsNativeContract.cs</Link></Compile>
-    <Compile Include="..\..\Shared\AtomicFileReplacement.cs"><Link>AtomicFileReplacement.cs</Link></Compile>
-    <Compile Include="..\..\Shared\DebugLogHelper.cs"><Link>DebugLogHelper.cs</Link></Compile>
-    <Compile Include="..\..\Shared\DependencyFreeJson.cs"><Link>DependencyFreeJson.cs</Link></Compile>
-    <Compile Include="..\..\Shared\NativeBuildingCompoundGroup.cs"><Link>NativeBuildingCompoundGroup.cs</Link></Compile>
-    <Compile Include="..\..\Shared\GatehouseQueryUnitIdPolicy.cs"><Link>GatehouseQueryUnitIdPolicy.cs</Link></Compile>
-    <Compile Include="..\..\Shared\NativePatternResolver.cs"><Link>NativePatternResolver.cs</Link></Compile>
-    <Compile Include="..\..\Shared\SelectedChimpsSnapshotPolicy.cs"><Link>SelectedChimpsSnapshotPolicy.cs</Link></Compile>
+    <Compile Include="..\..\Shared\Runtime\Persistence\AtomicFileReplacement.cs"><Link>AtomicFileReplacement.cs</Link></Compile>
+    <Compile Include="..\..\Shared\Runtime\Diagnostics\DebugLogHelper.cs"><Link>DebugLogHelper.cs</Link></Compile>
+    <Compile Include="..\..\Shared\Runtime\Persistence\DependencyFreeJson.cs"><Link>DependencyFreeJson.cs</Link></Compile>
+    <Compile Include="..\..\Shared\Runtime\Native\NativeBuildingCompoundGroup.cs"><Link>NativeBuildingCompoundGroup.cs</Link></Compile>
+    <Compile Include="..\..\Shared\Runtime\Gameplay\GatehouseQueryUnitIdPolicy.cs"><Link>GatehouseQueryUnitIdPolicy.cs</Link></Compile>
+    <Compile Include="..\..\Shared\Runtime\Native\NativePatternResolver.cs"><Link>NativePatternResolver.cs</Link></Compile>
+    <Compile Include="..\..\Shared\Runtime\Gameplay\SelectedChimpsSnapshotPolicy.cs"><Link>SelectedChimpsSnapshotPolicy.cs</Link></Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="ValidateAiDefensePatrolReferences" BeforeTargets="BeforeBuild">
     <Error Condition="!Exists('$(ExtenderDir)\SHCDESE.dll')" Text="Installed SHCDESE.dll was not found: $(ExtenderDir)" />
     <Error Condition="!Exists('$(ExtenderDir)\Iced.dll')" Text="Installed Iced.dll was not found: $(ExtenderDir)" />
   </Target>
+  <ItemGroup>
+    <Compile Include="..\..\APIShared\src\ModSettings\Internal\AtomicFileReplacement.cs" />
+    <Compile Include="..\..\APIShared\src\Core\Internal\DebugLogHelper.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Internal\DependencyFreeJson.cs" />
+    <Compile Include="..\..\APIShared\src\Core\Internal\NativePatternResolver.cs" />
+  </ItemGroup>
 </Project>

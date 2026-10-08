@@ -172,5 +172,11 @@
         "Added a temporary mission-override API shared with Custom Custom Trail without changing saved user settings."
       ]
     }
+  ],
+  "Dependencies": [
+    {
+      "GUID": "APIShared_Serp",
+      "MinimumVersion": "0.4.0"
+    }
   ]
 }

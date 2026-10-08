@@ -1,5 +1,5 @@
 using APIShared.ModSettings;
-using Shared;
+using APIShared.Internal;
 #pragma warning disable 1591
 using System;
 using System.Collections.Generic;

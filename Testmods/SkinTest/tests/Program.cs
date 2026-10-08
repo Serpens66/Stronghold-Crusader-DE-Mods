@@ -415,10 +415,8 @@ internal static class Program
         Check(manifest.Contains("\"NetworkMode\": 0") &&
               manifest.Contains("\"MinimumScriptExtenderVersion\": \"" + extenderVersion.Groups[1].Value + "\""),
             "Manifest must declare a visual client mod matching the plugin's Script Extender version.");
-        Check(plugin.Contains("[BepInDependency(ScriptExtenderGuid, ScriptExtenderVersion)]") &&
-              plugin.Contains("[BepInDependency(ApiSharedGuid, ApiSharedVersion)]") &&
-              plugin.Contains("ApiSharedVersion = \"0.3.6\"") &&
-              plugin.Contains("PluginVersion = \"0.1.2\""), "Plugin dependency/version contract differs.");
+        // The workspace dependency validator compares info.json with all hard BepInEx minima.
+        // Keep this harness focused on visual runtime lifetime and actual skin behavior.
         Check(plugin.Contains("private static ManualLogSource persistentLog") &&
               plugin.Contains("private static SwordsmanSkinRuntime runtime") &&
               plugin.Contains("private static bool librarySubscriptionInstalled"),
@@ -444,7 +442,7 @@ internal static class Program
             "Assembly version metadata must match the active mod version.");
         Check(runtime.Contains("GetModFileBinaryContent") && runtime.Contains("GetModFileTextContent"),
             "Assets must be loaded through the archive-compatible asset index.");
-        Check(project.Contains("Shared\\DependencyFreeJson.cs") && testsProject.Contains("Shared\\DependencyFreeJson.cs") &&
+        Check(project.Contains("Shared\\Runtime\\Persistence\\DependencyFreeJson.cs") && testsProject.Contains("Shared\\Runtime\\Persistence\\DependencyFreeJson.cs") &&
               atlasManifest.Contains("Shared.DependencyFreeJson.Parse") && tests.Contains("Shared.DependencyFreeJson.Parse"),
             "Runtime and tests must use the shared dependency-free JSON codec.");
         string combinedJsonContract = project + testsProject + atlasManifest;
@@ -466,9 +464,8 @@ internal static class Program
             "Safe pre-spawn culture sources for AI and the local player are incomplete.");
         Check(project.Contains("<Reference Include=\"RedBird.Core\"><HintPath>$(ExtenderDir)\\RedBird.Core.dll</HintPath><Private>false</Private></Reference>"),
             "The AIC array dependency must reference installed RedBird.Core without private packaging.");
-        Check(project.Contains("<Reference Include=\"APIShared\"><HintPath>$(ApiSharedDir)\\APIShared.dll</HintPath><Private>false</Private></Reference>") &&
-              project.Contains("APIShared.dll 0.3.6"),
-            "SkinTest must consume installed APIShared 0.3.6 without private packaging.");
+        Check(project.Contains("<Reference Include=\"APIShared\"><HintPath>$(ApiSharedDir)\\APIShared.dll</HintPath><Private>false</Private></Reference>"),
+            "SkinTest must consume the central APIShared assembly without private packaging.");
         Check(runtime.Contains("cultureByPlayer") && runtime.Contains("Authoritative lord culture differs from early culture") &&
               runtime.Contains("Early culture resolved before lord spawn") &&
               runtime.Contains("ReconcileEarlyAndActualCulture") && runtime.Contains("unknown graphics material"),

@@ -1,6 +1,6 @@
 using APIShared.GameModes;
 using APIShared.SerpsMods;
-using Shared;
+using APIShared.Internal;
 using BepInEx.Logging;
 using System;
 using System.Collections.Generic;
