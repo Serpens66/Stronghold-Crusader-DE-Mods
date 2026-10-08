@@ -314,6 +314,8 @@ BugfixesAndQoL.DeleteSaveErrorMessage=Der Spielstand „{SaveName}“ konnte nic
 BugfixesAndQoL.DeleteSaveUnknownName=Unbekannter Spielstand
 
 BugfixesAndQoL.EnableFastRecruitRallyMovement=Rekruten laufen zu Sammelpunkten
+BugfixesAndQoL.EnableRallyTerrainSlowdownFix=Geländeverlangsamung zum Sammelpunkt korrigieren
+BugfixesAndQoL.EnableRallyTerrainSlowdownFixHelp=Einheiten auf dem Weg zum Sammelpunkt behalten die Vanilla-Verlangsamung in Sümpfen, Furten und beim Aufstieg. Gilt für menschliche und KI-Einheiten, auch in geladenen Spielständen. Unabhängig von Rekruten laufen zu Sammelpunkten; fügt keinen Laufbonus hinzu.
 BugfixesAndQoL.EnableFastRecruitRallyMovementHelp=Neu rekrutierte Einheiten menschlicher Spieler laufen mit ihrem eigenen maximalen Vanilla-Tempo und passender Animation zu ihrem Sammelpunkt; Gelände- und Zustandsmodifikatoren bleiben erhalten. KI-Einheiten bleiben unverändert.
 BugfixesAndQoL.AIEconomyProtectionTitle=KI-Wirtschaftsschutz
 BugfixesAndQoL.PreventAIPause=KI-Schlafmodus bei Rohstoffmangel verhindern

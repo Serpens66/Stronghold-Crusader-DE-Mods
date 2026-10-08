@@ -54,4 +54,5 @@ catch(TargetInvocationException e){System.Runtime.ExceptionServices.ExceptionDis
 MoatModeFlagContract.Validate();
 NativeCommandDetourContract.Validate(root);
 MovementLifeGeneratorTests.Validate(root);
+RallyTerrainGeneratorTests.Validate(root);
 Console.WriteLine("PASS: main command fixes use native probes and group fallback; actual installed RedBird contracts verified.");

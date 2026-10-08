@@ -2162,6 +2162,7 @@ internal static class Program
             "EnableAiRaidRetargetFix",
             "EnableSingleBuildingPause",
             "EnableFastRecruitRallyMovement",
+            "EnableRallyTerrainSlowdownFix",
             "RequireReachableEnemyForAutomaticGateClosing",
             "EnableQuarryPileRelocation",
             "EnableAIQuarryPileTowardsKeep",

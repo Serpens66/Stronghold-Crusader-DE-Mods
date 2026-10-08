@@ -312,6 +312,8 @@ BugfixesAndQoL.DeleteSaveErrorMessage=The save “{SaveName}” could not be del
 BugfixesAndQoL.DeleteSaveUnknownName=Unknown save
 
 BugfixesAndQoL.EnableFastRecruitRallyMovement=Recruits Run to Rally Points
+BugfixesAndQoL.EnableRallyTerrainSlowdownFix=Fix Rally Point Terrain Slowdown
+BugfixesAndQoL.EnableRallyTerrainSlowdownFixHelp=Units moving to rally points retain Vanilla slowdown in swamps, fords and while climbing. Applies to human and AI units, including loaded games. Independent of Recruits Run to Rally Points; does not add a running bonus.
 BugfixesAndQoL.EnableFastRecruitRallyMovementHelp=Newly recruited human-player units move to their rally points using their own Vanilla Fast pace and animation while keeping terrain and state modifiers. AI units remain unchanged.
 BugfixesAndQoL.AIEconomyProtectionTitle=AI Economy Protection
 BugfixesAndQoL.PreventAIPause=Prevent AI sleep mode during resource shortages

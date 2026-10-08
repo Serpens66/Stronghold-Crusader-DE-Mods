@@ -14,9 +14,10 @@ internal static class MovementLifeGeneratorTests
         var type = syntax.DescendantNodes().OfType<ClassDeclarationSyntax>()
             .Single(c => c.Identifier.Text == "SynchronizedMovementCadencePatch");
         var methods = new HashSet<string> { "GeneratePreTerrainSpeedFastPath", "GenerateCadenceFastPath",
-            "EmitProfileAddress", "EmitStateMappings", "EmitRallyRunningMappings" };
+            "EmitProfileAddress", "EmitStateMappings", "EmitRallyRunningMappings", "EmitTerrainRestore", "EmitTerrainEligibility" };
         var fields = new HashSet<string> { "rallyEntries", "synchronizationEntries", "nativeProfiles",
-            "rallyEnabledFlag", "synchronizationEnabledFlag", "currentUnitIdAddress", "improvedSpearmanFlagAddress" };
+            "rallyEnabledFlag", "synchronizationEnabledFlag", "currentUnitIdAddress", "improvedSpearmanFlagAddress",
+            "terrainSnapshots", "terrainEnabledFlag" };
         var members = type.Members.Where(m => m is MethodDeclarationSyntax method && methods.Contains(method.Identifier.Text) ||
             m is FieldDeclarationSyntax field && (field.Modifiers.Any(SyntaxKind.ConstKeyword) ||
                 field.Declaration.Variables.Any(v => fields.Contains(v.Identifier.Text))));

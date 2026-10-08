@@ -48,6 +48,7 @@ namespace BugfixesAndQoL
         private bool enableLadderAttackPathfindingFix = true;
         private bool enableHealerAttackCommandFix = true;
         private bool enableFastRecruitRallyMovement = true;
+        private bool enableRallyTerrainSlowdownFix = true;
         private bool enableImprovedAssassinPathfinding = true;
         private bool enableAssassinCombatResumeFix = true;
         private bool enablePlaguePopularityFix = true;
@@ -473,6 +474,8 @@ namespace BugfixesAndQoL
         public string EnableHealerAttackCommandFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableHealerAttackCommandFixHelp");
         public string EnableFastRecruitRallyMovementText => SerpLocalization.Get(SerpLocalization.EnableFastRecruitRallyMovement);
         public string EnableFastRecruitRallyMovementHelpText => SerpLocalization.Get(SerpLocalization.EnableFastRecruitRallyMovementHelp);
+        public string EnableRallyTerrainSlowdownFixText => SerpLocalization.Get("BugfixesAndQoL.EnableRallyTerrainSlowdownFix");
+        public string EnableRallyTerrainSlowdownFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableRallyTerrainSlowdownFixHelp");
         public string EnableAIQuarryPileTowardsKeepText => SerpLocalization.Get(SerpLocalization.EnableAIQuarryPileTowardsKeep);
         public string EnableAIQuarryPileTowardsKeepHelpText => SerpLocalization.Get(SerpLocalization.EnableAIQuarryPileTowardsKeepHelp);
         public string EnableImprovedAssassinPathfindingText => SerpLocalization.Get(SerpLocalization.EnableImprovedAssassinPathfinding);
@@ -1071,6 +1074,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableRallyTerrainSlowdownFix
+        {
+            get => enableRallyTerrainSlowdownFix;
+            set => SetSetting(ref enableRallyTerrainSlowdownFix, value, nameof(EnableRallyTerrainSlowdownFix));
+        }
+
+        [SyncHostOnly]
         public bool EnableSingleBuildingPause
         {
             get => enableSingleBuildingPause;
@@ -1403,6 +1413,7 @@ namespace BugfixesAndQoL
                 EnableLadderAttackPathfindingFix = true;
                 EnableHealerAttackCommandFix = true;
                 EnableFastRecruitRallyMovement = true;
+                EnableRallyTerrainSlowdownFix = true;
                 EnableSingleBuildingPause = true;
                 EnableNearestWaterboyTargeting = true;
                 EnableShiftRepairAllBuildings = true;

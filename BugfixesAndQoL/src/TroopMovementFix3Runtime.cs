@@ -116,11 +116,11 @@ namespace BugfixesAndQoL
                 settings.EnableTroopMovementFix;
             bool shouldEnableCadencePatch =
                 fixedLayoutHashValidated &&
-                ((settings.EnableMod && settings.EnableTroopMovementFix) ||
+                ((settings.EnableMod && (settings.EnableTroopMovementFix || settings.EnableRallyTerrainSlowdownFix)) ||
                  MovementCadenceIntegration.HasFastRecruitCallbacks);
 
             if (((settings.EnableMod &&
-                  settings.EnableTroopMovementFix) ||
+                  (settings.EnableTroopMovementFix || settings.EnableRallyTerrainSlowdownFix)) ||
                  MovementCadenceIntegration.HasFastRecruitCallbacks) &&
                 !fixedLayoutHashValidated &&
                 !fixedLayoutErrorLogged)
@@ -136,6 +136,7 @@ namespace BugfixesAndQoL
 
             cadencePatch?.SetSynchronizationEnabled(
                 shouldEnableTroopMovementFix);
+            cadencePatch?.SetTerrainEnabled(settings.EnableMod && settings.EnableRallyTerrainSlowdownFix);
 
             try
             {
@@ -155,7 +156,7 @@ namespace BugfixesAndQoL
             catch
             {
                 cadencePatch?.SetSynchronizationEnabled(false);
-                if (!MovementCadenceIntegration.HasFastRecruitCallbacks)
+                if (!MovementCadenceIntegration.HasFastRecruitCallbacks && !settings.EnableRallyTerrainSlowdownFix)
                     DisableCadencePatch();
 
                 throw;
@@ -179,6 +180,7 @@ namespace BugfixesAndQoL
                     log,
                     $"Movement features: sameSpeed={sameSpeedActive}, " +
                     $"rally={rallyActive}, " +
+                    $"rallyTerrain={settings.EnableMod && settings.EnableRallyTerrainSlowdownFix && cadencePatch?.IsTerrainAvailable == true}, " +
                     $"nativeFastpaths={nativeFastpathsActive}.");
             }
         }
@@ -189,6 +191,7 @@ namespace BugfixesAndQoL
             // process-lifetime objects. Only deactivate their mutable state.
             DeactivateTroopMovementFix();
             cadencePatch?.SetRallyEnabled(false);
+            cadencePatch?.SetTerrainEnabled(false);
         }
 
         private bool AreTroopMovementFixComponentsActive =>
@@ -303,6 +306,7 @@ namespace BugfixesAndQoL
         private void DisableCadencePatch()
         {
             cadencePatch?.SetSynchronizationEnabled(false);
+            cadencePatch?.SetTerrainEnabled(false);
             if (!MovementCadenceIntegration.HasFastRecruitCallbacks)
                 cadencePatch?.SetRallyEnabled(false);
         }

@@ -110,4 +110,36 @@ if ($xamlViolations.Count -ne 0) {
     throw "Script Extender XAML patch <Content> contract failed: $($details -join '; ')"
 }
 
-Write-Output 'BugfixesAndQoL runtime JSON/lifecycle and XAML patch preflight succeeded.'
+$viewModel = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\BugfixesAndQoLViewModel.cs'))
+$movementRuntime = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\TroopMovementFix3Runtime.cs'))
+$cadence = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\TroopMovementFix3SynchronizedMovementCadencePatch.cs'))
+if (-not $viewModel.Contains('private bool enableRallyTerrainSlowdownFix = true;') -or
+    -not $viewModel.Contains('[SyncHostOnly]' + [Environment]::NewLine + '        public bool EnableRallyTerrainSlowdownFix') -or
+    -not $viewModel.Contains('EnableRallyTerrainSlowdownFix = true;') -or
+    -not $movementRuntime.Contains('SetTerrainEnabled(settings.EnableMod && settings.EnableRallyTerrainSlowdownFix)') -or
+    -not $movementRuntime.Contains('(settings.EnableTroopMovementFix || settings.EnableRallyTerrainSlowdownFix)')) {
+    throw 'Independent host-synchronized rally terrain setting, reset or main switch is missing.'
+}
+if (-not $cadence.Contains('Interlocked.CompareExchange(ref *terrainEnabledFlag,') -or
+    -not $cadence.Contains('terrainCaptureHook.Hook.DisplacedByteCount != 14') -or
+    -not $cadence.Contains('returnAddress != instructions[0].IP + 14') -or
+    -not $cadence.Contains('EmitTerrainRestore(assembler);') -or
+    -not $cadence.Contains('terrainTransaction?.Dispose(); // Unpublished optional initialization rollback only.')) {
+    throw 'Rally terrain native publication, epoch or boundary contract is missing.'
+}
+$keys = @('BugfixesAndQoL.EnableRallyTerrainSlowdownFix', 'BugfixesAndQoL.EnableRallyTerrainSlowdownFixHelp')
+foreach ($file in Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'Locales') -Filter '*.txt') {
+    $text = [IO.File]::ReadAllText($file.FullName)
+    foreach ($key in $keys) {
+        if ([regex]::Matches($text, '(?m)^' + [regex]::Escape($key) + '=.+$').Count -ne 1) {
+            throw "Missing or duplicate rally terrain localization: $($file.Name), $key"
+        }
+    }
+}
+[xml]$settingsXaml = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'Override\ScriptExtenderUI\BugfixesAndQoLSettings.xaml'))
+if ($settingsXaml.OuterXml -notmatch 'bugfixes\.rally-terrain' -or
+    $settingsXaml.OuterXml -notmatch 'EnableRallyTerrainSlowdownFix, Mode=TwoWay') {
+    throw 'Rally terrain UI or search integration is missing.'
+}
+
+Write-Output 'BugfixesAndQoL runtime JSON/lifecycle, XAML, rally terrain flags/settings/localization preflight succeeded.'

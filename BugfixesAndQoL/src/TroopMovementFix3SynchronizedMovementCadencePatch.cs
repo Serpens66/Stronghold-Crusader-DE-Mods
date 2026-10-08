@@ -7,6 +7,7 @@ using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Threading;
 using RedBird.Abstractions.Hooks.Transaction;
 using RedBird.Abstractions.Hooks;
 using RedBird.Core.Memory;
@@ -122,8 +123,21 @@ namespace BugfixesAndQoL
         private const int PreTerrainSpeedAdjustmentHookLength = 14;
         private const int UnitTypeUpdateDispatchRva = 0x18410C;
         private const int MovementCadenceRva = 0x184203;
+        private const int TerrainSnapshotSize = 16;
+        private const int TerrainGlobalIdOffset = 0;
+        private const int TerrainTypeOffset = 4;
+        private const int TerrainDelayOffset = 6;
+        private const int TerrainEpochOffset = 8;
+        private const int TerrainValidOffset = 12;
+        private const int RallyMovementAiState = 105;
 
         private HookTransaction transaction;
+        private HookTransaction terrainTransaction;
+        private readonly HookHandle<X64InlineHook> terrainCaptureHook = new HookHandle<X64InlineHook>();
+        private byte* terrainSnapshots;
+        // Low bit enables the fix; the remaining bits invalidate snapshots across toggles.
+        private int* terrainEnabledFlag;
+        private bool terrainAvailable;
         private readonly Dictionary<eChimps, AnimationTransitions>
             animationTransitionsByType =
                 new Dictionary<eChimps, AnimationTransitions>(
@@ -211,6 +225,18 @@ namespace BugfixesAndQoL
                 libraryBase + unchecked((ulong)dispatchRva),
                 referenceHashMatches);
 
+            bool terrainValidated = false;
+            try
+            {
+                ValidateTerrainCaptureHook(memory, libraryBase, dispatchRva);
+                terrainValidated = true;
+            }
+            catch (Exception ex)
+            {
+                log.LogError($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] Rally terrain " +
+                    $"capture validation failed; only the terrain fix remains inactive: {ex}");
+            }
+
             try
             {
                 rallyEntries = AllocateZeroed(
@@ -223,6 +249,8 @@ namespace BugfixesAndQoL
                 rallyEnabledFlag = (int*)AllocateZeroed(sizeof(int));
                 synchronizationEnabledFlag =
                     (int*)AllocateZeroed(sizeof(int));
+                terrainSnapshots = AllocateZeroed((MaximumTrackedUnitId + 1) * TerrainSnapshotSize);
+                terrainEnabledFlag = (int*)AllocateZeroed(sizeof(int));
                 PublishNativeProfiles();
 
                 transaction = BugfixesHookInfrastructure.CreateOwnedTransaction(region);
@@ -253,7 +281,9 @@ namespace BugfixesAndQoL
 
                 if (!commitResult.IsCompleteSuccess ||
                     !movementSpeedAdjustmentHook.Success ||
-                    !movementCadenceHook.Success)
+                    !movementCadenceHook.Success ||
+                    movementSpeedAdjustmentHook.Hook.DisplacedByteCount != PreTerrainSpeedAdjustmentHookLength ||
+                    movementCadenceHook.Hook.DisplacedByteCount != 23)
                 {
                     throw new InvalidOperationException(
                         "The native movement-speed adjustment or movement " +
@@ -269,6 +299,205 @@ namespace BugfixesAndQoL
                 throw;
             }
 
+            // The optional capture hook has its own transaction. Failure leaves the
+            // published speed/cadence hooks active with the terrain flag disabled.
+            if (!terrainValidated)
+                return;
+            try
+            {
+                terrainTransaction = BugfixesHookInfrastructure.CreateOwnedTransaction(region);
+                terrainTransaction.AddInline(terrainCaptureHook,
+                    HookTarget.FromAddress(libraryBase + (uint)dispatchRva),
+                    GenerateTerrainCaptureFastPath, hookSize: 14);
+                CommitResult result = terrainTransaction.Commit();
+                if (!result.IsCompleteSuccess || !terrainCaptureHook.Success ||
+                    terrainCaptureHook.Hook.DisplacedByteCount != 14)
+                    throw new InvalidOperationException("Unexpected rally terrain capture displacement.");
+                terrainAvailable = true;
+            }
+            catch (Exception ex)
+            {
+                terrainTransaction?.Dispose(); // Unpublished optional initialization rollback only.
+                log.LogError($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] Rally terrain fix " +
+                    $"remains inactive; existing movement features remain available: {ex}");
+            }
+
+            if (terrainAvailable)
+                log.LogInfo($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] Rally terrain hook: " +
+                    $"RVA 0x{dispatchRva:X}, 14 bytes, continuation 0x{dispatchRva + 14:X}; " +
+                    "native capture/restore, all owners, no recruit tracking.");
+
+        }
+
+        internal bool IsTerrainAvailable => terrainAvailable;
+
+        internal void SetTerrainEnabled(bool enabled)
+        {
+            if (terrainEnabledFlag == null)
+                return;
+            enabled &= terrainAvailable;
+            int current;
+            do
+            {
+                current = Volatile.Read(ref *terrainEnabledFlag);
+                if (((current & 1) != 0) == enabled)
+                    return;
+            }
+            while (Interlocked.CompareExchange(ref *terrainEnabledFlag,
+                unchecked(current + 1), current) != current);
+        }
+
+        private static void EmitTerrainEligibility(Assembler assembler,
+            AssemblerRegister64 unit, Label rejected)
+        {
+            assembler.cmp(__word_ptr[unit + UnitAliveStateManagerOffset], (int)AliveState.IsAlive);
+            assembler.jne(rejected);
+            assembler.cmp(__word_ptr[unit + UnitDeathMarkerManagerOffset], 0);
+            assembler.jne(rejected);
+            assembler.cmp(__word_ptr[unit + UnitAiStateManagerOffset], RallyMovementAiState);
+            assembler.jne(rejected);
+            // All audited recruitment types; no owner or newly-recruited gate.
+            assembler.movzx(ecx, __word_ptr[unit + UnitTypeManagerOffset]);
+            Label allowed = assembler.CreateLabel();
+            Label next = assembler.CreateLabel();
+            assembler.cmp(ecx, 5);
+            assembler.je(allowed);
+            assembler.cmp(ecx, 37);
+            assembler.je(allowed);
+            assembler.cmp(ecx, 22);
+            assembler.jl(next);
+            assembler.cmp(ecx, 30);
+            assembler.jle(allowed);
+            assembler.Label(ref next);
+            next = assembler.CreateLabel();
+            assembler.cmp(ecx, 70);
+            assembler.jl(next);
+            assembler.cmp(ecx, 76);
+            assembler.jle(allowed);
+            assembler.Label(ref next);
+            assembler.cmp(ecx, 78);
+            assembler.jl(rejected);
+            assembler.cmp(ecx, 85);
+            assembler.jg(rejected);
+            assembler.Label(ref allowed);
+            // A following instruction avoids binding a second label here.
+            assembler.nop();
+        }
+
+        private void GenerateTerrainCaptureFastPath(Assembler assembler,
+            ReadOnlySpan<Instruction> instructions, ulong returnAddress)
+        {
+            if (instructions.Length != 2 || instructions[0].Length != 8 ||
+                instructions[1].Length != 6 || returnAddress != instructions[0].IP + 14)
+                throw new InvalidOperationException("Unexpected terrain capture boundary.");
+            Label replay = assembler.CreateLabel();
+            // Insert before the original call. Restore the original stack, flags
+            // and all scratch registers before replaying the indirect handler.
+            assembler.pushfq();
+            assembler.push(rax);
+            assembler.push(rcx);
+            assembler.push(rdx);
+            assembler.lea(rdx, __[rbx + rcx]);
+            assembler.mov(rax, currentUnitIdAddress);
+            assembler.mov(eax, __dword_ptr[rax]);
+            assembler.cmp(eax, 1);
+            assembler.jl(replay);
+            assembler.cmp(eax, MaximumTrackedUnitId);
+            assembler.jg(replay);
+            assembler.imul(rax, rax, TerrainSnapshotSize);
+            assembler.mov(rcx, unchecked((ulong)terrainSnapshots));
+            assembler.add(rax, rcx);
+            assembler.mov(__byte_ptr[rax + TerrainValidOffset], 0);
+            assembler.mov(rcx, unchecked((ulong)terrainEnabledFlag));
+            assembler.mov(ecx, __dword_ptr[rcx]);
+            assembler.test(ecx, 1);
+            assembler.je(replay);
+            assembler.mov(__dword_ptr[rax + TerrainEpochOffset], ecx);
+            EmitTerrainEligibility(assembler, rdx, replay);
+            assembler.mov(__word_ptr[rax + TerrainTypeOffset], cx);
+            assembler.mov(ecx, __dword_ptr[rdx + UnitGlobalIdManagerOffset]);
+            assembler.mov(__dword_ptr[rax + TerrainGlobalIdOffset], ecx);
+            assembler.mov(cx, __word_ptr[rdx + UnitCurrentSpeed2ManagerOffset]);
+            assembler.mov(__word_ptr[rax + TerrainDelayOffset], cx);
+            assembler.mov(__byte_ptr[rax + TerrainValidOffset], 1);
+            assembler.Label(ref replay);
+            assembler.pop(rdx);
+            assembler.pop(rcx);
+            assembler.pop(rax);
+            assembler.popfq();
+            foreach (Instruction instruction in instructions)
+                assembler.AddInstruction(instruction);
+        }
+
+        private void EmitTerrainRestore(Assembler assembler)
+        {
+            Label done = assembler.CreateLabel();
+            // RAX/RCX/R10 are overwritten by the displaced cadence instructions.
+            // Flags have already been saved by GenerateCadenceFastPath.
+            assembler.mov(rax, currentUnitIdAddress);
+            assembler.mov(eax, __dword_ptr[rax]);
+            assembler.cmp(eax, 1);
+            assembler.jl(done);
+            assembler.cmp(eax, MaximumTrackedUnitId);
+            assembler.jg(done);
+            assembler.imul(rax, rax, TerrainSnapshotSize);
+            assembler.mov(rcx, unchecked((ulong)terrainSnapshots));
+            assembler.add(rax, rcx);
+            assembler.cmp(__byte_ptr[rax + TerrainValidOffset], 0);
+            assembler.je(done);
+            assembler.mov(__byte_ptr[rax + TerrainValidOffset], 0);
+            assembler.mov(rcx, unchecked((ulong)terrainEnabledFlag));
+            assembler.mov(ecx, __dword_ptr[rcx]);
+            assembler.test(ecx, 1);
+            assembler.je(done);
+            assembler.cmp(__dword_ptr[rax + TerrainEpochOffset], ecx);
+            assembler.jne(done);
+            EmitTerrainEligibility(assembler, r8, done);
+            assembler.cmp(__word_ptr[rax + TerrainTypeOffset], cx);
+            assembler.jne(done);
+            assembler.mov(ecx, __dword_ptr[r8 + UnitGlobalIdManagerOffset]);
+            assembler.cmp(__dword_ptr[rax + TerrainGlobalIdOffset], ecx);
+            assembler.jne(done);
+            assembler.mov(cx, __word_ptr[rax + TerrainDelayOffset]);
+            assembler.mov(__word_ptr[r8 + UnitCurrentSpeed2ManagerOffset], cx);
+            assembler.Label(ref done);
+            assembler.nop();
+        }
+
+        private static void ValidateTerrainCaptureHook(ReadOnlySpan<byte> memory,
+            ulong libraryBase, int hookRva)
+        {
+            const int functionRva = 0x182B00;
+            const int functionLength = 0x23B1;
+            if (hookRva < functionRva || hookRva + 14 > functionRva + functionLength ||
+                functionRva + functionLength > memory.Length)
+                throw new InvalidOperationException("Terrain capture is outside the audited dispatcher.");
+            var decoder = Decoder.Create(64, new ByteArrayCodeReader(memory.Slice(hookRva, 32).ToArray()));
+            decoder.IP = libraryBase + (uint)hookRva;
+            Instruction call = decoder.Decode();
+            Instruction load = decoder.Decode();
+            Instruction next = decoder.Decode();
+            if (call.IsInvalid || call.Length != 8 || call.FlowControl != FlowControl.IndirectCall ||
+                call.MemoryBase != Register.R14 || call.MemoryIndex != Register.RAX || call.MemoryIndexScale != 8 ||
+                call.MemoryDisplacement64 != 0x321CB0 || load.IsInvalid || load.Length != 6 ||
+                load.Mnemonic != Mnemonic.Mov || load.Op0Register != Register.EDX ||
+                load.MemoryBase != Register.RIP || load.IPRelativeMemoryAddress != libraryBase + 0x9302C4 ||
+                next.IsInvalid || next.IP != libraryBase + (uint)hookRva + 14 ||
+                next.Mnemonic != Mnemonic.Movsxd || next.Op0Register != Register.RAX || next.Op1Register != Register.EDX)
+                throw new InvalidOperationException("Terrain capture call/load/continuation contract changed.");
+            decoder = Decoder.Create(64, new ByteArrayCodeReader(memory.Slice(functionRva, functionLength).ToArray()));
+            decoder.IP = libraryBase + functionRva;
+            ulong end = decoder.IP + functionLength;
+            while (decoder.IP < end)
+            {
+                Instruction instruction = decoder.Decode();
+                if (instruction.IsInvalid)
+                    throw new InvalidOperationException("Invalid instruction in the unit dispatcher audit.");
+                if (IsNearBranch(instruction.Op0Kind) &&
+                    instruction.NearBranchTarget > call.IP && instruction.NearBranchTarget < next.IP &&
+                    (instruction.IP < call.IP || instruction.IP >= next.IP))
+                    throw new InvalidOperationException("Control flow enters the terrain capture interior.");
+            }
         }
 
         internal void SetRallyTracking(
@@ -482,6 +711,7 @@ namespace BugfixesAndQoL
             disposed = true;
             SetRallyEnabled(false);
             SetSynchronizationEnabled(false);
+            SetTerrainEnabled(false);
 
             // Published native hooks and their embedded table pointers are
             // process-lifetime state. Dispose is only allowed to roll back a
@@ -515,6 +745,9 @@ namespace BugfixesAndQoL
             // incoming flags because neither belongs to the displaced span.
             assembler.pushfq();
             assembler.push(rcx);
+            assembler.mov(rax, unchecked((ulong)terrainEnabledFlag));
+            assembler.test(__dword_ptr[rax], 1);
+            assembler.jne(restoreAndReplay);
             assembler.mov(rax, unchecked((ulong)rallyEnabledFlag));
             assembler.cmp(__dword_ptr[rax], 0);
             assembler.je(restoreAndReplay);
@@ -619,6 +852,7 @@ namespace BugfixesAndQoL
             // displaced Vanilla instructions overwrite EAX, ECX and R10D.
             // No other register, stack value or incoming flag is changed.
             assembler.pushfq();
+            EmitTerrainRestore(assembler);
             // Match the former managed callback's outer gate exactly:
             // transitional or deleted units reach neither rally tracking nor
             // synchronization, and their tracking entry remains untouched.
@@ -1090,6 +1324,10 @@ namespace BugfixesAndQoL
                 Marshal.FreeHGlobal(new IntPtr(rallyEnabledFlag));
             if (synchronizationEnabledFlag != null)
                 Marshal.FreeHGlobal(new IntPtr(synchronizationEnabledFlag));
+            if (terrainSnapshots != null)
+                Marshal.FreeHGlobal(new IntPtr(terrainSnapshots));
+            if (terrainEnabledFlag != null)
+                Marshal.FreeHGlobal(new IntPtr(terrainEnabledFlag));
         }
 
         private void ValidatePreTerrainSpeedAdjustmentHook(

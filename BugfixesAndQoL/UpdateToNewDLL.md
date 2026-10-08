@@ -446,3 +446,26 @@ main keys win, invalid/missing legacy values use Block/2/Off/true.
 Re-audit the complete closure, editor release fields, tile grids and both installed
 hook backends after native/Extender updates. Runtime versions remain unchanged during
 testing. Multiplayer/gameplay acceptance still requires an actual game session.
+# Rally-point terrain slowdown (1.0.180)
+
+The independent default-enabled `EnableRallyTerrainSlowdownFix` captures
+effective movement delay before the type handler and restores it at the
+common cadence hook. Full audit and hook contracts:
+`../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/RALLY_TERRAIN_SLOWDOWN.md`.
+
+For a native update, re-audit the entire recruitment/rally/type-handler/
+dispatcher/movement/arrival/terrain chain for all 26 supported types.
+Validate hash-bound unit layout, dispatch pattern at RVA 0x18410C,
+its 8-byte indirect call plus 6-byte current-ID load, continuation
+0x18411A, incoming edges, and actual installed RedBird inline displacement
+(14 bytes). Also recheck cadence 0x184203 (23 displaced bytes), terrain
+hook 0x19B506, and preservation of elevation and all later terrain/state
+calculations. Never infer a new fixed layout from a signature match.
+
+The capture transaction is optional: validation failure disables only
+the new terrain correction. Settings publish atomic data flags with an
+epoch; published hooks and native tables persist until process exit.
+Keep the terrain setting separate from recruit running, including host
+sync, presets, reset and search. Run the actual production generators in
+`RallyTerrainGeneratorTests` and repeat in-game swamp, ford, uphill,
+downhill and level routes with both running settings and loaded saves.

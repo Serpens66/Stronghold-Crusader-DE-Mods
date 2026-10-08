@@ -667,6 +667,8 @@ public static class SerpLocalization
         { EnablePlagueTargetReservationFix, "Apothecary Target Reservation Fix" },
         { EnablePlagueTargetReservationFixHelp, "Prevents different apothecaries from selecting plague clouds covered by the same expected area treatment." },
         { EnableFastRecruitRallyMovement, "Recruits Run to Rally Points" },
+        { "BugfixesAndQoL.EnableRallyTerrainSlowdownFix", "Fix Rally Point Terrain Slowdown" },
+        { "BugfixesAndQoL.EnableRallyTerrainSlowdownFixHelp", "Units moving to rally points retain Vanilla slowdown in swamps, fords and while climbing. Applies to human and AI units, including loaded games. Independent of Recruits Run to Rally Points; does not add a running bonus." },
         { EnableFastRecruitRallyMovementHelp, "Newly recruited human-player units move to their rally points using their own Vanilla Fast pace and animation while keeping terrain and state modifiers. AI units remain unchanged." },
         { EnableFearFactorNeutralization, "Disable fear-factor effects on soldiers" },
         { EnableFearFactorNeutralizationHelp, "Fear factor no longer has any effect on soldiers' combat strength." },

@@ -4,6 +4,12 @@ BugfixesAndQoL fixes several problems in Stronghold Crusader Definitive Edition 
 
 ## Fixes
 
+### Restore terrain slowdown on the way to rally points
+
+The enabled-by-default **Fix Rally Point Terrain Slowdown** setting preserves Vanilla slowdown in swamps, fords and while climbing. Vanilla's rally movement state otherwise overwrites the terrain-adjusted movement delay with the unit's base delay before moving. The fix applies to all affected troop types, human and AI players, and units restored from saved games.
+
+This setting is independent of **Recruits Run to Rally Points**. It does not add a running bonus or change the unit's animation. With both options enabled, recruits use their own running pace while retaining terrain slowdown. Turning the terrain fix off restores the previous rally movement behavior.
+
 Complete AI starting castles now use the configured "Both" production choices for their workshops.
 
 ### Skip inaccessible AI raid targets
@@ -144,7 +150,7 @@ The enabled-by-default host option extends Shift queues so movement orders and a
 Show correct Destination markers for moving units, even if they are a very big group. Set up how close they should stand to each other selectable from **Very dense (1)** through **Very wide (4)**.
 
 ### Make new recruits run to rally points
-Newly recruited human units move to their rally points at their own normal fastest pace, with the matching animation. Terrain and other movement modifiers still apply.
+Newly recruited human units move to their rally points at their own normal fastest pace, with the matching animation. Enable the separate **Fix Rally Point Terrain Slowdown** setting to retain terrain slowdown; both options are enabled by default.
 
 ### Close gates only for reachable enemies
 Gatehouses can ignore enemies that cannot reach either entrance instead of closing for every nearby enemy.
