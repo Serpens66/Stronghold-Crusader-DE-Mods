@@ -1,0 +1,320 @@
+diff --git a/BugfixesAndQoL/tests/Formations.Tests/Program.cs b/BugfixesAndQoL/tests/Formations.Tests/Program.cs
+index e84dc82cb..60f7fe41a 100644
+--- a/BugfixesAndQoL/tests/Formations.Tests/Program.cs
++++ b/BugfixesAndQoL/tests/Formations.Tests/Program.cs
+@@ -55,11 +55,11 @@ internal static class Program
+         Check(Activator.CreateInstance(typeof(FormationOrderPacketFormatter)) != null,
+             "attribute formatter has a public reflection constructor");
+         var packet = new FormationOrderPacket {
+-            ProtocolVersion = 5, OperationId = 42, TribeId = 4499,
++            ProtocolVersion = 6, OperationId = 42, TribeId = 4499,
+             TargetX = 399, TargetY = 398, IsNewOrder = 1, MoveType = -255,
+             Formation = (byte)FormationKind.Wedge, Density = 4,
+             PlacementMode = (byte)RangedPlacementMode.Rear, DirectionSector = 7,
+-            Width = 200, UnitCount = 4000, PlanHash = ulong.MaxValue
++            Rows = 20, Width = 200, UnitCount = 4000, PlanHash = ulong.MaxValue
+         };
+         byte[] wire = MessagePack.MessagePackSerializer.Serialize(packet);
+         FormationOrderPacket restored = MessagePack.MessagePackSerializer.Deserialize<FormationOrderPacket>(wire);
+@@ -69,7 +69,7 @@ internal static class Program
+             restored.IsNewOrder == packet.IsNewOrder && restored.MoveType == packet.MoveType &&
+             restored.Formation == packet.Formation && restored.Density == packet.Density &&
+             restored.PlacementMode == packet.PlacementMode && restored.DirectionSector == packet.DirectionSector &&
+-            restored.Width == packet.Width && restored.UnitCount == packet.UnitCount && restored.PlanHash == packet.PlanHash,
++            restored.Rows == packet.Rows && restored.Width == packet.Width && restored.UnitCount == packet.UnitCount && restored.PlanHash == packet.PlanHash,
+             "all selection and order fields round-trip using the installed MessagePack resolver");
+     }
+ 
+@@ -191,10 +191,6 @@ internal static class Program
+             FormationKind.Circle
+         }), "formation cycle order");
+         Check(current == FormationKind.Vanilla, "formation cycle wraps");
+-        Check(FormationModel.ChangeDensity(2, 1) == 1, "wheel up tightens");
+-        Check(FormationModel.ChangeDensity(2, -1) == 3, "wheel down loosens");
+-        Check(FormationModel.ChangeDensity(1, 1) == 1, "density lower clamp");
+-        Check(FormationModel.ChangeDensity(4, -1) == 4, "density upper clamp");
+     }
+ 
+     private static void TestAutomaticWidths()
+@@ -206,43 +202,87 @@ internal static class Program
+         Check(FormationModel.ResolveAutomaticRows(FormationKind.Block, 20) == 5 &&
+               FormationModel.ResolveAutomaticWidth(FormationKind.Block, 20) == 4,
+             "twenty-unit Block starts as five ranks of four");
+-        Check(FormationModel.ResolveDraggedWidth(FormationKind.Block, 2, 20) == 4 &&
+-              FormationModel.ResolveDraggedWidth(FormationKind.Block, 4, 20) == 5 &&
+-              FormationModel.ResolveDraggedWidth(FormationKind.Block, 10, 20) == 20,
+-            "each two drag tiles reduces Block depth by one rank");
+-        Check(FormationModel.ResolveActualRows(FormationKind.Block, 20, 4) == 5 &&
+-              FormationModel.ResolveActualRows(FormationKind.Block, 20, 20) == 1,
+-            "resolved width produces the requested Block depth");
+-        int wedgeAutomatic = FormationModel.ResolveAutomaticWidth(FormationKind.Wedge, 100);
+-        int wedgeExpanded = FormationModel.ResolveDraggedWidth(FormationKind.Wedge, 50, 100);
+-        Check(wedgeExpanded >= wedgeAutomatic &&
+-              FormationModel.ResolveActualRows(FormationKind.Wedge, 100, wedgeExpanded) >= 10,
+-            "Wedge drag preserves its geometric minimum depth");
+-        foreach (FormationKind kind in new[]
+-        {
+-            FormationKind.Block, FormationKind.Line,
+-            FormationKind.Column, FormationKind.Wedge,
+-            FormationKind.Vanilla, FormationKind.Circle
+-        })
++        foreach (FormationKind kind in new[] { FormationKind.Block, FormationKind.Line,
++            FormationKind.Column, FormationKind.Wedge, FormationKind.Circle, FormationKind.Vanilla })
+         {
+             for (int count = 1; count <= 100; count++)
+             {
+-                int previousRows = int.MaxValue;
+-                for (int distance = 2; distance <= 30; distance += 2)
+-                {
+-                    int width = FormationModel.ResolveDraggedWidth(kind, distance, count);
+-                    int rows = FormationModel.ResolveActualRows(kind, count, width);
+-                    Check(width >= 1 &&
+-                          (kind == FormationKind.Circle || width <= count) && rows >= 1 &&
+-                          rows <= previousRows,
+-                        $"drag depth is valid and monotonic kind={kind}, count={count}, distance={distance}");
+-                    previousRows = rows;
+-                }
++                var gesture = new FormationGestureState(kind, count, 4);
++                int initial = gesture.Rows;
++                gesture.UpdateDirection(20, -20, 2);
++                Check(gesture.Rows == initial && gesture.Direction == 1, "drag changes direction only");
++                gesture.UpdateDirection(0, 0, 2);
++                Check(gesture.Direction == 1 && gesture.ExplicitDirection, "deadzone retains last direction");
++                gesture.ApplyWheel(0.25f, 1);
++                gesture.ApplyWheel(0.25f, 1);
++                gesture.ApplyWheel(0.75f, 2);
++                bool fixedShape = kind == FormationKind.Circle || kind == FormationKind.Vanilla;
++                Check(gesture.Rows == (fixedShape ? initial : Math.Max(1, initial - 1)), "fractional wheel sampled once per frame");
++                gesture.ApplyWheel(-3f, 3);
++                Check(gesture.Rows == (fixedShape ? initial : Math.Min(count, Math.Max(1, initial - 1) + 3)) &&
++                      gesture.Direction == 1, "multiple wheel steps change rows only");
++                gesture.ApplyWheel(10000f, 4);
++                Check(gesture.Rows == (fixedShape ? initial : 1), "minimum rows");
++                gesture.ApplyWheel(-10000f, 5);
++                Check(gesture.Rows == (fixedShape ? initial : count), "maximum rows");
++                Check(new FormationGestureState(kind, count, 0).Rows == initial, "each gesture resets automatic rows");
+             }
+         }
++        TestExactRowsAndPlacement();
++    }
++
++    private static void TestExactRowsAndPlacement()
++    {
++        foreach (int count in new[] { 1, 2, 31, 100, 4000 })
++        foreach (int rows in new[] { 1, 2, 3, 21, 31, count }.Distinct().Where(r => r <= count))
++        foreach (FormationKind kind in new[] { FormationKind.Block, FormationKind.Line, FormationKind.Column, FormationKind.Wedge })
++        for (int sector = 0; sector < 8; sector++)
+         for (int density = 1; density <= 4; density++)
+-            Check(FormationModel.ResolveDraggedWidth(FormationKind.Block, 6, 20) == 7,
+-                "drag width is independent of density " + density);
++        {
++            var slots = FormationModel.BuildRelativeSlots(kind, count, rows, density, sector);
++            FormationModel.GetForwardVector(sector, out int fx, out int fy);
++            var ranks = slots.GroupBy(p => p.Rank).OrderBy(g => g.Key).ToArray();
++            Check(slots.Count == count && ranks.Length == rows &&
++                  slots.Select(p => Tuple.Create(p.X,p.Y)).Distinct().Count() == count, "exact ranks, complete unique positions");
++            foreach (var rank in ranks)
++                Check(rank.Select(p => p.X * fx + p.Y * fy).Distinct().Count() == 1,
++                    "ranks are straight and parallel for every direction and density");
++            int[] sizes = ranks.Select(g => g.Count()).ToArray();
++            Check(sizes.Max() == FormationModel.ResolveWidthForRows(kind, count, rows), "packet width is maximum rank width");
++            if (kind == FormationKind.Wedge && rows > 1)
++                Check(sizes[0] == 1 && sizes.Zip(sizes.Skip(1), (a,b) => a <= b).All(x => x), "single apex and nondecreasing wedge ranks");
++            else if (kind != FormationKind.Wedge)
++                Check(sizes.Max() - sizes.Min() <= 1, "balanced rectangular ranks");
++        }
++        var line = FormationModel.BuildRelativeSlots(FormationKind.Line, 31, 1, 4, 1);
++        var candidates = line.Select(p => new FormationPoint(200+p.X,200+p.Y,0,0)).Reverse().ToArray();
++        int[] ids = Enumerable.Range(1, candidates.Length).ToArray();
++        int[] chosen = FormationPlacementModel.SelectCandidates(200,200,line,candidates,ids);
++        Check(chosen.Distinct().Count() == 31 && chosen.Select((c,i) =>
++            candidates[c].X == 200+line[i].X && candidates[c].Y == 200+line[i].Y).All(x=>x),
++            "wide diagonal line preserves every reachable exact destination");
++        var probes = FormationPlacementModel.EnumerateReachabilityProbes(line).ToArray();
++        Check(probes.Select(p => Tuple.Create(p.X,p.Y)).Distinct().Count() == probes.Length &&
++              probes.Any(p => p.X == line[0].X + 1 && p.Y == line[0].Y),
++            "wide formation probes include adjacent fallback outside the anchor candidate pool");
++        var farBlocked = new[] { new FormationPoint(60,0,0,0), new FormationPoint(56,0,0,1) };
++        var farCandidates = new[] { new FormationPoint(0,0,0,0), new FormationPoint(56,0,0,0), new FormationPoint(60,1,0,0) };
++        int[] farChosen = FormationPlacementModel.SelectCandidates(0,0,farBlocked,farCandidates,new[] { 1,2,3 });
++        Check(farChosen[0] == 2 && farChosen[1] == 1,
++            "blocked wide-line endpoint uses its adjacent alternative and reserves the other exact endpoint");
++        var blocked = new[] { new FormationPoint(0,0,0,0), new FormationPoint(1,0,1,0) };
++        var reachable = new[] { new FormationPoint(1,0,0,0), new FormationPoint(-1,0,0,0) };
++        chosen = FormationPlacementModel.SelectCandidates(0,0,blocked,reachable,new[] { 1,2 });
++        Check(chosen[0] == 1 && chosen[1] == 0, "blocked slot cannot steal a later exact slot");
++        chosen = FormationPlacementModel.SelectCandidates(0,0,new[] { blocked[0] },reachable,new[] { 9,3 });
++        Check(chosen[0] == 1, "equal-distance fallback uses tile ID tie break");
++        chosen = FormationPlacementModel.SelectCandidates(0,0,
++            new[] { new FormationPoint(-2,0,0,0), new FormationPoint(0,0,1,0) },
++            new[] { new FormationPoint(0,0,0,0), new FormationPoint(1,0,0,0) },new[] { 1,2 });
++        Check(chosen[0] == 1 && chosen[1] == 0, "map-edge fallback reserves valid exact destinations");
++        var first = FormationPreviewKey.Create(FormationKind.Line,2,RangedPlacementMode.Off,0,2,10,10,31,false,16);
++        var second = FormationPreviewKey.Create(FormationKind.Line,2,RangedPlacementMode.Off,0,2,10,10,31,false,21);
++        Check(!first.Equals(second), "rows distinguish previews with equal derived width");
+     }
+ 
+     private static void TestDirectionQuantization()
+@@ -283,33 +323,35 @@ internal static class Program
+ 
+     private static void TestPlanHash()
+     {
+-        ulong first = FormationPlanHash.Begin(2, RangedPlacementMode.Rear);
++        Check(FormationPlanHash.Begin(31, RangedPlacementMode.Off, 16) !=
++              FormationPlanHash.Begin(31, RangedPlacementMode.Off, 21), "row metadata contributes to the plan hash");
++        ulong first = FormationPlanHash.Begin(2, RangedPlacementMode.Rear, 2);
+         FormationPlanHash.AddEntry(
+             ref first, 1, 1001, 400, 401, FormationRole.Front);
+         FormationPlanHash.AddEntry(
+             ref first, 2, 1002, 402, 403, FormationRole.Rear);
+ 
+-        ulong repeated = FormationPlanHash.Begin(2, RangedPlacementMode.Rear);
++        ulong repeated = FormationPlanHash.Begin(2, RangedPlacementMode.Rear, 2);
+         FormationPlanHash.AddEntry(
+             ref repeated, 1, 1001, 400, 401, FormationRole.Front);
+         FormationPlanHash.AddEntry(
+             ref repeated, 2, 1002, 402, 403, FormationRole.Rear);
+         Check(first == repeated, "formation plan hash is deterministic");
+ 
+-        ulong reordered = FormationPlanHash.Begin(2, RangedPlacementMode.Rear);
++        ulong reordered = FormationPlanHash.Begin(2, RangedPlacementMode.Rear, 2);
+         FormationPlanHash.AddEntry(
+             ref reordered, 2, 1002, 402, 403, FormationRole.Rear);
+         FormationPlanHash.AddEntry(
+             ref reordered, 1, 1001, 400, 401, FormationRole.Front);
+         Check(first != reordered, "formation plan hash includes canonical unit order");
+ 
+-        ulong changedTarget = FormationPlanHash.Begin(2, RangedPlacementMode.Rear);
++        ulong changedTarget = FormationPlanHash.Begin(2, RangedPlacementMode.Rear, 2);
+         FormationPlanHash.AddEntry(
+             ref changedTarget, 1, 1001, 400, 401, FormationRole.Front);
+         FormationPlanHash.AddEntry(
+             ref changedTarget, 2, 1002, 402, 404, FormationRole.Rear);
+         Check(first != changedTarget, "formation plan hash includes destinations");
+-        Check(first != FormationPlanHash.Begin(2, RangedPlacementMode.Center),
++        Check(first != FormationPlanHash.Begin(2, RangedPlacementMode.Center, 2),
+             "formation plan hash includes ranged placement mode");
+     }
+ 
+@@ -397,8 +439,7 @@ internal static class Program
+ 
+         int vanillaAutomatic = FormationModel.ResolveAutomaticWidth(
+             FormationKind.Vanilla, 40);
+-        int vanillaDragged = FormationModel.ResolveDraggedWidth(
+-            FormationKind.Vanilla, 10, 40);
++        int vanillaDragged = FormationModel.ResolveWidthForRows(FormationKind.Vanilla, 40, 1);
+         Check(vanillaDragged == vanillaAutomatic,
+             "Vanilla drag never changes the native slot shape");
+         bool rejectedSyntheticVanilla = false;
+@@ -444,7 +485,7 @@ internal static class Program
+     private static void TestRoleAssignment()
+     {
+         List<FormationPoint> slots = FormationModel.BuildRelativeSlots(
+-            FormationKind.Block, 12, 4, 1, 0);
++            FormationKind.Block, 12, 3, 1, 0);
+         var units = new List<FormationUnit>
+         {
+             new FormationUnit(12, 0, FormationRole.Rear),
+@@ -489,7 +530,7 @@ internal static class Program
+             new FormationUnit(5, 0, FormationRole.Rear)
+         };
+         List<FormationPoint> orderedSlots = FormationModel.BuildRelativeSlots(
+-            FormationKind.Column, alreadyOrdered.Count, 1, 1, 0);
++            FormationKind.Column, alreadyOrdered.Count, alreadyOrdered.Count, 1, 0);
+         Check(FormationModel.AssignSlotsByRole(
+                 alreadyOrdered, orderedSlots, RangedPlacementMode.Rear)
+                 .SequenceEqual(Enumerable.Range(0, alreadyOrdered.Count)),
+@@ -557,7 +598,7 @@ internal static class Program
+             "Vanilla Center mode assigns melee to the outside of native slots");
+ 
+         List<FormationPoint> lineSlots = FormationModel.BuildRelativeSlots(
+-            FormationKind.Line, 7, 7, 1, 0);
++            FormationKind.Line, 7, 1, 1, 0);
+         var lineUnits = Enumerable.Range(1, 7)
+             .Select(id => new FormationUnit(
+                 id, 0, id <= 4 ? FormationRole.Front : FormationRole.Rear))
+@@ -597,15 +638,15 @@ internal static class Program
+                 FormationKind.Column, FormationKind.Wedge, FormationKind.Circle
+             })
+             {
+-                int width = FormationModel.ResolveAutomaticWidth(kind, 31);
++                int rows = FormationModel.ResolveAutomaticRows(kind, 31);
+                 List<FormationPoint> tightTopology = FormationModel.BuildRelativeSlots(
+-                    kind, 31, width, 1, vector.Sector);
++                    kind, 31, rows, 1, vector.Sector);
+                 for (int density = 1; density <= 4; density++)
+                 {
+                     List<FormationPoint> first = FormationModel.BuildRelativeSlots(
+-                        kind, 31, width, density, vector.Sector);
++                        kind, 31, rows, density, vector.Sector);
+                     List<FormationPoint> second = FormationModel.BuildRelativeSlots(
+-                        kind, 31, width, density, vector.Sector);
++                        kind, 31, rows, density, vector.Sector);
+                     Check(first.Select(point => point.X + ":" + point.Y)
+                             .SequenceEqual(second.Select(point => point.X + ":" + point.Y)),
+                         $"deterministic slots kind={kind}, sector={vector.Sector}, density={density}");
+@@ -620,8 +661,8 @@ internal static class Program
+ 
+         Check(FormationModel.ResolveAutomaticWidth(FormationKind.Block, 1) == 1,
+             "single-unit automatic width");
+-        Check(FormationModel.ResolveDraggedWidth(FormationKind.Block, 1, 20) == 4,
+-            "short drag retains automatic Block depth");
++        Check(new FormationGestureState(FormationKind.Block, 20, 0).Rows == 5,
++            "gesture starts with automatic Block depth");
+         Check(FormationModel.BuildRelativeSlots(
+             FormationKind.Wedge, 1, 1, 4, 7).Single().Rank == 0,
+             "single-unit wedge remains at the tip");
+@@ -630,7 +671,7 @@ internal static class Program
+     private static void TestRoleEdgeCases()
+     {
+         List<FormationPoint> slots = FormationModel.BuildRelativeSlots(
+-            FormationKind.Line, 10, 5, 1, 0);
++            FormationKind.Line, 10, 2, 1, 0);
+         var withoutFront = Enumerable.Range(1, 10)
+             .Select(id => new FormationUnit(
+                 id,
+@@ -652,7 +693,7 @@ internal static class Program
+             new FormationUnit(1, 0, FormationRole.Front)
+         };
+         List<FormationPoint> tinySlots = FormationModel.BuildRelativeSlots(
+-            FormationKind.Column, tiny.Count, 1, 2, 4);
++            FormationKind.Column, tiny.Count, tiny.Count, 2, 4);
+         int[] tinyAssignment = FormationModel.AssignSlotsByRole(
+             tiny, tinySlots, RangedPlacementMode.Rear);
+         Check(tinySlots[tinyAssignment[2]].Rank <= tinySlots[tinyAssignment[0]].Rank,
+@@ -1098,7 +1139,7 @@ internal static class Program
+         string consume = ExtractMethodBody(runtime, "private int RunOriginalAfterReleaseConsumed(");
+         Check(consume.Contains("FormationReleaseStateModel.Consume()") && !consume.Contains("originalState.Restore"),
+             "accepted release is permanently consumed");
+-        Check(runtime.Contains("ProtocolVersion = 5") && runtime.Contains("actualPlanHash != packet.PlanHash") &&
++        Check(runtime.Contains("ProtocolVersion = 6") && runtime.Contains("actualPlanHash != packet.PlanHash") &&
+               runtime.Contains("result.Sort((left, right) => left.UnitId.CompareTo(right.UnitId))"),
+             "deterministic unit order and synchronized plan validation retained");
+         Check(runtime.Contains("APIShared.UnitAccess.IsReallyAlive(unit)") && runtime.Contains("unit->r_GlobalId == globalId"),
+@@ -1113,6 +1154,26 @@ internal static class Program
+         Check(!File.Exists(Path.Combine(shared, "MoveFormationSpacingPolicy.cs")), "obsolete spacing implementation removed");
+         Check(feature.IndexOf("runtime = new FormationRuntime", StringComparison.Ordinal) <
+               feature.IndexOf("runtime.Initialize();", StringComparison.Ordinal), "runtime rooted before hook publication");
++        string wheel = ExtractMethodBody(runtime, "private void UpdateGesture(");
++        Check(wheel.Contains("state.Geometry.ApplyWheel(wheel, frame)") &&
++              !wheel.Contains("state.Density =") && wheel.Contains("lastWheelFrame != frame"),
++            "runtime samples wheel once without changing density");
++        string direction = ExtractMethodBody(runtime, "private static void ResolveDirectionAndWidth(");
++        Check(!direction.Contains("dragDistance") && direction.Contains("state.Rows"),
++            "mouse distance cannot resize the formation");
++        string reachable = ExtractMethodBody(runtime, "private List<NativeDestination> CaptureReachableCandidates(");
++        Check(reachable.Contains("pending.Count != 0") && reachable.Contains("pending.Remove(current.TileId)") &&
++              reachable.Contains("FormationPlacementModel.EnumerateReachabilityProbes(desiredSlots)") &&
++              reachable.Contains("components[tile] == component") && reachable.Contains("0x10000100"),
++            "reachability search covers desired extent and preserves component/Assassin gates");
++        Check(runtime.Contains("width does not match rows") && runtime.Contains("packet.Rows == 0"),
++            "malformed row/width packets are rejected");
++        string menu = File.ReadAllText(Path.Combine(main, "src", "FormationMenuViewModel.cs"));
++        string xaml = File.ReadAllText(Path.Combine(main, "Patches", "Assets", "GUI", "XAMLResources", "HUD_Troops.xaml"));
++        foreach (string kind in new[] { "Vanilla", "Block", "Line", "Column", "Wedge", "Circle" })
++            Check(menu.Contains("public bool Is" + kind) && menu.Contains("OnChanged(nameof(Is" + kind + "))") &&
++                  CountOccurrences(xaml, "{StaticResource BugfixesFormationIcon" + kind + "}") == 2 &&
++                  xaml.Contains("{Binding Is" + kind + ","), "selected icon template and Config notification " + kind);
+         TestSelectionMigration();
+     }
+ 

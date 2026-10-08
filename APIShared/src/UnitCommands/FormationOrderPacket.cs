@@ -21,11 +21,12 @@ namespace APIShared.UnitCommands
         [Key(11)] public ushort Width;
         [Key(12)] public ushort UnitCount;
         [Key(13)] public ulong PlanHash;
+        [Key(14)] public ushort Rows;
     }
 
     internal sealed class FormationOrderPacketFormatter : IMessagePackFormatter<FormationOrderPacket>
     {
-        private const int FieldCount = 14;
+        private const int FieldCount = 15;
 
         // MessagePack's attribute resolver instantiates this formatter by reflection.
         public FormationOrderPacketFormatter() { }
@@ -56,6 +57,7 @@ namespace APIShared.UnitCommands
             writer.Write(value.Width);
             writer.Write(value.UnitCount);
             writer.Write(value.PlanHash);
+            writer.Write(value.Rows);
         }
 
         public FormationOrderPacket Deserialize(
@@ -85,6 +87,7 @@ namespace APIShared.UnitCommands
                     case 11: packet.Width = reader.ReadUInt16(); break;
                     case 12: packet.UnitCount = reader.ReadUInt16(); break;
                     case 13: packet.PlanHash = reader.ReadUInt64(); break;
+                    case 14: packet.Rows = reader.ReadUInt16(); break;
                     default: reader.Skip(); break;
                 }
             }

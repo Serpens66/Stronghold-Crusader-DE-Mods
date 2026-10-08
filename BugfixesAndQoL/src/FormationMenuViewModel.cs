@@ -76,6 +76,12 @@ namespace BugfixesAndQoL
         public bool MenuVisible => menuVisible;
         public bool RolloverVisible => rolloverVisible;
         public string RolloverText => rolloverText;
+        public bool IsVanilla => FormationModel.NormalizeKind((int)formation.Value) == FormationKind.Vanilla;
+        public bool IsBlock => FormationModel.NormalizeKind((int)formation.Value) == FormationKind.Block;
+        public bool IsLine => FormationModel.NormalizeKind((int)formation.Value) == FormationKind.Line;
+        public bool IsColumn => FormationModel.NormalizeKind((int)formation.Value) == FormationKind.Column;
+        public bool IsWedge => FormationModel.NormalizeKind((int)formation.Value) == FormationKind.Wedge;
+        public bool IsCircle => FormationModel.NormalizeKind((int)formation.Value) == FormationKind.Circle;
         public SolidColorBrush VanillaBackground => FormationBrush(FormationKind.Vanilla);
         public SolidColorBrush BlockBackground => FormationBrush(FormationKind.Block);
         public SolidColorBrush LineBackground => FormationBrush(FormationKind.Line);
@@ -257,6 +263,12 @@ namespace BugfixesAndQoL
 
         private void NotifySelectionsChanged()
         {
+            OnChanged(nameof(IsVanilla));
+            OnChanged(nameof(IsBlock));
+            OnChanged(nameof(IsLine));
+            OnChanged(nameof(IsColumn));
+            OnChanged(nameof(IsWedge));
+            OnChanged(nameof(IsCircle));
             OnChanged(nameof(VanillaBackground));
             OnChanged(nameof(BlockBackground));
             OnChanged(nameof(LineBackground));

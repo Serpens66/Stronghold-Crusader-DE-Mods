@@ -1,0 +1,385 @@
+diff --git a/APIShared/src/UnitCommands/FormationModel.cs b/APIShared/src/UnitCommands/FormationModel.cs
+index ccedc126c..ae2d1dcb6 100644
+--- a/APIShared/src/UnitCommands/FormationModel.cs
++++ b/APIShared/src/UnitCommands/FormationModel.cs
+@@ -77,13 +77,14 @@ namespace APIShared.UnitCommands
+             int targetX,
+             int targetY,
+             int unitCount,
+-            bool explicitDirection)
++            bool explicitDirection, int rows)
+         {
+             Kind = kind;
+             Density = density;
+             PlacementMode = placementMode;
+             DirectionSector = directionSector;
+             Width = width;
++            Rows = rows;
+             TargetX = targetX;
+             TargetY = targetY;
+             UnitCount = unitCount;
+@@ -95,6 +96,7 @@ namespace APIShared.UnitCommands
+         internal RangedPlacementMode PlacementMode { get; }
+         internal int DirectionSector { get; }
+         internal int Width { get; }
++        internal int Rows { get; }
+         internal int TargetX { get; }
+         internal int TargetY { get; }
+         internal int UnitCount { get; }
+@@ -109,7 +111,7 @@ namespace APIShared.UnitCommands
+             int targetX,
+             int targetY,
+             int unitCount,
+-            bool explicitDirection = false)
++            bool explicitDirection = false, int rows = 0)
+         {
+             FormationKind normalizedKind = FormationModel.NormalizeKind((int)kind);
+             bool fixedShape = normalizedKind == FormationKind.Vanilla ||
+@@ -123,13 +125,14 @@ namespace APIShared.UnitCommands
+                 targetX,
+                 targetY,
+                 Math.Max(0, unitCount),
+-                explicitDirection);
++                explicitDirection, fixedShape ? FormationModel.ResolveAutomaticRows(normalizedKind, unitCount) :
++                    FormationModel.NormalizeRows(rows == 0 ? FormationModel.ResolveAutomaticRows(normalizedKind, unitCount) : rows, unitCount));
+         }
+ 
+         public bool Equals(FormationPreviewKey other) =>
+             Kind == other.Kind && Density == other.Density &&
+             PlacementMode == other.PlacementMode &&
+-            DirectionSector == other.DirectionSector && Width == other.Width &&
++            DirectionSector == other.DirectionSector && Width == other.Width && Rows == other.Rows &&
+             TargetX == other.TargetX && TargetY == other.TargetY &&
+             UnitCount == other.UnitCount &&
+             ExplicitDirection == other.ExplicitDirection;
+@@ -146,6 +149,7 @@ namespace APIShared.UnitCommands
+                 hash = hash * 397 ^ PlacementMode.GetHashCode();
+                 hash = hash * 397 ^ DirectionSector;
+                 hash = hash * 397 ^ Width;
++                hash = hash * 397 ^ Rows;
+                 hash = hash * 397 ^ TargetX;
+                 hash = hash * 397 ^ TargetY;
+                 hash = hash * 397 ^ UnitCount;
+@@ -154,6 +158,111 @@ namespace APIShared.UnitCommands
+         }
+     }
+ 
++    internal static class FormationPlacementModel
++    {
++        internal static IEnumerable<FormationPoint> EnumerateReachabilityProbes(
++            IReadOnlyList<FormationPoint> slots)
++        {
++            // Adjacent alternatives must be searched even when an outer desired tile is blocked.
++            var seen = new HashSet<long>();
++            foreach (FormationPoint slot in slots)
++                for (int dy = -1; dy <= 1; dy++)
++                    for (int dx = -1; dx <= 1; dx++)
++                    {
++                        int x = slot.X + dx, y = slot.Y + dy;
++                        long key = ((long)x << 32) | (uint)y;
++                        if (seen.Add(key)) yield return new FormationPoint(x, y, 0, 0);
++                    }
++        }
++
++        internal static int[] SelectCandidates(int anchorX, int anchorY,
++            IReadOnlyList<FormationPoint> slots, IReadOnlyList<FormationPoint> candidates,
++            IReadOnlyList<int> tileIds)
++        {
++            if (candidates.Count == 0) throw new InvalidOperationException("No reachable destination.");
++            var result = new int[slots.Count];
++            var used = new bool[candidates.Count];
++            var exact = new Dictionary<long, int>();
++            for (int index = 0; index < candidates.Count; index++)
++                exact[((long)candidates[index].X << 32) | (uint)candidates[index].Y] = index;
++            var assigned = new bool[slots.Count];
++            for (int index = 0; index < slots.Count; index++)
++            {
++                long key = ((long)(anchorX + slots[index].X) << 32) | (uint)(anchorY + slots[index].Y);
++                if (exact.TryGetValue(key, out int candidate) && !used[candidate])
++                {
++                    used[candidate] = true;
++                    assigned[index] = true;
++                    result[index] = candidate;
++                }
++            }
++            for (int slotIndex = 0; slotIndex < slots.Count; slotIndex++)
++            {
++                if (assigned[slotIndex]) continue;
++                FormationPoint slot = slots[slotIndex];
++                int desiredX = anchorX + slot.X;
++                int desiredY = anchorY + slot.Y;
++                long bestDistance = long.MaxValue;
++                int best = -1;
++                for (int candidateIndex = 0; candidateIndex < candidates.Count; candidateIndex++)
++                {
++                    if (used[candidateIndex])
++                        continue;
++                    FormationPoint candidate = candidates[candidateIndex];
++                    long dx = candidate.X - desiredX;
++                    long dy = candidate.Y - desiredY;
++                    long distance = dx * dx + dy * dy;
++                    if (distance < bestDistance ||
++                        (distance == bestDistance &&
++                         (best < 0 || tileIds[candidateIndex] < tileIds[best])))
++                    {
++                        bestDistance = distance;
++                        best = candidateIndex;
++                    }
++                }
++                if (best < 0)
++                    best = slotIndex % candidates.Count;
++                used[best] = true;
++                result[slotIndex] = best;
++            }
++            return result;
++        }
++    }
++
++    internal sealed class FormationGestureState
++    {
++        private readonly FormationKind kind;
++        private readonly int count;
++        private double wheelRemainder;
++        private int lastWheelFrame = -1;
++        internal FormationGestureState(FormationKind kind, int count, int direction)
++        {
++            this.kind = kind;
++            this.count = count;
++            Rows = FormationModel.ResolveAutomaticRows(kind, count);
++            Direction = direction & 7;
++        }
++        internal int Rows { get; private set; }
++        internal int Direction { get; private set; }
++        internal bool ExplicitDirection { get; private set; }
++        internal void ApplyWheel(float delta, int frame)
++        {
++            if (frame == lastWheelFrame || float.IsNaN(delta) || float.IsInfinity(delta)) return;
++            lastWheelFrame = frame;
++            if (kind == FormationKind.Circle || kind == FormationKind.Vanilla) return;
++            wheelRemainder += delta;
++            double steps = Math.Truncate(wheelRemainder);
++            wheelRemainder -= steps;
++            Rows = (int)Math.Max(1, Math.Min(count, Rows - steps));
++        }
++        internal void UpdateDirection(int deltaX, int deltaY, int threshold)
++        {
++            if (Math.Max(Math.Abs(deltaX), Math.Abs(deltaY)) < threshold) return;
++            Direction = FormationModel.QuantizeDirection(deltaX, deltaY, Direction);
++            ExplicitDirection = true;
++        }
++    }
++
+     internal static class FormationModel
+     {
+         private static readonly int[] ForwardX = { 0, 1, 1, 1, 0, -1, -1, -1 };
+@@ -177,9 +286,6 @@ namespace APIShared.UnitCommands
+                 ? FormationKind.Vanilla
+                 : (FormationKind)((byte)kind + 1);
+ 
+-        internal static int ChangeDensity(int density, int wheelDirection) =>
+-            Math.Max(1, Math.Min(4, NormalizeDensity(density) - Math.Sign(wheelDirection)));
+-
+         internal static bool IsNativeVanillaSlotCandidate(
+             int relativeX,
+             int relativeY,
+@@ -273,54 +379,56 @@ namespace APIShared.UnitCommands
+                 case FormationKind.Wedge:
+                     return CountWedgeRows(count, ResolveAutomaticWidth(kind, count));
+                 case FormationKind.Circle:
+-                    return ResolveCircleDiameter(count);
++                    return Math.Min(count, ResolveCircleDiameter(count));
+                 default:
+                     return Math.Min(count, Math.Max(1, (int)Math.Ceiling(root)));
+             }
+         }
+ 
+-        internal static int ResolveDraggedWidth(
+-            FormationKind kind,
+-            int tileDistance,
+-            int count)
++        internal static int NormalizeRows(int rows, int count) =>
++            Math.Max(1, Math.Min(Math.Max(1, count), rows));
++
++        internal static int ResolveWidthForRows(FormationKind kind, int count, int rows)
+         {
+-            if (count <= 0)
+-                return 0;
+-            int automaticWidth = ResolveAutomaticWidth(kind, count);
+-            if (kind == FormationKind.Vanilla || kind == FormationKind.Circle)
+-                return automaticWidth;
+-            int depthReduction = Math.Max(0, (Math.Max(2, tileDistance) - 2) / 2);
+-            if (depthReduction == 0)
+-                return automaticWidth;
+-            int targetRows = Math.Max(1,
+-                ResolveAutomaticRows(kind, count) - depthReduction);
+-            if (kind != FormationKind.Wedge)
+-                return Math.Max(1, Math.Min(count, (count + targetRows - 1) / targetRows));
+-
+-            for (int width = MakeOdd(automaticWidth); width <= count; width += 2)
+-            {
+-                if (CountWedgeRows(count, width) <= targetRows)
+-                    return Math.Min(count, width);
+-            }
+-            return count;
++            if (kind == FormationKind.Circle || kind == FormationKind.Vanilla)
++                return ResolveAutomaticWidth(kind, count);
++            int[] counts = BuildRowCounts(kind, count, rows);
++            int width = 1;
++            foreach (int size in counts) width = Math.Max(width, size);
++            return width;
+         }
+ 
+-        internal static int ResolveActualRows(FormationKind kind, int count, int width)
++        private static int[] BuildRowCounts(FormationKind kind, int count, int rows)
+         {
+-            if (count <= 0)
+-                return 0;
+-            int normalizedWidth = Math.Max(1, Math.Min(count, width));
+-            return kind == FormationKind.Wedge
+-                ? CountWedgeRows(count, normalizedWidth)
+-                : kind == FormationKind.Circle
+-                ? ResolveCircleDiameter(count)
+-                : (count + normalizedWidth - 1) / normalizedWidth;
++            rows = NormalizeRows(rows, count);
++            var counts = new int[rows];
++            if (kind != FormationKind.Wedge || rows == 1)
++            {
++                for (int rank = 0; rank < rows; rank++)
++                    counts[rank] = count / rows + (rank < count % rows ? 1 : 0);
++                return counts;
++            }
++            // Reserve a single apex and at least one unit in every remaining rank.
++            for (int rank = 0; rank < rows; rank++) counts[rank] = 1;
++            int remaining = count - rows;
++            long weight = (long)(rows - 1) * (rows - 1);
++            int allocated = 0;
++            for (int rank = 1; rank < rows; rank++)
++            {
++                int extra = (int)((long)remaining * (2 * rank - 1) / weight);
++                counts[rank] += extra;
++                allocated += extra;
++            }
++            for (int rank = rows - 1; allocated < remaining; rank--, allocated++)
++                counts[rank]++;
++            Array.Sort(counts, 1, rows - 1);
++            return counts;
+         }
+ 
+         internal static List<FormationPoint> BuildRelativeSlots(
+             FormationKind kind,
+             int count,
+-            int width,
++            int rows,
+             int density,
+             int directionSector)
+         {
+@@ -329,7 +437,7 @@ namespace APIShared.UnitCommands
+                 return result;
+ 
+             int normalizedDensity = NormalizeDensity(density);
+-            int normalizedWidth = Math.Max(1, Math.Min(count, width));
++            int normalizedRows = NormalizeRows(rows, count);
+             int sector = directionSector & 7;
+             int forwardX = ForwardX[sector];
+             int forwardY = ForwardY[sector];
+@@ -342,11 +450,8 @@ namespace APIShared.UnitCommands
+             if (kind == FormationKind.Circle)
+                 BuildCircle(count, normalizedDensity,
+                     forwardX, forwardY, rightX, rightY, result);
+-            else if (kind == FormationKind.Wedge)
+-                BuildWedge(count, normalizedWidth, normalizedDensity,
+-                    forwardX, forwardY, rightX, rightY, result);
+             else
+-                BuildRanks(count, normalizedWidth, normalizedDensity,
++                BuildRanks(BuildRowCounts(kind, count, normalizedRows), normalizedDensity,
+                     forwardX, forwardY, rightX, rightY, result);
+             Center(result);
+             return result;
+@@ -607,56 +712,20 @@ namespace APIShared.UnitCommands
+         }
+ 
+         private static void BuildRanks(
+-            int count,
+-            int width,
+-            int spacing,
+-            int forwardX,
+-            int forwardY,
+-            int rightX,
+-            int rightY,
+-            List<FormationPoint> destination)
+-        {
+-            int ranks = (count + width - 1) / width;
+-            int produced = 0;
+-            for (int rank = 0; rank < ranks && produced < count; rank++)
+-            {
+-                int inRank = Math.Min(width, count - produced);
+-                for (int file = 0; file < inRank; file++)
+-                {
+-                    int lateral2 = file * 2 - (inRank - 1);
+-                    int x2 = rightX * lateral2 * spacing - forwardX * rank * 2 * spacing;
+-                    int y2 = rightY * lateral2 * spacing - forwardY * rank * 2 * spacing;
+-                    destination.Add(new FormationPoint(RoundHalf(x2), RoundHalf(y2), rank, lateral2));
+-                    produced++;
+-                }
+-            }
+-        }
+-
+-        private static void BuildWedge(
+-            int count,
+-            int maximumWidth,
+-            int spacing,
+-            int forwardX,
+-            int forwardY,
+-            int rightX,
+-            int rightY,
+-            List<FormationPoint> destination)
++            int[] rowCounts, int spacing, int forwardX, int forwardY,
++            int rightX, int rightY, List<FormationPoint> destination)
+         {
+-            int produced = 0;
+-            int rank = 0;
+-            while (produced < count)
++            for (int rank = 0; rank < rowCounts.Length; rank++)
+             {
+-                int desired = Math.Min(maximumWidth, 1 + rank * 2);
+-                int inRank = Math.Min(desired, count - produced);
++                int inRank = rowCounts[rank];
+                 for (int file = 0; file < inRank; file++)
+                 {
+-                    int lateral2 = file * 2 - (inRank - 1);
+-                    int x2 = rightX * lateral2 * spacing - forwardX * rank * 2 * spacing;
+-                    int y2 = rightY * lateral2 * spacing - forwardY * rank * 2 * spacing;
+-                    destination.Add(new FormationPoint(RoundHalf(x2), RoundHalf(y2), rank, lateral2));
+-                    produced++;
++                    // Quantize the local lattice before rotation, never individual world axes.
++                    int lateral = file - (inRank - 1) / 2;
++                    int x = (rightX * lateral - forwardX * rank) * spacing;
++                    int y = (rightY * lateral - forwardY * rank) * spacing;
++                    destination.Add(new FormationPoint(x, y, rank, lateral));
+                 }
+-                rank++;
+             }
+         }
+ 
+@@ -697,8 +766,6 @@ namespace APIShared.UnitCommands
+ 
+         private static int MakeOdd(int value) => (value & 1) == 0 ? value + 1 : value;
+ 
+-        private static int RoundHalf(int doubled) =>
+-            doubled >= 0 ? (doubled + 1) / 2 : (doubled - 1) / 2;
+     }
+ 
+     internal static class FormationPlanHash
+@@ -706,10 +773,11 @@ namespace APIShared.UnitCommands
+         private const ulong OffsetBasis = 14695981039346656037UL;
+         private const ulong Prime = 1099511628211UL;
+ 
+-        internal static ulong Begin(int unitCount, RangedPlacementMode placementMode)
++        internal static ulong Begin(int unitCount, RangedPlacementMode placementMode, int rows)
+         {
+             ulong hash = OffsetBasis;
+             AddInt32(ref hash, unitCount);
++            AddInt32(ref hash, rows);
+             AddByte(ref hash, (byte)FormationModel.NormalizePlacementMode((int)placementMode));
+             return hash;
+         }

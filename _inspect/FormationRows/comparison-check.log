@@ -1,0 +1,3 @@
+PASS: Vanilla search, terrain/connection gates, release consumption, camera hook, failure and native validation unchanged from starting code.
+PASS: six shared icon resources target the actual Vanilla resource node; menu and opener reference each template.
+PASS: changed source texts are CRLF; every pre-existing locale entry except formation help preserved.

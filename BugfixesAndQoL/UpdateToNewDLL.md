@@ -469,3 +469,5 @@ Keep the terrain setting separate from recruit running, including host
 sync, presets, reset and search. Run the actual production generators in
 `RallyTerrainGeneratorTests` and repeat in-game swamp, ford, uphill,
 downhill and level routes with both running settings and loaded saves.
+
+Formation rows follow-up (2026-10-08): internal protocol 6 adds ushort Rows. Wheel adjusts gesture-local rows; drag only sets the eight-sector facing. Width is validated against maximum rank width. Integer local coordinates precede rotation; exact reachable slots are reserved before obstacle fallback. Existing native selectors, permanent input/renderer hooks and installed SHCDESE 2.14.0 contracts are unchanged. No new public API or game-assembly access.

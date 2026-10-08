@@ -42,7 +42,7 @@ namespace APIShared.UnitCommands
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
         private delegate int GetGroupUnitIdDelegate(IntPtr tribeManager, int tribeId, int ordinal);
 
-        private const int ProtocolVersion = 5;
+        private const int ProtocolVersion = 6;
         private const int MapWidth = 800;
         private const int MaximumUnitCount = 10000;
         private const int MaximumTribeCount = 4500;
@@ -571,7 +571,7 @@ namespace APIShared.UnitCommands
                     $"tribe={packet.TribeId}, target={packet.TargetX},{packet.TargetY}, " +
                     $"kind={(FormationKind)packet.Formation}, density={packet.Density}, " +
                     $"placement={(RangedPlacementMode)packet.PlacementMode}, direction={packet.DirectionSector}, " +
-                    $"width={packet.Width}, rows={FormationModel.ResolveActualRows((FormationKind)packet.Formation, packet.UnitCount, packet.Width)}, " +
+                    $"width={packet.Width}, rows={packet.Rows}, " +
                     $"units={packet.UnitCount}, " +
                     $"plan=0x{packet.PlanHash:X16}.");
             }
@@ -616,7 +616,7 @@ namespace APIShared.UnitCommands
         private void UpdateGesture(ActiveDrag state)
         {
             bool abort;
-            int changedDensity = 0;
+            int changedRows = 0;
             lock (stateSync)
             {
                 if (!ReferenceEquals(drag, state) || !state.ReleaseGate.CanModify)
@@ -629,28 +629,25 @@ namespace APIShared.UnitCommands
                     if (wheel != 0f && lastWheelFrame != frame)
                     {
                         lastWheelFrame = frame;
-                        int newDensity = FormationModel.ChangeDensity(
-                            state.Density, wheel > 0f ? 1 : -1);
-                        if (newDensity != state.Density)
-                        {
-                            state.Density = newDensity;
-                            changedDensity = newDensity;
-                        }
+                        int oldRows = state.Rows;
+                        state.Geometry.ApplyWheel(wheel, frame);
+                        if (state.Rows != oldRows) changedRows = state.Rows;
                     }
 
                     if (TryCaptureTarget(out GroundTarget endpoint))
                     {
-                        state.DragDeltaX = endpoint.NativeX - state.Target.NativeX;
-                        state.DragDeltaY = endpoint.NativeY - state.Target.NativeY;
+                        state.Geometry.UpdateDirection(
+                            endpoint.NativeX - state.Target.NativeX,
+                            endpoint.NativeY - state.Target.NativeY, MinimumDragTileDistance);
                     }
                     PublishPreview(state, force: false);
                 }
             }
             if (abort)
                 AbortDrag("state-changed");
-            else if (changedDensity != 0)
+            else if (changedRows != 0)
                 LogDebugNoThrow(
-                    $"FORMATION_DENSITY_CHANGED: density={changedDensity}, " +
+                    $"FORMATION_ROWS_CHANGED: rows={changedRows}, " +
                     $"thread={Environment.CurrentManagedThreadId}.");
         }
 
@@ -731,6 +728,7 @@ namespace APIShared.UnitCommands
                 PlacementMode = (byte)state.PlacementMode,
                 DirectionSector = (byte)direction,
                 Width = (ushort)width,
+                Rows = checked((ushort)state.Rows),
                 UnitCount = checked((ushort)state.Selection.Length),
                 PlanHash = state.PreviewPlanHash
             };
@@ -925,14 +923,14 @@ namespace APIShared.UnitCommands
                         kind,
                         density,
                         packet.DirectionSector,
-                        packet.Width,
+                        packet.Rows,
                         FormationModel.NormalizePlacementMode(packet.PlacementMode),
                         units,
                         explicitDirection: false,
                         out _);
                     ulong actualPlanHash = ComputePlanHash(
                         units, destinations,
-                        FormationModel.NormalizePlacementMode(packet.PlacementMode));
+                        FormationModel.NormalizePlacementMode(packet.PlacementMode), packet.Rows);
                     if (actualPlanHash != packet.PlanHash)
                     {
                         throw new InvalidOperationException(
@@ -1435,7 +1433,7 @@ namespace APIShared.UnitCommands
             FormationKind kind,
             int density,
             int direction,
-            int width,
+            int rows,
             RangedPlacementMode placementMode,
             FormationUnit[] units,
             bool explicitDirection,
@@ -1455,10 +1453,10 @@ namespace APIShared.UnitCommands
             else
             {
                 slots = FormationModel.BuildRelativeSlots(
-                    kind, units.Length, Math.Max(1, width), density, direction);
+                    kind, units.Length, rows, density, direction);
                 List<NativeDestination> candidates = CaptureReachableCandidates(
                     anchorX, anchorY, Math.Min(MaximumPreviewCandidates,
-                        Math.Max(256, units.Length * 16)), assassinOnly);
+                        Math.Max(256, units.Length * 16)), assassinOnly, slots);
                 if (candidates.Count == 0)
                     throw new InvalidOperationException(
                         "No reachable formation destination exists.");
@@ -1648,38 +1646,16 @@ namespace APIShared.UnitCommands
             IReadOnlyList<FormationPoint> slots,
             IReadOnlyList<NativeDestination> candidates)
         {
-            var result = new NativeDestination[slots.Count];
-            var used = new bool[candidates.Count];
-            for (int slotIndex = 0; slotIndex < slots.Count; slotIndex++)
+            var points = new FormationPoint[candidates.Count];
+            var tileIds = new int[candidates.Count];
+            for (int index = 0; index < candidates.Count; index++)
             {
-                FormationPoint slot = slots[slotIndex];
-                int desiredX = anchorX + slot.X;
-                int desiredY = anchorY + slot.Y;
-                long bestDistance = long.MaxValue;
-                int best = -1;
-                for (int candidateIndex = 0; candidateIndex < candidates.Count; candidateIndex++)
-                {
-                    if (used[candidateIndex])
-                        continue;
-                    NativeDestination candidate = candidates[candidateIndex];
-                    long dx = candidate.X - desiredX;
-                    long dy = candidate.Y - desiredY;
-                    long distance = dx * dx + dy * dy;
-                    if (distance < bestDistance ||
-                        (distance == bestDistance &&
-                         (best < 0 || candidate.TileId < candidates[best].TileId)))
-                    {
-                        bestDistance = distance;
-                        best = candidateIndex;
-                    }
-                }
-                if (best < 0)
-                    best = slotIndex % candidates.Count;
-                used[best] = true;
-                NativeDestination selected = candidates[best];
-                result[slotIndex] = new NativeDestination(
-                    selected.TileId, selected.X, selected.Y, FormationRole.Neutral);
+                points[index] = new FormationPoint(candidates[index].X, candidates[index].Y, 0, 0);
+                tileIds[index] = candidates[index].TileId;
             }
+            int[] selected = FormationPlacementModel.SelectCandidates(anchorX, anchorY, slots, points, tileIds);
+            var result = new NativeDestination[slots.Count];
+            for (int index = 0; index < slots.Count; index++) result[index] = candidates[selected[index]];
             return result;
         }
 
@@ -1687,7 +1663,7 @@ namespace APIShared.UnitCommands
             int anchorX,
             int anchorY,
             int requestedCount,
-            bool assassinOnly)
+            bool assassinOnly, IReadOnlyList<FormationPoint> desiredSlots)
         {
             GameTileManagerView tileManager = GameTileManagerAPI.Instance.TileManager ??
                 throw new InvalidOperationException("Native tile manager is unavailable.");
@@ -1707,10 +1683,22 @@ namespace APIShared.UnitCommands
             var queue = new Queue<NativeDestination>();
             var result = new List<NativeDestination>(requestedCount);
             ushort component = components[anchorTile];
+            var pending = new HashSet<int>();
+            foreach (FormationPoint slot in FormationPlacementModel.EnumerateReachabilityProbes(desiredSlots))
+            {
+                int x = anchorX + slot.X, y = anchorY + slot.Y;
+                if ((uint)x >= MapWidth || (uint)y >= MapWidth ||
+                    movementTargetAvailability[y * MapWidth + x] == 0) continue;
+                int tile = GameTileManagerAPI.Instance.GetTileId(x, y);
+                if ((uint)tile < (uint)capacity && (uint)tile < (uint)edges.Length &&
+                    components[tile] == component && (!assassinOnly ||
+                    ((uint)tile < (uint)logic.Length && (logic[tile] & 0x10000100) == 0)))
+                    pending.Add(tile);
+            }
             visited[anchorTile] = true;
             queue.Enqueue(new NativeDestination(
                 anchorTile, anchorX, anchorY, FormationRole.Neutral));
-            while (queue.Count != 0 && result.Count < requestedCount)
+            while (queue.Count != 0 && (result.Count < requestedCount || pending.Count != 0))
             {
                 NativeDestination current = queue.Dequeue();
                 bool available = movementTargetAvailability[
@@ -1718,7 +1706,8 @@ namespace APIShared.UnitCommands
                 bool assassinAllowed = !assassinOnly ||
                     ((uint)current.TileId < (uint)logic.Length &&
                      (logic[current.TileId] & 0x10000100) == 0);
-                if (available && assassinAllowed)
+                bool desired = pending.Remove(current.TileId);
+                if (available && assassinAllowed && (result.Count < requestedCount || desired))
                     result.Add(current);
                 byte mask = edges[current.TileId];
                 TryEnqueueCandidate(current.X - 1, current.Y, 0x40, mask,
@@ -1806,10 +1795,10 @@ namespace APIShared.UnitCommands
         private static ulong ComputePlanHash(
             IReadOnlyList<FormationUnit> units,
             IReadOnlyList<NativeDestination> destinations,
-            RangedPlacementMode placementMode)
+            RangedPlacementMode placementMode, int rows)
         {
             int count = Math.Min(units?.Count ?? 0, destinations?.Count ?? 0);
-            ulong hash = FormationPlanHash.Begin(count, placementMode);
+            ulong hash = FormationPlanHash.Begin(count, placementMode, rows);
             for (int index = 0; index < count; index++)
             {
                 FormationUnit unit = units[index];
@@ -1910,7 +1899,7 @@ namespace APIShared.UnitCommands
                 state.Target.NativeX,
                 state.Target.NativeY,
                 state.Selection.Length,
-                HasExplicitDirection(state));
+                HasExplicitDirection(state), state.Rows);
             if (!force && state.HasLastPreviewKey &&
                 state.LastPreviewKey.Equals(previewKey))
                 return;
@@ -1938,7 +1927,7 @@ namespace APIShared.UnitCommands
                     state.Kind,
                     state.Density,
                     direction,
-                    width,
+                    state.Rows,
                     state.PlacementMode,
                     units,
                     HasExplicitDirection(state),
@@ -1953,7 +1942,7 @@ namespace APIShared.UnitCommands
                         destinations[index].Role);
                 }
                 state.PreviewPlanHash = ComputePlanHash(
-                    units, destinations, state.PlacementMode);
+                    units, destinations, state.PlacementMode, state.Rows);
                 state.HasPreviewPlan = destinations.Length == units.Length;
                 var markerTiles = new int[destinations.Length];
                 for (int index = 0; index < destinations.Length; index++)
@@ -1971,7 +1960,7 @@ namespace APIShared.UnitCommands
                     $"density={previewKey.Density}, placement={previewKey.PlacementMode}, " +
                     $"direction={previewKey.DirectionSector}, explicitDirection={previewKey.ExplicitDirection}, " +
                     $"width={previewKey.Width}, " +
-                    $"rows={FormationModel.ResolveActualRows(previewKey.Kind, previewKey.UnitCount, previewKey.Width)}, " +
+                    $"rows={previewKey.Rows}, " +
                     $"markers={new HashSet<int>(markerTiles).Count}, " +
                     $"plan=0x{state.PreviewPlanHash:X16}, " +
                     $"thread={Environment.CurrentManagedThreadId}.");
@@ -1990,26 +1979,11 @@ namespace APIShared.UnitCommands
             out int direction,
             out int width)
         {
-            int dragDistance = Math.Max(
-                Math.Abs(state.DragDeltaX), Math.Abs(state.DragDeltaY));
-            if (dragDistance >= MinimumDragTileDistance)
-            {
-                direction = FormationModel.QuantizeDirection(
-                    state.DragDeltaX, state.DragDeltaY, state.DefaultDirectionSector);
-                width = FormationModel.ResolveDraggedWidth(
-                    state.Kind, dragDistance, state.Selection.Length);
-            }
-            else
-            {
-                direction = state.DefaultDirectionSector;
-                width = FormationModel.ResolveAutomaticWidth(
-                    state.Kind, state.Selection.Length);
-            }
+            direction = state.Geometry.Direction;
+            width = FormationModel.ResolveWidthForRows(state.Kind, state.Selection.Length, state.Rows);
         }
 
-        private static bool HasExplicitDirection(ActiveDrag state) =>
-            Math.Max(Math.Abs(state.DragDeltaX), Math.Abs(state.DragDeltaY)) >=
-            MinimumDragTileDistance;
+        private static bool HasExplicitDirection(ActiveDrag state) => state.Geometry.ExplicitDirection;
 
         private static bool TryCaptureSelection(
             out SelectionIdentity[] identities,
@@ -2356,6 +2330,14 @@ namespace APIShared.UnitCommands
             else if (packet.UnitCount < 2 ||
                      packet.UnitCount > FormationPreviewMarkerModel.MaximumMarkers)
                 rejection = "invalid unit count";
+            else if (packet.Rows == 0 || packet.Rows > packet.UnitCount ||
+                     (((FormationKind)packet.Formation == FormationKind.Circle ||
+                       (FormationKind)packet.Formation == FormationKind.Vanilla) &&
+                      packet.Rows != FormationModel.ResolveAutomaticRows((FormationKind)packet.Formation, packet.UnitCount)))
+                rejection = "invalid rows";
+            else if (packet.Width != FormationModel.ResolveWidthForRows(
+                         (FormationKind)packet.Formation, packet.UnitCount, packet.Rows))
+                rejection = "width does not match rows";
             else if (packet.PlanHash == 0UL)
                 rejection = "managed formation packet has no plan hash";
             else if (packet.IsNewOrder != 0 && packet.IsNewOrder != 1)
@@ -2529,18 +2511,19 @@ namespace APIShared.UnitCommands
                     target.NativeX - centerX,
                     target.NativeY - centerY,
                     0);
+                Geometry = new FormationGestureState(kind, selection.Length, DefaultDirectionSector);
             }
 
             internal int CommandButton { get; }
             internal int TribeId { get; }
             internal GroundTarget Target { get; }
             internal SelectionIdentity[] Selection { get; }
-            internal FormationKind Kind { get; set; }
-            internal int Density { get; set; }
-            internal RangedPlacementMode PlacementMode { get; set; }
+            internal FormationKind Kind { get; }
+            internal int Density { get; }
+            internal RangedPlacementMode PlacementMode { get; }
             internal FormationReleaseGate ReleaseGate { get; }
-            internal int DragDeltaX { get; set; }
-            internal int DragDeltaY { get; set; }
+            internal FormationGestureState Geometry { get; }
+            internal int Rows => Geometry.Rows;
             internal int DefaultDirectionSector { get; }
             internal int DirectionSector { get; set; }
             internal int Width { get; set; }

@@ -182,3 +182,5 @@ main keys win, invalid/missing legacy values use Block/2/Off/true.
 Re-audit the complete closure, editor release fields, tile grids and both installed
 hook backends after native/Extender updates. Runtime versions remain unchanged during
 testing. Multiplayer/gameplay acceptance still requires an actual game session.
+
+Formation rows follow-up (2026-10-08): internal protocol 6 adds ushort Rows. Wheel adjusts gesture-local rows; drag only sets the eight-sector facing. Width is validated against maximum rank width. Integer local coordinates precede rotation; exact reachable slots are reserved before obstacle fallback. Existing native selectors, permanent input/renderer hooks and installed SHCDESE 2.14.0 contracts are unchanged. No new public API or game-assembly access.

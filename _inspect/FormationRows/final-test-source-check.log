@@ -1,0 +1,11 @@
+APIShared build reference Assembly-CSharp: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\shcde-script-extender\deps\Assembly-CSharp-publicized.dll
+APIShared build reference SHCDESE: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\SHCDESE.dll
+APIShared: 105 sources, 0 errors
+BugfixesAndQoL build reference Assembly-CSharp: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll
+BugfixesAndQoL build reference SHCDESE: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\SHCDESE.dll
+BugfixesAndQoL: 261 sources, 0 errors
+MoatMove build reference Assembly-CSharp: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll
+MoatMove build reference SHCDESE: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\SHCDESE.dll
+MoatMove: 23 sources, 0 errors
+Formations.Tests: 8 sources, 0 errors
+ExtendedShiftCommandQueue.Tests: 7 sources, 0 errors
