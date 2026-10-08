@@ -10,7 +10,15 @@ foreach ($relative in $projects) {
     $project = Join-Path $workspace $relative
     $directory = Split-Path -Parent $project
     [xml]$xml = [IO.File]::ReadAllText($project)
-    $paths = @($project) + @($xml.Project.ItemGroup.Compile | Where-Object { $_.Include } | ForEach-Object { [IO.Path]::GetFullPath((Join-Path $directory $_.Include)) })
+    $paths = @($project) + @(foreach ($compile in $xml.SelectNodes('//*[local-name()="Compile"][@Include]')) {
+        $include = [string]$compile.Include
+        $target = [IO.Path]::GetFullPath((Join-Path $directory $include))
+        if ($target.Contains('*')) {
+            $base = $target.Substring(0, $target.IndexOf('*')).TrimEnd('\','/')
+            $option = if ($target.Contains('**')) { [IO.SearchOption]::AllDirectories } else { [IO.SearchOption]::TopDirectoryOnly }
+            [IO.Directory]::GetFiles($base, [IO.Path]::GetFileName($target), $option)
+        } else { $target }
+    })
     foreach ($path in $paths | Select-Object -Unique) {
         $text = [IO.File]::ReadAllText($path)
         if ($text -match $jsonPattern) { throw "Forbidden runtime JSON dependency: $path" }

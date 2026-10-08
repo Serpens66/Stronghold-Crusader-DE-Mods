@@ -36,3 +36,6 @@ Desktop.ini
 
 /_inspect/SharedSeparation/subtree-roundtrip/
 /_inspect/SharedSeparation/*.log
+/_inspect/ApiSharedCommunityCleanup/*.log
+/_inspect/ApiSharedCommunityCleanup/Transform/bin/
+/_inspect/ApiSharedCommunityCleanup/Transform/obj/

@@ -214,7 +214,12 @@ foreach (var relative in orderedProjects)
     var parse = new CSharpParseOptions(LanguageVersion.Preview, preprocessorSymbols: defines);
     var sources = xml.Descendants().Where(e => e.Name.LocalName == "Compile" && e.Attribute("Include") != null).SelectMany(e => {
         string path = Path.GetFullPath(Path.Combine(folder, (string)e.Attribute("Include")));
-        return path.Contains('*') ? Directory.GetFiles(Path.GetDirectoryName(path), Path.GetFileName(path)) : new[] { path };
+        if (!path.Contains('*')) return new[] { path };
+        int wildcard = path.IndexOf('*');
+        string directory = path.Substring(0, wildcard).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        if (!Directory.Exists(directory)) throw new DirectoryNotFoundException(directory);
+        return Directory.GetFiles(directory, Path.GetFileName(path),
+            path.Contains("**") ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
     }).Distinct().ToArray();
     bool coreProject = xml.Root.Attribute("Sdk") != null;
     if (coreProject)

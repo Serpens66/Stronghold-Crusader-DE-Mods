@@ -1,9 +1,6 @@
-using APIShared.ModSettings;
-using APIShared;
-using CrusaderDE;
-using Iced.Intel;
-using APIShared.Internal;
 using System;
+using APIShared;
+using Shared;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
@@ -16,9 +13,9 @@ using System.Xml;
 
 namespace APISharedTests
 {
-    internal static partial class Program
+    internal static class Program
     {
-        static partial void TestWorkspaceIntegration()
+        private static void TestWorkspaceIntegration()
         {
             string workspace = FindWorkspaceRoot();
             string plugin = File.ReadAllText(Path.Combine(workspace, "APIShared", "src", "Core", "APISharedPlugin.cs"));
@@ -442,5 +439,21 @@ namespace APISharedTests
             }
         }
 
+        private static int Main()
+        {
+            try { TestWorkspaceIntegration(); Console.WriteLine("PASS: APISharedTests workspace integration."); return 0; }
+            catch (Exception error) { Console.Error.WriteLine(error); return 1; }
+        }
+        private static void Assert(bool condition, string message)
+        {
+            if (!condition) throw new InvalidOperationException(message);
+        }
+        private static int Count(string value, string fragment)
+        {
+            int count=0, position=0;
+            while ((position=value.IndexOf(fragment,position,StringComparison.Ordinal))>=0)
+            { count++; position+=fragment.Length; }
+            return count;
+        }
     }
 }

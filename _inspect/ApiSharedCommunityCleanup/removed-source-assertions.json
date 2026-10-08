@@ -1,0 +1,78 @@
+[
+  {
+    "test": "TestLocalSelectionSnapshots",
+    "statement": "string selectionSource = File.ReadAllText(Path.Combine(FindApiSharedRoot(), \"src\", \"Units\", \"LocalSelectionAPI.cs\"));"
+  },
+  {
+    "test": "TestLocalSelectionSnapshots",
+    "statement": "Assert(selectionSource.Contains(\"expectedPlayerId < 1 || expectedPlayerId > 8\") &&\n                selectionSource.Contains(\"APIShared.GameModes.GameModeHelper.IsMapEditor()\") &&\n                selectionSource.Contains(\"EditorDirector.instance?.ActivePlayerID\") &&\n                selectionSource.Contains(\"GamePlayerManagerAPI.Instance?.GetLocalPlayerId()\") &&\n                selectionSource.Contains(\"actualPlayerId != expectedPlayerId\"),\n                \"public selection reader validates editor and native local-player identities\");"
+  },
+  {
+    "test": "TestPresetSaveUiModel",
+    "statement": "string presetSource = string.Join(\"\\n\", Directory.GetFiles(Path.GetDirectoryName(Path.Combine(\n                FindApiSharedRoot(), \"src\", \"ModSettings\",\n                \"PresetLobbyModSettingsViewModel.cs\")), \"*.cs\").Select(File.ReadAllText));"
+  },
+  {
+    "test": "TestPresetSaveUiModel",
+    "statement": "Assert(presetSource.Contains(\"Common.PresetModeMixed\") &&\n                presetSource.Contains(\"IsEnabled = false\"),\n                \"the mixed preset-save option must be visible but not selectable\");"
+  },
+  {
+    "test": "TestPresetSaveUiModel",
+    "statement": "Assert(presetSource.Contains(\"Common.PresetModeHostFixed\") &&\n                    presetSource.Contains(\"System_PresetSaveBulkModeHelpText\") &&\n                    !presetSource.Contains(\"System_SelectAllPresetSaveSettingsCommand\") &&\n                    !presetSource.Contains(\"System_SelectHostPresetSaveSettingsCommand\"),\n                \"the standard save UI must expose Host Fixed, explain modes, and save every row without inclusion controls\");"
+  },
+  {
+    "test": "TestPresetSaveUiModel",
+    "statement": "Assert(presetSource.Contains(\"System_DeletePresetCommand\") &&\n                    presetSource.Contains(\"Common.PresetDeleteConfirm\") &&\n                    presetSource.Contains(\"preset.SourceKind != ModSettingsPresetSourceKind.Personal\"),\n                \"personal preset deletion must be confirmed and fail closed by source kind\");"
+  },
+  {
+    "test": "TestPresetSaveUiModel",
+    "statement": "Assert(presetSource.Contains(\"System_PresetInlineConfirmationVisibility\") &&\n                    presetSource.Contains(\"ConfirmPresetInlineAction\") &&\n                    presetSource.Contains(\"System_PresetOperationStatusVisibility\") &&\n                    !presetSource.Contains(\"LobbyPresetDialogSession\") &&\n                    !presetSource.Contains(\"ShowLobbyPresetConfirmation\") &&\n                    !presetSource.Contains(\"ModSettingsHubViewModel.WindowVisibility = Visibility.Collapsed\"),\n                \"preset confirmations and result messages must stay inline without hiding the ModSettings hub\");"
+  },
+  {
+    "test": "TestPresetSaveUiModel",
+    "statement": "Assert(!presetSource.Contains(\"Common.SettingsSourceLoaded\") &&\n                    !presetSource.Contains(\"Common.PresetDeleteCompleted\") &&\n                    !presetSource.Contains(\"Common.PresetSaveCompletedTitle\") &&\n                    presetSource.Contains(\"DismissPresetStatus();\") &&\n                    presetSource.Contains(\"Could not reset settings\"),\n                \"successful preset and settings-reset actions must stay silent while failures remain explicit\");"
+  },
+  {
+    "test": "TestPresetSaveUiModel",
+    "statement": "Assert(presetSource.Contains(\"ResolveSettingsUiTextSafe(\\\"Common.PresetLoadFailedTitle\\\", \\\"Preset load failed\\\")\"),\n                \"preset-load failures must not be reported as save failures\");"
+  },
+  {
+    "test": "TestPresetSaveUiModel",
+    "statement": "Assert(presetSource.Contains(\"RaiseAccessProperties();\\r\\n                DismissPresetStatus();\") ||\n                    presetSource.Contains(\"RaiseAccessProperties();\\n                DismissPresetStatus();\"),\n                \"a successful preset load must clear a stale error status\");"
+  },
+  {
+    "test": "TestPresetSaveUiModel",
+    "statement": "Assert(!presetSource.Contains(\"SuggestedSaveName\"),\n                \"the new-personal-preset form must not inherit the active preset name\");"
+  },
+  {
+    "test": "TestBriefingGoldPresentation",
+    "statement": "string projectDirectory = FindApiSharedRoot();"
+  },
+  {
+    "test": "TestBriefingGoldPresentation",
+    "statement": "string source = File.ReadAllText(Path.Combine(\n                projectDirectory, \"src\", \"Presentation\", \"BriefingGoldPresentationCapability.cs\"));"
+  },
+  {
+    "test": "TestBriefingGoldPresentation",
+    "statement": "int originalCall = source.IndexOf(\n                \"briefingOriginal(self, parameter);\",\n                StringComparison.Ordinal);"
+  },
+  {
+    "test": "TestBriefingGoldPresentation",
+    "statement": "int visibleSlotPass = source.IndexOf(\n                \"ApplyToVisibleSlots(self);\",\n                StringComparison.Ordinal);"
+  },
+  {
+    "test": "TestBriefingGoldPresentation",
+    "statement": "Assert(originalCall >= 0 && visibleSlotPass > originalCall &&\n                Count(source, \"briefingOriginal(self, parameter);\") == 1,\n                \"briefing hook invokes Vanilla exactly once before presentation adjustments\");"
+  },
+  {
+    "test": "TestBriefingGoldPresentation",
+    "statement": "Assert(source.Contains(\"self.SkirmishBriefingAlly[slotIndex]\") &&\n                source.Contains(\"self.AlliesHumanFaceVis[slotIndex]\") &&\n                source.Contains(\"AdvOpt_NoGold\"),\n                \"briefing hook filters visible slots and resolves human/AI plus No Starting Gold state\");"
+  },
+  {
+    "test": "TestAivBuildStepBroker",
+    "statement": "string source = File.ReadAllText(Path.Combine(FindApiSharedRoot(), \"src\", \"Diagnostics\", \"AivBuildStepCapability.cs\"));"
+  },
+  {
+    "test": "TestAivBuildStepBroker",
+    "statement": "Assert(source.Contains(\"pending?.Dispose();\") && source.Contains(\"candidate.transaction = pending;\") &&\n                source.Contains(\"OwnsHooks = false\"),\n                \"AIV hook setup must roll back only unpublished candidates and retain the published transaction\");"
+  }
+]

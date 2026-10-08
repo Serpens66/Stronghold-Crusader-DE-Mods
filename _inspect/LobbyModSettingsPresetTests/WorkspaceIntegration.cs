@@ -1,7 +1,3 @@
-using APIShared.ModSettings;
-using MessagePack;
-using SHCDESE.API.Components.Network;
-using APIShared.Internal;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -12,9 +8,9 @@ using System.Reflection;
 
 namespace LobbyModSettingsPresetTests
 {
-    internal static partial class Program
+    internal static class Program
     {
-        static partial void TestWorkspacePublishedReleases()
+        private static void TestWorkspacePublishedReleases()
         {
             string workspace = FindWorkspaceRoot();
             var releases = new[]
@@ -104,5 +100,14 @@ namespace LobbyModSettingsPresetTests
             }
         }
 
+        private static int Main()
+        {
+            try { TestWorkspacePublishedReleases(); Console.WriteLine("PASS: LobbyModSettingsPresetTests workspace integration."); return 0; }
+            catch (Exception error) { Console.Error.WriteLine(error); return 1; }
+        }
+        private static void Assert(bool condition, string message)
+        {
+            if (!condition) throw new InvalidOperationException(message);
+        }
     }
 }
