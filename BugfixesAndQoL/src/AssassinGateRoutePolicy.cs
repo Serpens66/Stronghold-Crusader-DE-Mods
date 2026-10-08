@@ -16,6 +16,13 @@ namespace BugfixesAndQoL
                 snapshot != null && snapshot.PlayerId == player && snapshot.IsCurrent;
         }
 
+        // A null snapshot also has publication identity: newly published masks invalidate it.
+        internal static bool IsPublicationCurrent(IEnemyGatePathPolicy capturedProvider,
+            IEnemyGateRoutePolicySnapshot snapshot, IEnemyGatePathPolicy currentProvider) =>
+            ReferenceEquals(capturedProvider,currentProvider) &&
+            (snapshot==null ? currentProvider==null || !currentProvider.HasPublishedMask :
+                currentProvider!=null && currentProvider.HasPublishedMask && snapshot.IsCurrent);
+
         internal static bool Allows(IEnemyGateRoutePolicySnapshot snapshot, int tile, int direction) =>
             snapshot == null || snapshot.IsDirectionAllowed(tile, direction);
 

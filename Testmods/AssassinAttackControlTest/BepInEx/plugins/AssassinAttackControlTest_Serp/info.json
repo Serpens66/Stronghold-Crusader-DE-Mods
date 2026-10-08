@@ -1,0 +1,15 @@
+{
+  "GUID": "AssassinAttackControlTest_Serp",
+  "Author": "Serpens66",
+  "Name": "Assassin Attack Control Test",
+  "Description": "Experimental AI Assassin captured-gate protection and castle-access alternatives before obstacle demolition.",
+  "Version": "0.1.0",
+  "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
+  "MinimumScriptExtenderVersion": "2.13.0",
+  "MaximumScriptExtenderVersion": "",
+  "Manifest": 1,
+  "NetworkMode": 1,
+  "SupportedGameVersions": [
+    "2.8.0.1"
+  ]
+}

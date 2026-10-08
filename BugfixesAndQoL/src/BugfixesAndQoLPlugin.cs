@@ -25,7 +25,7 @@ namespace BugfixesAndQoL
     [BepInIncompatibility(PreplacedTestGuid)]
     [BepInIncompatibility("GatehouseLivingCaptureTest_Serp")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
-    [BepInDependency("APIShared_Serp", "0.4.10")]
+    [BepInDependency("APIShared_Serp", "0.4.11")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class BugfixesAndQoLPlugin : BaseUnityPlugin
     {

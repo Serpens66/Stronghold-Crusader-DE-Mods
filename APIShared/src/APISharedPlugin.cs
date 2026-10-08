@@ -47,6 +47,7 @@ namespace APIShared
                 hash = string.Empty;
             }
             AssassinPathAPI.Initialize(context.ModuleHandle, context.Memory, context.Region, hash, Logger);
+            AssassinAttackControlAPI.Initialize(context.ModuleHandle, context.Region, hash, Logger);
             ApiSharedRuntime.ProcessInstance.Initialize(
                 context.ModuleHandle.ToInt64(),
                 context.Memory,

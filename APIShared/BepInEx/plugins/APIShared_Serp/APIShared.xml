@@ -292,6 +292,33 @@
         <member name="P:APIShared.AssassinPathAPI.HasSingleUnitRoutePublication">
             <summary>A single-unit builder is active; failed staging must preserve its native field.</summary>
         </member>
+        <member name="T:APIShared.IAssassinTraversalView">
+            <summary>Synchronous, read-only movement view. Never publishes a native path.</summary>
+        </member>
+        <member name="P:APIShared.IAssassinTraversalView.IsCurrent">
+            <summary>Whether map, settings and route policy still match this view.</summary>
+        </member>
+        <member name="M:APIShared.IAssassinTraversalView.ValidateTopology">
+            <summary>Compares all movement-relevant native data with the captured snapshot.</summary>
+        </member>
+        <member name="M:APIShared.IAssassinTraversalView.TryGetEdgeCost(System.Int32,System.Int32,System.Int32,System.Int32,System.Int32@)">
+            <summary>Checks one physical transition and returns its movement/climb cost.</summary>
+        </member>
+        <member name="T:APIShared.AssassinAttackControlAPI">
+            <summary>Optional process-owned Assassin update guard. No consumer owns a native hook.</summary>
+        </member>
+        <member name="M:APIShared.AssassinAttackControlAPI.RegisterTraversal(System.Func{System.Int32,System.Int32,APIShared.IAssassinTraversalView},System.Func{System.Boolean})">
+            <summary>Registers the mainmod's rooted read-only traversal provider once.</summary>
+        </member>
+        <member name="P:APIShared.AssassinAttackControlAPI.IsTraversalAvailable">
+            <summary>Whether the registered mainmod traversal is currently enabled.</summary>
+        </member>
+        <member name="M:APIShared.AssassinAttackControlAPI.CaptureTraversal(System.Int32,System.Int32)">
+            <summary>Captures a synchronous movement view, or null when unavailable.</summary>
+        </member>
+        <member name="M:APIShared.AssassinAttackControlAPI.RegisterGuard(System.String,System.Func{System.Int32,System.Boolean})">
+            <summary>Return true only to end the current obstacle attack. Callback must not issue native commands.</summary>
+        </member>
         <member name="T:APIShared.AssassinTransitionKind">
             <summary>The physical Assassin movement branch, not merely search eligibility.</summary>
         </member>

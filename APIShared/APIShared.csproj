@@ -52,6 +52,8 @@
     <Compile Include="src\Contracts.cs" />
     <Compile Include="src\UnitAccess.cs" />
     <Compile Include="src\AssassinPathAPI.cs" />
+    <Compile Include="src\AssassinAttackControlAPI.cs" />
+    <Compile Include="src\AssassinAttackNativeContract.cs" />
     <Compile Include="src\AssassinRouteHandoff.cs" />
     <Compile Include="src\AssassinGateTransitionPolicy.cs" />
     <Compile Include="src\AssassinEndpointEmitter.cs" />

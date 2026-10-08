@@ -1,0 +1,8 @@
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\AssassinAttackControlTest\build.ps1 : Die 
+Benennung "Get-FileHash" wurde nicht als Name eines Cmdlet, einer Funktion, einer Skriptdatei oder eines ausführbaren 
+Programms erkannt. Überprüfen Sie die Schreibweise des Namens, oder ob der Pfad korrekt ist (sofern enthalten), und 
+wiederholen Sie den Vorgang.
+    + CategoryInfo          : NotSpecified: (:) [Write-Error], WriteErrorException
+    + FullyQualifiedErrorId : Microsoft.PowerShell.Commands.WriteErrorException,build.ps1
+ 

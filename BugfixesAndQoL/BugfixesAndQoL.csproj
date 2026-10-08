@@ -126,6 +126,7 @@
     <Compile Include="src\AssassinPathReconstructionNativeDefinition.cs" />
     <Compile Include="src\AssassinPathReconstructionPatch.cs" />
     <Compile Include="src\AssassinPathfindingRuntime.cs" />
+    <Compile Include="src\AssassinPathfindingRuntime.ReadOnly.cs" />
     <Compile Include="src\BugfixesAndQoLRuntime.CtrlMarketTrade.cs" />
     <Compile Include="src\BugfixesAndQoLRuntime.MovedFeatures.cs" />
     <Compile Include="src\BugfixesAndQoLChoreSender.cs" />

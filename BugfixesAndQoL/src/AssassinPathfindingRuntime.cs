@@ -164,6 +164,9 @@ namespace BugfixesAndQoL
                     .Subscribe(ObserveTargetCommand);
                 AssassinPathAPI.RegisterWeightedBuilder(BugfixesAndQoLPlugin.PluginGuid, BuildWeightedPath);
                 sharedBuilderRegistered = true;
+                try { AssassinAttackControlAPI.RegisterTraversal(CaptureReadOnlyTraversal,
+                    () => IsInstalled && settings.EnableMod && settings.EnableImprovedAssassinPathfinding); }
+                catch (Exception ex) { LogWarning("Read-only Assassin traversal unavailable: " + ex.GetType().Name); }
                 ApplySetting();
                 LogDebug($"weighted Assassin pathfinding installed at RVA 0x{AssassinBuilderRva:X}; climb costs={AssassinClimbCostPolicy.MinimumClimbTicks}/{AssassinClimbCostPolicy.LowWallClimbTicks}/{AssassinClimbCostPolicy.NormalWallClimbTicks} ticks.");
             }
