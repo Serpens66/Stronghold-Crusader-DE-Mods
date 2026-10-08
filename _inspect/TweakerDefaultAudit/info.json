@@ -1,0 +1,10 @@
+{
+  "GUID": "TweakerDefaultAudit_Serp",
+  "Author": "Serpens66",
+  "Name": "Tweaker Default Audit (read-only test)",
+  "Description": "Temporary local verification of configuration defaults. Not a release component.",
+  "Version": "1.0.0",
+  "Manifest": 0,
+  "AssetMode": "Local",
+  "NetworkMode": 0
+}

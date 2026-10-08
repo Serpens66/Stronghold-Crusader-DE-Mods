@@ -45,6 +45,9 @@ $installed = [Reflection.Assembly]::LoadFrom('E:\ProgrammeE\Steam\steamapps\comm
 $memoryProperty=$installed.GetType('SHCDESE.API.LowLevel.CrusaderLibraryLoadContext',$true).GetProperty('Memory')
 if (!$memoryProperty -or !$memoryProperty.GetMethod.IsPublic -or $memoryProperty.PropertyType.ToString() -ne 'System.ReadOnlySpan`1[System.Byte]') { throw 'Installed immutable load-time snapshot contract changed' }
 $unitType = $installed.GetType('SHCDESE.Interop.GameUnit',$true)
+$ownerField=$unitType.GetField('r_ControllableForPlayerId')
+if (!$ownerField -or !$ownerField.IsPublic -or $ownerField.FieldType.Name -ne 'UInt16' -or [Runtime.InteropServices.Marshal]::OffsetOf($unitType,'r_ControllableForPlayerId').ToInt32() -ne 0x92) {throw 'Installed complete UInt16 unit owner mismatch'}
+
 foreach ($member in @(@('r_AI_ContextTargetBuildingTileId',0x3A4,'UInt32'),@('r_AIState',0x2BC,'UInt16'),@('r_AI_LastIssuedTribeCommand',0x398,'UInt16'))) {
     $field = $unitType.GetField($member[0])
     if (!$field -or !$field.IsPublic -or $field.FieldType.Name -ne $member[2] -or [Runtime.InteropServices.Marshal]::OffsetOf($unitType,$member[0]).ToInt32() -ne $member[1]) { throw ('Installed assignment member mismatch: '+$member[0]) }
@@ -172,3 +175,8 @@ foreach ($field in @('buildingUpdaterControls','buildingUpdaterSlots','packedVal
 }
 if ($importer -notmatch 'weight-mode-changed-during-call') { throw 'Weight mode stability contract missing' }
 Write-Host 'PASS: consumer v2 records actual weight modes, full updater input and bounded work fields.'
+
+$definitionSource=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/BridgeNativeDefinition.cs'))
+if ($definitionSource -notmatch 'site.Rva != 0xE49D0 && site.Rva != 0x111C00' -or [regex]::Matches($hookSource,'if \(!BridgeNativeDefinition.OwnsEntry\(').Count -ne 2) {throw 'External topology/ladder owners must be excluded from validation and detour preparation'}
+if ($traceSource -notmatch 'effective-consumer-pre-post' -or $traceSource -notmatch 'selectorReturn=not-observed' -or $traceSource -notmatch 'unit->r_ControllableForPlayerId==evidence.Player' -or $traceSource -notmatch 'nativeResult.HasValue' -or $traceSource -match 'N00000569') {throw 'Effective consumer or shared topology contract regression'}
+Write-Host 'PASS: thirty private detours, shared topology, conservative effective ladder consumer and UInt16 ownership.'

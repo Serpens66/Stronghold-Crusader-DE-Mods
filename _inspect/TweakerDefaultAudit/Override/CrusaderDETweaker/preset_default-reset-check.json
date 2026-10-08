@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "default-reset-check",
+  "name": "Default Reset Check",
+  "targetGuid": "CrusaderDETweaker",
+  "description": "Temporary test: Archer health 3000, BetterHealers enabled, Assassin vs Archer melee 11, health multiplier 1.25. Afterwards Reset to Mod defaults and restart.",
+  "settings": {
+    "CrusaderDETweaker_Units/CHIMP_TYPE_ARCHER/Health": {
+      "value": 3000,
+      "mode": "fixed"
+    },
+    "CrusaderDETweaker_GameplaySettings/Gameplay%20Options/BetterHealers": {
+      "value": true,
+      "mode": "fixed"
+    },
+    "CrusaderDETweaker_MeleeDamage/CHIMP_TYPE_ARAB_ASSASIN/CHIMP_TYPE_ARCHER": {
+      "value": 11,
+      "mode": "fixed"
+    },
+    "CrusaderDETweaker_GlobalMultipliers/Multipliers/UnitHealthMultiplier": {
+      "value": 1.25,
+      "mode": "fixed"
+    }
+  }
+}

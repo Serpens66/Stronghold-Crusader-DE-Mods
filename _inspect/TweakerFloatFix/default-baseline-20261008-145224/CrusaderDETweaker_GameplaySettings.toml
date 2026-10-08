@@ -1,0 +1,270 @@
+# ========================================
+# Crusader DE Tweaker - Globals Configuration
+# ========================================
+# Everything after a '#' is a comment - keep the '#' when you change a value:
+#   BuyPrice = 52  # default: 155     (correct)
+#   BuyPrice = 52 default: 155        (syntax error: the WHOLE file is ignored)
+# A syntax error is reported in BepInEx\LogOutput.log as 'SYNTAX ERROR in ...' with the line number.
+# Applied at every session start: new game, trail / campaign map, and loading a saved game.
+
+["Siege Engines"]
+SiegeEngineRestockStoneAmount = 20  # default: 20
+SiegeEngineRestockStoneCost = 10  # default: 10
+SiegeEngineInitialStoneAmount = 20  # default: 20
+
+[Stealth]
+StealthDetectionRange = 160  # default: 160
+StealthTransparencyThreshold = 120  # default: 120
+
+[Stables]
+StablesHorseRegenTickTarget = 550  # default: 550 — ticks before a horse charge regenerates
+StablesHorsesCap = 4  # default: 4 — WARNING: values above 4 break stable horse-link tracking
+
+[Gatehouse]
+GateHouseCloseDistance = 200  # default: 200
+GateHouseReOpenDistance = 1200  # default: 1200
+
+[Disease]
+DiseaseDamage1 = 150  # default: 150 — damage tier 1 (from c_game_unit_takedamage_projectile)
+DiseaseDamage2 = 200  # default: 200 — damage tier 2
+DiseaseDamage3 = 400  # default: 400 — damage tier 3
+
+[Pathfinding]
+PathfindingMaxTilesConstraint = 2000  # default: 2000
+
+["Food Consumption"]
+# Modifies how often the food consumption evaluation ticks. Higher values delay the ticks (slower eating).
+FoodConsumptionTickThreshold = 15000  # default: 15000
+# Base rate (%) multiplier for food consumption during a tick calculation.
+FoodConsumptionRate = 3  # default: 3
+
+["Peasant Spawning"]
+# How many ticks must elapse before a new peasant spawns. Lower = faster spawning.
+PeasantRespawnTickTargetValue = 4000  # default: 4000
+# Tick counter reset value after a spawn. Lower = fewer ticks wasted on reset.
+PeasantRespawnTickResetValue = 2000  # default: 2000
+# Max peasants that can be waiting at the campfire. 0 = no cap.
+CampPeasantsCap = 24  # default: 24
+
+# ========================================
+# Crusader DE Tweaker - Player Options Configuration
+# ========================================
+
+["Gameplay Options"]
+BetterHealers = false
+FasterPeasants = false
+ImprovedArabSwordsman = false
+ImprovedFletchers = false
+ImprovedLadderman = false
+ImprovedSpearman = false
+NerfEunuchs = false
+NoKnockdownWalls = false
+RebalancedHorseArchers = false
+UncappedPeasants = false
+# AI siege behaviour toggles — applied on each map load
+GlobalImprovedSiegeBehaviour = false
+GlobalMoreAggressiveSiegeBehaviour = false
+# Master switches for the game's advanced options — auto-enabled whenever any advanced option above is set
+AdvancedOptionsEnabled = false
+AdvancedSkirmishOptionsEnabled = false
+# Override map restrictions — set true to unlock everything regardless of map settings
+AllBuildingsAvailable = false
+AllUnitsAllowed = false
+AllTradeGoodsAllowed = false
+AllProductionGoodsAllowed = false
+
+# ========================================
+# Crusader DE Tweaker - Trade Prices Configuration
+# ========================================
+# BuyPrice:  gold paid per unit when buying at the market. 0 = use game default (no override).
+# SellPrice: gold received per unit when selling at the market. 0 = use game default (no override).
+# Requires a Trade Post. Re-applied at every session start (new game, trail / campaign map, loaded save).
+# Keep the '# default: N' comment intact when you edit a value - the '#' matters.
+
+["Trade Prices".STORED_WOOD_PLANKS]
+BuyPrice = 0  # default: 20
+SellPrice = 0  # default: 5
+
+["Trade Prices".STORED_RAW_HOPS]
+BuyPrice = 0  # default: 75
+SellPrice = 0  # default: 40
+
+["Trade Prices".STORED_STONE_BLOCKS]
+BuyPrice = 0  # default: 70
+SellPrice = 0  # default: 35
+
+["Trade Prices".STORED_IRON_INGOTS]
+BuyPrice = 0  # default: 225
+SellPrice = 0  # default: 115
+
+["Trade Prices".STORED_PITCH_REFINED]
+BuyPrice = 0  # default: 100
+SellPrice = 0  # default: 50
+
+["Trade Prices".STORED_RAW_WHEAT]
+BuyPrice = 0  # default: 115
+SellPrice = 0  # default: 40
+
+["Trade Prices".STORED_FOOD_BREAD]
+BuyPrice = 0  # default: 40
+SellPrice = 0  # default: 20
+
+["Trade Prices".STORED_FOOD_CHEESE]
+BuyPrice = 0  # default: 40
+SellPrice = 0  # default: 20
+
+["Trade Prices".STORED_FOOD_MEAT]
+BuyPrice = 0  # default: 40
+SellPrice = 0  # default: 20
+
+["Trade Prices".STORED_FOOD_FRUIT]
+BuyPrice = 0  # default: 40
+SellPrice = 0  # default: 20
+
+["Trade Prices".STORED_FOOD_ALE]
+BuyPrice = 0  # default: 100
+SellPrice = 0  # default: 50
+
+["Trade Prices".STORED_FLOUR]
+BuyPrice = 0  # default: 160
+SellPrice = 0  # default: 50
+
+["Trade Prices".STORED_BOWS]
+BuyPrice = 0  # default: 155
+SellPrice = 0  # default: 75
+
+["Trade Prices".STORED_CROSSBOWS]
+BuyPrice = 0  # default: 290
+SellPrice = 0  # default: 150
+
+["Trade Prices".STORED_SPEARS]
+BuyPrice = 0  # default: 100
+SellPrice = 0  # default: 50
+
+["Trade Prices".STORED_PIKES]
+BuyPrice = 0  # default: 180
+SellPrice = 0  # default: 90
+
+["Trade Prices".STORED_MACES]
+BuyPrice = 0  # default: 290
+SellPrice = 0  # default: 150
+
+["Trade Prices".STORED_SWORDS]
+BuyPrice = 0  # default: 290
+SellPrice = 0  # default: 150
+
+["Trade Prices".STORED_LEATHER_ARMOUR]
+BuyPrice = 0  # default: 125
+SellPrice = 0  # default: 60
+
+["Trade Prices".STORED_METAL_ARMOUR]
+BuyPrice = 0  # default: 290
+SellPrice = 0  # default: 150
+
+# ========================================
+# Crusader DE Tweaker - Auto Trade Configuration
+# ========================================
+# Applied at match start via the market's auto-trade feature.
+# BuyLevel:  auto-buy when stock falls BELOW this amount (0 = no buying)
+# SellLevel: auto-sell when stock rises ABOVE this amount (0 = no selling)
+
+["Auto Trade".STORED_WOOD_PLANKS]
+Enabled = false
+BuyLevel = 0
+SellLevel = 0
+
+["Auto Trade".STORED_RAW_HOPS]
+Enabled = false
+BuyLevel = 0
+SellLevel = 0
+
+["Auto Trade".STORED_STONE_BLOCKS]
+Enabled = false
+BuyLevel = 0
+SellLevel = 0
+
+["Auto Trade".STORED_IRON_INGOTS]
+Enabled = false
+BuyLevel = 0
+SellLevel = 0
+
+["Auto Trade".STORED_PITCH_REFINED]
+Enabled = false
+BuyLevel = 0
+SellLevel = 0
+
+["Auto Trade".STORED_RAW_WHEAT]
+Enabled = false
+BuyLevel = 0
+SellLevel = 0
+
+["Auto Trade".STORED_FOOD_BREAD]
+Enabled = false
+BuyLevel = 0
+SellLevel = 0
+
+["Auto Trade".STORED_FOOD_CHEESE]
+Enabled = false
+BuyLevel = 0
+SellLevel = 0
+
+["Auto Trade".STORED_FOOD_MEAT]
+Enabled = false
+BuyLevel = 0
+SellLevel = 0
+
+["Auto Trade".STORED_FOOD_FRUIT]
+Enabled = false
+BuyLevel = 0
+SellLevel = 0
+
+["Auto Trade".STORED_FOOD_ALE]
+Enabled = false
+BuyLevel = 0
+SellLevel = 0
+
+["Auto Trade".STORED_FLOUR]
+Enabled = false
+BuyLevel = 0
+SellLevel = 0
+
+["Auto Trade".STORED_BOWS]
+Enabled = false
+BuyLevel = 0
+SellLevel = 0
+
+["Auto Trade".STORED_CROSSBOWS]
+Enabled = false
+BuyLevel = 0
+SellLevel = 0
+
+["Auto Trade".STORED_SPEARS]
+Enabled = false
+BuyLevel = 0
+SellLevel = 0
+
+["Auto Trade".STORED_PIKES]
+Enabled = false
+BuyLevel = 0
+SellLevel = 0
+
+["Auto Trade".STORED_MACES]
+Enabled = false
+BuyLevel = 0
+SellLevel = 0
+
+["Auto Trade".STORED_SWORDS]
+Enabled = false
+BuyLevel = 0
+SellLevel = 0
+
+["Auto Trade".STORED_LEATHER_ARMOUR]
+Enabled = false
+BuyLevel = 0
+SellLevel = 0
+
+["Auto Trade".STORED_METAL_ARMOUR]
+Enabled = false
+BuyLevel = 0
+SellLevel = 0
+

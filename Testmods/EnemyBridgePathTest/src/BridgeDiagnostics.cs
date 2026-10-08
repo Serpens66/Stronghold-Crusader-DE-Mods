@@ -18,7 +18,7 @@ namespace EnemyBridgePathTest
 {
     // Every frame and unit-state capture exists only between Pre and Post. Snapshots
     // contain buildings/tiles. The separate route observer retains validated unit identities.
-    internal sealed unsafe class BridgeDiagnostics : IEnemyBridgePathObserver
+    internal sealed unsafe class BridgeDiagnostics : IEnemyBridgePathObserver, IEnemyBridgeTopologyObserver
     {
         private readonly ManualLogSource log;
         internal readonly BridgeDecisionTrace Trace;
@@ -87,6 +87,8 @@ namespace EnemyBridgePathTest
             catch(Exception error) { Trace.MarkNativeUnavailable(error.GetType().Name+":"+error.Message);Shared.DebugLogHelper.LogError(log,"Bridge native diagnosis unavailable; existing passive coverage only: "+error); }
             GameTimeManagerAPI.Instance.OnTick += Trace.Tick;
         }
+        public object BeginTopology(int force, bool originalWillRun, bool knownPathingContext) => Trace.BeginTopology(IntPtr.Zero, force, originalWillRun,knownPathingContext);
+        public void EndTopology(object token, bool completed, bool originalCalled, int? nativeResult, int effectiveResult) => Trace.EndTopology(token, completed, originalCalled, nativeResult, effectiveResult);
         internal void VerifyNative() => nativeVerified = Shared.DebugLogHelper.CurrentNativeSha256 == BridgeNativeDefinition.NativeHash &&
             Shared.DebugLogHelper.ReportNativeLibraryVersion(log,
             "EnemyBridgePathTest", requireCurrentVersion: true);
@@ -232,7 +234,7 @@ namespace EnemyBridgePathTest
                     frame.SourcePcl = Pcl(frame.StartX,frame.StartY);
                     frame.UnitType = leader->r_UnitChimp.ToString();frame.RawUnitType=(int)leader->r_UnitChimp;
                     frame.Identity += "/g" + leader->r_GlobalId + ",type=" + leader->r_UnitChimp +
-                        ",controlWord=" + (leader->r_ControllableForPlayerId | ((int)leader->N00000569 << 8)) +
+                        ",controlWord=" + (leader->r_ControllableForPlayerId) +
                         ",start=" + leader->r_CurrentTilePositionX + "/" + leader->r_CurrentTilePositionY;
                 }
             }
@@ -398,7 +400,7 @@ namespace EnemyBridgePathTest
                         frame.Global=unit->r_GlobalId;frame.StartX=unit->r_CurrentTilePositionX;frame.StartY=unit->r_CurrentTilePositionY;
                         frame.Tribe = unit->r_TribeId; frame.Command = unit->r_AI_LastIssuedTribeCommand;
                         frame.RawUnitType=(int)unit->r_UnitChimp;
-                        frame.Player = unit->r_ControllableForPlayerId | ((int)unit->N00000569 << 8);
+                        frame.Player = unit->r_ControllableForPlayerId;
                         frame.SourcePcl = Pcl(unit->r_CurrentTilePositionX, unit->r_CurrentTilePositionY);
 
                     }

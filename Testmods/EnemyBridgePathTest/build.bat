@@ -39,7 +39,7 @@ if exist "%GAME_SCRIPT_EXTENDER_DIR%\SHCDESE.dll" (
 
 rem Editor lifecycle is a hard runtime dependency. Validate it before replacing
 rem either the local package or the installed test mod.
-powershell.exe -NoProfile -Command "$p='%API_SHARED_DIR%\APIShared.dll'; $m='%API_SHARED_DIR%\info.json'; if (-not (Test-Path -LiteralPath $p -PathType Leaf) -or -not (Test-Path -LiteralPath $m -PathType Leaf)) { exit 2 }; try { $v=[Version]((Get-Content -Raw -LiteralPath $m | ConvertFrom-Json).Version) } catch { exit 3 }; if ($v -lt [Version]'0.3.6') { exit 4 }; Write-Host ('Using APIShared ' + $v + ' from ' + $p); exit 0"
+powershell.exe -NoProfile -Command "$p='%API_SHARED_DIR%\APIShared.dll'; $m='%API_SHARED_DIR%\info.json'; if (-not (Test-Path -LiteralPath $p -PathType Leaf) -or -not (Test-Path -LiteralPath $m -PathType Leaf)) { exit 2 }; try { $v=[Version]((Get-Content -Raw -LiteralPath $m | ConvertFrom-Json).Version) } catch { exit 3 }; if ($v -lt [Version]'0.4.12') { exit 4 }; Write-Host ('Using APIShared ' + $v + ' from ' + $p); exit 0"
 if errorlevel 1 goto api_shared_failed
 
 rem Hash-bound native reference runs only in a separate x64 process/private image.

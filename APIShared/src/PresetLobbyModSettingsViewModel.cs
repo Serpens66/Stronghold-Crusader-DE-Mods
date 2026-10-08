@@ -1491,16 +1491,13 @@ namespace Shared
                 System_RefreshOwnConfiguration();
                 if (string.Equals(source.Id, ModSettingsWorkingSourceRegistry.ModDefaultsId, StringComparison.Ordinal))
                 {
-                    if (IsMissionPresetSelected)
-                        ModSettingsWorkingSourceRegistry.Apply(presetController.TargetGuid, source.Id);
-                    else
-                        presetController.ApplyDefaultsAsWorkingCopy();
+                    System_LoadModDefaults();
                 }
                 else
                 {
                     ModSettingsWorkingSourceRegistry.Apply(presetController.TargetGuid, source.Id);
+                    System_CommitConfiguration();
                 }
-                System_CommitConfiguration();
                 DismissPresetStatus();
                 RaiseAccessProperties();
             }
@@ -2470,13 +2467,42 @@ namespace Shared
 
         public void System_LoadModDefaults()
         {
+            SetConfigurationNotice("");
+            var backend = SettingsApplicationBackend;
+            var activeBefore = backend?.ReadActiveValues();
+            var pendingBefore = backend?.ReadPendingValues();
             if (IsMissionPresetSelected)
                 ModSettingsWorkingSourceRegistry.Apply(presetController.TargetGuid, ModSettingsWorkingSourceRegistry.ModDefaultsId);
             else
                 presetController?.ApplyDefaultsAsWorkingCopy();
             System_CommitConfiguration();
+            if (backend != null)
+            {
+                var desired = backend.ReadDesiredValues();
+                var pendingAfter = backend.ReadPendingValues();
+                bool activeMatches = ConfigurationValuesEqual(desired, backend.ReadActiveValues());
+                if (pendingBefore != null && pendingAfter == null && activeMatches)
+                    SetConfigurationNotice(ResolveSettingsUiTextSafe("Common.DefaultResetDiscarded",
+                        "Previous preparation discarded. Mod defaults are active. No restart needed."));
+                else if (pendingBefore != null && !ConfigurationValuesEqual(pendingBefore, pendingAfter) && pendingAfter != null)
+                    SetConfigurationNotice(ResolveSettingsUiTextSafe("Common.DefaultResetReplaced",
+                        "Previous preparation replaced with mod defaults.") + " " + (activeMatches
+                            ? ResolveSettingsUiTextSafe("Common.DefaultResetPreparedActive", "Prepared for future starts. Current values already match; no restart needed.")
+                            : ResolveSettingsUiTextSafe("Common.RestartRequired", "Settings prepared. Restart the game to apply them.")));
+                else if (activeMatches && pendingAfter != null)
+                    SetConfigurationNotice(ResolveSettingsUiTextSafe("Common.DefaultResetPreparedActive",
+                        "Prepared for future starts. Current values already match; no restart needed."));
+                else if (activeMatches)
+                    SetConfigurationNotice(ConfigurationValuesEqual(activeBefore, desired)
+                        ? ResolveSettingsUiTextSafe("Common.DefaultResetUnchanged", "Settings already match the mod defaults. No restart needed.")
+                        : ResolveSettingsUiTextSafe("Common.DefaultResetApplied", "Mod defaults applied. No restart needed."));
+            }
             RaiseAccessProperties();
         }
+
+        private static bool ConfigurationValuesEqual(Dictionary<string, object> left, Dictionary<string, object> right) =>
+            left != null && right != null && left.Count == right.Count &&
+            left.All(pair => right.TryGetValue(pair.Key, out var value) && Equals(pair.Value, value));
 
         /// <summary>Returns the persistent settings available to shared preset authoring UI.</summary>
         public IReadOnlyList<PresetSettingDescriptor> System_GetPresetSettingDescriptors() =>

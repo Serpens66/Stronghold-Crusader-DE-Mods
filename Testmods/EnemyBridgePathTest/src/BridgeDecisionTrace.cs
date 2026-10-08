@@ -51,6 +51,8 @@ namespace EnemyBridgePathTest
             internal bool Rebuilt;
             internal readonly List<TableImage> SelectionTables=new List<TableImage>();
             internal readonly List<SelectionEvidence> Selections=new List<SelectionEvidence>();
+            internal TableImage LadderBefore;
+            internal readonly List<SelectionEvidence> LadderCommands=new List<SelectionEvidence>();
             internal readonly HashSet<int> RegionSamples=new HashSet<int>();
             internal bool Detailed;
         }
@@ -280,7 +282,19 @@ namespace EnemyBridgePathTest
         private object planningMapIdentity;
         internal void MarkInstalled(int count) {installed=count;nativeUnavailable="none";}
         internal void MarkNativeUnavailable(string reason) {nativeUnavailable=reason.Replace(',',';').Replace('\r',' ').Replace('\n',' ');}
-        internal string NativeReadiness => "installedEntries="+installed+",expectedEntries="+BridgeNativeDefinition.Sites.Length+",nativeReady="+(installed==BridgeNativeDefinition.Sites.Length)+",nativeCallsObserved="+(Interlocked.Read(ref sessionNativeCalls)!=0)+",shadowStatus="+(installed==BridgeNativeDefinition.Sites.Length?"waiting-for-observed-rebuild-and-fresh-decision":"unavailable")+",reason=["+nativeUnavailable+"]";
+        internal string NativeReadiness => "installedEntries="+installed+",expectedEntries="+BridgeNativeDefinition.OwnedCount+",ownNativeReady="+(installed==BridgeNativeDefinition.OwnedCount)+",nativeReady="+(installed==BridgeNativeDefinition.OwnedCount&&APIShared.EnemyBridgeDiagnosticBridge.TopologyAvailable)+",nativeCallsObserved="+(Interlocked.Read(ref sessionNativeCalls)!=0)+",shadowStatus="+(installed==BridgeNativeDefinition.OwnedCount&&APIShared.EnemyBridgeDiagnosticBridge.TopologyAvailable?"waiting-for-observed-rebuild-and-fresh-decision":"unavailable")+",topologyOwner=APIShared,topologyAvailable="+APIShared.EnemyBridgeDiagnosticBridge.TopologyAvailable+",ladderCoverage=effective-consumer-only,topologySuppressed="+topologySuppressed+",reason=["+nativeUnavailable+"]";
+        private long topologySuppressed;
+        internal object BeginTopology(IntPtr manager,int force,bool originalWillRun,bool knownPathingContext=true)
+        {
+            if (!originalWillRun) {Interlocked.Increment(ref topologySuppressed);return null;}
+            if (!knownPathingContext) {Failure(new InvalidOperationException("shared-topology-context-unresolved"));return null;}
+            if (native==IntPtr.Zero) return null;
+            return Enter(BridgeNativeDefinition.TopologySite,manager,force);
+        }
+        internal void EndTopology(object token,bool completed,bool originalCalled,int? nativeResult,int effectiveResult)
+        {
+            if (token is Scope scope) Exit(scope,completed&&originalCalled,nativeResult.HasValue?(long?)nativeResult.Value:null,IntPtr.Zero);
+        }
         internal bool InsideNative => current!=null;
         private Scope CurrentScope => current!=null&&current.Session==Volatile.Read(ref session)?current:null;
         private long CurrentId => CurrentScope?.Id??0;
@@ -350,7 +364,7 @@ namespace EnemyBridgePathTest
             var sites=new StringBuilder();
             foreach(var site in BridgeNativeDefinition.Sites) sites.Append(site.Name).Append(':').Append(Interlocked.Read(ref siteCalls[site.Index])).Append(';');
             return "entered="+capturedEntered+",exited="+capturedExited+",active="+capturedActive+",balanced="+(capturedEntered==capturedExited+capturedActive)+
-                ",incompleteCalls="+incompleteCalls+",captureFailures="+failures+",overflow="+overflow+",backgroundOverflow="+backgroundOverflow+",traceComplete="+(failures==0&&incompleteCalls==0&&overflow==0&&backgroundOverflow==0)+",deliveryPending="+(queued!=0)+",installedEntries="+installed+",expectedEntries="+BridgeNativeDefinition.Sites.Length+",sessionNativeCalls="+Interlocked.Read(ref sessionNativeCalls)+",sessionNativeExits="+Interlocked.Read(ref sessionNativeExits)+",nativeCoverageComplete="+(installed==BridgeNativeDefinition.Sites.Length&&Interlocked.Read(ref sessionNativeCalls)>0&&Interlocked.Read(ref sessionNativeCalls)==Interlocked.Read(ref sessionNativeExits)&&capturedEntered==capturedExited&&capturedActive==0&&failures==0&&incompleteCalls==0)+",nativeUnavailable=["+nativeUnavailable+"]"+
+                ",incompleteCalls="+incompleteCalls+",captureFailures="+failures+",overflow="+overflow+",backgroundOverflow="+backgroundOverflow+",traceComplete="+(failures==0&&incompleteCalls==0&&overflow==0&&backgroundOverflow==0)+",deliveryPending="+(queued!=0)+",installedEntries="+installed+",expectedEntries="+BridgeNativeDefinition.OwnedCount+",sessionNativeCalls="+Interlocked.Read(ref sessionNativeCalls)+",sessionNativeExits="+Interlocked.Read(ref sessionNativeExits)+",nativeCoverageComplete="+(installed==BridgeNativeDefinition.OwnedCount&&APIShared.EnemyBridgeDiagnosticBridge.TopologyAvailable&&Interlocked.Read(ref sessionNativeCalls)>0&&Interlocked.Read(ref sessionNativeCalls)==Interlocked.Read(ref sessionNativeExits)&&capturedEntered==capturedExited&&capturedActive==0&&failures==0&&incompleteCalls==0)+",nativeUnavailable=["+nativeUnavailable+"]"+
                 ","+(planningCapture?.Status??"planningCapture=unavailable")+",physicalGeneration="+physical+",topologyGeneration="+topology+",fullCaptures="+captures+",indexBuilds="+buildingIndex.Builds+",indexBuildMs="+(buildingIndex.BuildTicks*1000.0/Stopwatch.Frequency).ToString("F3")+
                 ",coalesced="+coalesced+",invalidIds="+invalidIds+",pooledScopesCreated="+pooledScopes+",queue="+queued+
                 ",commandPre="+commandPre+",commandPost="+commandPost+",detailedCommands="+detailedCommands+",backgroundCalls="+backgroundCalls+
@@ -366,7 +380,7 @@ namespace EnemyBridgePathTest
             scope.Id=Interlocked.Increment(ref sequence);scope.Session=run;scope.Regions=0;scope.Detailed=false;scope.PreStamp=default;
             scope.PrePlan=default;scope.Commands=scope.CandidateBuilds=0;
             scope.AccessValid=false;scope.AccessInput=default;scope.AccessNative=scope.AccessEffective=0;scope.AccessRegionObserved=false;scope.Accesses.Clear();scope.SelectedUnit=0;scope.SelectedGlobal=0;
-            scope.Rebuilt=false;scope.SelectionTables.Clear();scope.Selections.Clear();
+            scope.Rebuilt=false;scope.SelectionTables.Clear();scope.Selections.Clear();scope.LadderBefore=null;scope.LadderCommands.Clear();
             scope.RegionSamples.Clear();
             scope.PlanningPlayer=PlanningSite(site.Rva)?a:scope.Parent!=null&&scope.Parent.Session==run?scope.Parent.PlanningPlayer:0;
             current=scope;lock(counterGate) {entered++;active++;} Interlocked.Increment(ref siteCalls[site.Index]);Interlocked.Increment(ref sessionNativeCalls);
@@ -396,6 +410,16 @@ namespace EnemyBridgePathTest
                 }
                 else scope.Detailed=site.Rva!=0xE49D0||TopologyWillRebuild(a,Read(0x60AD6CC),Read(0x37ED4CC));
                 if(site.Name.StartsWith("select-")&&testCapture==null) lock(captureGate)CaptureSelectionInput(scope);
+                if(site.Rva==0x122B40&&(b==0x3F3||b==0x3F4)&&testCapture==null)lock(captureGate)
+                {
+                    var api=GameTribeManagerAPI.Instance;
+                    if(api.IsValidId(a)&&api.TryGetTribeById(a,out GameTribe* tribe)&&tribe!=null&&tribe->r_PlayerIdOwner>=1&&tribe->r_PlayerIdOwner<=8)
+                    {
+                        int owner=tribe->r_PlayerIdOwner;Table(0x2EAAF90,owner,1000,8,"ladder-consumer-pre");
+                        scope.LadderBefore=tableImages[((long)0x2EAAF90<<32)|(uint)owner];
+                    }
+                    else Emit("task-followup-gap","consumer="+scope.Id+",reason=unresolved-ladder-consumer-owner");
+                }
                 if(scope.Detailed) Entry(scope,true);
             }
             catch(Exception error) {Failure(error);}
@@ -479,7 +503,7 @@ namespace EnemyBridgePathTest
                     lock(captureGate) CaptureTables(scope.Site,scope.Args,"post",pointer);
                     if(scope.AccessValid) Emit("keep-access-decision","op="+scope.Id+",parent="+ParentId(scope)+",attacker="+scope.Args[0]+",targetPlayer="+scope.Args[1]+",mode="+(scope.Site.Rva==0xCF400?1:0)+",inputs=["+scope.AccessInput+"],columns=attackerActiveRaw/targetActiveRaw/attackerKeepTile/targetKeepTile/attackerKeepPcl/targetKeepPcl,branch="+AccessBranch(scope.AccessInput)+",branchEvidence=audited-entry-data,regionCallsObserved="+scope.Regions+",completed="+completed+",effectiveReturn="+result+",followingPhaseRaw="+PlanStamp(scope.Args[0])[1]+",phaseTiming=before-caller-consumes-return");
                     if(scope.Site.Name.StartsWith("select-")&&completed&&result!=0&&testCapture==null) lock(captureGate)CompleteSelection(scope,pointer);
-                    if(scope.Site.Rva==0x122B40&&completed&&testCapture==null) lock(captureGate)CompleteTaskAssignments(scope);
+                    if(scope.Site.Rva==0x122B40&&completed&&testCapture==null) lock(captureGate){CompleteLadderAssignments(scope);CompleteTaskAssignments(scope);}
                     if(scope.Site.Rva==0xE49D0&&completed&&result==1) Emit("comparison-marker","stage=topology-rebuilt,observedReturn=1,op="+scope.Id);
                     if(scope.Site.Rva==0x2C480&&completed)
                     {
@@ -654,6 +678,13 @@ namespace EnemyBridgePathTest
         internal void TaskCommand(int unit,uint global,int tribe,int player,int command,long operation)
         {
             Scope scope=CurrentScope;if(scope==null)return;
+            for(Scope parent=scope;parent!=null&&parent.Session==scope.Session;parent=parent.Parent)
+                if(parent.Site.Rva==0x122B40&&parent.LadderBefore!=null)
+                {
+                    if(parent.LadderCommands.Count<4000)parent.LadderCommands.Add(new SelectionEvidence {Unit=unit,Global=global,Player=player,Movement=operation});
+                    else Emit("task-followup-gap","consumer="+parent.Id+",reason=ladder-command-capacity");
+                    break;
+                }
             foreach(var evidence in scope.Selections)
                 if(evidence.Unit==unit&&evidence.Global==global)
                 {
@@ -1090,7 +1121,7 @@ namespace EnemyBridgePathTest
             int unitId=scope.Args[0];var api=GameUnitManagerAPI.Instance;
             if(!api.IsValidId(unitId)||!APIShared.UnitAccess.TryGetById(api, unitId,out GameUnit* unit, out _)||unit==null)
             {Emit("task-followup-gap","selection="+scope.Id+",unitRaw="+unitId+",reason=invalid-selector-unit");return;}
-            int player=unit->r_ControllableForPlayerId|((int)unit->N00000569<<8);
+            int player=unit->r_ControllableForPlayerId;
             if(player<1||player>8) {Emit("task-followup-gap","selection="+scope.Id+",playerRaw="+player+",reason=unresolved-selector-player");return;}
             scope.SelectedUnit=unitId;scope.SelectedGlobal=unit->r_GlobalId;
             // Standalone selectors resolve their actual unit owner, not an unrelated global player.
@@ -1124,6 +1155,47 @@ namespace EnemyBridgePathTest
             if(consumer!=null&&consumer.Session==scope.Session&&consumer.Site.Rva==0x122B40)consumer.Selections.Add(evidence);
             else Emit("task-followup-gap","selection="+evidence.Op+",reason=no-observed-consume-task-parent");
         }
+        // Consumer observations do not claim an internal selector return or Vanilla branch.
+        internal static List<SelectionEvidence> LadderChanges(TableImage before,TableImage after)
+        {
+            var changes=new List<SelectionEvidence>();
+            for(int row=0;row<after.Count;row++)
+            {
+                int unit=after.Rows[row*4+3];if(unit<=0)continue;
+                if(row<before.Count&&before.Rows[row*4]==after.Rows[row*4]&&before.Rows[row*4+1]==after.Rows[row*4+1]&&before.Rows[row*4+3]==unit)continue;
+                changes.Add(new SelectionEvidence {Unit=unit,Task=after.Rows[row*4],Approach=after.Rows[row*4+1],Player=after.Slot,Row=row,Table=after.Rva,Definition=after.Definition,Plan=after.Plan});
+            }
+            foreach(var evidence in changes)
+            {
+                int matches=0;for(int row=0;row<after.Count;row++)if(after.Rows[row*4+3]==evidence.Unit)matches++;
+                evidence.Unique=matches==1;
+            }
+            return changes;
+        }
+        private void CompleteLadderAssignments(Scope scope)
+        {
+            if(scope.LadderBefore==null)return;
+            var after=ReadTable(scope.LadderBefore.Rva,scope.LadderBefore.Slot);PublishTable(after,"ladder-consumer-post");
+            foreach(var evidence in LadderChanges(scope.LadderBefore,after))
+            {
+                try
+                {
+                    GameUnit* unit=null;
+                    if(testUnit!=null)unit=(GameUnit*)testUnit(evidence.Unit);
+                    else if(!APIShared.UnitAccess.TryGetById(evidence.Unit,out unit,out _))unit=null;
+                    int commands=0;SelectionEvidence command=null;
+                    foreach(var observed in scope.LadderCommands)if(observed.Unit==evidence.Unit){commands++;command=observed;}
+                    bool sameIdentity=unit!=null&&commands==1&&command.Global==unit->r_GlobalId&&command.Player==evidence.Player&&unit->r_ControllableForPlayerId==evidence.Player;
+                    bool assigned=sameIdentity&&AssignmentMatches(unit,evidence.Task);
+                    evidence.Global=unit==null?0:unit->r_GlobalId;evidence.Op=Interlocked.Increment(ref sequence);evidence.Unique&=assigned;
+                    evidence.Movement=sameIdentity?command.Movement:0;
+                    if(evidence.Unique)scope.Selections.Add(evidence);
+                    Emit("ladder-consumer-assignment","op="+evidence.Op+",consumer="+scope.Id+",unit="+evidence.Unit+"/g"+evidence.Global+",player="+evidence.Player+",task="+evidence.Task+",approach="+evidence.Approach+",candidateDefinition="+evidence.Definition+",candidatePlan="+(evidence.Unique?evidence.Plan:0)+",movementEvent="+evidence.Movement+",missingMovement="+(commands==0)+",uniqueAssignment="+evidence.Unique+",sameCommandIdentity="+sameIdentity+",taskStillAssigned="+assigned+",evidence=effective-consumer-pre-post,selectorReturn=not-observed,selectionBranch=not-observed");
+                    if(evidence.Unique)Emit("task-following-command","parent="+scope.Id+",selection="+evidence.Op+",eventOp="+evidence.Movement+",unit="+evidence.Unit+"/g"+evidence.Global+",player="+evidence.Player+",candidatePlan="+evidence.Plan+",link=same-consumer-and-unit,observation=consumer-return,selectorReturn=not-observed,routeAttribution=unproven");
+                }
+                catch(Exception error){Failure(error);Emit("task-followup-gap","consumer="+scope.Id+",unit="+evidence.Unit+",reason=ladder-consumer-capture-failure");}
+            }
+        }
         private void CompleteTaskAssignments(Scope scope)
         {
             foreach(var evidence in scope.Selections)
@@ -1146,7 +1218,7 @@ namespace EnemyBridgePathTest
                 if(evidence.Unique&&evidence.Plan!=0&&assigned==evidence.Task&&AssignmentMatches(unit,evidence.Task))foreach(var bridge in bridgeProgress.Values)
                     if(bridge.Tiles.Contains(evidence.Task)||bridge.Tiles.Contains(evidence.Approach))
                     {bridge.AssignedPlans[evidence.Player]=evidence.Plan;if(evidence.Movement!=0)bridge.CommandPlans[evidence.Player]=evidence.Plan;}
-                Emit("task-assignment","parent="+scope.Id+",selection="+evidence.Op+",unit="+evidence.Unit+"/g"+evidence.Global+",tribe="+unit->r_TribeId+",player="+(unit->r_ControllableForPlayerId|((int)unit->N00000569<<8))+",command="+command+",context="+unit->r_ContextTargetTileX+"/"+unit->r_ContextTargetTileY+",aiState="+aiState+",selectedTask="+evidence.Task+",nativeAssignedTaskRaw="+assigned+",candidatePlan="+(evidence.Unique?evidence.Plan:0)+",movementEvent="+evidence.Movement+",missingMovement="+(evidence.Movement==0)+",stage=consumer-return,execution=not-proven");
+                Emit("task-assignment","parent="+scope.Id+",selection="+evidence.Op+",unit="+evidence.Unit+"/g"+evidence.Global+",tribe="+unit->r_TribeId+",player="+(unit->r_ControllableForPlayerId)+",command="+command+",context="+unit->r_ContextTargetTileX+"/"+unit->r_ContextTargetTileY+",aiState="+aiState+",selectedTask="+evidence.Task+",nativeAssignedTaskRaw="+assigned+",candidatePlan="+(evidence.Unique?evidence.Plan:0)+",movementEvent="+evidence.Movement+",missingMovement="+(evidence.Movement==0)+",stage=consumer-return,execution=not-proven");
                 }
                 catch(Exception error) {Failure(error);Emit("task-assignment-gap","parent="+scope.Id+",selection="+evidence.Op+",unit="+evidence.Unit+"/g"+evidence.Global+",reason=capture-failure");}
             }

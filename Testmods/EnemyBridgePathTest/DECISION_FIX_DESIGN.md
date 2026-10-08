@@ -714,3 +714,61 @@ No runtime build or installation executed in this work session. The prescribed
 Bridge driver remains pending the user-selected APIShared installation by the
 other chat; final installed signature/hash and current owner checks must run
 before that build. Do not request the acquisition run until installation succeeds.
+
+
+Hook ownership integration 2026-10-08
+
+The current APIShared topology owner atE49D0 remains permanent. Its production
+ExecuteProbePclRebuild callback publishes optional synchronous observations through
+IEnemyBridgeTopologyObserver in EnemyBridgeDiagnosticBridge. Normal calls execute
+original exactly once; manual-probe repairs return effective0 without an original
+call. Null native result and originalCalled distinguish suppression/original failure.
+Publisher availability is set only after transaction and all three repair guards
+have validated; observer exceptions are counted and isolated. No fallback detour.
+
+Bridge keeps32 logical diagnostic sites but owns30 executable entry hooks. E49D0
+and111C00 are excluded in BOTH live entry validation and preparation. Topology ABI
+is int. Existing site indices and historical formats remain valid. Own hook readiness,
+shared topology availability and effective-only ladder coverage are separate.
+
+Fixes1.26.0 SmarterSiegeLaddermen owns111C00 (objective ranking) and attachment
+ranking inside its downstream routine. The replacement returns-1 for native fallback,
+0 for no objective or an approach tile, writing target coordinates/task and reserving
+the objective. Bridge never observes or claims that selector's internal return.
+It takes its own siege candidate table Pre/Post at122B40 for commands3F3/3F4 and
+links effective reservation changes to same-consumer movement events and validated
+current Unit/Global/owner/task/state. Missing movement, multiple reservations or
+commands, replaced tasks, ID/role reuse remain unresolved. No extra native search.
+
+Installed Extender2.14.0 exposes publicUInt16 r_ControllableForPlayerId at92; the
+removed high-byte helper was replaced by the complete checked field. Bridge requires
+SE2.14.0 and the existing APIShared0.4.12 baseline. Mod versions were not changed.
+README, Fixes and the Script Extender fork were not edited.
+
+Offline tests: actual production APIShared repair callback compiled into a private
+fixture, original results0/1, suppression, original and Pre/Post observer exceptions,
+nested observer tokens; actual consumer same identity, reused IDs, role changes,
+replaced tasks, missing/multiple commands and competing reservations. Map switch
+inside a topology frame stays balanced. Thirty-entry ownership and installed native
+backend checks pass.38101 Bridge assertions;118 native differential cases/10229
+checks,144 raising cases. Runtime preflights and full current native hash remain valid.
+These are offline results, not a successful live game run.
+
+The behavior fix remains disabled. After successful APIShared then Bridge driver
+installation, use the same save with permanently DOWN bridge and CLOSED gate,
+Gate/Fixes/manual feature active, no own moat work. Wait after map end for delivery
+and both artifact completion markers. This is the acquisition milestone, not final
+AI decision-fix acceptance.
+
+Build/install completion 2026-10-08: prescribed elevated APIShared driver first,
+then Bridge driver, both exit 0. APIShared public-contract guard passes; the
+new observer exposes only bool/int/object data, never native pointers. Manager
+identity is checked inside the existing APIShared owner before notification.
+Installed/package SHA256 equality verified:
+APIShared 0.4.12: 3CAA4E6975A5B45C6DE7FB9C8539FE3753A8BBC29B184CE2FDBE3BEA5D7111DB
+Bridge 0.1.0: BB405815A456D254683B744D55E2C387233893C0CCA5E4EF36A7A0F3814ABA16
+Bridge minimum SE 2.14.0/APIShared 0.4.12 matches the newly used current ABI and
+observer contract; versions unchanged. Driver checks this APIShared minimum too.
+Final code review, runtime preflights, native reference and 38101 Bridge assertions
+passed. Live startup/feature-on/off acceptance remains the next game test;
+consumer fixtures preserve the supplied original/effective results unchanged.

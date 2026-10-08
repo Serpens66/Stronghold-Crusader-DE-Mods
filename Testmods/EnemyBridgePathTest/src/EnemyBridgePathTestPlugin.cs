@@ -13,8 +13,8 @@ using UnityEngine;
 namespace EnemyBridgePathTest
 {
     [BepInPlugin("EnemyBridgePathTest_Serp", "Enemy Bridge Path Test", "0.1.0")]
-    [BepInDependency("000shcdese", "2.13.0")]
-    [BepInDependency("APIShared_Serp", "0.3.6")]
+    [BepInDependency("000shcdese", "2.14.0")]
+    [BepInDependency("APIShared_Serp", "0.4.12")]
     [BepInDependency("BugfixesAndQoL_Serp")]
     public sealed class EnemyBridgePathTestPlugin : BaseUnityPlugin
     {

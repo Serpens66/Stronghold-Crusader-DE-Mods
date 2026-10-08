@@ -14,10 +14,45 @@ namespace APIShared
         void ObserveRegion(int rawPlayer, int sourcePcl, int targetPcl, int mode, int nativeResult, int effectiveResult);
     }
 
+    /// <summary>Optional synchronous observations of the existing topology owner.</summary>
+    public interface IEnemyBridgeTopologyObserver
+    {
+        /// <summary>Called before the owner either invokes Vanilla or suppresses a manual probe repair.</summary>
+        object BeginTopology(int force, bool originalWillRun, bool knownPathingContext);
+        /// <summary>Null native result means no completed original result was observed.</summary>
+        void EndTopology(object token, bool completed, bool originalCalled, int? nativeResult, int effectiveResult);
+    }
+
     /// <summary>Passive single observer registration; never owns hooks, policies or a scheduler.</summary>
     public static class EnemyBridgeDiagnosticBridge
     {
         private static IEnemyBridgePathObserver observer;
+        private static int topologyPublished;
+        /// <summary>True only after the existing owner has validated its permanent hook.</summary>
+        public static bool TopologyAvailable => Volatile.Read(ref topologyPublished) != 0;
+        internal static void PublishTopologyOwner() => Volatile.Write(ref topologyPublished, 1);
+        private sealed class TopologyCall
+        {
+            internal IEnemyBridgeTopologyObserver Observer;
+            internal object Token;
+        }
+        /// <summary>Does not install a hook or request a rebuild.</summary>
+        public static object BeginTopology(int force, bool originalWillRun, bool knownPathingContext)
+        {
+            var current = Current as IEnemyBridgeTopologyObserver;
+            if (current == null) return null;
+            var call = new TopologyCall { Observer = current };
+            try { call.Token = current.BeginTopology(force, originalWillRun, knownPathingContext); }
+            catch (Exception ex) { Failed("topology-begin", ex); }
+            return call;
+        }
+        /// <summary>Isolates observer errors from the owner and its original result.</summary>
+        public static void EndTopology(object token, bool completed, bool originalCalled, int? nativeResult, int effectiveResult)
+        {
+            if (!(token is TopologyCall call)) return;
+            try { call.Observer.EndTopology(call.Token, completed, originalCalled, nativeResult, effectiveResult); }
+            catch (Exception ex) { Failed("topology-end", ex); }
+        }
         private static long failures;
         private static string lastFailure;
         [ThreadStatic] private static Search active;

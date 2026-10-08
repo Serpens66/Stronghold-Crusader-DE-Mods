@@ -1822,8 +1822,26 @@
         <member name="M:APIShared.IEnemyBridgePathObserver.ObserveRegion(System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32)">
             <summary>Reports an already executed region query.</summary>
         </member>
+        <member name="T:APIShared.IEnemyBridgeTopologyObserver">
+            <summary>Optional synchronous observations of the existing topology owner.</summary>
+        </member>
+        <member name="M:APIShared.IEnemyBridgeTopologyObserver.BeginTopology(System.Int32,System.Boolean,System.Boolean)">
+            <summary>Called before the owner either invokes Vanilla or suppresses a manual probe repair.</summary>
+        </member>
+        <member name="M:APIShared.IEnemyBridgeTopologyObserver.EndTopology(System.Object,System.Boolean,System.Boolean,System.Nullable{System.Int32},System.Int32)">
+            <summary>Null native result means no completed original result was observed.</summary>
+        </member>
         <member name="T:APIShared.EnemyBridgeDiagnosticBridge">
             <summary>Passive single observer registration; never owns hooks, policies or a scheduler.</summary>
+        </member>
+        <member name="P:APIShared.EnemyBridgeDiagnosticBridge.TopologyAvailable">
+            <summary>True only after the existing owner has validated its permanent hook.</summary>
+        </member>
+        <member name="M:APIShared.EnemyBridgeDiagnosticBridge.BeginTopology(System.Int32,System.Boolean,System.Boolean)">
+            <summary>Does not install a hook or request a rebuild.</summary>
+        </member>
+        <member name="M:APIShared.EnemyBridgeDiagnosticBridge.EndTopology(System.Object,System.Boolean,System.Boolean,System.Nullable{System.Int32},System.Int32)">
+            <summary>Isolates observer errors from the owner and its original result.</summary>
         </member>
         <member name="P:APIShared.EnemyBridgeDiagnosticBridge.Current">
             <summary>The independently registered diagnostic observer.</summary>

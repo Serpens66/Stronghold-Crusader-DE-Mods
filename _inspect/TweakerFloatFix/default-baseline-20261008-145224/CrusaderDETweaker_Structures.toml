@@ -1,0 +1,429 @@
+# ========================================
+# Crusader DE Tweaker - STRUCTURE Configuration
+# ========================================
+#
+# This file allows you to customize game structure properties.
+# Each section [STRUCT_...] contains properties for that specific structure.
+#
+# PROPERTY DESCRIPTIONS:
+#
+# Health: Maximum hit points
+# GoldCost, WoodCost, StoneCost, IronCost, PitchCost: Building costs
+# HousingPopulationSpace: Population capacity (housing structures only)
+# MaxCount: Limit on buildings of this type placed at once for the local player.
+#            -1 = unlimited (default), 0 = disabled (every placement removed), >0 = max placed. Excess removed on placement.
+#
+# HOW VALUES WORK:
+#   A value of -1 means "use the game default" — the mod leaves that property UNCHANGED.
+#   Set any other number to override it. The '# Default:' comment shows the game's current
+#   default, refreshed every launch. (MaxCount: see above — there -1 = unlimited.)
+#
+# ========================================
+
+[STRUCT_HOVEL]
+Health = -1 # Default: 100
+WoodCost = -1 # Default: 6
+HousingPopulationSpace = -1 # Default: 8
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_OUTPOST_BEDOUIN]
+Health = -1 # Default: 1500
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_WOODCUTTERS_HUT]
+Health = -1 # Default: 100
+WoodCost = -1 # Default: 3
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_OXEN_BASE]
+Health = -1 # Default: 100
+WoodCost = -1 # Default: 5
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_IRON_MINE]
+Health = -1 # Default: 100
+WoodCost = -1 # Default: 20
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_PITCH_DIGGER]
+Health = -1 # Default: 100
+WoodCost = -1 # Default: 20
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_HUNTERS_HUT]
+Health = -1 # Default: 100
+WoodCost = -1 # Default: 5
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_BARRACKS_WOOD]
+Health = -1 # Default: 300
+WoodCost = -1 # Default: 10
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_BARRACKS_STONE]
+Health = -1 # Default: 500
+StoneCost = -1 # Default: 15
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_ARMOURY]
+Health = -1 # Default: 500
+WoodCost = -1 # Default: 5
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_FLETCHERS_WORKSHOP]
+Health = -1 # Default: 300
+GoldCost = -1 # Default: 100
+WoodCost = -1 # Default: 20
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_BLACKSMITHS_WORKSHOP]
+Health = -1 # Default: 300
+GoldCost = -1 # Default: 200
+WoodCost = -1 # Default: 20
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_POLETURNERS_WORKSHOP]
+Health = -1 # Default: 300
+GoldCost = -1 # Default: 100
+WoodCost = -1 # Default: 10
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_ARMOURERS_WORKSHOP]
+Health = -1 # Default: 300
+GoldCost = -1 # Default: 100
+WoodCost = -1 # Default: 20
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_TANNERS_WORKSHOP]
+Health = -1 # Default: 300
+GoldCost = -1 # Default: 100
+WoodCost = -1 # Default: 10
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_BAKERS_WORKSHOP]
+Health = -1 # Default: 300
+WoodCost = -1 # Default: 10
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_BREWERS_WORKSHOP]
+Health = -1 # Default: 300
+WoodCost = -1 # Default: 10
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_GRANARY]
+Health = -1 # Default: 300
+WoodCost = -1 # Default: 5
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_QUARRY]
+Health = -1 # Default: 300
+WoodCost = -1 # Default: 20
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_INN]
+Health = -1 # Default: 300
+GoldCost = -1 # Default: 100
+WoodCost = -1 # Default: 20
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_HEALER]
+Health = -1 # Default: 300
+GoldCost = -1 # Default: 150
+WoodCost = -1 # Default: 20
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_ENGINEERS_GUILD]
+Health = -1 # Default: 500
+GoldCost = -1 # Default: 100
+WoodCost = -1 # Default: 10
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_TUNNELLERS_GUILD]
+Health = -1 # Default: 500
+GoldCost = -1 # Default: 100
+WoodCost = -1 # Default: 10
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_TRADEPOST]
+Health = -1 # Default: 300
+WoodCost = -1 # Default: 5
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_WELL]
+Health = -1 # Default: 300
+GoldCost = -1 # Default: 30
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_OIL_SMELTER]
+Health = -1 # Default: 300
+GoldCost = -1 # Default: 100
+IronCost = -1 # Default: 10
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_SIEGE_TENT]
+WoodCost = -1 # Default: 10
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_WHEATFARM]
+Health = -1 # Default: 100
+WoodCost = -1 # Default: 15
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_HOPSFARM]
+Health = -1 # Default: 100
+WoodCost = -1 # Default: 15
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_APPLEFARM]
+Health = -1 # Default: 100
+WoodCost = -1 # Default: 5
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_CATTLEFARM]
+Health = -1 # Default: 100
+WoodCost = -1 # Default: 10
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_MILL]
+Health = -1 # Default: 300
+WoodCost = -1 # Default: 20
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_STABLES]
+Health = -1 # Default: 300
+GoldCost = -1 # Default: 400
+WoodCost = -1 # Default: 20
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_CHURCH1]
+Health = -1 # Default: 400
+GoldCost = -1 # Default: 250
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_CHURCH2]
+Health = -1 # Default: 800
+GoldCost = -1 # Default: 500
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_CHURCH3]
+Health = -1 # Default: 1200
+GoldCost = -1 # Default: 1000
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_GATE_MAIN]
+Health = -1 # Default: 2000
+StoneCost = -1 # Default: 20
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_GATE_INNER]
+Health = -1 # Default: 1000
+StoneCost = -1 # Default: 10
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_DRAWBRIDGE]
+WoodCost = -1 # Default: 10
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_SIEGE_TENT_ARAB_BALLISTA]
+Health = -1 # Default: 100
+GoldCost = -1 # Default: 150
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_GALLOWS]
+Health = -1 # Default: 100
+GoldCost = -1 # Default: 50
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_STOCKS]
+Health = -1 # Default: 100
+GoldCost = -1 # Default: 45
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_WITCH_HOIST]
+Health = -1 # Default: 100
+GoldCost = -1 # Default: 40
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_MAYPOLE]
+Health = -1 # Default: 100
+GoldCost = -1 # Default: 25
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_GARDEN]
+Health = -1 # Default: 100
+GoldCost = -1 # Default: 30
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_KILLING_PIT]
+WoodCost = -1 # Default: 6
+Damage = -1 # Default: 18000
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_PITCH_DITCH]
+PitchCost = -1 # Default: 1
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_SIEGE_TOWER]
+Health = -1 # Default: 1000
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_WATERPOT]
+Health = -1 # Default: 200
+GoldCost = -1 # Default: 60
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_TOWER1]
+Health = -1 # Default: 250
+StoneCost = -1 # Default: 10
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_TOWER2]
+Health = -1 # Default: 1000
+StoneCost = -1 # Default: 10
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_TOWER3]
+Health = -1 # Default: 1200
+StoneCost = -1 # Default: 15
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_TOWER4]
+Health = -1 # Default: 1600
+StoneCost = -1 # Default: 35
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_TOWER5]
+Health = -1 # Default: 2000
+StoneCost = -1 # Default: 40
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_TOWER5_DESTROYED]
+Health = -1 # Default: 100
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_SIEGE_TENT_CATAPULT]
+Health = -1 # Default: 100
+GoldCost = -1 # Default: 150
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_SIEGE_TENT_TREBUCHET]
+Health = -1 # Default: 100
+GoldCost = -1 # Default: 150
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_SIEGE_TENT_SIEGE_TOWER]
+Health = -1 # Default: 100
+GoldCost = -1 # Default: 150
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_SIEGE_TENT_BATTERING_RAM]
+Health = -1 # Default: 100
+GoldCost = -1 # Default: 150
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_SIEGE_TENT_PORTABLE_SHIELD]
+Health = -1 # Default: 100
+GoldCost = -1 # Default: 5
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_TOWER1_DESTROYED]
+Health = -1 # Default: 100
+GoldCost = -1 # Default: 50
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_TOWER2_DESTROYED]
+Health = -1 # Default: 100
+GoldCost = -1 # Default: 50
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_TOWER3_DESTROYED]
+Health = -1 # Default: 100
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_TOWER4_DESTROYED]
+Health = -1 # Default: 100
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_CESS_PIT]
+Health = -1 # Default: 100
+GoldCost = -1 # Default: 40
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_BURNING_STAKE]
+Health = -1 # Default: 100
+GoldCost = -1 # Default: 45
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_GIBBET]
+Health = -1 # Default: 100
+GoldCost = -1 # Default: 50
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_DUNGEON]
+Health = -1 # Default: 100
+GoldCost = -1 # Default: 40
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_RACK_STRETCHING]
+Health = -1 # Default: 100
+GoldCost = -1 # Default: 45
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_RACK_FLOGGING]
+Health = -1 # Default: 100
+GoldCost = -1 # Default: 50
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_CHOPPING_BLOCK]
+Health = -1 # Default: 100
+GoldCost = -1 # Default: 45
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_DUNKING_STOOL]
+Health = -1 # Default: 100
+GoldCost = -1 # Default: 40
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_DOG_CAGE]
+Health = -1 # Default: 100
+GoldCost = -1 # Default: 100
+WoodCost = -1 # Default: 10
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_STATUE]
+Health = -1 # Default: 100
+GoldCost = -1 # Default: 30
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_SHRINE]
+Health = -1 # Default: 100
+GoldCost = -1 # Default: 30
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_DANCING_BEAR]
+Health = -1 # Default: 100
+GoldCost = -1 # Default: 20
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_POND]
+Health = -1 # Default: 100
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_BEAR_CAVE]
+Health = -1 # Default: 100
+GoldCost = -1 # Default: 30
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_OUTPOST]
+Health = -1 # Default: 1500
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_OUTPOST_ARAB]
+Health = -1 # Default: 1500
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+
+[STRUCT_BEDOUIN_STOCKADE]
+Health = -1 # Default: 300
+WoodCost = -1 # Default: 10
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once
+

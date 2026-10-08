@@ -1,0 +1,28 @@
+# ========================================
+# Crusader DE Tweaker - Damage Matrix
+# ========================================
+#
+# This CSV file contains damage values in matrix format:
+#   - Rows (first column) = Defenders (units being attacked)
+#   - Columns (header row) = Attackers (units/projectiles doing damage)
+#   - Values = Damage amount (integer)
+#
+# HOW TO EDIT:
+#   1. Find the defender unit in the first column
+#   2. Find the attacker unit/projectile in the header row
+#   3. Change the value at the intersection to modify damage
+#   4. A value of 0 or more is applied to the game as-is
+#   5. A negative value (-1) leaves the game's own value unchanged
+#
+# Note: This file can be edited in Excel, Google Sheets, or any text editor.
+# ========================================
+
+                         , Ballista
+Default                  , 10000   
+ArabBallista             , 2000    
+Ballista                 , 2000    
+BatteringRamAndSiegeTower, 20000   
+Catapult                 , 2500    
+Mangonel                 , 2000    
+PortableShields          , 500     
+Trebutchet               , 4000    

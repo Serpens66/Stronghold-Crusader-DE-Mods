@@ -1,0 +1,516 @@
+# ========================================
+# Crusader DE Tweaker - UNIT Configuration
+# ========================================
+#
+# This file allows you to customize game unit properties.
+# Each section [CHIMP_TYPE_...] contains properties for that specific unit.
+#
+# PROPERTY DESCRIPTIONS:
+#
+# ========================================
+# BASIC PROPERTIES
+# ========================================
+# Health:        Maximum hit points
+# Speed:         Movement speed (smaller values = faster)
+# GoldCost:      Recruitment cost in gold (Crusader units only)
+# WeaponType:    Equipment slot 1 — resource required to recruit (STORED_SWORDS, STORED_BOWS, STORED_CROSSBOWS,
+#                  STORED_SPEARS, STORED_PIKES, STORED_MACES). "NONE" = no weapon needed (gold-only hire, like
+#                  Arabian mercenaries). Deleting the line does NOT do that: a missing key = "use game default".
+# ArmorType:     Equipment slot 2 — resource required to recruit (STORED_METAL_ARMOUR, STORED_LEATHER_ARMOUR, or "NONE")
+# RequiresHorse: true = hiring needs a free stable horse and the unit occupies that slot until it dies.
+#                  Add "RequiresHorse = true" to any recruitable unit's section - Barracks units are checked by
+#                  the game, Mercenary Post units (Horse Archer, Camel Lancer, ...) by the mod at hire time.
+# ShieldHealth:  Shield durability for the Bedouin Demolisher. The game stores it in 16 bits: maximum 65535
+#                  (a larger value is clamped to 65535 and logged).
+# MaxCount:      Limit on units of this type alive at once for the local player.
+#                  -1 = unlimited (default), 0 = disabled (every spawn removed), >0 = max alive. Excess removed on spawn.
+#
+# ========================================
+# DAMAGE SYSTEM
+# ========================================
+# Damage values are configured via CSV matrix files in the DamageMatrices folder:
+#   - CrusaderDETweaker_MeleeDamage.csv      — unit-vs-unit melee damage
+#   - CrusaderDETweaker_RangedDamage.csv     — projectile-vs-unit ranged damage
+#   - CrusaderDETweaker_EunuchAoeDamage.csv  — Eunuch AoE damage
+#   - CrusaderDETweaker_BallistaDamage.csv   — Ballista projectile damage
+#   - CrusaderDETweaker_UnitFireDamage.csv   — fire damage taken by units
+#   - CrusaderDETweaker_BuildingFireDamage.csv — fire damage taken by buildings
+#   - CrusaderDETweaker_BedouinHeal.csv      — Bedouin Healer heal amounts
+#
+# HOW VALUES WORK:
+#   A value of -1 means "use the game default" — the mod leaves that property UNCHANGED.
+#   Set any other number to override it. The '# Default:' comment after each value shows the
+#   game's current default and is refreshed every launch.
+#   (Applies to Health, Speed, GoldCost, ShieldHealth and armor multipliers. WeaponType,
+#    ArmorType and RequiresHorse are written directly ("NONE" removes an equipment requirement).
+#    MaxCount: see above — there -1 = unlimited.)
+#
+# ========================================
+
+[CHIMP_TYPE_PEASANT]
+Health = -1 # Default: 2500
+Speed = -1 # Default: 1
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_WOODCUTTER]
+Health = -1 # Default: 10000
+Speed = -1 # Default: 2
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_FLETCHER]
+Health = -1 # Default: 2500
+Speed = -1 # Default: 3
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_TUNNELER]
+Health = -1 # Default: 10000
+Speed = -1 # Default: 1
+GoldCost = -1 # Default: 30
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_HUNTER]
+Health = -1 # Default: 5000
+Speed = -1 # Default: 1
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_QUARRY_MASON]
+Health = -1 # Default: 10000
+Speed = -1 # Default: 2
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_QUARRY_GRUNT]
+Health = -1 # Default: 10000
+Speed = -1 # Default: 2
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_QUARRY_OX]
+Health = -1 # Default: 2500
+Speed = -1 # Default: 3
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_PITCHMAN]
+Health = -1 # Default: 2500
+Speed = -1 # Default: 1
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_FARMER_WHEAT]
+Health = -1 # Default: 2500
+Speed = -1 # Default: 1
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_FARMER_HOPS]
+Health = -1 # Default: 2500
+Speed = -1 # Default: 1
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_FARMER_APPLE]
+Health = -1 # Default: 2500
+Speed = -1 # Default: 1
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_FARMER_CATTLE]
+Health = -1 # Default: 2500
+Speed = -1 # Default: 1
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_MILLER]
+Health = -1 # Default: 2500
+Speed = -1 # Default: 1
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_BAKER]
+Health = -1 # Default: 2500
+Speed = -1 # Default: 2
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_BREWER]
+Health = -1 # Default: 2500
+Speed = -1 # Default: 3
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_POLETURNER]
+Health = -1 # Default: 2500
+Speed = -1 # Default: 3
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_BLACKSMITH]
+Health = -1 # Default: 10000
+Speed = -1 # Default: 3
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_ARMOURER]
+Health = -1 # Default: 5000
+Speed = -1 # Default: 3
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_TANNER]
+Health = -1 # Default: 2500
+Speed = -1 # Default: 3
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_ARCHER]
+Health = -1 # Default: 10000
+Speed = -1 # Default: 1
+GoldCost = -1 # Default: 12
+WeaponType = "STORED_BOWS" # Default: "STORED_BOWS"
+AttackRange = -1 # Default: 54
+EngageRange = -1 # Default: game default (auto)
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_XBOWMAN]
+Health = -1 # Default: 15000
+Speed = -1 # Default: 2
+GoldCost = -1 # Default: 20
+WeaponType = "STORED_CROSSBOWS" # Default: "STORED_CROSSBOWS"
+ArmorType = "STORED_LEATHER_ARMOUR" # Default: "STORED_LEATHER_ARMOUR"
+AttackRange = -1 # Default: 54
+EngageRange = -1 # Default: game default (auto)
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_SPEARMAN]
+Health = -1 # Default: 10000
+Speed = -1 # Default: 1
+GoldCost = -1 # Default: 8
+WeaponType = "STORED_SPEARS" # Default: "STORED_SPEARS"
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_PIKEMAN]
+Health = -1 # Default: 50000
+Speed = -1 # Default: 2
+GoldCost = -1 # Default: 20
+WeaponType = "STORED_PIKES" # Default: "STORED_PIKES"
+ArmorType = "STORED_METAL_ARMOUR" # Default: "STORED_METAL_ARMOUR"
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_MACEMAN]
+Health = -1 # Default: 15000
+Speed = -1 # Default: 1
+GoldCost = -1 # Default: 20
+WeaponType = "STORED_MACES" # Default: "STORED_MACES"
+ArmorType = "STORED_LEATHER_ARMOUR" # Default: "STORED_LEATHER_ARMOUR"
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_SWORDSMAN]
+Health = -1 # Default: 25000
+Speed = -1 # Default: 4
+GoldCost = -1 # Default: 40
+WeaponType = "STORED_SWORDS" # Default: "STORED_SWORDS"
+ArmorType = "STORED_METAL_ARMOUR" # Default: "STORED_METAL_ARMOUR"
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_KNIGHT]
+Health = -1 # Default: 20000
+Speed = -1 # Default: 1
+GoldCost = -1 # Default: 40
+WeaponType = "STORED_SWORDS" # Default: "STORED_SWORDS"
+ArmorType = "STORED_METAL_ARMOUR" # Default: "STORED_METAL_ARMOUR"
+RequiresHorse = true # Default: true
+KnightRunSpeedBonus = -1 # Default: 2
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_LADDERMAN]
+Health = -1 # Default: 5000
+Speed = -1 # Default: 1
+GoldCost = -1 # Default: 4
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_ENGINEER]
+Health = -1 # Default: 5000
+Speed = -1 # Default: 1
+GoldCost = -1 # Default: 30
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_MINER1]
+Health = -1 # Default: 2500
+Speed = -1 # Default: 2
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_MINER2]
+Health = -1 # Default: 2500
+Speed = -1 # Default: 2
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_PRIEST]
+Health = -1 # Default: 2500
+Speed = -1 # Default: 2
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_HEALER]
+Health = -1 # Default: 2500
+Speed = -1 # Default: 1
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_DRUNKARD]
+Health = -1 # Default: 2500
+Speed = -1 # Default: 5
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_INNKEEPER]
+Health = -1 # Default: 2500
+Speed = -1 # Default: 3
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_MONK]
+Health = -1 # Default: 15000
+Speed = -1 # Default: 2
+GoldCost = -1 # Default: 10
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_CATAPULT]
+Health = -1 # Default: 10000
+Speed = -1 # Default: 6
+AttackRange = -1 # Default: 75
+EngageRange = -1 # Default: game default (auto)
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_TREBUCHET]
+Health = -1 # Default: 12000
+AttackRange = -1 # Default: 85
+EngageRange = -1 # Default: game default (auto)
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_MANGONEL]
+Health = -1 # Default: 10000
+AttackRange = -1 # Default: 70
+EngageRange = -1 # Default: game default (auto)
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_TRADER]
+Health = -1 # Default: 2500
+Speed = -1 # Default: 2
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_TRADER_HORSE]
+Health = -1 # Default: 2500
+Speed = -1 # Default: 2
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_DEER]
+Health = -1 # Default: 2500
+Speed = -1 # Default: 1
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_LION]
+Health = -1 # Default: 12000
+Speed = -1 # Default: 2
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_RABBIT]
+Health = -1 # Default: 1000
+Speed = -1 # Default: 2
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_CAMEL]
+Health = -1 # Default: 20000
+Speed = -1 # Default: 1
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_CROW]
+Health = -1 # Default: 2500
+Speed = -1 # Default: 1
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_SEAGULL]
+Health = -1 # Default: 2500
+Speed = -1 # Default: 1
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_COW]
+Health = -1 # Default: 2500
+Speed = -1 # Default: 3
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_DOG]
+Health = -1 # Default: 3000
+Speed = -1 # Default: 1
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_FIREMAN]
+Health = -1 # Default: 2500
+Speed = -1 # Default: 1
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_LORD]
+Health = -1 # Default: 150000
+Speed = -1 # Default: 2
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_LADY]
+Health = -1 # Default: 2500
+Speed = -1 # Default: 5
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_JESTER]
+Health = -1 # Default: 2500
+Speed = -1 # Default: 1
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_SIEGE_TOWER]
+Health = -1 # Default: 240000
+Speed = -1 # Default: 3
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_BATTERING_RAM]
+Health = -1 # Default: 150000
+Speed = -1 # Default: 3
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_PORTABLE_SHIELD]
+Health = -1 # Default: 10000
+Speed = -1 # Default: 1
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_BALLISTA]
+Health = -1 # Default: 10000
+AttackRange = -1 # Default: 85
+EngageRange = -1 # Default: game default (auto)
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_CHICKEN]
+Health = -1 # Default: 2500
+Speed = -1 # Default: 1
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_JUGGLER]
+Health = -1 # Default: 2500
+Speed = -1 # Default: 2
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_FIREEATER]
+Health = -1 # Default: 2500
+Speed = -1 # Default: 2
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_WAR_DOG]
+Health = -1 # Default: 6000
+Speed = -1 # Default: 2
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_ARAB_BOW]
+Health = -1 # Default: 12000
+Speed = -1 # Default: 1
+GoldCost = -1 # Default: 75
+AttackRange = -1 # Default: 54
+EngageRange = -1 # Default: game default (auto)
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_ARAB_SLAVE]
+Health = -1 # Default: 6000
+Speed = -1 # Default: 1
+GoldCost = -1 # Default: 5
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_ARAB_SLINGER]
+Health = -1 # Default: 9000
+Speed = -1 # Default: 1
+GoldCost = -1 # Default: 12
+AttackRange = -1 # Default: 22
+EngageRange = -1 # Default: game default (auto)
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_ARAB_ASSASIN]
+Health = -1 # Default: 15000
+Speed = -1 # Default: 1
+GoldCost = -1 # Default: 60
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_ARAB_HORSEMAN]
+Health = -1 # Default: 10000
+Speed = -1 # Default: 1
+GoldCost = -1 # Default: 80
+AttackRange = -1 # Default: 54
+EngageRange = -1 # Default: game default (auto)
+ArabHorsemanRunSpeedBonus = -1 # Default: 2
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_ARAB_SWORDSMAN]
+Health = -1 # Default: 20000
+Speed = -1 # Default: 3
+GoldCost = -1 # Default: 80
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_ARAB_GRENADIER]
+Health = -1 # Default: 7000
+Speed = -1 # Default: 2
+GoldCost = -1 # Default: 100
+AttackRange = -1 # Default: 11
+EngageRange = -1 # Default: game default (auto)
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_ARAB_BALLISTA]
+Health = -1 # Default: 10000
+Speed = -1 # Default: 5
+AttackRange = -1 # Default: 54
+EngageRange = -1 # Default: game default (auto)
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_BEDOUIN_CAMEL_LANCER]
+Health = -1 # Default: 12000
+Speed = -1 # Default: 1
+GoldCost = -1 # Default: 50
+BedouinCamelLancerRunSpeedBonus = -1 # Default: 2
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_BEDOUIN_HEALER]
+Health = -1 # Default: 14000
+Speed = -1 # Default: 1
+GoldCost = -1 # Default: 100
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_BEDOUIN_EUNUCH]
+Health = -1 # Default: 30000
+Speed = -1 # Default: 4
+GoldCost = -1 # Default: 100
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_BEDOUIN_AMBUSHER]
+Health = -1 # Default: 9000
+Speed = -1 # Default: 2
+GoldCost = -1 # Default: 130
+AttackRange = -1 # Default: 11
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_BEDOUIN_SKIRMISHER]
+Health = -1 # Default: 15000
+Speed = -1 # Default: 1
+GoldCost = -1 # Default: 25
+AttackRange = -1 # Default: 34
+EngageRange = -1 # Default: game default (auto)
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_BEDOUIN_HEAVY_CAMEL]
+Health = -1 # Default: 11000
+Speed = -1 # Default: 2
+GoldCost = -1 # Default: 100
+EngageRange = -1 # Default: game default (auto)
+BedouinHeavyCamelRunSpeedBonus = -1 # Default: 2
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_BEDOUIN_SAPPER]
+Health = -1 # Default: 10000
+Speed = -1 # Default: 1
+GoldCost = -1 # Default: 50
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_BEDOUIN_DEMOLISHER]
+Health = -1 # Default: 15000
+Speed = -1 # Default: 3
+GoldCost = -1 # Default: 80
+ShieldHealth = -1 # Default: 40000
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_GOAT]
+Health = -1 # Default: 2500
+Speed = -1 # Default: 1
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_HYENA]
+Health = -1 # Default: 12000
+Speed = -1 # Default: 2
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+
+[CHIMP_TYPE_CROCODILE]
+Health = -1 # Default: 20000
+Speed = -1 # Default: 6
+MaxCount = -1  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once
+

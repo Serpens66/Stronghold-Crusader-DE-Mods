@@ -171,7 +171,7 @@ def analyze(raw):
         if 'state' in f and kind!='live-state': require('state',f['state'],f)
         if kind=='player-groups' and 'definition' in f: require('groups',f['definition'],f)
         if kind=='candidate-table' and 'baseDefinition' in f: require('candidate',f['baseDefinition'],f)
-        if kind in ('task-selection',): require('candidate',f.get('candidateDefinition','0'),f)
+        if kind in ('task-selection','ladder-consumer-assignment'): require('candidate',f.get('candidateDefinition','0'),f)
         if kind=='live-state':
             for row in f['fragments'].strip('[]').split(';'):
                 if row:

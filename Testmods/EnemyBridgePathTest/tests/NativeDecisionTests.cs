@@ -25,6 +25,7 @@ namespace EnemyBridgePathTest
             ReproducePatchedSelection(image);
             foreach(var site in BridgeNativeDefinition.Sites)
             {
+                if(!BridgeNativeDefinition.OwnsEntry(site))continue;
                 int fileOffset=Offset(image,site.Rva);
                 byte[] original=new byte[site.Size]; Array.Copy(image,fileOffset,original,0,original.Length);
                 for(int i=0;i<site.Bytes.Length;i++) Check(original[i]==site.Bytes[i],"exact prologue");
@@ -64,7 +65,9 @@ namespace EnemyBridgePathTest
                 var invoke=Marshal.GetDelegateForFunctionPointer<Leaf>(leaf);
                 foreach(int value in new[]{0,1,-1,123456,int.MinValue,int.MaxValue}) Check(invoke(IntPtr.Zero,value)==value,"actual wrapper preserves native return");
                 Check(trace.Entered==6&&trace.Exited==6,"actual wrapper pairs exactly once");
-                trace.MarkInstalled(BridgeNativeDefinition.Sites.Length);
+                trace.MarkInstalled(BridgeNativeDefinition.OwnedCount);
+                Check(trace.NativeReadiness.Contains("topologyAvailable=False")&&!trace.Summary().Contains("nativeCoverageComplete=True"),"missing shared publisher cannot claim full coverage");
+                APIShared.EnemyBridgeDiagnosticBridge.PublishTopologyOwner();
                 Check(trace.NativeReadiness.Contains("nativeCallsObserved=True")&&trace.Summary().Contains("nativeCoverageComplete=True"),"ready and completed current-map calls are separate evidence");
                 trace.StartSession(2);
                 Check(trace.NativeReadiness.Contains("nativeCallsObserved=False")&&trace.Summary().Contains("nativeCoverageComplete=False"),"previous map native counts cannot satisfy new-map coverage");

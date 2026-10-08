@@ -119,7 +119,10 @@ namespace APIShared.UnitCommands
                         $"The connectivity/recovery/placement hooks were not installed atomically: {commitResult}.");
                 }
 
+                if (!probePclRebuild.Committed || !probeBuildingsRepair.Committed || !probeConnectionsRepair.Committed)
+                    throw new InvalidOperationException("Manual probe guard owner was not validated.");
                 connectivityHookTransaction = pendingTransaction;
+                EnemyBridgeDiagnosticBridge.PublishTopologyOwner();
             }
             catch
             {

@@ -26,12 +26,23 @@ internal static class TweakerDefaultResetTests
         Equal(Api.Defaults, Api.Pending, "reset must stage every catalog default, including local settings");
         Equal(original, Api.Active, "reset changed active values before restart");
         Check(Api.Stages == 1 && model.System_ConfigurationNeedsRestart(), "reset did not request exactly one restart package");
+        Check(model.System_ApplicationNotice.Contains("Restart the game"), "missing restart feedback");
         Api.Restart();
         Equal(Api.Defaults, Api.Active, "restart did not load defaults");
         int stages = Api.Stages;
         model.System_LoadModDefaults();
         Check(!model.System_ConfigurationNeedsRestart() && Api.Stages == stages, "unchanged defaults requested another package");
 
+        Check(model.System_ApplicationNotice.Contains("already match"), "unchanged reset did not explain no restart");
+        Api.Pending = new Dictionary<string, object>(Api.Defaults) { ["MaxCount"] = 2L };
+        model.System_LoadModDefaults();
+        Check(Api.Pending == null && model.System_ApplicationNotice.Contains("discarded"), "discarded preparation reported as unchanged");
+        Api.Active["MaxCount"] = 3L;
+        Api.Pending = new Dictionary<string, object>(Api.Defaults) { ["MaxCount"] = 2L };
+        model.System_LoadModDefaults();
+        Check(model.System_ApplicationNotice.Contains("replaced") && model.System_ApplicationNotice.Contains("Restart the game"),
+            "replaced preparation did not retain restart feedback");
+        Api.Restart();
         Api.Own["MaxCount"] = 7L;
         Api.Own["LocalDebug"] = true;
         var mixed = Api.Defaults.ToDictionary(pair => pair.Key,
@@ -47,6 +58,7 @@ internal static class TweakerDefaultResetTests
         try { model.System_LoadModDefaults(); throw new Exception("failed stage accepted"); }
         catch (System.Reflection.TargetInvocationException) { }
         Equal(expected, Api.Pending, "failed reset replaced a valid pending package");
+        Check(model.System_ApplicationNotice.Length == 0, "failed reset retained a misleading success notice");
         Api.FailStage = false;
         model.System_LoadModDefaults();
         Equal(Api.Defaults, Api.Pending, "reset after mixed preset retained a previous selection");

@@ -29,7 +29,6 @@ namespace EnemyBridgePathTest
         [UnmanagedFunctionPointer(CallingConvention.Winapi)] internal delegate void Assign(IntPtr p, short a, int b, short c, short d);
         [UnmanagedFunctionPointer(CallingConvention.Winapi)] internal delegate void AssignWide(IntPtr p, short a, long unused, short c, short d);
         [UnmanagedFunctionPointer(CallingConvention.Winapi)] internal delegate int R2(IntPtr p, int a);
-        [UnmanagedFunctionPointer(CallingConvention.Winapi)] internal delegate long L2(IntPtr p, int a);
         [UnmanagedFunctionPointer(CallingConvention.Winapi)] internal delegate long L3(IntPtr p, int a, int b);
         [UnmanagedFunctionPointer(CallingConvention.Winapi)] internal delegate int R7(IntPtr p, int a, int b, int c, int d, int e, int f);
 
@@ -51,6 +50,7 @@ namespace EnemyBridgePathTest
             // Check every live entry before preparing any hook. A second owner fails closed.
             foreach (var site in BridgeNativeDefinition.Sites)
             {
+                if (!BridgeNativeDefinition.OwnsEntry(site)) continue;
                 if (site.Rva < 0 || site.Rva + site.Bytes.Length > context.Memory.Length)
                     throw new InvalidOperationException("Native entry outside loaded module");
                 byte[] live = new byte[site.Bytes.Length];
@@ -179,13 +179,6 @@ namespace EnemyBridgePathTest
                 try { result=h.Original(p,a); ok=true; return result; } finally { trace.Exit(t,ok,result,p); } };
             h=Prepare(s,cb);
         }
-        private void AddL2(BridgeNativeDefinition.Site s)
-        {
-            NativeDetour<L2> h=null;
-            L2 cb=(p,a) => { var t=trace.Enter(s,p,a); long result=0; bool ok=false;
-                try { result=h.Original(p,a); ok=true; return result; } finally { trace.Exit(t,ok,result,p); } };
-            h=Prepare(s,cb);
-        }
         private void AddL3(BridgeNativeDefinition.Site s)
         {
             NativeDetour<L3> h=null;
@@ -210,16 +203,19 @@ namespace EnemyBridgePathTest
         private void PrepareAll()
         {
             foreach (var s in BridgeNativeDefinition.Sites)
+            {
+                if (!BridgeNativeDefinition.OwnsEntry(s)) continue;
                 switch (s.Signature)
                 {
                     case "V0": AddV0(s); break; case "V2": AddV2(s); break;
                     case "V3": AddV3(s); break; case "V4": AddV4(s); break;
                     case "V5": AddV5(s); break; case "Assign": AddAssign(s); break;
                     case "AssignWide": AddAssignWide(s); break;
-                    case "R2": AddR2(s); break; case "L2": AddL2(s); break;
+                    case "R2": AddR2(s); break;
                     case "L3": AddL3(s); break; case "R7": AddR7(s); break;
                     default: throw new InvalidOperationException("Unknown audited ABI");
                 }
+            }
         }
     }
 }

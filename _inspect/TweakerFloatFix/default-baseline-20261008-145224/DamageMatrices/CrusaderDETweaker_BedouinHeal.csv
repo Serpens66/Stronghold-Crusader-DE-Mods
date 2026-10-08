@@ -1,0 +1,100 @@
+# ========================================
+# Crusader DE Tweaker - Damage Matrix
+# ========================================
+#
+# This CSV file contains damage values in matrix format:
+#   - Rows (first column) = Defenders (units being attacked)
+#   - Columns (header row) = Attackers (units/projectiles doing damage)
+#   - Values = Damage amount (integer)
+#
+# HOW TO EDIT:
+#   1. Find the defender unit in the first column
+#   2. Find the attacker unit/projectile in the header row
+#   3. Change the value at the intersection to modify damage
+#   4. A value of 0 or more is applied to the game as-is
+#   5. A negative value (-1) leaves the game's own value unchanged
+#
+# Note: This file can be edited in Excel, Google Sheets, or any text editor.
+# ========================================
+
+                               , BedouinHeal
+CHIMP_TYPE_ARAB_ASSASIN        , 10         
+CHIMP_TYPE_ARAB_BALLISTA       , 10         
+CHIMP_TYPE_ARAB_BOW            , 10         
+CHIMP_TYPE_ARAB_GRENADIER      , 10         
+CHIMP_TYPE_ARAB_HORSEMAN       , 10         
+CHIMP_TYPE_ARAB_SLAVE          , 10         
+CHIMP_TYPE_ARAB_SLINGER        , 10         
+CHIMP_TYPE_ARAB_SWORDSMAN      , 10         
+CHIMP_TYPE_ARCHER              , 10         
+CHIMP_TYPE_ARMOURER            , 10         
+CHIMP_TYPE_BAKER               , 10         
+CHIMP_TYPE_BALLISTA            , 10         
+CHIMP_TYPE_BATTERING_RAM       , 10         
+CHIMP_TYPE_BEDOUIN_AMBUSHER    , 10         
+CHIMP_TYPE_BEDOUIN_CAMEL_LANCER, 10         
+CHIMP_TYPE_BEDOUIN_DEMOLISHER  , 10         
+CHIMP_TYPE_BEDOUIN_EUNUCH      , 10         
+CHIMP_TYPE_BEDOUIN_HEALER      , 10         
+CHIMP_TYPE_BEDOUIN_HEAVY_CAMEL , 10         
+CHIMP_TYPE_BEDOUIN_SAPPER      , 10         
+CHIMP_TYPE_BEDOUIN_SKIRMISHER  , 10         
+CHIMP_TYPE_BLACKSMITH          , 10         
+CHIMP_TYPE_BREWER              , 10         
+CHIMP_TYPE_CAMEL               , 10         
+CHIMP_TYPE_CATAPULT            , 10         
+CHIMP_TYPE_CHICKEN             , 10         
+CHIMP_TYPE_COW                 , 10         
+CHIMP_TYPE_CROCODILE           , 10         
+CHIMP_TYPE_CROW                , 10         
+CHIMP_TYPE_DEER                , 10         
+CHIMP_TYPE_DOG                 , 10         
+CHIMP_TYPE_DRUNKARD            , 10         
+CHIMP_TYPE_ENGINEER            , 10         
+CHIMP_TYPE_FARMER_APPLE        , 10         
+CHIMP_TYPE_FARMER_CATTLE       , 10         
+CHIMP_TYPE_FARMER_HOPS         , 10         
+CHIMP_TYPE_FARMER_WHEAT        , 10         
+CHIMP_TYPE_FIREEATER           , 10         
+CHIMP_TYPE_FIREMAN             , 10         
+CHIMP_TYPE_FLETCHER            , 10         
+CHIMP_TYPE_GOAT                , 10         
+CHIMP_TYPE_HEALER              , 10         
+CHIMP_TYPE_HUNTER              , 10         
+CHIMP_TYPE_HYENA               , 10         
+CHIMP_TYPE_INNKEEPER           , 10         
+CHIMP_TYPE_JESTER              , 10         
+CHIMP_TYPE_JUGGLER             , 10         
+CHIMP_TYPE_KNIGHT              , 10         
+CHIMP_TYPE_LADDERMAN           , 10         
+CHIMP_TYPE_LADY                , 10         
+CHIMP_TYPE_LION                , 10         
+CHIMP_TYPE_LORD                , 10         
+CHIMP_TYPE_MACEMAN             , 10         
+CHIMP_TYPE_MANGONEL            , 10         
+CHIMP_TYPE_MILLER              , 10         
+CHIMP_TYPE_MINER1              , 10         
+CHIMP_TYPE_MINER2              , 10         
+CHIMP_TYPE_MONK                , 10         
+CHIMP_TYPE_PEASANT             , 10         
+CHIMP_TYPE_PIKEMAN             , 10         
+CHIMP_TYPE_PITCHMAN            , 10         
+CHIMP_TYPE_POLETURNER          , 10         
+CHIMP_TYPE_PORTABLE_SHIELD     , 10         
+CHIMP_TYPE_PRIEST              , 10         
+CHIMP_TYPE_QUARRY_GRUNT        , 10         
+CHIMP_TYPE_QUARRY_MASON        , 10         
+CHIMP_TYPE_QUARRY_OX           , 10         
+CHIMP_TYPE_RABBIT              , 10         
+CHIMP_TYPE_SEAGULL             , 10         
+CHIMP_TYPE_SIEGE_TOWER         , 10         
+CHIMP_TYPE_SPEARMAN            , 10         
+CHIMP_TYPE_SWORDSMAN           , 10         
+CHIMP_TYPE_TANNER              , 10         
+CHIMP_TYPE_TRADER              , 10         
+CHIMP_TYPE_TRADER_HORSE        , 10         
+CHIMP_TYPE_TREBUCHET           , 10         
+CHIMP_TYPE_TUNNELER            , 10         
+CHIMP_TYPE_WAR_DOG             , 10         
+CHIMP_TYPE_WOODCUTTER          , 10         
+CHIMP_TYPE_XBOWMAN             , 10         

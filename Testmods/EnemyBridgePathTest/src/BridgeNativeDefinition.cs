@@ -15,10 +15,13 @@ namespace EnemyBridgePathTest
             { Index=nextIndex++; Rva=rva; Size=size; Name=name; Signature=signature; Bytes=new byte[bytes.Length/2];
               for(int i=0;i<Bytes.Length;i++) Bytes[i]=Convert.ToByte(bytes.Substring(i*2,2),16); }
         }
+        internal static bool OwnsEntry(Site site) => site.Rva != 0xE49D0 && site.Rva != 0x111C00;
+        internal static readonly int OwnedCount;
+        internal static readonly Site TopologySite;
         internal static readonly Site[] Sites = {
             new Site(0x64460,"lower","V2","48895C2418895424105556574154",349),
             new Site(0x645C0,"raise","V2","48895C241848896C242089542410",312),
-            new Site(0xE49D0,"topology","L2","405341574883EC58488BD941BF01000000",1208),
+            new Site(0xE49D0,"topology","R2","405341574883EC58488BD941BF01000000",1208),
             new Site(0x10D9F0,"planner","V3","48895C240848896C24104889742418",703),
             new Site(0xD95E0,"seed-field","V4","4053415641574883EC304863C24C8D3D0C6AF2FF",1629),
             new Site(0xD9190,"distance-field","V5","44894C2420448944241889542410",1029),
@@ -49,5 +52,6 @@ namespace EnemyBridgePathTest
             new Site(0xCF360,"keep-access-mode0","L3","4883EC384C63D24D69CA3C580000",152),
             new Site(0xCF400,"keep-access-mode1","L3","4883EC384C63D24D69CA3C580000",152),
         };
+        static BridgeNativeDefinition() {OwnedCount=Array.FindAll(Sites,OwnsEntry).Length;TopologySite=Array.Find(Sites,s=>s.Rva==0xE49D0);}
     }
 }
