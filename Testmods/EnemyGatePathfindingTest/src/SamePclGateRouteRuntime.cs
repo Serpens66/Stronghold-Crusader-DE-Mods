@@ -145,7 +145,7 @@ namespace EnemyGatePathfindingTest
     // three tactical-target adapters AND that mask into Vanilla's own edge checks
     // without changing the global grid.
     internal sealed unsafe class SamePclGateRouteRuntime : IEnemyGatePathPolicy,
-        IEnemyGateRegionPairObserver, IEnemyGateAssassinObserver, IEnemyGateRoutePolicyProvider
+        IEnemyGateRegionPairObserver, IEnemyGateAssassinObserver, IEnemyGateRoutePolicyProvider, ITemporaryAssassinGateObserver
     {
         private const int ThreadSlotStride = 32;
         private const int NativeSnapshotPoolSize = 4;
@@ -571,10 +571,23 @@ namespace EnemyGatePathfindingTest
         // TEMP_GATE_ROUTE_ACCEPTANCE: read-only publication identity.
         internal RouteTilePolicySnapshot TemporaryAcceptanceSnapshot => publishedPolicy;
 
+        // TEMP_GATE_ROUTE_ACCEPTANCE: remove optional forwarding after acceptance.
+        void ITemporaryAssassinGateObserver.ObserveAssassinStage(object token, int player, string stage, string result, string detail) =>
+            attackOrderDiagnostics?.ObserveTemporaryAssassinStage(token, player, stage, result, detail);
+        void ITemporaryAssassinGateObserver.ObserveAssassinDecision(object token, int player, int from, int to, int direction,
+            bool prepared, AssassinTransitionKind movement, bool allowed, int gate, uint global, string evidence) =>
+            attackOrderDiagnostics?.ObserveTemporaryAssassinDecision(token, player, from, to, direction, prepared, movement, allowed, gate, global, evidence);
+
         object IEnemyGateAssassinObserver.BeginAssassinSearch(int startX, int startY,
-            int targetX, int targetY, int maximumNodes, int continuation, string nativeState) =>
-            attackOrderDiagnostics?.BeginAssassinSearch(publishedPolicy, startX, startY,
+            int targetX, int targetY, int maximumNodes, int continuation, string nativeState)
+        {
+            object token = attackOrderDiagnostics?.BeginAssassinSearch(publishedPolicy, startX, startY,
                 targetX, targetY, maximumNodes, continuation, nativeState);
+            // TEMP_GATE_ROUTE_ACCEPTANCE: generation of the existing published mask, not a game query.
+            attackOrderDiagnostics?.ObserveTemporaryAssassinStage(token, 0, "policy-entry", "captured",
+                "policyGeneration=" + policyGeneration);
+            return token;
+        }
 
         void IEnemyGateAssassinObserver.ObserveAssassinEdge(object token, int playerId,
             int fromTile, int toTile, int direction, bool climb) =>

@@ -71,7 +71,7 @@ internal static partial class Program
     }finally{frame.Leave();}
    }finally{direct.Release();}
 """);
-        string[] files = { "APIShared/src/AssassinRouteHandoff.cs", "APIShared/src/AssassinGateTransitionPolicy.cs",
+        string[] files = { "APIShared/src/AssassinRouteHandoff.cs", "APIShared/src/AssassinGateTransitionPolicy.cs", "APIShared/src/TemporaryGateRouteAcceptanceBridge.cs",
             "APIShared/src/EnemyGatePathPolicyBridge.cs", "BugfixesAndQoL/src/AssassinGateRoutePolicy.cs",
             "BugfixesAndQoL/src/AssassinPathfindingRuntime.CacheKeys.cs", "BugfixesAndQoL/src/AssassinAStarPolicy.cs",
             "BugfixesAndQoL/src/AssassinClimbCostPolicy.cs", "BugfixesAndQoL/src/AssassinClimbTransitionPolicy.cs",
@@ -101,6 +101,8 @@ internal static partial class Program
         Type disabled = CompileProductionKernel(root, false), enabled = CompileProductionKernel(root, false, true);
         InvokeKernel(disabled, "Verify");
         InvokeKernel(enabled, "Verify");
+        InvokeKernel(disabled, "VerifyTemporaryDecisions");
+        Check(true, "actual gate transition observer on/off preserves predicates, results and legitimate climbing");
         foreach (string mode in new[] { "group", "independent", "field" })
         {
             string[] off = ((string)InvokeKernel(disabled, "Run", "gate", 1000, mode, true)).Split(',');
@@ -167,7 +169,18 @@ internal static partial class Program
             .GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single(m => m.Identifier.Text == name);
         string WithoutDiagnosticGates(string source) => source
             .Replace("(PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0)", "Stopwatch.GetTimestamp()")
-            .Replace("if (PerformanceDiagnosticsEnabled) ", "");
+            .Replace("if (PerformanceDiagnosticsEnabled) ", "")
+            .Replace("RememberTemporaryParent(nextTile);", "")
+            .Replace("activeObservation?.ParentDecisions?.Clear();", "");
+        MethodDeclarationSyntax FunctionalEvaluator(string source)
+        {
+            var method = Method(source, "EvaluateAssassinTransition");
+            var removable = method.Body.Statements.Where(st => st.ToString().StartsWith("evidence =") ||
+                st is IfStatementSyntax test && (test.Condition.ToString().Contains("DetailedObserver") || test.Condition.ToString() == "evidence != null")).ToArray();
+            method = method.RemoveNodes(removable, SyntaxRemoveOptions.KeepNoTrivia);
+            return method.WithIdentifier(SyntaxFactory.Identifier("AllowsAssassinTransition"))
+                .WithParameterList(method.ParameterList.WithParameters(method.ParameterList.Parameters.RemoveAt(method.ParameterList.Parameters.Count - 1)));
+        }
         string runtimePath = "BugfixesAndQoL/src/AssassinPathfindingRuntime.cs";
         string previous = GitSource("f57dfdb02", runtimePath), current = WithoutDiagnosticGates(File.ReadAllText(Path.Combine(root, runtimePath)));
         foreach (string name in new[] { "IsVanillaAssassinFallback", "GetClimbTicks", "HasOrdinaryConnection",
@@ -176,7 +189,7 @@ internal static partial class Program
             "IsValidCoordinate", "GetTileId", "GetCoordinateIndex", "IsNativeTile", "ValidateCoordinateTileMapping",
             "EnsureCoordinateTileMappingValidated", "Touch", "ResetTouchedNodes", "Push", "PushOrDecrease", "Pop",
             "SiftUp", "SiftDown", "ComesBefore" })
-            Check(Method(previous,name).NormalizeWhitespace().ToFullString() == Method(current,name).NormalizeWhitespace().ToFullString(),
+            Check(Method(previous,name).NormalizeWhitespace().ToFullString() == (name == "AllowsAssassinTransition" ? FunctionalEvaluator(current) : Method(current,name)).NormalizeWhitespace().ToFullString(),
                 "Git contract unchanged: " + name);
         string search = Method(current,"TryBuildWeightedRoute").ToFullString()
             .Replace("Dictionary<int, int> suffixCosts = command?.GetSuffixCosts(suffixKey);", "")

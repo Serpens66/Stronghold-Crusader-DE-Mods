@@ -176,6 +176,9 @@ namespace APIShared
                 playerId, packedDirections, directionCount, validate);
         }
 
+        /// <summary>TEMP_GATE_ROUTE_ACCEPTANCE: reason from the existing handoff guard; never probes identity.</summary>
+        public static string TemporaryWeightedRequestReason => AssassinRouteHandoff.TemporaryRequestReason ?? "unknown";
+
         /// <summary>Returns the current owned unit's full control word and movement delay without scanning units.</summary>
         public static bool TryGetCurrentWeightedRequest(string ownerGuid, IntPtr context,
             int startX, int startY, int targetX, int targetY, out int controlPlayer, out int speedDelay)

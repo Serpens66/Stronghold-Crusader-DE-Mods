@@ -10,7 +10,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 namespace EnemyGatePathfindingTest
 {
-    internal sealed unsafe class TemporaryGateRouteAcceptance : ITemporaryGateRouteAcceptanceObserver
+    internal sealed unsafe class TemporaryGateRouteAcceptance : ITemporaryGateRouteAcceptanceObserver, ITemporaryAssassinGateObserver
     {
         private readonly ManualLogSource log;
         private readonly Func<RouteTilePolicySnapshot> policy;
@@ -27,7 +27,7 @@ namespace EnemyGatePathfindingTest
             internal uint TribeGlobal;
             internal bool Invalid;
             internal long Edges, Climb, GroundViolations, AllowedClimb, UnknownOverlap;
-            internal string Kind, Target, Detail;
+            internal string Kind, Target, Detail, SourceEvidence, PolicyEvidence, FirstFunctionalClimb, LastFunctionalClimb;
             internal string Dimensions = "";
             internal int TargetBuilding;
             internal uint TargetBuildingGlobal;
@@ -48,7 +48,7 @@ namespace EnemyGatePathfindingTest
             checkedRoutes = violated = unclear = negativeSearches = unattributedSearches = permittedClimbRoutes = maskOverlapRoutes = 0; nextFlush = Stopwatch.GetTimestamp() + Stopwatch.Frequency * 60;
             lastFailures = TemporaryGateRouteAcceptanceBridge.Failures;
             Shared.DebugLogHelper.LogInfo(log, "TEMP_GATE_ROUTE_ACCEPTANCE begin epoch=" + epoch +
-                ",format=4,intervalSeconds=60,weightedLengthUnit=nodes,packedLengthUnit=edges," +
+                ",format=5,intervalSeconds=60,weightedLengthUnit=nodes,packedLengthUnit=edges," +
                 "publicationContext=frame-or-owned-buffer,noExtraSearches=true,noNewHooks=true,unmeasuredNativeFallbacks=unknown," +
                 "fixesLoaded=" + Chainloader.PluginInfos.ContainsKey("fixes") + ",fixesLiveLordOverrides=unknown,fixesHookEffect=unmeasured");
         }
@@ -159,7 +159,8 @@ namespace EnemyGatePathfindingTest
                     ",endpointIsNotAttackTargetProof=true,fixesOrderOrigin=not-attributed" };
         }
         public void RouteEdge(object token, int from, int to, int direction) => Edge(token, from, to, direction, false);
-        internal void Edge(object token, int from, int to, int direction, bool climb)
+        internal void Edge(object token, int from, int to, int direction, bool climb,
+            AssassinTransitionKind? functionalMovement = null, bool functionalAllowed = false, int functionalGate = 0, uint functionalGlobal = 0, string functionalEvidence = null)
         {
             if (!(token is Route route)) return;
             route.Edges++; if (climb) route.Climb++;
@@ -173,7 +174,7 @@ namespace EnemyGatePathfindingTest
             if (route.Snapshot.IsDirectionAllowed(route.Player, from, direction)) return;
             int gate = route.Snapshot.EdgeOwners?[route.Player]?.Resolve(from, direction) ?? 0;
             bool packed = route.Kind.EndsWith("-published", StringComparison.Ordinal);
-            AssassinTransitionKind movement = AssassinPathAPI.ClassifyNativeTransition(from, to, direction, true);
+            AssassinTransitionKind movement = functionalMovement ?? AssassinPathAPI.ClassifyNativeTransition(from, to, direction, true);
             RouteTilePolicySnapshot.GateIdentity identity = default;
             bool stableGate = gate > 0 && route.Snapshot.GateIdentities.TryGetValue(gate, out identity) &&
                 identity.Global != 0 && GameBuildingManagerAPI.Instance.IsValidId(gate) &&
@@ -184,13 +185,26 @@ namespace EnemyGatePathfindingTest
             if (stableGate) route.SnapshotGateIdentities[gate] = identity;
             bool matchingGateEndpoint = stableGate && (GameTileManagerAPI.Instance.GetTileBuildingId(from) == gate ||
                 GameTileManagerAPI.Instance.GetTileBuildingId(to) == gate);
-            if (!packed && climb && matchingGateEndpoint && (movement == AssassinTransitionKind.ClimbUp || movement == AssassinTransitionKind.ClimbDown))
-            { route.AllowedClimb++; return; }
+            if (!packed && climb && matchingGateEndpoint &&
+                (!functionalMovement.HasValue || (functionalAllowed && functionalGate == gate &&
+                    route.Snapshot.GateIdentities.TryGetValue(gate, out var functionalIdentity) && functionalIdentity.Global == functionalGlobal)) &&
+                (movement == AssassinTransitionKind.ClimbUp || movement == AssassinTransitionKind.ClimbDown))
+            {
+                route.AllowedClimb++;
+                if (functionalEvidence != null)
+                {
+                    string proof = "from=" + from + ",to=" + to + ",direction=" + direction + ",movement=" + movement + "," + functionalEvidence;
+                    if (route.FirstFunctionalClimb == null) route.FirstFunctionalClimb = proof;
+                    route.LastFunctionalClimb = proof;
+                }
+                return;
+            }
             if (movement == AssassinTransitionKind.Ground && stableGate) route.GroundViolations++;
             else route.UnknownOverlap++;
             string detail = "movement=" + movement + ",assessment=" +
                 (movement == AssassinTransitionKind.Ground && stableGate ? "confirmed-ground-policy-violation" : "mask-overlap-unresolved") + ",from=" + from + ",to=" + to + ",direction=" + direction + ",edgeIndex=" + (route.Edges - 1) +
-                ",climb=" + (packed ? "unknown" : climb.ToString());
+                ",climb=" + (packed ? "unknown" : climb.ToString()) +
+                (functionalEvidence == null ? "" : ",functionalValidator=[" + functionalEvidence + "]");
             if (packed)
             {
                 var tiles = GameTileManagerAPI.Instance;
@@ -303,6 +317,8 @@ namespace EnemyGatePathfindingTest
             route.Kind += cache ? "-cache" : "-fresh";
             route.Detail += ",native=" + native + ",effective=" + effective + ",cache=" + cache + ",continuation=" + continuation + ",outcome=" + outcome;
             route.Detail += ",group=" + Group(route.Player, route.Tribe, route.TribeGlobal, route.Role);
+            if (route.FirstFunctionalClimb != null) route.Detail += ",firstFunctionalClimb=[" + route.FirstFunctionalClimb +
+                "],lastFunctionalClimb=[" + route.LastFunctionalClimb + "]";
             Record(route.Player, route.Role, route.Kind, "native=" + native + "/effective=" + effective + "/cache=" + cache + "/continuation=" + (continuation != 0),
                 route.Target, route.Detail);
             if (route.Player < 1 || route.Player > 8)
@@ -318,6 +334,51 @@ namespace EnemyGatePathfindingTest
                 EndRouteCore(route, effective <= 0 ? "search-negative" : length > 0 ? "decoded" : "positive-without-materialized-route",
                     length > 0 ? length - 1 : -1, length == 1 && route.StartX == route.TargetX && route.StartY == route.TargetY);
             }
+        }
+        // TEMP_GATE_ROUTE_ACCEPTANCE: count actual validator evaluations separately from route edges.
+        public void ObserveAssassinDecision(object token, int player, int from, int to, int direction,
+            bool prepared, AssassinTransitionKind movement, bool allowed, int gate, uint global, string evidence)
+        {
+            if (!active) return;
+            Route route = token as Route;
+            if (prepared && route != null)
+            {
+                if (route.Edges > 0 && route.Player != player) route.Invalid = true;
+                route.Player = player;
+                Edge(route, from, to, direction, movement == AssassinTransitionKind.ClimbUp || movement == AssassinTransitionKind.ClimbDown,
+                    movement, allowed, gate, global, evidence);
+            }
+            else Record(player, route?.Role ?? -1, "assassin-functional-transition",
+                "movement=" + movement + "/allowed=" + allowed, route?.Target ?? "",
+                "from=" + from + ",to=" + to + ",direction=" + direction + ",gate=" + gate + "/" + global + "," + evidence);
+        }
+        public void ObserveAssassinStage(object token, int player, string stage, string result, string detail)
+        {
+            if (!active) return;
+            Route route = token as Route;
+            if (route != null)
+            {
+                if (player > 0) route.Player = player;
+                if (stage == "policy-entry") route.PolicyEvidence = detail;
+                if (stage == "search-entry") route.SourceEvidence = detail;
+                else if (route.SourceEvidence != null) detail = route.SourceEvidence + "," + detail;
+                route.Detail += "," + stage + "=[" + detail + "]";
+                detail += "," + (route.PolicyEvidence ?? "policyGeneration=unknown");
+                detail += ",policyEpoch=" + route.Epoch + ",policyFingerprint=" + (route.Snapshot?.TopologyFingerprint ?? 0);
+            }
+            // Source is a finite category; coordinates/identities never enter aggregate keys.
+            string source = detail.Contains("source=building-query") ? "building-query" :
+                detail.Contains("source=single-unit") ? "single-unit" :
+                detail.Contains("source=group-move") ? "group-move" : detail.Contains("source=group-target") ? "group-target" : "unknown";
+            if (stage == "search-exit" && result == "weighted-exact-fallback")
+            {
+                const string marker = "requestReason=";
+                int at = detail.LastIndexOf(marker, StringComparison.Ordinal);
+                string reason = at < 0 ? "unknown" : detail.Substring(at + marker.Length).Split(',')[0];
+                result += "/reason=" + reason;
+            }
+            Record(player > 0 ? player : route?.Player ?? 0, route?.Role ?? -1, "assassin-" + stage,
+                "source=" + source + "/" + result, route?.Target ?? "", detail);
         }
         public void Raid(int player, int role, int tribe, uint tribeGlobal, int building, uint buildingGlobal, string stage, string result, string detail)
         {

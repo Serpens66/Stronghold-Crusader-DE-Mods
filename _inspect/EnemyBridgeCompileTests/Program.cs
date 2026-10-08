@@ -73,7 +73,7 @@ foreach (string mod in args.Length > 1 ? args.Skip(1) : new[] { "EnemyGatePathfi
     }
     if (Assembly.LoadFrom(api).GetType("APIShared.TemporaryGateRouteAcceptanceBridge",false)==null)
         trees.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"APIShared","src","TemporaryGateRouteAcceptanceBridge.cs"))));
-    var compilation = CSharpCompilation.Create(mod+"StaticContract",trees,
+    var compilation = CSharpCompilation.Create(mod == "BugfixesAndQoL" ? "BugfixesAndQoL" : mod+"StaticContract",trees,
         modReferences.Values.Where(p=>!Path.GetFileName(p).Equals("APIShared.dll",StringComparison.OrdinalIgnoreCase)).Select(p=>MetadataReference.CreateFromFile(p)).Cast<MetadataReference>().Append(changedApi),
         new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary,allowUnsafe:true));
     var errors = compilation.GetDiagnostics().Where(d=>d.Severity==DiagnosticSeverity.Error).ToArray();

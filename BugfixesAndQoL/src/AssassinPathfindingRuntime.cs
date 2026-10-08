@@ -227,7 +227,20 @@ namespace BugfixesAndQoL
             internal int Player = -1, NativeResult, EffectiveResult, RouteLength;
             internal long FilteredGround, FilteredClimb;
             internal bool CacheHit;
+            internal bool? EffectiveWeighted, EffectiveClimbing, ReservedEndpoints;
             internal string Outcome = "native-exception", Error;
+            // TEMP_GATE_ROUTE_ACCEPTANCE: current parents only, discarded with the synchronous search.
+            internal ITemporaryAssassinGateObserver DetailedObserver;
+            internal Dictionary<int, GateTransitionEvidence> ParentDecisions;
+            internal GateTransitionEvidence LastDecision;
+        }
+        private sealed class GateTransitionEvidence
+        {
+            internal int From, To, Direction, Gate;
+            internal uint Global;
+            internal AssassinTransitionKind Movement;
+            internal bool Allowed;
+            internal string Detail;
         }
 
         private int BuildWeightedPath(IntPtr context, int startX, int startY, int targetX, int targetY, int maximumNodes, int continuation)
@@ -263,6 +276,17 @@ namespace BugfixesAndQoL
                     try { observation.BridgeToken = bridgeObserver.BeginAssassinSearch(startX, startY, targetX, targetY,
                         maximumNodes, continuation, DescribeNativeAssassinState(context)); }
                     catch (Exception ex) { LogWarning("Bridge Assassin begin failed: " + ex.GetType().Name); }
+                if (observation != null && observer is ITemporaryAssassinGateObserver detailed)
+                {
+                    observation.DetailedObserver = detailed;
+                    observation.ParentDecisions = new Dictionary<int, GateTransitionEvidence>();
+                    try { detailed.ObserveAssassinStage(observation.Token, observation.Player, "search-entry", "entered",
+                        UnitCommandPathRuntime.CaptureTemporaryAssassinSource() + ",mode=" + continuation +
+                        ",start=" + startX + "/" + startY + ",target=" + targetX + "/" + targetY +
+                        ",nativeState=" + DescribeNativeAssassinState(context) +
+                        ",directGateClimb=" + AssassinPathAPI.DirectGatehouseClimbingEnabled + ",weightedConfigured=" + (settings.EnableMod && settings.EnableImprovedAssassinPathfinding)); }
+                    catch (Exception ex) { TemporaryGateRouteAcceptanceBridge.ReportFailure("assassin-entry", ex); }
+                }
                 activeObservation = observation;
                 int result = BuildWeightedPathCore(context, startX, startY, targetX, targetY, maximumNodes, continuation);
                 temporaryCompleted = true; temporaryResult = result;
@@ -274,6 +298,13 @@ namespace BugfixesAndQoL
                 UnitCommandPathRuntime.EndTemporaryAssassinSearch(temporaryNativeSearch, temporaryCompleted,
                     observation?.NativeResult ?? 0, temporaryResult, observation?.Player ?? -1,
                     observation?.Outcome ?? "unobserved", observation?.CacheHit ?? false, observation?.RouteLength ?? 0);
+                if (observation?.DetailedObserver != null)
+                    try { observation.DetailedObserver.ObserveAssassinStage(observation.Token, observation.Player, "search-exit",
+                        observation.Outcome, "native=" + observation.NativeResult + ",effective=" + observation.EffectiveResult +
+                        ",effectiveWeighted=" + observation.EffectiveWeighted + ",climbingAllowed=" + observation.EffectiveClimbing +
+                    ",reservedEndpoints=" + observation.ReservedEndpoints + ",completed=" + temporaryCompleted + ",cache=" + observation.CacheHit + ",nodes=" + observation.RouteLength +
+                        ",requestReason=" + AssassinPathAPI.TemporaryWeightedRequestReason); }
+                    catch (Exception ex) { TemporaryGateRouteAcceptanceBridge.ReportFailure("assassin-exit", ex); }
                 activeObservation = previous;
                 if (observation != null && bridgeObserver != null)
                     try { bridgeObserver.ObserveAssassinPolicyFiltering(observation.BridgeToken, observation.Player,
@@ -337,8 +368,14 @@ namespace BugfixesAndQoL
                     if (direction < 0 || !IsNativeTile(fromTile) || !IsNativeTile(toTile))
                         throw new InvalidOperationException("Invalid prepared diagnostic edge");
                     bool climb = !HasOrdinaryConnection(fromTile, toTile, direction);
-                    try { observation.Observer?.ObserveAssassinEdge(observation.Token, player,
-                        fromTile, toTile, direction, climb); }
+                    try
+                    {
+                        if (observation.DetailedObserver != null && observation.ParentDecisions.TryGetValue(toTile, out GateTransitionEvidence evidence) &&
+                            evidence.From == fromTile && evidence.To == toTile)
+                            observation.DetailedObserver.ObserveAssassinDecision(observation.Token, player, fromTile, toTile, direction,
+                                true, evidence.Movement, evidence.Allowed, evidence.Gate, evidence.Global, evidence.Detail);
+                        else observation.Observer?.ObserveAssassinEdge(observation.Token, player, fromTile, toTile, direction, climb);
+                    }
                     catch (Exception ex) { LogWarning("Assassin diagnostic edge failed: " + ex.GetType().Name); }
                     try { observation.BridgeObserver?.ObserveAssassinEdge(observation.BridgeToken, player, fromTile, toTile, direction, climb); }
                     catch (Exception ex) { LogWarning("Bridge Assassin edge failed: " + ex.GetType().Name); }
@@ -368,6 +405,7 @@ namespace BugfixesAndQoL
 
             bool enabled = command?.Enabled ??
                 (settings.EnableMod && settings.EnableImprovedAssassinPathfinding);
+            if (activeObservation != null) activeObservation.EffectiveWeighted = enabled;
             if (!enabled || continuation != 0)
             {
                 if (activeObservation != null) activeObservation.Outcome = !enabled ? "weighted-disabled" : "continuation";
@@ -407,6 +445,8 @@ namespace BugfixesAndQoL
                 // Never publish a relaxed route unless Vanilla can reconstruct the same
                 // validated reserved climb endpoints. This keeps patch failures fail-closed.
                 bool allowWalkableReservedClimbEndpoints = reconstructionPatch?.IsApplied == true;
+                if (activeObservation != null) { activeObservation.EffectiveClimbing = allowClimbing;
+                    activeObservation.ReservedEndpoints = allowWalkableReservedClimbEndpoints; }
                 var cacheKey = new RouteCacheKey(
                     startX, startY, targetX, targetY, maximumNodes, speedDelay,
                     playerId, allowClimbing, allowWalkableReservedClimbEndpoints, gatePolicy, AssassinPathAPI.DirectGatehouseClimbingEnabled);
@@ -418,6 +458,7 @@ namespace BugfixesAndQoL
                 if (PerformanceDiagnosticsEnabled) command?.RecordCacheLookup((PerformanceDiagnosticsEnabled ? Stopwatch.GetTimestamp() : 0) - cacheStarted);
                 if (!routeReady)
                 {
+                    activeObservation?.ParentDecisions?.Clear();
                     routeReady = TryBuildWeightedRoute(
                         startX,
                         startY,
@@ -638,6 +679,7 @@ namespace BugfixesAndQoL
                         estimatedTotalCosts[nextNode] =
                             AssassinAStarPolicy.SaturatingAdd(newCost, heuristic);
                     }
+                    RememberTemporaryParent(nextTile);
                     PushOrDecrease(nextNode);
                 }
             }
@@ -779,6 +821,7 @@ namespace BugfixesAndQoL
                 if (key.DirectGatehouseClimbing != AssassinPathAPI.DirectGatehouseClimbingEnabled ||
                     !AllowsAssassinTransition(key.GatePolicy, currentTile, nextTile, direction, key.AllowClimbing, key.AllowWalkableReservedClimbEndpoints))
                     return false;
+                RememberTemporaryParent(nextTile);
                 bool cardinal = (direction & 1) == 0;
                 bool ordinaryEdge = HasOrdinaryConnection(currentTile, nextTile, direction);
                 int edgeCost;
@@ -924,16 +967,51 @@ namespace BugfixesAndQoL
             return true;
         }
 
+        // TEMP_GATE_ROUTE_ACCEPTANCE: capture the existing decision without repeating native predicates.
+        private void RememberTemporaryParent(int to)
+        {
+            AssassinObservation observation = activeObservation;
+            if (observation?.ParentDecisions == null) return;
+            if (observation.LastDecision == null) observation.ParentDecisions.Remove(to);
+            else observation.ParentDecisions[to] = observation.LastDecision;
+        }
         private bool AllowsAssassinTransition(IEnemyGateRoutePolicySnapshot policy, int from, int to,
             int direction, bool allowClimbing, bool allowReserved)
         {
+            bool result = EvaluateAssassinTransition(policy, from, to, direction, allowClimbing, allowReserved,
+                out GateTransitionEvidence evidence);
+            AssassinObservation observation = activeObservation;
+            if (observation?.DetailedObserver != null)
+            {
+                observation.LastDecision = evidence;
+                if (evidence != null)
+                {
+                    evidence.Allowed = result;
+                    try { observation.DetailedObserver.ObserveAssassinDecision(observation.Token, policy?.PlayerId ?? 0,
+                        from, to, direction, false, evidence.Movement, result, evidence.Gate, evidence.Global, evidence.Detail); }
+                    catch (Exception ex) { TemporaryGateRouteAcceptanceBridge.ReportFailure("assassin-functional-transition", ex); }
+                }
+            }
+            return result;
+        }
+        private bool EvaluateAssassinTransition(IEnemyGateRoutePolicySnapshot policy, int from, int to,
+            int direction, bool allowClimbing, bool allowReserved, out GateTransitionEvidence evidence)
+        {
+            evidence = null;
             if (AssassinGateRoutePolicy.Allows(policy, from, direction)) return true;
+            if (activeObservation?.DetailedObserver != null)
+                evidence = new GateTransitionEvidence { From = from, To = to, Direction = direction,
+                    Movement = AssassinTransitionKind.Unknown, Detail = "policy=masked,climbing=" + allowClimbing + ",reservedEndpoints=" + allowReserved };
             if (policy == null || !policy.IsCurrent || (uint)direction > 7 || !IsNativeTile(from) || !IsNativeTile(to)) return false;
             bool endpointAndSurface = (direction & 1) == 0 && allowClimbing &&
                 IsVanillaAssassinFallback(from, to, tileFlags[from], allowReserved);
             AssassinTransitionKind movement = AssassinGateTransitionPolicy.Classify(direction,
                 occupancyLayer[from], occupancyLayer[to], directionMasks[direction], directionMasks[direction ^ 4],
                 tileFlags[from], tileFlags[to], endpointAndSurface, allowClimbing, endpointAndSurface);
+            if (evidence != null) { evidence.Movement = movement; evidence.Detail += ",fallbackEndpointAndSurface=" + endpointAndSurface +
+                ",sourceConnection=" + occupancyLayer[from] + ",targetConnection=" + occupancyLayer[to] +
+                ",forwardMask=" + directionMasks[direction] + ",reverseMask=" + directionMasks[direction ^ 4] +
+                ",sourceSurface=" + tileFlags[from] + ",targetSurface=" + tileFlags[to]; }
             if (movement != AssassinTransitionKind.ClimbUp && movement != AssassinTransitionKind.ClimbDown) return false;
             // A building endpoint exception alone is insufficient. The blocked cut must
             // belong to this exact, still live gate publication, including capture values.
@@ -945,6 +1023,8 @@ namespace BugfixesAndQoL
                 live->r_GlobalId != global || live->r_PlayerIdOwner != owner || live->r_CapturedByPlayerId != capturer ||
                 live->r_AliveState == AliveState.None || live->r_AliveState == AliveState.MarkedForDeletion ||
                 (live->r_BuildingType != eStructs.STRUCT_GATE_MAIN && live->r_BuildingType != eStructs.STRUCT_GATE_INNER)) return false;
+            if (evidence != null) { evidence.Gate = gate; evidence.Global = global;
+                evidence.Detail += ",gate=" + gate + "/" + global + ",owner=" + owner + ",capturer=" + capturer + ",identity=verified"; }
             return AssassinGateTransitionPolicy.Allows(false, movement, policy.IsCurrent);
         }
 

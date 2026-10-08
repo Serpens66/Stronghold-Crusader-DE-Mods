@@ -17,8 +17,9 @@ struct GameUnit {
 struct GameBuilding { public uint r_GlobalId; public int r_PlayerIdOwner,r_CapturedByPlayerId; public AliveState r_AliveState; public eStructs r_BuildingType; }
 unsafe sealed class GameBuildingManagerAPI {
  public static readonly GameBuildingManagerAPI Instance=new();
- public bool IsValidId(int id)=>false;
- public bool TryGetBuildingById(int id,out GameBuilding* b){b=null;return false;}
+ public GameBuilding* Building; public int Reads;
+ public bool IsValidId(int id)=>id==578&&Building!=null;
+ public bool TryGetBuildingById(int id,out GameBuilding* b){Reads++;b=IsValidId(id)?Building:null;return b!=null;}
 }
 sealed class GameUnitManagerAPI {
  public static readonly GameUnitManagerAPI Instance=new(); public GameUnit[] Units;
@@ -40,7 +41,7 @@ namespace APIShared {
   public static bool DirectGatehouseClimbingEnabled=>true;
   public static bool HasSingleUnitRoutePublication=>AssassinRouteHandoff.HasFrame;
   public static int NativeCalls; public static long NativeTicks;
-  public static bool IsDirectGatehouseClimbEndpoint(int tile)=>false;
+  public static int DirectEndpoint=-1;public static bool IsDirectGatehouseClimbEndpoint(int tile)=>tile==DirectEndpoint;
   public static int RunVanillaBuilder(IntPtr context,int sx,int sy,int tx,int ty,int max,int continuation){
    long begin=Stopwatch.GetTimestamp(); NativeCalls++;
    NativeTicks+=Stopwatch.GetTimestamp()-begin;return 1;
@@ -58,6 +59,7 @@ namespace APIShared.UnitCommands {
   internal UnitCommandPathRuntime(IntPtr context,byte* manager,Func<int> builder){nativePathManager=context;nativeUnitManager=manager;this.builder=builder;}
   IEnemyGatePathPolicy BeginEnemyGateSearch(int p,EnemyGateSearchKind k,out object s){s=null;return null;}
   object BeginTemporaryRouteReport(IntPtr p,string s)=>null;
+  internal static void ReportTemporaryAssassinStage(string stage,string result,string detail) {}
   void EndTemporaryRouteReport(IntPtr p,object s,bool b,int r){}
   void EndEnemyGateSearch(object g,object s,EnemyGateSearchKind k,bool b,bool success){}
   void TryLogDiagnosticFailure(string s,Exception ex){throw new Exception(s,ex);}
@@ -82,8 +84,40 @@ namespace BugfixesAndQoL {
  sealed class AssassinPathReconstructionPatch { public bool IsApplied=>true; }
  static class BugfixesAndQoLPlugin { public const string PluginGuid="fixture"; }
  internal unsafe partial class AssassinPathfindingRuntime {
+  sealed class DecisionSink:ITemporaryAssassinGateObserver {
+   internal bool Throw;internal int Decisions;
+   public void ObserveAssassinStage(object t,int p,string s,string r,string d){}
+   public void ObserveAssassinDecision(object t,int p,int f,int to,int d,bool prepared,AssassinTransitionKind m,bool a,int g,uint global,string e){Decisions++;if(Throw)throw new Exception("observer");}
+  }
+  sealed class DecisionMask:IEnemyGateRoutePolicySnapshot,IEnemyGateClimbRoutePolicySnapshot {
+   public int PlayerId=>2;public bool IsCurrent=>true;
+   public bool IsDirectionAllowed(int tile,int direction)=>false;
+   public bool TryGetBlockedGateIdentity(int tile,int direction,out int b,out uint g,out int o,out int c){b=578;g=99;o=3;c=0;return true;}
+  }
+  public static void VerifyTemporaryDecisions() {
+   var runtime=new AssassinPathfindingRuntime("open");var sink=new DecisionSink();var mask=new DecisionMask();
+   GameBuildingManagerAPI.Instance.Building=(GameBuilding*)runtime.Allocate(sizeof(GameBuilding));
+   *GameBuildingManagerAPI.Instance.Building=new GameBuilding {r_GlobalId=99,r_PlayerIdOwner=3,r_BuildingType=eStructs.STRUCT_GATE_MAIN,r_AliveState=AliveState.IsAlive};
+   try {
+    int from=runtime.GetTileId(5,5),to=runtime.GetTileId(5,4);
+    runtime.buildingLayer[from]=0;runtime.buildingLayer[to]=578;AssassinPathAPI.DirectEndpoint=to;
+    foreach(bool connected in new[]{false,true}) foreach(bool climb in new[]{false,true}) foreach(bool captured in new[]{false,true}) foreach(bool throwing in new[]{false,true}) {
+     runtime.occupancyLayer[from]=connected?(byte)1:(byte)0;runtime.occupancyLayer[to]=0;
+     runtime.tileFlags[from]=0;runtime.tileFlags[to]=0x100;
+     GameBuildingManagerAPI.Instance.Building->r_CapturedByPlayerId=captured?4:0;
+     activeObservation=null;int before=GameBuildingManagerAPI.Instance.Reads;
+     bool baseline=runtime.AllowsAssassinTransition(mask,from,to,0,climb,true);int reads=GameBuildingManagerAPI.Instance.Reads-before;
+     sink.Throw=throwing;activeObservation=new AssassinObservation {DetailedObserver=sink,ParentDecisions=new()};
+     before=GameBuildingManagerAPI.Instance.Reads;
+     bool observed=runtime.AllowsAssassinTransition(mask,from,to,0,climb,true);
+     Assert(observed==baseline&&GameBuildingManagerAPI.Instance.Reads-before==reads,"optional actual decision observer preserves result and native identity query count");
+     Assert(observed==(!connected&&climb&&!captured),"blocked ground, legitimate gate climb and capture identity retain functional contract");
+    }
+    Assert(sink.Decisions==16,"every masked actual validation is counted, including throwing observer");
+   } finally {activeObservation=null;AssassinPathAPI.DirectEndpoint=-1;GameBuildingManagerAPI.Instance.Building=null;runtime.Release();}
+  }
   RUNTIME_MEMBERS
-  sealed class AssassinObservation { internal int NativeResult,Player,RouteLength;internal string Outcome;internal bool CacheHit;internal long FilteredClimb,FilteredGround; }
+  sealed class AssassinObservation { internal object Token;internal int NativeResult,Player,RouteLength;internal string Outcome;internal bool CacheHit;internal long FilteredClimb,FilteredGround;internal bool? EffectiveWeighted,EffectiveClimbing,ReservedEndpoints;internal ITemporaryAssassinGateObserver DetailedObserver;internal Dictionary<int,GateTransitionEvidence> ParentDecisions;internal GateTransitionEvidence LastDecision; }
   bool IsInstalled=>true;
   void ObservePreparedAssassinRoute(int player,int length){}
   void LogDebug(string message){}

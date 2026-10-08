@@ -1,4 +1,4 @@
-// TEMP_GATE_ROUTE_ACCEPTANCE: remove this partial and the two builder attachment points after acceptance.
+// TEMP_GATE_ROUTE_ACCEPTANCE: remove this partial and its builder, building and paired order attachment points after acceptance.
 using APIShared;
 using SHCDESE.API;
 using SHCDESE.Interop;
@@ -26,14 +26,86 @@ namespace APIShared.UnitCommands
         internal sealed class TemporaryAssassinCall
         {
             internal TemporaryRouteReport Report;
+            internal TemporaryAssassinScope Scope;
             internal int X, Y, TX, TY, Continuation;
+        }
+        // TEMP_GATE_ROUTE_ACCEPTANCE: synchronous provenance; no cross-call target history.
+        [ThreadStatic] private static TemporaryAssassinScope temporaryAssassinScope;
+        [ThreadStatic] private static long temporaryAssassinSequence;
+        internal sealed class TemporaryAssassinScope
+        {
+            internal TemporaryAssassinScope Previous;
+            internal string Source, First, Last;
+            internal int Tribe, Command, X, Y, Player;
+            internal bool MixedPlayers;
+            internal long Sequence, Searches;
+        }
+        internal static object BeginTemporaryAssassinScope(string source, int tribe, int command, int x, int y)
+        {
+            if (!(TemporaryGateRouteAcceptanceBridge.Current is ITemporaryAssassinGateObserver)) return null;
+            var scope = new TemporaryAssassinScope { Previous = temporaryAssassinScope, Source = source,
+                Tribe = tribe, Command = command, X = x, Y = y, Sequence = ++temporaryAssassinSequence };
+            temporaryAssassinScope = scope;
+            return scope;
+        }
+        internal static void EndTemporaryAssassinScope(object token, bool completed, long result)
+        {
+            if (!(token is TemporaryAssassinScope scope)) return;
+            try
+            {
+                if (!ReferenceEquals(scope, temporaryAssassinScope))
+                { TemporaryGateRouteAcceptanceBridge.ReportFailure("assassin-scope-pair"); return; }
+                if (scope.Searches > 0) ReportTemporaryAssassinStage("synchronous-order", completed ? "completed" : "incomplete",
+                    "source=" + scope.Source + ",sequence=" + scope.Sequence + ",tribe=" + scope.Tribe +
+                    "," + DescribeTemporaryAssassinArguments(scope) + ",return=" + (scope.Source == "building-query" ? "void" : result.ToString()) +
+                    ",searches=" + scope.Searches + ",mixedPlayers=" + scope.MixedPlayers + ",first=[" + scope.First + "],last=[" + scope.Last + "]", scope.Player);
+            }
+            finally { temporaryAssassinScope = scope.Previous; }
+        }
+        internal static string CaptureTemporaryAssassinSource()
+        {
+            if (!(TemporaryGateRouteAcceptanceBridge.Current is ITemporaryAssassinGateObserver)) return "observer-inactive";
+            // A nested building query is more specific than its enclosing unit/order frame.
+            if (temporaryAssassinScope?.Source == "building-query") return DescribeTemporaryAssassinScope();
+            if (temporaryRouteCall?.Token != null) return "source=single-unit,unit=" + temporaryRouteCall.Unit +
+                ",unitGlobal=" + temporaryRouteCall.Global + ",tribe=" + temporaryRouteCall.Tribe +
+                ",tribeGlobal=" + temporaryRouteCall.TribeGlobal + ",builder=" + temporaryRouteCall.Source;
+            return temporaryAssassinScope == null ? "source=unknown" : DescribeTemporaryAssassinScope();
+        }
+        private static string DescribeTemporaryAssassinScope() => "source=" + temporaryAssassinScope.Source +
+            ",sequence=" + temporaryAssassinScope.Sequence + ",tribe=" + temporaryAssassinScope.Tribe +
+            "," + DescribeTemporaryAssassinArguments(temporaryAssassinScope);
+        private static string DescribeTemporaryAssassinArguments(TemporaryAssassinScope scope) => scope.Source == "building-query"
+            ? "rawSearchPlayer=" + scope.Command + ",building=" + scope.X + ",sourcePcl=" + scope.Y
+            : (scope.Source == "group-move" ? "moveTypeRaw=" : "commandRaw=") + scope.Command + ",target=" + scope.X + "/" + scope.Y;
+        internal static void ObserveTemporaryAssassinOrderPhase(bool pre, string source, int tribe, int command, int x, int y, long result)
+        {
+            if (!(TemporaryGateRouteAcceptanceBridge.Current is ITemporaryAssassinGateObserver)) return;
+            try
+            {
+                if (pre) BeginTemporaryAssassinScope(source, tribe, command, x, y);
+                else if (temporaryAssassinScope?.Source == source && temporaryAssassinScope.Tribe == tribe)
+                    EndTemporaryAssassinScope(temporaryAssassinScope, true, result);
+                else TemporaryGateRouteAcceptanceBridge.ReportFailure("assassin-order-post-without-pre");
+            }
+            catch (Exception error) { TemporaryGateRouteAcceptanceBridge.ReportFailure("assassin-order-context", error); }
+        }
+        internal static void ReportTemporaryAssassinStage(string stage, string result, string detail, int? player = null)
+        {
+            if (!(TemporaryGateRouteAcceptanceBridge.Current is ITemporaryAssassinGateObserver observer)) return;
+            try { observer.ObserveAssassinStage(temporaryRouteCall?.Token, player ?? temporaryRouteCall?.Player ?? 0,
+                stage, result, detail); }
+            catch (Exception error) { TemporaryGateRouteAcceptanceBridge.ReportFailure("assassin-stage", error); }
         }
         // These counters describe only nested synchronous calls, never provenance of an older field.
         internal static object BeginTemporaryAssassinSearch(IntPtr manager, int x, int y, int tx, int ty, int continuation)
         {
             TemporaryRouteReport report = temporaryRouteCall;
-            if (report?.Token == null || manager != report.Manager) return null;
-            return new TemporaryAssassinCall { Report = report, X = x, Y = y, TX = tx, TY = ty, Continuation = continuation };
+            if (!(TemporaryGateRouteAcceptanceBridge.Current is ITemporaryAssassinGateObserver) &&
+                (report?.Token == null || manager != report.Manager)) return null;
+            return new TemporaryAssassinCall { Report = report != null && manager == report.Manager ? report : null,
+                Scope = temporaryAssassinScope, X = x, Y = y, TX = tx, TY = ty, Continuation = continuation };
+
         }
         internal static void EndTemporaryAssassinSearch(object token, bool completed, int native, int effective,
             int player, string outcome, bool cache, int nodes)
@@ -42,6 +114,19 @@ namespace APIShared.UnitCommands
             try
             {
                 TemporaryRouteReport report = call.Report;
+                string searchDetail = "native=" + native + ",effective=" + effective + ",outcome=" + outcome + ",player=" + player;
+                for (TemporaryAssassinScope scope = call.Scope; scope != null; scope = scope.Previous)
+                {
+                    scope.Searches++;
+                    if (player > 0 && player <= 8 && !scope.MixedPlayers)
+                    {
+                        if (scope.Player == 0) scope.Player = player;
+                        else if (scope.Player != player) { scope.Player = 0; scope.MixedPlayers = true; }
+                    }
+                    if (scope.First == null) scope.First = searchDetail;
+                    scope.Last = searchDetail;
+                }
+                if (report == null) return;
                 report.Searches++;
                 if (call.TX < 0 || call.TY < 0) report.Floods++; else report.TargetSearches++;
                 if (call.Continuation != 0) report.Continuations++;

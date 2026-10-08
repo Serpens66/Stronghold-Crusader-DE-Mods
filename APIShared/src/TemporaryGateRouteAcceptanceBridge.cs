@@ -17,6 +17,15 @@ namespace APIShared
         void Raid(int player, int role, int tribe, uint tribeGlobal, int building, uint buildingGlobal,
             string stage, string result, string detail);
     }
+    /// <summary>Optional TEMP_GATE_ROUTE_ACCEPTANCE evidence from existing functional decisions.</summary>
+    public interface ITemporaryAssassinGateObserver
+    {
+        /// <summary>Reports a functional gate decision; prepared edges belong to the materialized weighted route.</summary>
+        void ObserveAssassinDecision(object token, int player, int from, int to, int direction,
+            bool prepared, AssassinTransitionKind movement, bool allowed, int gate, uint global, string evidence);
+        /// <summary>Reports synchronous provenance, handoff or publication without changing its outcome.</summary>
+        void ObserveAssassinStage(object token, int player, string stage, string result, string detail);
+    }
     /// <summary>Passive optional TEMP_GATE_ROUTE_ACCEPTANCE registration with isolated observer failures.</summary>
     public static class TemporaryGateRouteAcceptanceBridge
     {

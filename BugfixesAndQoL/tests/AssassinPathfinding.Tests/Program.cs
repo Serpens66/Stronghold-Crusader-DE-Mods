@@ -38,6 +38,7 @@ internal static partial class Program
             TestGatehouseActivation(args);
             TestProductionKernel(Path.GetFullPath(args[0]));
             BenchmarkWallGroup();
+            TestTemporaryHandoffEvidence();
             Console.WriteLine($"PASS: {assertions} Assassin A*/Dijkstra assertions.");
             return 0;
         }

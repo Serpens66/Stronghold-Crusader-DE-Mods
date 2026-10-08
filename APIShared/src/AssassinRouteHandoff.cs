@@ -17,6 +17,16 @@ namespace APIShared
         private int directions;
         private Func<bool> routeValid;
         private Action<long, bool> completion;
+        // TEMP_GATE_ROUTE_ACCEPTANCE: guard outcome of the existing call, not an extra probe.
+        [ThreadStatic] internal static string TemporaryRequestReason;
+        private static bool Decline(string reason)
+        { if (TemporaryGateRouteAcceptanceBridge.Current is ITemporaryAssassinGateObserver) TemporaryRequestReason = reason; return false; }
+        private static void Report(string result)
+        {
+            if (!(TemporaryGateRouteAcceptanceBridge.Current is ITemporaryAssassinGateObserver)) return;
+            UnitCommands.UnitCommandPathRuntime.ReportTemporaryAssassinStage("handoff", result,
+                "source=single-unit,requestReason=" + TemporaryRequestReason);
+        }
         internal static bool HasFrame => current != null;
 
         internal AssassinRouteHandoff(IntPtr context, int startX, int startY,
@@ -36,10 +46,13 @@ namespace APIShared
         {
             controlPlayer = speedDelay = -1;
             AssassinRouteHandoff frame = current;
-            if (frame == null || frame.identityValid == null || frame.publish == null ||
-                frame.context != context || frame.startX != startX || frame.startY != startY ||
-                frame.targetX != targetX || frame.targetY != targetY || frame.controlPlayer < 0 ||
-                frame.speedDelay < 0 || !frame.identityValid()) return false;
+            if (frame == null) return Decline("missing-output-context");
+            if (frame.identityValid == null || frame.publish == null) return Decline("incomplete-output-context");
+            if (frame.context != context || frame.startX != startX || frame.startY != startY ||
+                frame.targetX != targetX || frame.targetY != targetY) return Decline("request-mismatch");
+            if (frame.controlPlayer < 0 || frame.speedDelay < 0) return Decline("invalid-control-or-speed");
+            if (!frame.identityValid()) return Decline("invalid-identity");
+            if (TemporaryGateRouteAcceptanceBridge.Current is ITemporaryAssassinGateObserver) TemporaryRequestReason = "matched";
             controlPlayer = frame.controlPlayer; speedDelay = frame.speedDelay;
             return true;
         }
@@ -49,17 +62,20 @@ namespace APIShared
             Func<bool> routeValid, Action<long, bool> completion = null)
         {
             AssassinRouteHandoff frame = current;
-            if (frame == null || frame.identityValid == null || frame.publish == null ||
-                frame.context != context || frame.startX != startX || frame.startY != startY ||
-                frame.targetX != targetX || frame.targetY != targetY || frame.player != player ||
-                bytes == null || directions < 1 || directions > 2000 ||
-                bytes.Length != (directions + 1) / 2 || routeValid == null) return false;
+            if (frame == null) return Decline("missing-output-context");
+            if (frame.identityValid == null || frame.publish == null) return Decline("incomplete-output-context");
+            if (frame.context != context || frame.startX != startX || frame.startY != startY ||
+                frame.targetX != targetX || frame.targetY != targetY || frame.player != player) return Decline("request-mismatch");
+            if (bytes == null || directions < 1 || directions > 2000 ||
+                bytes.Length != (directions + 1) / 2 || routeValid == null) return Decline("invalid-route-shape");
             for (int i = 0; i < directions; i++)
-                if (((bytes[i / 2] >> ((i & 1) * 4)) & 15) > 7) return false;
-            if (!frame.identityValid() || !routeValid()) return false;
+                if (((bytes[i / 2] >> ((i & 1) * 4)) & 15) > 7) return Decline("invalid-route-direction");
+            if (!frame.identityValid()) return Decline("invalid-identity");
+            if (!routeValid()) return Decline("route-validation-failed");
             frame.bytes = (byte[])bytes.Clone(); frame.directions = directions;
             frame.routeValid = routeValid;
             frame.completion = completion;
+            Report("staged");
             return true;
         }
 
@@ -70,11 +86,14 @@ namespace APIShared
             bool published = false;
             try
             {
-                if (!identityValid() || !routeValid() || !identityValid()) return originalResult;
+                if (!identityValid()) { Report("discarded-identity"); return originalResult; }
+                if (!routeValid()) { Report("discarded-route-validation"); return originalResult; }
+                if (!identityValid()) { Report("discarded-identity-after-validation"); return originalResult; }
                 byte[] prepared = bytes;
                 bytes = null;
                 int result = publish(prepared, directions);
                 published = true;
+                Report("published");
                 return result;
             }
             finally

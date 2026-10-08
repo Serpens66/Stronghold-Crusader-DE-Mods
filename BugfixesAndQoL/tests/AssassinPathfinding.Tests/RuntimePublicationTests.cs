@@ -40,6 +40,7 @@ unsafe partial class UnitCommandPathRuntime {
  private Func<int> builder;
  private IEnemyGatePathPolicy BeginEnemyGateSearch(int p,EnemyGateSearchKind k,out object s){s=null;return null;}
  private object BeginTemporaryRouteReport(IntPtr p,string s)=>null;
+ internal static void ReportTemporaryAssassinStage(string stage,string result,string detail) {}
  private void EndTemporaryRouteReport(IntPtr p,object s,bool b,int r){}
  private void EndEnemyGateSearch(object g,object s,EnemyGateSearchKind k,bool b,bool success){}
  private void TryLogDiagnosticFailure(string s,Exception e){}
@@ -101,7 +102,9 @@ unsafe partial class UnitCommandPathRuntime {
 """;
         fixture = fixture.Replace("PLACEHOLDER", methods);
         var sources = new[] { CSharpSyntaxTree.ParseText(fixture), CSharpSyntaxTree.ParseText(
-            File.ReadAllText(Path.Combine(root, "APIShared/src/AssassinRouteHandoff.cs"))) };
+            File.ReadAllText(Path.Combine(root, "APIShared/src/AssassinRouteHandoff.cs"))),
+            CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/AssassinGateTransitionPolicy.cs"))),
+            CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/TemporaryGateRouteAcceptanceBridge.cs"))) };
         var refs = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")).Split(Path.PathSeparator)
             .Select(p => MetadataReference.CreateFromFile(p));
         var compilation = CSharpCompilation.Create("ActualAssassinPublication", sources, refs,

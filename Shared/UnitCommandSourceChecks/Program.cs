@@ -78,7 +78,7 @@ foreach (var relative in projects)
             string current = File.ReadAllText(Path.Combine(root, "APIShared/src/MissionLifecycleCapability.cs"))
                 .Replace("NativeApiLog.Debug(", "NativeApiLog.Info(").Replace("\r\n", "\n");
             if (process.ExitCode != 0 || !old.Contains("EditorDirector.instance.gameLocalPlayerID") ||
-                current != old.Replace("\r\n", "\n"))
+                current != old.Replace("NativeApiLog.Debug(", "NativeApiLog.Info(").Replace("\r\n", "\n"))
                 throw new Exception("The documented preexisting private access changed.");
             Console.WriteLine("Known unchanged HEAD access (logging levels excluded): MissionLifecycleCapability gameLocalPlayerID; all new accesses checked against real Assembly-CSharp.");
             diagnostics = diagnostics.Except(baseline).ToArray();

@@ -323,11 +323,25 @@ namespace EnemyGatePathfindingTest
                 Nodes = maximumNodes, Continuation = continuation, NativeState = nativeState };
         }
 
-        internal void ObserveAssassinEdge(object token, int player, int fromTile, int toTile,
-            int direction, bool climb)
+        // TEMP_GATE_ROUTE_ACCEPTANCE: functional evidence shares the existing synchronous frame token.
+        internal void ObserveTemporaryAssassinStage(object token, int player, string stage, string result, string detail)
         {
             if (!(token is AssassinFrame frame)) return;
-            try { TemporaryAcceptance?.AssassinEdge(frame.Temporary, player, fromTile, toTile, direction, climb); }
+            TemporaryAcceptance?.ObserveAssassinStage(frame.Temporary, player, stage, result, detail);
+        }
+        internal void ObserveTemporaryAssassinDecision(object token, int player, int from, int to, int direction,
+            bool prepared, APIShared.AssassinTransitionKind movement, bool allowed, int gate, uint global, string evidence)
+        {
+            if (!(token is AssassinFrame frame)) return;
+            TemporaryAcceptance?.ObserveAssassinDecision(frame.Temporary, player, from, to, direction, prepared, movement, allowed, gate, global, evidence);
+            if (prepared) ObserveAssassinEdge(token, player, from, to, direction,
+                movement == APIShared.AssassinTransitionKind.ClimbUp || movement == APIShared.AssassinTransitionKind.ClimbDown, false);
+        }
+        internal void ObserveAssassinEdge(object token, int player, int fromTile, int toTile,
+            int direction, bool climb, bool reportTemporary = true)
+        {
+            if (!(token is AssassinFrame frame)) return;
+            try { if (reportTemporary) TemporaryAcceptance?.AssassinEdge(frame.Temporary, player, fromTile, toTile, direction, climb); }
             catch (Exception error) { APIShared.TemporaryGateRouteAcceptanceBridge.ReportFailure("assassin-edge", error); }
             if (!frame.Probe.Observe(player, fromTile, direction, climb, out int gateId)) return;
             totals.Record(player, gateId > 0 ? gateId : 0, "assassin-route-edge",

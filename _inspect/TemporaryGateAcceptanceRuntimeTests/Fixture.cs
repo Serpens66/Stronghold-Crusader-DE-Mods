@@ -6,6 +6,7 @@ using APIShared;
 using SHCDESE.API;
 using SHCDESE.Interop;
 using EnemyGatePathfindingTest;
+using APIShared.UnitCommands;
 namespace BepInEx.Logging { public class ManualLogSource { public void LogDebug(object message) { } } }
 namespace BepInEx.Bootstrap { public static class Chainloader { public static readonly Dictionary<string, object> PluginInfos=new Dictionary<string, object>(); } }
 namespace Shared { internal static class DebugLogHelper {
@@ -23,13 +24,17 @@ namespace SHCDESE.Interop {
     public struct GameBuilding { public uint r_GlobalId; public ushort r_BuildingType,r_PlayerIdOwner,r_CapturedByPlayerId,r_AliveState; }
 }
 namespace APIShared {
-    public static class AssassinPathAPI {
+
+    public static class AssassinPathAPI { internal static bool DirectGatehouseClimbingEnabled=true;internal static string TemporaryWeightedRequestReason="fixture";
         public static AssassinTransitionKind Movement = AssassinTransitionKind.Ground;
         public static AssassinTransitionKind ClassifyNativeTransition(int from, int to, int direction, bool climbing) => Movement;
     }
 }
 namespace SHCDESE.API {
     public unsafe class GameUnitManagerAPI {
+        public delegate bool Predicate(in GameUnit unit);
+        public sealed class Query { public Query Where(Predicate predicate)=>this; public void ToIdList(List<int> ids) {} }
+        public Query QueryUnits()=>new Query();
         public static readonly GameUnitManagerAPI Instance = new GameUnitManagerAPI();
         public GameUnit* Unit; public int Reads;
         public bool IsValidId(int id) => id == 1;
@@ -80,7 +85,11 @@ namespace BugfixesAndQoL {
         private static AssassinObservation activeObservation;
         private class AssassinObservation { internal IEnemyGateAssassinObserver Observer; internal IEnemyBridgePathObserver BridgeObserver;
             internal object Token,BridgeToken; internal int NativeResult,EffectiveResult,Player=5,RouteLength=4;
+            internal bool? EffectiveWeighted,EffectiveClimbing,ReservedEndpoints;internal ITemporaryAssassinGateObserver DetailedObserver; internal Dictionary<int,GateTransitionEvidence> ParentDecisions;
             internal long FilteredGround,FilteredClimb; internal string Outcome="weighted-published",Error; internal bool CacheHit; }
+        private class GateTransitionEvidence { }
+        private class Settings { internal bool EnableMod=true,EnableImprovedAssassinPathfinding=true; }
+        private readonly Settings settings=new Settings();
         internal int Calls; internal Action Nested; internal bool Throw;
         private string DescribeNativeAssassinState(IntPtr context)=>"fixture-state";
         private void LogWarning(string text)=>throw new Exception(text);
@@ -91,25 +100,28 @@ namespace BugfixesAndQoL {
         /* ACTUAL_SEARCH_WRAPPER */
         internal int Invoke(IntPtr context,int continuation=0,bool flood=false)=>BuildWeightedPath(context,100,100,flood?-1:103,flood?-1:100,1000,continuation);
     }
+}
+namespace APIShared.UnitCommands {
+    internal static class UnitCommandPathAPI { internal static Func<string> AssassinReconstructionRelaxation=()=>BugfixesAndQoL.AssassinPathfindingRuntime.TemporaryReconstructionRelaxation; }
     internal static class WeightedMoatRoutePlanner {
         internal const int MaximumRouteEdges=2000;
         internal static readonly int[] DirectionX={0,1,1,1,0,-1,-1,-1}, DirectionY={-1,-1,0,1,1,1,0,-1};
     }
-    internal unsafe sealed partial class FriendlyMoatMovementRuntime {
+    internal unsafe sealed partial class UnitCommandPathRuntime {
         private const int NativeUnitPathBufferOffset=0xB4FE78, NativeUnitPathBufferStride=1000, MaximumUnitCount=10000, MapWidth=800;
         private const int PathManagerOutputBufferOffset=0x155F60, PathManagerOutputLengthOffset=0x155F68;
         private IntPtr nativePathManager; private byte* nativeUnitManager;
         private int mapEpoch=1; private object activeMoveCommand; private Attack activeAttackCommand;
         private UnitMoveFrame unitMoveFrame;
         private class Attack { internal int TribeId, Sequence, Command, TargetValue1, TargetValue2; }
-        private class Args { internal int UnitId=1; internal bool SkipOriginalFunction; }
-        private class UnitMoveFrame { internal Args Args=new Args(); internal int MapEpoch=1, Tick=3; internal object Command; }
+        internal class Args { internal int UnitId=1; internal bool SkipOriginalFunction; }
+        internal class UnitMoveFrame { internal Args Args=new Args(); internal int MapEpoch=1, Tick=3; internal object Command; }
         private int CaptureCurrentGameTick() => 3;
         private static void GetNativeMovementStart(GameUnit* unit,out int x,out int y) { x=unit->X; y=unit->Y; }
         private bool IsValidTileId(int tile) => tile>=0 && tile<320800;
         internal int Calls;
-        internal static FriendlyMoatMovementRuntime Create() {
-            var runtime = new FriendlyMoatMovementRuntime();
+        internal static UnitCommandPathRuntime Create() {
+            var runtime = new UnitCommandPathRuntime();
             runtime.nativePathManager=Marshal.AllocHGlobal(0x156000);
             runtime.nativeUnitManager=(byte*)Marshal.AllocHGlobal(NativeUnitPathBufferOffset+3000);
             runtime.Reset(); return runtime;
@@ -139,25 +151,30 @@ namespace BugfixesAndQoL {
         internal IntPtr Context => nativePathManager;
         internal void DisposeFixture() { Marshal.FreeHGlobal(nativePathManager); Marshal.FreeHGlobal((IntPtr)nativeUnitManager); }
     }
+}
+namespace BugfixesAndQoL {
     internal class WeightedProducer {
         private const int MapWidth=800;
         private int[] route;
         private static readonly int[] DirectionX=WeightedMoatRoutePlanner.DirectionX, DirectionY=WeightedMoatRoutePlanner.DirectionY;
         private readonly byte[] directionMasks={1,2,4,8,16,32,64,128}, occupancyLayer=new byte[320800];
         private AssassinObservation activeObservation;
-        private class AssassinObservation { internal object Token, BridgeToken; internal Sink Observer, BridgeObserver; internal int RouteLength; internal string Error; }
+        private class AssassinObservation { internal object Token, BridgeToken; internal Sink Observer, BridgeObserver; internal int RouteLength; internal string Error;
+            internal bool? EffectiveWeighted,EffectiveClimbing,ReservedEndpoints;internal ITemporaryAssassinGateObserver DetailedObserver; internal Dictionary<int,GateTransitionEvidence> ParentDecisions; }
+        private class GateTransitionEvidence { internal int From,To,Gate;internal uint Global; internal AssassinTransitionKind Movement;internal bool Allowed;internal string Detail; }
         private class Sink {
             internal TemporaryGateRouteAcceptance Acceptance;
             internal void ObserveAssassinEdge(object token,int player,int from,int to,int direction,bool climb) => Acceptance.AssassinEdge(token,player,from,to,direction,climb);
         }
         private int GetTileId(int x,int y) => y*800+x;
+        private bool HasOrdinaryConnection(int from,int to,int direction)=>(occupancyLayer[from]&directionMasks[direction])!=0||(occupancyLayer[to]&directionMasks[direction^4])!=0;
         private bool IsNativeTile(int tile) => tile>=0 && tile<320800;
         private void LogWarning(string message) => throw new Exception(message);
         /* ACTUAL_WEIGHTED_PRODUCER */
         internal void Emit(TemporaryGateRouteAcceptance acceptance,int nodes,bool cache=false,bool climb=false,bool flood=false,int continuation=0) {
             route=new int[Math.Max(nodes,1)];
             for(int i=0;i<nodes;i++) route[i]=80100+nodes-1-i;
-            Array.Fill(occupancyLayer,(byte)255); if(climb) occupancyLayer[80100]=0;
+            Array.Fill(occupancyLayer,(byte)255); if(climb) { occupancyLayer[80100]=0; occupancyLayer[80101]=0; }
             int tx=flood?-1:100+Math.Max(nodes-1,0), ty=flood?-1:100;
             var token=acceptance.BeginAssassin(5,0,100,100,tx,ty);
             activeObservation=new AssassinObservation {Token=token,Observer=new Sink {Acceptance=acceptance}};
@@ -176,7 +193,7 @@ public static unsafe class RuntimeAcceptanceTests {
         GameBuildingManagerAPI.Instance.Building=(GameBuilding*)Marshal.AllocHGlobal(sizeof(GameBuilding));
         *GameTribeManagerAPI.Instance.Tribe=new GameTribe {r_GlobalId=9,r_PlayerIdOwner=5};
         *GameBuildingManagerAPI.Instance.Building = new GameBuilding {r_GlobalId=99,r_BuildingType=45,r_PlayerIdOwner=2,r_AliveState=2};
-        var runtime=BugfixesAndQoL.FriendlyMoatMovementRuntime.Create();
+        var runtime=APIShared.UnitCommands.UnitCommandPathRuntime.Create();
         try {
             Check(runtime.Invoke()==3 && runtime.Calls==1 && GameUnitManagerAPI.Instance.Reads==0,"no observer: unchanged result and no SDK reads");
             var searchWrapper=new BugfixesAndQoL.ActualSearchWrapper();
@@ -197,6 +214,12 @@ public static unsafe class RuntimeAcceptanceTests {
             GameTileManagerAPI.Instance.Buildings[80101]=578;
             producer.Emit(acceptance,2,climb:true); acceptance.End();
             Check(Contains("permittedClimbRoutes=1") && Contains("violated=0") && Contains("permittedClimbEdges=1"), "proven weighted climb preserves masked roof access");
+            Shared.DebugLogHelper.Lines.Clear(); acceptance.Begin(); APIShared.AssassinPathAPI.Movement=AssassinTransitionKind.Unknown;
+            var functional=acceptance.BeginAssassin(5,0,100,100,101,100);
+            acceptance.ObserveAssassinDecision(functional,5,80100,80101,2,true,AssassinTransitionKind.ClimbUp,true,578,99,"identity=verified,fallbackEndpointAndSurface=True");
+            acceptance.EndAssassin(functional,5,1,1,"weighted-staged-exact",false,2,0);acceptance.End();
+            Check(Contains("permittedClimbRoutes=1")&&Contains("firstFunctionalClimb=")&&Contains("checked=1"),"actual functional climb evidence supersedes an inconclusive read-only approximation");
+            APIShared.AssassinPathAPI.Movement=AssassinTransitionKind.ClimbUp;
             Shared.DebugLogHelper.Lines.Clear(); acceptance.Begin(); GameTileManagerAPI.Instance.Buildings[80101]=579;
             producer.Emit(acceptance,2,climb:true); acceptance.End();
             Check(Contains("permittedClimbRoutes=0") && Contains("mask-overlap-movement-unproven"), "neighbor gate endpoint cannot prove a climb across this gate mask");
@@ -297,6 +320,31 @@ public static unsafe class RuntimeAcceptanceTests {
             var unattributed=acceptance.BeginAssassin(0,0,100,100,101,100); acceptance.EndAssassin(unattributed,0,1,1,"unresolved-player",false,0,0); acceptance.End();
             Check(Contains("unattributedSearches=1") && Contains("unclear=0") && Contains("context-not-assigned/no-route-inspected") && GameTribeManagerAPI.Instance.Reads==missingReads,
                 "unassigned searches preserve native results and never assert a failed human route");
+            // Actual scope and evidence callbacks: no additional path search or persistent correlation.
+            Shared.DebugLogHelper.Lines.Clear(); acceptance.Begin();
+            int queryReads=GameUnitManagerAPI.Instance.Reads;
+            object outer=APIShared.UnitCommands.UnitCommandPathRuntime.BeginTemporaryAssassinScope("group-move",37,3,103,100);
+            object inner=APIShared.UnitCommands.UnitCommandPathRuntime.BeginTemporaryAssassinScope("building-query",37,2,578,1);
+            Check(APIShared.UnitCommands.UnitCommandPathRuntime.CaptureTemporaryAssassinSource().Contains("source=building-query"),"inner building query overrides group provenance");
+            runtime.Search();
+            APIShared.UnitCommands.UnitCommandPathRuntime.EndTemporaryAssassinScope(inner,true,0);
+            Check(APIShared.UnitCommands.UnitCommandPathRuntime.CaptureTemporaryAssassinSource().Contains("source=group-move"),"nested scope restores parent");
+            APIShared.UnitCommands.UnitCommandPathRuntime.EndTemporaryAssassinScope(outer,true,7);
+            Check(APIShared.UnitCommands.UnitCommandPathRuntime.CaptureTemporaryAssassinSource()=="source=unknown","no later order inherits a completed scope");
+            acceptance.End();
+            Check(Contains("assassin-synchronous-order")&&Contains("source=building-query")&&Contains("return=7")&&Contains("searches=1"),"both synchronous orders report their actual nested search and return");
+            Check(GameUnitManagerAPI.Instance.Reads==queryReads,"scope evidence does not inspect units");
+            Shared.DebugLogHelper.Lines.Clear(); acceptance.Begin();
+            var detailToken=acceptance.BeginAssassin(5,0,100,100,101,100);
+            acceptance.ObserveAssassinStage(detailToken,0,"policy-entry","captured","policyGeneration=19");
+            acceptance.ObserveAssassinStage(detailToken,5,"search-entry","entered","source=building-query,tribe=37");
+            acceptance.ObserveAssassinStage(detailToken,5,"search-exit","weighted-exact-fallback","native=1,effective=1,requestReason=missing-output-context");
+            acceptance.EndAssassin(detailToken,5,1,1,"weighted-exact-fallback",false,0,0);acceptance.End();
+            Check(Contains("source=building-query/weighted-exact-fallback/reason=missing-output-context")&&Contains("policyGeneration=19"),"fallback reason, source and generation form one completed search record");
+            Shared.DebugLogHelper.Lines.Clear(); acceptance.Begin();
+            for(int i=0;i<1000;i++) acceptance.ObserveAssassinStage(null,5,"handoff","published","source=single-unit,unit="+i);
+            acceptance.End();
+            Check(Contains("kind=assassin-handoff,result=source=single-unit/published,count=1000"),"varying unit IDs do not split aggregate keys or lose events");
             Console.WriteLine("PASS: "+assertions+" actual diagnostic path assertions; no moat-plan helper present in fixture.");
         } finally { runtime.DisposeFixture(); Marshal.FreeHGlobal((IntPtr)GameUnitManagerAPI.Instance.Unit); Marshal.FreeHGlobal((IntPtr)GameTribeManagerAPI.Instance.Tribe); Marshal.FreeHGlobal((IntPtr)GameBuildingManagerAPI.Instance.Building); }
     }

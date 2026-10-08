@@ -14,6 +14,7 @@
     <Compile Include="..\..\src\AssassinAStarPolicy.cs" Link="Runtime\AssassinAStarPolicy.cs" />
     <Compile Include="..\..\src\AssassinClimbCostPolicy.cs" Link="Runtime\AssassinClimbCostPolicy.cs" />
     <Compile Include="..\..\src\AssassinRouteEncoding.cs" Link="Runtime\AssassinRouteEncoding.cs" />
+    <Compile Include="..\..\..\APIShared\src\TemporaryGateRouteAcceptanceBridge.cs" Link="Runtime\TemporaryGateRouteAcceptanceBridge.cs" />
     <Compile Include="..\..\..\APIShared\src\AssassinRouteHandoff.cs" Link="Runtime\AssassinRouteHandoff.cs" />
     <Compile Include="..\..\src\AssassinGateRoutePolicy.cs" Link="Runtime\AssassinGateRoutePolicy.cs" />
     <Compile Include="..\..\src\AssassinPathfindingRuntime.CacheKeys.cs" Link="Runtime\AssassinPathfindingRuntime.CacheKeys.cs" />

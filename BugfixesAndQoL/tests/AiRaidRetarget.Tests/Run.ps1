@@ -21,6 +21,7 @@ $testSources = @($source,(Join-Path $testDir 'Program.cs'),(Join-Path $testDir '
     (Join-Path $workspace 'BugfixesAndQoL\src\AiRaidRetargetFixRuntime.cs'),
     # TEMP_GATE_ROUTE_ACCEPTANCE: the isolated runtime fixture does not reference APIShared.
     (Join-Path $workspace 'APIShared\src\TemporaryGateRouteAcceptanceBridge.cs'),
+    (Join-Path $workspace 'APIShared\src\AssassinGateTransitionPolicy.cs'),
     (Join-Path $workspace 'BugfixesAndQoL\src\RaidActivationState.cs'),
     (Join-Path $testDir 'RuntimeTestStubs.cs'), (Join-Path $testDir 'ActivationTests.cs'), (Join-Path $testDir 'HardeningTests.cs'))
 & $compiler /nologo /unsafe /langversion:latest /target:exe "/out:$executable" @references @testSources

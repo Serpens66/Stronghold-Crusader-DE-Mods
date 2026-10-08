@@ -1,0 +1,65 @@
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+APIShared: 95 sources, 1 errors
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\APIShared\src\MissionLifecycleCapability.cs(225,60): error CS1061: "EditorDirector" enthält keine Definition für "gameLocalPlayerID", und es konnte keine zugängliche gameLocalPlayerID-Erweiterungsmethode gefunden werden, die ein erstes Argument vom Typ "EditorDirector" akzeptiert (möglicherweise fehlt eine using-Direktive oder ein Assemblyverweis).
+Known unchanged HEAD access (logging levels excluded): MissionLifecycleCapability gameLocalPlayerID; all new accesses checked against real Assembly-CSharp.
+BugfixesAndQoL: 260 sources, 0 errors
+MoatMove: 23 sources, 0 errors
+PASS: shared command preflight (381 project/source entries), JSON, callbacks, CRLF, XAML, permanent hooks including MoatMove.
+PASS: production UnitAccess boundaries, no invalid SDK calls, NeedsInit/identity neutrality, unload/reload, failure pointer clearing and bounded diagnostics.
+PASS: 913 runtime source files; SDK unit lookups are confined to UnitAccess and callers consume their boolean results.
+PASS: affected runtime projects and linked sources checked for JSON, plugin scheduling, lifecycle teardown and XAML roots.
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+PASS: gatehouse host setting/UI/locales, installed API visibility, permanent roots/rollback, minimal logging and CRLF.
+
+  GatehouseLivingCapture.Tests -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\tests\GatehouseLivingCapture.Tests\bin\GatehouseLivingCapture.Tests.exe
+PASS: exact native/full-handler hashes, all handler branch boundaries, chain backedge, unique executable signature.
+PASS: feature/main switches, unpublished state, disable and reactivation.
+PASS: 648 native machine cases; callback errors=243
+PASS: installed GameUnit layout, life helper, real RedBird span/patch/JE, registers, XMM, stack, entry/backedge, inactive/invalid/error paths.
+BugfixesAndQoL runtime JSON/lifecycle and XAML patch preflight succeeded.
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+Public installed member: GameUnit.r_AliveState : SHCDESE.Interop.Enums.AliveState
+Public installed member: GameUnit.r_UnitChimp : SHCDESE.Interop.eChimps
+Public installed member: GameUnit.r_CurrentPositionTileId : System.UInt32
+Public installed member: GameUnit.r_NextPositionTileId2 : System.UInt32
+Public installed member: GameUnit.r_AIState : System.UInt16
+Public installed member: GameUnit.r_GlobalId : System.UInt32
+Public installed member: GameUnit.r_AI_LastIssuedTribeCommand : System.UInt16
+Public installed member: GameUnit.r_ControllableForPlayerId : System.Byte
+Public installed member: GameUnit.r_TargetTilePositionX2 : System.UInt16
+Public installed member: GameUnit.r_TargetTilePositionY2 : System.UInt16
+Public installed member: GameUnit.r_PathPlanStateBitFlags : System.UInt16
+Public installed member: GameUnit.r_MovementSubstep : System.UInt16
+Public installed member: GameUnit.r_CurrentTilePositionX : System.UInt16
+Public installed member: GameUnit.r_CurrentTilePositionY : System.UInt16
+Public installed member: GameUnit.r_NextTilePositionX2 : System.UInt16
+Public installed member: GameUnit.r_NextTilePositionY2 : System.UInt16
+Public installed member: GameUnit.N0000019A : System.UInt32
+Public installed member: GameUnit.r_CurrentSpeed : System.UInt16
+Public installed member: GameUnit.N00000569 : System.Byte
+System.Span`1<SHCDESE.Interop.GameUnit> SHCDESE.API.GameUnitManagerAPI::GetUnitsAsSpan()
+System.Void SHCDESE.API.GameTimeManagerAPI::add_OnTick(System.Action`1<System.Int32>)
+PASS: installed public static AssassinPathAPI.SetDirectGatehouseClimbing(string,bool).
+PASS: Assassin shared preflight, lifetime, JSON, XAML, CRLF and installed public-member contracts.
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+PASS: AI keep range lifetime, migration guard, minimal logging, host settings, Fixes? XAML, locale parity and CRLF.
+PASS: xrefs (including data/function references) enter only at EEF90: [{'binary_hash': 'FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2', 'from_rva': '0x7A73A', 'to_rva': '0xEEF90', 'type': 'UNCONDITIONAL_CALL', 'source_function': 'FUN_18007a3b0'}, {'binary_hash': 'FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2', 'from_rva': '0xEE611', 'to_rva': '0xEEF90', 'type': 'UNCONDITIONAL_CALL', 'source_function': 'FUN_1800ee320'}, {'binary_hash': 'FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2', 'from_rva': '0x88F5680', 'to_rva': '0xEEF90', 'type': 'DATA', 'source_function': None}]
+function sha: 83D062DDDBAFEC9EB33F704FA914609B6761E16DAE351A64F7491319984DF12E
+PASS: executable-section rel32 candidate scan: no incoming interior edge; complete 317-byte body captured for Iced tests.
+MSBuild-Version 18.6.14+e730f1db7 für .NET
+  AIKeepRange.Tests -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\tests\AIKeepRange.Tests\bin\AIKeepRangeTests.exe
+PASS: production AI runtime: settings, prebuild/save publishers, mission change, original counts, persistent fail-closed.
+PASS: AI keep range: 113 checks; actual NativeX64 Indirect/10, trampoline execution, AI/human/invalid/disabled forwarding.
+PASS: installed public API signatures and 6 interop fields; no new private game accesses.
+PASS: native hash, exact 17-byte span, incoming branches, filter and both gate continuations.
+PASS: AI raid host setting, lifecycle, single classifier, permanent hook, compact logs, bounded retry, versions and CRLF.
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\APIShared\src\TemporaryGateRouteAcceptanceBridge.cs(25,28): error CS0246: Der Typ- oder Namespacename "AssassinTransitionKind" wurde nicht gefunden (möglicherweise fehlt eine using-Direktive oder ein Assemblyverweis).
+Attack-field regression test compilation failed.
+In D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine 
+Mods\BugfixesAndQoL\tests\AiRaidRetarget.Tests\Run.ps1:27 Zeichen:28
++ ... DE -ne 0) { throw 'Attack-field regression test compilation failed.'  ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : OperationStopped: (Attack-field re...ilation failed.:String) [], RuntimeException
+    + FullyQualifiedErrorId : Attack-field regression test compilation failed.
+ 
+Build fehlgeschlagen.

@@ -1572,6 +1572,10 @@ namespace APIShared.UnitCommands
             if (disposed)
                 return;
 
+            // TEMP_GATE_ROUTE_ACCEPTANCE: existing Pre/Post pair only.
+            ObserveTemporaryAssassinOrderPhase(args.Phase == EventHookPhase.Pre, "group-move",
+                args.TribeId, (int)args.MoveType, args.TileX, args.TileY, args.ReturnValue);
+
             if (args.Phase == EventHookPhase.Pre)
             {
                 PushManualCommandContext();
@@ -1756,7 +1760,11 @@ namespace APIShared.UnitCommands
 
             try
             {
-                if (args.Phase == EventHookPhase.Pre)
+                // TEMP_GATE_ROUTE_ACCEPTANCE: existing Pre/Post pair only.
+            ObserveTemporaryAssassinOrderPhase(args.Phase == EventHookPhase.Pre, "group-target",
+                args.TribeId, (int)args.AICommand, args.TargetValue1, args.TargetValue2, args.ReturnValue);
+
+            if (args.Phase == EventHookPhase.Pre)
                 {
                     BeginDirectFillCommand(args);
                     RemoveTrackedAttacksForTribe(args.TribeId, "new-target-command");
@@ -4838,6 +4846,7 @@ namespace APIShared.UnitCommands
                 ResolveEnemyGateBuildingPlayer(movementClass, tribeId),
                 EnemyGateSearchKind.BuildingApproach, out object gateScope);
             object bridgeSearch = EnemyBridgeDiagnosticBridge.BeginSearch("BuildingApproach", movementClass);
+            object temporaryScope = BeginTemporaryAssassinScope("building-query", tribeId, movementClass, buildingId, sourceRegion);
             bool bridgeCompleted = false;
             try
             {
@@ -4849,6 +4858,7 @@ namespace APIShared.UnitCommands
             }
             finally
             {
+                EndTemporaryAssassinScope(temporaryScope, bridgeCompleted, 0);
                 EnemyBridgeDiagnosticBridge.EndSearch(bridgeSearch, bridgeCompleted, 0);
                 EndEnemyGateSearch(gate, gateScope,
                     EnemyGateSearchKind.BuildingApproach, true, false);
@@ -8374,6 +8384,9 @@ namespace APIShared.UnitCommands
 
         internal void ResetMapState()
         {
+            // TEMP_GATE_ROUTE_ACCEPTANCE: maps never retain an unfinished order association.
+            if (temporaryAssassinScope != null) TemporaryGateRouteAcceptanceBridge.ReportFailure("assassin-map-unpaired-order");
+            temporaryAssassinScope = null;
             manualCommandContexts?.Clear(); targetCommandParents?.Clear(); moveFormationParents?.Clear();
             moveEventObservers?.Clear(); moveEventDepths?.Clear(); targetEventObservers?.Clear();
             nativeCursorAnswers.Clear(); nativeCursorAnswerTick = int.MinValue;

@@ -280,6 +280,9 @@
             The synchronous validator is called again before publication; no route survives its frame.
             </summary>
         </member>
+        <member name="P:APIShared.AssassinPathAPI.TemporaryWeightedRequestReason">
+            <summary>TEMP_GATE_ROUTE_ACCEPTANCE: reason from the existing handoff guard; never probes identity.</summary>
+        </member>
         <member name="M:APIShared.AssassinPathAPI.TryGetCurrentWeightedRequest(System.String,System.IntPtr,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32@,System.Int32@)">
             <summary>Returns the current owned unit's full control word and movement delay without scanning units.</summary>
         </member>
@@ -1832,6 +1835,15 @@
         </member>
         <member name="M:APIShared.ITemporaryGateRouteAcceptanceObserver.Raid(System.Int32,System.Int32,System.Int32,System.UInt32,System.Int32,System.UInt32,System.String,System.String,System.String)">
             <summary>Observes existing identity-checked Raid classification or retarget completion.</summary>
+        </member>
+        <member name="T:APIShared.ITemporaryAssassinGateObserver">
+            <summary>Optional TEMP_GATE_ROUTE_ACCEPTANCE evidence from existing functional decisions.</summary>
+        </member>
+        <member name="M:APIShared.ITemporaryAssassinGateObserver.ObserveAssassinDecision(System.Object,System.Int32,System.Int32,System.Int32,System.Int32,System.Boolean,APIShared.AssassinTransitionKind,System.Boolean,System.Int32,System.UInt32,System.String)">
+            <summary>Reports a functional gate decision; prepared edges belong to the materialized weighted route.</summary>
+        </member>
+        <member name="M:APIShared.ITemporaryAssassinGateObserver.ObserveAssassinStage(System.Object,System.Int32,System.String,System.String,System.String)">
+            <summary>Reports synchronous provenance, handoff or publication without changing its outcome.</summary>
         </member>
         <member name="T:APIShared.TemporaryGateRouteAcceptanceBridge">
             <summary>Passive optional TEMP_GATE_ROUTE_ACCEPTANCE registration with isolated observer failures.</summary>
