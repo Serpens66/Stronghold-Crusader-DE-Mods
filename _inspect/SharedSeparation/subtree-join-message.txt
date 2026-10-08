@@ -1,0 +1,5 @@
+Connect the existing identical APIShared subtree to its independent source history.
+
+git-subtree-dir: APIShared
+git-subtree-mainline: 7037ae111ed525dc7dec3ba899465fb9eabc0eed
+git-subtree-split: 77e0c62b361c017ccd4395d2102bd434c744a4ef

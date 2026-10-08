@@ -74,3 +74,7 @@ Static checks and successful builds do not replace a controlled game start after
 startup cleanup, host/client lobby convergence, preset/save roundtrips, missions,
 HUD/recruitment, gatehouse and formation/MoatMove checks with the installed Fixes mod.
 No new gameplay results are claimed. Keep versions unchanged until this acceptance.
+
+Verified workspace commits: structural migration 7037ae111; subtree join 0f58d6bd8.
+The join preserved the entire workspace tree 265369d13f9cd94b7e90532bd9d9721f644e5225.
+Its API-only split is exactly 77e0c62b361c017ccd4395d2102bd434c744a4ef.
