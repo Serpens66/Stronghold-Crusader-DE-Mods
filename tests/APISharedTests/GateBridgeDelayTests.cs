@@ -64,7 +64,7 @@ namespace APISharedTests
                     {
                         GatehouseAutomationNativeState.GenerateHook(asm, displaced.ToArray(), captured, module,
                             module + QueryRva, continuation, module + OutputRva + 0x300);
-                        Program.AssembleAndDecode(asm, module + 0x300000 + (ulong)captured * 0x10000);
+                        RuntimeTests.AssembleAndDecode(asm, module + 0x300000 + (ulong)captured * 0x10000);
                     });
                     assert(hook.DisplacedByteCount == GatehouseAutomationNativeState.HookBytes[site].Length,
                         "delay flow backend displacement matches complete native span");

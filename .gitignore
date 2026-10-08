@@ -9,3 +9,7 @@
 /.vs/
 /.local/
 *.log
+
+TestResults/
+*.trx
+.vs/

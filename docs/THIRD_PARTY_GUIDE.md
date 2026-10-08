@@ -24,8 +24,6 @@ The example includes a minimal host/local settings tab. Use localized labels and
 
 ## Migration and packaging
 
-This development refactor moves `Shared` public ModSettings types to `APIShared.ModSettings`, mode types/evaluator to `APIShared.GameModes`, and Serps feature tables to `APIShared.SerpsMods`. `GameplayModModePolicy.GetProfile` becomes `SerpsModProfiles.GetProfile`; foreign mods construct profiles directly. Update XAML imports from `clr-namespace:Shared;assembly=APIShared` to `clr-namespace:APIShared.ModSettings;assembly=APIShared`.
-
-Rebuild every dependent assembly, including companion APIs, after this source-breaking migration. Change only APIShared-owned symbols: local source-linked `Shared` helpers keep their namespace. The internal command/formation runtime is unavailable to third-party consumers.
+Older APIShared releases exposed settings and mode types under `Shared`. When updating such a consumer, use `APIShared.ModSettings` and `APIShared.GameModes`, update its XAML namespace imports, and rebuild against the selected APIShared release. Serps-specific profiles are under `APIShared.SerpsMods`; unrelated mods construct their own profiles. The command/formation implementation remains internal.
 
 Release consumers with hard minimum APIShared/Script Extender versions and `<Private>false</Private>` for runtime references. Never include APIShared.dll, Script Extender DLLs or game DLLs in the consumer package. Put your XAML under the usual mod Override directory. Keep one centrally installed APIShared instance.

@@ -38,18 +38,7 @@ function Assert-SERuntimeModPreflight([object]$Mod, [string]$Workspace) {
             throw "$($Mod.Name): plugin source depends on a short-lived MonoBehaviour callback: $sourcePath"
         }
         if ($text -match '\b(?:StartCoroutine|InvokeRepeating)\s*\(') {
-            # Existing bounded loading-warning replacement runs on Vanilla's Director,
-            # supplied by its hooked DelayShowDisconnect call, not the plugin component.
-            # Its generation gate invalidates stale work after loading/session changes.
-            $auditedDirectorDelay = $Mod.Name -eq 'CastlePlanner' -and
-                $sourcePath.EndsWith('\src\FreeCastlePreviewRuntime.cs', [StringComparison]::OrdinalIgnoreCase) -and
-                $text -match 'private void DelayShowDisconnectHook\(Director self\)' -and
-                $text -match 'self\.StartCoroutine\(ShowLoadingWarningAfterDelay\(generation\)\)' -and
-                [regex]::Matches($text, '\b(?:StartCoroutine|InvokeRepeating)\s*\(').Count -eq 1 -and
-                $text -match 'loadingWarningGate\.IsCurrent\(generation, viewModel\.Show_MP_LoadingBlack\)'
-            if (-not $auditedDirectorDelay) {
-                throw "$($Mod.Name): long-lived MonoBehaviour scheduling requires an audited persistent publisher: $sourcePath"
-            }
+            throw "$($Mod.Name): MonoBehaviour scheduling requires a persistent publisher: $sourcePath"
         }
         foreach ($match in [regex]::Matches($text, '\b(OnDestroy|OnDisable|OnApplicationQuit)\s*\([^)]*\)\s*\{')) {
             $open = $text.IndexOf('{', $match.Index)

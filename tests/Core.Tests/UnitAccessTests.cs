@@ -1,9 +1,14 @@
 using APIShared;
 using SHCDESE.API;
 using SHCDESE.Interop;
-
-unsafe
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+namespace APIShared.Core.Tests;
+[TestClass, DoNotParallelize]
+public class UnitAccessTests
 {
+    [TestMethod] public unsafe void LookupBoundariesAndLifeState()
+    {
+
     foreach (var state in Enum.GetValues<SHCDESE.Interop.Enums.AliveState>())
     foreach (uint marker in new uint[] { 0, 1, 0xFFFF, 0x10000, 0xFFFF0000, 0xFFFFFFFF })
     {
@@ -63,42 +68,22 @@ unsafe
     Check(log.Lines.Count == 1 && log.Lines[0].Contains("mod=Mod") && log.Lines[0].Contains("reason=InvalidId"), "bounded attributed debug diagnostic");
     for (int i=0; i<300; i++) UnitAccess.TryGetById(manager, 0, out _, out _, "Mod/src/Worker.cs", "OnEvent", 100+i);
     Check(log.Lines.Count == 128, "global diagnostic bound");
-}
-Console.WriteLine("PASS: production UnitAccess boundaries, no invalid SDK calls, NeedsInit/identity neutrality, unload/reload, failure pointer clearing and bounded diagnostics.");
-
-static void Check(bool value, string label) { if (!value) throw new Exception(label); }
-namespace SHCDESE.Interop.Enums { public enum AliveState : short { None, NeedsInit, IsAlive, MarkedForDeletion, Unknown, Unknown5, Paused } }
-namespace SHCDESE.Interop { public struct GameUnit { public int Alive, GlobalId; public SHCDESE.Interop.Enums.AliveState r_AliveState; public ushort r_IsKilledByProjectile, r_InterestingTodo4MaybeRandomPathing; public uint r_CurrentHealth; } }
-namespace SHCDESE.API
-{
-    public unsafe class GameUnitManagerAPI
-    {
-        public static GameUnitManagerAPI Current;
-        public static int InstanceReads;
-        public static GameUnitManagerAPI Instance { get { InstanceReads++; return Current!; } }
-        public GameUnit* Pointer;
-        public int Reads, Validations, LastId;
-        public bool ReturnFalse;
-        public GameUnit[] QueryRecords = Array.Empty<GameUnit>();
-        public UnitQuery QueryUnits() => new UnitQuery(QueryRecords);
-        public delegate bool UnitPredicate(in GameUnit unit);
-        public sealed class UnitQuery
-        {
-            private readonly GameUnit[] records;
-            private UnitPredicate predicate;
-            public UnitQuery(GameUnit[] records) { this.records = records; }
-            public UnitQuery Where(UnitPredicate filter) { predicate = filter; return this; }
-            public void ToIdList(List<int> ids)
-            {
-                for (int spanIndex = 0; spanIndex < records.Length; spanIndex++)
-                    if (predicate == null || predicate(in records[spanIndex])) ids.Add(spanIndex + 1);
-            }
-        }
-        public bool IsValidId(int id) { Validations++; return id>0 && id<=9999; }
-        public bool TryGetUnitById(int id, out GameUnit* unit) { Reads++; LastId=id; unit=Pointer; return !ReturnFalse; }
     }
-}
-namespace BepInEx.Logging
-{
-    public class ManualLogSource { public readonly List<string> Lines=new(); public void LogDebug(object line) => Lines.Add(line.ToString()!); }
+    [TestInitialize]
+    public void ResetExternalBoundary()
+    {
+        GameUnitManagerAPI.Current = null;
+        GameUnitManagerAPI.InstanceReads = 0;
+        // The diagnostic site budget is process-wide in production. Each test needs its own budget.
+        var sites = (HashSet<string>)typeof(UnitAccess).GetField("reportedFailures", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!.GetValue(null)!;
+        sites.Clear();
+        UnitAccess.InitializeDiagnostics(null);
+    }
+    [TestCleanup]
+    public void ReleaseExternalBoundary()
+    {
+        GameUnitManagerAPI.Current = null;
+        UnitAccess.InitializeDiagnostics(null);
+    }
+    private static void Check(bool condition, string message) => Assert.IsTrue(condition, message);
 }

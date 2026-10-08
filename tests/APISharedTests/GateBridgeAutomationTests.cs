@@ -79,7 +79,7 @@ namespace APISharedTests
                     {
                         GatehouseAutomationNativeState.GenerateHook(
                             asm, displaced.ToArray(), site, module, module + QueryRva, continuation);
-                        Program.AssembleAndDecode(asm, module + 0x300000 + (ulong)site * 0x10000);
+                        RuntimeTests.AssembleAndDecode(asm, module + 0x300000 + (ulong)site * 0x10000);
                     });
                     hook.Enable();
                     assert(Marshal.ReadByte(Ptr(address)) == 0xFF && Marshal.ReadByte(Ptr(address + 1)) == 0x25,
@@ -103,7 +103,7 @@ namespace APISharedTests
                         asm, displaced.ToArray(), module + OutputRva + 0x300, module,
                         module + GatehousePermanentRuntimeState.DecisionReturnRva,
                         module + GatehousePermanentRuntimeState.ClosePathRva, module + QueryRva);
-                    Program.AssembleAndDecode(asm, module + 0x340000);
+                    RuntimeTests.AssembleAndDecode(asm, module + 0x340000);
                 });
                 decisionHook.Enable();
                 assert(decisionHook.DisplacedByteCount == decisionBytes.Length, "decision backend span unchanged");

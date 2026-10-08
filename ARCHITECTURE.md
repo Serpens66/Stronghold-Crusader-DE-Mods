@@ -1,40 +1,55 @@
-# APIShared architecture
+# Architecture
 
-APIShared owns typed, process-wide services and the common ModSettings integration. Its assembly identity and BepInEx GUID remain `APIShared` and `APIShared_Serp`.
+APIShared is one process-wide BepInEx service library. Assembly identity `APIShared`
+and plugin GUID `APIShared_Serp` are stable. Its public entry point binds a caller's
+GUID without installing hooks or reserving a capability.
 
-## Source map
+## Responsibilities
 
-| Directory | Responsibility |
+| Area | Purpose |
 |---|---|
-| `src/Core` | Public entry point, owner-bound client, initialization and internal native infrastructure |
-| `src/Missions`, `src/Lobby`, `src/Players` | Shared observers and immutable lifecycle/state contracts |
-| `src/Presentation`, `src/Buildings` | HUD/briefing presentation, repair and gatehouse services |
-| `src/Units`, `src/Pathfinding`, `src/Diagnostics`, `src/Savegames` | Validated helpers, advanced integration and shared observations |
-| `src/GameModes` | General mode snapshots and optional caller-defined permissions |
-| `src/SerpsMods` | Existing Serps GUID profiles and feature exceptions |
-| `src/ModSettings` | Public settings integration and its implementation |
-| `src/UnitCommands` | Internal BugfixesAndQoL/MoatMove command and formation implementation |
+| Core | Initialization, capability diagnostics, ownership and native infrastructure |
+| Missions, Lobby, Players | Shared observations and immutable state notifications |
+| Presentation, Buildings | HUD/briefing extensions, building repair and gatehouse services |
+| GameModes | Context capture and optional caller-defined permission profiles |
+| ModSettings, Savegames | Settings UI integration, presets, convergence and persistence |
+| Units, Pathfinding, Diagnostics | Queries and advanced integrations |
+| UnitCommands | Required internal command, formation and MoatMove runtime |
+| SerpsMods | Explicit compatibility profiles for existing Serps consumers |
 
-Capability contracts retain the `APIShared` namespace. Directories organize implementation without forcing namespace churn in these contracts. Public former `Shared` types are placed in the three explicit namespaces above. Each API domain owns its internal helpers in an `Internal` subdirectory. APIShared compiles no workspace `Shared` sources. Mod-side helpers and adapters are maintained separately; neither side source-links the other. Historical origin comments are provenance, not active dependencies.
+Directories help navigation; public namespaces define the contracts. Capabilities
+use `APIShared`; settings and general profiles use `APIShared.ModSettings` and
+`APIShared.GameModes`. Serps profiles are opt-in and never constrain an unrelated mod.
+Internal command/formation integration is retained for existing friend-assembly
+consumers; it is not an additional public entry point.
 
-## Publication and lifetime
+## Publication
 
-`APISharedPlugin.Awake` establishes main-thread dispatch and managed services. Native initialization is published by `CrusaderLibrary.Instance.LibraryLoaded`. `ApiSharedRuntime.ProcessInstance`, static registries and long-lived publishers retain runtime objects after startup cleanup. There is no plugin Update/coroutine/teardown host.
+`APISharedPlugin.Awake` publishes managed services. `CrusaderLibrary.LibraryLoaded`
+initializes native services. `ApiSharedRuntime.ProcessInstance`, static registries
+and persistent publishers retain services after startup cleanup. Global completion
+and individual capability availability are separate; one native failure must not
+disable independent managed services.
 
-Global readiness is separate from individual service diagnostics. Capabilities isolate failures; unsupported native services must not disable independent managed observation. Owner-bound clients delegate to the same service acquisition and ownership checks as direct consumers. Creating a client installs nothing.
+Readiness callbacks run outside the initialization lock with exception isolation.
+There is no implicit thread dispatch. Registration ownership, ordering, replay and
+callback contracts are described in the [API catalog](docs/API_CATALOG.md).
 
-Readiness callbacks share one exception boundary for early and late delivery, always outside the initialization lock. No dispatch or callback thread transformation is added. Native hooks, executable ranges and installation order are unchanged by this refactor.
+## Settings and dependencies
 
-## Settings implementation
+The preset view model integrates source selection, UI commands and persistence.
+Per-player state owns lobby convergence. Settings, presets and saved-game data keep
+their existing formats. Internal JSON parsing and atomic publication are owned by
+APIShared; no source links or automatic synchronization connect them to a mod workspace.
 
-`PresetLobbyModSettingsViewModel` is a partial class: the main file handles integration, permissions and notifications; `.Sources.cs` handles source selection and UI/search commands; `.Persistence.cs` contains the existing preset controller and stable storage schema. `PerPlayerLobbySettings.cs` owns lobby convergence and its builder contracts. `LobbyModSettingsPresetRegistration.cs` owns preparation, registration and horizontal focus-scroll handling.
+The compiled runtime uses the real installed game and Extender assemblies.
+[Native compatibility](docs/NATIVE_COMPATIBILITY.md) describes native ownership and
+update checks. Native catalogs and tests express supported contracts, not a universal
+promise that an arbitrary game build is supported.
 
-The extraction preserves executable member bodies and persistence keys. JSON uses APIShared's own dependency-free `APIShared.Internal.DependencyFreeJson` in `src/ModSettings/Internal`. The workspace parser is independently maintained and is never compiled into APIShared. Personal, host, per-player and trail settings retain their existing sync and save boundaries.
+## Development
 
-## Policy and compatibility
-
-Mode capture describes the current context. `GameplayModModePolicy` evaluates an explicit caller profile; it is optional. `SerpsModProfiles` and `GameplayFeatureModePolicy` preserve our existing permissions and exceptions. Unknown/conflicting contexts remain denied by the optional evaluator.
-
-The installed Script Extender is the compile/runtime source of truth. APIShared currently declares 2.14.0. Native support is still controlled by existing hash-bound validators and the current native baseline, not by historical documentation version numbers. The canonical Fixes source remains the compatibility reference; this refactor installs no additional hooks and changes no native targets.
-
-The pre-refactor migration record is retained in `MIGRATION_PLAN.md` as historical context. Current public contracts are documented in `docs/API_CATALOG.md`.
+The solution contains the runtime, two local integration suites, a game-independent
+core suite and public consumer examples. Test-only packages never become plugin
+dependencies. The standalone build uses no neighboring repositories. Additional
+mod integration tests belong in their consumer repositories.
