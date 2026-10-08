@@ -1,0 +1,91 @@
+--- starting:BugfixesAndQoL\tests\FriendlyMoatMovement.Tests\FormationStartupTests.cs
++++ BugfixesAndQoL\tests\FriendlyMoatMovement.Tests\FormationStartupTests.cs
+@@ -10,7 +10,7 @@
+         string[] paths = {
+             "BugfixesAndQoL/src/FormationFeature.cs", "BugfixesAndQoL/src/FormationMenuViewModel.cs",
+             "BugfixesAndQoL/src/FormationSelectionMigration.cs", "APIShared/src/UnitCommands/FormationModel.cs",
+-            "APIShared/src/UnitCommands/FormationPresentation.cs"
++            "APIShared/src/UnitCommands/FormationPresentation.cs", "BugfixesAndQoL/src/ArrangementTooltipFontConverter.cs"
+         };
+         var gestureUpdate = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,
+             "APIShared/src/UnitCommands/FormationRuntime.cs"))).GetRoot().DescendantNodes()
+@@ -18,7 +18,7 @@
+         string fixture = """
+ using System; using System.Reflection; using System.Collections.Generic; using System.ComponentModel;
+ using APIShared.UnitCommands; using BepInEx.Configuration; using BepInEx.Logging;
+-public static class SerpLocalization { public static string Get(string key)=>key; }
++public static class SerpLocalization { public static string Get(string key)=>key=="BugfixesAndQoL.ArrangementTooltip"?"Arrangement":key; }
+ namespace BepInEx { public static class Paths { public static string ConfigPath="__missing_formation_fixture__"; } }
+ namespace BepInEx.Logging { public class ManualLogSource {} }
+ namespace BepInEx.Configuration {
+@@ -43,6 +43,10 @@
+     }
+ }
+ namespace Noesis {
++    public interface IValueConverter {
++        object Convert(object v,Type t,object p,System.Globalization.CultureInfo c);
++        object ConvertBack(object v,Type t,object p,System.Globalization.CultureInfo c);
++    }
+     public struct Color { public static Color FromArgb(byte a,byte r,byte g,byte b)=>default; }
+     public class SolidColorBrush { public SolidColorBrush(Color color) {} }
+ }
+@@ -50,6 +54,19 @@
+     public class MainViewModel : INotifyPropertyChanged {
+         public static bool viewModelLoaded=true; public static MainViewModel Instance=new MainViewModel();
+         public bool Show_HUD_Troops=true; public bool Show_HUD_ControlGroups;
++        public string TroopsPanelRollover {get;set;}
++        public int HoverEnters,HoverLeaves;public bool NativeTooltipVisible;
++        public System.Windows.Input.ICommand ButtonTroopPanelMouseEnterCommand {get;}
++        public System.Windows.Input.ICommand ButtonTroopPanelMouseLeaveCommand {get;}
++        public MainViewModel() {
++            ButtonTroopPanelMouseEnterCommand=new NativeCommand(p=>{ if((string)p!="ToggleControlGroups")throw new Exception("Wrong Vanilla hover");HoverEnters++;NativeTooltipVisible=true;TroopsPanelRollover="Vanilla"; });
++            ButtonTroopPanelMouseLeaveCommand=new NativeCommand(p=>{HoverLeaves++;NativeTooltipVisible=false;});
++        }
++        private sealed class NativeCommand : System.Windows.Input.ICommand {
++            private Action<object> action;internal NativeCommand(Action<object> a) {action=a;}
++            public bool CanExecute(object p)=>true;public void Execute(object p)=>action(p);
++            public event EventHandler CanExecuteChanged {add {} remove {}}
++        }
+         public event PropertyChangedEventHandler PropertyChanged;
+         public void Notify(string name) { PropertyChanged?.Invoke(this,new PropertyChangedEventArgs(name)); }
+     }
+@@ -164,6 +181,29 @@
+             CrusaderDE.MainViewModel.Instance.Show_HUD_Troops=false;
+             CrusaderDE.MainViewModel.Instance.Notify("Show_HUD_Troops");
+             Require(!menu.MenuVisible,"Deselection did not close menu");
++            var main=CrusaderDE.MainViewModel.Instance;main.Show_HUD_Troops=true;
++            menu.ShowButtonTooltipCommand.Execute(null);
++            Require(main.NativeTooltipVisible && main.HoverEnters==1 && main.TroopsPanelRollover=="Arrangement" && !menu.RolloverVisible,"Button did not use localized Vanilla tooltip");
++            menu.HideButtonTooltipCommand.Execute(null);
++            Require(!main.NativeTooltipVisible && main.HoverLeaves==1,"Vanilla tooltip did not hide");
++            menu.ShowButtonTooltipCommand.Execute(null);main.TroopsPanelRollover="Different Vanilla button";
++            int leaves=main.HoverLeaves;menu.HideButtonTooltipCommand.Execute(null);
++            Require(main.NativeTooltipVisible && main.HoverLeaves==leaves,"Other button tooltip was hidden");
++            menu.ShowButtonTooltipCommand.Execute(null);menu.CloseMenu();
++            Require(!main.NativeTooltipVisible,"Close did not hide owned tooltip");
++            menu.ShowButtonTooltipCommand.Execute(null);FormationRuntime.Last.Failed=true;menu.RefreshHostState();
++            Require(!main.NativeTooltipVisible,"Runtime failure left button tooltip open");
++            FormationRuntime.Last.Failed=false;menu.RefreshHostState();menu.ShowButtonTooltipCommand.Execute(null);
++            CrusaderDE.FatControler.currentScene=CrusaderDE.Enums.SceneIDS.Other;menu.RefreshHostState();
++            Require(!main.NativeTooltipVisible,"Scene change left tooltip open");
++            CrusaderDE.FatControler.currentScene=CrusaderDE.Enums.SceneIDS.ActualMainGame;menu.ShowButtonTooltipCommand.Execute(null);
++            main.Show_HUD_Troops=false;main.Notify("Show_HUD_Troops");
++            Require(!main.NativeTooltipVisible,"Deselection left tooltip open");
++            var converter=new ArrangementTooltipFontConverter();
++            foreach(float size in new[]{16f,20f,36f}) {
++                object doubled=converter.Convert(size,typeof(float),null,System.Globalization.CultureInfo.InvariantCulture);
++                Require(doubled is float f && f==size*2f,"Scaled tooltip font is not doubled float");
++            }
+             RememberedRowsFixture.Run(menu,config,options);
+         }
+     }
+@@ -266,6 +306,6 @@
+         if(!result.Success)throw new Exception(string.Join("\n",result.Diagnostics.Where(d=>d.Severity==DiagnosticSeverity.Error)));
+         try { Assembly.Load(output.ToArray()).GetType("BugfixesAndQoL.StartupFixture")!.GetMethod("Run")!.Invoke(null,null); }
+         catch(TargetInvocationException e) { throw e.InnerException??e; }
+-        Console.WriteLine("PASS: actual Configure/Initialize/menu commands executed: independent early hosts, initialization/runtime failure, checkbox, six icons/config changes, close/open and map/selection recovery; production wheel update, remembered rows, group clamping, independent kinds and config reload.");
+-    }
+-}
++        Console.WriteLine("PASS: actual Configure/Initialize/menu commands executed: independent early hosts, initialization/runtime failure, checkbox, six icons/config changes, close/open and map/selection recovery; production wheel update, remembered rows, group clamping, independent kinds and config reload; localized Vanilla hover ownership and doubled Noesis font presets.");
++    }
++}

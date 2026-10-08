@@ -1,0 +1,9 @@
+--- starting:BugfixesAndQoL\Locales\el-GR.txt
++++ BugfixesAndQoL\Locales\el-GR.txt
+@@ -386,4 +386,5 @@
+ BugfixesAndQoL.EnableAssassinGatehouseClimbFixHelp=Allows humans and AI to choose direct Assassin climbs onto gatehouses using Vanilla climbing. Existing player climbing restrictions still apply.
+ 
+ BugfixesAndQoL.RememberRows=Remember rows
+-BugfixesAndQoL.RememberRowsHelp=Remembers the last wheel-selected row count separately for Block, Line, Column and Wedge, including across game restarts. Smaller groups use at most one row per unit without overwriting the remembered value. Without a remembered value, or with this option off, each command starts with automatic rows. Circle and Vanilla remain unchanged.
++BugfixesAndQoL.RememberRowsHelp=Remembers wheel-selected rows for each arrangement, including after restarts. Smaller groups temporarily limit rows. Off or no saved value: automatic rows. Circle and Vanilla stay unchanged.
++BugfixesAndQoL.ArrangementTooltip=Arrangement

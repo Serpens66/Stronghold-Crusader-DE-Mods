@@ -1,0 +1,103 @@
+--- starting:BugfixesAndQoL\src\FormationMenuViewModel.cs
++++ BugfixesAndQoL\src\FormationMenuViewModel.cs
+@@ -24,6 +24,8 @@
+         private readonly ConfigEntry<bool> rememberRows;
+         private readonly ConfigEntry<int>[] rememberedRows;
+         private MainViewModel subscribedMainViewModel;
++        private MainViewModel buttonTooltipOwner;
++        private string buttonTooltipText;
+         private bool menuVisible;
+         private bool rolloverVisible;
+         private string rolloverText = string.Empty;
+@@ -48,6 +50,8 @@
+             this.rememberRows = rememberRows ?? throw new ArgumentNullException(nameof(rememberRows));
+             this.rememberedRows = rememberedRows ?? throw new ArgumentNullException(nameof(rememberedRows));
+ 
++            ShowButtonTooltipCommand = new ParameterCommand(_ => ShowButtonTooltip());
++            HideButtonTooltipCommand = new ParameterCommand(_ => HideButtonTooltip());
+             ToggleMenuCommand = new ParameterCommand(_ => ToggleMenu());
+             SelectFormationCommand = new ParameterCommand(SelectFormation);
+             SelectDensityCommand = new ParameterCommand(SelectDensity);
+@@ -106,6 +110,8 @@
+ 
+         public event PropertyChangedEventHandler PropertyChanged;
+ 
++        public ICommand ShowButtonTooltipCommand { get; }
++        public ICommand HideButtonTooltipCommand { get; }
+         public ICommand ToggleMenuCommand { get; }
+         public ICommand SelectFormationCommand { get; }
+         public ICommand SelectDensityCommand { get; }
+@@ -146,6 +152,7 @@
+             {
+                 SetMenuVisible(false);
+                 HideRollover();
++                HideButtonTooltip();
+             }
+             if (lastAvailability != available)
+             {
+@@ -160,6 +167,9 @@
+         {
+             RefreshAvailability();
+             MainViewModel current = MainViewModel.viewModelLoaded ? MainViewModel.Instance : null;
++            if (buttonTooltipOwner != null && (!ReferenceEquals(current, buttonTooltipOwner) ||
++                current == null || !current.Show_HUD_Troops || FatControler.currentScene != Enums.SceneIDS.ActualMainGame))
++                HideButtonTooltip();
+             if (!ReferenceEquals(current, subscribedMainViewModel) && current != null)
+             {
+                 subscribedMainViewModel = current;
+@@ -176,6 +186,7 @@
+         public void CloseMenu() => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
+         {
+             SetMenuVisible(false);
++            HideButtonTooltip();
+             RefreshAvailability();
+         });
+ 
+@@ -243,6 +254,37 @@
+             showRoleMarkers.Value = requested;
+             FormationPreviewOverlay.SetRoleMarkersVisible(requested);
+             SaveConfiguration("showRoleMarkers", requested.ToString());
++        }
++
++        private void ShowButtonTooltip()
++        {
++            RefreshHostState();
++            MainViewModel current = MainViewModel.viewModelLoaded ? MainViewModel.Instance : null;
++            if (!FeatureAvailable || current == null || !current.Show_HUD_Troops ||
++                FatControler.currentScene != Enums.SceneIDS.ActualMainGame) return;
++            HideButtonTooltip();
++            try
++            {
++                current.ButtonTroopPanelMouseEnterCommand.Execute("ToggleControlGroups");
++                string text = SerpLocalization.Get("BugfixesAndQoL.ArrangementTooltip");
++                current.TroopsPanelRollover = text;
++                buttonTooltipOwner = current;
++                buttonTooltipText = text;
++            }
++            catch (Exception ex) { Shared.DebugLogHelper.LogWarning(log, "Arrangement hover unavailable: " + ex.Message); }
++        }
++
++        private void HideButtonTooltip()
++        {
++            MainViewModel owner = buttonTooltipOwner;
++            string text = buttonTooltipText;
++            buttonTooltipOwner = null;
++            buttonTooltipText = null;
++            // A different button may already have taken over the shared Vanilla rollover.
++            if (owner == null || !MainViewModel.viewModelLoaded || !ReferenceEquals(owner, MainViewModel.Instance) ||
++                !string.Equals(owner.TroopsPanelRollover, text, StringComparison.Ordinal)) return;
++            try { owner.ButtonTroopPanelMouseLeaveCommand.Execute("ToggleControlGroups"); }
++            catch (Exception ex) { Shared.DebugLogHelper.LogWarning(log, "Arrangement hover close failed: " + ex.Message); }
+         }
+ 
+         private void ShowRollover(object parameter)
+@@ -282,6 +324,9 @@
+             object sender,
+             PropertyChangedEventArgs args)
+         {
++            if (args.PropertyName == nameof(MainViewModel.Show_HUD_Troops) &&
++                sender is MainViewModel changedMain && !changedMain.Show_HUD_Troops)
++                HideButtonTooltip();
+             if (!menuVisible)
+                 return;
+             MainViewModel source = sender as MainViewModel;

@@ -1,0 +1,9 @@
+--- starting:BugfixesAndQoL\Locales\de-DE.txt
++++ BugfixesAndQoL\Locales\de-DE.txt
+@@ -386,4 +386,5 @@
+ BugfixesAndQoL.EnableAssassinGatehouseClimbFixHelp=Ermöglicht Menschen und KI direkte Assassin-Kletterwege auf Torhäuser mit Vanillas Kletterausführung. Bestehende spielerbezogene Kletterverbote bleiben wirksam.
+ 
+ BugfixesAndQoL.RememberRows=Breite/Länge merken
+-BugfixesAndQoL.RememberRowsHelp=Merkt sich die zuletzt per Mausrad gewählte Reihenanzahl getrennt für Block, Linie, Kolonne und Keil, auch nach einem Spielneustart. Kleinere Gruppen verwenden höchstens eine Reihe pro Einheit; der gemerkte Wert bleibt erhalten. Ohne gemerkten Wert oder bei ausgeschalteter Option beginnt jeder Befehl mit der automatischen Reihenanzahl. Kreis und Vanilla bleiben unverändert.
++BugfixesAndQoL.RememberRowsHelp=Merkt die per Mausrad gewählte Reihenanzahl je Aufstellungsart, auch nach Neustarts. Kleinere Gruppen begrenzen sie vorübergehend. Ausgeschaltet oder ohne gespeicherten Wert: automatische Reihenanzahl. Kreis und Vanilla bleiben unverändert.
++BugfixesAndQoL.ArrangementTooltip=Aufstellung

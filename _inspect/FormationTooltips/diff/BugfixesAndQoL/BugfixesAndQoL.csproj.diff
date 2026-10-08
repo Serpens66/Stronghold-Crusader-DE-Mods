@@ -1,0 +1,10 @@
+--- starting:BugfixesAndQoL\BugfixesAndQoL.csproj
++++ BugfixesAndQoL\BugfixesAndQoL.csproj
+@@ -206,6 +206,7 @@
+     <Compile Include="src\FormationFeature.cs" />
+     <Compile Include="src\FormationSelectionMigration.cs" />
+     <Compile Include="src\FormationMenuViewModel.cs" />
++    <Compile Include="src\ArrangementTooltipFontConverter.cs" />
+     <Compile Include="src\FormationPreviewOverlay.cs" />
+     <Compile Include="src\LargeMoveTargetMarkerRuntime.cs" />
+     <Compile Include="src\HdMarketViewHook.cs" />
