@@ -16,10 +16,6 @@ namespace APIShared.UnitCommands
             CommandDetail = commandDetail; HoveredUnit = hoveredUnit;
             HoveredBuilding = hoveredBuilding; Wall = wall;
         }
-        // Terminal ordinary-Move proof remains authoritative over unit hover.
-        internal bool FormationMoveAllowed => Mode == 1 && Kind == 3 && File == 0x6B &&
-            ((Image == 0 && Command == 1) || (Image == 0x20 && Command == 9)) &&
-            CommandDetail == 0;
         internal bool GroundAllowed => Kind == 3 && File == 0x6B &&
             (Image == 0 || Image == 0x20) && (Command == 1 || Command == 9) &&
             CommandDetail == 0 && HoveredUnit == 0 && HoveredBuilding == 0 && Wall == 0;
@@ -42,43 +38,6 @@ namespace APIShared.UnitCommands
             if (feedback.X == x && feedback.Y == y)
                 allowed = feedback.GroundAllowed;
             return allowed;
-        }
-    }
-
-    // Formation-only proof; the strict queue ground policy remains unchanged.
-    internal sealed class FormationMoveAuthorization
-    {
-        private readonly int player, tribe, count, x, y;
-        private readonly long startedAfterGeneration;
-        private long observedGeneration;
-        internal bool IsConfirmed { get; private set; }
-
-        internal FormationMoveAuthorization(int player, int tribe, int count,
-            int x, int y, long startedAfterGeneration)
-        {
-            this.player = player; this.tribe = tribe; this.count = count;
-            this.x = x; this.y = y;
-            this.startedAfterGeneration = startedAfterGeneration;
-            observedGeneration = startedAfterGeneration;
-        }
-
-        internal bool Observe(GroundMoveFeedback feedback, long generation, bool coherentCursor)
-        {
-            if (feedback.Player != player || feedback.Tribe != tribe ||
-                feedback.Count != count || feedback.Mode != 1)
-                return IsConfirmed = false;
-            // The confirmed press owns the command anchor. Subsequent hover,
-            // even back on that tile, only supplies the gesture's facing.
-            if (IsConfirmed)
-                return true;
-            if (generation <= startedAfterGeneration || generation <= observedGeneration)
-                return IsConfirmed;
-            observedGeneration = generation;
-            // A later hover supplies facing, never a replacement command anchor.
-            // Incoherent snapshots cannot establish or replace command proof.
-            if (coherentCursor && feedback.X == x && feedback.Y == y)
-                IsConfirmed = feedback.FormationMoveAllowed;
-            return IsConfirmed;
         }
     }
 

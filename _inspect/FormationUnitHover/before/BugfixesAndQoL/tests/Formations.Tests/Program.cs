@@ -1144,10 +1144,9 @@ internal static class Program
             "deterministic unit order and synchronized plan validation retained");
         Check(runtime.Contains("APIShared.UnitAccess.IsReallyAlive(unit)") && runtime.Contains("unit->r_GlobalId == globalId"),
             "native death marker and identity validation retained");
-        Check(runtime.Contains("IsShiftHeld()") && runtime.Contains("EvaluateFormationTargetBounds(state.Target)") &&
-              engine.Contains("ValidateActiveDrag(state)") && engine.Contains("!state.Authorization.IsConfirmed"),
-            "Shift, changed context, invalid bounds and unconfirmed commands retain Vanilla");
-        Check(runtime.Contains("state.Authorization.Observe(feedback, generation, coherent)") &&
+        Check(runtime.Contains("IsShiftHeld()") && runtime.Contains("EvaluateFixedGroundTarget(state.Target)"),
+            "Shift, objects, selection changes and invalid ground retain Vanilla");
+        Check(runtime.Contains("state.Authorization.Observe(groundFeedbackReader.Read())") &&
               markers.Contains("previewCheckedThisPass"), "preview authorization is shared and evaluated per native pass");
         Check(markers.Contains("ExpectedVisibleTileDisplacedBytes = 17") &&
               markers.Contains("Placement = OverwrittenInstructionPlacement.AfterCallback"), "shared marker displacement contract");

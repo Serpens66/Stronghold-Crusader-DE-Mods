@@ -25,9 +25,6 @@ namespace BugfixesAndQoL
         private readonly ConfigEntry<int>[] rememberedRows;
         private MainViewModel subscribedMainViewModel;
         private MainViewModel buttonTooltipOwner;
-        private HUD_Troops buttonTooltipPanel;
-        private HUD_Troops hookedButtonPanel;
-        private Button hookedButton;
         private string buttonTooltipText;
         private bool menuVisible;
         private bool rolloverVisible;
@@ -53,6 +50,8 @@ namespace BugfixesAndQoL
             this.rememberRows = rememberRows ?? throw new ArgumentNullException(nameof(rememberRows));
             this.rememberedRows = rememberedRows ?? throw new ArgumentNullException(nameof(rememberedRows));
 
+            ShowButtonTooltipCommand = new ParameterCommand(_ => ShowButtonTooltip());
+            HideButtonTooltipCommand = new ParameterCommand(_ => HideButtonTooltip());
             ToggleMenuCommand = new ParameterCommand(_ => ToggleMenu());
             SelectFormationCommand = new ParameterCommand(SelectFormation);
             SelectDensityCommand = new ParameterCommand(SelectDensity);
@@ -111,6 +110,8 @@ namespace BugfixesAndQoL
 
         public event PropertyChangedEventHandler PropertyChanged;
 
+        public ICommand ShowButtonTooltipCommand { get; }
+        public ICommand HideButtonTooltipCommand { get; }
         public ICommand ToggleMenuCommand { get; }
         public ICommand SelectFormationCommand { get; }
         public ICommand SelectDensityCommand { get; }
@@ -151,7 +152,7 @@ namespace BugfixesAndQoL
             {
                 SetMenuVisible(false);
                 HideRollover();
-                DetachButtonEvents();
+                HideButtonTooltip();
             }
             if (lastAvailability != available)
             {
@@ -166,16 +167,13 @@ namespace BugfixesAndQoL
         {
             RefreshAvailability();
             MainViewModel current = MainViewModel.viewModelLoaded ? MainViewModel.Instance : null;
-            bool hostAvailable = FeatureAvailable && current != null && current.Show_HUD_Troops &&
-                FatControler.currentScene == Enums.SceneIDS.ActualMainGame;
-            RefreshButtonEvents(hostAvailable ? current.HUDTroopPanel : null);
-            if (!ReferenceEquals(current, subscribedMainViewModel))
+            if (buttonTooltipOwner != null && (!ReferenceEquals(current, buttonTooltipOwner) ||
+                current == null || !current.Show_HUD_Troops || FatControler.currentScene != Enums.SceneIDS.ActualMainGame))
+                HideButtonTooltip();
+            if (!ReferenceEquals(current, subscribedMainViewModel) && current != null)
             {
-                if (subscribedMainViewModel != null)
-                    subscribedMainViewModel.PropertyChanged -= MainViewModelPropertyChanged;
                 subscribedMainViewModel = current;
-                if (current != null)
-                    current.PropertyChanged += MainViewModelPropertyChanged;
+                current.PropertyChanged += MainViewModelPropertyChanged;
             }
             if (menuVisible && (!Enabled() ||
                 (current == null || !current.Show_HUD_Troops ||
@@ -258,81 +256,34 @@ namespace BugfixesAndQoL
             SaveConfiguration("showRoleMarkers", requested.ToString());
         }
 
-        private void RefreshButtonEvents(HUD_Troops panel)
+        private void ShowButtonTooltip()
         {
-            Button button = panel?.FindName("BugfixesAndQoLFormationOpenButton") as Button;
-            if (ReferenceEquals(button, hookedButton) && ReferenceEquals(panel, hookedButtonPanel))
-                return;
-            DetachButtonEvents();
-            if (button == null) return;
-            hookedButtonPanel = panel;
-            hookedButton = button;
-            button.MouseEnter += OnButtonMouseEnter;
-            button.MouseLeave += OnButtonMouseLeave;
-        }
-
-        private void DetachButtonEvents()
-        {
-            HideButtonTooltip();
-            if (hookedButton != null)
-            {
-                hookedButton.MouseEnter -= OnButtonMouseEnter;
-                hookedButton.MouseLeave -= OnButtonMouseLeave;
-            }
-            hookedButton = null;
-            hookedButtonPanel = null;
-        }
-
-        private void OnButtonMouseEnter(object sender, MouseEventArgs args)
-        {
-            if (!ReferenceEquals(sender, hookedButton)) return;
+            RefreshHostState();
             MainViewModel current = MainViewModel.viewModelLoaded ? MainViewModel.Instance : null;
             if (!FeatureAvailable || current == null || !current.Show_HUD_Troops ||
-                !ReferenceEquals(current.HUDTroopPanel, hookedButtonPanel) ||
                 FatControler.currentScene != Enums.SceneIDS.ActualMainGame) return;
             HideButtonTooltip();
             try
             {
-                HUD_Troops panel = hookedButtonPanel;
-                if (panel.RefTroopsPanelRollover == null) return;
+                current.ButtonTroopPanelMouseEnterCommand.Execute("ToggleControlGroups");
                 string text = SerpLocalization.Get("BugfixesAndQoL.ArrangementTooltip");
                 current.TroopsPanelRollover = text;
-                current.TroopsPanelRollover_AmountReq1 = string.Empty;
-                current.TroopsPanelRollover_AmountGot1 = string.Empty;
-                current.TroopsPanelRollover_GoodsImage1 = null;
-                panel.RefTroopsPanelRollover.Visibility = Visibility.Visible;
-                if (panel.RefTroopsPanelRollover2 != null)
-                    panel.RefTroopsPanelRollover2.Visibility = Visibility.Hidden;
                 buttonTooltipOwner = current;
-                buttonTooltipPanel = panel;
                 buttonTooltipText = text;
             }
             catch (Exception ex) { Shared.DebugLogHelper.LogWarning(log, "Arrangement hover unavailable: " + ex.Message); }
         }
 
-        private void OnButtonMouseLeave(object sender, MouseEventArgs args)
-        {
-            if (ReferenceEquals(sender, hookedButton)) HideButtonTooltip();
-        }
-
         private void HideButtonTooltip()
         {
             MainViewModel owner = buttonTooltipOwner;
-            HUD_Troops panel = buttonTooltipPanel;
             string text = buttonTooltipText;
             buttonTooltipOwner = null;
-            buttonTooltipPanel = null;
             buttonTooltipText = null;
-            // Leave a rollover that another button or a replacement HUD has taken over.
-            if (owner == null || panel == null || !ReferenceEquals(owner.HUDTroopPanel, panel) ||
+            // A different button may already have taken over the shared Vanilla rollover.
+            if (owner == null || !MainViewModel.viewModelLoaded || !ReferenceEquals(owner, MainViewModel.Instance) ||
                 !string.Equals(owner.TroopsPanelRollover, text, StringComparison.Ordinal)) return;
-            try
-            {
-                if (panel.RefTroopsPanelRollover != null)
-                    panel.RefTroopsPanelRollover.Visibility = Visibility.Hidden;
-                if (panel.RefTroopsPanelRollover2 != null)
-                    panel.RefTroopsPanelRollover2.Visibility = Visibility.Hidden;
-            }
+            try { owner.ButtonTroopPanelMouseLeaveCommand.Execute("ToggleControlGroups"); }
             catch (Exception ex) { Shared.DebugLogHelper.LogWarning(log, "Arrangement hover close failed: " + ex.Message); }
         }
 
@@ -375,7 +326,7 @@ namespace BugfixesAndQoL
         {
             if (args.PropertyName == nameof(MainViewModel.Show_HUD_Troops) &&
                 sender is MainViewModel changedMain && !changedMain.Show_HUD_Troops)
-                DetachButtonEvents();
+                HideButtonTooltip();
             if (!menuVisible)
                 return;
             MainViewModel source = sender as MainViewModel;

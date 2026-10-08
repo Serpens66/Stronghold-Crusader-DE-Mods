@@ -252,9 +252,7 @@ namespace APIShared.UnitCommands {
             internal FormationGestureState Geometry;
             internal Gate ReleaseGate=new Gate();internal int Rows=>Geometry.Rows;
             internal GroundTarget Target;
-            internal AuthorizationFixture Authorization=new AuthorizationFixture();
         }
-        private sealed class AuthorizationFixture { internal bool IsConfirmed=true; }
         private bool ValidateActiveDrag(ActiveDrag state)=>valid;
         private bool TryCaptureTarget(out GroundTarget target) { target=new GroundTarget {NativeX=10,NativeY=0};return true; }
         private void PublishPreview(ActiveDrag state,bool force) {}

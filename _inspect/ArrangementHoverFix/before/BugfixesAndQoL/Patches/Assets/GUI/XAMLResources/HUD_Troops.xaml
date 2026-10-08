@@ -104,7 +104,7 @@
 <Operation Type="Add" XPath="//n:Grid[@x:Name='LayoutRoot']">
     <Content>
       <Grid x:Name="BugfixesAndQoLFormationButtonHost" Visibility="{Binding FeatureAvailable, Converter={StaticResource booleanToVisibilityConverter}, FallbackValue=Collapsed}" Width="35" Height="35" Margin="480,11,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" Panel.ZIndex="20">
-        <Button x:Name="BugfixesAndQoLFormationOpenButton" Width="35" Height="35" Padding="0" Command="{Binding ToggleMenuCommand}">
+        <Button Width="35" Height="35" Padding="0" Command="{Binding ToggleMenuCommand}">
           <Viewbox Width="27" Height="27"><Grid Width="32" Height="32" IsHitTestVisible="False">
             <ContentControl Content="Formation" ContentTemplate="{StaticResource BugfixesFormationIconVanilla}" Visibility="{Binding IsVanilla, Converter={StaticResource booleanToVisibilityConverter}, FallbackValue=Collapsed}"/>
             <ContentControl Content="Formation" ContentTemplate="{StaticResource BugfixesFormationIconBlock}" Visibility="{Binding IsBlock, Converter={StaticResource booleanToVisibilityConverter}, FallbackValue=Collapsed}"/>
@@ -113,6 +113,7 @@
             <ContentControl Content="Formation" ContentTemplate="{StaticResource BugfixesFormationIconWedge}" Visibility="{Binding IsWedge, Converter={StaticResource booleanToVisibilityConverter}, FallbackValue=Collapsed}"/>
             <ContentControl Content="Formation" ContentTemplate="{StaticResource BugfixesFormationIconCircle}" Visibility="{Binding IsCircle, Converter={StaticResource booleanToVisibilityConverter}, FallbackValue=Collapsed}"/>
           </Grid></Viewbox>
+          <b:Interaction.Triggers><b:EventTrigger EventName="MouseEnter"><b:InvokeCommandAction Command="{Binding ShowButtonTooltipCommand}"/></b:EventTrigger><b:EventTrigger EventName="MouseLeave"><b:InvokeCommandAction Command="{Binding HideButtonTooltipCommand}"/></b:EventTrigger></b:Interaction.Triggers>
         </Button>
       </Grid>
     </Content>

@@ -57,5 +57,4 @@ MovementLifeGeneratorTests.Validate(root);
 RallyTerrainGeneratorTests.Validate(root);
 CadenceSnapshotTests.Validate(root);
 FormationStartupTests.Validate(root);
-FormationMoveRuntimeTests.Validate(root);
 Console.WriteLine("PASS: main command fixes use native probes and group fallback; actual installed RedBird contracts verified.");

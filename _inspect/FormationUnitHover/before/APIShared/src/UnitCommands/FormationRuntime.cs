@@ -124,9 +124,6 @@ namespace APIShared.UnitCommands
         private readonly IUnitCommandSettings settings;
         private readonly UnitCommandPathRuntime commandRuntime;
         private NativeGroundMoveFeedbackReader groundFeedbackReader;
-        private long nativeFeedbackGeneration;
-        private long nativeFeedbackRunGeneration;
-        private bool nativeFeedbackRunActive;
         private bool startupConfirmed;
         internal bool Enabled => initialized && !failed && settings.EnableMod && settings.EnableMoveFormationEnhancements;
         private int dispatchDepth;
@@ -363,7 +360,7 @@ namespace APIShared.UnitCommands
                     return;
                 }
                 Shared.GroundMovePreviewRejection targetRejection =
-                    EvaluateFormationTargetBounds(state.Target);
+                    EvaluateFixedGroundTarget(state.Target);
                 if (targetRejection != Shared.GroundMovePreviewRejection.None)
                 {
                     AbortDrag("target-" + ToRejectionReason(targetRejection));
@@ -467,23 +464,11 @@ namespace APIShared.UnitCommands
                     return RunOriginalOnce(mpFrameSkip, ref originalEntered);
                 }
                 Shared.GroundMovePreviewRejection targetRejection =
-                    EvaluateFormationTargetBounds(state.Target);
+                    EvaluateFixedGroundTarget(state.Target);
                 if (targetRejection != Shared.GroundMovePreviewRejection.None)
                 {
                     AbortDrag("release-target-" +
                         ToRejectionReason(targetRejection));
-                    return RunOriginalOnce(mpFrameSkip, ref originalEntered);
-                }
-
-                if (!ValidateActiveDrag(state))
-                {
-                    AbortDrag("release-state-changed");
-                    return RunOriginalOnce(mpFrameSkip, ref originalEntered);
-                }
-                if (!state.Authorization.IsConfirmed)
-                {
-                    if (FormationReleaseStateModel.HasCommandRelease(inputState, state.CommandButton))
-                        AbortDrag("release-unconfirmed-move");
                     return RunOriginalOnce(mpFrameSkip, ref originalEntered);
                 }
 
@@ -609,28 +594,7 @@ namespace APIShared.UnitCommands
                 throw new InvalidOperationException(
                     "EngineInterface.run original was entered more than once for one hook invocation.");
             originalEntered = true;
-            lock (stateSync)
-            {
-                nativeFeedbackRunGeneration = nativeFeedbackGeneration + 1;
-                nativeFeedbackRunActive = true;
-            }
-            try
-            {
-                int result = engineRunOriginal(mpFrameSkip);
-                // The terminal marker callback can run inside DLL_RunTick. It
-                // uses this run's generation immediately, before the render
-                // tail clears cursor kind. No-buffer runs never reach it and
-                // return zero, so they do not publish a completed generation.
-                if (result > 0)
-                {
-                    lock (stateSync) nativeFeedbackGeneration = nativeFeedbackRunGeneration;
-                }
-                return result;
-            }
-            finally
-            {
-                lock (stateSync) nativeFeedbackRunActive = false;
-            }
+            return engineRunOriginal(mpFrameSkip);
         }
 
         private void CameraUpdateHook(CameraControls2D self)
@@ -638,7 +602,7 @@ namespace APIShared.UnitCommands
             ActiveDrag state;
             lock (stateSync)
                 state = drag;
-            if (Enabled && state != null && state.Authorization.IsConfirmed)
+            if (Enabled && state != null)
                 self.AllowZoom = false;
             cameraUpdateOriginal(self);
             try
@@ -661,7 +625,7 @@ namespace APIShared.UnitCommands
                 if (!abort)
                 {
                     int frame = Time.frameCount;
-                    float wheel = state.Authorization.IsConfirmed ? Input.mouseScrollDelta.y : 0f;
+                    float wheel = Input.mouseScrollDelta.y;
                     if (wheel != 0f && lastWheelFrame != frame)
                     {
                         lastWheelFrame = frame;
@@ -725,12 +689,9 @@ namespace APIShared.UnitCommands
                 FormationModel.NormalizeDensity(densityConfig.Value),
                 FormationModel.NormalizePlacementMode((int)placementModeConfig.Value),
                 menuViewModel.GetRememberedRows(FormationModel.NormalizeKind((int)formationConfig.Value)));
-            state.MapEpoch = commandRuntime.mapEpoch;
-            state.PlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
-            state.Authorization = new FormationMoveAuthorization(
-                state.PlayerId, tribeId, selection.Length,
-                target.NativeX, target.NativeY, nativeFeedbackGeneration);
-            menuViewModel.SetPreviewAuthorization(false);
+            state.Authorization = new GroundMovePreviewAuthorization(
+                GamePlayerManagerAPI.Instance.GetLocalPlayerId(), tribeId, selection.Length,
+                target.NativeX, target.NativeY);
             state.PreviewAuthorization = () => AuthorizePreview(state);
             ResolveDirectionAndWidth(state, out int direction, out int width);
             state.DirectionSector = direction;
@@ -1924,7 +1885,7 @@ namespace APIShared.UnitCommands
                 return;
             }
             Shared.GroundMovePreviewRejection targetRejection =
-                EvaluateFormationTargetBounds(state.Target);
+                EvaluateFixedGroundTarget(state.Target);
             if (targetRejection != Shared.GroundMovePreviewRejection.None)
             {
                 state.HasPreviewPlan = false;
@@ -2091,10 +2052,9 @@ namespace APIShared.UnitCommands
             return true;
         }
 
-        private static bool SelectionMatches(SelectionIdentity[] expected, int expectedTribeId)
+        private static bool SelectionMatches(SelectionIdentity[] expected)
         {
-            if (!TryCaptureSelection(out SelectionIdentity[] current, out int currentTribeId) ||
-                currentTribeId != expectedTribeId ||
+            if (!TryCaptureSelection(out SelectionIdentity[] current, out _) ||
                 current.Length != expected.Length)
                 return false;
             for (int index = 0; index < current.Length; index++)
@@ -2133,9 +2093,49 @@ namespace APIShared.UnitCommands
             if (!TryCaptureTarget(out target))
                 return false;
 
-            // A candidate is not an object-free-ground verdict. Coherent final
-            // Vanilla feedback, observed after native dispatch, authorizes Move.
-            rejection = EvaluateFormationTargetBounds(target);
+            int[] underCursor = null;
+            int troopDepth = -1;
+            GameMap.instance.grabTroopsOnScreen(
+                Vector2.zero,
+                Vector2.zero,
+                ref underCursor,
+                Input.mousePosition,
+                ref troopDepth);
+
+            GameTileManagerView tileManager = GameTileManagerAPI.Instance.TileManager;
+            int tileId = GameTileManagerAPI.Instance.GetTileId(
+                target.NativeX, target.NativeY);
+            bool insideMap = IsTargetInsideNativeMap(target, tileId, tileManager);
+            int tileUnitId = insideMap
+                ? tileManager.TileUnitIdGrid[tileId]
+                : 0;
+            int tileBuildingId = insideMap
+                ? tileManager.StructureGrid[tileId]
+                : 0;
+            bool hasPathComponent = insideMap &&
+                tileManager.PathConnectionGrid[tileId] != 0;
+            GameCursorManager* cursor =
+                GamePlayerManagerAPI.Instance.GetCursorManager().Pointer;
+            bool cursorInGame = cursor != null && cursor->r_IsCursorInGame == 1;
+            bool cursorSnapshotMatches = cursor != null &&
+                cursor->r_MouseTileX == (uint)target.NativeX &&
+                cursor->r_MouseTileY == (uint)target.NativeY;
+
+            rejection = Shared.GroundMovePreviewEligibility.EvaluateInitial(
+                new Shared.GroundMovePreviewSnapshot(
+                    insideMap,
+                    cursorInGame,
+                    cursorSnapshotMatches,
+                    underCursor?.Length ?? 0,
+                    cursor != null && cursor->r_HoverOverUnitId != 0 ? 1 : 0,
+                    tileUnitId,
+                    cursor != null && cursor->r_HoverOverBuildingId != 0 ? 1 : 0,
+                    cursor != null && cursor->r_HoveringOverWall != 0,
+                    tileBuildingId,
+                    insideMap && movementTargetAvailability != null &&
+                        movementTargetAvailability[
+                            target.NativeY * MapWidth + target.NativeX] != 0,
+                    hasPathComponent));
             return rejection == Shared.GroundMovePreviewRejection.None;
         }
 
@@ -2147,15 +2147,21 @@ namespace APIShared.UnitCommands
                 commandModeReader.Read());
         }
 
-        private Shared.GroundMovePreviewRejection EvaluateFormationTargetBounds(
+        private Shared.GroundMovePreviewRejection EvaluateFixedGroundTarget(
             GroundTarget target)
         {
             GameTileManagerView tileManager = GameTileManagerAPI.Instance.TileManager;
             int tileId = GameTileManagerAPI.Instance.GetTileId(
                 target.NativeX, target.NativeY);
             bool insideMap = IsTargetInsideNativeMap(target, tileId, tileManager);
-            return insideMap ? Shared.GroundMovePreviewRejection.None :
-                Shared.GroundMovePreviewRejection.OutsideMap;
+            return Shared.GroundMovePreviewEligibility.EvaluateFixedTarget(
+                insideMap,
+                insideMap ? tileManager.TileUnitIdGrid[tileId] : 0,
+                insideMap ? tileManager.StructureGrid[tileId] : 0,
+                insideMap && movementTargetAvailability != null &&
+                    movementTargetAvailability[
+                        target.NativeY * MapWidth + target.NativeX] != 0,
+                insideMap && tileManager.PathConnectionGrid[tileId] != 0);
         }
 
         private static bool IsTargetInsideNativeMap(
@@ -2192,25 +2198,8 @@ namespace APIShared.UnitCommands
         {
             bool allowed;
             lock (stateSync)
-            {
-                allowed = false;
-                if (Enabled && ReferenceEquals(drag, state) && ValidateActiveDrag(state))
-                {
-                    GroundMoveFeedback feedback = groundFeedbackReader.Read();
-                    GameCursorManager* cursor = GamePlayerManagerAPI.Instance.GetCursorManager().Pointer;
-                    bool coherent = cursor != null && cursor->r_IsCursorInGame == 1 &&
-                        cursor->r_MouseTileX == (uint)feedback.X &&
-                        cursor->r_MouseTileY == (uint)feedback.Y;
-                    bool wasConfirmed = state.Authorization.IsConfirmed;
-                    long generation = nativeFeedbackRunActive
-                        ? nativeFeedbackRunGeneration : nativeFeedbackGeneration;
-                    allowed = state.Authorization.Observe(feedback, generation, coherent);
-                    if (allowed && !wasConfirmed)
-                        LogDebugNoThrow($"FORMATION_MOVE_CONFIRMED: tribe={state.TribeId}, " +
-                            $"target={state.Target.NativeX},{state.Target.NativeY}, " +
-                            $"generation={generation}, hoveredUnit={feedback.HoveredUnit}.");
-                }
-            }
+                allowed = Enabled && ReferenceEquals(drag, state) && ValidateActiveDrag(state) &&
+                    state.Authorization.Observe(groundFeedbackReader.Read());
             menuViewModel.SetPreviewAuthorization(allowed);
             return allowed;
         }
@@ -2233,11 +2222,8 @@ namespace APIShared.UnitCommands
         private bool ValidateActiveDrag(ActiveDrag state) =>
             Enabled && state != null && markerRenderer != null &&
             markerRenderer.ReplacementAvailable && HasValidMap() && !IsShiftHeld() &&
-            state.MapEpoch == commandRuntime.mapEpoch &&
-            state.PlayerId == GamePlayerManagerAPI.Instance.GetLocalPlayerId() &&
-            (FatControler.instance == null || !FatControler.instance.overNoesisGUI()) &&
             GetCommandMouseButton() == state.CommandButton &&
-            SelectionMatches(state.Selection, state.TribeId);
+            SelectionMatches(state.Selection);
 
         private static bool HasValidMap() =>
             FatControler.currentScene == Enums.SceneIDS.ActualMainGame &&
@@ -2500,9 +2486,7 @@ namespace APIShared.UnitCommands
 
         private sealed class ActiveDrag
         {
-            internal FormationMoveAuthorization Authorization;
-            internal int MapEpoch;
-            internal int PlayerId;
+            internal GroundMovePreviewAuthorization Authorization;
             internal Func<bool> PreviewAuthorization;
             internal ActiveDrag(
                 int commandButton,

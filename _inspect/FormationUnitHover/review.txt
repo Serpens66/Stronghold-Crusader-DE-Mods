@@ -1,0 +1,23 @@
+Formation Move over units: final source review
+Native SHA256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2
+Script Extender local tag: v2.14.1; canonical Fixes clone: cbabdec (1.26.3)
+No new hook, public API, protocol field, version or README change.
+Existing opening-button/tooltip edits preserved; current task only adds an authorization fixture to FormationStartupTests.
+Candidate checks map/selection/input/UI; terminal ordinary Move confirms fixed anchor; later hover does not revoke proof.
+Queue ground policy remains byte-for-byte unchanged.
+The terminal render callback uses the active run generation inside DLL_RunTick; immediate dragging keeps the first confirmed anchor. No-buffer runs publish no completed generation; short unconfirmed releases remain Vanilla.
+Release validates selection identities and tribe, local player, map epoch, mouse mode, UI, command mode and accepted proof.
+Geometry, role placement and synchronized packet format remain unchanged.
+PASS: 560042 geometry checks; 8999 queue checks; productive candidate/authorization/release and remembered-rows fixtures.
+PASS: real assemblies/interop, JSON/lifecycle/hooks/XAML/CRLF and git diff --check.
+Visible in-game and multiplayer acceptance still pending.
+Compared saved starting state: APIShared/src/UnitCommands/FormationRuntime.cs; changed=True
+CRLF count: 2900
+Compared saved starting state: APIShared/src/UnitCommands/GroundMovePreviewAuthorization.cs; changed=True
+CRLF count: 118
+Compared saved starting state: BugfixesAndQoL/tests/Formations.Tests/Program.cs; changed=True
+CRLF count: 1253
+Compared saved starting state: BugfixesAndQoL/tests/FriendlyMoatMovement.Tests/FormationStartupTests.cs; changed=True
+CRLF count: 338
+Compared saved starting state: BugfixesAndQoL/tests/FriendlyMoatMovement.Tests/Program.cs; changed=True
+CRLF count: 61

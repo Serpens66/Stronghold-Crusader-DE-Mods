@@ -1,0 +1,115 @@
+--- starting:BugfixesAndQoL\tests\FriendlyMoatMovement.Tests\FormationStartupTests.cs
++++ BugfixesAndQoL\tests\FriendlyMoatMovement.Tests\FormationStartupTests.cs
+@@ -18,7 +18,7 @@
+         string fixture = """
+ using System; using System.Reflection; using System.Collections.Generic; using System.ComponentModel;
+ using APIShared.UnitCommands; using BepInEx.Configuration; using BepInEx.Logging;
+-public static class SerpLocalization { public static string Get(string key)=>key=="BugfixesAndQoL.ArrangementTooltip"?"Arrangement":key; }
++public static class SerpLocalization { public static string Language="en"; public static string Get(string key)=>key=="BugfixesAndQoL.ArrangementTooltip"?(Language=="de"?"Aufstellung":"Arrangement"):key; }
+ namespace BepInEx { public static class Paths { public static string ConfigPath="__missing_formation_fixture__"; } }
+ namespace BepInEx.Logging { public class ManualLogSource {} }
+ namespace BepInEx.Configuration {
+@@ -43,6 +43,18 @@
+     }
+ }
+ namespace Noesis {
++    public enum Visibility { Visible,Hidden,Collapsed }
++    public class MouseEventArgs : EventArgs {}
++    public delegate void MouseEventHandler(object sender,MouseEventArgs args);
++    public class TextBlock { public Visibility Visibility=Visibility.Hidden; }
++    public class Button {
++        private MouseEventHandler enter,leave;
++        public int EnterHandlers,LeaveHandlers;
++        public event MouseEventHandler MouseEnter { add {enter+=value;EnterHandlers++;} remove {enter-=value;EnterHandlers--;} }
++        public event MouseEventHandler MouseLeave { add {leave+=value;LeaveHandlers++;} remove {leave-=value;LeaveHandlers--;} }
++        public void Enter()=>enter?.Invoke(this,new MouseEventArgs());
++        public void Leave()=>leave?.Invoke(this,new MouseEventArgs());
++    }
+     public interface IValueConverter {
+         object Convert(object v,Type t,object p,System.Globalization.CultureInfo c);
+         object ConvertBack(object v,Type t,object p,System.Globalization.CultureInfo c);
+@@ -55,20 +67,16 @@
+         public static bool viewModelLoaded=true; public static MainViewModel Instance=new MainViewModel();
+         public bool Show_HUD_Troops=true; public bool Show_HUD_ControlGroups;
+         public string TroopsPanelRollover {get;set;}
+-        public int HoverEnters,HoverLeaves;public bool NativeTooltipVisible;
+-        public System.Windows.Input.ICommand ButtonTroopPanelMouseEnterCommand {get;}
+-        public System.Windows.Input.ICommand ButtonTroopPanelMouseLeaveCommand {get;}
+-        public MainViewModel() {
+-            ButtonTroopPanelMouseEnterCommand=new NativeCommand(p=>{ if((string)p!="ToggleControlGroups")throw new Exception("Wrong Vanilla hover");HoverEnters++;NativeTooltipVisible=true;TroopsPanelRollover="Vanilla"; });
+-            ButtonTroopPanelMouseLeaveCommand=new NativeCommand(p=>{HoverLeaves++;NativeTooltipVisible=false;});
+-        }
+-        private sealed class NativeCommand : System.Windows.Input.ICommand {
+-            private Action<object> action;internal NativeCommand(Action<object> a) {action=a;}
+-            public bool CanExecute(object p)=>true;public void Execute(object p)=>action(p);
+-            public event EventHandler CanExecuteChanged {add {} remove {}}
+-        }
++        public HUD_Troops HUDTroopPanel=new HUD_Troops();
++        public string TroopsPanelRollover_AmountReq1,TroopsPanelRollover_AmountGot1;
++        public object TroopsPanelRollover_GoodsImage1;
+         public event PropertyChangedEventHandler PropertyChanged;
+         public void Notify(string name) { PropertyChanged?.Invoke(this,new PropertyChangedEventArgs(name)); }
++    }
++    public class HUD_Troops {
++        public Noesis.Button OpenButton=new Noesis.Button();
++        public Noesis.TextBlock RefTroopsPanelRollover=new Noesis.TextBlock(),RefTroopsPanelRollover2=new Noesis.TextBlock();
++        public object FindName(string name)=>name=="BugfixesAndQoLFormationOpenButton"?OpenButton:null;
+     }
+     public static class Enums { public enum SceneIDS { ActualMainGame,Other } }
+     public static class FatControler { public static Enums.SceneIDS currentScene=Enums.SceneIDS.ActualMainGame; }
+@@ -182,23 +190,40 @@
+             CrusaderDE.MainViewModel.Instance.Notify("Show_HUD_Troops");
+             Require(!menu.MenuVisible,"Deselection did not close menu");
+             var main=CrusaderDE.MainViewModel.Instance;main.Show_HUD_Troops=true;
+-            menu.ShowButtonTooltipCommand.Execute(null);
+-            Require(main.NativeTooltipVisible && main.HoverEnters==1 && main.TroopsPanelRollover=="Arrangement" && !menu.RolloverVisible,"Button did not use localized Vanilla tooltip");
+-            menu.HideButtonTooltipCommand.Execute(null);
+-            Require(!main.NativeTooltipVisible && main.HoverLeaves==1,"Vanilla tooltip did not hide");
+-            menu.ShowButtonTooltipCommand.Execute(null);main.TroopsPanelRollover="Different Vanilla button";
+-            int leaves=main.HoverLeaves;menu.HideButtonTooltipCommand.Execute(null);
+-            Require(main.NativeTooltipVisible && main.HoverLeaves==leaves,"Other button tooltip was hidden");
+-            menu.ShowButtonTooltipCommand.Execute(null);menu.CloseMenu();
+-            Require(!main.NativeTooltipVisible,"Close did not hide owned tooltip");
+-            menu.ShowButtonTooltipCommand.Execute(null);FormationRuntime.Last.Failed=true;menu.RefreshHostState();
+-            Require(!main.NativeTooltipVisible,"Runtime failure left button tooltip open");
+-            FormationRuntime.Last.Failed=false;menu.RefreshHostState();menu.ShowButtonTooltipCommand.Execute(null);
++            var panel=main.HUDTroopPanel;var button=panel.OpenButton;
++            menu.RefreshHostState();menu.RefreshHostState();
++            Require(button.EnterHandlers==1 && button.LeaveHandlers==1,"Duplicate direct handlers");
++            main.TroopsPanelRollover_AmountReq1="cost";main.TroopsPanelRollover_AmountGot1="body";main.TroopsPanelRollover_GoodsImage1=new object();
++            panel.RefTroopsPanelRollover2.Visibility=Noesis.Visibility.Visible;button.Enter();
++            Require(panel.RefTroopsPanelRollover.Visibility==Noesis.Visibility.Visible && panel.RefTroopsPanelRollover2.Visibility==Noesis.Visibility.Hidden && main.TroopsPanelRollover=="Arrangement" && !menu.RolloverVisible,"Direct event did not show short Vanilla rollover");
++            Require(main.TroopsPanelRollover_AmountReq1=="" && main.TroopsPanelRollover_AmountGot1=="" && main.TroopsPanelRollover_GoodsImage1==null,"Old costs leaked");
++            button.Leave();Require(panel.RefTroopsPanelRollover.Visibility==Noesis.Visibility.Hidden,"Leave did not hide");
++            SerpLocalization.Language="de";button.Enter();Require(main.TroopsPanelRollover=="Aufstellung","German hover missing");SerpLocalization.Language="en";
++            main.TroopsPanelRollover="Different Vanilla button";button.Leave();
++            Require(panel.RefTroopsPanelRollover.Visibility==Noesis.Visibility.Visible,"Foreign short hover hidden");
++            button.Enter();main.TroopsPanelRollover="Knight";panel.RefTroopsPanelRollover.Visibility=Noesis.Visibility.Hidden;panel.RefTroopsPanelRollover2.Visibility=Noesis.Visibility.Visible;button.Leave();
++            Require(panel.RefTroopsPanelRollover2.Visibility==Noesis.Visibility.Visible,"Knight hover hidden");
++            button.Enter();menu.CloseMenu();Require(panel.RefTroopsPanelRollover.Visibility==Noesis.Visibility.Hidden,"Close did not hide");
++            button.Enter();FormationRuntime.Last.Failed=true;menu.RefreshHostState();
++            Require(panel.RefTroopsPanelRollover.Visibility==Noesis.Visibility.Hidden && button.EnterHandlers==0,"Runtime failure left hover/handlers");
++            FormationRuntime.Last.Failed=false;menu.RefreshHostState();button.Enter();
+             CrusaderDE.FatControler.currentScene=CrusaderDE.Enums.SceneIDS.Other;menu.RefreshHostState();
+-            Require(!main.NativeTooltipVisible,"Scene change left tooltip open");
+-            CrusaderDE.FatControler.currentScene=CrusaderDE.Enums.SceneIDS.ActualMainGame;menu.ShowButtonTooltipCommand.Execute(null);
++            Require(panel.RefTroopsPanelRollover.Visibility==Noesis.Visibility.Hidden && button.EnterHandlers==0,"Scene change left hover/handlers");
++            CrusaderDE.FatControler.currentScene=CrusaderDE.Enums.SceneIDS.ActualMainGame;menu.RefreshHostState();button.Enter();
+             main.Show_HUD_Troops=false;main.Notify("Show_HUD_Troops");
+-            Require(!main.NativeTooltipVisible,"Deselection left tooltip open");
++            Require(panel.RefTroopsPanelRollover.Visibility==Noesis.Visibility.Hidden && button.EnterHandlers==0,"Deselection left hover/handlers");
++            main.Show_HUD_Troops=true;menu.RefreshHostState();button.Enter();
++            var replacement=new CrusaderDE.HUD_Troops();main.HUDTroopPanel=replacement;main.TroopsPanelRollover="Replacement button";replacement.RefTroopsPanelRollover.Visibility=Noesis.Visibility.Visible;
++            menu.RefreshHostState();menu.RefreshHostState();
++            Require(button.EnterHandlers==0 && button.LeaveHandlers==0 && replacement.OpenButton.EnterHandlers==1 && replacement.OpenButton.LeaveHandlers==1,"HUD replacement handlers incorrect");
++            Require(replacement.RefTroopsPanelRollover.Visibility==Noesis.Visibility.Visible,"Replacement hover hidden");
++            button.Enter();Require(main.TroopsPanelRollover=="Replacement button","Old button still active");
++            replacement.OpenButton.Enter();Require(main.TroopsPanelRollover=="Arrangement","New HUD hover inactive");replacement.OpenButton.Leave();
++            var newMain=new CrusaderDE.MainViewModel();CrusaderDE.MainViewModel.Instance=newMain;menu.RefreshHostState();
++            Require(replacement.OpenButton.EnterHandlers==0 && newMain.HUDTroopPanel.OpenButton.EnterHandlers==1,"Viewmodel replacement handlers incorrect");
++            newMain.HUDTroopPanel.OpenButton.Enter();main.Show_HUD_Troops=false;main.Notify("Show_HUD_Troops");
++            Require(newMain.HUDTroopPanel.RefTroopsPanelRollover.Visibility==Noesis.Visibility.Visible,"Old viewmodel subscription remained");
++            newMain.HUDTroopPanel.OpenButton.Leave();
+             var converter=new ArrangementTooltipFontConverter();
+             foreach(float size in new[]{16f,20f,36f}) {
+                 object doubled=converter.Convert(size,typeof(float),null,System.Globalization.CultureInfo.InvariantCulture);

@@ -141,10 +141,10 @@ depending on the cleared `KeyManager` state.
 
 Revalidated installed native SHA-256 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2
 and real managed SHA-256 BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789.
-Feature audit covers RunTick 86680 â†’ 8B7E0 â†’ 8C5F0; representative selection
+Feature audit covers RunTick 86680 → 8B7E0 → 8C5F0; representative selection
 18D460 / route mode 18DC40; E7C40, E2610, DB650 and the E2CA0/E9D90/E9FF0
 fallbacks; terminal cursor dispatch; renderer 41D60/436DE/41D10; command staging
-195E30 â†’ chore17/10AE0 â†’ 196100 â†’ 11B520 â†’ 196280/F4930.
+195E30 → chore17/10AE0 → 196100 → 11B520 → 196280/F4930.
 
 Ground reject 8F3DA writes detail -10 at 60AD560, image 41 at 60AD548,
 file AC at 60AD54C and command 11 at 60AD55C. Final cursor dispatch table
@@ -180,22 +180,13 @@ No new hook spans/owners, SE/Fixes conflicts or public APIShared interfaces.
 
 
 Buildnachweis 02.10.2026: Beide betroffenen build.bat-Treiber abgeschlossen,
-DLLs lokal/installiert SHA-256-identisch. Testmod: 1.699 Assertions einschlieÃŸlich
+DLLs lokal/installiert SHA-256-identisch. Testmod: 1.699 Assertions einschließlich
 beider installierten RedBird-Maschinentests, 0 Warnungen/Fehler. Hauptmod:
-9.228 Formations-/Queue-Checks und vollstÃ¤ndige Treiber-Regressionen bestanden;
-0 Fehler, 1 MSB3277-Warnung fÃ¼r MonoMod.Utils-Referenzversionen. Der alte
-Quelltexttest im Hauptmod-Nativeharness wurde auf die atomare VerÃ¶ffentlichung
+9.228 Formations-/Queue-Checks und vollständige Treiber-Regressionen bestanden;
+0 Fehler, 1 MSB3277-Warnung für MonoMod.Utils-Referenzversionen. Der alte
+Quelltexttest im Hauptmod-Nativeharness wurde auf die atomare Veröffentlichung
 von Markerkacheln und Autorisierungsdelegate aktualisiert; der erneute komplette
-Treiber bestand. JSON-/Lifecycle-/Hookmutations-/XAML-/CRLF-VorprÃ¼fungen bestanden.
+Treiber bestand. JSON-/Lifecycle-/Hookmutations-/XAML-/CRLF-Vorprüfungen bestanden.
 Testmod DLL: 19C3DAB31C0B5CEE3054E771CBEA98BB5A20F11FA00DA354EEA97322AC0056B6.
 BugfixesAndQoL DLL: 4CD2567C4565FAA0E916561B40092A78A593DD897EDBC4117E6397BF00A36036.
-APIShared unverÃ¤ndert; keine VersionserhÃ¶hung. Spielabnahme weiterhin offen.
-
-
-## 2026-10-08: formation Move classification over units
-
-Native SHA-256 remains FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2. Rechecked the complete command-decision export at 8C5F0, target resolver 79B90 and Move staging 195E30, with the input and terminal flow above. The earlier requirement for empty unit hover/tile occupancy describes our conservative ground-only preview policy, not a general Vanilla prohibition on Move over units.
-
-Ordinary mode 1 initializes file 6B/image 0/command 1/detail 0. Object interactions and attacks set distinct detail values (1..6, 10..12, etc.); rejected routes use detail -10, file AC/image 41. Final kind 3 plus the accepted file/image/command pair and detail 0 classifies ordinary Move; hovered-unit identity alone does not invalidate it. Attack Here remains a separate mode even when staging a preliminary Move. Confidence: confirmed-static; visible game and multiplayer acceptance remain separate.
-
-Formation uses separate authorization from the unchanged strict queue ground policy. A candidate waits for a newer EngineInterface.run and coherent terminal-render cursor feedback at its captured anchor. The render callback can execute inside DLL_RunTick, before run returns; it uses the active run generation so immediate dragging does not miss the first confirmed anchor. A no-buffer run never reaches the terminal render callback and returns zero without advancing the completed generation. The real managed run calls preDLLCallActions then DLL_RunTick when a free buffer exists; its no-buffer path returns zero. Proof is read in the existing first tile-render callback before the render tail clears cursor kind. Later hover affects facing only. Selection/player/group/mode and map identity changes invalidate proof; unconfirmed releases remain untouched for Vanilla. Existing accepted-release consumption and per-slot placement checks remain authoritative.
+APIShared unverändert; keine Versionserhöhung. Spielabnahme weiterhin offen.
