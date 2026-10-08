@@ -1,0 +1,40 @@
+{
+  "modSourcesAndMetadataUnchanged": true,
+  "readmesUnchanged": true,
+  "sourceRecords": {
+    "source-types": {
+      "rows": 253,
+      "changedBeyondCommit": 0
+    },
+    "type-fields": {
+      "rows": 8879,
+      "changedBeyondCommit": 0
+    },
+    "vtable-members": {
+      "rows": 345,
+      "changedBeyondCommit": 0
+    },
+    "delegates": {
+      "rows": 149,
+      "changedBeyondCommit": 9
+    },
+    "patterns": {
+      "rows": 373,
+      "changedBeyondCommit": 76
+    },
+    "pattern-matches": {
+      "rows": 746,
+      "changedBeyondCommit": 152
+    },
+    "source-files": {
+      "rows": 572,
+      "changedBeyondCommit": 1
+    }
+  },
+  "builds": [],
+  "ghidraRequired": false,
+  "toolRepairs": [
+    "Exclude APIShared/examples from productive plugin inventory",
+    "Skip deletion commits while retaining exact historical source-hash validation"
+  ]
+}

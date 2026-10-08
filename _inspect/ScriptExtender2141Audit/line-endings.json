@@ -1,0 +1,290 @@
+[
+  {
+    "Path": "Shared/ScriptExtenderUpdate/Invoke-ScriptExtenderUpdate.ps1",
+    "CRLF": 388,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "_inspect/CrusaderDE-Native-Baseline/CURRENT.md",
+    "CRLF": 87,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/DATABASE_INFO.json",
+    "CRLF": 254,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/IDENTITY.json",
+    "CRLF": 9,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/SEMANTIC_INFO.md",
+    "CRLF": 247,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/FIXES_COMPATIBILITY.md",
+    "CRLF": 74,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/GATEHOUSE_LIVING_CAPTURE.md",
+    "CRLF": 66,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/sources/delegates.jsonl",
+    "CRLF": 149,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/sources/pattern-matches.jsonl",
+    "CRLF": 746,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/sources/patterns.jsonl",
+    "CRLF": 373,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/sources/source-files.jsonl",
+    "CRLF": 572,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/sources/source-summary.json",
+    "CRLF": 1,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/sources/source-types.jsonl",
+    "CRLF": 253,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/sources/type-fields.jsonl",
+    "CRLF": 8879,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/sources/vtable-members.jsonl",
+    "CRLF": 345,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/validation/script-extender-update.json",
+    "CRLF": 18,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "_inspect/CrusaderDE-Native-Baseline/tools/semantic/curated_knowledge.py",
+    "CRLF": 334,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "Shared/ScriptExtenderUpdate/2.14.0-2.14.1.compatibility.json",
+    "CRLF": 19,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "Shared/ScriptExtenderUpdate/2.14.0-2.14.1.release-hooks.json",
+    "CRLF": 44,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/SE_2_14_1_ENGAGE_RANGE.md",
+    "CRLF": 95,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "_inspect/ScriptExtender2141Audit/.gitignore",
+    "CRLF": 2,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "_inspect/ScriptExtender2141Audit/EngageProbe.csproj",
+    "CRLF": 18,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "_inspect/ScriptExtender2141Audit/Program.cs",
+    "CRLF": 129,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "_inspect/ScriptExtender2141Audit/audit.py",
+    "CRLF": 165,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "_inspect/ScriptExtender2141Audit/document.py",
+    "CRLF": 93,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "_inspect/ScriptExtender2141Audit/emitter-provenance.json",
+    "CRLF": 9,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "_inspect/ScriptExtender2141Audit/feature-path.asm",
+    "CRLF": 3104,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "_inspect/ScriptExtender2141Audit/feature-path.json",
+    "CRLF": 525,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "_inspect/ScriptExtender2141Audit/feature_evidence.py",
+    "CRLF": 25,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "_inspect/ScriptExtender2141Audit/final-review.json",
+    "CRLF": 40,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "_inspect/ScriptExtender2141Audit/final_checks.py",
+    "CRLF": 31,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "_inspect/ScriptExtender2141Audit/gameplay-checkpoint.json",
+    "CRLF": 23,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "_inspect/ScriptExtender2141Audit/id-contract.log",
+    "CRLF": 1,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "_inspect/ScriptExtender2141Audit/installed-layout.json",
+    "CRLF": 44,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "_inspect/ScriptExtender2141Audit/installed-layout.ps1",
+    "CRLF": 26,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "_inspect/ScriptExtender2141Audit/native-audit.json",
+    "CRLF": 1194,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "_inspect/ScriptExtender2141Audit/native-sites.json",
+    "CRLF": 1097,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "_inspect/ScriptExtender2141Audit/runtime-preflight.txt",
+    "CRLF": 37,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "_inspect/ScriptExtender2141Audit/stub-verification.json",
+    "CRLF": 11,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "_inspect/ScriptExtender2141Audit/stubs.json",
+    "CRLF": 561,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "_inspect/ScriptExtender2141Audit/test_historical_evidence.py",
+    "CRLF": 17,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "_inspect/ScriptExtender2141Audit/unit-command-source.log",
+    "CRLF": 2,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "_inspect/ScriptExtender2141Audit/update-driver-resume.log",
+    "CRLF": 24,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "_inspect/ScriptExtender2141Audit/update-driver.log",
+    "CRLF": 34,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "_inspect/ScriptExtender2141Audit/validate-fast.log",
+    "CRLF": 4,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "_inspect/ScriptExtender2141Audit/verify_stubs.py",
+    "CRLF": 111,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "_inspect/ScriptExtender2141Audit/workspace-checks.json",
+    "CRLF": 368,
+    "BareLF": 0,
+    "BareCR": 0
+  },
+  {
+    "Path": "_inspect/ScriptExtender2141Audit/workspace_checks.py",
+    "CRLF": 36,
+    "BareLF": 0,
+    "BareCR": 0
+  }
+]

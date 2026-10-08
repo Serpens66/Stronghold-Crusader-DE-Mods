@@ -16,7 +16,7 @@ Evidence: semantic SQLite function/call/xref exports, complete native handler di
 
 GameUnit record size `490`; API arrays are zero-based and lookup IDs are one-based. Combat uses manager-relative unit addresses at `id*490+6E4` for AliveState and `id*490+8F8` for death. Subtracting the same validated GameUnit base gives offsets `88` and `29C`. Multiple corroborating fields: owner `92`, health `3C4`, AI state `2BC`. Capture uses module displacement `67E8CFC`, which maps to `GameUnit+2A0`; it is distinct from the death marker.
 
-Installed SE exposes public `r_AliveState : AliveState` (signed Int16) and `N0000019A : UInt32`. Only the low 16 bits of the latter are tested natively; do not reject an unrelated nonzero upper word. APIShared.UnitAccess.IsReallyAlive mirrors this conjunction for reference and pointer views, null false. Health, animation, ownership, slot identity and applicability remain separate concerns.
+Current installed SE 2.14.1 exposes public `r_AliveState : AliveState` (signed Int16, +0x88) and `r_IsKilledByProjectile : UInt16` (+0x29C), verified against assembly SHA-256 E5D78FDF2EA9701336C398F7D29410F206D141FC01AA8099F30C824E6AB8A0B3. Historical `N0000019A : UInt32` combined this WORD and the adjacent unrelated WORD; only the low 16 bits were tested natively. Current access uses the dedicated UInt16 field. The appended 2.14.0 migration audit remains historical provenance. APIShared.UnitAccess.IsReallyAlive mirrors this conjunction for reference and pointer views, null false. Health, animation, ownership, slot identity and applicability remain separate concerns.
 
 ## Capture filter boundary and compatibility
 

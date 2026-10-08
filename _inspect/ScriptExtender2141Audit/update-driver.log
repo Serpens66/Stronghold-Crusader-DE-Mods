@@ -1,0 +1,34 @@
+  Wiederherzustellende Projekte werden ermittelt...
+  Alle Projekte sind für die Wiederherstellung auf dem neuesten Stand.
+  SemanticExtract -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\tools\semantic\SemanticExtract\bin\Release\net10.0\SemanticExtract.dll
+
+Der Buildvorgang wurde erfolgreich ausgeführt.
+    0 Warnung(en)
+    0 Fehler
+
+Verstrichene Zeit 00:00:01.84
+{"root":"D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\shcde-script-extender","gitCommit":"5908e1f12437deb7ef5f5b1dc2d64e301178fba3","fileCount":572,"patternCount":373,"delegateCount":149,"typeCount":253,"typeFieldCount":8879,"vtableMemberCount":345}
+{"module": "CrusaderDE.dll", "selectedPatterns": 372, "skippedExternalPatterns": 1, "records": 746, "counts": {"('FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2', 1)": 371, "('FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2', 2)": 2, "('17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4', 1)": 371, "('17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4', 2)": 2}}
+{"headers": 37, "combined": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\sources\\script-extender-types.h"}
+{"headers": 37, "output": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\sources\\script-extender-types-ghidra.h"}
+fatal: path 'APIShared/src/AivBuildStepCapability.cs' does not exist in 'fcf59c2d08d5207175b523f815e4cceb7df53f83'
+Traceback (most recent call last):
+  File "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\tools\semantic\curated_knowledge.py", line 327, in <module>
+    main()
+  File "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\tools\semantic\curated_knowledge.py", line 308, in main
+    labels = validate_claims(claims, functions, current_hash, image_base, Path(args.source_root))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\tools\semantic\curated_knowledge.py", line 185, in validate_claims
+    validate_evidence(claim, source_root)
+  File "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\tools\semantic\curated_knowledge.py", line 139, in validate_evidence
+    if not evidence_source_matches(source_root, source, source_hash):
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\CrusaderDE-Native-Baseline\tools\semantic\curated_knowledge.py", line 105, in evidence_source_matches
+    content = subprocess.check_output(
+              ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\CDesktopLink\Portable\Python\WinPy64\python\Lib\subprocess.py", line 466, in check_output
+    return run(*popenargs, stdout=PIPE, timeout=timeout, check=True,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\CDesktopLink\Portable\Python\WinPy64\python\Lib\subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['git', '-C', 'D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods', 'show', 'fcf59c2d08d5207175b523f815e4cceb7df53f83:APIShared/src/AivBuildStepCapability.cs']' returned non-zero exit status 128.

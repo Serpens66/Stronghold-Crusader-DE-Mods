@@ -1653,9 +1653,7 @@ namespace ExtendedData
                     catch (Exception exception)
                     {
                         DebugLogHelper.LogError(log, "Could not prepare Coop Trail export: " + exception);
-                        ShowInformation(
-                            SerpLocalization.Get("ExtendedData.ExportFailedTitle"),
-                            SerpLocalization.Get("ExtendedData.ExportFailed") + "\r\n" + exception.Message);
+                        ShowExportFailure();
                         return;
                     }
                 }
@@ -1687,9 +1685,7 @@ namespace ExtendedData
                 catch (Exception exception)
                 {
                     DebugLogHelper.LogError(log, "Could not finish Trail export: " + exception);
-                    ShowInformation(
-                        SerpLocalization.Get("ExtendedData.ExportFailedTitle"),
-                        SerpLocalization.Get("ExtendedData.ExportFailed") + "\r\n" + exception.Message);
+                    ShowExportFailure();
                 }
                 finally
                 {
@@ -1921,6 +1917,22 @@ namespace ExtendedData
                     Directory.Delete(trailMakerSource, true);
             }
 
+            private void ShowExportFailure()
+            {
+                try
+                {
+                    HUD_ConfirmationPopup.ShowConfirmationOKMessage(
+                        SerpLocalization.Get("ExtendedData.ExportFailedTitle"), delegate { },
+                        SerpLocalization.Get("ExtendedData.ExportFailedLog"));
+                    MainViewModel.Instance.Show_HUD_Confirmation = false;
+                    MainViewModel.Instance.Show_HUD_ConfirmationMP = true;
+                    MainViewModel.Instance.FrontEndMenu.UpdateFrontMenuPopupScale();
+                }
+                catch (Exception exception)
+                {
+                    DebugLogHelper.LogError(log, "Could not display the Trail export error popup: " + exception);
+                }
+            }
             private static void ShowInformation(string title, string message)
             {
                 HUD_ConfirmationPopup.ShowConfirmationOKMessage(title, delegate { }, message);
@@ -2178,7 +2190,7 @@ namespace ExtendedData
                                     TrailLordSelectionPolicy.UsesEmbeddedLord(slot,
                                         info.builtInLord, info.lordName,
                                         LordDataCoordinator.PreparedTrailMediaAlias(
-                                            requirements, slot.PlayerId)))
+                                            requirements, slot.PlayerId), info.lordType))
                                 .Select(slot => slot.PlayerId));
                             PrepareCustomTrailLords(requirements, infos, true);
                             LordDataCoordinator.RemapTrailMedia(infos);

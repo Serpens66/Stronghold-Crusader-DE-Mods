@@ -1,0 +1,44 @@
+{
+  "OldVersion": "2.14.0",
+  "NewVersion": "2.14.1",
+  "ExtenderCommit": "5908e1f12437deb7ef5f5b1dc2d64e301178fba3",
+  "ExtenderTree": "c238441ea12db35ee36c5c5668d3c8fce0897295",
+  "NativeHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+  "ReleaseProjects": [
+    "APIShared",
+    "BugfixesAndQoL",
+    "BuildingCosts",
+    "BuildingLimit",
+    "CheatMod",
+    "ExtendedData",
+    "ExtraFeatures",
+    "ImprovedHunters",
+    "RandomEvents",
+    "CastlePlanner",
+    "StartConditions",
+    "UnitCosts",
+    "UnitLimit"
+  ],
+  "SourceFileCount": 60,
+  "OperationCount": 126,
+  "SourceFingerprint": "164CAEBD0EC8E043B7FA7723FB825044254FFA2C0A1CC892FD4C15D223B9E5A3",
+  "ExtenderChangesReviewed": true,
+  "Result": "Compatible",
+  "ReviewedInteractions": [
+    {
+      "Id": "engage-range-all-sites",
+      "Classification": "NoOverlap",
+      "Rationale": "All 35 compare sites, actual RedBird 1.5 displacements (15..20 bytes), instruction boundaries, branch targets and incoming edges audited. Full evidence: baseline knowledge/SE_2_14_1_ENGAGE_RANGE.md and _inspect/ScriptExtender2141Audit. No release mod owns these spans or consumes engage-range overrides."
+    },
+    {
+      "Id": "hunter-signature-fragments",
+      "Classification": "NoOverlap",
+      "Rationale": "Two heavy-camel sites match fragments of ImprovedHunters queries only. Complete concatenated signatures are bounded to hunter 0x12FC70..0x131422; no hook overlap."
+    },
+    {
+      "Id": "fixes-1263",
+      "Classification": "NoOverlap",
+      "Rationale": "Clean Fixes v1.26.3 reviewed. Ladder signatures uniquely match 0x111C00 and 0x6A5D0; no overlap with changed engage spans or release owners. Existing EnemyBridgePathTest owns 0x111C00 and remains excluded, with no Fixes compatibility claim."
+    }
+  ]
+}

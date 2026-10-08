@@ -1,0 +1,19 @@
+{
+  "OldVersion": "2.14.0",
+  "NewVersion": "2.14.1",
+  "TargetCommit": "5908e1f12437deb7ef5f5b1dc2d64e301178fba3",
+  "ImpactReview": {
+    "BaselinePreviousCommit": "5049b5d051d0face848cc2eb098db1fedf5451a7",
+    "CrusaderNativeFiles": [
+      "src/SHCDESE.BepInEx/Detours/BulkUnitDetours.cs"
+    ],
+    "ExternalNativeFiles": [],
+    "NonSemanticArtifacts": [
+      "CHANGELOG.md"
+    ],
+    "ChangedPublicContracts": [],
+    "AffectedMods": [],
+    "BuildMods": []
+  },
+  "Mods": {}
+}

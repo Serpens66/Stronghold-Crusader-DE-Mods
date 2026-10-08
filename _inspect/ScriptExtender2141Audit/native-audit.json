@@ -1,0 +1,1194 @@
+{
+  "nativeHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+  "vtableRva": 3284144,
+  "functions": [
+    {
+      "role": "ArcherUpdate",
+      "rva": 1307968,
+      "size": 10069,
+      "confidence": "candidate",
+      "matchCount": 5
+    },
+    {
+      "role": "ArabBallistaUpdate",
+      "rva": 1514576,
+      "size": 5531,
+      "confidence": "candidate",
+      "matchCount": 2
+    },
+    {
+      "role": "ArabBowUpdate",
+      "rva": 1473856,
+      "size": 7516,
+      "confidence": "candidate",
+      "matchCount": 5
+    },
+    {
+      "role": "BallistaUpdate",
+      "rva": 1449136,
+      "size": 4089,
+      "confidence": "candidate",
+      "matchCount": 1
+    },
+    {
+      "role": "TrebuchetUpdate",
+      "rva": 1390064,
+      "size": 4598,
+      "confidence": "candidate",
+      "matchCount": 0
+    },
+    {
+      "role": "CatapultUpdate",
+      "rva": 1384656,
+      "size": 5396,
+      "confidence": "candidate",
+      "matchCount": 0
+    },
+    {
+      "role": "MangonelUpdate",
+      "rva": 1394672,
+      "size": 4106,
+      "confidence": "candidate",
+      "matchCount": 0
+    },
+    {
+      "role": "ArabSlingerUpdate",
+      "rva": 1487392,
+      "size": 6778,
+      "confidence": "candidate",
+      "matchCount": 4
+    },
+    {
+      "role": "BedouinHeavyCamelUpdate",
+      "rva": 1549712,
+      "size": 3832,
+      "confidence": "candidate",
+      "matchCount": 2
+    },
+    {
+      "role": "BedouinSkirmisherUpdate",
+      "rva": 1540944,
+      "size": 8538,
+      "confidence": "candidate",
+      "matchCount": 6
+    },
+    {
+      "role": "XbowmanUpdate",
+      "rva": 1318304,
+      "size": 5518,
+      "confidence": "candidate",
+      "matchCount": 3
+    },
+    {
+      "role": "ArabGrenadierUpdate",
+      "rva": 1508720,
+      "size": 5648,
+      "confidence": "candidate",
+      "matchCount": 4
+    },
+    {
+      "role": "ArabHorsemanUpdate",
+      "rva": 1500224,
+      "size": 4246,
+      "confidence": "candidate",
+      "matchCount": 3
+    }
+  ],
+  "sites": [
+    {
+      "role": "ArcherUpdate",
+      "rva": 1309345,
+      "length": 17,
+      "continuationRva": 1309362,
+      "compare": "word ptr [r9 + rdi + 0x8fe], r8w",
+      "base": "r9",
+      "index": "rdi",
+      "operand": "r8w",
+      "bytes": "6645398439fe0800007f0881f9a08601007513ba07000000664189943918090000e9b62100004863c34869c8900400006644398439fe0800007e12b80b000000",
+      "instructions": [
+        {
+          "rva": 1309345,
+          "length": 9,
+          "text": "cmp word ptr [r9 + rdi + 0x8fe], r8w"
+        },
+        {
+          "rva": 1309354,
+          "length": 2,
+          "text": "jg 0x18013fab4"
+        },
+        {
+          "rva": 1309356,
+          "length": 6,
+          "text": "cmp ecx, 0x186a0"
+        }
+      ],
+      "continuationInstruction": "jne 0x18013fac7",
+      "incomingEdges": []
+    },
+    {
+      "role": "ArcherUpdate",
+      "rva": 1309393,
+      "length": 16,
+      "continuationRva": 1309409,
+      "compare": "word ptr [rcx + rdi + 0x8fe], r8w",
+      "base": "rcx",
+      "index": "rdi",
+      "operand": "r8w",
+      "bytes": "6644398439fe0800007e12b80b0000006689843918090000e98f2100008bd3488bcfe8a8ee040085c07439486315c1077f004869ca900400006683bc39180900",
+      "instructions": [
+        {
+          "rva": 1309393,
+          "length": 9,
+          "text": "cmp word ptr [rcx + rdi + 0x8fe], r8w"
+        },
+        {
+          "rva": 1309402,
+          "length": 2,
+          "text": "jle 0x18013faee"
+        },
+        {
+          "rva": 1309404,
+          "length": 5,
+          "text": "mov eax, 0xb"
+        }
+      ],
+      "continuationInstruction": "mov word ptr [rcx + rdi + 0x918], ax",
+      "incomingEdges": []
+    },
+    {
+      "role": "ArcherUpdate",
+      "rva": 1309647,
+      "length": 16,
+      "continuationRva": 1309663,
+      "compare": "word ptr [rdi + r15 + 0x8fe], ax",
+      "base": "rdi",
+      "index": "r15",
+      "operand": "ax",
+      "bytes": "664239843ffe0800007f3e8bd3498bcfe8bced040085c0742a486305d5067f004869c890040000664689b43918090000488d0d0ac65203ff840eec331300e96b",
+      "instructions": [
+        {
+          "rva": 1309647,
+          "length": 9,
+          "text": "cmp word ptr [rdi + r15 + 0x8fe], ax"
+        },
+        {
+          "rva": 1309656,
+          "length": 2,
+          "text": "jg 0x18013fc18"
+        },
+        {
+          "rva": 1309658,
+          "length": 2,
+          "text": "mov edx, ebx"
+        },
+        {
+          "rva": 1309660,
+          "length": 3,
+          "text": "mov rcx, r15"
+        }
+      ],
+      "continuationInstruction": "call 0x18018e9a0",
+      "incomingEdges": []
+    },
+    {
+      "role": "ArcherUpdate",
+      "rva": 1315676,
+      "length": 19,
+      "continuationRva": 1315695,
+      "compare": "word ptr [rdi + r10 + 0x8fe], r8w",
+      "base": "rdi",
+      "index": "r10",
+      "operand": "r8w",
+      "bytes": "6646398417fe0800007c394238b417500a00007520490fbf55006683fa22771049ba1002000004000000490fa3d2721483fa05740f8b1535ef7e004c8d256270",
+      "instructions": [
+        {
+          "rva": 1315676,
+          "length": 9,
+          "text": "cmp word ptr [rdi + r10 + 0x8fe], r8w"
+        },
+        {
+          "rva": 1315685,
+          "length": 2,
+          "text": "jl 0x1801413a0"
+        },
+        {
+          "rva": 1315687,
+          "length": 8,
+          "text": "cmp byte ptr [rdi + r10 + 0xa50], sil"
+        }
+      ],
+      "continuationInstruction": "jne 0x180141391",
+      "incomingEdges": []
+    },
+    {
+      "role": "ArcherUpdate",
+      "rva": 1316135,
+      "length": 15,
+      "continuationRva": 1316150,
+      "compare": "word ptr [rdi + r12 + 0x8fe], r8w",
+      "base": "rdi",
+      "index": "r12",
+      "operand": "r8w",
+      "bytes": "6646398427fe0800000f8e01f3ffff490fbf45006683f822771448b93002000004000000480fa3c10f82e2f2ffff664239b4278c0600000f84770100004585d2",
+      "instructions": [
+        {
+          "rva": 1316135,
+          "length": 9,
+          "text": "cmp word ptr [rdi + r12 + 0x8fe], r8w"
+        },
+        {
+          "rva": 1316144,
+          "length": 6,
+          "text": "jle 0x180140837"
+        }
+      ],
+      "continuationInstruction": "movsx rax, word ptr [r13]",
+      "incomingEdges": []
+    },
+    {
+      "role": "ArabBallistaUpdate",
+      "rva": 1514941,
+      "length": 16,
+      "continuationRva": 1514957,
+      "compare": "word ptr [rbx + r14 + 0x8fe], ax",
+      "base": "rbx",
+      "index": "r14",
+      "operand": "ax",
+      "bytes": "6642398433fe0800007f458bd7498bcee8cecb010085c07431486305e7e47b004869c890040000664283bc3118090000650f84c6130000b80800000066428984",
+      "instructions": [
+        {
+          "rva": 1514941,
+          "length": 9,
+          "text": "cmp word ptr [rbx + r14 + 0x8fe], ax"
+        },
+        {
+          "rva": 1514950,
+          "length": 2,
+          "text": "jg 0x180171e0d"
+        },
+        {
+          "rva": 1514952,
+          "length": 2,
+          "text": "mov edx, edi"
+        },
+        {
+          "rva": 1514954,
+          "length": 3,
+          "text": "mov rcx, r14"
+        }
+      ],
+      "continuationInstruction": "call 0x18018e9a0",
+      "incomingEdges": []
+    },
+    {
+      "role": "ArabBallistaUpdate",
+      "rva": 1515229,
+      "length": 18,
+      "continuationRva": 1515247,
+      "compare": "word ptr [rbx + rsi + 0x8fe], ax",
+      "base": "rbx",
+      "index": "rsi",
+      "operand": "ax",
+      "bytes": "66398433fe0800007e250fb78433f4090000bafbff00006683e8056685c2740fc781140a0000c4ffffffe9ae1200008bd7488bcee88aca010085c00f84810000",
+      "instructions": [
+        {
+          "rva": 1515229,
+          "length": 8,
+          "text": "cmp word ptr [rbx + rsi + 0x8fe], ax"
+        },
+        {
+          "rva": 1515237,
+          "length": 2,
+          "text": "jle 0x180171f0c"
+        },
+        {
+          "rva": 1515239,
+          "length": 8,
+          "text": "movzx eax, word ptr [rbx + rsi + 0x9f4]"
+        }
+      ],
+      "continuationInstruction": "mov edx, 0xfffb",
+      "incomingEdges": []
+    },
+    {
+      "role": "ArabBowUpdate",
+      "rva": 1474451,
+      "length": 17,
+      "continuationRva": 1474468,
+      "compare": "word ptr [r8 + r11 + 0x8fe], r9w",
+      "base": "r8",
+      "index": "r11",
+      "operand": "r9w",
+      "bytes": "6647398c18fe0800007f0881f9a08601007513ba07000000664389941818090000e9c51a00004863c34869c8900400006646398c19fe0800007e13b80b000000",
+      "instructions": [
+        {
+          "rva": 1474451,
+          "length": 9,
+          "text": "cmp word ptr [r8 + r11 + 0x8fe], r9w"
+        },
+        {
+          "rva": 1474460,
+          "length": 2,
+          "text": "jg 0x180167fa6"
+        },
+        {
+          "rva": 1474462,
+          "length": 6,
+          "text": "cmp ecx, 0x186a0"
+        }
+      ],
+      "continuationInstruction": "jne 0x180167fb9",
+      "incomingEdges": []
+    },
+    {
+      "role": "ArabBowUpdate",
+      "rva": 1474499,
+      "length": 16,
+      "continuationRva": 1474515,
+      "compare": "word ptr [rcx + r11 + 0x8fe], r9w",
+      "base": "rcx",
+      "index": "r11",
+      "operand": "r9w",
+      "bytes": "6646398c19fe0800007e13b80b000000664289841918090000e99d1a00008bd3498bcbe8b56902004c8d250e04680685c0743a486315c7827c004869ca900400",
+      "instructions": [
+        {
+          "rva": 1474499,
+          "length": 9,
+          "text": "cmp word ptr [rcx + r11 + 0x8fe], r9w"
+        },
+        {
+          "rva": 1474508,
+          "length": 2,
+          "text": "jle 0x180167fe1"
+        },
+        {
+          "rva": 1474510,
+          "length": 5,
+          "text": "mov eax, 0xb"
+        }
+      ],
+      "continuationInstruction": "mov word ptr [rcx + r11 + 0x918], ax",
+      "incomingEdges": []
+    },
+    {
+      "role": "ArabBowUpdate",
+      "rva": 1474772,
+      "length": 16,
+      "continuationRva": 1474788,
+      "compare": "word ptr [rdi + r12 + 0x8fe], ax",
+      "base": "rdi",
+      "index": "r12",
+      "operand": "ax",
+      "bytes": "6642398427fe0800007f3e8bd3498bcce8b768020085c0742a486305d0817c004869c890040000664689b42118090000488d0d05415003ff840e14341300e967",
+      "instructions": [
+        {
+          "rva": 1474772,
+          "length": 9,
+          "text": "cmp word ptr [rdi + r12 + 0x8fe], ax"
+        },
+        {
+          "rva": 1474781,
+          "length": 2,
+          "text": "jg 0x18016811d"
+        },
+        {
+          "rva": 1474783,
+          "length": 2,
+          "text": "mov edx, ebx"
+        },
+        {
+          "rva": 1474785,
+          "length": 3,
+          "text": "mov rcx, r12"
+        }
+      ],
+      "continuationInstruction": "call 0x18018e9a0",
+      "incomingEdges": []
+    },
+    {
+      "role": "ArabBowUpdate",
+      "rva": 1479335,
+      "length": 19,
+      "continuationRva": 1479354,
+      "compare": "word ptr [rdi + r11 + 0x8fe], r9w",
+      "base": "rdi",
+      "index": "r11",
+      "operand": "r9w",
+      "bytes": "6646398c1ffe0800007c354238b41f500a000075224d0fbf0424664183f822771049ba10020000040000004d0fa3c2720f4183f8057409448b05e76f7c00eb1a",
+      "instructions": [
+        {
+          "rva": 1479335,
+          "length": 9,
+          "text": "cmp word ptr [rdi + r11 + 0x8fe], r9w"
+        },
+        {
+          "rva": 1479344,
+          "length": 2,
+          "text": "jl 0x1801692e7"
+        },
+        {
+          "rva": 1479346,
+          "length": 8,
+          "text": "cmp byte ptr [rdi + r11 + 0xa50], sil"
+        }
+      ],
+      "continuationInstruction": "jne 0x1801692de",
+      "incomingEdges": []
+    },
+    {
+      "role": "ArabBowUpdate",
+      "rva": 1479638,
+      "length": 15,
+      "continuationRva": 1479653,
+      "compare": "word ptr [rdi + r11 + 0x8fe], r9w",
+      "base": "rdi",
+      "index": "r11",
+      "operand": "r9w",
+      "bytes": "6646398c1ffe0800000f8e7d020000490fbf04246683f822771448b93002000004000000480fa3c10f825e020000664239b41f8c0600000f84bc0100004585d2",
+      "instructions": [
+        {
+          "rva": 1479638,
+          "length": 9,
+          "text": "cmp word ptr [rdi + r11 + 0x8fe], r9w"
+        },
+        {
+          "rva": 1479647,
+          "length": 6,
+          "text": "jle 0x180169662"
+        }
+      ],
+      "continuationInstruction": "movsx rax, word ptr [r12]",
+      "incomingEdges": []
+    },
+    {
+      "role": "BallistaUpdate",
+      "rva": 1449533,
+      "length": 18,
+      "continuationRva": 1449551,
+      "compare": "word ptr [rsi + rbx + 0x8fe], ax",
+      "base": "rsi",
+      "index": "rbx",
+      "operand": "ax",
+      "bytes": "6639841efe0800007e2e0fb7841ef4090000bafbff00006683e8056685c27418c781140a0000d8ffffff4883c448415f415d415c5e5d5bc3418bd4488bcee820",
+      "instructions": [
+        {
+          "rva": 1449533,
+          "length": 8,
+          "text": "cmp word ptr [rsi + rbx + 0x8fe], ax"
+        },
+        {
+          "rva": 1449541,
+          "length": 2,
+          "text": "jle 0x180161e75"
+        },
+        {
+          "rva": 1449543,
+          "length": 8,
+          "text": "movzx eax, word ptr [rsi + rbx + 0x9f4]"
+        }
+      ],
+      "continuationInstruction": "mov edx, 0xfffb",
+      "incomingEdges": []
+    },
+    {
+      "role": "ArabSlingerUpdate",
+      "rva": 1487838,
+      "length": 16,
+      "continuationRva": 1487854,
+      "compare": "word ptr [r12 + rcx + 0x8fe], r11w",
+      "base": "r12",
+      "index": "rcx",
+      "operand": "r11w",
+      "bytes": "6645399c0cfe0800007e13b80b000000664289842118090000e9801800008bd3498bcce89a35020085c07439486315b34e7c004869ca90040000664283bc2118",
+      "instructions": [
+        {
+          "rva": 1487838,
+          "length": 9,
+          "text": "cmp word ptr [r12 + rcx + 0x8fe], r11w"
+        },
+        {
+          "rva": 1487847,
+          "length": 2,
+          "text": "jle 0x18016b3fc"
+        },
+        {
+          "rva": 1487849,
+          "length": 5,
+          "text": "mov eax, 0xb"
+        }
+      ],
+      "continuationInstruction": "mov word ptr [rcx + r12 + 0x918], ax",
+      "incomingEdges": []
+    },
+    {
+      "role": "ArabSlingerUpdate",
+      "rva": 1488095,
+      "length": 16,
+      "continuationRva": 1488111,
+      "compare": "word ptr [r12 + rdi + 0x8fe], ax",
+      "base": "r12",
+      "index": "rdi",
+      "operand": "ax",
+      "bytes": "664139843cfe0800007f388bd3498bcce8ac34020085c07424486305c54d7c004869c89004000041ff843724341300664289ac2118090000e9601700008b1da2",
+      "instructions": [
+        {
+          "rva": 1488095,
+          "length": 9,
+          "text": "cmp word ptr [r12 + rdi + 0x8fe], ax"
+        },
+        {
+          "rva": 1488104,
+          "length": 2,
+          "text": "jg 0x18016b522"
+        },
+        {
+          "rva": 1488106,
+          "length": 2,
+          "text": "mov edx, ebx"
+        },
+        {
+          "rva": 1488108,
+          "length": 3,
+          "text": "mov rcx, r12"
+        }
+      ],
+      "continuationInstruction": "call 0x18018e9a0",
+      "incomingEdges": []
+    },
+    {
+      "role": "ArabSlingerUpdate",
+      "rva": 1492251,
+      "length": 19,
+      "continuationRva": 1492270,
+      "compare": "word ptr [r12 + rdi + 0x8fe], r11w",
+      "base": "r12",
+      "index": "rdi",
+      "operand": "r11w",
+      "bytes": "6645399c3cfe0800007c374138b43c500a00007524490fbf8c3cf40900006683f922771049b91002000004000000490fa3c9720e83f9057409448b0d713d7c00",
+      "instructions": [
+        {
+          "rva": 1492251,
+          "length": 9,
+          "text": "cmp word ptr [r12 + rdi + 0x8fe], r11w"
+        },
+        {
+          "rva": 1492260,
+          "length": 2,
+          "text": "jl 0x18016c55d"
+        },
+        {
+          "rva": 1492262,
+          "length": 8,
+          "text": "cmp byte ptr [r12 + rdi + 0xa50], sil"
+        }
+      ],
+      "continuationInstruction": "jne 0x18016c554",
+      "incomingEdges": []
+    },
+    {
+      "role": "ArabSlingerUpdate",
+      "rva": 1492636,
+      "length": 15,
+      "continuationRva": 1492651,
+      "compare": "word ptr [r12 + rdi + 0x8fe], r11w",
+      "base": "r12",
+      "index": "rdi",
+      "operand": "r11w",
+      "bytes": "6645399c3cfe0800000f8eaf010000490fbf843cf40900006683f822771448b93002000004000000480fa3c10f828c010000664139b43c8c0600000f84f30000",
+      "instructions": [
+        {
+          "rva": 1492636,
+          "length": 9,
+          "text": "cmp word ptr [r12 + rdi + 0x8fe], r11w"
+        },
+        {
+          "rva": 1492645,
+          "length": 6,
+          "text": "jle 0x18016c85a"
+        }
+      ],
+      "continuationInstruction": "movsx rax, word ptr [r12 + rdi + 0x9f4]",
+      "incomingEdges": []
+    },
+    {
+      "role": "BedouinHeavyCamelUpdate",
+      "rva": 1550067,
+      "length": 16,
+      "continuationRva": 1550083,
+      "compare": "word ptr [rcx + r13 + 0x8fe], ax",
+      "base": "rcx",
+      "index": "r13",
+      "operand": "ax",
+      "bytes": "6642398429fe0800007d568bd7498bcde89842010085c07442486315b15b7b004869ca90040000664283bc2918090000650f84400d0000be04000000664289b4",
+      "instructions": [
+        {
+          "rva": 1550067,
+          "length": 9,
+          "text": "cmp word ptr [rcx + r13 + 0x8fe], ax"
+        },
+        {
+          "rva": 1550076,
+          "length": 2,
+          "text": "jge 0x18017a754"
+        },
+        {
+          "rva": 1550078,
+          "length": 2,
+          "text": "mov edx, edi"
+        },
+        {
+          "rva": 1550080,
+          "length": 3,
+          "text": "mov rcx, r13"
+        }
+      ],
+      "continuationInstruction": "call 0x18018e9a0",
+      "incomingEdges": []
+    },
+    {
+      "role": "BedouinHeavyCamelUpdate",
+      "rva": 1550337,
+      "length": 16,
+      "continuationRva": 1550353,
+      "compare": "word ptr [rbx + r13 + 0x8fe], ax",
+      "base": "rbx",
+      "index": "r13",
+      "operand": "ax",
+      "bytes": "664239842bfe0800007f488bd7498bcde88a41010085c07434486305a35a7b004869c890040000488d05e1194f0341ff840750341300664289b4291809000066",
+      "instructions": [
+        {
+          "rva": 1550337,
+          "length": 9,
+          "text": "cmp word ptr [rbx + r13 + 0x8fe], ax"
+        },
+        {
+          "rva": 1550346,
+          "length": 2,
+          "text": "jg 0x18017a854"
+        },
+        {
+          "rva": 1550348,
+          "length": 2,
+          "text": "mov edx, edi"
+        },
+        {
+          "rva": 1550350,
+          "length": 3,
+          "text": "mov rcx, r13"
+        }
+      ],
+      "continuationInstruction": "call 0x18018e9a0",
+      "incomingEdges": []
+    },
+    {
+      "role": "BedouinSkirmisherUpdate",
+      "rva": 1542230,
+      "length": 17,
+      "continuationRva": 1542247,
+      "compare": "word ptr [r8 + r11 + 0x8fe], r9w",
+      "base": "r8",
+      "index": "r11",
+      "operand": "r9w",
+      "bytes": "6647398c18fe0800007f0881f9a08601007513ba07000000664389941818090000e9161c00004863c34869c8900400006646398c19fe0800007e13b80b000000",
+      "instructions": [
+        {
+          "rva": 1542230,
+          "length": 9,
+          "text": "cmp word ptr [r8 + r11 + 0x8fe], r9w"
+        },
+        {
+          "rva": 1542239,
+          "length": 2,
+          "text": "jg 0x180178869"
+        },
+        {
+          "rva": 1542241,
+          "length": 6,
+          "text": "cmp ecx, 0x186a0"
+        }
+      ],
+      "continuationInstruction": "jne 0x18017887c",
+      "incomingEdges": []
+    },
+    {
+      "role": "BedouinSkirmisherUpdate",
+      "rva": 1542278,
+      "length": 16,
+      "continuationRva": 1542294,
+      "compare": "word ptr [rcx + r11 + 0x8fe], r9w",
+      "base": "rcx",
+      "index": "r11",
+      "operand": "r9w",
+      "bytes": "6646398c19fe0800007e13b80b000000664289841918090000e9ee1b0000664239b419a80a0000755b8bd3498bcbe8e760010085c07440486315007a7b00488d",
+      "instructions": [
+        {
+          "rva": 1542278,
+          "length": 9,
+          "text": "cmp word ptr [rcx + r11 + 0x8fe], r9w"
+        },
+        {
+          "rva": 1542287,
+          "length": 2,
+          "text": "jle 0x1801788a4"
+        },
+        {
+          "rva": 1542289,
+          "length": 5,
+          "text": "mov eax, 0xb"
+        }
+      ],
+      "continuationInstruction": "mov word ptr [rcx + r11 + 0x918], ax",
+      "incomingEdges": []
+    },
+    {
+      "role": "BedouinSkirmisherUpdate",
+      "rva": 1542585,
+      "length": 15,
+      "continuationRva": 1542600,
+      "compare": "word ptr [rdi + rbp + 0x8fe], ax",
+      "base": "rdi",
+      "index": "rbp",
+      "operand": "ax",
+      "bytes": "6639842ffe0800007f3e8bd3488bcde8d35f010085c0742a486305ec787b004869c890040000664489b42918090000488d0d21384f03ff840e4c341300e9971a",
+      "instructions": [
+        {
+          "rva": 1542585,
+          "length": 8,
+          "text": "cmp word ptr [rdi + rbp + 0x8fe], ax"
+        },
+        {
+          "rva": 1542593,
+          "length": 2,
+          "text": "jg 0x180178a01"
+        },
+        {
+          "rva": 1542595,
+          "length": 2,
+          "text": "mov edx, ebx"
+        },
+        {
+          "rva": 1542597,
+          "length": 3,
+          "text": "mov rcx, rbp"
+        }
+      ],
+      "continuationInstruction": "call 0x18018e9a0",
+      "incomingEdges": []
+    },
+    {
+      "role": "BedouinSkirmisherUpdate",
+      "rva": 1543182,
+      "length": 15,
+      "continuationRva": 1543197,
+      "compare": "word ptr [rdi + rbp + 0x8fe], ax",
+      "base": "rdi",
+      "index": "rbp",
+      "operand": "ax",
+      "bytes": "6639842ffe0800007d448bd3488bcde87e5d010085c0743048631d97767b00488bcd8bd3e849af01004869cb9004000041be04000000664489b4291809000089",
+      "instructions": [
+        {
+          "rva": 1543182,
+          "length": 8,
+          "text": "cmp word ptr [rdi + rbp + 0x8fe], ax"
+        },
+        {
+          "rva": 1543190,
+          "length": 2,
+          "text": "jge 0x180178c5c"
+        },
+        {
+          "rva": 1543192,
+          "length": 2,
+          "text": "mov edx, ebx"
+        },
+        {
+          "rva": 1543194,
+          "length": 3,
+          "text": "mov rcx, rbp"
+        }
+      ],
+      "continuationInstruction": "call 0x18018e9a0",
+      "incomingEdges": []
+    },
+    {
+      "role": "BedouinSkirmisherUpdate",
+      "rva": 1547938,
+      "length": 19,
+      "continuationRva": 1547957,
+      "compare": "word ptr [rdi + r11 + 0x8fe], r9w",
+      "base": "rdi",
+      "index": "r11",
+      "operand": "r9w",
+      "bytes": "6646398c1ffe0800007c234238b41f500a00007510480fbf026683f8227706490fa3c07209448b15fe637b00eb09448bd5892df3637b004a63841f080900004c",
+      "instructions": [
+        {
+          "rva": 1547938,
+          "length": 9,
+          "text": "cmp word ptr [rdi + r11 + 0x8fe], r9w"
+        },
+        {
+          "rva": 1547947,
+          "length": 2,
+          "text": "jl 0x180179ed0"
+        },
+        {
+          "rva": 1547949,
+          "length": 8,
+          "text": "cmp byte ptr [rdi + r11 + 0xa50], sil"
+        }
+      ],
+      "continuationInstruction": "jne 0x180179ec7",
+      "incomingEdges": []
+    },
+    {
+      "role": "BedouinSkirmisherUpdate",
+      "rva": 1548112,
+      "length": 15,
+      "continuationRva": 1548127,
+      "compare": "word ptr [rdi + r14 + 0x8fe], r9w",
+      "base": "rdi",
+      "index": "r14",
+      "operand": "r9w",
+      "bytes": "6646398c37fe0800000f8e29f7ffff480fbf026683f822770a490fa3c00f8215f7ffff8bd3498bcee813790000e910050000420fb68c1f8709000042028c1f86",
+      "instructions": [
+        {
+          "rva": 1548112,
+          "length": 9,
+          "text": "cmp word ptr [rdi + r14 + 0x8fe], r9w"
+        },
+        {
+          "rva": 1548121,
+          "length": 6,
+          "text": "jle 0x180179688"
+        }
+      ],
+      "continuationInstruction": "movsx rax, word ptr [rdx]",
+      "incomingEdges": []
+    },
+    {
+      "role": "XbowmanUpdate",
+      "rva": 1318727,
+      "length": 16,
+      "continuationRva": 1318743,
+      "compare": "word ptr [rcx + r13 + 0x8fe], ax",
+      "base": "rcx",
+      "index": "r13",
+      "operand": "ax",
+      "bytes": "6642398429fe0800007e13ba01000000664289942918090000e9ab1300008bd3498bcde831ca040085c074394863154ae37e004869ca90040000664283bc2918",
+      "instructions": [
+        {
+          "rva": 1318727,
+          "length": 9,
+          "text": "cmp word ptr [rcx + r13 + 0x8fe], ax"
+        },
+        {
+          "rva": 1318736,
+          "length": 2,
+          "text": "jle 0x180141f65"
+        },
+        {
+          "rva": 1318738,
+          "length": 5,
+          "text": "mov edx, 1"
+        }
+      ],
+      "continuationInstruction": "mov word ptr [rcx + r13 + 0x918], dx",
+      "incomingEdges": []
+    },
+    {
+      "role": "XbowmanUpdate",
+      "rva": 1318975,
+      "length": 16,
+      "continuationRva": 1318991,
+      "compare": "word ptr [rdi + r13 + 0x8fe], ax",
+      "base": "rdi",
+      "index": "r13",
+      "operand": "ax",
+      "bytes": "664239842ffe0800007f3f8bd3498bcde84cc9040085c0742b48630565e27e004869c890040000488d05a3a1520341ff8404f0331300664289ac2918090000e9",
+      "instructions": [
+        {
+          "rva": 1318975,
+          "length": 9,
+          "text": "cmp word ptr [rdi + r13 + 0x8fe], ax"
+        },
+        {
+          "rva": 1318984,
+          "length": 2,
+          "text": "jg 0x180142089"
+        },
+        {
+          "rva": 1318986,
+          "length": 2,
+          "text": "mov edx, ebx"
+        },
+        {
+          "rva": 1318988,
+          "length": 3,
+          "text": "mov rcx, r13"
+        }
+      ],
+      "continuationInstruction": "call 0x18018e9a0",
+      "incomingEdges": []
+    },
+    {
+      "role": "XbowmanUpdate",
+      "rva": 1322586,
+      "length": 18,
+      "continuationRva": 1322604,
+      "compare": "word ptr [rdi + r13 + 0x8fe], ax",
+      "base": "rdi",
+      "index": "r13",
+      "operand": "ax",
+      "bytes": "664239842ffe0800007d11488d05a49352034139b404080d130075284238b42f500a00007538460fb7842ff4090000b9faff0000418d40fc6685c17521664183",
+      "instructions": [
+        {
+          "rva": 1322586,
+          "length": 9,
+          "text": "cmp word ptr [rdi + r13 + 0x8fe], ax"
+        },
+        {
+          "rva": 1322595,
+          "length": 2,
+          "text": "jge 0x180142e76"
+        },
+        {
+          "rva": 1322597,
+          "length": 7,
+          "text": "lea rax, [rip + 0x35293a4]"
+        }
+      ],
+      "continuationInstruction": "cmp dword ptr [r12 + rax + 0x130d08], esi",
+      "incomingEdges": []
+    },
+    {
+      "role": "ArabGrenadierUpdate",
+      "rva": 1509171,
+      "length": 16,
+      "continuationRva": 1509187,
+      "compare": "word ptr [rcx + r12 + 0x8fe], dx",
+      "base": "rcx",
+      "index": "r12",
+      "operand": "dx",
+      "bytes": "6642399421fe0800007e13b80b000000664289842118090000e9111400008bd3498bcce845e2010085c074394863155efb7b004869ca90040000664283bc2118",
+      "instructions": [
+        {
+          "rva": 1509171,
+          "length": 9,
+          "text": "cmp word ptr [rcx + r12 + 0x8fe], dx"
+        },
+        {
+          "rva": 1509180,
+          "length": 2,
+          "text": "jle 0x180170751"
+        },
+        {
+          "rva": 1509182,
+          "length": 5,
+          "text": "mov eax, 0xb"
+        }
+      ],
+      "continuationInstruction": "mov word ptr [rcx + r12 + 0x918], ax",
+      "incomingEdges": []
+    },
+    {
+      "role": "ArabGrenadierUpdate",
+      "rva": 1509428,
+      "length": 16,
+      "continuationRva": 1509444,
+      "compare": "word ptr [rdi + r12 + 0x8fe], ax",
+      "base": "rdi",
+      "index": "r12",
+      "operand": "ax",
+      "bytes": "6642398427fe0800007f388bd3498bcce857e1010085c0742448630570fa7b004869c89004000041ff843728341300664289ac2118090000e9f11200008b1d4d",
+      "instructions": [
+        {
+          "rva": 1509428,
+          "length": 9,
+          "text": "cmp word ptr [rdi + r12 + 0x8fe], ax"
+        },
+        {
+          "rva": 1509437,
+          "length": 2,
+          "text": "jg 0x180170877"
+        },
+        {
+          "rva": 1509439,
+          "length": 2,
+          "text": "mov edx, ebx"
+        },
+        {
+          "rva": 1509441,
+          "length": 3,
+          "text": "mov rcx, r12"
+        }
+      ],
+      "continuationInstruction": "call 0x18018e9a0",
+      "incomingEdges": []
+    },
+    {
+      "role": "ArabGrenadierUpdate",
+      "rva": 1513081,
+      "length": 19,
+      "continuationRva": 1513100,
+      "compare": "word ptr [rdi + r12 + 0x8fe], dx",
+      "base": "rdi",
+      "index": "r12",
+      "operand": "dx",
+      "bytes": "6642399427fe0800007c284238b427500a000075154a0fbf8427f40900006683f8227706480fa3c17209448b0522ec7b00eb124688ac27500a0000458bc54489",
+      "instructions": [
+        {
+          "rva": 1513081,
+          "length": 9,
+          "text": "cmp word ptr [rdi + r12 + 0x8fe], dx"
+        },
+        {
+          "rva": 1513090,
+          "length": 2,
+          "text": "jl 0x1801716ac"
+        },
+        {
+          "rva": 1513092,
+          "length": 8,
+          "text": "cmp byte ptr [rdi + r12 + 0xa50], sil"
+        }
+      ],
+      "continuationInstruction": "jne 0x1801716a3",
+      "incomingEdges": []
+    },
+    {
+      "role": "ArabGrenadierUpdate",
+      "rva": 1513236,
+      "length": 20,
+      "continuationRva": 1513256,
+      "compare": "word ptr [rdi + r12 + 0x8fe], dx",
+      "base": "rdi",
+      "index": "r12",
+      "operand": "dx",
+      "bytes": "6642399427fe0800007e154a0fbf8427f40900006683f822770a480fa3c17304664189318bd3498bcce84e010100e91b040000420fb68c278709000042028c27",
+      "instructions": [
+        {
+          "rva": 1513236,
+          "length": 9,
+          "text": "cmp word ptr [rdi + r12 + 0x8fe], dx"
+        },
+        {
+          "rva": 1513245,
+          "length": 2,
+          "text": "jle 0x180171734"
+        },
+        {
+          "rva": 1513247,
+          "length": 9,
+          "text": "movsx rax, word ptr [rdi + r12 + 0x9f4]"
+        }
+      ],
+      "continuationInstruction": "cmp ax, 0x22",
+      "incomingEdges": []
+    },
+    {
+      "role": "ArabHorsemanUpdate",
+      "rva": 1500716,
+      "length": 16,
+      "continuationRva": 1500732,
+      "compare": "word ptr [rcx + r10 + 0x8fe], ax",
+      "base": "rcx",
+      "index": "r10",
+      "operand": "ax",
+      "bytes": "6642398411fe0800007d618bd7498bcae85f03020085c07446486315781c7c00488d2dad9d67064869ca900400006683bc2918090000650f844f0e0000be0400",
+      "instructions": [
+        {
+          "rva": 1500716,
+          "length": 9,
+          "text": "cmp word ptr [rcx + r10 + 0x8fe], ax"
+        },
+        {
+          "rva": 1500725,
+          "length": 2,
+          "text": "jge 0x18016e698"
+        },
+        {
+          "rva": 1500727,
+          "length": 2,
+          "text": "mov edx, edi"
+        },
+        {
+          "rva": 1500729,
+          "length": 3,
+          "text": "mov rcx, r10"
+        }
+      ],
+      "continuationInstruction": "call 0x18018e9a0",
+      "incomingEdges": []
+    },
+    {
+      "role": "ArabHorsemanUpdate",
+      "rva": 1500991,
+      "length": 15,
+      "continuationRva": 1501006,
+      "compare": "word ptr [rbx + rbp + 0x8fe], ax",
+      "base": "rbx",
+      "index": "rbp",
+      "operand": "ax",
+      "bytes": "6639842bfe0800007f468bd7488bcde84d02020085c07432486305661b7c004869c890040000488d05a4da4f0342ff8428183413006689b429180900006689b4",
+      "instructions": [
+        {
+          "rva": 1500991,
+          "length": 8,
+          "text": "cmp word ptr [rbx + rbp + 0x8fe], ax"
+        },
+        {
+          "rva": 1500999,
+          "length": 2,
+          "text": "jg 0x18016e78f"
+        },
+        {
+          "rva": 1501001,
+          "length": 2,
+          "text": "mov edx, edi"
+        },
+        {
+          "rva": 1501003,
+          "length": 3,
+          "text": "mov rcx, rbp"
+        }
+      ],
+      "continuationInstruction": "call 0x18018e9a0",
+      "incomingEdges": []
+    },
+    {
+      "role": "ArabHorsemanUpdate",
+      "rva": 1501562,
+      "length": 15,
+      "continuationRva": 1501577,
+      "compare": "word ptr [rbx + rbp + 0x8fe], ax",
+      "base": "rbx",
+      "index": "rbp",
+      "operand": "ax",
+      "bytes": "6639842bfe0800007d3b8bd7488bcde81200020085c0742748633d2b197c00be040000004869cf900400006689b4297c0a00008bcfe82c220100e9ff0a00008b",
+      "instructions": [
+        {
+          "rva": 1501562,
+          "length": 8,
+          "text": "cmp word ptr [rbx + rbp + 0x8fe], ax"
+        },
+        {
+          "rva": 1501570,
+          "length": 2,
+          "text": "jge 0x18016e9bf"
+        },
+        {
+          "rva": 1501572,
+          "length": 2,
+          "text": "mov edx, edi"
+        },
+        {
+          "rva": 1501574,
+          "length": 3,
+          "text": "mov rcx, rbp"
+        }
+      ],
+      "continuationInstruction": "call 0x18018e9a0",
+      "incomingEdges": []
+    }
+  ]
+}

@@ -19,6 +19,7 @@ namespace ExtendedData
             Run("complete package and retry", TestCompletePackageAndRetry);
             Run("upload allowlist and excluded gameplay gate", TestUploadAllowlistAndExcludedWarning);
             Run("local and Workshop Lord source selection", TestLordSourceSelection);
+            Run("unnamed Extended Lord source identity", TestExtendedLordSourceIdentity);
             Run("conflict rollback", TestConflictRollback);
             Run("dynamic rules", TestDynamicRules);
             Run("unknown extender identity upload", TestUnknownExtenderIdentityUpload);
@@ -84,6 +85,36 @@ namespace ExtendedData
                 Assert(retryPackageFiles == packageFiles, "retry package file count changed");
                 Assert(retryPackageBytes == packageBytes, "retry package byte count changed");
             });
+        }
+
+        private static void TestExtendedLordSourceIdentity()
+        {
+            string[] names = { "Rat", "Snake", "Pig", "Wolf" };
+            Assert(TrailLordSourceSelector.ResolveLordName("", 3, names) == "Wolf",
+                "Vanilla Lord with custom AIC was not resolved by type");
+            Assert(TrailLordSourceSelector.ResolveLordName(null, 0, names) == "Rat",
+                "zero-based type zero was rejected");
+            Assert(TrailLordSourceSelector.ResolveLordName("123\\Custom", -1, names) == "123\\Custom",
+                "Workshop identity changed");
+            foreach (int type in new[] { -1, names.Length })
+            {
+                bool rejected = false;
+                try { TrailLordSourceSelector.ResolveLordName("", type, names); }
+                catch (InvalidDataException) { rejected = true; }
+                Assert(rejected, "invalid unnamed Lord type accepted: " + type);
+            }
+            Assert(TrailLordSourceSelector.MatchesIdentity("Wolf", 3, "aic", "Wolf", 3, "AIC", true),
+                "matching Extended Lord config rejected");
+            Assert(!TrailLordSourceSelector.MatchesIdentity("Wolf", 2, "aic", "Wolf", 3, "aic", true),
+                "another type accepted");
+            Assert(!TrailLordSourceSelector.MatchesIdentity("Wolf", 3, "other", "Wolf", 3, "aic", true),
+                "another config accepted");
+            Assert(!TrailLordSourceSelector.MatchesIdentity("Local", -1, "aic", "123\\Local", -1, "aic", false),
+                "local and Workshop identities confused");
+            bool missingRejected = false;
+            try { TrailLordSourceSelector.SelectIndex(Array.Empty<string>(), null, "Wolf"); }
+            catch (InvalidDataException) { missingRejected = true; }
+            Assert(missingRejected, "empty source list accepted");
         }
 
         private static void TestLordSourceSelection()

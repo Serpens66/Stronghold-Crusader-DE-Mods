@@ -138,6 +138,11 @@ try {
         @('CrusaderDE.FRONT_Multiplayer/MPAIVInfo', 'lordConfig', 'CustomisationFileManager/CustomLordConfig'),
         @('CustomisationFileManager/CustomLordConfig', 'lordType', 'System.Int32'),
         @('CustomisationFileManager/CustomLordConfig', 'name', 'System.String'),
+        @('CustomisationFileManager/CustomLordConfig', 'path', 'System.String'),
+        @('CrusaderDE.FRONT_Multiplayer/MPAIVInfo', 'lordType', 'System.Int32'),
+        @('CrusaderDE.FRONT_Multiplayer/MPAIVInfo', 'lordName', 'System.String'),
+        @('ConfigSettings', 'extendedLordPaths', 'System.String[]'),
+        @('CrusaderDE.MainViewModel', 'FrontEndMenu', 'CrusaderDE.FrontendMenus'),
         @('CustomisationFileManager/CustomLordConfig', 'checksum', 'System.UInt64')
     )) {
         $parts = [string[]]$contract
@@ -161,6 +166,15 @@ try {
         $_.Parameters[1].ParameterType.FullName -ceq 'System.String'
     })
     if ($lookup.Count -ne 1) { throw 'Managed Custom Lord lookup contract changed.' }
+    $viewModel = $managedAssembly.MainModule.Types | Where-Object FullName -CEQ 'CrusaderDE.MainViewModel'
+    foreach ($name in @('Show_HUD_Confirmation', 'Show_HUD_ConfirmationMP')) {
+        $property = @($viewModel.Properties | Where-Object Name -CEQ $name)
+        if ($property.Count -ne 1 -or $property[0].PropertyType.FullName -cne 'System.Boolean' -or
+            -not $property[0].SetMethod.IsPublic -or $property[0].SetMethod.IsStatic) {
+            throw "Trail export popup property contract changed: $name"
+        }
+    }
+    Assert-ManagedMethodContract $managedAssembly 'CrusaderDE.FrontendMenus' 'UpdateFrontMenuPopupScale' @() 'Public'
     Assert-ManagedMethodContract $managedAssembly 'EditorDirector' 'SaveSaveGameOrMap' @(
         'System.String', 'System.String', 'System.Boolean', 'System.Boolean', 'System.Boolean') 'Public'
 }

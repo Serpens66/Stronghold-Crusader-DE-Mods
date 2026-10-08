@@ -102,6 +102,13 @@ def evidence_source_matches(source_root: Path, source: str, expected_hash: str) 
     ).splitlines()
     matched = False
     for commit in commits:
+        # Path history includes deletion commits. Their missing blob is expected;
+        # keep looking for the hash in earlier revisions without weakening evidence.
+        entry = subprocess.check_output(
+            ["git", "-C", str(source_root), "ls-tree", "-z", commit, "--", source],
+        )
+        if not entry:
+            continue
         content = subprocess.check_output(
             ["git", "-C", str(source_root), "show", f"{commit}:{source}"],
         )

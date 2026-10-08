@@ -1,0 +1,1 @@
+PASS: installed SHCDESE 2.14.1 (E5D78FDF2EA9701336C398F7D29410F206D141FC01AA8099F30C824E6AB8A0B3) satisfies Unit and Building slot-1, highest-ID, zero, one-past-end, span-index and query-ID contracts, plus Unit GetByGlobalId. GameBuildingManagerAPI has no GetByGlobalId method.

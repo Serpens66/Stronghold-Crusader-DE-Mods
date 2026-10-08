@@ -1,0 +1,44 @@
+{
+  "AssemblySha256": "E5D78FDF2EA9701336C398F7D29410F206D141FC01AA8099F30C824E6AB8A0B3",
+  "Version": "2.14.1.0",
+  "UnitSize": 1168,
+  "ManagerArrayOffset": 1628,
+  "Fields": [
+    {
+      "Name": "r_AliveState",
+      "Offset": 136,
+      "Type": "SHCDESE.Interop.Enums.AliveState",
+      "Public": true
+    },
+    {
+      "Name": "r_UnitChimp",
+      "Offset": 138,
+      "Type": "SHCDESE.Interop.eChimps",
+      "Public": true
+    },
+    {
+      "Name": "r_ControllableForPlayerId",
+      "Offset": 146,
+      "Type": "System.UInt16",
+      "Public": true
+    },
+    {
+      "Name": "r_GlobalId",
+      "Offset": 148,
+      "Type": "System.UInt32",
+      "Public": true
+    },
+    {
+      "Name": "r_IsKilledByProjectile",
+      "Offset": 668,
+      "Type": "System.UInt16",
+      "Public": true
+    },
+    {
+      "Name": "r_WorldDistanceToNearestEnemy",
+      "Offset": 674,
+      "Type": "System.UInt16",
+      "Public": true
+    }
+  ]
+}

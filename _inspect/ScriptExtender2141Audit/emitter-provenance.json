@@ -1,0 +1,9 @@
+{
+  "sourceCommit": "5908e1f12437deb7ef5f5b1dc2d64e301178fba3",
+  "sourcePath": "src/SHCDESE.BepInEx/Detours/BulkUnitDetours.cs",
+  "lambdaSha256": "756407d0459bf6f3ae0194aa006b85a47d5e30b70cf41de7f3a0ab064f671379",
+  "substitutions": [
+    "CurrentContextUnitIdVA -> scratch ContextAddress",
+    "GameUnitManagerVA -> scratch ManagerAddress"
+  ]
+}

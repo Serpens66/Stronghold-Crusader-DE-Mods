@@ -11,7 +11,7 @@ namespace ExtendedData
 {
     internal static class TrailLordPackageRuntime
     {
-        private sealed class Candidate
+        internal sealed class Candidate
         {
             internal string Name;
             internal CustomisationFileManager.CustomLordConfig Config;
@@ -19,7 +19,8 @@ namespace ExtendedData
         }
 
         internal static IReadOnlyList<TrailLordSlot> Capture(
-            HUD_IngameMenu.RestartSkirmishMapInfo restart)
+            HUD_IngameMenu.RestartSkirmishMapInfo restart,
+            IDictionary<int, Candidate> resolvedSources = null)
         {
             if (restart?.aivs == null)
                 throw new InvalidDataException("The Trail has no saved Lord data.");
@@ -34,16 +35,8 @@ namespace ExtendedData
                 if (info == null || info.builtInLord || info.lordConfig == null)
                     continue;
                 string checksum = info.lordConfig.checksum.ToString();
-                Candidate[] sources = FindCandidates(checksum,
-                    (info.aivs ?? new List<CustomisationFileManager.CustomAIV>())
-                        .Select(aiv => aiv.checksum.ToString()).ToArray());
-                Candidate[] matching = sources.Where(item =>
-                    string.Equals(item.Name, info.lordName, StringComparison.OrdinalIgnoreCase) &&
-                    string.Equals(item.Config.name, info.lordConfig.name, StringComparison.OrdinalIgnoreCase)).ToArray();
-                int sourceIndex = TrailLordSourceSelector.SelectIndex(
-                    matching.Select(item => item.Config.path).ToArray(),
-                    info.lordConfig.path, info.lordName);
-                Candidate source = matching[sourceIndex];
+                Candidate source = ResolveAuthorSource(info, index + 1);
+                if (resolvedSources != null) resolvedSources[index + 1] = source;
                 LordPackageFileState package = LordPackageFingerprint.Capture(source.Config.path, source.Config.name);
                 string sidecar = Path.Combine(source.Config.path, source.Config.name + ".modlord.json");
                 string modJson = File.Exists(sidecar) ? LordDataSnapshot.ReadModLordFile(sidecar) : null;
@@ -51,7 +44,7 @@ namespace ExtendedData
                 {
                     PlayerId = index + 1,
                     LordType = source.Config.lordType,
-                    LordName = info.lordName,
+                    LordName = source.Name,
                     ConfigName = info.lordConfig.name,
                     ConfigChecksum = checksum,
                     AivChecksums = (info.aivs ?? new List<CustomisationFileManager.CustomAIV>())
@@ -59,12 +52,38 @@ namespace ExtendedData
                     RequiresInstalledPackage = package.HasUnsupportedGameplayFiles,
                     PackageDigest = package.HasUnsupportedGameplayFiles ? package.Digest : null,
                     ModLordJson = modJson,
-                    FixesJson = fixes.Capture(info.lordName, source.Config.lordType),
+                    FixesJson = fixes.Capture(source.Name, source.Config.lordType),
                 });
             }
             return result;
         }
 
+        internal static Candidate ResolveAuthorSource(FRONT_Multiplayer.MPAIVInfo info, int playerId)
+        {
+            try
+            {
+                if (info?.lordConfig == null)
+                    throw new InvalidDataException("The author Lord has no saved configuration.");
+                string name = TrailLordSourceSelector.ResolveLordName(info.lordName,
+                    info.lordType, ConfigSettings.extendedLordPaths);
+                Candidate[] matching = FindCandidates(info.lordConfig.checksum.ToString(),
+                    (info.aivs ?? new List<CustomisationFileManager.CustomAIV>())
+                        .Select(aiv => aiv.checksum.ToString()).ToArray())
+                    .Where(item => TrailLordSourceSelector.MatchesIdentity(item.Name,
+                        item.Config.lordType, item.Config.name, name, info.lordType,
+                        info.lordConfig.name, string.IsNullOrWhiteSpace(info.lordName))).ToArray();
+                int sourceIndex = TrailLordSourceSelector.SelectIndex(
+                    matching.Select(item => item.Config.path).ToArray(), info.lordConfig.path, name);
+                return matching[sourceIndex];
+            }
+            catch (Exception exception)
+            {
+                throw new InvalidDataException("Author Lord resolution failed: player=" + playerId +
+                    ", lordType=" + info?.lordType + ", lordName=[" + info?.lordName +
+                    "], config=[" + info?.lordConfig?.name + "], checksum=" + info?.lordConfig?.checksum +
+                    ", source=[" + info?.lordConfig?.path + "]. " + exception.Message, exception);
+            }
+        }
         internal static bool TryResolve(TrailLordSlot slot, out string internalName,
             out string requiredLordPath, out string reason)
         {

@@ -1,0 +1,17 @@
+[
+  {
+    "Path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\shcde-script-extender\\src\\SHCDESE.BepInEx\\bin\\net481\\SHCDESE.dll",
+    "Sha256": "E5D78FDF2EA9701336C398F7D29410F206D141FC01AA8099F30C824E6AB8A0B3",
+    "Version": "2.14.1.0"
+  },
+  {
+    "Path": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\shcde-script-extender\\mod_output\\000shcdese\\SHCDESE.dll",
+    "Sha256": "E5D78FDF2EA9701336C398F7D29410F206D141FC01AA8099F30C824E6AB8A0B3",
+    "Version": "2.14.1.0"
+  },
+  {
+    "Path": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\BepInEx\\plugins\\000shcdese\\SHCDESE.dll",
+    "Sha256": "E5D78FDF2EA9701336C398F7D29410F206D141FC01AA8099F30C824E6AB8A0B3",
+    "Version": "2.14.1.0"
+  }
+]

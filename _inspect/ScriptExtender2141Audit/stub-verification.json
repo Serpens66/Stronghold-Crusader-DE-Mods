@@ -1,0 +1,11 @@
+{
+  "stubCount": 35,
+  "scenarioCount": 35280,
+  "registersPreserved": true,
+  "stackBalanced": true,
+  "compareFlagsCorrect": true,
+  "cacheUsesOriginalOperand": true,
+  "fullExecutableStubDecoded": true,
+  "trampolineContinuationVerified": true,
+  "scope": "Actual Iced-emitted prefix until first restored Vanilla conditional branch; no gameplay execution"
+}

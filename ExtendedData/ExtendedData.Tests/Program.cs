@@ -875,6 +875,15 @@ static void TestTrailLordRequirements()
 
 static void TestTrailLordSelection()
 {
+    var extended = new TrailLordSlot { LordName = "Wolf", LordType = 3 };
+    Assert(TrailLordSelectionPolicy.UsesEmbeddedLord(extended, false, "", null, 3),
+        "unnamed Extended Lord lost its embedded values");
+    Assert(!TrailLordSelectionPolicy.UsesEmbeddedLord(extended, false, "", null, 2),
+        "different Extended Lord retained embedded values");
+    Assert(!TrailLordSelectionPolicy.UsesEmbeddedLord(extended, true, "", null, 3),
+        "built-in AIC retained custom requirements");
+    Assert(!TrailLordSelectionPolicy.UsesEmbeddedLord(extended, false, "Different", null, 3),
+        "named replacement matched only by type");
     var embedded = new TrailLordSlot
     {
         PlayerId = 3,
@@ -903,6 +912,18 @@ static void TestCustomTrailLordLaunchIntegration()
     string coordinator = File.ReadAllText(Path.Combine(root, "src", "TrailMissionSettingsCoordinator.cs"));
     string lordData = File.ReadAllText(Path.Combine(root, "src", "LordDataSyncCoordinator.cs"));
     string resolver = File.ReadAllText(Path.Combine(root, "src", "TrailLordPackageRuntime.cs"));
+    string exporter = File.ReadAllText(Path.Combine(root, "src", "CoopTrailPackageExporter.cs"));
+    Assert(exporter.Contains("TrailLordPackageRuntime.Capture(restart, lordSources)") &&
+        exporter.Contains("Name = authorSource.Name") && exporter.Contains("authorSource?.Config.path") &&
+        !exporter.Contains("ResolveLordConfigFile("), "Lord files and metadata must share the validated source");
+    int exportStart = coordinator.IndexOf("private void ExportHook(", StringComparison.Ordinal);
+    string exportHook = coordinator.Substring(exportStart,
+        coordinator.IndexOf("private void ExportSidecars(", exportStart, StringComparison.Ordinal) - exportStart);
+    Assert(exportHook.Split("ShowExportFailure();").Length == 3 &&
+        coordinator.Contains("MainViewModel.Instance.Show_HUD_Confirmation = false;") &&
+        coordinator.Contains("MainViewModel.Instance.Show_HUD_ConfirmationMP = true;") &&
+        coordinator.Contains("Could not display the Trail export error popup:"),
+        "both export error paths must use the MP OK popup");
     string direct = coordinator.Substring(coordinator.IndexOf("private void StartCustomTrailHook", StringComparison.Ordinal),
         coordinator.IndexOf("private void LaunchCustomTrailHook", StringComparison.Ordinal) -
         coordinator.IndexOf("private void StartCustomTrailHook", StringComparison.Ordinal));

@@ -142,6 +142,8 @@ $candidateSources = @(& git -C $workspace ls-files -- '*.cs') +
     @(& git -C $workspace ls-files --others --exclude-standard -- '*.cs')
 $discoveredPlugins = @($candidateSources | ForEach-Object { $_.Replace('/', '\') } | Where-Object {
     $_ -notmatch '^(shcde-script-extender|_inspect|\.inspect|\.native-analysis|Testmods)[\\/]' -and
+    # APIShared ships compile-checked third-party examples, not inventory mods.
+    $_ -notmatch '^APIShared[\\/]examples[\\/]' -and
     $_ -notmatch '[\\/](BepInEx[\\/]plugins|bin|obj)[\\/]' -and
     (Test-Path -LiteralPath (Join-Path $workspace $_) -PathType Leaf) -and
     [IO.File]::ReadAllText((Join-Path $workspace $_)).Contains('[BepInPlugin(')

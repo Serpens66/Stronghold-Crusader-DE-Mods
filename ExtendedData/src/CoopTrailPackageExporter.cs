@@ -90,11 +90,17 @@ namespace ExtendedData
                     if (!File.Exists(trailPath))
                         continue;
                     ordinal++;
-                    CoopMissionDefinition definition = CreateDefinition(
-                        trailPath,
-                        ordinal,
-                        missionsRoot,
-                        out IReadOnlyList<TrailLordSlot> lordSlots);
+                    CoopMissionDefinition definition;
+                    IReadOnlyList<TrailLordSlot> lordSlots;
+                    try
+                    {
+                        definition = CreateDefinition(trailPath, ordinal, missionsRoot, out lordSlots);
+                    }
+                    catch (Exception exception)
+                    {
+                        throw new InvalidDataException("Coop mission " + ordinal + " [" + trailPath +
+                            "] could not be exported. " + exception.Message, exception);
+                    }
                     string jsonPath = Path.Combine(missionsRoot, ordinal.ToString("00") + ".coopmission.json");
                     MissionLoader.WriteAtomic(jsonPath, definition);
                     TrailLordRequirements.Create(jsonPath, lordSlots).Write(jsonPath);
@@ -156,7 +162,8 @@ namespace ExtendedData
             HUD_IngameMenu.RestartSkirmishMapInfo restart = container?.restartSkirmishInfo;
             if (restart?.selectedHeader == null || restart.MPsetupData == null)
                 throw new InvalidDataException("Mission " + ordinal + " has no complete saved skirmish setup.");
-            lordSlots = TrailLordPackageRuntime.Capture(restart);
+            var lordSources = new Dictionary<int, TrailLordPackageRuntime.Candidate>();
+            lordSlots = TrailLordPackageRuntime.Capture(restart, lordSources);
 
             List<int> activeSlots = Enumerable.Range(0, Math.Min(8, restart.lordTypes?.Count ?? 0))
                 .Where(index => restart.lordTypes[index] != -9999)
@@ -198,7 +205,8 @@ namespace ExtendedData
                     Colour = Math.Max(1, Math.Min(8, colour)),
                 };
                 if (activeIndex >= 2)
-                    PopulateAi(player, restart, slot, assetRoot, missionsRoot, activeIndex + 1);
+                    PopulateAi(player, restart, slot, assetRoot, missionsRoot, activeIndex + 1,
+                        lordSources.TryGetValue(slot + 1, out var source) ? source : null);
                 definition.Players.Add(player);
             }
             MissionProjection projection = MissionProjection.Create(definition);
@@ -283,7 +291,8 @@ namespace ExtendedData
             int slot,
             string assetRoot,
             string missionsRoot,
-            int playerNumber)
+            int playerNumber,
+            TrailLordPackageRuntime.Candidate authorSource)
         {
             FRONT_Multiplayer.MPAIVInfo info = restart.aivs != null && slot < restart.aivs.Length ? restart.aivs[slot] : null;
             if (info == null)
@@ -296,7 +305,9 @@ namespace ExtendedData
             }
             else
             {
-                string lordSource = ResolveLordConfigFile(info);
+                string lordSource = RequireFile(ResolveNamedFile(authorSource?.Config.path,
+                    authorSource?.Config.name, ".lordjson"), ".lordjson",
+                    "author Lord for player " + playerNumber);
                 string playerAssetRoot = Path.Combine(assetRoot, "AI-" + playerNumber.ToString("00"));
                 Directory.CreateDirectory(playerAssetRoot);
                 string lordTarget = Path.Combine(playerAssetRoot, Path.GetFileName(lordSource));
@@ -304,7 +315,7 @@ namespace ExtendedData
                 player.Lord = new LordReference
                 {
                     Source = "bundled",
-                    Name = info.lordName,
+                    Name = authorSource.Name,
                     File = ToMissionRelative(lordTarget, missionsRoot),
                     BaseLordId = baseLordId,
                 };
@@ -327,7 +338,7 @@ namespace ExtendedData
                     }
                     else
                     {
-                        string aivSource = ResolveAivFile(info, aiv, baseLordId);
+                        string aivSource = ResolveAivFile(info, aiv, baseLordId, authorSource);
                         string playerAssetRoot = Path.Combine(assetRoot, "AI-" + playerNumber.ToString("00"));
                         Directory.CreateDirectory(playerAssetRoot);
                         string aivTarget = Path.Combine(playerAssetRoot, Path.GetFileName(aivSource));
@@ -350,30 +361,19 @@ namespace ExtendedData
             player.NativePreferredAiv = restart.MPsetupData.preferredAIVs[slot];
         }
 
-        private static string ResolveLordConfigFile(FRONT_Multiplayer.MPAIVInfo info)
-        {
-            CustomisationFileManager.CustomLordConfig config = info.lordConfig;
-            string direct = ResolveNamedFile(config?.path, config?.name, ".lordjson");
-            if (direct != null)
-                return direct;
-            List<CustomisationFileManager.CustomLordConfig> installed =
-                CustomisationFileManager.Instance.getLordLordList(-1, info.lordName);
-            CustomisationFileManager.CustomLordConfig match = installed?.FirstOrDefault(candidate =>
-                (config != null && candidate.checksum == config.checksum) ||
-                string.Equals(candidate.name, config?.name, StringComparison.OrdinalIgnoreCase));
-            return RequireFile(ResolveNamedFile(match?.path, match?.name, ".lordjson"), ".lordjson", "custom lord " + info.lordName);
-        }
-
-        private static string ResolveAivFile(FRONT_Multiplayer.MPAIVInfo info, CustomisationFileManager.CustomAIV aiv, int baseLordId)
+        private static string ResolveAivFile(FRONT_Multiplayer.MPAIVInfo info, CustomisationFileManager.CustomAIV aiv, int baseLordId,
+            TrailLordPackageRuntime.Candidate authorSource)
         {
             string direct = ResolveNamedFile(aiv.path, aiv.AIVName, ".aivjson");
             if (direct != null)
                 return direct;
-            List<CustomisationFileManager.CustomAIV> installed = info.builtInLord
+            List<CustomisationFileManager.CustomAIV> installed = authorSource != null
+                ? authorSource.Aivs
+                : info.builtInLord || string.IsNullOrWhiteSpace(info.lordName)
                 ? CustomisationFileManager.Instance.getLordAIVList(baseLordId)
                 : CustomisationFileManager.Instance.getLordAIVList(-1, info.lordName);
             CustomisationFileManager.CustomAIV match = installed?.FirstOrDefault(candidate =>
-                candidate.checksum == aiv.checksum || string.Equals(candidate.AIVName, aiv.AIVName, StringComparison.OrdinalIgnoreCase));
+                candidate.checksum == aiv.checksum && string.Equals(candidate.AIVName, aiv.AIVName, StringComparison.OrdinalIgnoreCase));
             return RequireFile(ResolveNamedFile(match?.path, match?.AIVName, ".aivjson"), ".aivjson", "AIV " + aiv.AIVName);
         }
 

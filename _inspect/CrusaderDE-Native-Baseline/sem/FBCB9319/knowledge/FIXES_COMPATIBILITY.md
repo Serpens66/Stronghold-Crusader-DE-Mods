@@ -64,3 +64,11 @@ workspace mods do not own these entries. EnemyBridgePathTest does instrument
 this update. Do not interpret its existing package as compatible with Fixes 1.26.0.
 The additive Extender BFS delegate and provisional objective storage are not adopted
 by our update; the physical storage limit is not a confirmed semantic table capacity.
+
+## Current Fixes 1.26.3 source review, 2026-10-08
+
+Canonical clean clone v1.26.3: commit cbabdecac15a6e81cb45404f1a3501a4856dae39, tree 185f84b1fa6fc2faad793f2980a18d38599290e0. This supersedes the current source identity; the 1.25.1 and 1.26.0 sections above retain their historical provenance. No installed-Fixes assembly identity or gameplay result is inferred from the clone.
+
+The full v1.25.1..v1.26.3 source diff preserves the documented popularity dependency, purchase pairs, distanced-siege-tent direction behavior, capture hook and PCL flow. SmarterSiegeLaddermen adds two inline hooks, distance-map/reset logic and a 16 MiB native state block. Their signatures uniquely resolve to 0x111C00 and 0x6A5D0 in the unchanged canonical native DLL. Release mods own neither entry; none of the 35 changed Extender engage-range spans overlaps them. EnemyBridgePathTest remains excluded due to its existing 0x111C00 ownership; its unchanged package is not validated with current Fixes.
+
+The ladder search invokes BulkPathingDetours.c_game_pathsearch_bfs_ignoring_dynamic_occupancy and consumes shared WalkGeneration, WalkGrid, CertainPathGrid and AIPlayerObjectiveStorage scratch state. This is process-global mutable pathfinder state, not a pure read-only route query suitable for arbitrary reentrant consumer use. Our mods do not adopt this BFS path. These are source/data-flow findings, not demonstrated gamebreaking failures. No additional testmod or author report is introduced.

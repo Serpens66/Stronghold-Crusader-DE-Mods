@@ -1,0 +1,368 @@
+{
+  "xamlPatchFiles": [
+    "APIShared\\Patches\\Assets\\GUI\\XAML\\MainHUD.xaml",
+    "APIShared\\Patches\\Assets\\GUI\\XAMLResources\\HUD_Buildings.xaml",
+    "APIShared\\Patches\\Assets\\GUI\\XAMLResources\\HUD_Troops.xaml",
+    "BugfixesAndQoL\\Patches\\Assets\\GUI\\Sprites\\UI-MasterAtlas.xaml",
+    "BugfixesAndQoL\\Patches\\Assets\\GUI\\XAML\\IngameUIScreens.xaml",
+    "BugfixesAndQoL\\Patches\\Assets\\GUI\\XAML\\MainHUD.xaml",
+    "BugfixesAndQoL\\Patches\\Assets\\GUI\\XAMLResources\\FRONT_CoopTrail1.xaml",
+    "BugfixesAndQoL\\Patches\\Assets\\GUI\\XAMLResources\\FRONT_CoopTrail2.xaml",
+    "BugfixesAndQoL\\Patches\\Assets\\GUI\\XAMLResources\\FRONT_CoopTrail3.xaml",
+    "BugfixesAndQoL\\Patches\\Assets\\GUI\\XAMLResources\\FRONT_CoopTrail4.xaml",
+    "BugfixesAndQoL\\Patches\\Assets\\GUI\\XAMLResources\\FRONT_Multiplayer.xaml",
+    "BugfixesAndQoL\\Patches\\Assets\\GUI\\XAMLResources\\FRONT_Multiplayer_AISettings.xaml",
+    "BugfixesAndQoL\\Patches\\Assets\\GUI\\XAMLResources\\FRONT_Multiplayer_Setup.xaml",
+    "BugfixesAndQoL\\Patches\\Assets\\GUI\\XAMLResources\\HUD_AlliesPanel.xaml",
+    "BugfixesAndQoL\\Patches\\Assets\\GUI\\XAMLResources\\HUD_Briefing.xaml",
+    "BugfixesAndQoL\\Patches\\Assets\\GUI\\XAMLResources\\HUD_Buildings.xaml",
+    "BugfixesAndQoL\\Patches\\Assets\\GUI\\XAMLResources\\HUD_ControlGroups.xaml",
+    "BugfixesAndQoL\\Patches\\Assets\\GUI\\XAMLResources\\HUD_IngameMenu.xaml",
+    "BugfixesAndQoL\\Patches\\Assets\\GUI\\XAMLResources\\HUD_LoadSaveRequester.xaml",
+    "BugfixesAndQoL\\Patches\\Assets\\GUI\\XAMLResources\\HUD_MissionOver.xaml",
+    "BugfixesAndQoL\\Patches\\Assets\\GUI\\XAMLResources\\HUD_MPResync.xaml",
+    "BugfixesAndQoL\\Patches\\Assets\\GUI\\XAMLResources\\HUD_Objectives.xaml",
+    "BugfixesAndQoL\\Patches\\Assets\\GUI\\XAMLResources\\HUD_Troops.xaml",
+    "BugfixesAndQoL\\Patches\\Assets\\GUI\\XAMLResources\\OST_StartingGoods.xaml",
+    "CastlePlanner\\Patches\\Assets\\GUI\\XAMLResources\\FRONT_Multiplayer_AISettings.xaml",
+    "ExtendedData\\Patches\\Assets\\GUI\\XAMLResources\\FRONT_EditorSetup.xaml",
+    "ExtendedData\\Patches\\Assets\\GUI\\XAMLResources\\FRONT_ManageTrail.xaml",
+    "ExtendedData\\Patches\\Assets\\GUI\\XAMLResources\\HUD_ConfirmationPopup.xaml",
+    "ExtendedData\\Patches\\Assets\\GUI\\XAMLResources\\HUD_LoadSaveRequester.xaml",
+    "ExtraFeatures\\Patches\\Assets\\GUI\\XAMLResources\\HUD_Buildings.xaml",
+    "ExtraFeatures\\Patches\\Assets\\GUI\\XAMLResources\\HUD_Troops.xaml",
+    "ExtremePowers\\Patches\\Assets\\GUI\\XAMLResources\\HUD_ExtremePowers.xaml",
+    "Testmods\\SpectatorEditorBuildTest\\Patches\\Assets\\GUI\\XAML\\IngameUIScreens.xaml",
+    "Testmods\\VirtualUnitsPrototype\\Patches\\Assets\\GUI\\XAML\\IngameUIScreens.xaml"
+  ],
+  "contentNodes": 89,
+  "xamlPassed": true,
+  "testmodMutationHits": [
+    {
+      "path": "Testmods\\AIAttackTest\\src\\AIAttackPermanentNativeOverrides.cs",
+      "hits": [
+        {
+          "line": 38,
+          "text": "Marshal.WriteInt32(recruitTicks, VanillaRecruitTicks);"
+        },
+        {
+          "line": 39,
+          "text": "Marshal.WriteInt32(attackLord, 0);"
+        },
+        {
+          "line": 59,
+          "text": "recruitTransaction?.Dispose(); recruitTransaction = null;"
+        },
+        {
+          "line": 75,
+          "text": "transaction?.Dispose(); transaction = null;"
+        },
+        {
+          "line": 96,
+          "text": "Marshal.WriteInt32(recruitTicks, ticks);"
+        },
+        {
+          "line": 97,
+          "text": "Marshal.WriteInt32(attackLord, includeLord ? 1 : 0);"
+        },
+        {
+          "line": 106,
+          "text": "transaction?.Dispose();"
+        },
+        {
+          "line": 107,
+          "text": "recruitTransaction?.Dispose();"
+        }
+      ]
+    },
+    {
+      "path": "Testmods\\AIAttackTest\\src\\AIAttackTestPlugin.cs",
+      "hits": [
+        {
+          "line": 110,
+          "text": "candidateSessionSubscription?.Dispose();"
+        },
+        {
+          "line": 111,
+          "text": "candidateUnloadSubscription?.Dispose();"
+        }
+      ]
+    },
+    {
+      "path": "Testmods\\AIBuildDiagnoseTest\\src\\AIBuildDiagnoseRuntime.cs",
+      "hits": [
+        {
+          "line": 2208,
+          "text": "Marshal.WriteByte(new IntPtr(cell), 1);"
+        },
+        {
+          "line": 2241,
+          "text": "try { Marshal.WriteByte(new IntPtr(address), 0); }"
+        }
+      ]
+    },
+    {
+      "path": "Testmods\\AIBuildDiagnoseTest\\src\\GeneralSiteSearchHooks.cs",
+      "hits": [
+        {
+          "line": 74,
+          "text": "aivProbe?.Dispose(); // Unpublished preflight candidates only."
+        },
+        {
+          "line": 75,
+          "text": "fineProbe?.Dispose();"
+        },
+        {
+          "line": 103,
+          "text": "if (!aivHook.Success && !fineHook.Success) pending.Dispose();"
+        }
+      ]
+    },
+    {
+      "path": "Testmods\\AICoarsePathComponentFixTest\\src\\AiCoarsePathComponentFix.cs",
+      "hits": [
+        {
+          "line": 133,
+          "text": "ending?.Dispose();"
+        },
+        {
+          "line": 134,
+          "text": "starting?.Dispose();"
+        },
+        {
+          "line": 135,
+          "text": "loading?.Dispose();"
+        },
+        {
+          "line": 185,
+          "text": "finally { pending?.Dispose(); } // Only a failed, unpublished installation candidate is rolled back."
+        }
+      ]
+    },
+    {
+      "path": "Testmods\\AICoarsePathComponentFixTest\\src\\WoodSiteGuardExperiment.cs",
+      "hits": [
+        {
+          "line": 65,
+          "text": "private static extern bool VirtualProtect(IntPtr address, UIntPtr size, uint newProtection, out uint oldProtection);"
+        },
+        {
+          "line": 433,
+          "text": "if (!VirtualProtect(site, new UIntPtr((uint)bytes.Length), 0x40, out uint old))"
+        },
+        {
+          "line": 443,
+          "text": "if (!VirtualProtect(site, new UIntPtr((uint)bytes.Length), old, out _))"
+        }
+      ]
+    },
+    {
+      "path": "Testmods\\AIDefenseTest\\src\\AIDefenseTestRuntime.cs",
+      "hits": [
+        {
+          "line": 183,
+          "text": "subscription.Dispose();"
+        }
+      ]
+    },
+    {
+      "path": "Testmods\\AIMarketOverbuyDiagnostic\\src\\AIMarketOverbuyDiagnosticPlugin.cs",
+      "hits": [
+        {
+          "line": 61,
+          "text": "candidateSubscription?.Dispose(); // Only an unpublished initialization candidate."
+        }
+      ]
+    },
+    {
+      "path": "Testmods\\EnemyBridgePathTest\\src\\BridgeNativeHooks.cs",
+      "hits": [
+        {
+          "line": 113,
+          "text": "for(int i=permanent.Count-1;i>=0;i--)((IDisposable)permanent[i]).Dispose();"
+        }
+      ]
+    },
+    {
+      "path": "Testmods\\MoatMove\\src\\FastMovementScheduler.cs",
+      "hits": [
+        {
+          "line": 34,
+          "text": "public void Dispose() { Ground?.Dispose(); Friendly?.Dispose(); Ground = Friendly = null; }"
+        },
+        {
+          "line": 87,
+          "text": "fastCancelSubscription?.Dispose(); fastLoadSubscription?.Dispose();"
+        },
+        {
+          "line": 95,
+          "text": "{ (command.SearchState as FastPendingSearch)?.Dispose(); command.SearchState = null; }"
+        }
+      ]
+    },
+    {
+      "path": "Testmods\\OutpostTest\\src\\OutpostNative.cs",
+      "hits": [
+        {
+          "line": 35,
+          "text": "set { if (flags != IntPtr.Zero) { Marshal.WriteInt32(flags, value ? 1 : 0); Marshal.WriteInt32(flags,4,value && SelectionAvailable ? 1 : 0); } } }"
+        },
+        {
+          "line": 58,
+          "text": "Marshal.WriteInt64(flags, 0, 0); Marshal.WriteInt64(flags, 8, 0);"
+        },
+        {
+          "line": 92,
+          "text": "selectionHooks?.Dispose();selectionHooks=null;"
+        },
+        {
+          "line": 101,
+          "text": "selectionHooks?.Dispose(); selectionHooks=null;"
+        },
+        {
+          "line": 102,
+          "text": "hooks?.Dispose(); hooks = null;"
+        }
+      ]
+    },
+    {
+      "path": "Testmods\\PrebuiltWorkshopBothFixTest\\src\\PrebuiltWorkshopBothFixTestPlugin.cs",
+      "hits": [
+        {
+          "line": 76,
+          "text": "candidateSpawn?.Dispose();"
+        },
+        {
+          "line": 77,
+          "text": "candidateEnd?.Dispose();"
+        },
+        {
+          "line": 78,
+          "text": "candidateSession?.Dispose();"
+        },
+        {
+          "line": 79,
+          "text": "candidateNativeStart?.Dispose();"
+        }
+      ]
+    },
+    {
+      "path": "Testmods\\SkinTest\\src\\SkinTestPlugin.cs",
+      "hits": [
+        {
+          "line": 54,
+          "text": "candidate?.Dispose();"
+        }
+      ]
+    },
+    {
+      "path": "Testmods\\SkinTest\\src\\SwordsmanSkinRuntime.cs",
+      "hits": [
+        {
+          "line": 1010,
+          "text": "try { subscriptions[index]?.Dispose(); } catch { }"
+        },
+        {
+          "line": 1093,
+          "text": "try { current.Undo(); } catch { }"
+        },
+        {
+          "line": 1094,
+          "text": "try { current.Dispose(); } catch { }"
+        }
+      ]
+    },
+    {
+      "path": "Testmods\\SpectatorEditorBuildTest\\src\\SpectatorEditorBuildTestPlugin.cs",
+      "hits": [
+        {
+          "line": 336,
+          "text": "candidateTribeSubscription?.Dispose();"
+        },
+        {
+          "line": 337,
+          "text": "candidateBuildingSpawn?.Dispose();"
+        },
+        {
+          "line": 338,
+          "text": "candidateBuildStructure?.Dispose();"
+        },
+        {
+          "line": 339,
+          "text": "candidateWallBuild?.Dispose();"
+        },
+        {
+          "line": 340,
+          "text": "candidateSubtractResource?.Dispose();"
+        },
+        {
+          "line": 341,
+          "text": "candidatePitchBuild?.Dispose();"
+        },
+        {
+          "line": 426,
+          "text": "candidate?.Dispose();"
+        },
+        {
+          "line": 478,
+          "text": "probe?.Dispose();"
+        },
+        {
+          "line": 1707,
+          "text": "resource?.Dispose();"
+        },
+        {
+          "line": 1708,
+          "text": "frame?.Dispose();"
+        },
+        {
+          "line": 1709,
+          "text": "map?.Dispose();"
+        },
+        {
+          "line": 1730,
+          "text": "candidate?.Dispose();"
+        },
+        {
+          "line": 1781,
+          "text": "probe?.Dispose();"
+        }
+      ]
+    },
+    {
+      "path": "Testmods\\StockpileAccessFixTest\\src\\StockpileAccessFixTestRuntime.cs",
+      "hits": [
+        {
+          "line": 151,
+          "text": "subscription.Dispose();"
+        }
+      ]
+    },
+    {
+      "path": "Testmods\\VirtualUnitsPrototype\\src\\VirtualEntityRuntime.cs",
+      "hits": [
+        {
+          "line": 93,
+          "text": "visuals?.Dispose();"
+        }
+      ]
+    },
+    {
+      "path": "Testmods\\VirtualUnitsPrototype\\src\\VisualRuntime.cs",
+      "hits": [
+        {
+          "line": 182,
+          "text": "private static void Release(ref Hook hook) { Hook current = hook; hook = null; if (current == null) return; try { current.Undo(); } catch { } try { current.Dispose(); } catch { } }"
+        }
+      ]
+    }
+  ],
+  "workaroundMarkers": [
+    {
+      "path": "ExtraFeatures\\src\\AiFlagDiseaseTracker.cs",
+      "line": 339,
+      "text": "// SHCDESE-WORKAROUND(2.7.1-projectile-slot-view): accept both the"
+    }
+  ],
+  "review": "No runtime source changed. Reviewed Testmods hits separately: Marshal writes target data, WoodSiteGuard rollback is guarded by !published; EnemyBridge forbids installed-hook rollback. MonoMod Release helpers in SkinTest and VirtualUnitsPrototype are reached by initialization-failure catch paths only, not normal lifecycle callbacks. Subscription/candidate disposal is distinct from published executable-hook teardown. Existing release-wide permanent-hook regression passes. These source checks do not assert gameplay acceptance or certify unrelated testmod designs."
+}
