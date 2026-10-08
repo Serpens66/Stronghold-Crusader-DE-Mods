@@ -5,6 +5,16 @@ using System.Xml.Linq;
 
 internal static class SplitContracts
 {
+    private static IEnumerable<string> ExpandSources(string directory, string include)
+    {
+        string path = Path.Combine(directory, include);
+        if (!path.Contains('*')) return new[] { Path.GetFullPath(path) };
+        string sourceDirectory = Path.GetFullPath(path.Substring(0, path.IndexOf('*'))
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        return Directory.GetFiles(sourceDirectory, Path.GetFileName(path),
+            path.Contains("**") ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
+    }
+
     internal static void Validate(string root)
     {
         string Read(string path) => File.ReadAllText(Path.Combine(root, path));
@@ -34,9 +44,8 @@ internal static class SplitContracts
         foreach (string relative in new[] { "APIShared/APIShared.csproj", "BugfixesAndQoL/BugfixesAndQoL.csproj", "Testmods/MoatMove/MoatMove.csproj" })
         {
             string directory = Path.GetDirectoryName(Path.Combine(root, relative))!;
-            foreach (var include in XDocument.Load(Path.Combine(root, relative)).Descendants().Where(e => e.Name.LocalName == "Compile"))
+            foreach (string file in XDocument.Load(Path.Combine(root, relative)).Descendants().Where(e => e.Name.LocalName == "Compile" && e.Attribute("Include") != null).SelectMany(e => ExpandSources(directory, e.Attribute("Include")!.Value)))
             {
-                string file = Path.GetFullPath(Path.Combine(directory, include.Attribute("Include")!.Value));
                 string source = File.ReadAllText(file);
                 Check(!source.Contains("System.Text.Json") && !source.Contains("Newtonsoft.Json") &&
                     !source.Contains("JavaScriptSerializer") && !source.Contains("JsonUtility"), "Forbidden runtime JSON: " + file);
