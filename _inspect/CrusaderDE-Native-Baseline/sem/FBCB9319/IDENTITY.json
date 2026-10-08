@@ -1,9 +1,9 @@
 {
-  "schemaVersion": 1,
+  "scriptExtenderCommit": "5049b5d051d0face848cc2eb098db1fedf5451a7",
+  "currentNativeHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
   "managedHash": "BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789",
+  "schemaVersion": 1,
   "pathKey": "FBCB9319",
-  "managedPathKey": "BC8B6A39",
-  "scriptExtenderCommit": "85ab962b342c18f663da830570884a25b85116d0",
-  "scriptExtenderTree": "594f9868b36ff0a2556f1472e3d6283bd2a062de",
-  "currentNativeHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2"
+  "scriptExtenderTree": "cc31dd3beea7c50a1bd1b6825b5ae3624f0dee31",
+  "managedPathKey": "BC8B6A39"
 }

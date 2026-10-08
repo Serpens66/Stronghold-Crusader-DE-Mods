@@ -26,7 +26,7 @@ namespace BugfixesAndQoL.GatehouseLivingCapture
                 throw new InvalidOperationException("APIShared requires both public IsReallyAlive overloads; rebuild/install APIShared first.");
             if (Marshal.SizeOf(typeof(GameUnit)) != UnitSize ||
                 Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_AliveState)).ToInt32() != 0x88 ||
-                Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.N0000019A)).ToInt32() != 0x29C ||
+                Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_IsKilledByProjectile)).ToInt32() != 0x29C ||
                 Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_CurrentHealth)).ToInt32() != 0x3C4 ||
                 Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_ControllableForPlayerId)).ToInt32() != 0x92 ||
                 (short)AliveState.IsAlive != 2)

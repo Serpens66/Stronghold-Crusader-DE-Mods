@@ -17,7 +17,7 @@ internal static partial class Program
         policy.Snapshot.Current = false;
         Check(!AssassinGateRoutePolicy.TryCapture(policy, 2, out _), "stale capture fails open");
         policy.Snapshot.Current = true;
-        Check(AssassinGateRoutePolicy.ReadControlPlayer(2, 1) == 258, "native high control byte is retained");
+        Check(AssassinGateRoutePolicy.ReadControlPlayer(0x0102) == 258, "native high control byte is retained");
         Check(AssassinGateRoutePolicy.IdentityHash(captured) == AssassinGateRoutePolicy.IdentityHash(captured),
             "snapshot identity is stable across cache lookups");
         Check(!ReferenceEquals(captured, new GateTestSnapshot()), "new publication has a new cache identity");

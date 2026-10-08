@@ -1,0 +1,244 @@
+{
+  "OldVersion": "2.13.0",
+  "NewVersion": "2.14.0",
+  "TargetCommit": "5049b5d051d0face848cc2eb098db1fedf5451a7",
+  "ImpactReview": {
+    "BaselinePreviousCommit": "85ab962b342c18f663da830570884a25b85116d0",
+    "CrusaderNativeFiles": [
+      "src/SHCDESE.BepInEx/Detours/BulkPathingDetours.cs",
+      "src/SHCDESE.BepInEx/GameGlobals/GameGlobalsManager.cs",
+      "src/SHCDESE.BepInEx/Interop/AIPlayerObjectiveStorage.cs",
+      "src/SHCDESE.BepInEx/Interop/AISiegeObjective.cs",
+      "src/SHCDESE.BepInEx/Interop/GameBuilding.cs",
+      "src/SHCDESE.BepInEx/Interop/GamePathfindingContextView.cs",
+      "src/SHCDESE.BepInEx/Interop/GamePlayerResources.cs",
+      "src/SHCDESE.BepInEx/Interop/GameTribe.cs",
+      "src/SHCDESE.BepInEx/Interop/GameUnit.cs"
+    ],
+    "ExternalNativeFiles": [],
+    "NonSemanticArtifacts": [
+      "CHANGELOG.md",
+      "README.md",
+      "ReverseEngineering/latest/CrusaderDE.dll.7z",
+      "ReverseEngineering/structs/scde-main-2802-v6.rcnet",
+      "ReverseEngineering/structs/scde-main-2802-v7.rcnet",
+      "docs/README_DE.md",
+      "docs/README_PL.md",
+      "docs/README_RU.md",
+      "docs/guides/signed-bepinex-plugins.md",
+      "src/SHCDESE.BepInEx/API/GameUnitManagerAPI.cs",
+      "src/SHCDESE.BepInEx/ManagedHooks/Input_Hooks.cs",
+      "src/SHCDESE.BepInEx/SHCDESE.csproj",
+      "src/SHCDESE.BepInEx/ViewModels/LoadedModsViewModel.cs",
+      "src/SHCDESE.BepInEx/ViewModels/LobbyModSettingsHubViewModel.cs"
+    ],
+    "ChangedPublicContracts": [
+      {
+        "Path": "src/SHCDESE.BepInEx/Detours/BulkPathingDetours.cs",
+        "Symbol": "BulkPathingDetours",
+        "Consumers": [],
+        "Compatibility": "Installed assembly field metadata is authoritative. GameUnit owner/spawn WORD and death-marker migration; additive unused APIs are documented without adoption. Structure sizes and unchanged native semantics validated separately."
+      },
+      {
+        "Path": "src/SHCDESE.BepInEx/GameGlobals/GameGlobalsManager.cs",
+        "Symbol": "GameGlobalsManager",
+        "Consumers": [],
+        "Compatibility": "Installed assembly field metadata is authoritative. GameUnit owner/spawn WORD and death-marker migration; additive unused APIs are documented without adoption. Structure sizes and unchanged native semantics validated separately."
+      },
+      {
+        "Path": "src/SHCDESE.BepInEx/Interop/AIPlayerObjectiveStorage.cs",
+        "Symbol": "AIPlayerObjectiveStorage",
+        "Consumers": [],
+        "Compatibility": "Installed assembly field metadata is authoritative. GameUnit owner/spawn WORD and death-marker migration; additive unused APIs are documented without adoption. Structure sizes and unchanged native semantics validated separately."
+      },
+      {
+        "Path": "src/SHCDESE.BepInEx/Interop/AISiegeObjective.cs",
+        "Symbol": "AISiegeObjective",
+        "Consumers": [],
+        "Compatibility": "Installed assembly field metadata is authoritative. GameUnit owner/spawn WORD and death-marker migration; additive unused APIs are documented without adoption. Structure sizes and unchanged native semantics validated separately."
+      },
+      {
+        "Path": "src/SHCDESE.BepInEx/Interop/GameBuilding.cs",
+        "Symbol": "GameBuilding",
+        "Consumers": [],
+        "Compatibility": "Installed assembly field metadata is authoritative. GameUnit owner/spawn WORD and death-marker migration; additive unused APIs are documented without adoption. Structure sizes and unchanged native semantics validated separately."
+      },
+      {
+        "Path": "src/SHCDESE.BepInEx/Interop/GamePathfindingContextView.cs",
+        "Symbol": "GamePathfindingContextView",
+        "Consumers": [],
+        "Compatibility": "Installed assembly field metadata is authoritative. GameUnit owner/spawn WORD and death-marker migration; additive unused APIs are documented without adoption. Structure sizes and unchanged native semantics validated separately."
+      },
+      {
+        "Path": "src/SHCDESE.BepInEx/Interop/GamePlayerResources.cs",
+        "Symbol": "GamePlayerResources",
+        "Consumers": [],
+        "Compatibility": "Installed assembly field metadata is authoritative. GameUnit owner/spawn WORD and death-marker migration; additive unused APIs are documented without adoption. Structure sizes and unchanged native semantics validated separately."
+      },
+      {
+        "Path": "src/SHCDESE.BepInEx/Interop/GameTribe.cs",
+        "Symbol": "GameTribe",
+        "Consumers": [],
+        "Compatibility": "Installed assembly field metadata is authoritative. GameUnit owner/spawn WORD and death-marker migration; additive unused APIs are documented without adoption. Structure sizes and unchanged native semantics validated separately."
+      },
+      {
+        "Path": "src/SHCDESE.BepInEx/Interop/GameUnit.cs",
+        "Symbol": "GameUnit",
+        "Consumers": [
+          "APIShared",
+          "BugfixesAndQoL",
+          "BuildingLimit",
+          "ExtraFeatures",
+          "HunterQueryTargetDiagnostic",
+          "ImprovedHunters",
+          "RandomEvents",
+          "StartConditions",
+          "UnitLimit"
+        ],
+        "Compatibility": "Installed assembly field metadata is authoritative. GameUnit owner/spawn WORD and death-marker migration; additive unused APIs are documented without adoption. Structure sizes and unchanged native semantics validated separately."
+      }
+    ],
+    "AffectedMods": [
+      "APIShared",
+      "BugfixesAndQoL",
+      "BuildingLimit",
+      "ExtraFeatures",
+      "HunterQueryTargetDiagnostic",
+      "ImprovedHunters",
+      "RandomEvents",
+      "StartConditions",
+      "UnitLimit"
+    ],
+    "BuildMods": [
+      "APIShared",
+      "ActiveAIVDetector",
+      "BugfixesAndQoL",
+      "BuildingCosts",
+      "BuildingLimit",
+      "CastlePlanner",
+      "CheatMod",
+      "ExtendedData",
+      "ExtraFeatures",
+      "ExtremePowers",
+      "HunterQueryTargetDiagnostic",
+      "ImprovedHunters",
+      "RandomEvents",
+      "SerpsModsHost",
+      "StartConditions",
+      "UnitCosts",
+      "UnitLimit"
+    ],
+    "ManagedAndLuaReview": [
+      {
+        "Path": "src/SHCDESE.BepInEx/API/GameUnitManagerAPI.cs",
+        "Contract": "UnitPredicates.IsAlive now requires AliveState.IsAlive and death WORD zero; IsDead also recognizes marker one. APIShared retains its established stricter nonzero-death contract. Query consumers compile against installed metadata."
+      },
+      {
+        "Path": "src/SHCDESE.BepInEx/ManagedHooks/Input_Hooks.cs",
+        "Contract": "Mod-settings Escape suppresses Vanilla options and consumes repeat/up until release; existing OnKeyDown/OnKeyUp signatures unchanged. No mod input changes required; in-game acceptance remains open."
+      },
+      {
+        "Path": "src/SHCDESE.BepInEx/ViewModels/LoadedModsViewModel.cs",
+        "Contract": "Escape closes visible modal through Pre OnKeyDown and Result=false. No changed public binding or XAML contract."
+      },
+      {
+        "Path": "src/SHCDESE.BepInEx/ViewModels/LobbyModSettingsHubViewModel.cs",
+        "Contract": "Visible settings modal Escape closes through Pre OnKeyDown. Existing settings consumers retained."
+      },
+      {
+        "Path": "src/SHCDESE.BepInEx/SHCDESE.csproj",
+        "Contract": "Adds noncopy Unity input modules; no packaged dependency changes."
+      }
+    ],
+    "InteropReview": [
+      "GameUnit: UInt16 spawned owner +7C, full UInt16 control +92, death WORD +29C distinct from +29E, selection +2A0; creation tick and proximity names; split +8C,+2CC,+44C. All source/reflection/Lua symbols scanned; direct consumers migrated and compiler-checked.",
+      "GameBuilding: +2C8 UInt32 split into UInt16 unknown and three quarry tether IDs +2CA/+2CC/+2CE; tether assigned quarry +2D0. Removed names have no workspace consumers.",
+      "GameTribe: +540 UInt32 split into two UInt16; no consumer of the changed field.",
+      "GamePlayerResources: village/quarry/delay/siege-reference renames, construction pause table UInt16[20], retry delay and unknown splits. Removed and reused names have no workspace consumers; new objective storage is provisional physical limit, not logical capacity.",
+      "GamePathfindingContextView: additive Int32 WalkGeneration at +4, unused by our sources.",
+      "BulkPathingDetours: additive BFS address/delegate scan and public route delegate; no new installed detour. GameGlobalsManager additive objective-storage displacement scan. No adoption by our mods."
+    ]
+  },
+  "Mods": {
+    "APIShared": {
+      "Version": "0.4.12",
+      "MinimumScriptExtenderVersion": "2.14.0",
+      "Changes": [
+        "Updated Script Extender 2.14.0 unit field contracts; preserved death-marker and full control-word semantics."
+      ]
+    },
+    "BuildingLimit": {
+      "Version": "1.0.28",
+      "MinimumScriptExtenderVersion": "2.14.0",
+      "Changes": [
+        "Updated Script Extender 2.14.0 unit field contracts; preserved death-marker and full control-word semantics."
+      ]
+    },
+    "ExtraFeatures": {
+      "Version": "1.0.110",
+      "MinimumScriptExtenderVersion": "2.14.0",
+      "Changes": [
+        "Updated Script Extender 2.14.0 unit field contracts; preserved death-marker and full control-word semantics."
+      ]
+    },
+    "HunterQueryTargetDiagnostic": {
+      "Version": "1.4.8",
+      "MinimumScriptExtenderVersion": "2.14.0",
+      "Changes": [
+        "Updated Script Extender 2.14.0 unit field contracts; preserved death-marker and full control-word semantics."
+      ]
+    },
+    "ImprovedHunters": {
+      "Version": "1.1.86",
+      "MinimumScriptExtenderVersion": "2.14.0",
+      "Changes": [
+        "Updated Script Extender 2.14.0 unit field contracts; preserved death-marker and full control-word semantics."
+      ]
+    },
+    "RandomEvents": {
+      "Version": "1.0.49",
+      "MinimumScriptExtenderVersion": "2.14.0",
+      "Changes": [
+        "Updated Script Extender 2.14.0 unit field contracts; preserved death-marker and full control-word semantics."
+      ]
+    },
+    "StartConditions": {
+      "Version": "1.0.30",
+      "MinimumScriptExtenderVersion": "2.14.0",
+      "Changes": [
+        "Updated Script Extender 2.14.0 unit field contracts; preserved death-marker and full control-word semantics."
+      ]
+    },
+    "UnitLimit": {
+      "Version": "1.0.103",
+      "MinimumScriptExtenderVersion": "2.14.0",
+      "Changes": [
+        "Updated Script Extender 2.14.0 unit field contracts; preserved death-marker and full control-word semantics."
+      ]
+    },
+    "BugfixesAndQoL": {
+      "Version": "1.0.179",
+      "MinimumScriptExtenderVersion": "2.14.0",
+      "Changes": [
+        "Updated Script Extender 2.14.0 unit field contracts; preserved death-marker and full control-word semantics."
+      ]
+    }
+  },
+  "TestMods": [
+    "AIDefenseTest",
+    "AssassinAttackControlTest",
+    "EnemyGatePathfindingTest",
+    "MoatMove",
+    "SkinTest",
+    "SpectatorEditorBuildTest",
+    "StockpileAccessFixTest",
+    "VirtualUnitsPrototype"
+  ],
+  "CompatibilityNotes": [
+    "EnemyBridgePathTest explicitly excluded by user: Fixes 1.26.0 now patches its selector entry 0x111C00. No source, metadata or installation changes to that testmod.",
+    "Misleading r_IsKilledByProjectile names a generic death marker also set by melee; document locally, no author report for naming.",
+    "Native and managed game hashes unchanged; existing hooks and trigger lifetimes retained.",
+    "Early native crash-handler false alarm remains pending current runtime evidence.",
+    "Preexisting publicized private accesses repaired in APIShared MissionLifecycleService and SkinTest using cached reflection, validated against real Assembly-CSharp field visibility and exact types. No new hooks or features."
+  ]
+}

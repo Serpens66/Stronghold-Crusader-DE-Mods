@@ -4,7 +4,7 @@ using System;
 
 namespace ImprovedHunters
 {
-    [BepInDependency(ScriptExtenderGuid, "2.7.1")]
+    [BepInDependency(ScriptExtenderGuid, "2.14.0")]
     [BepInDependency("APIShared_Serp", "0.4.0")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class ImprovedHuntersPlugin : BaseUnityPlugin
@@ -13,7 +13,7 @@ namespace ImprovedHunters
 
         public const string PluginGuid = "ImprovedHunters_Serp";
         public const string PluginName = "Improved Hunters";
-        public const string PluginVersion = "1.1.85";
+        public const string PluginVersion = "1.1.86";
 
         private static ImprovedHuntersRuntime persistentRuntime;
         private static ImprovedHuntersViewModel persistentSettings;

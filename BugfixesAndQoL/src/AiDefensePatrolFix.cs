@@ -146,7 +146,7 @@ namespace BugfixesAndQoL
                             $"Fresh defensive recruit is invalid: unitId={unitId}.");
                     }
 
-                    byte ownerId = recruitedUnit->r_ControllableForPlayerId;
+                    ushort ownerId = recruitedUnit->r_ControllableForPlayerId;
                     if (ownerId == 0)
                     {
                         throw new InvalidOperationException(
@@ -174,7 +174,7 @@ namespace BugfixesAndQoL
             }
         }
 
-        private static void CountDefenseRoles(byte ownerId, out int role1Count, out int role4Count)
+        private static void CountDefenseRoles(ushort ownerId, out int role1Count, out int role4Count)
         {
             role1Count = 0;
             role4Count = 0;

@@ -66,7 +66,7 @@ namespace BugfixesAndQoL
         public int r_UnitSelected, r_UnitHover;
         public bool Digger;
         public int r_UnitChimp;
-        public uint N0000019A; // UnitAccess combat life contract; append to preserve fixture offsets.
+        public ushort r_IsKilledByProjectile; // UnitAccess combat life contract; append to preserve fixture offsets.
     }
     internal struct GameCursorManager { public uint r_HoverOverBuildingId,r_HoverOverUnitId,r_HoverOverBuildingTileId,r_MouseTileId2,r_HoveringOverWall,r_MouseTileId,r_MouseTileX,r_MouseTileY; }
     internal unsafe struct CursorPointer { public GameCursorManager* Pointer; }

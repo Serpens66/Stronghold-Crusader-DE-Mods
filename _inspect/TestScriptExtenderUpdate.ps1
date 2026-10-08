@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param()
+param([string[]]$ExcludedBuildDrivers = @())
 
 $ErrorActionPreference = 'Stop'
 $workspace = Split-Path -Parent $PSScriptRoot
@@ -91,6 +91,10 @@ $unsafeTestExitChecks = @()
 $buildDriverPaths = @(& git -C $workspace ls-files '*build.bat')
 if ($LASTEXITCODE -ne 0) { throw 'Could not enumerate tracked build drivers.' }
 foreach ($relativeDriverPath in $buildDriverPaths) {
+    if ($ExcludedBuildDrivers -contains $relativeDriverPath) {
+        Write-Host "Explicitly excluded build driver (not validated): $relativeDriverPath"
+        continue
+    }
     $driverPath = Join-Path $workspace $relativeDriverPath
     $lines = [IO.File]::ReadAllLines($driverPath)
     for ($lineIndex = 0; $lineIndex -lt ($lines.Length - 1); $lineIndex++) {

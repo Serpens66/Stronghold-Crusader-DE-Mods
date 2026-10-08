@@ -24,7 +24,7 @@ using APIShared;
 namespace Shared { static class DebugLogHelper { internal static void LogDebug(object log,string text) {} } }
 namespace APIShared.UnitCommands {
 enum eChimps { CHIMP_TYPE_ARAB_ASSASIN=73 }
-unsafe struct GameUnit { public uint r_GlobalId; public eChimps r_UnitChimp; public byte r_ControllableForPlayerId, N00000569; public int r_CurrentSpeed; public bool Alive; public int r_CurrentTilePositionX,r_CurrentTilePositionY,r_NextTilePositionX2,r_NextTilePositionY2,r_PathPlanStateBitFlags,r_MovementSubstep; }
+unsafe struct GameUnit { public uint r_GlobalId; public eChimps r_UnitChimp; public ushort r_ControllableForPlayerId; public int r_CurrentSpeed; public bool Alive; public int r_CurrentTilePositionX,r_CurrentTilePositionY,r_NextTilePositionX2,r_NextTilePositionY2,r_PathPlanStateBitFlags,r_MovementSubstep; }
 unsafe static class UnitAccess {
  internal static GameUnit* Unit;
  internal static bool TryGetById(int id,out GameUnit* unit,out int index) { unit=Unit;index=id-1;return id==1; }
@@ -81,12 +81,12 @@ unsafe partial class UnitCommandPathRuntime {
  Assert(!AssassinRouteHandoff.TryResolve(r.nativePathManager,1,2,1,1,out _,out _),"changed speed invalidates profile");return 1;};
  r.BuildPathWithCompletedMoatRouteVariant(r.nativePathManager,2,0);
  r.builder=()=> {Assert(AssassinRouteHandoff.TryResolve(r.nativePathManager,1,2,1,1,out _,out int speed)&&speed==9,"current speed captured on subsequent search");
- UnitAccess.Unit->N00000569=1;Assert(!AssassinRouteHandoff.TryResolve(r.nativePathManager,1,2,1,1,out _,out _),"changed full control word invalidates profile");return 1;};
+ UnitAccess.Unit->r_ControllableForPlayerId=0x0102;Assert(!AssassinRouteHandoff.TryResolve(r.nativePathManager,1,2,1,1,out _,out _),"changed full control word invalidates profile");return 1;};
  r.BuildPathWithCompletedMoatRouteVariant(r.nativePathManager,2,0);
  r.builder=()=> {Assert(AssassinRouteHandoff.TryResolve(r.nativePathManager,1,2,1,1,out int player,out _)&&player==258,"full control word preserved");
  UnitAccess.Unit->r_CurrentTilePositionX=2;Assert(!AssassinRouteHandoff.TryResolve(r.nativePathManager,1,2,1,1,out _,out _),"movement invalidates captured start");return 1;};
  r.BuildPathWithCompletedMoatRouteVariant(r.nativePathManager,2,0);
- UnitAccess.Unit->r_CurrentTilePositionX=1;UnitAccess.Unit->N00000569=0;
+ UnitAccess.Unit->r_CurrentTilePositionX=1;UnitAccess.Unit->r_ControllableForPlayerId=2;
  UnitAccess.Unit->r_MovementSubstep=4;UnitAccess.Unit->r_NextTilePositionX2=1;UnitAccess.Unit->r_NextTilePositionY2=2;
  UnitAccess.Unit->r_CurrentTilePositionX=7;
  r.builder=()=> {Assert(AssassinRouteHandoff.TryResolve(r.nativePathManager,1,2,1,1,out _,out _),"moving unit binds native next tile instead of current tile");return 1;};

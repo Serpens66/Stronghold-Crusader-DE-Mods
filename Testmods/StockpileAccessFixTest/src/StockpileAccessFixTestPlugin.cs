@@ -7,7 +7,7 @@ using System.Reflection;
 
 namespace StockpileAccessFixTest
 {
-    [BepInDependency(ScriptExtenderGuid, "2.4.0")]
+    [BepInDependency(ScriptExtenderGuid, "2.14.0")]
     [BepInDependency("APIShared_Serp", "0.3.6")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class StockpileAccessFixTestPlugin : BaseUnityPlugin
@@ -15,7 +15,7 @@ namespace StockpileAccessFixTest
         private const string ScriptExtenderGuid = "000shcdese";
         private const string PluginGuid = "StockpileAccessFixTest_Serp";
         private const string PluginName = "Stockpile Access Fix Test";
-        private const string PluginVersion = "0.1.3";
+        private const string PluginVersion = "0.1.4";
 
         private static ManualLogSource persistentLog;
         private static StockpileAccessFixTestRuntime runtime;

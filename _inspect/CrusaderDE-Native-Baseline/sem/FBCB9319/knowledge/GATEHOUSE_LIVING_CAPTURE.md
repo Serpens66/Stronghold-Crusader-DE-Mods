@@ -43,3 +43,24 @@ This establishes execution and exclusion of a death-marked IsAlive unit alongsid
 The tested capture filter is integrated into BugfixesAndQoL with default-enabled host setting EnableGatehouseLivingCaptureFix, gated by EnableMod. Static runtime/delegate/transaction roots survive startup cleanup. LibraryLoaded installs once; settings update an atomic data flag, preserving Vanilla when inactive. No timer, scan, hook repatch or normal teardown is introduced. Emitter/native definition/decision and installation/callback error boundaries were compared directly with the testmod before removal; only namespace, activation and diagnostics change. The integrated production sources pass the same 648 actual RedBird machine cases and additional activation/reactivation checks. Host/preset tests cover missing keys, stored false, client lock and host synchronization; reset and UI placement are statically checked. One execution confirmation remains at Info; installation details are Debug-only; per-unit logs are removed. In-game acceptance of this integration and real multiplayer are still pending, independently of the successful original testmod gameplay evidence above.
 
 Integration installation completed: BugfixesAndQoL 1.0.176 (assembly 1.0.176.0), all driver regressions passed, 48 installed package files match local hashes. Standalone testmod removed; backend tests and comparison remain in BugfixesAndQoL/tests/GatehouseLivingCapture.Tests. Installed/local APIShared match A1B08496BEE16EDCACB66B657BD342168F6B74B7F0508BF7F0ABC02F964A2DB1 following the other chat's dependency build. Main-mod gameplay and real multiplayer acceptance remain pending.
+
+## Script Extender 2.14.0 field contract review, 2026-10-08
+
+Native SHA-256 remains FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
+Installed SHCDESE.dll SHA-256: 9ED67A9B1242FA7B35EFCCD9730BDA967197332F728E47ADB2760FDAE04A28B7;
+source commit 5049b5d051d0face848cc2eb098db1fedf5451a7.
+
+The former GameUnit.N0000019A UInt32 is now split into r_IsKilledByProjectile
+(public UInt16, +0x29C) and a separate WORD at +0x29E. The name is misleading:
+the complete death/life audit above and damage routine 0x199110, called from
+melee path 0x195170, establish that melee death also writes this marker to 1.
+Use the term death marker; no inference of a projectile cause is valid.
+APIShared.UnitAccess.IsReallyAlive retains AliveState.IsAlive AND marker == 0.
+The adjacent WORD, health and animation do not add conditions to this predicate.
+
+GameUnit.r_ControllableForPlayerId is now public UInt16 at +0x92; the old
+N00000569 byte is removed. Consume the complete field directly. Where the
+native caller uses MOVSX WORD, convert through unchecked((short)control).
+Identity comparisons preserve all 16 bits. Unit size remains 0x490, and
+r_SpawnedForPlayerIndex is now public UInt16 at +0x7C. Historical assembly
+descriptions above retain their original provenance; these are the current contracts.

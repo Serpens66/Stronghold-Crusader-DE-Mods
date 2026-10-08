@@ -418,7 +418,7 @@ internal static class Program
         Check(plugin.Contains("[BepInDependency(ScriptExtenderGuid, ScriptExtenderVersion)]") &&
               plugin.Contains("[BepInDependency(ApiSharedGuid, ApiSharedVersion)]") &&
               plugin.Contains("ApiSharedVersion = \"0.3.6\"") &&
-              plugin.Contains("PluginVersion = \"0.1.1\""), "Plugin dependency/version contract differs.");
+              plugin.Contains("PluginVersion = \"0.1.2\""), "Plugin dependency/version contract differs.");
         Check(plugin.Contains("private static ManualLogSource persistentLog") &&
               plugin.Contains("private static SwordsmanSkinRuntime runtime") &&
               plugin.Contains("private static bool librarySubscriptionInstalled"),
@@ -438,9 +438,9 @@ internal static class Program
               plugin.IndexOf("candidate?.Dispose();", StringComparison.Ordinal) <
               plugin.IndexOf("runtime.RegisterTroopHudWithApiShared();", StringComparison.Ordinal),
             "Process-lifetime APIShared registrations must occur only after runtime publication and rollback handling.");
-        Check(assemblyInfo.Contains("AssemblyVersion(\"0.1.1\")") &&
-              assemblyInfo.Contains("AssemblyFileVersion(\"0.1.1\")") &&
-              assemblyInfo.Contains("AssemblyInformationalVersion(\"0.1.1\")"),
+        Check(assemblyInfo.Contains("AssemblyVersion(\"0.1.2\")") &&
+              assemblyInfo.Contains("AssemblyFileVersion(\"0.1.2\")") &&
+              assemblyInfo.Contains("AssemblyInformationalVersion(\"0.1.2\")"),
             "Assembly version metadata must match the active mod version.");
         Check(runtime.Contains("GetModFileBinaryContent") && runtime.Contains("GetModFileTextContent"),
             "Assets must be loaded through the archive-compatible asset index.");

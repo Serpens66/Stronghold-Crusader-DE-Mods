@@ -72,7 +72,7 @@ namespace APIShared.UnitCommands
                 return new AssassinRouteHandoff(pathManager, sx, sy, tx, ty, 0, null, null);
             uint global = unit->r_GlobalId;
             int player = unit->r_ControllableForPlayerId;
-            int controlPlayer = player | ((int)unit->N00000569 << 8);
+            int controlPlayer = unit->r_ControllableForPlayerId;
             int speedDelay = unit->r_CurrentSpeed;
             IntPtr expectedPath = (IntPtr)path;
             Func<bool> valid = () =>
@@ -81,7 +81,7 @@ namespace APIShared.UnitCommands
                     !UnitAccess.TryGetById(unitId, out GameUnit* live, out _) ||
                     !UnitAccess.IsReallyAlive(live) || live->r_GlobalId != global ||
                     live->r_UnitChimp != eChimps.CHIMP_TYPE_ARAB_ASSASIN ||
-                    (live->r_ControllableForPlayerId | ((int)live->N00000569 << 8)) != controlPlayer ||
+                    (live->r_ControllableForPlayerId) != controlPlayer ||
                     live->r_CurrentSpeed != speedDelay) return false;
                 GetNativeMovementStart(live, out int x, out int y);
                 byte* m = (byte*)pathManager.ToPointer();

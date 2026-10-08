@@ -6,7 +6,7 @@ using System.Threading;
 
 namespace BuildingLimit
 {
-    [BepInDependency(ScriptExtenderGuid, "2.3.0")]
+    [BepInDependency(ScriptExtenderGuid, "2.14.0")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("APIShared_Serp", "0.4.0")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
@@ -17,7 +17,7 @@ namespace BuildingLimit
 
         public const string PluginGuid = "BuildingLimit_Serp";
         public const string PluginName = "Building Limit";
-        public const string PluginVersion = "1.0.27";
+        public const string PluginVersion = "1.0.28";
 
         private static BuildingLimitRuntime runtime;
         private int libraryInitializationStarted;

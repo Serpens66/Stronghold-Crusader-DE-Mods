@@ -39,6 +39,17 @@ namespace SkinTest
             float heightAboveGround, int image, int xOffset);
 
         private readonly ManualLogSource log;
+        // These dictionaries are private in the real game assembly, despite publicized references.
+        private static readonly FieldInfo buildingAnimsField = ResolveGameMapField<BuildingAnim>("buildingAnims");
+        private static readonly FieldInfo wallFillinsField = ResolveGameMapField<WallFillin>("wallFillins");
+
+        private static FieldInfo ResolveGameMapField<T>(string name)
+        {
+            FieldInfo field = typeof(GameMap).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic);
+            if (field == null || field.FieldType != typeof(Dictionary<int, T>))
+                throw new MissingFieldException(nameof(GameMap), name + " : Dictionary<Int32, " + typeof(T).Name + ">");
+            return field;
+        }
         private readonly Dictionary<SpriteRenderer, int> unitByRenderer =
             new Dictionary<SpriteRenderer, int>(ReferenceComparer<SpriteRenderer>.Instance);
         private readonly Dictionary<int, CachedCulture> cultureByPlayer = new Dictionary<int, CachedCulture>();
@@ -439,7 +450,9 @@ namespace SkinTest
                     colour, transparency, layerDelay, hasSubSpecial, halfPixelX, halfPixelY);
                 try
                 {
-                    if (context != null && gameMap != null && gameMap.buildingAnims.TryGetValue(objectId, out BuildingAnim visual))
+                    if (context != null && gameMap != null &&
+                        buildingAnimsField.GetValue(gameMap) is Dictionary<int, BuildingAnim> animations &&
+                        animations.TryGetValue(objectId, out BuildingAnim visual))
                         TryReplaceRoundTowerAnimation(visual.sprRenderer, image, context);
                 }
                 catch (Exception ex)
@@ -465,7 +478,9 @@ namespace SkinTest
                 wallFillinTrampoline(gameMap, objectId, x, y, heightAboveGround, image, xOffset);
                 try
                 {
-                    if (context != null && gameMap != null && gameMap.wallFillins.TryGetValue(objectId, out WallFillin visual))
+                    if (context != null && gameMap != null &&
+                        wallFillinsField.GetValue(gameMap) is Dictionary<int, WallFillin> fillins &&
+                        fillins.TryGetValue(objectId, out WallFillin visual))
                         TryReplaceRoundTowerAnimation(visual.sprRenderer, image, context);
                 }
                 catch (Exception ex)

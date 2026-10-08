@@ -49,7 +49,7 @@ namespace EnemyGatePathfindingTest
         internal string Failure { get; }
         internal bool RoleDifference => MovementPlayer > 0 && RawSearchPlayer != MovementPlayer;
 
-        internal static int NativeControlWord(byte low, byte high) => unchecked((short)(low | (high << 8)));
+        internal static int NativeControlWord(ushort control) => unchecked((short)control);
         private static bool ValidPlayer(int value) => value > 0 && value <= 8;
     }
 }

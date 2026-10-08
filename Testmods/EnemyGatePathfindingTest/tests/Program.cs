@@ -1852,10 +1852,10 @@ namespace EnemyGatePathfindingTest
             Assert(Context(leader: 0).Failure == "leader-identity-unverified" &&
                 Context(leaderGlobal: 0).Failure == "leader-identity-unverified", "missing leader identity stays open");
             Assert(Context(control: 6).Failure == "leader-control-mismatch", "control conflict cannot substitute tribe owner");
-            Assert(BuildingSearchPlayerContext.NativeControlWord(5, 1) == 261 &&
-                Context(control: BuildingSearchPlayerContext.NativeControlWord(5, 1)).MovementPlayer == -1,
+            Assert(BuildingSearchPlayerContext.NativeControlWord(0x0105) == 261 &&
+                Context(control: BuildingSearchPlayerContext.NativeControlWord(0x0105)).MovementPlayer == -1,
                 "native control read includes adjacent high byte");
-            Assert(BuildingSearchPlayerContext.NativeControlWord(5, 128) == -32763 &&
+            Assert(BuildingSearchPlayerContext.NativeControlWord(0x8005) == -32763 &&
                 Context(control: -32763).Failure == "invalid-leader-control-word", "native word sign extension");
             foreach (int raw in new[] { -1, 9, 261, int.MaxValue })
                 Assert(Context(raw: raw, plan: raw).MovementPlayer == -1, "invalid planner values never authorize a role");

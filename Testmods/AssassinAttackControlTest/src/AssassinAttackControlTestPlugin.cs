@@ -7,8 +7,8 @@ using SHCDESE.API.LowLevel;
 using APIShared;
 namespace AssassinAttackControlTest
 {
-    [BepInPlugin(PluginGuid,"Assassin Attack Control Test","0.1.0")]
-    [BepInDependency("000shcdese","2.13.0")]
+    [BepInPlugin(PluginGuid,"Assassin Attack Control Test","0.1.1")]
+    [BepInDependency("000shcdese","2.14.0")]
     [BepInDependency("APIShared_Serp","0.4.11")]
     [BepInDependency("BugfixesAndQoL_Serp","1.0.177")]
     [BepInDependency("fixes",BepInDependency.DependencyFlags.SoftDependency)]

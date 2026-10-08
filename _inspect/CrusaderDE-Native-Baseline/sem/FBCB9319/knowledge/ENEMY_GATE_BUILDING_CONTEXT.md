@@ -295,3 +295,24 @@ Complete no-deck path definitions now use stored-route-background-batch rows: de
 Per-bridge decision-comparison and final comparison-coverage markers identify access observation, target, consumed phase, physical definition and settled topology; route-comparison identifies stored-route state. Expired decisions and old-physical routes cannot satisfy the current-physical coverage marker. Missing controlled reload comparison is explicit. 64-record/2ms drain and session-delivered remain unchanged.
 
 Frozen transport replay:4243980->3396576 bytes including prefixes (847404 saved), preserving all definitions and105 linked observations. This is a serialization regression, not proof of runtime volume or performance. Updated load fixture reproduces1695766 calls/34661 command pairs/93 rebuilds; separate unchanged/background-volume fixture includes prefixes. New graph design in Testmods/EnemyBridgePathTest/DECISION_FIX_DESIGN.md specifies virtual split-components with remapped macro endpoints and Gate authorization. It is not installed; native parent0, physical-closed boundary equivalence, special unit/mode semantics and same-save raised->lowered->raised remain prerequisites.
+
+## Script Extender 2.14.0 field contract review, 2026-10-08
+
+Native SHA-256 remains FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
+Installed SHCDESE.dll SHA-256: 9ED67A9B1242FA7B35EFCCD9730BDA967197332F728E47ADB2760FDAE04A28B7;
+source commit 5049b5d051d0face848cc2eb098db1fedf5451a7.
+
+The former GameUnit.N0000019A UInt32 is now split into r_IsKilledByProjectile
+(public UInt16, +0x29C) and a separate WORD at +0x29E. The name is misleading:
+the complete death/life audit above and damage routine 0x199110, called from
+melee path 0x195170, establish that melee death also writes this marker to 1.
+Use the term death marker; no inference of a projectile cause is valid.
+APIShared.UnitAccess.IsReallyAlive retains AliveState.IsAlive AND marker == 0.
+The adjacent WORD, health and animation do not add conditions to this predicate.
+
+GameUnit.r_ControllableForPlayerId is now public UInt16 at +0x92; the old
+N00000569 byte is removed. Consume the complete field directly. Where the
+native caller uses MOVSX WORD, convert through unchecked((short)control).
+Identity comparisons preserve all 16 bits. Unit size remains 0x490, and
+r_SpawnedForPlayerIndex is now public UInt16 at +0x7C. Historical assembly
+descriptions above retain their original provenance; these are the current contracts.

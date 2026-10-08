@@ -9,21 +9,21 @@ using SHCDESE.EventAPI;
 using System;
 using System.Reflection;
 
-[assembly: AssemblyVersion("0.1.3.0")]
-[assembly: AssemblyFileVersion("0.1.3.0")]
-[assembly: AssemblyInformationalVersion("0.1.3")]
+[assembly: AssemblyVersion("0.1.4.0")]
+[assembly: AssemblyFileVersion("0.1.4.0")]
+[assembly: AssemblyInformationalVersion("0.1.4")]
 
 namespace MoatMove
 {
     [BepInDependency("APIShared_Serp", "0.4.10")]
     [BepInPlugin(PluginGuid, "MoatMove", PluginVersion)]
-    [BepInDependency("000shcdese", "2.10.0")]
+    [BepInDependency("000shcdese", "2.14.0")]
     [BepInDependency("BugfixesAndQoL_Serp", "1.0.175")]
     [BepInDependency("EnemyGatePathfindingTest_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     public sealed class MoatMovePlugin : BaseUnityPlugin
     {
         public const string PluginGuid = "MoatMove_Serp";
-        public const string PluginVersion = "0.1.3";
+        public const string PluginVersion = "0.1.4";
         private static ManualLogSource persistentLog;
         private static FriendlyMoatTraversalProvider runtime;
         private static MoatMoveOptions options;

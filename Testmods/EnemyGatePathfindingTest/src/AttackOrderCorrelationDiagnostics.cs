@@ -535,7 +535,7 @@ namespace EnemyGatePathfindingTest
             if (unitId <= 0 || !APIShared.UnitAccess.TryGetById(
                 unitId, out GameUnit* unit, out _) || unit == null) return 0;
             identity = "unitGlobal=" + unit->r_GlobalId + ",unitType=" + unit->r_UnitChimp +
-                ",controlWord=" + (unit->r_ControllableForPlayerId | ((int)unit->N00000569 << 8));
+                ",controlWord=" + (unit->r_ControllableForPlayerId);
             tribeId = unit->r_TribeId;
             command = (int)unit->r_AI_LastIssuedTribeCommand;
             return tribeId > 0 ? ResolveTribePlayer(tribeId) : 0;

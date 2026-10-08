@@ -141,14 +141,13 @@ namespace BugfixesAndQoL
             CheckOffset(typeof(GameBuildingManager), nameof(GameBuildingManager.BuildingsArray), 0x5C);
             CheckOffset(typeof(GameUnit), nameof(GameUnit.r_AliveState), 0x88);
             CheckOffset(typeof(GameUnit), nameof(GameUnit.r_UnitChimp), 0x8A);
-            CheckOffset(typeof(GameUnit), nameof(GameUnit.N0000019A), 0x29C);
+            CheckOffset(typeof(GameUnit), nameof(GameUnit.r_IsKilledByProjectile), 0x29C);
             CheckOffset(typeof(GameUnit), nameof(GameUnit.r_WorkModeFlags), 0x2FA);
             CheckOffset(typeof(GameUnit), nameof(GameUnit.r_LinkedProductionBuildingId), 0x334);
             CheckOffset(typeof(GameUnit), nameof(GameUnit.r_LinkedProductionBuildingGlobalId), 0x364);
             CheckOffset(typeof(GameBuilding), nameof(GameBuilding.r_AliveState), 0xD0);
             CheckOffset(typeof(GameBuilding), nameof(GameBuilding.r_CowHidesAmount), 0x134);
             CheckOffset(typeof(GameUnit), nameof(GameUnit.r_ControllableForPlayerId), 0x92);
-            CheckOffset(typeof(GameUnit), nameof(GameUnit.N00000569), 0x93);
             CheckOffset(typeof(GameUnit), nameof(GameUnit.r_CurrentTilePositionX), 0xC0);
             CheckOffset(typeof(GameUnit), nameof(GameUnit.r_CurrentTilePositionY), 0xC2);
             CheckOffset(typeof(GameUnit), nameof(GameUnit.r_AIState), 0x2BC);

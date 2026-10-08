@@ -11,7 +11,7 @@ namespace CommandFixture
         internal int r_ControllableForPlayerId, r_CurrentTilePositionX, r_CurrentTilePositionY;
         internal uint r_GlobalId, r_CurrentPositionTileId;
         internal bool Digger;
-        internal uint N0000019A;
+        internal ushort r_IsKilledByProjectile;
     }
     internal struct GameTribe { internal int r_PlayerIdOwner, r_LeaderUnitId; }
     internal unsafe sealed class GameTribeManagerAPI
@@ -207,9 +207,9 @@ namespace CommandFixture
                 Check(!ProbeNativeManualPath(1,800,20) && !ProbeNativeManualPath(0,20,20),"invalid probes never call native");
                 units[1].r_AliveState=AliveState.Dead;
                 Check(!ProbeNativeManualPath(1,20,20),"dead unit rejected"); units[1].r_AliveState=AliveState.IsAlive;
-                units[1].N0000019A=1;
+                units[1].r_IsKilledByProjectile=1;
                 Check(!ProbeNativeManualPath(1,20,20),"dying unit rejected before native probe");
-                units[1].N0000019A=0;
+                units[1].r_IsKilledByProjectile=0;
                 originalCentralMovementPlan=(m,id,x,y)=>id==2?7:-1;
                 var command=new TribeIssueOrderMoveHereEventArgs();
                 activeMoveCommand=new MoveCommandScope(); unitMoveFrame=null; activePlan=pendingPlan=null;
@@ -322,7 +322,7 @@ namespace APIShared
     {
         internal static CommandFixture.GameUnit* Units;
         internal static bool IsReallyAlive(CommandFixture.GameUnit* unit) =>
-            unit != null && unit->r_AliveState == CommandFixture.AliveState.IsAlive && (unit->N0000019A & 0xFFFFu) == 0;
+            unit != null && unit->r_AliveState == CommandFixture.AliveState.IsAlive && unit->r_IsKilledByProjectile == 0;
         internal static bool TryGetById(int id,out CommandFixture.GameUnit* unit,out int failure)
         { failure=0;unit=id>0 && id<3 ? Units+id:null;return unit!=null; }
     }

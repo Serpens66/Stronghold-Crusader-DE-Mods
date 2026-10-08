@@ -150,6 +150,28 @@ function Assert-SERuntimeModPreflight([object]$Mod, [string]$Workspace) {
 
     foreach ($sourcePath in $sources) {
         $text = [IO.File]::ReadAllText($sourcePath)
+        # BepInEx plugin components are destroyed during SHCDE startup cleanup.
+        # An ordinary service Update method is not a Unity callback; only plugin
+        # source files declaring BaseUnityPlugin are subject to this callback gate.
+        if ($text -match '\bclass\s+\w+\s*:\s*(?:BepInEx\.)?BaseUnityPlugin\b' -and
+            ($text -match '(?m)^\s*(?:(?:public|private|protected|internal|override|virtual|sealed|new|async)\s+)*(?:void|IEnumerator)\s+(?:Update|LateUpdate|FixedUpdate|OnGUI|OnRenderObject|OnPostRender)\s*\(' -or
+             $text -match '\b(?:StartCoroutine|InvokeRepeating)\s*\(')) {
+            throw "$($Mod.Name): plugin source depends on a short-lived MonoBehaviour callback: $sourcePath"
+        }
+        if ($text -match '\b(?:StartCoroutine|InvokeRepeating)\s*\(') {
+            # Existing bounded loading-warning replacement runs on Vanilla's Director,
+            # supplied by its hooked DelayShowDisconnect call, not the plugin component.
+            # Its generation gate invalidates stale work after loading/session changes.
+            $auditedDirectorDelay = $Mod.Name -eq 'CastlePlanner' -and
+                $sourcePath.EndsWith('\src\FreeCastlePreviewRuntime.cs', [StringComparison]::OrdinalIgnoreCase) -and
+                $text -match 'private void DelayShowDisconnectHook\(Director self\)' -and
+                $text -match 'self\.StartCoroutine\(ShowLoadingWarningAfterDelay\(generation\)\)' -and
+                [regex]::Matches($text, '\b(?:StartCoroutine|InvokeRepeating)\s*\(').Count -eq 1 -and
+                $text -match 'loadingWarningGate\.IsCurrent\(generation, viewModel\.Show_MP_LoadingBlack\)'
+            if (-not $auditedDirectorDelay) {
+                throw "$($Mod.Name): long-lived MonoBehaviour scheduling requires an audited persistent publisher: $sourcePath"
+            }
+        }
         foreach ($match in [regex]::Matches($text, '\b(OnDestroy|OnDisable|OnApplicationQuit)\s*\([^)]*\)\s*\{')) {
             $open = $text.IndexOf('{', $match.Index)
             $depth = 0

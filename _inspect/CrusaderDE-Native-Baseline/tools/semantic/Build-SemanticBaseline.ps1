@@ -76,7 +76,7 @@ function Get-InputHashes([string[]]$Paths) {
         }
         if ([IO.Path]::GetFileName($path) -eq 'combined-labels.tsv') {
             $semanticRows = foreach ($line in @(Get-Content -LiteralPath $path | Select-Object -Skip 1)) {
-                $fields = $line -split "`t", -1
+                $fields = $line.Split([char]9)
                 if ($fields.Count -ge 2) { $fields[0] + "`t" + $fields[1] }
             }
             $semanticText = [string]::Join("`n", @($semanticRows)) + "`n"

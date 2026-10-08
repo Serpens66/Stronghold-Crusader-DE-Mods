@@ -3,9 +3,17 @@
   "Author": "Serp",
   "Name": "SkinTest",
   "Description": "Uses the SH1DE swordsman skin for units owned by European lords.",
-  "Version": "0.1.1",
+  "Version": "0.1.2",
   "Website": "",
   "Manifest": 0,
   "NetworkMode": 0,
-  "MinimumScriptExtenderVersion": "2.3.0"
+  "MinimumScriptExtenderVersion": "2.14.0",
+  "SerpChangelog": [
+    {
+      "Version": "0.1.2",
+      "Changes": [
+        "Updated Script Extender 2.14.0 unit field contracts; preserved death-marker and full control-word semantics."
+      ]
+    }
+  ]
 }

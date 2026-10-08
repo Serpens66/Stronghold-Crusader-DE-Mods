@@ -11,6 +11,22 @@ var root = Path.GetFullPath(args[0]);
 var game = @"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition";
 var framework = @"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1";
 var projects = new[] {"APIShared/APIShared.csproj", "BugfixesAndQoL/BugfixesAndQoL.csproj", "Testmods/MoatMove/MoatMove.csproj"};
+if (args.Contains("--update-plan"))
+{
+    // Compile the reviewed update inventory without emitting or installing mods.
+    string planPath = args[Array.IndexOf(args, "--update-plan") + 1];
+    using var plan = System.Text.Json.JsonDocument.Parse(File.ReadAllText(Path.Combine(root, planPath)));
+    using var inventory = System.Text.Json.JsonDocument.Parse(File.ReadAllText(Path.Combine(root, "Shared/ScriptExtenderUpdate/mods.json")));
+    var selected = plan.RootElement.GetProperty("ImpactReview").GetProperty("BuildMods").EnumerateArray()
+        .Select(x => x.GetString()).ToHashSet();
+    var reviewed = inventory.RootElement.EnumerateArray().Where(m => selected.Contains(m.GetProperty("Name").GetString()))
+        .OrderBy(m => m.GetProperty("BuildOrder").GetInt32()).ThenBy(m => m.GetProperty("Name").GetString())
+        .Select(m => m.GetProperty("Project").GetString()).ToList();
+    foreach (var name in plan.RootElement.GetProperty("TestMods").EnumerateArray())
+        reviewed.Add(Path.GetRelativePath(root, Directory.GetFiles(Path.Combine(root, "Testmods", name.GetString()), "*.csproj")
+            .Single(p => !Path.GetFileName(p).Contains(".PolicyTests."))));
+    projects = reviewed.ToArray();
+}
 if (args.Contains("--really-alive"))
     projects = new[] {
         "APIShared/APIShared.csproj", "BugfixesAndQoL/BugfixesAndQoL.csproj",
@@ -26,13 +42,35 @@ if (args.Contains("--really-alive"))
         "Testmods/VirtualUnitsPrototype/VirtualUnitsPrototype.csproj"
     };
 var compilations = new Dictionary<string, CSharpCompilation>();
+var orderedProjects = new List<string>();
+void AddProject(string relative)
+{
+    if (orderedProjects.Contains(relative)) return;
+    var path = Path.Combine(root, relative);
+    foreach (var entry in XDocument.Load(path).Descendants().Where(e => e.Name.LocalName == "ProjectReference"))
+        AddProject(Path.GetRelativePath(root, Path.GetFullPath(Path.Combine(Path.GetDirectoryName(path), (string)entry.Attribute("Include")))));
+    orderedProjects.Add(relative);
+}
+foreach (var relative in projects) AddProject(relative);
 int errors = 0;
-foreach (var relative in projects)
+foreach (var relative in orderedProjects)
 {
     var project = Path.Combine(root, relative);
     var folder = Path.GetDirectoryName(project);
     var xml = XDocument.Load(project);
     var name = xml.Descendants().First(e => e.Name.LocalName == "AssemblyName").Value;
+    var properties = new Dictionary<string, string> {
+        ["GameDir"] = game, ["ExtenderDir"] = game + @"\BepInEx\plugins\000shcdese",
+        ["ApiSharedDir"] = game + @"\BepInEx\plugins\APIShared_Serp", ["MSBuildThisFileDirectory"] = folder + "\\"
+    };
+    foreach (var property in xml.Descendants().Where(e => e.Parent?.Name.LocalName == "PropertyGroup"))
+        if (!properties.ContainsKey(property.Name.LocalName)) properties[property.Name.LocalName] = property.Value;
+    string Expand(string value)
+    {
+        for (int pass = 0; pass < 16 && value.Contains("$("); pass++)
+            foreach (var property in properties) value = value.Replace("$(" + property.Key + ")", property.Value);
+        return value;
+    }
     var defines = xml.Descendants().Where(e => e.Name.LocalName == "DefineConstants").SelectMany(e => e.Value.Split(';')).Where(s => !s.Contains('$') && s.Length > 0);
     var parse = new CSharpParseOptions(LanguageVersion.Preview, preprocessorSymbols: defines);
     var sources = xml.Descendants().Where(e => e.Name.LocalName == "Compile").SelectMany(e => {
@@ -43,16 +81,22 @@ foreach (var relative in projects)
     var refs = new List<MetadataReference>();
     foreach (var path in Directory.GetFiles(framework, "*.dll").Where(p => !p.Contains(".Thunk.") && !p.Contains(".Wrapper."))) refs.Add(MetadataReference.CreateFromFile(path));
     foreach (var path in Directory.GetFiles(Path.Combine(framework, "Facades"), "*.dll")) refs.Add(MetadataReference.CreateFromFile(path));
+    foreach (var entry in xml.Descendants().Where(e => e.Name.LocalName == "ProjectReference"))
+    {
+        var dependencyPath = Path.GetFullPath(Path.Combine(folder, (string)entry.Attribute("Include")));
+        var dependencyName = XDocument.Load(dependencyPath).Descendants().First(e => e.Name.LocalName == "AssemblyName").Value;
+        refs.Add(compilations[dependencyName].ToMetadataReference());
+    }
     foreach (var entry in xml.Descendants().Where(e => e.Name.LocalName == "Reference"))
     {
         var include = ((string)entry.Attribute("Include")).Split(',')[0];
         if (compilations.TryGetValue(include, out var dependency)) { refs.Add(dependency.ToMetadataReference()); continue; }
         var hint = entry.Elements().FirstOrDefault(e => e.Name.LocalName == "HintPath")?.Value;
         if (hint == null) continue;
-        hint = hint.Replace("$(GameDir)", game).Replace("$(ExtenderDir)", game + @"\BepInEx\plugins\000shcdese")
-            .Replace("$(ApiSharedDir)", game + @"\BepInEx\plugins\APIShared_Serp").Replace("$(MSBuildThisFileDirectory)", folder + "\\");
+        hint = Expand(hint);
         var resolved = Path.GetFullPath(Path.Combine(folder, hint));
         if (!File.Exists(resolved)) { Console.WriteLine("Missing reference: " + resolved); errors++; continue; }
+        if (include == "SHCDESE" || include == "Assembly-CSharp") Console.WriteLine(name + " build reference " + include + ": " + resolved);
         if (args.Contains("--real") && include == "Assembly-CSharp") resolved = Path.Combine(game, "Stronghold Crusader Definitive Edition_Data/Managed/Assembly-CSharp.dll");
         refs.Add(MetadataReference.CreateFromFile(resolved));
     }
@@ -62,28 +106,6 @@ foreach (var relative in projects)
     var diagnostics = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
     Console.WriteLine(name + ": " + sources.Length + " sources, " + diagnostics.Length + " errors");
     foreach (var diagnostic in diagnostics) Console.WriteLine(diagnostic);
-    if (args.Contains("--real") && name == "APIShared")
-    {
-        var baseline = diagnostics.Where(d => (d.Id == "CS0122" || d.Id == "CS1061") && d.Location.IsInSource &&
-            Path.GetFileName(d.Location.SourceTree.FilePath) == "MissionLifecycleCapability.cs" &&
-            d.ToString().Contains("gameLocalPlayerID")).ToArray();
-        if (baseline.Length == 1)
-        {
-            var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("git") {
-                WorkingDirectory = root, RedirectStandardOutput = true,
-                ArgumentList = {"show", "HEAD:APIShared/src/MissionLifecycleCapability.cs"} });
-            var old = process.StandardOutput.ReadToEnd(); process.WaitForExit();
-            // This baseline exception permits only the reviewed Info-to-Debug changes;
-            // the member access and every other source character must still match HEAD.
-            string current = File.ReadAllText(Path.Combine(root, "APIShared/src/MissionLifecycleCapability.cs"))
-                .Replace("NativeApiLog.Debug(", "NativeApiLog.Info(").Replace("\r\n", "\n");
-            if (process.ExitCode != 0 || !old.Contains("EditorDirector.instance.gameLocalPlayerID") ||
-                current != old.Replace("NativeApiLog.Debug(", "NativeApiLog.Info(").Replace("\r\n", "\n"))
-                throw new Exception("The documented preexisting private access changed.");
-            Console.WriteLine("Known unchanged HEAD access (logging levels excluded): MissionLifecycleCapability gameLocalPlayerID; all new accesses checked against real Assembly-CSharp.");
-            diagnostics = diagnostics.Except(baseline).ToArray();
-        }
-    }
     if (args.Contains("--real") && args.Contains("--really-alive") && name == "FormationTest")
     {
         string path = Path.GetFullPath(Path.Combine(root, "Testmods/FormationTest/src/FormationTestRuntime.cs"));

@@ -5,7 +5,7 @@ using System;
 
 namespace RandomEvents
 {
-    [BepInDependency(ScriptExtenderGuid, "2.7.1")]
+    [BepInDependency(ScriptExtenderGuid, "2.14.0")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("APIShared_Serp", "0.4.6")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
@@ -14,7 +14,7 @@ namespace RandomEvents
         private const string ScriptExtenderGuid = "000shcdese";
         public const string PluginGuid = "RandomEvents_Serp";
         public const string PluginName = "Random Events";
-        public const string PluginVersion = "1.0.48";
+        public const string PluginVersion = "1.0.49";
 
         private RandomEventsRuntime runtime;
 

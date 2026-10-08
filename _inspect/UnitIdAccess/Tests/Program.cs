@@ -14,7 +14,7 @@ unsafe
     foreach (var state in Enum.GetValues<SHCDESE.Interop.Enums.AliveState>())
     foreach (uint marker in new uint[] { 0, 1, 0xFFFF, 0x10000, 0xFFFF0000, 0xFFFFFFFF })
     {
-        GameUnit life = new GameUnit { r_AliveState = state, N0000019A = marker, r_CurrentHealth = 0 };
+        GameUnit life = new GameUnit { r_AliveState = state, r_IsKilledByProjectile = (ushort)marker, r_InterestingTodo4MaybeRandomPathing = (ushort)(marker >> 16), r_CurrentHealth = 0 };
         bool expected = state == SHCDESE.Interop.Enums.AliveState.IsAlive && (marker & 0xFFFF) == 0;
         Check(UnitAccess.IsReallyAlive(in life) == expected, "reference life predicate");
         Check(UnitAccess.IsReallyAlive(&life) == expected, "pointer life predicate");
@@ -27,14 +27,14 @@ unsafe
     Check(UnitAccess.GetAllReallyAliveUnits().Length == 0, "empty query");
     queryManager.QueryRecords = new[] {
         new GameUnit { r_AliveState = SHCDESE.Interop.Enums.AliveState.IsAlive },
-        new GameUnit { r_AliveState = SHCDESE.Interop.Enums.AliveState.IsAlive, N0000019A = 1 },
+        new GameUnit { r_AliveState = SHCDESE.Interop.Enums.AliveState.IsAlive, r_IsKilledByProjectile = 1 },
         new GameUnit { r_AliveState = SHCDESE.Interop.Enums.AliveState.NeedsInit },
-        new GameUnit { r_AliveState = SHCDESE.Interop.Enums.AliveState.IsAlive, N0000019A = 0x10000 },
+        new GameUnit { r_AliveState = SHCDESE.Interop.Enums.AliveState.IsAlive, r_IsKilledByProjectile = 0, r_InterestingTodo4MaybeRandomPathing = 1 },
         new GameUnit { r_AliveState = SHCDESE.Interop.Enums.AliveState.MarkedForDeletion },
     };
     int[] livingIds = UnitAccess.GetAllReallyAliveUnits();
     Check(livingIds.SequenceEqual(new[] { 1, 4 }), "query filters death low word and returns ordered one-based IDs");
-    queryManager.QueryRecords[0].N0000019A = 1;
+    queryManager.QueryRecords[0].r_IsKilledByProjectile = 1;
     Check(livingIds.SequenceEqual(new[] { 1, 4 }) && UnitAccess.GetAllReallyAliveUnits().SequenceEqual(new[] { 4 }),
         "query is a momentary copy, later life changes require revalidation");
     GameUnit record = new GameUnit { Alive = 4, GlobalId = 0 }; // NeedsInit is still resolvable.
@@ -165,7 +165,7 @@ static void Scan()
 }
 
 namespace SHCDESE.Interop.Enums { public enum AliveState : short { None, NeedsInit, IsAlive, MarkedForDeletion, Unknown, Unknown5, Paused } }
-namespace SHCDESE.Interop { public struct GameUnit { public int Alive, GlobalId; public SHCDESE.Interop.Enums.AliveState r_AliveState; public uint N0000019A, r_CurrentHealth; } }
+namespace SHCDESE.Interop { public struct GameUnit { public int Alive, GlobalId; public SHCDESE.Interop.Enums.AliveState r_AliveState; public ushort r_IsKilledByProjectile, r_InterestingTodo4MaybeRandomPathing; public uint r_CurrentHealth; } }
 namespace SHCDESE.API
 {
     public unsafe class GameUnitManagerAPI

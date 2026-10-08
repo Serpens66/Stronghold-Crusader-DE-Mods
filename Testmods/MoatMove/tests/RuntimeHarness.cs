@@ -37,8 +37,7 @@ namespace MoatMove
         public int r_UnitSelected, r_UnitHover;
         public bool Digger;
         public int r_UnitChimp;
-        public int N0000019A;
-        public byte N00000569;
+        public int r_IsKilledByProjectile;
         public int r_CurrentSpeed;
     }
     internal struct GameCursorManager { public uint r_HoverOverBuildingId,r_HoverOverUnitId,r_HoverOverBuildingTileId,r_MouseTileId2,r_HoveringOverWall,r_MouseTileId,r_MouseTileX,r_MouseTileY; }
@@ -1301,6 +1300,16 @@ namespace APIShared {
   internal static bool TryCapture(int player,out LocalSelectionSnapshot s) {
    s=null; if(player != MoatMove.GamePlayerManagerAPI.Instance.GetLocalPlayerId())return false;
    s=new LocalSelectionSnapshot { units=MoatMove.GamePlayerManagerAPI.Instance.GetSelectedChimps() };return true;
+  }
+ }
+}
+// This movement fixture exercises the existing handoff with diagnostics inactive.
+// Fail explicitly if a test starts requiring the full diagnostic publication path.
+namespace APIShared.UnitCommands {
+ internal static class UnitCommandPathRuntime {
+  internal static void ReportTemporaryAssassinStage(string stage, string result, string detail, int? player = null) {
+   if (APIShared.TemporaryGateRouteAcceptanceBridge.Current != null)
+    throw new InvalidOperationException("MoatMove fixture requires inactive optional diagnostics.");
   }
  }
 }

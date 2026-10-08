@@ -32,6 +32,6 @@ namespace BugfixesAndQoL
         internal static int IdentityHash(IEnemyGateRoutePolicySnapshot snapshot) =>
             snapshot == null ? 0 : RuntimeHelpers.GetHashCode(snapshot);
 
-        internal static int ReadControlPlayer(byte low, byte high) => low | (high << 8);
+        internal static int ReadControlPlayer(int control) => control;
     }
 }

@@ -36,7 +36,7 @@ namespace AssassinAttackControlTest
         internal bool BeforeUpdate(int unitId)
         {
             if(!active || !settings.EnableMod || !UnitAccess.TryGetById(unitId,out GameUnit* unit,out _) || !UnitAccess.IsReallyAlive(in *unit)) return false;
-            int player=unit->r_ControllableForPlayerId | (unit->N00000569<<8);
+            int player=unit->r_ControllableForPlayerId;
             if(player<1 || player>8 || !GamePlayerManagerAPI.Instance.IsAIPlayer(player) ||
                 unit->r_UnitChimp!=eChimps.CHIMP_TYPE_ARAB_ASSASIN || (unit->r_AIState!=101 && unit->r_AIState!=107)) return false;
             int tile=(int)unit->r_AI_ContextTargetBuildingTileId;
@@ -116,7 +116,7 @@ namespace AssassinAttackControlTest
         {
             if(!UnitAccess.TryGetById(request.UnitId,out unit,out _) || !UnitAccess.IsReallyAlive(in *unit) ||
                 unit->r_GlobalId!=request.Global || unit->r_TribeId!=request.Tribe ||
-                (unit->r_ControllableForPlayerId | (unit->N00000569<<8))!=request.Player ||
+                (unit->r_ControllableForPlayerId)!=request.Player ||
                 unit->r_CurrentTilePositionY*800+unit->r_CurrentTilePositionX!=request.Source ||
                 (unit->r_AIState!=0 && unit->r_AIState!=1) || unit->r_AI_ContextTargetBuildingTileId!=0 ||
                 unit->r_ContextTargetTileX!=request.ContextX || unit->r_ContextTargetTileY!=request.ContextY) return false;

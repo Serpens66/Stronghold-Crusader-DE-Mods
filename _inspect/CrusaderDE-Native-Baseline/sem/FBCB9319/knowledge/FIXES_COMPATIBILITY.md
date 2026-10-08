@@ -48,3 +48,19 @@ Function names/role associations remain candidate-level where the semantic datab
 ## Evidence limits
 
 Static source behavior and natural-gameplay consequences are separate claims. The siege finding above has no demonstrated gameplay failure; the reviewed PCL value flow has not been validated in a gameplay test of Fixes 1.25.1. Do not create additional testmods, gameplay evidence or author reports without a new user request.
+
+## Fixes 1.26.0 source compatibility review, 2026-10-08
+
+Canonical clean clone HEAD 64c0637; diff against v1.25.1 adds SmarterSiegeLaddermen,
+two inline hooks, distance-map logic and a cache reset. The earlier preference,
+distanced-siege-tent, capture and PCL implementations are unchanged by this diff;
+their documented constraints above still apply. This is source compatibility evidence,
+not an installed-Fixes gameplay test.
+
+New hook signatures uniquely match executable-section RVAs 0x111C00 (objective
+selector) and 0x6A5D0 (attachment ranking) in the unchanged native hash. Released
+workspace mods do not own these entries. EnemyBridgePathTest does instrument
+0x111C00; the user explicitly excluded its source changes and installation from
+this update. Do not interpret its existing package as compatible with Fixes 1.26.0.
+The additive Extender BFS delegate and provisional objective storage are not adopted
+by our update; the physical storage limit is not a confirmed semantic table capacity.

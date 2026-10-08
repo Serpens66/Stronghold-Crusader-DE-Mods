@@ -43,6 +43,9 @@ namespace APIShared
         private Operation executing;
         private Operation waiting;
         private static MissionLifecycleService published;
+        // Validated against the real game assembly; publicizing does not grant runtime access.
+        private static readonly FieldInfo localPlayerField = typeof(EditorDirector).GetField(
+            "gameLocalPlayerID", BindingFlags.Instance | BindingFlags.NonPublic);
         internal static GameModeSnapshot Snapshot => published?.state.Context?.Mode ?? default;
         internal static bool HasContext => published?.state.Context != null;
         internal static MissionContext ActiveContext => published?.state.Context;
@@ -222,7 +225,9 @@ namespace APIShared
             {
                 if (op.ManagedSucceeded && EditorDirector.instance != null)
                 {
-                    int assigned = EditorDirector.instance.gameLocalPlayerID;
+                    if (localPlayerField == null || localPlayerField.FieldType != typeof(int))
+                        throw new MissingFieldException(nameof(EditorDirector), "gameLocalPlayerID : Int32");
+                    int assigned = (int)localPlayerField.GetValue(EditorDirector.instance);
                     player = assigned >= 1 && assigned <= 8 ? assigned : (int?)null;
                 }
                 if (op.Multiplayer) host = Platform_Multiplayer.Instance.IsGameMemberHost();

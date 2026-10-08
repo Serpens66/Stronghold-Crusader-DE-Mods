@@ -183,7 +183,7 @@ namespace APIShared.UnitCommands
                 if ((uint)x >= MapWidth || (uint)y >= MapWidth || (uint)tx >= MapWidth || (uint)ty >= MapWidth ||
                     *(int*)(context + 0x08) != x || *(int*)(context + 0x0C) != y)
                     return UnavailableTemporaryRoute(observer, "start-or-target-mismatch", source);
-                int player = unit->r_ControllableForPlayerId | ((int)unit->N00000569 << 8);
+                int player = unit->r_ControllableForPlayerId;
                 uint tribeGlobal = 0;
                 var tribes = GameTribeManagerAPI.Instance;
                 if (tribes.IsValidId(unit->r_TribeId) && tribes.TryGetTribeById(unit->r_TribeId, out GameTribe* tribe) && tribe != null && tribe->r_PlayerIdOwner == player)
@@ -216,7 +216,7 @@ namespace APIShared.UnitCommands
                     report.Epoch == mapEpoch && ReferenceEquals(report.Frame, unitMoveFrame) &&
                     GameUnitManagerAPI.Instance.IsValidId(report.Unit) && APIShared.UnitAccess.TryGetById(report.Unit, out GameUnit* unit, out _) && unit != null &&
                     unit->r_GlobalId == report.Global && unit->r_TribeId == report.Tribe &&
-                    (unit->r_ControllableForPlayerId | ((int)unit->N00000569 << 8)) == report.Player)
+                    (unit->r_ControllableForPlayerId) == report.Player)
                 {
                     if (report.TribeGlobal != 0 && (!GameTribeManagerAPI.Instance.IsValidId(report.Tribe) ||
                         !GameTribeManagerAPI.Instance.TryGetTribeById(report.Tribe, out GameTribe* tribe) || tribe == null ||

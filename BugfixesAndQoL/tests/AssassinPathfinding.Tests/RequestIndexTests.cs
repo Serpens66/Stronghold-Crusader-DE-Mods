@@ -28,8 +28,8 @@ enum eChimps { Other=1, CHIMP_TYPE_ARAB_ASSASIN=73 }
 struct GameUnit {
  public AliveState r_AliveState;
  public eChimps r_UnitChimp;
- public uint N0000019A;
- public int r_CurrentTilePositionX,r_CurrentTilePositionY,r_ControllableForPlayerId,N00000569,r_CurrentSpeed;
+ public ushort r_IsKilledByProjectile;
+ public int r_CurrentTilePositionX,r_CurrentTilePositionY,r_ControllableForPlayerId,r_CurrentSpeed;
 }
 static class UnitAccess { ALIVE }
 sealed class GameUnitManagerAPI {
@@ -38,7 +38,7 @@ sealed class GameUnitManagerAPI {
  public Span<GameUnit> GetUnitsAsSpan()=>Units;
 }
 static class AssassinGateRoutePolicy {
- public static int ReadControlPlayer(int low,int high)=>low|(high<<8);
+ public static int ReadControlPlayer(int control)=>control;
 }
 public static class RequestIndexFixture {
  const int MapWidth=800;
@@ -49,7 +49,7 @@ public static class RequestIndexFixture {
  GameUnit Unit(int player,int delay,uint death=0,AliveState state=AliveState.IsAlive)=>
   new() { r_AliveState=state,r_UnitChimp=eChimps.CHIMP_TYPE_ARAB_ASSASIN,
    r_CurrentTilePositionX=10,r_CurrentTilePositionY=20,r_ControllableForPlayerId=player,
-   r_CurrentSpeed=delay,N0000019A=death };
+   r_CurrentSpeed=delay,r_IsKilledByProjectile=(ushort)death };
  var live=Unit(2,4);
  GameUnitManagerAPI.Instance.Units=new[]{live,Unit(3,99,1),Unit(2,88,2),Unit(4,77,0,AliveState.MarkedForDeletion),Unit(5,66,0,AliveState.None)};
  var result=BuildRequestIndex(); var value=result[GetCoordinateIndex(10,20)];

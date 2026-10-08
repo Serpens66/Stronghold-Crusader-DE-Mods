@@ -36,7 +36,7 @@ if not "%ERRORLEVEL%"=="0" ( popd& goto failed )
 "%MSBUILD%" SkinTest.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%"
 set "BUILD_EXIT_CODE=%ERRORLEVEL%"
 if "%BUILD_EXIT_CODE%"=="0" "%PROJECT_DIR%tests\bin\SkinTest.Tests.exe" --runtime-assembly "%PROJECT_DIR%BepInEx\plugins\SkinTest_Serp\SkinTest.dll"
-if errorlevel 1 set "BUILD_EXIT_CODE=1"
+if not "%ERRORLEVEL%"=="0" set "BUILD_EXIT_CODE=1"
 popd
 if not "%BUILD_EXIT_CODE%"=="0" goto failed
 

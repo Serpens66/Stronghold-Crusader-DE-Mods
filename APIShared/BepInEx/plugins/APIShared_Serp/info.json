@@ -3,24 +3,36 @@
   "Author": "Serpens66",
   "Name": "APIShared",
   "Description": "Shared typed native infrastructure and extensible lobby ModSettings preset API for Serps and third-party mods.",
-  "Version": "0.4.11",
+  "Version": "0.4.12",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
-  "MinimumScriptExtenderVersion": "2.9.0",
+  "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
     {
+      "Version": "0.4.12",
+      "Changes": [
+        "Updated Script Extender 2.14.0 unit field contracts; preserved death-marker and full control-word semantics."
+      ]
+    },
+    {
       "Version": "0.4.11",
-      "Changes": ["Move routine diagnostics to Debug; preserve warnings, errors and explicit file-operation results."]
+      "Changes": [
+        "Move routine diagnostics to Debug; preserve warnings, errors and explicit file-operation results."
+      ]
     },
     {
       "Version": "0.4.10",
-      "Changes": ["Added shared native-ordered gatehouse/drawbridge spatial coupling for main and test mods."]
+      "Changes": [
+        "Added shared native-ordered gatehouse/drawbridge spatial coupling for main and test mods."
+      ]
     },
     {
       "Version": "0.4.9",
-      "Changes": ["Isolate optional configuration registration failures and expose recoverable restart preparation status."]
+      "Changes": [
+        "Isolate optional configuration registration failures and expose recoverable restart preparation status."
+      ]
     },
     {
       "Version": "0.4.8",

@@ -63,7 +63,7 @@ $game = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edi
 [void][Reflection.Assembly]::Load([IO.File]::ReadAllBytes((Join-Path $game 'BepInEx\core\Mono.Cecil.dll')))
 $assembly = [Mono.Cecil.AssemblyDefinition]::ReadAssembly((Join-Path $game 'BepInEx\plugins\000shcdese\SHCDESE.dll'))
 $unit = @($assembly.MainModule.Types | Where-Object FullName -eq 'SHCDESE.Interop.GameUnit')[0]
-foreach ($name in @('r_AliveState','r_UnitChimp','r_CurrentPositionTileId','r_NextPositionTileId2','r_AIState','r_GlobalId','r_AI_LastIssuedTribeCommand','r_ControllableForPlayerId','r_TargetTilePositionX2','r_TargetTilePositionY2','r_PathPlanStateBitFlags','r_MovementSubstep','r_CurrentTilePositionX','r_CurrentTilePositionY','r_NextTilePositionX2','r_NextTilePositionY2','N0000019A','r_CurrentSpeed','N00000569')) {
+foreach ($name in @('r_AliveState','r_UnitChimp','r_CurrentPositionTileId','r_NextPositionTileId2','r_AIState','r_GlobalId','r_AI_LastIssuedTribeCommand','r_ControllableForPlayerId','r_TargetTilePositionX2','r_TargetTilePositionY2','r_PathPlanStateBitFlags','r_MovementSubstep','r_CurrentTilePositionX','r_CurrentTilePositionY','r_NextTilePositionX2','r_NextTilePositionY2','r_IsKilledByProjectile','r_CurrentSpeed')) {
     $field = @($unit.Fields | Where-Object Name -ceq $name)
     if ($field.Count -ne 1 -or -not $field[0].IsPublic) { throw "Installed private/missing GameUnit.$name" }
     Write-Host ("Public installed member: GameUnit." + $name + ' : ' + $field[0].FieldType.FullName)

@@ -94,7 +94,7 @@ namespace BugfixesAndQoL
                 a.mov(r9, r12); a.add(r9, UnitStride); a.mov(r8d, 1);
                 a.Label(ref scan);
                 a.cmp(__word_ptr[r9 + 0x6E4], (int)AliveState.IsAlive); a.jne(next);
-                // FUN_18B470 reads the LOW SHORT of N0000019A, not the entire uint.
+                // FUN_18B470 reads the 16-bit death marker r_IsKilledByProjectile (also set by melee).
                 a.cmp(__word_ptr[r9 + 0x8F8], 0); a.jne(next);
                 a.movsx(edx, __word_ptr[r9 + 0x6EE]); a.cmp(edx, r11d); a.jne(next);
                 a.cmp(__word_ptr[r9 + 0x6E6], (int)eChimps.CHIMP_TYPE_COW); a.jne(next);

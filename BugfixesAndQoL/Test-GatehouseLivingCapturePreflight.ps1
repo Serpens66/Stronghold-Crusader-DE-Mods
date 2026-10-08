@@ -43,7 +43,7 @@ try {
 $assembly = [Mono.Cecil.AssemblyDefinition]::ReadAssembly((Join-Path $extender 'SHCDESE.dll'))
 try {
     $unit = @($assembly.MainModule.Types | Where-Object FullName -eq 'SHCDESE.Interop.GameUnit')[0]
-    foreach ($name in @('r_AliveState','N0000019A','r_CurrentHealth','r_ControllableForPlayerId')) {
+    foreach ($name in @('r_AliveState','r_IsKilledByProjectile','r_CurrentHealth','r_ControllableForPlayerId')) {
         $field = @($unit.Fields | Where-Object Name -ceq $name)
         if ($field.Count -ne 1 -or -not $field[0].IsPublic) { throw "Private/missing installed GameUnit.$name" }
     }

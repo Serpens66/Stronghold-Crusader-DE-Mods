@@ -25,7 +25,7 @@ namespace SHCDESE.Interop.Enums { public enum EnemyHPModifier { Normal,Weak,Stro
 namespace SHCDESE.Interop {
     public enum eChimps { CHIMP_TYPE_LORD=55, Soldier=1 }
     public enum eGoods { Count=26 }
-    public struct GameUnit { public uint r_GlobalId,r_CurrentHealth,r_MaxHealth,r_HealthBarBlocks,N0000019A; public ushort r_CurrentHealthPercentage; public int r_ControllableForPlayerId; public eChimps r_UnitChimp; public AliveState r_AliveState; }
+    public struct GameUnit { public uint r_GlobalId,r_CurrentHealth,r_MaxHealth,r_HealthBarBlocks; public ushort r_IsKilledByProjectile,r_InterestingTodo4MaybeRandomPathing; public ushort r_CurrentHealthPercentage; public int r_ControllableForPlayerId; public eChimps r_UnitChimp; public AliveState r_AliveState; }
 }
 namespace Shared {
     public static class DebugLogHelper { public static void LogDebug(object l,string s){} public static void LogError(object l,string s){} public static void LogWarning(object l,string s){} }
@@ -488,9 +488,9 @@ public static unsafe class SessionTests {
             units.Units[4].r_MaxHealth=100; clock.Tick(60); reads=players.Reads; clock.Tick(70); Assert(players.Reads==reads,"ready player retried");
             Create(4,5,105); Spawn(4,5); players.ThrowOnce=true; clock.Tick(80); clock.Tick(90); Assert(units.Units[5].r_CurrentHealthPercentage==50,"exception lost pending player");
             Create(5,6,106); Spawn(5,6); units.Units[6].r_AliveState=AliveState.Dead; clock.Tick(100); reads=players.Reads; clock.Tick(110); Assert(players.Reads==reads,"dead Lord polls forever");
-            Create(6,8,108); units.Units[8].N0000019A=1; Spawn(6,8); clock.Tick(120);
+            Create(6,8,108); units.Units[8].r_IsKilledByProjectile=1; Spawn(6,8); clock.Tick(120);
             Assert(units.Units[8].r_MaxHealth==100&&units.Units[8].r_CurrentHealth==50,"dying Lord was mutated");
-            Create(7,9,109); units.Units[9].N0000019A=0x10000; Spawn(7,9); clock.Tick(130);
+            Create(7,9,109); units.Units[9].r_IsKilledByProjectile=0; units.Units[9].r_InterestingTodo4MaybeRandomPathing=1; Spawn(7,9); clock.Tick(130);
             Assert(units.Units[9].r_CurrentHealthPercentage==50,"upper death-marker word rejected a living Lord");
             reads=players.Reads;
             lord.ResetMapState(); Spawn(1,3); clock.Tick(120); Assert(players.Reads==reads,"retired session processed spawn");

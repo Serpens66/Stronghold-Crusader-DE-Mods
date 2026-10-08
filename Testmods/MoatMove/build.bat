@@ -23,13 +23,13 @@ if not exist "%EXTENDER_DIR%\SHCDESE.dll" goto failed
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%tests\Test-Preflight.ps1"
 if errorlevel 1 goto failed
 dotnet run --project "%PROJECT_DIR%tests\MoatMove.Tests.csproj" -- "%PROJECT_DIR%..\.."
-if errorlevel 1 goto failed
+if not "%ERRORLEVEL%"=="0" goto failed
 "%MSBUILD%" "%PROJECT_DIR%MoatMove.csproj" /t:Build /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /nologo /v:minimal
 if errorlevel 1 goto failed
 if "%NO_INSTALL%"=="1" goto built_without_install
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%tests\Install-Package.ps1" -GameDir "%GAME_DIR%"
 if errorlevel 1 goto failed
-echo MoatMove 0.1.3 built and installed successfully.
+echo MoatMove built and installed successfully.
 if "%NO_PAUSE%"=="0" pause
 exit /b 0
 :built_without_install

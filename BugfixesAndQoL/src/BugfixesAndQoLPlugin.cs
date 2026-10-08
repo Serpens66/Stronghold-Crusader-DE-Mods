@@ -10,7 +10,7 @@ using System.Reflection;
 
 namespace BugfixesAndQoL
 {
-    [BepInDependency(ScriptExtenderGuid, "2.13.0")]
+    [BepInDependency(ScriptExtenderGuid, "2.14.0")]
     [BepInDependency(ApiSharedGuid, "0.4.7")]
     [BepInDependency("ActiveAIVDetector_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("ExtraFeatures_Serp", BepInDependency.DependencyFlags.SoftDependency)]
@@ -41,7 +41,7 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.178";
+        public const string PluginVersion = "1.0.179";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static DamagedHealthBarsRuntime damagedHealthBarsRuntime;

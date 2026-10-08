@@ -202,6 +202,10 @@ var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
     CSharpSyntaxTree.ParseText("namespace BepInEx.Logging { public class ManualLogSource { public void LogDebug(object message) { } } }"),
     
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared", "src", "EnemyGatePathPolicyBridge.cs"))),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared", "src", "TemporaryGateRouteAcceptanceBridge.cs"))),
+    CSharpSyntaxTree.ParseText("namespace APIShared {" + CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,
+        "APIShared/src/AssassinGateTransitionPolicy.cs"))).GetRoot().DescendantNodes().OfType<EnumDeclarationSyntax>()
+        .Single(n => n.Identifier.Text == "AssassinTransitionKind") + "}"),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared", "src", "AssassinRouteHandoff.cs"))),
     referenceTree,
     comparisonTree,

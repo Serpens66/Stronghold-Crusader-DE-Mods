@@ -38,13 +38,14 @@ namespace APIShared
 
         /// <summary>Tests Vanilla's combat life predicate, excluding dying units and visible corpses.</summary>
         /// <remarks>AliveState can remain IsAlive throughout the death animation and corpse phase.
-        /// Vanilla additionally tests the low 16-bit death marker at GameUnit+0x29C; the upper
-        /// word of N0000019A is unrelated. Health and animation state are deliberately not tested.
+        /// Vanilla additionally tests the 16-bit death marker at GameUnit+0x29C. Despite its
+        /// Script Extender name r_IsKilledByProjectile, melee death sets this marker too.
+        /// The adjacent WORD at +0x29E is unrelated. Health and animation state are deliberately not tested.
         /// Use immediate game-thread views; this does not validate slot identity or ownership.</remarks>
         /// <param name="unit">The immediate Script Extender unit view.</param>
         /// <returns>True when AliveState is IsAlive and the native death marker is zero.</returns>
         public static bool IsReallyAlive(in GameUnit unit) =>
-            unit.r_AliveState == AliveState.IsAlive && (unit.N0000019A & 0xFFFFu) == 0;
+            unit.r_AliveState == AliveState.IsAlive && unit.r_IsKilledByProjectile == 0;
 
         /// <summary>Tests Vanilla's combat life predicate; a null pointer returns false.</summary>
         /// <param name="unit">An immediate valid unit pointer, or null.</param>

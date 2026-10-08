@@ -1,0 +1,44 @@
+{
+  "OldVersion": "2.13.0",
+  "NewVersion": "2.14.0",
+  "ExtenderCommit": "5049b5d051d0face848cc2eb098db1fedf5451a7",
+  "ExtenderTree": "cc31dd3beea7c50a1bd1b6825b5ae3624f0dee31",
+  "NativeHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+  "ReleaseProjects": [
+    "APIShared",
+    "BugfixesAndQoL",
+    "BuildingCosts",
+    "BuildingLimit",
+    "CheatMod",
+    "ExtendedData",
+    "ExtraFeatures",
+    "ImprovedHunters",
+    "RandomEvents",
+    "CastlePlanner",
+    "StartConditions",
+    "UnitCosts",
+    "UnitLimit"
+  ],
+  "SourceFileCount": 60,
+  "OperationCount": 125,
+  "SourceFingerprint": "E9EECD82BF079F033E2C7F716C1A3FDC39E8850A0CD837B66AF2AA1A999E6B47",
+  "ExtenderChangesReviewed": true,
+  "Result": "Compatible",
+  "ReviewedInteractions": [
+    {
+      "Id": "pathing-additive",
+      "Classification": "DelegateCallThrough",
+      "Rationale": "2.14 diff adds a scan/delegate and makes an existing delegate public; it adds no detour transaction or code patch. Workspace does not adopt the new BFS delegate. Existing pathing hook ownership and callback boundaries are unchanged."
+    },
+    {
+      "Id": "death-control-layout",
+      "Classification": "NoOverlap",
+      "Rationale": "Only field references, layout guards and control-word consumption migrate. Native hash, offsets 0x29C/0x92, emitted native instructions, hook spans and publishers are unchanged. Full life/removal, control/command and workshop audits retained."
+    },
+    {
+      "Id": "fixes-126-ladder",
+      "Classification": "NoOverlap",
+      "Rationale": "Fixes new inline signatures uniquely resolve to 0x111C00 and 0x6A5D0. Release mods own neither entry. EnemyBridgePathTest does own 0x111C00 and is explicitly excluded by user; no compatibility claim for that testmod."
+    }
+  ]
+}

@@ -8,7 +8,7 @@ using System.Security.Cryptography;
 namespace APIShared
 {
     /// <summary>BepInEx host for the process-wide APIShared.</summary>
-    [BepInDependency(ScriptExtenderGuid, "2.9.0")]
+    [BepInDependency(ScriptExtenderGuid, "2.14.0")]
     [BepInDependency("scde.sc2-fog-of-war", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class APISharedPlugin : BaseUnityPlugin
@@ -19,7 +19,7 @@ namespace APIShared
         /// <summary>Display name of the API plugin.</summary>
         public const string PluginName = "APIShared";
         /// <summary>Current API plugin version.</summary>
-        public const string PluginVersion = "0.4.11";
+        public const string PluginVersion = "0.4.12";
 
         private void Awake()
         {

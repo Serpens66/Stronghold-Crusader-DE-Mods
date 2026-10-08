@@ -1170,7 +1170,7 @@ namespace BugfixesAndQoL
                 int coordinate = GetCoordinateIndex(x, y);
                 int candidatePlayer = candidate.r_ControllableForPlayerId;
                 int gatePlayer = AssassinGateRoutePolicy.ReadControlPlayer(
-                    candidate.r_ControllableForPlayerId, candidate.N00000569);
+                    candidate.r_ControllableForPlayerId);
                 int candidateDelay = candidate.r_CurrentSpeed;
                 if (!index.TryGetValue(coordinate, out AssassinRequestInfo existing))
                 {

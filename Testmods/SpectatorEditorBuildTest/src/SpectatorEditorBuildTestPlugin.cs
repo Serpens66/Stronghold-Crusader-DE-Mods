@@ -29,7 +29,7 @@ using System.Threading;
 
 namespace SpectatorEditorBuildTest
 {
-    [BepInDependency("000shcdese", "2.12.0")]
+    [BepInDependency("000shcdese", "2.14.0")]
     [BepInDependency("APIShared_Serp", "0.4.7")]
     [BepInDependency("BugfixesAndQoL_Serp")]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
@@ -38,7 +38,7 @@ namespace SpectatorEditorBuildTest
     {
         public const string Guid = "SpectatorEditorBuildTest_Serp";
         public const string Name = "Spectator Editor Build Test";
-        public const string Version = "0.1.0";
+        public const string Version = "0.1.1";
 
         // The plugin component is destroyed during startup. Hooks, callbacks, and the logger
         // therefore remain rooted in static fields for the entire process lifetime.

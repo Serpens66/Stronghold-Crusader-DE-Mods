@@ -185,7 +185,9 @@ internal static partial class Program
         string previous = GitSource("f57dfdb02", runtimePath), current = WithoutDiagnosticGates(File.ReadAllText(Path.Combine(root, runtimePath)));
         foreach (string name in new[] { "IsVanillaAssassinFallback", "GetClimbTicks", "HasOrdinaryConnection",
             "ValidateCachedRoute", "PrepareRoute", "AllowsAssassinTransition", "ValidatePreparedGateRoute",
-            "CanReconstructTransition", "CommitPreparedRoute", "GetRequestIndex", "BuildRequestIndex",
+            // BuildRequestIndex is covered by TestActualRequestIndex: field-contract
+            // migrations must preserve behavior, not historical source spelling.
+            "CanReconstructTransition", "CommitPreparedRoute", "GetRequestIndex",
             "IsValidCoordinate", "GetTileId", "GetCoordinateIndex", "IsNativeTile", "ValidateCoordinateTileMapping",
             "EnsureCoordinateTileMappingValidated", "Touch", "ResetTouchedNodes", "Push", "PushOrDecrease", "Pop",
             "SiftUp", "SiftDown", "ComesBefore" })

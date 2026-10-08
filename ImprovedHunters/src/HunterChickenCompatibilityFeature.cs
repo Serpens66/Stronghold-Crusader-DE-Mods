@@ -263,7 +263,7 @@ namespace ImprovedHunters
                     }
                 }
 
-                byte previousOwner = chicken->r_ControllableForPlayerId;
+                ushort previousOwner = chicken->r_ControllableForPlayerId;
                 uint previousColor = chicken->r_SpritePlayerColorId;
                 if (previousOwner != 0 || previousColor != 0)
                 {

@@ -14,7 +14,7 @@ using System.Diagnostics;
 
 namespace HunterQueryTargetDiagnostic
 {
-    [BepInDependency(ScriptExtenderGuid, "2.4.0")]
+    [BepInDependency(ScriptExtenderGuid, "2.14.0")]
     [BepInDependency("APIShared_Serp", "0.4.10")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class HunterQueryTargetDiagnosticPlugin : BaseUnityPlugin
@@ -22,7 +22,7 @@ namespace HunterQueryTargetDiagnostic
         private const string ScriptExtenderGuid = "000shcdese";
         private const string PluginGuid = "HunterQueryTargetDiagnostic_Serp";
         private const string PluginName = "Hunter Query Target Diagnostic";
-        private const string PluginVersion = "1.4.7";
+        private const string PluginVersion = "1.4.8";
 
         private const int BaselineDetailLimit = 12;
         private const int SuspiciousDetailLimit = 160;
@@ -392,7 +392,7 @@ namespace HunterQueryTargetDiagnostic
             private readonly eChimps type;
             private readonly AliveState aliveState;
             private readonly ushort aiState;
-            private readonly byte player;
+            private readonly ushort player;
             private readonly ushort tileX;
             private readonly ushort tileY;
             private readonly ushort targetTileX;

@@ -631,10 +631,10 @@ namespace EnemyGatePathfindingTest
                     {
                         leaderGlobal = leader->r_GlobalId;
                         control = BuildingSearchPlayerContext.NativeControlWord(
-                            leader->r_ControllableForPlayerId, leader->N00000569);
+                            leader->r_ControllableForPlayerId);
                         if (leader->r_GlobalId != leaderGlobal ||
                             BuildingSearchPlayerContext.NativeControlWord(
-                                leader->r_ControllableForPlayerId, leader->N00000569) != control)
+                                leader->r_ControllableForPlayerId) != control)
                             leaderGlobal = 0;
                     }
                     // Do not accept an identity/control transition across the two lookups.

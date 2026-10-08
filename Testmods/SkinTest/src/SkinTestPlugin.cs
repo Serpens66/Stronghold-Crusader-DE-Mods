@@ -12,12 +12,12 @@ namespace SkinTest
     public sealed class SkinTestPlugin : BaseUnityPlugin
     {
         private const string ScriptExtenderGuid = "000shcdese";
-        private const string ScriptExtenderVersion = "2.3.0";
+        private const string ScriptExtenderVersion = "2.14.0";
         private const string ApiSharedGuid = "APIShared_Serp";
         private const string ApiSharedVersion = "0.3.6";
         public const string PluginGuid = "SkinTest_Serp";
         public const string PluginName = "SkinTest";
-        public const string PluginVersion = "0.1.1";
+        public const string PluginVersion = "0.1.2";
 
         // SHCDE destroys the BepInEx component during normal startup. These static
         // roots intentionally keep the visual runtime and hook alive for the process.

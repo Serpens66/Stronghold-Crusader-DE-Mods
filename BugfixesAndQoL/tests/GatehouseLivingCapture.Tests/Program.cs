@@ -47,7 +47,7 @@ namespace BugfixesAndQoL.GatehouseLivingCapture
             foreach (uint marker in new uint[] { 0, 1, 0xFFFF, 0x10000, 0xFFFF0000, 0xFFFFFFFF })
             foreach (uint health in new uint[] { 0, 100 })
             {
-                GameUnit unit = new GameUnit { r_AliveState = state, N0000019A = marker, r_CurrentHealth = health };
+                GameUnit unit = new GameUnit { r_AliveState = state, r_IsKilledByProjectile = (ushort)marker, r_InterestingTodo4MaybeRandomPathing = (ushort)(marker >> 16), r_CurrentHealth = health };
                 bool expected = state == AliveState.IsAlive && (marker & 0xFFFFu) == 0;
                 Require(UnitAccess.IsReallyAlive(in unit) == expected, "reference predicate");
                 Require(UnitAccess.IsReallyAlive(&unit) == expected, "pointer predicate");
@@ -57,7 +57,7 @@ namespace BugfixesAndQoL.GatehouseLivingCapture
 
         private static void TestActivation()
         {
-            GameUnit dead = new GameUnit { r_AliveState = AliveState.IsAlive, N0000019A = 1 };
+            GameUnit dead = new GameUnit { r_AliveState = AliveState.IsAlive, r_IsKilledByProjectile = 1 };
             foreach (bool mod in new[] { false, true })
             foreach (bool fix in new[] { false, true })
             {
@@ -144,7 +144,7 @@ namespace BugfixesAndQoL.GatehouseLivingCapture
                 foreach (uint death in new uint[] { 0, 1, 0x10000 })
                 foreach (int iterations in new[] { 1, 2 })
                 {
-                    sample = new GameUnit { r_AliveState = state, N0000019A = death, r_CurrentHealth = 0 };
+                    sample = new GameUnit { r_AliveState = state, r_IsKilledByProjectile = (ushort)death, r_InterestingTodo4MaybeRandomPathing = (ushort)(death >> 16), r_CurrentHealth = 0 };
                     active = mode != 1; nullUnit = mode == 2; syntheticFailure = mode == 3;
                     Marshal.WriteInt16(word, eligibility);
                     Marshal.WriteInt32(results, 240, id); Marshal.WriteInt32(results, 248, iterations);
