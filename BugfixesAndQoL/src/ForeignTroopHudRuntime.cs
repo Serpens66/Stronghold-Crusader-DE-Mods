@@ -38,7 +38,8 @@ namespace BugfixesAndQoL
         private static bool lordIconWarningLogged;
         private static string lastExceptionKey;
         private static string lastHideExceptionKey;
-        private static bool resetPending;
+        private static int resetPending;
+        private static int activeSurfaces;
         private static int lastFrame = -1;
         private static float nextRefreshAt;
         private static EngineInterface.PlayState stateBeforeReady;
@@ -69,6 +70,8 @@ namespace BugfixesAndQoL
                 throw new InvalidOperationException("APIShared mission observer registration failed: " + diagnostic?.Reason);
             if (!MarkedUnitSelectionAPI.TryRegisterObserver(BugfixesAndQoLPlugin.PluginGuid, OnMarkedSelectionChanged))
                 throw new InvalidOperationException("APIShared marked-unit selection observer registration failed.");
+            settings.SettingChanged += OnSettingChanged;
+            PublishActivation();
             Application.onBeforeRender += OnBeforeRender;
             initialized = true;
             Shared.DebugLogHelper.LogDebug(log, "FOREIGN_TROOP_HUD_INITIALIZED: static render publisher and APIShared mission events registered.");
@@ -79,7 +82,7 @@ namespace BugfixesAndQoL
             activeSession = notification.Context;
             Volatile.Write(ref markedSnapshot, null);
             stateBeforeReady = GameData.Instance?.lastGameState;
-            resetPending = true;
+            Interlocked.Exchange(ref resetPending, 1);
             nextRefreshAt = 0f;
             lastDiagnosticKey = null;
             lastExceptionKey = null;
@@ -93,11 +96,10 @@ namespace BugfixesAndQoL
 
         private static void OnSessionEnded(MissionLifecycleNotification notification)
         {
-            HideForeignHud();
             activeSession = null;
             Volatile.Write(ref markedSnapshot, null);
             stateBeforeReady = null;
-            resetPending = true;
+            Interlocked.Exchange(ref resetPending, 1);
             nextRefreshAt = 0f;
             lastDiagnosticKey = null;
             lastExceptionKey = null;
@@ -114,30 +116,53 @@ namespace BugfixesAndQoL
             Volatile.Write(ref markedSnapshot, selection);
         }
 
+        private static void OnSettingChanged(string propertyName)
+        {
+            if (propertyName == nameof(BugfixesAndQoLViewModel.EnableClientFeatures) ||
+                propertyName == nameof(BugfixesAndQoLViewModel.ShowForeignTroopHud) ||
+                propertyName == nameof(BugfixesAndQoLViewModel.ShowSelectedUnitHealth)) PublishActivation();
+        }
+
+        private static void PublishActivation()
+        {
+            int next = settings.EnableClientFeatures
+                ? (settings.ShowForeignTroopHud ? 1 : 0) | (settings.ShowSelectedUnitHealth ? 2 : 0) : 0;
+            if (Interlocked.Exchange(ref activeSurfaces, next) != next)
+            {
+                nextRefreshAt = 0f;
+                Interlocked.Exchange(ref resetPending, 1);
+            }
+        }
+
         private static void OnBeforeRender()
         {
+            int surfaces = Volatile.Read(ref activeSurfaces);
+            if (surfaces == 0 && Volatile.Read(ref resetPending) == 0) return;
             if (Time.frameCount == lastFrame) return;
             lastFrame = Time.frameCount;
             float now = Time.realtimeSinceStartup;
-            if (!resetPending && now < nextRefreshAt) return;
+            if (now < nextRefreshAt && (Volatile.Read(ref resetPending) == 0 || surfaces == 0)) return;
             nextRefreshAt = now + 0.1f;
             try
             {
-                if (resetPending)
+                if (Interlocked.Exchange(ref resetPending, 0) != 0)
                 {
                     HideForeignHud();
+                    health.Hide();
                     grouped.Clear();
                     entries.Clear();
                     entryPool.Clear();
                     view.ResetForMap();
-                    resetPending = false;
                 }
-                Refresh();
+                if (surfaces == 0) return;
+                if ((surfaces & 1) != 0) Refresh();
                 if (view.IsVisible) health.Hide();
-                else RefreshOwnHealth();
+                else if ((surfaces & 2) != 0) RefreshOwnHealth();
             }
             catch (Exception error)
             {
+                // If cleanup failed, a disabled surface must still get another main-thread attempt.
+                if (Volatile.Read(ref activeSurfaces) == 0) Interlocked.Exchange(ref resetPending, 1);
                 string key = error.GetType().FullName + ":" + error.Message;
                 try { HideForeignHud(); }
                 catch (Exception hideError)
@@ -169,13 +194,13 @@ namespace BugfixesAndQoL
 
         private static void Refresh()
         {
-            EngineInterface.PlayState state = GameData.Instance?.lastGameState;
-            MissionContext session = activeSession;
             if (!settings.EnableClientFeatures || !settings.ShowForeignTroopHud)
             {
                 HideForeignHud();
                 return;
             }
+            EngineInterface.PlayState state = GameData.Instance?.lastGameState;
+            MissionContext session = activeSession;
             string readiness = session == null ? "waiting-session" :
                 state == null ? "waiting-play-state" :
                 stateBeforeReady != null && ReferenceEquals(state, stateBeforeReady) ? "waiting-new-play-state" :

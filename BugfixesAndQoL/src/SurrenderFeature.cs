@@ -16,6 +16,7 @@ using SHCDESE.ViewModels;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Threading;
 using Steamworks;
 
 namespace BugfixesAndQoL
@@ -173,6 +174,8 @@ namespace BugfixesAndQoL
 
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
+        private int statisticsBadgeModeSnapshot;
+        private int statisticsBadgeClearPending;
         private readonly MultiplayerLobbyReturnFeature lobbyReturnFeature;
         private readonly SurrenderAndStatisticsViewModel buttonViewModel;
         private readonly HashSet<string> acceptedRequests = new HashSet<string>(StringComparer.Ordinal);
@@ -321,6 +324,8 @@ namespace BugfixesAndQoL
                 }));
             subscriptions.Add(Shared.MissionEvents.Ended.Subscribe(_ => ResetSession("mission-end")));
             RegisterPlayerDefeatObserver();
+            settings.SettingChanged += OnPresentationSettingChanged;
+            PublishStatisticsBadgeMode();
             UnityEngine.Application.onBeforeRender += OnBeforeRender;
 
             initialized = true;
@@ -401,6 +406,7 @@ namespace BugfixesAndQoL
             executionPacketSubscription?.Dispose();
             spectatorPacketSubscription?.Dispose();
             lobbyReturnFeature.Dispose();
+            settings.SettingChanged -= OnPresentationSettingChanged;
             UnityEngine.Application.onBeforeRender -= OnBeforeRender;
             foreach (IDisposable subscription in subscriptions)
                 subscription.Dispose();
@@ -416,6 +422,23 @@ namespace BugfixesAndQoL
         private bool EliminatedPlayerSpectatorEnabled =>
             settings.EnableMod && settings.EnableEliminatedPlayersBecomeSpectators;
 
+        private void OnPresentationSettingChanged(string propertyName)
+        {
+            if (propertyName == nameof(BugfixesAndQoLViewModel.EnableMod) ||
+                propertyName == nameof(BugfixesAndQoLViewModel.EnableClientFeatures) ||
+                propertyName == nameof(BugfixesAndQoLViewModel.StatisticsTeamBadgeMode)) PublishStatisticsBadgeMode();
+        }
+
+        private void PublishStatisticsBadgeMode()
+        {
+            int next = StatisticsTeamBadgesEnabled
+                ? SurrenderPolicy.NormalizeStatisticsTeamBadgeMode(settings.StatisticsTeamBadgeMode)
+                : SurrenderPolicy.StatisticsTeamBadgesOff;
+            int previous = Interlocked.Exchange(ref statisticsBadgeModeSnapshot, next);
+            if (previous != next && next == SurrenderPolicy.StatisticsTeamBadgesOff)
+                Interlocked.Exchange(ref statisticsBadgeClearPending, 1);
+        }
+
         private void OnBeforeRender()
         {
             if (disposed || lastSpectatorPromotionFrame == UnityEngine.Time.frameCount)
@@ -425,7 +448,7 @@ namespace BugfixesAndQoL
             try
             {
                 lobbyReturnFeature.OnBeforeRender();
-                ConfirmSpectatorPromotion();
+                if (spectatorPromotionActivated && !spectatorPromotionConfirmed) ConfirmSpectatorPromotion();
             }
             catch (Exception ex)
             {
@@ -440,7 +463,10 @@ namespace BugfixesAndQoL
 
             try
             {
-                UpdateStatisticsTeamBadges();
+                if (Interlocked.Exchange(ref statisticsBadgeClearPending, 0) != 0)
+                    ClearStatisticsTeamBadges();
+                if (statisticsTeamBadgesReady && Volatile.Read(ref statisticsBadgeModeSnapshot) != SurrenderPolicy.StatisticsTeamBadgesOff)
+                    UpdateStatisticsTeamBadges();
             }
             catch (Exception ex)
             {
@@ -1172,9 +1198,9 @@ namespace BugfixesAndQoL
 
         private void UpdateStatisticsTeamBadges()
         {
+            int badgeMode = Volatile.Read(ref statisticsBadgeModeSnapshot);
+            if (badgeMode == SurrenderPolicy.StatisticsTeamBadgesOff) return;
             MainViewModel viewModel = MainViewModel.Instance;
-            int badgeMode = SurrenderPolicy.NormalizeStatisticsTeamBadgeMode(
-                settings.StatisticsTeamBadgeMode);
             if (!statisticsTeamBadgesReady ||
                 !StatisticsTeamBadgesEnabled ||
                 badgeMode == SurrenderPolicy.StatisticsTeamBadgesOff ||

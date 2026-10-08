@@ -3,6 +3,7 @@ using CrusaderDE;
 using SHCDESE.API;
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using UnityEngine;
 
 namespace BugfixesAndQoL
@@ -14,6 +15,8 @@ namespace BugfixesAndQoL
         private readonly TimerCountdownViewModel viewModel = new TimerCountdownViewModel();
         private readonly HashSet<string> loggedFailureKinds = new HashSet<string>(StringComparer.Ordinal);
         private int lastRenderedFrame = -1;
+        private volatile bool enabled;
+        private int clearPending;
 
         internal TimerCountdownFeature(ManualLogSource log, BugfixesAndQoLViewModel settings)
         {
@@ -22,6 +25,7 @@ namespace BugfixesAndQoL
             GameXAMLManagerAPI.Instance.RegisterBinding("BugfixesAndQoLCountdownObjective", viewModel);
             GameXAMLManagerAPI.Instance.RegisterBinding("BugfixesAndQoLCountdownBriefing", viewModel);
             GameXAMLManagerAPI.Instance.RegisterBinding("BugfixesAndQoLCountdownOst", viewModel);
+            enabled = settings.EnableClientFeatures && settings.ShowCountdownTimers;
             settings.SettingChanged += OnSettingChanged;
             // Unity's static publisher keeps this callback alive after BepInEx startup cleanup.
             Application.onBeforeRender += OnBeforeRender;
@@ -32,22 +36,28 @@ namespace BugfixesAndQoL
             if (propertyName != nameof(BugfixesAndQoLViewModel.ShowCountdownTimers) &&
                 propertyName != nameof(BugfixesAndQoLViewModel.EnableClientFeatures))
                 return;
-            if (settings.EnableClientFeatures && settings.ShowCountdownTimers)
-                return;
-            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
-                () => UpdateViewModel(string.Empty, string.Empty));
+            enabled = settings.EnableClientFeatures && settings.ShowCountdownTimers;
+            if (enabled) return;
+            Interlocked.Exchange(ref clearPending, 1);
         }
 
         private void OnBeforeRender()
         {
+            if (!enabled && Volatile.Read(ref clearPending) == 0) return;
             int frame = Time.frameCount;
             if (lastRenderedFrame == frame) return;
             lastRenderedFrame = frame;
+            bool clear = Interlocked.Exchange(ref clearPending, 0) != 0;
+            if (!enabled)
+            {
+                if (clear) UpdateViewModel(string.Empty, string.Empty);
+                return;
+            }
             string objective = string.Empty;
             string ost = string.Empty;
             try
             {
-                if (settings.EnableClientFeatures && settings.ShowCountdownTimers && IsGameplayReady())
+                if (IsGameplayReady())
                 {
                     objective = ReadObjectiveRemaining();
                     ost = ReadOstRemaining();

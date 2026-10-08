@@ -225,13 +225,17 @@ namespace BugfixesAndQoL
         public void RefreshSetting()
         {
             if (!settings.EnableClientFeatures || !settings.ShowSelectedUnitHealth)
-                ViewModel.Hide();
+                Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
+                {
+                    if (!settings.EnableClientFeatures || !settings.ShowSelectedUnitHealth) ViewModel.Hide();
+                });
         }
 
         internal void Hide() => ViewModel.Hide();
 
         internal void Refresh()
         {
+            if (!settings.EnableClientFeatures || !settings.ShowSelectedUnitHealth) return;
             MainViewModel mainViewModel = MainViewModel.Instance;
             HUD_Troops troopPanel = mainViewModel?.HUDTroopPanel;
             bool mapEditor = Shared.GameModeHelper.IsMapEditor();

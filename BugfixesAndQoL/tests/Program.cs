@@ -169,7 +169,9 @@ namespace BugfixesAndQoL
                 "Override", "ScriptExtenderUI", "BugfixesAndQoLSettings.xaml"));
             Check(feature.Contains("Application.onBeforeRender += OnBeforeRender") &&
                   feature.Contains("lastRenderedFrame == frame") &&
-                  feature.Contains("settings.EnableClientFeatures && settings.ShowCountdownTimers && IsGameplayReady()") &&
+                  feature.Contains("enabled = settings.EnableClientFeatures && settings.ShowCountdownTimers;") &&
+                  feature.Contains("if (!enabled && Volatile.Read(ref clearPending) == 0) return;") &&
+                  feature.Contains("if (IsGameplayReady())") &&
                   feature.Contains("viewModel.TrySetRemaining(objective, ost, out Exception failure)") &&
                   feature.Contains("LogFailureOnce(\"timer read\", ex)") &&
                   feature.Contains("LogFailureOnce(\"view-model notification\", failure)") &&

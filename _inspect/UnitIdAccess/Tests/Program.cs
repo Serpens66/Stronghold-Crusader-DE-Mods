@@ -123,6 +123,11 @@ static void Scan()
     foreach (var projectEntry in inventory.RootElement.GetProperty("projects").EnumerateObject())
     {
         string projectPath=Path.Combine(root,projectEntry.Name);
+        if (!File.Exists(projectPath) && projectEntry.Name.Replace('\\','/').StartsWith("Testmods/", StringComparison.OrdinalIgnoreCase))
+        {
+            Console.WriteLine($"SKIP: inventory testmod project no longer present: {projectEntry.Name}");
+            continue;
+        }
         string projectRoot=Path.GetDirectoryName(projectPath)!;
         var project=XDocument.Load(projectPath);
         var compileFiles=project.Descendants().Where(e=>e.Name.LocalName=="Compile").Select(e=>(string)e.Attribute("Include"))

@@ -11,7 +11,6 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Runtime.InteropServices;
 using RedBird.Abstractions.Hooks;
 using RedBird.Abstractions.Hooks.Transaction;
@@ -48,24 +47,25 @@ namespace BugfixesAndQoL
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
-        private readonly List<TrackedPlagueHerd> herds = new List<TrackedPlagueHerd>();
+        private readonly PlagueHerdLedger herds = new PlagueHerdLedger();
+        private readonly object stateGate = new object();
+        private readonly Func<PlagueProjectileIdentity, bool> isLivingProjectile;
+        private volatile bool correctionEnabled;
         private readonly HashSet<int> managedPlayerIds = new HashSet<int>();
         private readonly Dictionary<int, int> popularityCallbackCounts = new Dictionary<int, int>();
         private readonly Dictionary<int, int> correctedCallbackCounts = new Dictionary<int, int>();
         private readonly Dictionary<int, int> diagnosticRevisions = new Dictionary<int, int>();
         private readonly Dictionary<int, int> loggedDiagnosticRevisions = new Dictionary<int, int>();
-        private readonly Dictionary<int, int> warnedDiagnosticRevisions = new Dictionary<int, int>();
-        private readonly Dictionary<int, long> diagnosticStartedTimestamps = new Dictionary<int, long>();
+        private long diagnosticGeneration;
+        private readonly Dictionary<int, string> diagnosticTimers = new Dictionary<int, string>();
         private HookTransaction transaction;
         private readonly DetourHandle<CreateHerdDelegate> createHerdHook = new DetourHandle<CreateHerdDelegate>();
         private readonly HookHandle<X64InlineHook> popularityExitHook = new HookHandle<X64InlineHook>();
-        private HerdCapture currentCapture;
+        private volatile HerdCapture currentCapture;
         private bool saveHandlerRegistered;
-        private bool mapActive;
-        private bool correctionAvailable = true;
+        private volatile bool mapActive;
+        private volatile bool correctionAvailable = true;
         private bool callbackFailureLogged;
-        private int invalidPopularityCallbackCount;
-        private int lastInvalidPopularityCallbackPlayerId;
         private bool disposed;
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
@@ -81,6 +81,8 @@ namespace BugfixesAndQoL
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            isLivingProjectile = IsLivingDiseaseProjectile;
+            correctionEnabled = settings.EnableMod && settings.EnablePlaguePopularityFix;
 
             int createHerdRva = PlagueNativePatternValidator.Resolve(
                 log, memory, CreateHerdPattern, CreateHerdRva, referenceHashMatches, "plague herd creation");
@@ -113,7 +115,7 @@ namespace BugfixesAndQoL
                     .Where(args => args.Phase == EventHookPhase.Post)
                     .Subscribe(OnProjectileDelete));
                 subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(log, OnSessionStarted, ResetMapState));
-                GameTimeManagerAPI.Instance.OnTick += OnGameTick;
+                settings.SettingChanged += OnSettingChanged;
 
                 if (!ModSaveDataAPI.Instance.RegisterModDataHandler(
                         SaveDataIdentifier,
@@ -139,7 +141,7 @@ namespace BugfixesAndQoL
 
             disposed = true;
             correctionAvailable = false;
-            GameTimeManagerAPI.Instance.OnTick -= OnGameTick;
+            settings.SettingChanged -= OnSettingChanged;
             foreach (IDisposable subscription in subscriptions)
                 subscription.Dispose();
             subscriptions.Clear();
@@ -153,363 +155,368 @@ namespace BugfixesAndQoL
 
         private void CreatePlagueHerd(IntPtr diseaseManager, int buildingId)
         {
-            if (!correctionAvailable)
+            lock (stateGate)
             {
-                createHerdHook.Original(diseaseManager, buildingId);
-                return;
-            }
-
-            HerdCapture capture = null;
-            try
-            {
-                if (GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) &&
-                    building != null &&
-                    IsValidPlayerId(building->r_PlayerIdOwner))
+                if (!correctionAvailable)
                 {
-                    capture = new HerdCapture(
-                        buildingId,
-                        building->r_GlobalId,
-                        building->r_PlayerIdOwner,
-                        building->r_TilePositionXBegin,
-                        building->r_TilePositionYBegin);
-                }
-                else
-                {
-                    throw new InvalidOperationException(
-                        $"Vanilla selected an invalid plague source building: buildingId={buildingId}.");
-                }
-            }
-            catch (Exception ex)
-            {
-                DisableCorrectionToVanilla("plague source-player detection failed", ex);
-            }
-
-            HerdCapture previousCapture = currentCapture;
-            currentCapture = capture;
-            try
-            {
-                // Vanilla remains authoritative for all projectile creation.
-                createHerdHook.Original(diseaseManager, buildingId);
-            }
-            finally
-            {
-                currentCapture = previousCapture;
-            }
-
-            if (capture == null || !correctionAvailable)
-                return;
-
-            try
-            {
-                if (capture.Members.Count < MinimumProjectilesPerHerd ||
-                    capture.Members.Count > PlaguePopularitySaveLimitPolicy.GetCurrent().MaximumProjectilesPerHerd)
-                {
-                    throw new InvalidOperationException(
-                        $"Vanilla created an unexpected plague-herd size: " +
-                        $"playerId={capture.PlayerId}, projectileCount={capture.Members.Count}.");
+                    createHerdHook.Original(diseaseManager, buildingId);
+                    return;
                 }
 
-                herds.Add(new TrackedPlagueHerd(capture.PlayerId, capture.Members));
-                managedPlayerIds.Add(capture.PlayerId);
-                ArmPopularityDiagnostic(capture.PlayerId);
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    $"Plague herd captured: sourceBuildingId={capture.BuildingId}, " +
-                    $"sourceBuildingGlobalId={capture.BuildingGlobalId}, playerId={capture.PlayerId}, " +
-                    $"sourceTile=({capture.TileX},{capture.TileY}), projectileCount={capture.Members.Count}, " +
-                    $"projectiles={DescribeProjectiles(capture.Members)}, " +
-                    $"activeHerdsForPlayer={CountHerds(capture.PlayerId)}, " +
-                    $"popularityCallbacksObserved={DescribeCallbackCounts()}, " +
-                    $"mode={Shared.GameModeHelper.Capture().ToDiagnosticString()}.");
-            }
-            catch (Exception ex)
-            {
-                DisableCorrectionToVanilla("plague herd capture failed", ex);
+                HerdCapture capture = null;
+                try
+                {
+                    if (GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) &&
+                        building != null &&
+                        IsValidPlayerId(building->r_PlayerIdOwner))
+                    {
+                        capture = new HerdCapture(
+                            buildingId,
+                            building->r_GlobalId,
+                            building->r_PlayerIdOwner,
+                            building->r_TilePositionXBegin,
+                            building->r_TilePositionYBegin);
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException(
+                            $"Vanilla selected an invalid plague source building: buildingId={buildingId}.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    DisableCorrectionToVanilla("plague source-player detection failed", ex);
+                }
+
+                HerdCapture previousCapture = currentCapture;
+                currentCapture = capture;
+                try
+                {
+                    // Vanilla remains authoritative for all projectile creation.
+                    createHerdHook.Original(diseaseManager, buildingId);
+                }
+                finally
+                {
+                    currentCapture = previousCapture;
+                }
+
+                if (capture == null || !correctionAvailable)
+                    return;
+
+                try
+                {
+                    if (capture.Members.Count < MinimumProjectilesPerHerd ||
+                        capture.Members.Count > PlaguePopularitySaveLimitPolicy.GetCurrent().MaximumProjectilesPerHerd)
+                    {
+                        throw new InvalidOperationException(
+                            $"Vanilla created an unexpected plague-herd size: " +
+                            $"playerId={capture.PlayerId}, projectileCount={capture.Members.Count}.");
+                    }
+
+                    herds.Add(capture.PlayerId, capture.Members);
+                    managedPlayerIds.Add(capture.PlayerId);
+                    ArmPopularityDiagnostic(capture.PlayerId);
+                    if (correctionEnabled) LogDebug(
+                        () => $"Plague herd captured: sourceBuildingId={capture.BuildingId}, " +
+                        $"sourceBuildingGlobalId={capture.BuildingGlobalId}, playerId={capture.PlayerId}, " +
+                        $"sourceTile=({capture.TileX},{capture.TileY}), projectileCount={capture.Members.Count}, " +
+                        $"projectiles={DescribeProjectiles(capture.Members)}, " +
+                        $"activeHerdsForPlayer={CountHerds(capture.PlayerId)}, " +
+                        $"popularityCallbacksObserved={DescribeCallbackCounts()}, " +
+                        $"mode={Shared.GameModeHelper.Capture().ToDiagnosticString()}.");
+                }
+                catch (Exception ex)
+                {
+                    DisableCorrectionToVanilla("plague herd capture failed", ex);
+                }
             }
         }
 
         private void OnProjectileSpawn(ProjectileSpawnEventArgs args)
         {
-            HerdCapture capture = currentCapture;
-            if (!correctionAvailable || capture == null || args.ProjectileType != ProjectileType.Disease)
-                return;
-
-            try
+            if (!correctionAvailable || currentCapture == null || args.ProjectileType != ProjectileType.Disease) return;
+            lock (stateGate)
             {
-                if (args.ReturnValue <= 0 || args.ReturnValue > int.MaxValue)
-                    throw new InvalidOperationException($"Disease projectile returned an invalid slot ID: {args.ReturnValue}.");
+                HerdCapture capture = currentCapture;
+                if (!correctionAvailable || capture == null || args.ProjectileType != ProjectileType.Disease)
+                    return;
 
-                int projectileId = checked((int)args.ReturnValue);
-                if (!GameProjectileManagerAPI.Instance.TryGetProjectileById(projectileId, out GameProjectile* projectile) ||
-                    projectile == null ||
-                    projectile->r_ProjectileType != ProjectileType.Disease ||
-                    projectile->r_GlobalId == 0)
+                try
                 {
-                    throw new InvalidOperationException(
-                        $"Spawned Disease projectile could not be identified: projectileId={projectileId}.");
-                }
+                    if (args.ReturnValue <= 0 || args.ReturnValue > int.MaxValue)
+                        throw new InvalidOperationException($"Disease projectile returned an invalid slot ID: {args.ReturnValue}.");
 
-                capture.Add(projectileId, projectile->r_GlobalId);
-            }
-            catch (Exception ex)
-            {
-                DisableCorrectionToVanilla("Disease projectile capture failed", ex);
+                    int projectileId = checked((int)args.ReturnValue);
+                    if (!GameProjectileManagerAPI.Instance.TryGetProjectileById(projectileId, out GameProjectile* projectile) ||
+                        projectile == null ||
+                        projectile->r_ProjectileType != ProjectileType.Disease ||
+                        projectile->r_GlobalId == 0)
+                    {
+                        throw new InvalidOperationException(
+                            $"Spawned Disease projectile could not be identified: projectileId={projectileId}.");
+                    }
+
+                    capture.Add(projectileId, projectile->r_GlobalId);
+                }
+                catch (Exception ex)
+                {
+                    DisableCorrectionToVanilla("Disease projectile capture failed", ex);
+                }
             }
         }
 
         private void OnProjectileDelete(ProjectileDeleteEventArgs args)
         {
-            if (!correctionAvailable || herds.Count == 0)
-                return;
+            if (!correctionAvailable || herds.Count == 0) return;
+            lock (stateGate)
+            {
+                if (!correctionAvailable || herds.Count == 0)
+                    return;
 
-            try
-            {
-                RemoveProjectileSlot(args.ProjectileId);
-            }
-            catch (Exception ex)
-            {
-                DisableCorrectionToVanilla("Disease projectile deletion tracking failed", ex);
+                try
+                {
+                    herds.ReconcileDeletedSlot(args.ProjectileId, isLivingProjectile);
+                }
+                catch (Exception ex)
+                {
+                    DisableCorrectionToVanilla("Disease projectile deletion tracking failed", ex);
+                }
             }
         }
 
         private void OnSessionStarted(Shared.GameplaySessionStartedContext context)
         {
-            mapActive = true;
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"Plague popularity diagnostics armed: modEnabled={settings.EnableMod}, " +
-                $"fixEnabled={settings.EnablePlaguePopularityFix}, " +
-                $"source={context.Kind}, mode={context.Mode.ToDiagnosticString()}.");
+            lock (stateGate)
+            {
+                mapActive = true;
+                LogDebug(
+                    () => $"Plague popularity diagnostics armed: modEnabled={settings.EnableMod}, " +
+                    $"fixEnabled={settings.EnablePlaguePopularityFix}, " +
+                    $"source={context.Kind}, mode={context.Mode.ToDiagnosticString()}.");
+            }
         }
 
-        private void OnGameTick(int _)
+        private void OnSettingChanged(string propertyName)
         {
-            if (!mapActive || !correctionAvailable)
-                return;
-            // No herd and no managed player means there is no reconciliation or diagnosis work.
-            if (herds.Count == 0 && managedPlayerIds.Count == 0)
-                return;
-
-            try
+            if (propertyName != nameof(BugfixesAndQoLViewModel.EnableMod) &&
+                propertyName != nameof(BugfixesAndQoLViewModel.EnablePlaguePopularityFix)) return;
+            bool next = settings.EnableMod && settings.EnablePlaguePopularityFix;
+            lock (stateGate)
             {
-                if (herds.Count != 0)
-                    PruneInvalidProjectiles();
-                ReportMissingPopularityCallbacks();
-            }
-            catch (Exception ex)
-            {
-                DisableCorrectionToVanilla("plague projectile reconciliation failed", ex);
+                bool previous = correctionEnabled;
+                correctionEnabled = next;
+                if (!next) CancelAllDiagnostics();
+                else if (!previous && mapActive)
+                    foreach (int playerId in managedPlayerIds) ArmPopularityDiagnostic(playerId);
             }
         }
 
         private void CorrectPlaguePopularity(NativePointer<X64SmartCPUContext> context)
         {
-            if (!correctionAvailable || !mapActive)
-                return;
-
-            try
+            if (!correctionEnabled || !correctionAvailable || !mapActive) return;
+            lock (stateGate)
             {
-                X64SmartCPUContext* registers = context.Pointer;
-                int playerId = unchecked((int)(uint)registers->R14);
-                if (playerId >= 0 && playerId <= PlaguePopularitySaveLimitPolicy.GetCurrent().MaximumManagedPlayers)
-                    IncrementCount(popularityCallbackCounts, playerId);
-                else
-                {
-                    invalidPopularityCallbackCount++;
-                    lastInvalidPopularityCallbackPlayerId = playerId;
-                }
-                if (!managedPlayerIds.Contains(playerId))
+                if (!correctionEnabled || !correctionAvailable || !mapActive)
                     return;
 
-                int diagnosticRevision = GetCount(diagnosticRevisions, playerId);
-                if (!settings.EnableMod || !settings.EnablePlaguePopularityFix)
+                try
                 {
-                    if (GetCount(loggedDiagnosticRevisions, playerId) != diagnosticRevision)
+                    X64SmartCPUContext* registers = context.Pointer;
+                    int playerId = unchecked((int)(uint)registers->R14);
+                    if (!managedPlayerIds.Contains(playerId)) return;
+                    IncrementCount(popularityCallbackCounts, playerId);
+
+                    int diagnosticRevision = GetCount(diagnosticRevisions, playerId);
+                    // Read-only native validation makes natural expiry effective in the
+                    // same popularity pass even if no delete event was emitted.
+                    herds.ReconcilePlayer(playerId, isLivingProjectile);
+                    CancelDiagnostic(playerId);
+                    int herdCount = CountHerds(playerId);
+                    int desiredModifier = checked(-PopularityPointsPerHerd * herdCount);
+                    if (desiredModifier < short.MinValue)
+                        throw new OverflowException($"Too many simultaneous plague herds for player {playerId}: {herdCount}.");
+
+                    int vanillaModifier = (short)(ushort)registers->RAX;
+                    int currentPopularity = unchecked((int)(uint)registers->RDX);
+                    int correctedPopularity = checked(currentPopularity - vanillaModifier + desiredModifier);
+                    if (registers->R12 == 0)
+                        throw new InvalidOperationException("The native player-resource base register is null.");
+                    int* popularityAccumulator =
+                        (int*)(registers->R12 + registers->RBP + PopularityAccumulatorOffset);
+                    int accumulatorBefore = *popularityAccumulator;
+
+                    registers->RDX = unchecked((uint)correctedPopularity);
+                    registers->RAX =
+                        (registers->RAX & ~0xFFFFUL) |
+                        unchecked((ushort)(short)desiredModifier);
+                    // Vanilla stores each plague branch before the shared report write.
+                    // Keep the authoritative accumulator aligned with the corrected register.
+                    *popularityAccumulator = correctedPopularity;
+                    IncrementCount(correctedCallbackCounts, playerId);
+
+                    if (GetCount(correctedCallbackCounts, playerId) == 1 ||
+                        GetCount(loggedDiagnosticRevisions, playerId) != diagnosticRevision)
                     {
                         loggedDiagnosticRevisions[playerId] = diagnosticRevision;
-                        Shared.DebugLogHelper.LogWarning(
-                            log,
-                            $"Plague popularity callback skipped by settings: playerId={playerId}, " +
-                            $"modEnabled={settings.EnableMod}, fixEnabled={settings.EnablePlaguePopularityFix}, " +
+                        LogDebug(
+                            () => $"Plague popularity correction applied: playerId={playerId}, " +
+                            $"diagnosticRevision={diagnosticRevision}, herdCount={herdCount}, " +
+                            $"livingProjectiles={CountProjectiles(playerId)}, vanillaModifier={vanillaModifier}, " +
+                            $"desiredModifier={desiredModifier}, currentPopularity={currentPopularity}, " +
+                            $"accumulatorBefore={accumulatorBefore}, correctedPopularity={correctedPopularity}, " +
                             $"callbackCount={GetCount(popularityCallbackCounts, playerId)}, " +
-                            $"activeHerds={CountHerds(playerId)}.");
+                            $"correctedCallbackCount={GetCount(correctedCallbackCounts, playerId)}.");
                     }
-                    return;
                 }
-
-                // Read-only native validation makes natural expiry effective in the
-                // same popularity pass even if no delete event was emitted.
-                PruneInvalidProjectiles();
-                int herdCount = CountHerds(playerId);
-                int desiredModifier = checked(-PopularityPointsPerHerd * herdCount);
-                if (desiredModifier < short.MinValue)
-                    throw new OverflowException($"Too many simultaneous plague herds for player {playerId}: {herdCount}.");
-
-                int vanillaModifier = (short)(ushort)registers->RAX;
-                int currentPopularity = unchecked((int)(uint)registers->RDX);
-                int correctedPopularity = checked(currentPopularity - vanillaModifier + desiredModifier);
-                if (registers->R12 == 0)
-                    throw new InvalidOperationException("The native player-resource base register is null.");
-                int* popularityAccumulator =
-                    (int*)(registers->R12 + registers->RBP + PopularityAccumulatorOffset);
-                int accumulatorBefore = *popularityAccumulator;
-
-                registers->RDX = unchecked((uint)correctedPopularity);
-                registers->RAX =
-                    (registers->RAX & ~0xFFFFUL) |
-                    unchecked((ushort)(short)desiredModifier);
-                // Vanilla stores each plague branch before the shared report write.
-                // Keep the authoritative accumulator aligned with the corrected register.
-                *popularityAccumulator = correctedPopularity;
-                IncrementCount(correctedCallbackCounts, playerId);
-
-                if (GetCount(loggedDiagnosticRevisions, playerId) != diagnosticRevision)
+                catch (Exception ex)
                 {
-                    loggedDiagnosticRevisions[playerId] = diagnosticRevision;
-                    Shared.DebugLogHelper.LogDebug(
-                        log,
-                        $"Plague popularity correction applied: playerId={playerId}, " +
-                        $"diagnosticRevision={diagnosticRevision}, herdCount={herdCount}, " +
-                        $"livingProjectiles={CountProjectiles(playerId)}, vanillaModifier={vanillaModifier}, " +
-                        $"desiredModifier={desiredModifier}, currentPopularity={currentPopularity}, " +
-                        $"accumulatorBefore={accumulatorBefore}, correctedPopularity={correctedPopularity}, " +
-                        $"callbackCount={GetCount(popularityCallbackCounts, playerId)}, " +
-                        $"correctedCallbackCount={GetCount(correctedCallbackCounts, playerId)}.");
+                    DisableCorrectionToVanilla("plague popularity callback failed", ex);
                 }
-            }
-            catch (Exception ex)
-            {
-                DisableCorrectionToVanilla("plague popularity callback failed", ex);
             }
         }
 
         private byte[] SaveState(SaveContext context)
         {
-            if (!context.IsSaveFile || !mapActive || !correctionAvailable || managedPlayerIds.Count == 0)
-                return null;
-
-            try
+            lock (stateGate)
             {
-                PruneInvalidProjectiles();
-                int[] players = new int[managedPlayerIds.Count];
-                managedPlayerIds.CopyTo(players);
-                Array.Sort(players);
+                if (!context.IsSaveFile || !mapActive || !correctionAvailable || managedPlayerIds.Count == 0)
+                    return null;
 
-                PlagueHerdSaveRecord[] records = new PlagueHerdSaveRecord[herds.Count];
-                for (int herdIndex = 0; herdIndex < herds.Count; herdIndex++)
-                    records[herdIndex] = herds[herdIndex].ToSaveRecord();
-
-                return MessagePackSerializer.Serialize(new PlaguePopularitySaveState
+                try
                 {
-                    ManagedPlayerIds = players,
-                    Herds = records
-                });
-            }
-            catch (Exception ex)
-            {
-                DisableCorrectionToVanilla("plague state serialization failed", ex);
-                return null;
+                    herds.ReconcileAll(isLivingProjectile);
+                    int[] players = new int[managedPlayerIds.Count];
+                    managedPlayerIds.CopyTo(players);
+                    Array.Sort(players);
+
+                    PlagueHerdSaveRecord[] records = herds.ToSaveRecords();
+
+                    return MessagePackSerializer.Serialize(new PlaguePopularitySaveState
+                    {
+                        ManagedPlayerIds = players,
+                        Herds = records
+                    });
+                }
+                catch (Exception ex)
+                {
+                    DisableCorrectionToVanilla("plague state serialization failed", ex);
+                    return null;
+                }
             }
         }
 
         private void LoadState(byte[] bytes, LoadContext context)
         {
-            if (!context.IsSaveFile || !correctionAvailable)
-                return;
-
-            try
+            lock (stateGate)
             {
-                PlaguePopularitySaveState state =
-                    MessagePackSerializer.Deserialize<PlaguePopularitySaveState>(bytes);
-                ValidateSaveState(state);
+                if (!context.IsSaveFile || !correctionAvailable)
+                    return;
 
-                herds.Clear();
-                managedPlayerIds.Clear();
-                foreach (int playerId in state.ManagedPlayerIds)
-                    managedPlayerIds.Add(playerId);
-                foreach (PlagueHerdSaveRecord record in state.Herds)
+                try
                 {
-                    TrackedPlagueHerd herd = TrackedPlagueHerd.FromSaveRecord(record);
-                    herds.Add(herd);
-                    managedPlayerIds.Add(herd.PlayerId);
+                    PlaguePopularitySaveState state =
+                        MessagePackSerializer.Deserialize<PlaguePopularitySaveState>(bytes);
+                    ValidateSaveState(state);
+
+                    CancelAllDiagnostics();
+                    herds.Load(state.Herds);
+                    managedPlayerIds.Clear();
+                    foreach (int playerId in state.ManagedPlayerIds)
+                        managedPlayerIds.Add(playerId);
+                    foreach (PlagueHerdSaveRecord record in state.Herds)
+                        managedPlayerIds.Add(record.PlayerId);
+                    foreach (int playerId in managedPlayerIds)
+                        ArmPopularityDiagnostic(playerId);
                 }
-                foreach (int playerId in managedPlayerIds)
-                    ArmPopularityDiagnostic(playerId);
-            }
-            catch (Exception ex)
-            {
-                herds.Clear();
-                managedPlayerIds.Clear();
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Plague popularity state was rejected; this save keeps Vanilla plague behavior: {ex}");
+                catch (Exception ex)
+                {
+                    CancelAllDiagnostics();
+                    herds.Clear();
+                    managedPlayerIds.Clear();
+                    Shared.DebugLogHelper.LogError(
+                        log,
+                        $"Plague popularity state was rejected; this save keeps Vanilla plague behavior: {ex}");
+                }
             }
         }
 
         private void ResetMapState()
         {
-            mapActive = false;
-            currentCapture = null;
-            herds.Clear();
-            managedPlayerIds.Clear();
-            popularityCallbackCounts.Clear();
-            correctedCallbackCounts.Clear();
-            diagnosticRevisions.Clear();
-            loggedDiagnosticRevisions.Clear();
-            warnedDiagnosticRevisions.Clear();
-            diagnosticStartedTimestamps.Clear();
-            invalidPopularityCallbackCount = 0;
-            lastInvalidPopularityCallbackPlayerId = 0;
+            lock (stateGate)
+            {
+                mapActive = false;
+                currentCapture = null;
+                herds.Clear();
+                managedPlayerIds.Clear();
+                popularityCallbackCounts.Clear();
+                correctedCallbackCounts.Clear();
+                diagnosticRevisions.Clear();
+                loggedDiagnosticRevisions.Clear();
+                CancelAllDiagnostics();
+            }
+        }
+
+        private void LogDebug(Func<string> messageFactory)
+        {
+            try { Shared.DebugLogHelper.LogDebug(log, messageFactory); }
+            catch { /* Logging cannot invalidate native state or a successful correction. */ }
         }
 
         private void ArmPopularityDiagnostic(int playerId)
         {
-            diagnosticRevisions[playerId] = GetCount(diagnosticRevisions, playerId) + 1;
-            diagnosticStartedTimestamps[playerId] = Stopwatch.GetTimestamp();
-        }
-
-        private void ReportMissingPopularityCallbacks()
-        {
-            long now = Stopwatch.GetTimestamp();
-            foreach (int playerId in managedPlayerIds)
+            if (!correctionEnabled || !correctionAvailable) return;
+            CancelDiagnostic(playerId);
+            int revision = GetCount(diagnosticRevisions, playerId) + 1;
+            diagnosticRevisions[playerId] = revision;
+            long generation = diagnosticGeneration;
+            try
             {
-                int revision = GetCount(diagnosticRevisions, playerId);
-                if (revision == 0 || GetCount(loggedDiagnosticRevisions, playerId) == revision ||
-                    GetCount(warnedDiagnosticRevisions, playerId) == revision ||
-                    !diagnosticStartedTimestamps.TryGetValue(playerId, out long started) ||
-                    (now - started) * 1000L <
-                        MissingPopularityCallbackWarningMilliseconds * Stopwatch.Frequency)
-                {
-                    continue;
-                }
-
-                warnedDiagnosticRevisions[playerId] = revision;
-                Shared.DebugLogHelper.LogWarning(
-                    log,
-                    $"No plague popularity correction callback was observed within " +
-                    $"{MissingPopularityCallbackWarningMilliseconds} ms after herd capture: " +
-                    $"playerId={playerId}, diagnosticRevision={revision}, " +
-                    $"activeHerds={CountHerds(playerId)}, livingProjectiles={CountProjectiles(playerId)}, " +
-                    $"popularityCallbacksObserved={DescribeCallbackCounts()}, " +
-                    $"modEnabled={settings.EnableMod}, fixEnabled={settings.EnablePlaguePopularityFix}, " +
-                    $"mode={Shared.GameModeHelper.Capture().ToDiagnosticString()}.");
+                diagnosticTimers[playerId] = GameTimeManagerAPI.Instance.GetTimerEngine().AddDelayedAction(
+                    MissingPopularityCallbackWarningMilliseconds,
+                    () => ReportMissingPopularityCallback(playerId, revision, generation), null);
+            }
+            catch (Exception ex)
+            {
+                // Diagnostics must never disable a working gameplay correction.
+                Shared.DebugLogHelper.LogWarning(log, "Plague callback watchdog could not be armed: " + ex);
             }
         }
 
-        private int CountProjectiles(int playerId)
+        private void CancelDiagnostic(int playerId)
         {
-            int count = 0;
-            for (int herdIndex = 0; herdIndex < herds.Count; herdIndex++)
-            {
-                if (herds[herdIndex].PlayerId == playerId)
-                    count += herds[herdIndex].Members.Count;
-            }
-            return count;
+            if (!diagnosticTimers.TryGetValue(playerId, out string handle)) return;
+            diagnosticTimers.Remove(playerId);
+            GameTimeManagerAPI.Instance.GetTimerEngine().RemoveAction(handle);
         }
+
+        private void CancelAllDiagnostics()
+        {
+            diagnosticGeneration++;
+            foreach (string handle in diagnosticTimers.Values)
+                GameTimeManagerAPI.Instance.GetTimerEngine().RemoveAction(handle);
+            diagnosticTimers.Clear();
+        }
+
+        private void ReportMissingPopularityCallback(int playerId, int revision, long generation)
+        {
+            lock (stateGate)
+            {
+                if (!correctionEnabled || !correctionAvailable || !mapActive ||
+                    diagnosticGeneration != generation || GetCount(diagnosticRevisions, playerId) != revision) return;
+                diagnosticTimers.Remove(playerId);
+                if (GetCount(loggedDiagnosticRevisions, playerId) == revision) return;
+                Shared.DebugLogHelper.LogWarning(log,
+                    $"No plague popularity correction callback was observed within {MissingPopularityCallbackWarningMilliseconds} ms of simulation time: " +
+                    $"playerId={playerId}, diagnosticRevision={revision}, activeHerds={CountHerds(playerId)}, " +
+                    $"livingProjectiles={CountProjectiles(playerId)}, popularityCallbacksObserved={DescribeCallbackCounts()}.");
+            }
+        }
+
+        private int CountProjectiles(int playerId) => herds.CountProjectiles(playerId);
 
         private string DescribeCallbackCounts()
         {
-            if (popularityCallbackCounts.Count == 0 && invalidPopularityCallbackCount == 0)
+            if (popularityCallbackCounts.Count == 0)
                 return "[]";
 
             List<int> playerIds = new List<int>(popularityCallbackCounts.Keys);
@@ -517,18 +524,13 @@ namespace BugfixesAndQoL
             List<string> descriptions = new List<string>(playerIds.Count);
             foreach (int playerId in playerIds)
                 descriptions.Add($"P{playerId}={popularityCallbackCounts[playerId]}");
-            if (invalidPopularityCallbackCount != 0)
-            {
-                descriptions.Add(
-                    $"invalid={invalidPopularityCallbackCount}/lastRaw={lastInvalidPopularityCallbackPlayerId}");
-            }
             return "[" + string.Join(",", descriptions) + "]";
         }
 
-        private static string DescribeProjectiles(List<ProjectileIdentity> members)
+        private static string DescribeProjectiles(List<PlagueProjectileIdentity> members)
         {
             List<string> descriptions = new List<string>(members.Count);
-            foreach (ProjectileIdentity member in members)
+            foreach (PlagueProjectileIdentity member in members)
                 descriptions.Add($"{member.SlotId}/{member.GlobalId}");
             return "[" + string.Join(",", descriptions) + "]";
         }
@@ -539,29 +541,7 @@ namespace BugfixesAndQoL
         private static void IncrementCount(Dictionary<int, int> counts, int playerId) =>
             counts[playerId] = GetCount(counts, playerId) + 1;
 
-        private void PruneInvalidProjectiles()
-        {
-            for (int herdIndex = herds.Count - 1; herdIndex >= 0; herdIndex--)
-            {
-                TrackedPlagueHerd herd = herds[herdIndex];
-                for (int memberIndex = herd.Members.Count - 1; memberIndex >= 0; memberIndex--)
-                {
-                    ProjectileIdentity member = herd.Members[memberIndex];
-                    if (!IsLivingDiseaseProjectile(member))
-                        herd.Members.RemoveAt(memberIndex);
-                }
-
-                if (herd.Members.Count == 0)
-                {
-                    bool lastHerdForPlayer = CountHerds(herd.PlayerId) == 1;
-                    herds.RemoveAt(herdIndex);
-                    if (lastHerdForPlayer)
-                        LogHerdEnded(herd.PlayerId, "projectile reconciliation");
-                }
-            }
-        }
-
-        private bool IsLivingDiseaseProjectile(ProjectileIdentity member)
+        private bool IsLivingDiseaseProjectile(PlagueProjectileIdentity member)
         {
             return GameProjectileManagerAPI.Instance.TryGetProjectileById(member.SlotId, out GameProjectile* projectile) &&
                 projectile != null &&
@@ -572,56 +552,7 @@ namespace BugfixesAndQoL
                 projectile->r_GlobalId == member.GlobalId;
         }
 
-        private void RemoveProjectileSlot(int projectileId)
-        {
-            for (int herdIndex = herds.Count - 1; herdIndex >= 0; herdIndex--)
-            {
-                TrackedPlagueHerd herd = herds[herdIndex];
-                List<ProjectileIdentity> members = herd.Members;
-                for (int memberIndex = members.Count - 1; memberIndex >= 0; memberIndex--)
-                {
-                    if (members[memberIndex].SlotId == projectileId)
-                    {
-                        members.RemoveAt(memberIndex);
-                        if (members.Count == 0)
-                        {
-                            bool lastHerdForPlayer = CountHerds(herd.PlayerId) == 1;
-                            herds.RemoveAt(herdIndex);
-                            if (lastHerdForPlayer)
-                                LogHerdEnded(herd.PlayerId, $"projectile delete event for slot {projectileId}");
-                        }
-                        return;
-                    }
-                }
-            }
-        }
-
-        private void LogHerdEnded(int playerId, string reason)
-        {
-            int revision = GetCount(diagnosticRevisions, playerId);
-            bool correctionObserved = GetCount(loggedDiagnosticRevisions, playerId) == revision;
-            string message =
-                $"Plague herd ended: playerId={playerId}, reason={reason}, " +
-                $"diagnosticRevision={revision}, correctionObserved={correctionObserved}, " +
-                $"callbackCount={GetCount(popularityCallbackCounts, playerId)}, " +
-                $"correctedCallbackCount={GetCount(correctedCallbackCounts, playerId)}, " +
-                $"popularityCallbacksObserved={DescribeCallbackCounts()}.";
-            if (correctionObserved)
-                Shared.DebugLogHelper.LogDebug(log, message);
-            else
-                Shared.DebugLogHelper.LogWarning(log, message);
-        }
-
-        private int CountHerds(int playerId)
-        {
-            int count = 0;
-            for (int index = 0; index < herds.Count; index++)
-            {
-                if (herds[index].PlayerId == playerId)
-                    count++;
-            }
-            return count;
-        }
+        private int CountHerds(int playerId) => herds.CountHerds(playerId);
 
         private static void ValidateSaveState(PlaguePopularitySaveState state)
         {
@@ -666,6 +597,7 @@ namespace BugfixesAndQoL
         private void DisableCorrectionToVanilla(string reason, Exception ex)
         {
             correctionAvailable = false;
+            CancelAllDiagnostics();
             currentCapture = null;
             if (callbackFailureLogged)
                 return;
@@ -696,7 +628,7 @@ namespace BugfixesAndQoL
                 PlayerId = playerId;
                 TileX = tileX;
                 TileY = tileY;
-                Members = new List<ProjectileIdentity>(
+                Members = new List<PlagueProjectileIdentity>(
                     PlaguePopularitySaveLimitPolicy.GetCurrent().MaximumProjectilesPerHerd);
             }
 
@@ -705,7 +637,7 @@ namespace BugfixesAndQoL
             public int PlayerId { get; }
             public ushort TileX { get; }
             public ushort TileY { get; }
-            public List<ProjectileIdentity> Members { get; }
+            public List<PlagueProjectileIdentity> Members { get; }
 
             public void Add(int slotId, uint globalId)
             {
@@ -714,57 +646,9 @@ namespace BugfixesAndQoL
                     if (Members[index].SlotId == slotId && Members[index].GlobalId == globalId)
                         return;
                 }
-                Members.Add(new ProjectileIdentity(slotId, globalId));
+                Members.Add(new PlagueProjectileIdentity(slotId, globalId));
             }
         }
 
-        private sealed class TrackedPlagueHerd
-        {
-            public TrackedPlagueHerd(int playerId, List<ProjectileIdentity> members)
-            {
-                PlayerId = playerId;
-                Members = members ?? throw new ArgumentNullException(nameof(members));
-            }
-
-            public int PlayerId { get; }
-            public List<ProjectileIdentity> Members { get; }
-
-            public PlagueHerdSaveRecord ToSaveRecord()
-            {
-                int[] slots = new int[Members.Count];
-                uint[] globals = new uint[Members.Count];
-                for (int index = 0; index < Members.Count; index++)
-                {
-                    slots[index] = Members[index].SlotId;
-                    globals[index] = Members[index].GlobalId;
-                }
-                return new PlagueHerdSaveRecord
-                {
-                    PlayerId = PlayerId,
-                    ProjectileSlotIds = slots,
-                    ProjectileGlobalIds = globals
-                };
-            }
-
-            public static TrackedPlagueHerd FromSaveRecord(PlagueHerdSaveRecord record)
-            {
-                List<ProjectileIdentity> members = new List<ProjectileIdentity>(record.ProjectileSlotIds.Length);
-                for (int index = 0; index < record.ProjectileSlotIds.Length; index++)
-                    members.Add(new ProjectileIdentity(record.ProjectileSlotIds[index], record.ProjectileGlobalIds[index]));
-                return new TrackedPlagueHerd(record.PlayerId, members);
-            }
-        }
-
-        private readonly struct ProjectileIdentity
-        {
-            public ProjectileIdentity(int slotId, uint globalId)
-            {
-                SlotId = slotId;
-                GlobalId = globalId;
-            }
-
-            public int SlotId { get; }
-            public uint GlobalId { get; }
-        }
     }
 }
