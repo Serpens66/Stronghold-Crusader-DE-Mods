@@ -1,3 +1,4 @@
+using APIShared.GameModes;
 // Feature: Register the controlled Lord with APIShared's process-wide HUD pipeline.
 using APIShared;
 using BepInEx.Logging;
@@ -62,7 +63,7 @@ namespace BugfixesAndQoL
         {
             if (!settings.EnableMod || !settings.EnableLordUnitControls || !unit.IsAlive || unit.VanillaType != (int)eChimps.CHIMP_TYPE_LORD)
                 return false;
-            int playerId = Shared.GameModeHelper.IsMapEditor()
+            int playerId = APIShared.GameModes.GameModeHelper.IsMapEditor()
                 ? (EditorDirector.instance?.ActivePlayerID ?? -1)
                 : (GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? -1);
             return playerId > 0 && unit.OwnerPlayerId == playerId &&
@@ -71,7 +72,7 @@ namespace BugfixesAndQoL
 
         private static unsafe ImageSource ResolveLordIcon()
         {
-            int playerId = Shared.GameModeHelper.IsMapEditor()
+            int playerId = APIShared.GameModes.GameModeHelper.IsMapEditor()
                 ? (EditorDirector.instance?.ActivePlayerID ?? 0)
                 : (GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? 0);
             int colorId = 0;

@@ -1,3 +1,4 @@
+using APIShared.SerpsMods;
 using BepInEx.Logging;
 using MonoMod.RuntimeDetour;
 using R3;
@@ -63,9 +64,9 @@ namespace CheatMod
 
         private void BeginMap()
         {
-            mapActive = Shared.GameplayFeatureModePolicy.IsAllowed(
+            mapActive = APIShared.SerpsMods.GameplayFeatureModePolicy.IsAllowed(
                 CheatModPlugin.PluginGuid,
-                Shared.GameplayFeatureId.EndlessExtremePowersRecharge,
+                APIShared.SerpsMods.GameplayFeatureId.EndlessExtremePowersRecharge,
                 Shared.GameplayModActivationGate.Snapshot);
             RefreshTickSubscription("map start");
             Shared.DebugLogHelper.LogDebug(

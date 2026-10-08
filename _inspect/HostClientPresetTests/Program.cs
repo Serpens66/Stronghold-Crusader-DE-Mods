@@ -1,3 +1,6 @@
+using APIShared.GameModes;
+using APIShared.ModSettings;
+using APIShared.SerpsMods;
 using MessagePack;
 using APIShared;
 using BugfixesAndQoL;
@@ -1349,9 +1352,9 @@ internal static class Program
             coopTrailID = 0
         };
         GameplayModActivationProfile extraFeaturesProfile =
-            GameplayModModePolicy.GetProfile("ExtraFeatures_Serp", "Extra Features");
+            SerpsModProfiles.GetProfile("ExtraFeatures_Serp", "Extra Features");
         GameplayModActivationProfile buildingCostsProfile =
-            GameplayModModePolicy.GetProfile("BuildingCosts_Serp", "Building Costs");
+            SerpsModProfiles.GetProfile("BuildingCosts_Serp", "Building Costs");
         GameplayFeatureActivationProfile lordHealthProfile =
             GameplayFeatureModePolicy.GetProfile("ExtraFeatures_Serp", GameplayFeatureId.LordHealthMultipliers);
         foreach (bool multiplayer in new[] { false, true })
@@ -1407,7 +1410,7 @@ internal static class Program
         }
         var tutorial = GameModeHelper.CaptureMission(false, false, 0, -1, false,
             new EngineInterface.LoadMapReturnData { game_type = (int)Enums.eGameTypeModes.GAMETYPE_TUTORIAL }, GameModeKind.Tutorial);
-        Check(!GameplayModModePolicy.IsAllowed(GameplayModModePolicy.GetProfile("ExtraFeatures_Serp", "Extra"), tutorial, out _),
+        Check(!GameplayModModePolicy.IsAllowed(SerpsModProfiles.GetProfile("ExtraFeatures_Serp", "Extra"), tutorial, out _),
             "Recognizing tutorials silently enabled regular gameplay mods");
         foreach (bool restored in new[] { false, true })
         {
@@ -1520,7 +1523,7 @@ internal static class Program
         };
 
         GameplayModActivationProfile castlePlannerProfile =
-            GameplayModModePolicy.GetProfile("CastlePlanner_Serp", "Castle Planner");
+            SerpsModProfiles.GetProfile("CastlePlanner_Serp", "Castle Planner");
         Check(recognizedDirectModes.All(mode =>
                   !GameplayModModePolicy.IsAllowed(castlePlannerProfile, mode, out _)),
             "CastlePlanner's general gameplay functions were enabled by the Blueprint-only direct-mode exception");
@@ -1713,8 +1716,19 @@ internal static class Program
             { "UnitCosts", "UnitCostsRuntime.cs", "UnitCosts_Serp" },
             { "UnitLimit", "UnitLimitRuntime.cs", "UnitLimit_Serp" }
         };
+        var foreignProfile = new GameplayModActivationProfile("Foreign.Author.Policy", "Foreign policy",
+            GameplayModAllowedContext.CustomGame | GameplayModAllowedContext.MapEditor, allowRealMultiplayer: false);
+        Check(GameplayModModePolicy.IsAllowed(foreignProfile, CaptureModeFixture(editor: true), out _),
+            "foreign caller-defined profile must permit its chosen editor context");
+        Check(!GameplayModModePolicy.IsAllowed(foreignProfile, default(GameModeSnapshot), out _),
+            "foreign optional profile must reject unknown contexts");
+        Check(!GameplayModModePolicy.IsAllowed(foreignProfile, CaptureModeFixture(multiplayer: true), out string multiplayerReason) &&
+              multiplayerReason == "profile-does-not-allow-real-multiplayer",
+            "foreign profile must reject real multiplayer even when its game context is permitted");
+        Check(GameplayModModePolicy.IsAllowed(foreignProfile, CaptureModeFixture(), out _),
+            "foreign profile must continue permitting ordinary local custom games");
         string policySource = File.ReadAllText(
-            Path.Combine(workspaceRoot, "APIShared", "src", "GameplayModModePolicy.cs"));
+            Path.Combine(workspaceRoot, "APIShared", "src", "SerpsMods", "SerpsModProfiles.cs"));
 
         for (int index = 0; index < gameplayMods.GetLength(0); index++)
         {
@@ -1763,7 +1777,7 @@ internal static class Program
             "gameplay gate logging or non-mutating settings contract regressed");
 
         string featurePolicySource = File.ReadAllText(
-            Path.Combine(workspaceRoot, "APIShared", "src", "GameplayFeatureModePolicy.cs"));
+            Path.Combine(workspaceRoot, "APIShared", "src", "SerpsMods", "GameplayFeatureModePolicy.cs"));
         foreach (string expectedFeature in Enum.GetNames(typeof(GameplayFeatureId)))
         {
             Check(featurePolicySource.Contains(expectedFeature),
@@ -2213,7 +2227,7 @@ internal static class Program
                 fileName + " still restricts a transferred BugfixesAndQoL feature by game mode");
         }
         string gameplayFeaturePolicySource = File.ReadAllText(
-            Path.Combine(workspaceRoot, "APIShared", "src", "GameplayFeatureModePolicy.cs"));
+            Path.Combine(workspaceRoot, "APIShared", "src", "SerpsMods", "GameplayFeatureModePolicy.cs"));
         Check(!gameplayFeaturePolicySource.Contains("AIQuarryPileTowardsKeep"),
             "AI quarry-pile placement still has a restrictive per-feature game-mode policy");
 
@@ -5699,8 +5713,7 @@ internal static class Program
               !lifecycle.Contains("RegisterModDataHandler"),
             "Shared gameplay lifecycle no longer gates successful save Post, reacts to nested unloads, or introduced persistence");
 
-        string coordinator = File.ReadAllText(
-            Path.Combine(workspaceRoot, "APIShared", "src", "PresetLobbyModSettingsViewModel.cs"));
+        string coordinator = string.Join("\n", Directory.GetFiles(Path.GetDirectoryName(Path.Combine(workspaceRoot, "APIShared", "src", "ModSettings", "PresetLobbyModSettingsViewModel.cs")), "*.cs").Select(File.ReadAllText));
         Check(coordinator.Contains("TryGetLobbyState") &&
               coordinator.Contains("API_SHARED_LOBBY_OBSERVER") &&
               !coordinator.Contains("Application.onBeforeRender") &&
@@ -6836,8 +6849,8 @@ internal sealed class GameData
     public bool IsSandsOfTime() =>
         game_type == (int)Enums.eGameTypeModes.GAMETYPE_MULTIPLAYER &&
         SkirmishGameType == (int)Enums.eSkirmishGameMode.SKIRMISH_GAME_TRAIL &&
-        SkirmishTrailType >= (int)Shared.GameTrailType.SandsOne &&
-        SkirmishTrailType <= (int)Shared.GameTrailType.SandsEight;
+        SkirmishTrailType >= (int)APIShared.GameModes.GameTrailType.SandsOne &&
+        SkirmishTrailType <= (int)APIShared.GameModes.GameTrailType.SandsEight;
 }
 
 internal static class Enums

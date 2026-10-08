@@ -1,3 +1,4 @@
+using APIShared.ModSettings;
 using CrusaderDE;
 using System;
 using System.Collections.Generic;

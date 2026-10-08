@@ -32,7 +32,7 @@ internal static partial class Program
         string publishing = string.Join("\n", publication.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
             .Where(m => m.Identifier.Text is "BuildPathWithCompletedMoatRouteVariant" or "BeginAssassinRoutePublication")
             .Select(m => m.ToFullString()));
-        var api = CSharpSyntaxTree.ParseText(Read("APIShared/src/AssassinPathAPI.cs"));
+        var api = CSharpSyntaxTree.ParseText(Read("APIShared/src/Pathfinding/AssassinPathAPI.cs"));
         string boundary = string.Join("\n", api.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
             .Where(m => m.Identifier.Text is "TryStageWeightedRoute" or "TryGetCurrentWeightedRequest")
             .Select(m => m.ToFullString()));
@@ -71,8 +71,8 @@ internal static partial class Program
     }finally{frame.Leave();}
    }finally{direct.Release();}
 """);
-        string[] files = { "APIShared/src/AssassinRouteHandoff.cs", "APIShared/src/AssassinGateTransitionPolicy.cs", "APIShared/src/TemporaryGateRouteAcceptanceBridge.cs",
-            "APIShared/src/EnemyGatePathPolicyBridge.cs", "BugfixesAndQoL/src/AssassinGateRoutePolicy.cs",
+        string[] files = { "APIShared/src/Pathfinding/AssassinRouteHandoff.cs", "APIShared/src/Pathfinding/AssassinGateTransitionPolicy.cs", "APIShared/src/Pathfinding/TemporaryGateRouteAcceptanceBridge.cs",
+            "APIShared/src/Pathfinding/EnemyGatePathPolicyBridge.cs", "BugfixesAndQoL/src/AssassinGateRoutePolicy.cs",
             "BugfixesAndQoL/src/AssassinPathfindingRuntime.CacheKeys.cs", "BugfixesAndQoL/src/AssassinAStarPolicy.cs",
             "BugfixesAndQoL/src/AssassinClimbCostPolicy.cs", "BugfixesAndQoL/src/AssassinClimbTransitionPolicy.cs",
             "BugfixesAndQoL/src/AssassinRouteEncoding.cs" };

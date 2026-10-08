@@ -3,7 +3,7 @@
     "Name": "APIShared",
     "Guid": "APIShared_Serp",
     "Manifest": "APIShared\\info.json",
-    "Plugin": "APIShared\\src\\APISharedPlugin.cs",
+    "Plugin": "APIShared\\src\\Core\\APISharedPlugin.cs",
     "Project": "APIShared\\APIShared.csproj",
     "BuildDriver": "APIShared\\build.bat",
     "Package": "APIShared\\BepInEx\\plugins\\APIShared_Serp",

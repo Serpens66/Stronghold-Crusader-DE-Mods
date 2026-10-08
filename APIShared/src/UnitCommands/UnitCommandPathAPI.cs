@@ -5,7 +5,7 @@ using SHCDESE.API.LowLevel;
 namespace APIShared.UnitCommands
 {
     /// <summary>Process-owned native command dispatcher. Settings change logical policy only.</summary>
-    public static class UnitCommandPathAPI
+    internal static class UnitCommandPathAPI
     {
         private static readonly object Sync = new object();
         private static readonly List<UnitCommandPathRuntime> Candidates = new List<UnitCommandPathRuntime>();

@@ -23,7 +23,7 @@ $sourceRoot = Join-Path $workspace 'Testmods\FormationTest\src'
 if (Test-Path -LiteralPath (Join-Path $workspace 'APIShared\src\UnitCommands\FormationRuntime.cs')) {
     $sourceRoot = Join-Path $workspace 'APIShared\src\UnitCommands'
 }
-$source = [IO.File]::ReadAllText((Join-Path $sourceRoot $(if ($sourceRoot.EndsWith('UnitCommands')) { 'FormationRuntime.cs' } else { 'FormationTestRuntime.cs' }))) + [IO.File]::ReadAllText((Join-Path $workspace 'APIShared\src\UnitAccess.cs'))
+$source = [IO.File]::ReadAllText((Join-Path $sourceRoot $(if ($sourceRoot.EndsWith('UnitCommands')) { 'FormationRuntime.cs' } else { 'FormationTestRuntime.cs' }))) + [IO.File]::ReadAllText((Join-Path $workspace 'APIShared\src\Units\UnitAccess.cs'))
 $consumed = @([regex]::Matches($source, '\br_\w+') | ForEach-Object Value | Sort-Object -Unique)
 $rows = @()
 $expected = @{

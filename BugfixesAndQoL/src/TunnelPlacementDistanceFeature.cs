@@ -1,3 +1,4 @@
+using APIShared.GameModes;
 // Feature: Keep human-placed buildings clear of hostile completed moats.
 using BepInEx.Logging;
 using R3;
@@ -64,7 +65,7 @@ namespace BugfixesAndQoL
                 if (args == null ||
                     !settings.EnableMod ||
                     !settings.EnableTunnelPlacementDistanceFix ||
-                    Shared.GameModeHelper.IsMapEditor())
+                    APIShared.GameModes.GameModeHelper.IsMapEditor())
                 {
                     return;
                 }

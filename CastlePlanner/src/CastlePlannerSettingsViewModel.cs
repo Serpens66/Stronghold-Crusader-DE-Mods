@@ -1,3 +1,4 @@
+using APIShared.ModSettings;
 using BepInEx.Logging;
 using SHCDESE.API;
 using SHCDESE.API.Components.ModManager;
@@ -30,7 +31,7 @@ namespace CastlePlanner
         }
     }
 
-    public sealed class CastlePlannerSettingsViewModel : Shared.PresetLobbyModSettingsViewModel
+    public sealed class CastlePlannerSettingsViewModel : APIShared.ModSettings.PresetLobbyModSettingsViewModel
     {
         private readonly ManualLogSource log;
         private AivFileCatalog catalog = new AivFileCatalog();
@@ -332,7 +333,7 @@ namespace CastlePlanner
         public string CastleSectionTitleText => SerpLocalization.Get("CastlePlanner.CastleSectionTitle");
         public string PlacementControlsTitleText => SerpLocalization.Get("CastlePlanner.PlacementControlsTitle");
 
-        [Shared.PresetLocal]
+        [APIShared.ModSettings.PresetLocal]
         public bool EnableClientFeatures
         {
             get => enableClientFeatures;
@@ -392,7 +393,7 @@ namespace CastlePlanner
             }
         }
 
-        [Shared.PresetLocal]
+        [APIShared.ModSettings.PresetLocal]
         public bool Blueprints
         {
             get => blueprints;
@@ -412,7 +413,7 @@ namespace CastlePlanner
             }
         }
 
-        [Shared.PresetLocal]
+        [APIShared.ModSettings.PresetLocal]
         public bool BlueprintShowFortifications
         {
             get => blueprintShowFortifications;
@@ -422,7 +423,7 @@ namespace CastlePlanner
                 nameof(BlueprintShowFortifications));
         }
 
-        [Shared.PresetLocal]
+        [APIShared.ModSettings.PresetLocal]
         public bool BlueprintShowBuildings
         {
             get => blueprintShowBuildings;
@@ -432,7 +433,7 @@ namespace CastlePlanner
                 nameof(BlueprintShowBuildings));
         }
 
-        [Shared.PresetLocal]
+        [APIShared.ModSettings.PresetLocal]
         public bool BlueprintShowDefensiveGroundFeatures
         {
             get => blueprintShowDefensiveGroundFeatures;
@@ -442,7 +443,7 @@ namespace CastlePlanner
                 nameof(BlueprintShowDefensiveGroundFeatures));
         }
 
-        [Shared.PresetLocal]
+        [APIShared.ModSettings.PresetLocal]
         public bool BlueprintShowFearFactorBuildings
         {
             get => blueprintShowFearFactorBuildings;
@@ -554,7 +555,7 @@ namespace CastlePlanner
                 nameof(SpawnBraziersAndFlags));
         }
 
-        [Shared.PresetLocal]
+        [APIShared.ModSettings.PresetLocal]
         public string SelectedCastle
         {
             get => selectedCastle;
@@ -573,14 +574,14 @@ namespace CastlePlanner
             }
         }
 
-        [Shared.PresetLocal]
+        [APIShared.ModSettings.PresetLocal]
         public int BlueprintHotkey
         {
             get => blueprintHotkey;
             set => SetHotkey(NormalizeHotkey(value));
         }
 
-        [Shared.PresetLocal]
+        [APIShared.ModSettings.PresetLocal]
         public double BlueprintIconScale
         {
             get => blueprintIconScale;
@@ -597,7 +598,7 @@ namespace CastlePlanner
             }
         }
 
-        [Shared.PresetLocal]
+        [APIShared.ModSettings.PresetLocal]
         public double BlueprintIconAlpha
         {
             get => blueprintIconAlpha;

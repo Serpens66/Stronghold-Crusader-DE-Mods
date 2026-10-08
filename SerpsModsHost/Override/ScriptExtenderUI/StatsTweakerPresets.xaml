@@ -1,4 +1,4 @@
-<Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:sys="clr-namespace:System;assembly=mscorlib" xmlns:ui="clr-namespace:SHCDESE.UI;assembly=SHCDESE" xmlns:shared="clr-namespace:Shared;assembly=APIShared" xmlns:tip="clr-namespace:Shared;assembly=SerpsModsHost">
+<Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:sys="clr-namespace:System;assembly=mscorlib" xmlns:ui="clr-namespace:SHCDESE.UI;assembly=SHCDESE" xmlns:shared="clr-namespace:APIShared.ModSettings;assembly=APIShared" xmlns:tip="clr-namespace:Shared;assembly=SerpsModsHost">
   <Grid.Resources>
     <Style TargetType="{x:Type ToolTip}">
       <Setter Property="Background" Value="#FF1D1710" />

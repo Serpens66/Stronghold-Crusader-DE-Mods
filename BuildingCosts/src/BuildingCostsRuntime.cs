@@ -1,3 +1,4 @@
+using APIShared.SerpsMods;
 using CrusaderDE;
 using APIShared;
 using BepInEx.Logging;
@@ -480,9 +481,9 @@ namespace BuildingCosts
         {
             try
             {
-                if (!Shared.GameplayFeatureModePolicy.IsAllowed(
+                if (!APIShared.SerpsMods.GameplayFeatureModePolicy.IsAllowed(
                     BuildingCostsPlugin.PluginGuid,
-                    Shared.GameplayFeatureId.BuildingCostTooltip,
+                    APIShared.SerpsMods.GameplayFeatureId.BuildingCostTooltip,
                     Shared.GameplayModActivationGate.Snapshot))
                 {
                     ClearBuildingCostTooltip();

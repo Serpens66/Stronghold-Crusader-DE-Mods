@@ -1,3 +1,4 @@
+using APIShared.GameModes;
 // Feature: Restore Stronghold Crusader HD's product cycle in the detailed market view.
 using BepInEx.Logging;
 using CrusaderDE;
@@ -353,7 +354,7 @@ namespace BugfixesAndQoL
             }
         }
 
-        private static bool IsMapEditor() => Shared.GameModeHelper.IsMapEditor();
+        private static bool IsMapEditor() => APIShared.GameModes.GameModeHelper.IsMapEditor();
 
         private static unsafe bool IsSelectedTradepostControlled()
         {

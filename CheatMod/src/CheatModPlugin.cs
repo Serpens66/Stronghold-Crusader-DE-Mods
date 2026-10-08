@@ -1,3 +1,4 @@
+using APIShared.ModSettings;
 using BepInEx;
 using SHCDESE.API.LowLevel;
 using System;
@@ -42,7 +43,7 @@ namespace CheatMod
             try
             {
                 Shared.DebugLogHelper.ReportNativeLibraryVersion(Logger, PluginName);
-                Shared.LobbyModSettingsPresetRegistration.Register(
+                APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(
                     this,
                     Logger,
                     PluginGuid,

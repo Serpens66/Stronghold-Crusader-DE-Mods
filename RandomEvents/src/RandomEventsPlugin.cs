@@ -1,3 +1,4 @@
+using APIShared.ModSettings;
 using BepInEx;
 using SHCDESE.API;
 using SHCDESE.API.LowLevel;
@@ -42,7 +43,7 @@ namespace RandomEvents
 
             try
             {
-                Shared.LobbyModSettingsPresetRegistration.Register(
+                APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(
                     this,
                     Logger,
                     PluginGuid,

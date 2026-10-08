@@ -81,7 +81,6 @@ string[] runtimeSourceNames =
     "MoatPlacement.cs", "MoatPlacementSearch.cs",
     "MoatSearchKernel.cs", "MoatWorkTargetSelection.cs", "MovementOptionsSnapshot.cs",
     "MovementPathPublication.cs", "MovementSearchContext.cs", "NativeFormationSlots.cs",
-    "MoveFormationSpacingPolicy.cs",
     "NativeMovementCadenceResolver.cs", "NativeMovementRecovery.cs", "UnitMovementContext.cs",
     "WeightedMoatPublication.cs", "WeightedMoatRoutePlanner.cs"
 };
@@ -194,25 +193,24 @@ var comparisonPlannerClass = CSharpSyntaxTree.ParseText(GitSource("BugfixesAndQo
     .Replace("MoatSearchKernel", "ComparisonMoatSearchKernel");
 var comparisonPlannerTree = CSharpSyntaxTree.ParseText("using APIShared; using System; using System.Diagnostics; namespace MoatMove {" + comparisonPlannerClass + "}");
 var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
-    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared", "src", "UnitAccess.cs"))
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared", "src", "Units", "UnitAccess.cs"))
         .Replace("using SHCDESE.API;", "using GameUnitManagerAPI = MoatMove.GameUnitManagerAPI;")
         .Replace("using SHCDESE.Interop;", "using GameUnit = MoatMove.GameUnit;")
         .Replace("using SHCDESE.Interop.Enums;", "using AliveState = MoatMove.AliveState;")
         .Replace("public static unsafe class UnitAccess", "internal static unsafe class UnitAccess")),
     CSharpSyntaxTree.ParseText("namespace BepInEx.Logging { public class ManualLogSource { public void LogDebug(object message) { } } }"),
     
-    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared", "src", "EnemyGatePathPolicyBridge.cs"))),
-    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared", "src", "TemporaryGateRouteAcceptanceBridge.cs"))),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared", "src", "Pathfinding", "EnemyGatePathPolicyBridge.cs"))),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared", "src", "Pathfinding", "TemporaryGateRouteAcceptanceBridge.cs"))),
     CSharpSyntaxTree.ParseText("namespace APIShared {" + CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,
-        "APIShared/src/AssassinGateTransitionPolicy.cs"))).GetRoot().DescendantNodes().OfType<EnumDeclarationSyntax>()
+        "APIShared/src/Pathfinding/AssassinGateTransitionPolicy.cs"))).GetRoot().DescendantNodes().OfType<EnumDeclarationSyntax>()
         .Single(n => n.Identifier.Text == "AssassinTransitionKind") + "}"),
-    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared", "src", "AssassinRouteHandoff.cs"))),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared", "src", "Pathfinding", "AssassinRouteHandoff.cs"))),
     referenceTree,
     comparisonTree,
     comparisonPlannerTree,
     CSharpSyntaxTree.ParseText(extracted),
     CSharpSyntaxTree.ParseText(RuntimeSource("WeightedMoatRoutePlanner.cs")),
-    CSharpSyntaxTree.ParseText(RuntimeSource("MoveFormationPreviewPlanner.cs").Replace("using SHCDESE.API;", "").Replace("using SHCDESE.Interop.Enums;", "")),
     CSharpSyntaxTree.ParseText(RuntimeSource("MoatSearchKernel.cs")),
     CSharpSyntaxTree.ParseText(RuntimeSource("WeightedGridSearchKernel.cs")),
     CSharpSyntaxTree.ParseText(RuntimeSource("MoatCandidateField.cs")),
@@ -229,19 +227,19 @@ var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
     CSharpSyntaxTree.ParseText(RuntimeSource("FastGroupDistribution.cs").Replace("using SHCDESE.API;", "")),
     CSharpSyntaxTree.ParseText(RuntimeSource("FastIntegration.cs").Replace("using SHCDESE.API;", "")),
     CSharpSyntaxTree.ParseText(RuntimeSource("TraversalCommandState.cs")),
-    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/EnemyBridgeDiagnosticBridge.cs"))),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/Pathfinding/EnemyBridgeDiagnosticBridge.cs"))),
     CSharpSyntaxTree.ParseText(RuntimeSource("EnemyGatePolicyIntegration.cs")),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "FastStateTests.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "FastRouteFieldTests.cs"))),
     CSharpSyntaxTree.ParseText(RuntimeSource("MoatPlacementSearch.cs")),
     CSharpSyntaxTree.ParseText(RuntimeSource("NativeFormationSlots.cs").Replace("using SHCDESE.API;", "")),
-    CSharpSyntaxTree.ParseText(RuntimeSource("MoveFormationSpacingPolicy.cs")),
     CSharpSyntaxTree.ParseText(RuntimeSource("FillWeightedRoutes.cs").Replace("using SHCDESE.API;", "").Replace("using SHCDESE.Interop;", "").Replace("using SHCDESE.Interop.Enums;", "")),
     CSharpSyntaxTree.ParseText(RuntimeSource("MoatPlacement.cs").Replace("using SHCDESE.API;", "").Replace("using SHCDESE.EventAPI.Units;", "").Replace("using SHCDESE.Interop;", "").Replace("using SHCDESE.Interop.Enums;", "")),
     CSharpSyntaxTree.ParseText(RuntimeSource("CursorRegionGraph.cs")),
     CSharpSyntaxTree.ParseText(RuntimeSource("CursorConnectivity.cs").Replace("using SHCDESE.API;", "").Replace("using SHCDESE.Interop;", "").Replace("using SHCDESE.Interop.Enums;", "")),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "CursorTests.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "PlacementTests.cs"))),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "FormationBoundaryFixture.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "FillFormationTests.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "SearchKernelTests.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "RuntimeHarness.cs")), path: "RuntimeHarness.cs")

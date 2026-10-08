@@ -1,3 +1,4 @@
+using APIShared.GameModes;
 // Feature: Recreate a normal multiplayer lobby before the final statistics release the peers.
 using BepInEx.Logging;
 using CrusaderDE;
@@ -227,7 +228,7 @@ namespace BugfixesAndQoL
         {
             int coopTrailId = GameData.Instance?.coopTrailID ?? 0;
             Reset("map-start", clearContinuationId: coopTrailId <= 0);
-            CaptureSession(Shared.GameModeHelper.Capture(args.Context.IsSave && args.Context.Mode.IsRealMultiplayer), coopTrailId, "map-start-pre");
+            CaptureSession(APIShared.GameModes.GameModeHelper.Capture(args.Context.IsSave && args.Context.Mode.IsRealMultiplayer), coopTrailId, "map-start-pre");
         }
 
         private void OnSessionStarted(Shared.GameplaySessionStartedContext context)
@@ -241,7 +242,7 @@ namespace BugfixesAndQoL
             CaptureSession(context.Mode, coopTrailId, "session-start:" + context.Kind);
         }
 
-        private void CaptureSession(Shared.GameModeSnapshot mode, int coopTrailId, string source)
+        private void CaptureSession(APIShared.GameModes.GameModeSnapshot mode, int coopTrailId, string source)
         {
             supportedSession = MultiplayerLobbyReturnPolicy.IsSupportedSession(
                 settings.EnableMod,

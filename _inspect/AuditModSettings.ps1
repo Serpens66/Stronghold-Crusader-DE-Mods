@@ -91,7 +91,7 @@ $editableProxyBindings = @{
     CheatMod = @()
     CastlePlanner = @()
     ExtendedData = @('IsEnabled','SelectedCoopPackage','SelectedModeIndex')
-    ExtraFeatures = @('AIEnemyProximityMultiplayerValueText','AIEnemyProximitySingleplayerValueText','AITowerGateRebuildDelayValueText','AIGateClosingDistanceValueText','AIGateReopenDelayValueText','AILordHealthPercentText','ApothecaryPlagueSearchDistanceValueText','BuyMultiplier','BuyMultiplierValueText','CampfirePeasantsLimitText','GoldRefundPercentValueText','HumanEnemyProximityMultiplayerValueText','HumanEnemyProximitySingleplayerValueText','HumanGateClosingDistanceValueText','HumanGateReopenDelayValueText','HumanLordHealthPercentText','IronRefundPercentValueText','KnightTransformationDelayValueText','KnightTransformationGoldCostValueText','MarketBuyPriceMultiplierValueText','MarketSellPriceMultiplierValueText','MultiplyGoodsGainAIText','MultiplyGoodsGainHumanText','MultiplyGoodsGainInMoneyAIText','MultiplyGoodsGainInMoneyHumanText','PitchRefundPercentValueText','PlagueDurationMultiplierValueText','SellMultiplier','SellMultiplierValueText','StoneRefundPercentValueText','WoodRefundPercentValueText')
+    ExtraFeatures = @('AIEnemyProximityMultiplayerValueText','AIEnemyProximitySingleplayerValueText','AITowerGateRebuildDelayValueText','AIGateClosingDistanceValueText','AIGateReopenDelayValueText','AILordHealthPercentText','ApothecaryPlagueSearchDistanceValueText','BuyMultiplier','BuyMultiplierValueText','CampfirePeasantsLimitText','GoldRefundPercentValueText','HumanEnemyProximityMultiplayerValueText','HumanEnemyProximitySingleplayerValueText','HumanGateClosingDistanceValueText','HumanGateReopenDelayValueText','HumanLordHealthPercentText','IronRefundPercentValueText','KeepBuildRangeValueText','KnightTransformationDelayValueText','KnightTransformationGoldCostValueText','MarketBuyPriceMultiplierValueText','MarketSellPriceMultiplierValueText','MultiplyGoodsGainAIText','MultiplyGoodsGainHumanText','MultiplyGoodsGainInMoneyAIText','MultiplyGoodsGainInMoneyHumanText','PitchRefundPercentValueText','PlagueDurationMultiplierValueText','SellMultiplier','SellMultiplierValueText','StoneRefundPercentValueText','WoodRefundPercentValueText')
     ExtremePowers = @('ArrowDamageValueText','ArrowRadiusValueText','DemoOwnerIndex','DemoSpawnCountValueText','DemoSpriteIndex','DemoUnitTypeIndex','EngineersCountValueText','EngineersTypeIndex','GoldMaximumValueText','GoldMinimumValueText','HealAmountValueText','HealRadiusValueText','KnightsCountValueText','KnightsTypeIndex','MacemenCountValueText','MacemenTypeIndex','RegenerationPercentValueText','RockDamageValueText','RockRadiusValueText','SpearmenCountValueText','SpearmenTypeIndex')
     ImprovedHunters = @('CamelMeatText','ChickenMeatText','DeerMeatText','GoatMeatText','MaxNeutralChickensPerPlayerValueText','RabbitMeatText')
     RandomEvents = @('AppleBlightChanceValueText','ArcherMaxValueText','ArcherMinValueText','ArchersChanceValueText','BanditMaxValueText','BanditMinValueText','BanditsChanceValueText','BardChanceValueText','CooldownMonthsValueText','FairChanceValueText','FireChanceValueText','FireMaxValueText','FireMinValueText','GranaryTheftChanceValueText','HopsBeetlesChanceValueText','IntervalMonthsValueText','LionAttackChanceValueText','LionMaxValueText','LionMinValueText','MadCowsChanceValueText','MarriageChanceValueText','PlagueChanceValueText','PlagueMaxValueText','PlagueMinValueText','RabbitsChanceValueText','TheftMaxValueText','TheftMinValueText','TreeBlightChanceValueText','WheatInfestationChanceValueText')
@@ -592,7 +592,7 @@ foreach ($required in @(
     'Task.Run(() =>',
     'AivFileCatalog.PrepareDiscovery(',
     'PumpCastleCatalogLoad()',
-    '[Shared.PresetLocal]',
+    '[APIShared.ModSettings.PresetLocal]',
     'TryPrepareSelectedCastle(')) {
     if (-not $castleSettingsSource.Contains($required)) {
         throw "CastlePlanner fail-closed manifest marker is missing: $required"
@@ -1011,8 +1011,8 @@ foreach ($viewModelFile in $settingsViewModels) {
     }
 }
 
-$sharedSettingsSource = [IO.File]::ReadAllText((Join-Path $workspace 'APIShared/src/PresetLobbyModSettingsViewModel.cs'))
-$sharedLobbyStateSource = [IO.File]::ReadAllText((Join-Path $workspace 'APIShared/src/LobbyStateCapability.cs'))
+$sharedSettingsSource = [string]::Join([Environment]::NewLine, @(Get-ChildItem -LiteralPath (Join-Path $workspace 'APIShared/src/ModSettings') -Filter '*.cs' | Where-Object { $_.Name -like 'PresetLobbyModSettingsViewModel*' -or $_.Name -in @('PerPlayerLobbySettings.cs', 'LobbyModSettingsPresetRegistration.cs') } | ForEach-Object { [IO.File]::ReadAllText($_.FullName) }))
+$sharedLobbyStateSource = [IO.File]::ReadAllText((Join-Path $workspace 'APIShared/src/Lobby/LobbyStateCapability.cs'))
 foreach ($required in @(
     'ActivatePerPlayerLobbySettings',
     'PerPlayerLobbySettingsBuilder',
@@ -1027,7 +1027,7 @@ foreach ($required in @(
 if ($sharedSettingsSource.Contains('ScriptExtenderMultiplayerSyncWorkaround')) {
     throw 'APIShared settings still contain the obsolete pre-2.0.2 multiplayer-sync workaround.'
 }
-$sharedSearchSource = [IO.File]::ReadAllText((Join-Path $workspace 'APIShared/src/ModSettingsSearch.cs'))
+$sharedSearchSource = [IO.File]::ReadAllText((Join-Path $workspace 'APIShared/src/ModSettings/ModSettingsSearch.cs'))
 foreach ($required in @(
     'DependencyProperty.RegisterAttached(',
     'System_GetModSettingsSearchEntries',
@@ -1448,7 +1448,7 @@ foreach ($required in @(
 if ($sharedSettingsSource.Contains('sendPacketToSteamIdMethod')) {
     throw 'APIShared reliable lobby delivery must not route back through gameMembers-aware SendPacketToSteamId.'
 }
-$sharedGameModeSource = [IO.File]::ReadAllText((Join-Path $workspace 'APIShared/src/MissionModePolicy.cs'))
+$sharedGameModeSource = [IO.File]::ReadAllText((Join-Path $workspace 'APIShared/src/GameModes/MissionModePolicy.cs'))
 foreach ($required in @(
     'public static bool IsMapEditor()',
     'if (member.SkirmishMember)',
@@ -1466,7 +1466,7 @@ $unsafeEditorChecks = Get-ChildItem -LiteralPath $workspace -Directory |
 foreach ($sourceFile in $unsafeEditorChecks) {
     $sourceText = [IO.File]::ReadAllText($sourceFile.FullName)
     if ($sourceText.Contains('.IsMapEditorMode')) {
-        throw "$($sourceFile.FullName): use Shared.GameModeHelper.IsMapEditor() so early startup cannot construct MainViewModel."
+        throw "$($sourceFile.FullName): use APIShared.GameModes.GameModeHelper.IsMapEditor() so early startup cannot construct MainViewModel."
     }
 }
 if (Test-ModSelected 'CastlePlanner') {
@@ -1548,12 +1548,13 @@ $crlfTargets = @($settings.Values) + @(
             ForEach-Object { [IO.Path]::GetRelativePath($workspace, $_.FullName) }
     }
 ) + @(
-    'APIShared/src/PresetLobbyModSettingsViewModel.cs',
-    'APIShared/src/ModSettingsSearch.cs',
-    'Shared/GameModeHelper.cs',
+    'APIShared/src/ModSettings/PresetLobbyModSettingsViewModel.cs',
+    'APIShared/src/ModSettings/ModSettingsSearch.cs',
+    'APIShared/src/GameModes/MissionModePolicy.cs',
     'SerpsModsHost/src/ModSettingsSearchPolicy.cs',
     'SerpsModsHost/src/ModSettingsSearchViewModel.cs',
     '_inspect/HostClientPresetTests/Program.cs')
+$crlfTargets += @(Get-ChildItem -LiteralPath (Join-Path $workspace 'APIShared/src/ModSettings') -Filter '*.cs' | ForEach-Object { [IO.Path]::GetRelativePath($workspace, $_.FullName) })
 $crlfTargets += $selectedAdditionalCrlfTargets
 foreach ($relativePath in $crlfTargets) {
     $text = [IO.File]::ReadAllText((Join-Path $workspace $relativePath))

@@ -1,3 +1,5 @@
+using System.Linq;
+using APIShared.ModSettings;
 using ExtendedData.Core;
 using ExtendedData;
 using Shared;
@@ -1372,8 +1374,8 @@ static void TestCoordinatorOwnership()
     }
 
     string coordinator = File.ReadAllText(Path.Combine(projectRoot, "src", "TrailMissionSettingsCoordinator.cs"));
-    string sharedPresetSystem = File.ReadAllText(Path.Combine(workspaceRoot, "APIShared", "src", "PresetLobbyModSettingsViewModel.cs"));
-    string sharedGameMode = File.ReadAllText(Path.Combine(workspaceRoot, "APIShared", "src", "MissionModePolicy.cs"));
+    string sharedPresetSystem = string.Join("\n", Directory.GetFiles(Path.GetDirectoryName(Path.Combine(workspaceRoot, "APIShared", "src", "ModSettings", "PresetLobbyModSettingsViewModel.cs")), "*.cs").Select(File.ReadAllText));
+    string sharedGameMode = File.ReadAllText(Path.Combine(workspaceRoot, "APIShared", "src", "GameModes", "MissionModePolicy.cs"));
     Assert(CountOccurrences(coordinator, "InjectCoopCustomizeButton(pages[index]);") == 1,
         "Coop Trail button registration is not centralized and singular");
     Assert(CountOccurrences(coordinator, "nameof(Platform_Workshop.UploadWorkshopMap)") == 1 &&
@@ -1544,7 +1546,7 @@ static void TestCustomizedLaunchOriginIntegration()
     string coordinator = File.ReadAllText(Path.Combine(projectRoot, "src", "TrailMissionSettingsCoordinator.cs"));
     string runtime = File.ReadAllText(Path.Combine(projectRoot, "src", "ExtendedDataRuntime.cs"));
     string originPacket = File.ReadAllText(Path.Combine(projectRoot, "src", "BuiltInCustomizeOriginPacket.cs"));
-    string sharedGameMode = File.ReadAllText(Path.Combine(workspaceRoot, "APIShared", "src", "MissionModePolicy.cs"));
+    string sharedGameMode = File.ReadAllText(Path.Combine(workspaceRoot, "APIShared", "src", "GameModes", "MissionModePolicy.cs"));
     string project = File.ReadAllText(Path.Combine(projectRoot, "ExtendedData.csproj"));
 
     Assert(project.Contains("ExtendedDataLaunchOriginApi.cs") &&
@@ -2071,7 +2073,7 @@ static void TestLocalActivationSetting()
     string hostPlugin = File.ReadAllText(Path.Combine(workspaceRoot, "SerpsModsHost", "src", "SerpsModsHostPlugin.cs"));
     string xaml = File.ReadAllText(Path.Combine(root, "Override", "ScriptExtenderUI", "ExtendedDataSettings.xaml"));
 
-    Assert(viewModel.Contains("[Shared.PresetLocal]") && viewModel.Contains("public bool EnableClientFeatures"),
+    Assert(viewModel.Contains("[APIShared.ModSettings.PresetLocal]") && viewModel.Contains("public bool EnableClientFeatures"),
         "local activation setting is not preset-local");
     Assert(viewModel.Contains("[SyncHostOnly]") && viewModel.Contains("public bool EnableMod"),
         "host activation setting is not host-synchronised");
@@ -2213,8 +2215,7 @@ static void TestScriptExtenderManifestRangeContract()
     string plugin = File.ReadAllText(Path.Combine(root, "src", "ExtendedDataPlugin.cs"));
     string project = File.ReadAllText(Path.Combine(root, "ExtendedData.csproj"));
     string info = File.ReadAllText(Path.Combine(root, "info.json"));
-    string sharedPreset = File.ReadAllText(
-        Path.Combine(workspaceRoot, "APIShared", "src", "PresetLobbyModSettingsViewModel.cs"));
+    string sharedPreset = string.Join("\n", Directory.GetFiles(Path.GetDirectoryName(Path.Combine(workspaceRoot, "APIShared", "src", "ModSettings", "PresetLobbyModSettingsViewModel.cs")), "*.cs").Select(File.ReadAllText));
     using JsonDocument manifestJson = JsonDocument.Parse(info);
     string minimumExtenderVersion = manifestJson.RootElement
         .GetProperty("MinimumScriptExtenderVersion").GetString() ?? string.Empty;

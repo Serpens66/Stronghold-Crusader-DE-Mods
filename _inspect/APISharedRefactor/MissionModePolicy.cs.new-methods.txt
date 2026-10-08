@@ -1,0 +1,389 @@
+{
+    HasSaved = hasSaved;
+    Kind = kind;
+    Variant = variant;
+    Locked = locked;
+}
+===METHOD===
+=> APIShared.MissionLifecycleService.Snapshot
+===METHOD===
+=> CaptureCore(multiplayer && restoredSave, campaign, trail, editor, data, intent, multiplayer, coopTrail, restoredSave)
+===METHOD===
+{
+    if (kind == GameModeKind.CustomGame)
+        return true;
+    if (launchVariant == GameModeLaunchVariant.Standard)
+        return false;
+    return kind == GameModeKind.VanillaTrail || kind == GameModeKind.CustomTrail || kind == GameModeKind.CoopTrail || kind == GameModeKind.SandsOfTime;
+}
+===METHOD===
+=> kind == GameModeKind.MapEditor || AllowsCustomGameMods(kind, launchVariant)
+===METHOD===
+{
+    Director director = Director.instance;
+    GameData gameData = GameData.Instance;
+    Platform_Multiplayer platform = Platform_Multiplayer.Instance;
+    Platform_Multiplayer.MPLobby lobby = platform?.activeLobby;
+    int lobbyMembers = lobby?.members?.Count ?? -1;
+    int realLobbyMembers = 0;
+    int skirmishLobbyMembers = 0;
+    if (lobby?.members != null)
+    {
+        foreach (Platform_Multiplayer.MPLobbyMember member in lobby.members)
+        {
+            if (member == null)
+                continue;
+            if (member.SkirmishMember)
+                skirmishLobbyMembers++;
+            else
+                realLobbyMembers++;
+        }
+    }
+
+    int gameMembers = platform?.gameMembers?.Count ?? -1;
+    int realNetworkGameMembers = 0;
+    if (platform?.gameMembers != null)
+    {
+        foreach (Platform_Multiplayer.MPGameMember member in platform.gameMembers)
+        {
+            if (member != null && !member.skirmishAI && member.steamID > 1000)
+                realNetworkGameMembers++;
+        }
+    }
+
+    bool directorMultiplayer = director != null && director.MultiplayerGame;
+    // Entry-point evidence is authoritative. Old rosters and mode flags can
+    // survive a transition and must not turn a new local game into multiplayer.
+    bool platformMultiplayer = GameNetworkAPI.IsMultiplayerGame();
+    bool realMultiplayer = realMultiplayerOverride;
+    int gameType = data?.game_type ?? (intent == GameModeKind.Campaign ? (int)Enums.eGameTypeModes.GAMETYPE_CAMPAIGN : intent == GameModeKind.Tutorial ? (int)Enums.eGameTypeModes.GAMETYPE_TUTORIAL : intent == GameModeKind.StandaloneMission ? (int)Enums.eGameTypeModes.GAMETYPE_MAP : intent == GameModeKind.MapEditor ? (int)Enums.eGameTypeModes.GAMETYPE_BUILDER : intent != GameModeKind.Unknown ? (int)Enums.eGameTypeModes.GAMETYPE_MULTIPLAYER : NoGameValue);
+    int skirmishGameType = data?.skirmishGameType ?? (intent == GameModeKind.CustomTrail ? (int)Enums.eSkirmishGameMode.SKIRMISH_GAME_CUSTOM_TRAIL : intent == GameModeKind.CustomGame ? (int)Enums.eSkirmishGameMode.SKIRMISH_GAME_CUSTOM : NoGameValue);
+    int skirmishTrailType = data?.skirmishTrail ?? eventTrailType;
+    int coopTrailId = data?.coopTrailID ?? knownCoopTrail ?? NoCoopTrail;
+    bool mapEditor = editorLoad;
+    bool sandsOfTime = intent == GameModeKind.SandsOfTime || IsSandsTrailType(skirmishTrailType);
+    bool customTrailRestart = intent == GameModeKind.CustomTrail;
+    // game_type 3 is Vanilla's skirmish family. Immediately after leaving a
+    // real multiplayer game, a new local skirmish can reach OnStartMap before
+    // Vanilla changes SkirmishGameType from -1. Its all-local skirmish lobby
+    // is the stable transition signal; no map or mission allow-list is needed.
+    bool localSkirmishTransition = lobbyMembers > 0 && skirmishLobbyMembers == lobbyMembers && realLobbyMembers == 0 && realNetworkGameMembers == 0;
+    bool singleplayerSkirmishMode = !realMultiplayer && !mapEditor && gameType == (int)Enums.eGameTypeModes.GAMETYPE_MULTIPLAYER && (skirmishGameType >= 0 || localSkirmishTransition);
+    bool vanillaCustomized = TryCaptureVanillaCustomizedTrail(out int customizedTrailType, out int customizedTrailId);
+    ExternalCustomizedOrigin externalOrigin = CaptureExternalCustomizedOrigin();
+    GameModeKind observedKind = ResolveKind(mapEditor, gameType, skirmishGameType, skirmishTrailType, coopTrailId, campaignMapId, eventTrailType);
+    GameModeKind kind = observedKind;
+    // A successful native load can omit its skirmish subtype (notably for
+    // older multiplayer maps). Preserve the authoritative managed entry
+    // intent only when native data cannot classify the mode at all.
+    if (kind == GameModeKind.Unknown && intent != GameModeKind.Unknown)
+        kind = intent;
+    if (observedKind == GameModeKind.CustomGame && externalOrigin.LaunchPending)
+    {
+        GameModeKind originKind = ResolveExternalOriginKind(externalOrigin.Origin);
+        if (originKind != GameModeKind.Unknown)
+            kind = originKind;
+    }
+
+    if (sandsOfTime && kind != GameModeKind.MapEditor && kind != GameModeKind.CoopTrail)
+        kind = GameModeKind.SandsOfTime;
+    else if (customTrailRestart && (kind == GameModeKind.Unknown || kind == GameModeKind.CustomGame))
+        kind = GameModeKind.CustomTrail;
+    if (vanillaCustomized && customizedTrailId >= 0 && kind == GameModeKind.CustomGame)
+    {
+        bool builtInOriginRequired = externalOrigin.SupportsBuiltInOrigins;
+        if (IsVanillaTrailType(customizedTrailType) && (!builtInOriginRequired || externalOrigin.Origin == ExternalCustomizedOrigin.VanillaTrail))
+            kind = GameModeKind.VanillaTrail;
+        else if (IsSandsTrailType(customizedTrailType) && (!builtInOriginRequired || externalOrigin.Origin == ExternalCustomizedOrigin.SandsOfTime))
+            kind = GameModeKind.SandsOfTime;
+    }
+
+    GameModeLaunchVariant launchVariant = ResolveLaunchVariant(kind, vanillaCustomized, customizedTrailType, customizedTrailId, observedKind == GameModeKind.CustomGame, externalOrigin);
+    bool conflictingOrigin = externalOrigin.IsInvalid || (externalOrigin.Origin != ExternalCustomizedOrigin.None && (!ExternalOriginMatchesKind(externalOrigin, kind) || !ExternalOriginMatchesEvidence(externalOrigin, kind, skirmishTrailType, coopTrailId, eventTrailType, vanillaCustomized, customizedTrailType, customizedTrailId)));
+    if (restoredSave)
+    {
+        bool hasSaved = false;
+        GameModeKind savedKind = GameModeKind.Unknown;
+        GameModeLaunchVariant savedVariant = GameModeLaunchVariant.Standard;
+        bool savedLocked = true;
+        SavedModeEvidence evidence = ReadSavedModeEvidence?.Invoke() ?? new SavedModeEvidence(false, GameModeKind.Unknown, GameModeLaunchVariant.Standard, true);
+        hasSaved = evidence.HasSaved;
+        savedKind = evidence.Kind;
+        savedVariant = evidence.Variant;
+        savedLocked = evidence.Locked;
+        ReconcileRestoredSaveMode(observedKind, hasSaved, savedKind, savedVariant, savedLocked, ref kind, ref launchVariant, ref conflictingOrigin);
+    }
+
+    return new GameModeSnapshot(realMultiplayer, singleplayerSkirmishMode, singleplayerSkirmishMode && skirmishGameType == (int)Enums.eSkirmishGameMode.SKIRMISH_GAME_CUSTOM, singleplayerSkirmishMode && (skirmishGameType == (int)Enums.eSkirmishGameMode.SKIRMISH_GAME_TRAIL || skirmishGameType == (int)Enums.eSkirmishGameMode.SKIRMISH_GAME_CUSTOM_TRAIL), mapEditor, multiplayerSave, director != null, directorMultiplayer, director != null && director.SkirmishModeGame, GameNetworkAPI.IsNetworkedEnvironment(), platformMultiplayer, lobbyMembers, realLobbyMembers, skirmishLobbyMembers, gameMembers, realNetworkGameMembers, gameType, skirmishGameType, skirmishTrailType, coopTrailId, kind, launchVariant, campaignMapId, eventTrailType, externalOrigin.Origin != ExternalCustomizedOrigin.None ? externalOrigin.TrailId : customizedTrailId, externalOrigin.Origin != ExternalCustomizedOrigin.None ? externalOrigin.MissionId : customizedTrailId, externalOrigin.Origin, conflictingOrigin);
+}
+===METHOD===
+{
+    if (!hasSaved && !savedLocked)
+    {
+        // A genuinely absent entry is a legacy save. Preserve native mode evidence;
+        // only an unclassified save receives the user's current-settings fallback.
+        kind = observedKind == GameModeKind.Unknown ? GameModeKind.CustomGame : observedKind;
+        launchVariant = GameModeLaunchVariant.Standard;
+        return;
+    }
+
+    bool compatibleNativeFamily = observedKind == GameModeKind.CustomGame && (savedKind == GameModeKind.CustomTrail || savedKind == GameModeKind.CoopTrail || savedKind == GameModeKind.VanillaTrail || savedKind == GameModeKind.SandsOfTime);
+    if (hasSaved && (savedKind == kind || compatibleNativeFamily || (observedKind == GameModeKind.Unknown && savedVariant == GameModeLaunchVariant.Standard)))
+    {
+        kind = savedKind;
+        launchVariant = savedVariant;
+        conflictingOrigin |= savedLocked;
+        return;
+    }
+
+    launchVariant = GameModeLaunchVariant.Standard;
+    conflictingOrigin = true;
+}
+===METHOD===
+{
+    if (mapEditor)
+        return GameModeKind.MapEditor;
+    if (gameType == (int)Enums.eGameTypeModes.GAMETYPE_TUTORIAL)
+        return GameModeKind.Tutorial;
+    if (gameType == (int)Enums.eGameTypeModes.GAMETYPE_CAMPAIGN || campaignMapId > 0)
+        return GameModeKind.Campaign;
+    if (gameType == (int)Enums.eGameTypeModes.GAMETYPE_MAP)
+        return GameModeKind.StandaloneMission;
+    if (coopTrailId > NoCoopTrail)
+        return GameModeKind.CoopTrail;
+    bool hasTrailEvent = eventTrailType >= 0;
+    int effectiveTrailType = hasTrailEvent ? eventTrailType : skirmishTrailType;
+    bool vanillaTrailMode = skirmishGameType == (int)Enums.eSkirmishGameMode.SKIRMISH_GAME_TRAIL;
+    if ((vanillaTrailMode || hasTrailEvent) && IsSandsTrailType(effectiveTrailType))
+        return GameModeKind.SandsOfTime;
+    if ((vanillaTrailMode || hasTrailEvent) && IsVanillaTrailType(effectiveTrailType))
+    {
+        return GameModeKind.VanillaTrail;
+    }
+
+    if (skirmishGameType == (int)Enums.eSkirmishGameMode.SKIRMISH_GAME_CUSTOM_TRAIL)
+        return GameModeKind.CustomTrail;
+    if (gameType == (int)Enums.eGameTypeModes.GAMETYPE_MULTIPLAYER && skirmishGameType == (int)Enums.eSkirmishGameMode.SKIRMISH_GAME_CUSTOM && coopTrailId == NoCoopTrail)
+    {
+        return GameModeKind.CustomGame;
+    }
+
+    return GameModeKind.Unknown;
+}
+===METHOD===
+{
+    bool vanillaMatches = vanillaCustomized && vanillaCustomGameContext && customizedTrailId >= 0 && (!externalOrigin.SupportsBuiltInOrigins || ExternalOriginMatchesKind(externalOrigin, kind)) && ((kind == GameModeKind.VanillaTrail && IsVanillaTrailType(customizedTrailType)) || (kind == GameModeKind.SandsOfTime && IsSandsTrailType(customizedTrailType)));
+    bool externalMatches = ExternalOriginMatchesKind(externalOrigin, kind) && (kind != GameModeKind.CustomGame || externalOrigin.LaunchPending);
+    if (!vanillaMatches && !externalMatches)
+        return GameModeLaunchVariant.Standard;
+    return externalMatches && externalOrigin.RestoredFromSave ? GameModeLaunchVariant.RestoredCustomizedSave : GameModeLaunchVariant.Customized;
+}
+===METHOD===
+=> value >= (int)GameTrailType.FirstEdition && value <= (int)GameTrailType.Extreme
+===METHOD===
+=> value >= (int)GameTrailType.SandsOne && value <= (int)GameTrailType.SandsEight
+===METHOD===
+{
+    switch (origin)
+    {
+        case ExternalCustomizedOrigin.CustomTrail:
+            return GameModeKind.CustomTrail;
+        case ExternalCustomizedOrigin.CoopTrail:
+            return GameModeKind.CoopTrail;
+        case ExternalCustomizedOrigin.VanillaTrail:
+            return GameModeKind.VanillaTrail;
+        case ExternalCustomizedOrigin.SandsOfTime:
+            return GameModeKind.SandsOfTime;
+        default:
+            return GameModeKind.Unknown;
+    }
+}
+===METHOD===
+=> (origin.Origin == ExternalCustomizedOrigin.CustomTrail && kind == GameModeKind.CustomTrail) || (origin.Origin == ExternalCustomizedOrigin.CoopTrail && kind == GameModeKind.CoopTrail) || (origin.Origin == ExternalCustomizedOrigin.VanillaTrail && kind == GameModeKind.VanillaTrail) || (origin.Origin == ExternalCustomizedOrigin.SandsOfTime && kind == GameModeKind.SandsOfTime)
+===METHOD===
+{
+    if (kind == GameModeKind.CoopTrail && coopTrailId > NoCoopTrail)
+        return origin.TrailId + 1 == coopTrailId;
+    if (kind != GameModeKind.VanillaTrail && kind != GameModeKind.SandsOfTime)
+        return true;
+    int observedTrailType = eventTrailType >= 0 ? eventTrailType : skirmishTrailType;
+    if (observedTrailType >= 0 && origin.TrailType != observedTrailType)
+        return false;
+    if (!vanillaCustomized)
+        return true;
+    return origin.TrailType == customizedTrailType && origin.MissionId == customizedTrailId;
+}
+===METHOD===
+{
+#if API_SHARED_PRESET_TESTS
+            trailType = NoGameValue;
+            trailId = NoGameValue;
+            return false;
+#else
+    trailType = FRONT_Multiplayer.customizedTrailType;
+    trailId = FRONT_Multiplayer.customizedTrailID;
+    return FRONT_Multiplayer.customizedTrail;
+#endif
+}
+===METHOD===
+{
+#if API_SHARED_PRESET_TESTS
+            return default;
+#else
+    try
+    {
+        string[] providerTypes =
+        {
+            "BugfixesAndQoL.TrailCustomizationLaunchOriginApi, BugfixesAndQoL",
+            "ExtendedData.ExtendedDataLaunchOriginApi, ExtendedData",
+        };
+        ExternalCustomizedOrigin active = default;
+        bool hasActive = false;
+        bool providerAvailable = false;
+        bool supportsBuiltInOrigins = false;
+        foreach (string providerType in providerTypes)
+        {
+            Type api = Type.GetType(providerType, throwOnError: false);
+            if (api == null)
+                continue;
+            providerAvailable = true;
+            ExternalCustomizedOrigin candidate = CaptureExternalCustomizedOrigin(api);
+            if (candidate.IsInvalid)
+                return ExternalCustomizedOrigin.InvalidProvider;
+            supportsBuiltInOrigins |= candidate.SupportsBuiltInOrigins;
+            if (candidate.Origin == ExternalCustomizedOrigin.None)
+                continue;
+            if (hasActive)
+                return ExternalCustomizedOrigin.InvalidProvider;
+            active = candidate;
+            hasActive = true;
+        }
+
+        return hasActive ? active : providerAvailable ? ExternalCustomizedOrigin.AvailableProvider(supportsBuiltInOrigins) : default;
+    }
+    catch
+    {
+        // Optional providers must never enable gameplay mods when their contracts fail.
+        return ExternalCustomizedOrigin.InvalidProvider;
+    }
+#endif
+}
+===METHOD===
+{
+    try
+    {
+        if (!TryReadStaticInt(api, "ApiVersion", out int apiVersion) || !TryReadStaticInt(api, "Origin", out int origin))
+        {
+            return ExternalCustomizedOrigin.InvalidProvider;
+        }
+
+        if (apiVersion < MinimumOriginApiVersion || apiVersion > SupportedOriginApiVersion)
+            return ExternalCustomizedOrigin.InvalidProvider;
+        if (origin == ExternalCustomizedOrigin.None)
+            return ExternalCustomizedOrigin.AvailableProvider(apiVersion >= 2);
+        bool knownOrigin = origin == ExternalCustomizedOrigin.CustomTrail || origin == ExternalCustomizedOrigin.CoopTrail || (apiVersion >= 2 && (origin == ExternalCustomizedOrigin.VanillaTrail || origin == ExternalCustomizedOrigin.SandsOfTime));
+        if (!knownOrigin)
+            return ExternalCustomizedOrigin.InvalidProvider;
+        bool launchPending = false;
+        bool hasLaunchPending = TryReadStaticBool(api, "LaunchPending", out launchPending);
+        if (!TryReadStaticInt(api, "TrailType", out int trailType) || !TryReadStaticInt(api, "TrailId", out int trailId) || !TryReadStaticInt(api, "MissionId", out int missionId) || !TryReadStaticBool(api, "RestoredFromSave", out bool restoredFromSave) || (apiVersion >= 2 && !hasLaunchPending))
+        {
+            return ExternalCustomizedOrigin.InvalidProvider;
+        }
+
+        var result = new ExternalCustomizedOrigin(origin, trailType, trailId, missionId, restoredFromSave, launchPending, supportsBuiltInOrigins: apiVersion >= 2);
+        if ((result.Origin == ExternalCustomizedOrigin.CustomTrail && (result.MissionId < FirstMissionId || result.TrailId < FirstCustomTrailId || result.TrailId > LastCustomTrailId)) || (result.Origin == ExternalCustomizedOrigin.CoopTrail && (result.MissionId < FirstMissionId || result.TrailId < FirstCoopTrailId || result.TrailId > LastCoopTrailId || result.MissionId > LastCoopMissionId)) || (result.Origin == ExternalCustomizedOrigin.VanillaTrail && (!IsVanillaTrailType(result.TrailType) || result.TrailId < 0 || result.MissionId < 0)) || (result.Origin == ExternalCustomizedOrigin.SandsOfTime && (!IsSandsTrailType(result.TrailType) || result.TrailId < 0 || result.MissionId < 0)))
+        {
+            return ExternalCustomizedOrigin.InvalidProvider;
+        }
+
+        return result;
+    }
+    catch
+    {
+        // Providers are optional; malformed reflection surfaces fail closed.
+        return ExternalCustomizedOrigin.InvalidProvider;
+    }
+}
+===METHOD===
+{
+    result = NoGameValue;
+    PropertyInfo property = type.GetProperty(name, BindingFlags.Public | BindingFlags.Static);
+    if (property == null || property.GetIndexParameters().Length != 0)
+        return false;
+    object value = property.GetValue(null);
+    if (value == null)
+        return false;
+    result = Convert.ToInt32(value);
+    return true;
+}
+===METHOD===
+{
+    result = false;
+    PropertyInfo property = type.GetProperty(name, BindingFlags.Public | BindingFlags.Static);
+    if (property == null || property.PropertyType != typeof(bool) || property.GetIndexParameters().Length != 0)
+    {
+        return false;
+    }
+
+    result = (bool)property.GetValue(null);
+    return true;
+}
+===METHOD===
+=> APIShared.MissionLifecycleService.HasContext ? Capture().IsRealMultiplayer : GameNetworkAPI.IsMultiplayerGame()
+===METHOD===
+=> Capture(multiplayerSave).IsSingleplayerSkirmish
+===METHOD===
+=> Capture(multiplayerSave).IsSingleplayerTrail
+===METHOD===
+=> Capture(multiplayerSave).IsSingleplayerSkirmishMode
+===METHOD===
+=> Capture().IsMapEditor
+===METHOD===
+=> new ExternalCustomizedOrigin(None, -1, -1, -1, false, false, supportsBuiltInOrigins: supportsBuiltInOrigins)
+===METHOD===
+{
+    Origin = origin;
+    TrailType = trailType;
+    TrailId = trailId;
+    MissionId = missionId;
+    RestoredFromSave = restoredFromSave;
+    LaunchPending = launchPending;
+    IsInvalid = isInvalid;
+    SupportsBuiltInOrigins = supportsBuiltInOrigins;
+}
+===METHOD===
+{
+    IsRealMultiplayer = isRealMultiplayer;
+    IsSingleplayerSkirmishMode = isSingleplayerSkirmishMode;
+    IsSingleplayerSkirmish = isSingleplayerSkirmish;
+    IsSingleplayerTrail = isSingleplayerTrail;
+    IsMapEditor = isMapEditor;
+    MultiplayerSave = multiplayerSave;
+    DirectorAvailable = directorAvailable;
+    DirectorMultiplayer = directorMultiplayer;
+    DirectorSkirmish = directorSkirmish;
+    LowLevelNetworked = lowLevelNetworked;
+    PlatformMultiplayer = platformMultiplayer;
+    LobbyMembers = lobbyMembers;
+    RealLobbyMembers = realLobbyMembers;
+    SkirmishLobbyMembers = skirmishLobbyMembers;
+    GameMembers = gameMembers;
+    RealNetworkGameMembers = realNetworkGameMembers;
+    GameType = gameType;
+    SkirmishGameType = skirmishGameType;
+    SkirmishTrailType = skirmishTrailType;
+    CoopTrailId = coopTrailId;
+    Kind = kind;
+    LaunchVariant = launchVariant;
+    CampaignMapId = campaignMapId;
+    EventTrailType = eventTrailType;
+    CustomizedTrailId = customizedTrailId;
+    CustomizedMissionId = customizedMissionId;
+    CustomizedOriginKind = customizedOriginKind;
+    HasConflictingCustomizedOrigin = hasConflictingCustomizedOrigin;
+}
+===METHOD===
+{
+    return $"realMultiplayer={IsRealMultiplayer}, singleplayerSkirmishMode={IsSingleplayerSkirmishMode}, " + $"singleplayerSkirmish={IsSingleplayerSkirmish}, singleplayerTrail={IsSingleplayerTrail}, " + $"mapEditor={IsMapEditor}, multiplayerSave={MultiplayerSave}, directorAvailable={DirectorAvailable}, " + $"directorMultiplayer={DirectorMultiplayer}, directorSkirmish={DirectorSkirmish}, " + $"lowLevelNetworked={LowLevelNetworked}, platformMultiplayer={PlatformMultiplayer}, " + $"lobbyMembers={LobbyMembers}, realLobbyMembers={RealLobbyMembers}, " + $"skirmishLobbyMembers={SkirmishLobbyMembers}, " + $"gameMembers={GameMembers}, realNetworkGameMembers={RealNetworkGameMembers}, " + $"gameType={GameType}, skirmishGameType={SkirmishGameType}, skirmishTrailType={SkirmishTrailType}, " + $"coopTrailId={CoopTrailId}, kind={Kind}, launchVariant={LaunchVariant}, " + $"allowsCustomGameMods={AllowsCustomGameMods}, " + $"allowsRegularGameplayMods={AllowsRegularGameplayMods}, campaignMapId={CampaignMapId}, " + $"eventTrailType={EventTrailType}, customizedTrailId={CustomizedTrailId}, " + $"customizedMissionId={CustomizedMissionId}, customizedOriginKind={CustomizedOriginKind}, " + $"conflictingCustomizedOrigin={HasConflictingCustomizedOrigin}";
+}

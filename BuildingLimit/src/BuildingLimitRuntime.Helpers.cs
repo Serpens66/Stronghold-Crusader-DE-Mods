@@ -1,3 +1,4 @@
+using APIShared.SerpsMods;
 using BepInEx.Logging;
 using CrusaderDE;
 using R3;
@@ -14,9 +15,9 @@ namespace BuildingLimit
     public sealed partial class BuildingLimitRuntime
     {
         private static bool IsBuildingLimitModeAllowed() =>
-            Shared.GameplayFeatureModePolicy.IsAllowed(
+            APIShared.SerpsMods.GameplayFeatureModePolicy.IsAllowed(
                 BuildingLimitPlugin.PluginGuid,
-                Shared.GameplayFeatureId.BuildingLimitEnforcement,
+                APIShared.SerpsMods.GameplayFeatureId.BuildingLimitEnforcement,
                 Shared.GameplayModActivationGate.Snapshot);
 
         private static bool IsLocalPlayer(int playerId)

@@ -1,3 +1,4 @@
+using APIShared.ModSettings;
 using MessagePack;
 using Shared;
 using System;
@@ -167,7 +168,7 @@ namespace Schema3PresetRecovery
             {
                 if (string.Equals(
                     current.FullName,
-                    "Shared.PresetLobbyModSettingsViewModel",
+                    "APIShared.ModSettings.PresetLobbyModSettingsViewModel",
                     StringComparison.Ordinal))
                 {
                     return true;

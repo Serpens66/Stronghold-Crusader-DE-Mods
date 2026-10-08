@@ -320,7 +320,7 @@ function Test-ActivationSettingContract {
     }
 
     $hostClassificationPattern = '\[(?:Shared\.)?SyncHostOnly(?:Attribute)?\]'
-    $clientClassificationPattern = '\[(?:(?:Shared\.)?PresetLocal(?:Attribute)?|(?:Shared\.)?SyncPerPlayer(?:Attribute)?)\]'
+    $clientClassificationPattern = '\[(?:(?:APIShared\.ModSettings\.)?PresetLocal(?:Attribute)?|(?:Shared\.)?SyncPerPlayer(?:Attribute)?)\]'
     $usesSharedActivationProxy = $false
 
     foreach ($contract in $contracts) {

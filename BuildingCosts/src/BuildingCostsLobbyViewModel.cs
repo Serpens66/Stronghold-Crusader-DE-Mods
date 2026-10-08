@@ -1,3 +1,4 @@
+using APIShared.ModSettings;
 using SHCDESE.API;
 using SHCDESE.API.Components.Network;
 using SHCDESE.Interop;
@@ -12,7 +13,7 @@ using System.Text;
 
 namespace BuildingCosts
 {
-    public sealed class BuildingCostsLobbyViewModel : Shared.PresetLobbyModSettingsViewModel
+    public sealed class BuildingCostsLobbyViewModel : APIShared.ModSettings.PresetLobbyModSettingsViewModel
     {
         public event Action<string> SettingChanged;
 

@@ -1,3 +1,4 @@
+using APIShared.GameModes;
 // Feature: Allow market auto-sell thresholds greater than zero without reserving one good.
 using BepInEx.Logging;
 using CrusaderDE;
@@ -161,7 +162,7 @@ namespace BugfixesAndQoL
             }
         }
 
-        private static bool IsMapEditor() => Shared.GameModeHelper.IsMapEditor();
+        private static bool IsMapEditor() => APIShared.GameModes.GameModeHelper.IsMapEditor();
 
         private static unsafe bool IsSelectedTradepostControlled()
         {

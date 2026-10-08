@@ -2,7 +2,11 @@ using Noesis;
 
 namespace Shared
 {
+#if API_SHARED_INTERNAL_TOOLTIP
+    internal static class ToolTipPresentation
+#else
     public static class ToolTipPresentation
+#endif
     {
         private const int FourKMinimumHeight = 1800;
         private const int FourteenFortyMinimumHeight = 1300;

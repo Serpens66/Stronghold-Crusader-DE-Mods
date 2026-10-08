@@ -1,3 +1,4 @@
+using APIShared.ModSettings;
 using MessagePack;
 using System;
 using System.Collections.Generic;

@@ -1,3 +1,4 @@
+using APIShared.GameModes;
 // Feature: Fair single- and multi-selection catapult/trebuchet ammunition restocking.
 using BepInEx.Logging;
 using CrusaderDE;
@@ -463,7 +464,7 @@ namespace BugfixesAndQoL
             unit->r_StoneAmmoStacksLeft = (byte)(value >> 8);
         }
 
-        private static int GetControlledPlayerId() => Shared.GameModeHelper.IsMapEditor()
+        private static int GetControlledPlayerId() => APIShared.GameModes.GameModeHelper.IsMapEditor()
             ? EditorDirector.instance?.ActivePlayerID ?? -1
             : GamePlayerManagerAPI.Instance.GetLocalPlayerId();
 

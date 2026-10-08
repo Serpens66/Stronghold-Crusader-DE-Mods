@@ -1,0 +1,5 @@
+MSBuild-Version 17.11.9+a69bbaaf5 für .NET Framework
+
+  ModOptions.Tests -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\tests\ModOptions.Tests\bin\ModOptions.Tests.exe
+PASS: 8046 mod-option/ledger/save/runtime checks (simulated publishers; no in-game FPS claim).
+PASS: mod-option performance source contracts; active HUD cadence and pending lobby/spectator work preserved.

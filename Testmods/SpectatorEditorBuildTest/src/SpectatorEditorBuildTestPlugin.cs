@@ -1,3 +1,4 @@
+using APIShared.GameModes;
 using APIShared;
 using BepInEx;
 using BepInEx.Logging;
@@ -619,7 +620,7 @@ namespace SpectatorEditorBuildTest
                     state.game_type == 3 && state.spectatorMode != 0 &&
                     editor.ActivePlayerID <= 0 && !view.IsMapEditorMode &&
                     director.SkirmishModeGame && !director.MultiplayerGame &&
-                    !Shared.GameModeHelper.IsRealMultiplayer();
+                    !APIShared.GameModes.GameModeHelper.IsRealMultiplayer();
             }
             catch { return false; }
         }
@@ -639,7 +640,7 @@ namespace SpectatorEditorBuildTest
                     controlled >= 1 && controlled <= 8 && controlled == editor.ActivePlayerID &&
                     state.is_valid_player(controlled) && !view.IsMapEditorMode &&
                     director.SkirmishModeGame && !director.MultiplayerGame &&
-                    !Shared.GameModeHelper.IsRealMultiplayer();
+                    !APIShared.GameModes.GameModeHelper.IsRealMultiplayer();
             }
             catch { return false; }
         }

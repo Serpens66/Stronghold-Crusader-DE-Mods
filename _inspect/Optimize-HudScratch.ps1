@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$path = Join-Path (Split-Path $PSScriptRoot -Parent) 'APIShared/src/UnitHudPresentationCapability.cs'
+$path = Join-Path (Split-Path $PSScriptRoot -Parent) 'APIShared/src/Presentation/UnitHudPresentationCapability.cs'
 $source=[IO.File]::ReadAllText($path)
 function Replace-Exact([string]$old,[string]$new) {
  if(-not $script:source.Contains($old)) {throw "Missing anchor $old"}

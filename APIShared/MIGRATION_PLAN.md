@@ -1,3 +1,5 @@
+> Historical implementation record. For the current structure and API, use ARCHITECTURE.md and docs/API_CATALOG.md. Version and source-path references below describe earlier stages.
+
 # APIShared migration plan and current state
 
 Status: 21 September 2026. Development and compatibility checks target installed Script Extender 2.6.0, commit `2cee24e33b5a5d81d1c275efabc714ac59917b7b`. APIShared retains Script Extender 2.3.0 as its minimum because its current contracts do not require a newer API. Consumers that use newer pathing or other contracts require the corresponding version themselves.

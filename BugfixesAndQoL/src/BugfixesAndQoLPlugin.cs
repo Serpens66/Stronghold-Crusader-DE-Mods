@@ -1,3 +1,4 @@
+using APIShared.ModSettings;
 // Feature: Plugin bootstrap for the Bugfixes and QoL mod.
 using BepInEx;
 using BepInEx.Bootstrap;
@@ -227,7 +228,7 @@ namespace BugfixesAndQoL
 
             try
             {
-                Shared.LobbyModSettingsPresetRegistration.Register(
+                APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(
                     this,
                     Logger,
                     PluginGuid,

@@ -1,3 +1,4 @@
+using APIShared.ModSettings;
 using BepInEx;
 using BepInEx.Configuration;
 using SHCDESE.API;
@@ -56,7 +57,7 @@ namespace UnitLimit
             TryInitializeStage("localized names", Settings.RefreshLocalizedNames);
             try
             {
-                Shared.LobbyModSettingsPresetRegistration.Register(
+                APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(
                     this,
                     Logger,
                     "UnitLimit_Serp",

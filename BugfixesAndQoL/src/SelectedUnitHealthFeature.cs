@@ -1,3 +1,4 @@
+using APIShared.GameModes;
 // Feature: Show health totals for each visible selected troop type in the HUD.
 using APIShared;
 using BepInEx.Logging;
@@ -238,7 +239,7 @@ namespace BugfixesAndQoL
             if (!settings.EnableClientFeatures || !settings.ShowSelectedUnitHealth) return;
             MainViewModel mainViewModel = MainViewModel.Instance;
             HUD_Troops troopPanel = mainViewModel?.HUDTroopPanel;
-            bool mapEditor = Shared.GameModeHelper.IsMapEditor();
+            bool mapEditor = APIShared.GameModes.GameModeHelper.IsMapEditor();
             if (!settings.EnableClientFeatures ||
                 !settings.ShowSelectedUnitHealth ||
                 mainViewModel == null ||

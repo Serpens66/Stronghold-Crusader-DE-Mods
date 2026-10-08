@@ -1,3 +1,4 @@
+using APIShared.GameModes;
 // Feature: Per-player Assassin climbing mode and its troop-HUD command.
 using BepInEx.Logging;
 using CrusaderDE;
@@ -397,7 +398,7 @@ namespace BugfixesAndQoL
             bool hasSnapshot = APIShared.LocalSelectionAPI.TryCapture(
                 playerId, out APIShared.LocalSelectionSnapshot selected);
             GameUnitManagerAPI api = GameUnitManagerAPI.Instance;
-            bool editor = Shared.GameModeHelper.IsMapEditor();
+            bool editor = APIShared.GameModes.GameModeHelper.IsMapEditor();
             if (hasSnapshot && !editor && ReferenceEquals(selected, lastSelectionSnapshot) &&
                 lastSelectionPlayerId == playerId)
             {
@@ -557,7 +558,7 @@ namespace BugfixesAndQoL
 
         private static int GetControlledPlayerId()
         {
-            if (Shared.GameModeHelper.IsMapEditor())
+            if (APIShared.GameModes.GameModeHelper.IsMapEditor())
                 return EditorDirector.instance?.ActivePlayerID ?? -1;
             int playerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
             return playerId > 0 ? playerId : -1;

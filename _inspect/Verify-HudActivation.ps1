@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
-$source = [IO.File]::ReadAllText((Join-Path $root 'APIShared/src/UnitHudPresentationCapability.cs'))
+$source = [IO.File]::ReadAllText((Join-Path $root 'APIShared/src/Presentation/UnitHudPresentationCapability.cs'))
 function Block([string]$marker) {
     $start = $source.IndexOf($marker, [StringComparison]::Ordinal)
     if ($start -lt 0) { throw "Missing block: $marker" }
@@ -14,7 +14,7 @@ function Block([string]$marker) {
     }
     return $source.Substring($start, $end - $start)
 }
-$contracts = [IO.File]::ReadAllText((Join-Path $root 'APIShared/src/UnitHudContracts.cs'))
+$contracts = [IO.File]::ReadAllText((Join-Path $root 'APIShared/src/Presentation/UnitHudContracts.cs'))
 $code = @'
 using System;
 using System.Collections.Generic;

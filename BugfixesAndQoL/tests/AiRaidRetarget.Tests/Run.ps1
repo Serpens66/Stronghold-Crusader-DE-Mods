@@ -17,11 +17,11 @@ $testSources = @($source,(Join-Path $testDir 'Program.cs'),(Join-Path $testDir '
     (Join-Path $workspace 'BugfixesAndQoL\src\RaidSearchEvidence.cs'),
     (Join-Path $workspace 'BugfixesAndQoL\src\RaidSearchObserver.cs'),
     (Join-Path $workspace 'Shared\DebugLogHelper.cs'),
-    (Join-Path $workspace 'APIShared\src\UnitAccess.cs'),
+    (Join-Path $workspace 'APIShared\src\Units\UnitAccess.cs'),
     (Join-Path $workspace 'BugfixesAndQoL\src\AiRaidRetargetFixRuntime.cs'),
     # TEMP_GATE_ROUTE_ACCEPTANCE: the isolated runtime fixture does not reference APIShared.
-    (Join-Path $workspace 'APIShared\src\TemporaryGateRouteAcceptanceBridge.cs'),
-    (Join-Path $workspace 'APIShared\src\AssassinGateTransitionPolicy.cs'),
+    (Join-Path $workspace 'APIShared\src\Pathfinding\TemporaryGateRouteAcceptanceBridge.cs'),
+    (Join-Path $workspace 'APIShared\src\Pathfinding\AssassinGateTransitionPolicy.cs'),
     (Join-Path $workspace 'BugfixesAndQoL\src\RaidActivationState.cs'),
     (Join-Path $testDir 'RuntimeTestStubs.cs'), (Join-Path $testDir 'ActivationTests.cs'), (Join-Path $testDir 'HardeningTests.cs'))
 & $compiler /nologo /unsafe /langversion:latest /target:exe "/out:$executable" @references @testSources

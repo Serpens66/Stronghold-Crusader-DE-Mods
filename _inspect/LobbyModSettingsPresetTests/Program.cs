@@ -1,3 +1,4 @@
+using APIShared.ModSettings;
 using MessagePack;
 using SHCDESE.API.Components.Network;
 using Shared;

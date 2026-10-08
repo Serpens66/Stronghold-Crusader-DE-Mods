@@ -31,7 +31,7 @@ if ($runtime -notmatch 'InputR3EventHooks\.OnKeyDown' -or
     $runtime -notmatch 'HEALTH_BARS_POST_STARTUP' -or
     $runtime -notmatch 'DisplacedByteCount' -or
     $runtime -notmatch 'controller\.NoesisHasKeyboard' -or
-    $runtime -notmatch 'Shared\.GameModeHelper\.IsMapEditor\(\)' -or
+    $runtime -notmatch 'APIShared\.GameModes\.GameModeHelper\.IsMapEditor\(\)' -or
     $runtime -match 'MainViewModel\.Instance|\.IsMapEditorMode' -or
     $runtime -notmatch 'settings\.EnableDamagedHealthBars' -or
     $runtime -notmatch 'settings\.CaptureHealthBarHotkeyFromInput\(args\.Key\)' -or
@@ -49,8 +49,8 @@ if ($contract -notmatch 'UnitHealthBarBlocks\], 10' -or
     $contract -notmatch 'assembler\.cmp\(ax, 69\)') {
     throw 'Health-bar full-bar or decorative-unit filter differs from the audited contract.'
 }
-if ($settings -notmatch '\[Shared\.PresetLocal\]\s+public bool EnableDamagedHealthBars' -or
-    $settings -notmatch '\[Shared\.PresetLocal\]\s+public int HealthBarHotkey' -or
+if ($settings -notmatch '\[APIShared\.ModSettings\.PresetLocal\]\s+public bool EnableDamagedHealthBars' -or
+    $settings -notmatch '\[APIShared\.ModSettings\.PresetLocal\]\s+public int HealthBarHotkey' -or
     $settings -notmatch 'DefaultHealthBarHotkey = \(int\)KeyCode\.H \| HealthBarAltMask' -or
     $settings -notmatch 'modifiers & \(modifiers - 1\)' -or
     $settings -notmatch 'CaptureHealthBarHotkeyFromInput\(KeyCode key\)' -or

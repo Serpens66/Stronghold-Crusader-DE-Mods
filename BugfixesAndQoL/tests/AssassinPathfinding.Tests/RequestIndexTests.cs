@@ -16,7 +16,7 @@ internal static partial class Program
         string info = runtime.DescendantNodes().OfType<StructDeclarationSyntax>()
             .Single(s => s.Identifier.Text == "AssassinRequestInfo").ToFullString();
         var access = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,
-            "APIShared/src/UnitAccess.cs"))).GetRoot();
+            "APIShared/src/Units/UnitAccess.cs"))).GetRoot();
         string alive = access.DescendantNodes().OfType<MethodDeclarationSyntax>()
             .Single(m => m.Identifier.Text == "IsReallyAlive" &&
                 m.ParameterList.Parameters[0].Modifiers.Any(SyntaxKind.InKeyword)).ToFullString();

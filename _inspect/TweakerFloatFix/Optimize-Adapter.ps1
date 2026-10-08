@@ -51,7 +51,7 @@ Edit 'SerpsModsHost/src/StatsTweakerPresetViewModel.cs' {
  if($start -lt 0 -or $end -lt 0){throw 'missing import helper'}
  $s.Substring(0,$start)+$s.Substring($end)
 }
-Edit 'APIShared/src/PresetLobbyModSettingsViewModel.cs' {
+Edit 'APIShared/src/ModSettings/PresetLobbyModSettingsViewModel.cs' {
  param($s)
  $s=$s.Replace('            public IReadOnlyList<PresetSettingDescriptor> GetSettingDescriptors() =>', @'
             private PresetPropertyAccessor[] descriptorOrder;

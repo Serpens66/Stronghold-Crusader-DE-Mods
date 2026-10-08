@@ -1,3 +1,4 @@
+using APIShared.ModSettings;
 using BepInEx;
 using BepInEx.Bootstrap;
 using BepInEx.Logging;
@@ -420,7 +421,7 @@ namespace SerpsModsHost
         {
             try
             {
-                Shared.LobbyModSettingsPresetRegistration.Register(
+                APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(
                     this,
                     Logger,
                     PluginGuid,

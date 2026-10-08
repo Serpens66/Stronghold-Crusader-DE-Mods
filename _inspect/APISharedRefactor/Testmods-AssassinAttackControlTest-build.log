@@ -1,0 +1,8 @@
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+PASS Assassin attack runtime JSON/lifecycle/permanent-hook/XAML/CRLF/native-hash contracts.
+
+  AssassinAttackControlTests -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\AssassinAttackControlTest\tests\bin\AssassinAttackControlTests.exe
+PASS Assassin attack control: 409 assertions
+
+  AssassinAttackControlTest -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\AssassinAttackControlTest\BepInEx\plugins\AssassinAttackControlTest_Serp\AssassinAttackControlTest.dll
+Assassin Attack Control Test built, installed and package equality verified.

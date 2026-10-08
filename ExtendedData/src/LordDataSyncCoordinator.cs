@@ -1,3 +1,5 @@
+using APIShared.GameModes;
+using APIShared.ModSettings;
 using APIShared;
 using BepInEx.Logging;
 using CrusaderDE;
@@ -1539,7 +1541,7 @@ namespace ExtendedData
                 ActiveLobbyMatches(lobby),
                 ObservedLobbyMatches(lobby),
                 HasRealLobbyMember(lobby),
-                Shared.GameModeHelper.IsRealMultiplayer());
+                APIShared.GameModes.GameModeHelper.IsRealMultiplayer());
 
         private bool IsHostLobby(FRONT_Multiplayer lobby) =>
             LordDataSyncDiagnostics.IsHostLobby(

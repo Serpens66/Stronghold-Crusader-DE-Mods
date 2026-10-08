@@ -1,3 +1,5 @@
+using APIShared.GameModes;
+using APIShared.ModSettings;
 using APIShared;
 using BepInEx.Bootstrap;
 using BepInEx.Logging;

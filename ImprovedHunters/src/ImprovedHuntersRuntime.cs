@@ -1,3 +1,5 @@
+using APIShared.GameModes;
+using APIShared.SerpsMods;
 using BepInEx.Logging;
 using R3;
 using SHCDESE.API;
@@ -681,14 +683,14 @@ namespace ImprovedHunters
             hunterRemainingPathSpeedRecovery?.ResetForMap();
             hunterVanillaPathContinuationDiagnostic?.ResetForMap();
             hunterVisibilityDiagnostic?.ResetForMap();
-            Shared.GameModeSnapshot gameMode = Shared.GameplayModActivationGate.Snapshot;
-            targetSelectionModeAllowed = Shared.GameplayFeatureModePolicy.IsAllowed(
+            APIShared.GameModes.GameModeSnapshot gameMode = Shared.GameplayModActivationGate.Snapshot;
+            targetSelectionModeAllowed = APIShared.SerpsMods.GameplayFeatureModePolicy.IsAllowed(
                 ImprovedHuntersPlugin.PluginGuid,
-                Shared.GameplayFeatureId.ImprovedHunterTargetSelection,
+                APIShared.SerpsMods.GameplayFeatureId.ImprovedHunterTargetSelection,
                 gameMode);
-            pathfindingModeAllowed = Shared.GameplayFeatureModePolicy.IsAllowed(
+            pathfindingModeAllowed = APIShared.SerpsMods.GameplayFeatureModePolicy.IsAllowed(
                 ImprovedHuntersPlugin.PluginGuid,
-                Shared.GameplayFeatureId.ImprovedHunterPathfinding,
+                APIShared.SerpsMods.GameplayFeatureId.ImprovedHunterPathfinding,
                 gameMode);
             ApplyHunterHutVisibilityPatch();
             Shared.DebugLogHelper.LogInfo(

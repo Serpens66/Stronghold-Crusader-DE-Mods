@@ -1,3 +1,5 @@
+using APIShared.GameModes;
+using APIShared.ModSettings;
 using APIShared;
 using MessagePack;
 using Shared;

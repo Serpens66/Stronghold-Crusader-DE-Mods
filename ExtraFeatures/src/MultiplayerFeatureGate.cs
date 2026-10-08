@@ -1,3 +1,4 @@
+using APIShared.GameModes;
 // Temporarily blocks local state-changing features that are not deterministic in multiplayer.
 using BepInEx.Logging;
 using System;
@@ -21,8 +22,8 @@ namespace ExtraFeatures
             {
                 if (hasMapSnapshot)
                     return blocksLocalStateChanges;
-                Shared.GameModeSnapshot snapshot = Shared.GameplayModActivationGate.Snapshot;
-                return snapshot.Kind == Shared.GameModeKind.Unknown || snapshot.IsRealMultiplayer;
+                APIShared.GameModes.GameModeSnapshot snapshot = Shared.GameplayModActivationGate.Snapshot;
+                return snapshot.Kind == APIShared.GameModes.GameModeKind.Unknown || snapshot.IsRealMultiplayer;
             }
         }
 
@@ -30,9 +31,9 @@ namespace ExtraFeatures
         {
             try
             {
-                Shared.GameModeSnapshot snapshot = Shared.GameplayModActivationGate.Snapshot;
-                blocksLocalStateChanges = snapshot.Kind == Shared.GameModeKind.Unknown || snapshot.IsRealMultiplayer;
-                hasMapSnapshot = snapshot.Kind != Shared.GameModeKind.Unknown;
+                APIShared.GameModes.GameModeSnapshot snapshot = Shared.GameplayModActivationGate.Snapshot;
+                blocksLocalStateChanges = snapshot.Kind == APIShared.GameModes.GameModeKind.Unknown || snapshot.IsRealMultiplayer;
+                hasMapSnapshot = snapshot.Kind != APIShared.GameModes.GameModeKind.Unknown;
                 Shared.DebugLogHelper.LogDebug(
                     log,
                     $"Extra Features multiplayer feature gate captured map mode: {snapshot.ToDiagnosticString()}.");

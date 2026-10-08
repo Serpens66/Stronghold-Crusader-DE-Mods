@@ -1,3 +1,5 @@
+using APIShared.GameModes;
+using APIShared.SerpsMods;
 using BepInEx.Logging;
 using CrusaderDE;
 using MonoMod.RuntimeDetour;
@@ -323,9 +325,9 @@ namespace CastlePlanner
         private void CameraUpdateHook(CameraControls2D camera)
         {
             if (Hud?.SettingsPanelVisible == true &&
-                Shared.GameplayFeatureModePolicy.IsAllowed(
+                APIShared.SerpsMods.GameplayFeatureModePolicy.IsAllowed(
                     CastlePlannerPlugin.PluginGuid,
-                    Shared.GameplayFeatureId.CastleBlueprints,
+                    APIShared.SerpsMods.GameplayFeatureId.CastleBlueprints,
                     Shared.GameplayModActivationGate.Snapshot) &&
                 Hud?.ShouldSuppressMapZoom() == true)
                 camera.AllowZoom = false;
@@ -406,9 +408,9 @@ namespace CastlePlanner
         }
 
         private bool EffectiveBlueprintMode =>
-            Shared.GameplayFeatureModePolicy.IsAllowed(
+            APIShared.SerpsMods.GameplayFeatureModePolicy.IsAllowed(
                 CastlePlannerPlugin.PluginGuid,
-                Shared.GameplayFeatureId.CastleBlueprints,
+                APIShared.SerpsMods.GameplayFeatureId.CastleBlueprints,
                 Shared.GameplayModActivationGate.Snapshot) &&
             (settings?.IsBlueprintMode == true || preview?.IsPreviewActive == true);
 
@@ -1129,7 +1131,7 @@ namespace CastlePlanner
             return GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? -1;
         }
 
-        private static bool IsMapEditor() => Shared.GameModeHelper.IsMapEditor();
+        private static bool IsMapEditor() => APIShared.GameModes.GameModeHelper.IsMapEditor();
 
         private static bool CanUseGameplayHotkeys()
         {

@@ -1,3 +1,4 @@
+using APIShared.ModSettings;
 // Feature: Lobby settings model for the Bugfixes and QoL features.
 using SHCDESE.API.Components.Network;
 using SHCDESE.NoesisUtil;
@@ -13,7 +14,7 @@ using UnityEngine;
 
 namespace BugfixesAndQoL
 {
-    public sealed class BugfixesAndQoLViewModel : Shared.PresetLobbyModSettingsViewModel, IUnitCommandSettings
+    public sealed class BugfixesAndQoLViewModel : APIShared.ModSettings.PresetLobbyModSettingsViewModel, IUnitCommandSettings
     {
         protected override bool IsRetiredPresetProperty(string propertyName) =>
             string.Equals(propertyName, "FriendlyMoatMovementMode", StringComparison.Ordinal);
@@ -149,7 +150,7 @@ namespace BugfixesAndQoL
             SerpLocalization.Get(key);
 
         protected override void ConfigurePerPlayerLobbySettings(
-            Shared.PerPlayerLobbySettingsBuilder settings)
+            APIShared.ModSettings.PerPlayerLobbySettingsBuilder settings)
         {
             string[] enabledByDefault =
             {
@@ -624,14 +625,14 @@ namespace BugfixesAndQoL
             set => SetPlayerSetting(showForeignTroopHud, value, nameof(ShowForeignTroopHud));
         }
 
-        [Shared.PresetLocal]
+        [APIShared.ModSettings.PresetLocal]
         public bool EnableDamagedHealthBars
         {
             get => enableDamagedHealthBars;
             set => SetSetting(ref enableDamagedHealthBars, value, nameof(EnableDamagedHealthBars));
         }
 
-        [Shared.PresetLocal]
+        [APIShared.ModSettings.PresetLocal]
         public int HealthBarHotkey
         {
             get => healthBarHotkey;
@@ -731,7 +732,7 @@ namespace BugfixesAndQoL
                 nameof(EnableTroopHudMiddleClickCameraJump));
         }
 
-        [Shared.PresetLocal]
+        [APIShared.ModSettings.PresetLocal]
         public bool EnableDisbandedUnitControlGroupCleanup
         {
             get => enableDisbandedUnitControlGroupCleanup;
@@ -748,7 +749,7 @@ namespace BugfixesAndQoL
             set => SetPlayerSetting(enableClientFeatures, value, nameof(EnableClientFeatures));
         }
 
-        [Shared.PresetLocal]
+        [APIShared.ModSettings.PresetLocal]
         public bool EnableCustomTrailExtremeGoldFix
         {
             get => enableCustomTrailExtremeGoldFix;
@@ -765,28 +766,28 @@ namespace BugfixesAndQoL
                 nameof(EnableTrailCustomizationButtons));
         }
 
-        [Shared.PresetLocal]
+        [APIShared.ModSettings.PresetLocal]
         public bool ShowLoadSaveDialogControls
         {
             get => showLoadSaveDialogControls;
             set => SetSetting(ref showLoadSaveDialogControls, value, nameof(ShowLoadSaveDialogControls));
         }
 
-        [Shared.PresetLocal]
+        [APIShared.ModSettings.PresetLocal]
         public bool ShowVanillaMapsInEditor
         {
             get => showVanillaMapsInEditor;
             set => SetSetting(ref showVanillaMapsInEditor, value, nameof(ShowVanillaMapsInEditor));
         }
 
-        [Shared.PresetLocal]
+        [APIShared.ModSettings.PresetLocal]
         public bool PreserveDisplayResolution
         {
             get => preserveDisplayResolution;
             set => SetSetting(ref preserveDisplayResolution, value, nameof(PreserveDisplayResolution));
         }
 
-        [Shared.PresetLocal]
+        [APIShared.ModSettings.PresetLocal]
         public bool EnableWorkshopUploadLordSelectionFix
         {
             get => enableWorkshopUploadLordSelectionFix;
@@ -796,7 +797,7 @@ namespace BugfixesAndQoL
                 nameof(EnableWorkshopUploadLordSelectionFix));
         }
 
-        [Shared.PresetLocal]
+        [APIShared.ModSettings.PresetLocal]
         public bool EnableAllyGoodsAmountModifiers
         {
             get => enableAllyGoodsAmountModifiers;

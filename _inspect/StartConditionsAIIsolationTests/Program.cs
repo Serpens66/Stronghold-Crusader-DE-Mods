@@ -1,3 +1,4 @@
+using System.Linq;
 using MessagePack;
 using StartConditions;
 using System;
@@ -132,11 +133,11 @@ internal static class Program
             "StartConditions",
             "src",
             "StartConditionsRuntime.MapLifecycle.cs"));
-        string presetSupport = File.ReadAllText(Path.Combine(
+        string presetSupport = string.Join("\n", Directory.GetFiles(Path.GetDirectoryName(Path.Combine(
             workspaceRoot,
             "APIShared",
             "src",
-            "PresetLobbyModSettingsViewModel.cs"));
+            "PresetLobbyModSettingsViewModel.cs")), "*.cs").Select(File.ReadAllText));
         string activationGate = File.ReadAllText(Path.Combine(
             workspaceRoot,
             "Shared",

@@ -1,3 +1,4 @@
+using APIShared.ModSettings;
 using SHCDESE.API.Components.Network;
 using SHCDESE.NoesisUtil;
 using System;
@@ -5,7 +6,7 @@ using System.Runtime.CompilerServices;
 
 namespace CheatMod
 {
-    public sealed class CheatModSettingsViewModel : Shared.PresetLobbyModSettingsViewModel
+    public sealed class CheatModSettingsViewModel : APIShared.ModSettings.PresetLobbyModSettingsViewModel
     {
         private bool enableMod;
         private bool endlessExtremePowers = true;

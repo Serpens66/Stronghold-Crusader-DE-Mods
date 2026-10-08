@@ -1,56 +1,40 @@
 # APIShared architecture
 
-APIShared complements Script Extender with typed process-wide capabilities that the extender does not provide directly. Consumers cannot request arbitrary addresses, scans, writes or detours.
+APIShared owns typed, process-wide services and the common ModSettings integration. Its assembly identity and BepInEx GUID remain `APIShared` and `APIShared_Serp`.
 
-The managed `lobby-state`, `mission-lifecycle`, and `player-defeat` capabilities initialize once from `APISharedPlugin.Awake()` and are therefore available independently of native library initialization. Native capabilities initialize once from `CrusaderLibrary.LibraryLoaded`. Each capability has an independent error boundary; `NativeApiState.Unavailable` is reserved for failure of global native publication. Registrations, hooks, loggers and runtime state remain rooted for the process lifetime.
+## Source map
 
-## Player-defeat capability
+| Directory | Responsibility |
+|---|---|
+| `src/Core` | Public entry point, owner-bound client, initialization and internal native infrastructure |
+| `src/Missions`, `src/Lobby`, `src/Players` | Shared observers and immutable lifecycle/state contracts |
+| `src/Presentation`, `src/Buildings` | HUD/briefing presentation, repair and gatehouse services |
+| `src/Units`, `src/Pathfinding`, `src/Diagnostics`, `src/Savegames` | Validated helpers, advanced integration and shared observations |
+| `src/GameModes` | General mode snapshots and optional caller-defined permissions |
+| `src/SerpsMods` | Existing Serps GUID profiles and feature exceptions |
+| `src/ModSettings` | Public settings integration and its implementation |
+| `src/UnitCommands` | Internal BugfixesAndQoL/MoatMove command and formation implementation |
 
-The managed `player-defeat` capability observes simulation ticks and publishes two independent, one-shot transitions per player and mission: disappearance or death of a previously confirmed living lord, and entry into Vanilla's official `WinLossState.Loss`. Initial save state is baseline-only. Owner-local registrations are delivered in deterministic owner/registration order; reentrant publications are queued and callback failures are isolated.
+Capability contracts retain the `APIShared` namespace. Directories organize implementation without forcing namespace churn in these contracts. Public former `Shared` types are placed in the three explicit namespaces above. Internal source-linked `Shared` utilities still provide dependency-free JSON, dispatch, logging and per-consumer adapters; they are not a third-party dependency.
 
-## Lobby-state capability
+## Publication and lifetime
 
-`lobby-state` owns the single managed observation path for Vanilla's active multiplayer lobby. It captures once during startup, immediately after the central `Platform_Multiplayer.GetActiveLobbyMembers(bool)` writer and `LeaveLobby(bool)`, at map transitions, and otherwise every 15 render frames. Observation is suppressed while a map is running. The map-start Pre event synchronously captures the last lobby state before mod-local slot finalization.
+`APISharedPlugin.Awake` establishes main-thread dispatch and managed services. Native initialization is published by `CrusaderLibrary.Instance.LibraryLoaded`. `ApiSharedRuntime.ProcessInstance`, static registries and long-lived publishers retain runtime objects after startup cleanup. There is no plugin Update/coroutine/teardown host.
 
-Snapshots defensively copy the one-based player-slot-to-Steam-ID mapping and include lobby ID, local slot, resolution/error state and map-transition preservation. Equal values are not republished. Observer order is ordinal owner GUID followed by registration ID; reentrant publications are queued and callback failures are isolated.
+Global readiness is separate from individual service diagnostics. Capabilities isolate failures; unsupported native services must not disable independent managed observation. Owner-bound clients delegate to the same service acquisition and ownership checks as direct consumers. Creating a client installs nothing.
 
-`BugfixesAndQoL`, `CastlePlanner` and `ExtendedData` are the only current consumers. Their source-linked coordinators retain settings publication, readiness, host/client policy and final in-game slot remapping. They have hard APIShared dependencies and no local polling fallback.
+Readiness callbacks share one exception boundary for early and late delivery, always outside the initialization lock. No dispatch or callback thread transformation is added. Native hooks, executable ranges and installation order are unchanged by this refactor.
 
-## Gatehouse capabilities
+## Settings implementation
 
-`gatehouse-distance-origin` owns `[0xB7B70, 0xB7BBB)` and switches between Vanilla's begin coordinate and the exact center of the complete building bounds while preserving the Chebyshev metric. `BugfixesAndQoL` is its consumer.
+`PresetLobbyModSettingsViewModel` is a partial class: the main file handles integration, permissions and notifications; `.Sources.cs` handles source selection and UI/search commands; `.Persistence.cs` contains the existing preset controller and stable storage schema. `PerPlayerLobbySettings.cs` owns lobby convergence and its builder contracts. `LobbyModSettingsPresetRegistration.cs` owns preparation, registration and horizontal focus-scroll handling.
 
-`gatehouse-timing` owns the four immediate values at RVAs `0xB7BC3`, `0xB7BCA`, `0xB7BD3` and `0xB7C35`. `ExtraFeatures` supplies seconds and tile values through the typed API and contains no local timing patch.
+The extraction preserves executable member bodies and persistence keys. JSON still uses the source-linked `Shared.DependencyFreeJson`. Personal, host, per-player and trail settings retain their existing sync and save boundaries.
 
-Both capabilities validate the complete native function and their own instructions, have separate owners and rollback state, and share one mutation lock because their intervals occupy the same memory page. Neither changes gameplay before a consumer explicitly applies a value.
+## Policy and compatibility
 
-## Unit HUD capability
+Mode capture describes the current context. `GameplayModModePolicy` evaluates an explicit caller profile; it is optional. `SerpsModProfiles` and `GameplayFeatureModePolicy` preserve our existing permissions and exceptions. Unknown/conflicting contexts remain denied by the optional evaluator.
 
-`unit-hud-presentation` is the single owner of the managed hooks for selected troop categories, category interactions, control groups and approved HUD image slots. It also owns the native control-group storage resolver and exposes a one-based, validated removal operation. Owner GUID and registration ID provide deterministic ordering. Immutable snapshots isolate consumer callbacks, callback exceptions do not stop later consumers, and ambiguous category matches fall back to Vanilla.
+The installed Script Extender is the compile/runtime source of truth. APIShared currently declares 2.14.0. Native support is still controlled by existing hash-bound validators and the current native baseline, not by historical documentation version numbers. The canonical Fixes source remains the compatibility reference; this refactor installs no additional hooks and changes no native targets.
 
-Current consumers are `BugfixesAndQoL`, `Testmods/SkinTest` and `Testmods/VirtualUnitsPrototype`. Registrations are process-lifetime publications and request a deferred HUD refresh only after the Vanilla view model is ready.
-
-## Briefing-gold presentation capability
-
-`briefing-gold-presentation` owns the single managed post-Vanilla hook on `MainViewModel.ButtonGotoBriefing`. It derives Vanilla's effective human starting-gold base from the current `AdvOpt_NoGold` state and invokes process-lifetime adjustments in fixed stage, owner-GUID and registration-ID order. `BugfixesAndQoL` publishes the optional Vanilla display correction; `StartConditions` publishes its own gameplay-setting projection. Callback failures and invalid negative results retain the last safe value.
-
-## AIV build-step capability
-
-`aiv-build-step` owns the single permanent RedBird detour at RVA `0x51790`. It validates the full native SHA-256, executable range, unique prolog and full function hash before publication. Observers begin in ordinal owner-GUID and registration-ID order; successful per-call invocations complete in reverse order after exactly one unchanged Vanilla call. Exceptions are isolated, while a Vanilla exception is reported to completions and then propagates normally.
-
-`ExtraFeatures` uses the broker for AI defense rebuild timing. `Helpers/ActiveAIVDetector` uses it only when its optional prebuild trace is enabled. Their gameplay and diagnostic policies remain local. `CastlePlanner` merely binds and calls its AIV functions and therefore is not a consumer.
-
-## Explicit non-goals
-
-Selected-unit commands use `TribeR3EventHooks.OnTribeIssueOrderWithTarget` directly. Path-component, connection, moat and packed-plan access uses `GamePathingManagerAPI` directly. `PathConnectionRecord`, route queries and `GamePlayerManagerAPI.PlayMessage` are not wrapped.
-
-Only a demonstrated identical process-wide target shared by independently loadable mods justifies a new capability. Gameplay policy, settings, networking, save data, localization and one-off diagnostics remain mod-local.
-
-## Compatibility basis
-
-The active native catalog targets SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`. The managed lobby audit targets installed `Assembly-CSharp.dll` SHA-256 `BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789` and Script Extender 2.6.0 commit `2cee24e33b5a5d81d1c275efabc714ac59917b7b`. APIShared itself retains minimum Script Extender 2.3.0 because its current public and runtime contracts require no newer API.
-
-
-## Shared drawbridge coupling (2026-10-07)
-
-At the user's explicit request, APIShared now exposes GatehouseDrawbridgeCoupling and GatehouseFootprintCandidate. BuildOrderedFootprintCandidates reproduces B9330 order; CollectFirstDistinctBuildingIds selects at most two different positive Game-IDs using the caller's live drawbridge predicate. Callers validate footprint/map bounds and identities. No ownership, access permission, parent ID from r_GatehouseId, cache or hook is inferred by this pure API. BugfixesAndQoL's existing approach policy delegates to this shared core; EnemyBridgePathTest calls it directly. Offline projects source-link the same API implementation. CastlePlanner's AIV geometry remains separate. This explicit request supersedes the earlier restriction on adding a public API for this helper; the behavior fix remains disabled.
+The pre-refactor migration record is retained in `MIGRATION_PLAN.md` as historical context. Current public contracts are documented in `docs/API_CATALOG.md`.

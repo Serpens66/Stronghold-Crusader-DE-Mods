@@ -1,7 +1,7 @@
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
-$current = [IO.File]::ReadAllText((Join-Path $root 'APIShared/src/UnitHudPresentationCapability.cs'))
-$before = (git -C $root show HEAD:APIShared/src/UnitHudPresentationCapability.cs) -join "`r`n"
+$current = [IO.File]::ReadAllText((Join-Path $root 'APIShared/src/Presentation/UnitHudPresentationCapability.cs'))
+$before = (git -C $root show HEAD:APIShared/src/Presentation/UnitHudPresentationCapability.cs) -join "`r`n"
 if ($LASTEXITCODE -ne 0) { throw 'Cannot read reference source.' }
 function Block([string]$text, [string]$marker) {
     $start=$text.IndexOf($marker,[StringComparison]::Ordinal)
@@ -12,7 +12,7 @@ function Block([string]$text, [string]$marker) {
     }
     $text.Substring($start,$end-$start)
 }
-$contracts=[IO.File]::ReadAllText((Join-Path $root 'APIShared/src/UnitHudContracts.cs'))
+$contracts=[IO.File]::ReadAllText((Join-Path $root 'APIShared/src/Presentation/UnitHudContracts.cs'))
 $code=@'
 using System;
 using System.Runtime.CompilerServices;

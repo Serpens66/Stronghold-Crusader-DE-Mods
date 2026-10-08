@@ -164,11 +164,134 @@
         <member name="P:APIShared.ApiShared.Current">
             <summary>Gets the process-wide API instance. Native capabilities require a terminal <see cref="P:APIShared.IApiShared.State"/>; managed capabilities report their own readiness.</summary>
         </member>
+        <member name="M:APIShared.ApiShared.ForMod(System.String)">
+            <summary>Creates a client bound to a stable, non-empty BepInEx plugin GUID. Acquiring a client installs no hooks and reserves no capability.</summary>
+        </member>
         <member name="M:APIShared.ApiShared.WhenReady(System.Action{APIShared.IApiShared})">
             <summary>
             Registers a callback that runs when initialization reaches a terminal state. Late
-            registrations run synchronously.
+            registrations run synchronously on the registering thread. Early callbacks run on the initialization publisher thread. Callback exceptions are logged and isolated in both cases; no thread dispatch is performed.
             </summary>
+        </member>
+        <member name="T:APIShared.ModApiClient">
+            <summary>Owner-bound access to shared capabilities. Keep this client in your process-owned runtime; it does not own or dispose shared hooks.</summary>
+        </member>
+        <member name="P:APIShared.ModApiClient.OwnerGuid">
+            <summary>The exact GUID used for acquisitions and owner-local registrations; never a display name.</summary>
+        </member>
+        <member name="P:APIShared.ModApiClient.State">
+            <summary>Global publication state, independent of individual capability availability.</summary>
+        </member>
+        <member name="M:APIShared.ModApiClient.WhenReady(System.Action{APIShared.ModApiClient})">
+            <summary>Runs after global initialization reaches a terminal state. Late calls run synchronously on the caller's thread; early calls use the initialization publisher thread. Exceptions are isolated; no dispatch occurs.</summary>
+        </member>
+        <member name="M:APIShared.ModApiClient.TryGetMissionLifecycle(APIShared.IMissionLifecycleCapability@,APIShared.NativeCapabilityDiagnostic@)">
+            <summary>Acquires IMissionLifecycleCapability for this owner. Inspect the returned diagnostic on failure; independent capabilities remain usable.</summary>
+        </member>
+        <member name="M:APIShared.ModApiClient.TryGetGatehouseDistanceOrigin(APIShared.IGatehouseDistanceOriginCapability@,APIShared.NativeCapabilityDiagnostic@)">
+            <summary>Acquires IGatehouseDistanceOriginCapability for this owner. Inspect the returned diagnostic on failure; independent capabilities remain usable.</summary>
+        </member>
+        <member name="M:APIShared.ModApiClient.TryGetGatehouseTiming(APIShared.IGatehouseTimingCapability@,APIShared.NativeCapabilityDiagnostic@)">
+            <summary>Acquires IGatehouseTimingCapability for this owner. Inspect the returned diagnostic on failure; independent capabilities remain usable.</summary>
+        </member>
+        <member name="M:APIShared.ModApiClient.TryGetUnitHudPresentation(APIShared.IUnitHudPresentationCapability@,APIShared.NativeCapabilityDiagnostic@)">
+            <summary>Acquires IUnitHudPresentationCapability for this owner. Inspect the returned diagnostic on failure; independent capabilities remain usable.</summary>
+        </member>
+        <member name="M:APIShared.ModApiClient.TryGetAivBuildStep(APIShared.IAivBuildStepCapability@,APIShared.NativeCapabilityDiagnostic@)">
+            <summary>Acquires IAivBuildStepCapability for this owner. Inspect the returned diagnostic on failure; independent capabilities remain usable.</summary>
+        </member>
+        <member name="M:APIShared.ModApiClient.TryGetLobbyState(APIShared.ILobbyStateCapability@,APIShared.NativeCapabilityDiagnostic@)">
+            <summary>Acquires ILobbyStateCapability for this owner. Inspect the returned diagnostic on failure; independent capabilities remain usable.</summary>
+        </member>
+        <member name="M:APIShared.ModApiClient.TryGetPlayerDefeat(APIShared.IPlayerDefeatCapability@,APIShared.NativeCapabilityDiagnostic@)">
+            <summary>Acquires IPlayerDefeatCapability for this owner. Inspect the returned diagnostic on failure; independent capabilities remain usable.</summary>
+        </member>
+        <member name="M:APIShared.ModApiClient.TryGetBriefingGoldPresentation(APIShared.IBriefingGoldPresentationCapability@,APIShared.NativeCapabilityDiagnostic@)">
+            <summary>Acquires IBriefingGoldPresentationCapability for this owner. Inspect the returned diagnostic on failure; independent capabilities remain usable.</summary>
+        </member>
+        <member name="M:APIShared.ModApiClient.TryGetBuildingRepair(APIShared.IBuildingRepairCapability@,APIShared.NativeCapabilityDiagnostic@)">
+            <summary>Acquires IBuildingRepairCapability for this owner. Inspect the returned diagnostic on failure; independent capabilities remain usable.</summary>
+        </member>
+        <member name="T:APIShared.SerpsMods.SerpsModProfiles">
+            <summary>Established permissions for Serps mods, separate from the optional general evaluator.</summary>
+        </member>
+        <member name="M:APIShared.SerpsMods.SerpsModProfiles.GetProfile(System.String,System.String)">
+            <summary>Gets the established Serps gameplay profile. Unknown mod GUIDs are rejected; third-party mods construct their own profile.</summary>
+        </member>
+        <member name="T:APIShared.SerpsMods.GameplayFeatureId">
+            <summary>GameplayFeatureId in the centralized mission policy contract.</summary>
+        </member>
+        <member name="F:APIShared.SerpsMods.GameplayFeatureId.BuildingCostTooltip">
+            <summary>BuildingCostTooltip.</summary>
+        </member>
+        <member name="F:APIShared.SerpsMods.GameplayFeatureId.BuildingLimitEnforcement">
+            <summary>BuildingLimitEnforcement.</summary>
+        </member>
+        <member name="F:APIShared.SerpsMods.GameplayFeatureId.UnitCostEnforcement">
+            <summary>UnitCostEnforcement.</summary>
+        </member>
+        <member name="F:APIShared.SerpsMods.GameplayFeatureId.UnitLimitEnforcement">
+            <summary>UnitLimitEnforcement.</summary>
+        </member>
+        <member name="F:APIShared.SerpsMods.GameplayFeatureId.LordHealthMultipliers">
+            <summary>LordHealthMultipliers.</summary>
+        </member>
+        <member name="F:APIShared.SerpsMods.GameplayFeatureId.EndlessExtremePowersRecharge">
+            <summary>EndlessExtremePowersRecharge.</summary>
+        </member>
+        <member name="F:APIShared.SerpsMods.GameplayFeatureId.RandomEventsRuntime">
+            <summary>RandomEventsRuntime.</summary>
+        </member>
+        <member name="F:APIShared.SerpsMods.GameplayFeatureId.ImprovedHunterTargetSelection">
+            <summary>ImprovedHunterTargetSelection.</summary>
+        </member>
+        <member name="F:APIShared.SerpsMods.GameplayFeatureId.ImprovedHunterPathfinding">
+            <summary>ImprovedHunterPathfinding.</summary>
+        </member>
+        <member name="F:APIShared.SerpsMods.GameplayFeatureId.CastleSpawning">
+            <summary>CastleSpawning.</summary>
+        </member>
+        <member name="F:APIShared.SerpsMods.GameplayFeatureId.FreeCastlePreview">
+            <summary>FreeCastlePreview.</summary>
+        </member>
+        <member name="F:APIShared.SerpsMods.GameplayFeatureId.CastleBlueprints">
+            <summary>CastleBlueprints.</summary>
+        </member>
+        <member name="T:APIShared.SerpsMods.GameplayFeatureActivationProfile">
+            <summary>GameplayFeatureActivationProfile in the centralized mission policy contract.</summary>
+        </member>
+        <member name="M:APIShared.SerpsMods.GameplayFeatureActivationProfile.#ctor(System.String,APIShared.SerpsMods.GameplayFeatureId,APIShared.GameModes.GameplayModAllowedContext,System.Boolean)">
+            <summary>GameplayFeatureActivationProfile in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:APIShared.SerpsMods.GameplayFeatureActivationProfile.ModGuid">
+            <summary>ModGuid in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:APIShared.SerpsMods.GameplayFeatureActivationProfile.FeatureId">
+            <summary>FeatureId in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:APIShared.SerpsMods.GameplayFeatureActivationProfile.AllowedContexts">
+            <summary>AllowedContexts in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:APIShared.SerpsMods.GameplayFeatureActivationProfile.AllowRealMultiplayer">
+            <summary>AllowRealMultiplayer in the centralized mission policy contract.</summary>
+        </member>
+        <member name="T:APIShared.SerpsMods.GameplayFeatureModePolicy">
+            <summary>
+            Typed source of truth for features that intentionally have a narrower
+            mode contract than their owning gameplay mod.
+            </summary>
+        </member>
+        <member name="M:APIShared.SerpsMods.GameplayFeatureModePolicy.GetProfile(System.String,APIShared.SerpsMods.GameplayFeatureId)">
+            <summary>GetProfile in the centralized mission policy contract.</summary>
+        </member>
+        <member name="M:APIShared.SerpsMods.GameplayFeatureModePolicy.IsAllowed(System.String,APIShared.SerpsMods.GameplayFeatureId,APIShared.GameModes.GameModeSnapshot)">
+            <summary>IsAllowed in the centralized mission policy contract.</summary>
+        </member>
+        <member name="M:APIShared.SerpsMods.GameplayFeatureModePolicy.IsAllowed(APIShared.SerpsMods.GameplayFeatureActivationProfile,APIShared.GameModes.GameModeSnapshot,System.String@)">
+            <summary>IsAllowed in the centralized mission policy contract.</summary>
+        </member>
+        <member name="M:APIShared.SerpsMods.GameplayFeatureModePolicy.LogDecisions(BepInEx.Logging.ManualLogSource,System.String,APIShared.GameModes.GameModeSnapshot,System.String)">
+            <summary>LogDecisions in the centralized mission policy contract.</summary>
         </member>
         <member name="T:APIShared.UnitLookupFailure">
             <summary>Why a unit game ID could not be resolved. Does not describe unit identity or life state.</summary>
@@ -548,6 +671,282 @@
         <member name="M:APIShared.PlayerPerspectiveAPI.ClearSpectatorView">
             <summary>Clears the identity override when the spectator session ends.</summary>
         </member>
+        <member name="T:APIShared.GameModes.GameModeKind">
+            <summary>Identified mission or editor category; Unknown means evidence is insufficient.</summary>
+        </member>
+        <member name="F:APIShared.GameModes.GameModeKind.Unknown">
+            <summary>Unknown.</summary>
+        </member>
+        <member name="F:APIShared.GameModes.GameModeKind.MapEditor">
+            <summary>MapEditor.</summary>
+        </member>
+        <member name="F:APIShared.GameModes.GameModeKind.Campaign">
+            <summary>Campaign.</summary>
+        </member>
+        <member name="F:APIShared.GameModes.GameModeKind.StandaloneMission">
+            <summary>StandaloneMission.</summary>
+        </member>
+        <member name="F:APIShared.GameModes.GameModeKind.CustomGame">
+            <summary>CustomGame.</summary>
+        </member>
+        <member name="F:APIShared.GameModes.GameModeKind.VanillaTrail">
+            <summary>VanillaTrail.</summary>
+        </member>
+        <member name="F:APIShared.GameModes.GameModeKind.CustomTrail">
+            <summary>CustomTrail.</summary>
+        </member>
+        <member name="F:APIShared.GameModes.GameModeKind.CoopTrail">
+            <summary>CoopTrail.</summary>
+        </member>
+        <member name="F:APIShared.GameModes.GameModeKind.SandsOfTime">
+            <summary>SandsOfTime.</summary>
+        </member>
+        <member name="F:APIShared.GameModes.GameModeKind.Tutorial">
+            <summary>Tutorial.</summary>
+        </member>
+        <member name="T:APIShared.GameModes.GameModeLaunchVariant">
+            <summary>Whether the mission uses standard content, verified customization, or restored customization.</summary>
+        </member>
+        <member name="F:APIShared.GameModes.GameModeLaunchVariant.Standard">
+            <summary>Standard.</summary>
+        </member>
+        <member name="F:APIShared.GameModes.GameModeLaunchVariant.Customized">
+            <summary>Customized.</summary>
+        </member>
+        <member name="F:APIShared.GameModes.GameModeLaunchVariant.RestoredCustomizedSave">
+            <summary>RestoredCustomizedSave.</summary>
+        </member>
+        <member name="T:APIShared.GameModes.GameTrailType">
+            <summary>Named Vanilla trail identifiers; these are trail identifiers, not player or mission indices.</summary>
+        </member>
+        <member name="F:APIShared.GameModes.GameTrailType.FirstEdition">
+            <summary>FirstEdition.</summary>
+        </member>
+        <member name="F:APIShared.GameModes.GameTrailType.Warchest">
+            <summary>Warchest.</summary>
+        </member>
+        <member name="F:APIShared.GameModes.GameTrailType.Extreme">
+            <summary>Extreme.</summary>
+        </member>
+        <member name="F:APIShared.GameModes.GameTrailType.SandsOne">
+            <summary>SandsOne.</summary>
+        </member>
+        <member name="F:APIShared.GameModes.GameTrailType.SandsTwo">
+            <summary>SandsTwo.</summary>
+        </member>
+        <member name="F:APIShared.GameModes.GameTrailType.SandsThree">
+            <summary>SandsThree.</summary>
+        </member>
+        <member name="F:APIShared.GameModes.GameTrailType.SandsFour">
+            <summary>SandsFour.</summary>
+        </member>
+        <member name="F:APIShared.GameModes.GameTrailType.SandsFive">
+            <summary>SandsFive.</summary>
+        </member>
+        <member name="F:APIShared.GameModes.GameTrailType.SandsSix">
+            <summary>SandsSix.</summary>
+        </member>
+        <member name="F:APIShared.GameModes.GameTrailType.SandsSeven">
+            <summary>SandsSeven.</summary>
+        </member>
+        <member name="F:APIShared.GameModes.GameTrailType.SandsEight">
+            <summary>SandsEight.</summary>
+        </member>
+        <member name="T:APIShared.GameModes.GameModeHelper">
+            <summary>Central mode capture. Capturing describes context; it does not activate features or apply a caller permission profile.</summary>
+        </member>
+        <member name="M:APIShared.GameModes.GameModeHelper.Capture(System.Boolean)">
+            <summary>Reads the central current/pending mission snapshot. The legacy save argument does not override authoritative evidence.</summary>
+        </member>
+        <member name="M:APIShared.GameModes.GameModeHelper.IsRealMultiplayer(System.Boolean)">
+            <summary>Reads mission network identity, or lobby authority outside a mission. This alone never grants gameplay permission.</summary>
+        </member>
+        <member name="M:APIShared.GameModes.GameModeHelper.IsSingleplayerSkirmish(System.Boolean)">
+            <summary>IsSingleplayerSkirmish in the centralized mission policy contract.</summary>
+        </member>
+        <member name="M:APIShared.GameModes.GameModeHelper.IsSingleplayerTrail(System.Boolean)">
+            <summary>IsSingleplayerTrail in the centralized mission policy contract.</summary>
+        </member>
+        <member name="M:APIShared.GameModes.GameModeHelper.IsSingleplayerSkirmishMode(System.Boolean)">
+            <summary>IsSingleplayerSkirmishMode in the centralized mission policy contract.</summary>
+        </member>
+        <member name="M:APIShared.GameModes.GameModeHelper.IsMapEditor">
+            <summary>Whether the captured context is the map editor.</summary>
+        </member>
+        <member name="T:APIShared.GameModes.GameModeSnapshot">
+            <summary>Immutable mode evidence for one captured context; inspect Kind and conflicting-origin status before applying your own policy.</summary>
+        </member>
+        <member name="M:APIShared.GameModes.GameModeSnapshot.#ctor(System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,APIShared.GameModes.GameModeKind,APIShared.GameModes.GameModeLaunchVariant,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Boolean)">
+            <summary>Immutable mode evidence for one captured context; inspect Kind and conflicting-origin status before applying your own policy.</summary>
+        </member>
+        <member name="P:APIShared.GameModes.GameModeSnapshot.IsRealMultiplayer">
+            <summary>True for a resolved real multiplayer context; low-level networking alone is insufficient.</summary>
+        </member>
+        <member name="P:APIShared.GameModes.GameModeSnapshot.IsSingleplayerSkirmishMode">
+            <summary>IsSingleplayerSkirmishMode in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:APIShared.GameModes.GameModeSnapshot.IsSingleplayerSkirmish">
+            <summary>IsSingleplayerSkirmish in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:APIShared.GameModes.GameModeSnapshot.IsSingleplayerTrail">
+            <summary>IsSingleplayerTrail in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:APIShared.GameModes.GameModeSnapshot.IsMapEditor">
+            <summary>Whether the captured context is the map editor.</summary>
+        </member>
+        <member name="P:APIShared.GameModes.GameModeSnapshot.MultiplayerSave">
+            <summary>Whether capture was supplied with multiplayer-save evidence.</summary>
+        </member>
+        <member name="P:APIShared.GameModes.GameModeSnapshot.DirectorAvailable">
+            <summary>Whether the Vanilla director was available during capture.</summary>
+        </member>
+        <member name="P:APIShared.GameModes.GameModeSnapshot.DirectorMultiplayer">
+            <summary>Raw multiplayer evidence captured from the director.</summary>
+        </member>
+        <member name="P:APIShared.GameModes.GameModeSnapshot.DirectorSkirmish">
+            <summary>Raw skirmish evidence captured from the director.</summary>
+        </member>
+        <member name="P:APIShared.GameModes.GameModeSnapshot.LowLevelNetworked">
+            <summary>Low-level networking evidence; local skirmish may also set this flag.</summary>
+        </member>
+        <member name="P:APIShared.GameModes.GameModeSnapshot.PlatformMultiplayer">
+            <summary>Multiplayer evidence captured from the platform layer.</summary>
+        </member>
+        <member name="P:APIShared.GameModes.GameModeSnapshot.LobbyMembers">
+            <summary>Number of entries reported in the active multiplayer lobby.</summary>
+        </member>
+        <member name="P:APIShared.GameModes.GameModeSnapshot.RealLobbyMembers">
+            <summary>RealNumber of entries reported in the active multiplayer lobby.</summary>
+        </member>
+        <member name="P:APIShared.GameModes.GameModeSnapshot.SkirmishLobbyMembers">
+            <summary>SkirmishNumber of entries reported in the active multiplayer lobby.</summary>
+        </member>
+        <member name="P:APIShared.GameModes.GameModeSnapshot.GameMembers">
+            <summary>Number of reported in-game network member entries.</summary>
+        </member>
+        <member name="P:APIShared.GameModes.GameModeSnapshot.RealNetworkGameMembers">
+            <summary>RealNetworkNumber of reported in-game network member entries.</summary>
+        </member>
+        <member name="P:APIShared.GameModes.GameModeSnapshot.GameType">
+            <summary>GameType in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:APIShared.GameModes.GameModeSnapshot.SkirmishGameType">
+            <summary>SkirmishGameType in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:APIShared.GameModes.GameModeSnapshot.SkirmishTrailType">
+            <summary>Native trail type: 0..2 Vanilla, 11..18 Sands of Time; -1 when absent.</summary>
+        </member>
+        <member name="P:APIShared.GameModes.GameModeSnapshot.CoopTrailId">
+            <summary>Native one-based Coop trail ID (1..4); zero when absent.</summary>
+        </member>
+        <member name="P:APIShared.GameModes.GameModeSnapshot.Kind">
+            <summary>Resolved category for this captured context.</summary>
+        </member>
+        <member name="P:APIShared.GameModes.GameModeSnapshot.LaunchVariant">
+            <summary>Resolved standard/customized/restored-customized origin.</summary>
+        </member>
+        <member name="P:APIShared.GameModes.GameModeSnapshot.IsCustomized">
+            <summary>True when the resolved launch variant carries customization evidence.</summary>
+        </member>
+        <member name="P:APIShared.GameModes.GameModeSnapshot.IsMissionContent">
+            <summary>Whether the resolved category is campaign, standalone mission, or trail content.</summary>
+        </member>
+        <member name="P:APIShared.GameModes.GameModeSnapshot.AllowsCustomGameMods">
+            <summary>Established Serps permission convenience; use an explicit profile or your own policy for third-party rules.</summary>
+        </member>
+        <member name="P:APIShared.GameModes.GameModeSnapshot.AllowsRegularGameplayMods">
+            <summary>Established Serps gameplay permission convenience; not an automatic restriction on third-party mods.</summary>
+        </member>
+        <member name="P:APIShared.GameModes.GameModeSnapshot.CampaignMapId">
+            <summary>Positive native campaign map ID supplied to the loader; zero if not captured. This is distinct from the zero-based mission index.</summary>
+        </member>
+        <member name="P:APIShared.GameModes.GameModeSnapshot.EventTrailType">
+            <summary>EventTrailType in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:APIShared.GameModes.GameModeSnapshot.CustomizedTrailId">
+            <summary>CustomizedTrailId in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:APIShared.GameModes.GameModeSnapshot.CustomizedMissionId">
+            <summary>CustomizedMissionId in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:APIShared.GameModes.GameModeSnapshot.CustomizedOriginKind">
+            <summary>CustomizedOriginResolved category for this captured context.</summary>
+        </member>
+        <member name="P:APIShared.GameModes.GameModeSnapshot.HasConflictingCustomizedOrigin">
+            <summary>True when customization evidence conflicts; the optional permission evaluator denies this context.</summary>
+        </member>
+        <member name="M:APIShared.GameModes.GameModeSnapshot.ToDiagnosticString">
+            <summary>Formats captured evidence for diagnostics without recapturing live state.</summary>
+        </member>
+        <member name="T:APIShared.GameModes.GameplayModAllowedContext">
+            <summary>Recognized contexts that an optional gameplay profile can permit; combine values with bitwise OR.</summary>
+        </member>
+        <member name="F:APIShared.GameModes.GameplayModAllowedContext.None">
+            <summary>None.</summary>
+        </member>
+        <member name="F:APIShared.GameModes.GameplayModAllowedContext.CustomGame">
+            <summary>CustomGame.</summary>
+        </member>
+        <member name="F:APIShared.GameModes.GameplayModAllowedContext.CustomizedVanillaTrail">
+            <summary>CustomizedVanillaTrail.</summary>
+        </member>
+        <member name="F:APIShared.GameModes.GameplayModAllowedContext.CustomizedCustomTrail">
+            <summary>CustomizedCustomTrail.</summary>
+        </member>
+        <member name="F:APIShared.GameModes.GameplayModAllowedContext.CustomizedCoopTrail">
+            <summary>CustomizedCoopTrail.</summary>
+        </member>
+        <member name="F:APIShared.GameModes.GameplayModAllowedContext.CustomizedSandsOfTime">
+            <summary>CustomizedSandsOfTime.</summary>
+        </member>
+        <member name="F:APIShared.GameModes.GameplayModAllowedContext.MapEditor">
+            <summary>MapEditor.</summary>
+        </member>
+        <member name="F:APIShared.GameModes.GameplayModAllowedContext.Campaign">
+            <summary>Campaign.</summary>
+        </member>
+        <member name="F:APIShared.GameModes.GameplayModAllowedContext.StandaloneMission">
+            <summary>StandaloneMission.</summary>
+        </member>
+        <member name="F:APIShared.GameModes.GameplayModAllowedContext.VanillaTrail">
+            <summary>VanillaTrail.</summary>
+        </member>
+        <member name="F:APIShared.GameModes.GameplayModAllowedContext.CustomTrail">
+            <summary>CustomTrail.</summary>
+        </member>
+        <member name="F:APIShared.GameModes.GameplayModAllowedContext.CoopTrail">
+            <summary>CoopTrail.</summary>
+        </member>
+        <member name="F:APIShared.GameModes.GameplayModAllowedContext.SandsOfTime">
+            <summary>SandsOfTime.</summary>
+        </member>
+        <member name="T:APIShared.GameModes.GameplayModActivationProfile">
+            <summary>Caller-defined optional permissions. Unknown or conflicting contexts fail closed when evaluated.</summary>
+        </member>
+        <member name="M:APIShared.GameModes.GameplayModActivationProfile.#ctor(System.String,System.String,APIShared.GameModes.GameplayModAllowedContext,System.Boolean)">
+            <summary>Caller-defined optional permissions. Unknown or conflicting contexts fail closed when evaluated.</summary>
+        </member>
+        <member name="P:APIShared.GameModes.GameplayModActivationProfile.ModGuid">
+            <summary>The consumer BepInEx GUID; no Serps GUID whitelist is applied.</summary>
+        </member>
+        <member name="P:APIShared.GameModes.GameplayModActivationProfile.DisplayName">
+            <summary>Human-readable name, falling back to the owner GUID.</summary>
+        </member>
+        <member name="P:APIShared.GameModes.GameplayModActivationProfile.AllowedContexts">
+            <summary>Contexts explicitly permitted by this caller.</summary>
+        </member>
+        <member name="P:APIShared.GameModes.GameplayModActivationProfile.AllowRealMultiplayer">
+            <summary>Whether this optional profile permits real multiplayer. Local skirmish is not real multiplayer.</summary>
+        </member>
+        <member name="T:APIShared.GameModes.GameplayModModePolicy">
+            <summary>Optional evaluator for caller-defined gameplay profiles. Construct a profile for any mod GUID; capture and lifecycle do not apply this policy automatically.</summary>
+        </member>
+        <member name="M:APIShared.GameModes.GameplayModModePolicy.IsAllowed(APIShared.GameModes.GameplayModActivationProfile,APIShared.GameModes.GameModeSnapshot,System.String@)">
+            <summary>Evaluates the supplied profile without changing simulation state and returns a diagnostic reason.</summary>
+        </member>
+        <member name="M:APIShared.GameModes.GameplayModModePolicy.ResolveContext(APIShared.GameModes.GameModeSnapshot)">
+            <summary>Maps an existing mode snapshot to a recognized permission context; unknown contexts return None.</summary>
+        </member>
         <member name="T:APIShared.SavegameModSettingsRecord">
             <summary>Versioned savegame metadata for host settings and mission permission mode.</summary>
         </member>
@@ -628,6 +1027,201 @@
         </member>
         <member name="M:APIShared.SavegameModSettings.CancelLoadChoice">
             <summary>Discards an unconsumed load-dialog choice after cancellation or failure.</summary>
+        </member>
+        <member name="T:APIShared.ModSettings.ModSettingsSearchMatcher">
+            <summary>Pure matching policy shared by runtime filtering and isolated tests.</summary>
+        </member>
+        <member name="T:APIShared.ModSettings.ModSettingsSearch">
+            <summary>
+            Explicit, localized metadata for one logical mod-setting entry. The properties are
+            attached to the smallest container that represents the logical setting.
+            </summary>
+        </member>
+        <member name="M:APIShared.ModSettings.ModSettingsSearch.RegisterSource(System.Object,System.String,BepInEx.Logging.ManualLogSource,System.String)">
+            <summary>
+            Registers the immutable XAML catalog used by the optional SerpsModsHost. Each mod
+            remains standalone because the host consumes only the reflection-friendly data shape.
+            </summary>
+        </member>
+        <member name="T:APIShared.ModSettings.ModSettingsSearchEntry">
+            <summary>
+            Public APIShared export shape used by the optional global settings-search host.
+            </summary>
+        </member>
+        <member name="T:APIShared.ModSettings.ToolTipPresentation">
+            <summary>Shared Noesis tooltip sizes for mod settings. External XAML can use these values without linking Shared sources.</summary>
+        </member>
+        <member name="P:APIShared.ModSettings.ToolTipPresentation.FontSize">
+            <summary>The established common tooltip font size, as the float required by Noesis.</summary>
+        </member>
+        <member name="P:APIShared.ModSettings.ToolTipPresentation.MaximumWidth">
+            <summary>The established common maximum width, as the float required by Noesis.</summary>
+        </member>
+        <member name="P:APIShared.ModSettings.ToolTipPresentation.AutomaticFontSize">
+            <summary>Resolution-sensitive font size. Read on the Unity thread.</summary>
+        </member>
+        <member name="P:APIShared.ModSettings.ToolTipPresentation.AutomaticMaximumWidth">
+            <summary>Resolution-sensitive maximum width. Read on the Unity thread.</summary>
+        </member>
+        <member name="T:APIShared.ModSettings.PresetLocalAttribute">
+            <summary>
+            Persists a setting in the shared local preset file without exposing it to
+            the Script Extender's multiplayer synchronization layer.
+            </summary>
+        </member>
+        <member name="T:APIShared.ModSettings.PresetLobbyModSettingsViewModel">
+            <summary>
+            Adds two local presets to a Script Extender lobby-settings ViewModel while
+            keeping the outer MessagePack dictionary readable by the Script Extender.
+            </summary>
+            <summary>Personal preset persistence, defaults, working snapshots and stable storage schema.</summary>
+            <summary>Preset source selection, save/load UI and settings search bindings.</summary>
+        </member>
+        <member name="M:APIShared.ModSettings.PresetLobbyModSettingsViewModel.IsRetiredPresetProperty(System.String)">
+            <summary>Recognizes removed properties whose stored preset values may be ignored.</summary>
+        </member>
+        <member name="M:APIShared.ModSettings.PresetLobbyModSettingsViewModel.ApplyConfirmedPresetSelection(APIShared.ModSettings.PublishedModSettingsPreset)">
+            <summary>Applies an explicitly confirmed selection. Overrides may add deferred application.</summary>
+        </member>
+        <member name="M:APIShared.ModSettings.PresetLobbyModSettingsViewModel.SetModDefaultValue``1(System.String,``0)">
+            <summary>
+            Replaces one captured code-default value without changing the current working settings.
+            This is intended for defaults which can only be materialized after dynamic discovery.
+            </summary>
+        </member>
+        <member name="P:APIShared.ModSettings.PresetLobbyModSettingsViewModel.DynamicSettingsProvider">
+            <summary>Optional dynamically described local working configuration.</summary>
+        </member>
+        <member name="M:APIShared.ModSettings.PresetLobbyModSettingsViewModel.ConfigurePerPlayerLobbySettings(APIShared.ModSettings.PerPlayerLobbySettingsBuilder)">
+            <summary>
+            Declares the few domain-specific parts of personal settings. Transport,
+            player-slot ownership, lobby convergence and readiness stay in APIShared.
+            </summary>
+        </member>
+        <member name="M:APIShared.ModSettings.PresetLobbyModSettingsViewModel.CanMutateSetting(System.String)">
+            <summary>
+            Authorizes a settings mutation before any backing state is changed.
+            Preset and Trail snapshots are trusted internal applications; all other
+            writes use the Script Extender's ownership gate.
+            </summary>
+        </member>
+        <member name="M:APIShared.ModSettings.PresetLobbyModSettingsViewModel.CanMutateSettingWithDependents(System.String,System.String[])">
+            <summary>
+            Also refreshes editable proxy properties after a rejected write. The
+            Extender's private revert path keeps these notifications out of sync
+            and storage just like the primary property notification.
+            </summary>
+        </member>
+        <member name="M:APIShared.ModSettings.PresetLobbyModSettingsViewModel.System_GetPresetSettingDescriptors">
+            <summary>Returns the persistent settings available to shared preset authoring UI.</summary>
+        </member>
+        <member name="M:APIShared.ModSettings.PresetLobbyModSettingsViewModel.System_ImportPresetJson(System.String)">
+            <summary>Imports a validated preset through the shared catalog, without overwriting an existing preset.</summary>
+        </member>
+        <member name="M:APIShared.ModSettings.PresetLobbyModSettingsViewModel.System_ExportSelectedPresetJson">
+            <summary>Exports the selected catalog preset with its original per-option modes.</summary>
+        </member>
+        <member name="M:APIShared.ModSettings.PresetLobbyModSettingsViewModel.System_SavePersonalPreset(System.String,System.String,System.String,System.Collections.Generic.IEnumerable{APIShared.ModSettings.PresetSaveSelection},System.Boolean)">
+            <summary>Saves selected settings as a persistent, personal preset JSON file.</summary>
+        </member>
+        <member name="M:APIShared.ModSettings.PresetLobbyModSettingsViewModel.System_ApplyModSettingsSearchTarget(System.String,System.String)">
+            <summary>Safe reflection bridge used by the optional global search host.</summary>
+        </member>
+        <member name="M:APIShared.ModSettings.LobbyModSettingsPresetRegistration.AttachExternalWorkingCopy(BepInEx.Logging.ManualLogSource,System.String,System.String,System.String,System.Version,APIShared.ModSettings.PresetLobbyModSettingsViewModel,System.Object)">
+            <summary>Attaches shared presets to an existing foreign mod page without a second network registration.</summary>
+        </member>
+        <member name="M:APIShared.ModSettings.LobbyModSettingsPresetRegistration.AttachExternalView(System.Object,BepInEx.Logging.ManualLogSource,System.String)">
+            <summary>Attaches shared focus scrolling to a separately registered participant's page.</summary>
+        </member>
+        <member name="M:APIShared.ModSettings.LobbyModSettingsPresetRegistration.RegisterExternalWorkingCopy(BepInEx.Logging.ManualLogSource,System.String,System.String,System.String,System.Version,APIShared.ModSettings.PresetLobbyModSettingsViewModel)">
+            <summary>Registers an external configuration participant independently of its optional page.</summary>
+        </member>
+        <member name="M:APIShared.ModSettings.LobbyModSettingsPresetRegistration.PrepareExternalWorkingCopy(BepInEx.Logging.ManualLogSource,System.String,System.String,System.String,System.Version,APIShared.ModSettings.PresetLobbyModSettingsViewModel)">
+            <summary>Prepares an unpublished candidate. Activation failures cannot leak a participant.</summary>
+        </member>
+        <member name="T:APIShared.ModSettings.IModSettingsPresetEndpoint">
+            <summary>Typed APIShared endpoint consumed by optional mission-setting providers such as ExtendedData.</summary>
+        </member>
+        <member name="T:APIShared.ModSettings.IModSettingsMissionSourceEndpoint">
+            <summary>Optional source metadata supplied before entering a mission preset.</summary>
+        </member>
+        <member name="T:APIShared.ModSettings.IModSettingsWorkingCopyEndpoint">
+            <summary>Extended endpoint for replacing an editable mission working copy without touching its source.</summary>
+        </member>
+        <member name="T:APIShared.ModSettings.ModSettingsWorkingSourceKind">
+            <summary>Identifies a read-only source which can be materialized into editable working settings.</summary>
+        </member>
+        <member name="T:APIShared.ModSettings.ModSettingsWorkingSource">
+            <summary>One source shown by the common ModSettings source selector.</summary>
+        </member>
+        <member name="P:APIShared.ModSettings.ModSettingsWorkingSource.IsPreferred">
+            <summary>Whether this source represents the provider's current mission context.</summary>
+        </member>
+        <member name="P:APIShared.ModSettings.ModSettingsWorkingSource.PreferenceContextId">
+            <summary>Optional stable identity of the mission context used to distinguish context changes from refreshes.</summary>
+        </member>
+        <member name="T:APIShared.ModSettings.IModSettingsWorkingSourceProvider">
+            <summary>Optional provider implemented by mission-data mods such as ExtendedData.</summary>
+        </member>
+        <member name="T:APIShared.ModSettings.ModSettingsWorkingSourceRegistry">
+            <summary>Process-wide bridge between APIShared consumers and the optional mission source provider.</summary>
+        </member>
+        <member name="T:APIShared.ModSettings.PublishedPresetValueMode">
+            <summary>Determines how a published preset resolves one selected setting.</summary>
+        </member>
+        <member name="T:APIShared.ModSettings.PresetSaveBulkMode">
+            <summary>Bulk choices offered by the standard personal-preset save dialog.</summary>
+        </member>
+        <member name="T:APIShared.ModSettings.PresetSettingScope">
+            <summary>Describes the ownership of a persistent lobby setting.</summary>
+        </member>
+        <member name="T:APIShared.ModSettings.ModSettingsPresetSourceKind">
+            <summary>Identifies who owns a preset and whether it may be replaced by the player.</summary>
+        </member>
+        <member name="T:APIShared.ModSettings.PresetSettingDescriptor">
+            <summary>One persistent setting exposed to preset authoring UI.</summary>
+        </member>
+        <member name="T:APIShared.ModSettings.PresetSaveSelection">
+            <summary>One author-selected setting passed to personal-preset persistence.</summary>
+        </member>
+        <member name="T:APIShared.ModSettings.PresetSaveSettingViewModel">
+            <summary>Mutable row model used by the standard personal-preset save dialog.</summary>
+        </member>
+        <member name="T:APIShared.ModSettings.PublishedPresetSetting">
+            <summary>One setting selected by a published preset.</summary>
+        </member>
+        <member name="T:APIShared.ModSettings.PublishedModSettingsPreset">
+            <summary>A validated, provider-qualified preset offered by a target mod.</summary>
+        </member>
+        <member name="T:APIShared.ModSettings.ModSettingsPresetListEntry">
+            <summary>One source-labelled row shown by the standard preset load/save dialogs.</summary>
+        </member>
+        <member name="T:APIShared.ModSettings.ModSettingsPresetSaveTarget">
+            <summary>A deliberate destination offered by the personal-preset save dialog.</summary>
+        </member>
+        <member name="T:APIShared.ModSettings.ModSettingsPresetJson">
+            <summary>Shared JSON contract for loose <c>preset_*.json</c> files.</summary>
+        </member>
+        <member name="T:APIShared.ModSettings.DynamicPresetSetting">
+            <summary>Options supplied by an optional external configuration API.</summary>
+        </member>
+        <member name="T:APIShared.ModSettings.IModSettingsApplicationBackend">
+            <summary>Applies a complete configuration, separately from its editable working copy.</summary>
+        </member>
+        <member name="T:APIShared.ModSettings.INetworkModSettingsApplicationBackend">
+            <summary>Optional admission check owned by a mod's existing authenticated host transport.</summary>
+        </member>
+        <member name="T:APIShared.ModSettings.IDynamicPresetSettingsProvider">
+            <summary>Whole-snapshot operations on a local working copy; never a second network transport.</summary>
+        </member>
+        <member name="T:APIShared.ModSettings.ModSettingsApplication">
+            <summary>Optional configuration endpoints, independent of their mod's UI registration.</summary>
+        </member>
+        <member name="M:APIShared.ModSettings.ModSettingsApplication.PrepareLaunch">
+            <summary>Returns false until all required startup configurations are actually loaded.</summary>
+        </member>
+        <member name="M:APIShared.ModSettings.ModSettingsApplication.DiscardPreparationWithReport">
+            <summary>Returns providers whose external packages could not be inspected or discarded.</summary>
         </member>
         <member name="T:APIShared.MissionMapType">
             <summary>Map objective subtype, independent of campaign/trail/editor provenance.</summary>
@@ -2000,540 +2594,11 @@
         <member name="F:APIShared.APISharedPlugin.PluginVersion">
             <summary>Current API plugin version.</summary>
         </member>
-        <member name="T:Shared.GameModeKind">
-            <summary>GameModeKind in the centralized mission policy contract.</summary>
-        </member>
-        <member name="F:Shared.GameModeKind.Unknown">
-            <summary>Unknown.</summary>
-        </member>
-        <member name="F:Shared.GameModeKind.MapEditor">
-            <summary>MapEditor.</summary>
-        </member>
-        <member name="F:Shared.GameModeKind.Campaign">
-            <summary>Campaign.</summary>
-        </member>
-        <member name="F:Shared.GameModeKind.StandaloneMission">
-            <summary>StandaloneMission.</summary>
-        </member>
-        <member name="F:Shared.GameModeKind.CustomGame">
-            <summary>CustomGame.</summary>
-        </member>
-        <member name="F:Shared.GameModeKind.VanillaTrail">
-            <summary>VanillaTrail.</summary>
-        </member>
-        <member name="F:Shared.GameModeKind.CustomTrail">
-            <summary>CustomTrail.</summary>
-        </member>
-        <member name="F:Shared.GameModeKind.CoopTrail">
-            <summary>CoopTrail.</summary>
-        </member>
-        <member name="F:Shared.GameModeKind.SandsOfTime">
-            <summary>SandsOfTime.</summary>
-        </member>
-        <member name="F:Shared.GameModeKind.Tutorial">
-            <summary>Tutorial.</summary>
-        </member>
-        <member name="T:Shared.GameModeLaunchVariant">
-            <summary>GameModeLaunchVariant in the centralized mission policy contract.</summary>
-        </member>
-        <member name="F:Shared.GameModeLaunchVariant.Standard">
-            <summary>Standard.</summary>
-        </member>
-        <member name="F:Shared.GameModeLaunchVariant.Customized">
-            <summary>Customized.</summary>
-        </member>
-        <member name="F:Shared.GameModeLaunchVariant.RestoredCustomizedSave">
-            <summary>RestoredCustomizedSave.</summary>
-        </member>
-        <member name="T:Shared.GameTrailType">
-            <summary>GameTrailType in the centralized mission policy contract.</summary>
-        </member>
-        <member name="F:Shared.GameTrailType.FirstEdition">
-            <summary>FirstEdition.</summary>
-        </member>
-        <member name="F:Shared.GameTrailType.Warchest">
-            <summary>Warchest.</summary>
-        </member>
-        <member name="F:Shared.GameTrailType.Extreme">
-            <summary>Extreme.</summary>
-        </member>
-        <member name="F:Shared.GameTrailType.SandsOne">
-            <summary>SandsOne.</summary>
-        </member>
-        <member name="F:Shared.GameTrailType.SandsTwo">
-            <summary>SandsTwo.</summary>
-        </member>
-        <member name="F:Shared.GameTrailType.SandsThree">
-            <summary>SandsThree.</summary>
-        </member>
-        <member name="F:Shared.GameTrailType.SandsFour">
-            <summary>SandsFour.</summary>
-        </member>
-        <member name="F:Shared.GameTrailType.SandsFive">
-            <summary>SandsFive.</summary>
-        </member>
-        <member name="F:Shared.GameTrailType.SandsSix">
-            <summary>SandsSix.</summary>
-        </member>
-        <member name="F:Shared.GameTrailType.SandsSeven">
-            <summary>SandsSeven.</summary>
-        </member>
-        <member name="F:Shared.GameTrailType.SandsEight">
-            <summary>SandsEight.</summary>
-        </member>
-        <member name="T:Shared.GameModeHelper">
-            <summary>GameModeHelper in the centralized mission policy contract.</summary>
-        </member>
-        <member name="M:Shared.GameModeHelper.Capture(System.Boolean)">
-            <summary>Reads the central current/pending mission snapshot. The legacy save argument does not override authoritative evidence.</summary>
-        </member>
-        <member name="M:Shared.GameModeHelper.IsRealMultiplayer(System.Boolean)">
-            <summary>Reads mission network identity, or lobby authority outside a mission. This alone never grants gameplay permission.</summary>
-        </member>
-        <member name="M:Shared.GameModeHelper.IsSingleplayerSkirmish(System.Boolean)">
-            <summary>IsSingleplayerSkirmish in the centralized mission policy contract.</summary>
-        </member>
-        <member name="M:Shared.GameModeHelper.IsSingleplayerTrail(System.Boolean)">
-            <summary>IsSingleplayerTrail in the centralized mission policy contract.</summary>
-        </member>
-        <member name="M:Shared.GameModeHelper.IsSingleplayerSkirmishMode(System.Boolean)">
-            <summary>IsSingleplayerSkirmishMode in the centralized mission policy contract.</summary>
-        </member>
-        <member name="M:Shared.GameModeHelper.IsMapEditor">
-            <summary>IsMapEditor in the centralized mission policy contract.</summary>
-        </member>
-        <member name="T:Shared.GameModeSnapshot">
-            <summary>GameModeSnapshot in the centralized mission policy contract.</summary>
-        </member>
-        <member name="M:Shared.GameModeSnapshot.#ctor(System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,Shared.GameModeKind,Shared.GameModeLaunchVariant,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Boolean)">
-            <summary>GameModeSnapshot in the centralized mission policy contract.</summary>
-        </member>
-        <member name="P:Shared.GameModeSnapshot.IsRealMultiplayer">
-            <summary>IsRealMultiplayer in the centralized mission policy contract.</summary>
-        </member>
-        <member name="P:Shared.GameModeSnapshot.IsSingleplayerSkirmishMode">
-            <summary>IsSingleplayerSkirmishMode in the centralized mission policy contract.</summary>
-        </member>
-        <member name="P:Shared.GameModeSnapshot.IsSingleplayerSkirmish">
-            <summary>IsSingleplayerSkirmish in the centralized mission policy contract.</summary>
-        </member>
-        <member name="P:Shared.GameModeSnapshot.IsSingleplayerTrail">
-            <summary>IsSingleplayerTrail in the centralized mission policy contract.</summary>
-        </member>
-        <member name="P:Shared.GameModeSnapshot.IsMapEditor">
-            <summary>IsMapEditor in the centralized mission policy contract.</summary>
-        </member>
-        <member name="P:Shared.GameModeSnapshot.MultiplayerSave">
-            <summary>MultiplayerSave in the centralized mission policy contract.</summary>
-        </member>
-        <member name="P:Shared.GameModeSnapshot.DirectorAvailable">
-            <summary>DirectorAvailable in the centralized mission policy contract.</summary>
-        </member>
-        <member name="P:Shared.GameModeSnapshot.DirectorMultiplayer">
-            <summary>DirectorMultiplayer in the centralized mission policy contract.</summary>
-        </member>
-        <member name="P:Shared.GameModeSnapshot.DirectorSkirmish">
-            <summary>DirectorSkirmish in the centralized mission policy contract.</summary>
-        </member>
-        <member name="P:Shared.GameModeSnapshot.LowLevelNetworked">
-            <summary>LowLevelNetworked in the centralized mission policy contract.</summary>
-        </member>
-        <member name="P:Shared.GameModeSnapshot.PlatformMultiplayer">
-            <summary>PlatformMultiplayer in the centralized mission policy contract.</summary>
-        </member>
-        <member name="P:Shared.GameModeSnapshot.LobbyMembers">
-            <summary>LobbyMembers in the centralized mission policy contract.</summary>
-        </member>
-        <member name="P:Shared.GameModeSnapshot.RealLobbyMembers">
-            <summary>RealLobbyMembers in the centralized mission policy contract.</summary>
-        </member>
-        <member name="P:Shared.GameModeSnapshot.SkirmishLobbyMembers">
-            <summary>SkirmishLobbyMembers in the centralized mission policy contract.</summary>
-        </member>
-        <member name="P:Shared.GameModeSnapshot.GameMembers">
-            <summary>GameMembers in the centralized mission policy contract.</summary>
-        </member>
-        <member name="P:Shared.GameModeSnapshot.RealNetworkGameMembers">
-            <summary>RealNetworkGameMembers in the centralized mission policy contract.</summary>
-        </member>
-        <member name="P:Shared.GameModeSnapshot.GameType">
-            <summary>GameType in the centralized mission policy contract.</summary>
-        </member>
-        <member name="P:Shared.GameModeSnapshot.SkirmishGameType">
-            <summary>SkirmishGameType in the centralized mission policy contract.</summary>
-        </member>
-        <member name="P:Shared.GameModeSnapshot.SkirmishTrailType">
-            <summary>Native trail type: 0..2 Vanilla, 11..18 Sands of Time; -1 when absent.</summary>
-        </member>
-        <member name="P:Shared.GameModeSnapshot.CoopTrailId">
-            <summary>Native one-based Coop trail ID (1..4); zero when absent.</summary>
-        </member>
-        <member name="P:Shared.GameModeSnapshot.Kind">
-            <summary>Kind in the centralized mission policy contract.</summary>
-        </member>
-        <member name="P:Shared.GameModeSnapshot.LaunchVariant">
-            <summary>LaunchVariant in the centralized mission policy contract.</summary>
-        </member>
-        <member name="P:Shared.GameModeSnapshot.IsCustomized">
-            <summary>IsCustomized in the centralized mission policy contract.</summary>
-        </member>
-        <member name="P:Shared.GameModeSnapshot.IsMissionContent">
-            <summary>IsMissionContent in the centralized mission policy contract.</summary>
-        </member>
-        <member name="P:Shared.GameModeSnapshot.AllowsCustomGameMods">
-            <summary>AllowsCustomGameMods in the centralized mission policy contract.</summary>
-        </member>
-        <member name="P:Shared.GameModeSnapshot.AllowsRegularGameplayMods">
-            <summary>AllowsRegularGameplayMods in the centralized mission policy contract.</summary>
-        </member>
-        <member name="P:Shared.GameModeSnapshot.CampaignMapId">
-            <summary>Positive native campaign map ID supplied to the loader; zero if not captured. This is distinct from the zero-based mission index.</summary>
-        </member>
-        <member name="P:Shared.GameModeSnapshot.EventTrailType">
-            <summary>EventTrailType in the centralized mission policy contract.</summary>
-        </member>
-        <member name="P:Shared.GameModeSnapshot.CustomizedTrailId">
-            <summary>CustomizedTrailId in the centralized mission policy contract.</summary>
-        </member>
-        <member name="P:Shared.GameModeSnapshot.CustomizedMissionId">
-            <summary>CustomizedMissionId in the centralized mission policy contract.</summary>
-        </member>
-        <member name="P:Shared.GameModeSnapshot.CustomizedOriginKind">
-            <summary>CustomizedOriginKind in the centralized mission policy contract.</summary>
-        </member>
-        <member name="P:Shared.GameModeSnapshot.HasConflictingCustomizedOrigin">
-            <summary>HasConflictingCustomizedOrigin in the centralized mission policy contract.</summary>
-        </member>
-        <member name="M:Shared.GameModeSnapshot.ToDiagnosticString">
-            <summary>ToDiagnosticString in the centralized mission policy contract.</summary>
-        </member>
-        <member name="T:Shared.GameplayModAllowedContext">
-            <summary>GameplayModAllowedContext in the centralized mission policy contract.</summary>
-        </member>
-        <member name="F:Shared.GameplayModAllowedContext.None">
-            <summary>None.</summary>
-        </member>
-        <member name="F:Shared.GameplayModAllowedContext.CustomGame">
-            <summary>CustomGame.</summary>
-        </member>
-        <member name="F:Shared.GameplayModAllowedContext.CustomizedVanillaTrail">
-            <summary>CustomizedVanillaTrail.</summary>
-        </member>
-        <member name="F:Shared.GameplayModAllowedContext.CustomizedCustomTrail">
-            <summary>CustomizedCustomTrail.</summary>
-        </member>
-        <member name="F:Shared.GameplayModAllowedContext.CustomizedCoopTrail">
-            <summary>CustomizedCoopTrail.</summary>
-        </member>
-        <member name="F:Shared.GameplayModAllowedContext.CustomizedSandsOfTime">
-            <summary>CustomizedSandsOfTime.</summary>
-        </member>
-        <member name="F:Shared.GameplayModAllowedContext.MapEditor">
-            <summary>MapEditor.</summary>
-        </member>
-        <member name="F:Shared.GameplayModAllowedContext.Campaign">
-            <summary>Campaign.</summary>
-        </member>
-        <member name="F:Shared.GameplayModAllowedContext.StandaloneMission">
-            <summary>StandaloneMission.</summary>
-        </member>
-        <member name="F:Shared.GameplayModAllowedContext.VanillaTrail">
-            <summary>VanillaTrail.</summary>
-        </member>
-        <member name="F:Shared.GameplayModAllowedContext.CustomTrail">
-            <summary>CustomTrail.</summary>
-        </member>
-        <member name="F:Shared.GameplayModAllowedContext.CoopTrail">
-            <summary>CoopTrail.</summary>
-        </member>
-        <member name="F:Shared.GameplayModAllowedContext.SandsOfTime">
-            <summary>SandsOfTime.</summary>
-        </member>
-        <member name="T:Shared.GameplayModActivationProfile">
-            <summary>GameplayModActivationProfile in the centralized mission policy contract.</summary>
-        </member>
-        <member name="M:Shared.GameplayModActivationProfile.#ctor(System.String,System.String,Shared.GameplayModAllowedContext)">
-            <summary>GameplayModActivationProfile in the centralized mission policy contract.</summary>
-        </member>
-        <member name="P:Shared.GameplayModActivationProfile.ModGuid">
-            <summary>ModGuid in the centralized mission policy contract.</summary>
-        </member>
-        <member name="P:Shared.GameplayModActivationProfile.DisplayName">
-            <summary>DisplayName in the centralized mission policy contract.</summary>
-        </member>
-        <member name="P:Shared.GameplayModActivationProfile.AllowedContexts">
-            <summary>AllowedContexts in the centralized mission policy contract.</summary>
-        </member>
-        <member name="T:Shared.GameplayModModePolicy">
-            <summary>Single typed source of truth for mode permissions of regular gameplay mods.</summary>
-        </member>
-        <member name="M:Shared.GameplayModModePolicy.GetProfile(System.String,System.String)">
-            <summary>GetProfile in the centralized mission policy contract.</summary>
-        </member>
-        <member name="M:Shared.GameplayModModePolicy.IsAllowed(Shared.GameplayModActivationProfile,Shared.GameModeSnapshot,System.String@)">
-            <summary>IsAllowed in the centralized mission policy contract.</summary>
-        </member>
-        <member name="M:Shared.GameplayModModePolicy.ResolveContext(Shared.GameModeSnapshot)">
-            <summary>ResolveContext in the centralized mission policy contract.</summary>
-        </member>
-        <member name="T:Shared.GameplayFeatureId">
-            <summary>GameplayFeatureId in the centralized mission policy contract.</summary>
-        </member>
-        <member name="F:Shared.GameplayFeatureId.BuildingCostTooltip">
-            <summary>BuildingCostTooltip.</summary>
-        </member>
-        <member name="F:Shared.GameplayFeatureId.BuildingLimitEnforcement">
-            <summary>BuildingLimitEnforcement.</summary>
-        </member>
-        <member name="F:Shared.GameplayFeatureId.UnitCostEnforcement">
-            <summary>UnitCostEnforcement.</summary>
-        </member>
-        <member name="F:Shared.GameplayFeatureId.UnitLimitEnforcement">
-            <summary>UnitLimitEnforcement.</summary>
-        </member>
-        <member name="F:Shared.GameplayFeatureId.LordHealthMultipliers">
-            <summary>LordHealthMultipliers.</summary>
-        </member>
-        <member name="F:Shared.GameplayFeatureId.EndlessExtremePowersRecharge">
-            <summary>EndlessExtremePowersRecharge.</summary>
-        </member>
-        <member name="F:Shared.GameplayFeatureId.RandomEventsRuntime">
-            <summary>RandomEventsRuntime.</summary>
-        </member>
-        <member name="F:Shared.GameplayFeatureId.ImprovedHunterTargetSelection">
-            <summary>ImprovedHunterTargetSelection.</summary>
-        </member>
-        <member name="F:Shared.GameplayFeatureId.ImprovedHunterPathfinding">
-            <summary>ImprovedHunterPathfinding.</summary>
-        </member>
-        <member name="F:Shared.GameplayFeatureId.CastleSpawning">
-            <summary>CastleSpawning.</summary>
-        </member>
-        <member name="F:Shared.GameplayFeatureId.FreeCastlePreview">
-            <summary>FreeCastlePreview.</summary>
-        </member>
-        <member name="F:Shared.GameplayFeatureId.CastleBlueprints">
-            <summary>CastleBlueprints.</summary>
-        </member>
-        <member name="T:Shared.GameplayFeatureActivationProfile">
-            <summary>GameplayFeatureActivationProfile in the centralized mission policy contract.</summary>
-        </member>
-        <member name="M:Shared.GameplayFeatureActivationProfile.#ctor(System.String,Shared.GameplayFeatureId,Shared.GameplayModAllowedContext,System.Boolean)">
-            <summary>GameplayFeatureActivationProfile in the centralized mission policy contract.</summary>
-        </member>
-        <member name="P:Shared.GameplayFeatureActivationProfile.ModGuid">
-            <summary>ModGuid in the centralized mission policy contract.</summary>
-        </member>
-        <member name="P:Shared.GameplayFeatureActivationProfile.FeatureId">
-            <summary>FeatureId in the centralized mission policy contract.</summary>
-        </member>
-        <member name="P:Shared.GameplayFeatureActivationProfile.AllowedContexts">
-            <summary>AllowedContexts in the centralized mission policy contract.</summary>
-        </member>
-        <member name="P:Shared.GameplayFeatureActivationProfile.AllowRealMultiplayer">
-            <summary>AllowRealMultiplayer in the centralized mission policy contract.</summary>
-        </member>
-        <member name="T:Shared.GameplayFeatureModePolicy">
-            <summary>
-            Typed source of truth for features that intentionally have a narrower
-            mode contract than their owning gameplay mod.
-            </summary>
-        </member>
-        <member name="M:Shared.GameplayFeatureModePolicy.GetProfile(System.String,Shared.GameplayFeatureId)">
-            <summary>GetProfile in the centralized mission policy contract.</summary>
-        </member>
-        <member name="M:Shared.GameplayFeatureModePolicy.IsAllowed(System.String,Shared.GameplayFeatureId,Shared.GameModeSnapshot)">
-            <summary>IsAllowed in the centralized mission policy contract.</summary>
-        </member>
-        <member name="M:Shared.GameplayFeatureModePolicy.IsAllowed(Shared.GameplayFeatureActivationProfile,Shared.GameModeSnapshot,System.String@)">
-            <summary>IsAllowed in the centralized mission policy contract.</summary>
-        </member>
-        <member name="M:Shared.GameplayFeatureModePolicy.LogDecisions(BepInEx.Logging.ManualLogSource,System.String,Shared.GameModeSnapshot,System.String)">
-            <summary>LogDecisions in the centralized mission policy contract.</summary>
-        </member>
         <member name="T:Shared.UnityMainThreadDispatch">
             <summary>
             Process-lifetime, per-mod-assembly dispatcher for work that must leave an
             arbitrary packet or simulation callback before it touches Unity or Noesis.
             </summary>
-        </member>
-        <member name="T:Shared.ModSettingsSearchMatcher">
-            <summary>Pure matching policy shared by runtime filtering and isolated tests.</summary>
-        </member>
-        <member name="T:Shared.ModSettingsSearch">
-            <summary>
-            Explicit, localized metadata for one logical mod-setting entry. The properties are
-            attached to the smallest container that represents the logical setting.
-            </summary>
-        </member>
-        <member name="M:Shared.ModSettingsSearch.RegisterSource(System.Object,System.String,BepInEx.Logging.ManualLogSource,System.String)">
-            <summary>
-            Registers the immutable XAML catalog used by the optional SerpsModsHost. Each mod
-            remains standalone because the host consumes only the reflection-friendly data shape.
-            </summary>
-        </member>
-        <member name="T:Shared.ModSettingsSearchEntry">
-            <summary>
-            Public APIShared export shape used by the optional global settings-search host.
-            </summary>
-        </member>
-        <member name="T:Shared.PresetLocalAttribute">
-            <summary>
-            Persists a setting in the shared local preset file without exposing it to
-            the Script Extender's multiplayer synchronization layer.
-            </summary>
-        </member>
-        <member name="T:Shared.PresetLobbyModSettingsViewModel">
-            <summary>
-            Adds two local presets to a Script Extender lobby-settings ViewModel while
-            keeping the outer MessagePack dictionary readable by the Script Extender.
-            </summary>
-        </member>
-        <member name="M:Shared.PresetLobbyModSettingsViewModel.IsRetiredPresetProperty(System.String)">
-            <summary>Recognizes removed properties whose stored preset values may be ignored.</summary>
-        </member>
-        <member name="M:Shared.PresetLobbyModSettingsViewModel.System_ApplyModSettingsSearchTarget(System.String,System.String)">
-            <summary>Safe reflection bridge used by the optional global search host.</summary>
-        </member>
-        <member name="M:Shared.PresetLobbyModSettingsViewModel.ApplyConfirmedPresetSelection(Shared.PublishedModSettingsPreset)">
-            <summary>Applies an explicitly confirmed selection. Overrides may add deferred application.</summary>
-        </member>
-        <member name="M:Shared.PresetLobbyModSettingsViewModel.SetModDefaultValue``1(System.String,``0)">
-            <summary>
-            Replaces one captured code-default value without changing the current working settings.
-            This is intended for defaults which can only be materialized after dynamic discovery.
-            </summary>
-        </member>
-        <member name="P:Shared.PresetLobbyModSettingsViewModel.DynamicSettingsProvider">
-            <summary>Optional dynamically described local working configuration.</summary>
-        </member>
-        <member name="M:Shared.PresetLobbyModSettingsViewModel.ConfigurePerPlayerLobbySettings(Shared.PerPlayerLobbySettingsBuilder)">
-            <summary>
-            Declares the few domain-specific parts of personal settings. Transport,
-            player-slot ownership, lobby convergence and readiness stay in APIShared.
-            </summary>
-        </member>
-        <member name="M:Shared.PresetLobbyModSettingsViewModel.CanMutateSetting(System.String)">
-            <summary>
-            Authorizes a settings mutation before any backing state is changed.
-            Preset and Trail snapshots are trusted internal applications; all other
-            writes use the Script Extender's ownership gate.
-            </summary>
-        </member>
-        <member name="M:Shared.PresetLobbyModSettingsViewModel.CanMutateSettingWithDependents(System.String,System.String[])">
-            <summary>
-            Also refreshes editable proxy properties after a rejected write. The
-            Extender's private revert path keeps these notifications out of sync
-            and storage just like the primary property notification.
-            </summary>
-        </member>
-        <member name="M:Shared.PresetLobbyModSettingsViewModel.System_GetPresetSettingDescriptors">
-            <summary>Returns the persistent settings available to shared preset authoring UI.</summary>
-        </member>
-        <member name="M:Shared.PresetLobbyModSettingsViewModel.System_ImportPresetJson(System.String)">
-            <summary>Imports a validated preset through the shared catalog, without overwriting an existing preset.</summary>
-        </member>
-        <member name="M:Shared.PresetLobbyModSettingsViewModel.System_ExportSelectedPresetJson">
-            <summary>Exports the selected catalog preset with its original per-option modes.</summary>
-        </member>
-        <member name="M:Shared.PresetLobbyModSettingsViewModel.System_SavePersonalPreset(System.String,System.String,System.String,System.Collections.Generic.IEnumerable{Shared.PresetSaveSelection},System.Boolean)">
-            <summary>Saves selected settings as a persistent, personal preset JSON file.</summary>
-        </member>
-        <member name="M:Shared.LobbyModSettingsPresetRegistration.AttachExternalWorkingCopy(BepInEx.Logging.ManualLogSource,System.String,System.String,System.String,System.Version,Shared.PresetLobbyModSettingsViewModel,System.Object)">
-            <summary>Attaches shared presets to an existing foreign mod page without a second network registration.</summary>
-        </member>
-        <member name="M:Shared.LobbyModSettingsPresetRegistration.AttachExternalView(System.Object,BepInEx.Logging.ManualLogSource,System.String)">
-            <summary>Attaches shared focus scrolling to a separately registered participant's page.</summary>
-        </member>
-        <member name="M:Shared.LobbyModSettingsPresetRegistration.RegisterExternalWorkingCopy(BepInEx.Logging.ManualLogSource,System.String,System.String,System.String,System.Version,Shared.PresetLobbyModSettingsViewModel)">
-            <summary>Registers an external configuration participant independently of its optional page.</summary>
-        </member>
-        <member name="M:Shared.LobbyModSettingsPresetRegistration.PrepareExternalWorkingCopy(BepInEx.Logging.ManualLogSource,System.String,System.String,System.String,System.Version,Shared.PresetLobbyModSettingsViewModel)">
-            <summary>Prepares an unpublished candidate. Activation failures cannot leak a participant.</summary>
-        </member>
-        <member name="T:Shared.IModSettingsPresetEndpoint">
-            <summary>Typed APIShared endpoint consumed by optional mission-setting providers such as ExtendedData.</summary>
-        </member>
-        <member name="T:Shared.IModSettingsMissionSourceEndpoint">
-            <summary>Optional source metadata supplied before entering a mission preset.</summary>
-        </member>
-        <member name="T:Shared.IModSettingsWorkingCopyEndpoint">
-            <summary>Extended endpoint for replacing an editable mission working copy without touching its source.</summary>
-        </member>
-        <member name="T:Shared.ModSettingsWorkingSourceKind">
-            <summary>Identifies a read-only source which can be materialized into editable working settings.</summary>
-        </member>
-        <member name="T:Shared.ModSettingsWorkingSource">
-            <summary>One source shown by the common ModSettings source selector.</summary>
-        </member>
-        <member name="P:Shared.ModSettingsWorkingSource.IsPreferred">
-            <summary>Whether this source represents the provider's current mission context.</summary>
-        </member>
-        <member name="P:Shared.ModSettingsWorkingSource.PreferenceContextId">
-            <summary>Optional stable identity of the mission context used to distinguish context changes from refreshes.</summary>
-        </member>
-        <member name="T:Shared.IModSettingsWorkingSourceProvider">
-            <summary>Optional provider implemented by mission-data mods such as ExtendedData.</summary>
-        </member>
-        <member name="T:Shared.ModSettingsWorkingSourceRegistry">
-            <summary>Process-wide bridge between APIShared consumers and the optional mission source provider.</summary>
-        </member>
-        <member name="T:Shared.PublishedPresetValueMode">
-            <summary>Determines how a published preset resolves one selected setting.</summary>
-        </member>
-        <member name="T:Shared.PresetSaveBulkMode">
-            <summary>Bulk choices offered by the standard personal-preset save dialog.</summary>
-        </member>
-        <member name="T:Shared.PresetSettingScope">
-            <summary>Describes the ownership of a persistent lobby setting.</summary>
-        </member>
-        <member name="T:Shared.ModSettingsPresetSourceKind">
-            <summary>Identifies who owns a preset and whether it may be replaced by the player.</summary>
-        </member>
-        <member name="T:Shared.PresetSettingDescriptor">
-            <summary>One persistent setting exposed to preset authoring UI.</summary>
-        </member>
-        <member name="T:Shared.PresetSaveSelection">
-            <summary>One author-selected setting passed to personal-preset persistence.</summary>
-        </member>
-        <member name="T:Shared.PresetSaveSettingViewModel">
-            <summary>Mutable row model used by the standard personal-preset save dialog.</summary>
-        </member>
-        <member name="T:Shared.PublishedPresetSetting">
-            <summary>One setting selected by a published preset.</summary>
-        </member>
-        <member name="T:Shared.PublishedModSettingsPreset">
-            <summary>A validated, provider-qualified preset offered by a target mod.</summary>
-        </member>
-        <member name="T:Shared.ModSettingsPresetListEntry">
-            <summary>One source-labelled row shown by the standard preset load/save dialogs.</summary>
-        </member>
-        <member name="T:Shared.ModSettingsPresetSaveTarget">
-            <summary>A deliberate destination offered by the personal-preset save dialog.</summary>
-        </member>
-        <member name="T:Shared.ModSettingsPresetJson">
-            <summary>Shared JSON contract for loose <c>preset_*.json</c> files.</summary>
-        </member>
-        <member name="T:Shared.DynamicPresetSetting">
-            <summary>Options supplied by an optional external configuration API.</summary>
-        </member>
-        <member name="T:Shared.IModSettingsApplicationBackend">
-            <summary>Applies a complete configuration, separately from its editable working copy.</summary>
-        </member>
-        <member name="T:Shared.INetworkModSettingsApplicationBackend">
-            <summary>Optional admission check owned by a mod's existing authenticated host transport.</summary>
-        </member>
-        <member name="T:Shared.IDynamicPresetSettingsProvider">
-            <summary>Whole-snapshot operations on a local working copy; never a second network transport.</summary>
-        </member>
-        <member name="T:Shared.ModSettingsApplication">
-            <summary>Optional configuration endpoints, independent of their mod's UI registration.</summary>
-        </member>
-        <member name="M:Shared.ModSettingsApplication.PrepareLaunch">
-            <summary>Returns false until all required startup configurations are actually loaded.</summary>
-        </member>
-        <member name="M:Shared.ModSettingsApplication.DiscardPreparationWithReport">
-            <summary>Returns providers whose external packages could not be inspected or discarded.</summary>
         </member>
     </members>
 </doc>

@@ -1,3 +1,4 @@
+using APIShared.ModSettings;
 using BepInEx;
 using SHCDESE.API.LowLevel;
 using System;
@@ -62,7 +63,7 @@ namespace ImprovedHunters
 
             try
             {
-                Shared.LobbyModSettingsPresetRegistration.Register(
+                APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(
                     this,
                     Logger,
                     PluginGuid,

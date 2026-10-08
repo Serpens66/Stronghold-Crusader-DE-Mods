@@ -1,3 +1,4 @@
+using APIShared.GameModes;
 // Captures whether synchronized state changes are required for the active map.
 using BepInEx.Logging;
 using System;
@@ -25,7 +26,7 @@ namespace BugfixesAndQoL
 
                 try
                 {
-                    return Shared.GameModeHelper.IsRealMultiplayer();
+                    return APIShared.GameModes.GameModeHelper.IsRealMultiplayer();
                 }
                 catch (Exception ex)
                 {
@@ -46,7 +47,7 @@ namespace BugfixesAndQoL
         {
             try
             {
-                Shared.GameModeSnapshot snapshot = Shared.GameModeHelper.Capture(multiplayerSave);
+                APIShared.GameModes.GameModeSnapshot snapshot = APIShared.GameModes.GameModeHelper.Capture(multiplayerSave);
                 blocksLocalStateChanges = snapshot.IsRealMultiplayer;
                 hasMapSnapshot = true;
                 detectionFailureLogged = false;

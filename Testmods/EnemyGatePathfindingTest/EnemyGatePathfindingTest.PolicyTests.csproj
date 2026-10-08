@@ -59,9 +59,9 @@
     <Compile Include="tests\CapturerAdapterMachineTests.cs" />
     <Compile Include="tests\Program.cs" /><Compile Include="tests\TemporaryGateAcceptanceTests.cs" /><Compile Include="src\TemporaryGateAcceptanceAggregate.cs" /><Compile Include="..\..\Shared\TemporaryPackedRouteInspection.cs" />
     <Compile Include="tests\GateRoutePolicyTests.cs" />
-    <Compile Include="..\..\APIShared\src\EnemyGatePathPolicyBridge.cs"><Link>EnemyGatePathPolicyBridge.cs</Link></Compile>
-    <Compile Include="..\..\APIShared\src\TemporaryGateRouteAcceptanceBridge.cs" />
-    <Compile Include="..\..\APIShared\src\AssassinGateTransitionPolicy.cs" />
+    <Compile Include="..\..\APIShared\src\Pathfinding\EnemyGatePathPolicyBridge.cs"><Link>EnemyGatePathPolicyBridge.cs</Link></Compile>
+    <Compile Include="..\..\APIShared\src\Pathfinding\TemporaryGateRouteAcceptanceBridge.cs" />
+    <Compile Include="..\..\APIShared\src\Pathfinding\AssassinGateTransitionPolicy.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <ItemGroup><Compile Include="..\..\Shared\DeferredSnapshotRefreshRequest.cs" /></ItemGroup>

@@ -1,3 +1,4 @@
+using APIShared.ModSettings;
 // Feature: Lobby settings model for all Extra Features options.
 using APIShared;
 using BepInEx.Logging;
@@ -14,7 +15,7 @@ using System.Globalization;
 
 namespace ExtraFeatures
 {
-    public sealed class ExtraFeaturesViewModel : Shared.PresetLobbyModSettingsViewModel
+    public sealed class ExtraFeaturesViewModel : APIShared.ModSettings.PresetLobbyModSettingsViewModel
     {
         public event Action<string> SettingChanged;
 

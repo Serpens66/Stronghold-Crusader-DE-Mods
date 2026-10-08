@@ -1,3 +1,4 @@
+using APIShared.ModSettings;
 using Shared;
 using SHCDESE.API;
 using SHCDESE.API.Components.Network;

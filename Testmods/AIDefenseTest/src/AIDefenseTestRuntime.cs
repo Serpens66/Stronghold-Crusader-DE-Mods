@@ -1,3 +1,4 @@
+using APIShared.GameModes;
 using BepInEx.Logging;
 using R3;
 using SHCDESE.API;
@@ -84,7 +85,7 @@ namespace AIDefenseTest
                 return;
 
             subscriptions.Add(Shared.MissionEvents.Started
-                .Where(args => args.Context.Mode.Kind != Shared.GameModeKind.Tutorial && args.Context.Mode.Kind != Shared.GameModeKind.Unknown)
+                .Where(args => args.Context.Mode.Kind != APIShared.GameModes.GameModeKind.Tutorial && args.Context.Mode.Kind != APIShared.GameModes.GameModeKind.Unknown)
                 .Subscribe(args =>
             {
                 if (args.Context.IsSave) OnLoadSave(args);
@@ -1052,7 +1053,7 @@ namespace AIDefenseTest
 
         private static bool IsMapEditor()
         {
-            return Shared.GameModeHelper.IsMapEditor();
+            return APIShared.GameModes.GameModeHelper.IsMapEditor();
         }
 
         private bool TryEnsurePrivateTribe(

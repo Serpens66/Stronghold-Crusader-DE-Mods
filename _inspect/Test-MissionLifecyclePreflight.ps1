@@ -28,6 +28,18 @@ foreach ($relative in $projects) {
         if (-not $project.SelectSingleNode('//*[local-name()="Reference" and @Include="APIShared"]')) { throw "Companion missing API reference" }
         continue
     }
+    if ($mod.Count -eq 0 -and $relative.StartsWith('Testmods\', [StringComparison]::OrdinalIgnoreCase)) {
+        $pluginSources = @($sources | Where-Object { [IO.File]::ReadAllText($_) -match 'class\s+\w+\s*:\s*BaseUnityPlugin' })
+        if ($pluginSources.Count -ne 1) { throw "Testmod plugin inventory mismatch: $relative" }
+        $testMod = [pscustomobject]@{ Name = Split-Path (Split-Path $relative -Parent) -Leaf; Plugin = $pluginSources[0]; Project = $relative }
+        Assert-SERuntimeModPreflight $testMod $workspace
+        if (-not $project.SelectSingleNode('//*[local-name()="Reference" and @Include="APIShared"]') -or
+            -not (Get-ApiSharedDependencyVersion ([IO.File]::ReadAllText($pluginSources[0])))) {
+            throw "Testmod missing APIShared reference or hard dependency: $relative"
+        }
+        Write-Output "TESTMOD RUNTIME PASS: $relative"
+        continue
+    }
     if ($mod.Count -ne 1) { throw "Inventory mismatch: $relative" }
     Assert-SERuntimeModPreflight $mod[0] $workspace
     if ($mod[0].Name -ne 'APIShared') {
@@ -45,7 +57,10 @@ foreach ($relative in $projects) {
 foreach ($path in $sourceSet) {
     $text = [IO.File]::ReadAllText($path)
     if ($text -match 'System\.Web\.Extensions|JavaScriptSerializer|System\.Text\.Json|Newtonsoft\.Json|DataContractJsonSerializer|JsonUtility') { throw "Forbidden JSON: $path" }
-    if ($path -notlike '*\APIShared\src\MissionLifecycleCapability.cs' -and $text -match 'MapLoaderR3EventHooks\.On(StartMap|LoadMap|LoadSave|UnloadMap)\.Observable') { throw "Parallel lifecycle subscription: $path" }
+    # Existing native transient-state reset paths intentionally retain their unload publisher.
+    $auditedNativeUnload = $path -like '*\BugfixesAndQoL\src\WaterboyTargetReservationRuntime.cs' -or $path -like '*\BugfixesAndQoL\src\NativeTannerFade.cs'
+    $lifecyclePattern = if ($auditedNativeUnload) { 'MapLoaderR3EventHooks\.On(StartMap|LoadMap|LoadSave)\.Observable' } else { 'MapLoaderR3EventHooks\.On(StartMap|LoadMap|LoadSave|UnloadMap)\.Observable' }
+    if ($path -notlike '*\APIShared\src\Missions\MissionLifecycleCapability.cs' -and $text -match $lifecyclePattern) { throw "Parallel lifecycle subscription: $path" }
     if ($text -match 'IEditorMapLifecycleCapability|TryGetEditorMapLifecycle|onEditorEnded|EnsureEditorMapState|BeginEditorMapIfApplicable|implicit editor map-size probe|if \((true|false)\)') { throw "Obsolete migration residue: $path" }
 }
 $preserved = @('.github/workflows/release-status.yml', 'Shared/Release/Release.Common.ps1', 'Shared/Release/Test-ReleaseStatus.ps1')

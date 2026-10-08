@@ -1,7 +1,7 @@
+using APIShared.ModSettings;
 using BepInEx;
 using BepInEx.Logging;
 using SHCDESE.API.Components.Network;
-using Shared;
 
 namespace APISharedPresetConsumerTests
 {

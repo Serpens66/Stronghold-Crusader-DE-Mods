@@ -125,7 +125,7 @@ if ($source -notmatch 'DisplacedLength = 8' -or
     $woodGuard -notmatch 'scope == "OriginalCanariOnly" && context\.IsSave' -or
     $woodGuard -notmatch 'scope == "KnownSingleplayer"' -or
     $woodGuard -notmatch 'context\.StartKind == MissionStartKind\.NewGame \|\| context\.IsSave' -or
-    $woodGuard -notmatch 'context\.Mode\.Kind != Shared\.GameModeKind\.Unknown' -or
+    $woodGuard -notmatch 'context\.Mode\.Kind != APIShared\.GameModes\.GameModeKind\.Unknown' -or
     $woodGuard -notmatch '!context\.Mode\.HasConflictingCustomizedOrigin' -or
     $woodGuard -notmatch '!context\.Mode\.IsRealMultiplayer' -or
     $woodGuard -notmatch '!context\.Mode\.MultiplayerSave' -or

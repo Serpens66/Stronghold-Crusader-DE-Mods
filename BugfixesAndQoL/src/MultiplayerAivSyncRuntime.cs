@@ -1,3 +1,4 @@
+using APIShared.GameModes;
 using BepInEx.Logging;
 using CrusaderDE;
 using MonoMod.RuntimeDetour;
@@ -874,7 +875,7 @@ namespace BugfixesAndQoL
             platform?.activeLobby != null &&
             platform.activeLobby.isHost &&
             !FRONT_Multiplayer.skirmishGame &&
-            (Shared.GameModeHelper.IsRealMultiplayer() ||
+            (APIShared.GameModes.GameModeHelper.IsRealMultiplayer() ||
              (FRONT_Multiplayer.coopGame &&
               platform.activeLobby.id.m_SteamID != 0 &&
               GetHumanPeers(platform.activeLobby).Any()));

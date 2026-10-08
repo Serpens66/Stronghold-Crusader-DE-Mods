@@ -1,3 +1,4 @@
+using APIShared.ModSettings;
 using System;
 using System.Collections.Generic;
 using System.IO;

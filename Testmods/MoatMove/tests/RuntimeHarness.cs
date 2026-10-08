@@ -1,3 +1,4 @@
+using APIShared.GameModes;
 using System.Linq;
 using System;
 using System.Collections.Generic;
@@ -208,8 +209,7 @@ namespace MoatMove
             public int TargetedRouteSearchPasses, BuilderCalls, FloodFillBypasses, FallbackBuilderCalls, FallbackRollbacks;
             public bool BuilderReached;
             public int RegionCalls, TribeId, UnitsOnMoatAtDispatch;
-            public bool MoatRelevant, NativeCommonFallback, HasFormationSpacing;
-            public int FormationSpacing;
+            public bool MoatRelevant, NativeCommonFallback;
             public string LastGroupMoatModeDiagnostic;
             public int UnitMoveCalls, UnitMoveCompleted, UnitMovePositive, UnitMoveWithoutBuilder, UnitMoveAlreadyArrived;
             public int UnitMoveAbandoned, BuilderIntermediateTargets, FallbackContractRejections;
@@ -1264,8 +1264,6 @@ namespace MoatMove {
  }
  internal sealed class MoatMoveOptions {
   internal bool EnableMod=true;
-  internal bool EnableMoveFormationEnhancements=true;
-  internal int MoveFormationSpacing=MoveFormationSpacingPolicy.Default;
   internal bool EnableImprovedMoatFilling=true;
   internal bool EnableLadderAttackPathfindingFix=true;
   internal int RouteMode=1;
@@ -1273,7 +1271,7 @@ namespace MoatMove {
  }
 }
 
-namespace Shared { internal static class GameModeHelper { internal static bool IsMapEditor()=>true; } }
+namespace APIShared.GameModes { internal static class GameModeHelper { internal static bool IsMapEditor()=>true; } }
 namespace MoatMove {
  internal unsafe struct GameTribe { public int r_LeaderUnitId, r_PlayerIdOwner; }
  internal unsafe sealed class GameTribeManagerAPI {

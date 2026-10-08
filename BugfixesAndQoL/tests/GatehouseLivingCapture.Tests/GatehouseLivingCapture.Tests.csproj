@@ -26,7 +26,7 @@
     <Compile Include="..\..\src\GatehouseLivingCapture\CaptureAdapterEmitter.cs" /><Compile Include="..\..\src\GatehouseLivingCapture\NativeDefinition.cs" /><Compile Include="..\..\src\GatehouseLivingCapture\CaptureDecision.cs" />
     <Compile Include="..\..\src\GatehouseLivingCapture\CaptureRuntime.cs" />
     <Compile Include="..\..\..\Shared\NativePatternResolver.cs" /><Compile Include="..\..\..\Shared\DebugLogHelper.cs" />
-    <Compile Include="..\..\..\APIShared\src\UnitAccess.cs"><Link>Production\UnitAccess.cs</Link></Compile>
+    <Compile Include="..\..\..\APIShared\src\Units\UnitAccess.cs"><Link>Production\UnitAccess.cs</Link></Compile>
     <Compile Include="Program.cs" /><Compile Include="NativeAudit.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

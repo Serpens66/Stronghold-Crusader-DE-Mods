@@ -1,3 +1,4 @@
+using APIShared.GameModes;
 using APIShared;
 using MonoMod.RuntimeDetour;
 using SHCDESE.EventAPI;
@@ -18,7 +19,7 @@ internal static class Program
     {
         var op = Activator.CreateInstance(Operation, true)!;
         Set(op, "Kind", kind); Set(op, "Multiplayer", multiplayer);
-        Set(op, "Intent", kind == MissionStartKind.EditorCreated || kind == MissionStartKind.EditorLoaded ? Shared.GameModeKind.MapEditor : Shared.GameModeKind.CustomGame);
+        Set(op, "Intent", kind == MissionStartKind.EditorCreated || kind == MissionStartKind.EditorLoaded ? APIShared.GameModes.GameModeKind.MapEditor : APIShared.GameModes.GameModeKind.CustomGame);
         return op;
     }
     static void Native(MissionLifecycleService service, int error = 1) => Call(service, "CaptureNative",
@@ -68,7 +69,7 @@ internal static class Program
             multiplayerInit.DynamicInvoke(true, null, 4, 9, false, false, false);
             successful();
         }));
-        Check(capability.Current?.Mode.Kind == Shared.GameModeKind.CoopTrail && capability.Current.MissionIndex == 9,
+        Check(capability.Current?.Mode.Kind == APIShared.GameModes.GameModeKind.CoopTrail && capability.Current.MissionIndex == 9,
             "Managed MP pre-initializer lost local coop provenance or changed the zero-based mission index");
         foreach (MissionStartKind kind in Enum.GetValues<MissionStartKind>())
         {

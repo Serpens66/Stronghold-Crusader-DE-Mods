@@ -1,3 +1,5 @@
+using APIShared.GameModes;
+using APIShared.SerpsMods;
 using BepInEx.Logging;
 using System;
 #if !API_SHARED_PRESET_TESTS
@@ -38,7 +40,7 @@ namespace Shared
                 return;
 
             log = logger;
-            profile = GameplayModModePolicy.GetProfile(modGuid, displayName);
+            profile = SerpsModProfiles.GetProfile(modGuid, displayName);
             configuredEnabledProvider = isConfiguredEnabled ?? throw new ArgumentNullException(nameof(isConfiguredEnabled));
             routineLoggingEnabled = logRoutineActivity;
 
@@ -137,7 +139,7 @@ namespace Shared
         internal static void SetStartSnapshotForTests(GameModeSnapshot next) => Update(next, "test-start");
         internal static void ResetForTests()
         {
-            profile = GameplayModModePolicy.GetProfile("ExtraFeatures_Serp", "Extra Features");
+            profile = SerpsModProfiles.GetProfile("ExtraFeatures_Serp", "Extra Features");
             configuredEnabledProvider = () => true;
             Reset("test-reset");
         }

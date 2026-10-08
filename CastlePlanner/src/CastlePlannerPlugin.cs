@@ -1,3 +1,4 @@
+using APIShared.ModSettings;
 using BepInEx;
 using MonoMod.RuntimeDetour;
 using SHCDESE.API;
@@ -116,7 +117,7 @@ namespace CastlePlanner
 
             try
             {
-                Shared.LobbyModSettingsPresetRegistration.Register(
+                APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(
                     this, Logger, PluginGuid, Settings, "ScriptExtenderUI/CastlePlannerSettings.xaml");
                 Settings.PumpCastleCatalogLoad();
             }

@@ -1,3 +1,4 @@
+using APIShared.GameModes;
 // Boundary doubles only. The service, state machine and public contracts are production sources.
 using System.Reflection;
 namespace BepInEx.Logging { public class ManualLogSource { } }
@@ -35,7 +36,7 @@ namespace MonoMod.RuntimeDetour
         public void Dispose() => Disposed = true;
     }
 }
-namespace Shared
+namespace APIShared.GameModes
 {
     public enum GameModeKind { Unknown, MapEditor, Campaign, VanillaTrail, CustomTrail, StandaloneMission, CustomGame, Tutorial, CoopTrail, SandsOfTime }
     public readonly struct GameModeSnapshot(GameModeKind kind) { public GameModeKind Kind => kind; public bool IsMissionContent => kind == GameModeKind.Campaign || kind == GameModeKind.VanillaTrail; }

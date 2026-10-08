@@ -27,13 +27,13 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
-    <Compile Include="..\..\..\APIShared\src\AssassinGateTransitionPolicy.cs" />
-    <Compile Include="..\..\..\APIShared\src\AssassinPathAPI.cs" />
-    <Compile Include="..\..\..\APIShared\src\AssassinRouteHandoff.cs" />
-    <Compile Include="..\..\..\APIShared\src\AssassinEndpointEmitter.cs" />
-    <Compile Include="..\..\..\APIShared\src\AssassinPathNativeDefinition.cs" />
-    <Compile Include="..\..\..\APIShared\src\NativeInfrastructure.cs" />
-    <Compile Include="..\..\..\APIShared\src\UniquePatternSearch.cs" />
+    <Compile Include="..\..\..\APIShared\src\Pathfinding\AssassinGateTransitionPolicy.cs" />
+    <Compile Include="..\..\..\APIShared\src\Pathfinding\AssassinPathAPI.cs" />
+    <Compile Include="..\..\..\APIShared\src\Pathfinding\AssassinRouteHandoff.cs" />
+    <Compile Include="..\..\..\APIShared\src\Pathfinding\AssassinEndpointEmitter.cs" />
+    <Compile Include="..\..\..\APIShared\src\Pathfinding\AssassinPathNativeDefinition.cs" />
+    <Compile Include="..\..\..\APIShared\src\Core\NativeInfrastructure.cs" />
+    <Compile Include="..\..\..\APIShared\src\Core\UniquePatternSearch.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

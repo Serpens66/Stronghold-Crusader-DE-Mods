@@ -1,3 +1,4 @@
+using APIShared.ModSettings;
 using APIShared;
 using CrusaderDE;
 using Iced.Intel;
@@ -48,6 +49,7 @@ namespace APISharedTests
             TestRoutineLoggingLevels();
             TestAiBuildDiagnosticDormancy();
             TestPublicSurface();
+            TestOwnerBoundClient();
             MarkedSelectionHarmonyTests.Run(Assert);
             TestElevatedMoatAiState();
             TestPublishedPresetJson();
@@ -337,9 +339,9 @@ namespace APISharedTests
             }
 
             string selectionSource = File.ReadAllText(Path.Combine(FindWorkspaceRoot(),
-                "APIShared", "src", "LocalSelectionAPI.cs"));
+                "APIShared", "src", "Units", "LocalSelectionAPI.cs"));
             Assert(selectionSource.Contains("expectedPlayerId < 1 || expectedPlayerId > 8") &&
-                selectionSource.Contains("Shared.GameModeHelper.IsMapEditor()") &&
+                selectionSource.Contains("APIShared.GameModes.GameModeHelper.IsMapEditor()") &&
                 selectionSource.Contains("EditorDirector.instance?.ActivePlayerID") &&
                 selectionSource.Contains("GamePlayerManagerAPI.Instance?.GetLocalPlayerId()") &&
                 selectionSource.Contains("actualPlayerId != expectedPlayerId"),
@@ -765,11 +767,11 @@ namespace APISharedTests
                 viewModel.System_PresetSavePanelVisibility == Noesis.Visibility.Collapsed,
                 "switching from Save to Load must never leave both panels open");
 
-            string presetSource = File.ReadAllText(Path.Combine(
+            string presetSource = string.Join("\n", Directory.GetFiles(Path.GetDirectoryName(Path.Combine(
                 FindWorkspaceRoot(),
                 "APIShared",
-                "src",
-                "PresetLobbyModSettingsViewModel.cs"));
+                "src", "ModSettings",
+                "PresetLobbyModSettingsViewModel.cs")), "*.cs").Select(File.ReadAllText));
             Assert(presetSource.Contains("Common.PresetModeMixed") &&
                 presetSource.Contains("IsEnabled = false"),
                 "the mixed preset-save option must be visible but not selectable");
@@ -1239,11 +1241,11 @@ namespace APISharedTests
         private static void TestMigrationContracts()
         {
             string workspace = FindWorkspaceRoot();
-            string plugin = File.ReadAllText(Path.Combine(workspace, "APIShared", "src", "APISharedPlugin.cs"));
+            string plugin = File.ReadAllText(Path.Combine(workspace, "APIShared", "src", "Core", "APISharedPlugin.cs"));
             string project = File.ReadAllText(Path.Combine(workspace, "APIShared", "APIShared.csproj"));
-            string unitHud = File.ReadAllText(Path.Combine(workspace, "APIShared", "src", "UnitHudPresentationCapability.cs"));
-            string lobbyState = File.ReadAllText(Path.Combine(workspace, "APIShared", "src", "LobbyStateCapability.cs"));
-            string sharedPreset = File.ReadAllText(Path.Combine(workspace, "APIShared", "src", "PresetLobbyModSettingsViewModel.cs"));
+            string unitHud = File.ReadAllText(Path.Combine(workspace, "APIShared", "src", "Presentation", "UnitHudPresentationCapability.cs"));
+            string lobbyState = File.ReadAllText(Path.Combine(workspace, "APIShared", "src", "Lobby", "LobbyStateCapability.cs"));
+            string sharedPreset = string.Join("\n", Directory.GetFiles(Path.GetDirectoryName(Path.Combine(workspace, "APIShared", "src", "ModSettings", "PresetLobbyModSettingsViewModel.cs")), "*.cs").Select(File.ReadAllText));
             string bugfixLord = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "LordUnitHudRegistration.cs"));
             string bugfixGatehouse = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "GatehouseDistanceOriginRegistration.cs"));
             string extraGatehouse = File.ReadAllText(Path.Combine(workspace, "ExtraFeatures", "src", "GatehouseAutomationRuntime.cs"));
@@ -1697,51 +1699,51 @@ namespace APISharedTests
                 "APIShared.MissionContext",
                 "APIShared.MissionLifecycleNotification",
                 "APIShared.IMissionLifecycleCapability",
-                "Shared.GameModeKind",
-                "Shared.GameModeLaunchVariant",
-                "Shared.GameTrailType",
-                "Shared.GameModeSnapshot",
-                "Shared.GameModeHelper",
-                "Shared.GameplayModAllowedContext",
-                "Shared.GameplayModActivationProfile",
-                "Shared.GameplayModModePolicy",
-                "Shared.GameplayFeatureId",
-                "Shared.GameplayFeatureActivationProfile",
-                "Shared.GameplayFeatureModePolicy",
-                "Shared.ModSettingsSearchMatcher",
-                "Shared.ModSettingsSearch",
-                "Shared.ModSettingsSearchVisibilityConverter",
-                "Shared.ModSettingsSearchEntry",
-                "Shared.PerPlayerLobbySettingsBuilder",
-                "Shared.PerPlayerLobbySnapshot",
-                "Shared.PresetLocalAttribute",
-                "Shared.PresetLobbyModSettingsViewModel",
-                "Shared.LobbyModSettingsPresetRegistration",
-                "Shared.LobbyModSettingsPresetRegistration+PreparedExternalSettings",
-                "Shared.IModSettingsPresetEndpoint",
-                "Shared.IModSettingsMissionSourceEndpoint",
-                "Shared.IModSettingsWorkingCopyEndpoint",
-                "Shared.ModSettingsWorkingSourceKind",
-                "Shared.ModSettingsWorkingSource",
-                "Shared.IModSettingsWorkingSourceProvider",
-                "Shared.ModSettingsWorkingSourceRegistry",
-                "Shared.PublishedPresetValueMode",
-                "Shared.PresetSaveBulkMode",
-                "Shared.PresetSettingScope",
-                "Shared.PresetSettingDescriptor",
-                "Shared.DynamicPresetSetting",
-                "Shared.RequiresRestartAttribute",
-                "Shared.IModSettingsApplicationBackend", "Shared.INetworkModSettingsApplicationBackend",
-                "Shared.ModSettingsApplication",
-                "Shared.IDynamicPresetSettingsProvider",
-                "Shared.PresetSaveSelection",
-                "Shared.PresetSaveSettingViewModel",
-                "Shared.ModSettingsPresetSourceKind",
-                "Shared.ModSettingsPresetListEntry",
-                "Shared.ModSettingsPresetSaveTarget",
-                "Shared.PublishedPresetSetting",
-                "Shared.PublishedModSettingsPreset",
-                "Shared.ModSettingsPresetJson",
+                "APIShared.GameModes.GameModeKind",
+                "APIShared.GameModes.GameModeLaunchVariant",
+                "APIShared.GameModes.GameTrailType",
+                "APIShared.GameModes.GameModeSnapshot",
+                "APIShared.GameModes.GameModeHelper",
+                "APIShared.GameModes.GameplayModAllowedContext",
+                "APIShared.GameModes.GameplayModActivationProfile",
+                "APIShared.GameModes.GameplayModModePolicy",
+                "APIShared.SerpsMods.GameplayFeatureId",
+                "APIShared.SerpsMods.GameplayFeatureActivationProfile",
+                "APIShared.SerpsMods.GameplayFeatureModePolicy",
+                "APIShared.ModSettings.ModSettingsSearchMatcher",
+                "APIShared.ModSettings.ModSettingsSearch",
+                "APIShared.ModSettings.ModSettingsSearchVisibilityConverter",
+                "APIShared.ModSettings.ModSettingsSearchEntry",
+                "APIShared.ModSettings.PerPlayerLobbySettingsBuilder",
+                "APIShared.ModSettings.PerPlayerLobbySnapshot",
+                "APIShared.ModSettings.PresetLocalAttribute",
+                "APIShared.ModSettings.PresetLobbyModSettingsViewModel",
+                "APIShared.ModSettings.LobbyModSettingsPresetRegistration",
+                "APIShared.ModSettings.LobbyModSettingsPresetRegistration+PreparedExternalSettings",
+                "APIShared.ModSettings.IModSettingsPresetEndpoint",
+                "APIShared.ModSettings.IModSettingsMissionSourceEndpoint",
+                "APIShared.ModSettings.IModSettingsWorkingCopyEndpoint",
+                "APIShared.ModSettings.ModSettingsWorkingSourceKind",
+                "APIShared.ModSettings.ModSettingsWorkingSource",
+                "APIShared.ModSettings.IModSettingsWorkingSourceProvider",
+                "APIShared.ModSettings.ModSettingsWorkingSourceRegistry",
+                "APIShared.ModSettings.PublishedPresetValueMode",
+                "APIShared.ModSettings.PresetSaveBulkMode",
+                "APIShared.ModSettings.PresetSettingScope",
+                "APIShared.ModSettings.PresetSettingDescriptor",
+                "APIShared.ModSettings.DynamicPresetSetting",
+                "APIShared.ModSettings.RequiresRestartAttribute",
+                "APIShared.ModSettings.IModSettingsApplicationBackend", "APIShared.ModSettings.INetworkModSettingsApplicationBackend",
+                "APIShared.ModSettings.ModSettingsApplication",
+                "APIShared.ModSettings.IDynamicPresetSettingsProvider",
+                "APIShared.ModSettings.PresetSaveSelection",
+                "APIShared.ModSettings.PresetSaveSettingViewModel",
+                "APIShared.ModSettings.ModSettingsPresetSourceKind",
+                "APIShared.ModSettings.ModSettingsPresetListEntry",
+                "APIShared.ModSettings.ModSettingsPresetSaveTarget",
+                "APIShared.ModSettings.PublishedPresetSetting",
+                "APIShared.ModSettings.PublishedModSettingsPreset",
+                "APIShared.ModSettings.ModSettingsPresetJson",
                 "APIShared.GatehouseFootprintCandidate",
                 "APIShared.GatehouseDrawbridgeCoupling",
                 "APIShared.GatehouseDistanceOrigin",
@@ -1990,7 +1992,7 @@ namespace APISharedTests
 
             string projectDirectory = Path.Combine(FindWorkspaceRoot(), "APIShared");
             string source = File.ReadAllText(Path.Combine(
-                projectDirectory, "src", "BriefingGoldPresentationCapability.cs"));
+                projectDirectory, "src", "Presentation", "BriefingGoldPresentationCapability.cs"));
             int originalCall = source.IndexOf(
                 "briefingOriginal(self, parameter);",
                 StringComparison.Ordinal);
@@ -2079,7 +2081,7 @@ namespace APISharedTests
                 resolverFailure.State == NativeCapabilityState.ValidationFailed,
                 "missing native AIV resolver inputs must fail closed");
 
-            string source = File.ReadAllText(Path.Combine(FindWorkspaceRoot(), "APIShared", "src", "AivBuildStepCapability.cs"));
+            string source = File.ReadAllText(Path.Combine(FindWorkspaceRoot(), "APIShared", "src", "Diagnostics", "AivBuildStepCapability.cs"));
             Assert(source.Contains("pending?.Dispose();") && source.Contains("candidate.transaction = pending;") &&
                 source.Contains("OwnsHooks = false"),
                 "AIV hook setup must roll back only unpublished candidates and retain the published transaction");
@@ -2194,6 +2196,50 @@ namespace APISharedTests
             AssertTimingValidationFailure(runtime, "catalogued immediate outside function must fail timing");
             Assert(runtime.TryGetGatehouseDistanceOrigin("owner", out _, out _),
                 "an invalid timing address must not disable distance origin");
+        }
+
+        private static void TestOwnerBoundClient()
+        {
+            foreach (string invalid in new[] { null, "", "  " })
+            {
+                bool rejected = false;
+                try { ApiShared.ForMod(invalid); } catch (ArgumentException) { rejected = true; }
+                Assert(rejected, "owner-bound entry must reject empty GUIDs immediately");
+            }
+            var runtime = new ApiSharedRuntime();
+            var client = new ModApiClient("Foreign.Author.MyMod", runtime);
+            Assert(client.OwnerGuid == "Foreign.Author.MyMod" && client.State == NativeApiState.Pending,
+                "arbitrary foreign GUID does not require Serps profiles");
+            Assert(!client.TryGetGatehouseTiming(out _, out var pending) && pending.State == NativeCapabilityState.Pending,
+                "owner-bound client preserves pending capability diagnostics");
+            // Publish a managed fixture without installing game hooks or completing native initialization.
+            const BindingFlags privateInstance = BindingFlags.Instance | BindingFlags.NonPublic;
+            typeof(ApiSharedRuntime).GetField("lobbyState", privateInstance).SetValue(runtime, new LobbyStateService(null));
+            typeof(ApiSharedRuntime).GetField("lobbyStateDiagnostic", privateInstance).SetValue(runtime,
+                new NativeCapabilityDiagnostic(NativeCapabilityIds.LobbyState, NativeCapabilityState.Available, "", "managed fixture"));
+            Assert(client.TryGetLobbyState(out var managed, out var managedDiagnostic) && managed != null &&
+                managedDiagnostic.State == NativeCapabilityState.Available && client.State == NativeApiState.Pending,
+                "available managed capability must be acquired before global readiness");
+            int calls = 0;
+            client.WhenReady(_ => throw new InvalidOperationException("test-early"));
+            client.WhenReady(c => { Assert(ReferenceEquals(c, client), "callback retains owner-bound client"); calls++; });
+            runtime.Initialize(ModuleBase, CreatePeImage(0x4000, true), "UNKNOWN", new FakeMemory(), null, null, false);
+            Assert(calls == 1, "early callback failure must not block later consumers");
+            client.WhenReady(_ => throw new InvalidOperationException("test-late"));
+            client.WhenReady(_ => calls++);
+            Assert(calls == 2, "late callbacks are synchronous and equally isolated");
+            var failingLogger = new BepInEx.Logging.ManualLogSource("ReadinessLoggerFixture");
+            failingLogger.LogEvent += (_, __) => throw new InvalidOperationException("test log listener");
+            typeof(ApiSharedRuntime).GetField("log", privateInstance).SetValue(runtime, failingLogger);
+            client.WhenReady(_ => throw new InvalidOperationException("test-late-with-failing-log"));
+            client.WhenReady(_ => calls++);
+            Assert(calls == 3, "failing log listeners must not break callback isolation");
+            Assert(!client.TryGetGatehouseTiming(out _, out var unsupported) && unsupported.State == NativeCapabilityState.UnsupportedBuild,
+                "global Ready does not imply native service support");
+            Assert(typeof(IApiShared).Assembly.GetType("APIShared.UnitCommands.UnitCommandPathAPI").IsNotPublic,
+                "specialized command runtime is not a public third-party contract");
+            Assert(!typeof(IApiShared).Assembly.GetExportedTypes().Any(t => t.Namespace == "Shared"),
+                "APIShared no longer exports historical Shared contracts");
         }
 
         private static void TestReadinessAndIndependentCapabilities()

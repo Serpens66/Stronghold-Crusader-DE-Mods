@@ -74,8 +74,8 @@ $tests = @'
     <Compile Include="tests\Program.cs" /><Compile Include="tests\DrawbridgeClosureTests.cs" />
     <Compile Include="src\DrawbridgeClosurePolicy.cs" /><Compile Include="src\GateEdgeOwnership.cs" />
     <Compile Include="..\..\Shared\PathDecisionAggregate.cs" />
-    <Compile Include="..\..\APIShared\src\EnemyGatePathPolicyBridge.cs" />
-    <Compile Include="..\..\APIShared\src\EnemyBridgeDiagnosticBridge.cs" />
+    <Compile Include="..\..\APIShared\src\Pathfinding\EnemyGatePathPolicyBridge.cs" />
+    <Compile Include="..\..\APIShared\src\Pathfinding\EnemyBridgeDiagnosticBridge.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
@@ -105,6 +105,6 @@ $path = '_inspect/APISharedTests/Program.cs'; $text = Read-Source $path
 $text = $text.Replace('                "APIShared.EnemyGatePathPolicyBridge",', '                "APIShared.EnemyGatePathPolicyBridge",' + "`n                `"APIShared.IEnemyBridgePathObserver`",`n                `"APIShared.EnemyBridgeDiagnosticBridge`",")
 Write-Source $path $text
 # Exact targeted CRLF normalization of newly authored files.
-foreach ($path in @('APIShared/src/EnemyBridgeDiagnosticBridge.cs', "$bridge/src/BridgeDiagnostics.cs", "$bridge/src/BridgeSnapshot.cs", "$bridge/src/EnemyBridgePathTestPlugin.cs", '_inspect/EnemyGateBuildingContextAudit/split-bridge.ps1', '_inspect/EnemyGateBuildingContextAudit/finish-bridge-split.ps1', '_inspect/EnemyGateBuildingContextAudit/bridge-projects.ps1')) {
+foreach ($path in @('APIShared/src/Pathfinding/EnemyBridgeDiagnosticBridge.cs', "$bridge/src/BridgeDiagnostics.cs", "$bridge/src/BridgeSnapshot.cs", "$bridge/src/EnemyBridgePathTestPlugin.cs", '_inspect/EnemyGateBuildingContextAudit/split-bridge.ps1', '_inspect/EnemyGateBuildingContextAudit/finish-bridge-split.ps1', '_inspect/EnemyGateBuildingContextAudit/bridge-projects.ps1')) {
     Write-Source $path (Read-Source $path)
 }

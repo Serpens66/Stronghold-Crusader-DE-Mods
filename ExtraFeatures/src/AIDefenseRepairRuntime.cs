@@ -1,3 +1,4 @@
+using APIShared.GameModes;
 // Feature: Configure human/AI enemy proximity and destruction-anchored AIV defense rebuild timing.
 //
 // Finished castles repeatedly enter ExecuteBuildStep at RVA 0x51790. The placement helper at
@@ -325,9 +326,9 @@ namespace ExtraFeatures
         {
             try
             {
-                Shared.GameModeSnapshot snapshot = Shared.GameplayModActivationGate.Snapshot;
+                APIShared.GameModes.GameModeSnapshot snapshot = Shared.GameplayModActivationGate.Snapshot;
                 realMultiplayer = snapshot.IsRealMultiplayer;
-                gameModeKnown = snapshot.Kind != Shared.GameModeKind.Unknown;
+                gameModeKnown = snapshot.Kind != APIShared.GameModes.GameModeKind.Unknown;
                 gameModeFailureLogged = false;
                 Shared.DebugLogHelper.LogDebug(
                     log,

@@ -1,3 +1,4 @@
+using APIShared.ModSettings;
 using SHCDESE.API.Components.Network;
 using SHCDESE.Interop;
 using SHCDESE.NoesisUtil;
@@ -12,7 +13,7 @@ using System.Text;
 
 namespace BuildingLimit
 {
-    public sealed class BuildingLimitLobbyViewModel : Shared.PresetLobbyModSettingsViewModel
+    public sealed class BuildingLimitLobbyViewModel : APIShared.ModSettings.PresetLobbyModSettingsViewModel
     {
         public event Action<string> SettingChanged;
 

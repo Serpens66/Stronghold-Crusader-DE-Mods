@@ -1,3 +1,4 @@
+using APIShared.GameModes;
 using BepInEx;
 using BepInEx.Logging;
 using CrusaderDE;
@@ -356,7 +357,7 @@ namespace BugfixesAndQoL
                     return;
                 if (gameData.app_mode != 14 && gameData.app_mode != 16)
                     return;
-                if (Shared.GameModeHelper.IsMapEditor())
+                if (APIShared.GameModes.GameModeHelper.IsMapEditor())
                     return;
                 FatControler controller = FatControler.instance;
                 if (controller == null || controller.NoesisHasKeyboard)

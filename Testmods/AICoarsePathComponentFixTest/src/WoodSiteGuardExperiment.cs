@@ -1,3 +1,4 @@
+using APIShared.GameModes;
 using APIShared;
 using BepInEx.Logging;
 using Iced.Intel;
@@ -194,7 +195,7 @@ namespace AICoarsePathComponentFixTest
             bool arm = context != null &&
                 (scope == "KnownSingleplayer" &&
                  (context.StartKind == MissionStartKind.NewGame || context.IsSave) &&
-                 context.Mode.Kind != Shared.GameModeKind.Unknown &&
+                 context.Mode.Kind != APIShared.GameModes.GameModeKind.Unknown &&
                  !context.Mode.HasConflictingCustomizedOrigin &&
                  !context.Mode.IsRealMultiplayer && !context.Mode.MultiplayerSave ||
                  scope == "CopyOnly" && context.IsSave &&

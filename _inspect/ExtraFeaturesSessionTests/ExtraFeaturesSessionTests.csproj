@@ -16,7 +16,7 @@
     <Reference Include="System.Runtime.CompilerServices.Unsafe"><HintPath>$(ExtenderDir)\System.Runtime.CompilerServices.Unsafe.dll</HintPath></Reference>
     <Reference Include="System.Threading.Tasks.Extensions"><HintPath>$(ExtenderDir)\System.Threading.Tasks.Extensions.dll</HintPath></Reference>
     <Reference Include="Microsoft.Bcl.AsyncInterfaces"><HintPath>$(ExtenderDir)\Microsoft.Bcl.AsyncInterfaces.dll</HintPath></Reference>
-    <Compile Include="..\..\APIShared\src\UnitAccess.cs" Link="UnitAccess.cs" /><Compile Include="GeneratedHarness.cs" />
+    <Compile Include="..\..\APIShared\src\Units\UnitAccess.cs" Link="UnitAccess.cs" /><Compile Include="GeneratedHarness.cs" />
     <Compile Include="..\..\ExtraFeatures\src\LordHealthSaveState.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

@@ -1,3 +1,4 @@
+using APIShared.GameModes;
 // Feature: Ctrl-click to pause only the selected production building.
 using BepInEx.Logging;
 using CrusaderDE;
@@ -562,7 +563,7 @@ namespace BugfixesAndQoL
             return 0;
         }
 
-        private static bool IsMapEditor() => Shared.GameModeHelper.IsMapEditor();
+        private static bool IsMapEditor() => APIShared.GameModes.GameModeHelper.IsMapEditor();
 
         private static int GetControlledPlayerId()
         {

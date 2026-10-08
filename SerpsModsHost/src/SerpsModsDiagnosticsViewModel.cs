@@ -1,3 +1,4 @@
+using APIShared.ModSettings;
 using Noesis;
 using SHCDESE.NoesisUtil;
 using System;
@@ -12,7 +13,7 @@ using SHCDESE.API.Components.ModManager;
 
 namespace SerpsModsHost
 {
-    public sealed partial class SerpsModsDiagnosticsViewModel : Shared.PresetLobbyModSettingsViewModel
+    public sealed partial class SerpsModsDiagnosticsViewModel : APIShared.ModSettings.PresetLobbyModSettingsViewModel
     {
         private readonly object sync = new object();
         private readonly List<string> errors = new List<string>();

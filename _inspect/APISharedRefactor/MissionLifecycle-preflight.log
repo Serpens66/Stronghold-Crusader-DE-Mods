@@ -1,0 +1,267 @@
+RUNTIME PASS: APIShared\APIShared.csproj
+RUNTIME PASS: BugfixesAndQoL\BugfixesAndQoL.csproj
+RUNTIME PASS: BuildingCosts\BuildingCosts.csproj
+RUNTIME PASS: BuildingLimit\BuildingLimit.csproj
+RUNTIME PASS: CastlePlanner\CastlePlanner.csproj
+RUNTIME PASS: CheatMod\CheatMod.csproj
+RUNTIME PASS: ExtendedData\ExtendedData.csproj
+RUNTIME PASS: ExtraFeatures\ExtraFeatures.csproj
+RUNTIME PASS: ExtremePowers\ExtremePowers.csproj
+RUNTIME PASS: ImprovedHunters\ImprovedHunters.csproj
+RUNTIME PASS: RandomEvents\RandomEvents.csproj
+RUNTIME PASS: SerpsModsHost\SerpsModsHost.csproj
+RUNTIME PASS: StartConditions\StartConditions.csproj
+RUNTIME PASS: UnitCosts\UnitCosts.csproj
+RUNTIME PASS: UnitLimit\UnitLimit.csproj
+RUNTIME PASS: Helpers\ActiveAIVDetector\ActiveAIVDetector.csproj
+TESTMOD RUNTIME PASS: Testmods\AIAttackTest\AIAttackTest.csproj
+TESTMOD RUNTIME PASS: Testmods\AIDefenseTest\AIDefenseTest.csproj
+TESTMOD RUNTIME PASS: Testmods\EnemyGatePathfindingTest\EnemyGatePathfindingTest.csproj
+TESTMOD RUNTIME PASS: Testmods\MoatMove\MoatMove.csproj
+TESTMOD RUNTIME PASS: Testmods\SkinTest\SkinTest.csproj
+TESTMOD RUNTIME PASS: Testmods\StockpileAccessFixTest\StockpileAccessFixTest.csproj
+TESTMOD RUNTIME PASS: Testmods\VirtualUnitsPrototype\VirtualUnitsPrototype.csproj
+TEXT _inspect/APISharedPresetConsumerTests/ConsumerSettings.cs: CRLF=55, bareLF=0, first=using APIShared.ModSettings;
+TEXT _inspect/APISharedRefactor/add-tests.py: CRLF=63, bareLF=0, first=from pathlib import Path
+TEXT _inspect/APISharedRefactor/clean-imports.py: CRLF=40, bareLF=0, first=from pathlib import Path
+TEXT _inspect/APISharedRefactor/finish-core.py: CRLF=98, bareLF=0, first=from pathlib import Path
+TEXT _inspect/APISharedRefactor/migrate.py: CRLF=151, bareLF=0, first="""One-time, bounded APIShared source migration; retained as an audit artifact."""
+TEXT _inspect/APISharedRefactor/migration-files.json: CRLF=259, bareLF=0, first=[
+TEXT _inspect/APISharedRefactor/repair-consumers.py: CRLF=53, bareLF=0, first=from pathlib import Path
+TEXT _inspect/APISharedRefactor/REVIEW.md: CRLF=33, bareLF=0, first=# APIShared refactor verification
+TEXT _inspect/APISharedRefactor/write-guide.py: CRLF=317, bareLF=0, first=from pathlib import Path
+TEXT _inspect/APISharedTests/Program.cs: CRLF=2943, bareLF=0, first=using APIShared.ModSettings;
+TEXT _inspect/APISharedTests/SavegameModSettingsTests.cs: CRLF=260, bareLF=0, first=using APIShared.GameModes;
+TEXT _inspect/AssassinGateClimb/tests/AssassinSharedTests.csproj: CRLF=39, bareLF=0, first=<?xml version="1.0" encoding="utf-8"?>
+TEXT _inspect/AssassinGateClimb/verify.ps1: CRLF=94, bareLF=0, first=[CmdletBinding()]
+TEXT _inspect/AuditModSettings.ps1: CRLF=1571, bareLF=0, first=[CmdletBinding()]
+TEXT _inspect/BugfixesAndQoLNativeTests/Program.cs: CRLF=1418, bareLF=0, first=using System;
+TEXT _inspect/EnemyGateBuildingContextAudit/bridge-projects.ps1: CRLF=110, bareLF=0, first=$ErrorActionPreference = 'Stop'
+TEXT _inspect/EnemyGateBuildingContextAudit/split-bridge.ps1: CRLF=111, bareLF=0, first=$ErrorActionPreference = 'Stop'
+TEXT _inspect/ExtraFeaturesSessionTests/ExtraFeaturesSessionTests.csproj: CRLF=23, bareLF=0, first=<?xml version="1.0" encoding="utf-8"?>
+TEXT _inspect/ExtraFeaturesSessionTests/GeneratedHarness.cs: CRLF=520, bareLF=0, first=using System;
+TEXT _inspect/FormationIntegration/Verify-Interop.ps1: CRLF=80, bareLF=0, first=param()
+TEXT _inspect/GateBridgeAutomation/Verify.ps1: CRLF=51, bareLF=0, first=$ErrorActionPreference = 'Stop'
+TEXT _inspect/HostClientPresetTests/DynamicPresetTests.cs: CRLF=92, bareLF=0, first=using APIShared.ModSettings;
+TEXT _inspect/HostClientPresetTests/FearFactorPresetTests.cs: CRLF=100, bareLF=0, first=using APIShared.ModSettings;
+TEXT _inspect/HostClientPresetTests/HostClientPresetTests.csproj: CRLF=257, bareLF=0, first=<?xml version="1.0" encoding="utf-8"?>
+TEXT _inspect/HostClientPresetTests/MissionTestEnvironment.cs: CRLF=18, bareLF=0, first=using APIShared.GameModes;
+TEXT _inspect/HostClientPresetTests/OptionalIntegrationTests.cs: CRLF=96, bareLF=0, first=using APIShared.ModSettings;
+TEXT _inspect/HostClientPresetTests/Program.cs: CRLF=7006, bareLF=0, first=using APIShared.GameModes;
+TEXT _inspect/HostClientPresetTests/RestartSettingsTests.cs: CRLF=160, bareLF=0, first=using APIShared.ModSettings;
+TEXT _inspect/HostClientPresetTests/TweakerDefaultResetTests.cs: CRLF=155, bareLF=0, first=using APIShared.ModSettings;
+TEXT _inspect/HostClientPresetTests/TweakerProviderTests.cs: CRLF=100, bareLF=0, first=using APIShared.ModSettings;
+TEXT _inspect/LobbyModSettingsPresetTests/LobbyModSettingsPresetTests.csproj: CRLF=61, bareLF=0, first=<?xml version="1.0" encoding="utf-8"?>
+TEXT _inspect/LobbyModSettingsPresetTests/Program.cs: CRLF=1008, bareLF=0, first=using APIShared.ModSettings;
+TEXT _inspect/MissionLifecycleProjects.json: CRLF=25, bareLF=0, first=[
+TEXT _inspect/MissionServiceTests/Environment.cs: CRLF=113, bareLF=0, first=using APIShared.GameModes;
+TEXT _inspect/MissionServiceTests/MissionServiceTests.csproj: CRLF=8, bareLF=0, first=<Project Sdk="Microsoft.NET.Sdk">
+TEXT _inspect/MissionServiceTests/Program.cs: CRLF=126, bareLF=0, first=using APIShared.GameModes;
+TEXT _inspect/MissionStateTests/MissionStateTests.csproj: CRLF=8, bareLF=0, first=<Project Sdk="Microsoft.NET.Sdk">
+TEXT _inspect/MissionStateTests/Program.cs: CRLF=12, bareLF=0, first=using APIShared.GameModes;
+TEXT _inspect/Optimize-HudScratch.ps1: CRLF=85, bareLF=0, first=$ErrorActionPreference = 'Stop'
+TEXT _inspect/Schema3PresetRecovery/Program.cs: CRLF=213, bareLF=0, first=using APIShared.ModSettings;
+TEXT _inspect/Schema3PresetRecovery/Schema3PresetRecovery.csproj: CRLF=41, bareLF=0, first=<?xml version="1.0" encoding="utf-8"?>
+TEXT _inspect/StartConditionsAIIsolationTests/Program.cs: CRLF=225, bareLF=0, first=using System.Linq;
+TEXT _inspect/TemporaryGateAcceptanceRuntimeTests/Program.cs: CRLF=31, bareLF=0, first=// TEMP_GATE_ROUTE_ACCEPTANCE: execute actual diagnostic modules and actual weighted-edge producer with isolated API/memory fixtures.
+TEXT _inspect/Test-ExtraFeaturesSessionCallbacks.ps1: CRLF=261, bareLF=0, first=$ErrorActionPreference='Stop'
+TEXT _inspect/Test-HudWorkBuffers.ps1: CRLF=107, bareLF=0, first=$ErrorActionPreference='Stop'
+TEXT _inspect/Test-MissionLifecyclePreflight.ps1: CRLF=88, bareLF=0, first=param([switch]$NormalizeChangedText)
+TEXT _inspect/TweakerFloatFix/Optimize-Adapter.ps1: CRLF=92, bareLF=0, first=$ErrorActionPreference='Stop'
+TEXT _inspect/UnitIdAccess/Normalize-Text.ps1: CRLF=45, bareLF=0, first=$ErrorActionPreference = 'Stop'
+TEXT _inspect/UnitIdAccess/Tests/Program.cs: CRLF=206, bareLF=0, first=using APIShared;
+TEXT _inspect/UnitIdAccess/Tests/UnitAccess.Tests.csproj: CRLF=8, bareLF=0, first=<Project Sdk="Microsoft.NET.Sdk">
+TEXT _inspect/Verify-HudActivation.ps1: CRLF=98, bareLF=0, first=$ErrorActionPreference = 'Stop'
+TEXT _inspect/Verify-HudDispatch.ps1: CRLF=108, bareLF=0, first=$ErrorActionPreference = 'Stop'
+TEXT _inspect/Verify-HudResources.ps1: CRLF=71, bareLF=0, first=$ErrorActionPreference = 'Stop'
+TEXT AGENTS.md: CRLF=410, bareLF=0, first=# Arbeitsanweisungen für SHCDE-Mods
+TEXT APIShared/APIShared.csproj: CRLF=180, bareLF=0, first=<?xml version="1.0" encoding="utf-8"?>
+TEXT APIShared/ARCHITECTURE.md: CRLF=40, bareLF=0, first=# APIShared architecture
+TEXT APIShared/build.bat: CRLF=92, bareLF=0, first=@echo off
+TEXT APIShared/docs/API_CATALOG.md: CRLF=90, bareLF=0, first=# API catalog
+TEXT APIShared/docs/THIRD_PARTY_GUIDE.md: CRLF=31, bareLF=0, first=# Third-party integration guide
+TEXT APIShared/examples/ThirdPartyMod/ExamplePlugin.cs: CRLF=39, bareLF=0, first=using System;
+TEXT APIShared/examples/ThirdPartyMod/ExampleSettings.cs: CRLF=25, bareLF=0, first=using APIShared.ModSettings;
+TEXT APIShared/examples/ThirdPartyMod/HudExample.cs: CRLF=22, bareLF=0, first=using System;
+TEXT APIShared/examples/ThirdPartyMod/MissionExample.cs: CRLF=33, bareLF=0, first=using System;
+TEXT APIShared/examples/ThirdPartyMod/ThirdPartyMod.csproj: CRLF=35, bareLF=0, first=<?xml version="1.0" encoding="utf-8"?>
+TEXT APIShared/MIGRATION_PLAN.md: CRLF=72, bareLF=0, first=> Historical implementation record. For the current structure and API, use ARCHITECTURE.md and docs/API_CATALOG.md. Version and source-path references below describe earlier stages.
+TEXT APIShared/README.md: CRLF=49, bareLF=0, first=# APIShared
+TEXT APIShared/src/Buildings/BuildingRepairCapability.cs: CRLF=556, bareLF=0, first=using BepInEx.Logging;
+TEXT APIShared/src/Buildings/BuildingRepairContracts.cs: CRLF=78, bareLF=0, first=namespace APIShared
+TEXT APIShared/src/Buildings/GatehouseAutomationNativeState.cs: CRLF=371, bareLF=0, first=using BepInEx.Logging;
+TEXT APIShared/src/Buildings/GatehouseDistanceOriginCapability.cs: CRLF=178, bareLF=0, first=using BepInEx.Logging;
+TEXT APIShared/src/Buildings/GatehouseDrawbridgeCoupling.cs: CRLF=104, bareLF=0, first=using System;
+TEXT APIShared/src/Buildings/GatehousePermanentRuntimeState.cs: CRLF=297, bareLF=0, first=using Iced.Intel;
+TEXT APIShared/src/Buildings/GatehouseTimingCapability.cs: CRLF=758, bareLF=0, first=using BepInEx.Logging;
+TEXT APIShared/src/Core/APISharedPlugin.cs: CRLF=78, bareLF=0, first=using BepInEx;
+TEXT APIShared/src/Core/ApiSharedRuntime.cs: CRLF=443, bareLF=0, first=using BepInEx.Logging;
+TEXT APIShared/src/Core/Contracts.cs: CRLF=156, bareLF=0, first=using System;
+TEXT APIShared/src/Core/ModApiClient.cs: CRLF=66, bareLF=0, first=using System;
+TEXT APIShared/src/Core/NativeInfrastructure.cs: CRLF=222, bareLF=0, first=using BepInEx.Logging;
+TEXT APIShared/src/Core/UniquePatternSearch.cs: CRLF=96, bareLF=0, first=using System;
+TEXT APIShared/src/Diagnostics/AiBuildDiagnostic.cs: CRLF=1230, bareLF=0, first=using BepInEx.Logging;
+TEXT APIShared/src/Diagnostics/AivBuildStepCapability.cs: CRLF=292, bareLF=0, first=using BepInEx.Logging;
+TEXT APIShared/src/Diagnostics/AivBuildStepContracts.cs: CRLF=67, bareLF=0, first=namespace APIShared
+TEXT APIShared/src/GameModes/GameplayModModePolicy.cs: CRLF=137, bareLF=0, first=using System;
+TEXT APIShared/src/GameModes/MissionModePolicy.cs: CRLF=883, bareLF=0, first=using APIShared.GameModes;
+TEXT APIShared/src/Lobby/LobbyPreparationOverride.cs: CRLF=113, bareLF=0, first=using CrusaderDE;
+TEXT APIShared/src/Lobby/LobbyStateCapability.cs: CRLF=563, bareLF=0, first=using BepInEx.Logging;
+TEXT APIShared/src/Lobby/LobbyStateContracts.cs: CRLF=60, bareLF=0, first=using System;
+TEXT APIShared/src/Missions/MissionLifecycleCapability.cs: CRLF=399, bareLF=0, first=using APIShared.GameModes;
+TEXT APIShared/src/Missions/MissionLifecycleContracts.cs: CRLF=170, bareLF=0, first=using APIShared.GameModes;
+TEXT APIShared/src/Missions/MissionLifecycleState.cs: CRLF=114, bareLF=0, first=using System;
+TEXT APIShared/src/ModSettings/DynamicPresetSettings.cs: CRLF=99, bareLF=0, first=using APIShared.ModSettings;
+TEXT APIShared/src/ModSettings/LobbyModSettingsPresetRegistration.cs: CRLF=418, bareLF=0, first=using APIShared.GameModes;
+TEXT APIShared/src/ModSettings/ModSettingsApplication.cs: CRLF=356, bareLF=0, first=using APIShared.ModSettings;
+TEXT APIShared/src/ModSettings/ModSettingsPresetDocuments.cs: CRLF=893, bareLF=0, first=using APIShared.ModSettings;
+TEXT APIShared/src/ModSettings/ModSettingsSearch.cs: CRLF=918, bareLF=0, first=using APIShared.ModSettings;
+TEXT APIShared/src/ModSettings/PerPlayerLobbySettings.cs: CRLF=819, bareLF=0, first=using APIShared.GameModes;
+TEXT APIShared/src/ModSettings/PresetLobbyModSettingsViewModel.cs: CRLF=1162, bareLF=0, first=using APIShared.GameModes;
+TEXT APIShared/src/ModSettings/PresetLobbyModSettingsViewModel.Persistence.cs: CRLF=1470, bareLF=0, first=using APIShared.GameModes;
+TEXT APIShared/src/ModSettings/PresetLobbyModSettingsViewModel.Sources.cs: CRLF=895, bareLF=0, first=using APIShared.GameModes;
+TEXT APIShared/src/ModSettings/ToolTipPresentation.cs: CRLF=15, bareLF=0, first=namespace APIShared.ModSettings
+TEXT APIShared/src/Pathfinding/AssassinAttackControlAPI.cs: CRLF=129, bareLF=0, first=using System;
+TEXT APIShared/src/Pathfinding/AssassinAttackNativeContract.cs: CRLF=25, bareLF=0, first=using System;
+TEXT APIShared/src/Pathfinding/AssassinEndpointEmitter.cs: CRLF=85, bareLF=0, first=using Iced.Intel;
+TEXT APIShared/src/Pathfinding/AssassinGateTransitionPolicy.cs: CRLF=74, bareLF=0, first=using System;
+TEXT APIShared/src/Pathfinding/AssassinPathAPI.cs: CRLF=268, bareLF=0, first=using BepInEx.Logging;
+TEXT APIShared/src/Pathfinding/AssassinPathNativeDefinition.cs: CRLF=112, bareLF=0, first=using BepInEx.Logging;
+TEXT APIShared/src/Pathfinding/AssassinRouteHandoff.cs: CRLF=113, bareLF=0, first=using System;
+TEXT APIShared/src/Pathfinding/ElevatedMoatAiState.cs: CRLF=49, bareLF=0, first=using System;
+TEXT APIShared/src/Pathfinding/EnemyBridgeDiagnosticBridge.cs: CRLF=120, bareLF=0, first=using System;
+TEXT APIShared/src/Pathfinding/EnemyGatePathPolicyBridge.cs: CRLF=109, bareLF=0, first=using System;
+TEXT APIShared/src/Pathfinding/TemporaryGateRouteAcceptanceBridge.cs: CRLF=64, bareLF=0, first=// TEMP_GATE_ROUTE_ACCEPTANCE: remove this file and its explicit project include after acceptance.
+TEXT APIShared/src/Players/PlayerDefeatCapability.cs: CRLF=302, bareLF=0, first=using BepInEx.Logging;
+TEXT APIShared/src/Players/PlayerDefeatContracts.cs: CRLF=67, bareLF=0, first=using System;
+TEXT APIShared/src/Players/PlayerDefeatState.cs: CRLF=139, bareLF=0, first=using SHCDESE.Interop.Enums;
+TEXT APIShared/src/Players/PlayerPerspectiveAPI.cs: CRLF=200, bareLF=0, first=using BepInEx.Logging;
+TEXT APIShared/src/Presentation/BriefingGoldContracts.cs: CRLF=65, bareLF=0, first=using System;
+TEXT APIShared/src/Presentation/BriefingGoldPresentationCapability.cs: CRLF=337, bareLF=0, first=using BepInEx.Logging;
+TEXT APIShared/src/Presentation/UnitHudContracts.cs: CRLF=371, bareLF=0, first=using Noesis;
+TEXT APIShared/src/Presentation/UnitHudPresentationCapability.cs: CRLF=1900, bareLF=0, first=using APIShared.GameModes;
+TEXT APIShared/src/Savegames/SavegameModSettings.cs: CRLF=910, bareLF=0, first=using APIShared.GameModes;
+TEXT APIShared/src/SerpsMods/GameplayFeatureModePolicy.cs: CRLF=305, bareLF=0, first=using APIShared.GameModes;
+TEXT APIShared/src/SerpsMods/SerpsModProfiles.cs: CRLF=40, bareLF=0, first=using System;
+TEXT APIShared/src/UnitCommands/UnitCommandPathAPI.cs: CRLF=44, bareLF=0, first=using System;
+TEXT APIShared/src/Units/LocalSelectionAPI.cs: CRLF=113, bareLF=0, first=using APIShared.GameModes;
+TEXT APIShared/src/Units/MarkedUnitSelectionAPI.cs: CRLF=300, bareLF=0, first=using BepInEx.Logging;
+TEXT APIShared/src/Units/UnitAccess.cs: CRLF=130, bareLF=0, first=using BepInEx.Logging;
+TEXT BugfixesAndQoL/src/AivCandidateStatusApi.cs: CRLF=183, bareLF=0, first=using APIShared.ModSettings;
+TEXT BugfixesAndQoL/src/AssassinClimbRuntime.cs: CRLF=601, bareLF=0, first=using APIShared.GameModes;
+TEXT BugfixesAndQoL/src/AutoTradeSellZeroHook.cs: CRLF=182, bareLF=0, first=using APIShared.GameModes;
+TEXT BugfixesAndQoL/src/BugfixesAndQoLPlugin.cs: CRLF=500, bareLF=0, first=using APIShared.ModSettings;
+TEXT BugfixesAndQoL/src/BugfixesAndQoLViewModel.cs: CRLF=1890, bareLF=0, first=using APIShared.ModSettings;
+TEXT BugfixesAndQoL/src/CtrlMarketTradeHook.cs: CRLF=548, bareLF=0, first=using APIShared.GameModes;
+TEXT BugfixesAndQoL/src/DamagedHealthBarsRuntime.cs: CRLF=385, bareLF=0, first=using APIShared.GameModes;
+TEXT BugfixesAndQoL/src/EnemyProximityBulldozeCursorHook.cs: CRLF=221, bareLF=0, first=using APIShared.GameModes;
+TEXT BugfixesAndQoL/src/ExtendedShiftCommandQueueRuntime.cs: CRLF=2652, bareLF=0, first=using APIShared.GameModes;
+TEXT BugfixesAndQoL/src/HdMarketViewHook.cs: CRLF=374, bareLF=0, first=using APIShared.GameModes;
+TEXT BugfixesAndQoL/src/LordUnitControlsFeature.cs: CRLF=199, bareLF=0, first=using APIShared.GameModes;
+TEXT BugfixesAndQoL/src/LordUnitHudRegistration.cs: CRLF=97, bareLF=0, first=using APIShared.GameModes;
+TEXT BugfixesAndQoL/src/MarketKeyMainTradeMenuHook.cs: CRLF=107, bareLF=0, first=using APIShared.GameModes;
+TEXT BugfixesAndQoL/src/MultiplayerAivSyncRuntime.cs: CRLF=989, bareLF=0, first=using APIShared.GameModes;
+TEXT BugfixesAndQoL/src/MultiplayerFeatureGate.cs: CRLF=76, bareLF=0, first=using APIShared.GameModes;
+TEXT BugfixesAndQoL/src/MultiplayerGameSpeedRuntime.cs: CRLF=938, bareLF=0, first=using APIShared.GameModes;
+TEXT BugfixesAndQoL/src/MultiplayerLobbyReturnFeature.cs: CRLF=606, bareLF=0, first=using APIShared.GameModes;
+TEXT BugfixesAndQoL/src/PlaguePopularityFix.cs: CRLF=654, bareLF=0, first=// Feature: Tie the plague popularity penalty to living Disease projectile herds.
+TEXT BugfixesAndQoL/src/QuarryPileRelocationRuntime.cs: CRLF=1917, bareLF=0, first=using APIShared.GameModes;
+TEXT BugfixesAndQoL/src/ResolutionAwareZoomHook.cs: CRLF=309, bareLF=0, first=using APIShared.GameModes;
+TEXT BugfixesAndQoL/src/SelectedUnitHealthFeature.cs: CRLF=376, bareLF=0, first=using APIShared.GameModes;
+TEXT BugfixesAndQoL/src/SiegeAmmoRestockFeature.cs: CRLF=516, bareLF=0, first=using APIShared.GameModes;
+TEXT BugfixesAndQoL/src/SingleBuildingPauseHook.cs: CRLF=983, bareLF=0, first=using APIShared.GameModes;
+TEXT BugfixesAndQoL/src/SpectatorPerspectiveRuntime.cs: CRLF=651, bareLF=0, first=using APIShared.GameModes;
+TEXT BugfixesAndQoL/src/SurrenderFeature.cs: CRLF=1946, bareLF=0, first=using APIShared.GameModes;
+TEXT BugfixesAndQoL/src/TunnelPlacementDistanceFeature.cs: CRLF=299, bareLF=0, first=using APIShared.GameModes;
+TEXT BugfixesAndQoL/Test-DamagedHealthBarsPreflight.ps1: CRLF=84, bareLF=0, first=[CmdletBinding()]
+TEXT BugfixesAndQoL/tests/AiRaidRetarget.Tests/Run.ps1: CRLF=30, bareLF=0, first=$ErrorActionPreference = 'Stop'
+TEXT BugfixesAndQoL/tests/AssassinPathfinding.Tests/AssassinPathfinding.Tests.csproj: CRLF=23, bareLF=0, first=<Project Sdk="Microsoft.NET.Sdk">
+TEXT BugfixesAndQoL/tests/AssassinPathfinding.Tests/ProductionPerformanceTests.cs: CRLF=261, bareLF=0, first=using Microsoft.CodeAnalysis;
+TEXT BugfixesAndQoL/tests/AssassinPathfinding.Tests/RequestIndexTests.cs: CRLF=83, bareLF=0, first=using Microsoft.CodeAnalysis;
+TEXT BugfixesAndQoL/tests/AssassinPathfinding.Tests/RuntimePublicationTests.cs: CRLF=120, bareLF=0, first=using Microsoft.CodeAnalysis;
+TEXT BugfixesAndQoL/tests/CorruptLordDataSpawnTests.cs: CRLF=196, bareLF=0, first=using BugfixesAndQoL;
+TEXT BugfixesAndQoL/tests/FriendlyMoatMovement.Tests/RuntimeHarness.cs: CRLF=1238, bareLF=0, first=using APIShared.GameModes;
+TEXT BugfixesAndQoL/tests/GatehouseLivingCapture.Tests/GatehouseLivingCapture.Tests.csproj: CRLF=33, bareLF=0, first=<?xml version="1.0" encoding="utf-8"?>
+TEXT BugfixesAndQoL/tests/ImprovedMoatFilling.Tests.csproj: CRLF=113, bareLF=0, first=<?xml version="1.0" encoding="utf-8"?>
+TEXT BugfixesAndQoL/tests/ModOptions.Tests/Environment.cs: CRLF=163, bareLF=0, first=// These publishers/memory buffers exercise the actual runtime sources without installing hooks.
+TEXT BugfixesAndQoL/tests/Program.cs: CRLF=6162, bareLF=0, first=using VanillaFootprintCandidate = APIShared.GatehouseFootprintCandidate;
+TEXT BuildingCosts/src/BuildingCostsLobbyViewModel.cs: CRLF=880, bareLF=0, first=using APIShared.ModSettings;
+TEXT BuildingCosts/src/BuildingCostsPlugin.cs: CRLF=91, bareLF=0, first=using APIShared.ModSettings;
+TEXT BuildingCosts/src/BuildingCostsRuntime.cs: CRLF=1076, bareLF=0, first=using APIShared.SerpsMods;
+TEXT BuildingLimit/src/BuildingLimitLobbyViewModel.cs: CRLF=472, bareLF=0, first=using APIShared.ModSettings;
+TEXT BuildingLimit/src/BuildingLimitPlugin.cs: CRLF=91, bareLF=0, first=using APIShared.ModSettings;
+TEXT BuildingLimit/src/BuildingLimitRuntime.Helpers.cs: CRLF=69, bareLF=0, first=using APIShared.SerpsMods;
+TEXT CastlePlanner/src/BlueprintRuntimeController.cs: CRLF=1154, bareLF=0, first=using APIShared.GameModes;
+TEXT CastlePlanner/src/CastlePlannerPlugin.cs: CRLF=233, bareLF=0, first=using APIShared.ModSettings;
+TEXT CastlePlanner/src/CastlePlannerRuntime.cs: CRLF=2527, bareLF=0, first=using APIShared.GameModes;
+TEXT CastlePlanner/src/CastlePlannerSettingsViewModel.cs: CRLF=1257, bareLF=0, first=using APIShared.ModSettings;
+TEXT CastlePlanner/src/FreeCastlePreviewRuntime.cs: CRLF=1706, bareLF=0, first=using APIShared.GameModes;
+TEXT CheatMod/src/CheatModPlugin.cs: CRLF=72, bareLF=0, first=using APIShared.ModSettings;
+TEXT CheatMod/src/CheatModRuntime.cs: CRLF=185, bareLF=0, first=using APIShared.SerpsMods;
+TEXT CheatMod/src/CheatModSettingsViewModel.cs: CRLF=67, bareLF=0, first=using APIShared.ModSettings;
+TEXT ExtendedData/ExtendedData.Tests/Program.cs: CRLF=3288, bareLF=0, first=using System.Linq;
+TEXT ExtendedData/src/ExtendedDataPlugin.cs: CRLF=99, bareLF=0, first=using APIShared.ModSettings;
+TEXT ExtendedData/src/ExtendedDataSettingsViewModel.cs: CRLF=674, bareLF=0, first=using APIShared.ModSettings;
+TEXT ExtendedData/src/LordDataSyncCoordinator.cs: CRLF=1667, bareLF=0, first=using APIShared.GameModes;
+TEXT ExtendedData/src/MapModSettingsCoordinator.cs: CRLF=1031, bareLF=0, first=using APIShared.ModSettings;
+TEXT ExtendedData/src/TrailMissionSettingsCoordinator.cs: CRLF=3659, bareLF=0, first=using APIShared.GameModes;
+TEXT ExtraFeatures/src/AIDefenseRepairRuntime.cs: CRLF=1316, bareLF=0, first=using APIShared.GameModes;
+TEXT ExtraFeatures/src/ExtraFeaturesPlugin.cs: CRLF=204, bareLF=0, first=using APIShared.ModSettings;
+TEXT ExtraFeatures/src/ExtraFeaturesViewModel.cs: CRLF=664, bareLF=0, first=using APIShared.ModSettings;
+TEXT ExtraFeatures/src/GatehouseAutomationRuntime.cs: CRLF=1074, bareLF=0, first=using APIShared.GameModes;
+TEXT ExtraFeatures/src/KnightDismountRuntime.cs: CRLF=1887, bareLF=0, first=using APIShared.GameModes;
+TEXT ExtraFeatures/src/LordHealthRuntime.cs: CRLF=247, bareLF=0, first=using APIShared.SerpsMods;
+TEXT ExtraFeatures/src/MultiplayerFeatureGate.cs: CRLF=57, bareLF=0, first=using APIShared.GameModes;
+TEXT ExtremePowers/src/ExtremePowersPlugin.cs: CRLF=115, bareLF=0, first=using APIShared.GameModes;
+TEXT ExtremePowers/src/Settings/ExtremePowersSettings.cs: CRLF=198, bareLF=0, first=using APIShared.ModSettings;
+TEXT ExtremePowers/tests/Program.cs: CRLF=249, bareLF=0, first=using APIShared.ModSettings;
+TEXT ImprovedHunters/src/ImprovedHuntersPlugin.cs: CRLF=91, bareLF=0, first=using APIShared.ModSettings;
+TEXT ImprovedHunters/src/ImprovedHuntersRuntime.cs: CRLF=2262, bareLF=0, first=using APIShared.GameModes;
+TEXT ImprovedHunters/src/ImprovedHuntersViewModel.cs: CRLF=299, bareLF=0, first=using APIShared.ModSettings;
+TEXT RandomEvents/src/RandomEventsPlugin.cs: CRLF=93, bareLF=0, first=using APIShared.ModSettings;
+TEXT RandomEvents/src/RandomEventsRuntime.cs: CRLF=2685, bareLF=0, first=using APIShared.GameModes;
+TEXT RandomEvents/src/RandomEventsSettingsViewModel.cs: CRLF=347, bareLF=0, first=using APIShared.ModSettings;
+TEXT SerpsModsHost/src/ModSettingsSearchViewModel.cs: CRLF=555, bareLF=0, first=using APIShared.ModSettings;
+TEXT SerpsModsHost/src/RestartPreparationView.cs: CRLF=59, bareLF=0, first=using APIShared.ModSettings;
+TEXT SerpsModsHost/src/SerpsModsDiagnosticsViewModel.cs: CRLF=358, bareLF=0, first=using APIShared.ModSettings;
+TEXT SerpsModsHost/src/SerpsModsHostPlugin.cs: CRLF=686, bareLF=0, first=using APIShared.ModSettings;
+TEXT SerpsModsHost/src/StatsTweakerConfigurationProvider.cs: CRLF=218, bareLF=0, first=using APIShared.ModSettings;
+TEXT SerpsModsHost/src/StatsTweakerPresetAdapter.cs: CRLF=95, bareLF=0, first=using APIShared.ModSettings;
+TEXT SerpsModsHost/src/StatsTweakerPresetViewModel.cs: CRLF=105, bareLF=0, first=using APIShared.ModSettings;
+TEXT Shared/GameModeHelper.cs: CRLF=431, bareLF=0, first=using APIShared.GameModes;
+TEXT Shared/GameplayModActivationGate.cs: CRLF=148, bareLF=0, first=using APIShared.GameModes;
+TEXT Shared/GameplaySessionLifecycle.cs: CRLF=154, bareLF=0, first=using APIShared.GameModes;
+TEXT Shared/ScriptExtenderUpdate/mods.json: CRLF=226, bareLF=0, first=[
+TEXT Shared/Steam/Create-SteamModPack.ps1: CRLF=1788, bareLF=0, first=param(
+TEXT Shared/ToolTipPresentation.cs: CRLF=41, bareLF=0, first=using Noesis;
+TEXT Shared/UnitCommandSourceChecks/Program.cs: CRLF=244, bareLF=0, first=using System;
+TEXT StartConditions/src/StartConditionsLobbyViewModel.cs: CRLF=943, bareLF=0, first=using APIShared.ModSettings;
+TEXT StartConditions/src/StartConditionsPlugin.cs: CRLF=86, bareLF=0, first=using APIShared.ModSettings;
+TEXT Testmods/AIBuildDiagnoseTest/verify.ps1: CRLF=369, bareLF=0, first=$ErrorActionPreference = 'Stop'
+TEXT Testmods/AICoarsePathComponentFixTest/src/WoodSiteGuardExperiment.cs: CRLF=485, bareLF=0, first=using APIShared.GameModes;
+TEXT Testmods/AICoarsePathComponentFixTest/verify.ps1: CRLF=182, bareLF=0, first=$ErrorActionPreference = 'Stop'
+TEXT Testmods/AIDefenseTest/src/AIDefenseTestRuntime.cs: CRLF=1574, bareLF=0, first=using APIShared.GameModes;
+TEXT Testmods/AivLobbyPresetTest/src/AivLobbyPresetTestPlugin.cs: CRLF=537, bareLF=0, first=using APIShared.GameModes;
+TEXT Testmods/AivLobbyPresetTest/tests/Test-Preflight.ps1: CRLF=62, bareLF=0, first=param([string]$ProjectDir)
+TEXT Testmods/AssassinAttackControlTest/tests/AssassinAttackControlTests.csproj: CRLF=35, bareLF=0, first=<?xml version="1.0" encoding="utf-8"?>
+TEXT Testmods/AssassinAttackControlTest/verify.ps1: CRLF=40, bareLF=0, first=[CmdletBinding()]
+TEXT Testmods/EnemyBridgePathTest/EnemyBridgePathTest.PolicyTests.csproj: CRLF=36, bareLF=0, first=<?xml version="1.0" encoding="utf-8"?>
+TEXT Testmods/EnemyGatePathfindingTest/EnemyGatePathfindingTest.PolicyTests.csproj: CRLF=69, bareLF=0, first=<?xml version="1.0" encoding="utf-8"?>
+TEXT Testmods/EnemyGatePathfindingTest/tests/Program.cs: CRLF=2348, bareLF=0, first=using System;
+TEXT Testmods/MoatMove/tests/FillFormationTests.cs: CRLF=558, bareLF=0, first=using System;
+TEXT Testmods/MoatMove/tests/FormationBoundaryFixture.cs: CRLF=23, bareLF=0, first=using System;
+TEXT Testmods/MoatMove/tests/MoatMove.Tests.csproj: CRLF=26, bareLF=0, first=<Project Sdk="Microsoft.NET.Sdk">
+TEXT Testmods/MoatMove/tests/Program.cs: CRLF=359, bareLF=0, first=using Microsoft.CodeAnalysis;
+TEXT Testmods/MoatMove/tests/RuntimeHarness.cs: CRLF=1313, bareLF=0, first=using APIShared.GameModes;
+TEXT Testmods/OutpostTest/src/OutpostRuntime.cs: CRLF=217, bareLF=0, first=using APIShared.GameModes;
+TEXT Testmods/SpectatorEditorBuildTest/src/SpectatorEditorBuildTestPlugin.cs: CRLF=2305, bareLF=0, first=using APIShared.GameModes;
+TEXT Testmods/StockpileAccessFixTest/src/StockpileAccessFixTestRuntime.cs: CRLF=1351, bareLF=0, first=using APIShared.GameModes;
+TEXT Testmods/VirtualUnitsPrototype/src/VirtualEntityRuntime.cs: CRLF=1063, bareLF=0, first=using APIShared.GameModes;
+TEXT Testmods/VirtualUnitsPrototype/tests/Program.cs: CRLF=147, bareLF=0, first=using System;
+TEXT UnitCosts/src/UnitCostsLobbyViewModel.cs: CRLF=1153, bareLF=0, first=using APIShared.ModSettings;
+TEXT UnitCosts/src/UnitCostsPlugin.cs: CRLF=122, bareLF=0, first=using APIShared.ModSettings;
+TEXT UnitCosts/src/UnitCostsRuntime.cs: CRLF=2167, bareLF=0, first=using APIShared.SerpsMods;
+TEXT UnitLimit/src/UnitLimitLobbyViewModel.cs: CRLF=420, bareLF=0, first=using APIShared.ModSettings;
+TEXT UnitLimit/src/UnitLimitPlugin.cs: CRLF=113, bareLF=0, first=using APIShared.ModSettings;
+TEXT UnitLimit/src/UnitLimitRuntime.Helpers.cs: CRLF=69, bareLF=0, first=using APIShared.SerpsMods;
+PASS: mission lifecycle preflight; 24 projects, 761 distinct sources, 243 changed text files.

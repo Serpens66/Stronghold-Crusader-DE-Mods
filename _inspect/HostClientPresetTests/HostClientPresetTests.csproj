@@ -14,8 +14,8 @@
     <DefineConstants>$(DefineConstants);API_SHARED_PRESET_TESTS</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="..\..\APIShared\src\MissionLifecycleContracts.cs" />
-    <Compile Include="..\..\APIShared\src\MissionLifecycleState.cs" />
+    <Compile Include="..\..\APIShared\src\Missions\MissionLifecycleContracts.cs" />
+    <Compile Include="..\..\APIShared\src\Missions\MissionLifecycleState.cs" />
     <Compile Include="..\HostClientPresetTests\MissionTestEnvironment.cs" />
     <Reference Include="R3"><HintPath>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\R3.dll</HintPath></Reference>
 
@@ -64,7 +64,7 @@
       <HintPath>..\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
       <Private>true</Private>
     </Reference>
-  <Compile Include="..\..\APIShared\src\MissionModePolicy.cs" />
+  <Compile Include="..\..\APIShared\src\GameModes\MissionModePolicy.cs" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
@@ -75,15 +75,20 @@
     <Compile Include="OptionalIntegrationTests.cs" />
     <Compile Include="..\..\SerpsModsHost\src\OptionalSettingsIntegration.cs" />
     <Compile Include="..\..\SerpsModsHost\src\StatsTweakerConfigurationProvider.cs" />
-    <Compile Include="..\..\APIShared\src\DynamicPresetSettings.cs" />
-    <Compile Include="..\..\APIShared\src\ModSettingsApplication.cs" />
-    <Compile Include="..\..\APIShared\src\ModSettingsPresetDocuments.cs">
+    <Compile Include="..\..\APIShared\src\ModSettings\DynamicPresetSettings.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\ModSettingsApplication.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\ModSettingsPresetDocuments.cs">
       <Link>ModSettingsPresetDocuments.cs</Link>
     </Compile>
-    <Compile Include="..\..\APIShared\src\PresetLobbyModSettingsViewModel.cs">
+    <Compile Include="..\..\APIShared\src\ModSettings\PresetLobbyModSettingsViewModel.cs">
       <Link>PresetLobbyModSettingsViewModel.cs</Link>
     </Compile>
-    <Compile Include="..\..\APIShared\src\ModSettingsSearch.cs">
+    <Compile Include="..\..\APIShared\src\ModSettings\PerPlayerLobbySettings.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\PresetLobbyModSettingsViewModel.Persistence.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\PresetLobbyModSettingsViewModel.Sources.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\LobbyModSettingsPresetRegistration.cs" />
+
+    <Compile Include="..\..\APIShared\src\ModSettings\ModSettingsSearch.cs">
       <Link>ModSettingsSearch.cs</Link>
     </Compile>
     <Compile Include="..\..\SerpsModsHost\src\ModSettingsSearchPolicy.cs">
@@ -98,10 +103,11 @@
     <Compile Include="..\..\Shared\GameplayModActivationGate.cs">
       <Link>GameplayModActivationGate.cs</Link>
     </Compile>
-    <Compile Include="..\..\APIShared\src\GameplayModModePolicy.cs">
+    <Compile Include="..\..\APIShared\src\GameModes\GameplayModModePolicy.cs">
       <Link>GameplayModModePolicy.cs</Link>
     </Compile>
-    <Compile Include="..\..\APIShared\src\GameplayFeatureModePolicy.cs">
+    <Compile Include="..\..\APIShared\src\SerpsMods\SerpsModProfiles.cs" />
+    <Compile Include="..\..\APIShared\src\SerpsMods\GameplayFeatureModePolicy.cs">
       <Link>GameplayFeatureModePolicy.cs</Link>
     </Compile>
     <Compile Include="..\..\StartConditions\src\StartConditionsMapSessionState.cs">

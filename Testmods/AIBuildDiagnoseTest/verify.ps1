@@ -325,7 +325,7 @@ foreach ($contract in @('FUNCTION FUN_180050620', 'FUNCTION FUN_180050720',
     }
 }
 $bugfixRuntime = [IO.File]::ReadAllText((Join-Path $workspace 'BugfixesAndQoL\src\AIPreplacedBuildingFixRuntime.cs'))
-$publisher = [IO.File]::ReadAllText((Join-Path $workspace 'APIShared\src\AiBuildDiagnostic.cs'))
+$publisher = [IO.File]::ReadAllText((Join-Path $workspace 'APIShared\src\Diagnostics\AiBuildDiagnostic.cs'))
 if ($bugfixRuntime -notmatch 'APIShared\.AiBuildDiagnostic\.BeginNearbyWoodObservation\(' -or
     $bugfixRuntime -notmatch 'AiBuildDiagnostic\.ShouldDeferWoodBuild\(playerId\)' -or
     $bugfixRuntime -notmatch 'Publish\("wood-build-deferred", playerId\)' -or

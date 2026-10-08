@@ -1,3 +1,4 @@
+using APIShared.ModSettings;
 using BepInEx;
 using SHCDESE.API.LowLevel;
 using SHCDESE.API;
@@ -39,7 +40,7 @@ namespace ExtendedData
                 CrusaderLibrary.Instance.LibraryLoaded -= OnLibraryLoaded;
                 Shared.DebugLogHelper.ReportNativeLibraryVersion(Logger, PluginName);
                 Settings = new ExtendedDataSettingsViewModel();
-                Shared.LobbyModSettingsPresetRegistration.Register(
+                APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(
                     this,
                     Logger,
                     PluginGuid,

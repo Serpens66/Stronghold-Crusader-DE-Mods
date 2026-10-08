@@ -1,3 +1,4 @@
+using APIShared.ModSettings;
 // Feature: Plugin bootstrap for the Extra Features mod.
 using BepInEx;
 using BepInEx.Bootstrap;
@@ -90,7 +91,7 @@ namespace ExtraFeatures
 
             try
             {
-                Shared.LobbyModSettingsPresetRegistration.Register(
+                APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(
                     this,
                     Logger,
                     PluginGuid,

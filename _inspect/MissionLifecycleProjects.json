@@ -19,8 +19,6 @@
   "Testmods\\AIDefenseTest\\AIDefenseTest.csproj",
   "Testmods\\EnemyGatePathfindingTest\\EnemyGatePathfindingTest.csproj",
   "Testmods\\MoatMove\\MoatMove.csproj",
-  "Testmods\\OxTetherIdleFixTest\\OxTetherIdleFixTest.csproj",
-  "Testmods\\PreplacedTest\\PreplacedTest.csproj",
   "Testmods\\SkinTest\\SkinTest.csproj",
   "Testmods\\StockpileAccessFixTest\\StockpileAccessFixTest.csproj",
   "Testmods\\VirtualUnitsPrototype\\VirtualUnitsPrototype.csproj"

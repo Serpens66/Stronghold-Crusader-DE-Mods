@@ -1,3 +1,4 @@
+using APIShared.ModSettings;
 using SHCDESE.API.Components.Network;
 using SHCDESE.API.Components.ModManager;
 using System;
@@ -7,7 +8,7 @@ using System.Windows.Input;
 
 namespace ExtremePowers.Settings
 {
-    public sealed class ExtremePowersSettings : Shared.PresetLobbyModSettingsViewModel
+    public sealed class ExtremePowersSettings : APIShared.ModSettings.PresetLobbyModSettingsViewModel
     {
         private static readonly int[] SelectableUnitTypes = { 22, 23, 24, 25, 26, 27, 28, 30, 70, 75, 44 };
         private static readonly string[] SelectableUnitKeys = { "Archer", "Crossbowman", "Spearman", "Pikeman", "Maceman", "Swordsman", "Knight", "Engineer", "ArabArcher", "ArabSwordsman", "Deer" };
@@ -29,7 +30,7 @@ namespace ExtremePowers.Settings
             DemoOwnerOptions = CreateOwnerOptions();
         }
         protected override string ResolveSettingsUiText(string key, string fallback) => SerpLocalization.Get(key);
-        protected override void ConfigurePerPlayerLobbySettings(Shared.PerPlayerLobbySettingsBuilder settings)
+        protected override void ConfigurePerPlayerLobbySettings(APIShared.ModSettings.PerPlayerLobbySettingsBuilder settings)
         {
             settings.ResetSlotsWith(nameof(ApiProtocolReport), () => null).RequireReport(nameof(ApiProtocolReport), value => !string.IsNullOrWhiteSpace(value as string) && string.Equals(value as string, ApiProtocolReport, StringComparison.Ordinal));
         }

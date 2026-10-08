@@ -1,0 +1,76 @@
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\MoatMove\tests\Program.cs(307,34): warning CS8321: Die lokale Funktion "ReadExtenderRange" ist deklariert, wird aber nie verwendet. [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\MoatMove\tests\MoatMove.Tests.csproj]
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\MoatMove\tests\Program.cs(323,6): warning CS8321: Die lokale Funktion "IsExtenderVersionAllowed" ist deklariert, wird aber nie verwendet. [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\MoatMove\tests\MoatMove.Tests.csproj]
+PASS installed metadata: Assembly-CSharp / global EngineInterface / selectedChimps static int[] (Private, Static).
+PASS: detailed movement and ladder diagnostics are disabled for production logging.
+PASS: shared hook ownership, addon dependencies, separate settings, source closures, JSON/lifecycle contracts.
+CURSOR FULL CHAIN units=1 queries=100 ms=0,412 allocatedBytes=68800 pathSearches=0
+CURSOR FULL CHAIN units=120 queries=100 ms=4,381 allocatedBytes=354400 pathSearches=0
+CURSOR FULL CHAIN units=1000 queries=100 ms=30,424 allocatedBytes=2466400 pathSearches=0
+CURSOR PRODUCTION ADAPTER units=1 queries=1000 ms=0,781 allocatedBytes=56000 newNodes=0 pathSearches=0
+CURSOR GROUP ADAPTER units=1 queries=100 allocatedBytes=26400
+CURSOR PRODUCTION ADAPTER units=120 queries=1000 ms=6,056 allocatedBytes=1008000 newNodes=0 pathSearches=0
+CURSOR GROUP ADAPTER units=120 queries=100 allocatedBytes=121600
+CURSOR PRODUCTION ADAPTER units=1000 queries=1000 ms=46,068 allocatedBytes=8048000 newNodes=0 pathSearches=0
+CURSOR GROUP ADAPTER units=1000 queries=100 allocatedBytes=825600
+NATIVE PLACEMENT provider=-1 units=1 unique=1 probes=1 ms=3,671
+NATIVE PLACEMENT provider=-1 units=120 unique=120 probes=120 ms=0,633
+NATIVE PLACEMENT provider=-1 units=680 unique=680 probes=680 ms=9,088
+NATIVE PLACEMENT provider=0 units=1 unique=1 probes=1 ms=0,003
+NATIVE PLACEMENT provider=0 units=120 unique=120 probes=120 ms=0,333
+NATIVE PLACEMENT provider=0 units=680 unique=680 probes=680 ms=6,167
+NATIVE PLACEMENT provider=1 units=1 unique=1 probes=1 ms=0,003
+NATIVE PLACEMENT provider=1 units=120 unique=120 probes=120 ms=0,401
+NATIVE PLACEMENT provider=1 units=680 unique=680 probes=680 ms=6,197
+NATIVE PLACEMENT provider=2 units=1 unique=1 probes=1 ms=0,003
+NATIVE PLACEMENT provider=2 units=120 unique=120 probes=120 ms=0,323
+NATIVE PLACEMENT provider=2 units=680 unique=680 probes=680 ms=6,116
+PLACEMENT WORK units=1 candidates=0 connectivity=125
+PLACEMENT PRODUCTION units=1 unique=1 ms=1,313 allocatedBytes=24888
+PLACEMENT WORK units=5 candidates=3 connectivity=2
+PLACEMENT PRODUCTION units=5 unique=5 ms=0,292 allocatedBytes=13168
+PLACEMENT WORK units=20 candidates=19 connectivity=17
+PLACEMENT PRODUCTION units=20 unique=20 ms=0,287 allocatedBytes=62576
+PLACEMENT WORK units=27 candidates=26 connectivity=24
+PLACEMENT PRODUCTION units=27 unique=27 ms=0,443 allocatedBytes=88920
+PLACEMENT WORK units=29 candidates=28 connectivity=26
+PLACEMENT PRODUCTION units=29 unique=29 ms=0,485 allocatedBytes=94648
+PLACEMENT WORK units=120 candidates=119 connectivity=117
+PLACEMENT PRODUCTION units=120 unique=120 ms=7,365 allocatedBytes=512744
+PASS: placement kernel vs independent directed reachability and nearest-place reference (100 maps).
+GROUP PRODUCTION units=1 ms=0,068 nodes=14 bytes=3224
+GROUP PRODUCTION units=120 ms=3,034 nodes=2537 bytes=323448
+GROUP PRODUCTION units=680 ms=10,905 nodes=2537 bytes=1398648
+FORMATION units=1 nativeCalls=1 ms=0,615 bytes=40
+FORMATION units=20 nativeCalls=45 ms=0,004 bytes=40
+FORMATION units=120 nativeCalls=145 ms=0,010 bytes=40
+FORMATION units=128 nativeCalls=153 ms=0,011 bytes=40
+FORMATION units=156 nativeCalls=181 ms=0,013 bytes=40
+BUILDING PRODUCTION units=1 moat=False candidates=351 ms=2,744 nodes=0 bytes=261992
+BUILDING PRODUCTION units=1 moat=True candidates=351 ms=2,989 nodes=404 bytes=7944984
+BUILDING PRODUCTION units=120 moat=False candidates=351 ms=0,069 nodes=0 bytes=177144
+BUILDING PRODUCTION units=120 moat=True candidates=351 ms=0,309 nodes=404 bytes=242168
+BUILDING PRODUCTION units=680 moat=False candidates=351 ms=0,102 nodes=0 bytes=187752
+BUILDING PRODUCTION units=680 moat=True candidates=351 ms=8,686 nodes=404 bytes=252736
+PASS: 250548 assertions (unit plans, native buffers, real tile graph, work selection cache).
+PASS: 6480 independent building-field distances, directed terminal edges and fresh-state reuse.
+PRECISE COMPARISON units=1 oldMs=2,32 newMs=2,44 oldNodes=6862 newNodes=6862 edgeEvaluations=54629 edgeCacheHits=132
+PRECISE COMPARISON units=120 oldMs=216,96 newMs=167,90 oldNodes=909005 newNodes=909005 edgeEvaluations=70665 edgeCacheHits=7180765
+PRECISE COMPARISON units=680 oldMs=1030,22 newMs=931,41 oldNodes=5150501 newNodes=5150501 edgeEvaluations=70665 edgeCacheHits=41016517
+ACTUAL PRECISE PLANNER units=1 oldMs=4,83 newMs=3,52 oldNodes=4433 newNodes=4433
+ACTUAL PRECISE PLANNER units=120 oldMs=305,62 newMs=145,45 oldNodes=626660 newNodes=626660
+ACTUAL PRECISE PLANNER units=680 oldMs=1010,84 newMs=787,89 oldNodes=3550421 newNodes=3550421
+GROUP PIPELINE MODEL units=1 referenceMs=7,81 combinedMs=0,28 referenceNodes=4607 combinedNodes=1101 referenceBytes=422968 combinedBytes=203424
+GROUP PIPELINE MODEL units=120 referenceMs=183,53 combinedMs=45,64 referenceNodes=220133 combinedNodes=192008 referenceBytes=1161648 combinedBytes=835448
+GROUP PIPELINE MODEL units=680 referenceMs=277,83 combinedMs=240,24 referenceNodes=1213351 combinedNodes=1100866 referenceBytes=2387568 combinedBytes=1682168
+SEARCH MODEL units=1 independentNodes=8111 sharedNodes=7516 sharedRuns=1 cacheHits=1 independentMs=3,98 sharedMs=2,83 independentAllocBytes=3409336 sharedAllocBytes=1326848
+SEARCH MODEL units=5 independentNodes=40242 sharedNodes=38211 sharedRuns=5 cacheHits=5 independentMs=16,74 sharedMs=9,98 independentAllocBytes=3412088 sharedAllocBytes=1355024
+SEARCH MODEL units=20 independentNodes=164492 sharedNodes=156931 sharedRuns=20 cacheHits=20 independentMs=67,31 sharedMs=43,07 independentAllocBytes=3422408 sharedAllocBytes=1419472
+SEARCH MODEL units=27 independentNodes=224280 sharedNodes=214317 sharedRuns=27 cacheHits=27 independentMs=95,14 sharedMs=51,34 independentAllocBytes=3427224 sharedAllocBytes=1444064
+SEARCH MODEL units=29 independentNodes=241778 sharedNodes=230791 sharedRuns=29 cacheHits=29 independentMs=92,14 sharedMs=56,06 independentAllocBytes=3428600 sharedAllocBytes=1449904
+PASS: 84031 independent search assertions (directed edges, profile conflicts, length limits, terrain changes).
+PASS: 289388 new Fast field assertions; directed BFS oracle, shared groups, deterministic slices, cancellation and route limits.
+PASS: new Fast ownership/pool/topology/packed/save assertions=1092
+PASS: 1469340 independent cursor connectivity comparisons after edge additions/removals.
+PASS: actual recovery emitter assembled and decoded (73 bytes, no native code executed).
+PASS: six actual SE selection adapters assembled; live call, branches and RIP addresses preserved.
+PASS: syntax of 30 runtime files; 201 actual runtime members compiled and exercised.

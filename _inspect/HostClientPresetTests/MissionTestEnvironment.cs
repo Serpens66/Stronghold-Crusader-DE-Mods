@@ -1,3 +1,4 @@
+using APIShared.GameModes;
 // Managed/native input stand-ins. Policy, state machine and adapter are the actual production sources.
 internal static class EngineInterface
 {
@@ -11,7 +12,7 @@ namespace APIShared
     public sealed class NativeCapabilityDiagnostic { }
     internal static class MissionLifecycleService
     {
-        internal static Shared.GameModeSnapshot Snapshot;
-        internal static bool HasContext => Snapshot.Kind != Shared.GameModeKind.Unknown;
+        internal static APIShared.GameModes.GameModeSnapshot Snapshot;
+        internal static bool HasContext => Snapshot.Kind != APIShared.GameModes.GameModeKind.Unknown;
     }
 }

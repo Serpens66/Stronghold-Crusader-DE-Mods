@@ -267,7 +267,6 @@ namespace MoatMove
                 int exhaustedCalls=calls;
                 for(int i=0;i<120;i++){*(int*)(tribes+0x14)=1;ChooseOwnerSafeFormationSlot(nativePathManager,1,60,10);}
                 Check(calls<=exhaustedCalls+1,"exhausted unchanged candidate list is not scanned per unit");
-                activeMoveCommand.HasFormationSpacing=true; activeMoveCommand.FormationSpacing=4;
                 formationOwner=null;formationExhausted=false;*(int*)(tribes+0x14)=1;
                 ChooseOwnerSafeFormationSlot(nativePathManager,3,60,10);
                 Check(lastSpacing==3,"command spacing preserves native unit-type spacing three");
@@ -276,29 +275,68 @@ namespace MoatMove
                 activeMoveCommand.IsPatrolPath=true;*(int*)(tribes+0x14)=1;
                 ChooseOwnerSafeFormationSlot(nativePathManager,2,60,10);
                 Check(lastSpacing==2,"patrol movement retains its Vanilla spacing");
-                activeMoveCommand.IsPatrolPath=false;TestSettings.Settings.EnableMoveFormationEnhancements=false;
+                activeMoveCommand.IsPatrolPath=false;TestSettings.Settings.EnableMod=false;
                 *(int*)(tribes+0x14)=1;
                 ChooseOwnerSafeFormationSlot(nativePathManager,3,60,10);
                 Check(lastSpacing==3,"disabled Move formation feature retains all Vanilla spacing");
-                TestSettings.Settings.EnableMoveFormationEnhancements=true;
-                activeMoveCommand.HasFormationSpacing=false; activeMoveCommand.FormationSpacing=MoveFormationSpacingPolicy.Default;
+                TestSettings.Settings.EnableMod=true;
                 int assassinSpacing=0;
                 originalAssassinGroundFormationSlot=(m,spacing,x,y)=>{assassinSpacing=spacing;return spacing;};
                 activeMoveCommand.IsPatrolPath=false;
                 foreach(int configured in new[]{1,2,3,4})
                 {
-                    activeMoveCommand.HasFormationSpacing=true; activeMoveCommand.FormationSpacing=configured;
-                    Check(ChooseAssassinGroundFormationSlot(nativePathManager,3,60,10)==3 &&
-                        assassinSpacing==3,
-                        "Assassin unit-type spacing remains authoritative with command snapshot "+configured);
+                    Check(ChooseAssassinGroundFormationSlot(nativePathManager,configured,60,10)==configured &&
+                        assassinSpacing==configured,
+                        "Assassin unit-type spacing remains authoritative for native spacing "+configured);
                 }
                 Check(ChooseAssassinGroundFormationSlot(nativePathManager,1,60,10)==1,
                     "Assassin safety spacing one remains unchanged");
-                TestSettings.Settings.EnableMoveFormationEnhancements=false;
+                TestSettings.Settings.EnableMod=false;
                 Check(ChooseAssassinGroundFormationSlot(nativePathManager,3,60,10)==3,
                     "disabled feature restores Vanilla Assassin ground spacing three");
-                TestSettings.Settings.EnableMoveFormationEnhancements=true;
-                activeMoveCommand.HasFormationSpacing=false; activeMoveCommand.FormationSpacing=MoveFormationSpacingPolicy.Default;
+                TestSettings.Settings.EnableMod=true;
+                // Exercise the optional current formation-provider boundary independently
+                // of the productive formation engine covered by Formations.Tests.
+                var savedOriginal = originalFormationSlot;
+                var savedAssassinOriginal = originalAssassinGroundFormationSlot;
+                bool savedDisposed = disposed;
+                int providerFallbacks = 0;
+                int* outputTriple = (int*)(tribes + 0x0C);
+                outputTriple[0] = 61; outputTriple[1] = 11; outputTriple[2] = 2;
+                formationRuntime = new FormationRuntime { Standard = (m,s,x,y) => true };
+                originalFormationSlot = (m,s,x,y) => providerFallbacks++;
+                ChooseOwnerSafeFormationSlot(nativePathManager,3,60,10);
+                Check(providerFallbacks==0,"successful formation provider is authoritative");
+                formationRuntime.Standard = (m,s,x,y) => {
+                    outputTriple[0]=99; outputTriple[1]=98; outputTriple[2]=97;
+                    throw new InvalidOperationException("test formation provider");
+                };
+                disposed = true; // force the traversal fallback to the unchanged selector
+                originalFormationSlot = (m,s,x,y) => {
+                    Check(outputTriple[0]==61 && outputTriple[1]==11 && outputTriple[2]==2,
+                        "failed formation provider restores all native output fields before fallback");
+                    providerFallbacks++;
+                };
+                ChooseOwnerSafeFormationSlot(nativePathManager,3,60,10);
+                Check(formationRuntime.Disabled && providerFallbacks==1,
+                    "failed formation provider is logically disabled and original called once");
+                formationRuntime = new FormationRuntime { Assassin = (m,s,x,y) => 123 };
+                originalAssassinGroundFormationSlot = (m,s,x,y) => { providerFallbacks++; return 80; };
+                Check(ChooseAssassinGroundFormationSlot(nativePathManager,3,60,10)==123 && providerFallbacks==1,
+                    "successful Assassin formation provider is authoritative");
+                formationRuntime.Assassin = (m,s,x,y) => {
+                    outputTriple[0]=99; outputTriple[1]=98; outputTriple[2]=97;
+                    throw new InvalidOperationException("test Assassin provider");
+                };
+                originalAssassinGroundFormationSlot = (m,s,x,y) => {
+                    Check(outputTriple[0]==61 && outputTriple[1]==11 && outputTriple[2]==2,
+                        "failed Assassin provider restores all native output fields before fallback");
+                    providerFallbacks++; return 80;
+                };
+                Check(ChooseAssassinGroundFormationSlot(nativePathManager,3,60,10)==80 &&
+                    formationRuntime.Disabled && providerFallbacks==2,"failed Assassin provider falls back once");
+                formationRuntime=null;disposed=savedDisposed;
+                originalFormationSlot=savedOriginal;originalAssassinGroundFormationSlot=savedAssassinOriginal;
                 tileFlags[1060]|=CursorSpecialStructureTileFlagMask;
                 ChooseOwnerSafeFormationSlot(nativePathManager,1,60,10);
                 Check(*(int*)(tribes+0x0C)==60,"native common fallback retains structure target for individual portal validation");

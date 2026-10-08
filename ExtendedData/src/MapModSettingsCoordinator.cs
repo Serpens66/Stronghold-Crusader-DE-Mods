@@ -1,3 +1,4 @@
+using APIShared.ModSettings;
 using APIShared;
 using BepInEx.Logging;
 using CrusaderDE;

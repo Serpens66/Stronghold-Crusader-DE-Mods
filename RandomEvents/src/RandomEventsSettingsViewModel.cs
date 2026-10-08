@@ -1,3 +1,4 @@
+using APIShared.ModSettings;
 using SHCDESE.API.Components.Network;
 using SHCDESE.NoesisUtil;
 using SHCDESE.ViewModels;
@@ -6,7 +7,7 @@ using System.Globalization;
 
 namespace RandomEvents
 {
-    public sealed class RandomEventsSettingsViewModel : Shared.PresetLobbyModSettingsViewModel
+    public sealed class RandomEventsSettingsViewModel : APIShared.ModSettings.PresetLobbyModSettingsViewModel
     {
         private bool enableMod = true;
         private int intervalMonths = 6;

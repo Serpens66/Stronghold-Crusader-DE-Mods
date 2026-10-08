@@ -1,3 +1,4 @@
+using APIShared.ModSettings;
 using BepInEx.Logging;
 using Noesis;
 using SHCDESE.API;
@@ -416,7 +417,7 @@ namespace SerpsModsHost
             var matchedSections = new HashSet<string>(
                 candidateList
                     .Where(candidate => candidate.IsSection &&
-                        Shared.ModSettingsSearchMatcher.IsSectionTitleMatch(query, candidate.Title))
+                        APIShared.ModSettings.ModSettingsSearchMatcher.IsSectionTitleMatch(query, candidate.Title))
                     .Select(candidate => candidate.SectionIdentity),
                 StringComparer.Ordinal);
 
@@ -428,7 +429,7 @@ namespace SerpsModsHost
                         candidate.SectionIdentity,
                         matchedSections) &&
                     (candidate.IsSection ||
-                        Shared.ModSettingsSearchMatcher.IsMatch(
+                        APIShared.ModSettings.ModSettingsSearchMatcher.IsMatch(
                                 query,
                                 includeToolTips,
                                 string.Empty,

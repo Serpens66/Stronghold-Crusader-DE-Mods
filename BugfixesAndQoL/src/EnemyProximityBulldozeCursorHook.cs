@@ -1,3 +1,4 @@
+using APIShared.GameModes;
 // Feature: Show the blocked bulldoze cursor when enemies are too close.
 using BepInEx.Logging;
 using CrusaderDE;
@@ -170,7 +171,7 @@ namespace BugfixesAndQoL
 
             if (!MainViewModel.viewModelLoaded ||
                 MainViewModel.Instance == null ||
-                Shared.GameModeHelper.IsMapEditor())
+                APIShared.GameModes.GameModeHelper.IsMapEditor())
                 return false;
 
             if (GameData.Instance == null || GameData.Instance.lastGameState == null)

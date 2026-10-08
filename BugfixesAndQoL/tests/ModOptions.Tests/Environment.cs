@@ -115,7 +115,6 @@ namespace Shared
         public static Action Reset;
         public static IDisposable SubscribeStarted(BepInEx.Logging.ManualLogSource log, Action<GameplaySessionStartedContext> started, Action reset) { Started = started; Reset = reset; return new R3.Subscription(() => { }); }
     }
-    public static class GameModeHelper { public static Mode Capture() => new Mode(); }
     public static class DebugLogHelper
     {
         public static int Warnings, Errors, Factories; public static bool FailDebug;
@@ -160,3 +159,5 @@ namespace BugfixesAndQoL
         public bool TrySetRemaining(string a, string b, out Exception failure) { Writes++; failure = null; return true; }
     }
 }
+
+namespace APIShared.GameModes { public static class GameModeHelper { public static Shared.Mode Capture() => new Shared.Mode(); } }

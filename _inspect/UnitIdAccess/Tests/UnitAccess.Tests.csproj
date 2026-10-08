@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><AllowUnsafeBlocks>true</AllowUnsafeBlocks><ImplicitUsings>enable</ImplicitUsings></PropertyGroup>
-  <ItemGroup><Compile Include="..\..\..\APIShared\src\UnitAccess.cs" Link="UnitAccess.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="..\..\..\APIShared\src\Units\UnitAccess.cs" Link="UnitAccess.cs" /></ItemGroup>
   <ItemGroup>
     <Reference Include="Microsoft.CodeAnalysis"><HintPath>$(MSBuildSDKsPath)\..\Roslyn\bincore\Microsoft.CodeAnalysis.dll</HintPath></Reference>
     <Reference Include="Microsoft.CodeAnalysis.CSharp"><HintPath>$(MSBuildSDKsPath)\..\Roslyn\bincore\Microsoft.CodeAnalysis.CSharp.dll</HintPath></Reference>

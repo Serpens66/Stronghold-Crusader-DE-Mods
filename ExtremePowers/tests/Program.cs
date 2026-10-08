@@ -1,3 +1,4 @@
+using APIShared.ModSettings;
 using ExtremePowers.API;
 using MessagePack;
 using SHCDESE.API;
@@ -153,7 +154,7 @@ internal static class Program
         string project = File.ReadAllText(Path.Combine(modRoot, "ExtremePowers.API.csproj"));
         string pluginProject = File.ReadAllText(Path.Combine(modRoot, "ExtremePowers.csproj"));
         string pluginSource = File.ReadAllText(Path.Combine(modRoot, "src", "ExtremePowersPlugin.cs"));
-        string sharedPresetSystem = File.ReadAllText(Path.Combine(modRoot, "..", "APIShared", "src", "PresetLobbyModSettingsViewModel.cs"));
+        string sharedPresetSystem = string.Join("\n", Directory.GetFiles(Path.GetDirectoryName(Path.Combine(modRoot, "..", "APIShared", "src", "ModSettings", "PresetLobbyModSettingsViewModel.cs")), "*.cs").Select(File.ReadAllText));
         Check(!project.Contains("Include=\"src\\") && !project.Contains("Include=\"Locales\\") && !project.Contains("Include=\"Override\\") && !project.Contains("Include=\"Patches\\"), "extractable API project inputs");
         string[] allowedSharedApiSources = { "..\\Shared\\DebugLogHelper.cs", "..\\Shared\\GameplaySessionLifecycle.cs", "..\\Shared\\UnityMainThreadDispatch.cs" };
         foreach (string line in project.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Where(value => value.Contains("<Compile Include=")))

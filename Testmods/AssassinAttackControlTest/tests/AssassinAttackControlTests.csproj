@@ -29,7 +29,7 @@
     <Compile Include="Program.cs" />
     <Compile Include="..\src\AlternativeSearch.cs" />
     <Compile Include="..\..\..\BugfixesAndQoL\src\AssassinGateRoutePolicy.cs" />
-    <Compile Include="..\..\..\APIShared\src\AssassinAttackNativeContract.cs" />
+    <Compile Include="..\..\..\APIShared\src\Pathfinding\AssassinAttackNativeContract.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

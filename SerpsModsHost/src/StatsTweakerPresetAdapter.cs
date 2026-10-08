@@ -1,3 +1,4 @@
+using APIShared.ModSettings;
 using BepInEx.Bootstrap;
 using BepInEx.Logging;
 using Noesis;

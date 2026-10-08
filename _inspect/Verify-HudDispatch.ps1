@@ -1,7 +1,7 @@
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
-$current = [IO.File]::ReadAllText((Join-Path $root 'APIShared/src/UnitHudPresentationCapability.cs'))
-$before = (git -C $root show HEAD:APIShared/src/UnitHudPresentationCapability.cs) -join "`r`n"
+$current = [IO.File]::ReadAllText((Join-Path $root 'APIShared/src/Presentation/UnitHudPresentationCapability.cs'))
+$before = (git -C $root show HEAD:APIShared/src/Presentation/UnitHudPresentationCapability.cs) -join "`r`n"
 if ($LASTEXITCODE -ne 0) { throw 'Cannot read reference source.' }
 function RenderBlock([string]$source) {
     $start = $source.IndexOf('private void OnBeforeRender()', [StringComparison]::Ordinal)

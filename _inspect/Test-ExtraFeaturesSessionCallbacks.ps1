@@ -52,9 +52,11 @@ namespace SHCDESE.Interop {
 }
 namespace Shared {
     public static class DebugLogHelper { public static void LogDebug(object l,string s){} public static void LogError(object l,string s){} public static void LogWarning(object l,string s){} }
-    public enum GameplayFeatureId { LordHealthMultipliers }
     public static class GameplayModActivationGate { public static bool Allowed=true; public static object Snapshot=>null; public static bool IsEnabled(bool enabled)=>Allowed&&enabled; }
-    public static class GameplayFeatureModePolicy { public static int Calls; public static bool IsAllowed(string owner,GameplayFeatureId f,object s){Calls++;return GameplayModActivationGate.Allowed;} }
+}
+namespace APIShared.SerpsMods {
+    public enum GameplayFeatureId { LordHealthMultipliers }
+    public static class GameplayFeatureModePolicy { public static int Calls; public static bool IsAllowed(string owner,GameplayFeatureId f,object s){Calls++;return Shared.GameplayModActivationGate.Allowed;} }
 }
 namespace SHCDESE.API {
     public class ModSaveDataAPI {
@@ -200,9 +202,9 @@ public static unsafe class SessionTests {
             lord.Initialize(); lord.Initialize(); Assert(clock.Subscribers==1,"duplicate tick");
             Create(1,1,101); lord.BeginMap(1,false);
             Assert(units.Units[1].r_MaxHealth==200&&units.Units[1].r_CurrentHealth==100,"initial proportional health");
-            int reads=players.Reads,modeReads=Shared.GameplayFeatureModePolicy.Calls;
+            int reads=players.Reads,modeReads=APIShared.SerpsMods.GameplayFeatureModePolicy.Calls;
             for(int i=0;i<10000;i++)clock.Tick(i);
-            Assert(players.Reads==reads&&Shared.GameplayFeatureModePolicy.Calls==modeReads,"idle still scans");
+            Assert(players.Reads==reads&&APIShared.SerpsMods.GameplayFeatureModePolicy.Calls==modeReads,"idle still scans");
             settings.HumanLordHealthPercent=300; lord.BeginMap(1,false); Assert(players.Reads==reads,"duplicate session recaptured settings");
             Create(2,2,102); players.Ids[2]=0; Spawn(2,2); Assert(players.Reads==reads,"event queried player before caller completion");
             players.AI[2]=true; Create(2,2,102,150,75); clock.Tick(9); Assert(units.Units[2].r_MaxHealth==150,"early application");

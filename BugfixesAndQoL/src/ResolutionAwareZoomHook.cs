@@ -1,3 +1,4 @@
+using APIShared.GameModes;
 // Feature: Resolution-normalized zoom with extended close and distant camera steps.
 using BepInEx.Logging;
 using CrusaderDE;
@@ -106,7 +107,7 @@ namespace BugfixesAndQoL
                 CameraControls2D.instance.isMapLocked(),
                 self.CanUserExtraZoom(),
                 ConfigSettings.Settings_ExtraZoom,
-                Shared.GameModeHelper.IsMapEditor(),
+                APIShared.GameModes.GameModeHelper.IsMapEditor(),
                 loop);
             SetFloat(ZoomPositionField, self, position);
             ApplyZoomTarget(self, position);
@@ -189,7 +190,7 @@ namespace BugfixesAndQoL
                 float validPosition = ResolutionAwareZoomPolicy.NormalizeLockedPosition(
                     currentPosition,
                     self.CanUserExtraZoom(),
-                    Shared.GameModeHelper.IsMapEditor(),
+                    APIShared.GameModes.GameModeHelper.IsMapEditor(),
                     allowExtendedFarZoom: true,
                     useHalfSteps: ConfigSettings.Settings_ExtraZoom);
                 if (Math.Abs(validPosition - currentPosition) > 0.0001f)
@@ -204,7 +205,7 @@ namespace BugfixesAndQoL
             {
                 float vanillaMinimum = ResolutionAwareZoomPolicy.GetLockedMinimumPosition(
                     canUserExtraZoomOriginal(self),
-                    Shared.GameModeHelper.IsMapEditor(),
+                    APIShared.GameModes.GameModeHelper.IsMapEditor(),
                     allowExtendedFarZoom: false,
                     useHalfSteps: ConfigSettings.Settings_ExtraZoom);
                 float currentPosition = GetFloat(ZoomPositionField, self);

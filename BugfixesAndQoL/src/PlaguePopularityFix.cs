@@ -223,7 +223,7 @@ namespace BugfixesAndQoL
                         $"projectiles={DescribeProjectiles(capture.Members)}, " +
                         $"activeHerdsForPlayer={CountHerds(capture.PlayerId)}, " +
                         $"popularityCallbacksObserved={DescribeCallbackCounts()}, " +
-                        $"mode={Shared.GameModeHelper.Capture().ToDiagnosticString()}.");
+                        $"mode={APIShared.GameModes.GameModeHelper.Capture().ToDiagnosticString()}.");
                 }
                 catch (Exception ex)
                 {

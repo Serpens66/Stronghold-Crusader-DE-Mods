@@ -35,7 +35,7 @@
     <Compile Include="Program.cs" />
     <Compile Include="..\..\Shared\DependencyFreeJson.cs"><Link>DependencyFreeJson.cs</Link></Compile>
     <Compile Include="..\..\Shared\DebugLogHelper.cs"><Link>DebugLogHelper.cs</Link></Compile>
-    <Compile Include="..\..\APIShared\src\ModSettingsPresetDocuments.cs"><Link>ModSettingsPresetDocuments.cs</Link></Compile>
+    <Compile Include="..\..\APIShared\src\ModSettings\ModSettingsPresetDocuments.cs"><Link>ModSettingsPresetDocuments.cs</Link></Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

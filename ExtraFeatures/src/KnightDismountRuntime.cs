@@ -1,3 +1,4 @@
+using APIShared.GameModes;
 // Feature: Mount swordsmen and dismount mounted knights through local commands.
 using BepInEx.Logging;
 using CrusaderDE;
@@ -1786,7 +1787,7 @@ namespace ExtraFeatures
 
         private static int GetControlledPlayerId()
         {
-            if (Shared.GameModeHelper.IsMapEditor())
+            if (APIShared.GameModes.GameModeHelper.IsMapEditor())
             {
                 // Editor actions belong to the player currently selected in the editor toolbar.
                 return EditorDirector.instance?.ActivePlayerID ?? -1;
@@ -1798,12 +1799,12 @@ namespace ExtraFeatures
 
         private static int GetSelectionPlayerId()
         {
-            if (Shared.GameModeHelper.IsMapEditor())
+            if (APIShared.GameModes.GameModeHelper.IsMapEditor())
                 return EditorDirector.instance?.ActivePlayerID ?? -1;
             return GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? -1;
         }
 
-        private static bool IsMapEditor() => Shared.GameModeHelper.IsMapEditor();
+        private static bool IsMapEditor() => APIShared.GameModes.GameModeHelper.IsMapEditor();
 
         private void LogDebug(string message)
         {

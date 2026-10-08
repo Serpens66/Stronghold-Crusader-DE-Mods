@@ -1,3 +1,4 @@
+using APIShared.GameModes;
 // Feature: Synchronized multiplayer game-speed and pause controls.
 using BepInEx.Logging;
 using CrusaderDE;
@@ -806,7 +807,7 @@ namespace BugfixesAndQoL
             bool realMultiplayer;
             try
             {
-                realMultiplayer = Shared.GameModeHelper.IsRealMultiplayer();
+                realMultiplayer = APIShared.GameModes.GameModeHelper.IsRealMultiplayer();
             }
             catch
             {

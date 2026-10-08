@@ -1,3 +1,4 @@
+using APIShared.GameModes;
 using BepInEx.Logging;
 using R3;
 using RedBird.Core.Memory;
@@ -114,7 +115,7 @@ namespace StockpileAccessFixTest
                 return;
 
             subscriptions.Add(Shared.MissionEvents.Started
-                .Where(args => !args.Context.IsEditor && args.Context.Mode.Kind != Shared.GameModeKind.Tutorial && args.Context.Mode.Kind != Shared.GameModeKind.Unknown)
+                .Where(args => !args.Context.IsEditor && args.Context.Mode.Kind != APIShared.GameModes.GameModeKind.Tutorial && args.Context.Mode.Kind != APIShared.GameModes.GameModeKind.Unknown)
                 .Subscribe(args => BeginMap($"mission={args.Context.SessionId}, source={args.Context.StartKind}, file={args.Context.FilePath ?? "<null>"}")));
             subscriptions.Add(Shared.MissionEvents.Ended
                 .Subscribe(_ => TryRestoreTestBlocker("map unload")));

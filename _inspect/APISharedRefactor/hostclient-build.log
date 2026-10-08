@@ -1,0 +1,3 @@
+MSBuild-Version 18.6.14+e730f1db7 für .NET
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\APIShared\src\GameModes\MissionModePolicy.cs(99,49): warning CS0649: Dem Feld "GameModeHelper.ReadSavedModeEvidence" wird nie etwas zugewiesen, und es hat immer seinen Standardwert von "null". [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\HostClientPresetTests\HostClientPresetTests.csproj]
+  HostClientPresetTests -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\HostClientPresetTests\bin\HostClientPresetTests.exe

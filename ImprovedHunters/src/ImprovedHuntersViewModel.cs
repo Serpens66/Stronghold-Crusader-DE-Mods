@@ -1,3 +1,4 @@
+using APIShared.ModSettings;
 using Noesis;
 using SHCDESE.API.Components.Network;
 using SHCDESE.Interop;
@@ -8,7 +9,7 @@ using System.Globalization;
 
 namespace ImprovedHunters
 {
-    public sealed class ImprovedHuntersViewModel : Shared.PresetLobbyModSettingsViewModel
+    public sealed class ImprovedHuntersViewModel : APIShared.ModSettings.PresetLobbyModSettingsViewModel
     {
         private const int DefaultDeerMeat = -1;
         private const int DefaultGoatMeat = -1;

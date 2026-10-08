@@ -40,7 +40,7 @@ $projectText = [IO.File]::ReadAllText($project)
 if ($projectText.Contains('Assembly-CSharp-publicized.dll')) {
     throw 'The test mod must compile against the installed runtime Assembly-CSharp.dll.'
 }
-$sharedLobby = [IO.File]::ReadAllText((Join-Path $root '..\..\APIShared\src\LobbyPreparationOverride.cs'))
+$sharedLobby = [IO.File]::ReadAllText((Join-Path $root '..\..\APIShared\src\Lobby\LobbyPreparationOverride.cs'))
 if ($sharedLobby -match '\b(view|lobby)\s*==\s*null') {
     throw 'FRONT_Multiplayer null checks must use ReferenceEquals; Noesis overloads ==.'
 }

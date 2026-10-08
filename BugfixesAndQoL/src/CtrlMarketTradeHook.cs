@@ -1,3 +1,4 @@
+using APIShared.GameModes;
 // Feature: Native input and UI support for Ctrl single-unit market trades.
 using BepInEx.Logging;
 using CrusaderDE;
@@ -501,7 +502,7 @@ namespace BugfixesAndQoL
                 && settings.EnableCtrlSingleMarketTrade;
         }
 
-        private static bool IsMapEditor() => Shared.GameModeHelper.IsMapEditor();
+        private static bool IsMapEditor() => APIShared.GameModes.GameModeHelper.IsMapEditor();
 
         private static int GetControlledPlayerId()
         {

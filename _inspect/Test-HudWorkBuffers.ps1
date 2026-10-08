@@ -1,10 +1,10 @@
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
-$old=(& git -C $root show 7e048e6435a72b339dff35f3dcd368210f04ccdb:APIShared/src/UnitHudPresentationCapability.cs) -join "`r`n"
-$new=[IO.File]::ReadAllText((Join-Path $root 'APIShared/src/UnitHudPresentationCapability.cs'))
+$old=(& git -C $root show 7e048e6435a72b339dff35f3dcd368210f04ccdb:APIShared/src/Presentation/UnitHudPresentationCapability.cs) -join "`r`n"
+$new=[IO.File]::ReadAllText((Join-Path $root 'APIShared/src/Presentation/UnitHudPresentationCapability.cs'))
 function Slice([string]$text,[string]$first,[string]$next) { $a=$text.IndexOf($first); $b=$text.IndexOf($next,$a); if($a -lt 0 -or $b -le $a){throw "Missing $first -> $next"}; return $text.Substring($a,$b-$a) }
 function Block([string]$text,[string]$marker) { $a=$text.IndexOf($marker); if($a -lt 0){throw "Missing $marker"}; $open=$text.IndexOf('{',$a); $depth=1; $b=$open+1; while($depth){if($text[$b] -eq '{'){$depth++}; if($text[$b] -eq '}'){$depth--}; $b++}; return $text.Substring($a,$b-$a) }
-$contracts=[IO.File]::ReadAllText((Join-Path $root 'APIShared/src/UnitHudContracts.cs'))
+$contracts=[IO.File]::ReadAllText((Join-Path $root 'APIShared/src/Presentation/UnitHudContracts.cs'))
 $enumSource=[IO.File]::ReadAllText((Join-Path $root 'shcde-script-extender/src/SHCDESE.BepInEx/Interop/Enums.cs'))
 $code=@'
 using System;

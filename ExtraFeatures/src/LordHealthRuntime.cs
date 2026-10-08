@@ -1,3 +1,4 @@
+using APIShared.SerpsMods;
 // Capture completed Vanilla Lord health once; retain that basis across save/load cycles.
 using BepInEx.Logging;
 using R3;
@@ -131,8 +132,8 @@ namespace ExtraFeatures
         }
 
         private static bool IsFeatureModeAllowed() =>
-            Shared.GameplayFeatureModePolicy.IsAllowed(ExtraFeaturesPlugin.PluginGuid,
-                Shared.GameplayFeatureId.LordHealthMultipliers, Shared.GameplayModActivationGate.Snapshot);
+            APIShared.SerpsMods.GameplayFeatureModePolicy.IsAllowed(ExtraFeaturesPlugin.PluginGuid,
+                APIShared.SerpsMods.GameplayFeatureId.LordHealthMultipliers, Shared.GameplayModActivationGate.Snapshot);
 
         private void OnUnitCreated(UnitCreateEventArgs args)
         {

@@ -1,3 +1,4 @@
+using APIShared.GameModes;
 using APIShared;
 using BepInEx.Logging;
 using CrusaderDE;
@@ -784,7 +785,7 @@ namespace VirtualUnitsPrototype
         internal IEnumerable<VirtualUnitDefinition> VisibleUnits() => unitDefinitions.Values.Where(x => x.SpawnOptions.ShowInDiagnosticMenu).OrderBy(x => x.TypeId).ToArray();
         internal IEnumerable<VirtualBuildingDefinition> VisibleBuildings() => buildingDefinitions.Values.Where(x => x.SpawnOptions.ShowInDiagnosticMenu).OrderBy(x => x.TypeId).ToArray();
 
-        private void SetMapMode(Shared.GameModeSnapshot mode)
+        private void SetMapMode(APIShared.GameModes.GameModeSnapshot mode)
         {
             lock (sync) { mapActive = true; modeAllowed = mode.IsSingleplayerSkirmish && !mode.IsRealMultiplayer && !mode.IsMapEditor; }
             availabilityQueue.Enqueue(modeAllowed);

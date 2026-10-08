@@ -1,3 +1,4 @@
+using APIShared.GameModes;
 // Feature: Relocate a quarry's linked stone pile to the next valid position.
 using BepInEx.Logging;
 using CrusaderDE;
@@ -1802,7 +1803,7 @@ namespace BugfixesAndQoL
 
         private static int GetControlledPlayerId()
         {
-            if (Shared.GameModeHelper.IsMapEditor())
+            if (APIShared.GameModes.GameModeHelper.IsMapEditor())
             {
                 // Never expose an editor mutation for an object owned by another editor player.
                 return EditorDirector.instance?.ActivePlayerID ?? -1;

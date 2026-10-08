@@ -1,3 +1,4 @@
+using APIShared.GameModes;
 using System;
 using System.Collections.Generic;
 using APIShared;
@@ -31,7 +32,7 @@ namespace OutpostTest
             Disable("new mission");
             var m = n.Context.Mode;
             active = !failed && !m.IsRealMultiplayer && !m.IsMapEditor && !m.HasConflictingCustomizedOrigin &&
-                m.Kind != Shared.GameModeKind.Unknown && m.Kind != Shared.GameModeKind.Tutorial;
+                m.Kind != APIShared.GameModes.GameModeKind.Unknown && m.Kind != APIShared.GameModes.GameModeKind.Tutorial;
             native.Enabled = active; initialBypasses = native.Bypasses;
             lock(rallyLock) RestoreRally(n.Context.IsSave);
             Info($"session={n.Context.SessionId} save={n.Context.IsSave} active={active} mode=incremental-macemen; {m.ToDiagnosticString()}");

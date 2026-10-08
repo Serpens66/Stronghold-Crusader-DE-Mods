@@ -1,3 +1,4 @@
+using APIShared.ModSettings;
 using SHCDESE.API.Components.Network;
 using SHCDESE.Interop;
 using SHCDESE.NoesisUtil;
@@ -11,7 +12,7 @@ using System.Text;
 
 namespace StartConditions
 {
-    public sealed class StartConditionsLobbyViewModel : Shared.PresetLobbyModSettingsViewModel, IStartConditionsSettings
+    public sealed class StartConditionsLobbyViewModel : APIShared.ModSettings.PresetLobbyModSettingsViewModel, IStartConditionsSettings
     {
         public event Action<string> SettingChanged;
 

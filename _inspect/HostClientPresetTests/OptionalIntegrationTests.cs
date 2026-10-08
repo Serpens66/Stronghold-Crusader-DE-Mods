@@ -1,3 +1,4 @@
+using APIShared.ModSettings;
 using System;
 using System.IO;
 using SerpsModsHost;

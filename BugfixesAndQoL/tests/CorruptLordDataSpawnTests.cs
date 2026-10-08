@@ -125,7 +125,7 @@ namespace BugfixesAndQoL
                     "                mapActive = false;"),
                 "Lord fix stops observation after an unexpected runtime failure");
             check(runtime.Contains("notification.Context.StartKind == MissionStartKind.NewGame") &&
-                  !runtime.Contains("== Shared.GameModeKind") &&
+                  !runtime.Contains("== APIShared.GameModes.GameModeKind") &&
                   !runtime.Contains("== GameModeKind"),
                 "Lord fix is bounded by NewGame lifecycle rather than game-mode classification");
             int globalSetter = runtime.IndexOf("SetLordUnitGlobalId(playerId, 0)", StringComparison.Ordinal);

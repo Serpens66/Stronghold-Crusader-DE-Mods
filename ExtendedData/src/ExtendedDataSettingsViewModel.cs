@@ -1,3 +1,4 @@
+using APIShared.ModSettings;
 using ExtendedData.Core;
 using Noesis;
 using SHCDESE.API;
@@ -15,7 +16,7 @@ using System.Windows.Input;
 
 namespace ExtendedData
 {
-    public sealed class ExtendedDataSettingsViewModel : Shared.PresetLobbyModSettingsViewModel
+    public sealed class ExtendedDataSettingsViewModel : APIShared.ModSettings.PresetLobbyModSettingsViewModel
     {
         internal const string ErrorStatusPrefix = "ERROR|";
         internal const string MissingStatus = "ERROR|MISSING";
@@ -62,7 +63,7 @@ namespace ExtendedData
             SerpLocalization.Get(key);
 
         protected override void ConfigurePerPlayerLobbySettings(
-            Shared.PerPlayerLobbySettingsBuilder settings)
+            APIShared.ModSettings.PerPlayerLobbySettingsBuilder settings)
         {
             settings
                 .ResetSlotsWith(nameof(CoopPackageStatus), () => null)
@@ -88,7 +89,7 @@ namespace ExtendedData
         public event Action ActiveCoopPackageChanged;
         public event Action<string> LordDataSnapshotChanged;
         public event Action<string> LordPackageManifestChanged;
-        internal event Action<Shared.PerPlayerLobbySnapshot> LordDataLobbyChanged;
+        internal event Action<APIShared.ModSettings.PerPlayerLobbySnapshot> LordDataLobbyChanged;
         internal event Action CoopPackageRemoteStatusChanged;
         internal event Action LordDataRemoteStatusChanged;
         internal event Action<int> LordDataSnapshotMutationRejected;
@@ -139,7 +140,7 @@ namespace ExtendedData
             }
         }
 
-        [Shared.PresetLocal]
+        [APIShared.ModSettings.PresetLocal]
         public bool EnableClientFeatures
         {
             get => enableClientFeatures;
@@ -170,7 +171,7 @@ namespace ExtendedData
             }
         }
 
-        [Shared.PresetLocal]
+        [APIShared.ModSettings.PresetLocal]
         public string[] PlayerTrailPropertyIds
         {
             get => playerTrailPropertyIds;
@@ -183,7 +184,7 @@ namespace ExtendedData
             }
         }
 
-        [Shared.PresetLocal]
+        [APIShared.ModSettings.PresetLocal]
         public string[] FixedTrailPropertyIds
         {
             get => fixedTrailPropertyIds;
@@ -490,7 +491,7 @@ namespace ExtendedData
                         SerpLocalization.Get("ExtendedData.Mode.Fixed") + "\n" +
                         SerpLocalization.Get("ExtendedData.Mode.Mixed") + "\n" +
                         System.Globalization.CultureInfo.CurrentCulture.Name + "\n" +
-                        string.Join("\n", entry.Properties.Select(p => p.Name + ":" + p.PropertyType.AssemblyQualifiedName + ":" + p.IsDefined(typeof(Shared.RequiresRestartAttribute), true)));
+                        string.Join("\n", entry.Properties.Select(p => p.Name + ":" + p.PropertyType.AssemblyQualifiedName + ":" + p.IsDefined(typeof(APIShared.ModSettings.RequiresRestartAttribute), true)));
                     if (selectionCache.TryGetValue(entry.ModId, out var cached) &&
                         ReferenceEquals(cached.Item1, entry.Endpoint) && cached.Item2 == signature)
                         return cached.Item3;

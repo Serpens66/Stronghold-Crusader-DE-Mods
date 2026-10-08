@@ -1,3 +1,4 @@
+using APIShared.GameModes;
 using BepInEx.Logging;
 using R3;
 using RedBird.Abstractions.Hooks;
@@ -2562,7 +2563,7 @@ namespace BugfixesAndQoL
         private bool IsRealMultiplayer()
         {
             if (!cachedRealMultiplayerMode.HasValue)
-                cachedRealMultiplayerMode = Shared.GameModeHelper.Capture().IsRealMultiplayer;
+                cachedRealMultiplayerMode = APIShared.GameModes.GameModeHelper.Capture().IsRealMultiplayer;
 
             bool realMultiplayer = cachedRealMultiplayerMode.Value;
             if (lastRealMultiplayerMode != realMultiplayer)

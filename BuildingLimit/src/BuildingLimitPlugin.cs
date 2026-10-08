@@ -1,3 +1,4 @@
+using APIShared.ModSettings;
 using BepInEx;
 using SHCDESE.API;
 using SHCDESE.API.LowLevel;
@@ -44,7 +45,7 @@ namespace BuildingLimit
             TryInitializeStage("localized names", Settings.RefreshLocalizedNames);
             try
             {
-                Shared.LobbyModSettingsPresetRegistration.Register(
+                APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(
                     this,
                     Logger,
                     "BuildingLimit_Serp",

@@ -8,6 +8,7 @@
   <ItemGroup>
     <Compile Remove="StandaloneContracts.cs" />
     <Compile Remove="FillFormationTests.cs" />
+    <Compile Remove="FormationBoundaryFixture.cs" />
     <Compile Remove="RuntimeHarness.cs" />
     <Compile Remove="CursorTests.cs" />
     <Compile Remove="PlacementTests.cs" />

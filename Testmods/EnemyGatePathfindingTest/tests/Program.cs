@@ -1290,7 +1290,7 @@ namespace EnemyGatePathfindingTest
             string topology = File.ReadAllText(
                 Path.Combine("src", "GateTopologySnapshotProvider.cs"));
             string bridge = File.ReadAllText(Path.Combine("..", "..", "APIShared",
-                "src", "EnemyGatePathPolicyBridge.cs"));
+                "src", "Pathfinding", "EnemyGatePathPolicyBridge.cs"));
             string sharedOwner = File.ReadAllText(Path.Combine("..", "..",
                 "APIShared", "src", "UnitCommands", "UnitCommandPathRuntime.cs"));
 

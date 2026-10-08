@@ -1,3 +1,5 @@
+using APIShared.GameModes;
+using APIShared.ModSettings;
 using BepInEx;
 using BepInEx.Logging;
 using ExtremePowers.Integration;
@@ -53,12 +55,12 @@ namespace ExtremePowers
                         CaptureMapSession();
                 });
             mapUnloadSubscription = Shared.MissionEvents.Ended.Subscribe(_ => ResetMapSession());
-            Shared.LobbyModSettingsPresetRegistration.Register(this, Logger, PluginGuid, Settings, "ScriptExtenderUI/ExtremePowersSettings.xaml");
+            APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(this, Logger, PluginGuid, Settings, "ScriptExtenderUI/ExtremePowersSettings.xaml");
             Settings.PropertyChanged += (_, __) => ApplySettings(); ApplySettings(); Shared.DebugLogHelper.LogDebug(Logger, client.Status);
         }
         private void CaptureMapSession()
         {
-            Shared.GameModeSnapshot mode = Shared.GameplayModActivationGate.Snapshot;
+            APIShared.GameModes.GameModeSnapshot mode = Shared.GameplayModActivationGate.Snapshot;
             capturedRealMultiplayer = mode.IsRealMultiplayer;
             capturedPlayers = Shared.ActivePlayerHelper.GetActivePlayerIds();
             Shared.DebugLogHelper.LogDebug(rootedLogger, "Extreme Powers map session captured: " + mode.ToDiagnosticString() + ", players=[" + string.Join(",", capturedPlayers) + "].");

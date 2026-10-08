@@ -33,7 +33,7 @@ if ($runtime.Contains('args.ShouldClose = false;')) { throw 'Manual gate still v
 if (-not $runtime.Contains('SetManualGateTimer(building, true)') -or
     -not $runtime.Contains('building->r_BuildingType == eStructs.STRUCT_DRAWBRIDGE') -or
     -not $runtime.Contains('IsGatehouseType(building->r_BuildingType)')) { throw 'Typed gate/bridge policy contract missing.' }
-$automation = [IO.File]::ReadAllText((Join-Path $workspace 'APIShared/src/GatehouseAutomationNativeState.cs'))
+$automation = [IO.File]::ReadAllText((Join-Path $workspace 'APIShared/src/Buildings/GatehouseAutomationNativeState.cs'))
 if ($runtime -notmatch 'SetManualGateTimer\(building,\s*automationReady && Shared.GameplayModActivationGate.IsEnabled\(settings.EnableMod\)\)') {
     throw 'Late editor locator restoration must honor activation and release disabled sentinels.'
 }

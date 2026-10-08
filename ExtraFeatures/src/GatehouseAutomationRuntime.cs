@@ -1,3 +1,4 @@
+using APIShared.GameModes;
 // Feature: Reachability-aware and per-building manual gatehouse automation.
 using APIShared;
 using BepInEx.Logging;
@@ -1024,7 +1025,7 @@ namespace ExtraFeatures
 
         private static int GetControlledPlayerId()
         {
-            if (Shared.GameModeHelper.IsMapEditor())
+            if (APIShared.GameModes.GameModeHelper.IsMapEditor())
             {
                 // The gate button is available only for the active editor player's buildings.
                 return EditorDirector.instance?.ActivePlayerID ?? -1;
@@ -1034,7 +1035,7 @@ namespace ExtraFeatures
             return localPlayerId > 0 ? localPlayerId : -1;
         }
 
-        private static bool IsMapEditor() => Shared.GameModeHelper.IsMapEditor();
+        private static bool IsMapEditor() => APIShared.GameModes.GameModeHelper.IsMapEditor();
 
         private static string DescribeBuilding(int buildingId)
         {

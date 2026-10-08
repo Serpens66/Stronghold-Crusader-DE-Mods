@@ -1,3 +1,4 @@
+using APIShared.GameModes;
 // Feature: Pressing the market key again returns an open tradepost to its main panel.
 using BepInEx.Logging;
 using CrusaderDE;
@@ -88,7 +89,7 @@ namespace BugfixesAndQoL
                 subMode == TradepostTradePanel;
         }
 
-        private static bool IsMapEditor() => Shared.GameModeHelper.IsMapEditor();
+        private static bool IsMapEditor() => APIShared.GameModes.GameModeHelper.IsMapEditor();
 
         private static unsafe bool IsSelectedTradepostControlled(int buildingId)
         {

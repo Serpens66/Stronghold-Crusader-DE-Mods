@@ -89,7 +89,7 @@ static void Scan()
         {
             if (call.Expression is not MemberAccessExpressionSyntax member) continue;
             if (member.Name.Identifier.Text is "TryGetUnitById" or "TryGetUnitByIdEx")
-                Check(relative.Replace('\\','/')=="APIShared/src/UnitAccess.cs", $"Unprotected direct unit lookup: {relative}:{call.GetLocation().GetLineSpan().StartLinePosition.Line+1}");
+                Check(relative.Replace('\\','/')=="APIShared/src/Units/UnitAccess.cs", $"Unprotected direct unit lookup: {relative}:{call.GetLocation().GetLineSpan().StartLinePosition.Line+1}");
             if (member.Expression.ToString().Contains("UnitAccess") && member.Name.Identifier.Text=="TryGetById")
                 Check(call.Parent is not ExpressionStatementSyntax, $"Ignored lookup result: {relative}:{call.GetLocation().GetLineSpan().StartLinePosition.Line+1}");
             var indirectNames = new HashSet<string> {

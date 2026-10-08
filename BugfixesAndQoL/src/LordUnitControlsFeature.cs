@@ -1,3 +1,4 @@
+using APIShared.GameModes;
 // Feature: Lord-specific action handling; shared troop presentation lives in APIShared.
 using BepInEx.Logging;
 using CrusaderDE;
@@ -82,7 +83,7 @@ namespace BugfixesAndQoL
                 DeactivateLordOnlyMode(!returnToDefaultHud);
                 if (returnToDefaultHud)
                 {
-                    if (Shared.GameModeHelper.IsMapEditor()) main.DefaultMapEditorUIGameAction();
+                    if (APIShared.GameModes.GameModeHelper.IsMapEditor()) main.DefaultMapEditorUIGameAction();
                     else main.DefaultGameUIGameAction();
                 }
                 return;
@@ -98,7 +99,7 @@ namespace BugfixesAndQoL
                 disbandElement = disband;
             }
             if (attackHereElement.Visibility != Visibility.Visible) attackHereElement.Visibility = Visibility.Visible;
-            Visibility desired = LordUnitControlsPolicy.CanShowDisband(true, settings.EnableMod && settings.EnableSurrenderAndStatistics, Shared.GameModeHelper.IsMapEditor()) ? Visibility.Visible : Visibility.Collapsed;
+            Visibility desired = LordUnitControlsPolicy.CanShowDisband(true, settings.EnableMod && settings.EnableSurrenderAndStatistics, APIShared.GameModes.GameModeHelper.IsMapEditor()) ? Visibility.Visible : Visibility.Collapsed;
             if (disbandElement.Visibility != desired) disbandElement.Visibility = desired;
             lordModeActive = true;
         }
@@ -134,7 +135,7 @@ namespace BugfixesAndQoL
         private bool TryGetSoleControlledLord(out SurrenderLordSnapshot lord)
         {
             EngineInterface.PlayState state = GameData.Instance?.lastGameState;
-            bool editor = Shared.GameModeHelper.IsMapEditor();
+            bool editor = APIShared.GameModes.GameModeHelper.IsMapEditor();
             int count = state?.numSelectedChimps ?? 0;
             int selectedId = count == 1 && state.selectedChimps != null && state.selectedChimps.Length > 0 ? state.selectedChimps[0] : -1;
             int player = GetControlledPlayerId(editor);
@@ -144,7 +145,7 @@ namespace BugfixesAndQoL
 
         private bool ShouldIncludeControlledLord(out SurrenderLordSnapshot lord)
         {
-            lord = CaptureLord(GetControlledPlayerId(Shared.GameModeHelper.IsMapEditor()));
+            lord = CaptureLord(GetControlledPlayerId(APIShared.GameModes.GameModeHelper.IsMapEditor()));
             if (!settings.EnableMod || !settings.EnableLordUnitControls || !SurrenderPolicy.IsValidLord(lord)) return false;
             EngineInterface.PlayState state = GameData.Instance?.lastGameState;
             if (state?.selectedChimps == null) return false;

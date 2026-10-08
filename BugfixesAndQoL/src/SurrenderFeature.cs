@@ -1,3 +1,4 @@
+using APIShared.GameModes;
 // Feature: Confirmed surrender and reversible spectator statistics.
 using APIShared;
 using BepInEx.Logging;
@@ -347,7 +348,7 @@ namespace BugfixesAndQoL
                     localPlayerId,
                     lord);
                 bool activeMatch = IsActiveMatch();
-                bool realMultiplayer = Shared.GameModeHelper.IsRealMultiplayer();
+                bool realMultiplayer = APIShared.GameModes.GameModeHelper.IsRealMultiplayer();
                 bool surrenderVisible = SurrenderPolicy.CanShowButton(
                     FeatureEnabled,
                     activeMatch,
@@ -565,7 +566,7 @@ namespace BugfixesAndQoL
                 log,
                 $"Observed lord death through APIShared: sessionId={notification.SessionId}, playerId={playerId}, lordUnitId={notification.LordUnitId}, lordGlobalId={notification.LordGlobalId}, simulationTick={notification.SimulationTick}, localPlayerId={localPlayerId}.");
 
-            Shared.GameModeSnapshot gameMode = Shared.GameModeHelper.Capture();
+            APIShared.GameModes.GameModeSnapshot gameMode = APIShared.GameModes.GameModeHelper.Capture();
             if (!gameMode.IsRealMultiplayer)
             {
                 if (localLordDied)
@@ -582,7 +583,7 @@ namespace BugfixesAndQoL
 
         private void TryQueueSpectatorChore(
             PlayerLordDeathNotification notification,
-            Shared.GameModeSnapshot gameMode)
+            APIShared.GameModes.GameModeSnapshot gameMode)
         {
             int playerId = notification.PlayerId;
             Platform_Multiplayer.MPGameMember member = Platform_Multiplayer.Instance?.getPlayer(playerId);
@@ -630,7 +631,7 @@ namespace BugfixesAndQoL
                 if (packet == null || args.SenderSteamId.HasValue ||
                     playerId < 1 || playerId > 8 ||
                     !EliminatedPlayerSpectatorEnabled || !IsActiveMatch() ||
-                    !Shared.GameModeHelper.IsRealMultiplayer() || IsMapEditor() ||
+                    !APIShared.GameModes.GameModeHelper.IsRealMultiplayer() || IsMapEditor() ||
                     activeSessionId <= 0 || lordDeathSessionIds[playerId] != activeSessionId ||
                     !IsHumanMember(member))
                 {
@@ -653,7 +654,7 @@ namespace BugfixesAndQoL
 
                 spectatorPromotionChoreExpected = false;
                 long sessionSnapshot = activeSessionId;
-                Shared.GameModeSnapshot gameModeSnapshot = Shared.GameModeHelper.Capture();
+                APIShared.GameModes.GameModeSnapshot gameModeSnapshot = APIShared.GameModes.GameModeHelper.Capture();
                 Shared.UnityMainThreadDispatch.TryEnqueue(() =>
                 {
                     if (activeSessionId != sessionSnapshot ||
@@ -673,7 +674,7 @@ namespace BugfixesAndQoL
 
         private void TryActivateLocalSpectator(
             int localPlayerId,
-            Shared.GameModeSnapshot gameMode,
+            APIShared.GameModes.GameModeSnapshot gameMode,
             string source)
         {
             bool supportedGameMode =
@@ -1437,8 +1438,8 @@ namespace BugfixesAndQoL
                 statisticsReady);
 
         private static bool IsStatisticsGameMode() =>
-            Shared.GameModeHelper.IsRealMultiplayer() ||
-            Shared.GameModeHelper.IsSingleplayerSkirmishMode();
+            APIShared.GameModes.GameModeHelper.IsRealMultiplayer() ||
+            APIShared.GameModes.GameModeHelper.IsSingleplayerSkirmishMode();
 
         private static bool ValidateStatisticsSnapshot(EngineInterface.MPScoreData snapshot)
         {
@@ -1526,7 +1527,7 @@ namespace BugfixesAndQoL
                 int localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
                 SurrenderLordSnapshot lord = CaptureLord(localPlayerId);
                 bool activeMatch = IsActiveMatch();
-                bool realMultiplayer = Shared.GameModeHelper.IsRealMultiplayer();
+                bool realMultiplayer = APIShared.GameModes.GameModeHelper.IsRealMultiplayer();
                 if (!SurrenderPolicy.CanShowButton(
                     FeatureEnabled,
                     activeMatch,
@@ -1632,7 +1633,7 @@ namespace BugfixesAndQoL
                 SurrenderLordSnapshot lord = CaptureLord(playerId);
                 bool accepted = SurrenderPolicy.CanAcceptRequest(
                     FeatureEnabled,
-                    IsActiveMatch() && Shared.GameModeHelper.IsRealMultiplayer(),
+                    IsActiveMatch() && APIShared.GameModes.GameModeHelper.IsRealMultiplayer(),
                     GameNetworkAPI.IsLocalHost(),
                     playerId > 0,
                     IsHumanMember(member),
@@ -1672,7 +1673,7 @@ namespace BugfixesAndQoL
                     ? GameUnitManagerAPI.Instance.GetByGlobalId(lord.GlobalId)
                     : -1;
                 if (!IsActiveMatch() ||
-                    !Shared.GameModeHelper.IsRealMultiplayer() ||
+                    !APIShared.GameModes.GameModeHelper.IsRealMultiplayer() ||
                     !SurrenderPolicy.CanExecute(
                         packet.PlayerId,
                         lord,
@@ -1716,7 +1717,7 @@ namespace BugfixesAndQoL
             if (!GameNetworkAPI.IsLocalHost() ||
                 !FeatureEnabled ||
                 !IsActiveMatch() ||
-                !Shared.GameModeHelper.IsRealMultiplayer() ||
+                !APIShared.GameModes.GameModeHelper.IsRealMultiplayer() ||
                 !IsChoreTransportReady() ||
                 !SurrenderPolicy.IsValidLord(lord))
             {
@@ -1833,7 +1834,7 @@ namespace BugfixesAndQoL
                 GameData.Instance.lastGameState != null;
         }
 
-        private static bool IsMapEditor() => Shared.GameModeHelper.IsMapEditor();
+        private static bool IsMapEditor() => APIShared.GameModes.GameModeHelper.IsMapEditor();
 
         private bool SpectatorPromotionPendingOrActive =>
             spectatorPromotionChoreExpected || spectatorPromotionActivated;

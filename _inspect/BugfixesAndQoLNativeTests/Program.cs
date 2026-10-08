@@ -679,7 +679,7 @@ internal static class Program
 
         string viewModel = File.ReadAllText(Path.Combine(
             workspace, "BugfixesAndQoL", "src", "BugfixesAndQoLViewModel.cs"));
-        Check(viewModel.Contains("[Shared.PresetLocal]" + Environment.NewLine +
+        Check(viewModel.Contains("[APIShared.ModSettings.PresetLocal]" + Environment.NewLine +
               "        public bool EnableDisbandedUnitControlGroupCleanup") &&
               viewModel.Contains("EnableDisbandedUnitControlGroupCleanup = true;"),
             "disband cleanup setting is preset-local and enabled by default");

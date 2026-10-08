@@ -102,9 +102,9 @@ unsafe partial class UnitCommandPathRuntime {
 """;
         fixture = fixture.Replace("PLACEHOLDER", methods);
         var sources = new[] { CSharpSyntaxTree.ParseText(fixture), CSharpSyntaxTree.ParseText(
-            File.ReadAllText(Path.Combine(root, "APIShared/src/AssassinRouteHandoff.cs"))),
-            CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/AssassinGateTransitionPolicy.cs"))),
-            CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/TemporaryGateRouteAcceptanceBridge.cs"))) };
+            File.ReadAllText(Path.Combine(root, "APIShared/src/Pathfinding/AssassinRouteHandoff.cs"))),
+            CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/Pathfinding/AssassinGateTransitionPolicy.cs"))),
+            CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/Pathfinding/TemporaryGateRouteAcceptanceBridge.cs"))) };
         var refs = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")).Split(Path.PathSeparator)
             .Select(p => MetadataReference.CreateFromFile(p));
         var compilation = CSharpCompilation.Create("ActualAssassinPublication", sources, refs,

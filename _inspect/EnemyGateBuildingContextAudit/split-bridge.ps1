@@ -106,6 +106,6 @@ foreach ($relative in @("$gate/src/DrawbridgeClosurePolicy.cs", "$gate/tests/Dra
     if (!$target.StartsWith((Join-Path $workspace $gate),[StringComparison]::OrdinalIgnoreCase)) { throw 'Invalid removal' }
     Remove-Item -LiteralPath $target
 }
-Replace-One 'APIShared/APIShared.csproj' '<Compile Include="src\EnemyGatePathPolicyBridge.cs" />' ('<Compile Include="src\EnemyGatePathPolicyBridge.cs" />' + "`n    <Compile Include=`"src\EnemyBridgeDiagnosticBridge.cs`" />")
+Replace-One 'APIShared/APIShared.csproj' '<Compile Include="src\Pathfinding\EnemyGatePathPolicyBridge.cs" />' ('<Compile Include="src\Pathfinding\EnemyGatePathPolicyBridge.cs" />' + "`n    <Compile Include=`"src\Pathfinding\EnemyBridgeDiagnosticBridge.cs`" />")
 Replace-One 'BugfixesAndQoL/src/FriendlyMoatMovementRuntime.cs' '            return result;' '            return result;'
 Write-Host 'PASS: source migration and gate-only policy edits completed'

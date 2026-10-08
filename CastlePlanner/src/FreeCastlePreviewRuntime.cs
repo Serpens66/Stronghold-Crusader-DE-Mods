@@ -1,3 +1,5 @@
+using APIShared.GameModes;
+using APIShared.SerpsMods;
 using BepInEx.Logging;
 using CrusaderDE;
 using MonoMod.RuntimeDetour;
@@ -496,7 +498,7 @@ namespace CastlePlanner
             if (!IsFeatureModeAllowed() ||
                 !settings.IsSpawnMode || args.Context.IsSave || args.Context.Mode.CampaignMapId != 0)
                 return false;
-            Shared.GameModeSnapshot mode = Shared.GameplayModActivationGate.Snapshot;
+            APIShared.GameModes.GameModeSnapshot mode = Shared.GameplayModActivationGate.Snapshot;
             return mode.IsRealMultiplayer || mode.IsSingleplayerSkirmishMode;
         }
 
@@ -1545,9 +1547,9 @@ namespace CastlePlanner
         }
 
         private static bool IsFeatureModeAllowed() =>
-            Shared.GameplayFeatureModePolicy.IsAllowed(
+            APIShared.SerpsMods.GameplayFeatureModePolicy.IsAllowed(
                 CastlePlannerPlugin.PluginGuid,
-                Shared.GameplayFeatureId.FreeCastlePreview,
+                APIShared.SerpsMods.GameplayFeatureId.FreeCastlePreview,
                 Shared.GameplayModActivationGate.Snapshot);
 
         private void ResetPreview()
