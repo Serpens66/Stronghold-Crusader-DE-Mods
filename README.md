@@ -63,7 +63,6 @@ Verify a downloaded archive with `Get-FileHash <archive.zip> -Algorithm SHA256` 
 - https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main/Guides
 
 ## Other Mods:
-- https://gitlab.com/rawra-stronghold-crusader/shcde-fixes
 - https://gitlab.com/ensrick7/crusader-de-tweaker
 - https://github.com/richardbinder/Stronghold-Crusader-DE-AI-Buff/releases
 
