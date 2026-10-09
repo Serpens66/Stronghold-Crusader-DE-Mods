@@ -2,11 +2,16 @@ namespace BugfixesAndQoL.UnitCommands
 {
     internal static class FormationHudIconLayout
     {
+        private static readonly byte[,] Colours = {
+            { 210, 204, 188 }, { 255, 48, 40 }, { 238, 156, 55 }, { 237, 212, 72 },
+            { 87, 147, 229 }, { 163, 158, 155 }, { 171, 105, 203 }, { 107, 211, 223 }, { 103, 207, 92 }
+        };
+        internal static byte ColourChannel(int colour, int channel) => Colours[colour, channel];
         internal const float PointSize = 2.8f;
         internal const float PointScale = 0.65f;
         internal const float Left = 7f;
         internal const float Top = 5.5f;
-        internal const float Stroke = 0.55f;
+        internal const float Stroke = 0.25f;
         internal const string InnerShieldPath = "M 5,4 L 30,4 L 29,18 Q 27,25 17.5,30 Q 8,25 6,18 Z";
         internal static int[][] Points(FormationKind kind)
         {

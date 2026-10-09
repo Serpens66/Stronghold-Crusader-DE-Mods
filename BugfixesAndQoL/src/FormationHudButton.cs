@@ -13,10 +13,6 @@ namespace BugfixesAndQoL
         private static FormationMenuViewModel menu;
         private static IUnitHudActionButtonRegistration registration;
         private static bool ownContext;
-        private static readonly byte[,] Colours = {
-            { 210, 204, 188 }, { 235, 72, 56 }, { 238, 156, 55 }, { 237, 212, 72 },
-            { 87, 147, 229 }, { 163, 158, 155 }, { 171, 105, 203 }, { 107, 211, 223 }, { 103, 207, 92 }
-        };
 
         internal static void Configure(FormationMenuViewModel model, ManualLogSource log)
         {
@@ -61,16 +57,20 @@ namespace BugfixesAndQoL
         private static FrameworkElement CreateContent(UnitHudActionButtonContext context)
         {
             var shield = (Grid)GUI.ParseXaml(
-                "<Grid xmlns=\"http://schemas.microsoft.com/winfx/2006/xaml/presentation\" Width=\"35\" Height=\"35\">" +
+                "<Grid xmlns=\"http://schemas.microsoft.com/winfx/2006/xaml/presentation\" xmlns:x=\"http://schemas.microsoft.com/winfx/2006/xaml\" Width=\"35\" Height=\"35\">" +
                 "<Path Data=\"M 3,2 L 32,2 L 31,18 Q 29,27 17.5,33 Q 6,27 4,18 Z\" Stroke=\"#FF181914\" StrokeThickness=\"2\">" +
                 "<Path.Fill><LinearGradientBrush StartPoint=\"0,0\" EndPoint=\"1,1\"><GradientStop Color=\"#FFB7B9A7\" Offset=\"0\"/>" +
                 "<GradientStop Color=\"#FF767C6F\" Offset=\"0.45\"/><GradientStop Color=\"#FF444B3F\" Offset=\"1\"/></LinearGradientBrush></Path.Fill></Path>" +
-                "<Path Data=\"" + FormationHudIconLayout.InnerShieldPath + "\" Stroke=\"#FFADA16A\" StrokeThickness=\"0.7\" Fill=\"Transparent\"/>" +
+                "<Path Data=\"" + FormationHudIconLayout.InnerShieldPath + "\" Fill=\"Transparent\"><Path.Style><Style TargetType=\"{x:Type Path}\">" +
+                "<Setter Property=\"Stroke\" Value=\"#FFADA16A\"/><Setter Property=\"StrokeThickness\" Value=\"0.7\"/>" +
+                "<Style.Triggers><DataTrigger Binding=\"{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType={x:Type Button}}}\" Value=\"True\">" +
+                "<Setter Property=\"Stroke\" Value=\"#FFFFE4A0\"/><Setter Property=\"StrokeThickness\" Value=\"1.2\"/>" +
+                "</DataTrigger></Style.Triggers></Style></Path.Style></Path>" +
                 "</Grid>");
             var dots = new Canvas { Width = 35, Height = 35, IsHitTestVisible = false };
             shield.Children.Add(dots);
             int colour = context.PlayerColour;
-            var fill = new SolidColorBrush(Color.FromArgb(255, Colours[colour, 0], Colours[colour, 1], Colours[colour, 2]));
+            var fill = new SolidColorBrush(Color.FromArgb(255, FormationHudIconLayout.ColourChannel(colour, 0), FormationHudIconLayout.ColourChannel(colour, 1), FormationHudIconLayout.ColourChannel(colour, 2)));
             var stroke = new SolidColorBrush(Color.FromArgb(255, 26, 29, 20));
             foreach (var point in FormationHudIconLayout.Points(menu.SelectedKind))
             {

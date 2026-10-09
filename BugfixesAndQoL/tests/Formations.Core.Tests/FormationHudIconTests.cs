@@ -29,6 +29,13 @@ public class FormationHudIconTests
         }
     }
 
+    [TestMethod]
+    public void RedPlayerUsesSaturatedRedWithAThinOutline()
+    {
+        Assert.AreEqual((byte)255, FormationHudIconLayout.ColourChannel(1, 0));
+        Assert.AreEqual((byte)48, FormationHudIconLayout.ColourChannel(1, 1));
+        Assert.AreEqual((byte)40, FormationHudIconLayout.ColourChannel(1, 2));
+    }
     private static List<(double x, double y)> FlattenShield(string path)
     {
         var tokens = Regex.Matches(path, "[MLQZ]|[0-9.]+") .Select(m => m.Value).ToArray();
