@@ -1,6 +1,8 @@
 [CmdletBinding()]
 param([string]$Workspace)
 $ErrorActionPreference = 'Stop'
+$preflightWatch = [Diagnostics.Stopwatch]::StartNew()
+Write-Host '[Preflight] Discovering active projects and explicit source links...'
 if (-not $Workspace) { $Workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..')) }
 $Workspace = [IO.Path]::GetFullPath($Workspace)
 $apiRoot = Join-Path $Workspace 'APIShared'
@@ -14,6 +16,7 @@ $activeProjects = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'source-chec
 $projects = @($projects) + @($activeProjects | ForEach-Object { Get-Item -LiteralPath (Join-Path $Workspace $_) })
 $projects = @($projects | Sort-Object FullName -Unique)
 $links = 0
+Write-Host "[Preflight] Checking $($projects.Count) projects and source ownership..."
 foreach ($project in $projects) {
     [xml]$xml = [IO.File]::ReadAllText($project.FullName)
     $testProject = $project.FullName -match '[\\/](_inspect|tests|[^\\/]*\.Tests|Tests)[\\/]|\.PolicyTests\.csproj$'
@@ -35,6 +38,7 @@ foreach ($project in $projects) {
 }
 foreach ($file in Get-ChildItem -LiteralPath $sharedRoot -File -Filter '*.cs') { throw "Unsorted root Shared runtime source: $($file.FullName)" }
 $legacy = Get-Content -Raw -LiteralPath (Join-Path $PSScriptRoot 'legacy-shared-paths.json') | ConvertFrom-Json
+Write-Host '[Preflight] Checking active references and CRLF...'
 $legacyPattern = '(?<![A-Za-z0-9_])(?:' + (($legacy.PSObject.Properties.Name | ForEach-Object { [regex]::Escape($_) }) -join '|') + ')'
 $legacyRegex = [regex]::new($legacyPattern, [Text.RegularExpressions.RegexOptions]::Compiled)
 $activeDirectories = @($apiRoot, $sharedRoot) + @($projects | Where-Object FullName -NotMatch '[\\/]_inspect[\\/]' | ForEach-Object { $_.Directory.FullName })
@@ -60,6 +64,7 @@ foreach ($file in Get-ChildItem -LiteralPath $apiRoot -Recurse -File -Filter '*.
     }
 }
 . (Join-Path $Workspace 'Shared\Tools\ScriptExtenderUpdate\ScriptExtenderUpdate.Common.ps1')
+Write-Host '[Preflight] Checking JSON, lifecycle and persistent runtime call paths...'
 $inventory = Get-Content -Raw -LiteralPath (Join-Path $Workspace 'Shared\Tools\ScriptExtenderUpdate\mods.json') | ConvertFrom-Json
 foreach ($mod in $inventory) { Assert-SERuntimeModPreflight $mod $Workspace }
 foreach ($project in $projects | Where-Object { $_.FullName -match '[\\/]Testmods[\\/]' -and $_.FullName -notmatch '[\\/](tests|[^\\/]*\.Tests)[\\/]|\.PolicyTests\.csproj$' }) {
@@ -69,6 +74,7 @@ foreach ($project in $projects | Where-Object { $_.FullName -match '[\\/]Testmod
         Assert-SERuntimeModPreflight ([pscustomobject]@{Name=$project.BaseName; Project=$project.FullName.Substring($Workspace.Length+1); Plugin=$plugin[0].Path}) $Workspace
     }
 }
+Write-Host '[Preflight] Checking XAML content roots...'
 foreach ($project in $projects | Where-Object { $_.FullName -notmatch '[\\/](_inspect|tests|[^\\/]*\.Tests|Tests)[\\/]' }) {
     foreach ($file in Get-ChildItem -LiteralPath $project.Directory.FullName -Recurse -File -Filter '*.xaml' | Where-Object FullName -NotMatch '[\\/](bin|obj|BepInEx)[\\/]') {
         [xml]$patch = [IO.File]::ReadAllText($file.FullName)
@@ -84,3 +90,7 @@ if (-not $?) { throw 'Permanent-hook verification failed.' }
 Write-Output "PASS: shared ownership boundaries; $($projects.Count) projects, $links valid explicit links; runtime JSON/lifecycle/scheduling, XAML and permanent hooks."
 
 & (Join-Path $PSScriptRoot 'Test-DependencyMetadata.ps1') -Workspace $Workspace
+$preflightWatch.Stop()
+Write-Host ('[Preflight] Completed in {0:N1}s.' -f $preflightWatch.Elapsed.TotalSeconds)
+
+& (Join-Path $PSScriptRoot 'Test-IngameTooltips.ps1') -Workspace $Workspace

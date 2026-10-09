@@ -26,9 +26,6 @@ namespace BugfixesAndQoL
         private readonly ConfigEntry<bool> rememberRows;
         private readonly ConfigEntry<int>[] rememberedRows;
         private MainViewModel subscribedMainViewModel;
-        private MainViewModel buttonTooltipOwner;
-        private HUD_Troops buttonTooltipPanel;
-        private string buttonTooltipText;
         private bool menuVisible;
         private bool rolloverVisible;
         private string rolloverText = string.Empty;
@@ -151,7 +148,6 @@ namespace BugfixesAndQoL
             {
                 SetMenuVisible(false);
                 HideRollover();
-                HideButtonTooltip();
             }
             if (lastAvailability != available)
             {
@@ -168,7 +164,7 @@ namespace BugfixesAndQoL
             MainViewModel current = MainViewModel.viewModelLoaded ? MainViewModel.Instance : null;
             bool hostAvailable = FeatureAvailable && OwnHudAvailable() && current != null && current.Show_HUD_Troops &&
                 FatControler.currentScene == Enums.SceneIDS.ActualMainGame;
-            if (!hostAvailable) { HideButtonTooltip(); HideRollover(); }
+            if (!hostAvailable) { HideRollover(); }
             if (!ReferenceEquals(current, subscribedMainViewModel))
             {
                 if (subscribedMainViewModel != null)
@@ -187,7 +183,6 @@ namespace BugfixesAndQoL
         {
             SetMenuVisible(false);
             HideRollover();
-            HideButtonTooltip();
             RefreshAvailability();
         });
 
@@ -257,50 +252,6 @@ namespace BugfixesAndQoL
             SaveConfiguration("showRoleMarkers", requested.ToString());
         }
 
-        internal void SetHudButtonHover(bool hovered)
-        {
-            if (!hovered) { HideButtonTooltip(); return; }
-            MainViewModel current = MainViewModel.viewModelLoaded ? MainViewModel.Instance : null;
-            if (!FeatureAvailable || !OwnHudAvailable() || current == null || !current.Show_HUD_Troops ||
-                FatControler.currentScene != Enums.SceneIDS.ActualMainGame) return;
-            HideButtonTooltip();
-            try
-            {
-                HUD_Troops panel = current.HUDTroopPanel;
-                if (panel?.RefTroopsPanelRollover == null) return;
-                string text = SerpLocalization.Get("BugfixesAndQoL.ArrangementTooltip");
-                current.TroopsPanelRollover = text;
-                current.TroopsPanelRollover_AmountReq1 = string.Empty;
-                current.TroopsPanelRollover_AmountGot1 = string.Empty;
-                current.TroopsPanelRollover_GoodsImage1 = null;
-                panel.RefTroopsPanelRollover.Visibility = Visibility.Visible;
-                if (panel.RefTroopsPanelRollover2 != null) panel.RefTroopsPanelRollover2.Visibility = Visibility.Hidden;
-                buttonTooltipOwner = current; buttonTooltipPanel = panel; buttonTooltipText = text;
-            }
-            catch (Exception ex) { Shared.DebugLogHelper.LogWarning(log, "Arrangement hover unavailable: " + ex.Message); }
-        }
-
-        private void HideButtonTooltip()
-        {
-            MainViewModel owner = buttonTooltipOwner;
-            HUD_Troops panel = buttonTooltipPanel;
-            string text = buttonTooltipText;
-            buttonTooltipOwner = null;
-            buttonTooltipPanel = null;
-            buttonTooltipText = null;
-            // Leave a rollover that another button or a replacement HUD has taken over.
-            if (owner == null || panel == null || !ReferenceEquals(owner.HUDTroopPanel, panel) ||
-                !string.Equals(owner.TroopsPanelRollover, text, StringComparison.Ordinal)) return;
-            try
-            {
-                if (panel.RefTroopsPanelRollover != null)
-                    panel.RefTroopsPanelRollover.Visibility = Visibility.Hidden;
-                if (panel.RefTroopsPanelRollover2 != null)
-                    panel.RefTroopsPanelRollover2.Visibility = Visibility.Hidden;
-            }
-            catch (Exception ex) { Shared.DebugLogHelper.LogWarning(log, "Arrangement hover close failed: " + ex.Message); }
-        }
-
         private void ShowRollover(object parameter)
         {
             if (!FeatureAvailable) return;
@@ -340,7 +291,6 @@ namespace BugfixesAndQoL
         {
             if (args.PropertyName == nameof(MainViewModel.Show_HUD_Troops) &&
                 sender is MainViewModel changedMain && !changedMain.Show_HUD_Troops)
-                HideButtonTooltip();
             if (!menuVisible)
                 return;
             MainViewModel source = sender as MainViewModel;

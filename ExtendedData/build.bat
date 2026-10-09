@@ -1,4 +1,26 @@
 @echo off
+setlocal EnableExtensions
+set "BUILD_DRIVER_NOPAUSE=0"
+for %%A in (%*) do if /I "%%~A"=="/nopause" set "BUILD_DRIVER_NOPAUSE=1"
+set "BUILD_DRIVER_ORIGINAL_DIR=%CD%"
+echo [%date% %time%] START ExtendedData
+cd /d "%~dp0"
+if errorlevel 1 goto :build_driver_directory_failed
+rem The outer driver owns the pause, including failures before compilation.
+call :build_driver_main %* /nopause
+set "BUILD_DRIVER_RESULT=%ERRORLEVEL%"
+cd /d "%BUILD_DRIVER_ORIGINAL_DIR%"
+echo [%date% %time%] END: exit code %BUILD_DRIVER_RESULT%
+if "%BUILD_DRIVER_NOPAUSE%"=="0" pause
+exit /b %BUILD_DRIVER_RESULT%
+
+:build_driver_directory_failed
+echo ERROR: Cannot enter the build directory "%~dp0".
+if "%BUILD_DRIVER_NOPAUSE%"=="0" pause
+exit /b 1
+
+:build_driver_main
+echo [%date% %time%] Workspace source and runtime preflight
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\Validation\Test-SharedBoundaries.ps1"
 if errorlevel 1 exit /b 1
 setlocal EnableExtensions EnableDelayedExpansion
@@ -32,16 +54,17 @@ if exist "%PACK_PLUGIN_ROOT%\Mods\ExtendedData_Serp\ExtendedData.dll" (
   set "STAGED_GAME_PLUGIN_DIR=%PACK_PLUGIN_ROOT%\Mods\.ExtendedData_Serp.build"
 )
 if defined SHCDE_API_SHARED_DIR set "API_SHARED_DIR=%SHCDE_API_SHARED_DIR%"
+echo [%date% %time%] PowerShell checks / build step
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\ApiSharedRepository\Test-ConsumerPackage.ps1" -Workspace "%~dp0.." -PackageDirectory "%API_SHARED_DIR%"
 if errorlevel 1 exit /b 1
 set "EXTENDER_DIR="
 
 rem Never touch build or installation output while the game has plugin DLLs loaded.
+echo [%date% %time%] Check that the game is closed
 powershell.exe -NoProfile -Command "if (Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue) { exit 1 } else { exit 0 }" >nul 2>&1
 if errorlevel 1 (
   echo Build und Installation abgebrochen: Stronghold Crusader Definitive Edition ist noch gestartet.
   echo Lokales Paket und installierter Mod wurden nicht veraendert.
-  if "%NO_PAUSE%"=="0" pause
   exit /b 1
 )
 
@@ -77,18 +100,23 @@ echo Verwende Script Extender Referenzen:
 echo !EXTENDER_DIR!
 echo.
 
+echo [%date% %time%] PowerShell checks / build step
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\_inspect\Fixes124Implementation\Verify-Implementation.ps1"
 if errorlevel 1 goto build_failed
 
 pushd "%PROJECT_DIR%"
+echo [%date% %time%] PowerShell checks / build step
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-RuntimePreflight.ps1" -GameDir "%GAME_DIR%"
 if errorlevel 1 goto forbidden_source_popd
+echo [%date% %time%] Run tests
 dotnet run --project ExtendedData.Tests -c Release
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+echo [%date% %time%] Compile projects
 "%MSBUILD%" ExtendedData.Upload.Tests\ExtendedData.Upload.Tests.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%"
 if errorlevel 1 goto build_failed_popd
 "%PROJECT_DIR%ExtendedData.Upload.Tests\bin\Debug\ExtendedData.Upload.Tests.exe"
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+echo [%date% %time%] Compile projects
 "%MSBUILD%" ExtendedData.JsonUpload.Tests\ExtendedData.JsonUpload.Tests.csproj /p:Configuration=Debug
 if errorlevel 1 goto build_failed_popd
 "%PROJECT_DIR%ExtendedData.JsonUpload.Tests\bin\Debug\ExtendedData.JsonUpload.Tests.exe"
@@ -98,12 +126,15 @@ rem Recreate the exact package so removed assets cannot survive an update.
 if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
 if errorlevel 1 goto package_failed_popd
 
+echo [%date% %time%] Compile projects
 "%MSBUILD%" ExtendedData.csproj /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%"
 if errorlevel 1 goto build_failed_popd
 popd
 
+echo [%date% %time%] Copy package files
 copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
 if errorlevel 1 goto package_failed
+echo [%date% %time%] Copy package files
 xcopy "%PROJECT_DIR%Examples" "%LOCAL_PLUGIN_DIR%\Examples\" /E /I /Q /Y
 if errorlevel 1 goto package_failed
 
@@ -119,10 +150,12 @@ if not exist "%LOCAL_PLUGIN_DIR%\Locales\en-US.txt" goto package_failed
 echo Installiere geprueftes Paket...
 if exist "%STAGED_GAME_PLUGIN_DIR%\" rmdir /S /Q "%STAGED_GAME_PLUGIN_DIR%"
 if errorlevel 1 goto copy_failed
+echo [%date% %time%] Copy package files
 xcopy "%LOCAL_PLUGIN_DIR%" "%STAGED_GAME_PLUGIN_DIR%\" /E /I /Q /Y
 if errorlevel 1 goto copy_failed
 rem Carry player-created lobby settings into the staged replacement package.
 if exist "%GAME_PLUGIN_DIR%\LobbyModSettings\" (
+echo [%date% %time%] Copy package files
   xcopy "%GAME_PLUGIN_DIR%\LobbyModSettings" "%STAGED_GAME_PLUGIN_DIR%\LobbyModSettings\" /E /I /Q /Y
   if errorlevel 1 goto copy_failed
 )
@@ -134,11 +167,11 @@ if exist "%LEGACY_TRAIL_PLUGIN_DIR%\" rmdir /S /Q "%LEGACY_TRAIL_PLUGIN_DIR%"
 if errorlevel 1 goto copy_failed
 if exist "%LEGACY_LORD_PLUGIN_DIR%\" rmdir /S /Q "%LEGACY_LORD_PLUGIN_DIR%"
 if errorlevel 1 goto copy_failed
+echo [%date% %time%] PowerShell checks / build step
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared\Tools\Release\Write-LocalBuildManifest.ps1" -ModName ExtendedData
 if errorlevel 1 goto package_failed
 echo.
 echo Build, Tests und Installation erfolgreich.
-if "%NO_PAUSE%"=="0" pause
 exit /b 0
 
 :build_failed_popd
@@ -146,14 +179,12 @@ popd
 :build_failed
 echo.
 echo Build oder Tests fehlgeschlagen.
-if "%NO_PAUSE%"=="0" pause
 exit /b 1
 
 :forbidden_source_popd
 popd
 echo.
 echo ExtendedData Runtime-Preflight fehlgeschlagen.
-if "%NO_PAUSE%"=="0" pause
 exit /b 1
 
 :package_failed_popd
@@ -161,11 +192,9 @@ popd
 :package_failed
 echo.
 echo Das lokale Plugin-Paket konnte nicht erzeugt werden.
-if "%NO_PAUSE%"=="0" pause
 exit /b 1
 
 :copy_failed
 echo.
 echo Installation fehlgeschlagen. Ist das Spiel noch gestartet?
-if "%NO_PAUSE%"=="0" pause
 exit /b 1

@@ -1,0 +1,152 @@
+{
+  "WorkspaceCommit": "ec0200d2b1f1983130ee9efc94c5494748205a59",
+  "ApiCommit": "ca9bc6c21e55112222263baa1fa6929dec876b0a",
+  "WorkspaceStatus": [
+    " m APIShared",
+    " M BugfixesAndQoL/Patches/Assets/GUI/XAMLResources/HUD_MPResync.xaml",
+    " M BugfixesAndQoL/Patches/Assets/GUI/XAMLResources/HUD_MissionOver.xaml",
+    " M BugfixesAndQoL/src/FormationHudButton.cs",
+    " M BugfixesAndQoL/src/FormationMenuViewModel.cs",
+    " M BugfixesAndQoL/tests/FriendlyMoatMovement.Tests/FormationStartupTests.cs",
+    " D Testmods/VirtualUnitsPrototype/BepInEx/plugins/VirtualUnitsPrototype_Serp/Patches/Assets/GUI/XAML/IngameUIScreens.xaml",
+    " D Testmods/VirtualUnitsPrototype/BepInEx/plugins/VirtualUnitsPrototype_Serp/VirtualUnitsPrototype.dll",
+    " D Testmods/VirtualUnitsPrototype/BepInEx/plugins/VirtualUnitsPrototype_Serp/VirtualUnitsPrototype.pdb",
+    " D Testmods/VirtualUnitsPrototype/BepInEx/plugins/VirtualUnitsPrototype_Serp/info.json",
+    "?? Shared/Tools/Validation/Test-IngameTooltips.ps1"
+  ],
+  "ApiStatus": [
+    " M CONTRIBUTING.md",
+    " M Patches/Assets/GUI/XAMLResources/HUD_Troops.xaml",
+    " M docs/API_CATALOG.md",
+    " M docs/THIRD_PARTY_GUIDE.md",
+    " M src/Presentation/UnitHud/UnitHudActionButtonContracts.cs",
+    " M src/Presentation/UnitHud/UnitHudPresentationService.ActionButtons.cs",
+    " M src/Presentation/UnitHud/UnitHudPresentationService.Categories.cs",
+    " M src/Presentation/UnitHud/UnitHudPresentationService.Recruitment.cs",
+    " M tests/Core.Tests/Core.Tests.csproj",
+    " M tests/Core.Tests/UnitHudActionButtonLayoutTests.cs",
+    "?? src/Presentation/UnitHud/UnitHudHoverTextPresenter.cs",
+    "?? tests/Core.Tests/UnitHudHoverTextTests.cs"
+  ],
+  "Drivers": [
+    "ImprovedHunters\\build.bat",
+    "UnitLimit\\build.bat",
+    "UnitCosts\\build.bat",
+    "CastlePlanner\\build.bat",
+    "AIVPlacement\\build.bat",
+    "Helpers\\VanillaAICExporter\\build.bat",
+    "ExtendedData\\build.bat",
+    "BuildingCosts\\build.bat",
+    "BuildingLimit\\build.bat",
+    "Testmods\\VirtualUnitsPrototype\\build.bat",
+    "SerpPresets\\build.bat",
+    "BugfixesAndQoL\\build.bat",
+    "Testmods\\StockpileAccessFixTest\\build.bat",
+    "CheatMod\\build.bat",
+    "RandomEvents\\build.bat",
+    "Testmods\\StartupPerformanceDiagnostic\\build.bat",
+    "APIShared\\build.bat",
+    "SerpsModsHost\\build.bat",
+    "Helpers\\TrailEditor\\build.bat",
+    "Testmods\\EnemyBridgePathTest\\build.bat",
+    "Testmods\\AICoarsePathComponentFixTest\\build.bat",
+    "Testmods\\AIMarketOverbuyDiagnostic\\build.bat",
+    "Testmods\\SpectatorEditorBuildTest\\build.bat",
+    "Testmods\\OutpostTest\\build.bat",
+    "Helpers\\MapParser\\build.bat",
+    "Testmods\\AssassinAttackControlTest\\build.bat",
+    "Testmods\\MainViewModelInitProbe\\build.bat",
+    "Testmods\\AIDefenseTest\\build.bat",
+    "Testmods\\AIBuildDiagnoseTest\\build.bat",
+    "Testmods\\AIAttackTest\\build.bat",
+    "Helpers\\AIVParser\\build.bat",
+    "Testmods\\EngineerSiegeFixTest\\build.bat",
+    "Testmods\\MoatMove\\build.bat",
+    "Testmods\\AivLobbyPresetTest\\build.bat",
+    "Helpers\\HunterQueryTargetDiagnostic\\build.bat",
+    "Testmods\\SkinTest\\build.bat",
+    "ExtraFeatures\\build.bat",
+    "Testmods\\EnemyGatePathfindingTest\\build.bat",
+    "ExtremePowers\\build.bat",
+    "StartConditions\\build.bat",
+    "Helpers\\ActiveAIVDetector\\build.bat",
+    "Testmods\\PrebuiltWorkshopBothFixTest\\build.bat",
+    "Helpers\\AtlasBuilder\\build.bat"
+  ],
+  "UserHashes": [
+    {
+      "Path": "BugfixesAndQoL/Patches/Assets/GUI/XAMLResources/HUD_MPResync.xaml",
+      "Hash": "D03EC5E41609210901F3C804D876077F96E716C6455FF7BD175E340B0976B432"
+    },
+    {
+      "Path": "BugfixesAndQoL/Patches/Assets/GUI/XAMLResources/HUD_MissionOver.xaml",
+      "Hash": "182C89DFCC7BA6E355334BB3D45F1A367FF6ACB328AEDEEF6889724449DA540D"
+    },
+    {
+      "Path": "BugfixesAndQoL/src/FormationHudButton.cs",
+      "Hash": "BE7980AFB0036E541E5820F6E197FAF855465ADEB2B26AD6C0E562928A38A9E0"
+    },
+    {
+      "Path": "BugfixesAndQoL/src/FormationMenuViewModel.cs",
+      "Hash": "3C10F152AAFBEA10AF6F748FFF693EEB7F421C79510CAF875631A6E040FAD25A"
+    },
+    {
+      "Path": "BugfixesAndQoL/tests/FriendlyMoatMovement.Tests/FormationStartupTests.cs",
+      "Hash": "418201CDF1D7A21C9DA4FF193F3B98519955AD7E711E3A987664BC9895620FAA"
+    },
+    {
+      "Path": "Shared/Tools/Validation/Test-IngameTooltips.ps1",
+      "Hash": "5356A9E0C8631AF61EC4E2110D523DDD7ABD48A0991F4D83C59DF7BFF3308EBA"
+    }
+  ],
+  "ApiUserHashes": [
+    {
+      "Path": "CONTRIBUTING.md",
+      "Hash": "74A4F0807F307853D80D826E216CDDC69A99643183B89B0211A3B39B584F66C7"
+    },
+    {
+      "Path": "Patches/Assets/GUI/XAMLResources/HUD_Troops.xaml",
+      "Hash": "9003F13B8B672FF651364B7CA356B8F5F0A2AAF8FD0DD0E59CB06837B43DD197"
+    },
+    {
+      "Path": "docs/API_CATALOG.md",
+      "Hash": "D1BADA0B19F6A39EA89467A066A057A353E6F3E223B58E9772CCAF64C1BE44C8"
+    },
+    {
+      "Path": "docs/THIRD_PARTY_GUIDE.md",
+      "Hash": "5B2ABB021D66F904480FC7CD4F2545523BE71A70330607C767012D04FB697D49"
+    },
+    {
+      "Path": "src/Presentation/UnitHud/UnitHudActionButtonContracts.cs",
+      "Hash": "1B37FB4BEED5272B2F1F9F4C312322FB874D1DD154E50C4923CF64333C41D8B9"
+    },
+    {
+      "Path": "src/Presentation/UnitHud/UnitHudPresentationService.ActionButtons.cs",
+      "Hash": "6FBE1A39BEEA575A29FE00B1626790E6369722FBC6E626DC579E57D2D7A5CE03"
+    },
+    {
+      "Path": "src/Presentation/UnitHud/UnitHudPresentationService.Categories.cs",
+      "Hash": "18B8E0C816824420530201C6D2EEBE200F5D51B2D09BE297CCD6D0DFADD2125F"
+    },
+    {
+      "Path": "src/Presentation/UnitHud/UnitHudPresentationService.Recruitment.cs",
+      "Hash": "5D83F40D9312FEF2F395E624C9F80956D1AAAD2223529FEAC05554A5F6E6B290"
+    },
+    {
+      "Path": "tests/Core.Tests/Core.Tests.csproj",
+      "Hash": "A76DC3AB6B3ED5AB20F73C0B5221961CFF3DA3A6B70F556AF3B7F045EEF8ACAD"
+    },
+    {
+      "Path": "tests/Core.Tests/UnitHudActionButtonLayoutTests.cs",
+      "Hash": "AA19762993F34AF81E4541BB8DF1C2B6C524E09CDA39112BD0916EC2EAEB21BA"
+    },
+    {
+      "Path": "src/Presentation/UnitHud/UnitHudHoverTextPresenter.cs",
+      "Hash": "F5928591D8D525980330A473FF86DBBE0CDED3F42095B8FF51B4E11D70B7204D"
+    },
+    {
+      "Path": "tests/Core.Tests/UnitHudHoverTextTests.cs",
+      "Hash": "0E9BC0E27BF5E30BD93C326F4C1B1805C076F67841A7A471FC993C6B5C9236B0"
+    }
+  ]
+}

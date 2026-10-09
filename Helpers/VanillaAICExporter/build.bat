@@ -1,4 +1,26 @@
 @echo off
+setlocal EnableExtensions
+set "BUILD_DRIVER_NOPAUSE=0"
+for %%A in (%*) do if /I "%%~A"=="/nopause" set "BUILD_DRIVER_NOPAUSE=1"
+set "BUILD_DRIVER_ORIGINAL_DIR=%CD%"
+echo [%date% %time%] START VanillaAICExporter
+cd /d "%~dp0"
+if errorlevel 1 goto :build_driver_directory_failed
+rem The outer driver owns the pause, including failures before compilation.
+call :build_driver_main %* /nopause
+set "BUILD_DRIVER_RESULT=%ERRORLEVEL%"
+cd /d "%BUILD_DRIVER_ORIGINAL_DIR%"
+echo [%date% %time%] END: exit code %BUILD_DRIVER_RESULT%
+if "%BUILD_DRIVER_NOPAUSE%"=="0" pause
+exit /b %BUILD_DRIVER_RESULT%
+
+:build_driver_directory_failed
+echo ERROR: Cannot enter the build directory "%~dp0".
+if "%BUILD_DRIVER_NOPAUSE%"=="0" pause
+exit /b 1
+
+:build_driver_main
+echo [%date% %time%] Workspace source and runtime preflight
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\Shared\Tools\Validation\Test-SharedBoundaries.ps1"
 if errorlevel 1 exit /b 1
 setlocal EnableExtensions EnableDelayedExpansion
@@ -19,11 +41,11 @@ set "NO_PAUSE=0"
 if /I "%~1"=="/nopause" set "NO_PAUSE=1"
 
 rem Never touch build or installation output while the game has plugin DLLs loaded.
+echo [%date% %time%] Check that the game is closed
 powershell.exe -NoProfile -Command "if (Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue) { exit 1 } else { exit 0 }" >nul 2>&1
 if errorlevel 1 (
   echo Build und Installation abgebrochen: Stronghold Crusader Definitive Edition ist noch gestartet.
   echo Lokales Paket und installierter Mod wurden nicht veraendert.
-  if "%NO_PAUSE%"=="0" pause
   exit /b 1
 )
 
@@ -57,6 +79,7 @@ echo !EXTENDER_DIR!
 echo.
 
 pushd "%PROJECT_DIR%"
+echo [%date% %time%] Compile projects
 "%MSBUILD%" VanillaAICExporter.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
 set "BUILD_EXIT_CODE=%ERRORLEVEL%"
 popd
@@ -81,23 +104,21 @@ if exist "%GAME_PLUGIN_DIR%\" (
     )
   )
 )
+echo [%date% %time%] Copy package files
 xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Y
 if errorlevel 1 goto copy_failed
 rem Internal helper projects are deliberately not release-enabled and therefore have no release provenance manifest.
 
 echo.
 echo Build und Installation erfolgreich.
-if "%NO_PAUSE%"=="0" pause
 exit /b 0
 
 :copy_failed
 echo.
 echo Kopieren fehlgeschlagen. Ist das Spiel noch gestartet?
-if "%NO_PAUSE%"=="0" pause
 exit /b 1
 
 :failed
 echo.
 echo Build fehlgeschlagen.
-if "%NO_PAUSE%"=="0" pause
 exit /b 1

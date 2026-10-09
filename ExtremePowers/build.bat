@@ -1,4 +1,26 @@
 @echo off
+setlocal EnableExtensions
+set "BUILD_DRIVER_NOPAUSE=0"
+for %%A in (%*) do if /I "%%~A"=="/nopause" set "BUILD_DRIVER_NOPAUSE=1"
+set "BUILD_DRIVER_ORIGINAL_DIR=%CD%"
+echo [%date% %time%] START ExtremePowers
+cd /d "%~dp0"
+if errorlevel 1 goto :build_driver_directory_failed
+rem The outer driver owns the pause, including failures before compilation.
+call :build_driver_main %* /nopause
+set "BUILD_DRIVER_RESULT=%ERRORLEVEL%"
+cd /d "%BUILD_DRIVER_ORIGINAL_DIR%"
+echo [%date% %time%] END: exit code %BUILD_DRIVER_RESULT%
+if "%BUILD_DRIVER_NOPAUSE%"=="0" pause
+exit /b %BUILD_DRIVER_RESULT%
+
+:build_driver_directory_failed
+echo ERROR: Cannot enter the build directory "%~dp0".
+if "%BUILD_DRIVER_NOPAUSE%"=="0" pause
+exit /b 1
+
+:build_driver_main
+echo [%date% %time%] Workspace source and runtime preflight
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\Validation\Test-SharedBoundaries.ps1"
 if errorlevel 1 exit /b 1
 setlocal EnableExtensions
@@ -10,23 +32,22 @@ rem The installed release is canonical; SHCDESE_EXTENDER_DIR is the explicit ove
 if defined SHCDESE_EXTENDER_DIR set "EXTENDER_DIR=%SHCDESE_EXTENDER_DIR%"
 set "NO_PAUSE=0"
 for %%A in (%*) do if /I "%%~A"=="/nopause" set "NO_PAUSE=1"
+echo [%date% %time%] Check that the game is closed
 powershell.exe -NoProfile -Command "if (Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue) { exit 1 } else { exit 0 }" >nul 2>&1
 if errorlevel 1 (
     echo Build abgebrochen: Das Spiel ist noch gestartet.
-    if "%NO_PAUSE%"=="0" pause
     exit /b 1
 )
 if not exist "%MSBUILD%" (
     echo MSBuild wurde nicht gefunden.
-    if "%NO_PAUSE%"=="0" pause
     exit /b 1
 )
 if not exist "%EXTENDER_DIR%\SHCDESE.dll" (
     echo SHCDESE.dll wurde nicht gefunden.
-    if "%NO_PAUSE%"=="0" pause
     exit /b 1
 )
 pushd "%PROJECT_DIR%"
+echo [%date% %time%] Compile projects
 "%MSBUILD%" ExtremePowers.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
 set "BUILD_EXIT_CODE=%ERRORLEVEL%"
 popd
@@ -37,26 +58,35 @@ set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\ExtremePowers_Serp"
 set "SETTINGS_STATE_BEFORE=%TEMP%\ExtremePowersSettingsBefore-%RANDOM%-%RANDOM%.txt"
 set "SETTINGS_STATE_AFTER=%TEMP%\ExtremePowersSettingsAfter-%RANDOM%-%RANDOM%.txt"
 set "SETTINGS_DIR=%GAME_PLUGIN_DIR%\LobbyModSettings"
+echo [%date% %time%] PowerShell checks / build step
 powershell.exe -NoProfile -Command "$ErrorActionPreference='Stop'; function Get-Sha256([string]$path) { $algorithm=[Security.Cryptography.SHA256]::Create(); $stream=[IO.File]::OpenRead($path); try { [BitConverter]::ToString($algorithm.ComputeHash($stream)).Replace('-','') } finally { $stream.Dispose(); $algorithm.Dispose() } }; $settingsRoot='%SETTINGS_DIR%'; $rows=@(); if (Test-Path -LiteralPath $settingsRoot) { $rows=@(Get-ChildItem -LiteralPath $settingsRoot -Recurse | Where-Object { -not $_.PSIsContainer } | Sort-Object FullName | ForEach-Object { $relative=$_.FullName.Substring($settingsRoot.Length); $hash=Get-Sha256 $_.FullName; $relative + '|' + $_.Length + '|' + $hash }) } else { $rows=@('<missing>') }; [System.IO.File]::WriteAllLines('%SETTINGS_STATE_BEFORE%', $rows, (New-Object System.Text.UTF8Encoding($false)))"
 if errorlevel 1 set "BUILD_EXIT_CODE=1"
 if not "%BUILD_EXIT_CODE%"=="0" goto done
 if exist "%LOCAL_PLUGIN_DIR%" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
 if errorlevel 1 set "BUILD_EXIT_CODE=1"
 if not exist "%LOCAL_PLUGIN_DIR%" mkdir "%LOCAL_PLUGIN_DIR%"
+echo [%date% %time%] Copy package files
 copy /Y "%LOCAL_BUILD_DIR%\ExtremePowers.API.dll" "%LOCAL_PLUGIN_DIR%\ExtremePowers.API.dll" >nul
 if errorlevel 1 set "BUILD_EXIT_CODE=1"
+echo [%date% %time%] Copy package files
 copy /Y "%LOCAL_BUILD_DIR%\ExtremePowers.API.pdb" "%LOCAL_PLUGIN_DIR%\ExtremePowers.API.pdb" >nul
 if errorlevel 1 set "BUILD_EXIT_CODE=1"
+echo [%date% %time%] Copy package files
 copy /Y "%LOCAL_BUILD_DIR%\ExtremePowers.dll" "%LOCAL_PLUGIN_DIR%\ExtremePowers.dll" >nul
 if errorlevel 1 set "BUILD_EXIT_CODE=1"
+echo [%date% %time%] Copy package files
 copy /Y "%LOCAL_BUILD_DIR%\ExtremePowers.pdb" "%LOCAL_PLUGIN_DIR%\ExtremePowers.pdb" >nul
 if errorlevel 1 set "BUILD_EXIT_CODE=1"
+echo [%date% %time%] Copy package files
 copy /Y "%LOCAL_BUILD_DIR%\info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
 if errorlevel 1 set "BUILD_EXIT_CODE=1"
+echo [%date% %time%] Copy package files
 xcopy "%LOCAL_BUILD_DIR%\Locales" "%LOCAL_PLUGIN_DIR%\Locales\" /E /I /Y >nul
 if errorlevel 1 set "BUILD_EXIT_CODE=1"
+echo [%date% %time%] Copy package files
 xcopy "%LOCAL_BUILD_DIR%\Override" "%LOCAL_PLUGIN_DIR%\Override\" /E /I /Y >nul
 if errorlevel 1 set "BUILD_EXIT_CODE=1"
+echo [%date% %time%] Copy package files
 xcopy "%LOCAL_BUILD_DIR%\Patches" "%LOCAL_PLUGIN_DIR%\Patches\" /E /I /Y >nul
 if errorlevel 1 set "BUILD_EXIT_CODE=1"
 if exist "%LOCAL_PLUGIN_DIR%\LobbyModSettings" set "BUILD_EXIT_CODE=1"
@@ -77,6 +107,7 @@ if exist "%GAME_PLUGIN_DIR%" (
     )
 )
 if not "%BUILD_EXIT_CODE%"=="0" goto done
+echo [%date% %time%] Copy package files
 xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Y >nul
 if errorlevel 1 set "BUILD_EXIT_CODE=1"
 if not exist "%GAME_PLUGIN_DIR%\ExtremePowers.API.dll" set "BUILD_EXIT_CODE=1"
@@ -86,6 +117,7 @@ fc /B "%LOCAL_PLUGIN_DIR%\ExtremePowers.API.dll" "%GAME_PLUGIN_DIR%\ExtremePower
 if errorlevel 1 set "BUILD_EXIT_CODE=1"
 fc /B "%LOCAL_PLUGIN_DIR%\ExtremePowers.dll" "%GAME_PLUGIN_DIR%\ExtremePowers.dll" >nul
 if errorlevel 1 set "BUILD_EXIT_CODE=1"
+echo [%date% %time%] PowerShell checks / build step
 powershell.exe -NoProfile -Command "$ErrorActionPreference='Stop'; function Get-Sha256([string]$path) { $algorithm=[Security.Cryptography.SHA256]::Create(); $stream=[IO.File]::OpenRead($path); try { [BitConverter]::ToString($algorithm.ComputeHash($stream)).Replace('-','') } finally { $stream.Dispose(); $algorithm.Dispose() } }; $settingsRoot='%SETTINGS_DIR%'; $rows=@(); if (Test-Path -LiteralPath $settingsRoot) { $rows=@(Get-ChildItem -LiteralPath $settingsRoot -Recurse | Where-Object { -not $_.PSIsContainer } | Sort-Object FullName | ForEach-Object { $relative=$_.FullName.Substring($settingsRoot.Length); $hash=Get-Sha256 $_.FullName; $relative + '|' + $_.Length + '|' + $hash }) } else { $rows=@('<missing>') }; [System.IO.File]::WriteAllLines('%SETTINGS_STATE_AFTER%', $rows, (New-Object System.Text.UTF8Encoding($false)))"
 if errorlevel 1 set "BUILD_EXIT_CODE=1"
 fc /B "%SETTINGS_STATE_BEFORE%" "%SETTINGS_STATE_AFTER%" >nul
@@ -97,5 +129,4 @@ if errorlevel 1 (
 if exist "%SETTINGS_STATE_BEFORE%" del /F /Q "%SETTINGS_STATE_BEFORE%" >nul 2>&1
 if exist "%SETTINGS_STATE_AFTER%" del /F /Q "%SETTINGS_STATE_AFTER%" >nul 2>&1
 if "%BUILD_EXIT_CODE%"=="0" echo Build und Installation erfolgreich.
-if "%NO_PAUSE%"=="0" pause
 exit /b %BUILD_EXIT_CODE%

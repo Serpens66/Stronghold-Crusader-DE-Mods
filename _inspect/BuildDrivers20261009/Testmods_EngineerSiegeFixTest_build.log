@@ -1,0 +1,45 @@
+[10.10.2026  0:12:49,85] START EngineerSiegeFixTest
+[10.10.2026  0:12:49,85] Workspace source and runtime preflight
+[Preflight] Discovering active projects and explicit source links...
+[Preflight] Checking 100 projects and source ownership...
+[Preflight] Checking active references and CRLF...
+[Preflight] Checking JSON, lifecycle and persistent runtime call paths...
+[Preflight] Checking XAML content roots...
+[Preflight] Checking permanent published hooks and executable-memory mutations...
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+PASS: shared ownership boundaries; 100 projects, 1427 valid explicit links; runtime JSON/lifecycle/scheduling, XAML and permanent hooks.
+[Preflight] Checking manifest and plugin minimum dependencies...
+PASS: 41 runtime manifests use consistent generic minimum dependencies; soft dependencies remain optional.
+[Preflight] Completed in 9,7s.
+PASS: 10 mod-owned ingame popup usages have the modoptions style; 0 explicitly disabled popups; HUD action/category/recruitment runtime descriptions use Vanilla rollover paths.
+[10.10.2026  0:12:59,72] Check that the game is closed
+[10.10.2026  0:12:59,89] Compile projects
+MSBuild-Version 17.11.9+a69bbaaf5 für .NET Framework
+Der Buildvorgang wurde am 10.10.2026 00:12:59 gestartet.
+
+Projekt "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\EngineerSiegeFixTest\EngineerSiegeFixTest.csproj" auf Knoten "1" (Standardziele).
+PrepareForBuild:
+  Das Verzeichnis "BepInEx\plugins\EngineerSiegeFixTest_Serp\" wird erstellt.
+ValidateWorkspaceApiSharedPackage:
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Shared\Tools\ApiSharedRepository\Test-ConsumerPackage.ps1" -Workspace "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods" -PackageDirectory "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\APIShared\BepInEx\plugins\APIShared_Serp"
+  PASS: local APIShared package and build inputs.
+GenerateTargetFrameworkMonikerAttribute:
+Das Ziel "GenerateTargetFrameworkMonikerAttribute" wird übersprungen, da alle Ausgabedateien hinsichtlich der Eingabedateien aktuell sind.
+CoreCompile:
+  C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Roslyn\csc.exe /noconfig /unsafe+ /nowarn:1701,1702 /fullpaths /nostdlib+ /warn:4 /highentropyva+ /reference:"D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\APIShared\BepInEx\plugins\APIShared_Serp\APIShared.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\core\BepInEx.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\mscorlib.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\RedBird.Core.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\SHCDESE.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\System.Core.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\System.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\System.Memory.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.CoreModule.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\netstandard.dll" /debug+ /debug:portable /out:obj\Debug\EngineerSiegeFixTest.dll /subsystemversion:6.00 /target:library /utf8output /langversion:latest src\EngineerCrewHandoffPolicy.cs src\EngineerHandoffDiagnosticPolicy.cs src\EngineerHandoffRepairPolicy.cs src\EngineerSiegeFixTestNativeDefinition.cs src\EngineerSiegeFixTestRuntime.cs src\EngineerSiegeFixTestPlugin.cs ..\..\Shared\Runtime\Diagnostics\DebugLogHelper.cs "obj\Debug\.NETFramework,Version=v4.8.1.AssemblyAttributes.cs"
+  CompilerServer: server - server processed compilation - EngineerSiegeFixTest
+CopyFilesToOutputDirectory:
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\EngineerSiegeFixTest\obj\Debug\EngineerSiegeFixTest.dll" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\EngineerSiegeFixTest\BepInEx\plugins\EngineerSiegeFixTest_Serp\EngineerSiegeFixTest.dll" kopiert.
+  EngineerSiegeFixTest -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\EngineerSiegeFixTest\BepInEx\plugins\EngineerSiegeFixTest_Serp\EngineerSiegeFixTest.dll
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\EngineerSiegeFixTest\obj\Debug\EngineerSiegeFixTest.pdb" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\EngineerSiegeFixTest\BepInEx\plugins\EngineerSiegeFixTest_Serp\EngineerSiegeFixTest.pdb" kopiert.
+Die Erstellung von Projekt "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\EngineerSiegeFixTest\EngineerSiegeFixTest.csproj" ist abgeschlossen (Standardziele).
+
+Der Buildvorgang wurde erfolgreich ausgeführt.
+    0 Warnung(en)
+    0 Fehler
+
+Verstrichene Zeit 00:00:01.33
+[10.10.2026  0:13:01,32] Copy package files
+[10.10.2026  0:13:01,32] Copy package files
+Engineer Siege Fix Test built and installed successfully.
+[10.10.2026  0:13:01,35] END: exit code 0

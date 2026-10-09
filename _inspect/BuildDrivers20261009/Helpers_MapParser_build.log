@@ -1,0 +1,62 @@
+[10.10.2026  0:02:04,91] START MapParser
+Baue MapParser in der Release-Konfiguration...
+[10.10.2026  0:02:04,95] Compile projects
+  Wiederherzustellende Projekte werden ermittelt...
+  Alle Projekte sind für die Wiederherstellung auf dem neuesten Stand.
+  MapParser.Core -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Helpers\MapParser\MapParser.Core\bin\Release\netstandard2.0\MapParser.Core.dll
+  MapParser.Cli -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Helpers\MapParser\MapParser.Cli\bin\Release\net10.0\MapParser.dll
+  MapParser.Tests -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Helpers\MapParser\MapParser.Tests\bin\Release\net10.0\MapParser.Tests.dll
+
+Der Buildvorgang wurde erfolgreich ausgeführt.
+    0 Warnung(en)
+    0 Fehler
+
+Verstrichene Zeit 00:00:01.68
+
+Fuehre die synthetischen Tests aus...
+[10.10.2026  0:02:06,82] Run tests
+[2026-10-10 00:02:07.511] PASS Parse byte array, stream and path
+[2026-10-10 00:02:07.522] PASS Parse 100-slot directory
+[2026-10-10 00:02:07.522] PASS Parse 150-slot directory
+[2026-10-10 00:02:07.522] PASS Parse 200-slot directory
+[2026-10-10 00:02:07.525] PASS Normalize old and new tile IDs
+[2026-10-10 00:02:07.526] PASS Read typed placement layers
+[2026-10-10 00:02:07.528] PASS Read typed rock records
+[2026-10-10 00:02:07.537] PASS Create immutable placement snapshot
+[2026-10-10 00:02:07.544] PASS Create snapshot from old and new tile IDs
+[2026-10-10 00:02:07.554] PASS Normalize classic Crusader placement layers and records
+[2026-10-10 00:02:07.558] PASS Reject unsupported or malformed classic maps
+[2026-10-10 00:02:07.580] PASS Read local classic Crusader map when available
+[2026-10-10 00:02:07.581] PASS Reject snapshot without map sections
+[2026-10-10 00:02:07.582] PASS Reject snapshot with missing layer
+[2026-10-10 00:02:07.582] PASS Reject snapshot with inconsistent layer lengths
+[2026-10-10 00:02:07.582] PASS Reject snapshot with unsupported geometry
+[2026-10-10 00:02:07.589] PASS Decode only placement layers for snapshot
+[2026-10-10 00:02:07.598] PASS Match native map-tile geometry vectors
+[2026-10-10 00:02:07.608] PASS Roundtrip every map tile
+[2026-10-10 00:02:07.661] PASS Separate fixed geometry from world-size bounds
+[2026-10-10 00:02:07.661] PASS Reject invalid map-tile geometry inputs
+[2026-10-10 00:02:07.671] PASS Resolve exact Keep anchors for real-map vectors
+[2026-10-10 00:02:07.673] PASS Resolve current-format 800 Keep anchors
+[2026-10-10 00:02:07.678] PASS Report explicit Keep-anchor failure reasons
+[2026-10-10 00:02:07.681] PASS Decode PKWARE-DCL and verify CRC32
+[2026-10-10 00:02:07.681] PASS Reject truncated preamble
+[2026-10-10 00:02:07.681] PASS Reject invalid section offset
+[2026-10-10 00:02:07.681] PASS Reject raw size mismatch
+[2026-10-10 00:02:07.681] PASS Reject compressed header size mismatch
+[2026-10-10 00:02:07.682] PASS Reject unknown compression flag
+[2026-10-10 00:02:07.682] PASS Reject duplicate section ID
+[2026-10-10 00:02:07.682] PASS Reject duplicate logical section ID
+[2026-10-10 00:02:07.682] PASS Reject invalid PKWARE-DCL data
+[2026-10-10 00:02:07.682] PASS Reject wrong CRC32
+[2026-10-10 00:02:07.683] PASS Reject unknown directory tag
+[2026-10-10 00:02:07.683] PASS Recognize special map as opaque
+[2026-10-10 00:02:07.683] PASS Preserve regular trailing bytes
+[2026-10-10 00:02:07.683] PASS Recognize unavailable zero-filled section 1190
+[2026-10-10 00:02:07.683] PASS Do not expose incomplete placement layers
+[2026-10-10 00:02:07.683] PASS Summary: total=39, failed=0
+
+Build und Tests waren erfolgreich.
+Der Parser liegt hier:
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Helpers\MapParser\MapParser.Cli\bin\Release\net10.0\MapParser.exe
+[10.10.2026  0:02:07,71] END: exit code 0

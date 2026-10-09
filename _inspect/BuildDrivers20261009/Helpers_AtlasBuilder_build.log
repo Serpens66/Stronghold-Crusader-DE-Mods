@@ -1,0 +1,123 @@
+[10.10.2026  0:17:13,27] START AtlasBuilder
+[10.10.2026  0:17:13,28] Check Python and packaging dependencies
+Building AtlasBuilder portable Windows package...
+Verified D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Helpers\AtlasBuilder\tools\texconv.exe
+231 INFO: PyInstaller: 6.14.2, contrib hooks: 2026.7
+231 INFO: Python: 3.12.14
+254 INFO: Platform: Windows-11-10.0.26200-SP0
+254 INFO: Python environment: C:\Users\Serpens66\.cache\codex-runtimes\codex-primary-runtime\dependencies\python
+257 INFO: Removing temporary files and cleaning cache in C:\Users\Serpens66\AppData\Local\pyinstaller
+273 INFO: Module search paths (PYTHONPATH):
+['D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine '
+ 'Mods\\Helpers\\AtlasBuilder',
+ 'D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine '
+ 'Mods\\Helpers\\AtlasBuilder\\.deps',
+ 'D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine '
+ 'Mods\\Helpers\\AtlasBuilder',
+ 'C:\\Users\\Serpens66\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python312.zip',
+ 'C:\\Users\\Serpens66\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\DLLs',
+ 'C:\\Users\\Serpens66\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\Lib',
+ 'C:\\Users\\Serpens66\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python',
+ 'C:\\Users\\Serpens66\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\Lib\\site-packages',
+ 'D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine '
+ 'Mods\\Helpers\\AtlasBuilder',
+ 'D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine '
+ 'Mods\\Helpers\\AtlasBuilder']
+553 INFO: Appending 'datas' from .spec
+553 INFO: checking Analysis
+553 INFO: Building Analysis because Analysis-00.toc is non existent
+553 INFO: Running Analysis Analysis-00.toc
+553 INFO: Target bytecode optimization level: 0
+553 INFO: Initializing module dependency graph...
+556 INFO: Initializing module graph hook caches...
+593 INFO: Analyzing modules for base_library.zip ...
+1273 INFO: Processing standard module hook 'hook-encodings.py' from 'D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\AtlasBuilder\\.deps\\PyInstaller\\hooks'
+3172 INFO: Processing standard module hook 'hook-pickle.py' from 'D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\AtlasBuilder\\.deps\\PyInstaller\\hooks'
+4104 INFO: Processing standard module hook 'hook-heapq.py' from 'D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\AtlasBuilder\\.deps\\PyInstaller\\hooks'
+5218 INFO: Caching module dependency graph...
+5247 INFO: Looking for Python shared library...
+5263 INFO: Using Python shared library: C:\Users\Serpens66\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python312.dll
+5263 INFO: Analyzing D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Helpers\AtlasBuilder\run_atlas_builder.py
+5393 INFO: Processing standard module hook 'hook-platform.py' from 'D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\AtlasBuilder\\.deps\\PyInstaller\\hooks'
+5423 INFO: Processing standard module hook 'hook-fsspec.py' from 'D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\AtlasBuilder\\hooks'
+5622 INFO: Processing standard module hook 'hook-multiprocessing.util.py' from 'D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\AtlasBuilder\\.deps\\PyInstaller\\hooks'
+5794 INFO: Processing standard module hook 'hook-xml.py' from 'D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\AtlasBuilder\\.deps\\PyInstaller\\hooks'
+6612 INFO: Processing pre-safe-import-module hook 'hook-typing_extensions.py' from 'D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\AtlasBuilder\\.deps\\PyInstaller\\hooks\\pre_safe_import_module'
+6614 INFO: SetuptoolsInfo: initializing cached setuptools info...
+7372 INFO: Processing standard module hook 'hook-lz4.py' from 'D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\AtlasBuilder\\.deps\\_pyinstaller_hooks_contrib\\stdhooks'
+8680 INFO: Processing standard module hook 'hook-numpy.py' from 'D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\AtlasBuilder\\.deps\\PyInstaller\\hooks'
+9466 INFO: Processing standard module hook 'hook-difflib.py' from 'D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\AtlasBuilder\\.deps\\PyInstaller\\hooks'
+9875 INFO: Processing standard module hook 'hook-sysconfig.py' from 'D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\AtlasBuilder\\.deps\\PyInstaller\\hooks'
+11615 INFO: Processing standard module hook 'hook-charset_normalizer.py' from 'D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\AtlasBuilder\\.deps\\_pyinstaller_hooks_contrib\\stdhooks'
+12124 INFO: Processing standard module hook 'hook-PIL.py' from 'D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\AtlasBuilder\\.deps\\PyInstaller\\hooks'
+12204 INFO: Processing standard module hook 'hook-PIL.Image.py' from 'D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\AtlasBuilder\\.deps\\PyInstaller\\hooks'
+12594 INFO: Processing standard module hook 'hook-pycparser.py' from 'D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\AtlasBuilder\\.deps\\_pyinstaller_hooks_contrib\\stdhooks'
+12760 INFO: Processing standard module hook 'hook-setuptools.py' from 'D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\AtlasBuilder\\.deps\\PyInstaller\\hooks'
+12796 INFO: Processing pre-safe-import-module hook 'hook-distutils.py' from 'D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\AtlasBuilder\\.deps\\PyInstaller\\hooks\\pre_safe_import_module'
+12864 INFO: Processing pre-safe-import-module hook 'hook-jaraco.functools.py' from 'D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\AtlasBuilder\\.deps\\PyInstaller\\hooks\\pre_safe_import_module'
+12866 INFO: Setuptools: 'jaraco.functools' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.jaraco.functools'!
+12883 INFO: Processing pre-safe-import-module hook 'hook-more_itertools.py' from 'D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\AtlasBuilder\\.deps\\PyInstaller\\hooks\\pre_safe_import_module'
+12884 INFO: Setuptools: 'more_itertools' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.more_itertools'!
+13016 INFO: Processing standard module hook 'hook-_osx_support.py' from 'D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\AtlasBuilder\\.deps\\PyInstaller\\hooks'
+13047 INFO: Processing pre-safe-import-module hook 'hook-packaging.py' from 'D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\AtlasBuilder\\.deps\\PyInstaller\\hooks\\pre_safe_import_module'
+13456 INFO: Processing pre-safe-import-module hook 'hook-jaraco.text.py' from 'D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\AtlasBuilder\\.deps\\PyInstaller\\hooks\\pre_safe_import_module'
+13457 INFO: Setuptools: 'jaraco.text' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.jaraco.text'!
+13470 INFO: Processing standard module hook 'hook-setuptools._vendor.jaraco.text.py' from 'D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\AtlasBuilder\\.deps\\PyInstaller\\hooks'
+13471 INFO: Processing pre-safe-import-module hook 'hook-importlib_resources.py' from 'D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\AtlasBuilder\\.deps\\PyInstaller\\hooks\\pre_safe_import_module'
+13471 INFO: Processing pre-safe-import-module hook 'hook-jaraco.context.py' from 'D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\AtlasBuilder\\.deps\\PyInstaller\\hooks\\pre_safe_import_module'
+13473 INFO: Setuptools: 'jaraco.context' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.jaraco.context'!
+13965 INFO: Processing pre-safe-import-module hook 'hook-tomli.py' from 'D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\AtlasBuilder\\.deps\\PyInstaller\\hooks\\pre_safe_import_module'
+13965 INFO: Setuptools: 'tomli' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.tomli'!
+14598 INFO: Processing pre-safe-import-module hook 'hook-wheel.py' from 'D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\AtlasBuilder\\.deps\\PyInstaller\\hooks\\pre_safe_import_module'
+15480 INFO: Processing standard module hook 'hook-PIL.ImageFilter.py' from 'D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\AtlasBuilder\\.deps\\PyInstaller\\hooks'
+15854 INFO: Processing pre-find-module-path hook 'hook-tkinter.py' from 'D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\AtlasBuilder\\.deps\\PyInstaller\\hooks\\pre_find_module_path'
+15855 INFO: TclTkInfo: initializing cached Tcl/Tk info...
+16134 INFO: Processing standard module hook 'hook-_tkinter.py' from 'D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\AtlasBuilder\\.deps\\PyInstaller\\hooks'
+16221 INFO: Processing module hooks (post-graph stage)...
+16232 WARNING: Hidden import "pycparser.lextab" not found!
+16232 WARNING: Hidden import "pycparser.yacctab" not found!
+16625 INFO: Processing standard module hook 'hook-PIL.SpiderImagePlugin.py' from 'D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\AtlasBuilder\\.deps\\PyInstaller\\hooks'
+16798 INFO: Processing standard module hook 'hook-_tkinter.py' from 'D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\AtlasBuilder\\.deps\\PyInstaller\\hooks'
+16812 INFO: Performing binary vs. data reclassification (936 entries)
+20530 INFO: Looking for ctypes DLLs
+20537 WARNING: Library fmod.dll required via ctypes not found
+20567 INFO: Analyzing run-time hooks ...
+20574 INFO: Including run-time hook 'pyi_rth_inspect.py' from 'D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\AtlasBuilder\\.deps\\PyInstaller\\hooks\\rthooks'
+20580 INFO: Including run-time hook 'pyi_rth__tkinter.py' from 'D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\AtlasBuilder\\.deps\\PyInstaller\\hooks\\rthooks'
+20587 INFO: Including run-time hook 'pyi_rth_pkgutil.py' from 'D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\AtlasBuilder\\.deps\\PyInstaller\\hooks\\rthooks'
+20595 INFO: Including run-time hook 'pyi_rth_multiprocessing.py' from 'D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\AtlasBuilder\\.deps\\PyInstaller\\hooks\\rthooks'
+20601 INFO: Including run-time hook 'pyi_rth_setuptools.py' from 'D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\Helpers\\AtlasBuilder\\.deps\\PyInstaller\\hooks\\rthooks'
+20632 INFO: Creating base_library.zip...
+20677 INFO: Looking for dynamic libraries
+22162 INFO: Extra DLL search directories (AddDllDirectory): ['C:\\Users\\Serpens66\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\Lib\\site-packages\\numpy.libs']
+22162 INFO: Extra DLL search directories (PATH): []
+22992 INFO: Warnings written to D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Helpers\AtlasBuilder\build\AtlasBuilder\warn-AtlasBuilder.txt
+23040 INFO: Graph cross-reference written to D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Helpers\AtlasBuilder\build\AtlasBuilder\xref-AtlasBuilder.html
+23108 INFO: checking PYZ
+23108 INFO: Building PYZ because PYZ-00.toc is non existent
+23108 INFO: Building PYZ (ZlibArchive) D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Helpers\AtlasBuilder\build\AtlasBuilder\PYZ-00.pyz
+23942 INFO: Building PYZ (ZlibArchive) D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Helpers\AtlasBuilder\build\AtlasBuilder\PYZ-00.pyz completed successfully.
+23961 INFO: checking PKG
+23961 INFO: Building PKG because PKG-00.toc is non existent
+23963 INFO: Building PKG (CArchive) AtlasBuilder.pkg
+23987 INFO: Building PKG (CArchive) AtlasBuilder.pkg completed successfully.
+23987 INFO: Bootloader D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Helpers\AtlasBuilder\.deps\PyInstaller\bootloader\Windows-64bit-intel\runw.exe
+23987 INFO: checking EXE
+23987 INFO: Building EXE because EXE-00.toc is non existent
+23987 INFO: Building EXE from EXE-00.toc
+23987 INFO: Copying bootloader EXE to D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Helpers\AtlasBuilder\build\AtlasBuilder\AtlasBuilder.exe
+24049 INFO: Copying icon to EXE
+24084 INFO: Copying 0 resources to EXE
+24084 INFO: Embedding manifest in EXE
+24115 INFO: Appending PKG archive to EXE
+24163 INFO: Fixing EXE headers
+24341 INFO: Building EXE from EXE-00.toc completed successfully.
+24348 INFO: checking COLLECT
+24348 INFO: Building COLLECT because COLLECT-00.toc is non existent
+24348 INFO: Removing dir D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Helpers\AtlasBuilder\dist\AtlasBuilder
+24520 INFO: Building COLLECT COLLECT-00.toc
+25174 INFO: Building COLLECT COLLECT-00.toc completed successfully.
+25192 INFO: Build complete! The results are available in: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Helpers\AtlasBuilder\dist
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Helpers\AtlasBuilder\dist\AtlasBuilder-portable-win64.zip
+Build completed: dist\AtlasBuilder-portable-win64.zip
+[10.10.2026  0:17:49,46] END: exit code 0

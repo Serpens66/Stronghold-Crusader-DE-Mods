@@ -1,0 +1,33 @@
+[10.10.2026  0:07:42,18] START TrailEditor
+[10.10.2026  0:07:42,24] Baue TrailEditor im Release-Modus ...
+[10.10.2026  0:07:42,24] Compile projects
+  Wiederherzustellende Projekte werden ermittelt...
+  "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Helpers\TrailEditor\TrailEditor.Tests\TrailEditor.Tests.csproj" wiederhergestellt (in 488 ms.).
+  "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Helpers\TrailEditor\TrailEditor.Cli\TrailEditor.Cli.csproj" wiederhergestellt (in 488 ms.).
+  "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Helpers\TrailEditor\TrailEditor.Core\TrailEditor.Core.csproj" wiederhergestellt (in 488 ms.).
+  1 von 4 Projekten sind für die Wiederherstellung auf dem neuesten Stand.
+  MapParser.Core -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Helpers\MapParser\MapParser.Core\bin\Debug\netstandard2.0\MapParser.Core.dll
+  TrailEditor.Core -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Helpers\TrailEditor\TrailEditor.Core\bin\Release\net10.0\TrailEditor.Core.dll
+  TrailEditor.Cli -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Helpers\TrailEditor\TrailEditor.Cli\bin\Release\net10.0\TrailEditor.dll
+  TrailEditor.Tests -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Helpers\TrailEditor\TrailEditor.Tests\bin\Release\net10.0\TrailEditor.Tests.dll
+
+Der Buildvorgang wurde erfolgreich ausgeführt.
+    0 Warnung(en)
+    0 Fehler
+
+Verstrichene Zeit 00:00:01.92
+[10.10.2026  0:07:44,37] Fuehre TrailEditor-Tests aus ...
+[10.10.2026  0:07:44,37] Run tests
+PASS Setup -12 round-trip
+PASS Hidden 500-gold setup level round-trip
+PASS Hidden setup semantics and validation
+PASS Real trail byte-identical container round-trip
+PASS Real trail bundle round-trip
+PASS Game-created custom lord trail round-trip
+PASS Custom AIV/AIC bundle round-trip
+PASS Custom lord config version 1 defaults
+PASS Reject unknown restart version and bundle path escape
+9 passed, 0 failed
+[10.10.2026  0:07:45,38] TrailEditor wurde erfolgreich gebaut und getestet.
+[10.10.2026  0:07:45,38] Programm: "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Helpers\TrailEditor\TrailEditor.Cli\bin\Release\net10.0\TrailEditor.exe"
+[10.10.2026  0:07:45,38] END: exit code 0

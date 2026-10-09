@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param([string]$Workspace)
 $ErrorActionPreference = 'Stop'
+Write-Host '[Preflight] Checking manifest and plugin minimum dependencies...'
 if (-not $Workspace) { $Workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..')) }
 . (Join-Path $Workspace 'APIShared\tools\Validation\DependencyMetadata.Common.ps1')
 $count = 0

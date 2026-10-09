@@ -1,0 +1,63 @@
+[10.10.2026  0:10:00,89] START AIDefenseTest
+[10.10.2026  0:10:00,89] Workspace source and runtime preflight
+[Preflight] Discovering active projects and explicit source links...
+[Preflight] Checking 100 projects and source ownership...
+[Preflight] Checking active references and CRLF...
+[Preflight] Checking JSON, lifecycle and persistent runtime call paths...
+[Preflight] Checking XAML content roots...
+[Preflight] Checking permanent published hooks and executable-memory mutations...
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+PASS: shared ownership boundaries; 100 projects, 1427 valid explicit links; runtime JSON/lifecycle/scheduling, XAML and permanent hooks.
+[Preflight] Checking manifest and plugin minimum dependencies...
+PASS: 41 runtime manifests use consistent generic minimum dependencies; soft dependencies remain optional.
+[Preflight] Completed in 9,1s.
+PASS: 10 mod-owned ingame popup usages have the modoptions style; 0 explicitly disabled popups; HUD action/category/recruitment runtime descriptions use Vanilla rollover paths.
+[10.10.2026  0:10:10,23] Unit access regression tests
+[Preflight] Building and running production UnitAccess contract tests...
+PASS: production UnitAccess boundaries, no invalid SDK calls, NeedsInit/identity neutrality, unload/reload, failure pointer clearing and bounded diagnostics.
+[Preflight] Scanning workspace UnitAccess usage...
+PASS: 1038 runtime source files; SDK unit lookups are confined to UnitAccess and callers consume their boolean results.
+SKIP: inventory testmod project no longer present: Testmods\FormationTest\FormationTest.csproj
+PASS: affected runtime projects and linked sources checked for JSON, plugin scheduling, lifecycle teardown and XAML roots.
+[Preflight] Checking permanent published hooks and executable-memory mutations...
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+[Preflight] UnitAccess checks completed in 6,8s.
+[10.10.2026  0:10:17,14] Check that the game is closed
+Verwende Script Extender Referenzen:
+E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese
+
+[10.10.2026  0:10:17,29] Compile projects
+MSBuild-Version 17.11.9+a69bbaaf5 für .NET Framework
+Der Buildvorgang wurde am 10.10.2026 00:10:17 gestartet.
+
+Projekt "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\AIDefenseTest\AIDefenseTest.csproj" auf Knoten "1" (Standardziele).
+ValidateWorkspaceApiSharedPackage:
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Shared\Tools\ApiSharedRepository\Test-ConsumerPackage.ps1" -Workspace "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods" -PackageDirectory "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\APIShared\BepInEx\plugins\APIShared_Serp"
+  PASS: local APIShared package and build inputs.
+GenerateTargetFrameworkMonikerAttribute:
+Das Ziel "GenerateTargetFrameworkMonikerAttribute" wird übersprungen, da alle Ausgabedateien hinsichtlich der Eingabedateien aktuell sind.
+CoreCompile:
+  C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Roslyn\csc.exe /noconfig /unsafe+ /nowarn:1701,1702 /fullpaths /nostdlib+ /errorreport:prompt /warn:4 /define:DEBUG;TRACE /highentropyva+ /reference:"D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\APIShared\BepInEx\plugins\APIShared_Serp\APIShared.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\core\BepInEx.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\mscorlib.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\R3.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\RedBird.Core.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\SHCDESE.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\System.Core.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\System.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\System.Memory.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.CoreModule.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\netstandard.dll" /debug+ /debug:portable /filealign:512 /optimize- /out:obj\Debug\AIDefenseTest.dll /subsystemversion:6.00 /target:library /utf8output /langversion:latest ..\..\Shared\Adapters\APIShared\MissionEventsAdapter.cs ..\..\Shared\Runtime\Diagnostics\DebugLogHelper.cs ..\..\Shared\Runtime\Native\GameBuildingFootprint.cs src\AIDefenseTestPlugin.cs src\AIDefenseTestRuntime.cs "obj\Debug\.NETFramework,Version=v4.8.1.AssemblyAttributes.cs"
+  CompilerServer: server - server processed compilation - AIDefenseTest
+CopyFilesToOutputDirectory:
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\AIDefenseTest\obj\Debug\AIDefenseTest.dll" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\AIDefenseTest\BepInEx\plugins\AIDefenseTest_Serp\AIDefenseTest.dll" kopiert.
+  AIDefenseTest -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\AIDefenseTest\BepInEx\plugins\AIDefenseTest_Serp\AIDefenseTest.dll
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\AIDefenseTest\obj\Debug\AIDefenseTest.pdb" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\AIDefenseTest\BepInEx\plugins\AIDefenseTest_Serp\AIDefenseTest.pdb" kopiert.
+Die Erstellung von Projekt "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\AIDefenseTest\AIDefenseTest.csproj" ist abgeschlossen (Standardziele).
+
+Der Buildvorgang wurde erfolgreich ausgeführt.
+    0 Warnung(en)
+    0 Fehler
+
+Verstrichene Zeit 00:00:01.25
+
+Build erfolgreich.
+Kopiere Plugin in den Spielordner...
+[10.10.2026  0:10:18,63] Copy package files
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\AIDefenseTest\BepInEx\plugins\AIDefenseTest_Serp\AIDefenseTest.dll
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\AIDefenseTest\BepInEx\plugins\AIDefenseTest_Serp\AIDefenseTest.pdb
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\AIDefenseTest\BepInEx\plugins\AIDefenseTest_Serp\info.json
+3 Datei(en) kopiert
+Plugin kopiert.
+
+[10.10.2026  0:10:18,65] END: exit code 0

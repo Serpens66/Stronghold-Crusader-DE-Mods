@@ -1,0 +1,129 @@
+[10.10.2026  0:21:33,06] START MoatMove
+[10.10.2026  0:21:33,06] Workspace source and runtime preflight
+[Preflight] Discovering active projects and explicit source links...
+[Preflight] Checking 100 projects and source ownership...
+[Preflight] Checking active references and CRLF...
+[Preflight] Checking JSON, lifecycle and persistent runtime call paths...
+[Preflight] Checking XAML content roots...
+[Preflight] Checking permanent published hooks and executable-memory mutations...
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+PASS: shared ownership boundaries; 100 projects, 1427 valid explicit links; runtime JSON/lifecycle/scheduling, XAML and permanent hooks.
+[Preflight] Checking manifest and plugin minimum dependencies...
+PASS: 41 runtime manifests use consistent generic minimum dependencies; soft dependencies remain optional.
+[Preflight] Completed in 9,6s.
+PASS: 10 mod-owned ingame popup usages have the modoptions style; 0 explicitly disabled popups; HUD action/category/recruitment runtime descriptions use Vanilla rollover paths.
+[10.10.2026  0:21:42,89] PowerShell checks / build step
+[Preflight] Checking permanent published hooks and executable-memory mutations...
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+APIShared verified reference Assembly-CSharp: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data/Managed/Assembly-CSharp.dll
+APIShared verified reference SHCDESE: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\SHCDESE.dll
+APIShared: 102 sources, 0 errors
+BugfixesAndQoL verified reference Assembly-CSharp: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data/Managed/Assembly-CSharp.dll
+BugfixesAndQoL verified reference SHCDESE: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\SHCDESE.dll
+BugfixesAndQoL: 359 sources, 0 errors
+MoatMove verified reference Assembly-CSharp: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data/Managed/Assembly-CSharp.dll
+MoatMove verified reference SHCDESE: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\SHCDESE.dll
+MoatMove: 23 sources, 0 errors
+PASS: shared command preflight (487 project/source entries), JSON, callbacks, CRLF, XAML, permanent hooks including MoatMove.
+[10.10.2026  0:21:49,62] Unit access regression tests
+[Preflight] Building and running production UnitAccess contract tests...
+PASS: production UnitAccess boundaries, no invalid SDK calls, NeedsInit/identity neutrality, unload/reload, failure pointer clearing and bounded diagnostics.
+[Preflight] Scanning workspace UnitAccess usage...
+PASS: 1038 runtime source files; SDK unit lookups are confined to UnitAccess and callers consume their boolean results.
+SKIP: inventory testmod project no longer present: Testmods\FormationTest\FormationTest.csproj
+PASS: affected runtime projects and linked sources checked for JSON, plugin scheduling, lifecycle teardown and XAML roots.
+[Preflight] Checking permanent published hooks and executable-memory mutations...
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+[Preflight] UnitAccess checks completed in 7,4s.
+[10.10.2026  0:21:57,19] Check that the game is closed
+[10.10.2026  0:21:57,36] PowerShell checks / build step
+PASS preflight: 23 runtime sources, JSON/lifecycle rules, process ownership, addon dependencies, CRLF and version 0.1.5.
+[10.10.2026  0:21:57,71] Run tests
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\MoatMove\tests\Program.cs(317,34): warning CS8321: Die lokale Funktion "ReadExtenderRange" ist deklariert, wird aber nie verwendet. [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\MoatMove\tests\MoatMove.Tests.csproj]
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\MoatMove\tests\Program.cs(333,6): warning CS8321: Die lokale Funktion "IsExtenderVersionAllowed" ist deklariert, wird aber nie verwendet. [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\MoatMove\tests\MoatMove.Tests.csproj]
+PASS installed metadata: Assembly-CSharp / global EngineInterface / selectedChimps static int[] (Private, Static).
+PASS: detailed movement and ladder diagnostics are disabled for production logging.
+PASS: shared hook ownership, addon dependencies, separate settings, source closures, JSON/lifecycle contracts.
+PASS: production route Pre/Post integration, effective costs, skip, failure, reachability and live-edge safety.
+CURSOR FULL CHAIN units=1 queries=100 ms=0,412 allocatedBytes=68800 pathSearches=0
+CURSOR FULL CHAIN units=120 queries=100 ms=4,370 allocatedBytes=354400 pathSearches=0
+CURSOR FULL CHAIN units=1000 queries=100 ms=50,787 allocatedBytes=2466400 pathSearches=0
+CURSOR PRODUCTION ADAPTER units=1 queries=1000 ms=0,948 allocatedBytes=56000 newNodes=0 pathSearches=0
+CURSOR GROUP ADAPTER units=1 queries=100 allocatedBytes=26400
+CURSOR PRODUCTION ADAPTER units=120 queries=1000 ms=6,742 allocatedBytes=1008000 newNodes=0 pathSearches=0
+CURSOR GROUP ADAPTER units=120 queries=100 allocatedBytes=121600
+CURSOR PRODUCTION ADAPTER units=1000 queries=1000 ms=50,593 allocatedBytes=8048000 newNodes=0 pathSearches=0
+CURSOR GROUP ADAPTER units=1000 queries=100 allocatedBytes=825600
+NATIVE PLACEMENT provider=-1 units=1 unique=1 probes=1 ms=4,910
+NATIVE PLACEMENT provider=-1 units=120 unique=120 probes=120 ms=0,748
+NATIVE PLACEMENT provider=-1 units=680 unique=680 probes=680 ms=9,993
+NATIVE PLACEMENT provider=0 units=1 unique=1 probes=1 ms=0,006
+NATIVE PLACEMENT provider=0 units=120 unique=120 probes=120 ms=0,408
+NATIVE PLACEMENT provider=0 units=680 unique=680 probes=680 ms=6,833
+NATIVE PLACEMENT provider=1 units=1 unique=1 probes=1 ms=0,005
+NATIVE PLACEMENT provider=1 units=120 unique=120 probes=120 ms=0,507
+NATIVE PLACEMENT provider=1 units=680 unique=680 probes=680 ms=6,780
+NATIVE PLACEMENT provider=2 units=1 unique=1 probes=1 ms=0,006
+NATIVE PLACEMENT provider=2 units=120 unique=120 probes=120 ms=0,367
+NATIVE PLACEMENT provider=2 units=680 unique=680 probes=680 ms=6,758
+PLACEMENT WORK units=1 candidates=0 connectivity=125
+PLACEMENT PRODUCTION units=1 unique=1 ms=1,351 allocatedBytes=24968
+PLACEMENT WORK units=5 candidates=3 connectivity=2
+PLACEMENT PRODUCTION units=5 unique=5 ms=0,365 allocatedBytes=13264
+PLACEMENT WORK units=20 candidates=19 connectivity=17
+PLACEMENT PRODUCTION units=20 unique=20 ms=0,397 allocatedBytes=62784
+PLACEMENT WORK units=27 candidates=26 connectivity=24
+PLACEMENT PRODUCTION units=27 unique=27 ms=0,580 allocatedBytes=89184
+PLACEMENT WORK units=29 candidates=28 connectivity=26
+PLACEMENT PRODUCTION units=29 unique=29 ms=0,593 allocatedBytes=94928
+PLACEMENT WORK units=120 candidates=119 connectivity=117
+PLACEMENT PRODUCTION units=120 unique=120 ms=8,740 allocatedBytes=513752
+PASS: placement kernel vs independent directed reachability and nearest-place reference (100 maps).
+GROUP PRODUCTION units=1 ms=0,069 nodes=14 bytes=3256
+GROUP PRODUCTION units=120 ms=3,643 nodes=2537 bytes=323952
+GROUP PRODUCTION units=680 ms=12,820 nodes=2537 bytes=1401392
+FORMATION units=1 nativeCalls=1 ms=0,693 bytes=88
+FORMATION units=20 nativeCalls=45 ms=0,004 bytes=88
+FORMATION units=120 nativeCalls=145 ms=0,012 bytes=88
+FORMATION units=128 nativeCalls=153 ms=0,014 bytes=88
+FORMATION units=156 nativeCalls=181 ms=0,016 bytes=88
+BUILDING PRODUCTION units=1 moat=False candidates=351 ms=2,825 nodes=0 bytes=262040
+BUILDING PRODUCTION units=1 moat=True candidates=351 ms=3,026 nodes=404 bytes=7945032
+BUILDING PRODUCTION units=120 moat=False candidates=351 ms=0,071 nodes=0 bytes=177192
+BUILDING PRODUCTION units=120 moat=True candidates=351 ms=0,357 nodes=404 bytes=242216
+BUILDING PRODUCTION units=680 moat=False candidates=351 ms=0,134 nodes=0 bytes=187800
+BUILDING PRODUCTION units=680 moat=True candidates=351 ms=8,150 nodes=404 bytes=252784
+PASS: 250548 assertions (unit plans, native buffers, real tile graph, work selection cache).
+PASS: 6480 independent building-field distances, directed terminal edges and fresh-state reuse.
+PRECISE COMPARISON units=1 oldMs=10,34 newMs=1,73 oldNodes=6862 newNodes=6862 edgeEvaluations=54629 edgeCacheHits=132
+PRECISE COMPARISON units=120 oldMs=365,16 newMs=164,63 oldNodes=909005 newNodes=909005 edgeEvaluations=70665 edgeCacheHits=7180765
+PRECISE COMPARISON units=680 oldMs=1066,55 newMs=933,73 oldNodes=5150501 newNodes=5150501 edgeEvaluations=70665 edgeCacheHits=41016517
+ACTUAL PRECISE PLANNER units=1 oldMs=14,72 newMs=27,99 oldNodes=4433 newNodes=4433
+ACTUAL PRECISE PLANNER units=120 oldMs=289,02 newMs=148,08 oldNodes=626660 newNodes=626660
+ACTUAL PRECISE PLANNER units=680 oldMs=1048,60 newMs=759,91 oldNodes=3550421 newNodes=3550421
+GROUP PIPELINE MODEL units=1 referenceMs=8,25 combinedMs=0,27 referenceNodes=4607 combinedNodes=1101 referenceBytes=422968 combinedBytes=203544
+GROUP PIPELINE MODEL units=120 referenceMs=183,68 combinedMs=44,25 referenceNodes=220133 combinedNodes=192008 referenceBytes=1161648 combinedBytes=835568
+GROUP PIPELINE MODEL units=680 referenceMs=281,62 combinedMs=241,87 referenceNodes=1213351 combinedNodes=1100866 referenceBytes=2387568 combinedBytes=1682288
+SEARCH MODEL units=1 independentNodes=8111 sharedNodes=7516 sharedRuns=1 cacheHits=1 independentMs=4,14 sharedMs=3,09 independentAllocBytes=3409336 sharedAllocBytes=1326848
+SEARCH MODEL units=5 independentNodes=40242 sharedNodes=38211 sharedRuns=5 cacheHits=5 independentMs=17,43 sharedMs=10,06 independentAllocBytes=3412088 sharedAllocBytes=1355024
+SEARCH MODEL units=20 independentNodes=164492 sharedNodes=156931 sharedRuns=20 cacheHits=20 independentMs=80,92 sharedMs=38,91 independentAllocBytes=3426480 sharedAllocBytes=1419472
+SEARCH MODEL units=27 independentNodes=224280 sharedNodes=214317 sharedRuns=27 cacheHits=27 independentMs=88,38 sharedMs=51,99 independentAllocBytes=3427224 sharedAllocBytes=1444064
+SEARCH MODEL units=29 independentNodes=241778 sharedNodes=230791 sharedRuns=29 cacheHits=29 independentMs=80,71 sharedMs=55,70 independentAllocBytes=3428600 sharedAllocBytes=1449904
+PASS: 84031 independent search assertions (directed edges, profile conflicts, length limits, terrain changes).
+PASS: 289388 new Fast field assertions; directed BFS oracle, shared groups, deterministic slices, cancellation and route limits.
+PASS: new Fast ownership/pool/topology/packed/save assertions=1092
+PASS: 1469340 independent cursor connectivity comparisons after edge additions/removals.
+PASS: actual recovery emitter assembled and decoded (73 bytes, no native code executed).
+PASS: six actual SE selection adapters assembled; live call, branches and RIP addresses preserved.
+PASS: syntax of 28 runtime files; 201 actual runtime members compiled and exercised.
+[10.10.2026  0:22:10,34] Compile projects
+
+  PASS preflight: 23 runtime sources, JSON/lifecycle rules, process ownership, addon dependencies, CRLF and version 0.1.5.
+  PASS: local APIShared package and build inputs.
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\MoatMove\src\FastIntegration.cs(12,22): warning CS0414: Dem Feld "FriendlyMoatTraversalProvider.fastVanillaBypasses" wurde ein Wert zugewiesen, der aber nie verwendet wird. [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\MoatMove\MoatMove.csproj]
+  MoatMove -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\MoatMove\BepInEx\plugins\MoatMove_Serp\MoatMove.dll
+[10.10.2026  0:22:12,45] PowerShell checks / build step
+Preserved existing mode config: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\config\MoatMove_Serp.cfg
+PASS installed MoatMove 0.1.5; DLL/PDB/manifest hashes match: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\MoatMove_Serp
+MoatMove built and installed successfully.
+[10.10.2026  0:22:12,90] END: exit code 0

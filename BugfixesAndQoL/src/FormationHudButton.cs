@@ -29,8 +29,7 @@ namespace BugfixesAndQoL
                     }
                     var definition = new UnitHudActionButtonDefinition("formation", menu.ToggleMenuCommand,
                         SerpLocalization.Get("BugfixesAndQoL.ArrangementTooltip"), CreateContent,
-                        contextChanged: available => { ownContext = available; menu.RefreshHostState(); },
-                        hoverChanged: menu.SetHudButtonHover);
+                        contextChanged: available => { ownContext = available; menu.RefreshHostState(); });
                     if (!buttons.TryRegisterActionButton(definition, out registration, out diagnostic))
                         Shared.DebugLogHelper.LogWarning(log, "FORMATION_ACTION_BUTTON_FAILED: " + diagnostic.Reason);
                     else RefreshVisibility();

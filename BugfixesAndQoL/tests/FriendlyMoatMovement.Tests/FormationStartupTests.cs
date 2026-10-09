@@ -202,17 +202,9 @@ namespace BugfixesAndQoL {
             var main=CrusaderDE.MainViewModel.Instance;main.Show_HUD_Troops=true;
             var panel=main.HUDTroopPanel;
             menu.RefreshHostState();
-            main.TroopsPanelRollover_AmountReq1="cost";main.TroopsPanelRollover_AmountGot1="body";main.TroopsPanelRollover_GoodsImage1=new object();
-            panel.RefTroopsPanelRollover2.Visibility=Noesis.Visibility.Visible;menu.SetHudButtonHover(true);
-            Require(panel.RefTroopsPanelRollover.Visibility==Noesis.Visibility.Visible && panel.RefTroopsPanelRollover2.Visibility==Noesis.Visibility.Hidden && main.TroopsPanelRollover=="Arrangement","Shared hover did not show Vanilla rollover");
-            Require(main.TroopsPanelRollover_AmountReq1=="" && main.TroopsPanelRollover_AmountGot1=="" && main.TroopsPanelRollover_GoodsImage1==null,"Old costs leaked");
-            menu.SetHudButtonHover(false);Require(panel.RefTroopsPanelRollover.Visibility==Noesis.Visibility.Hidden,"Leave did not hide");
-            SerpLocalization.Language="de";menu.SetHudButtonHover(true);Require(main.TroopsPanelRollover=="Aufstellung","German hover missing");SerpLocalization.Language="en";
-            main.TroopsPanelRollover="Different Vanilla button";menu.SetHudButtonHover(false);
-            Require(panel.RefTroopsPanelRollover.Visibility==Noesis.Visibility.Visible,"Other rollover hidden");
-            menu.SetHudButtonHover(true);menu.ToggleMenuCommand.Execute(null);menu.ShowRolloverCommand.Execute("Block");
+            menu.ToggleMenuCommand.Execute(null);menu.ShowRolloverCommand.Execute("Block");
             menu.OwnHudAvailable=()=>false;menu.RefreshHostState();
-            Require(!menu.MenuVisible && !menu.RolloverVisible && panel.RefTroopsPanelRollover.Visibility==Noesis.Visibility.Hidden,"Foreign HUD left formation popup/hover active");
+            Require(!menu.MenuVisible && !menu.RolloverVisible,"Foreign HUD left formation popup/hover active");
             menu.ToggleMenuCommand.Execute(null);Require(!menu.MenuVisible,"Foreign HUD opened formation");
             menu.OwnHudAvailable=()=>true;menu.RefreshHostState();menu.ToggleMenuCommand.Execute(null);
             Require(menu.MenuVisible,"Own HUD did not recover");menu.CloseMenu();
@@ -325,6 +317,6 @@ namespace BugfixesAndQoL {
         if(!result.Success)throw new Exception(string.Join("\n",result.Diagnostics.Where(d=>d.Severity==DiagnosticSeverity.Error)));
         try { Assembly.Load(output.ToArray()).GetType("BugfixesAndQoL.StartupFixture")!.GetMethod("Run")!.Invoke(null,null); }
         catch(TargetInvocationException e) { throw e.InnerException??e; }
-        Console.WriteLine("PASS: actual Configure/Initialize/menu commands executed: independent early hosts, initialization/runtime failure, checkbox, six icons/config changes, close/open and map/selection recovery; production wheel update, remembered rows, group clamping, independent kinds and config reload; localized Vanilla hover ownership and doubled Noesis font presets.");
+        Console.WriteLine("PASS: actual Configure/Initialize/menu commands executed: independent early hosts, initialization/runtime failure, checkbox, six icons/config changes, close/open and map/selection recovery; production wheel update, remembered rows, group clamping, independent kinds and config reload; own/foreign HUD menu isolation and doubled Noesis font presets.");
     }
 }

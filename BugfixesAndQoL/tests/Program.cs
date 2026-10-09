@@ -943,7 +943,7 @@ namespace BugfixesAndQoL
                     featureSource.Contains("!StatisticsTeamBadgesEnabled") &&
                     featureSource.Contains("badgeMode == SurrenderPolicy.StatisticsTeamBadgesOff"),
                 "statistics team badges use the independent client gate and support Off mode");
-            Check(!patchSource.Contains("Background=") &&
+            Check(patch.SelectSingleNode("/Patch/Operation[contains(@XPath, 'MO_MP_PlayersShields')]/Content//*[@Background]") == null &&
                     !patchSource.Contains("MO_MP_PlayersVisible") &&
                     !patchSource.Contains("MO_MP_PlayersShields0}\" />"),
                 "team-badge patch leaves Vanilla row backgrounds, visibility, and personal shield bindings unchanged");

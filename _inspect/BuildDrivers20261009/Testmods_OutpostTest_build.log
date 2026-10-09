@@ -1,0 +1,37 @@
+[10.10.2026  0:13:27,54] START OutpostTest
+[10.10.2026  0:13:27,54] Workspace source and runtime preflight
+[Preflight] Discovering active projects and explicit source links...
+[Preflight] Checking 100 projects and source ownership...
+[Preflight] Checking active references and CRLF...
+[Preflight] Checking JSON, lifecycle and persistent runtime call paths...
+[Preflight] Checking XAML content roots...
+[Preflight] Checking permanent published hooks and executable-memory mutations...
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+PASS: shared ownership boundaries; 100 projects, 1427 valid explicit links; runtime JSON/lifecycle/scheduling, XAML and permanent hooks.
+[Preflight] Checking manifest and plugin minimum dependencies...
+PASS: 41 runtime manifests use consistent generic minimum dependencies; soft dependencies remain optional.
+[Preflight] Completed in 9,7s.
+PASS: 10 mod-owned ingame popup usages have the modoptions style; 0 explicitly disabled popups; HUD action/category/recruitment runtime descriptions use Vanilla rollover paths.
+[10.10.2026  0:13:37,44] Unit access regression tests
+[Preflight] Building and running production UnitAccess contract tests...
+PASS: production UnitAccess boundaries, no invalid SDK calls, NeedsInit/identity neutrality, unload/reload, failure pointer clearing and bounded diagnostics.
+[Preflight] Scanning workspace UnitAccess usage...
+PASS: 1038 runtime source files; SDK unit lookups are confined to UnitAccess and callers consume their boolean results.
+SKIP: inventory testmod project no longer present: Testmods\FormationTest\FormationTest.csproj
+PASS: affected runtime projects and linked sources checked for JSON, plugin scheduling, lifecycle teardown and XAML roots.
+[Preflight] Checking permanent published hooks and executable-memory mutations...
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+[Preflight] UnitAccess checks completed in 7,8s.
+[10.10.2026  0:13:45,44] PowerShell checks / build step
+OutpostTest JSON/lifecycle, CRLF, project and metadata preflight passed.
+Incremental production entry-point check passed.
+Selection/presentation lifecycle boundary check passed.
+
+  PASS: local APIShared package and build inputs.
+  OutpostTest.Tests -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\OutpostTest\tests\bin\OutpostTest.Tests.exe
+OutpostTest: 193 checks passed (static/native synthetic tests, not a game test).
+
+  PASS: local APIShared package and build inputs.
+  OutpostTest -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\OutpostTest\BepInEx\plugins\OutpostTest_Serp\OutpostTest.dll
+OutpostTest tests passed; installed in E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\OutpostTest_Serp
+[10.10.2026  0:13:49,18] END: exit code 0

@@ -1,5 +1,26 @@
 @echo off
 setlocal EnableExtensions
+set "BUILD_DRIVER_NOPAUSE=0"
+for %%A in (%*) do if /I "%%~A"=="/nopause" set "BUILD_DRIVER_NOPAUSE=1"
+set "BUILD_DRIVER_ORIGINAL_DIR=%CD%"
+echo [%date% %time%] START TrailEditor
+cd /d "%~dp0"
+if errorlevel 1 goto :build_driver_directory_failed
+rem The outer driver owns the pause, including failures before compilation.
+call :build_driver_main %* /nopause
+set "BUILD_DRIVER_RESULT=%ERRORLEVEL%"
+cd /d "%BUILD_DRIVER_ORIGINAL_DIR%"
+echo [%date% %time%] END: exit code %BUILD_DRIVER_RESULT%
+if "%BUILD_DRIVER_NOPAUSE%"=="0" pause
+exit /b %BUILD_DRIVER_RESULT%
+
+:build_driver_directory_failed
+echo ERROR: Cannot enter the build directory "%~dp0".
+if "%BUILD_DRIVER_NOPAUSE%"=="0" pause
+exit /b 1
+
+:build_driver_main
+setlocal EnableExtensions
 
 set "PROJECT_DIR=%~dp0"
 set "SOLUTION=%PROJECT_DIR%TrailEditor.sln"
@@ -64,10 +85,12 @@ if not exist "%PROJECT_DIR%sample\Trail_Mission_2.trail" (
 pushd "%PROJECT_DIR%" || exit /b 1
 
 echo [%date% %time%] Baue TrailEditor im Release-Modus ...
+echo [%date% %time%] Compile projects
 dotnet build "%SOLUTION%" -c Release
 if errorlevel 1 goto :failed
 
 echo [%date% %time%] Fuehre TrailEditor-Tests aus ...
+echo [%date% %time%] Run tests
 dotnet run --project "%PROJECT_DIR%TrailEditor.Tests\TrailEditor.Tests.csproj" -c Release --no-build
 if not "%ERRORLEVEL%"=="0" goto :failed
 
@@ -86,9 +109,7 @@ exit /b 0
 set "BUILD_EXIT=%errorlevel%"
 popd
 echo [%date% %time%] FEHLER: Build oder Tests fehlgeschlagen ^(Exitcode %BUILD_EXIT%^).
-if not defined TrailEditorNoPause pause
 exit /b %BUILD_EXIT%
 
 :configurationFailed
-if not defined TrailEditorNoPause pause
 exit /b 1

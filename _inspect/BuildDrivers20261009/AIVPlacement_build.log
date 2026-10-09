@@ -1,0 +1,62 @@
+[10.10.2026  0:02:12,14] START AIVPlacement
+Baue AIVPlacement in der Release-Konfiguration...
+[10.10.2026  0:02:12,18] Compile projects
+  Wiederherzustellende Projekte werden ermittelt...
+  Alle Projekte sind für die Wiederherstellung auf dem neuesten Stand.
+  AIVParser.Core -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Helpers\AIVParser\AIVParser.Core\bin\Release\netstandard2.0\AIVParser.Core.dll
+  MapParser.Core -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Helpers\MapParser\MapParser.Core\bin\Release\netstandard2.0\MapParser.Core.dll
+  AIVPlacement.Core -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\AIVPlacement\AIVPlacement.Core\bin\Release\netstandard2.0\AIVPlacement.Core.dll
+  AIVPlacement.OracleComparison -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\AIVPlacement\AIVPlacement.OracleComparison\bin\Release\net10.0\AIVPlacement.OracleComparison.dll
+  AIVPlacement.Tests -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\AIVPlacement\AIVPlacement.Tests\bin\Release\net10.0\AIVPlacement.Tests.dll
+
+Der Buildvorgang wurde erfolgreich ausgeführt.
+    0 Warnung(en)
+    0 Fehler
+
+Verstrichene Zeit 00:00:01.73
+
+Fuehre die synthetischen Tests aus...
+[10.10.2026  0:02:14,10] Run tests
+PASS Project all four rotations
+PASS Apply ordered single-cell clears in all rotations
+PASS Use the native fixed keep reference
+PASS Project asymmetric building footprints
+PASS Retain the native Dog Cage area while classifying it as a trap
+PASS Retain coordinates beyond the map edge
+PASS Project gates, drawbridges and stairs
+PASS Keep overlapping elements traceable
+PASS Preserve build steps, pauses and anchor-only entries
+PASS Project associated blocked areas separately
+PASS Require an exact AIV keep anchor
+PASS Retain placement issue evidence
+PASS Normalize serialized player start occupancy
+PASS Limit confirmed startup cleanup to a Keep link group
+PASS Match native Keep cleanup contacts and linked-group risk
+PASS Keep neighboring starts separated by wall owner
+PASS Rotate rebuilt player start occupancy
+PASS Match observed Keep and campground footprints
+PASS Translate rebuilt starts with the rotated AIV Keep marker
+PASS Enumerate selected, failed and marker-dependent AI starts
+PASS Bound the possible start-state expansion
+PASS Reconstruct native rock footprints
+PASS Require observed state after an executed AIV prebuild
+PASS Reject reasonless placement issues
+PASS Distinguish native-domain and diamond failures
+PASS Apply the native mapper height limit
+PASS Report the exact blocked tile in a multi-tile building
+PASS Apply proven logic masks and mapper profiles
+PASS Allow organisms in native Skirmish mode
+PASS Reject existing walls as owner conflicts
+PASS Detect internal overlaps in build order
+PASS Evaluate associated areas separately from core footprints
+PASS Produce deterministic element results
+PASS Build opt-in per-cell Oracle diagnostics
+PASS Aggregate complete, partial and impossible candidates
+PASS Keep unresolved candidates not evaluable
+PASS Select the first complete rotation in native order
+PASS Apply the native alternative-rotation threshold
+38/38 tests passed.
+
+Build und Tests waren erfolgreich.
+Die paketfreie Bibliothek liegt unter AIVPlacement.Core\bin\Release\netstandard2.0.
+[10.10.2026  0:02:15,10] END: exit code 0

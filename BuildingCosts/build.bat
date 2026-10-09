@@ -1,4 +1,26 @@
 @echo off
+setlocal EnableExtensions
+set "BUILD_DRIVER_NOPAUSE=0"
+for %%A in (%*) do if /I "%%~A"=="/nopause" set "BUILD_DRIVER_NOPAUSE=1"
+set "BUILD_DRIVER_ORIGINAL_DIR=%CD%"
+echo [%date% %time%] START BuildingCosts
+cd /d "%~dp0"
+if errorlevel 1 goto :build_driver_directory_failed
+rem The outer driver owns the pause, including failures before compilation.
+call :build_driver_main %* /nopause
+set "BUILD_DRIVER_RESULT=%ERRORLEVEL%"
+cd /d "%BUILD_DRIVER_ORIGINAL_DIR%"
+echo [%date% %time%] END: exit code %BUILD_DRIVER_RESULT%
+if "%BUILD_DRIVER_NOPAUSE%"=="0" pause
+exit /b %BUILD_DRIVER_RESULT%
+
+:build_driver_directory_failed
+echo ERROR: Cannot enter the build directory "%~dp0".
+if "%BUILD_DRIVER_NOPAUSE%"=="0" pause
+exit /b 1
+
+:build_driver_main
+echo [%date% %time%] Workspace source and runtime preflight
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\Validation\Test-SharedBoundaries.ps1"
 if errorlevel 1 exit /b 1
 setlocal EnableExtensions EnableDelayedExpansion
@@ -19,11 +41,11 @@ set "NO_PAUSE=0"
 for %%A in (%*) do if /I "%%~A"=="/nopause" set "NO_PAUSE=1"
 
 rem Never touch build or installation output while the game has plugin DLLs loaded.
+echo [%date% %time%] Check that the game is closed
 powershell.exe -NoProfile -Command "if (Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue) { exit 1 } else { exit 0 }" >nul 2>&1
 if errorlevel 1 (
   echo Build und Installation abgebrochen: Stronghold Crusader Definitive Edition ist noch gestartet.
   echo Lokales Paket und installierter Mod wurden nicht veraendert.
-  if "%NO_PAUSE%"=="0" pause
   exit /b 1
 )
 
@@ -31,7 +53,6 @@ if not exist "%MSBUILD%" (
   echo MSBuild wurde nicht gefunden:
   echo !MSBUILD!
   echo.
-  pause
   exit /b 1
 )
 
@@ -39,7 +60,6 @@ if not exist "%GAME_DIR%\BepInEx\core\BepInEx.dll" (
   echo BepInEx.dll wurde im Spielordner nicht gefunden:
   echo !GAME_DIR!\BepInEx\core\BepInEx.dll
   echo.
-  pause
   exit /b 1
 )
 
@@ -56,7 +76,6 @@ if exist "%LOCAL_SCRIPT_EXTENDER_ROOT%\" (
     echo Baue zuerst ..\shcde-script-extender\build.bat oder entferne den Nebenordner,
     echo wenn gegen die installierte Spiel-DLL kompiliert werden soll.
     echo.
-    pause
     exit /b 1
   )
 ) else (
@@ -67,7 +86,6 @@ if not exist "%EXTENDER_DIR%\SHCDESE.dll" (
   echo SHCDESE.dll wurde nicht gefunden:
   echo !EXTENDER_DIR!\SHCDESE.dll
   echo.
-  pause
   exit /b 1
 )
 
@@ -76,6 +94,7 @@ echo !EXTENDER_DIR!
 echo.
 
 pushd "%PROJECT_DIR%"
+echo [%date% %time%] Compile projects
 "%MSBUILD%" BuildingCosts.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
 set "BUILD_EXIT_CODE=%ERRORLEVEL%"
 popd
@@ -112,6 +131,7 @@ if "%BUILD_EXIT_CODE%"=="0" (
       )
     )
   )
+echo [%date% %time%] Copy package files
   xcopy "!LOCAL_PLUGIN_DIR!" "!GAME_PLUGIN_DIR!\" /E /I /Y
   if errorlevel 1 goto copy_failed
   if exist "!OLD_GAME_PLUGIN_DIR!\" (
@@ -130,6 +150,7 @@ if "%BUILD_EXIT_CODE%"=="0" (
     )
   )
 
+echo [%date% %time%] PowerShell checks / build step
   powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared\Tools\Release\Write-LocalBuildManifest.ps1" -ModName BuildingCosts
   if errorlevel 1 goto copy_failed
 
@@ -138,7 +159,6 @@ if "%BUILD_EXIT_CODE%"=="0" (
   echo Build fehlgeschlagen. Exit Code: %BUILD_EXIT_CODE%
 )
 echo.
-if "%NO_PAUSE%"=="0" pause
 exit /b %BUILD_EXIT_CODE%
 
 :copy_failed
@@ -146,5 +166,4 @@ echo.
 echo Kopieren fehlgeschlagen. Ist das Spiel noch gestartet?
 echo Beende Stronghold Crusader Definitive Edition und starte build.bat erneut.
 echo.
-if "%NO_PAUSE%"=="0" pause
 exit /b 1

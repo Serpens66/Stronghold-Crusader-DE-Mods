@@ -2,6 +2,7 @@
 param()
 
 $ErrorActionPreference = 'Stop'
+Write-Host '[Preflight] Checking permanent published hooks and executable-memory mutations...'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..'))
 $roots = @('.')
 $excludedSegments = @(

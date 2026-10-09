@@ -1,0 +1,10 @@
+[10.10.2026  0:09:04,60] START SerpPresets
+[10.10.2026  0:09:04,60] Check that the game is closed
+[10.10.2026  0:09:04,77] PowerShell checks / build step
+SerpPresets verified: 7 presets for 6 target mods.
+[10.10.2026  0:09:05,07] Copy package files
+[10.10.2026  0:09:05,07] Copy package files
+[10.10.2026  0:09:05,08] PowerShell checks / build step
+SerpPresets verified: 7 presets for 6 target mods.
+SerpPresets erfolgreich geprueft und installiert.
+[10.10.2026  0:09:05,37] END: exit code 0

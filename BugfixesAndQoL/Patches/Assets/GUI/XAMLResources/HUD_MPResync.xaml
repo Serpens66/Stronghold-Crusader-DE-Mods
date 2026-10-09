@@ -1,12 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-       xmlns:local="clr-namespace:CrusaderDE">
+       xmlns:local="clr-namespace:CrusaderDE"
+       xmlns:seui="clr-namespace:SHCDESE.UI;assembly=SHCDESE">
   <Operation Type="Replace" XPath="//n:Grid[@x:Name='LayoutRoot']">
     <Content>
       <Grid x:Name="LayoutRoot" Width="620" Height="110"
             HorizontalAlignment="Center" VerticalAlignment="Top"
             Background="#00000000" Opacity="0.8"
             IsHitTestVisible="{Binding MPConectionIssueButtonVisible}" UseLayoutRounding="True">
+        <Grid.Resources>
+    <Style TargetType="{x:Type ToolTip}">
+      <Setter Property="Background" Value="#FF1D1710"/>
+      <Setter Property="Foreground" Value="White"/>
+      <Setter Property="seui:ToolTipResolutionScale.Enabled" Value="True"/>
+      <Setter Property="BorderBrush" Value="#FFF2D48A"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="{x:Type ToolTip}">
+            <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="2" Padding="{TemplateBinding Padding}" MaxWidth="{TemplateBinding MaxWidth}">
+              <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}" TextWrapping="Wrap"/>
+            </Border>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+        </Grid.Resources>
         <Button Width="440" Height="65" HorizontalAlignment="Center" VerticalAlignment="Top"
                 IsHitTestVisible="False" Style="{StaticResource BDR_SH1DEb}" />
         <Button Width="620" Height="45" HorizontalAlignment="Center" VerticalAlignment="Bottom"

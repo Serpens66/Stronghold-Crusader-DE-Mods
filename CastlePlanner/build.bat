@@ -1,4 +1,26 @@
 @echo off
+setlocal EnableExtensions
+set "BUILD_DRIVER_NOPAUSE=0"
+for %%A in (%*) do if /I "%%~A"=="/nopause" set "BUILD_DRIVER_NOPAUSE=1"
+set "BUILD_DRIVER_ORIGINAL_DIR=%CD%"
+echo [%date% %time%] START CastlePlanner
+cd /d "%~dp0"
+if errorlevel 1 goto :build_driver_directory_failed
+rem The outer driver owns the pause, including failures before compilation.
+call :build_driver_main %* /nopause
+set "BUILD_DRIVER_RESULT=%ERRORLEVEL%"
+cd /d "%BUILD_DRIVER_ORIGINAL_DIR%"
+echo [%date% %time%] END: exit code %BUILD_DRIVER_RESULT%
+if "%BUILD_DRIVER_NOPAUSE%"=="0" pause
+exit /b %BUILD_DRIVER_RESULT%
+
+:build_driver_directory_failed
+echo ERROR: Cannot enter the build directory "%~dp0".
+if "%BUILD_DRIVER_NOPAUSE%"=="0" pause
+exit /b 1
+
+:build_driver_main
+echo [%date% %time%] Workspace source and runtime preflight
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\Validation\Test-SharedBoundaries.ps1"
 if errorlevel 1 exit /b 1
 setlocal EnableExtensions EnableDelayedExpansion
@@ -16,6 +38,7 @@ rem The installed release is canonical; SHCDESE_EXTENDER_DIR is the explicit ove
 if defined SHCDESE_EXTENDER_DIR set "GAME_SCRIPT_EXTENDER_DIR=%SHCDESE_EXTENDER_DIR%"
 rem APIShared may be supplied explicitly or by the validated workspace package.
 if defined SHCDE_API_SHARED_DIR set "API_SHARED_DIR=%SHCDE_API_SHARED_DIR%"
+echo [%date% %time%] PowerShell checks / build step
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\ApiSharedRepository\Test-ConsumerPackage.ps1" -Workspace "%~dp0.." -PackageDirectory "%API_SHARED_DIR%"
 if errorlevel 1 exit /b 1
 set "LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT=%GAME_SCRIPT_EXTENDER_DIR%"
@@ -25,11 +48,11 @@ set "NO_PAUSE=0"
 if /I "%~1"=="/nopause" set "NO_PAUSE=1"
 
 rem Never touch build or installation output while the game has plugin DLLs loaded.
+echo [%date% %time%] Check that the game is closed
 powershell.exe -NoProfile -Command "if (Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue) { exit 1 } else { exit 0 }" >nul 2>&1
 if errorlevel 1 (
   echo Build und Installation abgebrochen: Stronghold Crusader Definitive Edition ist noch gestartet.
   echo Lokales Paket und installierter Mod wurden nicht veraendert.
-  if "%NO_PAUSE%"=="0" pause
   exit /b 1
 )
 
@@ -37,7 +60,6 @@ if not exist "%MSBUILD%" (
   echo MSBuild wurde nicht gefunden:
   echo !MSBUILD!
   echo.
-  if "%NO_PAUSE%"=="0" pause
   exit /b 1
 )
 
@@ -45,7 +67,6 @@ if not exist "%GAME_DIR%\BepInEx\core\BepInEx.dll" (
   echo BepInEx.dll wurde im Spielordner nicht gefunden:
   echo !GAME_DIR!\BepInEx\core\BepInEx.dll
   echo.
-  if "%NO_PAUSE%"=="0" pause
   exit /b 1
 )
 
@@ -62,7 +83,6 @@ if exist "%LOCAL_SCRIPT_EXTENDER_ROOT%\" (
     echo Baue zuerst ..\shcde-script-extender\build.bat oder entferne den Nebenordner,
     echo wenn gegen die installierte Spiel-DLL kompiliert werden soll.
     echo.
-    if "%NO_PAUSE%"=="0" pause
     exit /b 1
   )
 ) else (
@@ -73,7 +93,6 @@ if not exist "%EXTENDER_DIR%\SHCDESE.dll" (
   echo SHCDESE.dll wurde nicht gefunden:
   echo !EXTENDER_DIR!\SHCDESE.dll
   echo.
-  if "%NO_PAUSE%"=="0" pause
   exit /b 1
 )
 
@@ -81,7 +100,6 @@ if not exist "%API_SHARED_DIR%\APIShared.dll" (
   echo APIShared.dll wurde nicht gefunden:
   echo !API_SHARED_DIR!\APIShared.dll
   echo.
-  if "%NO_PAUSE%"=="0" pause
   exit /b 1
 )
 
@@ -96,6 +114,7 @@ if errorlevel 1 (
   popd
   goto build_failed
 )
+echo [%date% %time%] Compile projects
 dotnet build AIVPlacement.Tests\CastlePlanner.AIVPlacement.Tests.csproj -c Release --no-restore -m:1 -p:BuildInParallel=false
 if errorlevel 1 (
   set "BUILD_EXIT_CODE=1"
@@ -109,14 +128,17 @@ if not "%ERRORLEVEL%"=="0" (
   goto build_failed
 )
 
+echo [%date% %time%] PowerShell checks / build step
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Prepare-ThinPackage.ps1" -PackageDirectory "%PROJECT_DIR%BepInEx\plugins\CastlePlanner_Serp"
 if errorlevel 1 (
   popd
   goto build_failed
 )
+echo [%date% %time%] Compile projects
 "%MSBUILD%" CastlePlanner.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%"
 set "BUILD_EXIT_CODE=%ERRORLEVEL%"
 if "%BUILD_EXIT_CODE%"=="0" (
+echo [%date% %time%] PowerShell checks / build step
   powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Prepare-ThinPackage.ps1" -PackageDirectory "%PROJECT_DIR%BepInEx\plugins\CastlePlanner_Serp" -ValidateOnly
   if errorlevel 1 set "BUILD_EXIT_CODE=1"
 )
@@ -143,12 +165,15 @@ if "%BUILD_EXIT_CODE%"=="0" (
     if exist "!LEGACY_MAIN_HUD_PATCH!" goto copy_failed
   )
 
+echo [%date% %time%] PowerShell checks / build step
   powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Prepare-ThinPackage.ps1" -PackageDirectory "!GAME_PLUGIN_DIR!"
   if errorlevel 1 goto copy_failed
 
   rem Overlay managed files so Script Extender Msgpack settings survive rebuilds.
+echo [%date% %time%] Copy package files
   xcopy "!LOCAL_PLUGIN_DIR!" "!GAME_PLUGIN_DIR!\" /E /I /Q /Y
   if errorlevel 1 goto copy_failed
+echo [%date% %time%] PowerShell checks / build step
   powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared\Tools\Release\Write-LocalBuildManifest.ps1" -ModName CastlePlanner
   if errorlevel 1 goto copy_failed
   echo Plugin kopiert; vorhandene Laufzeitdaten wurden beibehalten.
@@ -156,14 +181,12 @@ if "%BUILD_EXIT_CODE%"=="0" (
   echo Build fehlgeschlagen. Exit Code: %BUILD_EXIT_CODE%
 )
 echo.
-if "%NO_PAUSE%"=="0" pause
 exit /b %BUILD_EXIT_CODE%
 
 :build_failed
 echo.
 echo Build oder AIV-Placement-Tests fehlgeschlagen.
 echo.
-if "%NO_PAUSE%"=="0" pause
 exit /b 1
 
 :copy_failed
@@ -171,5 +194,4 @@ echo.
 echo Kopieren fehlgeschlagen. Ist das Spiel noch gestartet?
 echo Beende Stronghold Crusader Definitive Edition und starte build.bat erneut.
 echo.
-if "%NO_PAUSE%"=="0" pause
 exit /b 1

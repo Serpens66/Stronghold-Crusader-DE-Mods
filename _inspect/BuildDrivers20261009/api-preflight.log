@@ -1,0 +1,10 @@
+PASS: generic dependency declarations, arbitrary GUIDs, constants, presence-only and optional dependencies; 6 malformed fixtures rejected.
+PASS: APIShared has no executable-memory toggles or published transaction teardown.
+GameUnit.r_AliveState type=SHCDESE.Interop.Enums.AliveState offset=0x88 width=2 stride=1168
+GameUnit.r_IsKilledByProjectile type=System.UInt16 offset=0x29C width=2 stride=1168
+GameUnit computedSize=1168 declaredSize=1168 pack=1
+GameTribe.r_AliveState type=SHCDESE.Interop.Enums.AliveState offset=0x16 width=2 stride=1672
+GameTribe computedSize=1672 declaredSize=1672 pack=1
+GameCursorManager computedSize=1152 declaredSize=0 pack=1
+Installed interop fields, widths and sequential offsets audited.
+PASS: standalone APIShared boundaries (51 links), runtime JSON/lifecycle/scheduling and XAML; installed interop is checked in the local full run.

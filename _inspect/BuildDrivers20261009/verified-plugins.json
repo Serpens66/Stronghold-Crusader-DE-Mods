@@ -1,0 +1,224 @@
+[
+  {
+    "GUID": "ImprovedHunters_Serp",
+    "Version": "1.1.87",
+    "APIReference": "0.5.0.0",
+    "Driver": "ImprovedHunters\\build.bat"
+  },
+  {
+    "GUID": "UnitLimit_Serp",
+    "Version": "1.0.104",
+    "APIReference": "0.5.0.0",
+    "Driver": "UnitLimit\\build.bat"
+  },
+  {
+    "GUID": "UnitCosts_Serp",
+    "Version": "1.0.34",
+    "APIReference": "0.5.0.0",
+    "Driver": "UnitCosts\\build.bat"
+  },
+  {
+    "GUID": "CastlePlanner_Serp",
+    "Version": "0.8.39",
+    "APIReference": "0.5.0.0",
+    "Driver": "CastlePlanner\\build.bat"
+  },
+  {
+    "GUID": "VanillaAICExporter_Serp",
+    "Version": "0.1.4",
+    "APIReference": "",
+    "Driver": "Helpers\\VanillaAICExporter\\build.bat"
+  },
+  {
+    "GUID": "ExtendedData_Serp",
+    "Version": "1.0.9",
+    "APIReference": "0.5.0.0",
+    "Driver": "ExtendedData\\build.bat"
+  },
+  {
+    "GUID": "BuildingCosts_Serp",
+    "Version": "1.0.111",
+    "APIReference": "0.5.0.0",
+    "Driver": "BuildingCosts\\build.bat"
+  },
+  {
+    "GUID": "BuildingLimit_Serp",
+    "Version": "1.0.29",
+    "APIReference": "0.5.0.0",
+    "Driver": "BuildingLimit\\build.bat"
+  },
+  {
+    "GUID": "VirtualUnitsPrototype_Serp",
+    "Version": "0.1.4",
+    "APIReference": "0.5.0.0",
+    "Driver": "Testmods\\VirtualUnitsPrototype\\build.bat"
+  },
+  {
+    "GUID": "BugfixesAndQoL_Serp",
+    "Version": "1.0.181",
+    "APIReference": "0.5.0.0",
+    "Driver": "BugfixesAndQoL\\build.bat"
+  },
+  {
+    "GUID": "StockpileAccessFixTest_Serp",
+    "Version": "0.1.4",
+    "APIReference": "0.5.0.0",
+    "Driver": "Testmods\\StockpileAccessFixTest\\build.bat"
+  },
+  {
+    "GUID": "CheatMod_Serp",
+    "Version": "1.0.10",
+    "APIReference": "0.5.0.0",
+    "Driver": "CheatMod\\build.bat"
+  },
+  {
+    "GUID": "RandomEvents_Serp",
+    "Version": "1.0.50",
+    "APIReference": "0.5.0.0",
+    "Driver": "RandomEvents\\build.bat"
+  },
+  {
+    "GUID": "StartupPerformanceDiagnostic_Serp",
+    "Version": "0.1.0",
+    "APIReference": "",
+    "Driver": "Testmods\\StartupPerformanceDiagnostic\\build.bat"
+  },
+  {
+    "GUID": "APIShared_Serp",
+    "Version": "0.5.0",
+    "APIReference": "",
+    "Driver": "APIShared\\build.bat"
+  },
+  {
+    "GUID": "SerpsMods_Serp",
+    "Version": "1.0.25",
+    "APIReference": "0.5.0.0",
+    "Driver": "SerpsModsHost\\build.bat"
+  },
+  {
+    "GUID": "EnemyBridgePathTest_Serp",
+    "Version": "0.1.0",
+    "APIReference": "0.5.0.0",
+    "Driver": "Testmods\\EnemyBridgePathTest\\build.bat"
+  },
+  {
+    "GUID": "AICoarsePathComponentFixTest_Serp",
+    "Version": "0.1.1",
+    "APIReference": "0.5.0.0",
+    "Driver": "Testmods\\AICoarsePathComponentFixTest\\build.bat"
+  },
+  {
+    "GUID": "AIMarketOverbuyDiagnostic_Serp",
+    "Version": "0.1.0",
+    "APIReference": "0.5.0.0",
+    "Driver": "Testmods\\AIMarketOverbuyDiagnostic\\build.bat"
+  },
+  {
+    "GUID": "SpectatorEditorBuildTest_Serp",
+    "Version": "0.1.1",
+    "APIReference": "0.5.0.0",
+    "Driver": "Testmods\\SpectatorEditorBuildTest\\build.bat"
+  },
+  {
+    "GUID": "OutpostTest_Serp",
+    "Version": "0.1.2",
+    "APIReference": "0.5.0.0",
+    "Driver": "Testmods\\OutpostTest\\build.bat"
+  },
+  {
+    "GUID": "AssassinAttackControlTest_Serp",
+    "Version": "0.1.1",
+    "APIReference": "0.5.0.0",
+    "Driver": "Testmods\\AssassinAttackControlTest\\build.bat"
+  },
+  {
+    "GUID": "MainViewModelInitProbe_Serp",
+    "Version": "0.1.0",
+    "APIReference": "0.5.0.0",
+    "Driver": "Testmods\\MainViewModelInitProbe\\build.bat"
+  },
+  {
+    "GUID": "AIDefenseTest_Serp",
+    "Version": "1.2.13",
+    "APIReference": "0.5.0.0",
+    "Driver": "Testmods\\AIDefenseTest\\build.bat"
+  },
+  {
+    "GUID": "AIBuildDiagnoseTest_Serp",
+    "Version": "0.1.1",
+    "APIReference": "0.5.0.0",
+    "Driver": "Testmods\\AIBuildDiagnoseTest\\build.bat"
+  },
+  {
+    "GUID": "AIAttackTest_Serp",
+    "Version": "0.1.0",
+    "APIReference": "0.5.0.0",
+    "Driver": "Testmods\\AIAttackTest\\build.bat"
+  },
+  {
+    "GUID": "EngineerSiegeFixTest_Serp",
+    "Version": "0.1.2",
+    "APIReference": "0.5.0.0",
+    "Driver": "Testmods\\EngineerSiegeFixTest\\build.bat"
+  },
+  {
+    "GUID": "MoatMove_Serp",
+    "Version": "0.1.5",
+    "APIReference": "0.5.0.0",
+    "Driver": "Testmods\\MoatMove\\build.bat"
+  },
+  {
+    "GUID": "AivLobbyPresetTest_Serp",
+    "Version": "0.1.0",
+    "APIReference": "0.5.0.0",
+    "Driver": "Testmods\\AivLobbyPresetTest\\build.bat"
+  },
+  {
+    "GUID": "HunterQueryTargetDiagnostic_Serp",
+    "Version": "1.4.8",
+    "APIReference": "0.5.0.0",
+    "Driver": "Helpers\\HunterQueryTargetDiagnostic\\build.bat"
+  },
+  {
+    "GUID": "SkinTest_Serp",
+    "Version": "0.1.2",
+    "APIReference": "0.5.0.0",
+    "Driver": "Testmods\\SkinTest\\build.bat"
+  },
+  {
+    "GUID": "ExtraFeatures_Serp",
+    "Version": "1.0.111",
+    "APIReference": "0.5.0.0",
+    "Driver": "ExtraFeatures\\build.bat"
+  },
+  {
+    "GUID": "EnemyGatePathfindingTest_Serp",
+    "Version": "0.1.6",
+    "APIReference": "0.5.0.0",
+    "Driver": "Testmods\\EnemyGatePathfindingTest\\build.bat"
+  },
+  {
+    "GUID": "ExtremePowers_Serp",
+    "Version": "0.1.5",
+    "APIReference": "0.5.0.0",
+    "Driver": "ExtremePowers\\build.bat"
+  },
+  {
+    "GUID": "StartConditions_Serp",
+    "Version": "1.0.31",
+    "APIReference": "0.5.0.0",
+    "Driver": "StartConditions\\build.bat"
+  },
+  {
+    "GUID": "ActiveAIVDetector_Serp",
+    "Version": "0.10.2",
+    "APIReference": "0.5.0.0",
+    "Driver": "Helpers\\ActiveAIVDetector\\build.bat"
+  },
+  {
+    "GUID": "PrebuiltWorkshopBothFixTest_Serp",
+    "Version": "0.1.0",
+    "APIReference": "0.5.0.0",
+    "Driver": "Testmods\\PrebuiltWorkshopBothFixTest\\build.bat"
+  }
+]

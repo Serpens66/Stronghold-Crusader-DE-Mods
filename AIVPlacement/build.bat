@@ -1,5 +1,26 @@
 @echo off
 setlocal EnableExtensions
+set "BUILD_DRIVER_NOPAUSE=0"
+for %%A in (%*) do if /I "%%~A"=="/nopause" set "BUILD_DRIVER_NOPAUSE=1"
+set "BUILD_DRIVER_ORIGINAL_DIR=%CD%"
+echo [%date% %time%] START AIVPlacement
+cd /d "%~dp0"
+if errorlevel 1 goto :build_driver_directory_failed
+rem The outer driver owns the pause, including failures before compilation.
+call :build_driver_main %* /nopause
+set "BUILD_DRIVER_RESULT=%ERRORLEVEL%"
+cd /d "%BUILD_DRIVER_ORIGINAL_DIR%"
+echo [%date% %time%] END: exit code %BUILD_DRIVER_RESULT%
+if "%BUILD_DRIVER_NOPAUSE%"=="0" pause
+exit /b %BUILD_DRIVER_RESULT%
+
+:build_driver_directory_failed
+echo ERROR: Cannot enter the build directory "%~dp0".
+if "%BUILD_DRIVER_NOPAUSE%"=="0" pause
+exit /b 1
+
+:build_driver_main
+setlocal EnableExtensions
 
 set "PROJECT_DIR=%~dp0"
 
@@ -13,6 +34,7 @@ if errorlevel 1 (
 pushd "%PROJECT_DIR%"
 
 echo Baue AIVPlacement in der Release-Konfiguration...
+echo [%date% %time%] Compile projects
 dotnet build "AIVPlacement.sln" -c Release -m:1
 if errorlevel 1 (
   popd
@@ -23,6 +45,7 @@ if errorlevel 1 (
 
 echo.
 echo Fuehre die synthetischen Tests aus...
+echo [%date% %time%] Run tests
 dotnet run --project "AIVPlacement.Tests\AIVPlacement.Tests.csproj" -c Release --no-build
 if not "%ERRORLEVEL%"=="0" (
   popd

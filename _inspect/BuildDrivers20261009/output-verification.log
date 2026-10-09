@@ -1,0 +1,4 @@
+NOTE: StartupPerformanceDiagnostic_Serp has no Script Extender assembly dependency; its minimum is declared only in the existing manifest.
+NOTE: StartupPerformanceDiagnostic installs only the patcher DLL, not its local debug PDB.
+NOTE: AivLobbyPresetTest does not install its local debug PDB.
+PASS: 37 plugin versions/minimum dependencies, 1498 installed file hashes, API assembly reference 0.5.0.0 and fresh API build proof.
