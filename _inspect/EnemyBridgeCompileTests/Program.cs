@@ -2,6 +2,8 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using System.Reflection;
 using System.Xml.Linq;
+using System.Diagnostics;
+using System.Text.Json;
 
 string root = Path.GetFullPath(args[0]);
 string game = @"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition";
@@ -14,6 +16,7 @@ foreach (string dir in new[] { framework, Path.Combine(framework,"Facades"),
         try {
             if (dir.EndsWith("Managed") && !new[] { "Assembly-CSharp.dll", "UnityEngine.dll", "UnityEngine.CoreModule.dll",
                 "UnityEngine.InputLegacyModule.dll", "Noesis.NoesisGUI.dll", "com.rlabrecque.steamworks.net.dll" }.Contains(Path.GetFileName(file))) continue;
+            if (new[] { "PresentationCore.dll", "PresentationFramework.dll", "WindowsBase.dll" }.Contains(Path.GetFileName(file))) continue;
             AssemblyName.GetAssemblyName(file); references[Path.GetFileName(file)] = file;
         }
         catch (BadImageFormatException) { }
@@ -31,10 +34,9 @@ foreach (var hint in apiProject.Descendants().Where(e=>e.Name.LocalName=="HintPa
     if(File.Exists(path)) apiRefs[Path.GetFileName(path)]=path;
 }
 if(apiRefs.ContainsKey("Assembly-CSharp-publicized.dll")) apiRefs.Remove("Assembly-CSharp.dll");
-var apiTrees=apiProject.Descendants().Where(e=>e.Name.LocalName=="Compile").Select(e=> {
-    string path=Path.GetFullPath(Path.Combine(root,"APIShared",e.Attribute("Include")!.Value));
-    return CSharpSyntaxTree.ParseText(File.ReadAllText(path),CSharpParseOptions.Default.WithDocumentationMode(DocumentationMode.Diagnose),path:path);
-});
+var apiInput = EvaluateSources(Path.Combine(root,"APIShared","APIShared.csproj"));
+var apiTrees = apiInput.Paths.Select(path => CSharpSyntaxTree.ParseText(File.ReadAllText(path),
+    CSharpParseOptions.Default.WithPreprocessorSymbols(apiInput.Symbols).WithDocumentationMode(DocumentationMode.Diagnose),path:path));
 var apiCompilation=CSharpCompilation.Create("APIShared",apiTrees,apiRefs.Values.Select(p=>MetadataReference.CreateFromFile(p)),
     new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary,allowUnsafe:true).WithSpecificDiagnosticOptions(
         new Dictionary<string,ReportDiagnostic>{{"CS1591",ReportDiagnostic.Error}}));
@@ -61,24 +63,36 @@ foreach (string mod in args.Length > 1 ? args.Skip(1) : new[] { "EnemyGatePathfi
         if (File.Exists(path)) modReferences[Path.GetFileName(path)] = path;
     }
     if(modReferences.ContainsKey("Assembly-CSharp-publicized.dll")) modReferences.Remove("Assembly-CSharp.dll");
-    var trees = xml.Descendants().Where(e=>e.Name.LocalName=="Compile").Select(e=>
+    var input = EvaluateSources(Path.Combine(projectDir,mod+".csproj"));
+    var trees = input.Paths.Select(path => CSharpSyntaxTree.ParseText(File.ReadAllText(path),
+        CSharpParseOptions.Default.WithPreprocessorSymbols(input.Symbols),path:path)).ToList();
+    foreach (var provider in new[] { changedApi, MetadataReference.CreateFromFile(api) })
     {
-        string path = Path.GetFullPath(Path.Combine(projectDir,e.Attribute("Include")!.Value));
-        return CSharpSyntaxTree.ParseText(File.ReadAllText(path), path:path);
-    }).ToList();
-    if (Assembly.LoadFrom(api).GetType("APIShared.EnemyBridgeDiagnosticBridge",false)==null)
-    {
-        string path = Path.Combine(root,"APIShared","src","EnemyBridgeDiagnosticBridge.cs");
-        trees.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(path),path:path));
+        var compilation = CSharpCompilation.Create(mod == "BugfixesAndQoL" ? "BugfixesAndQoL" : mod+"StaticContract",trees,
+            modReferences.Values.Where(p=>!Path.GetFileName(p).Equals("APIShared.dll",StringComparison.OrdinalIgnoreCase)).Select(p=>MetadataReference.CreateFromFile(p)).Cast<MetadataReference>().Append(provider),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary,allowUnsafe:true));
+        var errors = compilation.GetDiagnostics().Where(d=>d.Severity==DiagnosticSeverity.Error).ToArray();
+        foreach (var error in errors) Console.Error.WriteLine(error);
+        if (errors.Length>0) return 1;
     }
-    if (Assembly.LoadFrom(api).GetType("APIShared.TemporaryGateRouteAcceptanceBridge",false)==null)
-        trees.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"APIShared","src","TemporaryGateRouteAcceptanceBridge.cs"))));
-    var compilation = CSharpCompilation.Create(mod == "BugfixesAndQoL" ? "BugfixesAndQoL" : mod+"StaticContract",trees,
-        modReferences.Values.Where(p=>!Path.GetFileName(p).Equals("APIShared.dll",StringComparison.OrdinalIgnoreCase)).Select(p=>MetadataReference.CreateFromFile(p)).Cast<MetadataReference>().Append(changedApi),
-        new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary,allowUnsafe:true));
-    var errors = compilation.GetDiagnostics().Where(d=>d.Severity==DiagnosticSeverity.Error).ToArray();
-    foreach (var error in errors) Console.Error.WriteLine(error);
-    if (errors.Length>0) return 1;
-    Console.WriteLine("PASS: full runtime source/installed assembly compilation contract " + mod + " (no runtime assembly emitted)");
+    Console.WriteLine("PASS: evaluated project sources compile against source and installed APIShared: " + mod + " (no runtime assembly emitted)");
 }
 return 0;
+
+(string[] Paths, string[] Symbols) EvaluateSources(string project)
+{
+    var info = new ProcessStartInfo("dotnet") { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false, CreateNoWindow = true };
+    foreach (string argument in new[] { "msbuild", project, "-nologo", "-getItem:Compile", "-getProperty:DefineConstants", "-p:GameDir="+game,
+        "-p:ExtenderDir="+Path.Combine(game,"BepInEx","plugins","000shcdese"), "-p:ApiSharedDir="+Path.GetDirectoryName(api) }) info.ArgumentList.Add(argument);
+    using var process = Process.Start(info)!;
+    var output = process.StandardOutput.ReadToEndAsync();
+    var errors = process.StandardError.ReadToEndAsync();
+    process.WaitForExit();
+    if (process.ExitCode != 0) throw new InvalidOperationException(errors.GetAwaiter().GetResult()+output.GetAwaiter().GetResult());
+    using var document = JsonDocument.Parse(output.GetAwaiter().GetResult());
+    string[] paths = document.RootElement.GetProperty("Items").GetProperty("Compile").EnumerateArray().Select(item=>item.GetProperty("FullPath").GetString()!).ToArray();
+    if (paths.Length == 0 || paths.Distinct(StringComparer.OrdinalIgnoreCase).Count() != paths.Length) throw new InvalidOperationException("Missing/duplicate evaluated sources: "+project);
+    string[] symbols = document.RootElement.GetProperty("Properties").GetProperty("DefineConstants").GetString()!.Split(';',StringSplitOptions.RemoveEmptyEntries);
+    Console.WriteLine("Evaluated "+Path.GetFileName(project)+": "+paths.Length+" sources");
+    return (paths,symbols);
+}

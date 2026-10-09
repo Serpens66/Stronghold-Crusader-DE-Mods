@@ -124,6 +124,7 @@ namespace BugfixesAndQoL.UnitCommands {
     }
 }
 namespace BugfixesAndQoL {
+    internal static class FormationHudButton { internal static void Configure(FormationMenuViewModel m,ManualLogSource l) { m.OwnHudAvailable=()=>true; } }
     internal class BugfixesAndQoLViewModel : INotifyPropertyChanged {
         public bool EnableMod=true,EnableMoveFormationEnhancements=true;
         public event PropertyChangedEventHandler PropertyChanged;
@@ -147,16 +148,16 @@ namespace BugfixesAndQoL {
         public static void Run() {
             var manager=SHCDESE.API.GameXAMLManagerAPI.Instance;
             var options=new BugfixesAndQoLViewModel(); var config=new ConfigFile();
-            manager.ThrowOnHost="BugfixesAndQoLFormationButtonHost";
+            manager.ThrowOnHost="BugfixesAndQoLFormationRolloverHost";
             var menu=Configure(config,options);
-            Require(manager.Attempts.Count==3 && manager.Hosts.Count==2,"Registration failure prevented other hosts");
+            Require(manager.Attempts.Count==2 && manager.Hosts.Count==1,"Registration failure prevented other hosts");
             Require(!menu.FeatureAvailable && !menu.MenuVisible && !menu.RolloverVisible,"Unavailable menu starts visible");
             FormationFeature.Initialize(new SHCDESE.API.LowLevel.CrusaderLibraryLoadContext());
             menu.ToggleMenuCommand.Execute(null);menu.ShowRolloverCommand.Execute("Aufstellung");
             Require(!menu.MenuVisible && !menu.RolloverVisible,"Missing shared capability opened menu");
             manager.ThrowOnHost=null;manager.Hosts.Clear();manager.Attempts.Clear();
             menu=Configure(config,options);
-            Require(manager.Hosts.Count==3 && manager.Attempts.Count==3,"Early registration needs successful native initialization");
+            Require(manager.Hosts.Count==2 && manager.Attempts.Count==2,"Early registration needs successful native initialization");
             UnitCommandPathAPI.Runtime=new object();BugfixesAndQoL.LargeMoveTargetMarkerRuntime.Renderer=new object();
             FormationRuntime.ThrowOnInitialize=true;
             FormationFeature.Initialize(new SHCDESE.API.LowLevel.CrusaderLibraryLoadContext());
@@ -199,40 +200,22 @@ namespace BugfixesAndQoL {
             CrusaderDE.MainViewModel.Instance.Notify("Show_HUD_Troops");
             Require(!menu.MenuVisible,"Deselection did not close menu");
             var main=CrusaderDE.MainViewModel.Instance;main.Show_HUD_Troops=true;
-            var panel=main.HUDTroopPanel;var button=panel.OpenButton;
-            menu.RefreshHostState();menu.RefreshHostState();
-            Require(button.EnterHandlers==1 && button.LeaveHandlers==1,"Duplicate direct handlers");
+            var panel=main.HUDTroopPanel;
+            menu.RefreshHostState();
             main.TroopsPanelRollover_AmountReq1="cost";main.TroopsPanelRollover_AmountGot1="body";main.TroopsPanelRollover_GoodsImage1=new object();
-            panel.RefTroopsPanelRollover2.Visibility=Noesis.Visibility.Visible;button.Enter();
-            Require(panel.RefTroopsPanelRollover.Visibility==Noesis.Visibility.Visible && panel.RefTroopsPanelRollover2.Visibility==Noesis.Visibility.Hidden && main.TroopsPanelRollover=="Arrangement" && !menu.RolloverVisible,"Direct event did not show short Vanilla rollover");
+            panel.RefTroopsPanelRollover2.Visibility=Noesis.Visibility.Visible;menu.SetHudButtonHover(true);
+            Require(panel.RefTroopsPanelRollover.Visibility==Noesis.Visibility.Visible && panel.RefTroopsPanelRollover2.Visibility==Noesis.Visibility.Hidden && main.TroopsPanelRollover=="Arrangement","Shared hover did not show Vanilla rollover");
             Require(main.TroopsPanelRollover_AmountReq1=="" && main.TroopsPanelRollover_AmountGot1=="" && main.TroopsPanelRollover_GoodsImage1==null,"Old costs leaked");
-            button.Leave();Require(panel.RefTroopsPanelRollover.Visibility==Noesis.Visibility.Hidden,"Leave did not hide");
-            SerpLocalization.Language="de";button.Enter();Require(main.TroopsPanelRollover=="Aufstellung","German hover missing");SerpLocalization.Language="en";
-            main.TroopsPanelRollover="Different Vanilla button";button.Leave();
-            Require(panel.RefTroopsPanelRollover.Visibility==Noesis.Visibility.Visible,"Foreign short hover hidden");
-            button.Enter();main.TroopsPanelRollover="Knight";panel.RefTroopsPanelRollover.Visibility=Noesis.Visibility.Hidden;panel.RefTroopsPanelRollover2.Visibility=Noesis.Visibility.Visible;button.Leave();
-            Require(panel.RefTroopsPanelRollover2.Visibility==Noesis.Visibility.Visible,"Knight hover hidden");
-            button.Enter();menu.CloseMenu();Require(panel.RefTroopsPanelRollover.Visibility==Noesis.Visibility.Hidden,"Close did not hide");
-            button.Enter();FormationRuntime.Last.Failed=true;menu.RefreshHostState();
-            Require(panel.RefTroopsPanelRollover.Visibility==Noesis.Visibility.Hidden && button.EnterHandlers==0,"Runtime failure left hover/handlers");
-            FormationRuntime.Last.Failed=false;menu.RefreshHostState();button.Enter();
-            CrusaderDE.FatControler.currentScene=CrusaderDE.Enums.SceneIDS.Other;menu.RefreshHostState();
-            Require(panel.RefTroopsPanelRollover.Visibility==Noesis.Visibility.Hidden && button.EnterHandlers==0,"Scene change left hover/handlers");
-            CrusaderDE.FatControler.currentScene=CrusaderDE.Enums.SceneIDS.ActualMainGame;menu.RefreshHostState();button.Enter();
-            main.Show_HUD_Troops=false;main.Notify("Show_HUD_Troops");
-            Require(panel.RefTroopsPanelRollover.Visibility==Noesis.Visibility.Hidden && button.EnterHandlers==0,"Deselection left hover/handlers");
-            main.Show_HUD_Troops=true;menu.RefreshHostState();button.Enter();
-            var replacement=new CrusaderDE.HUD_Troops();main.HUDTroopPanel=replacement;main.TroopsPanelRollover="Replacement button";replacement.RefTroopsPanelRollover.Visibility=Noesis.Visibility.Visible;
-            menu.RefreshHostState();menu.RefreshHostState();
-            Require(button.EnterHandlers==0 && button.LeaveHandlers==0 && replacement.OpenButton.EnterHandlers==1 && replacement.OpenButton.LeaveHandlers==1,"HUD replacement handlers incorrect");
-            Require(replacement.RefTroopsPanelRollover.Visibility==Noesis.Visibility.Visible,"Replacement hover hidden");
-            button.Enter();Require(main.TroopsPanelRollover=="Replacement button","Old button still active");
-            replacement.OpenButton.Enter();Require(main.TroopsPanelRollover=="Arrangement","New HUD hover inactive");replacement.OpenButton.Leave();
-            var newMain=new CrusaderDE.MainViewModel();CrusaderDE.MainViewModel.Instance=newMain;menu.RefreshHostState();
-            Require(replacement.OpenButton.EnterHandlers==0 && newMain.HUDTroopPanel.OpenButton.EnterHandlers==1,"Viewmodel replacement handlers incorrect");
-            newMain.HUDTroopPanel.OpenButton.Enter();main.Show_HUD_Troops=false;main.Notify("Show_HUD_Troops");
-            Require(newMain.HUDTroopPanel.RefTroopsPanelRollover.Visibility==Noesis.Visibility.Visible,"Old viewmodel subscription remained");
-            newMain.HUDTroopPanel.OpenButton.Leave();
+            menu.SetHudButtonHover(false);Require(panel.RefTroopsPanelRollover.Visibility==Noesis.Visibility.Hidden,"Leave did not hide");
+            SerpLocalization.Language="de";menu.SetHudButtonHover(true);Require(main.TroopsPanelRollover=="Aufstellung","German hover missing");SerpLocalization.Language="en";
+            main.TroopsPanelRollover="Different Vanilla button";menu.SetHudButtonHover(false);
+            Require(panel.RefTroopsPanelRollover.Visibility==Noesis.Visibility.Visible,"Other rollover hidden");
+            menu.SetHudButtonHover(true);menu.ToggleMenuCommand.Execute(null);menu.ShowRolloverCommand.Execute("Block");
+            menu.OwnHudAvailable=()=>false;menu.RefreshHostState();
+            Require(!menu.MenuVisible && !menu.RolloverVisible && panel.RefTroopsPanelRollover.Visibility==Noesis.Visibility.Hidden,"Foreign HUD left formation popup/hover active");
+            menu.ToggleMenuCommand.Execute(null);Require(!menu.MenuVisible,"Foreign HUD opened formation");
+            menu.OwnHudAvailable=()=>true;menu.RefreshHostState();menu.ToggleMenuCommand.Execute(null);
+            Require(menu.MenuVisible,"Own HUD did not recover");menu.CloseMenu();
             var converter=new ArrangementTooltipFontConverter();
             foreach(float size in new[]{16f,20f,36f}) {
                 object doubled=converter.Convert(size,typeof(float),null,System.Globalization.CultureInfo.InvariantCulture);

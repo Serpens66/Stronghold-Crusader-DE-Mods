@@ -51,6 +51,7 @@ namespace BugfixesAndQoL
             menu = new FormationMenuViewModel(log, config, kind, density, placement, roles, rememberRows, rememberedRows);
             menu.Enabled = () => runtime != null && runtime.Enabled;
             RegisterPresentationBindings();
+            FormationHudButton.Configure(menu, log);
             config.Save();
             settings.PropertyChanged += (_, __) => {
                 if (!settings.EnableMod || !settings.EnableMoveFormationEnhancements)
@@ -61,7 +62,7 @@ namespace BugfixesAndQoL
         private static void RegisterPresentationBindings()
         {
             foreach (string host in new[] {
-                "BugfixesAndQoLFormationButtonHost", "BugfixesAndQoLFormationMenuHost",
+                "BugfixesAndQoLFormationMenuHost",
                 "BugfixesAndQoLFormationRolloverHost" })
             {
                 try { GameXAMLManagerAPI.Instance.RegisterBinding(host, menu); }

@@ -122,9 +122,14 @@ namespace APISharedTests
                 Count(unitHud, "updateSpritesOriginal(main, lastSpriteColour, lastSpriteArabic)") == 2,
                 "central HUD sprite handling retains the hook, explicit refresh and activation-restoration paths");
             string beforeRenderMethod = ExtractSourceMethod(unitHud, "private void OnBeforeRender()");
-            int idleGuard = beforeRenderMethod.IndexOf("if (activeSurfaces == UnitHudSurface.None && !pendingPresentation && !refreshRequested && recruitmentLease == null) return;", StringComparison.Ordinal);
+            int idleGuard = beforeRenderMethod.IndexOf("if (activeSurfaces == UnitHudSurface.None && !hasActionButtons && !pendingPresentation && !refreshRequested && recruitmentLease == null) return;", StringComparison.Ordinal);
             Assert(idleGuard >= 0 && idleGuard < beforeRenderMethod.IndexOf("Time.frameCount", StringComparison.Ordinal),
-                "idle guard returns before Unity access");
+                "idle guard returns before Unity access and keeps action-only consumers active");
+            var actionPatch = new XmlDocument(); actionPatch.LoadXml(troopPatch);
+            XmlNode actionHost = actionPatch.SelectSingleNode("//*[local-name()='Canvas' and @*[local-name()='Name']='APISharedTroopActionButtonsHost']");
+            Assert(actionHost?.ParentNode?.ParentNode is XmlElement actionOperation &&
+                actionOperation.GetAttribute("XPath") == "//n:Grid[@Name='TroopSelectionControls']",
+                "own-troop actions inherit foreign-HUD suppression from the Vanilla selection container");
             Assert(beforeRenderMethod.IndexOf("ExpireRecruitment();", StringComparison.Ordinal) < beforeRenderMethod.IndexOf("MainViewModel.viewModelLoaded", StringComparison.Ordinal),
                 "pending tickets expire even when the HUD is unavailable");
             int selectionRefreshStart = beforeRenderMethod.IndexOf("if ((refresh && HasCategories(UnitHudSurface.TroopSelection)) || troopSelectionChanged)", StringComparison.Ordinal);

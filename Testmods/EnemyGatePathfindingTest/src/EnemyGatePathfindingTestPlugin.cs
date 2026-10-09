@@ -154,7 +154,7 @@ namespace EnemyGatePathfindingTest
             try
             {
                 // Official builds do not embed the Git commit in their informational
-                // version, so the assembly version is the enforceable runtime identity.
+                // version; the exact audited identity is informational, never a load requirement.
                 Assembly assembly = typeof(CrusaderLibrary).Assembly;
                 string informational = assembly
                     .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
@@ -166,7 +166,7 @@ namespace EnemyGatePathfindingTest
                 bool auditedVersion = assembly.GetName().Version == new Version(EnemyGatePathfindingNativeDefinition.AuditedScriptExtenderVersion + ".0");
                 Shared.DebugLogHelper.LogInfo(
                     persistentLog,
-                    $"Script Extender identity: manifestVersionRange=true, " +
+                    $"Script Extender identity: manifestVersionRange=true, auditIdentityOnly=true, " +
                     $"auditedVersion={EnemyGatePathfindingNativeDefinition.AuditedScriptExtenderVersion}, " +
                     $"auditedTag={EnemyGatePathfindingNativeDefinition.AuditedScriptExtenderTag}, " +
                     $"auditedCommit={EnemyGatePathfindingNativeDefinition.AuditedScriptExtenderCommit}, " +

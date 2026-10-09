@@ -345,6 +345,7 @@ namespace BugfixesAndQoL
                 return;
             }
             entries.Sort((a, b) => a.Owner != b.Owner ? a.Owner.CompareTo(b.Owner) : a.Type.CompareTo(b.Type));
+            FormationHudButton.HideForForeignHud();
             string missingElement;
             if (!view.ActivateVanilla(main, out missingElement))
             {

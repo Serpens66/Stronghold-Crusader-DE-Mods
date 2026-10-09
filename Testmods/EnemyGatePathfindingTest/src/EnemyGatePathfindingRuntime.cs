@@ -678,7 +678,7 @@ namespace EnemyGatePathfindingTest
                 Stopwatch.Frequency;
             Shared.DebugLogHelper.LogInfo(log,
                 $"Enemy-gate Same-PCL checkpoint: kind={kind}, installed={same.Installed}," +
-                $"hookOwnerConflict={same.OwnerConflict},queries={same.Queries}," +
+                $"sharedHookOwner={same.OwnerConflict},queries={same.Queries}," +
                 $"nativeRoutePreserved={same.Preserved},edgeRejected={same.RejectedEdges}," +
                 $"vanillaDetours={same.Detours},policyNoRoute={same.NoRoutes}," +
                 $"humanBuilderDetour={same.HumanDetours},aiDetour={same.AiDetours}," +

@@ -74,7 +74,7 @@ namespace EnemyGatePathfindingTest
                 NativeRouteHotPathsRemainPrimitiveOnly();
                 UnsafeGlobalMutationAndWholePclDetourAreAbsent();
                 ScriptExtenderPathfindingGlobalsAreComparedReadOnly();
-                ScriptExtender2130AndFixesContractsArePinned();
+                ScriptExtender2141AndFixesContractsArePinned();
                 SearchDiagnosticIdentitySurvivesPublication();
                 GateStateDefinitionsReconstructEveryObservation();
                 PartialPathfindingCoverageIsNotMutation();
@@ -340,13 +340,13 @@ namespace EnemyGatePathfindingTest
                 "startup comparison contains no direct native connection-table view");
         }
 
-        private static void ScriptExtender2130AndFixesContractsArePinned()
+        private static void ScriptExtender2141AndFixesContractsArePinned()
         {
-            Assert(EnemyGatePathfindingNativeDefinition.AuditedScriptExtenderVersion == "2.13.0" &&
-                EnemyGatePathfindingNativeDefinition.AuditedScriptExtenderTag == "v2.13.0" &&
+            Assert(EnemyGatePathfindingNativeDefinition.AuditedScriptExtenderVersion == "2.14.1" &&
+                EnemyGatePathfindingNativeDefinition.AuditedScriptExtenderTag == "v2.14.1" &&
                 EnemyGatePathfindingNativeDefinition.AuditedScriptExtenderCommit ==
-                    "85ab962b342c18f663da830570884a25b85116d0",
-                "Script Extender 2.13.0 provenance is pinned to the audited commit");
+                    "5908e1f12437deb7ef5f5b1dc2d64e301178fba3",
+                "Script Extender 2.14.1 provenance is pinned to the audited commit");
             Assert(EnemyGatePathfindingNativeDefinition.AuditedRedBirdVersion ==
                 typeof(X64InlineHook).Assembly.GetName().Version.ToString(),
                 "installed RedBird audit version is documented without replacing byte contracts");

@@ -101,23 +101,7 @@
       </Grid>
     </Content>
   </Operation>
-<Operation Type="Add" XPath="//n:Grid[@x:Name='LayoutRoot']">
-    <Content>
-      <Grid x:Name="BugfixesAndQoLFormationButtonHost" Visibility="{Binding FeatureAvailable, Converter={StaticResource booleanToVisibilityConverter}, FallbackValue=Collapsed}" Width="35" Height="35" Margin="480,11,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" Panel.ZIndex="20">
-        <Button x:Name="BugfixesAndQoLFormationOpenButton" Width="35" Height="35" Padding="0" Command="{Binding ToggleMenuCommand}">
-          <Viewbox Width="27" Height="27"><Grid Width="32" Height="32" IsHitTestVisible="False">
-            <ContentControl Content="Formation" ContentTemplate="{StaticResource BugfixesFormationIconVanilla}" Visibility="{Binding IsVanilla, Converter={StaticResource booleanToVisibilityConverter}, FallbackValue=Collapsed}"/>
-            <ContentControl Content="Formation" ContentTemplate="{StaticResource BugfixesFormationIconBlock}" Visibility="{Binding IsBlock, Converter={StaticResource booleanToVisibilityConverter}, FallbackValue=Collapsed}"/>
-            <ContentControl Content="Formation" ContentTemplate="{StaticResource BugfixesFormationIconLine}" Visibility="{Binding IsLine, Converter={StaticResource booleanToVisibilityConverter}, FallbackValue=Collapsed}"/>
-            <ContentControl Content="Formation" ContentTemplate="{StaticResource BugfixesFormationIconColumn}" Visibility="{Binding IsColumn, Converter={StaticResource booleanToVisibilityConverter}, FallbackValue=Collapsed}"/>
-            <ContentControl Content="Formation" ContentTemplate="{StaticResource BugfixesFormationIconWedge}" Visibility="{Binding IsWedge, Converter={StaticResource booleanToVisibilityConverter}, FallbackValue=Collapsed}"/>
-            <ContentControl Content="Formation" ContentTemplate="{StaticResource BugfixesFormationIconCircle}" Visibility="{Binding IsCircle, Converter={StaticResource booleanToVisibilityConverter}, FallbackValue=Collapsed}"/>
-          </Grid></Viewbox>
-        </Button>
-      </Grid>
-    </Content>
-  </Operation>
-  <Operation Type="Add" XPath="//n:UserControl.Resources">
+<Operation Type="Add" XPath="//n:UserControl.Resources">
     <Content><DataTemplate x:Key="BugfixesFormationIconVanilla"><Canvas Width="32" Height="32" IsHitTestVisible="False"><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="14" Canvas.Top="3"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="8" Canvas.Top="9"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="14" Canvas.Top="9"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="20" Canvas.Top="9"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="4" Canvas.Top="15"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="10" Canvas.Top="15"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="16" Canvas.Top="15"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="22" Canvas.Top="15"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="8" Canvas.Top="21"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="14" Canvas.Top="21"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="20" Canvas.Top="21"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="14" Canvas.Top="27"/></Canvas></DataTemplate></Content>
   </Operation>
   <Operation Type="Add" XPath="//n:UserControl.Resources">

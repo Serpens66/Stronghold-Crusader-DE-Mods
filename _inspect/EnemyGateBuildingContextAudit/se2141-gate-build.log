@@ -1,0 +1,9 @@
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+PASS: shared ownership boundaries; 100 projects, 1423 valid explicit links; runtime JSON/lifecycle/scheduling, XAML and permanent hooks.
+PASS: 41 runtime manifests use consistent generic minimum dependencies; soft dependencies remain optional.
+PASS: production UnitAccess boundaries, no invalid SDK calls, NeedsInit/identity neutrality, unload/reload, failure pointer clearing and bounded diagnostics.
+PASS: 1032 runtime source files; SDK unit lookups are confined to UnitAccess and callers consume their boolean results.
+SKIP: inventory testmod project no longer present: Testmods\FormationTest\FormationTest.csproj
+PASS: affected runtime projects and linked sources checked for JSON, plugin scheduling, lifecycle teardown and XAML roots.
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+APIShared package is stale. Run APIShared/build.bat /nopause first.

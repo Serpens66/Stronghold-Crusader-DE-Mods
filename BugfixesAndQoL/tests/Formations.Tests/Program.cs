@@ -1174,8 +1174,8 @@ internal static class Program
         string xaml = File.ReadAllText(Path.Combine(main, "Patches", "Assets", "GUI", "XAMLResources", "HUD_Troops.xaml"));
         foreach (string kind in new[] { "Vanilla", "Block", "Line", "Column", "Wedge", "Circle" })
             Check(menu.Contains("public bool Is" + kind) && menu.Contains("OnChanged(nameof(Is" + kind + "))") &&
-                  CountOccurrences(xaml, "{StaticResource BugfixesFormationIcon" + kind + "}") == 2 &&
-                  xaml.Contains("{Binding Is" + kind + ","), "selected icon template and Config notification " + kind);
+                  CountOccurrences(xaml, "{StaticResource BugfixesFormationIcon" + kind + "}") == 1 &&
+                  xaml.Contains("CommandParameter=\"" + kind + "\""), "menu icon template and Config notification " + kind);
         TestSelectionMigration();
     }
 

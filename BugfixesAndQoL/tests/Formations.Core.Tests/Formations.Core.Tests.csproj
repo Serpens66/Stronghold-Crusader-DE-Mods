@@ -10,6 +10,7 @@
     <PackageReference Include="MSTest.TestAdapter" Version="4.5.1" />
     <PackageReference Include="MSTest.TestFramework" Version="4.5.1" />
     <Compile Include="../../src/Formations/FormationModel.cs" Link="Production/FormationModel.cs" />
+    <Compile Include="../../src/Formations/FormationHudIconLayout.cs" Link="Production/FormationHudIconLayout.cs" />
     <Compile Include="../../src/Formations/Markers/LargeMoveTargetOverflowModel.cs" Link="Production/LargeMoveTargetOverflowModel.cs" />
   </ItemGroup>
 </Project>

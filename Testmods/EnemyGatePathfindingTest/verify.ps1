@@ -34,4 +34,5 @@ foreach ($file in @(Get-ChildItem -LiteralPath $PSScriptRoot -Recurse -File -Fil
     }
 }
 & (Join-Path $workspace 'Shared/Tools/Validation/Test-PermanentNativeRuntimePatches.ps1')
+& (Join-Path $PSScriptRoot 'Test-InstalledContracts.ps1')
 Write-Host "PASS: EnemyGate runtime JSON/lifecycle, permanent hooks, XAML and CRLF ($($sources.Count) runtime sources)."
