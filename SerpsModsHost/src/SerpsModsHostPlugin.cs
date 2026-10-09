@@ -21,7 +21,7 @@ using System.Threading;
 namespace SerpsModsHost
 {
     [BepInDependency(ScriptExtenderGuid, "2.3.0")]
-    [BepInDependency("APIShared_Serp", "0.4.9")]
+    [BepInDependency("APIShared_Serp", "0.5.0")]
     [BepInDependency("CrusaderDETweaker", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     [ExcludeFromSavegameModSettings]
@@ -31,7 +31,7 @@ namespace SerpsModsHost
         private const string InfoFileName = "info.json";
         public const string PluginGuid = "SerpsMods_Serp";
         public const string PluginName = "Serps Mods";
-        public const string PluginVersion = "1.0.24";
+        public const string PluginVersion = "1.0.25";
         public const bool ExtendedDataModSettingsOptOut = true;
         private const string ManifestFileName = "serps-modpack.json";
 

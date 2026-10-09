@@ -8,7 +8,7 @@ namespace CheatMod
 {
     [BepInDependency(ScriptExtenderGuid, "2.3.0")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
-    [BepInDependency("APIShared_Serp", "0.4.0")]
+    [BepInDependency("APIShared_Serp", "0.5.0")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class CheatModPlugin : BaseUnityPlugin
     {
@@ -16,7 +16,7 @@ namespace CheatMod
 
         public const string PluginGuid = "CheatMod_Serp";
         public const string PluginName = "Cheat Mod";
-        public const string PluginVersion = "1.0.9";
+        public const string PluginVersion = "1.0.10";
 
         private CheatModRuntime runtime;
         private int libraryInitializationStarted;

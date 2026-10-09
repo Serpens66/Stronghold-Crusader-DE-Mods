@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "MoatMove",
   "Description": "Friendly/allied moat traversal addon for BugfixesAndQoL and APIShared. Precise, Fast and FastNative modes; shares the main mod command hooks.",
-  "Version": "0.1.4",
+  "Version": "0.1.5",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
@@ -14,7 +14,7 @@
     },
     {
       "GUID": "BugfixesAndQoL_Serp",
-      "MinimumVersion": "1.0.180"
+      "MinimumVersion": "1.0.181"
     }
   ],
   "Manifest": 1,
@@ -23,6 +23,12 @@
     "2.8.0.1"
   ],
   "SerpChangelog": [
+    {
+      "Version": "0.1.5",
+      "Changes": [
+        "Use the mod-owned BugfixesAndQoL runtime integration and require its updated minimum version."
+      ]
+    },
     {
       "Version": "0.1.4",
       "Changes": [
