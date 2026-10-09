@@ -9,14 +9,14 @@ internal static class FormationStartupTests
     {
         string[] paths = {
             "BugfixesAndQoL/src/FormationFeature.cs", "BugfixesAndQoL/src/FormationMenuViewModel.cs",
-            "BugfixesAndQoL/src/FormationSelectionMigration.cs", "APIShared/src/UnitCommands/Formation/FormationModel.cs",
-            "APIShared/src/UnitCommands/Formation/FormationPresentation.cs", "BugfixesAndQoL/src/ArrangementTooltipFontConverter.cs"
+            "BugfixesAndQoL/src/FormationSelectionMigration.cs", "BugfixesAndQoL/src/Formations/FormationModel.cs",
+            "BugfixesAndQoL/src/Formations/FormationPresentation.cs", "BugfixesAndQoL/src/ArrangementTooltipFontConverter.cs"
         };
-        var gestureUpdate = CSharpSyntaxTree.ParseText(FeatureSourceModel.Read(root, "FormationRuntime")).GetRoot().DescendantNodes()
+        var gestureUpdate = CSharpSyntaxTree.ParseText(FeatureSourceModel.Read(root, "FormationRuntime", "BugfixesAndQoL/src/Formations")).GetRoot().DescendantNodes()
             .OfType<MethodDeclarationSyntax>().Single(m => m.Identifier.Text == "UpdateGesture").ToFullString();
         string fixture = """
 using System; using System.Reflection; using System.Collections.Generic; using System.ComponentModel;
-using APIShared.UnitCommands; using BepInEx.Configuration; using BepInEx.Logging;
+using BugfixesAndQoL.UnitCommands; using BepInEx.Configuration; using BepInEx.Logging;
 public static class SerpLocalization { public static string Language="en"; public static string Get(string key)=>key=="BugfixesAndQoL.ArrangementTooltip"?(Language=="de"?"Aufstellung":"Arrangement"):key; }
 namespace BepInEx { public static class Paths { public static string ConfigPath="__missing_formation_fixture__"; } }
 namespace BepInEx.Logging { public class ManualLogSource {} }
@@ -109,8 +109,9 @@ namespace Shared {
         public static void LogError(ManualLogSource l,string m) {}
     }
 }
-namespace APIShared.UnitCommands {
-    internal static class UnitCommandPathAPI { internal static object Runtime,MoveMarkers; }
+namespace BugfixesAndQoL { internal static class LargeMoveTargetMarkerRuntime { internal static object Renderer; } }
+namespace BugfixesAndQoL.UnitCommands {
+    internal static class UnitCommandPathAPI { internal static object Runtime; }
     internal sealed class FormationRuntime {
         internal static FormationRuntime Last; internal static bool ThrowOnInitialize;
         private readonly BugfixesAndQoL.BugfixesAndQoLViewModel settings; internal bool Failed;
@@ -156,7 +157,7 @@ namespace BugfixesAndQoL {
             manager.ThrowOnHost=null;manager.Hosts.Clear();manager.Attempts.Clear();
             menu=Configure(config,options);
             Require(manager.Hosts.Count==3 && manager.Attempts.Count==3,"Early registration needs successful native initialization");
-            UnitCommandPathAPI.Runtime=new object();UnitCommandPathAPI.MoveMarkers=new object();
+            UnitCommandPathAPI.Runtime=new object();BugfixesAndQoL.LargeMoveTargetMarkerRuntime.Renderer=new object();
             FormationRuntime.ThrowOnInitialize=true;
             FormationFeature.Initialize(new SHCDESE.API.LowLevel.CrusaderLibraryLoadContext());
             Require(!menu.FeatureAvailable && !menu.MenuVisible && !menu.RolloverVisible,"Failed runtime made menu available");
@@ -247,7 +248,7 @@ namespace UnityEngine {
     public static class Time { public static int frameCount; }
     public static class Input { public static (float x,float y) mouseScrollDelta; }
 }
-namespace APIShared.UnitCommands {
+namespace BugfixesAndQoL.UnitCommands {
     using UnityEngine;
     internal sealed class RuntimeGestureFixture {
         private readonly object stateSync=new object(); private ActiveDrag drag;

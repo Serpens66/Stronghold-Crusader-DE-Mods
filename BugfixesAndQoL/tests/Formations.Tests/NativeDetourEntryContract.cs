@@ -2,7 +2,7 @@ using Iced.Intel;
 using System;
 using System.Runtime.InteropServices;
 
-namespace APIShared.UnitCommands
+namespace BugfixesAndQoL.UnitCommands
 {
     internal static class NativeDetourEntryContract
     {

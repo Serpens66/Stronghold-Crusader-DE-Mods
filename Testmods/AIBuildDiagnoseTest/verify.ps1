@@ -1,7 +1,7 @@
 $ErrorActionPreference = 'Stop'
 $project = Split-Path -Parent $MyInvocation.MyCommand.Path
 $workspace = (Resolve-Path -LiteralPath (Join-Path $project '..\..')).Path
-$sourceFiles = @(Get-ChildItem -LiteralPath (Join-Path $project 'src') -Filter '*.cs' -File)
+$sourceFiles = @(Get-ChildItem -LiteralPath (Join-Path $project 'src') -Filter '*.cs' -File -Recurse)
 $projectFile = Join-Path $project 'AIBuildDiagnoseTest.csproj'
 $native = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll'
 $expectedHash = 'FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2'
@@ -173,7 +173,17 @@ if ($runtimeText -match '\b(OnDestroy|OnDisable|OnApplicationQuit|OnApplicationP
     throw 'Long-lived or teardown MonoBehaviour callback in diagnostic runtime.'
 }
 $generalHook = [IO.File]::ReadAllText((Join-Path $project 'src\GeneralSiteSearchHooks.cs'))
-$otherRuntimeText = (($sourceFiles | Where-Object { $_.Name -ne 'GeneralSiteSearchHooks.cs' }) |
+$diagnosticHooks = [IO.File]::ReadAllText((Join-Path $project 'src\Diagnostics\AiBuildDiagnostic.NativeHooks.cs'))
+# The moved observer owns its two original permanent detours. Scratch probes
+# are explicitly copied code, not game targets; only those may Enable/Dispose.
+if ($diagnosticHooks -match 'CodePatch\.Write|VirtualProtect|X64InlineHook|\.Undo\s*\(|\.Disable\s*\(' -or
+    [regex]::Matches($diagnosticHooks, 'OwnsHooks = false').Count -ne 2 -or
+    [regex]::Matches($diagnosticHooks, 'if \(!hook.Success\) pending.Dispose\(\)').Count -ne 2 -or
+    $diagnosticHooks -notmatch 'probe.TargetAddress != unchecked\(\(ulong\)copy.ToInt64\(\)\)' -or
+    $diagnosticHooks -notmatch 'probe.Scheme.ToString\(\) != "Indirect"') {
+    throw 'Moved diagnostic detour lifetime or copied-buffer backend contract differs.'
+}
+$otherRuntimeText = (($sourceFiles | Where-Object { $_.Name -notin @('GeneralSiteSearchHooks.cs', 'AiBuildDiagnostic.NativeHooks.cs') }) |
     ForEach-Object { [IO.File]::ReadAllText($_.FullName) }) -join "`n"
 if ($otherRuntimeText -match 'CodePatch\.Write|VirtualProtect|NativeDetour|X64InlineHook|HookTransaction|\.Apply\s*\(|\.Undo\s*\(|\.Enable\s*\(|\.Disable\s*\(' -or
     $generalHook -match 'CodePatch\.Write|VirtualProtect|X64InlineHook|\.Apply\s*\(|\.Undo\s*\(|\.Enable\s*\(|\.Disable\s*\(' -or
@@ -325,14 +335,14 @@ foreach ($contract in @('FUNCTION FUN_180050620', 'FUNCTION FUN_180050720',
     }
 }
 $bugfixRuntime = [IO.File]::ReadAllText((Join-Path $workspace 'BugfixesAndQoL\src\AIPreplacedBuildingFixRuntime.cs'))
-$publisher = [IO.File]::ReadAllText((Join-Path $workspace 'APIShared\src\Diagnostics\AiBuildDiagnostic.cs'))
-if ($bugfixRuntime -notmatch 'APIShared\.AiBuildDiagnostic\.BeginNearbyWoodObservation\(' -or
-    $bugfixRuntime -notmatch 'AiBuildDiagnostic\.ShouldDeferWoodBuild\(playerId\)' -or
+$publisher = ($sourceFiles | ForEach-Object { [IO.File]::ReadAllText($_.FullName) }) -join [Environment]::NewLine
+if ($bugfixRuntime -notmatch 'Diagnostics\.AiBuildObservation\.BeginNearbyWoodObservation\(' -or
+    $bugfixRuntime -notmatch 'AiBuildObservation\.ShouldDeferWoodBuild\(playerId\)' -or
     $bugfixRuntime -notmatch 'Publish\("wood-build-deferred", playerId\)' -or
     $publisher -notmatch 'TryRegisterWoodBuildGate\(' -or
     $publisher -notmatch 'Volatile\.Write\(ref woodBuildGate, gate\)' -or
     $runtimeText -notmatch 'candidate\.ShouldDeferCanariWoodBuild' -or
-    $bugfixRuntime -notmatch 'APIShared\.AiBuildDiagnostic\.EndNearbyWoodObservation\(restore,' -or
+    $bugfixRuntime -notmatch 'Diagnostics\.AiBuildObservation\.EndNearbyWoodObservation\(restore,' -or
     $publisher -notmatch 'PublishNearbyPathEvidence\("wood-nearby-path-before"' -or
     $publisher -notmatch 'PublishNearbyPathEvidence\("wood-nearby-path-after"' -or
     $publisher -notmatch 'Publish\("wood-nearby-before"' -or

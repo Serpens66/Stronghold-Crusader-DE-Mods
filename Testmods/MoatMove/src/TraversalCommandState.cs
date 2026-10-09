@@ -1,9 +1,10 @@
+extern alias BugfixesRuntime;
 using System;
 using System.Collections.Generic;
-using APIShared.UnitCommands;
+using BugfixesRuntime::BugfixesAndQoL.UnitCommands;
 using SHCDESE.API;
 using SHCDESE.Interop;
-using static APIShared.UnitCommands.UnitCommandPathRuntime;
+using static BugfixesRuntime::BugfixesAndQoL.UnitCommands.UnitCommandPathRuntime;
 
 namespace MoatMove
 {

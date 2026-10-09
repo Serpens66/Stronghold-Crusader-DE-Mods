@@ -10,7 +10,7 @@ using System.Reflection;
 namespace CastlePlanner
 {
     [BepInDependency(ScriptExtenderGuid, "2.10.4")]
-    [BepInDependency("APIShared_Serp", "0.4.6")]
+    [BepInDependency("APIShared_Serp", "0.5.0")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("ExtraFeatures_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("BugfixesAndQoL_Serp", BepInDependency.DependencyFlags.SoftDependency)]
@@ -23,7 +23,7 @@ namespace CastlePlanner
 
         public const string PluginGuid = "CastlePlanner_Serp";
         public const string PluginName = "CastlePlanner";
-        public const string PluginVersion = "0.8.38";
+        public const string PluginVersion = "0.8.39";
 
         // The BepInEx component is destroyed during startup, so runtime state remains static.
         private static CastlePlannerRuntime runtime;
@@ -117,8 +117,10 @@ namespace CastlePlanner
 
             try
             {
+                Shared.DirectLaunchSettingsNotice.Configure(Settings, blueprintsRemainAvailable: true);
                 APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(
-                    this, Logger, PluginGuid, Settings, "ScriptExtenderUI/CastlePlannerSettings.xaml");
+                    this, Logger, PluginGuid, Settings, "ScriptExtenderUI/CastlePlannerSettings.xaml",
+                    logRoutineActivity: true, enableScrollDiagnostics: true);
                 Settings.PumpCastleCatalogLoad();
             }
             catch (Exception ex)

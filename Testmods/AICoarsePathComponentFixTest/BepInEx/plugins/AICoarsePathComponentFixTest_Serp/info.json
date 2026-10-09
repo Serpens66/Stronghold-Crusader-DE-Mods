@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "AI Coarse Path Component Fix Test",
   "Description": "Experimental coarse-grid path-component refresh for controlled AI build comparisons.",
-  "Version": "0.1.0",
+  "Version": "0.1.1",
   "MinimumScriptExtenderVersion": "2.11.0",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
@@ -12,7 +12,8 @@
       "MinimumVersion": "0.4.6"
     },
     {
-      "GUID": "BugfixesAndQoL_Serp"
+      "GUID": "BugfixesAndQoL_Serp",
+      "MinimumVersion": "1.0.181"
     }
   ],
   "Manifest": 1,

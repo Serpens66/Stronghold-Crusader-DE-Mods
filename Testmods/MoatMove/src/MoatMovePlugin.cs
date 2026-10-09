@@ -1,4 +1,5 @@
-using APIShared.UnitCommands;
+extern alias BugfixesRuntime;
+using BugfixesRuntime::BugfixesAndQoL.UnitCommands;
 using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
@@ -9,21 +10,21 @@ using SHCDESE.EventAPI;
 using System;
 using System.Reflection;
 
-[assembly: AssemblyVersion("0.1.4.0")]
-[assembly: AssemblyFileVersion("0.1.4.0")]
-[assembly: AssemblyInformationalVersion("0.1.4")]
+[assembly: AssemblyVersion("0.1.5.0")]
+[assembly: AssemblyFileVersion("0.1.5.0")]
+[assembly: AssemblyInformationalVersion("0.1.5")]
 
 namespace MoatMove
 {
     [BepInDependency("APIShared_Serp", "0.4.10")]
     [BepInPlugin(PluginGuid, "MoatMove", PluginVersion)]
     [BepInDependency("000shcdese", "2.14.0")]
-    [BepInDependency("BugfixesAndQoL_Serp", "1.0.175")]
+    [BepInDependency("BugfixesAndQoL_Serp", "1.0.181")]
     [BepInDependency("EnemyGatePathfindingTest_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     public sealed class MoatMovePlugin : BaseUnityPlugin
     {
         public const string PluginGuid = "MoatMove_Serp";
-        public const string PluginVersion = "0.1.4";
+        public const string PluginVersion = "0.1.5";
         private static ManualLogSource persistentLog;
         private static FriendlyMoatTraversalProvider runtime;
         private static MoatMoveOptions options;
@@ -44,7 +45,7 @@ namespace MoatMove
                     "precise: weighted friendly/allied moat routes. fast: moat only when no ground alternative exists, shared group calculations, no extra moat cost. FastNative: Fast rules with a private native shared field. Restart the game after changing this setting. Use the same mode on all multiplayer peers.")).Value;
             options = new MoatMoveOptions(mode);
             Shared.DebugLogHelper.LogInfo(persistentLog,
-                $"MoatMove {PluginVersion} loaded; mode={options.ModeName}, commandPolicy=BugfixesAndQoL, hookOwner=APIShared; awaiting native library.");
+                $"MoatMove {PluginVersion} loaded; mode={options.ModeName}, commandPolicy=BugfixesAndQoL, hookOwner=BugfixesAndQoL; awaiting native library.");
             CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;
         }
 
@@ -57,11 +58,11 @@ namespace MoatMove
                     persistentLog, "MoatMove", requireCurrentVersion: true);
                 if (!referenceHashMatches) return;
                 // Registration roots the candidate before native publication. Failure
-                // disables its policy; published hooks remain owned by APIShared.
+                // disables its policy; published command hooks remain owned by BugfixesAndQoL.
                 runtime = new FriendlyMoatTraversalProvider(persistentLog, options);
                 runtime.Install(context);
                 Shared.DebugLogHelper.LogInfo(persistentLog,
-                    $"MoatMove runtime published; mode={options.ModeName}; shared command hooks owned by APIShared; detailed diagnostics disabled.");
+                    $"MoatMove runtime published; mode={options.ModeName}; shared command hooks owned by BugfixesAndQoL; detailed diagnostics disabled.");
             }
             catch (Exception ex)
             {

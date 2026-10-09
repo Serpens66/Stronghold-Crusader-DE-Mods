@@ -10,7 +10,7 @@ namespace UnitLimit
 {
     [BepInDependency(ScriptExtenderGuid, "2.14.0")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
-    [BepInDependency("APIShared_Serp", "0.4.0")]
+    [BepInDependency("APIShared_Serp", "0.5.0")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class UnitLimitPlugin : BaseUnityPlugin
     {
@@ -19,7 +19,7 @@ namespace UnitLimit
 
         public const string PluginGuid = "UnitLimit_Serp";
         public const string PluginName = "Unit Limit";
-        public const string PluginVersion = "1.0.103";
+        public const string PluginVersion = "1.0.104";
 
         private UnitLimitRuntime runtime;
         private int libraryInitializationStarted;
@@ -57,6 +57,7 @@ namespace UnitLimit
             TryInitializeStage("localized names", Settings.RefreshLocalizedNames);
             try
             {
+                Shared.DirectLaunchSettingsNotice.Configure(Settings);
                 APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(
                     this,
                     Logger,

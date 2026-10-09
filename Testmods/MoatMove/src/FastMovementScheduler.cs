@@ -1,5 +1,6 @@
-using APIShared.UnitCommands;
-using static APIShared.UnitCommands.UnitCommandPathRuntime;
+extern alias BugfixesRuntime;
+using BugfixesRuntime::BugfixesAndQoL.UnitCommands;
+using static BugfixesRuntime::BugfixesAndQoL.UnitCommands.UnitCommandPathRuntime;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;

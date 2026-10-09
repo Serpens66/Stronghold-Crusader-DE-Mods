@@ -124,7 +124,7 @@ namespace BugfixesAndQoL
                 Regex.Matches(ExtractMethod(runtime, "InvokeNearbyOriginalWithDiagnosticOverlay"),
                     @"nearbySearchHook\.Original\(").Count == 1 &&
                 ExtractMethod(runtime, "InvokeNearbyOriginalWithDiagnosticOverlay").Contains(
-                    "APIShared.AiBuildDiagnostic.BeginNearbyWoodObservation(") &&
+                    "Diagnostics.AiBuildObservation.BeginNearbyWoodObservation(") &&
                 ExtractMethod(runtime, "InvokeNearbyOriginalWithDiagnosticOverlay").IndexOf(
                     "BeginNearbyWoodObservation", StringComparison.Ordinal) <
                 ExtractMethod(runtime, "InvokeNearbyOriginalWithDiagnosticOverlay").IndexOf(

@@ -471,3 +471,36 @@ sync, presets, reset and search. Run the actual production generators in
 downhill and level routes with both running settings and loaded saves.
 
 Formation rows follow-up (2026-10-08): internal protocol 6 adds ushort Rows. Wheel adjusts gesture-local rows; drag only sets the eight-sector facing. Width is validated against maximum rank width. Integer local coordinates precede rotation; exact reachable slots are reserved before obstacle fallback. Existing native selectors, permanent input/renderer hooks and installed SHCDESE 2.14.0 contracts are unchanged. No new public API or game-assembly access.
+
+## Command engine ownership (2026-10-09)
+
+The coherent command engine is owned by BugfixesAndQoL/src/UnitCommands;
+formations remain BugfixesAndQoL/src/Formations. MoatMove provides its optional
+search/traversal implementation through the internal BugfixesAndQoL assembly
+contract. APIShared only owns the public managed route-search preference events.
+This ownership move does not alter native addresses, algorithms, delegates,
+registration order, settings, formats or process lifetime.
+
+Reference native SHA256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
+NativeDetourContracts.cs is the exact128-entry function-prefix catalog; feature
+native-contract files in Runtime/Native/Cursor/Movement/Moat/Attack/Formation
+retain their reference RVAs, patterns, derivations and ABI checks. Initialization
+validates the reference bytes against the Extender-owned scan image and the
+existing bounded resolver. Fixed record/scratch/path layouts remain hash-bound:
+a code signature does not prove a new native layout. Existing feature groups
+fail closed independently; published hooks stay rooted and installed. No new
+fallback is introduced by the move. Reaudit all affected flows, displaced spans,
+incoming edges, actual NativeX64 scheme and layouts on a native/backend update.
+
+Native movement wrapper18E1E0 has four parameters;196280 is its distinct core.
+Unit records are0x490 bytes; movement preview snapshots/restores the record and
+must retain the distinction between preview and actual world notifications.
+The cursor dispatcher8C5F0 has PE unwind range[8C5F0,90500) including19 embedded
+switch tables; the old candidate database end90001 is incomplete. Do not use
+linear decoding of that entire range as proof of executable instructions.
+
+Detailed local review/evidence: _inspect/APISharedOwnership/COMMAND_OWNERSHIP_AUDIT.md,
+cursor-dispatch-targets.log, fixes-dynamic-command-spans.json and preserved
+before-command-ownership sources. They are workspace audit artifacts, not public
+APIShared dependencies. Source equivalence across70 moved files is checked modulo
+namespace/friend ownership and two imports. Game acceptance remains outstanding.

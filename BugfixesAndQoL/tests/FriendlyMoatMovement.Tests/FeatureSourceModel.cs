@@ -4,9 +4,9 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 // Test seam: discover the production type by identity, independent of its file layout.
 internal static class FeatureSourceModel
 {
-    internal static string Read(string workspace, string typeName)
+    internal static string Read(string workspace, string typeName, string sourceRootRelative = "BugfixesAndQoL/src")
     {
-        var parts = Directory.GetFiles(Path.Combine(workspace, "APIShared", "src"), "*.cs", SearchOption.AllDirectories)
+        var parts = Directory.GetFiles(Path.Combine(workspace, sourceRootRelative), "*.cs", SearchOption.AllDirectories)
             .OrderBy(p => p, StringComparer.Ordinal)
             .SelectMany(p => CSharpSyntaxTree.ParseText(File.ReadAllText(p)).GetRoot().DescendantNodes()
                 .OfType<ClassDeclarationSyntax>())

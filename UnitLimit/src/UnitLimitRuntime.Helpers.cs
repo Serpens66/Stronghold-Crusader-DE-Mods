@@ -1,4 +1,4 @@
-using APIShared.SerpsMods;
+using Shared;
 using BepInEx.Logging;
 using CrusaderDE;
 using R3;
@@ -15,9 +15,9 @@ namespace UnitLimit
     public sealed partial class UnitLimitRuntime
     {
         private static bool IsUnitLimitModeAllowed() =>
-            APIShared.SerpsMods.GameplayFeatureModePolicy.IsAllowed(
+            Shared.GameplayFeatureModePolicy.IsAllowed(
                 UnitLimitPlugin.PluginGuid,
-                APIShared.SerpsMods.GameplayFeatureId.UnitLimitEnforcement,
+                Shared.GameplayFeatureId.UnitLimitEnforcement,
                 Shared.GameplayModActivationGate.Snapshot);
 
         private static bool IsLocalPlayer(int playerId)

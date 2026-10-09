@@ -65,7 +65,7 @@ namespace EnemyBridgePathTest
                 Check(EnemyGatePathPolicyBridge.Current == null, "observer cannot claim gate policy");
                 Check(BridgeNativeDefinition.OwnedCount==30&&Array.FindAll(BridgeNativeDefinition.Sites,BridgeNativeDefinition.OwnsEntry).Length==30,"exact thirty own detours");
                 Check(!BridgeNativeDefinition.OwnsEntry(Array.Find(BridgeNativeDefinition.Sites,x=>x.Rva==0xE49D0))&&!BridgeNativeDefinition.OwnsEntry(Array.Find(BridgeNativeDefinition.Sites,x=>x.Rva==0x111C00)),"external owners excluded unconditionally");
-                var owner=new APIShared.UnitCommands.UnitCommandPathRuntime();
+                var owner=new BugfixesAndQoL.UnitCommands.UnitCommandPathRuntime();
                 foreach(int value in new[]{0,1}) {owner.ReturnValue=value;Check(owner.Invoke(false)==value,"production topology owner preserves result");Check(observer.TopologyCalled&&observer.TopologyNative==value,"native topology result observed");}
                 int ownerCalls=owner.Calls;Check(owner.Invoke(true)==0&&owner.Calls==ownerCalls&&!observer.TopologyCalled&&observer.TopologyNative==null,"suppressed production repair does not call original");
                 observer.TopologyThrow=true;long topologyFailures=EnemyBridgeDiagnosticBridge.FailureCount;owner.ReturnValue=1;

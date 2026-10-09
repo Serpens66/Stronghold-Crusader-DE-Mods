@@ -1,3 +1,7 @@
+> Historical native audit notes. AI diagnostic publishing now goes through the
+> mod-owned BugfixesAndQoL observation bridge; the former APIShared diagnostic
+> types referenced below are no longer part of the public API.
+
 # Native targets for AI test experiments
 
 Reference DLL SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.

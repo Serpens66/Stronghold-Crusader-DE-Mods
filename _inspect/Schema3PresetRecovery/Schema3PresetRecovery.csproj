@@ -35,7 +35,11 @@
     <Compile Include="Program.cs" />
     <Compile Include="..\..\Shared\Runtime\Persistence\DependencyFreeJson.cs"><Link>DependencyFreeJson.cs</Link></Compile>
     <Compile Include="..\..\Shared\Runtime\Diagnostics\DebugLogHelper.cs"><Link>DebugLogHelper.cs</Link></Compile>
-    <Compile Include="..\..\APIShared\src\ModSettings\Presets\ModSettingsPresetDocuments.cs"><Link>ModSettingsPresetDocuments.cs</Link></Compile>
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\ModSettingsPresetContracts.cs"><Link>ModSettingsPresetContracts.cs</Link></Compile>
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\ModSettingsWorkingSources.cs"><Link>ModSettingsWorkingSources.cs</Link></Compile>
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetDialogModels.cs"><Link>PresetDialogModels.cs</Link></Compile>
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\ModSettingsPresetJson.cs"><Link>ModSettingsPresetJson.cs</Link></Compile>
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\ModSettingsPresetCatalog.cs"><Link>ModSettingsPresetCatalog.cs</Link></Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <ItemGroup>

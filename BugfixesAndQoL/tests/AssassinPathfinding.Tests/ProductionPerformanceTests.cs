@@ -28,7 +28,7 @@ internal static partial class Program
         // Identical counters in both revisions; no search decision is changed.
         body = body.Replace("int result = heap[0];", "fixturePops++; int result = heap[0];")
             .Replace("heapOperations++;", "heapOperations++; fixtureHeapOperations++;");
-        var publication = CSharpSyntaxTree.ParseText(Read("APIShared/src/UnitCommands/Movement/MovementPathPublication.cs"));
+        var publication = CSharpSyntaxTree.ParseText(Read("BugfixesAndQoL/src/UnitCommands/Movement/MovementPathPublication.cs"));
         string publishing = string.Join("\n", publication.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
             .Where(m => m.Identifier.Text is "BuildPathWithCompletedMoatRouteVariant" or "BeginAssassinRoutePublication")
             .Select(m => m.ToFullString()));
@@ -201,7 +201,7 @@ internal static partial class Program
         Check(CSharpSyntaxTree.ParseText(search).GetRoot().NormalizeWhitespace().ToFullString() ==
             CSharpSyntaxTree.ParseText(Method(previous,"TryBuildWeightedRoute").ToFullString()).GetRoot().NormalizeWhitespace().ToFullString(),
             "Git A* body differs only in suffix dictionary binding and passive diagnostic gates");
-        string publicationPath = "APIShared/src/UnitCommands/Movement/MovementPathPublication.cs";
+        string publicationPath = "BugfixesAndQoL/src/UnitCommands/Movement/MovementPathPublication.cs";
         Check(Method(GitSource("8fe105a11", "APIShared/src/UnitCommands/MovementPathPublication.cs"),"BuildPathWithCompletedMoatRouteVariant").NormalizeWhitespace().ToFullString() ==
             Method(File.ReadAllText(Path.Combine(root, publicationPath)),"BuildPathWithCompletedMoatRouteVariant").NormalizeWhitespace().ToFullString(),
             "Git F4930 wrapper, original call, exception fallback and nested Leave unchanged");

@@ -1,5 +1,4 @@
 using APIShared.GameModes;
-using APIShared.SerpsMods;
 using BepInEx.Logging;
 using CrusaderDE;
 using MessagePack;
@@ -371,9 +370,9 @@ namespace RandomEvents
                 return;
             }
 
-            if (!APIShared.SerpsMods.GameplayFeatureModePolicy.IsAllowed(
+            if (!Shared.GameplayFeatureModePolicy.IsAllowed(
                 RandomEventsPlugin.PluginGuid,
-                APIShared.SerpsMods.GameplayFeatureId.RandomEventsRuntime,
+                Shared.GameplayFeatureId.RandomEventsRuntime,
                 gameMode))
             {
                 LogDebug("Random Events disabled for map editor session.");

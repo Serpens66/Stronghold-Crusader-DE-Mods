@@ -1,4 +1,5 @@
-using APIShared.UnitCommands;
+extern alias BugfixesRuntime;
+using BugfixesRuntime::BugfixesAndQoL.UnitCommands;
 namespace MoatMove
 {
     // Precise traversal uses the same directed weighted kernel as the independent

@@ -11,14 +11,14 @@ namespace AICoarsePathComponentFixTest
 {
     [BepInDependency("000shcdese", "2.11.0")]
     [BepInDependency("APIShared_Serp", "0.4.6")]
-    [BepInDependency("BugfixesAndQoL_Serp")]
+    [BepInDependency("BugfixesAndQoL_Serp", "1.0.181")]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(Guid, Name, Version)]
     public sealed class AICoarsePathComponentFixTestPlugin : BaseUnityPlugin
     {
         public const string Guid = "AICoarsePathComponentFixTest_Serp";
         public const string Name = "AI Coarse Path Component Fix Test";
-        public const string Version = "0.1.0";
+        public const string Version = "0.1.1";
 
         private static ManualLogSource log;
         private static AiCoarsePathComponentFix runtime;

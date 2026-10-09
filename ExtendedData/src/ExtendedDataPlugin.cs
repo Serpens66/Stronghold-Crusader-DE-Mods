@@ -10,16 +10,17 @@ using UnityEngine;
 namespace ExtendedData
 {
     [BepInDependency("000shcdese", "2.4.0")]
-    [BepInDependency("APIShared_Serp", "0.4.9")]
+    [BepInDependency("APIShared_Serp", "0.5.0")]
     [BepInDependency("BugfixesAndQoL_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
+    [ExcludeFromSavegameModSettings]
     public sealed class ExtendedDataPlugin : BaseUnityPlugin
     {
         public const string PluginGuid = "ExtendedData_Serp";
         public const string PluginName = "Extended Data";
-        public const string PluginVersion = "1.0.8";
+        public const string PluginVersion = "1.0.9";
         public const bool ExtendedDataModSettingsOptOut = true;
 
         private static ExtendedDataRuntime runtime;
@@ -30,6 +31,7 @@ namespace ExtendedData
         private void Awake()
         {
             Shared.UnityMainThreadDispatch.InitializeForCurrentThread();
+            ExtendedDataLaunchOriginApi.RegisterModeProvider();
             CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;
         }
 

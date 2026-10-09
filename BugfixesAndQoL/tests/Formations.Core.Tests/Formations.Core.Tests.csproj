@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsTestProject>true</IsTestProject>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.3.0" />
+    <PackageReference Include="MSTest.TestAdapter" Version="4.5.1" />
+    <PackageReference Include="MSTest.TestFramework" Version="4.5.1" />
+    <Compile Include="../../src/Formations/FormationModel.cs" Link="Production/FormationModel.cs" />
+    <Compile Include="../../src/Formations/Markers/LargeMoveTargetOverflowModel.cs" Link="Production/LargeMoveTargetOverflowModel.cs" />
+  </ItemGroup>
+</Project>

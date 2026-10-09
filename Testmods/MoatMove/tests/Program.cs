@@ -15,20 +15,20 @@ string testDir = Path.Combine(root, "Testmods", "MoatMove", "tests");
 string RuntimeSource(string name)
 {
     string sharedName = name.Replace("FriendlyMoatMovementRuntime", "UnitCommandPathRuntime");
-    string commandRoot = Path.Combine(root, "APIShared", "src", "UnitCommands");
+    string commandRoot = Path.Combine(root, "BugfixesAndQoL", "src", "UnitCommands");
     string[] files = sharedName == "UnitCommandPathRuntime.cs"
         ? Directory.GetFiles(commandRoot, "UnitCommandPathRuntime.*.cs", SearchOption.AllDirectories)
         : Directory.GetFiles(commandRoot, sharedName, SearchOption.AllDirectories);
     if (files.Length == 0) files = new[] { Path.Combine(sourceDir, name) };
-    var units = files.OrderBy(p => p, StringComparer.Ordinal).Select(p => CSharpSyntaxTree.ParseText(File.ReadAllText(p)).GetCompilationUnitRoot()).ToArray();
+    var units = files.OrderBy(p => p, StringComparer.Ordinal).Select(p => CSharpSyntaxTree.ParseText(File.ReadAllText(p).Replace("BugfixesRuntime::", "")).GetCompilationUnitRoot()).ToArray();
     string text = (string.Join("\n", units.SelectMany(u => u.Usings).Select(u => u.ToFullString()).Distinct()) +
         "\n" + string.Join("\n", units.SelectMany(u => u.Members).Select(m => m.ToFullString())))
-        .Replace("namespace APIShared.UnitCommands", "namespace MoatMove")
-        .Replace("using APIShared.UnitCommands;", "")
+        .Replace("namespace BugfixesAndQoL.UnitCommands", "namespace MoatMove")
+        .Replace("using BugfixesAndQoL.UnitCommands;", "")
         .Replace("UnitCommandPathRuntime", "FriendlyMoatMovementRuntime")
         .Replace("FriendlyMoatTraversalProvider", "FriendlyMoatMovementRuntime")
         .Replace("internal override ", "private ").Replace("runtime.", "");
-    text = text.Replace("using static APIShared.UnitCommands.FriendlyMoatMovementRuntime;", "using static MoatMove.FriendlyMoatMovementRuntime;");
+    text = text.Replace("using static BugfixesAndQoL.UnitCommands.FriendlyMoatMovementRuntime;", "using static MoatMove.FriendlyMoatMovementRuntime;");
     if (text.Contains("partial class FriendlyMoatMovementRuntime"))
         text = System.Text.RegularExpressions.Regex.Replace(text, @"(?m)^        internal ", "        private ");
     return System.Text.RegularExpressions.Regex.Replace(text, @"(?m)^using SHCDESE[^;]*;", "");
@@ -50,7 +50,7 @@ if (args.Contains("--fast-model-only"))
 {
     var modelSources = new[] { "IFastRouteField.cs", "FastRouteField.cs", "FastCommandQueue.cs", "FastRoutePool.cs", "FastTraversalCache.cs" }
         .Select(name => CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, name)))).ToList();
-    var edgeDeclaration = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/UnitCommands/Moat/MoatCandidateField.cs")))
+    var edgeDeclaration = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "BugfixesAndQoL/src/UnitCommands/Moat/MoatCandidateField.cs")))
         .GetRoot().DescendantNodes().OfType<DelegateDeclarationSyntax>().Single(d => d.Identifier.Text == "MoatSearchEdge");
     modelSources.Add(CSharpSyntaxTree.ParseText("namespace MoatMove {" + edgeDeclaration + "}"));
     foreach (string test in new[] { "FastRouteFieldTests.cs", "FastStateTests.cs" })
@@ -198,6 +198,9 @@ var comparisonPlannerClass = CSharpSyntaxTree.ParseText(GitSource("BugfixesAndQo
     .Replace("MoatSearchKernel", "ComparisonMoatSearchKernel");
 var comparisonPlannerTree = CSharpSyntaxTree.ParseText("using APIShared; using System; using System.Diagnostics; namespace MoatMove {" + comparisonPlannerClass + "}");
 var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/Pathfinding/Routes/RouteSearchContracts.cs"))),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/Pathfinding/Routes/RouteSearchEvents.cs"))),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "RouteSearchEventIntegrationTests.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared", "src", "Units", "UnitAccess.cs"))
         .Replace("using SHCDESE.API;", "using GameUnitManagerAPI = MoatMove.GameUnitManagerAPI;")
         .Replace("using SHCDESE.Interop;", "using GameUnit = MoatMove.GameUnit;")
@@ -219,7 +222,7 @@ var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
     CSharpSyntaxTree.ParseText(RuntimeSource("MoatSearchKernel.cs")),
     CSharpSyntaxTree.ParseText(RuntimeSource("WeightedGridSearchKernel.cs")),
     CSharpSyntaxTree.ParseText(RuntimeSource("MoatCandidateField.cs")),
-    CSharpSyntaxTree.ParseText("namespace MoatMove {" + CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/UnitCommands/Runtime/UnitCommandContracts.cs"))).GetRoot().DescendantNodes().OfType<InterfaceDeclarationSyntax>().Single(n => n.Identifier.Text == "IMoatSearchKernel") + "}"),
+    CSharpSyntaxTree.ParseText("namespace MoatMove {" + CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandContracts.cs"))).GetRoot().DescendantNodes().OfType<InterfaceDeclarationSyntax>().Single(n => n.Identifier.Text == "IMoatSearchKernel") + "}"),
     CSharpSyntaxTree.ParseText(RuntimeSource("FastNativeKernel.cs")),
     CSharpSyntaxTree.ParseText(RuntimeSource("FastNativeRouteField.cs")),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "FastNativeFixtures.cs"))),
@@ -238,6 +241,7 @@ var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "FastRouteFieldTests.cs"))),
     CSharpSyntaxTree.ParseText(RuntimeSource("MoatPlacementSearch.cs")),
     CSharpSyntaxTree.ParseText(RuntimeSource("NativeFormationSlots.cs").Replace("using SHCDESE.API;", "")),
+    CSharpSyntaxTree.ParseText(RuntimeSource("IFormationCommandHandler.cs")),
     CSharpSyntaxTree.ParseText(RuntimeSource("FillWeightedRoutes.cs").Replace("using SHCDESE.API;", "").Replace("using SHCDESE.Interop;", "").Replace("using SHCDESE.Interop.Enums;", "")),
     CSharpSyntaxTree.ParseText(RuntimeSource("MoatPlacement.cs").Replace("using SHCDESE.API;", "").Replace("using SHCDESE.EventAPI.Units;", "").Replace("using SHCDESE.Interop;", "").Replace("using SHCDESE.Interop.Enums;", "")),
     CSharpSyntaxTree.ParseText(RuntimeSource("CursorRegionGraph.cs")),
@@ -260,6 +264,7 @@ if (!emitted.Success)
 var assembly = Assembly.Load(output.ToArray(), symbols.ToArray());
 try
 {
+    assembly.GetType("MoatMove.RouteSearchEventIntegrationTests").GetMethod("Run").Invoke(null, null);
     assembly.GetType("MoatMove.FriendlyMoatMovementRuntime").GetMethod(args.Contains("--runtime-native") ? "RunNativeTests" : "RunTests").Invoke(null, null);
     assembly.GetType("MoatMove.SearchKernelTests").GetMethod("Run").Invoke(null, null);
     assembly.GetType("MoatMove.FastRouteFieldTests").GetMethod("Run").Invoke(null, null);

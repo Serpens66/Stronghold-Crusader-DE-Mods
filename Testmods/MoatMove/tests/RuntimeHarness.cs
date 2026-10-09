@@ -1310,8 +1310,8 @@ namespace APIShared {
 }
 // This movement fixture exercises the existing handoff with diagnostics inactive.
 // Fail explicitly if a test starts requiring the full diagnostic publication path.
-namespace APIShared.UnitCommands {
- internal static class UnitCommandPathRuntime {
+namespace MoatMove {
+ internal sealed unsafe partial class FriendlyMoatMovementRuntime {
   internal static void ReportTemporaryAssassinStage(string stage, string result, string detail, int? player = null) {
    if (APIShared.TemporaryGateRouteAcceptanceBridge.Current != null)
     throw new InvalidOperationException("MoatMove fixture requires inactive optional diagnostics.");

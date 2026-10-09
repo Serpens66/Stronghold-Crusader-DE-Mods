@@ -23,8 +23,8 @@ internal static class SplitContracts
         string addon = Read("Testmods/MoatMove/MoatMove.csproj");
         string plugin = Read("Testmods/MoatMove/src/MoatMovePlugin.cs");
         string settings = Read("BugfixesAndQoL/src/BugfixesAndQoLViewModel.cs");
-        string api = Read("APIShared/src/UnitCommands/Runtime/UnitCommandPathAPI.cs");
-        string policy = Read("APIShared/src/UnitCommands/Movement/TraversalDispatch.cs");
+        string api = Read("BugfixesAndQoL/src/UnitCommands/Runtime/UnitCommandPathAPI.cs");
+        string policy = Read("BugfixesAndQoL/src/UnitCommands/Movement/TraversalDispatch.cs");
         Check(plugin.Contains("BepInDependency(\"BugfixesAndQoL_Serp\"") &&
             plugin.Contains("BepInDependency(\"APIShared_Serp\""), "Addon hard dependencies missing");
         Check(!plugin.Contains("ReportConflict") && !plugin.Contains("MoatMoveConflictPolicy"), "Obsolete addon conflict remains");
@@ -38,7 +38,7 @@ internal static class SplitContracts
         Check(api.Contains("Candidates.Add(runtime)") && api.Contains("RegisterTraversal") &&
             policy.Contains("Traversal?.Enabled == true") && policy.Contains("EnableImprovedManualUnitCommands"),
             "Process rooting or separate logical policies missing");
-        string permanent = Read("APIShared/src/UnitCommands/Native/PermanentCommandHooks.cs");
+        string permanent = Read("BugfixesAndQoL/src/UnitCommands/Native/PermanentCommandHooks.cs");
         Check(permanent.Contains("publishedCommandTransactions") && permanent.Contains("RollbackUnpublished"),
             "Shared publication guard missing");
         foreach (string relative in new[] { "APIShared/APIShared.csproj", "BugfixesAndQoL/BugfixesAndQoL.csproj", "Testmods/MoatMove/MoatMove.csproj" })

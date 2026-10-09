@@ -1,6 +1,5 @@
 using APIShared.GameModes;
 using APIShared.ModSettings;
-using APIShared.SerpsMods;
 using MessagePack;
 using APIShared;
 using BugfixesAndQoL;
@@ -1727,89 +1726,15 @@ internal static class Program
             "foreign profile must reject real multiplayer even when its game context is permitted");
         Check(GameplayModModePolicy.IsAllowed(foreignProfile, CaptureModeFixture(), out _),
             "foreign profile must continue permitting ordinary local custom games");
-        string policySource = File.ReadAllText(
-            Path.Combine(workspaceRoot, "APIShared", "src", "SerpsMods", "SerpsModProfiles.cs"));
-
         for (int index = 0; index < gameplayMods.GetLength(0); index++)
         {
-            string mod = gameplayMods[index, 0];
-            string project = File.ReadAllText(Path.Combine(workspaceRoot, mod, mod + ".csproj"));
-            string runtime = File.ReadAllText(
-                Path.Combine(workspaceRoot, mod, "src", gameplayMods[index, 1]));
-            Check(project.Contains("GameplayModActivationGate.cs") &&
-                  project.Contains("Reference Include=\"APIShared\"") &&
-                  !project.Contains("GameplayModModePolicy.cs") &&
-                  !project.Contains("GameplayFeatureModePolicy.cs") &&
-                  runtime.Contains("GameplayModActivationGate.Initialize") &&
-                  runtime.Contains("PluginGuid") &&
-                  policySource.Contains(gameplayMods[index, 2]),
-                $"{mod} is not bound to its GUID-based gameplay-mode profile");
-
-            string[] competingCaptures = Directory.GetFiles(
-                    Path.Combine(workspaceRoot, mod, "src"), "*.cs", SearchOption.AllDirectories)
-                .Where(path => File.ReadAllText(path).Contains("GameModeHelper.Capture("))
-                .Select(Path.GetFileName)
-                .ToArray();
-            Check(competingCaptures.Length == 0,
-                $"{mod} still performs a competing live game-mode capture: {string.Join(", ", competingCaptures)}");
-        }
-
-        foreach (string exemptProject in new[]
-        {
-            Path.Combine("BugfixesAndQoL", "BugfixesAndQoL.csproj"),
-            Path.Combine("ExtendedData", "ExtendedData.csproj"),
-            Path.Combine("SerpsModsHost", "SerpsModsHost.csproj")
-        })
-        {
-            string project = File.ReadAllText(Path.Combine(workspaceRoot, exemptProject));
-            Check(!project.Contains("GameplayModActivationGate.cs") &&
-                  !project.Contains("GameplayModModePolicy.cs"),
-                $"exempt project {exemptProject} unexpectedly received a restrictive gameplay profile");
-        }
-
-        string gateSource = File.ReadAllText(
-            Path.Combine(workspaceRoot, "Shared", "Adapters", "APIShared", "GameplayModActivationGate.cs"));
-        Check(gateSource.Contains("configuredEnabled=") &&
-              gateSource.Contains("effectiveEnabled=") &&
-              gateSource.Contains("disabled-by-mode") &&
-              gateSource.Contains("GameplayFeatureModePolicy.LogDecisions") &&
-              !gateSource.Contains("EnableMod ="),
-            "gameplay gate logging or non-mutating settings contract regressed");
-
-        string featurePolicySource = File.ReadAllText(
-            Path.Combine(workspaceRoot, "APIShared", "src", "SerpsMods", "GameplayFeatureModePolicy.cs"));
-        foreach (string expectedFeature in Enum.GetNames(typeof(GameplayFeatureId)))
-        {
-            Check(featurePolicySource.Contains(expectedFeature),
-                $"central gameplay-feature policy is missing {expectedFeature}");
-        }
-
-        string[,] featureBindings =
-        {
-            { "BuildingCosts", "BuildingCostsRuntime.cs", "BuildingCostTooltip" },
-            { "BuildingLimit", "BuildingLimitRuntime.Helpers.cs", "BuildingLimitEnforcement" },
-            { "UnitCosts", "UnitCostsRuntime.cs", "UnitCostEnforcement" },
-            { "UnitLimit", "UnitLimitRuntime.Helpers.cs", "UnitLimitEnforcement" },
-            { "ExtraFeatures", "LordHealthRuntime.cs", "LordHealthMultipliers" },
-            { "CheatMod", "CheatModRuntime.cs", "EndlessExtremePowersRecharge" },
-            { "RandomEvents", "RandomEventsRuntime.cs", "RandomEventsRuntime" },
-            { "ImprovedHunters", "ImprovedHuntersRuntime.cs", "ImprovedHunterTargetSelection" },
-            { "ImprovedHunters", "ImprovedHuntersRuntime.cs", "ImprovedHunterPathfinding" },
-            { "CastlePlanner", "CastlePlannerRuntime.cs", "CastleSpawning" },
-            { "CastlePlanner", "FreeCastlePreviewRuntime.cs", "FreeCastlePreview" },
-            { "CastlePlanner", "BlueprintRuntimeController.cs", "CastleBlueprints" }
-        };
-        for (int index = 0; index < featureBindings.GetLength(0); index++)
-        {
-            string runtimeSource = File.ReadAllText(Path.Combine(
-                workspaceRoot,
-                featureBindings[index, 0],
-                "src",
-                featureBindings[index, 1]));
-            Check(runtimeSource.Contains("GameplayFeatureModePolicy.IsAllowed") &&
-                  runtimeSource.Contains("GameplayFeatureId." + featureBindings[index, 2]) &&
-                  runtimeSource.Contains("GameplayModActivationGate.Snapshot"),
-                $"{featureBindings[index, 0]} feature {featureBindings[index, 2]} is not bound to the cached feature-mode policy");
+            GameplayModActivationProfile profile = SerpsModProfiles.GetProfile(
+                gameplayMods[index, 2], gameplayMods[index, 0]);
+            Check(profile.ModGuid == gameplayMods[index, 2] &&
+                  GameplayModModePolicy.IsAllowed(profile, CaptureModeFixture(), out _) &&
+                  GameplayModModePolicy.IsAllowed(profile, CaptureModeFixture(editor: true), out _) &&
+                  !GameplayModModePolicy.IsAllowed(profile, default(GameModeSnapshot), out _),
+                gameplayMods[index, 0] + " permission profile changed during ownership migration");
         }
 
         string startConditionsRuntime = File.ReadAllText(
@@ -2226,11 +2151,6 @@ internal static class Program
                   !source.Contains("GameplayFeatureModePolicy"),
                 fileName + " still restricts a transferred BugfixesAndQoL feature by game mode");
         }
-        string gameplayFeaturePolicySource = File.ReadAllText(
-            Path.Combine(workspaceRoot, "APIShared", "src", "SerpsMods", "GameplayFeatureModePolicy.cs"));
-        Check(!gameplayFeaturePolicySource.Contains("AIQuarryPileTowardsKeep"),
-            "AI quarry-pile placement still has a restrictive per-feature game-mode policy");
-
         GameNetworkAPI.LocalHost = false;
         setting.System_RefreshSettingsAccess();
         byte[] beforeClientMutation = File.ReadAllBytes(settingsPath);

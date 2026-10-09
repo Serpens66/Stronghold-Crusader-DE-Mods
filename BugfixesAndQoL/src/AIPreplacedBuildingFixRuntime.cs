@@ -417,10 +417,10 @@ namespace BugfixesAndQoL
         private void EconomyGridUpdate(ulong state, int mode)
         {
             // AIBuildDiagnoseTest BEGIN -- read-only evidence around the existing Vanilla call.
-            bool diagnose = APIShared.AiBuildDiagnostic.HasObserver;
+            bool diagnose = Diagnostics.AiBuildObservation.HasObserver;
             if (diagnose)
             {
-                try { APIShared.AiBuildDiagnostic.PublishEconomyGridEvidence("economy-grid-before", state, mode); }
+                try { Diagnostics.AiBuildObservation.PublishEconomyGridEvidence("economy-grid-before", state, mode); }
                 catch (Exception ex) { Shared.DebugLogHelper.LogWarning(log, "AI grid pre-observation failed: " + ex.Message); }
             }
             try { economyGridUpdateHook.Original(state, mode); }
@@ -428,7 +428,7 @@ namespace BugfixesAndQoL
             {
                 if (diagnose)
                 {
-                    try { APIShared.AiBuildDiagnostic.PublishEconomyGridEvidence("economy-grid-after", state, mode); }
+                    try { Diagnostics.AiBuildObservation.PublishEconomyGridEvidence("economy-grid-after", state, mode); }
                     catch (Exception ex) { Shared.DebugLogHelper.LogWarning(log, "AI grid post-observation failed: " + ex.Message); }
                 }
             }
@@ -554,16 +554,16 @@ namespace BugfixesAndQoL
         private void EconomyWood(ulong state, int playerId)
         {
             // AIBuildDiagnoseTest only. The registered gate is false in ordinary sessions.
-            if (APIShared.AiBuildDiagnostic.ShouldDeferWoodBuild(playerId))
+            if (Diagnostics.AiBuildObservation.ShouldDeferWoodBuild(playerId))
             {
-                APIShared.AiBuildDiagnostic.Publish("wood-build-deferred", playerId);
+                Diagnostics.AiBuildObservation.Publish("wood-build-deferred", playerId);
                 return;
             }
             // AIBuildDiagnoseTest BEGIN -- dormant unless the test observer is registered.
-            bool diagnose = APIShared.AiBuildDiagnostic.HasObserver;
-            long attemptId = diagnose ? APIShared.AiBuildDiagnostic.BeginWoodAttempt(playerId) : 0;
+            bool diagnose = Diagnostics.AiBuildObservation.HasObserver;
+            long attemptId = diagnose ? Diagnostics.AiBuildObservation.BeginWoodAttempt(playerId) : 0;
             if (diagnose)
-                APIShared.AiBuildDiagnostic.Publish("wood-build-before", playerId,
+                Diagnostics.AiBuildObservation.Publish("wood-build-before", playerId,
                     sessionEnabled ? 1 : 0, economyFixEnabled ? 1 : 0,
                     currentMapIsSave ? 1 : 0, economyMapRelevant ? 1 : 0);
             // AIBuildDiagnoseTest END
@@ -574,12 +574,12 @@ namespace BugfixesAndQoL
                 try
                 {
                     if (diagnose)
-                        APIShared.AiBuildDiagnostic.Publish("wood-build-after", playerId,
+                        Diagnostics.AiBuildObservation.Publish("wood-build-after", playerId,
                             ReadSearchResult(state, false), ReadSearchResult(state, true));
                 }
                 finally
                 {
-                    try { APIShared.AiBuildDiagnostic.EndWoodAttempt(attemptId); }
+                    try { Diagnostics.AiBuildObservation.EndWoodAttempt(attemptId); }
                     finally { AiWoodBuildCallScope.Leave(woodScope); }
                 }
             }
@@ -607,12 +607,12 @@ namespace BugfixesAndQoL
         private long FarmSearch(ulong state, int playerId, int desiredStructureType)
         {
             // AIBuildDiagnoseTest: capture before the optional overlay is restored.
-            bool diagnose = APIShared.AiBuildDiagnostic.HasObserver &&
+            bool diagnose = Diagnostics.AiBuildObservation.HasObserver &&
                 playerId >= 1 && playerId <= MaxPlayablePlayerId;
             long cooldown = diagnose ? ReadFarmCooldown(playerId) : -1;
             uint generationBefore = diagnose ? ReadSearchGeneration(state) : 0;
             if (diagnose)
-                APIShared.AiBuildDiagnostic.Publish("farm-search-before", playerId,
+                Diagnostics.AiBuildObservation.Publish("farm-search-before", playerId,
                     desiredStructureType, cooldown, economyMapRelevant ? 1 : 0,
                     sessionEnabled ? 1 : 0);
             EconomyGridOverlayScope overlay = null;
@@ -626,15 +626,15 @@ namespace BugfixesAndQoL
                 long result = farmSearchHook.Original(state, playerId, desiredStructureType);
                 if (diagnose)
                 {
-                    APIShared.AiBuildDiagnostic.Publish("farm-search-after", playerId,
+                    Diagnostics.AiBuildObservation.Publish("farm-search-after", playerId,
                         result, ReadFarmCooldown(playerId), ReadSearchResult(state, false),
                         ReadSearchResult(state, true));
-                    APIShared.AiBuildDiagnostic.Publish("farm-search-generation", playerId,
+                    Diagnostics.AiBuildObservation.Publish("farm-search-generation", playerId,
                         generationBefore, ReadSearchGeneration(state));
                     if (desiredStructureType == (int)eStructs.STRUCT_APPLEFARM &&
                         result == 0 && cooldown <= 0 &&
                         ReadSearchGeneration(state) != generationBefore)
-                        APIShared.AiBuildDiagnostic.Publish("farm-candidate-scan-request", playerId,
+                        Diagnostics.AiBuildObservation.Publish("farm-candidate-scan-request", playerId,
                             unchecked((long)state));
                 }
                 return result;
@@ -644,17 +644,17 @@ namespace BugfixesAndQoL
 
         private void ResourceSearch(ulong state, int playerId, int mode)
         {
-            bool diagnose = APIShared.AiBuildDiagnostic.HasObserver &&
+            bool diagnose = Diagnostics.AiBuildObservation.HasObserver &&
                 playerId >= 1 && playerId <= MaxPlayablePlayerId;
             uint generationBefore = diagnose ? ReadSearchGeneration(state) : 0;
             if (diagnose)
-                APIShared.AiBuildDiagnostic.Publish("resource-search-before", playerId,
+                Diagnostics.AiBuildObservation.Publish("resource-search-before", playerId,
                     mode, generationBefore);
             if (!sessionEnabled || !IsExpectedAivState(state) || !economyMapRelevant)
             {
                 resourceSearchHook.Original(state, playerId, mode);
                 if (diagnose)
-                    APIShared.AiBuildDiagnostic.Publish("resource-search-after", playerId,
+                    Diagnostics.AiBuildObservation.Publish("resource-search-after", playerId,
                         mode, ReadSearchResult(state, false), ReadSearchResult(state, true),
                         ReadSearchGeneration(state));
                 return;
@@ -665,7 +665,7 @@ namespace BugfixesAndQoL
             {
                 resourceSearchHook.Original(state, playerId, mode);
                 if (diagnose)
-                    APIShared.AiBuildDiagnostic.Publish("resource-search-after", playerId,
+                    Diagnostics.AiBuildObservation.Publish("resource-search-after", playerId,
                         mode, ReadSearchResult(state, false), ReadSearchResult(state, true),
                         ReadSearchGeneration(state));
             }
@@ -675,10 +675,10 @@ namespace BugfixesAndQoL
         private void WoodSearch(ulong state, int playerId)
         {
             // AIBuildDiagnoseTest BEGIN
-            bool diagnose = APIShared.AiBuildDiagnostic.HasObserver;
+            bool diagnose = Diagnostics.AiBuildObservation.HasObserver;
             long cooldownBefore = diagnose ? ReadWoodCooldown(playerId) : -1;
             if (diagnose)
-                APIShared.AiBuildDiagnostic.Publish("wood-search-before", playerId,
+                Diagnostics.AiBuildObservation.Publish("wood-search-before", playerId,
                     cooldownBefore, ReadSearchResult(state, false),
                     ReadSearchResult(state, true));
             try { WoodSearchCore(state, playerId); }
@@ -686,7 +686,7 @@ namespace BugfixesAndQoL
             {
                 if (diagnose)
                 {
-                    APIShared.AiBuildDiagnostic.Publish("wood-search-after", playerId,
+                    Diagnostics.AiBuildObservation.Publish("wood-search-after", playerId,
                         ReadWoodCooldown(playerId), ReadSearchResult(state, false),
                         ReadSearchResult(state, true));
                 }
@@ -696,7 +696,7 @@ namespace BugfixesAndQoL
 
         private void WoodSearchCore(ulong state, int playerId)
         {
-            bool capture = APIShared.AiBuildDiagnostic.HasObserver &&
+            bool capture = Diagnostics.AiBuildObservation.HasObserver &&
                 playerId >= 1 && playerId <= MaxPlayablePlayerId &&
                 ReadWoodCooldown(playerId) <= 0;
             uint generationBefore = capture ? ReadSearchGeneration(state) : 0;
@@ -706,7 +706,7 @@ namespace BugfixesAndQoL
                 if (capture && ReadSearchGeneration(state) != generationBefore &&
                     ReadSearchResult(state, false) == -1)
                 {
-                    APIShared.AiBuildDiagnostic.Publish("wood-candidate-scan-request", playerId,
+                    Diagnostics.AiBuildObservation.Publish("wood-candidate-scan-request", playerId,
                         unchecked((long)state));
                 }
                 return;
@@ -719,7 +719,7 @@ namespace BugfixesAndQoL
                 if (capture && ReadSearchGeneration(state) != generationBefore &&
                     ReadSearchResult(state, false) == -1)
                 {
-                    APIShared.AiBuildDiagnostic.Publish("wood-candidate-scan-request", playerId,
+                    Diagnostics.AiBuildObservation.Publish("wood-candidate-scan-request", playerId,
                         unchecked((long)state));
                 }
             }
@@ -753,24 +753,24 @@ namespace BugfixesAndQoL
         // The existing hook is the only place the test mod can bracket this Vanilla call.
         private void InvokeNearbyOriginalWithDiagnosticOverlay(ulong state, uint coarseX, uint coarseY)
         {
-            bool genericDiagnostic = APIShared.AiBuildDiagnostic.HasObserver &&
-                !APIShared.AiBuildDiagnostic.TryGetCurrentWoodAttempt(out _, out _);
+            bool genericDiagnostic = Diagnostics.AiBuildObservation.HasObserver &&
+                !Diagnostics.AiBuildObservation.TryGetCurrentWoodAttempt(out _, out _);
             int genericPlayer = nearbyEconomyState == state ? nearbyEconomyPlayerId : 0;
             uint generationBefore = genericDiagnostic ? ReadSearchGeneration(state) : 0;
             if (genericDiagnostic)
-                APIShared.AiBuildDiagnostic.Publish("site-search-before", genericPlayer,
+                Diagnostics.AiBuildObservation.Publish("site-search-before", genericPlayer,
                     coarseX, coarseY, generationBefore);
-            Action restore = APIShared.AiBuildDiagnostic.BeginNearbyWoodObservation(
+            Action restore = Diagnostics.AiBuildObservation.BeginNearbyWoodObservation(
                 state, nearbyEconomyPlayerId, (int)coarseX, (int)coarseY);
             try
             {
                 nearbySearchHook.Original(state, coarseX, coarseY);
                 if (genericDiagnostic)
-                    APIShared.AiBuildDiagnostic.Publish("site-search-after", genericPlayer,
+                    Diagnostics.AiBuildObservation.Publish("site-search-after", genericPlayer,
                         ReadSearchResult(state, false), ReadSearchResult(state, true),
                         generationBefore, ReadSearchGeneration(state));
             }
-            finally { APIShared.AiBuildDiagnostic.EndNearbyWoodObservation(restore,
+            finally { Diagnostics.AiBuildObservation.EndNearbyWoodObservation(restore,
                 state, nearbyEconomyPlayerId, (int)coarseX, (int)coarseY); }
         }
 

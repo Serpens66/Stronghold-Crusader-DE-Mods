@@ -15,6 +15,7 @@
 # Build outputs
 **/bin/
 **/obj/
+**/TestResults/
 /.release-output/
 /release.local.json
 /.nexusmods-api-key.dpapi

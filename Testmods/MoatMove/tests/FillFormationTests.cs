@@ -303,11 +303,12 @@ namespace MoatMove
                 int providerFallbacks = 0;
                 int* outputTriple = (int*)(tribes + 0x0C);
                 outputTriple[0] = 61; outputTriple[1] = 11; outputTriple[2] = 2;
-                formationRuntime = new FormationRuntime { Standard = (m,s,x,y) => true };
+                var formationProvider = new FormationRuntime { Standard = (m,s,x,y) => true };
+                formationRuntime = formationProvider;
                 originalFormationSlot = (m,s,x,y) => providerFallbacks++;
                 ChooseOwnerSafeFormationSlot(nativePathManager,3,60,10);
                 Check(providerFallbacks==0,"successful formation provider is authoritative");
-                formationRuntime.Standard = (m,s,x,y) => {
+                formationProvider.Standard = (m,s,x,y) => {
                     outputTriple[0]=99; outputTriple[1]=98; outputTriple[2]=97;
                     throw new InvalidOperationException("test formation provider");
                 };
@@ -318,13 +319,14 @@ namespace MoatMove
                     providerFallbacks++;
                 };
                 ChooseOwnerSafeFormationSlot(nativePathManager,3,60,10);
-                Check(formationRuntime.Disabled && providerFallbacks==1,
+                Check(formationProvider.Disabled && providerFallbacks==1,
                     "failed formation provider is logically disabled and original called once");
-                formationRuntime = new FormationRuntime { Assassin = (m,s,x,y) => 123 };
+                formationProvider = new FormationRuntime { Assassin = (m,s,x,y) => 123 };
+                formationRuntime = formationProvider;
                 originalAssassinGroundFormationSlot = (m,s,x,y) => { providerFallbacks++; return 80; };
                 Check(ChooseAssassinGroundFormationSlot(nativePathManager,3,60,10)==123 && providerFallbacks==1,
                     "successful Assassin formation provider is authoritative");
-                formationRuntime.Assassin = (m,s,x,y) => {
+                formationProvider.Assassin = (m,s,x,y) => {
                     outputTriple[0]=99; outputTriple[1]=98; outputTriple[2]=97;
                     throw new InvalidOperationException("test Assassin provider");
                 };
@@ -334,7 +336,7 @@ namespace MoatMove
                     providerFallbacks++; return 80;
                 };
                 Check(ChooseAssassinGroundFormationSlot(nativePathManager,3,60,10)==80 &&
-                    formationRuntime.Disabled && providerFallbacks==2,"failed Assassin provider falls back once");
+                    formationProvider.Disabled && providerFallbacks==2,"failed Assassin provider falls back once");
                 formationRuntime=null;disposed=savedDisposed;
                 originalFormationSlot=savedOriginal;originalAssassinGroundFormationSlot=savedAssassinOriginal;
                 tileFlags[1060]|=CursorSpecialStructureTileFlagMask;

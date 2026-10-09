@@ -8,135 +8,6 @@ using Microsoft.CodeAnalysis.CSharp;
 
 // Compiler diagnostics only. No mod assembly is emitted, copied or installed.
 var root = Path.GetFullPath(args[0]);
-if (args.Contains("--compare-shared-separation"))
-{
-    using var mapping = System.Text.Json.JsonDocument.Parse(File.ReadAllText(Path.Combine(root, "_inspect/SharedSeparation/migration-map.json")));
-    var previousPaths = mapping.RootElement.GetProperty("moves").EnumerateObject()
-        .ToDictionary(p => p.Value.GetString(), p => p.Name);
-    foreach (var copy in mapping.RootElement.GetProperty("apiCopies").EnumerateObject())
-        previousPaths["APIShared/src/" + copy.Value.GetString()] = "Shared/" + copy.Name + ".cs";
-    var parse = new CSharpParseOptions(LanguageVersion.Preview, preprocessorSymbols: new[] {
-        "API_SHARED_LOBBY_OBSERVER", "API_SHARED_INTERNAL_JSON", "API_SHARED_INTERNAL_TOOLTIP"
-    });
-    string Normalize(string text) => text.Replace("APIShared.Internal.", "Shared.");
-    string[] Members(string text) => CSharpSyntaxTree.ParseText(text, parse).GetRoot().DescendantNodes()
-        .Where(n => n is Microsoft.CodeAnalysis.CSharp.Syntax.BaseMethodDeclarationSyntax ||
-            n is Microsoft.CodeAnalysis.CSharp.Syntax.FieldDeclarationSyntax ||
-            n is Microsoft.CodeAnalysis.CSharp.Syntax.PropertyDeclarationSyntax ||
-            n is Microsoft.CodeAnalysis.CSharp.Syntax.EventDeclarationSyntax)
-        .Select(n => Normalize(n.WithoutTrivia().NormalizeWhitespace().ToFullString())).ToArray();
-    int compared = 0, failures = 0;
-    var selectedSources = Directory.GetFiles(Path.Combine(root, "APIShared/src"), "*.cs", SearchOption.AllDirectories)
-        .Concat(previousPaths.Keys.Where(p => p.StartsWith("Shared/Runtime/") || p.StartsWith("Shared/Adapters/"))
-            .Where(p => p.EndsWith(".cs")).Select(p => Path.Combine(root, p)));
-    foreach (var source in selectedSources)
-    {
-        string relative = Path.GetRelativePath(root, source).Replace('\\', '/');
-        string original = previousPaths.GetValueOrDefault(relative, relative);
-        using var git = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("git") {
-            WorkingDirectory = root, RedirectStandardOutput = true, RedirectStandardError = true,
-            UseShellExecute = false, CreateNoWindow = true, ArgumentList = { "show", "a7888900e:" + original }
-        });
-        string oldText = git.StandardOutput.ReadToEnd().Replace("\r\n", "\n").Replace("\n", "\r\n");
-        git.WaitForExit();
-        if (git.ExitCode != 0) throw new InvalidOperationException(git.StandardError.ReadToEnd());
-        if (!Members(oldText).SequenceEqual(Members(File.ReadAllText(source)))) {
-            Console.WriteLine("FAIL: executable member changed: " + relative); failures++;
-        }
-        compared++;
-    }
-    Console.WriteLine($"Shared separation Git comparison: {compared} implementation files; unexpected executable-member changes={failures}.");
-    return failures == 0 ? 0 : 1;
-}
-if (args.Contains("--compare-refactor"))
-{
-    string GitRead(string relative)
-    {
-        using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("git") {
-            WorkingDirectory = root, RedirectStandardOutput = true, RedirectStandardError = true,
-            UseShellExecute = false, CreateNoWindow = true,
-            ArgumentList = { "show", "HEAD:" + relative }
-        });
-        string text = process.StandardOutput.ReadToEnd();
-        process.WaitForExit();
-        if (process.ExitCode != 0) throw new InvalidOperationException(process.StandardError.ReadToEnd());
-        // Git stores LF; the Windows checkout baseline uses CRLF, including literal strings.
-        return text.Replace("\r\n", "\n").Replace("\n", "\r\n");
-    }
-    string Normalize(string value)
-    {
-        value = System.Text.RegularExpressions.Regex.Replace(value, @"APIShared\.(?:GameModes|ModSettings|SerpsMods)\.", "Shared.");
-        return value.Replace("SerpsModProfiles.GetProfile", "GameplayModModePolicy.GetProfile");
-    }
-    IEnumerable<string> Bodies(string text) => CSharpSyntaxTree.ParseText(text,
-        new CSharpParseOptions(LanguageVersion.Preview, preprocessorSymbols: new[] { "API_SHARED_LOBBY_OBSERVER", "API_SHARED_INTERNAL_JSON" }))
-        .GetRoot().DescendantNodes().OfType<Microsoft.CodeAnalysis.CSharp.Syntax.BaseMethodDeclarationSyntax>()
-        .Select(m => Normalize(m.Body?.NormalizeWhitespace().ToFullString() ?? m.ExpressionBody?.NormalizeWhitespace().ToFullString() ?? ""));
-    IEnumerable<string> StoredMembers(string text) => CSharpSyntaxTree.ParseText(text,
-        new CSharpParseOptions(LanguageVersion.Preview, preprocessorSymbols: new[] { "API_SHARED_LOBBY_OBSERVER", "API_SHARED_INTERNAL_JSON" }))
-        .GetRoot().DescendantNodes().Where(n => n is Microsoft.CodeAnalysis.CSharp.Syntax.FieldDeclarationSyntax ||
-            n is Microsoft.CodeAnalysis.CSharp.Syntax.PropertyDeclarationSyntax || n is Microsoft.CodeAnalysis.CSharp.Syntax.EventDeclarationSyntax)
-        .Select(n => Normalize(n.WithoutTrivia().NormalizeWhitespace().ToFullString())).OrderBy(x => x);
-    var differences = new List<string>();
-    int matched = 0;
-    var allowed = new HashSet<string> { "ApiSharedRuntime.cs", "GameplayModModePolicy.cs", "Contracts.cs" };
-    foreach (string source in Directory.GetFiles(Path.Combine(root, "APIShared/src"), "*.cs", SearchOption.AllDirectories))
-    {
-        string filename = Path.GetFileName(source);
-        if (new[] { "ModApiClient.cs", "SerpsModProfiles.cs" }.Contains(filename) ||
-            source.Contains("\\ModSettings\\")) continue;
-        string original;
-        string originalPath = source.Contains("\\UnitCommands\\") ? "APIShared/src/UnitCommands/" + filename : "APIShared/src/" + filename;
-        try { original = GitRead(originalPath); } catch { continue; }
-        if (filename != "GameplayModModePolicy.cs" && !StoredMembers(original).SequenceEqual(StoredMembers(File.ReadAllText(source))))
-            differences.Add(filename + ": fields, properties or events changed");
-        if (Bodies(original).SequenceEqual(Bodies(File.ReadAllText(source)))) matched++;
-        else if (!allowed.Contains(filename))
-        {
-            differences.Add(filename);
-            File.WriteAllText(Path.Combine(root, "_inspect/APISharedRefactor/" + filename + ".old-methods.txt"), string.Join("\n===METHOD===\n", Bodies(original)));
-            File.WriteAllText(Path.Combine(root, "_inspect/APISharedRefactor/" + filename + ".new-methods.txt"), string.Join("\n===METHOD===\n", Bodies(File.ReadAllText(source))));
-        }
-    }
-    // Partial extraction preserves all original method bodies across their new files.
-    string oldPreset = GitRead("APIShared/src/PresetLobbyModSettingsViewModel.cs");
-    var extractedNames = new[] { "PresetLobbyModSettingsViewModel.cs", "PresetLobbyModSettingsViewModel.Persistence.cs",
-        "PresetLobbyModSettingsViewModel.Sources.cs", "PerPlayerLobbySettings.cs", "LobbyModSettingsPresetRegistration.cs" };
-    var oldBodies = Bodies(oldPreset).OrderBy(x => x).ToArray();
-    var newBodies = extractedNames.SelectMany(n => Bodies(File.ReadAllText(Path.Combine(root, "APIShared/src/ModSettings", n)))).OrderBy(x => x).ToArray();
-    if (!StoredMembers(oldPreset).SequenceEqual(extractedNames.SelectMany(n => StoredMembers(File.ReadAllText(Path.Combine(root, "APIShared/src/ModSettings", n)))).OrderBy(x => x)))
-        differences.Add("Preset extraction changed fields, properties or events");
-    if (!oldBodies.SequenceEqual(newBodies))
-    {
-        differences.Add("Preset extraction changed method bodies");
-        File.WriteAllText(Path.Combine(root, "_inspect/APISharedRefactor/preset.old-methods.txt"), string.Join("\n===METHOD===\n", oldBodies));
-        File.WriteAllText(Path.Combine(root, "_inspect/APISharedRefactor/preset.new-methods.txt"), string.Join("\n===METHOD===\n", newBodies));
-    }
-    int consumers = 0;
-    using (var changed = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("git") {
-        WorkingDirectory = root, RedirectStandardOutput = true, RedirectStandardError = true,
-        UseShellExecute = false, CreateNoWindow = true,
-        ArgumentList = { "diff", "--name-only", "--diff-filter=AM", "--", "*.cs" }
-    }))
-    {
-        string paths = changed.StandardOutput.ReadToEnd();
-        changed.WaitForExit();
-        if (changed.ExitCode != 0) throw new InvalidOperationException(changed.StandardError.ReadToEnd());
-        foreach (string path in paths.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
-        {
-            if (path.StartsWith("APIShared/") || path.StartsWith("_inspect/") || path.Contains("/tests/") ||
-                path.Contains(".Tests/") || path.StartsWith("Shared/Tools/Validation/UnitCommandSourceChecks/")) continue;
-            string original = GitRead(path);
-            string current = File.ReadAllText(Path.Combine(root, path));
-            if (!Bodies(original).SequenceEqual(Bodies(current)) || !StoredMembers(original).SequenceEqual(StoredMembers(current)))
-                differences.Add(path + ": consumer executable members changed");
-            consumers++;
-        }
-    }
-    foreach (string difference in differences) Console.WriteLine("FAIL: " + difference);
-    Console.WriteLine($"Git executable-member comparison: {matched} unchanged feature files; {consumers} migrated consumer files; preset methods {oldBodies.Length} -> {newBodies.Length}; unexpected differences={differences.Count}.");
-    return differences.Count == 0 ? 0 : 1;
-}
 var game = @"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition";
 var framework = @"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1";
 var projects = new[] {"APIShared/APIShared.csproj", "BugfixesAndQoL/BugfixesAndQoL.csproj", "Testmods/MoatMove/MoatMove.csproj"};
@@ -190,6 +61,7 @@ void AddProject(string relative)
 }
 foreach (var relative in projects) AddProject(relative);
 int errors = 0;
+var usageReport = args.Contains("--api-usage-report") ? new ApiUsageReport(root) : null;
 foreach (var relative in orderedProjects)
 {
     var project = Path.Combine(root, relative);
@@ -248,7 +120,10 @@ foreach (var relative in orderedProjects)
     foreach (var entry in xml.Descendants().Where(e => e.Name.LocalName == "Reference"))
     {
         var include = ((string)entry.Attribute("Include")).Split(',')[0];
-        if (compilations.TryGetValue(include, out var dependency)) { refs.Add(dependency.ToMetadataReference()); continue; }
+        var aliasesText = entry.Elements().FirstOrDefault(e => e.Name.LocalName == "Aliases")?.Value;
+        var referenceProperties = string.IsNullOrWhiteSpace(aliasesText) ? MetadataReferenceProperties.Assembly :
+            MetadataReferenceProperties.Assembly.WithAliases(aliasesText.Split(',').Select(a => a.Trim()));
+        if (compilations.TryGetValue(include, out var dependency)) { refs.Add(dependency.ToMetadataReference(aliases: referenceProperties.Aliases)); continue; }
         var hint = entry.Elements().FirstOrDefault(e => e.Name.LocalName == "HintPath")?.Value;
         if (hint == null) continue;
         hint = Expand(hint);
@@ -256,7 +131,7 @@ foreach (var relative in orderedProjects)
         if (!File.Exists(resolved)) { Console.WriteLine("Missing reference: " + resolved); errors++; continue; }
         if (args.Contains("--real") && include == "Assembly-CSharp") resolved = Path.Combine(game, "Stronghold Crusader Definitive Edition_Data/Managed/Assembly-CSharp.dll");
         if (include == "SHCDESE" || include == "Assembly-CSharp") Console.WriteLine(name + " verified reference " + include + ": " + resolved);
-        refs.Add(MetadataReference.CreateFromFile(resolved));
+        refs.Add(MetadataReference.CreateFromFile(resolved, referenceProperties));
     }
     var compilation = CSharpCompilation.Create(name, trees, refs.DistinctBy(r => r is CompilationReference c ? c.Compilation.AssemblyName : r.Display),
         new CSharpCompilationOptions(coreProject && xml.Descendants().Any(e => e.Name.LocalName == "OutputType" && e.Value == "Exe")
@@ -266,6 +141,8 @@ foreach (var relative in orderedProjects)
     Console.WriteLine(name + ": " + sources.Length + " sources, " + diagnostics.Length + " errors");
     foreach (var diagnostic in diagnostics) Console.WriteLine(diagnostic);
     errors += diagnostics.Length;
+    if (usageReport != null && diagnostics.Length == 0 && name != "APIShared")
+        usageReport.Add(compilation);
     if (name == "ThirdPartyMod.Examples" && diagnostics.Length == 0)
     {
         var settings = compilation.GetTypeByMetadataName("ThirdPartyMod.ExampleSettings");
@@ -285,5 +162,16 @@ foreach (var relative in orderedProjects)
         }
         Console.WriteLine("Public example XAML bindings verified against compiled inherited contracts.");
     }
+}
+if (usageReport != null)
+    usageReport.Write(Path.GetFullPath(Path.Combine(root, args[Array.IndexOf(args, "--api-usage-report") + 1])));
+if (args.Contains("--command-dependency-report") && errors == 0)
+{
+    CommandDependencyReport.VerifyFixtures();
+    var report = new CommandDependencyReport(root);
+    report.AddApi(compilations["APIShared"]);
+    foreach (var consumer in compilations.Values.Where(compilation => compilation.AssemblyName != "APIShared"))
+        report.AddConsumer(consumer);
+    report.Write(Path.GetFullPath(Path.Combine(root, args[Array.IndexOf(args, "--command-dependency-report") + 1])));
 }
 return errors == 0 ? 0 : 1;
