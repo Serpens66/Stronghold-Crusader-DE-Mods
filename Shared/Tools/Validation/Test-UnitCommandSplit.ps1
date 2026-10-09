@@ -24,7 +24,7 @@ foreach ($relative in $projects) {
         $text = [IO.File]::ReadAllText($path)
         if ($text -match $jsonPattern) { throw "Forbidden runtime JSON dependency: $path" }
         if ($text -match $callbackPattern) { throw "Runtime component callback or teardown: $path" }
-        if ($path -match '\\UnitCommands\\|\\MoatMove\\src\\') {
+        if ($path -match '\\UnitCommands\\|\\MoatMove\\src\\|\\BugfixesAndQoL\\src\\Formations\\') {
             if ($text -match '\b(?:CodePatch\.Write|VirtualProtect|FlushInstructionCache)\s*\(|\.Hook\.(?:Enable|Disable|Undo|Dispose)\s*\(') {
                 throw "Executable hook mutation in shared command runtime: $path"
             }

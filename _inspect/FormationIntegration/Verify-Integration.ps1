@@ -5,9 +5,9 @@ $workspace = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 if (-not $?) { throw 'Installed interop audit failed' }
 & (Join-Path $workspace 'Shared\Tools\Validation\Test-UnitCommandSplit.ps1')
 if (-not $?) { throw 'Runtime preflight failed' }
-$shared = Join-Path $workspace 'APIShared\src\UnitCommands'
-$runtime = [IO.File]::ReadAllText((Join-Path $shared 'FormationRuntime.cs'))
-$renderer = [IO.File]::ReadAllText((Join-Path $shared 'LargeMoveTargetMarkerRenderer.cs'))
+$shared = Join-Path $workspace 'BugfixesAndQoL\src\UnitCommands'
+$runtime = (@(Get-ChildItem -LiteralPath (Join-Path $workspace 'BugfixesAndQoL\src\Formations') -File -Filter 'FormationRuntime.*.cs' | ForEach-Object { [IO.File]::ReadAllText($_.FullName) }) -join "`n")
+$renderer = [IO.File]::ReadAllText((Join-Path $workspace 'BugfixesAndQoL\src\Formations\Markers\LargeMoveTargetMarkerRenderer.cs'))
 $feature = [IO.File]::ReadAllText((Join-Path $workspace 'BugfixesAndQoL\src\FormationFeature.cs'))
 if ($runtime -match '\bAddDetour\(|\bAddContextHook\(|\.Undo\(|engineRunHook\??\.Dispose\(|cameraUpdateHook\??\.Dispose\(') { throw 'Competing native installation or published hook teardown' }
 if ($runtime -notmatch 'HookConfig \{ ManualApply = true' -or

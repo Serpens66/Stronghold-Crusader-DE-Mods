@@ -32,5 +32,5 @@
 <ItemGroup><Compile Include="tests\CaptureRefreshTests.cs" /></ItemGroup>
   <ItemGroup><Compile Include="..\..\APIShared\src\Buildings\Gatehouse\GatehouseDrawbridgeCoupling.cs"><Link>GatehouseDrawbridgeCoupling.cs</Link></Compile></ItemGroup>
   <ItemGroup><Compile Include="..\..\APIShared\src\Units\UnitAccess.cs"><Link>UnitAccess.cs</Link></Compile></ItemGroup>
-  <ItemGroup><Compile Include="tests\OwnerFixture.cs" /><Compile Include="..\..\APIShared\src\UnitCommands\Attack\ManualProbeRepairGuards.cs"><Link>ManualProbeRepairGuards.cs</Link></Compile></ItemGroup>
+  <ItemGroup><Compile Include="tests\OwnerFixture.cs" /><Compile Include="..\..\BugfixesAndQoL\src\UnitCommands\Attack\ManualProbeRepairGuards.cs"><Link>ManualProbeRepairGuards.cs</Link></Compile></ItemGroup>
 </Project>

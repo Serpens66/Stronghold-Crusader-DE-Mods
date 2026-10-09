@@ -67,6 +67,6 @@
   <ItemGroup><Compile Include="..\..\Shared\Runtime\Threading\DeferredSnapshotRefreshRequest.cs" /></ItemGroup>
 <ItemGroup><Compile Include="..\EnemyBridgePathTest\tests\CaptureRefreshTests.cs" /></ItemGroup>
   <ItemGroup>
-    <Compile Include="..\..\APIShared\src\UnitCommands\Movement\TemporaryPackedRouteInspection.cs" />
+    <Compile Include="..\..\BugfixesAndQoL\src\UnitCommands\Movement\TemporaryPackedRouteInspection.cs" />
   </ItemGroup>
 </Project>

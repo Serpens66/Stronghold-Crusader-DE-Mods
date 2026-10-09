@@ -592,7 +592,7 @@ namespace BugfixesAndQoL
             {
                 UnitCommandPathAPI.AssassinReconstructionRelaxation = () => AssassinPathfindingRuntime.TemporaryReconstructionRelaxation;
                 processUnitCommandPathRuntime = UnitCommandPathAPI.RegisterCommands(
-                    log, settings, context, referenceHashMatches);
+                    log, settings, context, referenceHashMatches, BugfixesAndQoLPlugin.PluginGuid);
             }
             friendlyMoatMovementRuntime = processUnitCommandPathRuntime;
             Shared.DebugLogHelper.LogDebug(

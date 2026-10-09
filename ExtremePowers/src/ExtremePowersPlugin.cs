@@ -55,6 +55,7 @@ namespace ExtremePowers
                         CaptureMapSession();
                 });
             mapUnloadSubscription = Shared.MissionEvents.Ended.Subscribe(_ => ResetMapSession());
+            Shared.DirectLaunchSettingsNotice.Configure(Settings);
             APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(this, Logger, PluginGuid, Settings, "ScriptExtenderUI/ExtremePowersSettings.xaml");
             Settings.PropertyChanged += (_, __) => ApplySettings(); ApplySettings(); Shared.DebugLogHelper.LogDebug(Logger, client.Status);
         }

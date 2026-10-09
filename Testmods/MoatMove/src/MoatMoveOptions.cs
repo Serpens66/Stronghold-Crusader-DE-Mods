@@ -1,4 +1,5 @@
-using APIShared.UnitCommands;
+extern alias BugfixesRuntime;
+using BugfixesRuntime::BugfixesAndQoL.UnitCommands;
 namespace MoatMove
 {
     // Capture the config once at startup; command snapshots cannot change mid-order.

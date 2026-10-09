@@ -51,3 +51,12 @@ namespaces and XAML identities stay stable when their files move.
 
 Run `Tools/Validation/Test-SharedBoundaries.ps1` before a runtime build.
 The migration inventory is recorded under `_inspect/SharedSeparation`.
+
+## Command engine ownership
+
+BugfixesAndQoL/src/UnitCommands owns command hooks, cursor checks, movement and
+moat-work coordination. BugfixesAndQoL/src/Formations owns formation behavior.
+The MoatMove addon uses this assembly's internal provider integration; runtime
+projects never source-link the engine. APIShared supplies public route-search
+Pre/Post preference events under Pathfinding/Routes. It does not install the
+mod-specific command engine or enforce its feature settings.

@@ -88,6 +88,8 @@ if errorlevel 1 goto build_failed_popd
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 "%PROJECT_DIR%..\_inspect\HostClientPresetTests\bin\HostClientPresetTests.exe"
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+dotnet test tests\Formations.Core.Tests\Formations.Core.Tests.csproj --configuration Release --logger trx --results-directory tests\Formations.Core.Tests\TestResults
+if errorlevel 1 goto build_failed_popd
 "%MSBUILD%" tests\Formations.Tests\Formations.Tests.csproj /p:Configuration=Release /p:ExtenderDir="%EXTENDER_DIR%"
 if errorlevel 1 goto build_failed_popd
 "%PROJECT_DIR%tests\Formations.Tests\bin\Formations.Tests.exe"

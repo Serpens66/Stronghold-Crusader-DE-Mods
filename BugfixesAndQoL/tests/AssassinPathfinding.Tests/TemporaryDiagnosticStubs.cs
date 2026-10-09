@@ -1,5 +1,5 @@
 // TEMP_GATE_ROUTE_ACCEPTANCE: isolated observer for the production handoff tests.
-namespace APIShared.UnitCommands
+namespace BugfixesAndQoL.UnitCommands
 {
     internal static class UnitCommandPathRuntime
     {

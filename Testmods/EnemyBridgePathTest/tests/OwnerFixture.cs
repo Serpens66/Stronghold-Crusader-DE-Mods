@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using RedBird.Core.Memory;
 using RedBird.X64.Hooks.Transaction;
-namespace APIShared.UnitCommands
+namespace BugfixesAndQoL.UnitCommands
 {
     // Compiles the actual owner callback into a private fixture; no hook is installed.
     internal sealed unsafe partial class UnitCommandPathRuntime

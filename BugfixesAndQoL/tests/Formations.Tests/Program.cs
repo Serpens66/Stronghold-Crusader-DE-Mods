@@ -1,4 +1,4 @@
-using APIShared.UnitCommands;
+using BugfixesAndQoL.UnitCommands;
 using BugfixesAndQoL;
 using Shared;
 using System;
@@ -1099,12 +1099,12 @@ internal static class Program
     private static void TestSourceSafetyContracts()
     {
         string main = FindProjectRoot();
-        string shared = Path.Combine(Directory.GetParent(main).FullName, "APIShared", "src", "UnitCommands");
+        string shared = Path.Combine(Directory.GetParent(main).FullName, "BugfixesAndQoL", "src", "UnitCommands");
         string ReadSharedSource(string filename) => File.ReadAllText(Directory.GetFiles(shared, filename, SearchOption.AllDirectories).Single());
-        string runtime = string.Join("\n", Array.ConvertAll(Directory.GetFiles(shared, "FormationRuntime.*.cs", SearchOption.AllDirectories), File.ReadAllText));
+        string runtime = string.Join("\n", Array.ConvertAll(Directory.GetFiles(Path.Combine(main, "src", "Formations"), "FormationRuntime.*.cs", SearchOption.AllDirectories), File.ReadAllText));
         string slots = ReadSharedSource("NativeFormationSlots.cs");
         string common = ReadSharedSource("MoatPlacement.cs");
-        string markers = ReadSharedSource("LargeMoveTargetMarkerRenderer.cs");
+        string markers = File.ReadAllText(Path.Combine(main, "src", "Formations", "Markers", "LargeMoveTargetMarkerRenderer.cs"));
         string feature = File.ReadAllText(Path.Combine(main, "src", "FormationFeature.cs"));
         string source = runtime + slots + common + markers + feature;
         foreach (string forbidden in new[] {

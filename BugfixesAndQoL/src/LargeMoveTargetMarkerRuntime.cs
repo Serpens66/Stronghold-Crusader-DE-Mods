@@ -8,6 +8,16 @@ namespace BugfixesAndQoL
 {
     internal sealed class LargeMoveTargetMarkerRuntime
     {
+        // Shared by this mod's queue and formation features, rooted before hooks are installed.
+        private static readonly object RendererSync = new object();
+        internal static LargeMoveTargetMarkerRenderer Renderer { get; private set; }
+
+        private static LargeMoveTargetMarkerRenderer GetRenderer(ManualLogSource log, Func<bool> enabled)
+        {
+            lock (RendererSync)
+                return Renderer ?? (Renderer = new LargeMoveTargetMarkerRenderer(log, enabled));
+        }
+
         private const int DrawListCountOffset = 0x622248;
 
         private readonly ManualLogSource log;
@@ -21,7 +31,7 @@ namespace BugfixesAndQoL
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
-            renderer = UnitCommandPathAPI.GetMoveMarkers(log, () => FeatureEnabled);
+            renderer = GetRenderer(log, () => FeatureEnabled);
         }
 
         private bool FeatureEnabled =>

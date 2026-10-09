@@ -48,6 +48,7 @@ namespace BuildingCosts
             TryInitializeStage("localized names", Settings.RefreshLocalizedNames);
             try
             {
+                Shared.DirectLaunchSettingsNotice.Configure(Settings);
                 APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(
                     this,
                     Logger,

@@ -10,7 +10,7 @@ namespace EnemyGatePathfindingTest
     {
         private static int assertions;
         private static string ReadSharedCommandRuntime() => string.Join("\n",
-            Array.ConvertAll(Directory.GetFiles(Path.Combine("..", "..", "APIShared", "src", "UnitCommands"),
+            Array.ConvertAll(Directory.GetFiles(Path.Combine("..", "..", "BugfixesAndQoL", "src", "UnitCommands"),
                 "UnitCommandPathRuntime.*.cs", SearchOption.AllDirectories), File.ReadAllText));
 
         private static int Main()

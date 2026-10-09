@@ -8,13 +8,13 @@ internal static class CadenceSnapshotTests
 {
     internal static void Validate(string root)
     {
-        string resolver = File.ReadAllText(Path.Combine(root, "APIShared/src/UnitCommands/Movement/NativeMovementCadenceResolver.cs"));
+        string resolver = File.ReadAllText(Path.Combine(root, "BugfixesAndQoL/src/UnitCommands/Movement/NativeMovementCadenceResolver.cs"));
         string patterns = File.ReadAllText(Path.Combine(root, "APIShared/src/Core/Internal/Native/NativePatternResolver.cs"));
         var runtime = CSharpSyntaxTree.ParseText(FeatureSourceModel.Read(root, "UnitCommandPathRuntime")).GetRoot();
         var optional = runtime.DescendantNodes().OfType<TryStatementSyntax>()
             .Single(t => t.Block.ToString().Contains("nativeMovementCadenceResolver = new NativeMovementCadenceResolver"));
         var publication = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,
-            "APIShared/src/UnitCommands/Movement/WeightedMoatPublication.cs"))).GetRoot().DescendantNodes()
+            "BugfixesAndQoL/src/UnitCommands/Movement/WeightedMoatPublication.cs"))).GetRoot().DescendantNodes()
             .OfType<MethodDeclarationSyntax>().Single(m => m.Identifier.Text == "TryPublishSafelyFasterWeightedRoute");
         var guard = publication.WithBody(publication.Body!.WithStatements(SyntaxFactory.List(
             publication.Body.Statements.TakeWhile(s => !s.ToString().Contains("TryGetPlausibleSpeedBonuses"))
@@ -37,7 +37,7 @@ namespace APIShared.Internal {
         public static void LogWarning(ManualLogSource log,string message) {}
     }
 }
-namespace APIShared.UnitCommands {
+namespace BugfixesAndQoL.UnitCommands {
     internal sealed unsafe class OptionalFixture {
         private NativeMovementCadenceResolver nativeMovementCadenceResolver;
         private ulong nativeUnitManager=1;
@@ -117,7 +117,7 @@ namespace APIShared.UnitCommands {
             references, new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
         using var output = new MemoryStream(); var result = compilation.Emit(output);
         if (!result.Success) throw new Exception(string.Join("\n", result.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error)));
-        try { Assembly.Load(output.ToArray()).GetType("APIShared.UnitCommands.SnapshotFixture")!.GetMethod("Run")!.Invoke(null, null); }
+        try { Assembly.Load(output.ToArray()).GetType("BugfixesAndQoL.UnitCommands.SnapshotFixture")!.GetMethod("Run")!.Invoke(null, null); }
         catch (TargetInvocationException e) { throw e.InnerException ?? e; }
         Console.WriteLine("PASS: production cadence resolver uses the load snapshot despite live hook/code/table mutations; bounded reads and optional-publication failure executed.");
     }

@@ -1,4 +1,4 @@
-using APIShared.UnitCommands;
+using BugfixesAndQoL.UnitCommands;
 using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
@@ -87,9 +87,9 @@ namespace BugfixesAndQoL
                 if (!Shared.DebugLogHelper.IsCurrentNativeLibraryVersion())
                     throw new InvalidOperationException("Unaudited native formation layout.");
                 var commands = UnitCommandPathAPI.Runtime;
-                var markers = UnitCommandPathAPI.MoveMarkers;
+                var markers = LargeMoveTargetMarkerRuntime.Renderer;
                 if (commands == null || markers == null)
-                    throw new InvalidOperationException("Shared command or marker capability unavailable.");
+                    throw new InvalidOperationException("Command runtime or local marker renderer unavailable.");
                 // Root the candidate before publishing any hook or subscription. Initialization
                 // failure leaves the rooted candidate logically inactive until process exit.
                 runtime = new FormationRuntime(log, context, kind, density, placement, menu, settings, commands, markers);

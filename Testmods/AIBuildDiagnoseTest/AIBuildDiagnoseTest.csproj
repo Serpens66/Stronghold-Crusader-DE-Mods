@@ -22,6 +22,8 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="Iced"><HintPath>$(ExtenderDir)\Iced.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="BugfixesAndQoL"><HintPath>..\..\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\BugfixesAndQoL.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.CoreModule"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Assembly-CSharp"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll</HintPath><Private>false</Private></Reference>
@@ -39,6 +41,7 @@
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="src\AIBuildDiagnosePlugin.cs" />
+    <Compile Include="src\Diagnostics\*.cs" />
     <Compile Include="src\AIBuildDiagnoseRuntime.cs" />
     <Compile Include="src\GeneralSiteSearchHooks.cs" />
     <Compile Include="src\FarmSiteContractProbe.cs" />

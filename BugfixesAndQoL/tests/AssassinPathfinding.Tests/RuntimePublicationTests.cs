@@ -9,12 +9,12 @@ internal static partial class Program
     {
         string root = Path.GetFullPath(args[0]);
         var tree = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,
-            "APIShared/src/UnitCommands/Movement/MovementPathPublication.cs")));
+            "BugfixesAndQoL/src/UnitCommands/Movement/MovementPathPublication.cs")));
         string[] names = { "BuildPathWithCompletedMoatRouteVariant", "BeginAssassinRoutePublication" };
         string methods = string.Join("\n", tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
             .Where(m => names.Contains(m.Identifier.Text)).Select(m => m.ToFullString()));
         var movement = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,
-            "APIShared/src/UnitCommands/Movement/UnitMovementContext.cs")));
+            "BugfixesAndQoL/src/UnitCommands/Movement/UnitMovementContext.cs")));
         methods += movement.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
             .Single(m => m.Identifier.Text == "GetNativeMovementStart").ToFullString();
         string fixture = """
@@ -22,7 +22,7 @@ using System;
 using System.Runtime.InteropServices;
 using APIShared;
 namespace APIShared.Internal { static class DebugLogHelper { internal static void LogDebug(object log,string text) {} } }
-namespace APIShared.UnitCommands {
+namespace BugfixesAndQoL.UnitCommands {
 enum eChimps { CHIMP_TYPE_ARAB_ASSASIN=73 }
 unsafe struct GameUnit { public uint r_GlobalId; public eChimps r_UnitChimp; public ushort r_ControllableForPlayerId; public int r_CurrentSpeed; public bool Alive; public int r_CurrentTilePositionX,r_CurrentTilePositionY,r_NextTilePositionX2,r_NextTilePositionY2,r_PathPlanStateBitFlags,r_MovementSubstep; }
 unsafe static class UnitAccess {
@@ -113,7 +113,7 @@ unsafe partial class UnitCommandPathRuntime {
         var emitted = compilation.Emit(stream);
         Check(emitted.Success, "production publication methods compile against fixture: " +
             string.Join("\n", emitted.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error)));
-        try { Assembly.Load(stream.ToArray()).GetType("APIShared.UnitCommands.UnitCommandPathRuntime").GetMethod("Run").Invoke(null, null); }
+        try { Assembly.Load(stream.ToArray()).GetType("BugfixesAndQoL.UnitCommands.UnitCommandPathRuntime").GetMethod("Run").Invoke(null, null); }
         catch (TargetInvocationException ex) { throw ex.InnerException; }
         Check(true, "actual builder and buffer publication pass identity, policy, pointer and exception scenarios");
     }

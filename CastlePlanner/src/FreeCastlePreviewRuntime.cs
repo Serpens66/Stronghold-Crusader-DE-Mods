@@ -1,5 +1,5 @@
 using APIShared.GameModes;
-using APIShared.SerpsMods;
+using Shared;
 using BepInEx.Logging;
 using CrusaderDE;
 using MonoMod.RuntimeDetour;
@@ -1547,9 +1547,9 @@ namespace CastlePlanner
         }
 
         private static bool IsFeatureModeAllowed() =>
-            APIShared.SerpsMods.GameplayFeatureModePolicy.IsAllowed(
+            Shared.GameplayFeatureModePolicy.IsAllowed(
                 CastlePlannerPlugin.PluginGuid,
-                APIShared.SerpsMods.GameplayFeatureId.FreeCastlePreview,
+                Shared.GameplayFeatureId.FreeCastlePreview,
                 Shared.GameplayModActivationGate.Snapshot);
 
         private void ResetPreview()

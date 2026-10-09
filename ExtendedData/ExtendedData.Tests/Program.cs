@@ -1567,19 +1567,24 @@ static void TestCustomizedLaunchOriginIntegration()
     string coordinator = File.ReadAllText(Path.Combine(projectRoot, "src", "TrailMissionSettingsCoordinator.cs"));
     string runtime = File.ReadAllText(Path.Combine(projectRoot, "src", "ExtendedDataRuntime.cs"));
     string originPacket = File.ReadAllText(Path.Combine(projectRoot, "src", "BuiltInCustomizeOriginPacket.cs"));
-    string sharedGameMode = File.ReadAllText(Path.Combine(workspaceRoot, "APIShared", "src", "GameModes", "MissionModePolicy.cs"));
+    string registration = File.ReadAllText(Path.Combine(projectRoot, "src", "ExtendedDataOriginRegistration.cs"));
     string project = File.ReadAllText(Path.Combine(projectRoot, "ExtendedData.csproj"));
 
     Assert(project.Contains("ExtendedDataLaunchOriginApi.cs") &&
         project.Contains("BuiltInCustomizeOriginPacket.cs"),
         "the runtime project does not compile the public origin API");
-    Assert(api.Contains("public static class ExtendedDataLaunchOriginApi") &&
-        api.Contains("public static ExtendedDataLaunchOriginKind Origin") &&
-        api.Contains("public static int TrailId") &&
-        api.Contains("public static int MissionId") &&
-        api.Contains("public static bool RestoredFromSave") &&
-        api.Contains("public static bool LaunchPending"),
-        "the optional read-only origin surface is incomplete");
+    var originType = typeof(ExtendedDataLaunchOriginApi);
+    foreach (var contract in new[] {
+        ("Origin", typeof(ExtendedDataLaunchOriginKind)),
+        ("TrailId", typeof(int)), ("MissionId", typeof(int)),
+        ("RestoredFromSave", typeof(bool)), ("LaunchPending", typeof(bool)) })
+    {
+        var property = originType.GetProperty(contract.Item1,
+            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+        Assert(property != null && property.PropertyType == contract.Item2 &&
+            property.GetMethod?.IsPublic == true && property.SetMethod == null,
+            "the read-only origin contract is incomplete: " + contract.Item1);
+    }
     Assert(api.Contains("RegisterModDataHandler") &&
         api.Contains("MessagePackSerializer.Serialize") &&
         api.Contains("MessagePackSerializer.Deserialize") &&
@@ -1686,14 +1691,13 @@ static void TestCustomizedLaunchOriginIntegration()
     Assert(enterSidecar.Contains("bool exists = File.Exists(sidecar);") &&
         enterSidecar.Split(new[] { "return exists;" }, StringSplitOptions.None).Length == 3,
         "fresh and cached sidecar loads do not report the same validated existence status");
-    Assert(sharedGameMode.Contains("BugfixesAndQoL.TrailCustomizationLaunchOriginApi, BugfixesAndQoL") &&
-        sharedGameMode.Contains("ExtendedData.ExtendedDataLaunchOriginApi, ExtendedData") &&
-        sharedGameMode.Contains("if (hasActive)") &&
-        sharedGameMode.Contains("candidate.IsInvalid") &&
-        sharedGameMode.Contains("bool hasLaunchPending = TryReadStaticBool") &&
-        sharedGameMode.Contains("ExternalOriginMatchesKind") &&
-        sharedGameMode.Contains("RestoredCustomizedSave"),
-        "GameModeHelper does not select exactly one valid launch-origin provider fail-closed");
+    // Registry conflict, invalid-data and callback-failure behavior is exercised by
+    // APIShared's CustomizedLaunchOriginTests. Here verify the consumer adapter wiring.
+    Assert(registration.Contains("CustomizedLaunchOrigins.Register(ExtendedDataPlugin.PluginGuid, CaptureModeOrigin)") &&
+        runtime.Contains("ExtendedDataLaunchOriginApi.Initialize(log)") &&
+        File.ReadAllText(Path.Combine(projectRoot, "src", "ExtendedDataPlugin.cs"))
+            .Contains("ExtendedDataLaunchOriginApi.RegisterModeProvider()"),
+        "the launch-origin adapter is not registered under its owning plugin GUID");
 }
 
 static void TestBuiltInCustomizeOriginPacketRoundtrip()

@@ -32,8 +32,8 @@ namespace BugfixesAndQoL
         private const int AiWallReservationRejectJumpRva = 0x10ECC3;
         private const int AiWallApproachTileGuardRva = 0x10ECE1;
 
-        private static string ReadApiFeature(string area, string subject, string pattern) => string.Join("\n",
-            Array.ConvertAll(Directory.GetFiles(Path.Combine(FindProjectDirectory(), "..", "APIShared", "src", area, subject),
+        private static string ReadCommandFeature(string subject, string pattern) => string.Join("\n",
+            Array.ConvertAll(Directory.GetFiles(Path.Combine(FindProjectDirectory(), "src", "UnitCommands", subject),
                 pattern, SearchOption.AllDirectories), File.ReadAllText));
 
         private static int failures;
@@ -486,7 +486,7 @@ namespace BugfixesAndQoL
                   Shared.SelectedChimpsSnapshotPolicy.IsPlausibleCount(10000),
                 "selection count policy accepts only Vanilla's 0..10000 capacity");
             string health = File.ReadAllText(Path.Combine("src", "SelectedUnitHealthFeature.cs"));
-            string formation = ReadApiFeature("UnitCommands", "Formation", "FormationRuntime.*.cs");
+            string formation = string.Join(Environment.NewLine, Directory.GetFiles(Path.Combine("src", "Formations"), "FormationRuntime.*.cs").Select(File.ReadAllText));
             string assassin = File.ReadAllText(Path.Combine("src", "AssassinClimbRuntime.cs"));
             Check(health.Contains(
                     "int unitId = state.selectedChimps[index];" + Environment.NewLine +
@@ -509,7 +509,7 @@ namespace BugfixesAndQoL
 
         private static void TestFriendlyMoatCursorIdGuard()
         {
-            string moatCursor = File.ReadAllText(Path.Combine("..", "APIShared", "src", "UnitCommands", "Cursor", "CursorConnectivity.cs"));
+            string moatCursor = File.ReadAllText(Path.Combine("..", "BugfixesAndQoL", "src", "UnitCommands", "Cursor", "CursorConnectivity.cs"));
             Check(moatCursor.Contains("disposed || unitId <= 0 || buildingId <= 0") &&
                   moatCursor.IndexOf("unitId <= 0", StringComparison.Ordinal) <
                   moatCursor.IndexOf("UnitAccess.TryGetById", StringComparison.Ordinal),
@@ -1732,7 +1732,7 @@ namespace BugfixesAndQoL
             Check(!File.ReadAllText(Path.Combine("src", "AssassinPathfindingRuntime.cs"))
                     .Contains("if (args.SkipOriginalFunction)" +
                         Environment.NewLine + "                return;") &&
-                  !ReadApiFeature("UnitCommands", "", "UnitCommandPathRuntime.*.cs")
+                  !ReadCommandFeature("", "UnitCommandPathRuntime.*.cs")
                     .Contains("if (disposed || args.SkipOriginalFunction)") &&
                   !File.ReadAllText(Path.Combine("src", "TroopMovementFix3Runtime.cs"))
                     .Contains("if (!IsFeatureEnabled || args.SkipOriginalFunction"),
@@ -4009,8 +4009,6 @@ namespace BugfixesAndQoL
                 projectDirectory, "Override", "ScriptExtenderUI", "BugfixesAndQoLSettings.xaml"));
             string runtime = File.ReadAllText(Path.Combine(
                 projectDirectory, "src", "BugfixesAndQoLRuntime.cs"));
-            string sharedGameMode = File.ReadAllText(Path.Combine(
-                Directory.GetParent(projectDirectory).FullName, "APIShared", "src", "GameModes", "MissionModePolicy.cs"));
             Check(feature.Contains("Name = \"SharedTrailCustomize\"") &&
                     feature.Contains("foreach (UIElement child in host.Children)") &&
                     feature.Contains("TryCustomizeCustomTrail(out bool providerActive)") &&
@@ -4024,11 +4022,12 @@ namespace BugfixesAndQoL
                     viewModel.Contains("public bool EnableTrailCustomizationButtons") &&
                     xaml.Contains("EnableTrailCustomizationButtons, Mode=TwoWay"),
                 "Trail customization exposes the default-enabled host setting");
-            Check(runtime.IndexOf("multiplayerFeatureGate.CaptureMapMode", StringComparison.Ordinal) <
-                    runtime.IndexOf("TrailCustomizationLaunchOriginApi.MarkMapStarted", StringComparison.Ordinal) &&
-                    sharedGameMode.Contains("bool hasLaunchPending = TryReadStaticBool") &&
-                    sharedGameMode.Contains("if (hasActive)"),
-                "launch origin is captured before cleanup and conflicting providers fail closed");
+            // Registry conflict and callback behavior are exercised by APIShared's
+            // CustomizedLaunchOriginTests; this consumer owns launch-state retirement.
+            int captureOffset = runtime.IndexOf("multiplayerFeatureGate.CaptureMapMode", StringComparison.Ordinal);
+            int retireOffset = runtime.IndexOf("TrailCustomizationLaunchOriginApi.MarkMapStarted", StringComparison.Ordinal);
+            Check(captureOffset >= 0 && retireOffset > captureOffset,
+                "consumer captures map mode before retiring its launch-pending state");
         }
 
         private static void TestTunnelPlacementDistancePolicy()
@@ -4333,10 +4332,10 @@ namespace BugfixesAndQoL
         {
             string projectDirectory = FindProjectDirectory();
             string runtime = File.ReadAllText(Path.Combine(projectDirectory, "src", "BugfixesAndQoLRuntime.cs"));
-            string friendlyRuntime = ReadApiFeature("UnitCommands", "", "UnitCommandPathRuntime.*.cs");
+            string friendlyRuntime = ReadCommandFeature("", "UnitCommandPathRuntime.*.cs");
             string selectionAdapters = File.ReadAllText(Path.Combine(
-                projectDirectory, "..", "APIShared", "src", "UnitCommands", "Integration", "AssassinSelectionAdapters.cs"));
-            string moatWork = ReadApiFeature("UnitCommands", "Moat", "UnitCommandPathRuntime.WorkTarget*.cs");
+                projectDirectory, "..", "BugfixesAndQoL", "src", "UnitCommands", "Integration", "AssassinSelectionAdapters.cs"));
+            string moatWork = ReadCommandFeature("Moat", "UnitCommandPathRuntime.WorkTarget*.cs");
             string viewModel = File.ReadAllText(Path.Combine(projectDirectory, "src", "BugfixesAndQoLViewModel.cs"));
             string xaml = File.ReadAllText(Path.Combine(
                 projectDirectory, "Override", "ScriptExtenderUI", "BugfixesAndQoLSettings.xaml"));

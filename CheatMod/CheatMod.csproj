@@ -41,6 +41,9 @@
     <Compile Include="..\Shared\Runtime\Diagnostics\DebugLogHelper.cs"><Link>Shared\Runtime\Diagnostics\DebugLogHelper.cs</Link></Compile>
     <Compile Include="..\Shared\Adapters\APIShared\PlayerIdentityHelper.cs"><Link>Shared\Adapters\APIShared\PlayerIdentityHelper.cs</Link></Compile>
     <Compile Include="..\Shared\Adapters\APIShared\MissionEventsAdapter.cs"><Link>Shared\Adapters\APIShared\MissionEventsAdapter.cs</Link></Compile>
+    <Compile Include="..\Shared\Adapters\APIShared\DirectLaunchSettingsNotice.cs"><Link>Shared\Adapters\APIShared\DirectLaunchSettingsNotice.cs</Link></Compile>
+    <Compile Include="..\Shared\Adapters\APIShared\SerpsModProfiles.cs"><Link>Shared\Adapters\APIShared\SerpsModProfiles.cs</Link></Compile>
+    <Compile Include="..\Shared\Adapters\APIShared\GameplayFeatureModePolicy.cs"><Link>Shared\Adapters\APIShared\GameplayFeatureModePolicy.cs</Link></Compile>
     <Compile Include="..\Shared\Adapters\APIShared\GameplayModActivationGate.cs"><Link>Shared\Adapters\APIShared\GameplayModActivationGate.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\Localization\SerpLocalization.cs"><Link>Shared\Runtime\Localization\SerpLocalization.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\UI\ToolTipPresentation.cs"><Link>Shared\Runtime\UI\ToolTipPresentation.cs</Link></Compile>

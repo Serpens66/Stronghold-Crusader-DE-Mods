@@ -18,9 +18,13 @@ foreach ($dependency in @('APIShared','BugfixesAndQoL')) {
         throw "Missing addon reference: $dependency"
     }
 }
-if ($plugin -notmatch 'BepInDependency\("APIShared_Serp", "0\.4\.10"\)' -or
-    $plugin -notmatch 'BepInDependency\("BugfixesAndQoL_Serp", "1\.0\.175"\)') {
-    throw 'Missing hard dependencies for shared command ownership.'
+$workspace = [IO.Path]::GetFullPath((Join-Path $modDir '../..'))
+. (Join-Path $workspace 'APIShared/tools/Validation/DependencyMetadata.Common.ps1')
+$hardDependencies = @(Get-PluginDependencyDeclarations $plugin)
+foreach ($guid in @('APIShared_Serp','BugfixesAndQoL_Serp')) {
+    if (@($hardDependencies | Where-Object GUID -eq $guid).Count -ne 1) {
+        throw "Missing hard dependency for command integration: $guid"
+    }
 }
 $textPaths = @(Get-ChildItem -LiteralPath $modDir,(Join-Path $modDir 'src'),$PSScriptRoot -File | Where-Object { $_.Extension -in @('.cs','.csproj','.ps1','.py','.bat','.json','.md') })
 foreach ($file in $textPaths) {
@@ -28,6 +32,7 @@ foreach ($file in $textPaths) {
     if ([regex]::IsMatch($text, '(?<!\r)\n')) { throw "Bare LF: $($file.FullName)" }
 }
 $manifest = [IO.File]::ReadAllText((Join-Path $modDir 'info.json')) | ConvertFrom-Json
+Assert-PluginDependencyMetadata $plugin $manifest 'MoatMove'
 if ($manifest.GUID -ne 'MoatMove_Serp' -or $manifest.NetworkMode -ne 1) { throw 'Manifest identity mismatch.' }
 $versionPattern = [regex]::Escape([string]$manifest.Version)
 if ($plugin -notmatch ('PluginVersion = "' + $versionPattern + '"') -or

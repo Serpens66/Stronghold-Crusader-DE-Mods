@@ -73,6 +73,7 @@
     <Compile Include="src\TrailModSelectionItem.cs" />
     <Compile Include="src\ExtendedDataRuntime.cs" />
     <Compile Include="src\ExtendedDataLaunchOriginApi.cs" />
+    <Compile Include="src\ExtendedDataOriginRegistration.cs" />
     <Compile Include="src\ExtendedDataModDataApi.cs" />
     <Compile Include="src\FixesLordPreferencesBridge.cs" />
     <Compile Include="src\TypedPreferenceSnapshotCodec.cs" />

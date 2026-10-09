@@ -15,8 +15,8 @@ namespace BugfixesAndQoL
         CustomizedCoopTrail,
     }
 
-    /// <summary>Optional reflection surface used by Shared game-mode classification.</summary>
-    public static class TrailCustomizationLaunchOriginApi
+    /// <summary>Consumer-owned launch-origin state and save-data protocol.</summary>
+    public static partial class TrailCustomizationLaunchOriginApi
     {
         // Version 1 intentionally advertises only Custom/Coop origins. Built-in Trail
         // and Sands-of-Time origin tracking remains ExtendedData's responsibility.

@@ -1,6 +1,7 @@
+extern alias BugfixesRuntime;
 using System;
 using BepInEx.Logging;
-using APIShared.UnitCommands;
+using BugfixesRuntime::BugfixesAndQoL.UnitCommands;
 using SHCDESE.API.LowLevel;
 namespace MoatMove
 {

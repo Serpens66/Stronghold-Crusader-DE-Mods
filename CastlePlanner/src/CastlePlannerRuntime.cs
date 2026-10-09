@@ -1,5 +1,5 @@
 using APIShared.GameModes;
-using APIShared.SerpsMods;
+using Shared;
 using BepInEx.Logging;
 using BepInEx.Bootstrap;
 using AIVParser.Core;
@@ -2247,9 +2247,9 @@ namespace CastlePlanner
         }
 
         private static bool IsCastleSpawningModeAllowed() =>
-            APIShared.SerpsMods.GameplayFeatureModePolicy.IsAllowed(
+            Shared.GameplayFeatureModePolicy.IsAllowed(
                 CastlePlannerPlugin.PluginGuid,
-                APIShared.SerpsMods.GameplayFeatureId.CastleSpawning,
+                Shared.GameplayFeatureId.CastleSpawning,
                 Shared.GameplayModActivationGate.Snapshot);
 
         private static int CountOwnedBuildings(int playerId)

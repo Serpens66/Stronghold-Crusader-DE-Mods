@@ -16,6 +16,9 @@ set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%"
 set "NO_PAUSE=0"
 for %%A in (%*) do if /I "%%~A"=="/nopause" set "NO_PAUSE=1"
 
+set "SHCDE_GAME_DIR=%GAME_DIR%"
+dotnet test "%PROJECT_DIR%tests\Diagnostics.Tests\Diagnostics.Tests.csproj" --configuration Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" --logger trx --results-directory "%PROJECT_DIR%tests\Diagnostics.Tests\TestResults"
+if errorlevel 1 goto failed
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%verify.ps1"
 if errorlevel 1 goto failed
 powershell.exe -NoProfile -Command "if (Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue) { exit 1 } else { exit 0 }" >nul 2>&1

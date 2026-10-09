@@ -63,6 +63,7 @@ namespace ImprovedHunters
 
             try
             {
+                Shared.DirectLaunchSettingsNotice.Configure(persistentSettings);
                 APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(
                     this,
                     Logger,

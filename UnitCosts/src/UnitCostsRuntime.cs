@@ -1,4 +1,4 @@
-using APIShared.SerpsMods;
+using Shared;
 using BepInEx.Logging;
 using CrusaderDE;
 using R3;
@@ -1628,9 +1628,9 @@ namespace UnitCosts
         }
 
         private static bool IsUnitCostModeAllowed() =>
-            APIShared.SerpsMods.GameplayFeatureModePolicy.IsAllowed(
+            Shared.GameplayFeatureModePolicy.IsAllowed(
                 UnitCostsPlugin.PluginGuid,
-                APIShared.SerpsMods.GameplayFeatureId.UnitCostEnforcement,
+                Shared.GameplayFeatureId.UnitCostEnforcement,
                 Shared.GameplayModActivationGate.Snapshot);
 
         private static bool IsHumanPlayer(int playerId)

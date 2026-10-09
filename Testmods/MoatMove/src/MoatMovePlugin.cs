@@ -1,4 +1,5 @@
-using APIShared.UnitCommands;
+extern alias BugfixesRuntime;
+using BugfixesRuntime::BugfixesAndQoL.UnitCommands;
 using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
@@ -18,7 +19,7 @@ namespace MoatMove
     [BepInDependency("APIShared_Serp", "0.4.10")]
     [BepInPlugin(PluginGuid, "MoatMove", PluginVersion)]
     [BepInDependency("000shcdese", "2.14.0")]
-    [BepInDependency("BugfixesAndQoL_Serp", "1.0.175")]
+    [BepInDependency("BugfixesAndQoL_Serp", "1.0.180")]
     [BepInDependency("EnemyGatePathfindingTest_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     public sealed class MoatMovePlugin : BaseUnityPlugin
     {

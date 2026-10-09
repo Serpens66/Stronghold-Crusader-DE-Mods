@@ -65,6 +65,7 @@
       <Private>true</Private>
     </Reference>
   <Compile Include="..\..\APIShared\src\GameModes\MissionModePolicy.cs" />
+  <Compile Include="..\..\APIShared\src\GameModes\CustomizedLaunchOrigins.cs" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
@@ -77,15 +78,26 @@
     <Compile Include="..\..\SerpsModsHost\src\StatsTweakerConfigurationProvider.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\DynamicPresetSettings.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\ModSettingsApplication.cs" />
-    <Compile Include="..\..\APIShared\src\ModSettings\Presets\ModSettingsPresetDocuments.cs">
-      <Link>ModSettingsPresetDocuments.cs</Link>
-    </Compile>
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\ModSettingsPresetContracts.cs"><Link>ModSettingsPresetContracts.cs</Link></Compile>
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\ModSettingsWorkingSources.cs"><Link>ModSettingsWorkingSources.cs</Link></Compile>
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetDialogModels.cs"><Link>PresetDialogModels.cs</Link></Compile>
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\ModSettingsPresetJson.cs"><Link>ModSettingsPresetJson.cs</Link></Compile>
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\ModSettingsPresetCatalog.cs"><Link>ModSettingsPresetCatalog.cs</Link></Compile>
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.cs">
       <Link>PresetLobbyModSettingsViewModel.cs</Link>
     </Compile>
     <Compile Include="..\..\APIShared\src\ModSettings\Lobby\PerPlayerLobbySettings.cs" />
-    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.Persistence.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetAtomicFilePublisher.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\LobbyPresetController.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\LobbyPresetController.Catalog.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\LobbyPresetController.Persistence.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\LobbyPresetController.Mission.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\LobbyPresetController.Snapshots.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\ILobbyPresetHost.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.PresetIntegration.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\LobbyPresetStorage.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.Sources.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\UI\ModSettingsHorizontalFocusScrollGuard.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\Presets\LobbyModSettingsPresetRegistration.cs" />
 
     <Compile Include="..\..\APIShared\src\ModSettings\UI\ModSettingsSearch.cs">
@@ -106,8 +118,8 @@
     <Compile Include="..\..\APIShared\src\GameModes\GameplayModModePolicy.cs">
       <Link>GameplayModModePolicy.cs</Link>
     </Compile>
-    <Compile Include="..\..\APIShared\src\SerpsMods\SerpsModProfiles.cs" />
-    <Compile Include="..\..\APIShared\src\SerpsMods\GameplayFeatureModePolicy.cs">
+    <Compile Include="..\..\Shared\Adapters\APIShared\SerpsModProfiles.cs" />
+    <Compile Include="..\..\Shared\Adapters\APIShared\GameplayFeatureModePolicy.cs">
       <Link>GameplayFeatureModePolicy.cs</Link>
     </Compile>
     <Compile Include="..\..\StartConditions\src\StartConditionsMapSessionState.cs">

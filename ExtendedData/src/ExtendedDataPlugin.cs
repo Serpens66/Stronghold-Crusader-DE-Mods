@@ -15,6 +15,7 @@ namespace ExtendedData
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
+    [ExcludeFromSavegameModSettings]
     public sealed class ExtendedDataPlugin : BaseUnityPlugin
     {
         public const string PluginGuid = "ExtendedData_Serp";
@@ -30,6 +31,7 @@ namespace ExtendedData
         private void Awake()
         {
             Shared.UnityMainThreadDispatch.InitializeForCurrentThread();
+            ExtendedDataLaunchOriginApi.RegisterModeProvider();
             CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;
         }
 

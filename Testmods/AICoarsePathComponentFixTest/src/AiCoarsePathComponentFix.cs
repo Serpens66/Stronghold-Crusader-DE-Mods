@@ -276,7 +276,7 @@ namespace AICoarsePathComponentFixTest
                 $"hookInstalled={transaction != null}; pathGeneration={lastPathGeneration}; observationOnly=True; writes=0; " +
                 $"preStartRebuilds={skippedBeforeStart}; replay={args.IsReplay}.");
             // AIBuildDiagnoseTest: observer-only session status, before the first AI build step.
-            APIShared.AiBuildDiagnostic.Publish("coarse-audit-session", 0,
+            BugfixesAndQoL.Diagnostics.AiBuildObservation.Publish("coarse-audit-session", 0,
                 0, unavailable ? 1 : 0, sessionId);
             if (enabledForMap && !unavailable && isolationArmedForMap &&
                 isolationMode >= 3 && isolationMode <= 4)
@@ -303,7 +303,7 @@ namespace AICoarsePathComponentFixTest
                 lastPathGeneration = generation;
                 Shared.DebugLogHelper.LogInfo(log,
                     $"AI_COARSE_PCL_GENERATION: session={sessionId}; tick={tick}; previous={previous}; current={generation}; mode={isolationMode}.");
-                APIShared.AiBuildDiagnostic.Publish("coarse-generation", 0, previous, generation, tick, sessionId);
+                BugfixesAndQoL.Diagnostics.AiBuildObservation.Publish("coarse-generation", 0, previous, generation, tick, sessionId);
             }
             if (isolationMode == 5 && isolationArmedForMap &&
                 (changed || initialRefreshPending || deferredRefresh))
@@ -428,15 +428,15 @@ namespace AICoarsePathComponentFixTest
             int hypotheticalCellChanges = 0;
             for (int index = 0; index < coarse.Length; index++)
                 if (coarse[index].ForeignPathComponentTileCount != foreignCounts[index]) hypotheticalCellChanges++;
-            if (publish && APIShared.AiBuildDiagnostic.HasObserver)
+            if (publish && BugfixesAndQoL.Diagnostics.AiBuildObservation.HasObserver)
             {
-                APIShared.AiBuildDiagnostic.Publish("coarse-audit-begin", 0, sessionId);
+                BugfixesAndQoL.Diagnostics.AiBuildObservation.Publish("coarse-audit-begin", 0, sessionId);
                 for (int index = 0; index < coarse.Length; index++)
                     if (coarse[index].ForeignPathComponentTileCount != foreignCounts[index])
-                        APIShared.AiBuildDiagnostic.Publish("coarse-audit-cell", 0,
+                        BugfixesAndQoL.Diagnostics.AiBuildObservation.Publish("coarse-audit-cell", 0,
                             index, coarse[index].ForeignPathComponentTileCount,
                             foreignCounts[index], sessionId);
-                APIShared.AiBuildDiagnostic.Publish("coarse-audit-summary", 0,
+                BugfixesAndQoL.Diagnostics.AiBuildObservation.Publish("coarse-audit-summary", 0,
                     reference, storedReference, hypotheticalCellChanges, sessionId);
             }
             completedRefreshes++;

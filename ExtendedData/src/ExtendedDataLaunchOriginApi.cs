@@ -18,8 +18,8 @@ namespace ExtendedData
         CustomizedSandsOfTime,
     }
 
-    /// <summary>Optional, dependency-free reflection surface for shared game-mode classification.</summary>
-    public static class ExtendedDataLaunchOriginApi
+    /// <summary>Consumer-owned launch-origin state and save-data protocol.</summary>
+    public static partial class ExtendedDataLaunchOriginApi
     {
         private const int CurrentApiVersion = 2;
         private const int LegacyApiVersion = 1;

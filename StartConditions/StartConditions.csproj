@@ -141,6 +141,9 @@
     <Reference Include="MessagePack.Annotations"><HintPath>$(ExtenderDir)\MessagePack.Annotations.dll</HintPath><Private>false</Private></Reference>
     <Compile Include="..\Shared\Adapters\APIShared\PlayerIdentityHelper.cs"><Link>Shared\Adapters\APIShared\PlayerIdentityHelper.cs</Link></Compile>
     <Compile Include="..\Shared\Adapters\APIShared\MissionEventsAdapter.cs"><Link>Shared\Adapters\APIShared\MissionEventsAdapter.cs</Link></Compile>
+    <Compile Include="..\Shared\Adapters\APIShared\DirectLaunchSettingsNotice.cs"><Link>Shared\Adapters\APIShared\DirectLaunchSettingsNotice.cs</Link></Compile>
+    <Compile Include="..\Shared\Adapters\APIShared\SerpsModProfiles.cs"><Link>Shared\Adapters\APIShared\SerpsModProfiles.cs</Link></Compile>
+    <Compile Include="..\Shared\Adapters\APIShared\GameplayFeatureModePolicy.cs"><Link>Shared\Adapters\APIShared\GameplayFeatureModePolicy.cs</Link></Compile>
     <Compile Include="..\Shared\Adapters\APIShared\GameplayModActivationGate.cs"><Link>Shared\Adapters\APIShared\GameplayModActivationGate.cs</Link></Compile>
     <Compile Include="..\Shared\Runtime\UI\ToolTipPresentation.cs"><Link>Shared\Runtime\UI\ToolTipPresentation.cs</Link></Compile>
   </ItemGroup>

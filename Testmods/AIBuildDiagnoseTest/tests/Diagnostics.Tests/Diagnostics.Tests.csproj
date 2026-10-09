@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net481</TargetFramework>
+    <IsTestProject>true</IsTestProject>
+    <IsPackable>false</IsPackable>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <GameDir Condition="'$(GameDir)' == ''">$(SHCDE_GAME_DIR)</GameDir>
+    <ExtenderDir Condition="'$(ExtenderDir)' == ''">$(GameDir)\BepInEx\plugins\000shcdese</ExtenderDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.3.0" />
+    <PackageReference Include="MSTest.TestAdapter" Version="4.5.1" />
+    <PackageReference Include="MSTest.TestFramework" Version="4.5.1" />
+    <Reference Include="BepInEx"><HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath></Reference>
+    <Reference Include="UnityEngine.CoreModule"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.CoreModule.dll</HintPath></Reference>
+    <Reference Include="Assembly-CSharp"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll</HintPath></Reference>
+    <Reference Include="SHCDESE"><HintPath>$(ExtenderDir)\SHCDESE.dll</HintPath></Reference>
+    <Reference Include="System.Memory"><HintPath>$(ExtenderDir)\System.Memory.dll</HintPath></Reference>
+    <Reference Include="Microsoft.Extensions.Logging.Abstractions"><HintPath>$(ExtenderDir)\Microsoft.Extensions.Logging.Abstractions.dll</HintPath></Reference>
+    <Reference Include="Iced"><HintPath>$(ExtenderDir)\Iced.dll</HintPath></Reference>
+    <Reference Include="RedBird.Abstractions"><HintPath>$(ExtenderDir)\RedBird.Abstractions.dll</HintPath></Reference>
+    <Reference Include="RedBird.Core"><HintPath>$(ExtenderDir)\RedBird.Core.dll</HintPath></Reference>
+    <Reference Include="RedBird.X64"><HintPath>$(ExtenderDir)\RedBird.X64.dll</HintPath></Reference>
+    <Reference Include="RedBird.Backends.NativeX64"><HintPath>$(ExtenderDir)\RedBird.Backends.NativeX64.dll</HintPath></Reference>
+    <Compile Include="../../src/Diagnostics/*.cs" Link="Production/%(Filename)%(Extension)" />
+    <Compile Include="../../../../BugfixesAndQoL/src/Diagnostics/*.cs" Link="Observation/%(Filename)%(Extension)" />
+    <Compile Include="../../../../Shared/Runtime/Diagnostics/DebugLogHelper.cs" Link="Production/DebugLogHelper.cs" />
+  </ItemGroup>
+</Project>

@@ -328,7 +328,7 @@ function Test-ActivationSettingContract {
             ($contract.Role -eq 'Host' -and $contract.Property -eq 'HostSettingsEnabled') -or
             ($contract.Role -eq 'Client' -and $contract.Property -eq 'ClientSettingsEnabled')
         if ($isSharedProxy) {
-            # These UI properties are non-persisted facades. PresetController resolves
+            # These UI properties are non-persisted facades. LobbyPresetController resolves
             # them to classified EnableMod/EnableClientFeatures properties at runtime.
             $usesSharedActivationProxy = $true
             continue

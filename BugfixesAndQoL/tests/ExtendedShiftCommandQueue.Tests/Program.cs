@@ -29,7 +29,6 @@ internal static class Program
         CheckFirstShiftMoveTakeover();
         CheckGroundMovePreviewEligibility();
         CheckGroundMoveAuthorization();
-        CheckLargeMoveTargetOverflow();
         CheckMigrationSourceContracts();
         CheckNativeReference();
         Console.WriteLine($"Extended Shift command queue static tests passed: {checks} checks.");
@@ -150,74 +149,6 @@ internal static class Program
 
 
 
-
-    private static void CheckLargeMoveTargetOverflow()
-    {
-        Check(LargeMoveTargetOverflowModel.NativeDrawCapacity == 250 &&
-              LargeMoveTargetOverflowModel.NativeUsableDrawRecords == 249,
-            "Vanilla shared draw list exposes 249 usable records");
-        Check(LargeMoveTargetOverflowModel.NativeTileCount == 320800,
-            "overflow uses the complete native tile capacity");
-        Check(LargeMoveTargetOverflowModel.IsVanillaMoveTargetMarker(0x6B, 0x52, 0xC, 6, 2) &&
-              LargeMoveTargetOverflowModel.IsVanillaMoveTargetMarker(0x6B, 0x59, 0xC, 6, 0x40002),
-            "Vanilla green Move marker signatures are recognized");
-        Check(!LargeMoveTargetOverflowModel.IsVanillaMoveTargetMarker(0x6B, 0x5A, 0xC, 6, 2) &&
-              !LargeMoveTargetOverflowModel.IsVanillaMoveTargetMarker(0xAC, 0x142, 0x12, -1, 0xA0022),
-            "non-Move and Extended Shift markers remain outside overflow capture");
-
-        foreach (int requested in new[] { 248, 249, 250, 251, 1000, 4000 })
-        {
-            int expectedOverflow = Math.Max(0, requested - 249);
-            Check(LargeMoveTargetOverflowModel.GetOverflowCount(requested) == expectedOverflow,
-                $"overflow count for {requested} requested markers");
-            var buffer = new LargeMoveTargetOverflowBuffer();
-            for (int index = 0; index < expectedOverflow; index++)
-            {
-                Check(buffer.TryAdd(0x6B, 0x52 + index % 8, 0xC, 6, index, 2),
-                    $"overflow accepts marker {index} of {expectedOverflow}");
-            }
-            Check(buffer.Count == expectedOverflow,
-                $"only the rejected tail of {requested} markers enters overflow");
-        }
-
-        Check(!LargeMoveTargetOverflowModel.IsRejectedByFullVanillaList(249) &&
-              LargeMoveTargetOverflowModel.IsRejectedByFullVanillaList(250),
-            "overflow begins only after Vanilla reaches its hard capacity");
-
-        var duplicates = new LargeMoveTargetOverflowBuffer();
-        Check(duplicates.TryAdd(0x6B, 0x52, 0xC, 6, 42, 2) &&
-              duplicates.TryAdd(0x6B, 0x52, 9, 99, 42, 0x40002) &&
-              duplicates.Count == 1,
-            "same tile, category, and sprite follows Vanilla duplicate suppression");
-        Check(duplicates.TryAdd(0x6B, 0x53, 0xC, 6, 42, 2) && duplicates.Count == 2,
-            "different sprites on one tile remain distinct chained records");
-        int head = duplicates.GetHead(42);
-        Check(duplicates.GetRecord(head).SpriteId == 0x53 &&
-              duplicates.GetRecord(duplicates.GetRecord(head).Next).SpriteId == 0x52,
-            "overflow tile chains use Vanilla last-in-first-rendered order");
-
-        duplicates.Clear();
-        Check(duplicates.Count == 0 && duplicates.GetHead(42) == 0,
-            "Vanilla reset clears every touched overflow tile immediately");
-        Check(duplicates.TryAdd(0x6B, 0x54, 0xC, 6, 99, 2) &&
-              duplicates.Count == 1 && duplicates.GetHead(42) == 0,
-            "selection, tribe, target, arrival, death, and interruption frames cannot retain old tiles");
-        duplicates.Clear();
-        Check(duplicates.Count == 0,
-            "a frame without a selected tribe publishes no previous overflow");
-
-        var capacity = new LargeMoveTargetOverflowBuffer();
-        for (int index = 0; index < LargeMoveTargetOverflowModel.MaximumOverflowMarkers; index++)
-            Check(capacity.TryAdd(0x6B, 0x52, 0xC, 6, index, 2), "overflow capacity fill");
-        Check(!capacity.TryAdd(0x6B, 0x52, 0xC, 6,
-                LargeMoveTargetOverflowModel.MaximumOverflowMarkers, 2),
-            "overflow fails open when its validated identity range is exhausted");
-        Check(capacity.TryAdd(0x6B, 0x52, 0xC, 6, 0, 2),
-            "a duplicate remains harmless at capacity");
-        Check(!capacity.TryAdd(0x6B, 0x52, 0xC, 6,
-                LargeMoveTargetOverflowModel.NativeTileCount, 2),
-            "out-of-range native tiles are rejected");
-    }
 
     private static void CheckClassification()
     {
@@ -915,7 +846,7 @@ internal static class Program
         string bugfixesMinimum = ReadManifestMinimum(workspace, "BugfixesAndQoL");
         string queueRuntime = Read(workspace, "BugfixesAndQoL", "src", "ExtendedShiftCommandQueueRuntime.cs");
         string largeMoveRuntime = Read(workspace, "BugfixesAndQoL", "src", "LargeMoveTargetMarkerRuntime.cs");
-        string largeMoveRenderer = Read(workspace, "APIShared", "src", "UnitCommands", "Formation", "LargeMoveTargetMarkerRenderer.cs");
+        string largeMoveRenderer = Read(workspace, "BugfixesAndQoL", "src", "Formations", "Markers", "LargeMoveTargetMarkerRenderer.cs");
         string sharedProject = Read(workspace, "APIShared", "APIShared.csproj");
         string viewModel = Read(workspace, "BugfixesAndQoL", "src", "BugfixesAndQoLViewModel.cs");
         string settingsXaml = Read(workspace, "BugfixesAndQoL", "Override", "ScriptExtenderUI", "BugfixesAndQoLSettings.xaml");

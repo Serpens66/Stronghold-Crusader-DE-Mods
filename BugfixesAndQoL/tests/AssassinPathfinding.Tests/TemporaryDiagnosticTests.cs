@@ -18,7 +18,8 @@ internal static partial class Program
         var observer=new HandoffObserver(); TemporaryGateRouteAcceptanceBridge.Register(observer);
         IntPtr context=new(199); int identities=0,validations=0,published=0; bool live=true,allowed=true;
         Check(!AssassinRouteHandoff.TryResolve(context,1,2,3,4,out _,out _)&&AssassinRouteHandoff.TemporaryRequestReason=="missing-output-context","no frame has explicit source-independent reason");
-        var frame=new AssassinRouteHandoff(context,1,2,3,4,5,()=>{identities++;return live;},(b,n)=>{published++;return n;},5,1);
+        var frame=new AssassinRouteHandoff(context,1,2,3,4,5,()=>{identities++;return live;},(b,n)=>{published++;return n;},5,1,
+            (stage,result,detail)=>observer.ObserveAssassinStage(null,5,stage,result,detail));
         try {
             Check(!AssassinRouteHandoff.TryResolve(context,1,2,4,4,out _,out _)&&identities==0&&AssassinRouteHandoff.TemporaryRequestReason=="request-mismatch","mismatch never probes identity");
             live=false;

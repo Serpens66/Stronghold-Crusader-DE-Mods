@@ -86,6 +86,14 @@ namespace AIBuildDiagnoseTest
                 IDisposable candidateSession = Shared.GameplaySessionLifecycle.SubscribeStarted(
                     log, candidate.OnSessionStarted, candidate.OnSessionEnded);
                 GameTimeManagerAPI.Instance.OnTick += OnTick;
+                string nativeHash;
+                try { nativeHash = NativeDiagnosticContracts.ComputeInstalledHash(); }
+                catch (Exception ex)
+                {
+                    nativeHash = string.Empty;
+                    Shared.DebugLogHelper.LogError(log, "Could not hash the diagnostic native module: " + ex);
+                }
+                AiBuildDiagnostic.Initialize(context.ModuleHandle.ToInt64(), nativeHash, context.Region, log);
                 if (!AiBuildDiagnostic.TryRegister(Guid, candidate.OnNativeRecord, out string error))
                     Shared.DebugLogHelper.LogWarning(log, "AI_BUILD_NATIVE_OBSERVATION_INCOMPLETE: " + error);
                 if (!AiBuildDiagnostic.TryRegisterWoodBuildGate(Guid,
@@ -94,6 +102,10 @@ namespace AIBuildDiagnoseTest
                 if (!AiBuildDiagnostic.TryRegisterNearbyWoodOverlay(Guid,
                     candidate.BeginNearbyWoodOverlay, out string overlayError))
                     Shared.DebugLogHelper.LogWarning(log, "AI_BUILD_NEARBY_TEST_UNAVAILABLE: " + overlayError);
+                if (AiBuildDiagnostic.HasObserver &&
+                    !BugfixesAndQoL.Diagnostics.AiBuildObservation.TryRegister(
+                        AiBuildObservationSink.Instance, log, out string sinkError))
+                    Shared.DebugLogHelper.LogWarning(log, "AI_BUILD_OBSERVATION_BRIDGE_UNAVAILABLE: " + sinkError);
                 candidate.TryInstallGeneralSiteSearchHooks(context);
                 sessionSubscription = candidateSession;
                 runtime = candidate;

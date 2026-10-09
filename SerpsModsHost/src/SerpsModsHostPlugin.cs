@@ -24,6 +24,7 @@ namespace SerpsModsHost
     [BepInDependency("APIShared_Serp", "0.4.9")]
     [BepInDependency("CrusaderDETweaker", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
+    [ExcludeFromSavegameModSettings]
     public sealed class SerpsModsHostPlugin : BaseUnityPlugin
     {
         private const string ScriptExtenderGuid = "000shcdese";

@@ -35,10 +35,10 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
-    <Compile Include="..\..\..\APIShared\src\UnitCommands\Formation\FormationOrderPacket.cs"><Link>FormationOrderPacket.cs</Link></Compile>
-    <Compile Include="..\..\..\APIShared\src\UnitCommands\Formation\FormationModel.cs"><Link>FormationModel.cs</Link></Compile>
-    <Compile Include="..\..\..\APIShared\src\UnitCommands\Formation\FormationPreviewMarkerModel.cs"><Link>FormationPreviewMarkerModel.cs</Link></Compile>
-    <Compile Include="..\..\..\APIShared\src\UnitCommands\Formation\FormationReleaseStateModel.cs"><Link>FormationReleaseStateModel.cs</Link></Compile>
+    <Compile Include="..\..\src\Formations\FormationOrderPacket.cs"><Link>FormationOrderPacket.cs</Link></Compile>
+    <Compile Include="..\..\src\Formations\FormationModel.cs"><Link>FormationModel.cs</Link></Compile>
+    <Compile Include="..\..\src\Formations\FormationPreviewMarkerModel.cs"><Link>FormationPreviewMarkerModel.cs</Link></Compile>
+    <Compile Include="..\..\src\Formations\FormationReleaseStateModel.cs"><Link>FormationReleaseStateModel.cs</Link></Compile>
     <Compile Include="NativeDetourEntryContract.cs" />
     <Compile Include="..\..\src\FormationSelectionMigration.cs"><Link>FormationSelectionMigration.cs</Link></Compile>
     <Compile Include="..\..\..\Shared\Runtime\Gameplay\GroundMovePreviewEligibility.cs"><Link>GroundMovePreviewEligibility.cs</Link></Compile>
@@ -49,6 +49,6 @@
   </Target>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <ItemGroup>
-    <Compile Include="..\..\..\APIShared\src\UnitCommands\Cursor\GroundMovePreviewEligibility.cs" />
+    <Compile Include="..\..\..\BugfixesAndQoL\src\UnitCommands\Cursor\GroundMovePreviewEligibility.cs" />
   </ItemGroup>
 </Project>

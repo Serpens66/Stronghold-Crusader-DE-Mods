@@ -1,5 +1,5 @@
 using APIShared.GameModes;
-using APIShared.SerpsMods;
+using Shared;
 using BepInEx.Logging;
 using CrusaderDE;
 using MonoMod.RuntimeDetour;
@@ -325,9 +325,9 @@ namespace CastlePlanner
         private void CameraUpdateHook(CameraControls2D camera)
         {
             if (Hud?.SettingsPanelVisible == true &&
-                APIShared.SerpsMods.GameplayFeatureModePolicy.IsAllowed(
+                Shared.GameplayFeatureModePolicy.IsAllowed(
                     CastlePlannerPlugin.PluginGuid,
-                    APIShared.SerpsMods.GameplayFeatureId.CastleBlueprints,
+                    Shared.GameplayFeatureId.CastleBlueprints,
                     Shared.GameplayModActivationGate.Snapshot) &&
                 Hud?.ShouldSuppressMapZoom() == true)
                 camera.AllowZoom = false;
@@ -408,9 +408,9 @@ namespace CastlePlanner
         }
 
         private bool EffectiveBlueprintMode =>
-            APIShared.SerpsMods.GameplayFeatureModePolicy.IsAllowed(
+            Shared.GameplayFeatureModePolicy.IsAllowed(
                 CastlePlannerPlugin.PluginGuid,
-                APIShared.SerpsMods.GameplayFeatureId.CastleBlueprints,
+                Shared.GameplayFeatureId.CastleBlueprints,
                 Shared.GameplayModActivationGate.Snapshot) &&
             (settings?.IsBlueprintMode == true || preview?.IsPreviewActive == true);
 
