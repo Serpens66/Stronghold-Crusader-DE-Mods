@@ -972,8 +972,7 @@ internal static class Program
             "CastlePlannerCastleSearchPopup",
             "CastlePlannerCastleSearchTextBox",
             "CastlePlannerCastleSearchResults",
-            "CastlePlannerRotationComboBox",
-            "CastlePlannerBlueprintSettingsButton"
+            "CastlePlannerRotationComboBox"
         };
         HashSet<string> names = document.Descendants()
             .Select(element => (string)element.Attribute(x + "Name"))
@@ -988,7 +987,6 @@ internal static class Program
         string[] requiredBindings =
         {
             "Command=\"{Binding ToggleCommand}\"",
-            "Command=\"{Binding ToggleSettingsPanelCommand}\"",
             "Command=\"{Binding ConfirmCastleCommand}\"",
             "Content=\"{Binding StatusText}\"",
             "Content=\"{Binding ConfirmCastleText}\"",
@@ -1022,10 +1020,25 @@ internal static class Program
         Assert(xaml.Contains("Background=\"#F01D1710\"", StringComparison.Ordinal) &&
             xaml.Contains("Foreground=\"#FFF4E8C4\"", StringComparison.Ordinal),
             "dark popup and panel controls do not retain a light foreground");
-        Assert(xaml.Contains("UI-Buildings A001", StringComparison.Ordinal) &&
-            xaml.Contains("UI-Buildings A002", StringComparison.Ordinal) &&
-            xaml.Contains("Style=\"{StaticResource BTN_Building}\"", StringComparison.Ordinal),
-            "the existing Vanilla-style HUD trigger icon changed");
+        string controller = File.ReadAllText(Path.Combine(root, "src", "BlueprintRuntimeController.cs"));
+        string hudSource = File.ReadAllText(Path.Combine(root, "src", "BlueprintHudViewModel.cs"));
+        Assert(controller.Contains("TryGetHudExtrasButtons", StringComparison.Ordinal) &&
+            controller.Contains("Hud.ToggleSettingsPanelCommand", StringComparison.Ordinal) &&
+            controller.Contains("\"Blueprints\"", StringComparison.Ordinal) &&
+            controller.Contains("UI-Buildings A001", StringComparison.Ordinal) &&
+            controller.Contains("UI-Buildings A002", StringComparison.Ordinal) &&
+            controller.Contains("BTN_Building", StringComparison.Ordinal),
+            "the shared Blueprint trigger must retain Vanilla resources, command and modoptions tooltip text");
+        Assert(!names.Contains("CastlePlannerBlueprintSettingsButton") &&
+            !xaml.Contains("HUD_ObjectivesPanel", StringComparison.Ordinal) &&
+            !hudSource.Contains("TriggerVerticalOffset", StringComparison.Ordinal) &&
+            controller.Contains("hudExtrasRegistration?.SetVisible(Hud.HudVisible)", StringComparison.Ordinal),
+            "CastlePlanner must delegate button placement while retaining Blueprint-context visibility");
+        Assert(hudSource.Contains("BaseButtonBottom = 34.0", StringComparison.Ordinal) &&
+            hudSource.Contains("(vanillaButtonOccupiesFirstSlot ? ButtonSlotHeight : 0.0)", StringComparison.Ordinal) &&
+            hudSource.Contains("parameter as Noesis.DependencyObject", StringComparison.Ordinal) &&
+            hudSource.Contains("FindGlobalElement(", StringComparison.Ordinal),
+            "shared trigger migration changed the legacy default panel anchor or actual-button host resolution");
 
         string[] removedBluePalette =
         {

@@ -146,9 +146,6 @@ namespace CastlePlanner
                 GameXAMLManagerAPI.Instance.RegisterBinding(
                     "CastlePlannerBlueprintHud",
                     blueprintRuntime.Hud);
-                GameXAMLManagerAPI.Instance.RegisterBinding(
-                    "CastlePlannerBlueprintSettingsButton",
-                    blueprintRuntime.Hud);
             }, failedOptionalStages);
 
             TryInitializeStage("AIV placement runtime", () =>

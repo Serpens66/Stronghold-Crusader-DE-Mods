@@ -65,6 +65,7 @@ namespace CastlePlanner
         private bool depthLoadReady;
         private bool hudObserverPending;
         private MainViewModel observedHudViewModel;
+        private APIShared.IHudExtrasButtonRegistration hudExtrasRegistration;
         private Hook cameraUpdateHook;
         private CameraUpdateDelegate cameraUpdateTrampoline;
         private Hook editorPlayerHook;
@@ -101,6 +102,7 @@ namespace CastlePlanner
                 sizeCalibration,
                 buildingImageLibrary);
             Hud = new BlueprintHudViewModel(ToggleBlueprint, settings, preview);
+            RegisterHudExtrasButton();
             InstallEditorPlayerHook();
             InstallCameraWheelGuard();
 
@@ -166,6 +168,39 @@ namespace CastlePlanner
                     $"Failed to close the Blueprint AIVJSON search popup " +
                     $"during application focus loss: {ex}");
             }
+        }
+
+        private void RegisterHudExtrasButton()
+        {
+            Hud.PropertyChanged += OnExtrasHudPropertyChanged;
+            APIShared.ApiShared.ForMod(CastlePlannerPlugin.PluginGuid).WhenReady(client => {
+                try
+                {
+                    if (!client.TryGetHudExtrasButtons(out var buttons, out var diagnostic))
+                        throw new InvalidOperationException(diagnostic.Reason);
+                    var definition = new APIShared.HudExtrasButtonDefinition("blueprints", Hud.ToggleSettingsPanelCommand,
+                        "Blueprints", context => {
+                            var button = new Noesis.Button { Style = context.Hud.TryFindResource("BTN_Building") as Noesis.Style };
+                            var normal = context.Hud.TryFindResource("UI-Buildings A001") as Noesis.ImageSource;
+                            var highlight = context.Hud.TryFindResource("UI-Buildings A002") as Noesis.ImageSource;
+                            if (normal == null || highlight == null || button.Style == null)
+                                throw new InvalidOperationException("Vanilla Blueprint button resources are unavailable.");
+                            PropEx.SetSprite1(button, normal); PropEx.SetSprite2(button, highlight);
+                            PropEx.SetSprite3(button, highlight); PropEx.SetSprite4(button, normal);
+                            return button;
+                        });
+                    if (!buttons.TryRegisterButton(definition, out hudExtrasRegistration, out diagnostic))
+                        throw new InvalidOperationException(diagnostic.Reason);
+                    hudExtrasRegistration.SetVisible(Hud.HudVisible);
+                }
+                catch (Exception ex) { Shared.DebugLogHelper.LogError(log, "Blueprint side-HUD registration failed: " + ex); }
+            });
+        }
+
+        private void OnExtrasHudPropertyChanged(object sender, PropertyChangedEventArgs args)
+        {
+            if (args.PropertyName == nameof(BlueprintHudViewModel.HudVisible))
+                hudExtrasRegistration?.SetVisible(Hud.HudVisible);
         }
 
         private void OnBeforeRender()
@@ -1046,7 +1081,7 @@ namespace CastlePlanner
             Hud?.UpdateViewportSize(
                 MainViewModel.iUIScaleValueWidth,
                 MainViewModel.iUIScaleValueHeight);
-            UpdateVanillaButtonSlot(viewModel);
+            UpdateVanillaPanelAnchor(viewModel);
             if (preparePending)
                 TryPrepareBlueprint();
         }
@@ -1055,12 +1090,12 @@ namespace CastlePlanner
         {
             if (args?.PropertyName == nameof(MainViewModel.Show_HUD_Extras_Button_Objectves) ||
                 args?.PropertyName == nameof(MainViewModel.Show_HUD_Extras_Button_Freebuild))
-                UpdateVanillaButtonSlot(sender as MainViewModel);
+                UpdateVanillaPanelAnchor(sender as MainViewModel);
         }
 
-        private void UpdateVanillaButtonSlot(MainViewModel viewModel)
+        private void UpdateVanillaPanelAnchor(MainViewModel viewModel)
         {
-            Hud?.UpdateVanillaButtonSlot(viewModel != null &&
+            Hud?.UpdateVanillaPanelAnchor(viewModel != null &&
                 (viewModel.Show_HUD_Extras_Button_Objectves ||
                  viewModel.Show_HUD_Extras_Button_Freebuild));
         }

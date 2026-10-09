@@ -45,5 +45,17 @@ foreach ($part in @('ActionButtons','Categories','Recruitment')) {
     if ($source -notmatch 'ToolTipService\.SetIsEnabled\([^,]+, false\)') { $failures.Add("Missing runtime popup suppression: $part") }
     if ($part -eq 'ActionButtons' -and $source -cmatch 'ToolTipService\.SetToolTip\(|\.ToolTip\s*=|SetShowDuration\(') { $failures.Add('Action buttons must publish only Vanilla rollover text.') }
 }
+# Side-HUD buttons deliberately use popups; their default must never fall back to the lion template.
+$extrasPatch = Join-Path $Workspace 'APIShared\Patches\Assets\GUI\XAML\IngameUIScreens.xaml'
+[xml]$extrasDocument = [IO.File]::ReadAllText($extrasPatch)
+$extrasStyle = $extrasDocument.SelectSingleNode("//*[local-name()='Style'][@*[local-name()='Key']='APISharedHudExtrasTooltipStyle']")
+if (-not $extrasStyle) { $failures.Add('Missing side-HUD default tooltip style.') }
+else { Assert-OwnStyle $extrasStyle $extrasPatch; $checked++ }
+$extrasSource = [IO.File]::ReadAllText((Join-Path $Workspace 'APIShared\src\Presentation\HudExtras\HudExtrasButtonsService.cs'))
+if ($extrasSource -notmatch 'RequireStyle\("APISharedHudExtrasTooltipStyle"\)' -or
+    $extrasSource -notmatch 'SetShowDuration\(visual.Button, 60000\)' -or
+    $extrasSource -notmatch 'tip.Style == null && tip.Template == null') {
+    $failures.Add('Side-HUD popup path must use the own default style or an explicitly styled custom tooltip.')
+}
 if ($failures.Count) { throw ($failures -join [Environment]::NewLine) }
 Write-Output "PASS: $checked mod-owned ingame popup usages have the modoptions style; $disabled explicitly disabled popups; HUD action/category/recruitment runtime descriptions use Vanilla rollover paths."

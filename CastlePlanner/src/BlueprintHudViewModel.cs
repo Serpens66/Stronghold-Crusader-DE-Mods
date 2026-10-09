@@ -280,9 +280,6 @@ namespace CastlePlanner
                 nameof(PanelTop));
         }
 
-        public double TriggerVerticalOffset =>
-            vanillaButtonOccupiesFirstSlot ? -ButtonSlotHeight : 0.0;
-
         public bool CanToggle
         {
             get => canToggle;
@@ -359,13 +356,12 @@ namespace CastlePlanner
             OnPropertyChanged(nameof(StatusText));
         }
 
-        public void UpdateVanillaButtonSlot(bool isOccupied)
+        public void UpdateVanillaPanelAnchor(bool isOccupied)
         {
             if (vanillaButtonOccupiesFirstSlot == isOccupied)
                 return;
 
             vanillaButtonOccupiesFirstSlot = isOccupied;
-            OnPropertyChanged(nameof(TriggerVerticalOffset));
             if (!settings.TryGetBlueprintHudPosition(out _, out _))
                 ApplyStoredOrDefaultPosition();
         }
