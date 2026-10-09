@@ -1,0 +1,14 @@
+<Project>
+  <!-- Workspace consumers share the one local APIShared build. APIShared imports its own targets. -->
+  <PropertyGroup>
+    <ModWorkspaceRoot>$([System.IO.Path]::GetDirectoryName('$(MSBuildThisFileFullPath)'))</ModWorkspaceRoot>
+    <WorkspaceApiSharedRoot>$(MSBuildThisFileDirectory)APIShared</WorkspaceApiSharedRoot>
+    <ApiSharedDir>$(WorkspaceApiSharedRoot)\BepInEx\plugins\APIShared_Serp</ApiSharedDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Update="APIShared"><HintPath>$(ApiSharedDir)\APIShared.dll</HintPath></Reference>
+  </ItemGroup>
+  <Target Name="ValidateWorkspaceApiSharedPackage" BeforeTargets="ResolveAssemblyReferences" Condition="'@(Reference->WithMetadataValue('Identity', 'APIShared'))' != ''">
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildThisFileDirectory)Shared\Tools\ApiSharedRepository\Test-ConsumerPackage.ps1&quot; -Workspace &quot;$(ModWorkspaceRoot)&quot; -PackageDirectory &quot;$(ApiSharedDir)&quot;" />
+  </Target>
+</Project>

@@ -234,13 +234,13 @@ internal static class Program
               !health.Contains("selectedTypeCounts.Clone()"),
             "Selected-health uses reusable summary/page buffers without Lord cloning");
 
-        string cursor = File.ReadAllText(Path.Combine(workspace, "APIShared", "src", "UnitCommands", "CursorConnectivity.cs"));
+        string cursor = File.ReadAllText(Path.Combine(workspace, "APIShared", "src", "UnitCommands", "Cursor", "CursorConnectivity.cs"));
         int queryGuard = cursor.IndexOf("if (cursorQueries == cursorLastLogQueries)", StringComparison.Ordinal);
         int cursorStopwatch = cursor.IndexOf("long now = Stopwatch.GetTimestamp();", queryGuard, StringComparison.Ordinal);
         Check(queryGuard >= 0 && cursorStopwatch > queryGuard,
             "Friendly-Moat diagnostics check query dirtiness before reading Stopwatch");
 
-        string marker = File.ReadAllText(Path.Combine(workspace, "APIShared", "src", "UnitCommands", "LargeMoveTargetMarkerRenderer.cs"));
+        string marker = File.ReadAllText(Path.Combine(workspace, "APIShared", "src", "UnitCommands", "Formation", "LargeMoveTargetMarkerRenderer.cs"));
         int markerSnapshot = marker.IndexOf(
             "Dictionary<int, int> preview = publication.Tiles;", StringComparison.Ordinal);
         int overflowSnapshot = marker.IndexOf(
@@ -924,7 +924,7 @@ internal static class Program
     {
         string sourceDirectory = Path.Combine(workspace, "BugfixesAndQoL", "src");
         string[] sourcePaths = Directory.GetFiles(sourceDirectory, "*.cs", SearchOption.TopDirectoryOnly)
-            .Concat(new[] { Path.Combine(workspace, "APIShared", "src", "UnitCommands", "LargeMoveTargetMarkerRenderer.cs") }).ToArray();
+            .Concat(new[] { Path.Combine(workspace, "APIShared", "src", "UnitCommands", "Formation", "LargeMoveTargetMarkerRenderer.cs") }).ToArray();
         string production = string.Join("\n", sourcePaths.Select(File.ReadAllText));
         string project = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "BugfixesAndQoL.csproj"));
         string plugin = File.ReadAllText(Path.Combine(sourceDirectory, "BugfixesAndQoLPlugin.cs"));
@@ -997,7 +997,7 @@ internal static class Program
               infrastructure.Contains("new ContextHookOptions"),
             "P6b shared hook infrastructure preserves atomic ownership and explicit context options");
 
-        string moat = File.ReadAllText(Path.Combine(workspace, "APIShared", "src", "UnitCommands", "MoatWorkTargetSelection.cs"));
+        string moat = string.Join("\n", Directory.GetFiles(Path.Combine(workspace, "APIShared", "src", "UnitCommands", "Moat"), "UnitCommandPathRuntime.WorkTarget*.cs").Select(File.ReadAllText));
         Check(moat.Contains("CommitPermanentHooks(pendingTransaction)") &&
               moat.Contains("!pendingFind.Committed") &&
               moat.Contains("!pendingResolve.Committed") &&

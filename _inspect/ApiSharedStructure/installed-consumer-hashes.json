@@ -1,0 +1,202 @@
+[
+  {
+    "Driver": "BugfixesAndQoL\\build.bat",
+    "File": "BugfixesAndQoL_Serp\\BugfixesAndQoL.dll",
+    "Sha256": "87684671D6E7595D6F87403C6624CFD48EEA410A994E765364AEE3C8D5720D0B"
+  },
+  {
+    "Driver": "BuildingCosts\\build.bat",
+    "File": "BuildingCosts_Serp\\BuildingCosts.dll",
+    "Sha256": "EFCFE87370F17DD159CBA95C0C50C0C1B78FC3BEB1231B52D417EE5661BCC799"
+  },
+  {
+    "Driver": "BuildingLimit\\build.bat",
+    "File": "BuildingLimit_Serp\\BuildingLimit.dll",
+    "Sha256": "ADA9F7687F76FF4F77531EC91325590F86A739C7F19BBE38D2A3859CCC285844"
+  },
+  {
+    "Driver": "CastlePlanner\\build.bat",
+    "File": "CastlePlanner_Serp\\AIVParser.Core.dll",
+    "Sha256": "67CAF927D6A745DDCA822BAAA72B01F5B5D2E8CF5C5CEA5B6CA2EEEB422DAE6E"
+  },
+  {
+    "Driver": "CastlePlanner\\build.bat",
+    "File": "CastlePlanner_Serp\\AIVPlacement.Core.dll",
+    "Sha256": "2F7F96929121B59AABBCF38E7E682D7C6B168BAC7CBC4BE54CB64315A55EC09B"
+  },
+  {
+    "Driver": "CastlePlanner\\build.bat",
+    "File": "CastlePlanner_Serp\\CastlePlanner.AIVPlacement.Core.dll",
+    "Sha256": "2705836661347210EAF3516F291E84994A3A69AD79FE44790132694A01F03F4D"
+  },
+  {
+    "Driver": "CastlePlanner\\build.bat",
+    "File": "CastlePlanner_Serp\\CastlePlanner.dll",
+    "Sha256": "6BDB898DD859EA8168A5E8CEBC63BFC7587C5156730C004FEC1219801A795D96"
+  },
+  {
+    "Driver": "CastlePlanner\\build.bat",
+    "File": "CastlePlanner_Serp\\MapParser.Core.dll",
+    "Sha256": "E757224AF172BE3B33538C4F773323F87C2F1BB6DF4341B5B32435BF732C14DC"
+  },
+  {
+    "Driver": "CheatMod\\build.bat",
+    "File": "CheatMod_Serp\\CheatMod.dll",
+    "Sha256": "413E2542FA9796EA393F76E8CEC16ABE7B7D279AD3E55ADAD75A55F9F806F35F"
+  },
+  {
+    "Driver": "ExtendedData\\build.bat",
+    "File": "ExtendedData_Serp\\ExtendedData.Core.dll",
+    "Sha256": "0EF0254192D1B5BF7970A1B2526A6A423631FB5BBF81B1290935F0F416CFB6B3"
+  },
+  {
+    "Driver": "ExtendedData\\build.bat",
+    "File": "ExtendedData_Serp\\ExtendedData.dll",
+    "Sha256": "A4FAA6AF7FC7F6ADF3F561DD398A44146D38043C14EDAB14D5911EDE357AE282"
+  },
+  {
+    "Driver": "ExtraFeatures\\build.bat",
+    "File": "ExtraFeatures_Serp\\ExtraFeatures.dll",
+    "Sha256": "B1C44924B39343A5848F2482863E142E2FEFA6C5450F02F8162C5AFE584E3330"
+  },
+  {
+    "Driver": "ExtremePowers\\build.bat",
+    "File": "ExtremePowers_Serp\\ExtremePowers.API.dll",
+    "Sha256": "B48746962E5489BE8823EA9C63ECB711BBE13E39D0E52D8173E541F6DF566937"
+  },
+  {
+    "Driver": "ExtremePowers\\build.bat",
+    "File": "ExtremePowers_Serp\\ExtremePowers.dll",
+    "Sha256": "5353F0ECB3A46893D27F47C7F5220E2F25FAEE056234B28E9574C0D09F33FDA5"
+  },
+  {
+    "Driver": "Helpers\\ActiveAIVDetector\\build.bat",
+    "File": "ActiveAIVDetector_Serp\\ActiveAIVDetector.dll",
+    "Sha256": "12A9032E778240ECA3A8403AB690EC2BCD73617377F0AFCE27BDD2FFE9EA8BC0"
+  },
+  {
+    "Driver": "Helpers\\HunterQueryTargetDiagnostic\\build.bat",
+    "File": "HunterQueryTargetDiagnostic_Serp\\HunterQueryTargetDiagnostic.dll",
+    "Sha256": "9D120F661B49914457693F6295A5565770740FB7AB81C51EF5EBA98BBDA09864"
+  },
+  {
+    "Driver": "ImprovedHunters\\build.bat",
+    "File": "ImprovedHunters_Serp\\ImprovedHunters.dll",
+    "Sha256": "80BA0203E846AC6D8E3BDE03D1B99D550CBD01FF1CCA65D08D238C666A06CB19"
+  },
+  {
+    "Driver": "RandomEvents\\build.bat",
+    "File": "RandomEvents_Serp\\RandomEvents.dll",
+    "Sha256": "00961BE2650E11808C7FEECD24D9942B0FD2A85774044B0EFD10D2E7CAE97A3A"
+  },
+  {
+    "Driver": "StartConditions\\build.bat",
+    "File": "StartConditions_Serp\\StartConditions.dll",
+    "Sha256": "E96407DA8803370B17DE62B93F31E7F77D9ADA89F6789F1200146292A679A3AF"
+  },
+  {
+    "Driver": "Testmods\\AIAttackTest\\build.bat",
+    "File": "AIAttackTest_Serp\\AIAttackTest.dll",
+    "Sha256": "D016F9F40CF4BEA42910132D14F085F52A6135F354B7BC72ED0EA6F09F9023F5"
+  },
+  {
+    "Driver": "Testmods\\AIBuildDiagnoseTest\\build.bat",
+    "File": "AIBuildDiagnoseTest_Serp\\AIBuildDiagnoseTest.dll",
+    "Sha256": "3625B82062EE11D837EC3296EE4552F99F1CA2DC5FD251BD49A774BD5ACDB743"
+  },
+  {
+    "Driver": "Testmods\\AICoarsePathComponentFixTest\\build.bat",
+    "File": "AICoarsePathComponentFixTest_Serp\\AICoarsePathComponentFixTest.dll",
+    "Sha256": "28DCE8B4A8449EEFA084C273CF9D114375D0DABB7FC5A8246124E8419127E973"
+  },
+  {
+    "Driver": "Testmods\\AIDefenseTest\\build.bat",
+    "File": "AIDefenseTest_Serp\\AIDefenseTest.dll",
+    "Sha256": "D9674F8C3876763355452D997E85FF99D46E2821420D2C72A58169E5F7084B61"
+  },
+  {
+    "Driver": "Testmods\\AIMarketOverbuyDiagnostic\\build.bat",
+    "File": "AIMarketOverbuyDiagnostic_Serp\\AIMarketOverbuyDiagnostic.dll",
+    "Sha256": "E438EE41659341BCB29BB39C45506A333D5C8BE2243F1244B77C4B95C83513E0"
+  },
+  {
+    "Driver": "Testmods\\AivLobbyPresetTest\\build.bat",
+    "File": "AivLobbyPresetTest_Serp\\AivLobbyPresetTest.dll",
+    "Sha256": "9ACE0504BCFBEF8F700B676D6ACD67C8791237E37B3279B535B48BFD7EDF0836"
+  },
+  {
+    "Driver": "Testmods\\AssassinAttackControlTest\\build.bat",
+    "File": "AssassinAttackControlTest_Serp\\AssassinAttackControlTest.dll",
+    "Sha256": "9CB10AA5196A13FCEAD9BF9CC647FEA895E8C6F4BCCA2A48FE3FBC80D5DA3070"
+  },
+  {
+    "Driver": "Testmods\\EnemyBridgePathTest\\build.bat",
+    "File": "EnemyBridgePathTest_Serp\\EnemyBridgePathTest.dll",
+    "Sha256": "40667664E017ED9D98DC6E4686EB9209C456008476019BAA3323A18E1ACF1A47"
+  },
+  {
+    "Driver": "SerpsModsHost\\build.bat",
+    "File": "SerpsMods_Serp\\SerpsModsHost.dll",
+    "Sha256": "56B48A7458501AF7779971E4D472DD781705EF95D68363ADD5F1BB79A0D2D977"
+  },
+  {
+    "Driver": "Testmods\\EnemyGatePathfindingTest\\build.bat",
+    "File": "EnemyGatePathfindingTest_Serp\\EnemyGatePathfindingTest.dll",
+    "Sha256": "CEB0B6C10C466FD2729F82FA2CFAF8296C727EBDDBFDFD77EC861259F8FAACBA"
+  },
+  {
+    "Driver": "Testmods\\EngineerSiegeFixTest\\build.bat",
+    "File": "EngineerSiegeFixTest_Serp\\EngineerSiegeFixTest.dll",
+    "Sha256": "8B5A6A4A62FB74B22C10EB1F2976976680970745AD1D0E9585AF09C40988D248"
+  },
+  {
+    "Driver": "Testmods\\MainViewModelInitProbe\\build.bat",
+    "File": "MainViewModelInitProbe_Serp\\MainViewModelInitProbe.dll",
+    "Sha256": "7FA8CAAB961964E5848B99E609DCBAB3EBAD835C6949C48623C63A76F208E3DA"
+  },
+  {
+    "Driver": "Testmods\\MoatMove\\build.bat",
+    "File": "MoatMove_Serp\\MoatMove.dll",
+    "Sha256": "89874570E37A162319CD0997F362EB35815DD5D7E9EFDAEEBB6318D6A77CBEDF"
+  },
+  {
+    "Driver": "Testmods\\OutpostTest\\build.bat",
+    "File": "OutpostTest_Serp\\OutpostTest.dll",
+    "Sha256": "D89089841836FBA62C11D335EF069DE7AFC7F38AFFFD96E97A22390A0AE55AC2"
+  },
+  {
+    "Driver": "Testmods\\PrebuiltWorkshopBothFixTest\\build.bat",
+    "File": "PrebuiltWorkshopBothFixTest_Serp\\PrebuiltWorkshopBothFixTest.dll",
+    "Sha256": "3A97D1C99DE96F824D9847618E8967B6E56ADF7D3815EED52FA485F24B7CF8F1"
+  },
+  {
+    "Driver": "Testmods\\SkinTest\\build.bat",
+    "File": "SkinTest_Serp\\SkinTest.dll",
+    "Sha256": "F1C0A302311ADD9F32A07A8A759106286CD7500F9FD200D7767FC734000069E6"
+  },
+  {
+    "Driver": "Testmods\\SpectatorEditorBuildTest\\build.bat",
+    "File": "SpectatorEditorBuildTest_Serp\\SpectatorEditorBuildTest.dll",
+    "Sha256": "6FD3569A7C3EEC3105805881009FB9FCDE0818BF278DA7BA16DCF2EF25796092"
+  },
+  {
+    "Driver": "Testmods\\StockpileAccessFixTest\\build.bat",
+    "File": "StockpileAccessFixTest_Serp\\StockpileAccessFixTest.dll",
+    "Sha256": "CCB4C0F0EFE1707F5070BFE7A5241B27B9D7AB969C670CD396468E8AC1DA980C"
+  },
+  {
+    "Driver": "Testmods\\VirtualUnitsPrototype\\build.bat",
+    "File": "VirtualUnitsPrototype_Serp\\VirtualUnitsPrototype.dll",
+    "Sha256": "64434D349FA328C0B720B498C67FA1B6C014C95CC1D0970AC72539253003E7EF"
+  },
+  {
+    "Driver": "UnitCosts\\build.bat",
+    "File": "UnitCosts_Serp\\UnitCosts.dll",
+    "Sha256": "16F7FAD09651F50A33D128910C541ED29B5682DFAE373224A548622100EF9305"
+  },
+  {
+    "Driver": "UnitLimit\\build.bat",
+    "File": "UnitLimit_Serp\\UnitLimit.dll",
+    "Sha256": "0AC442829B644B7B7CCE84B3F6EFCDC7EFF81A4F7E1ADB82D6322D4B90F4F7D8"
+  }
+]

@@ -387,7 +387,10 @@ function Get-ValidatedApiSharedPackage {
     if ((Compare-SemanticVersion -Left $apiVersion -Right $MinimumVersion) -lt 0) {
         throw "APIShared v$apiVersion is below the required minimum v$MinimumVersion."
     }
+    . (Join-Path $Config.Root 'Shared/Tools/ApiSharedRepository/ApiShared.Common.ps1')
+    $proof = Assert-ApiConsumerPackage $Config.Root $apiPackage
     return [PSCustomObject]@{
+        Commit = $proof.Commit
         Directory = $apiPackage
         SourceInfoPath = $apiSourceInfoPath
         InfoPath = $apiInfoPath
@@ -421,6 +424,14 @@ function Get-PublishedApiSharedRelease {
     $assets = @($release.assets | Where-Object { [string]$_.name -ceq $assetName })
     if ($assets.Count -ne 1) {
         throw "Required APIShared release $tag must contain exactly one $assetName asset."
+    }
+    if ($Package.PSObject.Properties['Commit']) {
+        $api = Join-Path $Config.Root ([string]$Config.ApiShared.Project)
+        $refs = Invoke-CheckedCommand -FilePath 'git' -Arguments @('-C', $api, 'ls-remote', 'origin', "refs/tags/$tag", "refs/tags/$tag^{}")
+        $rows = @($refs.Output)
+        $peeled = @($rows | Where-Object { $_ -match '\^\{\}$' })
+        $selected = if ($peeled.Count) { $peeled[0] } elseif ($rows.Count) { $rows[0] } else { '' }
+        if (($selected -split '\s+')[0] -ne [string]$Package.Commit) { throw 'Published APIShared release tag differs from the workspace package source commit.' }
     }
     return [PSCustomObject]@{
         Tag = $tag
@@ -589,7 +600,7 @@ function Get-DependencyRecords {
         [string]$ApiSharedDir
     )
     if ([string]::IsNullOrWhiteSpace($ApiSharedDir)) {
-        $ApiSharedDir = Join-Path $Metadata.Config.GameDir 'BepInEx\plugins\APIShared_Serp'
+        $ApiSharedDir = Join-Path $Metadata.Config.Root 'APIShared\BepInEx\plugins\APIShared_Serp'
     }
     $paths = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
     [void]$paths.Add((Join-Path $Metadata.Config.GameDir 'Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll'))
@@ -598,7 +609,11 @@ function Get-DependencyRecords {
         [xml]$xml = Get-Content -LiteralPath $projectFile.FullName -Raw
         $hintNodes = @($xml.SelectNodes('//*[local-name()="HintPath"]'))
         foreach ($node in $hintNodes) {
-            $candidate = [string]$node.InnerText
+              $candidate = [string]$node.InnerText
+              # Directory.Build.targets overrides APIShared references to the local package.
+              if ([string]$node.ParentNode.Include -eq 'APIShared') {
+                  $candidate = Join-Path $ApiSharedDir 'APIShared.dll'
+              }
             $candidate = $candidate.Replace('$(GameDir)', $Metadata.Config.GameDir)
             $candidate = $candidate.Replace('$(ExtenderDir)', $ExtenderDir)
             $candidate = $candidate.Replace('$(ApiSharedDir)', $ApiSharedDir)

@@ -1100,10 +1100,11 @@ internal static class Program
     {
         string main = FindProjectRoot();
         string shared = Path.Combine(Directory.GetParent(main).FullName, "APIShared", "src", "UnitCommands");
-        string runtime = File.ReadAllText(Path.Combine(shared, "FormationRuntime.cs"));
-        string slots = File.ReadAllText(Path.Combine(shared, "NativeFormationSlots.cs"));
-        string common = File.ReadAllText(Path.Combine(shared, "MoatPlacement.cs"));
-        string markers = File.ReadAllText(Path.Combine(shared, "LargeMoveTargetMarkerRenderer.cs"));
+        string ReadSharedSource(string filename) => File.ReadAllText(Directory.GetFiles(shared, filename, SearchOption.AllDirectories).Single());
+        string runtime = string.Join("\n", Array.ConvertAll(Directory.GetFiles(shared, "FormationRuntime.*.cs", SearchOption.AllDirectories), File.ReadAllText));
+        string slots = ReadSharedSource("NativeFormationSlots.cs");
+        string common = ReadSharedSource("MoatPlacement.cs");
+        string markers = ReadSharedSource("LargeMoveTargetMarkerRenderer.cs");
         string feature = File.ReadAllText(Path.Combine(main, "src", "FormationFeature.cs"));
         string source = runtime + slots + common + markers + feature;
         foreach (string forbidden in new[] {
@@ -1119,8 +1120,8 @@ internal static class Program
             "all placement providers use shared native dispatch");
         Check(runtime.Contains("settings.EnableMod && settings.EnableMoveFormationEnhancements") &&
               runtime.Contains("if (!Enabled)"), "checkbox and runtime fault gate input and received commands");
-        string dispatch = File.ReadAllText(Path.Combine(shared, "PermanentCommandHooks.cs"));
-        string unitDispatch = File.ReadAllText(Path.Combine(shared, "UnitMovementContext.cs"));
+        string dispatch = ReadSharedSource("PermanentCommandHooks.cs");
+        string unitDispatch = ReadSharedSource("UnitMovementContext.cs");
         Check(dispatch.Contains("formationRuntime?.OnTribeIssueOrderMoveHere(args)") &&
               unitDispatch.Contains("formationRuntime?.OnUnitMoveHere(args)"), "existing Extender order and terminal dispatch used");
         Check(unitDispatch.IndexOf("formationRuntime?.OnUnitMoveHere(args)", StringComparison.Ordinal) <

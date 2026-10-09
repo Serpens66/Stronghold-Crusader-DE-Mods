@@ -1,0 +1,1612 @@
+[
+  {
+    "Index": 0,
+    "Name": "TroopSlotCount",
+    "Kind": "FieldDeclaration",
+    "Start": 23,
+    "End": 23
+  },
+  {
+    "Index": 1,
+    "Name": "GroupCount",
+    "Kind": "FieldDeclaration",
+    "Start": 24,
+    "End": 24
+  },
+  {
+    "Index": 2,
+    "Name": "GroupCapacity",
+    "Kind": "FieldDeclaration",
+    "Start": 25,
+    "End": 25
+  },
+  {
+    "Index": 3,
+    "Name": "GroupRecordWidth",
+    "Kind": "FieldDeclaration",
+    "Start": 26,
+    "End": 26
+  },
+  {
+    "Index": 4,
+    "Name": "GroupVisibleSlots",
+    "Kind": "FieldDeclaration",
+    "Start": 27,
+    "End": 27
+  },
+  {
+    "Index": 5,
+    "Name": "ControlGroupStoragePatternRva",
+    "Kind": "FieldDeclaration",
+    "Start": 28,
+    "End": 28
+  },
+  {
+    "Index": 6,
+    "Name": "ControlGroupStorageDisplacementOffset",
+    "Kind": "FieldDeclaration",
+    "Start": 29,
+    "End": 29
+  },
+  {
+    "Index": 7,
+    "Name": "ControlGroupStorageNextInstructionOffset",
+    "Kind": "FieldDeclaration",
+    "Start": 30,
+    "End": 30
+  },
+  {
+    "Index": 8,
+    "Name": "ControlGroupStorageRva",
+    "Kind": "FieldDeclaration",
+    "Start": 31,
+    "End": 31
+  },
+  {
+    "Index": 9,
+    "Name": "TunnelSummaryType",
+    "Kind": "FieldDeclaration",
+    "Start": 32,
+    "End": 32
+  },
+  {
+    "Index": 10,
+    "Name": "EuropeanTroopSummaryStart",
+    "Kind": "FieldDeclaration",
+    "Start": 33,
+    "End": 33
+  },
+  {
+    "Index": 11,
+    "Name": "MonkSummaryType",
+    "Kind": "FieldDeclaration",
+    "Start": 34,
+    "End": 34
+  },
+  {
+    "Index": 12,
+    "Name": "SiegeEngineSummaryStart",
+    "Kind": "FieldDeclaration",
+    "Start": 35,
+    "End": 35
+  },
+  {
+    "Index": 13,
+    "Name": "PortableSiegeSummaryStart",
+    "Kind": "FieldDeclaration",
+    "Start": 36,
+    "End": 36
+  },
+  {
+    "Index": 14,
+    "Name": "ArabicTroopSummaryStart",
+    "Kind": "FieldDeclaration",
+    "Start": 37,
+    "End": 37
+  },
+  {
+    "Index": 15,
+    "Name": "ControlGroupStoragePattern",
+    "Kind": "FieldDeclaration",
+    "Start": 38,
+    "End": 39
+  },
+  {
+    "Index": 16,
+    "Name": "CompiledControlGroupStoragePattern",
+    "Kind": "FieldDeclaration",
+    "Start": 40,
+    "End": 41
+  },
+  {
+    "Index": 17,
+    "Name": "SetupTroopsDelegate",
+    "Kind": "DelegateDeclaration",
+    "Start": 43,
+    "End": 43
+  },
+  {
+    "Index": 18,
+    "Name": "TroopClickDelegate",
+    "Kind": "DelegateDeclaration",
+    "Start": 44,
+    "End": 44
+  },
+  {
+    "Index": 19,
+    "Name": "PopulateGroupsDelegate",
+    "Kind": "DelegateDeclaration",
+    "Start": 45,
+    "End": 45
+  },
+  {
+    "Index": 20,
+    "Name": "GameActionDelegate",
+    "Kind": "DelegateDeclaration",
+    "Start": 46,
+    "End": 46
+  },
+  {
+    "Index": 21,
+    "Name": "UpdateSpritesDelegate",
+    "Kind": "DelegateDeclaration",
+    "Start": 47,
+    "End": 47
+  },
+  {
+    "Index": 22,
+    "Name": "CreateTroopDelegate",
+    "Kind": "DelegateDeclaration",
+    "Start": 48,
+    "End": 48
+  },
+  {
+    "Index": 23,
+    "Name": "EnterCreateTroopDelegate",
+    "Kind": "DelegateDeclaration",
+    "Start": 49,
+    "End": 49
+  },
+  {
+    "Index": 24,
+    "Name": "RecruitmentGameActionDelegate",
+    "Kind": "DelegateDeclaration",
+    "Start": 50,
+    "End": 50
+  },
+  {
+    "Index": 25,
+    "Name": "SelectedCountsField",
+    "Kind": "FieldDeclaration",
+    "Start": 52,
+    "End": 52
+  },
+  {
+    "Index": 26,
+    "Name": "SelectedTypeCountField",
+    "Kind": "FieldDeclaration",
+    "Start": 53,
+    "End": 53
+  },
+  {
+    "Index": 27,
+    "Name": "CurrentPageField",
+    "Kind": "FieldDeclaration",
+    "Start": 54,
+    "End": 54
+  },
+  {
+    "Index": 28,
+    "Name": "PagesField",
+    "Kind": "FieldDeclaration",
+    "Start": 55,
+    "End": 55
+  },
+  {
+    "Index": 29,
+    "Name": "TroopPositionsField",
+    "Kind": "FieldDeclaration",
+    "Start": 56,
+    "End": 56
+  },
+  {
+    "Index": 30,
+    "Name": "GroupImagesField",
+    "Kind": "FieldDeclaration",
+    "Start": 57,
+    "End": 57
+  },
+  {
+    "Index": 31,
+    "Name": "GroupValuesField",
+    "Kind": "FieldDeclaration",
+    "Start": 58,
+    "End": 58
+  },
+  {
+    "Index": 32,
+    "Name": "GroupExtraField",
+    "Kind": "FieldDeclaration",
+    "Start": 59,
+    "End": 59
+  },
+  {
+    "Index": 33,
+    "Name": "GroupSpriteMethod",
+    "Kind": "FieldDeclaration",
+    "Start": 60,
+    "End": 60
+  },
+  {
+    "Index": 34,
+    "Name": "sync",
+    "Kind": "FieldDeclaration",
+    "Start": 62,
+    "End": 62
+  },
+  {
+    "Index": 35,
+    "Name": "hudBufferPool",
+    "Kind": "FieldDeclaration",
+    "Start": 63,
+    "End": 63
+  },
+  {
+    "Index": 36,
+    "Name": "ImageSlots",
+    "Kind": "FieldDeclaration",
+    "Start": 64,
+    "End": 64
+  },
+  {
+    "Index": 37,
+    "Name": "categories",
+    "Kind": "FieldDeclaration",
+    "Start": 65,
+    "End": 65
+  },
+  {
+    "Index": 38,
+    "Name": "interactions",
+    "Kind": "FieldDeclaration",
+    "Start": 66,
+    "End": 66
+  },
+  {
+    "Index": 39,
+    "Name": "imageOverrides",
+    "Kind": "FieldDeclaration",
+    "Start": 67,
+    "End": 67
+  },
+  {
+    "Index": 40,
+    "Name": "recruitment",
+    "Kind": "FieldDeclaration",
+    "Start": 68,
+    "End": 68
+  },
+  {
+    "Index": 41,
+    "Name": "categoryView",
+    "Kind": "FieldDeclaration",
+    "Start": 70,
+    "End": 70
+  },
+  {
+    "Index": 42,
+    "Name": "interactionView",
+    "Kind": "FieldDeclaration",
+    "Start": 71,
+    "End": 71
+  },
+  {
+    "Index": 43,
+    "Name": "imageView",
+    "Kind": "FieldDeclaration",
+    "Start": 72,
+    "End": 72
+  },
+  {
+    "Index": 44,
+    "Name": "recruitmentViews",
+    "Kind": "FieldDeclaration",
+    "Start": 73,
+    "End": 74
+  },
+  {
+    "Index": 45,
+    "Name": "loggedCategoryConflicts",
+    "Kind": "FieldDeclaration",
+    "Start": 75,
+    "End": 75
+  },
+  {
+    "Index": 46,
+    "Name": "loggedCallbackFailures",
+    "Kind": "FieldDeclaration",
+    "Start": 76,
+    "End": 76
+  },
+  {
+    "Index": 47,
+    "Name": "log",
+    "Kind": "FieldDeclaration",
+    "Start": 77,
+    "End": 77
+  },
+  {
+    "Index": 48,
+    "Name": "binaryHash",
+    "Kind": "FieldDeclaration",
+    "Start": 78,
+    "End": 78
+  },
+  {
+    "Index": 49,
+    "Name": "groupRecords",
+    "Kind": "FieldDeclaration",
+    "Start": 79,
+    "End": 79
+  },
+  {
+    "Index": 50,
+    "Name": "groupRecordsAvailable",
+    "Kind": "FieldDeclaration",
+    "Start": 80,
+    "End": 80
+  },
+  {
+    "Index": 51,
+    "Name": "visibleSlots",
+    "Kind": "FieldDeclaration",
+    "Start": 81,
+    "End": 81
+  },
+  {
+    "Index": 52,
+    "Name": "setupTroopsHook",
+    "Kind": "FieldDeclaration",
+    "Start": 82,
+    "End": 82
+  },
+  {
+    "Index": 53,
+    "Name": "leftClickHook",
+    "Kind": "FieldDeclaration",
+    "Start": 83,
+    "End": 83
+  },
+  {
+    "Index": 54,
+    "Name": "rightClickHook",
+    "Kind": "FieldDeclaration",
+    "Start": 84,
+    "End": 84
+  },
+  {
+    "Index": 55,
+    "Name": "populateGroupsHook",
+    "Kind": "FieldDeclaration",
+    "Start": 85,
+    "End": 85
+  },
+  {
+    "Index": 56,
+    "Name": "gameActionHook",
+    "Kind": "FieldDeclaration",
+    "Start": 86,
+    "End": 86
+  },
+  {
+    "Index": 57,
+    "Name": "updateSpritesHook",
+    "Kind": "FieldDeclaration",
+    "Start": 87,
+    "End": 87
+  },
+  {
+    "Index": 58,
+    "Name": "createTroopHook",
+    "Kind": "FieldDeclaration",
+    "Start": 88,
+    "End": 88
+  },
+  {
+    "Index": 59,
+    "Name": "enterCreateTroopHook",
+    "Kind": "FieldDeclaration",
+    "Start": 89,
+    "End": 89
+  },
+  {
+    "Index": 60,
+    "Name": "recruitmentGameActionHook",
+    "Kind": "FieldDeclaration",
+    "Start": 90,
+    "End": 90
+  },
+  {
+    "Index": 61,
+    "Name": "setupTroopsOriginal",
+    "Kind": "FieldDeclaration",
+    "Start": 91,
+    "End": 91
+  },
+  {
+    "Index": 62,
+    "Name": "leftClickOriginal",
+    "Kind": "FieldDeclaration",
+    "Start": 92,
+    "End": 92
+  },
+  {
+    "Index": 63,
+    "Name": "rightClickOriginal",
+    "Kind": "FieldDeclaration",
+    "Start": 93,
+    "End": 93
+  },
+  {
+    "Index": 64,
+    "Name": "populateGroupsOriginal",
+    "Kind": "FieldDeclaration",
+    "Start": 94,
+    "End": 94
+  },
+  {
+    "Index": 65,
+    "Name": "gameActionOriginal",
+    "Kind": "FieldDeclaration",
+    "Start": 95,
+    "End": 95
+  },
+  {
+    "Index": 66,
+    "Name": "updateSpritesOriginal",
+    "Kind": "FieldDeclaration",
+    "Start": 96,
+    "End": 96
+  },
+  {
+    "Index": 67,
+    "Name": "createTroopOriginal",
+    "Kind": "FieldDeclaration",
+    "Start": 97,
+    "End": 97
+  },
+  {
+    "Index": 68,
+    "Name": "enterCreateTroopOriginal",
+    "Kind": "FieldDeclaration",
+    "Start": 98,
+    "End": 98
+  },
+  {
+    "Index": 69,
+    "Name": "recruitmentGameActionOriginal",
+    "Kind": "FieldDeclaration",
+    "Start": 99,
+    "End": 99
+  },
+  {
+    "Index": 70,
+    "Name": "mapUnloadSubscription",
+    "Kind": "FieldDeclaration",
+    "Start": 100,
+    "End": 100
+  },
+  {
+    "Index": 71,
+    "Name": "activeTroopPanel",
+    "Kind": "FieldDeclaration",
+    "Start": 101,
+    "End": 101
+  },
+  {
+    "Index": 72,
+    "Name": "categoryHosts",
+    "Kind": "FieldDeclaration",
+    "Start": 102,
+    "End": 102
+  },
+  {
+    "Index": 73,
+    "Name": "categoryButtons",
+    "Kind": "FieldDeclaration",
+    "Start": 103,
+    "End": 103
+  },
+  {
+    "Index": 74,
+    "Name": "categoryTints",
+    "Kind": "FieldDeclaration",
+    "Start": 104,
+    "End": 104
+  },
+  {
+    "Index": 75,
+    "Name": "activeGroupPanel",
+    "Kind": "FieldDeclaration",
+    "Start": 105,
+    "End": 105
+  },
+  {
+    "Index": 76,
+    "Name": "groupTints",
+    "Kind": "FieldDeclaration",
+    "Start": 106,
+    "End": 106
+  },
+  {
+    "Index": 77,
+    "Name": "refreshRequested",
+    "Kind": "FieldDeclaration",
+    "Start": 107,
+    "End": 107
+  },
+  {
+    "Index": 78,
+    "Name": "ownerActivation",
+    "Kind": "FieldDeclaration",
+    "Start": 108,
+    "End": 108
+  },
+  {
+    "Index": 79,
+    "Name": "activeSurfaces",
+    "Kind": "FieldDeclaration",
+    "Start": 109,
+    "End": 109
+  },
+  {
+    "Index": 80,
+    "Name": "activeImages",
+    "Kind": "FieldDeclaration",
+    "Start": 110,
+    "End": 110
+  },
+  {
+    "Index": 81,
+    "Name": "activeRecruitmentHandlers",
+    "Kind": "FieldDeclaration",
+    "Start": 111,
+    "End": 111
+  },
+  {
+    "Index": 82,
+    "Name": "pendingPresentation",
+    "Kind": "FieldDeclaration",
+    "Start": 112,
+    "End": 112
+  },
+  {
+    "Index": 83,
+    "Name": "restoreSurfaces",
+    "Kind": "FieldDeclaration",
+    "Start": 113,
+    "End": 113
+  },
+  {
+    "Index": 84,
+    "Name": "restoreImages",
+    "Kind": "FieldDeclaration",
+    "Start": 114,
+    "End": 114
+  },
+  {
+    "Index": 85,
+    "Name": "writtenArmyIndices",
+    "Kind": "FieldDeclaration",
+    "Start": 115,
+    "End": 115
+  },
+  {
+    "Index": 86,
+    "Name": "originalImages",
+    "Kind": "FieldDeclaration",
+    "Start": 116,
+    "End": 116
+  },
+  {
+    "Index": 87,
+    "Name": "appliedImages",
+    "Kind": "FieldDeclaration",
+    "Start": 117,
+    "End": 117
+  },
+  {
+    "Index": 88,
+    "Name": "hoverMain",
+    "Kind": "FieldDeclaration",
+    "Start": 118,
+    "End": 118
+  },
+  {
+    "Index": 89,
+    "Name": "hoverOriginal,hoverApplied",
+    "Kind": "FieldDeclaration",
+    "Start": 119,
+    "End": 119
+  },
+  {
+    "Index": 90,
+    "Name": "recruitmentTextMain",
+    "Kind": "FieldDeclaration",
+    "Start": 120,
+    "End": 120
+  },
+  {
+    "Index": 91,
+    "Name": "recruitmentTextOriginal,recruitmentTextApplied",
+    "Kind": "FieldDeclaration",
+    "Start": 121,
+    "End": 121
+  },
+  {
+    "Index": 92,
+    "Name": "recruitmentPanel,detailPanel,armyPanel",
+    "Kind": "FieldDeclaration",
+    "Start": 122,
+    "End": 122
+  },
+  {
+    "Index": 93,
+    "Name": "armyHost",
+    "Kind": "FieldDeclaration",
+    "Start": 123,
+    "End": 123
+  },
+  {
+    "Index": 94,
+    "Name": "TintCaches",
+    "Kind": "FieldDeclaration",
+    "Start": 124,
+    "End": 124
+  },
+  {
+    "Index": 95,
+    "Name": "lastFrame",
+    "Kind": "FieldDeclaration",
+    "Start": 125,
+    "End": 125
+  },
+  {
+    "Index": 96,
+    "Name": "lastTroopSelectionIds",
+    "Kind": "FieldDeclaration",
+    "Start": 126,
+    "End": 126
+  },
+  {
+    "Index": 97,
+    "Name": "lastTroopSelectionTypes",
+    "Kind": "FieldDeclaration",
+    "Start": 127,
+    "End": 127
+  },
+  {
+    "Index": 98,
+    "Name": "hasRenderedTroopSelection",
+    "Kind": "FieldDeclaration",
+    "Start": 128,
+    "End": 128
+  },
+  {
+    "Index": 99,
+    "Name": "lastSpriteColour",
+    "Kind": "FieldDeclaration",
+    "Start": 129,
+    "End": 129
+  },
+  {
+    "Index": 100,
+    "Name": "lastSpriteArabic",
+    "Kind": "FieldDeclaration",
+    "Start": 130,
+    "End": 130
+  },
+  {
+    "Index": 101,
+    "Name": "hasSpriteContext",
+    "Kind": "FieldDeclaration",
+    "Start": 131,
+    "End": 131
+  },
+  {
+    "Index": 102,
+    "Name": "activeRecruitment",
+    "Kind": "FieldDeclaration",
+    "Start": 132,
+    "End": 132
+  },
+  {
+    "Index": 103,
+    "Name": "recruitmentLease",
+    "Kind": "FieldDeclaration",
+    "Start": 133,
+    "End": 133
+  },
+  {
+    "Index": 104,
+    "Name": "nextRecruitmentTicketId",
+    "Kind": "FieldDeclaration",
+    "Start": 134,
+    "End": 134
+  },
+  {
+    "Index": 105,
+    "Name": "archerVariantHost",
+    "Kind": "FieldDeclaration",
+    "Start": 135,
+    "End": 135
+  },
+  {
+    "Index": 106,
+    "Name": "archerVariantPrevious",
+    "Kind": "FieldDeclaration",
+    "Start": 136,
+    "End": 136
+  },
+  {
+    "Index": 107,
+    "Name": "archerVariantNext",
+    "Kind": "FieldDeclaration",
+    "Start": 137,
+    "End": 137
+  },
+  {
+    "Index": 108,
+    "Name": "archerVariantTint",
+    "Kind": "FieldDeclaration",
+    "Start": 138,
+    "End": 138
+  },
+  {
+    "Index": 109,
+    "Name": "recruitmentControlsLogged",
+    "Kind": "FieldDeclaration",
+    "Start": 139,
+    "End": 139
+  },
+  {
+    "Index": 110,
+    "Name": "unitDetailHost",
+    "Kind": "FieldDeclaration",
+    "Start": 140,
+    "End": 140
+  },
+  {
+    "Index": 111,
+    "Name": "unitDetailImage",
+    "Kind": "FieldDeclaration",
+    "Start": 141,
+    "End": 141
+  },
+  {
+    "Index": 112,
+    "Name": "unitDetailTint",
+    "Kind": "FieldDeclaration",
+    "Start": 142,
+    "End": 142
+  },
+  {
+    "Index": 113,
+    "Name": "unitDetailDescription",
+    "Kind": "FieldDeclaration",
+    "Start": 143,
+    "End": 143
+  },
+  {
+    "Index": 114,
+    "Name": "updateSpritesActive",
+    "Kind": "FieldDeclaration",
+    "Start": 144,
+    "End": 145
+  },
+  {
+    "Index": 115,
+    "Name": "createTroopContextType",
+    "Kind": "FieldDeclaration",
+    "Start": 146,
+    "End": 147
+  },
+  {
+    "Index": 116,
+    "Name": "UnitHudPresentationService",
+    "Kind": "ConstructorDeclaration",
+    "Start": 149,
+    "End": 155
+  },
+  {
+    "Index": 117,
+    "Name": "TryCreate",
+    "Kind": "MethodDeclaration",
+    "Start": 157,
+    "End": 222
+  },
+  {
+    "Index": 118,
+    "Name": "Bind",
+    "Kind": "MethodDeclaration",
+    "Start": 224,
+    "End": 224
+  },
+  {
+    "Index": 119,
+    "Name": "Install",
+    "Kind": "MethodDeclaration",
+    "Start": 226,
+    "End": 258
+  },
+  {
+    "Index": 120,
+    "Name": "PrepareHook",
+    "Kind": "MethodDeclaration",
+    "Start": 260,
+    "End": 266
+  },
+  {
+    "Index": 121,
+    "Name": "RegisterCategory",
+    "Kind": "MethodDeclaration",
+    "Start": 268,
+    "End": 283
+  },
+  {
+    "Index": 122,
+    "Name": "RegisterInteraction",
+    "Kind": "MethodDeclaration",
+    "Start": 285,
+    "End": 299
+  },
+  {
+    "Index": 123,
+    "Name": "RegisterImage",
+    "Kind": "MethodDeclaration",
+    "Start": 301,
+    "End": 319
+  },
+  {
+    "Index": 124,
+    "Name": "RegisterRecruitment",
+    "Kind": "MethodDeclaration",
+    "Start": 321,
+    "End": 344
+  },
+  {
+    "Index": 125,
+    "Name": "CompleteRecruitment",
+    "Kind": "MethodDeclaration",
+    "Start": 346,
+    "End": 359
+  },
+  {
+    "Index": 126,
+    "Name": "OwnerActive",
+    "Kind": "MethodDeclaration",
+    "Start": 362,
+    "End": 362
+  },
+  {
+    "Index": 127,
+    "Name": "RebuildActiveViews",
+    "Kind": "MethodDeclaration",
+    "Start": 364,
+    "End": 382
+  },
+  {
+    "Index": 128,
+    "Name": "SetOwnerActive",
+    "Kind": "MethodDeclaration",
+    "Start": 384,
+    "End": 392
+  },
+  {
+    "Index": 129,
+    "Name": "SetRegistrationActive",
+    "Kind": "MethodDeclaration",
+    "Start": 394,
+    "End": 415
+  },
+  {
+    "Index": 130,
+    "Name": "RequestRefresh",
+    "Kind": "MethodDeclaration",
+    "Start": 417,
+    "End": 425
+  },
+  {
+    "Index": 131,
+    "Name": "SortRegistrations",
+    "Kind": "MethodDeclaration",
+    "Start": 427,
+    "End": 432
+  },
+  {
+    "Index": 132,
+    "Name": "Compare",
+    "Kind": "MethodDeclaration",
+    "Start": 434,
+    "End": 438
+  },
+  {
+    "Index": 133,
+    "Name": "Fail",
+    "Kind": "MethodDeclaration",
+    "Start": 440,
+    "End": 444
+  },
+  {
+    "Index": 134,
+    "Name": "Available",
+    "Kind": "MethodDeclaration",
+    "Start": 446,
+    "End": 447
+  },
+  {
+    "Index": 135,
+    "Name": "SetupTroopsHook",
+    "Kind": "MethodDeclaration",
+    "Start": 449,
+    "End": 461
+  },
+  {
+    "Index": 136,
+    "Name": "RenderTroopCategories",
+    "Kind": "MethodDeclaration",
+    "Start": 463,
+    "End": 527
+  },
+  {
+    "Index": 137,
+    "Name": "ApplyTint",
+    "Kind": "MethodDeclaration",
+    "Start": 529,
+    "End": 546
+  },
+  {
+    "Index": 138,
+    "Name": "TintCache",
+    "Kind": "ClassDeclaration",
+    "Start": 548,
+    "End": 554
+  },
+  {
+    "Index": 139,
+    "Name": "SetVisibility",
+    "Kind": "MethodDeclaration",
+    "Start": 556,
+    "End": 559
+  },
+  {
+    "Index": 140,
+    "Name": "EnsureCategoryButtons",
+    "Kind": "MethodDeclaration",
+    "Start": 561,
+    "End": 590
+  },
+  {
+    "Index": 141,
+    "Name": "HideCategoryButtons",
+    "Kind": "MethodDeclaration",
+    "Start": 592,
+    "End": 597
+  },
+  {
+    "Index": 142,
+    "Name": "OnCategoryMouseDown",
+    "Kind": "MethodDeclaration",
+    "Start": 599,
+    "End": 621
+  },
+  {
+    "Index": 143,
+    "Name": "LeftClickHook",
+    "Kind": "MethodDeclaration",
+    "Start": 623,
+    "End": 623
+  },
+  {
+    "Index": 144,
+    "Name": "RightClickHook",
+    "Kind": "MethodDeclaration",
+    "Start": 624,
+    "End": 624
+  },
+  {
+    "Index": 145,
+    "Name": "HandleVanillaClick",
+    "Kind": "MethodDeclaration",
+    "Start": 626,
+    "End": 652
+  },
+  {
+    "Index": 146,
+    "Name": "SetSelection",
+    "Kind": "MethodDeclaration",
+    "Start": 654,
+    "End": 654
+  },
+  {
+    "Index": 147,
+    "Name": "PopulateGroupsHook",
+    "Kind": "MethodDeclaration",
+    "Start": 656,
+    "End": 662
+  },
+  {
+    "Index": 148,
+    "Name": "GameActionHook",
+    "Kind": "MethodDeclaration",
+    "Start": 664,
+    "End": 676
+  },
+  {
+    "Index": 149,
+    "Name": "CreateTroopHook",
+    "Kind": "MethodDeclaration",
+    "Start": 678,
+    "End": 696
+  },
+  {
+    "Index": 150,
+    "Name": "EnterCreateTroopHook",
+    "Kind": "MethodDeclaration",
+    "Start": 698,
+    "End": 708
+  },
+  {
+    "Index": 151,
+    "Name": "RecruitmentGameActionHook",
+    "Kind": "MethodDeclaration",
+    "Start": 710,
+    "End": 715
+  },
+  {
+    "Index": 152,
+    "Name": "TryBeginRecruitment",
+    "Kind": "MethodDeclaration",
+    "Start": 717,
+    "End": 742
+  },
+  {
+    "Index": 153,
+    "Name": "GetActiveRecruitment",
+    "Kind": "MethodDeclaration",
+    "Start": 744,
+    "End": 751
+  },
+  {
+    "Index": 154,
+    "Name": "ResetActiveRecruitment",
+    "Kind": "MethodDeclaration",
+    "Start": 753,
+    "End": 756
+  },
+  {
+    "Index": 155,
+    "Name": "ResetRecruitment",
+    "Kind": "MethodDeclaration",
+    "Start": 758,
+    "End": 769
+  },
+  {
+    "Index": 156,
+    "Name": "RenderGroups",
+    "Kind": "MethodDeclaration",
+    "Start": 771,
+    "End": 830
+  },
+  {
+    "Index": 157,
+    "Name": "EnsureGroupTints",
+    "Kind": "MethodDeclaration",
+    "Start": 832,
+    "End": 861
+  },
+  {
+    "Index": 158,
+    "Name": "UpdateSpritesHook",
+    "Kind": "MethodDeclaration",
+    "Start": 863,
+    "End": 877
+  },
+  {
+    "Index": 159,
+    "Name": "ApplyImageOverrides",
+    "Kind": "MethodDeclaration",
+    "Start": 879,
+    "End": 905
+  },
+  {
+    "Index": 160,
+    "Name": "IsImageOverrideContextReady",
+    "Kind": "MethodDeclaration",
+    "Start": 907,
+    "End": 912
+  },
+  {
+    "Index": 161,
+    "Name": "OnBeforeRender",
+    "Kind": "MethodDeclaration",
+    "Start": 914,
+    "End": 971
+  },
+  {
+    "Index": 162,
+    "Name": "ExpireRecruitment",
+    "Kind": "MethodDeclaration",
+    "Start": 973,
+    "End": 981
+  },
+  {
+    "Index": 163,
+    "Name": "RestorePresentation",
+    "Kind": "MethodDeclaration",
+    "Start": 983,
+    "End": 1042
+  },
+  {
+    "Index": 164,
+    "Name": "RestoreHover",
+    "Kind": "MethodDeclaration",
+    "Start": 1044,
+    "End": 1049
+  },
+  {
+    "Index": 165,
+    "Name": "TryApplyFrameArea",
+    "Kind": "MethodDeclaration",
+    "Start": 1051,
+    "End": 1060
+  },
+  {
+    "Index": 166,
+    "Name": "ApplyHover",
+    "Kind": "MethodDeclaration",
+    "Start": 1062,
+    "End": 1073
+  },
+  {
+    "Index": 167,
+    "Name": "ApplyRecruitmentPresentation",
+    "Kind": "MethodDeclaration",
+    "Start": 1075,
+    "End": 1101
+  },
+  {
+    "Index": 168,
+    "Name": "ApplyRecruitmentText",
+    "Kind": "MethodDeclaration",
+    "Start": 1103,
+    "End": 1112
+  },
+  {
+    "Index": 169,
+    "Name": "RestoreRecruitmentText",
+    "Kind": "MethodDeclaration",
+    "Start": 1114,
+    "End": 1120
+  },
+  {
+    "Index": 170,
+    "Name": "EnsureRecruitmentControls",
+    "Kind": "MethodDeclaration",
+    "Start": 1122,
+    "End": 1146
+  },
+  {
+    "Index": 171,
+    "Name": "RequireBuildingElement",
+    "Kind": "MethodDeclaration",
+    "Start": 1148,
+    "End": 1153
+  },
+  {
+    "Index": 172,
+    "Name": "HideRecruitmentControls",
+    "Kind": "MethodDeclaration",
+    "Start": 1155,
+    "End": 1158
+  },
+  {
+    "Index": 173,
+    "Name": "OnRecruitmentPreviousMouseDown",
+    "Kind": "MethodDeclaration",
+    "Start": 1160,
+    "End": 1160
+  },
+  {
+    "Index": 174,
+    "Name": "OnRecruitmentNextMouseDown",
+    "Kind": "MethodDeclaration",
+    "Start": 1161,
+    "End": 1161
+  },
+  {
+    "Index": 175,
+    "Name": "ChangeRecruitmentVariant",
+    "Kind": "MethodDeclaration",
+    "Start": 1163,
+    "End": 1185
+  },
+  {
+    "Index": 176,
+    "Name": "RecruitmentCopy",
+    "Kind": "MethodDeclaration",
+    "Start": 1187,
+    "End": 1190
+  },
+  {
+    "Index": 177,
+    "Name": "ApplyUnitDetails",
+    "Kind": "MethodDeclaration",
+    "Start": 1192,
+    "End": 1212
+  },
+  {
+    "Index": 178,
+    "Name": "EnsureDetailControls",
+    "Kind": "MethodDeclaration",
+    "Start": 1214,
+    "End": 1224
+  },
+  {
+    "Index": 179,
+    "Name": "HideUnitDetailControls",
+    "Kind": "MethodDeclaration",
+    "Start": 1226,
+    "End": 1229
+  },
+  {
+    "Index": 180,
+    "Name": "ResolveText",
+    "Kind": "MethodDeclaration",
+    "Start": 1231,
+    "End": 1243
+  },
+  {
+    "Index": 181,
+    "Name": "ApplyArmyReport",
+    "Kind": "MethodDeclaration",
+    "Start": 1245,
+    "End": 1299
+  },
+  {
+    "Index": 182,
+    "Name": "armyBufferPool",
+    "Kind": "FieldDeclaration",
+    "Start": 1301,
+    "End": 1301
+  },
+  {
+    "Index": 183,
+    "Name": "ArmyWorkBuffers",
+    "Kind": "ClassDeclaration",
+    "Start": 1302,
+    "End": 1307
+  },
+  {
+    "Index": 184,
+    "Name": "armyEntries",
+    "Kind": "FieldDeclaration",
+    "Start": 1309,
+    "End": 1309
+  },
+  {
+    "Index": 185,
+    "Name": "HideArmyHosts",
+    "Kind": "MethodDeclaration",
+    "Start": 1310,
+    "End": 1314
+  },
+  {
+    "Index": 186,
+    "Name": "RenderArmyHosts",
+    "Kind": "MethodDeclaration",
+    "Start": 1316,
+    "End": 1341
+  },
+  {
+    "Index": 187,
+    "Name": "BuildEntries",
+    "Kind": "MethodDeclaration",
+    "Start": 1343,
+    "End": 1383
+  },
+  {
+    "Index": 188,
+    "Name": "CaptureSelectedUnits",
+    "Kind": "MethodDeclaration",
+    "Start": 1385,
+    "End": 1389
+  },
+  {
+    "Index": 189,
+    "Name": "TryCaptureSelectedUnits",
+    "Kind": "MethodDeclaration",
+    "Start": 1391,
+    "End": 1395
+  },
+  {
+    "Index": 190,
+    "Name": "TryCaptureSelectedUnits",
+    "Kind": "MethodDeclaration",
+    "Start": 1397,
+    "End": 1413
+  },
+  {
+    "Index": 191,
+    "Name": "HasRenderedTroopSelectionChanged",
+    "Kind": "MethodDeclaration",
+    "Start": 1415,
+    "End": 1426
+  },
+  {
+    "Index": 192,
+    "Name": "RememberRenderedTroopSelection",
+    "Kind": "MethodDeclaration",
+    "Start": 1428,
+    "End": 1447
+  },
+  {
+    "Index": 193,
+    "Name": "TryGetTroopSelection",
+    "Kind": "MethodDeclaration",
+    "Start": 1449,
+    "End": 1453
+  },
+  {
+    "Index": 194,
+    "Name": "GetSelectionPlayerId",
+    "Kind": "MethodDeclaration",
+    "Start": 1455,
+    "End": 1457
+  },
+  {
+    "Index": 195,
+    "Name": "TryCapture",
+    "Kind": "MethodDeclaration",
+    "Start": 1459,
+    "End": 1465
+  },
+  {
+    "Index": 196,
+    "Name": "Classify",
+    "Kind": "MethodDeclaration",
+    "Start": 1467,
+    "End": 1487
+  },
+  {
+    "Index": 197,
+    "Name": "Claims",
+    "Kind": "MethodDeclaration",
+    "Start": 1489,
+    "End": 1493
+  },
+  {
+    "Index": 198,
+    "Name": "IsClaimed",
+    "Kind": "MethodDeclaration",
+    "Start": 1495,
+    "End": 1495
+  },
+  {
+    "Index": 199,
+    "Name": "HasDerivedCategory",
+    "Kind": "MethodDeclaration",
+    "Start": 1496,
+    "End": 1496
+  },
+  {
+    "Index": 200,
+    "Name": "HasCategories",
+    "Kind": "MethodDeclaration",
+    "Start": 1497,
+    "End": 1497
+  },
+  {
+    "Index": 201,
+    "Name": "HasSurface",
+    "Kind": "MethodDeclaration",
+    "Start": 1498,
+    "End": 1498
+  },
+  {
+    "Index": 202,
+    "Name": "CategoryCopy",
+    "Kind": "MethodDeclaration",
+    "Start": 1499,
+    "End": 1499
+  },
+  {
+    "Index": 203,
+    "Name": "GetCategory",
+    "Kind": "MethodDeclaration",
+    "Start": 1500,
+    "End": 1500
+  },
+  {
+    "Index": 204,
+    "Name": "Snapshot",
+    "Kind": "MethodDeclaration",
+    "Start": 1501,
+    "End": 1501
+  },
+  {
+    "Index": 205,
+    "Name": "CaptureSelectedCategories",
+    "Kind": "MethodDeclaration",
+    "Start": 1503,
+    "End": 1528
+  },
+  {
+    "Index": 206,
+    "Name": "CaptureControlGroups",
+    "Kind": "MethodDeclaration",
+    "Start": 1530,
+    "End": 1554
+  },
+  {
+    "Index": 207,
+    "Name": "RemoveUnitFromControlGroups",
+    "Kind": "MethodDeclaration",
+    "Start": 1556,
+    "End": 1601
+  },
+  {
+    "Index": 208,
+    "Name": "NotifyInteraction",
+    "Kind": "MethodDeclaration",
+    "Start": 1603,
+    "End": 1611
+  },
+  {
+    "Index": 209,
+    "Name": "ResolveCategoryImage",
+    "Kind": "MethodDeclaration",
+    "Start": 1613,
+    "End": 1646
+  },
+  {
+    "Index": 210,
+    "Name": "ApplyButtonImage",
+    "Kind": "MethodDeclaration",
+    "Start": 1648,
+    "End": 1651
+  },
+  {
+    "Index": 211,
+    "Name": "ApplyTroopButtonImages",
+    "Kind": "MethodDeclaration",
+    "Start": 1653,
+    "End": 1671
+  },
+  {
+    "Index": 212,
+    "Name": "SetPageButtons",
+    "Kind": "MethodDeclaration",
+    "Start": 1673,
+    "End": 1679
+  },
+  {
+    "Index": 213,
+    "Name": "ToSummaryType",
+    "Kind": "MethodDeclaration",
+    "Start": 1681,
+    "End": 1694
+  },
+  {
+    "Index": 214,
+    "Name": "ToArmyReportIndex",
+    "Kind": "MethodDeclaration",
+    "Start": 1696,
+    "End": 1700
+  },
+  {
+    "Index": 215,
+    "Name": "GetImage",
+    "Kind": "MethodDeclaration",
+    "Start": 1702,
+    "End": 1715
+  },
+  {
+    "Index": 216,
+    "Name": "SetImage",
+    "Kind": "MethodDeclaration",
+    "Start": 1717,
+    "End": 1729
+  },
+  {
+    "Index": 217,
+    "Name": "LogCallbackFailure",
+    "Kind": "MethodDeclaration",
+    "Start": 1731,
+    "End": 1736
+  },
+  {
+    "Index": 218,
+    "Name": "RequireField",
+    "Kind": "MethodDeclaration",
+    "Start": 1738,
+    "End": 1738
+  },
+  {
+    "Index": 219,
+    "Name": "RequireMethod",
+    "Kind": "MethodDeclaration",
+    "Start": 1739,
+    "End": 1739
+  },
+  {
+    "Index": 220,
+    "Name": "Binding",
+    "Kind": "ClassDeclaration",
+    "Start": 1741,
+    "End": 1760
+  },
+  {
+    "Index": 221,
+    "Name": "RentHudBuffers",
+    "Kind": "MethodDeclaration",
+    "Start": 1762,
+    "End": 1765
+  },
+  {
+    "Index": 222,
+    "Name": "HudWorkBuffers",
+    "Kind": "ClassDeclaration",
+    "Start": 1769,
+    "End": 1803
+  },
+  {
+    "Index": 223,
+    "Name": "CategoryRegistration",
+    "Kind": "ClassDeclaration",
+    "Start": 1805,
+    "End": 1813
+  },
+  {
+    "Index": 224,
+    "Name": "InteractionRegistration",
+    "Kind": "ClassDeclaration",
+    "Start": 1814,
+    "End": 1818
+  },
+  {
+    "Index": 225,
+    "Name": "ImageRegistration",
+    "Kind": "ClassDeclaration",
+    "Start": 1819,
+    "End": 1824
+  },
+  {
+    "Index": 226,
+    "Name": "RecruitmentRegistration",
+    "Kind": "ClassDeclaration",
+    "Start": 1825,
+    "End": 1829
+  },
+  {
+    "Index": 227,
+    "Name": "RecruitmentLease",
+    "Kind": "ClassDeclaration",
+    "Start": 1830,
+    "End": 1834
+  },
+  {
+    "Index": 228,
+    "Name": "DisplayEntry",
+    "Kind": "ClassDeclaration",
+    "Start": 1835,
+    "End": 1840
+  },
+  {
+    "Index": 229,
+    "Name": "GroupEntry",
+    "Kind": "ClassDeclaration",
+    "Start": 1841,
+    "End": 1846
+  }
+]

@@ -11,7 +11,7 @@ internal static class FastNativeBackendTests
         string extender = @"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese";
         var trees = new[] { "IFastRouteField.cs", "FastRouteField.cs", "FastNativeKernel.cs", "FastNativeRouteField.cs" }
             .Select(name => CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(src, name)))).ToList();
-        var edge = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/UnitCommands/MoatCandidateField.cs")))
+        var edge = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/UnitCommands/Moat/MoatCandidateField.cs")))
             .GetRoot().DescendantNodes().OfType<DelegateDeclarationSyntax>().Single(d => d.Identifier.Text == "MoatSearchEdge");
         trees.Add(CSharpSyntaxTree.ParseText("namespace MoatMove {" + edge + "}"));
         trees.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "Testmods/MoatMove/tests/FastNativeFixtures.cs"))));

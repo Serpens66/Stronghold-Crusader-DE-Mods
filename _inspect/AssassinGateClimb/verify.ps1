@@ -29,7 +29,7 @@ foreach ($relative in $roots) {
 }
 & (Join-Path $workspace 'Shared\Tools\Validation\Test-PermanentNativeRuntimePatches.ps1')
 if (-not $?) { throw 'Workspace hook regression failed' }
-$api = [IO.File]::ReadAllText((Join-Path $workspace 'APIShared\src\Pathfinding\AssassinPathAPI.cs'))
+$api = [IO.File]::ReadAllText((Join-Path $workspace 'APIShared\src\Pathfinding\Assassin\AssassinPathAPI.cs'))
 if ($api -match '\b(transaction|endpointHooks|builderHook)\??\.Dispose\s*\(' -or
     $api -match '\.(Enable|Disable|Undo)\s*\(' -or $api -notmatch 'if \(builderHook == pendingBuilder\) throw;') {
     throw 'Shared published hook teardown or missing unpublished rollback guard'

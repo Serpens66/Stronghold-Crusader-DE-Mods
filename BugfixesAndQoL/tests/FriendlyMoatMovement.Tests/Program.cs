@@ -5,7 +5,7 @@ using System.Reflection;
 
 string root=Path.GetFullPath(args.Length==0?".":args[0]);
 SplitContracts.Validate(root);
-string path=Path.Combine(root,"APIShared/src/UnitCommands/ManualUnitCommands.cs");
+string path=Path.Combine(root,"APIShared/src/UnitCommands/Runtime/ManualUnitCommands.cs");
 var syntax=CSharpSyntaxTree.ParseText(File.ReadAllText(path));
 var names=new HashSet<string> {"nativeManualProbe","manualCommandContexts","ManualCommandContext",
     "NativeProbeManagerBytes","NativeProbeGridBytes","nativeProbeGrid","nativeProbeRectangle",
@@ -14,8 +14,8 @@ var names=new HashSet<string> {"nativeManualProbe","manualCommandContexts","Manu
     "PrepareNativeManualGroup","IsNativeManualGroupFlood","CaptureTargetCommandContext",
     "moveEventObservers","moveEventDepths","targetCommandParents","targetEventObservers",
     "DispatchMoveEvent","DispatchTargetEvent","InvalidateFastMoatData","LogAndResetFastMoatMetrics","ClearDeferredFastMoveScope"};
-var permanent=CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"APIShared/src/UnitCommands/PermanentCommandHooks.cs")));
-var traversal=CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"APIShared/src/UnitCommands/TraversalDispatch.cs")));
+var permanent=CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"APIShared/src/UnitCommands/Native/PermanentCommandHooks.cs")));
+var traversal=CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"APIShared/src/UnitCommands/Movement/TraversalDispatch.cs")));
 var members=new[]{syntax,permanent,traversal}.SelectMany(t=>t.GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>()
     .Single(c=>c.Identifier.Text=="UnitCommandPathRuntime").Members).Where(m=>m switch {
         MethodDeclarationSyntax method=>names.Contains(method.Identifier.Text),
@@ -24,8 +24,7 @@ var members=new[]{syntax,permanent,traversal}.SelectMany(t=>t.GetRoot().Descenda
         _=>false}).ToArray();
 // Exercise the actual native fallback dispatch before the unrelated addon
 // qualification branches. These original-first prefixes are the command seam.
-var runtimeSyntax=CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,
-    "APIShared/src/UnitCommands/UnitCommandPathRuntime.cs")));
+var runtimeSyntax=CSharpSyntaxTree.ParseText(FeatureSourceModel.Read(root, "UnitCommandPathRuntime"));
 var fallbackPrefixes=new List<MethodDeclarationSyntax>();
 foreach(var (name,count,guard) in new[] {
     ("SelectOwnerSafeGroupMoatMode",4,"NativeCommonFallback"),

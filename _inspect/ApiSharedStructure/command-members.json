@@ -1,0 +1,3985 @@
+[
+  {
+    "Index": 0,
+    "Name": "DetailedDiagnosticsEnabled",
+    "Kind": "FieldDeclaration",
+    "Start": 29,
+    "End": 29
+  },
+  {
+    "Index": 1,
+    "Name": "RedBirdDetour",
+    "Kind": "ClassDeclaration",
+    "Start": 31,
+    "End": 44
+  },
+  {
+    "Index": 2,
+    "Name": "UnitStandingOnCompletedMoatDelegate",
+    "Kind": "DelegateDeclaration",
+    "Start": 46,
+    "End": 47
+  },
+  {
+    "Index": 3,
+    "Name": "RegionReachabilityDelegate",
+    "Kind": "DelegateDeclaration",
+    "Start": 49,
+    "End": 51
+  },
+  {
+    "Index": 4,
+    "Name": "TribeFloodFillMembershipDelegate",
+    "Kind": "DelegateDeclaration",
+    "Start": 53,
+    "End": 55
+  },
+  {
+    "Index": 5,
+    "Name": "FirstGroupUnitOnCompletedMoatDelegate",
+    "Kind": "DelegateDeclaration",
+    "Start": 57,
+    "End": 59
+  },
+  {
+    "Index": 6,
+    "Name": "GetGroupUnitIdDelegate",
+    "Kind": "DelegateDeclaration",
+    "Start": 61,
+    "End": 63
+  },
+  {
+    "Index": 7,
+    "Name": "CursorReachabilityDelegate",
+    "Kind": "DelegateDeclaration",
+    "Start": 65,
+    "End": 67
+  },
+  {
+    "Index": 8,
+    "Name": "SelectionCanDigMoatDelegate",
+    "Kind": "DelegateDeclaration",
+    "Start": 69,
+    "End": 70
+  },
+  {
+    "Index": 9,
+    "Name": "CursorTilePairReachabilityDelegate",
+    "Kind": "DelegateDeclaration",
+    "Start": 72,
+    "End": 74
+  },
+  {
+    "Index": 10,
+    "Name": "GetRepresentativeSelectedUnitDelegate",
+    "Kind": "DelegateDeclaration",
+    "Start": 76,
+    "End": 77
+  },
+  {
+    "Index": 11,
+    "Name": "CursorRegionPrecheckDelegate",
+    "Kind": "DelegateDeclaration",
+    "Start": 79,
+    "End": 80
+  },
+  {
+    "Index": 12,
+    "Name": "CentralMovementPlanDelegate",
+    "Kind": "DelegateDeclaration",
+    "Start": 82,
+    "End": 84
+  },
+  {
+    "Index": 13,
+    "Name": "PathBuilderDelegate",
+    "Kind": "DelegateDeclaration",
+    "Start": 86,
+    "End": 88
+  },
+  {
+    "Index": 14,
+    "Name": "GetMoatIdAtTileDelegate",
+    "Kind": "DelegateDeclaration",
+    "Start": 90,
+    "End": 91
+  },
+  {
+    "Index": 15,
+    "Name": "AttackApproachFloodBuilderDelegate",
+    "Kind": "DelegateDeclaration",
+    "Start": 93,
+    "End": 102
+  },
+  {
+    "Index": 16,
+    "Name": "BuildingApproachBuilderDelegate",
+    "Kind": "DelegateDeclaration",
+    "Start": 104,
+    "End": 111
+  },
+  {
+    "Index": 17,
+    "Name": "BuildingCandidateConsumerDelegate",
+    "Kind": "DelegateDeclaration",
+    "Start": 113,
+    "End": 115
+  },
+  {
+    "Index": 18,
+    "Name": "RegionPairReachabilityDelegate",
+    "Kind": "DelegateDeclaration",
+    "Start": 117,
+    "End": 123
+  },
+  {
+    "Index": 19,
+    "Name": "GetTribeMovementModeDelegate",
+    "Kind": "DelegateDeclaration",
+    "Start": 125,
+    "End": 127
+  },
+  {
+    "Index": 20,
+    "Name": "BuildingCursorReachabilityDelegate",
+    "Kind": "DelegateDeclaration",
+    "Start": 129,
+    "End": 131
+  },
+  {
+    "Index": 21,
+    "Name": "CombatFinishResumeDelegate",
+    "Kind": "DelegateDeclaration",
+    "Start": 133,
+    "End": 134
+  },
+  {
+    "Index": 22,
+    "Name": "CursorMoveStagerDelegate",
+    "Kind": "DelegateDeclaration",
+    "Start": 136,
+    "End": 143
+  },
+  {
+    "Index": 23,
+    "Name": "NativeSpecialStructurePredicateDelegate",
+    "Kind": "DelegateDeclaration",
+    "Start": 145,
+    "End": 148
+  },
+  {
+    "Index": 24,
+    "Name": "CentralMovementPlanRva",
+    "Kind": "FieldDeclaration",
+    "Start": 150,
+    "End": 150
+  },
+  {
+    "Index": 25,
+    "Name": "TribeFloodFillMembershipRva",
+    "Kind": "FieldDeclaration",
+    "Start": 151,
+    "End": 151
+  },
+  {
+    "Index": 26,
+    "Name": "FirstGroupUnitOnCompletedMoatRva",
+    "Kind": "FieldDeclaration",
+    "Start": 152,
+    "End": 152
+  },
+  {
+    "Index": 27,
+    "Name": "GetGroupUnitIdRva",
+    "Kind": "FieldDeclaration",
+    "Start": 153,
+    "End": 153
+  },
+  {
+    "Index": 28,
+    "Name": "GetTribeMovementModeRva",
+    "Kind": "FieldDeclaration",
+    "Start": 154,
+    "End": 154
+  },
+  {
+    "Index": 29,
+    "Name": "OrdinaryMovementGroupModeCallRva",
+    "Kind": "FieldDeclaration",
+    "Start": 155,
+    "End": 155
+  },
+  {
+    "Index": 30,
+    "Name": "GroupMoatModeCallRva",
+    "Kind": "FieldDeclaration",
+    "Start": 156,
+    "End": 156
+  },
+  {
+    "Index": 31,
+    "Name": "UnitStandingOnCompletedMoatRva",
+    "Kind": "FieldDeclaration",
+    "Start": 157,
+    "End": 157
+  },
+  {
+    "Index": 32,
+    "Name": "RegionReachabilityRva",
+    "Kind": "FieldDeclaration",
+    "Start": 158,
+    "End": 158
+  },
+  {
+    "Index": 33,
+    "Name": "CursorReachabilityRva",
+    "Kind": "FieldDeclaration",
+    "Start": 159,
+    "End": 159
+  },
+  {
+    "Index": 34,
+    "Name": "SelectionCanDigMoatRva",
+    "Kind": "FieldDeclaration",
+    "Start": 160,
+    "End": 160
+  },
+  {
+    "Index": 35,
+    "Name": "SelectionCanDigMoatCallRva",
+    "Kind": "FieldDeclaration",
+    "Start": 161,
+    "End": 161
+  },
+  {
+    "Index": 36,
+    "Name": "CursorTilePairReachabilityRva",
+    "Kind": "FieldDeclaration",
+    "Start": 162,
+    "End": 162
+  },
+  {
+    "Index": 37,
+    "Name": "GetRepresentativeSelectedUnitRva",
+    "Kind": "FieldDeclaration",
+    "Start": 163,
+    "End": 163
+  },
+  {
+    "Index": 38,
+    "Name": "CursorRegionPrecheckRva",
+    "Kind": "FieldDeclaration",
+    "Start": 164,
+    "End": 164
+  },
+  {
+    "Index": 39,
+    "Name": "PathBuilderRva",
+    "Kind": "FieldDeclaration",
+    "Start": 165,
+    "End": 165
+  },
+  {
+    "Index": 40,
+    "Name": "GroundPathBuilderRva",
+    "Kind": "FieldDeclaration",
+    "Start": 166,
+    "End": 166
+  },
+  {
+    "Index": 41,
+    "Name": "AlternativePathBuilderRva",
+    "Kind": "FieldDeclaration",
+    "Start": 167,
+    "End": 167
+  },
+  {
+    "Index": 42,
+    "Name": "GetMoatIdAtTileRva",
+    "Kind": "FieldDeclaration",
+    "Start": 168,
+    "End": 168
+  },
+  {
+    "Index": 43,
+    "Name": "AttackApproachFloodBuilderRva",
+    "Kind": "FieldDeclaration",
+    "Start": 169,
+    "End": 169
+  },
+  {
+    "Index": 44,
+    "Name": "BuildingApproachBuilderRva",
+    "Kind": "FieldDeclaration",
+    "Start": 170,
+    "End": 170
+  },
+  {
+    "Index": 45,
+    "Name": "BuildingCandidateConsumerRva",
+    "Kind": "FieldDeclaration",
+    "Start": 171,
+    "End": 171
+  },
+  {
+    "Index": 46,
+    "Name": "RegionPairReachabilityRva",
+    "Kind": "FieldDeclaration",
+    "Start": 172,
+    "End": 172
+  },
+  {
+    "Index": 47,
+    "Name": "AttackApproachFloodCallRva",
+    "Kind": "FieldDeclaration",
+    "Start": 173,
+    "End": 173
+  },
+  {
+    "Index": 48,
+    "Name": "AttackApproachFloodAlternativeCallRva",
+    "Kind": "FieldDeclaration",
+    "Start": 174,
+    "End": 174
+  },
+  {
+    "Index": 49,
+    "Name": "BuildingApproachCallRva",
+    "Kind": "FieldDeclaration",
+    "Start": 175,
+    "End": 175
+  },
+  {
+    "Index": 50,
+    "Name": "BuildingCandidateConsumerCallRva",
+    "Kind": "FieldDeclaration",
+    "Start": 176,
+    "End": 176
+  },
+  {
+    "Index": 51,
+    "Name": "BuildingCandidateConsumerAlternativeCallRva",
+    "Kind": "FieldDeclaration",
+    "Start": 177,
+    "End": 177
+  },
+  {
+    "Index": 52,
+    "Name": "BuildingCandidateConsumerForceCallRva",
+    "Kind": "FieldDeclaration",
+    "Start": 178,
+    "End": 178
+  },
+  {
+    "Index": 53,
+    "Name": "AttackFloodRegionPairCallRva",
+    "Kind": "FieldDeclaration",
+    "Start": 179,
+    "End": 179
+  },
+  {
+    "Index": 54,
+    "Name": "AttackFloodTilePairCallRva",
+    "Kind": "FieldDeclaration",
+    "Start": 180,
+    "End": 180
+  },
+  {
+    "Index": 55,
+    "Name": "BuildingApproachRegionPairCallRva",
+    "Kind": "FieldDeclaration",
+    "Start": 181,
+    "End": 181
+  },
+  {
+    "Index": 56,
+    "Name": "BuildingApproachTilePairCallRva",
+    "Kind": "FieldDeclaration",
+    "Start": 182,
+    "End": 182
+  },
+  {
+    "Index": 57,
+    "Name": "BuildingApproachAlternativeRegionPairCallRva",
+    "Kind": "FieldDeclaration",
+    "Start": 183,
+    "End": 183
+  },
+  {
+    "Index": 58,
+    "Name": "BuildingApproachAlternativeTilePairCallRva",
+    "Kind": "FieldDeclaration",
+    "Start": 184,
+    "End": 184
+  },
+  {
+    "Index": 59,
+    "Name": "OrdinaryMovementLadderPrecheckCallRva",
+    "Kind": "FieldDeclaration",
+    "Start": 185,
+    "End": 185
+  },
+  {
+    "Index": 60,
+    "Name": "OrdinaryMovementLadderReachabilityCallRva",
+    "Kind": "FieldDeclaration",
+    "Start": 186,
+    "End": 186
+  },
+  {
+    "Index": 61,
+    "Name": "BuildingConsumerFallbackBuilderCallRva",
+    "Kind": "FieldDeclaration",
+    "Start": 187,
+    "End": 187
+  },
+  {
+    "Index": 62,
+    "Name": "BuildingConsumerGroundBuilderCallRva",
+    "Kind": "FieldDeclaration",
+    "Start": 188,
+    "End": 188
+  },
+  {
+    "Index": 63,
+    "Name": "BuildingCursorReachabilityRva",
+    "Kind": "FieldDeclaration",
+    "Start": 189,
+    "End": 189
+  },
+  {
+    "Index": 64,
+    "Name": "BuildingCursorReachabilityCallRva",
+    "Kind": "FieldDeclaration",
+    "Start": 190,
+    "End": 190
+  },
+  {
+    "Index": 65,
+    "Name": "CombatFinishResumeRva",
+    "Kind": "FieldDeclaration",
+    "Start": 191,
+    "End": 191
+  },
+  {
+    "Index": 66,
+    "Name": "CombatFinishPostCombatCallRva",
+    "Kind": "FieldDeclaration",
+    "Start": 192,
+    "End": 192
+  },
+  {
+    "Index": 67,
+    "Name": "PostCombatRepathRva",
+    "Kind": "FieldDeclaration",
+    "Start": 193,
+    "End": 193
+  },
+  {
+    "Index": 68,
+    "Name": "PostCombatMoveHereCallRva",
+    "Kind": "FieldDeclaration",
+    "Start": 194,
+    "End": 194
+  },
+  {
+    "Index": 69,
+    "Name": "CursorMoveStagerRva",
+    "Kind": "FieldDeclaration",
+    "Start": 195,
+    "End": 195
+  },
+  {
+    "Index": 70,
+    "Name": "NativeSpecialStructurePredicateRva",
+    "Kind": "FieldDeclaration",
+    "Start": 196,
+    "End": 196
+  },
+  {
+    "Index": 71,
+    "Name": "NativeSpecialStructureContextRva",
+    "Kind": "FieldDeclaration",
+    "Start": 197,
+    "End": 197
+  },
+  {
+    "Index": 72,
+    "Name": "NativeBuildingTypeBiasRva",
+    "Kind": "FieldDeclaration",
+    "Start": 198,
+    "End": 198
+  },
+  {
+    "Index": 73,
+    "Name": "CursorMoveStagerRegionPairCallRva",
+    "Kind": "FieldDeclaration",
+    "Start": 199,
+    "End": 199
+  },
+  {
+    "Index": 74,
+    "Name": "CursorMoveStagerCallRvas",
+    "Kind": "FieldDeclaration",
+    "Start": 200,
+    "End": 201
+  },
+  {
+    "Index": 75,
+    "Name": "DirectFillApproachRva",
+    "Kind": "FieldDeclaration",
+    "Start": 202,
+    "End": 202
+  },
+  {
+    "Index": 76,
+    "Name": "DirectFillApproachRegionPairCallRva",
+    "Kind": "FieldDeclaration",
+    "Start": 203,
+    "End": 203
+  },
+  {
+    "Index": 77,
+    "Name": "DirectFillApproachCommandCallRva",
+    "Kind": "FieldDeclaration",
+    "Start": 204,
+    "End": 204
+  },
+  {
+    "Index": 78,
+    "Name": "MovementTerrainPhaseRva",
+    "Kind": "FieldDeclaration",
+    "Start": 205,
+    "End": 205
+  },
+  {
+    "Index": 79,
+    "Name": "MovementCadenceRva",
+    "Kind": "FieldDeclaration",
+    "Start": 206,
+    "End": 206
+  },
+  {
+    "Index": 80,
+    "Name": "MovementSubstepRva",
+    "Kind": "FieldDeclaration",
+    "Start": 207,
+    "End": 207
+  },
+  {
+    "Index": 81,
+    "Name": "MovementAdditionalSubstepsRva",
+    "Kind": "FieldDeclaration",
+    "Start": 208,
+    "End": 208
+  },
+  {
+    "Index": 82,
+    "Name": "MoatPathConsumptionReadRva",
+    "Kind": "FieldDeclaration",
+    "Start": 209,
+    "End": 209
+  },
+  {
+    "Index": 83,
+    "Name": "MoatPathConsumptionPersistRva",
+    "Kind": "FieldDeclaration",
+    "Start": 210,
+    "End": 210
+  },
+  {
+    "Index": 84,
+    "Name": "CursorCurrentTileFlagGateRva",
+    "Kind": "FieldDeclaration",
+    "Start": 211,
+    "End": 211
+  },
+  {
+    "Index": 85,
+    "Name": "CursorCurrentTileFlagGateJumpRva",
+    "Kind": "FieldDeclaration",
+    "Start": 212,
+    "End": 212
+  },
+  {
+    "Index": 86,
+    "Name": "AttackUnitPairGateJumpRva",
+    "Kind": "FieldDeclaration",
+    "Start": 213,
+    "End": 213
+  },
+  {
+    "Index": 87,
+    "Name": "AttackBuildingPairGateJumpRva",
+    "Kind": "FieldDeclaration",
+    "Start": 214,
+    "End": 214
+  },
+  {
+    "Index": 88,
+    "Name": "AttackAlternativePairGateJumpRva",
+    "Kind": "FieldDeclaration",
+    "Start": 215,
+    "End": 215
+  },
+  {
+    "Index": 89,
+    "Name": "TileFlagsRva",
+    "Kind": "FieldDeclaration",
+    "Start": 216,
+    "End": 216
+  },
+  {
+    "Index": 90,
+    "Name": "MovementTargetAvailabilityRva",
+    "Kind": "FieldDeclaration",
+    "Start": 217,
+    "End": 217
+  },
+  {
+    "Index": 91,
+    "Name": "NativeMovementMaskRva",
+    "Kind": "FieldDeclaration",
+    "Start": 218,
+    "End": 218
+  },
+  {
+    "Index": 92,
+    "Name": "RowLookupRva",
+    "Kind": "FieldDeclaration",
+    "Start": 219,
+    "End": 219
+  },
+  {
+    "Index": 93,
+    "Name": "NativeBuildingLayerRva",
+    "Kind": "FieldDeclaration",
+    "Start": 220,
+    "End": 220
+  },
+  {
+    "Index": 94,
+    "Name": "NativeHeightLayerRva",
+    "Kind": "FieldDeclaration",
+    "Start": 221,
+    "End": 221
+  },
+  {
+    "Index": 95,
+    "Name": "NativeDirectionMaskRva",
+    "Kind": "FieldDeclaration",
+    "Start": 222,
+    "End": 222
+  },
+  {
+    "Index": 96,
+    "Name": "CursorTargetXRva",
+    "Kind": "FieldDeclaration",
+    "Start": 223,
+    "End": 223
+  },
+  {
+    "Index": 97,
+    "Name": "CursorTargetYRva",
+    "Kind": "FieldDeclaration",
+    "Start": 224,
+    "End": 224
+  },
+  {
+    "Index": 98,
+    "Name": "PathRegionGridRva",
+    "Kind": "FieldDeclaration",
+    "Start": 225,
+    "End": 225
+  },
+  {
+    "Index": 99,
+    "Name": "MoatPathModeRva",
+    "Kind": "FieldDeclaration",
+    "Start": 226,
+    "End": 226
+  },
+  {
+    "Index": 100,
+    "Name": "NativePathManagerRva",
+    "Kind": "FieldDeclaration",
+    "Start": 227,
+    "End": 227
+  },
+  {
+    "Index": 101,
+    "Name": "NativeUnitManagerRva",
+    "Kind": "FieldDeclaration",
+    "Start": 228,
+    "End": 228
+  },
+  {
+    "Index": 102,
+    "Name": "NativeTribeManagerRva",
+    "Kind": "FieldDeclaration",
+    "Start": 229,
+    "End": 229
+  },
+  {
+    "Index": 103,
+    "Name": "MoatBuilderSpecialStructureCallRvas",
+    "Kind": "FieldDeclaration",
+    "Start": 231,
+    "End": 232
+  },
+  {
+    "Index": 104,
+    "Name": "MoatReconstructionSpecialStructureCallRvas",
+    "Kind": "FieldDeclaration",
+    "Start": 233,
+    "End": 234
+  },
+  {
+    "Index": 105,
+    "Name": "TribeRecordSize",
+    "Kind": "FieldDeclaration",
+    "Start": 236,
+    "End": 236
+  },
+  {
+    "Index": 106,
+    "Name": "TribeLeadUnitIdOffset",
+    "Kind": "FieldDeclaration",
+    "Start": 237,
+    "End": 237
+  },
+  {
+    "Index": 107,
+    "Name": "TribeUnitCountOffset",
+    "Kind": "FieldDeclaration",
+    "Start": 238,
+    "End": 238
+  },
+  {
+    "Index": 108,
+    "Name": "UnitGroupInactiveStateOffset",
+    "Kind": "FieldDeclaration",
+    "Start": 239,
+    "End": 239
+  },
+  {
+    "Index": 109,
+    "Name": "UnitMoatSlowdownPhaseOffset",
+    "Kind": "FieldDeclaration",
+    "Start": 240,
+    "End": 240
+  },
+  {
+    "Index": 110,
+    "Name": "UnitPostCombatMovementStateOffset",
+    "Kind": "FieldDeclaration",
+    "Start": 241,
+    "End": 241
+  },
+  {
+    "Index": 111,
+    "Name": "UnitCombatFinishGateOffset",
+    "Kind": "FieldDeclaration",
+    "Start": 242,
+    "End": 242
+  },
+  {
+    "Index": 112,
+    "Name": "UnitAdditionalMovementSubstepsOffset",
+    "Kind": "FieldDeclaration",
+    "Start": 244,
+    "End": 244
+  },
+  {
+    "Index": 113,
+    "Name": "MaximumTribeCount",
+    "Kind": "FieldDeclaration",
+    "Start": 245,
+    "End": 245
+  },
+  {
+    "Index": 114,
+    "Name": "MaximumUnitCount",
+    "Kind": "FieldDeclaration",
+    "Start": 246,
+    "End": 246
+  },
+  {
+    "Index": 115,
+    "Name": "EndpointNeighbourX",
+    "Kind": "FieldDeclaration",
+    "Start": 247,
+    "End": 247
+  },
+  {
+    "Index": 116,
+    "Name": "EndpointNeighbourY",
+    "Kind": "FieldDeclaration",
+    "Start": 248,
+    "End": 248
+  },
+  {
+    "Index": 117,
+    "Name": "EndpointSourceEdgeMasks",
+    "Kind": "FieldDeclaration",
+    "Start": 249,
+    "End": 250
+  },
+  {
+    "Index": 118,
+    "Name": "MoatRecordArrayOffset",
+    "Kind": "FieldDeclaration",
+    "Start": 252,
+    "End": 252
+  },
+  {
+    "Index": 119,
+    "Name": "MoatRecordCountOffset",
+    "Kind": "FieldDeclaration",
+    "Start": 253,
+    "End": 253
+  },
+  {
+    "Index": 120,
+    "Name": "MoatRecordSize",
+    "Kind": "FieldDeclaration",
+    "Start": 254,
+    "End": 254
+  },
+  {
+    "Index": 121,
+    "Name": "MoatOwnerOffset",
+    "Kind": "FieldDeclaration",
+    "Start": 255,
+    "End": 255
+  },
+  {
+    "Index": 122,
+    "Name": "MaximumRegionId",
+    "Kind": "FieldDeclaration",
+    "Start": 259,
+    "End": 259
+  },
+  {
+    "Index": 123,
+    "Name": "MaximumFloodFillStamp",
+    "Kind": "FieldDeclaration",
+    "Start": 260,
+    "End": 260
+  },
+  {
+    "Index": 124,
+    "Name": "MapWidth",
+    "Kind": "FieldDeclaration",
+    "Start": 261,
+    "End": 261
+  },
+  {
+    "Index": 125,
+    "Name": "MapCellCount",
+    "Kind": "FieldDeclaration",
+    "Start": 262,
+    "End": 262
+  },
+  {
+    "Index": 126,
+    "Name": "NativeTileCount",
+    "Kind": "FieldDeclaration",
+    "Start": 265,
+    "End": 265
+  },
+  {
+    "Index": 127,
+    "Name": "RouteStateShift",
+    "Kind": "FieldDeclaration",
+    "Start": 266,
+    "End": 266
+  },
+  {
+    "Index": 128,
+    "Name": "RouteCellMask",
+    "Kind": "FieldDeclaration",
+    "Start": 267,
+    "End": 267
+  },
+  {
+    "Index": 129,
+    "Name": "GroundRouteState",
+    "Kind": "FieldDeclaration",
+    "Start": 268,
+    "End": 268
+  },
+  {
+    "Index": 130,
+    "Name": "FriendlyMoatRouteState",
+    "Kind": "FieldDeclaration",
+    "Start": 269,
+    "End": 269
+  },
+  {
+    "Index": 131,
+    "Name": "EnemyMoatRouteState",
+    "Kind": "FieldDeclaration",
+    "Start": 270,
+    "End": 270
+  },
+  {
+    "Index": 132,
+    "Name": "CompletedMoatTileFlag",
+    "Kind": "FieldDeclaration",
+    "Start": 271,
+    "End": 271
+  },
+  {
+    "Index": 133,
+    "Name": "AlternativeTerrainDelayTileFlag",
+    "Kind": "FieldDeclaration",
+    "Start": 272,
+    "End": 272
+  },
+  {
+    "Index": 134,
+    "Name": "OrdinaryWalkableTileFlag",
+    "Kind": "FieldDeclaration",
+    "Start": 273,
+    "End": 273
+  },
+  {
+    "Index": 135,
+    "Name": "CursorSpecialStructureTileFlagMask",
+    "Kind": "FieldDeclaration",
+    "Start": 274,
+    "End": 274
+  },
+  {
+    "Index": 136,
+    "Name": "BuildingContextBlockingTileFlagMask",
+    "Kind": "FieldDeclaration",
+    "Start": 275,
+    "End": 275
+  },
+  {
+    "Index": 137,
+    "Name": "PathManagerRouteVariantOffset",
+    "Kind": "FieldDeclaration",
+    "Start": 276,
+    "End": 276
+  },
+  {
+    "Index": 138,
+    "Name": "PathManagerFloodGenerationOffset",
+    "Kind": "FieldDeclaration",
+    "Start": 277,
+    "End": 277
+  },
+  {
+    "Index": 139,
+    "Name": "PathManagerFloodDepthOffset",
+    "Kind": "FieldDeclaration",
+    "Start": 278,
+    "End": 278
+  },
+  {
+    "Index": 140,
+    "Name": "PathManagerFloodQueueHeadOffset",
+    "Kind": "FieldDeclaration",
+    "Start": 279,
+    "End": 279
+  },
+  {
+    "Index": 141,
+    "Name": "PathManagerFloodQueueTailOffset",
+    "Kind": "FieldDeclaration",
+    "Start": 280,
+    "End": 280
+  },
+  {
+    "Index": 142,
+    "Name": "PathManagerFloodResultTileOffset",
+    "Kind": "FieldDeclaration",
+    "Start": 281,
+    "End": 281
+  },
+  {
+    "Index": 143,
+    "Name": "PathManagerFloodResultStride",
+    "Kind": "FieldDeclaration",
+    "Start": 282,
+    "End": 282
+  },
+  {
+    "Index": 144,
+    "Name": "PathManagerOutputBufferOffset",
+    "Kind": "FieldDeclaration",
+    "Start": 283,
+    "End": 283
+  },
+  {
+    "Index": 145,
+    "Name": "PathManagerOutputLengthOffset",
+    "Kind": "FieldDeclaration",
+    "Start": 284,
+    "End": 284
+  },
+  {
+    "Index": 146,
+    "Name": "NativeUnitPathBufferOffset",
+    "Kind": "FieldDeclaration",
+    "Start": 285,
+    "End": 285
+  },
+  {
+    "Index": 147,
+    "Name": "NativeUnitPathBufferStride",
+    "Kind": "FieldDeclaration",
+    "Start": 286,
+    "End": 286
+  },
+  {
+    "Index": 148,
+    "Name": "NativeUnitStride",
+    "Kind": "FieldDeclaration",
+    "Start": 287,
+    "End": 287
+  },
+  {
+    "Index": 149,
+    "Name": "NativeUnitSlotDataOffset",
+    "Kind": "FieldDeclaration",
+    "Start": 288,
+    "End": 288
+  },
+  {
+    "Index": 150,
+    "Name": "NativeMoatPathConsumptionModeOffset",
+    "Kind": "FieldDeclaration",
+    "Start": 289,
+    "End": 289
+  },
+  {
+    "Index": 151,
+    "Name": "UnitMoatPathConsumptionModeOffset",
+    "Kind": "FieldDeclaration",
+    "Start": 290,
+    "End": 291
+  },
+  {
+    "Index": 152,
+    "Name": "VanillaAttackFloodResultCapacity",
+    "Kind": "FieldDeclaration",
+    "Start": 292,
+    "End": 292
+  },
+  {
+    "Index": 153,
+    "Name": "TribeMovementModeOffset",
+    "Kind": "FieldDeclaration",
+    "Start": 293,
+    "End": 293
+  },
+  {
+    "Index": 154,
+    "Name": "TribeMovementWaypointBaseOffset",
+    "Kind": "FieldDeclaration",
+    "Start": 294,
+    "End": 294
+  },
+  {
+    "Index": 155,
+    "Name": "TribeMovementWaypointIndexOffset",
+    "Kind": "FieldDeclaration",
+    "Start": 295,
+    "End": 295
+  },
+  {
+    "Index": 156,
+    "Name": "TribeMovementWaypointCountOffset",
+    "Kind": "FieldDeclaration",
+    "Start": 296,
+    "End": 296
+  },
+  {
+    "Index": 157,
+    "Name": "MaximumNativeMovementWaypoints",
+    "Kind": "FieldDeclaration",
+    "Start": 297,
+    "End": 297
+  },
+  {
+    "Index": 158,
+    "Name": "WeightedPublicationSafetyMarginTicks",
+    "Kind": "FieldDeclaration",
+    "Start": 298,
+    "End": 298
+  },
+  {
+    "Index": 159,
+    "Name": "BuildingCandidateApproachTileOffset",
+    "Kind": "FieldDeclaration",
+    "Start": 299,
+    "End": 299
+  },
+  {
+    "Index": 160,
+    "Name": "BuildingCandidateFootprintTileOffset",
+    "Kind": "FieldDeclaration",
+    "Start": 300,
+    "End": 300
+  },
+  {
+    "Index": 161,
+    "Name": "BuildingCandidateScoreOffset",
+    "Kind": "FieldDeclaration",
+    "Start": 301,
+    "End": 301
+  },
+  {
+    "Index": 162,
+    "Name": "VanillaUnreachableCandidateScore",
+    "Kind": "FieldDeclaration",
+    "Start": 302,
+    "End": 302
+  },
+  {
+    "Index": 163,
+    "Name": "RouteFingerprintOffsetBasis",
+    "Kind": "FieldDeclaration",
+    "Start": 303,
+    "End": 303
+  },
+  {
+    "Index": 164,
+    "Name": "RouteFingerprintPrime",
+    "Kind": "FieldDeclaration",
+    "Start": 304,
+    "End": 304
+  },
+  {
+    "Index": 165,
+    "Name": "TribeFloodFillMembershipPattern",
+    "Kind": "FieldDeclaration",
+    "Start": 306,
+    "End": 308
+  },
+  {
+    "Index": 166,
+    "Name": "FirstGroupUnitOnCompletedMoatPattern",
+    "Kind": "FieldDeclaration",
+    "Start": 310,
+    "End": 313
+  },
+  {
+    "Index": 167,
+    "Name": "GetGroupUnitIdPattern",
+    "Kind": "FieldDeclaration",
+    "Start": 315,
+    "End": 318
+  },
+  {
+    "Index": 168,
+    "Name": "GetTribeMovementModePattern",
+    "Kind": "FieldDeclaration",
+    "Start": 320,
+    "End": 323
+  },
+  {
+    "Index": 169,
+    "Name": "CentralMovementPlanPattern",
+    "Kind": "FieldDeclaration",
+    "Start": 325,
+    "End": 328
+  },
+  {
+    "Index": 170,
+    "Name": "UnitStandingOnCompletedMoatPattern",
+    "Kind": "FieldDeclaration",
+    "Start": 330,
+    "End": 332
+  },
+  {
+    "Index": 171,
+    "Name": "RegionReachabilityPattern",
+    "Kind": "FieldDeclaration",
+    "Start": 334,
+    "End": 336
+  },
+  {
+    "Index": 172,
+    "Name": "PathBuilderPattern",
+    "Kind": "FieldDeclaration",
+    "Start": 338,
+    "End": 340
+  },
+  {
+    "Index": 173,
+    "Name": "GetMoatIdAtTilePattern",
+    "Kind": "FieldDeclaration",
+    "Start": 342,
+    "End": 343
+  },
+  {
+    "Index": 174,
+    "Name": "AttackApproachFloodBuilderPattern",
+    "Kind": "FieldDeclaration",
+    "Start": 345,
+    "End": 348
+  },
+  {
+    "Index": 175,
+    "Name": "BuildingApproachBuilderPattern",
+    "Kind": "FieldDeclaration",
+    "Start": 350,
+    "End": 353
+  },
+  {
+    "Index": 176,
+    "Name": "BuildingCandidateConsumerPattern",
+    "Kind": "FieldDeclaration",
+    "Start": 355,
+    "End": 358
+  },
+  {
+    "Index": 177,
+    "Name": "RegionPairReachabilityPattern",
+    "Kind": "FieldDeclaration",
+    "Start": 360,
+    "End": 363
+  },
+  {
+    "Index": 178,
+    "Name": "CursorReachabilityFunctionPattern",
+    "Kind": "FieldDeclaration",
+    "Start": 365,
+    "End": 367
+  },
+  {
+    "Index": 179,
+    "Name": "SelectionCanDigMoatPattern",
+    "Kind": "FieldDeclaration",
+    "Start": 369,
+    "End": 375
+  },
+  {
+    "Index": 180,
+    "Name": "SelectionCanDigMoatCallPattern",
+    "Kind": "FieldDeclaration",
+    "Start": 377,
+    "End": 378
+  },
+  {
+    "Index": 181,
+    "Name": "BuildingCursorReachabilityPattern",
+    "Kind": "FieldDeclaration",
+    "Start": 380,
+    "End": 383
+  },
+  {
+    "Index": 182,
+    "Name": "CombatFinishResumePattern",
+    "Kind": "FieldDeclaration",
+    "Start": 385,
+    "End": 388
+  },
+  {
+    "Index": 183,
+    "Name": "PostCombatRepathPattern",
+    "Kind": "FieldDeclaration",
+    "Start": 390,
+    "End": 392
+  },
+  {
+    "Index": 184,
+    "Name": "CursorMoveStagerPattern",
+    "Kind": "FieldDeclaration",
+    "Start": 394,
+    "End": 397
+  },
+  {
+    "Index": 185,
+    "Name": "DirectFillApproachPattern",
+    "Kind": "FieldDeclaration",
+    "Start": 399,
+    "End": 401
+  },
+  {
+    "Index": 186,
+    "Name": "CursorRegionPrecheckPattern",
+    "Kind": "FieldDeclaration",
+    "Start": 403,
+    "End": 405
+  },
+  {
+    "Index": 187,
+    "Name": "CursorCurrentTileFlagGatePattern",
+    "Kind": "FieldDeclaration",
+    "Start": 407,
+    "End": 408
+  },
+  {
+    "Index": 188,
+    "Name": "CursorTilePairReachabilityPattern",
+    "Kind": "FieldDeclaration",
+    "Start": 410,
+    "End": 413
+  },
+  {
+    "Index": 189,
+    "Name": "GetRepresentativeSelectedUnitPattern",
+    "Kind": "FieldDeclaration",
+    "Start": 415,
+    "End": 418
+  },
+  {
+    "Index": 190,
+    "Name": "AttackUnitPairGatePattern",
+    "Kind": "FieldDeclaration",
+    "Start": 420,
+    "End": 422
+  },
+  {
+    "Index": 191,
+    "Name": "AttackBuildingPairGatePattern",
+    "Kind": "FieldDeclaration",
+    "Start": 424,
+    "End": 426
+  },
+  {
+    "Index": 192,
+    "Name": "AttackAlternativePairGatePattern",
+    "Kind": "FieldDeclaration",
+    "Start": 428,
+    "End": 430
+  },
+  {
+    "Index": 193,
+    "Name": "NativeSpecialStructurePredicatePattern",
+    "Kind": "FieldDeclaration",
+    "Start": 432,
+    "End": 435
+  },
+  {
+    "Index": 194,
+    "Name": "CursorGateJumpOriginal",
+    "Kind": "FieldDeclaration",
+    "Start": 437,
+    "End": 437
+  },
+  {
+    "Index": 195,
+    "Name": "AttackUnitPairGateOriginal",
+    "Kind": "FieldDeclaration",
+    "Start": 438,
+    "End": 438
+  },
+  {
+    "Index": 196,
+    "Name": "AttackBuildingPairGateOriginal",
+    "Kind": "FieldDeclaration",
+    "Start": 439,
+    "End": 439
+  },
+  {
+    "Index": 197,
+    "Name": "AttackAlternativePairGateOriginal",
+    "Kind": "FieldDeclaration",
+    "Start": 440,
+    "End": 440
+  },
+  {
+    "Index": 198,
+    "Name": "log",
+    "Kind": "FieldDeclaration",
+    "Start": 442,
+    "End": 442
+  },
+  {
+    "Index": 199,
+    "Name": "settings",
+    "Kind": "FieldDeclaration",
+    "Start": 443,
+    "End": 443
+  },
+  {
+    "Index": 200,
+    "Name": "moatPathMode",
+    "Kind": "FieldDeclaration",
+    "Start": 444,
+    "End": 444
+  },
+  {
+    "Index": 201,
+    "Name": "cursorTargetX",
+    "Kind": "FieldDeclaration",
+    "Start": 445,
+    "End": 445
+  },
+  {
+    "Index": 202,
+    "Name": "cursorTargetY",
+    "Kind": "FieldDeclaration",
+    "Start": 446,
+    "End": 446
+  },
+  {
+    "Index": 203,
+    "Name": "nativeUnitManager",
+    "Kind": "FieldDeclaration",
+    "Start": 447,
+    "End": 447
+  },
+  {
+    "Index": 204,
+    "Name": "tileFlags",
+    "Kind": "FieldDeclaration",
+    "Start": 448,
+    "End": 448
+  },
+  {
+    "Index": 205,
+    "Name": "movementTargetAvailability",
+    "Kind": "FieldDeclaration",
+    "Start": 449,
+    "End": 449
+  },
+  {
+    "Index": 206,
+    "Name": "nativeMovementMasks",
+    "Kind": "FieldDeclaration",
+    "Start": 450,
+    "End": 450
+  },
+  {
+    "Index": 207,
+    "Name": "nativeRowLookup",
+    "Kind": "FieldDeclaration",
+    "Start": 451,
+    "End": 451
+  },
+  {
+    "Index": 208,
+    "Name": "nativeBuildingLayer",
+    "Kind": "FieldDeclaration",
+    "Start": 452,
+    "End": 452
+  },
+  {
+    "Index": 209,
+    "Name": "nativeHeightLayer",
+    "Kind": "FieldDeclaration",
+    "Start": 453,
+    "End": 453
+  },
+  {
+    "Index": 210,
+    "Name": "nativeDirectionMasks",
+    "Kind": "FieldDeclaration",
+    "Start": 454,
+    "End": 454
+  },
+  {
+    "Index": 211,
+    "Name": "pathRegionGrid",
+    "Kind": "FieldDeclaration",
+    "Start": 455,
+    "End": 455
+  },
+  {
+    "Index": 212,
+    "Name": "nativePathManager",
+    "Kind": "FieldDeclaration",
+    "Start": 456,
+    "End": 456
+  },
+  {
+    "Index": 213,
+    "Name": "nativeTribeManager",
+    "Kind": "FieldDeclaration",
+    "Start": 457,
+    "End": 457
+  },
+  {
+    "Index": 214,
+    "Name": "nativeSpecialStructureContext",
+    "Kind": "FieldDeclaration",
+    "Start": 458,
+    "End": 458
+  },
+  {
+    "Index": 215,
+    "Name": "weightedMoatRoutePlanner",
+    "Kind": "FieldDeclaration",
+    "Start": 459,
+    "End": 459
+  },
+  {
+    "Index": 216,
+    "Name": "nativeMovementCadenceResolver",
+    "Kind": "FieldDeclaration",
+    "Start": 460,
+    "End": 460
+  },
+  {
+    "Index": 217,
+    "Name": "activeMoveCommand",
+    "Kind": "FieldDeclaration",
+    "Start": 462,
+    "End": 463
+  },
+  {
+    "Index": 218,
+    "Name": "activePlan",
+    "Kind": "FieldDeclaration",
+    "Start": 464,
+    "End": 465
+  },
+  {
+    "Index": 219,
+    "Name": "pendingPlan",
+    "Kind": "FieldDeclaration",
+    "Start": 466,
+    "End": 467
+  },
+  {
+    "Index": 220,
+    "Name": "pendingAttackCursorPair",
+    "Kind": "FieldDeclaration",
+    "Start": 468,
+    "End": 469
+  },
+  {
+    "Index": 221,
+    "Name": "activeAttackCommand",
+    "Kind": "FieldDeclaration",
+    "Start": 470,
+    "End": 471
+  },
+  {
+    "Index": 222,
+    "Name": "weightedPhaseTimingActive",
+    "Kind": "FieldDeclaration",
+    "Start": 472,
+    "End": 472
+  },
+  {
+    "Index": 223,
+    "Name": "activeAttackApproachDiagnostic",
+    "Kind": "FieldDeclaration",
+    "Start": 473,
+    "End": 474
+  },
+  {
+    "Index": 224,
+    "Name": "attackQualificationTimingDepth",
+    "Kind": "FieldDeclaration",
+    "Start": 475,
+    "End": 475
+  },
+  {
+    "Index": 225,
+    "Name": "requiredPublicationTimingDepth",
+    "Kind": "FieldDeclaration",
+    "Start": 476,
+    "End": 476
+  },
+  {
+    "Index": 226,
+    "Name": "activeBuildingApproachPerformance",
+    "Kind": "FieldDeclaration",
+    "Start": 477,
+    "End": 478
+  },
+  {
+    "Index": 227,
+    "Name": "activeBuildingConsumerPerformance",
+    "Kind": "FieldDeclaration",
+    "Start": 479,
+    "End": 480
+  },
+  {
+    "Index": 228,
+    "Name": "activeLadderAttackProbe",
+    "Kind": "FieldDeclaration",
+    "Start": 481,
+    "End": 482
+  },
+  {
+    "Index": 229,
+    "Name": "CurrentOptions",
+    "Kind": "PropertyDeclaration",
+    "Start": 484,
+    "End": 486
+  },
+  {
+    "Index": 230,
+    "Name": "ExtensionsEnabled",
+    "Kind": "PropertyDeclaration",
+    "Start": 487,
+    "End": 487
+  },
+  {
+    "Index": 231,
+    "Name": "RequiredOnlyMode",
+    "Kind": "PropertyDeclaration",
+    "Start": 488,
+    "End": 488
+  },
+  {
+    "Index": 232,
+    "Name": "originalCentralMovementPlan",
+    "Kind": "FieldDeclaration",
+    "Start": 489,
+    "End": 489
+  },
+  {
+    "Index": 233,
+    "Name": "rootedCentralMovementPlan",
+    "Kind": "FieldDeclaration",
+    "Start": 490,
+    "End": 490
+  },
+  {
+    "Index": 234,
+    "Name": "originalPathBuilder",
+    "Kind": "FieldDeclaration",
+    "Start": 491,
+    "End": 491
+  },
+  {
+    "Index": 235,
+    "Name": "rootedPathBuilder",
+    "Kind": "FieldDeclaration",
+    "Start": 492,
+    "End": 492
+  },
+  {
+    "Index": 236,
+    "Name": "originalUnitStandingOnCompletedMoat",
+    "Kind": "FieldDeclaration",
+    "Start": 493,
+    "End": 493
+  },
+  {
+    "Index": 237,
+    "Name": "rootedUnitStandingOnCompletedMoat",
+    "Kind": "FieldDeclaration",
+    "Start": 494,
+    "End": 494
+  },
+  {
+    "Index": 238,
+    "Name": "originalRegionReachability",
+    "Kind": "FieldDeclaration",
+    "Start": 495,
+    "End": 495
+  },
+  {
+    "Index": 239,
+    "Name": "rootedRegionReachability",
+    "Kind": "FieldDeclaration",
+    "Start": 496,
+    "End": 496
+  },
+  {
+    "Index": 240,
+    "Name": "originalTribeFloodFillMembership",
+    "Kind": "FieldDeclaration",
+    "Start": 497,
+    "End": 497
+  },
+  {
+    "Index": 241,
+    "Name": "rootedTribeFloodFillMembership",
+    "Kind": "FieldDeclaration",
+    "Start": 498,
+    "End": 498
+  },
+  {
+    "Index": 242,
+    "Name": "originalFirstGroupUnitOnCompletedMoat",
+    "Kind": "FieldDeclaration",
+    "Start": 499,
+    "End": 499
+  },
+  {
+    "Index": 243,
+    "Name": "rootedFirstGroupUnitOnCompletedMoat",
+    "Kind": "FieldDeclaration",
+    "Start": 500,
+    "End": 500
+  },
+  {
+    "Index": 244,
+    "Name": "getGroupUnitId",
+    "Kind": "FieldDeclaration",
+    "Start": 501,
+    "End": 501
+  },
+  {
+    "Index": 245,
+    "Name": "getTribeMovementMode",
+    "Kind": "FieldDeclaration",
+    "Start": 502,
+    "End": 502
+  },
+  {
+    "Index": 246,
+    "Name": "originalCursorReachability",
+    "Kind": "FieldDeclaration",
+    "Start": 503,
+    "End": 503
+  },
+  {
+    "Index": 247,
+    "Name": "rootedCursorReachability",
+    "Kind": "FieldDeclaration",
+    "Start": 504,
+    "End": 504
+  },
+  {
+    "Index": 248,
+    "Name": "selectionCanDigMoat",
+    "Kind": "FieldDeclaration",
+    "Start": 505,
+    "End": 505
+  },
+  {
+    "Index": 249,
+    "Name": "originalCursorTilePairReachability",
+    "Kind": "FieldDeclaration",
+    "Start": 506,
+    "End": 506
+  },
+  {
+    "Index": 250,
+    "Name": "rootedCursorTilePairReachability",
+    "Kind": "FieldDeclaration",
+    "Start": 507,
+    "End": 507
+  },
+  {
+    "Index": 251,
+    "Name": "getRepresentativeSelectedUnit",
+    "Kind": "FieldDeclaration",
+    "Start": 508,
+    "End": 508
+  },
+  {
+    "Index": 252,
+    "Name": "originalCursorRegionPrecheck",
+    "Kind": "FieldDeclaration",
+    "Start": 509,
+    "End": 509
+  },
+  {
+    "Index": 253,
+    "Name": "rootedCursorRegionPrecheck",
+    "Kind": "FieldDeclaration",
+    "Start": 510,
+    "End": 510
+  },
+  {
+    "Index": 254,
+    "Name": "getMoatIdAtTile",
+    "Kind": "FieldDeclaration",
+    "Start": 511,
+    "End": 511
+  },
+  {
+    "Index": 255,
+    "Name": "nativeSpecialStructurePredicate",
+    "Kind": "FieldDeclaration",
+    "Start": 512,
+    "End": 512
+  },
+  {
+    "Index": 256,
+    "Name": "originalAttackApproachFloodBuilder",
+    "Kind": "FieldDeclaration",
+    "Start": 513,
+    "End": 513
+  },
+  {
+    "Index": 257,
+    "Name": "rootedAttackApproachFloodBuilder",
+    "Kind": "FieldDeclaration",
+    "Start": 514,
+    "End": 514
+  },
+  {
+    "Index": 258,
+    "Name": "originalBuildingApproachBuilder",
+    "Kind": "FieldDeclaration",
+    "Start": 515,
+    "End": 515
+  },
+  {
+    "Index": 259,
+    "Name": "rootedBuildingApproachBuilder",
+    "Kind": "FieldDeclaration",
+    "Start": 516,
+    "End": 516
+  },
+  {
+    "Index": 260,
+    "Name": "originalBuildingCandidateConsumer",
+    "Kind": "FieldDeclaration",
+    "Start": 517,
+    "End": 517
+  },
+  {
+    "Index": 261,
+    "Name": "rootedBuildingCandidateConsumer",
+    "Kind": "FieldDeclaration",
+    "Start": 518,
+    "End": 518
+  },
+  {
+    "Index": 262,
+    "Name": "originalRegionPairReachability",
+    "Kind": "FieldDeclaration",
+    "Start": 519,
+    "End": 519
+  },
+  {
+    "Index": 263,
+    "Name": "rootedRegionPairReachability",
+    "Kind": "FieldDeclaration",
+    "Start": 520,
+    "End": 520
+  },
+  {
+    "Index": 264,
+    "Name": "originalBuildingCursorReachability",
+    "Kind": "FieldDeclaration",
+    "Start": 521,
+    "End": 521
+  },
+  {
+    "Index": 265,
+    "Name": "rootedBuildingCursorReachability",
+    "Kind": "FieldDeclaration",
+    "Start": 522,
+    "End": 522
+  },
+  {
+    "Index": 266,
+    "Name": "originalCombatFinishResume",
+    "Kind": "FieldDeclaration",
+    "Start": 523,
+    "End": 523
+  },
+  {
+    "Index": 267,
+    "Name": "rootedCombatFinishResume",
+    "Kind": "FieldDeclaration",
+    "Start": 524,
+    "End": 524
+  },
+  {
+    "Index": 268,
+    "Name": "originalCursorMoveStager",
+    "Kind": "FieldDeclaration",
+    "Start": 525,
+    "End": 525
+  },
+  {
+    "Index": 269,
+    "Name": "rootedCursorMoveStager",
+    "Kind": "FieldDeclaration",
+    "Start": 526,
+    "End": 526
+  },
+  {
+    "Index": 270,
+    "Name": "centralMovementPlanDetour",
+    "Kind": "FieldDeclaration",
+    "Start": 528,
+    "End": 528
+  },
+  {
+    "Index": 271,
+    "Name": "pathBuilderDetour",
+    "Kind": "FieldDeclaration",
+    "Start": 529,
+    "End": 529
+  },
+  {
+    "Index": 272,
+    "Name": "unitStandingOnCompletedMoatDetour",
+    "Kind": "FieldDeclaration",
+    "Start": 530,
+    "End": 530
+  },
+  {
+    "Index": 273,
+    "Name": "regionReachabilityDetour",
+    "Kind": "FieldDeclaration",
+    "Start": 531,
+    "End": 531
+  },
+  {
+    "Index": 274,
+    "Name": "tribeFloodFillMembershipDetour",
+    "Kind": "FieldDeclaration",
+    "Start": 532,
+    "End": 532
+  },
+  {
+    "Index": 275,
+    "Name": "firstGroupUnitOnCompletedMoatDetour",
+    "Kind": "FieldDeclaration",
+    "Start": 533,
+    "End": 533
+  },
+  {
+    "Index": 276,
+    "Name": "cursorReachabilityDetour",
+    "Kind": "FieldDeclaration",
+    "Start": 534,
+    "End": 534
+  },
+  {
+    "Index": 277,
+    "Name": "cursorTilePairReachabilityDetour",
+    "Kind": "FieldDeclaration",
+    "Start": 535,
+    "End": 535
+  },
+  {
+    "Index": 278,
+    "Name": "cursorRegionPrecheckDetour",
+    "Kind": "FieldDeclaration",
+    "Start": 536,
+    "End": 536
+  },
+  {
+    "Index": 279,
+    "Name": "attackApproachFloodBuilderDetour",
+    "Kind": "FieldDeclaration",
+    "Start": 537,
+    "End": 537
+  },
+  {
+    "Index": 280,
+    "Name": "buildingApproachBuilderDetour",
+    "Kind": "FieldDeclaration",
+    "Start": 538,
+    "End": 538
+  },
+  {
+    "Index": 281,
+    "Name": "buildingCandidateConsumerDetour",
+    "Kind": "FieldDeclaration",
+    "Start": 539,
+    "End": 539
+  },
+  {
+    "Index": 282,
+    "Name": "regionPairReachabilityDetour",
+    "Kind": "FieldDeclaration",
+    "Start": 540,
+    "End": 540
+  },
+  {
+    "Index": 283,
+    "Name": "buildingCursorReachabilityDetour",
+    "Kind": "FieldDeclaration",
+    "Start": 541,
+    "End": 541
+  },
+  {
+    "Index": 284,
+    "Name": "combatFinishResumeDetour",
+    "Kind": "FieldDeclaration",
+    "Start": 542,
+    "End": 542
+  },
+  {
+    "Index": 285,
+    "Name": "cursorMoveStagerDetour",
+    "Kind": "FieldDeclaration",
+    "Start": 543,
+    "End": 543
+  },
+  {
+    "Index": 286,
+    "Name": "nativeRegion",
+    "Kind": "FieldDeclaration",
+    "Start": 544,
+    "End": 544
+  },
+  {
+    "Index": 287,
+    "Name": "mainHookTransaction",
+    "Kind": "FieldDeclaration",
+    "Start": 545,
+    "End": 545
+  },
+  {
+    "Index": 288,
+    "Name": "buildingCursorHookTransaction",
+    "Kind": "FieldDeclaration",
+    "Start": 546,
+    "End": 546
+  },
+  {
+    "Index": 289,
+    "Name": "attackApproachHookTransaction",
+    "Kind": "FieldDeclaration",
+    "Start": 547,
+    "End": 547
+  },
+  {
+    "Index": 290,
+    "Name": "tribeMoveSubscription",
+    "Kind": "FieldDeclaration",
+    "Start": 548,
+    "End": 548
+  },
+  {
+    "Index": 291,
+    "Name": "unitMoveSubscription",
+    "Kind": "FieldDeclaration",
+    "Start": 549,
+    "End": 549
+  },
+  {
+    "Index": 292,
+    "Name": "unitMoveFrame",
+    "Kind": "FieldDeclaration",
+    "Start": 550,
+    "End": 550
+  },
+  {
+    "Index": 293,
+    "Name": "tribeTargetSubscription",
+    "Kind": "FieldDeclaration",
+    "Start": 551,
+    "End": 551
+  },
+  {
+    "Index": 294,
+    "Name": "mapLoadSubscription",
+    "Kind": "FieldDeclaration",
+    "Start": 552,
+    "End": 552
+  },
+  {
+    "Index": 295,
+    "Name": "mapStartSubscription",
+    "Kind": "FieldDeclaration",
+    "Start": 553,
+    "End": 553
+  },
+  {
+    "Index": 296,
+    "Name": "mapUnloadSubscription",
+    "Kind": "FieldDeclaration",
+    "Start": 554,
+    "End": 554
+  },
+  {
+    "Index": 297,
+    "Name": "attackTickSubscribed",
+    "Kind": "FieldDeclaration",
+    "Start": 555,
+    "End": 555
+  },
+  {
+    "Index": 298,
+    "Name": "visitedWithoutMoat",
+    "Kind": "FieldDeclaration",
+    "Start": 557,
+    "End": 557
+  },
+  {
+    "Index": 299,
+    "Name": "visitedWithMoat",
+    "Kind": "FieldDeclaration",
+    "Start": 558,
+    "End": 558
+  },
+  {
+    "Index": 300,
+    "Name": "visitedWithEnemyMoat",
+    "Kind": "FieldDeclaration",
+    "Start": 559,
+    "End": 559
+  },
+  {
+    "Index": 301,
+    "Name": "distanceWithoutMoat",
+    "Kind": "FieldDeclaration",
+    "Start": 560,
+    "End": 560
+  },
+  {
+    "Index": 302,
+    "Name": "distanceWithMoat",
+    "Kind": "FieldDeclaration",
+    "Start": 561,
+    "End": 561
+  },
+  {
+    "Index": 303,
+    "Name": "distanceWithEnemyMoat",
+    "Kind": "FieldDeclaration",
+    "Start": 562,
+    "End": 562
+  },
+  {
+    "Index": 304,
+    "Name": "queue",
+    "Kind": "FieldDeclaration",
+    "Start": 563,
+    "End": 563
+  },
+  {
+    "Index": 305,
+    "Name": "observedRouteRegions",
+    "Kind": "FieldDeclaration",
+    "Start": 564,
+    "End": 564
+  },
+  {
+    "Index": 306,
+    "Name": "reachedGroundRegions",
+    "Kind": "FieldDeclaration",
+    "Start": 565,
+    "End": 565
+  },
+  {
+    "Index": 307,
+    "Name": "reachedFriendlyMoatRegions",
+    "Kind": "FieldDeclaration",
+    "Start": 566,
+    "End": 566
+  },
+  {
+    "Index": 308,
+    "Name": "reachedEnemyMoatRegions",
+    "Kind": "FieldDeclaration",
+    "Start": 567,
+    "End": 567
+  },
+  {
+    "Index": 309,
+    "Name": "gridGeneration",
+    "Kind": "FieldDeclaration",
+    "Start": 568,
+    "End": 568
+  },
+  {
+    "Index": 310,
+    "Name": "mapEpoch",
+    "Kind": "FieldDeclaration",
+    "Start": 569,
+    "End": 569
+  },
+  {
+    "Index": 311,
+    "Name": "cacheMapEpoch",
+    "Kind": "FieldDeclaration",
+    "Start": 570,
+    "End": 570
+  },
+  {
+    "Index": 312,
+    "Name": "cacheIncludesEnemyRoutes",
+    "Kind": "FieldDeclaration",
+    "Start": 571,
+    "End": 571
+  },
+  {
+    "Index": 313,
+    "Name": "cachedReachabilityExpandedNodes",
+    "Kind": "FieldDeclaration",
+    "Start": 572,
+    "End": 572
+  },
+  {
+    "Index": 314,
+    "Name": "fallbackContractRejections",
+    "Kind": "FieldDeclaration",
+    "Start": 573,
+    "End": 573
+  },
+  {
+    "Index": 315,
+    "Name": "cacheStartX",
+    "Kind": "FieldDeclaration",
+    "Start": 574,
+    "End": 574
+  },
+  {
+    "Index": 316,
+    "Name": "cacheStartY",
+    "Kind": "FieldDeclaration",
+    "Start": 575,
+    "End": 575
+  },
+  {
+    "Index": 317,
+    "Name": "cachePlayerId",
+    "Kind": "FieldDeclaration",
+    "Start": 576,
+    "End": 576
+  },
+  {
+    "Index": 318,
+    "Name": "cachedTraversedRegionCount",
+    "Kind": "FieldDeclaration",
+    "Start": 577,
+    "End": 577
+  },
+  {
+    "Index": 319,
+    "Name": "cachedReachabilityMapHits",
+    "Kind": "FieldDeclaration",
+    "Start": 578,
+    "End": 578
+  },
+  {
+    "Index": 320,
+    "Name": "cachedRouteSummary",
+    "Kind": "FieldDeclaration",
+    "Start": 579,
+    "End": 579
+  },
+  {
+    "Index": 321,
+    "Name": "loggedBuildingCursorReachabilityDecisions",
+    "Kind": "FieldDeclaration",
+    "Start": 580,
+    "End": 581
+  },
+  {
+    "Index": 322,
+    "Name": "trackedNativeWaypointQueues",
+    "Kind": "FieldDeclaration",
+    "Start": 582,
+    "End": 583
+  },
+  {
+    "Index": 323,
+    "Name": "lastUnscopedAttackModes",
+    "Kind": "FieldDeclaration",
+    "Start": 584,
+    "End": 584
+  },
+  {
+    "Index": 324,
+    "Name": "lastAttackCommandCandidates",
+    "Kind": "FieldDeclaration",
+    "Start": 585,
+    "End": 585
+  },
+  {
+    "Index": 325,
+    "Name": "trackedAttackUnits",
+    "Kind": "FieldDeclaration",
+    "Start": 586,
+    "End": 587
+  },
+  {
+    "Index": 326,
+    "Name": "trackedMoatMoves",
+    "Kind": "FieldDeclaration",
+    "Start": 588,
+    "End": 589
+  },
+  {
+    "Index": 327,
+    "Name": "requiredBackgroundTrackedUnitIds",
+    "Kind": "FieldDeclaration",
+    "Start": 590,
+    "End": 590
+  },
+  {
+    "Index": 328,
+    "Name": "requiredBackgroundDiagnostics",
+    "Kind": "FieldDeclaration",
+    "Start": 591,
+    "End": 592
+  },
+  {
+    "Index": 329,
+    "Name": "requiredBackgroundSuppressedDiagnostics",
+    "Kind": "FieldDeclaration",
+    "Start": 593,
+    "End": 594
+  },
+  {
+    "Index": 330,
+    "Name": "requiredBackgroundDiagnosticTick",
+    "Kind": "FieldDeclaration",
+    "Start": 595,
+    "End": 595
+  },
+  {
+    "Index": 331,
+    "Name": "reportedDiagnosticFailureStages",
+    "Kind": "FieldDeclaration",
+    "Start": 596,
+    "End": 597
+  },
+  {
+    "Index": 332,
+    "Name": "loggedDiggerDecisions",
+    "Kind": "FieldDeclaration",
+    "Start": 598,
+    "End": 599
+  },
+  {
+    "Index": 333,
+    "Name": "loggedFormationExecuteMoveTypes",
+    "Kind": "FieldDeclaration",
+    "Start": 600,
+    "End": 600
+  },
+  {
+    "Index": 334,
+    "Name": "lastWeightedPublicationDecisionByUnit",
+    "Kind": "FieldDeclaration",
+    "Start": 601,
+    "End": 602
+  },
+  {
+    "Index": 335,
+    "Name": "moveCommandSequence",
+    "Kind": "FieldDeclaration",
+    "Start": 603,
+    "End": 603
+  },
+  {
+    "Index": 336,
+    "Name": "attackCommandSequence",
+    "Kind": "FieldDeclaration",
+    "Start": 604,
+    "End": 604
+  },
+  {
+    "Index": 337,
+    "Name": "callbackFailureReported",
+    "Kind": "FieldDeclaration",
+    "Start": 605,
+    "End": 605
+  },
+  {
+    "Index": 338,
+    "Name": "weightedShadowBusy",
+    "Kind": "FieldDeclaration",
+    "Start": 606,
+    "End": 606
+  },
+  {
+    "Index": 339,
+    "Name": "targetedRouteProbeBusy",
+    "Kind": "FieldDeclaration",
+    "Start": 607,
+    "End": 607
+  },
+  {
+    "Index": 340,
+    "Name": "disposed",
+    "Kind": "FieldDeclaration",
+    "Start": 608,
+    "End": 608
+  },
+  {
+    "Index": 341,
+    "Name": "UnitCommandPathRuntime",
+    "Kind": "ConstructorDeclaration",
+    "Start": 610,
+    "End": 1240
+  },
+  {
+    "Index": 342,
+    "Name": "Dispose",
+    "Kind": "MethodDeclaration",
+    "Start": 1242,
+    "End": 1269
+  },
+  {
+    "Index": 343,
+    "Name": "TryInstallBuildingCursorReachability",
+    "Kind": "MethodDeclaration",
+    "Start": 1271,
+    "End": 1333
+  },
+  {
+    "Index": 344,
+    "Name": "TryInstallAttackApproachDiagnostics",
+    "Kind": "MethodDeclaration",
+    "Start": 1335,
+    "End": 1436
+  },
+  {
+    "Index": 345,
+    "Name": "ValidateAttackApproachEntries",
+    "Kind": "MethodDeclaration",
+    "Start": 1438,
+    "End": 1506
+  },
+  {
+    "Index": 346,
+    "Name": "ValidateAttackApproachCalls",
+    "Kind": "MethodDeclaration",
+    "Start": 1508,
+    "End": 1576
+  },
+  {
+    "Index": 347,
+    "Name": "ObserveTribeMoveOrder",
+    "Kind": "MethodDeclaration",
+    "Start": 1578,
+    "End": 1730
+  },
+  {
+    "Index": 348,
+    "Name": "ObserveTribeTargetOrder",
+    "Kind": "MethodDeclaration",
+    "Start": 1732,
+    "End": 1845
+  },
+  {
+    "Index": 349,
+    "Name": "TrackUnitsUpdatedByAttackCommand",
+    "Kind": "MethodDeclaration",
+    "Start": 1847,
+    "End": 1870
+  },
+  {
+    "Index": 350,
+    "Name": "CaptureAttackCommandCandidates",
+    "Kind": "MethodDeclaration",
+    "Start": 1872,
+    "End": 1891
+  },
+  {
+    "Index": 351,
+    "Name": "EnsureAttackCommandCandidates",
+    "Kind": "MethodDeclaration",
+    "Start": 1893,
+    "End": 1897
+  },
+  {
+    "Index": 352,
+    "Name": "LogAttackCommandCandidates",
+    "Kind": "MethodDeclaration",
+    "Start": 1899,
+    "End": 1982
+  },
+  {
+    "Index": 353,
+    "Name": "GetAttackCandidateSignature",
+    "Kind": "MethodDeclaration",
+    "Start": 1984,
+    "End": 1989
+  },
+  {
+    "Index": 354,
+    "Name": "GetOrCreateAttackTracker",
+    "Kind": "MethodDeclaration",
+    "Start": 1991,
+    "End": 2014
+  },
+  {
+    "Index": 355,
+    "Name": "RemoveSynchronousAttackTrackers",
+    "Kind": "MethodDeclaration",
+    "Start": 2016,
+    "End": 2023
+  },
+  {
+    "Index": 356,
+    "Name": "ObserveTrackedAttackStates",
+    "Kind": "MethodDeclaration",
+    "Start": 2025,
+    "End": 2139
+  },
+  {
+    "Index": 357,
+    "Name": "ObserveNativeWaypointQueueAtCommand",
+    "Kind": "MethodDeclaration",
+    "Start": 2141,
+    "End": 2181
+  },
+  {
+    "Index": 358,
+    "Name": "ObserveNativeWaypointQueues",
+    "Kind": "MethodDeclaration",
+    "Start": 2183,
+    "End": 2219
+  },
+  {
+    "Index": 359,
+    "Name": "TryReadNativeWaypointQueue",
+    "Kind": "MethodDeclaration",
+    "Start": 2221,
+    "End": 2256
+  },
+  {
+    "Index": 360,
+    "Name": "LogNativeWaypointQueueChange",
+    "Kind": "MethodDeclaration",
+    "Start": 2258,
+    "End": 2273
+  },
+  {
+    "Index": 361,
+    "Name": "MarkTrackedAttackPipeline",
+    "Kind": "MethodDeclaration",
+    "Start": 2275,
+    "End": 2314
+  },
+  {
+    "Index": 362,
+    "Name": "RemoveTrackedAttacksForTribe",
+    "Kind": "MethodDeclaration",
+    "Start": 2316,
+    "End": 2330
+  },
+  {
+    "Index": 363,
+    "Name": "EndTrackedAttack",
+    "Kind": "MethodDeclaration",
+    "Start": 2332,
+    "End": 2339
+  },
+  {
+    "Index": 364,
+    "Name": "StartOrRefreshMoatMoveTracker",
+    "Kind": "MethodDeclaration",
+    "Start": 2341,
+    "End": 2418
+  },
+  {
+    "Index": 365,
+    "Name": "StartOrRefreshWeightedShadowTracker",
+    "Kind": "MethodDeclaration",
+    "Start": 2420,
+    "End": 2506
+  },
+  {
+    "Index": 366,
+    "Name": "ObserveTrackedMoatMoveStates",
+    "Kind": "MethodDeclaration",
+    "Start": 2508,
+    "End": 2775
+  },
+  {
+    "Index": 367,
+    "Name": "ObserveRuntimeCadenceShadow",
+    "Kind": "MethodDeclaration",
+    "Start": 2777,
+    "End": 2854
+  },
+  {
+    "Index": 368,
+    "Name": "CalculateAndLogRuntimeCadenceShadow",
+    "Kind": "MethodDeclaration",
+    "Start": 2856,
+    "End": 2965
+  },
+  {
+    "Index": 369,
+    "Name": "FormatCostProfile",
+    "Kind": "MethodDeclaration",
+    "Start": 2967,
+    "End": 2972
+  },
+  {
+    "Index": 370,
+    "Name": "EncodeDirectionDelta",
+    "Kind": "MethodDeclaration",
+    "Start": 2974,
+    "End": 2985
+  },
+  {
+    "Index": 371,
+    "Name": "CaptureCurrentGameTick",
+    "Kind": "MethodDeclaration",
+    "Start": 2987,
+    "End": 2997
+  },
+  {
+    "Index": 372,
+    "Name": "IsCompletedMoatTile",
+    "Kind": "MethodDeclaration",
+    "Start": 2999,
+    "End": 3000
+  },
+  {
+    "Index": 373,
+    "Name": "ObserveActualMoatOwnership",
+    "Kind": "MethodDeclaration",
+    "Start": 3002,
+    "End": 3049
+  },
+  {
+    "Index": 374,
+    "Name": "TryReadCompletedMoatOwner",
+    "Kind": "MethodDeclaration",
+    "Start": 3051,
+    "End": 3070
+  },
+  {
+    "Index": 375,
+    "Name": "LogMoveMilestone",
+    "Kind": "MethodDeclaration",
+    "Start": 3072,
+    "End": 3100
+  },
+  {
+    "Index": 376,
+    "Name": "MarkPostCombatRepathEntered",
+    "Kind": "MethodDeclaration",
+    "Start": 3102,
+    "End": 3127
+  },
+  {
+    "Index": 377,
+    "Name": "ReadUnitMoatPathConsumptionMode",
+    "Kind": "MethodDeclaration",
+    "Start": 3129,
+    "End": 3137
+  },
+  {
+    "Index": 378,
+    "Name": "RemoveTrackedMoatMovesForTribe",
+    "Kind": "MethodDeclaration",
+    "Start": 3139,
+    "End": 3153
+  },
+  {
+    "Index": 379,
+    "Name": "EndTrackedMoatMove",
+    "Kind": "MethodDeclaration",
+    "Start": 3155,
+    "End": 3313
+  },
+  {
+    "Index": 380,
+    "Name": "MatchesAttackTargetContext",
+    "Kind": "MethodDeclaration",
+    "Start": 3315,
+    "End": 3340
+  },
+  {
+    "Index": 381,
+    "Name": "MatchesCompletedAttackTargetContext",
+    "Kind": "MethodDeclaration",
+    "Start": 3342,
+    "End": 3366
+  },
+  {
+    "Index": 382,
+    "Name": "MatchesTrackedAttackTargetContext",
+    "Kind": "MethodDeclaration",
+    "Start": 3368,
+    "End": 3390
+  },
+  {
+    "Index": 383,
+    "Name": "IsAttackCommand",
+    "Kind": "MethodDeclaration",
+    "Start": 3392,
+    "End": 3395
+  },
+  {
+    "Index": 384,
+    "Name": "IsBuildingAttackCommand",
+    "Kind": "MethodDeclaration",
+    "Start": 3397,
+    "End": 3399
+  },
+  {
+    "Index": 385,
+    "Name": "CanDigMoat",
+    "Kind": "MethodDeclaration",
+    "Start": 3403,
+    "End": 3404
+  },
+  {
+    "Index": 386,
+    "Name": "CanDigMoat",
+    "Kind": "MethodDeclaration",
+    "Start": 3406,
+    "End": 3424
+  },
+  {
+    "Index": 387,
+    "Name": "TryGetSelectedVanillaDigger",
+    "Kind": "MethodDeclaration",
+    "Start": 3426,
+    "End": 3465
+  },
+  {
+    "Index": 388,
+    "Name": "LogDiggerDecision",
+    "Kind": "MethodDeclaration",
+    "Start": 3467,
+    "End": 3483
+  },
+  {
+    "Index": 389,
+    "Name": "RunCentralMovementPlanWithContext",
+    "Kind": "MethodDeclaration",
+    "Start": 3485,
+    "End": 3558
+  },
+  {
+    "Index": 390,
+    "Name": "ResumeMovementAfterCombatWithMoatContext",
+    "Kind": "MethodDeclaration",
+    "Start": 3560,
+    "End": 3668
+  },
+  {
+    "Index": 391,
+    "Name": "ResolveCommandDiagnosticContext",
+    "Kind": "MethodDeclaration",
+    "Start": 3672,
+    "End": 3722
+  },
+  {
+    "Index": 392,
+    "Name": "CaptureMoveCommandGroupSummary",
+    "Kind": "MethodDeclaration",
+    "Start": 3724,
+    "End": 3756
+  },
+  {
+    "Index": 393,
+    "Name": "EnsureMoveCommandGroupSummary",
+    "Kind": "MethodDeclaration",
+    "Start": 3758,
+    "End": 3762
+  },
+  {
+    "Index": 394,
+    "Name": "TryCaptureWeightedMovementCostProfile",
+    "Kind": "MethodDeclaration",
+    "Start": 3764,
+    "End": 3817
+  },
+  {
+    "Index": 395,
+    "Name": "IsPublishedWalkableBuildingApproach",
+    "Kind": "MethodDeclaration",
+    "Start": 3819,
+    "End": 3828
+  },
+  {
+    "Index": 396,
+    "Name": "ResolveCompletedMoatRelationship",
+    "Kind": "MethodDeclaration",
+    "Start": 3830,
+    "End": 3853
+  },
+  {
+    "Index": 397,
+    "Name": "IsFriendlyCompletedMoatForWeightedShadow",
+    "Kind": "MethodDeclaration",
+    "Start": 3855,
+    "End": 3857
+  },
+  {
+    "Index": 398,
+    "Name": "IsIsolatedActiveGroupUnit",
+    "Kind": "MethodDeclaration",
+    "Start": 3859,
+    "End": 3867
+  },
+  {
+    "Index": 399,
+    "Name": "LogWeightedPublicationDecision",
+    "Kind": "MethodDeclaration",
+    "Start": 3869,
+    "End": 3880
+  },
+  {
+    "Index": 400,
+    "Name": "LogWeightedShadowDecision",
+    "Kind": "MethodDeclaration",
+    "Start": 3882,
+    "End": 3887
+  },
+  {
+    "Index": 401,
+    "Name": "RecordWeightedCommandDecision",
+    "Kind": "MethodDeclaration",
+    "Start": 3889,
+    "End": 3918
+  },
+  {
+    "Index": 402,
+    "Name": "TryQualifyAttackMovementPlan",
+    "Kind": "MethodDeclaration",
+    "Start": 3920,
+    "End": 3948
+  },
+  {
+    "Index": 403,
+    "Name": "TryQualifyAttackMovementPlanCore",
+    "Kind": "MethodDeclaration",
+    "Start": 3950,
+    "End": 4033
+  },
+  {
+    "Index": 404,
+    "Name": "MatchesSynchronousAttackMovementContext",
+    "Kind": "MethodDeclaration",
+    "Start": 4035,
+    "End": 4072
+  },
+  {
+    "Index": 405,
+    "Name": "LogSynchronousAttackCandidate",
+    "Kind": "MethodDeclaration",
+    "Start": 4074,
+    "End": 4097
+  },
+  {
+    "Index": 406,
+    "Name": "LogAttackScopeDecision",
+    "Kind": "MethodDeclaration",
+    "Start": 4099,
+    "End": 4139
+  },
+  {
+    "Index": 407,
+    "Name": "AllowBuilderAfterFailedRegionSearch",
+    "Kind": "MethodDeclaration",
+    "Start": 4141,
+    "End": 4201
+  },
+  {
+    "Index": 408,
+    "Name": "TryAllowEarlyMoveHereGroupRegion",
+    "Kind": "MethodDeclaration",
+    "Start": 4203,
+    "End": 4260
+  },
+  {
+    "Index": 409,
+    "Name": "EvaluateEarlyMoveHereGroupRegion",
+    "Kind": "MethodDeclaration",
+    "Start": 4262,
+    "End": 4333
+  },
+  {
+    "Index": 410,
+    "Name": "GroupContainsCurrentPosition",
+    "Kind": "MethodDeclaration",
+    "Start": 4335,
+    "End": 4350
+  },
+  {
+    "Index": 411,
+    "Name": "LogEarlyMoveHereGroupRegionDecision",
+    "Kind": "MethodDeclaration",
+    "Start": 4352,
+    "End": 4373
+  },
+  {
+    "Index": 412,
+    "Name": "AllowTribeFloodFillForMoveOrder",
+    "Kind": "MethodDeclaration",
+    "Start": 4375,
+    "End": 4419
+  },
+  {
+    "Index": 413,
+    "Name": "SelectOwnerSafeGroupMoatMode",
+    "Kind": "MethodDeclaration",
+    "Start": 4421,
+    "End": 4589
+  },
+  {
+    "Index": 414,
+    "Name": "ObserveAttackApproachFloodBuilder",
+    "Kind": "MethodDeclaration",
+    "Start": 4591,
+    "End": 4617
+  },
+  {
+    "Index": 415,
+    "Name": "ObserveAttackApproachFloodBuilderWithMoat",
+    "Kind": "MethodDeclaration",
+    "Start": 4619,
+    "End": 4765
+  },
+  {
+    "Index": 416,
+    "Name": "IsBoundUnitAttackFlood",
+    "Kind": "MethodDeclaration",
+    "Start": 4767,
+    "End": 4778
+  },
+  {
+    "Index": 417,
+    "Name": "FilterAttackOutput",
+    "Kind": "MethodDeclaration",
+    "Start": 4780,
+    "End": 4790
+  },
+  {
+    "Index": 418,
+    "Name": "ObserveBuildingApproachBuilder",
+    "Kind": "MethodDeclaration",
+    "Start": 4792,
+    "End": 4821
+  },
+  {
+    "Index": 419,
+    "Name": "ObserveBuildingApproachBuilderWithMoat",
+    "Kind": "MethodDeclaration",
+    "Start": 4823,
+    "End": 4906
+  },
+  {
+    "Index": 420,
+    "Name": "ObserveBuildingCandidateConsumer",
+    "Kind": "MethodDeclaration",
+    "Start": 4908,
+    "End": 4928
+  },
+  {
+    "Index": 421,
+    "Name": "ObserveBuildingCandidateConsumerWithMoat",
+    "Kind": "MethodDeclaration",
+    "Start": 4930,
+    "End": 5112
+  },
+  {
+    "Index": 422,
+    "Name": "TryApplyBuildingConsumerFallback",
+    "Kind": "MethodDeclaration",
+    "Start": 5114,
+    "End": 5279
+  },
+  {
+    "Index": 423,
+    "Name": "buildingFallbackWorkBuffers",
+    "Kind": "FieldDeclaration",
+    "Start": 5282,
+    "End": 5283
+  },
+  {
+    "Index": 424,
+    "Name": "RentBuildingFallbackWorkBuffers",
+    "Kind": "MethodDeclaration",
+    "Start": 5285,
+    "End": 5290
+  },
+  {
+    "Index": 425,
+    "Name": "ReturnBuildingFallbackWorkBuffers",
+    "Kind": "MethodDeclaration",
+    "Start": 5292,
+    "End": 5297
+  },
+  {
+    "Index": 426,
+    "Name": "BuildingFallbackWorkBuffers",
+    "Kind": "ClassDeclaration",
+    "Start": 5299,
+    "End": 5326
+  },
+  {
+    "Index": 427,
+    "Name": "buildingCandidateFields",
+    "Kind": "FieldDeclaration",
+    "Start": 5327,
+    "End": 5327
+  },
+  {
+    "Index": 428,
+    "Name": "IsLegalBuildingCandidate",
+    "Kind": "MethodDeclaration",
+    "Start": 5329,
+    "End": 5339
+  },
+  {
+    "Index": 429,
+    "Name": "BuildingCandidateEdge",
+    "Kind": "MethodDeclaration",
+    "Start": 5341,
+    "End": 5349
+  },
+  {
+    "Index": 430,
+    "Name": "ObserveScopedRegionPairReachability",
+    "Kind": "MethodDeclaration",
+    "Start": 5351,
+    "End": 5384
+  },
+  {
+    "Index": 431,
+    "Name": "ObserveScopedRegionPairReachabilityCore",
+    "Kind": "MethodDeclaration",
+    "Start": 5386,
+    "End": 5549
+  },
+  {
+    "Index": 432,
+    "Name": "EvaluateAttackUnitRegionFallback",
+    "Kind": "MethodDeclaration",
+    "Start": 5551,
+    "End": 5628
+  },
+  {
+    "Index": 433,
+    "Name": "IsValidAttackSourceRegionContext",
+    "Kind": "MethodDeclaration",
+    "Start": 5630,
+    "End": 5645
+  },
+  {
+    "Index": 434,
+    "Name": "EvaluateAttackBuildingRegionFallback",
+    "Kind": "MethodDeclaration",
+    "Start": 5647,
+    "End": 5780
+  },
+  {
+    "Index": 435,
+    "Name": "GetBuildingApproachTilesForRegion",
+    "Kind": "MethodDeclaration",
+    "Start": 5782,
+    "End": 5859
+  },
+  {
+    "Index": 436,
+    "Name": "ResolveAttackApproachRepresentative",
+    "Kind": "MethodDeclaration",
+    "Start": 5861,
+    "End": 5884
+  },
+  {
+    "Index": 437,
+    "Name": "TryCaptureOrderedActiveGroupUnits",
+    "Kind": "MethodDeclaration",
+    "Start": 5886,
+    "End": 5918
+  },
+  {
+    "Index": 438,
+    "Name": "CaptureBuildingApproachCandidates",
+    "Kind": "MethodDeclaration",
+    "Start": 5920,
+    "End": 5941
+  },
+  {
+    "Index": 439,
+    "Name": "CaptureBuildingApproachBuffer",
+    "Kind": "MethodDeclaration",
+    "Start": 5943,
+    "End": 5959
+  },
+  {
+    "Index": 440,
+    "Name": "RestoreBuildingApproachBuffer",
+    "Kind": "MethodDeclaration",
+    "Start": 5961,
+    "End": 5968
+  },
+  {
+    "Index": 441,
+    "Name": "WriteBuildingApproachCandidates",
+    "Kind": "MethodDeclaration",
+    "Start": 5970,
+    "End": 5978
+  },
+  {
+    "Index": 442,
+    "Name": "WriteBuildingApproachCandidate",
+    "Kind": "MethodDeclaration",
+    "Start": 5980,
+    "End": 5988
+  },
+  {
+    "Index": 443,
+    "Name": "PublishBuildingApproachPairs",
+    "Kind": "MethodDeclaration",
+    "Start": 5990,
+    "End": 6009
+  },
+  {
+    "Index": 444,
+    "Name": "PublishUnitAttackApproachTiles",
+    "Kind": "MethodDeclaration",
+    "Start": 6011,
+    "End": 6039
+  },
+  {
+    "Index": 445,
+    "Name": "TryGetPublishedBuildingFootprint",
+    "Kind": "MethodDeclaration",
+    "Start": 6041,
+    "End": 6058
+  },
+  {
+    "Index": 446,
+    "Name": "HasPublishedBuildingApproachPair",
+    "Kind": "MethodDeclaration",
+    "Start": 6060,
+    "End": 6066
+  },
+  {
+    "Index": 447,
+    "Name": "LogBuildingConsumerCandidates",
+    "Kind": "MethodDeclaration",
+    "Start": 6068,
+    "End": 6111
+  },
+  {
+    "Index": 448,
+    "Name": "LogBuildingConsumerPerformance",
+    "Kind": "MethodDeclaration",
+    "Start": 6113,
+    "End": 6135
+  },
+  {
+    "Index": 449,
+    "Name": "LogBuildingApproachPerformance",
+    "Kind": "MethodDeclaration",
+    "Start": 6137,
+    "End": 6164
+  },
+  {
+    "Index": 450,
+    "Name": "CaptureAttackApproachState",
+    "Kind": "MethodDeclaration",
+    "Start": 6166,
+    "End": 6222
+  },
+  {
+    "Index": 451,
+    "Name": "LogAttackApproachDiagnostic",
+    "Kind": "MethodDeclaration",
+    "Start": 6224,
+    "End": 6241
+  },
+  {
+    "Index": 452,
+    "Name": "DiagnoseAttackApproachTilePair",
+    "Kind": "MethodDeclaration",
+    "Start": 6243,
+    "End": 6289
+  },
+  {
+    "Index": 453,
+    "Name": "AllowBuildingCursorThroughCompletedMoat",
+    "Kind": "MethodDeclaration",
+    "Start": 6291,
+    "End": 6441
+  },
+  {
+    "Index": 454,
+    "Name": "ObserveCursorTilePairFallbackSelection",
+    "Kind": "MethodDeclaration",
+    "Start": 6443,
+    "End": 6656
+  },
+  {
+    "Index": 455,
+    "Name": "AllowAttackCursorTilePairThroughCompletedMoat",
+    "Kind": "MethodDeclaration",
+    "Start": 6658,
+    "End": 6687
+  },
+  {
+    "Index": 456,
+    "Name": "AllowCursorRegionThroughCompletedMoat",
+    "Kind": "MethodDeclaration",
+    "Start": 6689,
+    "End": 6693
+  },
+  {
+    "Index": 457,
+    "Name": "AllowCursorReachabilityThroughCompletedMoat",
+    "Kind": "MethodDeclaration",
+    "Start": 6699,
+    "End": 6704
+  },
+  {
+    "Index": 458,
+    "Name": "TryFindRequiredFriendlyCompletedMoatRouteForPlan",
+    "Kind": "MethodDeclaration",
+    "Start": 6710,
+    "End": 6716
+  },
+  {
+    "Index": 459,
+    "Name": "TryFindRequiredFriendlyCompletedMoatRouteForPlan",
+    "Kind": "MethodDeclaration",
+    "Start": 6718,
+    "End": 6962
+  },
+  {
+    "Index": 460,
+    "Name": "TryGetCachedRequiredFriendlyRouteForPlan",
+    "Kind": "MethodDeclaration",
+    "Start": 6964,
+    "End": 6968
+  },
+  {
+    "Index": 461,
+    "Name": "TryQualifyMoveCommandFloodBypass",
+    "Kind": "MethodDeclaration",
+    "Start": 6970,
+    "End": 7025
+  },
+  {
+    "Index": 462,
+    "Name": "TryFindRequiredFriendlyCompletedMoatRouteToEndpoint",
+    "Kind": "MethodDeclaration",
+    "Start": 7027,
+    "End": 7105
+  },
+  {
+    "Index": 463,
+    "Name": "TryQualifySelectedGroupCursorRoute",
+    "Kind": "MethodDeclaration",
+    "Start": 7107,
+    "End": 7157
+  },
+  {
+    "Index": 464,
+    "Name": "CreateCursorScopeForSnapshot",
+    "Kind": "MethodDeclaration",
+    "Start": 7159,
+    "End": 7182
+  },
+  {
+    "Index": 465,
+    "Name": "TryCaptureSelectedGroup",
+    "Kind": "MethodDeclaration",
+    "Start": 7184,
+    "End": 7186
+  },
+  {
+    "Index": 466,
+    "Name": "TryProbeDirectCursorRoute",
+    "Kind": "MethodDeclaration",
+    "Start": 7188,
+    "End": 7203
+  },
+  {
+    "Index": 467,
+    "Name": "TryProbeUnitApproachCursorRoute",
+    "Kind": "MethodDeclaration",
+    "Start": 7205,
+    "End": 7220
+  },
+  {
+    "Index": 468,
+    "Name": "TryQualifyCursorScope",
+    "Kind": "MethodDeclaration",
+    "Start": 7222,
+    "End": 7239
+  },
+  {
+    "Index": 469,
+    "Name": "CursorScopeMatchesTargetTile",
+    "Kind": "MethodDeclaration",
+    "Start": 7241,
+    "End": 7262
+  },
+  {
+    "Index": 470,
+    "Name": "CursorStartMatchesBoundSelection",
+    "Kind": "MethodDeclaration",
+    "Start": 7264,
+    "End": 7289
+  },
+  {
+    "Index": 471,
+    "Name": "TryResolveHostileLivingUnitFromRawCursor",
+    "Kind": "MethodDeclaration",
+    "Start": 7291,
+    "End": 7338
+  },
+  {
+    "Index": 472,
+    "Name": "TryResolveHostileLivingBuildingFromRawCursor",
+    "Kind": "MethodDeclaration",
+    "Start": 7340,
+    "End": 7420
+  },
+  {
+    "Index": 473,
+    "Name": "TryResolveNearestBuildingFootprintTile",
+    "Kind": "MethodDeclaration",
+    "Start": 7422,
+    "End": 7498
+  },
+  {
+    "Index": 474,
+    "Name": "FormatBuildingHoverTileSource",
+    "Kind": "MethodDeclaration",
+    "Start": 7500,
+    "End": 7515
+  },
+  {
+    "Index": 475,
+    "Name": "TryResolveRawBuildingFootprintTile",
+    "Kind": "MethodDeclaration",
+    "Start": 7517,
+    "End": 7541
+  },
+  {
+    "Index": 476,
+    "Name": "TryGetHostileLivingBuildingForCursor",
+    "Kind": "MethodDeclaration",
+    "Start": 7543,
+    "End": 7586
+  },
+  {
+    "Index": 477,
+    "Name": "IsWallStairOrRampStructure",
+    "Kind": "MethodDeclaration",
+    "Start": 7588,
+    "End": 7593
+  },
+  {
+    "Index": 478,
+    "Name": "TryValidateHostileBuildingTarget",
+    "Kind": "MethodDeclaration",
+    "Start": 7595,
+    "End": 7623
+  },
+  {
+    "Index": 479,
+    "Name": "TryGetUnitAttackMoveTile",
+    "Kind": "MethodDeclaration",
+    "Start": 7625,
+    "End": 7639
+  },
+  {
+    "Index": 480,
+    "Name": "IsExactBuildingContextTile",
+    "Kind": "MethodDeclaration",
+    "Start": 7641,
+    "End": 7653
+  },
+  {
+    "Index": 481,
+    "Name": "IsValidBuildingApproachPair",
+    "Kind": "MethodDeclaration",
+    "Start": 7655,
+    "End": 7692
+  },
+  {
+    "Index": 482,
+    "Name": "IsWalkableBuildingApproachEndpoint",
+    "Kind": "MethodDeclaration",
+    "Start": 7694,
+    "End": 7714
+  },
+  {
+    "Index": 483,
+    "Name": "TryProbeBuildingApproachCursorRoute",
+    "Kind": "MethodDeclaration",
+    "Start": 7716,
+    "End": 7811
+  },
+  {
+    "Index": 484,
+    "Name": "TryGetHostileLivingUnitAtTile",
+    "Kind": "MethodDeclaration",
+    "Start": 7813,
+    "End": 7863
+  },
+  {
+    "Index": 485,
+    "Name": "TryFindFriendlyCompletedMoatRouteToAttackApproach",
+    "Kind": "MethodDeclaration",
+    "Start": 7865,
+    "End": 7936
+  },
+  {
+    "Index": 486,
+    "Name": "EnsureReachabilityMap",
+    "Kind": "MethodDeclaration",
+    "Start": 7938,
+    "End": 8050
+  },
+  {
+    "Index": 487,
+    "Name": "reachabilityQueueHead,reachabilityQueueTail",
+    "Kind": "FieldDeclaration",
+    "Start": 8052,
+    "End": 8052
+  },
+  {
+    "Index": 488,
+    "Name": "reachabilityOwner",
+    "Kind": "FieldDeclaration",
+    "Start": 8053,
+    "End": 8053
+  },
+  {
+    "Index": 489,
+    "Name": "reachabilityTick",
+    "Kind": "FieldDeclaration",
+    "Start": 8054,
+    "End": 8054
+  },
+  {
+    "Index": 490,
+    "Name": "AdvanceReachabilityMap",
+    "Kind": "MethodDeclaration",
+    "Start": 8055,
+    "End": 8079
+  },
+  {
+    "Index": 491,
+    "Name": "EnsureReachabilityStorage",
+    "Kind": "MethodDeclaration",
+    "Start": 8080,
+    "End": 8096
+  },
+  {
+    "Index": 492,
+    "Name": "VisitNeighbour",
+    "Kind": "MethodDeclaration",
+    "Start": 8098,
+    "End": 8163
+  },
+  {
+    "Index": 493,
+    "Name": "GetRouteVisitedMap",
+    "Kind": "MethodDeclaration",
+    "Start": 8165,
+    "End": 8170
+  },
+  {
+    "Index": 494,
+    "Name": "GetRouteDistanceMap",
+    "Kind": "MethodDeclaration",
+    "Start": 8172,
+    "End": 8177
+  },
+  {
+    "Index": 495,
+    "Name": "GetRouteDistance",
+    "Kind": "MethodDeclaration",
+    "Start": 8179,
+    "End": 8180
+  },
+  {
+    "Index": 496,
+    "Name": "ObserveTraversedRegion",
+    "Kind": "MethodDeclaration",
+    "Start": 8182,
+    "End": 8198
+  },
+  {
+    "Index": 497,
+    "Name": "GetCachedRouteSummaryForTarget",
+    "Kind": "MethodDeclaration",
+    "Start": 8200,
+    "End": 8221
+  },
+  {
+    "Index": 498,
+    "Name": "GetCachedRouteSummaryForRegion",
+    "Kind": "MethodDeclaration",
+    "Start": 8223,
+    "End": 8241
+  },
+  {
+    "Index": 499,
+    "Name": "TryClassifyFriendlyMoat",
+    "Kind": "MethodDeclaration",
+    "Start": 8243,
+    "End": 8303
+  },
+  {
+    "Index": 500,
+    "Name": "LogUnscopedAttackMode",
+    "Kind": "MethodDeclaration",
+    "Start": 8305,
+    "End": 8338
+  },
+  {
+    "Index": 501,
+    "Name": "ResetMapState",
+    "Kind": "MethodDeclaration",
+    "Start": 8340,
+    "End": 8387
+  },
+  {
+    "Index": 502,
+    "Name": "LogCursorDecision",
+    "Kind": "MethodDeclaration",
+    "Start": 8389,
+    "End": 8392
+  },
+  {
+    "Index": 503,
+    "Name": "LogDetailedInfo",
+    "Kind": "MethodDeclaration",
+    "Start": 8394,
+    "End": 8398
+  },
+  {
+    "Index": 504,
+    "Name": "LogPositiveCursorDecision",
+    "Kind": "MethodDeclaration",
+    "Start": 8400,
+    "End": 8407
+  },
+  {
+    "Index": 505,
+    "Name": "LogCursorOwnerBlockDecision",
+    "Kind": "MethodDeclaration",
+    "Start": 8409,
+    "End": 8416
+  },
+  {
+    "Index": 506,
+    "Name": "ShouldLogUnitPipeline",
+    "Kind": "PropertyDeclaration",
+    "Start": 8420,
+    "End": 8423
+  },
+  {
+    "Index": 507,
+    "Name": "LogMovementContext",
+    "Kind": "MethodDeclaration",
+    "Start": 8425,
+    "End": 8428
+  },
+  {
+    "Index": 508,
+    "Name": "LogBuilderDecision",
+    "Kind": "MethodDeclaration",
+    "Start": 8430,
+    "End": 8433
+  },
+  {
+    "Index": 509,
+    "Name": "LogPipelineDiagnostic",
+    "Kind": "MethodDeclaration",
+    "Start": 8435,
+    "End": 8438
+  },
+  {
+    "Index": 510,
+    "Name": "LogCommandDiagnostic",
+    "Kind": "MethodDeclaration",
+    "Start": 8440,
+    "End": 8443
+  },
+  {
+    "Index": 511,
+    "Name": "BufferOrLogCommandDiagnostic",
+    "Kind": "MethodDeclaration",
+    "Start": 8445,
+    "End": 8486
+  },
+  {
+    "Index": 512,
+    "Name": "FlushRequiredBackgroundDiagnosticSummary",
+    "Kind": "MethodDeclaration",
+    "Start": 8488,
+    "End": 8498
+  },
+  {
+    "Index": 513,
+    "Name": "FlushAttackDiagnostics",
+    "Kind": "MethodDeclaration",
+    "Start": 8500,
+    "End": 8514
+  },
+  {
+    "Index": 514,
+    "Name": "FormatCounts",
+    "Kind": "MethodDeclaration",
+    "Start": 8516,
+    "End": 8526
+  },
+  {
+    "Index": 515,
+    "Name": "MarkCommandMoatRelevant",
+    "Kind": "MethodDeclaration",
+    "Start": 8528,
+    "End": 8536
+  },
+  {
+    "Index": 516,
+    "Name": "QualifyPendingCommandDiagnostics",
+    "Kind": "MethodDeclaration",
+    "Start": 8538,
+    "End": 8558
+  },
+  {
+    "Index": 517,
+    "Name": "FlushCommandDiagnostics",
+    "Kind": "MethodDeclaration",
+    "Start": 8560,
+    "End": 8601
+  },
+  {
+    "Index": 518,
+    "Name": "LogQueuedMoveHereOutcome",
+    "Kind": "MethodDeclaration",
+    "Start": 8603,
+    "End": 8636
+  },
+  {
+    "Index": 519,
+    "Name": "DescribeRejectedQueueWaypoint",
+    "Kind": "MethodDeclaration",
+    "Start": 8638,
+    "End": 8671
+  },
+  {
+    "Index": 520,
+    "Name": "LogModeContext",
+    "Kind": "MethodDeclaration",
+    "Start": 8673,
+    "End": 8702
+  },
+  {
+    "Index": 521,
+    "Name": "RecordBuilderResult",
+    "Kind": "MethodDeclaration",
+    "Start": 8704,
+    "End": 8712
+  },
+  {
+    "Index": 522,
+    "Name": "RecordVanillaBuilderResult",
+    "Kind": "MethodDeclaration",
+    "Start": 8714,
+    "End": 8722
+  },
+  {
+    "Index": 523,
+    "Name": "LogRejectedPlannerRoute",
+    "Kind": "MethodDeclaration",
+    "Start": 8724,
+    "End": 8759
+  },
+  {
+    "Index": 524,
+    "Name": "LogFailure",
+    "Kind": "MethodDeclaration",
+    "Start": 8761,
+    "End": 8769
+  },
+  {
+    "Index": 525,
+    "Name": "TryLogDiagnosticFailure",
+    "Kind": "MethodDeclaration",
+    "Start": 8771,
+    "End": 8786
+  },
+  {
+    "Index": 526,
+    "Name": "Resolve",
+    "Kind": "MethodDeclaration",
+    "Start": 8788,
+    "End": 8804
+  },
+  {
+    "Index": 527,
+    "Name": "ValidateExactBytes",
+    "Kind": "MethodDeclaration",
+    "Start": 8806,
+    "End": 8815
+  },
+  {
+    "Index": 528,
+    "Name": "ValidateGameUnitFieldOffset",
+    "Kind": "MethodDeclaration",
+    "Start": 8817,
+    "End": 8820
+  },
+  {
+    "Index": 529,
+    "Name": "ValidateStructFieldOffset",
+    "Kind": "MethodDeclaration",
+    "Start": 8822,
+    "End": 8831
+  },
+  {
+    "Index": 530,
+    "Name": "ValidateCallTarget",
+    "Kind": "MethodDeclaration",
+    "Start": 8833,
+    "End": 8851
+  },
+  {
+    "Index": 531,
+    "Name": "IsValidTileId",
+    "Kind": "MethodDeclaration",
+    "Start": 8853,
+    "End": 8854
+  },
+  {
+    "Index": 532,
+    "Name": "ResolveNativeSpecialStructure",
+    "Kind": "MethodDeclaration",
+    "Start": 8856,
+    "End": 8858
+  },
+  {
+    "Index": 533,
+    "Name": "CreateOwnedHookTransaction",
+    "Kind": "MethodDeclaration",
+    "Start": 8860,
+    "End": 8872
+  },
+  {
+    "Index": 534,
+    "Name": "AddDetour",
+    "Kind": "MethodDeclaration",
+    "Start": 8874,
+    "End": 8897
+  },
+  {
+    "Index": 535,
+    "Name": "ValidateMoatModeDetourCandidate",
+    "Kind": "MethodDeclaration",
+    "Start": 8899,
+    "End": 8929
+  },
+  {
+    "Index": 536,
+    "Name": "AttackPipelineStage",
+    "Kind": "EnumDeclaration",
+    "Start": 8931,
+    "End": 8936
+  },
+  {
+    "Index": 537,
+    "Name": "AttackApproachKind",
+    "Kind": "EnumDeclaration",
+    "Start": 8938,
+    "End": 8943
+  },
+  {
+    "Index": 538,
+    "Name": "BuildingHoverTileSource",
+    "Kind": "EnumDeclaration",
+    "Start": 8945,
+    "End": 8952
+  },
+  {
+    "Index": 539,
+    "Name": "CursorPairFallbackKind",
+    "Kind": "EnumDeclaration",
+    "Start": 8954,
+    "End": 8959
+  },
+  {
+    "Index": 540,
+    "Name": "AttackCommandScope",
+    "Kind": "ClassDeclaration",
+    "Start": 8961,
+    "End": 9083
+  },
+  {
+    "Index": 541,
+    "Name": "RequiredRouteMetrics",
+    "Kind": "ClassDeclaration",
+    "Start": 9085,
+    "End": 9145
+  },
+  {
+    "Index": 542,
+    "Name": "RequiredRouteCache",
+    "Kind": "ClassDeclaration",
+    "Start": 9147,
+    "End": 9151
+  },
+  {
+    "Index": 543,
+    "Name": "AttackUnitTracker",
+    "Kind": "ClassDeclaration",
+    "Start": 9153,
+    "End": 9195
+  },
+  {
+    "Index": 544,
+    "Name": "MoatMoveTracker",
+    "Kind": "ClassDeclaration",
+    "Start": 9197,
+    "End": 9342
+  },
+  {
+    "Index": 545,
+    "Name": "BuilderWeightedScope",
+    "Kind": "ClassDeclaration",
+    "Start": 9344,
+    "End": 9424
+  },
+  {
+    "Index": 546,
+    "Name": "AttackRegionFallbackDecision",
+    "Kind": "StructDeclaration",
+    "Start": 9426,
+    "End": 9462
+  },
+  {
+    "Index": 547,
+    "Name": "AttackApproachState",
+    "Kind": "StructDeclaration",
+    "Start": 9464,
+    "End": 9505
+  },
+  {
+    "Index": 548,
+    "Name": "BuildingApproachCandidate",
+    "Kind": "StructDeclaration",
+    "Start": 9507,
+    "End": 9527
+  },
+  {
+    "Index": 549,
+    "Name": "BuildingApproachPerformanceScope",
+    "Kind": "ClassDeclaration",
+    "Start": 9529,
+    "End": 9563
+  },
+  {
+    "Index": 550,
+    "Name": "BuildingConsumerPerformanceScope",
+    "Kind": "ClassDeclaration",
+    "Start": 9565,
+    "End": 9597
+  },
+  {
+    "Index": 551,
+    "Name": "BuildingConsumerFallbackResult",
+    "Kind": "StructDeclaration",
+    "Start": 9599,
+    "End": 9682
+  },
+  {
+    "Index": 552,
+    "Name": "AttackApproachDiagnosticScope",
+    "Kind": "ClassDeclaration",
+    "Start": 9684,
+    "End": 9820
+  },
+  {
+    "Index": 553,
+    "Name": "TilePairAggregate",
+    "Kind": "ClassDeclaration",
+    "Start": 9822,
+    "End": 9839
+  },
+  {
+    "Index": 554,
+    "Name": "MoveCommandScope",
+    "Kind": "ClassDeclaration",
+    "Start": 9841,
+    "End": 9972
+  },
+  {
+    "Index": 555,
+    "Name": "EarlyGroupRegionDecision",
+    "Kind": "StructDeclaration",
+    "Start": 9974,
+    "End": 9989
+  },
+  {
+    "Index": 556,
+    "Name": "RouteDecisionKey",
+    "Kind": "StructDeclaration",
+    "Start": 9991,
+    "End": 10007
+  },
+  {
+    "Index": 557,
+    "Name": "QualifiedMovementRoute",
+    "Kind": "ClassDeclaration",
+    "Start": 10009,
+    "End": 10021
+  },
+  {
+    "Index": 558,
+    "Name": "GetReusableQualifiedRoute",
+    "Kind": "MethodDeclaration",
+    "Start": 10023,
+    "End": 10034
+  },
+  {
+    "Index": 559,
+    "Name": "TargetedRouteDecision",
+    "Kind": "StructDeclaration",
+    "Start": 10036,
+    "End": 10049
+  },
+  {
+    "Index": 560,
+    "Name": "UnitMoveFrame",
+    "Kind": "ClassDeclaration",
+    "Start": 10051,
+    "End": 10078
+  },
+  {
+    "Index": 561,
+    "Name": "PlanScope",
+    "Kind": "ClassDeclaration",
+    "Start": 10080,
+    "End": 10113
+  },
+  {
+    "Index": 562,
+    "Name": "NativeWaypointQueueTracker",
+    "Kind": "ClassDeclaration",
+    "Start": 10115,
+    "End": 10128
+  },
+  {
+    "Index": 563,
+    "Name": "NativeWaypointQueueSnapshot",
+    "Kind": "StructDeclaration",
+    "Start": 10130,
+    "End": 10156
+  },
+  {
+    "Index": 564,
+    "Name": "AttackCursorPairScope",
+    "Kind": "ClassDeclaration",
+    "Start": 10158,
+    "End": 10220
+  },
+  {
+    "Index": 565,
+    "Name": "BuildingCursorTarget",
+    "Kind": "StructDeclaration",
+    "Start": 10222,
+    "End": 10230
+  },
+  {
+    "Index": 566,
+    "Name": "RouteProbeSummary",
+    "Kind": "StructDeclaration",
+    "Start": 10232,
+    "End": 10331
+  },
+  {
+    "Index": 567,
+    "Name": "CursorGroupRouteSummary",
+    "Kind": "StructDeclaration",
+    "Start": 10333,
+    "End": 10347
+  },
+  {
+    "Index": 568,
+    "Name": "SelectedCursorUnitSnapshot",
+    "Kind": "StructDeclaration",
+    "Start": 10349,
+    "End": 10366
+  }
+]

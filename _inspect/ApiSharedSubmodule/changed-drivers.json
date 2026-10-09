@@ -1,0 +1,18 @@
+[
+  "BugfixesAndQoL/build.bat",
+  "CastlePlanner/build.bat",
+  "ExtendedData/build.bat",
+  "ExtraFeatures/build.bat",
+  "SerpsModsHost/build.bat",
+  "StartConditions/build.bat",
+  "Helpers/ActiveAIVDetector/build.bat",
+  "Testmods/AIBuildDiagnoseTest/build.bat",
+  "Testmods/AICoarsePathComponentFixTest/build.bat",
+  "Testmods/AIMarketOverbuyDiagnostic/build.bat",
+  "Testmods/EnemyBridgePathTest/build.bat",
+  "Testmods/EnemyGatePathfindingTest/build.bat",
+  "Testmods/MainViewModelInitProbe/build.bat",
+  "Testmods/PrebuiltWorkshopBothFixTest/build.bat",
+  "Testmods/SkinTest/build.bat",
+  "Testmods/SpectatorEditorBuildTest/build.bat"
+]

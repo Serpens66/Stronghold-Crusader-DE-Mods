@@ -8,7 +8,7 @@ param(
 . (Join-Path $PSScriptRoot 'SCDEModManagerPackage.ps1')
 
 if ($ModName -eq 'APIShared') {
-    throw 'APIShared releases now belong to SHCDE-APIShared/APIShared. Use release.bat from the independent checkout after exporting the reviewed source commit.'
+    throw 'APIShared releases now belong to SHCDE-APIShared/APIShared. Use APIShared/release.bat from the shared Git checkout.'
 }
 
 $metadata = $null
@@ -30,6 +30,10 @@ try {
     [void](Invoke-CheckedCommand -FilePath 'gh' -Arguments @('auth', 'status'))
     $status = Invoke-CheckedCommand -FilePath 'git' -Arguments @('-C', $config.Root, 'status', '--porcelain=v1', '--untracked-files=normal')
     if ($status.Output.Count -ne 0) { throw "Git working tree is not clean:`r`n$($status.Output -join "`r`n")" }
+    if ($apiSharedConsumer) {
+        . (Join-Path $config.Root 'Shared/Tools/ApiSharedRepository/ApiShared.Common.ps1')
+        $null = Assert-ApiReleaseState $config.Root
+    }
     if ($ValidateOnly) {
         Write-Host 'Validation-only mode stopped before fetch, build, tag, release, or upload.' -ForegroundColor Green
         exit 0
@@ -182,6 +186,7 @@ try {
         }
         ApiSharedRequirement = $(if ($apiSharedConsumer) { [ordered]@{
             MinimumVersion = $apiSharedMinimum
+            Commit = [string]$apiSharedPackage.Commit
             ValidatedVersion = [string]$apiSharedPackage.Version
             ReleaseTag = [string]$apiSharedRelease.Tag
             ReleaseUrl = [string]$apiSharedRelease.Url

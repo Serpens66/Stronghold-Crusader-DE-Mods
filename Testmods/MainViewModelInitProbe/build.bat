@@ -7,9 +7,9 @@ set "PROJECT_DIR=%~dp0"
 set "MSBUILD=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe"
 set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
 set "EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
-set "GAME_API_DIR=%GAME_DIR%\BepInEx\plugins\APIShared_Serp"
-set "LOCAL_API_DIR=%PROJECT_DIR%..\..\APIShared\BepInEx\plugins\APIShared_Serp"
-set "API_SHARED_DIR="
+set "API_SHARED_DIR=%~dp0..\..\APIShared\BepInEx\plugins\APIShared_Serp"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\..\Shared\Tools\ApiSharedRepository\Test-ConsumerPackage.ps1" -Workspace "%~dp0..\.." -PackageDirectory "%API_SHARED_DIR%"
+if errorlevel 1 exit /b 1
 set "PLUGIN_NAME=MainViewModelInitProbe_Serp"
 set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\%PLUGIN_NAME%"
 set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%"
@@ -25,11 +25,7 @@ if errorlevel 1 (
 
 if not exist "%MSBUILD%" goto build_failed
 if not exist "%EXTENDER_DIR%\SHCDESE.dll" goto extender_missing
-if exist "%GAME_API_DIR%\APIShared.dll" (
-  set "API_SHARED_DIR=%GAME_API_DIR%"
-) else if exist "%LOCAL_API_DIR%\APIShared.dll" (
-  set "API_SHARED_DIR=%LOCAL_API_DIR%"
-) else goto api_missing
+if not exist "%API_SHARED_DIR%\APIShared.dll" goto api_missing
 
 if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
 pushd "%PROJECT_DIR%"

@@ -146,9 +146,7 @@ Assert-True ($hostBuildText.Contains('if not exist "%API_SHARED_DIR%\APIShared.d
 Assert-True ($hostBuildText.Contains('echo APIShared.dll wurde nicht gefunden: !API_SHARED_DIR!\APIShared.dll')) 'host build must identify the missing APIShared DLL path'
 Assert-True ($hostBuildText.IndexOf('if not exist "%API_SHARED_DIR%\APIShared.dll" (') -lt $hostBuildText.IndexOf('rmdir /S /Q "%LOCAL_PLUGIN_DIR%"')) 'host build must validate APIShared before deleting local output'
 Assert-True ($hostBuildText.Contains('/p:ApiSharedDir="%API_SHARED_DIR%"')) 'host build must pass APIShared directory to MSBuild'
-Assert-True ($createScriptText.Contains('$env:SHCDE_API_SHARED_DIR = $apiSharedInfrastructure.Directory')) 'Steam pack must pass the validated published APIShared directory to host build'
-Assert-True ($createScriptText.Contains('$previousApiSharedEnvironment = $env:SHCDE_API_SHARED_DIR') -and $createScriptText.Contains('$env:SHCDE_API_SHARED_DIR = $previousApiSharedEnvironment')) 'Steam pack must restore the caller APIShared override'
-Assert-True ($createScriptText.Contains("Remove-Item -LiteralPath 'Env:SHCDE_API_SHARED_DIR' -ErrorAction SilentlyContinue")) 'Steam pack must clear an initially undefined APIShared override'
+Assert-True ($createScriptText.Contains('Assert-SteamApiSharedBinary -LocalDll $localApiDll')) 'Steam staging must validate the local build DLL against the published infrastructure'
 Assert-True ($createScriptText.Contains('$apiSharedAssembly.Version -cne [string]$apiSharedSourceInfo.Version')) 'Steam staging must compare the APIShared DLL version with the source manifest'
 Assert-True (-not $createScriptText.Contains('releaseConfig.ApiShared.Version')) 'Steam staging must not depend on a duplicated configured APIShared version'
 Assert-True ($createScriptText.Contains('Get-ApiSharedReleasePackage -Infrastructure $apiSharedInfrastructure')) 'Steam staging must consume a validated published APIShared package'
@@ -183,6 +181,41 @@ try {
     $zipPackage = Join-Path $testRoot 'zip-stage\SerpsMods_Serp'
     [void](New-Item -ItemType Directory -Path (Join-Path $zipPackage 'Mods\Example_Serp') -Force)
     [IO.File]::WriteAllText((Join-Path $zipPackage 'SerpsModsHost.dll'), 'host')
+    $cleanupRoot = Join-Path $testRoot 'host-cleanup'
+    [IO.Directory]::CreateDirectory((Join-Path $cleanupRoot 'Infrastructure\APIShared_Serp')) | Out-Null
+    [IO.Directory]::CreateDirectory((Join-Path $cleanupRoot 'LobbyModSettings')) | Out-Null
+    [IO.Directory]::CreateDirectory((Join-Path $cleanupRoot 'OldHostFiles')) | Out-Null
+    $installedApi = Join-Path $cleanupRoot 'Infrastructure\APIShared_Serp\APIShared.dll'
+    $savedSettings = Join-Path $cleanupRoot 'LobbyModSettings\settings.json'
+    [IO.File]::WriteAllText($installedApi, 'independently installed APIShared')
+    [IO.File]::WriteAllText($savedSettings, 'player settings')
+    [IO.File]::WriteAllText((Join-Path $cleanupRoot 'OldHostFiles\old.txt'), 'old host output')
+    [IO.File]::WriteAllText((Join-Path $cleanupRoot 'old-host.dll'), 'old host output')
+    if (-not [IO.Path]::GetFullPath($cleanupRoot).StartsWith([IO.Path]::GetFullPath($testRoot) + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) { throw 'Unsafe cleanup fixture path' }
+    $cleanupBlock = [regex]::Match($hostBuildText, '(?s)if exist "%GAME_PLUGIN_DIR%\\" \(.*?(?=xcopy "%LOCAL_PLUGIN_DIR%")').Value
+    Assert-True (-not [string]::IsNullOrEmpty($cleanupBlock)) 'host installation cleanup must be available for the fixture'
+    $cleanupDriver = Join-Path $testRoot 'host-cleanup.bat'
+    $cleanupText = '@echo off' + "`r`nsetlocal EnableExtensions EnableDelayedExpansion`r`n" + 'set "GAME_PLUGIN_DIR=' + $cleanupRoot + '"' + "`r`n" + $cleanupBlock + "exit /b 0`r`n:copy_failed`r`nexit /b 1`r`n"
+    [IO.File]::WriteAllText($cleanupDriver, $cleanupText, [Text.UTF8Encoding]::new($false))
+    & $cleanupDriver
+    Assert-True ($LASTEXITCODE -eq 0) 'host cleanup fixture must succeed'
+    Assert-True ([IO.File]::ReadAllText($installedApi) -ceq 'independently installed APIShared') 'host installation must preserve independently installed APIShared infrastructure'
+    Assert-True ([IO.File]::ReadAllText($savedSettings) -ceq 'player settings') 'host installation must preserve player settings'
+    Assert-True (-not (Test-Path -LiteralPath (Join-Path $cleanupRoot 'OldHostFiles')) -and -not (Test-Path -LiteralPath (Join-Path $cleanupRoot 'old-host.dll'))) 'host cleanup must remove obsolete host output'
+    $localApi = Join-Path $testRoot 'local-api.dll'
+    $publishedApi = Join-Path $testRoot 'published-api.dll'
+    [IO.File]::WriteAllBytes($localApi, [byte[]]@(1,2,3,4))
+    [IO.File]::WriteAllBytes($publishedApi, [byte[]]@(1,2,3,4))
+    Assert-SteamApiSharedBinary -LocalDll $localApi -PublishedDll $publishedApi
+    [IO.File]::WriteAllBytes($publishedApi, [byte[]]@(1,2,3,5))
+    $differentApiRejected = $false
+    try { Assert-SteamApiSharedBinary -LocalDll $localApi -PublishedDll $publishedApi }
+    catch { $differentApiRejected = $_.Exception.Message -match 'differs from the local DLL' }
+    Assert-True $differentApiRejected 'a different published APIShared DLL must block staging'
+    $missingApiRejected = $false
+    try { Assert-SteamApiSharedBinary -LocalDll (Join-Path $testRoot 'missing.dll') -PublishedDll $publishedApi }
+    catch { $missingApiRejected = $true }
+    Assert-True $missingApiRejected 'a missing local APIShared DLL must block staging'
     [IO.File]::WriteAllText((Join-Path $zipPackage 'Mods\Example_Serp\Example.dll'), 'example')
     $zipPath = Join-Path $testRoot 'SerpsMods-v9.8.7.zip'
     $zipRecord = New-SteamPackReleaseZip -PackageDirectory $zipPackage -DestinationPath $zipPath

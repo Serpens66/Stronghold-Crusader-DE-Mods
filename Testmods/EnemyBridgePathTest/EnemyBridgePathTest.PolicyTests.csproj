@@ -24,13 +24,13 @@
     <Compile Include="src\VirtualTopologyRebuild.cs" /><Compile Include="src\VirtualPlanningCaller.cs" /><Compile Include="src\BridgePlanningCapture.cs" /><Compile Include="src\VirtualRaisedPlanning.cs" /><Compile Include="src\VirtualPlanningBuildings.cs" /><Compile Include="src\CopiedPlanningBundle.cs" /><Compile Include="src\BridgePlanningImporter.cs" /><Compile Include="src\CopiedPlanningRegions.cs" /><Compile Include="src\CopiedPlanningReplay.cs" /><Compile Include="src\VirtualBridgePlanning.cs" /><Compile Include="src\NativePathfindingTableCopy.cs" />
     <Compile Include="src\DrawbridgeClosurePolicy.cs" /><Compile Include="src\GateEdgeOwnership.cs" />
     <Compile Include="..\..\Shared\Runtime\Gameplay\PathDecisionAggregate.cs" />
-    <Compile Include="..\..\APIShared\src\Pathfinding\EnemyGatePathPolicyBridge.cs" />
-    <Compile Include="..\..\APIShared\src\Pathfinding\EnemyBridgeDiagnosticBridge.cs" />
+    <Compile Include="..\..\APIShared\src\Pathfinding\GateRoutes\EnemyGatePathPolicyBridge.cs" />
+    <Compile Include="..\..\APIShared\src\Pathfinding\GateRoutes\EnemyBridgeDiagnosticBridge.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <ItemGroup><Compile Include="..\..\Shared\Runtime\Threading\DeferredSnapshotRefreshRequest.cs" /></ItemGroup>
 <ItemGroup><Compile Include="tests\CaptureRefreshTests.cs" /></ItemGroup>
-  <ItemGroup><Compile Include="..\..\APIShared\src\Buildings\GatehouseDrawbridgeCoupling.cs"><Link>GatehouseDrawbridgeCoupling.cs</Link></Compile></ItemGroup>
+  <ItemGroup><Compile Include="..\..\APIShared\src\Buildings\Gatehouse\GatehouseDrawbridgeCoupling.cs"><Link>GatehouseDrawbridgeCoupling.cs</Link></Compile></ItemGroup>
   <ItemGroup><Compile Include="..\..\APIShared\src\Units\UnitAccess.cs"><Link>UnitAccess.cs</Link></Compile></ItemGroup>
-  <ItemGroup><Compile Include="tests\OwnerFixture.cs" /><Compile Include="..\..\APIShared\src\UnitCommands\ManualProbeRepairGuards.cs"><Link>ManualProbeRepairGuards.cs</Link></Compile></ItemGroup>
+  <ItemGroup><Compile Include="tests\OwnerFixture.cs" /><Compile Include="..\..\APIShared\src\UnitCommands\Attack\ManualProbeRepairGuards.cs"><Link>ManualProbeRepairGuards.cs</Link></Compile></ItemGroup>
 </Project>

@@ -24,7 +24,7 @@ internal static class NativeCommandDetourContract
         }
         using var native=File.OpenRead(Path.Combine(game,"Stronghold Crusader Definitive Edition_Data/Plugins/x86_64/CrusaderDE.dll"));
         using var pe=new PEReader(native);
-        string table=File.ReadAllText(Path.Combine(root,"APIShared/src/UnitCommands/NativeDetourContracts.cs"));
+        string table=File.ReadAllText(Path.Combine(root,"APIShared/src/UnitCommands/Native/NativeDetourContracts.cs"));
         // Complete function entries used by the shared command transactions. The
         // mode helper additionally has an executable EAX/ZF test in its own fixture.
         int[] targets={0x18E1E0,0x1853F0,0x195E30,0xF4930,0xE32B0,0x124740,0x117BC0,

@@ -5713,7 +5713,7 @@ internal static class Program
               !lifecycle.Contains("RegisterModDataHandler"),
             "Shared gameplay lifecycle no longer gates successful save Post, reacts to nested unloads, or introduced persistence");
 
-        string coordinator = string.Join("\n", Directory.GetFiles(Path.GetDirectoryName(Path.Combine(workspaceRoot, "APIShared", "src", "ModSettings", "PresetLobbyModSettingsViewModel.cs")), "*.cs").Select(File.ReadAllText));
+        string coordinator = string.Join("\n", Directory.GetFiles(Path.Combine(workspaceRoot, "APIShared", "src", "ModSettings", "Lobby"), "*.cs").Select(File.ReadAllText));
         Check(coordinator.Contains("TryGetLobbyState") &&
               coordinator.Contains("API_SHARED_LOBBY_OBSERVER") &&
               !coordinator.Contains("Application.onBeforeRender") &&

@@ -14,8 +14,7 @@ set "LOCAL_SCRIPT_EXTENDER_MOD_OUTPUT=%LOCAL_SCRIPT_EXTENDER_ROOT%\mod_output\00
 set "GAME_SCRIPT_EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
 rem The installed release is canonical; SHCDESE_EXTENDER_DIR is the explicit override.
 if defined SHCDESE_EXTENDER_DIR set "GAME_SCRIPT_EXTENDER_DIR=%SHCDESE_EXTENDER_DIR%"
-set "UNIT_ACCESS_API_DIR=%GAME_DIR%\BepInEx\plugins\APIShared_Serp"
-if exist "%GAME_DIR%\BepInEx\plugins\SerpsMods_Serp\Infrastructure\APIShared_Serp\APIShared.dll" set "UNIT_ACCESS_API_DIR=%GAME_DIR%\BepInEx\plugins\SerpsMods_Serp\Infrastructure\APIShared_Serp"
+set "API_SHARED_DIR=%PROJECT_DIR%..\..\APIShared\BepInEx\plugins\APIShared_Serp"
 set "LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT=%GAME_SCRIPT_EXTENDER_DIR%"
 set "LOCAL_SCRIPT_EXTENDER_MOD_OUTPUT=%GAME_SCRIPT_EXTENDER_DIR%"
 set "PLUGIN_NAME=HunterQueryTargetDiagnostic_Serp"
@@ -45,9 +44,11 @@ if exist "%LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT%\SHCDESE.dll" (
   set "EXTENDER_DIR=%GAME_SCRIPT_EXTENDER_DIR%"
 ) else goto build_failed
 
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\..\Shared\Tools\ApiSharedRepository\Test-ConsumerPackage.ps1" -Workspace "%PROJECT_DIR%..\.." -PackageDirectory "%API_SHARED_DIR%"
+if errorlevel 1 goto build_failed
 if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
 pushd "%PROJECT_DIR%"
-"%MSBUILD%" HunterQueryTargetDiagnostic.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%UNIT_ACCESS_API_DIR%"
+"%MSBUILD%" HunterQueryTargetDiagnostic.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%"
 if errorlevel 1 goto build_failed_popd
 popd
 

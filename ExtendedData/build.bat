@@ -19,7 +19,7 @@ set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\ExtendedData_Serp"
 set "STAGED_GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\.ExtendedData_Serp.build"
 set "LEGACY_TRAIL_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\CustomCustomTrail_Serp"
 set "LEGACY_LORD_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\CustomLordUpload_Serp"
-set "API_SHARED_DIR=%GAME_DIR%\BepInEx\plugins\APIShared_Serp"
+set "API_SHARED_DIR=%~dp0..\APIShared\BepInEx\plugins\APIShared_Serp"
 set "NO_PAUSE=0"
 for %%A in (%*) do if /I "%%~A"=="/nopause" set "NO_PAUSE=1"
 set "PACK_PLUGIN_ROOT=%GAME_DIR%\BepInEx\plugins\SerpsMods_Serp"
@@ -30,9 +30,10 @@ if exist "%PACK_PLUGIN_ROOT%\Mods\ExtendedData_Serp\ExtendedData.dll" (
   )
   set "GAME_PLUGIN_DIR=%PACK_PLUGIN_ROOT%\Mods\ExtendedData_Serp"
   set "STAGED_GAME_PLUGIN_DIR=%PACK_PLUGIN_ROOT%\Mods\.ExtendedData_Serp.build"
-  set "API_SHARED_DIR=%PACK_PLUGIN_ROOT%\Infrastructure\APIShared_Serp"
 )
 if defined SHCDE_API_SHARED_DIR set "API_SHARED_DIR=%SHCDE_API_SHARED_DIR%"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\ApiSharedRepository\Test-ConsumerPackage.ps1" -Workspace "%~dp0.." -PackageDirectory "%API_SHARED_DIR%"
+if errorlevel 1 exit /b 1
 set "EXTENDER_DIR="
 
 rem Never touch build or installation output while the game has plugin DLLs loaded.

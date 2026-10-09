@@ -154,7 +154,7 @@ internal static class Program
         string project = File.ReadAllText(Path.Combine(modRoot, "ExtremePowers.API.csproj"));
         string pluginProject = File.ReadAllText(Path.Combine(modRoot, "ExtremePowers.csproj"));
         string pluginSource = File.ReadAllText(Path.Combine(modRoot, "src", "ExtremePowersPlugin.cs"));
-        string sharedPresetSystem = string.Join("\n", Directory.GetFiles(Path.GetDirectoryName(Path.Combine(modRoot, "..", "APIShared", "src", "ModSettings", "PresetLobbyModSettingsViewModel.cs")), "*.cs").Select(File.ReadAllText));
+        string sharedPresetSystem = string.Join("\n", Directory.GetFiles(Path.Combine(modRoot, "..", "APIShared", "src", "ModSettings"), "*.cs", SearchOption.AllDirectories).Select(File.ReadAllText));
         Check(!project.Contains("Include=\"src\\") && !project.Contains("Include=\"Locales\\") && !project.Contains("Include=\"Override\\") && !project.Contains("Include=\"Patches\\"), "extractable API project inputs");
         string[] allowedSharedApiSources = { "..\\Shared\\Runtime\\Diagnostics\\DebugLogHelper.cs", "..\\Shared\\Adapters\\APIShared\\MissionEventsAdapter.cs", "..\\Shared\\Runtime\\Threading\\UnityMainThreadDispatch.cs" };
         foreach (string line in project.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Where(value => value.Contains("<Compile Include=")))

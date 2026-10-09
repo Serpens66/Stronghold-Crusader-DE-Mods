@@ -42,6 +42,16 @@ function Get-SteamPackFileSha256 {
     }
 }
 
+function Assert-SteamApiSharedBinary {
+    param(
+        [Parameter(Mandatory)][string]$LocalDll,
+        [Parameter(Mandatory)][string]$PublishedDll
+    )
+    if ((Get-SteamPackFileSha256 $LocalDll) -cne (Get-SteamPackFileSha256 $PublishedDll)) {
+        throw 'Published APIShared infrastructure differs from the local DLL used by consumers. Build the matching reviewed commit or publish its release first.'
+    }
+}
+
 function New-SteamPackReleaseZip {
     param(
         [Parameter(Mandatory)][string]$PackageDirectory,

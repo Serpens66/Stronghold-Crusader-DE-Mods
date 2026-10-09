@@ -32,6 +32,10 @@ namespace BugfixesAndQoL
         private const int AiWallReservationRejectJumpRva = 0x10ECC3;
         private const int AiWallApproachTileGuardRva = 0x10ECE1;
 
+        private static string ReadApiFeature(string area, string subject, string pattern) => string.Join("\n",
+            Array.ConvertAll(Directory.GetFiles(Path.Combine(FindProjectDirectory(), "..", "APIShared", "src", area, subject),
+                pattern, SearchOption.AllDirectories), File.ReadAllText));
+
         private static int failures;
 
         private static int Main()
@@ -482,7 +486,7 @@ namespace BugfixesAndQoL
                   Shared.SelectedChimpsSnapshotPolicy.IsPlausibleCount(10000),
                 "selection count policy accepts only Vanilla's 0..10000 capacity");
             string health = File.ReadAllText(Path.Combine("src", "SelectedUnitHealthFeature.cs"));
-            string formation = File.ReadAllText(Path.Combine("..", "APIShared", "src", "UnitCommands", "FormationRuntime.cs"));
+            string formation = ReadApiFeature("UnitCommands", "Formation", "FormationRuntime.*.cs");
             string assassin = File.ReadAllText(Path.Combine("src", "AssassinClimbRuntime.cs"));
             Check(health.Contains(
                     "int unitId = state.selectedChimps[index];" + Environment.NewLine +
@@ -505,7 +509,7 @@ namespace BugfixesAndQoL
 
         private static void TestFriendlyMoatCursorIdGuard()
         {
-            string moatCursor = File.ReadAllText(Path.Combine("..", "APIShared", "src", "UnitCommands", "CursorConnectivity.cs"));
+            string moatCursor = File.ReadAllText(Path.Combine("..", "APIShared", "src", "UnitCommands", "Cursor", "CursorConnectivity.cs"));
             Check(moatCursor.Contains("disposed || unitId <= 0 || buildingId <= 0") &&
                   moatCursor.IndexOf("unitId <= 0", StringComparison.Ordinal) <
                   moatCursor.IndexOf("UnitAccess.TryGetById", StringComparison.Ordinal),
@@ -1728,11 +1732,7 @@ namespace BugfixesAndQoL
             Check(!File.ReadAllText(Path.Combine("src", "AssassinPathfindingRuntime.cs"))
                     .Contains("if (args.SkipOriginalFunction)" +
                         Environment.NewLine + "                return;") &&
-                  !File.ReadAllText(Path.Combine("src", "ExtendedShiftCommandQueueRuntime.cs"))
-                    .Contains("if (!installed || args.SkipOriginalFunction)") &&
-                  !File.ReadAllText(Path.Combine("src", "FastRecruitRallyMovementRuntime.cs"))
-                    .Contains("if (!args.SkipOriginalFunction &&") &&
-                  !File.ReadAllText(Path.Combine("..", "APIShared", "src", "UnitCommands", "UnitCommandPathRuntime.cs"))
+                  !ReadApiFeature("UnitCommands", "", "UnitCommandPathRuntime.*.cs")
                     .Contains("if (disposed || args.SkipOriginalFunction)") &&
                   !File.ReadAllText(Path.Combine("src", "TroopMovementFix3Runtime.cs"))
                     .Contains("if (!IsFeatureEnabled || args.SkipOriginalFunction"),
@@ -4333,11 +4333,10 @@ namespace BugfixesAndQoL
         {
             string projectDirectory = FindProjectDirectory();
             string runtime = File.ReadAllText(Path.Combine(projectDirectory, "src", "BugfixesAndQoLRuntime.cs"));
-            string friendlyRuntime = File.ReadAllText(Path.Combine(
-                projectDirectory, "..", "APIShared", "src", "UnitCommands", "UnitCommandPathRuntime.cs"));
+            string friendlyRuntime = ReadApiFeature("UnitCommands", "", "UnitCommandPathRuntime.*.cs");
             string selectionAdapters = File.ReadAllText(Path.Combine(
-                projectDirectory, "..", "APIShared", "src", "UnitCommands", "AssassinSelectionAdapters.cs"));
-            string moatWork = File.ReadAllText(Path.Combine(projectDirectory, "..", "APIShared", "src", "UnitCommands", "MoatWorkTargetSelection.cs"));
+                projectDirectory, "..", "APIShared", "src", "UnitCommands", "Integration", "AssassinSelectionAdapters.cs"));
+            string moatWork = ReadApiFeature("UnitCommands", "Moat", "UnitCommandPathRuntime.WorkTarget*.cs");
             string viewModel = File.ReadAllText(Path.Combine(projectDirectory, "src", "BugfixesAndQoLViewModel.cs"));
             string xaml = File.ReadAllText(Path.Combine(
                 projectDirectory, "Override", "ScriptExtenderUI", "BugfixesAndQoLSettings.xaml"));

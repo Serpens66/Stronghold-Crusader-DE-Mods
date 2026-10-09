@@ -1395,7 +1395,7 @@ static void TestCoordinatorOwnership()
     }
 
     string coordinator = File.ReadAllText(Path.Combine(projectRoot, "src", "TrailMissionSettingsCoordinator.cs"));
-    string sharedPresetSystem = string.Join("\n", Directory.GetFiles(Path.GetDirectoryName(Path.Combine(workspaceRoot, "APIShared", "src", "ModSettings", "PresetLobbyModSettingsViewModel.cs")), "*.cs").Select(File.ReadAllText));
+    string sharedPresetSystem = string.Join("\n", Directory.GetFiles(Path.Combine(workspaceRoot, "APIShared", "src", "ModSettings"), "*.cs", SearchOption.AllDirectories).Select(File.ReadAllText));
     string sharedGameMode = File.ReadAllText(Path.Combine(workspaceRoot, "APIShared", "src", "GameModes", "MissionModePolicy.cs"));
     Assert(CountOccurrences(coordinator, "InjectCoopCustomizeButton(pages[index]);") == 1,
         "Coop Trail button registration is not centralized and singular");
@@ -2236,7 +2236,7 @@ static void TestScriptExtenderManifestRangeContract()
     string plugin = File.ReadAllText(Path.Combine(root, "src", "ExtendedDataPlugin.cs"));
     string project = File.ReadAllText(Path.Combine(root, "ExtendedData.csproj"));
     string info = File.ReadAllText(Path.Combine(root, "info.json"));
-    string sharedPreset = string.Join("\n", Directory.GetFiles(Path.GetDirectoryName(Path.Combine(workspaceRoot, "APIShared", "src", "ModSettings", "PresetLobbyModSettingsViewModel.cs")), "*.cs").Select(File.ReadAllText));
+    string sharedPreset = string.Join("\n", Directory.GetFiles(Path.Combine(workspaceRoot, "APIShared", "src", "ModSettings"), "*.cs", SearchOption.AllDirectories).Select(File.ReadAllText));
     using JsonDocument manifestJson = JsonDocument.Parse(info);
     string minimumExtenderVersion = manifestJson.RootElement
         .GetProperty("MinimumScriptExtenderVersion").GetString() ?? string.Empty;

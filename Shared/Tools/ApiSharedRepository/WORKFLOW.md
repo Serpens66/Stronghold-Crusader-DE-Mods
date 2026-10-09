@@ -1,42 +1,37 @@
-# Independent APIShared repository and workspace subtree
+# APIShared in the mod workspace
 
-The canonical public source repository is
-<https://github.com/SHCDE-APIShared/APIShared>. Its independent local checkout is
-`D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\SHCDE-APIShared`.
-The mod repository retains its regular `APIShared/` files as a Git subtree;
-there are no hardlinks, junctions, submodules or automatic source updates.
+`APIShared/` is the single active checkout of https://github.com/SHCDE-APIShared/APIShared,
+registered as a Git submodule. The mod repository records a reviewed APIShared commit.
+There is no second working copy, subtree export, background update or source synchronization.
 
-The `apishared` Git remote points at the public repository. The initial join
-preserves the entire existing mod history and records the matching independent
-source commit using Git subtree trailers. It changes no source tree. Generated
-APIShared packages remain available locally but are no longer tracked in the
-API source subtree. Other mods keep using the local built public assembly.
+From any current directory, double-click the workspace helpers:
 
-Review a community commit or release tag, then explicitly import that revision:
+- `APIShared-Status.bat`: show commits, branch, open changes and package freshness.
+- `APIShared-Status.bat /release`: additionally check clean repositories, the recorded commit and its public publication. This does not fetch or change refs.
+- `APIShared-Aktualisieren.bat`: fetch and merge `origin/main` into the current APIShared branch.
+- `APIShared-Aktualisieren.bat <commit-or-tag>`: merge that explicitly selected revision.
 
-```powershell
-& '.\Shared\Tools\ApiSharedRepository\Import-ApiShared.ps1' -Revision '<reviewed commit or tag>'
-```
+Both helpers pause on completion unless `/nopause` is supplied. Open APIShared changes and
+unfinished Git operations block updates. Detached HEAD gets a new unused `codex/api-work`
+branch, preserving the starting commit. Conflicts remain available for manual resolution;
+the helper prints continue/abort commands. No push, root commit, build or release happens automatically.
 
-The working tree must be clean. An import preserves a selected upstream commit
-through a squash merge and runs the workspace ownership/runtime checks. Review
-the diff, run the relevant regression tests, and build APIShared and affected
-consumers through their own elevated `build.bat /nopause` drivers. Do not treat
-an imported Git commit as gameplay acceptance.
+For a fresh clone use `git clone --recurse-submodules <mod-repository-url>`.
+For an existing clone initialize its recorded version with `git submodule update --init APIShared`.
+The update helper can also initialize it before merging a selected newer version.
 
-For changes first developed locally in the workspace, commit the reviewed changes
-and export only the API subtree to a contribution branch:
+Edit and commit APIShared from inside its directory. Publish contributions using ordinary
+branches and pull requests. After review and tests, record the chosen commit in the parent:
+`git add APIShared` then commit in the mod repository. Publish APIShared commits first.
+Do not commit a parent pointer to a commit other users cannot obtain.
 
-```powershell
-& '.\Shared\Tools\ApiSharedRepository\Export-ApiShared.ps1' -Branch 'codex/my-api-fix'
-```
+Run APIShared's own elevated `build.bat /nopause` before consumer builds.
+Configure `SHCDE_GAME_DIR` for your installation first, as described in
+`APIShared/CONTRIBUTING.md`; the public build contains no machine-specific path.
+All workspace consumers use its local package; stale inputs or altered package files block builds.
+Development edits are supported after rebuilding; releases require a clean published commit.
+APIShared's `release.bat` works from this checkout and creates a draft by default.
+The public repository remains independent of these workspace helpers.
 
-Create a pull request in the independent repository, review it there, and explicitly
-import the accepted commit. The tool does not force-push, auto-merge, stash, reset,
-copy workspace helpers, or publish releases. An isolated round-trip test covers
-import, export, source-tree equality and preservation of unrelated workspace files.
-
-APIShared releases are prepared from the independent checkout by its own
-`release.bat`; drafts are the default. Historical APIShared releases stay in the
-original mod repository. New API-only releases belong in the canonical repository.
-Repository administrators will be selected separately by the owner.
+An older reviewed commit is allowed. Updating to the latest main is an explicit choice,
+not a prerequisite for releases. History before this migration remains in the mod Git history.

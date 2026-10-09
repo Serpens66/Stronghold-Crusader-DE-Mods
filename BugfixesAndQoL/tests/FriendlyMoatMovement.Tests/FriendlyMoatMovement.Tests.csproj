@@ -14,7 +14,7 @@
     <Compile Remove="CursorTests.cs" />
     <Compile Remove="PlacementTests.cs" />
     <Compile Remove="SearchKernelTests.cs" />
-    <Compile Include="..\..\..\APIShared\src\UnitCommands\MoatModeFlagIntermediaryFactory.cs" Link="MoatModeFlagIntermediaryFactory.cs" />
+    <Compile Include="..\..\..\APIShared\src\UnitCommands\Moat\MoatModeFlagIntermediaryFactory.cs" Link="MoatModeFlagIntermediaryFactory.cs" />
     <Reference Include="Iced"><HintPath>$(ExtenderDir)\Iced.dll</HintPath></Reference>
     <Reference Include="RedBird.Abstractions"><HintPath>$(ExtenderDir)\RedBird.Abstractions.dll</HintPath></Reference>
     <Reference Include="RedBird.Core"><HintPath>$(ExtenderDir)\RedBird.Core.dll</HintPath></Reference>

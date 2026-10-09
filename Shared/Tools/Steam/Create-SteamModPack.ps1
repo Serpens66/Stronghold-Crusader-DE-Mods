@@ -1354,6 +1354,9 @@ try {
     $status = (Invoke-Git @('status','--porcelain=v1','--untracked-files=normal') 2).Output
     if ($status.Count -gt 0 -and -not $Validate) { Fail-Pack 2 "Git working tree must be clean:`r`n$($status -join "`r`n")" }
     if ($status.Count -gt 0) { Write-RunLog 'Validation continues with a dirty tree; a publishing run would stop here.' 'WARN' }
+    . (Join-Path $script:Root 'Shared/Tools/ApiSharedRepository/ApiShared.Common.ps1')
+    if ($Validate) { $null = Assert-ApiConsumerPackage $script:Root '' }
+    else { $null = Assert-ApiReleaseState $script:Root }
     Invoke-Checked -FilePath 'gh' -Arguments @('auth','status') -FailureCode 2 | Out-Null
     if (-not $Validate) {
         Invoke-Git @('fetch','--prune','origin',$script:Branch,'--tags') 5 | Out-Null
@@ -1624,18 +1627,14 @@ try {
         Invoke-Git @('push','origin',$script:Branch) | Out-Null
     }
     $hostDir = Join-Path $script:Root 'SerpsModsHost'
-    $apiSharedEnvironmentWasDefined = Test-Path -LiteralPath 'Env:SHCDE_API_SHARED_DIR'
-    $previousApiSharedEnvironment = $env:SHCDE_API_SHARED_DIR
-    try {
-        $env:SHCDE_API_SHARED_DIR = $apiSharedInfrastructure.Directory
-        Invoke-Checked -FilePath (Join-Path $hostDir 'build.bat') -Arguments @('/nopause') -FailureCode 8 -WorkingDirectory $hostDir | Out-Null
-    } finally {
-        if ($apiSharedEnvironmentWasDefined) {
-            $env:SHCDE_API_SHARED_DIR = $previousApiSharedEnvironment
-        } else {
-            Remove-Item -LiteralPath 'Env:SHCDE_API_SHARED_DIR' -ErrorAction SilentlyContinue
-        }
+    $apiProof = Assert-ApiConsumerPackage $script:Root '' -Release
+    if ([string]$apiProof.Commit -ne (Get-ApiSubmodule $script:Root)) {
+        Fail-Pack 8 'APIShared changed during release preparation. Record its reviewed published submodule commit, then restart.'
     }
+    $localApiDll = Join-Path $script:Root 'APIShared\BepInEx\plugins\APIShared_Serp\APIShared.dll'
+    try { Assert-SteamApiSharedBinary -LocalDll $localApiDll -PublishedDll (Join-Path $apiSharedInfrastructure.Directory 'APIShared.dll') }
+    catch { Fail-Pack 8 $_.Exception.Message }
+    Invoke-Checked -FilePath (Join-Path $hostDir 'build.bat') -Arguments @('/nopause') -FailureCode 8 -WorkingDirectory $hostDir | Out-Null
 
     $runRoot = Join-Path $script:OutputRoot "v$packVersion"
     $stage = Join-Path $runRoot 'stage'
@@ -1742,6 +1741,7 @@ try {
     } })
     $provenance = [ordered]@{
         SchemaVersion = 3; Pack = $PackName; PackGuid = $PackGuid; Version = $packVersion; Commit = $commit; ContentSignature = $contentSignature
+        ApiSharedCommit = Get-ApiSubmodule $script:Root
         CreatedUtc = [DateTime]::UtcNow.ToString('o')
         Package = [ordered]@{ File = $zipPackage.File; RootDirectory = $zipPackage.RootDirectory; Sha256 = $zipPackage.Sha256; Size = $zipPackage.Size; Files = $zipPackage.Files }
         Map = [ordered]@{ File = 'SerpsMods.map'; Sha256 = $mapHash; Size = (Get-Item $mapPath).Length }

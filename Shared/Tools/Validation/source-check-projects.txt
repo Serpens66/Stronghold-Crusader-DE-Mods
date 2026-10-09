@@ -61,3 +61,4 @@ Testmods/StockpileAccessFixTest/StockpileAccessFixTest.csproj
 Testmods/VirtualUnitsPrototype/VirtualUnitsPrototype.csproj
 UnitCosts/UnitCosts.csproj
 UnitLimit/UnitLimit.csproj
+_inspect/BugfixesAndQoLNativeTests/BugfixesAndQoLNativeTests.csproj

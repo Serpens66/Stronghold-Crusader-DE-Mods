@@ -15,9 +15,15 @@ string testDir = Path.Combine(root, "Testmods", "MoatMove", "tests");
 string RuntimeSource(string name)
 {
     string sharedName = name.Replace("FriendlyMoatMovementRuntime", "UnitCommandPathRuntime");
-    string shared = Path.Combine(root, "APIShared", "src", "UnitCommands", sharedName);
-    string file = File.Exists(shared) ? shared : Path.Combine(sourceDir, name);
-    string text = File.ReadAllText(file).Replace("namespace APIShared.UnitCommands", "namespace MoatMove")
+    string commandRoot = Path.Combine(root, "APIShared", "src", "UnitCommands");
+    string[] files = sharedName == "UnitCommandPathRuntime.cs"
+        ? Directory.GetFiles(commandRoot, "UnitCommandPathRuntime.*.cs", SearchOption.AllDirectories)
+        : Directory.GetFiles(commandRoot, sharedName, SearchOption.AllDirectories);
+    if (files.Length == 0) files = new[] { Path.Combine(sourceDir, name) };
+    var units = files.OrderBy(p => p, StringComparer.Ordinal).Select(p => CSharpSyntaxTree.ParseText(File.ReadAllText(p)).GetCompilationUnitRoot()).ToArray();
+    string text = (string.Join("\n", units.SelectMany(u => u.Usings).Select(u => u.ToFullString()).Distinct()) +
+        "\n" + string.Join("\n", units.SelectMany(u => u.Members).Select(m => m.ToFullString())))
+        .Replace("namespace APIShared.UnitCommands", "namespace MoatMove")
         .Replace("using APIShared.UnitCommands;", "")
         .Replace("UnitCommandPathRuntime", "FriendlyMoatMovementRuntime")
         .Replace("FriendlyMoatTraversalProvider", "FriendlyMoatMovementRuntime")
@@ -44,7 +50,7 @@ if (args.Contains("--fast-model-only"))
 {
     var modelSources = new[] { "IFastRouteField.cs", "FastRouteField.cs", "FastCommandQueue.cs", "FastRoutePool.cs", "FastTraversalCache.cs" }
         .Select(name => CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, name)))).ToList();
-    var edgeDeclaration = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/UnitCommands/MoatCandidateField.cs")))
+    var edgeDeclaration = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/UnitCommands/Moat/MoatCandidateField.cs")))
         .GetRoot().DescendantNodes().OfType<DelegateDeclarationSyntax>().Single(d => d.Identifier.Text == "MoatSearchEdge");
     modelSources.Add(CSharpSyntaxTree.ParseText("namespace MoatMove {" + edgeDeclaration + "}"));
     foreach (string test in new[] { "FastRouteFieldTests.cs", "FastStateTests.cs" })
@@ -67,8 +73,7 @@ if (args.Contains("--standalone-only"))
     return;
 }
 string apiSharedPath=Environment.GetEnvironmentVariable("MOAT_TEST_API_SHARED_DLL") ??
-    Path.Combine(@"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition",
-        "BepInEx","plugins","APIShared_Serp","APIShared.dll");
+    Path.Combine(root,"APIShared","BepInEx","plugins","APIShared_Serp","APIShared.dll");
 if (!File.Exists(apiSharedPath))
     throw new FileNotFoundException("APIShared test reference is required; build and install APIShared first.", apiSharedPath);
 string[] runtimeSourceNames =
@@ -77,9 +82,9 @@ string[] runtimeSourceNames =
     "CursorConnectivity.cs", "CursorRegionGraph.cs", "DirectMoatCommandScopes.cs",
     "FastIntegration.cs", "IFastRouteField.cs", "FastRouteField.cs", "FastCommandQueue.cs", "FastRoutePool.cs", "FastTraversalCache.cs",
     "FastMoatRouting.cs", "FastMovementScheduler.cs", "FastGroupDistribution.cs", "FillWeightedRoutes.cs", "FriendlyMoatMovementPolicy.cs",
-    "FriendlyMoatMovementRuntime.cs", "FriendlyMoatMovementRuntime.LadderAttackFix.cs",
+    "FriendlyMoatMovementRuntime.cs",
     "MoatPlacement.cs", "MoatPlacementSearch.cs",
-    "MoatSearchKernel.cs", "MoatWorkTargetSelection.cs", "MovementOptionsSnapshot.cs",
+    "MoatSearchKernel.cs", "MovementOptionsSnapshot.cs",
     "MovementPathPublication.cs", "MovementSearchContext.cs", "NativeFormationSlots.cs",
     "NativeMovementCadenceResolver.cs", "NativeMovementRecovery.cs", "UnitMovementContext.cs",
     "WeightedMoatPublication.cs", "WeightedMoatRoutePlanner.cs"
@@ -200,12 +205,12 @@ var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
         .Replace("public static unsafe class UnitAccess", "internal static unsafe class UnitAccess")),
     CSharpSyntaxTree.ParseText("namespace BepInEx.Logging { public class ManualLogSource { public void LogDebug(object message) { } } }"),
     
-    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared", "src", "Pathfinding", "EnemyGatePathPolicyBridge.cs"))),
-    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared", "src", "Pathfinding", "TemporaryGateRouteAcceptanceBridge.cs"))),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared", "src", "Pathfinding", "GateRoutes", "EnemyGatePathPolicyBridge.cs"))),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared", "src", "Pathfinding", "GateRoutes", "TemporaryGateRouteAcceptanceBridge.cs"))),
     CSharpSyntaxTree.ParseText("namespace APIShared {" + CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,
-        "APIShared/src/Pathfinding/AssassinGateTransitionPolicy.cs"))).GetRoot().DescendantNodes().OfType<EnumDeclarationSyntax>()
+        "APIShared/src/Pathfinding/Assassin/AssassinGateTransitionPolicy.cs"))).GetRoot().DescendantNodes().OfType<EnumDeclarationSyntax>()
         .Single(n => n.Identifier.Text == "AssassinTransitionKind") + "}"),
-    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared", "src", "Pathfinding", "AssassinRouteHandoff.cs"))),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared", "src", "Pathfinding", "Assassin", "AssassinRouteHandoff.cs"))),
     referenceTree,
     comparisonTree,
     comparisonPlannerTree,
@@ -214,7 +219,7 @@ var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
     CSharpSyntaxTree.ParseText(RuntimeSource("MoatSearchKernel.cs")),
     CSharpSyntaxTree.ParseText(RuntimeSource("WeightedGridSearchKernel.cs")),
     CSharpSyntaxTree.ParseText(RuntimeSource("MoatCandidateField.cs")),
-    CSharpSyntaxTree.ParseText("namespace MoatMove {" + CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/UnitCommands/UnitCommandContracts.cs"))).GetRoot().DescendantNodes().OfType<InterfaceDeclarationSyntax>().Single(n => n.Identifier.Text == "IMoatSearchKernel") + "}"),
+    CSharpSyntaxTree.ParseText("namespace MoatMove {" + CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/UnitCommands/Runtime/UnitCommandContracts.cs"))).GetRoot().DescendantNodes().OfType<InterfaceDeclarationSyntax>().Single(n => n.Identifier.Text == "IMoatSearchKernel") + "}"),
     CSharpSyntaxTree.ParseText(RuntimeSource("FastNativeKernel.cs")),
     CSharpSyntaxTree.ParseText(RuntimeSource("FastNativeRouteField.cs")),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "FastNativeFixtures.cs"))),
@@ -227,7 +232,7 @@ var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
     CSharpSyntaxTree.ParseText(RuntimeSource("FastGroupDistribution.cs").Replace("using SHCDESE.API;", "")),
     CSharpSyntaxTree.ParseText(RuntimeSource("FastIntegration.cs").Replace("using SHCDESE.API;", "")),
     CSharpSyntaxTree.ParseText(RuntimeSource("TraversalCommandState.cs")),
-    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/Pathfinding/EnemyBridgeDiagnosticBridge.cs"))),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/Pathfinding/GateRoutes/EnemyBridgeDiagnosticBridge.cs"))),
     CSharpSyntaxTree.ParseText(RuntimeSource("EnemyGatePolicyIntegration.cs")),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "FastStateTests.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "FastRouteFieldTests.cs"))),

@@ -27,6 +27,7 @@ try {
         CreatedUtc = [DateTime]::UtcNow.ToString('o')
         PackageDirectory = $metadata.PackageDir
         Files = $records
+        ApiSharedCommit = $(if (Test-Path -LiteralPath (Join-Path $metadata.Config.Root 'APIShared/.git')) { (& git -C (Join-Path $metadata.Config.Root 'APIShared') rev-parse HEAD) } else { $null })
         Dependencies = @(Get-DependencyRecords -Metadata $metadata -ExtenderDir $extenderDir)
         TrustStatement = 'Local build record only. This file is not a GitHub release and is not independently attested.'
     }

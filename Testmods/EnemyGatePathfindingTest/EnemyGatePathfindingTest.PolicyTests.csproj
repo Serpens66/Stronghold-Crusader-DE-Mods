@@ -59,14 +59,14 @@
     <Compile Include="tests\CapturerAdapterMachineTests.cs" />
     <Compile Include="tests\Program.cs" /><Compile Include="tests\TemporaryGateAcceptanceTests.cs" /><Compile Include="src\TemporaryGateAcceptanceAggregate.cs" /><Compile Include="..\..\Shared\Runtime\Native\TemporaryPackedRouteInspection.cs" />
     <Compile Include="tests\GateRoutePolicyTests.cs" />
-    <Compile Include="..\..\APIShared\src\Pathfinding\EnemyGatePathPolicyBridge.cs"><Link>EnemyGatePathPolicyBridge.cs</Link></Compile>
-    <Compile Include="..\..\APIShared\src\Pathfinding\TemporaryGateRouteAcceptanceBridge.cs" />
-    <Compile Include="..\..\APIShared\src\Pathfinding\AssassinGateTransitionPolicy.cs" />
+    <Compile Include="..\..\APIShared\src\Pathfinding\GateRoutes\EnemyGatePathPolicyBridge.cs"><Link>EnemyGatePathPolicyBridge.cs</Link></Compile>
+    <Compile Include="..\..\APIShared\src\Pathfinding\GateRoutes\TemporaryGateRouteAcceptanceBridge.cs" />
+    <Compile Include="..\..\APIShared\src\Pathfinding\Assassin\AssassinGateTransitionPolicy.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <ItemGroup><Compile Include="..\..\Shared\Runtime\Threading\DeferredSnapshotRefreshRequest.cs" /></ItemGroup>
 <ItemGroup><Compile Include="..\EnemyBridgePathTest\tests\CaptureRefreshTests.cs" /></ItemGroup>
   <ItemGroup>
-    <Compile Include="..\..\APIShared\src\UnitCommands\Internal\TemporaryPackedRouteInspection.cs" />
+    <Compile Include="..\..\APIShared\src\UnitCommands\Movement\TemporaryPackedRouteInspection.cs" />
   </ItemGroup>
 </Project>

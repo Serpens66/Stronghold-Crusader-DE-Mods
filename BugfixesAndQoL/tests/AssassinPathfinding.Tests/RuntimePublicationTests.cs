@@ -9,12 +9,12 @@ internal static partial class Program
     {
         string root = Path.GetFullPath(args[0]);
         var tree = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,
-            "APIShared/src/UnitCommands/MovementPathPublication.cs")));
+            "APIShared/src/UnitCommands/Movement/MovementPathPublication.cs")));
         string[] names = { "BuildPathWithCompletedMoatRouteVariant", "BeginAssassinRoutePublication" };
         string methods = string.Join("\n", tree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
             .Where(m => names.Contains(m.Identifier.Text)).Select(m => m.ToFullString()));
         var movement = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,
-            "APIShared/src/UnitCommands/UnitMovementContext.cs")));
+            "APIShared/src/UnitCommands/Movement/UnitMovementContext.cs")));
         methods += movement.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
             .Single(m => m.Identifier.Text == "GetNativeMovementStart").ToFullString();
         string fixture = """
@@ -102,9 +102,9 @@ unsafe partial class UnitCommandPathRuntime {
 """;
         fixture = fixture.Replace("PLACEHOLDER", methods);
         var sources = new[] { CSharpSyntaxTree.ParseText(fixture), CSharpSyntaxTree.ParseText(
-            File.ReadAllText(Path.Combine(root, "APIShared/src/Pathfinding/AssassinRouteHandoff.cs"))),
-            CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/Pathfinding/AssassinGateTransitionPolicy.cs"))),
-            CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/Pathfinding/TemporaryGateRouteAcceptanceBridge.cs"))) };
+            File.ReadAllText(Path.Combine(root, "APIShared/src/Pathfinding/Assassin/AssassinRouteHandoff.cs"))),
+            CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/Pathfinding/Assassin/AssassinGateTransitionPolicy.cs"))),
+            CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "APIShared/src/Pathfinding/GateRoutes/TemporaryGateRouteAcceptanceBridge.cs"))) };
         var refs = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")).Split(Path.PathSeparator)
             .Select(p => MetadataReference.CreateFromFile(p));
         var compilation = CSharpCompilation.Create("ActualAssassinPublication", sources, refs,

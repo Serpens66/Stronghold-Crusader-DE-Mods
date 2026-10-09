@@ -1,0 +1,170 @@
+[
+  {
+    "Driver": "BugfixesAndQoL\\build.bat",
+    "ExitCode": 0,
+    "Seconds": 67,
+    "Log": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\_inspect\\ApiSharedStructure\\build-BugfixesAndQoL_build.bat.log"
+  },
+  {
+    "Driver": "BuildingCosts\\build.bat",
+    "ExitCode": 0,
+    "Seconds": 10,
+    "Log": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\_inspect\\ApiSharedStructure\\build-BuildingCosts_build.bat.log"
+  },
+  {
+    "Driver": "BuildingLimit\\build.bat",
+    "ExitCode": 0,
+    "Seconds": 17,
+    "Log": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\_inspect\\ApiSharedStructure\\build-BuildingLimit_build.bat.log"
+  },
+  {
+    "Driver": "CastlePlanner\\build.bat",
+    "ExitCode": 0,
+    "Seconds": 16,
+    "Log": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\_inspect\\ApiSharedStructure\\build-CastlePlanner_build.bat.log"
+  },
+  {
+    "Driver": "CheatMod\\build.bat",
+    "ExitCode": 0,
+    "Seconds": 10,
+    "Log": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\_inspect\\ApiSharedStructure\\build-CheatMod_build.bat.log"
+  },
+  {
+    "Driver": "ExtendedData\\build.bat",
+    "ExitCode": 0,
+    "Seconds": 18,
+    "Log": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\_inspect\\ApiSharedStructure\\build-ExtendedData_build.bat.log"
+  },
+  {
+    "Driver": "ExtraFeatures\\build.bat",
+    "ExitCode": 0,
+    "Seconds": 19,
+    "Log": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\_inspect\\ApiSharedStructure\\build-ExtraFeatures_build.bat.log"
+  },
+  {
+    "Driver": "ExtremePowers\\build.bat",
+    "ExitCode": 0,
+    "Seconds": 11,
+    "Log": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\_inspect\\ApiSharedStructure\\build-ExtremePowers_build.bat.log"
+  },
+  {
+    "Driver": "Helpers\\ActiveAIVDetector\\build.bat",
+    "ExitCode": 0,
+    "Seconds": 10,
+    "Log": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\_inspect\\ApiSharedStructure\\build-Helpers_ActiveAIVDetector_build.bat.log"
+  },
+  {
+    "Driver": "Helpers\\HunterQueryTargetDiagnostic\\build.bat",
+    "ExitCode": 0,
+    "Seconds": 16.2,
+    "Log": "_inspect/ApiSharedStructure/build-Helpers_HunterQueryTargetDiagnostic_build.bat.log"
+  },
+  {
+    "Driver": "ImprovedHunters\\build.bat",
+    "ExitCode": 0,
+    "Seconds": 16.8,
+    "Log": "_inspect/ApiSharedStructure/build-ImprovedHunters_build.bat.log"
+  },
+  {
+    "Driver": "RandomEvents\\build.bat",
+    "ExitCode": 0,
+    "Seconds": 16.8,
+    "Log": "_inspect/ApiSharedStructure/build-RandomEvents_build.bat.log"
+  },
+  {
+    "Driver": "SerpsModsHost\\build.bat",
+    "ExitCode": 0,
+    "Seconds": 15.4,
+    "Log": "_inspect/ApiSharedStructure/build-SerpsModsHost_build.bat.log"
+  },
+  {
+    "Driver": "StartConditions\\build.bat",
+    "ExitCode": 0,
+    "Seconds": 16.8,
+    "Log": "_inspect/ApiSharedStructure/build-StartConditions_build.bat.log"
+  },
+  {
+    "Driver": "Testmods\\AIAttackTest\\build.bat",
+    "ExitCode": 0,
+    "Seconds": 13.3,
+    "Log": "_inspect/ApiSharedStructure/build-Testmods_AIAttackTest_build.bat.log"
+  },
+  {
+    "Driver": "Testmods\\AIBuildDiagnoseTest\\build.bat",
+    "ExitCode": 0,
+    "Seconds": 15.3,
+    "Log": "_inspect/ApiSharedStructure/build-Testmods_AIBuildDiagnoseTest_build.bat.log"
+  },
+  {
+    "Driver": "Testmods\\AICoarsePathComponentFixTest\\build.bat",
+    "ExitCode": 0,
+    "Seconds": 12.3,
+    "Log": "_inspect/ApiSharedStructure/build-Testmods_AICoarsePathComponentFixTest_build.bat.log"
+  },
+  {
+    "Driver": "Testmods\\AIDefenseTest\\build.bat",
+    "ExitCode": 0,
+    "Seconds": 16.0,
+    "Log": "_inspect/ApiSharedStructure/build-Testmods_AIDefenseTest_build.bat.log"
+  },
+  {
+    "Driver": "Testmods\\AIMarketOverbuyDiagnostic\\build.bat",
+    "ExitCode": 0,
+    "Seconds": 12.1,
+    "Log": "_inspect/ApiSharedStructure/build-Testmods_AIMarketOverbuyDiagnostic_build.bat.log"
+  },
+  {
+    "Driver": "Testmods\\AivLobbyPresetTest\\build.bat",
+    "ExitCode": 0,
+    "Seconds": 10.0,
+    "Log": "_inspect/ApiSharedStructure/build-Testmods_AivLobbyPresetTest_build.bat.log"
+  },
+  {
+    "Driver": "Testmods\\AssassinAttackControlTest\\build.bat",
+    "ExitCode": 0,
+    "Seconds": 14.0,
+    "Log": "_inspect/ApiSharedStructure/build-Testmods_AssassinAttackControlTest_build.bat.log"
+  },
+  {
+    "Driver": "Testmods\\EnemyBridgePathTest\\build.bat",
+    "ExitCode": 0,
+    "Seconds": 37.1,
+    "Log": "_inspect/ApiSharedStructure/build-Testmods_EnemyBridgePathTest_build.bat.log"
+  },
+  {
+    "Driver": "Testmods\\EnemyGatePathfindingTest\\build.bat",
+    "ExitCode": 0,
+    "Seconds": 19.8,
+    "Log": "_inspect/ApiSharedStructure/build-Testmods_EnemyGatePathfindingTest_build.bat.log"
+  },
+  {
+    "Driver": "Testmods\\EngineerSiegeFixTest\\build.bat",
+    "ExitCode": 0,
+    "Seconds": 9.6,
+    "Log": "_inspect/ApiSharedStructure/build-Testmods_EngineerSiegeFixTest_build.bat.log"
+  },
+  {
+    "Driver": "Testmods\\MainViewModelInitProbe\\build.bat",
+    "ExitCode": 0,
+    "Seconds": 10.0,
+    "Log": "_inspect/ApiSharedStructure/build-Testmods_MainViewModelInitProbe_build.bat.log"
+  },
+  {
+    "Driver": "Testmods\\MoatMove\\build.bat",
+    "ExitCode": 0,
+    "Seconds": 33.6,
+    "Log": "_inspect/ApiSharedStructure/build-Testmods_MoatMove_build.bat.log"
+  },
+  {
+    "Driver": "Testmods\\OutpostTest\\build.bat",
+    "ExitCode": 0,
+    "Seconds": 17.7,
+    "Log": "_inspect/ApiSharedStructure/build-Testmods_OutpostTest_build.bat.log"
+  },
+  {
+    "Driver": "Testmods\\PrebuiltWorkshopBothFixTest\\build.bat",
+    "ExitCode": 1,
+    "Seconds": 9.1,
+    "Log": "_inspect/ApiSharedStructure/build-Testmods_PrebuiltWorkshopBothFixTest_build.bat.log"
+  }
+]

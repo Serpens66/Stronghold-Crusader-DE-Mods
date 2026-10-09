@@ -31,7 +31,7 @@ foreach($root in $roots) {
 }
 & (Join-Path $workspace 'Shared\Tools\Validation\Test-PermanentNativeRuntimePatches.ps1')
 if(-not $?) { throw 'Workspace permanent-hook regression failed' }
-$guard=[IO.File]::ReadAllText((Join-Path $workspace 'APIShared\src\Pathfinding\AssassinAttackControlAPI.cs'))
+$guard=[IO.File]::ReadAllText((Join-Path $workspace 'APIShared\src\Pathfinding\Assassin\AssassinAttackControlAPI.cs'))
 if($guard -match '\b(transaction|hook)\??\.Dispose\s*\(' -or $guard -match '\.(Enable|Disable|Undo)\s*\(' -or $guard -notmatch 'if \(hook == candidate\) throw;') { throw 'Published Assassin hook teardown' }
 $project=[IO.File]::ReadAllText((Join-Path $mod 'AssassinAttackControlTest.csproj'))
 if($project -match 'publicized') { throw 'Testmod must reference real Unity assembly' }

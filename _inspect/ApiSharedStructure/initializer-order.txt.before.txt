@@ -1,0 +1,919 @@
+UnitHudPresentationService:CompiledControlGroupStoragePattern:= CompiledBytePattern.Parse(ControlGroupStoragePattern)
+UnitHudPresentationService:SelectedCountsField:= RequireField(typeof(HUD_Troops), "SelectedChimpArray")
+UnitHudPresentationService:SelectedTypeCountField:= RequireField(typeof(HUD_Troops), "NoSelectedChimpTypes")
+UnitHudPresentationService:CurrentPageField:= RequireField(typeof(HUD_Troops), "currentPage")
+UnitHudPresentationService:PagesField:= RequireField(typeof(HUD_Troops), "pages")
+UnitHudPresentationService:TroopPositionsField:= RequireField(typeof(HUD_Troops), "SelTroopPositions")
+UnitHudPresentationService:GroupImagesField:= RequireField(typeof(HUD_ControlGroups), "RefTroopImages")
+UnitHudPresentationService:GroupValuesField:= RequireField(typeof(HUD_ControlGroups), "RefTroopValues")
+UnitHudPresentationService:GroupExtraField:= RequireField(typeof(HUD_ControlGroups), "RefTroopExtraValues")
+UnitHudPresentationService:GroupSpriteMethod:= RequireMethod(typeof(HUD_ControlGroups), "GetTroopSprite", new[] { typeof(int) })
+UnitHudPresentationService:sync:= new object ()
+UnitHudPresentationService:hudBufferPool:= new Stack<HudWorkBuffers>()
+UnitHudPresentationService:ImageSlots:= (UnitHudImageSlot[])Enum.GetValues(typeof(UnitHudImageSlot))
+UnitHudPresentationService:categories:= new List<CategoryRegistration>()
+UnitHudPresentationService:interactions:= new List<InteractionRegistration>()
+UnitHudPresentationService:imageOverrides:= new List<ImageRegistration>()
+UnitHudPresentationService:recruitment:= new List<RecruitmentRegistration>()
+UnitHudPresentationService:categoryView:= Array.Empty<CategoryRegistration>()
+UnitHudPresentationService:interactionView:= Array.Empty<InteractionRegistration>()
+UnitHudPresentationService:imageView:= Array.Empty<ImageRegistration>()
+UnitHudPresentationService:recruitmentViews:= new Dictionary<int, RecruitmentRegistration[]>()
+UnitHudPresentationService:loggedCategoryConflicts:= new HashSet<string>(StringComparer.Ordinal)
+UnitHudPresentationService:loggedCallbackFailures:= new HashSet<string>(StringComparer.Ordinal)
+UnitHudPresentationService:visibleSlots:= new List<UnitHudSlotSnapshot>()
+UnitHudPresentationService:ownerActivation:= new Dictionary<string, bool>(StringComparer.Ordinal)
+UnitHudPresentationService:writtenArmyIndices:= new HashSet<int>()
+UnitHudPresentationService:originalImages:= new Dictionary<UnitHudImageSlot, ImageSource>()
+UnitHudPresentationService:appliedImages:= new Dictionary<UnitHudImageSlot, ImageSource>()
+UnitHudPresentationService:TintCaches:= new ConditionalWeakTable<Border, TintCache>()
+UnitHudPresentationService:lastFrame:= -1
+UnitHudPresentationService:lastTroopSelectionIds:= Array.Empty<int>()
+UnitHudPresentationService:lastTroopSelectionTypes:= Array.Empty<int>()
+UnitHudPresentationService:activeRecruitment:= new Dictionary<int, string>()
+UnitHudPresentationService:armyBufferPool:= new Stack<ArmyWorkBuffers>()
+UnitHudPresentationService:armyEntries:= new Dictionary<string, Noesis.Grid>(StringComparer.Ordinal)
+UnitCommandPathRuntime:selectionCallHooks:=
+{
+    new HookHandle<X64InlineHook>(),
+    new HookHandle<X64InlineHook>(),
+    new HookHandle<X64InlineHook>(),
+    new HookHandle<X64InlineHook>(),
+    new HookHandle<X64InlineHook>(),
+    new HookHandle<X64InlineHook>()
+}
+UnitCommandPathRuntime:SelectionCallRvas:=
+{
+    0x8D724,
+    0x8E2B8,
+    0x8E550,
+    0x8F325,
+    0xB7161,
+    0xB7321
+}
+UnitCommandPathRuntime:SelectionCallBytes:=
+{
+    "E84791100085C07423468B84262C070000",
+    "E8B3851000488D153C1DF7FF85C0",
+    "E81B83100085C07423458B842C2C070000",
+    "E846751000498BFE85C074348B15F12A9803",
+    "E80AF70D004533F6B90100000085C0",
+    "E84AF50D0085C0757E488BF333DB"
+}
+UnitCommandPathRuntime:cursorTopologies:= new Dictionary<int, CursorTopology>()
+UnitCommandPathRuntime:cursorSources:= new Dictionary<int, SelectedCursorUnitSnapshot>()
+UnitCommandPathRuntime:cursorSourceCounts:= new Dictionary<int, int>()
+UnitCommandPathRuntime:selectedCursorIds:= Array.Empty<int>()
+UnitCommandPathRuntime:selectedCursorIdentity:= Array.Empty<CursorSelectionIdentity>()
+UnitCommandPathRuntime:cursorSelectionToken:= string.Empty
+UnitCommandPathRuntime:cursorDecisionCounts:= new Dictionary<string, long>()
+UnitCommandPathRuntime:cursorDecisionDetails:= new HashSet<string>()
+UnitCommandPathRuntime:fillRouteDecisions:= new Dictionary<string, long>()
+UnitCommandPathRuntime:fillRouteLogTick:= -1
+FormationRuntime:StandardSelectorPrefix:=
+{
+    0x48,
+    0x89,
+    0x5C,
+    0x24,
+    0x08,
+    0x48,
+    0x89,
+    0x6C,
+    0x24,
+    0x18,
+    0x48,
+    0x89,
+    0x74,
+    0x24,
+    0x20,
+    0x89,
+    0x54,
+    0x24,
+    0x10,
+    0x57,
+    0x41,
+    0x54,
+    0x41,
+    0x55,
+    0x41,
+    0x56,
+    0x41,
+    0x57,
+    0x4C,
+    0x63,
+    0x1D,
+    0xE1,
+    0x49,
+    0xBE,
+    0x07,
+    0x4C,
+    0x8B,
+    0xF1,
+    0x48,
+    0x63
+}
+FormationRuntime:AssassinSelectorPrefix:=
+{
+    0x48,
+    0x89,
+    0x5C,
+    0x24,
+    0x08,
+    0x48,
+    0x89,
+    0x6C,
+    0x24,
+    0x10,
+    0x48,
+    0x89,
+    0x74,
+    0x24,
+    0x18,
+    0x48,
+    0x89,
+    0x7C,
+    0x24,
+    0x20,
+    0x41,
+    0x54,
+    0x41,
+    0x55,
+    0x41,
+    0x56,
+    0x41,
+    0x57,
+    0x4C,
+    0x63,
+    0x1D,
+    0xA1,
+    0x5D,
+    0xBE,
+    0x07,
+    0x4C,
+    0x8B,
+    0xF1,
+    0x48,
+    0x63,
+    0x81,
+    0x6C,
+    0x5F,
+    0x15,
+    0x00,
+    0x45,
+    0x8B,
+    0xF9
+}
+FormationRuntime:CommonGroupMovePrefix:=
+{
+    0x48,
+    0x89,
+    0x5C,
+    0x24,
+    0x08,
+    0x48,
+    0x89,
+    0x6C,
+    0x24,
+    0x10,
+    0x48,
+    0x89,
+    0x74,
+    0x24,
+    0x18,
+    0x57,
+    0x41,
+    0x54,
+    0x41,
+    0x55,
+    0x41,
+    0x56,
+    0x41,
+    0x57,
+    0x48,
+    0x83,
+    0xEC,
+    0x30,
+    0x48,
+    0x63,
+    0xF2,
+    0x45,
+    0x33,
+    0xED,
+    0x8B,
+    0xD6,
+    0x45,
+    0x8B,
+    0xF1,
+    0x45,
+    0x8B,
+    0xF8,
+    0x48,
+    0x8B,
+    0xE9,
+    0x41,
+    0x8B,
+    0xDD
+}
+FormationRuntime:UnitMoveTargetPrefix:=
+{
+    0x48,
+    0x89,
+    0x5C,
+    0x24,
+    0x20,
+    0x55,
+    0x56,
+    0x57,
+    0x41,
+    0x54,
+    0x41,
+    0x55,
+    0x41,
+    0x56,
+    0x41,
+    0x57,
+    0x48,
+    0x83,
+    0xEC,
+    0x30,
+    0x48,
+    0x63,
+    0xF2,
+    0x45,
+    0x33,
+    0xD2,
+    0x48,
+    0x69,
+    0xFE,
+    0x90,
+    0x04,
+    0x00,
+    0x00,
+    0x4D,
+    0x63,
+    0xF0,
+    0x48,
+    0x8D,
+    0x15,
+    0x55,
+    0x9D,
+    0xE6,
+    0xFF,
+    0x48,
+    0x03,
+    0xF9
+}
+FormationRuntime:InstanceFields:= BindingFlags.Instance | BindingFlags.NonPublic
+FormationRuntime:stateSync:= new object ()
+FormationRuntime:loggedTargetRejections:= new HashSet<string>(StringComparer.Ordinal)
+FormationRuntime:lastWheelFrame:= -1
+UnitCommandPathRuntime:nativeProbeManagerBackup:= new byte[NativeProbeManagerBytes]
+UnitCommandPathRuntime:nativeProbeGridBackup:= new byte[NativeProbeGridBytes]
+UnitCommandPathRuntime:nativeProbeRectangleBackup:= new byte[0x20]
+UnitCommandPathRuntime:nativeProbeMemoryHelperBackup:= new byte[0x18]
+UnitCommandPathRuntime:nativeCursorAnswers:= new Dictionary<NativeCursorProbeKey, bool>()
+UnitCommandPathRuntime:nativeCursorAnswerTick:= int.MinValue
+UnitCommandPathRuntime:idlePlacementTick:= -1
+UnitCommandPathRuntime:idlePlacementEpoch:= -1
+UnitCommandPathRuntime:idlePlacementRevision:= -1
+UnitCommandPathRuntime:idleSearches:= new Dictionary<long, PlacementSearchState>()
+UnitCommandPathRuntime:idleReservedCells:= new HashSet<int>()
+UnitCommandPathRuntime:MoatWorkNeighbourX:=
+{
+    0,
+    1,
+    1,
+    1,
+    0,
+    -1,
+    -1,
+    -1
+}
+UnitCommandPathRuntime:MoatWorkNeighbourY:=
+{
+    -1,
+    -1,
+    0,
+    1,
+    1,
+    1,
+    0,
+    -1
+}
+UnitCommandPathRuntime:lastMoatWorkSelectionByUnit:= new Dictionary<int, string>()
+UnitCommandPathRuntime:lastMoatWorkApproachByUnit:= new Dictionary<int, string>()
+UnitCommandPathRuntime:nativeGroundDecisions:= new Dictionary<long, bool>()
+UnitCommandPathRuntime:nativeDetourPrefixes:= new Dictionary<int, string>
+{
+    {
+        0x12BF0,
+        "40534883EC30"
+    }, // Chore 36, 6 bytes
+    {
+        0x11C3A0,
+        "4C635C24284C63D2"
+    }, // waypoint append, 8 bytes
+    {
+        0x3E700,
+        "48896C241856"
+    }, // 6 bytes
+    {
+        0x59210,
+        "48895C240848896C2410"
+    }, // 10 bytes
+    {
+        0x61E70,
+        "81FAFFF90000"
+    }, // 6 bytes
+    {
+        0x639C0,
+        "48895C241856"
+    }, // 6 bytes
+    {
+        0x69470,
+        "48896C24104889742418"
+    }, // 10 bytes
+    {
+        0x69560,
+        "4863C20FB78441F023EA01"
+    }, // 11 bytes
+    {
+        0x69D60,
+        "448944241889542410"
+    }, // 9 bytes
+    {
+        0x6AF60,
+        "44894C242053"
+    }, // 6 bytes
+    {
+        0x6B910,
+        "40534883EC20"
+    }, // 6 bytes
+    {
+        0x6C490,
+        "48895C240848897C2410"
+    }, // 10 bytes
+    {
+        0x725E0,
+        "48895C240848896C2410"
+    }, // 10 bytes
+    {
+        0x8C5F0,
+        "44884C24204488442418"
+    }, // 10 bytes
+    {
+        0xB70C0,
+        "48895C240855"
+    }, // 6 bytes
+    {
+        0xB72C0,
+        "48895C240848896C2410"
+    }, // 10 bytes
+    {
+        0xC0270,
+        "48895C24088D42FF"
+    }, // 8 bytes
+    {
+        0xC07C0,
+        "4863C24869D02C030000"
+    }, // 10 bytes
+    {
+        0xC3E50,
+        "48895C240857"
+    }, // 6 bytes
+    {
+        0xC4BF0,
+        "48896C24184889742420"
+    }, // 10 bytes
+    {
+        0xC5040,
+        "4883EC2883B97498310001"
+    }, // 11 bytes
+    {
+        0xD86F0,
+        "48895C242055"
+    }, // 6 bytes
+    {
+        0xD8CE0,
+        "48895C240848896C2418"
+    }, // 10 bytes
+    {
+        0xD90D0,
+        "48895C240848896C2410"
+    }, // 10 bytes
+    {
+        0xD9C40,
+        "48895C240848896C2418"
+    }, // 10 bytes
+    {
+        0xDA020,
+        "48894C240853"
+    }, // 6 bytes
+    {
+        0xDA590,
+        "48895C242056"
+    }, // 6 bytes
+    {
+        0xDAA50,
+        "48895C24084889742410"
+    }, // 10 bytes
+    {
+        0xDAAC0,
+        "48895C242055"
+    }, // 6 bytes
+    {
+        0xDAFD0,
+        "48895C242055"
+    }, // 6 bytes
+    {
+        0xDB650,
+        "48895C240848896C2418"
+    }, // 10 bytes
+    {
+        0xDBC60,
+        "44894C242053"
+    }, // 6 bytes
+    {
+        0xDC3C0,
+        "48895C242055"
+    }, // 6 bytes
+    {
+        0xDCD60,
+        "4863C24C8D1D9632F2FF"
+    }, // 10 bytes
+    {
+        0xDCE60,
+        "48895C241048896C2418"
+    }, // 10 bytes
+    {
+        0xDE6A0,
+        "48895C240848896C2410"
+    }, // 10 bytes
+    {
+        0xDF720,
+        "405741544155"
+    }, // 6 bytes
+    {
+        0xE04B0,
+        "48895C241857"
+    }, // 6 bytes
+    {
+        0xE0530,
+        "4863C24C8D1DC6FAF1FF"
+    }, // 10 bytes
+    {
+        0xE06F0,
+        "4C8D1509F9F1FF"
+    }, // 7 bytes
+    {
+        0xE0770,
+        "4C8D1589F8F1FF"
+    }, // 7 bytes
+    {
+        0xE0970,
+        "48895C240848896C2410"
+    }, // 10 bytes
+    {
+        0xE0AC0,
+        "48895C240848896C2418"
+    }, // 10 bytes
+    {
+        0xE1110,
+        "405341574883EC38"
+    }, // 8 bytes
+    {
+        0xE1640,
+        "48894C240853"
+    }, // 6 bytes
+    {
+        0xE1D30,
+        "48895C240848896C2418"
+    }, // 10 bytes
+    {
+        0xE2610,
+        "405541544155"
+    }, // 6 bytes
+    {
+        0xE2CA0,
+        "48895C240848896C2410"
+    }, // 10 bytes
+    {
+        0xE2F60,
+        "40555741574881EC80090000"
+    }, // 12 bytes
+    {
+        0xE32B0,
+        "40534883EC30"
+    }, // 6 bytes
+    {
+        0xE3B90,
+        "40535556574883EC28"
+    }, // 9 bytes
+    {
+        0xE49D0,
+        "405341574883EC58"
+    }, // 8 bytes
+    {
+        0xE4E90,
+        "40564883EC10"
+    }, // 6 bytes
+    {
+        0xE62D0,
+        "488991605F1500"
+    }, // 7 bytes
+    {
+        0xE7C40,
+        "448944241889542410"
+    }, // 9 bytes
+    {
+        0xE7F60,
+        "448944241889542410"
+    }, // 9 bytes
+    {
+        0xE9D90,
+        "405355574154"
+    }, // 6 bytes
+    {
+        0xE9FF0,
+        "44894C24204489442418"
+    }, // 10 bytes
+    {
+        0xF0030,
+        "895424105355"
+    }, // 6 bytes
+    {
+        0xF03C0,
+        "895424105356"
+    }, // 6 bytes
+    {
+        0xF3060,
+        "48895C241048896C2418"
+    }, // 10 bytes
+    {
+        0xF32B0,
+        "48895C240848896C2410"
+    }, // 10 bytes
+    {
+        0xF4630,
+        "4883EC0883B9C000000000"
+    }, // 11 bytes
+    {
+        0xF4930,
+        "48895C240848896C2410"
+    }, // 10 bytes
+    {
+        0x107160,
+        "4863C2488D15A66E9C04"
+    }, // 10 bytes
+    {
+        0x110740,
+        "48895C24084889742410"
+    }, // 10 bytes
+    {
+        0x117820,
+        "48895C240848896C2410"
+    }, // 10 bytes
+    {
+        0x1178D0,
+        "48895C240848896C2410"
+    }, // 10 bytes
+    {
+        0x117BC0,
+        "48895C240848896C2410"
+    }, // 10 bytes
+    {
+        0x117C70,
+        "48895C240848896C2410"
+    }, // 10 bytes
+    {
+        0x118310,
+        "405556574157"
+    }, // 6 bytes
+    {
+        0x118E00,
+        "48895C240848896C2410"
+    }, // 10 bytes
+    {
+        0x119E30,
+        "48895C241048896C2418"
+    }, // 10 bytes
+    {
+        0x119EE0,
+        "48895C241048896C2418"
+    }, // 10 bytes
+    {
+        0x119F90,
+        "48895C24084863C2"
+    }, // 8 bytes
+    {
+        0x11A980,
+        "48895C240848896C2418"
+    }, // 10 bytes
+    {
+        0x11B520,
+        "48895C240889542410"
+    }, // 9 bytes
+    {
+        0x11D7C0,
+        "48895C240848896C2410"
+    }, // 10 bytes
+    {
+        0x11D8D0,
+        "4C8BDC554154"
+    }, // 6 bytes
+    {
+        0x11DD10,
+        "48895C24104489442418"
+    }, // 10 bytes
+    {
+        0x11E960,
+        "44894C24204489442418"
+    }, // 10 bytes
+    {
+        0x122800,
+        "48895C240848896C2410"
+    }, // 10 bytes
+    {
+        0x123090,
+        "48895C24084889742410"
+    }, // 10 bytes
+    {
+        0x1232E0,
+        "48895C240857"
+    }, // 6 bytes
+    {
+        0x123460,
+        "48895C240848896C2410"
+    }, // 10 bytes
+    {
+        0x1243D0,
+        "48895C240848896C2410"
+    }, // 10 bytes
+    {
+        0x124740,
+        "48895C240848896C2410"
+    }, // 10 bytes
+    {
+        0x13F540,
+        "48895C241855"
+    }, // 6 bytes
+    {
+        0x143400,
+        "48895C241048896C2418"
+    }, // 10 bytes
+    {
+        0x145030,
+        "48895C240848896C2410"
+    }, // 10 bytes
+    {
+        0x146A70,
+        "48895C240848896C2410"
+    }, // 10 bytes
+    {
+        0x14AED0,
+        "48895C241048896C2418"
+    }, // 10 bytes
+    {
+        0x169B70,
+        "48895C240848896C2410"
+    }, // 10 bytes
+    {
+        0x174F90,
+        "48895C240848896C2410"
+    }, // 10 bytes
+    {
+        0x178350,
+        "48895C241855"
+    }, // 6 bytes
+    {
+        0x17B540,
+        "48895C240848896C2410"
+    }, // 10 bytes
+    {
+        0x17CF50,
+        "48895C242055"
+    }, // 6 bytes
+    {
+        0x180230,
+        "4863C24C69C090040000"
+    }, // 10 bytes
+    {
+        0x1811A0,
+        "448B15C92B7608"
+    }, // 7 bytes
+    {
+        0x181890,
+        "48895C24084889742410"
+    }, // 10 bytes
+    {
+        0x182B00,
+        "48895C240848896C2410"
+    }, // 10 bytes
+    {
+        0x1853F0,
+        "40534883EC20"
+    }, // 6 bytes
+    {
+        0x1855A0,
+        "48895C241048896C2418"
+    }, // 10 bytes
+    {
+        0x186AD0,
+        "4863C24C69C090040000"
+    }, // 10 bytes
+    {
+        0x187200,
+        "4863C24C69C090040000"
+    }, // 10 bytes
+    {
+        0x188340,
+        "4863C24869D090040000"
+    }, // 10 bytes
+    {
+        0x18BC00,
+        "4863C2488D1586AC1A00"
+    }, // 10 bytes
+    {
+        0x18BE50,
+        "4863C24C69C890040000"
+    }, // 10 bytes
+    {
+        0x18D460,
+        "48895C241855"
+    }, // 6 bytes
+    {
+        0x18DC40,
+        "448B1529617508"
+    }, // 7 bytes
+    {
+        0x18E1E0,
+        "40535556574154"
+    }, // 7 bytes
+    {
+        0x191C00,
+        "83B98005000000"
+    }, // 7 bytes
+    {
+        0x1946A0,
+        "48895C241048896C2418"
+    }, // 10 bytes
+    {
+        0x195E30,
+        "48895C241048896C2418"
+    }, // 10 bytes
+    {
+        0x196100,
+        "4883EC484863C2"
+    }, // 7 bytes
+    {
+        0x196280,
+        "48895C242055"
+    }, // 6 bytes
+    {
+        0x196810,
+        "4863C24C69C090040000"
+    }, // 10 bytes
+    {
+        0x196840,
+        "4863C24869D090040000"
+    }, // 10 bytes
+    {
+        0x196870,
+        "83B9BC05000000"
+    }, // 7 bytes
+    {
+        0x196CF0,
+        "8B442428488D0D25D63D08"
+    }, // 11 bytes
+    {
+        0x1976C0,
+        "48895C24084889742410"
+    }, // 10 bytes
+    {
+        0x197950,
+        "4863C24869D090040000"
+    }, // 10 bytes
+    {
+        0x198620,
+        "40574863FA4C69CF90040000"
+    }, // 12 bytes
+    {
+        0x1988F0,
+        "48895C242057"
+    }, // 6 bytes
+    {
+        0x198C40,
+        "48894C240853"
+    }, // 6 bytes
+    {
+        0x199CD0,
+        "40534883EC20"
+    }, // 6 bytes
+    {
+        0x19B1B0,
+        "4053488D1D474EE6FF"
+    }, // 9 bytes
+    {
+        0x19B260,
+        "48895C240848896C2410"
+    }, // 10 bytes
+}
+UnitCommandPathRuntime:nativePublicationChecks:= new Dictionary<HookTransaction, List<Action>>()
+UnitCommandPathRuntime:connectivityDelegates:= new List<Delegate>()
+UnitCommandPathRuntime:preBuilderRecoveryHook:= new HookHandle<X64InlineHook>()
+UnitCommandPathRuntime:preBuilderRejections:= new Dictionary<string, long>()
+UnitCommandPathRuntime:publishedCommandTransactions:= new HashSet<HookTransaction>()
+UnitCommandPathRuntime:DetailedDiagnosticsEnabled:= false
+UnitCommandPathRuntime:CursorMoveStagerCallRvas:=
+{
+    0x8F7BA,
+    0x8FD3C,
+    0x8FDC6,
+    0x8FE54
+}
+UnitCommandPathRuntime:MoatBuilderSpecialStructureCallRvas:=
+{
+    0xDB29A,
+    0xDB2EC,
+    0xDB37A
+}
+UnitCommandPathRuntime:MoatReconstructionSpecialStructureCallRvas:=
+{
+    0xE1856,
+    0xE18DF,
+    0xE195B
+}
+UnitCommandPathRuntime:EndpointNeighbourX:=
+{
+    -1,
+    1,
+    0,
+    0,
+    -1,
+    1,
+    -1,
+    1
+}
+UnitCommandPathRuntime:EndpointNeighbourY:=
+{
+    0,
+    0,
+    -1,
+    1,
+    -1,
+    -1,
+    1,
+    1
+}
+UnitCommandPathRuntime:EndpointSourceEdgeMasks:=
+{
+    0x04,
+    0x40,
+    0x10,
+    0x01,
+    0x08,
+    0x20,
+    0x02,
+    0x80
+}
+UnitCommandPathRuntime:CursorGateJumpOriginal:=
+{
+    0x74,
+    0x45
+}
+UnitCommandPathRuntime:AttackUnitPairGateOriginal:=
+{
+    0x74,
+    0x23
+}
+UnitCommandPathRuntime:AttackBuildingPairGateOriginal:=
+{
+    0x74,
+    0x63
+}
+UnitCommandPathRuntime:AttackAlternativePairGateOriginal:=
+{
+    0x74,
+    0x23
+}
+UnitCommandPathRuntime:cacheMapEpoch:= -1
+UnitCommandPathRuntime:cacheStartX:= -1
+UnitCommandPathRuntime:cacheStartY:= -1
+UnitCommandPathRuntime:cachePlayerId:= -1
+UnitCommandPathRuntime:loggedBuildingCursorReachabilityDecisions:= new HashSet<ulong>()
+UnitCommandPathRuntime:trackedNativeWaypointQueues:= new Dictionary<int, NativeWaypointQueueTracker>()
+UnitCommandPathRuntime:lastUnscopedAttackModes:= new Dictionary<int, string>()
+UnitCommandPathRuntime:lastAttackCommandCandidates:= new Dictionary<int, string>()
+UnitCommandPathRuntime:trackedAttackUnits:= new Dictionary<int, AttackUnitTracker>()
+UnitCommandPathRuntime:trackedMoatMoves:= new Dictionary<int, MoatMoveTracker>()
+UnitCommandPathRuntime:requiredBackgroundTrackedUnitIds:= new HashSet<int>()
+UnitCommandPathRuntime:requiredBackgroundDiagnostics:= new Dictionary<string, int>(StringComparer.Ordinal)
+UnitCommandPathRuntime:requiredBackgroundSuppressedDiagnostics:= new Dictionary<string, int>(StringComparer.Ordinal)
+UnitCommandPathRuntime:requiredBackgroundDiagnosticTick:= int.MinValue
+UnitCommandPathRuntime:reportedDiagnosticFailureStages:= new HashSet<string>(StringComparer.Ordinal)
+UnitCommandPathRuntime:loggedDiggerDecisions:= new HashSet<string>(StringComparer.Ordinal)
+UnitCommandPathRuntime:loggedFormationExecuteMoveTypes:= new HashSet<int>()
+UnitCommandPathRuntime:lastWeightedPublicationDecisionByUnit:= new Dictionary<int, string>()
+UnitCommandPathRuntime:buildingFallbackWorkBuffers:= new Stack<BuildingFallbackWorkBuffers>()
+UnitCommandPathRuntime:buildingCandidateFields:= new Stack<MoatCandidateField>()

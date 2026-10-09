@@ -10,8 +10,10 @@ set "LOCAL_SCRIPT_EXTENDER_ROOT=%PROJECT_DIR%..\shcde-script-extender"
 set "LOCAL_SCRIPT_EXTENDER_MOD_OUTPUT=%LOCAL_SCRIPT_EXTENDER_ROOT%\mod_output\000shcdese"
 set "LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT=%LOCAL_SCRIPT_EXTENDER_ROOT%\src\SHCDESE.BepInEx\bin\net481"
 set "GAME_SCRIPT_EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
-set "API_SHARED_DIR=%GAME_DIR%\BepInEx\plugins\APIShared_Serp"
+set "API_SHARED_DIR=%~dp0..\APIShared\BepInEx\plugins\APIShared_Serp"
 if defined SHCDE_API_SHARED_DIR set "API_SHARED_DIR=%SHCDE_API_SHARED_DIR%"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\ApiSharedRepository\Test-ConsumerPackage.ps1" -Workspace "%~dp0.." -PackageDirectory "%API_SHARED_DIR%"
+if errorlevel 1 exit /b 1
 rem The installed release is canonical; SHCDESE_EXTENDER_DIR is the explicit override.
 if defined SHCDESE_EXTENDER_DIR set "GAME_SCRIPT_EXTENDER_DIR=%SHCDESE_EXTENDER_DIR%"
 set "LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT=%GAME_SCRIPT_EXTENDER_DIR%"
@@ -68,13 +70,14 @@ if not exist "%LOCAL_PLUGIN_DIR%\serps-modpack.json" goto package_failed
 
 if exist "%GAME_PLUGIN_DIR%\" (
   for /D %%D in ("%GAME_PLUGIN_DIR%\*") do (
-    if /I not "%%~nxD"=="LobbyModSettings" (
+    rem Independent infrastructure, including APIShared, is installed by its own build.
+    if /I not "%%~nxD"=="LobbyModSettings" if /I not "%%~nxD"=="Infrastructure" (
       rmdir /S /Q "%%~fD"
       if errorlevel 1 goto copy_failed
     )
   )
   for %%F in ("%GAME_PLUGIN_DIR%\*") do (
-    if exist "%%~fF" if not exist "%%~fF\" (
+    if exist "%%~fF" (
       del /F /Q "%%~fF"
       if errorlevel 1 goto copy_failed
     )

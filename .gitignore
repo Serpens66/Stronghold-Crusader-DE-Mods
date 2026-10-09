@@ -39,3 +39,10 @@ Desktop.ini
 /_inspect/ApiSharedCommunityCleanup/*.log
 /_inspect/ApiSharedCommunityCleanup/Transform/bin/
 /_inspect/ApiSharedCommunityCleanup/Transform/obj/
+
+/_inspect/ApiSharedSubmodule/*.zip
+/_inspect/ApiSharedSubmodule/*.bundle
+/_inspect/ApiSharedSubmodule/*.log
+
+/_inspect/ApiSharedStructure/*.log
+/_inspect/ApiSharedStructure/*.dll

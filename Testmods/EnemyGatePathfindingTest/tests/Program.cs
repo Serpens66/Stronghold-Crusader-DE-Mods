@@ -9,6 +9,9 @@ namespace EnemyGatePathfindingTest
     internal static class Program
     {
         private static int assertions;
+        private static string ReadSharedCommandRuntime() => string.Join("\n",
+            Array.ConvertAll(Directory.GetFiles(Path.Combine("..", "..", "APIShared", "src", "UnitCommands"),
+                "UnitCommandPathRuntime.*.cs", SearchOption.AllDirectories), File.ReadAllText));
 
         private static int Main()
         {
@@ -1290,9 +1293,8 @@ namespace EnemyGatePathfindingTest
             string topology = File.ReadAllText(
                 Path.Combine("src", "GateTopologySnapshotProvider.cs"));
             string bridge = File.ReadAllText(Path.Combine("..", "..", "APIShared",
-                "src", "Pathfinding", "EnemyGatePathPolicyBridge.cs"));
-            string sharedOwner = File.ReadAllText(Path.Combine("..", "..",
-                "APIShared", "src", "UnitCommands", "UnitCommandPathRuntime.cs"));
+                "src", "Pathfinding", "GateRoutes", "EnemyGatePathPolicyBridge.cs"));
+            string sharedOwner = ReadSharedCommandRuntime();
 
             Assert(plugin.Contains("Subscribe(ObserveTargetOrder)") &&
                     plugin.Contains("Subscribe(ObserveTribeMove)") &&
@@ -1880,7 +1882,7 @@ namespace EnemyGatePathfindingTest
                 source.Contains("Snapshot.Readers--"), "nested masks, counters and snapshot reader ownership restore");
             Assert(source.Contains("globals[tribeId] = tribes[tribeId].r_GlobalId") &&
                 source.Contains("tribePlayers = TribePlayerSnapshot.Empty"), "identity snapshot replaces across maps");
-            string shared = File.ReadAllText(Path.Combine("..", "..", "APIShared", "src", "UnitCommands", "UnitCommandPathRuntime.cs"));
+            string shared = ReadSharedCommandRuntime();
             string sharedBuilding = ExtractMethodBody(shared, "ObserveBuildingApproachBuilder");
             Assert(sharedBuilding.Contains("ResolveEnemyGateBuildingPlayer(movementClass, tribeId)") &&
                 sharedBuilding.Contains("sourceRegion, movementClass") && sharedBuilding.Contains("finally"),

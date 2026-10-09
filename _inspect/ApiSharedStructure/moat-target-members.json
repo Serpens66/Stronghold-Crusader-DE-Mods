@@ -1,0 +1,541 @@
+[
+  {
+    "Index": 0,
+    "Name": "FindMoatWorkTargetDelegate",
+    "Kind": "DelegateDeclaration",
+    "Start": 14,
+    "End": 16
+  },
+  {
+    "Index": 1,
+    "Name": "ResolveMoatWorkTileDelegate",
+    "Kind": "DelegateDeclaration",
+    "Start": 18,
+    "End": 20
+  },
+  {
+    "Index": 2,
+    "Name": "HasFillMoatApproachDelegate",
+    "Kind": "DelegateDeclaration",
+    "Start": 22,
+    "End": 24
+  },
+  {
+    "Index": 3,
+    "Name": "FindMoatWorkTargetRva",
+    "Kind": "FieldDeclaration",
+    "Start": 26,
+    "End": 26
+  },
+  {
+    "Index": 4,
+    "Name": "ResolveMoatWorkTileRva",
+    "Kind": "FieldDeclaration",
+    "Start": 27,
+    "End": 27
+  },
+  {
+    "Index": 5,
+    "Name": "HasFillMoatApproachRva",
+    "Kind": "FieldDeclaration",
+    "Start": 28,
+    "End": 28
+  },
+  {
+    "Index": 6,
+    "Name": "FillApproachCallRva",
+    "Kind": "FieldDeclaration",
+    "Start": 29,
+    "End": 29
+  },
+  {
+    "Index": 7,
+    "Name": "DigStandingOnMoatCallRva",
+    "Kind": "FieldDeclaration",
+    "Start": 30,
+    "End": 30
+  },
+  {
+    "Index": 8,
+    "Name": "DigRegionSearchCallRva",
+    "Kind": "FieldDeclaration",
+    "Start": 31,
+    "End": 31
+  },
+  {
+    "Index": 9,
+    "Name": "DigRegionPairCallRva",
+    "Kind": "FieldDeclaration",
+    "Start": 32,
+    "End": 32
+  },
+  {
+    "Index": 10,
+    "Name": "DigAlternativeRegionPairCallRva",
+    "Kind": "FieldDeclaration",
+    "Start": 33,
+    "End": 33
+  },
+  {
+    "Index": 11,
+    "Name": "MovementPlannerLowFlagGateRva",
+    "Kind": "FieldDeclaration",
+    "Start": 34,
+    "End": 34
+  },
+  {
+    "Index": 12,
+    "Name": "MovementPlannerStructureFlagGateRva",
+    "Kind": "FieldDeclaration",
+    "Start": 35,
+    "End": 35
+  },
+  {
+    "Index": 13,
+    "Name": "SelectedMoatTileIdOffset",
+    "Kind": "FieldDeclaration",
+    "Start": 37,
+    "End": 37
+  },
+  {
+    "Index": 14,
+    "Name": "SelectedMoatApproachXOffset",
+    "Kind": "FieldDeclaration",
+    "Start": 38,
+    "End": 38
+  },
+  {
+    "Index": 15,
+    "Name": "SelectedMoatApproachYOffset",
+    "Kind": "FieldDeclaration",
+    "Start": 39,
+    "End": 39
+  },
+  {
+    "Index": 16,
+    "Name": "MoatRecordTileIdOffset",
+    "Kind": "FieldDeclaration",
+    "Start": 40,
+    "End": 40
+  },
+  {
+    "Index": 17,
+    "Name": "MoatRecordXOffset",
+    "Kind": "FieldDeclaration",
+    "Start": 41,
+    "End": 41
+  },
+  {
+    "Index": 18,
+    "Name": "MoatRecordYOffset",
+    "Kind": "FieldDeclaration",
+    "Start": 42,
+    "End": 42
+  },
+  {
+    "Index": 19,
+    "Name": "MoatRecordReservationOffset",
+    "Kind": "FieldDeclaration",
+    "Start": 43,
+    "End": 43
+  },
+  {
+    "Index": 20,
+    "Name": "MaximumMoatRecordId",
+    "Kind": "FieldDeclaration",
+    "Start": 44,
+    "End": 44
+  },
+  {
+    "Index": 21,
+    "Name": "MoatReservationStep",
+    "Kind": "FieldDeclaration",
+    "Start": 45,
+    "End": 45
+  },
+  {
+    "Index": 22,
+    "Name": "IsValidMoatRecordId",
+    "Kind": "MethodDeclaration",
+    "Start": 46,
+    "End": 47
+  },
+  {
+    "Index": 23,
+    "Name": "MovementBlockedLowTileFlagMask",
+    "Kind": "FieldDeclaration",
+    "Start": 48,
+    "End": 48
+  },
+  {
+    "Index": 24,
+    "Name": "MovementBlockedStructureTileFlagMask",
+    "Kind": "FieldDeclaration",
+    "Start": 49,
+    "End": 49
+  },
+  {
+    "Index": 25,
+    "Name": "MoatWorkNeighbourX",
+    "Kind": "FieldDeclaration",
+    "Start": 52,
+    "End": 52
+  },
+  {
+    "Index": 26,
+    "Name": "MoatWorkNeighbourY",
+    "Kind": "FieldDeclaration",
+    "Start": 53,
+    "End": 53
+  },
+  {
+    "Index": 27,
+    "Name": "FindMoatWorkTargetPattern",
+    "Kind": "FieldDeclaration",
+    "Start": 55,
+    "End": 58
+  },
+  {
+    "Index": 28,
+    "Name": "ResolveMoatWorkTilePattern",
+    "Kind": "FieldDeclaration",
+    "Start": 60,
+    "End": 63
+  },
+  {
+    "Index": 29,
+    "Name": "HasFillMoatApproachPattern",
+    "Kind": "FieldDeclaration",
+    "Start": 65,
+    "End": 68
+  },
+  {
+    "Index": 30,
+    "Name": "activeMoatWorkSelection",
+    "Kind": "FieldDeclaration",
+    "Start": 70,
+    "End": 71
+  },
+  {
+    "Index": 31,
+    "Name": "pendingFillMoatApproach",
+    "Kind": "FieldDeclaration",
+    "Start": 72,
+    "End": 73
+  },
+  {
+    "Index": 32,
+    "Name": "pendingDigMoatTarget",
+    "Kind": "FieldDeclaration",
+    "Start": 74,
+    "End": 75
+  },
+  {
+    "Index": 33,
+    "Name": "originalFindMoatWorkTarget",
+    "Kind": "FieldDeclaration",
+    "Start": 77,
+    "End": 77
+  },
+  {
+    "Index": 34,
+    "Name": "rootedFindMoatWorkTarget",
+    "Kind": "FieldDeclaration",
+    "Start": 78,
+    "End": 78
+  },
+  {
+    "Index": 35,
+    "Name": "originalResolveMoatWorkTile",
+    "Kind": "FieldDeclaration",
+    "Start": 79,
+    "End": 79
+  },
+  {
+    "Index": 36,
+    "Name": "rootedResolveMoatWorkTile",
+    "Kind": "FieldDeclaration",
+    "Start": 80,
+    "End": 80
+  },
+  {
+    "Index": 37,
+    "Name": "originalHasFillMoatApproach",
+    "Kind": "FieldDeclaration",
+    "Start": 81,
+    "End": 81
+  },
+  {
+    "Index": 38,
+    "Name": "rootedHasFillMoatApproach",
+    "Kind": "FieldDeclaration",
+    "Start": 82,
+    "End": 82
+  },
+  {
+    "Index": 39,
+    "Name": "findMoatWorkTargetDetour",
+    "Kind": "FieldDeclaration",
+    "Start": 83,
+    "End": 83
+  },
+  {
+    "Index": 40,
+    "Name": "resolveMoatWorkTileDetour",
+    "Kind": "FieldDeclaration",
+    "Start": 84,
+    "End": 84
+  },
+  {
+    "Index": 41,
+    "Name": "hasFillMoatApproachDetour",
+    "Kind": "FieldDeclaration",
+    "Start": 85,
+    "End": 85
+  },
+  {
+    "Index": 42,
+    "Name": "moatWorkHookTransaction",
+    "Kind": "FieldDeclaration",
+    "Start": 86,
+    "End": 86
+  },
+  {
+    "Index": 43,
+    "Name": "lastMoatWorkSelectionByUnit",
+    "Kind": "FieldDeclaration",
+    "Start": 87,
+    "End": 88
+  },
+  {
+    "Index": 44,
+    "Name": "lastMoatWorkApproachByUnit",
+    "Kind": "FieldDeclaration",
+    "Start": 89,
+    "End": 90
+  },
+  {
+    "Index": 45,
+    "Name": "TryInstallMoatWorkTargetSelection",
+    "Kind": "MethodDeclaration",
+    "Start": 91,
+    "End": 180
+  },
+  {
+    "Index": 46,
+    "Name": "ValidateMoatWorkTargetContracts",
+    "Kind": "MethodDeclaration",
+    "Start": 182,
+    "End": 245
+  },
+  {
+    "Index": 47,
+    "Name": "FindMoatWorkTargetWithOwnerRoute",
+    "Kind": "MethodDeclaration",
+    "Start": 247,
+    "End": 296
+  },
+  {
+    "Index": 48,
+    "Name": "SelectMoatWorkTarget",
+    "Kind": "MethodDeclaration",
+    "Start": 298,
+    "End": 312
+  },
+  {
+    "Index": 49,
+    "Name": "IsImprovedMoatFillingEnabled",
+    "Kind": "MethodDeclaration",
+    "Start": 314,
+    "End": 315
+  },
+  {
+    "Index": 50,
+    "Name": "TryCreatePendingDigMoatTarget",
+    "Kind": "MethodDeclaration",
+    "Start": 317,
+    "End": 358
+  },
+  {
+    "Index": 51,
+    "Name": "TryCreateMoatWorkSelectionScope",
+    "Kind": "MethodDeclaration",
+    "Start": 360,
+    "End": 395
+  },
+  {
+    "Index": 52,
+    "Name": "AllowFillMoatApproachThroughFriendlyMoat",
+    "Kind": "MethodDeclaration",
+    "Start": 397,
+    "End": 435
+  },
+  {
+    "Index": 53,
+    "Name": "TryGetMoatRecord",
+    "Kind": "MethodDeclaration",
+    "Start": 437,
+    "End": 465
+  },
+  {
+    "Index": 54,
+    "Name": "TryFindBestFillMoatApproach",
+    "Kind": "MethodDeclaration",
+    "Start": 467,
+    "End": 560
+  },
+  {
+    "Index": 55,
+    "Name": "ResolveMoatWorkTileWithOwnerRoute",
+    "Kind": "MethodDeclaration",
+    "Start": 562,
+    "End": 689
+  },
+  {
+    "Index": 56,
+    "Name": "ValidatePendingDigTarget",
+    "Kind": "MethodDeclaration",
+    "Start": 691,
+    "End": 711
+  },
+  {
+    "Index": 57,
+    "Name": "ValidatePendingFillApproach",
+    "Kind": "MethodDeclaration",
+    "Start": 713,
+    "End": 780
+  },
+  {
+    "Index": 58,
+    "Name": "TryFindRequiredFriendlyCompletedMoatRouteToFillEndpoint",
+    "Kind": "MethodDeclaration",
+    "Start": 782,
+    "End": 802
+  },
+  {
+    "Index": 59,
+    "Name": "EnsureMoatWorkReachability",
+    "Kind": "MethodDeclaration",
+    "Start": 804,
+    "End": 825
+  },
+  {
+    "Index": 60,
+    "Name": "TryGetMoatWorkRoute",
+    "Kind": "MethodDeclaration",
+    "Start": 827,
+    "End": 872
+  },
+  {
+    "Index": 61,
+    "Name": "TryAllowDigWorkRegionPair",
+    "Kind": "MethodDeclaration",
+    "Start": 874,
+    "End": 899
+  },
+  {
+    "Index": 62,
+    "Name": "TryAllowDigWorkRegionSearch",
+    "Kind": "MethodDeclaration",
+    "Start": 901,
+    "End": 933
+  },
+  {
+    "Index": 63,
+    "Name": "EvaluateDigWorkRegion",
+    "Kind": "MethodDeclaration",
+    "Start": 935,
+    "End": 970
+  },
+  {
+    "Index": 64,
+    "Name": "LogMoatWorkSelection",
+    "Kind": "MethodDeclaration",
+    "Start": 972,
+    "End": 1037
+  },
+  {
+    "Index": 65,
+    "Name": "LogResolvedFillMoatApproach",
+    "Kind": "MethodDeclaration",
+    "Start": 1039,
+    "End": 1059
+  },
+  {
+    "Index": 66,
+    "Name": "LogResolvedDigMoatTarget",
+    "Kind": "MethodDeclaration",
+    "Start": 1061,
+    "End": 1079
+  },
+  {
+    "Index": 67,
+    "Name": "TryReadMoatRecordTile",
+    "Kind": "MethodDeclaration",
+    "Start": 1081,
+    "End": 1100
+  },
+  {
+    "Index": 68,
+    "Name": "HasDownstreamMovementBlockingFlags",
+    "Kind": "MethodDeclaration",
+    "Start": 1102,
+    "End": 1104
+  },
+  {
+    "Index": 69,
+    "Name": "IsOccupiedByOtherLivingUnit",
+    "Kind": "MethodDeclaration",
+    "Start": 1106,
+    "End": 1114
+  },
+  {
+    "Index": 70,
+    "Name": "TryReadMoatRecord",
+    "Kind": "MethodDeclaration",
+    "Start": 1116,
+    "End": 1140
+  },
+  {
+    "Index": 71,
+    "Name": "RollbackUnpublishedMoatWorkTargetSelection",
+    "Kind": "MethodDeclaration",
+    "Start": 1144,
+    "End": 1158
+  },
+  {
+    "Index": 72,
+    "Name": "ResetMoatWorkTargetSelection",
+    "Kind": "MethodDeclaration",
+    "Start": 1160,
+    "End": 1167
+  },
+  {
+    "Index": 73,
+    "Name": "MoatWorkSelectionScope",
+    "Kind": "ClassDeclaration",
+    "Start": 1169,
+    "End": 1242
+  },
+  {
+    "Index": 74,
+    "Name": "MoatWorkApproach",
+    "Kind": "StructDeclaration",
+    "Start": 1244,
+    "End": 1271
+  },
+  {
+    "Index": 75,
+    "Name": "PendingFillMoatApproach",
+    "Kind": "ClassDeclaration",
+    "Start": 1275,
+    "End": 1318
+  },
+  {
+    "Index": 76,
+    "Name": "PendingDigMoatTarget",
+    "Kind": "ClassDeclaration",
+    "Start": 1320,
+    "End": 1372
+  }
+]

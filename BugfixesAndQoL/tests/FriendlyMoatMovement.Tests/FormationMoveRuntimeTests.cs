@@ -7,8 +7,7 @@ internal static class FormationMoveRuntimeTests
 {
     internal static void Validate(string root)
     {
-        var runtime = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,
-            "APIShared/src/UnitCommands/FormationRuntime.cs"))).GetRoot()
+        var runtime = CSharpSyntaxTree.ParseText(FeatureSourceModel.Read(root, "FormationRuntime")).GetRoot()
             .DescendantNodes().OfType<ClassDeclarationSyntax>()
             .Single(c => c.Identifier.Text == "FormationRuntime");
         string[] methods = { "TryStartDrag", "TryCaptureCommandTarget", "TryCaptureTarget",
@@ -23,7 +22,7 @@ internal static class FormationMoveRuntimeTests
                 methods.Contains(method.Identifier.Text) || m is BaseTypeDeclarationSyntax type &&
                 types.Contains(type.Identifier.Text));
         var authorization = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,
-            "APIShared/src/UnitCommands/GroundMovePreviewAuthorization.cs"))).GetRoot();
+            "APIShared/src/UnitCommands/Cursor/GroundMovePreviewAuthorization.cs"))).GetRoot();
         var proofs = authorization.DescendantNodes().OfType<BaseTypeDeclarationSyntax>()
             .Where(t => t.Identifier.Text != "NativeGroundMoveFeedbackReader");
         string fixture = """
@@ -244,9 +243,9 @@ namespace APIShared.UnitCommands {
 """;
         fixture = fixture.Replace("__MEMBERS__", string.Join("\n", members.Select(m => m.ToFullString())))
             .Replace("__PROOFS__", string.Join("\n", proofs.Select(p => p.ToFullString())));
-        string[] paths = { "APIShared/src/UnitCommands/FormationModel.cs",
-            "APIShared/src/UnitCommands/FormationPresentation.cs",
-            "APIShared/src/UnitCommands/FormationReleaseStateModel.cs" };
+        string[] paths = { "APIShared/src/UnitCommands/Formation/FormationModel.cs",
+            "APIShared/src/UnitCommands/Formation/FormationPresentation.cs",
+            "APIShared/src/UnitCommands/Formation/FormationReleaseStateModel.cs" };
         var trees = paths.Select(p => CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,p))))
             .Append(CSharpSyntaxTree.ParseText(fixture));
         var references = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!).Split(Path.PathSeparator)

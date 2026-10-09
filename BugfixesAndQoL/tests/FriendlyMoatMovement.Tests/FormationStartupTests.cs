@@ -9,11 +9,10 @@ internal static class FormationStartupTests
     {
         string[] paths = {
             "BugfixesAndQoL/src/FormationFeature.cs", "BugfixesAndQoL/src/FormationMenuViewModel.cs",
-            "BugfixesAndQoL/src/FormationSelectionMigration.cs", "APIShared/src/UnitCommands/FormationModel.cs",
-            "APIShared/src/UnitCommands/FormationPresentation.cs", "BugfixesAndQoL/src/ArrangementTooltipFontConverter.cs"
+            "BugfixesAndQoL/src/FormationSelectionMigration.cs", "APIShared/src/UnitCommands/Formation/FormationModel.cs",
+            "APIShared/src/UnitCommands/Formation/FormationPresentation.cs", "BugfixesAndQoL/src/ArrangementTooltipFontConverter.cs"
         };
-        var gestureUpdate = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,
-            "APIShared/src/UnitCommands/FormationRuntime.cs"))).GetRoot().DescendantNodes()
+        var gestureUpdate = CSharpSyntaxTree.ParseText(FeatureSourceModel.Read(root, "FormationRuntime")).GetRoot().DescendantNodes()
             .OfType<MethodDeclarationSyntax>().Single(m => m.Identifier.Text == "UpdateGesture").ToFullString();
         string fixture = """
 using System; using System.Reflection; using System.Collections.Generic; using System.ComponentModel;

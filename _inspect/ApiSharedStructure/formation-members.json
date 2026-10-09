@@ -1,0 +1,1213 @@
+[
+  {
+    "Index": 0,
+    "Name": "EngineRunDelegate",
+    "Kind": "DelegateDeclaration",
+    "Start": 29,
+    "End": 29
+  },
+  {
+    "Index": 1,
+    "Name": "CameraUpdateDelegate",
+    "Kind": "DelegateDeclaration",
+    "Start": 30,
+    "End": 30
+  },
+  {
+    "Index": 2,
+    "Name": "FormationSlotDelegate",
+    "Kind": "DelegateDeclaration",
+    "Start": 32,
+    "End": 33
+  },
+  {
+    "Index": 3,
+    "Name": "AssassinFormationSlotDelegate",
+    "Kind": "DelegateDeclaration",
+    "Start": 35,
+    "End": 36
+  },
+  {
+    "Index": 4,
+    "Name": "CommonGroupMoveDelegate",
+    "Kind": "DelegateDeclaration",
+    "Start": 38,
+    "End": 40
+  },
+  {
+    "Index": 5,
+    "Name": "GetGroupUnitIdDelegate",
+    "Kind": "DelegateDeclaration",
+    "Start": 42,
+    "End": 43
+  },
+  {
+    "Index": 6,
+    "Name": "ProtocolVersion",
+    "Kind": "FieldDeclaration",
+    "Start": 45,
+    "End": 45
+  },
+  {
+    "Index": 7,
+    "Name": "MapWidth",
+    "Kind": "FieldDeclaration",
+    "Start": 46,
+    "End": 46
+  },
+  {
+    "Index": 8,
+    "Name": "MaximumUnitCount",
+    "Kind": "FieldDeclaration",
+    "Start": 47,
+    "End": 47
+  },
+  {
+    "Index": 9,
+    "Name": "MaximumTribeCount",
+    "Kind": "FieldDeclaration",
+    "Start": 48,
+    "End": 48
+  },
+  {
+    "Index": 10,
+    "Name": "TribeRecordSize",
+    "Kind": "FieldDeclaration",
+    "Start": 49,
+    "End": 49
+  },
+  {
+    "Index": 11,
+    "Name": "TribeUnitCountOffset",
+    "Kind": "FieldDeclaration",
+    "Start": 50,
+    "End": 50
+  },
+  {
+    "Index": 12,
+    "Name": "StandardSelectorRva",
+    "Kind": "FieldDeclaration",
+    "Start": 51,
+    "End": 51
+  },
+  {
+    "Index": 13,
+    "Name": "AssassinSelectorRva",
+    "Kind": "FieldDeclaration",
+    "Start": 52,
+    "End": 52
+  },
+  {
+    "Index": 14,
+    "Name": "CommonGroupMoveRva",
+    "Kind": "FieldDeclaration",
+    "Start": 53,
+    "End": 53
+  },
+  {
+    "Index": 15,
+    "Name": "UnitMoveTargetRva",
+    "Kind": "FieldDeclaration",
+    "Start": 54,
+    "End": 54
+  },
+  {
+    "Index": 16,
+    "Name": "GetGroupUnitIdRva",
+    "Kind": "FieldDeclaration",
+    "Start": 55,
+    "End": 55
+  },
+  {
+    "Index": 17,
+    "Name": "NativePathManagerRva",
+    "Kind": "FieldDeclaration",
+    "Start": 56,
+    "End": 56
+  },
+  {
+    "Index": 18,
+    "Name": "NativeTribeManagerRva",
+    "Kind": "FieldDeclaration",
+    "Start": 57,
+    "End": 57
+  },
+  {
+    "Index": 19,
+    "Name": "MovementTargetAvailabilityRva",
+    "Kind": "FieldDeclaration",
+    "Start": 58,
+    "End": 58
+  },
+  {
+    "Index": 20,
+    "Name": "ExpectedUnitMoveTargetAuditBytes",
+    "Kind": "FieldDeclaration",
+    "Start": 59,
+    "End": 59
+  },
+  {
+    "Index": 21,
+    "Name": "MaximumPreviewCandidates",
+    "Kind": "FieldDeclaration",
+    "Start": 60,
+    "End": 60
+  },
+  {
+    "Index": 22,
+    "Name": "MaximumVanillaSelectorCandidates",
+    "Kind": "FieldDeclaration",
+    "Start": 61,
+    "End": 61
+  },
+  {
+    "Index": 23,
+    "Name": "MinimumDragTileDistance",
+    "Kind": "FieldDeclaration",
+    "Start": 62,
+    "End": 62
+  },
+  {
+    "Index": 24,
+    "Name": "StandardSelectorPrefix",
+    "Kind": "FieldDeclaration",
+    "Start": 64,
+    "End": 73
+  },
+  {
+    "Index": 25,
+    "Name": "AssassinSelectorPrefix",
+    "Kind": "FieldDeclaration",
+    "Start": 75,
+    "End": 86
+  },
+  {
+    "Index": 26,
+    "Name": "CommonGroupMovePrefix",
+    "Kind": "FieldDeclaration",
+    "Start": 88,
+    "End": 98
+  },
+  {
+    "Index": 27,
+    "Name": "UnitMoveTargetPrefix",
+    "Kind": "FieldDeclaration",
+    "Start": 100,
+    "End": 110
+  },
+  {
+    "Index": 28,
+    "Name": "InstanceFields",
+    "Kind": "FieldDeclaration",
+    "Start": 112,
+    "End": 113
+  },
+  {
+    "Index": 29,
+    "Name": "log",
+    "Kind": "FieldDeclaration",
+    "Start": 115,
+    "End": 115
+  },
+  {
+    "Index": 30,
+    "Name": "libraryContext",
+    "Kind": "FieldDeclaration",
+    "Start": 116,
+    "End": 116
+  },
+  {
+    "Index": 31,
+    "Name": "formationConfig",
+    "Kind": "FieldDeclaration",
+    "Start": 117,
+    "End": 117
+  },
+  {
+    "Index": 32,
+    "Name": "densityConfig",
+    "Kind": "FieldDeclaration",
+    "Start": 118,
+    "End": 118
+  },
+  {
+    "Index": 33,
+    "Name": "placementModeConfig",
+    "Kind": "FieldDeclaration",
+    "Start": 119,
+    "End": 119
+  },
+  {
+    "Index": 34,
+    "Name": "menuViewModel",
+    "Kind": "FieldDeclaration",
+    "Start": 120,
+    "End": 120
+  },
+  {
+    "Index": 35,
+    "Name": "stateSync",
+    "Kind": "FieldDeclaration",
+    "Start": 121,
+    "End": 121
+  },
+  {
+    "Index": 36,
+    "Name": "loggedTargetRejections",
+    "Kind": "FieldDeclaration",
+    "Start": 122,
+    "End": 123
+  },
+  {
+    "Index": 37,
+    "Name": "settings",
+    "Kind": "FieldDeclaration",
+    "Start": 124,
+    "End": 124
+  },
+  {
+    "Index": 38,
+    "Name": "commandRuntime",
+    "Kind": "FieldDeclaration",
+    "Start": 125,
+    "End": 125
+  },
+  {
+    "Index": 39,
+    "Name": "groundFeedbackReader",
+    "Kind": "FieldDeclaration",
+    "Start": 126,
+    "End": 126
+  },
+  {
+    "Index": 40,
+    "Name": "nativeFeedbackGeneration",
+    "Kind": "FieldDeclaration",
+    "Start": 127,
+    "End": 127
+  },
+  {
+    "Index": 41,
+    "Name": "nativeFeedbackRunGeneration",
+    "Kind": "FieldDeclaration",
+    "Start": 128,
+    "End": 128
+  },
+  {
+    "Index": 42,
+    "Name": "nativeFeedbackRunActive",
+    "Kind": "FieldDeclaration",
+    "Start": 129,
+    "End": 129
+  },
+  {
+    "Index": 43,
+    "Name": "startupConfirmed",
+    "Kind": "FieldDeclaration",
+    "Start": 130,
+    "End": 130
+  },
+  {
+    "Index": 44,
+    "Name": "Enabled",
+    "Kind": "PropertyDeclaration",
+    "Start": 131,
+    "End": 131
+  },
+  {
+    "Index": 45,
+    "Name": "dispatchDepth",
+    "Kind": "FieldDeclaration",
+    "Start": 132,
+    "End": 132
+  },
+  {
+    "Index": 46,
+    "Name": "IsDispatching",
+    "Kind": "PropertyDeclaration",
+    "Start": 133,
+    "End": 133
+  },
+  {
+    "Index": 47,
+    "Name": "markerRenderer",
+    "Kind": "FieldDeclaration",
+    "Start": 135,
+    "End": 135
+  },
+  {
+    "Index": 48,
+    "Name": "commandModeReader",
+    "Kind": "FieldDeclaration",
+    "Start": 136,
+    "End": 136
+  },
+  {
+    "Index": 49,
+    "Name": "engineRunHook",
+    "Kind": "FieldDeclaration",
+    "Start": 137,
+    "End": 137
+  },
+  {
+    "Index": 50,
+    "Name": "cameraUpdateHook",
+    "Kind": "FieldDeclaration",
+    "Start": 138,
+    "End": 138
+  },
+  {
+    "Index": 51,
+    "Name": "engineRunOriginal",
+    "Kind": "FieldDeclaration",
+    "Start": 139,
+    "End": 139
+  },
+  {
+    "Index": 52,
+    "Name": "cameraUpdateOriginal",
+    "Kind": "FieldDeclaration",
+    "Start": 140,
+    "End": 140
+  },
+  {
+    "Index": 53,
+    "Name": "keyDownSubscription",
+    "Kind": "FieldDeclaration",
+    "Start": 141,
+    "End": 141
+  },
+  {
+    "Index": 54,
+    "Name": "keyHeldSubscription",
+    "Kind": "FieldDeclaration",
+    "Start": 142,
+    "End": 142
+  },
+  {
+    "Index": 55,
+    "Name": "keyUpSubscription",
+    "Kind": "FieldDeclaration",
+    "Start": 143,
+    "End": 143
+  },
+  {
+    "Index": 56,
+    "Name": "packetSubscription",
+    "Kind": "FieldDeclaration",
+    "Start": 144,
+    "End": 144
+  },
+  {
+    "Index": 57,
+    "Name": "packetHook",
+    "Kind": "FieldDeclaration",
+    "Start": 145,
+    "End": 145
+  },
+  {
+    "Index": 58,
+    "Name": "leftMouseStateField",
+    "Kind": "FieldDeclaration",
+    "Start": 146,
+    "End": 146
+  },
+  {
+    "Index": 59,
+    "Name": "rightMouseDownField",
+    "Kind": "FieldDeclaration",
+    "Start": 147,
+    "End": 147
+  },
+  {
+    "Index": 60,
+    "Name": "rightMouseUpField",
+    "Kind": "FieldDeclaration",
+    "Start": 148,
+    "End": 148
+  },
+  {
+    "Index": 61,
+    "Name": "mouseStateReadField",
+    "Kind": "FieldDeclaration",
+    "Start": 149,
+    "End": 149
+  },
+  {
+    "Index": 62,
+    "Name": "mouseUpPendingField",
+    "Kind": "FieldDeclaration",
+    "Start": 150,
+    "End": 150
+  },
+  {
+    "Index": 63,
+    "Name": "nativeTribeManager",
+    "Kind": "FieldDeclaration",
+    "Start": 151,
+    "End": 151
+  },
+  {
+    "Index": 64,
+    "Name": "nativePathManager",
+    "Kind": "FieldDeclaration",
+    "Start": 152,
+    "End": 152
+  },
+  {
+    "Index": 65,
+    "Name": "movementTargetAvailability",
+    "Kind": "FieldDeclaration",
+    "Start": 153,
+    "End": 153
+  },
+  {
+    "Index": 66,
+    "Name": "getGroupUnitId",
+    "Kind": "FieldDeclaration",
+    "Start": 154,
+    "End": 154
+  },
+  {
+    "Index": 67,
+    "Name": "sendChorePayloadMethod",
+    "Kind": "FieldDeclaration",
+    "Start": 155,
+    "End": 155
+  },
+  {
+    "Index": 68,
+    "Name": "drag",
+    "Kind": "FieldDeclaration",
+    "Start": 156,
+    "End": 156
+  },
+  {
+    "Index": 69,
+    "Name": "pendingCommand",
+    "Kind": "FieldDeclaration",
+    "Start": 157,
+    "End": 157
+  },
+  {
+    "Index": 70,
+    "Name": "activeCommand",
+    "Kind": "FieldDeclaration",
+    "Start": 158,
+    "End": 158
+  },
+  {
+    "Index": 71,
+    "Name": "commonGroupCommand",
+    "Kind": "FieldDeclaration",
+    "Start": 159,
+    "End": 159
+  },
+  {
+    "Index": 72,
+    "Name": "unitAssignmentFrame",
+    "Kind": "FieldDeclaration",
+    "Start": 160,
+    "End": 160
+  },
+  {
+    "Index": 73,
+    "Name": "unitFallbackAttempt",
+    "Kind": "FieldDeclaration",
+    "Start": 161,
+    "End": 161
+  },
+  {
+    "Index": 74,
+    "Name": "releaseConsumptionWatch",
+    "Kind": "FieldDeclaration",
+    "Start": 162,
+    "End": 162
+  },
+  {
+    "Index": 75,
+    "Name": "nextOperationId",
+    "Kind": "FieldDeclaration",
+    "Start": 163,
+    "End": 163
+  },
+  {
+    "Index": 76,
+    "Name": "lastWheelFrame",
+    "Kind": "FieldDeclaration",
+    "Start": 164,
+    "End": 164
+  },
+  {
+    "Index": 77,
+    "Name": "mainThreadId",
+    "Kind": "FieldDeclaration",
+    "Start": 165,
+    "End": 165
+  },
+  {
+    "Index": 78,
+    "Name": "initialized",
+    "Kind": "FieldDeclaration",
+    "Start": 166,
+    "End": 166
+  },
+  {
+    "Index": 79,
+    "Name": "failed",
+    "Kind": "FieldDeclaration",
+    "Start": 167,
+    "End": 167
+  },
+  {
+    "Index": 80,
+    "Name": "FormationRuntime",
+    "Kind": "ConstructorDeclaration",
+    "Start": 169,
+    "End": 194
+  },
+  {
+    "Index": 81,
+    "Name": "Initialize",
+    "Kind": "MethodDeclaration",
+    "Start": 196,
+    "End": 301
+  },
+  {
+    "Index": 82,
+    "Name": "OnKeyDown",
+    "Kind": "MethodDeclaration",
+    "Start": 305,
+    "End": 341
+  },
+  {
+    "Index": 83,
+    "Name": "OnKeyHeld",
+    "Kind": "MethodDeclaration",
+    "Start": 343,
+    "End": 378
+  },
+  {
+    "Index": 84,
+    "Name": "OnKeyUp",
+    "Kind": "MethodDeclaration",
+    "Start": 380,
+    "End": 428
+  },
+  {
+    "Index": 85,
+    "Name": "EngineRunHook",
+    "Kind": "MethodDeclaration",
+    "Start": 430,
+    "End": 539
+  },
+  {
+    "Index": 86,
+    "Name": "RunOriginalAfterReleaseConsumed",
+    "Kind": "MethodDeclaration",
+    "Start": 541,
+    "End": 604
+  },
+  {
+    "Index": 87,
+    "Name": "RunOriginalOnce",
+    "Kind": "MethodDeclaration",
+    "Start": 606,
+    "End": 634
+  },
+  {
+    "Index": 88,
+    "Name": "CameraUpdateHook",
+    "Kind": "MethodDeclaration",
+    "Start": 636,
+    "End": 650
+  },
+  {
+    "Index": 89,
+    "Name": "UpdateGesture",
+    "Kind": "MethodDeclaration",
+    "Start": 652,
+    "End": 691
+  },
+  {
+    "Index": 90,
+    "Name": "TryStartDrag",
+    "Kind": "MethodDeclaration",
+    "Start": 693,
+    "End": 749
+  },
+  {
+    "Index": 91,
+    "Name": "TryCreatePacket",
+    "Kind": "MethodDeclaration",
+    "Start": 751,
+    "End": 779
+  },
+  {
+    "Index": 92,
+    "Name": "TryDispatch",
+    "Kind": "MethodDeclaration",
+    "Start": 781,
+    "End": 826
+  },
+  {
+    "Index": 93,
+    "Name": "OnPacketReceived",
+    "Kind": "MethodDeclaration",
+    "Start": 828,
+    "End": 844
+  },
+  {
+    "Index": 94,
+    "Name": "ApplyPacket",
+    "Kind": "MethodDeclaration",
+    "Start": 846,
+    "End": 901
+  },
+  {
+    "Index": 95,
+    "Name": "TryIssuePacketVanillaFallback",
+    "Kind": "MethodDeclaration",
+    "Start": 903,
+    "End": 929
+  },
+  {
+    "Index": 96,
+    "Name": "OnTribeIssueOrderMoveHere",
+    "Kind": "MethodDeclaration",
+    "Start": 931,
+    "End": 1063
+  },
+  {
+    "Index": 97,
+    "Name": "RunUnitFallbacks",
+    "Kind": "MethodDeclaration",
+    "Start": 1065,
+    "End": 1133
+  },
+  {
+    "Index": 98,
+    "Name": "TryChooseStandardFormationSlot",
+    "Kind": "MethodDeclaration",
+    "Start": 1135,
+    "End": 1144
+  },
+  {
+    "Index": 99,
+    "Name": "TryChooseAssassinFormationSlot",
+    "Kind": "MethodDeclaration",
+    "Start": 1146,
+    "End": 1157
+  },
+  {
+    "Index": 100,
+    "Name": "CommonGroupMoveHook",
+    "Kind": "MethodDeclaration",
+    "Start": 1159,
+    "End": 1201
+  },
+  {
+    "Index": 101,
+    "Name": "OnUnitMoveHere",
+    "Kind": "MethodDeclaration",
+    "Start": 1203,
+    "End": 1299
+  },
+  {
+    "Index": 102,
+    "Name": "PruneUnitAssignmentFrames",
+    "Kind": "MethodDeclaration",
+    "Start": 1301,
+    "End": 1311
+  },
+  {
+    "Index": 103,
+    "Name": "ClearUnitAssignmentFrames",
+    "Kind": "MethodDeclaration",
+    "Start": 1313,
+    "End": 1322
+  },
+  {
+    "Index": 104,
+    "Name": "TryGetMatchingUnit",
+    "Kind": "MethodDeclaration",
+    "Start": 1324,
+    "End": 1334
+  },
+  {
+    "Index": 105,
+    "Name": "FinishUnitAssignmentFrame",
+    "Kind": "MethodDeclaration",
+    "Start": 1336,
+    "End": 1362
+  },
+  {
+    "Index": 106,
+    "Name": "RecordSelectorAssignment",
+    "Kind": "MethodDeclaration",
+    "Start": 1364,
+    "End": 1373
+  },
+  {
+    "Index": 107,
+    "Name": "DisableAfterNativeFailure",
+    "Kind": "MethodDeclaration",
+    "Start": 1375,
+    "End": 1398
+  },
+  {
+    "Index": 108,
+    "Name": "LogDebugNoThrow",
+    "Kind": "MethodDeclaration",
+    "Start": 1400,
+    "End": 1412
+  },
+  {
+    "Index": 109,
+    "Name": "LogWarningNoThrow",
+    "Kind": "MethodDeclaration",
+    "Start": 1414,
+    "End": 1426
+  },
+  {
+    "Index": 110,
+    "Name": "LogErrorNoThrow",
+    "Kind": "MethodDeclaration",
+    "Start": 1428,
+    "End": 1440
+  },
+  {
+    "Index": 111,
+    "Name": "Matches",
+    "Kind": "MethodDeclaration",
+    "Start": 1442,
+    "End": 1448
+  },
+  {
+    "Index": 112,
+    "Name": "TryTakeDestination",
+    "Kind": "MethodDeclaration",
+    "Start": 1450,
+    "End": 1465
+  },
+  {
+    "Index": 113,
+    "Name": "WriteFormationOutput",
+    "Kind": "MethodDeclaration",
+    "Start": 1467,
+    "End": 1473
+  },
+  {
+    "Index": 114,
+    "Name": "BuildManagedDestinations",
+    "Kind": "MethodDeclaration",
+    "Start": 1475,
+    "End": 1526
+  },
+  {
+    "Index": 115,
+    "Name": "BuildDirectionIndicator",
+    "Kind": "MethodDeclaration",
+    "Start": 1528,
+    "End": 1564
+  },
+  {
+    "Index": 116,
+    "Name": "CaptureVanillaDestinations",
+    "Kind": "MethodDeclaration",
+    "Start": 1566,
+    "End": 1647
+  },
+  {
+    "Index": 117,
+    "Name": "BuildVanillaSlotMetadata",
+    "Kind": "MethodDeclaration",
+    "Start": 1649,
+    "End": 1663
+  },
+  {
+    "Index": 118,
+    "Name": "TryEnqueueVanillaCandidate",
+    "Kind": "MethodDeclaration",
+    "Start": 1665,
+    "End": 1686
+  },
+  {
+    "Index": 119,
+    "Name": "SnapSlots",
+    "Kind": "MethodDeclaration",
+    "Start": 1688,
+    "End": 1705
+  },
+  {
+    "Index": 120,
+    "Name": "CaptureReachableCandidates",
+    "Kind": "MethodDeclaration",
+    "Start": 1707,
+    "End": 1776
+  },
+  {
+    "Index": 121,
+    "Name": "IsAssassinOnly",
+    "Kind": "MethodDeclaration",
+    "Start": 1778,
+    "End": 1788
+  },
+  {
+    "Index": 122,
+    "Name": "TryEnqueueCandidate",
+    "Kind": "MethodDeclaration",
+    "Start": 1790,
+    "End": 1812
+  },
+  {
+    "Index": 123,
+    "Name": "CaptureOrderedGroupUnits",
+    "Kind": "MethodDeclaration",
+    "Start": 1814,
+    "End": 1838
+  },
+  {
+    "Index": 124,
+    "Name": "ComputePlanHash",
+    "Kind": "MethodDeclaration",
+    "Start": 1840,
+    "End": 1860
+  },
+  {
+    "Index": 125,
+    "Name": "Classify",
+    "Kind": "MethodDeclaration",
+    "Start": 1862,
+    "End": 1914
+  },
+  {
+    "Index": 126,
+    "Name": "PublishPreview",
+    "Kind": "MethodDeclaration",
+    "Start": 1916,
+    "End": 2020
+  },
+  {
+    "Index": 127,
+    "Name": "ResolveDirectionAndWidth",
+    "Kind": "MethodDeclaration",
+    "Start": 2022,
+    "End": 2029
+  },
+  {
+    "Index": 128,
+    "Name": "HasExplicitDirection",
+    "Kind": "MethodDeclaration",
+    "Start": 2031,
+    "End": 2031
+  },
+  {
+    "Index": 129,
+    "Name": "TryCaptureSelection",
+    "Kind": "MethodDeclaration",
+    "Start": 2033,
+    "End": 2092
+  },
+  {
+    "Index": 130,
+    "Name": "SelectionMatches",
+    "Kind": "MethodDeclaration",
+    "Start": 2094,
+    "End": 2108
+  },
+  {
+    "Index": 131,
+    "Name": "TryCaptureTarget",
+    "Kind": "MethodDeclaration",
+    "Start": 2110,
+    "End": 2126
+  },
+  {
+    "Index": 132,
+    "Name": "TryCaptureCommandTarget",
+    "Kind": "MethodDeclaration",
+    "Start": 2128,
+    "End": 2140
+  },
+  {
+    "Index": 133,
+    "Name": "EvaluateCommandMode",
+    "Kind": "MethodDeclaration",
+    "Start": 2142,
+    "End": 2148
+  },
+  {
+    "Index": 134,
+    "Name": "EvaluateFormationTargetBounds",
+    "Kind": "MethodDeclaration",
+    "Start": 2150,
+    "End": 2159
+  },
+  {
+    "Index": 135,
+    "Name": "IsTargetInsideNativeMap",
+    "Kind": "MethodDeclaration",
+    "Start": 2161,
+    "End": 2172
+  },
+  {
+    "Index": 136,
+    "Name": "LogTargetRejection",
+    "Kind": "MethodDeclaration",
+    "Start": 2174,
+    "End": 2185
+  },
+  {
+    "Index": 137,
+    "Name": "ToRejectionReason",
+    "Kind": "MethodDeclaration",
+    "Start": 2187,
+    "End": 2189
+  },
+  {
+    "Index": 138,
+    "Name": "AuthorizePreview",
+    "Kind": "MethodDeclaration",
+    "Start": 2191,
+    "End": 2216
+  },
+  {
+    "Index": 139,
+    "Name": "ResetTransientState",
+    "Kind": "MethodDeclaration",
+    "Start": 2218,
+    "End": 2231
+  },
+  {
+    "Index": 140,
+    "Name": "ValidateActiveDrag",
+    "Kind": "MethodDeclaration",
+    "Start": 2233,
+    "End": 2240
+  },
+  {
+    "Index": 141,
+    "Name": "HasValidMap",
+    "Kind": "MethodDeclaration",
+    "Start": 2242,
+    "End": 2245
+  },
+  {
+    "Index": 142,
+    "Name": "IsShiftHeld",
+    "Kind": "MethodDeclaration",
+    "Start": 2247,
+    "End": 2253
+  },
+  {
+    "Index": 143,
+    "Name": "GetCommandMouseButton",
+    "Kind": "MethodDeclaration",
+    "Start": 2255,
+    "End": 2256
+  },
+  {
+    "Index": 144,
+    "Name": "ToKeyCode",
+    "Kind": "MethodDeclaration",
+    "Start": 2258,
+    "End": 2259
+  },
+  {
+    "Index": 145,
+    "Name": "TryGetMouseButton",
+    "Kind": "MethodDeclaration",
+    "Start": 2261,
+    "End": 2275
+  },
+  {
+    "Index": 146,
+    "Name": "CaptureMouseState",
+    "Kind": "MethodDeclaration",
+    "Start": 2277,
+    "End": 2283
+  },
+  {
+    "Index": 147,
+    "Name": "ApplyMouseState",
+    "Kind": "MethodDeclaration",
+    "Start": 2285,
+    "End": 2294
+  },
+  {
+    "Index": 148,
+    "Name": "AgeReleaseConsumptionWatch",
+    "Kind": "MethodDeclaration",
+    "Start": 2296,
+    "End": 2305
+  },
+  {
+    "Index": 149,
+    "Name": "DetectUnexpectedSecondOrder",
+    "Kind": "MethodDeclaration",
+    "Start": 2307,
+    "End": 2326
+  },
+  {
+    "Index": 150,
+    "Name": "ValidatePacket",
+    "Kind": "MethodDeclaration",
+    "Start": 2328,
+    "End": 2374
+  },
+  {
+    "Index": 151,
+    "Name": "AbortDrag",
+    "Kind": "MethodDeclaration",
+    "Start": 2376,
+    "End": 2388
+  },
+  {
+    "Index": 152,
+    "Name": "DisableForProcess",
+    "Kind": "MethodDeclaration",
+    "Start": 2390,
+    "End": 2390
+  },
+  {
+    "Index": 153,
+    "Name": "FailOpen",
+    "Kind": "MethodDeclaration",
+    "Start": 2392,
+    "End": 2415
+  },
+  {
+    "Index": 154,
+    "Name": "ClearPreview",
+    "Kind": "MethodDeclaration",
+    "Start": 2417,
+    "End": 2421
+  },
+  {
+    "Index": 155,
+    "Name": "RequireMainThread",
+    "Kind": "MethodDeclaration",
+    "Start": 2423,
+    "End": 2432
+  },
+  {
+    "Index": 156,
+    "Name": "RequireEditorField",
+    "Kind": "MethodDeclaration",
+    "Start": 2434,
+    "End": 2440
+  },
+  {
+    "Index": 157,
+    "Name": "ValidateNativeContracts",
+    "Kind": "MethodDeclaration",
+    "Start": 2442,
+    "End": 2482
+  },
+  {
+    "Index": 158,
+    "Name": "ValidateBytes",
+    "Kind": "MethodDeclaration",
+    "Start": 2484,
+    "End": 2499
+  },
+  {
+    "Index": 159,
+    "Name": "ActiveDrag",
+    "Kind": "ClassDeclaration",
+    "Start": 2501,
+    "End": 2558
+  },
+  {
+    "Index": 160,
+    "Name": "DispatchDisposition",
+    "Kind": "EnumDeclaration",
+    "Start": 2560,
+    "End": 2564
+  },
+  {
+    "Index": 161,
+    "Name": "ReleaseConsumptionWatch",
+    "Kind": "ClassDeclaration",
+    "Start": 2566,
+    "End": 2592
+  },
+  {
+    "Index": 162,
+    "Name": "PendingFormationCommand",
+    "Kind": "ClassDeclaration",
+    "Start": 2594,
+    "End": 2618
+  },
+  {
+    "Index": 163,
+    "Name": "ActiveFormationCommand",
+    "Kind": "ClassDeclaration",
+    "Start": 2620,
+    "End": 2745
+  },
+  {
+    "Index": 164,
+    "Name": "ValidateUniqueEntry",
+    "Kind": "MethodDeclaration",
+    "Start": 2747,
+    "End": 2763
+  },
+  {
+    "Index": 165,
+    "Name": "UnitAssignmentFrame",
+    "Kind": "ClassDeclaration",
+    "Start": 2765,
+    "End": 2798
+  },
+  {
+    "Index": 166,
+    "Name": "UnitFallbackAttempt",
+    "Kind": "ClassDeclaration",
+    "Start": 2800,
+    "End": 2825
+  },
+  {
+    "Index": 167,
+    "Name": "UnitFallbackRequest",
+    "Kind": "StructDeclaration",
+    "Start": 2827,
+    "End": 2839
+  },
+  {
+    "Index": 168,
+    "Name": "UnitFallbackSummary",
+    "Kind": "StructDeclaration",
+    "Start": 2841,
+    "End": 2851
+  },
+  {
+    "Index": 169,
+    "Name": "SelectionIdentity",
+    "Kind": "StructDeclaration",
+    "Start": 2853,
+    "End": 2870
+  },
+  {
+    "Index": 170,
+    "Name": "GroundTarget",
+    "Kind": "StructDeclaration",
+    "Start": 2872,
+    "End": 2882
+  },
+  {
+    "Index": 171,
+    "Name": "NativeDestination",
+    "Kind": "StructDeclaration",
+    "Start": 2884,
+    "End": 2899
+  },
+  {
+    "Index": 172,
+    "Name": "VanillaSearchNode",
+    "Kind": "StructDeclaration",
+    "Start": 2901,
+    "End": 2916
+  }
+]

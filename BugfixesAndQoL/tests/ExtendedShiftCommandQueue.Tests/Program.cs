@@ -915,7 +915,7 @@ internal static class Program
         string bugfixesMinimum = ReadManifestMinimum(workspace, "BugfixesAndQoL");
         string queueRuntime = Read(workspace, "BugfixesAndQoL", "src", "ExtendedShiftCommandQueueRuntime.cs");
         string largeMoveRuntime = Read(workspace, "BugfixesAndQoL", "src", "LargeMoveTargetMarkerRuntime.cs");
-        string largeMoveRenderer = Read(workspace, "APIShared", "src", "UnitCommands", "LargeMoveTargetMarkerRenderer.cs");
+        string largeMoveRenderer = Read(workspace, "APIShared", "src", "UnitCommands", "Formation", "LargeMoveTargetMarkerRenderer.cs");
         string sharedProject = Read(workspace, "APIShared", "APIShared.csproj");
         string viewModel = Read(workspace, "BugfixesAndQoL", "src", "BugfixesAndQoLViewModel.cs");
         string settingsXaml = Read(workspace, "BugfixesAndQoL", "Override", "ScriptExtenderUI", "BugfixesAndQoLSettings.xaml");

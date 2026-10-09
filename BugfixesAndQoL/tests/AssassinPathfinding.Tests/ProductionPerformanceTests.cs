@@ -28,11 +28,11 @@ internal static partial class Program
         // Identical counters in both revisions; no search decision is changed.
         body = body.Replace("int result = heap[0];", "fixturePops++; int result = heap[0];")
             .Replace("heapOperations++;", "heapOperations++; fixtureHeapOperations++;");
-        var publication = CSharpSyntaxTree.ParseText(Read("APIShared/src/UnitCommands/MovementPathPublication.cs"));
+        var publication = CSharpSyntaxTree.ParseText(Read("APIShared/src/UnitCommands/Movement/MovementPathPublication.cs"));
         string publishing = string.Join("\n", publication.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
             .Where(m => m.Identifier.Text is "BuildPathWithCompletedMoatRouteVariant" or "BeginAssassinRoutePublication")
             .Select(m => m.ToFullString()));
-        var api = CSharpSyntaxTree.ParseText(Read("APIShared/src/Pathfinding/AssassinPathAPI.cs"));
+        var api = CSharpSyntaxTree.ParseText(Read("APIShared/src/Pathfinding/Assassin/AssassinPathAPI.cs"));
         string boundary = string.Join("\n", api.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
             .Where(m => m.Identifier.Text is "TryStageWeightedRoute" or "TryGetCurrentWeightedRequest")
             .Select(m => m.ToFullString()));
@@ -72,8 +72,8 @@ internal static partial class Program
     }finally{frame.Leave();}
    }finally{direct.Release();}
 """);
-        string[] files = { "APIShared/src/Pathfinding/AssassinRouteHandoff.cs", "APIShared/src/Pathfinding/AssassinGateTransitionPolicy.cs", "APIShared/src/Pathfinding/TemporaryGateRouteAcceptanceBridge.cs",
-            "APIShared/src/Pathfinding/EnemyGatePathPolicyBridge.cs", "BugfixesAndQoL/src/AssassinGateRoutePolicy.cs",
+        string[] files = { "APIShared/src/Pathfinding/Assassin/AssassinRouteHandoff.cs", "APIShared/src/Pathfinding/Assassin/AssassinGateTransitionPolicy.cs", "APIShared/src/Pathfinding/GateRoutes/TemporaryGateRouteAcceptanceBridge.cs",
+            "APIShared/src/Pathfinding/GateRoutes/EnemyGatePathPolicyBridge.cs", "BugfixesAndQoL/src/AssassinGateRoutePolicy.cs",
             "BugfixesAndQoL/src/AssassinPathfindingRuntime.CacheKeys.cs", "BugfixesAndQoL/src/AssassinAStarPolicy.cs",
             "BugfixesAndQoL/src/AssassinClimbCostPolicy.cs", "BugfixesAndQoL/src/AssassinClimbTransitionPolicy.cs",
             "BugfixesAndQoL/src/AssassinRouteEncoding.cs" };
@@ -201,8 +201,8 @@ internal static partial class Program
         Check(CSharpSyntaxTree.ParseText(search).GetRoot().NormalizeWhitespace().ToFullString() ==
             CSharpSyntaxTree.ParseText(Method(previous,"TryBuildWeightedRoute").ToFullString()).GetRoot().NormalizeWhitespace().ToFullString(),
             "Git A* body differs only in suffix dictionary binding and passive diagnostic gates");
-        string publicationPath = "APIShared/src/UnitCommands/MovementPathPublication.cs";
-        Check(Method(GitSource("8fe105a11", publicationPath),"BuildPathWithCompletedMoatRouteVariant").NormalizeWhitespace().ToFullString() ==
+        string publicationPath = "APIShared/src/UnitCommands/Movement/MovementPathPublication.cs";
+        Check(Method(GitSource("8fe105a11", "APIShared/src/UnitCommands/MovementPathPublication.cs"),"BuildPathWithCompletedMoatRouteVariant").NormalizeWhitespace().ToFullString() ==
             Method(File.ReadAllText(Path.Combine(root, publicationPath)),"BuildPathWithCompletedMoatRouteVariant").NormalizeWhitespace().ToFullString(),
             "Git F4930 wrapper, original call, exception fallback and nested Leave unchanged");
         foreach (string path in new[] { "BugfixesAndQoL/src/AssassinClimbCostPolicy.cs", "BugfixesAndQoL/src/AssassinPathfindingRuntime.CacheKeys.cs" })

@@ -17,6 +17,15 @@ function Get-GitText {
         [Parameter(Mandatory)][string]$Path,
         [switch]$AllowMissing
     )
+    if ($Path.StartsWith('APIShared/', [StringComparison]::OrdinalIgnoreCase)) {
+        $entry = Invoke-StatusGit -Config $Config -Arguments @('ls-tree', $Revision, '--', 'APIShared') -AllowFailure:$AllowMissing
+        $row = $entry.Output -join ''
+        if ($row -match '^160000 commit ([0-9a-f]{40})\s+APIShared$') {
+            $result = Invoke-CheckedCommand -FilePath 'git' -Arguments @('-C', (Join-Path $Config.Root 'APIShared'), 'show', ($Matches[1] + ':' + $Path.Substring(10))) -AllowFailure:$AllowMissing
+            if ($result.ExitCode -ne 0) { return $null }
+            return ($result.Output -join "`n")
+        }
+    }
     $result = Invoke-StatusGit -Config $Config -Arguments @('show', "${Revision}:$Path") -AllowFailure:$AllowMissing
     if ($result.ExitCode -ne 0) { return $null }
     return ($result.Output -join "`n")
@@ -31,7 +40,30 @@ function Get-ChangedRepositoryPaths {
     $result = Invoke-StatusGit -Config $Config -Arguments @(
         'diff', '--name-only', '--diff-filter=ACDMRTUXB', $BaseCommit, $HeadCommit, '--'
     )
-    return @($result.Output | ForEach-Object { ([string]$_).Replace('\', '/') } | Where-Object { $_ })
+    $paths = @($result.Output | ForEach-Object { ([string]$_).Replace('\', '/') } | Where-Object { $_ })
+    # A gitlink replaces the embedded directory. Compare blob identities across both
+    # repository layouts so the migration does not masquerade as deleted runtime code.
+    $baseEntry=(Invoke-StatusGit -Config $Config -Arguments @('ls-tree',$BaseCommit,'--','APIShared')).Output -join ''
+    $headEntry=(Invoke-StatusGit -Config $Config -Arguments @('ls-tree',$HeadCommit,'--','APIShared')).Output -join ''
+    if ($baseEntry -match '^160000 ' -or $headEntry -match '^160000 ') {
+        $maps=@(foreach ($revision in @($BaseCommit,$HeadCommit)) {
+            $entry=(Invoke-StatusGit -Config $Config -Arguments @('ls-tree',$revision,'--','APIShared')).Output -join ''
+            $map=@{}
+            if ($entry -match '^160000 commit ([0-9a-f]{40})\s+APIShared$') {
+                $rows=(Invoke-CheckedCommand -FilePath git -Arguments @('-C',(Join-Path $Config.Root 'APIShared'),'ls-tree','-r',$Matches[1])).Output
+                foreach ($row in $rows) { if ($row -match '^\d+ blob ([0-9a-f]{40})\t(.+)$') { $map['APIShared/'+$Matches[2]]=$Matches[1] } }
+            } else {
+                $rows=(Invoke-StatusGit -Config $Config -Arguments @('ls-tree','-r',$revision,'--','APIShared')).Output
+                foreach ($row in $rows) { if ($row -match '^\d+ blob ([0-9a-f]{40})\t(.+)$') { $map[$Matches[2]]=$Matches[1] } }
+            }
+            $map
+        })
+        $paths=@($paths | Where-Object { -not $_.StartsWith('APIShared/') })
+        foreach ($path in @($maps[0].Keys + $maps[1].Keys | Sort-Object -Unique)) {
+            if ($maps[0][$path] -cne $maps[1][$path]) { $paths += $path }
+        }
+    }
+    return @($paths | Sort-Object -Unique)
 }
 
 function Test-RelevantProjectPath {
@@ -41,6 +73,7 @@ function Test-RelevantProjectPath {
         [Parameter(Mandatory)][string]$Path
     )
     $prefix = $ProjectDirectory.TrimEnd('/', '\') + '/'
+    if ($Path -eq 'APIShared' -and $ProjectDirectory -eq 'APIShared') { return $true }
     if (-not $Path.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) { return $false }
     $relative = $Path.Substring($prefix.Length)
     if ($relative -match '(^|/)(?:bin|obj|\.inspect|\.tools|Docs?|Reference|packaging)(/|$)') { return $false }
@@ -98,6 +131,7 @@ function Get-ExternalProjectInputs {
             [void]$paths.Add($normalized)
         }
     }
+    if ($xml.SelectNodes('//*[local-name()="Reference"][@Include="APIShared"]').Count -gt 0) { [void]$paths.Add('APIShared') }
     return @($paths | Sort-Object)
 }
 
@@ -284,6 +318,12 @@ function Get-FileDiffText {
         [Parameter(Mandatory)][string]$HeadCommit,
         [Parameter(Mandatory)][string]$Path
     )
+    if ($Path.StartsWith('APIShared/')) {
+        $before=Get-GitText -Config $Config -Revision $BaseCommit -Path $Path -AllowMissing
+        $after=Get-GitText -Config $Config -Revision $HeadCommit -Path $Path -AllowMissing
+        if ($before -ceq $after) { return '' }
+        return "--- a/$Path`n+++ b/$Path`n" + (($before -split "`n" | ForEach-Object { '-'+$_ }) -join "`n") + "`n" + (($after -split "`n" | ForEach-Object { '+'+$_ }) -join "`n")
+    }
     $numStat = Invoke-StatusGit -Config $Config -Arguments @(
         'diff', '--numstat', $BaseCommit, $HeadCommit, '--', $Path
     )

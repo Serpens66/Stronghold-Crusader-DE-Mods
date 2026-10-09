@@ -29,8 +29,6 @@ foreach ($path in $textFiles) {
     $literalEscapedNewline = ([string][char]92) + 'r' + ([string][char]92) + 'n'
     if ($content.Contains($literalEscapedNewline)) { throw "Literal backslash-r-backslash-n sequence: $path" }
 }
-$addedCode = & git -C $workspace diff --unified=0 -- '*.cs' '*.csproj'
-if ($LASTEXITCODE -ne 0) { throw 'Workspace diff audit failed.' }
-$addedLines = @($addedCode | Where-Object { $_ -match '^\+[^+]' }) -join "`n"
-if ($addedLines -match $forbiddenMutations) { throw 'New workspace executable mutation detected.' }
+& (Join-Path $workspace 'Shared\Tools\Validation\Test-PermanentNativeRuntimePatches.ps1')
+if (-not $?) { throw 'Workspace permanent-hook audit failed.' }
 Write-Host 'Runtime JSON, lifecycle, public-member, native-mutation, workspace-change, and CRLF checks passed.'

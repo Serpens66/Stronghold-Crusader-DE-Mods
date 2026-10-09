@@ -1,0 +1,44 @@
+[
+  {
+    "Driver": "BugfixesAndQoL\\build.bat",
+    "ExitCode": 0,
+    "Seconds": 75,
+    "Log": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\_inspect\\ApiSharedSubmodule\\build-BugfixesAndQoL_build.bat.log"
+  },
+  {
+    "Driver": "BuildingCosts\\build.bat",
+    "ExitCode": 0,
+    "Seconds": 10,
+    "Log": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\_inspect\\ApiSharedSubmodule\\build-BuildingCosts_build.bat.log"
+  },
+  {
+    "Driver": "BuildingLimit\\build.bat",
+    "ExitCode": 0,
+    "Seconds": 16,
+    "Log": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\_inspect\\ApiSharedSubmodule\\build-BuildingLimit_build.bat.log"
+  },
+  {
+    "Driver": "CastlePlanner\\build.bat",
+    "ExitCode": 0,
+    "Seconds": 19,
+    "Log": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\_inspect\\ApiSharedSubmodule\\build-CastlePlanner_build.bat.log"
+  },
+  {
+    "Driver": "CheatMod\\build.bat",
+    "ExitCode": 0,
+    "Seconds": 10,
+    "Log": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\_inspect\\ApiSharedSubmodule\\build-CheatMod_build.bat.log"
+  },
+  {
+    "Driver": "ExtendedData\\build.bat",
+    "ExitCode": 0,
+    "Seconds": 20,
+    "Log": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\_inspect\\ApiSharedSubmodule\\build-ExtendedData_build.bat.log"
+  },
+  {
+    "Driver": "ExtraFeatures\\build.bat",
+    "ExitCode": 0,
+    "Seconds": 19,
+    "Log": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\_inspect\\ApiSharedSubmodule\\build-ExtraFeatures_build.bat.log"
+  }
+]

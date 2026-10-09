@@ -8,14 +8,13 @@ internal static class CadenceSnapshotTests
 {
     internal static void Validate(string root)
     {
-        string resolver = File.ReadAllText(Path.Combine(root, "APIShared/src/UnitCommands/NativeMovementCadenceResolver.cs"));
-        string patterns = File.ReadAllText(Path.Combine(root, "APIShared/src/Core/Internal/NativePatternResolver.cs"));
-        var runtime = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,
-            "APIShared/src/UnitCommands/UnitCommandPathRuntime.cs"))).GetRoot();
+        string resolver = File.ReadAllText(Path.Combine(root, "APIShared/src/UnitCommands/Movement/NativeMovementCadenceResolver.cs"));
+        string patterns = File.ReadAllText(Path.Combine(root, "APIShared/src/Core/Internal/Native/NativePatternResolver.cs"));
+        var runtime = CSharpSyntaxTree.ParseText(FeatureSourceModel.Read(root, "UnitCommandPathRuntime")).GetRoot();
         var optional = runtime.DescendantNodes().OfType<TryStatementSyntax>()
             .Single(t => t.Block.ToString().Contains("nativeMovementCadenceResolver = new NativeMovementCadenceResolver"));
         var publication = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,
-            "APIShared/src/UnitCommands/WeightedMoatPublication.cs"))).GetRoot().DescendantNodes()
+            "APIShared/src/UnitCommands/Movement/WeightedMoatPublication.cs"))).GetRoot().DescendantNodes()
             .OfType<MethodDeclarationSyntax>().Single(m => m.Identifier.Text == "TryPublishSafelyFasterWeightedRoute");
         var guard = publication.WithBody(publication.Body!.WithStatements(SyntaxFactory.List(
             publication.Body.Statements.TakeWhile(s => !s.ToString().Contains("TryGetPlausibleSpeedBonuses"))

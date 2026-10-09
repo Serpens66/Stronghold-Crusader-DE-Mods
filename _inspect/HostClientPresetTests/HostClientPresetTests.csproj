@@ -75,20 +75,20 @@
     <Compile Include="OptionalIntegrationTests.cs" />
     <Compile Include="..\..\SerpsModsHost\src\OptionalSettingsIntegration.cs" />
     <Compile Include="..\..\SerpsModsHost\src\StatsTweakerConfigurationProvider.cs" />
-    <Compile Include="..\..\APIShared\src\ModSettings\DynamicPresetSettings.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\DynamicPresetSettings.cs" />
     <Compile Include="..\..\APIShared\src\ModSettings\ModSettingsApplication.cs" />
-    <Compile Include="..\..\APIShared\src\ModSettings\ModSettingsPresetDocuments.cs">
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\ModSettingsPresetDocuments.cs">
       <Link>ModSettingsPresetDocuments.cs</Link>
     </Compile>
-    <Compile Include="..\..\APIShared\src\ModSettings\PresetLobbyModSettingsViewModel.cs">
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.cs">
       <Link>PresetLobbyModSettingsViewModel.cs</Link>
     </Compile>
-    <Compile Include="..\..\APIShared\src\ModSettings\PerPlayerLobbySettings.cs" />
-    <Compile Include="..\..\APIShared\src\ModSettings\PresetLobbyModSettingsViewModel.Persistence.cs" />
-    <Compile Include="..\..\APIShared\src\ModSettings\PresetLobbyModSettingsViewModel.Sources.cs" />
-    <Compile Include="..\..\APIShared\src\ModSettings\LobbyModSettingsPresetRegistration.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Lobby\PerPlayerLobbySettings.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.Persistence.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.Sources.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\LobbyModSettingsPresetRegistration.cs" />
 
-    <Compile Include="..\..\APIShared\src\ModSettings\ModSettingsSearch.cs">
+    <Compile Include="..\..\APIShared\src\ModSettings\UI\ModSettingsSearch.cs">
       <Link>ModSettingsSearch.cs</Link>
     </Compile>
     <Compile Include="..\..\SerpsModsHost\src\ModSettingsSearchPolicy.cs">
@@ -259,6 +259,6 @@
     <Compile Include="..\..\APIShared\src\ModSettings\Internal\DependencyFreeJson.cs" />
     <Compile Include="..\..\APIShared\src\GameModes\Internal\PlayerIdentityHelper.cs" />
     <Compile Include="..\..\APIShared\src\Missions\Internal\MissionEventRelay.cs" />
-    <Compile Include="..\..\APIShared\src\Core\Internal\NativePatternResolver.cs" />
+    <Compile Include="..\..\APIShared\src\Core\Internal\Native\NativePatternResolver.cs" />
   </ItemGroup>
 </Project>

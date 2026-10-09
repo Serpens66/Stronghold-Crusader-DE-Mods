@@ -7,13 +7,13 @@
     <NuGetAudit>false</NuGetAudit>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="..\..\..\APIShared\src\UnitCommands\GroundMovePreviewAuthorization.cs" Link="GroundMovePreviewAuthorization.cs" />
+    <Compile Include="..\..\..\APIShared\src\UnitCommands\Cursor\GroundMovePreviewAuthorization.cs" Link="GroundMovePreviewAuthorization.cs" />
     <Compile Include="..\..\src\ExtendedShiftCommandQueueModel.cs" Link="ExtendedShiftCommandQueueModel.cs" />
-    <Compile Include="..\..\..\APIShared\src\UnitCommands\LargeMoveTargetOverflowModel.cs" Link="LargeMoveTargetOverflowModel.cs" />
+    <Compile Include="..\..\..\APIShared\src\UnitCommands\Formation\LargeMoveTargetOverflowModel.cs" Link="LargeMoveTargetOverflowModel.cs" />
     <Compile Include="..\..\..\Shared\Runtime\Gameplay\GroundMovePreviewEligibility.cs" Link="GroundMovePreviewEligibility.cs" />
-    <Compile Include="..\..\..\APIShared\src\UnitCommands\QueueNativeContract.cs" Link="QueueNativeContract.cs" />
+    <Compile Include="..\..\..\APIShared\src\UnitCommands\Movement\QueueNativeContract.cs" Link="QueueNativeContract.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="..\..\..\APIShared\src\UnitCommands\Internal\GroundMovePreviewEligibility.cs" />
+    <Compile Include="..\..\..\APIShared\src\UnitCommands\Cursor\GroundMovePreviewEligibility.cs" />
   </ItemGroup>
 </Project>

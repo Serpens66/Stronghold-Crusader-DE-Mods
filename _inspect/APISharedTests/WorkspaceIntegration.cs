@@ -20,9 +20,9 @@ namespace APISharedTests
             string workspace = FindWorkspaceRoot();
             string plugin = File.ReadAllText(Path.Combine(workspace, "APIShared", "src", "Core", "APISharedPlugin.cs"));
             string project = File.ReadAllText(Path.Combine(workspace, "APIShared", "APIShared.csproj"));
-            string unitHud = File.ReadAllText(Path.Combine(workspace, "APIShared", "src", "Presentation", "UnitHudPresentationCapability.cs"));
+            string unitHud = string.Join("\n", Array.ConvertAll(Directory.GetFiles(Path.Combine(workspace, "APIShared", "src", "Presentation", "UnitHud"), "*.cs"), File.ReadAllText));
             string lobbyState = File.ReadAllText(Path.Combine(workspace, "APIShared", "src", "Lobby", "LobbyStateCapability.cs"));
-            string sharedPreset = string.Join("\n", Directory.GetFiles(Path.GetDirectoryName(Path.Combine(workspace, "APIShared", "src", "ModSettings", "PresetLobbyModSettingsViewModel.cs")), "*.cs").Select(File.ReadAllText));
+            string sharedPreset = string.Join("\n", Directory.GetFiles(Path.Combine(workspace, "APIShared", "src", "ModSettings"), "*.cs", SearchOption.AllDirectories).Select(File.ReadAllText));
             string bugfixLord = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "LordUnitHudRegistration.cs"));
             string bugfixGatehouse = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "GatehouseDistanceOriginRegistration.cs"));
             string extraGatehouse = File.ReadAllText(Path.Combine(workspace, "ExtraFeatures", "src", "GatehouseAutomationRuntime.cs"));
@@ -121,11 +121,7 @@ namespace APISharedTests
                 Count(unitHud, "updateSpritesOriginal(self, colour, arabic)") == 1 &&
                 Count(unitHud, "updateSpritesOriginal(main, lastSpriteColour, lastSpriteArabic)") == 2,
                 "central HUD sprite handling retains the hook, explicit refresh and activation-restoration paths");
-            int beforeRenderStart = unitHud.IndexOf("private void OnBeforeRender()", StringComparison.Ordinal);
-            int applyFrameStart = unitHud.IndexOf("private void TryApplyFrameArea(", StringComparison.Ordinal);
-            string beforeRenderMethod = beforeRenderStart >= 0 && applyFrameStart > beforeRenderStart
-                ? unitHud.Substring(beforeRenderStart, applyFrameStart - beforeRenderStart)
-                : string.Empty;
+            string beforeRenderMethod = ExtractSourceMethod(unitHud, "private void OnBeforeRender()");
             int idleGuard = beforeRenderMethod.IndexOf("if (activeSurfaces == UnitHudSurface.None && !pendingPresentation && !refreshRequested && recruitmentLease == null) return;", StringComparison.Ordinal);
             Assert(idleGuard >= 0 && idleGuard < beforeRenderMethod.IndexOf("Time.frameCount", StringComparison.Ordinal),
                 "idle guard returns before Unity access");
@@ -148,15 +144,8 @@ namespace APISharedTests
                 explicitRefreshBlock.Contains("updateSpritesOriginal(main, lastSpriteColour, lastSpriteArabic)") &&
                 explicitRefreshBlock.Contains("ApplyImageOverrides(main, lastSpriteColour, lastSpriteArabic)"),
                 "explicit refreshes must retain control-group and legitimate global image updates");
-            int ensureButtonsStart = unitHud.IndexOf("private void EnsureCategoryButtons(", StringComparison.Ordinal);
-            int hideButtonsStart = unitHud.IndexOf("private void HideCategoryButtons()", StringComparison.Ordinal);
-            int mouseDownStart = unitHud.IndexOf("private void OnCategoryMouseDown(", StringComparison.Ordinal);
-            string ensureButtonsMethod = ensureButtonsStart >= 0 && hideButtonsStart > ensureButtonsStart
-                ? unitHud.Substring(ensureButtonsStart, hideButtonsStart - ensureButtonsStart)
-                : string.Empty;
-            string hideButtonsMethod = hideButtonsStart >= 0 && mouseDownStart > hideButtonsStart
-                ? unitHud.Substring(hideButtonsStart, mouseDownStart - hideButtonsStart)
-                : string.Empty;
+            string ensureButtonsMethod = ExtractSourceMethod(unitHud, "private void EnsureCategoryButtons(");
+            string hideButtonsMethod = ExtractSourceMethod(unitHud, "private void HideCategoryButtons()");
             Assert(ensureButtonsMethod.Contains("var resolvedHosts = new Grid[TroopSlotCount]") &&
                 ensureButtonsMethod.Contains("var resolvedButtons = new Button[TroopSlotCount]") &&
                 ensureButtonsMethod.Contains("var resolvedTints = new Border[TroopSlotCount]") &&
@@ -166,11 +155,7 @@ namespace APISharedTests
             Assert(hideButtonsMethod.Contains("if (host != null)") &&
                 unitHud.Contains("lock (sync) visibleSlots.Clear();"),
                 "troop HUD failure cleanup must tolerate incomplete caches and clear stale slot snapshots");
-            int armyStart = unitHud.IndexOf("private void ApplyArmyReport(", StringComparison.Ordinal);
-            int armyEntriesStart = unitHud.IndexOf("private readonly Dictionary<string, Noesis.Grid> armyEntries", StringComparison.Ordinal);
-            string armyMethod = armyStart >= 0 && armyEntriesStart > armyStart
-                ? unitHud.Substring(armyStart, armyEntriesStart - armyStart)
-                : string.Empty;
+            string armyMethod = ExtractSourceMethod(unitHud, "private void ApplyArmyReport(");
             Assert(armyMethod.IndexOf("APISharedArmyCategoriesHost", StringComparison.Ordinal) >= 0 &&
                 armyMethod.IndexOf("APISharedArmyCategoriesHost", StringComparison.Ordinal) < armyMethod.IndexOf("main.AllTroops[", StringComparison.Ordinal) &&
                 armyMethod.IndexOf("RenderArmyHosts(host, custom);", StringComparison.Ordinal) < armyMethod.IndexOf("main.AllTroops[desired.Key]", StringComparison.Ordinal),
@@ -191,13 +176,7 @@ namespace APISharedTests
                 unitHud.Contains("IsImageOverrideContextReady()") &&
                 !unitHud.Contains("main.UpdateUITroopSprites(lastSpriteColour"),
                 "image overrides lack startup, reentrancy, or refresh-loop protection");
-            int renderStart = unitHud.IndexOf("private void OnBeforeRender()", StringComparison.Ordinal);
-            int hoverStart = renderStart >= 0
-                ? unitHud.IndexOf("private void ApplyHover(", renderStart, StringComparison.Ordinal)
-                : -1;
-            string renderMethod = renderStart >= 0 && hoverStart > renderStart
-                ? unitHud.Substring(renderStart, hoverStart - renderStart)
-                : string.Empty;
+            string renderMethod = beforeRenderMethod;
             int loadedGuard = renderMethod.IndexOf("if (!MainViewModel.viewModelLoaded) return;", StringComparison.Ordinal);
             int singletonRead = renderMethod.IndexOf("MainViewModel main = MainViewModel.Instance;", StringComparison.Ordinal);
             int hudGuard = renderMethod.IndexOf("if (main?.HUDmain == null) return;", StringComparison.Ordinal);
@@ -447,6 +426,18 @@ namespace APISharedTests
         private static void Assert(bool condition, string message)
         {
             if (!condition) throw new InvalidOperationException(message);
+        }
+        private static string ExtractSourceMethod(string source, string signature)
+        {
+            int start=source.IndexOf(signature,StringComparison.Ordinal);
+            if(start<0) throw new InvalidOperationException("Missing method: "+signature);
+            int opening=source.IndexOf('{',start),depth=0;
+            for(int i=opening;i<source.Length;i++)
+            {
+                if(source[i]=='{')depth++;
+                if(source[i]=='}' && --depth==0) return source.Substring(start,i-start+1);
+            }
+            throw new InvalidOperationException("Unterminated method: "+signature);
         }
         private static int Count(string value, string fragment)
         {

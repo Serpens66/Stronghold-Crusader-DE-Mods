@@ -92,7 +92,9 @@ namespace VirtualUnitsPrototype.Tests
             string api = File.ReadAllText(Path.Combine(root, "src", "ApiContracts.cs"));
             string project = File.ReadAllText(Path.Combine(root, "VirtualUnitsPrototype.csproj"));
             string plugin = File.ReadAllText(Path.Combine(root, "src", "VirtualUnitsPlugin.cs"));
-            string sharedPresentation = File.ReadAllText(Path.Combine(root, "..", "..", "APIShared", "src", "Presentation", "UnitHudPresentationCapability.cs"));
+            string sharedPresentation = string.Join("\n", Array.ConvertAll(Directory.GetFiles(
+                Path.Combine(root, "..", "..", "APIShared", "src", "Presentation", "UnitHud"),
+                "*.cs"), File.ReadAllText));
             string plan = File.ReadAllText(Path.Combine(root, "UnitOverrideSystemPlan.md"));
             Check(Count(visual, "unitTrampoline(renderer,") == 1, "unit trampoline is not exactly once");
             Check(Count(visual, "buildingTrampoline(tile,") == 1, "building trampoline is not exactly once");

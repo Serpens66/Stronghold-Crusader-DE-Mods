@@ -32,6 +32,6 @@
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <ItemGroup>
     <Compile Include="..\..\..\APIShared\src\Core\Internal\DebugLogHelper.cs" />
-    <Compile Include="..\..\..\APIShared\src\Core\Internal\NativePatternResolver.cs" />
+    <Compile Include="..\..\..\APIShared\src\Core\Internal\Native\NativePatternResolver.cs" />
   </ItemGroup>
 </Project>
