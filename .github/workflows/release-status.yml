@@ -24,6 +24,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          submodules: true
 
       - name: Fetch release tags and main
         shell: pwsh
@@ -32,7 +33,7 @@ jobs:
       - name: Test release-status tooling
         shell: pwsh
         run: |
-          & '.\Shared\Tools\Release\Test-ReleaseStatus.ps1'
+          & '.\Shared\Tools\Release\Test-ReleaseStatus.ps1' -SourceOnly
 
       - name: Generate badges and reports
         shell: pwsh

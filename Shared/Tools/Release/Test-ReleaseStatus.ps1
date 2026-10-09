@@ -1,6 +1,25 @@
+[CmdletBinding()]
+param([switch]$SourceOnly)
+
 . (Join-Path $PSScriptRoot 'Release.Common.ps1')
 . (Join-Path $PSScriptRoot 'SCDEModManagerPackage.ps1')
 . (Join-Path $PSScriptRoot 'ReleaseStatus.Common.ps1')
+
+# Source-only status checks read authoritative manifests without requiring built packages.
+function Get-TestPluginMetadata {
+    param([Parameter(Mandatory)][string]$ModName)
+    if (-not $SourceOnly) { return Get-PluginMetadata -ModName $ModName }
+    $configuration = Get-ReleaseConfiguration
+    $directory = Join-Path $configuration.Root (Get-ReleaseProjectDirectory -Config $configuration -Project $ModName)
+    $manifestPath = Join-Path $directory 'info.json'
+    if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) { return Get-PluginMetadata -ModName $ModName }
+    $manifest = Get-Content -Raw -LiteralPath $manifestPath | ConvertFrom-Json
+    return [PSCustomObject]@{
+        Config = $configuration; ModName = $ModName; ModDir = $directory
+        PackageDir = Join-Path $directory ('BepInEx/plugins/' + $manifest.GUID)
+        Manifest = $manifest; Version = [string]$manifest.Version
+    }
+}
 
 function Assert-True {
     param([bool]$Condition, [string]$Message)
@@ -83,16 +102,18 @@ Assert-True ((Get-ReleaseIndexSha256 -Entry $releaseIndexEntries[1] -ReleaseBody
 $samplePackRow = New-ReleaseIndexRow -Config $config -Entry $releaseIndexEntries[0] -Version '1.2.3' -Url 'https://example.invalid/SerpsMods-v1.2.3.zip' -Commit '1234567890abcdef' -Sha256 ('a' * 64)
 $samplePackPrefix = "| SerpsMods (Modpack) | [1.2.3](https://example.invalid/SerpsMods-v1.2.3.zip) | $([char]0x2014) | [1234567]"
 Assert-True ($samplePackRow.StartsWith($samplePackPrefix)) 'The SerpsMods release-index row must link the ZIP directly and render no status badge.'
-$apiSharedPackage = Get-ValidatedApiSharedPackage -Config $config -MinimumVersion $highestApiSharedMinimum
-Assert-True ($apiSharedPackage.Directory -ceq (Join-Path $config.Root 'APIShared\BepInEx\plugins\APIShared_Serp')) 'Release builds must resolve the validated workspace APIShared package.'
-Assert-True (Test-Path -LiteralPath $apiSharedPackage.DllPath -PathType Leaf) 'The resolved workspace APIShared package must contain APIShared.dll.'
-$apiSharedSourceInfo = Get-Content -LiteralPath $apiSharedPackage.SourceInfoPath -Raw | ConvertFrom-Json
-Assert-True ($apiSharedPackage.Version -ceq [string]$apiSharedSourceInfo.Version) 'The validated APIShared version must come from the source manifest.'
+if (-not $SourceOnly) {
+    $apiSharedPackage = Get-ValidatedApiSharedPackage -Config $config -MinimumVersion $highestApiSharedMinimum
+    Assert-True ($apiSharedPackage.Directory -ceq (Join-Path $config.Root 'APIShared\BepInEx\plugins\APIShared_Serp')) 'Release builds must resolve the validated workspace APIShared package.'
+    Assert-True (Test-Path -LiteralPath $apiSharedPackage.DllPath -PathType Leaf) 'The resolved workspace APIShared package must contain APIShared.dll.'
+    $apiSharedSourceInfo = Get-Content -LiteralPath $apiSharedPackage.SourceInfoPath -Raw | ConvertFrom-Json
+    Assert-True ($apiSharedPackage.Version -ceq [string]$apiSharedSourceInfo.Version) 'The validated APIShared version must come from the source manifest.'
+}
 
 $apiSharedManagerId = Get-SCDEModManagerPackageId -Guid 'APIShared_Serp'
 Assert-True ($apiSharedManagerId -ceq 'se-b991ac82774809392e0b952c5433f351') 'The APIShared manager ID must follow the manager GUID hash contract.'
 foreach ($project in $config.Projects) {
-    $projectMetadata = Get-PluginMetadata -ModName $project
+    $projectMetadata = Get-TestPluginMetadata -ModName $project
     $isApiConsumer = -not [string]::IsNullOrWhiteSpace((Get-ApiSharedConsumerMinimum -Config $config -ModName $project))
     $projectManifest = New-SCDEModManagerManifest -Info $projectMetadata.Manifest -ApiSharedGuid ([string]$config.ApiShared.Guid) -ApiSharedConsumer:$isApiConsumer
     $expectedProjectId = Get-SCDEModManagerPackageId -Guid ([string]$projectMetadata.Manifest.GUID)
@@ -102,36 +123,38 @@ foreach ($project in $config.Projects) {
     $expectedDependencyCount = if ($isApiConsumer) { 2 } else { 1 }
     Assert-True -Condition (@($projectManifest.dependencies).Count -eq $expectedDependencyCount) -Message "$project has an unexpected manager hard dependency."
 }
-$managerTestRoot = Join-Path ([IO.Path]::GetTempPath()) ('shcde-manager-package-' + [Guid]::NewGuid().ToString('N'))
-try {
-    [void](New-Item -ItemType Directory -Path $managerTestRoot -Force)
-    $apiMetadata = Get-PluginMetadata -ModName 'APIShared'
-    $consumerMetadata = Get-PluginMetadata -ModName 'BuildingCosts'
-    $orders = @(
-        @($apiMetadata, $consumerMetadata),
-        @($consumerMetadata, $apiMetadata)
-    )
-    foreach ($order in $orders) {
-        $installed = @{}
-        foreach ($item in $order) {
-            $isConsumer = [string]$item.ModName -ceq 'BuildingCosts'
-            $packagePath = Join-Path $managerTestRoot "$([string]$item.ModName)-$($installed.Count).scdemod"
-            $record = New-SCDEModManagerPackage -PluginDirectory $item.PackageDir -Info $item.Manifest `
-                -DestinationPath $packagePath -WorkingDirectory (Join-Path $managerTestRoot "work-$([string]$item.ModName)-$($installed.Count)") `
-                -ApiSharedGuid ([string]$config.ApiShared.Guid) -ApiSharedConsumer:$isConsumer
-            $installed[[string]$record.Id] = $record
+if (-not $SourceOnly) {
+    $managerTestRoot = Join-Path ([IO.Path]::GetTempPath()) ('shcde-manager-package-' + [Guid]::NewGuid().ToString('N'))
+    try {
+        [void](New-Item -ItemType Directory -Path $managerTestRoot -Force)
+        $apiMetadata = Get-TestPluginMetadata -ModName 'APIShared'
+        $consumerMetadata = Get-TestPluginMetadata -ModName 'BuildingCosts'
+        $orders = @(
+            @($apiMetadata, $consumerMetadata),
+            @($consumerMetadata, $apiMetadata)
+        )
+        foreach ($order in $orders) {
+            $installed = @{}
+            foreach ($item in $order) {
+                $isConsumer = [string]$item.ModName -ceq 'BuildingCosts'
+                $packagePath = Join-Path $managerTestRoot "$([string]$item.ModName)-$($installed.Count).scdemod"
+                $record = New-SCDEModManagerPackage -PluginDirectory $item.PackageDir -Info $item.Manifest `
+                    -DestinationPath $packagePath -WorkingDirectory (Join-Path $managerTestRoot "work-$([string]$item.ModName)-$($installed.Count)") `
+                    -ApiSharedGuid ([string]$config.ApiShared.Guid) -ApiSharedConsumer:$isConsumer
+                $installed[[string]$record.Id] = $record
+            }
+            Assert-True ($installed.ContainsKey($apiSharedManagerId)) 'APIShared must retain its stable manager identity in either import order.'
+            $consumerId = Get-SCDEModManagerPackageId -Guid ([string]$consumerMetadata.Manifest.GUID)
+            Assert-True ($installed.ContainsKey($consumerId)) 'The consumer must retain its stable manager identity in either import order.'
+            $consumerDependencies = @($installed[$consumerId].Manifest.dependencies | ForEach-Object { [string]$_.id })
+            Assert-True (($consumerDependencies -join ',') -ceq "shcde-script-extender,$apiSharedManagerId") 'An APIShared consumer must declare only Script Extender and the stable APIShared package dependency.'
         }
-        Assert-True ($installed.ContainsKey($apiSharedManagerId)) 'APIShared must retain its stable manager identity in either import order.'
-        $consumerId = Get-SCDEModManagerPackageId -Guid ([string]$consumerMetadata.Manifest.GUID)
-        Assert-True ($installed.ContainsKey($consumerId)) 'The consumer must retain its stable manager identity in either import order.'
-        $consumerDependencies = @($installed[$consumerId].Manifest.dependencies | ForEach-Object { [string]$_.id })
-        Assert-True (($consumerDependencies -join ',') -ceq "shcde-script-extender,$apiSharedManagerId") 'An APIShared consumer must declare only Script Extender and the stable APIShared package dependency.'
+        $consumerBounds = Get-SCDEModManagerVersionBounds -Info $consumerMetadata.Manifest
+        Assert-True ([string]$consumerBounds.MinimumVersion -ceq [string]$consumerMetadata.Manifest.MinimumScriptExtenderVersion) 'Manager metadata must retain the authoritative Script Extender minimum.'
+        Assert-True ([string]$consumerBounds.MaximumVersion -ceq '') 'An absent Script Extender maximum must remain unbounded.'
+    } finally {
+        if (Test-Path -LiteralPath $managerTestRoot) { Remove-Item -LiteralPath $managerTestRoot -Recurse -Force }
     }
-    $consumerBounds = Get-SCDEModManagerVersionBounds -Info $consumerMetadata.Manifest
-    Assert-True ([string]$consumerBounds.MinimumVersion -ceq [string]$consumerMetadata.Manifest.MinimumScriptExtenderVersion) 'Manager metadata must retain the authoritative Script Extender minimum.'
-    Assert-True ([string]$consumerBounds.MaximumVersion -ceq '') 'An absent Script Extender maximum must remain unbounded.'
-} finally {
-    if (Test-Path -LiteralPath $managerTestRoot) { Remove-Item -LiteralPath $managerTestRoot -Recurse -Force }
 }
 
 function Assert-ApiSharedValidationFails {
@@ -209,24 +232,27 @@ try {
     Set-Item -LiteralPath Function:\Invoke-CheckedCommand -Value $originalInvokeCheckedCommand
     Remove-Variable -Name apiReleaseFixture -Scope Script -ErrorAction SilentlyContinue
 }
-$dependencyFixtureRoot = Join-Path ([IO.Path]::GetTempPath()) ('shcde-release-dependencies-' + [Guid]::NewGuid().ToString('N'))
-try {
-    $fixtureGameDir = Join-Path $dependencyFixtureRoot 'Game'
-    $fixtureExtenderDir = Join-Path $dependencyFixtureRoot 'Extender'
-    $fixtureCrusaderDll = Join-Path $fixtureGameDir 'Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll'
-    [void](New-Item -ItemType Directory -Path (Split-Path -Parent $fixtureCrusaderDll), $fixtureExtenderDir -Force)
-    [IO.File]::WriteAllBytes($fixtureCrusaderDll, [byte[]]@(0))
-    [IO.File]::WriteAllBytes((Join-Path $fixtureExtenderDir 'SHCDESE.dll'), [byte[]]@(0))
-    $bugfixMetadata = Get-PluginMetadata -ModName 'BugfixesAndQoL'
-    $fixtureMetadata = [PSCustomObject]@{
-        Config = [PSCustomObject]@{ Root = $config.Root; GameDir = $fixtureGameDir }
-        ModDir = $bugfixMetadata.ModDir
+if (-not $SourceOnly) {
+    $dependencyFixtureRoot = Join-Path ([IO.Path]::GetTempPath()) ('shcde-release-dependencies-' + [Guid]::NewGuid().ToString('N'))
+    try {
+        $fixtureGameDir = Join-Path $dependencyFixtureRoot 'Game'
+        $fixtureExtenderDir = Join-Path $dependencyFixtureRoot 'Extender'
+        $fixtureCrusaderDll = Join-Path $fixtureGameDir 'Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll'
+        [void](New-Item -ItemType Directory -Path (Split-Path -Parent $fixtureCrusaderDll), $fixtureExtenderDir -Force)
+        [IO.File]::WriteAllBytes($fixtureCrusaderDll, [byte[]]@(0))
+        [IO.File]::WriteAllBytes((Join-Path $fixtureExtenderDir 'SHCDESE.dll'), [byte[]]@(0))
+        $bugfixMetadata = Get-PluginMetadata -ModName 'BugfixesAndQoL'
+        $fixtureMetadata = [PSCustomObject]@{
+            Config = [PSCustomObject]@{ Root = $config.Root; GameDir = $fixtureGameDir }
+            ModDir = $bugfixMetadata.ModDir
+        }
+        $bugfixDependencies = @(Get-DependencyRecords -Metadata $fixtureMetadata -ExtenderDir $fixtureExtenderDir -ApiSharedDir $apiSharedPackage.Directory)
+        Assert-True (@($bugfixDependencies | Where-Object { $_.Path -ceq '$Repository/APIShared/BepInEx/plugins/APIShared_Serp/APIShared.dll' }).Count -eq 1) 'Release provenance must hash the same workspace APIShared.dll used by the consumer build.'
+    } finally {
+        if (Test-Path -LiteralPath $dependencyFixtureRoot) { Remove-Item -LiteralPath $dependencyFixtureRoot -Recurse -Force }
     }
-    $bugfixDependencies = @(Get-DependencyRecords -Metadata $fixtureMetadata -ExtenderDir $fixtureExtenderDir -ApiSharedDir $apiSharedPackage.Directory)
-    Assert-True (@($bugfixDependencies | Where-Object { $_.Path -ceq '$Repository/APIShared/BepInEx/plugins/APIShared_Serp/APIShared.dll' }).Count -eq 1) 'Release provenance must hash the same workspace APIShared.dll used by the consumer build.'
-} finally {
-    if (Test-Path -LiteralPath $dependencyFixtureRoot) { Remove-Item -LiteralPath $dependencyFixtureRoot -Recurse -Force }
 }
+
 foreach ($consumerBuild in @('BugfixesAndQoL\build.bat', 'ExtendedData\build.bat', 'ExtraFeatures\build.bat', 'Helpers\ActiveAIVDetector\build.bat')) {
     $consumerBuildSource = [IO.File]::ReadAllText((Join-Path $config.Root $consumerBuild))
     Assert-True ($consumerBuildSource -match 'if defined SHCDE_API_SHARED_DIR set "API_SHARED_DIR=%SHCDE_API_SHARED_DIR%"') "$consumerBuild must honor the release APIShared override."
@@ -299,4 +325,8 @@ Assert-True (-not $extraKeys.Contains('BuildingCosts.Title')) 'ExtraFeatures mus
 Assert-True ($buildingKeys.Contains('Common.EnableMod')) 'BuildingCosts must consume Common.EnableMod.'
 Assert-True ($extraKeys.Contains('Common.EnableMod')) 'ExtraFeatures must consume Common.EnableMod.'
 
-Write-Host 'Release status tests succeeded.' -ForegroundColor Green
+if ($SourceOnly) {
+    Write-Host 'Release status source/fixture tests succeeded. Fresh-package validation, package import order and live DLL provenance were not run.' -ForegroundColor Green
+} else {
+    Write-Host 'Release status tests succeeded, including local package integration.' -ForegroundColor Green
+}
