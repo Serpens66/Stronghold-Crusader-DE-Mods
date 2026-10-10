@@ -311,6 +311,12 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding PreserveDisplayResolutionText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.gatehouse-target-marker-height" shared:ModSettingsSearch.Title="{Binding EnableGatehouseTargetMarkerHeightFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableGatehouseTargetMarkerHeightFixHelpText}"><CheckBox IsChecked="{Binding EnableGatehouseTargetMarkerHeightFix, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableGatehouseTargetMarkerHeightFixHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableGatehouseTargetMarkerHeightFixText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox></Grid>
       </StackPanel>
       <StackPanel shared:ModSettingsSearch.SectionKey="bugfixes.section.client-fixes-interface" shared:ModSettingsSearch.SectionTitle="{Binding InterfaceTitleText}">
       <Grid Style="{StaticResource ModSettingsSearchSectionGrid}" shared:ModSettingsSearch.IsSection="True"><TextBlock Text="{Binding InterfaceTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/></Grid>

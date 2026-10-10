@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+       xmlns:local="clr-namespace:CrusaderDE"
+       xmlns:bugfixes="clr-namespace:BugfixesAndQoL;assembly=BugfixesAndQoL">
+  <Operation Type="AddNamespace" AttributeName="bugfixes"
+             Value="clr-namespace:BugfixesAndQoL;assembly=BugfixesAndQoL" />
+  <Operation Type="SetAttribute" XPath="//n:ListView[@Name='ImportList' or @x:Name='ImportList']"
+             AttributeName="bugfixes:TrailDeletionListBehavior.IsEnabled" Value="True" />
+  <Operation Type="SetAttribute" XPath="//n:CheckBox[@x:Name='ImportBackup']"
+             AttributeName="HorizontalAlignment"
+             Value="{Binding ElementName=BugfixesAndQoLDeleteTrailHost, Path=DataContext.BackupAlignment}" />
+  <Operation Type="SetAttribute" XPath="//n:CheckBox[@x:Name='ImportBackup']"
+             AttributeName="Margin"
+             Value="{Binding ElementName=BugfixesAndQoLDeleteTrailHost, Path=DataContext.BackupMargin}" />
+  <Operation Type="Add" XPath="//n:Grid[n:CheckBox[@x:Name='ImportBackup']]">
+    <Content>
+      <Grid x:Name="BugfixesAndQoLDeleteTrailHost"
+            Width="200" Height="27" Margin="0,0,40,58"
+            HorizontalAlignment="Right" VerticalAlignment="Bottom"
+            Visibility="{Binding DeleteTrailVisibility}">
+        <Button IsEnabled="{Binding DeleteTrailEnabled}"
+                local:PropEx.TextCentre="{Binding DeleteTrailText}"
+                local:PropEx.TextLeft="" local:PropEx.TextRight=""
+                Command="{Binding DeleteTrailCommand}"
+                MouseEnter="CommonRedButtonEnter"
+                Style="{StaticResource BTN_SH_GlowSDisable}" />
+      </Grid>
+    </Content>
+  </Operation>
+</Patch>

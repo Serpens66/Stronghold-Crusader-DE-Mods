@@ -97,6 +97,7 @@ namespace BugfixesAndQoL
         private bool showLoadSaveDialogControls = true;
         private bool showVanillaMapsInEditor = true;
         private bool preserveDisplayResolution = true;
+        private bool enableGatehouseTargetMarkerHeightFix = true;
         private bool enableWorkshopUploadLordSelectionFix = true;
         private bool enableDisbandedUnitControlGroupCleanup = true;
         private const int HealthBarKeyMask = 0xffff;
@@ -442,6 +443,8 @@ namespace BugfixesAndQoL
         public string ShowVanillaMapsInEditorHelpText => SerpLocalization.Get("BugfixesAndQoL.ShowVanillaMapsInEditorHelp");
         public string PreserveDisplayResolutionText => SerpLocalization.Get("BugfixesAndQoL.PreserveDisplayResolution");
         public string PreserveDisplayResolutionHelpText => SerpLocalization.Get("BugfixesAndQoL.PreserveDisplayResolutionHelp");
+        public string EnableGatehouseTargetMarkerHeightFixText => SerpLocalization.Get("BugfixesAndQoL.EnableGatehouseTargetMarkerHeightFix");
+        public string EnableGatehouseTargetMarkerHeightFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableGatehouseTargetMarkerHeightFixHelp");
         public string AllowMinimapWhilePlacingBuildingText => SerpLocalization.Get(SerpLocalization.AllowMinimapWhilePlacingBuilding);
         public string AllowMinimapWhilePlacingBuildingHelpText => SerpLocalization.Get(SerpLocalization.AllowMinimapWhilePlacingBuildingHelp);
         public string PreventMoveOrderOnPlacementCancelText => SerpLocalization.Get("BugfixesAndQoL.PreventMoveOrderOnPlacementCancel");
@@ -785,6 +788,13 @@ namespace BugfixesAndQoL
         {
             get => preserveDisplayResolution;
             set => SetSetting(ref preserveDisplayResolution, value, nameof(PreserveDisplayResolution));
+        }
+
+        [APIShared.ModSettings.PresetLocal]
+        public bool EnableGatehouseTargetMarkerHeightFix
+        {
+            get => enableGatehouseTargetMarkerHeightFix;
+            set => SetSetting(ref enableGatehouseTargetMarkerHeightFix, value, nameof(EnableGatehouseTargetMarkerHeightFix));
         }
 
         [APIShared.ModSettings.PresetLocal]
@@ -1485,6 +1495,7 @@ namespace BugfixesAndQoL
             ShowLoadSaveDialogControls = true;
             ShowVanillaMapsInEditor = true;
             PreserveDisplayResolution = true;
+            EnableGatehouseTargetMarkerHeightFix = true;
             EnableWorkshopUploadLordSelectionFix = true;
             EnableAllyGoodsAmountModifiers = true;
         }

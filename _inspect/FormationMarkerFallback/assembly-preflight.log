@@ -1,0 +1,12 @@
+[Preflight] Checking permanent published hooks and executable-memory mutations...
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+APIShared verified reference Assembly-CSharp: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data/Managed/Assembly-CSharp.dll
+APIShared verified reference SHCDESE: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\SHCDESE.dll
+APIShared: 114 sources, 0 errors
+BugfixesAndQoL verified reference Assembly-CSharp: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data/Managed/Assembly-CSharp.dll
+BugfixesAndQoL verified reference SHCDESE: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\SHCDESE.dll
+BugfixesAndQoL: 359 sources, 0 errors
+MoatMove verified reference Assembly-CSharp: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data/Managed/Assembly-CSharp.dll
+MoatMove verified reference SHCDESE: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\SHCDESE.dll
+MoatMove: 23 sources, 0 errors
+PASS: shared command preflight (499 project/source entries), JSON, callbacks, CRLF, XAML, permanent hooks including MoatMove.

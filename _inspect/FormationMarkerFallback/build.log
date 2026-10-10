@@ -1,0 +1,65 @@
+[10.10.2026 14:02:26,33] START BugfixesAndQoL
+[10.10.2026 14:02:26,33] Workspace source and runtime preflight
+[Preflight] Discovering active projects and explicit source links...
+[Preflight] Checking 100 projects and source ownership...
+[Preflight] Checking active references and CRLF...
+[Preflight] Checking JSON, lifecycle and persistent runtime call paths...
+[Preflight] Checking XAML content roots...
+[Preflight] Checking permanent published hooks and executable-memory mutations...
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+PASS: shared ownership boundaries; 100 projects, 1427 valid explicit links; runtime JSON/lifecycle/scheduling, XAML and permanent hooks.
+[Preflight] Checking manifest and plugin minimum dependencies...
+PASS: 41 runtime manifests use consistent generic minimum dependencies; soft dependencies remain optional.
+[Preflight] Completed in 24,0s.
+PASS: 11 mod-owned ingame popup usages have the modoptions style; 0 explicitly disabled popups; HUD action/category/recruitment runtime descriptions use Vanilla rollover paths.
+[10.10.2026 14:02:50,62] PowerShell checks / build step
+GameUnit.r_AliveState type=SHCDESE.Interop.Enums.AliveState offset=0x88 width=2 stride=1168
+GameUnit.r_UnitChimp type=SHCDESE.Interop.eChimps offset=0x8A width=2 stride=1168
+GameUnit.r_GlobalId type=System.UInt32 offset=0x94 width=4 stride=1168
+GameUnit.r_CurrentTilePositionX type=System.UInt16 offset=0xC0 width=2 stride=1168
+GameUnit.r_CurrentTilePositionY type=System.UInt16 offset=0xC2 width=2 stride=1168
+GameUnit.r_TargetTilePositionX type=System.UInt16 offset=0xC4 width=2 stride=1168
+GameUnit.r_TargetTilePositionY type=System.UInt16 offset=0xC6 width=2 stride=1168
+GameUnit.r_IsKilledByProjectile type=System.UInt16 offset=0x29C width=2 stride=1168
+GameUnit.r_TribeId type=System.UInt16 offset=0x2D4 width=2 stride=1168
+GameUnit.r_AttackMoveToTargetTileX type=System.UInt16 offset=0x2D8 width=2 stride=1168
+GameUnit.r_AttackMoveToTargetTileY type=System.UInt16 offset=0x2DA width=2 stride=1168
+GameUnit computedSize=1168 declaredSize=1168 pack=1
+GameTribe.r_PlayerIdOwner type=System.UInt16 offset=0x2 width=2 stride=1672
+GameTribe.r_GlobalId type=System.UInt32 offset=0xA width=4 stride=1672
+GameTribe.r_AliveState type=SHCDESE.Interop.Enums.AliveState offset=0x16 width=2 stride=1672
+GameTribe computedSize=1672 declaredSize=1672 pack=1
+GameCursorManager.r_IsCursorInGame type=System.UInt32 offset=0x8 width=4 stride=0
+GameCursorManager.r_MouseTileX type=System.UInt32 offset=0x6C width=4 stride=0
+GameCursorManager.r_MouseTileY type=System.UInt32 offset=0x70 width=4 stride=0
+GameCursorManager computedSize=1152 declaredSize=0 pack=1
+Installed interop fields, widths and sequential offsets audited.
+[10.10.2026 14:02:51,07] PowerShell checks / build step
+[Preflight] Checking permanent published hooks and executable-memory mutations...
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+APIShared verified reference Assembly-CSharp: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data/Managed/Assembly-CSharp.dll
+APIShared verified reference SHCDESE: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\SHCDESE.dll
+APIShared: 114 sources, 0 errors
+BugfixesAndQoL verified reference Assembly-CSharp: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data/Managed/Assembly-CSharp.dll
+BugfixesAndQoL verified reference SHCDESE: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\SHCDESE.dll
+BugfixesAndQoL: 359 sources, 0 errors
+MoatMove verified reference Assembly-CSharp: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data/Managed/Assembly-CSharp.dll
+MoatMove verified reference SHCDESE: E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\SHCDESE.dll
+MoatMove: 23 sources, 0 errors
+PASS: shared command preflight (499 project/source entries), JSON, callbacks, CRLF, XAML, permanent hooks including MoatMove.
+[10.10.2026 14:02:58,97] Unit access regression tests
+[Preflight] Building and running production UnitAccess contract tests...
+PASS: production UnitAccess boundaries, no invalid SDK calls, NeedsInit/identity neutrality, unload/reload, failure pointer clearing and bounded diagnostics.
+[Preflight] Scanning workspace UnitAccess usage...
+PASS: 1047 runtime source files; SDK unit lookups are confined to UnitAccess and callers consume their boolean results.
+SKIP: inventory testmod project no longer present: Testmods\FormationTest\FormationTest.csproj
+PASS: affected runtime projects and linked sources checked for JSON, plugin scheduling, lifecycle teardown and XAML roots.
+[Preflight] Checking permanent published hooks and executable-memory mutations...
+PASS: workspace runtime sources contain no unsafe executable-memory toggles, and audited live-setting MonoMod hooks remain permanently published.
+[Preflight] UnitAccess checks completed in 8,6s.
+[10.10.2026 14:03:07,73] PowerShell checks / build step
+PASS: local APIShared package and build inputs.
+[10.10.2026 14:03:08,24] Check that the game is closed
+Build und Installation abgebrochen: Stronghold Crusader Definitive Edition ist noch gestartet.
+Lokales Paket und installierter Mod wurden nicht veraendert.
+[10.10.2026 14:03:08,40] END: exit code 1

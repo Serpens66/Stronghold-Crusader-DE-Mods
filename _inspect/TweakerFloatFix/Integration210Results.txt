@@ -1,0 +1,52 @@
+Tweaker 2.10 integration - 2026-10-10
+
+Installed through build.bat:
+- Independent API Tweaker from codex/configuration-api-integration.
+- Updated SerpsModsHost optional reflection adapter; no hard Tweaker dependency.
+- Installed DLL hashes verified against the respective build outputs.
+
+Fork branches pushed, without force:
+- main: 2f6de1a (upstream 2.10.0)
+- codex/configuration-api-review: f49b292
+- codex/configuration-api-integration: d0ce3c0
+- codex/configuration-api: aef5663
+- codex/apishared-presets: 709ad89 (separate, not installed)
+The three independent API branches have identical trees. No MR was created.
+Float-fix branch remains 1ac0a67; upstream already contains the fix.
+Old uncommitted development work remains in the stash and tag codex/configuration-api-pre-210-local.
+Its context/host implementation and test coverage are superseded by the reviewed versions.
+
+Behavior:
+- Original lobby override > file value precedence retained.
+- Empty/-1/0/positive lobby values are distinct scalar preset values.
+- Lobby-only changes apply immediately; mixed snapshots are staged completely.
+- Existing MessagePack envelope preserves unrelated fields.
+- Personal/session files, external-edit detection and journal recovery remain separate.
+- Team colors normalize through the original parser to -1 or #RRGGBB.
+- Separate direct variant uses public APIShared contracts (minimum 0.5.0), no SerpsModsHost reference.
+- Host adapter skips a direct owner before registration as well as an already registered participant.
+
+Passed:
+- API facade, package migration/rejection, temporary contexts, host preparation/rejoin comparison.
+- Transaction interruptions, conflicts, invalid replacements, personal-byte preservation.
+- New lobby live/mixed/reset cases under de-DE and en-US; direct provider tests.
+- Production property handlers, original self-tests under both cultures, new team-color/healing/troop parser bindings.
+- Older 4233-option file fixture roundtrip. This is NOT a fresh full 2.10 generator proof.
+- Actual optional adapter: absence, unsupported API, late readiness, failed activation, UI isolation,
+  mixed reset and catalogs with 4233/12000/16384 options.
+- Existing personal/bundled/mission preset source regression.
+- Runtime JSON/lifecycle/permanent-hook gates, no new private game accesses, XAML/tooltips, CRLF.
+- Actual dependency declarations verified using the installed public Extender GUID constant.
+- Host build: zero warnings/errors. Tweaker builds: only existing upstream CS0649 KnightPhase.Charge.
+
+Scope:
+No APIShared source changes for this integration. User approved the separately built 0.6.1 package.
+No own README/version/native-hook/Script-Extender/build-discovery changes in the review diff.
+The separate variant adds only direct preset integration on top of the independent API branch.
+
+Still requires ingame acceptance:
+- Fresh 2.10 generator/catalog defaults and new lobby UI, first lobby-entry timing.
+- Pure lobby preset/reset and mixed restart in real game; temporary Trail/Map and return.
+- Standalone without consumer, official Tweaker without API, host/client restart and rejoin.
+- Direct APIShared variant with and without the external adapter installed (no duplicate UI/provider).
+No isolated test or successful compilation is presented as proof of these game scenarios.

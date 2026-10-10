@@ -175,6 +175,9 @@ The Load Map and Save Map dialogs also include a **Delete Map** button. It asks 
 ### Delete savegames from the Load Game dialog
 Select a savegame and click **Delete Save** to remove it after confirmation. This works in singleplayer and multiplayer, including co-op and visible quicksaves. The next savegame is selected automatically afterward.
 
+### Delete local Trails from the Import Trail dialog
+Select a local Trail and click **Delete Trail** to delete its folder after confirmation. Subscribed Steam Workshop Trails are protected; your own uploaded Trails can still be deleted. Deleting creates no backup: **Create Backup?** applies only to importing.
+
 ### Customize the detailed market's goods order
 The circular order of goods in the detailed market view can be rearranged freely in the mod settings. It defaults to the classic Stronghold Crusader HD order and includes a button that restores that order at any time.
 

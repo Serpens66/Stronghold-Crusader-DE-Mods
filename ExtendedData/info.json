@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Extended Data",
   "Description": "Adds portable Custom and Coop Trail data plus complete Script Extender Custom Lord Workshop packages.",
-  "Version": "1.0.9",
+  "Version": "1.0.10",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.4.0",
   "MaximumScriptExtenderVersion": "",
@@ -16,6 +16,12 @@
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.10",
+      "Changes": [
+        "Expose source package paths and Workshop subscription status for Coop Trail import rows, enabling safe local Trail deletion in Bugfixes and QoL."
+      ]
+    },
     {
       "Version": "1.0.9",
       "Changes": [

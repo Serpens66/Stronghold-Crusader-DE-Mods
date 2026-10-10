@@ -1011,7 +1011,7 @@ foreach ($viewModelFile in $settingsViewModels) {
     }
 }
 
-$sharedSettingsSource = [string]::Join([Environment]::NewLine, @(Get-ChildItem -LiteralPath (Join-Path $workspace 'APIShared/src/ModSettings') -Filter '*.cs' | Where-Object { $_.Name -like 'PresetLobbyModSettingsViewModel*' -or $_.Name -in @('PerPlayerLobbySettings.cs', 'LobbyModSettingsPresetRegistration.cs') } | ForEach-Object { [IO.File]::ReadAllText($_.FullName) }))
+$sharedSettingsSource = [string]::Join([Environment]::NewLine, @(Get-ChildItem -LiteralPath (Join-Path $workspace 'APIShared/src/ModSettings') -Recurse -Filter '*.cs' | Where-Object { $_.Name -like 'PresetLobbyModSettingsViewModel*' -or $_.Name -in @('PerPlayerLobbySettings.cs', 'LobbyModSettingsPresetRegistration.cs') } | ForEach-Object { [IO.File]::ReadAllText($_.FullName) }))
 $sharedLobbyStateSource = [IO.File]::ReadAllText((Join-Path $workspace 'APIShared/src/Lobby/LobbyStateCapability.cs'))
 foreach ($required in @(
     'ActivatePerPlayerLobbySettings',
@@ -1027,7 +1027,7 @@ foreach ($required in @(
 if ($sharedSettingsSource.Contains('ScriptExtenderMultiplayerSyncWorkaround')) {
     throw 'APIShared settings still contain the obsolete pre-2.0.2 multiplayer-sync workaround.'
 }
-$sharedSearchSource = [IO.File]::ReadAllText((Join-Path $workspace 'APIShared/src/ModSettings/ModSettingsSearch.cs'))
+$sharedSearchSource = [IO.File]::ReadAllText((Join-Path $workspace 'APIShared/src/ModSettings/UI/ModSettingsSearch.cs'))
 foreach ($required in @(
     'DependencyProperty.RegisterAttached(',
     'System_GetModSettingsSearchEntries',
@@ -1548,13 +1548,13 @@ $crlfTargets = @($settings.Values) + @(
             ForEach-Object { [IO.Path]::GetRelativePath($workspace, $_.FullName) }
     }
 ) + @(
-    'APIShared/src/ModSettings/PresetLobbyModSettingsViewModel.cs',
-    'APIShared/src/ModSettings/ModSettingsSearch.cs',
+    'APIShared/src/ModSettings/Presets/PresetLobbyModSettingsViewModel.cs',
+    'APIShared/src/ModSettings/UI/ModSettingsSearch.cs',
     'APIShared/src/GameModes/MissionModePolicy.cs',
     'SerpsModsHost/src/ModSettingsSearchPolicy.cs',
     'SerpsModsHost/src/ModSettingsSearchViewModel.cs',
     '_inspect/HostClientPresetTests/Program.cs')
-$crlfTargets += @(Get-ChildItem -LiteralPath (Join-Path $workspace 'APIShared/src/ModSettings') -Filter '*.cs' | ForEach-Object { [IO.Path]::GetRelativePath($workspace, $_.FullName) })
+$crlfTargets += @(Get-ChildItem -LiteralPath (Join-Path $workspace 'APIShared/src/ModSettings') -Recurse -Filter '*.cs' | ForEach-Object { [IO.Path]::GetRelativePath($workspace, $_.FullName) })
 $crlfTargets += $selectedAdditionalCrlfTargets
 foreach ($relativePath in $crlfTargets) {
     $text = [IO.File]::ReadAllText((Join-Path $workspace $relativePath))

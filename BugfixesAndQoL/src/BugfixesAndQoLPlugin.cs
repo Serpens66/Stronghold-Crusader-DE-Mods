@@ -42,7 +42,7 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.182";
+        public const string PluginVersion = "1.0.183";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static DamagedHealthBarsRuntime damagedHealthBarsRuntime;
@@ -55,6 +55,7 @@ namespace BugfixesAndQoL
         private static SkirmishGameOptionsAccessViewModel skirmishGameOptionsAccess;
         private static VanillaPeaceTimeGameplayPatch vanillaPeaceTimeGameplayPatch;
         private static TimerCountdownFeature timerCountdownFeature;
+        private static TrailDeletionViewModel trailDeletionViewModel;
         private static NoDogsNativePatch noDogsNativePatch;
         private static bool skirmishGameOptionsCompatible;
         private BugfixesAndQoLRuntime runtime;
@@ -244,6 +245,16 @@ namespace BugfixesAndQoL
                 return;
             }
 
+            try
+            {
+                if (trailDeletionViewModel == null)
+                    trailDeletionViewModel = new TrailDeletionViewModel(Logger, Settings);
+                GameXAMLManagerAPI.Instance.RegisterBinding("BugfixesAndQoLDeleteTrailHost", trailDeletionViewModel);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(Logger, "Bugfixes and QoL Trail deletion binding failed: " + ex);
+            }
             InitializePersistentUiAndMapCallbacks();
 
             try
@@ -339,6 +350,7 @@ namespace BugfixesAndQoL
             }
 
             // Keep UI registration independent so one native feature cannot hide the whole mod.
+            GatehouseTargetMarkerHeightHook.Install(context, Logger, Settings);
             try
             {
                 if (damagedHealthBarsRuntime == null)

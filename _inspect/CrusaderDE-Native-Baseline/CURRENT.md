@@ -18,6 +18,10 @@ Primary reusable artifacts:
 
 Semantic reverse-engineering baseline:
 
+- [Gatehouse target marker height](./sem/FBCB9319/knowledge/GATEHOUSE_TARGET_MARKER_HEIGHT.md): complete marker render path, gate wall-height discrepancy, tower/keep counterchecks and managed consumer correction.
+
+- [UU-ImGUI shutdown audit](./sem/FBCB9319/knowledge/UU_IMGUI_SHUTDOWN.md): dependency context teardown race, normal exit path, binary identities, controlled tests, exact Unity Mono backend checks and four successful game shutdown paths.
+
 - [Script Extender 2.14.1 engage-range audit](./sem/FBCB9319/knowledge/SE_2_14_1_ENGAGE_RANGE.md): full native feature path, all 35 actual RedBird spans, generated-code checks, consumer compatibility and acceptance limits.
 
 - [Gatehouse capture and true unit life](./sem/FBCB9319/knowledge/GATEHOUSE_LIVING_CAPTURE.md): complete capture/death/removal flow, low-word death marker, combat predicate and permanent capture-filter boundary.

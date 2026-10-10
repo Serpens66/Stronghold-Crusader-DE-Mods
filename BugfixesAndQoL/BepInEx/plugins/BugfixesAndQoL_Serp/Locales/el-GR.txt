@@ -388,3 +388,5 @@ BugfixesAndQoL.EnableAssassinGatehouseClimbFixHelp=Allows humans and AI to choos
 BugfixesAndQoL.RememberRows=Remember rows
 BugfixesAndQoL.RememberRowsHelp=Remembers wheel-selected rows for each arrangement, including after restarts. Smaller groups temporarily limit rows. Off or no saved value: automatic rows. Circle and Vanilla stay unchanged.
 BugfixesAndQoL.ArrangementTooltip=Arrangement
+BugfixesAndQoL.EnableGatehouseTargetMarkerHeightFix=Διόρθωση δεικτών στόχου στις πύλες
+BugfixesAndQoL.EnableGatehouseTargetMarkerHeightFixHelp=Διορθώνει το ύψος των πράσινων δεικτών προορισμού στις πύλες, μαζί με τις προεπισκοπήσεις σχηματισμών. Οι πύργοι και τα φρούρια παραμένουν αμετάβλητα. Η ρύθμιση είναι τοπική και δεν συγχρονίζεται.

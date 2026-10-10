@@ -1541,6 +1541,14 @@ namespace ExtendedData
                     {
                         Text1 = source.SelectionName,
                         Text2 = source.MissionCount.ToString(CultureInfo.InvariantCulture),
+                        // Public Vanilla metadata lets UI consumers distinguish local packages
+                        // from subscriptions without relying on names or Steam icons.
+                        trail = new MapFileManager.CustomTrailInfo
+                        {
+                            Name = source.SelectionName,
+                            FullPath = source.PackageRoot,
+                            workshop = !IsDirectChildOf(source.PackageRoot, ConfigSettings.GetUserCustomTrailsPath()),
+                        },
                     });
                 }
             }

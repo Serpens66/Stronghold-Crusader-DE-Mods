@@ -388,3 +388,5 @@ BugfixesAndQoL.EnableAssassinGatehouseClimbFixHelp=Allows humans and AI to choos
 BugfixesAndQoL.RememberRows=Remember rows
 BugfixesAndQoL.RememberRowsHelp=Remembers wheel-selected rows for each arrangement, including after restarts. Smaller groups temporarily limit rows. Off or no saved value: automatic rows. Circle and Vanilla stay unchanged.
 BugfixesAndQoL.ArrangementTooltip=Arrangement
+BugfixesAndQoL.EnableGatehouseTargetMarkerHeightFix=Correggi gli indicatori sulle porte fortificate
+BugfixesAndQoL.EnableGatehouseTargetMarkerHeightFixHelp=Corregge l’altezza degli indicatori verdi di destinazione sulle porte fortificate, incluse le anteprime delle formazioni. Torri e fortezze restano invariate. Questa impostazione è locale e non viene sincronizzata.

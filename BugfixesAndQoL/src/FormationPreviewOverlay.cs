@@ -89,7 +89,8 @@ namespace BugfixesAndQoL
                     return;
 
                 EnsureBrushes();
-                int pointCount = showRoleMarkers ? current.Points.Length : 0;
+                int pointCount = showRoleMarkers && current.Direction.ExplicitDirection
+                    ? current.Points.Length : 0;
                 EnsurePointPool(host, pointCount);
                 int visible = 0;
                 int skipped = 0;

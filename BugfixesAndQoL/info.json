@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.182",
+  "Version": "1.0.183",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
@@ -16,6 +16,12 @@
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.183",
+      "Changes": [
+        "Add Delete Trail to the Import Trail dialog for local packages, with confirmation and protection for subscribed Workshop Trails; deletion creates no backup."
+      ]
+    },
     {
       "Version": "1.0.182",
       "Changes": [

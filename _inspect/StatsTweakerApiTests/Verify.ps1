@@ -5,6 +5,7 @@ $workspace = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $tweaker = Join-Path (Split-Path -Parent $workspace) 'Fremde Mods\crusader-de-tweaker'
 if ($TweakerRoot) { $tweaker = [IO.Path]::GetFullPath($TweakerRoot) }
 $roots = @((Join-Path $workspace 'APIShared\src'), (Join-Path $workspace 'SerpsModsHost\src'), (Join-Path $tweaker 'Config'))
+if (Test-Path -LiteralPath (Join-Path $tweaker 'Presets')) { $roots += Join-Path $tweaker 'Presets' }
 $sources = @(foreach ($root in $roots) { Get-ChildItem -LiteralPath $root -Recurse -File -Filter '*.cs' })
 $sources += Get-Item -LiteralPath (Join-Path $tweaker 'Plugin.cs')
 $projects = @((Join-Path $workspace 'APIShared\APIShared.csproj'), (Join-Path $workspace 'SerpsModsHost\SerpsModsHost.csproj'), (Join-Path $tweaker 'CrusaderDETweaker.csproj'))
@@ -12,7 +13,8 @@ foreach ($file in @($sources.FullName) + $projects) {
     $text = [IO.File]::ReadAllText($file)
     if ($text -match '(?<![A-Za-z])(System\.Web\.Extensions|JavaScriptSerializer|System\.Text\.Json|Newtonsoft\.Json|DataContractJsonSerializer|JsonUtility)(?![A-Za-z])') { throw "Forbidden JSON dependency: $file" }
     if ($text -match '\b(?:void|IEnumerator)\s+(?:OnDestroy|OnDisable|OnApplicationQuit|LateUpdate|FixedUpdate)\s*\(' -or $text -match '\bStartCoroutine\s*\(') { throw "Runtime lifecycle path requires audit: $file" }
-    if ($text -match '\bvoid\s+Update\s*\(' -and $file -ne (Join-Path $tweaker 'Plugin.cs')) { throw "Unexpected component Update: $file" }
+    # Unity's frame callback is parameterless. Upstream also has a static Update(unit, action, property) helper.
+    if ($text -match '\bvoid\s+Update\s*\(\s*\)' -and $file -ne (Join-Path $tweaker 'Plugin.cs')) { throw "Unexpected component Update: $file" }
 }
 $plugin = [IO.File]::ReadAllText((Join-Path $tweaker 'Plugin.cs'))
 $upstreamPlugin = (& git -C $tweaker show 'upstream/main:Plugin.cs') -join "`n"
@@ -22,7 +24,7 @@ if ([regex]::Match($plugin.Replace("`r`n","`n"),$pattern).Value -cne [regex]::Ma
 
 $changed = @(& git -C $workspace diff --name-only -- APIShared SerpsModsHost ExtendedData _inspect/StatsTweakerApiTests _inspect/HostClientPresetTests _inspect/LobbyModSettingsPresetTests)
 $changed += @(& git -C $workspace ls-files --others --exclude-standard -- APIShared SerpsModsHost ExtendedData _inspect/StatsTweakerApiTests _inspect/HostClientPresetTests _inspect/LobbyModSettingsPresetTests)
-$foreign = @(& git -C $tweaker diff --name-only)
+$foreign = @(& git -C $tweaker diff upstream/main --name-only)
 $foreign += @(& git -C $tweaker ls-files --others --exclude-standard)
 $paths = @($changed | ForEach-Object { Join-Path $workspace $_ }) + @($foreign | ForEach-Object { Join-Path $tweaker $_ })
 foreach ($file in ($paths | Sort-Object -Unique)) {

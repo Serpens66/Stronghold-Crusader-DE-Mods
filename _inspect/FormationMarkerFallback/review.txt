@@ -1,0 +1,16 @@
+Final review: formation roles and expected Move refusals
+Native hash matches CURRENT.json: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2
+Canonical Fixes: f919682, release 1.26.4. No new hooks/API/interop accesses.
+Observed 0 = debug refusal; observed 1 with verified target = debug accepted fallback.
+Missing feedback, exception, invalid identity, unexpected return and positive unconfirmed target remain warnings.
+Original movement calls, accepted-target predicate, per-unit counts and scope cleanup preserved.
+Order summary warns only for technical errors; diagnostics include feedback observation and reason.
+Overlay uses the existing ExplicitDirection flag; pooled roles collapse for the next short click. Arrow call unchanged.
+PASS: production fallback/overlay fixtures, existing movement/release tests, 18 Core tests, 560042 geometry assertions, 468 queue checks.
+PASS: installed real game/SE compilation, JSON/lifecycle/XAML/CRLF, permanent native hook mutation scan, git diff --check.
+No version, README, public APIShared interface or synchronized packet edits.
+Visible in-game acceptance with isolated unit remains pending.
+BugfixesAndQoL/src/Formations/FormationRuntime.OrderEvents.cs CRLF=472
+BugfixesAndQoL/src/FormationPreviewOverlay.cs CRLF=308
+BugfixesAndQoL/tests/FriendlyMoatMovement.Tests/FormationMarkerFallbackTests.cs CRLF=178
+BugfixesAndQoL/tests/FriendlyMoatMovement.Tests/Program.cs CRLF=61

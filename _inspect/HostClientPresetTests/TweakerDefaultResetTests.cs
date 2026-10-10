@@ -64,6 +64,29 @@ internal static class TweakerDefaultResetTests
         model.System_LoadModDefaults();
         Equal(Api.Defaults, Api.Pending, "reset after mixed preset retained a previous selection");
         ModSettingsApplication.ResetForTests(Path.Combine(root, "unused.json"));
+        Api.Initialize();
+        Api.LiveSubset = true;
+        Api.Defaults["LobbyCap"] = "";
+        Api.Own = new Dictionary<string, object>(Api.Defaults) { ["LobbyCap"] = "5" };
+        Api.Active = new Dictionary<string, object>(Api.Own);
+        var liveProvider = new StatsTweakerConfigurationProvider(typeof(Api));
+        var liveModel = new Model(liveProvider);
+        liveModel.PreparePresets(null, Path.Combine(root, "live.dll"), "LiveDefaults", "CrusaderDETweaker", new Version(2, 10));
+        liveModel.ActivatePresets();
+        ModSettingsApplication.Register("CrusaderDETweaker", liveModel, Path.Combine(root, "live.dll"));
+        liveProvider.EnableRestartManagedSynchronization();
+        liveModel.System_LoadModDefaults();
+        Equal(Api.Defaults, Api.Active, "pure lobby reset did not apply immediately");
+        Check(Api.LiveApplications == 1 && Api.Stages == 0 && !liveModel.System_ConfigurationNeedsRestart(),
+            "pure lobby reset unnecessarily staged a restart");
+        Api.Own["NumericOverride"] = 9L;
+        Api.Own["LobbyCap"] = "7";
+        Api.Active = new Dictionary<string, object>(Api.Own);
+        liveModel.System_LoadModDefaults();
+        Equal(Api.Defaults, Api.Pending, "mixed reset did not stage both settings layers");
+        Check((string)Api.Active["LobbyCap"] == "7" && Api.LiveApplications == 1,
+            "mixed reset applied its live subset prematurely");
+        ModSettingsApplication.ResetForTests(Path.Combine(root, "live-unused.json"));
         Console.WriteLine("PASS: real Tweaker adapter and shared reset preserve typed defaults, mixed modes, restart isolation and failed replacements");
     }
 
@@ -88,6 +111,7 @@ namespace DefaultResetProbe
     {
         public bool IsReady => true;
         public bool CanApplyWithoutRestart => false;
+        public bool CanApplyLiveSubset => ConfigurationApi.LiveSubset;
         public bool CanStageForNextStart => true;
         public bool CanStageContextConfigurations => true;
     }
@@ -99,7 +123,7 @@ namespace DefaultResetProbe
         public string File => "Fixture.toml";
         public object DefaultValue => ConfigurationApi.Defaults[Key];
         public string ValueType => DefaultValue is bool ? "Boolean" : DefaultValue is string ? "String" : DefaultValue is double ? "Number" : "Integer";
-        public bool RequiresRestart => true;
+        public bool RequiresRestart => Key != "LobbyCap";
         public bool IsSupported => Key != "Gatehouse";
         public bool IsLocal => Key == "LocalDebug";
         public string Notice => IsSupported ? "" : "Preserved but not applied";
@@ -117,6 +141,8 @@ namespace DefaultResetProbe
         internal static Dictionary<string, object> Defaults, Own, Active, Pending;
         internal static int Stages;
         internal static bool FailStage;
+        internal static bool LiveSubset;
+        internal static int LiveApplications;
         internal static void Initialize()
         {
             Defaults = new Dictionary<string, object> { ["NumericOverride"] = -1L, ["MaxCount"] = -1L,
@@ -126,7 +152,7 @@ namespace DefaultResetProbe
             Own = Defaults.ToDictionary(pair => pair.Key, pair => pair.Value is bool flag ? (object)!flag :
                 pair.Value is long number ? number + 5 : pair.Value is double real ? real + 2 : (object)"WOOD");
             Active = new Dictionary<string, object>(Own);
-            Pending = null; Stages = 0; FailStage = false;
+            Pending = null; Stages = 0; FailStage = false; LiveSubset = false; LiveApplications = 0;
         }
         internal static void Restart() { Active = new Dictionary<string, object>(Pending); Own = new Dictionary<string, object>(Pending); Pending = null; }
         public static int ApiVersion => 1;
@@ -134,6 +160,16 @@ namespace DefaultResetProbe
         public static ConfigurationOption[] GetOptions() => Defaults.Keys.Select(key => new ConfigurationOption { Key = key }).ToArray();
         public static ConfigurationSnapshot ReadOwnConfiguration() => Snapshot(Own);
         public static ConfigurationSnapshot GetLoadedConfiguration() => Snapshot(Active);
+        public static ConfigurationSnapshot GetActiveConfiguration() => Snapshot(Active);
+        public static void ApplyLiveConfiguration(IDictionary<string, object> values, string context, string revision)
+        {
+            if (!LiveSubset || revision != "own-revision" || ValidateConfiguration(values).Length != 0 ||
+                values.Any(pair => pair.Key != "LobbyCap" && !Equals(pair.Value, Active[pair.Key])))
+                throw new InvalidOperationException("Only unchanged file settings may accompany live lobby values.");
+            Active = new Dictionary<string, object>(values);
+            Own = new Dictionary<string, object>(values);
+            LiveApplications++;
+        }
         public static ConfigurationSnapshot GetPendingConfiguration() => Pending == null ? null : Snapshot(Pending);
         private static ConfigurationSnapshot Snapshot(Dictionary<string, object> values) => new ConfigurationSnapshot { Values = new Dictionary<string, object>(values) };
         public static ConfigurationProblem[] ValidateConfiguration(IDictionary<string, object> values) =>

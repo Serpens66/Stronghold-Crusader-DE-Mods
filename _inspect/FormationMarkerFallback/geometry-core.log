@@ -1,0 +1,8 @@
+  Wiederherzustellende Projekte werden ermittelt...
+  Alle Projekte sind für die Wiederherstellung auf dem neuesten Stand.
+  Formations.Core.Tests -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\tests\Formations.Core.Tests\bin\Release\net10.0\Formations.Core.Tests.dll
+Testlauf für "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\tests\Formations.Core.Tests\bin\Release\net10.0\Formations.Core.Tests.dll" (.NETCoreApp,Version=v10.0)
+Insgesamt 1 Testdateien stimmten mit dem angegebenen Muster überein.
+Fehler beim Herstellen einer Verbindung des Prozesses "vstest.console" mit dem Prozess "testhost" nach 90 Sekunden. Möglicherweise ist der Computer langsam. Legen Sie die Umgebungsvariable "VSTEST_CONNECTION_TIMEOUT" fest, um den Timeoutwert zu erhöhen. The process with id 34924 was still running when this message was reported.
+
+Testlauf abgebrochen.

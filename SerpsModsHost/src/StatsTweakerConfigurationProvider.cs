@@ -37,6 +37,7 @@ namespace SerpsModsHost
             object capabilities = Call("GetCapabilities");
             ValidateContract();
             bool immediate = Read<bool>(capabilities, "CanApplyWithoutRestart");
+            bool liveSubset = capabilities.GetType().GetProperty("CanApplyLiveSubset")?.GetValue(capabilities) is bool live && live;
             RequireMethod("StageContextConfiguration", new[] { typeof(IDictionary<string, object>), typeof(string), typeof(string) });
             RequireMethod("StageReturnToOwnConfiguration", Type.EmptyTypes);
             RequireMethod("IsNetworkConfigurationClient", Type.EmptyTypes);
@@ -45,6 +46,11 @@ namespace SerpsModsHost
             if (immediate)
             {
                 RequireMethod("ApplyConfiguration", new[] { typeof(IDictionary<string, object>), typeof(string) });
+                RequireMethod("GetActiveConfiguration", Type.EmptyTypes);
+            }
+            else if (liveSubset)
+            {
+                RequireMethod("ApplyLiveConfiguration", new[] { typeof(IDictionary<string, object>), typeof(string), typeof(string) });
                 RequireMethod("GetActiveConfiguration", Type.EmptyTypes);
             }
             IsReady = Read<bool>(capabilities, "IsReady") && (immediate || Read<bool>(capabilities, "CanStageForNextStart"));
@@ -75,7 +81,7 @@ namespace SerpsModsHost
                 });
             }
             if (options.Count == 0) throw new InvalidDataException("Tweaker option catalog is empty.");
-            if (!immediate && options.Any(x => !x.RequiresRestart))
+            if (!immediate && !liveSubset && options.Any(x => !x.RequiresRestart))
                 throw new InvalidDataException("Tweaker advertises live settings without an immediate application capability.");
             working = ReadOwn();
         }
@@ -115,6 +121,7 @@ namespace SerpsModsHost
                 case "StageContextConfiguration":
                 case "StageReturnToOwnConfiguration":
                 case "ApplyConfiguration":
+                case "ApplyLiveConfiguration":
                 case "DiscardPendingConfiguration": expected = typeof(void); break;
                 case "GetCapabilities": expected = api.Assembly.GetType(api.Namespace + ".ConfigurationCapabilities", true); break;
                 case "GetOptions": expected = api.Assembly.GetType(api.Namespace + ".ConfigurationOption", true).MakeArrayType(); break;
@@ -209,10 +216,28 @@ namespace SerpsModsHost
         }
         public void ApplyValues(Dictionary<string, object> values, string contextId)
         {
+            if (methods.ContainsKey("ApplyLiveConfiguration"))
+            {
+                Call("ApplyLiveConfiguration", values, contextId, OwnRevision);
+                return;
+            }
             if (!methods.ContainsKey("ApplyConfiguration")) throw new NotSupportedException("Tweaker cannot apply configuration without a restart.");
             Call("ApplyConfiguration", values, contextId);
         }
-        public void ReturnToOwnConfiguration() => Call("StageReturnToOwnConfiguration");
+        public void ReturnToOwnConfiguration()
+        {
+            if (methods.ContainsKey("ApplyLiveConfiguration"))
+            {
+                var own = ReadOwn();
+                var active = ReadActiveValues();
+                if (options.Where(option => option.RequiresRestart).All(option => Equals(own[option.Key], active[option.Key])))
+                {
+                    ApplyValues(own, "");
+                    return;
+                }
+            }
+            Call("StageReturnToOwnConfiguration");
+        }
         public void DiscardPendingConfiguration() => Discard();
     }
 }

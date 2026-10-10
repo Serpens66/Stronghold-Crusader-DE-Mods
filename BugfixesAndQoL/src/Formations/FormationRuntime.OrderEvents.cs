@@ -142,6 +142,14 @@ namespace BugfixesAndQoL.UnitCommands
                 return;
             int successfulFormationTargets = completed.SuccessfulTerminalCount;
             UnitFallbackSummary fallbackSummary = RunUnitFallbacks(completed);
+            LogFormationOrderResult(completed, successfulFormationTargets, fallbackSummary);
+        }
+
+        private void LogFormationOrderResult(
+            ActiveFormationCommand completed,
+            int successfulFormationTargets,
+            UnitFallbackSummary fallbackSummary)
+        {
             string common =
                 $"source={completed.Pending.Source}, " +
                 $"operation={completed.Pending.Packet.OperationId}, " +
@@ -151,13 +159,15 @@ namespace BugfixesAndQoL.UnitCommands
                 $"formationSucceeded={successfulFormationTargets}, " +
                 $"fallbackSucceeded={fallbackSummary.Succeeded}, " +
                 $"fallbackFailed={fallbackSummary.Failed}, " +
+                $"fallbackTechnicalErrors={fallbackSummary.TechnicalErrors}, " +
                 $"expected={completed.ExpectedCount}";
-            if (successfulFormationTargets == completed.ExpectedCount)
-                LogDebugNoThrow($"FORMATION_ORDER_APPLIED: {common}.");
-            else if (successfulFormationTargets > 0)
-                LogWarningNoThrow($"FORMATION_ORDER_PARTIAL_FALLBACK: {common}.");
+            string marker = successfulFormationTargets == completed.ExpectedCount
+                ? "FORMATION_ORDER_APPLIED" : successfulFormationTargets > 0
+                    ? "FORMATION_ORDER_PARTIAL_FALLBACK" : "FORMATION_ORDER_FELL_BACK_TO_VANILLA";
+            if (fallbackSummary.TechnicalErrors != 0)
+                LogWarningNoThrow($"{marker}: {common}.");
             else
-                LogWarningNoThrow($"FORMATION_ORDER_FELL_BACK_TO_VANILLA: {common}.");
+                LogDebugNoThrow($"{marker}: {common}.");
         }
 
         private UnitFallbackSummary RunUnitFallbacks(ActiveFormationCommand command)
@@ -165,6 +175,7 @@ namespace BugfixesAndQoL.UnitCommands
             UnitFallbackRequest[] requests = command.GetFallbackRequests();
             int succeeded = 0;
             int failedCount = 0;
+            int technicalErrors = 0;
             for (int index = 0; index < requests.Length; index++)
             {
                 UnitFallbackRequest request = requests[index];
@@ -172,6 +183,7 @@ namespace BugfixesAndQoL.UnitCommands
                         request.UnitId, request.GlobalId, out _))
                 {
                     failedCount++;
+                    technicalErrors++;
                     LogWarningNoThrow(
                         $"FORMATION_UNIT_FALLBACK_ERROR: " +
                         $"operation={command.Pending.Packet.OperationId}, " +
@@ -183,6 +195,7 @@ namespace BugfixesAndQoL.UnitCommands
                     command.TargetX,
                     command.TargetY,
                     request.Unknown);
+                bool invocationFailed = false;
                 lock (stateSync)
                 {
                     if (unitFallbackAttempt != null)
@@ -199,6 +212,7 @@ namespace BugfixesAndQoL.UnitCommands
                 }
                 catch (Exception exception)
                 {
+                    invocationFailed = true;
                     LogWarningNoThrow(
                         $"FORMATION_UNIT_FALLBACK_ERROR: " +
                         $"operation={command.Pending.Packet.OperationId}, " +
@@ -222,12 +236,27 @@ namespace BugfixesAndQoL.UnitCommands
                     succeeded++;
                 else
                     failedCount++;
-                LogWarningNoThrow(
+                bool technicalError = invocationFailed || !attempt.ReturnObserved ||
+                    (attempt.ReturnValue != 0 && attempt.ReturnValue != 1) ||
+                    (attempt.ReturnValue != 0 && !accepted);
+                string result = invocationFailed ? "exception" : !attempt.ReturnObserved
+                    ? "missing-feedback" : attempt.ReturnValue != 0 && attempt.ReturnValue != 1
+                        ? "unexpected-return" : accepted ? "accepted" : attempt.ReturnValue == 0
+                            ? "vanilla-rejected" : "target-unconfirmed";
+                string diagnostic =
                     $"FORMATION_UNIT_FELL_BACK_TO_VANILLA: " +
                     $"operation={command.Pending.Packet.OperationId}, unit={request.UnitId}, " +
-                    $"return={attempt.ReturnValue}, accepted={accepted}.");
+                    $"observed={attempt.ReturnObserved}, return={attempt.ReturnValue}, " +
+                    $"accepted={accepted}, result={result}.";
+                if (technicalError)
+                {
+                    technicalErrors++;
+                    LogWarningNoThrow(diagnostic);
+                }
+                else
+                    LogDebugNoThrow(diagnostic);
             }
-            return new UnitFallbackSummary(succeeded, failedCount);
+            return new UnitFallbackSummary(succeeded, failedCount, technicalErrors);
         }
 
         private sealed class PendingFormationCommand
@@ -398,6 +427,7 @@ namespace BugfixesAndQoL.UnitCommands
             internal int Y { get; }
             internal int Unknown { get; }
             internal long ReturnValue { get; private set; }
+            internal bool ReturnObserved { get; private set; }
 
             internal bool Matches(UnitMoveHereEventArgs args) =>
                 args != null && args.Phase == EventHookPhase.Post &&
@@ -407,6 +437,7 @@ namespace BugfixesAndQoL.UnitCommands
             internal void Observe(long returnValue)
             {
                 ReturnValue = returnValue;
+                ReturnObserved = true;
             }
         }
 
@@ -426,14 +457,16 @@ namespace BugfixesAndQoL.UnitCommands
 
         private readonly struct UnitFallbackSummary
         {
-            internal UnitFallbackSummary(int succeeded, int failed)
+            internal UnitFallbackSummary(int succeeded, int failed, int technicalErrors)
             {
                 Succeeded = succeeded;
                 Failed = failed;
+                TechnicalErrors = technicalErrors;
             }
 
             internal int Succeeded { get; }
             internal int Failed { get; }
+            internal int TechnicalErrors { get; }
         }
     }
 }

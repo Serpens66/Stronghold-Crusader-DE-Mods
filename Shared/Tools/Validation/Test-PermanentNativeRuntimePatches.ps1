@@ -57,6 +57,11 @@ foreach ($file in $files) {
 
 $permanentManagedContracts = @(
     @{
+        Path = 'BugfixesAndQoL\src\GatehouseTargetMarkerHeightHook.cs'
+        Required = @('private static readonly Harmony harmony', 'harmony.Patch(target, prefix:', 'Volatile.Write(ref enabled', 'Volatile.Read(ref enabled)', 'Interlocked.Exchange(ref attempted, 1)')
+        Forbidden = @('Unpatch(', 'UnpatchAll(', 'Dispose(', 'Undo(', 'CodePatch', 'VirtualProtect', 'Marshal.Write')
+    },
+    @{
         Path = 'APIShared\src\Economy\MarketPriceNativeRuntime.cs'
         Required = @('AllowedSchemes = DetourScheme.Indirect', 'FollowJumps = false', 'Validate(buy.Hook', 'Validate(sell.Hook', 'published = true', 'if (!published)', 'native.TrampolineAddress', 'jump.NearBranchTarget')
         Forbidden = @('transaction.Dispose(', 'transaction?.Dispose(', 'buy.Hook.Disable(', 'sell.Hook.Disable(')

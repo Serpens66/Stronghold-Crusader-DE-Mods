@@ -388,3 +388,5 @@ BugfixesAndQoL.EnableAssassinGatehouseClimbFixHelp=Allows humans and AI to choos
 BugfixesAndQoL.RememberRows=Remember rows
 BugfixesAndQoL.RememberRowsHelp=Remembers wheel-selected rows for each arrangement, including after restarts. Smaller groups temporarily limit rows. Off or no saved value: automatic rows. Circle and Vanilla stay unchanged.
 BugfixesAndQoL.ArrangementTooltip=Arrangement
+BugfixesAndQoL.EnableGatehouseTargetMarkerHeightFix=城門上の目標マーカーを修正
+BugfixesAndQoL.EnableGatehouseTargetMarkerHeightFixHelp=陣形プレビューを含め、城門上の緑色の移動目標マーカーの高さを修正します。塔や天守は変更しません。この設定はローカルで、同期されません。

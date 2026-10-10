@@ -21,8 +21,12 @@ namespace SerpsModsHost
 
         internal static void TryAttach(string storageAssembly, ManualLogSource log)
         {
+            // A Tweaker build with direct APIShared integration owns its participant and page.
+            if (integration.Participant == null && ModSettingsApplication.Endpoints.ContainsKey(TargetGuid)) return;
             bool installed = Chainloader.PluginInfos.TryGetValue(TargetGuid, out var plugin);
             Type api = plugin?.Instance?.GetType().Assembly.GetType("CrusaderDETweaker.Configuration.ConfigurationApi", false);
+            var directOwner = api?.GetProperty("ProvidesPresets", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+            if (directOwner?.PropertyType == typeof(bool) && (bool)directOwner.GetValue(null)) return;
             integration.Discover(installed, api, () =>
             {
                 var phase = Stopwatch.StartNew();
