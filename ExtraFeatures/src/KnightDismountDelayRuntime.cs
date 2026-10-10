@@ -1,3 +1,4 @@
+using APIShared.Commands;
 using CrusaderDE;
 using MonoMod.RuntimeDetour;
 using R3;
@@ -23,10 +24,10 @@ namespace ExtraFeatures
         private static readonly object PersistentInfrastructureLock = new object();
         private static readonly List<IDisposable> PersistentSubscriptions = new List<IDisposable>();
         private static KnightDismountRuntime activeRuntime;
-        private static Hook persistentGameActionHook;
+        private static bool sharedGameActionsRegistered;
+        [ThreadStatic] private static bool internalStop;
         private static Hook persistentSaveHook;
         private static bool visualSubscriptionsInstalled;
-        private static EngineInterfaceGameActionDelegate persistentGameActionTrampoline;
         private static EngineInterfaceSaveDelegate persistentSaveTrampoline;
         private static Texture2D progressTexture;
         private static Sprite progressSprite;
@@ -40,12 +41,6 @@ namespace ExtraFeatures
             new Dictionary<int, ProgressVisual>();
         private DeferredSaveRequest deferredSave;
         private long deferredSaveReadyAfterTick = long.MaxValue;
-
-        private delegate int EngineInterfaceGameActionDelegate(
-            Enums.GameActionCommand command,
-            int structureId,
-            int state,
-            int value2);
 
         private delegate bool EngineInterfaceSaveDelegate(
             string path,
@@ -61,18 +56,12 @@ namespace ExtraFeatures
         {
             lock (PersistentInfrastructureLock)
             {
-                if (persistentGameActionHook != null && persistentSaveHook != null)
+                if (sharedGameActionsRegistered && persistentSaveHook != null)
                 {
                     activeRuntime = this;
                     return;
                 }
 
-                MethodInfo gameActionMethod = typeof(EngineInterface).GetMethod(
-                    nameof(EngineInterface.GameAction),
-                    BindingFlags.Public | BindingFlags.Static,
-                    null,
-                    new[] { typeof(Enums.GameActionCommand), typeof(int), typeof(int), typeof(int) },
-                    null);
                 MethodInfo saveMethod = typeof(EngineInterface).GetMethod(
                     nameof(EngineInterface.SaveSaveGame),
                     BindingFlags.Public | BindingFlags.Static,
@@ -84,20 +73,15 @@ namespace ExtraFeatures
                     },
                     null);
 
-                if (gameActionMethod == null)
-                    throw new MissingMethodException(typeof(EngineInterface).FullName, nameof(EngineInterface.GameAction));
                 if (saveMethod == null)
                     throw new MissingMethodException(typeof(EngineInterface).FullName, nameof(EngineInterface.SaveSaveGame));
 
-                Hook gameActionCandidate = null;
                 Hook saveCandidate = null;
                 var subscriptionCandidates = new List<IDisposable>();
                 bool tickSubscribed = false;
                 try
                 {
-                    gameActionCandidate = new Hook(gameActionMethod, (EngineInterfaceGameActionDelegate)PersistentGameActionHook);
                     saveCandidate = new Hook(saveMethod, (EngineInterfaceSaveDelegate)PersistentSaveHook);
-                    persistentGameActionTrampoline = gameActionCandidate.GenerateTrampoline<EngineInterfaceGameActionDelegate>();
                     persistentSaveTrampoline = saveCandidate.GenerateTrampoline<EngineInterfaceSaveDelegate>();
 
                     subscriptionCandidates.Add(UnitR3EventHooks.OnUnitMoveHere.Observable.Subscribe(PersistentUnitMoveHere));
@@ -105,7 +89,12 @@ namespace ExtraFeatures
                     GameTimeManagerAPI.Instance.OnTick += PersistentGameTick;
                     tickSubscribed = true;
 
-                    persistentGameActionHook = gameActionCandidate;
+                    if (!sharedGameActionsRegistered)
+                    {
+                        if (!GameActionEvents.TryRegister(ExtraFeaturesPlugin.PluginGuid, "KnightStop", null, null,
+                            out string reason, accepted: BeforeAcceptedGameAction)) throw new InvalidOperationException(reason);
+                        sharedGameActionsRegistered = true;
+                    }
                     persistentSaveHook = saveCandidate;
                     PersistentSubscriptions.AddRange(subscriptionCandidates);
                     activeRuntime = this;
@@ -119,8 +108,6 @@ namespace ExtraFeatures
                     for (int index = subscriptionCandidates.Count - 1; index >= 0; index--)
                         subscriptionCandidates[index]?.Dispose();
                     saveCandidate?.Dispose();
-                    gameActionCandidate?.Dispose();
-                    persistentGameActionTrampoline = null;
                     persistentSaveTrampoline = null;
                     throw;
                 }
@@ -153,19 +140,12 @@ namespace ExtraFeatures
             }
         }
 
-        private static int PersistentGameActionHook(
-            Enums.GameActionCommand command,
-            int structureId,
-            int state,
-            int value2)
+        private static void BeforeAcceptedGameAction(GameActionAcceptedEventArgs args)
         {
             KnightDismountRuntime runtime = activeRuntime;
-            if (command == Enums.GameActionCommand.Troops_Stop && runtime != null && runtime.IsPendingRuntimeActive())
+            if (!internalStop && args.Command == Enums.GameActionCommand.Troops_Stop && runtime != null && runtime.IsPendingRuntimeActive())
                 runtime.OnPlayerStopCommand();
-
-            return persistentGameActionTrampoline(command, structureId, state, value2);
         }
-
         private static bool PersistentSaveHook(
             string path,
             int screenCentreX,
@@ -249,13 +229,11 @@ namespace ExtraFeatures
 
         private void IssueInternalStop()
         {
-            EngineInterfaceGameActionDelegate original = persistentGameActionTrampoline;
-            if (original != null)
-                original(Enums.GameActionCommand.Troops_Stop, 0, 0, 0);
-            else
-                EngineInterface.GameAction(Enums.GameActionCommand.Troops_Stop, 0, 0, 0);
+            bool previous = internalStop;
+            internalStop = true;
+            try { EngineInterface.GameAction(Enums.GameActionCommand.Troops_Stop, 0, 0, 0); }
+            finally { internalStop = previous; }
         }
-
         private void StartPendingBatch(
             int playerId,
             int action,

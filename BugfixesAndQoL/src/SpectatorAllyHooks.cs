@@ -1,3 +1,4 @@
+using APIShared.Commands;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -25,9 +26,7 @@ namespace BugfixesAndQoL
             MethodInfo enemies = AccessTools.Method(typeof(HUD_AlliesPanel), nameof(HUD_AlliesPanel.GetEnemyList));
             MethodInfo update = AccessTools.Method(typeof(HUD_AlliesPanel), "UpdateAllies");
             MethodInfo open = AccessTools.Method(typeof(HUD_AlliesPanel), nameof(HUD_AlliesPanel.Open), new[] { typeof(bool) });
-            MethodInfo gameAction = AccessTools.Method(typeof(EngineInterface), nameof(EngineInterface.GameAction),
-                new[] { typeof(Enums.GameActionCommand), typeof(int), typeof(int), typeof(int) });
-            if (allies == null || enemies == null || update == null || open == null || gameAction == null ||
+            if (allies == null || enemies == null || update == null || open == null ||
                 panelOpen == null || playerIdGetter == null || viewPlayerGetter == null)
                 throw new MissingMemberException("Installed Assembly-CSharp ally contract changed.");
 
@@ -37,7 +36,12 @@ namespace BugfixesAndQoL
             harmony.Patch(enemies, transpiler: viewPatch);
             harmony.Patch(update, transpiler: viewPatch);
             harmony.Patch(open, postfix: new HarmonyMethod(typeof(SpectatorAllyHooks), nameof(AfterOpen)));
-            harmony.Patch(gameAction, prefix: new HarmonyMethod(typeof(SpectatorAllyHooks), nameof(AllowAllyAction)));
+            if (!GameActionEvents.TryRegister(BugfixesAndQoLPlugin.PluginGuid, "SpectatorAllySafety", args => {
+                if (args.Command < Enums.GameActionCommand.Ally_Orders || args.Command > Enums.GameActionCommand.Ally_CancelOrders) return;
+                if (SpectatorPerspectiveRuntime.IsNetworkSpectator() || (SpectatorPerspectiveRuntime.IsSpectatorActionRestricted() &&
+                    !SpectatorPerspectiveRuntime.CanIssueAllyAction(args.Command, args.StructureId, args.ActionState, args.Value2)))
+                    args.SkipOriginalFunction = true;
+            }, null, out string reason)) throw new InvalidOperationException(reason);
             installed = true;
         }
 
@@ -64,23 +68,6 @@ namespace BugfixesAndQoL
             if (replaced != expected)
                 throw new InvalidOperationException("Vanilla ally view reads changed in " + original.Name +
                     "; expected " + expected + ", found " + replaced + ".");
-        }
-
-        private static bool AllowAllyAction(Enums.GameActionCommand command, int structureID, int state, int value2,
-            ref int __result)
-        {
-            if (command < Enums.GameActionCommand.Ally_Orders || command > Enums.GameActionCommand.Ally_CancelOrders)
-                return true;
-            if (SpectatorPerspectiveRuntime.IsNetworkSpectator())
-            {
-                __result = 0;
-                return false;
-            }
-            if (!SpectatorPerspectiveRuntime.IsSpectatorActionRestricted()) return true;
-            bool allowed = SpectatorPerspectiveRuntime.CanIssueAllyAction(command, structureID, state, value2);
-            if (allowed) return true;
-            __result = 0;
-            return false;
         }
 
         private static void AfterOpen(bool state)

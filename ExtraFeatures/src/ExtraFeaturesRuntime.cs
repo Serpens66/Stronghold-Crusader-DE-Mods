@@ -219,15 +219,8 @@ namespace ExtraFeatures
             try
             {
                 aiMarketVanillaPriceHook = new AIMarketVanillaPriceHook(
-                    log, libraryHandle, nativeRegion, GetNativeLibraryMemory(), fixedLayoutHashValidated);
+                    log);
                 CaptureAIMarketSessionSettings();
-                if (!fixedLayoutHashValidated)
-                {
-                    Shared.DebugLogHelper.LogWarning(
-                        log,
-                        "Extra Features AI Vanilla market prices are running on an unknown " +
-                        "CrusaderDE.dll because both native helper signatures and hook spans were validated.");
-                }
             }
             catch (Exception ex)
             {

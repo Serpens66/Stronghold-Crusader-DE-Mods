@@ -172,7 +172,7 @@ namespace APISharedTests
                     unitHud.IndexOf("updateSpritesHook.Apply();", StringComparison.Ordinal),
                 "HUD hooks must not become callable before their trampolines are published");
             Assert(unitHud.Contains("ButtonCreateTroop") && unitHud.Contains("Enums.GameActionCommand.MakeTroop") &&
-                unitHud.Contains("recruitmentGameActionOriginal(command, structureId, state, value2)"),
+                unitHud.Contains("GameActionEvents.TryRegister(") && unitHud.Contains("accepted: BeforeRecruitmentOriginal") && !unitHud.Contains("recruitmentGameActionOriginal"),
                 "recruitment variants must observe Vanilla's MakeTroop action");
             Assert(unitHud.Contains("APIShared.Internal.MissionEvents.Ended") && unitHud.Contains("activeRecruitment.Clear()") &&
                 unitHud.Contains("APISharedUnitDetailHost"),

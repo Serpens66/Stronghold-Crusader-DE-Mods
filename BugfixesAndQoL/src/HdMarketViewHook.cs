@@ -1,3 +1,4 @@
+using APIShared.Presentation;
 using APIShared.GameModes;
 // Feature: Restore Stronghold Crusader HD's product cycle in the detailed market view.
 using BepInEx.Logging;
@@ -14,20 +15,17 @@ namespace BugfixesAndQoL
         private const int TradepostTradePanel = 57;
 
         private delegate void CycleTradeGoodsDelegate(MainViewModel self, object parameter);
-        private delegate void NoesisGuiUpdateDelegate(FatControler self);
         private delegate void ImageSetterDelegate(MainViewModel self, ImageSource image);
         private delegate void SpriteWidthDelegate(MainViewModel self, int sprite, int scale);
 
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
         private Hook cycleTradeGoodsHook;
-        private Hook noesisGuiUpdateHook;
         private Hook previousImageHook;
         private Hook nextImageHook;
         private Hook previousWidthHook;
         private Hook nextWidthHook;
         private CycleTradeGoodsDelegate cycleTradeGoodsTrampoline;
-        private NoesisGuiUpdateDelegate noesisGuiUpdateTrampoline;
         private ImageSetterDelegate previousImageTrampoline;
         private ImageSetterDelegate nextImageTrampoline;
         private SpriteWidthDelegate previousWidthTrampoline;
@@ -70,10 +68,8 @@ namespace BugfixesAndQoL
                     (CycleTradeGoodsDelegate)CycleTradeGoodsHook);
                 cycleTradeGoodsTrampoline = cycleTradeGoodsHook.GenerateTrampoline<CycleTradeGoodsDelegate>();
 
-                noesisGuiUpdateHook = new Hook(
-                    FindMethod(typeof(FatControler), nameof(FatControler.NoesisGUIUpdateChecksInGame)),
-                    (NoesisGuiUpdateDelegate)NoesisGuiUpdateHook);
-                noesisGuiUpdateTrampoline = noesisGuiUpdateHook.GenerateTrampoline<NoesisGuiUpdateDelegate>();
+                if (!PresentationEvents.TryRegister(PresentationOperation.GuiChecks, BugfixesAndQoLPlugin.PluginGuid,
+                    "HdMarketIcons", BeforeGuiUpdate, AfterGuiUpdate, out string reason)) throw new InvalidOperationException(reason);
             }
             catch
             {
@@ -97,9 +93,6 @@ namespace BugfixesAndQoL
                 return;
 
             disposed = true;
-            noesisGuiUpdateHook?.Undo();
-            noesisGuiUpdateHook?.Dispose();
-            noesisGuiUpdateHook = null;
             cycleTradeGoodsHook?.Undo();
             cycleTradeGoodsHook?.Dispose();
             cycleTradeGoodsHook = null;
@@ -178,8 +171,9 @@ namespace BugfixesAndQoL
             }
         }
 
-        private void NoesisGuiUpdateHook(FatControler self)
+        private void BeforeGuiUpdate(PresentationPreEventArgs args)
         {
+            if (!published || args.SkipOriginalFunction) return;
             MainViewModel viewModel = null;
             int previousSpriteId = -1;
             int nextSpriteId = -1;
@@ -215,26 +209,26 @@ namespace BugfixesAndQoL
                 Shared.DebugLogHelper.LogError(log, $"Bugfixes and QoL HD market icon preparation failed: {ex}");
             }
 
-            if (!ready)
-            {
-                noesisGuiUpdateTrampoline(self);
-                return;
-            }
-
-            // Vanilla writes its DE neighbors on every GUI check. Keep its other work,
-            // but prevent these four writes from invalidating the HD bindings each time.
-            MainViewModel previousSuppressedViewModel = suppressedViewModel;
+            if (!ready) return;
+            var scope = new MarketIconScope { PreviousSuppressed = suppressedViewModel, View = viewModel,
+                PreviousSpriteId = previousSpriteId, NextSpriteId = nextSpriteId, PreviousIcon = previousIcon, NextIcon = nextIcon };
+            args.State = scope;
             suppressedWriteCount = 0;
             suppressedViewModel = viewModel;
-            try
-            {
-                noesisGuiUpdateTrampoline(self);
-            }
-            finally
-            {
-                suppressedViewModel = previousSuppressedViewModel;
-            }
+        }
 
+        private sealed class MarketIconScope
+        {
+            internal MainViewModel PreviousSuppressed, View;
+            internal int PreviousSpriteId, NextSpriteId;
+            internal ImageSource PreviousIcon, NextIcon;
+        }
+
+        private void AfterGuiUpdate(PresentationPostEventArgs args)
+        {
+            if (!(args.State is MarketIconScope scope)) return;
+            suppressedViewModel = scope.PreviousSuppressed;
+            if (!args.OriginalCompleted) return;
             if (!suppressionObserved)
             {
                 suppressionObserved = true;
@@ -248,8 +242,8 @@ namespace BugfixesAndQoL
 
             try
             {
-                SetNeighborIcon(viewModel, previousSpriteId, previousIcon, isPrevious: true);
-                SetNeighborIcon(viewModel, nextSpriteId, nextIcon, isPrevious: false);
+                SetNeighborIcon(scope.View, scope.PreviousSpriteId, scope.PreviousIcon, isPrevious: true);
+                SetNeighborIcon(scope.View, scope.NextSpriteId, scope.NextIcon, isPrevious: false);
             }
             catch (Exception ex)
             {

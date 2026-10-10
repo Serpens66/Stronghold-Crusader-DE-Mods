@@ -1,8 +1,8 @@
+using APIShared.Presentation;
 using APIShared.GameModes;
 // Feature: Fair single- and multi-selection catapult/trebuchet ammunition restocking.
 using BepInEx.Logging;
 using CrusaderDE;
-using MonoMod.RuntimeDetour;
 using R3;
 using SHCDESE.API;
 using SHCDESE.API.Components.Network;
@@ -14,16 +14,12 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
-using System.Reflection;
 using UnityEngine;
 
 namespace BugfixesAndQoL
 {
     internal sealed unsafe class SiegeAmmoRestockFeature : IDisposable
     {
-        private delegate void RechargeRockDelegate(MainViewModel self, object parameter);
-        private delegate void TroopPanelMouseDelegate(MainViewModel self, object parameter);
-
         private const int ProtocolVersion = 1;
         private const int MaximumRememberedOperations = 2048;
         private readonly ManualLogSource log;
@@ -31,12 +27,7 @@ namespace BugfixesAndQoL
         private readonly MultiplayerFeatureGate multiplayerFeatureGate;
         private readonly HashSet<long> processedOperations = new HashSet<long>();
         private readonly Queue<long> processedOperationOrder = new Queue<long>();
-        private Hook buttonHook;
-        private RechargeRockDelegate buttonTrampoline;
-        private Hook mouseEnterHook;
-        private Hook mouseLeaveHook;
-        private TroopPanelMouseDelegate mouseEnterTrampoline;
-        private TroopPanelMouseDelegate mouseLeaveTrampoline;
+        private bool eventsRegistered;
         private R3PacketEventHook<SiegeAmmoRestockPacket> packetHook;
         private IDisposable packetSubscription;
         private IDisposable keyDownSubscription;
@@ -59,101 +50,38 @@ namespace BugfixesAndQoL
 
         internal void Initialize()
         {
-            if (packetHook == null)
+            if (eventsRegistered) return;
+            try
             {
                 packetHook = GameNetworkAPI.Instance.GetPacketEventFor<SiegeAmmoRestockPacket>();
                 packetSubscription = packetHook.GetBaseHook().Observable.Subscribe(OnPacketReceived);
-            }
-
-            if (buttonHook != null)
-                return;
-
-            MethodInfo method = FindMainViewModelMethod(
-                "ButtonUnitRechargeRock",
-                typeof(object));
-            MethodInfo enterMethod = FindMainViewModelMethod("ButtonTroopPanelMouseEnter", typeof(object));
-            MethodInfo leaveMethod = FindMainViewModelMethod("ButtonTroopPanelMouseLeave", typeof(object));
-
-            Hook installed = null;
-            Hook installedEnter = null;
-            Hook installedLeave = null;
-            try
-            {
-                installed = new Hook(method, (RechargeRockDelegate)OnRechargeRock);
-                RechargeRockDelegate trampoline = installed.GenerateTrampoline<RechargeRockDelegate>();
-                installedEnter = new Hook(enterMethod, (TroopPanelMouseDelegate)OnTroopPanelMouseEnter);
-                TroopPanelMouseDelegate enterTrampoline = installedEnter.GenerateTrampoline<TroopPanelMouseDelegate>();
-                installedLeave = new Hook(leaveMethod, (TroopPanelMouseDelegate)OnTroopPanelMouseLeave);
-                TroopPanelMouseDelegate leaveTrampoline = installedLeave.GenerateTrampoline<TroopPanelMouseDelegate>();
-                buttonHook = installed;
-                buttonTrampoline = trampoline;
-                mouseEnterHook = installedEnter;
-                mouseEnterTrampoline = enterTrampoline;
-                mouseLeaveHook = installedLeave;
-                mouseLeaveTrampoline = leaveTrampoline;
-                // Key transitions are event-driven; no per-frame callback remains active in the neutral state.
+                if (!PresentationEvents.TryRegister(PresentationOperation.RechargeSiegeAmmo, BugfixesAndQoLPlugin.PluginGuid,
+                    "FairSiegeAmmo", args => {
+                        if (!eventsRegistered || args.SkipOriginalFunction || !settings.EnableMod || !settings.EnableFairSiegeAmmoRestock) return;
+                        args.Replacement = parameter => OnRechargeRock(args.ViewModel, parameter);
+                    }, null, out string reason)) throw new InvalidOperationException(reason);
+                if (!PresentationEvents.TryRegister(PresentationOperation.TroopPanelEnter, BugfixesAndQoLPlugin.PluginGuid,
+                    "FairSiegeAmmo", null, args => { if (eventsRegistered && args.OriginalCompleted) OnTroopPanelMouseEnter(args.ViewModel, args.Parameter); }, out reason)) throw new InvalidOperationException(reason);
+                if (!PresentationEvents.TryRegister(PresentationOperation.TroopPanelLeave, BugfixesAndQoLPlugin.PluginGuid,
+                    "FairSiegeAmmo", null, args => { if (eventsRegistered && args.OriginalCompleted) OnTroopPanelMouseLeave(args.ViewModel, args.Parameter); }, out reason)) throw new InvalidOperationException(reason);
                 keyDownSubscription = InputR3EventHooks.OnKeyDown.Observable.Subscribe(OnModifierKeyChanged);
                 keyUpSubscription = InputR3EventHooks.OnKeyUp.Observable.Subscribe(OnModifierKeyChanged);
-                LogInfo($"fair siege-ammunition hook initialized: packetId={packetHook.GetPacketId()}, protocol={ProtocolVersion}.");
+                eventsRegistered = true;
+                LogInfo($"fair siege-ammunition shared events initialized: packetId={packetHook.GetPacketId()}, protocol={ProtocolVersion}.");
             }
-            catch
-            {
-                keyUpSubscription?.Dispose();
-                keyUpSubscription = null;
-                keyDownSubscription?.Dispose();
-                keyDownSubscription = null;
-                mouseLeaveHook = null;
-                mouseLeaveTrampoline = null;
-                mouseEnterHook = null;
-                mouseEnterTrampoline = null;
-                buttonHook = null;
-                buttonTrampoline = null;
-                installedLeave?.Dispose();
-                installedEnter?.Dispose();
-                installed?.Dispose();
-                throw;
-            }
+            catch { Dispose(); throw; }
         }
 
         public void Dispose()
         {
-            // The runtime is process-lived, but keep conventional cleanup safe for test hosts.
-            keyUpSubscription?.Dispose();
-            keyUpSubscription = null;
-            keyDownSubscription?.Dispose();
-            keyDownSubscription = null;
-            mouseLeaveHook?.Undo();
-            mouseLeaveHook?.Dispose();
-            mouseLeaveHook = null;
-            mouseLeaveTrampoline = null;
-            mouseEnterHook?.Undo();
-            mouseEnterHook?.Dispose();
-            mouseEnterHook = null;
-            mouseEnterTrampoline = null;
-            buttonHook?.Undo();
-            buttonHook?.Dispose();
-            buttonHook = null;
-            buttonTrampoline = null;
-            packetSubscription?.Dispose();
-            packetSubscription = null;
+            // Only an unpublished failed initialization may release its subscriptions.
+            if (eventsRegistered) return;
+            keyUpSubscription?.Dispose(); keyUpSubscription = null;
+            keyDownSubscription?.Dispose(); keyDownSubscription = null;
+            packetSubscription?.Dispose(); packetSubscription = null;
         }
-
-        private static MethodInfo FindMainViewModelMethod(string name, params Type[] parameterTypes)
-        {
-            MethodInfo method = typeof(MainViewModel).GetMethod(
-                name,
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
-                null,
-                parameterTypes,
-                null);
-            if (method == null)
-                throw new MissingMethodException(typeof(MainViewModel).FullName, name);
-            return method;
-        }
-
         private void OnTroopPanelMouseEnter(MainViewModel self, object parameter)
         {
-            mouseEnterTrampoline(self, parameter);
             if (!string.Equals(parameter as string, "UnitReload", StringComparison.Ordinal))
             {
                 ClearReloadTooltipState();
@@ -169,7 +97,6 @@ namespace BugfixesAndQoL
 
         private void OnTroopPanelMouseLeave(MainViewModel self, object parameter)
         {
-            mouseLeaveTrampoline(self, parameter);
             ClearReloadTooltipState();
         }
 
@@ -228,12 +155,6 @@ namespace BugfixesAndQoL
 
         private void OnRechargeRock(MainViewModel self, object parameter)
         {
-            if (!settings.EnableMod || !settings.EnableFairSiegeAmmoRestock)
-            {
-                buttonTrampoline(self, parameter);
-                return;
-            }
-
             try
             {
                 int playerId = GetControlledPlayerId();

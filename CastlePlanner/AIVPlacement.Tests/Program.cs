@@ -1220,7 +1220,7 @@ internal static class Program
             continueMethod,
             StringComparison.Ordinal);
         int unpause = source.IndexOf(
-            "gameActionTrampoline(Enums.GameActionCommand.Game_Paused, 0, 0, 0);",
+            "EngineInterface.GameAction(Enums.GameActionCommand.Game_Paused, 0, 0, 0);",
             continueMethod,
             StringComparison.Ordinal);
         Assert(continueMethod >= 0 && release > continueMethod && unpause > release,

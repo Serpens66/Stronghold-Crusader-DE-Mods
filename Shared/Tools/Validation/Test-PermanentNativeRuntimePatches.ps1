@@ -21,6 +21,13 @@ $files = foreach ($relativeRoot in $roots) {
 
 $errors = [System.Collections.Generic.List[string]]::new()
 foreach ($file in $files) {
+    if (-not $file.FullName.Contains('\APIShared\')) {
+        $source = [IO.File]::ReadAllText($file.FullName)
+        $retiredTarget = '"(?:NoesisGUIUpdateChecksInGame|ButtonEnterCreateTroop|ButtonLeaveCreateTroop|ButtonTroopPanelMouseEnter|ButtonTroopPanelMouseLeave|ButtonUnitRechargeRock)"|nameof\(FatControler\.NoesisGUIUpdateChecksInGame\)|nameof\(HUD_Main\.UpdateRollover\)|nameof\(EngineInterface\.GameAction\)'
+        if ($source -match $retiredTarget) {
+            $errors.Add("$($file.FullName): shared managed interception target must use APIShared's publisher")
+        }
+    }
     $lines = [System.IO.File]::ReadAllLines($file.FullName)
     for ($index = 0; $index -lt $lines.Length; $index++) {
         $line = $lines[$index]
@@ -50,20 +57,42 @@ foreach ($file in $files) {
 
 $permanentManagedContracts = @(
     @{
+        Path = 'APIShared\src\Economy\MarketPriceNativeRuntime.cs'
+        Required = @('AllowedSchemes = DetourScheme.Indirect', 'FollowJumps = false', 'Validate(buy.Hook', 'Validate(sell.Hook', 'published = true', 'if (!published)', 'native.TrampolineAddress', 'jump.NearBranchTarget')
+        Forbidden = @('transaction.Dispose(', 'transaction?.Dispose(', 'buy.Hook.Disable(', 'sell.Hook.Disable(')
+    },
+    @{
+        Path = 'ExtraFeatures\src\AIMarketVanillaPriceHook.cs'
+        Required = @('MarketPriceEvents.TryRegister(', 'MarketPriceEvents.CalculateTradeTotal(')
+        Forbidden = @('AddDetour(', 'HookTransaction', 'NativeDetour', 'CalculateTradeTotal(price.BuyPrice')
+    },
+    @{
+        Path = 'APIShared\src\Core\Events\ManagedInterceptionHook.cs'
+        Required = @('ManualApply = true', 'GenerateTrampoline<T>()', 'candidate.Apply();', 'hook = candidate;', 'candidate?.Dispose();')
+        Forbidden = @('public void Dispose()', 'hook.Dispose(', 'hook?.Dispose(', 'hook.Undo(', 'hook?.Undo(')
+    },
+    @{
+        Path = 'APIShared\src\Units\Recruitment\RecruitmentMaterialUi.cs'
+        Required = @('ManualApply = true', 'RecruitmentMaterialUiIlContract.Validate(method)', 'candidate.Apply();', 'hook = candidate;')
+        Forbidden = @('public void Dispose()', 'hook.Dispose(', 'hook?.Dispose(', 'hook.Undo(', 'hook?.Undo(')
+    },
+    @{
+        Path = 'BugfixesAndQoL\src\SiegeAmmoRestockFeature.cs'
+        Required = @('if (eventsRegistered) return;', 'PresentationEvents.TryRegister(', 'args.Replacement = parameter')
+        Forbidden = @('new Hook(', 'buttonHook', 'mouseEnterHook', 'mouseLeaveHook')
+    },
+    @{
         Path = 'UnitCosts\src\RecruitmentAvailabilityUiHook.cs'
         Required = @(
-            'new ILHook(updateMethod,',
-            'ManualApply = true',
-            'pendingMaterialHook.Apply();',
-            'materialUiHook = pendingMaterialHook;',
-            'pendingMaterialHook?.Dispose();'
+            'RecruitmentMaterialUi.TryRegister(',
+            'PresentationEvents.TryRegister('
         )
         Forbidden = @(
             'materialUiHook?.Undo()',
             'materialUiHook?.Dispose()',
             'materialUiHook.Undo()',
             'materialUiHook.Dispose()',
-            'public void Dispose()'
+            'public void Dispose()', 'new Hook(', 'new ILHook('
         )
     },
     @{
@@ -94,7 +123,7 @@ $permanentManagedContracts = @(
             'createTroopHoverHook = null',
             'siegeBuildHoverHook = null',
             'recruitmentAvailabilityUiHook = null',
-            'public void Dispose()'
+            'public void Dispose()', 'new Hook(', 'new ILHook('
         )
     },
     @{
@@ -104,23 +133,23 @@ $permanentManagedContracts = @(
     },
     @{
         Path = 'UnitLimit\src\MakeTroopGameActionHook.cs'
-        Required = @('!isActive()', 'candidate?.Dispose();')
-        Forbidden = @('public void Dispose()', 'hook?.Undo()', 'hook?.Dispose()')
+        Required = @('!isActive()', 'GameActionEvents.TryRegister(')
+        Forbidden = @('public void Dispose()', 'new Hook(', 'new ILHook(', 'hook?.Undo()', 'hook?.Dispose()')
     },
     @{
         Path = 'UnitLimit\src\CreateTroopHoverHook.cs'
-        Required = @('installedLeaveHook?.Dispose();', 'installedEnterHook?.Dispose();')
-        Forbidden = @('public void Dispose()', 'enterHook?.Undo()', 'leaveHook?.Undo()')
+        Required = @('PresentationEvents.TryRegister(', 'args.OriginalCompleted')
+        Forbidden = @('public void Dispose()', 'new Hook(', 'new ILHook(', 'enterHook?.Undo()', 'leaveHook?.Undo()')
     },
     @{
         Path = 'UnitLimit\src\SiegeBuildHoverHook.cs'
-        Required = @('installedLeaveHook?.Dispose();', 'installedEnterHook?.Dispose();')
-        Forbidden = @('public void Dispose()', 'enterHook?.Undo()', 'leaveHook?.Undo()')
+        Required = @('PresentationEvents.TryRegister(', 'args.OriginalCompleted')
+        Forbidden = @('public void Dispose()', 'new Hook(', 'new ILHook(', 'enterHook?.Undo()', 'leaveHook?.Undo()')
     },
     @{
         Path = 'UnitLimit\src\RecruitmentAvailabilityUiHook.cs'
-        Required = @('candidate?.Dispose();')
-        Forbidden = @('public void Dispose()', 'hook?.Undo()', 'hook?.Dispose()')
+        Required = @('PresentationEvents.TryRegister(', 'args.OriginalCompleted')
+        Forbidden = @('public void Dispose()', 'new Hook(', 'new ILHook(', 'hook?.Undo()', 'hook?.Dispose()')
     },
     @{
         Path = 'UnitLimit\src\UnitLimitIntegration.cs'

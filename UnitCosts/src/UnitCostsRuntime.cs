@@ -454,8 +454,8 @@ namespace UnitCosts
                 return MakeTroopGameActionDecision.BlockAction();
             }
 
-            Shared.RecruitmentConstraintDecision constraint =
-                Shared.RecruitmentRequestPolicy.ApplyMaximum(
+            APIShared.Recruitment.RecruitmentConstraintDecision constraint =
+                APIShared.Recruitment.RecruitmentRequestPolicy.ApplyMaximum(
                     amount,
                     vanillaRequestedAmount,
                     extraAffordableAmount,
@@ -481,9 +481,9 @@ namespace UnitCosts
 
             switch (constraint.Action)
             {
-                case Shared.RecruitmentConstraintAction.PreserveOriginal:
+                case APIShared.Recruitment.RecruitmentConstraintAction.PreserveOriginal:
                     return MakeTroopGameActionDecision.AllowOriginal();
-                case Shared.RecruitmentConstraintAction.ForwardAmount:
+                case APIShared.Recruitment.RecruitmentConstraintAction.ForwardAmount:
                     return MakeTroopGameActionDecision.ForwardAmount(constraint.AmountToForward);
                 default:
                     ShowMissingResourcesMessage(extraLimitingGood, extraLimitingHorse);

@@ -4,7 +4,7 @@
     <Nullable>disable</Nullable>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="..\..\..\Shared\Runtime\Gameplay\RecruitmentRequestPolicy.cs" Link="RecruitmentRequestPolicy.cs" />
-    <Compile Include="..\..\..\Shared\Runtime\Gameplay\RecruitmentHookContext.cs" Link="RecruitmentHookContext.cs" />
+    <Compile Include="..\Legacy\RecruitmentRequestPolicy.cs" Link="RecruitmentRequestPolicy.cs" />
+    <Compile Include="..\Legacy\RecruitmentHookContext.cs" Link="RecruitmentHookContext.cs" />
   </ItemGroup>
 </Project>

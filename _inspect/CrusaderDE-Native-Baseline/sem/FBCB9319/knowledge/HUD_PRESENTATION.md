@@ -33,3 +33,16 @@ Managed path: `EngineInterface.run` -> `DLL_RunTick` -> `CopyPlayStateStruct` ->
 No complete change event for arbitrary mod-provided category matchers or image/text resolvers was established. Visible active categories must continue to be evaluated at their existing render cadence. Explicit owner/registration activation is a separate managed contract, not inferred from whether a matcher currently returns false. Recruitment ticket expiry is maintenance work and must continue while the panel is hidden or its owner is inactive. Rendering, native IDs, public immutable snapshots and command handling remain independent.
 
 The allocation comparison in `_inspect/Verify-HudResources.ps1` uses the previous/current production tint methods with managed Noesis stand-ins; it does not measure Unity frame time. Actual Noesis presentation across pause, panel recreation and map transitions still requires an in-game verification.
+
+## Shared managed publishers audited 2026-10-10
+
+Real Assembly-CSharp hash BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789:
+APIShared 0.6 owns GUI checks, HUD_Main.UpdateRollover and MainViewModel recruitment/
+troop-panel hover and recharge interception. All eight managed signatures (including
+EngineInterface.GameAction(GameActionCommand,int,int,int)) are checked mechanically
+by APIShared/tools/Validation/Verify-ManagedInterceptionContracts.ps1. Four
+MainViewModel targets are private and used only through validated detour trampolines.
+Shared Post follows the existing original chain; it is a managed observation and
+cannot acknowledge native Chore execution. Startup plugin cleanup does not remove
+these statically rooted hooks. GUI Post includes the extender's original-chain UI
+augmentation. Deferred replacement UI actions execute only after all Pre vetoes.

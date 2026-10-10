@@ -2,7 +2,7 @@ using Shared;
 using CrusaderDE;
 using APIShared;
 using BepInEx.Logging;
-using MonoMod.RuntimeDetour;
+using APIShared.Presentation;
 using Noesis;
 using R3;
 using SHCDESE.API;
@@ -25,8 +25,6 @@ namespace BuildingCosts
         private bool hooksSubscribed;
         private bool libraryInitialized;
         private bool vanillaCostTooltipReadFailureLogged;
-        private Hook updateRolloverHook;
-        private UpdateRolloverDelegate updateRolloverTrampoline;
         private FieldInfo hoverStructField;
         private FieldInfo selectedStructField;
         private int lastTooltipStruct = int.MinValue;
@@ -40,7 +38,6 @@ namespace BuildingCosts
         private IBuildingRepairCapability repairCapability;
 
         private static readonly Dictionary<eMappers, BuildingCostDefinition> BuildingCostDefinitions = CreateBuildingCostDefinitions();
-        private delegate void UpdateRolloverDelegate(HUD_Main self);
 
         [Flags]
         private enum CostMaterialMask
@@ -138,21 +135,15 @@ namespace BuildingCosts
 
         private void InstallUpdateRolloverHook()
         {
-            MethodInfo updateRolloverTarget = typeof(HUD_Main).GetMethod(
-                "UpdateRollover",
-                BindingFlags.Public | BindingFlags.Instance);
-
-            if (updateRolloverTarget == null)
-                throw new MissingMethodException(typeof(HUD_Main).FullName, "UpdateRollover");
-
             hoverStructField = typeof(HUD_Main).GetField("HoverStruct", BindingFlags.NonPublic | BindingFlags.Instance);
             selectedStructField = typeof(HUD_Main).GetField("SelectedStruct", BindingFlags.NonPublic | BindingFlags.Instance);
             if (hoverStructField == null || selectedStructField == null)
                 throw new MissingFieldException(typeof(HUD_Main).FullName, "HoverStruct/SelectedStruct");
 
-            updateRolloverHook = new Hook(updateRolloverTarget, new UpdateRolloverDelegate(UpdateRolloverHookImpl));
-            updateRolloverTrampoline = updateRolloverHook.GenerateTrampoline<UpdateRolloverDelegate>();
-            LogDebug("HUD_Main.UpdateRollover hook installed");
+            if (!PresentationEvents.TryRegister(PresentationOperation.BuildingRollover, BuildingCostsPlugin.PluginGuid,
+                "BuildingTooltip", null, args => {
+                    if (args.OriginalCompleted) UpdateRolloverHookImpl(args.BuildingHud);
+                }, out string reason)) throw new InvalidOperationException(reason);
         }
 
         private void SubscribeSettingsChanges()
@@ -468,7 +459,7 @@ namespace BuildingCosts
 
         private void UpdateRolloverHookImpl(HUD_Main self)
         {
-            updateRolloverTrampoline(self);
+
             if (!EffectsEnabled)
             {
                 ClearBuildingCostTooltip();

@@ -1,5 +1,6 @@
 using BepInEx.Logging;
 using CrusaderDE;
+using APIShared.Presentation;
 using MonoMod.RuntimeDetour;
 using R3;
 using SHCDESE.API;
@@ -30,9 +31,7 @@ namespace BuildingLimit
         private const int BuildingLimitMessageDurationMilliseconds = 3000;
         private static readonly Dictionary<eMappers, BuildingLimitDefinition> BuildingLimitDefinitions = CreateBuildingLimitDefinitions();
         private string buildingLimitMessageTimerHandle;
-        private Hook updateRolloverHook;
         private Hook placeMapperItemHook;
-        private UpdateRolloverDelegate updateRolloverTrampoline;
         private PlaceMapperItemDelegate placeMapperItemTrampoline;
         private FieldInfo hoverStructField;
         private FieldInfo selectedStructField;
@@ -42,7 +41,6 @@ namespace BuildingLimit
         private int lastTooltipLimit = int.MinValue;
         private bool buildingLimitTooltipIsClear = true;
 
-        private delegate void UpdateRolloverDelegate(HUD_Main self);
 
         public BuildingLimitNotificationViewModel BuildingLimitNotification { get; } = new BuildingLimitNotificationViewModel();
         public BuildingLimitTooltipViewModel BuildingLimitTooltip { get; } = new BuildingLimitTooltipViewModel();
@@ -164,36 +162,20 @@ namespace BuildingLimit
 
         private void InstallUpdateRolloverHook()
         {
-            MethodInfo updateRolloverTarget = typeof(HUD_Main).GetMethod(
-                "UpdateRollover",
-                BindingFlags.Public | BindingFlags.Instance);
-
-            if (updateRolloverTarget == null)
-                throw new MissingMethodException(typeof(HUD_Main).FullName, "UpdateRollover");
-
             hoverStructField = typeof(HUD_Main).GetField("HoverStruct", BindingFlags.NonPublic | BindingFlags.Instance);
             selectedStructField = typeof(HUD_Main).GetField("SelectedStruct", BindingFlags.NonPublic | BindingFlags.Instance);
             if (hoverStructField == null || selectedStructField == null)
                 throw new MissingFieldException(typeof(HUD_Main).FullName, "HoverStruct/SelectedStruct");
 
-            Hook candidate = new Hook(updateRolloverTarget, new UpdateRolloverDelegate(UpdateRolloverHookImpl));
-            try
-            {
-                UpdateRolloverDelegate trampoline = candidate.GenerateTrampoline<UpdateRolloverDelegate>();
-                updateRolloverTrampoline = trampoline;
-                updateRolloverHook = candidate;
-            }
-            catch
-            {
-                candidate.Dispose(); // The hook was never published to the runtime.
-                throw;
-            }
-            LogDebug("HUD_Main.UpdateRollover building limit hook installed");
+            if (!PresentationEvents.TryRegister(PresentationOperation.BuildingRollover, BuildingLimitPlugin.PluginGuid,
+                "BuildingTooltip", null, args => {
+                    if (args.OriginalCompleted) UpdateRolloverHookImpl(args.BuildingHud);
+                }, out string reason)) throw new InvalidOperationException(reason);
         }
 
         private void UpdateRolloverHookImpl(HUD_Main self)
         {
-            updateRolloverTrampoline(self);
+
             UpdateBuildingLimitTooltip(self);
         }
 

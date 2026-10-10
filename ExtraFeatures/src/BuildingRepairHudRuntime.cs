@@ -17,14 +17,14 @@ namespace ExtraFeatures
         private const string HoverHostName = "ExtraFeaturesBuildingRepairHoverHost";
         private const string HoverId = "ExtraFeatures.BuildingRepair.SmallButton";
         private delegate bool ShowRepairDelegate(HUD_Buildings self, int type, int panel);
-        private delegate void HudUpdateDelegate(FatControler self);
+
 
         private readonly ManualLogSource log;
         private readonly IBuildingRepairCapability repair;
         private readonly Hook classifierHook;
-        private readonly Hook hudHook;
+
         private readonly ShowRepairDelegate originalShowRepair;
-        private readonly HudUpdateDelegate originalHudUpdate;
+
         private Grid lastHoverHost;
         private HUD_Buildings lastHudPanel;
         private Button lastRepairButton;
@@ -38,33 +38,51 @@ namespace ExtraFeatures
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.repair = repair ?? throw new ArgumentNullException(nameof(repair));
             Hook candidateClassifier = null;
-            Hook candidateHud = null;
+
             try
             {
                 candidateClassifier = new Hook(FindMethod(typeof(HUD_Buildings), "GetBuildingShowRepair",
                     BindingFlags.Public | BindingFlags.Instance, typeof(int), typeof(int)),
                     (ShowRepairDelegate)ShowRepairHook);
                 originalShowRepair = candidateClassifier.GenerateTrampoline<ShowRepairDelegate>();
-                candidateHud = new Hook(FindMethod(typeof(FatControler), "NoesisGUIUpdateChecksInGame",
-                    BindingFlags.Public | BindingFlags.Instance),
-                    (HudUpdateDelegate)HudUpdateHook);
-                originalHudUpdate = candidateHud.GenerateTrampoline<HudUpdateDelegate>();
                 classifierHook = candidateClassifier;
-                hudHook = candidateHud;
+
             }
             catch
             {
                 // Only an unpublished initialization candidate can be rolled back.
-                try { candidateHud?.Undo(); } catch { }
-                try { candidateHud?.Dispose(); } catch { }
+
+
                 try { candidateClassifier?.Undo(); } catch { }
                 try { candidateClassifier?.Dispose(); } catch { }
                 throw;
             }
         }
 
+        private void RegisterHudEvents()
+        {
+            if (!APIShared.Presentation.PresentationEvents.TryRegister(
+                APIShared.Presentation.PresentationOperation.GuiChecks, ExtraFeaturesPlugin.PluginGuid,
+                "BuildingRepairHud", null, args => {
+                    if (args.OriginalCompleted) HudUpdateHook(args.Controller);
+                }, out string reason)) throw new InvalidOperationException(reason);
+        }
         internal static BuildingRepairHudRuntime Install(ManualLogSource log, IBuildingRepairCapability repair) =>
-            new BuildingRepairHudRuntime(log, repair);
+            Create(log, repair);
+
+        private static BuildingRepairHudRuntime Create(ManualLogSource log, IBuildingRepairCapability repair)
+        {
+            var runtime = new BuildingRepairHudRuntime(log, repair);
+            try { runtime.RegisterHudEvents(); }
+            catch
+            {
+                // The classifier belongs to this failed, unpublished candidate.
+                try { runtime.classifierHook.Undo(); } catch { }
+                try { runtime.classifierHook.Dispose(); } catch { }
+                throw;
+            }
+            return runtime;
+        }
 
         internal void SetActive(bool enabled)
         {
@@ -95,7 +113,7 @@ namespace ExtraFeatures
 
         private void HudUpdateHook(FatControler self)
         {
-            originalHudUpdate(self);
+
             try { UpdateButton(); }
             catch (Exception ex)
             {

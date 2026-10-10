@@ -1,9 +1,9 @@
 using BepInEx.Logging;
 using CrusaderDE;
-using MonoMod.RuntimeDetour;
+using APIShared.Commands;
 using SHCDESE.Interop;
 using System;
-using System.Reflection;
+
 
 namespace UnitLimit
 {
@@ -60,158 +60,25 @@ namespace UnitLimit
         }
     }
 
+    // Pending reservations belong to this policy, while APIShared supplies final accepted inputs.
     internal sealed class MakeTroopGameActionHook
     {
-        private readonly ManualLogSource log;
-        private readonly Func<int, eChimps, int, bool, MakeTroopGameActionDecision> decideMakeTroop;
-        private readonly Action<MakeTroopGameActionDecision, int, bool> completeMakeTroop;
-        private readonly Func<bool> isActive;
-        private readonly Hook hook;
-        private readonly EngineInterfaceGameActionDelegate trampoline;
-
-        private delegate int EngineInterfaceGameActionDelegate(Enums.GameActionCommand command, int structureID, int state, int value2);
-
-        public MakeTroopGameActionHook(
-            ManualLogSource log,
+        public MakeTroopGameActionHook(ManualLogSource log,
             Func<int, eChimps, int, bool, MakeTroopGameActionDecision> decideMakeTroop,
-            Action<MakeTroopGameActionDecision, int, bool> completeMakeTroop,
-            Func<bool> isActive)
+            Action<MakeTroopGameActionDecision, int, bool> completeMakeTroop, Func<bool> isActive)
         {
-            this.log = log;
-            this.decideMakeTroop = decideMakeTroop;
-            this.completeMakeTroop = completeMakeTroop;
-            this.isActive = isActive;
-
-            MethodInfo gameActionMethod = typeof(EngineInterface).GetMethod(
-                nameof(EngineInterface.GameAction),
-                BindingFlags.Public | BindingFlags.Static,
-                null,
-                new[] { typeof(Enums.GameActionCommand), typeof(int), typeof(int), typeof(int) },
-                null);
-
-            if (gameActionMethod == null)
-                throw new MissingMethodException(typeof(EngineInterface).FullName, nameof(EngineInterface.GameAction));
-
-            Hook candidate = null;
-            try
-            {
-                candidate = new Hook(gameActionMethod, (EngineInterfaceGameActionDelegate)EngineInterfaceGameActionHook);
-                trampoline = candidate.GenerateTrampoline<EngineInterfaceGameActionDelegate>();
-                hook = candidate;
-            }
-            catch
-            {
-                // Only a hook that failed before publication may be rolled back.
-                candidate?.Dispose();
-                throw;
-            }
-            Shared.DebugLogHelper.LogDebug(log, "UnitLimit MakeTroop GameAction hook installed.");
-        }
-
-        private int EngineInterfaceGameActionHook(Enums.GameActionCommand command, int structureID, int state, int value2)
-        {
-            if (command != Enums.GameActionCommand.MakeTroop || !isActive())
-                return trampoline(command, structureID, state, value2);
-
-            int amount = NormalizeMakeTroopAmount(structureID, state, value2);
-            using (Shared.CrashBreadcrumbScope diagnostic =
-                Shared.CrashBreadcrumbDiagnostics.Enter(
-                    "MakeTroopGameAction",
-                    amount,
-                    state,
-                    value2))
-            using (Shared.RecruitmentHookContext.Scope scope = Shared.RecruitmentHookContext.Enter(amount))
-            {
-                bool interpretCtrlSentinel = Shared.RecruitmentHookContext.ShouldInterpretCtrlSentinel(amount);
-                MakeTroopGameActionDecision decision = MakeTroopGameActionDecision.AllowOriginal();
-                try
-                {
-                    decision = decideMakeTroop(amount, (eChimps)state, state, interpretCtrlSentinel);
-                }
-                catch (Exception)
-                {
-                    Shared.CrashBreadcrumbDiagnostics.Record(
-                        "MakeTroopDecisionFailure",
-                        amount,
-                        state,
-                        value2,
-                        outcome: -1);
-                    decision = MakeTroopGameActionDecision.AllowOriginal();
-                }
-
-                int forwardedAmount = decision.ReplaceAmount ? decision.AmountToForward : structureID;
-                if (decision.Block)
-                {
-                    Shared.RecruitmentHookContext.RecordBlocked();
-                    diagnostic.Complete(1);
-                    return 0;
-                }
-
-                if (decision.ReplaceAmount)
-                {
-                    Shared.RecruitmentHookContext.RecordForwardedAmount(decision.AmountToForward);
-                }
-
-                int result = CallTrampoline(command, forwardedAmount, state, value2);
-                CompleteDecision(decision);
-                diagnostic.Complete(decision.ReplaceAmount ? 2 : 0);
-                return result;
-            }
-        }
-
-        private int CallTrampoline(
-            Enums.GameActionCommand command,
-            int forwardedAmount,
-            int state,
-            int value2)
-        {
-            int result = trampoline(command, forwardedAmount, state, value2);
-            return result;
-        }
-
-        private void CompleteDecision(MakeTroopGameActionDecision decision)
-        {
-            if (completeMakeTroop == null || decision.PendingAmount <= 0)
-                return;
-
-            try
-            {
-                Shared.RecruitmentHookContext.Result chainResult = Shared.RecruitmentHookContext.GetResult();
-                completeMakeTroop(decision, chainResult.FinalAmount, chainResult.HasConcreteAmount);
-            }
-            catch (Exception ex)
-            {
-                Shared.CrashBreadcrumbDiagnostics.Record("RecruitmentCompletionFailure", outcome: -1);
-                if (Shared.CrashBreadcrumbDiagnostics.ShouldLogUnexpected(
-                    "RecruitmentCompletion:" + ex.GetType().FullName))
-                {
-                    Shared.DebugLogHelper.LogDebug(log, "UnitLimit recruitment completion failed:", ex.Message);
-                }
-            }
-        }
-
-        private int NormalizeMakeTroopAmount(int structureID, int state, int value2)
-        {
-            // For MakeTroop the generic structureID GameAction parameter is the requested amount.
-            // Vanilla passes 1, 5 with Shift, or 1000 with Ctrl. Other hooks can forward exact amounts.
-            if (structureID > 0)
-                return structureID;
-
-            Shared.CrashBreadcrumbDiagnostics.Record(
-                "UnexpectedRecruitmentAmount",
-                structureID,
-                state,
-                value2,
-                outcome: -1);
-            if (Shared.CrashBreadcrumbDiagnostics.ShouldLogUnexpected("UnexpectedRecruitmentAmount"))
-            {
-                Shared.DebugLogHelper.LogWarning(log, "UnitLimit MakeTroop received unexpected amount parameter: " +
-                    "structureID=" + structureID +
-                    " state=" + state +
-                    " value2=" + value2 +
-                    "; falling back to amount=1. Further occurrences are aggregated by crash diagnostics.");
-            }
-            return 1;
+            if (!GameActionEvents.TryRegister(UnitLimitPlugin.PluginGuid, "RecruitmentLimits", args => {
+                if (args.Command != Enums.GameActionCommand.MakeTroop || args.SkipOriginalFunction || !isActive()) return;
+                var decision = decideMakeTroop(Math.Max(1, args.StructureId), (eChimps)args.ActionState,
+                    args.ActionState, args.InterpretCtrlSentinel);
+                args.State = decision;
+                if (decision.Block) args.SkipOriginalFunction = true;
+                else if (decision.ReplaceAmount) args.StructureId = decision.AmountToForward;
+            }, args => {
+                if (args.WasSkipped || !(args.State is MakeTroopGameActionDecision decision) || decision.PendingAmount <= 0 || args.ActionState != (int)decision.PendingUnitType) return;
+                completeMakeTroop?.Invoke(decision, args.StructureId, args.HasConcreteRecruitmentAmount);
+            }, out string reason)) throw new InvalidOperationException(reason);
+            Shared.DebugLogHelper.LogDebug(log, "Recruitment limit policy registered with APIShared.");
         }
     }
 }

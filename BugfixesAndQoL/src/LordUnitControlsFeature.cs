@@ -1,3 +1,4 @@
+using APIShared.Presentation;
 using APIShared.GameModes;
 // Feature: Lord-specific action handling; shared troop presentation lives in APIShared.
 using BepInEx.Logging;
@@ -15,7 +16,6 @@ namespace BugfixesAndQoL
     internal sealed unsafe class LordUnitControlsFeature
     {
         private delegate void ButtonUnitDisbandDelegate(MainViewModel self, object parameter);
-        private delegate void ButtonTroopPanelMouseEnterDelegate(MainViewModel self, object parameter);
 
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
@@ -23,8 +23,6 @@ namespace BugfixesAndQoL
         private readonly Func<bool> isMixedDisbandContractValidated;
         private Hook disbandHook;
         private ButtonUnitDisbandDelegate disbandOriginal;
-        private Hook tooltipHook;
-        private ButtonTroopPanelMouseEnterDelegate tooltipOriginal;
         private HUD_Troops activePanel;
         private UIElement disbandElement;
         private UIElement attackHereElement;
@@ -39,13 +37,12 @@ namespace BugfixesAndQoL
             this.surrenderFeature = surrenderFeature ?? throw new ArgumentNullException(nameof(surrenderFeature));
             this.isMixedDisbandContractValidated = isMixedDisbandContractValidated ?? throw new ArgumentNullException(nameof(isMixedDisbandContractValidated));
             MethodInfo disband = RequireMethod(typeof(MainViewModel), "ButtonUnitDisband", BindingFlags.Instance | BindingFlags.NonPublic);
-            MethodInfo tooltip = RequireMethod(typeof(MainViewModel), "ButtonTroopPanelMouseEnter", BindingFlags.Instance | BindingFlags.NonPublic);
             try
             {
                 disbandHook = new Hook(disband, (ButtonUnitDisbandDelegate)ButtonUnitDisbandHook);
                 disbandOriginal = disbandHook.GenerateTrampoline<ButtonUnitDisbandDelegate>();
-                tooltipHook = new Hook(tooltip, (ButtonTroopPanelMouseEnterDelegate)ButtonTroopPanelMouseEnterHook);
-                tooltipOriginal = tooltipHook.GenerateTrampoline<ButtonTroopPanelMouseEnterDelegate>();
+                if (!PresentationEvents.TryRegister(PresentationOperation.TroopPanelEnter, BugfixesAndQoLPlugin.PluginGuid,
+                    "LordStanceTooltip", BeforeTooltip, AfterTooltip, out string reason)) throw new InvalidOperationException(reason);
             }
             catch { DisposeHooks(); throw; }
             UnityEngine.Application.onBeforeRender += OnBeforeRender;
@@ -119,19 +116,22 @@ namespace BugfixesAndQoL
                 Shared.DebugLogHelper.LogWarning(log, "Lord surrender request was rejected; Vanilla disband was not called.");
         }
 
-        private void ButtonTroopPanelMouseEnterHook(MainViewModel self, object parameter)
+        private void BeforeTooltip(PresentationPreEventArgs args)
         {
-            string name = parameter as string;
-            LordStanceTooltipAction action = LordUnitControlsPolicy.GetStanceTooltipAction(lordModeActive && TryGetSoleControlledLord(out _), name);
-            if (action == LordStanceTooltipAction.UseVanillaStandGround) { tooltipOriginal(self, "GuardStanceButton"); return; }
-            tooltipOriginal(self, parameter);
-            if (action == LordStanceTooltipAction.ShowVanillaBehavior)
-            {
-                self.TroopsPanelRollover = SerpLocalization.Get("BugfixesAndQoL.LordStanceVanillaBehavior");
-                self.TroopsPanelRollover_AmountGot1 = string.Empty;
-            }
+            if (args.SkipOriginalFunction) return;
+            LordStanceTooltipAction action = LordUnitControlsPolicy.GetStanceTooltipAction(lordModeActive && TryGetSoleControlledLord(out _), args.Parameter as string);
+            args.State = action;
+            if (action == LordStanceTooltipAction.UseVanillaStandGround) args.Parameter = "GuardStanceButton";
         }
 
+        private void AfterTooltip(PresentationPostEventArgs args)
+        {
+            if (args.OriginalCompleted && args.State is LordStanceTooltipAction action && action == LordStanceTooltipAction.ShowVanillaBehavior)
+            {
+                args.ViewModel.TroopsPanelRollover = SerpLocalization.Get("BugfixesAndQoL.LordStanceVanillaBehavior");
+                args.ViewModel.TroopsPanelRollover_AmountGot1 = string.Empty;
+            }
+        }
         private bool TryGetSoleControlledLord(out SurrenderLordSnapshot lord)
         {
             EngineInterface.PlayState state = GameData.Instance?.lastGameState;
@@ -193,7 +193,7 @@ namespace BugfixesAndQoL
         private static int GetControlledPlayerId(bool editor) => editor ? (EditorDirector.instance?.ActivePlayerID ?? -1) : (GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? -1);
         private static MethodInfo RequireMethod(Type type, string name, BindingFlags flags) => type.GetMethod(name, flags, null, new[] { typeof(object) }, null) ?? throw new MissingMethodException(type.FullName, name);
         private static T RequireElement<T>(HUD_Troops panel, string name) where T : class => panel.FindName(name) as T ?? throw new InvalidOperationException($"HUD_Troops element '{name}' was not found.");
-        private void DisposeHooks() { Undo(ref tooltipHook); tooltipOriginal = null; Undo(ref disbandHook); disbandOriginal = null; }
+        private void DisposeHooks() { Undo(ref disbandHook); disbandOriginal = null; }
         private static void Undo(ref Hook hook) { if (hook == null) return; try { hook.Undo(); } finally { hook.Dispose(); hook = null; } }
     }
 }

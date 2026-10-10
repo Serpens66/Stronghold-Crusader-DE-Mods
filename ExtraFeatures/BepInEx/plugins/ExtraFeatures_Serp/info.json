@@ -3,19 +3,25 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.111",
+  "Version": "1.0.112",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.5.0"
+      "MinimumVersion": "0.6.0"
     }
   ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.112",
+      "Changes": [
+        "Use APIShared 0.6.0 coordinated hooks and event contracts to improve compatibility with other mods; preserve existing gameplay behavior."
+      ]
+    },
     {
       "Version": "1.0.111",
       "Changes": [

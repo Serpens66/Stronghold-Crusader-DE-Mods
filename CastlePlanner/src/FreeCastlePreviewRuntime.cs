@@ -1,3 +1,4 @@
+using APIShared.Commands;
 using APIShared.GameModes;
 using Shared;
 using BepInEx.Logging;
@@ -27,11 +28,6 @@ namespace CastlePlanner
 {
     internal sealed class FreeCastlePreviewRuntime : INotifyPropertyChanged
     {
-        private delegate int GameActionDelegate(
-            Enums.GameActionCommand command,
-            int structureId,
-            int state,
-            int value2);
         private delegate void LeaveLobbyDelegate(
             Platform_Multiplayer self,
             bool preserveGameMembers);
@@ -90,12 +86,10 @@ namespace CastlePlanner
         private IDisposable packetSubscription;
         private IDisposable mapStartSubscription;
         private IDisposable mapUnloadSubscription;
-        private Hook gameActionHook;
         private Hook leaveLobbyHook;
         private Hook startGameHook;
         private Hook delayShowDisconnectHook;
         private MethodInfo initFastMethod;
-        private GameActionDelegate gameActionTrampoline;
         private LeaveLobbyDelegate leaveLobbyTrampoline;
         private StartGameDelegate startGameTrampoline;
         private EngineInterface.MultiplayerSetupData capturedSetup;
@@ -263,12 +257,6 @@ namespace CastlePlanner
             mapUnloadSubscription = Shared.MissionEvents.Ended
                 .Subscribe(OnUnloadMap);
 
-            MethodInfo action = typeof(EngineInterface).GetMethod(
-                nameof(EngineInterface.GameAction),
-                BindingFlags.Public | BindingFlags.Static,
-                null,
-                new[] { typeof(Enums.GameActionCommand), typeof(int), typeof(int), typeof(int) },
-                null) ?? throw new MissingMethodException("EngineInterface.GameAction");
             MethodInfo leave = typeof(Platform_Multiplayer).GetMethod(
                 "LeaveLobby",
                 BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
@@ -298,8 +286,8 @@ namespace CastlePlanner
                 Type.EmptyTypes,
                 null) ?? throw new MissingMethodException("Platform_Multiplayer.initFast");
 
-            gameActionHook = new Hook(action, (GameActionDelegate)GameActionHook);
-            gameActionTrampoline = gameActionHook.GenerateTrampoline<GameActionDelegate>();
+            if (!GameActionEvents.TryRegister(CastlePlannerPlugin.PluginGuid, "PreviewPause", BeforeGameAction, null, out string actionReason))
+                throw new InvalidOperationException(actionReason);
             leaveLobbyHook = new Hook(leave, (LeaveLobbyDelegate)LeaveLobbyHook);
             leaveLobbyTrampoline = leaveLobbyHook.GenerateTrampoline<LeaveLobbyDelegate>();
             startGameHook = new Hook(start, (StartGameDelegate)StartGameHook);
@@ -405,22 +393,15 @@ namespace CastlePlanner
             viewModel.Show_MP_LoadingButton = true;
         }
 
-        private int GameActionHook(
-            Enums.GameActionCommand command,
-            int structureId,
-            int actionState,
-            int value2)
+        private void BeforeGameAction(GameActionPreEventArgs args)
         {
-            if (IsFeatureModeAllowed() &&
-                !bypassPauseHook && IsPreviewPendingOrActive &&
-                command == Enums.GameActionCommand.Game_Paused && actionState == 0)
+            if (IsFeatureModeAllowed() && !bypassPauseHook && IsPreviewPendingOrActive &&
+                args.Command == Enums.GameActionCommand.Game_Paused && args.ActionState == 0)
             {
                 Shared.DebugLogHelper.LogDebug(log, "Unpause command suppressed during castle selection.");
-                return 0;
+                args.SkipOriginalFunction = true;
             }
-            return gameActionTrampoline(command, structureId, actionState, value2);
         }
-
         private void LeaveLobbyHook(Platform_Multiplayer self, bool preserveGameMembers)
         {
             if (IsFeatureModeAllowed() &&
@@ -1217,7 +1198,7 @@ namespace CastlePlanner
             try
             {
                 bypassPauseHook = true;
-                gameActionTrampoline(Enums.GameActionCommand.Game_Paused, 0, 0, 0);
+                EngineInterface.GameAction(Enums.GameActionCommand.Game_Paused, 0, 0, 0);
             }
             finally
             {

@@ -148,8 +148,8 @@ namespace UnitLimit
                     remaining);
             }
 
-            Shared.RecruitmentConstraintDecision constraint =
-                Shared.RecruitmentRequestPolicy.ApplyMaximum(
+            APIShared.Recruitment.RecruitmentConstraintDecision constraint =
+                APIShared.Recruitment.RecruitmentRequestPolicy.ApplyMaximum(
                     amount,
                     vanillaRequestedAmount,
                     remaining,
@@ -172,12 +172,12 @@ namespace UnitLimit
                 "limit", limit,
                 "rawUnitType", rawUnitType);
 
-            if (constraint.Action != Shared.RecruitmentConstraintAction.Block)
+            if (constraint.Action != APIShared.Recruitment.RecruitmentConstraintAction.Block)
             {
-                int amountToReserve = constraint.Action == Shared.RecruitmentConstraintAction.ForwardAmount
+                int amountToReserve = constraint.Action == APIShared.Recruitment.RecruitmentConstraintAction.ForwardAmount
                     ? constraint.AmountToForward
                     : constraint.EffectiveRequestedAmount;
-                return constraint.Action == Shared.RecruitmentConstraintAction.ForwardAmount
+                return constraint.Action == APIShared.Recruitment.RecruitmentConstraintAction.ForwardAmount
                     ? MakeTroopGameActionDecision.ForwardAmount(
                         constraint.AmountToForward,
                         playerId,
@@ -218,7 +218,7 @@ namespace UnitLimit
             int finalChainAmount,
             bool hasConcreteChainAmount)
         {
-            int amountToReserve = Shared.RecruitmentRequestPolicy.ReconcilePendingAmount(
+            int amountToReserve = APIShared.Recruitment.RecruitmentRequestPolicy.ReconcilePendingAmount(
                 decision.PendingAmount,
                 finalChainAmount,
                 hasConcreteChainAmount);

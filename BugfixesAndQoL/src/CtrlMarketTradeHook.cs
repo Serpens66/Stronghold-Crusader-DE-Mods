@@ -1,8 +1,9 @@
+using APIShared.Commands;
+using APIShared.Presentation;
 using APIShared.GameModes;
 // Feature: Native input and UI support for Ctrl single-unit market trades.
 using BepInEx.Logging;
 using CrusaderDE;
-using MonoMod.RuntimeDetour;
 using SHCDESE.API;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Player;
@@ -39,9 +40,6 @@ namespace BugfixesAndQoL
         private const int MarketStorageCallRva = 0xD7119;
         private const int AutoMarketSellStatisticRva = 0xD0484;
 
-        private delegate int GameActionDelegate(Enums.GameActionCommand command, int structureId, int state, int value2);
-        private delegate void NoesisGuiUpdateDelegate(FatControler self);
-
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate void MarketValidatorDelegate(int selling, int tradeMode, int goodValue);
 
@@ -70,10 +68,6 @@ namespace BugfixesAndQoL
         private int* marketActionGood;
         private int* marketActionMode;
         private int* marketSellGoldStatistic;
-        private Hook gameActionHook;
-        private Hook uiUpdateHook;
-        private GameActionDelegate gameActionTrampoline;
-        private NoesisGuiUpdateDelegate uiUpdateTrampoline;
         private bool nativeReady;
         private bool disposed;
 
@@ -98,11 +92,11 @@ namespace BugfixesAndQoL
             {
                 InstallNativeValidator(memory);
 
-                gameActionHook = new Hook(FindGameActionMethod(), (GameActionDelegate)GameActionHook);
-                gameActionTrampoline = gameActionHook.GenerateTrampoline<GameActionDelegate>();
-                uiUpdateHook = new Hook(FindUiUpdateMethod(), (NoesisGuiUpdateDelegate)NoesisGuiUpdateHook);
-                uiUpdateTrampoline = uiUpdateHook.GenerateTrampoline<NoesisGuiUpdateDelegate>();
-
+                if (!GameActionEvents.TryRegister(BugfixesAndQoLPlugin.PluginGuid, "CtrlMarketTrade", BeforeGameAction, null, out string actionReason))
+                    throw new InvalidOperationException(actionReason);
+                if (!PresentationEvents.TryRegister(PresentationOperation.GuiChecks, BugfixesAndQoLPlugin.PluginGuid,
+                    "CtrlMarketTrade", null, args => { if (nativeReady && args.OriginalCompleted) NoesisGuiUpdateHook(args.Controller); }, out string uiReason))
+                    throw new InvalidOperationException(uiReason);
                 nativeReady = true;
                 Shared.DebugLogHelper.LogDebug(log, "Bugfixes and QoL Ctrl single-unit market hooks installed.");
             }
@@ -126,10 +120,6 @@ namespace BugfixesAndQoL
         private void RollbackUnpublishedInitialization()
         {
             nativeReady = false;
-            uiUpdateHook?.Undo();
-            uiUpdateHook?.Dispose();
-            gameActionHook?.Undo();
-            gameActionHook?.Dispose();
             nativeTransaction?.Dispose();
         }
 
@@ -307,50 +297,13 @@ namespace BugfixesAndQoL
             return target;
         }
 
-        private static MethodInfo FindGameActionMethod()
+        private void BeforeGameAction(GameActionPreEventArgs args)
         {
-            MethodInfo method = typeof(EngineInterface).GetMethod(
-                "GameAction",
-                BindingFlags.Static | BindingFlags.Public,
-                null,
-                new[] { typeof(Enums.GameActionCommand), typeof(int), typeof(int), typeof(int) },
-                null);
-            return method ?? throw new MissingMethodException(typeof(EngineInterface).FullName, "GameAction(GameActionCommand,int,int,int)");
-        }
-
-        private static MethodInfo FindUiUpdateMethod()
-        {
-            MethodInfo method = typeof(FatControler).GetMethod(
-                "NoesisGUIUpdateChecksInGame",
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
-                null,
-                Type.EmptyTypes,
-                null);
-            return method ?? throw new MissingMethodException(typeof(FatControler).FullName, "NoesisGUIUpdateChecksInGame");
-        }
-
-        private int GameActionHook(Enums.GameActionCommand command, int structureId, int state, int value2)
-        {
-            if (!IsFeatureUsable() || !IsMarketCommand(command) || !IsSelectedTradepostControlled())
-                return gameActionTrampoline(command, structureId, state, value2);
-
+            if (args.SkipOriginalFunction || !IsFeatureUsable() || !IsMarketCommand(args.Command) || !IsSelectedTradepostControlled()) return;
             KeyManager keys = KeyManager.instance;
-            if (keys == null || !keys.isCtrlDown())
-                return gameActionTrampoline(command, structureId, state, value2);
-
-            // Ctrl+Shift explicitly restores the normal five-unit mode.
-            int tradeMode = keys.isShiftDown() ? NormalTradeMode : SingleTradeMode;
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"Ctrl market GameAction entering: command={command}, originalMode={structureId}, " +
-                $"mappedMode={tradeMode}, good={state}, value2={value2}, shift={keys.isShiftDown()}.");
-            int result = gameActionTrampoline(command, tradeMode, state, value2);
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"Ctrl market GameAction returned: command={command}, mappedMode={tradeMode}, good={state}, result={result}.");
-            return result;
+            if (keys == null || !keys.isCtrlDown()) return;
+            args.StructureId = keys.isShiftDown() ? NormalTradeMode : SingleTradeMode;
         }
-
         private void MarketValidatorHook(int selling, int tradeMode, int goodValue)
         {
             if (tradeMode != SingleTradeMode)
@@ -402,7 +355,6 @@ namespace BugfixesAndQoL
 
         private void NoesisGuiUpdateHook(FatControler self)
         {
-            uiUpdateTrampoline(self);
 
             try
             {

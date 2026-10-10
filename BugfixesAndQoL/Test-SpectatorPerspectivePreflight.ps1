@@ -109,13 +109,13 @@ if (-not $foodGuard -or $foodGuard -notmatch 'button\.IsHitTestVisible = false' 
 $allyHooks = [IO.File]::ReadAllText((Join-Path $projectRoot 'src\SpectatorAllyHooks.cs'))
 if ($allyHooks -notmatch 'GetAllyList' -or $allyHooks -notmatch 'GetEnemyList' -or
     $allyHooks -notmatch 'UpdateAllies' -or $allyHooks -notmatch 'Ally_CancelOrders' -or
-    $allyHooks -notmatch 'AllowAllyAction' -or $runtime -notmatch 'CanIssueAllyAction' -or
+    $allyHooks -notmatch 'GameActionEvents\.TryRegister\(' -or $allyHooks -notmatch 'args\.SkipOriginalFunction = true;' -or $runtime -notmatch 'CanIssueAllyAction' -or
     $runtime -notmatch 'WaitForFreshAllies') {
     throw 'Selected-player ally view, CPU-only action guard or event-driven refresh missing.'
 }
 if ($allyHooks -notmatch 'if \(state && active\) RefreshControlState\(\)' -or
-    $allyHooks -notmatch 'if \(SpectatorPerspectiveRuntime\.IsNetworkSpectator\(\)\)' -or
-    $allyHooks -notmatch 'SpectatorPerspectiveRuntime\.IsActiveSpectator\(\) \|\|' -or
+    $allyHooks -notmatch 'if \(SpectatorPerspectiveRuntime\.IsNetworkSpectator\(\) \|\|' -or
+    $allyHooks -notmatch 'SpectatorPerspectiveRuntime\.IsSpectatorActionRestricted\(\) &&' -or
     $runtime -notmatch 'internal static bool IsNetworkSpectator\(\)' -or
     $runtime -notmatch '!state.is_valid_player\(selectedPlayer\)' -or
     $runtime -notmatch '!GameModeHelper\.IsRealMultiplayer\(\)' -or
