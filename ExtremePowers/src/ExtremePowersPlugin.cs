@@ -16,11 +16,11 @@ namespace ExtremePowers
 {
     [BepInDependency("000shcdese", "2.3.0")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
-    [BepInDependency("APIShared_Serp", "0.5.0")]
+    [BepInDependency("APIShared_Serp", "0.7.0")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class ExtremePowersPlugin : BaseUnityPlugin
     {
-        public const string PluginGuid = "ExtremePowers_Serp", PluginName = "Extreme Powers", PluginVersion = "0.1.5";
+        public const string PluginGuid = "ExtremePowers_Serp", PluginName = "Extreme Powers", PluginVersion = "0.1.6";
         private static int initialized; private static IExtremePowersApiClient client; private static IDisposable demoHandle;
         private static Settings.ExtremePowersSettings rootedSettings;
         private static ManualLogSource rootedLogger;

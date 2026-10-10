@@ -3417,57 +3417,6 @@ internal static class Program
         Check(first.SequenceEqual(second),
             "the same unchanged BugfixesAndQoL Chore packet did not serialize deterministically twice");
 
-        int serialized = 0;
-        int sent = 0;
-        int mutations = 0;
-        object sentPacket = null;
-        Func<SurrenderExecutionPacket, byte[]> body1199 = value =>
-        {
-            serialized++;
-            return new byte[1197];
-        };
-        Action<SurrenderExecutionPacket, short> send = (value, id) =>
-        {
-            sent++;
-            mutations++;
-            sentPacket = value;
-        };
-
-        Check(!BugfixesAndQoLChoreSender.TrySend(packet, 5, false, body1199, () => 1, send,
-                out _, out _) && serialized == 0 && sent == 0 && mutations == 0,
-            "missing BugfixesAndQoL packet hook did not fail before serialization and mutation");
-        Check(!BugfixesAndQoLChoreSender.TrySend(packet, 5, true,
-                value => throw new InvalidOperationException("serializer"), () => 1, send,
-                out _, out _) && sent == 0 && mutations == 0,
-            "BugfixesAndQoL serializer failure caused a send or mutation");
-        Check(!BugfixesAndQoLChoreSender.TrySend(packet, 5, true, body1199, () => 0, send,
-                out _, out _) && sent == 0 && mutations == 0,
-            "missing BugfixesAndQoL Chore manager caused a send or mutation");
-        Check(!BugfixesAndQoLChoreSender.IsAvailable(true, () => 0) &&
-              !BugfixesAndQoLChoreSender.IsAvailable(false, () => 1) &&
-              !BugfixesAndQoLChoreSender.IsAvailable(true, () => throw new InvalidOperationException("manager")),
-            "BugfixesAndQoL Chore availability did not fail closed");
-        Check(BugfixesAndQoLChoreSender.TrySend(packet, 5, true, body1199, () => 1, send,
-                out byte[] accepted1199, out _) && accepted1199.Length + sizeof(short) == 1199 &&
-              ReferenceEquals(sentPacket, packet),
-            "1199-byte BugfixesAndQoL Chore was rejected or did not send the original packet object");
-        Check(BugfixesAndQoLChoreSender.TrySend(packet, 5, true, value => new byte[1198], () => 1, send,
-                out byte[] accepted1200, out _) && accepted1200.Length + sizeof(short) == 1200,
-            "1200-byte BugfixesAndQoL Chore was rejected");
-        bool simulationPaused = true;
-        Check(simulationPaused && BugfixesAndQoLChoreSender.TrySend(packet, 5, true, body1199, () => 1, send,
-                out _, out _),
-            "paused simulation disabled the BugfixesAndQoL Chore-only path");
-        int acceptedMutations = mutations;
-        Check(!BugfixesAndQoLChoreSender.TrySend(packet, 5, true, value => new byte[1199], () => 1, send,
-                out _, out _) && mutations == acceptedMutations,
-            "1201-byte BugfixesAndQoL Chore was not rejected before mutation");
-        int beforeThrow = mutations;
-        Check(!BugfixesAndQoLChoreSender.TrySend(packet, 5, true, body1199, () => 1,
-                (value, id) => throw new InvalidOperationException("send"), out _, out _) &&
-              mutations == beforeThrow,
-            "BugfixesAndQoL send exception did not fail closed");
-
         string workspaceRoot = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", ".."));
         string[] senderFiles =
         {
@@ -3481,23 +3430,12 @@ internal static class Program
         foreach (string fileName in senderFiles)
         {
             string source = File.ReadAllText(Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", fileName));
-            Check(source.Contains("BugfixesAndQoLChoreSender.TrySend(") &&
-                  source.Contains("GameNetworkAPI.Serialize(value)") &&
-                  source.Contains("GameNetworkAPI.SendPacketToAllEx2(value, id, viaChore: true)"),
+            Check(source.Contains("APIShared.Networking.ChoreTransport.TrySend("),
                 fileName + " does not use the fail-closed Chore sender contract");
             Check(!source.Contains("ChoreNetworkTransport") && !source.Contains("SendRawBlob"),
                 fileName + " retains the removed raw Chore transport");
         }
 
-        string helper = File.ReadAllText(Path.Combine(
-            workspaceRoot, "BugfixesAndQoL", "src", "BugfixesAndQoLChoreSender.cs"));
-        string sendMethod = helper.Substring(helper.IndexOf("internal static bool TrySend", StringComparison.Ordinal));
-        Check(sendMethod.Contains("body.Length > MaximumPayloadBytes - sizeof(short)") &&
-              sendMethod.IndexOf("serialize(packet)", StringComparison.Ordinal) <
-                  sendMethod.IndexOf("getChoreManagerAddress()", StringComparison.Ordinal) &&
-              sendMethod.IndexOf("getChoreManagerAddress()", StringComparison.Ordinal) <
-                  sendMethod.IndexOf("sendViaChore(packet, packetId)", StringComparison.Ordinal),
-            "BugfixesAndQoL Chore helper does not enforce serialization, manager, size, and original-object send order");
     }
 
     private static void TestExtraFeaturesChoreSenderAndApiWiring()
@@ -3508,78 +3446,15 @@ internal static class Program
         Check(first.SequenceEqual(second),
             "the same unchanged ExtraFeatures Chore packet did not serialize deterministically twice");
 
-        int serialized = 0;
-        int sent = 0;
-        int mutations = 0;
-        object sentPacket = null;
-        Func<SurrenderExecutionPacket, byte[]> body1199 = value =>
-        {
-            serialized++;
-            return new byte[1197];
-        };
-        Action<SurrenderExecutionPacket, short> send = (value, id) =>
-        {
-            sent++;
-            mutations++;
-            sentPacket = value;
-        };
-
-        Check(!ExtraFeaturesChoreSender.TrySend(packet, 7, false, body1199, () => 1, send,
-                out _, out _) && serialized == 0 && sent == 0 && mutations == 0,
-            "missing ExtraFeatures packet hook did not fail before serialization and mutation");
-        Check(!ExtraFeaturesChoreSender.TrySend(packet, 7, true,
-                value => throw new InvalidOperationException("serializer"), () => 1, send,
-                out _, out _) && sent == 0 && mutations == 0,
-            "ExtraFeatures serializer failure caused a send or mutation");
-        Check(!ExtraFeaturesChoreSender.TrySend(packet, 7, true, body1199, () => 0, send,
-                out _, out _) && sent == 0 && mutations == 0,
-            "missing ExtraFeatures Chore manager caused a send or mutation");
-        Check(!ExtraFeaturesChoreSender.IsAvailable(true, () => 0) &&
-              !ExtraFeaturesChoreSender.IsAvailable(false, () => 1) &&
-              !ExtraFeaturesChoreSender.IsAvailable(true, () => throw new InvalidOperationException("manager")),
-            "ExtraFeatures Chore availability did not fail closed");
-        Check(ExtraFeaturesChoreSender.TrySend(packet, 7, true, body1199, () => 1, send,
-                out byte[] accepted1199, out _) && accepted1199.Length + sizeof(short) == 1199 &&
-              ReferenceEquals(sentPacket, packet),
-            "1199-byte ExtraFeatures Chore was rejected or did not send the original packet object");
-        Check(ExtraFeaturesChoreSender.TrySend(packet, 7, true, value => new byte[1198], () => 1, send,
-                out byte[] accepted1200, out _) && accepted1200.Length + sizeof(short) == 1200,
-            "1200-byte ExtraFeatures Chore was rejected");
-        bool simulationPaused = true;
-        Check(simulationPaused && ExtraFeaturesChoreSender.TrySend(packet, 7, true, body1199, () => 1, send,
-                out _, out _),
-            "paused simulation disabled the ExtraFeatures Chore-only path");
-        int acceptedMutations = mutations;
-        Check(!ExtraFeaturesChoreSender.TrySend(packet, 7, true, value => new byte[1199], () => 1, send,
-                out _, out _) && mutations == acceptedMutations,
-            "1201-byte ExtraFeatures Chore was not rejected before mutation");
-        int beforeThrow = mutations;
-        Check(!ExtraFeaturesChoreSender.TrySend(packet, 7, true, body1199, () => 1,
-                (value, id) => throw new InvalidOperationException("send"), out _, out _) &&
-              mutations == beforeThrow,
-            "ExtraFeatures send exception did not fail closed");
-
         string workspaceRoot = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", ".."));
         foreach (string fileName in new[] { "GatehouseAutomationRuntime.cs", "KnightDismountRuntime.cs" })
         {
             string source = File.ReadAllText(Path.Combine(workspaceRoot, "ExtraFeatures", "src", fileName));
-            Check(source.Contains("ExtraFeaturesChoreSender.TrySend(") &&
-                  source.Contains("GameNetworkAPI.Serialize(value)") &&
-                  source.Contains("GameNetworkAPI.SendPacketToAllEx2(value, id, viaChore: true)"),
+            Check(source.Contains("APIShared.Networking.ChoreTransport.TrySend("),
                 fileName + " does not use the fail-closed Chore sender contract");
             Check(!source.Contains("ChoreNetworkTransport") && !source.Contains("SendRawBlob"),
                 fileName + " retains the removed raw Chore transport");
         }
-
-        string helper = File.ReadAllText(Path.Combine(
-            workspaceRoot, "ExtraFeatures", "src", "ExtraFeaturesChoreSender.cs"));
-        string sendMethod = helper.Substring(helper.IndexOf("internal static bool TrySend", StringComparison.Ordinal));
-        Check(sendMethod.Contains("body.Length > MaximumPayloadBytes - sizeof(short)") &&
-              sendMethod.IndexOf("serialize(packet)", StringComparison.Ordinal) <
-                  sendMethod.IndexOf("getChoreManagerAddress()", StringComparison.Ordinal) &&
-              sendMethod.IndexOf("getChoreManagerAddress()", StringComparison.Ordinal) <
-                  sendMethod.IndexOf("sendViaChore(packet, packetId)", StringComparison.Ordinal),
-            "ExtraFeatures Chore helper does not enforce serialization, manager, size, and original-object send order");
 
         string knight = File.ReadAllText(Path.Combine(workspaceRoot, "ExtraFeatures", "src", "KnightDismountRuntime.cs"));
         Check(knight.Contains("APIShared.LocalSelectionSnapshot selection") && knight.Contains("selection[i].UnitId") &&

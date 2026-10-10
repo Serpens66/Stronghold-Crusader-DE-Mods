@@ -47,13 +47,10 @@ namespace ExtremePowers.API
             ulong operation = ((ulong)mapEpoch << 48) | ((ulong)(byte)playerId << 40) | sequence;
             if (operation == 0) return Reject("Operation id generation failed.", out rejectionReason);
             var packet = new ExtremePowerChore(ExtremePowerChoreCodec.CurrentProtocol, power, playerId, target, operation);
-            if (!ExtremePowerChoreSender.TrySend(
+            if (!APIShared.Networking.ChoreTransport.TrySend(
                 packet,
                 packetHook.GetPacketId(),
                 packetHook != null,
-                value => GameNetworkAPI.Serialize(value),
-                () => GameGlobalsManager.Instance.ChoreManagerVA,
-                (value, id) => GameNetworkAPI.SendPacketToAllEx2(value, id, viaChore: true),
                 out byte[] body,
                 out string sendFailure))
                 return Reject(sendFailure, out rejectionReason);

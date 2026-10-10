@@ -737,9 +737,8 @@ namespace BugfixesAndQoL
 
         private bool IsChoreTransportReady()
         {
-            return BugfixesAndQoLChoreSender.IsAvailable(
-                networkInitialized && relocationPacketHook != null,
-                () => SHCDESE.GameGlobals.GameGlobalsManager.Instance.ChoreManagerVA);
+            return APIShared.Networking.ChoreTransport.IsAvailable(
+                networkInitialized && relocationPacketHook != null);
         }
 
         private bool TrySendRotationChore(QuarryPileRelocationOperation operation)
@@ -764,13 +763,10 @@ namespace BugfixesAndQoL
             };
 
             short packetId = relocationPacketHook?.GetPacketId() ?? (short)0;
-            if (!BugfixesAndQoLChoreSender.TrySend(
+            if (!APIShared.Networking.ChoreTransport.TrySend(
                     packet,
                     packetId,
                     networkInitialized && relocationPacketHook != null,
-                    value => GameNetworkAPI.Serialize(value),
-                    () => SHCDESE.GameGlobals.GameGlobalsManager.Instance.ChoreManagerVA,
-                    (value, id) => GameNetworkAPI.SendPacketToAllEx2(value, id, viaChore: true),
                     out byte[] body,
                     out string rejectionReason))
             {
@@ -786,6 +782,9 @@ namespace BugfixesAndQoL
 
         private void OnRelocationPacketReceived(ReceiveCustomPacketEventArgs<QuarryPileRelocationPacket> args)
         {
+            if (!APIShared.Networking.ChoreTransport.IsChoreDelivery(args))
+                return;
+
             QuarryPileRelocationPacket packet = args?.Packet;
             if (packet == null || packet.ProtocolVersion != ChoreProtocolVersion)
             {

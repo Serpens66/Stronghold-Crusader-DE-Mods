@@ -51,7 +51,7 @@
     <Compile Include="src\NativeWildlifeEventDispatcher.cs" />
     <Compile Include="src\RandomEventsPlugin.cs" />
     <Compile Include="src\RandomEventsChorePacket.cs" />
-    <Compile Include="src\RandomEventsChoreSender.cs" />
+
     <Compile Include="src\RandomEventsCalendar.cs" />
     <Compile Include="src\RandomEventsBatchValidator.cs" />
     <Compile Include="src\RandomEventsCooldownCodec.cs" />

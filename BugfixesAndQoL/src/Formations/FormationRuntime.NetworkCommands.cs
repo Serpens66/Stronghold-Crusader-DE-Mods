@@ -81,19 +81,10 @@ namespace BugfixesAndQoL.UnitCommands
             }
             try
             {
-                byte[] body = GameNetworkAPI.Serialize(packet);
-                if (body == null || body.Length + sizeof(short) > 1200)
-                {
-                    rejection = "serialized payload exceeds the Chore limit";
-                    return DispatchDisposition.Rejected;
-                }
-                byte[] blob = new byte[body.Length + sizeof(short)];
-                BitConverter.GetBytes(packetHook.GetPacketId()).CopyTo(blob, 0);
-                Buffer.BlockCopy(body, 0, blob, sizeof(short), body.Length);
-                object result = sendChorePayloadMethod.Invoke(null, new object[] { blob });
-                if (result is bool sent && sent)
+                if (APIShared.Networking.ChoreTransport.TrySend(
+                    packet, packetHook.GetPacketId(), packetHook != null,
+                    out _, out rejection))
                     return DispatchDisposition.Accepted;
-                rejection = "Chore transport refused the packet";
                 return DispatchDisposition.Rejected;
             }
             catch (Exception exception)
@@ -105,7 +96,7 @@ namespace BugfixesAndQoL.UnitCommands
 
         private void OnPacketReceived(ReceiveCustomPacketEventArgs<FormationOrderPacket> args)
         {
-            if (args?.Phase != EventHookPhase.Post)
+            if (args?.Phase != EventHookPhase.Post || args.SenderSteamId.HasValue)
                 return;
             try
             {

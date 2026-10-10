@@ -119,6 +119,9 @@
       <Link>GameplayModModePolicy.cs</Link>
     </Compile>
     <Compile Include="..\..\Shared\Adapters\APIShared\SerpsModProfiles.cs" />
+    <Compile Include="..\..\APIShared\src\GameModes\GameplayModeGate.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\UI\ModSettingsModeAvailability.cs" />
+    <Compile Include="..\..\APIShared\src\ModSettings\Presets\PresetLobbyModSettingsViewModel.ModeAvailability.cs" />
     <Compile Include="..\..\Shared\Adapters\APIShared\GameplayFeatureModePolicy.cs">
       <Link>GameplayFeatureModePolicy.cs</Link>
     </Compile>
@@ -167,9 +170,7 @@
     <Compile Include="..\..\BugfixesAndQoL\src\SurrenderPolicy.cs">
       <Link>SurrenderPolicy.cs</Link>
     </Compile>
-    <Compile Include="..\..\BugfixesAndQoL\src\BugfixesAndQoLChoreSender.cs">
-      <Link>BugfixesAndQoLChoreSender.cs</Link>
-    </Compile>
+
     <Compile Include="..\..\BugfixesAndQoL\src\SiegeAmmoRestockPacket.cs">
       <Link>SiegeAmmoRestockPacket.cs</Link>
     </Compile>
@@ -185,9 +186,7 @@
     <Compile Include="..\..\ExtraFeatures\src\EnemyProximityPolicy.cs">
       <Link>EnemyProximityPolicy.cs</Link>
     </Compile>
-    <Compile Include="..\..\ExtraFeatures\src\ExtraFeaturesChoreSender.cs">
-      <Link>ExtraFeaturesChoreSender.cs</Link>
-    </Compile>
+
     <Compile Include="..\..\BugfixesAndQoL\src\AssassinClimbCostPolicy.cs">
       <Link>AssassinClimbCostPolicy.cs</Link>
     </Compile>

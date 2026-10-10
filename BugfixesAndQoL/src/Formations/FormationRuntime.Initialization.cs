@@ -82,19 +82,6 @@ namespace BugfixesAndQoL.UnitCommands
                     MovementTargetAvailabilityRva);
                 getGroupUnitId = Marshal.GetDelegateForFunctionPointer<GetGroupUnitIdDelegate>(
                     (IntPtr)(libraryBase + GetGroupUnitIdRva));
-                sendChorePayloadMethod = typeof(GameNetworkAPI).GetMethod(
-                    "SendScriptExtenderChorePayload",
-                    BindingFlags.Static | BindingFlags.NonPublic,
-                    null,
-                    new[] { typeof(byte[]) },
-                    null) ?? throw new MissingMethodException(
-                        typeof(GameNetworkAPI).FullName,
-                        "SendScriptExtenderChorePayload(byte[])");
-                if (sendChorePayloadMethod.ReturnType != typeof(bool))
-                    throw new MissingMethodException(
-                        typeof(GameNetworkAPI).FullName,
-                        "bool SendScriptExtenderChorePayload(byte[])");
-
                 leftMouseStateField = RequireEditorField("leftMouseStateForEngine", typeof(int));
                 rightMouseDownField = RequireEditorField("rightDownForEngine", typeof(bool));
                 rightMouseUpField = RequireEditorField("rightUpForEngine", typeof(bool));

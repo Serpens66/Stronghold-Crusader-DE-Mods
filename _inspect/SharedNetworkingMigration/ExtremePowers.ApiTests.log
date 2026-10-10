@@ -1,0 +1,11 @@
+  Wiederherzustellende Projekte werden ermittelt...
+  Keine Aktion erforderlich. Keines der angegebenen Projekte enthält wiederherzustellende Pakete.
+  PASS: local APIShared package and build inputs.
+  ExtremePowers.API -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\ExtremePowers\bin\Release\ExtremePowers.API.dll
+  ExtremePowers.ApiTests -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\ExtremePowers\tests\bin\ExtremePowers.ApiTests.exe
+
+Der Buildvorgang wurde erfolgreich ausgeführt.
+    0 Warnung(en)
+    0 Fehler
+
+Verstrichene Zeit 00:00:00.91

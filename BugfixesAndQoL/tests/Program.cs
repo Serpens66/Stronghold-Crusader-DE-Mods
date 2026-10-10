@@ -693,7 +693,7 @@ namespace BugfixesAndQoL
                     featureSource.Contains("OnPlayerLordDied") &&
                     featureSource.Contains("OnSpectatorPacketReceived") &&
                     featureSource.Contains("GameNetworkAPI.IsLocalHost()") &&
-                    featureSource.Contains("viaChore: true") &&
+                    featureSource.Contains("APIShared.Networking.ChoreTransport.TrySend(") &&
                     featureSource.IndexOf("GameTimeManagerAPI.Instance.OnTick", StringComparison.Ordinal) < 0 &&
                     renderSource.IndexOf("GameAction(Enums.GameActionCommand.SpectatorMode", StringComparison.Ordinal) < 0 &&
                     activationSource.Split(new[] { "GameAction(Enums.GameActionCommand.SpectatorMode" },

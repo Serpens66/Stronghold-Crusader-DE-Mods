@@ -805,13 +805,10 @@ namespace RandomEvents
             }
 
             short packetId = packetHook?.GetPacketId() ?? (short)0;
-            if (!RandomEventsChoreSender.TrySend(
+            if (!APIShared.Networking.ChoreTransport.TrySend(
                 packet,
                 packetId,
                 packetHook != null,
-                value => GameNetworkAPI.Serialize(value),
-                () => GameGlobalsManager.Instance.ChoreManagerVA,
-                (value, id) => GameNetworkAPI.SendPacketToAllEx2(value, id, viaChore: true),
                 out body,
                 out string rejectionReason))
             {
@@ -826,6 +823,9 @@ namespace RandomEvents
 
         private void OnInitializationChorePacketReceived(ReceiveCustomPacketEventArgs<RandomEventsInitializationChorePacket> args)
         {
+            if (!APIShared.Networking.ChoreTransport.IsChoreDelivery(args))
+                return;
+
             if (!Shared.GameplayModActivationGate.IsAllowed)
                 return;
             RandomEventsInitializationChorePacket packet = args?.Packet;
@@ -848,6 +848,9 @@ namespace RandomEvents
 
         private void OnBatchChorePacketReceived(ReceiveCustomPacketEventArgs<RandomEventsBatchChorePacket> args)
         {
+            if (!APIShared.Networking.ChoreTransport.IsChoreDelivery(args))
+                return;
+
             if (!Shared.GameplayModActivationGate.IsAllowed)
                 return;
             try { ApplyBatchChore(args?.Packet); }
@@ -856,6 +859,9 @@ namespace RandomEvents
 
         private void OnSignpostChorePacketReceived(ReceiveCustomPacketEventArgs<RandomEventsSignpostChorePacket> args)
         {
+            if (!APIShared.Networking.ChoreTransport.IsChoreDelivery(args))
+                return;
+
             if (!Shared.GameplayModActivationGate.IsAllowed)
                 return;
             try { ApplySignpostInitializationChore(args?.Packet); }

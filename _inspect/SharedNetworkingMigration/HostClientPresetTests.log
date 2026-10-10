@@ -1,0 +1,5 @@
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\APIShared\src\GameModes\MissionModePolicy.cs(98,49): warning CS0649: Dem Feld "GameModeHelper.ReadSavedModeEvidence" wird nie etwas zugewiesen, und es hat immer seinen Standardwert von "null". [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\HostClientPresetTests\HostClientPresetTests.csproj]
+Ihr Projekt „D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\HostClientPresetTests\HostClientPresetTests.csproj“ kann nicht fortgesetzt werden.
+Stellen Sie sicher, dass der Projekttyp ausführbar ist.
+Ein ausführbares Projekt muss ein ausführbares TFM (z. B. net10.0) und den OutputType „Exe“ verwenden.
+Der aktuelle OutputType lautet „Exe“.

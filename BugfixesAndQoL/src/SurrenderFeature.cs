@@ -597,13 +597,10 @@ namespace BugfixesAndQoL
 
             var packet = new EliminatedPlayerSpectatorPacket { PlayerId = playerId };
             short packetId = spectatorPacketHook?.GetPacketId() ?? (short)0;
-            if (!BugfixesAndQoLChoreSender.TrySend(
+            if (!APIShared.Networking.ChoreTransport.TrySend(
                     packet,
                     packetId,
                     initialized && spectatorPacketHook != null,
-                    value => GameNetworkAPI.Serialize(value),
-                    () => SHCDESE.GameGlobals.GameGlobalsManager.Instance.ChoreManagerVA,
-                    (value, id) => GameNetworkAPI.SendPacketToAllEx2(value, id, viaChore: true),
                     out byte[] body,
                     out string rejectionReason))
             {
@@ -1731,13 +1728,10 @@ namespace BugfixesAndQoL
                 PlayerId = lord.PlayerId
             };
             short packetId = executionPacketHook?.GetPacketId() ?? (short)0;
-            if (!BugfixesAndQoLChoreSender.TrySend(
+            if (!APIShared.Networking.ChoreTransport.TrySend(
                     packet,
                     packetId,
                     initialized && executionPacketHook != null,
-                    value => GameNetworkAPI.Serialize(value),
-                    () => SHCDESE.GameGlobals.GameGlobalsManager.Instance.ChoreManagerVA,
-                    (value, id) => GameNetworkAPI.SendPacketToAllEx2(value, id, viaChore: true),
                     out byte[] body,
                     out string rejectionReason))
             {
@@ -1856,9 +1850,8 @@ namespace BugfixesAndQoL
             GameData.Instance?.lastGameState != null && GameData.Instance.lastGameState.spectatorMode != 0;
 
         private bool IsChoreTransportReady() =>
-            BugfixesAndQoLChoreSender.IsAvailable(
-                initialized && executionPacketHook != null,
-                () => SHCDESE.GameGlobals.GameGlobalsManager.Instance.ChoreManagerVA);
+            APIShared.Networking.ChoreTransport.IsAvailable(
+                initialized && executionPacketHook != null);
 
         private static bool IsHumanMember(Platform_Multiplayer.MPGameMember member) =>
             member != null &&

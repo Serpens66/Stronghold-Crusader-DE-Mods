@@ -1,0 +1,19 @@
+{
+  "CompletedUtc": "2026-10-10T16:19:24.4553733Z",
+  "GitBaseline": "38d9ccc888301018a83273c133aaf08d14252392",
+  "NativeHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+  "ApiVersion": "0.7.0",
+  "ConsumerVersions": {
+    "ExtraFeatures": "1.0.113",
+    "ExtremePowers": "0.1.6",
+    "BugfixesAndQoL": "1.0.184",
+    "RandomEvents": "1.0.51"
+  },
+  "ApiTestsPassed": 198,
+  "OldHelperComparisonCasesPassed": 140,
+  "RuntimeFilesEquivalentExceptTransportAndReceiveGuards": 10,
+  "AllFiveFinalBuildsAndInstallationsPassed": true,
+  "ReadmeAndFurtherDocsUpdated": true,
+  "MultiplayerGameTest": "Not performed; user requested assessment against the working Git code instead",
+  "FormationReview": "Same packet schema/registration/apply logic; public Extender builds the same packet-ID-prefixed bytes and calls the former internal Chore sender. Local success is normal void return, not atomic queue acknowledgement."
+}

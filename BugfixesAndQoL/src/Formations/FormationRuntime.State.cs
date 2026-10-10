@@ -137,7 +137,6 @@ namespace BugfixesAndQoL.UnitCommands
         private IntPtr nativePathManager;
         private byte* movementTargetAvailability;
         private GetGroupUnitIdDelegate getGroupUnitId;
-        private MethodInfo sendChorePayloadMethod;
         private ActiveDrag drag;
         private PendingFormationCommand pendingCommand;
         private ActiveFormationCommand activeCommand;

@@ -187,9 +187,8 @@ namespace BugfixesAndQoL
             int baseAmmunitionAmount,
             int[] globalUnitIds)
         {
-            if (!BugfixesAndQoLChoreSender.IsAvailable(
-                    packetHook != null,
-                    () => GameGlobalsManager.Instance.ChoreManagerVA))
+            if (!APIShared.Networking.ChoreTransport.IsAvailable(
+                    packetHook != null))
             {
                 LogError("fair siege-ammunition restock was rejected in multiplayer because Chore transport is unavailable.");
                 return false;
@@ -206,13 +205,10 @@ namespace BugfixesAndQoL
                 GlobalUnitIds = globalUnitIds
             };
             short packetId = packetHook?.GetPacketId() ?? (short)0;
-            if (!BugfixesAndQoLChoreSender.TrySend(
+            if (!APIShared.Networking.ChoreTransport.TrySend(
                     packet,
                     packetId,
                     packetHook != null,
-                    value => GameNetworkAPI.Serialize(value),
-                    () => GameGlobalsManager.Instance.ChoreManagerVA,
-                    (value, id) => GameNetworkAPI.SendPacketToAllEx2(value, id, viaChore: true),
                     out byte[] body,
                     out string rejectionReason))
             {
@@ -226,6 +222,9 @@ namespace BugfixesAndQoL
 
         private void OnPacketReceived(ReceiveCustomPacketEventArgs<SiegeAmmoRestockPacket> args)
         {
+            if (!APIShared.Networking.ChoreTransport.IsChoreDelivery(args))
+                return;
+
             SiegeAmmoRestockPacket packet = args?.Packet;
             if (!settings.EnableMod || !settings.EnableFairSiegeAmmoRestock || !IsValidPacket(packet))
             {

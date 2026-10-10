@@ -490,13 +490,10 @@ namespace BugfixesAndQoL
                 PauseState = pauseState
             };
             short packetId = packetHook?.GetPacketId() ?? (short)0;
-            if (!BugfixesAndQoLChoreSender.TrySend(
+            if (!APIShared.Networking.ChoreTransport.TrySend(
                     packet,
                     packetId,
                     networkInitialized && packetHook != null,
-                    value => GameNetworkAPI.Serialize(value),
-                    () => SHCDESE.GameGlobals.GameGlobalsManager.Instance.ChoreManagerVA,
-                    (value, id) => GameNetworkAPI.SendPacketToAllEx2(value, id, viaChore: true),
                     out byte[] body,
                     out string rejectionReason))
             {
@@ -884,9 +881,8 @@ namespace BugfixesAndQoL
         }
 
         private bool IsChoreTransportReady() =>
-            BugfixesAndQoLChoreSender.IsAvailable(
-                networkInitialized && packetHook != null,
-                () => SHCDESE.GameGlobals.GameGlobalsManager.Instance.ChoreManagerVA);
+            APIShared.Networking.ChoreTransport.IsAvailable(
+                networkInitialized && packetHook != null);
 
         private bool IsDirectTransportReady() =>
             networkInitialized &&

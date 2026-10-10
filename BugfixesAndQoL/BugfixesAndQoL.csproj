@@ -8,8 +8,8 @@
     <OutputType>Library</OutputType>
     <RootNamespace>BugfixesAndQoL</RootNamespace>
     <AssemblyName>BugfixesAndQoL</AssemblyName>
-    <AssemblyVersion>1.0.183.0</AssemblyVersion>
-    <FileVersion>1.0.183.0</FileVersion>
+    <AssemblyVersion>1.0.184.0</AssemblyVersion>
+    <FileVersion>1.0.184.0</FileVersion>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -130,7 +130,7 @@
     <Compile Include="src\AssassinPathfindingRuntime.ReadOnly.cs" />
     <Compile Include="src\BugfixesAndQoLRuntime.CtrlMarketTrade.cs" />
     <Compile Include="src\BugfixesAndQoLRuntime.MovedFeatures.cs" />
-    <Compile Include="src\BugfixesAndQoLChoreSender.cs" />
+
     <Compile Include="src\BugfixesHookInfrastructure.cs" />
     <Compile Include="src\PermanentInstructionSkipPatch.cs" />
     <Compile Include="src\NativeInstructionReplayEmitter.cs" />

@@ -771,9 +771,8 @@ namespace ExtraFeatures
 
         private bool IsChoreTransportReady()
         {
-            return ExtraFeaturesChoreSender.IsAvailable(
-                networkInitialized && transformationPacketHook != null,
-                () => SHCDESE.GameGlobals.GameGlobalsManager.Instance.ChoreManagerVA);
+            return APIShared.Networking.ChoreTransport.IsAvailable(
+                networkInitialized && transformationPacketHook != null);
         }
 
         private bool TrySendTransformationChore(int playerId, int action, List<UnitTransformSnapshot> snapshots)
@@ -826,13 +825,10 @@ namespace ExtraFeatures
             }
 
             short packetId = transformationPacketHook?.GetPacketId() ?? (short)0;
-            if (!ExtraFeaturesChoreSender.TrySend(
+            if (!APIShared.Networking.ChoreTransport.TrySend(
                     packet,
                     packetId,
                     networkInitialized && transformationPacketHook != null,
-                    value => GameNetworkAPI.Serialize(value),
-                    () => SHCDESE.GameGlobals.GameGlobalsManager.Instance.ChoreManagerVA,
-                    (value, id) => GameNetworkAPI.SendPacketToAllEx2(value, id, viaChore: true),
                     out byte[] body,
                     out string rejectionReason))
             {
@@ -845,6 +841,9 @@ namespace ExtraFeatures
 
         private void OnTransformationPacketReceived(ReceiveCustomPacketEventArgs<KnightTransformationPacket> args)
         {
+            if (!APIShared.Networking.ChoreTransport.IsChoreDelivery(args))
+                return;
+
             if (!Shared.GameplayModActivationGate.IsAllowed)
                 return;
 

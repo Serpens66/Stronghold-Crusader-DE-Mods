@@ -17,7 +17,7 @@ namespace RandomEvents
             TestConfigurationDigest();
             TestCooldowns();
             TestPackets();
-            TestChoreSender();
+
             TestCalendar();
             TestSaveState();
             TestSaveRestoreLifecycle();
@@ -118,29 +118,6 @@ namespace RandomEvents
             Assert(MessagePackSerializer.Deserialize<RandomEventsSignpostChorePacket>(MessagePackSerializer.Serialize(signpost)).OperationId == 9, "signpost roundtrip");
             var ack = new RandomEventsInitializationAckPacket { ProtocolVersion = 2, OperationId = 7, PlayerId = 2, StateDigest = digest };
             Assert(MessagePackSerializer.Deserialize<RandomEventsInitializationAckPacket>(MessagePackSerializer.Serialize(ack)).StateDigest.SequenceEqual(digest), "ACK roundtrip");
-        }
-
-        private static void TestChoreSender()
-        {
-            var packet = new RandomEventsSignpostChorePacket { ProtocolVersion = 2, OperationId = 99 };
-            byte[] first = GameNetworkAPI.Serialize(packet), second = GameNetworkAPI.Serialize(packet);
-            Assert(first.SequenceEqual(second), "the same unchanged Chore packet must serialize identically twice");
-
-            int serialized = 0, sent = 0, mutations = 0; object sentPacket = null;
-            Func<RandomEventsSignpostChorePacket, byte[]> body1199 = value => { serialized++; return new byte[1197]; };
-            Action<RandomEventsSignpostChorePacket, short> send = (value, id) => { sent++; mutations++; sentPacket = value; };
-            Assert(!RandomEventsChoreSender.TrySend(packet, 5, false, body1199, () => 1, send, out _, out _) && serialized == 0 && sent == 0 && mutations == 0, "missing Chore hook fails before serialization and mutation");
-            Assert(!RandomEventsChoreSender.TrySend(packet, 5, true, value => { throw new InvalidOperationException("serializer"); }, () => 1, send, out _, out _) && sent == 0 && mutations == 0, "serializer failure has no send or mutation");
-            Assert(!RandomEventsChoreSender.TrySend(packet, 5, true, body1199, () => 0, send, out _, out _) && sent == 0 && mutations == 0, "missing Chore manager has no send or mutation");
-            Assert(RandomEventsChoreSender.TrySend(packet, 5, true, body1199, () => 1, send, out byte[] accepted1199, out _) && accepted1199.Length + 2 == 1199, "1199-byte total Chore accepted");
-            Assert(RandomEventsChoreSender.TrySend(packet, 5, true, value => new byte[1198], () => 1, send, out byte[] accepted1200, out _) && accepted1200.Length + 2 == 1200, "1200-byte total Chore accepted");
-            bool simulationPaused = true;
-            Assert(simulationPaused && RandomEventsChoreSender.TrySend(packet, 5, true, body1199, () => 1, send, out _, out _), "paused simulation keeps the Chore-only path available");
-            int acceptedMutations = mutations;
-            Assert(!RandomEventsChoreSender.TrySend(packet, 5, true, value => new byte[1199], () => 1, send, out _, out _) && mutations == acceptedMutations, "1201-byte total Chore rejected without mutation");
-            Assert(ReferenceEquals(packet, sentPacket), "the prechecked Chore object is the sent object");
-            int beforeThrow = mutations;
-            Assert(!RandomEventsChoreSender.TrySend(packet, 5, true, body1199, () => 1, (value, id) => throw new InvalidOperationException("send"), out _, out _) && mutations == beforeThrow, "send exception fails closed");
         }
 
         private static void TestCalendar()

@@ -30,7 +30,7 @@
     <Compile Include="api\Native\RegenerationAccumulator.cs"/>
     <Compile Include="api\Networking\ExtremePowerChoreCodec.cs"/>
     <Compile Include="api\Networking\ExtremePowerChoreFormatter.cs"/>
-    <Compile Include="api\Networking\ExtremePowerChoreSender.cs"/>
+
     <Compile Include="api\Networking\ExtremePowerNetworkRuntime.cs"/>
     <Compile Include="api\Networking\ExtremePowerOperationTracker.cs"/>
     <Compile Include="api\Targeting\ExtremePowerTargetValidator.cs"/>

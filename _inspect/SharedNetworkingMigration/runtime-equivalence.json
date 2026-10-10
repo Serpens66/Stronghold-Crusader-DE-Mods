@@ -1,0 +1,42 @@
+[
+  {
+    "File": "BugfixesAndQoL/src/AssassinClimbRuntime.cs",
+    "MatchesOldExceptTransport": true
+  },
+  {
+    "File": "BugfixesAndQoL/src/MultiplayerGameSpeedRuntime.cs",
+    "MatchesOldExceptTransport": true
+  },
+  {
+    "File": "BugfixesAndQoL/src/QuarryPileRelocationRuntime.cs",
+    "MatchesOldExceptTransport": true
+  },
+  {
+    "File": "BugfixesAndQoL/src/SiegeAmmoRestockFeature.cs",
+    "MatchesOldExceptTransport": true
+  },
+  {
+    "File": "BugfixesAndQoL/src/SingleBuildingPauseHook.cs",
+    "MatchesOldExceptTransport": true
+  },
+  {
+    "File": "BugfixesAndQoL/src/SurrenderFeature.cs",
+    "MatchesOldExceptTransport": true
+  },
+  {
+    "File": "ExtraFeatures/src/GatehouseAutomationRuntime.cs",
+    "MatchesOldExceptTransport": true
+  },
+  {
+    "File": "ExtraFeatures/src/KnightDismountRuntime.cs",
+    "MatchesOldExceptTransport": true
+  },
+  {
+    "File": "RandomEvents/src/RandomEventsRuntime.cs",
+    "MatchesOldExceptTransport": true
+  },
+  {
+    "File": "ExtremePowers/api/Networking/ExtremePowerNetworkRuntime.cs",
+    "MatchesOldExceptTransport": true
+  }
+]

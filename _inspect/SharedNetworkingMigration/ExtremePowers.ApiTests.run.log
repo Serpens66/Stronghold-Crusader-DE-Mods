@@ -1,0 +1,4 @@
+FAIL: plugin has a hard APIShared 0.4.0 dependency
+
+Unbehandelte Ausnahme: System.Exception: 1 ExtremePowers API test(s) failed.
+   bei Program.Main(String[] args)

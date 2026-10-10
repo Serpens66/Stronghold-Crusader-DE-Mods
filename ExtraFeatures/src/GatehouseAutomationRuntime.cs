@@ -527,13 +527,10 @@ namespace ExtraFeatures
                 AutomaticEnabled = automaticEnabled
             };
             short packetId = packetHook?.GetPacketId() ?? (short)0;
-            if (!ExtraFeaturesChoreSender.TrySend(
+            if (!APIShared.Networking.ChoreTransport.TrySend(
                     packet,
                     packetId,
                     networkInitialized && packetHook != null,
-                    value => GameNetworkAPI.Serialize(value),
-                    () => SHCDESE.GameGlobals.GameGlobalsManager.Instance.ChoreManagerVA,
-                    (value, id) => GameNetworkAPI.SendPacketToAllEx2(value, id, viaChore: true),
                     out byte[] body,
                     out string rejectionReason))
             {
@@ -547,6 +544,9 @@ namespace ExtraFeatures
 
         private void OnPacketReceived(ReceiveCustomPacketEventArgs<GatehouseAutomationPacket> args)
         {
+            if (!APIShared.Networking.ChoreTransport.IsChoreDelivery(args))
+                return;
+
             if (!Shared.GameplayModActivationGate.IsAllowed)
                 return;
 
@@ -1012,9 +1012,8 @@ namespace ExtraFeatures
         }
 
         private bool IsChoreTransportReady() =>
-            ExtraFeaturesChoreSender.IsAvailable(
-                networkInitialized && packetHook != null,
-                () => SHCDESE.GameGlobals.GameGlobalsManager.Instance.ChoreManagerVA);
+            APIShared.Networking.ChoreTransport.IsAvailable(
+                networkInitialized && packetHook != null);
 
         private int NextOperationId()
         {
