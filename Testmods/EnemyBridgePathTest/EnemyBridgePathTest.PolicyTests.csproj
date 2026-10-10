@@ -27,9 +27,10 @@
     <Compile Include="..\..\APIShared\src\Pathfinding\GateRoutes\EnemyGatePathPolicyBridge.cs" />
     <Compile Include="..\..\APIShared\src\Pathfinding\GateRoutes\EnemyBridgeDiagnosticBridge.cs" />
   </ItemGroup>
-  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <ItemGroup><Compile Include="src\CopiedCandidateInputs.cs" /></ItemGroup>
+<Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <ItemGroup><Compile Include="..\..\Shared\Runtime\Threading\DeferredSnapshotRefreshRequest.cs" /></ItemGroup>
-<ItemGroup><Compile Include="tests\CaptureRefreshTests.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="tests\CaptureRefreshTests.cs" /><Compile Include="src\VirtualCandidateBuilder.cs" /></ItemGroup>
   <ItemGroup><Compile Include="..\..\APIShared\src\Buildings\Gatehouse\GatehouseDrawbridgeCoupling.cs"><Link>GatehouseDrawbridgeCoupling.cs</Link></Compile></ItemGroup>
   <ItemGroup><Compile Include="..\..\APIShared\src\Units\UnitAccess.cs"><Link>UnitAccess.cs</Link></Compile></ItemGroup>
   <ItemGroup><Compile Include="tests\OwnerFixture.cs" /><Compile Include="..\..\BugfixesAndQoL\src\UnitCommands\Attack\ManualProbeRepairGuards.cs"><Link>ManualProbeRepairGuards.cs</Link></Compile></ItemGroup>

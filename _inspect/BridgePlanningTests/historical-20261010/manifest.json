@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "session": "2026-10-10 18:33:05--18:34:16",
+  "nativeSHA256": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+  "behaviorFix": "disabled",
+  "originals": [
+    {
+      "file": "bridge-1-10.bin",
+      "bytes": 44572580,
+      "sha256": "15091D5F73D6CCE6BC3487563BB46CFDFB5329977E0AA62B2EFB2253B68D8872"
+    },
+    {
+      "file": "LogOutput.log",
+      "bytes": 2869476,
+      "sha256": "BE6DEAFB83673E8279302DD1372442156EB6BD48BD84B5C067831A5082C5ABDC"
+    },
+    {
+      "file": "bridge-1-11.bin",
+      "bytes": 4620123,
+      "sha256": "4D8D88B29BA69FAE5ED0B9D256A542C9778959366F9DCB7AFBA99FC69EE99464"
+    }
+  ],
+  "scope": "native/managed candidate, weight, availability and work match under explicit reference-table hypothesis; historical own table coverage 0/3; policy Unknown; military suffix only"
+}

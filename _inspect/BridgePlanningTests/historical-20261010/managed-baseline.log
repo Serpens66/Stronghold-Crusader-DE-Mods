@@ -1,0 +1,4 @@
+System.Exception: Unproven immutable native table 2D2E50
+   bei BridgePlanningTests.NativeImage.ConstantBytes(Int32 rva, Int32 length) in D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\BridgePlanningTests\NativeImage.cs:Zeile 61.
+   bei BridgePlanningTests.Program.HistoricalCandidates(String path, Boolean continuous, Int32 variant) in D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\BridgePlanningTests\HistoricalInputs.cs:Zeile 145.
+   bei BridgePlanningTests.Program.Main(String[] args) in D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\BridgePlanningTests\Program.cs:Zeile 497.

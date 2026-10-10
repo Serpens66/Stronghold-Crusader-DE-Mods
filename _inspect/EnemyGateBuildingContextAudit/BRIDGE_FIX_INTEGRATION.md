@@ -559,3 +559,88 @@ observer contract; versions unchanged. Driver checks this APIShared minimum too.
 Final code review, runtime preflights, native reference and 38101 Bridge assertions
 passed. Live startup/feature-on/off acceptance remains the next game test;
 consumer fixtures preserve the supplied original/effective results unchanged.
+
+## 2026-10-10: real candidate and military suffix reference
+
+Native SHA256 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
+Frozen inputs and full hashes: _inspect/BridgePlanningTests/historical-20261010.
+Detailed proofs, commands, scopes and outstanding gates: _inspect/BridgePlanningTests/RESULTS.md,
+section "2026-10-10 real-input native continuation".
+
+The private reference now admits the exact planning artifact15091D5F...D8872.
+Calculated caller fields feed complete native candidate build10DF60, weights115B10,
+availability and CF020; original complete buffers match the recorded outputs.
+Both virtual cuts continue through the same native consumers and change candidate
+rows/weights, then return negative CF360. The post-consumer military suffix ends
+in phase5 with saved target225464; the uncut suffix ends in phase6 and matches the
+whole recorded exit-player buffer. This is not whole3C2E0 entry reproduction.
+Relevant tribe slots379F688/379F686/379F68A are zero. Complete wrappers3C150/3B8D0/
+2B2C0 execute that actual no-task branch; active-tribe variants remain Unknown.
+The follow-up2D250/2C480 calculation runs on copied fields, not recorded Post inputs.
+
+Physical rebuild uses the complete updater slot list with the recorded updaterDirty0;
+partition, occupied cells, counts and restored edges match. Do not extrapolate this
+to a forced Dirty1 updater pass, earlier unrecorded heights or a live negative policy.
+Current executable E49D0 owner is BugfixesAndQoL; APIShared0.7.0 is the observation
+broker. Bridge still excludes both E49D0 and Fixes111C00 permanently.
+The current ordinary GameplayModeGate.Update overloads are not Unity lifecycle hooks.
+
+Fix release remains blocked: full managed candidate construction, justified complete
+integration semantics, effective Gate roles/alternatives, and background costs.
+Nine negative resource-ID errors have no recorded caller stack and stay unattributed.
+The SE resource field ABI matches native including the manager prefix and game IDs;
+temporal proximity or the known Fixes invalid-target guard is not an attribution.
+No public API, runtime behavior, version, README or external mod changed this step.
+No additional game recording is justified by these already reproducible inputs.
+
+## 2026-10-10: copied candidate continuation and own table provenance
+
+The dormant productive VirtualCandidateBuilder now translates 10DF60, its
+E6AE0/E7530 floods, CF020/DB650/E9610/E3590 work continuation and CF360's
+mode-0 castle predicate using copied bytes only. 2C5A0 projection, the full
+Fixes histogram and 1126B0 unit-task inputs are independently calculated.
+Native/managed candidate managers, seeds, selection masks, building seed
+writes, all work buffers and castle-query controls match on none/703/all cuts
+under the explicit reference-table hypothesis. Results remain 6/5/5 with
+saved target225464: Mode0 projects an inherited target, not a new selection.
+The native post-consumer suffix remains distinct from the unexecuted whole
+3C2E0 entry; active-tribe branches and later formations are not claimed proved.
+
+IMPORTANT provenance correction: 2D2E50 (64 bytes), 312620 (8 bytes) and
+2E68D0 (1344 bytes) reside in writable .data, not .rdata. They were absent
+from the frozen historical bundle. Complete unchanged outputs matching the
+private reference do NOT establish all unobserved runtime table values.
+The default historical consumer replay now returns explicit Unknown rather
+than borrowing PE initial values. --historical-table-hypothesis is an
+explicit conditional experiment, never policy approval. Native and backend
+hash/body guards remain mandatory. No full real candidate release yet.
+
+The existing 2C480 observer captures these three tables at its own Pre/Post
+boundaries. Total unique added input1424 bytes; identical Post bytes reference
+existing definitions. Stability is checked before delivery and during import.
+Legacy files remain readable but lack complete candidate input coverage.
+CopiedCandidateInputs never substitutes missing tables. The two-attempt,
+one-planning/one-group artifact limits, 64-record/2ms publisher and 64KiB
+artifact block limits remain unchanged. No new hooks/APIs/native searches.
+
+Disassembly corrections recorded: C2300 indexes int player categories at
+8574BCC+owner*4 (historical key combatClassMask); the retained90-byte view
+covers all nine legal player entries, not90 combat-class bytes. E7530 at
+E7673 tests the low flag byte with tile*4: the decompiler omitted that scaling.
+Raw unit fields used here are manager-relative984/8FC, including its65C
+prefix. Overlapping input table extents must agree byte-for-byte. Region
+cache keys preserve direction and every native query counter/side effect;
+the copied native-only mode0 cache is cleared for a new owner/link set.
+
+Offline checks:150 synthetic native differential cases, over10000 checks,
+32 new work-flood cases (generation wrap, early returns, directions, masks),
+38101 policy/trace assertions, full physical rebuild, original artifact
+hashes, actual planning baseline/group linkage, malformed table import and
+missing-table fail-closed tests. Game costs are not inferred from offline
+costs. Existing trace remains approximately1.87MB/min; the1MB/min live goal
+is not claimed met. Nine external resource-ID errors remain unattributed.
+
+Next concrete missing input: the three own-consumer tables above, not another
+broad bridge comparison. The bounded capture is prepared and tested offline.
+Behavior remains disabled; versions, README, APIShared, external Fixes and
+Script Extender sources are unchanged. The installed update is passive.

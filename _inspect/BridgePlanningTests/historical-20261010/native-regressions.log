@@ -1,0 +1,194 @@
+PASS native 1126B0 and five candidate consumers; complete buffers, signed5999 boundary, reservation modes, unit IDs
+PASS full115B10 weight boundaries, active target, adjacent native blocker,70/150 and copied unit cycle rejection
+PASS native complete 2D250/2C5A0: 32 target/bank/mode/radius-boundary cases
+PASS full native2D250 Dirty0/Dirty1 without forced topology rebuild
+PASS private Fixes-equivalent 2C5E1 patched body; installed owner preserved; not backend validation
+native case 0 seed
+native case 0 distance
+native case 1 seed
+native case 1 distance
+native case 2 seed
+native case 2 distance
+native case 3 seed
+native case 3 distance
+native case 4 seed
+native case 4 distance
+native case 5 seed
+native case 5 distance
+native case 6 seed
+native case 6 distance
+native case 7 seed
+native case 7 distance
+native case 8 seed
+native case 8 distance
+native case 9 seed
+native case 10 seed
+native case 10 distance
+native case 11 seed
+native case 11 distance
+native case 12 seed
+native case 12 distance
+native case 13 seed
+native case 13 distance
+native case 14 seed
+native case 14 distance
+native case 15 seed
+native case 15 distance
+native temporary gate orientation=0 state=0
+native temporary gate orientation=0 state=1
+native temporary gate orientation=0 state=2
+native temporary gate orientation=1 state=0
+native temporary gate orientation=1 state=1
+native temporary gate orientation=1 state=2
+native raise orientation=0 moat=0 height=0 scene=0
+native raise orientation=0 moat=0 height=0 scene=1
+native raise orientation=0 moat=0 height=1 scene=0
+native raise orientation=0 moat=0 height=1 scene=1
+native raise orientation=0 moat=0 height=2 scene=0
+native raise orientation=0 moat=0 height=2 scene=1
+native raise orientation=0 moat=1 height=0 scene=0
+native raise orientation=0 moat=1 height=0 scene=1
+native raise orientation=0 moat=1 height=1 scene=0
+native raise orientation=0 moat=1 height=1 scene=1
+native raise orientation=0 moat=1 height=2 scene=0
+native raise orientation=0 moat=1 height=2 scene=1
+native raise orientation=0 moat=2 height=0 scene=0
+native raise orientation=0 moat=2 height=0 scene=1
+native raise orientation=0 moat=2 height=1 scene=0
+native raise orientation=0 moat=2 height=1 scene=1
+native raise orientation=0 moat=2 height=2 scene=0
+native raise orientation=0 moat=2 height=2 scene=1
+native raise orientation=1 moat=0 height=0 scene=0
+native raise orientation=1 moat=0 height=0 scene=1
+native raise orientation=1 moat=0 height=1 scene=0
+native raise orientation=1 moat=0 height=1 scene=1
+native raise orientation=1 moat=0 height=2 scene=0
+native raise orientation=1 moat=0 height=2 scene=1
+native raise orientation=1 moat=1 height=0 scene=0
+native raise orientation=1 moat=1 height=0 scene=1
+native raise orientation=1 moat=1 height=1 scene=0
+native raise orientation=1 moat=1 height=1 scene=1
+native raise orientation=1 moat=1 height=2 scene=0
+native raise orientation=1 moat=1 height=2 scene=1
+native raise orientation=1 moat=2 height=0 scene=0
+native raise orientation=1 moat=2 height=0 scene=1
+native raise orientation=1 moat=2 height=1 scene=0
+native raise orientation=1 moat=2 height=1 scene=1
+native raise orientation=1 moat=2 height=2 scene=0
+native raise orientation=1 moat=2 height=2 scene=1
+native raise orientation=2 moat=0 height=0 scene=0
+native raise orientation=2 moat=0 height=0 scene=1
+native raise orientation=2 moat=0 height=1 scene=0
+native raise orientation=2 moat=0 height=1 scene=1
+native raise orientation=2 moat=0 height=2 scene=0
+native raise orientation=2 moat=0 height=2 scene=1
+native raise orientation=2 moat=1 height=0 scene=0
+native raise orientation=2 moat=1 height=0 scene=1
+native raise orientation=2 moat=1 height=1 scene=0
+native raise orientation=2 moat=1 height=1 scene=1
+native raise orientation=2 moat=1 height=2 scene=0
+native raise orientation=2 moat=1 height=2 scene=1
+native raise orientation=2 moat=2 height=0 scene=0
+native raise orientation=2 moat=2 height=0 scene=1
+native raise orientation=2 moat=2 height=1 scene=0
+native raise orientation=2 moat=2 height=1 scene=1
+native raise orientation=2 moat=2 height=2 scene=0
+native raise orientation=2 moat=2 height=2 scene=1
+native raise orientation=3 moat=0 height=0 scene=0
+native raise orientation=3 moat=0 height=0 scene=1
+native raise orientation=3 moat=0 height=1 scene=0
+native raise orientation=3 moat=0 height=1 scene=1
+native raise orientation=3 moat=0 height=2 scene=0
+native raise orientation=3 moat=0 height=2 scene=1
+native raise orientation=3 moat=1 height=0 scene=0
+native raise orientation=3 moat=1 height=0 scene=1
+native raise orientation=3 moat=1 height=1 scene=0
+native raise orientation=3 moat=1 height=1 scene=1
+native raise orientation=3 moat=1 height=2 scene=0
+native raise orientation=3 moat=1 height=2 scene=1
+native raise orientation=3 moat=2 height=0 scene=0
+native raise orientation=3 moat=2 height=0 scene=1
+native raise orientation=3 moat=2 height=1 scene=0
+native raise orientation=3 moat=2 height=1 scene=1
+native raise orientation=3 moat=2 height=2 scene=0
+native raise orientation=3 moat=2 height=2 scene=1
+native raise orientation=4 moat=0 height=0 scene=0
+native raise orientation=4 moat=0 height=0 scene=1
+native raise orientation=4 moat=0 height=1 scene=0
+native raise orientation=4 moat=0 height=1 scene=1
+native raise orientation=4 moat=0 height=2 scene=0
+native raise orientation=4 moat=0 height=2 scene=1
+native raise orientation=4 moat=1 height=0 scene=0
+native raise orientation=4 moat=1 height=0 scene=1
+native raise orientation=4 moat=1 height=1 scene=0
+native raise orientation=4 moat=1 height=1 scene=1
+native raise orientation=4 moat=1 height=2 scene=0
+native raise orientation=4 moat=1 height=2 scene=1
+native raise orientation=4 moat=2 height=0 scene=0
+native raise orientation=4 moat=2 height=0 scene=1
+native raise orientation=4 moat=2 height=1 scene=0
+native raise orientation=4 moat=2 height=1 scene=1
+native raise orientation=4 moat=2 height=2 scene=0
+native raise orientation=4 moat=2 height=2 scene=1
+native raise orientation=5 moat=0 height=0 scene=0
+native raise orientation=5 moat=0 height=0 scene=1
+native raise orientation=5 moat=0 height=1 scene=0
+native raise orientation=5 moat=0 height=1 scene=1
+native raise orientation=5 moat=0 height=2 scene=0
+native raise orientation=5 moat=0 height=2 scene=1
+native raise orientation=5 moat=1 height=0 scene=0
+native raise orientation=5 moat=1 height=0 scene=1
+native raise orientation=5 moat=1 height=1 scene=0
+native raise orientation=5 moat=1 height=1 scene=1
+native raise orientation=5 moat=1 height=2 scene=0
+native raise orientation=5 moat=1 height=2 scene=1
+native raise orientation=5 moat=2 height=0 scene=0
+native raise orientation=5 moat=2 height=0 scene=1
+native raise orientation=5 moat=2 height=1 scene=0
+native raise orientation=5 moat=2 height=1 scene=1
+native raise orientation=5 moat=2 height=2 scene=0
+native raise orientation=5 moat=2 height=2 scene=1
+native raise orientation=6 moat=0 height=0 scene=0
+native raise orientation=6 moat=0 height=0 scene=1
+native raise orientation=6 moat=0 height=1 scene=0
+native raise orientation=6 moat=0 height=1 scene=1
+native raise orientation=6 moat=0 height=2 scene=0
+native raise orientation=6 moat=0 height=2 scene=1
+native raise orientation=6 moat=1 height=0 scene=0
+native raise orientation=6 moat=1 height=0 scene=1
+native raise orientation=6 moat=1 height=1 scene=0
+native raise orientation=6 moat=1 height=1 scene=1
+native raise orientation=6 moat=1 height=2 scene=0
+native raise orientation=6 moat=1 height=2 scene=1
+native raise orientation=6 moat=2 height=0 scene=0
+native raise orientation=6 moat=2 height=0 scene=1
+native raise orientation=6 moat=2 height=1 scene=0
+native raise orientation=6 moat=2 height=1 scene=1
+native raise orientation=6 moat=2 height=2 scene=0
+native raise orientation=6 moat=2 height=2 scene=1
+native raise orientation=7 moat=0 height=0 scene=0
+native raise orientation=7 moat=0 height=0 scene=1
+native raise orientation=7 moat=0 height=1 scene=0
+native raise orientation=7 moat=0 height=1 scene=1
+native raise orientation=7 moat=0 height=2 scene=0
+native raise orientation=7 moat=0 height=2 scene=1
+native raise orientation=7 moat=1 height=0 scene=0
+native raise orientation=7 moat=1 height=0 scene=1
+native raise orientation=7 moat=1 height=1 scene=0
+native raise orientation=7 moat=1 height=1 scene=1
+native raise orientation=7 moat=1 height=2 scene=0
+native raise orientation=7 moat=1 height=2 scene=1
+native raise orientation=7 moat=2 height=0 scene=0
+native raise orientation=7 moat=2 height=0 scene=1
+native raise orientation=7 moat=2 height=1 scene=0
+native raise orientation=7 moat=2 height=1 scene=1
+native raise orientation=7 moat=2 height=2 scene=0
+native raise orientation=7 moat=2 height=2 scene=1
+PASS native raise/update/rebuild: 144 synthetic orientation/moat cases
+PASS special seed kinds: isolated raised flag1000, including excluded kind15
+PASS native macro roles/modes/directions/C; any nonzero native capturer is NOT sufficient for Gate policy
+PASS alternating packed row widths and native 999-component boundary
+PASS passive production planning capture and schema2 delivery; artifact=D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\BridgePlanningTests\bin\planning-capture-5330d60f609a437cbe1b91bbeff5015b\bridge-1-100.bin; captureMs=34,759
+PASS passive production planning capture and schema2 delivery; artifact=D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\BridgePlanningTests\bin\planning-capture-f2a2033b45804a0581a33799ef90419e\bridge-1-100.bin; captureMs=33,461
+PASS private native planning: 118 synthetic differential cases, 10229 checks; no game/library initialization
+offline-cost: totalMs=8934.7,scope=all-fixtures-native-and-managed-including-copies-and-full-grid-checks,gameCost=not-measured,behaviorFix=disabled

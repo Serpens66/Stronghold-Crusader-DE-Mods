@@ -1,0 +1,3 @@
+realWeightLimit=70,nativeManagedMatch=True,recordedChangedBytes=0,actualInputLimit=70,inputGameMode=recorded,policy=Unknown
+realWeightLimit=150,nativeManagedMatch=True,recordedChangedBytes=100,actualInputLimit=70,inputGameMode=recorded,policy=Unknown
+PASS real complete115B10/193C80/193D90 native and managed buffers for both exhaustive70/150 branches; actual input validity reported separately; fullCandidateBuilder=Unknown; policy=Unknown

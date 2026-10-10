@@ -14,6 +14,7 @@ namespace BridgePlanningTests
         internal readonly IntPtr Base;
         internal readonly int Size;
         internal readonly List<int> Guards=new List<int>();
+        private readonly HashSet<int> verifiedEntries=new HashSet<int>();
         private readonly byte[] image;
         internal NativeImage(string dll,string contracts)
         {
@@ -33,6 +34,7 @@ namespace BridgePlanningTests
                     int rva=Convert.ToInt32(part[0],16),length=int.Parse(part[1]);var body=new byte[length];Marshal.Copy(Ptr(rva,length),body,0,length);
                     // These bodies have RIP-relative addressing; no PE relocation may alter them.
                     if(Hash(body)!=part[2])throw new Exception("Complete body mismatch "+part[0]);
+                    if(!verifiedEntries.Add(rva))throw new Exception("Duplicate native contract "+part[0]);
                     uint old;if(!VirtualProtect(Ptr(rva),(UIntPtr)length,0x40,out old))throw new Exception("Private execute protection");
                 }
                 foreach(int rva in Guards){Byte(rva,0x0f);Byte(rva+1,0x0b);} // unsupported branch traps; never a permissive search stub.
@@ -47,9 +49,32 @@ namespace BridgePlanningTests
         internal byte Byte(int rva)=>Marshal.ReadByte(Ptr(rva));internal void Byte(int rva,int v)=>Marshal.WriteByte(Ptr(rva),unchecked((byte)v));
         internal void Put(int rva,byte[] v){Marshal.Copy(v,0,Ptr(rva,checked(v.Length*1)),v.Length);}internal void Put(int rva,int[] v){Marshal.Copy(v,0,Ptr(rva,checked(v.Length*4)),v.Length);}internal void Put(int rva,short[] v){Marshal.Copy(v,0,Ptr(rva,checked(v.Length*2)),v.Length);}
         internal byte[] Bytes(int rva,int length){byte[] v=new byte[length];Marshal.Copy(Ptr(rva,checked(length*1)),v,0,length);return v;}
+        internal byte[] ConstantBytes(int rva,int length)
+        {
+            int pe=BitConverter.ToInt32(image,0x3c),optional=pe+24,table=optional+BitConverter.ToUInt16(image,pe+20);
+            for(int i=0;i<BitConverter.ToUInt16(image,pe+6);i++)
+            {
+                int s=table+i*40,start=BitConverter.ToInt32(image,s+12),rawLength=BitConverter.ToInt32(image,s+16),file=BitConverter.ToInt32(image,s+20);
+                if(rva<start||(long)rva+length>start+rawLength)continue;
+                uint attributes=BitConverter.ToUInt32(image,s+36);
+                if((attributes&0x80000000)!=0||(attributes&0x40000000)==0)throw new Exception("Unproven immutable native table "+rva.ToString("X"));
+                var result=new byte[length];Buffer.BlockCopy(image,file+rva-start,result,0,length);
+                var current=Bytes(rva,length);for(int p=0;p<length;p++)if(result[p]!=current[p])throw new Exception("Modified private constant "+rva.ToString("X"));
+                return result;
+            }
+            throw new Exception("Native constant outside full readonly section "+rva.ToString("X"));
+        }
         internal short[] Shorts(int rva,int length){short[] v=new short[length];Marshal.Copy(Ptr(rva,checked(length*2)),v,0,length);return v;}
         internal int[] Ints(int rva,int length){int[] v=new int[length];Marshal.Copy(Ptr(rva,checked(length*4)),v,0,length);return v;}
-        internal T Function<T>(int rva) where T:class => Marshal.GetDelegateForFunctionPointer(Ptr(rva),typeof(T)) as T;
+        internal T Function<T>(int rva) where T:class
+        {if(!verifiedEntries.Contains(rva))throw new Exception("Unverified native entry "+rva.ToString("X"));return Marshal.GetDelegateForFunctionPointer(Ptr(rva),typeof(T)) as T;}
+        // Offline only: unknown mutable inputs must fault rather than silently read
+        // the PE image's zero/default values. No live module is accepted by this type.
+        internal void DenyMissingData(int rva,int length)
+        {
+            int start=rva&~4095,end=checked((rva+length+4095)&~4095);uint previous;
+            if(!VirtualProtect(Ptr(start,end-start),(UIntPtr)(end-start),1,out previous))throw new Exception("private missing-input guard");
+        }
         // Unpublished private image only; never touches installed hooks or library.
         internal void PrivateExecutable(int rva,int length)
         {uint previous;if(!VirtualProtect(Ptr(rva,length),(UIntPtr)length,0x40,out previous))throw new Exception("Private stub protection");}

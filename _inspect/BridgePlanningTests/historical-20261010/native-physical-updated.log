@@ -1,0 +1,1 @@
+PASS full native physical rebuild including C5040/C4BF0/updaters; inputTiming=consumer-entry;partitionEquivalent=True;updaterDirtyAtCaller=0;nativeGeneration=47,earlierCallerHeightProof=Unknown;negativeEligible=False

@@ -150,7 +150,7 @@ foreach ($spec in @(@('GetTileBuildingId',[UInt16],[int]),@('GetTileId',[int],[i
 Write-Host 'PASS: installed coupling views/signatures, copied class3/4 C endpoints and opaque connection-record field.'
 
 # New planning/table preparations are pure, dormant copied-input kernels.
-foreach ($name in @('VirtualBridgePlanning.cs','NativePathfindingTableCopy.cs','VirtualTopologyRebuild.cs','VirtualPlanningCaller.cs','VirtualRaisedPlanning.cs','VirtualPlanningBuildings.cs','CopiedPlanningBundle.cs','BridgePlanningImporter.cs','CopiedPlanningRegions.cs','CopiedPlanningReplay.cs')) {
+foreach ($name in @('VirtualBridgePlanning.cs','NativePathfindingTableCopy.cs','VirtualTopologyRebuild.cs','VirtualPlanningCaller.cs','VirtualRaisedPlanning.cs','VirtualPlanningBuildings.cs','CopiedPlanningBundle.cs','BridgePlanningImporter.cs','CopiedPlanningRegions.cs','CopiedPlanningReplay.cs','VirtualCandidateBuilder.cs','CopiedCandidateInputs.cs')) {
     $pure=[IO.File]::ReadAllText((Join-Path $PSScriptRoot ('src/'+$name)))
     if ($pure -match 'SHCDESE|APIShared|Marshal|IntPtr|DllImport|FindNext|FindPath|UnityEngine|ThreadPool|Task.Run') { throw ('Planning/table preparation is not pure: '+$name) }
 }
@@ -175,6 +175,16 @@ foreach ($field in @('buildingUpdaterControls','buildingUpdaterSlots','packedVal
 }
 if ($importer -notmatch 'weight-mode-changed-during-call') { throw 'Weight mode stability contract missing' }
 Write-Host 'PASS: consumer v2 records actual weight modes, full updater input and bounded work fields.'
+foreach ($field in @('nativeWorkDirections64','nativeDirectionMasks8','nativeWorkBuildingClasses336')) {
+    if ($collector -notmatch $field -or $importer -notmatch $field) { throw ('Own consumer native table provenance missing: '+$field) }
+}
+if ($collector -notmatch 'consumer-native-table-changed' -or $importer -notmatch 'consumer-native-table-changed') { throw 'Consumer native table pre/post stability missing' }
+$candidateInputs=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/CopiedCandidateInputs.cs'))
+if ($candidateInputs -notmatch 'missing-own-consumer-table' -or $candidateInputs -notmatch '!calculated.Complete' -or $candidateInputs -match 'ConstantBytes|CrusaderLibraryLoadContext|File.ReadAllBytes') { throw 'Copied candidate inputs may not substitute unrecorded tables' }
+foreach ($path in $sources | Where-Object { $_ -notmatch 'VirtualCandidateBuilder.cs|CopiedCandidateInputs.cs' }) {
+    if ([IO.File]::ReadAllText($path) -match 'new VirtualCandidateBuilder|CopiedCandidateInputs\.TryCreate') { throw 'Dormant candidate continuation unexpectedly activated in a live callback' }
+}
+Write-Host 'PASS: bounded own consumer table capture, optional legacy import and dormant copied candidate continuation.'
 
 $definitionSource=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src/BridgeNativeDefinition.cs'))
 if ($definitionSource -notmatch 'site.Rva != 0xE49D0 && site.Rva != 0x111C00' -or [regex]::Matches($hookSource,'if \(!BridgeNativeDefinition.OwnsEntry\(').Count -ne 2) {throw 'External topology/ladder owners must be excluded from validation and detour preparation'}

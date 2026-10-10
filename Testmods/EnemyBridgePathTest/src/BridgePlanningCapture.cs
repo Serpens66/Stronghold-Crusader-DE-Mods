@@ -201,6 +201,14 @@ namespace EnemyBridgePathTest
                 ConsumerCopy(stage,"selectionMask",0x53AD4B0,N);
                 ConsumerCopy(stage,"seeds",0x535EF90,N);
                 ConsumerCopy(stage,"workControls",Root,0xe0);ConsumerCopy(stage,"workQueueControls",Root+0x155f38,0x34);ConsumerCopy(stage,"workQueue",Root+0x155f6c,N*4);ConsumerCopy(stage,"workQueueRows",Root+0x28f3ec,N*2);ConsumerCopy(stage,"workQueueX",Root+0x32be2c,N*2);ConsumerCopy(stage,"workDistances",0x5225b10,N*2);ConsumerCopy(stage,"workVisits",0x52c2550,N*2);ConsumerCopy(stage,"workTargets",0x37f1edc,9*50*16);
+                // Writable .data tables: DLL initial bytes are not historical
+                // runtime inputs. Capture at this consumer's own boundaries.
+                foreach(var table in new[]{Tuple.Create("nativeWorkDirections64",0x2d2e50,64),Tuple.Create("nativeDirectionMasks8",0x312620,8),Tuple.Create("nativeWorkBuildingClasses336",0x2e68d0,336*4)})
+                {
+                    ConsumerCopy(stage,table.Item1,table.Item2,table.Item3);
+                    if(post&&!Same(CopiedPlanningBundle.Resolve(ready,"consumer/pre/"+table.Item1),CopiedPlanningBundle.Resolve(ready,stage+"/"+table.Item1)))
+                        throw new InvalidOperationException("consumer-native-table-changed:"+table.Item1);
+                }
                 if(!post)
                 {
                     ConsumerCopy(stage,"buildingTransitionClasses",0x2e6710,336*4);ConsumerCopy(stage,"buildingSeedClasses",0x2e6c50,336*4);ConsumerCopy(stage,"packedValidity",0x3a11ea4,800*800);ConsumerCopy(stage,"combatClassMask",0x8574bcc,90);

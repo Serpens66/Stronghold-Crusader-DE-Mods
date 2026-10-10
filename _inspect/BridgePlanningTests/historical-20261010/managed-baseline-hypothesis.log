@@ -1,0 +1,5 @@
+historical-table-coverage=0/3,reference-table-hypothesis=True,negativePolicyEligible=False
+variant=0,nativeCastleResult=1,projectedTarget=225464,militaryBranch=4-to-6-return,fullMilitaryExecuted=False,policy=Unknown
+variant=0,postConsumerMilitaryPhase=6,savedTarget=225464,playerChangedBytes=0,scope=post-consumer-suffix-excluding-map-observer2990-and-entry-preamble,policy=Unknown
+PASS continuous actual2C480 calls, complete candidate/weight/availability/work outputs; Fixes count computed independently; full military entry remains separate
+PASS historical native candidate reference; variant=0,recordedOutputComparison=True,hash=15091D5F73D6CCE6BC3487563BB46CFDFB5329977E0AA62B2EFB2253B68D8872,managedCandidateBuilder=Matched,managedWorkAndCastle=Matched,militaryConsumer=post-consumer-native-suffix-only,behaviorFix=disabled

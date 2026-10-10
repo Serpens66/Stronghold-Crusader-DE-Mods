@@ -121,6 +121,16 @@ namespace EnemyBridgePathTest
                                 string[] names={"workControls","workQueueControls","workQueue","workQueueRows","workQueueX","workDistances","workVisits","workTargets"};int[] sizes2={224,52,1283200,641600,641600,641600,641600,7200};for(int n=0;n<names.Length;n++)if(CopiedPlanningBundle.Resolve(b,stage+"/"+names[n]).Length!=sizes2[n])throw new InvalidDataException("consumer-v2-work-extent:"+names[n]);
                             }
                             byte[] modePre=CopiedPlanningBundle.Resolve(b,"consumer/weight-pre/gameModeValues"),modePost=CopiedPlanningBundle.Resolve(b,"consumer/weight-post/gameModeValues");if(modePre.Length!=8||modePost.Length!=8)throw new InvalidDataException("consumer-v2-mode-extent");for(int n=0;n<8;n++)if(modePre[n]!=modePost[n])throw new InvalidDataException("weight-mode-changed-during-call");
+                            string[] tableNames={"nativeWorkDirections64","nativeDirectionMasks8","nativeWorkBuildingClasses336"};int[] tableSizes={64,8,1344};bool tablesPresent=false;
+                            foreach(string name in tableNames)foreach(string stage in new[]{"consumer/pre","consumer/post"})if(b.Sections.ContainsKey(stage+"/"+name)||b.References.ContainsKey(stage+"/"+name))tablesPresent=true;
+                            // Legacy files remain readable but are not complete
+                            // candidate inputs. Partial new table groups are invalid.
+                            if(tablesPresent)for(int table=0;table<tableNames.Length;table++)
+                            {
+                                byte[] preTable=CopiedPlanningBundle.Resolve(b,"consumer/pre/"+tableNames[table]),postTable=CopiedPlanningBundle.Resolve(b,"consumer/post/"+tableNames[table]);
+                                if(preTable.Length!=tableSizes[table]||postTable.Length!=tableSizes[table])throw new InvalidDataException("consumer-native-table-extent:"+tableNames[table]);
+                                for(int n=0;n<preTable.Length;n++)if(preTable[n]!=postTable[n])throw new InvalidDataException("consumer-native-table-changed:"+tableNames[table]);
+                            }
                         }
                         foreach(string state in new[]{"entryPlayer","exitPlayer"})if(CopiedPlanningBundle.Resolve(b,"military/"+state).Length!=0x583c)throw new InvalidDataException("military-player-extent");
                     }
