@@ -184,37 +184,22 @@ namespace Shared
             GameModeSnapshot snapshot,
             out string reason)
         {
+            var sharedProfile = new GameplayModActivationProfile(profile.ModGuid, profile.ModGuid,
+                profile.AllowedContexts, profile.AllowRealMultiplayer);
+            bool allowed = GameplayModModePolicy.IsAllowed(sharedProfile, snapshot, out _);
+            // Preserve the established consumer diagnostics; evaluation belongs to APIShared.
+            var context = GameplayModModePolicy.ResolveContext(snapshot);
             if (snapshot.HasConflictingCustomizedOrigin)
-            {
                 reason = "conflicting-customize-origin";
-                return false;
-            }
-
-            GameplayModAllowedContext context = GameplayModModePolicy.ResolveContext(snapshot);
-            if (context == GameplayModAllowedContext.None)
-            {
-                reason = snapshot.Kind == GameModeKind.Unknown
-                    ? "unknown-fail-closed"
-                    : "owning-mod-context-not-allowed";
-                return false;
-            }
-
-            if ((profile.AllowedContexts & context) != context)
-            {
-                reason = context == GameplayModAllowedContext.MapEditor
-                    ? "feature-not-supported-in-map-editor"
-                    : "feature-context-not-allowed";
-                return false;
-            }
-
-            if (snapshot.IsRealMultiplayer && !profile.AllowRealMultiplayer)
-            {
+            else if (context == GameplayModAllowedContext.None)
+                reason = snapshot.Kind == GameModeKind.Unknown ? "unknown-fail-closed" : "owning-mod-context-not-allowed";
+            else if ((profile.AllowedContexts & context) != context)
+                reason = context == GameplayModAllowedContext.MapEditor ? "feature-not-supported-in-map-editor" : "feature-context-not-allowed";
+            else if (snapshot.IsRealMultiplayer && !profile.AllowRealMultiplayer)
                 reason = "feature-not-approved-for-real-multiplayer";
-                return false;
-            }
-
-            reason = "feature-context-allowed";
-            return true;
+            else
+                reason = "feature-context-allowed";
+            return allowed;
         }
 
         /// <summary>LogDecisions in the centralized mission policy contract.</summary>

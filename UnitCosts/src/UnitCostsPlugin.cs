@@ -50,7 +50,7 @@ namespace UnitCosts
             TryInitializeStage("localized names", Settings.RefreshLocalizedNames);
             try
             {
-                Shared.DirectLaunchSettingsNotice.Configure(Settings);
+                Shared.DirectLaunchSettingsNotice.Configure(Settings, PluginGuid);
                 APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(
                     this,
                     Logger,

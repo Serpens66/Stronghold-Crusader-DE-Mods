@@ -18,8 +18,9 @@ namespace Shared
         private static ManualLogSource log;
         private static GameplayModActivationProfile profile;
         private static Func<bool> configuredEnabledProvider;
-        private static GameModeSnapshot snapshot;
-        private static volatile bool isAllowed;
+        private static GameplayModeGate gate;
+        private static GameModeSnapshot snapshot => gate?.Snapshot ?? default;
+        private static bool isAllowed => gate?.IsAllowed ?? false;
         private static bool initialized;
         private static bool routineLoggingEnabled = true;
         internal static event Action<bool> StateChanged;
@@ -40,6 +41,7 @@ namespace Shared
 
             log = logger;
             profile = SerpsModProfiles.GetProfile(modGuid, displayName);
+            gate = new GameplayModeGate(profile);
             configuredEnabledProvider = isConfiguredEnabled ?? throw new ArgumentNullException(nameof(isConfiguredEnabled));
             routineLoggingEnabled = logRoutineActivity;
 
@@ -62,8 +64,7 @@ namespace Shared
                 next.CustomizedMissionId != snapshot.CustomizedMissionId ||
                 next.IsRealMultiplayer != snapshot.IsRealMultiplayer ||
                 next.HasConflictingCustomizedOrigin != snapshot.HasConflictingCustomizedOrigin;
-            snapshot = next;
-            isAllowed = GameplayModModePolicy.IsAllowed(profile, next, out _);
+            gate.Update(next);
             if (changed)
                 LogTransition(source, previousAllowed != isAllowed);
             if (previousAllowed != isAllowed)
@@ -75,8 +76,7 @@ namespace Shared
             bool changed = snapshot.Kind != GameModeKind.Unknown ||
                 snapshot.LaunchVariant != GameModeLaunchVariant.Standard;
             bool previousAllowed = isAllowed;
-            isAllowed = false;
-            snapshot = default;
+            gate.Update(default(GameModeSnapshot));
             if (changed)
                 LogTransition(source, previousAllowed != isAllowed);
             if (previousAllowed)
@@ -139,6 +139,7 @@ namespace Shared
         internal static void ResetForTests()
         {
             profile = SerpsModProfiles.GetProfile("ExtraFeatures_Serp", "Extra Features");
+            if (gate == null) gate = new GameplayModeGate(profile);
             configuredEnabledProvider = () => true;
             Reset("test-reset");
         }

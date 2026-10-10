@@ -117,7 +117,7 @@ namespace CastlePlanner
 
             try
             {
-                Shared.DirectLaunchSettingsNotice.Configure(Settings, blueprintsRemainAvailable: true);
+                Shared.DirectLaunchSettingsNotice.Configure(Settings, PluginGuid, blueprintsRemainAvailable: true);
                 APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(
                     this, Logger, PluginGuid, Settings, "ScriptExtenderUI/CastlePlannerSettings.xaml",
                     logRoutineActivity: true, enableScrollDiagnostics: true);

@@ -43,7 +43,7 @@ namespace CheatMod
             try
             {
                 Shared.DebugLogHelper.ReportNativeLibraryVersion(Logger, PluginName);
-                Shared.DirectLaunchSettingsNotice.Configure(Settings);
+                Shared.DirectLaunchSettingsNotice.Configure(Settings, PluginGuid);
                 APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(
                     this,
                     Logger,

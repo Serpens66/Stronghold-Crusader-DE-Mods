@@ -91,7 +91,7 @@ namespace ExtraFeatures
 
             try
             {
-                Shared.DirectLaunchSettingsNotice.Configure(Settings);
+                Shared.DirectLaunchSettingsNotice.Configure(Settings, PluginGuid);
                 APIShared.ModSettings.LobbyModSettingsPresetRegistration.Register(
                     this,
                     Logger,
